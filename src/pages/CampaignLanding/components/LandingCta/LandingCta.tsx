@@ -18,6 +18,8 @@ type LandingCtaProps = {
     shape: "hero" | "start" | "pill" | "compact" | "plan" | "submit";
     /** Il pulsante resta nel DOM ma esce dal tab order (barre nascoste). */
     inert?: boolean;
+    /** Solo submit del form: invio in corso, pulsante disabilitato con questa etichetta. */
+    busyLabel?: string;
     className?: string;
 };
 
@@ -28,7 +30,7 @@ type LandingCtaProps = {
  * Mai `target="_blank"`.
  */
 const LandingCta = forwardRef<HTMLAnchorElement, LandingCtaProps>(function LandingCta(
-    { placement, look = "primary", shape, inert = false, className },
+    { placement, look = "primary", shape, inert = false, busyLabel, className },
     ref
 ) {
     const variante = useLandingVariant();
@@ -39,8 +41,16 @@ const LandingCta = forwardRef<HTMLAnchorElement, LandingCtaProps>(function Landi
     // porta alla registrazione come le altre.
     if (placement === "final" && variante === "form") {
         return (
-            <button type="submit" form={LANDING_CONTACT_FORM_ID} className={cls} data-cta={placement} data-variante={variante}>
-                {entry.label}
+            <button
+                type="submit"
+                form={LANDING_CONTACT_FORM_ID}
+                className={cls}
+                data-cta={placement}
+                data-variante={variante}
+                disabled={busyLabel !== undefined}
+                aria-busy={busyLabel !== undefined || undefined}
+            >
+                {busyLabel ?? entry.label}
             </button>
         );
     }

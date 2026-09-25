@@ -60,3 +60,11 @@ describe("leadValidation ⚠️ SYNC", () => {
         expect(body("src/utils/leadValidation.ts")).toBe(body("supabase/functions/_shared/leadValidation.ts"));
     });
 });
+
+describe("readUtm", () => {
+    it("legge solo le cinque chiavi utm, scarta le vuote", async () => {
+        const { readUtm } = await import("@/pages/CampaignLanding/attribution");
+        expect(readUtm("?utm_source=facebook&utm_medium=&utm_campaign=autunno&fbclid=x")).toEqual({ utm_source: "facebook", utm_campaign: "autunno" });
+        expect(readUtm("")).toEqual({});
+    });
+});

@@ -1,3 +1,5 @@
+import { useEffect } from "react";
+import { captureAttribution } from "@pages/CampaignLanding/attribution";
 import Frame from "@pages/CampaignLanding/components/Frame/Frame";
 import NavBar from "@pages/CampaignLanding/components/NavBar/NavBar";
 import Board from "@pages/CampaignLanding/components/sections/Board/Board";
@@ -20,6 +22,9 @@ type LandingPageProps = {
 
 /** Landing di campagna — Versione C (docs/landing/versione-c/SPEC.md). */
 export default function LandingPage({ variante }: LandingPageProps) {
+    // UTM e provenienza all'arrivo, per il form contatti in fondo.
+    useEffect(captureAttribution, []);
+
     return (
         <LandingVariantContext.Provider value={variante}>
             <Frame fixed={<NavBar />}>

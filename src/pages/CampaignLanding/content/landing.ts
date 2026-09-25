@@ -9,6 +9,8 @@
  * mobile accorcia un testo, il campo ha la variante `…Mobile`.
  */
 
+import type { LeadField, LeadFieldError, LeadInterest } from "@/utils/leadValidation";
+
 /** Titolo a due tempi: la seconda parte è blu (a capo o in riga, secondo la sezione). */
 export type SplitTitle = { lead: string; accent: string };
 
@@ -421,13 +423,39 @@ export const CONTACT = {
         optional: "· facoltativa"
     },
     interestsLabel: "Cosa ti interessa di più?",
-    interests: ["Il menù", "Le prenotazioni", "Gli ordini al tavolo"],
+    /** `id`: valore salvato in `leads.interests` (vedi utils/leadValidation.ts). */
+    interests: [
+        { id: "menu", label: "Il menù" },
+        { id: "prenotazioni", label: "Le prenotazioni" },
+        { id: "ordini", label: "Gli ordini al tavolo" }
+    ] satisfies { id: LeadInterest; label: string }[],
     privacy: {
         before: "Ho letto l’",
         link: "informativa privacy",
         href: "/legal/privacy",
         after: " e acconsento a essere ricontattato."
-    }
+    },
+    /** Etichetta del pulsante durante l'invio. */
+    sending: "Invio…",
+    /** Al posto del form, dopo l'invio riuscito. */
+    success: {
+        title: "Richiesta ricevuta.",
+        text: "Ti chiamiamo entro 24 ore al numero che ci hai lasciato."
+    },
+    /** Sotto il pulsante se l'invio fallisce; in mezzo l'indirizzo email. */
+    failure: {
+        before: "Non siamo riusciti a inviare la richiesta. Riprova, oppure scrivici a ",
+        after: "."
+    },
+    /** Errori per campo, sotto il campo. */
+    errors: {
+        name: { required: "Scrivi il tuo nome.", too_long: "Il nome è troppo lungo.", invalid: "Controlla il nome." },
+        venueName: { required: "Scrivi il nome del locale.", too_long: "Il nome del locale è troppo lungo.", invalid: "Controlla il nome del locale." },
+        phone: { required: "Scrivi un numero di telefono.", too_long: "Controlla il numero di telefono.", invalid: "Controlla il numero di telefono." },
+        email: { required: "Scrivi l’email.", too_long: "L’email è troppo lunga.", invalid: "Controlla l’email." },
+        consent: { required: "Serve il consenso per poterti richiamare.", too_long: "", invalid: "" },
+        interests: { required: "", too_long: "", invalid: "Scegli fra le voci proposte." }
+    } satisfies Record<LeadField, Record<LeadFieldError, string>>
 };
 
 // ── 12 · Footer ─────────────────────────────────────────────────────────────

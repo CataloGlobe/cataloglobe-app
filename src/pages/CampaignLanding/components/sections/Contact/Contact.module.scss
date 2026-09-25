@@ -141,6 +141,24 @@
     }
 }
 
+.inputError {
+    border-color: var(--ld-terra);
+}
+
+.error {
+    display: block;
+    margin-top: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.4;
+    color: var(--ld-terra);
+}
+
+// Honeypot: fuori schermo (non display:none, che alcuni bot saltano).
+.trap {
+    @include ld-sr-only;
+}
+
 .fieldset {
     margin: 2px 0 0;
     padding: 0;
@@ -199,4 +217,37 @@
     height: 20px;
     margin: 1px 0 0;
     accent-color: var(--ld-azione);
+}
+
+.failure {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--ld-terra);
+}
+
+// Conferma al posto del form, nella stessa scheda.
+.done {
+    justify-content: center;
+    min-height: 240px;
+    text-align: center;
+
+    &:focus {
+        outline: none;
+    }
+}
+
+.doneTitle {
+    margin: 0;
+    @include ld-serif;
+    font-size: 26px;
+    line-height: 1.2;
+    color: var(--ld-ink);
+}
+
+.doneText {
+    margin: 0;
+    font-size: 16px;
+    line-height: 1.5;
+    color: var(--ld-body);
 }

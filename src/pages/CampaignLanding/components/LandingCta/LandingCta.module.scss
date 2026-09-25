@@ -21,6 +21,12 @@
     @include ld-focus;
 }
 
+// Submit durante l'invio.
+.cta:disabled {
+    cursor: progress;
+    opacity: 0.72;
+}
+
 // ── look ──
 // Doppia classe: il colore dei link della landing (`:where(.landing) a`) perde.
 .cta.primary {
