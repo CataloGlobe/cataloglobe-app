@@ -399,6 +399,34 @@
     }
 }
 
+.sheetFailed {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    height: 100%;
+    box-sizing: border-box;
+    padding: 32px 24px;
+    background: var(--ld-white);
+    text-align: center;
+}
+
+.sheetFailedTitle {
+    margin: 0;
+    @include ld-serif;
+    font-size: 22px;
+    line-height: 1.25;
+    color: var(--ld-ink);
+}
+
+.sheetFailedText {
+    margin: 0;
+    font-size: 15px;
+    line-height: 1.5;
+    color: var(--ld-muted);
+}
+
 .frame {
     display: block;
     width: 100%;

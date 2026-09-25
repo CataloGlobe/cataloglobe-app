@@ -256,6 +256,11 @@ export const DEMOS = {
     publicHost: "cataloglobe.com",
     publicBaseUrl: "https://cataloglobe.com/",
     sheetClose: "Chiudi",
+    /** Al posto della pagina, se il menù del locale non si carica (errore o 404). */
+    sheetFailed: {
+        title: "Questo menù non si apre, per ora.",
+        text: "Riprova tra qualche minuto."
+    },
     venues: [
         {
             key: "molo",

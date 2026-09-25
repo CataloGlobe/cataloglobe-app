@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState, type SyntheticEvent } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import PublicSheet from "@components/PublicCollectionView/PublicSheet/PublicSheet";
 import Section from "@pages/CampaignLanding/components/Section/Section";
@@ -40,6 +40,63 @@ function PhonePreview({ venue }: { venue: DemoVenue }) {
     );
 }
 
+/** Il percorso mostrato nell'iframe è ancora la pagina del locale (anche con la lingua, `/slug/en`). */
+const isVenuePath = (pathname: string, path: string) => pathname === path || pathname.startsWith(`${path}/`);
+
+/**
+ * La pagina pubblica nell'iframe (stessa origine). Se al posto del menù
+ * compare l'errore di caricamento o il 404 dell'app, oppure l'iframe esce
+ * dalla pagina del locale, l'iframe lascia il posto al messaggio del foglio:
+ * niente «Torna alla home» che naviga dentro lo sheet.
+ * Segnali letti: `#not-found-title` (NotFound), `#root > [role=alert]`
+ * (stato error di PublicCollectionPage), `location.pathname`.
+ */
+function DemoFrame({ path, title }: { path: string; title: string }) {
+    const [failed, setFailed] = useState(false);
+    const stopWatching = useRef<() => void>(() => undefined);
+
+    useEffect(() => () => stopWatching.current(), []);
+
+    const onLoad = (e: SyntheticEvent<HTMLIFrameElement>) => {
+        stopWatching.current();
+        let win: Window | null = null;
+        let doc: Document | null = null;
+        try {
+            win = e.currentTarget.contentWindow;
+            doc = e.currentTarget.contentDocument;
+        } catch {
+            return; // altra origine: niente da leggere, resta la pagina
+        }
+        if (!win || !doc) return;
+        const frameWin = win;
+        const frameDoc = doc;
+        const check = () => {
+            const off = !isVenuePath(frameWin.location.pathname, path);
+            const notFound = frameDoc.getElementById("not-found-title") !== null;
+            const error = frameDoc.querySelector("#root > [role='alert']") !== null;
+            if (off || notFound || error) {
+                stopWatching.current();
+                setFailed(true);
+            }
+        };
+        const observer = new MutationObserver(check);
+        observer.observe(frameDoc.documentElement, { childList: true, subtree: true });
+        stopWatching.current = () => observer.disconnect();
+        check();
+    };
+
+    if (failed) {
+        return (
+            <div className={styles.sheetFailed} role="status">
+                <p className={styles.sheetFailedTitle}>{DEMOS.sheetFailed.title}</p>
+                <p className={styles.sheetFailedText}>{DEMOS.sheetFailed.text}</p>
+            </div>
+        );
+    }
+
+    return <iframe className={styles.frame} src={path} title={title} loading="eager" onLoad={onLoad} />;
+}
+
 /**
  * La pagina pubblica vera del locale, nello sheet (mai in una scheda nuova, SPEC §2).
  * Niente link «apri in una nuova scheda»: nelle webview in-app porta fuori
@@ -69,7 +126,7 @@ function DemoSheet({ venue, open, onClose }: { venue: DemoVenue; open: boolean; 
                 }
             >
                 <div className={styles.sheetBody} data-demo={venue.key}>
-                    {open && <iframe className={styles.frame} src={path} title={venue.name} loading="eager" />}
+                    {open && <DemoFrame key={path} path={path} title={venue.name} />}
                 </div>
             </PublicSheet>
         </div>
