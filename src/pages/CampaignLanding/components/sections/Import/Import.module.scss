@@ -1,0 +1,443 @@
+@use "@pages/CampaignLanding/styles/mixins" as *;
+
+.grid {
+    @include desktop {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: ld-fluid-desk(48, 80);
+        align-items: center;
+    }
+}
+
+.title {
+    margin-top: 10px;
+
+    @include desktop {
+        margin-top: 12px;
+    }
+}
+
+.lede {
+    margin: 14px 0 0;
+    font-size: 17px;
+    line-height: 1.55;
+    color: var(--ld-body);
+
+    @include desktop {
+        font-size: 18px;
+    }
+}
+
+.ledeDesktop {
+    display: none;
+
+    @include desktop {
+        display: inline;
+    }
+}
+
+.ledeMobile {
+    @include desktop {
+        display: none;
+    }
+}
+
+.visual {
+    margin-top: 28px;
+
+    @include desktop {
+        margin-top: 0;
+    }
+}
+
+// ── Palco: foto di carta + scheda sovrapposte ───────────────────────────────
+.stage {
+    position: relative;
+    height: 420px;
+
+    @include desktop {
+        height: 372px;
+    }
+}
+
+.photo {
+    position: absolute;
+    z-index: 1;
+    left: 8px;
+    top: 6px;
+    width: 176px;
+    overflow: hidden;
+    border-radius: 3px;
+    transform: rotate(-5deg);
+    box-shadow:
+        0 1px 0 rgba(0, 0, 0, 0.04),
+        0 18px 36px rgba(21, 20, 43, 0.2);
+
+    @include desktop {
+        left: 0;
+        top: 0;
+        width: 220px;
+    }
+}
+
+.paper {
+    position: relative;
+    height: 214px;
+    box-sizing: border-box;
+    padding: 11px;
+    overflow: hidden;
+    background:
+        linear-gradient(160deg, rgba(255, 255, 255, 0.45) 0%, rgba(255, 255, 255, 0) 40%, rgba(120, 90, 50, 0.06) 100%),
+        var(--ld-illo-paper-bg);
+    color: var(--ld-illo-paper-ink);
+
+    @include desktop {
+        height: 250px;
+        padding: 14px;
+    }
+}
+
+.paperTitle {
+    @include ld-serif;
+    text-align: center;
+    font-size: 13px;
+
+    @include desktop {
+        font-size: 15px;
+    }
+}
+
+.paperCat {
+    margin-top: 6px;
+    font-size: 7px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    color: var(--ld-illo-paper-muted);
+
+    @include desktop {
+        margin-top: 8px;
+        font-size: 8px;
+    }
+}
+
+.paperDish {
+    position: relative;
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+    margin: 0 -4px;
+    padding: 0 4px;
+    border-radius: 3px;
+    font-family: var(--ld-font-serif);
+    font-size: 9.5px;
+    font-style: italic;
+
+    @include desktop {
+        font-size: 11px;
+    }
+
+    // Evidenziatura del piatto letto: solo opacità.
+    &::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        background: rgba(155, 152, 240, 0.35);
+        opacity: 0;
+        transition: opacity 400ms ease;
+    }
+
+    > span {
+        position: relative;
+    }
+}
+
+.paperDishOn::before {
+    opacity: 1;
+}
+
+.paperDots {
+    flex-grow: 1;
+    border-bottom: 1px dotted var(--ld-illo-paper-dots);
+    transform: translateY(-3px);
+}
+
+.paperFoot {
+    position: absolute;
+    left: 11px;
+    right: 11px;
+    bottom: 12px;
+    text-align: center;
+    font-family: var(--ld-font-serif);
+    font-style: italic;
+    color: var(--ld-illo-paper-muted);
+
+    @include desktop {
+        left: 14px;
+        right: 14px;
+        bottom: 16px;
+    }
+}
+
+.paperRule {
+    width: 34px;
+    margin: 0 auto 5px;
+    border-top: 1px solid var(--ld-illo-paper-rule);
+
+    @include desktop {
+        margin-bottom: 6px;
+    }
+}
+
+.paperFootLine {
+    font-size: 8.5px;
+
+    @include desktop {
+        font-size: 10px;
+    }
+}
+
+.paperFootNote {
+    margin-top: 2px;
+    font-size: 7.5px;
+
+    @include desktop {
+        font-size: 8.5px;
+    }
+}
+
+// Linea di scansione: il binario è alto quanto il foglio, così translateY in %
+// corrisponde alla posizione sul foglio.
+.scanTrack {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    transition: transform 300ms linear;
+}
+
+@each $y in 12, 26, 37, 47, 59, 100 {
+    .scanTrack[data-y="#{$y}"] {
+        transform: translateY(#{$y * 1%});
+    }
+}
+
+.scan {
+    height: 2px;
+    background: var(--ld-azione);
+    box-shadow: 0 0 12px 3px rgba(70, 72, 198, 0.45);
+    opacity: 0;
+    transition: opacity 250ms ease;
+}
+
+.scanOn {
+    opacity: 1;
+}
+
+.frame {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0;
+    transform: scale(1.06);
+    transition:
+        opacity 250ms ease,
+        transform 300ms var(--ld-ease);
+}
+
+.frameOn {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.corner {
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    border: 0 solid var(--ld-azione);
+}
+
+.cTL {
+    left: 8px;
+    top: 8px;
+    border-left-width: 2.5px;
+    border-top-width: 2.5px;
+    border-radius: 4px 0 0 0;
+}
+
+.cTR {
+    right: 8px;
+    top: 8px;
+    border-right-width: 2.5px;
+    border-top-width: 2.5px;
+    border-radius: 0 4px 0 0;
+}
+
+.cBL {
+    left: 8px;
+    bottom: 8px;
+    border-left-width: 2.5px;
+    border-bottom-width: 2.5px;
+    border-radius: 0 0 0 4px;
+}
+
+.cBR {
+    right: 8px;
+    bottom: 8px;
+    border-right-width: 2.5px;
+    border-bottom-width: 2.5px;
+    border-radius: 0 0 4px 0;
+}
+
+.flash {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: var(--ld-white);
+    opacity: 0;
+    transition: opacity 350ms ease;
+}
+
+.flashOn {
+    opacity: 0.85;
+    transition-duration: 60ms;
+}
+
+// ── Scheda «Dalla foto al menù» ─────────────────────────────────────────────
+.card {
+    position: absolute;
+    z-index: 2;
+    right: 0;
+    top: 150px;
+    width: 296px;
+    overflow: hidden;
+    border-radius: 18px;
+    background: var(--ld-white);
+    border: 1px solid var(--ld-line);
+    box-shadow: 0 24px 50px rgba(21, 20, 43, 0.14);
+
+    @include desktop {
+        top: 96px;
+        width: 370px;
+    }
+}
+
+.cardHead {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 13px 16px;
+    border-bottom: 1px solid var(--ld-line);
+}
+
+.camera {
+    flex-shrink: 0;
+    fill: none;
+    stroke: var(--ld-note-icon);
+    stroke-width: 2.2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.cameraFill {
+    fill: var(--ld-note-icon-fill);
+}
+
+.cameraLens {
+    fill: var(--ld-white);
+}
+
+.cardTitle {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ld-ink);
+}
+
+.chip {
+    margin-left: auto;
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: var(--ld-line-2);
+    color: var(--ld-muted);
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+    transition:
+        background-color 300ms ease,
+        color 300ms ease;
+}
+
+.chipReady {
+    background: var(--ld-brand-s);
+    color: var(--ld-azione);
+}
+
+.cardBody {
+    padding: 4px 16px 14px;
+}
+
+.row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--ld-line-2);
+    opacity: 0;
+    transform: translateX(-10px);
+    transition:
+        opacity 280ms ease,
+        transform 280ms var(--ld-ease);
+
+    &:nth-last-child(2) {
+        border-bottom: 0;
+    }
+}
+
+.rowOn {
+    opacity: 1;
+    transform: none;
+}
+
+.rowName {
+    flex-grow: 1;
+    font-size: 14px;
+    color: var(--ld-ink);
+}
+
+.rowCat {
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: var(--ld-brand-s);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--ld-azione);
+}
+
+.rowPrice {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ld-ink);
+}
+
+.publish {
+    margin-top: 12px;
+    padding: 11px;
+    border-radius: 12px;
+    background: var(--ld-line-2);
+    color: var(--ld-off-ink);
+    font-size: 14px;
+    font-weight: 600;
+    text-align: center;
+    transition:
+        background-color 300ms ease,
+        color 300ms ease,
+        transform 300ms var(--ld-ease-pop);
+}
+
+.publishOn {
+    background: var(--ld-azione);
+    color: var(--ld-on-azione);
+}
+
+.publishPop {
+    transform: scale(1.03);
+}
