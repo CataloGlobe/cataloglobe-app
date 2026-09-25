@@ -136,7 +136,12 @@ function Rail({ ids }: { ids: { wood: string; steel: string } }) {
     return (
         <div className={styles.rail}>
             <Line sag="shallow" />
-            <div className={styles.viewport} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+            <div
+                className={styles.viewport}
+                onTouchStart={onTouchStart}
+                onTouchEnd={onTouchEnd}
+                onTouchCancel={() => (touch.current = null)}
+            >
                 <div className={cx(styles.track, styles[`at${index}`])}>
                     {BOARD.notes.map((note, i) => (
                         <div

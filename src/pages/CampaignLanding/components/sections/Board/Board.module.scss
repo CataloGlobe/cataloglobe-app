@@ -330,10 +330,15 @@
     margin-top: 30px;
 }
 
+// Livello proprio per il riquadro: WebKit ritaglia e ridisegna i figli
+// composti (track in transizione, card animate) rispetto a questo, non alla
+// pagina. Senza, su iPhone dopo uno scroll di pagina le card potevano
+// ricomparire in posizioni vecchie, sovrapposte.
 .viewport {
     position: relative;
     overflow: hidden;
     touch-action: pan-y;
+    transform: translateZ(0);
 }
 
 // Card da 280 + 16 di spazio = 296 per passo; la card attiva è centrata.
@@ -342,6 +347,7 @@
     gap: 16px;
     padding: 4px calc(50% - 140px) 34px;
     transition: transform 560ms var(--ld-ease);
+    will-change: transform;
 }
 
 @for $i from 0 through 7 {
@@ -350,12 +356,12 @@
     }
 }
 
+// Solo opacità e transform: niente `filter` su card che traslano (WebKit
+// le ri-rasterizza e ne sbaglia la posizione dopo lo scroll).
 .card {
     flex-shrink: 0;
     transform-origin: 50% 0;
-    transition:
-        opacity 400ms ease,
-        filter 400ms ease;
+    transition: opacity 400ms ease;
 
     .note {
         width: 280px;
@@ -368,8 +374,7 @@
 
 .cardBefore,
 .cardAfter {
-    opacity: 0.45;
-    filter: saturate(0.6);
+    opacity: 0.4;
 }
 
 .cardBefore {
@@ -382,7 +387,10 @@
 
 @include motion-ok {
     .cardOn {
-        animation: ld-arrive0 1100ms cubic-bezier(0.3, 0.7, 0.4, 1) both;
+        // Niente fill-mode: finita l'oscillazione la card torna al suo stato
+        // (rotate 0, uguale all'ultimo fotogramma) e non resta un livello
+        // animato agganciato a una posizione del track ormai superata.
+        animation: ld-arrive0 1100ms cubic-bezier(0.3, 0.7, 0.4, 1);
     }
 
     .cardOnOdd {
