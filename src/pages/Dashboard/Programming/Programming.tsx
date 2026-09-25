@@ -41,6 +41,7 @@ import { toRomeDateTime } from "@/services/supabase/schedulingNow";
 import { romeDayOf, romeInstantAt } from "@/utils/romeInstant";
 import { buildScheduleMatrix, describeBand } from "@/utils/scheduleMatrix";
 import { MomentBand, MOMENT_MAX_MINUTES, MOMENT_STEP_MINUTES } from "./components/MomentBand";
+import { SeatMatrix } from "./components/SeatMatrix";
 import { RuleTable } from "./components/RuleTable";
 import { computeRuleInsights, toCompetitionRule } from "@/utils/ruleInsights";
 import { compareCandidates } from "@shared/scheduleCompetition";
@@ -138,6 +139,12 @@ export default function Programming() {
             rule.rule_type === "featured"
                 ? `/business/${currentTenantId}/scheduling/featured/${rule.id}`
                 : `/business/${currentTenantId}/scheduling/${rule.id}`,
+        [currentTenantId]
+    );
+    // Il nome della sede nella matrice: la sua pagina «Cosa vedono i clienti»
+    // (oggi «Disponibilità», §20.3).
+    const seatHref = useCallback(
+        (activityId: string) => `/business/${currentTenantId}/locations/${activityId}/disponibilita`,
         [currentTenantId]
     );
     const sedeScope = useSedeScope();
@@ -378,10 +385,8 @@ export default function Programming() {
             }),
         [activities, activityIdsByGroupId, filterActivityId, manualCounts, momentInstant, rules, subscriptionInactive]
     );
-    const bandText = useMemo(
-        () => describeBand(scheduleMatrix, catalogId => catalogById.get(catalogId)?.name),
-        [catalogById, scheduleMatrix]
-    );
+    const matrixCatalogName = useCallback((catalogId: string) => catalogById.get(catalogId)?.name, [catalogById]);
+    const bandText = useMemo(() => describeBand(scheduleMatrix, matrixCatalogName), [matrixCatalogName, scheduleMatrix]);
     const pad = (n: number) => String(n).padStart(2, "0");
     const momentLabel = `Oggi alle ${pad(momentInstant.hour)}:${pad(momentInstant.minute)}`;
     const showMoment = viewMode === "list" && !isLoading && !loadFailed && rules.length > 0 && scheduleMatrix.rows.length > 0;
@@ -828,6 +833,16 @@ export default function Programming() {
                     onMinutesChange={setCursorMinutes}
                     atNow={cursorMinutes === null}
                     onBackToNow={() => setCursorMinutes(null)}
+                />
+            )}
+            {showMoment && (
+                <SeatMatrix
+                    rows={scheduleMatrix.rows}
+                    atNow={cursorMinutes === null}
+                    catalogLabel={catalogLabel}
+                    catalogName={matrixCatalogName}
+                    ruleHref={ruleHref}
+                    seatHref={seatHref}
                 />
             )}
             <div className={styles.listHead}>

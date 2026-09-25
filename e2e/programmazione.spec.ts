@@ -1012,7 +1012,7 @@ test.describe("Programmazione — banda e matrice", () => {
         await expect(band(page).getByRole("slider", { name: "Ora" })).toBeVisible();
     });
 
-    test.fail("la matrice: una riga per sede, cinque strati, chi vince e perché una cella è vuota", async ({ page }) => {
+    test("la matrice: una riga per sede, cinque strati, chi vince e perché una cella è vuota", async ({ page }) => {
         await openList(page);
         for (const name of ["Sede", "Menù", "Disponibilità", "Prezzi", "In evidenza", "A mano"]) {
             await expect(matrix(page).getByRole("columnheader", { name, exact: true })).toBeVisible();
@@ -1032,7 +1032,7 @@ test.describe("Programmazione — banda e matrice", () => {
         await expect(main(page).getByText(MATRIX_RULE_NAME.bozzaPorto).first()).toBeVisible();
     });
 
-    test.fail("il cursore sposta banda e matrice, non l'elenco; «Torna ad adesso» rimette l'ora", async ({ page }) => {
+    test("il cursore sposta banda e matrice, non l'elenco; «Torna ad adesso» rimette l'ora", async ({ page }) => {
         await openList(page);
         await band(page).getByRole("slider", { name: "Ora" }).fill(String(19 * 60), { timeout: 10_000 });
         await expect(band(page)).toContainText("Oggi alle 19:00");
@@ -1046,7 +1046,7 @@ test.describe("Programmazione — banda e matrice", () => {
         await expect(seatRow(page, "Centro e2e")).toContainText(RULE_NAME.pranzo);
     });
 
-    test.fail("il nome della sede porta alla sua pagina, la regola che vince al suo dettaglio", async ({ page }) => {
+    test("il nome della sede porta alla sua pagina, la regola che vince al suo dettaglio", async ({ page }) => {
         await openList(page);
         await seatRow(page, "Porto e2e").getByRole("link", { name: RULE_NAME.promoPorto }).click({ timeout: 10_000 });
         await expect(page).toHaveURL(new RegExp(`/scheduling/featured/${RULE.promoPorto}`));
@@ -1061,7 +1061,7 @@ test.describe("Programmazione — banda e matrice", () => {
         await expect(main(page).getByText(/«A mano» non è una regola/)).toBeVisible();
     });
 
-    test.fail("le tab del tipo filtrano l'elenco, non la matrice", async ({ page }) => {
+    test("le tab del tipo filtrano l'elenco, non la matrice", async ({ page }) => {
         await openList(page, "price");
         await expect(matrix(page).getByRole("columnheader")).toHaveCount(6);
         await expect(seatRow(page, "Centro e2e")).toContainText(RULE_NAME.pranzo);
@@ -1076,7 +1076,7 @@ test.describe("Programmazione — banda e matrice", () => {
         await expect(matrix(page)).toHaveCount(0);
     });
 
-    test.fail("col filtro sede la matrice ha una riga e la banda parla al singolare", async ({ page }) => {
+    test("col filtro sede la matrice ha una riga e la banda parla al singolare", async ({ page }) => {
         await page.addInitScript(
             ([key, value]) => window.sessionStorage.setItem(key, value),
             [`cataloglobe:sedeScope:${TENANT_ID}`, SEDE.centro] as const
