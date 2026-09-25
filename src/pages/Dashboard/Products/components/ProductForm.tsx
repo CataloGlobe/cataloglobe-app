@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
@@ -44,14 +44,16 @@ import {
     deleteOptionValue,
     GroupWithValues
 } from "@/services/supabase/productOptions";
-import { Pill } from "@/components/ui/Pill/Pill";
+import { Chip } from "@/components/ui/Chip/Chip";
+import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
+import { formatCurrency } from "@/utils/formatCurrency";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import { Textarea } from "@/components/ui/Textarea/Textarea";
 import { useAiDescription } from "../hooks/useAiDescription";
 import { useBusinessOutletContext } from "@/layouts/MainLayout/outletContext";
 import { AiDescriptionField } from "./AiDescriptionField";
-import styles from "../Products.module.scss";
+import styles from "./ProductForm.module.scss";
 import { IngredientCombobox } from "./IngredientCombobox";
 
 export type ProductFormMode = "create_base" | "create_variant" | "edit";
@@ -219,6 +221,9 @@ async function syncAddonGroupsInEditMode({
 
 type PriceMode = "inherit" | "single" | "formats";
 
+/** Valore di un attributo letto dal DB, finché il form lo porta al salvataggio. */
+type AttributeDraftValue = string | number | boolean | unknown[];
+
 const PRICE_MODE_OPTIONS: { value: PriceMode; label: string }[] = [
     { value: "single", label: "Prezzo singolo" },
     { value: "formats", label: "Prezzi per formato" }
@@ -280,7 +285,7 @@ export function ProductForm({
     const [attributeDefinitions, setAttributeDefinitions] = useState<
         V2ProductAttributeDefinition[]
     >([]);
-    const [attributeValues, setAttributeValues] = useState<Record<string, any>>({});
+    const [attributeValues, setAttributeValues] = useState<Record<string, AttributeDraftValue>>({});
 
     // Allergens state
     const [systemAllergens, setSystemAllergens] = useState<V2SystemAllergen[]>([]);
@@ -406,7 +411,7 @@ export function ProductForm({
 
             if (isEditing && productData) {
                 const values = await getProductAttributes(productData.id, tenantId);
-                const initialValues: Record<string, any> = {};
+                const initialValues: Record<string, AttributeDraftValue> = {};
 
                 values.forEach((val: V2ProductAttributeValue) => {
                     const def = defs.find(d => d.id === val.attribute_definition_id);
@@ -558,7 +563,7 @@ export function ProductForm({
         setSubmitError(null);
 
         if (!name.trim()) {
-            showToast({ message: "Il nome del prodotto è obbligatorio.", type: "error" });
+            showToast({ message: `Il nome del ${verticalConfig.productLabel.toLowerCase()} è obbligatorio.`, type: "error" });
             return;
         }
 
@@ -571,7 +576,7 @@ export function ProductForm({
 
         if (!isEditing) {
             if (priceMode === "formats" && draftFormats.length === 0) {
-                setSubmitError("Aggiungi almeno un formato prima di salvare il prodotto");
+                setSubmitError("Aggiungi almeno un formato prima di creare.");
                 return;
             }
         }
@@ -691,7 +696,7 @@ export function ProductForm({
                             if (def.type === "text" || def.type === "select")
                                 payload.value_text = String(value);
                             else if (def.type === "number")
-                                payload.value_number = parseFloat(value);
+                                payload.value_number = parseFloat(String(value));
                             else if (def.type === "boolean") payload.value_boolean = Boolean(value);
                             else if (def.type === "multi_select") payload.value_json = value;
                         }
@@ -737,9 +742,9 @@ export function ProductForm({
 
             if (isEditing) {
                 showToast({
-                    message: "Prodotto aggiornato.",
+                    message: `${verticalConfig.productLabel} aggiornato.`,
                     type: "success",
-                    actionLabel: "Apri prodotto",
+                    actionLabel: "Apri",
                     onAction: () => {
                         if (savedProductId) {
                             navigate(`/business/${tenantId}/products/${savedProductId}`);
@@ -754,10 +759,13 @@ export function ProductForm({
             }
 
             await Promise.resolve(onSuccess(savedProduct));
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error("Errore salvataggio prodotto:", error);
             showToast({
-                message: error.message || "Impossibile salvare il prodotto.",
+                message:
+                    error instanceof Error && error.message
+                        ? error.message
+                        : `Impossibile salvare il ${verticalConfig.productLabel.toLowerCase()}.`,
                 type: "error"
             });
         } finally {
@@ -765,289 +773,261 @@ export function ProductForm({
         }
     };
 
+    const productLower = verticalConfig.productLabel.toLowerCase();
+    const showAllergens =
+        verticalConfig.productSections.allergens && (isLoadingAllergens || systemAllergens.length > 0);
+    const showIngredients = verticalConfig.productSections.ingredients;
+    const parentLink = isEditing && productData?.parent_product_id;
+
     return (
         <form id={formId} className={styles.form} onSubmit={handleSubmit}>
             {mode === "create_variant" && parentProduct && (
-                <div style={{ marginBottom: 8 }}>
-                    <Text variant="body-sm" colorVariant="muted" weight={500}>
-                        Variante di:{" "}
-                        <span style={{ color: "var(--color-gray-900)" }}>{parentProduct.name}</span>
-                    </Text>
-                </div>
+                <Text variant="body-sm" colorVariant="muted">
+                    Variante di <strong className={styles.strong}>{parentProduct.name}</strong>
+                </Text>
             )}
-            {isEditing && productData?.parent_product_id && (
-                <div style={{ marginBottom: 8 }}>
-                    <Text variant="body-sm" colorVariant="muted" weight={500}>
-                        Variante di:{" "}
-                        {isLoadingEditParent ? (
-                            <span>Caricamento...</span>
-                        ) : editParent ? (
-                            <span
-                                style={{ color: "var(--brand-primary)", cursor: "pointer", textDecoration: "underline" }}
-                                onClick={() => navigate(`/business/${tenantId}/products/${editParent.id}`)}
-                            >
-                                {editParent.name}
-                            </span>
-                        ) : (
-                            <span style={{ color: "var(--text)" }}>{productData.parent_product_id}</span>
-                        )}
-                    </Text>
-                </div>
+            {parentLink && (
+                <Text variant="body-sm" colorVariant="muted">
+                    Variante di{" "}
+                    {isLoadingEditParent ? (
+                        "…"
+                    ) : editParent ? (
+                        <Link to={`/business/${tenantId}/products/${editParent.id}`} className={styles.link}>
+                            {editParent.name}
+                        </Link>
+                    ) : (
+                        productData?.parent_product_id
+                    )}
+                </Text>
             )}
 
-            {/* ── Informazioni base ─────────────────────────────────── */}
-            <div>
-                <Text variant="title-sm" weight={600} style={{ marginBottom: 12 }}>
-                    Informazioni base
+            {/* ── Informazioni ──────────────────────────────────────── */}
+            <section className={styles.section}>
+                <Text as="h3" variant="title-sm" weight={600}>
+                    Informazioni
                 </Text>
-                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                    <TextInput
-                        ref={nameInputRef}
-                        label="Nome"
-                        required
-                        value={name}
-                        onChange={e => setName(e.target.value)}
-                        placeholder="Es: Margherita, T-Shirt Rossa..."
-                        onKeyDown={e => {
-                            if (e.key === "Enter") {
-                                e.preventDefault();
-                                (e.currentTarget as HTMLInputElement).form?.requestSubmit();
-                            }
+                <TextInput
+                    ref={nameInputRef}
+                    label="Nome"
+                    required
+                    value={name}
+                    onChange={e => setName(e.target.value)}
+                    placeholder={`Nome del ${productLower}`}
+                    onKeyDown={e => {
+                        if (e.key === "Enter") {
+                            e.preventDefault();
+                            (e.currentTarget as HTMLInputElement).form?.requestSubmit();
+                        }
+                    }}
+                />
+                <AiDescriptionField
+                    aiState={ai.aiState}
+                    isGenerating={ai.isGenerating}
+                    canGenerate={ai.canGenerate}
+                    onGenerate={ai.generate}
+                >
+                    <Textarea
+                        value={description}
+                        onChange={e => {
+                            setDescription(e.target.value);
+                            ai.markManualEdit();
                         }}
+                        placeholder="Breve descrizione (opzionale)"
+                        rows={4}
+                        disabled={ai.isGenerating}
                     />
-                    <AiDescriptionField
-                        aiState={ai.aiState}
-                        isGenerating={ai.isGenerating}
-                        canGenerate={ai.canGenerate}
-                        onGenerate={ai.generate}
-                    >
-                        <Textarea
-                            value={description}
-                            onChange={e => {
-                                setDescription(e.target.value);
-                                ai.markManualEdit();
-                            }}
-                            placeholder="Breve descrizione (opzionale)"
-                            rows={4}
-                            disabled={ai.isGenerating}
-                        />
-                    </AiDescriptionField>
-                    <FileInput
-                        label="Immagine"
-                        accept="image/*"
-                        maxSizeMb={5}
-                        preview="auto"
-                        value={pendingImageFile}
-                        onChange={file => setPendingImageFile(file)}
-                    />
-                </div>
-            </div>
+                </AiDescriptionField>
+                <FileInput
+                    label="Immagine"
+                    accept="image/*"
+                    maxSizeMb={5}
+                    preview="auto"
+                    value={pendingImageFile}
+                    onChange={file => setPendingImageFile(file)}
+                />
+            </section>
 
             {/* ── Prezzo ────────────────────────────────────────────── */}
             {!isEditing && (
-                <div>
-                    <Text variant="title-sm" weight={600} style={{ marginBottom: 12 }}>
+                <section className={styles.section}>
+                    <Text as="h3" variant="title-sm" weight={600}>
                         Prezzo
                     </Text>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                        <div style={{ width: "fit-content" }}>
-                            <SegmentedControl<PriceMode>
-                                value={priceMode}
-                                onChange={newPriceMode => {
-                                    setPriceMode(newPriceMode);
-                                    setProductType(newPriceMode === "formats" ? "formats" : "simple");
-                                    setDraftFormats([]);
-                                    setHasFormatPricing(false);
-                                    if (newPriceMode !== "single") setBasePrice("");
-                                }}
-                                options={mode === "create_variant" ? VARIANT_PRICE_MODE_OPTIONS : PRICE_MODE_OPTIONS}
-                            />
-                        </div>
-
-                        {priceMode === "inherit" && parentProduct && (
-                            <div style={{
-                                padding: "10px 14px",
-                                borderRadius: "8px",
-                                backgroundColor: "var(--color-gray-50)",
-                                border: "1px solid var(--color-gray-200)"
-                            }}>
-                                <Text variant="body-sm" colorVariant="muted">
-                                    Usa il prezzo di:{" "}
-                                    <span style={{ color: "var(--text)" }}>{parentProduct.name}</span>
-                                    {" — "}
-                                    {parentProduct.product_type === "formats"
-                                        ? "prezzi per formato"
-                                        : parentProduct.base_price !== null
-                                            ? `€${parentProduct.base_price.toFixed(2)}`
-                                            : "nessun prezzo"}
-                                </Text>
-                            </div>
-                        )}
-
-                        {priceMode === "single" && (
-                            <TextInput
-                                label="Prezzo base (€)"
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                value={basePrice}
-                                onChange={e => setBasePrice(e.target.value)}
-                                placeholder="Es: 10.50"
-                            />
-                        )}
-
-                        {priceMode === "formats" && (
-                            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                                {draftFormats.length > 0 && (
-                                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                                        {draftFormats.map(fmt => (
-                                            <div key={fmt.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 10px", borderRadius: "6px", backgroundColor: "var(--color-gray-50)", border: "1px solid var(--color-gray-200)" }}>
-                                                <Text variant="body-sm">{fmt.name}</Text>
-                                                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                                                    <Text variant="body-sm" colorVariant="muted">€{fmt.absolute_price.toFixed(2)}</Text>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        onClick={() => {
-                                                            setDraftFormats(prev => {
-                                                                const next = prev.filter(f => f.id !== fmt.id);
-                                                                if (next.length === 0) setHasFormatPricing(false);
-                                                                return next;
-                                                            });
-                                                        }}
-                                                    >
-                                                        Rimuovi
-                                                    </Button>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-
-                                <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
-                                    <div style={{ flex: 1 }}>
-                                        <TextInput
-                                            label="Nome formato"
-                                            value={newFormatName}
-                                            onChange={e => setNewFormatName(e.target.value)}
-                                            placeholder="Es. 33cl"
-                                        />
-                                    </div>
-                                    <div style={{ width: 110 }}>
-                                        <TextInput
-                                            label="Prezzo (€)"
-                                            type="number"
-                                            step="0.01"
-                                            min="0"
-                                            value={newFormatPrice}
-                                            onChange={e => setNewFormatPrice(e.target.value)}
-                                            placeholder="Es. 3.50"
-                                        />
-                                    </div>
-                                    <Button
-                                        variant="secondary"
-                                        size="sm"
-                                        onClick={() => {
-                                            const fmtName = newFormatName.trim();
-                                            const fmtPrice = parseFloat(newFormatPrice);
-                                            if (!fmtName || isNaN(fmtPrice) || fmtPrice < 0) return;
-                                            setDraftFormats(prev => [
-                                                ...prev,
-                                                { id: makeDraftId(), name: fmtName, absolute_price: fmtPrice }
-                                            ]);
-                                            setHasFormatPricing(true);
-                                            setNewFormatName("");
-                                            setNewFormatPrice("");
-                                        }}
-                                    >
-                                        Aggiungi formato
-                                    </Button>
-                                </div>
-                            </div>
-                        )}
-
-                        {submitError && (
-                            <div style={{
-                                padding: "8px 12px",
-                                borderRadius: "6px",
-                                backgroundColor: "var(--color-red-50)",
-                                border: "1px solid var(--color-red-200)"
-                            }}>
-                                <Text variant="body-sm" colorVariant="error">
-                                    {submitError}
-                                </Text>
-                            </div>
-                        )}
-
-                        <Text variant="body-sm" colorVariant="muted">
-                            Puoi aggiungere varianti, configurazioni e attributi dopo la creazione del prodotto.
-                        </Text>
+                    <div className={styles.fitContent}>
+                        <SegmentedControl<PriceMode>
+                            value={priceMode}
+                            onChange={newPriceMode => {
+                                setPriceMode(newPriceMode);
+                                setProductType(newPriceMode === "formats" ? "formats" : "simple");
+                                setDraftFormats([]);
+                                setHasFormatPricing(false);
+                                if (newPriceMode !== "single") setBasePrice("");
+                            }}
+                            options={mode === "create_variant" ? VARIANT_PRICE_MODE_OPTIONS : PRICE_MODE_OPTIONS}
+                        />
                     </div>
-                </div>
+
+                    {priceMode === "inherit" && parentProduct && (
+                        <InlineBanner variant="info">
+                            Usa il prezzo di {parentProduct.name}:{" "}
+                            {parentProduct.product_type === "formats"
+                                ? "prezzi per formato"
+                                : parentProduct.base_price !== null
+                                  ? formatCurrency(parentProduct.base_price)
+                                  : "nessun prezzo"}
+                            .
+                        </InlineBanner>
+                    )}
+
+                    {priceMode === "single" && (
+                        <TextInput
+                            label="Prezzo base (€)"
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={basePrice}
+                            onChange={e => setBasePrice(e.target.value)}
+                            placeholder="Es: 10.50"
+                        />
+                    )}
+
+                    {priceMode === "formats" && (
+                        <div className={styles.formats}>
+                            {draftFormats.length > 0 && (
+                                <ul className={styles.formatList}>
+                                    {draftFormats.map(fmt => (
+                                        <li key={fmt.id} className={styles.formatRow}>
+                                            <Text variant="body-sm">{fmt.name}</Text>
+                                            <span className={styles.formatRowEnd}>
+                                                <Text variant="body-sm" colorVariant="muted">
+                                                    {formatCurrency(fmt.absolute_price)}
+                                                </Text>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => {
+                                                        setDraftFormats(prev => {
+                                                            const next = prev.filter(f => f.id !== fmt.id);
+                                                            if (next.length === 0) setHasFormatPricing(false);
+                                                            return next;
+                                                        });
+                                                    }}
+                                                >
+                                                    Rimuovi
+                                                </Button>
+                                            </span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+
+                            <div className={styles.formatAdd}>
+                                <TextInput
+                                    label="Nome formato"
+                                    value={newFormatName}
+                                    onChange={e => setNewFormatName(e.target.value)}
+                                    placeholder="Es. 33cl"
+                                    containerClassName={styles.formatName}
+                                />
+                                <TextInput
+                                    label="Prezzo (€)"
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    value={newFormatPrice}
+                                    onChange={e => setNewFormatPrice(e.target.value)}
+                                    placeholder="Es. 3.50"
+                                    containerClassName={styles.formatPrice}
+                                />
+                                <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    onClick={() => {
+                                        const fmtName = newFormatName.trim();
+                                        const fmtPrice = parseFloat(newFormatPrice);
+                                        if (!fmtName || isNaN(fmtPrice) || fmtPrice < 0) return;
+                                        setDraftFormats(prev => [
+                                            ...prev,
+                                            { id: makeDraftId(), name: fmtName, absolute_price: fmtPrice }
+                                        ]);
+                                        setHasFormatPricing(true);
+                                        setNewFormatName("");
+                                        setNewFormatPrice("");
+                                    }}
+                                >
+                                    Aggiungi formato
+                                </Button>
+                            </div>
+                        </div>
+                    )}
+
+                    {submitError && <InlineBanner variant="error">{submitError}</InlineBanner>}
+
+                    <Text variant="body-sm" colorVariant="muted">
+                        Varianti, configurazioni e attributi si aggiungono dalla pagina del {productLower}, dopo averlo creato.
+                    </Text>
+                </section>
             )}
 
-            {/* ── Specifiche prodotto ────────────────────────────────── */}
-            <div style={{ height: "1px", backgroundColor: "var(--color-gray-200)" }} />
-
-            <div>
-                <Text variant="title-sm" weight={600} style={{ marginBottom: 12 }}>
-                    Specifiche prodotto
-                </Text>
-
-                {/* Allergeni */}
-                {verticalConfig.productSections.allergens && (isLoadingAllergens || systemAllergens.length > 0) && (
-                    <div style={{ marginBottom: 20 }}>
-                        <Text variant="body-sm" weight={600} style={{ marginBottom: 8 }}>
-                            Allergeni
-                        </Text>
-                        {isLoadingAllergens ? (
-                            <Text variant="body-sm" colorVariant="muted">Caricamento allergeni...</Text>
-                        ) : (
-                            <>
-                                <TextInput
-                                    placeholder="Cerca allergene..."
-                                    value={allergenSearchQuery}
-                                    onChange={e => setAllergenSearchQuery(e.target.value)}
-                                />
-                                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
-                                    {systemAllergens
-                                        .filter(a =>
-                                            a.label_it.toLowerCase().includes(allergenSearchQuery.toLowerCase()) ||
-                                            a.label_en.toLowerCase().includes(allergenSearchQuery.toLowerCase())
-                                        )
-                                        .map(allergen => (
-                                            <Pill
-                                                key={allergen.id}
-                                                label={allergen.label_it}
-                                                active={selectedAllergens.includes(allergen.id)}
-                                                onClick={() => handleAllergenToggle(allergen.id)}
-                                            />
-                                        ))}
-                                </div>
-                            </>
-                        )}
-                    </div>
-                )}
-
-                {/* Ingredienti */}
-                {verticalConfig.productSections.ingredients && (
-                <div>
-                    <Text variant="body-sm" weight={600} style={{ marginBottom: 8 }}>
-                        Ingredienti
+            {/* ── Allergeni e ingredienti (solo nei verticali che li hanno) ── */}
+            {(showAllergens || showIngredients) && (
+                <section className={styles.section}>
+                    <Text as="h3" variant="title-sm" weight={600}>
+                        Composizione
                     </Text>
-                    <IngredientCombobox
-                        ingredients={systemIngredients}
-                        selectedIds={selectedIngredients}
-                        onToggle={handleIngredientToggle}
-                        onReorder={setSelectedIngredients}
-                        onCreate={handleCreateIngredientInline}
-                        isLoadingIngredients={isLoadingIngredients}
-                    />
-                </div>
-                )}
-            </div>
 
-            <div style={{ height: "1px", backgroundColor: "var(--color-gray-200)" }} />
+                    {showAllergens && (
+                        <div className={styles.field}>
+                            <Text variant="body-sm" weight={600}>
+                                {verticalConfig.copy.productSections.allergens}
+                            </Text>
+                            {isLoadingAllergens ? (
+                                <Text variant="body-sm" colorVariant="muted">Caricamento allergeni...</Text>
+                            ) : (
+                                <>
+                                    <TextInput
+                                        aria-label="Cerca allergene"
+                                        placeholder="Cerca allergene..."
+                                        value={allergenSearchQuery}
+                                        onChange={e => setAllergenSearchQuery(e.target.value)}
+                                    />
+                                    <div className={styles.chips}>
+                                        {systemAllergens
+                                            .filter(a =>
+                                                a.label_it.toLowerCase().includes(allergenSearchQuery.toLowerCase()) ||
+                                                a.label_en.toLowerCase().includes(allergenSearchQuery.toLowerCase())
+                                            )
+                                            .map(allergen => (
+                                                <Chip
+                                                    key={allergen.id}
+                                                    label={allergen.label_it}
+                                                    selected={selectedAllergens.includes(allergen.id)}
+                                                    onClick={() => handleAllergenToggle(allergen.id)}
+                                                />
+                                            ))}
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    )}
+
+                    {showIngredients && (
+                        <div className={styles.field}>
+                            <Text variant="body-sm" weight={600}>
+                                {verticalConfig.copy.productSections.ingredients}
+                            </Text>
+                            <IngredientCombobox
+                                ingredients={systemIngredients}
+                                selectedIds={selectedIngredients}
+                                onToggle={handleIngredientToggle}
+                                onReorder={setSelectedIngredients}
+                                onCreate={handleCreateIngredientInline}
+                                isLoadingIngredients={isLoadingIngredients}
+                            />
+                        </div>
+                    )}
+                </section>
+            )}
         </form>
     );
 }

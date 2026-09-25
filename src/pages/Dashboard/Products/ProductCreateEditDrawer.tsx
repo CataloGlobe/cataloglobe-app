@@ -1,10 +1,9 @@
-import React, { useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useState } from "react";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { Button } from "@/components/ui/Button/Button";
-import Text from "@/components/ui/Text/Text";
-import { V2Product } from "@/services/supabase/products";
+import { useVerticalConfig } from "@/hooks/useVerticalConfig";
+import type { V2Product } from "@/services/supabase/products";
 import { ProductForm, type ProductFormMode } from "./components/ProductForm";
 
 export type { ProductFormMode };
@@ -12,9 +11,12 @@ export type { ProductFormMode };
 type ProductCreateEditDrawerProps = {
     open: boolean;
     onClose: () => void;
-    mode: ProductFormMode;
-    productData: V2Product | null; // For edit
-    parentProduct: V2Product | null; // For create_variant
+    /**
+     * Crea un {prodotto} o una variante. La modifica non passa più da qui
+     * (§50.9/5): si fa nella pagina del prodotto.
+     */
+    mode: Exclude<ProductFormMode, "edit">;
+    parentProduct: V2Product | null;
     onSuccess: (savedProduct?: V2Product) => void | Promise<void>;
     tenantId?: string;
 };
@@ -23,61 +25,25 @@ export function ProductCreateEditDrawer({
     open,
     onClose,
     mode,
-    productData,
     parentProduct,
     onSuccess,
     tenantId
 }: ProductCreateEditDrawerProps) {
     const [isSaving, setIsSaving] = useState(false);
-    const navigate = useNavigate();
-    const { businessId } = useParams<{ businessId: string }>();
-
-    let title = "Nuovo Prodotto";
-    if (mode === "edit") title = "Modifica Prodotto";
-    if (mode === "create_variant") title = "Nuova Variante";
+    const { productLabel } = useVerticalConfig();
+    const title = mode === "create_variant" ? "Nuova variante" : `Nuovo ${productLabel.toLowerCase()}`;
 
     return (
-        <SystemDrawer open={open} onClose={onClose} width={500}>
+        <SystemDrawer open={open} onClose={onClose} size="md">
             <DrawerLayout
-                header={
-                    <div
-                        style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                            width: "100%"
-                        }}
-                    >
-                        <Text variant="title-sm" weight={700}>
-                            {title}
-                        </Text>
-                        {mode === "edit" && productData && (
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                    onClose();
-                                    navigate(`/business/${businessId}/products/${productData.id}`);
-                                }}
-                            >
-                                Apri pagina prodotto →
-                            </Button>
-                        )}
-                    </div>
-                }
+                title={title}
                 footer={
                     <>
                         <Button variant="secondary" onClick={onClose} disabled={isSaving}>
                             Annulla
                         </Button>
-                        <Button
-                            variant="primary"
-                            type="submit"
-                            form="product-form"
-                            loading={isSaving}
-                            disabled={isSaving}
-                        >
-                            {isSaving ? "Salvataggio..." : mode === "edit" ? "Salva" : "Crea"}
+                        <Button variant="primary" type="submit" form="product-form" loading={isSaving} disabled={isSaving}>
+                            Crea
                         </Button>
                     </>
                 }
@@ -85,7 +51,7 @@ export function ProductCreateEditDrawer({
                 <ProductForm
                     formId="product-form"
                     mode={mode}
-                    productData={productData}
+                    productData={null}
                     parentProduct={parentProduct}
                     tenantId={tenantId || null}
                     onSuccess={onSuccess}

@@ -373,7 +373,6 @@ export default function ProductPage() {
                 open={isVariantDrawerOpen}
                 onClose={() => setIsVariantDrawerOpen(false)}
                 mode="create_variant"
-                productData={null}
                 parentProduct={product}
                 tenantId={tenantId ?? undefined}
                 onSuccess={() => {

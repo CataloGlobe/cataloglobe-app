@@ -255,6 +255,10 @@ test.describe("Prodotti — elenco", () => {
         for (const item of [/^Aggiungi variante$/i, /^Duplica$/, /^Elimina$/]) {
             await expect(page.getByRole("menuitem", { name: item })).toBeVisible();
         }
+        // «Modifica» nel drawer non c'è più (§50.9/5): «Apri» porta alla pagina.
+        await expect(page.getByRole("menuitem", { name: /^Modifica/ })).toHaveCount(0);
+        await page.getByRole("menuitem", { name: "Apri" }).click();
+        await expect(page).toHaveURL(new RegExp(`/products/${PRODUCT.cheeseburger}$`));
     });
 
     test("crea un prodotto: POST col nome e il prezzo", async ({ page }) => {
@@ -267,8 +271,11 @@ test.describe("Prodotti — elenco", () => {
         stub.onWrite("translation_jobs.POST", () => []);
         await openList(page);
         await page.getByRole("button", { name: "Crea prodotto" }).click();
-        await dialog(page).getByRole("textbox", { name: /^Nome/ }).fill("Panino e2e");
-        await dialog(page).getByRole("spinbutton").first().fill("6.5");
+        const name = dialog(page).getByRole("textbox", { name: /^Nome/ });
+        // Il form mette il fuoco sul nome appena montato: si scrive dopo.
+        await expect(name).toBeFocused();
+        await name.fill("Panino e2e");
+        await dialog(page).getByRole("spinbutton", { name: /^Prezzo base/ }).fill("6.5");
         await dialog(page).getByRole("button", { name: /^Crea$/ }).click();
         await expect.poll(() => write(stub, "products.POST")?.body).toMatchObject({ name: "Panino e2e", base_price: 6.5 });
     });
@@ -293,7 +300,8 @@ test.describe("Prodotti — elenco", () => {
         await actionsOf(product(page, "Hamburger")).click();
         await page.getByRole("menuitem", { name: /^Elimina$/ }).click();
         // L'impatto: sta in due menù.
-        await expect(dialog(page)).toContainText(/menù|catalog/i);
+        await expect(page.getByRole("alertdialog")).toContainText("Eliminare «Hamburger»?");
+        await expect(page.getByRole("alertdialog")).toContainText("2 menù");
         await dialog(page).getByRole("button", { name: /^(Conferma eliminazione|Elimina)$/i }).click();
         await expect.poll(() => write(stub, "products.DELETE")?.params.get("id")).toBe(`eq.${PRODUCT.hamburger}`);
     });

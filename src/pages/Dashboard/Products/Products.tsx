@@ -51,7 +51,7 @@ import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import { useBulkDelete } from "./hooks/useBulkDelete";
 import { ProductCreateEditDrawer, ProductFormMode } from "./ProductCreateEditDrawer";
-import { ProductDeleteDrawer } from "./ProductDeleteDrawer";
+import { ProductDeleteDialog } from "./ProductDeleteDialog";
 import ProductGroupsTab from "@/components/Products/ProductGroupsTab/ProductGroupsTab";
 import { ProductsAttributesTab } from "./ProductsAttributesTab";
 import { Ingredients } from "./Ingredients/Ingredients";
@@ -145,8 +145,7 @@ export default function Products() {
 
     // Drawer States
     const [isCreateEditOpen, setIsCreateEditOpen] = useState(false);
-    const [createEditMode, setCreateEditMode] = useState<ProductFormMode>("create_base");
-    const [productToEdit, setProductToEdit] = useState<V2Product | null>(null);
+    const [createEditMode, setCreateEditMode] = useState<Exclude<ProductFormMode, "edit">>("create_base");
     const [parentForVariant, setParentForVariant] = useState<V2Product | null>(null);
 
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -346,7 +345,6 @@ export default function Products() {
     const handleCreateBase = useCallback(() => {
         if (!ensureActive()) return;
         setCreateEditMode("create_base");
-        setProductToEdit(null);
         setParentForVariant(null);
         setIsCreateEditOpen(true);
     }, [ensureActive]);
@@ -470,7 +468,6 @@ export default function Products() {
     const handleCreateVariant = (baseProduct: V2Product) => {
         if (!ensureActive()) return;
         setCreateEditMode("create_variant");
-        setProductToEdit(null);
         setParentForVariant(baseProduct);
         setIsCreateEditOpen(true);
         // Expand the row so the user sees the new variant when it's created
@@ -481,13 +478,8 @@ export default function Products() {
         });
     };
 
-    const handleEdit = (product: V2Product) => {
-        if (!ensureActive()) return;
-        setCreateEditMode("edit");
-        setProductToEdit(product);
-        setParentForVariant(null);
-        setIsCreateEditOpen(true);
-    };
+    // «Apri» (§50.9/5): il prodotto ha una pagina sola, dove si modifica tutto.
+    const handleOpen = (product: V2Product) => navigate(productUrl(product.id));
 
     const handleDuplicate = async (product: V2Product) => {
         if (!ensureActive()) return;
@@ -553,10 +545,7 @@ export default function Products() {
         <TableRowActions
             ariaLabel={`Azioni ${product.name}`}
             actions={[
-                {
-                    label: kind === "base" ? "Modifica prodotto" : "Modifica variante",
-                    onClick: () => handleEdit(product)
-                },
+                { label: "Apri", onClick: () => handleOpen(product) },
                 {
                     label: "Aggiungi variante",
                     onClick: () => handleCreateVariant(product),
@@ -741,7 +730,6 @@ export default function Products() {
                         open={isCreateEditOpen}
                         onClose={() => setIsCreateEditOpen(false)}
                         mode={createEditMode}
-                        productData={productToEdit}
                         parentProduct={parentForVariant}
                         onSuccess={loadData}
                         tenantId={currentTenantId ?? undefined}
@@ -752,7 +740,7 @@ export default function Products() {
                         message={`Si eliminano anche le loro varianti e i collegamenti ai ${verticalConfig.catalogLabel.toLowerCase()}, e non si torna indietro.`}
                     />
 
-                    <ProductDeleteDrawer
+                    <ProductDeleteDialog
                         open={isDeleteOpen}
                         onClose={() => setIsDeleteOpen(false)}
                         productData={productToDelete}
