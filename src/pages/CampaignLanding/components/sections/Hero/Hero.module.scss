@@ -20,7 +20,12 @@
     // Il 3D della scheda resta dentro il pannello.
     isolation: isolate;
 
+    // Desktop: alto quanto la viewport meno il margine esterno (16 + 16),
+    // fino a 1000 px; il contenuto si centra nello spazio che resta.
     @include desktop {
+        display: flex;
+        flex-direction: column;
+        min-height: min(calc(100svh - 32px), 1000px);
         border-radius: 30px;
         padding: 28px 56px 80px;
     }
@@ -120,7 +125,9 @@
 
     @include desktop {
         display: block;
+        flex: none;
         height: 54px;
+        margin-bottom: 24px;
     }
 }
 
@@ -135,8 +142,9 @@
         grid-template-columns: 1.15fr 1fr;
         gap: 64px;
         align-items: center;
+        width: 100%;
         max-width: 1136px;
-        margin: 80px auto 0;
+        margin: auto;
     }
 }
 
