@@ -129,7 +129,7 @@ test.describe("Prodotti — elenco", () => {
         await openList(page);
         await expect(page).toHaveTitle(/^Prodotti — .+ \| CataloGlobe$/);
         await expect(collection(page, /^Prodotti$/)).toBeVisible();
-        await expect(collection(page, /^Gruppi( Prodotti)?$/)).toBeVisible();
+        await expect(collection(page, /^Gruppi$/)).toBeVisible();
         await expect(collection(page, /^Ingredienti$/)).toBeVisible();
         // Ristorante: niente Attributi.
         await expect(collection(page, /^Attributi$/)).toHaveCount(0);
@@ -180,6 +180,25 @@ test.describe("Prodotti — elenco", () => {
 
         await quality(page, "Tutti");
         await expect(product(page, "Hamburger")).toBeVisible();
+    });
+
+    test("chip di qualità a 1280 sopra l'elenco; a zero spento, non nascosto", async ({ page }) => {
+        await page.setViewportSize({ width: 1280, height: 800 });
+        const insalatona = stub.tables.products.find(p => p.id === PRODUCT.insalatona)!;
+        insalatona.base_price = 6;
+        await openList(page);
+        const chips = main(page).getByRole("radiogroup", { name: "Filtra per qualità del dato" });
+        await expect(chips.getByRole("radio", { name: /^Tutti 12$/ })).toHaveAttribute("aria-checked", "true");
+        await expect(chips.getByRole("radio", { name: /^Senza prezzo 0$/ })).toHaveAttribute("aria-disabled", "true");
+        await expect(chips.getByRole("radio", { name: /^Fuori menù 2$/ })).toBeVisible();
+    });
+
+    test("attributi e gruppi: la ricerca è in testata", async ({ page }) => {
+        await openList(page);
+        await openCollection(page, /^Gruppi$/);
+        await search(page, "Contorni");
+        await expect(main(page).getByText("Contorni e2e", { exact: true })).toBeVisible();
+        await expect(main(page).getByText("Bevande e2e", { exact: true })).toHaveCount(0);
     });
 
     test("griglia: una card per prodotto", async ({ page }) => {
@@ -376,6 +395,9 @@ test.describe("Prodotti — negozio", () => {
         await expect(main(page).getByText("Materiale", { exact: true })).toBeVisible();
         await expect(main(page).getByText("Taglia", { exact: true })).toBeVisible();
         await expect(main(page).getByText("Colore", { exact: true })).toBeVisible();
+        await search(page, "tag");
+        await expect(main(page).getByText("Taglia", { exact: true })).toBeVisible();
+        await expect(main(page).getByText("Colore", { exact: true })).toHaveCount(0);
     });
 
     test("senza attributes.write: attributi in sola lettura", async ({ page }) => {

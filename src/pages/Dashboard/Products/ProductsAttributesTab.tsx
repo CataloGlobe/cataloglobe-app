@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState, useMemo } from "react";
 import { Badge } from "@/components/ui/Badge/Badge";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
-import FilterBar from "@/components/ui/FilterBar/FilterBar";
 import { IconTags } from "@tabler/icons-react";
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
@@ -15,7 +14,7 @@ import { AttributeCreateEditDrawer } from "@/pages/Dashboard/Attributes/Attribut
 import { AttributeDeleteDrawer } from "@/pages/Dashboard/Attributes/AttributeDeleteDrawer";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
-import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
+import { useEnsureActive } from "./hooks/useEnsureActive";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import { useBulkDelete } from "./hooks/useBulkDelete";
 import styles from "./ProductsAttributesTab.module.scss";
@@ -24,6 +23,8 @@ interface ProductsAttributesTabProps {
     tenantId: string | undefined;
     vertical?: string;
     createTrigger?: number;
+    /** Ricerca in testata (Products), per nome o codice. */
+    searchQuery: string;
     /** `attributes.write`: senza, niente selezione, «⋯» né CTA. */
     canWrite: boolean;
 }
@@ -39,14 +40,13 @@ function getTypeLabel(type: string): string {
     }
 }
 
-export function ProductsAttributesTab({ tenantId, vertical, createTrigger, canWrite }: ProductsAttributesTabProps) {
+export function ProductsAttributesTab({ tenantId, vertical, createTrigger, searchQuery, canWrite }: ProductsAttributesTabProps) {
     const { showToast } = useToast();
     const verticalConfig = useVerticalConfig();
-    const { canEdit } = useSubscriptionGuard();
+    const { canEdit, ensureActive } = useEnsureActive();
 
     const [isLoading, setIsLoading] = useState(true);
     const [allAttributes, setAllAttributes] = useState<V2ProductAttributeDefinition[]>([]);
-    const [searchQuery, setSearchQuery] = useState("");
 
     const [isCreateEditOpen, setIsCreateEditOpen] = useState(false);
     const [attributeToEdit, setAttributeToEdit] = useState<V2ProductAttributeDefinition | null>(null);
@@ -104,11 +104,11 @@ export function ProductsAttributesTab({ tenantId, vertical, createTrigger, canWr
     );
 
     const handleCreate = () => {
-        if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
+        if (!ensureActive()) return;
         setAttributeToEdit(null); setIsCreateEditOpen(true);
     };
     const handleEdit = (attr: V2ProductAttributeDefinition) => {
-        if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
+        if (!ensureActive()) return;
         setAttributeToEdit(attr); setIsCreateEditOpen(true);
     };
     const handleDelete = (attr: V2ProductAttributeDefinition) => { setAttributeToDelete(attr); setIsDeleteOpen(true); };
@@ -217,16 +217,6 @@ export function ProductsAttributesTab({ tenantId, vertical, createTrigger, canWr
             <Text variant="body-sm" colorVariant="muted" className={styles.description}>
                 {verticalConfig.copy.productAttributes.introDescription}
             </Text>
-
-            <div className={styles.filterBar}>
-                <FilterBar
-                    search={{
-                        value: searchQuery,
-                        onChange: setSearchQuery,
-                        placeholder: "Cerca per nome o codice..."
-                    }}
-                />
-            </div>
 
             {platformAttrs.length > 0 && (
                 <div className={styles.platformSection}>

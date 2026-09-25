@@ -9,6 +9,11 @@
 }
 
 .content {
+  // I chip di qualità sopra l'elenco, a 16 dal contenuto.
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+
   // Bounded flex-chain (per far propagare l'altezza reale al probe di
   // useAutoPageSize in DataTable) SOLO in list mode. Grid mode resta
   // block/non-bounded: la pagina scrolla attraverso MainLayout `.content`
@@ -17,8 +22,6 @@
   &[data-view-mode="list"] {
     flex: 1 1 auto;
     min-height: 0;
-    display: flex;
-    flex-direction: column;
   }
 }
 
@@ -28,21 +31,6 @@
 .toolbarCta {
   box-sizing: border-box;
   height: var(--control-height, 38px);
-}
-
-/* Filtro mancanze: larghezza fissa perché l'etichetta cambia col conteggio
-   ("Senza prezzo (7)" → "(120)") e un controllo che si allarga da solo
-   sposterebbe CTA e toggle vista a ogni ricarica. Stesso trattamento dei
-   select in toolbar di Recensioni. */
-.toolbarIssueFilter {
-  width: 190px;
-  flex: 0 0 auto;
-}
-
-.toolbarSelectInner {
-  box-sizing: border-box;
-  height: var(--control-height, 38px);
-  line-height: 1;
 }
 
 .loadingState,

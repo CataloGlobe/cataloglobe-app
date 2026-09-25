@@ -13,7 +13,7 @@ import {
 import { ProductGroupCreateEditDrawer, GroupFormMode } from "./ProductGroupCreateEditDrawer";
 import { ProductGroupDeleteDrawer } from "./ProductGroupDeleteDrawer";
 import { useToast } from "@/context/Toast/ToastContext";
-import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
+import { useEnsureActive } from "@/pages/Dashboard/Products/hooks/useEnsureActive";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import { useBulkDelete } from "@/pages/Dashboard/Products/hooks/useBulkDelete";
 
@@ -72,7 +72,7 @@ export default function ProductGroupsTab({
     canWrite
 }: ProductGroupsTabProps) {
     const { showToast } = useToast();
-    const { canEdit } = useSubscriptionGuard();
+    const { ensureActive } = useEnsureActive();
 
     const [isLoading, setIsLoading] = useState(true);
     const [allGroups, setAllGroups] = useState<ProductGroupWithCount[]>([]);
@@ -134,7 +134,7 @@ export default function ProductGroupsTab({
     const allGroupIds = useMemo(() => allGroups.map(g => g.id), [allGroups]);
 
     const handleEdit = (group: ProductGroupWithCount) => {
-        if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
+        if (!ensureActive()) return;
         setCreateEditMode("edit");
         setGroupToEdit(group);
         setIsCreateEditOpen(true);
@@ -146,7 +146,7 @@ export default function ProductGroupsTab({
     };
 
     const handleCreateSubgroup = (parentGroup: ProductGroupWithCount) => {
-        if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
+        if (!ensureActive()) return;
         setCreateEditMode("create");
         setGroupToEdit(null);
         setDefaultParentId(parentGroup.id);

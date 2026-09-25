@@ -10,19 +10,18 @@ import {
     useFilteredProductTabs,
     type ProductTabDef
 } from "@/hooks/useFilteredProductTabs";
-import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
+import { useEnsureActive } from "./hooks/useEnsureActive";
 import { usePermissions } from "@/context/PermissionsContext";
 import { canDoOnTenant } from "@/lib/permissions";
 import { PageGate } from "@/components/PageGate/PageGate";
 import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
-import { Select } from "@/components/ui/Select/Select";
+import { ChipGroupSingle } from "@/components/ui/Chip/ChipGroup";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { Badge } from "@/components/ui/Badge/Badge";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
-import { SplitButton, type SplitButtonAction } from "@/components/ui/SplitButton";
-import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
+import type { PageHeaderAction, PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { IconChevronDown, IconChevronRight } from "@tabler/icons-react";
 import { Package, LayoutGrid, List as ListIcon } from "lucide-react";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
@@ -90,7 +89,7 @@ export default function Products() {
     // dentro una frase → stessa minuscola già usata da `catalogLower` in
     // Catalogs.tsx. Le card in griglia rileggono l'hook per conto loro.
     const outOfCatalogLabel = `Fuori ${verticalConfig.catalogLabel.toLowerCase()}`;
-    const { canEdit } = useSubscriptionGuard();
+    const { canEdit, ensureActive } = useEnsureActive();
     const { permissions } = usePermissions();
     const canWriteProduct = permissions != null ? canDoOnTenant(permissions, "products.write") : false;
     const canWriteAttribute = permissions != null ? canDoOnTenant(permissions, "attributes.write") : false;
@@ -104,7 +103,7 @@ export default function Products() {
     const allTabs = useMemo<ProductTabDef<ProductsTab>[]>(
         () => [
             { value: "products", label: verticalConfig.productLabelPlural },
-            { value: "groups", label: "Gruppi Prodotti" },
+            { value: "groups", label: "Gruppi" },
             {
                 value: "attributes",
                 label: verticalConfig.copy.productSections.customAttributes,
@@ -135,6 +134,7 @@ export default function Products() {
     const [issueFilter, setIssueFilter] = useState<IssueFilter>("all");
     const [groupsSearchQuery, setGroupsSearchQuery] = useState("");
     const [ingredientsSearchQuery, setIngredientsSearchQuery] = useState("");
+    const [attributesSearchQuery, setAttributesSearchQuery] = useState("");
     const [viewMode, setViewMode] = useState<"list" | "grid">(() => {
         const saved = localStorage.getItem("products_view_mode");
         return (saved === "list" || saved === "grid") ? saved : "grid";
@@ -263,27 +263,28 @@ export default function Products() {
         return { missingPrice, outOfCatalog };
     }, [allProducts, productIssues]);
 
-    const hasIssues = issueCounts.missingPrice > 0 || issueCounts.outOfCatalog > 0;
-
-    // Il conteggio vive nell'etichetta dell'opzione: `Select` incapsula una
-    // <select> nativa, dove l'unico contenuto ammesso è testo. Un'opzione a
-    // zero resta elencata ma disabilitata — sparire cambierebbe le voci del
-    // menu mentre si lavora, e sceglierla porterebbe a una lista vuota.
+    // Tre chip sempre a vista (§25.3): un difetto non si cerca in un menu a
+    // tendina. A zero il chip resta nella fila, spento: sparire cambierebbe
+    // la fila mentre si lavora, e sceglierlo porterebbe a un elenco vuoto.
     const issueFilterOptions = useMemo(
         () => [
-            { value: "all", label: "Tutti i prodotti" },
+            { value: "all" as const, label: "Tutti", count: allProducts.length },
             {
-                value: "missing-price",
-                label: `Senza prezzo (${issueCounts.missingPrice})`,
-                disabled: issueCounts.missingPrice === 0
+                value: "missing-price" as const,
+                label: "Senza prezzo",
+                count: issueCounts.missingPrice,
+                disabled: issueCounts.missingPrice === 0 && issueFilter !== "missing-price",
+                tone: issueCounts.missingPrice > 0 ? ("warning" as const) : undefined
             },
             {
-                value: "out-of-catalog",
-                label: `${outOfCatalogLabel} (${issueCounts.outOfCatalog})`,
-                disabled: issueCounts.outOfCatalog === 0
+                value: "out-of-catalog" as const,
+                label: outOfCatalogLabel,
+                count: issueCounts.outOfCatalog,
+                disabled: issueCounts.outOfCatalog === 0 && issueFilter !== "out-of-catalog",
+                tone: issueCounts.outOfCatalog > 0 ? ("warning" as const) : undefined
             }
         ],
-        [issueCounts, outOfCatalogLabel]
+        [allProducts.length, issueCounts, issueFilter, outOfCatalogLabel]
     );
 
     const tableRows = useMemo<ProductTableRow[]>(() => {
@@ -336,12 +337,12 @@ export default function Products() {
 
     // Handlers
     const handleCreateBase = useCallback(() => {
-        if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
+        if (!ensureActive()) return;
         setCreateEditMode("create_base");
         setProductToEdit(null);
         setParentForVariant(null);
         setIsCreateEditOpen(true);
-    }, [canEdit, showToast]);
+    }, [ensureActive]);
 
     const handleTabChange = useCallback((val: ProductsTab) => {
         setActiveTab(val);
@@ -369,125 +370,81 @@ export default function Products() {
         </Tabs>
     ), [activeTab, handleTabChange, visibleTabs]);
 
-    // Una sola azione per tab: lo `SplitButton` rende quindi un normale bottone
-    // primario, senza caret. Stesso componente delle pagine con più azioni —
-    // nessuna variante per pagina. La lista è condivisa con la config compatta.
-    const ctaActions = useMemo<SplitButtonAction[]>(
+    // Una sola azione per collezione, dichiarata a dati una volta e letta sia
+    // dalla testata comoda sia da quella compatta (come Sedi).
+    const ctaAction = useMemo<PageHeaderAction | undefined>(
         () =>
             activeTab === "products" && canWriteProduct
-                ? [{ label: `Crea ${verticalConfig.productLabel.toLowerCase()}`, onClick: handleCreateBase, disabled: !canEdit }]
+                ? { label: `Crea ${verticalConfig.productLabel.toLowerCase()}`, onClick: handleCreateBase, disabled: !canEdit }
                 : activeTab === "groups" && canWriteProduct
-                ? [{ label: "Crea gruppo", onClick: () => setCreateGroupOpen(true), disabled: !canEdit }]
+                ? { label: "Crea gruppo", onClick: () => setCreateGroupOpen(true), disabled: !canEdit }
                 : activeTab === "attributes" && canWriteAttribute
-                ? [{ label: "Nuovo attributo", onClick: () => setAttrCreateSeq(s => s + 1), disabled: !canEdit }]
+                ? { label: "Nuovo attributo", onClick: () => setAttrCreateSeq(n => n + 1), disabled: !canEdit }
                 : activeTab === "ingredients" && verticalConfig.productSections.ingredients && canWriteProduct
-                ? [{ label: "Crea ingrediente", onClick: () => setIngredientCreateSeq(s => s + 1), disabled: !canEdit }]
-                : [],
+                ? { label: "Crea ingrediente", onClick: () => setIngredientCreateSeq(n => n + 1), disabled: !canEdit }
+                : undefined,
         [activeTab, canWriteProduct, canWriteAttribute, canEdit, verticalConfig, handleCreateBase]
     );
 
-    const headerActions = useMemo(() => {
-        const cta = ctaActions.length > 0 ? <SplitButton actions={ctaActions} /> : null;
-
-        if (activeTab === "groups") {
-            return (
-                <>
-                    <ToolbarSearch
-                        value={groupsSearchQuery}
-                        onChange={setGroupsSearchQuery}
-                        placeholder="Cerca gruppo..."
-                    />
-                    {cta}
-                </>
-            );
-        }
-
-        if (activeTab === "ingredients") {
-            return (
-                <>
-                    <ToolbarSearch
-                        value={ingredientsSearchQuery}
-                        onChange={setIngredientsSearchQuery}
-                        placeholder="Cerca ingrediente..."
-                    />
-                    {cta}
-                </>
-            );
-        }
-
-        if (activeTab !== "products") return cta;
-
-        return (
-            <>
-                <ToolbarSearch
-                    value={searchQuery}
-                    onChange={setSearchQuery}
-                    placeholder={`Cerca ${verticalConfig.productLabel.toLowerCase()} o variante...`}
-                />
-                {/* Compare solo se c'è davvero qualcosa da filtrare: a catalogo
-                    completo sarebbe un controllo con due opzioni a zero, cioè
-                    due vicoli ciechi. Resta visibile da attivo per poterlo
-                    riportare a "Tutti". */}
-                {(hasIssues || issueFilter !== "all") && (
-                    <Select
-                        aria-label="Filtra per stato del prodotto"
-                        value={issueFilter}
-                        onChange={e => setIssueFilter(e.target.value as IssueFilter)}
-                        options={issueFilterOptions}
-                        containerClassName={styles.toolbarIssueFilter}
-                        selectClassName={styles.toolbarSelectInner}
-                    />
-                )}
-                <SegmentedControl<"list" | "grid">
-                    iconsOnly
-                    value={viewMode}
-                    onChange={handleViewChange}
-                    options={[
-                        { value: "grid", icon: <LayoutGrid size={16} />, label: "Vista griglia" },
-                        { value: "list", icon: <ListIcon size={16} />, label: "Vista lista" }
-                    ]}
-                />
-                {cta}
-            </>
-        );
-    }, [
-        activeTab,
-        ctaActions,
-        verticalConfig,
-        searchQuery,
-        groupsSearchQuery,
-        ingredientsSearchQuery,
-        issueFilter,
-        issueFilterOptions,
-        hasIssues,
-        viewMode,
-        handleViewChange
-    ]);
-
-    // Versione a dati della stessa toolbar per lo stato compatto. Il filtro
-    // "mancanze" (tab Prodotti) non ha posto in questa riga: resta disponibile
-    // in comoda — annotato per il rollout successivo, non inventato qui.
-    const headerCompact = useMemo<PageHeaderCompactConfig>(() => {
-        const search =
-            activeTab === "products"
-                ? {
-                      value: searchQuery,
-                      onChange: setSearchQuery,
-                      placeholder: `Cerca ${verticalConfig.productLabel.toLowerCase()} o variante...`
-                  }
-                : activeTab === "groups"
+    // La ricerca della collezione aperta: una sola `ToolbarSearch` in testata.
+    const collectionSearch = useMemo(
+        () =>
+            activeTab === "groups"
                 ? { value: groupsSearchQuery, onChange: setGroupsSearchQuery, placeholder: "Cerca gruppo..." }
                 : activeTab === "ingredients"
                 ? { value: ingredientsSearchQuery, onChange: setIngredientsSearchQuery, placeholder: "Cerca ingrediente..." }
-                : undefined;
+                : activeTab === "attributes"
+                ? { value: attributesSearchQuery, onChange: setAttributesSearchQuery, placeholder: "Cerca per nome o codice..." }
+                : {
+                      value: searchQuery,
+                      onChange: setSearchQuery,
+                      placeholder: `Cerca ${verticalConfig.productLabel.toLowerCase()} o variante...`
+                  },
+        [activeTab, groupsSearchQuery, ingredientsSearchQuery, attributesSearchQuery, searchQuery, verticalConfig]
+    );
 
-        return {
+    const headerActions = useMemo(
+        () => (
+            <>
+                <ToolbarSearch
+                    value={collectionSearch.value}
+                    onChange={collectionSearch.onChange}
+                    placeholder={collectionSearch.placeholder}
+                />
+                {activeTab === "products" && (
+                    <SegmentedControl<"list" | "grid">
+                        iconsOnly
+                        value={viewMode}
+                        onChange={handleViewChange}
+                        options={[
+                            { value: "grid", icon: <LayoutGrid size={16} />, label: "Vista griglia" },
+                            { value: "list", icon: <ListIcon size={16} />, label: "Vista lista" }
+                        ]}
+                    />
+                )}
+                {ctaAction && (
+                    <Button
+                        variant="primary"
+                        disabled={ctaAction.disabled}
+                        onClick={ctaAction.onClick}
+                        className={styles.toolbarCta}
+                    >
+                        {ctaAction.label}
+                    </Button>
+                )}
+            </>
+        ),
+        [activeTab, collectionSearch, viewMode, handleViewChange, ctaAction]
+    );
+
+    // Versione a dati della stessa toolbar per lo stato compatto.
+    const headerCompact = useMemo<PageHeaderCompactConfig>(
+        () => ({
             sections: visibleTabs.map(tab => ({ value: tab.value, label: tab.label })),
             activeSection: activeTab,
             onSectionChange: value => handleTabChange(value as ProductsTab),
-            search,
-            // Il toggle vista esiste solo sulla tab Prodotti, e lì resta sempre
-            // a vista: è troppo frequente per finire dietro un tap in più.
+            search: collectionSearch,
+            // Il toggle vista esiste solo sui prodotti, e lì resta a vista.
             persistentIcons:
                 activeTab === "products"
                     ? [
@@ -496,25 +453,15 @@ export default function Products() {
                               : { icon: <ListIcon size={18} />, label: "Vista lista", onClick: () => handleViewChange("list") }
                       ]
                     : undefined,
-            primaryAction: ctaActions[0]
-        };
-    }, [
-        activeTab,
-        visibleTabs,
-        handleTabChange,
-        searchQuery,
-        groupsSearchQuery,
-        ingredientsSearchQuery,
-        verticalConfig,
-        viewMode,
-        handleViewChange,
-        ctaActions
-    ]);
+            primaryAction: ctaAction
+        }),
+        [activeTab, visibleTabs, handleTabChange, collectionSearch, viewMode, handleViewChange, ctaAction]
+    );
 
     usePageHeader({ leading, actions: headerActions, compact: headerCompact });
 
     const handleCreateVariant = (baseProduct: V2Product) => {
-        if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
+        if (!ensureActive()) return;
         setCreateEditMode("create_variant");
         setProductToEdit(null);
         setParentForVariant(baseProduct);
@@ -528,7 +475,7 @@ export default function Products() {
     };
 
     const handleEdit = (product: V2Product) => {
-        if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
+        if (!ensureActive()) return;
         setCreateEditMode("edit");
         setProductToEdit(product);
         setParentForVariant(null);
@@ -536,7 +483,7 @@ export default function Products() {
     };
 
     const handleDuplicate = async (product: V2Product) => {
-        if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
+        if (!ensureActive()) return;
         try {
             await duplicateProduct(product.id, currentTenantId!);
             showToast({ message: "Prodotto duplicato con successo.", type: "success" });
@@ -725,6 +672,16 @@ export default function Products() {
             {activeTab === "products" && (
                 <>
                     <div className={styles.content} data-view-mode={viewMode}>
+                        {!isLoading && allProducts.length > 0 && (
+                            <ChipGroupSingle<IssueFilter>
+                                ariaLabel="Filtra per qualità del dato"
+                                layout="auto"
+                                shape="pill"
+                                options={issueFilterOptions}
+                                value={issueFilter}
+                                onChange={setIssueFilter}
+                            />
+                        )}
                         {isLoading ? (
                             <div className={styles.loadingState}>
                                 <Text variant="body-sm" colorVariant="muted">
@@ -847,6 +804,7 @@ export default function Products() {
                     tenantId={currentTenantId ?? undefined}
                     vertical={selectedTenant?.vertical_type}
                     createTrigger={attrCreateSeq}
+                    searchQuery={attributesSearchQuery}
                     canWrite={canWriteAttribute}
                 />
             )}
