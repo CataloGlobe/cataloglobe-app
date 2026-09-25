@@ -156,7 +156,8 @@
 }
 
 .problem {
-    margin: 10px 0 0;
+    // Il margine sotto tiene staccato il riquadro quando il foglietto si stringe (1024-1280).
+    margin: 10px 0 14px;
     font-size: 14px;
     line-height: 1.4;
     font-style: italic;
