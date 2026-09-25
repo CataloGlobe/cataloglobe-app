@@ -1,281 +1,135 @@
-// Layout 1 colonna (a differenza di SchedaTab che è 2-col).
+// Tab «Prezzi & Opzioni» (lotto Prodotti P7): tre Card; qui solo layout.
+// Via le pillole rifatte a mano (SegmentedControl), il prezzo a 28px (Text),
+// il riquadro info (InlineBanner).
+
 .grid {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
 }
 
-.placeholder {
-    padding: 32px 20px;
-    text-align: center;
-    color: var(--text-muted, #94a3b8);
-    font-size: 13px;
-    background: var(--bg);
-    border-radius: 8px;
-    font-style: italic;
-}
-
-// ── Prezzo — toggle Unico ⇄ Per formato ─────────────────────────────
 .priceSection {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
 }
 
-.priceModeToggle {
-    display: inline-flex;
-    gap: 8px;
+.fitContent {
+  width: fit-content;
+  max-width: 100%;
 }
 
-.priceModeOption {
-    padding: 6px 14px;
-    font-size: 13px;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    cursor: pointer;
-    color: var(--text, #0f172a);
-
-    &:disabled {
-        cursor: default;
-    }
-}
-
-.priceModeOptionActive {
-    @extend .priceModeOption;
-    border-color: var(--brand-primary, #6366f1);
-    color: var(--brand-primary, #6366f1);
-    font-weight: 600;
-}
-
-// ── Prezzo — modalità "Prezzo unico" ────────────────────────────────
-.singleMode {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    padding-top: 4px;
-}
-
-.priceDisplay {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    flex-wrap: wrap;
-}
-
-.priceValue {
-    font-size: 28px;
-    font-weight: 600;
-    color: var(--text, #0f172a);
-}
-
-.priceCurrency {
-    font-size: 18px;
-    color: var(--text-muted, #64748b);
-}
-
+.priceDisplay,
 .priceEditRow {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-8) var(--space-12);
 }
 
-// ── Prezzo — assente, empty state onesto (non un trattino) ──────────
-.priceEmpty {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    min-height: 56px;
-    justify-content: center;
-}
-
-.priceEmptyRow {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-}
-
-.priceEmptyHint {
-    font-size: 12px;
-}
-
-// ── Prezzo — modalità "Prezzo per formato" ──────────────────────────
 .formatMode {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    padding-top: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
 }
 
-// ── Prezzo — variante che eredita dal padre ──────────────────────────
 .inheritMode {
-    padding: 12px;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    margin-top: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  padding: var(--space-12);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-inner);
+  background: var(--bg);
 }
 
-// ── Configurazioni ───────────────────────────────────────────────────
-.configInfoBox {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    padding: 10px 12px;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    margin-bottom: 4px;
-}
-
-.configInfoSecondary {
-    font-size: 12px;
+.configBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
 }
 
 .optionGroupsList {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+}
+
+.createGroupForm,
+.groupCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding: var(--space-12);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-inner);
+  background: var(--bg);
 }
 
 .createGroupForm {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    padding: 12px;
-    background: var(--bg);
-    border: 1px dashed var(--border);
-    border-radius: 8px;
-}
-
-.groupCard {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    padding: 12px;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 8px;
+  border-style: dashed;
 }
 
 .groupHeader {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-12);
 }
 
 .groupMeta {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-8);
 }
 
 .groupEditForm {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
 }
 
-// Riga azioni Salva/Annulla e Crea/Annulla nei form (gruppo, valore inline).
 .formatActions {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    justify-content: flex-end;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-4);
 }
 
-// Blocco etichetta + controllo dentro i form gruppo (es. "Il cliente può
-// scegliere più opzioni?" + pillToggle).
 .formSection {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
 }
 
-// ── ChoiceRulesEditor — regole di scelta a progressive disclosure ───
 .rulesCollapsed {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    align-items: flex-start;
-}
-
-.rulesExpandLink {
-    background: none;
-    border: none;
-    padding: 0;
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--brand-primary, #6366f1);
-    cursor: pointer;
-
-    &:disabled {
-        cursor: not-allowed;
-        opacity: 0.6;
-    }
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-4);
 }
 
 .rulesExpanded {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    padding: 10px 12px;
-    background: var(--card-bg, #ffffff);
-    border: 1px solid var(--border);
-    border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  min-inline-size: 0;
+  margin: 0;
+  padding: var(--space-10) var(--space-12);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-inner);
+  background: var(--surface);
 }
 
-.pillToggle {
-    display: inline-flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 8px;
+.rulesRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-8);
 }
 
-// Stessa altezza canonica dei controlli di riga (var(--control-height,
-// 38px)) — prima erano dimensionate solo dal padding verticale del testo,
-// più basse degli input accanto.
-.pillOption {
-    display: inline-flex;
-    align-items: center;
-    height: var(--control-height, 38px);
-    padding: 0 14px;
-    box-sizing: border-box;
-    font-size: 13px;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    cursor: pointer;
-    color: var(--text, #0f172a);
-}
-
-.pillOptionActive {
-    @extend .pillOption;
-    border-color: var(--brand-primary, #6366f1);
-    color: var(--brand-primary, #6366f1);
-    font-weight: 600;
-}
-
-.pillHint {
-    font-weight: 400;
-    color: var(--text-muted, #64748b);
-}
-
-// "Fino a quante?" — niente label visibile (aria-label), il campo entra
-// sulla stessa riga delle pill invece di andare a capo sotto.
 .quantityN {
-    width: 130px;
-    flex: 0 0 auto;
-}
-
-.controlInput {
-    height: var(--control-height, 38px);
-    box-sizing: border-box;
+  flex: 0 0 auto;
+  width: 130px;
 }

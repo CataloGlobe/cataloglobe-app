@@ -340,7 +340,6 @@ export default function ProductPage() {
                     onRefreshOptions={loadOptions}
                     onProductUpdated={updated => setProduct(updated)}
                     onOpenVariantDrawer={() => setIsVariantDrawerOpen(true)}
-                    onVariantUpdated={loadProduct}
                 />
             )}
             {activeTab === "attributes" && verticalConfig.productSections.customAttributes && (

@@ -605,6 +605,33 @@ test.describe("Prodotti — dettaglio", () => {
         }
     });
 
+    test("prezzi: modalità su SegmentedControl, formato eliminato solo dopo conferma", async ({ page }) => {
+        stub.onWrite("product_option_values.DELETE", () => null);
+        await openProduct(page, PRODUCT.patatine, "prezzi-opzioni");
+        await expect(main(page).getByText(/ogni modifica si salva subito/)).toBeVisible({ timeout: 15_000 });
+        await expect(main(page).getByRole("radio", { name: "Prezzo per formato" })).toHaveAttribute("aria-checked", "true");
+        await expect(main(page).getByText("€ 2,50", { exact: true })).toBeVisible();
+        await expect(main(page).getByText("Nel menù si legge da € 2,50.")).toBeVisible();
+
+        await actionsOf(main(page).getByText("Grandi", { exact: true })).click();
+        await page.getByRole("menuitem", { name: "Elimina" }).click();
+        const confirm = page.getByRole("alertdialog");
+        await expect(confirm).toContainText("Eliminare «Grandi»?");
+        expect(stub.writes.filter(w => w.key === "product_option_values.DELETE")).toHaveLength(0);
+        await confirm.getByRole("button", { name: "Elimina" }).click();
+        await expect.poll(() => write(stub, "product_option_values.DELETE")?.params.get("id")).toBeTruthy();
+    });
+
+    test("variante: «Usa il prezzo del padre» chiede conferma e azzera il prezzo", async ({ page }) => {
+        stub.onWrite("products.PATCH", call => [{ ...stub.tables.products.find(p => p.id === PRODUCT.cocaLight), ...(call.body as object) }]);
+        await openProduct(page, PRODUCT.cocaLight, "prezzi-opzioni");
+        await expect(main(page).getByText("€ 2,70")).toBeVisible({ timeout: 15_000 });
+        await main(page).getByRole("button", { name: "Usa il prezzo del padre" }).click();
+        await expect(page.getByRole("alertdialog")).toContainText("Il prezzo della variante (€ 2,70) si cancella.");
+        await page.getByRole("alertdialog").getByRole("button", { name: "Usa il prezzo del padre" }).click();
+        await expect.poll(() => write(stub, "products.PATCH")?.body).toMatchObject({ base_price: null });
+    });
+
     test("redirect legacy ?tab=pricing", async ({ page }) => {
         await openProduct(page, PRODUCT.hamburger, "pricing");
         await expect(page.getByRole("tab", { name: "Prezzi & Opzioni" })).toHaveAttribute("aria-selected", "true", { timeout: 15_000 });
