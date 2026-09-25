@@ -8,8 +8,7 @@
 .fallback {
     @include ld-tokens;
 
-    min-height: 100vh;
-    min-height: 100dvh;
+    min-height: 100svh;
     box-sizing: border-box;
     padding: 10px;
     background: var(--ld-white);
@@ -19,13 +18,20 @@
     }
 }
 
+// Stesse misure del pannello vero (Hero.module.scss), solo CSS:
+// - desktop: la stessa formula del pannello, identica dal primo paint;
+// - mobile: il pannello vero è alto quanto il contenuto (≈ 790–860 px), quindi
+//   il segnaposto arriva al fondo dello schermo: sui telefoni fino a 390×844
+//   il pannello vero lo copre o lo supera, e il bordo inferiore cambia solo
+//   fuori schermo.
 .page {
-    height: 620px;
+    height: calc(100svh - 10px);
     border-radius: 24px;
     background: linear-gradient(160deg, var(--ld-hero-a) 0%, var(--ld-hero-b) 55%, var(--ld-scuro) 100%);
 
     @include desktop {
-        height: 560px;
+        height: auto;
+        min-height: min(calc(100svh - 32px), 1000px);
         border-radius: 30px;
     }
 }

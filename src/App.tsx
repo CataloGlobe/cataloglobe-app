@@ -30,6 +30,7 @@ import ResetPassword from "./pages/Auth/ResetPassword";
 import TableEntryPage from "./pages/TableEntryPage/TableEntryPage";
 import Home from "./pages/Home/Home";
 import LandingFallback from "@pages/CampaignLanding/LandingFallback";
+import { loadCampaignLanding, preloadCampaignLandingIfLanding } from "@pages/CampaignLanding/preload";
 import NotFound from "./pages/NotFound/NotFound";
 import InvitePage from "./pages/Invite/InvitePage";
 import PrivacyPolicyPage from "./pages/Legal/PrivacyPolicyPage";
@@ -95,7 +96,9 @@ const SubscriptionPage = lazy(() => import("./pages/Business/SubscriptionPage"))
 
 // Landing di campagna (in costruzione): route di sviluppo /landing-dev, attiva
 // anche in produzione. Lo swap su / e /b arriva quando la pagina è completa.
-const CampaignLandingPage = lazy(() => import("@pages/CampaignLanding"));
+// Chunk e font partono al caricamento del modulo, prima che React monti la route.
+preloadCampaignLandingIfLanding();
+const CampaignLandingPage = lazy(loadCampaignLanding);
 
 // Galleria dei componenti — solo sviluppo. Il ternario su import.meta.env.DEV
 // è statico al build: in produzione l'import() sparisce e il chunk non esiste.
