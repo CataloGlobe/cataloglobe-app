@@ -1,177 +1,472 @@
 @use "@pages/CampaignLanding/styles/mixins" as *;
 
-// Tinte del gradiente segnaposto (consegna §5.7): gli hex sono token
-// --ld-hero-*; le trasparenze restano qui perché descrivono l'overlay sulla
-// "foto", non la palette.
-$amber-hi: rgba(196, 142, 86, 0.55);
-$amber-lo: rgba(120, 84, 60, 0.18);
-
+// ── Sezione e pannello ──────────────────────────────────────────────────────
 .hero {
-    padding: 10px 10px 40px;
-    background: var(--ld-paper);
+    padding: 10px;
+    background: var(--ld-white);
 
     @include desktop {
-        padding: 14px 14px 0;
+        padding: 16px;
     }
 }
 
 .panel {
     position: relative;
+    overflow: hidden;
+    border-radius: 24px;
+    padding: 18px 20px 30px;
+    background: linear-gradient(160deg, var(--ld-hero-a) 0%, var(--ld-hero-b) 55%, var(--ld-scuro) 100%);
+    color: var(--ld-on-azione);
+    // Il 3D della scheda resta dentro il pannello.
     isolation: isolate;
-    border-radius: var(--ld-r-hero);
-    padding: 74px 20px 60px;
-    background-color: var(--ld-hero-base);
-    background-image:
-        radial-gradient(120% 90% at 78% 18%, $amber-hi 0%, $amber-lo 42%, transparent 70%),
-        linear-gradient(118deg, var(--ld-hero-a) 0%, var(--ld-hero-b) 46%, var(--ld-hero-c) 100%);
-
-    // Velo scuro sopra il fondo: leggibilità del testo bianco.
-    &::before {
-        content: "";
-        position: absolute;
-        inset: 0;
-        z-index: 0;
-        border-radius: inherit;
-        background: linear-gradient(
-            180deg,
-            rgba(18, 16, 32, 0.72) 0%,
-            rgba(18, 16, 32, 0.6) 45%,
-            rgba(18, 16, 32, 0.88) 100%
-        );
-    }
 
     @include desktop {
-        display: flex;
-        align-items: center;
-        gap: 56px;
-        padding: 104px 56px 88px;
-
-        &::before {
-            background: linear-gradient(
-                95deg,
-                rgba(18, 16, 32, 0.9) 0%,
-                rgba(18, 16, 32, 0.78) 38%,
-                rgba(18, 16, 32, 0.28) 72%,
-                rgba(18, 16, 32, 0.1) 100%
-            );
-        }
+        border-radius: 30px;
+        padding: 28px 56px 80px;
     }
 }
 
-// Testo bianco sulla "foto": il tono scuro dà la parola evidenziata, qui
-// si schiariscono corpo e secondario. Selettore rinforzato per battere la
-// regola [data-tone="dark"] della radice.
-.hero .panel[data-tone="dark"] {
-    --ld-ink: var(--ld-on-azione);
-    --ld-body: rgba(255, 255, 255, 0.8);
-    --ld-muted: rgba(255, 255, 255, 0.58);
+// Bagliore per fascia: tre livelli sovrapposti, si muove solo l'opacità
+// (niente interpolazione di gradienti, vedi note WebKit su PublicSheet).
+.glow {
+    position: absolute;
+    inset: -80px;
+    pointer-events: none;
+    transition: transform 900ms var(--ld-ease);
 }
 
-.topbar {
+.glowLayer {
     position: absolute;
-    z-index: 6;
-    top: 18px;
-    left: 20px;
-    right: 20px;
+    inset: 0;
+    opacity: 0;
+    transition: opacity 1600ms ease;
+}
+
+.glowOn {
+    opacity: 1;
+}
+
+.glow0 {
+    background: radial-gradient(90% 70% at 85% 10%, rgba(233, 196, 106, 0.5) 0%, rgba(233, 196, 106, 0.1) 45%, rgba(0, 0, 0, 0) 72%);
+}
+
+.glow1 {
+    background: radial-gradient(90% 70% at 85% 10%, rgba(214, 116, 70, 0.58) 0%, rgba(168, 70, 31, 0.16) 45%, rgba(0, 0, 0, 0) 72%);
+}
+
+.glow2 {
+    background: radial-gradient(90% 70% at 85% 10%, rgba(110, 112, 216, 0.55) 0%, rgba(70, 72, 198, 0.16) 45%, rgba(0, 0, 0, 0) 72%);
+}
+
+// Alone che segue il cursore: posizione via transform (scritta in rAF).
+.spot {
+    position: absolute;
+    left: -120px;
+    top: -120px;
+    width: 240px;
+    height: 240px;
+    border-radius: 50%;
+    pointer-events: none;
+    opacity: 0;
+    background: radial-gradient(closest-side, rgba(185, 186, 246, 0.08), rgba(185, 186, 246, 0));
+    transition: opacity 500ms ease;
+
+    @include mobile-only {
+        display: none;
+    }
+}
+
+// ── Testata mobile (logo + Accedi): scorre via con l'hero ───────────────────
+.mobileTop {
+    position: relative;
+    z-index: 2;
     display: flex;
+    // Alta quanto la riga del logo: il bordo di «Accedi» sborda, come in tavola.
+    height: 28px;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
 
     @include desktop {
-        top: 24px;
-        left: 34px;
-        right: 34px;
+        display: none;
     }
 }
 
-.brand {
-    height: 22px;
-    filter: drop-shadow(0 2px 12px rgba(0, 0, 0, 0.35));
-
-    @include desktop {
-        height: 26px;
-    }
+// Wordmark all'altezza del testo della tavola (20 px di Young Serif).
+.mobileTop .mobileLogo {
+    height: 19px;
 }
 
-// «Accedi»: link semplice, non una LandingCta (non cambia con la variante).
-.login {
-    padding: 9px 16px;
-    border-radius: var(--ld-r-pill);
-    background: rgba(255, 255, 255, 0.13);
-    border: 1px solid rgba(255, 255, 255, 0.3);
-    color: var(--ld-on-azione);
-    font-family: var(--ld-font-sans);
+.mobileLogin {
+    padding: 8px 16px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.28);
     font-size: 14px;
     font-weight: 600;
+    line-height: 1.2;
     text-decoration: none;
-    -webkit-backdrop-filter: blur(6px);
-    backdrop-filter: blur(6px);
+    -webkit-tap-highlight-color: transparent;
+    @include ld-focus;
 
-    &:focus-visible {
-        outline: 2px solid var(--ld-on-azione);
-        outline-offset: 3px;
+    &,
+    &:hover {
+        color: var(--ld-on-azione);
     }
+}
+
+// Desktop: la pillola è nella barra fissa, qui solo il suo spazio (54 px).
+.barSpace {
+    display: none;
 
     @include desktop {
-        padding: 10px 20px;
-        font-size: 15px;
+        display: block;
+        height: 54px;
+    }
+}
+
+// ── Griglia: testo | scheda ─────────────────────────────────────────────────
+.grid {
+    position: relative;
+    z-index: 2;
+    margin-top: 44px;
+
+    @include desktop {
+        display: grid;
+        grid-template-columns: 1.15fr 1fr;
+        gap: 64px;
+        align-items: center;
+        max-width: 1136px;
+        margin: 80px auto 0;
     }
 }
 
 .copy {
-    position: relative;
-    z-index: 2;
-
-    @include desktop {
-        flex: 1 1 0;
-        max-width: 540px;
-    }
+    transition: transform 900ms var(--ld-ease);
 }
 
 .eyebrow {
-    @include ld-eyebrow;
-    color: rgba(255, 255, 255, 0.62);
+    font-size: 12px;
+    font-weight: 600;
+    line-height: normal;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.58);
 }
 
 .title {
-    @include ld-display;
-    margin-top: 14px;
-    color: var(--ld-ink);
-}
-
-.lede {
-    @include ld-lede;
-    margin-top: 16px;
-    color: var(--ld-body);
-}
-
-.cta {
-    margin-top: 26px;
-}
-
-// ── carta menù: dentro il pannello da desktop, sotto su mobile ──
-.menuDesktop {
-    display: none;
+    @include ld-serif;
+    margin: 12px 0 0;
+    font-size: 38px;
+    line-height: 1.08;
+    color: var(--ld-on-azione);
+    text-wrap: balance;
 
     @include desktop {
-        position: relative;
-        z-index: 2;
-        display: block;
-        flex-shrink: 0;
-        // 420 a 1280 come nel canvas; si stringe fra 1024 e 1279 per lasciare
-        // al titolo la larghezza di «vendere per te.» su una riga.
-        width: clamp(340px, 33vw, 420px);
+        margin-top: 14px;
+        font-size: ld-fluid-desk(52, 62);
+        line-height: 1.06;
     }
 }
 
-.menuMobile {
-    position: relative;
-    z-index: 3;
-    margin-top: -10px;
-    padding-inline: 10px;
+.titleHl {
+    color: var(--ld-brand-hi);
+}
+
+.lede {
+    margin: 16px 0 0;
+    font-size: 17px;
+    line-height: 1.5;
+    color: rgba(255, 255, 255, 0.8);
 
     @include desktop {
-        display: none;
+        margin-top: 20px;
+        font-size: 20px;
+        line-height: 1.55;
+    }
+}
+
+.ctaRow {
+    margin-top: 24px;
+
+    @include desktop {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        margin-top: 30px;
+    }
+}
+
+.note {
+    margin: 11px 0 0;
+    font-size: 13px;
+    line-height: 1.5;
+    text-align: center;
+    color: rgba(255, 255, 255, 0.62);
+
+    @include desktop {
+        margin: 0;
+        font-size: 14px;
+        line-height: 1.45;
+        text-align: left;
+    }
+}
+
+// ── Scheda ──────────────────────────────────────────────────────────────────
+.cardCol {
+    margin-top: 32px;
+
+    @include desktop {
+        width: 100%;
+        max-width: 440px;
+        margin: 0 0 0 auto;
+        perspective: 1000px;
+    }
+}
+
+.cardTilt {
+    transition: transform 700ms var(--ld-ease);
+    transform-style: preserve-3d;
+}
+
+.card {
+    border-radius: 18px;
+    overflow: hidden;
+    background: var(--ld-white);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+    color: var(--ld-ink);
+}
+
+.bar {
+    // 42 px + il filetto, come in tavola.
+    height: 43px;
+    overflow: hidden;
+    border-bottom: 1px solid var(--ld-line-2);
+    transition: background-color 700ms ease;
+}
+
+.bar-clock {
+    background: var(--ld-hero-bar-clock);
+}
+
+.bar-tag {
+    background: var(--ld-hero-bar-tag);
+}
+
+.bar-ban {
+    background: var(--ld-hero-bar-ban);
+
+    .barIcon {
+        color: var(--ld-terra);
+    }
+}
+
+.barInner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 42px;
+    padding: 0 18px;
+    font-size: 13px;
+    white-space: nowrap;
+}
+
+.barIcon {
+    display: flex;
+    flex-shrink: 0;
+    color: var(--ld-azione);
+}
+
+.barTitle {
+    font-weight: 700;
+}
+
+.barSub {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--ld-muted);
+}
+
+.cardBody {
+    padding: 16px 18px 12px;
+}
+
+.menuHead {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.menuTitle {
+    @include ld-serif;
+    font-size: 21px;
+    color: var(--ld-ink);
+
+    @include desktop {
+        font-size: 22px;
+    }
+}
+
+.menuHours {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ld-muted);
+}
+
+.rows {
+    margin: 8px -10px 0;
+}
+
+.row {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 10px;
+    border-bottom: 1px solid var(--ld-line-2);
+
+    &:last-child {
+        border-bottom-color: transparent;
+    }
+}
+
+.rowName,
+.price {
+    font-size: 15px;
+    color: var(--ld-ink);
+    transition: color 500ms ease;
+
+    @include desktop {
+        font-size: 16px;
+    }
+}
+
+.price {
+    font-weight: 600;
+}
+
+.rowUp .price {
+    color: var(--ld-azione);
+}
+
+.rowOff .rowName {
+    color: var(--ld-off-ink);
+}
+
+.rowOff .price {
+    color: var(--ld-off-price);
+}
+
+.leader {
+    flex-grow: 1;
+    border-bottom: 2px dotted var(--ld-leader-hero);
+    transform: translateY(-4px);
+}
+
+.old {
+    font-size: 13px;
+    color: var(--ld-off-ink);
+    text-decoration: line-through;
+}
+
+.badge {
+    flex-shrink: 0;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--ld-peach);
+    color: var(--ld-terra);
+    font-size: 11px;
+    font-weight: 700;
+    line-height: normal;
+}
+
+// ── Animazioni ──────────────────────────────────────────────────────────────
+@include motion-ok {
+    // Ingresso al caricamento, una volta sola.
+    .in1,
+    .in2,
+    .in3,
+    .in4,
+    .in5 {
+        animation: ld-hero-rise 700ms var(--ld-ease) both;
+    }
+
+    .in1 {
+        animation-delay: 80ms;
+    }
+
+    .in2 {
+        animation-delay: 180ms;
+    }
+
+    .in3 {
+        animation-delay: 300ms;
+    }
+
+    .in4 {
+        animation-delay: 400ms;
+    }
+
+    .in5 {
+        animation-delay: 460ms;
+
+        @include desktop {
+            animation-delay: 400ms;
+        }
+    }
+
+    .cardIn {
+        animation: ld-hero-card 900ms var(--ld-ease) both;
+        animation-delay: 560ms;
+
+        @include desktop {
+            animation-delay: 520ms;
+        }
+    }
+
+    // Dentro la scheda: il momento nuovo e la fascia nuova rientrano dal basso.
+    .barInner {
+        animation: ld-hero-beat 480ms var(--ld-ease) both;
+    }
+
+    .menu {
+        animation: ld-hero-beat 520ms var(--ld-ease) both;
+    }
+
+    .badge,
+    .old {
+        animation: ld-hero-beat 420ms ease both;
+    }
+}
+
+@keyframes ld-hero-rise {
+    from {
+        opacity: 0;
+        transform: translateY(18px);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+@keyframes ld-hero-card {
+    from {
+        opacity: 0;
+        transform: translateY(28px) scale(0.96);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+@keyframes ld-hero-beat {
+    from {
+        opacity: 0;
+        transform: translateY(7px);
+    }
+    to {
+        opacity: 1;
+        transform: none;
     }
 }

@@ -1,7 +1,8 @@
 @use "sass:math";
 
 // Mobile-first, un solo breakpoint di layout. Fra 768 e 1023 vale il layout
-// mobile su colonna larga: scelta, non buco (il traffico è da smartphone).
+// mobile, su una colonna di al massimo --ld-mobile-max: il traffico è da
+// smartphone e le tavole mobile sono a 390.
 // @media sul viewport, non @container: la landing non vive in un device frame.
 $ld-bp-desktop: 1024px;
 
@@ -11,19 +12,35 @@ $ld-bp-desktop: 1024px;
     }
 }
 
-// Sotto i 390 del canvas (telefoni da 360) i titoli scalano con la
-// larghezza: la parola evidenziata non va a capo e deve starci su una riga.
-$ld-canvas-mobile: 390px;
-
-@mixin below-canvas {
-    @media (max-width: $ld-canvas-mobile - 1px) {
+@mixin mobile-only {
+    @media (max-width: $ld-bp-desktop - 1px) {
         @content;
     }
 }
 
-// Interpolazione lineare fra le due larghezze del canvas (390 e 1280).
-// Valori in px senza unità: ld-fluid(40, 64) → clamp(40px, …, 64px).
-@function ld-fluid($min, $max, $vmin: 390, $vmax: 1280) {
+// Cursore fine (mouse): effetti che hanno senso solo con un puntatore.
+@mixin fine-pointer {
+    @media (pointer: fine) and (min-width: $ld-bp-desktop) {
+        @content;
+    }
+}
+
+@mixin motion-ok {
+    @media (prefers-reduced-motion: no-preference) {
+        @content;
+    }
+}
+
+@mixin reduced-motion {
+    @media (prefers-reduced-motion: reduce) {
+        @content;
+    }
+}
+
+// Interpolazione fra 1024 e 1280 (tavole desktop): sotto i 1280 i valori
+// desktop si stringono fino al minimo, sopra restano quelli della tavola.
+// Valori in px senza unità: ld-fluid-desk(40, 80) → clamp(40px, …, 80px).
+@function ld-fluid-desk($min, $max, $vmin: 1024, $vmax: 1280) {
     $slope: math.div($max - $min, $vmax - $vmin);
     $intercept: $min - $slope * $vmin;
     $vw: math.div(math.round($slope * 100 * 10000), 10000);
@@ -31,68 +48,35 @@ $ld-canvas-mobile: 390px;
     @return clamp(#{$min}px, #{$px}px + #{$vw}vw, #{$max}px);
 }
 
-// ── Tipografia (scala normalizzata dal canvas) ──────────────────────────────
+// ── Tipografia ──────────────────────────────────────────────────────────────
 // Young Serif esiste solo a 400: mai chiedere 700 (il browser lo falserebbe).
 
-@mixin ld-display {
+@mixin ld-serif {
     font-family: var(--ld-font-serif);
     font-weight: 400;
-    font-size: ld-fluid(40, 64);
-    line-height: 1.08;
-    text-wrap: balance;
-
-    @include below-canvas {
-        font-size: 10.1vw;
-    }
 }
 
-@mixin ld-h2 {
-    font-family: var(--ld-font-serif);
-    font-weight: 400;
-    font-size: ld-fluid(30, 40);
-    line-height: 1.12;
-    text-wrap: balance;
-
-    @include below-canvas {
-        font-size: 7.6vw;
-    }
-}
-
-@mixin ld-lede {
+// Etichetta piccola maiuscola dei pannelli («Dal tuo telefono», «In cucina»…).
+@mixin ld-kicker {
     font-family: var(--ld-font-sans);
-    font-weight: 400;
-    font-size: ld-fluid(17, 20);
-    line-height: 1.55;
-}
-
-@mixin ld-body {
-    font-family: var(--ld-font-sans);
-    font-weight: 400;
-    font-size: ld-fluid(15, 16);
-    line-height: 1.5;
-}
-
-@mixin ld-small {
-    font-family: var(--ld-font-sans);
-    font-weight: 400;
-    font-size: 13px;
-    line-height: 1.45;
-}
-
-@mixin ld-eyebrow {
-    font-family: var(--ld-font-sans);
-    font-weight: 600;
-    font-size: 12px;
-    line-height: 1.4;
-    letter-spacing: 0.1em;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    line-height: 1.3;
     text-transform: uppercase;
 }
 
-@mixin ld-cta {
+// Pillola maiuscola: «Con CataloGlobe», «Piano Pro».
+@mixin ld-tag {
+    padding: 4px 11px;
+    border-radius: 999px;
     font-family: var(--ld-font-sans);
-    font-weight: 600;
-    font-size: 17px;
-    line-height: 1.2;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.3;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    white-space: nowrap;
 }
 
 // Testo solo per lettori di schermo.
@@ -108,27 +92,54 @@ $ld-canvas-mobile: 390px;
     border: 0;
 }
 
-// Etichetta piccola maiuscola dei pannelli («Lo vede il cliente», «La regola»…).
-@mixin ld-kicker {
-    font-family: var(--ld-font-sans);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.07em;
-    line-height: 1.3;
-    text-transform: uppercase;
+@mixin ld-reset-button {
+    appearance: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+}
+
+@mixin ld-focus {
+    &:focus-visible {
+        outline: 2px solid var(--ld-azione);
+        outline-offset: 3px;
+    }
 }
 
 // Locali demo: `[data-demo="<key>"]` espone --demo-* dai token --ld-demo-<key>-*.
-// Un solo mixin, così una card di altra sezione (Stili) può prendere la stessa veste.
 $ld-demo-keys: molo, pausa, velvet;
-$ld-demo-props: bg, text, muted, line, acc, c1, c2;
 
 @mixin ld-demo-scope {
-    @each $key in $ld-demo-keys {
-        [data-demo="#{$key}"] {
-            @each $prop in $ld-demo-props {
-                --demo-#{$prop}: var(--ld-demo-#{$key}-#{$prop});
-            }
-        }
+    [data-demo="molo"] {
+        --demo-bg: var(--ld-demo-molo-bg);
+        --demo-hero: linear-gradient(150deg, var(--ld-demo-molo-c1), var(--ld-demo-molo-bg));
+        --demo-ink: var(--ld-demo-molo-ink);
+        --demo-muted: var(--ld-demo-molo-muted);
+        --demo-line: var(--ld-demo-molo-line);
+        --demo-acc: var(--ld-demo-molo-acc);
+        --demo-acc-ink: var(--ld-demo-molo-acc-ink);
+    }
+    [data-demo="pausa"] {
+        --demo-bg: var(--ld-demo-pausa-bg);
+        --demo-hero: linear-gradient(150deg, var(--ld-demo-pausa-c1), var(--ld-demo-pausa-c2));
+        --demo-ink: var(--ld-demo-pausa-ink);
+        --demo-muted: var(--ld-demo-pausa-muted);
+        --demo-line: var(--ld-demo-pausa-line);
+        --demo-acc: var(--ld-demo-pausa-acc);
+        --demo-acc-ink: var(--ld-demo-pausa-acc-ink);
+    }
+    [data-demo="velvet"] {
+        --demo-bg: var(--ld-demo-velvet-bg);
+        --demo-hero: linear-gradient(150deg, var(--ld-demo-velvet-c1), var(--ld-demo-velvet-bg));
+        --demo-ink: var(--ld-demo-velvet-ink);
+        --demo-muted: var(--ld-demo-velvet-muted);
+        --demo-line: var(--ld-demo-velvet-line);
+        --demo-acc: var(--ld-demo-velvet-acc);
+        --demo-acc-ink: var(--ld-demo-velvet-acc-ink);
     }
 }

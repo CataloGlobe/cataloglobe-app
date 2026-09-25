@@ -1,30 +1,64 @@
+@use "@pages/CampaignLanding/styles/mixins" as *;
+
 .section {
+    position: relative;
     padding: var(--ld-sec-y) var(--ld-sec-x);
     // Rileggere il token nello scope della sezione: il `color` ereditato dalla
     // radice è già risolto e ignorerebbe il ridefinirsi del tono scuro.
-    color: var(--ld-body);
-}
-
-.paper {
-    background: var(--ld-paper);
+    color: var(--ld-ink);
 }
 
 .white {
-    background: var(--ld-paper-2);
+    background: var(--ld-white);
+}
+
+.lilla {
+    background: var(--ld-lilla);
 }
 
 .dark {
     background: var(--ld-scuro);
 }
 
-.flush {
-    padding-inline: 0;
+// Bacheca: 48/40 mobile, 80/84 desktop.
+.board {
+    padding-bottom: 40px;
+
+    @include desktop {
+        padding-bottom: 84px;
+    }
 }
 
-// Il contenuto arriva ai bordi del padding orizzontale, come nel canvas.
-// Il layout interno (colonne, gap) è affare di ogni sezione.
+// Form: 48/44 mobile.
+.form {
+    padding-bottom: 44px;
+
+    @include desktop {
+        padding-bottom: var(--ld-sec-y);
+    }
+}
+
+.flushX {
+    @include mobile-only {
+        padding-inline: 0;
+    }
+}
+
+// Colonna di contenuto: 1120 su desktop come nelle tavole; su mobile largo
+// (768–1023) una colonna leggibile invece di righe stirate.
 .inner {
+    position: relative;
     width: 100%;
-    max-width: var(--ld-page-max);
+    max-width: 600px;
     margin-inline: auto;
+
+    @include desktop {
+        max-width: var(--ld-content-max);
+    }
+}
+
+.flushX .inner {
+    @include mobile-only {
+        max-width: none;
+    }
 }

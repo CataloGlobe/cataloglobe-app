@@ -1,0 +1,230 @@
+@use "@pages/CampaignLanding/styles/mixins" as *;
+
+// ── Nota scritta a mano sopra i titoli ──────────────────────────────────────
+.hand {
+    font-family: var(--ld-font-hand);
+    font-weight: 400;
+    line-height: 1;
+    color: var(--ld-hand);
+}
+
+.handP {
+    margin: 0;
+}
+
+// md: sezioni problema (28 / 26); lg: le altre (30 / 26); sm: import (26);
+// form: 26 / 22.
+.hand-md {
+    font-size: 26px;
+
+    @include desktop {
+        font-size: 28px;
+    }
+}
+
+.hand-lg {
+    font-size: 26px;
+
+    @include desktop {
+        font-size: 30px;
+    }
+}
+
+.hand-sm {
+    font-size: 26px;
+}
+
+.hand-form {
+    font-size: 22px;
+
+    @include desktop {
+        font-size: 26px;
+    }
+}
+
+// ── Titolo a due tempi ──────────────────────────────────────────────────────
+.heading {
+    @include ld-serif;
+    margin: 0;
+    color: var(--ld-ink);
+    text-wrap: balance;
+}
+
+// problem: 40 / 30, interlinea 1.12. section: 44 / 30, 1.1 / 1.12.
+.heading-problem {
+    font-size: 30px;
+    line-height: 1.12;
+
+    @include desktop {
+        font-size: 40px;
+    }
+}
+
+.heading-section {
+    font-size: 30px;
+    line-height: 1.12;
+
+    @include desktop {
+        font-size: 44px;
+        line-height: 1.1;
+    }
+}
+
+.accent {
+    color: var(--ld-accent);
+}
+
+.accentBlock {
+    display: block;
+}
+
+// ── Parola sottolineata a mano ──────────────────────────────────────────────
+.underlined {
+    position: relative;
+    display: inline-block;
+}
+
+.stroke {
+    position: absolute;
+    left: 0;
+    bottom: -0.12em;
+    width: 100%;
+    height: 0.17em;
+    overflow: visible;
+
+    path {
+        fill: none;
+        stroke: var(--ld-hl-line);
+        stroke-width: 4;
+        stroke-linecap: round;
+    }
+}
+
+// ── Riquadro «Con CataloGlobe» ──────────────────────────────────────────────
+.withUs {
+    position: relative;
+    margin-top: 34px;
+    padding: 22px 18px 16px;
+    border-radius: 16px;
+    background: var(--ld-brand-note);
+    border: 1.5px dashed var(--ld-brand-dash);
+
+    @include desktop {
+        padding: 24px 22px 18px;
+    }
+}
+
+.tags {
+    position: absolute;
+    left: 18px;
+    top: -12px;
+    display: flex;
+    gap: 6px;
+}
+
+.tag {
+    @include ld-tag;
+    background: var(--ld-azione);
+    color: var(--ld-on-azione);
+}
+
+.tagPro {
+    background: var(--ld-scuro);
+}
+
+.withUsText {
+    margin: 0;
+    font-size: 17px;
+    line-height: 1.5;
+    color: var(--ld-ink);
+
+    @include desktop {
+        font-size: 18px;
+    }
+}
+
+// ── Riga di menù con i puntini ──────────────────────────────────────────────
+.row {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 11px 0;
+    border-bottom: 1px solid var(--ld-line-2);
+
+    &:last-child {
+        border-bottom-color: transparent;
+    }
+}
+
+.rowName {
+    font-size: 15px;
+    color: var(--ld-body);
+    transition: color 300ms ease;
+}
+
+.rowLeader {
+    flex-grow: 1;
+    border-bottom: 2px dotted var(--ld-leader);
+    transform: translateY(-4px);
+}
+
+.rowOld {
+    font-size: 13px;
+    color: var(--ld-off-ink);
+    text-decoration: line-through;
+}
+
+.rowPrice {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--ld-body);
+    transition: color 300ms ease;
+}
+
+.rowPriceUp {
+    font-weight: 700;
+    color: var(--ld-azione);
+}
+
+.rowOff .rowName {
+    color: var(--ld-off-ink);
+}
+
+.rowOff .rowPrice {
+    color: var(--ld-off-price);
+}
+
+.badge {
+    flex-shrink: 0;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--ld-peach);
+    color: var(--ld-terra);
+    font-size: 11px;
+    font-weight: 700;
+    line-height: normal;
+}
+
+@include motion-ok {
+    .pop {
+        animation: ld-kit-pop 420ms ease both;
+    }
+}
+
+@keyframes ld-kit-pop {
+    from {
+        opacity: 0;
+        transform: translateY(7px);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+// ── Etichetta piccola dei pannelli ──────────────────────────────────────────
+.kicker {
+    @include ld-kicker;
+    margin: 0;
+    color: var(--ld-muted);
+}

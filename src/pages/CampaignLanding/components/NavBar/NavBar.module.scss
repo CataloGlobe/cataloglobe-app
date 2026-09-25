@@ -1,0 +1,146 @@
+@use "@pages/CampaignLanding/styles/mixins" as *;
+
+// ── Desktop ─────────────────────────────────────────────────────────────────
+.desk {
+    display: none;
+
+    @include desktop {
+        display: block;
+        position: fixed;
+        z-index: 50;
+        top: 18px;
+        left: 0;
+        right: 0;
+        // Allineata al testo dell'hero: 16 px di cornice + 56 di padding.
+        padding: 0 72px;
+        pointer-events: none;
+    }
+}
+
+.deskInner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    max-width: 1136px;
+    margin: 0 auto;
+    // Stato iniziale prima del primo scroll: allineata alla pillola dell'hero.
+    transform: translateY(26px);
+}
+
+.pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 16px;
+    height: 54px;
+    box-sizing: border-box;
+    padding: 0 8px 0 24px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 12px 32px rgba(21, 20, 43, 0);
+    color: var(--ld-on-azione);
+    pointer-events: auto;
+    transition:
+        background-color 250ms ease,
+        border-color 250ms ease,
+        box-shadow 250ms ease,
+        color 250ms ease;
+}
+
+.pillSolid {
+    background: rgba(255, 255, 255, 0.94);
+    border-color: var(--ld-line);
+    box-shadow: 0 12px 32px rgba(21, 20, 43, 0.12);
+    color: var(--ld-ink);
+}
+
+// Due wordmark sovrapposti, uno per fondo: si scambia solo l'opacità.
+.logos {
+    display: grid;
+}
+
+.logos .logo {
+    grid-area: 1 / 1;
+    height: 20px;
+    transition: opacity 250ms ease;
+}
+
+.logoDark,
+.pillSolid .logoLight {
+    opacity: 0;
+}
+
+.pillSolid .logoDark {
+    opacity: 1;
+}
+
+.divider {
+    width: 1px;
+    height: 24px;
+    background: rgba(255, 255, 255, 0.25);
+    transition: background-color 250ms ease;
+}
+
+.pillSolid .divider {
+    background: var(--ld-line);
+}
+
+.login {
+    padding: 11px 16px 11px 4px;
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.2;
+    text-decoration: none;
+    @include ld-focus;
+
+    &,
+    &:hover {
+        color: inherit;
+    }
+}
+
+.deskCta {
+    opacity: 0;
+    transform: translateY(-8px);
+    transition:
+        opacity 250ms ease,
+        transform 250ms var(--ld-ease);
+}
+
+.deskCta.on {
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
+}
+
+// ── Mobile: «Parliamone» fluttuante ─────────────────────────────────────────
+.float {
+    position: fixed;
+    z-index: 50;
+    left: 16px;
+    right: 16px;
+    bottom: calc(22px + env(safe-area-inset-bottom));
+    opacity: 0;
+    transform: translateY(16px);
+    pointer-events: none;
+    transition:
+        opacity 250ms ease,
+        transform 250ms var(--ld-ease);
+
+    @include desktop {
+        display: none;
+    }
+}
+
+.float.on {
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
+}
+
+@include reduced-motion {
+    .deskCta,
+    .float {
+        transform: none;
+    }
+}

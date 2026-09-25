@@ -1,3 +1,4 @@
+import { forwardRef } from "react";
 import { CTA, type CtaPlacement } from "@pages/CampaignLanding/content/cta";
 import { useLandingVariant } from "@pages/CampaignLanding/variant";
 import styles from "./LandingCta.module.scss";
@@ -7,20 +8,17 @@ export const LANDING_CONTACT_FORM_ID = "landing-contact-form";
 
 type LandingCtaProps = {
     placement: CtaPlacement;
+    /** primary = blu; dark = notte (Pro); soft = carta con bordo (Base). */
+    look?: "primary" | "dark" | "soft";
     /**
-     * filled = azione piena (hero, barre); outline = bordo neutro su chiaro;
-     * ghost = bordo e testo azione, fondo trasparente (card Base); glass = su foto.
+     * hero = 18/34 (desktop), a tutta larghezza su mobile; start = 17/40,
+     * a tutta larghezza su mobile; pill = barra desktop, alta 54; float =
+     * pillola a tutta larghezza (mobile); plan = schede prezzi; submit = form.
      */
-    look?: "filled" | "outline" | "ghost" | "glass";
-    /**
-     * lg = 17px, padding 17/28, raggio cta; md = 14px, padding 10/20, pill;
-     * plan = 15–16px, padding 14–15, raggio 12, senza ombra (card dei prezzi).
-     */
-    size?: "md" | "lg" | "plan";
-    /** Larghezza piena (barra inferiore); "mobile" = piena solo sotto il breakpoint desktop (hero). */
-    block?: boolean | "mobile";
-    /** Stampa la nota sotto la CTA, se il placement ne ha una. */
-    showNote?: boolean;
+    shape: "hero" | "start" | "pill" | "float" | "plan" | "submit";
+    /** Il pulsante resta nel DOM ma esce dal tab order (barre nascoste). */
+    inert?: boolean;
+    className?: string;
 };
 
 /**
@@ -29,49 +27,37 @@ type LandingCtaProps = {
  * `data-cta` / `data-variante`, non alle classi (hashate dai CSS Modules).
  * Mai `target="_blank"`.
  */
-export default function LandingCta({
-    placement,
-    look = "filled",
-    size = "lg",
-    block = false,
-    showNote = false
-}: LandingCtaProps) {
+const LandingCta = forwardRef<HTMLAnchorElement, LandingCtaProps>(function LandingCta(
+    { placement, look = "primary", shape, inert = false, className },
+    ref
+) {
     const variante = useLandingVariant();
     const entry = CTA[variante][placement];
-
-    const blockClass = block === "mobile" ? styles.blockMobile : block ? styles.block : null;
-    const className = [styles.cta, styles[size], styles[look], blockClass]
-        .filter(Boolean)
-        .join(" ");
+    const cls = [styles.cta, styles[shape], styles[look], className].filter(Boolean).join(" ");
 
     // In variante form `final` è il submit del form di contatto; in signup
     // porta alla registrazione come le altre.
-    const isSubmit = placement === "final" && variante === "form";
-
-    const control = isSubmit ? (
-        <button
-            type="submit"
-            form={LANDING_CONTACT_FORM_ID}
-            className={className}
-            data-cta={placement}
-            data-variante={variante}
-        >
-            {entry.label}
-        </button>
-    ) : (
-        <a href={entry.href} className={className} data-cta={placement} data-variante={variante}>
-            {entry.label}
-        </a>
-    );
-
-    if (!showNote || !entry.note) {
-        return control;
+    if (placement === "final" && variante === "form") {
+        return (
+            <button type="submit" form={LANDING_CONTACT_FORM_ID} className={cls} data-cta={placement} data-variante={variante}>
+                {entry.label}
+            </button>
+        );
     }
 
     return (
-        <div className={[styles.wrap, blockClass ? styles.wrapBlock : null].filter(Boolean).join(" ")}>
-            {control}
-            <p className={styles.note}>{entry.note}</p>
-        </div>
+        <a
+            ref={ref}
+            href={entry.href}
+            className={cls}
+            data-cta={placement}
+            data-variante={variante}
+            tabIndex={inert ? -1 : undefined}
+            aria-hidden={inert || undefined}
+        >
+            {entry.label}
+        </a>
     );
-}
+});
+
+export default LandingCta;

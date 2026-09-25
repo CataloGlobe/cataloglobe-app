@@ -3,8 +3,8 @@
 
 @include ld-page-backdrop(".fallback");
 
-// Stessa cornice di Frame, senza font né contenuto: è nel bundle principale,
-// quindi porta solo i token (niente @font-face).
+// Pagina bianca con il solo pannello dell'hero, senza font né contenuto: è nel
+// bundle principale, quindi porta solo i token (niente @font-face).
 .fallback {
     @include ld-tokens;
 
@@ -12,7 +12,7 @@
     min-height: 100dvh;
     box-sizing: border-box;
     padding: 10px;
-    background: var(--ld-fuori);
+    background: var(--ld-white);
 
     @include desktop {
         padding: 16px;
@@ -20,13 +20,12 @@
 }
 
 .page {
-    max-width: var(--ld-page-max);
-    min-height: calc(100dvh - 20px);
-    margin-inline: auto;
-    border-radius: var(--ld-r-frame);
-    background: var(--ld-paper);
+    height: 620px;
+    border-radius: 24px;
+    background: linear-gradient(160deg, var(--ld-hero-a) 0%, var(--ld-hero-b) 55%, var(--ld-scuro) 100%);
 
     @include desktop {
-        min-height: calc(100dvh - 32px);
+        height: 560px;
+        border-radius: 30px;
     }
 }

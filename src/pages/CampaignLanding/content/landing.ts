@@ -1,534 +1,412 @@
 /**
- * Testi della landing di campagna, nell'ordine della pagina.
+ * Testi della landing di campagna (Versione C), nell'ordine della pagina.
  *
  * È il file da rivedere per le copy: i componenti non contengono stringhe
  * italiane. Le CTA («Parliamone» / «Provalo gratis») stanno in `cta.ts`,
  * perché cambiano con la variante.
  *
- * Titoli con parola evidenziata: `before` + `highlight` + `after`.
+ * Fonte: le tavole in `docs/landing/versione-c/riferimento/`. Dove la tavola
+ * mobile accorcia un testo, il campo ha la variante `…Mobile`.
  */
 
-export type HighlightedTitle = { before: string; highlight: string; after: string };
+/** Titolo a due tempi: la seconda parte è blu (a capo o in riga, secondo la sezione). */
+export type SplitTitle = { lead: string; accent: string };
+
+/** Titolo con una parola sottolineata a mano in mezzo. */
+export type UnderlinedTitle = { before: string; underlined: string; after: string };
+
+// ── Barra e marchio ─────────────────────────────────────────────────────────
+
+export const BRAND = {
+    /** Testo alternativo del logo. */
+    name: "CataloGlobe",
+    login: { label: "Accedi", href: "/login" }
+};
 
 // ── 1 · Hero ────────────────────────────────────────────────────────────────
 
-export type HeroDish = { name: string; price: string };
-
-export type HeroFascia = {
-    /** Etichetta sul selettore */
-    label: string;
-    hours: string;
-    /** Titolo della carta quando la fascia è attiva */
-    menuTitle: string;
-    dishes: HeroDish[];
-};
+export type HeroBeatIcon = "clock" | "tag" | "ban";
 
 export const HERO = {
-    /** Testo alternativo del logo. */
-    brand: "CataloGlobe",
-    login: { label: "Accedi", href: "/login" },
     eyebrow: "Menù digitale per ristoranti",
-    title: {
-        before: "Il tuo menù può ",
-        highlight: "vendere per te",
-        after: "."
-    } satisfies HighlightedTitle,
-    lede: "Metti in evidenza il piatto che rende di più, all’ora in cui conviene. Senza ristampare niente.",
-
-    /** La carta menù accanto al titolo (a riposo: «Pranzo»). */
-    menu: {
-        url: "cataloglobe.com/il-molo-34",
-        liveBadge: "In corso ora",
-        fasceLabel: "Fascia oraria",
-        caption: "Pranzo, aperitivo, cena. Il menù cambia da solo, all’ora che decidi tu.",
-        fasce: [
-            {
-                label: "Pranzo",
-                hours: "12:00–15:00",
-                menuTitle: "Menù Pranzo",
-                dishes: [
-                    { name: "Trofie al pesto", price: "€12" },
-                    { name: "Insalata di mare", price: "€16" },
-                    { name: "Focaccia al formaggio", price: "€9" },
-                    { name: "Acqua e caffè", price: "€3" }
-                ]
-            },
-            {
-                label: "Aperitivo",
-                hours: "18:00–20:00",
-                menuTitle: "Menù Aperitivo",
-                dishes: [
-                    { name: "Spritz della casa", price: "€8" },
-                    { name: "Tagliere del Molo", price: "€14" },
-                    { name: "Olive e taralli", price: "€5" },
-                    { name: "Bruschette miste", price: "€7" }
-                ]
-            },
-            {
-                label: "Cena",
-                hours: "20:00–23:00",
-                menuTitle: "Menù Cena",
-                dishes: [
-                    { name: "Branzino al sale", price: "€22" },
-                    { name: "Risotto ai frutti di mare", price: "€20" },
-                    { name: "Tagliata di manzo", price: "€24" },
-                    { name: "Tiramisù della casa", price: "€6" }
-                ]
-            }
-        ] satisfies HeroFascia[]
-    }
-};
-
-// ── 2 · Carta o PDF ─────────────────────────────────────────────────────────
-
-export const COMPARE = {
-    title: "Carta o PDF, il problema è lo stesso: non cambia mai.",
-    lede: "Un menù è vivo: il pesce finisce, la promo parte il venerdì, a pranzo lavori un altro menù. Cambiare un prezzo, prima e adesso.",
-    before: {
-        label: "Oggi, su carta o su PDF",
-        items: [
-            "Ogni cambio è una ristampa, o un file da rifare",
-            "Intanto il prezzo sbagliato resta lì",
-            "Il menù vecchio continua a girare in sala",
-            "Sul telefono si pinza e si allarga per leggerlo"
-        ]
-    },
-    after: {
-        label: "Con CataloGlobe",
-        items: [
-            "Cambi il prezzo dal telefono",
-            "È online in un secondo",
-            "Non paghi niente in più",
-            "Il QR sul tavolo resta lo stesso"
-        ]
-    }
-};
-
-// ── 3 · Import da foto ──────────────────────────────────────────────────────
-
-export type ImportRow = { name: string; category: string; price: string };
-
-export const IMPORT = {
-    title: "Il menù ce l’hai già. Basta una foto.",
-    lede: "Lo carichi com’è, anche storto, anche in più pagine. Piatti, prezzi e categorie finiscono al posto giusto. Tu controlli e pubblichi: niente va online prima del tuo ok.",
-    card: {
-        title: "Importa menù con AI",
-        steps: ["Caricamento", "Analisi", "Revisione"],
-        /** Passo 3 «Revisione», a riposo: tutte le righe lette. */
-        rows: [
-            { name: "Insalata di mare", category: "Antipasti", price: "16 €" },
-            { name: "Trofie al pesto", category: "Primi", price: "12 €" },
-            { name: "Branzino al sale", category: "Secondi", price: "22 €" },
-            { name: "Tiramisù", category: "Dolci", price: "6 €" },
-            { name: "Acqua naturale 0,75L", category: "Bevande", price: "3 €" }
-        ] satisfies ImportRow[],
-        footer: "38 piatti riconosciuti · controlla e pubblica",
-        /** Passi 1–2 (visibili solo con l'animazione, Passata 2). */
-        paper: {
-            title: "MENÙ",
-            lines: [
-                "Insalata di mare · 16",
-                "Trofie al pesto · 12",
-                "Branzino al sale · 22",
-                "Tiramisù · 6",
-                "Acqua naturale · 3"
-            ],
-            fileName: "menu-cartaceo.jpg · 1,4 MB",
-            reading: "Leggo piatti, prezzi e categorie…"
-        }
-    }
-};
-
-// ── 4 · Analitiche: il martedì vuoto ────────────────────────────────────────
-
-export type BarTone = "normal" | "empty" | "highlight";
-export type ChartBar = { day: string; value: number; tone: BarTone };
-
-const DAYS = ["L", "M", "M", "G", "V", "S", "D"];
-
-/** Valori in percentuale dell’altezza utile della barra (colonna meno etichetta). Dati di esempio. */
-const chart = (values: number[], tones: Partial<Record<number, BarTone>>): ChartBar[] =>
-    values.map((value, i) => ({ day: DAYS[i], value, tone: tones[i] ?? "normal" }));
-
-export const ANALYTICS = {
-    title: {
-        before: "Scopri in che giorni il locale è vuoto. ",
-        highlight: "E riempili dal menù",
-        after: "."
-    } satisfies HighlightedTitle,
-    lede: "Il martedì va piano? Metti in evidenza tutta la settimana qualcosa che c’è solo il martedì: chi apre il menù il sabato lo scopre, e ha un motivo per tornare.",
-    more: {
-        before: "Lo stesso vale per i piatti e per le ore: sai cosa guardano, quando aprono il menù e — con il Pro — ",
-        strong: "cosa ordinano e quanto incassi",
-        after: "."
-    },
-    discover: {
-        label: "Scopri",
-        chartLabel: "Aperture del menù per giorno: il martedì è il più basso",
-        bars: chart([56, 21, 57, 62, 79, 93, 71], { 1: "empty" }),
-        caption: "Il martedì è il giorno più vuoto della settimana."
-    },
-    act: {
-        label: "Agisci",
-        badge: "In evidenza · tutta la settimana",
-        title: "Solo il martedì: il risotto dello chef",
-        body: "Chi apre il menù il sabato lo scopre, e ha un motivo per tornare."
-    },
-    verify: {
-        label: "Verifica",
-        chartLabel: "Aperture del menù per giorno, dopo: il martedì è risalito",
-        bars: chart([56, 75, 57, 62, 79, 93, 71], { 1: "highlight" }),
-        caption: "Nelle settimane dopo, i numeri ti dicono se ha funzionato."
-    },
-    sampleNote: "Dati di esempio."
-};
-
-// ── 5 · Le nove schede ──────────────────────────────────────────────────────
-
-export type FeatureKey =
-    | "orders"
-    | "reservations"
-    | "reviews"
-    | "venues"
-    | "team"
-    | "hours"
-    | "languages"
-    | "styles"
-    | "stories";
-
-export const FEATURES = {
-    title: "E dentro c’è tutto il resto.",
-    lede: "Tocca una voce: te la faccio vedere.",
-    groups: [
+    title: { before: "Il menù che si aggiorna da solo. Tu pensi ", underlined: "alla sala.", after: "" } satisfies UnderlinedTitle,
+    lede: "Cambi un prezzo o segni un piatto finito dal telefono: il menù che i clienti aprono dal QR è subito giusto.",
+    /** Le tre fasce della scheda animata; i prezzi sono numeri (il momento 2 ne alza uno). */
+    fasce: [
         {
-            label: "Il tuo locale",
-            items: ["orders", "reservations", "reviews", "venues", "team"] as FeatureKey[]
+            title: "Menù Pranzo",
+            hours: "12–15",
+            dishes: [
+                { name: "Trofie al pesto", price: 12 },
+                { name: "Insalata di mare", price: 16 },
+                { name: "Focaccia al formaggio", price: 9 },
+                { name: "Acqua naturale", price: 3 }
+            ]
         },
-        { label: "Il tuo menù", items: ["hours", "languages", "styles", "stories"] as FeatureKey[] }
+        {
+            title: "Menù Aperitivo",
+            hours: "18–20",
+            dishes: [
+                { name: "Spritz della casa", price: 8 },
+                { name: "Tagliere della casa", price: 14 },
+                { name: "Olive e taralli", price: 5 },
+                { name: "Bruschette miste", price: 7 }
+            ]
+        },
+        {
+            title: "Menù Cena",
+            hours: "20–23",
+            dishes: [
+                { name: "Branzino al sale", price: 22 },
+                { name: "Risotto ai frutti di mare", price: 20 },
+                { name: "Tagliata di manzo", price: 23 },
+                { name: "Tiramisù", price: 6 }
+            ]
+        }
     ],
-    /** Etichette sui bottoni, nell'ordine della pagina. */
-    labels: {
-        orders: "Ordini al tavolo",
-        reservations: "Prenotazioni",
-        reviews: "Recensioni",
-        venues: "Locali e menù",
-        team: "Team",
-        hours: "Orari e disponibilità",
-        languages: "Lingue",
-        styles: "Stili",
-        stories: "Storie"
-    } satisfies Record<FeatureKey, string>,
-    customerLabel: "Lo vede il cliente",
-    youLabel: "Lo vedi tu",
+    /** Barra in cima alla scheda, una per momento (vedi `heroCycle.ts`). */
+    beats: [
+        { title: "Sono le 12:00", sub: "parte il menù pranzo", icon: "clock" },
+        { title: "Prezzo aggiornato", sub: "Insalata di mare, 17 €", icon: "tag" },
+        { title: "Sono le 18:00", sub: "parte l’aperitivo", icon: "clock" },
+        { title: "Esaurito", sub: "Bruschette miste", icon: "ban" },
+        { title: "Sono le 20:00", sub: "parte il menù cena", icon: "clock" }
+    ] satisfies { title: string; sub: string; icon: HeroBeatIcon }[],
+    unavailable: "Non disponibile"
+};
 
-    orders: {
-        scene: "Il tavolo 7 ha fame, e tu sei in cucina.",
+// ── 2-4 · Tre problemi, tre soluzioni ───────────────────────────────────────
+
+export type ProblemCopy = {
+    note: string;
+    title: SplitTitle;
+    lede: string;
+    solution: string;
+    /** Badge «Piano Pro» accanto a «Con CataloGlobe». */
+    pro?: boolean;
+};
+
+export const WITH_US = "Con CataloGlobe";
+export const PRO_BADGE = "Piano Pro";
+
+export const SUPPLIER = {
+    copy: {
+        note: "i costi salgono…",
+        title: { lead: "Il fornitore aumenta.", accent: "E tu rimandi la ristampa." },
+        lede: "Alzare un prezzo sulla carta vuol dire ristampare tutto il menù, e così si rimanda. Intanto la differenza la paghi tu, piatto dopo piatto.",
+        solution: "Lo cambi dal telefono: il menù che si apre dal QR è subito giusto, e il PDF da stampare si aggiorna da solo."
+    } satisfies ProblemCopy,
+    card: {
+        title: "Secondi",
+        dishes: [
+            { name: "Branzino al sale", price: "22 €" },
+            { name: "Tagliata di manzo", price: "23 €", oldPrice: "22 €" },
+            { name: "Filetto al pepe verde", price: "26 €" }
+        ] satisfies { name: string; price: string; oldPrice?: string }[]
+    },
+    loss: {
+        amount: "≈500 €",
+        text: "al mese persi su un piatto, finché aspetti la ristampa.",
+        math: "1 € in più × 20 tagliate × 26 sere"
+    }
+};
+
+export const SOLD_OUT = {
+    copy: {
+        note: "mi dispiace, non c’è più…",
+        title: { lead: "Un piatto è finito.", accent: "Nel menù c’è ancora." },
+        lede: "Il cliente lo sceglie e il cameriere deve tornare al tavolo a dirgli che non c’è. Succede ogni volta che qualcosa finisce a metà servizio.",
+        solution: "Lo segni esaurito dal telefono e scegli tu: lo nascondi dal menù o lo lasci visibile come non disponibile. E se finisce un ingrediente, nascondi in un colpo tutti i piatti che lo usano."
+    } satisfies ProblemCopy,
+    phoneLabel: "Dal tuo telefono",
+    dish: "Branzino al sale",
+    soldOut: "Esaurito",
+    available: "Disponibile",
+    switchLabel: "Segna esaurito",
+    customerLabel: "Il menù del cliente, dal QR",
+    unavailable: "Non disponibile",
+    rows: [
+        { name: "Carpaccio di tonno", price: "16 €" },
+        { name: "Branzino al sale", price: "22 €", toggled: true },
+        { name: "Tagliata di manzo", price: "23 €" }
+    ] satisfies { name: string; price: string; toggled?: boolean }[],
+    hint: "Tocca l’interruttore e guarda il menù del cliente."
+};
+
+export const ORDERS = {
+    copy: {
+        note: "cameriere!",
+        title: { lead: "I tuoi camerieri passano la sera", accent: "a prendere ordini." },
+        lede: "E intanto il tavolo che vuole il conto aspetta. Con il personale che non si trova, è tempo che non hai.",
+        solution: "Il cliente ordina dal QR sul tavolo e la comanda arriva in cucina, stampata o su tablet, senza che nessuno debba portarla. E quando un tavolo chiama il cameriere o chiede il conto, lo vedi subito sul telefono.",
+        pro: true
+    } satisfies ProblemCopy,
+    steps: [
+        { label: "Il cliente", sub: "ordina dal QR" },
+        { label: "La cucina", sub: "riceve la comanda" },
+        { label: "La sala", sub: "vede le chiamate" }
+    ],
+    order: {
+        label: "Dal suo telefono",
         table: "Tavolo 7",
         lines: [
-            { name: "Tagliere del Molo", qty: "× 1" },
-            { name: "Spritz della casa", qty: "× 2" },
-            { name: "Tiramisù", qty: "× 1" }
+            { qty: "1×", name: "Tagliere della casa", price: "14 €" },
+            { qty: "2×", name: "Spritz della casa", price: "16 €" },
+            { qty: "1×", name: "Tiramisù", price: "6 €" }
         ],
         totalLabel: "Totale",
-        total: "27 €",
-        /** Riposo: ordine già inviato, comanda già stampata. */
-        sentLabel: "Inviato",
-        youLabel: "Lo vedi tu · stampa in cucina",
-        printerLabel: "CUCINA",
-        ticket: {
-            venue: "IL MOLO 34",
-            table: "TAVOLO 7",
-            time: "20:41",
-            lines: [
-                { qty: "1", name: "TAGLIERE DEL MOLO" },
-                { qty: "2", name: "SPRITZ DELLA CASA" },
-                { qty: "1", name: "TIRAMISU" }
-            ],
-            number: "COMANDA #128"
-        },
-        caption: "Il cliente ordina dal QR sul tavolo. La comanda esce stampata in cucina: nessuno deve passare a prenderla."
+        total: "36 €",
+        send: "Invia l’ordine",
+        note: "Dal QR sul tavolo. Nessuna app, nessuna registrazione."
     },
-
-    reservations: {
-        scene: "Vogliono un tavolo per giovedì, e tu sei in sala.",
-        formTitle: "Prenota un tavolo",
-        partyLabel: "In quanti",
-        partySizes: ["2", "4", "6"],
-        partySelected: "4",
-        date: "Ven 12 set",
-        time: "20:30",
-        guest: "Marco Rossi",
-        sentLabel: "Inviata",
-        agendaTitle: "Agenda di venerdì",
-        agenda: [
-            { time: "19:45", name: "Bianchi", covers: "2 coperti", status: "Confermata", isNew: false },
-            { time: "20:15", name: "Ferri", covers: "6 coperti", status: "Confermata", isNew: false },
-            { time: "20:30", name: "Rossi", covers: "4 coperti", status: "Nuova", isNew: true }
+    ticket: {
+        label: "In cucina · 20:41",
+        table: "TAV. 7",
+        time: "20:41",
+        meta: "COMANDA #128 · SALA",
+        lines: [
+            { qty: "1", name: "TAGLIERE DELLA CASA" },
+            { qty: "2", name: "SPRITZ DELLA CASA" },
+            { qty: "1", name: "TIRAMISÙ" }
         ],
-        guestsTitle: "I tuoi clienti",
-        guests: [
-            { name: "Marco Rossi", visits: "1ª volta", isNew: true },
-            { name: "Chiara Bianchi", visits: "5ª volta", isNew: false },
-            { name: "Luca Ferri", visits: "2ª volta", isNew: false }
-        ],
-        caption: {
-            before: "Prenota online e finisce nella tua agenda. E i clienti che prenotano ",
-            strong: "restano tuoi",
-            after: ": nome, telefono e quante volte sono venuti stanno nel tuo pannello, non su un portale."
-        }
+        note: "Arriva da sola in cucina. Nessuno deve passare a portarla."
     },
-
-    reviews: {
-        scene: "Hanno pagato il conto e stanno per uscire.",
-        question: "Com’è andata stasera?",
-        starsLabel: "5 stelle su 5",
-        draft: "Il branzino al sale era perfetto…",
-        send: "Invia",
-        when: "ieri, 22:14",
-        quote: "« Il branzino al sale era perfetto e il servizio velocissimo. Torneremo. »",
-        author: "Giulia · dal menù al tavolo",
-        hint: "Contenta: chiedile di lasciarla anche su Google.",
-        caption: "Il giudizio lo leggi tu per primo, mentre il cliente è ancora seduto. Poi decidi tu se invitarlo a scriverla su Google."
+    floor: {
+        label: "La sala, dal tuo telefono",
+        legend: { call: "Chiama", bill: "Conto", free: "Libero" },
+        alert: "Tavolo 7 chiede il conto",
+        alertTime: "adesso"
     },
-
-    venues: {
-        scene: "Hai tre locali, e in uno ci sono tre menù.",
-        rows: [
-            { venue: "Duomo", menu: "Carta", hours: "12–22" },
-            { venue: "Navigli", menu: "Aperitivo", hours: "18–23" },
-            { venue: "Stazione", menu: "Veloce", hours: "7–21" }
-        ],
-        insideLabel: "Dentro il Duomo, adesso",
-        inside: ["Carta", "Menù bar", "Lista vini"],
-        caption: "Ogni locale con il suo menù e il suo stile. E dentro un locale solo puoi tenere la carta, il menù del bar e la lista dei vini, ognuno con le sue ore."
-    },
-
-    team: {
-        scene: "Arriva una persona nuova in sala.",
-        title: "Chi può fare cosa",
-        people: [
-            { name: "Giulia", role: "Sala", where: "Navigli", can: "Comande e tavoli. Non vede i prezzi né le altre sedi." },
-            { name: "Marco", role: "Cucina", where: "Duomo", can: "Comande e disponibilità dei piatti." },
-            { name: "Alessandro", role: "Titolare", where: "tutto", can: "Tutto, comprese fatture e team." }
-        ],
-        caption: "Dai accesso al personale locale per locale, senza dare le chiavi di tutto."
-    },
-
-    hours: {
-        scene: "Alle 13:30 finisce il branzino.",
-        ruleTitle: "La regola",
-        live: "In corso ora",
-        rule: [
-            { key: "Cosa", value: "Menù Aperitivo", strong: true },
-            { key: "Dove", value: "Il Molo 34 · Navigli", strong: false },
-            { key: "Quando", value: "18:00–20:00, tutti i giorni", strong: false }
-        ],
-        phoneTitle: "Dal telefono, mentre sei in sala",
-        soldOutDish: "Branzino al sale",
-        soldOut: "Esaurito",
-        soldOutNote: "Sparito dal menù di tutti i tavoli, in questo istante.",
-        caption: "Decidi una volta cosa si vede e quando: per locale, per giorno, per fascia. E quando un piatto finisce lo segni dal telefono, senza chiamare nessuno."
-    },
-
-    languages: {
-        scene: "Si siede un tavolo di turisti tedeschi.",
-        dish: "Trofie al pesto",
-        price: "€12",
-        translations: [
-            { lang: "IT", text: "Pasta fresca con pesto di basilico e pinoli" },
-            { lang: "EN", text: "Fresh pasta with basil and pine nut pesto" },
-            { lang: "DE", text: "Frische Pasta mit Basilikum-Pinienkern-Pesto" }
-        ],
-        available: "Italiano, inglese, francese, tedesco, spagnolo.",
-        caption: "Il cliente apre il menù nella sua lingua. Il nome del piatto resta in italiano: è quello che è venuto a cercare."
-    },
-
-    styles: {
-        scene: "Di sera il locale diventa un’altra cosa.",
-        variants: [
-            { label: "Carta", tone: "paper" as const },
-            { label: "Sera", tone: "night" as const }
-        ],
-        venue: "Il Molo 34",
-        dishes: [
-            { name: "Branzino al sale", price: "€22" },
-            { name: "Tagliata di manzo", price: "€24" },
-            { name: "Tiramisù", price: "€6" }
-        ],
-        slot: "Cena · 20:00–23:00",
-        caption: "Colori, caratteri e forme li scegli tu, e li cambi quando vuoi. Piatti e prezzi non si toccano: cambia solo la veste."
-    },
-
-    stories: {
-        scene: "Ti chiedono da dove arriva quel pesto.",
-        dish: "Trofie al pesto",
-        dishDesc: "Pasta fresca con pesto di basilico",
-        behindLabel: "Dietro le quinte",
-        behindTitle: "Il basilico di Prà, e perché lo prendiamo lì",
-        read: "leggi ›",
-        storyLabel: "Nel menù, sopra le portate",
-        storyTitle: "La nostra storia",
-        storyBody: "Dal 1978 sul porto, tre generazioni. Foto, testi e video.",
-        caption: "La storia del locale e quella dei piatti, agganciate al prodotto che il cliente sta guardando proprio adesso."
-    }
+    printerNote: "La stampante per la cucina è opzionale e a parte: senza, le comande le vedi su tablet o telefono."
 };
 
-// ── 6 · I tre locali demo ───────────────────────────────────────────────────
+// ── 5 · Bacheca ─────────────────────────────────────────────────────────────
 
-/** Chiave dello stile: sceglie i token --ld-demo-<key>-* via data-demo. */
+export type BoardIcon = "languages" | "schedule" | "stats" | "reservations" | "featured" | "allergens" | "stories" | "venues";
+
+export type BoardNote = { icon: BoardIcon; title: string; problem: string; solution: string; pro?: boolean };
+
+export const BOARD = {
+    note: "ah, dimenticavo…",
+    title: { lead: "E tutto il resto", accent: "che serve al tuo locale." },
+    prev: "Comanda precedente",
+    next: "Comanda successiva",
+    hint: "Scorri col dito o usa le frecce.",
+    notes: [
+        { icon: "languages", title: "Il menù in più lingue", problem: "Il turista non capisce il menù.", solution: "Lo legge tradotto nella sua lingua, in automatico. I nomi dei piatti restano in italiano." },
+        { icon: "schedule", title: "Programmazione", problem: "Il menù di Natale lo metti e lo togli a mano.", solution: "Menù, promo ed eventi li programmi prima: partono e finiscono da soli, locale per locale." },
+        { icon: "stats", title: "Statistiche", problem: "Non sai cosa guardano i clienti.", solution: "Vedi quando aprono il menù e cosa guardano. Con il Pro, anche cosa ordinano e quanto incassi." },
+        { icon: "reservations", title: "Prenotazioni online", problem: "Il telefono squilla in pieno servizio.", solution: "Arrivano online, con il promemoria il giorno prima, e i clienti restano salvati nella tua lista.", pro: true },
+        { icon: "featured", title: "Evidenza e abbinamenti", problem: "Nessuno propone il vino giusto.", solution: "Spingi il piatto che rende di più e suggerisci cosa berci insieme." },
+        { icon: "allergens", title: "Allergeni e ingredienti", problem: "«Cosa c’è dentro?» a ogni tavolo.", solution: "Scritti su ogni piatto, prima che il cliente lo chieda." },
+        { icon: "stories", title: "Storie", problem: "Il cliente non sa cosa rende speciale quel piatto.", solution: "Racconti la storia del piatto, del produttore o del locale, dentro il menù." },
+        { icon: "venues", title: "Più locali, un solo posto", problem: "Più locali da aggiornare uno per uno.", solution: "Li gestisci tutti insieme, e ognuno del team vede solo quello che gli serve." }
+    ] satisfies BoardNote[]
+};
+
+// ── 6 · Import ──────────────────────────────────────────────────────────────
+
+export const IMPORT = {
+    note: "«non ho tempo»",
+    title: { lead: "Il menù ce l’hai già.", accent: "Basta una foto." },
+    lede: "Anche storto, anche in più pagine. Piatti, prezzi e categorie finiscono al posto giusto. Tu controlli e pubblichi: niente va online senza il tuo ok.",
+    ledeMobile: "Anche storto, anche in più pagine. Tu controlli e pubblichi: niente va online senza il tuo ok.",
+    paper: {
+        title: "Menù",
+        footer: "Coperto e pane 2,50",
+        footerNote: "Chiedere al personale per gli allergeni"
+    },
+    /** Un piatto per categoria: sul foglio (prezzo nudo, categoria maiuscola) e nella scheda. */
+    dishes: [
+        { category: "Antipasti", name: "Insalata di mare", price: "16" },
+        { category: "Primi", name: "Trofie al pesto", price: "12" },
+        { category: "Secondi", name: "Branzino al sale", price: "22" },
+        { category: "Dolci", name: "Tiramisù", price: "6" }
+    ],
+    cardTitle: "Dalla foto al menù",
+    statusPhoto: "Foto",
+    statusReading: "Lettura…",
+    statusReady: "4 piatti · pronto",
+    publish: "Controlla e pubblica"
+};
+
+// ── 7 · Demo ────────────────────────────────────────────────────────────────
+
 export type DemoKey = "molo" | "pausa" | "velvet";
 
 export type DemoVenue = {
     key: DemoKey;
     name: string;
-    address: string;
     kind: string;
-    /** Slug della pagina vera (QR e, in Passata 2, lo sheet). */
+    /** Sottotitolo nella copertina del menù. */
+    tagline: string;
+    /** Slug della pagina pubblica vera, aperta nello sheet e nel QR. */
     slug: string;
-    initial: string;
-    /** Font del nome sul telefono: serif (Young Serif) o sans. */
-    serif: boolean;
     categories: string[];
-    featured: { name: string; price: string };
     dishes: { name: string; price: string }[];
 };
 
 export const DEMOS = {
-    title: "Guarda cosa può diventare il tuo locale.",
-    lede: "Tre locali di esempio, tre stili diversi. Scegline uno: qui vedi la sua pagina, quella vera.",
-    honesty: "Li abbiamo costruiti noi: servono a farti vedere lo strumento, non a farti credere che siano clienti.",
+    note: "prova tu",
+    title: { before: "Guarda cosa può diventare ", underlined: "il tuo locale.", after: "" } satisfies UnderlinedTitle,
+    lede: "Tre locali di esempio, tre stili diversi: colori, caratteri e logo li scegli tu. Aprili: è la pagina che i clienti vedono dal QR.",
     open: "Apri il menù →",
-    featuredLabel: "In evidenza adesso",
-    qrCaption: "Inquadralo col telefono: è lo stesso QR che metti sul tavolo.",
-    /** Base degli indirizzi pubblici codificati nel QR. */
+    qrCaption: "Inquadra il QR e apri il menù sul tuo telefono.",
+    /** Host mostrato sotto il nome nello sheet; base degli indirizzi nel QR. */
+    publicHost: "cataloglobe.com",
     publicBaseUrl: "https://cataloglobe.com/",
+    sheetClose: "Chiudi",
+    sheetFallback: "Non si carica?",
+    sheetFallbackLink: "Aprilo in una nuova scheda",
     venues: [
         {
             key: "molo",
             name: "Il Molo 34",
-            address: "Via del Porto 34, Portofino (GE)",
-            kind: "Pesce, carta della sera",
+            kind: "Pesce · Portofino",
+            tagline: "Pesce, carta della sera",
             slug: "il-molo-34",
-            initial: "M",
-            serif: true,
             categories: ["Crudi", "Primi", "Secondi"],
-            featured: { name: "Degustazione di pesce", price: "38 €" },
             dishes: [
                 { name: "Carpaccio di branzino", price: "16 €" },
+                { name: "Tartare di tonno", price: "18 €" },
                 { name: "Risotto ai frutti di mare", price: "20 €" },
-                { name: "Tagliata di tonno", price: "24 €" }
+                { name: "Tagliata di tonno", price: "24 €" },
+                { name: "Branzino al sale", price: "22 €" }
             ]
         },
         {
             key: "pausa",
             name: "La Pausa",
-            address: "Corso Italia 12, Milano (MI)",
-            kind: "Bar, tutto il giorno",
+            kind: "Caffè e pranzi · Milano",
+            tagline: "Colazioni e pranzi veloci",
             slug: "la-pausa",
-            initial: "P",
-            serif: false,
-            categories: ["Colazione", "Pranzo", "Aperitivo"],
-            featured: { name: "Tagliere e calice", price: "14 €" },
+            categories: ["Colazione", "Pranzo", "Bevande"],
             dishes: [
-                { name: "Focaccia al formaggio", price: "9 €" },
-                { name: "Insalatona del giorno", price: "11 €" },
-                { name: "Spritz della casa", price: "8 €" }
+                { name: "Cornetto integrale", price: "1,80 €" },
+                { name: "Toast farcito", price: "5 €" },
+                { name: "Insalatona della casa", price: "9 €" },
+                { name: "Bowl del giorno", price: "10 €" },
+                { name: "Centrifuga del giorno", price: "4,50 €" }
             ]
         },
         {
             key: "velvet",
             name: "Velvet Garden",
-            address: "Via Savona 18, Milano (MI)",
-            kind: "Cucina vegetale",
+            kind: "Cocktail bar · Milano",
+            tagline: "Cocktail e piccoli piatti",
             slug: "velvet-garden",
-            initial: "V",
-            serif: true,
-            categories: ["Orto", "Fermentati", "Dolci"],
-            featured: { name: "Menù dell’orto", price: "32 €" },
+            categories: ["Signature", "Classici", "Da mangiare"],
             dishes: [
-                { name: "Barbabietola e nocciole", price: "14 €" },
-                { name: "Risotto alle erbe", price: "18 €" },
-                { name: "Tortino al cacao", price: "7 €" }
+                { name: "Garden Spritz", price: "9 €" },
+                { name: "Negroni sbagliato", price: "10 €" },
+                { name: "Basil Smash", price: "10 €" },
+                { name: "Tagliere misto", price: "14 €" },
+                { name: "Olive e taralli", price: "5 €" }
             ]
         }
     ] satisfies DemoVenue[]
 };
 
-// ── 7 · Prezzi ──────────────────────────────────────────────────────────────
+// ── 8 · Prezzi ──────────────────────────────────────────────────────────────
 
 export type PlanKey = "base" | "pro";
 
 /**
- * Prezzi in centesimi, uguali a `plan_prices` (verificati su staging il
- * 23/09/2026: 3900/39000 Base, 5900/59000 Pro). L'annuale è 10 × il mensile:
- * è quello che rende vero «Due mesi gratis». Se cambiano i piani, cambiare qui.
+ * Prezzi uguali a `plan_prices` (verificati su staging il 23/09/2026:
+ * 3900/39000 Base, 5900/59000 Pro). Il prezzo barrato dell'annuale è
+ * 12 × il mensile. Se cambiano i piani, cambiare qui.
  */
 export const PRICING = {
-    title: "Un prezzo per locale. Scritto.",
-    lede: "Le voci sono le stesse: nel Base tre sono spente e si accendono con il Pro.",
+    note: "la domanda di tutti",
+    title: { lead: "Quanto costa,", accent: "detto chiaro." },
     intervals: { month: "Mensile", year: "Annuale · 2 mesi gratis" },
     intervalsLabel: "Fatturazione",
     plansLabel: "Piano",
-    yearlyNote: "Due mesi gratis: paghi dieci, usi dodici.",
-    period: { month: "al mese, per locale", year: "all’anno, per locale" },
+    period: { month: "al mese", year: "all’anno" },
+    perVenue: "per locale",
     fullPriceLabel: "Prezzo pagando mese per mese",
     recommended: "Consigliato",
-    trial: "Trenta giorni di prova, si annulla quando vuoi.",
-    includes: "Include",
+    trial: "30 giorni di prova gratuita. Disdici quando vuoi.",
     plans: {
-        base: { name: "Base", claim: "Il menù che lavora per te", monthCents: 3900, yearCents: 39000 },
-        pro: { name: "Pro", claim: "I clienti ordinano e prenotano da soli", monthCents: 5900, yearCents: 59000 }
-    } satisfies Record<PlanKey, { name: string; claim: string; monthCents: number; yearCents: number }>,
-    /** `proOnly`: spenta nel Base. */
+        base: {
+            name: "Base",
+            claim: "Il menù sempre giusto",
+            month: "39 €",
+            year: "390 €",
+            yearFull: "468 €",
+            anchor: "39 € al mese: meno di due coperti a cena."
+        },
+        pro: {
+            name: "Pro",
+            claim: "Il menù che lavora anche in sala",
+            month: "59 €",
+            year: "590 €",
+            yearFull: "708 €",
+            anchor: "59 € al mese: meno di tre coperti a cena."
+        }
+    } satisfies Record<PlanKey, { name: string; claim: string; month: string; year: string; yearFull: string; anchor: string }>,
+    /** Voci in entrambe le schede. */
     items: [
-        { title: "Menù digitale con QR", desc: "Sempre aggiornato, nel tuo stile.", proOnly: false },
-        { title: "Menù e promo programmati", desc: "Cambiano da soli, all’orario che scegli.", proOnly: false },
-        { title: "Import del menù da foto o PDF", desc: "Carichi quello che usi già: controlli e pubblichi.", proOnly: false },
-        { title: "Traduzione automatica in oltre 30 lingue", desc: "Descrizioni tradotte, nomi dei piatti in italiano.", proOnly: false },
-        { title: "Recensioni dal menù", desc: "Ogni giudizio arriva prima a te, e chi è contento lo lascia anche su Google.", proOnly: false },
-        { title: "Più locali, stili, storie e team", desc: "Ogni locale con la sua veste, e accessi diversi per il personale.", proOnly: false },
-        { title: "Analitiche su visite e piatti", desc: "Sai quando arrivano i clienti e cosa guardano nel menù.", proOnly: false },
-        { title: "Ordini al tavolo con QR", desc: "Le comande arrivano subito sul tuo pannello.", proOnly: true },
-        { title: "Prenotazioni in un’unica agenda", desc: "Quelle dei clienti e quelle che inserisci tu, nello stesso posto.", proOnly: true },
-        { title: "Analitiche su ordini e incassi", desc: "Sai cosa ordinano e quanto incassi, piatto per piatto.", proOnly: true }
+        "Prezzi, piatti ed esauriti dal telefono",
+        "Menù che cambiano da soli: pranzo, cena, eventi",
+        "Il menù tradotto in più lingue",
+        "Evidenza, abbinamenti, allergeni e storie",
+        "Statistiche su cosa guardano i clienti",
+        "Il tuo menù importato da una foto",
+        "Più locali e team, ognuno con i suoi permessi"
     ],
-    proExtra: "+ Stampa automatica delle comande in cucina con stampante dedicata (opzionale, a parte).",
-    footnote: "Prezzi per locale. Nessun costo aggiuntivo al pagamento. Dal secondo locale, −10% su ognuno. Nessun vincolo: disdici quando vuoi."
+    /** Voci solo Pro: nel Base con la X grigia. */
+    proItems: [
+        "Ordini dal tavolo, con la comanda in cucina",
+        "Chiamate al cameriere e richieste del conto",
+        "Prenotazioni online con promemoria",
+        "Cosa ordinano e quanto incassi, piatto per piatto"
+    ],
+    notIncluded: "Non incluso nel Base:",
+    printer: { label: "Stampante per la cucina:", text: " opzionale, si acquista a parte." },
+    footnote: "Un prezzo per ogni locale, nessun costo aggiuntivo. Dal secondo locale, −10% su ognuno."
 };
 
-// ── 8 · Il rischio: una telefonata ──────────────────────────────────────────
+// ── 9 · Come si parte ───────────────────────────────────────────────────────
 
-export const RISK = {
-    title: "Cosa ti costa provarlo: una telefonata.",
+export const START = {
+    note: "una chiamata, niente di più",
+    title: { lead: "Cosa ti costa provarlo:", accent: "una telefonata." },
     steps: [
-        { title: "Ti richiamiamo noi", body: "Entro 24 ore. Ci servono solo il tuo nome, quello del locale e un recapito: niente carta, niente modulo lungo." },
-        { title: "Il menù lo mettiamo online insieme", body: "Il tempo di una chiamata, non di un corso. Se hai sottomano una foto del cartaceo, quando riattacchi è già pubblicato, col tuo QR." },
-        { title: "Un mese nel tuo locale vero", body: "Con i tuoi piatti, i tuoi orari, i tuoi clienti. Non una demo: il menù che usi in sala." },
-        { title: "Poi decidi tu", body: "Se continui, bene. Se smetti, smetti: nessun vincolo, nessuna penale, e non ti rincorriamo." }
-    ],
-    support: "Per tutto il tempo rispondiamo noi: in italiano, al telefono e via email. Non un centralino."
+        { when: "oggi", title: "Lasci un contatto", body: "Nome, locale e un numero di telefono. Nient’altro." },
+        { when: "entro 24 ore", title: "Ti richiamiamo noi", body: "Rispondiamo ai tuoi dubbi e ti facciamo vedere cosa cambia nel tuo locale." },
+        { when: "per 30 giorni", title: "Lo provi ", underlined: "gratis.", body: "Carichi il menù da una foto e lo pubblichi. Se ti blocchi, ti seguiamo noi." },
+        { when: "poi", title: "Decidi tu", body: "Nessun vincolo, nessuna penale." }
+    ] satisfies { when: string; title: string; underlined?: string; body: string }[]
 };
 
-// ── 9 · FAQ ─────────────────────────────────────────────────────────────────
+// ── 10 · FAQ ────────────────────────────────────────────────────────────────
 
 export const FAQ = {
-    title: "Domande, in breve.",
+    note: "chiedi pure",
+    title: { lead: "Domande,", accent: "in breve." },
+    lede: "Le cose che ci chiedono tutti, prima di provare.",
     items: [
-        { q: "Devo ribattere tutto il menù?", a: "No. Carichi la foto o il PDF di quello che usi già: piatti, prezzi e categorie vengono creati per te. Tu controlli e pubblichi." },
-        { q: "Serve installare qualcosa?", a: "Niente. Il menù è una pagina web: il cliente inquadra il QR e si apre. A te basta il telefono che hai in tasca." },
-        { q: "E i QR che ho già stampato?", a: "Restano validi. Il menù dietro al codice cambia, il codice no: i tavoli e i segnaposti non si toccano." },
-        { q: "Funziona con un solo locale?", a: "Sì, tutto funziona anche con un locale solo. Il prezzo è per locale e cala del 10% dal secondo in poi." },
-        { q: "Posso passare dal Base al Pro dopo?", a: "Quando vuoi, e anche tornare indietro. Ordini al tavolo e prenotazioni si accendono e si spengono dal pannello." }
+        { q: "Devo ribattere tutto il menù?", a: "No. Fai una foto al menù o carichi il PDF che hai: piatti, prezzi e categorie vengono letti in automatico. Tu controlli e pubblichi." },
+        { q: "Serve installare qualcosa?", a: "No, né a te né ai clienti. Il menù si apre dal QR, nel browser del telefono." },
+        { q: "E i QR che ho già stampato?", a: "Il QR di CataloGlobe non cambia mai: aggiorni il menù, il QR resta quello. Se oggi ne usi uno di un altro servizio, lo sostituisci una volta sola." },
+        { q: "Serve la carta di credito per provarlo?", a: "Sì, per attivare la prova. Per trenta giorni non paghi niente, e se disdici prima non ti viene addebitato nulla." },
+        { q: "I clienti devono registrarsi per ordinare dal tavolo?", a: "No. Inquadrano il QR del tavolo e ordinano dal telefono, senza app e senza creare un account." },
+        { q: "Posso passare dal Base al Pro più avanti?", a: "Sì, cambi piano quando vuoi, senza rifare niente: il menù e le impostazioni restano quelli." },
+        { q: "E se poi non mi serve?", a: "Disdici quando vuoi, senza penali." }
     ],
-    more: "Hai un’altra domanda? Scrivici, rispondiamo noi."
+    more: "Hai un’altra domanda? Scrivici, rispondiamo noi.",
+    copy: "Copia l’indirizzo email",
+    copied: "Copiato"
 };
 
-// ── 10 · Contatto ───────────────────────────────────────────────────────────
+// ── 11 · Contatto ───────────────────────────────────────────────────────────
 
 export const CONTACT = {
-    title: { before: "Il tuo menù, sempre al passo. ", highlight: "Partiamo?", after: "" } satisfies HighlightedTitle,
-    lede: "Lasciaci un contatto: ti chiamiamo entro 24 ore. Se hai sottomano una foto del menù, usciamo dalla telefonata con il tuo menù già online.",
-    /** Variante form: sotto la lede. L'indirizzo viene da company.ts. */
+    note: "chiamaci tu, o ti chiamiamo noi",
+    title: { before: "Il tuo menù giusto, ", underlined: "ogni sera.", after: " Partiamo?" } satisfies UnderlinedTitle,
+    lede: "Lasciaci un contatto: ti chiamiamo entro 24 ore, rispondiamo ai tuoi dubbi e ti facciamo vedere come funziona per il tuo locale.",
+    /** Variante form: sotto la lede (desktop) o sotto il form (mobile). */
     writeInstead: "Se preferisci scrivere:",
     /** Variante signup: sotto la CTA. */
     talkInstead: "Preferisci parlarne? Scrivici:",
@@ -536,7 +414,8 @@ export const CONTACT = {
         name: "Nome",
         venue: "Nome del locale",
         phone: "Telefono",
-        email: "Email"
+        email: "Email",
+        optional: "· facoltativa"
     },
     interestsLabel: "Cosa ti interessa di più?",
     interests: ["Il menù", "Le prenotazioni", "Gli ordini al tavolo"],
@@ -544,19 +423,19 @@ export const CONTACT = {
         before: "Ho letto l’",
         link: "informativa privacy",
         href: "/legal/privacy",
-        after: " e acconsento al trattamento dei dati per essere ricontattato."
+        after: " e acconsento a essere ricontattato."
     }
 };
 
-// ── 11 · Footer ─────────────────────────────────────────────────────────────
+// ── 12 · Footer ─────────────────────────────────────────────────────────────
 
 export const FOOTER = {
-    tagline: "Menù digitali che si aggiornano da soli, per ristoranti, bar e locali.",
+    tagline: "Il menù che si aggiorna da solo.",
     columns: {
         product: {
             title: "Prodotto",
             links: [
-                { label: "Funzionalità", href: "#funzioni" },
+                { label: "Come funziona", href: "#come" },
                 { label: "Prezzi", href: "#prezzi" },
                 { label: "Domande", href: "#faq" }
             ]
