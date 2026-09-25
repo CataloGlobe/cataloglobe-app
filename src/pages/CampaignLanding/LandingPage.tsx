@@ -1,6 +1,9 @@
 import Frame from "@pages/CampaignLanding/components/Frame/Frame";
 import NavBar from "@pages/CampaignLanding/components/NavBar/NavBar";
 import Hero from "@pages/CampaignLanding/components/sections/Hero/Hero";
+import Orders from "@pages/CampaignLanding/components/sections/Orders/Orders";
+import SoldOut from "@pages/CampaignLanding/components/sections/SoldOut/SoldOut";
+import Supplier from "@pages/CampaignLanding/components/sections/Supplier/Supplier";
 import { LandingVariantContext, type Variante } from "@pages/CampaignLanding/variant";
 
 type LandingPageProps = {
@@ -13,6 +16,9 @@ export default function LandingPage({ variante }: LandingPageProps) {
         <LandingVariantContext.Provider value={variante}>
             <Frame fixed={<NavBar />}>
                 <Hero />
+                <Supplier />
+                <SoldOut />
+                <Orders />
             </Frame>
         </LandingVariantContext.Provider>
     );

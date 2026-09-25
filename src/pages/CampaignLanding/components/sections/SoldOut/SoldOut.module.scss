@@ -1,0 +1,87 @@
+@use "@pages/CampaignLanding/styles/mixins" as *;
+
+.card {
+    overflow: hidden;
+    border-radius: 20px;
+    background: var(--ld-white);
+    border: 1px solid var(--ld-line);
+    box-shadow: var(--ld-shadow-card);
+}
+
+.phone {
+    padding: 14px 18px;
+    background: var(--ld-paper);
+    border-bottom: 1px solid var(--ld-line);
+}
+
+.control {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 8px;
+}
+
+.dish {
+    @include ld-serif;
+    flex-grow: 1;
+    font-size: 18px;
+    color: var(--ld-ink);
+}
+
+.state {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ld-ok);
+    transition: color 300ms ease;
+}
+
+.stateOff {
+    color: var(--ld-terra);
+}
+
+.switch {
+    @include ld-reset-button;
+    @include ld-focus;
+    position: relative;
+    flex-shrink: 0;
+    width: 38px;
+    height: 22px;
+    border-radius: 999px;
+    background: var(--ld-ok);
+    transition: background-color 300ms ease;
+}
+
+.switchOn {
+    background: var(--ld-terra);
+}
+
+.knob {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--ld-white);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+    transition: transform 300ms var(--ld-ease);
+}
+
+.switchOn .knob {
+    transform: translateX(16px);
+}
+
+.customer {
+    padding: 12px 18px 16px;
+}
+
+.customer .customerLabel {
+    margin-bottom: 2px;
+}
+
+.hint {
+    margin: 10px 0 0;
+    font-size: 13px;
+    color: var(--ld-muted);
+    text-align: center;
+}
