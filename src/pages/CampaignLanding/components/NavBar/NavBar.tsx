@@ -16,7 +16,8 @@ type BarState = { pastHero: boolean; atForm: boolean };
  * Desktop: pillola fissa logo | Accedi, trasparente sull'hero e bianca dopo;
  * a destra entra la CTA dopo l'hero ed esce al form.
  * Mobile: la testata sta nell'hero; dopo l'hero compare in alto una barra
- * compatta (logo | pulsante piccolo), che sparisce al form. In alto e non in
+ * compatta (logo | pulsante piccolo). Come la pillola desktop, al form la
+ * barra resta e sparisce solo il pulsante. In alto e non in
  * basso: in fondo allo schermo le barre di Safari, Chrome e delle webview la
  * coprono o la fanno saltare.
  * Lo scroll scrive solo `transform` (rAF); lo stato cambia solo alle soglie.
@@ -73,9 +74,11 @@ export default function NavBar() {
                 </div>
             </div>
 
-            <div className={cx(styles.mobileBar, showCta && styles.on)} aria-hidden={!showCta || undefined}>
+            <div className={cx(styles.mobileBar, state.pastHero && styles.on)} aria-hidden={!state.pastHero || undefined}>
                 <Logo variant="wordmark" color="mono-dark" className={styles.mobileLogo} alt={BRAND.name} />
-                <LandingCta placement="bar-mobile" shape="compact" inert={!showCta} />
+                <div className={cx(styles.mobileCta, showCta && styles.on)}>
+                    <LandingCta placement="bar-mobile" shape="compact" inert={!showCta} />
+                </div>
             </div>
         </>
     );

@@ -6,6 +6,12 @@
     // Rileggere il token nello scope della sezione: il `color` ereditato dalla
     // radice è già risolto e ignorerebbe il ridefinirsi del tono scuro.
     color: var(--ld-ink);
+
+    // Mobile: la barra fissa in alto (NavBar, 53 px + safe area) resta anche
+    // al form; le ancore (#contatto, #faq) si fermano sotto di lei.
+    @include mobile-only {
+        scroll-margin-top: calc(53px + env(safe-area-inset-top));
+    }
 }
 
 .white {

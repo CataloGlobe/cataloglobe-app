@@ -149,9 +149,26 @@
     pointer-events: auto;
 }
 
+// Al form esce solo il pulsante; il suo posto resta, la barra non cambia altezza.
+.mobileCta {
+    opacity: 0;
+    transform: translateY(-4px);
+    pointer-events: none;
+    transition:
+        opacity 200ms ease,
+        transform 200ms var(--ld-ease);
+}
+
+.mobileCta.on {
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
+}
+
 @include reduced-motion {
     .deskCta,
-    .mobileBar {
+    .mobileBar,
+    .mobileCta {
         transform: none;
     }
 }
