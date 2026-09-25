@@ -19,12 +19,15 @@
     color: var(--ld-on-azione);
     // Il 3D della scheda resta dentro il pannello.
     isolation: isolate;
+    // Alto almeno quanto la viewport meno il margine esterno (10 + 10 mobile,
+    // 16 + 16 desktop, fino a 1000 px): altezza solo CSS, la stessa del
+    // segnaposto (LandingFallback.module.scss) dal primo paint. Testo e
+    // scheda restano un blocco centrato nello spazio sotto la testata.
+    display: flex;
+    flex-direction: column;
+    min-height: calc(100svh - 20px);
 
-    // Desktop: alto quanto la viewport meno il margine esterno (16 + 16),
-    // fino a 1000 px; il contenuto si centra nello spazio che resta.
     @include desktop {
-        display: flex;
-        flex-direction: column;
         min-height: min(calc(100svh - 32px), 1000px);
         border-radius: 30px;
         padding: 28px 56px 80px;
@@ -87,7 +90,12 @@
     z-index: 2;
     display: flex;
     // Alta quanto la riga del logo: il bordo di «Accedi» sborda, come in tavola.
+    flex: none;
     height: 28px;
+    // Spazio minimo sotto la testata: quello in più lo aggiunge la centratura.
+    // 34 e non 44: a 390×844 il contenuto sta nei 824 px del pannello, che
+    // quindi non cresce all'arrivo del chunk.
+    margin-bottom: 34px;
     align-items: center;
     justify-content: space-between;
 
@@ -135,7 +143,7 @@
 .grid {
     position: relative;
     z-index: 2;
-    margin-top: 44px;
+    margin: auto 0;
 
     @include desktop {
         display: grid;

@@ -18,19 +18,16 @@
     }
 }
 
-// Stesse misure del pannello vero (Hero.module.scss), solo CSS:
-// - desktop: la stessa formula del pannello, identica dal primo paint;
-// - mobile: il pannello vero è alto quanto il contenuto (≈ 790–860 px), quindi
-//   il segnaposto arriva al fondo dello schermo: sui telefoni fino a 390×844
-//   il pannello vero lo copre o lo supera, e il bordo inferiore cambia solo
-//   fuori schermo.
+// Stesso CSS del pannello vero (.panel in Hero.module.scss): stesse
+// min-height, raggio e sfondo, così l'hero non cambia misura all'arrivo del
+// chunk. Se il contenuto è più alto dello schermo il pannello vero cresce,
+// ma solo sotto il bordo inferiore.
 .page {
-    height: calc(100svh - 10px);
+    min-height: calc(100svh - 20px);
     border-radius: 24px;
     background: linear-gradient(160deg, var(--ld-hero-a) 0%, var(--ld-hero-b) 55%, var(--ld-scuro) 100%);
 
     @include desktop {
-        height: auto;
         min-height: min(calc(100svh - 32px), 1000px);
         border-radius: 30px;
     }
