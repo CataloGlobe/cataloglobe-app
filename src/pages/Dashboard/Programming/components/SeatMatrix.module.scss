@@ -9,7 +9,9 @@
   align-items: flex-start;
   gap: var(--space-2);
   min-width: 0;
-  overflow-wrap: anywhere;
+  // A 768 le colonne sono strette: si va a capo sillabando, non a metà parola.
+  overflow-wrap: break-word;
+  hyphens: auto;
 }
 
 .link {
