@@ -4,6 +4,17 @@
   gap: 24px;
 }
 
+/* Contenitore delle tab: `disabled` spegne campi e azioni per chi legge. */
+.readOnlyScope {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
 .variantRow {
   display: flex;
   align-items: center;

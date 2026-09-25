@@ -14,8 +14,9 @@ import styles from "./ProductCard.module.scss";
 type Props = {
     product: V2Product;
     metadata: ProductListMetadata;
-    onEdit: () => void;
-    onDelete: () => void;
+    /** Senza scrittura la card non ha il «⋯». */
+    onEdit?: () => void;
+    onDelete?: () => void;
 };
 
 function formatPrice(product: V2Product, metadata: ProductListMetadata): string | null {
@@ -97,6 +98,7 @@ export default function ProductCard({ product, metadata, onEdit, onDelete }: Pro
             </div>
 
             {/* Overlay azioni — visibile solo al hover */}
+            {onEdit && onDelete && (
             <div
                 className={styles.overlayActions}
                 onClick={e => e.preventDefault()}
@@ -108,6 +110,7 @@ export default function ProductCard({ product, metadata, onEdit, onDelete }: Pro
                     ]}
                 />
             </div>
+            )}
         </div>
     );
 }

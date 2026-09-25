@@ -47,6 +47,8 @@ import {
 } from "@/utils/productCompleteness";
 
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
+import { useBulkDelete } from "./hooks/useBulkDelete";
 import { ProductCreateEditDrawer, ProductFormMode } from "./ProductCreateEditDrawer";
 import { ProductDeleteDrawer } from "./ProductDeleteDrawer";
 import ProductGroupsTab from "@/components/Products/ProductGroupsTab/ProductGroupsTab";
@@ -549,34 +551,13 @@ export default function Products() {
         setIsDeleteOpen(true);
     };
 
-    const handleBulkDelete = async (selectedIds: string[]) => {
-        if (!currentTenantId || selectedIds.length === 0) return;
-        const results = await Promise.allSettled(
-            selectedIds.map(id => deleteProduct(id, currentTenantId))
-        );
-        const ok = results.filter(r => r.status === "fulfilled").length;
-        const failed = results.length - ok;
-
-        if (ok > 0) {
-            showToast({
-                message: `${ok} ${ok === 1 ? "prodotto eliminato" : "prodotti eliminati"}.`,
-                type: "success"
-            });
-        }
-        if (failed > 0) {
-            showToast({
-                message: `${failed} ${
-                    failed === 1 ? "prodotto non eliminato" : "prodotti non eliminati"
-                } per errore.`,
-                type: "error"
-            });
-            results
-                .filter((r): r is PromiseRejectedResult => r.status === "rejected")
-                .forEach(r => console.error("Bulk delete product failed:", r.reason));
-        }
-
-        await loadData();
-    };
+    const productLower = verticalConfig.productLabel.toLowerCase();
+    const productPluralLower = verticalConfig.productLabelPlural.toLowerCase();
+    const bulk = useBulkDelete({
+        deleteOne: id => deleteProduct(id, currentTenantId!),
+        onDone: loadData,
+        nouns: { one: productLower, many: productPluralLower, deletedOne: "eliminato", deletedMany: "eliminati" }
+    });
 
     const toggleRow = (id: string) => {
         setExpandedRows(prev => {
@@ -777,7 +758,9 @@ export default function Products() {
                                 allRowIds={allTableRowIds}
                                 columns={columns}
                                 selectable={canWriteProduct}
-                                onBulkDelete={canWriteProduct ? handleBulkDelete : undefined}
+                                selectedRowIds={bulk.selectedIds}
+                                onSelectedRowsChange={bulk.setSelectedIds}
+                                onBulkDelete={canWriteProduct ? bulk.request : undefined}
                                 onRowClick={row =>
                                     navigate(
                                         `/business/${currentTenantId}/products/${row.product.id}`
@@ -804,8 +787,8 @@ export default function Products() {
                                                 product={product}
                                                 variants={variants}
                                                 metadata={productMetadata}
-                                                onEdit={handleEdit}
-                                                onDelete={handleDelete}
+                                                onEdit={canWriteProduct ? handleEdit : undefined}
+                                                onDelete={canWriteProduct ? handleDelete : undefined}
                                             />
                                         );
                                     }
@@ -817,8 +800,8 @@ export default function Products() {
                                                 productMetadata[product.id] ??
                                                 EMPTY_PRODUCT_METADATA
                                             }
-                                            onEdit={() => handleEdit(product)}
-                                            onDelete={() => handleDelete(product)}
+                                            onEdit={canWriteProduct ? () => handleEdit(product) : undefined}
+                                            onDelete={canWriteProduct ? () => handleDelete(product) : undefined}
                                         />
                                     );
                                 })}
@@ -836,6 +819,11 @@ export default function Products() {
                         tenantId={currentTenantId ?? undefined}
                     />
 
+                    <ConfirmDialog
+                        {...bulk.dialog}
+                        message={`Si eliminano anche le loro varianti e i collegamenti ai ${verticalConfig.catalogLabel.toLowerCase()}, e non si torna indietro.`}
+                    />
+
                     <ProductDeleteDrawer
                         open={isDeleteOpen}
                         onClose={() => setIsDeleteOpen(false)}
@@ -851,6 +839,7 @@ export default function Products() {
                     onCloseCreate={() => setCreateGroupOpen(false)}
                     searchQuery={groupsSearchQuery}
                     onSearchQueryChange={setGroupsSearchQuery}
+                    canWrite={canWriteProduct}
                 />
             )}
             {activeTab === "attributes" && verticalConfig.productSections.customAttributes && (
@@ -858,6 +847,7 @@ export default function Products() {
                     tenantId={currentTenantId ?? undefined}
                     vertical={selectedTenant?.vertical_type}
                     createTrigger={attrCreateSeq}
+                    canWrite={canWriteAttribute}
                 />
             )}
             {activeTab === "ingredients" && verticalConfig.productSections.ingredients && (
@@ -865,6 +855,7 @@ export default function Products() {
                     createTrigger={ingredientCreateSeq}
                     searchQuery={ingredientsSearchQuery}
                     onSearchQueryChange={setIngredientsSearchQuery}
+                    canWrite={canWriteProduct}
                 />
             )}
         </section>

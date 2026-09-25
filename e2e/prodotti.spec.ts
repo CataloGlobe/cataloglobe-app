@@ -240,7 +240,7 @@ test.describe("Prodotti — elenco", () => {
         await expect.poll(() => write(stub, "products.DELETE")?.params.get("id")).toBe(`eq.${PRODUCT.hamburger}`);
     });
 
-    test("elimina più prodotti", async ({ page }) => {
+    test("elimina più prodotti: conferma col conteggio, annulla rimette la selezione", async ({ page }) => {
         stub.onWrite("products.DELETE", () => null);
         stub.onWrite("translations.DELETE", () => null);
         stub.onWrite("translation_jobs.DELETE", () => null);
@@ -249,13 +249,40 @@ test.describe("Prodotti — elenco", () => {
         await checkboxOf(product(page, "Hamburger")).check();
         await checkboxOf(product(page, "Cheeseburger")).check();
         await page.getByRole("button", { name: /^Elimina/ }).last().click();
-        // Oggi parte senza conferma; P1 mette un ConfirmDialog col conteggio.
+
         const confirm = page.getByRole("alertdialog");
-        if (await confirm.isVisible().catch(() => false)) {
-            await expect(confirm).toContainText(/2/);
-            await confirm.getByRole("button", { name: /^Elimina/ }).click();
-        }
+        await expect(confirm).toContainText("Eliminare 2 prodotti?");
+        await confirm.getByRole("button", { name: "Annulla" }).click();
+        await expect(confirm).toHaveCount(0);
+        expect(stub.writes.filter(w => w.key === "products.DELETE")).toHaveLength(0);
+        await expect(checkboxOf(product(page, "Hamburger"))).toBeChecked();
+
+        await page.getByRole("button", { name: /^Elimina/ }).last().click();
+        await confirm.getByRole("button", { name: "Elimina 2 prodotti" }).click();
         await expect.poll(() => stub.writes.filter(w => w.key === "products.DELETE").length).toBe(2);
+    });
+
+    test("senza products.write: niente crea, selezione, «⋯»", async ({ page }) => {
+        await stub.revoke("products.write");
+        await openList(page);
+        await stub.revoked;
+        await expect(page.getByRole("button", { name: "Crea prodotto" })).toHaveCount(0);
+        await expect(main(page).getByRole("checkbox", { name: "Seleziona riga" })).toHaveCount(0);
+        await expect(main(page).getByRole("button", { name: /^Azioni/ })).toHaveCount(0);
+
+        await page.getByRole("radio", { name: "Vista griglia" }).click();
+        await expect(product(page, "Hamburger")).toBeVisible();
+        await expect(main(page).getByRole("button", { name: /^Azioni/ })).toHaveCount(0);
+
+        await openCollection(page, /^Gruppi( Prodotti)?$/);
+        await expect(main(page).getByText("Panini e2e", { exact: true }).first()).toBeVisible();
+        await expect(main(page).getByRole("button", { name: /^Azioni/ })).toHaveCount(0);
+        await expect(page.getByRole("button", { name: /^(Crea|Nuovo) gruppo$/ })).toHaveCount(0);
+
+        await openCollection(page, /^Ingredienti$/);
+        await expect(main(page).getByText("Cipolla", { exact: true })).toBeVisible();
+        await expect(main(page).getByRole("button", { name: /^Azioni/ })).toHaveCount(0);
+        await expect(main(page).getByRole("checkbox", { name: "Seleziona riga" })).toHaveCount(0);
     });
 });
 
@@ -291,6 +318,28 @@ test.describe("Prodotti — gruppi e ingredienti", () => {
         await page.getByRole("menuitem", { name: "Elimina" }).click();
         await dialog(page).getByRole("button", { name: /^Elimina/ }).click();
         await expect.poll(() => write(stub, "product_groups.DELETE")?.params.get("id")).toBe(`eq.${GROUP.bevande}`);
+    });
+
+    test("gruppi ed ingredienti: l'eliminazione multipla chiede conferma", async ({ page }) => {
+        stub.onWrite("product_groups.DELETE", () => null);
+        stub.onWrite("ingredients.DELETE", call =>
+            call.params.get("id") === `eq.${INGREDIENT.pane}` ? new StubError(409, { code: "23503", message: "fk" }) : null
+        );
+        await openList(page);
+        await openCollection(page, /^Gruppi( Prodotti)?$/);
+        await checkboxOf(main(page).getByText("Contorni e2e", { exact: true })).check();
+        await checkboxOf(main(page).getByText("Bevande e2e", { exact: true })).check();
+        await page.getByRole("button", { name: /^Elimina/ }).last().click();
+        await page.getByRole("alertdialog").getByRole("button", { name: "Elimina 2 gruppi" }).click();
+        await expect.poll(() => stub.writes.filter(w => w.key === "product_groups.DELETE").length).toBe(2);
+
+        await openCollection(page, /^Ingredienti$/);
+        await checkboxOf(main(page).getByText("Pane", { exact: true })).check();
+        await checkboxOf(main(page).getByText("Cipolla", { exact: true })).check();
+        await page.getByRole("button", { name: /^Elimina/ }).last().click();
+        await page.getByRole("alertdialog").getByRole("button", { name: "Elimina 2 ingredienti" }).click();
+        await expect(page.getByText("1 ingrediente eliminato.")).toBeVisible();
+        await expect(page.getByText(/1 ingrediente non eliminato: usato/)).toBeVisible();
     });
 
     test("ingredienti: elenco, eliminazione bloccata dall'uso", async ({ page }) => {
@@ -329,6 +378,16 @@ test.describe("Prodotti — negozio", () => {
         await expect(main(page).getByText("Colore", { exact: true })).toBeVisible();
     });
 
+    test("senza attributes.write: attributi in sola lettura", async ({ page }) => {
+        await stub.revoke("attributes.write");
+        await openList(page);
+        await stub.revoked;
+        await openCollection(page, /^Attributi$/);
+        await expect(main(page).getByText("Taglia", { exact: true })).toBeVisible();
+        await expect(page.getByRole("button", { name: /^(Nuovo|Crea) attributo$/ })).toHaveCount(0);
+        await expect(main(page).getByRole("button", { name: /^Azioni/ })).toHaveCount(0);
+    });
+
     test("scheda: tab Attributi, niente allergeni né ingredienti", async ({ page }) => {
         await openProduct(page, PRODUCT.hamburger);
         await expect(page.getByRole("tab", { name: "Attributi" })).toBeVisible({ timeout: 15_000 });
@@ -344,6 +403,19 @@ test.describe("Prodotti — dettaglio", () => {
         }
         await expect(page.getByRole("tab", { name: "Attributi" })).toHaveCount(0);
         await expect(page.getByRole("navigation", { name: "Breadcrumb" }).getByText("Hamburger")).toBeVisible();
+    });
+
+    test("senza products.write: sola lettura, niente Salva", async ({ page }) => {
+        await stub.revoke("products.write");
+        await openProduct(page, PRODUCT.hamburger);
+        await stub.revoked;
+        const name = main(page).getByRole("textbox", { name: /^Nome/ });
+        await expect(name).toHaveValue("Hamburger", { timeout: 15_000 });
+        await expect(name).toBeDisabled();
+        await expect(main(page).getByText(/^Sola lettura/)).toBeVisible();
+        await expect(page.getByRole("button", { name: /^Salva/ })).toHaveCount(0);
+        await page.getByRole("tab", { name: "Prezzi & Opzioni" }).click();
+        await expect(main(page).getByRole("button", { name: /^Modifica/ }).first()).toBeDisabled();
     });
 
     test("una variante non ha Traduzioni", async ({ page }) => {

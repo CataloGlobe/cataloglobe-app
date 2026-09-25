@@ -16,12 +16,16 @@ import { AttributeDeleteDrawer } from "@/pages/Dashboard/Attributes/AttributeDel
 import { useToast } from "@/context/Toast/ToastContext";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
+import { useBulkDelete } from "./hooks/useBulkDelete";
 import styles from "./ProductsAttributesTab.module.scss";
 
 interface ProductsAttributesTabProps {
     tenantId: string | undefined;
     vertical?: string;
     createTrigger?: number;
+    /** `attributes.write`: senza, niente selezione, «⋯» né CTA. */
+    canWrite: boolean;
 }
 
 function getTypeLabel(type: string): string {
@@ -35,7 +39,7 @@ function getTypeLabel(type: string): string {
     }
 }
 
-export function ProductsAttributesTab({ tenantId, vertical, createTrigger }: ProductsAttributesTabProps) {
+export function ProductsAttributesTab({ tenantId, vertical, createTrigger, canWrite }: ProductsAttributesTabProps) {
     const { showToast } = useToast();
     const verticalConfig = useVerticalConfig();
     const { canEdit } = useSubscriptionGuard();
@@ -109,23 +113,12 @@ export function ProductsAttributesTab({ tenantId, vertical, createTrigger }: Pro
     };
     const handleDelete = (attr: V2ProductAttributeDefinition) => { setAttributeToDelete(attr); setIsDeleteOpen(true); };
 
-    const handleBulkDelete = useCallback(async (selectedIds: string[]) => {
-        if (!tenantId || selectedIds.length === 0) return;
-        const deletableIds = selectedIds.filter(id =>
-            allAttributes.find(a => a.id === id)?.tenant_id !== null
-        );
-        if (deletableIds.length === 0) return;
-        try {
-            await Promise.all(deletableIds.map(id => deleteAttributeDefinition(id, tenantId)));
-            showToast({
-                message: `${deletableIds.length} attribut${deletableIds.length === 1 ? "o eliminato" : "i eliminati"}.`,
-                type: "success"
-            });
-            await loadData();
-        } catch {
-            showToast({ message: "Errore durante l'eliminazione degli attributi.", type: "error" });
-        }
-    }, [tenantId, allAttributes, showToast, loadData]);
+    // Solo i personalizzati sono selezionabili: la piattaforma è in sola lettura.
+    const bulk = useBulkDelete({
+        deleteOne: id => deleteAttributeDefinition(id, tenantId!),
+        onDone: loadData,
+        nouns: { one: "attributo", many: "attributi", deletedOne: "eliminato", deletedMany: "eliminati" }
+    });
 
     const tenantColumns: ColumnDefinition<V2ProductAttributeDefinition>[] = [
         {
@@ -170,20 +163,20 @@ export function ProductsAttributesTab({ tenantId, vertical, createTrigger }: Pro
                     <Text variant="body-sm" colorVariant="muted">—</Text>
                 )
         },
-        {
+        ...(canWrite ? [{
             id: "actions",
             header: "",
             width: "56px",
-            align: "right",
-            cell: (_value, row) => (
+            align: "right" as const,
+            cell: (_value: unknown, row: V2ProductAttributeDefinition) => (
                 <TableRowActions
                     actions={[
                         { label: "Modifica", onClick: () => handleEdit(row) },
-                        { label: "Elimina", onClick: () => handleDelete(row), variant: "destructive", separator: true }
+                        { label: "Elimina", onClick: () => handleDelete(row), variant: "destructive" as const, separator: true }
                     ]}
                 />
             )
-        }
+        }] : [])
     ];
 
     const platformColumns: ColumnDefinition<V2ProductAttributeDefinition>[] = [
@@ -261,8 +254,10 @@ export function ProductsAttributesTab({ tenantId, vertical, createTrigger }: Pro
                     allRowIds={allTenantAttrIds}
                     columns={tenantColumns}
                     isLoading={isLoading}
-                    selectable
-                    onBulkDelete={handleBulkDelete}
+                    selectable={canWrite}
+                    selectedRowIds={bulk.selectedIds}
+                    onSelectedRowsChange={bulk.setSelectedIds}
+                    onBulkDelete={canWrite ? bulk.request : undefined}
                     loadingState={{ message: "Caricamento attributi in corso..." }}
                     emptyState={{
                         icon: <IconTags size={40} stroke={1} style={{ color: "var(--color-gray-400)" }} />,
@@ -270,7 +265,7 @@ export function ProductsAttributesTab({ tenantId, vertical, createTrigger }: Pro
                         description: searchQuery
                             ? "Nessun attributo corrisponde alla tua ricerca."
                             : verticalConfig.copy.productAttributes.emptyDescription,
-                        action: !searchQuery ? (
+                        action: !searchQuery && canWrite ? (
                             <Button variant="primary" size="sm" onClick={handleCreate} disabled={!canEdit}>
                                 Crea attributo
                             </Button>
@@ -285,6 +280,10 @@ export function ProductsAttributesTab({ tenantId, vertical, createTrigger }: Pro
                 attributeData={attributeToEdit}
                 onSuccess={loadData}
                 tenantId={tenantId}
+            />
+            <ConfirmDialog
+                {...bulk.dialog}
+                message="Si tolgono anche i valori che questi attributi hanno sui prodotti, e non si torna indietro."
             />
             <AttributeDeleteDrawer
                 open={isDeleteOpen}

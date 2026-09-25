@@ -30,6 +30,10 @@ import { UsageTab } from "./UsageTab";
 import { AttributesTab } from "./AttributesTab";
 import { TranslationsTab } from "@/components/ui/TranslationsTab/TranslationsTab";
 import { ProductCreateEditDrawer } from "./ProductCreateEditDrawer";
+import { PageGate } from "@/components/PageGate/PageGate";
+import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
+import { usePermissions } from "@/context/PermissionsContext";
+import { canDoOnTenant } from "@/lib/permissions";
 import styles from "./ProductPage.module.scss";
 
 export default function ProductPage() {
@@ -38,6 +42,13 @@ export default function ProductPage() {
     const tenantId = useTenantId();
     const { selectedTenant } = useTenant();
     const verticalConfig = useVerticalConfig();
+    const { permissions } = usePermissions();
+    // Chi ha solo `products.read` vede il prodotto com'è: campi e azioni spenti
+    // (fieldset), nessun «Salva» in testata.
+    const canWrite = permissions != null && canDoOnTenant(permissions, "products.write");
+    // Gate di lettura prima di ogni fetch («skip fetch pre-check»); il blocco
+    // lo rende `PageGate` in fondo.
+    const canRead = permissions != null && canDoOnTenant(permissions, "products.read");
 
     const [product, setProduct] = useState<V2Product | null>(null);
     const [loading, setLoading] = useState(true);
@@ -164,7 +175,7 @@ export default function ProductPage() {
     }, [productId, tenantId]);
 
     const loadProduct = useCallback(async () => {
-        if (!productId || !tenantId) return;
+        if (!productId || !tenantId || !canRead) return;
         try {
             setLoading(true);
             setError(null);
@@ -176,7 +187,7 @@ export default function ProductPage() {
         } finally {
             setLoading(false);
         }
-    }, [productId, tenantId, loadOptions, loadUsage]);
+    }, [productId, tenantId, canRead, loadOptions, loadUsage]);
 
     useEffect(() => {
         loadProduct();
@@ -222,15 +233,16 @@ export default function ProductPage() {
     // Azione Salva/Annulla di pagina — riflette solo il draft Scheda (unica
     // tab con stato), visibile su tutti i tab come Storie.
     const actions = useMemo(
-        () => (
-            <HeaderSaveAction
-                isDirty={schedaDraft.isDirty}
-                isSaving={schedaDraft.isSavingAll}
-                onSave={schedaDraft.handleSaveAll}
-                onDiscard={schedaDraft.handleDiscardAll}
-            />
-        ),
-        [schedaDraft.isDirty, schedaDraft.isSavingAll, schedaDraft.handleSaveAll, schedaDraft.handleDiscardAll]
+        () =>
+            canWrite ? (
+                <HeaderSaveAction
+                    isDirty={schedaDraft.isDirty}
+                    isSaving={schedaDraft.isSavingAll}
+                    onSave={schedaDraft.handleSaveAll}
+                    onDiscard={schedaDraft.handleDiscardAll}
+                />
+            ) : undefined,
+        [canWrite, schedaDraft.isDirty, schedaDraft.isSavingAll, schedaDraft.handleSaveAll, schedaDraft.handleDiscardAll]
     );
 
     // Il salva è di pagina, non di tab: vale su tutte le sezioni, esattamente
@@ -240,13 +252,16 @@ export default function ProductPage() {
         sections: visibleTabs.map(tab => ({ value: tab.value, label: tab.label })),
         activeSection: activeTab,
         onSectionChange: value => handleTabChange(value as ProductPageTab),
-        ...buildSaveActionCompactConfig({
-            isDirty: schedaDraft.isDirty,
-            isSaving: schedaDraft.isSavingAll,
-            onSave: schedaDraft.handleSaveAll,
-            onRequestDiscard: () => setConfirmDiscardOpen(true)
-        })
+        ...(canWrite
+            ? buildSaveActionCompactConfig({
+                  isDirty: schedaDraft.isDirty,
+                  isSaving: schedaDraft.isSavingAll,
+                  onSave: schedaDraft.handleSaveAll,
+                  onRequestDiscard: () => setConfirmDiscardOpen(true)
+              })
+            : {})
     }), [
+        canWrite,
         visibleTabs,
         activeTab,
         handleTabChange,
@@ -260,6 +275,10 @@ export default function ProductPage() {
         actions,
         compact: headerCompact,
     });
+
+    if (permissions != null && !canRead) {
+        return <PageGate readPermission="products.read">{() => null}</PageGate>;
+    }
 
     if (loading) {
         return null;
@@ -284,6 +303,12 @@ export default function ProductPage() {
 
     return (
         <div className={styles.container}>
+            {!canWrite && permissions != null && (
+                <InlineBanner variant="info">
+                    Sola lettura: per modificare {verticalConfig.productLabelPlural.toLowerCase()} serve un ruolo di amministratore.
+                </InlineBanner>
+            )}
+            <fieldset className={styles.readOnlyScope} disabled={!canWrite}>
             {activeTab === "scheda" && (
                 <SchedaTab
                     product={product}
@@ -342,6 +367,7 @@ export default function ProductPage() {
                     usageLoading={usageLoading}
                 />
             )}
+            </fieldset>
 
             <ProductCreateEditDrawer
                 open={isVariantDrawerOpen}

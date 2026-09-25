@@ -17,8 +17,9 @@ type Props = {
     product: V2Product;
     variants: V2Product[];
     metadata: Record<string, ProductListMetadata>;
-    onEdit: (p: V2Product) => void;
-    onDelete: (p: V2Product) => void;
+    /** Senza scrittura la card non ha il «⋯». */
+    onEdit?: (p: V2Product) => void;
+    onDelete?: (p: V2Product) => void;
 };
 
 function formatParentPrice(product: V2Product, meta: ProductListMetadata): string | null {
@@ -46,8 +47,8 @@ export default function ProductCardGroup({ product, variants, metadata, onEdit, 
             <ProductCard
                 product={product}
                 metadata={parentMeta}
-                onEdit={() => onEdit(product)}
-                onDelete={() => onDelete(product)}
+                onEdit={onEdit ? () => onEdit(product) : undefined}
+                onDelete={onDelete ? () => onDelete(product) : undefined}
             />
             {variants.map(variant => (
                 <ProductCardVariant
