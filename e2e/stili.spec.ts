@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { openBusinessPage } from "./business";
-import { STYLE, stubStili, type StiliStub, type WriteCall } from "./stiliStub";
+import { MISSING_STYLE, STYLE, stubStili, type StiliStub, type WriteCall } from "./stiliStub";
 import type { Row } from "./restStub";
 
 /**
@@ -342,6 +342,60 @@ test.describe("Stili — editor", () => {
         await duplicate.click();
         await expect.poll(() => (write(stub, "styles.POST")?.body as Row | undefined)?.name).toBe("Copia di Stile base e2e");
         await expect(page).toHaveURL(/\/styles\/e2e5e000-0000-4000-a000-0000000009\d\d$/);
+    });
+});
+
+test.describe("Stili — editor ricomposto (P3)", () => {
+    test("stile che non esiste: lo dice, e riporta all'elenco", async ({ page }) => {
+        await openStyle(page, MISSING_STYLE);
+        await expect(main(page).getByText("Stile non trovato")).toBeVisible({ timeout: 15_000 });
+        await main(page).getByRole("button", { name: "Torna a Stili" }).click();
+        await expect(page).toHaveURL(/\/styles$/);
+    });
+
+    test("errore di caricamento: non è «non trovato», e «Riprova» ricarica", async ({ page }) => {
+        let fail = true;
+        await page.route(/\/rest\/v1\/styles\?/, route =>
+            fail && route.request().method() === "GET" ? route.fulfill({ status: 500, json: { message: "e2e" } }) : route.fallback()
+        );
+        await openStyle(page, STYLE.sera);
+        await expect(main(page).getByText("Non è stato possibile caricare lo stile")).toBeVisible({ timeout: 15_000 });
+        await expect(page.getByRole("button", { name: "Salva", exact: true })).toHaveCount(0);
+        fail = false;
+        await main(page).getByRole("button", { name: "Riprova" }).click();
+        await expect(nameField(page)).toHaveValue("Sera e2e");
+    });
+
+    test("uscita con modifiche: la guardia chiede, «Annulla» resta", async ({ page }) => {
+        await openStyle(page, STYLE.sera);
+        await expect(nameField(page)).toHaveValue("Sera e2e", { timeout: 15_000 });
+        await nameField(page).fill("Sera e2e bis");
+        await page.getByRole("navigation", { name: "Menu principale" }).getByRole("link", { name: "Menù" }).click();
+        const guard = page.getByRole("alertdialog");
+        await expect(guard).toContainText("Modifiche non salvate");
+        await guard.getByRole("button", { name: /^(Annulla|Resta)/ }).click();
+        await expect(page).toHaveURL(new RegExp(`/styles/${STYLE.sera}$`));
+        await expect(nameField(page)).toHaveValue("Sera e2e bis");
+    });
+
+    test("l'avviso «in uso» non si spegne: niente «Non chiedere più»", async ({ page }) => {
+        await openStyle(page, STYLE.estate);
+        await expect(nameField(page)).toHaveValue("Estate e2e", { timeout: 15_000 });
+        await nameField(page).fill("Estate bis e2e");
+        await saveButton(page).click();
+        const confirm = page.getByRole("alertdialog");
+        await expect(confirm).toContainText("Versioni");
+        await expect(confirm.getByRole("checkbox")).toHaveCount(0);
+        await confirm.getByRole("button", { name: "Annulla" }).click();
+        expect(await page.evaluate(() => Object.keys(localStorage).filter(k => k.startsWith("cataloglobe-style-skip-confirm")))).toEqual([]);
+    });
+
+    test("stile di sistema: lo stesso pannello, spento, anche per chi scrive", async ({ page }) => {
+        await openStyle(page, STYLE.base);
+        await expect(page.getByRole("button", { name: "Duplica e personalizza" })).toBeVisible({ timeout: 15_000 });
+        await expect(nameField(page)).toBeDisabled();
+        await expect(main(page).getByText("Tipografia", { exact: true })).toBeVisible();
+        await expect(page.getByRole("button", { name: "Salva", exact: true })).toHaveCount(0);
     });
 });
 

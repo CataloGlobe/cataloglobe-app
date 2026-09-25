@@ -17,12 +17,10 @@
   border-bottom: none;
 }
 
+// Titolo di sezione del pannello: la scala di `Text title-sm`, niente
+// maiuscoletto (regola del sistema sui titoli).
 .sectionTitle {
   margin: 0;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  font-size: 0.85rem;
-  color: var(--color-text-muted, #64748b);
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;

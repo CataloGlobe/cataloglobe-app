@@ -213,8 +213,8 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
         <div className={styles.panelRoot}>
             {/* ASPETTO GENERALE */}
             <section className={styles.panelSection}>
-                <Text as="h4" variant="title-sm" weight={700} className={styles.sectionTitle}>
-                    Aspetto Generale
+                <Text as="h4" variant="body" weight={600} className={styles.sectionTitle}>
+                    Aspetto generale
                     {paletteWarnings.length > 0 && (
                         <span
                             className={styles.warningDot}
@@ -400,7 +400,7 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
 
             {/* HEADER */}
             <section className={styles.panelSection}>
-                <Text as="h4" variant="title-sm" weight={700} className={styles.sectionTitle}>
+                <Text as="h4" variant="body" weight={600} className={styles.sectionTitle}>
                     Header
                 </Text>
 
@@ -454,8 +454,8 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
 
             {/* NAVIGAZIONE SEZIONI */}
             <section className={styles.panelSection}>
-                <Text as="h4" variant="title-sm" weight={700} className={styles.sectionTitle}>
-                    Navigazione Sezioni
+                <Text as="h4" variant="body" weight={600} className={styles.sectionTitle}>
+                    Navigazione sezioni
                 </Text>
 
                 <div className={styles.controlField}>
@@ -489,7 +489,7 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
 
             {/* CONTENUTI IN EVIDENZA */}
             <section className={styles.panelSection}>
-                <Text as="h4" variant="title-sm" weight={700} className={styles.sectionTitle}>
+                <Text as="h4" variant="body" weight={600} className={styles.sectionTitle}>
                     Contenuti in evidenza
                 </Text>
 
@@ -616,7 +616,7 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
 
             {/* PRODOTTI */}
             <section className={styles.panelSection}>
-                <Text as="h4" variant="title-sm" weight={700} className={styles.sectionTitle}>
+                <Text as="h4" variant="body" weight={600} className={styles.sectionTitle}>
                     Prodotti
                 </Text>
 
@@ -816,7 +816,7 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
 
             {/* TIPOGRAFIA */}
             <section className={styles.panelSection}>
-                <Text as="h4" variant="title-sm" weight={700} className={styles.sectionTitle}>
+                <Text as="h4" variant="body" weight={600} className={styles.sectionTitle}>
                     Tipografia
                 </Text>
 
