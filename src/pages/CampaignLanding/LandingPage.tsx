@@ -1,3 +1,4 @@
+import Board from "@pages/CampaignLanding/components/sections/Board/Board";
 import Frame from "@pages/CampaignLanding/components/Frame/Frame";
 import NavBar from "@pages/CampaignLanding/components/NavBar/NavBar";
 import Hero from "@pages/CampaignLanding/components/sections/Hero/Hero";
@@ -19,6 +20,7 @@ export default function LandingPage({ variante }: LandingPageProps) {
                 <Supplier />
                 <SoldOut />
                 <Orders />
+                <Board />
             </Frame>
         </LandingVariantContext.Provider>
     );
