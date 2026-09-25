@@ -2,7 +2,8 @@
 // =============================================================================
 // submit-lead — form «Richiedi una demo» della landing di campagna.
 //
-// Pubblica (verify_jwt=false), CORS limitato ai domini dell'app.
+// Pubblica (verify_jwt=false), CORS limitato ai domini dell'app (su staging
+// anche alle anteprime Vercel del progetto).
 //  1. honeypot: campo nascosto `website` valorizzato → 200 senza salvare;
 //  2. validazione server (`_shared/leadValidation.ts`, stesse regole del form);
 //  3. rate limit: 5 invii validi/ora per IP (hash SHA-256 con salt);
@@ -35,9 +36,22 @@ const ALLOWED_ORIGINS = [
     "https://www.cataloglobe.com"
 ];
 
+// Solo su staging: anteprime Vercel del progetto `cataloglobe-app` nel team
+// `lorenzo-calzis-projects`, nelle due forme che Vercel genera
+// (`<progetto>-<hash di 9>-<team>` e `<progetto>-git-<ramo>-<team>`).
+// Non tutto vercel.app. In produzione la lista resta quella sopra.
+const STAGING_PROJECT_REF = "lxeawrpjfphgdspueiag";
+const VERCEL_PREVIEW_ORIGIN = /^https:\/\/cataloglobe-app-(?:[a-z0-9]{9}|git-[a-z0-9-]+)-lorenzo-calzis-projects\.vercel\.app$/;
+const IS_STAGING = (Deno.env.get("SUPABASE_URL") ?? "").includes(`//${STAGING_PROJECT_REF}.`);
+
+function isAllowedOrigin(origin: string): boolean {
+    if (ALLOWED_ORIGINS.includes(origin)) return true;
+    return IS_STAGING && VERCEL_PREVIEW_ORIGIN.test(origin);
+}
+
 function corsHeaders(req: Request): Record<string, string> {
     const origin = req.headers.get("origin") ?? "";
-    const allowed = ALLOWED_ORIGINS.includes(origin) ? origin : "";
+    const allowed = isAllowedOrigin(origin) ? origin : "";
     return {
         "Access-Control-Allow-Origin": allowed,
         "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
