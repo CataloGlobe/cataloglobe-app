@@ -36,15 +36,15 @@ import {
     type RuleType
 } from "@/services/supabase/layoutScheduling";
 import { createFeaturedRuleDraft } from "@/services/supabase/featuredScheduling";
-import { RuleTable, type RuleInsight } from "./components/RuleTable";
+import { RuleTable } from "./components/RuleTable";
+import { computeRuleInsights, toCompetitionRule } from "@/utils/ruleInsights";
+import { compareCandidates } from "@shared/scheduleCompetition";
 import { describeTarget } from "./components/ruleTarget";
 import { measureTextWidth } from "@/utils/measureText";
 import { HowItWorksButton, RuleTypeHelpModal } from "./components/RuleTypeHelpModal";
 import { CalendarView } from "./components/CalendarView";
 import { RuleSimulatorDrawer } from "./components/RuleSimulatorDrawer";
-import { isRuleCurrentlyActive } from "@/utils/ruleHelpers";
 import { isLayoutRuleDraft } from "@/utils/scheduleDraft";
-import { ruleReachesAnyActivity, describeZeroReach } from "@/utils/scheduleReach";
 import { deriveScheduleStatus } from "@/utils/scheduleStatus";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import { ruleTypeLabel } from "./ruleTypeLabel";
@@ -115,21 +115,6 @@ function getRuleTargetLabel(rule: LayoutRule, activityById: Map<string, LayoutRu
 
 function getRuleDisplayName(rule: LayoutRule, catalogLabel: string): string {
     return (rule.name ?? `${ruleTypeLabel(rule.rule_type, catalogLabel)} · ${rule.id.slice(0, 6)}`).trim();
-}
-
-function compareSpecificityFirst(a: LayoutRule, b: LayoutRule, specA: number, specB: number): number {
-    if (specA !== specB) return specB - specA;
-    if (a.priority !== b.priority) return a.priority - b.priority;
-    const createdDelta = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-    if (createdDelta !== 0) return createdDelta;
-    return a.id.localeCompare(b.id);
-}
-
-function compareCandidateSpecificityFirst(
-    a: { rule: LayoutRule; specificity: 0 | 1 | 2 },
-    b: { rule: LayoutRule; specificity: 0 | 1 | 2 }
-): number {
-    return compareSpecificityFirst(a.rule, b.rule, a.specificity, b.specificity);
 }
 
 export default function Programming() {
@@ -327,122 +312,26 @@ export default function Programming() {
         return () => clearInterval(interval);
     }, []);
 
-    const reachCtx = useMemo(() => {
-        const activityIdSet = new Set(activities.map(activity => activity.id));
-        return {
-            activityExists: (id: string) => activityIdSet.has(id),
-            groupMemberCount: (id: string) => (activityIdsByGroupId[id] ?? []).length
-        };
-    }, [activities, activityIdsByGroupId]);
-
     const groupNameById = useMemo(
         () => new Map(activityGroups.map(group => [group.id, group.name])),
         [activityGroups]
     );
 
-    const ruleInsightsById = useMemo(() => {
-        const insights = new Map<string, RuleInsight>();
-        const allActivityIds = activities.map(activity => activity.id);
-
-        const ruleAppliesToActivityWithSpecificity = (
-            rule: LayoutRule,
-            activityId: string
-        ): 0 | 1 | 2 | null => {
-            const legacyActivityMatch =
-                rule.target_type === "activity" && rule.target_id === activityId;
-            const activityMatch = legacyActivityMatch || rule.activityIds.includes(activityId);
-            if (activityMatch) return 2;
-
-            const allGroupIds = new Set<string>(rule.groupIds);
-            if (rule.target_type === "activity_group") allGroupIds.add(rule.target_id);
-            for (const groupId of allGroupIds) {
-                if ((activityIdsByGroupId[groupId] ?? []).includes(activityId)) return 1;
-            }
-
-            if (rule.applyToAll) return 0;
-            return null;
-        };
-
-        const ruleTargetsAnyActivity = (rule: LayoutRule): boolean =>
-            ruleReachesAnyActivity(rule, reachCtx);
-
-        const activeNowRules = rules.filter(
-            rule => rule.enabled && isRuleCurrentlyActive(rule, currentTime)
-        );
-
-        const ruleWinsNow = new Set<string>();
-        const ruleParticipatesNow = new Set<string>();
-        const ruleOverriddenByName = new Map<string, string>();
-        const ruleOverriddenById = new Map<string, string>();
-        // Per regole con target ampio (tutte/gruppo): sedi dove perdono vs regola più specifica
-        const ruleExcludedActivityIds = new Map<string, Set<string>>();
-
-        (["layout", "featured", "price", "visibility"] as RuleType[]).forEach(type => {
-            for (const activityId of allActivityIds) {
-                const candidates = activeNowRules
-                    .filter(rule => rule.rule_type === type)
-                    .map(rule => ({
-                        rule,
-                        specificity: ruleAppliesToActivityWithSpecificity(rule, activityId)
-                    }))
-                    .filter(
-                        (entry): entry is { rule: LayoutRule; specificity: 0 | 1 | 2 } =>
-                            entry.specificity !== null
-                    );
-
-                if (candidates.length === 0) continue;
-
-                for (const entry of candidates) {
-                    ruleParticipatesNow.add(entry.rule.id);
-                }
-
-                candidates.sort(compareCandidateSpecificityFirst);
-                const winnerEntry = candidates[0];
-                ruleWinsNow.add(winnerEntry.rule.id);
-
-                for (const candidate of candidates.slice(1)) {
-                    if (!ruleOverriddenByName.has(candidate.rule.id)) {
-                        ruleOverriddenByName.set(candidate.rule.id, getRuleDisplayName(winnerEntry.rule, catalogLabel));
-                        ruleOverriddenById.set(candidate.rule.id, winnerEntry.rule.id);
-                    }
-
-                    // Traccia la sede esclusa per regole con target ampio
-                    const excluded = ruleExcludedActivityIds.get(candidate.rule.id) ?? new Set();
-                    excluded.add(activityId);
-                    ruleExcludedActivityIds.set(candidate.rule.id, excluded);
-                }
-            }
-        });
-
-        for (const rule of rules) {
-            const isActiveNow = rule.enabled && isRuleCurrentlyActive(rule, currentTime);
-            const canTargetAnyActivity = ruleTargetsAnyActivity(rule);
-            const participatesNow = ruleParticipatesNow.has(rule.id);
-            const winsNow = ruleWinsNow.has(rule.id);
-
-            const excludedIds = ruleExcludedActivityIds.get(rule.id);
-            const excludedActivityNames = excludedIds && excludedIds.size > 0
-                ? [...excludedIds].map(id => activityById.get(id)?.name ?? id)
-                : undefined;
-
-            insights.set(rule.id, {
-                isActiveNow,
-                isOverridden: isActiveNow && participatesNow && !winsNow,
-                isNeverUsed: !canTargetAnyActivity,
-                zeroReachReason: canTargetAnyActivity
-                    ? undefined
-                    : describeZeroReach(rule, {
-                          ...reachCtx,
-                          groupName: id => groupNameById.get(id) ?? id
-                      }),
-                overriddenByName: ruleOverriddenByName.get(rule.id),
-                overriddenById: ruleOverriddenById.get(rule.id),
-                excludedActivityNames
-            });
-        }
-
-        return insights;
-    }, [activities, activityById, activityIdsByGroupId, catalogLabel, currentTime, rules, reachCtx, groupNameById]);
+    // «Adesso» e «Sovrascritta da»: la competizione della pagina pubblica,
+    // sede per sede (solo la sede del filtro, se c'è), all'ora di Roma.
+    const ruleInsightsById = useMemo(
+        () =>
+            computeRuleInsights({
+                rules,
+                activities,
+                activityIdsByGroupId,
+                groupNameById,
+                filterActivityId,
+                now: currentTime,
+                ruleName: rule => getRuleDisplayName(rule, catalogLabel)
+            }),
+        [activities, activityIdsByGroupId, catalogLabel, currentTime, filterActivityId, groupNameById, rules]
+    );
 
     const { activeRules, scheduledRules, draftRules, expiredRules, disabledRules } = useMemo(() => {
         const active: LayoutRule[] = [];
@@ -480,14 +369,10 @@ export default function Programming() {
             }
         }
 
-        const temporalScore = (r: LayoutRule): number => {
-            let score = 0;
-            if (r.start_at || r.end_at) score += 2;
-            if (r.time_from || r.time_to) score += 1;
-            return score;
-        };
-
-        const getTargetSpecificity = (r: LayoutRule): number => {
+        // Specificità del target della regola in sé (non per sede): serve
+        // solo a ordinare, con lo stesso comparatore della competizione.
+        const getTargetSpecificity = (r: LayoutRule): 0 | 1 | 2 => {
+            if (r.applyToAll) return 0;
             if (r.activityIds.length > 0) return 2;
             if (r.groupIds.length > 0) return 1;
             return 0;
@@ -508,16 +393,11 @@ export default function Programming() {
             const bOverridden = insightB?.isOverridden ? 1 : 0;
             if (aOverridden !== bOverridden) return bOverridden - aOverridden;
 
-            // 2. Specificità target DESC
-            const specDiff = getTargetSpecificity(b) - getTargetSpecificity(a);
-            if (specDiff !== 0) return specDiff;
-
-            // 3. Specificità temporale DESC
-            const tempDiff = temporalScore(b) - temporalScore(a);
-            if (tempDiff !== 0) return tempDiff;
-
-            // 4. created_at ASC
-            return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+            // 2. L'ordine della competizione: target, finestra, priorità, created_at, id
+            return compareCandidates(
+                { rule: toCompetitionRule(a), specificity: getTargetSpecificity(a) },
+                { rule: toCompetitionRule(b), specificity: getTargetSpecificity(b) }
+            );
         };
 
         active.sort(resolverSort);
@@ -1033,6 +913,7 @@ export default function Programming() {
                 tenantId={currentTenantId!}
                 rules={rules}
                 activities={activities}
+                activityIdsByGroupId={activityIdsByGroupId}
                 catalogById={catalogById}
                 subscriptionInactive={subscriptionInactive}
                 ruleHref={ruleHref}

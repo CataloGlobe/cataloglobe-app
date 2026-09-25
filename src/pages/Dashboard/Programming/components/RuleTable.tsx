@@ -15,21 +15,11 @@ import { isLayoutRuleDraft } from "@utils/scheduleDraft";
 import { getToggleGuardResult } from "@utils/ruleToggleGuards";
 import type { LayoutRule, LayoutRuleOption } from "@services/supabase/layoutScheduling";
 import { ruleTypeLabel } from "../ruleTypeLabel";
+import type { RuleInsight } from "@/utils/ruleInsights";
 import { describeTarget } from "./ruleTarget";
 import styles from "./RuleTable.module.scss";
 
-export type RuleInsight = {
-    isActiveNow: boolean;
-    isOverridden: boolean;
-    isNeverUsed: boolean;
-    /** Motivo della portata zero (Passo 4), presente sse isNeverUsed. */
-    zeroReachReason?: string;
-    /** La regola che adesso vince su questa (nome e id, per il link). */
-    overriddenByName?: string;
-    overriddenById?: string;
-    /** Nomi delle sedi dove questa regola è sovrascritta da una più specifica. */
-    excludedActivityNames?: string[];
-};
+export type { RuleInsight };
 
 export interface RuleTableProps {
     rules: LayoutRule[];

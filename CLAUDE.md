@@ -304,6 +304,8 @@ Deploy sempre con --project-ref esplicito: la CLI Supabase locale è collegata a
 
 **`priceSummary.ts` idem duplicato FE↔Edge** (header `⚠️ SYNC`): `src/utils/priceSummary.ts` ↔ `supabase/functions/_shared/priceSummary.ts`. `resolvePriceSummary` calcola solo i *fatti* sul prezzo sintetico di un gruppo → `{kind: none|single|multi, min, max, count}`. La *presentazione* ("da X" / range) vive SOLO lato FE in `src/utils/formatPriceSummary.ts` (l'edge Deno usa solo i fatti grezzi). Separazione voluta: la regola di sintesi cambia senza toccare il formatting.
 
+**Codice puro condiviso FE↔Edge senza coppia SYNC**: alias `@shared/` → `supabase/functions/_shared/`. Vale solo per moduli con zero import (niente Deno, niente `.ts` negli import). Primo caso: `scheduleCompetition.ts` (`resolveCompetition`, `isTimeRuleActiveNow`, `compareCandidates`), unica fonte di «chi vince». La usano resolver (entrambe le copie), lista di Programmazione (`src/utils/ruleInsights.ts`), drawer di eliminazione stile e andamento del simulatore. `days_of_week = []` vuol dire «mai»: si scrive solo via `daysOfWeekForDb`.
+
 ### Attivazione abbonamento (paywall)
 
 - **Tenant nasce sospeso**: `tenants.subscription_status` DEFAULT `'suspended'` (mig 20260918150000). Un tenant senza checkout completato NON ha menu pubblico: `resolve-public-catalog` risponde `subscription_inactive`.

@@ -1,5 +1,6 @@
 import { supabase } from "@/services/supabase/client";
 import { revalidatePublicCatalogForTenant } from "@services/publicCatalog/revalidatePublicCatalog";
+import { daysOfWeekForDb } from "@utils/scheduleDays";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -245,7 +246,7 @@ export async function updateFeaturedRule(input: {
     endAt: string | null;
     timeFrom: string | null;
     timeTo: string | null;
-    daysOfWeek: number[];
+    daysOfWeek: number[] | null;
     alwaysActive: boolean;
     targetMode: "all" | "activities" | "groups";
     activityIds: string[];
@@ -275,7 +276,7 @@ export async function updateFeaturedRule(input: {
             name: input.name,
             enabled: input.enabled,
             time_mode: input.alwaysActive ? "always" : "window",
-            days_of_week: input.alwaysActive ? null : input.daysOfWeek,
+            days_of_week: input.alwaysActive ? null : daysOfWeekForDb(input.daysOfWeek),
             time_from: input.alwaysActive ? null : input.timeFrom,
             time_to: input.alwaysActive ? null : input.timeTo,
             start_at: input.startAt,

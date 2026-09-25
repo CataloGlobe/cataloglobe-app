@@ -21,25 +21,11 @@ import type { LayoutRule, LayoutRuleOption, RuleType } from "@/services/supabase
 import { formatInactiveReason } from "@/utils/activityStatus";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import { ruleTypeLabel } from "../ruleTypeLabel";
+import { buildDailyTimeline } from "../simulatorTimeline";
 import styles from "./RuleSimulatorDrawer.module.scss";
-
-type DailyTimelineBlock = {
-    startMinutes: number;
-    endMinutes: number;
-    layoutCatalogId: string | null;
-    layoutScheduleId: string | null;
-    priceRuleId: string | null;
-    visibilityScheduleId: string | null;
-    visibilityMode: "hide" | "disable" | null;
-    featuredScheduleId: string | null;
-    layoutSpecificity: number | null;
-    priceSpecificity: number | null;
-    visibilitySpecificity: number | null;
-};
 
 const DAILY_TIMELINE_STEP_MINUTES = 30;
 const SIM_ERROR = "Non riusciamo a simulare questo momento.";
-const TIMELINE_ERROR = "Non riusciamo a calcolare l'andamento della giornata.";
 const INVALID_DATE = "Data e ora non valide.";
 
 function toDateTimeLocalValue(date: Date): string {
@@ -62,26 +48,14 @@ function formatMinutesToHourLabel(totalMinutes: number): string {
     return `${h}:${m}`;
 }
 
-function blockKey(block: Omit<DailyTimelineBlock, "startMinutes" | "endMinutes">): string {
-    return [
-        block.layoutCatalogId ?? "",
-        block.layoutScheduleId ?? "",
-        block.priceRuleId ?? "",
-        block.visibilityScheduleId ?? "",
-        block.visibilityMode ?? "",
-        block.featuredScheduleId ?? "",
-        String(block.layoutSpecificity ?? ""),
-        String(block.priceSpecificity ?? ""),
-        String(block.visibilitySpecificity ?? "")
-    ].join("|");
-}
-
 export interface RuleSimulatorDrawerProps {
     open: boolean;
     onClose: () => void;
     tenantId: string;
     rules: LayoutRule[];
     activities: LayoutRuleOption[];
+    /** Membri dei gruppi di sedi: l'andamento gioca la competizione in memoria. */
+    activityIdsByGroupId: Record<string, string[]>;
     catalogById: Map<string, LayoutRuleOption>;
     /** Abbonamento non attivo: la pagina pubblica non mostra il catalogo. */
     subscriptionInactive: boolean;
@@ -100,6 +74,7 @@ export function RuleSimulatorDrawer({
     tenantId,
     rules,
     activities,
+    activityIdsByGroupId,
     catalogById,
     subscriptionInactive,
     ruleHref
@@ -117,9 +92,6 @@ export function RuleSimulatorDrawer({
     const [isSimLoading, setIsSimLoading] = useState(false);
     const [simError, setSimError] = useState<string | null>(null);
     const [timelineOpen, setTimelineOpen] = useState(false);
-    const [isTimelineLoading, setIsTimelineLoading] = useState(false);
-    const [timelineError, setTimelineError] = useState<string | null>(null);
-    const [timelineBlocks, setTimelineBlocks] = useState<DailyTimelineBlock[]>([]);
 
     // Una sede sola: è già scelta.
     useEffect(() => {
@@ -160,82 +132,35 @@ export function RuleSimulatorDrawer({
         }
     }, [simActivityId, simDateTime, tenantId]);
 
-    const runDailyTimeline = useCallback(async () => {
-        if (!simActivityId || !simDateTime) {
-            setTimelineBlocks([]);
-            setTimelineError(null);
-            return;
+    // L'andamento: 48 mezz'ore della sede, con la competizione della pagina
+    // pubblica giocata in memoria sulle regole della pagina (nessuna
+    // richiesta; prima erano 48 risoluzioni, ~800 richieste).
+    const { timelineBlocks, timelineError } = useMemo(() => {
+        if (!open || !timelineOpen || !simActivityId || !simDateTime) {
+            return { timelineBlocks: [], timelineError: null };
         }
         const selectedDate = new Date(simDateTime);
         if (Number.isNaN(selectedDate.getTime())) {
-            setTimelineBlocks([]);
-            setTimelineError(INVALID_DATE);
-            return;
+            return { timelineBlocks: [], timelineError: INVALID_DATE };
         }
         const dayStart = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 0, 0, 0, 0);
-        const slotOffsets: number[] = [];
+        const slots = [];
         for (let minutes = 0; minutes < 24 * 60; minutes += DAILY_TIMELINE_STEP_MINUTES) {
-            slotOffsets.push(minutes);
+            const slotTime = new Date(dayStart);
+            slotTime.setMinutes(minutes);
+            slots.push({ minutesOffset: minutes, now: toRomeDateTime(slotTime) });
         }
-
-        setIsTimelineLoading(true);
-        setTimelineError(null);
-
-        const settled = await Promise.allSettled(
-            slotOffsets.map(async minutesOffset => {
-                const slotTime = new Date(dayStart);
-                slotTime.setMinutes(minutesOffset);
-                const result = await resolveRulesForActivity({
-                    supabase,
-                    activityId: simActivityId,
-                    tenantId,
-                    now: toRomeDateTime(slotTime),
-                    includeLayoutStyle: false
-                });
-                return {
-                    minutesOffset,
-                    layoutCatalogId: result.layout.catalogId,
-                    layoutScheduleId: result.layout.scheduleId,
-                    priceRuleId: result.priceRuleId,
-                    visibilityScheduleId: result.visibilityRule?.scheduleId ?? null,
-                    visibilityMode: result.visibilityRule?.mode ?? null,
-                    featuredScheduleId: result.featuredRule?.scheduleId ?? null,
-                    layoutSpecificity: result.debug?.selectedLayoutRuleSpecificity ?? null,
-                    priceSpecificity: result.debug?.selectedPriceRuleSpecificity ?? null,
-                    visibilitySpecificity: result.debug?.selectedVisibilityRuleSpecificity ?? null
-                };
-            })
-        );
-
-        const slotResults = settled
-            .filter((r): r is PromiseFulfilledResult<typeof settled extends PromiseSettledResult<infer T>[] ? T : never> => r.status === "fulfilled")
-            .map(r => r.value);
-
-        const failedCount = settled.length - slotResults.length;
-        if (failedCount > 0) {
-            console.warn(`Timeline: ${failedCount}/${settled.length} slot falliti`);
-        }
-        if (slotResults.length === 0) {
-            setTimelineBlocks([]);
-            setTimelineError(TIMELINE_ERROR);
-            setIsTimelineLoading(false);
-            return;
-        }
-
-        const merged: DailyTimelineBlock[] = [];
-        for (const slot of slotResults) {
-            const last = merged[merged.length - 1];
-            if (last && blockKey(last) === blockKey(slot) && last.endMinutes === slot.minutesOffset) {
-                last.endMinutes += DAILY_TIMELINE_STEP_MINUTES;
-                continue;
-            }
-            const { minutesOffset, ...rest } = slot;
-            merged.push({ ...rest, startMinutes: minutesOffset, endMinutes: minutesOffset + DAILY_TIMELINE_STEP_MINUTES });
-        }
-
-        setTimelineBlocks(merged);
-        setIsTimelineLoading(false);
-    }, [simActivityId, simDateTime, tenantId]);
+        const seat = {
+            activityId: simActivityId,
+            groupIds: Object.entries(activityIdsByGroupId)
+                .filter(([, memberIds]) => memberIds.includes(simActivityId))
+                .map(([groupId]) => groupId)
+        };
+        return {
+            timelineBlocks: buildDailyTimeline(rules, seat, slots, DAILY_TIMELINE_STEP_MINUTES),
+            timelineError: null
+        };
+    }, [open, timelineOpen, simActivityId, simDateTime, rules, activityIdsByGroupId]);
 
     const hasAnyRuleActiveInDay = timelineBlocks.some(
         block =>
@@ -251,17 +176,8 @@ export function RuleSimulatorDrawer({
         void runSimulation();
     }, [open, simActivityId, simDateTime, runSimulation]);
 
-    // L'andamento sono 48 simulazioni (una ogni mezz'ora, ~800 richieste):
-    // si calcola quando la card è aperta, non a ogni scelta di sede.
-    useEffect(() => {
-        if (!open || !timelineOpen) return;
-        if (!simActivityId || !simDateTime) return;
-        void runDailyTimeline();
-    }, [open, timelineOpen, simActivityId, simDateTime, runDailyTimeline]);
-
     const retry = () => {
         void runSimulation();
-        if (timelineOpen) void runDailyTimeline();
     };
 
     // L'anteprima apre la pagina pubblica: negli stessi casi in cui
@@ -378,22 +294,9 @@ export function RuleSimulatorDrawer({
                     }
                 >
                     {timelineOpen &&
-                        (isTimelineLoading ? (
-                            [0, 1, 2].map(i => <ListRow key={i} loading dense />)
-                        ) : timelineError ? (
+                        (timelineError ? (
                             <div className={styles.cardPad}>
-                                <InlineBanner
-                                    variant="error"
-                                    action={
-                                        timelineError === TIMELINE_ERROR ? (
-                                            <Button variant="secondary" size="sm" onClick={() => void runDailyTimeline()}>
-                                                Riprova
-                                            </Button>
-                                        ) : undefined
-                                    }
-                                >
-                                    {timelineError}
-                                </InlineBanner>
+                                <InlineBanner variant="error">{timelineError}</InlineBanner>
                             </div>
                         ) : timelineBlocks.length === 0 || !hasAnyRuleActiveInDay ? (
                             <div className={styles.cardPad}>

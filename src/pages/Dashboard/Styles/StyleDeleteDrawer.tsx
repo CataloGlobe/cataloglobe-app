@@ -7,15 +7,18 @@ import Text from "@/components/ui/Text/Text";
 import { Select } from "@/components/ui/Select/Select";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useTenantId } from "@/context/useTenantId";
-import { supabase } from "@/services/supabase/client";
 import { deleteStyle, V2Style } from "@/services/supabase/styles";
 import { getActivities } from "@/services/supabase/activities";
+import { listActivityIdsByGroup } from "@/services/supabase/activity-groups";
 import {
+    listLayoutRulesForCompetition,
     listSchedulesUsingStyle,
+    type LayoutCompetitionRule,
     type StyleScheduleUsage
 } from "@/services/supabase/layoutScheduling";
-import { isRuleCurrentlyActive } from "@/utils/ruleHelpers";
-import { ruleReachesAnyActivity } from "@/utils/scheduleReach";
+import { toRomeDateTime } from "@/services/supabase/schedulingNow";
+import { computeRuleInsights } from "@/utils/ruleInsights";
+import { isTimeRuleActiveNow } from "@shared/scheduleCompetition";
 import { deriveScheduleStatus, type ScheduleStatus } from "@/utils/scheduleStatus";
 import { IconAlertTriangle } from "@tabler/icons-react";
 import pageStyles from "./Styles.module.scss";
@@ -38,6 +41,11 @@ const STATUS_PILL_CLASS: Record<ScheduleStatus, string> = {
     expired: drawerStyles.pillExpired,
     disabled: drawerStyles.pillDisabled
 };
+
+/** Ripiego senza i dati della competizione: la sola finestra, all'ora di Roma. */
+function isInWindowNow(rule: StyleScheduleUsage, now: Date): boolean {
+    return rule.enabled && isTimeRuleActiveNow(rule, toRomeDateTime(now));
+}
 
 function StatusPill({ status }: { status: ScheduleStatus }) {
     return (
@@ -68,11 +76,15 @@ export function StyleDeleteDrawer({
     const [replacementId, setReplacementId] = useState<string>("");
     const [schedulesUsing, setSchedulesUsing] = useState<StyleScheduleUsage[] | null>(null);
     const [isLoadingUsage, setIsLoadingUsage] = useState(false);
-    // Serve solo a deriveScheduleStatus (portata zero, Passo 4): sedi
-    // esistenti del tenant + membri dei gruppi puntati dalle regole trovate
-    // sopra. Nessuna competizione fra regole qui (vedi scheduleStatus.ts).
-    const [activityIdSet, setActivityIdSet] = useState<Set<string>>(new Set());
-    const [groupMemberCounts, setGroupMemberCounts] = useState<Map<string, number>>(new Map());
+    // La competizione (§34.4): tutte le regole menù dell'azienda, le sedi e
+    // i membri dei gruppi. Dà a deriveScheduleStatus la finestra all'ora di
+    // Roma e la portata zero; chi sovrascrive una regola dello stile è
+    // calcolato ma non ancora mostrato (arriva col lotto della matrice, §20).
+    const [competition, setCompetition] = useState<{
+        rules: LayoutCompetitionRule[];
+        activities: Array<{ id: string; name: string }>;
+        activityIdsByGroupId: Record<string, string[]>;
+    } | null>(null);
 
     const isSystemError = styleData?.is_system;
     const isUsed = (styleData?.usage_count || 0) > 0;
@@ -88,36 +100,30 @@ export function StyleDeleteDrawer({
         if (!styleData || !currentTenantId) return;
         setIsLoadingUsage(true);
         try {
-            const data = await listSchedulesUsingStyle(currentTenantId, styleData.id);
-            setSchedulesUsing(data);
-
-            const groupIds = Array.from(new Set(data.flatMap(rule => rule.groupIds)));
-            const [activities, memberRows] = await Promise.all([
-                getActivities(currentTenantId),
-                groupIds.length > 0
-                    ? supabase
-                          .from("activity_group_members")
-                          .select("group_id")
-                          .eq("tenant_id", currentTenantId)
-                          .in("group_id", groupIds)
-                          .then(res => {
-                              if (res.error) throw res.error;
-                              return res.data ?? [];
-                          })
-                    : Promise.resolve([])
-            ]);
-
-            setActivityIdSet(new Set(activities.map(a => a.id)));
-            const counts = new Map<string, number>();
-            for (const row of memberRows) {
-                counts.set(row.group_id, (counts.get(row.group_id) ?? 0) + 1);
-            }
-            setGroupMemberCounts(counts);
+            setSchedulesUsing(await listSchedulesUsingStyle(currentTenantId, styleData.id));
         } catch (err) {
             console.warn("[StyleDeleteDrawer] usage fetch failed:", err);
             setSchedulesUsing([]);
-            setActivityIdSet(new Set());
-            setGroupMemberCounts(new Map());
+            setIsLoadingUsage(false);
+            return;
+        }
+        try {
+            const [rules, activities] = await Promise.all([
+                listLayoutRulesForCompetition(currentTenantId),
+                getActivities(currentTenantId)
+            ]);
+            const activityIdsByGroupId = await listActivityIdsByGroup(
+                Array.from(new Set(rules.flatMap(rule => rule.groupIds)))
+            );
+            setCompetition({
+                rules,
+                activities: activities.map(activity => ({ id: activity.id, name: activity.name })),
+                activityIdsByGroupId
+            });
+        } catch (err) {
+            // Senza competizione lo stato resta calcolabile dalla sola finestra.
+            console.warn("[StyleDeleteDrawer] competition fetch failed:", err);
+            setCompetition(null);
         } finally {
             setIsLoadingUsage(false);
         }
@@ -127,6 +133,7 @@ export function StyleDeleteDrawer({
         if (!open || !styleData) {
             setReplacementId("");
             setSchedulesUsing(null);
+            setCompetition(null);
             setIsDeleting(false);
             return;
         }
@@ -175,6 +182,17 @@ export function StyleDeleteDrawer({
     const visibleSchedules = blocking.slice(0, MAX_VISIBLE_SCHEDULES);
     const hiddenCount = blocking.length - visibleSchedules.length;
     const now = new Date();
+    const insights = competition
+        ? computeRuleInsights({
+              rules: competition.rules,
+              activities: competition.activities,
+              activityIdsByGroupId: competition.activityIdsByGroupId,
+              groupNameById: new Map(),
+              filterActivityId: null,
+              now,
+              ruleName: rule => rule.name ?? ""
+          })
+        : null;
 
     const usageCopy = replacementId
         ? "Queste regole useranno lo stile selezionato:"
@@ -255,18 +273,7 @@ export function StyleDeleteDrawer({
                                     {!isLoadingUsage && blocking.length > 0 && (
                                         <ul className={drawerStyles.scheduleList}>
                                             {visibleSchedules.map(rule => {
-                                                const isZeroReach = !ruleReachesAnyActivity(
-                                                    {
-                                                        applyToAll: rule.applyToAll,
-                                                        activityIds: rule.activityIds,
-                                                        groupIds: rule.groupIds
-                                                    },
-                                                    {
-                                                        activityExists: id => activityIdSet.has(id),
-                                                        groupMemberCount: id =>
-                                                            groupMemberCounts.get(id) ?? 0
-                                                    }
-                                                );
+                                                const insight = insights?.get(rule.id);
                                                 const status = deriveScheduleStatus({
                                                     enabled: rule.enabled,
                                                     endAt: rule.end_at,
@@ -277,8 +284,9 @@ export function StyleDeleteDrawer({
                                                         !rule.applyToAll &&
                                                         rule.activityIds.length === 0 &&
                                                         rule.groupIds.length === 0,
-                                                    isZeroReach,
-                                                    isActiveNow: isRuleCurrentlyActive(rule, now),
+                                                    isZeroReach: insight?.isNeverUsed ?? false,
+                                                    isActiveNow:
+                                                        insight?.isActiveNow ?? isInWindowNow(rule, now),
                                                     now
                                                 });
                                                 return (

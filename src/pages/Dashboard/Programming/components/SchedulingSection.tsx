@@ -22,6 +22,8 @@ interface SchedulingSectionProps {
     alwaysActive: boolean;
     startAt: string;
     endAt: string;
+    /** «In certi giorni», dal form: acceso senza giorni è un errore di `validateRuleForm`. */
+    daysEnabled: boolean;
     daysOfWeek: string[];
     timeFrom: string;
     timeTo: string;
@@ -31,6 +33,7 @@ interface SchedulingSectionProps {
             timeMode: LayoutTimeMode;
             startAt: string;
             endAt: string;
+            daysEnabled: boolean;
             daysOfWeek: string[];
             timeFrom: string;
             timeTo: string;
@@ -46,6 +49,7 @@ export function SchedulingSection({
     alwaysActive,
     startAt,
     endAt,
+    daysEnabled,
     daysOfWeek,
     timeFrom,
     timeTo,
@@ -57,7 +61,6 @@ export function SchedulingSection({
     // Progressive toggle states — initialized from existing prop values
     const [hasPeriod, setHasPeriod] = useState(!!(startAt || endAt));
     const [hasTime, setHasTime] = useState(!!(timeFrom || timeTo));
-    const [hasDays, setHasDays] = useState(daysOfWeek.length > 0);
 
     const handleToggleAlways = (checked: boolean) => {
         onFormChange({
@@ -77,10 +80,7 @@ export function SchedulingSection({
     };
 
     const handleToggleDays = (checked: boolean) => {
-        setHasDays(checked);
-        if (!checked) {
-            onFormChange({ daysOfWeek: [] });
-        }
+        onFormChange(checked ? { daysEnabled: true } : { daysEnabled: false, daysOfWeek: [] });
     };
 
     return (
@@ -178,12 +178,12 @@ export function SchedulingSection({
                     {/* Step 3 — Giorni */}
                     <div className={styles.inlineBlock}>
                         <div className={styles.switchRow}>
-                            <Switch ariaLabel="In certi giorni" checked={hasDays} onChange={handleToggleDays} />
+                            <Switch ariaLabel="In certi giorni" checked={daysEnabled} onChange={handleToggleDays} />
                             <Text variant="body-sm">
                                 In certi giorni
                             </Text>
                         </div>
-                        {hasDays && (
+                        {daysEnabled && (
                             <ChipGroupMultiple
                                 ariaLabel="Giorni della settimana"
                                 options={DAY_OPTIONS}

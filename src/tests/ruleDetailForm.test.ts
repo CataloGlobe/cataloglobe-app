@@ -61,6 +61,7 @@ function makeForm(overrides: Partial<RuleDetailForm> = {}): RuleDetailForm {
         timeMode: "window",
         startAt: "",
         endAt: "",
+        daysEnabled: true,
         daysOfWeek: ["1"],
         timeFrom: "",
         timeTo: "",
@@ -87,9 +88,20 @@ describe("validateRuleForm", () => {
     });
 
     it("una finestra vuota chiede un periodo, delle ore o dei giorni", () => {
-        expect(validate(makeForm({ daysOfWeek: [] }))).toMatchObject({
+        expect(validate(makeForm({ daysEnabled: false, daysOfWeek: [] }))).toMatchObject({
             when: "Scegli un periodo, delle ore o dei giorni, oppure accendi «Sempre attiva»."
         });
+    });
+
+    it("«In certi giorni» acceso senza giorni non si salva: [] vorrebbe dire «mai»", () => {
+        expect(validate(makeForm({ daysOfWeek: [], timeFrom: "11:00", timeTo: "15:00" }))).toMatchObject({
+            when: "Scegli almeno un giorno, oppure spegni «In certi giorni»."
+        });
+        expect(
+            validate(makeForm({ daysEnabled: false, daysOfWeek: [], timeFrom: "11:00", timeTo: "15:00" }))
+        ).toEqual({});
+        // «Sempre attiva» ignora i giorni.
+        expect(validate(makeForm({ timeMode: "always", alwaysActive: true, daysOfWeek: [] }))).toEqual({});
     });
 
     it("un periodo ha inizio e fine", () => {
@@ -199,7 +211,16 @@ describe("buildRuleDetailForm", () => {
             activityById,
             "Menù"
         );
-        expect(form).toMatchObject({ timeMode: "window", alwaysActive: false, daysOfWeek: ["1", "5"], timeFrom: "11:00", timeTo: "15:00" });
+        expect(form).toMatchObject({ timeMode: "window", alwaysActive: false, daysEnabled: true, daysOfWeek: ["1", "5"], timeFrom: "11:00", timeTo: "15:00" });
+    });
+
+    it("giorni salvati come [] (dato vecchio): l'interruttore parte spento", () => {
+        const form = buildRuleDetailForm(
+            makeRule({ time_mode: "window", days_of_week: [], time_from: "11:00:00", time_to: "15:00:00" }),
+            activityById,
+            "Menù"
+        );
+        expect(form).toMatchObject({ daysEnabled: false, daysOfWeek: [] });
     });
 
     it("prezzi per formato finiscono sotto il loro prodotto", () => {
