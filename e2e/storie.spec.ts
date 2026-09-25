@@ -287,6 +287,39 @@ test.describe("Storie — editor", () => {
     });
 });
 
+test.describe("Storie — editor ricomposto (P6)", () => {
+    test("il racconto conta blocchi e immagini", async ({ page }) => {
+        await openStory(page, STORY.forno);
+        await expect(titleField(page)).toHaveValue("Il nostro forno e2e", { timeout: 15_000 });
+        await expect(main(page).getByText("Il racconto", { exact: true })).toBeVisible();
+        await expect(main(page).getByText("2 blocchi · 0 immagini su 8")).toBeVisible();
+    });
+
+    test("uscita con modifiche: la guardia chiede, «Annulla» resta", async ({ page }) => {
+        await openStory(page, STORY.forno);
+        await expect(titleField(page)).toHaveValue("Il nostro forno e2e", { timeout: 15_000 });
+        await titleField(page).fill("Il nostro forno bis");
+        await page.getByRole("navigation", { name: "Menu principale" }).getByRole("link", { name: "Menù" }).click();
+        const guard = page.getByRole("alertdialog");
+        await expect(guard).toContainText("Modifiche non salvate");
+        await guard.getByRole("button", { name: /^(Annulla|Resta)/ }).click();
+        await expect(page).toHaveURL(new RegExp(`/stories/${STORY.forno}$`));
+        await expect(titleField(page)).toHaveValue("Il nostro forno bis");
+    });
+
+    test("errore di caricamento: non è «non trovata», e «Riprova» ricarica", async ({ page }) => {
+        let fail = true;
+        await page.route(/\/rest\/v1\/stories\?/, route =>
+            fail && route.request().method() === "GET" ? route.fulfill({ status: 500, json: { message: "e2e" } }) : route.fallback()
+        );
+        await openStory(page, STORY.forno);
+        await expect(main(page).getByText("Non è stato possibile caricare la storia")).toBeVisible({ timeout: 15_000 });
+        fail = false;
+        await main(page).getByRole("button", { name: "Riprova" }).click();
+        await expect(titleField(page)).toHaveValue("Il nostro forno e2e");
+    });
+});
+
 test.describe("Storie — permessi (P1)", () => {
     test("editor senza stories.write: campi e blocchi spenti, stato come etichetta", async ({ page }) => {
         await stub.revoke("stories.write");
