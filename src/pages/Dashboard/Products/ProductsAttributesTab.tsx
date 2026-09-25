@@ -10,8 +10,8 @@ import {
     deleteAttributeDefinition,
     V2ProductAttributeDefinition
 } from "@/services/supabase/attributes";
-import { AttributeCreateEditDrawer } from "@/pages/Dashboard/Attributes/AttributeCreateEditDrawer";
-import { AttributeDeleteDrawer } from "@/pages/Dashboard/Attributes/AttributeDeleteDrawer";
+import { AttributeCreateEditDrawer } from "./Attributes/AttributeCreateEditDrawer";
+import { AttributeDeleteDialog } from "./Attributes/AttributeDeleteDialog";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import { useEnsureActive } from "./hooks/useEnsureActive";
@@ -227,6 +227,7 @@ export function ProductsAttributesTab({ tenantId, vertical, createTrigger, searc
                         data={platformAttrs}
                         columns={platformColumns}
                         isLoading={isLoading}
+                        ariaLabel="Attributi suggeriti dalla piattaforma"
                         loadingState={{ message: "Caricamento attributi in corso..." }}
                         emptyState={{ title: "Nessun attributo suggerito" }}
                     />
@@ -244,6 +245,7 @@ export function ProductsAttributesTab({ tenantId, vertical, createTrigger, searc
                     allRowIds={allTenantAttrIds}
                     columns={tenantColumns}
                     isLoading={isLoading}
+                    ariaLabel="Attributi personalizzati"
                     selectable={canWrite}
                     selectedRowIds={bulk.selectedIds}
                     onSelectedRowsChange={bulk.setSelectedIds}
@@ -275,7 +277,7 @@ export function ProductsAttributesTab({ tenantId, vertical, createTrigger, searc
                 {...bulk.dialog}
                 message="Si tolgono anche i valori che questi attributi hanno sui prodotti, e non si torna indietro."
             />
-            <AttributeDeleteDrawer
+            <AttributeDeleteDialog
                 open={isDeleteOpen}
                 onClose={() => setIsDeleteOpen(false)}
                 attributeData={attributeToDelete}

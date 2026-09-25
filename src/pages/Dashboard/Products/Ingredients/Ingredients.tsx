@@ -7,9 +7,15 @@ import { IconLeaf } from "@tabler/icons-react";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useTenantId } from "@/context/useTenantId";
 import { useEnsureActive } from "../hooks/useEnsureActive";
-import { listIngredients, deleteIngredient, V2Ingredient } from "@/services/supabase/ingredients";
+import {
+    listIngredients,
+    listProductIngredientPairs,
+    deleteIngredient,
+    V2Ingredient
+} from "@/services/supabase/ingredients";
+import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import { IngredientsCreateEditDrawer } from "./IngredientsCreateEditDrawer";
-import { IngredientsDeleteDrawer } from "./IngredientsDeleteDrawer";
+import { IngredientDeleteDialog } from "./IngredientDeleteDialog";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import { useBulkDelete } from "../hooks/useBulkDelete";
 import styles from "./Ingredients.module.scss";
@@ -22,9 +28,6 @@ type IngredientsProps = {
     canWrite: boolean;
 };
 
-const formatDate = (iso: string): string =>
-    new Intl.DateTimeFormat("it-IT", { dateStyle: "medium" }).format(new Date(iso));
-
 export function Ingredients({ createTrigger, searchQuery, canWrite }: IngredientsProps) {
     const tenantId = useTenantId();
     const { showToast } = useToast();
@@ -32,6 +35,10 @@ export function Ingredients({ createTrigger, searchQuery, canWrite }: Ingredient
 
     const [isLoading, setIsLoading] = useState(true);
     const [ingredients, setIngredients] = useState<V2Ingredient[]>([]);
+    // Quanti prodotti usano ogni ingrediente (§26.2: «quanto è usato» batte
+    // «quando è nato»). Una query sola, già nel service.
+    const [usage, setUsage] = useState<Map<string, number>>(new Map());
+    const { productLabel, productLabelPlural } = useVerticalConfig();
 
     const [isCreateEditOpen, setIsCreateEditOpen] = useState(false);
     const [editMode, setEditMode] = useState<"create" | "edit">("create");
@@ -44,8 +51,14 @@ export function Ingredients({ createTrigger, searchQuery, canWrite }: Ingredient
         if (!tenantId) return;
         try {
             setIsLoading(true);
-            const data = await listIngredients(tenantId);
+            const [data, pairs] = await Promise.all([
+                listIngredients(tenantId),
+                listProductIngredientPairs(tenantId)
+            ]);
             setIngredients(data);
+            const counts = new Map<string, number>();
+            for (const pair of pairs) counts.set(pair.ingredient_id, (counts.get(pair.ingredient_id) ?? 0) + 1);
+            setUsage(counts);
         } catch (error) {
             console.error("Errore nel caricamento degli ingredienti:", error);
             showToast({ message: "Non è stato possibile caricare gli ingredienti.", type: "error" });
@@ -116,15 +129,22 @@ export function Ingredients({ createTrigger, searchQuery, canWrite }: Ingredient
             )
         },
         {
-            id: "created_at",
-            header: "Data creazione",
+            id: "usage",
+            header: "Usato in",
             width: "160px",
-            accessor: row => row.created_at,
-            cell: value => (
-                <Text variant="body-sm" colorVariant="muted">
-                    {formatDate(value)}
-                </Text>
-            )
+            accessor: row => usage.get(row.id) ?? 0,
+            cell: (_value, row) => {
+                const n = usage.get(row.id) ?? 0;
+                return n > 0 ? (
+                    <Text variant="body-sm">
+                        {n} {n === 1 ? productLabel.toLowerCase() : productLabelPlural.toLowerCase()}
+                    </Text>
+                ) : (
+                    <Text variant="body-sm" colorVariant="muted">
+                        nessuno
+                    </Text>
+                );
+            }
         },
         ...(canWrite ? [{
             id: "actions",
@@ -154,6 +174,7 @@ export function Ingredients({ createTrigger, searchQuery, canWrite }: Ingredient
                 allRowIds={allIngredientIds}
                 columns={columns}
                 isLoading={isLoading}
+                ariaLabel="Ingredienti"
                 selectable={canWrite}
                 selectedRowIds={bulk.selectedIds}
                 onSelectedRowsChange={bulk.setSelectedIds}
@@ -196,10 +217,11 @@ export function Ingredients({ createTrigger, searchQuery, canWrite }: Ingredient
                         message="Un ingrediente usato da un prodotto non si elimina: resta, e lo dice. Non si torna indietro."
                     />
 
-                    <IngredientsDeleteDrawer
+                    <IngredientDeleteDialog
                         open={isDeleteOpen}
                         onClose={() => setIsDeleteOpen(false)}
-                        ingredientData={ingredientToDelete}
+                        ingredient={ingredientToDelete}
+                        usedBy={ingredientToDelete ? (usage.get(ingredientToDelete.id) ?? 0) : 0}
                         tenantId={tenantId}
                         onSuccess={loadData}
                     />

@@ -382,7 +382,8 @@ test.describe("Prodotti — gruppi e ingredienti", () => {
 
         await actionsOf(main(page).getByText("Bevande e2e", { exact: true })).click();
         await page.getByRole("menuitem", { name: "Elimina" }).click();
-        await dialog(page).getByRole("button", { name: /^Elimina/ }).click();
+        await expect(page.getByRole("alertdialog")).toContainText("I sottogruppi diventano gruppi principali");
+        await page.getByRole("alertdialog").getByRole("button", { name: "Elimina" }).click();
         await expect.poll(() => write(stub, "product_groups.DELETE")?.params.get("id")).toBe(`eq.${GROUP.bevande}`);
     });
 
@@ -408,22 +409,36 @@ test.describe("Prodotti — gruppi e ingredienti", () => {
         await expect(page.getByText(/1 ingrediente non eliminato: usato/)).toBeVisible();
     });
 
-    test("ingredienti: elenco, eliminazione bloccata dall'uso", async ({ page }) => {
-        stub.onWrite("ingredients.DELETE", () => new StubError(409, { code: "23503", message: "fk" }));
+    test("ingredienti: «Usato in», l'eliminazione di uno usato è spenta e dice perché", async ({ page }) => {
+        stub.onWrite("ingredients.DELETE", () => null);
         await openList(page);
         await openCollection(page, /^Ingredienti$/);
-        for (const name of ["Pane", "Carne bovina", "Cipolla"]) {
-            await expect(main(page).getByText(name, { exact: true })).toBeVisible();
-        }
+        const row = (name: string) => main(page).getByText(name, { exact: true }).locator("xpath=ancestor::*[@role='row'][1]");
+        await expect(row("Pane")).toContainText("1 prodotto");
+        await expect(row("Carne bovina")).toContainText("2 prodotti");
+        await expect(row("Cipolla")).toContainText("nessuno");
+        await expect(main(page).getByText("Data creazione")).toHaveCount(0);
+
         await actionsOf(main(page).getByText("Pane", { exact: true })).click();
         await page.getByRole("menuitem", { name: "Elimina" }).click();
-        const confirm = dialog(page);
-        const button = confirm.getByRole("button", { name: /^(Conferma eliminazione|Elimina)$/i });
-        if (await button.isEnabled()) {
-            await button.click();
-            await expect(page.getByText(/utilizzato|usato/i).first()).toBeVisible();
-        }
-        expect(stub.writes.filter(w => w.key === "ingredients.DELETE").every(w => w.params.get("id") === `eq.${INGREDIENT.pane}`)).toBe(true);
+        const confirm = page.getByRole("alertdialog");
+        await expect(confirm).toContainText("È usato da 1 prodotto");
+        await expect(confirm.getByRole("button", { name: "Elimina" })).toBeDisabled();
+        await confirm.getByRole("button", { name: "Annulla" }).click();
+
+        await actionsOf(main(page).getByText("Cipolla", { exact: true })).click();
+        await page.getByRole("menuitem", { name: "Elimina" }).click();
+        await page.getByRole("alertdialog").getByRole("button", { name: "Elimina" }).click();
+        await expect.poll(() => write(stub, "ingredients.DELETE")?.params.get("id")).toBe(`eq.${INGREDIENT.cipolla}`);
+    });
+
+    test("gruppi: nome vuoto, l'errore sta sul campo", async ({ page }) => {
+        await openList(page);
+        await openCollection(page, /^Gruppi$/);
+        await page.getByRole("button", { name: "Crea gruppo" }).click();
+        await dialog(page).getByRole("button", { name: "Crea" }).click();
+        await expect(dialog(page).getByText("Scrivi il nome del gruppo.")).toBeVisible();
+        expect(stub.writes.filter(w => w.key === "product_groups.POST")).toHaveLength(0);
     });
 });
 

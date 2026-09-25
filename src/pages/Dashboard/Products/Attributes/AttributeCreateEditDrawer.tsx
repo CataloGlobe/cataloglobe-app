@@ -3,6 +3,7 @@ import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { Button } from "@/components/ui/Button/Button";
+import { IconButton } from "@/components/ui/Button/IconButton";
 import Text from "@/components/ui/Text/Text";
 import { Select } from "@/components/ui/Select/Select";
 import { Switch } from "@/components/ui/Switch/Switch";
@@ -173,20 +174,9 @@ export function AttributeCreateEditDrawer({
     };
 
     return (
-        <SystemDrawer open={open} onClose={onClose} width={500}>
+        <SystemDrawer open={open} onClose={onClose} size="md">
             <DrawerLayout
-                header={
-                    <div className={styles.drawerHeader}>
-                        <Text variant="title-sm" weight={600}>
-                            {isEditing ? "Modifica Attributo" : "Nuovo Attributo"}
-                        </Text>
-                        <Text variant="body-sm" colorVariant="muted">
-                            {isEditing
-                                ? "Aggiorna nome e opzioni."
-                                : "Crea una nuova definizione per i prodotti."}
-                        </Text>
-                    </div>
-                }
+                title={isEditing ? "Modifica attributo" : "Nuovo attributo"}
                 footer={
                     <>
                         <Button variant="secondary" onClick={onClose} disabled={isSaving}>
@@ -198,7 +188,7 @@ export function AttributeCreateEditDrawer({
                             form="attr-form"
                             loading={isSaving}
                         >
-                            {isEditing ? "Salva Modifiche" : "Crea"}
+                            {isEditing ? "Salva" : "Crea"}
                         </Button>
                     </>
                 }
@@ -256,16 +246,16 @@ export function AttributeCreateEditDrawer({
                                 <div className={styles.optionsList}>
                                     {options.map((opt, i) => (
                                         <div key={i} className={styles.optionItem}>
-                                            <div className={styles.optionValue}>
+                                            <Text as="div" variant="body-sm" className={styles.optionValue}>
                                                 {opt}
-                                            </div>
-                                            <button
-                                                type="button"
-                                                className={styles.actionButton}
+                                            </Text>
+                                            <IconButton
+                                                icon={<IconTrash size={16} />}
+                                                aria-label={`Togli il valore ${opt}`}
+                                                variant="ghost"
+                                                size="sm"
                                                 onClick={() => handleRemoveOption(i)}
-                                            >
-                                                <IconTrash size={16} />
-                                            </button>
+                                            />
                                         </div>
                                     ))}
                                     <div className={styles.optionItem}>

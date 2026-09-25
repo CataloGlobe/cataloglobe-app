@@ -1,0 +1,41 @@
+// Drawer «Nuovo attributo» (lotto Prodotti P5: la cartella è passata sotto
+// Products; le classi dell'elenco, mai usate, sono uscite).
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-24);
+}
+
+.optionsSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.optionsList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.optionItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+.optionValue {
+  flex: 1;
+  padding: var(--space-8) var(--space-12);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background-color: var(--hover-bg);
+}
+
+.switchRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: var(--space-8);
+}

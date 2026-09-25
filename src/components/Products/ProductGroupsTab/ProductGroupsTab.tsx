@@ -11,7 +11,7 @@ import {
     ProductGroupWithCount
 } from "@/services/supabase/productGroups";
 import { ProductGroupCreateEditDrawer, GroupFormMode } from "./ProductGroupCreateEditDrawer";
-import { ProductGroupDeleteDrawer } from "./ProductGroupDeleteDrawer";
+import { ProductGroupDeleteDialog } from "./ProductGroupDeleteDialog";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useEnsureActive } from "@/pages/Dashboard/Products/hooks/useEnsureActive";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
@@ -241,6 +241,7 @@ export default function ProductGroupsTab({
                 allRowIds={allGroupIds}
                 columns={columns}
                 isLoading={isLoading}
+                ariaLabel="Gruppi"
                 selectable={canWrite}
                 selectedRowIds={bulk.selectedIds}
                 onSelectedRowsChange={bulk.setSelectedIds}
@@ -269,7 +270,7 @@ export default function ProductGroupsTab({
                 message="I sottogruppi tornano gruppi principali e i prodotti restano: si toglie solo il raggruppamento. Non si torna indietro."
             />
 
-            <ProductGroupDeleteDrawer
+            <ProductGroupDeleteDialog
                 open={isDeleteOpen}
                 onClose={() => setIsDeleteOpen(false)}
                 groupData={groupToDelete}
