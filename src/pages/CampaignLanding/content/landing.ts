@@ -2,7 +2,7 @@
  * Testi della landing di campagna (Versione C), nell'ordine della pagina.
  *
  * È il file da rivedere per le copy: i componenti non contengono stringhe
- * italiane. Le CTA («Fatti richiamare» / «Provalo gratis») stanno in `cta.ts`,
+ * italiane. Le CTA («Richiedi una demo» / «Provalo gratis») stanno in `cta.ts`,
  * perché cambiano con la variante.
  *
  * Fonte: le tavole in `docs/landing/versione-c/riferimento/`. Dove la tavola
