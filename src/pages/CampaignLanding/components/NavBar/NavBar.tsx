@@ -14,7 +14,7 @@ type BarState = { pastHero: boolean; atForm: boolean };
 /**
  * Barra di navigazione (SPEC §5).
  * Desktop: pillola fissa logo | Accedi, trasparente sull'hero e bianca dopo;
- * a destra entra «Parliamone» dopo l'hero ed esce al form.
+ * a destra entra la CTA dopo l'hero ed esce al form.
  * Mobile: la testata sta nell'hero; dopo l'hero compare in alto una barra
  * compatta (logo | pulsante piccolo), che sparisce al form. In alto e non in
  * basso: in fondo allo schermo le barre di Safari, Chrome e delle webview la

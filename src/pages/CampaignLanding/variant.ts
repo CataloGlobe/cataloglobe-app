@@ -1,7 +1,7 @@
 import { createContext, useContext } from "react";
 
 /**
- * Variante della landing di campagna: `form` (lead via «Parliamone») o
+ * Variante della landing di campagna: `form` (lead via «Fatti richiamare») o
  * `signup` (self-service via «Provalo gratis»).
  *
  * Context locale, non provider di app-shell: lo monta solo `LandingPage`, lo

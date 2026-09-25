@@ -5,7 +5,7 @@ import type { Variante } from "@pages/CampaignLanding/variant";
  */
 export type CtaPlacement =
     | "hero"
-    | "bar-top" // «Parliamone» a destra nella barra desktop, dopo l'hero
+    | "bar-top" // CTA a destra nella barra desktop, dopo l'hero
     | "bar-mobile" // pulsante della barra compatta in alto su mobile, dopo l'hero
     | "pricing-base"
     | "pricing-pro"
@@ -15,7 +15,7 @@ export type CtaPlacement =
 /** `note`: righe sotto (o accanto a) il pulsante; una riga per elemento. */
 export type CtaEntry = { label: string; href: string; note?: string[] };
 
-const FORM_LABEL = "Parliamone";
+const FORM_LABEL = "Fatti richiamare";
 const FORM_HREF = "#contatto";
 const CALLBACK = "Ti richiamiamo entro 24 ore.";
 const PRICE_NOTE = "Da 39 € al mese, 30 giorni di prova.";
