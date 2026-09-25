@@ -30,6 +30,7 @@ import type {
 } from "@/types/resolvedCollections";
 
 import type { CatalogRenderData } from "./derivePageState";
+import { randomUuid } from "@/utils/randomUuid";
 import pageStyles from "./PublicCollectionPage.module.scss";
 
 /**
@@ -351,7 +352,7 @@ export default function PublicCatalogReady({
     // NOTA SSR (stage 4): randomUUID a render-time diverge server↔client.
     // Innocuo in SPA (solo prop, non markup); da rendere client-only allo
     // stage 4.
-    const sessionId = useMemo(() => crypto.randomUUID(), []);
+    const sessionId = useMemo(() => randomUuid(), []);
 
     // Voce "Prenota" nel MoreSheet: toggle sede + almeno una fascia
     // prenotabile. Senza orari il link porterebbe a una pagina che può solo
