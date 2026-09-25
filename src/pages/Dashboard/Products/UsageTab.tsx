@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { IconChevronRight } from "@tabler/icons-react";
 import {
@@ -7,6 +7,18 @@ import {
 } from "@/services/supabase/productUsage";
 import { SectionCard } from "@/components/ui/SectionCard/SectionCard";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
+import { Card } from "@/components/ui/Card/Card";
+import { Chip } from "@/components/ui/Chip/Chip";
+import { Badge } from "@/components/ui/Badge/Badge";
+import { Button } from "@/components/ui/Button/Button";
+import Text from "@/components/ui/Text/Text";
+import { useToast } from "@/context/Toast/ToastContext";
+import {
+    type ProductGroup,
+    getProductGroups,
+    getProductGroupAssignments
+} from "@/services/supabase/productGroups";
+import { ProductGroupsEditDrawer } from "./ProductGroupsEditDrawer";
 import styles from "./UsageTab.module.scss";
 
 interface UsageItem {
@@ -34,6 +46,36 @@ export function UsageTab({ productId, tenantId, usageData, usageLoading }: Usage
         ProductCategoryAssignment[]
     >([]);
     const [loadingAssignments, setLoadingAssignments] = useState(true);
+
+    // ── Gruppi del prodotto (§50.9/3): erano nella Scheda, ma salvano subito;
+    // qui, fra le cose che dicono dove sta il prodotto.
+    const { showToast } = useToast();
+    const [allGroups, setAllGroups] = useState<ProductGroup[]>([]);
+    const [assignedGroupIds, setAssignedGroupIds] = useState<Set<string>>(new Set());
+    const [groupsLoading, setGroupsLoading] = useState(true);
+    const [isGroupsDrawerOpen, setIsGroupsDrawerOpen] = useState(false);
+
+    const loadGroups = useCallback(async () => {
+        try {
+            setGroupsLoading(true);
+            const [groups, assignments] = await Promise.all([
+                getProductGroups(tenantId),
+                getProductGroupAssignments(productId)
+            ]);
+            setAllGroups(groups);
+            setAssignedGroupIds(new Set(assignments.map(a => a.group_id)));
+        } catch {
+            showToast({ message: "Errore nel caricamento dei gruppi", type: "error" });
+        } finally {
+            setGroupsLoading(false);
+        }
+    }, [tenantId, productId, showToast]);
+
+    useEffect(() => {
+        loadGroups();
+    }, [loadGroups]);
+
+    const assignedGroups = allGroups.filter(g => assignedGroupIds.has(g.id));
 
     useEffect(() => {
         if (!productId || !tenantId) return;
@@ -162,6 +204,38 @@ export function UsageTab({ productId, tenantId, usageData, usageLoading }: Usage
                 )}
             </SectionCard>
 
+            {/* ──────────────── Gruppi (§50.9/3, salvataggio immediato) ──────────────── */}
+            <Card
+                title="Gruppi"
+                badge={assignedGroups.length > 0 ? <Badge variant="secondary">{assignedGroups.length}</Badge> : undefined}
+                actions={
+                    <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => setIsGroupsDrawerOpen(true)}
+                        disabled={groupsLoading}
+                    >
+                        {assignedGroups.length > 0 ? "Modifica" : "Aggiungi"}
+                    </Button>
+                }
+            >
+                {groupsLoading ? (
+                    <Text variant="body-sm" colorVariant="muted">
+                        Caricamento gruppi...
+                    </Text>
+                ) : assignedGroups.length === 0 ? (
+                    <Text variant="body-sm" colorVariant="muted">
+                        {allGroups.length === 0 ? "L'azienda non ha ancora gruppi." : "In nessun gruppo."}
+                    </Text>
+                ) : (
+                    <div className={styles.chips}>
+                        {assignedGroups.map(g => (
+                            <Chip key={g.id} label={g.name} />
+                        ))}
+                    </div>
+                )}
+            </Card>
+
             {/* ──────────────── Card 4 — Attività coinvolte ──────────────── */}
             <SectionCard title="Attività coinvolte">
                 {data.activities.length === 0 ? (
@@ -189,6 +263,17 @@ export function UsageTab({ productId, tenantId, usageData, usageLoading }: Usage
                     </ul>
                 )}
             </SectionCard>
+
+            <ProductGroupsEditDrawer
+                open={isGroupsDrawerOpen}
+                onClose={() => setIsGroupsDrawerOpen(false)}
+                productId={productId}
+                tenantId={tenantId}
+                onSuccess={async () => {
+                    await loadGroups();
+                    setIsGroupsDrawerOpen(false);
+                }}
+            />
         </div>
     );
 }

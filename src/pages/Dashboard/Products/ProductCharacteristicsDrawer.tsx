@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { Button } from "@/components/ui/Button/Button";
-import Text from "@/components/ui/Text/Text";
 import CharacteristicsSection from "./components/CharacteristicsSection/CharacteristicsSection";
 
 interface ProductCharacteristicsDrawerProps {
@@ -39,20 +38,17 @@ export function ProductCharacteristicsDrawer({
     };
 
     return (
-        <SystemDrawer open={open} onClose={onClose}>
+        <SystemDrawer open={open} onClose={onClose} size="md">
             <DrawerLayout
-                header={
-                    <Text variant="title-sm" weight={600}>
-                        Modifica caratteristiche
-                    </Text>
-                }
+                title="Modifica caratteristiche"
                 footer={
                     <>
                         <Button variant="secondary" onClick={onClose}>
                             Annulla
                         </Button>
+                        {/* «Applica»: va nella bozza della pagina, non sul DB (§49.1/2). */}
                         <Button variant="primary" onClick={handleConfirm}>
-                            Conferma
+                            Applica
                         </Button>
                     </>
                 }

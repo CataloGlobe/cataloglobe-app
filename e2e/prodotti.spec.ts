@@ -476,6 +476,7 @@ test.describe("Prodotti — negozio", () => {
         await openProduct(page, PRODUCT.hamburger);
         await expect(page.getByRole("tab", { name: "Attributi" })).toBeVisible({ timeout: 15_000 });
         await expect(main(page).getByText("Allergeni", { exact: true })).toHaveCount(0);
+        await expect(main(page).getByText("Allergeni e ingredienti non si usano qui")).toBeVisible();
     });
 });
 
@@ -530,6 +531,65 @@ test.describe("Prodotti — dettaglio", () => {
         expect(write(stub, "products.PATCH")?.params.get("id")).toBe(`eq.${PRODUCT.hamburger}`);
     });
 
+    test("scheda a una colonna: le sezioni in ordine, i gruppi non ci sono", async ({ page }) => {
+        await openProduct(page, PRODUCT.hamburger);
+        await expect(main(page).getByRole("textbox", { name: /^Nome/ })).toHaveValue("Hamburger", { timeout: 15_000 });
+        const titles = ["Informazioni", "Allergeni", "Ingredienti", "Caratteristiche", "Note prodotto", "Abbinamenti"];
+        const tops: number[] = [];
+        for (const title of titles) {
+            const heading = main(page).getByText(title, { exact: true }).first();
+            await expect(heading).toBeVisible();
+            tops.push((await heading.boundingBox())!.y);
+        }
+        expect([...tops].sort((a, b) => a - b)).toEqual(tops);
+        await expect(main(page).getByText("Gruppi prodotto")).toHaveCount(0);
+    });
+
+    test("ingredienti: chip e «Modifica» nel drawer, «Applica» porta in bozza, Salva scrive", async ({ page }) => {
+        stub.onWrite("rpc.replace_product_ingredients", () => null);
+        await openProduct(page, PRODUCT.hamburger);
+        const card = main(page).getByText("Ingredienti", { exact: true }).locator("xpath=ancestor::section[1]");
+        await expect(card.getByRole("button", { name: "Pane" })).toBeVisible({ timeout: 15_000 });
+        await expect(card.getByRole("button", { name: "Carne bovina" })).toBeVisible();
+        await card.getByRole("button", { name: "Modifica" }).click();
+        await expect(dialog(page)).toContainText("Modifica ingredienti");
+        // Nel drawer il chip scelto si toglie con un clic (combobox di prima).
+        await dialog(page).getByLabel("Pane", { exact: true }).click();
+        await dialog(page).getByRole("button", { name: "Applica" }).click();
+        await expect(card.getByRole("button", { name: "Pane" })).toHaveCount(0);
+        await page.getByRole("button", { name: /^Salva( modifiche)?$/ }).first().click();
+        await expect
+            .poll(() => write(stub, "rpc.replace_product_ingredients")?.body)
+            .toMatchObject({ p_product_id: PRODUCT.hamburger, p_ingredients: [{ ingredient_id: INGREDIENT.carne }] });
+    });
+
+    test("gruppi del prodotto in Utilizzo", async ({ page }) => {
+        await openProduct(page, PRODUCT.hamburger, "usage");
+        const card = main(page).getByText("Gruppi", { exact: true }).locator("xpath=ancestor::section[1]");
+        await expect(card.getByText("Panini e2e")).toBeVisible({ timeout: 15_000 });
+        await expect(card.getByText("Manzo e2e")).toBeVisible();
+        await expect(card.getByRole("button", { name: "Modifica" })).toBeVisible();
+    });
+
+    test("uscita con modifiche: la guardia chiede, «Annulla» resta", async ({ page }) => {
+        await openProduct(page, PRODUCT.hamburger);
+        const name = main(page).getByRole("textbox", { name: /^Nome/ });
+        await expect(name).toHaveValue("Hamburger", { timeout: 15_000 });
+        await name.fill("Hamburger e2e");
+        await page.getByRole("navigation", { name: "Menu principale" }).getByRole("link", { name: "Menù" }).click();
+        const guard = page.getByRole("alertdialog");
+        await expect(guard).toContainText("Modifiche non salvate");
+        await guard.getByRole("button", { name: /^(Annulla|Resta)$/ }).click();
+        await expect(page).toHaveURL(new RegExp(`/products/${PRODUCT.hamburger}`));
+        await expect(name).toHaveValue("Hamburger e2e");
+    });
+
+    test("variante: nota sui campi ereditati", async ({ page }) => {
+        await openProduct(page, PRODUCT.cocaZero);
+        await expect(main(page).getByText(/una variante eredita quelli del padre/)).toBeVisible({ timeout: 15_000 });
+        await expect(main(page).getByText("Note prodotto", { exact: true })).toHaveCount(0);
+    });
+
     test("prezzi: prezzo unico (PATCH) e formati", async ({ page }) => {
         stub.onWrite("products.PATCH", call => [{ ...stub.tables.products[0], ...(call.body as object) }]);
         await openProduct(page, PRODUCT.hamburger, "prezzi-opzioni");
@@ -559,7 +619,7 @@ test.describe("Prodotti — dettaglio", () => {
 
     test("prodotto inesistente", async ({ page }) => {
         await openProduct(page, MISSING_PRODUCT);
-        await expect(main(page).getByText(/non trovato/i).first()).toBeVisible({ timeout: 15_000 });
+        await expect(main(page).getByText("Prodotto non trovato").first()).toBeVisible({ timeout: 15_000 });
         await main(page).getByRole("button", { name: /^Torna/ }).or(main(page).getByRole("link", { name: /^Torna/ })).first().click();
         await expect(page).toHaveURL(/\/products$/);
     });

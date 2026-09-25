@@ -5,7 +5,6 @@ import { usePageHeader } from "@/context/usePageHeader";
 import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { Button } from "@/components/ui/Button/Button";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
-import Text from "@/components/ui/Text/Text";
 import { useTenantId } from "@/context/useTenantId";
 import { useTenant } from "@/context/useTenant";
 import { useToast } from "@/context/Toast/ToastContext";
@@ -23,7 +22,10 @@ import {
     DiscardChangesConfirmDialog
 } from "@/pages/Dashboard/Stories/components/HeaderSaveAction";
 import { buildSaveActionCompactConfig } from "@/pages/Dashboard/Stories/components/headerSaveActionCompact";
-import { useBeforeUnloadWarning } from "@/pages/Dashboard/Stories/hooks/useBeforeUnloadWarning";
+import { useUnsavedChangesGuard } from "@/components/ui/UnsavedChangesBar/useUnsavedChangesGuard";
+import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
+import Skeleton from "@/components/ui/Skeleton/Skeleton";
+import { Package } from "lucide-react";
 import SchedaTab from "./SchedaTab";
 import PrezziOpzioniTab from "./PrezziOpzioniTab";
 import { UsageTab } from "./UsageTab";
@@ -143,9 +145,9 @@ export default function ProductPage() {
         selectedTenant?.vertical_type
     );
 
-    // Guardia abbandono pagina — stesso hook di StoryDetailPage, riflette
-    // solo il draft Scheda (unica tab con stato non salvato).
-    useBeforeUnloadWarning(schedaDraft.isDirty);
+    // Guardia all'uscita (§27): navigazione interna e refresh, dal registro
+    // condiviso con la scheda sede (`UnsavedChangesGuardHost` nel layout).
+    useUnsavedChangesGuard(schedaDraft.isDirty);
 
     const loadOptions = useCallback(async () => {
         if (!productId) return;
@@ -183,7 +185,7 @@ export default function ProductPage() {
             setProduct(data);
             await Promise.all([loadOptions(), loadUsage()]);
         } catch {
-            setError("Prodotto non trovato");
+            setError("not-found");
         } finally {
             setLoading(false);
         }
@@ -195,9 +197,9 @@ export default function ProductPage() {
 
 
     const breadcrumbItems = useMemo(() => [
-        { label: "Prodotti", to: `/business/${tenantId}/products` },
-        { label: loading ? "Caricamento..." : product?.name || "Prodotto non trovato" }
-    ], [tenantId, loading, product?.name]);
+        { label: verticalConfig.productLabelPlural, to: `/business/${tenantId}/products` },
+        { label: loading ? "…" : product?.name || `${verticalConfig.productLabel} non trovato` }
+    ], [tenantId, loading, product?.name, verticalConfig.productLabel, verticalConfig.productLabelPlural]);
 
     useBreadcrumbItems(breadcrumbItems);
 
@@ -281,23 +283,29 @@ export default function ProductPage() {
     }
 
     if (loading) {
-        return null;
+        // Stessa sagoma della Scheda: la card Informazioni e due sezioni.
+        return (
+            <div className={styles.container} aria-busy="true" aria-label="Caricamento">
+                <Skeleton height="360px" />
+                <Skeleton height="120px" />
+                <Skeleton height="120px" />
+            </div>
+        );
     }
 
     if (error || !product) {
         return (
-            <div className={styles.container}>
-                <div className={styles.errorBlock}>
-                    <Text variant="title-sm" colorVariant="error">
-                        {error || "Prodotto non trovato"}
-                    </Text>
-                    <div className={styles.errorActions}>
-                        <Button variant="secondary" onClick={() => navigate(`/business/${tenantId}/products`)}>
-                            Torna alla lista
-                        </Button>
-                    </div>
-                </div>
-            </div>
+            <EmptyState
+                variant="page"
+                icon={<Package />}
+                title={`${verticalConfig.productLabel} non trovato`}
+                description={`Il ${verticalConfig.productLabel.toLowerCase()} che cerchi non esiste o è stato eliminato.`}
+                action={
+                    <Button onClick={() => navigate(`/business/${tenantId}/products`)}>
+                        Torna a {verticalConfig.productLabelPlural}
+                    </Button>
+                }
+            />
         );
     }
 
