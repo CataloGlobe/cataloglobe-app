@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button/Button";
 import { Card } from "@/components/ui/Card/Card";
 import { RangeInput } from "@/components/ui/Input/RangeInput";
@@ -29,9 +30,27 @@ type MomentBandProps = {
  * l'elenco delle regole, che resta ad adesso.
  */
 export function MomentBand({ timeLabel, headline, manual, hint, minutes, onMinutesChange, atNow, onBackToNow }: MomentBandProps) {
+    // Agganciata in alto mentre la pagina scorre (§21.3): compatta, restano
+    // l'ora, l'esito e il cursore. Agganciata sta a -1 px: la sua riga più
+    // alta esce dal contenitore che scorre, ed è così che lo si sa.
+    const regionRef = useRef<HTMLDivElement | null>(null);
+    const [compact, setCompact] = useState(false);
+    useEffect(() => {
+        const region = regionRef.current;
+        if (!region || typeof IntersectionObserver === "undefined") return;
+        let root: HTMLElement | null = region.parentElement;
+        while (root && !/(auto|scroll)/.test(getComputedStyle(root).overflowY)) root = root.parentElement;
+        const observer = new IntersectionObserver(([entry]) => setCompact(entry.intersectionRatio < 1), {
+            root,
+            threshold: [1]
+        });
+        observer.observe(region);
+        return () => observer.disconnect();
+    }, []);
+
     return (
-        <div role="region" aria-label="Il momento">
-            <Card className={styles.band}>
+        <div ref={regionRef} role="region" aria-label="Il momento" className={styles.sticky}>
+            <Card className={`${styles.band}${compact ? ` ${styles.compact}` : ""}`}>
                 <div className={styles.body}>
                     <div className={styles.eyebrowRow}>
                         <Text as="p" variant="caption" colorVariant="muted" className={styles.eyebrow}>
@@ -43,15 +62,17 @@ export function MomentBand({ timeLabel, headline, manual, hint, minutes, onMinut
                             </Button>
                         )}
                     </div>
-                    <Text as="h2" variant="title-md">
+                    <Text as="h2" variant={compact ? "title-sm" : "title-md"}>
                         {headline}
                     </Text>
-                    <div className={styles.lines}>
-                        {manual && <Text variant="body-sm">{manual}</Text>}
-                        <Text variant="body-sm" colorVariant="muted">
-                            {hint}
-                        </Text>
-                    </div>
+                    {!compact && (
+                        <div className={styles.lines}>
+                            {manual && <Text variant="body-sm">{manual}</Text>}
+                            <Text variant="body-sm" colorVariant="muted">
+                                {hint}
+                            </Text>
+                        </div>
+                    )}
                     <RangeInput
                         aria-label="Ora"
                         aria-valuetext={timeLabel}
@@ -61,7 +82,7 @@ export function MomentBand({ timeLabel, headline, manual, hint, minutes, onMinut
                         value={minutes}
                         onChange={event => onMinutesChange(Number(event.target.value))}
                         showValue={false}
-                        marks={MARKS}
+                        marks={compact ? undefined : MARKS}
                     />
                 </div>
             </Card>

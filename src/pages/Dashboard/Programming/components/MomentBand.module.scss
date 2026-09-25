@@ -1,4 +1,21 @@
+@use "@styles/mixins" as *;
+
 // Banda del momento (§20.3): occhiello con l'ora, esito, righe, cursore.
+// Agganciata in alto nel contenitore che scorre (§21.3).
+
+// Il contenitore che scorre ha 24 px di padding (16 sotto 768): la banda si
+// aggancia sul suo bordo, non 24 px più in basso, e ne esce di 1 px — è così
+// che l'osservatore sa che si è agganciata.
+.sticky {
+  position: sticky;
+  top: calc(-1 * var(--space-24) - 1px);
+
+  @include phone {
+    top: calc(-1 * var(--space-16) - 1px);
+  }
+
+  z-index: var(--z-sticky);
+}
 
 .band {
   background: linear-gradient(180deg, var(--brand-primary-soft), transparent), var(--surface);
@@ -28,4 +45,17 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+}
+
+// Compatta mentre è agganciata: meno aria, e l'ombra dice che sta sopra.
+.compact {
+  box-shadow: var(--shadow-float);
+
+  .body {
+    gap: var(--space-4);
+  }
+
+  .eyebrowRow {
+    min-height: 0;
+  }
 }

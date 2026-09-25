@@ -1098,7 +1098,7 @@ test.describe("Programmazione — banda e matrice", () => {
         await expect(band(page)).toContainText("Nessuna sede mostra un menù: l'abbonamento non è attivo.");
     });
 
-    test.fail("la banda si aggancia in alto e diventa compatta: ora, esito, cursore", async ({ page }) => {
+    test("la banda si aggancia in alto e diventa compatta: ora, esito, cursore", async ({ page }) => {
         await openList(page);
         await page.setViewportSize({ width: 1280, height: 700 });
         await expect(band(page)).toContainText("Sposta l'ora");
