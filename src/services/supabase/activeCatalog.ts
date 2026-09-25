@@ -89,6 +89,29 @@ async function getOverrideCountsForActivities(
 }
 
 /**
+ * «A mano» della matrice di Programmazione (§20.3): quante modifiche della
+ * sede ci sono su ogni sede, tutte (nascosti, non disponibili e visibili
+ * forzati, §19.5), in UNA richiesta. Le sedi senza modifiche valgono 0.
+ * L'errore arriva al chiamante: un conteggio mancante non è «nessuna».
+ */
+export async function countManualOverridesByActivity(activityIds: string[]): Promise<Record<string, number>> {
+    if (activityIds.length === 0) return {};
+
+    const { data, error } = await supabase
+        .from("activity_product_overrides")
+        .select("activity_id, visible_override")
+        .in("activity_id", activityIds);
+
+    if (error) throw error;
+
+    const counts: Record<string, number> = Object.fromEntries(activityIds.map(id => [id, 0]));
+    for (const row of (data ?? []) as Array<{ activity_id: string }>) {
+        counts[row.activity_id] = (counts[row.activity_id] ?? 0) + 1;
+    }
+    return counts;
+}
+
+/**
  * Formatta il riepilogo override per card/tabella Sedi: "N nascosti, M non
  * disponibili", omettendo la parte a zero. Null se non ci sono override
  * attivi (nessuna riga renderizzata dal chiamante).

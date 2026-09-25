@@ -239,9 +239,9 @@ function makeTables(matrix: boolean): Tables {
         ],
         // «A mano»: le modifiche fatte dalla sede, che vincono sulle regole.
         activity_product_overrides: [
-            { activity_id: SEDE.centro, tenant_id: TENANT_ID, product_id: PRODUCT.tiramisu, visible_override: false, mode: "hide" },
-            { activity_id: SEDE.centro, tenant_id: TENANT_ID, product_id: PRODUCT.birra, visible_override: false, mode: "disable" },
-            { activity_id: SEDE.centro, tenant_id: TENANT_ID, product_id: PRODUCT.spritz, visible_override: true, mode: null }
+            { activity_id: SEDE.centro, product_id: PRODUCT.tiramisu, visible_override: false, mode: "hide" },
+            { activity_id: SEDE.centro, product_id: PRODUCT.birra, visible_override: false, mode: "disable" },
+            { activity_id: SEDE.centro, product_id: PRODUCT.spritz, visible_override: true, mode: null }
         ],
         schedule_featured_contents: [
             sfc("promoCosta", FEATURED.autunno, "before_catalog", 0),
