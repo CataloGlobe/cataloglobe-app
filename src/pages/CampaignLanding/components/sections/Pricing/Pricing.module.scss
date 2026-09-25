@@ -1,0 +1,331 @@
+@use "@pages/CampaignLanding/styles/mixins" as *;
+
+.srOnly {
+    @include ld-sr-only;
+}
+
+// ── Testata ─────────────────────────────────────────────────────────────────
+.head {
+    text-align: center;
+}
+
+.head .title {
+    margin-top: 8px;
+}
+
+.anchor {
+    margin: 12px 0 0;
+    font-size: 15px;
+    color: var(--ld-body);
+
+    @include desktop {
+        margin-top: 14px;
+        font-size: 17px;
+    }
+}
+
+.anchorDesktop {
+    display: none;
+
+    @include desktop {
+        display: inline;
+    }
+}
+
+.anchorMobile {
+    @include desktop {
+        display: none;
+    }
+}
+
+// ── Selettori a segmenti ────────────────────────────────────────────────────
+.seg {
+    display: flex;
+    padding: 4px;
+    border-radius: 999px;
+}
+
+.seg-interval {
+    max-width: 380px;
+    margin: 22px auto 0;
+    background: var(--ld-white);
+    border: 1px solid var(--ld-line);
+}
+
+.seg-plan {
+    margin-top: 10px;
+    background: var(--ld-line-2);
+
+    @include desktop {
+        display: none;
+    }
+}
+
+.segBtn {
+    @include ld-reset-button;
+    @include ld-focus;
+    flex: 1 1 0;
+    min-height: 44px;
+    padding: 10px 14px;
+    border-radius: 999px;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: normal;
+    color: var(--ld-muted);
+    transition:
+        background-color 250ms ease,
+        color 250ms ease,
+        box-shadow 250ms ease;
+}
+
+.seg-interval .segOn {
+    background: var(--ld-scuro);
+    color: var(--ld-white);
+}
+
+.seg-plan .segOn {
+    background: var(--ld-white);
+    color: var(--ld-azione);
+    box-shadow: var(--ld-shadow-thumb);
+}
+
+// ── Schede ──────────────────────────────────────────────────────────────────
+.cards {
+    display: flex;
+    margin-top: 24px;
+
+    @include desktop {
+        gap: 28px;
+        max-width: 900px;
+        margin: 44px auto 0;
+        align-items: stretch;
+    }
+}
+
+.desktopCard {
+    display: none !important;
+
+    @include desktop {
+        display: block !important;
+    }
+}
+
+.mobileCard {
+    @include desktop {
+        display: none !important;
+    }
+}
+
+.card {
+    position: relative;
+    flex: 1 1 0;
+    box-sizing: border-box;
+    overflow: hidden;
+    border-radius: 28px;
+    background: var(--ld-white);
+    border: 1px solid var(--ld-line);
+    box-shadow: var(--ld-shadow-soft);
+    transition:
+        border-color 400ms ease,
+        box-shadow 400ms ease;
+}
+
+.cardPro {
+    border-color: #D9D8F3;
+    box-shadow: 0 30px 70px rgba(70, 72, 198, 0.22);
+}
+
+.cardTop {
+    position: relative;
+    isolation: isolate;
+    padding: 26px 22px 22px;
+
+    @include desktop {
+        padding: 30px 28px 26px;
+    }
+}
+
+.glow {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background: linear-gradient(180deg, rgba(110, 112, 216, 0.3) 0%, rgba(140, 138, 226, 0.16) 40%, rgba(233, 160, 127, 0.2) 78%, rgba(255, 255, 255, 0) 100%);
+    opacity: 0;
+    transition: opacity 400ms ease;
+}
+
+.cardPro .glow {
+    opacity: 1;
+}
+
+.recommended {
+    position: absolute;
+    top: 22px;
+    right: 22px;
+    display: none;
+    padding: 5px 11px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.75);
+    color: var(--ld-azione);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.cardPro .recommended {
+    display: block;
+}
+
+.planName {
+    @include ld-serif;
+    margin: 0;
+    font-size: 30px;
+    line-height: 1;
+    color: var(--ld-ink);
+
+    @include desktop {
+        font-size: 34px;
+    }
+}
+
+.cardPro .planName {
+    color: var(--ld-azione);
+}
+
+.claim {
+    margin: 8px 0 0;
+    font-size: 14px;
+    color: var(--ld-body);
+}
+
+.priceRow {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-top: 22px;
+}
+
+.price {
+    @include ld-serif;
+    font-size: 50px;
+    line-height: 1;
+    color: var(--ld-ink);
+
+    @include desktop {
+        font-size: 56px;
+    }
+}
+
+.period {
+    font-size: 14px;
+    line-height: 1.35;
+    color: var(--ld-body);
+}
+
+.full {
+    margin-left: auto;
+    font-size: 14px;
+    color: var(--ld-strike);
+}
+
+.trial {
+    margin: 10px 0 0;
+    font-size: 12px;
+    text-align: center;
+    color: var(--ld-muted);
+}
+
+.divider {
+    position: relative;
+    height: 1px;
+    background: var(--ld-line-2);
+}
+
+.items {
+    position: relative;
+    margin: 0;
+    padding: 16px 22px 22px;
+    list-style: none;
+
+    @include desktop {
+        padding: 18px 28px 26px;
+    }
+}
+
+.item {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    padding: 7px 0;
+}
+
+.itemIcon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+}
+
+.icon-ok {
+    background: var(--ld-brand-s);
+    color: var(--ld-azione);
+}
+
+.icon-pro {
+    background: var(--ld-azione-hover);
+    color: var(--ld-white);
+}
+
+.icon-no {
+    background: var(--ld-line-2);
+    color: var(--ld-off-ink);
+}
+
+.itemText {
+    font-size: 15px;
+    line-height: 1.4;
+    color: var(--ld-body);
+}
+
+.item-pro .itemText {
+    font-weight: 600;
+    color: var(--ld-ink);
+}
+
+.item-no .itemText {
+    color: var(--ld-off-ink);
+}
+
+.printer {
+    margin: 14px 0 0;
+    padding: 11px 14px;
+    border-radius: 12px;
+    background: var(--ld-paper);
+    border: 1px solid var(--ld-line);
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--ld-body);
+
+    b {
+        color: var(--ld-ink);
+    }
+}
+
+.footnote {
+    margin: 16px 0 0;
+    font-size: 13px;
+    line-height: 1.5;
+    text-align: center;
+    color: var(--ld-muted);
+
+    @include desktop {
+        margin-top: 22px;
+        font-size: 14px;
+        line-height: normal;
+    }
+}

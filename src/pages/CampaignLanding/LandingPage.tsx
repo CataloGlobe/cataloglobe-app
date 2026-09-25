@@ -3,6 +3,7 @@ import Demos from "@pages/CampaignLanding/components/sections/Demos/Demos";
 import Frame from "@pages/CampaignLanding/components/Frame/Frame";
 import NavBar from "@pages/CampaignLanding/components/NavBar/NavBar";
 import Import from "@pages/CampaignLanding/components/sections/Import/Import";
+import Pricing from "@pages/CampaignLanding/components/sections/Pricing/Pricing";
 import Hero from "@pages/CampaignLanding/components/sections/Hero/Hero";
 import Orders from "@pages/CampaignLanding/components/sections/Orders/Orders";
 import SoldOut from "@pages/CampaignLanding/components/sections/SoldOut/SoldOut";
@@ -25,6 +26,7 @@ export default function LandingPage({ variante }: LandingPageProps) {
                 <Board />
                 <Import />
                 <Demos />
+                <Pricing />
             </Frame>
         </LandingVariantContext.Provider>
     );
