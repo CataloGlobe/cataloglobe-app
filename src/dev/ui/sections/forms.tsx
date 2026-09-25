@@ -28,6 +28,22 @@ import styles from "../DevUiPage.module.scss";
  * ottiene con Tab, `autoFocus` non è replicabile su più campi) · error ·
  * disabled · con helper. Il focus si guarda navigando con la tastiera.
  */
+function HourRange() {
+    const [minutes, setMinutes] = useState(12 * 60);
+    return (
+        <RangeInput
+            aria-label="Ora del giorno"
+            min={0}
+            max={24 * 60}
+            step={30}
+            value={minutes}
+            onChange={e => setMinutes(Number(e.target.value))}
+            showValue={false}
+            marks={["00", "06", "12", "18", "24"]}
+        />
+    );
+}
+
 function FiveStates({
     label,
     render
@@ -106,6 +122,11 @@ function InputSection() {
                 render={p => <FileInput label="Logo" value={file} onChange={setFile} accept="image/*" maxSizeMb={2} {...p} />}
             />
             <FiveStates label="RangeInput" render={p => <RangeInput label="Zoom" min={1} max={3} step={0.1} defaultValue={1} showValue {...p} />} />
+            <State label="RangeInput con tacche (il cursore dell'ora di Programmazione): a passi di 30 minuti, valore nascosto" column>
+                <div className={styles.narrow}>
+                    <HourRange />
+                </div>
+            </State>
             <FiveStates
                 label="CheckboxInput"
                 render={p => <CheckboxInput label="Accetto i termini" description="Obbligatorio per procedere" {...p} />}
