@@ -24,6 +24,7 @@ import type { V2Tenant, LegalEntityType } from "@/types/tenant";
 import type { AddressResult } from "@/components/ui/AddressAutocomplete/AddressAutocomplete";
 import { isValidPartitaIva, isValidCodiceFiscale } from "@/utils/fiscalValidators";
 import { isValidCapIT, isValidProvinciaIT } from "@/utils/addressValidators";
+import { billingRecipientRequired, hasBillingRecipient } from "@/pages/Business/components/billingDraft";
 
 import { Step1Info } from "./steps/Step1Info";
 import { Step2PlanSeats } from "./steps/Step2PlanSeats";
@@ -898,6 +899,14 @@ function tenantHasFiscalData(t: V2Tenant): boolean {
         within(t.codice_destinatario, BILLING_FIELD_MAX.codiceDestinatario) &&
         within(t.pec, BILLING_FIELD_MAX.pec);
     if (!optionalsOk) return false;
+
+    // Con una P.IVA serve un recapito e-fattura, come in Impostazioni e nel
+    // gate di stripe-checkout: senza, il resume salterebbe Fatturazione e il
+    // checkout risponderebbe `missing_einvoice_recipient`.
+    const recipientOk =
+        !billingRecipientRequired({ vatNumber: t.vat_number ?? "" }) ||
+        hasBillingRecipient({ codiceDestinatario: t.codice_destinatario ?? "", pec: t.pec ?? "" });
+    if (!recipientOk) return false;
 
     switch (t.legal_entity_type) {
         case "societa":
