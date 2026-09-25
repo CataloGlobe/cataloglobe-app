@@ -1,10 +1,14 @@
 import LegalLayout from './LegalLayout';
 import { usePageTitle } from '@/hooks/usePageTitle';
 import { COMPANY, getFullAddress } from '@/config/company';
-import { CURRENT_CONSENT_VERSIONS } from '@/config/consentVersions';
 import styles from './PrivacyPolicyPage.module.scss';
 
-const LAST_UPDATED = CURRENT_CONSENT_VERSIONS.privacy;
+// Data mostrata come «Ultimo aggiornamento». Separata di proposito da
+// CURRENT_CONSENT_VERSIONS.privacy: cambiare quella versione chiede di nuovo il
+// consenso agli utenti registrati, e non ogni aggiornamento del testo lo
+// richiede (qui: aggiunta dei contatti dalla landing). Quando si alza la
+// versione del consenso, aggiornare anche questa data.
+const LAST_UPDATED = '2026-09-25';
 
 function formatDate(isoDate: string): string {
     const [year, month, day] = isoDate.split('-').map(Number);
@@ -197,6 +201,12 @@ export default function PrivacyPolicyPage() {
                             attraverso l'analisi aggregata e anonima delle interazioni dei visitatori con i
                             menu pubblici (vedi Sezione 02 — Dati di interazione).
                         </li>
+                        <li>
+                            <strong>Richieste di contatto dalla landing:</strong> ricontattare chi compila
+                            il modulo «Richiedi una demo» per mostrargli CataloGlobe e rispondere alle sue
+                            domande; misurare quali campagne portano le richieste e prevenire abusi del
+                            modulo (vedi Sezione 02 — Richieste di contatto dalla landing).
+                        </li>
                     </ul>
                     <p>
                         Il trattamento avviene con modalità prevalentemente automatizzate, nel rispetto
@@ -334,9 +344,11 @@ export default function PrivacyPolicyPage() {
 
                     <p><strong>Cookie e tecnologie di archiviazione locale</strong></p>
                     <p>
-                        Sulla pagina pubblica del menu non utilizziamo cookie HTTP scritti dal nostro
-                        codice. Utilizziamo invece le seguenti tecnologie di archiviazione locale del
-                        browser, tutte considerate tecniche/funzionali e non richiedenti consenso esplicito:
+                        Sulla pagina pubblica del menu e sulla pagina di presentazione di CataloGlobe
+                        (la landing con il modulo «Richiedi una demo») non utilizziamo cookie HTTP scritti
+                        dal nostro codice. Utilizziamo invece le seguenti tecnologie di archiviazione
+                        locale del browser, tutte considerate tecniche/funzionali e non richiedenti
+                        consenso esplicito:
                     </p>
 
                     <table className={styles.dataTable}>
