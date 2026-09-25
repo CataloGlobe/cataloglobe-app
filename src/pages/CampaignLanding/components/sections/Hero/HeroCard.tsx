@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { HERO, type HeroBeatIcon } from "@pages/CampaignLanding/content/landing";
-import { useInView } from "@pages/CampaignLanding/hooks/useInView";
+import { useVisible } from "@pages/CampaignLanding/hooks/useVisible";
 import { useReducedMotion } from "@pages/CampaignLanding/hooks/useReducedMotion";
-import { HERO_CYCLE_TICKS, HERO_REDUCED_TICK, HERO_TICK_MS, heroFrame, startTickForHour, type Fascia } from "./heroCycle";
+import { HERO_REDUCED_TICK, HERO_TICK_MS, heroFrame, startTickForHour, type Fascia } from "./heroCycle";
 import styles from "./Hero.module.scss";
 
 const cx = (...names: (string | false | null | undefined)[]) => names.filter(Boolean).join(" ");
@@ -50,27 +50,21 @@ type HeroCardProps = {
 
 /**
  * Scheda del menù animata: cinque momenti, parte dalla fascia dell'orario
- * del visitatore quando entra nello schermo, fa un giro completo e si ferma
- * lì. Con `prefers-reduced-motion` resta sull'esaurito.
+ * del visitatore e gira di continuo finché è sullo schermo (in pausa fuori
+ * vista e a scheda del browser nascosta). Con `prefers-reduced-motion` resta
+ * sull'esaurito.
  */
 export default function HeroCard({ onFascia }: HeroCardProps) {
     const ref = useRef<HTMLDivElement>(null);
-    const inView = useInView(ref, 0.3);
+    const visible = useVisible(ref, 0.3);
     const reduced = useReducedMotion();
-    const [start] = useState(() => startTickForHour(new Date().getHours()));
-    const [tick, setTick] = useState(start);
+    const [tick, setTick] = useState(() => startTickForHour(new Date().getHours()));
 
     useEffect(() => {
-        if (!inView || reduced) return;
-        const id = window.setInterval(() => {
-            setTick((t) => {
-                const next = t + 1;
-                if (next >= start + HERO_CYCLE_TICKS) window.clearInterval(id);
-                return next;
-            });
-        }, HERO_TICK_MS);
+        if (!visible || reduced) return;
+        const id = window.setInterval(() => setTick((t) => t + 1), HERO_TICK_MS);
         return () => window.clearInterval(id);
-    }, [inView, reduced, start]);
+    }, [visible, reduced]);
 
     const frame = heroFrame(reduced ? HERO_REDUCED_TICK : tick);
     const beat = HERO.beats[frame.beat];
