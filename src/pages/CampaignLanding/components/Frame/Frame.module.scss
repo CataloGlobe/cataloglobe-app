@@ -48,14 +48,6 @@
 
 @include ld-page-backdrop(".landing");
 
-// Ancore (#contatto, #prezzi…) con scorrimento morbido. Sta sull'elemento
-// che scorre davvero, il documento. `:has` limita la regola alla landing.
-@media (prefers-reduced-motion: no-preference) {
-    :global(html):has(.landing) {
-        scroll-behavior: smooth;
-    }
-}
-
 .page {
     display: block;
     // Spazio sotto l'ultima sezione per il «Parliamone» fluttuante mobile:
