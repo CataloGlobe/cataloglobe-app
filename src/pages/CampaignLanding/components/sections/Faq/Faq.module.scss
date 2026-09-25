@@ -1,0 +1,307 @@
+@use "@pages/CampaignLanding/styles/mixins" as *;
+
+.head {
+    @include desktop {
+        text-align: center;
+    }
+}
+
+.handNote {
+    margin-bottom: 10px;
+
+    @include desktop {
+        margin-bottom: 12px;
+    }
+}
+
+.lede {
+    display: none;
+
+    @include desktop {
+        display: block;
+        margin: 14px 0 0;
+        font-size: 17px;
+        line-height: 1.55;
+        color: var(--ld-body);
+    }
+}
+
+.body {
+    margin-top: 24px;
+
+    @include desktop {
+        max-width: 760px;
+        margin: 40px auto 0;
+    }
+}
+
+.list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px;
+    border-radius: 24px;
+    background: var(--ld-line-3);
+    border: 1px solid var(--ld-line);
+    box-shadow: var(--ld-shadow-card);
+}
+
+.item {
+    border-radius: 16px;
+    background: var(--ld-white);
+    box-shadow: 0 1px 2px rgba(21, 20, 43, 0.05);
+}
+
+.qWrap {
+    margin: 0;
+}
+
+.q {
+    @include ld-reset-button;
+    @include ld-focus;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    width: 100%;
+    padding: 17px 18px;
+    border-radius: 16px;
+    text-align: left;
+
+    @include desktop {
+        padding: 20px 22px;
+    }
+}
+
+.qText {
+    font-size: 16px;
+    // Interlinea «normal» dell'Instrument Sans statico delle tavole (il variabile è più stretto).
+    line-height: 1.25;
+    font-weight: 600;
+    color: var(--ld-ink);
+}
+
+.plus {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: var(--ld-line-2);
+    color: var(--ld-azione);
+    font-size: 18px;
+    line-height: 1;
+    transition:
+        transform 300ms ease,
+        background-color 300ms ease,
+        color 300ms ease;
+}
+
+.plusOpen {
+    transform: rotate(45deg);
+    background: var(--ld-azione);
+    color: var(--ld-white);
+}
+
+// Apertura con grid-template-rows 0fr → 1fr: altezza del contenuto senza misurarla.
+.a {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 380ms var(--ld-ease);
+}
+
+.aOpen {
+    grid-template-rows: 1fr;
+}
+
+.aInner {
+    overflow: hidden;
+}
+
+.aText {
+    margin: 0;
+    padding: 0 18px 18px;
+    font-size: 15px;
+    line-height: 1.6;
+    color: var(--ld-body);
+
+    @include desktop {
+        padding: 0 22px 20px;
+    }
+}
+
+@include reduced-motion {
+    .a,
+    .plus {
+        transition: none;
+    }
+}
+
+// ── Riquadro contatto, fuori dalla fisarmonica ──────────────────────────────
+.contact {
+    margin-top: 12px;
+    padding: 8px;
+    border-radius: 24px;
+    background: var(--ld-line-3);
+    border: 1px solid var(--ld-line);
+}
+
+.contactInner {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px;
+    border-radius: 16px;
+    background: var(--ld-white);
+
+    @include desktop {
+        gap: 22px;
+        padding: 20px 24px;
+    }
+}
+
+.mark {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 44px;
+    height: 44px;
+    border-radius: 13px;
+    background: linear-gradient(160deg, var(--ld-hero-a), var(--ld-scuro));
+
+    @include desktop {
+        width: 56px;
+        height: 56px;
+        border-radius: 16px;
+    }
+}
+
+.mark .markIcon {
+    height: 20px;
+
+    @include desktop {
+        height: 26px;
+    }
+}
+
+.contactText {
+    min-width: 0;
+}
+
+.more {
+    margin: 0;
+    font-size: 13px;
+    color: var(--ld-muted);
+
+    @include desktop {
+        font-size: 14px;
+    }
+}
+
+.mailRow {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 6px;
+}
+
+.mail {
+    @include ld-serif;
+    min-width: 0;
+    font-size: 18px;
+    line-height: 1.1;
+    text-decoration: none;
+    overflow-wrap: anywhere;
+
+    &,
+    &:hover {
+        color: var(--ld-ink);
+    }
+
+    @include desktop {
+        font-size: 22px;
+    }
+}
+
+.copyWrap {
+    position: relative;
+    display: inline-flex;
+}
+
+.copy {
+    @include ld-reset-button;
+    @include ld-focus;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: var(--ld-azione);
+    color: var(--ld-white);
+    transition:
+        background-color 250ms ease,
+        transform 250ms var(--ld-ease-pop);
+}
+
+.copied {
+    background: var(--ld-azione-deep);
+    transform: scale(1.08);
+}
+
+.icCopy,
+.icOk {
+    position: absolute;
+    transition:
+        opacity 180ms ease,
+        transform 250ms ease;
+}
+
+.icOk {
+    opacity: 0;
+    transform: scale(0.6);
+    transition-timing-function: ease, var(--ld-ease-pop);
+}
+
+.copied .icCopy {
+    opacity: 0;
+    transform: scale(0.6);
+}
+
+.copied .icOk {
+    opacity: 1;
+    transform: none;
+}
+
+.tip {
+    position: absolute;
+    left: 50%;
+    bottom: calc(100% + 8px);
+    padding: 4px 9px;
+    border-radius: 8px;
+    background: var(--ld-scuro);
+    color: var(--ld-white);
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transform: translate(-50%, 4px);
+    transition:
+        opacity 200ms ease,
+        transform 250ms ease;
+}
+
+.srOnly {
+    @include ld-sr-only;
+}
+
+.copied + .tip {
+    opacity: 1;
+    transform: translate(-50%, 0);
+}

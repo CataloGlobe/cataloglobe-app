@@ -40,6 +40,7 @@
 
 :where(.landing) a {
     color: var(--ld-azione);
+    text-decoration: underline;
 
     &:hover {
         color: var(--ld-azione-hover);
