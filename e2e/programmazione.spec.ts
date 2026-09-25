@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { openBusinessPage } from "./business";
-import { MISSING_RULE, RULE, RULE_NAME, SEDE, StubError, stubProgrammazione, type ProgrammazioneStub, type WriteCall } from "./programmazioneStub";
+import { MATRIX_RULE_NAME, MISSING_RULE, RULE, RULE_NAME, SEDE, StubError, TENANT_ID, stubProgrammazione, type ProgrammazioneStub, type WriteCall } from "./programmazioneStub";
 
 /**
  * Programmazione (lotto `ds-5-programmazione`, P0). Scritto sulla pagina di
@@ -982,3 +982,151 @@ for (const width of [375, 768, 1280]) {
         });
     });
 }
+
+// Banda del momento e matrice sedi × strati (§20, decisioni §50.7). Scritti
+// prima della banda: `test.fail` finché la pagina non li rende veri (P10).
+test.describe("Programmazione — banda e matrice", () => {
+    test.beforeEach(async ({ page }) => {
+        await stubProgrammazione(page, { matrix: true });
+    });
+
+    /** La banda del momento: la regione col cursore dell'ora. */
+    function band(page: Page): Locator {
+        return main(page).getByRole("region", { name: "Il momento" });
+    }
+
+    /** La matrice (sopra 768): la tabella «Cosa vede ogni sede». */
+    function matrix(page: Page): Locator {
+        return main(page).getByRole("table", { name: "Cosa vede ogni sede" });
+    }
+
+    function seatRow(page: Page, name: string): Locator {
+        return matrix(page).getByRole("row").filter({ has: page.getByRole("link", { name, exact: true }) });
+    }
+
+    test.fail("la banda dice quante sedi mostrano un menù adesso, e chi ha modifiche a mano", async ({ page }) => {
+        await openList(page);
+        await expect(band(page)).toContainText("Oggi alle 12:00");
+        await expect(band(page)).toContainText("2 sedi su 3 stanno mostrando un menù");
+        await expect(band(page)).toContainText("1 ha modifiche a mano in corso, che vincono sulle regole.");
+        await expect(band(page).getByRole("slider", { name: "Ora" })).toBeVisible();
+    });
+
+    test.fail("la matrice: una riga per sede, cinque strati, chi vince e perché una cella è vuota", async ({ page }) => {
+        await openList(page);
+        for (const name of ["Sede", "Menù", "Disponibilità", "Prezzi", "In evidenza", "A mano"]) {
+            await expect(matrix(page).getByRole("columnheader", { name, exact: true })).toBeVisible();
+        }
+        const centro = seatRow(page, "Centro e2e");
+        for (const text of ["Pranzo e2e", RULE_NAME.pranzo, RULE_NAME.stagionali, RULE_NAME.spritz, "1 regola, fuori fascia adesso", "3 modifiche", "hanno l'ultima parola"]) {
+            await expect(centro).toContainText(text);
+        }
+        const porto = seatRow(page, "Porto e2e");
+        for (const text of ["Carta e2e", RULE_NAME.carta, "1 bozza, non attiva", RULE_NAME.promoPorto, "nessuna"]) {
+            await expect(porto).toContainText(text);
+        }
+        const lago = seatRow(page, "Lago e2e");
+        await expect(lago).toContainText("Sospesa");
+        await expect(lago).toContainText("1 regola scaduta");
+        // La bozza in più sta anche nell'elenco, fra le Bozze.
+        await expect(main(page).getByText(MATRIX_RULE_NAME.bozzaPorto).first()).toBeVisible();
+    });
+
+    test.fail("il cursore sposta banda e matrice, non l'elenco; «Torna ad adesso» rimette l'ora", async ({ page }) => {
+        await openList(page);
+        await band(page).getByRole("slider", { name: "Ora" }).fill(String(19 * 60), { timeout: 10_000 });
+        await expect(band(page)).toContainText("Oggi alle 19:00");
+        await expect(seatRow(page, "Porto e2e")).toContainText(RULE_NAME.aperitivo);
+        await expect(seatRow(page, "Centro e2e")).not.toContainText(RULE_NAME.pranzo);
+        // L'elenco resta ad adesso: «Pranzo Centro» è ancora in «Adesso».
+        await expect(group(page, GROUP.adesso)).toContainText(RULE_NAME.pranzo);
+        await band(page).getByRole("button", { name: "Torna ad adesso" }).click();
+        await expect(band(page)).toContainText("Oggi alle 12:00");
+        await expect(band(page).getByRole("button", { name: "Torna ad adesso" })).toHaveCount(0);
+        await expect(seatRow(page, "Centro e2e")).toContainText(RULE_NAME.pranzo);
+    });
+
+    test.fail("il nome della sede porta alla sua pagina, la regola che vince al suo dettaglio", async ({ page }) => {
+        await openList(page);
+        await seatRow(page, "Porto e2e").getByRole("link", { name: RULE_NAME.promoPorto }).click({ timeout: 10_000 });
+        await expect(page).toHaveURL(new RegExp(`/scheduling/featured/${RULE.promoPorto}`));
+        await page.goBack();
+        await seatRow(page, "Centro e2e").getByRole("link", { name: "Centro e2e", exact: true }).click();
+        await expect(page).toHaveURL(new RegExp(`/locations/${SEDE.centro}/disponibilita`));
+    });
+
+    test.fail("sotto la matrice la nota dice che le colonne sono passaggi in fila", async ({ page }) => {
+        await openList(page);
+        await expect(main(page).getByText(/Le colonne non sono elenchi paralleli: sono i passaggi in fila/)).toBeVisible();
+        await expect(main(page).getByText(/«A mano» non è una regola/)).toBeVisible();
+    });
+
+    test.fail("le tab del tipo filtrano l'elenco, non la matrice", async ({ page }) => {
+        await openList(page, "price");
+        await expect(matrix(page).getByRole("columnheader")).toHaveCount(6);
+        await expect(seatRow(page, "Centro e2e")).toContainText(RULE_NAME.pranzo);
+    });
+
+    test.fail("nella Settimana non c'è la banda", async ({ page }) => {
+        await openList(page);
+        await expect(band(page)).toBeVisible();
+        await openWeek(page);
+        await expect(main(page).getByText(/set/).first()).toBeVisible();
+        await expect(band(page)).toHaveCount(0);
+        await expect(matrix(page)).toHaveCount(0);
+    });
+
+    test.fail("col filtro sede la matrice ha una riga e la banda parla al singolare", async ({ page }) => {
+        await page.addInitScript(
+            ([key, value]) => window.sessionStorage.setItem(key, value),
+            [`cataloglobe:sedeScope:${TENANT_ID}`, SEDE.centro] as const
+        );
+        await openList(page);
+        await expect(band(page)).toContainText("Centro e2e sta mostrando Pranzo e2e");
+        await expect(band(page)).toContainText("Ha modifiche a mano in corso, che vincono sulle regole.");
+        await expect(matrix(page).getByRole("row")).toHaveCount(2);
+    });
+
+    test.fail("abbonamento non attivo: la banda dice che nessuna sede mostra un menù", async ({ page }) => {
+        await page.route(/\/rest\/v1\/user_tenants_view/, async route => {
+            const response = await route.fetch();
+            const rows = (await response.json()) as Array<Record<string, unknown>>;
+            for (const row of rows) if (row.id === TENANT_ID) row.subscription_status = "canceled";
+            await route.fulfill({ response, json: rows });
+        });
+        await openList(page);
+        await expect(band(page)).toContainText("Nessuna sede mostra un menù: l'abbonamento non è attivo.");
+    });
+
+    test.fail("la banda si aggancia in alto e diventa compatta: ora, esito, cursore", async ({ page }) => {
+        await openList(page);
+        await page.setViewportSize({ width: 1280, height: 700 });
+        await expect(band(page)).toContainText("Sposta l'ora");
+        await band(page).evaluate(el => {
+            let node = el.parentElement;
+            while (node && getComputedStyle(node).overflowY !== "auto") node = node.parentElement;
+            node?.scrollBy(0, 900);
+        });
+        const top = await band(page).evaluate(el => {
+            let node = el.parentElement;
+            while (node && getComputedStyle(node).overflowY !== "auto") node = node.parentElement;
+            return el.getBoundingClientRect().top - (node?.getBoundingClientRect().top ?? 0);
+        });
+        expect(Math.abs(top)).toBeLessThan(2);
+        await expect(band(page).getByText("Sposta l'ora", { exact: false })).toBeHidden();
+        await expect(band(page)).toContainText("Oggi alle 12:00");
+        await expect(band(page).getByRole("slider", { name: "Ora" })).toBeVisible();
+    });
+
+    test.fail("sotto 768 un blocco per sede, gli strati su due colonne, senza scroll di lato", async ({ page }) => {
+        await openList(page);
+        await page.setViewportSize({ width: 375, height: 800 });
+        const blocks = main(page).getByRole("list", { name: "Cosa vede ogni sede" });
+        const centro = blocks.getByRole("listitem").filter({ has: page.getByRole("link", { name: "Centro e2e", exact: true }) });
+        await expect(centro).toContainText("Disponibilità");
+        await expect(centro).toContainText(RULE_NAME.stagionali);
+        await expect(blocks.getByRole("listitem")).toHaveCount(3);
+        await expect(matrix(page)).toBeHidden();
+        await noHorizontalScroll(page);
+    });
+});
