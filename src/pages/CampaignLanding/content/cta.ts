@@ -6,7 +6,7 @@ import type { Variante } from "@pages/CampaignLanding/variant";
 export type CtaPlacement =
     | "hero"
     | "bar-top" // «Parliamone» a destra nella barra desktop, dopo l'hero
-    | "bar-bottom" // «Parliamone» fluttuante in basso su mobile, dopo l'hero
+    | "bar-mobile" // pulsante della barra compatta in alto su mobile, dopo l'hero
     | "pricing-base"
     | "pricing-pro"
     | "start" // sezione «Cosa ti costa provarlo»
@@ -26,7 +26,7 @@ export const CTA: Record<Variante, Record<CtaPlacement, CtaEntry>> = {
     form: {
         hero: { label: FORM_LABEL, href: FORM_HREF, note: [CALLBACK, PRICE_NOTE] },
         "bar-top": { label: FORM_LABEL, href: FORM_HREF },
-        "bar-bottom": { label: FORM_LABEL, href: FORM_HREF },
+        "bar-mobile": { label: FORM_LABEL, href: FORM_HREF },
         "pricing-base": { label: FORM_LABEL, href: FORM_HREF },
         "pricing-pro": { label: FORM_LABEL, href: FORM_HREF },
         start: { label: FORM_LABEL, href: FORM_HREF, note: [`${CALLBACK} Nessun impegno.`] },
@@ -37,7 +37,7 @@ export const CTA: Record<Variante, Record<CtaPlacement, CtaEntry>> = {
     signup: {
         hero: { ...SIGNUP, note: [PRICE_NOTE] },
         "bar-top": SIGNUP,
-        "bar-bottom": SIGNUP,
+        "bar-mobile": SIGNUP,
         "pricing-base": SIGNUP,
         "pricing-pro": SIGNUP,
         start: SIGNUP,

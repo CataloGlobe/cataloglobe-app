@@ -51,9 +51,8 @@
 
 .page {
     display: block;
-    // Spazio sotto l'ultima sezione per il «Parliamone» fluttuante mobile:
-    // il footer scuro continua fino in fondo.
-    padding-bottom: calc(var(--ld-bottom-bar) + env(safe-area-inset-bottom));
+    // viewport-fit=cover: il footer scuro continua sotto l'indicatore home.
+    padding-bottom: env(safe-area-inset-bottom);
     background: var(--ld-scuro);
     // clip, non hidden: hidden creerebbe uno scroll container.
     overflow-x: clip;

@@ -12,10 +12,10 @@ type LandingCtaProps = {
     look?: "primary" | "dark" | "soft";
     /**
      * hero = 18/34 (desktop), a tutta larghezza su mobile; start = 17/40,
-     * a tutta larghezza su mobile; pill = barra desktop, alta 54; float =
-     * pillola a tutta larghezza (mobile); plan = schede prezzi; submit = form.
+     * a tutta larghezza su mobile; pill = barra desktop, alta 54; compact =
+     * barra mobile, alta 36; plan = schede prezzi; submit = form.
      */
-    shape: "hero" | "start" | "pill" | "float" | "plan" | "submit";
+    shape: "hero" | "start" | "pill" | "compact" | "plan" | "submit";
     /** Il pulsante resta nel DOM ma esce dal tab order (barre nascoste). */
     inert?: boolean;
     className?: string;
