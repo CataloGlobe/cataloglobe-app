@@ -1004,7 +1004,7 @@ test.describe("Programmazione — banda e matrice", () => {
         return matrix(page).getByRole("row").filter({ has: page.getByRole("link", { name, exact: true }) });
     }
 
-    test.fail("la banda dice quante sedi mostrano un menù adesso, e chi ha modifiche a mano", async ({ page }) => {
+    test("la banda dice quante sedi mostrano un menù adesso, e chi ha modifiche a mano", async ({ page }) => {
         await openList(page);
         await expect(band(page)).toContainText("Oggi alle 12:00");
         await expect(band(page)).toContainText("2 sedi su 3 stanno mostrando un menù");
@@ -1067,7 +1067,7 @@ test.describe("Programmazione — banda e matrice", () => {
         await expect(seatRow(page, "Centro e2e")).toContainText(RULE_NAME.pranzo);
     });
 
-    test.fail("nella Settimana non c'è la banda", async ({ page }) => {
+    test("nella Settimana non c'è la banda", async ({ page }) => {
         await openList(page);
         await expect(band(page)).toBeVisible();
         await openWeek(page);
@@ -1087,11 +1087,11 @@ test.describe("Programmazione — banda e matrice", () => {
         await expect(matrix(page).getByRole("row")).toHaveCount(2);
     });
 
-    test.fail("abbonamento non attivo: la banda dice che nessuna sede mostra un menù", async ({ page }) => {
+    test("abbonamento non attivo: la banda dice che nessuna sede mostra un menù", async ({ page }) => {
         await page.route(/\/rest\/v1\/user_tenants_view/, async route => {
             const response = await route.fetch();
             const rows = (await response.json()) as Array<Record<string, unknown>>;
-            for (const row of rows) if (row.id === TENANT_ID) row.subscription_status = "canceled";
+            for (const row of rows) if (row.id === TENANT_ID) row.subscription_status = "suspended";
             await route.fulfill({ response, json: rows });
         });
         await openList(page);

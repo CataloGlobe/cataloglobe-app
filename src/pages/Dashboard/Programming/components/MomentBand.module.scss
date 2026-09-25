@@ -1,0 +1,31 @@
+// Banda del momento (§20.3): occhiello con l'ora, esito, righe, cursore.
+
+.band {
+  background: linear-gradient(180deg, var(--brand-primary-soft), transparent), var(--surface);
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.eyebrowRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+  min-height: 32px;
+}
+
+.eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-variant-numeric: tabular-nums;
+}
+
+.lines {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
