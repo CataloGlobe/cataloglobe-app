@@ -139,6 +139,14 @@ export function SeatMatrix({ rows, atNow, catalogLabel, catalogName, ruleHref, s
                     maxHeight="none"
                 />
             )}
+            {/* L'ordine in cui si applicano gli strati (§20.6). */}
+            <Text variant="body-sm" className={styles.note}>
+                <strong>Le colonne non sono elenchi paralleli: sono i passaggi in fila.</strong> Il sistema sceglie il{" "}
+                {catalogLabel.toLowerCase()}, poi applica la disponibilità programmata, poi i prezzi, e infine le modifiche a mano
+                della sede — l'ultima colonna, che vince su tutte le altre. Dentro una colonna le regole competono fra loro; fra
+                colonne no, si sommano in quest'ordine. <strong>«A mano» non è una regola</strong>: è quello che qualcuno ha
+                cambiato dal locale, e nessuna regola lo sovrascrive.
+            </Text>
         </Card>
     );
 }

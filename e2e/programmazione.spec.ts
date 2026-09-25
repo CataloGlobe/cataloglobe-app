@@ -1055,7 +1055,7 @@ test.describe("Programmazione — banda e matrice", () => {
         await expect(page).toHaveURL(new RegExp(`/locations/${SEDE.centro}/disponibilita`));
     });
 
-    test.fail("sotto la matrice la nota dice che le colonne sono passaggi in fila", async ({ page }) => {
+    test("sotto la matrice la nota dice che le colonne sono passaggi in fila", async ({ page }) => {
         await openList(page);
         await expect(main(page).getByText(/Le colonne non sono elenchi paralleli: sono i passaggi in fila/)).toBeVisible();
         await expect(main(page).getByText(/«A mano» non è una regola/)).toBeVisible();

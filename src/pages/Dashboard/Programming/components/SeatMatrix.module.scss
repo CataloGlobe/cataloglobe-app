@@ -1,3 +1,5 @@
+@use "@styles/mixins" as *;
+
 // Matrice sedi × strati (§20.3): celle a due righe, link della sede e della
 // regola che vince.
 
@@ -81,4 +83,13 @@
 
 .layerValue {
   margin: 0;
+}
+
+// La nota sotto la matrice: il perché dell'ordine delle colonne (§20.6).
+.note {
+  padding: var(--space-16) var(--space-24) var(--space-8);
+
+  @include phone {
+    padding: var(--space-16) var(--space-16) var(--space-8);
+  }
 }
