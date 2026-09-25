@@ -401,6 +401,16 @@
     pointer-events: none;
 }
 
+// ── Riga spenta: solo aspetto, resta leggibile e cliccabile ──────────────────
+
+.rowMuted {
+    background: var(--bg);
+
+    > .cell {
+        opacity: 0.72;
+    }
+}
+
 // ── Riga evidenziata (appena creata): success-50 che si spegne in 2 s ───────
 
 .rowHighlighted {

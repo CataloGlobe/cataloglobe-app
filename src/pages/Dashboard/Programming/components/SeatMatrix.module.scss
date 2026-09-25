@@ -1,0 +1,97 @@
+@use "@styles/mixins" as *;
+
+// Matrice sedi × strati (§20.3): celle a due righe, link della sede e della
+// regola che vince.
+
+.cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  min-width: 0;
+  // A 768 le colonne sono strette: si va a capo sillabando, non a metà parola.
+  overflow-wrap: break-word;
+  hyphens: auto;
+}
+
+.link {
+  color: inherit;
+  font-weight: inherit;
+  text-decoration: none;
+
+  &:hover,
+  &:focus-visible {
+    text-decoration: underline;
+  }
+}
+
+.seatLink {
+  color: var(--brand-primary);
+  font-weight: inherit;
+  text-decoration: none;
+
+  &:hover,
+  &:focus-visible {
+    text-decoration: underline;
+  }
+}
+
+// Telefono: un blocco per sede, gli strati su due colonne.
+.blocks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  padding: var(--space-16);
+  border-top: 1px solid var(--border);
+
+  &:first-child {
+    border-top: none;
+  }
+}
+
+// La sede sospesa: spenta ma leggibile, come la riga della tabella.
+.blockMuted {
+  background: var(--bg);
+
+  > * {
+    opacity: 0.72;
+  }
+}
+
+.layers {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-12) var(--space-16);
+  margin: 0;
+}
+
+.layer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.layerLabel {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.layerValue {
+  margin: 0;
+}
+
+// La nota sotto la matrice: il perché dell'ordine delle colonne (§20.6).
+.note {
+  padding: var(--space-16) var(--space-24) var(--space-8);
+
+  @include phone {
+    padding: var(--space-16) var(--space-16) var(--space-8);
+  }
+}

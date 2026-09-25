@@ -28,6 +28,17 @@ import { stubRest, type RestStub, type Row, type Tables } from "./restStub";
  * | Promo Costa | in evidenza | gruppo Costa (= Porto) | sempre | Programmata (sovrascritta da Promo Porto) |
  * | Promo Porto | in evidenza | Porto | sempre | Adesso |
  * | Natale | in evidenza | tutte | dal 1/12/2026 | Programmata |
+ *
+ * Con `{ matrix: true }` (banda e matrice, §50.7) due regole in più, solo per
+ * i test della matrice: gli altri contano le dodici.
+ *
+ * | Regola | Tipo | Dove | Quando | Cella della matrice alle 12 |
+ * |---|---|---|---|---|
+ * | Bozza disponibilità Porto | disponibilità | Porto | spenta, niente prodotti | Porto · «1 bozza, non attiva» |
+ * | Primavera Lago | disponibilità | Lago | 1/3–31/5/2026 | Lago · «1 regola scaduta» |
+ *
+ * «A mano» (`activity_product_overrides`): tre modifiche su Centro, nessuna
+ * altrove.
  */
 
 export { TENANT_ID };
@@ -60,6 +71,13 @@ export const RULE = {
     natale: uuid(112)
 } as const;
 export const MISSING_RULE = uuid(199);
+
+/** Le regole in più della matrice (`{ matrix: true }`). */
+export const MATRIX_RULE = { bozzaPorto: uuid(121), primaveraLago: uuid(122) } as const;
+export const MATRIX_RULE_NAME: Record<keyof typeof MATRIX_RULE, string> = {
+    bozzaPorto: "Bozza disponibilità Porto e2e",
+    primaveraLago: "Primavera Lago e2e"
+};
 
 /** Nomi come li vede l'utente: i test li cercano per testo. */
 export const RULE_NAME: Record<keyof typeof RULE, string> = {
@@ -99,7 +117,8 @@ function activities(): Row[] {
 type Target = { type: "activity" | "activity_group"; id: string };
 
 type StubRule = {
-    key: keyof typeof RULE;
+    id: string;
+    name: string;
     rule_type: "layout" | "price" | "visibility" | "featured";
     enabled: boolean;
     all?: boolean;
@@ -113,9 +132,9 @@ type StubRule = {
     created: string;
 };
 
-function rules(): StubRule[] {
+function rules(matrix: boolean): StubRule[] {
     const all = true;
-    return [
+    const base: Array<Omit<StubRule, "id" | "name"> & { key: keyof typeof RULE }> = [
         { key: "carta", rule_type: "layout", enabled: true, all, created: "2026-03-01T10:00:00Z" },
         { key: "pranzo", rule_type: "layout", enabled: true, targets: [{ type: "activity", id: SEDE.centro }], time_mode: "window", days_of_week: [1, 2, 3, 4, 5], time_from: "11:00:00", time_to: "15:00:00", created: "2026-03-02T10:00:00Z" },
         { key: "aperitivo", rule_type: "layout", enabled: true, targets: [{ type: "activity", id: SEDE.porto }], time_mode: "window", time_from: "18:00:00", time_to: "21:00:00", created: "2026-03-03T10:00:00Z" },
@@ -129,14 +148,21 @@ function rules(): StubRule[] {
         { key: "promoPorto", rule_type: "featured", enabled: true, targets: [{ type: "activity", id: SEDE.porto }], created: "2026-03-11T10:00:00Z" },
         { key: "natale", rule_type: "featured", enabled: true, all, time_mode: "window", start_at: "2026-11-30T23:00:00Z", end_at: "2026-12-31T22:59:59Z", created: "2026-03-12T10:00:00Z" }
     ];
+    const out: StubRule[] = base.map(({ key, ...r }) => ({ ...r, id: RULE[key], name: RULE_NAME[key] }));
+    if (!matrix) return out;
+    return [
+        ...out,
+        { id: MATRIX_RULE.bozzaPorto, name: MATRIX_RULE_NAME.bozzaPorto, rule_type: "visibility", enabled: false, targets: [{ type: "activity", id: SEDE.porto }], created: "2026-09-21T10:00:00Z" },
+        { id: MATRIX_RULE.primaveraLago, name: MATRIX_RULE_NAME.primaveraLago, rule_type: "visibility", enabled: true, targets: [{ type: "activity", id: SEDE.lago }], time_mode: "window", start_at: "2026-02-28T23:00:00Z", end_at: "2026-05-31T21:59:59Z", created: "2026-02-20T10:00:00Z" }
+    ];
 }
 
 function scheduleRow(r: StubRule): Row {
     const first = r.targets?.[0] ?? null;
     return {
-        id: RULE[r.key],
+        id: r.id,
         tenant_id: TENANT_ID,
-        name: RULE_NAME[r.key],
+        name: r.name,
         rule_type: r.rule_type,
         target_type: first?.type ?? null,
         target_id: first?.id ?? null,
@@ -156,8 +182,8 @@ function scheduleRow(r: StubRule): Row {
     };
 }
 
-function makeTables(): Tables {
-    const rs = rules();
+function makeTables(matrix: boolean): Tables {
+    const rs = rules(matrix);
     const style = { id: STYLE.base, name: "Stile base e2e", current_version: { config: {} } };
     const layout = (key: keyof typeof RULE, catalog: string | null): Row => ({
         schedule_id: RULE[key],
@@ -187,7 +213,7 @@ function makeTables(): Tables {
     return {
         schedules: rs.map(scheduleRow),
         schedule_targets: rs.flatMap(r =>
-            (r.targets ?? []).map(t => ({ schedule_id: RULE[r.key], target_type: t.type, target_id: t.id }))
+            (r.targets ?? []).map(t => ({ schedule_id: r.id, target_type: t.type, target_id: t.id }))
         ),
         schedule_layout: [
             layout("carta", MENU.carta),
@@ -206,7 +232,16 @@ function makeTables(): Tables {
         ],
         schedule_visibility_overrides: [
             { schedule_id: RULE.stagionali, product_id: PRODUCT.tiramisu, visible: false, mode: "hide", product: productName(PRODUCT.tiramisu) },
-            { schedule_id: RULE.stagionali, product_id: PRODUCT.birra, visible: false, mode: "disable", product: productName(PRODUCT.birra) }
+            { schedule_id: RULE.stagionali, product_id: PRODUCT.birra, visible: false, mode: "disable", product: productName(PRODUCT.birra) },
+            ...(matrix
+                ? [{ schedule_id: MATRIX_RULE.primaveraLago, product_id: PRODUCT.birra, visible: false, mode: "hide", product: productName(PRODUCT.birra) }]
+                : [])
+        ],
+        // «A mano»: le modifiche fatte dalla sede, che vincono sulle regole.
+        activity_product_overrides: [
+            { activity_id: SEDE.centro, product_id: PRODUCT.tiramisu, visible_override: false, mode: "hide" },
+            { activity_id: SEDE.centro, product_id: PRODUCT.birra, visible_override: false, mode: "disable" },
+            { activity_id: SEDE.centro, product_id: PRODUCT.spritz, visible_override: true, mode: null }
         ],
         schedule_featured_contents: [
             sfc("promoCosta", FEATURED.autunno, "before_catalog", 0),
@@ -253,8 +288,8 @@ function makeTables(): Tables {
 export { StubError, type WriteCall } from "./restStub";
 export type ProgrammazioneStub = RestStub;
 
-export async function stubProgrammazione(page: Page): Promise<ProgrammazioneStub> {
-    const tables = makeTables();
+export async function stubProgrammazione(page: Page, options: { matrix?: boolean } = {}): Promise<ProgrammazioneStub> {
+    const tables = makeTables(Boolean(options.matrix));
     const stub = await stubRest(page, {
         tables,
         // Il resolver del simulatore legge il menù come embedding di `schedules`.
