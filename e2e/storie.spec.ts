@@ -179,6 +179,47 @@ test.describe("Storie — elenco", () => {
     });
 });
 
+test.describe("Storie — elenco ricomposto (P5)", () => {
+    test("il cappello in cima, com'è pubblicamente; l'ordine è detto", async ({ page }) => {
+        await openList(page);
+        await expect(page.getByRole("tab", { name: "Storia del brand" })).toHaveCount(0);
+        await expect(main(page).getByText("Il cappello", { exact: true })).toBeVisible();
+        await expect(main(page).getByText("La nostra storia e2e")).toBeVisible();
+        await expect(main(page).getByText("Tre generazioni dietro lo stesso bancone.")).toBeVisible();
+        await expect(main(page).getByText(/Trascina per cambiare l'ordine/)).toBeVisible();
+    });
+
+    test("cappello: Annulla scarta senza scrivere", async ({ page }) => {
+        await openList(page);
+        await main(page).getByRole("button", { name: "Modifica", exact: true }).click();
+        const drawer = dialog(page);
+        await drawer.getByRole("textbox", { name: /^Titolo/ }).fill("Da buttare");
+        await drawer.getByRole("button", { name: "Annulla" }).click();
+        await expect(drawer).toHaveCount(0);
+        await expect(main(page).getByText("La nostra storia e2e")).toBeVisible();
+        expect(stub.writes).toHaveLength(0);
+    });
+
+    test("errori di caricamento: elenco e cappello lo dicono, «Riprova» ricarica", async ({ page }) => {
+        let fail = true;
+        await page.route(/\/rest\/v1\/stories\?/, route =>
+            fail && route.request().method() === "GET" ? route.fulfill({ status: 500, json: { message: "e2e" } }) : route.fallback()
+        );
+        await page.route(/\/rest\/v1\/tenants\?/, route =>
+            fail && (new URL(route.request().url()).searchParams.get("select") ?? "").includes("story_title")
+                ? route.fulfill({ status: 500, json: { message: "e2e" } })
+                : route.fallback()
+        );
+        await openBusinessPage(page, "stories", "Storie");
+        await expect(main(page).getByText("Non è stato possibile caricare le storie")).toBeVisible({ timeout: 15_000 });
+        await expect(main(page).getByText("Non è stato possibile caricare il cappello.")).toBeVisible();
+        fail = false;
+        for (const retry of await main(page).getByRole("button", { name: "Riprova" }).all()) await retry.click();
+        await expect(storyTitle(page, "Il nostro forno e2e")).toBeVisible();
+        await expect(main(page).getByText("La nostra storia e2e")).toBeVisible();
+    });
+});
+
 test.describe("Storie — editor", () => {
     test("bozza di pagina: titolo e stato, un Salva", async ({ page }) => {
         stub.onWrite("stories.PATCH", call => {

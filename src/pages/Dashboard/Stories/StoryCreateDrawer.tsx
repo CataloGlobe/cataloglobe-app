@@ -7,6 +7,7 @@ import Text from "@/components/ui/Text/Text";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { useToast } from "@/context/Toast/ToastContext";
 import { createStory } from "@/services/supabase/stories";
+import styles from "./Stories.module.scss";
 
 const FORM_ID = "story-create-form";
 
@@ -14,10 +15,10 @@ interface StoryCreateDrawerProps {
     open: boolean;
     onClose: () => void;
     tenantId?: string;
-    onSuccess: () => void;
 }
 
-export default function StoryCreateDrawer({ open, onClose, tenantId, onSuccess }: StoryCreateDrawerProps) {
+/** Crea una storia in bozza e apre il suo editor (niente ricarica dell'elenco: si esce). */
+export default function StoryCreateDrawer({ open, onClose, tenantId }: StoryCreateDrawerProps) {
     const { showToast } = useToast();
     const navigate = useNavigate();
     const [submitting, setSubmitting] = useState(false);
@@ -51,7 +52,7 @@ export default function StoryCreateDrawer({ open, onClose, tenantId, onSuccess }
                 status: "draft"
             });
             showToast({ message: "Storia creata.", type: "success" });
-            onSuccess();
+            onClose();
             navigate(`/business/${tenantId}/stories/${created.id}`);
         } catch (error) {
             console.error("Errore creazione storia:", error);
@@ -67,7 +68,7 @@ export default function StoryCreateDrawer({ open, onClose, tenantId, onSuccess }
     };
 
     return (
-        <SystemDrawer open={open} onClose={handleRequestClose} width={420}>
+        <SystemDrawer open={open} onClose={handleRequestClose} size="sm">
             <DrawerLayout
                 header={
                     <Text variant="title-sm" weight={600}>
@@ -76,7 +77,7 @@ export default function StoryCreateDrawer({ open, onClose, tenantId, onSuccess }
                 }
                 footer={
                     <>
-                        <Button variant="secondary" onClick={onClose} disabled={submitting}>
+                        <Button variant="secondary" onClick={handleRequestClose} disabled={submitting}>
                             Annulla
                         </Button>
                         <Button
@@ -86,16 +87,12 @@ export default function StoryCreateDrawer({ open, onClose, tenantId, onSuccess }
                             loading={submitting}
                             disabled={submitting}
                         >
-                            {submitting ? "Creazione..." : "Crea"}
+                            Crea
                         </Button>
                     </>
                 }
             >
-                <form
-                    id={FORM_ID}
-                    onSubmit={handleSave}
-                    style={{ display: "flex", flexDirection: "column", gap: 16 }}
-                >
+                <form id={FORM_ID} onSubmit={handleSave} className={styles.form}>
                     <TextInput
                         label="Titolo"
                         required
