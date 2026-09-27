@@ -96,7 +96,8 @@
     transition: background-color 300ms ease;
 }
 
-// Screenshot 390×844: largo quanto lo schermo, in alto, il resto tagliato sotto.
+// Screenshot 390×808 (proporzioni dello schermo desktop): largo quanto lo
+// schermo, in alto; sul mobile (230×430) il resto si taglia sotto.
 // Dissolvenza: quello nuovo sale sopra; il vecchio sparisce a dissolvenza finita.
 .shot {
     position: absolute;

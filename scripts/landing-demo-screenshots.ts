@@ -8,10 +8,12 @@
  *
  * Usage: npm run landing:demo-screenshots [-- --base https://cataloglobe.com] [-- --out <dir>]
  *
- * Per ogni slug: pagina pubblica a 390×844 @2x (sola lettura), poi due WebP
+ * Per ogni slug: pagina pubblica a 390×808 @2x (sola lettura), poi due WebP
  * larghi quanto lo schermo del telefono sul desktop (280 px) e il doppio
- * (560 px). La conversione in WebP la fa Chromium stesso (canvas), senza
- * dipendenze in più.
+ * (560 px). 808 = 390 × 580 / 280: lo scatto ha le proporzioni dello schermo
+ * del telefono sul desktop (280×580), così la barra di navigazione in basso
+ * della pagina cade intera sul bordo invece di uscire tagliata.
+ * La conversione in WebP la fa Chromium stesso (canvas), senza dipendenze in più.
  */
 
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -19,7 +21,7 @@ import { resolve } from "node:path";
 import { chromium } from "@playwright/test";
 
 const SLUGS = ["il-molo-34", "la-pausa", "velvet-garden"] as const;
-const VIEWPORT = { width: 390, height: 844 };
+const VIEWPORT = { width: 390, height: 808 };
 const SCALE = 2;
 /** Larghezza dello schermo del telefono sul desktop (`.phone` 300 − 2 × 10 di padding), 1x e 2x. */
 const WIDTHS = [280, 560] as const;

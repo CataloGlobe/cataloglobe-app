@@ -47,7 +47,7 @@ function PhonePreview({ selected, preload }: { selected: number; preload: boolea
                             srcSet={SCREENS[v.key]}
                             sizes="(min-width: 1024px) 280px, 230px"
                             width={280}
-                            height={606}
+                            height={580}
                             loading="lazy"
                             decoding="async"
                             alt={on ? DEMOS.screenAlt(v.name) : ""}
