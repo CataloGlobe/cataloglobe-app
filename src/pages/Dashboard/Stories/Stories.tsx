@@ -169,7 +169,7 @@ export default function Stories() {
         {
             id: "title",
             header: "Storia",
-            width: "2fr",
+            width: "1fr",
             cell: (_value, item) => (
                 <div className={styles.titleCell}>
                     {item.eyebrow && (
@@ -186,7 +186,7 @@ export default function Stories() {
         {
             id: "product",
             header: "Prodotto collegato",
-            width: "1fr",
+            width: "0.6fr",
             hideOnPhone: true,
             cell: (_value, item) => (
                 <Text variant="body-sm" colorVariant={item.product ? undefined : "muted"}>
@@ -197,7 +197,7 @@ export default function Stories() {
         {
             id: "status",
             header: "Stato",
-            width: "0.8fr",
+            width: "120px",
             cell: (_value, item) => (
                 <StatusBadge
                     variant={item.status === "published" ? "success" : "neutral"}

@@ -51,6 +51,7 @@ import {
     typeHasProducts
 } from "./featuredContentTypes";
 import { useFeaturedDraft } from "./hooks/useFeaturedDraft";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useFeaturedProductsDraft } from "./hooks/useFeaturedProductsDraft";
 import styles from "./FeaturedContentDetailPage.module.scss";
 
@@ -70,6 +71,8 @@ export default function FeaturedContentDetailPage() {
     // manager non ha anche quando può collegare prodotti al contenuto.
     const canWriteProducts = permissions != null && canDoOnTenant(permissions, "products.write");
     const readOnly = !canWrite || !canEdit;
+    // Sul telefono i quattro tipi stanno nella card solo in taglia `sm`.
+    const isPhone = useMediaQuery("(max-width: 767px)");
 
     const [content, setContent] = useState<FeaturedContentWithProducts | null>(null);
     const [loading, setLoading] = useState(true);
@@ -322,6 +325,7 @@ export default function FeaturedContentDetailPage() {
             <Card title="Tipo" subtitle="Decide se il contenuto ha prodotti.">
                 <div className={styles.stack}>
                     <SegmentedControl<FeaturedContentType>
+                        size={isPhone ? "sm" : "md"}
                         value={typeChoice.type}
                         onChange={draft.setType}
                         options={CONTENT_TYPE_ORDER.map(value => ({ value, label: CONTENT_TYPE_LABEL[value] }))}
