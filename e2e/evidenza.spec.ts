@@ -497,6 +497,51 @@ test.describe("In evidenza — permessi e conferme (P1)", () => {
     });
 });
 
+test.describe("In evidenza — prodotti nella bozza (P9)", () => {
+    test("nota e «Togli» non scrivono prima del Salva; Annulla torna al salvato", async ({ page }) => {
+        await openContent(page, FEATURED.coppia);
+        await openProductsTab(page);
+        await main(page).getByRole("textbox", { name: "Nota per Patatine medie e2e" }).fill("solo classiche");
+        await expect(main(page).getByLabel("Nota non salvata")).toBeVisible();
+        await actionsOf(main(page).getByText("Big Arch e2e")).click();
+        await page.getByRole("menuitem", { name: "Togli" }).click();
+        await expect(main(page).getByText("Big Arch e2e")).toHaveCount(0);
+        expect(stub.writes.filter(w => !w.key.startsWith("translation"))).toHaveLength(0);
+        await page.getByRole("button", { name: "Annulla", exact: true }).first().click();
+        await page.getByRole("alertdialog").getByRole("button", { name: "Scarta" }).click();
+        await expect(main(page).getByText("Big Arch e2e")).toBeVisible();
+        await expect(main(page).getByRole("textbox", { name: "Nota per Patatine medie e2e" })).toHaveValue("");
+        expect(stub.writes.filter(w => !w.key.startsWith("translation"))).toHaveLength(0);
+    });
+
+    test("riordino da tastiera: l'ordine si scrive col Salva", async ({ page }) => {
+        stub.onWrite("featured_content_products.PATCH", () => null);
+        await openContent(page, FEATURED.coppia);
+        await openProductsTab(page);
+        const handle = main(page).getByRole("button", { name: "Riordina Big Arch e2e" });
+        await handle.focus();
+        await page.keyboard.press("Space");
+        await page.waitForTimeout(200);
+        await page.keyboard.press("ArrowDown");
+        await page.waitForTimeout(300);
+        await page.keyboard.press("Space");
+        await page.waitForTimeout(200);
+        expect(writes(stub, "featured_content_products.PATCH")).toHaveLength(0);
+        await page.getByRole("button", { name: "Salva", exact: true }).click();
+        await expect.poll(() => writes(stub, "featured_content_products.PATCH").length).toBe(2);
+        const big = writes(stub, "featured_content_products.PATCH").find(w => w.params.get("id") === `eq.${LINK.coppiaBig}`);
+        expect(big?.body).toEqual({ sort_order: 2 });
+    });
+
+    test("il prodotto si apre nella sua pagina, non si modifica qui", async ({ page }) => {
+        await openContent(page, FEATURED.coppia);
+        await openProductsTab(page);
+        await actionsOf(main(page).getByText("Big Arch e2e")).click();
+        await expect(page.getByRole("menuitem", { name: "Apri il prodotto" })).toBeVisible();
+        await expect(page.getByRole("menuitem", { name: "Modifica" })).toHaveCount(0);
+    });
+});
+
 test.describe("In evidenza — larghezze", () => {
     for (const width of [1280, 768, 375]) {
         test(`${width}: elenco e dettaglio senza scroll di lato`, async ({ page }) => {

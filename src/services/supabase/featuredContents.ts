@@ -618,3 +618,45 @@ export async function syncFeaturedContentProducts(
 
     void revalidatePublicCatalogForTenant(tenantId);
 }
+
+export type FeaturedPickerProduct = {
+    id: string;
+    name: string;
+    base_price: number | null;
+    option_groups: Array<{
+        group_kind: string;
+        values: Array<{ absolute_price: number | null }>;
+    }> | null;
+};
+
+export type FeaturedPickerCatalog = {
+    products: FeaturedPickerProduct[];
+    groups: Array<{ id: string; name: string }>;
+    groupItems: Array<{ product_id: string; group_id: string }>;
+};
+
+/**
+ * I prodotti da collegare a un contenuto in evidenza, coi gruppi per filtrarli
+ * (prima la query stava nel componente del picker, con tre `any`).
+ */
+export async function listFeaturedPickerCatalog(tenantId: string): Promise<FeaturedPickerCatalog> {
+    const [productsRes, groupsRes, itemsRes] = await Promise.all([
+        supabase
+            .from("products")
+            .select(
+                "id, name, base_price, option_groups:product_option_groups(group_kind, values:product_option_values(absolute_price))"
+            )
+            .eq("tenant_id", tenantId)
+            .order("name", { ascending: true }),
+        supabase.from("product_groups").select("id, name").eq("tenant_id", tenantId).order("name", { ascending: true }),
+        supabase.from("product_group_items").select("product_id, group_id").eq("tenant_id", tenantId)
+    ]);
+    if (productsRes.error) throw productsRes.error;
+    if (groupsRes.error) throw groupsRes.error;
+    if (itemsRes.error) throw itemsRes.error;
+    return {
+        products: (productsRes.data ?? []) as unknown as FeaturedPickerProduct[],
+        groups: groupsRes.data ?? [],
+        groupItems: itemsRes.data ?? []
+    };
+}

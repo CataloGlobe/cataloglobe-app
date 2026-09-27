@@ -36,13 +36,6 @@
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: var(--space-16);
 }
-
-.headerActions {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-8);
-}
-
 .pickerDrawerHeader {
   display: flex;
   flex-direction: column;

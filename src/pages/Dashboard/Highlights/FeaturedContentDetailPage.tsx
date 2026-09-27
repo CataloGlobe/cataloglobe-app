@@ -20,13 +20,14 @@ import { Tabs } from "@/components/ui/Tabs/Tabs";
 import { Pin } from "lucide-react";
 import { useToast } from "@/context/Toast/ToastContext";
 import ProductPickerList from "./ProductPickerList";
-import ProductsManagerCard from "./ProductsManagerCard";
+import { FeaturedProductsCard } from "./components/FeaturedProductsCard";
 import { ProductForm } from "@/pages/Dashboard/Products/components/ProductForm";
 import { type V2Product } from "@/services/supabase/products";
 import {
     type FeaturedContent,
     type FeaturedContentWithProducts,
     type FeaturedContentType,
+    type FeaturedPickerProduct,
     getFeaturedContentById,
     columnsToFraming
 } from "@/services/supabase/featuredContents";
@@ -50,6 +51,7 @@ import {
     typeHasProducts
 } from "./featuredContentTypes";
 import { useFeaturedDraft } from "./hooks/useFeaturedDraft";
+import { useFeaturedProductsDraft } from "./hooks/useFeaturedProductsDraft";
 import styles from "./FeaturedContentDetailPage.module.scss";
 
 type FeaturedDetailTab = "info" | "products";
@@ -89,9 +91,8 @@ export default function FeaturedContentDetailPage() {
 
     // Product picker state
     const [isProductPickerOpen, setIsProductPickerOpen] = useState(false);
-    const [linkedProductIds, setLinkedProductIds] = useState<string[]>([]);
     const [pendingSelectedProductIds, setPendingSelectedProductIds] = useState<string[]>([]);
-    const onApplyProductsRef = useRef<((ids: string[]) => Promise<void>) | null>(null);
+    const pickerCatalogRef = useRef<FeaturedPickerProduct[]>([]);
     const [addProductMode, setAddProductMode] = useState<"new" | "existing">("existing");
     const [isCreatingNewProduct, setIsCreatingNewProduct] = useState(false);
 
@@ -125,10 +126,37 @@ export default function FeaturedContentDetailPage() {
     }, []);
 
     const draft = useFeaturedDraft(content, tenantId ?? null, handleSaved);
-    // Le azioni di testata dipendono da questi, non dall'oggetto `draft`
-    // (nuovo a ogni render: rifarebbe la testata a ogni render, e i menu aperti
-    // nella pagina si richiuderebbero).
-    const { isDirty, isSaving, save: saveDraft, discard: discardDraft } = draft;
+    // I prodotti collegati entrano nella stessa bozza (§50.11/2): si caricano
+    // alla prima apertura della tab.
+    const products = useFeaturedProductsDraft(featuredId, tenantId ?? null, activeTab === "products");
+
+    // Le azioni di testata dipendono da questi, non dagli oggetti delle bozze
+    // (nuovi a ogni render: rifarebbero la testata a ogni render, e i menu
+    // aperti nella pagina si richiuderebbero).
+    const isDirty = draft.isDirty || products.isDirty;
+    const isSaving = draft.isSaving || products.isSaving;
+    const { save: saveInfo, discard: discardInfo, isDirty: infoDirty } = draft;
+    const { save: saveProducts, discard: discardProducts, isDirty: productsDirty } = products;
+
+    // Un Salva per la pagina: prima il contenuto, poi i suoi prodotti.
+    const saveDraft = useCallback(async () => {
+        if (infoDirty && !(await saveInfo())) return;
+        if (productsDirty) {
+            try {
+                await saveProducts();
+                if (!infoDirty) showToast({ message: "Prodotti aggiornati.", type: "success" });
+            } catch (err) {
+                console.error("Salvataggio prodotti del contenuto:", err);
+                showToast({ message: "Impossibile salvare i prodotti.", type: "error" });
+            }
+        }
+    }, [infoDirty, saveInfo, productsDirty, saveProducts, showToast]);
+
+    const discardDraft = useCallback(() => {
+        discardInfo();
+        discardProducts();
+    }, [discardInfo, discardProducts]);
+
     useUnsavedChangesGuard(isDirty && !readOnly);
 
     // La tab Prodotti segue il tipo della bozza: sparisce appena scegli
@@ -155,39 +183,42 @@ export default function FeaturedContentDetailPage() {
         setAddProductMode("existing");
     };
 
-    const handleNewProductCreated = async (createdProduct?: V2Product) => {
-        if (!createdProduct || !onApplyProductsRef.current) {
-            closeProductPicker();
-            return;
-        }
-        try {
-            await onApplyProductsRef.current([...linkedProductIds, createdProduct.id]);
-        } catch (err) {
-            console.error(err);
-            showToast({ type: "error", message: "Errore nell'associazione del prodotto." });
+    const openProductPicker = useCallback(() => {
+        setPendingSelectedProductIds(products.linkedProductIds);
+        setIsProductPickerOpen(true);
+    }, [products.linkedProductIds]);
+
+    // «Nuovo»: il prodotto si crea subito (è un prodotto), il collegamento va in
+    // bozza come gli altri.
+    const handleNewProductCreated = (createdProduct?: V2Product) => {
+        if (createdProduct) {
+            products.applySelection([...products.linkedProductIds, createdProduct.id], [
+                ...pickerCatalogRef.current,
+                {
+                    id: createdProduct.id,
+                    name: createdProduct.name,
+                    base_price: createdProduct.base_price ?? null,
+                    option_groups: null
+                }
+            ]);
         }
         closeProductPicker();
     };
 
     const hasPendingProductChanges = useCallback(() => {
-        const orig = new Set(linkedProductIds);
+        const orig = new Set(products.linkedProductIds);
         const pend = new Set(pendingSelectedProductIds);
         if (orig.size !== pend.size) return true;
         for (const id of orig) {
             if (!pend.has(id)) return true;
         }
         return false;
-    }, [linkedProductIds, pendingSelectedProductIds]);
+    }, [products.linkedProductIds, pendingSelectedProductIds]);
 
-    const applyProductSelection = async () => {
-        if (!onApplyProductsRef.current) return;
-        try {
-            await onApplyProductsRef.current(pendingSelectedProductIds);
-            closeProductPicker();
-        } catch (err) {
-            console.error(err);
-            showToast({ type: "error", message: "Errore nel salvataggio selezione prodotti." });
-        }
+    // «Applica»: la selezione entra nella bozza; si scrive col Salva.
+    const applyProductSelection = () => {
+        products.applySelection(pendingSelectedProductIds, pickerCatalogRef.current);
+        closeProductPicker();
     };
 
     const breadcrumbItems = useMemo(() => [
@@ -196,8 +227,6 @@ export default function FeaturedContentDetailPage() {
     ], [tenantId, loading, content?.internal_name, content?.title]);
 
     useBreadcrumbItems(breadcrumbItems);
-
-    const addProductTriggerRef = useRef<(() => void) | null>(null);
 
     const leading = useMemo(() => (
         <Tabs<FeaturedDetailTab> value={activeTab} onChange={handleTabChange} variant="line">
@@ -211,21 +240,14 @@ export default function FeaturedContentDetailPage() {
     const actions = useMemo(() => {
         if (readOnly || !content) return undefined;
         return (
-            <div className={styles.headerActions}>
-                {activeTab === "products" && productsEnabled && (
-                    <Button variant="secondary" size="sm" onClick={() => addProductTriggerRef.current?.()}>
-                        Aggiungi prodotto
-                    </Button>
-                )}
-                <HeaderSaveAction
-                    isDirty={isDirty}
-                    isSaving={isSaving}
-                    onSave={() => void saveDraft()}
-                    onDiscard={discardDraft}
-                />
-            </div>
+            <HeaderSaveAction
+                isDirty={isDirty}
+                isSaving={isSaving}
+                onSave={() => void saveDraft()}
+                onDiscard={discardDraft}
+            />
         );
-    }, [readOnly, content, isDirty, isSaving, saveDraft, discardDraft, activeTab, productsEnabled]);
+    }, [readOnly, content, isDirty, isSaving, saveDraft, discardDraft]);
 
     const headerCompact = useMemo<PageHeaderCompactConfig>(() => ({
         sections: [
@@ -444,21 +466,22 @@ export default function FeaturedContentDetailPage() {
             )}
 
             {activeTab === "products" && productsEnabled && (
-                <ProductsManagerCard
-                    featuredId={featuredId as string}
-                    pricingMode={PRICING_OF_TYPE[draftType]}
+                <FeaturedProductsCard
+                    rows={products.rows}
+                    loading={!products.loaded && !products.loadError}
+                    loadError={products.loadError}
+                    onRetry={() => void products.reload()}
+                    dirtyNoteKeys={products.dirtyNoteKeys}
+                    showPrice={
+                        PRICING_OF_TYPE[draftType] === "per_item" ||
+                        (PRICING_OF_TYPE[draftType] === "bundle" && typeChoice.showOriginalTotal)
+                    }
                     readOnly={readOnly}
-                    canEditProducts={canWriteProducts && canEdit}
-                    showOriginalTotal={typeChoice.showOriginalTotal}
-                    onOpenProductPicker={(linkedIds, onApply) => {
-                        setLinkedProductIds(linkedIds);
-                        setPendingSelectedProductIds(linkedIds);
-                        onApplyProductsRef.current = onApply;
-                        setIsProductPickerOpen(true);
-                    }}
-                    onRegisterAddTrigger={trigger => {
-                        addProductTriggerRef.current = trigger;
-                    }}
+                    onAdd={openProductPicker}
+                    onMove={products.move}
+                    onNoteChange={products.setNote}
+                    onRemove={products.remove}
+                    productUrl={productId => `/business/${tenantId}/products/${productId}`}
                 />
             )}
 
@@ -536,6 +559,9 @@ export default function FeaturedContentDetailPage() {
                         <ProductPickerList
                             selectedProductIds={pendingSelectedProductIds}
                             onSelectionChange={setPendingSelectedProductIds}
+                            onCatalogLoaded={catalog => {
+                                pickerCatalogRef.current = catalog;
+                            }}
                         />
                     )}
                 </DrawerLayout>
