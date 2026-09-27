@@ -48,32 +48,10 @@
 
 .addItem {
   align-self: flex-start;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
-  background: transparent;
-  border: none;
-  border-radius: var(--radius-sm, 6px);
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--brand-primary);
-  transition: background-color 0.12s ease;
-
-  &:hover {
-    background: var(--brand-primary-soft);
-  }
-
-  &:focus-visible {
-    outline: none;
-    box-shadow: 0 0 0 2px var(--brand-primary);
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .removeItem,
-  .addItem {
+  .removeItem {
     transition: none;
   }
 }

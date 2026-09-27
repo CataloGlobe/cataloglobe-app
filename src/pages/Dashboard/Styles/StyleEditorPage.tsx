@@ -378,7 +378,7 @@ export default function StyleEditorPage() {
                                     }
                                 >
                                     <IconLayoutSidebarRightExpand size={16} />
-                                    <span className={styles.panelHandleLabel}>Proprietà</span>
+                                    <Text as="span" variant="caption" weight={600} className={styles.panelHandleLabel}>Proprietà</Text>
                                 </motion.button>
                             )}
                         </AnimatePresence>
@@ -445,7 +445,7 @@ export default function StyleEditorPage() {
                                         <Text variant="body-sm" weight={700}>
                                             Versione {styleData.current_version?.version || "N/A"}
                                         </Text>
-                                        <Text variant="caption" colorVariant="muted">
+                                        <Text variant="caption-xs" colorVariant="muted">
                                             Aggiornata {new Date(styleData.updated_at).toLocaleString("it-IT")}
                                         </Text>
                                     </span>

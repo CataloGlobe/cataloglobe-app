@@ -18,7 +18,8 @@ import {
     isFeaturedHighlightControlActive
 } from "./StyleTokenModel";
 import { getPatternCss, contrastText } from "@/features/public/utils/mapStyleTokensToCssVars";
-import { NavMiniPreview, RADIUS_CSS, ProductStylePreview, FeaturedStylePreview, ImagePositionPreview } from "./StyleMiniPreviews";
+import { NavMiniPreview, ProductStylePreview, FeaturedStylePreview, ImagePositionPreview } from "./StyleMiniPreviews";
+import { RADIUS_CSS } from "./StyleTokenModel";
 import { StyleColorPicker } from "./StyleColorPicker";
 import { IconRefresh } from "@tabler/icons-react";
 import { usePaletteWarnings } from "./usePaletteWarnings";
@@ -245,7 +246,7 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                     onChange={val => updateColor("accent", val)}
                 />
                 {accentLinked ? (
-                    <Text as="p" variant="body" className={styles.linkedCaption}>
+                    <Text as="p" variant="caption" colorVariant="muted" className={styles.linkedCaption}>
                         Uguale al colore primario · modificalo per personalizzarlo.
                     </Text>
                 ) : (
@@ -255,7 +256,7 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                         onClick={() => updateColor("accent", undefined)}
                     >
                         <IconRefresh size={13} stroke={1.8} />
-                        Usa il colore primario
+                        <Text as="span" variant="caption">Usa il colore primario</Text>
                     </button>
                 )}
 
@@ -285,7 +286,7 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                                             style={{ borderRadius: RADIUS_CSS[option.value] }}
                                         />
                                     </div>
-                                    <span className={styles.miniPreviewLabel}>{option.label}</span>
+                                    <Text as="span" variant="caption-xs" className={styles.miniPreviewLabel}>{option.label}</Text>
                                 </button>
                             );
                         })}
@@ -349,7 +350,7 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                                             backgroundSize: bgSize
                                         }}
                                     />
-                                    <span className={styles.miniPreviewLabel}>{option.label}</span>
+                                    <Text as="span" variant="caption-xs" className={styles.miniPreviewLabel}>{option.label}</Text>
                                 </button>
                             );
                         })}
@@ -389,7 +390,7 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                                                 backgroundSize: bgSize
                                             }}
                                         />
-                                        <span className={styles.miniPreviewLabel}>{option.label}</span>
+                                        <Text as="span" variant="caption-xs" className={styles.miniPreviewLabel}>{option.label}</Text>
                                     </button>
                                 );
                             })}
@@ -479,7 +480,7 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                                     <div className={styles.navSwatch} aria-hidden="true">
                                         <NavMiniPreview navStyle={option.value} primaryColor={model.colors.primary} borderRadius={model.appearance.borderRadius} />
                                     </div>
-                                    <span className={styles.miniPreviewLabel}>{option.label}</span>
+                                    <Text as="span" variant="caption-xs" className={styles.miniPreviewLabel}>{option.label}</Text>
                                 </button>
                             );
                         })}
@@ -512,7 +513,7 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                                     onClick={() => updateFeaturedStyle(option.value)}
                                 >
                                     <FeaturedStylePreview variant={option.value} />
-                                    <span className={styles.miniPreviewLabel}>{option.label}</span>
+                                    <Text as="span" variant="caption-xs" className={styles.miniPreviewLabel}>{option.label}</Text>
                                 </button>
                             );
                         })}
@@ -639,7 +640,7 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                                     onClick={() => updateProductStyle(option.value)}
                                 >
                                     <ProductStylePreview variant={option.value} />
-                                    <span className={styles.miniPreviewLabel}>{option.label}</span>
+                                    <Text as="span" variant="caption-xs" className={styles.miniPreviewLabel}>{option.label}</Text>
                                 </button>
                             );
                         })}
@@ -838,12 +839,15 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                                     }`}
                                     onClick={() => updateTypography(option.value)}
                                 >
-                                    <span
+                                    <Text
+                                        as="span"
+                                        variant="body-sm"
+                                        weight={600}
                                         className={styles.fontPreviewLabel}
                                         style={{ fontFamily: option.css }}
                                     >
                                         {option.label}
-                                    </span>
+                                    </Text>
                                 </button>
                             );
                         })}

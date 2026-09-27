@@ -105,7 +105,7 @@ export function StoryImageFramingDrawer({
                     }}
                 >
                     <div className={styles.frameRow}>
-                        <span className={styles.frameLabel}>Formato</span>
+                        <Text as="span" variant="body-sm" weight={500} className={styles.frameLabel}>Formato</Text>
                         <SegmentedControl<MediaFrame>
                             value={draftFrame}
                             onChange={setDraftFrame}

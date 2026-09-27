@@ -52,13 +52,11 @@
 .fieldLabel {
   margin: 0;
   color: var(--color-text, #1f2a37);
-  font-size: 0.95rem;
 }
 
 /* Accent collegato al primario: caption attenuata sotto il picker */
 .linkedCaption {
   margin: 6px 0 0;
-  font-size: 0.78rem;
   color: var(--color-text-muted, #6b7280);
 }
 
@@ -73,7 +71,6 @@
   border: none;
   cursor: pointer;
   font-family: inherit;
-  font-size: 0.78rem;
   color: var(--color-primary, #6366f1);
 
   &:hover {
@@ -111,6 +108,7 @@
   overflow: hidden;
 }
 .colorHexInput {
+  cursor: pointer;
   flex: 1;
   border: none;
   outline: none;
@@ -118,7 +116,6 @@
   font-family:
     "JetBrains Mono", "Fira Mono", "SFMono-Regular", Menlo, Monaco, Consolas,
     monospace;
-  font-size: 0.95rem;
   color: var(--color-text, #2a3648);
   letter-spacing: 0.2px;
 }
@@ -225,7 +222,6 @@
 }
 
 .miniPreviewLabel {
-  font-size: 11px;
   font-weight: 500;
   color: var(--color-text-muted, #5f6f88);
   text-align: center;
@@ -270,7 +266,6 @@
 }
 
 .fontPreviewLabel {
-  font-size: 14px;
   font-weight: 600;
   color: var(--color-text-muted, #5f6f88);
   text-align: center;
@@ -292,14 +287,14 @@
   display: block;
   height: 4px;
   border-radius: 1px;
-  background: #8b95a8;
+  background: var(--gray-400);
 }
 
 .previewBarThin {
   display: block;
   height: 3px;
   border-radius: 1px;
-  background: #c4cad4;
+  background: var(--gray-300);
 }
 
 .previewBarWhite {
@@ -331,7 +326,7 @@
   width: 24px;
   height: 30px;
   border-radius: 3px;
-  background: #b5bcc9;
+  background: var(--gray-300);
   flex-shrink: 0;
 }
 
@@ -353,7 +348,7 @@
 .productSwatchSeparator {
   height: 1px;
   width: 100%;
-  background: #dce3ef;
+  background: var(--border);
   margin-top: 2px;
 }
 
@@ -376,7 +371,7 @@
 .featuredSwatchImg {
   width: 100%;
   flex: 1;
-  background: #b5bcc9;
+  background: var(--gray-300);
 }
 
 .featuredSwatchText {
@@ -390,7 +385,7 @@
   position: relative;
   width: 100%;
   height: 100%;
-  background: #8b95a8;
+  background: var(--gray-400);
 }
 
 .featuredSwatchOverlay {
@@ -422,7 +417,7 @@
   width: 28px;
   height: 28px;
   border-radius: 3px;
-  background: #b5bcc9;
+  background: var(--gray-300);
   flex-shrink: 0;
 }
 
@@ -451,7 +446,7 @@
   width: 20px;
   height: 24px;
   border-radius: 3px;
-  background: #b5bcc9;
+  background: var(--gray-300);
   flex-shrink: 0;
 }
 
