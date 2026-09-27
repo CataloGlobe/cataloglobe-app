@@ -1,5 +1,16 @@
 @use "@pages/CampaignLanding/styles/mixins" as *;
 
+// Desktop: dentro il blocco finale (LandingPage `.finale`) prende lo spazio
+// sopra il footer e ci centra il form in verticale.
+.section {
+    @include desktop {
+        display: flex;
+        flex: 1 0 auto;
+        flex-direction: column;
+        justify-content: center;
+    }
+}
+
 .grid {
     @include desktop {
         display: grid;

@@ -7,6 +7,7 @@ import Contact from "@pages/CampaignLanding/components/sections/Contact/Contact"
 import Demos from "@pages/CampaignLanding/components/sections/Demos/Demos";
 import Faq from "@pages/CampaignLanding/components/sections/Faq/Faq";
 import Footer from "@pages/CampaignLanding/components/sections/Footer/Footer";
+import styles from "./LandingPage.module.scss";
 import Hero from "@pages/CampaignLanding/components/sections/Hero/Hero";
 import Import from "@pages/CampaignLanding/components/sections/Import/Import";
 import Orders from "@pages/CampaignLanding/components/sections/Orders/Orders";
@@ -38,8 +39,10 @@ export default function LandingPage({ variante }: LandingPageProps) {
                 <Pricing />
                 <Start />
                 <Faq />
-                <Contact />
-                <Footer />
+                <div className={styles.finale}>
+                    <Contact />
+                    <Footer />
+                </div>
             </Frame>
         </LandingVariantContext.Provider>
     );

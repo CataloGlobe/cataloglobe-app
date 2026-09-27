@@ -235,7 +235,7 @@ export default function Contact() {
     const email = COMPANY.contact.info;
 
     return (
-        <Section tone="dark" id="contatto" space="form" labelledBy="landing-contact-title">
+        <Section tone="dark" id="contatto" space="form" className={styles.section} labelledBy="landing-contact-title">
             <div className={styles.grid}>
                 <Reveal>
                     <HandNote size="form">{CONTACT.note}</HandNote>
