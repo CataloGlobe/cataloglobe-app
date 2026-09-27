@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { openBusinessPage } from "./business";
-import { MISSING_STORY, STORY, stubStorie, type StorieStub, type WriteCall } from "./storieStub";
+import { MISSING_STORY, SEDE, STORY, stubStorie, type StorieStub, type WriteCall } from "./storieStub";
 import type { Row } from "./restStub";
 
 /**
@@ -343,6 +343,59 @@ test.describe("Storie — permessi (P1)", () => {
         await stub.revoked;
         await expect(main(page).getByText("Non hai accesso a questa sezione")).toBeVisible({ timeout: 15_000 });
         expect(reads).toHaveLength(0);
+    });
+});
+
+test.describe("Storie — dove appaiono (§50.13)", () => {
+    test.fail("elenco: la colonna «Dove appare»", async ({ page }) => {
+        await openList(page);
+        const table = main(page).getByRole("table", { name: "Storie" });
+        await expect(table.getByRole("columnheader", { name: "Dove appare" })).toBeVisible();
+        await expect(table.getByRole("row", { name: /Il nostro forno e2e/ })).toContainText("Tutte le sedi");
+        await expect(table.getByRole("row", { name: /La brigata e2e/ })).toContainText("Solo Centro e2e");
+        // Una bozza non è «di tutte le sedi ma spenta»: non la vede nessuno.
+        await expect(table.getByRole("row", { name: /Natale e2e/ })).toContainText("Da nessuna parte");
+    });
+
+    test.fail("elenco: chip coi conteggi e ricerca; filtrando non si riordina", async ({ page }) => {
+        await openList(page);
+        const chips = main(page).getByRole("radiogroup", { name: "Filtra le storie" });
+        await expect(chips.getByRole("radio", { name: /Tutte\s*3/ })).toBeChecked();
+        await chips.getByRole("radio", { name: /Bozze\s*1/ }).click();
+        await expect(storyTitle(page, "Natale e2e")).toBeVisible();
+        await expect(storyTitle(page, "Il nostro forno e2e")).toHaveCount(0);
+        await expect(main(page).getByRole("button", { name: /^Riordina/ })).toHaveCount(0);
+        await chips.getByRole("radio", { name: /Legate a una sede\s*1/ }).click();
+        await expect(storyTitle(page, "La brigata e2e")).toBeVisible();
+        await expect(storyTitle(page, "Natale e2e")).toHaveCount(0);
+        await expect(chips.getByRole("radio", { name: /Senza copertina\s*3/ })).toBeVisible();
+        await chips.getByRole("radio", { name: /Tutte/ }).click();
+        await page.getByPlaceholder(/^Cerca/).first().fill("forno");
+        await expect(storyTitle(page, "Il nostro forno e2e")).toBeVisible();
+        await expect(storyTitle(page, "La brigata e2e")).toHaveCount(0);
+    });
+
+    test.fail("editor: «Dove appare» sceglie la sede, in bozza, e il Salva la scrive", async ({ page }) => {
+        stub.onWrite("stories.PATCH", call => {
+            const row = stub.tables.stories.find(s => `eq.${s.id}` === call.params.get("id"));
+            if (row) Object.assign(row, call.body as Row);
+            return row ?? null;
+        });
+        await openStory(page, STORY.forno);
+        await expect(titleField(page)).toHaveValue("Il nostro forno e2e", { timeout: 15_000 });
+        await expect(main(page).getByText("Compare su tutte le sedi pubblicate.")).toBeVisible();
+        await main(page).getByRole("radio", { name: "Una sede" }).click();
+        await main(page).getByRole("combobox", { name: "Sede" }).selectOption({ label: "Porto e2e" });
+        await expect(main(page).getByText("Compare solo nella pagina di Porto e2e.")).toBeVisible();
+        await saveButton(page).click();
+        await expect.poll(() => write(stub, "stories.PATCH")?.body).toMatchObject({ activity_id: SEDE.porto });
+    });
+
+    test.fail("editor: la storia di una sede la dice già scelta", async ({ page }) => {
+        await openStory(page, STORY.brigata);
+        await expect(titleField(page)).toHaveValue("La brigata e2e", { timeout: 15_000 });
+        await expect(main(page).getByRole("radio", { name: "Una sede" })).toBeChecked();
+        await expect(main(page).getByRole("combobox", { name: "Sede" })).toHaveValue(SEDE.centro);
     });
 });
 

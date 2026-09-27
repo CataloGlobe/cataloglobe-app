@@ -1,6 +1,7 @@
 import type { Page } from "@playwright/test";
 import { TENANT_ID } from "./reservationsStub";
 import { stubRest, type RestStub, type Row, type Tables } from "./restStub";
+import { appearanceTables, enrichAppearance, freezeClock, sediOf } from "./appearanceStub";
 
 /**
  * Dati finti per l'e2e di Menù (lotto `ds-5-menu`, passo 2 P0).
@@ -13,6 +14,17 @@ import { stubRest, type RestStub, type Row, type Tables } from "./restStub";
  * Le scritture non partono mai: la macchina è in `restStub.ts` (scritture
  * intercettate, 500 per quelle non registrate, `onWrite`, `revoke`); qui in
  * più la rivalidazione del menù pubblico risponde ok.
+ *
+ * Dove è attivo (§50.13, `appearanceStub.ts`, orologio mercoledì 12:00):
+ *
+ * | Regola | Menù | Stile | Dove | Quando | Alle 12 |
+ * |---|---|---|---|---|---|
+ * | Pranzo Centro e2e | Carta | Estate | Centro | Lun–Ven 11–15 | in onda |
+ * | Sera Porto e2e | Carta | Estate | Porto | 18–21 | fuori finestra |
+ * | Pranzo feriale | Pranzo | Base | Lago (sospesa) | sempre | sede sospesa |
+ *
+ * «Vuoto e2e» non ha regole. Con `{ extraMenu: true }` un quarto menù,
+ * «Aperitivo e2e», con il Prosecco: il Prosecco è «in 2 menù».
  */
 
 export { TENANT_ID };
@@ -31,6 +43,10 @@ export const CAT = {
     primi: uuid(108)
 } as const;
 export const MISSING_MENU = uuid(999);
+export const EXTRA_MENU = uuid(4);
+export const { SEDE } = sediOf("e2e0c000");
+export const RULE = { pranzoFeriale: uuid(601), pranzoCentro: uuid(611), seraPorto: uuid(612) } as const;
+export const STYLE = { estate: uuid(701), base: uuid(702) } as const;
 
 
 const CREATED = "2026-03-17T10:00:00.000Z";
@@ -182,12 +198,45 @@ function links(): Row[] {
 const SKU_DEF = uuid(401);
 const FORMAT_GROUP = uuid(402);
 
-function makeTables(): Tables {
+function makeTables(extraMenu: boolean): Tables {
     const base = products();
+    const extraLink: Row = {
+        id: uuid(399),
+        tenant_id: TENANT_ID,
+        catalog_id: EXTRA_MENU,
+        category_id: uuid(109),
+        product_id: PRODUCT.prosecco,
+        variant_product_id: null,
+        sort_order: 10,
+        created_at: CREATED
+    };
+    const style = (id: string, name: string, n: number): Row => ({
+        id,
+        tenant_id: TENANT_ID,
+        name,
+        is_system: false,
+        is_active: true,
+        current_version_id: uuid(710 + n),
+        created_at: CREATED,
+        updated_at: CREATED
+    });
     return {
-        catalogs: catalogs(),
-        catalog_categories: categories(),
-        catalog_category_products: links(),
+        catalogs: [
+            ...catalogs(),
+            ...(extraMenu ? [{ id: EXTRA_MENU, tenant_id: TENANT_ID, name: "Aperitivo e2e", created_at: "2026-03-14T10:00:00.000Z" }] : [])
+        ],
+        catalog_categories: [
+            ...categories(),
+            ...(extraMenu
+                ? [{ id: uuid(109), tenant_id: TENANT_ID, catalog_id: EXTRA_MENU, name: "Bollicine", level: 1, parent_category_id: null, sort_order: 0, created_at: CREATED }]
+                : [])
+        ],
+        catalog_category_products: [...links(), ...(extraMenu ? [extraLink] : [])],
+        styles: [style(STYLE.estate, "Estate e2e", 1), style(STYLE.base, "Base e2e", 2)],
+        style_versions: [
+            { id: uuid(711), tenant_id: TENANT_ID, style_id: STYLE.estate, version: 3, config: { colors: { primary: "#f59e0b", pageBackground: "#ffffff" } }, created_at: CREATED },
+            { id: uuid(712), tenant_id: TENANT_ID, style_id: STYLE.base, version: 1, config: { colors: { primary: "#6366f1", pageBackground: "#ffffff" } }, created_at: CREATED }
+        ],
         products: base.flatMap(p => [productRow(p, null), ...(p.variants ?? []).map(v => productRow(v, p.id))]),
         product_option_groups: [{ id: FORMAT_GROUP, tenant_id: TENANT_ID, product_id: PRODUCT.tagliere, group_kind: "PRIMARY_PRICE" }],
         product_option_values: [
@@ -205,30 +254,34 @@ function makeTables(): Tables {
         product_attribute_values: [
             { id: uuid(405), tenant_id: TENANT_ID, product_id: PRODUCT.olive, attribute_definition_id: SKU_DEF, value_text: "ANT-003" }
         ],
-        // «Pranzo e2e» è puntato da una regola di layout attiva: non si elimina.
-        schedule_layout: [
-            {
-                schedule_id: uuid(601),
-                tenant_id: TENANT_ID,
-                catalog_id: MENU.pranzo,
-                schedule: { id: uuid(601), name: "Pranzo feriale", enabled: true, start_at: null, end_at: null, tenant_id: TENANT_ID }
-            }
-        ]
+        // «Pranzo e2e» è puntato da una regola di layout: non si elimina.
+        ...appearanceTables("e2e0c000", [
+            { id: RULE.pranzoCentro, name: "Pranzo Centro e2e", rule_type: "layout", catalog_id: MENU.carta, style_id: STYLE.estate, activities: [SEDE.centro], time_mode: "window", days_of_week: [1, 2, 3, 4, 5], time_from: "11:00:00", time_to: "15:00:00" },
+            { id: RULE.seraPorto, name: "Sera Porto e2e", rule_type: "layout", catalog_id: MENU.carta, style_id: STYLE.estate, activities: [SEDE.porto], time_mode: "window", time_from: "18:00:00", time_to: "21:00:00" },
+            { id: RULE.pranzoFeriale, name: "Pranzo feriale", rule_type: "layout", catalog_id: MENU.pranzo, style_id: STYLE.base, activities: [SEDE.lago] }
+        ])
     };
 }
 
 export type { WriteCall, WriteHandler } from "./restStub";
 export type MenuStub = RestStub;
 
-export async function stubMenu(page: Page): Promise<MenuStub> {
-    const tables = makeTables();
+export async function stubMenu(page: Page, options: { extraMenu?: boolean } = {}): Promise<MenuStub> {
+    const tables = makeTables(Boolean(options.extraMenu));
     const stub = await stubRest(page, {
         tables,
-        enrich: (table, rows, params) =>
-            table === "products" && (params.get("select") ?? "").includes("variants")
-                ? rows.map(row => ({ ...row, variants: tables.products.filter(v => v.parent_product_id === row.id) }))
-                : rows
+        enrich: (table, rows, params) => {
+            const select = params.get("select") ?? "";
+            if (table === "products" && select.includes("variants")) {
+                return rows.map(row => ({ ...row, variants: tables.products.filter(v => v.parent_product_id === row.id) }));
+            }
+            if (table === "styles" && select.includes("current_version")) {
+                return rows.map(row => ({ ...row, current_version: tables.style_versions.find(v => v.id === row.current_version_id) ?? null }));
+            }
+            return enrichAppearance(tables, table, rows, params) ?? rows;
+        }
     });
+    await freezeClock(page);
     await page.route(/\/api\/public-catalog\/revalidate/, route => route.fulfill({ json: { ok: true } }));
     return stub;
 }

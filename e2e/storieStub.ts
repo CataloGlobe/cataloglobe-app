@@ -1,6 +1,7 @@
 import type { Page } from "@playwright/test";
 import { TENANT_ID } from "./reservationsStub";
 import { stubRest, type RestStub, type Row, type Tables } from "./restStub";
+import { appearanceTables, freezeClock, sediOf } from "./appearanceStub";
 
 /**
  * Dati finti per l'e2e di Storie (lotto `ds-5-stili-storie-evidenza`, P0).
@@ -9,6 +10,10 @@ import { stubRest, type RestStub, type Row, type Tables } from "./restStub";
  * 500 per quelle non registrate); il cappello (`tenants.story_*`) da una rotta
  * sua, che lascia passare ogni altra lettura di `tenants`. Permessi, azienda e
  * sidebar restano veri.
+ *
+ * Dove appaiono (§50.13, niente regole): il forno su tutte le sedi, la brigata
+ * solo a Centro e2e, Natale da nessuna parte (bozza). Le sedi da
+ * `appearanceStub.ts`.
  */
 
 export { TENANT_ID };
@@ -19,6 +24,7 @@ const CREATED = "2026-03-17T10:00:00.000Z";
 export const STORY = { forno: uuid(1), brigata: uuid(2), natale: uuid(3) } as const;
 export const MISSING_STORY = uuid(999);
 export const PRODUCT = { segale: uuid(101), focaccia: uuid(102) } as const;
+export const { SEDE } = sediOf("e2e57000");
 
 function story(id: string, title: string, extra: Row = {}): Row {
     return {
@@ -49,14 +55,15 @@ function makeTables(): Tables {
                     { id: "b2", type: "quote", content: "Il pane buono ha bisogno di tempo.", attribution: "Gianni" }
                 ]
             }),
-            story(STORY.brigata, "La brigata e2e", { sort_order: 2, product_id: PRODUCT.segale }),
+            story(STORY.brigata, "La brigata e2e", { sort_order: 2, product_id: PRODUCT.segale, activity_id: SEDE.centro }),
             story(STORY.natale, "Natale e2e", { sort_order: 3, status: "draft" })
         ],
         products: [
             { id: PRODUCT.segale, tenant_id: TENANT_ID, name: "Pane di segale e2e", image_url: null, base_price: 4.5, parent_product_id: null, created_at: CREATED },
             { id: PRODUCT.focaccia, tenant_id: TENANT_ID, name: "Focaccia e2e", image_url: null, base_price: 3, parent_product_id: null, created_at: CREATED }
         ],
-        catalog_category_products: []
+        catalog_category_products: [],
+        ...appearanceTables("e2e57000", [])
     };
 }
 
@@ -97,5 +104,6 @@ export async function stubStorie(page: Page): Promise<StorieStub> {
         return route.fulfill({ json: brand });
     });
     await page.route(/\/api\/public-catalog\/revalidate/, route => route.fulfill({ json: { ok: true } }));
+    await freezeClock(page);
     return Object.assign(stub, { tables, brand });
 }
