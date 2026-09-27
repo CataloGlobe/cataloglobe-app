@@ -12,6 +12,7 @@ import pausa280 from "@pages/CampaignLanding/assets/demos/la-pausa-280.webp";
 import pausa560 from "@pages/CampaignLanding/assets/demos/la-pausa-560.webp";
 import velvet280 from "@pages/CampaignLanding/assets/demos/velvet-garden-280.webp";
 import velvet560 from "@pages/CampaignLanding/assets/demos/velvet-garden-560.webp";
+import demoThemes from "@pages/CampaignLanding/assets/demos/themes.json";
 import styles from "./Demos.module.scss";
 
 const cx = (...names: (string | false | null | undefined)[]) => names.filter(Boolean).join(" ");
@@ -27,6 +28,36 @@ const SCREENS: Record<DemoKey, string> = {
 };
 const SCREEN_FALLBACK: Record<DemoKey, string> = { molo: molo280, pausa: pausa280, velvet: velvet280 };
 
+/** Colori del tema di ogni locale, letti in produzione dallo script degli screenshot. */
+type DemoTheme = { bg: string; surface: string; primary: string; accent: string; text: string; border: string };
+const THEMES: Record<string, DemoTheme> = demoThemes;
+const themeOf = (venue: DemoVenue): DemoTheme => {
+    const theme = THEMES[venue.slug];
+    if (!theme) throw new Error(`themes.json: manca ${venue.slug}, rilancia npm run landing:demo-screenshots`);
+    return theme;
+};
+
+/**
+ * Icona del locale nella lista: una pagina in miniatura coi colori del suo
+ * tema (testata e tab nel primario, scheda nella superficie, prezzo
+ * nell'accento). Colori negli attributi `fill`, come `StyleSwatch`.
+ */
+function VenueIcon({ venue }: { venue: DemoVenue }) {
+    const t = themeOf(venue);
+    return (
+        <svg className={styles.thumb} viewBox="0 0 56 56" aria-hidden="true" focusable="false">
+            <rect width="56" height="56" fill={t.bg} />
+            <rect width="56" height="18" fill={t.primary} />
+            <rect x="7" y="23" width="18" height="6" rx="3" fill={t.primary} />
+            <rect x="28" y="23" width="14" height="6" rx="3" fill={t.border} />
+            <rect x="7.5" y="33.5" width="41" height="16" rx="3" fill={t.surface} stroke={t.border} />
+            <rect x="11" y="38" width="22" height="3" rx="1.5" fill={t.text} />
+            <rect x="11" y="44" width="14" height="2" rx="1" fill={t.text} opacity="0.4" />
+            <rect x="38" y="38" width="7" height="3" rx="1.5" fill={t.accent} />
+        </svg>
+    );
+}
+
 /**
  * Il telefono con lo screenshot del locale scelto. Lazy: la sezione è sotto
  * l'hero. Gli altri due locali si montano (e si scaricano) solo quando la
@@ -35,7 +66,11 @@ const SCREEN_FALLBACK: Record<DemoKey, string> = { molo: molo280, pausa: pausa28
 function PhonePreview({ selected, preload }: { selected: number; preload: boolean }) {
     return (
         <div className={styles.phone}>
-            <div className={styles.screen} data-demo={DEMOS.venues[selected].key}>
+            <div className={styles.screen}>
+                {/* Sfondo della pagina del locale finché lo screenshot non è arrivato. */}
+                <svg className={styles.screenBg} aria-hidden="true" focusable="false">
+                    <rect width="100%" height="100%" fill={themeOf(DEMOS.venues[selected]).bg} />
+                </svg>
                 {DEMOS.venues.map((v, i) => {
                     const on = i === selected;
                     if (!on && !preload) return null;
@@ -146,7 +181,7 @@ function DemoSheet({ venue, open, onClose }: { venue: DemoVenue; open: boolean; 
                     </div>
                 }
             >
-                <div className={styles.sheetBody} data-demo={venue.key}>
+                <div className={styles.sheetBody}>
                     {open && <DemoFrame key={path} path={path} title={venue.name} />}
                 </div>
             </PublicSheet>
@@ -189,11 +224,7 @@ export default function Demos() {
                                     aria-haspopup={on ? "dialog" : undefined}
                                     onClick={() => (on ? setOpen(true) : setSelected(i))}
                                 >
-                                    <span className={styles.thumb} data-demo={v.key} aria-hidden="true">
-                                        <span className={styles.thumbTitle} />
-                                        <span className={styles.thumbLine} />
-                                        <span className={cx(styles.thumbLine, styles.thumbLineShort)} />
-                                    </span>
+                                    <VenueIcon venue={v} />
                                     <span className={styles.venueText}>
                                         <span className={styles.venueName}>{v.name}</span>
                                         <span className={styles.venueKind}>{v.kind}</span>

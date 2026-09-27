@@ -24,8 +24,6 @@
     [data-tone="light"] {
         @include ld-tokens-light;
     }
-
-    @include ld-demo-scope;
 }
 
 // Neutralizza la tipografia globale dell'app (_typography.scss: `p` grigio con

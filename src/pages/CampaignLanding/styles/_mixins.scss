@@ -111,35 +111,3 @@ $ld-bp-desktop: 1024px;
     }
 }
 
-// Locali demo: `[data-demo="<key>"]` espone --demo-* dai token --ld-demo-<key>-*.
-$ld-demo-keys: molo, pausa, velvet;
-
-@mixin ld-demo-scope {
-    [data-demo="molo"] {
-        --demo-bg: var(--ld-demo-molo-bg);
-        --demo-hero: linear-gradient(150deg, var(--ld-demo-molo-c1), var(--ld-demo-molo-bg));
-        --demo-ink: var(--ld-demo-molo-ink);
-        --demo-muted: var(--ld-demo-molo-muted);
-        --demo-line: var(--ld-demo-molo-line);
-        --demo-acc: var(--ld-demo-molo-acc);
-        --demo-acc-ink: var(--ld-demo-molo-acc-ink);
-    }
-    [data-demo="pausa"] {
-        --demo-bg: var(--ld-demo-pausa-bg);
-        --demo-hero: linear-gradient(150deg, var(--ld-demo-pausa-c1), var(--ld-demo-pausa-c2));
-        --demo-ink: var(--ld-demo-pausa-ink);
-        --demo-muted: var(--ld-demo-pausa-muted);
-        --demo-line: var(--ld-demo-pausa-line);
-        --demo-acc: var(--ld-demo-pausa-acc);
-        --demo-acc-ink: var(--ld-demo-pausa-acc-ink);
-    }
-    [data-demo="velvet"] {
-        --demo-bg: var(--ld-demo-velvet-bg);
-        --demo-hero: linear-gradient(150deg, var(--ld-demo-velvet-c1), var(--ld-demo-velvet-bg));
-        --demo-ink: var(--ld-demo-velvet-ink);
-        --demo-muted: var(--ld-demo-velvet-muted);
-        --demo-line: var(--ld-demo-velvet-line);
-        --demo-acc: var(--ld-demo-velvet-acc);
-        --demo-acc-ink: var(--ld-demo-velvet-acc-ink);
-    }
-}
