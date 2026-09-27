@@ -28,6 +28,15 @@ interface RequestPayload {
     actions: TenantAction[];
 }
 
+// Error tokens raised by execute_account_deletion_tenant_ops, the only ones
+// returned to the client. Anything else becomes a generic "rpc_error".
+const EXPOSED_RPC_ERRORS = new Set([
+    "not_owner_of_tenant",
+    "incomplete_actions",
+    "invalid_action",
+    "not_authenticated"
+]);
+
 serve(async (req: Request) => {
     if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
     if (req.method !== "POST") return json(405, { error: "method_not_allowed" });
@@ -194,8 +203,11 @@ serve(async (req: Request) => {
     });
 
     if (rpcError) {
-        // RPC error messages embed a leading error code token (e.g. "not_authenticated: ...")
-        const errorCode = rpcError.code || rpcError.message?.split(":")[0]?.trim() || "rpc_error";
+        // RPC error messages embed a leading error code token (e.g. "not_authenticated: ...").
+        // Only allowlisted tokens reach the client (account.ts maps them to UI copy);
+        // the SQLSTATE and the Postgres message text are never forwarded.
+        const token = rpcError.message?.split(":")[0]?.trim() ?? "";
+        const errorCode = EXPOSED_RPC_ERRORS.has(token) ? token : "rpc_error";
 
         console.error(
             JSON.stringify({
@@ -206,10 +218,7 @@ serve(async (req: Request) => {
             })
         );
 
-        return json(400, {
-            error: errorCode,
-            message: rpcError.message
-        });
+        return json(400, { error: errorCode });
     }
 
     console.log(JSON.stringify({ event: "delete_account_sql_success", user_id: userId }));
