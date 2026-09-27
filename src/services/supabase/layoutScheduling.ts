@@ -1730,6 +1730,112 @@ export async function listLayoutRulesForCompetition(tenantId: string): Promise<L
     });
 }
 
+// ---------------------------------------------------------------------------
+// listAppearanceSources — quello che serve a `ruleAppearance.ts` (§50.13):
+// le regole menù e in evidenza coi loro target e payload, le sedi e i membri
+// dei gruppi. Tre richieste in parallelo, un giro.
+// ---------------------------------------------------------------------------
+
+export type AppearanceSources = {
+    rules: LayoutRule[];
+    activities: Array<{ id: string; name: string; status: string }>;
+    activityIdsByGroupId: Record<string, string[]>;
+};
+
+interface AppearanceScheduleRow {
+    id: string;
+    tenant_id: string;
+    name: string | null;
+    rule_type: RuleType;
+    target_type: string | null;
+    target_id: string | null;
+    apply_to_all: boolean;
+    priority: number;
+    enabled: boolean;
+    time_mode: LayoutTimeMode;
+    days_of_week: number[] | null;
+    time_from: string | null;
+    time_to: string | null;
+    start_at: string | null;
+    end_at: string | null;
+    created_at: string;
+    layout:
+        | { catalog_id: string | null; style_id: string | null }
+        | Array<{ catalog_id: string | null; style_id: string | null }>
+        | null;
+    targets: Array<{ target_type: string; target_id: string }> | null;
+    featured: Array<{ featured_content_id: string; slot: "before_catalog" | "after_catalog"; sort_order: number }> | null;
+}
+
+export async function listAppearanceSources(tenantId: string): Promise<AppearanceSources> {
+    const [schedulesRes, activitiesRes, membersRes] = await Promise.all([
+        supabase
+            .from("schedules")
+            .select(
+                `
+                id, tenant_id, name, rule_type, target_type, target_id, apply_to_all, priority,
+                enabled, time_mode, days_of_week, time_from, time_to, start_at, end_at, created_at,
+                layout:schedule_layout!schedule_layout_schedule_id_fkey(catalog_id, style_id),
+                targets:schedule_targets(target_type, target_id),
+                featured:schedule_featured_contents(featured_content_id, slot, sort_order)
+                `
+            )
+            .eq("tenant_id", tenantId)
+            .in("rule_type", ["layout", "featured"]),
+        supabase.from("activities").select("id, name, status").eq("tenant_id", tenantId).order("name", { ascending: true }),
+        supabase.from("activity_group_members").select("group_id, activity_id").eq("tenant_id", tenantId)
+    ]);
+    if (schedulesRes.error) throw schedulesRes.error;
+    if (activitiesRes.error) throw activitiesRes.error;
+    if (membersRes.error) throw membersRes.error;
+
+    const activityIdsByGroupId: Record<string, string[]> = {};
+    for (const row of (membersRes.data ?? []) as Array<{ group_id: string; activity_id: string }>) {
+        (activityIdsByGroupId[row.group_id] ??= []).push(row.activity_id);
+    }
+
+    const rules = ((schedulesRes.data ?? []) as unknown as AppearanceScheduleRow[]).map((row): LayoutRule => {
+        const layout = Array.isArray(row.layout) ? (row.layout[0] ?? null) : row.layout;
+        const targets = row.apply_to_all ? [] : (row.targets ?? []);
+        return {
+            id: row.id,
+            tenant_id: row.tenant_id,
+            name: row.name,
+            rule_type: row.rule_type,
+            target_type: row.target_type ?? "",
+            target_id: row.target_id ?? "",
+            target_group: null,
+            applyToAll: row.apply_to_all,
+            activityIds: targets.filter(t => t.target_type === "activity").map(t => t.target_id),
+            groupIds: targets.filter(t => t.target_type === "activity_group").map(t => t.target_id),
+            visibility_mode: "hide",
+            priority: row.priority,
+            priority_level: levelFromPriority(row.priority),
+            display_order: 0,
+            enabled: row.enabled,
+            time_mode: row.time_mode,
+            days_of_week: row.days_of_week,
+            time_from: row.time_from,
+            time_to: row.time_to,
+            start_at: row.start_at,
+            end_at: row.end_at,
+            created_at: row.created_at,
+            layout: layout ? { catalog_id: layout.catalog_id, style_id: layout.style_id } : null,
+            price_overrides: [],
+            visibility_overrides: [],
+            featured_contents: [...(row.featured ?? [])]
+                .sort((a, b) => a.sort_order - b.sort_order)
+                .map(fc => ({ featured_content_id: fc.featured_content_id, slot: fc.slot, sort_order: fc.sort_order }))
+        };
+    });
+
+    return {
+        rules,
+        activities: (activitiesRes.data ?? []) as AppearanceSources["activities"],
+        activityIdsByGroupId
+    };
+}
+
 export async function duplicateRule(ruleId: string, tenantId: string): Promise<string> {
     const original = await getLayoutRuleById(ruleId, tenantId);
     if (!original) throw new Error("Regola non trovata.");
