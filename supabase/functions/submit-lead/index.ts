@@ -38,10 +38,12 @@ const ALLOWED_ORIGINS = [
 
 // Solo su staging: anteprime Vercel del progetto `cataloglobe-app` nel team
 // `lorenzo-calzis-projects`, nelle due forme che Vercel genera
-// (`<progetto>-<hash di 9>-<team>` e `<progetto>-git-<ramo>-<team>`).
+// (`<prefisso>-<hash di 9>-<team>` e `<prefisso>-git-<ramo>-<team>`). Il
+// prefisso negli host generati è `cataloglobe` (visto sui deployment reali),
+// non il nome completo del progetto: si accettano entrambi.
 // Non tutto vercel.app. In produzione la lista resta quella sopra.
 const STAGING_PROJECT_REF = "lxeawrpjfphgdspueiag";
-const VERCEL_PREVIEW_ORIGIN = /^https:\/\/cataloglobe-app-(?:[a-z0-9]{9}|git-[a-z0-9-]+)-lorenzo-calzis-projects\.vercel\.app$/;
+const VERCEL_PREVIEW_ORIGIN = /^https:\/\/cataloglobe(?:-app)?-(?:[a-z0-9]{9}|git-[a-z0-9-]+)-lorenzo-calzis-projects\.vercel\.app$/;
 const IS_STAGING = (Deno.env.get("SUPABASE_URL") ?? "").includes(`//${STAGING_PROJECT_REF}.`);
 
 function isAllowedOrigin(origin: string): boolean {
