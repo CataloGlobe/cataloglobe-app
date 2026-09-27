@@ -712,7 +712,7 @@ test.describe("Menù — dove è attivo (§50.13)", () => {
         await expect(cardOf(page, "Vuoto e2e").getByRole("img", { name: /^Stile / })).toHaveCount(0);
     });
 
-    test.fail("dettaglio: la banda nomina ogni sede e perché non è in onda", async ({ page }) => {
+    test("dettaglio: la banda nomina ogni sede e perché non è in onda", async ({ page }) => {
         await openCarta(page);
         await expect(main(page).getByText("Attivo adesso in Centro e2e")).toBeVisible();
         const seats = main(page).getByRole("list", { name: "Dove è attivo" });
@@ -722,7 +722,7 @@ test.describe("Menù — dove è attivo (§50.13)", () => {
         await expect(main(page).getByText("Quello che cambi qui lo vedono subito.")).toBeVisible();
     });
 
-    test.fail("dettaglio: un menù senza regole si lavora senza che nessuno veda", async ({ page }) => {
+    test("dettaglio: un menù senza regole si lavora senza che nessuno veda", async ({ page }) => {
         await openList(page);
         await main(page).getByText("Vuoto e2e").click();
         await expect(page).toHaveURL(new RegExp(`/catalogs/${MENU.vuoto}`));
@@ -730,19 +730,19 @@ test.describe("Menù — dove è attivo (§50.13)", () => {
         await expect(main(page).getByText(/Puoi lavorarci senza che nessuno veda niente/)).toBeVisible();
     });
 
-    test.fail("dettaglio: sulla riga del prodotto, in quanti menù sta", async ({ page }) => {
+    test("dettaglio: sulla riga del prodotto, in quanti menù sta", async ({ page }) => {
         await page.unrouteAll({ behavior: "ignoreErrors" });
         stub = await stubMenu(page, { extraMenu: true });
         await openCarta(page);
         await selectCategory(page, "Vini");
-        const prosecco = main(page).getByRole("row", { name: /Prosecco/ });
-        await expect(prosecco).toContainText("in 2 menù");
+        const rowOf = (name: string) => main(page).getByText(name, { exact: true }).locator("xpath=ancestor::*[contains(., '€')][1]");
+        await expect(rowOf("Prosecco")).toContainText("in 2 menù");
         // In un menù solo, la riga non lo dice.
         await selectCategory(page, "Antipasti");
-        await expect(main(page).getByRole("row", { name: /Olive ascolane/ })).not.toContainText("menù");
+        await expect(rowOf("Olive ascolane")).not.toContainText("menù");
     });
 
-    test.fail("eliminazione: lo stato delle regole è quello di Programmazione", async ({ page }) => {
+    test("eliminazione: lo stato delle regole è quello di Programmazione", async ({ page }) => {
         await openList(page);
         await actionsOf(main(page).getByText("Carta e2e")).click();
         await page.getByRole("menuitem", { name: "Elimina menù" }).click();

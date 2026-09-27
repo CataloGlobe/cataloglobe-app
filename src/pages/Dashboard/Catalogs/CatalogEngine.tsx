@@ -77,6 +77,9 @@ import { buildSaveActionCompactConfig } from "@/pages/Dashboard/Stories/componen
 import { SplitButton } from "@/components/ui/Button/SplitButton";
 import { TranslationsTab } from "@/components/ui/TranslationsTab/TranslationsTab";
 import { ProductForm } from "@/pages/Dashboard/Products/components/ProductForm";
+import { useRuleAppearance } from "@/hooks/useRuleAppearance";
+import { appearanceOf } from "@/utils/ruleAppearance";
+import { CatalogAppearanceCard } from "./components/CatalogAppearanceCard";
 import styles from "./CatalogEngine.module.scss";
 
 type CreateIntent = "associate" | "configure";
@@ -96,6 +99,8 @@ type ProductRow = {
     isVariant: boolean;
     isGroupChild: boolean; // true when a variant row with a parent row above it in the same group
     hasVariants: boolean; // true for a parent row that has at least one variant link in this category
+    /** In quanti menù sta (§23.3, #279): la riga lo dice da due in su. */
+    catalogsCount: number;
 };
 
 function getErrorMessage(error: unknown, fallback: string): string {
@@ -231,7 +236,7 @@ export default function CatalogEngine() {
     const [searchParams, setSearchParams] = useSearchParams();
     const currentTenantId = useTenantId();
     const { showToast } = useToast();
-    const { catalogLabel, categoryLabel, categoryLabelPlural, productLabel, productLabelPlural } = useVerticalConfig();
+    const { catalogLabel, catalogLabelPlural, categoryLabel, categoryLabelPlural, productLabel, productLabelPlural } = useVerticalConfig();
     const categoryLower = categoryLabel.toLowerCase();
     // Sotto 768 il dettaglio è a due viste (passo 2 P8): l'albero, oppure la
     // categoria scelta con il ritorno. La pagina scorre, quindi la tabella non
@@ -252,6 +257,9 @@ export default function CatalogEngine() {
     const [skuByProductId, setSkuByProductId] = useState<Record<string, string>>({});
     const [formatPriceByProductId, setFormatPriceByProductId] = useState<Record<string, number>>({});
     const [formatsCountByProductId, setFormatsCountByProductId] = useState<Record<string, number>>({});
+    const [catalogsCountByProductId, setCatalogsCountByProductId] = useState<Record<string, number>>({});
+    // Chi lo sta guardando adesso (§23.2, §50.13): la banda sopra l'albero.
+    const ruleAppearance = useRuleAppearance(currentTenantId);
     const [isLoading, setIsLoading] = useState(true);
     const [expandedCategoryIds, setExpandedCategoryIds] = useState<Set<string>>(new Set());
 
@@ -414,7 +422,8 @@ export default function CatalogEngine() {
                     hasPrice: hasConfiguredEffectivePrice(basePriceFacts),
                     isVariant: false,
                     isGroupChild: false,
-                    hasVariants: variantLinks.length > 0
+                    hasVariants: variantLinks.length > 0,
+                    catalogsCount: catalogsCountByProductId[productId] ?? 0
                 });
             }
 
@@ -446,12 +455,13 @@ export default function CatalogEngine() {
                     ),
                     isVariant: true,
                     isGroupChild: parentLink !== null,
-                    hasVariants: false
+                    hasVariants: false,
+                    catalogsCount: catalogsCountByProductId[vLink.variant_product_id!] ?? 0
                 });
             }
         }
         return rows;
-    }, [productById, selectedCategoryLinks, skuByProductId, formatPriceByProductId, formatsCountByProductId]);
+    }, [productById, selectedCategoryLinks, skuByProductId, formatPriceByProductId, formatsCountByProductId, catalogsCountByProductId]);
 
     const filteredRows = useMemo(() => {
         const normalizedSearch = productSearch.trim().toLowerCase();
@@ -607,7 +617,9 @@ export default function CatalogEngine() {
                     const metadata = await getProductListMetadata(currentTenantId, allIds);
                     const nextFormatPrices: Record<string, number> = {};
                     const nextFormatCounts: Record<string, number> = {};
+                    const nextCatalogCounts: Record<string, number> = {};
                     for (const [id, meta] of Object.entries(metadata)) {
+                        nextCatalogCounts[id] = meta.catalogsCount;
                         if (typeof meta.fromPrice === "number") {
                             nextFormatPrices[id] = meta.fromPrice;
                         }
@@ -617,6 +629,7 @@ export default function CatalogEngine() {
                     }
                     setFormatPriceByProductId(nextFormatPrices);
                     setFormatsCountByProductId(nextFormatCounts);
+                    setCatalogsCountByProductId(nextCatalogCounts);
                 }
             } catch (error) {
                 console.warn("Impossibile caricare prezzi formato prodotti:", error);
@@ -1509,13 +1522,18 @@ export default function CatalogEngine() {
                                     {row.name}
                                 </Text>
                             </div>
-                            {(row.isVariant || !row.hasPrice || row.sku) && (
+                            {(row.isVariant || !row.hasPrice || row.sku || row.catalogsCount > 1) && (
                                 <div className={`${styles.productMeta} ${hasVariantGroups ? styles.productMetaIndented : ""}`}>
                                     {row.isVariant && <Badge variant="neutral">Variante</Badge>}
                                     {!row.hasPrice && <StatusBadge variant="warning" label="Senza prezzo" />}
                                     {row.sku && (
                                         <Text variant="caption" colorVariant="muted">
                                             {row.sku}
+                                        </Text>
+                                    )}
+                                    {row.catalogsCount > 1 && (
+                                        <Text variant="caption" colorVariant="muted">
+                                            {`in ${row.catalogsCount} ${catalogLabelPlural.toLowerCase()}`}
                                         </Text>
                                     )}
                                 </div>
@@ -1559,7 +1577,7 @@ export default function CatalogEngine() {
                 )
             }
         ],
-        [canWrite, expandedProductGroupIds, handleRemoveFromCategory, hasVariantGroups, openProductPage, productLower, toggleVariants]
+        [canWrite, catalogLabelPlural, expandedProductGroupIds, handleRemoveFromCategory, hasVariantGroups, openProductPage, productLower, toggleVariants]
     );
 
     const assignColumns = useMemo<ColumnDefinition<V2Product>[]>(() => {
@@ -1852,6 +1870,8 @@ export default function CatalogEngine() {
     // Sotto 768: una vista alla volta. Con una categoria scelta, il ritorno
     // all'albero sta sopra la sua card.
     const phoneCategoryView = isPhone && selectedCategory !== null;
+    const catalogAppearance =
+        ruleAppearance.index && catalogId ? appearanceOf(ruleAppearance.index, { kind: "catalog", id: catalogId }) : null;
     const backToTree = (
         <Button
             variant="ghost"
@@ -1894,6 +1914,11 @@ export default function CatalogEngine() {
                     </Card>
                 </div>
             ) : (
+                <>
+                {/* Sul telefono, dentro una categoria, la banda lascia il posto ai prodotti. */}
+                {catalogAppearance && !phoneCategoryView && (
+                    <CatalogAppearanceCard appearance={catalogAppearance} businessId={currentTenantId ?? ""} />
+                )}
                 <div className={styles.layout}>
                     {isPhone ? (
                         phoneCategoryView ? (
@@ -1911,6 +1936,7 @@ export default function CatalogEngine() {
                         </>
                     )}
                 </div>
+                </>
             )}
 
             <DiscardChangesConfirmDialog

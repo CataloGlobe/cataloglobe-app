@@ -3,35 +3,19 @@ import { Button } from "@/components/ui/Button/Button";
 import { ConfirmDialogShell } from "@/components/ui/ConfirmDialog/ConfirmDialogShell";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import { ListRow } from "@/components/ui/ListRow/ListRow";
-import { StatusBadge, type StatusBadgeVariant } from "@/components/ui/StatusBadge/StatusBadge";
+import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import Text from "@/components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useTenantId } from "@/context/useTenantId";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import { deleteCatalog, type V2Catalog } from "@/services/supabase/catalogs";
-import {
-    listSchedulesUsingCatalog,
-    type CatalogScheduleUsage
-} from "@/services/supabase/layoutScheduling";
+import { listAppearanceSources } from "@/services/supabase/layoutScheduling";
+import { toRomeDateTime } from "@/services/supabase/schedulingNow";
+import { appearanceOf, buildAppearance, type AppearanceRuleEntry } from "@/utils/ruleAppearance";
+import { SCHEDULE_STATUS_META } from "@/utils/scheduleStatus";
 import { isPostgrestFKError } from "@/utils/supabaseErrors";
 
 const MAX_VISIBLE_SCHEDULES = 10;
-
-type ScheduleStatus = "active" | "scheduled" | "expired" | "disabled";
-
-const STATUS: Record<ScheduleStatus, { label: string; variant: StatusBadgeVariant }> = {
-    active: { label: "Attiva", variant: "success" },
-    scheduled: { label: "Programmata", variant: "info" },
-    expired: { label: "Scaduta", variant: "neutral" },
-    disabled: { label: "Disabilitata", variant: "neutral" }
-};
-
-function deriveScheduleStatus(rule: CatalogScheduleUsage, now: Date): ScheduleStatus {
-    if (!rule.enabled) return "disabled";
-    if (rule.end_at !== null && new Date(rule.end_at) < now) return "expired";
-    if (rule.start_at !== null && new Date(rule.start_at) > now) return "scheduled";
-    return "active";
-}
 
 interface CatalogDeleteDialogProps {
     isOpen: boolean;
@@ -47,12 +31,14 @@ interface CatalogDeleteDialogProps {
  * ce n'è anche una il menù non si elimina, e il dialogo le elenca con il loro
  * link invece di offrire «Elimina». Il comportamento è quello del drawer che
  * sostituisce, compreso il caso in cui la lettura fallisce (#242, PR a parte).
+ * Lo stato di ogni regola è quello di Programmazione, da `ruleAppearance.ts`
+ * (§50.13/5): una seconda derivazione qui mentirebbe (§34.3).
  */
 export function CatalogDeleteDialog({ isOpen, onClose, catalog, tenantId, onSuccess }: CatalogDeleteDialogProps) {
     const { showToast } = useToast();
     const businessId = useTenantId();
     const { catalogLabel, categoryLabelPlural, productLabelPlural } = useVerticalConfig();
-    const [schedulesUsing, setSchedulesUsing] = useState<CatalogScheduleUsage[] | null>(null);
+    const [schedulesUsing, setSchedulesUsing] = useState<AppearanceRuleEntry[] | null>(null);
     const [isLoadingUsage, setIsLoadingUsage] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -61,7 +47,9 @@ export function CatalogDeleteDialog({ isOpen, onClose, catalog, tenantId, onSucc
         if (!catalog) return;
         setIsLoadingUsage(true);
         try {
-            setSchedulesUsing(await listSchedulesUsingCatalog(tenantId, catalog.id));
+            const sources = await listAppearanceSources(tenantId);
+            const index = buildAppearance({ ...sources, instant: toRomeDateTime(new Date()), subscriptionInactive: false });
+            setSchedulesUsing(appearanceOf(index, { kind: "catalog", id: catalog.id }).rules);
         } catch (err) {
             console.error("Errore caricamento regole bloccanti:", err);
             setSchedulesUsing([]);
@@ -105,15 +93,11 @@ export function CatalogDeleteDialog({ isOpen, onClose, catalog, tenantId, onSucc
 
     if (!catalog) return null;
 
-    const now = new Date();
     const blocking = schedulesUsing ?? [];
     const hasBlocking = blocking.length > 0;
     const visible = blocking.slice(0, MAX_VISIBLE_SCHEDULES);
     const hiddenCount = blocking.length - visible.length;
-    const hasLive = blocking.some(rule => {
-        const status = deriveScheduleStatus(rule, now);
-        return status === "active" || status === "scheduled";
-    });
+    const hasLive = blocking.some(entry => entry.isLive);
     const rules = (n: number) => `${n} ${n === 1 ? "regola" : "regole"}`;
     const catalogLower = catalogLabel.toLowerCase();
 
@@ -152,18 +136,18 @@ export function CatalogDeleteDialog({ isOpen, onClose, catalog, tenantId, onSucc
                     <InlineBanner variant={hasLive ? "warning" : "info"}>
                         {hasLive
                             ? `Questo ${catalogLower} è usato da ${rules(blocking.length)}. Rimuovi i collegamenti prima di eliminarlo.`
-                            : `Questo ${catalogLower} è collegato a ${rules(blocking.length)} disabilitate o scadute. Rimuovi i collegamenti prima di eliminarlo.`}
+                            : `Questo ${catalogLower} è collegato a ${rules(blocking.length)} ferme (spente, in bozza o scadute). Rimuovi i collegamenti prima di eliminarlo.`}
                     </InlineBanner>
                     <div role="list" aria-label="Regole di programmazione collegate">
-                        {visible.map(rule => {
-                            const status = STATUS[deriveScheduleStatus(rule, now)];
+                        {visible.map(({ rule, status }) => {
+                            const meta = SCHEDULE_STATUS_META[status];
                             return (
                                 <div role="listitem" key={rule.id}>
                                     <ListRow
                                         dense
                                         to={`/business/${businessId}/scheduling/${rule.id}`}
                                         title={rule.name ?? "Regola senza nome"}
-                                        trailing={<StatusBadge variant={status.variant} label={status.label} />}
+                                        trailing={<StatusBadge variant={meta.tone} label={meta.label} />}
                                     />
                                 </div>
                             );
