@@ -19,6 +19,10 @@ import {
     FeaturedContentWithProducts
 } from "@/services/supabase/featuredContents";
 import { CONTENT_TYPE_LABEL } from "./featuredContentTypes";
+import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
+import { ChipGroupSingle } from "@/components/ui/Chip/ChipGroup";
+import { useRuleAppearance } from "@/hooks/useRuleAppearance";
+import { appearanceOf, describeFeaturedLine, isShownByNoLiveRule, type Appearance } from "@/utils/ruleAppearance";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import { useBulkDelete } from "@/hooks/useBulkDelete";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
@@ -79,6 +83,9 @@ export default function Highlights() {
     }, []);
 
     const [deleteTarget, setDeleteTarget] = useState<FeaturedContentWithProducts | null>(null);
+    // Dove e quando compare (§28.1–2): dalle regole che lo nominano, vive.
+    const ruleAppearance = useRuleAppearance(tenantId, canRead);
+    const [ruleFilter, setRuleFilter] = useState<"all" | "unseen">("all");
 
     const loadData = useCallback(async () => {
         if (!tenantId || !canRead) return;
@@ -175,14 +182,61 @@ export default function Highlights() {
         setDeleteTarget(item);
     };
 
+    const appearanceById = useMemo(() => {
+        const map = new Map<string, Appearance>();
+        if (!ruleAppearance.index) return map;
+        for (const item of contents) map.set(item.id, appearanceOf(ruleAppearance.index, { kind: "featured", id: item.id }));
+        return map;
+    }, [ruleAppearance.index, contents]);
+    const unseenCount = useMemo(
+        () => [...appearanceById.values()].filter(isShownByNoLiveRule).length,
+        [appearanceById]
+    );
+    const activityName = useCallback(
+        (id: string) => ruleAppearance.activities.find(activity => activity.id === id)?.name,
+        [ruleAppearance.activities]
+    );
+
     const filteredContents = useMemo(() => {
         const q = searchQuery.trim().toLowerCase();
-        return contents.filter(
-            item => item.title.toLowerCase().includes(q) || item.internal_name.toLowerCase().includes(q)
-        );
-    }, [contents, searchQuery]);
+        return contents.filter(item => {
+            if (ruleFilter === "unseen") {
+                const appearance = appearanceById.get(item.id);
+                if (!appearance || !isShownByNoLiveRule(appearance)) return false;
+            }
+            return item.title.toLowerCase().includes(q) || item.internal_name.toLowerCase().includes(q);
+        });
+    }, [contents, searchQuery, ruleFilter, appearanceById]);
     const allContentIds = useMemo(() => contents.map(c => c.id), [contents]);
-    const hasSearch = searchQuery.trim().length > 0;
+    const hasSearch = searchQuery.trim().length > 0 || ruleFilter !== "all";
+    const clearFilters = () => {
+        setSearchQuery("");
+        setRuleFilter("all");
+    };
+
+    /** «sopra il menù · tutte le sedi · sempre», o chi non lo vede (§28.1–2). */
+    const placementLines = (item: FeaturedContentWithProducts) => {
+        const appearance = appearanceById.get(item.id);
+        if (!appearance) return null;
+        const line = describeFeaturedLine(appearance, activityName);
+        return (
+            <>
+                {line.placement && (
+                    <span className={styles.nameLine}>
+                        <Text variant="caption" colorVariant="muted" className={styles.ellipsis}>
+                            {line.more > 0 ? `${line.placement} · +${line.more} ${line.more === 1 ? "regola" : "regole"}` : line.placement}
+                        </Text>
+                        {line.stopped && <StatusBadge variant="neutral" label={line.stopped} />}
+                    </span>
+                )}
+                {line.warning && (
+                    <Text variant="caption" colorVariant="warning">
+                        {line.warning}
+                    </Text>
+                )}
+            </>
+        );
+    };
 
     const rowActions = (item: FeaturedContentWithProducts) => (
         <TableRowActions
@@ -218,6 +272,7 @@ export default function Highlights() {
                     <Text variant="caption" colorVariant="muted" className={styles.ellipsis}>
                         {readsLine(item)}
                     </Text>
+                    {placementLines(item)}
                 </div>
             )
         },
@@ -270,7 +325,7 @@ export default function Highlights() {
                     isLoading={loading}
                     ariaLabel="Contenuti in evidenza"
                     isFiltered={hasSearch}
-                    onClearFilters={() => setSearchQuery("")}
+                    onClearFilters={clearFilters}
                     selectable={canWrite && canEdit}
                     selectedRowIds={bulk.selectedIds}
                     onSelectedRowsChange={bulk.setSelectedIds}
@@ -280,7 +335,7 @@ export default function Highlights() {
             );
         }
         if (!loading && filteredContents.length === 0) {
-            return <EmptyState variant="filtered" title="Nessun risultato" onClearFilters={() => setSearchQuery("")} />;
+            return <EmptyState variant="filtered" title="Nessun risultato" onClearFilters={clearFilters} />;
         }
         return (
             <CardGrid loading={loading} skeletonShape={{ media: true }} aria-label="Contenuti in evidenza">
@@ -306,6 +361,7 @@ export default function Highlights() {
                         title={item.internal_name}
                         subtitle={readsLine(item)}
                         badge={<Badge variant="neutral">{CONTENT_TYPE_LABEL[item.content_type ?? "announcement"]}</Badge>}
+                        footer={<div className={styles.cellTwoLine}>{placementLines(item)}</div>}
                         actions={rowActions(item)}
                     />
                 ))}
@@ -322,6 +378,19 @@ export default function Highlights() {
             {() => (
                 <>
                     <div className={styles.wrapper} data-view-mode={viewMode}>
+                        {!loadError && contents.length > 0 && ruleAppearance.index && (
+                            <ChipGroupSingle<"all" | "unseen">
+                                ariaLabel="Filtra i contenuti"
+                                layout="auto"
+                                shape="pill"
+                                options={[
+                                    { value: "all", label: "Tutti", count: contents.length },
+                                    { value: "unseen", label: "Nessuna regola li mostra", count: unseenCount, tone: "warning", disabled: unseenCount === 0 }
+                                ]}
+                                value={ruleFilter}
+                                onChange={setRuleFilter}
+                            />
+                        )}
                         {renderContent()}
                     </div>
 

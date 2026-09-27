@@ -34,6 +34,9 @@ import {
 import { COMPRESS_PROFILES } from "@/utils/compressImage";
 import { useTenantId } from "@/context/useTenantId";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
+import { useRuleAppearance } from "@/hooks/useRuleAppearance";
+import { appearanceOf } from "@/utils/ruleAppearance";
+import { FeaturedPlacementCard } from "./components/FeaturedPlacementCard";
 import { usePermissions } from "@/context/PermissionsContext";
 import { canDoOnAnyActivity, canDoOnTenant } from "@/lib/permissions";
 import { PageGate } from "@/components/PageGate/PageGate";
@@ -67,6 +70,11 @@ export default function FeaturedContentDetailPage() {
     const canWrite = permissions ? canDoOnAnyActivity(permissions, "featured.write") : false;
     // Gate di lettura prima di ogni fetch; il blocco lo rende `PageGate`.
     const canRead = permissions != null && canDoOnAnyActivity(permissions, "featured.read");
+    // Dove e quando compare (§28.1): dalle regole che lo nominano.
+    const ruleAppearance = useRuleAppearance(tenantId, canRead);
+    const featuredAppearance =
+        ruleAppearance.index && featuredId ? appearanceOf(ruleAppearance.index, { kind: "featured", id: featuredId }) : null;
+    const activityName = (id: string) => ruleAppearance.activities.find(activity => activity.id === id)?.name;
     // Creare un prodotto (tab «Nuovo») o modificarlo è `products.write`, che il
     // manager non ha anche quando può collegare prodotti al contenuto.
     const canWriteProducts = permissions != null && canDoOnTenant(permissions, "products.write");
@@ -448,6 +456,13 @@ export default function FeaturedContentDetailPage() {
                     </div>
                 </div>
             </Card>
+            {featuredAppearance && (
+                <FeaturedPlacementCard
+                    appearance={featuredAppearance}
+                    activityName={activityName}
+                    businessId={tenantId ?? ""}
+                />
+            )}
         </>
     );
 

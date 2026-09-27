@@ -457,3 +457,32 @@ export function describeStyleSaveWarning(appearance: Appearance): string | null 
     }
     return null;
 }
+
+/**
+ * La riga «dove e quando» di un contenuto in evidenza (§28.1–2): la prima
+ * regola che lo nomina (viva, se ce n'è una), se è ferma, e l'avviso quando
+ * nessun cliente lo vede. «Nessuna regola li mostra» conta le regole vive,
+ * non quelle che esistono: collegato non vuol dire attivo.
+ */
+export function describeFeaturedLine(
+    appearance: Appearance,
+    activityName: (id: string) => string | undefined
+): { placement: string | null; stopped: string | null; more: number; warning: string | null } {
+    const [first, ...rest] = appearance.rules;
+    return {
+        placement: first ? describePlacement(first, activityName) : null,
+        stopped: first ? describeStoppedRule(first) : null,
+        more: rest.length,
+        warning:
+            appearance.summary === "unassigned"
+                ? "nessuna regola lo mostra: nessun cliente lo vede"
+                : appearance.summary === "stoppedOnly"
+                  ? "nessuna regola viva lo mostra: nessun cliente lo vede"
+                  : null
+    };
+}
+
+/** Il chip «Nessuna regola li mostra» (§28.2). */
+export function isShownByNoLiveRule(appearance: Appearance): boolean {
+    return appearance.summary === "unassigned" || appearance.summary === "stoppedOnly";
+}

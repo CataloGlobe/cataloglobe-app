@@ -547,7 +547,7 @@ function rowOf(page: Page, name: string): Locator {
 }
 
 test.describe("In evidenza — dove e quando compare (§50.13)", () => {
-    test.fail("elenco: la riga dice dove e quando, o che nessuno lo vede", async ({ page }) => {
+    test("elenco: la riga dice dove e quando, o che nessuno lo vede", async ({ page }) => {
         await openList(page);
         await expect(rowOf(page, "Menu di coppia e2e")).toContainText("sopra il menù · tutte le sedi · sempre");
         const aperitivo = rowOf(page, "Aperitivo giovedì e2e");
@@ -557,7 +557,7 @@ test.describe("In evidenza — dove e quando compare (§50.13)", () => {
         await expect(rowOf(page, "Chiusura ferragosto e2e")).toContainText("nessuna regola lo mostra: nessun cliente lo vede");
     });
 
-    test.fail("elenco: il chip «Nessuna regola li mostra» conta le regole vive", async ({ page }) => {
+    test("elenco: il chip «Nessuna regola li mostra» conta le regole vive", async ({ page }) => {
         await openList(page);
         const chips = main(page).getByRole("radiogroup", { name: "Filtra i contenuti" });
         await expect(chips.getByRole("radio", { name: /Tutti\s*4/ })).toBeChecked();
@@ -568,7 +568,7 @@ test.describe("In evidenza — dove e quando compare (§50.13)", () => {
         await expect(contentName(page, "Menu di coppia e2e")).toHaveCount(0);
     });
 
-    test.fail("dettaglio: «Dove e quando compare», con la regola da aprire", async ({ page }) => {
+    test("dettaglio: «Dove e quando compare», con la regola da aprire", async ({ page }) => {
         await openContent(page, FEATURED.coppia);
         const rules = main(page).getByRole("list", { name: "Regole che lo mostrano" });
         await expect(rules).toBeVisible({ timeout: 15_000 });
@@ -578,7 +578,7 @@ test.describe("In evidenza — dove e quando compare (§50.13)", () => {
         await expect(rules.getByRole("link", { name: /Coppia sempre e2e/ })).toHaveAttribute("href", new RegExp(`/scheduling/${RULE.coppia}$`));
     });
 
-    test.fail("dettaglio: senza regole lo dice, e porta a Programmazione", async ({ page }) => {
+    test("dettaglio: senza regole lo dice, e porta a Programmazione", async ({ page }) => {
         await openContent(page, FEATURED.chiusura);
         await expect(main(page).getByText("Nessuna regola lo mostra: esiste e nessun cliente lo vede.")).toBeVisible({ timeout: 15_000 });
         await expect(main(page).getByRole("link", { name: "Vai a Programmazione" })).toBeVisible();
