@@ -9,7 +9,9 @@ import {
     catalogStyleIds,
     describeCatalogSummary,
     describePlacement,
+    describeStyleSaveWarning,
     describeStyleSummary,
+    joinSeatNames,
     storyAppearance,
     type AppearanceInput
 } from "@/utils/ruleAppearance";
@@ -278,5 +280,19 @@ describe("ruleAppearance — dove e quando appare un menù, uno stile, un conten
         });
         expect(storyAppearance({ status: "published", activity_id: null }, ACTIVITIES, true)).toEqual({ kind: "nowhere", reason: "subscriptionInactive" });
         expect(storyAppearance({ status: "published", activity_id: "sparita" }, ACTIVITIES, false)).toEqual({ kind: "nowhere", reason: "missingSede" });
+    });
+
+    it("l'avviso dello stile nomina le sedi, e tace senza regole vive", () => {
+        const tutte = rule({ id: "tutte", applyToAll: true, layout: { style_id: "estate", catalog_id: "carta" } });
+        expect(describeStyleSaveWarning(appearanceOf(index([tutte]), { kind: "style", id: "estate" }))).toBe(
+            "Garbagnate e Comasina vedono le modifiche subito. Se serve, da Versioni torni alla versione di prima."
+        );
+        const sera = rule({ id: "sera", activityIds: ["comasina"], time_mode: "window", time_from: "19:00", time_to: "23:00", layout: { style_id: "notte", catalog_id: "carta" } });
+        expect(describeStyleSaveWarning(appearanceOf(index([sera]), { kind: "style", id: "notte" }))).toBe(
+            "Nessuna sede lo mostra adesso: le modifiche arrivano con le sue regole programmate, su Comasina. Se serve, da Versioni torni alla versione di prima."
+        );
+        const off = rule({ id: "off", enabled: false, applyToAll: true, layout: { style_id: "vecchio", catalog_id: "carta" } });
+        expect(describeStyleSaveWarning(appearanceOf(index([off]), { kind: "style", id: "vecchio" }))).toBeNull();
+        expect(joinSeatNames(["A", "B", "C", "D", "E", "F"])).toBe("A, B, C e altre 3 sedi");
     });
 });

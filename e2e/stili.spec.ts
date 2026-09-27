@@ -460,7 +460,7 @@ function itemOf(page: Page, name: string): Locator {
 }
 
 test.describe("Stili — dove vestono (§50.13)", () => {
-    test.fail("griglia: lo stato vivo, non il conteggio delle righe", async ({ page }) => {
+    test("griglia: lo stato vivo, non il conteggio delle righe", async ({ page }) => {
         await openList(page);
         await expect(itemOf(page, "Estate e2e")).toContainText("Attivo adesso");
         await expect(itemOf(page, "Stile base e2e")).toContainText("Programmato");
@@ -470,7 +470,7 @@ test.describe("Stili — dove vestono (§50.13)", () => {
         await expect(itemOf(page, "Autunno e2e")).toContainText("Usato in 1 regola");
     });
 
-    test.fail("lista: la colonna «Utilizzo»", async ({ page }) => {
+    test("lista: la colonna «Utilizzo»", async ({ page }) => {
         await openList(page, "list");
         const table = main(page).getByRole("table", { name: "Stili" });
         await expect(table.getByRole("columnheader", { name: "Utilizzo" })).toBeVisible();
@@ -478,7 +478,7 @@ test.describe("Stili — dove vestono (§50.13)", () => {
         await expect(table.getByRole("row", { name: /Stile base e2e/ })).toContainText("Programmato");
     });
 
-    test.fail("editor: l'avviso nomina le sedi che vedono la modifica subito", async ({ page }) => {
+    test("editor: l'avviso nomina le sedi che vedono la modifica subito", async ({ page }) => {
         await openStyle(page, STYLE.estate);
         await expect(nameField(page)).toHaveValue("Estate e2e", { timeout: 15_000 });
         await nameField(page).fill("Estate bis e2e");
@@ -491,7 +491,7 @@ test.describe("Stili — dove vestono (§50.13)", () => {
         await expect(confirm).not.toContainText("Lago e2e");
     });
 
-    test.fail("editor: uno stile solo su regole ferme si salva senza avviso", async ({ page }) => {
+    test("editor: uno stile solo su regole ferme si salva senza avviso", async ({ page }) => {
         wireStyleWrites(stub);
         await openStyle(page, STYLE.autunno);
         await expect(nameField(page)).toHaveValue("Autunno e2e", { timeout: 15_000 });
@@ -501,7 +501,7 @@ test.describe("Stili — dove vestono (§50.13)", () => {
         await expect(page.getByRole("alertdialog")).toHaveCount(0);
     });
 
-    test.fail("editor: programmato e nessuna sede adesso, l'avviso lo dice", async ({ page }) => {
+    test("editor: programmato e nessuna sede adesso, l'avviso lo dice", async ({ page }) => {
         // Lo stile di sistema non si modifica: la regola programmata passa su Sera.
         stub.tables.schedule_layout.find(l => l.schedule_id === RULE.seraPorto)!.style_id = STYLE.sera;
         await openStyle(page, STYLE.sera);

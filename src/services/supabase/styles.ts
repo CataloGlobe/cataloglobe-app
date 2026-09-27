@@ -94,17 +94,6 @@ export async function listStyleSwatches(tenantId: string): Promise<V2Style[]> {
     })) as V2Style[];
 }
 
-export async function getStyleUsageCount(styleId: string, tenantId: string): Promise<number> {
-    const { data, error } = await supabase
-        .from("schedule_layout")
-        .select("id")
-        .eq("style_id", styleId)
-        .eq("tenant_id", tenantId);
-
-    if (error) throw error;
-    return data?.length ?? 0;
-}
-
 export async function getStyle(styleId: string, tenantId: string): Promise<V2Style | null> {
     const { data, error } = await supabase
         .from("styles")

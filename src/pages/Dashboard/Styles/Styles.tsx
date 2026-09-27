@@ -23,15 +23,21 @@ import { PageGate } from "@/components/PageGate/PageGate";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { listStyles, duplicateStyle, V2Style } from "@/services/supabase/styles";
 import { StyleSwatch } from "@/components/ui/StyleSwatch/StyleSwatch";
+import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
+import { useRuleAppearance } from "@/hooks/useRuleAppearance";
+import { appearanceOf, describeStyleSummary } from "@/utils/ruleAppearance";
 import { StyleDeleteDrawer } from "./StyleDeleteDrawer";
 import { StyleCreateDrawer } from "./StyleCreateDrawer";
 
 const VIEW_MODE_KEY = "cataloglobe-styles-view-mode";
 
-/** «Usato in 4 regole» / «Non utilizzato». Il conteggio vivo arriva col lotto «la riga deriva dalle regole» (§50.11/1). */
+/**
+ * Il numero delle regole che lo nominano, a riga secondaria (§34.3): lo stato
+ * vivo sta nel badge, da `ruleAppearance`.
+ */
 function usageLabel(style: V2Style): string {
     const count = style.usage_count || 0;
-    if (count === 0) return "Non utilizzato";
+    if (count === 0) return "In nessuna regola";
     return `Usato in ${count} ${count === 1 ? "regola" : "regole"}`;
 }
 
@@ -56,6 +62,8 @@ export default function Styles() {
     const [isLoading, setIsLoading] = useState(true);
     const [loadError, setLoadError] = useState(false);
     const [allStyles, setAllStyles] = useState<V2Style[]>([]);
+    // Lo stato d'uso vivo (§34.3, §50.13): la stessa competizione di Programmazione.
+    const appearance = useRuleAppearance(currentTenantId, canRead);
 
     const navigate = useNavigate();
 
@@ -199,6 +207,15 @@ export default function Styles() {
         [handleDeleteClick, handleDuplicateClick, canWrite, navigate, styleUrl]
     );
 
+    const usageBadge = useCallback(
+        (style: V2Style) => {
+            if (!appearance.index) return undefined;
+            const summary = describeStyleSummary(appearanceOf(appearance.index, { kind: "style", id: style.id }));
+            return <StatusBadge variant={summary.tone} label={summary.label} />;
+        },
+        [appearance.index]
+    );
+
     const columns = useMemo<ColumnDefinition<V2Style>[]>(
         () => [
             {
@@ -225,6 +242,12 @@ export default function Styles() {
                 )
             },
             {
+                id: "usage",
+                header: "Utilizzo",
+                width: "160px",
+                cell: (_value, style) => usageBadge(style)
+            },
+            {
                 id: "actions",
                 header: "",
                 width: "56px",
@@ -232,7 +255,7 @@ export default function Styles() {
                 cell: (_value, style) => renderRowActions(style)
             }
         ],
-        [renderRowActions]
+        [renderRowActions, usageBadge]
     );
 
     const renderContent = () => {
@@ -287,7 +310,7 @@ export default function Styles() {
         }
 
         return (
-            <CardGrid loading={isLoading} skeletonShape={{ media: true }} aria-label="Stili">
+            <CardGrid loading={isLoading} skeletonShape={{ media: true, badge: true }} aria-label="Stili">
                 {filteredStyles.map(style => (
                     <CardGridItem
                         key={style.id}
@@ -296,7 +319,12 @@ export default function Styles() {
                         media={<StyleSwatch style={style} />}
                         title={style.name}
                         subtitle={usageLabel(style)}
-                        badge={style.is_system ? <Badge variant="neutral">Di sistema</Badge> : undefined}
+                        badge={
+                            <>
+                                {usageBadge(style)}
+                                {style.is_system && <Badge variant="neutral">Di sistema</Badge>}
+                            </>
+                        }
                         actions={renderRowActions(style)}
                     />
                 ))}

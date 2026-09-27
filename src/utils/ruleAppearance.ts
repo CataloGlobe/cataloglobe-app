@@ -427,3 +427,33 @@ export function describeStoryAppearance(appearance: StoryAppearance): { label: s
         }
     }
 }
+
+const NAMES_FORMAT = new Intl.ListFormat("it", { style: "long", type: "conjunction" });
+
+/** «Centro e Porto», «Centro, Porto e Lago»; oltre quattro, «… e altre N sedi». */
+export function joinSeatNames(names: readonly string[], max = 4): string {
+    if (names.length <= max) return NAMES_FORMAT.format(names);
+    const rest = names.length - max + 1;
+    return NAMES_FORMAT.format([...names.slice(0, max - 1), `altre ${rest} sedi`]);
+}
+
+const BACK = "Se serve, da Versioni torni alla versione di prima.";
+
+/**
+ * L'avviso prima di salvare uno stile (§34.5/1–2): chi vede la modifica, e
+ * quando. Null se nessuna regola viva lo porta: allora l'avviso non si apre.
+ */
+export function describeStyleSaveWarning(appearance: Appearance): string | null {
+    if (appearance.summary === "liveNow") {
+        const names = liveSeats(appearance).map(seat => seat.name);
+        return `${joinSeatNames(names)} ${names.length === 1 ? "vede" : "vedono"} le modifiche subito. ${BACK}`;
+    }
+    if (appearance.summary === "assigned") {
+        const waiting = appearance.seats
+            .filter(seat => seat.reason === "outOfWindow" || seat.reason === "overridden" || seat.reason === "subscriptionInactive")
+            .map(seat => seat.name);
+        const where = waiting.length > 0 ? `, su ${joinSeatNames(waiting)}` : "";
+        return `Nessuna sede lo mostra adesso: le modifiche arrivano con le sue regole programmate${where}. ${BACK}`;
+    }
+    return null;
+}
