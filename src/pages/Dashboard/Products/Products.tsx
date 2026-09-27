@@ -10,7 +10,7 @@ import {
     useFilteredProductTabs,
     type ProductTabDef
 } from "@/hooks/useFilteredProductTabs";
-import { useEnsureActive } from "./hooks/useEnsureActive";
+import { useEnsureActive } from "@/hooks/useEnsureActive";
 import { usePermissions } from "@/context/PermissionsContext";
 import { canDoOnTenant } from "@/lib/permissions";
 import { PageGate } from "@/components/PageGate/PageGate";
@@ -49,7 +49,7 @@ import {
 
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
-import { useBulkDelete } from "./hooks/useBulkDelete";
+import { useBulkDelete } from "@/hooks/useBulkDelete";
 import { ProductCreateEditDrawer, ProductFormMode } from "./ProductCreateEditDrawer";
 import { ProductDeleteDialog } from "./ProductDeleteDialog";
 import ProductGroupsTab from "@/components/Products/ProductGroupsTab/ProductGroupsTab";

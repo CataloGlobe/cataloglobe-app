@@ -1,3 +1,4 @@
+import Text from "@/components/ui/Text/Text";
 import { useState } from "react";
 import { Check } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
@@ -64,7 +65,7 @@ export function HeaderSaveAction({ isDirty, isSaving, onSave, onDiscard }: Heade
         return (
             <span className={styles.savedPill} role="status">
                 <Check size={15} strokeWidth={2.5} aria-hidden="true" />
-                Salvato
+                <Text as="span" variant="body-sm" weight={500}>Salvato</Text>
             </span>
         );
     }

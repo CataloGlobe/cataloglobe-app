@@ -1,4 +1,5 @@
 import { InlineBanner } from "@components/ui";
+import Text from "@/components/ui/Text/Text";
 import type { PaletteWarning } from "./usePaletteWarnings";
 import styles from "./PaletteWarningsBox.module.scss";
 
@@ -13,11 +14,11 @@ export const PaletteWarningsBox = ({ warnings }: Props) => {
         <InlineBanner variant="warning">
             <div className={styles.box}>
                 <div className={styles.body}>
-                    <span className={styles.title}>Suggerimenti palette</span>
+                    <Text as="span" variant="body-sm" weight={600} className={styles.title}>Suggerimenti palette</Text>
                     <ul className={styles.list}>
                         {warnings.map(w => (
                             <li key={w.id} className={styles.item}>
-                                {w.message}
+                                <Text as="span" variant="body-sm">{w.message}</Text>
                             </li>
                         ))}
                     </ul>

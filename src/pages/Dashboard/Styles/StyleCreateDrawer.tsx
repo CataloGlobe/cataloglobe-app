@@ -32,7 +32,8 @@ export function StyleCreateDrawer({
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        if (!name.trim()) {
+        const trimmedName = name.trim();
+        if (!trimmedName) {
             showToast({ message: "Il nome dello stile è obbligatorio.", type: "error" });
             return;
         }
@@ -60,7 +61,7 @@ export function StyleCreateDrawer({
                 };
             }
 
-            const newStyle = await createStyle(tenantId, name, configObj);
+            const newStyle = await createStyle(tenantId, trimmedName, configObj);
             showToast({ message: "Nuovo stile creato con successo.", type: "success" });
 
             // Cleanup input on success
@@ -75,19 +76,26 @@ export function StyleCreateDrawer({
         }
     };
 
-    // Filter to only usable base styles
     const duplicateOptions = allStyles.map(s => ({
         value: s.id,
-        label: s.is_system ? `${s.name} (Default)` : s.name
+        label: s.is_system ? `${s.name} (di sistema)` : s.name
     }));
 
+    // Chiudere senza creare azzera il form: alla riapertura si riparte da capo.
+    const handleClose = () => {
+        if (isSaving) return;
+        setName("");
+        setBaseStyleId("");
+        onClose();
+    };
+
     return (
-        <SystemDrawer open={open} onClose={onClose} width={420}>
+        <SystemDrawer open={open} onClose={handleClose} size="sm">
             <DrawerLayout
                 header={
                     <div className={styles.drawerHeader}>
                         <Text variant="title-sm" weight={600}>
-                            Nuovo Stile
+                            Nuovo stile
                         </Text>
                         <Text variant="body-sm" colorVariant="muted">
                             Dai un nome al tuo stile e scegli se partire da uno stile esistente o
@@ -97,7 +105,7 @@ export function StyleCreateDrawer({
                 }
                 footer={
                     <>
-                        <Button variant="secondary" onClick={onClose} disabled={isSaving}>
+                        <Button variant="secondary" onClick={handleClose} disabled={isSaving}>
                             Annulla
                         </Button>
                         <Button
@@ -122,11 +130,11 @@ export function StyleCreateDrawer({
                     />
 
                     <Select
-                        label="Duplica da... (Opzionale)"
+                        label="Parti da (facoltativo)"
                         value={baseStyleId}
                         onChange={e => setBaseStyleId(e.target.value)}
                         options={[
-                            { value: "", label: "Nessuno (Stile Vuoto)" },
+                            { value: "", label: "Nessuno: stile vuoto" },
                             ...duplicateOptions
                         ]}
                         disabled={isSaving}

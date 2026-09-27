@@ -14,9 +14,9 @@ import { AttributeCreateEditDrawer } from "./Attributes/AttributeCreateEditDrawe
 import { AttributeDeleteDialog } from "./Attributes/AttributeDeleteDialog";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
-import { useEnsureActive } from "./hooks/useEnsureActive";
+import { useEnsureActive } from "@/hooks/useEnsureActive";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
-import { useBulkDelete } from "./hooks/useBulkDelete";
+import { useBulkDelete } from "@/hooks/useBulkDelete";
 import styles from "./ProductsAttributesTab.module.scss";
 
 interface ProductsAttributesTabProps {

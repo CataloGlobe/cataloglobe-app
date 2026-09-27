@@ -127,6 +127,13 @@ export function isCardTreatmentActive(productStyle: ProductStyle, featuredStyle:
  * lascerebbe un vuoto morto nella banda contenuto invece di "liberare"
  * l'immagine — quindi i controlli vanno mostrati solo qui, e FeaturedCard
  * ignora i prop fuori da questa variante. */
+/** Il raggio di ogni arrotondamento, per le mini-anteprime del pannello. */
+export const RADIUS_CSS: Record<BorderRadius, string> = {
+    none: "0px",
+    soft: "10px",
+    rounded: "20px"
+};
+
 export function isFeaturedHighlightControlActive(featuredStyle: FeaturedStyle): boolean {
     return featuredStyle === "highlight";
 }

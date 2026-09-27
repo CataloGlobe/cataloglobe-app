@@ -105,7 +105,7 @@ export function StoryProductPickerDrawer({ open, onClose, tenantId, onSelect }: 
     );
 
     return (
-        <SystemDrawer open={open} onClose={onClose} width={720}>
+        <SystemDrawer open={open} onClose={onClose} size="lg">
             <DrawerLayout
                 bodyLayout="flex"
                 header={

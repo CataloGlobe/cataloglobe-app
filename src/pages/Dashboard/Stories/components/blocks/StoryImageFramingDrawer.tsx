@@ -78,7 +78,7 @@ export function StoryImageFramingDrawer({
     };
 
     return (
-        <SystemDrawer open={open} onClose={onClose} width={560}>
+        <SystemDrawer open={open} onClose={onClose} size="md">
             <DrawerLayout
                 header={
                     <Text variant="title-sm" weight={600}>
@@ -105,7 +105,7 @@ export function StoryImageFramingDrawer({
                     }}
                 >
                     <div className={styles.frameRow}>
-                        <span className={styles.frameLabel}>Formato</span>
+                        <Text as="span" variant="body-sm" weight={500} className={styles.frameLabel}>Formato</Text>
                         <SegmentedControl<MediaFrame>
                             value={draftFrame}
                             onChange={setDraftFrame}

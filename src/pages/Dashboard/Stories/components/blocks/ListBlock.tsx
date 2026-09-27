@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/Button/Button";
 import { List, ListChecks, Plus, X } from "lucide-react";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
@@ -64,10 +65,9 @@ export function ListBlock({ block, onChange, disabled }: ListBlockProps) {
             </div>
 
             {!disabled && (
-                <button type="button" className={styles.addItem} onClick={addItem}>
-                    <Plus size={15} />
+                <Button type="button" variant="ghost" size="sm" leftIcon={<Plus size={15} />} onClick={addItem} className={styles.addItem}>
                     Aggiungi voce
-                </button>
+                </Button>
             )}
         </div>
     );
