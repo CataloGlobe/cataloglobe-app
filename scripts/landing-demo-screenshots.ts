@@ -14,6 +14,11 @@
  * del telefono sul desktop (280×580), così la barra di navigazione in basso
  * della pagina cade intera sul bordo invece di uscire tagliata.
  * La conversione in WebP la fa Chromium stesso (canvas), senza dipendenze in più.
+ *
+ * Dalla stessa pagina legge i colori del tema (variabili `--pub-*` che
+ * `PublicThemeScope` applica al suo wrapper) e li scrive in `themes.json`:
+ * l'icona di ogni locale nella lista li usa, così icona e screenshot vengono
+ * dallo stesso stile.
  */
 
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -26,6 +31,15 @@ const SCALE = 2;
 /** Larghezza dello schermo del telefono sul desktop (`.phone` 300 − 2 × 10 di padding), 1x e 2x. */
 const WIDTHS = [280, 560] as const;
 const QUALITY = 0.82;
+/** Variabili del tema lette dal wrapper di `PublicThemeScope` → chiave in `themes.json`. */
+const THEME_VARS = {
+    bg: "--pub-bg",
+    surface: "--pub-surface",
+    primary: "--pub-primary",
+    accent: "--pub-accent",
+    text: "--pub-text",
+    border: "--pub-border"
+} as const;
 
 function arg(name: string, fallback: string): string {
     const i = process.argv.indexOf(`--${name}`);
@@ -47,6 +61,7 @@ async function main() {
         reducedMotion: "reduce"
     });
     const page = await context.newPage();
+    const themes: Record<string, Record<string, string>> = {};
 
     try {
         for (const slug of SLUGS) {
@@ -63,6 +78,22 @@ async function main() {
                 );
             });
             await page.waitForTimeout(500);
+
+            themes[slug] = await page.evaluate((vars) => {
+                const scope = Array.from(document.querySelectorAll<HTMLElement>("[style]")).find((el) =>
+                    el.style.getPropertyValue("--pub-bg")
+                );
+                if (!scope) throw new Error("wrapper di PublicThemeScope non trovato");
+                const computed = getComputedStyle(scope);
+                return Object.fromEntries(
+                    Object.entries(vars).map(([key, name]) => {
+                        const value = computed.getPropertyValue(name).trim();
+                        if (!value) throw new Error(`${name} vuota`);
+                        return [key, value];
+                    })
+                );
+            }, THEME_VARS);
+
             const png = await page.screenshot({ type: "png" });
 
             // Ridimensiona e codifica in WebP dentro la pagina (canvas di Chromium).
@@ -94,6 +125,9 @@ async function main() {
                 console.log(`${slug}: ${w}×${h} ${Math.round(bytes.length / 1024)} KB → ${file}`);
             }
         }
+        const themesFile = resolve(outDir, "themes.json");
+        writeFileSync(themesFile, `${JSON.stringify(themes, null, 4)}\n`);
+        console.log(`temi → ${themesFile}`);
     } finally {
         await browser.close();
     }
