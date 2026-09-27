@@ -73,3 +73,15 @@
   flex-direction: column;
   gap: var(--space-16);
 }
+
+// «Dove appare» nell'editor (§50.13): la scelta, la sede, la frase.
+.placement {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-12);
+
+    > :global(*) {
+        max-width: 100%;
+    }
+}

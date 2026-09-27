@@ -347,7 +347,7 @@ test.describe("Storie — permessi (P1)", () => {
 });
 
 test.describe("Storie — dove appaiono (§50.13)", () => {
-    test.fail("elenco: la colonna «Dove appare»", async ({ page }) => {
+    test("elenco: la colonna «Dove appare»", async ({ page }) => {
         await openList(page);
         const table = main(page).getByRole("table", { name: "Storie" });
         await expect(table.getByRole("columnheader", { name: "Dove appare" })).toBeVisible();
@@ -357,7 +357,7 @@ test.describe("Storie — dove appaiono (§50.13)", () => {
         await expect(table.getByRole("row", { name: /Natale e2e/ })).toContainText("Da nessuna parte");
     });
 
-    test.fail("elenco: chip coi conteggi e ricerca; filtrando non si riordina", async ({ page }) => {
+    test("elenco: chip coi conteggi e ricerca; filtrando non si riordina", async ({ page }) => {
         await openList(page);
         const chips = main(page).getByRole("radiogroup", { name: "Filtra le storie" });
         await expect(chips.getByRole("radio", { name: /Tutte\s*3/ })).toBeChecked();
@@ -375,7 +375,7 @@ test.describe("Storie — dove appaiono (§50.13)", () => {
         await expect(storyTitle(page, "La brigata e2e")).toHaveCount(0);
     });
 
-    test.fail("editor: «Dove appare» sceglie la sede, in bozza, e il Salva la scrive", async ({ page }) => {
+    test("editor: «Dove appare» sceglie la sede, in bozza, e il Salva la scrive", async ({ page }) => {
         stub.onWrite("stories.PATCH", call => {
             const row = stub.tables.stories.find(s => `eq.${s.id}` === call.params.get("id"));
             if (row) Object.assign(row, call.body as Row);
@@ -391,7 +391,7 @@ test.describe("Storie — dove appaiono (§50.13)", () => {
         await expect.poll(() => write(stub, "stories.PATCH")?.body).toMatchObject({ activity_id: SEDE.porto });
     });
 
-    test.fail("editor: la storia di una sede la dice già scelta", async ({ page }) => {
+    test("editor: la storia di una sede la dice già scelta", async ({ page }) => {
         await openStory(page, STORY.brigata);
         await expect(titleField(page)).toHaveValue("La brigata e2e", { timeout: 15_000 });
         await expect(main(page).getByRole("radio", { name: "Una sede" })).toBeChecked();

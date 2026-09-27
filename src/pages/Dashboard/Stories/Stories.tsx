@@ -12,6 +12,10 @@ import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import { useToast } from "@/context/Toast/ToastContext";
 import { listStories, reorderStories, type StoryWithProduct } from "@/services/supabase/stories";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
+import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
+import { ChipGroupSingle } from "@/components/ui/Chip/ChipGroup";
+import { getActivities } from "@/services/supabase/activities";
+import { describeStoryAppearance, storyAppearance, type AppearanceActivity } from "@/utils/ruleAppearance";
 import StoryCreateDrawer from "./StoryCreateDrawer";
 import StoryDeleteDialog from "./StoryDeleteDialog";
 import { StoryBrandCard } from "./components/StoryBrandCard";
@@ -36,6 +40,8 @@ import {
 } from "@dnd-kit/core";
 import { arrayMove, SortableContext, verticalListSortingStrategy, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 
+type StoryFilter = "all" | "drafts" | "sede" | "noCover";
+
 function reindexRows(rows: StoryWithProduct[]): StoryWithProduct[] {
     return rows.map((row, index) => ({ ...row, sort_order: index + 1 }));
 }
@@ -56,6 +62,17 @@ export default function Stories() {
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [isBrandOpen, setIsBrandOpen] = useState(false);
     const [deleteTarget, setDeleteTarget] = useState<StoryWithProduct | null>(null);
+    const [searchQuery, setSearchQuery] = useState("");
+    const [filter, setFilter] = useState<StoryFilter>("all");
+    // Dove appare (§34.7, §50.13): le sedi, per nominare quella di una storia.
+    const [activities, setActivities] = useState<AppearanceActivity[]>([]);
+
+    useEffect(() => {
+        if (!tenantId || !canRead) return;
+        getActivities(tenantId)
+            .then(list => setActivities(list.map(a => ({ id: a.id, name: a.name, status: a.status }))))
+            .catch(error => console.warn("[Stories] sedi non caricate:", error));
+    }, [tenantId, canRead]);
 
     // Il cappello (§50.11/4): la card in cima all'elenco lo mostra com'è, il
     // drawer lo modifica e salva subito.
@@ -92,20 +109,25 @@ export default function Stories() {
     }, [ensureActive]);
 
     const actions = useMemo(
-        () =>
-            canWrite ? (
-                <Button variant="primary" onClick={handleCreate} disabled={!canEdit}>
-                    Crea storia
-                </Button>
-            ) : undefined,
-        [handleCreate, canEdit, canWrite]
+        () => (
+            <>
+                <ToolbarSearch value={searchQuery} onChange={setSearchQuery} placeholder="Cerca storie..." />
+                {canWrite && (
+                    <Button variant="primary" onClick={handleCreate} disabled={!canEdit}>
+                        Crea storia
+                    </Button>
+                )}
+            </>
+        ),
+        [handleCreate, canEdit, canWrite, searchQuery]
     );
 
     const headerCompact = useMemo<PageHeaderCompactConfig>(
         () => ({
+            search: { value: searchQuery, onChange: setSearchQuery, placeholder: "Cerca storie..." },
             primaryAction: canWrite ? { label: "Crea storia", onClick: handleCreate, disabled: !canEdit } : undefined
         }),
-        [canWrite, canEdit, handleCreate]
+        [canWrite, canEdit, handleCreate, searchQuery]
     );
 
     usePageHeader({
@@ -149,8 +171,28 @@ export default function Stories() {
 
     const storyUrl = (item: StoryWithProduct) => `/business/${tenantId}/stories/${item.id}`;
 
+    // Chip e ricerca: filtrando non si riordina, l'ordine è quello dell'elenco intero.
+    const matchesFilter = (item: StoryWithProduct, which: StoryFilter) =>
+        which === "drafts" ? item.status !== "published" : which === "sede" ? item.activity_id !== null : which === "noCover" ? !item.cover_media : true;
+    const normalizedQuery = searchQuery.trim().toLowerCase();
+    const visibleStories = stories.filter(
+        item =>
+            matchesFilter(item, filter) &&
+            (!normalizedQuery || `${item.title} ${item.eyebrow ?? ""}`.toLowerCase().includes(normalizedQuery))
+    );
+    const isFiltered = filter !== "all" || normalizedQuery.length > 0;
+    const canReorder = canWrite && !isFiltered;
+    const filterOptions = (
+        [
+            { value: "all", label: "Tutte" },
+            { value: "drafts", label: "Bozze" },
+            { value: "sede", label: "Legate a una sede" },
+            { value: "noCover", label: "Senza copertina" }
+        ] as const
+    ).map(option => ({ ...option, count: stories.filter(item => matchesFilter(item, option.value)).length }));
+
     const columns: ColumnDefinition<StoryWithProduct>[] = [
-        ...(canWrite
+        ...(canReorder
             ? [
                   {
                       id: "drag",
@@ -182,6 +224,19 @@ export default function Stories() {
                     </Text>
                 </div>
             )
+        },
+        {
+            id: "where",
+            header: "Dove appare",
+            width: "0.8fr",
+            cell: (_value, item) => {
+                const where = describeStoryAppearance(storyAppearance(item, activities, !canEdit));
+                return (
+                    <Text variant="body-sm" colorVariant={where.muted ? "muted" : undefined}>
+                        {where.label}
+                    </Text>
+                );
+            }
         },
         {
             id: "product",
@@ -267,17 +322,32 @@ export default function Stories() {
         }
         return (
             <>
-                {canWrite && stories.length > 1 && (
+                {!loading && (
+                    <ChipGroupSingle<StoryFilter>
+                        ariaLabel="Filtra le storie"
+                        layout="auto"
+                        shape="pill"
+                        options={filterOptions}
+                        value={filter}
+                        onChange={setFilter}
+                    />
+                )}
+                {canReorder && stories.length > 1 && (
                     <Text variant="caption" colorVariant="muted">
                         Trascina per cambiare l'ordine: è quello in cui i clienti le trovano.
                     </Text>
                 )}
                 <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                    <SortableContext items={stories.map(story => story.id)} strategy={verticalListSortingStrategy}>
+                    <SortableContext items={visibleStories.map(story => story.id)} strategy={verticalListSortingStrategy}>
                         <DataTable<StoryWithProduct>
-                            data={stories}
+                            data={visibleStories}
                             columns={columns}
                             isLoading={loading}
+                            isFiltered={isFiltered}
+                            onClearFilters={() => {
+                                setFilter("all");
+                                setSearchQuery("");
+                            }}
                             ariaLabel="Storie"
                             onRowClick={item => navigate(storyUrl(item))}
                             rowWrapper={(row, rowData) => (

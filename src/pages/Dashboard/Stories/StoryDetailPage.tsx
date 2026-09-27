@@ -35,6 +35,9 @@ import { HeaderSaveAction, DiscardChangesConfirmDialog } from "./components/Head
 import { buildSaveActionCompactConfig } from "./components/headerSaveActionCompact";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { StoryProductPicker } from "./components/StoryProductPicker";
+import { StoryPlacementCard } from "./components/StoryPlacementCard";
+import { getActivities } from "@/services/supabase/activities";
+import type { AppearanceActivity } from "@/utils/ruleAppearance";
 import { AddBlockMenu } from "./components/AddBlockMenu";
 import { useUnsavedChangesGuard } from "@/components/ui/UnsavedChangesBar/useUnsavedChangesGuard";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
@@ -76,6 +79,9 @@ export default function StoryDetailPage() {
     const [title, setTitle] = useState("");
     const [status, setStatus] = useState<StoryStatus>("draft");
     const [productId, setProductId] = useState<string | null>(null);
+    // Dove appare (§34.7): null = tutta l'azienda.
+    const [activityId, setActivityId] = useState<string | null>(null);
+    const [activities, setActivities] = useState<AppearanceActivity[]>([]);
     const [blocks, setBlocks] = useState<StoryBlock[]>([]);
     const [pendingCoverFile, setPendingCoverFile] = useState<File | null>(null);
     const [coverPreview, setCoverPreview] = useState<string | null>(null);
@@ -106,6 +112,13 @@ export default function StoryDetailPage() {
     }, [tenantId, storyId, canRead]);
 
     useEffect(() => {
+        if (!tenantId || !canRead) return;
+        getActivities(tenantId)
+            .then(list => setActivities(list.map(a => ({ id: a.id, name: a.name, status: a.status }))))
+            .catch(error => console.warn("[StoryDetailPage] sedi non caricate:", error));
+    }, [tenantId, canRead]);
+
+    useEffect(() => {
         if (!canRead) return;
         setLoading(true);
         refreshStory().finally(() => setLoading(false));
@@ -121,6 +134,7 @@ export default function StoryDetailPage() {
         setTitle(data.title);
         setStatus(data.status);
         setProductId(data.product_id);
+        setActivityId(data.activity_id);
         setBlocks(data.body_blocks);
         setPendingCoverFile(null);
         setCoverRemoved(false);
@@ -181,9 +195,10 @@ export default function StoryDetailPage() {
         if (title !== story.title) return true;
         if (status !== story.status) return true;
         if (productId !== story.product_id) return true;
+        if (activityId !== story.activity_id) return true;
         if (JSON.stringify(blocks) !== JSON.stringify(story.body_blocks)) return true;
         return false;
-    }, [story, eyebrow, title, status, productId, pendingCoverFile, coverRemoved, pendingBlockImages, blocks]);
+    }, [story, eyebrow, title, status, productId, activityId, pendingCoverFile, coverRemoved, pendingBlockImages, blocks]);
 
     const saveStory = useCallback(async (): Promise<boolean> => {
         if (!story || !tenantId || isSaving) return false;
@@ -245,6 +260,7 @@ export default function StoryDetailPage() {
                 eyebrow: eyebrow.trim() || null,
                 title: trimmedTitle,
                 product_id: productId,
+                activity_id: activityId,
                 status,
                 cover_media: coverMedia,
                 body_blocks: nextBlocks
@@ -287,7 +303,7 @@ export default function StoryDetailPage() {
         } finally {
             setIsSaving(false);
         }
-    }, [story, tenantId, isSaving, title, eyebrow, productId, status, pendingCoverFile, coverRemoved, pendingBlockImages, blocks, refreshStory, showToast]);
+    }, [story, tenantId, isSaving, title, eyebrow, productId, activityId, status, pendingCoverFile, coverRemoved, pendingBlockImages, blocks, refreshStory, showToast]);
 
     // Guardia all'uscita: refresh e navigazione interna (sidebar, briciole).
     useUnsavedChangesGuard(isDirty && canWrite);
@@ -382,10 +398,11 @@ export default function StoryDetailPage() {
     }
 
     if (loading) {
-        // Stessa sagoma del contenuto: Informazioni, Prodotto collegato, Il racconto.
+        // Stessa sagoma del contenuto: Informazioni, Dove appare, Prodotto collegato, Il racconto.
         return (
             <div className={styles.wrapper} aria-busy="true" aria-label="Caricamento">
                 <Skeleton height="320px" />
+                <Skeleton height="160px" />
                 <Skeleton height="96px" />
                 <Skeleton height="240px" />
             </div>
@@ -457,6 +474,14 @@ export default function StoryDetailPage() {
                             canWrite={canWrite}
                         />
                     </Card>
+
+                    <StoryPlacementCard
+                        activityId={activityId}
+                        onChange={setActivityId}
+                        activities={activities}
+                        status={status}
+                        disabled={!canWrite}
+                    />
 
                     <Card
                         title="Prodotto collegato"

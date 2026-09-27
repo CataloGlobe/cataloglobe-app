@@ -49,7 +49,8 @@ export default function StoryCreateDrawer({ open, onClose, tenantId }: StoryCrea
                 title: title.trim(),
                 cover_media: null,
                 product_id: null,
-                status: "draft"
+                status: "draft",
+                activity_id: null
             });
             showToast({ message: "Storia creata.", type: "success" });
             onClose();
