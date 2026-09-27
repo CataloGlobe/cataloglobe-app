@@ -70,6 +70,30 @@ export async function listStyles(tenantId: string): Promise<V2Style[]> {
     });
 }
 
+/**
+ * Gli stili dell'azienda con la versione corrente, senza il conteggio d'uso:
+ * quanto basta per disegnare uno swatch (card del menù, §50.13).
+ */
+export async function listStyleSwatches(tenantId: string): Promise<V2Style[]> {
+    const { data, error } = await supabase
+        .from("styles")
+        .select(
+            `
+            *,
+            current_version:style_versions!current_version_id (
+                id, tenant_id, style_id, version, config, created_at
+            )
+        `
+        )
+        .eq("tenant_id", tenantId);
+
+    if (error) throw error;
+    return (data ?? []).map(style => ({
+        ...style,
+        current_version: Array.isArray(style.current_version) ? style.current_version[0] : style.current_version
+    })) as V2Style[];
+}
+
 export async function getStyleUsageCount(styleId: string, tenantId: string): Promise<number> {
     const { data, error } = await supabase
         .from("schedule_layout")

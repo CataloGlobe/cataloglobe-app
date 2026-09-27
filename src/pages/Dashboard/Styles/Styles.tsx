@@ -22,7 +22,7 @@ import { canDoOnTenant } from "@/lib/permissions";
 import { PageGate } from "@/components/PageGate/PageGate";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { listStyles, duplicateStyle, V2Style } from "@/services/supabase/styles";
-import { StyleSwatch } from "./components/StyleSwatch";
+import { StyleSwatch } from "@/components/ui/StyleSwatch/StyleSwatch";
 import { StyleDeleteDrawer } from "./StyleDeleteDrawer";
 import { StyleCreateDrawer } from "./StyleCreateDrawer";
 

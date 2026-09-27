@@ -679,11 +679,11 @@ test.describe("Menù — dettaglio", () => {
 
 /** La card della griglia che contiene il nome del menù. */
 function cardOf(page: Page, name: string): Locator {
-    return main(page).getByText(name, { exact: true }).locator("xpath=ancestor::*[contains(., 'prodott')][1]");
+    return main(page).getByText(name, { exact: true }).locator("xpath=ancestor::*[@role='listitem'][1]");
 }
 
 test.describe("Menù — dove è attivo (§50.13)", () => {
-    test.fail("lista: «Dove è attivo» al posto di «Creato il»", async ({ page }) => {
+    test("lista: «Dove è attivo» al posto di «Creato il»", async ({ page }) => {
         await openList(page);
         await page.getByRole("radio", { name: "Vista lista" }).click();
         const table = main(page).getByRole("table", { name: "Menù" });
@@ -696,7 +696,7 @@ test.describe("Menù — dove è attivo (§50.13)", () => {
         await expect(table.getByRole("row", { name: /Carta e2e/ }).getByRole("img", { name: "Stile Estate e2e" })).toBeVisible();
     });
 
-    test.fail("griglia: stato, categorie vuote e swatch dello stile sulla card", async ({ page }) => {
+    test("griglia: stato, categorie vuote e swatch dello stile sulla card", async ({ page }) => {
         await openList(page);
         await page.getByRole("radio", { name: "Vista griglia" }).click();
         const carta = cardOf(page, "Carta e2e");

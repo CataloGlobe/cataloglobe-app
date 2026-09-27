@@ -27,6 +27,11 @@ import {
     type CatalogStats
 } from "@/services/supabase/catalogs";
 import { CardGrid, CardGridItem } from "@/components/ui/CardGrid/CardGrid";
+import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
+import { StyleSwatch } from "@/components/ui/StyleSwatch/StyleSwatch";
+import { listStyleSwatches, type V2Style } from "@/services/supabase/styles";
+import { useRuleAppearance } from "@/hooks/useRuleAppearance";
+import { appearanceOf, catalogStyleIds, describeCatalogSummary, type SummaryTone } from "@/utils/ruleAppearance";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
@@ -37,7 +42,9 @@ import { isPostgrestFKError } from "@/utils/supabaseErrors";
 import styles from "./Catalogs.module.scss";
 
 const FORM_ID = "catalog-form";
-const DATE_FORMAT = new Intl.DateTimeFormat("it-IT", { day: "2-digit", month: "2-digit", year: "numeric" });
+
+/** Dove è attivo un menù (§23.2, §50.13): la riga e il suo stile. */
+type CatalogUsage = { label: string; tone: SummaryTone; style: V2Style | null; moreStyles: number };
 
 export default function Catalogs() {
     const currentTenantId = useTenantId();
@@ -63,6 +70,9 @@ export default function Catalogs() {
     });
     const [statsMap, setStatsMap] = useState<Record<string, CatalogStats>>({});
     const [statsLoading, setStatsLoading] = useState(false);
+    const [styleById, setStyleById] = useState<Map<string, V2Style>>(new Map());
+    // Chi lo sta guardando adesso: dalle regole, con la stessa competizione di Programmazione.
+    const appearance = useRuleAppearance(currentTenantId);
 
     // Drawer state
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -99,6 +109,10 @@ export default function Catalogs() {
                     .then(map => setStatsMap(map))
                     .catch(() => {})
                     .finally(() => setStatsLoading(false));
+                // Lo swatch sulla card: senza, la card resta senza campione.
+                listStyleSwatches(currentTenantId)
+                    .then(list => setStyleById(new Map(list.map(style => [style.id, style]))))
+                    .catch(() => {});
             }
         } catch (error) {
             console.error("Errore caricamento cataloghi:", error);
@@ -334,9 +348,37 @@ export default function Catalogs() {
     }, [catalogs, searchQuery]);
     const allCatalogIds = useMemo(() => catalogs.map(c => c.id), [catalogs]);
 
-    const formatDate = (iso: string) => {
-        const date = new Date(iso);
-        return Number.isNaN(date.getTime()) ? "—" : DATE_FORMAT.format(date);
+    const usageById = useMemo(() => {
+        const map = new Map<string, CatalogUsage>();
+        if (!appearance.index) return map;
+        for (const catalog of catalogs) {
+            const a = appearanceOf(appearance.index, { kind: "catalog", id: catalog.id });
+            const styleIds = catalogStyleIds(a).filter(id => styleById.has(id));
+            map.set(catalog.id, {
+                ...describeCatalogSummary(a),
+                style: styleIds.length > 0 ? styleById.get(styleIds[0])! : null,
+                moreStyles: Math.max(0, styleIds.length - 1)
+            });
+        }
+        return map;
+    }, [appearance.index, catalogs, styleById]);
+
+    const usageBadge = (catalogId: string) => {
+        const usage = usageById.get(catalogId);
+        return usage ? <StatusBadge variant={usage.tone} label={usage.label} /> : undefined;
+    };
+    const swatchOf = (catalogId: string, compact: boolean) => {
+        const usage = usageById.get(catalogId);
+        if (!usage?.style) return undefined;
+        const more = usage.moreStyles > 0 ? ` (+${usage.moreStyles} ${usage.moreStyles === 1 ? "stile" : "stili"})` : "";
+        return <StyleSwatch style={usage.style} compact={compact} label={`Stile ${usage.style.name}${more}`} />;
+    };
+
+    /** «· 1 vuota»: le categorie che i clienti non vedono (#238). */
+    const emptyText = (catalogId: string) => {
+        const n = statsMap[catalogId]?.emptyCategoryCount ?? 0;
+        if (statsLoading || n === 0) return "";
+        return ` · ${n} ${n === 1 ? "vuota" : "vuote"}`;
     };
 
     /** «7 categorie · 22 prodotti»: gli stessi numeri nella card e nella lista. */
@@ -385,9 +427,12 @@ export default function Catalogs() {
             width: "2fr",
             accessor: catalog => catalog.name,
             cell: (_value, catalog) => (
-                <Text variant="body-sm" weight={600}>
-                    {catalog.name}
-                </Text>
+                <span className={styles.nameCell}>
+                    {swatchOf(catalog.id, true)}
+                    <Text variant="body-sm" weight={600}>
+                        {catalog.name}
+                    </Text>
+                </span>
             )
         },
         {
@@ -411,19 +456,16 @@ export default function Catalogs() {
             cell: (_value, catalog) => (
                 <Text variant="body-sm" colorVariant="muted">
                     {productsText(catalog.id)}
+                    {emptyText(catalog.id)}
                 </Text>
             )
         },
         {
-            id: "createdAt",
-            header: "Creato il",
-            width: "1fr",
-            accessor: catalog => catalog.created_at,
-            cell: (_value, catalog) => (
-                <Text variant="body-sm" colorVariant="muted">
-                    {formatDate(catalog.created_at)}
-                </Text>
-            )
+            // Al posto di «Creato il» (§50.13/4): quanto è usato batte quando è nato.
+            id: "where",
+            header: "Dove è attivo",
+            width: "1.6fr",
+            cell: (_value, catalog) => usageBadge(catalog.id)
         },
         ...(canWriteCatalog
             ? [
@@ -467,6 +509,7 @@ export default function Catalogs() {
         if (viewMode === "list") {
             return (
                 <DataTable<V2Catalog>
+                    ariaLabel={verticalConfig.catalogLabelPlural}
                     data={filteredCatalogs}
                     allRowIds={allCatalogIds}
                     columns={columns}
@@ -492,20 +535,17 @@ export default function Catalogs() {
             <CardGrid
                 loading={isLoading}
                 skeletonCount={3}
-                skeletonShape={{ media: false, footer: true }}
+                skeletonShape={{ media: true, badge: true }}
                 aria-label={verticalConfig.catalogLabelPlural}
             >
                 {filteredCatalogs.map(catalog => (
                     <CardGridItem
                         key={catalog.id}
                         to={`/business/${currentTenantId}/catalogs/${catalog.id}`}
+                        media={swatchOf(catalog.id, false)}
                         title={catalog.name}
-                        subtitle={`${categoriesText(catalog.id)} · ${productsText(catalog.id)}`}
-                        footer={
-                            <Text variant="caption" colorVariant="muted">
-                                Creato il {formatDate(catalog.created_at)}
-                            </Text>
-                        }
+                        subtitle={`${categoriesText(catalog.id)} · ${productsText(catalog.id)}${emptyText(catalog.id)}`}
+                        badge={usageBadge(catalog.id)}
                         actions={canWriteCatalog ? rowActions(catalog) : undefined}
                     />
                 ))}
