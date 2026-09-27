@@ -11,6 +11,7 @@ import {
     type FeaturedContentPricingMode
 } from "@/services/supabase/featuredContents";
 import { useTenantId } from "@/context/useTenantId";
+import styles from "./Highlights.module.scss";
 
 const FORM_ID = "featured-content-form";
 
@@ -75,7 +76,7 @@ export default function FeaturedContentDrawer({ open, onClose, onSuccess }: Draw
     };
 
     return (
-        <SystemDrawer open={open} onClose={handleRequestClose} width={520}>
+        <SystemDrawer open={open} onClose={handleRequestClose} size="sm">
             <DrawerLayout
                 header={
                     <Text variant="title-sm" weight={600}>
@@ -84,52 +85,43 @@ export default function FeaturedContentDrawer({ open, onClose, onSuccess }: Draw
                 }
                 footer={
                     <>
-                        <Button variant="secondary" onClick={onClose} disabled={submitting}>
+                        <Button variant="secondary" onClick={handleRequestClose} disabled={submitting}>
                             Annulla
                         </Button>
-                        <Button
-                            variant="primary"
-                            type="submit"
-                            form={FORM_ID}
-                            loading={submitting}
-                            disabled={submitting}
-                        >
-                            {submitting ? "Creazione..." : "Crea"}
+                        <Button variant="primary" type="submit" form={FORM_ID} loading={submitting}>
+                            Crea
                         </Button>
                     </>
                 }
             >
                 <form
                     id={FORM_ID}
+                    className={styles.form}
                     onSubmit={e => {
                         e.preventDefault();
                         handleSave();
                     }}
-                    style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: "24px",
-                        opacity: submitting ? 0.7 : 1,
-                        pointerEvents: submitting ? "none" : "auto"
-                    }}
                 >
-                    <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-                        <Text variant="title-sm" weight={600}>
-                            Informazioni base
-                        </Text>
+                    <fieldset className={styles.fieldset} disabled={submitting}>
                         <TextInput
-                            label="Titolo pubblico *"
+                            label="Titolo"
+                            required
+                            helperText="Quello che leggono i clienti."
                             value={title}
                             onChange={e => setTitle(e.target.value)}
                             placeholder="Es: Promozione speciale"
                         />
                         <TextInput
                             label="Nome interno"
+                            helperText="Serve a te per ritrovarlo: i clienti non lo vedono. Vuoto = il titolo."
                             value={internalName}
                             onChange={e => setInternalName(e.target.value)}
                             placeholder="Es: RistoPromo - Sede Roma"
                         />
-                    </div>
+                        <Text variant="caption" colorVariant="muted">
+                            Nasce come annuncio: il tipo si sceglie nella sua pagina.
+                        </Text>
+                    </fieldset>
                 </form>
             </DrawerLayout>
         </SystemDrawer>

@@ -6,20 +6,24 @@ import Text from "@/components/ui/Text/Text";
 import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
-import { Pencil, Trash2, Pin, LayoutGrid, List as ListIcon } from "lucide-react";
+import { CardGrid, CardGridItem } from "@/components/ui/CardGrid/CardGrid";
+import { Badge } from "@/components/ui/Badge/Badge";
+import { FramedMedia } from "@/components/ui/FramedMedia";
+import { Pencil, Trash2, Pin, LayoutGrid, List as ListIcon, Image as ImageIcon } from "lucide-react";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { useToast } from "@/context/Toast/ToastContext";
 import {
     listFeaturedContents,
     deleteFeaturedContent,
+    columnsToFraming,
     FeaturedContentWithProducts
 } from "@/services/supabase/featuredContents";
+import { CONTENT_TYPE_LABEL } from "./featuredContentTypes";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import { useBulkDelete } from "@/hooks/useBulkDelete";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import FeaturedContentDrawer from "./FeaturedContentDrawer";
-import FeaturedContentDeleteDrawer from "./FeaturedContentDeleteDrawer";
-import FeaturedContentCard from "./components/FeaturedContentCard";
+import FeaturedContentDeleteDialog from "./FeaturedContentDeleteDialog";
 import styles from "./Highlights.module.scss";
 
 import { useNavigate } from "react-router-dom";
@@ -28,6 +32,25 @@ import { useEnsureActive } from "@/hooks/useEnsureActive";
 import { usePermissions } from "@/context/PermissionsContext";
 import { canDoOnAnyActivity } from "@/lib/permissions";
 import { PageGate } from "@/components/PageGate/PageGate";
+
+const VIEW_MODE_KEY = "featuredContents_viewMode";
+
+/** «I clienti leggono «Menu coppia» · 2 prodotti» (§28.6: i due nomi, dichiarati). */
+function readsLine(item: FeaturedContentWithProducts): string {
+    const reads = `I clienti leggono «${item.title}»`;
+    if (item.pricing_mode === "none") return reads;
+    const n = item.products_count || 0;
+    return `${reads} · ${n === 1 ? "1 prodotto" : `${n} prodotti`}`;
+}
+
+// Lista di default (mockup, come Prodotti); la scelta salvata vince.
+function readViewMode(): "list" | "grid" {
+    try {
+        return localStorage.getItem(VIEW_MODE_KEY) === "grid" ? "grid" : "list";
+    } catch {
+        return "list";
+    }
+}
 
 export default function Highlights() {
     const { showToast } = useToast();
@@ -38,42 +61,40 @@ export default function Highlights() {
     // Gate di lettura prima della fetch: senza `featured.read` nessuna richiesta.
     const canRead = permissions != null && canDoOnAnyActivity(permissions, "featured.read");
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState(false);
     const [contents, setContents] = useState<FeaturedContentWithProducts[]>([]);
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const navigate = useNavigate();
 
-    // Filters and Toolbar
     const [searchQuery, setSearchQuery] = useState("");
-    const [viewMode, setViewMode] = useState<"list" | "grid">(() => {
-        const saved = localStorage.getItem("featuredContents_viewMode");
-        return saved === "list" ? "list" : "grid";
-    });
+    const [viewMode, setViewMode] = useState<"list" | "grid">(readViewMode);
 
     const handleViewChange = useCallback((v: "list" | "grid") => {
         setViewMode(v);
-        localStorage.setItem("featuredContents_viewMode", v);
+        try {
+            localStorage.setItem(VIEW_MODE_KEY, v);
+        } catch {
+            // Preferenza di vista: senza storage vale per la sessione.
+        }
     }, []);
 
-    // Delete state
     const [deleteTarget, setDeleteTarget] = useState<FeaturedContentWithProducts | null>(null);
 
     const loadData = useCallback(async () => {
         if (!tenantId || !canRead) return;
         try {
             setLoading(true);
+            setLoadError(false);
             const data = await listFeaturedContents(tenantId);
             setContents(data);
         } catch (error) {
-            console.error(error);
-            showToast({
-                type: "error",
-                message: "Errore durante il caricamento dei contenuti in evidenza",
-                duration: 3000
-            });
+            // Un errore non è un elenco vuoto: la pagina lo dice, con «Riprova».
+            console.error("Caricamento contenuti in evidenza:", error);
+            setLoadError(true);
         } finally {
             setLoading(false);
         }
-    }, [tenantId, canRead, showToast]);
+    }, [tenantId, canRead]);
 
     useEffect(() => {
         loadData();
@@ -86,11 +107,7 @@ export default function Highlights() {
 
     const headerActions = useMemo(() => (
         <>
-            <ToolbarSearch
-                value={searchQuery}
-                onChange={setSearchQuery}
-                placeholder="Cerca per titolo..."
-            />
+            <ToolbarSearch value={searchQuery} onChange={setSearchQuery} placeholder="Cerca contenuti..." />
             <SegmentedControl<"list" | "grid">
                 iconsOnly
                 value={viewMode}
@@ -101,12 +118,7 @@ export default function Highlights() {
                 ]}
             />
             {canWrite && (
-                <Button
-                    variant="primary"
-                    onClick={handleCreate}
-                    disabled={!canEdit}
-                    className={styles.toolbarCta}
-                >
+                <Button variant="primary" onClick={handleCreate} disabled={!canEdit}>
                     Crea contenuto
                 </Button>
             )}
@@ -117,31 +129,23 @@ export default function Highlights() {
     // `sections`: la pagina non ha tab, quindi la riga compatta parte dalle
     // icone. Il toggle vista resta a vista — azione frequente.
     const headerCompact = useMemo<PageHeaderCompactConfig>(() => ({
-        search: {
-            value: searchQuery,
-            onChange: setSearchQuery,
-            placeholder: "Cerca per titolo..."
-        },
+        search: { value: searchQuery, onChange: setSearchQuery, placeholder: "Cerca contenuti..." },
         persistentIcons: [
             viewMode === "list"
                 ? { icon: <LayoutGrid size={18} />, label: "Vista griglia", onClick: () => handleViewChange("grid") }
                 : { icon: <ListIcon size={18} />, label: "Vista lista", onClick: () => handleViewChange("list") }
         ],
-        primaryAction: canWrite
-            ? { label: "Crea contenuto", onClick: handleCreate, disabled: !canEdit }
-            : undefined
+        primaryAction: canWrite ? { label: "Crea contenuto", onClick: handleCreate, disabled: !canEdit } : undefined
     }), [searchQuery, viewMode, handleViewChange, canWrite, handleCreate, canEdit]);
 
     usePageHeader({
-        title: "Contenuti in evidenza",
-        subtitle: "Gestisci i contenuti editoriali e aggregatori di prodotti.",
+        title: "In evidenza",
+        subtitle: "Blocchi sopra o sotto il menù. Dove e quando lo decide la regola.",
         actions: headerActions,
-        compact: headerCompact,
+        compact: headerCompact
     });
 
-    const handleEdit = (item: FeaturedContentWithProducts) => {
-        navigate(`/business/${tenantId}/featured/${item.id}`);
-    };
+    const contentUrl = (item: FeaturedContentWithProducts) => `/business/${tenantId}/featured/${item.id}`;
 
     // Eliminazione multipla con conferma (§50.11, come Prodotti): il conteggio
     // delle regole rimaste senza contenuti, che il servizio mette in bozza, si
@@ -172,70 +176,142 @@ export default function Highlights() {
     };
 
     const filteredContents = useMemo(() => {
-        const q = searchQuery.toLowerCase();
-        return contents.filter(item =>
-            item.title.toLowerCase().includes(q) ||
-            item.internal_name.toLowerCase().includes(q)
+        const q = searchQuery.trim().toLowerCase();
+        return contents.filter(
+            item => item.title.toLowerCase().includes(q) || item.internal_name.toLowerCase().includes(q)
         );
     }, [contents, searchQuery]);
     const allContentIds = useMemo(() => contents.map(c => c.id), [contents]);
+    const hasSearch = searchQuery.trim().length > 0;
+
+    const rowActions = (item: FeaturedContentWithProducts) => (
+        <TableRowActions
+            ariaLabel={`Azioni contenuto ${item.internal_name}`}
+            actions={[
+                { label: canWrite ? "Modifica" : "Apri", icon: Pencil, onClick: () => navigate(contentUrl(item)) },
+                ...(canWrite
+                    ? [{
+                          label: "Elimina",
+                          icon: Trash2,
+                          onClick: () => requestDelete(item),
+                          variant: "destructive" as const,
+                          separator: true
+                      }]
+                    : [])
+            ]}
+        />
+    );
 
     const columns: ColumnDefinition<FeaturedContentWithProducts>[] = [
         {
             id: "title",
-            header: "Titolo",
-            width: "2fr",
+            header: "Contenuto",
+            width: "1fr",
             cell: (_value, item) => (
-                <div className={styles.titleCell}>
-                    <Text variant="body-sm" weight={600}>
-                        {item.internal_name}
-                    </Text>
-                    {item.title !== item.internal_name && (
-                        <Text variant="caption" colorVariant="muted" className={styles.subtitle}>
-                            {item.title}
+                <div className={styles.cellTwoLine}>
+                    <span className={styles.nameLine}>
+                        <Text variant="body-sm" weight={600} className={styles.ellipsis}>
+                            {item.internal_name}
                         </Text>
-                    )}
-                    <Text variant="caption" colorVariant="muted" className={styles.subtitle}>
-                        {item.subtitle || "Nessun sottotitolo"}
+                        <Badge variant="neutral">{CONTENT_TYPE_LABEL[item.content_type ?? "announcement"]}</Badge>
+                    </span>
+                    <Text variant="caption" colorVariant="muted" className={styles.ellipsis}>
+                        {readsLine(item)}
                     </Text>
                 </div>
             )
-        },
-        {
-            id: "products",
-            header: "Prodotti",
-            width: "0.8fr",
-            accessor: item => item.products_count || 0,
-            cell: (value, item) =>
-                item.pricing_mode === "none" ? (
-                    <Text variant="body-sm" colorVariant="muted">
-                        -
-                    </Text>
-                ) : (
-                    <Text variant="body-sm">{(value as number) || 0}</Text>
-                )
         },
         {
             id: "actions",
             header: "",
             width: "56px",
             align: "right",
-            cell: (_value, item) => (
-                <TableRowActions
-                    actions={[
-                        { label: "Modifica", icon: Pencil, onClick: () => handleEdit(item) },
-                        ...(canWrite ? [{
-                            label: "Elimina",
-                            icon: Trash2,
-                            onClick: () => requestDelete(item),
-                            variant: "destructive" as const,
-                            separator: true
-                        }] : [])
-                    ]}
-                />
-            )
+            cell: (_value, item) => rowActions(item)
         }
     ];
+
+    const renderContent = () => {
+        if (loadError) {
+            return (
+                <EmptyState
+                    icon={<Pin />}
+                    title="Non è stato possibile caricare i contenuti"
+                    description="Controlla la connessione e riprova."
+                    action={
+                        <Button variant="secondary" onClick={() => loadData()}>
+                            Riprova
+                        </Button>
+                    }
+                />
+            );
+        }
+        if (!loading && contents.length === 0) {
+            return (
+                <EmptyState
+                    icon={<Pin />}
+                    title="Metti in risalto quello che vuoi far notare"
+                    description="Promozioni, piatti consigliati, eventi: compaiono sopra o sotto il menù, e puoi programmarli per periodi specifici."
+                    action={
+                        canWrite ? (
+                            <Button variant="primary" onClick={handleCreate} disabled={!canEdit}>
+                                Crea il primo contenuto
+                            </Button>
+                        ) : undefined
+                    }
+                />
+            );
+        }
+        if (viewMode === "list") {
+            return (
+                <DataTable<FeaturedContentWithProducts>
+                    data={filteredContents}
+                    allRowIds={allContentIds}
+                    columns={columns}
+                    isLoading={loading}
+                    ariaLabel="Contenuti in evidenza"
+                    isFiltered={hasSearch}
+                    onClearFilters={() => setSearchQuery("")}
+                    selectable={canWrite && canEdit}
+                    selectedRowIds={bulk.selectedIds}
+                    onSelectedRowsChange={bulk.setSelectedIds}
+                    onBulkDelete={canWrite && canEdit ? bulk.request : undefined}
+                    onRowClick={item => navigate(contentUrl(item))}
+                />
+            );
+        }
+        if (!loading && filteredContents.length === 0) {
+            return <EmptyState variant="filtered" title="Nessun risultato" onClearFilters={() => setSearchQuery("")} />;
+        }
+        return (
+            <CardGrid loading={loading} skeletonShape={{ media: true }} aria-label="Contenuti in evidenza">
+                {filteredContents.map(item => (
+                    <CardGridItem
+                        key={item.id}
+                        to={contentUrl(item)}
+                        aria-label={item.internal_name}
+                        media={
+                            item.media_id ? (
+                                <FramedMedia
+                                    source={item.media_id}
+                                    framing={columnsToFraming(item)}
+                                    aspectRatio={item.media_aspect_ratio}
+                                    alt={item.title}
+                                />
+                            ) : (
+                                <div className={styles.mediaPlaceholder} aria-hidden="true">
+                                    <ImageIcon size={24} strokeWidth={1.5} />
+                                </div>
+                            )
+                        }
+                        title={item.internal_name}
+                        subtitle={readsLine(item)}
+                        badge={<Badge variant="neutral">{CONTENT_TYPE_LABEL[item.content_type ?? "announcement"]}</Badge>}
+                        actions={rowActions(item)}
+                    />
+                ))}
+            </CardGrid>
+        );
+    };
 
     if (permissions != null && !canRead) {
         return <PageGate readPermission="featured.read">{() => null}</PageGate>;
@@ -244,82 +320,30 @@ export default function Highlights() {
     return (
         <PageGate readPermission="featured.read">
             {() => (
-        <>
-            <div className={styles.wrapper} data-view-mode={viewMode}>
-                <div className={styles.tableCard}>
-                    {loading ? (
-                        <div className={styles.loadingState}>
-                            <Text colorVariant="muted">Caricamento in corso...</Text>
-                        </div>
-                    ) : filteredContents.length === 0 ? (
-                        <EmptyState
-                            icon={<Pin size={40} strokeWidth={1.5} />}
-                            title={
-                                searchQuery
-                                    ? "Nessun risultato"
-                                    : "Metti in risalto quello che vuoi far notare"
-                            }
-                            description={
-                                searchQuery
-                                    ? "Nessun contenuto corrisponde alla ricerca."
-                                    : "Promozioni, piatti consigliati, eventi: compaiono sopra o sotto il menù, e puoi programmarli per periodi specifici."
-                            }
-                            action={
-                                !searchQuery && canWrite ? (
-                                    <Button variant="primary" onClick={handleCreate} disabled={!canEdit}>
-                                        Crea il primo contenuto
-                                    </Button>
-                                ) : undefined
-                            }
-                        />
-                    ) : viewMode === "list" ? (
-                        <DataTable<FeaturedContentWithProducts>
-                            data={filteredContents}
-                            allRowIds={allContentIds}
-                            columns={columns}
-                            selectable={canWrite && canEdit}
-                            selectedRowIds={bulk.selectedIds}
-                            onSelectedRowsChange={bulk.setSelectedIds}
-                            onBulkDelete={canWrite && canEdit ? bulk.request : undefined}
-                            onRowClick={item => navigate(`/business/${tenantId}/featured/${item.id}`)}
-                        />
-                    ) : (
-                        <div className={styles.contentGrid}>
-                            {filteredContents.map(item => (
-                                <FeaturedContentCard
-                                    key={item.id}
-                                    item={item}
-                                    onEdit={() => handleEdit(item)}
-                                    onDelete={canWrite ? () => requestDelete(item) : undefined}
-                                />
-                            ))}
-                        </div>
-                    )}
-                </div>
-            </div>
+                <>
+                    <div className={styles.wrapper} data-view-mode={viewMode}>
+                        {renderContent()}
+                    </div>
 
-            <FeaturedContentDrawer
-                open={isCreateOpen}
-                onClose={() => setIsCreateOpen(false)}
-                onSuccess={() => {
-                    setIsCreateOpen(false);
-                    loadData();
-                }}
-            />
+                    <FeaturedContentDrawer
+                        open={isCreateOpen}
+                        onClose={() => setIsCreateOpen(false)}
+                        onSuccess={() => setIsCreateOpen(false)}
+                    />
 
-            <ConfirmDialog
-                {...bulk.dialog}
-                message="Le regole che li mostrano restano; quelle che restano senza contenuti passano in bozza. Non si torna indietro."
-            />
+                    <ConfirmDialog
+                        {...bulk.dialog}
+                        message="Le regole che li mostrano restano; quelle che restano senza contenuti passano in bozza. Non si torna indietro."
+                    />
 
-            <FeaturedContentDeleteDrawer
-                open={Boolean(deleteTarget) && Boolean(tenantId)}
-                onClose={() => setDeleteTarget(null)}
-                featured={deleteTarget}
-                tenantId={tenantId ?? ""}
-                onSuccess={loadData}
-            />
-        </>
+                    <FeaturedContentDeleteDialog
+                        open={Boolean(deleteTarget) && Boolean(tenantId)}
+                        onClose={() => setDeleteTarget(null)}
+                        featured={deleteTarget}
+                        tenantId={tenantId ?? ""}
+                        onSuccess={loadData}
+                    />
+                </>
             )}
         </PageGate>
     );

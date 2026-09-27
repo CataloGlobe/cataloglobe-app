@@ -204,6 +204,53 @@ test.describe("In evidenza — elenco", () => {
     });
 });
 
+test.describe("In evidenza — elenco ricomposto (P7)", () => {
+    test("vista predefinita: lista; la riga dice tipo, cosa leggono i clienti, i prodotti", async ({ page }) => {
+        await openBusinessPage(page, "featured", "In evidenza");
+        await expect(contentName(page, "Menu di coppia e2e")).toBeVisible({ timeout: 15_000 });
+        await expect(page.getByRole("radio", { name: "Vista lista" })).toHaveAttribute("aria-checked", "true");
+        const row = contentName(page, "Menu di coppia e2e").locator("xpath=ancestor::*[@role='row'][1]");
+        await expect(row).toContainText("Bundle");
+        await expect(row).toContainText("I clienti leggono «Menu coppia» · 2 prodotti");
+        const annuncio = contentName(page, "Chiusura ferragosto e2e").locator("xpath=ancestor::*[@role='row'][1]");
+        await expect(annuncio).toContainText("I clienti leggono «Siamo chiusi il 15 agosto»");
+        await expect(annuncio).not.toContainText("prodott");
+    });
+
+    test("errore di caricamento: lo stato lo dice, «Riprova» ricarica", async ({ page }) => {
+        let fail = true;
+        await page.route(/\/rest\/v1\/featured_contents\?/, route =>
+            fail && route.request().method() === "GET" ? route.fulfill({ status: 500, json: { message: "e2e" } }) : route.fallback()
+        );
+        await openBusinessPage(page, "featured", "In evidenza");
+        await expect(main(page).getByText("Non è stato possibile caricare i contenuti")).toBeVisible({ timeout: 15_000 });
+        fail = false;
+        await main(page).getByRole("button", { name: "Riprova" }).click();
+        await expect(contentName(page, "Menu di coppia e2e")).toBeVisible();
+    });
+
+    for (const view of ["grid", "list"] as const) {
+        test(`${view}: ricerca senza esito, e si azzera`, async ({ page }) => {
+            await openList(page, view);
+            await search(page, "nessun contenuto si chiama così");
+            await expect(main(page).getByText("Nessun risultato")).toBeVisible();
+            await main(page).getByRole("button", { name: /Azzera|Cancella|Rimuovi i filtri/ }).first().click();
+            await expect(contentName(page, "Menu di coppia e2e")).toBeVisible();
+        });
+    }
+
+    test("eliminare è una conferma col nome interno", async ({ page }) => {
+        await openList(page);
+        await actionsOf(contentName(page, "Concerto e2e")).click();
+        await page.getByRole("menuitem", { name: "Elimina" }).click();
+        const confirm = page.getByRole("alertdialog");
+        await expect(confirm).toContainText("Eliminare «Concerto e2e»?");
+        await expect(confirm).toContainText("Non si torna indietro.");
+        await confirm.getByRole("button", { name: "Annulla" }).click();
+        expect(stub.writes.filter(w => !w.key.startsWith("translation"))).toHaveLength(0);
+    });
+});
+
 test.describe("In evidenza — dettaglio", () => {
     test("testi: titolo, sottotitolo, nome interno", async ({ page }) => {
         patchFeatured(stub);
