@@ -223,7 +223,7 @@ export default function Highlights() {
             <>
                 {line.placement && (
                     <span className={styles.nameLine}>
-                        <Text variant="caption" colorVariant="muted" className={styles.ellipsis}>
+                        <Text variant="caption" colorVariant="muted">
                             {line.more > 0 ? `${line.placement} · +${line.more} ${line.more === 1 ? "regola" : "regole"}` : line.placement}
                         </Text>
                         {line.stopped && <StatusBadge variant="neutral" label={line.stopped} />}

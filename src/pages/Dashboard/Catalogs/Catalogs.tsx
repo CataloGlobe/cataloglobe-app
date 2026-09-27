@@ -31,6 +31,7 @@ import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import { StyleSwatch } from "@/components/ui/StyleSwatch/StyleSwatch";
 import { listStyleSwatches, type V2Style } from "@/services/supabase/styles";
 import { useRuleAppearance } from "@/hooks/useRuleAppearance";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { appearanceOf, catalogStyleIds, describeCatalogSummary, type SummaryTone } from "@/utils/ruleAppearance";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
@@ -73,6 +74,8 @@ export default function Catalogs() {
     const [styleById, setStyleById] = useState<Map<string, V2Style>>(new Map());
     // Chi lo sta guardando adesso: dalle regole, con la stessa competizione di Programmazione.
     const appearance = useRuleAppearance(currentTenantId);
+    // Sotto 768 la tabella tiene una colonna: lo stato scende sotto il nome.
+    const isPhone = useMediaQuery("(max-width: 767px)");
 
     // Drawer state
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -426,14 +429,22 @@ export default function Catalogs() {
             header: "Nome",
             width: "2fr",
             accessor: catalog => catalog.name,
-            cell: (_value, catalog) => (
-                <span className={styles.nameCell}>
-                    {swatchOf(catalog.id, true)}
-                    <Text variant="body-sm" weight={600}>
-                        {catalog.name}
-                    </Text>
-                </span>
-            )
+            cell: (_value, catalog) =>
+                isPhone ? (
+                    <span className={styles.nameStack}>
+                        <Text variant="body-sm" weight={600}>
+                            {catalog.name}
+                        </Text>
+                        {usageBadge(catalog.id)}
+                    </span>
+                ) : (
+                    <span className={styles.nameCell}>
+                        {swatchOf(catalog.id, true)}
+                        <Text variant="body-sm" weight={600}>
+                            {catalog.name}
+                        </Text>
+                    </span>
+                )
         },
         {
             id: "categories",
@@ -465,6 +476,7 @@ export default function Catalogs() {
             id: "where",
             header: "Dove è attivo",
             width: "1.6fr",
+            hideOnPhone: true,
             cell: (_value, catalog) => usageBadge(catalog.id)
         },
         ...(canWriteCatalog

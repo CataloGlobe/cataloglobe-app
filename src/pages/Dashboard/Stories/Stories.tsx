@@ -15,6 +15,7 @@ import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
 import { ChipGroupSingle } from "@/components/ui/Chip/ChipGroup";
 import { getActivities } from "@/services/supabase/activities";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { describeStoryAppearance, storyAppearance, type AppearanceActivity } from "@/utils/ruleAppearance";
 import StoryCreateDrawer from "./StoryCreateDrawer";
 import StoryDeleteDialog from "./StoryDeleteDialog";
@@ -66,6 +67,8 @@ export default function Stories() {
     const [filter, setFilter] = useState<StoryFilter>("all");
     // Dove appare (§34.7, §50.13): le sedi, per nominare quella di una storia.
     const [activities, setActivities] = useState<AppearanceActivity[]>([]);
+    // Sotto 768 «Dove appare» scende sotto il titolo (DataTable: due colonne).
+    const isPhone = useMediaQuery("(max-width: 767px)");
 
     useEffect(() => {
         if (!tenantId || !canRead) return;
@@ -191,6 +194,15 @@ export default function Stories() {
         ] as const
     ).map(option => ({ ...option, count: stories.filter(item => matchesFilter(item, option.value)).length }));
 
+    const whereText = (item: StoryWithProduct) => {
+        const where = describeStoryAppearance(storyAppearance(item, activities, !canEdit));
+        return (
+            <Text variant={isPhone ? "caption" : "body-sm"} colorVariant={where.muted || isPhone ? "muted" : undefined}>
+                {where.label}
+            </Text>
+        );
+    };
+
     const columns: ColumnDefinition<StoryWithProduct>[] = [
         ...(canReorder
             ? [
@@ -222,6 +234,7 @@ export default function Stories() {
                     <Text variant="body-sm" weight={600}>
                         {item.title}
                     </Text>
+                    {isPhone && whereText(item)}
                 </div>
             )
         },
@@ -229,14 +242,8 @@ export default function Stories() {
             id: "where",
             header: "Dove appare",
             width: "0.8fr",
-            cell: (_value, item) => {
-                const where = describeStoryAppearance(storyAppearance(item, activities, !canEdit));
-                return (
-                    <Text variant="body-sm" colorVariant={where.muted ? "muted" : undefined}>
-                        {where.label}
-                    </Text>
-                );
-            }
+            hideOnPhone: true,
+            cell: (_value, item) => whereText(item)
         },
         {
             id: "product",

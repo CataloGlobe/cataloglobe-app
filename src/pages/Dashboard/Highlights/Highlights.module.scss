@@ -3,12 +3,14 @@
 // prende l'altezza naturale e la pagina scorre).
 .wrapper {
   width: 100%;
+  display: flex;
+  flex-direction: column;
+  // I chip «Tutti · Nessuna regola li mostra» sopra la tabella o la griglia.
+  gap: var(--space-16);
 
   &[data-view-mode="list"] {
     flex: 1 1 auto;
     min-height: 0;
-    display: flex;
-    flex-direction: column;
   }
 }
 

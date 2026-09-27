@@ -52,6 +52,15 @@
 .nameCell {
     display: flex;
     align-items: center;
-    gap: var(--space-3);
+    gap: var(--space-12);
+    min-width: 0;
+}
+
+// Sotto 768: il nome e, sotto, dove è attivo.
+.nameStack {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-4);
     min-width: 0;
 }

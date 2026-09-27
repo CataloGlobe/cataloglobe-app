@@ -25,6 +25,7 @@ import { listStyles, duplicateStyle, V2Style } from "@/services/supabase/styles"
 import { StyleSwatch } from "@/components/ui/StyleSwatch/StyleSwatch";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import { useRuleAppearance } from "@/hooks/useRuleAppearance";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { appearanceOf, describeStyleSummary } from "@/utils/ruleAppearance";
 import { StyleDeleteDrawer } from "./StyleDeleteDrawer";
 import { StyleCreateDrawer } from "./StyleCreateDrawer";
@@ -64,6 +65,8 @@ export default function Styles() {
     const [allStyles, setAllStyles] = useState<V2Style[]>([]);
     // Lo stato d'uso vivo (§34.3, §50.13): la stessa competizione di Programmazione.
     const appearance = useRuleAppearance(currentTenantId, canRead);
+    // Sotto 768 la colonna «Utilizzo» esce: lo stato sta sotto il nome.
+    const isPhone = useMediaQuery("(max-width: 767px)");
 
     const navigate = useNavigate();
 
@@ -235,9 +238,13 @@ export default function Styles() {
                             <Text variant="body-sm" weight={600}>{style.name}</Text>
                             {style.is_system && <Badge variant="neutral">Di sistema</Badge>}
                         </span>
-                        <Text variant="caption" colorVariant="muted">
-                            Versione {style.current_version?.version || "0"} · {usageLabel(style)}
-                        </Text>
+                        {isPhone ? (
+                            usageBadge(style)
+                        ) : (
+                            <Text variant="caption" colorVariant="muted">
+                                Versione {style.current_version?.version || "0"} · {usageLabel(style)}
+                            </Text>
+                        )}
                     </div>
                 )
             },
@@ -245,6 +252,7 @@ export default function Styles() {
                 id: "usage",
                 header: "Utilizzo",
                 width: "160px",
+                hideOnPhone: true,
                 cell: (_value, style) => usageBadge(style)
             },
             {
@@ -255,7 +263,7 @@ export default function Styles() {
                 cell: (_value, style) => renderRowActions(style)
             }
         ],
-        [renderRowActions, usageBadge]
+        [renderRowActions, usageBadge, isPhone]
     );
 
     const renderContent = () => {
