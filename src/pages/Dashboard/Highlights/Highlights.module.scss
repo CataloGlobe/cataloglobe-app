@@ -1,69 +1,62 @@
-// Wrapper contenuto pagina: nessun padding/margin verticale aggiuntivo —
-// il ritmo navbar→banda→contenuto deriva da `MainLayout .content` (24px),
-// identico a Catalogs.
+// Stessa catena di Menù: in lista l'altezza bounded di `MainLayout .content`
+// arriva fino all'auto page-size del DataTable; in griglia no (la CardGrid
+// prende l'altezza naturale e la pagina scorre).
 .wrapper {
-  gap: 24px;
   width: 100%;
 
-  // Catena flex vincolata (template Prodotti): propaga l'altezza bounded di
-  // `MainLayout .content` fino al `.autoSizeProbe` del DataTable. SOLO in
-  // list mode — in grid mode il bound si propagava a `.contentGrid` e ne
-  // schiacciava le card (flex-shrink + min-height:0 comprime la riga prima
-  // che CSS Grid le dia l'altezza naturale — vedi audit FASE 1).
   &[data-view-mode="list"] {
     flex: 1 1 auto;
     min-height: 0;
     display: flex;
     flex-direction: column;
-
-    // Anello intermedio (= `.content` di Prodotti): flex-col bounded che
-    // ospita la vista lista (DataTable, bare flex child → auto-size).
-    .tableCard {
-      flex: 1 1 auto;
-      min-height: 0;
-      display: flex;
-      flex-direction: column;
-    }
   }
 }
 
-// CTA della header band: altezza armonizzata a search/toggle via --control-height.
-.toolbarCta {
-  box-sizing: border-box;
-  height: var(--control-height, 38px);
-}
-
-.loadingState {
+.cellTwoLine {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 60px 24px;
-  text-align: center;
-  gap: 8px;
-}
-
-.titleCell {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+  gap: var(--space-2);
   min-width: 0;
 }
 
-
-.subtitle {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.nameLine {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-8);
+  min-width: 0;
 }
 
-.contentGrid {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  align-items: stretch;
-  // Vista grid dentro il flex-col bounded `.tableCard`: scroll interno quando
-  // i contenuti eccedono lo spazio, senza flex-grow (card non stirate).
-  min-height: 0;
-  overflow-y: auto;
+.ellipsis {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// Card senza immagine: il segnaposto tiene la griglia allineata.
+.mediaPlaceholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  background: var(--hover-bg);
+  color: var(--text-muted);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+}
+
+// Il form di creazione, spento mentre crea.
+.fieldset {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
 }

@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from "react";
+import { IconButton } from "@/components/ui/Button/IconButton";
+import styles from "./ProductAttributesDrawer.module.scss";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { Button } from "@/components/ui/Button/Button";
@@ -238,17 +240,10 @@ export function ProductAttributesDrawer({
     );
 
     return (
-        <SystemDrawer open={open} onClose={onClose} width={480}>
-            <DrawerLayout
-                header={
-                    <Text variant="title-sm" weight={600}>
-                        Gestisci attributi
-                    </Text>
-                }
-                footer={footer}
-            >
-                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                    <Text variant="body-sm" colorVariant="muted" style={{ marginBottom: 8 }}>
+        <SystemDrawer open={open} onClose={onClose} size="md">
+            <DrawerLayout title="Assegna attributi" footer={footer}>
+                <div className={styles.body}>
+                    <Text variant="body-sm" colorVariant="muted">
                         Seleziona gli attributi da associare o creane uno nuovo.
                     </Text>
 
@@ -282,7 +277,7 @@ export function ProductAttributesDrawer({
                             <form
                                 id={formIdNew}
                                 onSubmit={handleCreate}
-                                style={{ display: "flex", flexDirection: "column", gap: 16 }}
+                                className={styles.form}
                             >
                                 <TextInput
                                     label="Nome"
@@ -309,58 +304,38 @@ export function ProductAttributesDrawer({
                                 />
 
                                 {(type === "select" || type === "multi_select") && (
-                                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                                    <div className={styles.field}>
                                         <Text variant="body-sm" weight={600}>Opzioni *</Text>
-                                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                        <div className={styles.options}>
                                             {options.map((opt, i) => (
-                                                <div
-                                                    key={i}
-                                                    style={{ display: "flex", alignItems: "center", gap: 8 }}
-                                                >
-                                                    <div
-                                                        style={{
-                                                            flex: 1,
-                                                            padding: "8px 12px",
-                                                            border: "1px solid var(--color-gray-200)",
-                                                            borderRadius: "var(--radius-md)",
-                                                            backgroundColor: "var(--color-gray-50)",
-                                                            fontSize: "14px"
-                                                        }}
-                                                    >
+                                                <div key={i} className={styles.optionItem}>
+                                                    <Text as="div" variant="body-sm" className={styles.optionValue}>
                                                         {opt}
-                                                    </div>
-                                                    <button
-                                                        type="button"
+                                                    </Text>
+                                                    <IconButton
+                                                        icon={<IconTrash size={16} />}
+                                                        aria-label={`Togli l'opzione ${opt}`}
+                                                        variant="ghost"
+                                                        size="sm"
                                                         onClick={() => handleRemoveOption(i)}
-                                                        style={{
-                                                            background: "none",
-                                                            border: "none",
-                                                            cursor: "pointer",
-                                                            color: "var(--color-error-600)",
-                                                            padding: 4,
-                                                            display: "flex",
-                                                            alignItems: "center"
-                                                        }}
-                                                    >
-                                                        <IconTrash size={16} />
-                                                    </button>
-                                                </div>
-                                            ))}
-                                            <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
-                                                <div style={{ flex: 1 }}>
-                                                    <TextInput
-                                                        value={newOption}
-                                                        onChange={e => setNewOption(e.target.value)}
-                                                        placeholder="Nuova opzione..."
-                                                        disabled={creating}
-                                                        onKeyDown={e => {
-                                                            if (e.key === "Enter") {
-                                                                e.preventDefault();
-                                                                handleAddOption();
-                                                            }
-                                                        }}
                                                     />
                                                 </div>
+                                            ))}
+                                            <div className={styles.optionAdd}>
+                                                <TextInput
+                                                    aria-label="Nuova opzione"
+                                                    containerClassName={styles.grow}
+                                                    value={newOption}
+                                                    onChange={e => setNewOption(e.target.value)}
+                                                    placeholder="Nuova opzione..."
+                                                    disabled={creating}
+                                                    onKeyDown={e => {
+                                                        if (e.key === "Enter") {
+                                                            e.preventDefault();
+                                                            handleAddOption();
+                                                        }
+                                                    }}
+                                                />
                                                 <Button
                                                     type="button"
                                                     variant="secondary"
@@ -376,13 +351,7 @@ export function ProductAttributesDrawer({
                                 )}
 
                                 {type !== "boolean" && (
-                                    <div
-                                        style={{
-                                            display: "flex",
-                                            alignItems: "center",
-                                            justifyContent: "space-between"
-                                        }}
-                                    >
+                                    <div className={styles.switchRow}>
                                         <div>
                                             <Text variant="body-sm" weight={600}>Richiesto</Text>
                                             <Text variant="caption" colorVariant="muted">

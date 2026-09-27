@@ -85,9 +85,9 @@ export const StyleColorPicker = ({ label, labelSuffix, value, onChange }: StyleC
                     onKeyDown={e => { if (e.key === "Enter" || e.key === " ") setIsOpen(true); }}
                 >
                     <div className={sharedStyles.colorSwatch} style={{ backgroundColor: normalizedColor }} />
-                    <span className={sharedStyles.colorHexInput} style={{ cursor: "pointer" }}>
+                    <Text as="span" variant="body-sm" className={sharedStyles.colorHexInput}>
                         {value.toUpperCase()}
-                    </span>
+                    </Text>
                     <span className={sharedStyles.colorEditAction}>
                         <IconPencil size={16} stroke={1.9} />
                     </span>

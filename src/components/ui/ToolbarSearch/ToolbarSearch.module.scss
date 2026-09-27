@@ -18,6 +18,11 @@
   flex: 0 0 auto;
 }
 
+// Larghezza minima: ci stanno la lente, «Cerca…» e la X.
+.wrap.min {
+  width: 200px;
+}
+
 // `inputClassName` applicata direttamente all'<input> interno
 // (vedi SearchInput.tsx). Altezza a filo del cluster header band.
 .input {

@@ -228,6 +228,9 @@ function DataTableSection() {
             <State label="riga disabilitata + riga evidenziata" column>
                 <SampleTable disabledRowIds={["3"]} highlightedRowIds={["1"]} />
             </State>
+            <State label="con nome (ariaLabel: tabella per i lettori) + riga spenta (mutedRowIds: leggibile e cliccabile)" column>
+                <SampleTable ariaLabel="Cataloghi, uno sospeso" mutedRowIds={["3"]} />
+            </State>
             <State label="riga cliccabile" column>
                 <SampleTable onRowClick={noop} />
             </State>

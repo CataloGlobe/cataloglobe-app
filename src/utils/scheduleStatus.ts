@@ -9,14 +9,13 @@
  * 2. disabilitata (senza altro motivo) → disabilitata
  * 3. abilitata ma portata zero (isZeroReach, vedi scheduleReach.ts) → bozza
  * 4. scaduta (endAt nel passato) → scaduta
- * 5. attiva ora e non sovrascritta da una regola più specifica → attiva
- * 6. altrimenti → programmata
+ * 5. in finestra adesso → attiva, anche se un'altra regola più specifica la
+ *    sovrascrive (§34.4: «Adesso» è la finestra, non la vittoria; chi perde
+ *    lo dice la riga, «Sovrascritta da …»)
+ * 6. altrimenti → programmata, cioè «non ancora»
  *
- * isActiveNow e isOverridden restano responsabilità del chiamante: il primo
- * è la finestra temporale della regola stessa (vedi isRuleCurrentlyActive in
- * ruleHelpers.ts), il secondo richiede la competizione con le altre regole
- * dello stesso tenant/tipo — dato che non tutti i chiamanti hanno (il drawer
- * di eliminazione stile non fa competizione fra regole: passa sempre false).
+ * isActiveNow resta responsabilità del chiamante: è la finestra temporale
+ * della regola stessa (vedi isRuleCurrentlyActive in ruleHelpers.ts).
  */
 
 export type ScheduleStatus = "draft" | "active" | "scheduled" | "expired" | "disabled";
@@ -31,7 +30,6 @@ export interface ScheduleStatusInput {
      *  sede reale in questo momento — vedi ruleReachesAnyActivity. */
     isZeroReach: boolean;
     isActiveNow: boolean;
-    isOverridden: boolean;
     now?: Date;
 }
 
@@ -43,6 +41,6 @@ export function deriveScheduleStatus(input: ScheduleStatusInput): ScheduleStatus
     }
     if (input.isZeroReach) return "draft";
     if (input.endAt && new Date(input.endAt) <= now) return "expired";
-    if (input.isActiveNow && !input.isOverridden) return "active";
+    if (input.isActiveNow) return "active";
     return "scheduled";
 }

@@ -4,6 +4,8 @@ import type { V2Activity } from "@/types/activity";
 import { Loader } from "@/components/ui/Loader/Loader";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
+import { SearchInput } from "@/components/ui/Input/SearchInput";
+import { ACTIVITY_SEARCH_THRESHOLD, filterActivityOptions } from "./activityFilter";
 import styles from "./ActivityMultiSelect.module.scss";
 
 interface ActivityMultiSelectProps {
@@ -16,6 +18,13 @@ interface ActivityMultiSelectProps {
     onChange: (activityIds: string[]) => void;
     disabled?: boolean;
     error?: string;
+    /**
+     * Le sedi già caricate dalla pagina: niente fetch. Assente, il
+     * componente le legge da sé con `getActivities` (Team, inviti).
+     */
+    activities?: ActivityOption[];
+    /** Senza asterisco quando le sedi non sono obbligatorie (una regola senza sedi è una bozza). */
+    required?: boolean;
 }
 
 interface ActivityOption {
@@ -29,7 +38,9 @@ interface ActivityOption {
  * - Fetch on-mount via getActivities(tenantId)
  * - Se caller NON è tenant-wide → intersect con callerScopedActivityIds
  *   (replica vincolo backend: manager può assegnare solo le sue sedi)
- * - Toolbar "Seleziona tutte" / "Deseleziona tutte"
+ * - Toolbar "Seleziona tutte" / "Deseleziona tutte" (sempre su tutte, anche
+ *   con una ricerca in corso)
+ * - Sopra le 8 sedi, una ricerca sopra la lista (nome, senza accenti)
  * - Counter "X / Y selezionate"
  * - Error visivo se `error` prop set
  */
@@ -40,20 +51,25 @@ export function ActivityMultiSelect({
     value,
     onChange,
     disabled,
-    error
+    error,
+    activities: givenActivities,
+    required = true
 }: ActivityMultiSelectProps) {
-    const [activities, setActivities] = useState<V2Activity[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [fetched, setFetched] = useState<V2Activity[]>([]);
+    const [loading, setLoading] = useState(!givenActivities);
     const [fetchError, setFetchError] = useState<string | null>(null);
+    const [query, setQuery] = useState("");
+    const activities: ActivityOption[] = givenActivities ?? fetched;
 
     useEffect(() => {
+        if (givenActivities) return;
         let cancelled = false;
         setLoading(true);
         setFetchError(null);
         getActivities(tenantId)
             .then(rows => {
                 if (cancelled) return;
-                setActivities(rows);
+                setFetched(rows);
                 setLoading(false);
             })
             .catch(err => {
@@ -65,7 +81,7 @@ export function ActivityMultiSelect({
         return () => {
             cancelled = true;
         };
-    }, [tenantId]);
+    }, [tenantId, givenActivities]);
 
     const options: ActivityOption[] = useMemo(() => {
         const filtered = callerIsTenantWide
@@ -75,6 +91,11 @@ export function ActivityMultiSelect({
     }, [activities, callerIsTenantWide, callerScopedActivityIds]);
 
     const selectedSet = useMemo(() => new Set(value), [value]);
+    const searchable = options.length > ACTIVITY_SEARCH_THRESHOLD;
+    const visibleOptions = useMemo(
+        () => (searchable ? filterActivityOptions(options, query) : options),
+        [options, query, searchable]
+    );
 
     const toggleOne = useCallback(
         (id: string) => {
@@ -135,7 +156,7 @@ export function ActivityMultiSelect({
         <div className={`${styles.wrapper} ${error ? styles.hasError : ""}`}>
             <div className={styles.headerRow}>
                 <div className={styles.label}>
-                    Sedi <span className={styles.required}>*</span>
+                    Sedi {required && <span className={styles.required}>*</span>}
                 </div>
                 <div className={styles.toolbar}>
                     <Button
@@ -150,8 +171,24 @@ export function ActivityMultiSelect({
                 </div>
             </div>
 
+            {searchable && (
+                <SearchInput
+                    value={query}
+                    onChange={event => setQuery(event.target.value)}
+                    onClear={() => setQuery("")}
+                    placeholder="Cerca una sede…"
+                    aria-label="Cerca una sede"
+                    disabled={disabled}
+                />
+            )}
+
             <div className={styles.list} role="group" aria-label="Sedi disponibili">
-                {options.map(opt => {
+                {visibleOptions.length === 0 && (
+                    <Text variant="body-sm" colorVariant="muted" className={styles.noMatch}>
+                        Nessuna sede con «{query.trim()}».
+                    </Text>
+                )}
+                {visibleOptions.map(opt => {
                     const checked = selectedSet.has(opt.id);
                     return (
                         <label

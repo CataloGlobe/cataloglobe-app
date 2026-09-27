@@ -62,10 +62,13 @@ export type DataTablePageSizeOption = PageSizeSelection; // number | "all" | "au
 /**
  * Classi esportate per i consumer, così la pagina non dichiara font-size:
  * `cellTwoLine` = cella a due righe (titolo 14/500 + caption muta), da
- * mettere su un wrapper con due figli.
+ * mettere su un wrapper con due figli. `cellTwoLineWrap`, insieme alla prima:
+ * la seconda riga va a capo invece di troncarsi (telefono, dove la colonna è
+ * una sola e la riga deve dire tutto).
  */
 export const DATA_TABLE_CLASSES = {
-    cellTwoLine: styles.cellTwoLine
+    cellTwoLine: styles.cellTwoLine,
+    cellTwoLineWrap: styles.cellTwoLineWrap
 } as const;
 
 /** Colonna che rende `TableRowActions`: la tabella la mette ultima, a destra. */
@@ -114,11 +117,27 @@ interface DataTableProps<T> {
     /** Label custom per il pulsante azione nella BulkBar. */
     bulkActionLabel?: string;
     showSelectionBar?: boolean;
+    /**
+     * Il piede (conteggio, per pagina, pagine). `false` solo quando la tabella
+     * mostra tutte le righe e il conteggio è già detto da chi la contiene
+     * (es. il badge della `Card`): elenchi raggruppati in più tabelle.
+     */
+    showFooter?: boolean;
 
     /** Righe con animazione highlight transitorio (~2s fade amber). */
     highlightedRowIds?: string[];
     /** Righe visivamente attenuate e non interattive (es. in salvataggio, sola lettura). */
     disabledRowIds?: string[];
+    /**
+     * Righe spente ma leggibili e interattive: solo aspetto, come `ListRow
+     * muted` (es. la sede sospesa nella matrice di Programmazione).
+     */
+    mutedRowIds?: string[];
+    /**
+     * Nome della tabella. Con un nome la tabella si espone ai lettori di
+     * schermo come tabella (righe, intestazioni, celle).
+     */
+    ariaLabel?: string;
 
     getRowId?: (row: T, rowIndex: number) => string;
 
@@ -163,6 +182,9 @@ interface DataTableRowProps<T> {
     onSelect?: (id: string, checked: boolean) => void;
     isHighlighted?: boolean;
     isDisabled?: boolean;
+    isMuted?: boolean;
+    /** Ruoli ARIA di riga e cella (la tabella ha un nome). */
+    semantic?: boolean;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     dragHandleProps?: any;
 }
@@ -180,6 +202,8 @@ function DataTableRow<T>({
     onSelect,
     isHighlighted,
     isDisabled,
+    isMuted,
+    semantic,
     dragHandleProps
 }: DataTableRowProps<T>) {
     const classes = [
@@ -187,7 +211,8 @@ function DataTableRow<T>({
         onRowClick && !isDisabled ? styles.rowClickable : "",
         isSelected ? styles.rowSelected : "",
         isHighlighted ? styles.rowHighlighted : "",
-        isDisabled ? styles.rowDisabled : ""
+        isDisabled ? styles.rowDisabled : "",
+        isMuted ? styles.rowMuted : ""
     ]
         .filter(Boolean)
         .join(" ");
@@ -196,6 +221,7 @@ function DataTableRow<T>({
         <div
             className={classes}
             style={gridStyle}
+            role={semantic ? "row" : undefined}
             onClick={event => {
                 if (!onRowClick || isDisabled) return;
                 const target = event.target as HTMLElement | null;
@@ -213,6 +239,7 @@ function DataTableRow<T>({
                 <div
                     className={`${styles.cell} ${styles.checkboxCell}`}
                     data-row-click-ignore="true"
+                    role={semantic ? "cell" : undefined}
                 >
                     <input
                         type="checkbox"
@@ -240,6 +267,7 @@ function DataTableRow<T>({
                         key={column.id}
                         className={`${styles.cell} ${getAlignClass(column.align)}${isActions ? ` ${styles.cellActions}` : ""}`}
                         data-actions={isActions || undefined}
+                        role={semantic ? "cell" : undefined}
                     >
                         {content ?? null}
                     </div>
@@ -267,8 +295,11 @@ export function DataTable<T>({
     onBulkDelete,
     bulkActionLabel,
     showSelectionBar = true,
+    showFooter = true,
     highlightedRowIds,
     disabledRowIds,
+    mutedRowIds,
+    ariaLabel,
     getRowId = defaultGetRowId,
     rowWrapper,
     allRowIds
@@ -441,6 +472,8 @@ export function DataTable<T>({
         () => new Set(disabledRowIds ?? []),
         [disabledRowIds]
     );
+    const mutedSet = useMemo(() => new Set(mutedRowIds ?? []), [mutedRowIds]);
+    const semantic = Boolean(ariaLabel);
     const selectedSet = useMemo(() => new Set(selected), [selected]);
 
     // ─── Selection handlers ────────────────────────────────────────────────
@@ -564,6 +597,8 @@ export function DataTable<T>({
                     onSelect={handleSelectRow}
                     isHighlighted={highlightSet.has(rowId)}
                     isDisabled={disabledSet.has(rowId)}
+                    isMuted={mutedSet.has(rowId)}
+                    semantic={semantic}
                 />
             );
             return rowWrapper ? rowWrapper(element, row, rowIndex) : element;
@@ -666,10 +701,10 @@ export function DataTable<T>({
         <>
             <div ref={probeRef} className={styles.autoSizeProbe}>
                 <div ref={tableRef} className={styles.table} style={containerStyle}>
-                    <div className={styles.scrollArea}>
-                        <div ref={headerRef} className={styles.header} style={gridStyle}>
+                    <div className={styles.scrollArea} role={semantic ? "table" : undefined} aria-label={ariaLabel}>
+                        <div ref={headerRef} className={styles.header} style={gridStyle} role={semantic ? "row" : undefined}>
                             {selectable && (
-                                <div className={`${styles.headerCell} ${styles.checkboxCell}`}>
+                                <div className={`${styles.headerCell} ${styles.checkboxCell}`} role={semantic ? "columnheader" : undefined}>
                                     <input
                                         type="checkbox"
                                         className={styles.checkbox}
@@ -687,18 +722,19 @@ export function DataTable<T>({
                                     key={column.id}
                                     className={`${styles.headerCell} ${getAlignClass(column.align)}${column.id === ACTIONS_COLUMN_ID ? ` ${styles.cellActions}` : ""}`}
                                     data-actions={column.id === ACTIONS_COLUMN_ID || undefined}
+                                    role={semantic ? "columnheader" : undefined}
                                 >
                                     {column.header}
                                 </div>
                             ))}
                         </div>
 
-                        <div ref={bodyRef} className={styles.body} aria-busy={isLoading || undefined}>
+                        <div ref={bodyRef} className={styles.body} aria-busy={isLoading || undefined} role={semantic ? "rowgroup" : undefined}>
                             {renderRows()}
                         </div>
                     </div>
 
-                    <div ref={footerRef} className={styles.footer}>{renderFooter()}</div>
+                    {showFooter && <div ref={footerRef} className={styles.footer}>{renderFooter()}</div>}
                 </div>
             </div>
 

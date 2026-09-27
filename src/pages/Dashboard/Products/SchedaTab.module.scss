@@ -1,159 +1,41 @@
-// ── Grid wrapper ────────────────────────────────────────────────────
-// Stack mobile, 2 colonne >=1024px (convenzione progetto da Products list).
-.grid {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
+// Tab «Scheda» (lotto Prodotti P6): una colonna di Card, nell'ordine del
+// mockup. Solo layout: tipografia e colori da Text, Card, Chip.
 
-    @media (min-width: 1024px) {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        align-items: start;
-    }
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-24);
+  min-width: 0;
 }
 
-// ── Colonne ─────────────────────────────────────────────────────────
-// Mobile: `display: contents` rimuove il box .colLeft/.colRight dal
-// render tree — le card diventano flex item DIRETTI di .grid, quindi
-// `order` (sotto) le riordina in modo lineare ignorando il gruppo
-// desktop. Senza questo, la grid a 2 colonne dell'auto-placement (con
-// `grid-column` esplicita per singola card, provato in precedenza)
-// crea un cursore di riga non-decrescente che lascia buchi quando le
-// due colonne hanno un numero di card diverso — bug osservato in
-// screenshot con Note prodotto spinta in fondo e un vuoto enorme sopra.
-// Desktop (>=1024px): tornano box reali (flex column), cosi le 2
-// colonne restano ad altezza indipendente (masonry), non righe-grid
-// condivise che forzerebbero l'allineamento riga-per-riga tra le due
-// colonne.
-.colLeft,
-.colRight {
-    display: contents;
-
-    @media (min-width: 1024px) {
-        display: flex;
-        flex-direction: column;
-        gap: 16px;
-        min-width: 0;
-    }
+.fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-20);
 }
 
-.cardSlot {
-    min-width: 0;
-}
-
-.slotImage {
-    order: 1;
-}
-
-.slotInfo {
-    order: 2;
-}
-
-.slotAllergens {
-    order: 3;
-}
-
-.slotCharacteristics {
-    order: 4;
-}
-
-.slotIngredients {
-    order: 5;
-}
-
-.slotPairings {
-    order: 6;
-}
-
-.slotNotes {
-    order: 7;
-}
-
-// ── Field grids ─────────────────────────────────────────────────────
-.fieldGrid {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-}
-
-.descriptionField {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  min-width: 0;
 }
 
 .translationRow {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    flex-wrap: wrap;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-8);
 }
 
-.translationLink {
-    background: none;
-    border: none;
-    padding: 0;
-    color: var(--color-primary-600, var(--color-gray-700));
-    cursor: pointer;
-    font-size: 13px;
-    text-decoration: underline;
-    text-underline-offset: 2px;
-
-    &:hover {
-        color: var(--color-primary-700, var(--color-gray-900));
-    }
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8);
 }
 
-// ── Allergens grid ──────────────────────────────────────────────────
-.allergenGrid {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
+.groups {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
 }
-
-// ── Sub-section dentro card (es. Gruppi prodotto in Informazioni) ──
-.subSection {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    padding-top: 12px;
-    border-top: 1px solid var(--border);
-    margin-top: 4px;
-}
-
-.subSectionHeader {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-}
-
-.subSectionLabel {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--text);
-}
-
-.groupChips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-}
-
-// ── Caratteristiche — vista compatta raggruppata per famiglia ───────
-.characteristicsCompact {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-.compactGroup {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-}
-
-.compactGroupLabel {
-    letter-spacing: 0;
-}
-

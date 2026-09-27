@@ -14,6 +14,12 @@ export type RangeInputProps = Omit<React.InputHTMLAttributes<HTMLInputElement>, 
     /** Formatter opzionale del valore */
     formatValue?: (value: number) => string;
 
+    /**
+     * Tacche sotto il cursore, a intervalli uguali dal minimo al massimo: la
+     * prima sul bordo sinistro, l'ultima sul destro (es. 00 · 06 · 12 · 18 · 24).
+     */
+    marks?: readonly string[];
+
     containerClassName?: string;
 };
 
@@ -33,6 +39,7 @@ export const RangeInput = forwardRef<HTMLInputElement, RangeInputProps>(
             value,
             showValue = true,
             formatValue,
+            marks,
 
             containerClassName,
             className,
@@ -56,20 +63,31 @@ export const RangeInput = forwardRef<HTMLInputElement, RangeInputProps>(
             >
                 {({ inputId, describedById, hasError, isDisabled }) => (
                     <div className={styles.wrapper}>
-                        <input
-                            ref={ref}
-                            id={inputId}
-                            type="range"
-                            min={min}
-                            max={max}
-                            step={step}
-                            value={value}
-                            disabled={isDisabled}
-                            aria-invalid={hasError}
-                            aria-describedby={describedById}
-                            className={`${styles.range} ${className ?? ""}`}
-                            {...props}
-                        />
+                        <div className={styles.track}>
+                            <input
+                                ref={ref}
+                                id={inputId}
+                                type="range"
+                                min={min}
+                                max={max}
+                                step={step}
+                                value={value}
+                                disabled={isDisabled}
+                                aria-invalid={hasError}
+                                aria-describedby={describedById}
+                                className={`${styles.range} ${className ?? ""}`}
+                                {...props}
+                            />
+                            {marks && marks.length > 0 && (
+                                <div className={styles.marks} aria-hidden="true">
+                                    {marks.map(mark => (
+                                        <Text key={mark} as="span" variant="caption" colorVariant="muted" className={styles.mark}>
+                                            {mark}
+                                        </Text>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
 
                         {showValue && (
                             <Text

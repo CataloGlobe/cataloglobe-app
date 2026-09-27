@@ -13,6 +13,11 @@ import styles from "./ChipGroup.module.scss";
 export type ChipOption<T extends string> = {
     value: T;
     label: string;
+    /** Conteggio a vista accanto al label. */
+    count?: number;
+    /** Spento, non nascosto: a zero la voce resta nella fila (si salta con le frecce). */
+    disabled?: boolean;
+    tone?: "warning";
 };
 
 export type ChipGroupLayout = "auto" | "equal" | "stretch";
@@ -46,28 +51,33 @@ function ChipGroupSingleInner<T extends string>({
     function handleKeyDown(e: KeyboardEvent<HTMLDivElement>) {
         if (values.length === 0) return;
 
-        let nextIndex = currentIndex;
-
+        let step: number;
         switch (e.key) {
             case "ArrowRight":
             case "ArrowDown":
-                nextIndex = currentIndex === -1 ? 0 : (currentIndex + 1) % values.length;
+                step = 1;
                 break;
-
             case "ArrowLeft":
             case "ArrowUp":
-                nextIndex =
-                    currentIndex === -1
-                        ? values.length - 1
-                        : (currentIndex - 1 + values.length) % values.length;
+                step = -1;
                 break;
-
             default:
                 return;
         }
 
         e.preventDefault();
-        onChange(values[nextIndex]);
+        // Le voci spente si saltano.
+        let nextIndex = currentIndex;
+        for (let i = 0; i < values.length; i++) {
+            nextIndex =
+                nextIndex === -1
+                    ? step === 1 ? 0 : values.length - 1
+                    : (nextIndex + step + values.length) % values.length;
+            if (!options[nextIndex].disabled) {
+                onChange(values[nextIndex]);
+                return;
+            }
+        }
     }
 
     return (
@@ -91,9 +101,18 @@ function ChipGroupSingleInner<T extends string>({
                             key={opt.value}
                             role="radio"
                             aria-checked={selected}
+                            aria-disabled={opt.disabled || undefined}
                             tabIndex={selected || value === undefined ? 0 : -1}
                         >
-                            <Chip label={opt.label} selected={selected} shape={shape} onClick={() => onChange(opt.value)} />
+                            <Chip
+                                label={opt.label}
+                                count={opt.count}
+                                tone={opt.tone}
+                                disabled={opt.disabled}
+                                selected={selected}
+                                shape={shape}
+                                onClick={() => onChange(opt.value)}
+                            />
                         </div>
                     );
                 })}

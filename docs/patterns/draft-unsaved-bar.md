@@ -10,6 +10,20 @@ Pattern per editing rapido senza salvataggio per cambio (sostituisce debounce ma
 - `<UnsavedChangesBar isSaving onCancel onSave>` appare in fondo SOLO quando `isDirty === true`. Annulla = `setDraft(saved)`. Salva = service call → `onReload()` (`saved` allinea via prop refresh).
 - Toggle binari (`*_public`) restano save-immediato (non draft): una decisione binaria sola non beneficia di "raccolta modifiche". Solo le selezioni multi-pill / multi-field usano draft.
 
+## Variante page-level: pagina prodotto (lotto M17 Prodotti)
+
+- Due draft sollevati in `ProductPage`: `useSchedaDraft` (Scheda) e `useAttributeValuesDraft` (valori degli attributi, §27 — prima `onBlur` campo per campo). Un solo `HeaderSaveAction`: `isDirty = scheda || attributi`, «Salva» chiama i due save, «Annulla» i due discard; guardia all'uscita con `useUnsavedChangesGuard(isDirty)`.
+- I drawer della Scheda (allergeni, ingredienti, caratteristiche) lavorano su una copia locale e dicono «Applica»: portano nella bozza, non sul DB.
+- Restano immediate le azioni strutturali: assegnare/togliere un attributo, i gruppi del prodotto (in Utilizzo), tutta la tab Prezzi & Opzioni (che lo dice in testa). Dopo un'azione strutturale la bozza attributi ricarica e tiene i valori già toccati (confronto con l'ultimo salvato in un ref).
+- Campo toccato: pallino ambra accanto al valore (`--text-warning`), spazio riservato anche a riposo.
+
+## Variante page-level: stile, storia, contenuto in evidenza (lotto M17, §50.11)
+
+- **Editor stile**: bozza di pagina (nome + token), `HeaderSaveAction` in testata, `useUnsavedChangesGuard`; il salvataggio crea sempre una versione nuova. Sola lettura (permesso, abbonamento, stile di sistema) = pannello in `fieldset disabled` + banner.
+- **Storia**: bozza di pagina già esistente (campi + blocchi); la guardia è ora quella di sistema. Il **cappello** non è più una seconda bozza della pagina: drawer `md` con «Salva» immediato.
+- **Contenuto in evidenza**: due bozze in una pagina — `useFeaturedDraft` (tipo, testi, immagine, bottone) e `useFeaturedProductsDraft` (nota, ordine, togli, aggiungi esistenti). `isDirty = contenuto || prodotti`; «Salva» scrive prima il contenuto poi i prodotti; «Annulla» scarta entrambe. Subito solo «Nuovo {prodotto}» (il prodotto; il collegamento resta in bozza). Pallino ambra sulla nota cambiata.
+- **Trappola**: le azioni di testata (`usePageHeader`) dipendono dai campi della bozza (`isDirty`, `save`, `discard`), mai dall'oggetto restituito dall'hook — nuovo a ogni render, rifarebbe la testata a ogni render e richiuderebbe i menu Radix aperti nella pagina (visto due volte in questo lotto).
+
 ## Accordion single-open
 
 Pattern in `ConfigAccordionSection` (`src/pages/Operativita/Attivita/tabs/components/`). Riusabile altrove se serve list di sezioni dirty-tracked.

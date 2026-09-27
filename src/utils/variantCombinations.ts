@@ -2,7 +2,7 @@
  * Returns the cartesian product of the given arrays.
  * cartesianProduct([["a","b"], ["x","y"]]) → [["a","x"],["a","y"],["b","x"],["b","y"]]
  *
- * Single source of truth shared by productVariants.ts and MatrixConfigDrawer.tsx.
+ * Single source of truth for productVariants.ts.
  */
 export function cartesianProduct<T>(arrays: T[][]): T[][] {
     if (arrays.length === 0) return [[]];

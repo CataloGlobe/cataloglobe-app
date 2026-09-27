@@ -4,7 +4,8 @@
 // tema scuro: non aggiungere nuovi consumer. Si svuota nel lotto 6, quando
 // gli import sono a zero.
 //
-// Consumer residui al 20/09/2026 (`grep -rl "@use \"@styles/variables\"" src`, 40 file):
+// Consumer residui al 20/09/2026 (`grep -rl "@use \"@styles/variables\"" src`, 40 file;
+// al 24/09 sono 12, Programmazione a zero; l'elenco sotto è ancora del 20/09):
 //   src/styles/_typography.scss
 //   src/styles/global.scss
 //   src/components/ui/InlineBanner/InlineBanner.module.scss
@@ -37,13 +38,7 @@
 //   src/pages/Dashboard/Businesses/Businesses.module.scss
 //   src/pages/Dashboard/Settings/DeleteAccountDrawer.module.scss
 //   src/pages/Dashboard/Styles/StyleDeleteDrawer.module.scss
-//   src/pages/Dashboard/Programming/components/RuleTypeHelpModal.module.scss
-//   src/pages/Dashboard/Programming/components/CalendarView.module.scss
 //   src/pages/Dashboard/Catalogs/CatalogDeleteDrawer.module.scss
-//   src/pages/Dashboard/Programming/ProgrammingRuleDetail.module.scss
-//   src/pages/Dashboard/Programming/components/PriorityGroup.module.scss
-//   src/pages/Dashboard/Programming/Programming.module.scss
-//   src/pages/Dashboard/Programming/components/PrioritySection.module.scss
 //   src/pages/Dashboard/Analytics/Analytics.module.scss
 
 $brand-primary: #6366f1;

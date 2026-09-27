@@ -11,8 +11,8 @@ import styles from "../Stories.module.scss";
  * Nessuno state interno, nessun salvataggio: il parent possiede `draft`+`saved`,
  * deriva `isDirty` e persiste meta + blocchi in un unico Salva (header). Segue
  * il pattern draft-inline già in produzione (SchedaTab, ActivitySettingsTab).
- * Stato pubblicazione (header pagina) e prodotto collegato (SectionCard propria)
- * vivono fuori da questo form — vedi StoryStatusHeaderControl / StoryProductPicker.
+ * Stato pubblicazione (testata della pagina) e prodotto collegato
+ * (StoryProductPicker) vivono fuori da questo form.
  *
  * La COPERTINA (16:9) usa `ImageUploadEditor` con crop "baked": al Conferma il
  * framing è applicato ai pixel e il file già ritagliato viene passato come file
@@ -30,8 +30,6 @@ export interface StoryFormProps {
      * risolto dal parent tenendo conto della rimozione pendente. null = vuota.
      */
     coverUrl: string | null;
-    /** File copertina pendente (posseduto dal parent) — per nome + size. */
-    pendingCoverFile: File | null;
     onCoverFileChange: (file: File) => void;
     /** Marca la rimozione della copertina come modifica pendente nel draft. */
     onCoverRemove: () => void;

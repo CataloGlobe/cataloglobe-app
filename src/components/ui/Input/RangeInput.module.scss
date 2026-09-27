@@ -8,8 +8,16 @@
   min-height: var(--control-height);
 }
 
-.range {
+.track {
   flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.range {
+  width: 100%;
   appearance: none;
   height: 4px;
   border-radius: var(--radius-pill);
@@ -58,5 +66,14 @@
   min-width: 2.5rem;
   text-align: right;
   color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.marks {
+  display: flex;
+  justify-content: space-between;
+}
+
+.mark {
   font-variant-numeric: tabular-nums;
 }
