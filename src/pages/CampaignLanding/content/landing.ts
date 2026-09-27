@@ -240,12 +240,8 @@ export type DemoVenue = {
     key: DemoKey;
     name: string;
     kind: string;
-    /** Sottotitolo nella copertina del menù. */
-    tagline: string;
     /** Slug della pagina pubblica vera, aperta nello sheet e nel QR. */
     slug: string;
-    categories: string[];
-    dishes: { name: string; price: string }[];
 };
 
 export const DEMOS = {
@@ -253,6 +249,8 @@ export const DEMOS = {
     title: { before: "Guarda cosa può diventare ", underlined: "il tuo locale.", after: "" } satisfies UnderlinedTitle,
     lede: "Tre locali di esempio, tre stili diversi: colori, caratteri e logo li scegli tu. Aprili: è la pagina che i clienti vedono dal QR.",
     open: "Apri il menù →",
+    /** Alt dello screenshot nel telefono (`scripts/landing-demo-screenshots.ts`). */
+    screenAlt: (name: string) => `Il menù di ${name} sul telefono: la copertina del locale, le categorie e i primi piatti con i prezzi.`,
     qrCaption: "Inquadra il QR e apri il menù sul tuo telefono.",
     /** Host mostrato sotto il nome nello sheet; base degli indirizzi nel QR. */
     publicHost: "cataloglobe.com",
@@ -268,46 +266,19 @@ export const DEMOS = {
             key: "molo",
             name: "Il Molo 34",
             kind: "Pesce · Portofino",
-            tagline: "Pesce, carta della sera",
-            slug: "il-molo-34",
-            categories: ["Crudi", "Primi", "Secondi"],
-            dishes: [
-                { name: "Carpaccio di branzino", price: "16 €" },
-                { name: "Tartare di tonno", price: "18 €" },
-                { name: "Risotto ai frutti di mare", price: "20 €" },
-                { name: "Tagliata di tonno", price: "24 €" },
-                { name: "Branzino al sale", price: "22 €" }
-            ]
+            slug: "il-molo-34"
         },
         {
             key: "pausa",
             name: "La Pausa",
             kind: "Caffè e pranzi · Milano",
-            tagline: "Colazioni e pranzi veloci",
-            slug: "la-pausa",
-            categories: ["Colazione", "Pranzo", "Bevande"],
-            dishes: [
-                { name: "Cornetto integrale", price: "1,80 €" },
-                { name: "Toast farcito", price: "5 €" },
-                { name: "Insalatona della casa", price: "9 €" },
-                { name: "Bowl del giorno", price: "10 €" },
-                { name: "Centrifuga del giorno", price: "4,50 €" }
-            ]
+            slug: "la-pausa"
         },
         {
             key: "velvet",
             name: "Velvet Garden",
             kind: "Cocktail bar · Milano",
-            tagline: "Cocktail e piccoli piatti",
-            slug: "velvet-garden",
-            categories: ["Signature", "Classici", "Da mangiare"],
-            dishes: [
-                { name: "Garden Spritz", price: "9 €" },
-                { name: "Negroni sbagliato", price: "10 €" },
-                { name: "Basil Smash", price: "10 €" },
-                { name: "Tagliere misto", price: "14 €" },
-                { name: "Olive e taralli", price: "5 €" }
-            ]
+            slug: "velvet-garden"
         }
     ] satisfies DemoVenue[]
 };

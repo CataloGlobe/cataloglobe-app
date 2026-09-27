@@ -4,37 +4,58 @@ import PublicSheet from "@components/PublicCollectionView/PublicSheet/PublicShee
 import Section from "@pages/CampaignLanding/components/Section/Section";
 import { HandNote, UnderlinedText } from "@pages/CampaignLanding/components/kit/Kit";
 import Reveal from "@pages/CampaignLanding/components/kit/Reveal";
-import { DEMOS, type DemoVenue } from "@pages/CampaignLanding/content/landing";
+import { useInView } from "@pages/CampaignLanding/hooks/useInView";
+import { DEMOS, type DemoKey, type DemoVenue } from "@pages/CampaignLanding/content/landing";
+import molo280 from "@pages/CampaignLanding/assets/demos/il-molo-34-280.webp";
+import molo560 from "@pages/CampaignLanding/assets/demos/il-molo-34-560.webp";
+import pausa280 from "@pages/CampaignLanding/assets/demos/la-pausa-280.webp";
+import pausa560 from "@pages/CampaignLanding/assets/demos/la-pausa-560.webp";
+import velvet280 from "@pages/CampaignLanding/assets/demos/velvet-garden-280.webp";
+import velvet560 from "@pages/CampaignLanding/assets/demos/velvet-garden-560.webp";
 import styles from "./Demos.module.scss";
 
 const cx = (...names: (string | false | null | undefined)[]) => names.filter(Boolean).join(" ");
 
-/** Anteprima statica del menù del locale, dentro il telefono. */
-function PhonePreview({ venue }: { venue: DemoVenue }) {
+/**
+ * Screenshot della pagina pubblica vera, 1x e 2x per lo schermo del telefono
+ * (280 px sul desktop). Si rifanno con `npm run landing:demo-screenshots`.
+ */
+const SCREENS: Record<DemoKey, string> = {
+    molo: `${molo280} 280w, ${molo560} 560w`,
+    pausa: `${pausa280} 280w, ${pausa560} 560w`,
+    velvet: `${velvet280} 280w, ${velvet560} 560w`
+};
+const SCREEN_FALLBACK: Record<DemoKey, string> = { molo: molo280, pausa: pausa280, velvet: velvet280 };
+
+/**
+ * Il telefono con lo screenshot del locale scelto. Lazy: la sezione è sotto
+ * l'hero. Gli altri due locali si montano (e si scaricano) solo quando la
+ * sezione entra nello schermo, così il cambio è una dissolvenza e non un buco.
+ */
+function PhonePreview({ selected, preload }: { selected: number; preload: boolean }) {
     return (
-        <div className={styles.phone} aria-hidden="true">
-            <div className={styles.screen} data-demo={venue.key}>
-                <div className={styles.menu}>
-                    <div className={styles.cover}>
-                        <span className={styles.coverName}>{venue.name}</span>
-                        <span className={styles.coverTagline}>{venue.tagline}</span>
-                    </div>
-                    <div className={styles.cats}>
-                        {venue.categories.map((c, i) => (
-                            <span key={c} className={cx(styles.cat, i === 0 && styles.catOn)}>
-                                {c}
-                            </span>
-                        ))}
-                    </div>
-                    {venue.dishes.map((d) => (
-                        <div key={d.name} className={styles.dish}>
-                            <span className={styles.dishName}>{d.name}</span>
-                            <span className={styles.dishPrice}>{d.price}</span>
-                        </div>
-                    ))}
-                </div>
-                <div className={styles.fade} />
-                <span className={styles.notch} />
+        <div className={styles.phone}>
+            <div className={styles.screen} data-demo={DEMOS.venues[selected].key}>
+                {DEMOS.venues.map((v, i) => {
+                    const on = i === selected;
+                    if (!on && !preload) return null;
+                    return (
+                        <img
+                            key={v.key}
+                            className={cx(styles.shot, on && styles.shotOn)}
+                            src={SCREEN_FALLBACK[v.key]}
+                            srcSet={SCREENS[v.key]}
+                            sizes="(min-width: 1024px) 280px, 230px"
+                            width={280}
+                            height={606}
+                            loading="lazy"
+                            decoding="async"
+                            alt={on ? DEMOS.screenAlt(v.name) : ""}
+                            aria-hidden={on ? undefined : true}
+                        />
+                    );
+                })}
+                <span className={styles.notch} aria-hidden="true" />
             </div>
         </div>
     );
@@ -138,12 +159,14 @@ export default function Demos() {
     const [selected, setSelected] = useState(0);
     const [open, setOpen] = useState(false);
     const venue = DEMOS.venues[selected];
+    const gridRef = useRef<HTMLDivElement>(null);
+    const preload = useInView(gridRef, 0);
 
     return (
         <Section tone="white" className={styles.section} labelledBy="landing-demos-title">
-            <div className={styles.grid}>
+            <div ref={gridRef} className={styles.grid}>
                 <Reveal className={styles.phoneCol}>
-                    <PhonePreview venue={venue} />
+                    <PhonePreview selected={selected} preload={preload} />
                 </Reveal>
                 <Reveal className={styles.textCol}>
                     <HandNote size="lg" className={styles.handNote}>{DEMOS.note}</HandNote>
@@ -152,7 +175,7 @@ export default function Demos() {
                     </h2>
                     <p className={styles.lede}>{DEMOS.lede}</p>
                     <div className={styles.mobilePhone}>
-                        <PhonePreview venue={venue} />
+                        <PhonePreview selected={selected} preload={preload} />
                     </div>
                     <div className={styles.list}>
                         {DEMOS.venues.map((v, i) => {
