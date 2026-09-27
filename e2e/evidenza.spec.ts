@@ -331,6 +331,79 @@ test.describe("In evidenza — dettaglio", () => {
     });
 });
 
+test.describe("In evidenza — una pagina, un Salva (P8)", () => {
+    test("tipo, testi e bottone in una scrittura sola", async ({ page }) => {
+        patchFeatured(stub);
+        await openContent(page, FEATURED.aperitivo);
+        await expect(main(page).getByRole("textbox", { name: /^Titolo/ })).toHaveValue("Tagliere + 2 drink", { timeout: 15_000 });
+        await expect(main(page).getByRole("button", { name: "Modifica", exact: true })).toHaveCount(0);
+        await main(page).getByRole("textbox", { name: /^Sottotitolo/ }).fill("Solo il giovedì");
+        await main(page).getByRole("textbox", { name: /^Testo del bottone/ }).fill("Prenota");
+        await main(page).getByRole("textbox", { name: /^Link del bottone/ }).fill("https://example.com/prenota");
+        await main(page).getByText("Bundle", { exact: true }).click();
+        await main(page).getByRole("spinbutton", { name: /^Prezzo/ }).fill("14");
+        await page.getByRole("button", { name: "Salva", exact: true }).click();
+        await expect.poll(() => writes(stub, "featured_contents.PATCH").length).toBe(1);
+        expect(write(stub, "featured_contents.PATCH")?.body).toMatchObject({
+            subtitle: "Solo il giovedì",
+            cta_text: "Prenota",
+            cta_url: "https://example.com/prenota",
+            content_type: "bundle",
+            pricing_mode: "bundle",
+            bundle_price: 14
+        });
+    });
+
+    test("cambiare tipo avvisa, la tab Prodotti segue la bozza e torna con Annulla", async ({ page }) => {
+        await openContent(page, FEATURED.coppia);
+        await expect(page.getByRole("tab", { name: "Prodotti" })).toBeVisible({ timeout: 15_000 });
+        await main(page).getByText("Annuncio", { exact: true }).click();
+        await expect(main(page).getByText(/sparisce la sezione Prodotti/)).toBeVisible();
+        await expect(page.getByRole("tab", { name: "Prodotti" })).toHaveCount(0);
+        await page.getByRole("button", { name: "Annulla", exact: true }).first().click();
+        await page.getByRole("alertdialog").getByRole("button", { name: "Scarta" }).click();
+        await expect(page.getByRole("tab", { name: "Prodotti" })).toBeVisible();
+        expect(stub.writes.filter(w => !w.key.startsWith("translation"))).toHaveLength(0);
+    });
+
+    test("il bundle senza prezzo non si salva", async ({ page }) => {
+        await openContent(page, FEATURED.aperitivo);
+        await expect(main(page).getByRole("textbox", { name: /^Titolo/ })).toBeVisible({ timeout: 15_000 });
+        await main(page).getByText("Bundle", { exact: true }).click();
+        await page.getByRole("button", { name: "Salva", exact: true }).click();
+        await expect(main(page).getByText("Inserisci il prezzo del bundle.")).toBeVisible();
+        expect(writes(stub, "featured_contents.PATCH")).toHaveLength(0);
+    });
+
+    test("?tab=products a freddo apre la tab Prodotti", async ({ page }) => {
+        await openContent(page, FEATURED.coppia);
+        await expect(page.getByRole("tab", { name: "Prodotti" })).toBeVisible({ timeout: 15_000 });
+        await page.goto(page.url().replace(/(\?.*)?$/, "?tab=products"));
+        await expect(main(page).getByText("Big Arch e2e")).toBeVisible({ timeout: 15_000 });
+        await expect(page.getByRole("tab", { name: "Prodotti" })).toHaveAttribute("aria-selected", "true");
+    });
+
+    test("uscita con modifiche: la guardia chiede, «Annulla» resta", async ({ page }) => {
+        await openContent(page, FEATURED.concerto);
+        const title = main(page).getByRole("textbox", { name: /^Titolo/ });
+        await expect(title).toHaveValue("Live acustico", { timeout: 15_000 });
+        await title.fill("Live acustico bis");
+        await page.getByRole("navigation", { name: "Menu principale" }).getByRole("link", { name: "Menù" }).click();
+        const guard = page.getByRole("alertdialog");
+        await expect(guard).toContainText("Modifiche non salvate");
+        await guard.getByRole("button", { name: /^(Annulla|Resta)/ }).click();
+        await expect(page).toHaveURL(new RegExp(`/featured/${FEATURED.concerto}`));
+        await expect(title).toHaveValue("Live acustico bis");
+    });
+
+    test("contenuto che non esiste: lo dice, e riporta all'elenco", async ({ page }) => {
+        await openContent(page, MISSING_FEATURED);
+        await expect(main(page).getByText("Contenuto non trovato")).toBeVisible({ timeout: 15_000 });
+        await main(page).getByRole("button", { name: "Torna a In evidenza" }).click();
+        await expect(page).toHaveURL(/\/featured$/);
+    });
+});
+
 test.describe("In evidenza — prodotti del contenuto", () => {
     test("elenco nell'ordine, con la nota", async ({ page }) => {
         await openContent(page, FEATURED.coppia);
