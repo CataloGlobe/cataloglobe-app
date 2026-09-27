@@ -175,6 +175,7 @@ describe("ruleAppearance — dove e quando appare un menù, uno stile, un conten
         expect(a.seats.map(s => s.activityId)).toEqual(["comasina"]);
         const all = appearanceOf(index([rule({ id: "tutte", applyToAll: true })]), { kind: "catalog", id: "carta" });
         expect(all.seats.map(s => s.activityId)).toEqual(["garbagnate", "comasina", "baranzate"]);
+        expect(describeCatalogSummary(all).label).toBe("Attivo adesso in 2 sedi");
     });
 
     it("(10) due regole vive con stili diversi: ogni stile nelle sue sedi; senza stile non assegna", () => {

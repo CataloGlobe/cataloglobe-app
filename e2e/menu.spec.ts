@@ -712,6 +712,17 @@ test.describe("Menù — dove è attivo (§50.13)", () => {
         await expect(cardOf(page, "Vuoto e2e").getByRole("img", { name: /^Stile / })).toHaveCount(0);
     });
 
+    test("griglia: in onda con due stili, il campione è il primo e «+1 stile» lo dice", async ({ page }) => {
+        await page.unrouteAll({ behavior: "ignoreErrors" });
+        stub = await stubMenu(page, { twoStyles: true });
+        await openList(page);
+        await page.getByRole("radio", { name: "Vista griglia" }).click();
+        const carta = cardOf(page, "Carta e2e");
+        await expect(carta).toContainText("Attivo adesso in 2 sedi");
+        await expect(carta).toContainText("+1 stile");
+        await expect(carta.getByRole("img", { name: "Stile Estate e2e (+1 stile)" })).toBeVisible();
+    });
+
     test("dettaglio: la banda nomina ogni sede e perché non è in onda", async ({ page }) => {
         await openCarta(page);
         await expect(main(page).getByText("Attivo adesso in Centro e2e")).toBeVisible();

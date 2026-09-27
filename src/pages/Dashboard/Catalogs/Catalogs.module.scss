@@ -64,3 +64,13 @@
     gap: var(--space-4);
     min-width: 0;
 }
+
+// Lo stato e, se il menù va in onda con più stili, «+N stili».
+.badges {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-8);
+    min-width: 0;
+    max-width: 100%;
+}

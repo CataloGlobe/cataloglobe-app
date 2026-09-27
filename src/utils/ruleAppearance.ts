@@ -330,11 +330,12 @@ export type SummaryTone = "success" | "warning" | "neutral";
 export function describeCatalogSummary(appearance: Appearance): { label: string; tone: SummaryTone } {
     const live = liveSeats(appearance);
     switch (appearance.summary) {
-        case "liveNow": {
-            const others = live.length - 1;
-            const tail = others === 0 ? "" : others === 1 ? " e in 1 altra sede" : ` e in altre ${others} sedi`;
-            return { label: `Attivo adesso in ${live[0].name}${tail}`, tone: "success" };
-        }
+        case "liveNow":
+            // Più sedi: il numero; i nomi li dice la banda del dettaglio.
+            return {
+                label: live.length === 1 ? `Attivo adesso in ${live[0].name}` : `Attivo adesso in ${live.length} sedi`,
+                tone: "success"
+            };
         case "assigned": {
             const n = new Set(appearance.rules.filter(entry => entry.isLive).flatMap(entry => entry.activityIds)).size;
             return { label: n === 1 ? "Su 1 sede, non adesso" : `Su ${n} sedi, nessuna adesso`, tone: "warning" };

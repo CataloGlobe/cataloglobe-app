@@ -24,7 +24,9 @@ import { appearanceTables, enrichAppearance, freezeClock, sediOf } from "./appea
  * | Pranzo feriale | Pranzo | Base | Lago (sospesa) | sempre | sede sospesa |
  *
  * «Vuoto e2e» non ha regole. Con `{ extraMenu: true }` un quarto menù,
- * «Aperitivo e2e», con il Prosecco: il Prosecco è «in 2 menù».
+ * «Aperitivo e2e», con il Prosecco: il Prosecco è «in 2 menù». Con
+ * `{ twoStyles: true }` «Sera Porto» è sempre in finestra e veste Base: Carta
+ * va in onda in due sedi con due stili.
  */
 
 export { TENANT_ID };
@@ -198,7 +200,7 @@ function links(): Row[] {
 const SKU_DEF = uuid(401);
 const FORMAT_GROUP = uuid(402);
 
-function makeTables(extraMenu: boolean): Tables {
+function makeTables(extraMenu: boolean, twoStyles: boolean): Tables {
     const base = products();
     const extraLink: Row = {
         id: uuid(399),
@@ -257,7 +259,9 @@ function makeTables(extraMenu: boolean): Tables {
         // «Pranzo e2e» è puntato da una regola di layout: non si elimina.
         ...appearanceTables("e2e0c000", [
             { id: RULE.pranzoCentro, name: "Pranzo Centro e2e", rule_type: "layout", catalog_id: MENU.carta, style_id: STYLE.estate, activities: [SEDE.centro], time_mode: "window", days_of_week: [1, 2, 3, 4, 5], time_from: "11:00:00", time_to: "15:00:00" },
-            { id: RULE.seraPorto, name: "Sera Porto e2e", rule_type: "layout", catalog_id: MENU.carta, style_id: STYLE.estate, activities: [SEDE.porto], time_mode: "window", time_from: "18:00:00", time_to: "21:00:00" },
+            twoStyles
+                ? { id: RULE.seraPorto, name: "Sera Porto e2e", rule_type: "layout", catalog_id: MENU.carta, style_id: STYLE.base, activities: [SEDE.porto] }
+                : { id: RULE.seraPorto, name: "Sera Porto e2e", rule_type: "layout", catalog_id: MENU.carta, style_id: STYLE.estate, activities: [SEDE.porto], time_mode: "window", time_from: "18:00:00", time_to: "21:00:00" },
             { id: RULE.pranzoFeriale, name: "Pranzo feriale", rule_type: "layout", catalog_id: MENU.pranzo, style_id: STYLE.base, activities: [SEDE.lago] }
         ])
     };
@@ -266,8 +270,8 @@ function makeTables(extraMenu: boolean): Tables {
 export type { WriteCall, WriteHandler } from "./restStub";
 export type MenuStub = RestStub;
 
-export async function stubMenu(page: Page, options: { extraMenu?: boolean } = {}): Promise<MenuStub> {
-    const tables = makeTables(Boolean(options.extraMenu));
+export async function stubMenu(page: Page, options: { extraMenu?: boolean; twoStyles?: boolean } = {}): Promise<MenuStub> {
+    const tables = makeTables(Boolean(options.extraMenu), Boolean(options.twoStyles));
     const stub = await stubRest(page, {
         tables,
         enrich: (table, rows, params) => {

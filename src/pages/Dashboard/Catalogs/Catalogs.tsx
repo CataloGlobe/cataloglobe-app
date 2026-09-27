@@ -28,6 +28,7 @@ import {
 } from "@/services/supabase/catalogs";
 import { CardGrid, CardGridItem } from "@/components/ui/CardGrid/CardGrid";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
+import { Badge } from "@/components/ui/Badge/Badge";
 import { StyleSwatch } from "@/components/ui/StyleSwatch/StyleSwatch";
 import { listStyleSwatches, type V2Style } from "@/services/supabase/styles";
 import { useRuleAppearance } from "@/hooks/useRuleAppearance";
@@ -368,7 +369,16 @@ export default function Catalogs() {
 
     const usageBadge = (catalogId: string) => {
         const usage = usageById.get(catalogId);
-        return usage ? <StatusBadge variant={usage.tone} label={usage.label} /> : undefined;
+        if (!usage) return undefined;
+        // Più stili sullo stesso menù (§50.13/1): il campione è il primo, il resto si conta.
+        return (
+            <span className={styles.badges}>
+                <StatusBadge variant={usage.tone} label={usage.label} />
+                {usage.moreStyles > 0 && (
+                    <Badge variant="neutral">{`+${usage.moreStyles} ${usage.moreStyles === 1 ? "stile" : "stili"}`}</Badge>
+                )}
+            </span>
+        );
     };
     const swatchOf = (catalogId: string, compact: boolean) => {
         const usage = usageById.get(catalogId);
