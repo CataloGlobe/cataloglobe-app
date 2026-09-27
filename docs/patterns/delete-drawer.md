@@ -19,7 +19,7 @@ Le entità con delete drawer in CataloGlobe seguono UNO di 3 pattern, scelto in 
 ## Pattern B: Informativo + cleanup automatico
 
 - **Quando**: FK CASCADE complete, l'entità sparisce senza side-effect strutturali
-- **Esempi file**: `src/pages/Dashboard/Highlights/FeaturedContentDeleteDrawer.tsx`, `src/pages/Dashboard/Products/ProductDeleteDrawer.tsx`
+- **Esempi file**: `src/pages/Dashboard/Highlights/FeaturedContentDeleteDialog.tsx`, `src/pages/Dashboard/Products/ProductDeleteDialog.tsx` — dal lotto M17 sono `ConfirmDialog` con l'impatto nel messaggio, non più drawer
 - **Contratto drawer**: carica all'apertura `count<Entità>DeleteImpact()`, mostra sezione condizionale "Questo X è utilizzato in: N catalogo, M contenuti..." (solo se almeno una count >0), bottone "Conferma Eliminazione" sempre attivo
 - **Contratto service**: `deleteX(id, tenantId)` esegue snapshot pre-DELETE di entità polimorfiche/storage, DELETE (CASCADE pulisce le righe figlie automaticamente), poi cleanup esterni (storage best-effort, translations polimorfiche). Se la cancellazione lascia regole vuote (es. featured con 0 contenuti), `auto-disable` con `enabled=false`. Il return type varia per dominio: featured ritorna `{ schedules_disabled: number }` per toast informativo proporzionato, product ritorna `void` (no auto-disable applicato)
 - **UX rationale**: l'utente è informato dell'impatto ma non è bloccato. Il sistema fa il cleanup giusto in autonomia.
@@ -27,8 +27,8 @@ Le entità con delete drawer in CataloGlobe seguono UNO di 3 pattern, scelto in 
 ## Pattern C: Swap-then-delete
 
 - **Quando**: l'entità è semanticamente sostituibile (skin/preset), e cancellarla lasciando le regole "rotte" sarebbe peggio dell'attrito di chiedere un replacement
-- **Esempio file**: `src/pages/Dashboard/Styles/StyleDeleteDrawer.tsx`
-- **Contratto drawer**: carica all'apertura `listSchedulesUsing<Entità>()` (skip se `usage_count === 0`), mostra Select replacement obbligatorio se `isUsed`, lista regole impattate (informativa, non bloccante), bottone "Conferma Eliminazione" disabled finché replacement non scelto. Caso speciale: se entità è `is_system` (es. stile predefinito tenant) → blocco totale con messaggio dedicato, niente replacement
+- **Esempio file**: `src/pages/Dashboard/Styles/StyleDeleteDrawer.tsx` — dal lotto M17 (§50.11): stile non usato → `ConfirmDialog`; stile in uso → drawer `size="sm"` col sostitutivo, perché il sostitutivo è un campo obbligatorio e `ConfirmDialog` non è un form
+- **Contratto drawer**: carica all'apertura `listSchedulesUsing<Entità>()` (skip se `usage_count === 0`), mostra Select replacement obbligatorio se `isUsed`, lista regole impattate (informativa, non bloccante), bottone "Conferma Eliminazione" disabled finché replacement non scelto. Caso speciale: se entità è `is_system` (es. stile predefinito tenant) la lista non offre «Elimina» (il ramo di blocco nel drawer era irraggiungibile ed è uscito)
 - **Contratto service**: `deleteX(id, tenantId, replacementId?)` esegue se necessario `UPDATE schedule_layout SET x_id=replacementId` prima del DELETE. CASCADE su tabelle figlie (es. `style_versions`). Race condition teorica accettata (insert tra SELECT e UPDATE/DELETE)
 - **UX rationale**: l'utente non è bloccato e non perde regole. Sceglie come riassegnare in un colpo solo.
 

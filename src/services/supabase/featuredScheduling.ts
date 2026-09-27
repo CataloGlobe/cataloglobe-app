@@ -89,8 +89,6 @@ function normalizeOne<T>(value: T | T[] | null | undefined): T | null {
 }
 
 // ---------------------------------------------------------------------------
-// listFeaturedRules
-// ---------------------------------------------------------------------------
 
 export async function listFeaturedRules(tenantId: string): Promise<FeaturedRule[]> {
     const { data: schedules, error: schedulesError } = await supabase
@@ -321,46 +319,4 @@ export async function updateFeaturedRule(input: {
     }
 
     void revalidatePublicCatalogForTenant(input.tenantId);
-}
-
-// ---------------------------------------------------------------------------
-// deleteFeaturedRule
-// ---------------------------------------------------------------------------
-
-export async function deleteFeaturedRule(
-    id: string,
-    tenantId: string
-): Promise<void> {
-    const { error } = await supabase
-        .from("schedules")
-        .delete()
-        .eq("id", id)
-        .eq("tenant_id", tenantId);
-
-    if (error) throw error;
-
-    void revalidatePublicCatalogForTenant(tenantId);
-}
-
-// ---------------------------------------------------------------------------
-// reorderFeaturedRules
-// ---------------------------------------------------------------------------
-
-export async function reorderFeaturedRules(
-    tenantId: string,
-    updates: Array<{ id: string; display_order: number }>
-): Promise<void> {
-    if (updates.length === 0) return;
-
-    for (const u of updates) {
-        const { error } = await supabase
-            .from("schedules")
-            .update({ display_order: u.display_order })
-            .eq("id", u.id)
-            .eq("tenant_id", tenantId);
-
-        if (error) throw error;
-    }
-
-    void revalidatePublicCatalogForTenant(tenantId);
 }

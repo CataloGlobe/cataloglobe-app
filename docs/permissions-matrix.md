@@ -88,6 +88,8 @@ verbi specifici per operazioni singolari/alto rischio · plurale+tenant
 ## 5. Catalogo: 41 permessi
 
 40 esistenti + `translations.write` (mig. 120000). Scope/categoria invariati da v2 § 5. Modifiche:
+- **`stories.read` / `stories.write`** (activity, enforced any-activity come `featured.*`) — esistevano in DB (mig. 20260707125900) ma mancavano da questa matrice; aggiunti il 27/09/2026 (lotto Stili · Storie · In evidenza).
+- **Deriva nota, da riconciliare** (staging 27/09/2026: 50 permessi): mancano da qui anche `guests.read/manage`, `seatings.read/manage`, `support.read/write`, e `reviews.respond` in DB è diventato `reviews.moderate` + `reviews.delete`.
 - **`translations.write`** (tenant, content) — NUOVO. Azioni `/languages`. Read via proxy `catalogs.read`.
 - **`activity_groups.write`** — esisteva già (mig. 130000 resa no-op con ON CONFLICT).
 - **Morti** (cleanup, § 10): `notifications.receive`, `tenant.transfer_ownership`.
@@ -118,6 +120,8 @@ verbi specifici per operazioni singolari/alto rischio · plurale+tenant
 | product_availability.write | T | T | A | | |
 | featured.read | T | T | A | A | A |
 | featured.write | T | T | A | | |
+| stories.read | T | T | A | A | A |
+| stories.write | T | T | A | | |
 | styles.read | T | T | T | T | T |
 | styles.write | T | T | | | |
 | translations.write | T | T | | | |
@@ -159,7 +163,8 @@ mutazione gatati con helper espliciti.
 | orders | /orders | orders.read + `table_ordering` | orders.manage (activity) |
 | tables | /tables (+ tab) | tables.read | tables.manage (activity) |
 | scheduling | /scheduling/* | scheduling.read | scheduling.write (any-activity*) |
-| featured | /featured/* | featured.read | featured.write (any-activity*) |
+| featured | /featured/* | featured.read | featured.write (any-activity*); crea/modifica prodotto dal contenuto: products.write |
+| stories | /stories/* | stories.read | stories.write (any-activity*) |
 | styles | /styles/* | styles.read | styles.write |
 | analytics | /analytics | analytics.read | — (read-only) |
 | reviews | /reviews | reviews.read | reviews.respond |

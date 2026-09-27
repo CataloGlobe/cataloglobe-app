@@ -1,21 +1,41 @@
-.confirmCheckbox {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-top: 0.875rem;
-  cursor: pointer;
-  font-size: 0.8125rem;
-  color: var(--color-text-secondary);
 
-  input[type="checkbox"] {
-    width: 14px;
-    height: 14px;
-    flex-shrink: 0;
-    cursor: pointer;
-    accent-color: var(--color-primary);
+// ── Elenco ──────────────────────────────────────────────────────────────
+// Stessa catena di Menù: in lista l'altezza bounded di `MainLayout .content`
+// arriva fino all'auto page-size del DataTable; in griglia no (la CardGrid
+// prende l'altezza naturale e la pagina scorre).
+.listPage {
+  width: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.listContent {
+  &[data-view-mode="list"] {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
   }
 }
 
+.cellTwoLine {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.nameLine {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-8);
+  min-width: 0;
+}
+
+// ── Editor ──────────────────────────────────────────────────────────────
 .container {
   // flex-basis auto (non lo shorthand `flex:1` = `1 1 0%`) per allinearsi al
   // template validato (Cataloghi/Prodotti): propaga l'altezza bounded di
@@ -26,350 +46,6 @@
   display: flex;
   flex-direction: column;
   padding: 0;
-  overflow: hidden;
-}
-
-// Wrapper contenuto pagina: nessun margin-top — il ritmo verticale
-// navbar→banda→contenuto deriva da `MainLayout .content` (24px),
-// identico a Products/Catalogs.
-.content {
-  // Come `.container`: flex-basis auto per il template validato. Ospita la
-  // vista lista (DataTable, bare flex-child → auto-size) o la vista grid
-  // (`.gridWrapper`, scroll interno proprio).
-  flex: 1 1 auto;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-// CTA della header band: altezza armonizzata a search/toggle via --control-height.
-.toolbarCta {
-  box-sizing: border-box;
-  height: var(--control-height, 38px);
-}
-
-.tableCard {
-  // Anello finale della catena: contenitore diretto del DataTable in vista
-  // lista (ora un <div>, non più <Card> — il cui .content interno spezzava la
-  // catena). flex-basis auto per il template validato.
-  flex: 1 1 auto;
-  min-height: 0;
-  padding: 0;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  background: transparent;
-  border-radius: var(--radius-lg);
-  box-shadow: none;
-  border: none;
-}
-
-.loadingState {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 64px 24px;
-  text-align: center;
-  gap: 8px;
-}
-
-/* ── Grid View ────────────────────────────────────────────────────────────── */
-
-.gridWrapper {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  scrollbar-gutter: stable;
-}
-
-.gridView {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 16px;
-  padding: 4px 0 32px;
-}
-
-.styleCard {
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  background: var(--color-surface);
-  display: flex;
-  flex-direction: column;
-  transition:
-    box-shadow 0.15s ease,
-    border-color 0.15s ease;
-
-  &:hover {
-    box-shadow: var(--shadow-md);
-    border-color: color-mix(in srgb, var(--color-primary) 35%, transparent);
-  }
-}
-
-.cardPreviewArea {
-  display: block;
-  width: 100%;
-  border: 0;
-  padding: 0;
-  margin: 0;
-  background: transparent;
-  cursor: pointer;
-  overflow: hidden;
-  flex-shrink: 0;
-}
-
-.cardPreviewBox {
-  width: 100%;
-  height: 140px;
-  position: relative;
-  overflow: hidden;
-}
-
-.cardPreviewBoxCompact {
-  width: 80px;
-  height: 50px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--color-border);
-
-  .cardPreviewHeader {
-    height: 13px;
-  }
-
-  .cardPreviewBody {
-    top: 13px;
-    padding: 4px 6px 5px;
-    gap: 4px;
-  }
-
-  .cardPreviewNav {
-    gap: 3px;
-  }
-
-  .cardPreviewNavPillActive {
-    height: 3px;
-    width: 18px;
-  }
-
-  .cardPreviewNavPillIdle {
-    height: 3px;
-    width: 12px;
-  }
-
-  .cardPreviewContent {
-    gap: 3px;
-  }
-
-  .cardPreviewBlock {
-    height: 8px;
-    border-radius: 3px;
-  }
-
-  .cardPreviewBlockNarrow {
-    height: 6px;
-    border-radius: 3px;
-  }
-
-  .cardPreviewCta {
-    height: 3px;
-    width: 22px;
-  }
-}
-
-.cardPreviewHeader {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 30px;
-}
-
-.cardPreviewBody {
-  position: absolute;
-  top: 30px;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  padding: 10px 12px 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.cardPreviewNav {
-  display: flex;
-  gap: 5px;
-  align-items: center;
-}
-
-.cardPreviewNavPillActive {
-  height: 5px;
-  width: 32px;
-  border-radius: 999px;
-  flex-shrink: 0;
-}
-
-.cardPreviewNavPillIdle {
-  height: 5px;
-  width: 20px;
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.1);
-  flex-shrink: 0;
-}
-
-.cardPreviewContent {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  flex: 1;
-}
-
-.cardPreviewBlock {
-  height: 26px;
-  border-radius: 6px;
-  background: rgba(0, 0, 0, 0.06);
-  width: 100%;
-}
-
-.cardPreviewBlockNarrow {
-  height: 20px;
-  border-radius: 6px;
-  background: rgba(0, 0, 0, 0.04);
-  width: 65%;
-}
-
-.cardPreviewCta {
-  display: block;
-  height: 7px;
-  width: 44px;
-  border-radius: 999px;
-  flex-shrink: 0;
-  opacity: 0.85;
-}
-
-.cardFooter {
-  padding: 12px 14px 12px 16px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  border-top: 1px solid var(--color-border);
-  flex-shrink: 0;
-}
-
-.cardFooterLeft {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  min-width: 0;
-  flex: 1;
-}
-
-.cardFooterRight {
-  flex-shrink: 0;
-}
-
-/* List Layout */
-.listContainer {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  overflow: auto;
-}
-
-.listHeader {
-  display: flex;
-  align-items: center;
-  padding: 12px 24px;
-  background-color: var(--color-surface-hover);
-  border-bottom: 1px solid var(--color-border);
-  color: var(--color-text-muted);
-  font-size: var(--text-caption, 12px);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.listBody {
-  display: flex;
-  flex-direction: column;
-}
-
-.listRow {
-  display: flex;
-  align-items: center;
-  padding: 16px 24px;
-  border-bottom: 1px solid var(--color-border);
-  transition: background-color 0.2s ease;
-  cursor: pointer;
-
-  &:hover {
-    background-color: var(--color-surface-hover);
-  }
-}
-
-/* Density Extended */
-.densityExtended .listRow {
-  padding: 24px;
-}
-
-/* Columns */
-.colName {
-  flex: 2;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.styleNameRow {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.systemIcon {
-  color: var(--color-primary);
-  flex-shrink: 0;
-}
-
-.usageText {
-  font-size: 13px;
-  color: var(--color-text-secondary, var(--color-text-muted));
-  line-height: 1.3;
-}
-
-.usageTextMuted {
-  font-size: 13px;
-  color: var(--color-text-muted);
-  opacity: 0.65;
-  line-height: 1.3;
-}
-
-.descriptionText {
-  display: block;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.colUsage {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-}
-
-/* Drawer Specifics */
-.stylePageDrawer {
-  position: absolute;
-  top: 16px;
-  right: 0;
-  bottom: 16px;
-  border-top-left-radius: 16px;
-  border-bottom-left-radius: 16px;
-  box-shadow: -10px 0 30px rgba(0, 0, 0, 0.08);
-  background: #fff;
   overflow: hidden;
 }
 
@@ -384,70 +60,6 @@
   flex-direction: column;
   gap: 24px;
 }
-
-.settingsForm {
-  height: 100%;
-  overflow: auto;
-  gap: 18px;
-  scrollbar-gutter: stable;
-}
-
-.styleNameField {
-  margin-bottom: 4px;
-}
-
-.configSection {
-  display: flex;
-  flex-direction: column;
-}
-
-.jsonEditor {
-  width: 100%;
-  font-family: monospace;
-  font-size: 13px;
-  padding: 12px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--color-border);
-  background-color: var(--color-surface);
-  color: var(--color-text);
-  resize: vertical;
-  outline: none;
-  transition: border-color 0.2s ease;
-
-  &:focus {
-    border-color: var(--color-primary);
-  }
-}
-
-.jsonEditorError {
-  border-color: var(--color-danger);
-  background-color: var(--color-danger-light);
-}
-
-.warningBox {
-  display: flex;
-  gap: 16px;
-  padding: 16px;
-  background-color: var(--color-warning-100);
-  border: 1px solid var(--color-warning-300);
-  border-radius: var(--radius-md);
-  color: var(--color-warning-700);
-  margin-bottom: 24px;
-}
-
-.warningIcon {
-  flex-shrink: 0;
-}
-
-.replacementBox {
-  display: flex;
-  flex-direction: column;
-  padding: 16px;
-  background-color: var(--color-surface-hover);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--color-border);
-}
-
 /* ── Editor Two-Column Layout ───────────────────────────────────────────── */
 
 .editorLayout {
@@ -455,6 +67,10 @@
   display: flex;
   min-height: 0;
   overflow: hidden;
+  // Contenitore del pannello: sotto i 600 px di editor il pannello non ci sta
+  // accanto all'anteprima (vedi fondo del file).
+  position: relative;
+  container: style-editor / inline-size;
   background-color: var(--color-surface-hover);
   background-image: radial-gradient(circle, rgba(0, 0, 0, 0.065) 1px, transparent 1px);
   background-size: 22px 22px;
@@ -531,7 +147,6 @@
 
 .panelHandleLabel {
   writing-mode: vertical-rl;
-  font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.02em;
 }
@@ -539,6 +154,13 @@
 /* Right column: drawer proprietà. La width è animata da framer (0 ↔
    PANEL_WIDTH in StyleEditorPage.tsx); l'aside clippa, l'inner tiene la
    larghezza fissa così il contenuto non reflowa durante lo slide. */
+// Sagoma del pannello durante il caricamento.
+.skeletonPanel {
+  flex-shrink: 0;
+  width: 360px;
+  margin: var(--space-12);
+}
+
 .propertiesPanel {
   flex-shrink: 0;
   min-height: 0;
@@ -554,7 +176,9 @@
 }
 
 .propertiesPanelInner {
-  /* width impostata inline (= PANEL_WIDTH) per single-source col JS. */
+  /* = PANEL_WIDTH di StyleEditorPage: framer anima la width dell'aside,
+     l'inner resta fisso e non reflowa durante l'animazione. */
+  width: 360px;
   height: 100%;
   min-height: 0;
   display: flex;
@@ -598,37 +222,6 @@
     color: var(--text);
   }
 }
-
-.panelActions {
-  display: flex;
-  gap: 8px;
-
-  > * {
-    flex: 1;
-  }
-}
-
-.systemHeaderActions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.systemBadge {
-  display: inline-flex;
-  align-items: center;
-  padding: 3px 10px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  background: rgba(0, 0, 0, 0.05);
-  color: var(--color-text-muted);
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
 /* Scrollable panel content */
 .panelContent {
   flex: 1;
@@ -645,20 +238,12 @@
     display: none;
   }
 }
-
-/* Footer sticky: Annulla/Salva (editing) o badge + Duplica (sistema). */
-.panelFooter {
-  flex-shrink: 0;
-  display: flex;
-  padding: 12px 20px;
-  padding-bottom: max(12px, env(safe-area-inset-bottom));
-  border-top: 1px solid var(--border);
-  background: var(--card-bg);
-  box-shadow: 0 -4px 14px rgba(15, 23, 42, 0.05);
-
-  > * {
-    flex: 1;
-  }
+/* Il pannello di chi non scrive: un fieldset spento, senza la sua cornice. */
+.readOnlyScope {
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
 }
 
 .panelForm {
@@ -667,12 +252,6 @@
   gap: 20px;
   padding-bottom: 8px;
 }
-
-.systemMessage {
-  display: block;
-  margin-top: 4px;
-}
-
 /* Zona fissa controllo versione (sotto l'header strip). position:relative →
    ancora il popover (absolute) come prima. */
 .versionZone {
@@ -726,14 +305,7 @@
   flex-direction: column;
   gap: 1px;
 
-  /* Testo più compatto: numero versione -1px, data -2px (resta muted/leggibile). */
-  > :first-child {
-    font-size: 0.8125rem; // 13px (da 14px)
-  }
 
-  > :last-child {
-    font-size: 0.7rem; // ~11.2px (da ~13.2px)
-  }
 }
 
 .versionChevron {
@@ -744,4 +316,23 @@
 
 .versionChevronOpen {
   transform: rotate(180deg);
+}
+
+// Editor stretto (telefono, 375): il pannello da 360 + margini sforava a
+// destra, tagliato, e schiacciava l'anteprima a zero. Stesso layout —
+// pannello a destra, comprimibile con la sua maniglia — ma sovrapposto
+// all'anteprima e largo al più quanto l'editor (§50.11).
+@container style-editor (max-width: 600px) {
+  .propertiesPanel {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1;
+    max-width: calc(100cqw - 24px);
+  }
+
+  .propertiesPanelInner {
+    width: min(360px, calc(100cqw - 24px));
+  }
 }

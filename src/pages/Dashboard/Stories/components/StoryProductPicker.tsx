@@ -1,3 +1,5 @@
+import { formatCurrency } from "@/utils/formatCurrency";
+import Text from "@/components/ui/Text/Text";
 import { useEffect, useMemo, useState } from "react";
 import { Package } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
@@ -43,9 +45,9 @@ export function StoryProductPicker({ tenantId, value, onChange, disabled }: Stor
                         </div>
                     )}
                     <div className={styles.meta}>
-                        <span className={styles.name}>{selected.name}</span>
+                        <Text as="span" variant="body-sm" weight={600} className={styles.name}>{selected.name}</Text>
                         {selected.base_price != null && (
-                            <span className={styles.price}>{selected.base_price.toFixed(2)} €</span>
+                            <Text as="span" variant="caption" colorVariant="muted">{formatCurrency(selected.base_price)}</Text>
                         )}
                     </div>
                     {!disabled && (
@@ -59,13 +61,9 @@ export function StoryProductPicker({ tenantId, value, onChange, disabled }: Stor
                             >
                                 Cambia
                             </Button>
-                            <button
-                                type="button"
-                                className={styles.removeBtn}
-                                onClick={() => onChange(null)}
-                            >
+                            <Button type="button" variant="ghost" size="sm" onClick={() => onChange(null)}>
                                 Rimuovi
-                            </button>
+                            </Button>
                         </div>
                     )}
                 </div>

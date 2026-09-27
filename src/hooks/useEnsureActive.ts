@@ -3,7 +3,7 @@ import { useToast } from "@/context/Toast/ToastContext";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 
 /**
- * Un solo guard dell'abbonamento per le collezioni di Prodotti (lotto
+ * Un solo guard dell'abbonamento (nato nelle collezioni di Prodotti, lotto
  * Prodotti P2): `ensureActive()` dice perché un gesto non parte e ritorna
  * `false`. Prima la stessa stringa era copiata dieci volte.
  */

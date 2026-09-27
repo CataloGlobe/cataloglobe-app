@@ -127,21 +127,6 @@ export async function listStyleVersions(
     return data || [];
 }
 
-export async function getStyleVersion(
-    versionId: string,
-    tenantId: string
-): Promise<V2StyleVersion> {
-    const { data, error } = await supabase
-        .from("style_versions")
-        .select("id, tenant_id, style_id, version, config, created_at")
-        .eq("id", versionId)
-        .eq("tenant_id", tenantId)
-        .single();
-
-    if (error) throw error;
-    return data;
-}
-
 export async function createStyle(tenant_id: string, name: string, config: Record<string, unknown>): Promise<V2Style> {
     // 1. Create the base style
     const { data: styleData, error: styleError } = await supabase

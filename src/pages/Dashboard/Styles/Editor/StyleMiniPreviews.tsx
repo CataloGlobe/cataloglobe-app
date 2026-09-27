@@ -1,12 +1,6 @@
 import type { CSSProperties } from "react";
-import type { NavigationStyle, BorderRadius, ProductStyle, FeaturedStyle } from "./StyleTokenModel";
+import { RADIUS_CSS, type NavigationStyle, type BorderRadius, type ProductStyle, type FeaturedStyle } from "./StyleTokenModel";
 import s from "./StyleSettingsControls.module.scss";
-
-export const RADIUS_CSS: Record<BorderRadius, string> = {
-    none: "0px",
-    soft: "10px",
-    rounded: "20px"
-};
 
 const B: CSSProperties = { display: "block", flexShrink: 0 };
 const G = "#c4cad4";

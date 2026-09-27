@@ -5,29 +5,22 @@ import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
-import { SortableDataTableRow } from "@/components/ui/DataTable/SortableDataTableRow";
-import { Pencil, Trash2, BookOpenText, GripVertical } from "lucide-react";
+import { DataTableDragHandle, SortableDataTableRow } from "@/components/ui/DataTable/SortableDataTableRow";
+import { Pencil, Trash2, BookOpenText } from "lucide-react";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
-import { Badge } from "@/components/ui/Badge/Badge";
-import { Tabs } from "@/components/ui/Tabs/Tabs";
+import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import { useToast } from "@/context/Toast/ToastContext";
 import { listStories, reorderStories, type StoryWithProduct } from "@/services/supabase/stories";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
-import { UnsavedChangesDialog } from "@/components/ui/UnsavedChangesDialog/UnsavedChangesDialog";
 import StoryCreateDrawer from "./StoryCreateDrawer";
-import StoryDeleteDrawer from "./StoryDeleteDrawer";
-import { StoryBrandPanel } from "./components/StoryBrandPanel";
-import {
-    HeaderSaveAction,
-    DiscardChangesConfirmDialog
-} from "./components/HeaderSaveAction";
-import { buildSaveActionCompactConfig } from "./components/headerSaveActionCompact";
+import StoryDeleteDialog from "./StoryDeleteDialog";
+import { StoryBrandCard } from "./components/StoryBrandCard";
+import { StoryBrandDrawer } from "./components/StoryBrandDrawer";
 import { useBrandStoryDraft } from "./hooks/useBrandStoryDraft";
-import { useBeforeUnloadWarning } from "./hooks/useBeforeUnloadWarning";
 import styles from "./Stories.module.scss";
 
 import { useTenantId } from "@/context/useTenantId";
-import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
+import { useEnsureActive } from "@/hooks/useEnsureActive";
 import { usePermissions } from "@/context/PermissionsContext";
 import { canDoOnAnyActivity } from "@/lib/permissions";
 import { PageGate } from "@/components/PageGate/PageGate";
@@ -47,148 +40,87 @@ function reindexRows(rows: StoryWithProduct[]): StoryWithProduct[] {
     return rows.map((row, index) => ({ ...row, sort_order: index + 1 }));
 }
 
-type StoriesTab = "stories" | "brand";
-
 export default function Stories() {
     const { showToast } = useToast();
     const navigate = useNavigate();
     const tenantId = useTenantId();
-    const { canEdit } = useSubscriptionGuard();
+    const { canEdit, ensureActive } = useEnsureActive();
     const { permissions } = usePermissions();
     const canWrite = permissions ? canDoOnAnyActivity(permissions, "stories.write") : false;
+    // Gate di lettura prima della fetch: senza `stories.read` nessuna richiesta.
+    const canRead = permissions != null && canDoOnAnyActivity(permissions, "stories.read");
 
-    const [activeTab, setActiveTab] = useState<StoriesTab>("stories");
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState(false);
     const [stories, setStories] = useState<StoryWithProduct[]>([]);
     const [isCreateOpen, setIsCreateOpen] = useState(false);
-    // Conferma dello scarto quando "Annulla" arriva dal kebab della toolbar
-    // compatta: stessa domanda del bottone in toolbar comoda, che ha il proprio
-    // dialog dentro `HeaderSaveAction`.
-    const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
+    const [isBrandOpen, setIsBrandOpen] = useState(false);
     const [deleteTarget, setDeleteTarget] = useState<StoryWithProduct | null>(null);
-    // Tab richiesto mentre il brand è dirty: apre il dialog 3 opzioni.
-    const [pendingTab, setPendingTab] = useState<StoriesTab | null>(null);
 
-    // Draft "Storia del brand" — sollevato qui: serve a header (Salva) e
-    // tab-guard. Fetch lazy alla prima apertura del tab.
-    const brand = useBrandStoryDraft(tenantId ?? null, activeTab === "brand");
-
-    // Protezione refresh/chiusura tab quando il brand è dirty. La nav SPA
-    // interna resta non protetta (useBlocker richiede data router — task
-    // separato); il cambio tab è coperto dal guard sotto.
-    useBeforeUnloadWarning(brand.isDirty);
-
-    // Guard cambio tab: se il brand è dirty, intercetta e chiedi (3 opzioni).
-    const handleTabChange = useCallback(
-        (tab: StoriesTab) => {
-            if (tab === activeTab) return;
-            if (activeTab === "brand" && brand.isDirty) {
-                setPendingTab(tab);
-                return;
-            }
-            setActiveTab(tab);
-        },
-        [activeTab, brand.isDirty]
-    );
+    // Il cappello (§50.11/4): la card in cima all'elenco lo mostra com'è, il
+    // drawer lo modifica e salva subito.
+    const brand = useBrandStoryDraft(tenantId ?? null, canRead);
 
     const loadData = useCallback(async () => {
-        if (!tenantId) return;
+        if (!tenantId || !canRead) return;
         try {
             setLoading(true);
+            setLoadError(false);
             const data = await listStories(tenantId);
             setStories(data);
         } catch (error) {
-            console.error(error);
-            showToast({ type: "error", message: "Errore durante il caricamento delle storie." });
+            // Un errore non è un elenco vuoto: la pagina lo dice, con «Riprova».
+            console.error("Caricamento storie:", error);
+            setLoadError(true);
         } finally {
             setLoading(false);
         }
-    }, [tenantId, showToast]);
+    }, [tenantId, canRead]);
 
     useEffect(() => {
         loadData();
     }, [loadData]);
 
     const handleCreate = useCallback(() => {
-        if (!canEdit) {
-            showToast({
-                message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.",
-                type: "error"
-            });
-            return;
-        }
+        if (!ensureActive()) return;
         setIsCreateOpen(true);
-    }, [canEdit, showToast]);
+    }, [ensureActive]);
 
-    const leading = useMemo(
-        () => (
-            <Tabs<StoriesTab> value={activeTab} onChange={handleTabChange} variant="line">
-                <Tabs.List>
-                    <Tabs.Tab value="stories">Storie</Tabs.Tab>
-                    <Tabs.Tab value="brand">Storia del brand</Tabs.Tab>
-                </Tabs.List>
-            </Tabs>
-        ),
-        [activeTab, handleTabChange]
+    const handleEditBrand = useCallback(() => {
+        if (!ensureActive()) return;
+        setIsBrandOpen(true);
+    }, [ensureActive]);
+
+    const actions = useMemo(
+        () =>
+            canWrite ? (
+                <Button variant="primary" onClick={handleCreate} disabled={!canEdit}>
+                    Crea storia
+                </Button>
+            ) : undefined,
+        [handleCreate, canEdit, canWrite]
     );
 
-    const actions = useMemo(() => {
-        if (!canWrite) return undefined;
-        if (activeTab === "brand") {
-            return (
-                <HeaderSaveAction
-                    isDirty={brand.isDirty}
-                    isSaving={brand.isSaving}
-                    onSave={brand.save}
-                    onDiscard={brand.discard}
-                />
-            );
-        }
-        return (
-            <Button variant="primary" onClick={handleCreate} disabled={!canEdit}>
-                Crea storia
-            </Button>
-        );
-    }, [activeTab, handleCreate, canEdit, canWrite, brand.isDirty, brand.isSaving, brand.save, brand.discard]);
+    const headerCompact = useMemo<PageHeaderCompactConfig>(
+        () => ({
+            primaryAction: canWrite ? { label: "Crea storia", onClick: handleCreate, disabled: !canEdit } : undefined
+        }),
+        [canWrite, canEdit, handleCreate]
+    );
 
-    // Le due tab hanno azioni di natura diversa: "Storie" crea, "Storia del
-    // brand" salva. La config compatta segue la tab attiva, non è calcolata una
-    // volta sola.
-    const headerCompact = useMemo<PageHeaderCompactConfig>(() => {
-        const base = {
-            sections: [
-                { value: "stories", label: "Storie" },
-                { value: "brand", label: "Storia del brand" }
-            ],
-            activeSection: activeTab,
-            onSectionChange: (value: string) => handleTabChange(value as StoriesTab)
-        };
+    usePageHeader({
+        title: "Storie",
+        subtitle: "I racconti che i clienti trovano nella pagina pubblica delle sedi.",
+        actions,
+        compact: headerCompact
+    });
 
-        if (!canWrite) return base;
-
-        if (activeTab === "brand") {
-            return {
-                ...base,
-                ...buildSaveActionCompactConfig({
-                    isDirty: brand.isDirty,
-                    isSaving: brand.isSaving,
-                    onSave: brand.save,
-                    onRequestDiscard: () => setConfirmDiscardOpen(true)
-                })
-            };
-        }
-
-        return {
-            ...base,
-            primaryAction: { label: "Crea storia", onClick: handleCreate, disabled: !canEdit }
-        };
-    }, [activeTab, handleTabChange, canWrite, canEdit, handleCreate, brand.isDirty, brand.isSaving, brand.save]);
-
-    usePageHeader({ leading, actions, compact: headerCompact });
-
+    // L'ordine è quello in cui i clienti trovano le storie: si salva subito
+    // (§27.2, spostare una riga è struttura).
     const handleDragEnd = async (event: DragEndEvent) => {
         const { active, over } = event;
         if (!over || active.id === over.id) return;
+        if (!ensureActive()) return;
 
         const oldIndex = stories.findIndex(row => row.id === active.id);
         const newIndex = stories.findIndex(row => row.id === over.id);
@@ -215,7 +147,7 @@ export default function Stories() {
         useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
     );
 
-    const goToDetail = (item: StoryWithProduct) => navigate(`/business/${tenantId}/stories/${item.id}`);
+    const storyUrl = (item: StoryWithProduct) => `/business/${tenantId}/stories/${item.id}`;
 
     const columns: ColumnDefinition<StoryWithProduct>[] = [
         ...(canWrite
@@ -225,54 +157,52 @@ export default function Stories() {
                       header: "",
                       width: "40px",
                       align: "center" as const,
-                      cell: (_value: unknown, _row: StoryWithProduct, _rowIndex: number, dragHandleProps?: unknown) => (
-                          <button
-                              type="button"
-                              aria-label="Trascina per riordinare"
-                              className={styles.dragHandle}
-                              {...(dragHandleProps as React.HTMLAttributes<HTMLButtonElement>)}
-                          >
-                              <GripVertical size={16} />
-                          </button>
+                      cell: (_value: unknown, row: StoryWithProduct, _rowIndex: number, dragHandleProps?: unknown) => (
+                          <DataTableDragHandle
+                              aria-label={`Riordina ${row.title}`}
+                              {...(dragHandleProps as React.ButtonHTMLAttributes<HTMLButtonElement>)}
+                          />
                       )
                   }
               ]
             : []),
         {
             id: "title",
-            header: "Titolo",
-            width: "2fr",
+            header: "Storia",
+            width: "1fr",
             cell: (_value, item) => (
                 <div className={styles.titleCell}>
-                    <Text variant="body-sm" weight={600}>
-                        {item.title}
-                    </Text>
                     {item.eyebrow && (
                         <Text variant="caption" colorVariant="muted" className={styles.subtitle}>
                             {item.eyebrow}
                         </Text>
                     )}
+                    <Text variant="body-sm" weight={600}>
+                        {item.title}
+                    </Text>
                 </div>
             )
         },
         {
             id: "product",
             header: "Prodotto collegato",
-            width: "1fr",
+            width: "0.6fr",
+            hideOnPhone: true,
             cell: (_value, item) => (
                 <Text variant="body-sm" colorVariant={item.product ? undefined : "muted"}>
-                    {item.product?.name ?? "-"}
+                    {item.product?.name ?? "—"}
                 </Text>
             )
         },
         {
             id: "status",
             header: "Stato",
-            width: "0.8fr",
+            width: "120px",
             cell: (_value, item) => (
-                <Badge variant={item.status === "published" ? "success" : "secondary"}>
-                    {item.status === "published" ? "Pubblicata" : "Bozza"}
-                </Badge>
+                <StatusBadge
+                    variant={item.status === "published" ? "success" : "neutral"}
+                    label={item.status === "published" ? "Pubblicata" : "Bozza"}
+                />
             )
         },
         {
@@ -282,14 +212,17 @@ export default function Stories() {
             align: "right",
             cell: (_value, item) => (
                 <TableRowActions
+                    ariaLabel={`Azioni storia ${item.title}`}
                     actions={[
-                        { label: "Modifica", icon: Pencil, onClick: () => goToDetail(item) },
+                        { label: canWrite ? "Modifica" : "Apri", icon: Pencil, onClick: () => navigate(storyUrl(item)) },
                         ...(canWrite
                             ? [
                                   {
                                       label: "Elimina",
                                       icon: Trash2,
-                                      onClick: () => setDeleteTarget(item),
+                                      onClick: () => {
+                                          if (ensureActive()) setDeleteTarget(item);
+                                      },
                                       variant: "destructive" as const,
                                       separator: true
                                   }
@@ -301,108 +234,98 @@ export default function Stories() {
         }
     ];
 
+    const renderList = () => {
+        if (loadError) {
+            return (
+                <EmptyState
+                    icon={<BookOpenText />}
+                    title="Non è stato possibile caricare le storie"
+                    description="Controlla la connessione e riprova."
+                    action={
+                        <Button variant="secondary" onClick={() => loadData()}>
+                            Riprova
+                        </Button>
+                    }
+                />
+            );
+        }
+        if (!loading && stories.length === 0) {
+            return (
+                <EmptyState
+                    icon={<BookOpenText />}
+                    title="Non hai ancora creato storie"
+                    description="Le storie compaiono nella sezione approfondimenti del tuo catalogo pubblico."
+                    action={
+                        canWrite ? (
+                            <Button variant="primary" onClick={handleCreate} disabled={!canEdit}>
+                                Crea la prima storia
+                            </Button>
+                        ) : undefined
+                    }
+                />
+            );
+        }
+        return (
+            <>
+                {canWrite && stories.length > 1 && (
+                    <Text variant="caption" colorVariant="muted">
+                        Trascina per cambiare l'ordine: è quello in cui i clienti le trovano.
+                    </Text>
+                )}
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                    <SortableContext items={stories.map(story => story.id)} strategy={verticalListSortingStrategy}>
+                        <DataTable<StoryWithProduct>
+                            data={stories}
+                            columns={columns}
+                            isLoading={loading}
+                            ariaLabel="Storie"
+                            onRowClick={item => navigate(storyUrl(item))}
+                            rowWrapper={(row, rowData) => (
+                                <SortableDataTableRow key={rowData.id} id={rowData.id} draggingOpacity={0.55}>
+                                    {row}
+                                </SortableDataTableRow>
+                            )}
+                        />
+                    </SortableContext>
+                </DndContext>
+            </>
+        );
+    };
+
+    if (permissions != null && !canRead) {
+        return <PageGate readPermission="stories.read">{() => null}</PageGate>;
+    }
+
     return (
         <PageGate readPermission="stories.read">
             {() => (
                 <>
                     <div className={styles.wrapper}>
-                        {activeTab === "brand" ? (
-                            brand.loaded ? (
-                                <StoryBrandPanel
-                                    title={brand.title}
-                                    onTitleChange={brand.onTitleChange}
-                                    intro={brand.intro}
-                                    onIntroChange={brand.onIntroChange}
-                                    website={brand.website}
-                                    onWebsiteChange={brand.onWebsiteChange}
-                                    coverUrl={brand.coverUrl}
-                                    pendingCoverFile={brand.pendingCoverFile}
-                                    onCoverFileChange={brand.onCoverFileChange}
-                                    onCoverRemove={brand.onCoverRemove}
-                                    canWrite={canWrite}
-                                />
-                            ) : (
-                                <div className={styles.loadingState}>
-                                    <Text colorVariant="muted">Caricamento in corso...</Text>
-                                </div>
-                            )
-                        ) : loading ? (
-                            <div className={styles.loadingState}>
-                                <Text colorVariant="muted">Caricamento in corso...</Text>
-                            </div>
-                        ) : stories.length === 0 ? (
-                            <EmptyState
-                                icon={<BookOpenText size={40} strokeWidth={1.5} />}
-                                title="Non hai ancora creato storie"
-                                description="Le storie compaiono nella sezione approfondimenti del tuo catalogo pubblico."
-                                action={
-                                    canWrite ? (
-                                        <Button variant="primary" onClick={handleCreate} disabled={!canEdit}>
-                                            + Crea la prima storia
-                                        </Button>
-                                    ) : undefined
-                                }
-                            />
-                        ) : (
-                            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                                <SortableContext
-                                    items={stories.map(story => story.id)}
-                                    strategy={verticalListSortingStrategy}
-                                >
-                                    <DataTable<StoryWithProduct>
-                                        data={stories}
-                                        columns={columns}
-                                        onRowClick={goToDetail}
-                                        rowWrapper={(row, rowData) => (
-                                            <SortableDataTableRow key={rowData.id} id={rowData.id} draggingOpacity={0.55}>
-                                                {row}
-                                            </SortableDataTableRow>
-                                        )}
-                                    />
-                                </SortableContext>
-                            </DndContext>
-                        )}
+                        <StoryBrandCard
+                            saved={brand.saved}
+                            loadError={brand.loadError}
+                            onRetry={brand.reload}
+                            onEdit={canWrite ? handleEditBrand : undefined}
+                        />
+                        {renderList()}
                     </div>
+
+                    <StoryBrandDrawer open={isBrandOpen} onClose={() => setIsBrandOpen(false)} brand={brand} />
 
                     <StoryCreateDrawer
                         open={isCreateOpen}
                         onClose={() => setIsCreateOpen(false)}
                         tenantId={tenantId ?? undefined}
-                        onSuccess={() => {
-                            setIsCreateOpen(false);
-                            loadData();
-                        }}
                     />
 
-                    <StoryDeleteDrawer
+                    <StoryDeleteDialog
                         open={Boolean(deleteTarget) && Boolean(tenantId)}
                         onClose={() => setDeleteTarget(null)}
                         storyData={deleteTarget}
-                        onSuccess={loadData}
-                    />
-
-                    <UnsavedChangesDialog
-                        isOpen={pendingTab !== null}
-                        onCancel={() => setPendingTab(null)}
-                        onDiscard={() => {
-                            brand.discard();
-                            if (pendingTab) setActiveTab(pendingTab);
-                            setPendingTab(null);
+                        onSuccess={() => {
+                            setDeleteTarget(null);
+                            loadData();
                         }}
-                        onSaveAndExit={async () => {
-                            const ok = await brand.save();
-                            if (ok) {
-                                if (pendingTab) setActiveTab(pendingTab);
-                                setPendingTab(null);
-                            }
-                            return ok;
-                        }}
-                    />
-
-                    <DiscardChangesConfirmDialog
-                        isOpen={confirmDiscardOpen}
-                        onClose={() => setConfirmDiscardOpen(false)}
-                        onDiscard={brand.discard}
                     />
                 </>
             )}

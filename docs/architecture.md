@@ -821,7 +821,7 @@ Products/
 ├── attributeDraft.ts             # Bozza ⇄ valore tipato degli attributi (puro)
 ├── Attributes/                   # Drawer e dialog delle definizioni di attributo
 ├── Ingredients/                  # Collezione Ingredienti («Usato in»)
-├── hooks/                        # useSchedaDraft, useAttributeValuesDraft, useBulkDelete, useEnsureActive, useAiDescription
+├── hooks/                        # useSchedaDraft, useAttributeValuesDraft, useAiDescription (useBulkDelete e useEnsureActive: src/hooks/)
 └── components/
     ├── ProductForm.tsx           # Form condiviso (Prodotti, Menù, In evidenza)
     ├── ProductRowMeta.tsx · ChoiceRulesEditor.tsx · OptionValueList/ · IngredientCombobox.tsx
@@ -859,11 +859,11 @@ I gruppi di prodotti (collezione) stanno in `src/components/Products/ProductGrou
 
 ### 8.4 Highlights (`src/pages/Dashboard/Highlights/`)
 
-**ProductsManagerCard.tsx** — Gestione prodotti in evidenza
-- Lista prodotti drag-drop sortabile
-- ProductPickerList per aggiunta
-- Campo nota per prodotto
-- Save/cancel con change tracking
+Ricomposto nel lotto M17 «Stili · Storie · In evidenza» (§50.11, registro #445–#528).
+
+**Highlights.tsx** — Elenco: `DataTable` (default) a riga del mockup (nome interno + tipo, «I clienti leggono «titolo» · N prodotti») o `CardGrid`; eliminare è `FeaturedContentDeleteDialog` (impatto nel messaggio), multipla via `useBulkDelete`.
+
+**FeaturedContentDetailPage.tsx** — Una pagina, un Salva (§28.3): `Card` «Tipo» (tipo → modalità di prezzo derivata, `featuredContentTypes.ts`) e «Cosa leggono i clienti» (testi, nome interno, immagine su `ImageUploadEditor`, bottone) nella bozza `useFeaturedDraft`; la tab Prodotti (`FeaturedProductsCard`) nella bozza `useFeaturedProductsDraft` (nota, ordine, togli, aggiungi esistenti; subito solo «Nuovo»). Un `HeaderSaveAction`, guardia all'uscita. Il prodotto si apre nella sua pagina (§49.1/3).
 
 ### 8.5 Styles (`src/pages/Dashboard/Styles/`)
 
