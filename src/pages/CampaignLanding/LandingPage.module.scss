@@ -1,14 +1,16 @@
 @use "@pages/CampaignLanding/styles/mixins" as *;
 
-// Blocco finale (form contatti + footer), solo desktop: alto quanto la
-// viewport con lo stesso tetto dell'hero, così arrivando al form (scroll o
-// ancora #contatto) non resta in vista la coda della sezione FAQ. Il form si
-// centra nello spazio libero (`.section` di Contact), il footer sta in fondo.
+// Blocco finale (form contatti + footer), solo desktop: alto almeno quanto la
+// viewport, così arrivando al form (scroll o ancora #contatto) non resta in
+// vista la coda della sezione FAQ. Senza il tetto di 1000 px dell'hero: è la
+// fine della pagina, con un tetto sotto la viewport la FAQ spunterebbe sopra.
+// Il form si centra nello spazio libero (`.section` di Contact), il footer
+// sta in fondo.
 .finale {
     @include desktop {
         display: flex;
         flex-direction: column;
-        min-height: min(100svh, 1000px);
+        min-height: 100svh;
         background: var(--ld-scuro);
     }
 }
