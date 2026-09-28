@@ -127,6 +127,7 @@ $ld-page-bg: #FFFFFF;
     --ld-accent: var(--ld-azione);   // seconda parte blu dei titoli
     --ld-hand: var(--ld-terra);      // nota a mano sopra i titoli
     --ld-hl-line: var(--ld-underline-light);
+    --ld-focus-ring: var(--ld-azione); // anello di focus: 7,0:1 sul bianco
 }
 
 @mixin ld-tokens-dark {
@@ -137,4 +138,5 @@ $ld-page-bg: #FFFFFF;
     --ld-accent: var(--ld-brand-hi);
     --ld-hand: var(--ld-terra-light);
     --ld-hl-line: var(--ld-underline-dark);
+    --ld-focus-ring: var(--ld-brand-hi); // anello chiaro sul fondo scuro
 }

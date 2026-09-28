@@ -26,6 +26,20 @@
     }
 }
 
+// Anello di focus solo da tastiera (:focus-visible), col colore del tono
+// (chiaro sulle sezioni scure). Toglie quello di `index.css` su
+// `button:focus`, che compariva anche dopo un clic col mouse. Specificità
+// (0,2,0): batte `button:focus` globale, perde contro le classi di modulo
+// col loro `:focus-visible` (mixin ld-focus).
+.landing :where(a, button, summary, [tabindex]):focus:not(:focus-visible) {
+    outline: none;
+}
+
+.landing :where(a, button, summary, [tabindex]):focus-visible {
+    outline: 2px solid var(--ld-focus-ring);
+    outline-offset: 3px;
+}
+
 // Neutralizza la tipografia globale dell'app (_typography.scss: `p` grigio con
 // margine, heading con colore proprio) dentro la landing. `:where()` tiene la
 // specificità a quella del selettore globale (0,0,1): vince per ordine di
