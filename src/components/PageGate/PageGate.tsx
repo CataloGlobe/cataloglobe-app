@@ -8,6 +8,7 @@ import { usePlanFeatures } from "@/lib/planFeatures";
 import {
     canDoOnActivity,
     canDoOnAnyActivity,
+    canDoOnTenant,
     isOwnerOrAdmin
 } from "@/lib/permissions";
 import type { PlanFeature } from "@/lib/planFeatures";
@@ -24,6 +25,13 @@ interface PageGateProps {
      * Omitted/null → canDoOnAnyActivity(readPermission).
      */
     activityId?: string | null;
+    /**
+     * `tenant` → canDoOnTenant(readPermission): il solo possesso del permesso,
+     * senza richiedere una sede. Per le pagine che vogliono far entrare anche
+     * chi non ha sedi assegnate (Assistenza: il manager senza sedi trova lì
+     * l'email del supporto). Default: activity/any-activity come sopra.
+     */
+    scope?: "tenant";
     children: (props: { canEdit: boolean }) => React.ReactNode;
 }
 
@@ -41,7 +49,7 @@ interface PageGateProps {
  * Plan-locked CTA: "Passa a Pro" is shown ONLY to owner/admin (billing-capable
  * roles). Other roles see a generic "no access" message instead.
  */
-export function PageGate({ feature, readPermission, activityId, children }: PageGateProps) {
+export function PageGate({ feature, readPermission, activityId, scope, children }: PageGateProps) {
     const { businessId } = useParams<{ businessId: string }>();
     const navigate = useNavigate();
     const { hasFeature } = usePlanFeatures();
@@ -89,9 +97,12 @@ export function PageGate({ feature, readPermission, activityId, children }: Page
     // Wait for PermissionsProvider before blocking. While loading, fall through
     // so children can render their own loading skeletons.
     if (!permissionsLoading && permissions != null) {
-        const canRead = activityId
-            ? canDoOnActivity(permissions, readPermission, activityId)
-            : canDoOnAnyActivity(permissions, readPermission);
+        const canRead =
+            scope === "tenant"
+                ? canDoOnTenant(permissions, readPermission)
+                : activityId
+                  ? canDoOnActivity(permissions, readPermission, activityId)
+                  : canDoOnAnyActivity(permissions, readPermission);
 
         if (!canRead) {
             return (

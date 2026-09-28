@@ -17,7 +17,8 @@ import { useTenantId } from "@/context/useTenantId";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useBusinessOutletContext } from "@/layouts/MainLayout/outletContext";
 import { usePollingRefresh } from "@/hooks/usePollingRefresh";
-import { canDoOnAnyActivity } from "@/lib/permissions";
+import { canDoOnAnyActivity, canDoOnTenant } from "@/lib/permissions";
+import { PageGate } from "@/components/PageGate/PageGate";
 import { getActivities } from "@/services/supabase/activities";
 import { getTenantMemberNames } from "@/services/supabase/team";
 import {
@@ -88,6 +89,9 @@ export default function SupportTicketPage() {
     const [draft, setDraft] = useState("");
     const [isSending, setIsSending] = useState(false);
 
+    // Stesso gate di lettura della lista (tenant, vedi Support.tsx), prima di
+    // ogni fetch: chi non legge non apre il thread dal link di una notifica.
+    const canRead = permissions != null && canDoOnTenant(permissions, "support.read");
     const canWrite = permissions ? canDoOnAnyActivity(permissions, "support.write") : false;
 
     /**
@@ -99,7 +103,7 @@ export default function SupportTicketPage() {
      */
     const loadThread = useCallback(
         async ({ silent = false }: { silent?: boolean } = {}) => {
-            if (!ticketId) return;
+            if (!ticketId || !canRead) return;
             try {
                 const [ticketRow, messageRows] = await Promise.all([
                     getTicket(ticketId),
@@ -120,27 +124,28 @@ export default function SupportTicketPage() {
                 if (!silent) setIsLoading(false);
             }
         },
-        [ticketId]
+        [ticketId, canRead]
     );
 
     useEffect(() => {
+        if (!canRead) return;
         setIsLoading(true);
         setNotFound(false);
         void loadThread();
-    }, [loadThread]);
+    }, [loadThread, canRead]);
 
     // Ricarica di background. Sospesa durante l'invio: un poll che atterrasse
     // a metà sovrascriverebbe lo stato mentre la scrittura è in volo.
     const refreshInBackground = useCallback(() => {
         void loadThread({ silent: true });
     }, [loadThread]);
-    usePollingRefresh(refreshInBackground, { enabled: !isSending && !notFound });
+    usePollingRefresh(refreshInBackground, { enabled: canRead && !isSending && !notFound });
 
     // Nomi dei membri e nome della sede: secondari rispetto al thread, quindi
     // non bloccano la prima pittura. `getTenantMemberNames` è già anti-crash
     // (Map vuota su errore) e il fallback del componente copre il resto.
     useEffect(() => {
-        if (!tenantId) return;
+        if (!tenantId || !canRead) return;
         let cancelled = false;
         void getTenantMemberNames(tenantId).then(names => {
             if (!cancelled) setMemberNames(names);
@@ -148,7 +153,7 @@ export default function SupportTicketPage() {
         return () => {
             cancelled = true;
         };
-    }, [tenantId]);
+    }, [tenantId, canRead]);
 
     useEffect(() => {
         if (!tenantId || !ticket?.activity_id) return;
@@ -171,7 +176,7 @@ export default function SupportTicketPage() {
     // quindi rieseguirlo a ogni render sarebbe una scrittura per render.
     const markedRef = useRef<string | null>(null);
     useEffect(() => {
-        if (!ticketId || notFound || markedRef.current === ticketId) return;
+        if (!ticketId || !canRead || notFound || markedRef.current === ticketId) return;
         markedRef.current = ticketId;
         void markTicketRead(ticketId)
             .then(() => refreshSupportUnread?.())
@@ -179,7 +184,7 @@ export default function SupportTicketPage() {
                 /* il pallino non è un dato critico: un fallimento qui non
                    merita di disturbare chi sta leggendo la conversazione */
             });
-    }, [ticketId, notFound, refreshSupportUnread]);
+    }, [ticketId, canRead, notFound, refreshSupportUnread]);
 
     const threadMessages = useMemo<SupportThreadMessage[]>(
         () =>
@@ -285,6 +290,10 @@ export default function SupportTicketPage() {
         } finally {
             setIsSending(false);
         }
+    }
+
+    if (permissions != null && !canRead) {
+        return <PageGate readPermission="support.read" scope="tenant">{() => null}</PageGate>;
     }
 
     if (isLoading) {

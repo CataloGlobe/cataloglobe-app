@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { LifeBuoy, Lock, Mail } from "lucide-react";
+import { LifeBuoy, Mail } from "lucide-react";
+import { PageGate } from "@/components/PageGate/PageGate";
 import { Button } from "@/components/ui/Button/Button";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { LoadingState } from "@/components/ui/LoadingState/LoadingState";
@@ -52,7 +53,9 @@ export default function Support() {
     const [isLoading, setIsLoading] = useState(true);
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
-    const canRead = permissions ? canDoOnTenant(permissions, "support.read") : true;
+    // Gate di lettura prima di ogni fetch: finché i permessi non ci sono non
+    // parte niente (prima era ottimista e la lista si chiedeva comunque).
+    const canRead = permissions != null && canDoOnTenant(permissions, "support.read");
     const canWrite = permissions ? canDoOnAnyActivity(permissions, "support.write") : false;
 
     const loadData = useCallback(async () => {
@@ -82,10 +85,7 @@ export default function Support() {
     useEffect(() => {
         // Nessuna chiamata se il permesso manca: eviterebbe solo di raccogliere
         // un 42501 inutile (pattern della TeamPage).
-        if (!canRead) {
-            setIsLoading(false);
-            return;
-        }
+        if (!canRead) return;
         void loadData();
     }, [canRead, loadData]);
 
@@ -125,16 +125,8 @@ export default function Support() {
         compact: headerCompact
     });
 
-    if (!canRead) {
-        return (
-            <div className={styles.locked}>
-                <EmptyState
-                    icon={<Lock size={40} strokeWidth={1.5} />}
-                    title="Non hai accesso a questa sezione"
-                    description="Contatta il proprietario o un amministratore per ottenere l'accesso."
-                />
-            </div>
-        );
+    if (permissions != null && !canRead) {
+        return <PageGate readPermission="support.read" scope="tenant">{() => null}</PageGate>;
     }
 
     return (

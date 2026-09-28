@@ -239,7 +239,6 @@ test.describe("Assistenza — dettaglio", () => {
     });
 
     test("senza lettura: il dettaglio è bloccato", async ({ page }) => {
-        test.fail(true, "Oggi il dettaglio non ha gate (#740, P1)");
         await stub.revoke("support.read");
         await openTicket(page, TICKET.qr);
         await stub.revoked;
