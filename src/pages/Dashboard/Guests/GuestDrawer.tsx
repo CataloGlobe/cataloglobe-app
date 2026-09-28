@@ -30,6 +30,7 @@ import { TextInput } from "@/components/ui/Input/TextInput";
 import { Textarea } from "@/components/ui/Textarea/Textarea";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import { useToast } from "@/context/Toast/ToastContext";
+import { useEnsureActive } from "@/hooks/useEnsureActive";
 import {
     listReservationGuestNotes,
     listReservationGuestVisits,
@@ -112,6 +113,7 @@ export default function GuestDrawer({
     onSaved
 }: Props) {
     const { showToast } = useToast();
+    const { ensureActive } = useEnsureActive();
 
     const [visits, setVisits] = useState<ReservationGuestVisit[]>([]);
     const [visitsLoading, setVisitsLoading] = useState(false);
@@ -234,6 +236,9 @@ export default function GuestDrawer({
             a => a.canManage && !sameDraft(draftFor(a.id), draftFromRow(saved.get(a.id)))
         );
         if (changed.length === 0) return;
+        // Le note si scrivono solo con l'abbonamento attivo, come ogni altra
+        // scrittura del pannello (#729).
+        if (!ensureActive()) return;
         setIsSaving(true);
         try {
             await Promise.all(
@@ -254,7 +259,7 @@ export default function GuestDrawer({
         } finally {
             setIsSaving(false);
         }
-    }, [guest, tenantId, activities, draftFor, saved, loadNotes, onSaved, showToast]);
+    }, [guest, tenantId, activities, draftFor, saved, ensureActive, loadNotes, onSaved, showToast]);
 
     if (!guest) {
         return (

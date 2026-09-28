@@ -17,8 +17,8 @@
 // marketing servirebbe un consenso separato che oggi non raccogliamo.
 
 import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { List as ListIcon, Lock, Table2 } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
+import { List as ListIcon, Table2 } from "lucide-react";
 import { useTenantId } from "@/context/useTenantId";
 import { useToast } from "@/context/Toast/ToastContext";
 import { usePermissions } from "@/context/PermissionsContext";
@@ -26,8 +26,7 @@ import { usePageHeader } from "@/context/usePageHeader";
 import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { canDoOnActivity, canDoOnAnyActivity, isTenantWide } from "@/lib/permissions";
 import { usePlanFeatures } from "@/lib/planFeatures";
-import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
-import { Button } from "@/components/ui/Button/Button";
+import { PageGate } from "@/components/PageGate/PageGate";
 import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import {
@@ -52,8 +51,6 @@ const VIEW_MODE_KEY = "guests_view_mode";
 export default function Guests() {
     const tenantId = useTenantId();
     const { showToast } = useToast();
-    const navigate = useNavigate();
-    const { businessId = "" } = useParams<{ businessId: string }>();
     const { hasFeature } = usePlanFeatures();
     const { permissions, loading: permissionsLoading } = usePermissions();
     const [searchParams, setSearchParams] = useSearchParams();
@@ -153,7 +150,10 @@ export default function Guests() {
         ]
     }), [search, viewMode, handleViewChange]);
 
-    usePageHeader(isLocked ? null : { actions: headerActions, compact: headerCompact });
+    // Ricerca e vista solo a chi legge la rubrica: sulla schermata bloccata
+    // (piano o permesso) la testata resta vuota.
+    const showHeader = !isLocked && canRead;
+    usePageHeader(showHeader ? { actions: headerActions, compact: headerCompact } : null);
 
     const loadGuests = useCallback(async () => {
         if (!tenantId || !canRead) return;
@@ -216,7 +216,7 @@ export default function Guests() {
     const deepLinkGuestId = searchParams.get("guest");
 
     useEffect(() => {
-        if (!deepLinkGuestId || !tenantId || !canRead) return;
+        if (!deepLinkGuestId || !tenantId || !canRead || isLocked) return;
         let alive = true;
         getReservationGuest(deepLinkGuestId, tenantId)
             .then(g => {
@@ -230,7 +230,7 @@ export default function Guests() {
                 }
             });
         return () => { alive = false; };
-    }, [deepLinkGuestId, tenantId, canRead, showToast]);
+    }, [deepLinkGuestId, tenantId, canRead, isLocked, showToast]);
 
     const handleOpenGuest = useCallback((guest: ReservationGuestSummary) => {
         setSelectedGuest(guest);
@@ -266,35 +266,13 @@ export default function Guests() {
 
     // ── Render ────────────────────────────────────────────────────────
 
-    if (isLocked) {
+    // Piano e permesso in un solo cancello (§50.14): «Passa a Pro» solo a chi
+    // gestisce l'abbonamento, il blocco di permesso con la frase di sistema.
+    if (isLocked || (!permissionsLoading && permissions && !canRead)) {
         return (
-            <div className={styles.lockedWrap}>
-                <EmptyState
-                    icon={<Lock size={40} strokeWidth={1.5} />}
-                    title="La rubrica clienti è una funzione Pro"
-                    description="Riconosci chi torna, ritrova le allergie annotate e vedi chi non si è presentato. Si popola da sola con le prenotazioni. Disponibile con il piano Pro."
-                    action={
-                        <Button
-                            variant="primary"
-                            onClick={() => navigate(`/business/${businessId}/subscription`)}
-                        >
-                            Passa a Pro
-                        </Button>
-                    }
-                />
-            </div>
-        );
-    }
-
-    if (!permissionsLoading && permissions && !canRead) {
-        return (
-            <div className={styles.lockedWrap}>
-                <EmptyState
-                    icon={<Lock size={40} strokeWidth={1.5} />}
-                    title="Non hai accesso alla rubrica clienti"
-                    description="La rubrica raccoglie i clienti di tutta l'azienda, quindi richiede un permesso dedicato. Contatta il proprietario o un amministratore se ti serve."
-                />
-            </div>
+            <PageGate feature="table_reservation" readPermission="guests.read">
+                {() => null}
+            </PageGate>
         );
     }
 
