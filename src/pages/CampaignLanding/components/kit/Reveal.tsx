@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, type ReactNode } from "react";
-import { useInView } from "@pages/CampaignLanding/hooks/useInView";
+import { ENTRY_ROOT_MARGIN, useInView } from "@pages/CampaignLanding/hooks/useInView";
 import styles from "./Reveal.module.scss";
 
 type RevealProps = {
@@ -12,11 +12,12 @@ type RevealProps = {
 /**
  * Ingresso di un blocco allo scroll (SPEC §8): i figli diretti salgono di 16 px
  * in dissolvenza in 500 ms, 60 ms l'uno dall'altro, quando il blocco entra per
- * il 15%. Una volta sola. Con `prefers-reduced-motion` niente ingresso (solo CSS).
+ * il 15% nello schermo ristretto del 12% in basso (ENTRY_ROOT_MARGIN). Una
+ * volta sola. Con `prefers-reduced-motion` niente ingresso (solo CSS).
  */
 export default function Reveal({ className, variant = "default", children }: RevealProps) {
     const ref = useRef<HTMLDivElement>(null);
-    const inView = useInView(ref, 0.15);
+    const inView = useInView(ref, 0.15, ENTRY_ROOT_MARGIN);
 
     // Sfalsamento sui soli figli visibili: le varianti mobile/desktop nascoste
     // (display: none) non devono lasciare buchi. Valore calcolato, scritto dal

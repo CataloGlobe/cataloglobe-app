@@ -3,7 +3,7 @@ import Section from "@pages/CampaignLanding/components/Section/Section";
 import { HandNote, SplitHeading } from "@pages/CampaignLanding/components/kit/Kit";
 import Reveal from "@pages/CampaignLanding/components/kit/Reveal";
 import { BOARD, PRO_BADGE, WITH_US, type BoardNote } from "@pages/CampaignLanding/content/landing";
-import { useInView } from "@pages/CampaignLanding/hooks/useInView";
+import { ENTRY_ROOT_MARGIN, useInView } from "@pages/CampaignLanding/hooks/useInView";
 import BoardIcon from "./BoardIcon";
 import styles from "./Board.module.scss";
 
@@ -177,7 +177,7 @@ export default function Board() {
     const uid = useId().replace(/:/g, "");
     const ids = { wood: `ld-peg-wood-${uid}`, steel: `ld-peg-steel-${uid}` };
     const ref = useRef<HTMLDivElement>(null);
-    const inView = useInView(ref, 0.15);
+    const inView = useInView(ref, 0.15, ENTRY_ROOT_MARGIN);
 
     return (
         <Section tone="dark" space="board" flushX className={styles.section} labelledBy="landing-board-title">
