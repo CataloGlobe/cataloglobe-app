@@ -5,21 +5,23 @@ import { useCtaEntry } from "@pages/CampaignLanding/hooks/useCtaEntry";
 import { UnderlinedText } from "@pages/CampaignLanding/components/kit/Kit";
 import { BRAND, HERO } from "@pages/CampaignLanding/content/landing";
 import { useReducedMotion } from "@pages/CampaignLanding/hooks/useReducedMotion";
-import HeroCard from "./HeroCard";
-import type { Fascia } from "./heroCycle";
+import HeroStage from "./HeroStage";
+import type { Fascia } from "./heroSequence";
 import styles from "./Hero.module.scss";
 
 const cx = (...names: (string | false | null | undefined)[]) => names.filter(Boolean).join(" ");
 
 /**
- * Effetto cursore, solo desktop con puntatore fine (SPEC §6): scheda, testo e
- * bagliore si spostano col mouse; un alone segue il cursore. Scrive
- * direttamente `transform` in un requestAnimationFrame, niente setState.
+ * Effetto cursore, solo desktop con puntatore fine (SPEC §6): programmazione,
+ * telefono, testo e bagliore si spostano col mouse (leggera parallasse, il
+ * telefono più della card); un alone segue il cursore. Scrive direttamente
+ * `transform` in un requestAnimationFrame, niente setState.
  */
 function useHeroParallax(enabled: boolean) {
     const panel = useRef<HTMLDivElement>(null);
     const glow = useRef<HTMLDivElement>(null);
-    const card = useRef<HTMLDivElement>(null);
+    const schedule = useRef<HTMLDivElement>(null);
+    const phone = useRef<HTMLDivElement>(null);
     const text = useRef<HTMLDivElement>(null);
     const spot = useRef<HTMLDivElement>(null);
     const frame = useRef(0);
@@ -29,9 +31,8 @@ function useHeroParallax(enabled: boolean) {
         frame.current = 0;
         const { x, y, px, py } = pointer.current;
         if (glow.current) glow.current.style.transform = `translate(${(x * 70).toFixed(1)}px, ${(y * 50).toFixed(1)}px)`;
-        if (card.current) {
-            card.current.style.transform = `rotateY(${(x * 9).toFixed(2)}deg) rotateX(${(-y * 7).toFixed(2)}deg) translate(${(x * 14).toFixed(1)}px, ${(y * 10).toFixed(1)}px)`;
-        }
+        if (schedule.current) schedule.current.style.transform = `translate(${(x * 10).toFixed(1)}px, ${(y * 8).toFixed(1)}px)`;
+        if (phone.current) phone.current.style.transform = `translate(${(x * 18).toFixed(1)}px, ${(y * 12).toFixed(1)}px)`;
         if (text.current) text.current.style.transform = `translate(${(-x * 10).toFixed(1)}px, ${(-y * 6).toFixed(1)}px)`;
         if (spot.current) {
             spot.current.style.opacity = "1";
@@ -57,13 +58,13 @@ function useHeroParallax(enabled: boolean) {
     const onPointerLeave = useCallback(() => {
         if (frame.current) cancelAnimationFrame(frame.current);
         frame.current = 0;
-        for (const el of [glow.current, card.current, text.current]) if (el) el.style.transform = "";
+        for (const el of [glow.current, schedule.current, phone.current, text.current]) if (el) el.style.transform = "";
         if (spot.current) spot.current.style.opacity = "0";
     }, []);
 
     useEffect(() => () => cancelAnimationFrame(frame.current), []);
 
-    return { refs: { panel, glow, card, text, spot }, onPointerMove, onPointerLeave };
+    return { refs: { panel, glow, schedule, phone, text, spot }, onPointerMove, onPointerLeave };
 }
 
 function useFinePointer(): boolean {
@@ -138,12 +139,8 @@ export default function Hero() {
                         </div>
                     </div>
 
-                    <div className={styles.cardCol}>
-                        <div ref={refs.card} className={styles.cardTilt}>
-                            <div className={styles.cardIn}>
-                                <HeroCard onFascia={setFascia} />
-                            </div>
-                        </div>
+                    <div className={cx(styles.stageCol, styles.stageIn)}>
+                        <HeroStage onFascia={setFascia} scheduleRef={refs.schedule} phoneRef={refs.phone} />
                     </div>
                 </div>
             </div>

@@ -27,55 +27,139 @@ export const BRAND = {
 
 // ── 1 · Hero ────────────────────────────────────────────────────────────────
 
-export type HeroBeatIcon = "clock" | "tag" | "ban";
+export type HeroMenu = {
+    name: string;
+    chips: string[];
+    cats: { name: string; dishes: { name: string; desc: string; price: number }[] }[];
+};
+
+export type HeroLive = {
+    time: string;
+    text: string;
+    after: 0 | 1 | 2;
+    menu: 0 | 1 | 2;
+    row: number;
+} & ({ kind: "price"; to: number } | { kind: "sold" });
 
 export const HERO = {
     eyebrow: "Menù digitale per ristoranti",
     title: { before: "Il menù che si aggiorna da solo. Tu pensi ", underlined: "alla sala.", after: "" } satisfies UnderlinedTitle,
     lede: "Cambi un prezzo o segni un piatto finito dal telefono: il menù che i clienti aprono dal QR è subito giusto.",
-    /** Le tre fasce della scheda animata; i prezzi sono numeri (il momento 2 ne alza uno). */
-    fasce: [
-        {
-            title: "Menù Pranzo",
-            hours: "12–15",
-            dishes: [
-                { name: "Trofie al pesto", price: 12 },
-                { name: "Insalata di mare", price: 16 },
-                { name: "Focaccia al formaggio", price: 9 },
-                { name: "Acqua naturale", price: 3 }
-            ]
-        },
-        {
-            title: "Menù Aperitivo",
-            hours: "18–20",
-            dishes: [
-                { name: "Spritz della casa", price: 8 },
-                { name: "Tagliere della casa", price: 14 },
-                { name: "Olive e taralli", price: 5 },
-                { name: "Bruschette miste", price: 7 }
-            ]
-        },
-        {
-            title: "Menù Cena",
-            hours: "20–23",
-            dishes: [
-                { name: "Branzino al sale", price: 22 },
-                { name: "Risotto ai frutti di mare", price: 20 },
-                { name: "Tagliata di manzo", price: 23 },
-                { name: "Tiramisù", price: 6 }
-            ]
-        }
-    ],
-    /** Barra in cima alla scheda, una per momento (vedi `heroCycle.ts`). */
-    beats: [
-        { title: "Sono le 12:00", sub: "parte il menù pranzo", icon: "clock" },
-        { title: "Prezzo aggiornato", sub: "Insalata di mare, 17 €", icon: "tag" },
-        { title: "Sono le 18:00", sub: "parte l’aperitivo", icon: "clock" },
-        { title: "Esaurito", sub: "Bruschette miste", icon: "ban" },
-        { title: "Sono le 20:00", sub: "parte il menù cena", icon: "clock" }
-    ] satisfies { title: string; sub: string; icon: HeroBeatIcon }[],
-    unavailable: "Non disponibile"
+    /**
+     * Telefono simulato (`HeroPhone`): i tre menù del locale d'esempio, uno per
+     * fascia. Prezzi numeri; `live` sono le modifiche al volo della sequenza
+     * (`heroSequence.ts`), con la riga del menù che cambiano.
+     */
+    phone: {
+        venue: "Il tuo locale",
+        logo: "Tl",
+        /** Ora in barra di stato prima che parta la giornata. */
+        startClock: "11:58",
+        menus: [
+            {
+                name: "Menù Pranzo",
+                chips: ["Primi", "Secondi", "Contorni", "Bevande"],
+                cats: [
+                    {
+                        name: "Primi",
+                        dishes: [
+                            { name: "Spaghetti al pomodoro", desc: "Pomodoro, basilico, parmigiano", price: 12 },
+                            { name: "Risotto ai porcini", desc: "Porcini, burro, parmigiano", price: 14 }
+                        ]
+                    },
+                    {
+                        name: "Secondi",
+                        dishes: [
+                            { name: "Insalata di mare", desc: "Polpo, gamberi, sedano, limone", price: 16 },
+                            { name: "Tagliata di manzo", desc: "Rucola e scaglie di grana", price: 23 },
+                            { name: "Cotoletta alla milanese", desc: "Con patate al forno", price: 19 }
+                        ]
+                    },
+                    {
+                        name: "Contorni",
+                        dishes: [
+                            { name: "Verdure grigliate", desc: "Di stagione", price: 6 },
+                            { name: "Patate al forno", desc: "Rosmarino e sale grosso", price: 5 }
+                        ]
+                    }
+                ]
+            },
+            {
+                name: "Menù Aperitivo",
+                chips: ["Cocktail", "Stuzzichini", "Vini", "Birre"],
+                cats: [
+                    {
+                        name: "Cocktail",
+                        dishes: [
+                            { name: "Spritz della casa", desc: "Aperitivo, prosecco, arancia", price: 8 },
+                            { name: "Negroni", desc: "Gin, vermouth, bitter", price: 9 },
+                            { name: "Analcolico alla frutta", desc: "Frutta fresca e soda", price: 6 }
+                        ]
+                    },
+                    {
+                        name: "Stuzzichini",
+                        dishes: [
+                            { name: "Bruschette miste", desc: "Pomodoro, basilico, olio nuovo", price: 7 },
+                            { name: "Tagliere della casa", desc: "Salumi e formaggi del territorio", price: 14 },
+                            { name: "Olive e taralli", desc: "Da condividere", price: 5 },
+                            { name: "Focaccia calda", desc: "Olio e sale grosso", price: 4 }
+                        ]
+                    }
+                ]
+            },
+            {
+                name: "Menù Cena",
+                chips: ["Antipasti", "Primi", "Secondi", "Dolci", "Vini"],
+                cats: [
+                    {
+                        name: "Antipasti",
+                        dishes: [
+                            { name: "Carpaccio di tonno", desc: "Agrumi e finocchio", price: 16 },
+                            { name: "Bruschette miste", desc: "Pomodoro, basilico, olio nuovo", price: 7 }
+                        ]
+                    },
+                    {
+                        name: "Primi",
+                        dishes: [
+                            { name: "Spaghetti al pomodoro", desc: "Pomodoro, basilico, parmigiano", price: 12 },
+                            { name: "Tagliolini al tartufo", desc: "Burro e tartufo nero", price: 18 }
+                        ]
+                    },
+                    {
+                        name: "Secondi",
+                        dishes: [
+                            { name: "Tagliata di manzo", desc: "Rucola e scaglie di grana", price: 23 },
+                            { name: "Branzino al sale", desc: "Con verdure di stagione", price: 22 }
+                        ]
+                    },
+                    { name: "Vini", dishes: [{ name: "Calice di rosso", desc: "Nero d’Avola", price: 6 }] }
+                ]
+            }
+        ] satisfies HeroMenu[],
+        unavailable: "Non disponibile"
+    },
+    /** Programmazione di oggi: fasce programmate (viola) e modifiche al volo (terracotta). */
+    schedule: {
+        title: "Programmazione di oggi",
+        now: "In corso",
+        running: "in corso",
+        liveLabel: "Modifica al volo",
+        slots: [
+            { time: "12:00", name: "Pranzo" },
+            { time: "18:00", name: "Aperitivo" },
+            { time: "20:00", name: "Cena" }
+        ],
+        /**
+         * `after`: fascia dopo cui compare in lista; `menu` + `row`: la riga del
+         * telefono (indice nel menù, contando tutte le categorie).
+         */
+        live: [
+            { time: "13:10", text: "Insalata di mare 17 €", after: 0, menu: 0, row: 2, kind: "price", to: 17 },
+            { time: "19:25", text: "Bruschette esaurite", after: 1, menu: 1, row: 3, kind: "sold" }
+        ] satisfies HeroLive[]
+    }
 };
+
 
 // ── 2-4 · Tre problemi, tre soluzioni ───────────────────────────────────────
 

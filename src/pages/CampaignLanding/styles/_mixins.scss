@@ -6,6 +6,22 @@
 // @media sul viewport, non @container: la landing non vive in un device frame.
 $ld-bp-desktop: 1024px;
 
+// Solo hero: da 1200 la programmazione di oggi sta in una card verticale fra
+// testo e telefono; sotto è la versione orizzontale sopra il telefono.
+$ld-bp-hero-wide: 1200px;
+
+@mixin hero-wide {
+    @media (min-width: $ld-bp-hero-wide) {
+        @content;
+    }
+}
+
+@mixin hero-narrow {
+    @media (max-width: $ld-bp-hero-wide - 1px) {
+        @content;
+    }
+}
+
 @mixin desktop {
     @media (min-width: $ld-bp-desktop) {
         @content;

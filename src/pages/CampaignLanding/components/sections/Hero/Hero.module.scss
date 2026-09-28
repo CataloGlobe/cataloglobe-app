@@ -145,14 +145,21 @@
     z-index: 2;
     margin: auto 0;
 
+    // Testo | palco (telefono + programmazione). Sotto 1200 il palco è largo
+    // quanto la linea orizzontale (338); da 1200 card 264 + 24 + telefono 284,
+    // 22 px dal testo.
     @include desktop {
         display: grid;
-        grid-template-columns: 1.15fr 1fr;
-        gap: 64px;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 40px;
         align-items: center;
         width: 100%;
         max-width: 1136px;
         margin: auto;
+    }
+
+    @include hero-wide {
+        gap: 22px;
     }
 }
 
@@ -177,10 +184,21 @@
     color: var(--ld-on-azione);
     text-wrap: balance;
 
+    // Tre righe accanto al palco, come in tavola: «Il menù che si / aggiorna
+    // da solo. / Tu pensi alla sala.». Il corpo segue la colonna del testo
+    // (da 1280: 1136 − 594 = 542 px; «Tu pensi alla sala.», la riga più lunga,
+    // a 60 px con la spaziatura della tavola ne occupa ~534) e le righe si
+    // spezzano in avanti, non bilanciate: il bilanciamento ne farebbe quattro.
     @include desktop {
         margin-top: 14px;
-        font-size: ld-fluid-desk(52, 62);
+        font-size: ld-fluid-desk(52, 56, 1024, 1199);
         line-height: 1.06;
+        letter-spacing: -0.01em;
+        text-wrap: wrap;
+    }
+
+    @include hero-wide {
+        font-size: ld-fluid-desk(51, 60, 1200, 1280);
     }
 }
 
@@ -227,184 +245,13 @@
     }
 }
 
-// ── Scheda ──────────────────────────────────────────────────────────────────
-.cardCol {
-    margin-top: 32px;
+// ── Palco: telefono e programmazione (HeroStage) ────────────────────────────
+.stageCol {
+    margin-top: 28px;
 
     @include desktop {
-        width: 100%;
-        max-width: 440px;
-        margin: 0 0 0 auto;
-        perspective: 1000px;
+        margin-top: 0;
     }
-}
-
-.cardTilt {
-    transition: transform 700ms var(--ld-ease);
-    transform-style: preserve-3d;
-}
-
-.card {
-    border-radius: 18px;
-    overflow: hidden;
-    background: var(--ld-white);
-    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
-    color: var(--ld-ink);
-}
-
-.bar {
-    // 42 px + il filetto, come in tavola.
-    height: 43px;
-    overflow: hidden;
-    border-bottom: 1px solid var(--ld-line-2);
-    transition: background-color 400ms ease;
-}
-
-.bar-clock {
-    background: var(--ld-hero-bar-clock);
-}
-
-.bar-tag {
-    background: var(--ld-hero-bar-tag);
-}
-
-.bar-ban {
-    background: var(--ld-hero-bar-ban);
-
-    .barIcon {
-        color: var(--ld-terra);
-    }
-}
-
-.barInner {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    height: 42px;
-    padding: 0 18px;
-    font-size: 13px;
-    white-space: nowrap;
-}
-
-.barIcon {
-    display: flex;
-    flex-shrink: 0;
-    color: var(--ld-azione);
-}
-
-.barTitle {
-    font-weight: 700;
-}
-
-.barSub {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    color: var(--ld-muted);
-}
-
-.cardBody {
-    padding: 16px 18px 12px;
-}
-
-.menuHead {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 10px;
-}
-
-.menuTitle {
-    @include ld-serif;
-    font-size: 21px;
-    color: var(--ld-ink);
-
-    @include desktop {
-        font-size: 22px;
-    }
-}
-
-.menuHours {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--ld-muted);
-}
-
-.rows {
-    margin: 8px -10px 0;
-}
-
-// Una riga sola sempre (anche con badge o prezzo barrato): la scheda ha la
-// stessa altezza in tutti i momenti.
-.row {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-    padding: 10px;
-    white-space: nowrap;
-    border-bottom: 1px solid var(--ld-line-2);
-
-    &:last-child {
-        border-bottom-color: transparent;
-    }
-}
-
-.rowName {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.rowName,
-.price {
-    font-size: 15px;
-    color: var(--ld-ink);
-    transition: color 300ms ease;
-
-    @include desktop {
-        font-size: 16px;
-    }
-}
-
-.price {
-    font-weight: 600;
-}
-
-.rowUp .price {
-    color: var(--ld-azione);
-}
-
-.rowOff .rowName {
-    color: var(--ld-off-ink);
-}
-
-.rowOff .price {
-    color: var(--ld-off-price);
-}
-
-.leader {
-    flex-grow: 1;
-    border-bottom: 2px dotted var(--ld-leader-hero);
-    transform: translateY(-4px);
-}
-
-.old {
-    font-size: 13px;
-    color: var(--ld-off-ink);
-    text-decoration: line-through;
-}
-
-// Centrato e non sulla linea di base: sulla linea di base sporgeva sotto il
-// testo e allungava la riga di 1 px.
-.badge {
-    flex-shrink: 0;
-    align-self: center;
-    padding: 2px 8px;
-    border-radius: 999px;
-    background: var(--ld-peach);
-    color: var(--ld-terra);
-    font-size: 11px;
-    font-weight: 700;
-    line-height: normal;
 }
 
 // ── Animazioni ──────────────────────────────────────────────────────────────
@@ -442,43 +289,13 @@
         }
     }
 
-    .cardIn {
+    .stageIn {
         animation: ld-hero-card 900ms var(--ld-ease) both;
         animation-delay: 560ms;
 
         @include desktop {
             animation-delay: 520ms;
         }
-    }
-
-    // Dentro la scheda (HeroCard.tsx): una sola transizione per tutti i
-    // passaggi. Esce la parte che cambia (`.leaving`, 160 ms verso l'alto),
-    // quella nuova è un elemento rimontato che entra dal basso (240 ms).
-    // Fill `backwards`, non `both`: finito l'ingresso l'animazione non tiene
-    // più opacity/transform e la transizione di `.leaving` può partire.
-    .enter {
-        animation: ld-hero-in 240ms ease-out backwards;
-    }
-
-    .leaving {
-        opacity: 0;
-        transform: translateY(-6px);
-        transition:
-            opacity 160ms ease-out,
-            transform 160ms ease-out;
-    }
-
-    // Modifiche dal telefono: entra solo il pezzo della riga.
-    .priceIn {
-        animation: ld-hero-price 240ms ease-out backwards;
-    }
-
-    .old {
-        animation: ld-hero-fade 240ms ease-out backwards;
-    }
-
-    .badge {
-        animation: ld-hero-badge 240ms ease-out backwards;
     }
 }
 
@@ -501,32 +318,5 @@
     to {
         opacity: 1;
         transform: none;
-    }
-}
-
-@keyframes ld-hero-in {
-    from {
-        opacity: 0;
-        transform: translateY(6px);
-    }
-}
-
-@keyframes ld-hero-price {
-    from {
-        opacity: 0;
-        transform: translateY(4px);
-    }
-}
-
-@keyframes ld-hero-fade {
-    from {
-        opacity: 0;
-    }
-}
-
-@keyframes ld-hero-badge {
-    from {
-        opacity: 0;
-        transform: scale(0.96);
     }
 }

@@ -1,0 +1,806 @@
+@use "sass:math";
+@use "@pages/CampaignLanding/styles/mixins" as *;
+
+// Telefono e programmazione di oggi (HeroStage.tsx). Misure e colori dal
+// riferimento docs/landing/versione-c/riferimento/hero-v11.html.
+
+// ── Disposizione ────────────────────────────────────────────────────────────
+// Mobile e desktop stretto: linea orizzontale sopra il telefono (20 px d'aria).
+// Da 1200: card verticale a sinistra del telefono, 24 px fra le due.
+.stage {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+
+    @include hero-wide {
+        flex-direction: row;
+        gap: 24px;
+    }
+}
+
+.scheduleTilt,
+.phoneTilt {
+    transition: transform 700ms var(--ld-ease);
+}
+
+.scheduleTilt {
+    width: 100%;
+    max-width: 338px;
+
+    // Desktop stretto: la linea resta larga 338, più del telefono.
+    @include desktop {
+        width: 338px;
+    }
+
+    @include hero-wide {
+        width: auto;
+        max-width: none;
+        // Un po' sopra il centro del telefono, come in tavola.
+        margin-bottom: 90px;
+    }
+}
+
+// ── Telefono ────────────────────────────────────────────────────────────────
+// Proporzione iPhone (1 : 2,05). Contenuto disegnato su 300 px di larghezza e
+// scalato sullo schermo: padding 3,4 % e raggio 15 % della larghezza.
+@mixin phone-size($w, $h) {
+    $pad: math.round($w * 0.034);
+    $radius: math.round($w * 0.15);
+    $scale: math.div($w - 2 * $pad, 300);
+    width: #{$w}px;
+    height: #{$h}px;
+    padding: #{$pad}px;
+    border-radius: #{$radius}px;
+
+    .screen {
+        border-radius: #{$radius - $pad}px;
+    }
+
+    .island {
+        top: #{$pad + 6}px;
+        height: #{math.min($pad * 2.2, 24)}px;
+    }
+
+    .content {
+        height: #{math.div($h - 2 * $pad, $scale)}px;
+        transform: scale($scale);
+    }
+}
+
+.phone {
+    position: relative;
+    box-sizing: border-box;
+    background: var(--ld-hp-body);
+    box-shadow:
+        0 40px 90px rgba(0, 0, 0, 0.6),
+        inset 0 0 0 1.5px rgba(255, 255, 255, 0.12);
+    @include phone-size(220, 451);
+
+    @include desktop {
+        @include phone-size(284, 582);
+    }
+}
+
+.island {
+    position: absolute;
+    left: 50%;
+    z-index: 9;
+    width: 32%;
+    border-radius: 14px;
+    background: var(--ld-hp-body);
+    transform: translateX(-50%);
+}
+
+.screen {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: var(--ld-hp-screen);
+}
+
+.content {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 300px;
+    overflow: hidden;
+    transform-origin: 0 0;
+    font-family: var(--ld-font-sans);
+    line-height: normal;
+    color: var(--ld-hp-ink);
+}
+
+// Barra di stato sulla copertina: ora a sinistra, segnale e batteria a destra.
+.statusBar {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 34px;
+    box-sizing: border-box;
+    padding: 4px 24px 0 26px;
+    font-size: 13px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--ld-on-azione);
+}
+
+.sbTime {
+    transition: opacity 160ms;
+}
+
+.sbTimeOut {
+    opacity: 0;
+}
+
+.sbIcons {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+
+    svg {
+        width: auto;
+        height: 11px;
+    }
+}
+
+// Copertina senza foto: terracotta/vinaccia, luce in alto a destra, trama diagonale.
+.cover {
+    position: relative;
+    height: 150px;
+    background:
+        radial-gradient(120% 90% at 88% 0%, rgba(255, 196, 140, 0.32), rgba(255, 196, 140, 0) 60%),
+        repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.035) 0 2px, rgba(255, 255, 255, 0) 2px 13px),
+        linear-gradient(160deg, var(--ld-hp-cover-1) 0%, var(--ld-hp-cover-2) 55%, var(--ld-hp-cover-3) 100%);
+
+    &::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(
+            180deg,
+            rgba(0, 0, 0, 0.18) 0,
+            rgba(0, 0, 0, 0) 30%,
+            rgba(0, 0, 0, 0) 55%,
+            rgba(0, 0, 0, 0.28) 100%
+        );
+    }
+}
+
+.coverId {
+    position: absolute;
+    left: 14px;
+    right: 14px;
+    bottom: 12px;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--ld-on-azione);
+}
+
+.logo {
+    display: grid;
+    place-items: center;
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    background: var(--ld-hp-logo);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+    @include ld-serif;
+    font-size: 16px;
+    color: var(--ld-hp-brand);
+}
+
+.venue {
+    display: block;
+    font-size: 16px;
+    font-weight: 700;
+    line-height: 1.1;
+}
+
+.menuName {
+    display: block;
+    margin-top: 3px;
+    font-size: 11.5px;
+    font-weight: 600;
+    opacity: 0.92;
+}
+
+.chips {
+    display: flex;
+    gap: 6px;
+    overflow: hidden;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--ld-hp-line);
+}
+
+.chip {
+    padding: 6px 11px;
+    border-radius: 999px;
+    background: var(--ld-hp-chip);
+    font-size: 11.5px;
+    font-weight: 600;
+    white-space: nowrap;
+    color: var(--ld-hp-chip-ink);
+}
+
+.chipOn {
+    background: var(--ld-hp-brand);
+    color: var(--ld-on-azione);
+}
+
+.items {
+    padding: 0 14px 20px;
+}
+
+.cat {
+    @include ld-serif;
+    margin: 14px 0 2px;
+    font-size: 16px;
+}
+
+.item {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--ld-hp-row-line);
+}
+
+.itemText {
+    flex: 1;
+    min-width: 0;
+}
+
+.itemName {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    transition: color 300ms;
+}
+
+.itemDesc {
+    display: block;
+    margin-top: 2px;
+    overflow: hidden;
+    font-size: 10.5px;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    color: var(--ld-hp-muted);
+}
+
+.itemPrice {
+    font-size: 12.5px;
+    font-weight: 700;
+    text-align: right;
+    white-space: nowrap;
+}
+
+.itemOld {
+    margin-right: 4px;
+    font-size: 10.5px;
+    font-weight: 500;
+    color: var(--ld-hp-old);
+}
+
+.itemUp .itemValue {
+    color: var(--ld-azione);
+}
+
+.itemOff .itemName,
+.itemOff .itemPrice {
+    color: var(--ld-hp-off);
+}
+
+.badge {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 999px;
+    background: var(--ld-peach);
+    font-size: 9px;
+    font-weight: 700;
+    white-space: nowrap;
+    color: var(--ld-terra);
+}
+
+// ── Programmazione di oggi: card verticale (da 1200) ────────────────────────
+.timeline {
+    display: none;
+    width: 264px;
+    box-sizing: border-box;
+    padding: 15px 16px 8px;
+    border: 1px solid rgba(255, 255, 255, 0.13);
+    border-radius: 18px;
+    background: var(--ld-sched-bg);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+    line-height: normal;
+    color: var(--ld-sched-text);
+
+    @include hero-wide {
+        display: block;
+    }
+}
+
+.tlTitle {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin: 0 0 6px;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ld-sched-eyebrow);
+}
+
+.tlIcon {
+    width: 13px;
+    height: 13px;
+}
+
+// Colonne: ora 40 · pallino 16 · testo. Linea al centro della colonna pallino.
+$tl-line-x: 57px;
+
+.tlList {
+    position: relative;
+
+    &::before {
+        content: "";
+        position: absolute;
+        left: $tl-line-x;
+        top: 22px;
+        bottom: 22px;
+        width: 2px;
+        border-radius: 2px;
+        background: rgba(255, 255, 255, 0.12);
+    }
+}
+
+// Altezza scritta da HeroStage.tsx (timelineFill in heroSequence.ts).
+.tlFill {
+    position: absolute;
+    left: $tl-line-x;
+    top: 22px;
+    z-index: 1;
+    width: 2px;
+    height: 0;
+    border-radius: 2px;
+    background: var(--ld-sched-line);
+    transition: height 600ms var(--ld-ease);
+}
+
+// Altezze 44 / 50: TIMELINE_SLOT_H / TIMELINE_LIVE_H in heroSequence.ts.
+.ev {
+    position: relative;
+    display: grid;
+    grid-template-columns: 40px 16px 1fr;
+    gap: 0 10px;
+    align-items: center;
+    height: 44px;
+}
+
+.evTime {
+    font-size: 12.5px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--ld-sched-muted);
+    transition: color 300ms;
+}
+
+.evDot {
+    position: relative;
+    z-index: 2;
+    justify-self: center;
+    box-sizing: border-box;
+    width: 12px;
+    height: 12px;
+    border: 2px solid rgba(255, 255, 255, 0.28);
+    border-radius: 50%;
+    background: var(--ld-sched-dot);
+    transition:
+        background-color 300ms,
+        border-color 300ms,
+        box-shadow 300ms;
+}
+
+.evText {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13.5px;
+    font-weight: 600;
+    white-space: nowrap;
+    color: var(--ld-sched-muted);
+    transition: color 300ms;
+}
+
+.evNow {
+    padding: 2px 6px;
+    border-radius: 999px;
+    background: var(--ld-sched-line);
+    font-size: 9.5px;
+    font-weight: 700;
+    color: var(--ld-scuro);
+    opacity: 0;
+    transition: opacity 250ms;
+}
+
+.evDone {
+    .evTime,
+    .evText {
+        color: var(--ld-sched-done);
+    }
+
+    .evDot {
+        border-color: var(--ld-sched-done);
+        background: var(--ld-sched-done);
+    }
+}
+
+.evAct {
+    .evTime,
+    .evText {
+        color: var(--ld-on-azione);
+    }
+
+    .evDot {
+        border-color: var(--ld-sched-line);
+        background: var(--ld-sched-line);
+        box-shadow: 0 0 0 5px rgba(169, 170, 242, 0.2);
+    }
+
+    .evNow {
+        opacity: 1;
+    }
+}
+
+// Modifica al volo: terracotta, inserita all'ora in cui succede.
+// Margine negativo + padding: la riga è larga 8 px in più per lato (il lampo
+// sborda come in tavola) e resta `overflow: hidden` mentre si apre.
+.evLive {
+    height: 50px;
+    margin: 0 -8px;
+    padding: 0 8px;
+    overflow: hidden;
+
+    .evTime {
+        color: var(--ld-live-ink);
+    }
+
+    .evDot {
+        width: 10px;
+        height: 10px;
+        border: 0;
+        background: var(--ld-live);
+        box-shadow: 0 0 0 4px rgba(201, 100, 58, 0.22);
+    }
+
+    .evText {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1px;
+        font-size: 13px;
+        color: var(--ld-live-text);
+    }
+}
+
+.evLiveLabel {
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ld-live-ink);
+}
+
+// ── Versione orizzontale (mobile e desktop sotto 1200) ──────────────────────
+.track {
+    box-sizing: border-box;
+    width: 100%;
+    padding: 12px 16px 9px;
+    border: 1px solid rgba(255, 255, 255, 0.13);
+    border-radius: 14px;
+    background: var(--ld-sched-bg);
+    line-height: normal;
+    color: var(--ld-sched-text);
+
+    @include hero-wide {
+        display: none;
+    }
+}
+
+.trkLine {
+    position: relative;
+    height: 12px;
+    margin: 0 6px;
+
+    &::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 5px;
+        height: 2px;
+        border-radius: 2px;
+        background: rgba(255, 255, 255, 0.12);
+    }
+}
+
+// Larghezza scritta da HeroStage.tsx (trackPosition in heroSequence.ts).
+.trkFill {
+    position: absolute;
+    left: 0;
+    top: 5px;
+    width: 0;
+    height: 2px;
+    border-radius: 2px;
+    background: var(--ld-sched-line);
+    transition: width 500ms var(--ld-ease);
+}
+
+.trkDot {
+    position: absolute;
+    top: 0;
+    z-index: 1;
+    box-sizing: border-box;
+    width: 12px;
+    height: 12px;
+    margin-left: -6px;
+    border: 2px solid rgba(255, 255, 255, 0.28);
+    border-radius: 50%;
+    background: var(--ld-sched-dot);
+    transition:
+        background-color 300ms,
+        border-color 300ms,
+        box-shadow 300ms;
+
+    &.done {
+        border-color: var(--ld-sched-done);
+        background: var(--ld-sched-done);
+    }
+
+    &.act {
+        border-color: var(--ld-sched-line);
+        background: var(--ld-sched-line);
+        box-shadow: 0 0 0 4px rgba(169, 170, 242, 0.2);
+    }
+}
+
+// Posizioni: le fasce a 0 / 60 / 100 %, le modifiche al volo alla loro ora
+// (trackPosition: 13:10 → 11,67 %, 19:25 → 88,33 %).
+.pos0 {
+    left: 0;
+}
+
+.pos1 {
+    left: 60%;
+}
+
+.pos2 {
+    left: 100%;
+}
+
+.mark0 {
+    left: 11.667%;
+}
+
+.mark1 {
+    left: 88.333%;
+}
+
+.trkMark {
+    position: absolute;
+    top: 2px;
+    z-index: 2;
+    width: 8px;
+    height: 8px;
+    margin-left: -4px;
+    border-radius: 50%;
+    background: var(--ld-live);
+    box-shadow: 0 0 0 3px rgba(201, 100, 58, 0.25);
+}
+
+.trkLabels {
+    position: relative;
+    height: 30px;
+    margin-top: 7px;
+}
+
+.trkLabel {
+    position: absolute;
+    top: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    font-size: 11.5px;
+    font-weight: 600;
+    white-space: nowrap;
+    color: var(--ld-sched-muted);
+    transition: color 300ms;
+
+    &.done {
+        color: var(--ld-sched-done);
+    }
+
+    &.act {
+        color: var(--ld-on-azione);
+    }
+}
+
+.label0 {
+    left: 0;
+}
+
+.label1 {
+    left: 60%;
+    align-items: center;
+    transform: translateX(-50%);
+}
+
+.label2 {
+    right: 0;
+    align-items: flex-end;
+}
+
+.trkTime {
+    font-size: 10px;
+    font-variant-numeric: tabular-nums;
+    opacity: 0.85;
+}
+
+.trkCaption {
+    position: relative;
+    height: 17px;
+    margin-top: 6px;
+    padding-top: 7px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    font-size: 11.5px;
+    font-weight: 600;
+}
+
+// Riga di stato: pallino inline prima del testo, centrata.
+.cap {
+    position: absolute;
+    left: 0;
+    right: 0;
+    text-align: center;
+    white-space: nowrap;
+    transition: opacity 200ms;
+}
+
+.capDot {
+    color: var(--ld-sched-line);
+}
+
+.capLive,
+.capLive .capDot {
+    color: var(--ld-live-caption);
+}
+
+.capOff {
+    opacity: 0;
+}
+
+// ── Animazioni ──────────────────────────────────────────────────────────────
+@include motion-ok {
+    // Cambio di fascia: il vecchio esce (160 ms), il nuovo è rimontato ed entra (240 ms).
+    .enter {
+        animation: ld-stage-in 240ms var(--ld-ease) backwards;
+    }
+
+    .leaving {
+        opacity: 0;
+        transform: translateY(-6px);
+        transition:
+            opacity 160ms ease,
+            transform 160ms ease;
+    }
+
+    // Prezzo cambiato: lampo blu + cerchio che si espande.
+    .itemUp {
+        animation: ld-stage-flash 900ms ease;
+    }
+
+    .itemUp::after,
+    .itemOff::after {
+        content: "";
+        position: absolute;
+        right: 14px;
+        top: 50%;
+        width: 34px;
+        height: 34px;
+        margin-top: -17px;
+        box-sizing: border-box;
+        border: 2px solid var(--ld-azione);
+        border-radius: 50%;
+        pointer-events: none;
+        animation: ld-stage-ring 800ms ease-out both;
+    }
+
+    .itemOff::after {
+        border-color: var(--ld-live);
+    }
+
+    .badge {
+        animation: ld-stage-pop 240ms ease both;
+    }
+
+    // Modifica al volo in lista: si apre (0 → 50 px in 420 ms) con un lampo terracotta.
+    .evLive {
+        animation: ld-stage-live 420ms var(--ld-ease) both;
+
+        &::after {
+            content: "";
+            position: absolute;
+            inset: 3px 0;
+            border-radius: 10px;
+            background: rgba(201, 100, 58, 0.18);
+            pointer-events: none;
+            animation: ld-stage-fade-out 1600ms ease-out forwards;
+        }
+    }
+
+    .trkMark {
+        animation: ld-stage-pop 300ms ease both;
+    }
+}
+
+@keyframes ld-stage-in {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+}
+
+@keyframes ld-stage-flash {
+    from {
+        background: rgba(70, 72, 198, 0.12);
+    }
+    to {
+        background: rgba(70, 72, 198, 0);
+    }
+}
+
+@keyframes ld-stage-ring {
+    from {
+        opacity: 0.9;
+        transform: scale(0.4);
+    }
+    to {
+        opacity: 0;
+        transform: scale(1.5);
+    }
+}
+
+@keyframes ld-stage-pop {
+    from {
+        opacity: 0;
+        transform: scale(0.9);
+    }
+}
+
+@keyframes ld-stage-live {
+    from {
+        height: 0;
+        opacity: 0;
+    }
+    to {
+        height: 50px;
+        opacity: 1;
+    }
+}
+
+@keyframes ld-stage-fade-out {
+    to {
+        opacity: 0;
+    }
+}

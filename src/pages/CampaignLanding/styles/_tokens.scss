@@ -63,9 +63,34 @@ $ld-page-bg: #FFFFFF;
     // ── hero ──
     --ld-hero-a: #24203A;
     --ld-hero-b: #1A1830;
-    --ld-hero-bar-clock: #F7F7FB;
-    --ld-hero-bar-tag: #EFEEFD;
-    --ld-hero-bar-ban: #FBF0E9;
+    // ── hero: telefono simulato (HeroStage) ──
+    --ld-hp-body: #0B0B12;
+    --ld-hp-screen: #F6F3EE;
+    --ld-hp-ink: #1E1B18;
+    --ld-hp-muted: #8A847B;
+    --ld-hp-line: #E6E1D8;
+    --ld-hp-row-line: #EAE5DC;
+    --ld-hp-chip: #ECE6DC;
+    --ld-hp-chip-ink: #6F685E;
+    --ld-hp-brand: #B5482A;      // pillola attiva e logo del locale d'esempio
+    --ld-hp-logo: #F4EEE1;
+    --ld-hp-off: #B7B0A6;        // riga esaurita
+    --ld-hp-old: #AAA39A;        // prezzo barrato
+    --ld-hp-cover-1: #4E231D;    // copertina: gradiente terracotta/vinaccia
+    --ld-hp-cover-2: #7E3323;
+    --ld-hp-cover-3: #A5432A;
+    // ── hero: programmazione di oggi ──
+    --ld-sched-bg: rgba(24, 23, 44, 0.9);
+    --ld-sched-text: #EDECF7;
+    --ld-sched-eyebrow: #9D9BB4;
+    --ld-sched-muted: #8E8CA6;
+    --ld-sched-done: #6F6D88;
+    --ld-sched-dot: #18172C;
+    --ld-sched-line: var(--ld-brand-hi-2);   // programmato: viola
+    --ld-live: #C9643A;                      // modifica al volo: terracotta
+    --ld-live-ink: #E9A07A;
+    --ld-live-text: #F3E7E0;
+    --ld-live-caption: #F0B08E;
     // ── bacheca: foglietti ──
     --ld-note-paper: #FFFDF6;
     --ld-note-icon: #2B2A6B;
