@@ -1,6 +1,7 @@
 import type { Page } from "@playwright/test";
 import { TENANT_ID } from "./reservationsStub";
 import { stubRest, type RestStub, type Row, type Tables } from "./restStub";
+import { appearanceTables, enrichAppearance, freezeClock, sediOf } from "./appearanceStub";
 
 /**
  * Dati finti per l'e2e di In evidenza (lotto `ds-5-stili-storie-evidenza`, P0).
@@ -10,6 +11,15 @@ import { stubRest, type RestStub, type Row, type Tables } from "./restStub";
  * registrate). Permessi, azienda e sidebar restano veri. `onWrite` di default
  * per le code di traduzione e le loro pulizie: il servizio le chiama in
  * silenzio dopo ogni scrittura di testo.
+ *
+ * Dove e quando compaiono (§50.13, `appearanceStub.ts`, orologio mercoledì 12:00):
+ *
+ * | Regola | Contenuto | Posto | Dove | Quando | Stato |
+ * |---|---|---|---|---|---|
+ * | Coppia sempre e2e | coppia | sopra il menù | tutte | sempre | in onda |
+ * | Giovedì sera e2e | aperitivo | sotto il menù | Centro | Gio 17–20 | spenta |
+ *
+ * Chiusura e concerto: nessuna regola. «Nessuna regola li mostra»: 3.
  */
 
 export { TENANT_ID };
@@ -20,6 +30,8 @@ export const FEATURED = { coppia: uuid(1), aperitivo: uuid(2), chiusura: uuid(3)
 export const MISSING_FEATURED = uuid(999);
 export const PRODUCT = { bigArch: uuid(101), patatine: uuid(102), spritz: uuid(103), tagliere: uuid(104) } as const;
 const LINK = { coppiaBig: uuid(201), coppiaPatatine: uuid(202), aperitivoSpritz: uuid(203) } as const;
+export const RULE = { aperitivo: uuid(401), coppia: uuid(402) } as const;
+export const { SEDE } = sediOf("e2eef000");
 
 function content(id: string, n: number, internal: string, title: string, type: string, extra: Row = {}): Row {
     const pricing = type === "promo" ? "per_item" : type === "bundle" ? "bundle" : "none";
@@ -95,10 +107,22 @@ function makeTables(): Tables {
         product_groups: [],
         product_group_items: [],
         product_option_groups: [],
-        // L'aperitivo è nominato da una regola.
-        schedule_featured_contents: [
-            { id: uuid(301), tenant_id: TENANT_ID, schedule_id: uuid(401), featured_content_id: FEATURED.aperitivo, slot: "after_catalog", sort_order: 0 }
-        ]
+        // L'aperitivo è nominato da una regola, spenta; la coppia da una viva.
+        ...appearanceTables("e2eef000", [
+            { id: RULE.coppia, name: "Coppia sempre e2e", rule_type: "featured", all: true, featured: [{ id: FEATURED.coppia, slot: "before_catalog" }] },
+            {
+                id: RULE.aperitivo,
+                name: "Giovedì sera e2e",
+                rule_type: "featured",
+                enabled: false,
+                activities: [SEDE.centro],
+                time_mode: "window",
+                days_of_week: [4],
+                time_from: "17:00:00",
+                time_to: "20:00:00",
+                featured: [{ id: FEATURED.aperitivo, slot: "after_catalog" }]
+            }
+        ])
     };
 }
 
@@ -130,12 +154,13 @@ export async function stubEvidenza(page: Page): Promise<EvidenzaStub> {
             if (table === "products" && select.includes("option_groups")) {
                 return rows.map(row => ({ ...row, option_groups: [] }));
             }
-            return rows;
+            return enrichAppearance(tables, table, rows, params) ?? rows;
         }
     });
     for (const key of ["translation_jobs.POST", "translation_jobs.PATCH", "translation_jobs.DELETE", "translations.DELETE"]) {
         stub.onWrite(key, () => null);
     }
     await page.route(/\/api\/public-catalog\/revalidate/, route => route.fulfill({ json: { ok: true } }));
+    await freezeClock(page);
     return Object.assign(stub, { tables });
 }

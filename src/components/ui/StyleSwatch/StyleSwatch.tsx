@@ -1,12 +1,13 @@
 import { useMemo } from "react";
 import type { V2Style } from "@/services/supabase/styles";
-import { parseTokens, DEFAULT_STYLE_TOKENS } from "../Editor/StyleTokenModel";
+import { parseTokens, DEFAULT_STYLE_TOKENS } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
 import styles from "./StyleSwatch.module.scss";
 
 /**
  * Il campione di uno stile: una pagina pubblica in miniatura (testata nel
  * primario, pillole di navigazione, due blocchi, il bottone nell'accento) sul
- * fondo della pagina. È lo swatch che la §49.3 metterà sulla card del menù.
+ * fondo della pagina. Due consumatori: l'elenco Stili e la card del menù
+ * (§49.3, §50.13).
  *
  * I colori sono dati dello stile, quindi vivono negli attributi `fill`
  * dell'SVG e non in CSS inline. I grigi dei blocchi si scuriscono o si
@@ -14,9 +15,14 @@ import styles from "./StyleSwatch.module.scss";
  * scuri.
  */
 type StyleSwatchProps = {
-    style: V2Style;
+    style: Pick<V2Style, "current_version">;
     /** Versione da riga di tabella: più bassa, senza blocchi di contenuto. */
     compact?: boolean;
+    /**
+     * Il nome accessibile («Stile Estate»), quando il campione dice qualcosa
+     * che il testo accanto non dice (la card del menù). Senza, è decorativo.
+     */
+    label?: string;
 };
 
 function isDark(hex: string): boolean {
@@ -29,7 +35,7 @@ function isDark(hex: string): boolean {
     return 0.2126 * r + 0.7152 * g + 0.0722 * b < 128;
 }
 
-export function StyleSwatch({ style, compact = false }: StyleSwatchProps) {
+export function StyleSwatch({ style, compact = false, label }: StyleSwatchProps) {
     const palette = useMemo(() => {
         const tokens = style.current_version?.config ? parseTokens(style.current_version.config) : DEFAULT_STYLE_TOKENS;
         const background = tokens.colors.pageBackground;
@@ -41,9 +47,13 @@ export function StyleSwatch({ style, compact = false }: StyleSwatchProps) {
         };
     }, [style]);
 
+    const a11y = label
+        ? ({ role: "img", "aria-label": label } as const)
+        : ({ "aria-hidden": true } as const);
+
     if (compact) {
         return (
-            <svg className={styles.compact} viewBox="0 0 64 40" aria-hidden="true" focusable="false">
+            <svg className={styles.compact} viewBox="0 0 64 40" {...a11y} focusable="false">
                 <rect width="64" height="40" fill={palette.background} />
                 <rect width="64" height="8" fill={palette.primary} />
                 <rect x="8" y="15" width="14" height="4" rx="2" fill={palette.primary} />
@@ -54,7 +64,7 @@ export function StyleSwatch({ style, compact = false }: StyleSwatchProps) {
     }
 
     return (
-        <svg className={styles.swatch} viewBox="0 0 160 100" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+        <svg className={styles.swatch} viewBox="0 0 160 100" preserveAspectRatio="none" {...a11y} focusable="false">
             <rect width="160" height="100" fill={palette.background} />
             <rect width="160" height="18" fill={palette.primary} />
             <rect x="12" y="28" width="22" height="5" rx="2.5" fill={palette.primary} />

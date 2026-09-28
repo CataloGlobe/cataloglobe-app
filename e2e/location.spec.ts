@@ -87,6 +87,21 @@ test.describe("Scheda della sede", () => {
         await expect(page).toHaveURL(/\/locations\/[0-9a-f-]+/);
     });
 
+    test("zona pericolosa: la conferma dice le storie che se ne vanno con la sede (§50.13)", async ({ page }) => {
+        // Il conteggio è finto: le storie legate a una sede, in staging, non ci sono.
+        // Risposta vera (intestazioni CORS comprese), col totale riscritto.
+        await page.route(/\/rest\/v1\/stories\?.*activity_id=eq\./, async route => {
+            const response = await route.fetch();
+            await route.fulfill({ response, headers: { ...response.headers(), "content-range": "*/2" } });
+        });
+        await openFirstLocation(page);
+        await page.getByRole("tab", { name: TAB.pubblicazione }).click();
+        await page.getByRole("main").getByRole("button", { name: /^Elimina/ }).click();
+        const dialog = page.getByRole("alertdialog", { name: /^Elimina/ });
+        await expect(dialog).toContainText("2 storie legate a questa sede");
+        await dialog.getByRole("button", { name: "Annulla", exact: true }).click();
+    });
+
     test("i vecchi ?tab= portano alla sezione giusta", async ({ page }) => {
         await openFirstLocation(page);
         const base = page.url().replace(/[?#].*$/, "").replace(/\/(anagrafica|orari|ordini-prenotazioni|canali|pubblicazione)$/, "");
