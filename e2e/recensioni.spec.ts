@@ -158,7 +158,6 @@ test.describe("Recensioni — vuoto ed errore", () => {
     });
 
     test("errore di caricamento: lo dice e offre «Riprova»", async ({ page }) => {
-        test.fail(true, "Oggi: toast e «Nessuna recensione trovata» (#670, P1)");
         stub = await stubRecensioni(page);
         await page.route(/\/rest\/v1\/reviews\?/, route => route.fulfill({ status: 500, json: { code: "E2E", message: "rotto" } }));
         await openBusinessPage(page, "reviews", "Recensioni");

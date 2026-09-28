@@ -1,12 +1,17 @@
 import { supabase } from "@/services/supabase/client";
 import type { Review } from "@/types/database";
 
-/** Recensioni per una singola attività */
-export async function getBusinessReviews(activityId: string): Promise<Review[]> {
+/**
+ * Recensioni dell'azienda sulle sedi indicate, dalla più recente: una query
+ * sola invece di una per sede. `activityIds` vuoto = nessuna recensione.
+ */
+export async function listReviews(tenantId: string, activityIds: string[]): Promise<Review[]> {
+    if (activityIds.length === 0) return [];
     const { data, error } = await supabase
         .from("reviews")
         .select("*")
-        .eq("activity_id", activityId)
+        .eq("tenant_id", tenantId)
+        .in("activity_id", activityIds)
         .order("created_at", { ascending: false });
 
     if (error) throw error;
