@@ -145,6 +145,21 @@ test.describe("Clienti — elenco", () => {
         expect(params.get("activity_id")).toBe(`eq.${SEDE.porto}`);
     });
 
+    test("chiudere la scheda con una nota non salvata chiede prima", async ({ page }) => {
+        await openList(page);
+        await expect(guestName(page, "Giulia Rossi e2e")).toBeVisible({ timeout: 15_000 });
+        const d = await openGuest(page, "Giulia Rossi e2e");
+        await d.getByRole("textbox", { name: /Lago e2e/ }).fill("Una bozza e2e");
+        await d.getByRole("button", { name: "Chiudi", exact: true }).first().click();
+        await expect(page.getByText("Uscire senza salvare?")).toBeVisible();
+        await page.getByRole("button", { name: "Resta" }).click();
+        await expect(d.getByRole("textbox", { name: /Lago e2e/ })).toHaveValue("Una bozza e2e");
+        await page.keyboard.press("Escape");
+        await page.getByRole("button", { name: "Esci senza salvare" }).click();
+        await expect(page.getByRole("dialog")).toHaveCount(0);
+        expect(stub.writes.filter(w => w.key.startsWith("reservation_guest_notes"))).toHaveLength(0);
+    });
+
     test("deep link ?guest= apre la scheda", async ({ page }) => {
         await openList(page);
         await expect(guestName(page, "Giulia Rossi e2e")).toBeVisible({ timeout: 15_000 });

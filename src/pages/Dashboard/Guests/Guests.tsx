@@ -329,7 +329,7 @@ export default function Guests() {
                 )}
             </div>
 
-            {tenantId && (
+            {tenantId && selectedGuest && (
                 <GuestDrawer
                     open={isDrawerOpen}
                     onClose={handleCloseDrawer}

@@ -58,353 +58,51 @@
   gap: var(--space-4);
 }
 
-/* Residui usati ancora dalla scheda (drawer), in uscita al passo del drawer. */
-.skeleton {
-  height: 76px;
-  border-radius: var(--radius-control);
-  background: var(--skeleton-base);
-}
-
-.guestsFootnote {
-  margin: 0;
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-/* ── Scheda cliente (drawer) ─────────────────────────────────────────── */
+/* ── Scheda cliente (drawer) ───────────────────────────────────────────
+   Card del sistema, una per sezione (come il dettaglio del tavolo). */
 
 .drawerBody {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: var(--space-16);
 }
 
-.drawerSection {
+/* La riga «non hai i permessi» prende lo spazio a sinistra dei bottoni. */
+.footerHint {
+  flex: 1 1 auto;
+  margin: 0;
+}
+
+.noteBlock {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-8);
 }
 
-.drawerSectionTitle {
-  margin: 0;
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: color-mix(in srgb, var(--text) 62%, var(--card-bg));
+.subTitle {
+  margin: var(--space-8) 0 0;
 }
 
-.drawerHeaderTitle {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.drawerFooter {
-  display: flex;
-  gap: 8px;
-  justify-content: flex-end;
-  flex-wrap: wrap;
-}
-
-.drawerFooterHint {
-  width: 100%;
-  margin: 0;
-  font-size: 12px;
-  color: color-mix(in srgb, var(--text) 62%, var(--card-bg));
-  text-align: right;
-}
-
-.drawerNotes {
-  padding: 12px 14px;
-  background: var(--hover-bg);
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  font-size: 14px;
-  color: var(--text);
-  white-space: pre-wrap;
-}
-
-.contactList {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.contactItem {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  color: color-mix(in srgb, var(--text) 78%, var(--card-bg));
-}
-
-.contactIcon {
-  color: color-mix(in srgb, var(--text) 62%, var(--card-bg));
-  flex-shrink: 0;
-}
-
-.contactLink {
-  color: var(--brand-primary);
-  text-decoration: none;
-  word-break: break-word;
-
-  &:hover {
-    text-decoration: underline;
-  }
-}
-
-
-/* Tre metriche affiancate: "quante volte è venuto", "quante volte non si è
-   presentato", "da quanto lo conosciamo" sono tre domande distinte. Divise da
-   un bordo verticale invece che da tre riquadri: è un blocco unico di sintesi,
-   non tre card. */
-.metricRow {
-  display: flex;
-  background: var(--hover-bg);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.metric {
-  flex: 1 1 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 12px 14px;
-  min-width: 0;
-
-  & + & {
-    border-left: 1px solid var(--border);
-  }
-}
-
-.metricValue,
-.metricValueAlert,
-.metricValueSmall {
-  font-weight: 600;
-  color: var(--text);
-  line-height: 1.2;
-}
-
-.metricValue,
-.metricValueAlert {
-  font-size: 22px;
-  font-variant-numeric: tabular-nums;
-}
-
-/* Solo il valore che cambia una decisione si colora. Zero resta neutro. */
-.metricValueAlert {
-  color: var(--color-red-900);
-}
-
-/* "marzo 2026" non è un numero: stessa riga di base, corpo da testo. */
-.metricValueSmall {
-  font-size: 15px;
-  padding-top: 5px;
-  padding-bottom: 4px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.metricLabel {
-  font-size: 12px;
-  color: color-mix(in srgb, var(--text) 62%, var(--card-bg));
-}
-
-/* Sottotitolo di sezione: spiega a cosa serve, sotto l'etichetta. */
-.sectionSubtitle {
-  margin: -4px 0 0;
-  font-size: 12px;
-  line-height: 1.5;
-  color: color-mix(in srgb, var(--text) 62%, var(--card-bg));
-}
-
-/* ── Marcature ───────────────────────────────────────────────────────── */
-
-.guestTagsEditor {
+.tagRow {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-8);
 }
 
-.tagPill {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 6px 4px 10px;
-  border-radius: 999px;
-  background: var(--hover-bg);
-  border: 1px solid var(--border);
-  font-size: 12px;
-  color: var(--text);
-  white-space: nowrap;
-}
-
-.tagPillRemove {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 16px;
-  height: 16px;
-  padding: 0;
-  border: none;
-  border-radius: 50%;
-  background: none;
-  color: color-mix(in srgb, var(--text) 62%, var(--card-bg));
-  cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
-
-  &:hover {
-    background: var(--color-red-100);
-    color: var(--color-red-900);
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--brand-primary);
-    outline-offset: 1px;
-  }
-}
-
-/* Tratteggiata: è un posto vuoto da riempire, non un'azione già disponibile
-   allo stesso peso delle marcature esistenti. */
-.tagPillAdd {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: none;
-  border: 1px dashed color-mix(in srgb, var(--text) 22%, var(--card-bg));
-  font-size: 12px;
-  color: color-mix(in srgb, var(--text) 78%, var(--card-bg));
-  cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
-
-  &:hover {
-    background: var(--hover-bg);
-    color: var(--text);
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--brand-primary);
-    outline-offset: 1px;
-  }
-}
-
-/* Box del campo "aggiungi": raccoglie input e suggerimenti in un unico
-   riquadro, così i suggerimenti si leggono come scorciatoie del campo e non
-   come marcature già applicate (che stanno sopra, piene, con la x). */
-.tagAddBox {
+.tagAdd {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 12px;
-  background: var(--hover-bg);
-  border: 1px solid var(--border);
-  border-radius: 8px;
+  gap: var(--space-8);
 }
 
-.guestTagAddRow {
+.tagAddRow {
   display: flex;
-  gap: 8px;
+  gap: var(--space-8);
   align-items: flex-start;
-}
 
-.tagSuggestions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-}
-
-.tagSuggestionsLabel {
-  font-size: 12px;
-  color: color-mix(in srgb, var(--text) 62%, var(--card-bg));
-}
-
-.tagSuggestion {
-  padding: 3px 9px;
-  border-radius: 999px;
-  background: var(--card-bg);
-  border: 1px solid var(--border);
-  font-size: 12px;
-  color: color-mix(in srgb, var(--text) 78%, var(--card-bg));
-  cursor: pointer;
-
-  &:hover {
-    color: var(--text);
-    border-color: color-mix(in srgb, var(--text) 22%, var(--card-bg));
+  > :first-child {
+    flex: 1 1 auto;
+    min-width: 0;
   }
-}
-
-/* ── Storico visite ──────────────────────────────────────────────────── */
-
-.guestVisitList {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  background: var(--card-bg);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.guestVisitRow {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 10px 12px;
-
-  & + & {
-    border-top: 1px solid var(--border);
-  }
-}
-
-.guestVisitDate {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text);
-}
-
-.guestVisitMeta {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 10px;
-  font-size: 12px;
-  color: color-mix(in srgb, var(--text) 62%, var(--card-bg));
-}
-
-.guestVisitMetaItem {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-/* Note del CLIENTE su quella visita: fra virgolette perché sono parole sue,
-   non del locale. */
-.guestVisitNotes {
-  font-size: 13px;
-  font-style: italic;
-  color: color-mix(in srgb, var(--text) 78%, var(--card-bg));
-}
-
-// FASE 5.3 — nel blocco per sede della scheda cliente, «Note del locale» e
-// «Etichette» diventano sottotitoli: il titolo di sezione è il nome della
-// sede.
-.drawerSubTitle {
-  margin: 4px 0 0;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text);
 }
