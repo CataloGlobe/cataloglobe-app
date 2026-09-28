@@ -1,18 +1,57 @@
 @use "@pages/CampaignLanding/styles/mixins" as *;
 
-.card {
-    padding: 16px 18px 18px;
-    border-radius: 20px;
-    background: var(--ld-white);
+// Campo prezzo del telefono: − / valore / +, il valore nuovo in blu su --ld-brand-s.
+.stepper {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    overflow: hidden;
     border: 1px solid var(--ld-line);
-    box-shadow: var(--ld-shadow-card);
+    border-radius: 10px;
+    font-weight: 700;
+    line-height: 32px;
 }
 
-.cardTitle {
-    @include ld-serif;
-    margin: 0 0 4px;
-    font-size: 20px;
+.stepBtn {
+    width: 30px;
+    height: 32px;
+    background: var(--ld-paper);
+    font-size: 16px;
+    text-align: center;
+    color: var(--ld-muted);
+}
+
+.stepValue {
+    min-width: 58px;
+    height: 32px;
+    background: var(--ld-white);
+    font-size: 15px;
+    text-align: center;
     color: var(--ld-ink);
+    transition:
+        color 250ms ease,
+        background-color 250ms ease;
+}
+
+.stepValueOn {
+    background: var(--ld-brand-s);
+    color: var(--ld-azione);
+}
+
+// Riga aggiornata nel menù del cliente: lampo blu una volta.
+@include motion-ok {
+    .rowUp {
+        animation: ld-supplier-flash 1000ms ease;
+    }
+}
+
+@keyframes ld-supplier-flash {
+    from {
+        background: rgba(70, 72, 198, 0.1);
+    }
+    to {
+        background: rgba(70, 72, 198, 0);
+    }
 }
 
 .loss {

@@ -173,6 +173,9 @@ export type ProblemCopy = {
 };
 
 export const WITH_US = "Con CataloGlobe";
+/** Le due metà della scheda telefono → menù del cliente (PhoneQrCard). */
+export const PHONE_LABEL = "Dal tuo telefono";
+export const CUSTOMER_LABEL = "Il menù del cliente, dal QR";
 export const PRO_BADGE = "Piano Pro";
 
 export const SUPPLIER = {
@@ -182,13 +185,16 @@ export const SUPPLIER = {
         lede: "Alzare un prezzo sulla carta vuol dire ristampare tutto il menù, e così si rimanda. Intanto la differenza la paghi tu, piatto dopo piatto.",
         solution: "Lo cambi dal telefono: il menù che si apre dal QR è subito giusto, e il PDF da stampare si aggiorna da solo."
     } satisfies ProblemCopy,
+    /** Scheda: il prezzo della tagliata sale da 22 a 23 € all'ingresso nello schermo. */
     card: {
-        title: "Secondi",
-        dishes: [
+        dish: "Tagliata di manzo",
+        from: "22 €",
+        to: "23 €",
+        rows: [
             { name: "Branzino al sale", price: "22 €" },
-            { name: "Tagliata di manzo", price: "23 €", oldPrice: "22 €" },
+            { name: "Tagliata di manzo", price: "22 €", raised: true },
             { name: "Filetto al pepe verde", price: "26 €" }
-        ] satisfies { name: string; price: string; oldPrice?: string }[]
+        ] satisfies { name: string; price: string; raised?: boolean }[]
     },
     loss: {
         amount: "≈500 €",
@@ -204,12 +210,10 @@ export const SOLD_OUT = {
         lede: "Il cliente lo sceglie e il cameriere deve tornare al tavolo a dirgli che non c’è. Succede ogni volta che qualcosa finisce a metà servizio.",
         solution: "Lo segni esaurito dal telefono e scegli tu: lo nascondi dal menù o lo lasci visibile come non disponibile. E se finisce un ingrediente, nascondi in un colpo tutti i piatti che lo usano."
     } satisfies ProblemCopy,
-    phoneLabel: "Dal tuo telefono",
     dish: "Branzino al sale",
     soldOut: "Esaurito",
     available: "Disponibile",
     switchLabel: "Segna esaurito",
-    customerLabel: "Il menù del cliente, dal QR",
     unavailable: "Non disponibile",
     rows: [
         { name: "Carpaccio di tonno", price: "16 €" },

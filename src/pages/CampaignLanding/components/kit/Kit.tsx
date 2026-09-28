@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { PRO_BADGE, WITH_US, type SplitTitle, type UnderlinedTitle } from "@pages/CampaignLanding/content/landing";
+import { CUSTOMER_LABEL, PHONE_LABEL, PRO_BADGE, WITH_US, type SplitTitle, type UnderlinedTitle } from "@pages/CampaignLanding/content/landing";
 import styles from "./Kit.module.scss";
 
 const cx = (...names: (string | false | null | undefined)[]) => names.filter(Boolean).join(" ");
@@ -102,6 +102,42 @@ export function MenuRow({
             <span className={styles.rowLeader} aria-hidden="true" />
             {oldPrice && <span className={styles.rowOld}>{oldPrice}</span>}
             <span className={cx(styles.rowPrice, oldPrice && styles.rowPriceUp)}>{price}</span>
+        </div>
+    );
+}
+
+/**
+ * Scheda «dal tuo telefono → il menù del cliente»: sopra il piatto con il suo
+ * comando (interruttore, campo prezzo), sotto le righe che vede il cliente dal
+ * QR. La usano «Un piatto è finito» (fondo carta sopra) e «Il fornitore
+ * aumenta» (fondo carta sotto).
+ */
+export function PhoneQrCard({
+    dish,
+    control,
+    paper,
+    children
+}: {
+    dish: string;
+    control: ReactNode;
+    /** Metà su fondo carta (--ld-paper). */
+    paper: "phone" | "customer";
+    /** Righe del menù del cliente (MenuRow). */
+    children: ReactNode;
+}) {
+    return (
+        <div className={styles.pqCard}>
+            <div className={cx(styles.pqPhone, paper === "phone" && styles.pqPaper)}>
+                <Kicker>{PHONE_LABEL}</Kicker>
+                <div className={styles.pqControl}>
+                    <span className={styles.pqDish}>{dish}</span>
+                    {control}
+                </div>
+            </div>
+            <div className={cx(styles.pqCustomer, paper === "customer" && styles.pqPaper)} aria-live="polite">
+                <Kicker className={styles.pqCustomerLabel}>{CUSTOMER_LABEL}</Kicker>
+                {children}
+            </div>
         </div>
     );
 }

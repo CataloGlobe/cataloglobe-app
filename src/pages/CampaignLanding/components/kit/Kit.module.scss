@@ -222,6 +222,46 @@
     }
 }
 
+// ── Scheda telefono → menù del cliente (PhoneQrCard) ────────────────────────
+.pqCard {
+    overflow: hidden;
+    border-radius: 20px;
+    background: var(--ld-white);
+    border: 1px solid var(--ld-line);
+    box-shadow: var(--ld-shadow-card);
+}
+
+.pqPhone {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--ld-line);
+}
+
+.pqControl {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 8px;
+}
+
+.pqDish {
+    @include ld-serif;
+    flex-grow: 1;
+    font-size: 18px;
+    color: var(--ld-ink);
+}
+
+.pqCustomer {
+    padding: 12px 18px 16px;
+}
+
+.pqPaper {
+    background: var(--ld-paper);
+}
+
+.pqCustomer .pqCustomerLabel {
+    margin-bottom: 2px;
+}
+
 // ── Etichetta piccola dei pannelli ──────────────────────────────────────────
 .kicker {
     @include ld-kicker;

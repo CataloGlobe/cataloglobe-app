@@ -1,33 +1,5 @@
 @use "@pages/CampaignLanding/styles/mixins" as *;
 
-.card {
-    overflow: hidden;
-    border-radius: 20px;
-    background: var(--ld-white);
-    border: 1px solid var(--ld-line);
-    box-shadow: var(--ld-shadow-card);
-}
-
-.phone {
-    padding: 14px 18px;
-    background: var(--ld-paper);
-    border-bottom: 1px solid var(--ld-line);
-}
-
-.control {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-top: 8px;
-}
-
-.dish {
-    @include ld-serif;
-    flex-grow: 1;
-    font-size: 18px;
-    color: var(--ld-ink);
-}
-
 .state {
     font-size: 13px;
     font-weight: 700;
@@ -69,14 +41,6 @@
 
 .switchOn .knob {
     transform: translateX(16px);
-}
-
-.customer {
-    padding: 12px 18px 16px;
-}
-
-.customer .customerLabel {
-    margin-bottom: 2px;
 }
 
 .hint {
