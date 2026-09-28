@@ -4,6 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import Stripe from "https://esm.sh/stripe@17?target=deno";
 import { stripeClientOptions } from "../_shared/stripe-helpers.ts";
 import {
+    buildReuseCustomerUpdate,
     buildStripeCustomerProfile,
     syncCustomerTaxId,
     TENANT_FISCAL_COLUMNS,
@@ -321,18 +322,25 @@ serve(async req => {
         } else {
             // Reuse path: refresh profile on the existing customer. Best-effort —
             // a failed update must not block checkout (we still have the data our side).
-            // Stripe merges metadata (unspecified keys are preserved).
             // email + user_id follow the caller, who is the owner (checked above):
             // realigns a customer left on a previous owner by an ownership transfer.
-            try {
-                await stripe.customers.update(stripeCustomerId, {
+            // With the fiscal row in hand, align like update-billing-details: a
+            // field emptied in the DB is emptied on Stripe too ("" = unset,
+            // metadata keys included). Without the row (maybeSingle → null) the
+            // empty profile would wipe the customer, so keep the pre-fill update:
+            // only filled fields, Stripe merges metadata.
+            const reuseUpdate = fiscalRow
+                ? buildReuseCustomerUpdate(tenantId, fiscal, userEmail, userId)
+                : {
                     email: userEmail,
                     name: stripeCustomerName,
                     address: customerAddress,
                     description: stripeCustomerDescription,
                     preferred_locales: ["it"],
                     metadata: { ...stripeCustomerMetadata, user_id: userId }
-                });
+                };
+            try {
+                await stripe.customers.update(stripeCustomerId, reuseUpdate);
             } catch (err) {
                 // Log only the error class — Stripe messages can echo the submitted value.
                 console.warn(
