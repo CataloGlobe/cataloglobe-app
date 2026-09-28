@@ -189,14 +189,12 @@ $stage-overhead: 224;
     }
 }
 
-// Copertina senza foto: terracotta/vinaccia, luce in alto a destra, trama diagonale.
+// Copertina: foto del locale (900×450), sotto il colore della vinaccia finché
+// non arriva. Sfumature scure in alto (ora e segnali) e in basso (nome).
 .cover {
     position: relative;
     height: 150px;
-    background:
-        radial-gradient(120% 90% at 88% 0%, rgba(255, 196, 140, 0.32), rgba(255, 196, 140, 0) 60%),
-        repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.035) 0 2px, rgba(255, 255, 255, 0) 2px 13px),
-        linear-gradient(160deg, var(--ld-hp-cover-1) 0%, var(--ld-hp-cover-2) 55%, var(--ld-hp-cover-3) 100%);
+    background: var(--ld-hp-cover) url("@pages/CampaignLanding/assets/hero/hero-cover.webp") center / cover no-repeat;
 
     &::after {
         content: "";
@@ -204,10 +202,10 @@ $stage-overhead: 224;
         inset: 0;
         background: linear-gradient(
             180deg,
-            rgba(0, 0, 0, 0.18) 0,
-            rgba(0, 0, 0, 0) 30%,
-            rgba(0, 0, 0, 0) 55%,
-            rgba(0, 0, 0, 0.28) 100%
+            rgba(0, 0, 0, 0.5) 0,
+            rgba(0, 0, 0, 0) 32%,
+            rgba(0, 0, 0, 0) 38%,
+            rgba(0, 0, 0, 0.72) 100%
         );
     }
 }
@@ -222,6 +220,8 @@ $stage-overhead: 224;
     align-items: center;
     gap: 10px;
     color: var(--ld-on-azione);
+    // Sulla foto: le luci del locale restano sotto il nome.
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.55);
 }
 
 .logo {
