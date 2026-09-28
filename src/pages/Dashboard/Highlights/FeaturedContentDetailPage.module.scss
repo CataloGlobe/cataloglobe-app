@@ -41,3 +41,9 @@
   flex-direction: column;
   gap: var(--space-12);
 }
+
+// «Dove e quando compare» senza regole: la frase sopra la riga che porta a Programmazione.
+.placementEmpty {
+  display: block;
+  padding: var(--space-16) var(--space-24) var(--space-4);
+}

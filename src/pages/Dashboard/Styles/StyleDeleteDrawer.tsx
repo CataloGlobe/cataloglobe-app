@@ -6,39 +6,18 @@ import Text from "@/components/ui/Text/Text";
 import { Select } from "@/components/ui/Select/Select";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import { ListRow } from "@/components/ui/ListRow";
-import { StatusBadge, type StatusBadgeVariant } from "@/components/ui/StatusBadge/StatusBadge";
+import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import Skeleton from "@/components/ui/Skeleton/Skeleton";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useTenantId } from "@/context/useTenantId";
 import { deleteStyle, V2Style } from "@/services/supabase/styles";
-import { getActivities } from "@/services/supabase/activities";
-import { listActivityIdsByGroup } from "@/services/supabase/activity-groups";
-import {
-    listLayoutRulesForCompetition,
-    listSchedulesUsingStyle,
-    type LayoutCompetitionRule,
-    type StyleScheduleUsage
-} from "@/services/supabase/layoutScheduling";
+import { listAppearanceSources } from "@/services/supabase/layoutScheduling";
 import { toRomeDateTime } from "@/services/supabase/schedulingNow";
-import { computeRuleInsights } from "@/utils/ruleInsights";
-import { isTimeRuleActiveNow } from "@shared/scheduleCompetition";
-import { deriveScheduleStatus, type ScheduleStatus } from "@/utils/scheduleStatus";
+import { appearanceOf, buildAppearance, type AppearanceRuleEntry } from "@/utils/ruleAppearance";
+import { SCHEDULE_STATUS_META } from "@/utils/scheduleStatus";
 import drawerStyles from "./StyleDeleteDrawer.module.scss";
 
 const MAX_VISIBLE_SCHEDULES = 10;
-
-const STATUS: Record<ScheduleStatus, { label: string; variant: StatusBadgeVariant }> = {
-    draft: { label: "Bozza", variant: "neutral" },
-    active: { label: "Attiva", variant: "success" },
-    scheduled: { label: "Programmata", variant: "info" },
-    expired: { label: "Scaduta", variant: "neutral" },
-    disabled: { label: "Disabilitata", variant: "warning" }
-};
-
-/** Ripiego senza i dati della competizione: la sola finestra, all'ora di Roma. */
-function isInWindowNow(rule: StyleScheduleUsage, now: Date): boolean {
-    return rule.enabled && isTimeRuleActiveNow(rule, toRomeDateTime(now));
-}
 
 type StyleDeleteDrawerProps = {
     open: boolean;
@@ -59,17 +38,9 @@ export function StyleDeleteDrawer({ open, onClose, styleData, allStyles, onSucce
     const currentTenantId = useTenantId();
     const [isDeleting, setIsDeleting] = useState(false);
     const [replacementId, setReplacementId] = useState<string>("");
-    const [schedulesUsing, setSchedulesUsing] = useState<StyleScheduleUsage[] | null>(null);
+    // Le regole che lo nominano, con lo stato di Programmazione (§50.13/5).
+    const [schedulesUsing, setSchedulesUsing] = useState<AppearanceRuleEntry[] | null>(null);
     const [isLoadingUsage, setIsLoadingUsage] = useState(false);
-    // La competizione (§34.4): tutte le regole menù dell'azienda, le sedi e
-    // i membri dei gruppi. Dà a deriveScheduleStatus la finestra all'ora di
-    // Roma e la portata zero; chi sovrascrive una regola dello stile è
-    // calcolato ma non ancora mostrato (arriva col lotto della matrice, §20).
-    const [competition, setCompetition] = useState<{
-        rules: LayoutCompetitionRule[];
-        activities: Array<{ id: string; name: string }>;
-        activityIdsByGroupId: Record<string, string[]>;
-    } | null>(null);
 
     const isUsed = (styleData?.usage_count || 0) > 0;
 
@@ -81,30 +52,12 @@ export function StyleDeleteDrawer({ open, onClose, styleData, allStyles, onSucce
         if (!styleData || !currentTenantId) return;
         setIsLoadingUsage(true);
         try {
-            setSchedulesUsing(await listSchedulesUsingStyle(currentTenantId, styleData.id));
+            const sources = await listAppearanceSources(currentTenantId);
+            const index = buildAppearance({ ...sources, instant: toRomeDateTime(new Date()), subscriptionInactive: false });
+            setSchedulesUsing(appearanceOf(index, { kind: "style", id: styleData.id }).rules);
         } catch (err) {
             console.warn("[StyleDeleteDrawer] usage fetch failed:", err);
             setSchedulesUsing([]);
-            setIsLoadingUsage(false);
-            return;
-        }
-        try {
-            const [rules, activities] = await Promise.all([
-                listLayoutRulesForCompetition(currentTenantId),
-                getActivities(currentTenantId)
-            ]);
-            const activityIdsByGroupId = await listActivityIdsByGroup(
-                Array.from(new Set(rules.flatMap(rule => rule.groupIds)))
-            );
-            setCompetition({
-                rules,
-                activities: activities.map(activity => ({ id: activity.id, name: activity.name })),
-                activityIdsByGroupId
-            });
-        } catch (err) {
-            // Senza competizione lo stato resta calcolabile dalla sola finestra.
-            console.warn("[StyleDeleteDrawer] competition fetch failed:", err);
-            setCompetition(null);
         } finally {
             setIsLoadingUsage(false);
         }
@@ -114,7 +67,6 @@ export function StyleDeleteDrawer({ open, onClose, styleData, allStyles, onSucce
         if (!open || !styleData) {
             setReplacementId("");
             setSchedulesUsing(null);
-            setCompetition(null);
             setIsDeleting(false);
             return;
         }
@@ -165,19 +117,6 @@ export function StyleDeleteDrawer({ open, onClose, styleData, allStyles, onSucce
     const blocking = schedulesUsing ?? [];
     const visibleSchedules = blocking.slice(0, MAX_VISIBLE_SCHEDULES);
     const hiddenCount = blocking.length - visibleSchedules.length;
-    const now = new Date();
-    const insights = competition
-        ? computeRuleInsights({
-              rules: competition.rules,
-              activities: competition.activities,
-              activityIdsByGroupId: competition.activityIdsByGroupId,
-              groupNameById: new Map(),
-              filterActivityId: null,
-              now,
-              ruleName: rule => rule.name ?? ""
-          })
-        : null;
-
     return (
         <SystemDrawer open={open} onClose={isDeleting ? () => undefined : onClose} size="sm">
             <DrawerLayout
@@ -217,28 +156,14 @@ export function StyleDeleteDrawer({ open, onClose, styleData, allStyles, onSucce
                             <Skeleton height="56px" />
                         ) : (
                             <>
-                                {visibleSchedules.map(rule => {
-                                    const insight = insights?.get(rule.id);
-                                    const status = deriveScheduleStatus({
-                                        enabled: rule.enabled,
-                                        endAt: rule.end_at,
-                                        // Il payload dello stile (catalog_id) non è
-                                        // caricato qui: "nessun target" copre già il
-                                        // caso pratico rilevante per questo drawer.
-                                        isConfigDraft:
-                                            !rule.applyToAll &&
-                                            rule.activityIds.length === 0 &&
-                                            rule.groupIds.length === 0,
-                                        isZeroReach: insight?.isNeverUsed ?? false,
-                                        isActiveNow: insight?.isActiveNow ?? isInWindowNow(rule, now),
-                                        now
-                                    });
+                                {visibleSchedules.map(({ rule, status }) => {
+                                    const meta = SCHEDULE_STATUS_META[status];
                                     return (
                                         <ListRow
                                             key={rule.id}
                                             to={`/business/${currentTenantId}/scheduling/${rule.id}`}
                                             title={rule.name ?? "Regola senza nome"}
-                                            meta={<StatusBadge variant={STATUS[status].variant} label={STATUS[status].label} />}
+                                            meta={<StatusBadge variant={meta.tone} label={meta.label} />}
                                             metaInline
                                         />
                                     );

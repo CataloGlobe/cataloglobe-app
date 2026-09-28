@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { openBusinessPage } from "./business";
-import { FEATURED, LINK, MISSING_FEATURED, PRODUCT, stubEvidenza, type EvidenzaStub, type WriteCall } from "./evidenzaStub";
+import { FEATURED, LINK, MISSING_FEATURED, PRODUCT, RULE, stubEvidenza, type EvidenzaStub, type WriteCall } from "./evidenzaStub";
 import type { Row } from "./restStub";
 
 /**
@@ -539,6 +539,49 @@ test.describe("In evidenza — prodotti nella bozza (P9)", () => {
         await actionsOf(main(page).getByText("Big Arch e2e")).click();
         await expect(page.getByRole("menuitem", { name: "Apri il prodotto" })).toBeVisible();
         await expect(page.getByRole("menuitem", { name: "Modifica" })).toHaveCount(0);
+    });
+});
+
+function rowOf(page: Page, name: string): Locator {
+    return contentName(page, name).locator("xpath=ancestor::*[@role='row'][1]");
+}
+
+test.describe("In evidenza — dove e quando compare (§50.13)", () => {
+    test("elenco: la riga dice dove e quando, o che nessuno lo vede", async ({ page }) => {
+        await openList(page);
+        await expect(rowOf(page, "Menu di coppia e2e")).toContainText("sopra il menù · tutte le sedi · sempre");
+        const aperitivo = rowOf(page, "Aperitivo giovedì e2e");
+        await expect(aperitivo).toContainText("sotto il menù · Centro e2e · Gio · 17:00–20:00");
+        await expect(aperitivo).toContainText("regola spenta");
+        await expect(aperitivo).toContainText("nessuna regola viva lo mostra: nessun cliente lo vede");
+        await expect(rowOf(page, "Chiusura ferragosto e2e")).toContainText("nessuna regola lo mostra: nessun cliente lo vede");
+    });
+
+    test("elenco: il chip «Nessuna regola li mostra» conta le regole vive", async ({ page }) => {
+        await openList(page);
+        const chips = main(page).getByRole("radiogroup", { name: "Filtra i contenuti" });
+        await expect(chips.getByRole("radio", { name: /Tutti\s*4/ })).toBeChecked();
+        // L'aperitivo ha una regola, spenta: conta. Collegato non vuol dire attivo (§28.2).
+        await chips.getByRole("radio", { name: /Nessuna regola li mostra\s*3/ }).click();
+        await expect(contentName(page, "Aperitivo giovedì e2e")).toBeVisible();
+        await expect(contentName(page, "Concerto e2e")).toBeVisible();
+        await expect(contentName(page, "Menu di coppia e2e")).toHaveCount(0);
+    });
+
+    test("dettaglio: «Dove e quando compare», con la regola da aprire", async ({ page }) => {
+        await openContent(page, FEATURED.coppia);
+        const rules = main(page).getByRole("list", { name: "Regole che lo mostrano" });
+        await expect(rules).toBeVisible({ timeout: 15_000 });
+        await expect(rules.getByRole("listitem")).toHaveCount(1);
+        await expect(rules).toContainText("Coppia sempre e2e");
+        await expect(rules).toContainText("sopra il menù · tutte le sedi · sempre");
+        await expect(rules.getByRole("link", { name: /Coppia sempre e2e/ })).toHaveAttribute("href", new RegExp(`/scheduling/${RULE.coppia}$`));
+    });
+
+    test("dettaglio: senza regole lo dice, e porta a Programmazione", async ({ page }) => {
+        await openContent(page, FEATURED.chiusura);
+        await expect(main(page).getByText("Nessuna regola lo mostra: esiste e nessun cliente lo vede.")).toBeVisible({ timeout: 15_000 });
+        await expect(main(page).getByRole("link", { name: "Vai a Programmazione" })).toBeVisible();
     });
 });
 

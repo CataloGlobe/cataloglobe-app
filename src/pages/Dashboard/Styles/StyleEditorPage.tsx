@@ -16,9 +16,11 @@ import {
     getStyle,
     updateStyle,
     duplicateStyle,
-    getStyleUsageCount,
     V2Style
 } from "@/services/supabase/styles";
+import { listAppearanceSources } from "@/services/supabase/layoutScheduling";
+import { toRomeDateTime } from "@/services/supabase/schedulingNow";
+import { appearanceOf, buildAppearance, describeStyleSaveWarning } from "@/utils/ruleAppearance";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import { StylePreview, type ViewMode } from "./Editor/StylePreview";
 import { SegmentedControl } from "@components/ui/SegmentedControl/SegmentedControl";
@@ -91,7 +93,8 @@ export default function StyleEditorPage() {
     const [tokenModel, setTokenModel] = useState<StyleTokenModel>(DEFAULT_STYLE_TOKENS);
     const [originalTokens, setOriginalTokens] = useState<StyleTokenModel>(DEFAULT_STYLE_TOKENS);
     const [isConfirmOpen, setIsConfirmOpen] = useState(false);
-    const [pendingUsageCount, setPendingUsageCount] = useState(0);
+    // L'avviso prima di salvare (§34.5): chi vede la modifica, e quando.
+    const [saveWarning, setSaveWarning] = useState<string | null>(null);
     const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
 
     const isSystem = Boolean(styleData?.is_system);
@@ -199,22 +202,25 @@ export default function StyleEditorPage() {
             return;
         }
         setIsSaving(true);
-        let count = 0;
+        let warning: string | null = null;
         try {
-            count = await getStyleUsageCount(styleData.id, styleData.tenant_id);
+            // Le regole si rileggono al Salva: chi vede la modifica è quello di adesso.
+            const sources = await listAppearanceSources(styleData.tenant_id);
+            const index = buildAppearance({ ...sources, instant: toRomeDateTime(new Date()), subscriptionInactive: !canEdit });
+            warning = describeStyleSaveWarning(appearanceOf(index, { kind: "style", id: styleData.id }));
         } catch {
             showToast({ message: "Impossibile salvare lo stile.", type: "error" });
             setIsSaving(false);
             return;
         }
         setIsSaving(false);
-        if (count > 0) {
-            setPendingUsageCount(count);
+        if (warning) {
+            setSaveWarning(warning);
             setIsConfirmOpen(true);
             return;
         }
         await doSave();
-    }, [name, styleData, readOnly, showToast, doSave]);
+    }, [name, styleData, readOnly, canEdit, showToast, doSave]);
 
     const handleSubmit = useCallback(
         (e: React.FormEvent) => {
@@ -505,7 +511,7 @@ export default function StyleEditorPage() {
                 onClose={() => setIsConfirmOpen(false)}
                 onConfirm={doSave}
                 title="Stile in uso"
-                message={`Questo stile è usato in ${pendingUsageCount} ${pendingUsageCount === 1 ? "regola" : "regole"}: le modifiche arrivano subito alle sedi che lo mostrano. Se serve, da Versioni torni alla versione di prima.`}
+                message={saveWarning ?? ""}
                 confirmLabel="Salva comunque"
                 confirmVariant="primary"
             />

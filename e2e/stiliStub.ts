@@ -1,14 +1,24 @@
 import type { Page } from "@playwright/test";
 import { TENANT_ID } from "./reservationsStub";
 import { stubRest, type RestStub, type Row, type Tables } from "./restStub";
+import { appearanceTables, enrichAppearance, freezeClock, sediOf } from "./appearanceStub";
 
 /**
  * Dati finti per l'e2e di Stili (lotto `ds-5-stili-storie-evidenza`, P0).
  *
  * Stili, versioni e usi nelle regole rispondono da qui (`restStub.ts`:
  * scritture intercettate, 500 per quelle non registrate). Permessi, azienda e
- * sidebar restano veri. Le letture della competizione (regole, sedi, gruppi)
- * del dialogo d'eliminazione passano al server: il dialogo le tollera.
+ * sidebar restano veri.
+ *
+ * Dove vestono (§50.13, `appearanceStub.ts`, orologio mercoledì 12:00):
+ *
+ * | Regola | Stile | Dove | Quando | Stato dello stile |
+ * |---|---|---|---|---|
+ * | Pranzo e2e | Estate | tutte | sempre | Attivo adesso (Centro, Porto) |
+ * | Sera Porto e2e | Stile base | Porto | 18–21 | Programmato |
+ * | Autunno spenta e2e | Autunno | tutte | spenta | Solo su regole ferme |
+ *
+ * Sera e Notte non vestono niente.
  */
 
 export { TENANT_ID };
@@ -20,10 +30,12 @@ export const STYLE = {
     base: uuid(1),
     estate: uuid(2),
     sera: uuid(3),
-    notte: uuid(4)
+    notte: uuid(4),
+    autunno: uuid(5)
 } as const;
 export const MISSING_STYLE = uuid(999);
-export const RULE = { pranzo: uuid(101) } as const;
+export const RULE = { pranzo: uuid(101), seraPorto: uuid(102), autunno: uuid(103) } as const;
+const { SEDE } = sediOf("e2e5e000");
 
 const version = (n: number): string => uuid(200 + n);
 
@@ -57,7 +69,8 @@ function makeTables(): Tables {
             styleRow(STYLE.base, 1, "Stile base e2e", true, "2026-03-10T10:00:00.000Z"),
             styleRow(STYLE.estate, 2, "Estate e2e", false, "2026-03-20T10:00:00.000Z"),
             styleRow(STYLE.sera, 3, "Sera e2e", false, "2026-03-19T10:00:00.000Z"),
-            styleRow(STYLE.notte, 4, "Notte e2e", false, "2026-03-18T10:00:00.000Z")
+            styleRow(STYLE.notte, 4, "Notte e2e", false, "2026-03-18T10:00:00.000Z"),
+            styleRow(STYLE.autunno, 5, "Autunno e2e", false, "2026-03-17T10:00:00.000Z")
         ],
         style_versions: [
             versionRow(STYLE.base, 1, 1, "#6366f1"),
@@ -66,30 +79,17 @@ function makeTables(): Tables {
             { ...versionRow(STYLE.estate, 21, 2, "#ef4444") },
             { ...versionRow(STYLE.estate, 22, 1, "#10b981") },
             versionRow(STYLE.sera, 3, 1, "#0ea5e9"),
-            versionRow(STYLE.notte, 4, 1, "#111827")
+            versionRow(STYLE.notte, 4, 1, "#111827"),
+            versionRow(STYLE.autunno, 5, 1, "#b45309")
         ],
         // «Estate e2e» veste una regola: in uso.
-        schedule_layout: [
-            { id: uuid(301), tenant_id: TENANT_ID, schedule_id: RULE.pranzo, style_id: STYLE.estate, catalog_id: null }
-        ]
+        ...appearanceTables("e2e5e000", [
+            { id: RULE.pranzo, name: "Pranzo e2e", rule_type: "layout", all: true, style_id: STYLE.estate, catalog_id: uuid(401) },
+            { id: RULE.seraPorto, name: "Sera Porto e2e", rule_type: "layout", activities: [SEDE.porto], time_mode: "window", time_from: "18:00:00", time_to: "21:00:00", style_id: STYLE.base, catalog_id: uuid(401) },
+            { id: RULE.autunno, name: "Autunno spenta e2e", rule_type: "layout", all: true, enabled: false, style_id: STYLE.autunno, catalog_id: uuid(401) }
+        ])
     };
 }
-
-const RULES: Record<string, Row> = {
-    [RULE.pranzo]: {
-        id: RULE.pranzo,
-        tenant_id: TENANT_ID,
-        name: "Pranzo e2e",
-        enabled: true,
-        start_at: null,
-        end_at: null,
-        time_mode: "always",
-        days_of_week: null,
-        time_from: null,
-        time_to: null,
-        apply_to_all: true
-    }
-};
 
 export type { WriteCall, WriteHandler } from "./restStub";
 export type StiliStub = RestStub & { tables: Tables };
@@ -106,12 +106,10 @@ export async function stubStili(page: Page): Promise<StiliStub> {
                     current_version: tables.style_versions.find(v => v.id === row.current_version_id) ?? null
                 }));
             }
-            if (table === "schedule_layout" && select.includes("schedule:schedules")) {
-                return rows.map(row => ({ ...row, schedule: RULES[row.schedule_id as string] ?? null }));
-            }
-            return rows;
+            return enrichAppearance(tables, table, rows, params) ?? rows;
         }
     });
     await page.route(/\/api\/public-catalog\/revalidate/, route => route.fulfill({ json: { ok: true } }));
+    await freezeClock(page);
     return Object.assign(stub, { tables });
 }

@@ -111,9 +111,14 @@ export async function getStory(id: string, tenantId: string): Promise<StoryWithP
     return data as unknown as StoryWithProduct;
 }
 
+/**
+ * `activity_id`: null = storia dell'azienda, su ogni sede; una sede = solo
+ * lei (§34.7). `resolve-public-story` filtra già così; eliminare la sede
+ * elimina le sue storie (`ON DELETE CASCADE`, detto nel dialogo della sede).
+ */
 export type StoryMetadataInput = Pick<
     Story,
-    "eyebrow" | "title" | "cover_media" | "product_id" | "status"
+    "eyebrow" | "title" | "cover_media" | "product_id" | "status" | "activity_id"
 >;
 
 export async function createStory(
@@ -122,13 +127,25 @@ export async function createStory(
 ): Promise<Story> {
     const { data: created, error } = await supabase
         .from("stories")
-        .insert({ ...data, tenant_id: tenantId, activity_id: null })
+        .insert({ ...data, tenant_id: tenantId })
         .select()
         .single();
 
     if (error) throw error;
     void revalidatePublicCatalogForTenant(tenantId);
     return created as Story;
+}
+
+/** Le storie legate a una sede: se ne vanno con lei (`ON DELETE CASCADE`). */
+export async function countStoriesForActivity(tenantId: string, activityId: string): Promise<number> {
+    const { count, error } = await supabase
+        .from("stories")
+        .select("id", { count: "exact", head: true })
+        .eq("tenant_id", tenantId)
+        .eq("activity_id", activityId);
+
+    if (error) throw error;
+    return count ?? 0;
 }
 
 export type StoryUpdateInput = Partial<StoryMetadataInput> & { body_blocks?: StoryBlock[] };
