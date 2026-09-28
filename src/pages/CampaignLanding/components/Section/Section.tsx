@@ -4,7 +4,7 @@ import styles from "./Section.module.scss";
 export type SectionTone = "white" | "lilla" | "dark";
 
 type SectionProps = {
-    /** Ancore: come, prezzi, faq, contatto. */
+    /** Ancore: come, esempi, prezzi, come-si-parte, faq, contatto. */
     id?: string;
     tone?: SectionTone;
     /**

@@ -437,8 +437,9 @@ export const FOOTER = {
         product: {
             title: "Prodotto",
             links: [
-                { label: "Come funziona", href: "#come" },
+                { label: "Esempi", href: "#esempi" },
                 { label: "Prezzi", href: "#prezzi" },
+                { label: "Come si parte", href: "#come-si-parte" },
                 { label: "Domande", href: "#faq" }
             ]
         },

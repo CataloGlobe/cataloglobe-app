@@ -198,7 +198,7 @@ export default function Demos() {
     const preload = useInView(gridRef, 0);
 
     return (
-        <Section tone="white" className={styles.section} labelledBy="landing-demos-title">
+        <Section id="esempi" tone="white" className={styles.section} labelledBy="landing-demos-title">
             <div ref={gridRef} className={styles.grid}>
                 <Reveal className={styles.phoneCol}>
                     <PhonePreview selected={selected} preload={preload} />

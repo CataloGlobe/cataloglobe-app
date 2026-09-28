@@ -27,7 +27,7 @@ function StartCta({ className }: { className: string }) {
  */
 export default function Start() {
     return (
-        <Section tone="white" labelledBy="landing-start-title">
+        <Section id="come-si-parte" tone="white" labelledBy="landing-start-title">
             <div className={styles.grid}>
                 <Reveal>
                     <HandNote size="lg" className={styles.handNote}>{START.note}</HandNote>
