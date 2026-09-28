@@ -141,7 +141,7 @@ export default function Pricing() {
                 />
             </Reveal>
 
-            <Reveal className={styles.cards}>
+            <Reveal className={styles.cards} variant="cards">
                 <PlanCard plan="base" annual={annual} printer={false} className={styles.desktopCard} />
                 <PlanCard plan="pro" annual={annual} printer className={styles.desktopCard} />
                 {/* Su mobile la stampante resta sotto la lista anche nel Base, come in tavola. */}
