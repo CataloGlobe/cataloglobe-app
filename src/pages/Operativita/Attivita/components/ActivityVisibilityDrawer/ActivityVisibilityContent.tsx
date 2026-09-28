@@ -25,6 +25,7 @@ import {
 } from "@/services/supabase/activeCatalog";
 import { getDisplayPrice } from "@/utils/priceDisplay";
 import { useToast } from "@/context/Toast/ToastContext";
+import { useEnsureActive } from "@/hooks/useEnsureActive";
 import styles from "./ActivityVisibilityContent.module.scss";
 
 type FilterValue = "all" | "visible" | "hidden" | "unavailable";
@@ -85,6 +86,8 @@ type ActivityVisibilityContentProps = {
     onViewChange?: (view: VisibilityView) => void;
     /** Notifica i conteggi (prodotti/ingredienti) per il badge sulle tab del parent. */
     onCountsChange?: (counts: VisibilityCounts) => void;
+    /** Sola lettura: il tri-stato e le azioni in blocco sono spenti (fieldset). */
+    readOnly?: boolean;
 };
 
 export const ActivityVisibilityContent: React.FC<ActivityVisibilityContentProps> = ({
@@ -93,10 +96,12 @@ export const ActivityVisibilityContent: React.FC<ActivityVisibilityContentProps>
     countPlacement = "bottom",
     view: controlledView,
     onViewChange,
-    onCountsChange
+    onCountsChange,
+    readOnly = false
 }) => {
     const tenantId = useTenantId();
     const { showToast } = useToast();
+    const { ensureActive } = useEnsureActive();
 
     const [isLoading, setIsLoading] = useState(true);
     const [catalog, setCatalog] = useState<RenderableCatalog | null>(null);
@@ -187,7 +192,7 @@ export const ActivityVisibilityContent: React.FC<ActivityVisibilityContentProps>
     }, [activityId, tenantId]);
 
     const handleSetState = async (productId: string, state: ProductVisibilityState) => {
-        if (!tenantId) return;
+        if (!tenantId || readOnly || !ensureActive()) return;
         setSavingId(productId);
         try {
             await updateActivityProductVisibility(activityId, productId, state);
@@ -286,18 +291,22 @@ export const ActivityVisibilityContent: React.FC<ActivityVisibilityContentProps>
                         className={styles.visibilityCell}
                         onClick={e => e.stopPropagation()}
                     >
-                        <SegmentedControl<ProductVisibilityState>
-                            value={product.visibility_state}
-                            onChange={next => handleSetState(product.product_id, next)}
-                            size="sm"
-                            iconsOnly
-                            options={VISIBILITY_OPTIONS}
-                        />
+                        {/* Sola lettura come Prodotti: fieldset disabled, ma
+                            solo sul controllo, così ricerca e filtri restano. */}
+                        <fieldset className={styles.readOnlyScope} disabled={readOnly}>
+                            <SegmentedControl<ProductVisibilityState>
+                                value={product.visibility_state}
+                                onChange={next => handleSetState(product.product_id, next)}
+                                size="sm"
+                                iconsOnly
+                                options={VISIBILITY_OPTIONS}
+                            />
+                        </fieldset>
                     </div>
                 )
             }
         ],
-        [overrides]
+        [overrides, readOnly]
     );
 
     if (isLoading) {
@@ -429,6 +438,7 @@ export const ActivityVisibilityContent: React.FC<ActivityVisibilityContentProps>
                         products={catalog.products}
                         overrides={overrides}
                         onBulkApplied={refreshData}
+                        readOnly={readOnly}
                         onCountChange={setIngredientCount}
                     />
                 </div>

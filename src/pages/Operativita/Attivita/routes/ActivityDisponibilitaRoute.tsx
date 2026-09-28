@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
+import { PageGate } from "@/components/PageGate/PageGate";
+import { usePermissions } from "@/context/PermissionsContext";
+import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
+import { canDoOnActivity } from "@/lib/permissions";
 import {
     ActivityVisibilityContent,
     type VisibilityContentMeta
@@ -19,12 +23,20 @@ type ActiveSchedule = { id: string; name: string };
  */
 export default function ActivityDisponibilitaRoute() {
     const { activity, tenantId } = useActivityDetail();
+    const { permissions } = usePermissions();
+    const { canEdit } = useSubscriptionGuard();
+    // Legge chi legge la sede; scrive chi ha `activity.manage` (le RLS di
+    // `activity_product_overrides`) con l'abbonamento attivo (D2).
+    const canRead = permissions != null && canDoOnActivity(permissions, "activity.read", activity.id);
+    const hasWritePermission = permissions != null && canDoOnActivity(permissions, "activity.manage", activity.id);
+    const canWrite = hasWritePermission && canEdit;
     const [meta, setMeta] = useState<VisibilityContentMeta | null>(null);
     const [activeSchedule, setActiveSchedule] = useState<ActiveSchedule | null>(null);
 
     const handleMeta = useCallback((m: VisibilityContentMeta) => setMeta(m), []);
 
     useEffect(() => {
+        if (!canRead) return;
         let cancelled = false;
         getRenderableCatalogForActivity(activity.id, tenantId)
             .then(r => {
@@ -36,12 +48,23 @@ export default function ActivityDisponibilitaRoute() {
         return () => {
             cancelled = true;
         };
-    }, [activity.id, tenantId]);
+    }, [activity.id, tenantId, canRead]);
 
     const hasActiveCatalog = meta?.catalogId !== null && meta?.catalogId !== undefined;
 
+    if (permissions != null && !canRead) {
+        return <PageGate readPermission="activity.read" activityId={activity.id}>{() => null}</PageGate>;
+    }
+
     return (
         <div className={styles.layout}>
+            {!canWrite && permissions != null && (
+                <InlineBanner variant="info">
+                    {hasWritePermission
+                        ? "Sola lettura: l'abbonamento non è attivo."
+                        : "Sola lettura: per cambiare la disponibilità serve un ruolo da manager della sede in su."}
+                </InlineBanner>
+            )}
             {hasActiveCatalog && (
                 <InlineBanner
                     variant="info"
@@ -53,7 +76,8 @@ export default function ActivityDisponibilitaRoute() {
                         ) : undefined
                     }
                 >
-                    Stai modificando solo {activity.name}: le altre sedi e il catalogo non cambiano. Menù attivo:{" "}
+                    {canWrite ? `Stai modificando solo ${activity.name}: le altre sedi e il catalogo non cambiano. ` : ""}
+                    Menù attivo:{" "}
                     <strong>{meta?.catalogName ?? "—"}</strong>
                     {activeSchedule && (
                         <>
@@ -63,7 +87,14 @@ export default function ActivityDisponibilitaRoute() {
                     )}
                 </InlineBanner>
             )}
-            <ActivityVisibilityContent activityId={activity.id} onMetaChange={handleMeta} countPlacement="top" />
+            {canRead && (
+                <ActivityVisibilityContent
+                    activityId={activity.id}
+                    onMetaChange={handleMeta}
+                    countPlacement="top"
+                    readOnly={!canWrite}
+                />
+            )}
         </div>
     );
 }

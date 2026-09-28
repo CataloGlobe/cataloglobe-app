@@ -102,7 +102,6 @@ test.describe("Disponibilità — prodotti", () => {
     });
 
     test("senza scrittura sulla sede: i controlli sono spenti", async ({ page }) => {
-        test.fail(true, "Oggi nessuna sola lettura: staff e viewer da URL diretto trovano i controlli attivi (#549, P1)");
         await openDisponibilita(page, { before: stub => stub.revoke("activity.manage") });
         await expect(main(page).getByText("Big e2e", { exact: true })).toBeVisible({ timeout: 15_000 });
         await expect(productRow(page, "Big e2e").getByRole("radio", { name: "Nascosto" })).toBeDisabled();

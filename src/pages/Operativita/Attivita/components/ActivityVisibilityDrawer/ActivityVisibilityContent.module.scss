@@ -146,3 +146,11 @@
     justify-content: flex-end;
     padding-top: 6px;
 }
+
+// Sola lettura sul solo controllo: il fieldset non deve avere aspetto.
+.readOnlyScope {
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}

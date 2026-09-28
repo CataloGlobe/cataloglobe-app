@@ -14,6 +14,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import Skeleton from "@/components/ui/Skeleton/Skeleton";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useToast } from "@/context/Toast/ToastContext";
+import { useEnsureActive } from "@/hooks/useEnsureActive";
 import {
     getIngredients,
     listProductIngredientPairs,
@@ -179,6 +180,8 @@ type ActivityVisibilityIngredientsProps = {
     onBulkApplied: () => Promise<void>;
     /** Notifica il numero di ingredienti del tenant (badge tab nel parent). */
     onCountChange?: (count: number) => void;
+    /** Sola lettura: le azioni in blocco sono spente (fieldset). */
+    readOnly?: boolean;
 };
 
 export const ActivityVisibilityIngredients: React.FC<ActivityVisibilityIngredientsProps> = ({
@@ -187,9 +190,11 @@ export const ActivityVisibilityIngredients: React.FC<ActivityVisibilityIngredien
     products,
     overrides,
     onBulkApplied,
-    onCountChange
+    onCountChange,
+    readOnly = false
 }) => {
     const { showToast } = useToast();
+    const { ensureActive } = useEnsureActive();
     const isMobile = useMediaQuery("(max-width: 767px)");
 
     const [isLoading, setIsLoading] = useState(true);
@@ -260,7 +265,7 @@ export const ActivityVisibilityIngredients: React.FC<ActivityVisibilityIngredien
     );
 
     const handleSegmentChange = (row: IngredientVisibilityRow, next: ProductVisibilityState) => {
-        if (row.productIds.length === 0) return;
+        if (row.productIds.length === 0 || readOnly || !ensureActive()) return;
         if (segmentValueOf(row) === next) return; // stato già uniforme = no-op
         setPending({ row, target: next });
     };
@@ -322,6 +327,7 @@ export const ActivityVisibilityIngredients: React.FC<ActivityVisibilityIngredien
 
     const renderActionCell = (row: IngredientVisibilityRow) => (
         <div className={styles.actionCell} onClick={e => e.stopPropagation()}>
+            <fieldset className={styles.readOnlyScope} disabled={readOnly}>
             <SegmentedControl<RowSegmentValue>
                 // Remount al cambio di aggregato: con value fuori opzioni
                 // (misto) l'indicatore non viene mai riposizionato, quindi
@@ -335,6 +341,7 @@ export const ActivityVisibilityIngredients: React.FC<ActivityVisibilityIngredien
                 iconsOnly
                 options={BULK_OPTIONS}
             />
+            </fieldset>
         </div>
     );
 
@@ -402,7 +409,7 @@ export const ActivityVisibilityIngredients: React.FC<ActivityVisibilityIngredien
                 cell: (_, row) => renderActionCell(row)
             }
         ];
-    }, [isMobile]);
+    }, [isMobile, readOnly]);
 
     if (isLoading) {
         return (
