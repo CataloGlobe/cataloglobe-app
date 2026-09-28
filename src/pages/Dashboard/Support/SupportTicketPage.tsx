@@ -1,14 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { LifeBuoy, Mail } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
-import { LoadingState } from "@/components/ui/LoadingState/LoadingState";
+import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
+import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
+import Skeleton from "@/components/ui/Skeleton/Skeleton";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
+import Text from "@/components/ui/Text/Text";
 import { Textarea } from "@/components/ui/Textarea/Textarea";
 import {
     SupportThread,
     type SupportThreadMessage
 } from "@/components/Support/SupportThread/SupportThread";
+import { useBreadcrumbItems } from "@/context/useBreadcrumbItems";
 import { usePageHeader } from "@/context/usePageHeader";
 import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { usePermissions } from "@/context/PermissionsContext";
@@ -19,7 +23,6 @@ import { useBusinessOutletContext } from "@/layouts/MainLayout/outletContext";
 import { usePollingRefresh } from "@/hooks/usePollingRefresh";
 import { canDoOnAnyActivity, canDoOnTenant } from "@/lib/permissions";
 import { PageGate } from "@/components/PageGate/PageGate";
-import { getActivities } from "@/services/supabase/activities";
 import { getTenantMemberNames } from "@/services/supabase/team";
 import {
     getTicket,
@@ -29,7 +32,7 @@ import {
 } from "@/services/supabase/support";
 import { COMPANY } from "@/config/company";
 import { formatDateTimeIt } from "@/utils/formatDateTime";
-import type { V2SupportMessage, V2SupportTicket } from "@/types/support";
+import type { V2SupportMessage, V2SupportTicketWithContext } from "@/types/support";
 import { SUPPORT_STATUS_LABEL, SUPPORT_STATUS_VARIANT } from "./supportLabels";
 import styles from "./SupportTicketPage.module.scss";
 
@@ -50,8 +53,8 @@ function sameMessageList(a: V2SupportMessage[], b: V2SupportMessage[]): boolean 
 
 /** Solo i campi del ticket che questa pagina disegna. */
 function sameTicketView(
-    a: V2SupportTicket | null,
-    b: V2SupportTicket | null
+    a: V2SupportTicketWithContext | null,
+    b: V2SupportTicketWithContext | null
 ): boolean {
     if (a === null || b === null) return a === b;
     return (
@@ -59,7 +62,8 @@ function sameTicketView(
         a.subject === b.subject &&
         a.status === b.status &&
         a.created_at === b.created_at &&
-        a.activity_id === b.activity_id
+        a.activity_id === b.activity_id &&
+        a.activities?.name === b.activities?.name
     );
 }
 
@@ -80,10 +84,9 @@ export default function SupportTicketPage() {
     const { user } = useAuth();
     const refreshSupportUnread = useBusinessOutletContext()?.refreshSupportUnread;
 
-    const [ticket, setTicket] = useState<V2SupportTicket | null>(null);
+    const [ticket, setTicket] = useState<V2SupportTicketWithContext | null>(null);
     const [messages, setMessages] = useState<V2SupportMessage[]>([]);
     const [memberNames, setMemberNames] = useState<Map<string, string>>(() => new Map());
-    const [activityName, setActivityName] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [notFound, setNotFound] = useState(false);
     const [draft, setDraft] = useState("");
@@ -155,22 +158,6 @@ export default function SupportTicketPage() {
         };
     }, [tenantId, canRead]);
 
-    useEffect(() => {
-        if (!tenantId || !ticket?.activity_id) return;
-        let cancelled = false;
-        void getActivities(tenantId)
-            .then(rows => {
-                if (cancelled) return;
-                setActivityName(rows.find(a => a.id === ticket.activity_id)?.name ?? null);
-            })
-            .catch(() => {
-                /* il nome della sede è ornamentale: un errore non merita un toast */
-            });
-        return () => {
-            cancelled = true;
-        };
-    }, [tenantId, ticket?.activity_id]);
-
     // Marca letto all'apertura, una sola volta per ticket. `useRef` e non una
     // dipendenza dell'effetto: `markTicketRead` sposta customer_last_read_at,
     // quindi rieseguirlo a ogni render sarebbe una scrittura per render.
@@ -204,32 +191,9 @@ export default function SupportTicketPage() {
         [messages, memberNames]
     );
 
-    const leading = useMemo(
-        () => (
-            // `leftIcon` e non l'icona fra i children: i children finiscono
-            // dentro lo span `.label` del Button, che è `display: flex` senza
-            // gap né align-items — l'SVG si allineava al bordo alto della riga
-            // di testo e restava attaccato alle lettere. La prop lo avvolge
-            // invece in `.icon` (inline-flex centrato) e lo rende fratello del
-            // testo, quindi prende il `gap: 0.45rem` del bottone. Stesso uso di
-            // CreateBusinessWizard.
-            <Button
-                variant="ghost"
-                onClick={() => navigate("..")}
-                leftIcon={<ArrowLeft size={16} />}
-            >
-                Assistenza
-            </Button>
-        ),
-        [navigate]
-    );
-
-    // MEMOIZZATO, e non è un vezzo: `usePageHeader` confronta `actions`,
-    // `leading` e `titleAddon` PER REFERENCE. Un nodo JSX costruito inline è
-    // nuovo a ogni render → l'effetto rivede una dipendenza cambiata →
-    // `setConfig` → nuovo render → all'infinito, finché React non alza
-    // "Maximum update depth exceeded" e la pagina si blocca. Stesso pattern di
-    // StatusIncidentsPage e delle altre pagine con header ricco.
+    // MEMOIZZATO, e non è un vezzo: `usePageHeader` confronta `actions` PER
+    // REFERENCE; un nodo JSX inline è nuovo a ogni render e l'header si
+    // riscriverebbe all'infinito ("Maximum update depth exceeded").
     const headerActions = useMemo(
         () =>
             ticket ? (
@@ -241,15 +205,6 @@ export default function SupportTicketPage() {
         [ticket]
     );
 
-    // Stringa, quindi confrontata per valore: qui l'inline sarebbe innocuo, ma
-    // sta accanto agli altri campi dell'header per leggibilità.
-    const headerSubtitle = useMemo(() => {
-        if (!ticket) return undefined;
-        return [`Aperta il ${formatDateTimeIt(ticket.created_at)}`, activityName]
-            .filter(Boolean)
-            .join(" · ");
-    }, [ticket, activityName]);
-
     // Qui lo stato non si cambia, si legge: resta un'indicazione, non diventa un
     // controllo che sulla pagina non esiste. Stesso trattamento del "Salvato ✓".
     const headerCompact = useMemo<PageHeaderCompactConfig>(() => ({
@@ -259,13 +214,19 @@ export default function SupportTicketPage() {
             : undefined
     }), [navigate, ticket]);
 
-    usePageHeader({
-        title: ticket?.subject ?? "Richiesta",
-        subtitle: headerSubtitle,
-        leading,
-        actions: headerActions,
-        compact: headerCompact
-    });
+    usePageHeader({ actions: headerActions, compact: headerCompact });
+
+    // L'oggetto della richiesta nella briciola (come Stili, Storie, In
+    // evidenza): prima stava in un `title` che lo slot non rende, e la pagina
+    // non diceva mai di quale richiesta si trattasse.
+    const breadcrumbItems = useMemo(
+        () => [
+            { label: "Assistenza", to: `/business/${tenantId}/support` },
+            { label: isLoading ? "Caricamento..." : ticket?.subject ?? "Richiesta" }
+        ],
+        [tenantId, isLoading, ticket?.subject]
+    );
+    useBreadcrumbItems(breadcrumbItems);
 
     async function handleSend() {
         const body = draft.trim();
@@ -296,25 +257,48 @@ export default function SupportTicketPage() {
         return <PageGate readPermission="support.read" scope="tenant">{() => null}</PageGate>;
     }
 
-    if (isLoading) {
-        return <LoadingState message="Caricamento richiesta…" />;
-    }
-
-    if (notFound || !ticket) {
+    if (isLoading || permissions == null) {
         return (
-            <div className={styles.page}>
-                <p className={styles.notFound}>
-                    Questa richiesta non esiste o non è più accessibile.
-                </p>
-                <Button variant="secondary" onClick={() => navigate("..")}>
-                    Torna alle richieste
-                </Button>
+            <div className={styles.page} aria-busy="true" aria-label="Caricamento richiesta">
+                <Skeleton height="16px" width="40%" />
+                <Skeleton height="96px" />
+                <Skeleton height="96px" />
             </div>
         );
     }
 
+    if (notFound || !ticket) {
+        // «Inesistente» e «non tua» sono indistinguibili per RLS, di proposito.
+        return (
+            <EmptyState
+                variant="page"
+                icon={<LifeBuoy />}
+                title="Richiesta non trovata"
+                description="Questa richiesta non esiste o non è più accessibile."
+                action={
+                    <Button variant="secondary" onClick={() => navigate("..")}>
+                        Torna alle richieste
+                    </Button>
+                }
+            />
+        );
+    }
+
+    const mailLink = (
+        <a href={`mailto:${COMPANY.contact.support}`}>{COMPANY.contact.support}</a>
+    );
+
     return (
         <div className={styles.page}>
+            {/* Data e sede stavano in un `subtitle` che lo slot non rende (S2).
+                Il nome della sede arriva dall'embed di `getTicket`: nessuna
+                seconda richiesta delle sedi. */}
+            <Text as="p" variant="caption" colorVariant="muted">
+                {[`Aperta il ${formatDateTimeIt(ticket.created_at)}`, ticket.activities?.name]
+                    .filter(Boolean)
+                    .join(" · ")}
+            </Text>
+
             {/* Il thread è il figlio flex che scorre: il contratto richiesto da
                 SupportThread è `flex:1 1 auto; min-height:0` sul PADRE, ed è
                 `.page` a fornirlo. */}
@@ -350,13 +334,9 @@ export default function SupportTicketPage() {
                         </div>
                     </>
                 ) : (
-                    <p className={styles.composerFallback}>
-                        Per rispondere scrivi a{" "}
-                        <a href={`mailto:${COMPANY.contact.support}`}>
-                            {COMPANY.contact.support}
-                        </a>
-                        .
-                    </p>
+                    <InlineBanner variant="info" icon={<Mail size={16} aria-hidden />}>
+                        Per rispondere scrivi a {mailLink}.
+                    </InlineBanner>
                 )}
             </div>
         </div>

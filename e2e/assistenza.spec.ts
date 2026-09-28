@@ -205,7 +205,6 @@ test.describe("Assistenza — dettaglio", () => {
     });
 
     test("l'oggetto della richiesta si legge in pagina", async ({ page }) => {
-        test.fail(true, "Oggi: oggetto passato a `title`, che lo slot non rende (#755, P1)");
         await openTicket(page, TICKET.qr);
         await expect(main(page).getByText("Il QR del tavolo 4 apre una pagina bianca.")).toBeVisible({ timeout: 15_000 });
         await expect(page.getByText("Il QR del tavolo 4 e2e").first()).toBeVisible();
