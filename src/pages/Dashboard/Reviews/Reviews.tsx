@@ -1,12 +1,11 @@
 import { useEffect, useState, useMemo, useCallback, type ReactNode } from "react";
-import { useLocation } from "react-router-dom";
 import { useTenantId } from "@/context/useTenantId";
 import { useToast } from "@/context/Toast/ToastContext";
 import { getBusinessReviews, deleteReview } from "@/services/supabase/reviews";
 import { useSedeScope, SCOPE_ALL } from "@/hooks/useSedeScope";
 import type { Review } from "@/types/database";
 import { usePermissions } from "@/context/PermissionsContext";
-import { canDoOnActivity } from "@/lib/permissions";
+import { canDoOnActivity, canDoOnAnyActivity } from "@/lib/permissions";
 import { PageGate } from "@/components/PageGate/PageGate";
 import { ArrowUpDown, CalendarRange, Trash2, MessageSquare, Star } from "lucide-react";
 
@@ -119,19 +118,20 @@ function StarRow({ rating, size = 12 }: { rating: number; size?: number }) {
 
 export default function Reviews() {
     const tenantId = useTenantId();
-    const location = useLocation();
     const { showToast } = useToast();
 
     /* ── Sede scope condivisa via navbar ────────────── */
-    const {
-        value: scopeValue,
-        setValue: setSedeScope,
-        readableActivities
-    } = useSedeScope();
+    const { value: scopeValue, readableActivities } = useSedeScope();
     // SCOPE_ALL → stringa vuota = "tutte" per fetchReviews
     const selectedActivity = scopeValue === SCOPE_ALL ? "" : scopeValue;
 
     const { permissions } = usePermissions();
+    // Gate di lettura prima di ogni fetch (#646): lo stesso che rende `PageGate`.
+    const canRead =
+        permissions != null &&
+        (selectedActivity
+            ? canDoOnActivity(permissions, "reviews.read", selectedActivity)
+            : canDoOnAnyActivity(permissions, "reviews.read"));
     const canDelete = (review: Review) =>
         permissions ? canDoOnActivity(permissions, "reviews.delete", review.activity_id) : false;
 
@@ -148,9 +148,6 @@ export default function Reviews() {
 
     const [deletingId, setDeletingId] = useState<string | null>(null);
 
-    const preselectedId: string | null =
-        (location.state as { restaurantId?: string } | null)?.restaurantId ?? null;
-
     /* ── Fetch reviews ──────────────────────────────── */
     const fetchReviews = useCallback(
         async (activityId: string, allIds: string[]) => {
@@ -166,17 +163,9 @@ export default function Reviews() {
         [],
     );
 
-    /* ── Honor preselect da navigation state (one-shot) ─ */
-    useEffect(() => {
-        if (preselectedId) {
-            setSedeScope(preselectedId);
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [preselectedId]);
-
     /* ── Fetch reviews quando cambia tenant o scope ────── */
     useEffect(() => {
-        if (!tenantId) return;
+        if (!tenantId || !canRead) return;
         let cancelled = false;
 
         async function load() {
@@ -200,7 +189,7 @@ export default function Reviews() {
         return () => {
             cancelled = true;
         };
-    }, [tenantId, selectedActivity, readableActivities, fetchReviews, showToast]);
+    }, [tenantId, canRead, selectedActivity, readableActivities, fetchReviews, showToast]);
 
     /* ── Activity name map ──────────────────────────── */
     const activityNameMap = useMemo(() => {
