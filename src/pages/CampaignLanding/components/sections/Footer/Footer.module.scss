@@ -1,12 +1,16 @@
 @use "@pages/CampaignLanding/styles/mixins" as *;
 
+// Spazi misurati sul contenuto visibile (glifi e logo, non i box): 32 sopra e
+// sotto il footer, 24 sopra e sotto la linea su mobile; 40 e 32 su desktop.
+// I padding qui sotto sono quei valori meno la mezza interlinea del testo che
+// tocca il bordo (colonne, riga legale): per questo non sono tondi.
 .footer {
-    padding: 32px 20px 28px;
+    padding: 30px 20px 29px;
     border-top: 1px solid var(--ld-dark-line);
     background: var(--ld-scuro);
 
     @include desktop {
-        padding: 48px var(--ld-sec-x) 32px;
+        padding: 40px var(--ld-sec-x) 37px;
     }
 }
 
@@ -87,9 +91,14 @@
 
 .legal {
     margin: 24px 0 0;
-    padding-top: 16px;
+    padding-top: 22px;
     border-top: 1px solid var(--ld-dark-line);
     font-size: 12px;
     line-height: 1.6;
     color: var(--ld-dark-legal);
+
+    @include desktop {
+        margin-top: 32px;
+        padding-top: 30px;
+    }
 }
