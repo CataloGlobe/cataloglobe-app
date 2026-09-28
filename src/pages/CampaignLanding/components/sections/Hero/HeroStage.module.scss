@@ -507,6 +507,9 @@ $tl-line-x: 57px;
 // Margine negativo + padding: la riga è larga 8 px in più per lato (il lampo
 // sborda come in tavola) e resta `overflow: hidden` mentre si apre.
 .evLive {
+    // Sopra la linea viola (.tlFill, z-index 1): l'animazione d'apertura crea un
+    // contesto di sovrapposizione, che senza z-index finirebbe sotto.
+    z-index: 2;
     height: 50px;
     margin: 0 -8px;
     padding: 0 8px;
@@ -521,7 +524,8 @@ $tl-line-x: 57px;
         height: 10px;
         border: 0;
         background: var(--ld-live);
-        box-shadow: 0 0 0 4px rgba(201, 100, 58, 0.22);
+        // Alone pieno (terracotta al 22% sul fondo della card): copre la linea.
+        box-shadow: 0 0 0 4px color-mix(in srgb, var(--ld-live) 22%, var(--ld-sched-dot));
     }
 
     .evText {
@@ -645,7 +649,8 @@ $tl-line-x: 57px;
     margin-left: -4px;
     border-radius: 50%;
     background: var(--ld-live);
-    box-shadow: 0 0 0 3px rgba(201, 100, 58, 0.25);
+    // Alone pieno, come nella card verticale: la linea non si vede attraverso.
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--ld-live) 25%, var(--ld-sched-dot));
 }
 
 .trkLabels {
