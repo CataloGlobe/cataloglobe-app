@@ -831,7 +831,10 @@ I gruppi di prodotti (collezione) stanno in `src/components/Products/ProductGrou
 
 ### 8.2 CatalogEngine (`src/pages/Dashboard/Catalogs/`)
 
+**Catalogs.tsx** — Elenco: «Dove è attivo» (§23.2, §50.13) al posto di «Creato il», badge nei tre toni (in onda · su N sedi, nessuna adesso · regole ferme / non assegnato), categorie vuote contate (`countEmptyCategories`, «· 1 vuota»), swatch dello stile della regola che vince o delle regole vive (`catalogStyleIds`, `StyleSwatch` in `ui/`). Sotto 768 lo stato scende sotto il nome.
+
 **CatalogEngine.tsx** — Editor catalogo
+- Banda «Dove è attivo» sopra l'albero (`CatalogAppearanceCard`): una riga per sede con la regola e il motivo, che apre la regola; oltre 4 sedi «Mostra tutte». Sulla riga del prodotto «in N menù» da 2 in su (`catalogsCount` di `getProductListMetadata`). Il dialogo di eliminazione prende lo stato delle regole da `ruleAppearance`.
 - Vista split: albero categorie (sinistra) + prodotti nella categoria selezionata (destra)
 - Drag-drop reordering categorie (@dnd-kit)
 - Categorie fino a 3 livelli (parent_category_id)
@@ -861,11 +864,13 @@ I gruppi di prodotti (collezione) stanno in `src/components/Products/ProductGrou
 
 Ricomposto nel lotto M17 «Stili · Storie · In evidenza» (§50.11, registro #445–#528).
 
-**Highlights.tsx** — Elenco: `DataTable` (default) a riga del mockup (nome interno + tipo, «I clienti leggono «titolo» · N prodotti») o `CardGrid`; eliminare è `FeaturedContentDeleteDialog` (impatto nel messaggio), multipla via `useBulkDelete`.
+**Highlights.tsx** — Elenco: `DataTable` (default) a riga del mockup (nome interno + tipo, «I clienti leggono «titolo» · N prodotti», poi «dove e quando»: «sopra il menù · tutte le sedi · sempre», lo stato se la regola è ferma, l'avviso se nessun cliente lo vede) o `CardGrid` (la stessa riga nel piè); chip «Tutti · Nessuna regola li mostra» (conta le regole **vive**, §28.2); eliminare è `FeaturedContentDeleteDialog` (impatto nel messaggio), multipla via `useBulkDelete`.
 
-**FeaturedContentDetailPage.tsx** — Una pagina, un Salva (§28.3): `Card` «Tipo» (tipo → modalità di prezzo derivata, `featuredContentTypes.ts`) e «Cosa leggono i clienti» (testi, nome interno, immagine su `ImageUploadEditor`, bottone) nella bozza `useFeaturedDraft`; la tab Prodotti (`FeaturedProductsCard`) nella bozza `useFeaturedProductsDraft` (nota, ordine, togli, aggiungi esistenti; subito solo «Nuovo»). Un `HeaderSaveAction`, guardia all'uscita. Il prodotto si apre nella sua pagina (§49.1/3).
+**FeaturedContentDetailPage.tsx** — Una pagina, un Salva (§28.3): `Card` «Tipo» (tipo → modalità di prezzo derivata, `featuredContentTypes.ts`) e «Cosa leggono i clienti» (testi, nome interno, immagine su `ImageUploadEditor`, bottone) nella bozza `useFeaturedDraft`; la tab Prodotti (`FeaturedProductsCard`) nella bozza `useFeaturedProductsDraft` (nota, ordine, togli, aggiungi esistenti; subito solo «Nuovo»). Un `HeaderSaveAction`, guardia all'uscita. Il prodotto si apre nella sua pagina (§49.1/3). In fondo alla tab Info la `Card` «Dove e quando compare — lo decide la regola» (`FeaturedPlacementCard`, §28.1): una riga per regola che lo nomina, che apre la regola; senza regole porta a Programmazione.
 
 ### 8.5 Styles (`src/pages/Dashboard/Styles/`)
+
+**Styles.tsx** — Elenco: lo stato d'uso vivo (§34.3, §50.13: Attivo adesso · Programmato · Solo su regole ferme · Non utilizzato) da `ruleAppearance`, badge sulla card e colonna «Utilizzo»; il numero delle regole resta a riga secondaria.
 
 **StylePreview.tsx** — Anteprima stile
 - Rendering preview del catalogo con token stile applicati

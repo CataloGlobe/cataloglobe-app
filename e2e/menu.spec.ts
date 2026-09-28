@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { openBusinessPage } from "./business";
-import { CAT, MENU, MISSING_MENU, PRODUCT, linkOf, stubMenu, type MenuStub, type WriteCall } from "./menuStub";
+import { CAT, MENU, MISSING_MENU, PRODUCT, RULE, linkOf, stubMenu, type MenuStub, type WriteCall } from "./menuStub";
 
 /**
  * Menù (lotto `ds-5-menu`, passo 2 P0). Scritto sulla pagina di **oggi**,
@@ -113,7 +113,7 @@ test.describe("Menù — elenco", () => {
             await expect(main(page).getByText(name)).toBeVisible();
         }
         // Carta: 7 categorie, 22 collegamenti (le due varianti comprese).
-        const carta = main(page).getByText("Carta e2e").locator("xpath=ancestor::*[contains(., 'Creato il') and contains(., 'prodotti')][1]");
+        const carta = main(page).getByText("Carta e2e").locator("xpath=ancestor::*[contains(., 'categorie') and contains(., 'prodotti')][1]");
         await expect(carta).toContainText(/7 categorie/);
         await expect(carta).toContainText(/22\s*prodotti/);
     });
@@ -674,6 +674,94 @@ test.describe("Menù — dettaglio", () => {
         await expect(main(page).getByText("Menù non trovato")).toBeVisible({ timeout: 15_000 });
         await main(page).getByRole("button", { name: "Torna a Menù" }).click();
         await expect(page).toHaveURL(/\/catalogs$/);
+    });
+});
+
+/** La card della griglia che contiene il nome del menù. */
+function cardOf(page: Page, name: string): Locator {
+    return main(page).getByText(name, { exact: true }).locator("xpath=ancestor::*[@role='listitem'][1]");
+}
+
+test.describe("Menù — dove è attivo (§50.13)", () => {
+    test("lista: «Dove è attivo» al posto di «Creato il»", async ({ page }) => {
+        await openList(page);
+        await page.getByRole("radio", { name: "Vista lista" }).click();
+        const table = main(page).getByRole("table", { name: "Menù" });
+        await expect(table.getByRole("columnheader", { name: "Dove è attivo" })).toBeVisible();
+        await expect(table.getByRole("columnheader", { name: "Creato il" })).toHaveCount(0);
+        await expect(table.getByRole("row", { name: /Carta e2e/ })).toContainText("Attivo adesso in Centro e2e");
+        await expect(table.getByRole("row", { name: /Pranzo e2e/ })).toContainText("Su 1 sede, non adesso");
+        await expect(table.getByRole("row", { name: /Vuoto e2e/ })).toContainText("Non assegnato a nessuna sede");
+        // Lo swatch dello stile accanto al nome, dove una regola viva lo porta.
+        await expect(table.getByRole("row", { name: /Carta e2e/ }).getByRole("img", { name: "Stile Estate e2e" })).toBeVisible();
+    });
+
+    test("griglia: stato, categorie vuote e swatch dello stile sulla card", async ({ page }) => {
+        await openList(page);
+        await page.getByRole("radio", { name: "Vista griglia" }).click();
+        const carta = cardOf(page, "Carta e2e");
+        await expect(carta).toContainText("Attivo adesso in Centro e2e");
+        // Dessert non ha prodotti: il cliente non la vede, l'elenco lo dice.
+        await expect(carta).toContainText(/7 categorie · 22 prodotti · 1 vuota/);
+        await expect(carta.getByRole("img", { name: "Stile Estate e2e" })).toBeVisible();
+        await expect(carta).not.toContainText("Creato il");
+        // Pranzo: la sua regola è viva, la sede è sospesa. Lo stile è quello della regola.
+        await expect(cardOf(page, "Pranzo e2e")).toContainText("Su 1 sede, non adesso");
+        await expect(cardOf(page, "Pranzo e2e").getByRole("img", { name: "Stile Base e2e" })).toBeVisible();
+        await expect(cardOf(page, "Vuoto e2e")).toContainText("Non assegnato a nessuna sede");
+        await expect(cardOf(page, "Vuoto e2e").getByRole("img", { name: /^Stile / })).toHaveCount(0);
+    });
+
+    test("griglia: in onda con due stili, il campione è il primo e «+1 stile» lo dice", async ({ page }) => {
+        await page.unrouteAll({ behavior: "ignoreErrors" });
+        stub = await stubMenu(page, { twoStyles: true });
+        await openList(page);
+        await page.getByRole("radio", { name: "Vista griglia" }).click();
+        const carta = cardOf(page, "Carta e2e");
+        await expect(carta).toContainText("Attivo adesso in 2 sedi");
+        await expect(carta).toContainText("+1 stile");
+        await expect(carta.getByRole("img", { name: "Stile Estate e2e (+1 stile)" })).toBeVisible();
+    });
+
+    test("dettaglio: la banda nomina ogni sede e perché non è in onda", async ({ page }) => {
+        await openCarta(page);
+        await expect(main(page).getByText("Attivo adesso in Centro e2e")).toBeVisible();
+        const seats = main(page).getByRole("list", { name: "Dove è attivo" });
+        await expect(seats.getByRole("listitem")).toHaveCount(2);
+        await expect(seats.getByRole("listitem").filter({ hasText: "Centro e2e" })).toContainText("Pranzo Centro e2e");
+        await expect(seats.getByRole("listitem").filter({ hasText: "Porto e2e" })).toContainText("non in finestra adesso");
+        await expect(main(page).getByText("Quello che cambi qui lo vedono subito.")).toBeVisible();
+    });
+
+    test("dettaglio: un menù senza regole si lavora senza che nessuno veda", async ({ page }) => {
+        await openList(page);
+        await main(page).getByText("Vuoto e2e").click();
+        await expect(page).toHaveURL(new RegExp(`/catalogs/${MENU.vuoto}`));
+        await expect(main(page).getByText("Non assegnato a nessuna sede")).toBeVisible({ timeout: 15_000 });
+        await expect(main(page).getByText(/Puoi lavorarci senza che nessuno veda niente/)).toBeVisible();
+    });
+
+    test("dettaglio: sulla riga del prodotto, in quanti menù sta", async ({ page }) => {
+        await page.unrouteAll({ behavior: "ignoreErrors" });
+        stub = await stubMenu(page, { extraMenu: true });
+        await openCarta(page);
+        await selectCategory(page, "Vini");
+        const rowOf = (name: string) => main(page).getByText(name, { exact: true }).locator("xpath=ancestor::*[contains(., '€')][1]");
+        await expect(rowOf("Prosecco")).toContainText("in 2 menù");
+        // In un menù solo, la riga non lo dice.
+        await selectCategory(page, "Antipasti");
+        await expect(rowOf("Olive ascolane")).not.toContainText("menù");
+    });
+
+    test("eliminazione: lo stato delle regole è quello di Programmazione", async ({ page }) => {
+        await openList(page);
+        await actionsOf(main(page).getByText("Carta e2e")).click();
+        await page.getByRole("menuitem", { name: "Elimina menù" }).click();
+        const rules = dialog(page).getByRole("list", { name: "Regole di programmazione collegate" });
+        await expect(rules.getByRole("link", { name: /Pranzo Centro e2e/ })).toHaveAttribute("href", new RegExp(`/scheduling/${RULE.pranzoCentro}$`));
+        await expect(rules.getByRole("listitem").filter({ hasText: "Pranzo Centro e2e" })).toContainText("Attiva");
+        // Fuori dalla sua fascia oraria adesso: «Programmata», come in Programmazione.
+        await expect(rules.getByRole("listitem").filter({ hasText: "Sera Porto e2e" })).toContainText("Programmata");
     });
 });
 

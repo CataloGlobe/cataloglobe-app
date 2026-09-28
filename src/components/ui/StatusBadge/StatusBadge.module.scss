@@ -16,6 +16,15 @@
     line-height: 1;
     white-space: nowrap;
     user-select: none;
+    // In una cella stretta la parola si tronca, non spinge fuori le azioni:
+    // il nome accessibile resta intero (`aria-label`).
+    max-width: 100%;
+}
+
+.label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .dot {

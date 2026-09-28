@@ -44,3 +44,15 @@ export function deriveScheduleStatus(input: ScheduleStatusInput): ScheduleStatus
     if (input.isActiveNow) return "active";
     return "scheduled";
 }
+
+/**
+ * Etichetta e tono di uno stato, gli stessi in ogni elenco di regole fuori da
+ * Programmazione (dialoghi di eliminazione di menù e stile, In evidenza).
+ */
+export const SCHEDULE_STATUS_META: Record<ScheduleStatus, { label: string; tone: "success" | "info" | "neutral" }> = {
+    draft: { label: "Bozza", tone: "neutral" },
+    active: { label: "Attiva", tone: "success" },
+    scheduled: { label: "Programmata", tone: "info" },
+    expired: { label: "Scaduta", tone: "neutral" },
+    disabled: { label: "Disabilitata", tone: "neutral" }
+};

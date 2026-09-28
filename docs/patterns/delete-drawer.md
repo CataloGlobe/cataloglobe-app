@@ -12,7 +12,7 @@ Le entità con delete drawer in CataloGlobe seguono UNO di 3 pattern, scelto in 
 
 - **Quando**: FK NO ACTION/RESTRICT verso scheduling, l'entità è semanticamente unica
 - **Esempio file**: `src/pages/Dashboard/Catalogs/CatalogDeleteDrawer.tsx`
-- **Contratto drawer**: carica all'apertura `listSchedulesUsing<Entità>()`, mostra banner `warning` se >0 regole attive/programmate (`info` se solo disabilitate/scadute), pillole stato derivate da `enabled + start_at + end_at` (`active|scheduled|expired|disabled`), link diretto a detail regola (`/business/:businessId/scheduling/:ruleId`), bottone "Elimina" disabled finché esiste QUALSIASI regola collegata (non solo attive — anche disabilitate o scadute bloccano)
+- **Contratto drawer**: carica all'apertura le regole che nominano l'entità (`listAppearanceSources` + `appearanceOf`, `src/utils/ruleAppearance.ts`, §50.13), mostra banner `warning` se >0 regole vive (`info` se solo ferme: spente, in bozza o scadute), pillole stato di Programmazione (`deriveScheduleStatus` → `SCHEDULE_STATUS_META`, cinque stati: mai una seconda derivazione da `enabled + start_at + end_at`), link diretto a detail regola (`/business/:businessId/scheduling/:ruleId`), bottone "Elimina" disabled finché esiste QUALSIASI regola collegata (non solo attive — anche disabilitate o scadute bloccano)
 - **Contratto service**: `deleteX(id, tenantId)` può fallire con `23503` se race condition tra fetch usage e delete; usare `isPostgrestFKError(err)` per gestire il caso e ricaricare l'usage
 - **UX rationale**: l'utente DEVE risolvere le regole prima del delete. Non può "passare avanti".
 
@@ -28,7 +28,7 @@ Le entità con delete drawer in CataloGlobe seguono UNO di 3 pattern, scelto in 
 
 - **Quando**: l'entità è semanticamente sostituibile (skin/preset), e cancellarla lasciando le regole "rotte" sarebbe peggio dell'attrito di chiedere un replacement
 - **Esempio file**: `src/pages/Dashboard/Styles/StyleDeleteDrawer.tsx` — dal lotto M17 (§50.11): stile non usato → `ConfirmDialog`; stile in uso → drawer `size="sm"` col sostitutivo, perché il sostitutivo è un campo obbligatorio e `ConfirmDialog` non è un form
-- **Contratto drawer**: carica all'apertura `listSchedulesUsing<Entità>()` (skip se `usage_count === 0`), mostra Select replacement obbligatorio se `isUsed`, lista regole impattate (informativa, non bloccante), bottone "Conferma Eliminazione" disabled finché replacement non scelto. Caso speciale: se entità è `is_system` (es. stile predefinito tenant) la lista non offre «Elimina» (il ramo di blocco nel drawer era irraggiungibile ed è uscito)
+- **Contratto drawer**: carica all'apertura le regole che nominano l'entità, con lo stato di Programmazione (`listAppearanceSources` + `appearanceOf`, `src/utils/ruleAppearance.ts`, §50.13; skip se `usage_count === 0`), mostra Select replacement obbligatorio se `isUsed`, lista regole impattate (informativa, non bloccante), bottone "Conferma Eliminazione" disabled finché replacement non scelto. Caso speciale: se entità è `is_system` (es. stile predefinito tenant) la lista non offre «Elimina» (il ramo di blocco nel drawer era irraggiungibile ed è uscito)
 - **Contratto service**: `deleteX(id, tenantId, replacementId?)` esegue se necessario `UPDATE schedule_layout SET x_id=replacementId` prima del DELETE. CASCADE su tabelle figlie (es. `style_versions`). Race condition teorica accettata (insert tra SELECT e UPDATE/DELETE)
 - **UX rationale**: l'utente non è bloccato e non perde regole. Sceglie come riassegnare in un colpo solo.
 

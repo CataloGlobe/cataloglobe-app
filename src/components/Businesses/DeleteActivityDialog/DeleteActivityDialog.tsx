@@ -9,6 +9,7 @@ import {
     type ActivityDeleteImpact,
     type DeleteActivityResult
 } from "@/services/supabase/activities";
+import { countStoriesForActivity } from "@/services/supabase/stories";
 import { useToast } from "@/context/Toast/ToastContext";
 
 export interface DeleteActivityDialogProps {
@@ -42,6 +43,8 @@ export function DeleteActivityDialog({
 }: DeleteActivityDialogProps) {
     const { showToast } = useToast();
     const [impact, setImpact] = useState<ActivityDeleteImpact | null>(null);
+    // Le storie legate alla sede se ne vanno con lei (`ON DELETE CASCADE`, §34.7/3).
+    const [storiesCount, setStoriesCount] = useState(0);
     const [isLoadingImpact, setIsLoadingImpact] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
 
@@ -50,11 +53,17 @@ export function DeleteActivityDialog({
     useEffect(() => {
         if (!isOpen || !activity) {
             setImpact(null);
+            setStoriesCount(0);
             setIsLoadingImpact(false);
             return;
         }
         let cancelled = false;
         setIsLoadingImpact(true);
+        countStoriesForActivity(tenantId, activity.id)
+            .then(count => {
+                if (!cancelled) setStoriesCount(count);
+            })
+            .catch(error => console.warn("Conteggio delle storie della sede non riuscito:", error));
         countActivityDeleteImpact(tenantId, activity.id)
             .then(result => {
                 if (!cancelled) setImpact(result);
@@ -119,6 +128,13 @@ export function DeleteActivityDialog({
             confirmVariant="danger"
             isLoading={isDeleting}
         >
+            {storiesCount > 0 && (
+                <Text variant="body-sm">
+                    {storiesCount === 1
+                        ? "Si elimina anche 1 storia legata a questa sede."
+                        : `Si eliminano anche ${storiesCount} storie legate a questa sede.`}
+                </Text>
+            )}
             <Text variant="body-sm" colorVariant="muted">
                 Il piano non cambia: le sedi pagate restano quelle di adesso.
             </Text>
