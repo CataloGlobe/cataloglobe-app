@@ -19,6 +19,33 @@
     }
 }
 
+// Portatili: l'hero sta in una schermata (100svh) fino a ~720 px di altezza.
+// Il palco si rimpicciolisce con `zoom` (scala anche l'ingombro, la colonna si
+// stringe con lui) a gradini di 20 px d'altezza. Spazio fisso del pannello
+// sopra e sotto il palco: margini 16 + 16, padding 28 + 80, barra 54 + 24 =
+// 218, più 6 d'aria. Palco alto 582 (telefono) da 1200, 697 (linea + 20 +
+// telefono) sotto. Minimi: 0,8 e 0,7, sotto non si scende.
+$stage-overhead: 224;
+
+@function stage-fit($h, $natural, $min) {
+    @return math.max($min, math.div(math.round(math.div($h - $stage-overhead, $natural) * 1000), 1000));
+}
+
+@mixin stage-zoom($query, $natural, $min) {
+    $h: $stage-overhead + $natural - 20;
+    @while $h >= 640 {
+        @media #{$query} and (max-height: #{$h + 19}px) {
+            .stage {
+                zoom: stage-fit($h, $natural, $min);
+            }
+        }
+        $h: $h - 20;
+    }
+}
+
+@include stage-zoom("(min-width: 1024px) and (max-width: 1199px)", 697, 0.7);
+@include stage-zoom("(min-width: 1200px)", 582, 0.8);
+
 .scheduleTilt,
 .phoneTilt {
     transition: transform 700ms var(--ld-ease);

@@ -195,6 +195,10 @@
         line-height: 1.06;
         letter-spacing: -0.01em;
         text-wrap: wrap;
+        // «Tu» resta sulla terza riga anche quando il palco si rimpicciolisce
+        // (portatili) e la colonna si allarga: la riga più lunga, «Tu pensi alla
+        // sala.», è ~8,9 em; «aggiorna da solo. Tu» ~9,6.
+        max-width: 9.2em;
     }
 
     @include hero-wide {
