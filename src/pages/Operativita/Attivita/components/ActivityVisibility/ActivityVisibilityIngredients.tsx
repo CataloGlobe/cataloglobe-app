@@ -1,18 +1,18 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-    IconEye,
-    IconEyeOff,
-    IconClockExclamation,
-    IconAlertCircle
-} from "@tabler/icons-react";
+import { IconEye, IconEyeOff, IconClockExclamation, IconLeaf } from "@tabler/icons-react";
 import Text from "@/components/ui/Text/Text";
-import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
-import { DataTable, ColumnDefinition } from "@/components/ui/DataTable/DataTable";
-import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
-import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
+import { Badge } from "@/components/ui/Badge/Badge";
+import { Button } from "@/components/ui/Button/Button";
+import { ChipGroupSingle, type ChipOption } from "@/components/ui/Chip/ChipGroup";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
-import Skeleton from "@/components/ui/Skeleton/Skeleton";
-import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { DataTable, DATA_TABLE_CLASSES, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
+import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
+import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
+import { ListRow } from "@/components/ui/ListRow/ListRow";
+import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
+import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
+import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
+import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useEnsureActive } from "@/hooks/useEnsureActive";
 import {
@@ -29,7 +29,11 @@ import {
 import {
     buildBulkConfirmData,
     buildIngredientVisibilityRows,
+    bulkConfirmCopy,
+    bulkSuccessMessage,
     filterIngredientRows,
+    ingredientStateSummary,
+    productWord,
     type IngredientFilterValue,
     type IngredientVisibilityRow,
     type ProductIngredientPair
@@ -40,8 +44,7 @@ const PREVIEW_LIMIT = 3;
 
 /**
  * Value del SegmentedControl di riga: i 3 stati applicabili + sentinel "mixed"
- * (mai tra le opzioni) per righe miste/vuote → nessun segmento attivo,
- * indicatore assente (width 0).
+ * (mai tra le opzioni) per righe miste/vuote → nessun segmento attivo.
  */
 type RowSegmentValue = ProductVisibilityState | "mixed";
 
@@ -52,11 +55,7 @@ const BULK_OPTIONS: {
 }[] = [
     { value: "visible", label: "Rendi tutti visibili", icon: <IconEye size={16} /> },
     { value: "hidden", label: "Nascondi tutti", icon: <IconEyeOff size={16} /> },
-    {
-        value: "unavailable",
-        label: "Segna tutti non disponibili",
-        icon: <IconClockExclamation size={16} />
-    }
+    { value: "unavailable", label: "Segna tutti non disponibili", icon: <IconClockExclamation size={16} /> }
 ];
 
 function segmentValueOf(row: IngredientVisibilityRow): RowSegmentValue {
@@ -72,98 +71,6 @@ function segmentValueOf(row: IngredientVisibilityRow): RowSegmentValue {
     }
 }
 
-type StateDotVariant = "visible" | "hidden" | "unavailable" | "mixed" | "none";
-
-const DOT_CLASS: Record<StateDotVariant, string> = {
-    visible: styles.stateDotVisible,
-    hidden: styles.stateDotHidden,
-    unavailable: styles.stateDotUnavailable,
-    mixed: styles.stateDotMixed,
-    none: styles.stateDotNone
-};
-
-function stateSummary(row: IngredientVisibilityRow): {
-    dot: StateDotVariant;
-    label: string;
-    detail: string | null;
-} {
-    const { counts } = row;
-    switch (row.aggregate) {
-        case "all_visible":
-            return { dot: "visible", label: "Tutti visibili", detail: null };
-        case "all_hidden":
-            return { dot: "hidden", label: "Tutti nascosti", detail: null };
-        case "all_unavailable":
-            return { dot: "unavailable", label: "Tutti non disponibili", detail: null };
-        case "mixed":
-            // Breakdown numerico solo nel tooltip (`detail`): la label di riga
-            // deve stare corta, la colonna Stato è la più stretta del componente.
-            return {
-                dot: "mixed",
-                label: "Misto",
-                detail: `${counts.visible} visibili · ${counts.hidden} nascosti · ${counts.unavailable} non disponibili`
-            };
-        default:
-            return { dot: "none", label: "—", detail: null };
-    }
-}
-
-function productWord(count: number): string {
-    return count === 1 ? "prodotto" : "prodotti";
-}
-
-function confirmCopy(
-    target: ProductVisibilityState,
-    ingredientName: string,
-    total: number,
-    overwrittenCount: number
-): { title: string; message: string; confirmLabel: string; warn: string | null } {
-    const word = productWord(total);
-    const overwriteSuffix =
-        overwrittenCount > 0
-            ? ` ${overwrittenCount} ${overwrittenCount === 1 ? "ha già uno stato impostato manualmente che verrà sovrascritto" : "hanno già uno stato impostato manualmente e verranno sovrascritti"}.`
-            : "";
-
-    switch (target) {
-        case "hidden":
-            return {
-                title: `Nascondere ${total} ${word}?`,
-                message: `Tutti i prodotti collegati a "${ingredientName}" verranno rimossi dalla pagina pubblica.${overwriteSuffix}`,
-                confirmLabel: `Nascondi ${total} ${word}`,
-                warn: null
-            };
-        case "unavailable":
-            return {
-                title: `Segnare ${total} ${word} come non disponibil${total === 1 ? "e" : "i"}?`,
-                message: `I prodotti collegati a "${ingredientName}" resteranno in pagina come "Non disponibile".${overwriteSuffix}`,
-                confirmLabel: "Segna non disponibili",
-                warn: null
-            };
-        default:
-            return {
-                title: `Rendere visibil${total === 1 ? "e" : "i"} ${total} ${word}?`,
-                message: `Gli override di disponibilità sui prodotti collegati a "${ingredientName}" verranno rimossi: i prodotti torneranno a seguire la programmazione.`,
-                confirmLabel: `Rendi visibil${total === 1 ? "e" : "i"} ${total} ${word}`,
-                warn:
-                    overwrittenCount > 0
-                        ? `${overwrittenCount} ${overwrittenCount === 1 ? "prodotto era stato modificato manualmente — potrebbe esserlo per motivi non legati a questo ingrediente. Tornerà" : "prodotti erano stati modificati manualmente — potrebbero esserlo per motivi non legati a questo ingrediente. Torneranno"} visibil${overwrittenCount === 1 ? "e" : "i"} al pubblico.`
-                        : null
-            };
-    }
-}
-
-function successMessage(target: ProductVisibilityState, total: number): string {
-    const word = productWord(total);
-    switch (target) {
-        case "hidden":
-            return `${total} ${word} nascost${total === 1 ? "o" : "i"}.`;
-        case "unavailable":
-            return `${total} ${word} segnat${total === 1 ? "o" : "i"} come non disponibil${total === 1 ? "e" : "i"}.`;
-        default:
-            return `${total} ${word} res${total === 1 ? "o" : "i"} visibil${total === 1 ? "e" : "i"}.`;
-    }
-}
-
 type PendingBulk = {
     row: IngredientVisibilityRow;
     target: ProductVisibilityState;
@@ -174,9 +81,9 @@ type ActivityVisibilityIngredientsProps = {
     tenantId: string;
     /** Prodotti del catalogo attivo (stessa lista della vista Prodotti). */
     products: RenderableProduct[];
-    /** Override correnti keyed by product_id (stessa mappa della vista Prodotti). */
+    /** Modifiche a mano correnti keyed by product_id (stessa mappa della vista Prodotti). */
     overrides: Record<string, ActivityProductOverride>;
-    /** Ricarica catalogo + overrides nel parent dopo un'azione bulk riuscita. */
+    /** Ricarica catalogo + modifiche nel parent dopo un'azione in blocco riuscita. */
     onBulkApplied: () => Promise<void>;
     /** Notifica il numero di ingredienti del tenant (badge tab nel parent). */
     onCountChange?: (count: number) => void;
@@ -184,6 +91,10 @@ type ActivityVisibilityIngredientsProps = {
     readOnly?: boolean;
 };
 
+/**
+ * L'ingrediente come selettore dei prodotti che lo usano (§19bis.5): non ha
+ * uno stato suo, cambia insieme i prodotti coinvolti, dopo una conferma.
+ */
 export const ActivityVisibilityIngredients: React.FC<ActivityVisibilityIngredientsProps> = ({
     activityId,
     tenantId,
@@ -195,9 +106,9 @@ export const ActivityVisibilityIngredients: React.FC<ActivityVisibilityIngredien
 }) => {
     const { showToast } = useToast();
     const { ensureActive } = useEnsureActive();
-    const isMobile = useMediaQuery("(max-width: 767px)");
 
     const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState(false);
     const [ingredients, setIngredients] = useState<V2Ingredient[]>([]);
     const [pairs, setPairs] = useState<ProductIngredientPair[]>([]);
     const [search, setSearch] = useState("");
@@ -209,11 +120,11 @@ export const ActivityVisibilityIngredients: React.FC<ActivityVisibilityIngredien
         onCountChangeRef.current = onCountChange;
     }, [onCountChange]);
 
-    // Fetch lazy: il componente monta solo al primo ingresso nella tab
-    // Ingredienti (vedi ActivityVisibilityContent) — il load iniziale del
-    // drawer resta invariato. Due query piatte, mai una per ingrediente.
+    // Fetch lazy: il componente monta solo al primo ingresso nella vista
+    // Ingredienti. Due query piatte, mai una per ingrediente.
     const loadData = useCallback(async () => {
         setIsLoading(true);
+        setLoadError(false);
         try {
             const [ings, prs] = await Promise.all([
                 getIngredients(tenantId),
@@ -223,12 +134,13 @@ export const ActivityVisibilityIngredients: React.FC<ActivityVisibilityIngredien
             setPairs(prs);
             onCountChangeRef.current?.(ings.length);
         } catch (e) {
+            // Un errore non è «Nessun ingrediente»: lo dice, con «Riprova».
             console.error("Error loading ingredient visibility data:", e);
-            showToast({ message: "Errore nel caricamento degli ingredienti.", type: "error" });
+            setLoadError(true);
         } finally {
             setIsLoading(false);
         }
-    }, [tenantId, showToast]);
+    }, [tenantId]);
 
     useEffect(() => {
         loadData();
@@ -247,16 +159,10 @@ export const ActivityVisibilityIngredients: React.FC<ActivityVisibilityIngredien
         [ingredients, pairs, products, overriddenProductIds]
     );
 
-    const filtered = useMemo(
-        () => filterIngredientRows(rows, filter, search),
-        [rows, filter, search]
-    );
+    const filtered = useMemo(() => filterIngredientRows(rows, filter, search), [rows, filter, search]);
 
     const withHiddenCount = useMemo(() => rows.filter(r => r.counts.hidden > 0).length, [rows]);
-    const withUnavailableCount = useMemo(
-        () => rows.filter(r => r.counts.unavailable > 0).length,
-        [rows]
-    );
+    const withUnavailableCount = useMemo(() => rows.filter(r => r.counts.unavailable > 0).length, [rows]);
     const mixedCount = useMemo(() => rows.filter(r => r.aggregate === "mixed").length, [rows]);
 
     const disabledRowIds = useMemo(
@@ -264,11 +170,28 @@ export const ActivityVisibilityIngredients: React.FC<ActivityVisibilityIngredien
         [rows]
     );
 
-    const handleSegmentChange = (row: IngredientVisibilityRow, next: ProductVisibilityState) => {
-        if (row.productIds.length === 0 || readOnly || !ensureActive()) return;
-        if (segmentValueOf(row) === next) return; // stato già uniforme = no-op
-        setPending({ row, target: next });
-    };
+    const filterOptions = useMemo<ChipOption<IngredientFilterValue>[]>(
+        () => [
+            { value: "all", label: "Tutti", count: rows.length },
+            { value: "with_hidden", label: "Con nascosti", count: withHiddenCount, disabled: withHiddenCount === 0 },
+            {
+                value: "with_unavailable",
+                label: "Con non disponibili",
+                count: withUnavailableCount,
+                disabled: withUnavailableCount === 0
+            }
+        ],
+        [rows.length, withHiddenCount, withUnavailableCount]
+    );
+
+    const handleSegmentChange = useCallback(
+        (row: IngredientVisibilityRow, next: ProductVisibilityState) => {
+            if (row.productIds.length === 0 || readOnly || !ensureActive()) return;
+            if (segmentValueOf(row) === next) return; // stato già uniforme = no-op
+            setPending({ row, target: next });
+        },
+        [readOnly, ensureActive]
+    );
 
     const handleConfirmBulk = async (): Promise<boolean> => {
         if (!pending) return false;
@@ -276,7 +199,7 @@ export const ActivityVisibilityIngredients: React.FC<ActivityVisibilityIngredien
         try {
             await bulkUpdateActivityProductVisibility(activityId, row.productIds, target);
             await onBulkApplied();
-            showToast({ message: successMessage(target, row.productIds.length), type: "success" });
+            showToast({ message: bulkSuccessMessage(target, row.productIds.length), type: "success" });
             return true;
         } catch (e) {
             console.error("Error applying bulk visibility:", e);
@@ -285,153 +208,110 @@ export const ActivityVisibilityIngredients: React.FC<ActivityVisibilityIngredien
         }
     };
 
-    const renderNameCell = (row: IngredientVisibilityRow) => {
-        const summary = stateSummary(row);
-        return (
-            <div className={styles.nameCell}>
-                <div className={styles.nameRow}>
-                    <Text weight={600} variant="body-sm">
-                        {row.name}
-                    </Text>
-                    {row.hasOverride && (
-                        <Tooltip content="Override manuali attivi su prodotti collegati">
-                            <span
-                                className={styles.overrideMarker}
-                                aria-label="Override manuali attivi su prodotti collegati"
-                            >
-                                <IconAlertCircle size={15} />
-                            </span>
-                        </Tooltip>
-                    )}
-                </div>
-                {isMobile ? (
-                    <Text variant="caption" colorVariant="muted">
-                        <span
-                            className={`${styles.captionDot} ${DOT_CLASS[summary.dot]}`}
-                            aria-hidden
-                        />
-                        {row.productIds.length === 0
-                            ? "Nessun prodotto in questo catalogo"
-                            : `${row.productIds.length} ${productWord(row.productIds.length)} · ${summary.label.toLowerCase()}`}
-                    </Text>
-                ) : (
-                    row.productIds.length === 0 && (
-                        <Text variant="caption" colorVariant="muted">
-                            Nessun prodotto in questo catalogo
-                        </Text>
-                    )
-                )}
-            </div>
-        );
-    };
-
-    const renderActionCell = (row: IngredientVisibilityRow) => (
-        <div className={styles.actionCell} onClick={e => e.stopPropagation()}>
-            <fieldset className={styles.readOnlyScope} disabled={readOnly}>
-            <SegmentedControl<RowSegmentValue>
-                // Remount al cambio di aggregato: con value fuori opzioni
-                // (misto) l'indicatore non viene mai riposizionato, quindi
-                // senza key resterebbe visibile sull'ultimo segmento attivo.
-                key={row.aggregate}
-                value={segmentValueOf(row)}
-                onChange={next => {
-                    if (next !== "mixed") handleSegmentChange(row, next);
-                }}
-                size="sm"
-                iconsOnly
-                options={BULK_OPTIONS}
-            />
-            </fieldset>
-        </div>
-    );
-
     const columns = useMemo<ColumnDefinition<IngredientVisibilityRow>[]>(() => {
-        if (isMobile) {
-            return [
-                {
-                    id: "ingredient",
-                    header: "Ingrediente",
-                    width: "minmax(0, 1fr)",
-                    cell: (_, row) => renderNameCell(row)
-                },
-                {
-                    id: "action",
-                    header: "Azione",
-                    width: "148px",
-                    align: "right",
-                    cell: (_, row) => renderActionCell(row)
-                }
-            ];
-        }
+        const summaryBadge = (row: IngredientVisibilityRow) => {
+            const summary = ingredientStateSummary(row);
+            const badge = <StatusBadge variant={summary.tone} label={summary.label} />;
+            return summary.detail ? <Tooltip content={summary.detail}>{badge}</Tooltip> : badge;
+        };
         return [
             {
                 id: "ingredient",
                 header: "Ingrediente",
                 width: "minmax(0, 2fr)",
-                cell: (_, row) => renderNameCell(row)
+                cell: (_, row) => {
+                    const summary = ingredientStateSummary(row);
+                    return (
+                        <div className={`${DATA_TABLE_CLASSES.cellTwoLine} ${DATA_TABLE_CLASSES.cellTwoLineWrap}`}>
+                            <span className={styles.nameRow}>
+                                <span>{row.name}</span>
+                                {row.hasOverride && <Badge variant="outline">a mano</Badge>}
+                            </span>
+                            {row.productIds.length === 0 ? (
+                                <span>Nessun prodotto in questo catalogo</span>
+                            ) : (
+                                // Sul telefono Prodotti e Stato non hanno colonna:
+                                // il riassunto scende qui.
+                                <span className={styles.phoneOnly}>
+                                    {row.productIds.length} {productWord(row.productIds.length)} ·{" "}
+                                    {summary.label.toLowerCase()}
+                                </span>
+                            )}
+                        </div>
+                    );
+                }
             },
             {
                 id: "products",
                 header: "Prodotti",
                 width: "90px",
                 align: "right",
+                hideOnPhone: true,
                 cell: (_, row) => (
                     <Text variant="body-sm" weight={500}>
-                        <span className={styles.countCell}>{row.productIds.length}</span>
+                        {row.productIds.length}
                     </Text>
                 )
             },
             {
                 id: "state",
                 header: "Stato",
-                // 190px: "Tutti non disponibili" (label più lunga, dot+padding
-                // inclusi) tronca in ellipsis sotto questa soglia — vedi .statePill
-                // (max-width:100%; text-overflow:ellipsis) in ActivityVisibilityIngredients.module.scss.
-                width: "minmax(190px, 1fr)",
-                cell: (_, row) => {
-                    const summary = stateSummary(row);
-                    const pill = (
-                        <span
-                            className={`${styles.statePill} ${summary.dot === "mixed" ? styles.statePillMixed : ""}`}
-                        >
-                            <span className={`${styles.stateDot} ${DOT_CLASS[summary.dot]}`} aria-hidden />
-                            {summary.label}
-                        </span>
-                    );
-                    return summary.detail ? <Tooltip content={summary.detail}>{pill}</Tooltip> : pill;
-                }
+                width: "minmax(170px, 1fr)",
+                hideOnPhone: true,
+                cell: (_, row) => summaryBadge(row)
             },
             {
                 id: "action",
                 header: "Azione",
-                width: "156px",
+                width: "148px",
                 align: "right",
-                cell: (_, row) => renderActionCell(row)
+                cell: (_, row) => (
+                    <fieldset className={styles.readOnlyScope} disabled={readOnly}>
+                        <SegmentedControl<RowSegmentValue>
+                            // Remount al cambio di aggregato: con value fuori
+                            // opzioni (misto) l'indicatore non si riposiziona.
+                            key={row.aggregate}
+                            value={segmentValueOf(row)}
+                            onChange={next => {
+                                if (next !== "mixed") handleSegmentChange(row, next);
+                            }}
+                            size="sm"
+                            iconsOnly
+                            options={BULK_OPTIONS}
+                        />
+                    </fieldset>
+                )
             }
         ];
-    }, [isMobile, readOnly]);
+    }, [readOnly, handleSegmentChange]);
 
     if (isLoading) {
+        return <DataTable<IngredientVisibilityRow> ariaLabel="Ingredienti" data={[]} columns={columns} isLoading />;
+    }
+
+    if (loadError) {
         return (
-            <div className={styles.loading}>
-                <Skeleton height={40} />
-                <Skeleton height={40} />
-                <Skeleton height={40} />
-            </div>
+            <EmptyState
+                variant="inline"
+                icon={<IconLeaf />}
+                title="Non è stato possibile caricare gli ingredienti"
+                action={
+                    <Button variant="secondary" onClick={() => void loadData()}>
+                        Riprova
+                    </Button>
+                }
+            />
         );
     }
 
     if (ingredients.length === 0) {
         return (
-            <div className={styles.emptyState}>
-                <Text variant="body" weight={600}>
-                    Nessun ingrediente
-                </Text>
-                <Text variant="body-sm" colorVariant="muted">
-                    Collega gli ingredienti ai prodotti dalla scheda prodotto per gestirne la
-                    disponibilità in blocco da qui.
-                </Text>
-            </div>
+            <EmptyState
+                variant="inline"
+                icon={<IconLeaf />}
+                title="Nessun ingrediente"
+                description="Collega gli ingredienti ai prodotti dalla scheda prodotto per gestirne la disponibilità in blocco da qui."
+            />
         );
     }
 
@@ -440,62 +320,50 @@ export const ActivityVisibilityIngredients: React.FC<ActivityVisibilityIngredien
         : null;
     const copy =
         pending && confirmData
-            ? confirmCopy(
-                  pending.target,
-                  pending.row.name,
-                  confirmData.total,
-                  confirmData.overwrittenCount
-              )
+            ? bulkConfirmCopy(pending.target, pending.row.name, confirmData.total, confirmData.overwrittenCount)
             : null;
+
+    const countText = [
+        `${ingredients.length} ingredient${ingredients.length === 1 ? "e" : "i"}`,
+        withHiddenCount > 0 ? `${withHiddenCount} con prodotti nascosti` : null,
+        mixedCount > 0 ? `${mixedCount} mist${mixedCount === 1 ? "o" : "i"}` : null
+    ]
+        .filter(Boolean)
+        .join(" · ");
 
     return (
         <div className={styles.container}>
             <div className={styles.toolbar}>
-                <SegmentedControl<IngredientFilterValue>
+                <ChipGroupSingle<IngredientFilterValue>
+                    ariaLabel="Filtra gli ingredienti"
                     value={filter}
                     onChange={setFilter}
-                    options={[
-                        { value: "all", label: `Tutti · ${rows.length}` },
-                        { value: "with_hidden", label: `Con nascosti · ${withHiddenCount}` },
-                        {
-                            value: "with_unavailable",
-                            label: `Con non disponibili · ${withUnavailableCount}`
-                        }
-                    ]}
+                    options={filterOptions}
                 />
                 <div className={styles.searchSlot}>
-                    <ToolbarSearch
-                        value={search}
-                        onChange={setSearch}
-                        placeholder="Cerca ingrediente…"
-                    />
+                    <ToolbarSearch value={search} onChange={setSearch} placeholder="Cerca ingrediente…" />
                 </div>
             </div>
 
-            <div className={styles.countTop}>
-                <Text variant="caption" colorVariant="muted">
-                    {ingredients.length} ingredient{ingredients.length === 1 ? "e" : "i"}
-                    {withHiddenCount > 0 && ` · ${withHiddenCount} con prodotti nascosti`}
-                    {mixedCount > 0 && ` · ${mixedCount} mist${mixedCount === 1 ? "o" : "i"}`}
-                </Text>
-            </div>
+            <Text variant="caption" colorVariant="muted">
+                {countText}
+            </Text>
 
-            {filtered.length === 0 ? (
-                <div className={styles.emptyFilter}>
-                    <Text variant="body-sm" colorVariant="muted">
-                        Nessun ingrediente corrispondente ai filtri.
-                    </Text>
-                </div>
-            ) : (
-                <div className={styles.tableWrapper}>
-                    <DataTable
-                        data={filtered}
-                        columns={columns}
-                        getRowId={row => row.ingredient_id}
-                        disabledRowIds={disabledRowIds}
-                    />
-                </div>
-            )}
+            <div className={styles.tableWrapper}>
+                <DataTable<IngredientVisibilityRow>
+                    ariaLabel="Ingredienti"
+                    data={filtered}
+                    columns={columns}
+                    getRowId={row => row.ingredient_id}
+                    disabledRowIds={disabledRowIds}
+                    isFiltered={filter !== "all" || search.trim() !== ""}
+                    onClearFilters={() => {
+                        setFilter("all");
+                        setSearch("");
+                    }}
+                    emptyState={{ title: "Nessun ingrediente corrispondente ai filtri" }}
+                />
+            </div>
 
             {pending && confirmData && copy && (
                 <ConfirmDialog
@@ -508,34 +376,19 @@ export const ActivityVisibilityIngredients: React.FC<ActivityVisibilityIngredien
                     confirmVariant="primary"
                 >
                     <div className={styles.confirmBody}>
-                        {copy.warn && <div className={styles.confirmWarn}>{copy.warn}</div>}
-                        <div className={styles.previewList}>
+                        {copy.warn && <InlineBanner variant="warning">{copy.warn}</InlineBanner>}
+                        <div>
                             {confirmData.preview.slice(0, PREVIEW_LIMIT).map(item => (
-                                <div key={item.product_id} className={styles.previewItem}>
-                                    <Text variant="body-sm" className={styles.previewName}>
-                                        {item.name}
-                                    </Text>
-                                    {item.caption && (
-                                        <Text
-                                            variant="caption"
-                                            colorVariant="muted"
-                                            className={styles.previewCaption}
-                                        >
-                                            {item.caption}
-                                        </Text>
-                                    )}
-                                </div>
+                                <ListRow key={item.product_id} title={item.name} subtitle={item.caption ?? undefined} dense />
                             ))}
-                            {confirmData.preview.length > PREVIEW_LIMIT && (
-                                <div className={styles.previewMore}>
-                                    <Text variant="caption" colorVariant="muted">
-                                        … e altr{confirmData.preview.length - PREVIEW_LIMIT === 1 ? "o" : "i"}{" "}
-                                        {confirmData.preview.length - PREVIEW_LIMIT}{" "}
-                                        {productWord(confirmData.preview.length - PREVIEW_LIMIT)}
-                                    </Text>
-                                </div>
-                            )}
                         </div>
+                        {confirmData.preview.length > PREVIEW_LIMIT && (
+                            <Text variant="caption" colorVariant="muted">
+                                … e altr{confirmData.preview.length - PREVIEW_LIMIT === 1 ? "o" : "i"}{" "}
+                                {confirmData.preview.length - PREVIEW_LIMIT}{" "}
+                                {productWord(confirmData.preview.length - PREVIEW_LIMIT)}
+                            </Text>
+                        )}
                     </div>
                 </ConfirmDialog>
             )}

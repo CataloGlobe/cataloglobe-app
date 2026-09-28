@@ -109,7 +109,6 @@ test.describe("Disponibilità — prodotti", () => {
     });
 
     test("a 375 nessuno scroll orizzontale", async ({ page }) => {
-        test.fail(true, "Oggi a 375 la tabella sfora di 49 px (#581)");
         await openDisponibilita(page);
         await expect(main(page).getByText("Big e2e", { exact: true })).toBeVisible({ timeout: 15_000 });
         await page.setViewportSize({ width: 375, height: 800 });
@@ -145,7 +144,6 @@ test.describe("Disponibilità — vuoto ed errore", () => {
     });
 
     test("errore di caricamento: lo dice e offre «Riprova»", async ({ page }) => {
-        test.fail(true, "Oggi: toast e «Nessun catalogo attivo» (#567, B2)");
         await openDisponibilita(page, {
             before: async () => {
                 await page.route(/\/rest\/v1\/activity_product_overrides\?/, route => route.fulfill({ status: 500, json: { code: "E2E", message: "rotto" } }));

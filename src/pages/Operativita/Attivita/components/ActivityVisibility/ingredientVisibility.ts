@@ -214,3 +214,94 @@ export function buildBulkConfirmData(
         preview: orderedIds.map(toItem)
     };
 }
+
+// ── Copy della vista Ingredienti (puro, fuori dal componente) ───────────────
+
+export type IngredientStateTone = "success" | "neutral" | "warning" | "info";
+
+/**
+ * Lo stato d'insieme dei prodotti di un ingrediente, a parole: l'etichetta
+ * della colonna Stato (StatusBadge) e il dettaglio del misto (tooltip).
+ */
+export function ingredientStateSummary(row: IngredientVisibilityRow): {
+    tone: IngredientStateTone;
+    label: string;
+    detail: string | null;
+} {
+    const { counts } = row;
+    switch (row.aggregate) {
+        case "all_visible":
+            return { tone: "success", label: "Tutti visibili", detail: null };
+        case "all_hidden":
+            return { tone: "neutral", label: "Tutti nascosti", detail: null };
+        case "all_unavailable":
+            return { tone: "warning", label: "Tutti non disponibili", detail: null };
+        case "mixed":
+            // Il dettaglio numerico sta nel tooltip: la parola di riga resta corta.
+            return {
+                tone: "info",
+                label: "Misto",
+                detail: `${counts.visible} visibili · ${counts.hidden} nascosti · ${counts.unavailable} non disponibili`
+            };
+        default:
+            return { tone: "neutral", label: "—", detail: null };
+    }
+}
+
+export function productWord(count: number): string {
+    return count === 1 ? "prodotto" : "prodotti";
+}
+
+/** Titolo, messaggio, bottone e avviso della conferma di un'azione in blocco. */
+export function bulkConfirmCopy(
+    target: ProductVisibilityStateLike,
+    ingredientName: string,
+    total: number,
+    overwrittenCount: number
+): { title: string; message: string; confirmLabel: string; warn: string | null } {
+    const word = productWord(total);
+    const overwriteSuffix =
+        overwrittenCount > 0
+            ? ` ${overwrittenCount} ${overwrittenCount === 1 ? "ha già una modifica a mano che verrà sovrascritta" : "hanno già una modifica a mano e verranno sovrascritti"}.`
+            : "";
+
+    switch (target) {
+        case "hidden":
+            return {
+                title: `Nascondere ${total} ${word}?`,
+                message: `Tutti i prodotti collegati a "${ingredientName}" verranno rimossi dalla pagina pubblica.${overwriteSuffix}`,
+                confirmLabel: `Nascondi ${total} ${word}`,
+                warn: null
+            };
+        case "unavailable":
+            return {
+                title: `Segnare ${total} ${word} come non disponibil${total === 1 ? "e" : "i"}?`,
+                message: `I prodotti collegati a "${ingredientName}" resteranno in pagina come "Non disponibile".${overwriteSuffix}`,
+                confirmLabel: "Segna non disponibili",
+                warn: null
+            };
+        default:
+            return {
+                title: `Rendere visibil${total === 1 ? "e" : "i"} ${total} ${word}?`,
+                message: `Le modifiche a mano sui prodotti collegati a "${ingredientName}" verranno tolte: i prodotti torneranno a seguire la programmazione.`,
+                confirmLabel: `Rendi visibil${total === 1 ? "e" : "i"} ${total} ${word}`,
+                warn:
+                    overwrittenCount > 0
+                        ? `${overwrittenCount} ${overwrittenCount === 1 ? "prodotto era stato modificato a mano — potrebbe esserlo per motivi non legati a questo ingrediente. Tornerà" : "prodotti erano stati modificati a mano — potrebbero esserlo per motivi non legati a questo ingrediente. Torneranno"} visibil${overwrittenCount === 1 ? "e" : "i"} al pubblico.`
+                        : null
+            };
+    }
+}
+
+/** Il toast dopo un'azione in blocco riuscita. */
+export function bulkSuccessMessage(target: ProductVisibilityStateLike, total: number): string {
+    const word = productWord(total);
+    switch (target) {
+        case "hidden":
+            return `${total} ${word} nascost${total === 1 ? "o" : "i"}.`;
+        case "unavailable":
+            return `${total} ${word} segnat${total === 1 ? "o" : "i"} come non disponibil${total === 1 ? "e" : "i"}.`;
+        default:
+            return `${total} ${word} res${total === 1 ? "o" : "i"} visibil${total === 1 ? "e" : "i"}.`;
+    }
+}

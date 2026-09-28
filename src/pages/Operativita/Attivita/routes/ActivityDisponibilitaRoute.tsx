@@ -8,7 +8,7 @@ import { canDoOnActivity } from "@/lib/permissions";
 import {
     ActivityVisibilityContent,
     type VisibilityContentMeta
-} from "../components/ActivityVisibilityDrawer/ActivityVisibilityContent";
+} from "../components/ActivityVisibility/ActivityVisibilityContent";
 import { useActivityDetail } from "../ActivityDetailContext";
 import { getRenderableCatalogForActivity } from "@/services/supabase/activeCatalog";
 import styles from "./ActivityDisponibilitaRoute.module.scss";
@@ -91,7 +91,6 @@ export default function ActivityDisponibilitaRoute() {
                 <ActivityVisibilityContent
                     activityId={activity.id}
                     onMetaChange={handleMeta}
-                    countPlacement="top"
                     readOnly={!canWrite}
                 />
             )}
