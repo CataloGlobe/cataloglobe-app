@@ -77,6 +77,13 @@ test.describe("Lingue", () => {
         expect(write(stub, "rpc.enqueue_tenant_language_backfill")?.body).toMatchObject({ p_target_lang: "de" });
     });
 
+    test("la conferma dice che le traduzioni usano il credito AI", async ({ page }) => {
+        await openPage(page);
+        await langRow(page, "Tedesco").getByRole("switch").click({ force: true });
+        const dialog = page.getByRole("alertdialog").or(page.getByRole("dialog")).last();
+        await expect(dialog.getByText(/credito AI incluso nel piano/)).toBeVisible();
+    });
+
     test("annullare la conferma non attiva niente", async ({ page }) => {
         await openPage(page);
         await langRow(page, "Tedesco").getByRole("switch").click({ force: true });
@@ -144,7 +151,6 @@ test.describe("Lingue", () => {
     });
 
     test("errore di caricamento: lo dice e offre «Riprova»", async ({ page }) => {
-        test.fail(true, "Oggi: toast e «0 lingue attive · tutto aggiornato» (#686, P1)");
         await page.route(/\/rest\/v1\/tenant_languages\?/, route => route.fulfill({ status: 500, json: { code: "E2E", message: "rotto" } }));
         await openBusinessPage(page, "languages", "Lingue");
         await expect(main(page).getByRole("button", { name: "Riprova" })).toBeVisible({ timeout: 15_000 });

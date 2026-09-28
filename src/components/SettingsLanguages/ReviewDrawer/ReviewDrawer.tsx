@@ -1,9 +1,13 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useParams } from "react-router-dom";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
+import { Badge } from "@/components/ui/Badge/Badge";
 import { Button } from "@/components/ui/Button/Button";
+import { Card } from "@/components/ui/Card/Card";
+import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
+import { ListRow } from "@/components/ui/ListRow/ListRow";
 import Text from "@/components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useStaleTranslations } from "@/hooks/useStaleTranslations";
@@ -38,6 +42,7 @@ export function ReviewDrawer({ open, tenantId, language, onClose, onResolved, ca
     const navigate = useNavigate();
     const { businessId } = useParams<{ businessId: string }>();
     const [busyKey, setBusyKey] = useState<string | null>(null);
+    const titleId = useId();
 
     const { items, isLoading, error, refetch, removeItem } = useStaleTranslations(
         tenantId,
@@ -124,122 +129,96 @@ export function ReviewDrawer({ open, tenantId, language, onClose, onResolved, ca
         }
     }
 
-    const header = (
-        <div className={styles.header}>
-            {language?.flag_emoji && (
-                <span className={styles.flag} aria-hidden>
-                    {language.flag_emoji}
-                </span>
-            )}
-            <div>
-                <Text variant="title-sm" weight={600}>
-                    {t("languages.review.title")}
-                </Text>
-                {language && (
-                    <Text variant="caption" colorVariant="muted">
-                        {language.name_it} · {t("languages.review.count", { count: items.length })}
-                    </Text>
-                )}
-            </div>
-        </div>
-    );
-
     const footer = (
         <Button variant="secondary" onClick={onClose}>
             {t("languages.review.close")}
         </Button>
     );
 
+    const title = language
+        ? `${t("languages.review.title")} · ${language.name_it}`
+        : t("languages.review.title");
+
     return (
-        <SystemDrawer open={open} onClose={onClose} width={520}>
-            <DrawerLayout header={header} footer={footer}>
+        <SystemDrawer open={open} onClose={onClose} size="md" aria-labelledby={titleId}>
+            <DrawerLayout title={title} titleId={titleId} onClose={onClose} footer={footer}>
                 {isLoading ? (
-                    <div className={styles.stateBox}>
-                        <Text variant="body" colorVariant="muted">
-                            {t("languages.review.loading")}
-                        </Text>
-                    </div>
+                    <Card flush>
+                        <ListRow loading />
+                        <ListRow loading />
+                        <ListRow loading />
+                    </Card>
                 ) : error ? (
-                    <div className={styles.stateBox}>
-                        <Text variant="body" colorVariant="muted">
-                            {t("languages.review.error")}
-                        </Text>
-                        <Button variant="secondary" onClick={() => void refetch()}>
-                            {t("languages.review.retry")}
-                        </Button>
-                    </div>
+                    <EmptyState
+                        variant="inline"
+                        title={t("languages.review.error")}
+                        action={
+                            <Button variant="secondary" onClick={() => void refetch()}>
+                                {t("languages.review.retry")}
+                            </Button>
+                        }
+                    />
                 ) : items.length === 0 ? (
-                    <div className={styles.stateBox}>
-                        <Text variant="title-sm" weight={600}>
-                            {t("languages.review.empty_title")}
-                        </Text>
-                        <Text variant="body" colorVariant="muted">
-                            {t("languages.review.empty_desc", {
-                                lang: language?.name_it ?? ""
-                            })}
-                        </Text>
-                    </div>
+                    <EmptyState
+                        variant="inline"
+                        title={t("languages.review.empty_title")}
+                        description={t("languages.review.empty_desc", {
+                            lang: language?.name_it ?? ""
+                        })}
+                    />
                 ) : (
                     <div className={styles.body}>
-                        <Text variant="body" colorVariant="muted" className={styles.intro}>
+                        <Text as="p" variant="body-sm" colorVariant="muted">
+                            {t("languages.review.count", { count: items.length })}.{" "}
                             {t("languages.review.intro")}
                         </Text>
 
-                        <ul className={styles.list}>
+                        <Card flush>
                             {items.map(it => {
                                 const key = itemKey(it);
                                 const revertable = canRevert(it);
                                 const openable = canOpen(it);
                                 return (
-                                    <li key={key} className={styles.item}>
-                                        <div className={styles.itemHead}>
-                                            <span className={styles.typePill}>
-                                                {typeLabel(it.entity_type)}
-                                            </span>
-                                            <span className={styles.fieldLabel}>
-                                                {fieldLabel(it.field)}
-                                            </span>
-                                        </div>
-
-                                        <Text variant="body" weight={600}>
-                                            {it.name}
-                                        </Text>
-                                        <p className={styles.source}>{formatSource(it)}</p>
-
-                                        <div className={styles.actions}>
-                                            {revertable && (
-                                                <Button
-                                                    variant="primary"
-                                                    size="sm"
-                                                    loading={busyKey === key}
-                                                    onClick={() => void handleRevert(it)}
-                                                >
-                                                    {t("languages.review.revert")}
-                                                </Button>
-                                            )}
-                                            {openable && (
-                                                <Button
-                                                    variant="secondary"
-                                                    size="sm"
-                                                    disabled={busyKey === key}
-                                                    onClick={() => void handleOpen(it)}
-                                                >
-                                                    {t("languages.review.open")}
-                                                </Button>
-                                            )}
-                                            {!revertable && !openable && (
-                                                <Text
-                                                    variant="caption"
-                                                    colorVariant="muted"
-                                                >
+                                    <ListRow
+                                        key={key}
+                                        title={it.name}
+                                        subtitle={`${fieldLabel(it.field)} · ${formatSource(it)}`}
+                                        wrapSubtitle="full"
+                                        meta={<Badge variant="neutral">{typeLabel(it.entity_type)}</Badge>}
+                                        trailing={
+                                            revertable || openable ? (
+                                                <span className={styles.actions}>
+                                                    {revertable && (
+                                                        <Button
+                                                            variant="secondary"
+                                                            size="sm"
+                                                            loading={busyKey === key}
+                                                            onClick={() => void handleRevert(it)}
+                                                        >
+                                                            {t("languages.review.revert")}
+                                                        </Button>
+                                                    )}
+                                                    {openable && (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            disabled={busyKey === key}
+                                                            onClick={() => void handleOpen(it)}
+                                                        >
+                                                            {t("languages.review.open")}
+                                                        </Button>
+                                                    )}
+                                                </span>
+                                            ) : (
+                                                <Text as="span" variant="caption" colorVariant="muted">
                                                     {t("languages.review.info_only")}
                                                 </Text>
-                                            )}
-                                        </div>
-                                    </li>
+                                            )
+                                        }
+                                    />
                                 );
                             })}
-                        </ul>
+                        </Card>
                     </div>
                 )}
             </DrawerLayout>

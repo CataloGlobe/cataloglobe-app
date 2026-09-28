@@ -1,11 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Check } from "lucide-react";
+import { Languages } from "lucide-react";
 import { useTenantId } from "@/context/useTenantId";
 import { useToast } from "@/context/Toast/ToastContext";
 import { usePageHeader } from "@/context/usePageHeader";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
-import Text from "@/components/ui/Text/Text";
+import { Button } from "@/components/ui/Button/Button";
+import { Card } from "@/components/ui/Card/Card";
+import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
+import { ListRow } from "@/components/ui/ListRow/ListRow";
+import { StatusStrip, type StatusStripTone } from "@/components/ui/StatusStrip/StatusStrip";
 import { LanguageRow } from "@/components/SettingsLanguages/LanguageRow";
 import { ReviewDrawer } from "@/components/SettingsLanguages/ReviewDrawer/ReviewDrawer";
 import { useBusinessOutletContext } from "@/layouts/MainLayout/outletContext";
@@ -25,6 +29,13 @@ import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import { PageGate } from "@/components/PageGate/PageGate";
 import styles from "./SettingsLanguages.module.scss";
 
+/** Il tono della striscia di stato, dallo stato d'insieme delle traduzioni. */
+const STRIP_TONE: Record<"queued" | "errors" | "done", StatusStripTone> = {
+    queued: "info",
+    errors: "warning",
+    done: "success"
+};
+
 export default function SettingsLanguages() {
     const tenantId = useTenantId();
     const { showToast } = useToast();
@@ -42,6 +53,7 @@ export default function SettingsLanguages() {
     const [available, setAvailable] = useState<SupportedLanguage[]>([]);
     const [active, setActive] = useState<TenantLanguage[]>([]);
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState(false);
     const [pendingLang, setPendingLang] = useState<SupportedLanguage | null>(null);
     const [reviewLang, setReviewLang] = useState<SupportedLanguage | null>(null);
 
@@ -62,18 +74,22 @@ export default function SettingsLanguages() {
         if (!tenantId || !canRead) return;
         try {
             setLoading(true);
+            setLoadError(false);
             const [avail, act] = await Promise.all([
                 listAvailableLanguages(),
                 listTenantLanguages(tenantId)
             ]);
             setAvailable(avail);
             setActive(act);
-        } catch {
-            showToast({ message: t("errors.load_failed"), type: "error" });
+        } catch (error) {
+            // Un errore non è «0 lingue attive · tutto aggiornato»: la pagina
+            // lo dice, con «Riprova».
+            console.error("Caricamento lingue:", error);
+            setLoadError(true);
         } finally {
             setLoading(false);
         }
-    }, [tenantId, canRead, showToast, t]);
+    }, [tenantId, canRead]);
 
     useEffect(() => {
         loadData();
@@ -181,78 +197,73 @@ export default function SettingsLanguages() {
                     </InlineBanner>
                 )}
                 {loading ? (
-                    <div className={styles.loading}>
-                        <Text variant="body" colorVariant="muted">
-                            {t("languages.title")}…
-                        </Text>
-                    </div>
+                    <Card flush>
+                        <div aria-busy="true" aria-label={t("languages.title")}>
+                            <ListRow loading />
+                            <ListRow loading />
+                            <ListRow loading />
+                        </div>
+                    </Card>
+                ) : loadError ? (
+                    <EmptyState
+                        variant="page"
+                        icon={<Languages />}
+                        title={t("errors.load_failed")}
+                        description={t("languages.load_error_desc")}
+                        action={
+                            <Button variant="secondary" onClick={() => void loadData()}>
+                                {t("languages.review.retry")}
+                            </Button>
+                        }
+                    />
                 ) : (
-                    <div className={styles.list}>
-                        <div className={styles.summary}>
-                            <span className={styles.summaryItem}>
-                                {t("languages.summary.active_count", {
-                                    count: summary.activeTargetCount
-                                })}
-                            </span>
-                            <span className={styles.sep} aria-hidden>
-                                ·
-                            </span>
-                            <span className={styles.summaryItem}>
-                                {t("languages.summary.translatable", {
-                                    count: summary.unitTotal
-                                })}
-                            </span>
-                            <span className={styles.sep} aria-hidden>
-                                ·
-                            </span>
-                            <span
-                                className={`${styles.globalState} ${styles[`global_${summary.state}`]}`}
-                            >
-                                {summary.state === "queued" && (
-                                    <span className={styles.summarySpinner} aria-hidden />
-                                )}
-                                {summary.state === "done" && (
-                                    <Check size={14} strokeWidth={2.5} aria-hidden />
-                                )}
-                                {summary.state === "queued"
-                                    ? t("languages.summary.queued", {
-                                          count: summary.totalPending
-                                      })
+                    <>
+                        {/* Lo stato della pagina in una striscia: quante lingue,
+                            quanti elementi, e se c'è qualcosa in corso o da
+                            risolvere. */}
+                        <StatusStrip
+                            tone={STRIP_TONE[summary.state]}
+                            badge={t(`languages.summary.badge_${summary.state}`)}
+                            title={`${t("languages.summary.active_count", { count: summary.activeTargetCount })} · ${t("languages.summary.translatable", { count: summary.unitTotal })}`}
+                            description={
+                                summary.state === "queued"
+                                    ? t("languages.summary.queued", { count: summary.totalPending })
                                     : summary.state === "errors"
                                       ? t("languages.summary.has_errors")
-                                      : t("languages.summary.all_done")}
-                            </span>
-                        </div>
-                        {orderedLangs.map((lang, idx) => {
-                            const isBase = lang.code === "it";
-                            return (
-                                <LanguageRow
-                                    key={lang.code}
-                                    code={lang.code}
-                                    name={lang.name_it}
-                                    flagEmoji={lang.flag_emoji}
-                                    isActive={isLangActive(lang.code)}
-                                    isBase={isBase}
-                                    coverage={coverageByLang(lang.code)}
-                                    unitTotal={isBase ? summary.unitTotal : undefined}
-                                    rowIndex={idx}
-                                    canToggle={isBase ? false : canWrite}
-                                    readOnly={!canWrite}
-                                    onToggle={
-                                        isBase
-                                            ? undefined
-                                            : next => handleToggle(lang, next)
-                                    }
-                                    onRetryErrors={
-                                        isBase ? undefined : handleRetryErrors
-                                    }
-                                    onReviewClick={
-                                        isBase ? undefined : () => setReviewLang(lang)
-                                    }
-                                />
-                            );
-                        })}
-                    </div>
+                                      : t("languages.summary.all_done")
+                            }
+                        />
+                        <Card flush>
+                            {orderedLangs.map(lang => {
+                                const isBase = lang.code === "it";
+                                return (
+                                    <LanguageRow
+                                        key={lang.code}
+                                        code={lang.code}
+                                        name={lang.name_it}
+                                        flagEmoji={lang.flag_emoji}
+                                        isActive={isLangActive(lang.code)}
+                                        isBase={isBase}
+                                        coverage={coverageByLang(lang.code)}
+                                        unitTotal={isBase ? summary.unitTotal : undefined}
+                                        canToggle={isBase ? false : canWrite}
+                                        readOnly={!canWrite}
+                                        onToggle={
+                                            isBase
+                                                ? undefined
+                                                : next => handleToggle(lang, next)
+                                        }
+                                        onRetryErrors={
+                                            isBase ? undefined : handleRetryErrors
+                                        }
+                                        onReviewClick={
+                                            isBase ? undefined : () => setReviewLang(lang)
+                                        }
+                                    />
+                                );
+                            })}
+                        </Card>
+                    </>
                 )}
             </div>
 
@@ -265,7 +276,7 @@ export default function SettingsLanguages() {
                         ? t("languages.confirm_title", { lang: pendingLang.name_it })
                         : ""
                 }
-                message={t("languages.confirm_description")}
+                message={`${t("languages.confirm_description")} ${t("languages.confirm_ai_credit")}`}
                 confirmLabel={t("languages.confirm_button")}
                 confirmVariant="primary"
             />

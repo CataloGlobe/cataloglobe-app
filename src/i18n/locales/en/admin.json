@@ -13,7 +13,10 @@
             "translatable": "{{count}} translatable items",
             "queued": "{{count}} queued",
             "has_errors": "some to resolve",
-            "all_done": "all up to date"
+            "all_done": "all up to date",
+            "badge_queued": "In progress",
+            "badge_errors": "To fix",
+            "badge_done": "Up to date"
         },
         "review": {
             "title": "To review",
@@ -78,7 +81,9 @@
             "retry_count_label": "{{count}} to retry"
         },
         "read_only_role": "Read only: activating and managing languages is up to owners and administrators.",
-        "read_only_subscription": "Read only: the subscription is not active."
+        "read_only_subscription": "Read only: the subscription is not active.",
+        "load_error_desc": "Check your connection and try again.",
+        "confirm_ai_credit": "Translations use the AI credit included in your plan."
     },
     "errors": {
         "load_failed": "Error loading languages",

@@ -47,7 +47,9 @@
         "confirm_description": "Wir übersetzen automatisch Ihre Produkte, Kategorien und andere Inhalte. Sie werden innerhalb von Minuten verfügbar sein.",
         "confirm_button": "Aktivieren Sie",
         "read_only_role": "Nur Lesezugriff: Sprachen aktivieren und verwalten dürfen Inhaber und Administratoren.",
-        "read_only_subscription": "Nur Lesezugriff: Das Abonnement ist nicht aktiv."
+        "read_only_subscription": "Nur Lesezugriff: Das Abonnement ist nicht aktiv.",
+        "load_error_desc": "Prüfe die Verbindung und versuche es erneut.",
+        "confirm_ai_credit": "Die Übersetzungen nutzen das KI-Guthaben deines Tarifs."
     },
     "errors": {
         "load_failed": "Fehler beim Laden von Sprachen",
