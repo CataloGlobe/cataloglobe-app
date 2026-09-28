@@ -1,21 +1,29 @@
 @use "sass:math";
 @use "@pages/CampaignLanding/styles/mixins" as *;
 
+// Scala del palco da 1200: 572 × 0,955 = 546 px, ~56 d'aria fra la riga più
+// lunga del titolo e la card a 1440.
+$stage-wide-z: 0.955;
+
 // Telefono e programmazione di oggi (HeroStage.tsx). Misure e colori dal
 // riferimento docs/landing/versione-c/riferimento/hero-v11.html.
 
 // ── Disposizione ────────────────────────────────────────────────────────────
 // Mobile e desktop stretto: linea orizzontale sopra il telefono (20 px d'aria).
-// Da 1200: card verticale a sinistra del telefono, 24 px fra le due.
+// Da 1200: card verticale a sinistra del telefono, 24 px fra le due a vista
+// (il gap si divide per la scala, che lo rimpicciolirebbe).
 .stage {
+    --stage-z: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 20px;
+    zoom: var(--stage-z);
 
     @include hero-wide {
+        --stage-z: #{$stage-wide-z};
         flex-direction: row;
-        gap: 24px;
+        gap: calc(24px / var(--stage-z));
     }
 }
 
@@ -24,27 +32,31 @@
 // stringe con lui) a gradini di 20 px d'altezza. Spazio fisso del pannello
 // sopra e sotto il palco: margini 16 + 16, padding 28 + 80, barra 54 + 24 =
 // 218, più 6 d'aria. Palco alto 582 (telefono) da 1200, 697 (linea + 20 +
-// telefono) sotto. Minimi: 0,8 e 0,7, sotto non si scende.
+// telefono) sotto. Da 1200 la scala parte da $stage-wide-z (aria fra testo e
+// card, Hero.module.scss). Minimi: 0,8 e 0,7, sotto non si scende.
 $stage-overhead: 224;
 
 @function stage-fit($h, $natural, $min) {
     @return math.max($min, math.div(math.round(math.div($h - $stage-overhead, $natural) * 1000), 1000));
 }
 
-@mixin stage-zoom($query, $natural, $min) {
+@mixin stage-zoom($query, $natural, $min, $max) {
     $h: $stage-overhead + $natural - 20;
     @while $h >= 640 {
-        @media #{$query} and (max-height: #{$h + 19}px) {
-            .stage {
-                zoom: stage-fit($h, $natural, $min);
+        $z: stage-fit($h, $natural, $min);
+        @if $z < $max {
+            @media #{$query} and (max-height: #{$h + 19}px) {
+                .stage {
+                    --stage-z: #{$z};
+                }
             }
         }
         $h: $h - 20;
     }
 }
 
-@include stage-zoom("(min-width: 1024px) and (max-width: 1199px)", 697, 0.7);
-@include stage-zoom("(min-width: 1200px)", 582, 0.8);
+@include stage-zoom("(min-width: 1024px) and (max-width: 1199px)", 697, 0.7, 1);
+@include stage-zoom("(min-width: 1200px)", 582, 0.8, $stage-wide-z);
 
 .scheduleTilt,
 .phoneTilt {

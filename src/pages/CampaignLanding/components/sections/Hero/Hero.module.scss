@@ -146,8 +146,9 @@
     margin: auto 0;
 
     // Testo | palco (telefono + programmazione). Sotto 1200 il palco è largo
-    // quanto la linea orizzontale (338); da 1200 card 264 + 24 + telefono 284,
-    // 22 px dal testo.
+    // quanto la linea orizzontale (338); da 1200 card 264 + 24 + telefono 284
+    // in scala 0,955 (HeroStage.module.scss); 50 px di colonna, ~56 a vista dal
+    // titolo, che si ferma a 9,2 em.
     @include desktop {
         display: grid;
         grid-template-columns: minmax(0, 1fr) auto;
@@ -159,7 +160,7 @@
     }
 
     @include hero-wide {
-        gap: 22px;
+        gap: 50px;
     }
 }
 
