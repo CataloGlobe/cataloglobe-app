@@ -22,7 +22,7 @@
     background: var(--ld-white);
     border: 1px solid var(--ld-line);
     box-shadow: var(--ld-shadow-thumb);
-    transition: transform 560ms var(--ld-ease);
+    transition: transform 250ms var(--ld-ease);
 }
 
 .cursor1 {
@@ -39,10 +39,11 @@
     position: relative;
     z-index: 1;
     flex: 1 1 0;
-    padding: 8px 4px;
+    // Sotto, lo spazio della barretta di avanzamento.
+    padding: 8px 4px 10px;
     text-align: center;
     color: var(--ld-muted);
-    transition: color 420ms ease;
+    transition: color 250ms ease;
 }
 
 .tabOn {
@@ -69,6 +70,39 @@
     opacity: 1;
 }
 
+// Avanzamento del passo, sotto la linguetta attiva (come le storie): si riempie
+// in $step-ms. ⚠️ Stessa durata di STEP_MS in Orders.tsx.
+$step-ms: 3000ms;
+
+.progress {
+    position: absolute;
+    right: 14px;
+    bottom: 3px;
+    left: 14px;
+    height: 2px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: var(--ld-line);
+}
+
+.progressFill {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--ld-azione);
+    transform-origin: left;
+    animation: ld-orders-progress $step-ms linear both;
+}
+
+@keyframes ld-orders-progress {
+    from {
+        transform: scaleX(0);
+    }
+    to {
+        transform: scaleX(1);
+    }
+}
+
 // ── Pannello ────────────────────────────────────────────────────────────────
 .panel {
     height: 324px;
@@ -79,6 +113,24 @@
     background: var(--ld-white);
     border: 1px solid var(--ld-line);
     box-shadow: 0 14px 34px rgba(21, 20, 43, 0.07);
+}
+
+// Cambio di passo: il pannello nuovo entra in 250 ms.
+@include motion-ok {
+    .panelIn {
+        animation: ld-orders-panel 250ms var(--ld-ease) both;
+    }
+}
+
+@keyframes ld-orders-panel {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
 }
 
 .printer {

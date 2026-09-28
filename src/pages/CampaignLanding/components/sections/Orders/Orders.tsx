@@ -8,7 +8,8 @@ import styles from "./Orders.module.scss";
 
 const cx = (...names: (string | false | null | undefined)[]) => names.filter(Boolean).join(" ");
 
-const STEP_MS = 4500;
+/** Durata di un passo. ⚠️ Stessa durata in Orders.module.scss ($step-ms, la barretta). */
+const STEP_MS = 3000;
 
 function BillIcon({ size }: { size: number }) {
     return (
@@ -159,9 +160,10 @@ function FloorPanel() {
 }
 
 /**
- * Tre linguette che avanzano da sole ogni 4,5 s finché sono sullo schermo;
- * uscite del tutto tornano al passo 1. Al clic la linguetta scelta resta
- * ferma, anche dopo un'uscita. Pannello ad altezza fissa (324 px).
+ * Tre linguette che avanzano da sole ogni 3 s finché sono sullo schermo, con
+ * una barretta che si riempie sotto quella attiva; uscite del tutto tornano al
+ * passo 1. Al clic la linguetta scelta resta ferma (niente barretta), anche
+ * dopo un'uscita. Pannello ad altezza fissa (324 px).
  */
 function OrdersDemo() {
     const ref = useRef<HTMLDivElement>(null);
@@ -172,11 +174,15 @@ function OrdersDemo() {
     });
     const reduced = useReducedMotion();
 
+    const running = visible && !pinned && !reduced;
+
+    // Un timer per passo: la barretta (rimontata a ogni passo e a ogni ripresa)
+    // e il cambio di passo partono insieme.
     useEffect(() => {
-        if (!visible || pinned || reduced) return;
-        const id = window.setInterval(() => setStep((s) => (s + 1) % 3), STEP_MS);
-        return () => window.clearInterval(id);
-    }, [visible, pinned, reduced]);
+        if (!running) return;
+        const id = window.setTimeout(() => setStep((s) => (s + 1) % 3), STEP_MS);
+        return () => window.clearTimeout(id);
+    }, [running, step]);
 
     return (
         <div ref={ref}>
@@ -198,13 +204,20 @@ function OrdersDemo() {
                     >
                         <span className={styles.tabLabel}>{s.label}</span>
                         <span className={styles.tabSub}>{s.sub}</span>
+                        {running && i === step && (
+                            <span key={step} className={styles.progress} aria-hidden="true">
+                                <span className={styles.progressFill} />
+                            </span>
+                        )}
                     </button>
                 ))}
             </div>
             <div className={styles.panel} role="tabpanel" id="landing-orders-panel" aria-labelledby={`landing-orders-tab-${step}`}>
-                {step === 0 && <OrderPanel />}
-                {step === 1 && <TicketPanel />}
-                {step === 2 && <FloorPanel />}
+                <div key={step} className={styles.panelIn}>
+                    {step === 0 && <OrderPanel />}
+                    {step === 1 && <TicketPanel />}
+                    {step === 2 && <FloorPanel />}
+                </div>
             </div>
             <p className={styles.printer}>{ORDERS.printerNote}</p>
         </div>
