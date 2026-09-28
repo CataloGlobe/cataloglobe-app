@@ -132,6 +132,22 @@ test.describe("Assistenza — elenco", () => {
         await expect(page).toHaveURL(/\/support$/);
     });
 
+    test("nuova richiesta: chiudere con testo scritto chiede prima", async ({ page }) => {
+        await openList(page);
+        await expect(main(page).getByText("Il QR del tavolo 4 e2e")).toBeVisible({ timeout: 15_000 });
+        await newRequestButton(page).click();
+        const drawer = page.getByRole("dialog", { name: "Nuova richiesta" });
+        await drawer.getByRole("textbox", { name: /^Descrizione/ }).fill("Una bozza e2e");
+        await drawer.getByRole("button", { name: "Annulla" }).click();
+        const confirm = page.getByRole("alertdialog").or(page.getByRole("dialog", { name: "Uscire senza inviare?" })).last();
+        await expect(confirm.getByText("Uscire senza inviare?")).toBeVisible();
+        await confirm.getByRole("button", { name: "Resta" }).click();
+        await expect(drawer.getByRole("textbox", { name: /^Descrizione/ })).toHaveValue("Una bozza e2e");
+        await drawer.getByRole("button", { name: "Annulla" }).click();
+        await page.getByRole("button", { name: "Esci senza salvare" }).click();
+        await expect(drawer).toHaveCount(0);
+    });
+
     test("senza scrittura: niente «Nuova richiesta», l'email per chiedere aiuto", async ({ page }) => {
         await stub.revoke("support.write");
         await openList(page);

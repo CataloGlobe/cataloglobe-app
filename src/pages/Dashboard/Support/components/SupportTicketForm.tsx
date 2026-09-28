@@ -18,6 +18,8 @@ interface SupportTicketFormProps {
     activities: V2Activity[];
     onSuccess: (ticket: V2SupportTicket) => void;
     onSavingChange: (saving: boolean) => void;
+    /** Qualcosa è stato scritto: il drawer chiede prima di chiudere. */
+    onDirtyChange?: (dirty: boolean) => void;
 }
 
 export function SupportTicketForm({
@@ -25,7 +27,8 @@ export function SupportTicketForm({
     tenantId,
     activities,
     onSuccess,
-    onSavingChange
+    onSavingChange,
+    onDirtyChange
 }: SupportTicketFormProps) {
     const [subject, setSubject] = useState("");
     const [activityId, setActivityId] = useState("");
@@ -41,6 +44,11 @@ export function SupportTicketForm({
     useEffect(() => {
         onSavingChange(false);
     }, [onSavingChange]);
+
+    const isDirty = subject.trim() !== "" || message.trim() !== "" || activityId !== "";
+    useEffect(() => {
+        onDirtyChange?.(isDirty);
+    }, [isDirty, onDirtyChange]);
 
     async function handleSubmit(e: FormEvent) {
         e.preventDefault();
