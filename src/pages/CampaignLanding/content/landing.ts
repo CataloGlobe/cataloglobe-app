@@ -254,6 +254,7 @@ export const ORDERS = {
         totalLabel: "Totale",
         total: "36 €",
         send: "Invia l’ordine",
+        sent: "Ordine inviato ✓",
         note: "Dal QR sul tavolo. Nessuna app, nessuna registrazione."
     },
     ticket: {
@@ -266,7 +267,7 @@ export const ORDERS = {
             { qty: "2", name: "SPRITZ DELLA CASA" },
             { qty: "1", name: "TIRAMISÙ" }
         ],
-        note: "Arriva da sola in cucina. Nessuno deve passare a portarla."
+        note: "Arriva da sola in cucina, stampata o su tablet."
     },
     floor: {
         label: "La sala, dal tuo telefono",

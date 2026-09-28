@@ -42,15 +42,34 @@ const FLOOR: { n: number; shape: "round" | "rect"; state: TableState }[] = [
     { n: 15, shape: "round", state: "free" }
 ];
 
-function OrderPanel() {
+/** Scena 1: il pulsante si preme a 1700 ms e a 1850 dice «Ordine inviato ✓» (le righe entrano in CSS). */
+const PRESS_MS = 1700;
+const SENT_MS = 1850;
+
+/** Scena 1: la scheda dell'ordine dal telefono del cliente, al centro del riquadro. */
+function OrderPanel({ still }: { still: boolean }) {
     const { order } = ORDERS;
+    const [phase, setPhase] = useState<"idle" | "press" | "sent">("idle");
+
+    useEffect(() => {
+        if (still) return;
+        const t1 = window.setTimeout(() => setPhase("press"), PRESS_MS);
+        const t2 = window.setTimeout(() => setPhase("sent"), SENT_MS);
+        return () => {
+            window.clearTimeout(t1);
+            window.clearTimeout(t2);
+        };
+    }, [still]);
+
+    const sent = still || phase === "sent";
+
     return (
         <div className={styles.order}>
-            <div className={styles.orderHead}>
-                <Kicker>{order.label}</Kicker>
-                <span className={styles.tableChip}>{order.table}</span>
-            </div>
-            <div className={styles.lines}>
+            <div className={styles.orderCard}>
+                <div className={styles.orderHead}>
+                    <Kicker>{order.label}</Kicker>
+                    <span className={styles.tableChip}>{order.table}</span>
+                </div>
                 {order.lines.map((l) => (
                     <div key={l.name} className={styles.line}>
                         <span className={styles.qty}>{l.qty}</span>
@@ -62,35 +81,39 @@ function OrderPanel() {
                     <span>{order.totalLabel}</span>
                     <span>{order.total}</span>
                 </div>
+                <div className={cx(styles.send, phase === "press" && styles.sendPress)}>{sent ? order.sent : order.send}</div>
+                <p className={styles.orderNote}>{order.note}</p>
             </div>
-            <div className={styles.send}>{order.send}</div>
-            <p className={styles.orderNote}>{order.note}</p>
         </div>
     );
 }
 
+/** Scena 2: la comanda esce dalla fessura della stampante e si srotola (CSS). */
 function TicketPanel() {
     const { ticket } = ORDERS;
     return (
         <div className={styles.kitchen}>
             <Kicker className={styles.kitchenLabel}>{ticket.label}</Kicker>
-            <div className={styles.ticket}>
-                <div className={styles.ticketPaper}>
-                    <div className={styles.ticketHead}>
-                        <span className={styles.ticketTable}>{ticket.table}</span>
-                        <span className={styles.ticketTime}>{ticket.time}</span>
-                    </div>
-                    <div className={styles.ticketMeta}>{ticket.meta}</div>
-                    <div className={styles.ticketRule} />
-                    {ticket.lines.map((l) => (
-                        <div key={l.name} className={styles.ticketLine}>
-                            <span>{l.qty}</span>
-                            <span>{l.name}</span>
+            <span className={styles.slot} aria-hidden="true" />
+            <div className={styles.ticketOut}>
+                <div className={styles.ticket}>
+                    <div className={styles.ticketPaper}>
+                        <div className={styles.ticketHead}>
+                            <span className={styles.ticketTable}>{ticket.table}</span>
+                            <span className={styles.ticketTime}>{ticket.time}</span>
                         </div>
-                    ))}
-                    <div className={cx(styles.ticketRule, styles.ticketRuleEnd)} />
+                        <div className={styles.ticketMeta}>{ticket.meta}</div>
+                        <div className={styles.ticketRule} />
+                        {ticket.lines.map((l) => (
+                            <div key={l.name} className={styles.ticketLine}>
+                                <span>{l.qty}</span>
+                                <span>{l.name}</span>
+                            </div>
+                        ))}
+                        <div className={cx(styles.ticketRule, styles.ticketRuleEnd)} />
+                    </div>
+                    <div className={styles.zigzag} />
                 </div>
-                <div className={styles.zigzag} />
             </div>
             <p className={styles.kitchenNote}>{ticket.note}</p>
         </div>
@@ -100,7 +123,7 @@ function TicketPanel() {
 function FloorPanel() {
     const { floor } = ORDERS;
     return (
-        <div>
+        <div className={styles.floorScene}>
             <Kicker>{floor.label}</Kicker>
             <div className={styles.floor}>
                 {FLOOR.map((t) => (
@@ -160,10 +183,12 @@ function FloorPanel() {
 }
 
 /**
- * Tre linguette che avanzano da sole ogni 3 s finché sono sullo schermo, con
- * una barretta che si riempie sotto quella attiva; uscite del tutto tornano al
- * passo 1. Al clic la linguetta scelta resta ferma (niente barretta), anche
- * dopo un'uscita. Pannello ad altezza fissa (324 px).
+ * Tre linguette che avanzano da sole ogni 3 s finché sono sullo schermo; la
+ * linguetta attiva si riempie da sinistra di un velo blu per la durata del
+ * passo. Uscite del tutto tornano al passo 1. Al clic la linguetta scelta resta
+ * ferma (niente velo), anche dopo un'uscita. Pannello ad altezza fissa (324 px);
+ * la scena riparte quando il pannello torna in vista. Con reduced-motion le
+ * scene sono nello stato finale.
  */
 function OrdersDemo() {
     const ref = useRef<HTMLDivElement>(null);
@@ -176,8 +201,8 @@ function OrdersDemo() {
 
     const running = visible && !pinned && !reduced;
 
-    // Un timer per passo: la barretta (rimontata a ogni passo e a ogni ripresa)
-    // e il cambio di passo partono insieme.
+    // Un timer per passo: il velo (rimontato a ogni passo e a ogni ripresa) e il
+    // cambio di passo partono insieme.
     useEffect(() => {
         if (!running) return;
         const id = window.setTimeout(() => setStep((s) => (s + 1) % 3), STEP_MS);
@@ -202,19 +227,15 @@ function OrdersDemo() {
                             setPinned(true);
                         }}
                     >
+                        {running && i === step && <span key={step} className={styles.progress} aria-hidden="true" />}
                         <span className={styles.tabLabel}>{s.label}</span>
                         <span className={styles.tabSub}>{s.sub}</span>
-                        {running && i === step && (
-                            <span key={step} className={styles.progress} aria-hidden="true">
-                                <span className={styles.progressFill} />
-                            </span>
-                        )}
                     </button>
                 ))}
             </div>
             <div className={styles.panel} role="tabpanel" id="landing-orders-panel" aria-labelledby={`landing-orders-tab-${step}`}>
-                <div key={step} className={styles.panelIn}>
-                    {step === 0 && <OrderPanel />}
+                <div key={`${step}-${visible}`} className={styles.panelIn}>
+                    {step === 0 && <OrderPanel still={reduced} />}
                     {step === 1 && <TicketPanel />}
                     {step === 2 && <FloorPanel />}
                 </div>

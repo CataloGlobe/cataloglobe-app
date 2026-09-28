@@ -39,8 +39,10 @@
     position: relative;
     z-index: 1;
     flex: 1 1 0;
-    // Sotto, lo spazio della barretta di avanzamento.
-    padding: 8px 4px 10px;
+    // Il velo d'avanzamento resta dentro la linguetta, sotto il testo.
+    overflow: hidden;
+    border-radius: 11px;
+    padding: 8px 4px;
     text-align: center;
     color: var(--ld-muted);
     transition: color 250ms ease;
@@ -51,12 +53,14 @@
 }
 
 .tabLabel {
+    position: relative;
     display: block;
     font-size: 14px;
     font-weight: 600;
 }
 
 .tabSub {
+    position: relative;
     display: block;
     margin-top: 2px;
     font-size: 11px;
@@ -70,28 +74,17 @@
     opacity: 1;
 }
 
-// Avanzamento del passo, sotto la linguetta attiva (come le storie): si riempie
-// in $step-ms. ⚠️ Stessa durata di STEP_MS in Orders.tsx.
+// Avanzamento del passo: la linguetta attiva si riempie da sinistra di un velo
+// blu tenue in $step-ms, lineare. ⚠️ Stessa durata di STEP_MS in Orders.tsx.
 $step-ms: 3000ms;
 
 .progress {
     position: absolute;
-    right: 14px;
-    bottom: 3px;
-    left: 14px;
-    height: 2px;
-    overflow: hidden;
-    border-radius: 999px;
-    background: var(--ld-line);
-}
-
-.progressFill {
-    display: block;
-    height: 100%;
-    border-radius: inherit;
-    background: var(--ld-azione);
+    inset: 0;
+    background: rgba(70, 72, 198, 0.07);
     transform-origin: left;
     animation: ld-orders-progress $step-ms linear both;
+    pointer-events: none;
 }
 
 @keyframes ld-orders-progress {
@@ -108,11 +101,16 @@ $step-ms: 3000ms;
     height: 324px;
     box-sizing: border-box;
     margin-top: 12px;
-    padding: 18px;
+    // Scene 1 e 2 centrate da sole; la sala (scena 3) ha il suo padding.
+    overflow: hidden;
     border-radius: 18px;
     background: var(--ld-white);
     border: 1px solid var(--ld-line);
     box-shadow: 0 14px 34px rgba(21, 20, 43, 0.07);
+}
+
+.panelIn {
+    height: 100%;
 }
 
 // Cambio di passo: il pannello nuovo entra in 250 ms.
@@ -141,29 +139,40 @@ $step-ms: 3000ms;
 }
 
 // ── Passo 1: l'ordine ───────────────────────────────────────────────────────
+// Un solo elemento: la scheda dal telefono del cliente, al centro del riquadro.
 .order {
     display: flex;
-    flex-direction: column;
+    align-items: center;
+    justify-content: center;
     height: 100%;
+    padding: 0 16px;
+}
+
+.orderCard {
+    width: 300px;
+    max-width: 100%;
+    box-sizing: border-box;
+    padding: 16px 18px 14px;
+    border-radius: 18px;
+    background: var(--ld-white);
+    border: 1px solid var(--ld-line-2);
+    box-shadow: 0 14px 34px rgba(40, 36, 90, 0.1);
 }
 
 .orderHead {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    margin-bottom: 2px;
 }
 
 .tableChip {
-    padding: 3px 10px;
+    padding: 3px 9px;
     border-radius: 999px;
     background: var(--ld-brand-s);
     color: var(--ld-azione);
-    font-size: 12px;
+    font-size: 11.5px;
     font-weight: 700;
-}
-
-.lines {
-    margin-top: 10px;
 }
 
 .line {
@@ -172,12 +181,12 @@ $step-ms: 3000ms;
     gap: 10px;
     padding: 9px 0;
     border-bottom: 1px solid var(--ld-line-2);
-    font-size: 15px;
+    font-size: 14.5px;
     color: var(--ld-ink);
 }
 
 .qty {
-    min-width: 22px;
+    min-width: 20px;
     font-weight: 700;
     color: var(--ld-azione);
 }
@@ -187,54 +196,83 @@ $step-ms: 3000ms;
 }
 
 .linePrice {
-    font-weight: 600;
+    font-weight: 700;
 }
 
 .total {
     display: flex;
     justify-content: space-between;
-    padding: 10px 0 0;
+    padding: 12px 0;
     font-size: 15px;
     font-weight: 700;
     color: var(--ld-ink);
 }
 
+// Resta blu anche a ordine inviato, come il resto della pagina.
 .send {
-    margin-top: auto;
-    padding: 14px;
-    border-radius: 13px;
+    padding: 12px;
+    border-radius: 12px;
     background: var(--ld-azione);
     color: var(--ld-on-azione);
-    font-size: 16px;
+    font-size: 15px;
     font-weight: 600;
     text-align: center;
+    transition: transform 120ms ease;
+}
+
+.sendPress {
+    transform: scale(0.97);
 }
 
 .orderNote {
-    margin: 10px 0 0;
-    font-size: 12.5px;
+    margin: 9px 0 0;
+    font-size: 11.5px;
     line-height: 1.4;
     color: var(--ld-muted);
     text-align: center;
 }
 
 // ── Passo 2: la comanda ─────────────────────────────────────────────────────
+// Un solo elemento: la comanda esce dalla fessura della stampante e si srotola.
 .kitchen {
+    position: relative;
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: center;
     height: 100%;
+    padding: 0 16px;
 }
 
 .kitchenLabel {
-    align-self: flex-start;
+    position: absolute;
+    top: 16px;
+    left: 18px;
+}
+
+// Fessura della stampante: la comanda ci passa sotto.
+.slot {
+    position: relative;
+    z-index: 1;
+    width: 250px;
+    max-width: 100%;
+    height: 10px;
+    border-radius: 6px;
+    background: var(--ld-ticket-ink);
+    box-shadow: 0 2px 0 rgba(255, 255, 255, 0.6);
+}
+
+// Finestra della comanda: alta quanto la comanda, taglia quel che non è
+// ancora uscito. Il padding lascia spazio all'ombra.
+.ticketOut {
+    margin: -5px -14px 0;
+    padding: 0 14px 16px;
+    overflow: hidden;
 }
 
 .ticket {
-    width: 220px;
-    margin: auto 0;
-    transform: rotate(-2deg);
-    filter: drop-shadow(0 10px 14px rgba(21, 20, 43, 0.16));
+    width: 226px;
+    filter: drop-shadow(0 10px 14px rgba(21, 20, 43, 0.12));
 }
 
 .ticketPaper {
@@ -251,7 +289,7 @@ $step-ms: 3000ms;
 }
 
 .ticketTable {
-    font-size: 22px;
+    font-size: 20px;
     font-weight: 700;
     letter-spacing: 0.02em;
 }
@@ -278,8 +316,8 @@ $step-ms: 3000ms;
 .ticketLine {
     display: flex;
     gap: 10px;
-    font-size: 14px;
-    line-height: 1.75;
+    font-size: 13.5px;
+    line-height: 1.7;
     font-weight: 700;
 }
 
@@ -295,14 +333,60 @@ $step-ms: 3000ms;
 }
 
 .kitchenNote {
-    margin: 0;
+    margin: 2px 0 0;
     font-size: 13px;
     line-height: 1.5;
     color: var(--ld-muted);
     text-align: center;
 }
 
+@include motion-ok {
+    // Righe dell'ordine: una alla volta a 150 / 450 / 750 ms.
+    .line {
+        animation: ld-orders-row 320ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+    }
+
+    .line:nth-of-type(2) {
+        animation-delay: 150ms;
+    }
+
+    .line:nth-of-type(3) {
+        animation-delay: 450ms;
+    }
+
+    .line:nth-of-type(4) {
+        animation-delay: 750ms;
+    }
+
+    // La comanda esce: dopo 300 ms, 1400 ms dalla fessura verso il basso.
+    .ticket {
+        animation: ld-orders-print 1400ms cubic-bezier(0.4, 0, 0.2, 1) 300ms backwards;
+    }
+
+    .kitchenNote {
+        animation: ld-orders-row 400ms ease 1600ms backwards;
+    }
+}
+
+@keyframes ld-orders-row {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+}
+
+@keyframes ld-orders-print {
+    from {
+        transform: translateY(-100%);
+    }
+}
+
 // ── Passo 3: la sala ────────────────────────────────────────────────────────
+// Invariata: il padding che prima era del pannello.
+.floorScene {
+    padding: 18px;
+}
+
 .floor {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
