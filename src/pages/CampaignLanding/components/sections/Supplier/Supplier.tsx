@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import Problem from "@pages/CampaignLanding/components/Problem/Problem";
 import { MenuRow, PhoneQrCard } from "@pages/CampaignLanding/components/kit/Kit";
 import { SUPPLIER } from "@pages/CampaignLanding/content/landing";
-import { useInView } from "@pages/CampaignLanding/hooks/useInView";
 import { useReducedMotion } from "@pages/CampaignLanding/hooks/useReducedMotion";
+import { useVisible } from "@pages/CampaignLanding/hooks/useVisible";
 import styles from "./Supplier.module.scss";
 
 const cx = (...names: (string | false | null | undefined)[]) => names.filter(Boolean).join(" ");
@@ -12,30 +12,49 @@ const cx = (...names: (string | false | null | undefined)[]) => names.filter(Boo
 const PHONE_MS = 500;
 const CUSTOMER_MS = 900;
 
+const euro = (n: number) => `${n} €`;
+
 /**
  * 2 · Il fornitore aumenta: la scheda telefono → menù del cliente (come
- * «Un piatto è finito»). All'ingresso nello schermo, una volta, la tagliata
- * passa da 22 a 23 € sul telefono e poi nel menù del cliente. Con
- * `prefers-reduced-motion` è già a 23 €.
+ * «Un piatto è finito»). All'ingresso nello schermo la tagliata passa da 22 a
+ * 23 € sul telefono e poi nel menù del cliente; da lì il campo è uno stepper
+ * (18–28 €) e il menù del cliente lo segue subito. Con
+ * `prefers-reduced-motion` parte già da 23 €.
  */
 export default function Supplier() {
     const { card, loss } = SUPPLIER;
     const ref = useRef<HTMLDivElement>(null);
-    const inView = useInView(ref, 0.4);
+    const visible = useVisible(ref, 0.4);
     const reduced = useReducedMotion();
-    const [step, setStep] = useState(0);
+    /** Prezzo sul telefono e quello già arrivato al menù del cliente. */
+    const [phone, setPhone] = useState(card.base);
+    const [customer, setCustomer] = useState(card.base);
+    const [played, setPlayed] = useState(false);
 
     useEffect(() => {
-        if (!inView || reduced) return;
-        const t1 = window.setTimeout(() => setStep(1), PHONE_MS);
-        const t2 = window.setTimeout(() => setStep(2), CUSTOMER_MS);
+        if (!visible || reduced || played) return;
+        const t1 = window.setTimeout(() => setPhone(card.raised), PHONE_MS);
+        const t2 = window.setTimeout(() => {
+            setCustomer(card.raised);
+            setPlayed(true);
+        }, CUSTOMER_MS);
         return () => {
             window.clearTimeout(t1);
             window.clearTimeout(t2);
         };
-    }, [inView, reduced]);
+    }, [visible, reduced, played, card.raised]);
 
-    const shown = reduced ? 2 : step;
+    // Con reduced-motion lo stato di partenza è quello finale.
+    const still = reduced && !played;
+    const phoneValue = still ? card.raised : phone;
+    const customerValue = still ? card.raised : customer;
+
+    const step = (delta: number) => {
+        const next = Math.min(card.max, Math.max(card.min, phoneValue + delta));
+        setPhone(next);
+        setCustomer(next);
+        setPlayed(true);
+    };
 
     return (
         <Problem
@@ -49,29 +68,47 @@ export default function Supplier() {
                             dish={card.dish}
                             paper="customer"
                             control={
-                                <span className={styles.stepper} aria-hidden="true">
-                                    <span className={styles.stepBtn}>−</span>
-                                    <span className={cx(styles.stepValue, shown >= 1 && styles.stepValueOn)}>
-                                        {shown >= 1 ? card.to : card.from}
-                                    </span>
-                                    <span className={styles.stepBtn}>+</span>
+                                <span className={styles.stepper}>
+                                    <button
+                                        type="button"
+                                        className={styles.stepBtn}
+                                        aria-label={card.decrease}
+                                        disabled={phoneValue <= card.min}
+                                        onClick={() => step(-1)}
+                                    >
+                                        −
+                                    </button>
+                                    <output className={cx(styles.stepValue, phoneValue !== card.base && styles.stepValueOn)}>
+                                        {euro(phoneValue)}
+                                    </output>
+                                    <button
+                                        type="button"
+                                        className={styles.stepBtn}
+                                        aria-label={card.increase}
+                                        disabled={phoneValue >= card.max}
+                                        onClick={() => step(1)}
+                                    >
+                                        +
+                                    </button>
                                 </span>
                             }
                         >
                             {card.rows.map((row) => {
-                                const up = Boolean(row.raised) && shown >= 2;
+                                const changed = Boolean(row.raised) && customerValue !== card.base;
                                 return (
                                     <MenuRow
-                                        key={row.name}
+                                        // Chiave nuova a ogni prezzo: il lampo riparte.
+                                        key={row.raised ? `${row.name}-${customerValue}` : row.name}
                                         name={row.name}
-                                        price={up ? card.to : row.price}
-                                        oldPrice={up ? row.price : undefined}
-                                        className={cx(up && styles.rowUp)}
+                                        price={changed ? euro(customerValue) : row.price}
+                                        oldPrice={changed ? row.price : undefined}
+                                        className={cx(changed && styles.rowUp)}
                                     />
                                 );
                             })}
                         </PhoneQrCard>
                     </div>
+                    <p className={styles.hint}>{SUPPLIER.hint}</p>
                     <div className={styles.loss}>
                         <span className={styles.amount}>{loss.amount}</span>
                         <span className={styles.lossText}>

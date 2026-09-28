@@ -185,17 +185,25 @@ export const SUPPLIER = {
         lede: "Alzare un prezzo sulla carta vuol dire ristampare tutto il menù, e così si rimanda. Intanto la differenza la paghi tu, piatto dopo piatto.",
         solution: "Lo cambi dal telefono: il menù che si apre dal QR è subito giusto, e il PDF da stampare si aggiorna da solo."
     } satisfies ProblemCopy,
-    /** Scheda: il prezzo della tagliata sale da 22 a 23 € all'ingresso nello schermo. */
+    /**
+     * Scheda: all'ingresso nello schermo il prezzo della tagliata sale da 22 a
+     * 23 €, poi il campo è uno stepper vero (18–28 €, passo 1 €).
+     */
     card: {
         dish: "Tagliata di manzo",
-        from: "22 €",
-        to: "23 €",
+        base: 22,
+        raised: 23,
+        min: 18,
+        max: 28,
+        decrease: "Abbassa il prezzo della tagliata di 1 €",
+        increase: "Alza il prezzo della tagliata di 1 €",
         rows: [
             { name: "Branzino al sale", price: "22 €" },
             { name: "Tagliata di manzo", price: "22 €", raised: true },
             { name: "Filetto al pepe verde", price: "26 €" }
         ] satisfies { name: string; price: string; raised?: boolean }[]
     },
+    hint: "Prova a cambiare il prezzo e guarda il menù del cliente.",
     loss: {
         amount: "≈500 €",
         text: "al mese persi su un piatto, finché aspetti la ristampa.",
