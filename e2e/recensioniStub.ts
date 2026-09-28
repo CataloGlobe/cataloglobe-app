@@ -1,0 +1,70 @@
+import type { Page } from "@playwright/test";
+import { TENANT_ID } from "./reservationsStub";
+import { stubRest, type RestStub, type Row, type Tables } from "./restStub";
+import { appearanceTables, freezeClock, sediOf } from "./appearanceStub";
+
+/**
+ * Dati finti per l'e2e di Recensioni (lotto `ds-5-coda`, P0).
+ *
+ * Recensioni e sedi rispondono da qui; permessi, azienda e sidebar veri.
+ * Orologio fermo a mercoledì 23/09/2026 12:00 di Roma (`appearanceStub`).
+ *
+ * | Recensione | Voto | Sede | Quando |
+ * |---|---|---|---|
+ * | «Pizza ottima e2e…» | 5 | Centro | 22/09 (ieri) |
+ * | «Servizio lento e2e…» | 2 | Porto | 20/09 |
+ * | (nessun commento) | 4 | Centro | 10/09 |
+ * | «Tiramisù da provare e2e» | 5 | Porto | 01/08 |
+ * | «Freddo e2e» | 1 | Centro | 05/07 |
+ */
+
+export { TENANT_ID };
+
+const uuid = (n: number) => `e2e5e000-0000-4000-a000-${String(n).padStart(12, "0")}`;
+
+export const REVIEW = { pizza: uuid(1), lento: uuid(2), muto: uuid(3), tiramisu: uuid(4), freddo: uuid(5) } as const;
+export const { SEDE } = sediOf("e2e5e000");
+
+function review(id: string, activityId: string, rating: number, comment: string | null, createdAt: string): Row {
+    return {
+        id,
+        tenant_id: TENANT_ID,
+        activity_id: activityId,
+        rating,
+        rating_category: rating >= 4 ? "positive" : rating === 3 ? "neutral" : "negative",
+        comment,
+        source: "public_form",
+        status: "approved",
+        session_id: null,
+        created_at: createdAt
+    };
+}
+
+export function makeTables(): Tables {
+    const sedi = appearanceTables("e2e5e000", []);
+    return {
+        reviews: [
+            review(REVIEW.pizza, SEDE.centro, 5, "Pizza ottima e2e, torneremo.", "2026-09-22T19:30:00.000Z"),
+            review(REVIEW.lento, SEDE.porto, 2, "Servizio lento e2e, un'ora per il secondo.", "2026-09-20T20:00:00.000Z"),
+            review(REVIEW.muto, SEDE.centro, 4, null, "2026-09-10T12:00:00.000Z"),
+            review(REVIEW.tiramisu, SEDE.porto, 5, "Tiramisù da provare e2e", "2026-08-01T12:00:00.000Z"),
+            review(REVIEW.freddo, SEDE.centro, 1, "Freddo e2e", "2026-07-05T12:00:00.000Z")
+        ],
+        activities: sedi.activities
+    };
+}
+
+export type { WriteCall, WriteHandler } from "./restStub";
+export type RecensioniStub = RestStub & { tables: Tables };
+
+export async function stubRecensioni(page: Page, options: { empty?: boolean } = {}): Promise<RecensioniStub> {
+    const tables = makeTables();
+    if (options.empty) tables.reviews = [];
+    const stub = await stubRest(page, {
+        tables,
+        enrich: (table, rows) =>
+            table === "reviews" ? [...rows].sort((a, b) => String(b.created_at).localeCompare(String(a.created_at))) : rows
+    });
+    await freezeClock(page);
+    return Object.assign(stub, { tables });
+}
