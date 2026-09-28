@@ -18,7 +18,7 @@
 
 import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { List as ListIcon, Table2 } from "lucide-react";
+import { BookUser, List as ListIcon, Table2 } from "lucide-react";
 import { useTenantId } from "@/context/useTenantId";
 import { useToast } from "@/context/Toast/ToastContext";
 import { usePermissions } from "@/context/PermissionsContext";
@@ -29,7 +29,11 @@ import { usePlanFeatures } from "@/lib/planFeatures";
 import { PageGate } from "@/components/PageGate/PageGate";
 import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
+import { Button } from "@/components/ui/Button/Button";
+import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
+import Text from "@/components/ui/Text/Text";
 import {
+    DIRECTORY_LIMIT,
     getReservationGuest,
     listReservationGuestNotesForGuests,
     listReservationGuests
@@ -69,6 +73,7 @@ export default function Guests() {
     // qui se c'è in almeno una delle proprie sedi; a quale, lo dice la scheda.
     const [tagsByGuest, setTagsByGuest] = useState<ReadonlyMap<string, string[]>>(new Map());
     const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState(false);
     // Distingue "non ho ancora niente da mostrare" da "sto aggiornando ciò che
     // già mostro". Vive qui e scende come prop alle due viste, così tabella e
     // griglia si comportano allo stesso modo: senza, la griglia sostituiva
@@ -158,30 +163,27 @@ export default function Guests() {
     const loadGuests = useCallback(async () => {
         if (!tenantId || !canRead) return;
         setIsLoading(true);
+        setLoadError(false);
         try {
             const rows = await listReservationGuests(tenantId, deferredSearch);
             setGuests(rows);
             const notes = await listReservationGuestNotesForGuests(tenantId, rows.map(g => g.id));
             setTagsByGuest(mergeGuestTags(notes));
-        } catch {
-            showToast({ message: "Errore nel caricamento della rubrica.", type: "error" });
+        } catch (error) {
+            // Un errore non è una rubrica vuota: la pagina lo dice, con «Riprova».
+            console.error("Caricamento rubrica clienti:", error);
+            setLoadError(true);
         } finally {
             setIsLoading(false);
-            // Nel `finally` e non nel `try`: un caricamento fallito ha già
-            // mostrato il suo toast, e ripresentare lo scheletro al tentativo
-            // successivo nasconderebbe la rubrica invece di spiegare cosa non
-            // va.
             setHasLoadedOnce(true);
         }
-    }, [tenantId, canRead, deferredSearch, showToast]);
+    }, [tenantId, canRead, deferredSearch]);
 
     useEffect(() => {
         // Skip fetch pre-check: senza `guests.read` non si chiama la query per
         // farsi rispondere zero righe.
-        if (permissionsLoading || !permissions || !canRead || isLocked) {
-            setIsLoading(false);
-            return;
-        }
+        // Finché i permessi non ci sono resta lo scheletro: niente vuoto finto.
+        if (permissionsLoading || !permissions || !canRead || isLocked) return;
         void loadGuests();
     }, [permissionsLoading, permissions, canRead, isLocked, loadGuests]);
 
@@ -276,15 +278,32 @@ export default function Guests() {
         );
     }
 
+    const isSearching = search.trim().length > 0;
+    const clearSearch = () => setSearch("");
+
     return (
         <>
             <div className={styles.page}>
-                {viewMode === "table" ? (
+                {loadError ? (
+                    <EmptyState
+                        variant="page"
+                        icon={<BookUser />}
+                        title="Non è stato possibile caricare la rubrica"
+                        description="Controlla la connessione e riprova."
+                        action={
+                            <Button variant="secondary" onClick={() => void loadGuests()}>
+                                Riprova
+                            </Button>
+                        }
+                    />
+                ) : viewMode === "table" ? (
                     <GuestsTable
                         guests={guests}
                         tagsByGuest={tagsByGuest}
                         isLoading={isLoading}
-                        isSearching={search.trim().length > 0}
+                        hasLoadedOnce={hasLoadedOnce}
+                        isSearching={isSearching}
+                        onClearSearch={clearSearch}
                         onOpenGuest={handleOpenGuest}
                         tenantWide={tenantWide}
                     />
@@ -294,10 +313,19 @@ export default function Guests() {
                         tagsByGuest={tagsByGuest}
                         isLoading={isLoading}
                         hasLoadedOnce={hasLoadedOnce}
-                        isSearching={search.trim().length > 0}
+                        isSearching={isSearching}
+                        onClearSearch={clearSearch}
                         onOpenGuest={handleOpenGuest}
                         tenantWide={tenantWide}
                     />
+                )}
+
+                {/* Il tetto della lista, detto (C2): oltre i 200 più recenti
+                    i clienti non spariscono, si trovano cercando. */}
+                {!loadError && guests.length >= DIRECTORY_LIMIT && (
+                    <Text as="p" variant="caption" colorVariant="muted">
+                        Mostrati i {DIRECTORY_LIMIT} clienti più recenti: cerca per trovare gli altri.
+                    </Text>
                 )}
             </div>
 

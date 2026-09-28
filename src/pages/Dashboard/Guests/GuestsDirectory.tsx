@@ -1,14 +1,14 @@
 // Rubrica clienti — elenco a righe.
 //
-// Righe delimitate dentro un contenitore unico, non card staccate: sono voci
-// di un archivio omogeneo, e la card per riga aggiungerebbe un bordo e
-// un'ombra per ogni cliente senza aggiungere informazione.
+// Righe `ListRow` in un'unica `Card flush`, non card staccate: sono voci di un
+// archivio omogeneo, e la card per riga aggiungerebbe un bordo per ogni
+// cliente senza aggiungere informazione.
 //
 // Gerarchia della riga: iniziale → nome (+ etichetta principale) → telefono
-// sotto → a destra visite e ultima visita. Le assenze compaiono in riga come
-// pill rossa SOLO se > 0: è il dato che fa decidere se richiamare, e deve
-// essere visibile senza aprire la scheda. Una pill "0 assenze" su ogni riga
-// renderebbe invisibile proprio il caso che conta.
+// sotto → a destra le assenze e le visite. Le assenze compaiono SOLO se > 0,
+// come `StatusBadge` ambra con la parola (C1, §50.14): è il dato che fa
+// decidere se richiamare, e deve essere visibile senza aprire la scheda. Un
+// «0 assenze» su ogni riga renderebbe invisibile proprio il caso che conta.
 //
 // Cosa NON c'è, di proposito: nessun pulsante di esportazione, nessuna
 // selezione multipla, nessuna azione di invio. La rubrica serve a erogare il
@@ -20,14 +20,20 @@
 
 import { useMemo } from "react";
 import { BookUser } from "lucide-react";
+import { Avatar } from "@/components/ui/Avatar/Avatar";
+import { Badge } from "@/components/ui/Badge/Badge";
+import { Card } from "@/components/ui/Card/Card";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
+import { ListRow } from "@/components/ui/ListRow/ListRow";
+import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
+import Text from "@/components/ui/Text/Text";
 import type { ReservationGuestSummary } from "@/types/reservationGuest";
 import {
     formatAbsenceCount,
     formatVisitCount,
     visibilityFootnote
 } from "@/utils/guestVisibilityCopy";
-import { formatVisitDate, guestInitial } from "./guestFormat";
+import { formatVisitDate } from "./guestFormat";
 import styles from "./Guests.module.scss";
 
 interface Props {
@@ -38,14 +44,11 @@ interface Props {
     /**
      * Il primo caricamento è già avvenuto: da qui in poi un aggiornamento
      * trova dati in mano e non deve più sostituire l'elenco con lo scheletro.
-     * Senza, ogni ricarica (ricerca, gesto sul cliente) fa lampeggiare
-     * l'intera griglia. Stessa forma di `Reservations.tsx`.
      */
     hasLoadedOnce: boolean;
-    /** C'è un termine di ricerca attivo: cambia solo il testo dello stato
-     *  vuoto ("nessun risultato" vs "rubrica ancora vuota"). Il campo di
-     *  ricerca vive nella barra azioni dell'header, non qui. */
+    /** C'è un termine di ricerca attivo: il vuoto è un risultato di filtro. */
     isSearching: boolean;
+    onClearSearch: () => void;
     onOpenGuest: (guest: ReservationGuestSummary) => void;
     /** `isTenantWide(permissions)`: owner/admin non hanno bisogno del "nelle tue sedi". */
     tenantWide: boolean;
@@ -57,96 +60,87 @@ export default function GuestsDirectory({
     isLoading,
     hasLoadedOnce,
     isSearching,
+    onClearSearch,
     onOpenGuest,
     tenantWide
 }: Props) {
     const footnote = useMemo(() => visibilityFootnote(tenantWide), [tenantWide]);
 
     // SOLO al primo caricamento, quando non c'è ancora niente da mostrare.
-    // Dopo, l'elenco resta in piedi e si aggiorna sotto: un aggiornamento con
-    // dati in mano non deve cambiare il layout.
     if (isLoading && !hasLoadedOnce) {
         return (
-            <div className={styles.cards}>
-                <div className={styles.skeleton} />
-                <div className={styles.skeleton} />
-                <div className={styles.skeleton} />
-            </div>
+            <Card flush>
+                <div aria-busy="true" aria-label="Caricamento clienti">
+                    <ListRow loading />
+                    <ListRow loading />
+                    <ListRow loading />
+                </div>
+            </Card>
         );
     }
 
     if (guests.length === 0) {
-        return (
-            <div className={styles.emptyState}>
-                <EmptyState
-                    icon={<BookUser size={40} strokeWidth={1.5} />}
-                    title={isSearching ? "Nessun cliente trovato" : "Nessun cliente in rubrica"}
-                    description={
-                        isSearching
-                            ? "Prova con un'altra parte del nome, o con il numero di telefono."
-                            : "I clienti compaiono qui da soli: ogni prenotazione con un telefono leggibile crea o aggiorna la sua scheda."
-                    }
-                />
-            </div>
+        return isSearching ? (
+            <EmptyState variant="filtered" title="Nessun cliente trovato" onClearFilters={onClearSearch} />
+        ) : (
+            <EmptyState
+                variant="inline"
+                icon={<BookUser />}
+                title="Nessun cliente in rubrica"
+                description="I clienti compaiono qui da soli: ogni prenotazione con un telefono leggibile crea o aggiorna la sua scheda."
+            />
         );
     }
 
     return (
         <div className={styles.guestsWrap}>
-            <ul className={styles.guestsList}>
+            <Card flush>
                 {guests.map(g => {
                     // Una sola etichetta in linea: è un'etichetta di
                     // riconoscimento, non l'elenco completo. Le altre stanno
                     // nella scheda, riassunte da un "+N".
                     const tags = tagsByGuest.get(g.id) ?? [];
-                    const primaryTag = tags[0];
                     return (
-                        <li key={g.id} className={styles.guestListItem}>
-                            <button
-                                type="button"
-                                className={styles.guestRow}
-                                onClick={() => onOpenGuest(g)}
-                            >
-                                <span className={styles.guestInitial} aria-hidden>
-                                    {guestInitial(g.display_name)}
+                        <ListRow
+                            key={g.id}
+                            leading={<Avatar name={g.display_name} size="md" />}
+                            title={
+                                <span className={styles.nameLine}>
+                                    <span className={styles.name}>{g.display_name}</span>
+                                    {tags[0] && <Badge variant="neutral">{tags[0]}</Badge>}
+                                    {tags.length > 1 && <Badge variant="outline">+{tags.length - 1}</Badge>}
                                 </span>
-
-                                <span className={styles.guestMain}>
-                                    <span className={styles.guestNameLine}>
-                                        <span className={styles.guestName}>{g.display_name}</span>
-                                        {primaryTag && (
-                                            <span className={styles.guestTag}>{primaryTag}</span>
-                                        )}
-                                        {tags.length > 1 && (
-                                            <span className={styles.guestTagMore}>
-                                                +{tags.length - 1}
-                                            </span>
-                                        )}
-                                    </span>
-                                    <span className={styles.guestPhone}>{g.phone_e164}</span>
-                                </span>
-
-                                {g.visible_no_shows > 0 && (
-                                    <span className={styles.guestAbsencePill}>
-                                        {formatAbsenceCount(g.visible_no_shows, tenantWide)}
-                                    </span>
-                                )}
-
-                                <span className={styles.guestStats}>
-                                    <span className={styles.guestStatsVisits}>
-                                        {formatVisitCount(g.visible_visits, tenantWide)}
-                                    </span>
-                                    <span className={styles.guestStatsLast}>
-                                        ultima {formatVisitDate(g.last_visit_date)}
+                            }
+                            subtitle={g.phone_e164}
+                            meta={
+                                <span className={styles.rowMeta}>
+                                    {g.visible_no_shows > 0 && (
+                                        <StatusBadge
+                                            variant="warning"
+                                            label={formatAbsenceCount(g.visible_no_shows, tenantWide)}
+                                        />
+                                    )}
+                                    <span className={styles.stats}>
+                                        <Text as="span" variant="body-sm" weight={500}>
+                                            {formatVisitCount(g.visible_visits, tenantWide)}
+                                        </Text>
+                                        <Text as="span" variant="caption" colorVariant="muted">
+                                            ultima {formatVisitDate(g.last_visit_date)}
+                                        </Text>
                                     </span>
                                 </span>
-                            </button>
-                        </li>
+                            }
+                            onClick={() => onOpenGuest(g)}
+                        />
                     );
                 })}
-            </ul>
+            </Card>
 
-            {footnote && <p className={styles.guestsFootnote}>{footnote}</p>}
+            {footnote && (
+                <Text as="p" variant="caption" colorVariant="muted">
+                    {footnote}
+                </Text>
+            )}
         </div>
     );
 }

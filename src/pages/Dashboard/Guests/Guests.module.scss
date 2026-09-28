@@ -6,214 +6,69 @@
  *
  * Non esistono stili per pulsanti di esportazione, checkbox di selezione
  * multipla o azioni di invio: quelle affordance sono escluse per scelta di
- * prodotto, non dimenticate.
+ * prodotto, non dimenticate. Righe, tabella e badge sono del sistema
+ * (`ListRow`, `DataTable`, `Badge`, `StatusBadge`): qui solo la disposizione.
  */
 
 .page {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--space-16);
 }
-
-.lockedWrap {
-  padding: 48px 16px;
-}
-
-.emptyState {
-  padding: 64px 16px;
-}
-
-.cards {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.skeleton {
-  height: 76px;
-  border-radius: 12px;
-  background: var(--skeleton-base);
-}
-
-/* ── Elenco a righe ──────────────────────────────────────────────────
-   Un contenitore, righe divise da un bordo: le voci sono omogenee e la card
-   per riga aggiungerebbe un bordo e un'ombra per cliente senza aggiungere
-   informazione. */
 
 .guestsWrap {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-12);
 }
 
-.guestsList {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  background: var(--card-bg);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  overflow: hidden;
-}
-
-.guestListItem + .guestListItem {
-  border-top: 1px solid var(--border);
-}
-
-.guestRow {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
-  text-align: left;
-  background: none;
-  border: none;
-  cursor: pointer;
-  transition: background 0.15s ease;
-
-  &:hover {
-    background: var(--hover-bg);
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--brand-primary);
-    outline-offset: -2px;
-  }
-}
-
-/* Iniziale invece della sagoma: distingue una riga dall'altra, mentre
-   un'icona persona identica su ogni riga non distingue nulla. */
-.guestInitial {
+/* Nome + etichetta principale + «+N» sulla stessa riga del titolo. */
+.nameLine {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  width: 34px;
-  height: 34px;
-  flex: 0 0 auto;
-  border-radius: 50%;
-  background: var(--hover-bg);
-  border: 1px solid var(--border);
-  color: color-mix(in srgb, var(--text) 78%, var(--card-bg));
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 1;
-}
-
-.guestMain {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+  gap: var(--space-8);
   min-width: 0;
-  flex: 1 1 auto;
+  max-width: 100%;
 }
 
-.guestNameLine {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.name {
   min-width: 0;
-}
-
-.guestName {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.guestTagMore {
-  font-size: 11px;
-  color: color-mix(in srgb, var(--text) 62%, var(--card-bg));
-  flex: 0 0 auto;
+.rowMeta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-12);
 }
 
-.guestPhone {
-  font-size: 13px;
-  color: color-mix(in srgb, var(--text) 62%, var(--card-bg));
-}
-
-.guestTags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  flex: 0 0 auto;
-}
-
-.guestTag {
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: var(--hover-bg);
-  border: 1px solid var(--border);
-  font-size: 11px;
-  color: color-mix(in srgb, var(--text) 78%, var(--card-bg));
-  white-space: nowrap;
-}
-
-/* Le assenze sono l'unico dato della riga che cambia una decisione: pill
-   piena, non testo colorato, e solo quando il valore è > 0. */
-.guestAbsencePill {
-  flex: 0 0 auto;
-  padding: 3px 10px;
-  border-radius: 999px;
-  background: var(--color-red-100);
-  color: var(--color-red-900);
-  border: 1px solid var(--color-red-200);
-  font-size: 12px;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.guestStats {
+/* Visite sopra, ultima visita sotto, allineate a destra. */
+.stats {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 2px;
-  flex: 0 0 auto;
-  font-size: 13px;
-}
-
-.guestStatsVisits {
-  color: color-mix(in srgb, var(--text) 78%, var(--card-bg));
   white-space: nowrap;
 }
 
-.guestStatsLast {
-  color: color-mix(in srgb, var(--text) 62%, var(--card-bg));
-  font-size: 12px;
-  white-space: nowrap;
+.tags {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
 }
 
-/* Nota sull'ambito dei conteggi. Deliberatamente sobria: va letta una volta,
-   non deve competere con i dati. */
+/* Residui usati ancora dalla scheda (drawer), in uscita al passo del drawer. */
+.skeleton {
+  height: 76px;
+  border-radius: var(--radius-control);
+  background: var(--skeleton-base);
+}
+
 .guestsFootnote {
   margin: 0;
   font-size: 12px;
-  line-height: 1.5;
-  color: color-mix(in srgb, var(--text) 62%, var(--card-bg));
-}
-
-/* ── Vista tabella ───────────────────────────────────────────────────── */
-
-.tableName {
-  font-weight: 600;
-  color: var(--text);
-}
-
-.tablePhone {
-  color: color-mix(in srgb, var(--text) 78%, var(--card-bg));
-  white-space: nowrap;
-}
-
-.tableMuted {
-  color: color-mix(in srgb, var(--text) 62%, var(--card-bg));
-}
-
-.tableAbsence {
-  color: var(--color-red-900);
-  font-weight: 600;
+  color: var(--text-muted);
 }
 
 /* ── Scheda cliente (drawer) ─────────────────────────────────────────── */

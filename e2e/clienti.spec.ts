@@ -89,6 +89,7 @@ test.describe("Clienti — elenco", () => {
             await expect(main(page).getByText(header, { exact: true }).first()).toBeVisible();
         }
         await expect(main(page).getByText("Marco Bianchi e2e")).toBeVisible();
+        await expect(main(page).getByRole("table", { name: "Clienti" })).toBeVisible();
         await page.reload();
         await expect(main(page).getByText("Ultima visita", { exact: true }).first()).toBeVisible({ timeout: 15_000 });
     });
@@ -169,6 +170,13 @@ test.describe("Clienti — elenco", () => {
 });
 
 test.describe("Clienti — vuoto ed errore", () => {
+    test("oltre il tetto dei 200 la pagina lo dice", async ({ page }) => {
+        stub = await stubClienti(page, { count: 200 });
+        await openList(page);
+        await expect(guestName(page, "Giulia Rossi e2e")).toBeVisible({ timeout: 15_000 });
+        await expect(main(page).getByText("Mostrati i 200 clienti più recenti: cerca per trovare gli altri.")).toBeVisible();
+    });
+
     test("rubrica vuota: il vuoto dice da dove arrivano i clienti", async ({ page }) => {
         stub = await stubClienti(page, { empty: true });
         await openList(page);
@@ -176,7 +184,6 @@ test.describe("Clienti — vuoto ed errore", () => {
     });
 
     test("errore di caricamento: lo dice e offre «Riprova»", async ({ page }) => {
-        test.fail(true, "Oggi: toast e poi il vuoto d'esordio (#719, P1)");
         stub = await stubClienti(page);
         await page.route(/\/rest\/v1\/v_reservation_guests_directory\?/, route =>
             route.fulfill({ status: 500, json: { code: "E2E", message: "rotto" } })
