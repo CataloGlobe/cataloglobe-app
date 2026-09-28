@@ -167,7 +167,6 @@ test.describe("Assistenza — vuoto ed errore", () => {
     });
 
     test("errore di caricamento: lo dice e offre «Riprova»", async ({ page }) => {
-        test.fail(true, "Oggi: toast e falso vuoto «Nessuna richiesta» (#745, P1)");
         stub = await stubAssistenza(page);
         await page.route(/\/rest\/v1\/support_tickets\?/, route => route.fulfill({ status: 500, json: { code: "E2E", message: "rotto" } }));
         await openList(page);

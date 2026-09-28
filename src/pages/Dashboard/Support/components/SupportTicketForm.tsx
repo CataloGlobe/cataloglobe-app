@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { Textarea } from "@/components/ui/Textarea/Textarea";
 import { Select } from "@/components/ui/Select/Select";
+import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import { createTicket } from "@/services/supabase/support";
 import type { V2Activity } from "@/types/activity";
 import type { V2SupportTicket } from "@/types/support";
@@ -110,7 +111,7 @@ export function SupportTicketForm({
                 error={messageError ?? undefined}
             />
 
-            {submitError && <p className={styles.formError}>{submitError}</p>}
+            {submitError && <InlineBanner variant="error">{submitError}</InlineBanner>}
         </form>
     );
 }
