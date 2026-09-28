@@ -18,18 +18,25 @@ const euro = (n: number) => `${n} €`;
  * 2 · Il fornitore aumenta: la scheda telefono → menù del cliente (come
  * «Un piatto è finito»). All'ingresso nello schermo la tagliata passa da 22 a
  * 23 € sul telefono e poi nel menù del cliente; da lì il campo è uno stepper
- * (18–28 €) e il menù del cliente lo segue subito. Con
- * `prefers-reduced-motion` parte già da 23 €.
+ * (18–28 €) e il menù del cliente lo segue subito. Uscita del tutto dallo
+ * schermo torna a 22 € e al rientro rifà il passaggio, se nessuno ha toccato
+ * lo stepper. Con `prefers-reduced-motion` parte già da 23 €.
  */
 export default function Supplier() {
     const { card, loss } = SUPPLIER;
     const ref = useRef<HTMLDivElement>(null);
-    const visible = useVisible(ref, 0.4);
-    const reduced = useReducedMotion();
     /** Prezzo sul telefono e quello già arrivato al menù del cliente. */
     const [phone, setPhone] = useState(card.base);
     const [customer, setCustomer] = useState(card.base);
     const [played, setPlayed] = useState(false);
+    const [touched, setTouched] = useState(false);
+    const visible = useVisible(ref, 0.4, () => {
+        if (touched) return;
+        setPhone(card.base);
+        setCustomer(card.base);
+        setPlayed(false);
+    });
+    const reduced = useReducedMotion();
 
     useEffect(() => {
         if (!visible || reduced || played) return;
@@ -45,7 +52,7 @@ export default function Supplier() {
     }, [visible, reduced, played, card.raised]);
 
     // Con reduced-motion lo stato di partenza è quello finale.
-    const still = reduced && !played;
+    const still = reduced && !touched;
     const phoneValue = still ? card.raised : phone;
     const customerValue = still ? card.raised : customer;
 
@@ -54,6 +61,7 @@ export default function Supplier() {
         setPhone(next);
         setCustomer(next);
         setPlayed(true);
+        setTouched(true);
     };
 
     return (

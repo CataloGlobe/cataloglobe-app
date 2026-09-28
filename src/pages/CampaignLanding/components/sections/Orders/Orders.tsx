@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import Problem from "@pages/CampaignLanding/components/Problem/Problem";
 import { Kicker } from "@pages/CampaignLanding/components/kit/Kit";
 import { ORDERS } from "@pages/CampaignLanding/content/landing";
-import { useInView } from "@pages/CampaignLanding/hooks/useInView";
 import { useReducedMotion } from "@pages/CampaignLanding/hooks/useReducedMotion";
+import { useVisible } from "@pages/CampaignLanding/hooks/useVisible";
 import styles from "./Orders.module.scss";
 
 const cx = (...names: (string | false | null | undefined)[]) => names.filter(Boolean).join(" ");
@@ -159,21 +159,24 @@ function FloorPanel() {
 }
 
 /**
- * Tre linguette che avanzano da sole ogni 4,5 s dall'ingresso nello schermo;
- * al clic la linguetta scelta resta ferma. Pannello ad altezza fissa (324 px).
+ * Tre linguette che avanzano da sole ogni 4,5 s finché sono sullo schermo;
+ * uscite del tutto tornano al passo 1. Al clic la linguetta scelta resta
+ * ferma, anche dopo un'uscita. Pannello ad altezza fissa (324 px).
  */
 function OrdersDemo() {
     const ref = useRef<HTMLDivElement>(null);
-    const inView = useInView(ref, 0.3);
-    const reduced = useReducedMotion();
     const [step, setStep] = useState(0);
     const [pinned, setPinned] = useState(false);
+    const visible = useVisible(ref, 0.3, () => {
+        if (!pinned) setStep(0);
+    });
+    const reduced = useReducedMotion();
 
     useEffect(() => {
-        if (!inView || pinned || reduced) return;
+        if (!visible || pinned || reduced) return;
         const id = window.setInterval(() => setStep((s) => (s + 1) % 3), STEP_MS);
         return () => window.clearInterval(id);
-    }, [inView, pinned, reduced]);
+    }, [visible, pinned, reduced]);
 
     return (
         <div ref={ref}>

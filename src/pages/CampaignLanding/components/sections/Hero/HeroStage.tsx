@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useReducer, useRef, type Ref } from "react";
+import { useCallback, useEffect, useLayoutEffect, useReducer, useRef, useState, type Ref } from "react";
 import { HERO } from "@pages/CampaignLanding/content/landing";
 import { useReducedMotion } from "@pages/CampaignLanding/hooks/useReducedMotion";
 import { useVisible } from "@pages/CampaignLanding/hooks/useVisible";
@@ -27,9 +27,10 @@ const SLOT_POS = SCHEDULE.slots.map((s) => trackPosition(s.time));
 
 /**
  * La sequenza coi timer: gira finché `active`, in pausa riprende dal punto in
- * cui era (fuori schermo, scheda del browser nascosta).
+ * cui era (scheda del browser nascosta, palco quasi fuori schermo). A ogni
+ * nuovo `round` torna alle 12:00 e la prossima ripresa parte da capo.
  */
-function useHeroSequence(active: boolean): HeroState {
+function useHeroSequence(active: boolean, round: number): HeroState {
     const [state, dispatch] = useReducer(
         (s: HeroState, e: HeroEvent) => heroReducer(s, e, PHONE.startClock),
         PHONE.startClock,
@@ -37,9 +38,15 @@ function useHeroSequence(active: boolean): HeroState {
     );
     // Punto del giro (ms) conservato fra una pausa e l'altra.
     const elapsed = useRef(0);
+    // Da capo alla prossima ripresa (la pausa, che salva `elapsed`, può arrivare dopo).
+    const fromStart = useRef(false);
 
     useEffect(() => {
         if (!active) return;
+        if (fromStart.current) {
+            fromStart.current = false;
+            elapsed.current = 0;
+        }
         const timers: number[] = [];
         let loopStart = performance.now() - elapsed.current;
 
@@ -67,6 +74,12 @@ function useHeroSequence(active: boolean): HeroState {
             elapsed.current = Math.min(HERO_LOOP_MS, performance.now() - loopStart);
         };
     }, [active]);
+
+    useEffect(() => {
+        if (round === 0) return;
+        fromStart.current = true;
+        dispatch({ type: "reset" });
+    }, [round]);
 
     return state;
 }
@@ -282,15 +295,19 @@ type HeroStageProps = {
 
 /**
  * Telefono simulato e programmazione di oggi (heroSequence.ts). Parte quando
- * entra nello schermo, si ferma fuori; con `prefers-reduced-motion` resta
- * sull'aperitivo con le bruschette esaurite. Decorativo: il senso lo dicono
- * titolo e sottotitolo.
+ * entra nello schermo, si ferma fuori; uscito del tutto torna alle 12:00 e al
+ * rientro riparte da capo. Con `prefers-reduced-motion` resta sull'aperitivo
+ * con le bruschette esaurite. Decorativo: il senso lo dicono titolo e
+ * sottotitolo.
  */
 export default function HeroStage({ onFascia, scheduleRef, phoneRef }: HeroStageProps) {
     const ref = useRef<HTMLDivElement>(null);
-    const visible = useVisible(ref, 0.2);
+    // Giri: +1 a ogni uscita completa dallo schermo.
+    const [round, setRound] = useState(0);
+    const nextRound = useCallback(() => setRound((r) => r + 1), []);
+    const visible = useVisible(ref, 0.2, nextRound);
     const reduced = useReducedMotion();
-    const live = useHeroSequence(visible && !reduced);
+    const live = useHeroSequence(visible && !reduced, round);
     const state = reduced ? REDUCED : live;
 
     useEffect(() => {

@@ -6,7 +6,7 @@
  */
 export const IMPORT_TICK_MS = 260;
 export const IMPORT_TICKS = 23;
-/** Tick fermo (e di partenza): risultato pronto. */
+/** Tick fermo (reduced-motion): risultato pronto. Il ciclo parte da 0. */
 export const IMPORT_READY_TICK = 18;
 
 /** Posizione della linea di scansione su ogni piatto, in % dell'altezza del foglio. */

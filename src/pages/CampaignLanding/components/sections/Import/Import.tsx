@@ -3,8 +3,8 @@ import Section from "@pages/CampaignLanding/components/Section/Section";
 import { HandNote, SplitHeading } from "@pages/CampaignLanding/components/kit/Kit";
 import Reveal from "@pages/CampaignLanding/components/kit/Reveal";
 import { IMPORT } from "@pages/CampaignLanding/content/landing";
-import { useInView } from "@pages/CampaignLanding/hooks/useInView";
 import { useReducedMotion } from "@pages/CampaignLanding/hooks/useReducedMotion";
+import { useVisible } from "@pages/CampaignLanding/hooks/useVisible";
 import { IMPORT_READY_TICK, IMPORT_TICKS, IMPORT_TICK_MS, importFrame } from "./importCycle";
 import styles from "./Import.module.scss";
 
@@ -20,18 +20,22 @@ function CameraIcon() {
     );
 }
 
-/** Foto del menù di carta → scheda con i piatti letti uno a uno. */
+/**
+ * Foto del menù di carta → scheda con i piatti letti uno a uno. Gira finché è
+ * sullo schermo, parte dalla scansione; uscita del tutto, al rientro riparte da
+ * capo.
+ */
 function ImportDemo() {
     const ref = useRef<HTMLDivElement>(null);
-    const inView = useInView(ref, 0.3);
+    const [tick, setTick] = useState(0);
+    const visible = useVisible(ref, 0.3, () => setTick(0));
     const reduced = useReducedMotion();
-    const [tick, setTick] = useState(IMPORT_READY_TICK);
 
     useEffect(() => {
-        if (!inView || reduced) return;
+        if (!visible || reduced) return;
         const id = window.setInterval(() => setTick((t) => (t + 1) % IMPORT_TICKS), IMPORT_TICK_MS);
         return () => window.clearInterval(id);
-    }, [inView, reduced]);
+    }, [visible, reduced]);
 
     const f = importFrame(reduced ? IMPORT_READY_TICK : tick);
     const status = f.ready ? IMPORT.statusReady : tick < 3 ? IMPORT.statusPhoto : `${IMPORT.statusReading} ${f.read}/4`;
