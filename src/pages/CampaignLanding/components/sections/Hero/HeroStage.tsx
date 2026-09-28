@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useReducer, useRef, useState, type Ref } from "react";
+import { UtensilsCrossed } from "lucide-react";
 import { HERO } from "@pages/CampaignLanding/content/landing";
 import { useReducedMotion } from "@pages/CampaignLanding/hooks/useReducedMotion";
 import { useVisible } from "@pages/CampaignLanding/hooks/useVisible";
@@ -234,7 +235,9 @@ function Phone({ state }: { state: HeroState }) {
                     </div>
                     <div className={styles.cover}>
                         <div className={styles.coverId}>
-                            <span className={styles.logo}>{PHONE.logo}</span>
+                            <span className={styles.logo}>
+                                <UtensilsCrossed size={18} strokeWidth={2.2} />
+                            </span>
                             <span>
                                 <span className={styles.venue}>{PHONE.venue}</span>
                                 <span key={state.menu} className={cx(styles.menuName, styles.enter, state.menuOut && styles.leaving)}>

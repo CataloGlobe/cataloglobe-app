@@ -52,7 +52,6 @@ export const HERO = {
      */
     phone: {
         venue: "Il tuo locale",
-        logo: "Tl",
         /** Ora in barra di stato prima che parta la giornata. */
         startClock: "11:58",
         menus: [
