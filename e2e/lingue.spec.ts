@@ -125,7 +125,6 @@ test.describe("Lingue", () => {
     });
 
     test("senza scrittura: interruttori spenti e niente «Torna ad automatica»", async ({ page }) => {
-        test.fail(true, "Oggi lo Switch sparisce e il drawer agisce per tutti (#695, P1)");
         await stub.revoke("translations.write");
         await openPage(page);
         await stub.revoked;

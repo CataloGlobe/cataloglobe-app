@@ -22,6 +22,8 @@ interface Props {
     onClose: () => void;
     /** Notifica il parent (refresh coverage) dopo un revert riuscito. */
     onResolved: () => void;
+    /** `translations.write` e abbonamento attivo: senza, niente «Torna ad automatica». */
+    canWrite: boolean;
 }
 
 const REVERTABLE = new Set(["product", "category"]);
@@ -30,7 +32,7 @@ function itemKey(it: StaleTranslationItem): string {
     return `${it.entity_type}:${it.entity_id}:${it.field}`;
 }
 
-export function ReviewDrawer({ open, tenantId, language, onClose, onResolved }: Props) {
+export function ReviewDrawer({ open, tenantId, language, onClose, onResolved, canWrite }: Props) {
     const { t } = useTranslation("admin");
     const { showToast } = useToast();
     const navigate = useNavigate();
@@ -69,6 +71,7 @@ export function ReviewDrawer({ open, tenantId, language, onClose, onResolved }: 
     };
 
     const canRevert = (it: StaleTranslationItem): boolean =>
+        canWrite &&
         REVERTABLE.has(it.entity_type) &&
         (it.status === "manual" || it.status === "overridden");
 

@@ -19,7 +19,9 @@ import {
     type TenantLanguage
 } from "@/services/supabase/tenantLanguages";
 import { usePermissions } from "@/context/PermissionsContext";
-import { canDoOnTenant } from "@/lib/permissions";
+import { canDoOnAnyActivity, canDoOnTenant } from "@/lib/permissions";
+import { useEnsureActive } from "@/hooks/useEnsureActive";
+import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import { PageGate } from "@/components/PageGate/PageGate";
 import styles from "./SettingsLanguages.module.scss";
 
@@ -28,7 +30,14 @@ export default function SettingsLanguages() {
     const { showToast } = useToast();
     const { t } = useTranslation("admin");
     const { permissions } = usePermissions();
-    const canWrite = permissions ? canDoOnTenant(permissions, "translations.write") : false;
+    const { canEdit, ensureActive } = useEnsureActive();
+    // Lettura via proxy `catalogs.read` finché `translations.read` non esiste
+    // (§25.10, M15); il gate è prima di ogni fetch.
+    const canRead = permissions != null && canDoOnAnyActivity(permissions, "catalogs.read");
+    const hasWritePermission = permissions != null && canDoOnTenant(permissions, "translations.write");
+    // Chi non scrive (o ha l'abbonamento fermo) vede la pagina com'è, con gli
+    // interruttori spenti e un banner che dice perché (L4).
+    const canWrite = hasWritePermission && canEdit;
 
     const [available, setAvailable] = useState<SupportedLanguage[]>([]);
     const [active, setActive] = useState<TenantLanguage[]>([]);
@@ -50,7 +59,7 @@ export default function SettingsLanguages() {
     });
 
     const loadData = useCallback(async () => {
-        if (!tenantId) return;
+        if (!tenantId || !canRead) return;
         try {
             setLoading(true);
             const [avail, act] = await Promise.all([
@@ -64,7 +73,7 @@ export default function SettingsLanguages() {
         } finally {
             setLoading(false);
         }
-    }, [tenantId, showToast, t]);
+    }, [tenantId, canRead, showToast, t]);
 
     useEffect(() => {
         loadData();
@@ -109,6 +118,7 @@ export default function SettingsLanguages() {
 
     const handleConfirmActivate = async (): Promise<boolean> => {
         if (!pendingLang || !tenantId || !canWrite) return false;
+        if (!ensureActive()) return false;
         try {
             const { jobsCreated } = await activateTenantLanguage(tenantId, pendingLang.code);
             const messageKey =
@@ -127,7 +137,7 @@ export default function SettingsLanguages() {
     };
 
     const handleDeactivate = async (lang: SupportedLanguage): Promise<void> => {
-        if (!tenantId || !canWrite) return;
+        if (!tenantId || !canWrite || !ensureActive()) return;
         try {
             await deactivateTenantLanguage(tenantId, lang.code);
             showToast({
@@ -142,7 +152,7 @@ export default function SettingsLanguages() {
     };
 
     const handleRetryErrors = async (): Promise<void> => {
-        if (!tenantId) return;
+        if (!tenantId || !canWrite || !ensureActive()) return;
         try {
             const count = await retryAllFailedTranslations(tenantId);
             showToast({
@@ -163,6 +173,13 @@ export default function SettingsLanguages() {
         {() => (
         <>
             <div className={styles.page}>
+                {!canWrite && permissions != null && (
+                    <InlineBanner variant="info">
+                        {hasWritePermission
+                            ? t("languages.read_only_subscription")
+                            : t("languages.read_only_role")}
+                    </InlineBanner>
+                )}
                 {loading ? (
                     <div className={styles.loading}>
                         <Text variant="body" colorVariant="muted">
@@ -220,6 +237,7 @@ export default function SettingsLanguages() {
                                     unitTotal={isBase ? summary.unitTotal : undefined}
                                     rowIndex={idx}
                                     canToggle={isBase ? false : canWrite}
+                                    readOnly={!canWrite}
                                     onToggle={
                                         isBase
                                             ? undefined
@@ -258,6 +276,7 @@ export default function SettingsLanguages() {
                 language={reviewLang}
                 onClose={() => setReviewLang(null)}
                 onResolved={() => wakeTranslations?.()}
+                canWrite={canWrite}
             />
         </>
         )}

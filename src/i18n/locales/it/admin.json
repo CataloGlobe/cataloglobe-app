@@ -76,7 +76,9 @@
             "translated_aria": "Tradotto",
             "in_progress_aria": "In corso",
             "retry_count_label": "{{count}} da riprovare"
-        }
+        },
+        "read_only_role": "Sola lettura: attivare e gestire le lingue spetta a proprietario e amministratori.",
+        "read_only_subscription": "Sola lettura: l'abbonamento non è attivo."
     },
     "errors": {
         "load_failed": "Errore nel caricamento delle lingue",

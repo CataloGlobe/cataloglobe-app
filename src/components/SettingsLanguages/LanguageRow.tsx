@@ -17,6 +17,12 @@ interface Props {
     unitTotal?: number;
     rowIndex?: number;
     canToggle?: boolean;
+    /**
+     * Sola lettura: l'interruttore resta visibile e spento (non sparisce) e
+     * gli stati non diventano bottoni. Senza, chi legge vedeva «Aggiornata» su
+     * una lingua con traduzioni fallite.
+     */
+    readOnly?: boolean;
     onToggle?: (next: boolean) => void;
     onRetryErrors?: () => Promise<void> | void;
     /** Apre il drawer "Da rivedere" per questa lingua (chip stale → button). */
@@ -58,6 +64,7 @@ export function LanguageRow({
     unitTotal,
     rowIndex = 0,
     canToggle = true,
+    readOnly = false,
     onToggle,
     onRetryErrors,
     onReviewClick
@@ -108,11 +115,12 @@ export function LanguageRow({
                     )}
                 </div>
 
-                {canToggle && (
+                {(canToggle || (readOnly && !isBase)) && (
                     <div className={styles.toggle}>
                         <Switch
                             checked={checked}
-                            disabled={isBase}
+                            disabled={isBase || readOnly}
+                            ariaLabel={name}
                             onChange={next => onToggle?.(next)}
                         />
                     </div>
@@ -192,6 +200,16 @@ export function LanguageRow({
                 >
                     <span className={styles.spinner} aria-hidden />
                     {t("languages.coverage.queued", { count: coverage?.pending ?? 0 })}
+                </span>
+            );
+        }
+        if (status === "error" && readOnly) {
+            return (
+                <span className={styles.errorPill}>
+                    <span className={styles.errorDot} aria-hidden />
+                    {t("languages.progress.retry_count_label", {
+                        count: coverage?.failed ?? 0
+                    })}
                 </span>
             );
         }
