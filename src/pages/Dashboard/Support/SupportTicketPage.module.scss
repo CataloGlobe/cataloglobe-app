@@ -25,7 +25,20 @@
   border-top: 1px solid var(--border);
 }
 
-.composerActions {
+// Bottone in fondo alla textarea, a tutte le larghezze.
+.composerRow {
   display: flex;
-  justify-content: flex-end;
+  align-items: flex-end;
+  gap: var(--space-12);
+}
+
+.composerInput {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+// Una textarea è inline-block: senza `block` lascia sotto lo spazio della
+// linea di base e il bottone scende oltre il suo bordo.
+.composerTextarea {
+  display: block;
 }

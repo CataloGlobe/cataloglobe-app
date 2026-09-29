@@ -313,7 +313,9 @@ export default function SupportTicketPage() {
 
             <div className={styles.composer}>
                 {canWrite ? (
-                    <>
+                    // Invia sul filo della textarea, non su una riga sua: la
+                    // riga dedicata rubava altezza al thread.
+                    <div className={styles.composerRow}>
                         <Textarea
                             label="Rispondi"
                             value={draft}
@@ -321,18 +323,18 @@ export default function SupportTicketPage() {
                             placeholder="Scrivi un messaggio…"
                             rows={3}
                             disabled={isSending}
+                            containerClassName={styles.composerInput}
+                            textareaClassName={styles.composerTextarea}
                         />
-                        <div className={styles.composerActions}>
-                            <Button
-                                variant="primary"
-                                onClick={handleSend}
-                                loading={isSending}
-                                disabled={!draft.trim()}
-                            >
-                                Invia
-                            </Button>
-                        </div>
-                    </>
+                        <Button
+                            variant="primary"
+                            onClick={handleSend}
+                            loading={isSending}
+                            disabled={!draft.trim()}
+                        >
+                            Invia
+                        </Button>
+                    </div>
                 ) : (
                     <InlineBanner variant="info" icon={<Mail size={16} aria-hidden />}>
                         Per rispondere scrivi a {mailLink}.
