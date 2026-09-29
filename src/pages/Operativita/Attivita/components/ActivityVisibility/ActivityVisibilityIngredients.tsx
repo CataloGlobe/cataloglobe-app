@@ -338,6 +338,8 @@ export const ActivityVisibilityIngredients: React.FC<ActivityVisibilityIngredien
             <div className={styles.toolbar}>
                 <ChipGroupSingle<IngredientFilterValue>
                     ariaLabel="Filtra gli ingredienti"
+                    layout="auto"
+                    shape="pill"
                     value={filter}
                     onChange={setFilter}
                     options={filterOptions}

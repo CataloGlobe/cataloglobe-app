@@ -358,6 +358,8 @@ export const ActivityVisibilityContent: React.FC<ActivityVisibilityContentProps>
                 <div className={styles.toolbar}>
                     <ChipGroupSingle<FilterValue>
                         ariaLabel="Filtra per stato"
+                        layout="auto"
+                        shape="pill"
                         value={filter}
                         onChange={setFilter}
                         options={filterOptions}
