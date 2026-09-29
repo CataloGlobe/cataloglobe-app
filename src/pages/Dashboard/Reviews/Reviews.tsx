@@ -359,7 +359,7 @@ export default function Reviews() {
                     <Card title="Riepilogo">
                         <div className={styles.summary}>
                             {loading ? (
-                                <BarList items={[]} loading />
+                                <BarList className={styles.summaryFull} items={[]} loading />
                             ) : (
                                 <>
                                     <div className={styles.average}>
@@ -377,6 +377,7 @@ export default function Reviews() {
                                     </div>
                                     <BarList
                                         className={styles.distribution}
+                                        labelColumn="fit"
                                         aria-label="Distribuzione dei voti"
                                         items={distributionItems}
                                     />

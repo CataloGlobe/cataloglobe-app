@@ -22,7 +22,9 @@
 /* Numero eroe a sinistra, distribuzione a destra; in colonna sotto 768. */
 .summary {
     display: grid;
-    grid-template-columns: minmax(160px, auto) 1fr;
+    // Il voto a contenuto: con un minimo di 160 restava un vuoto fra la
+    // cifra e le barre.
+    grid-template-columns: max-content minmax(0, 1fr);
     gap: var(--space-32);
     align-items: center;
 
@@ -38,6 +40,11 @@
 
 .distribution {
     min-width: 0;
+}
+
+// Lo scheletro del caricamento prende tutta la riga, non la colonna del voto.
+.summaryFull {
+    grid-column: 1 / -1;
 }
 
 .dateRange {
