@@ -53,8 +53,14 @@ con service-role.
 | D — `menu-ai-import` | ✓ | **FIXATO** → `has_permission('catalogs.write')` via user-JWT |
 | E — `generate-menu-pdf` | ✓ | **FIXATO** → `has_permission('catalogs.read')` (no più owner-only) |
 
-`translations.write` enforced anche lato BE (RLS `tenant_languages` + RPC
-`retry_all_failed_translations`/`enqueue_tenant_language_backfill`, mig. 140000).
+`translations.write` enforced anche lato BE: RLS `tenant_languages` + RPC
+`retry_all_failed_translations`/`enqueue_tenant_language_backfill` (mig. 140000),
+`revert_manual_translation` (mig. 20260929160000), `upsert_manual_translation`
+(mig. 20260929170000), RLS insert/update di `translations` (mig. 20260929170100).
+**Ancora aperti a ogni membro**: delete su `translations` e tutte le scritture su
+`translation_jobs`, che il manager usa dal client per chiusure della sede
+(`activity_hours.write`) e In evidenza (`featured.write`). Si chiudono con una RPC
+di accodamento che controlla il permesso dell'entità sorgente (PR a parte).
 Hardening residuo: estrarre `_isMemberOfTenant` in `_shared/` (TODO FIX-3).
 Bonifica sicurezza: error detail/stack rimossi dai 5xx in tutte le edge function.
 
@@ -217,7 +223,7 @@ mutazione gatati con helper espliciti.
 
 Cosa è ora vero e abilita i custom a costo basso:
 1. Ogni azione business passa per `has_permission` (BE) + `canDoOnTenant`/`canDoOnActivity` (FE) + PageGate.
-2. Risoluzione canonica su **tutti** i percorsi (edge function ribelli fixate, translations enforced BE).
+2. Risoluzione canonica su **tutti** i percorsi (edge function ribelli fixate, translations enforced BE salvo delete di `translations` e scritture di `translation_jobs`, § sopra).
 3. `owner` è grant-based → uniforme col modello "ruolo = set di permessi".
 
 Direzione architetturale (da discussione Track 0):
