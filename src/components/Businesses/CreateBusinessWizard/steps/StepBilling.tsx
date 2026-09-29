@@ -27,6 +27,8 @@ interface StepBillingProps {
     onPecChange: (value: string) => void;
     codiceDestinatario: string;
     onCodiceDestinatarioChange: (value: string) => void;
+    /** Recapito e-fattura rifiutato dal server (trigger su tenants / stripe-checkout). */
+    einvoiceServerError?: string | null;
     billingAddress: AddressResult | null;
     onAddressChange: (next: AddressResult) => void;
     disabled: boolean;
@@ -65,6 +67,7 @@ export function StepBilling({
     onPecChange,
     codiceDestinatario,
     onCodiceDestinatarioChange,
+    einvoiceServerError,
     billingAddress,
     onAddressChange,
     disabled,
@@ -101,6 +104,7 @@ export function StepBilling({
     // un eventuale errore di lunghezza già presente.
     const codiceDestinatarioDisplayError =
         codiceDestinatarioError ??
+        einvoiceServerError ??
         (recipientMissing
             ? "Con la Partita IVA serve un recapito: Codice Destinatario SDI o PEC."
             : undefined);

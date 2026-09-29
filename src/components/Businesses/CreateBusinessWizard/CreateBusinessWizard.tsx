@@ -112,6 +112,10 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
     // P.IVA rifiutata lato server nonostante il check FE: mostrata sul campo
     // del passo Fatturazione, azzerata alla prima modifica del valore.
     const [vatServerError, setVatServerError] = useState<string | null>(null);
+    // Recapito e-fattura rifiutato lato server (trigger su tenants o gate di
+    // stripe-checkout): sul Codice Destinatario, azzerato alla prima modifica
+    // di SDI o PEC. Stesso trattamento della P.IVA, niente toast.
+    const [einvoiceServerError, setEinvoiceServerError] = useState<string | null>(null);
     const [promoError, setPromoError] = useState<string | null>(null);
     const [showCloseConfirm, setShowCloseConfirm] = useState(false);
 
@@ -319,6 +323,7 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
         if (!billingAddressComplete) return false;
         if (!billingLengthsOk) return false;
         if (vatServerError) return false;
+        if (einvoiceServerError) return false;
 
         const vatFilled = vatNumber.trim().length > 0;
         const cfFilled = fiscalCode.trim().length > 0;
@@ -350,7 +355,7 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
             default:
                 return false;
         }
-    }, [entityType, vatNumber, fiscalCode, legalName, firstName, lastName, codiceDestinatario, pec, billingAddressComplete, billingLengthsOk, vatServerError]);
+    }, [entityType, vatNumber, fiscalCode, legalName, firstName, lastName, codiceDestinatario, pec, billingAddressComplete, billingLengthsOk, vatServerError, einvoiceServerError]);
 
     const isDirty = resumeMode
         ? (
@@ -576,11 +581,11 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
                 setStep(3);
             } else if (code === "missing_einvoice_recipient" && (!resumeMode || resumeNeedsBilling)) {
                 // Dal trigger su tenants (22023) o dal gate di stripe-checkout:
-                // il passo Fatturazione segnala già il campo mancante sotto il
-                // Codice Destinatario, il toast dice perché si è tornati lì.
+                // come la P.IVA, l'errore va sul campo del passo Fatturazione
+                // (sotto il Codice Destinatario) e dice perché si è tornati lì.
+                setEinvoiceServerError("Con la Partita IVA serve un recapito per la fattura elettronica: Codice Destinatario SDI o PEC.");
                 setSubmitError(null);
                 setStep(3);
-                showToast({ type: "error", message: friendlyErrorMessage(code) });
             } else if (code === "subscription_already_active" && tenantId !== null) {
                 // The guard found a live subscription our row does not know
                 // about (paid, tab closed, webhook lost). Adopt it and enter the
@@ -673,9 +678,16 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
                         lastName={lastName}
                         onLastNameChange={setLastName}
                         pec={pec}
-                        onPecChange={setPec}
+                        onPecChange={value => {
+                            setPec(value);
+                            setEinvoiceServerError(null);
+                        }}
                         codiceDestinatario={codiceDestinatario}
-                        onCodiceDestinatarioChange={setCodiceDestinatario}
+                        onCodiceDestinatarioChange={value => {
+                            setCodiceDestinatario(value);
+                            setEinvoiceServerError(null);
+                        }}
+                        einvoiceServerError={einvoiceServerError}
                         billingAddress={billingAddress}
                         onAddressChange={setBillingAddress}
                         disabled={submitting}
