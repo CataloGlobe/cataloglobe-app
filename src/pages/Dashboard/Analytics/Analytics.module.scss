@@ -40,6 +40,18 @@
   gap: var(--space-16);
 }
 
+// Quattro cifre: due per riga, mai tre più una orfana (Ordini al tavolo).
+// Sul telefono una colonna, come `.grid`.
+.statGridPairs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-16);
+
+  @media (max-width: 767px) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 .cardStack {
   display: flex;
   flex-direction: column;
