@@ -9,8 +9,8 @@
 //  3. rate limit: 5 invii validi/ora per IP (hash SHA-256 con salt);
 //  4. insert in `public.leads` con service role (la tabella non ha policy).
 //     La prova del consenso è tutta server: `consent_at` = ora dell'insert,
-//     `consent_text` = versione dell'informativa in vigore
-//     (`_shared/consentVersions.ts`, la stessa del frontend). Un eventuale
+//     `consent_text` = data del testo pubblicato su /legal/privacy
+//     (`PRIVACY_PUBLISHED_AT`, `_shared/consentVersions.ts`). Un eventuale
 //     `consent_text` del client viene ignorato: non è verificabile;
 //  5. email interna a LEADS_NOTIFY_EMAIL, best-effort: se fallisce si logga e
 //     si risponde comunque successo, il contatto è già salvato.

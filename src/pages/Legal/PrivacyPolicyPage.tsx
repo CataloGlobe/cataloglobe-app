@@ -1,14 +1,13 @@
 import LegalLayout from './LegalLayout';
 import { usePageTitle } from '@/hooks/usePageTitle';
 import { COMPANY, getFullAddress } from '@/config/company';
+import { PRIVACY_PUBLISHED_AT } from '@shared/consentVersions';
 import styles from './PrivacyPolicyPage.module.scss';
 
-// Data mostrata come «Ultimo aggiornamento». Separata di proposito da
-// CURRENT_CONSENT_VERSIONS.privacy: cambiare quella versione chiede di nuovo il
-// consenso agli utenti registrati, e non ogni aggiornamento del testo lo
-// richiede (qui: aggiunta dei contatti dalla landing). Quando si alza la
-// versione del consenso, aggiornare anche questa data.
-const LAST_UPDATED = '2026-09-25';
+// Data mostrata come «Ultimo aggiornamento»: sta in _shared/consentVersions.ts
+// perché submit-lead la registra come versione accettata dai contatti della
+// landing. Separata da CURRENT_CONSENT_VERSIONS.privacy (vedi lì).
+const LAST_UPDATED = PRIVACY_PUBLISHED_AT;
 
 function formatDate(isoDate: string): string {
     const [year, month, day] = isoDate.split('-').map(Number);
