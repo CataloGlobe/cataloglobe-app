@@ -263,7 +263,9 @@ export const ActivityVisibilityIngredients: React.FC<ActivityVisibilityIngredien
             {
                 id: "action",
                 header: "Azione",
-                width: "148px",
+                // Tre icone da 40 più il padding della cella: sotto, a 375 la
+                // terza si tagliava.
+                width: "176px",
                 align: "right",
                 cell: (_, row) => (
                     <fieldset className={styles.readOnlyScope} disabled={readOnly}>

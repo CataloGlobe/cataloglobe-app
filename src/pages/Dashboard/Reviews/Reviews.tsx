@@ -450,7 +450,9 @@ export default function Reviews() {
                                     key={review.id}
                                     title={
                                         review.comment ? (
-                                            review.comment
+                                            // Il commento è il contenuto della riga: va a capo
+                                            // intero, non si tronca come un nome.
+                                            <span className={styles.comment}>{review.comment}</span>
                                         ) : (
                                             <Text as="span" variant="body-sm" colorVariant="muted" className={styles.noComment}>
                                                 Nessun commento

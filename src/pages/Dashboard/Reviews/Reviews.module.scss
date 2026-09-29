@@ -50,3 +50,10 @@
 .noComment {
     font-style: italic;
 }
+
+/* Il titolo di ListRow tronca su una riga; il commento no. */
+.comment {
+    display: block;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
