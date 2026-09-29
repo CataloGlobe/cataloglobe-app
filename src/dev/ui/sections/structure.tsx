@@ -319,6 +319,12 @@ function StatCardSection() {
                     </StatCard>
                 </div>
             </State>
+            <State label="delta invertito (salire è male): freccia col segno, colore rovesciato" column>
+                <div className={styles.statRow}>
+                    <StatCard label="Tasso di annullamento" value="8,3%" delta={{ value: 25, period: "vs 30 giorni prima", invert: true }} />
+                    <StatCard label="Tasso di annullamento" value="4,1%" delta={{ value: -30, period: "vs 30 giorni prima", invert: true }} />
+                </div>
+            </State>
             <State label="sotto soglia (< 100 visite): niente delta, la riga dice il conteggio" column>
                 <div className={styles.statRow}>
                     <StatCard label="Click sul telefono" value="9" delta={{ value: 30, period: "vs 30 giorni prima" }} sample={{ count: 9, total: 151 }} />
