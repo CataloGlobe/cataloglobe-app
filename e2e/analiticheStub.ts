@@ -30,10 +30,10 @@ export function makeRpc(sample: "full" | "small"): Record<string, (body: unknown
         analytics_overview_stats: () => [{ total_views: views, unique_sessions: views - 5, avg_events_per_session: 2.4 }],
         analytics_page_views_trend: () => days(30, i => (i % 7 === 3 ? 12 : 4)),
         analytics_top_viewed_products: () => [
-            { product_name: "Focaccia e2e", count: 9 },
-            { product_name: "Pane di segale e2e", count: 4 }
+            { product_name: "Focaccia e2e", view_count: 9 },
+            { product_name: "Pane di segale e2e", view_count: 4 }
         ],
-        analytics_top_selected_products: () => [{ product_name: "Focaccia e2e", count: 3 }],
+        analytics_top_selected_products: () => [{ product_name: "Focaccia e2e", selection_count: 3 }],
         analytics_social_clicks: () => [
             { social_type: "instagram", click_count: 3 },
             { social_type: "facebook", click_count: 1 }

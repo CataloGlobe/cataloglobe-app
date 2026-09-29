@@ -1,16 +1,5 @@
-// Formatting helpers for the Orders analytics section.
-// Single-currency (EUR) today — see migration 20260615130000 note for the
-// multi-region TODO.
-
-const eurFormatter = new Intl.NumberFormat("it-IT", {
-    style: "currency",
-    currency: "EUR",
-    maximumFractionDigits: 2
-});
-
-export function formatEur(value: number): string {
-    return eurFormatter.format(value);
-}
+// Formatting helpers for the Orders analytics section. La valuta passa da
+// `utils/formatCurrency` (fonte unica); qui resta la durata.
 
 /**
  * Human-readable duration from seconds.

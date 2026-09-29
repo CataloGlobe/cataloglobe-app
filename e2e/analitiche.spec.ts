@@ -110,6 +110,41 @@ test.describe("Analitiche", () => {
     });
 });
 
+test.describe("Analitiche — campione e ordine (§36)", () => {
+    test("sopra le 100 visite: percentuali e confronto", async ({ page }) => {
+        stub = await stubAnalitiche(page);
+        await openPage(page);
+        await expect(main(page).getByText(/Una visita è un'apertura della pagina/)).toBeVisible();
+        await expect(main(page).getByText(/Sotto le 100 visite/)).toHaveCount(0);
+        await expect(main(page).getByText(/^6%$/)).toBeVisible();
+    });
+
+    test("sotto le 100 visite: conteggi, niente percentuali, e lo dice", async ({ page }) => {
+        stub = await stubAnalitiche(page, { sample: "small" });
+        await openBusinessPage(page, "analytics", "Analitiche");
+        await expect(main(page).getByText("42", { exact: true }).first()).toBeVisible({ timeout: 15_000 });
+        await expect(main(page).getByText(/Sotto le 100 visite nel periodo non compaiono percentuali/)).toBeVisible();
+        await expect(main(page).getByText("9 su 42")).toBeVisible();
+        // La regola è delle visite (§36.1/3): gli ordini sono transazioni contate.
+        await expect(page.getByRole("region", { name: "Cosa guardano" }).getByText(/\d%$/)).toHaveCount(0);
+    });
+
+    test("ordine fisso: cosa cercano prima degli ordini, la sezione vuota in fondo", async ({ page }) => {
+        stub = await stubAnalitiche(page);
+        await openPage(page);
+        const titles = await main(page).getByText(/^(Cosa cercano|Cosa guardano|Recensioni|Ordini al tavolo|Senza dati nel periodo)$/).allTextContents();
+        expect(titles).toEqual(["Cosa cercano", "Cosa guardano", "Recensioni", "Ordini al tavolo", "Senza dati nel periodo"]);
+        await expect(main(page).getByText(/Prenotazioni — nessuna prenotazione in 30 giorni/)).toBeVisible();
+        await expect(main(page).getByRole("button", { name: "Apri Prenotazioni" })).toBeVisible();
+    });
+
+    test("il tasso di annullamento: il confronto c'è solo sopra la base minima", async ({ page }) => {
+        stub = await stubAnalitiche(page);
+        await openPage(page);
+        await expect(main(page).getByText("1 annullati su 13")).toBeVisible();
+    });
+});
+
 test.describe("Analitiche — errore", () => {
     test("errore di caricamento: lo dice e offre «Riprova»", async ({ page }) => {
         stub = await stubAnalitiche(page);

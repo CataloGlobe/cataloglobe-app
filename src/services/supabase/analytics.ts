@@ -35,12 +35,6 @@ export type ReviewMetrics = {
     distribution: { stars: number; count: number }[];
 };
 
-export type SearchRateData = {
-    search_sessions: number;
-    total_sessions: number;
-    rate: number;
-};
-
 export type HourlyData = {
     hour: number;
     view_count: number;
@@ -193,32 +187,6 @@ export async function getReviewMetrics(
             stars: Number(d.stars),
             count: Number(d.count)
         }))
-    };
-}
-
-export async function getSearchRate(
-    tenantId: string,
-    dateRange: DateRange,
-    activityId?: string
-): Promise<SearchRateData> {
-    const { data, error } = await supabase.rpc("analytics_search_rate", {
-        p_tenant_id: tenantId,
-        p_from: dateRange.from.toISOString(),
-        p_to: dateRange.to.toISOString(),
-        p_activity_id: activityId ?? null
-    });
-
-    if (error) throw error;
-
-    const row = Array.isArray(data) ? data[0] : data;
-    if (!row) {
-        return { search_sessions: 0, total_sessions: 0, rate: 0 };
-    }
-
-    return {
-        search_sessions: Number(row.search_sessions),
-        total_sessions: Number(row.total_sessions),
-        rate: Number(row.rate)
     };
 }
 

@@ -52,7 +52,6 @@ import { usePlanFeatures } from "@/lib/planFeatures";
 import { usePageHeader } from "@/context/usePageHeader";
 import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { PageGate } from "@/components/PageGate/PageGate";
-import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import {
@@ -70,26 +69,13 @@ import {
     periodToDateRange,
     type PeriodKey
 } from "./utils/periodComparison";
-import OverviewCards from "./components/OverviewCards";
-import PageViewsChart from "./components/PageViewsChart";
-import TopProductsTable from "./components/TopProductsTable";
-import ReviewGuardCard from "./components/ReviewGuardCard";
-import DeviceDistribution from "./components/DeviceDistribution";
-import SocialClicksChart from "./components/SocialClicksChart";
-import HourlyChart from "./components/HourlyChart";
-import ConversionFunnel from "./components/ConversionFunnel";
-import TopSearchTerms from "./components/TopSearchTerms";
-import FeaturedPerformance from "./components/FeaturedPerformance";
-import OrdersOverviewCards from "./components/OrdersOverviewCards";
-import OrdersTrendChart from "./components/OrdersTrendChart";
-import OrdersHourlyChart from "./components/OrdersHourlyChart";
-import OrdersTopProductsTable from "./components/OrdersTopProductsTable";
-import OrdersLatencyCard from "./components/OrdersLatencyCard";
-import OrdersConversionCard from "./components/OrdersConversionCard";
-import ReservationsOverviewCards from "./components/ReservationsOverviewCards";
-import ReservationsTrendChart from "./components/ReservationsTrendChart";
-import ReservationsHourlyChart from "./components/ReservationsHourlyChart";
-import ReservationsSoonCard from "./components/ReservationsSoonCard";
+import SampleBand from "./components/SampleBand";
+import SearchSection from "./components/SearchSection";
+import ViewsSection from "./components/ViewsSection";
+import ReviewsSection from "./components/ReviewsSection";
+import OrdersSection from "./components/OrdersSection";
+import ReservationsSection from "./components/ReservationsSection";
+import CollapsedSections from "./components/CollapsedSections";
 import styles from "./Analytics.module.scss";
 
 export default function AnalyticsPage() {
@@ -290,16 +276,22 @@ export default function AnalyticsPage() {
     const selectionConversion =
         funnelData.length > 0 ? funnelData[funnelData.length - 1].percentage : null;
 
-    // Prenotazioni: dati popolati solo se ce n'è almeno una nel periodo;
-    // altrimenti la sezione cade sull'empty-state.
-    const hasReservations = (reservationsOverview?.reservations_count ?? 0) > 0;
+    // Le sezioni senza dati nel periodo collassano in fondo (§36.3); con i
+    // dati risalgono da sé al loro posto (ordine fisso per tipo di dato).
+    const ordersEmpty = ordersFeature && !isLoading && (ordersOverview?.orders_count ?? 0) === 0;
+    const reservationsEmpty =
+        reservationsFeature && !isLoading && (reservationsOverview?.reservations_count ?? 0) === 0;
+    const scopedActivities = useMemo(
+        () => (selectedActivityId === "all" ? readableActivities : readableActivities.filter(a => a.id === selectedActivityId)),
+        [readableActivities, selectedActivityId]
+    );
+    const dateRange = useMemo(() => periodToDateRange(period), [period]);
 
     // ── Export Excel ─────────────────────────────────────────────────────
     const handleExportXlsx = useCallback(() => {
         const SLOT_LABELS: Record<string, string> = {
-            hero: "Hero",
-            before_catalog: "Prima del catalogo",
-            after_catalog: "Dopo il catalogo"
+            before_catalog: "Prima del menù",
+            after_catalog: "Dopo il menù"
         };
 
         const CURRENCY_FMT = "#,##0.00 €";
@@ -315,20 +307,21 @@ export default function AnalyticsPage() {
 
         const NAME_W = 40; // larghezza colonne nome prodotto / titolo
 
-        // ── Engagement (sempre) ──────────────────────────────────────────────
+        // ── Pagina pubblica (sempre) ─────────────────────────────────────────
+        // Dati grezzi com'è (A5), con le parole della pagina: «visite», non
+        // «sessioni» né «visitatori» (§36.1/2).
         const engagement: SheetSpec = {
-            name: "Engagement",
-            title: "ENGAGEMENT",
+            name: "Pagina pubblica",
+            title: "PAGINA PUBBLICA",
             blocks: [
                 {
                     subtitle: "Panoramica",
                     headers: ["Metrica", "Valore"],
                     rows: overviewStats
                         ? [
-                              ["Visite totali", overviewStats.total_views],
-                              ["Sessioni uniche", overviewStats.unique_sessions],
-                              ["Media eventi/sessione", overviewStats.avg_events_per_session],
-                              ["Conversione selezione", pct(selectionConversion)]
+                              ["Visite", overviewStats.total_views],
+                              ["Eventi per visita", overviewStats.avg_events_per_session],
+                              ["Visite con un'aggiunta alla selezione", pct(selectionConversion)]
                           ]
                         : []
                 },
@@ -348,13 +341,13 @@ export default function AnalyticsPage() {
                     rows: hourlyData.map(r => [r.hour, r.view_count])
                 },
                 {
-                    subtitle: "Funnel conversione",
-                    headers: ["Step", "Sessioni", "Percentuale"],
+                    subtitle: "Dalla visita alla selezione",
+                    headers: ["Passo", "Visite", "Percentuale"],
                     rows: funnelData.map(r => [r.step_label, r.session_count, pct(r.percentage)])
                 },
                 {
-                    subtitle: "Prodotti più visti",
-                    headers: ["#", "Prodotto", "Visualizzazioni"],
+                    subtitle: "Prodotti più aperti",
+                    headers: ["#", "Prodotto", "Aperture"],
                     rows: topViewed.map((r, i) => [i + 1, r.product_name, r.count]),
                     columnWidths: [undefined, NAME_W, undefined]
                 },
@@ -365,7 +358,7 @@ export default function AnalyticsPage() {
                     columnWidths: [undefined, NAME_W, undefined]
                 },
                 {
-                    subtitle: "Termini di ricerca",
+                    subtitle: "Cosa cercano",
                     headers: ["#", "Termine", "Ricerche", "Media risultati"],
                     rows: searchTerms.map((r, i) => [i + 1, r.search_term, r.search_count, r.avg_results])
                 },
@@ -381,11 +374,11 @@ export default function AnalyticsPage() {
                     columnWidths: [undefined, NAME_W, undefined, undefined]
                 },
                 {
-                    subtitle: "Review Guard",
+                    subtitle: "Recensioni",
                     headers: ["Metrica", "Valore"],
                     rows: reviewMetrics
                         ? [
-                              ["Totale recensioni", reviewMetrics.total],
+                              ["Recensioni lasciate", reviewMetrics.total],
                               ["Media stelle", reviewMetrics.avg_rating],
                               ["Redirect a Google", reviewMetrics.google_redirects]
                           ]
@@ -397,7 +390,7 @@ export default function AnalyticsPage() {
                     rows: reviewMetrics?.distribution.map(r => [r.stars, r.count]) ?? []
                 },
                 {
-                    subtitle: "Click social",
+                    subtitle: "Clic sui contatti e sui social",
                     headers: ["Piattaforma", "Click"],
                     rows: socialClicks.map(r => [r.social_type, r.click_count])
                 }
@@ -469,11 +462,11 @@ export default function AnalyticsPage() {
                             : []
                     },
                     {
-                        subtitle: "Conversione sel.-ordine",
+                        subtitle: "Dalla selezione all'ordine",
                         headers: ["Metrica", "Valore"],
                         rows: ordersConversion
                             ? [
-                                  ["Sessioni con selezione", ordersConversion.selection_sessions],
+                                  ["Visite con selezione", ordersConversion.selection_sessions],
                                   ["Ordini inviati", ordersConversion.orders_count],
                                   ["Tasso di conversione", pct(ordersConversion.conversion_rate)]
                               ]
@@ -551,6 +544,9 @@ export default function AnalyticsPage() {
             subtitle: activityName,
             info: [
                 { label: "Periodo", value: periodHumanLabel[period] },
+                // Il campione prima di ogni numero derivato (§36.1/1, A5): nel
+                // foglio le percentuali restano, il lettore sa su cosa pesano.
+                { label: "Campione", value: `${overviewStats?.total_views ?? 0} visite` },
                 { label: "Intervallo date", value: `${dateFmt.format(from)} – ${dateFmt.format(to)}` },
                 { label: "Generato il", value: dateTimeFmt.format(new Date()) },
                 { label: "Valuta", value: "EUR (€)" }
@@ -658,212 +654,104 @@ export default function AnalyticsPage() {
     // testata resta vuota (#591).
     usePageHeader(canRead ? { leading, actions: headerActions, compact: headerCompact } : null);
 
+    const periodPhrase: Record<PeriodKey, string> = {
+        today: "Oggi",
+        "7d": "Negli ultimi 7 giorni",
+        "30d": "Negli ultimi 30 giorni",
+        "90d": "Negli ultimi 90 giorni",
+        all: "Da sempre"
+    };
+    const collapsedPhrase: Record<PeriodKey, string> = {
+        today: "oggi",
+        "7d": "in 7 giorni",
+        "30d": "in 30 giorni",
+        "90d": "in 90 giorni",
+        all: "finora"
+    };
+
     return (
         <PageGate readPermission="analytics.read" activityId={selectedActivityId === "all" ? null : selectedActivityId}>
             {() => (
-        <div className={styles.analytics}>
-            {loadError ? (
-                <EmptyState
-                    variant="page"
-                    icon={<BarChart3 />}
-                    title="Non è stato possibile caricare le analitiche"
-                    description="Controlla la connessione e riprova."
-                    action={
-                        <Button variant="secondary" onClick={() => void loadData()}>
-                            Riprova
-                        </Button>
-                    }
-                />
-            ) : isEmpty ? (
-                <div className={styles.emptyState}>
-                    <Text variant="title-sm" weight={600}>
-                        Nessun dato disponibile per il periodo selezionato
-                    </Text>
-                    <Text variant="body" colorVariant="muted">
-                        I dati appariranno quando i clienti visiteranno la pagina pubblica.
-                    </Text>
-                </div>
-            ) : (
-                <>
-                    {/* ── SEZIONE ENGAGEMENT ── */}
-                    <div className={styles.sectionHeader}>
-                        <Text variant="title-sm" weight={600}>
-                            Engagement
-                        </Text>
-                        <Text variant="caption" colorVariant="muted">
-                            Traffico e interazioni nel periodo selezionato
-                        </Text>
-                    </div>
-
-                    <OverviewCards
-                        stats={overviewStats}
-                        selectionConversion={selectionConversion}
-                        previousStats={previousOverviewStats}
-                        previousPeriodLabel={getPreviousPeriodLabel(period)}
-                        isLoading={isLoading}
-                    />
-
-                    <PageViewsChart data={pageViewsTrend} isLoading={isLoading} />
-
-                    <div className={styles.chartsGrid}>
-                        <DeviceDistribution data={deviceData} isLoading={isLoading} />
-                        <HourlyChart data={hourlyData} isLoading={isLoading} />
-                    </div>
-
-                    <ConversionFunnel data={funnelData} isLoading={isLoading} />
-
-                    <div className={styles.chartsGrid}>
-                        <TopProductsTable
-                            title="Prodotti più visti"
-                            data={topViewed}
-                            countLabel="Visualizzazioni"
-                            isLoading={isLoading}
+                <div className={styles.analytics}>
+                    {loadError ? (
+                        <EmptyState
+                            variant="page"
+                            icon={<BarChart3 />}
+                            title="Non è stato possibile caricare le analitiche"
+                            description="Controlla la connessione e riprova."
+                            action={
+                                <Button variant="secondary" onClick={() => void loadData()}>
+                                    Riprova
+                                </Button>
+                            }
                         />
-                        <TopProductsTable
-                            title="Prodotti più selezionati"
-                            data={topSelected}
-                            countLabel="Aggiunte"
-                            isLoading={isLoading}
-                        />
-                    </div>
-
-                    <div className={styles.chartsGrid}>
-                        <TopSearchTerms data={searchTerms} isLoading={isLoading} />
-                        <FeaturedPerformance data={featuredPerf} isLoading={isLoading} />
-                    </div>
-
-                    <div className={styles.chartsGrid}>
-                        <ReviewGuardCard data={reviewMetrics} isLoading={isLoading} />
-                        <SocialClicksChart data={socialClicks} isLoading={isLoading} />
-                    </div>
-
-                    {/* ── SEZIONE ORDINI (interno invariato) ── */}
-                    {ordersFeature && (
+                    ) : (
                         <>
-                            <hr className={styles.sectionDivider} />
-
-                            <div className={styles.sectionHeader}>
-                                <Text variant="title-sm" weight={600}>
-                                    Ordini
-                                </Text>
-                                <Text variant="caption" colorVariant="muted">
-                                    Ordinazioni dal tavolo nel periodo selezionato
-                                </Text>
-                            </div>
-
-                            <OrdersOverviewCards
-                                data={ordersOverview}
-                                previous={previousOrdersOverview}
+                            {/* Ordine fisso per tipo di dato (§36.2–36.3): il
+                                campione, cosa cercano, cosa guardano, le
+                                recensioni, poi ordini e prenotazioni; le sezioni
+                                senza dati scendono in fondo. */}
+                            <SampleBand
+                                visits={overviewStats?.total_views ?? 0}
+                                previousVisits={previousOverviewStats?.total_views ?? null}
+                                periodPhrase={periodPhrase[period]}
                                 previousPeriodLabel={getPreviousPeriodLabel(period)}
+                                sedeCount={scopedActivities.length}
                                 isLoading={isLoading}
                             />
-
-                            <OrdersTrendChart
-                                data={ordersTrend}
-                                dateRange={periodToDateRange(period)}
+                            <SearchSection data={searchTerms} isLoading={isLoading} />
+                            <ViewsSection
+                                stats={overviewStats}
+                                pageViewsTrend={pageViewsTrend}
+                                topViewed={topViewed}
+                                topSelected={topSelected}
+                                hourly={hourlyData}
+                                devices={deviceData}
+                                funnel={funnelData}
+                                featured={featuredPerf}
+                                social={socialClicks}
+                                dateRange={dateRange}
                                 period={period}
                                 isLoading={isLoading}
                             />
-
-                            <div className={styles.chartsGrid}>
-                                <OrdersTopProductsTable
-                                    title="Top prodotti ordinati (quantità)"
-                                    data={topOrderedByQty}
-                                    rankBy="quantity"
-                                    isLoading={isLoading}
+                            <ReviewsSection data={reviewMetrics} isLoading={isLoading} />
+                            {ordersFeature && !isLoading && !ordersEmpty && (
+                                <OrdersSection
+                                    overview={ordersOverview}
+                                    previous={previousOrdersOverview}
+                                    trend={ordersTrend}
+                                    hourly={ordersHourly}
+                                    topByQuantity={topOrderedByQty}
+                                    topByRevenue={topOrderedByRevenue}
+                                    latency={ordersLatency}
+                                    conversion={ordersConversion}
+                                    dateRange={dateRange}
+                                    period={period}
+                                    previousPeriodLabel={getPreviousPeriodLabel(period)}
                                 />
-                                <OrdersTopProductsTable
-                                    title="Top prodotti ordinati (ricavi)"
-                                    data={topOrderedByRevenue}
-                                    rankBy="revenue"
-                                    isLoading={isLoading}
-                                />
-                            </div>
-
-                            <div className={styles.chartsGrid}>
-                                <OrdersLatencyCard data={ordersLatency} isLoading={isLoading} />
-                                <OrdersConversionCard data={ordersConversion} isLoading={isLoading} />
-                            </div>
-
-                            <OrdersHourlyChart data={ordersHourly} isLoading={isLoading} />
-                        </>
-                    )}
-
-                    {/* ── SEZIONE PRENOTAZIONI (solo empty-state — niente fetch) ── */}
-                    {reservationsFeature && (
-                        <>
-                            <hr className={styles.sectionDivider} />
-
-                            <div className={styles.sectionHeader}>
-                                <Text variant="title-sm" weight={600}>
-                                    Prenotazioni
-                                </Text>
-                                <Text variant="caption" colorVariant="muted">
-                                    Prenotazioni ricevute nel periodo selezionato
-                                </Text>
-                            </div>
-
-                            {isLoading || hasReservations ? (
-                                <>
-                                    <ReservationsOverviewCards
-                                        data={reservationsOverview}
-                                        previous={previousReservationsOverview}
-                                        previousPeriodLabel={getPreviousPeriodLabel(period)}
-                                        isLoading={isLoading}
-                                    />
-
-                                    <ReservationsTrendChart
-                                        data={reservationsTrend}
-                                        dateRange={periodToDateRange(period)}
-                                        period={period}
-                                        isLoading={isLoading}
-                                    />
-
-                                    <div className={styles.chartsGrid}>
-                                        <ReservationsHourlyChart data={reservationsHourly} isLoading={isLoading} />
-                                        <ReservationsSoonCard
-                                            title="Non presentati"
-                                            description="Prenotazioni che non si presentano. Disponibile quando il flusso registrerà lo stato."
-                                        />
-                                    </div>
-
-                                    <div className={styles.chartsGrid}>
-                                        <ReservationsSoonCard
-                                            title="Tempi di permanenza"
-                                            description="Durata media al tavolo (seduta → completamento). Disponibile quando il flusso registrerà seduta e completamento."
-                                        />
-                                        <ReservationsSoonCard
-                                            title="Utilizzo tavoli"
-                                            description="Occupazione e rotazione dei tavoli. Disponibile quando le prenotazioni saranno assegnate a un tavolo."
-                                        />
-                                    </div>
-                                </>
-                            ) : (
-                                <article className={styles.chartCard} aria-label="Prenotazioni">
-                                    <header className={styles.chartCardHeader}>
-                                        <Text variant="title-sm" align="left">
-                                            Prenotazioni
-                                        </Text>
-                                    </header>
-                                    <div className={styles.chartCardBody}>
-                                        <div className={styles.chartEmpty}>
-                                            <div className={styles.emptyStacked}>
-                                                <Text variant="body" colorVariant="muted">
-                                                    Ancora nessuna prenotazione nel periodo selezionato.
-                                                </Text>
-                                                <Text variant="caption" colorVariant="muted">
-                                                    Le metriche compariranno appena arrivano i dati.
-                                                </Text>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </article>
                             )}
+                            {reservationsFeature && !isLoading && !reservationsEmpty && (
+                                <ReservationsSection
+                                    overview={reservationsOverview}
+                                    previous={previousReservationsOverview}
+                                    trend={reservationsTrend}
+                                    hourly={reservationsHourly}
+                                    dateRange={dateRange}
+                                    period={period}
+                                    previousPeriodLabel={getPreviousPeriodLabel(period)}
+                                />
+                            )}
+                            <CollapsedSections
+                                ordersEmpty={ordersEmpty}
+                                reservationsEmpty={reservationsEmpty}
+                                orderingOn={scopedActivities.filter(a => a.ordering_enabled).length}
+                                reservationsOn={scopedActivities.filter(a => a.enable_reservations).length}
+                                sedeCount={scopedActivities.length}
+                                periodPhrase={collapsedPhrase[period]}
+                            />
                         </>
                     )}
-                </>
-            )}
-        </div>
+                </div>
             )}
         </PageGate>
     );

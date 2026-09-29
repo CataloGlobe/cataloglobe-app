@@ -1,760 +1,95 @@
-@use "@styles/variables" as *;
+// Analitiche: sezioni impilate nell'ordine della §36, griglie di Card. Solo
+// disposizione: cifre, grafici, barre e righe sono del sistema (StatCard,
+// TrendChart, BarList, ListRow, DataTable).
 
-/* ===== STRUTTURA GENERALE ===== */
 .analytics {
   display: flex;
   flex-direction: column;
-  gap: 2rem;
-  background: var(--bg, #f8fafc);
-  color: var(--text, #0f172a);
-  transition:
-    background 0.3s ease,
-    color 0.3s ease;
-
-  @media (max-width: 600px) {
-    gap: 1.5rem;
-    padding: 1rem 0 2rem;
-  }
+  gap: var(--space-24);
+  padding-bottom: var(--space-32);
 }
 
-.header {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-// CTA della header band (Esporta): altezza armonizzata al cluster via
-// --control-height. Stessa famiglia/size dei Button outline di Catalogs
-// ("Importa con AI") — nessuna size compressa.
+// «Esporta Excel» all'altezza dei controlli della banda.
 .toolbarCta {
   box-sizing: border-box;
   height: var(--control-height, 38px);
 }
 
-.headerTop {
+.section {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: var(--space-16);
 }
 
-.filtersRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1.25rem;
-  flex-wrap: wrap;
-
-  background: var(--card-bg, #fff);
-  padding: 1.25rem;
-  border-radius: 16px;
-  border: 1px solid var(--border, #e2e8f0);
-  animation: fadeIn 0.3s ease forwards;
-}
-
-/* ===== KPI GRID ===== */
-.kpiGrid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 1rem;
-
-  @media (max-width: 1024px) {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  @media (max-width: 480px) {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-.kpiCard {
-  background: #ffffff;
-  border-radius: 1rem;
-  padding: 0.85rem 1rem;
-  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.04);
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  min-height: 88px;
-}
-
-.kpiHeader {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.kpiBadge {
-  border-radius: 999px;
-  padding: 0.15rem 0.6rem;
-  background: rgba(148, 163, 184, 0.1);
-}
-
-/* Color states per KPI */
-.success {
-  .kpiBadge {
-    background: rgba(34, 197, 94, 0.1);
-  }
-}
-
-.error {
-  .kpiBadge {
-    background: rgba(239, 68, 68, 0.1);
-  }
-}
-
-/* ===== CHARTS GRID ===== */
-.chartsGrid {
+// Due colonne da 768 in su, una sotto.
+.grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1.5rem;
-  align-items: stretch;
+  gap: var(--space-16);
 
-  @media (max-width: 1024px) {
+  @media (max-width: 767px) {
     grid-template-columns: minmax(0, 1fr);
   }
 }
 
-.chartCard {
-  background: #ffffff;
-  border-radius: 1rem;
-  padding: 1rem 1.25rem;
-  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.05);
-  border: 1px solid rgba(148, 163, 184, 0.22);
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  min-height: 320px;
-}
-
-.chartCardWide {
-  grid-column: span 2;
-
-  @media (max-width: 1024px) {
-    grid-column: auto;
-  }
-}
-
-.chartCardHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.chartCardBody {
-  flex: 1;
-  min-height: 260px;
-
-  /* Per evitare che i grafici vengano compressi troppo */
-  > * {
-    width: 100%;
-    height: 100%;
-  }
-}
-
-/* ===== SKELETON STATES (per compatibilità con layout) ===== */
-.skeletonRow {
+// Cifre in fila: al più tre per riga (scheda StatCard), a capo quando non
+// ci stanno.
+.statGrid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(max(220px, calc((100% - 2 * var(--space-16)) / 3)), 1fr));
+  gap: var(--space-16);
+}
 
-  @media (max-width: 900px) {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+.cardStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+}
+
+.bandText {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+
+  p {
+    margin: 0;
   }
+}
 
-  @media (max-width: 480px) {
+// Etichetta di BarList su due righe: la parola e il suo dettaglio.
+.labelStack {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.reviews {
+  display: grid;
+  grid-template-columns: minmax(160px, auto) 1fr;
+  gap: var(--space-32);
+  align-items: center;
+
+  @media (max-width: 767px) {
     grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-16);
   }
 }
 
-/* ===== KPI ICON ===== */
-.kpiIcon {
-  color: var(--text-muted, #94a3b8);
-  opacity: 0.6;
-}
-
-/* ===== EMPTY STATE ===== */
-.emptyState {
+.reviewsAverage {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  text-align: center;
-  padding: 4rem 2rem;
-  background: var(--card-bg, #fff);
-  border-radius: 16px;
-  border: 1px solid var(--border, #e2e8f0);
-}
+  gap: var(--space-8);
 
-/* ===== CHART EMPTY ===== */
-.chartEmpty {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  min-height: 200px;
-}
-
-/* ===== TABLE SKELETONS ===== */
-.tableSkeletons {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-/* Wrapper della tabella Top prodotti ordinati: riceve l'height:100% del body
-   flex e lascia la tabella ad altezza naturale, ancorata in alto. */
-.topTableWrap {
-  width: 100%;
-}
-
-/* ===== TOP PRODUCTS TABLE ===== */
-.topTable {
-  width: 100%;
-  border-collapse: collapse;
-
-  th,
-  td {
-    padding: 0.6rem 0.75rem;
-    font-size: 0.85rem;
-    text-align: left;
-  }
-
-  th {
-    font-weight: 600;
-    color: var(--text-muted, #94a3b8);
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    border-bottom: 1px solid var(--border, #e2e8f0);
-  }
-
-  tbody tr {
-    border-bottom: 1px solid var(--border-light, rgba(148, 163, 184, 0.12));
-    transition: background 0.15s;
-
-    &:hover {
-      background: var(--hover-bg, rgba(0, 0, 0, 0.02));
-    }
-
-    &:last-child {
-      border-bottom: none;
-    }
+  p {
+    margin: 0;
   }
 }
 
-.topTableRank {
-  width: 40px;
-  color: var(--text-muted, #94a3b8);
-  font-weight: 500;
+.reviewsDistribution {
+  min-width: 0;
 }
 
-.topTableName {
-  font-weight: 500;
-}
-
-.topTableCount {
-  text-align: right !important;
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-  color: var(--brand-primary, #6366f1);
-}
-
-/* Colonna secondaria (non-ranking) nelle tabelle Top prodotti ordinati:
-   stessa densità, colore neutro per de-enfatizzare. */
-.topTableCountNeutral {
-  color: var(--text, #0f172a);
-  font-weight: 500;
-}
-
-/* ===== BUSINESS SELECTOR ===== */
-.businessSelector {
-  min-width: 200px;
-  max-width: 320px;
-}
-
-/* ===== SECTION DIVIDER ===== */
-.sectionDivider {
-  height: 1px;
-  background: rgba(0, 0, 0, 0.06);
-  border: none;
+.cardNote {
   margin: 0;
-}
-
-/* ===== REVIEW GUARD CARD ===== */
-.reviewContent {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-}
-
-.reviewKpiGrid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.75rem;
-}
-
-.reviewKpi {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-  padding: 0.75rem;
-  background: #f8fafc;
-  border-radius: 10px;
-  border: 1px solid rgba(148, 163, 184, 0.15);
-}
-
-.reviewKpiIcon {
-  color: var(--text-muted, #94a3b8);
-  margin-bottom: 0.1rem;
-}
-
-.reviewKpiIconGreen {
-  color: #16a34a;
-}
-
-.reviewKpiStarRow {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-}
-
-.starRating {
-  display: inline-flex;
-  gap: 2px;
-  align-items: center;
-}
-
-.starFilled {
-  color: #f59e0b;
-}
-
-.starEmpty {
-  color: #cbd5e1;
-}
-
-.reviewDistribution {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.reviewDistributionRow {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.reviewDistributionLabel {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  min-width: 28px;
-}
-
-.reviewBar {
-  flex: 1;
-  height: 8px;
-  background: #f1f5f9;
-  border-radius: 999px;
-  overflow: hidden;
-}
-
-.reviewBarFill {
-  height: 100%;
-  border-radius: 999px;
-  transition: width 0.4s ease;
-}
-
-/* ===== DEVICE DISTRIBUTION ===== */
-.deviceBody {
-  display: flex;
-  align-items: center;
-}
-
-.deviceLoadingRow {
-  display: flex;
-  align-items: center;
-  gap: 1.5rem;
-  width: 100%;
-}
-
-.deviceRow {
-  display: flex;
-  align-items: center;
-  gap: 1.5rem;
-  width: 100%;
-  flex-wrap: wrap;
-}
-
-.donutWrapper {
-  position: relative;
-  flex-shrink: 0;
-}
-
-.donutCenter {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-  pointer-events: none;
-}
-
-.deviceLegend {
-  display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
-  flex: 1;
-  min-width: 120px;
-}
-
-.deviceLegendItem {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.deviceDot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-/* ===== SOCIAL CLICKS CHART ===== */
-.socialBars {
-  display: flex;
-  flex-direction: column;
-  gap: 0.65rem;
-}
-
-.socialBarRow {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.socialBarLabel {
-  min-width: 72px;
-  flex-shrink: 0;
-}
-
-.socialBarTrack {
-  flex: 1;
-  height: 10px;
-  background: #f1f5f9;
-  border-radius: 999px;
-  overflow: hidden;
-}
-
-.socialBarFill {
-  height: 100%;
-  border-radius: 999px;
-  transition: width 0.4s ease;
-}
-
-.socialBarCount {
-  min-width: 28px;
-  text-align: right;
-  flex-shrink: 0;
-}
-
-/* ===== HOURLY CHART ===== */
-.hourlyWrapper {
-  position: relative;
-  width: 100%;
-}
-
-.hourlyBars {
-  display: flex;
-  align-items: flex-end;
-  gap: 3px;
-  height: 200px;
-  padding-bottom: 20px;
-  width: 100%;
-}
-
-.hourlyBarCol {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-end;
-  height: 100%;
-  cursor: default;
-}
-
-.hourlyBarTrack {
-  width: 100%;
-  height: calc(100% - 20px);
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-}
-
-.hourlyBarFill {
-  width: 100%;
-  border-radius: 3px 3px 0 0;
-  transition:
-    height 0.3s ease,
-    background 0.2s ease;
-  min-height: 2px;
-}
-
-.hourlyLabel {
-  font-size: 9px;
-  color: var(--text-muted, #94a3b8);
-  margin-top: 4px;
-  flex-shrink: 0;
-}
-
-.hourlyTooltip {
-  background: #1e293b;
-  color: #fff;
-  border-radius: 8px;
-  padding: 6px 10px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1px;
-  z-index: 100;
-  white-space: nowrap;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-
-  * {
-    color: #fff !important;
-  }
-}
-
-/* ===== CONVERSION FUNNEL ===== */
-.funnelContent {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-
-.funnelSkeletons {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.funnelSteps {
-  display: flex;
-  flex-direction: column;
-
-  flex: 1;
-}
-
-.funnelStep {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  flex: 1;
-}
-
-.funnelStepLabel {
-  min-width: 220px;
-  font-weight: 500;
-  font-size: 0.875rem;
-  flex-shrink: 0;
-}
-
-.funnelStepPct {
-  color: var(--text-muted, #94a3b8);
-  font-weight: 400;
-  font-size: 0.8125rem;
-}
-
-.funnelStepBar {
-  flex: 1;
-  height: 20px;
-  background: #f1f5f9;
-  border-radius: 4px;
-  overflow: hidden;
-}
-
-.funnelStepBarFill {
-  height: 100%;
-  border-radius: 4px;
-  transition: width 0.5s ease;
-}
-
-.funnelStepCount {
-  min-width: 60px;
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-  font-size: 0.875rem;
-}
-
-.funnelSummary {
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid rgba(0, 0, 0, 0.06);
-  font-size: 0.8125rem;
-  color: var(--text-muted, #94a3b8);
-}
-
-/* ===== SEARCH TERMS ===== */
-.zeroResults {
-  color: #ef4444;
-  font-size: 0.75rem;
-  font-weight: 500;
-}
-
-/* ===== KPI DELTA ===== */
-.kpiDelta {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin-top: 6px;
-  font-size: 11px;
-  line-height: 1.2;
-  font-variant-numeric: tabular-nums;
-}
-
-.kpiDeltaPositive {
-  color: #16a34a;
-}
-
-.kpiDeltaNegative {
-  color: #dc2626;
-}
-
-.kpiDeltaNeutral {
-  color: #78716c;
-}
-
-.kpiDeltaLabel {
-  color: #78716c;
-}
-
-/* ===== SECTION HEADER (Engagement / Ordini / Prenotazioni) ===== */
-.sectionHeader {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-}
-
-/* Badge "Presto" per card prenotazioni non ancora raccoglibili */
-.soonBadge {
-  display: inline-block;
-  padding: 0.15rem 0.5rem;
-  background: rgba(245, 158, 11, 0.12);
-  color: #b45309;
-  border-radius: 999px;
-  font-size: 0.7rem;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-/* Empty-state impilato (messaggio + sottotitolo) dentro .chartEmpty */
-.emptyStacked {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.25rem;
-  text-align: center;
-}
-
-/* ===== ORDERS LATENCY ===== */
-.latencyContent {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  gap: 1rem;
-}
-
-.latencyGrid {
-  display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
-  flex: 1;
-}
-
-.latencyRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0.75rem;
-  background: #f8fafc;
-  border-radius: 10px;
-  border: 1px solid rgba(148, 163, 184, 0.15);
-}
-
-.latencyLabel {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.latencyMetrics {
-  display: flex;
-  gap: 1.5rem;
-}
-
-.latencyMetric {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 0.1rem;
-  min-width: 56px;
-}
-
-.latencyNote {
-  margin-top: auto;
-  padding-top: 12px;
-  border-top: 1px solid rgba(0, 0, 0, 0.06);
-}
-
-/* ===== ORDERS CONVERSION ===== */
-.conversionContent {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  gap: 1.25rem;
-}
-
-.conversionBig {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.2rem;
-  padding: 0.5rem 0;
-}
-
-.conversionBreakdown {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.75rem;
-}
-
-.conversionStat {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.15rem;
-  padding: 0.75rem;
-  background: #f8fafc;
-  border-radius: 10px;
-  border: 1px solid rgba(148, 163, 184, 0.15);
-}
-
-/* ===== SLOT BADGE ===== */
-.slotBadge {
-  display: inline-block;
-  padding: 0.15rem 0.5rem;
-  background: rgba(99, 102, 241, 0.08);
-  color: #6366f1;
-  border-radius: 999px;
-  font-size: 0.7rem;
-  font-weight: 500;
-  white-space: nowrap;
+  padding: var(--space-12) var(--space-24);
 }

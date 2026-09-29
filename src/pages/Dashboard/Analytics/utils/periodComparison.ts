@@ -1,11 +1,10 @@
 import { romeDayOf, romeInstantAt } from "@/utils/romeInstant";
+import type { DateRange } from "@/services/supabase/analytics";
+
+// Una sola dichiarazione della finestra: quella del service (#641).
+export type { DateRange };
 
 export type PeriodKey = "today" | "7d" | "30d" | "90d" | "all";
-
-export interface DateRange {
-    from: Date;
-    to: Date;
-}
 
 /** Il periodo con cui le analitiche si aprono (mockup, A3): 30 giorni. */
 export const DEFAULT_PERIOD: PeriodKey = "30d";
