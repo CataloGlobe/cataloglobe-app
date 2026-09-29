@@ -45,8 +45,7 @@ import {
     type OrdersConversion,
     type ReservationsOverview,
     type ReservationsTrendPoint,
-    type ReservationsHourlyPoint,
-    type DateRange
+    type ReservationsHourlyPoint
 } from "@/services/supabase/analytics";
 import { usePlanFeatures } from "@/lib/planFeatures";
 import { usePageHeader } from "@/context/usePageHeader";
@@ -617,7 +616,7 @@ export default function AnalyticsPage() {
             onChange={setPeriod}
             options={periodOptions}
         />
-    ), [period, periodOptions]);
+    ), [period, periodOptions, setPeriod]);
 
     const headerActions = useMemo(() => (
         <Button
@@ -648,7 +647,7 @@ export default function AnalyticsPage() {
             onClick: handleExportXlsx,
             disabled: isLoading || isEmpty
         }
-    }), [period, periodOptions, handleExportXlsx, isLoading, isEmpty]);
+    }), [period, periodOptions, setPeriod, handleExportXlsx, isLoading, isEmpty]);
 
     // Periodo ed «Esporta Excel» solo a chi legge: sulla pagina bloccata la
     // testata resta vuota (#591).
