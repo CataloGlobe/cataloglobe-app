@@ -14,9 +14,8 @@ export type SubmitLeadInput = {
     phone: string;
     email?: string;
     interests: LeadInterest[];
+    /** La prova del consenso (versione dell'informativa, ora) la scrive il server. */
     consent: boolean;
-    /** Testo del consenso mostrato all'invio. */
-    consent_text: string;
     variant: string;
     /** Honeypot: campo nascosto, resta vuoto per le persone. */
     website?: string;

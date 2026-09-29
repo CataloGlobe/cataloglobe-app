@@ -25,8 +25,6 @@ const FIELDS: { key: keyof Values; label: string; type: string; inputName: strin
     { key: "phone", label: CONTACT.fields.phone, type: "tel", inputName: "telefono", autoComplete: "tel" },
     { key: "email", label: CONTACT.fields.email, type: "email", inputName: "email", autoComplete: "email", optional: true }
 ];
-const CONSENT_TEXT = `${CONTACT.privacy.before}${CONTACT.privacy.link}${CONTACT.privacy.after}`;
-
 const check = (values: Values, consent: boolean, interests: LeadInterest[]) =>
     validateLead({ ...values, consent, interests }, (raw) => normalizePhoneToE164(raw));
 
@@ -103,7 +101,6 @@ function ContactForm() {
                 email: values.email || undefined,
                 interests,
                 consent,
-                consent_text: CONSENT_TEXT,
                 variant: variante,
                 website: honeypot.current?.value ?? "",
                 utm_source: origin.utm_source ?? null,

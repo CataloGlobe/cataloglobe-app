@@ -7,7 +7,11 @@
 //  1. honeypot: campo nascosto `website` valorizzato → 200 senza salvare;
 //  2. validazione server (`_shared/leadValidation.ts`, stesse regole del form);
 //  3. rate limit: 5 invii validi/ora per IP (hash SHA-256 con salt);
-//  4. insert in `public.leads` con service role (la tabella non ha policy);
+//  4. insert in `public.leads` con service role (la tabella non ha policy).
+//     La prova del consenso è tutta server: `consent_at` = ora dell'insert,
+//     `consent_text` = versione dell'informativa in vigore
+//     (`_shared/consentVersions.ts`, la stessa del frontend). Un eventuale
+//     `consent_text` del client viene ignorato: non è verificabile;
 //  5. email interna a LEADS_NOTIFY_EMAIL, best-effort: se fallisce si logga e
 //     si risponde comunque successo, il contatto è già salvato.
 //
@@ -18,6 +22,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildLeadNotificationEmail } from "../_shared/leadEmail.ts";
+import { leadConsentText } from "../_shared/leadConsent.ts";
 import { LEAD_LIMITS, cleanLeadMeta, validateLead } from "../_shared/leadValidation.ts";
 import { normalizePhoneToE164 } from "../_shared/phoneNormalize.ts";
 import { checkRateLimit, extractClientIp, hashIp, RateLimitExceededError } from "../_shared/rateLimit.ts";
@@ -154,7 +159,7 @@ serve(async (req: Request) => {
             email: lead.email,
             interests: lead.interests,
             consent_at: createdAt.toISOString(),
-            consent_text: cleanLeadMeta(body.consent_text, LEAD_LIMITS.consentText),
+            consent_text: leadConsentText(),
             ip_hash: ipHash,
             ...meta
         });

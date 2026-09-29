@@ -17,8 +17,7 @@ export const LEAD_LIMITS = {
     phoneRaw: 40,
     email: 254,
     meta: 200,
-    referrer: 500,
-    consentText: 500
+    referrer: 500
 } as const;
 
 export type LeadField = "name" | "venueName" | "phone" | "email" | "consent" | "interests";
