@@ -271,7 +271,9 @@ export const ActivityVisibilityContent: React.FC<ActivityVisibilityContentProps>
             {
                 id: "visibility",
                 header: "Disponibilità",
-                width: "300px",
+                // Il tri-stato `sm` scritto è largo 280: con i 24 + 24 della
+                // cella, 300 lo troncava e «Non disponibile» scorreva dentro.
+                width: "344px",
                 align: "right",
                 cell: (_, product) => control(product)
             }
