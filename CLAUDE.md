@@ -422,7 +422,7 @@ Tech-debt e refactor differiti. Non bloccanti per il task corrente; da valutare 
 - **Bulk cancel pending invites senza ConfirmDialog** — asimmetria vs bulk remove members (che ora ha confirm intermedio). Aggiungere ConfirmDialog per coerenza UX.
 - **Storico admin — ripristino ordini annullati (caso A)** — Step 5b ha consegnato lo Storico (delivered + cancelled del giorno operativo) con azione "Ripristina" SOLO sui delivered (`restore-order`). Gli ordini `cancelled` restano terminali per design (no UI restore). Caso A futuro: recupero annullati richiederebbe una nuova edge function `restore-cancelled-order` (transition `cancelled → submitted` o `cancelled → acknowledged` con reset di `cancelled_at`/`cancelled_by`/`cancellation_reason` via `clear_fields`), source policy da concordare (es. solo entro N minuti dalla cancellazione).
 - **Coda di moderazione Recensioni** (§34.9/1) — lotto a sé subito dopo il checkpoint 11: Pubblica · Tieni nascosta, `StatusBadge` in riga, badge in sidebar (`NavItem.count`), riepilogo sulle pubblicate, Elimina solo sulle nascoste, `updateReviewStatus(id, tenantId, status)` che lancia a 0 righe.
-- **`revert_manual_translation`** (SECURITY DEFINER) non controlla `translations.write`: PR a parte con migration, dopo il checkpoint 11. Il pannello non offre più il bottone a chi non scrive.
+- **`upsert_manual_translation` + RLS `translations`/`translation_jobs`** — scrittura aperta a ogni membro, serve `translations.write` (PR a parte).
 
 ---
 
