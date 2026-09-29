@@ -1,3 +1,4 @@
+import Text from "@/components/ui/Text/Text";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
@@ -41,7 +42,7 @@ export function AddBlockMenu({ onAdd, imageDisabled }: AddBlockMenuProps) {
                                 onSelect={() => onAdd(type)}
                             >
                                 <Icon size={16} />
-                                {label}
+                                <Text as="span" variant="body-sm">{label}</Text>
                             </DropdownMenu.Item>
                         );
                     })}

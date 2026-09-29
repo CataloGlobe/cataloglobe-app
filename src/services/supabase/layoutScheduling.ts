@@ -2,6 +2,7 @@ import { supabase } from "@/services/supabase/client";
 import { computePriority, levelFromPriority } from "@utils/priorityUtils";
 import type { PriorityLevel } from "@utils/priorityUtils";
 import { revalidatePublicCatalogForTenant } from "@services/publicCatalog/revalidatePublicCatalog";
+import { daysOfWeekForDb } from "@utils/scheduleDays";
 
 async function revalidateAfterScheduleMutation(scheduleId: string): Promise<void> {
     try {
@@ -911,7 +912,7 @@ export async function createLayoutRule(input: {
             display_order: input.displayOrder,
             enabled: input.enabled,
             time_mode: input.timeMode,
-            days_of_week: input.daysOfWeek,
+            days_of_week: daysOfWeekForDb(input.daysOfWeek),
             time_from: input.timeFrom,
             time_to: input.timeTo
         },
@@ -968,7 +969,7 @@ export async function createPriceRule(input: {
             display_order: input.displayOrder,
             enabled: input.enabled,
             time_mode: input.timeMode,
-            days_of_week: input.daysOfWeek,
+            days_of_week: daysOfWeekForDb(input.daysOfWeek),
             time_from: input.timeFrom,
             time_to: input.timeTo
         },
@@ -1028,7 +1029,7 @@ export async function createVisibilityRule(input: {
             display_order: input.displayOrder,
             enabled: input.enabled,
             time_mode: input.timeMode,
-            days_of_week: input.daysOfWeek,
+            days_of_week: daysOfWeekForDb(input.daysOfWeek),
             time_from: input.timeFrom,
             time_to: input.timeTo
         },
@@ -1088,7 +1089,7 @@ export async function updateLayoutRule(input: {
         display_order: input.displayOrder,
         enabled: input.enabled,
         time_mode: input.timeMode,
-        days_of_week: input.daysOfWeek,
+        days_of_week: daysOfWeekForDb(input.daysOfWeek),
         time_from: input.timeFrom,
         time_to: input.timeTo
     };
@@ -1244,7 +1245,7 @@ export async function updateRule(input: {
         // here would make an untargeted draft resolve as global. The resolver
         // contract (scheduleResolver.ts) already treats apply_to_all=false
         // with no match as "excludes this rule", and these rows are always
-        // drafts (enabled=false, see missingFields in ProgrammingRuleDetail),
+        // drafts (enabled=false, see missingDraftFields in ruleDetailForm.ts),
         // so they never reach resolution regardless.
     }
 
@@ -1266,7 +1267,7 @@ export async function updateRule(input: {
             // priority gestita internamente dal sistema — non sovrascritta al salvataggio
             enabled: input.enabled,
             time_mode: input.timeMode,
-            days_of_week: input.daysOfWeek,
+            days_of_week: daysOfWeekForDb(input.daysOfWeek),
             time_from: input.timeFrom,
             time_to: input.timeTo,
             start_at: input.startAt,
@@ -1424,224 +1425,109 @@ export async function reorderSchedulesInLevel(
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
-// listSchedulesUsingCatalog — FK guard for catalog deletion
+// listAppearanceSources — quello che serve a `ruleAppearance.ts` (§50.13):
+// le regole menù e in evidenza coi loro target e payload, le sedi e i membri
+// dei gruppi. Tre richieste in parallelo, un giro.
 // ---------------------------------------------------------------------------
 
-export interface CatalogScheduleUsage {
+export type AppearanceSources = {
+    rules: LayoutRule[];
+    activities: Array<{ id: string; name: string; status: string }>;
+    activityIdsByGroupId: Record<string, string[]>;
+};
+
+interface AppearanceScheduleRow {
     id: string;
-    name: string | null;
-    enabled: boolean;
-    start_at: string | null;
-    end_at: string | null;
-}
-
-interface ScheduleLayoutWithScheduleRow {
-    schedule_id: string;
-    schedule:
-        | {
-              id: string;
-              name: string | null;
-              enabled: boolean;
-              start_at: string | null;
-              end_at: string | null;
-              tenant_id: string;
-          }
-        | {
-              id: string;
-              name: string | null;
-              enabled: boolean;
-              start_at: string | null;
-              end_at: string | null;
-              tenant_id: string;
-          }[]
-        | null;
-}
-
-export async function listSchedulesUsingCatalog(
-    tenantId: string,
-    catalogId: string
-): Promise<CatalogScheduleUsage[]> {
-    const { data, error } = await supabase
-        .from("schedule_layout")
-        .select(
-            `
-            schedule_id,
-            schedule:schedules!inner(id, name, enabled, start_at, end_at, tenant_id)
-            `
-        )
-        .eq("tenant_id", tenantId)
-        .eq("catalog_id", catalogId);
-
-    if (error) throw error;
-
-    const rows = (data ?? []) as ScheduleLayoutWithScheduleRow[];
-    const seen = new Set<string>();
-    const out: CatalogScheduleUsage[] = [];
-
-    for (const row of rows) {
-        const schedule = Array.isArray(row.schedule)
-            ? (row.schedule[0] ?? null)
-            : row.schedule;
-        if (!schedule) continue;
-        if (schedule.tenant_id !== tenantId) continue;
-        if (seen.has(schedule.id)) continue;
-        seen.add(schedule.id);
-        out.push({
-            id: schedule.id,
-            name: schedule.name,
-            enabled: schedule.enabled,
-            start_at: schedule.start_at,
-            end_at: schedule.end_at
-        });
-    }
-
-    out.sort((a, b) => {
-        if (a.enabled !== b.enabled) return a.enabled ? -1 : 1;
-        if (a.start_at === null && b.start_at !== null) return 1;
-        if (a.start_at !== null && b.start_at === null) return -1;
-        if (a.start_at !== null && b.start_at !== null) {
-            const cmp = a.start_at.localeCompare(b.start_at);
-            if (cmp !== 0) return cmp;
-        }
-        return (a.name ?? "").localeCompare(b.name ?? "");
-    });
-
-    return out;
-}
-
-// ---------------------------------------------------------------------------
-// listSchedulesUsingStyle — informational list for style deletion drawer
-// ---------------------------------------------------------------------------
-
-export interface StyleScheduleUsage {
-    id: string;
-    name: string | null;
-    enabled: boolean;
-    start_at: string | null;
-    end_at: string | null;
-    // Serve a deriveScheduleStatus (src/utils/scheduleStatus.ts): finestra
-    // temporale per isRuleCurrentlyActive, target per ruleReachesAnyActivity
-    // (portata zero, Passo 4). Niente competizione fra regole qui — il
-    // drawer non la calcola, vedi StyleDeleteDrawer.tsx.
-    time_mode: string;
-    days_of_week: number[] | null;
-    time_from: string | null;
-    time_to: string | null;
-    applyToAll: boolean;
-    activityIds: string[];
-    groupIds: string[];
-}
-
-interface ScheduleUsageScheduleRow {
-    id: string;
-    name: string | null;
-    enabled: boolean;
-    start_at: string | null;
-    end_at: string | null;
     tenant_id: string;
-    time_mode: string;
+    name: string | null;
+    rule_type: RuleType;
+    target_type: string | null;
+    target_id: string | null;
+    apply_to_all: boolean;
+    priority: number;
+    enabled: boolean;
+    time_mode: LayoutTimeMode;
     days_of_week: number[] | null;
     time_from: string | null;
     time_to: string | null;
-    apply_to_all: boolean;
+    start_at: string | null;
+    end_at: string | null;
+    created_at: string;
+    layout:
+        | { catalog_id: string | null; style_id: string | null }
+        | Array<{ catalog_id: string | null; style_id: string | null }>
+        | null;
+    targets: Array<{ target_type: string; target_id: string }> | null;
+    featured: Array<{ featured_content_id: string; slot: "before_catalog" | "after_catalog"; sort_order: number }> | null;
 }
 
-interface ScheduleLayoutWithStyleScheduleRow {
-    schedule_id: string;
-    schedule: ScheduleUsageScheduleRow | ScheduleUsageScheduleRow[] | null;
-}
+export async function listAppearanceSources(tenantId: string): Promise<AppearanceSources> {
+    const [schedulesRes, activitiesRes, membersRes] = await Promise.all([
+        supabase
+            .from("schedules")
+            .select(
+                `
+                id, tenant_id, name, rule_type, target_type, target_id, apply_to_all, priority,
+                enabled, time_mode, days_of_week, time_from, time_to, start_at, end_at, created_at,
+                layout:schedule_layout!schedule_layout_schedule_id_fkey(catalog_id, style_id),
+                targets:schedule_targets(target_type, target_id),
+                featured:schedule_featured_contents(featured_content_id, slot, sort_order)
+                `
+            )
+            .eq("tenant_id", tenantId)
+            .in("rule_type", ["layout", "featured"]),
+        supabase.from("activities").select("id, name, status").eq("tenant_id", tenantId).order("name", { ascending: true }),
+        supabase.from("activity_group_members").select("group_id, activity_id").eq("tenant_id", tenantId)
+    ]);
+    if (schedulesRes.error) throw schedulesRes.error;
+    if (activitiesRes.error) throw activitiesRes.error;
+    if (membersRes.error) throw membersRes.error;
 
-export async function listSchedulesUsingStyle(
-    tenantId: string,
-    styleId: string
-): Promise<StyleScheduleUsage[]> {
-    const { data, error } = await supabase
-        .from("schedule_layout")
-        .select(
-            `
-            schedule_id,
-            schedule:schedules!inner(id, name, enabled, start_at, end_at, tenant_id, time_mode, days_of_week, time_from, time_to, apply_to_all)
-            `
-        )
-        .eq("tenant_id", tenantId)
-        .eq("style_id", styleId);
-
-    if (error) throw error;
-
-    const rows = (data ?? []) as ScheduleLayoutWithStyleScheduleRow[];
-    const seen = new Set<string>();
-    const schedules: ScheduleUsageScheduleRow[] = [];
-
-    for (const row of rows) {
-        const schedule = Array.isArray(row.schedule)
-            ? (row.schedule[0] ?? null)
-            : row.schedule;
-        if (!schedule) continue;
-        if (schedule.tenant_id !== tenantId) continue;
-        if (seen.has(schedule.id)) continue;
-        seen.add(schedule.id);
-        schedules.push(schedule);
+    const activityIdsByGroupId: Record<string, string[]> = {};
+    for (const row of (membersRes.data ?? []) as Array<{ group_id: string; activity_id: string }>) {
+        (activityIdsByGroupId[row.group_id] ??= []).push(row.activity_id);
     }
 
-    // Target per la portata zero (Passo 4) — stesso pattern batched di
-    // listLayoutRules / countActivityDeleteImpact: una query sola su
-    // schedule_targets per tutte le regole trovate.
-    const targetsByScheduleId = new Map<string, { activityIds: string[]; groupIds: string[] }>();
-    if (schedules.length > 0) {
-        const { data: targetsData, error: targetsError } = await supabase
-            .from("schedule_targets")
-            .select("schedule_id, target_type, target_id")
-            .in(
-                "schedule_id",
-                schedules.map(s => s.id)
-            );
-
-        if (targetsError) throw targetsError;
-
-        for (const row of targetsData ?? []) {
-            const entry = targetsByScheduleId.get(row.schedule_id) ?? {
-                activityIds: [],
-                groupIds: []
-            };
-            if (row.target_type === "activity") {
-                entry.activityIds.push(row.target_id);
-            } else if (row.target_type === "activity_group") {
-                entry.groupIds.push(row.target_id);
-            }
-            targetsByScheduleId.set(row.schedule_id, entry);
-        }
-    }
-
-    const out: StyleScheduleUsage[] = schedules.map(schedule => {
-        const targets = targetsByScheduleId.get(schedule.id);
+    const rules = ((schedulesRes.data ?? []) as unknown as AppearanceScheduleRow[]).map((row): LayoutRule => {
+        const layout = Array.isArray(row.layout) ? (row.layout[0] ?? null) : row.layout;
+        const targets = row.apply_to_all ? [] : (row.targets ?? []);
         return {
-            id: schedule.id,
-            name: schedule.name,
-            enabled: schedule.enabled,
-            start_at: schedule.start_at,
-            end_at: schedule.end_at,
-            time_mode: schedule.time_mode,
-            days_of_week: schedule.days_of_week,
-            time_from: schedule.time_from,
-            time_to: schedule.time_to,
-            applyToAll: schedule.apply_to_all,
-            activityIds: schedule.apply_to_all ? [] : (targets?.activityIds ?? []),
-            groupIds: schedule.apply_to_all ? [] : (targets?.groupIds ?? [])
+            id: row.id,
+            tenant_id: row.tenant_id,
+            name: row.name,
+            rule_type: row.rule_type,
+            target_type: row.target_type ?? "",
+            target_id: row.target_id ?? "",
+            target_group: null,
+            applyToAll: row.apply_to_all,
+            activityIds: targets.filter(t => t.target_type === "activity").map(t => t.target_id),
+            groupIds: targets.filter(t => t.target_type === "activity_group").map(t => t.target_id),
+            visibility_mode: "hide",
+            priority: row.priority,
+            priority_level: levelFromPriority(row.priority),
+            display_order: 0,
+            enabled: row.enabled,
+            time_mode: row.time_mode,
+            days_of_week: row.days_of_week,
+            time_from: row.time_from,
+            time_to: row.time_to,
+            start_at: row.start_at,
+            end_at: row.end_at,
+            created_at: row.created_at,
+            layout: layout ? { catalog_id: layout.catalog_id, style_id: layout.style_id } : null,
+            price_overrides: [],
+            visibility_overrides: [],
+            featured_contents: [...(row.featured ?? [])]
+                .sort((a, b) => a.sort_order - b.sort_order)
+                .map(fc => ({ featured_content_id: fc.featured_content_id, slot: fc.slot, sort_order: fc.sort_order }))
         };
     });
 
-    out.sort((a, b) => {
-        if (a.enabled !== b.enabled) return a.enabled ? -1 : 1;
-        if (a.start_at === null && b.start_at !== null) return 1;
-        if (a.start_at !== null && b.start_at === null) return -1;
-        if (a.start_at !== null && b.start_at !== null) {
-            const cmp = a.start_at.localeCompare(b.start_at);
-            if (cmp !== 0) return cmp;
-        }
-        return (a.name ?? "").localeCompare(b.name ?? "");
-    });
-
-    return out;
+    return {
+        rules,
+        activities: (activitiesRes.data ?? []) as AppearanceSources["activities"],
+        activityIdsByGroupId
+    };
 }
 
 export async function duplicateRule(ruleId: string, tenantId: string): Promise<string> {

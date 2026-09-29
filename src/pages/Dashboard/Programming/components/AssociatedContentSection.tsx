@@ -1,5 +1,4 @@
 import { useCallback, useMemo, useState, type ReactNode } from "react";
-import { ChevronDown, ChevronRight, X } from "lucide-react";
 import { IconEyeOff, IconClockExclamation, IconTrash } from "@tabler/icons-react";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
@@ -7,13 +6,15 @@ import { Button } from "@/components/ui/Button/Button";
 import { IconButton } from "@/components/ui/Button/IconButton";
 import { DataTable, ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { TextInput } from "@/components/ui/Input/TextInput";
-import { PillGroupMultiple } from "@/components/ui/PillGroup/PillGroupMultiple";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { Select } from "@/components/ui/Select/Select";
 import { Switch } from "@/components/ui/Switch/Switch";
 import Text from "@/components/ui/Text/Text";
 import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { measureTextWidth } from "@/utils/measureText";
+import { withPluralArticle } from "@/utils/ruleDetailForm";
+import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import {
     LayoutRuleOption,
     RuleType,
@@ -43,9 +44,21 @@ type VisibilityProductRow = {
 };
 
 const VISIBILITY_MODE_OPTIONS: { value: VisibilityMode; label: string; icon: ReactNode }[] = [
-    { value: "hide", label: "Nascondi", icon: <IconEyeOff size={14} /> },
-    { value: "disable", label: "Non disp.", icon: <IconClockExclamation size={14} /> }
+    { value: "hide", label: "Nascosto", icon: <IconEyeOff size={14} /> },
+    { value: "disable", label: "Non disponibile", icon: <IconClockExclamation size={14} /> }
 ];
+
+/**
+ * «Comportamento» larga quanto il SegmentedControl sm che contiene (P7):
+ * track 2+2 e gap 2, ogni segmento 12 + icona 16 + gap 6 + etichetta a 13 px
+ * + 12; più il padding della cella (24 + 24) e il bordo. A 180 px fissi le
+ * due voci si tagliavano (apertura 5 del lotto 6).
+ */
+function behaviorColumnWidth(): string {
+    const control = 6 + VISIBILITY_MODE_OPTIONS.reduce((sum, o) => sum + 46 + measureTextWidth(o.label, { size: 13, weight: 500 }), 0);
+    const header = measureTextWidth("COMPORTAMENTO", { size: 12, weight: 600, letterSpacing: 12 * 0.04 });
+    return `${Math.ceil(Math.max(control, header) + 48 + 2)}px`;
+}
 
 interface ProductOverride {
     overridePrice: string;
@@ -53,208 +66,22 @@ interface ProductOverride {
     valueOverrides?: Record<string, { overridePrice: string; showOriginalPrice: boolean }>;
 }
 
-// ─── PriceOverrideRow ────────────────────────────────────────────────────────
-
-interface PriceOverrideRowProps {
+/** Una riga della tabella prezzi: un prodotto, o un suo formato. */
+type PriceTableRow = {
+    key: string;
     productId: string;
-    productName: string;
+    /** Il formato (option value) quando il prodotto ne ha. */
+    formatId?: string;
+    formatName?: string;
+    label: string;
     isVariant: boolean;
-    parentHasOverride: boolean;
-    hasVariantOverrides: boolean;
-    formatValues?: Array<{ id: string; name: string }>;
-    override: ProductOverride | undefined;
-    productOverrides: Record<string, ProductOverride>;
-    onOverrideChange: (next: Record<string, ProductOverride>) => void;
-    onRemove: (productId: string) => void;
-}
-
-function PriceOverrideRow({
-    productId,
-    productName,
-    isVariant,
-    parentHasOverride,
-    hasVariantOverrides,
-    formatValues,
-    override,
-    productOverrides,
-    onOverrideChange,
-    onRemove
-}: PriceOverrideRowProps) {
-    const hasFormats = (formatValues?.length ?? 0) > 0;
-
-    const hasCompiledOverride = hasFormats
-        ? (formatValues ?? []).some(
-              fv => (override?.valueOverrides?.[fv.id]?.overridePrice ?? "").trim() !== ""
-          )
-        : (override?.overridePrice ?? "").trim() !== "";
-
-    const [isOpen, setIsOpen] = useState(hasCompiledOverride);
-
-    return (
-        <div className={styles.priceRow}>
-            <div
-                className={styles.priceRowHeader}
-                onClick={() => setIsOpen(v => !v)}
-            >
-                <span className={styles.priceRowChevron}>
-                    {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                </span>
-
-                <span className={styles.priceRowName}>
-                    <span style={{ fontSize: "0.875rem", fontWeight: 600 }}>
-                        {productName}
-                    </span>
-                </span>
-
-                {(isVariant || parentHasOverride) && (
-                    <span className={styles.priceRowBadges}>
-                        {isVariant && (
-                            <span
-                                className={styles.badgeVariant}
-                                title="Questo è una variante — eredita il prezzo del prodotto principale se non ha un override specifico"
-                            >
-                                Variante
-                            </span>
-                        )}
-                        {isVariant && parentHasOverride && (
-                            <span
-                                className={styles.badgeSpecific}
-                                title="Sia questa variante che il prodotto principale hanno un override — questo override ha la priorità"
-                            >
-                                Override specifico
-                            </span>
-                        )}
-                    </span>
-                )}
-
-                <button
-                    type="button"
-                    className={styles.priceRowRemove}
-                    onClick={e => {
-                        e.stopPropagation();
-                        onRemove(productId);
-                    }}
-                    aria-label={`Rimuovi ${productName}`}
-                >
-                    <X size={13} />
-                </button>
-            </div>
-
-            {isOpen && (
-                <div className={styles.priceControls}>
-                    {hasFormats && formatValues ? (
-                        formatValues.map(fv => {
-                            const valOvr = override?.valueOverrides?.[fv.id];
-                            return (
-                                <div key={fv.id} className={styles.formatRow}>
-                                    <span style={{ fontSize: "0.8rem", fontWeight: 600 }}>
-                                        {fv.name}
-                                    </span>
-                                    <TextInput
-                                        label="Prezzo override"
-                                        value={valOvr?.overridePrice ?? ""}
-                                        onChange={event => {
-                                            const nextOverrides = { ...productOverrides };
-                                            const existing = nextOverrides[productId] ?? {
-                                                overridePrice: "",
-                                                showOriginalPrice: false
-                                            };
-                                            const nextVals = { ...existing.valueOverrides };
-                                            nextVals[fv.id] = {
-                                                ...nextVals[fv.id],
-                                                overridePrice: event.target.value
-                                            };
-                                            nextOverrides[productId] = {
-                                                ...existing,
-                                                valueOverrides: nextVals
-                                            };
-                                            onOverrideChange(nextOverrides);
-                                        }}
-                                        placeholder="0.00"
-                                    />
-                                    <div className={styles.switchRow}>
-                                        <Text variant="caption">Mostra originale</Text>
-                                        <Switch
-                                            checked={valOvr?.showOriginalPrice ?? false}
-                                            onChange={val => {
-                                                const nextOverrides = { ...productOverrides };
-                                                const existing = nextOverrides[productId] ?? {
-                                                    overridePrice: "",
-                                                    showOriginalPrice: false
-                                                };
-                                                const nextVals = { ...existing.valueOverrides };
-                                                nextVals[fv.id] = {
-                                                    overridePrice:
-                                                        nextVals[fv.id]?.overridePrice ?? "",
-                                                    showOriginalPrice: val
-                                                };
-                                                nextOverrides[productId] = {
-                                                    ...existing,
-                                                    valueOverrides: nextVals
-                                                };
-                                                onOverrideChange(nextOverrides);
-                                            }}
-                                        />
-                                    </div>
-                                </div>
-                            );
-                        })
-                    ) : (
-                        <>
-                            <TextInput
-                                label="Prezzo override"
-                                value={override?.overridePrice ?? ""}
-                                onChange={event => {
-                                    const nextOverrides = { ...productOverrides };
-                                    nextOverrides[productId] = {
-                                        ...nextOverrides[productId],
-                                        overridePrice: event.target.value
-                                    };
-                                    onOverrideChange(nextOverrides);
-                                }}
-                                placeholder="0.00"
-                            />
-                            <div className={styles.switchRow}>
-                                <Text variant="caption">Mostra prezzo originale</Text>
-                                <Switch
-                                    checked={override?.showOriginalPrice ?? false}
-                                    onChange={val => {
-                                        const nextOverrides = { ...productOverrides };
-                                        nextOverrides[productId] = {
-                                            ...nextOverrides[productId],
-                                            showOriginalPrice: val
-                                        };
-                                        onOverrideChange(nextOverrides);
-                                    }}
-                                />
-                            </div>
-                            {isVariant && !parentHasOverride && (
-                                <Text
-                                    variant="caption"
-                                    colorVariant="muted"
-                                    className={styles.inheritanceNote}
-                                    title="Se il prodotto principale ha un override attivo, verrà applicato a tutte le varianti senza override specifico"
-                                >
-                                    Override indipendente dal prodotto principale
-                                </Text>
-                            )}
-                            {!isVariant && hasVariantOverrides && (
-                                <Text
-                                    variant="caption"
-                                    colorVariant="muted"
-                                    className={styles.inheritanceNote}
-                                    title="Le varianti con override specifico useranno il proprio prezzo; le altre erediteranno questo override"
-                                >
-                                    Alcune varianti hanno override specifici
-                                </Text>
-                            )}
-                        </>
-                    )}
-                </div>
-            )}
-        </div>
-    );
-}
+    /** La prima riga del prodotto porta il «Rimuovi». */
+    isFirstOfProduct: boolean;
+    /** Variante con un prezzo suo mentre anche il principale ne ha uno. */
+    ownsVariantPrice: boolean;
+    price: string;
+    showOriginalPrice: boolean;
+};
 
 interface AssociatedContentSectionProps {
     ruleType: RuleType;
@@ -277,6 +104,8 @@ interface AssociatedContentSectionProps {
             visibilityProductModes: Record<string, VisibilityMode>;
         }>
     ) => void;
+    /** Prezzi: l'errore di `validateRuleForm`, sotto il titolo. */
+    pricesError?: string;
 }
 
 // ─── AssociatedContentSection ───────────────────────────────────────────────
@@ -293,12 +122,16 @@ export function AssociatedContentSection({
     tenantProducts,
     tenantProductGroups = [],
     tenantProductGroupItems = [],
-    onFormChange
+    onFormChange,
+    pricesError
 }: AssociatedContentSectionProps) {
     const [isProductsDrawerOpen, setIsProductsDrawerOpen] = useState(false);
+    const { catalogLabel, productLabel, productLabelPlural } = useVerticalConfig();
+    // La parola del vertical per «prodotto» (P10): minuscola dentro le frasi.
+    const product = productLabel.toLowerCase();
+    const products = productLabelPlural.toLowerCase();
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedGroupId, setSelectedGroupId] = useState("");
-    const [productSearch, setProductSearch] = useState("");
     const [pendingSelectedIds, setPendingSelectedIds] = useState<string[]>([]);
     // Sotto ~420px lo SegmentedControl Comportamento non ha spazio per stare
     // sulla stessa riga del nome prodotto senza comprimersi eccessivamente —
@@ -363,14 +196,6 @@ export function AssociatedContentSection({
         [productDisplayOptions]
     );
 
-    const filteredProductOptions = useMemo(
-        () =>
-            productDisplayOptions.filter(opt =>
-                opt.label.toLowerCase().includes(productSearch.toLowerCase())
-            ),
-        [productDisplayOptions, productSearch]
-    );
-
     const filteredProducts = useMemo(() => {
         const normalizedSearch = searchTerm.trim().toLowerCase();
         const allowedProductIds =
@@ -425,35 +250,37 @@ export function AssociatedContentSection({
             return [
                 {
                     id: "product",
-                    header: "Prodotto",
+                    header: productLabel,
+                    // Rimuovi sulla riga del nome: accanto al controllo, a 375
+                    // «Non disponibile» usciva tagliato (P7).
                     cell: (_, row) => (
                         <div className={styles.visibilityRowStacked}>
-                            <Text variant="body-sm" weight={row.isVariant ? 400 : 600}>
-                                {row.isVariant && <span className={styles.variantArrow}>↳ </span>}
-                                {row.label}
-                            </Text>
                             <div className={styles.visibilityRowStackedControls}>
-                                <SegmentedControl<VisibilityMode>
-                                    value={row.mode}
-                                    size="sm"
-                                    options={VISIBILITY_MODE_OPTIONS}
-                                    onChange={next => {
-                                        onFormChange({
-                                            visibilityProductModes: {
-                                                ...visibilityProductModes,
-                                                [row.id]: next
-                                            }
-                                        });
-                                    }}
-                                />
+                                <Text variant="body-sm" weight={row.isVariant ? 400 : 600}>
+                                    {row.isVariant && <span className={styles.variantArrow}>↳ </span>}
+                                    {row.label}
+                                </Text>
                                 <IconButton
                                     icon={<IconTrash size={16} />}
-                                    aria-label="Rimuovi prodotto"
+                                    aria-label={`Rimuovi ${product}`}
                                     variant="ghost"
                                     size="md"
                                     onClick={() => removeSelectedProduct(row.id)}
                                 />
                             </div>
+                            <SegmentedControl<VisibilityMode>
+                                value={row.mode}
+                                size="sm"
+                                options={VISIBILITY_MODE_OPTIONS}
+                                onChange={next => {
+                                    onFormChange({
+                                        visibilityProductModes: {
+                                            ...visibilityProductModes,
+                                            [row.id]: next
+                                        }
+                                    });
+                                }}
+                            />
                         </div>
                     )
                 }
@@ -462,7 +289,7 @@ export function AssociatedContentSection({
         return [
             {
                 id: "product",
-                header: "Prodotto",
+                header: productLabel,
                 cell: (_, row) => (
                     <Text variant="body-sm" weight={row.isVariant ? 400 : 600}>
                         {row.isVariant && <span className={styles.variantArrow}>↳ </span>}
@@ -473,7 +300,7 @@ export function AssociatedContentSection({
             {
                 id: "behavior",
                 header: "Comportamento",
-                width: "180px",
+                width: behaviorColumnWidth(),
                 align: "right",
                 cell: (_, row) => (
                     <SegmentedControl<VisibilityMode>
@@ -499,7 +326,7 @@ export function AssociatedContentSection({
                 cell: (_, row) => (
                     <IconButton
                         icon={<IconTrash size={16} />}
-                        aria-label="Rimuovi prodotto"
+                        aria-label={`Rimuovi ${product}`}
                         variant="ghost"
                         size="sm"
                         onClick={() => removeSelectedProduct(row.id)}
@@ -507,7 +334,7 @@ export function AssociatedContentSection({
                 )
             }
         ];
-    }, [isMobile, onFormChange, visibilityProductModes, removeSelectedProduct]);
+    }, [isMobile, onFormChange, visibilityProductModes, removeSelectedProduct, product, productLabel]);
 
     const openProductsDrawer = () => {
         setPendingSelectedIds([...selectedProductIds]);
@@ -525,7 +352,7 @@ export function AssociatedContentSection({
         () => [
             {
                 id: "product",
-                header: "Prodotto",
+                header: productLabel,
                 cell: (_, opt) => (
                     <Text
                         variant="body-sm"
@@ -538,38 +365,251 @@ export function AssociatedContentSection({
                 )
             }
         ],
-        []
+        [productLabel]
     );
 
+    // Lo stesso drawer per prezzi e disponibilità (§50.1 c): cambia solo cosa
+    // si tiene dei prodotti già scelti.
     const confirmProductsSelection = () => {
         const nextIds = [...pendingSelectedIds];
-        const nextModes: Record<string, VisibilityMode> = {};
-        for (const productId of nextIds) {
-            nextModes[productId] = visibilityProductModes[productId] ?? "hide";
+        if (ruleType === "price") {
+            const nextOverrides: Record<string, ProductOverride> = {};
+            for (const productId of nextIds) {
+                nextOverrides[productId] = productOverrides[productId] ?? { overridePrice: "", showOriginalPrice: false };
+            }
+            onFormChange({ selectedProductIds: nextIds, productOverrides: nextOverrides });
+        } else {
+            const nextModes: Record<string, VisibilityMode> = {};
+            for (const productId of nextIds) {
+                nextModes[productId] = visibilityProductModes[productId] ?? "hide";
+            }
+            onFormChange({ selectedProductIds: nextIds, visibilityProductModes: nextModes });
         }
-
-        onFormChange({
-            selectedProductIds: nextIds,
-            visibilityProductModes: nextModes
-        });
-
         closeProductsDrawer();
     };
+
+    const priceRows = useMemo<PriceTableRow[]>(() => {
+        const rows: PriceTableRow[] = [];
+        for (const productId of sortedSelectedProductIds) {
+            const option = productOptionById.get(productId);
+            const label = option?.label ?? productLabelById.get(productId) ?? productId;
+            const isVariant = option?.isVariant ?? false;
+            const ownsVariantPrice = Boolean(isVariant && option?.parentId && selectedProductIds.includes(option.parentId));
+            const override = productOverrides[productId];
+            const formats = tenantProducts.find(p => p.id === productId)?.format_values ?? [];
+            if (formats.length === 0) {
+                rows.push({
+                    key: productId,
+                    productId,
+                    label,
+                    isVariant,
+                    isFirstOfProduct: true,
+                    ownsVariantPrice,
+                    price: override?.overridePrice ?? "",
+                    showOriginalPrice: override?.showOriginalPrice ?? false
+                });
+                continue;
+            }
+            formats.forEach((format, index) => {
+                const value = override?.valueOverrides?.[format.id];
+                rows.push({
+                    key: `${productId}:${format.id}`,
+                    productId,
+                    formatId: format.id,
+                    formatName: format.name,
+                    label,
+                    isVariant,
+                    isFirstOfProduct: index === 0,
+                    ownsVariantPrice,
+                    price: value?.overridePrice ?? "",
+                    showOriginalPrice: value?.showOriginalPrice ?? false
+                });
+            });
+        }
+        return rows;
+    }, [sortedSelectedProductIds, productOptionById, productLabelById, selectedProductIds, productOverrides, tenantProducts]);
+
+    const setPriceRow = useCallback(
+        (row: PriceTableRow, patch: Partial<{ overridePrice: string; showOriginalPrice: boolean }>) => {
+            const existing = productOverrides[row.productId] ?? { overridePrice: "", showOriginalPrice: false };
+            const next: ProductOverride = row.formatId
+                ? {
+                      ...existing,
+                      valueOverrides: {
+                          ...existing.valueOverrides,
+                          [row.formatId]: {
+                              overridePrice: existing.valueOverrides?.[row.formatId]?.overridePrice ?? "",
+                              showOriginalPrice: existing.valueOverrides?.[row.formatId]?.showOriginalPrice ?? false,
+                              ...patch
+                          }
+                      }
+                  }
+                : { ...existing, ...patch };
+            onFormChange({ productOverrides: { ...productOverrides, [row.productId]: next } });
+        },
+        [productOverrides, onFormChange]
+    );
+
+    const priceColumns = useMemo<ColumnDefinition<PriceTableRow>[]>(() => {
+        const rowName = (row: PriceTableRow) => (row.formatName ? `${row.label}, ${row.formatName}` : row.label);
+        const nameCell = (row: PriceTableRow) => (
+            <div className={styles.priceName}>
+                <Text variant="body-sm" weight={row.isVariant ? 400 : 600}>
+                    {row.isVariant && <span className={styles.variantArrow}>↳ </span>}
+                    {row.label}
+                </Text>
+                {(row.formatName || row.ownsVariantPrice) && (
+                    <Text variant="caption" colorVariant="muted">
+                        {row.formatName ?? `Prezzo suo: anche il ${product} principale ne ha uno`}
+                    </Text>
+                )}
+            </div>
+        );
+        const priceInput = (row: PriceTableRow) => (
+            <TextInput
+                aria-label={`Prezzo di ${rowName(row)}`}
+                value={row.price}
+                inputMode="decimal"
+                placeholder="0,00"
+                onChange={event => setPriceRow(row, { overridePrice: event.target.value })}
+            />
+        );
+        const originalSwitch = (row: PriceTableRow) => (
+            <Switch
+                ariaLabel={`Listino barrato per ${rowName(row)}`}
+                checked={row.showOriginalPrice}
+                onChange={checked => setPriceRow(row, { showOriginalPrice: checked })}
+            />
+        );
+        const removeButton = (row: PriceTableRow, size: "sm" | "md") =>
+            row.isFirstOfProduct ? (
+                <IconButton
+                    icon={<IconTrash size={16} />}
+                    aria-label={`Rimuovi ${row.label}`}
+                    variant="ghost"
+                    size={size}
+                    onClick={() => removeSelectedProduct(row.productId)}
+                />
+            ) : null;
+
+        if (isMobile) {
+            return [
+                {
+                    id: "product",
+                    header: productLabel,
+                    cell: (_, row) => (
+                        <div className={styles.visibilityRowStacked}>
+                            {nameCell(row)}
+                            <div className={styles.priceRowStackedControls}>
+                                {priceInput(row)}
+                                <span className={styles.priceStackedSwitch}>
+                                    <Text variant="caption" colorVariant="muted" as="span">
+                                        Barrato
+                                    </Text>
+                                    {originalSwitch(row)}
+                                </span>
+                                {/* I formati dopo il primo non hanno «Rimuovi»: lo spazio resta, così i campi si allineano. */}
+                                {removeButton(row, "md") ?? <span className={styles.priceRemoveSpacer} aria-hidden="true" />}
+                            </div>
+                        </div>
+                    )
+                }
+            ];
+        }
+        return [
+            { id: "product", header: productLabel, cell: (_, row) => nameCell(row) },
+            { id: "price", header: "Prezzo", width: "140px", cell: (_, row) => priceInput(row) },
+            { id: "original", header: "Listino barrato", width: "160px", align: "center", cell: (_, row) => originalSwitch(row) },
+            { id: "actions", header: "", width: "56px", align: "right", cell: (_, row) => removeButton(row, "sm") }
+        ];
+    }, [isMobile, product, productLabel, setPriceRow, removeSelectedProduct]);
+
+    const productsDrawer = (
+        <SystemDrawer
+            open={isProductsDrawerOpen}
+            onClose={closeProductsDrawer}
+            size="md"
+            aria-labelledby="rule-products-drawer-title"
+        >
+            <DrawerLayout
+                bodyLayout="flex"
+                header={
+                    <div className={styles.drawerHeader}>
+                        <Text as="h3" variant="title-sm" id="rule-products-drawer-title">
+                            {`Aggiungi ${products}`}
+                        </Text>
+                        <Text variant="body-sm" colorVariant="muted">
+                            {`Scegli ${withPluralArticle(products)} su cui agisce la regola.`}
+                        </Text>
+                    </div>
+                }
+                footer={
+                    <>
+                        <Button variant="secondary" onClick={closeProductsDrawer}>
+                            Annulla
+                        </Button>
+                        <Button variant="primary" onClick={confirmProductsSelection}>
+                            Applica
+                        </Button>
+                    </>
+                }
+            >
+                <div className={styles.visibilityDrawerContent}>
+                    <div className={styles.visibilityDrawerFilters}>
+                        <ToolbarSearch
+                            value={searchTerm}
+                            onChange={setSearchTerm}
+                            placeholder={`Cerca ${product}…`}
+                            className={styles.visibilityDrawerSearch}
+                        />
+
+                        <Select
+                            label={`Gruppo ${product}`}
+                            value={selectedGroupId}
+                            onChange={event => setSelectedGroupId(event.target.value)}
+                            options={[
+                                { value: "", label: "Tutti i gruppi" },
+                                ...tenantProductGroups.map(group => ({
+                                    value: group.id,
+                                    label: group.name
+                                }))
+                            ]}
+                        />
+                    </div>
+
+                    <div className={styles.visibilityDrawerTableWrap}>
+                        <DataTable<ProductDisplayOption>
+                            data={filteredProducts}
+                            columns={productDrawerColumns}
+                            selectable
+                            selectedRowIds={pendingSelectedIds}
+                            onSelectedRowsChange={setPendingSelectedIds}
+                            showSelectionBar={false}
+                            emptyState={{
+                                title: `Nessun ${product} trovato`,
+                                description: `Nessun ${product} corrispondente ai filtri attuali.`
+                            }}
+                        />
+                    </div>
+                </div>
+            </DrawerLayout>
+        </SystemDrawer>
+    );
 
     if (ruleType === "layout") {
         return (
             <section className={styles.sectionCard}>
                 <Text as="h3" variant="title-sm">
-                    Contenuti associati
+                    {catalogLabel} e stile
                 </Text>
 
                 <div className={styles.sectionGrid}>
                     <Select
-                        label="Catalogo"
+                        label={catalogLabel}
                         value={catalogId}
                         onChange={event => onFormChange({ catalogId: event.target.value })}
                         options={[
-                            { value: "", label: "Nessun catalogo" },
+                            { value: "", label: `Nessun ${catalogLabel.toLowerCase()}` },
                             ...tenantCatalogs.map(catalog => ({
                                 value: catalog.id,
                                 label: catalog.name
@@ -596,191 +636,76 @@ export function AssociatedContentSection({
             <section className={styles.sectionCard}>
                 <div className={styles.sectionHeader}>
                     <Text as="h3" variant="title-sm">
-                        Prodotti
+                        {productLabelPlural}
                     </Text>
                     <Button variant="secondary" size="sm" onClick={openProductsDrawer}>
-                        + Aggiungi prodotti
+                        {`Aggiungi ${products}`}
                     </Button>
                 </div>
 
                 <Text variant="caption" colorVariant="muted">
-                    Ogni prodotto selezionato può avere un comportamento diverso quando la regola è
-                    attiva.
+                    {`Ogni ${product} selezionato può avere un comportamento diverso quando la regola è attiva.`}
                 </Text>
 
                 {sortedSelectedProductIds.length === 0 ? (
                     <div className={styles.hintCard}>
                         <Text variant="body-sm" colorVariant="muted">
-                            Nessun prodotto selezionato.
+                            {`Nessun ${product} ancora: aggiungine uno per dire cosa cambia.`}
                         </Text>
                     </div>
                 ) : (
                     <DataTable<VisibilityProductRow>
                         data={visibilityTableRows}
                         columns={visibilityTableColumns}
+                        maxHeight="none"
+                        showFooter={false}
                         pageSize={9999}
                         pageSizeOptions={["all"]}
                     />
                 )}
 
-                <SystemDrawer
-                    open={isProductsDrawerOpen}
-                    onClose={closeProductsDrawer}
-                    width={560}
-                    aria-labelledby="visibility-products-drawer-title"
-                >
-                    <DrawerLayout
-                        bodyLayout="flex"
-                        header={
-                            <div className={styles.drawerHeader}>
-                                <Text
-                                    as="h3"
-                                    variant="title-sm"
-                                    id="visibility-products-drawer-title"
-                                >
-                                    Aggiungi prodotti
-                                </Text>
-                                <Text variant="body-sm" colorVariant="muted">
-                                    Cerca e filtra i prodotti da associare alla regola.
-                                </Text>
-                            </div>
-                        }
-                        footer={
-                            <>
-                                <Button variant="secondary" onClick={closeProductsDrawer}>
-                                    Annulla
-                                </Button>
-                                <Button variant="primary" onClick={confirmProductsSelection}>
-                                    Conferma
-                                </Button>
-                            </>
-                        }
-                    >
-                        <div className={styles.visibilityDrawerContent}>
-                            <div className={styles.visibilityDrawerFilters}>
-                                <ToolbarSearch
-                                    value={searchTerm}
-                                    onChange={setSearchTerm}
-                                    placeholder="Cerca prodotto…"
-                                    className={styles.visibilityDrawerSearch}
-                                />
-
-                                <Select
-                                    label="Gruppo prodotto"
-                                    value={selectedGroupId}
-                                    onChange={event => setSelectedGroupId(event.target.value)}
-                                    options={[
-                                        { value: "", label: "Tutti i gruppi" },
-                                        ...tenantProductGroups.map(group => ({
-                                            value: group.id,
-                                            label: group.name
-                                        }))
-                                    ]}
-                                />
-                            </div>
-
-                            <div className={styles.visibilityDrawerTableWrap}>
-                                <DataTable<ProductDisplayOption>
-                                    data={filteredProducts}
-                                    columns={productDrawerColumns}
-                                    selectable
-                                    selectedRowIds={pendingSelectedIds}
-                                    onSelectedRowsChange={setPendingSelectedIds}
-                                    showSelectionBar={false}
-                                    emptyState={{
-                                        title: "Nessun prodotto trovato",
-                                        description:
-                                            "Nessun prodotto corrispondente ai filtri attuali."
-                                    }}
-                                />
-                            </div>
-                        </div>
-                    </DrawerLayout>
-                </SystemDrawer>
+                {productsDrawer}
             </section>
         );
     }
 
     return (
         <section className={styles.sectionCard}>
-            <Text as="h3" variant="title-sm">
-                Prodotti
-            </Text>
-
-            <div className={styles.inlineBlock}>
-                <Text variant="caption" colorVariant="muted">
-                    Seleziona prodotti
+            <div className={styles.sectionHeader}>
+                <Text as="h3" variant="title-sm">
+                    {productLabelPlural}
                 </Text>
-                <TextInput
-                    placeholder="Cerca prodotto..."
-                    value={productSearch}
-                    onChange={e => setProductSearch(e.target.value)}
-                    className={styles.productSearch}
-                />
-                <PillGroupMultiple
-                    ariaLabel="Seleziona prodotti"
-                    options={filteredProductOptions.map(opt => ({
-                        value: opt.id,
-                        label: opt.isVariant ? `↳ ${opt.label}` : opt.label
-                    }))}
-                    value={selectedProductIds}
-                    onChange={value => {
-                        const nextIds = [...value];
-                        const nextOverrides: Record<string, ProductOverride> = {};
-                        for (const id of nextIds) {
-                            nextOverrides[id] = productOverrides[id] ?? {
-                                overridePrice: "",
-                                showOriginalPrice: false
-                            };
-                        }
-                        onFormChange({
-                            selectedProductIds: nextIds,
-                            productOverrides: nextOverrides
-                        });
-                    }}
-                    layout="auto"
-                />
+                <Button variant="secondary" size="sm" onClick={openProductsDrawer}>
+                    {`Aggiungi ${products}`}
+                </Button>
             </div>
-
-            {selectedProductIds.length > 0 && (
-                <div className={styles.priceList}>
-                    {sortedSelectedProductIds.map(productId => {
-                        const productOption = productOptionById.get(productId);
-                        const isVariant = productOption?.isVariant ?? false;
-                        const parentId = productOption?.parentId;
-                        const parentHasOverride = parentId
-                            ? selectedProductIds.includes(parentId)
-                            : false;
-                        const hasVariantOverrides =
-                            !isVariant &&
-                            selectedProductIds.some(id => {
-                                const opt = productOptionById.get(id);
-                                return opt?.isVariant && opt.parentId === productId;
-                            });
-                        const formatValues = tenantProducts.find(
-                            p => p.id === productId
-                        )?.format_values;
-
-                        return (
-                            <PriceOverrideRow
-                                key={productId}
-                                productId={productId}
-                                productName={productLabelById.get(productId) ?? productId}
-                                isVariant={isVariant}
-                                parentHasOverride={parentHasOverride}
-                                hasVariantOverrides={hasVariantOverrides}
-                                formatValues={formatValues}
-                                override={productOverrides[productId]}
-                                productOverrides={productOverrides}
-                                onOverrideChange={next =>
-                                    onFormChange({ productOverrides: next })
-                                }
-                                onRemove={removeSelectedProduct}
-                            />
-                        );
-                    })}
-                </div>
+            {pricesError && (
+                <Text id="rule-field-prices" tabIndex={-1} variant="caption" colorVariant="error">
+                    {pricesError}
+                </Text>
             )}
+
+            {sortedSelectedProductIds.length === 0 ? (
+                <div className={styles.hintCard}>
+                    <Text variant="body-sm" colorVariant="muted">
+                        {`Nessun ${product} ancora: aggiungine uno per dargli un prezzo.`}
+                    </Text>
+                </div>
+            ) : (
+                <DataTable<PriceTableRow>
+                    data={priceRows}
+                    columns={priceColumns}
+                    getRowId={row => row.key}
+                    // Dentro una card di una pagina che scorre: la tabella è
+                    // alta quanto le righe, come RuleTable.
+                    maxHeight="none"
+                    showFooter={false}
+                    pageSize={9999}
+                    pageSizeOptions={["all"]}
+                />
+            )}
+
+            {productsDrawer}
         </section>
     );
 }

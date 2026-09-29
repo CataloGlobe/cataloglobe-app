@@ -2,24 +2,29 @@ import React, { useEffect, useMemo, useState, useCallback, useRef } from "react"
 import { useParams, useNavigate } from "react-router-dom";
 import { useTenantId } from "@/context/useTenantId";
 import { useBreadcrumbItems } from "@/context/useBreadcrumbItems";
+import { usePageHeader } from "@/context/usePageHeader";
+import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { Button } from "@/components/ui/Button/Button";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import Text from "@/components/ui/Text/Text";
+import Skeleton from "@/components/ui/Skeleton/Skeleton";
+import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { useToast } from "@/context/Toast/ToastContext";
-import { IconLayoutSidebarRightCollapse, IconLayoutSidebarRightExpand, IconChevronDown, IconDeviceMobile, IconDeviceDesktop, IconHistory } from "@tabler/icons-react";
+import { IconLayoutSidebarRightCollapse, IconLayoutSidebarRightExpand, IconChevronDown, IconDeviceMobile, IconDeviceDesktop, IconHistory, IconPalette } from "@tabler/icons-react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
     getStyle,
     updateStyle,
     duplicateStyle,
-    getStyleUsageCount,
     V2Style
 } from "@/services/supabase/styles";
+import { listAppearanceSources } from "@/services/supabase/layoutScheduling";
+import { toRomeDateTime } from "@/services/supabase/schedulingNow";
+import { appearanceOf, buildAppearance, describeStyleSaveWarning } from "@/utils/ruleAppearance";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import { StylePreview, type ViewMode } from "./Editor/StylePreview";
 import { SegmentedControl } from "@components/ui/SegmentedControl/SegmentedControl";
 import { StylePropertiesPanel } from "./Editor/StylePropertiesPanel";
-import { StylePropertiesReadOnly } from "./Editor/StylePropertiesReadOnly";
 import { StyleVersionsPopover } from "./Editor/StyleVersionsPopover";
 import { useStyleVersioning } from "./Editor/useStyleVersioning";
 import {
@@ -30,6 +35,17 @@ import {
 } from "./Editor/StyleTokenModel";
 import styles from "./Styles.module.scss";
 import { loadPublicFonts } from "@utils/loadPublicFonts";
+import { usePermissions } from "@/context/PermissionsContext";
+import { canDoOnTenant } from "@/lib/permissions";
+import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
+import { PageGate } from "@/components/PageGate/PageGate";
+import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
+import { useUnsavedChangesGuard } from "@/components/ui/UnsavedChangesBar/useUnsavedChangesGuard";
+import {
+    HeaderSaveAction,
+    DiscardChangesConfirmDialog
+} from "@/pages/Dashboard/Stories/components/HeaderSaveAction";
+import { buildSaveActionCompactConfig } from "@/pages/Dashboard/Stories/components/headerSaveActionCompact";
 
 // Larghezza del drawer Proprietà. Single source: framer anima questa width
 // (0 ↔ PANEL_WIDTH); l'inner è fissato a PANEL_WIDTH così non reflowa durante
@@ -41,8 +57,17 @@ export default function StyleEditorPage() {
     const navigate = useNavigate();
     const currentTenantId = useTenantId();
     const { showToast } = useToast();
+    const { permissions } = usePermissions();
+    const { canEdit } = useSubscriptionGuard();
+    // Gate di lettura prima di ogni fetch («skip fetch pre-check»); il blocco
+    // lo rende `PageGate` più sotto.
+    const canRead = permissions != null && canDoOnTenant(permissions, "styles.read");
+    // Chi non ha `styles.write` (o ha l'abbonamento fermo) vede lo stile com'è:
+    // pannello spento, niente Salva, niente ripristino di versioni.
+    const canWrite = permissions != null && canDoOnTenant(permissions, "styles.write");
 
     const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [isDuplicating, setIsDuplicating] = useState(false);
     const [isPanelOpen, setIsPanelOpen] = useState(true);
@@ -68,12 +93,18 @@ export default function StyleEditorPage() {
     const [tokenModel, setTokenModel] = useState<StyleTokenModel>(DEFAULT_STYLE_TOKENS);
     const [originalTokens, setOriginalTokens] = useState<StyleTokenModel>(DEFAULT_STYLE_TOKENS);
     const [isConfirmOpen, setIsConfirmOpen] = useState(false);
-    const [pendingUsageCount, setPendingUsageCount] = useState(0);
-    const [skipConfirmChecked, setSkipConfirmChecked] = useState(false);
+    // L'avviso prima di salvare (§34.5): chi vede la modifica, e quando.
+    const [saveWarning, setSaveWarning] = useState<string | null>(null);
+    const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
 
-    const isDirty =
-        name !== styleData?.name || JSON.stringify(tokenModel) !== JSON.stringify(originalTokens);
     const isSystem = Boolean(styleData?.is_system);
+    // Uno stile di sistema non si modifica da nessuno: si duplica.
+    const readOnly = !canWrite || !canEdit || isSystem;
+    const isDirty =
+        styleData != null &&
+        (name !== styleData.name || JSON.stringify(tokenModel) !== JSON.stringify(originalTokens));
+
+    useUnsavedChangesGuard(isDirty && !readOnly);
 
     useEffect(() => {
         return loadPublicFonts();
@@ -98,9 +129,10 @@ export default function StyleEditorPage() {
         async (id: string) => {
             try {
                 setIsLoading(true);
+                setLoadError(false);
                 const data = await getStyle(id, currentTenantId!);
+                setStyleData(data);
                 if (data) {
-                    setStyleData(data);
                     setName(data.name);
                     try {
                         const parsed = parseTokens(data.current_version?.config ?? {});
@@ -110,23 +142,22 @@ export default function StyleEditorPage() {
                         setTokenModel(DEFAULT_STYLE_TOKENS);
                         setOriginalTokens(DEFAULT_STYLE_TOKENS);
                     }
-                } else {
-                    showToast({ message: "Stile non trovato.", type: "error" });
-                    navigate(`/business/${currentTenantId}/styles`);
                 }
-            } catch {
-                showToast({ message: "Errore nel caricamento dello stile.", type: "error" });
+            } catch (error) {
+                // Un errore non è «non trovato»: la pagina lo dice, con «Riprova».
+                console.error("Caricamento stile:", error);
+                setLoadError(true);
             } finally {
                 setIsLoading(false);
             }
         },
-        [currentTenantId, showToast, navigate]
+        [currentTenantId]
     );
 
     useEffect(() => {
-        if (!currentTenantId || !styleId) return;
+        if (!currentTenantId || !styleId || !canRead) return;
         loadStyle(styleId);
-    }, [currentTenantId, styleId, loadStyle]);
+    }, [currentTenantId, styleId, canRead, loadStyle]);
 
     const onRollbackComplete = useCallback(async () => {
         if (styleId) await loadStyle(styleId);
@@ -137,18 +168,22 @@ export default function StyleEditorPage() {
         tenantId: styleData?.tenant_id,
         onRollbackComplete
     });
+    const invalidateVersions = versioning.invalidate;
 
     const doSave = useCallback(async (): Promise<boolean> => {
         if (!styleData) return false;
         const config = serializeTokens(tokenModel);
         setIsSaving(true);
         try {
-            await updateStyle(styleData.id, name, config, styleData.tenant_id);
+            await updateStyle(styleData.id, name.trim(), config, styleData.tenant_id);
             showToast({ message: "Stile aggiornato (nuova versione creata).", type: "success" });
             setOriginalTokens(parseTokens(config));
-            versioning.invalidate();
+            invalidateVersions();
             const refreshed = await getStyle(styleData.id, styleData.tenant_id);
-            if (refreshed) setStyleData(refreshed);
+            if (refreshed) {
+                setStyleData(refreshed);
+                setName(refreshed.name);
+            }
             return true;
         } catch {
             showToast({ message: "Impossibile salvare lo stile.", type: "error" });
@@ -156,63 +191,46 @@ export default function StyleEditorPage() {
         } finally {
             setIsSaving(false);
         }
-    }, [name, tokenModel, styleData, showToast, versioning.invalidate]);
+    }, [name, tokenModel, styleData, showToast, invalidateVersions]);
+
+    // Salva: se lo stile veste delle regole, prima l'avviso (§34.5). L'avviso
+    // non si spegne: dice cosa succede ogni volta che è vero (§34.5/3).
+    const handleSave = useCallback(async () => {
+        if (!styleData || readOnly) return;
+        if (!name.trim()) {
+            showToast({ message: "Il nome dello stile è obbligatorio.", type: "error" });
+            return;
+        }
+        setIsSaving(true);
+        let warning: string | null = null;
+        try {
+            // Le regole si rileggono al Salva: chi vede la modifica è quello di adesso.
+            const sources = await listAppearanceSources(styleData.tenant_id);
+            const index = buildAppearance({ ...sources, instant: toRomeDateTime(new Date()), subscriptionInactive: !canEdit });
+            warning = describeStyleSaveWarning(appearanceOf(index, { kind: "style", id: styleData.id }));
+        } catch {
+            showToast({ message: "Impossibile salvare lo stile.", type: "error" });
+            setIsSaving(false);
+            return;
+        }
+        setIsSaving(false);
+        if (warning) {
+            setSaveWarning(warning);
+            setIsConfirmOpen(true);
+            return;
+        }
+        await doSave();
+    }, [name, styleData, readOnly, canEdit, showToast, doSave]);
 
     const handleSubmit = useCallback(
-        async (e: React.FormEvent) => {
+        (e: React.FormEvent) => {
             e.preventDefault();
-            if (!name.trim()) {
-                showToast({ message: "Il nome dello stile è obbligatorio.", type: "error" });
-                return;
-            }
-            if (!styleData) {
-                navigate(`/business/${currentTenantId}/styles`);
-                return;
-            }
-
-            const skipKey = `cataloglobe-style-skip-confirm-${styleData.id}`;
-            if (localStorage.getItem(skipKey)) {
-                await doSave();
-                return;
-            }
-
-            setIsSaving(true);
-            let count = 0;
-            try {
-                count = await getStyleUsageCount(styleData.id, styleData.tenant_id);
-            } catch {
-                showToast({ message: "Impossibile salvare lo stile.", type: "error" });
-                setIsSaving(false);
-                return;
-            }
-            setIsSaving(false);
-
-            if (count > 0) {
-                setPendingUsageCount(count);
-                setSkipConfirmChecked(false);
-                setIsConfirmOpen(true);
-                return;
-            }
-
-            await doSave();
+            void handleSave();
         },
-        [name, styleData, currentTenantId, showToast, navigate, doSave]
+        [handleSave]
     );
 
-    const handleConfirmSave = useCallback(async (): Promise<boolean> => {
-        const ok = await doSave();
-        if (ok && skipConfirmChecked && styleData) {
-            localStorage.setItem(`cataloglobe-style-skip-confirm-${styleData.id}`, "true");
-        }
-        return ok;
-    }, [doSave, skipConfirmChecked, styleData]);
-
-    const handleConfirmClose = useCallback(() => {
-        setIsConfirmOpen(false);
-        setSkipConfirmChecked(false);
-    }, []);
-
-    const handleReset = useCallback(() => {
+    const handleDiscard = useCallback(() => {
         setTokenModel(originalTokens);
         setName(styleData?.name ?? "");
     }, [originalTokens, styleData]);
@@ -221,11 +239,7 @@ export default function StyleEditorPage() {
         if (!styleData) return;
         setIsDuplicating(true);
         try {
-            const copy = await duplicateStyle(
-                styleData.id,
-                `Copia di ${styleData.name}`,
-                styleData.tenant_id
-            );
+            const copy = await duplicateStyle(styleData.id, `Copia di ${styleData.name}`, styleData.tenant_id);
             showToast({ message: "Stile duplicato con successo.", type: "success" });
             navigate(`/business/${currentTenantId}/styles/${copy.id}`);
         } catch {
@@ -237,22 +251,109 @@ export default function StyleEditorPage() {
 
     const breadcrumbItems = useMemo(() => [
         { label: "Stili", to: `/business/${currentTenantId}/styles` },
-        { label: name || "Stile" }
-    ], [currentTenantId, name]);
+        { label: styleData?.name || "Stile" }
+    ], [currentTenantId, styleData?.name]);
 
     useBreadcrumbItems(breadcrumbItems);
 
-    if (isLoading) {
+    // Testata: il Salva della bozza per chi modifica; «Duplica e
+    // personalizza» sullo stile di sistema per chi può creare stili.
+    const canDuplicateSystem = isSystem && canWrite && canEdit;
+    const actions = useMemo(() => {
+        if (canDuplicateSystem) {
+            return (
+                <Button variant="primary" loading={isDuplicating} onClick={handleDuplicateAndEdit}>
+                    Duplica e personalizza
+                </Button>
+            );
+        }
+        if (readOnly || !styleData) return undefined;
         return (
-            <section className={styles.container}>
+            <HeaderSaveAction
+                isDirty={isDirty}
+                isSaving={isSaving}
+                onSave={() => void handleSave()}
+                onDiscard={handleDiscard}
+            />
+        );
+    }, [canDuplicateSystem, isDuplicating, handleDuplicateAndEdit, readOnly, styleData, isDirty, isSaving, handleSave, handleDiscard]);
+
+    const headerCompact = useMemo<PageHeaderCompactConfig>(() => {
+        if (canDuplicateSystem) {
+            return { primaryAction: { label: "Duplica e personalizza", onClick: handleDuplicateAndEdit } };
+        }
+        if (readOnly || !styleData) return {};
+        return buildSaveActionCompactConfig({
+            isDirty,
+            isSaving,
+            onSave: () => void handleSave(),
+            onRequestDiscard: () => setConfirmDiscardOpen(true)
+        });
+    }, [canDuplicateSystem, handleDuplicateAndEdit, readOnly, styleData, isDirty, isSaving, handleSave]);
+
+    usePageHeader({ actions, compact: headerCompact });
+
+    if (permissions != null && !canRead) {
+        return <PageGate readPermission="styles.read">{() => null}</PageGate>;
+    }
+
+    if (isLoading) {
+        // Stessa sagoma della pagina: l'anteprima e il pannello.
+        return (
+            <section className={styles.container} aria-busy="true" aria-label="Caricamento">
                 <div className={styles.editorLayout}>
                     <div className={styles.canvasCol}>
-                        <div className={styles.canvasArea} />
+                        <Skeleton height="100%" />
+                    </div>
+                    <div className={styles.skeletonPanel}>
+                        <Skeleton height="100%" />
                     </div>
                 </div>
             </section>
         );
     }
+
+    if (loadError) {
+        return (
+            <EmptyState
+                variant="page"
+                icon={<IconPalette />}
+                title="Non è stato possibile caricare lo stile"
+                description="Controlla la connessione e riprova."
+                action={
+                    <Button variant="secondary" onClick={() => styleId && loadStyle(styleId)}>
+                        Riprova
+                    </Button>
+                }
+            />
+        );
+    }
+
+    if (!styleData) {
+        return (
+            <EmptyState
+                variant="page"
+                icon={<IconPalette />}
+                title="Stile non trovato"
+                description="Lo stile che cerchi non esiste o è stato eliminato."
+                action={
+                    <Button onClick={() => navigate(`/business/${currentTenantId}/styles`)}>
+                        Torna a Stili
+                    </Button>
+                }
+            />
+        );
+    }
+
+    const banner = isSystem
+        ? canDuplicateSystem
+            ? "Stile di sistema: non si modifica. «Duplica e personalizza» ne fa uno tuo."
+            : "Stile di sistema: non si modifica."
+        : !canWrite
+          ? "Sola lettura: per modificare gli stili serve un ruolo di amministratore."
+          : !canEdit
+            ? "Sola lettura: l'abbonamento non è attivo."
+            : null;
 
     return (
         <section className={styles.container}>
@@ -283,7 +384,7 @@ export default function StyleEditorPage() {
                                     }
                                 >
                                     <IconLayoutSidebarRightExpand size={16} />
-                                    <span className={styles.panelHandleLabel}>Proprietà</span>
+                                    <Text as="span" variant="caption" weight={600} className={styles.panelHandleLabel}>Proprietà</Text>
                                 </motion.button>
                             )}
                         </AnimatePresence>
@@ -306,7 +407,7 @@ export default function StyleEditorPage() {
                         exit={{ width: 0 }}
                         transition={reduce ? { duration: 0 } : { duration: 0.36, ease: [0.22, 1, 0.36, 1] }}
                     >
-                    <div className={styles.propertiesPanelInner} style={{ width: PANEL_WIDTH }}>
+                    <div className={styles.propertiesPanelInner}>
 
                         {/* Header strip: titolo + comprimi (sostituisce la X isolata) */}
                         <div className={styles.panelTitleRow}>
@@ -321,8 +422,7 @@ export default function StyleEditorPage() {
                             </button>
                         </div>
 
-                        {/* Toggle anteprima Mobile/Desktop — zona fissa sotto l'header.
-                            Stesso setter/stato di prima (handleViewModeChange / viewMode). */}
+                        {/* Toggle anteprima Mobile/Desktop — zona fissa sotto l'header. */}
                         <div className={styles.panelToggleRow}>
                             <SegmentedControl<ViewMode>
                                 value={viewMode}
@@ -334,9 +434,9 @@ export default function StyleEditorPage() {
                             />
                         </div>
 
-                        {/* Controllo versione prominente — zona fissa sotto l'header.
-                            Stessa visibilità condizionale di prima (solo editing). */}
-                        {!isSystem && styleData && (
+                        {/* Controllo versione — zona fissa sotto l'header. Gli stili di
+                            sistema non hanno versioni da sfogliare. */}
+                        {!isSystem && (
                             <div className={styles.versionZone}>
                                 <button
                                     ref={versionAnchorRef}
@@ -351,7 +451,7 @@ export default function StyleEditorPage() {
                                         <Text variant="body-sm" weight={700}>
                                             Versione {styleData.current_version?.version || "N/A"}
                                         </Text>
-                                        <Text variant="caption" colorVariant="muted">
+                                        <Text variant="caption-xs" colorVariant="muted">
                                             Aggiornata {new Date(styleData.updated_at).toLocaleString("it-IT")}
                                         </Text>
                                     </span>
@@ -369,6 +469,7 @@ export default function StyleEditorPage() {
                                         isRollingBack={versioning.isRollingBack}
                                         onSelectVersion={versioning.handleVersionSelect}
                                         onRollback={versioning.handleVersionRollback}
+                                        readOnly={readOnly}
                                         onClose={versioning.handleVersionClose}
                                         anchorEl={versionAnchorRef.current}
                                     />
@@ -376,21 +477,14 @@ export default function StyleEditorPage() {
                             </div>
                         )}
 
-                        {/* Contenuto scrollabile */}
+                        {/* Contenuto scrollabile: lo stesso pannello per tutti, spento
+                            per chi non lo modifica (§50.11/3). */}
                         <div className={styles.panelContent}>
-                            {isSystem ? (
-                                <div className={styles.panelForm}>
-                                    <Text variant="body-sm" weight={600}>
-                                        {name}
-                                    </Text>
-                                    <StylePropertiesReadOnly model={tokenModel} />
-                                </div>
-                            ) : (
-                                <form
-                                    id="style-form"
-                                    className={styles.panelForm}
-                                    onSubmit={handleSubmit}
-                                >
+                            {banner && permissions != null && (
+                                <InlineBanner variant="info">{banner}</InlineBanner>
+                            )}
+                            <form id="style-form" onSubmit={handleSubmit}>
+                                <fieldset className={`${styles.panelForm} ${styles.readOnlyScope}`} disabled={readOnly}>
                                     <TextInput
                                         label="Nome stile"
                                         required
@@ -402,43 +496,8 @@ export default function StyleEditorPage() {
                                         model={tokenModel}
                                         onChange={setTokenModel}
                                     />
-                                </form>
-                            )}
-                        </div>
-
-                        {/* Footer sticky: azioni per ramo (stessa condizione/callback) */}
-                        <div className={styles.panelFooter}>
-                            {isSystem ? (
-                                <div className={styles.systemHeaderActions}>
-                                    <span className={styles.systemBadge}>Stile di sistema</span>
-                                    <Button
-                                        variant="primary"
-                                        loading={isDuplicating}
-                                        onClick={handleDuplicateAndEdit}
-                                    >
-                                        Duplica e personalizza
-                                    </Button>
-                                </div>
-                            ) : (
-                                <div className={styles.panelActions}>
-                                    <Button
-                                        variant="secondary"
-                                        onClick={handleReset}
-                                        disabled={!isDirty || isSaving}
-                                    >
-                                        Annulla
-                                    </Button>
-                                    <Button
-                                        variant="primary"
-                                        type="submit"
-                                        form="style-form"
-                                        loading={isSaving}
-                                        disabled={!isDirty}
-                                    >
-                                        Salva
-                                    </Button>
-                                </div>
-                            )}
+                                </fieldset>
+                            </form>
                         </div>
                     </div>
                     </motion.aside>
@@ -449,22 +508,19 @@ export default function StyleEditorPage() {
 
             <ConfirmDialog
                 isOpen={isConfirmOpen}
-                onClose={handleConfirmClose}
-                onConfirm={handleConfirmSave}
+                onClose={() => setIsConfirmOpen(false)}
+                onConfirm={doSave}
                 title="Stile in uso"
-                message={`Questo stile è attualmente utilizzato in ${pendingUsageCount} ${pendingUsageCount === 1 ? "regola" : "regole"}. Le modifiche saranno applicate immediatamente alle sedi che lo utilizzano.`}
+                message={saveWarning ?? ""}
                 confirmLabel="Salva comunque"
                 confirmVariant="primary"
-            >
-                <label className={styles.confirmCheckbox}>
-                    <input
-                        type="checkbox"
-                        checked={skipConfirmChecked}
-                        onChange={e => setSkipConfirmChecked(e.target.checked)}
-                    />
-                    Non chiedere più per questo stile
-                </label>
-            </ConfirmDialog>
+            />
+
+            <DiscardChangesConfirmDialog
+                isOpen={confirmDiscardOpen}
+                onClose={() => setConfirmDiscardOpen(false)}
+                onDiscard={handleDiscard}
+            />
         </section>
     );
 }

@@ -1,5 +1,7 @@
-import type { Page, Route } from "@playwright/test";
+import type { Page } from "@playwright/test";
 import { TENANT_ID } from "./reservationsStub";
+import { stubRest, type RestStub, type Row, type Tables } from "./restStub";
+import { appearanceTables, enrichAppearance, freezeClock, sediOf } from "./appearanceStub";
 
 /**
  * Dati finti per l'e2e di Menù (lotto `ds-5-menu`, passo 2 P0).
@@ -9,11 +11,22 @@ import { TENANT_ID } from "./reservationsStub";
  * rispondono da questi elenchi, filtrati come farebbe PostgREST sui parametri
  * che le pagine usano. Permessi, azienda e sidebar restano veri.
  *
- * Le scritture non partono mai. POST, PATCH e DELETE su qualunque tabella, le
- * RPC che non leggono, le edge function e la rivalidazione del menù pubblico
- * sono intercettate: chi prova un gesto registra una risposta con `onWrite`
- * («tabella.METODO») e controlla corpo e filtri (test di cablaggio). Un gesto
- * senza risposta registrata riceve 500, come un server rotto.
+ * Le scritture non partono mai: la macchina è in `restStub.ts` (scritture
+ * intercettate, 500 per quelle non registrate, `onWrite`, `revoke`); qui in
+ * più la rivalidazione del menù pubblico risponde ok.
+ *
+ * Dove è attivo (§50.13, `appearanceStub.ts`, orologio mercoledì 12:00):
+ *
+ * | Regola | Menù | Stile | Dove | Quando | Alle 12 |
+ * |---|---|---|---|---|---|
+ * | Pranzo Centro e2e | Carta | Estate | Centro | Lun–Ven 11–15 | in onda |
+ * | Sera Porto e2e | Carta | Estate | Porto | 18–21 | fuori finestra |
+ * | Pranzo feriale | Pranzo | Base | Lago (sospesa) | sempre | sede sospesa |
+ *
+ * «Vuoto e2e» non ha regole. Con `{ extraMenu: true }` un quarto menù,
+ * «Aperitivo e2e», con il Prosecco: il Prosecco è «in 2 menù». Con
+ * `{ twoStyles: true }` «Sera Porto» è sempre in finestra e veste Base: Carta
+ * va in onda in due sedi con due stili.
  */
 
 export { TENANT_ID };
@@ -32,8 +45,11 @@ export const CAT = {
     primi: uuid(108)
 } as const;
 export const MISSING_MENU = uuid(999);
+export const EXTRA_MENU = uuid(4);
+export const { SEDE } = sediOf("e2e0c000");
+export const RULE = { pranzoFeriale: uuid(601), pranzoCentro: uuid(611), seraPorto: uuid(612) } as const;
+export const STYLE = { estate: uuid(701), base: uuid(702) } as const;
 
-type Row = Record<string, unknown>;
 
 const CREATED = "2026-03-17T10:00:00.000Z";
 
@@ -184,14 +200,45 @@ function links(): Row[] {
 const SKU_DEF = uuid(401);
 const FORMAT_GROUP = uuid(402);
 
-type Tables = Record<string, Row[]>;
-
-function makeTables(): Tables {
+function makeTables(extraMenu: boolean, twoStyles: boolean): Tables {
     const base = products();
+    const extraLink: Row = {
+        id: uuid(399),
+        tenant_id: TENANT_ID,
+        catalog_id: EXTRA_MENU,
+        category_id: uuid(109),
+        product_id: PRODUCT.prosecco,
+        variant_product_id: null,
+        sort_order: 10,
+        created_at: CREATED
+    };
+    const style = (id: string, name: string, n: number): Row => ({
+        id,
+        tenant_id: TENANT_ID,
+        name,
+        is_system: false,
+        is_active: true,
+        current_version_id: uuid(710 + n),
+        created_at: CREATED,
+        updated_at: CREATED
+    });
     return {
-        catalogs: catalogs(),
-        catalog_categories: categories(),
-        catalog_category_products: links(),
+        catalogs: [
+            ...catalogs(),
+            ...(extraMenu ? [{ id: EXTRA_MENU, tenant_id: TENANT_ID, name: "Aperitivo e2e", created_at: "2026-03-14T10:00:00.000Z" }] : [])
+        ],
+        catalog_categories: [
+            ...categories(),
+            ...(extraMenu
+                ? [{ id: uuid(109), tenant_id: TENANT_ID, catalog_id: EXTRA_MENU, name: "Bollicine", level: 1, parent_category_id: null, sort_order: 0, created_at: CREATED }]
+                : [])
+        ],
+        catalog_category_products: [...links(), ...(extraMenu ? [extraLink] : [])],
+        styles: [style(STYLE.estate, "Estate e2e", 1), style(STYLE.base, "Base e2e", 2)],
+        style_versions: [
+            { id: uuid(711), tenant_id: TENANT_ID, style_id: STYLE.estate, version: 3, config: { colors: { primary: "#f59e0b", pageBackground: "#ffffff" } }, created_at: CREATED },
+            { id: uuid(712), tenant_id: TENANT_ID, style_id: STYLE.base, version: 1, config: { colors: { primary: "#6366f1", pageBackground: "#ffffff" } }, created_at: CREATED }
+        ],
         products: base.flatMap(p => [productRow(p, null), ...(p.variants ?? []).map(v => productRow(v, p.id))]),
         product_option_groups: [{ id: FORMAT_GROUP, tenant_id: TENANT_ID, product_id: PRODUCT.tagliere, group_kind: "PRIMARY_PRICE" }],
         product_option_values: [
@@ -209,136 +256,37 @@ function makeTables(): Tables {
         product_attribute_values: [
             { id: uuid(405), tenant_id: TENANT_ID, product_id: PRODUCT.olive, attribute_definition_id: SKU_DEF, value_text: "ANT-003" }
         ],
-        // «Pranzo e2e» è puntato da una regola di layout attiva: non si elimina.
-        schedule_layout: [
-            {
-                schedule_id: uuid(601),
-                tenant_id: TENANT_ID,
-                catalog_id: MENU.pranzo,
-                schedule: { id: uuid(601), name: "Pranzo feriale", enabled: true, start_at: null, end_at: null, tenant_id: TENANT_ID }
-            }
-        ]
+        // «Pranzo e2e» è puntato da una regola di layout: non si elimina.
+        ...appearanceTables("e2e0c000", [
+            { id: RULE.pranzoCentro, name: "Pranzo Centro e2e", rule_type: "layout", catalog_id: MENU.carta, style_id: STYLE.estate, activities: [SEDE.centro], time_mode: "window", days_of_week: [1, 2, 3, 4, 5], time_from: "11:00:00", time_to: "15:00:00" },
+            twoStyles
+                ? { id: RULE.seraPorto, name: "Sera Porto e2e", rule_type: "layout", catalog_id: MENU.carta, style_id: STYLE.base, activities: [SEDE.porto] }
+                : { id: RULE.seraPorto, name: "Sera Porto e2e", rule_type: "layout", catalog_id: MENU.carta, style_id: STYLE.estate, activities: [SEDE.porto], time_mode: "window", time_from: "18:00:00", time_to: "21:00:00" },
+            { id: RULE.pranzoFeriale, name: "Pranzo feriale", rule_type: "layout", catalog_id: MENU.pranzo, style_id: STYLE.base, activities: [SEDE.lago] }
+        ])
     };
 }
 
-/** Il sottoinsieme dei filtri PostgREST che le pagine del menù usano. */
-function matches(row: Row, params: URLSearchParams): boolean {
-    for (const [key, raw] of params) {
-        if (["select", "order", "limit", "offset", "or", "and"].includes(key) || key.includes(".")) continue;
-        const dot = raw.indexOf(".");
-        const op = raw.slice(0, dot);
-        const value = raw.slice(dot + 1);
-        const field = row[key];
-        const text = field === null || field === undefined ? null : String(field);
-        if (op === "eq" && text !== value) return false;
-        if (op === "neq" && text === value) return false;
-        if (op === "is" && !(value === "null" ? text === null : text === value)) return false;
-        if (op === "in" && !value.replace(/[()"]/g, "").split(",").includes(text ?? "")) return false;
-    }
-    return true;
-}
+export type { WriteCall, WriteHandler } from "./restStub";
+export type MenuStub = RestStub;
 
-export type WriteCall = { key: string; params: URLSearchParams; body: unknown };
-export type WriteHandler = (call: WriteCall) => unknown;
-
-export type MenuStub = {
-    /** Ogni scrittura intercettata, in ordine («tabella.METODO», filtri, corpo). */
-    writes: WriteCall[];
-    /** Registra la risposta finta di una scrittura (test di cablaggio). */
-    onWrite: (key: string, handler: WriteHandler) => void;
-    /**
-     * Toglie un permesso dalla risposta vera di `get_my_permissions`. Risolve
-     * `revoked` alla prima risposta riscritta: prima di allora le azioni sono
-     * nascoste comunque (permessi in caricamento), e un «non c'è» passerebbe
-     * senza aver provato niente.
-     */
-    revoke: (permission: string) => Promise<void>;
-    revoked: Promise<void>;
-};
-
-export async function stubMenu(page: Page): Promise<MenuStub> {
-    const tables = makeTables();
-    const handlers = new Map<string, WriteHandler>();
-    let markRevoked: () => void = () => {};
-    const revoked = new Promise<void>(resolve => {
-        markRevoked = resolve;
-    });
-    const stub: MenuStub = {
-        writes: [],
-        onWrite: (key, handler) => handlers.set(key, handler),
-        revoked,
-        revoke: async permission => {
-            await page.route(/\/rest\/v1\/rpc\/get_my_permissions/, async route => {
-                try {
-                    const response = await route.fetch();
-                    const rows = (await response.json()) as Array<{ permissions: string[] | null }>;
-                    for (const row of rows) row.permissions = (row.permissions ?? []).filter(p => p !== permission);
-                    await route.fulfill({ response, json: rows });
-                    markRevoked();
-                } catch {
-                    // Pagina chiusa a metà richiesta (fine del test): niente da riscrivere.
-                }
-            });
-        }
-    };
-
-    async function intercept(route: Route, key: string) {
-        const request = route.request();
-        const params = new URL(request.url()).searchParams;
-        const body = request.postData() ? (request.postDataJSON() as unknown) : null;
-        const call = { key, params, body };
-        stub.writes.push(call);
-        const handler = handlers.get(key);
-        if (!handler) {
-            return route.fulfill({ status: 500, json: { code: "E2E", message: `${key} non prevista dall'e2e` } });
-        }
-        const json = handler(call);
-        if (json === undefined || json === null) return route.fulfill({ status: 204, body: "" });
-        await route.fulfill({ status: request.method() === "POST" ? 201 : 200, json });
-    }
-
-    // Registrata per prima: Playwright prova le rotte dall'ultima, quindi
-    // questa è la rete sotto tutte le altre. Ogni scrittura su una tabella
-    // qualunque (traduzioni, code di lavoro…) passa di qui.
-    await page.route("**/rest/v1/**", route => {
-        const request = route.request();
-        const path = new URL(request.url()).pathname;
-        const table = path.split("/rest/v1/")[1] ?? "";
-        if (table.startsWith("rpc/")) {
-            const fn = table.slice(4);
-            return /^(get|is|has|can)_/.test(fn) ? route.fallback() : intercept(route, `rpc.${fn}`);
-        }
-        if (request.method() === "GET" || request.method() === "HEAD") return route.fallback();
-        return intercept(route, `${table}.${request.method()}`);
-    });
-
-    for (const table of Object.keys(tables)) {
-        await page.route(new RegExp(`/rest/v1/${table}(\\?|$)`), async route => {
-            const request = route.request();
-            if (request.method() !== "GET") return intercept(route, `${table}.${request.method()}`);
-            const params = new URL(request.url()).searchParams;
-            let rows = tables[table].filter(row => matches(row, params));
-            if (table === "products" && (params.get("select") ?? "").includes("variants")) {
-                rows = rows.map(row => ({
-                    ...row,
-                    variants: tables.products.filter(v => v.parent_product_id === row.id)
-                }));
+export async function stubMenu(page: Page, options: { extraMenu?: boolean; twoStyles?: boolean } = {}): Promise<MenuStub> {
+    const tables = makeTables(Boolean(options.extraMenu), Boolean(options.twoStyles));
+    const stub = await stubRest(page, {
+        tables,
+        enrich: (table, rows, params) => {
+            const select = params.get("select") ?? "";
+            if (table === "products" && select.includes("variants")) {
+                return rows.map(row => ({ ...row, variants: tables.products.filter(v => v.parent_product_id === row.id) }));
             }
-            const wantsObject = (request.headers()["accept"] ?? "").includes("vnd.pgrst.object");
-            if (!wantsObject) return route.fulfill({ json: rows });
-            if (rows.length !== 1) {
-                return route.fulfill({
-                    status: 406,
-                    json: { code: "PGRST116", details: `The result contains ${rows.length} rows`, hint: null, message: "JSON object requested, multiple (or no) rows returned" }
-                });
+            if (table === "styles" && select.includes("current_version")) {
+                return rows.map(row => ({ ...row, current_version: tables.style_versions.find(v => v.id === row.current_version_id) ?? null }));
             }
-            return route.fulfill({ json: rows[0] });
-        });
-    }
-
-    await page.route(/\/functions\/v1\//, route => intercept(route, `fn.${new URL(route.request().url()).pathname.split("/").pop()}`));
+            return enrichAppearance(tables, table, rows, params) ?? rows;
+        }
+    });
+    await freezeClock(page);
     await page.route(/\/api\/public-catalog\/revalidate/, route => route.fulfill({ json: { ok: true } }));
-
     return stub;
 }
 

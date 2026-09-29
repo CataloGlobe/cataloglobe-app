@@ -17,6 +17,7 @@ import { Textarea } from "@/components/ui/Textarea/Textarea";
 import { Switch } from "@/components/ui/Switch/Switch";
 import { RadioGroup } from "@/components/ui/RadioGroup/RadioGroup";
 import { RoleSelector } from "@/components/ui/RoleSelector/RoleSelector";
+import { ActivityMultiSelect } from "@/components/ui/ActivityMultiSelect/ActivityMultiSelect";
 import { ImageUploadField } from "@/components/ui/ImageUploadField/ImageUploadField";
 import type { UserRole } from "@/lib/permissions";
 import { State, noop, type GallerySection } from "../gallery";
@@ -27,6 +28,22 @@ import styles from "../DevUiPage.module.scss";
  * ottiene con Tab, `autoFocus` non è replicabile su più campi) · error ·
  * disabled · con helper. Il focus si guarda navigando con la tastiera.
  */
+function HourRange() {
+    const [minutes, setMinutes] = useState(12 * 60);
+    return (
+        <RangeInput
+            aria-label="Ora del giorno"
+            min={0}
+            max={24 * 60}
+            step={30}
+            value={minutes}
+            onChange={e => setMinutes(Number(e.target.value))}
+            showValue={false}
+            marks={["00", "06", "12", "18", "24"]}
+        />
+    );
+}
+
 function FiveStates({
     label,
     render
@@ -105,6 +122,11 @@ function InputSection() {
                 render={p => <FileInput label="Logo" value={file} onChange={setFile} accept="image/*" maxSizeMb={2} {...p} />}
             />
             <FiveStates label="RangeInput" render={p => <RangeInput label="Zoom" min={1} max={3} step={0.1} defaultValue={1} showValue {...p} />} />
+            <State label="RangeInput con tacche (il cursore dell'ora di Programmazione): a passi di 30 minuti, valore nascosto" column>
+                <div className={styles.narrow}>
+                    <HourRange />
+                </div>
+            </State>
             <FiveStates
                 label="CheckboxInput"
                 render={p => <CheckboxInput label="Accetto i termini" description="Obbligatorio per procedere" {...p} />}
@@ -211,6 +233,30 @@ function RadioGroupSection() {
     );
 }
 
+const GALLERY_SEDI = [
+    "Garbagnate", "Comasina", "Città Studi", "Varedo", "Baranzate", "Navigli",
+    "Isola", "Porta Romana", "Bicocca", "Lambrate", "Brera", "Tortona"
+].map((name, i) => ({ id: `sede-${i}`, name }));
+
+function ActivityMultiSelectSection() {
+    const [many, setMany] = useState<string[]>(["sede-1"]);
+    const [few, setFew] = useState<string[]>([]);
+    return (
+        <>
+            <State label="12 sedi: sopra le 8 compare la ricerca (nome, senza accenti)" column>
+                <div className={styles.narrow}>
+                    <ActivityMultiSelect tenantId="" callerScopedActivityIds={[]} callerIsTenantWide activities={GALLERY_SEDI} value={many} onChange={setMany} />
+                </div>
+            </State>
+            <State label="3 sedi: niente ricerca" column>
+                <div className={styles.narrow}>
+                    <ActivityMultiSelect tenantId="" callerScopedActivityIds={[]} callerIsTenantWide activities={GALLERY_SEDI.slice(0, 3)} value={few} onChange={setFew} required={false} />
+                </div>
+            </State>
+        </>
+    );
+}
+
 const ROLES: UserRole[] = ["owner", "admin", "manager", "staff", "viewer"];
 
 function RoleSelectorSection() {
@@ -287,5 +333,6 @@ export const formsSections: GallerySection[] = [
     { id: "switch", title: "Switch", sheet: "Switch", Component: SwitchSection },
     { id: "radiogroup", title: "RadioGroup", sheet: "RadioGroup", Component: RadioGroupSection },
     { id: "roleselector", title: "RoleSelector", Component: RoleSelectorSection },
+    { id: "activitymultiselect", title: "ActivityMultiSelect", Component: ActivityMultiSelectSection },
     { id: "imageuploadfield", title: "ImageUploadField", sheet: "ImageUploadField", Component: ImageUploadFieldSection }
 ];

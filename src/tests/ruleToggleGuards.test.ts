@@ -47,7 +47,7 @@ describe("getToggleGuardResult", () => {
         const result = getToggleGuardResult(makeRule({ end_at: PAST }));
         expect(result.canToggle).toBe(false);
         expect(result.reason).toBe(
-            "Questa regola è scaduta. Aggiorna la data di fine prima di riattivarla."
+            "Scaduta: sposta la data di fine per riattivarla."
         );
     });
 
@@ -58,7 +58,7 @@ describe("getToggleGuardResult", () => {
     it("blocca una bozza incompleta (layout senza catalogo)", () => {
         const result = getToggleGuardResult(makeRule({ layout: { catalog_id: null, style_id: "style-1" } }));
         expect(result.canToggle).toBe(false);
-        expect(result.reason).toBe("Completa i campi obbligatori prima di attivare la regola.");
+        expect(result.reason).toBe("Completa la regola per attivarla.");
     });
 
     it("blocca una bozza senza target", () => {
@@ -66,7 +66,7 @@ describe("getToggleGuardResult", () => {
             makeRule({ applyToAll: false, activityIds: [], groupIds: [] })
         );
         expect(result.canToggle).toBe(false);
-        expect(result.reason).toBe("Completa i campi obbligatori prima di attivare la regola.");
+        expect(result.reason).toBe("Completa la regola per attivarla.");
     });
 
     it("dà precedenza al messaggio di scadenza su quello di bozza", () => {
@@ -74,7 +74,7 @@ describe("getToggleGuardResult", () => {
             makeRule({ end_at: PAST, layout: { catalog_id: null, style_id: null } })
         );
         expect(result.reason).toBe(
-            "Questa regola è scaduta. Aggiorna la data di fine prima di riattivarla."
+            "Scaduta: sposta la data di fine per riattivarla."
         );
     });
 });

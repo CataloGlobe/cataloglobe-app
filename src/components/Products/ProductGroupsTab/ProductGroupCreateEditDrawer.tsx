@@ -119,6 +119,11 @@ export function ProductGroupCreateEditDrawer({
         loadPickerData();
     }, [open, isEditing, groupData, tenantId, showToast, defaultParentId]);
 
+    const [nameError, setNameError] = useState<string | undefined>(undefined);
+    useEffect(() => {
+        if (open) setNameError(undefined);
+    }, [open]);
+
     // ── Save ─────────────────────────────────────────────────────────────────
     const handleSave = async () => {
         if (!tenantId) {
@@ -126,7 +131,7 @@ export function ProductGroupCreateEditDrawer({
             return;
         }
         if (!name.trim()) {
-            showToast({ message: "Il nome del gruppo è obbligatorio.", type: "info" });
+            setNameError("Scrivi il nome del gruppo.");
             return;
         }
 
@@ -193,33 +198,20 @@ export function ProductGroupCreateEditDrawer({
     ];
 
     // ── Render ────────────────────────────────────────────────────────────────
-    const header = (
-        <div>
-            <Text variant="title-sm" weight={600}>
-                {isEditing ? "Modifica gruppo" : "Crea nuovo gruppo"}
-            </Text>
-            <Text variant="body-sm" colorVariant="muted" className={styles.drawerSubtitle}>
-                {isEditing
-                    ? "Modifica i dettagli del gruppo di prodotti."
-                    : "Aggiungi un nuovo gruppo per organizzare i tuoi prodotti."}
-            </Text>
-        </div>
-    );
-
     const footer = (
         <>
             <Button variant="secondary" onClick={onClose} disabled={isSaving}>
                 Annulla
             </Button>
             <Button variant="primary" onClick={handleSave} loading={isSaving} disabled={isSaving}>
-                Salva
+                {isEditing ? "Salva" : "Crea"}
             </Button>
         </>
     );
 
     return (
-        <SystemDrawer open={open} onClose={onClose}>
-            <DrawerLayout header={header} footer={footer}>
+        <SystemDrawer open={open} onClose={onClose} size="md">
+            <DrawerLayout title={isEditing ? "Modifica gruppo" : "Nuovo gruppo"} footer={footer}>
                 <div className={styles.formBody}>
                     {/* ── Group details ─────────────────────────────────────── */}
                     <div className={styles.formSection}>
@@ -228,7 +220,11 @@ export function ProductGroupCreateEditDrawer({
                                 label="Nome gruppo"
                                 placeholder="Es: Bevande, Snack..."
                                 value={name}
-                                onChange={e => setName(e.target.value)}
+                                onChange={e => {
+                                    setName(e.target.value);
+                                    if (nameError) setNameError(undefined);
+                                }}
+                                error={nameError}
                                 required
                             />
                         </div>

@@ -1,3 +1,4 @@
+import Text from "@/components/ui/Text/Text";
 import React, { useEffect, useRef } from "react";
 import { GripVertical, Rows3, Trash2 } from "lucide-react";
 import {
@@ -87,7 +88,7 @@ function BlockRow({
                 <span className={styles.typeIcon} aria-hidden="true">
                     <TypeIcon size={15} />
                 </span>
-                <span className={styles.typeLabel}>{meta.label}</span>
+                <Text as="span" variant="caption-xs" weight={600} className={styles.typeLabel}>{meta.label}</Text>
                 {!disabled && (
                     <button type="button" aria-label="Elimina blocco" className={styles.removeBtn} onClick={onRemove}>
                         <Trash2 size={16} />

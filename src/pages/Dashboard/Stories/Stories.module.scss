@@ -5,17 +5,6 @@
   gap: 16px;
   width: 100%;
 }
-
-.loadingState {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 60px 24px;
-  text-align: center;
-  gap: 8px;
-}
-
 .titleCell {
   display: flex;
   flex-direction: column;
@@ -46,28 +35,6 @@
   flex-direction: column;
   gap: 12px;
 }
-
-// Copertina storia: link "Rimuovi" defilato (distruttivo/raro) sotto l'editor.
-.coverRemoveBtn {
-  align-self: flex-start;
-  background: none;
-  border: none;
-  padding: 0;
-  color: var(--color-danger, #dc2626);
-  font-size: 0.85rem;
-  font-weight: 500;
-  cursor: pointer;
-
-  &:hover {
-    text-decoration: underline;
-  }
-
-  &:disabled {
-    opacity: 0.5;
-    cursor: default;
-  }
-}
-
 // Anteprima copertina read-only (utenti senza permesso di scrittura).
 .coverReadonlyPreview {
   width: 100%;
@@ -90,20 +57,31 @@
   background: var(--border);
   flex: none;
 }
-
-// Stato "sola lettura" per utenti senza permesso di scrittura: SegmentedControl
-// non espone `disabled`, quindi la neutralizziamo qui.
-.readonlyControl {
-  pointer-events: none;
-  opacity: 0.6;
-}
-
-.warningBox {
+/* Il corpo di chi non scrive: un fieldset spento, senza la sua cornice. */
+.readOnlyScope {
   display: flex;
-  gap: 16px;
-  padding: 16px;
-  border-radius: var(--radius-md);
-  background-color: var(--color-warning-50);
-  border: 1px solid var(--color-warning-200);
+  flex-direction: column;
+  gap: inherit;
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
 }
 
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+}
+
+// «Dove appare» nell'editor (§50.13): la scelta, la sede, la frase.
+.placement {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-12);
+
+    > :global(*) {
+        max-width: 100%;
+    }
+}

@@ -29,8 +29,10 @@ export function IngredientsForm({
 }: IngredientsFormProps) {
     const { showToast } = useToast();
     const [name, setName] = useState("");
+    const [nameError, setNameError] = useState<string | undefined>(undefined);
 
     useEffect(() => {
+        setNameError(undefined);
         if (mode === "edit" && entityData) {
             setName(entityData.name);
         } else {
@@ -43,7 +45,7 @@ export function IngredientsForm({
 
         const trimmedName = name.trim();
         if (!trimmedName) {
-            showToast({ message: "Il nome è obbligatorio.", type: "error" });
+            setNameError("Scrivi il nome dell'ingrediente.");
             return;
         }
 
@@ -77,7 +79,11 @@ export function IngredientsForm({
                 label="Nome"
                 required
                 value={name}
-                onChange={e => setName(e.target.value)}
+                onChange={e => {
+                    setName(e.target.value);
+                    if (nameError) setNameError(undefined);
+                }}
+                error={nameError}
                 placeholder="Es: Mozzarella, Basilico, Olio d'oliva..."
             />
         </form>

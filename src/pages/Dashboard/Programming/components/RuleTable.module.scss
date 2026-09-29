@@ -1,0 +1,68 @@
+// RuleTable: solo disposizione. Tipografia da DataTable (cellTwoLine) e Text.
+
+.nameLine {
+    display: flex;
+    align-items: center;
+    gap: var(--space-8);
+    min-width: 0;
+}
+
+// Il segno di stato: vince · sovrascritta · in attesa. Lo stato lo dicono i
+// testi della riga; il colore lo ripete soltanto.
+.dot {
+    flex: none;
+    width: 8px;
+    height: 8px;
+    border-radius: var(--radius-pill);
+    background: transparent;
+
+    &[data-state="wins"] {
+        background: var(--success-500);
+    }
+
+    &[data-state="overridden"] {
+        background: var(--warning-500);
+    }
+
+    &[data-state="idle"] {
+        background: var(--text-muted);
+    }
+}
+
+.name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: inherit;
+    text-decoration: none;
+
+    &:hover,
+    &:focus-visible {
+        text-decoration: underline;
+    }
+}
+
+.target {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-6);
+    min-width: 0;
+    max-width: 100%;
+}
+
+// La colonna è larga quanto il contenuto più lungo (F4): niente a capo.
+// L'ellissi resta per il caso limite del tetto al 45% della tabella.
+.targetIcon {
+    flex-shrink: 0;
+}
+
+.targetLabel {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.toggle {
+    display: inline-flex;
+}

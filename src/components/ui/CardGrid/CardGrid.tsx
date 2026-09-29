@@ -42,6 +42,8 @@ export interface CardGridProps {
 export interface CardGridSkeletonShape {
     media?: boolean;
     footer?: boolean;
+    /** La riga del `badge` (StatusBadge, 22 px): per le card che lo portano sempre. */
+    badge?: boolean;
 }
 
 export function CardGrid({
@@ -63,7 +65,7 @@ export function CardGrid({
 
 // Ogni barra sta dentro un Text della stessa variante della riga vera:
 // la riga è alta come il testo che arriva, e la card Skeleton come la card.
-function CardGridSkeleton({ media = true, footer = false }: CardGridSkeletonShape) {
+function CardGridSkeleton({ media = true, footer = false, badge = false }: CardGridSkeletonShape) {
     return (
         <div className={styles.item} role="listitem" aria-hidden="true">
             <div className={styles.surface}>
@@ -79,6 +81,11 @@ function CardGridSkeleton({ media = true, footer = false }: CardGridSkeletonShap
                     <Text as="div" variant="caption" className={styles.skeletonLine}>
                         <Skeleton width="40%" height="0.8em" radius="var(--radius-inner)" />
                     </Text>
+                    {badge && (
+                        <div className={styles.badge}>
+                            <Skeleton width="50%" height="22px" radius="var(--radius-pill)" />
+                        </div>
+                    )}
                 </div>
             </div>
             {footer && (

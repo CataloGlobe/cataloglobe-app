@@ -3,6 +3,7 @@ import { Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
 import type { AiDescriptionState } from "../hooks/useAiDescription";
+import styles from "./AiDescriptionField.module.scss";
 
 export interface AiDescriptionFieldProps {
     /** Header label rendered beside the generate button. */
@@ -34,8 +35,8 @@ export function AiDescriptionField({
     const nameFilled = canGenerate || isGenerating;
 
     return (
-        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+        <div className={styles.field}>
+            <div className={styles.header}>
                 <Text variant="body-sm" weight={600}>
                     {label}
                 </Text>

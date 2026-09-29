@@ -5,38 +5,28 @@ import { Select } from "@/components/ui/Select/Select";
 import Text from "@/components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useTenantId } from "@/context/useTenantId";
-import { supabase } from "@/services/supabase/client";
+import { listFeaturedPickerCatalog, type FeaturedPickerProduct } from "@/services/supabase/featuredContents";
 import { getDisplayPrice } from "@/utils/priceDisplay";
 import styles from "./ProductPickerList.module.scss";
 
 interface ProductPickerListProps {
     selectedProductIds: string[];
     onSelectionChange: (productIds: string[]) => void;
+    /** Il catalogo caricato: chi collega i prodotti in bozza ne legge nome e prezzo. */
+    onCatalogLoaded?: (products: FeaturedPickerProduct[]) => void;
 }
 
-type ProductRow = {
-    id: string;
-    name: string;
-    base_price: number | null;
-    option_groups: Array<{
-        group_kind: string;
-        values: Array<{ absolute_price: number | null }>;
-    }> | null;
-};
+type ProductRow = FeaturedPickerProduct;
 
 type ProductGroupOption = {
     id: string;
     name: string;
 };
 
-type ProductGroupItemRow = {
-    product_id: string;
-    group_id: string;
-};
-
 export default function ProductPickerList({
     selectedProductIds,
-    onSelectionChange
+    onSelectionChange,
+    onCatalogLoaded
 }: ProductPickerListProps) {
     const { showToast } = useToast();
     const tenantId = useTenantId();
@@ -48,56 +38,35 @@ export default function ProductPickerList({
     const [searchTerm, setSearchTerm] = useState("");
 
     useEffect(() => {
-        const loadProducts = async () => {
-            try {
-                setLoading(true);
-                const [{ data: productsData, error: productsError }, groupsRes, groupItemsRes] =
-                    await Promise.all([
-                        tenantId
-                            ? supabase
-                                  .from("products")
-                                  .select("id, name, base_price, option_groups:product_option_groups(group_kind, values:product_option_values(absolute_price))")
-                                  .eq("tenant_id", tenantId)
-                                  .order("name", { ascending: true })
-                            : Promise.resolve({ data: [], error: null } as any),
-                        tenantId
-                            ? supabase
-                                  .from("product_groups")
-                                  .select("id, name")
-                                  .eq("tenant_id", tenantId)
-                                  .order("name", { ascending: true })
-                            : Promise.resolve({ data: [], error: null } as any),
-                        tenantId
-                            ? supabase
-                                  .from("product_group_items")
-                                  .select("product_id, group_id")
-                                  .eq("tenant_id", tenantId)
-                            : Promise.resolve({ data: [], error: null } as any)
-                    ]);
-
-                if (productsError) throw productsError;
-                if (groupsRes.error) throw groupsRes.error;
-                if (groupItemsRes.error) throw groupItemsRes.error;
-
-                setProducts((productsData ?? []) as ProductRow[]);
-                setGroupOptions((groupsRes.data ?? []) as ProductGroupOption[]);
-
+        if (!tenantId) return;
+        let cancelled = false;
+        setLoading(true);
+        listFeaturedPickerCatalog(tenantId)
+            .then(catalog => {
+                if (cancelled) return;
+                setProducts(catalog.products);
+                setGroupOptions(catalog.groups);
                 const nextMap = new Map<string, Set<string>>();
-                for (const row of (groupItemsRes.data ?? []) as ProductGroupItemRow[]) {
+                for (const row of catalog.groupItems) {
                     const current = nextMap.get(row.group_id) ?? new Set<string>();
                     current.add(row.product_id);
                     nextMap.set(row.group_id, current);
                 }
                 setGroupProductMap(nextMap);
-            } catch (error) {
+                onCatalogLoaded?.(catalog.products);
+            })
+            .catch(error => {
                 console.error("Error loading products for picker", error);
                 showToast({ type: "error", message: "Impossibile caricare la lista prodotti." });
-            } finally {
-                setLoading(false);
-            }
+            })
+            .finally(() => {
+                if (!cancelled) setLoading(false);
+            });
+        return () => {
+            cancelled = true;
         };
-
-        loadProducts();
+        // onCatalogLoaded è un callback del chiamante: una volta per apertura basta.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [showToast, tenantId]);
 
     const filteredProducts = useMemo(() => {

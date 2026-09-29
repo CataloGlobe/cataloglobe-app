@@ -47,3 +47,30 @@
   flex-direction: column;
   gap: var(--space-16);
 }
+
+// Nome con lo swatch dello stile accanto (§50.13).
+.nameCell {
+    display: flex;
+    align-items: center;
+    gap: var(--space-12);
+    min-width: 0;
+}
+
+// Sotto 768: il nome e, sotto, dove è attivo.
+.nameStack {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-4);
+    min-width: 0;
+}
+
+// Lo stato e, se il menù va in onda con più stili, «+N stili».
+.badges {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-8);
+    min-width: 0;
+    max-width: 100%;
+}

@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { IconCheck, IconHistory } from "@tabler/icons-react";
 import { Button } from "@/components/ui/Button/Button";
+import { Badge } from "@/components/ui/Badge/Badge";
 import Text from "@/components/ui/Text/Text";
 import type { V2StyleVersion } from "@/services/supabase/styles";
 import popoverStyles from "./StyleVersionsPopover.module.scss";
@@ -18,6 +19,8 @@ type StyleVersionsPopoverProps = {
     /** Trigger (controllo versione) da cui derivare la posizione del popover.
      *  Portalato su document.body → esce dal doppio overflow:hidden del pannello. */
     anchorEl: HTMLElement | null;
+    /** Chi non può scrivere guarda le versioni ma non ne ripristina una. */
+    readOnly?: boolean;
 };
 
 export function StyleVersionsPopover({
@@ -29,7 +32,8 @@ export function StyleVersionsPopover({
     onSelectVersion,
     onRollback,
     onClose,
-    anchorEl
+    anchorEl,
+    readOnly = false
 }: StyleVersionsPopoverProps) {
     const ref = useRef<HTMLDivElement>(null);
     const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null);
@@ -72,7 +76,7 @@ export function StyleVersionsPopover({
     }, [onClose, anchorEl]);
 
     const canRollback =
-        selectedVersionId !== null && selectedVersionId !== currentVersionId;
+        !readOnly && selectedVersionId !== null && selectedVersionId !== currentVersionId;
 
     if (!pos) return null;
 
@@ -84,7 +88,7 @@ export function StyleVersionsPopover({
         >
             <div className={popoverStyles.header}>
                 <IconHistory size={13} />
-                <span>Cronologia versioni</span>
+                <Text as="span" variant="caption-xs" weight={600}>Cronologia versioni</Text>
             </div>
 
             <div className={popoverStyles.list}>
@@ -111,10 +115,10 @@ export function StyleVersionsPopover({
                                 className={`${popoverStyles.versionRow} ${isSelected ? popoverStyles.versionRowSelected : ""}`}
                                 onClick={() => onSelectVersion(v)}
                             >
-                                <span className={popoverStyles.versionNum}>
+                                <Text as="span" variant="caption" weight={600} className={popoverStyles.versionNum}>
                                     v{v.version}
-                                </span>
-                                <span className={popoverStyles.versionDate}>
+                                </Text>
+                                <Text as="span" variant="caption-xs" colorVariant="muted" className={popoverStyles.versionDate}>
                                     {new Date(v.created_at).toLocaleString("it-IT", {
                                         day: "2-digit",
                                         month: "short",
@@ -122,11 +126,11 @@ export function StyleVersionsPopover({
                                         hour: "2-digit",
                                         minute: "2-digit"
                                     })}
-                                </span>
+                                </Text>
                                 {isCurrent && (
-                                    <span className={popoverStyles.currentBadge}>
+                                    <Badge variant="brand" className={popoverStyles.currentBadge}>
                                         attiva
-                                    </span>
+                                    </Badge>
                                 )}
                                 {isSelected && !isCurrent && (
                                     <IconCheck size={12} className={popoverStyles.selectedIcon} />

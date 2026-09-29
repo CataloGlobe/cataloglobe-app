@@ -192,7 +192,10 @@ export async function deleteAccount(actions: DeleteAccountAction[]): Promise<voi
                 throw new Error("Non sei il proprietario di una delle attività selezionate.");
             }
             if (code === "invalid_action") {
-                throw new Error("Azione non valida per uno dei tenant.");
+                throw new Error("Azione non valida per una delle attività.");
+            }
+            if (code === "not_authenticated") {
+                throw new Error("Sessione scaduta. Effettua nuovamente il login e riprova.");
             }
         }
         if (status === 503) {

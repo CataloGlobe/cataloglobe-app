@@ -18,6 +18,11 @@ const BRAND_COVER_ID = "brand-cover";
 export interface BrandStoryDraft {
     /** false finché il primo fetch non è completato (fetch lazy su `active`). */
     loaded: boolean;
+    /** Il cappello salvato, com'è pubblicamente (null finché non è caricato). */
+    saved: TenantStorySettings | null;
+    /** Il caricamento è fallito: chi mostra il cappello lo dice e offre `reload`. */
+    loadError: boolean;
+    reload: () => void;
     title: string;
     onTitleChange: (value: string) => void;
     intro: string;
@@ -38,7 +43,7 @@ export interface BrandStoryDraft {
 }
 
 /**
- * Draft "Storia del brand" — sollevamento stato per il tab brand di Stories.
+ * Draft del cappello delle Storie (card in cima all'elenco + drawer, §50.11/4).
  * Stesso modello draft-inline di StoryDetailPage (Task A): il chiamante
  * possiede draft + baseline, `isDirty` deriva dal diff, la rimozione copertina
  * è PENDENTE (delete reale solo al save, poi cleanup storage best-effort).
@@ -50,6 +55,8 @@ export function useBrandStoryDraft(tenantId: string | null, active: boolean): Br
     // Baseline salvato (null = non ancora fetchato).
     const [saved, setSaved] = useState<TenantStorySettings | null>(null);
     const [isSaving, setIsSaving] = useState(false);
+    const [loadError, setLoadError] = useState(false);
+    const [attempt, setAttempt] = useState(0);
 
     // Draft
     const [title, setTitle] = useState("");
@@ -77,6 +84,7 @@ export function useBrandStoryDraft(tenantId: string | null, active: boolean): Br
     useEffect(() => {
         if (!active || !tenantId || saved) return;
         let cancelled = false;
+        setLoadError(false);
         getTenantStorySettings(tenantId)
             .then(data => {
                 if (cancelled) return;
@@ -84,13 +92,17 @@ export function useBrandStoryDraft(tenantId: string | null, active: boolean): Br
                 syncFromSaved(data);
             })
             .catch(err => {
+                // Prima restava «Caricamento in corso…» per sempre: ora lo dice
+                // chi mostra il cappello, con «Riprova».
                 console.error("[useBrandStoryDraft] fetch failed:", err);
-                showToast({ type: "error", message: "Errore durante il caricamento della storia del brand." });
+                if (!cancelled) setLoadError(true);
             });
         return () => {
             cancelled = true;
         };
-    }, [active, tenantId, saved, syncFromSaved, showToast]);
+    }, [active, tenantId, saved, syncFromSaved, attempt]);
+
+    const reload = useCallback(() => setAttempt(n => n + 1), []);
 
     const onCoverFileChange = useCallback((file: File) => {
         setPendingCoverFile(file);
@@ -162,10 +174,10 @@ export function useBrandStoryDraft(tenantId: string | null, active: boolean): Br
 
             setSaved(next);
             syncFromSaved(next);
-            showToast({ message: "Storia del brand aggiornata.", type: "success" });
+            showToast({ message: "Cappello aggiornato.", type: "success" });
             return true;
         } catch (err) {
-            console.error("Errore salvataggio storia del brand:", err);
+            console.error("Errore salvataggio del cappello:", err);
             const message =
                 err instanceof Error && err.message ? err.message : "Errore durante il salvataggio. Riprova.";
             showToast({ message, type: "error" });
@@ -181,6 +193,9 @@ export function useBrandStoryDraft(tenantId: string | null, active: boolean): Br
 
     return {
         loaded: Boolean(saved),
+        saved,
+        loadError,
+        reload,
         title,
         onTitleChange: setTitle,
         intro,

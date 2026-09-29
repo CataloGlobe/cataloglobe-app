@@ -98,3 +98,8 @@
 .hasError .list {
     border-color: var(--color-red-500, #ef4444);
 }
+
+// Ricerca senza risultati: allineata al testo delle voci.
+.noMatch {
+    padding: 10px 12px;
+}
