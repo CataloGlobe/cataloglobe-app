@@ -5,8 +5,7 @@
  * italiane. Le CTA («Richiedi una demo» / «Provalo gratis») stanno in `cta.ts`,
  * perché cambiano con la variante.
  *
- * Fonte: le tavole in `docs/landing/versione-c/riferimento/`. Dove la tavola
- * mobile accorcia un testo, il campo ha la variante `…Mobile`.
+ * Dove il testo mobile è più corto, il campo ha la variante `…Mobile`.
  */
 
 import type { LeadField, LeadFieldError, LeadInterest } from "@/utils/leadValidation";

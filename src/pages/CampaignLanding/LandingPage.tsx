@@ -21,7 +21,7 @@ type LandingPageProps = {
     variante: Variante;
 };
 
-/** Landing di campagna — Versione C (docs/landing/versione-c/SPEC.md). */
+/** Landing di campagna — Versione C. */
 export default function LandingPage({ variante }: LandingPageProps) {
     // UTM e provenienza all'arrivo, per il form contatti in fondo.
     useEffect(captureAttribution, []);
