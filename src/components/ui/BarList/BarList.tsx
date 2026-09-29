@@ -37,18 +37,26 @@ export interface BarListProps {
     /** Vuoto: «raccolte dal 19/09». */
     emptyTitle?: string;
     emptyDescription?: string;
+    /**
+     * `fit`: la colonna delle etichette è larga quanto la più larga (fino al
+     * 40 %), uguale per tutte le righe. Per etichette corte e della stessa
+     * misura, come le stelle della distribuzione dei voti: col 40 % fisso
+     * restava un vuoto fra l'etichetta e la barra. Default `fixed`.
+     */
+    labelColumn?: "fixed" | "fit";
     className?: string;
     "aria-label"?: string;
 }
 
 const nf = new Intl.NumberFormat("it-IT");
 
-export function BarList({ items, limit, loading = false, emptyTitle = "Ancora nessun dato", emptyDescription, className, "aria-label": ariaLabel }: BarListProps) {
+export function BarList({ items, limit, loading = false, emptyTitle = "Ancora nessun dato", emptyDescription, labelColumn = "fixed", className, "aria-label": ariaLabel }: BarListProps) {
     const [expanded, setExpanded] = useState(false);
+    const listClass = [styles.list, labelColumn === "fit" ? styles.listFit : "", className ?? ""].filter(Boolean).join(" ");
 
     if (loading) {
         return (
-            <div className={`${styles.list} ${className ?? ""}`.trim()} aria-busy="true">
+            <div className={listClass} aria-busy="true">
                 {Array.from({ length: 5 }, (_, i) => (
                     <div key={i} className={styles.row}>
                         <Skeleton width="30%" height={14} radius="var(--radius-inner)" />
@@ -69,7 +77,7 @@ export function BarList({ items, limit, loading = false, emptyTitle = "Ancora ne
     const shown = hidden > 0 ? items.slice(0, limit) : items;
 
     return (
-        <div className={`${styles.list} ${className ?? ""}`.trim()} role="list" aria-label={ariaLabel}>
+        <div className={listClass} role="list" aria-label={ariaLabel}>
             {shown.map(item => {
                 const ratio = max > 0 ? item.value / max : 0;
                 return (

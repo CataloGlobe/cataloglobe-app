@@ -10,6 +10,9 @@
 // colonna di selezione — non esistono azioni di gruppo in rubrica, per scelta.
 
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable";
+import { Badge } from "@/components/ui/Badge/Badge";
+import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
+import Text from "@/components/ui/Text/Text";
 import type { ReservationGuestSummary } from "@/types/reservationGuest";
 import { visibilityFootnote } from "@/utils/guestVisibilityCopy";
 import { formatVisitDate } from "./guestFormat";
@@ -20,7 +23,10 @@ interface Props {
     /** Etichette per ospite: unione delle sedi visibili (sono per sede). */
     tagsByGuest: ReadonlyMap<string, string[]>;
     isLoading: boolean;
+    /** Vedi `GuestsDirectory`: lo scheletro solo al primo giro, non a ogni ricerca. */
+    hasLoadedOnce: boolean;
     isSearching: boolean;
+    onClearSearch: () => void;
     onOpenGuest: (guest: ReservationGuestSummary) => void;
     tenantWide: boolean;
 }
@@ -29,7 +35,9 @@ export default function GuestsTable({
     guests,
     tagsByGuest,
     isLoading,
+    hasLoadedOnce,
     isSearching,
+    onClearSearch,
     onOpenGuest,
     tenantWide
 }: Props) {
@@ -46,14 +54,22 @@ export default function GuestsTable({
             id: "name",
             header: "Nome",
             accessor: row => row.display_name,
-            cell: (_v, row) => <span className={styles.tableName}>{row.display_name}</span>,
+            cell: (_v, row) => (
+                <Text as="span" variant="body-sm" weight={500}>
+                    {row.display_name}
+                </Text>
+            ),
             width: "minmax(160px, 1.4fr)"
         },
         {
             id: "phone",
             header: "Telefono",
             accessor: row => row.phone_e164,
-            cell: (_v, row) => <span className={styles.tablePhone}>{row.phone_e164}</span>,
+            cell: (_v, row) => (
+                <Text as="span" variant="body-sm" colorVariant="muted">
+                    {row.phone_e164}
+                </Text>
+            ),
             width: "minmax(140px, 1fr)"
         },
         {
@@ -69,13 +85,13 @@ export default function GuestsTable({
             accessor: row => row.visible_no_shows,
             align: "right",
             width: "minmax(90px, 0.5fr)",
-            // Zero resta grigio: solo il valore che cambia una decisione si
-            // colora.
+            // Zero resta muto: solo il valore che cambia una decisione si
+            // segna, come nell'elenco (StatusBadge ambra, C1).
             cell: (_v, row) =>
                 row.visible_no_shows > 0 ? (
-                    <span className={styles.tableAbsence}>{row.visible_no_shows}</span>
+                    <StatusBadge variant="warning" label={String(row.visible_no_shows)} />
                 ) : (
-                    <span className={styles.tableMuted}>0</span>
+                    <Text as="span" variant="body-sm" colorVariant="muted">0</Text>
                 )
         },
         {
@@ -83,7 +99,9 @@ export default function GuestsTable({
             header: "Ultima visita",
             accessor: row => row.last_visit_date ?? "",
             cell: (_v, row) => (
-                <span className={styles.tableMuted}>{formatVisitDate(row.last_visit_date)}</span>
+                <Text as="span" variant="body-sm" colorVariant="muted">
+                    {formatVisitDate(row.last_visit_date)}
+                </Text>
             ),
             width: "minmax(120px, 0.8fr)"
         },
@@ -93,11 +111,11 @@ export default function GuestsTable({
             accessor: row => (tagsByGuest.get(row.id) ?? []).join(", "),
             cell: (_v, row) =>
                 (tagsByGuest.get(row.id) ?? []).length === 0 ? (
-                    <span className={styles.tableMuted}>—</span>
+                    <Text as="span" variant="body-sm" colorVariant="muted">—</Text>
                 ) : (
-                    <span className={styles.guestTags}>
+                    <span className={styles.tags}>
                         {(tagsByGuest.get(row.id) ?? []).map(t => (
-                            <span key={t} className={styles.guestTag}>{t}</span>
+                            <Badge key={t} variant="neutral">{t}</Badge>
                         ))}
                     </span>
                 ),
@@ -110,18 +128,21 @@ export default function GuestsTable({
             <DataTable<ReservationGuestSummary>
                 data={guests}
                 columns={columns}
-                isLoading={isLoading}
+                ariaLabel="Clienti"
+                isLoading={isLoading && !hasLoadedOnce}
                 onRowClick={onOpenGuest}
+                isFiltered={isSearching}
+                onClearFilters={onClearSearch}
                 emptyState={{
                     title: isSearching ? "Nessun cliente trovato" : "Nessun cliente in rubrica",
-                    description: isSearching
-                        ? "Prova con un'altra parte del nome, o con il numero di telefono."
-                        : "I clienti compaiono qui da soli: ogni prenotazione con un telefono leggibile crea o aggiorna la sua scheda."
+                    description: "I clienti compaiono qui da soli: ogni prenotazione con un telefono leggibile crea o aggiorna la sua scheda."
                 }}
             />
 
             {footnote && guests.length > 0 && (
-                <p className={styles.guestsFootnote}>{footnote}</p>
+                <Text as="p" variant="caption" colorVariant="muted">
+                    {footnote}
+                </Text>
             )}
         </div>
     );

@@ -61,7 +61,10 @@ function buildGroups(businessId: string, activityId: string): SidebarNavGroup[] 
                     to: `${s}/disponibilita`,
                     label: "Disponibilità",
                     icon: <Eye size={18} />,
-                    permission: perms => canDoOnActivity(perms, "product_availability.write", activityId)
+                    // Chi legge la sede la vede in sola lettura; scrive chi ha
+                    // `activity.manage`, lo stesso permesso delle RLS (D2, §50.14).
+                    // `product_availability.write` resta al gate degli ordini.
+                    permission: perms => canDoOnActivity(perms, "activity.read", activityId)
                 }
             ]
         },

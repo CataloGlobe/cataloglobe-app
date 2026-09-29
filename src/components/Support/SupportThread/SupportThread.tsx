@@ -190,6 +190,23 @@ export function SupportThread({
         });
     }, [messages]);
 
+    // Il thread si apriva quasi in fondo, non in fondo: dopo lo scroll della
+    // prima pittura la pagina cambia ancora l'altezza del contenitore (testata
+    // compatta, riga dei metadati) e il fondo scappava sotto il composer. Chi
+    // segue la conversazione resta agganciato al fondo anche quando cambia la
+    // misura; chi legge più su no. Rimesso a ogni cambio di ramo: il ref sta
+    // solo sul ramo coi messaggi.
+    const hasList = !isLoading && messages.length > 0;
+    useLayoutEffect(() => {
+        const el = scrollRef.current;
+        if (!hasList || !el || typeof ResizeObserver === "undefined") return;
+        const observer = new ResizeObserver(() => {
+            if (nearBottomRef.current) el.scrollTop = el.scrollHeight;
+        });
+        observer.observe(el);
+        return () => observer.disconnect();
+    }, [hasList]);
+
     if (isLoading) {
         return (
             <div className={styles.thread}>

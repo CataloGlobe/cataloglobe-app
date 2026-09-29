@@ -45,7 +45,11 @@
         "deactivated": "{{lang}} desactivado.",
         "confirm_title": "¿Activar {{lang}}?",
         "confirm_description": "Traduciremos automáticamente sus productos, categorías y otros contenidos. Estará disponible en cuestión de minutos.",
-        "confirm_button": "Activar"
+        "confirm_button": "Activar",
+        "read_only_role": "Solo lectura: activar y gestionar los idiomas corresponde a propietarios y administradores.",
+        "read_only_subscription": "Solo lectura: la suscripción no está activa.",
+        "load_error_desc": "Comprueba la conexión y vuelve a intentarlo.",
+        "confirm_ai_credit": "Las traducciones usan el crédito de IA incluido en tu plan."
     },
     "errors": {
         "load_failed": "Error al cargar idiomas",
