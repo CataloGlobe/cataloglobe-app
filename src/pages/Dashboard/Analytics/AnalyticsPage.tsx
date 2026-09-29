@@ -1,7 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Download } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { BarChart3, Download } from "lucide-react";
 import { useTenantId } from "@/context/useTenantId";
-import { useToast } from "@/context/Toast/ToastContext";
+import { usePermissions } from "@/context/PermissionsContext";
+import { canDoOnActivity, canDoOnAnyActivity } from "@/lib/permissions";
+import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { useSedeScope, SCOPE_ALL } from "@/hooks/useSedeScope";
 import {
     getPageViewsTrend,
@@ -59,7 +62,14 @@ import {
     type CoverSpec,
     type SheetSpec
 } from "./utils/exportXlsx";
-import { getPreviousRange, getPreviousPeriodLabel, type PeriodKey } from "./utils/periodComparison";
+import {
+    DEFAULT_PERIOD,
+    getPreviousRange,
+    getPreviousPeriodLabel,
+    parsePeriod,
+    periodToDateRange,
+    type PeriodKey
+} from "./utils/periodComparison";
 import OverviewCards from "./components/OverviewCards";
 import PageViewsChart from "./components/PageViewsChart";
 import TopProductsTable from "./components/TopProductsTable";
@@ -82,38 +92,39 @@ import ReservationsHourlyChart from "./components/ReservationsHourlyChart";
 import ReservationsSoonCard from "./components/ReservationsSoonCard";
 import styles from "./Analytics.module.scss";
 
-function periodToDateRange(period: PeriodKey): DateRange {
-    const to = new Date();
-    const from = new Date();
-    switch (period) {
-        case "today":
-            from.setHours(0, 0, 0, 0);
-            break;
-        case "7d":
-            from.setDate(from.getDate() - 7);
-            break;
-        case "30d":
-            from.setDate(from.getDate() - 30);
-            break;
-        case "90d":
-            from.setDate(from.getDate() - 90);
-            break;
-        case "all":
-            return { from: new Date(2020, 0, 1), to };
-    }
-    return { from, to };
-}
-
 export default function AnalyticsPage() {
     const tenantId = useTenantId();
-    const { showToast } = useToast();
+    const { permissions } = usePermissions();
 
     // ── Filtri ───────────────────────────────────────────────────────────
     // Sede attiva: dalla navbar via useSedeScope. SCOPE_ALL → "tutte le sedi"
     // (passare `undefined` come activityId ai service analytics).
     const { value: scopeValue, readableActivities } = useSedeScope();
     const selectedActivityId = scopeValue === SCOPE_ALL ? "all" : scopeValue;
-    const [period, setPeriod] = useState<PeriodKey>("7d");
+    // Gate di lettura prima di ogni fetch (#590): lo stesso che rende `PageGate`.
+    const canRead =
+        permissions != null &&
+        (selectedActivityId === "all"
+            ? canDoOnAnyActivity(permissions, "analytics.read")
+            : canDoOnActivity(permissions, "analytics.read", selectedActivityId));
+
+    // Il periodo vive nell'URL (`?period=`, A3): il refresh non lo perde e si
+    // può linkare. Default 30 giorni, come il mockup.
+    const [searchParams, setSearchParams] = useSearchParams();
+    const period = parsePeriod(searchParams.get("period"));
+    const setPeriod = useCallback(
+        (next: PeriodKey) => {
+            setSearchParams(
+                prev => {
+                    if (next === DEFAULT_PERIOD) prev.delete("period");
+                    else prev.set("period", next);
+                    return prev;
+                },
+                { replace: true }
+            );
+        },
+        [setSearchParams]
+    );
 
     // Sezione Ordini: visibile solo se il piano del tenant abilita l'ordinazione
     // al tavolo. Loading-optimistic (plan null → true) come Sidebar/planFeatures.
@@ -158,20 +169,28 @@ export default function AnalyticsPage() {
     const [reservationsHourly, setReservationsHourly] = useState<ReservationsHourlyPoint[]>([]);
 
     const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState(false);
 
     // ── Load analytics data ──────────────────────────────────────────────
+    // Cambiando periodo in fretta le risposte possono arrivare fuori ordine:
+    // vale solo l'ultima richiesta partita.
+    const requestRef = useRef(0);
     const loadData = useCallback(async () => {
-        if (!tenantId) return;
+        if (!tenantId || !canRead) return;
 
+        const requestId = ++requestRef.current;
+        setIsLoading(true);
+        setLoadError(false);
         try {
-            setIsLoading(true);
             const dateRange = periodToDateRange(period);
             const activityId = selectedActivityId === "all" ? undefined : selectedActivityId;
             const comparePeriod = period !== "all";
             const previousRange = comparePeriod ? getPreviousRange(dateRange) : dateRange;
 
-            const [stats, trend, viewed, selected, social, reviews, hourly, devices, searchTermsData, funnel, featured, prevStats] =
-                await Promise.all([
+            // Un solo giro: le tre famiglie di RPC sono indipendenti (prima
+            // erano tre cascate, il tempo era la loro somma).
+            const [engagement, orders, reservations] = await Promise.all([
+                Promise.all([
                     getOverviewStats(tenantId, dateRange, activityId),
                     getPageViewsTrend(tenantId, dateRange, activityId),
                     getTopViewedProducts(tenantId, dateRange, activityId),
@@ -184,8 +203,32 @@ export default function AnalyticsPage() {
                     getConversionFunnel(tenantId, dateRange, activityId),
                     getFeaturedPerformance(tenantId, dateRange, activityId),
                     comparePeriod ? getOverviewStats(tenantId, previousRange, activityId) : Promise.resolve(null)
-                ]);
+                ] as const),
+                ordersFeature
+                    ? Promise.all([
+                          getOrdersOverview(tenantId, dateRange, activityId),
+                          getOrdersTrend(tenantId, dateRange, activityId),
+                          getOrdersHourly(tenantId, dateRange, activityId),
+                          getTopOrderedProducts(tenantId, dateRange, "quantity", activityId),
+                          getTopOrderedProducts(tenantId, dateRange, "revenue", activityId),
+                          getOrdersLatency(tenantId, dateRange, activityId),
+                          getOrdersConversion(tenantId, dateRange, activityId),
+                          comparePeriod ? getOrdersOverview(tenantId, previousRange, activityId) : Promise.resolve(null)
+                      ] as const)
+                    : Promise.resolve(null),
+                // Base periodo = created_at ("prenotazioni ricevute nel periodo").
+                reservationsFeature
+                    ? Promise.all([
+                          getReservationsOverview(tenantId, dateRange, activityId),
+                          getReservationsTrend(tenantId, dateRange, activityId),
+                          getReservationsHourly(tenantId, dateRange, activityId),
+                          comparePeriod ? getReservationsOverview(tenantId, previousRange, activityId) : Promise.resolve(null)
+                      ] as const)
+                    : Promise.resolve(null)
+            ]);
+            if (requestId !== requestRef.current) return;
 
+            const [stats, trend, viewed, selected, social, reviews, hourly, devices, searchTermsData, funnel, featured, prevStats] = engagement;
             setOverviewStats(stats);
             setPageViewsTrend(trend);
             setTopViewed(viewed);
@@ -199,20 +242,8 @@ export default function AnalyticsPage() {
             setFeaturedPerf(featured);
             setPreviousOverviewStats(prevStats ?? null);
 
-            // ── Ordini (solo se il piano abilita l'ordinazione al tavolo) ──
-            if (ordersFeature) {
-                const [ordOverview, ordTrend, ordHourly, topQty, topRevenue, ordLatency, ordConversion, prevOrdOverview] =
-                    await Promise.all([
-                        getOrdersOverview(tenantId, dateRange, activityId),
-                        getOrdersTrend(tenantId, dateRange, activityId),
-                        getOrdersHourly(tenantId, dateRange, activityId),
-                        getTopOrderedProducts(tenantId, dateRange, "quantity", activityId),
-                        getTopOrderedProducts(tenantId, dateRange, "revenue", activityId),
-                        getOrdersLatency(tenantId, dateRange, activityId),
-                        getOrdersConversion(tenantId, dateRange, activityId),
-                        comparePeriod ? getOrdersOverview(tenantId, previousRange, activityId) : Promise.resolve(null)
-                    ]);
-
+            if (orders) {
+                const [ordOverview, ordTrend, ordHourly, topQty, topRevenue, ordLatency, ordConversion, prevOrdOverview] = orders;
                 setOrdersOverview(ordOverview);
                 setOrdersTrend(ordTrend);
                 setOrdersHourly(ordHourly);
@@ -223,27 +254,23 @@ export default function AnalyticsPage() {
                 setPreviousOrdersOverview(prevOrdOverview ?? null);
             }
 
-            // ── Prenotazioni (solo se il piano abilita le prenotazioni) ──
-            // Base periodo = created_at ("prenotazioni ricevute nel periodo").
-            if (reservationsFeature) {
-                const [resOverview, resTrend, resHourly, prevResOverview] = await Promise.all([
-                    getReservationsOverview(tenantId, dateRange, activityId),
-                    getReservationsTrend(tenantId, dateRange, activityId),
-                    getReservationsHourly(tenantId, dateRange, activityId),
-                    comparePeriod ? getReservationsOverview(tenantId, previousRange, activityId) : Promise.resolve(null)
-                ]);
-
+            if (reservations) {
+                const [resOverview, resTrend, resHourly, prevResOverview] = reservations;
                 setReservationsOverview(resOverview);
                 setReservationsTrend(resTrend);
                 setReservationsHourly(resHourly);
                 setPreviousReservationsOverview(prevResOverview ?? null);
             }
-        } catch {
-            showToast({ message: "Errore nel caricamento analytics", type: "error" });
+        } catch (error) {
+            if (requestId !== requestRef.current) return;
+            // Un errore non lascia a schermo i dati del periodo prima: la
+            // pagina lo dice, con «Riprova».
+            console.error("Caricamento analitiche:", error);
+            setLoadError(true);
         } finally {
-            setIsLoading(false);
+            if (requestId === requestRef.current) setIsLoading(false);
         }
-    }, [tenantId, period, selectedActivityId, ordersFeature, reservationsFeature, showToast]);
+    }, [tenantId, canRead, period, selectedActivityId, ordersFeature, reservationsFeature]);
 
     useEffect(() => {
         loadData();
@@ -617,7 +644,7 @@ export default function AnalyticsPage() {
             value: period,
             // Default della pagina, non "nessun filtro": è il periodo con cui
             // le analitiche si aprono.
-            defaultValue: "7d",
+            defaultValue: DEFAULT_PERIOD,
             onChange: value => setPeriod(value as PeriodKey)
         },
         primaryAction: {
@@ -627,17 +654,27 @@ export default function AnalyticsPage() {
         }
     }), [period, periodOptions, handleExportXlsx, isLoading, isEmpty]);
 
-    usePageHeader({
-        leading,
-        actions: headerActions,
-        compact: headerCompact,
-    });
+    // Periodo ed «Esporta Excel» solo a chi legge: sulla pagina bloccata la
+    // testata resta vuota (#591).
+    usePageHeader(canRead ? { leading, actions: headerActions, compact: headerCompact } : null);
 
     return (
         <PageGate readPermission="analytics.read" activityId={selectedActivityId === "all" ? null : selectedActivityId}>
             {() => (
-        <main className={styles.analytics}>
-            {isEmpty ? (
+        <div className={styles.analytics}>
+            {loadError ? (
+                <EmptyState
+                    variant="page"
+                    icon={<BarChart3 />}
+                    title="Non è stato possibile caricare le analitiche"
+                    description="Controlla la connessione e riprova."
+                    action={
+                        <Button variant="secondary" onClick={() => void loadData()}>
+                            Riprova
+                        </Button>
+                    }
+                />
+            ) : isEmpty ? (
                 <div className={styles.emptyState}>
                     <Text variant="title-sm" weight={600}>
                         Nessun dato disponibile per il periodo selezionato
@@ -826,7 +863,7 @@ export default function AnalyticsPage() {
                     )}
                 </>
             )}
-        </main>
+        </div>
             )}
         </PageGate>
     );

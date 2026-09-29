@@ -94,7 +94,6 @@ test.describe("Analitiche", () => {
     });
 
     test("senza lettura: nessuna RPC parte", async ({ page }) => {
-        test.fail(true, "Oggi la fetch parte fuori dal gate (#590, P1)");
         await stub.revoke("analytics.read");
         await openBusinessPage(page, "overview", "Panoramica");
         await page.goto(page.url().replace(/\/overview$/, "/analytics"));
@@ -104,7 +103,6 @@ test.describe("Analitiche", () => {
     });
 
     test("a 375 nessuno scroll orizzontale", async ({ page }) => {
-        test.fail(true, "Oggi a 375 la pagina sfora di 18 px (#637)");
         await openPage(page);
         await page.setViewportSize({ width: 375, height: 800 });
         await expect(main(page).getByText("Focaccia e2e").first()).toBeVisible();
@@ -114,7 +112,6 @@ test.describe("Analitiche", () => {
 
 test.describe("Analitiche — errore", () => {
     test("errore di caricamento: lo dice e offre «Riprova»", async ({ page }) => {
-        test.fail(true, "Oggi: toast e i dati del periodo prima restano (#601, P1)");
         stub = await stubAnalitiche(page);
         await page.route(/\/rest\/v1\/rpc\/analytics_overview_stats/, route => route.fulfill({ status: 500, json: { code: "E2E", message: "rotto" } }));
         await openBusinessPage(page, "analytics", "Analitiche");
