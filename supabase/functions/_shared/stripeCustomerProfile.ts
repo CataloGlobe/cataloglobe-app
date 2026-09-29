@@ -168,6 +168,27 @@ export function buildCustomerProfileUpdate(tenantId: string, t: TenantFiscal): {
     };
 }
 
+/**
+ * Parametri `customers.update` per il ramo riuso di stripe-checkout: lo stesso
+ * riallineamento di update-billing-details (campi vuoti nel DB → "" = unset su
+ * Stripe) piu' `email` e `metadata.user_id` del chiamante. Qui il chiamante e'
+ * l'owner (verificato prima in stripe-checkout), quindi il customer segue lui:
+ * riallinea un customer rimasto al vecchio owner dopo un transfer.
+ */
+export function buildReuseCustomerUpdate(
+    tenantId: string,
+    t: TenantFiscal,
+    email: string,
+    userId: string
+): ReturnType<typeof buildCustomerProfileUpdate> & { email: string } {
+    const update = buildCustomerProfileUpdate(tenantId, t);
+    return {
+        ...update,
+        email,
+        metadata: { ...update.metadata, user_id: userId }
+    };
+}
+
 // --- Stripe calls (best-effort, non-throwing) -------------------------------
 
 /** Sottoinsieme strutturale del client Stripe usato qui (testabile senza SDK). */

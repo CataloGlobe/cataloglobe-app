@@ -6,6 +6,7 @@ import {
     buildCustomerName,
     buildCustomerProfileUpdate,
     buildEuVatValue,
+    buildReuseCustomerUpdate,
     buildStripeCustomerProfile,
     syncCustomerTaxId,
     syncStripeCustomerProfile,
@@ -93,6 +94,47 @@ describe("builders", () => {
         expect(update.metadata.pec).toBe("");
         expect(update).not.toHaveProperty("email");
         expect(update.metadata).not.toHaveProperty("user_id");
+    });
+
+    it("reuse update: empty DB fields → \"\" on Stripe, caller email + user_id", () => {
+        const update = buildReuseCustomerUpdate(TENANT, {}, "owner@example.com", "user-1");
+        expect(update.name).toBe("");
+        expect(update.address).toBe("");
+        expect(update.description).toBe("");
+        expect(update.preferred_locales).toEqual(["it"]);
+        expect(update.email).toBe("owner@example.com");
+        expect(update.metadata).toEqual({
+            tenant_id: TENANT,
+            legal_entity_type: "",
+            legal_name: "",
+            first_name: "",
+            last_name: "",
+            fiscal_code: "",
+            vat_number: "",
+            codice_destinatario: "",
+            pec: "",
+            user_id: "user-1"
+        });
+    });
+
+    it("reuse update: present values passed through like the profile update", () => {
+        const update = buildReuseCustomerUpdate(TENANT, COMPANY, "owner@example.com", "user-1");
+        const profile = buildCustomerProfileUpdate(TENANT, COMPANY);
+        expect(update.name).toBe("Trattoria Da Mario S.r.l.");
+        expect(update.address).toEqual({
+            country: "IT",
+            line1: "Via Roma 10",
+            postal_code: "20100",
+            city: "Milano",
+            state: "MI"
+        });
+        expect(update.description).toBe(profile.description);
+        expect(update.metadata).toEqual({ ...profile.metadata, user_id: "user-1" });
+        expect(update.metadata.vat_number).toBe("12345678911");
+        expect(update.metadata.codice_destinatario).toBe("ABC1234");
+        expect(update.metadata.fiscal_code).toBe("");
+        expect(update.metadata.pec).toBe("");
+        expect(update.metadata.tenant_id).toBe(TENANT);
     });
 });
 
