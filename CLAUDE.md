@@ -319,6 +319,10 @@ Deploy sempre con --project-ref esplicito: la CLI Supabase locale è collegata a
 
 **`priceSummary.ts` idem duplicato FE↔Edge** (header `⚠️ SYNC`): `src/utils/priceSummary.ts` ↔ `supabase/functions/_shared/priceSummary.ts`. `resolvePriceSummary` calcola solo i *fatti* sul prezzo sintetico di un gruppo → `{kind: none|single|multi, min, max, count}`. La *presentazione* ("da X" / range) vive SOLO lato FE in `src/utils/formatPriceSummary.ts` (l'edge Deno usa solo i fatti grezzi). Separazione voluta: la regola di sintesi cambia senza toccare il formatting.
 
+**Contatti dalla landing** (`submit-lead`, `purge-leads`; dettaglio in `docs/edge-functions.md`). `leadValidation.ts` duplicato FE↔Edge (header `⚠️ SYNC`, `src/utils/` ↔ `_shared/`, provato da `src/tests/leadValidation.test.ts`).
+- `consent_text` lo scrive solo il server, da `PRIVACY_PUBLISHED_AT` (`_shared/consentVersions.ts`), separata da `CURRENT_CONSENT_VERSIONS.privacy`: il testo privacy si aggiorna senza chiedere un nuovo consenso al sign-up.
+- `purge-leads` è in dry-run di default; cron alle 03:45 UTC con URL e secret presi dal vault (`purge_leads_url`, `leads_retention_secret` = `LEADS_RETENTION_SECRET`). `sendEmail` non logga mai destinatario né corpo.
+
 **Codice puro condiviso FE↔Edge senza coppia SYNC**: alias `@shared/` → `supabase/functions/_shared/`. Vale solo per moduli con zero import (niente Deno, niente `.ts` negli import). Primo caso: `scheduleCompetition.ts` (`resolveCompetition`, `isTimeRuleActiveNow`, `compareCandidates`), unica fonte di «chi vince». La usano resolver (entrambe le copie), lista di Programmazione (`src/utils/ruleInsights.ts`), drawer di eliminazione stile e andamento del simulatore. `days_of_week = []` vuol dire «mai»: si scrive solo via `daysOfWeekForDb`.
 
 ### Attivazione abbonamento (paywall)
