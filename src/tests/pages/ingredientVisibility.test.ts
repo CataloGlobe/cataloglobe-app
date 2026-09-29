@@ -6,7 +6,7 @@ import {
     buildBulkConfirmData,
     type CatalogProductLike,
     type ProductIngredientPair
-} from "@/pages/Operativita/Attivita/components/ActivityVisibilityDrawer/ingredientVisibility";
+} from "@/pages/Operativita/Attivita/components/ActivityVisibility/ingredientVisibility";
 
 function product(
     id: string,

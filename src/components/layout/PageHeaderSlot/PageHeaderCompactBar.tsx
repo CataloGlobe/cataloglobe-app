@@ -51,6 +51,7 @@ function renderMenuItems(actions: PageHeaderAction[]) {
 
 export function PageHeaderCompactBar({ config }: PageHeaderCompactBarProps) {
     const { sections, activeSection, onSectionChange, search, primaryAction, secondaryActions, persistentIcons, statusControl, filterControls, leadingFilter, backAction, statusIndicator, loading } = config;
+    const primaryVariant = primaryAction?.emphasis === "secondary" ? "secondary" : "primary";
 
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     // Quale filtro ha l'overlay aperto (per `label`, unica nella pagina): con
@@ -353,7 +354,7 @@ export function PageHeaderCompactBar({ config }: PageHeaderCompactBarProps) {
                         align="end"
                         trigger={
                             <Button
-                                variant="primary"
+                                variant={primaryVariant}
                                 loading={loading}
                                 disabled={primaryAction.disabled}
                                 className={styles.primary}
@@ -369,7 +370,7 @@ export function PageHeaderCompactBar({ config }: PageHeaderCompactBarProps) {
                     // finge di navigare.
                     <Button
                         as="a"
-                        variant="primary"
+                        variant={primaryVariant}
                         href={primaryAction.href}
                         target={primaryAction.target}
                         rel={primaryAction.target === "_blank" ? "noopener noreferrer" : undefined}
@@ -379,7 +380,7 @@ export function PageHeaderCompactBar({ config }: PageHeaderCompactBarProps) {
                     </Button>
                 ) : (
                     <Button
-                        variant="primary"
+                        variant={primaryVariant}
                         loading={loading}
                         disabled={primaryAction.disabled}
                         onClick={primaryAction.onClick}

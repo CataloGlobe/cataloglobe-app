@@ -1,14 +1,13 @@
 import { useEffect, useState, useMemo, useCallback, type ReactNode } from "react";
-import { useLocation } from "react-router-dom";
 import { useTenantId } from "@/context/useTenantId";
 import { useToast } from "@/context/Toast/ToastContext";
-import { getBusinessReviews, deleteReview } from "@/services/supabase/reviews";
+import { listReviews, deleteReview } from "@/services/supabase/reviews";
 import { useSedeScope, SCOPE_ALL } from "@/hooks/useSedeScope";
 import type { Review } from "@/types/database";
 import { usePermissions } from "@/context/PermissionsContext";
-import { canDoOnActivity } from "@/lib/permissions";
+import { canDoOnActivity, canDoOnAnyActivity } from "@/lib/permissions";
 import { PageGate } from "@/components/PageGate/PageGate";
-import { ArrowUpDown, CalendarRange, Trash2, MessageSquare, Star } from "lucide-react";
+import { ArrowUpDown, CalendarRange, MessageSquare, Star } from "lucide-react";
 
 import { usePageHeader } from "@/context/usePageHeader";
 import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
@@ -17,10 +16,15 @@ import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { DateInput } from "@/components/ui/Input/DateInput";
 import { Button } from "@/components/ui/Button/Button";
-import { IconButton } from "@/components/ui/Button/IconButton";
+import { BarList } from "@/components/ui/BarList/BarList";
+import { Card } from "@/components/ui/Card/Card";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
+import { ListRow } from "@/components/ui/ListRow/ListRow";
+import { Rating } from "@/components/ui/Rating/Rating";
+import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import Text from "@/components/ui/Text/Text";
-import Skeleton from "@/components/ui/Skeleton/Skeleton";
+import { formatRelativeTime } from "@/utils/relativeTime";
 
 import styles from "./Reviews.module.scss";
 
@@ -29,7 +33,7 @@ import styles from "./Reviews.module.scss";
 type PeriodFilter = "all" | "7d" | "30d" | "90d" | "custom";
 type SortOption = "newest" | "oldest" | "ratingAsc" | "ratingDesc";
 
-// Stars filter via SegmentedControl: icon \u2b50 accanto al numero, "Tutte"
+// Filtro stelle via SegmentedControl: stella accanto al numero, "Tutte"
 // senza icona. `value` come stringa per coerenza con lo stato `filterRating`.
 const STAR_ICON = <Star size={12} fill="currentColor" />;
 const RATING_OPTIONS: { value: string; label: string; icon?: ReactNode }[] = [
@@ -49,95 +53,40 @@ const PERIOD_OPTIONS = [
     { value: "custom", label: "Periodo personalizzato" },
 ];
 
+// Parole, non frecce: «Voto ↑» non diceva se in cima va il più alto (mockup).
 const SORT_OPTIONS = [
     { value: "newest", label: "Più recenti" },
     { value: "oldest", label: "Meno recenti" },
-    { value: "ratingDesc", label: "Voto \u2191" },
-    { value: "ratingAsc", label: "Voto \u2193" },
+    { value: "ratingDesc", label: "Voto più alto" },
+    { value: "ratingAsc", label: "Voto più basso" },
 ];
-
-/* ── Helpers ─────────────────────────────────────────── */
-
-function relativeDate(iso: string): string {
-    const now = new Date();
-    const date = new Date(iso);
-    const diffMs = now.getTime() - date.getTime();
-    const mins = Math.floor(diffMs / 60_000);
-
-    if (mins < 1) return "Adesso";
-    if (mins < 60) return `${mins}m fa`;
-
-    const hours = Math.floor(mins / 60);
-    if (hours < 24) return `${hours}h fa`;
-
-    const yesterday = new Date(now);
-    yesterday.setDate(yesterday.getDate() - 1);
-    if (date.toDateString() === yesterday.toDateString()) return "Ieri";
-
-    const days = Math.floor(hours / 24);
-    if (days < 30) return `${days} giorni fa`;
-
-    return date.toLocaleDateString("it-IT");
-}
-
-function ratingColorClass(rating: number): string {
-    if (rating >= 4) return styles.ratingGreen;
-    if (rating === 3) return styles.ratingYellow;
-    return styles.ratingRed;
-}
-
-function distOpacityClass(star: number): string {
-    switch (star) {
-        case 5: return styles.distOpacity5;
-        case 4: return styles.distOpacity4;
-        case 3: return styles.distOpacity3;
-        case 2: return styles.distOpacity2;
-        default: return styles.distOpacity1;
-    }
-}
-
-/* ── Star SVG row ────────────────────────────────────── */
-
-function StarRow({ rating, size = 12 }: { rating: number; size?: number }) {
-    return (
-        <div className={styles.starsRow}>
-            {[1, 2, 3, 4, 5].map((n) => (
-                <svg key={n} viewBox="0 0 24 24" width={size} height={size}>
-                    <path
-                        d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
-                        fill={n <= Math.round(rating) ? "#1E293B" : "none"}
-                        stroke={n <= Math.round(rating) ? "#1E293B" : "#CBD5E1"}
-                        strokeWidth="1.5"
-                    />
-                </svg>
-            ))}
-        </div>
-    );
-}
 
 /* ── Component ───────────────────────────────────────── */
 
 export default function Reviews() {
     const tenantId = useTenantId();
-    const location = useLocation();
     const { showToast } = useToast();
 
     /* ── Sede scope condivisa via navbar ────────────── */
-    const {
-        value: scopeValue,
-        setValue: setSedeScope,
-        readableActivities
-    } = useSedeScope();
-    // SCOPE_ALL → stringa vuota = "tutte" per fetchReviews
+    const { value: scopeValue, readableActivities } = useSedeScope();
+    // SCOPE_ALL → stringa vuota = "tutte"
     const selectedActivity = scopeValue === SCOPE_ALL ? "" : scopeValue;
 
     const { permissions } = usePermissions();
+    // Gate di lettura prima di ogni fetch (#646): lo stesso che rende `PageGate`.
+    const canRead =
+        permissions != null &&
+        (selectedActivity
+            ? canDoOnActivity(permissions, "reviews.read", selectedActivity)
+            : canDoOnAnyActivity(permissions, "reviews.read"));
     const canDelete = (review: Review) =>
         permissions ? canDoOnActivity(permissions, "reviews.delete", review.activity_id) : false;
 
     /* ── State ──────────────────────────────────────── */
     const [reviews, setReviews] = useState<Review[]>([]);
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState(false);
+    const [reloadKey, setReloadKey] = useState(0);
 
     const [filterRating, setFilterRating] = useState<string>("all");
     const [filterPeriod, setFilterPeriod] = useState<PeriodFilter>("all");
@@ -146,51 +95,32 @@ export default function Reviews() {
     const [sortBy, setSortBy] = useState<SortOption>("newest");
     const [searchQuery, setSearchQuery] = useState("");
 
-    const [deletingId, setDeletingId] = useState<string | null>(null);
-
-    const preselectedId: string | null =
-        (location.state as { restaurantId?: string } | null)?.restaurantId ?? null;
-
-    /* ── Fetch reviews ──────────────────────────────── */
-    const fetchReviews = useCallback(
-        async (activityId: string, allIds: string[]) => {
-            if (activityId) {
-                return getBusinessReviews(activityId);
-            }
-            if (allIds.length === 0) return [];
-            const results = await Promise.all(
-                allIds.map((id) => getBusinessReviews(id)),
-            );
-            return results.flat();
-        },
-        [],
-    );
-
-    /* ── Honor preselect da navigation state (one-shot) ─ */
-    useEffect(() => {
-        if (preselectedId) {
-            setSedeScope(preselectedId);
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [preselectedId]);
+    // La recensione da eliminare: il DELETE è secco e l'ha scritta un
+    // cliente, quindi passa da un ConfirmDialog (regola delle azioni
+    // irreversibili), non da una conferma nella riga.
+    const [pendingDelete, setPendingDelete] = useState<Review | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
+    const [deleteError, setDeleteError] = useState<string | null>(null);
 
     /* ── Fetch reviews quando cambia tenant o scope ────── */
     useEffect(() => {
-        if (!tenantId) return;
+        if (!tenantId || !canRead) return;
+        const tenant = tenantId;
         let cancelled = false;
 
         async function load() {
             setLoading(true);
+            setLoadError(false);
             try {
-                const data = await fetchReviews(
-                    selectedActivity,
-                    readableActivities.map((a) => a.id),
-                );
+                const ids = selectedActivity ? [selectedActivity] : readableActivities.map(a => a.id);
+                const data = await listReviews(tenant, ids);
                 if (cancelled) return;
                 setReviews(data);
-            } catch {
+            } catch (error) {
                 if (cancelled) return;
-                showToast({ message: "Errore nel caricamento", type: "error" });
+                // Un errore non è «nessuna recensione»: la pagina lo dice, con «Riprova».
+                console.error("Caricamento recensioni:", error);
+                setLoadError(true);
             } finally {
                 if (!cancelled) setLoading(false);
             }
@@ -200,7 +130,7 @@ export default function Reviews() {
         return () => {
             cancelled = true;
         };
-    }, [tenantId, selectedActivity, readableActivities, fetchReviews, showToast]);
+    }, [tenantId, canRead, selectedActivity, readableActivities, reloadKey]);
 
     /* ── Activity name map ──────────────────────────── */
     const activityNameMap = useMemo(() => {
@@ -238,32 +168,24 @@ export default function Reviews() {
     }, [reviews, filterPeriod, customFrom, customTo]);
 
     /* ── Stats ──────────────────────────────────────── */
-    const stats = useMemo(() => {
+    const average = useMemo(() => {
         const total = periodFilteredReviews.length;
-        if (total === 0)
-            return { average: null, total: 0, positive: 0, negative: 0 };
-
+        if (total === 0) return null;
         const sum = periodFilteredReviews.reduce((s, r) => s + r.rating, 0);
-        return {
-            average: Math.round((sum / total) * 10) / 10,
-            total,
-            positive: periodFilteredReviews.filter((r) => r.rating >= 4).length,
-            negative: periodFilteredReviews.filter((r) => r.rating <= 2).length,
-        };
+        return Math.round((sum / total) * 10) / 10;
     }, [periodFilteredReviews]);
 
-    const distribution = useMemo(() => {
+    // Distribuzione 5→1 a una serie sola (§34.9/4, §34.10): la lunghezza fa
+    // il lavoro, tinta unica, il livello di stelle è l'etichetta.
+    const distributionItems = useMemo(() => {
         const dist: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
-        for (const r of periodFilteredReviews) {
-            dist[r.rating] = (dist[r.rating] ?? 0) + 1;
-        }
-        return dist;
+        for (const r of periodFilteredReviews) dist[r.rating] = (dist[r.rating] ?? 0) + 1;
+        return ([5, 4, 3, 2, 1] as const).map(star => ({
+            id: String(star),
+            label: <Rating value={star} showValue={false} />,
+            value: dist[star]
+        }));
     }, [periodFilteredReviews]);
-
-    const maxDistCount = useMemo(
-        () => Math.max(...Object.values(distribution), 1),
-        [distribution],
-    );
 
     /* ── Final filtered + sorted reviews ────────────── */
     const displayedReviews = useMemo(() => {
@@ -284,15 +206,9 @@ export default function Reviews() {
         result.sort((a, b) => {
             switch (sortBy) {
                 case "newest":
-                    return (
-                        new Date(b.created_at).getTime() -
-                        new Date(a.created_at).getTime()
-                    );
+                    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
                 case "oldest":
-                    return (
-                        new Date(a.created_at).getTime() -
-                        new Date(b.created_at).getTime()
-                    );
+                    return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
                 case "ratingDesc":
                     return b.rating - a.rating;
                 case "ratingAsc":
@@ -304,6 +220,15 @@ export default function Reviews() {
 
         return result;
     }, [periodFilteredReviews, filterRating, searchQuery, sortBy]);
+
+    const isFiltered = filterRating !== "all" || searchQuery.trim() !== "" || filterPeriod !== "all";
+    const clearFilters = useCallback(() => {
+        setFilterRating("all");
+        setSearchQuery("");
+        setFilterPeriod("all");
+        setCustomFrom("");
+        setCustomTo("");
+    }, []);
 
     // ── Header band: leading (filtro stelle) + actions (search + periodo + sort) ──
     const leading = useMemo(() => (
@@ -334,7 +259,6 @@ export default function Reviews() {
                 }}
                 options={PERIOD_OPTIONS}
                 containerClassName={styles.toolbarPeriod}
-                selectClassName={styles.toolbarSelectInner}
             />
             <Select
                 aria-label="Ordina recensioni"
@@ -342,20 +266,16 @@ export default function Reviews() {
                 onChange={(e) => setSortBy(e.target.value as SortOption)}
                 options={SORT_OPTIONS}
                 containerClassName={styles.toolbarSort}
-                selectClassName={styles.toolbarSelectInner}
             />
         </>
     ), [searchQuery, filterPeriod, sortBy]);
 
-    // Selettore sede vive nella navbar (SedeScopeSelect). Titolo nel breadcrumb.
-    // Tre filtri, tre trattamenti già validati altrove: la valutazione prende il
-    // posto del picker sezione (la pagina non ha sezioni), periodo e ordinamento
-    // restano icone con overlay e chip. Icone diverse: due bottoni identici non
-    // direbbero quale filtro aprono.
-    //
-    // Le opzioni valutazione qui portano la stella nel testo: nella toolbar
-    // comoda è un'icona accanto al numero, in una lista il solo "5" non si
-    // capirebbe.
+    // Selettore sede nella navbar (SedeScopeSelect), titolo nel breadcrumb.
+    // In compatto la valutazione prende il posto del picker sezione (la pagina
+    // non ha sezioni); periodo e ordinamento restano icone con overlay e chip,
+    // diverse perché due bottoni identici non direbbero quale filtro aprono.
+    // Qui le opzioni valutazione portano la stella nel testo: in una lista il
+    // solo "5" non si capirebbe.
     const headerCompact = useMemo<PageHeaderCompactConfig>(() => ({
         leadingFilter: {
             label: "Valutazione",
@@ -410,19 +330,23 @@ export default function Reviews() {
     });
 
     /* ── Handlers ───────────────────────────────────── */
-    async function handleDelete(reviewId: string) {
-        if (!tenantId) return;
+    async function handleConfirmDelete(): Promise<boolean> {
+        if (!tenantId || !pendingDelete) return false;
+        const target = pendingDelete;
+        setIsDeleting(true);
+        setDeleteError(null);
         try {
-            await deleteReview(reviewId, tenantId);
-            setReviews((prev) => prev.filter((r) => r.id !== reviewId));
-            setDeletingId(null);
+            await deleteReview(target.id, tenantId);
+            setReviews((prev) => prev.filter((r) => r.id !== target.id));
+            setPendingDelete(null);
             showToast({ message: "Recensione eliminata", type: "success" });
-        } catch {
-            showToast({
-                message: "Errore durante l'eliminazione",
-                type: "error",
-            });
-            setDeletingId(null);
+            return true;
+        } catch (error) {
+            console.error("Eliminazione recensione:", error);
+            setDeleteError("Non è stato possibile eliminare la recensione. Riprova.");
+            return false;
+        } finally {
+            setIsDeleting(false);
         }
     }
 
@@ -430,233 +354,168 @@ export default function Reviews() {
     return (
         <PageGate readPermission="reviews.read" activityId={selectedActivity || null}>
             {({ canEdit }) => (
-        <div className={styles.page}>
-            {/* ── Stats block ─────────────────────────── */}
-            <div className={styles.statsBlock}>
-                {/* Media */}
-                <div className={styles.statCell}>
-                    <Text variant="caption" colorVariant="muted" weight={600} className={styles.statLabel}>
-                        MEDIA
-                    </Text>
-                    <div className={styles.statBigNumber}>
-                        <span>
-                            {stats.average !== null ? stats.average.toFixed(1) : "-"}
-                        </span>
-                        <span className={styles.statBigNumberSuffix}>/ 5</span>
-                    </div>
-                    {stats.average !== null && (
-                        <StarRow rating={stats.average} size={14} />
-                    )}
-                </div>
-
-                <div className={styles.statDivider} />
-
-                {/* Totale */}
-                <div className={styles.statCell}>
-                    <Text variant="caption" colorVariant="muted" weight={600} className={styles.statLabel}>
-                        TOTALE
-                    </Text>
-                    <div className={styles.statBigNumber}>
-                        <span>{stats.total}</span>
-                    </div>
-                    <div className={styles.indicators}>
-                        <div className={styles.indicator}>
-                            <span
-                                className={`${styles.indicatorDot} ${styles.indicatorDotPositive}`}
-                            />
-                            <Text variant="caption" colorVariant="muted">
-                                {stats.positive} positive
-                            </Text>
-                        </div>
-                        <div className={styles.indicator}>
-                            <span
-                                className={`${styles.indicatorDot} ${styles.indicatorDotNegative}`}
-                            />
-                            <Text variant="caption" colorVariant="muted">
-                                {stats.negative} negative
-                            </Text>
-                        </div>
-                    </div>
-                </div>
-
-                <div className={styles.statDivider} />
-
-                {/* Distribuzione */}
-                <div className={styles.statCell}>
-                    <Text variant="caption" colorVariant="muted" weight={600} className={styles.statLabel}>
-                        DISTRIBUZIONE
-                    </Text>
-                    <div className={styles.distRows}>
-                        {([5, 4, 3, 2, 1] as const).map((star) => {
-                            const count = distribution[star];
-                            const pct =
-                                maxDistCount > 0
-                                    ? (count / maxDistCount) * 100
-                                    : 0;
-                            return (
-                                <div key={star} className={styles.distRow}>
-                                    <Text variant="caption" weight={600} colorVariant="muted" className={styles.distStar}>
-                                        {star}
-                                    </Text>
-                                    <div className={styles.distBarTrack}>
-                                        <div
-                                            className={`${styles.distBarFill} ${distOpacityClass(star)}`}
-                                            style={{ width: `${pct}%` }}
-                                        />
-                                    </div>
-                                    <Text variant="caption-xs" colorVariant="muted" className={styles.distCount}>
-                                        {count}
-                                    </Text>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </div>
-            </div>
-
-            {/* ── Custom date range ───────────────────── */}
-            {filterPeriod === "custom" && (
-                <div className={styles.dateRange}>
-                    <DateInput
-                        label="Da"
-                        value={customFrom}
-                        onChange={(e) => setCustomFrom(e.target.value)}
-                        containerClassName={styles.dateField}
-                    />
-                    <DateInput
-                        label="A"
-                        value={customTo}
-                        onChange={(e) => setCustomTo(e.target.value)}
-                        containerClassName={styles.dateField}
-                    />
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                            setCustomFrom("");
-                            setCustomTo("");
-                        }}
-                    >
-                        Azzera
-                    </Button>
-                </div>
-            )}
-
-            {/* ── Review list ─────────────────────────── */}
-            {loading ? (
-                <div className={styles.reviewList}>
-                    {[1, 2, 3].map((i) => (
-                        <div key={i} className={styles.skeletonRow}>
-                            <div className={styles.skeletonRating}>
-                                <Skeleton width="48px" height="28px" />
-                                <Skeleton width="56px" height="10px" />
-                            </div>
-                            <div className={styles.skeletonBody}>
-                                <Skeleton width="80%" height="14px" />
-                                <Skeleton width="60%" height="14px" />
-                                <Skeleton width="30%" height="10px" />
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            ) : displayedReviews.length === 0 ? (
-                <div className={styles.reviewList}>
-                    <EmptyState
-                        icon={<MessageSquare size={40} strokeWidth={1.5} />}
-                        title="Nessuna recensione trovata"
-                        description="Prova a modificare i filtri."
-                    />
-                </div>
-            ) : (
-                <div className={styles.reviewList}>
-                    {displayedReviews.map((review) => (
-                        <article key={review.id} className={styles.reviewRow}>
-                            {/* Rating */}
-                            <div className={styles.reviewRating}>
-                                <span
-                                    className={`${styles.ratingNumber} ${ratingColorClass(review.rating)}`}
-                                >
-                                    {review.rating.toFixed(1)}
-                                </span>
-                                <StarRow rating={review.rating} size={10} />
-                            </div>
-
-                            {/* Body */}
-                            <div className={styles.reviewBody}>
-                                {review.comment ? (
-                                    <Text variant="body-sm" className={styles.reviewComment}>
-                                        {review.comment}
-                                    </Text>
-                                ) : (
-                                    <Text variant="body-sm" colorVariant="muted" className={styles.noComment}>
-                                        Nessun commento
-                                    </Text>
-                                )}
-                                <div className={styles.reviewMeta}>
-                                    <Text variant="caption" colorVariant="muted">
-                                        {relativeDate(review.created_at)}
-                                    </Text>
-                                    {!selectedActivity && (
-                                        <>
-                                            <span className={styles.metaDot} />
-                                            <Text variant="caption" colorVariant="muted">
-                                                {activityNameMap.get(
-                                                    review.activity_id,
-                                                ) ?? ""}
+                <div className={styles.page}>
+                    {/* ── Riepilogo: numero eroe + distribuzione ─── */}
+                    <Card title="Riepilogo">
+                        <div className={styles.summary}>
+                            {loading ? (
+                                <BarList className={styles.summaryFull} items={[]} loading />
+                            ) : (
+                                <>
+                                    <div className={styles.average}>
+                                        {average !== null ? (
+                                            <Rating
+                                                value={average}
+                                                size="hero"
+                                                countLabel={`${periodFilteredReviews.length} ${periodFilteredReviews.length === 1 ? "recensione" : "recensioni"}`}
+                                            />
+                                        ) : (
+                                            <Text variant="body-sm" colorVariant="muted">
+                                                Nessun voto nel periodo.
                                             </Text>
-                                        </>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Actions */}
-                            <div className={styles.reviewActions}>
-                                {canDelete(review) && (deletingId === review.id ? (
-                                    <div className={styles.deleteConfirm}>
-                                        <Button
-                                            variant="danger"
-                                            size="sm"
-                                            disabled={!canEdit}
-                                            onClick={() =>
-                                                void handleDelete(review.id)
-                                            }
-                                        >
-                                            Elimina
-                                        </Button>
-                                        <Button
-                                            variant="secondary"
-                                            size="sm"
-                                            onClick={() => setDeletingId(null)}
-                                        >
-                                            Annulla
-                                        </Button>
+                                        )}
                                     </div>
-                                ) : (
-                                    <IconButton
-                                        icon={<Trash2 size={16} />}
-                                        variant="ghost"
-                                        size="sm"
-                                        aria-label="Elimina recensione"
-                                        onClick={() =>
-                                            setDeletingId(review.id)
-                                        }
-                                        className={styles.deleteIconBtn}
+                                    <BarList
+                                        className={styles.distribution}
+                                        labelColumn="fit"
+                                        aria-label="Distribuzione dei voti"
+                                        items={distributionItems}
                                     />
-                                ))}
-                            </div>
-                        </article>
-                    ))}
-                </div>
-            )}
+                                </>
+                            )}
+                        </div>
+                    </Card>
 
-            {/* ── Footer ──────────────────────────────── */}
-            {!loading && displayedReviews.length > 0 && (
-                <Text variant="caption" colorVariant="muted" align="center">
-                    {displayedReviews.length} di {periodFilteredReviews.length}{" "}
-                    recensioni
-                </Text>
-            )}
-        </div>
+                    {/* ── Periodo personalizzato ──────────────── */}
+                    {filterPeriod === "custom" && (
+                        <div className={styles.dateRange}>
+                            <DateInput
+                                label="Da"
+                                value={customFrom}
+                                onChange={(e) => setCustomFrom(e.target.value)}
+                            />
+                            <DateInput
+                                label="A"
+                                value={customTo}
+                                onChange={(e) => setCustomTo(e.target.value)}
+                            />
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                    setCustomFrom("");
+                                    setCustomTo("");
+                                }}
+                            >
+                                Azzera
+                            </Button>
+                        </div>
+                    )}
+
+                    {/* ── Elenco ──────────────────────────────── */}
+                    {loading ? (
+                        <Card flush>
+                            <div aria-busy="true" aria-label="Caricamento recensioni">
+                                <ListRow loading />
+                                <ListRow loading />
+                                <ListRow loading />
+                            </div>
+                        </Card>
+                    ) : loadError ? (
+                        <EmptyState
+                            variant="page"
+                            icon={<MessageSquare />}
+                            title="Non è stato possibile caricare le recensioni"
+                            description="Controlla la connessione e riprova."
+                            action={
+                                <Button variant="secondary" onClick={() => setReloadKey(k => k + 1)}>
+                                    Riprova
+                                </Button>
+                            }
+                        />
+                    ) : displayedReviews.length === 0 ? (
+                        isFiltered && reviews.length > 0 ? (
+                            <EmptyState variant="filtered" title="Nessuna recensione trovata" onClearFilters={clearFilters} />
+                        ) : (
+                            <EmptyState
+                                variant="inline"
+                                icon={<MessageSquare />}
+                                title="Nessuna recensione"
+                                description="Le recensioni arrivano dal modulo sulla pagina pubblica delle sedi."
+                            />
+                        )
+                    ) : (
+                        <Card flush>
+                            {displayedReviews.map((review) => (
+                                <ListRow
+                                    key={review.id}
+                                    title={
+                                        review.comment ? (
+                                            // Il commento è il contenuto della riga: va a capo
+                                            // intero, non si tronca come un nome.
+                                            <span className={styles.comment}>{review.comment}</span>
+                                        ) : (
+                                            <Text as="span" variant="body-sm" colorVariant="muted" className={styles.noComment}>
+                                                Nessun commento
+                                            </Text>
+                                        )
+                                    }
+                                    wrapSubtitle
+                                    subtitle={[
+                                        formatRelativeTime(review.created_at),
+                                        !selectedActivity ? activityNameMap.get(review.activity_id) : null
+                                    ]
+                                        .filter(Boolean)
+                                        .join(" · ")}
+                                    meta={<Rating value={review.rating} />}
+                                    metaInline
+                                    trailing={
+                                        canDelete(review) ? (
+                                            <TableRowActions
+                                                ariaLabel="Azioni recensione"
+                                                actions={[
+                                                    {
+                                                        label: "Elimina",
+                                                        variant: "destructive",
+                                                        disabled: !canEdit,
+                                                        description: !canEdit ? "L'abbonamento non è attivo." : undefined,
+                                                        onClick: () => {
+                                                            setDeleteError(null);
+                                                            setPendingDelete(review);
+                                                        }
+                                                    }
+                                                ]}
+                                            />
+                                        ) : undefined
+                                    }
+                                />
+                            ))}
+                        </Card>
+                    )}
+
+                    {/* ── Piede ────────────────────────────────── */}
+                    {!loading && !loadError && displayedReviews.length > 0 && (
+                        <Text variant="caption" colorVariant="muted" align="center">
+                            {displayedReviews.length} di {periodFilteredReviews.length}{" "}
+                            recensioni
+                        </Text>
+                    )}
+
+                    <ConfirmDialog
+                        isOpen={pendingDelete !== null}
+                        onClose={() => {
+                            setPendingDelete(null);
+                            setDeleteError(null);
+                        }}
+                        onConfirm={handleConfirmDelete}
+                        title="Eliminare la recensione?"
+                        message="L'ha scritta un cliente: eliminata non torna, e non si recupera."
+                        confirmLabel="Elimina"
+                        confirmVariant="danger"
+                        isLoading={isDeleting}
+                        error={deleteError}
+                    />
+                </div>
             )}
         </PageGate>
     );

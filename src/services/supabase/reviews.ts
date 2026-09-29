@@ -1,14 +1,17 @@
 import { supabase } from "@/services/supabase/client";
 import type { Review } from "@/types/database";
 
-export type AnalyticsReview = Pick<Review, "id" | "rating" | "source" | "created_at">;
-
-/** Recensioni per una singola attività */
-export async function getBusinessReviews(activityId: string): Promise<Review[]> {
+/**
+ * Recensioni dell'azienda sulle sedi indicate, dalla più recente: una query
+ * sola invece di una per sede. `activityIds` vuoto = nessuna recensione.
+ */
+export async function listReviews(tenantId: string, activityIds: string[]): Promise<Review[]> {
+    if (activityIds.length === 0) return [];
     const { data, error } = await supabase
         .from("reviews")
         .select("*")
-        .eq("activity_id", activityId)
+        .eq("tenant_id", tenantId)
+        .in("activity_id", activityIds)
         .order("created_at", { ascending: false });
 
     if (error) throw error;
@@ -45,40 +48,4 @@ export async function updateReviewStatus(
         .eq("id", reviewId);
 
     if (error) throw error;
-}
-
-/** Ottiene tutte le recensioni per analytics */
-export async function getAnalyticsReviews() {
-    const { data, error } = await supabase
-        .from("reviews")
-        .select(
-            `
-            id,
-            rating,
-            created_at,
-            source,
-            activity_id,
-            activities:activity_id (
-                name,
-                tenant_id
-            )
-        `
-        )
-        .order("created_at", { ascending: false });
-
-    if (error) {
-        console.error("Errore caricamento analytics reviews:", error);
-        return [];
-    }
-
-    // Normalizzazione
-    return data.map(r => {
-        const activity = r.activities?.[0];
-
-        return {
-            ...r,
-            restaurant_name: activity?.name ?? null,
-            restaurant_owner_id: activity?.tenant_id ?? null
-        };
-    });
 }

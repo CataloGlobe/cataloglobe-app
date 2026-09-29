@@ -37,6 +37,12 @@ export interface PageHeaderAction {
      * (es. "Nuova regola" sulla tab "Tutte", dove il tipo va scelto).
      */
     items?: PageHeaderAction[];
+    /**
+     * Solo sull'azione primaria: il bottone della barra compatta resta
+     * secondario. Per la pagina la cui unica azione non è «la» cosa da fare
+     * (Analitiche: «Esporta Excel» accanto a dati che si leggono e basta).
+     */
+    emphasis?: "secondary";
 }
 
 /** Icona che resta sempre visibile in compatto: azione frequente, mai nel kebab. */

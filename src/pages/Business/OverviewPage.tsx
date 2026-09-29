@@ -655,7 +655,7 @@ export default function OverviewPage() {
         },
         {
             label: "Disponibilità",
-            hidden: !canDoOnActivity(permissions, "product_availability.write", activityId),
+            hidden: !canDoOnActivity(permissions, "activity.read", activityId),
             onClick: () => navigate(`${b}/locations/${activityId}/disponibilita`)
         },
         {

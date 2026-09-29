@@ -274,6 +274,11 @@ function BarListSection() {
                     <BarList items={STARS} aria-label="Distribuzione delle recensioni" />
                 </div>
             </State>
+            <State label="labelColumn «fit»: colonna etichette larga quanto la più larga (Riepilogo di Recensioni)" column>
+                <div className={styles.narrow}>
+                    <BarList items={STARS} labelColumn="fit" aria-label="Distribuzione delle recensioni, colonna a contenuto" />
+                </div>
+            </State>
             <State label="parole cercate: max 5 righe + «Mostra altre», una barra a zero resta con «0»" column>
                 <div className={styles.narrow}>
                     <BarList items={SEARCHES} limit={5} />

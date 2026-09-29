@@ -13,7 +13,10 @@
             "translatable": "{{count}} elementi traducibili",
             "queued": "{{count}} in coda",
             "has_errors": "alcune da risolvere",
-            "all_done": "tutto aggiornato"
+            "all_done": "tutto aggiornato",
+            "badge_queued": "In corso",
+            "badge_errors": "Da risolvere",
+            "badge_done": "Aggiornate"
         },
         "review": {
             "title": "Da rivedere",
@@ -76,7 +79,11 @@
             "translated_aria": "Tradotto",
             "in_progress_aria": "In corso",
             "retry_count_label": "{{count}} da riprovare"
-        }
+        },
+        "read_only_role": "Sola lettura: attivare e gestire le lingue spetta a proprietario e amministratori.",
+        "read_only_subscription": "Sola lettura: l'abbonamento non è attivo.",
+        "load_error_desc": "Controlla la connessione e riprova.",
+        "confirm_ai_credit": "Le traduzioni usano il credito AI incluso nel piano."
     },
     "errors": {
         "load_failed": "Errore nel caricamento delle lingue",

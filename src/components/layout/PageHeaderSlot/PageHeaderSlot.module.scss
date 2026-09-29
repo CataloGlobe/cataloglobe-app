@@ -44,6 +44,10 @@
   width: auto;
   visibility: hidden;
   pointer-events: none;
+  // Invisibile ma presente: senza clip una riga più larga della viewport (le
+  // quattro tab della scheda sede a 375) allargava il `main` di 49 px. La
+  // misura legge `scrollWidth`, che il clip non cambia.
+  overflow: hidden;
 
   @media (max-width: 767px) {
     left: 16px;

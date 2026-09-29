@@ -26,6 +26,11 @@ export interface StatCardDelta {
     period: string;
     /** Come si legge il valore: percentuale (default) o numero assoluto. */
     format?: "percent" | "number";
+    /**
+     * Salire è male (il tasso di annullamento): la freccia segue il segno, il
+     * colore no — su è rosso, giù è verde.
+     */
+    invert?: boolean;
 }
 
 export interface StatCardLink {
@@ -79,6 +84,8 @@ export function StatCard({ label, value, delta, variant, sample, link, loading =
 
     const trend = delta ? (delta.value > 0 ? "up" : delta.value < 0 ? "down" : "flat") : null;
     const TrendIcon = trend === "up" ? ArrowUpRight : trend === "down" ? ArrowDownRight : Minus;
+    // Il colore dice se è una buona notizia: con `invert` salire è male.
+    const tone = delta?.invert && trend !== "flat" ? (trend === "up" ? "down" : "up") : trend;
 
     return (
         <Card className={`${styles.card} ${className ?? ""}`.trim()} bodyClassName={styles.body}>
@@ -95,7 +102,7 @@ export function StatCard({ label, value, delta, variant, sample, link, loading =
             ) : (
                 delta &&
                 resolved !== "plain" && (
-                    <div className={`${styles.delta} ${styles[`trend_${trend}`]}`}>
+                    <div className={`${styles.delta} ${styles[`trend_${tone}`]}`}>
                         <TrendIcon size={14} strokeWidth={2.25} aria-hidden="true" />
                         <Text as="span" variant="caption" weight={600} className={styles.deltaValue}>
                             {formatDelta(delta)}

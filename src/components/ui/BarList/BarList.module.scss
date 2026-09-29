@@ -18,6 +18,23 @@
   min-height: 28px;
 }
 
+// `labelColumn="fit"`: una griglia sola per tutte le righe (subgrid), così la
+// colonna delle etichette è larga quanto la più larga, fino al 40 %.
+.listFit {
+  display: grid;
+  grid-template-columns: fit-content(40%) minmax(0, 1fr) auto;
+  column-gap: var(--space-12);
+  row-gap: var(--space-8);
+
+  > * {
+    grid-column: 1 / -1;
+  }
+
+  > .row {
+    grid-template-columns: subgrid;
+  }
+}
+
 // Una riga sola, anche se l'etichetta è un link o un nodo.
 .label {
   min-width: 0;
