@@ -19,6 +19,14 @@ Tutte in `supabase/functions/<nome>/index.ts`. Shared code in `_shared/`. `verif
 | `search-google-places` | ✅ | Ricerca luoghi Google Places. Branch `query`: searchText per review URL (tab contatti). Branch `place_id`: Place Details con `addressComponents` per autocompletamento indirizzo strutturato (`address`, `street_number`, `postal_code`, `city`, `province`). |
 | `cleanup-draft-schedules` | ✅ | Elimina bozze schedules incomplete > 7 giorni (chiamata via pg_cron con PURGE_SECRET) |
 | `menu-ai-import` | ✅ | Import AI da menu via Gemini (immagini JPEG/PNG + PDF, max 5 file/richiesta) |
+| `submit-lead` | ✅ | Contatto dal form della landing campagna → tabella `leads` + mail interna (pubblica, rate limit per IP) |
+| `purge-leads` | ✅ | Cancella i lead non `won` più vecchi di 12 mesi (pg_cron 03:45 UTC, `X-Job-Secret`, dry-run di default) |
+
+## Contatti dalla landing — `submit-lead` e `purge-leads`
+
+`submit-lead` è pubblica (form della landing campagna). Controlla honeypot `website`, validazione in `_shared/leadValidation.ts` ↔ `src/utils/leadValidation.ts` (test di sync) e rate limit 5/ora per `ip_hash` (SHA-256 con `LEADS_IP_SALT`, l'IP in chiaro non si salva). Poi insert con service role e mail best-effort a `LEADS_NOTIFY_EMAIL`: se la mail fallisce la riga resta. CORS: le anteprime Vercel passano solo su staging. La prova del consenso la scrive il server: `consent_at` = ora dell'insert, `consent_text` = `PRIVACY_PUBLISHED_AT` (`_shared/consentVersions.ts`, fonte unica anche per `/legal/privacy`, separata da `CURRENT_CONSENT_VERSIONS.privacy`: alzarla non chiede un nuovo consenso al sign-up). Il client non manda `consent_text`.
+
+`purge-leads`: cancella i lead con `status ≠ 'won'` più vecchi di 12 mesi. Dry-run di default (`{"dry_run": false}` esplicito per cancellare), header `X-Job-Secret` = `LEADS_RETENTION_SECRET` confrontato a tempo costante (manca o è sbagliato → 401). Cron pg_cron `purge-leads` alle 03:45 UTC (mig `20260926130000`): URL e secret dal vault (`purge_leads_url`, `leads_retention_secret`, che deve essere uguale a `LEADS_RETENTION_SECRET`); se manca un valore nel vault il job salta. `_shared/sendEmail.ts` logga solo `name`/`message`/`statusCode` degli errori Resend (`safeErrorFields`): mai destinatario o corpo della mail.
 
 ## scheduleResolver — duplicazione critica
 
