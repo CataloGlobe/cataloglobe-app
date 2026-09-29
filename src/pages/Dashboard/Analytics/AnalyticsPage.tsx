@@ -620,7 +620,7 @@ export default function AnalyticsPage() {
 
     const headerActions = useMemo(() => (
         <Button
-            variant="outline"
+            variant="secondary"
             leftIcon={<Download size={16} />}
             disabled={isLoading || isEmpty}
             onClick={handleExportXlsx}
@@ -642,10 +642,13 @@ export default function AnalyticsPage() {
             defaultValue: DEFAULT_PERIOD,
             onChange: value => setPeriod(value as PeriodKey)
         },
+        // Secondario a tutte le larghezze: la pagina si legge, l'export è
+        // un di più (in compatto era diventato il bottone pieno).
         primaryAction: {
             label: "Esporta Excel",
             onClick: handleExportXlsx,
-            disabled: isLoading || isEmpty
+            disabled: isLoading || isEmpty,
+            emphasis: "secondary"
         }
     }), [period, periodOptions, setPeriod, handleExportXlsx, isLoading, isEmpty]);
 
