@@ -9,7 +9,7 @@
 --
 -- Verifica:
 --   - upsert_manual_translation rifiuta viewer, staff e manager con 42501 e
---     non scrive; owner e admin scrivono come prima (migration 20260929170000)
+--     non scrive; owner e admin scrivono come prima (migration 20260929170200)
 --   - insert e update diretti su translations (PostgREST): rifiutati a
 --     viewer, staff e manager, ammessi a owner e admin (migration 20260929170100)
 --   - restano aperti, di proposito, i percorsi che il manager usa dal client

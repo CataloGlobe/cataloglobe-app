@@ -56,7 +56,7 @@ con service-role.
 `translations.write` enforced anche lato BE: RLS `tenant_languages` + RPC
 `retry_all_failed_translations`/`enqueue_tenant_language_backfill` (mig. 140000),
 `revert_manual_translation` (mig. 20260929160000), `upsert_manual_translation`
-(mig. 20260929170000), RLS insert/update di `translations` (mig. 20260929170100).
+(mig. 20260929170200), RLS insert/update di `translations` (mig. 20260929170100).
 **Ancora aperti a ogni membro**: delete su `translations` e tutte le scritture su
 `translation_jobs`, che il manager usa dal client per chiusure della sede
 (`activity_hours.write`) e In evidenza (`featured.write`). Si chiudono con una RPC
