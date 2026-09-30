@@ -88,6 +88,12 @@
   padding-top: 12px;
 }
 
+// Sotto le azioni un controllo a scatola (le stelle di Recensioni) non ha una
+// linea da poggiare sul bordo come le tab: gli serve il suo respiro.
+.stacked .leading:not(:has([role="tablist"])) {
+  padding: var(--space-8) 0 var(--space-12);
+}
+
 // Copie delle versioni delle azioni, solo da misurare: fuori dal flusso,
 // larghe quanto il contenuto.
 .measure {
