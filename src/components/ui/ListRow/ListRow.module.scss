@@ -5,7 +5,8 @@
 // Hover solo se cliccabile; muted = spenta (solo aspetto: cliccabile se ha
 // onClick, come una richiesta scaduta che si apre ancora).
 // Sotto 768 il meta scende su una seconda riga sotto il titolo: a 375 non
-// c'è spazio per titolo + Badge + azioni sulla stessa riga.
+// c'è spazio per titolo + Badge + azioni sulla stessa riga. `trailingWrap`
+// fa lo stesso col trailing, per i bottoni di testo.
 @use "@styles/mixins" as *;
 
 .row {
@@ -153,6 +154,19 @@
     order: 0;
     flex-basis: auto;
     padding: 0;
+  }
+
+  // `trailingWrap`: i bottoni di testo in una riga loro, sotto, a destra.
+  // Dopo `metaInline`, che toglie l'a capo: qui torna.
+  .row.trailingWrap {
+    flex-wrap: wrap;
+  }
+
+  .row.trailingWrap .trailing {
+    order: 4;
+    flex-basis: 100%;
+    justify-content: flex-end;
+    padding-bottom: var(--space-8);
   }
 }
 
