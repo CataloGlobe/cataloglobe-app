@@ -228,9 +228,14 @@ export type PublicStoryDetail = Omit<Story, "tenant_id"> & {
     product: { id: string; name: string } | null;
 };
 
+/** Letture della pagina pubblica: senza tetto il loader delle storie restava
+ *  acceso per sempre su una richiesta appesa. Scaduto → stato di errore. */
+const PUBLIC_STORY_TIMEOUT_MS = 8_000;
+
 export async function fetchPublicStories(slug: string): Promise<PublicStoryListResult> {
     const { data, error } = await supabase.functions.invoke("resolve-public-story", {
-        body: { slug }
+        body: { slug },
+        timeout: PUBLIC_STORY_TIMEOUT_MS
     });
     if (error) throw error;
     return data as PublicStoryListResult;
@@ -238,7 +243,8 @@ export async function fetchPublicStories(slug: string): Promise<PublicStoryListR
 
 export async function fetchPublicStory(slug: string, storyId: string): Promise<PublicStoryDetail> {
     const { data, error } = await supabase.functions.invoke("resolve-public-story", {
-        body: { slug, story_id: storyId }
+        body: { slug, story_id: storyId },
+        timeout: PUBLIC_STORY_TIMEOUT_MS
     });
     if (error) throw error;
     return (data as { story: PublicStoryDetail }).story;

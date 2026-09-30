@@ -12,6 +12,7 @@ import PublicQuoteBlock from "./blocks/PublicQuoteBlock";
 import PublicListBlock from "./blocks/PublicListBlock";
 import PublicProductBlock from "./blocks/PublicProductBlock";
 import type { CollectionViewSectionItem } from "@/components/PublicCollectionView/CollectionView/CollectionView";
+import StoryLoadError from "./StoryLoadError";
 import styles from "./StoryReader.module.scss";
 
 type StoryReaderProps = {
@@ -65,6 +66,7 @@ function renderBlock(
 export default function StoryReader({ slug, storyId, onClose, onOpenProduct, resolveProduct }: StoryReaderProps) {
     const { t } = useTranslation("public");
     const [state, setState] = useState<LoadState>({ status: "loading" });
+    const [retryToken, setRetryToken] = useState(0);
 
     // Fetch lazy: i body_blocks non sono nel feed (card leggere) — servono
     // solo quando il lettore si apre.
@@ -81,7 +83,7 @@ export default function StoryReader({ slug, storyId, onClose, onOpenProduct, res
         return () => {
             cancelled = true;
         };
-    }, [slug, storyId]);
+    }, [slug, storyId, retryToken]);
 
     // Sommario: SOLO il primo blocco testo della storia riceve il trattamento
     // editoriale "lead" (corpo maggiore). Nessun campo/tipo nuovo: regola di stile.
@@ -109,9 +111,7 @@ export default function StoryReader({ slug, storyId, onClose, onOpenProduct, res
 
             {state.status === "error" && (
                 <div className={styles.stateBlock}>
-                    <Text variant="body" color="var(--pub-bg-text-muted)">
-                        {t("story.error")}
-                    </Text>
+                    <StoryLoadError onRetry={() => setRetryToken(n => n + 1)} />
                 </div>
             )}
 

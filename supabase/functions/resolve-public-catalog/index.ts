@@ -639,7 +639,7 @@ serve(async (req: Request) => {
         // Fetch sempre (anche senza needsTranslation): serve al LanguageSelector
         // frontend per popolare la lista lingue selezionabili. JOIN con
         // supported_languages per name_native + flag_emoji.
-        const [activeLangsRes, baseLangRes] = await Promise.all([
+        const [activeLangsRes, baseLangRes, allergensRes] = await Promise.all([
             supabase
                 .from("tenant_languages")
                 .select("language_code, supported_languages!inner(name_native, name_en, flag_emoji)")
@@ -651,8 +651,23 @@ serve(async (req: Request) => {
                 .from("supported_languages")
                 .select("name_native, name_en, flag_emoji")
                 .eq("code", baseLanguage)
-                .single()
+                .single(),
+            // Lista allergeni (tabella di sistema, ~14 righe) nel payload: così
+            // la portano con sé snapshot Redis, cache localStorage e HTML SSR,
+            // senza una lettura separata della pagina. Sempre, qualunque
+            // vertical: la regola «chi mostra gli allergeni» resta una sola,
+            // VERTICAL_CONFIG lato FE/api, senza copia qui. In errore il campo
+            // manca: api/ non mette in cache il payload (isHealthyPayload) e
+            // la pagina mostra l'avviso «allergeni non disponibili».
+            supabase
+                .from("allergens")
+                .select("id, code, label_it, label_en, sort_order")
+                .order("sort_order", { ascending: true })
         ]);
+        if (allergensRes.error) {
+            console.error("[resolver] allergens fetch failed:", allergensRes.error);
+        }
+        const publicAllergens = allergensRes.error ? null : (allergensRes.data ?? []);
 
         type RawActiveLangRow = {
             language_code: string;
@@ -771,6 +786,7 @@ serve(async (req: Request) => {
                 effective_language: effectiveLang,
                 base_language_code: baseLanguage,
                 available_languages: availableLanguages,
+                ...(publicAllergens ? { public_allergens: publicAllergens } : {}),
                 ...(needsTranslation && !isLangSupported ? { lang_unsupported: true } : {}),
                 ...(opening_hours ? { opening_hours } : {}),
                 ...(upcoming_closures ? { upcoming_closures } : {})

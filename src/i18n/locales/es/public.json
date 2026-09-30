@@ -414,6 +414,9 @@
     "toast": {
         "translating": "Traduciendo..."
     },
+    "allergens_unavailable": {
+        "message": "La información sobre alérgenos no está disponible en este momento, pregunta al personal."
+    },
     "stale_banner": {
         "message": "Los contenidos podrían no estar actualizados.",
         "retry": "Reintentar"
@@ -438,7 +441,7 @@
         "notfound_title": "Página no encontrada",
         "notfound_text": "El local que buscas no existe o ha cambiado de dirección.",
         "error_title": "Error al cargar",
-        "error_text": "Comprueba la conexión y recarga la página.",
+        "error_text": "Comprueba la conexión y vuelve a intentarlo.",
         "inactive_title": "Local no disponible",
         "inactive_text": "{{brand}} no está activo en la plataforma en este momento.",
         "tagline": "Rellena el formulario, recibirás una confirmación por email.",

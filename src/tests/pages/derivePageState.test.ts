@@ -130,19 +130,19 @@ describe("derivePageState", () => {
             subscription_inactive: true,
             business: makeBusiness({ status: "inactive" })
         });
-        expect(derivePageState(payload, null)).toEqual({ status: "subscription_inactive" });
+        expect(derivePageState(payload)).toEqual({ status: "subscription_inactive" });
     });
 
     it("business non attivo → inactive, nessun motivo esposto al chiamante", () => {
         const payload = makePayload({
             business: makeBusiness({ status: "inactive" })
         });
-        expect(derivePageState(payload, null)).toEqual({ status: "inactive" });
+        expect(derivePageState(payload)).toEqual({ status: "inactive" });
     });
 
     it("nessun catalogo né featured → empty con business e tenantLogoUrl (comportamento storico, invariato)", () => {
         const payload = makePayload({ resolved: {}, tenantLogoUrl: "https://logo.example/x.png" });
-        const state = derivePageState(payload, null);
+        const state = derivePageState(payload);
         expect(state.status).toBe("empty");
         if (state.status === "empty") {
             expect(state.business.id).toBe("act-1");
@@ -157,7 +157,7 @@ describe("derivePageState", () => {
             },
             tenantLogoUrl: "https://logo.example/x.png"
         });
-        const state = derivePageState(payload, null);
+        const state = derivePageState(payload);
         expect(state.status).toBe("catalog_empty");
         if (state.status === "catalog_empty") {
             expect(state.business.id).toBe("act-1");
@@ -172,7 +172,7 @@ describe("derivePageState", () => {
             },
             tenantLogoUrl: "https://logo.example/x.png"
         });
-        const state = derivePageState(payload, null);
+        const state = derivePageState(payload);
         expect(state.status).toBe("catalog_empty");
         if (state.status === "catalog_empty") {
             expect(state.business.id).toBe("act-1");
@@ -186,14 +186,14 @@ describe("derivePageState", () => {
                 hasConfiguredCatalogRule: true
             }
         });
-        expect(derivePageState(payload, null).status).toBe("empty");
+        expect(derivePageState(payload).status).toBe("empty");
     });
 
     it("payload da edge non ancora aggiornata (hasConfiguredCatalogRule undefined) → empty, mai catalog_empty", () => {
         const payload = makePayload({
             resolved: {}
         });
-        expect(derivePageState(payload, null).status).toBe("empty");
+        expect(derivePageState(payload).status).toBe("empty");
     });
 
     it("featured-only (niente catalogo, nessuna regola vinta) NON è empty né catalog_empty", () => {
@@ -204,7 +204,7 @@ describe("derivePageState", () => {
                 }
             }
         });
-        expect(derivePageState(payload, null).status).toBe("ready");
+        expect(derivePageState(payload).status).toBe("ready");
     });
 
     it("featured-only anche con hasConfiguredCatalogRule=false resta ready, mai catalog_empty (guard !hasFeatured)", () => {
@@ -216,7 +216,7 @@ describe("derivePageState", () => {
                 }
             }
         });
-        expect(derivePageState(payload, null).status).toBe("ready");
+        expect(derivePageState(payload).status).toBe("ready");
     });
 
     it("featured-only (regola vinta ma catalogo vuoto) resta ready, non catalog_empty", () => {
@@ -228,11 +228,11 @@ describe("derivePageState", () => {
                 }
             }
         });
-        expect(derivePageState(payload, null).status).toBe("ready");
+        expect(derivePageState(payload).status).toBe("ready");
     });
 
     it("ready: default lingua quando i campi lingua mancano", () => {
-        const state = derivePageState(makePayload(), null);
+        const state = derivePageState(makePayload());
         expect(state.status).toBe("ready");
         if (state.status === "ready") {
             expect(state.baseLanguage).toBe("it");
@@ -253,8 +253,7 @@ describe("derivePageState", () => {
                 base_language_code: "it",
                 effective_language: "en",
                 available_languages: langs
-            }),
-            null
+            })
         );
         if (state.status === "ready") {
             expect(state.effectiveLanguage).toBe("en");
@@ -270,8 +269,7 @@ describe("derivePageState", () => {
                 business: makeBusiness({ hours_public: false }),
                 opening_hours: [{ day: 1 } as never],
                 upcoming_closures: [{ date: "2026-06-15" } as never]
-            }),
-            null
+            })
         );
         if (state.status === "ready") {
             expect(state.openingHours).toBeUndefined();
@@ -287,8 +285,7 @@ describe("derivePageState", () => {
             makePayload({
                 business: makeBusiness({ hours_public: true }),
                 opening_hours: hours
-            }),
-            null
+            })
         );
         if (state.status === "ready") {
             expect(state.openingHours).toEqual(hours);
@@ -297,22 +294,42 @@ describe("derivePageState", () => {
         }
     });
 
-    it("ready: allergens passthrough (iniettati dal chiamante)", () => {
+    it("ready: allergens dal payload (public_allergens)", () => {
         const allergens = [{ id: 1, code: "glutine" } as never];
-        const state = derivePageState(makePayload(), allergens);
+        const state = derivePageState(makePayload({ public_allergens: allergens }));
         if (state.status === "ready") {
             expect(state.allergens).toBe(allergens);
         } else {
             expect.unreachable("expected ready");
         }
-        const stateNull = derivePageState(makePayload(), null);
+        const stateNull = derivePageState(makePayload());
         if (stateNull.status === "ready") {
             expect(stateNull.allergens).toBeNull();
         }
     });
 
+    it("allergensUnavailable: vertical con allergeni e lista assente → avviso", () => {
+        const state = derivePageState(makePayload({ vertical_type: "restaurant" }));
+        if (state.status !== "ready") return expect.unreachable("expected ready");
+        expect(state.allergensUnavailable).toBe(true);
+    });
+
+    it("allergensUnavailable: lista arrivata (anche vuota) → nessun avviso", () => {
+        const state = derivePageState(makePayload({ vertical_type: "restaurant", public_allergens: [] }));
+        if (state.status !== "ready") return expect.unreachable("expected ready");
+        expect(state.allergensUnavailable).toBe(false);
+    });
+
+    it("allergensUnavailable: vertical senza allergeni o assente → nessun avviso", () => {
+        for (const vertical_type of ["retail" as const, null, undefined]) {
+            const state = derivePageState(makePayload({ vertical_type }));
+            if (state.status !== "ready") return expect.unreachable("expected ready");
+            expect(state.allergensUnavailable).toBe(false);
+        }
+    });
+
     it("ready: non setta i flag isRefetching/isStale (competenza del chiamante)", () => {
-        const state = derivePageState(makePayload(), null);
+        const state = derivePageState(makePayload());
         if (state.status === "ready") {
             expect("isRefetching" in state).toBe(false);
             expect("isStale" in state).toBe(false);
@@ -324,8 +341,8 @@ describe("derivePageState", () => {
     it("è pura: stesso input → stesso output, payload non mutato", () => {
         const payload = makePayload();
         const snapshot = JSON.parse(JSON.stringify(payload));
-        const a = derivePageState(payload, null);
-        const b = derivePageState(payload, null);
+        const a = derivePageState(payload);
+        const b = derivePageState(payload);
         expect(a).toEqual(b);
         expect(payload).toEqual(snapshot);
     });

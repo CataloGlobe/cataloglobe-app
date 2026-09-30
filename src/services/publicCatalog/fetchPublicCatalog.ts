@@ -7,10 +7,12 @@ import { supabase } from "@/services/supabase/client";
  *   1. Path pubblico (utente anonimo, no simulate): chiama l'endpoint Vercel
  *      `/api/public-catalog`, che a sua volta fa da proxy verso la Supabase
  *      Edge Function `resolve-public-catalog` con cache Upstash Redis.
- *      Retry browser ridotto (2 tentativi, 3s timeout): la maggior parte
- *      della resilienza è ora server-side. Retry qui serve SOLO per problemi
- *      di rete locale device↔Vercel (es. WiFi ballerino al tavolo del
- *      ristorante).
+ *      Timeout browser 11s, sopra il budget del proxy (~9,7s nel caso
+ *      peggiore, PUBLIC_PAGE_EDGE_OPTIONS in api/_lib/supabaseEdge.ts): il proxy chiude
+ *      sempre prima, con payload, snapshot o 5xx. Un secondo tentativo solo
+ *      se la fetch fallisce subito (rete locale device↔Vercel, WiFi ballerino
+ *      al tavolo); dopo un timeout no: il server ha già speso il suo budget e
+ *      ritentare raddoppierebbe l'attesa prima di «Riprova».
  *
  *   2. Path simulate (dashboard preview, utente autenticato): chiama
  *      direttamente `supabase.functions.invoke("resolve-public-catalog")`
@@ -24,8 +26,8 @@ import { supabase } from "@/services/supabase/client";
  *   - "domain" → errore semanticamente definitivo (not_found, invalid_link).
  *     Nessun retry. Frontend mostra UI dedicata (NotFound).
  *   - "network" → fallimento di trasporto (fetch fail, timeout, 5xx).
- *     Path pubblico: retry SOLO su fetch fail / timeout; 5xx NON è ritentato
- *     perché significa che il server ha già esaurito i suoi retry.
+ *     Path pubblico: retry SOLO su fetch fail; timeout e 5xx NON sono
+ *     ritentati perché il server ha già esaurito i suoi retry.
  *     Path simulate: retry su qualunque errore non-domain.
  */
 
@@ -63,7 +65,7 @@ export type FetchNetworkError = {
 export type FetchResult = FetchSuccess | FetchDomainError | FetchNetworkError;
 
 const PUBLIC_MAX_ATTEMPTS = 2;
-const PUBLIC_TIMEOUT_MS = 3_000;
+const PUBLIC_TIMEOUT_MS = 11_000;
 const PUBLIC_BACKOFF_SCHEDULE_MS = [0, 1_000];
 
 const SIMULATE_MAX_ATTEMPTS = 3;
@@ -120,7 +122,8 @@ class ServerErrorResponse extends Error {
     }
 }
 
-async function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+/** Usato anche dalla pagina pubblica per le letture a contorno del payload. */
+export async function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
     let timer: ReturnType<typeof setTimeout> | undefined;
     try {
         return await Promise.race<T>([
@@ -219,7 +222,12 @@ async function fetchPublicCatalogPublic(args: FetchPublicCatalogArgs): Promise<F
                 return { kind: "network_error", attempts: attempt + 1, cause: err };
             }
 
-            // TimeoutError o fetch fail → retry se attempt rimanenti
+            if (err instanceof TimeoutError) {
+                console.debug("[fetchPublicCatalog] public attempt timed out — not retrying");
+                return { kind: "network_error", attempts: attempt + 1, cause: err };
+            }
+
+            // fetch fail → retry se attempt rimanenti
             console.debug(`[fetchPublicCatalog] transport error on attempt ${attempt + 1}:`, err);
         }
     }

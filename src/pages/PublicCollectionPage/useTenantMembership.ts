@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/services/supabase/client";
 import { fetchMyTenantIds } from "@/services/supabase/permissions";
+import { withTimeout } from "@/services/publicCatalog/fetchPublicCatalog";
+
+const MEMBERSHIP_TIMEOUT_MS = 3_000;
 
 /**
  * "L'utente corrente ha una relazione reale con QUESTO tenant?" — unica
@@ -37,7 +40,8 @@ export function useTenantMembership(tenantId: string | null): boolean | null {
                     setIsMember(false);
                     return;
                 }
-                const ids = await fetchMyTenantIds();
+                // Con timeout: scaduto vale "non membro" (fail-closed, sotto).
+                const ids = await withTimeout(fetchMyTenantIds(), MEMBERSHIP_TIMEOUT_MS);
                 if (cancelled) return;
                 setIsMember(ids.includes(tenantId));
             } catch (err) {

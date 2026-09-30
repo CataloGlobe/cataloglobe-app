@@ -6,7 +6,8 @@ import styles from "./StateCard.module.scss";
 type Action =
     | { kind: "primary-link"; to: string; label: string }
     | { kind: "secondary-link"; to: string; label: string }
-    | { kind: "primary-tel"; phone: string; label: string };
+    | { kind: "primary-tel"; phone: string; label: string }
+    | { kind: "primary-button"; onClick: () => void; label: string };
 
 type Props = {
     icon: ReactNode;
@@ -36,6 +37,18 @@ export default function StateCard({ icon, title, text, actions }: Props) {
                                 <Link key={idx} to={action.to} className={styles.secondaryCta}>
                                     {action.label}
                                 </Link>
+                            );
+                        }
+                        if (action.kind === "primary-button") {
+                            return (
+                                <button
+                                    key={idx}
+                                    type="button"
+                                    onClick={action.onClick}
+                                    className={styles.primaryCta}
+                                >
+                                    {action.label}
+                                </button>
                             );
                         }
                         return (

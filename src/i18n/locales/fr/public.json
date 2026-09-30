@@ -414,6 +414,9 @@
   "toast": {
     "translating": "Traduction..."
   },
+  "allergens_unavailable": {
+    "message": "Les informations sur les allergènes sont momentanément indisponibles, demandez au personnel."
+  },
   "stale_banner": {
     "message": "Le contenu peut ne pas être à jour.",
     "retry": "Réessayer"
@@ -438,7 +441,7 @@
     "notfound_title": "Page introuvable",
     "notfound_text": "L'établissement que vous cherchez n'existe pas ou a changé d'adresse.",
     "error_title": "Échec du chargement",
-    "error_text": "Vérifiez votre connexion et rechargez la page.",
+    "error_text": "Vérifiez votre connexion et réessayez.",
     "inactive_title": "Établissement indisponible",
     "inactive_text": "{{brand}} n'est pas actuellement actif sur la plateforme.",
     "tagline": "Remplissez le formulaire, vous recevrez une confirmation par e-mail.",

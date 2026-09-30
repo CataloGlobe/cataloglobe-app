@@ -444,6 +444,9 @@ export default function PublicCatalogReady({
             {data.isStale && (
                 <StaleDataBanner onRetry={onRetry} />
             )}
+            {data.allergensUnavailable && (
+                <StaleDataBanner message={t("allergens_unavailable.message")} />
+            )}
             {data.langSwitchFailed && (
                 <LanguageFallbackBanner
                     displayedLanguageName={

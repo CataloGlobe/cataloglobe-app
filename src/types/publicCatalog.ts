@@ -1,6 +1,7 @@
 import type { ActivityFee } from "@/types/activity";
 import type { ResolvedCollections } from "@/types/resolvedCollections";
 import type { VerticalType } from "@/constants/verticalTypes";
+import type { Allergen } from "@/services/supabase/allergens";
 import type { OpeningHoursEntry, UpcomingClosure } from "@/components/PublicCollectionView/PublicOpeningHours/PublicOpeningHours";
 import type { AvailableLanguage } from "@/context/Language/LanguageContext";
 
@@ -94,4 +95,8 @@ export type ResolvedPayloadShape = {
     upcoming_closures?: UpcomingClosure[];
     vertical_type?: VerticalType | null;
     has_story?: boolean;
+    /** Lista allergeni di sistema, messa dall'edge in ogni payload `ready`.
+     *  Assente = lettura fallita lato edge, o payload in cache precedente al
+     *  campo: la pagina ripiega su `listAllAllergens`. */
+    public_allergens?: Allergen[];
 };

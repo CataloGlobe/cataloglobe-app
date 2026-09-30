@@ -7,6 +7,7 @@ import { fetchPublicStories } from "@/services/supabase/stories";
 import type { PublicStoryListResult } from "@/services/supabase/stories";
 import Text from "@/components/ui/Text/Text";
 import StoryReader from "./StoryReader";
+import StoryLoadError from "./StoryLoadError";
 import type { CollectionViewSectionItem } from "@/components/PublicCollectionView/CollectionView/CollectionView";
 import styles from "./StoryView.module.scss";
 
@@ -30,6 +31,7 @@ type LoadState =
 export default function StoryView({ slug, selectedStoryId, onSelectStory, onOpenProduct, resolveProduct }: StoryViewProps) {
     const { t } = useTranslation("public");
     const [state, setState] = useState<LoadState>({ status: "loading" });
+    const [retryToken, setRetryToken] = useState(0);
     const prefersReducedMotion = useReducedMotion();
 
     // Fetch lazy: solo all'attivazione del tab (StoryView è montato solo quando
@@ -47,7 +49,7 @@ export default function StoryView({ slug, selectedStoryId, onSelectStory, onOpen
         return () => {
             cancelled = true;
         };
-    }, [slug]);
+    }, [slug, retryToken]);
 
     let feedContent: ReactNode;
 
@@ -62,9 +64,7 @@ export default function StoryView({ slug, selectedStoryId, onSelectStory, onOpen
     } else if (state.status === "error") {
         feedContent = (
             <div className={styles.stateBlock}>
-                <Text variant="body" color="var(--pub-bg-text-muted)">
-                    {t("story.error")}
-                </Text>
+                <StoryLoadError onRetry={() => setRetryToken(n => n + 1)} />
             </div>
         );
     } else {

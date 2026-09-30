@@ -6,6 +6,7 @@ import {
     TimeoutError,
     withTimeout
 } from "./retry.js";
+import { verticalShowsAllergens } from "../../src/constants/verticalTypes.js";
 
 /**
  * Wrapper server-side per chiamare la Supabase Edge Function
@@ -131,6 +132,17 @@ async function singleAttempt(args: { slug: string; lang?: string }): Promise<Edg
  */
 export type CallEdgeOptions = { maxAttempts?: number; timeoutMs?: number };
 
+/**
+ * Budget per le richieste di una pagina pubblica (api/public-catalog e
+ * api/ssr-render), stretto rispetto ai default (3×6s, ~22s): 2×3,5s + backoff
+ * ~1s ≈ 8,2s, più il fallback Redis (1,5s) ≈ 9,7s nel caso peggiore. Deve
+ * stare sotto il timeout del browser (PUBLIC_TIMEOUT_MS in
+ * src/services/publicCatalog/fetchPublicCatalog.ts, 11s): con i default il
+ * browser tagliava mentre qui si ritentava ancora, e una risposta lenta ma
+ * buona andava persa. Per l'SSR è il tempo massimo prima del primo byte.
+ */
+export const PUBLIC_PAGE_EDGE_OPTIONS: CallEdgeOptions = { maxAttempts: 2, timeoutMs: 3_500 };
+
 export async function callResolvePublicCatalog(
     args: {
         slug: string;
@@ -175,6 +187,9 @@ export async function callResolvePublicCatalog(
  *     snapshot a quella combinazione slug+lang sarebbe muto)
  *   - `business.status !== "active"` (sede disattivata: anche se è un 200
  *     valido, l'eventuale riattivazione non invaliderebbe lo snapshot)
+ *   - vertical che mostra gli allergeni senza `public_allergens` (lettura
+ *     fallita lato edge): il payload si serve (la pagina mostra l'avviso) ma
+ *     non entra in cache, altrimenti l'avviso durerebbe quanto lo snapshot.
  *
  * Edge function `resolve-public-catalog` ritorna 200 con `business.status:
  * "inactive"` (vedi riga 361-373 dell'edge function) — caso esplicito da
@@ -188,5 +203,8 @@ export function isHealthyPayload(payload: PublicCatalogPayload): boolean {
     if (obj.lang_unsupported === true) return false;
     const business = obj.business as { status?: string } | undefined;
     if (!business || business.status !== "active") return false;
+    if (verticalShowsAllergens(obj.vertical_type as string | null | undefined) && !Array.isArray(obj.public_allergens)) {
+        return false;
+    }
     return true;
 }

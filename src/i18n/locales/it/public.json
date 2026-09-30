@@ -416,6 +416,9 @@
     "toast": {
         "translating": "Traduzione..."
     },
+    "allergens_unavailable": {
+        "message": "Informazioni sugli allergeni momentaneamente non disponibili, chiedi al personale."
+    },
     "stale_banner": {
         "message": "I contenuti potrebbero non essere aggiornati.",
         "retry": "Riprova"
@@ -440,7 +443,7 @@
         "notfound_title": "Pagina non trovata",
         "notfound_text": "La pagina che stai cercando non esiste o è stata spostata.",
         "error_title": "Caricamento non riuscito",
-        "error_text": "Verifica la connessione e ricarica la pagina.",
+        "error_text": "Verifica la connessione e riprova.",
         "inactive_title": "Sede non disponibile",
         "inactive_text": "{{brand}} non è al momento attivo sulla piattaforma.",
         "tagline": "Compila il modulo, riceverai una conferma via email.",

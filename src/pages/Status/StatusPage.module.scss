@@ -454,3 +454,12 @@
     border-radius: 8px;
     font-size: 0.875rem;
 }
+
+.staleBlock {
+    background: var(--color-warning-50);
+    border: 1px solid var(--color-warning-200);
+    color: var(--color-warning-700);
+    padding: 1rem 1.25rem;
+    border-radius: 8px;
+    font-size: 0.875rem;
+}

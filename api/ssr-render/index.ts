@@ -13,17 +13,16 @@ import {
 } from "../_lib/redis.js";
 import {
     callResolvePublicCatalog,
+    PUBLIC_PAGE_EDGE_OPTIONS,
     isHealthyPayload,
     type PublicCatalogPayload
 } from "../_lib/supabaseEdge.js";
-import { fetchPublicAllergens } from "../_lib/publicAllergens.js";
 import {
     buildClientAssets,
     buildSsrShell,
     type PublicShellPayload,
     type ViteManifest
 } from "../_lib/publicShell.js";
-import { VERTICAL_CONFIG, type VerticalType } from "../../src/constants/verticalTypes.js";
 
 /**
  * GET /api/ssr-render?slug=<slug>&lang=<lang>?    (stage 4b — ROUTE DI TEST)
@@ -59,6 +58,9 @@ import { VERTICAL_CONFIG, type VerticalType } from "../../src/constants/vertical
 //    Le rotte dell'app con un solo segmento hanno anche una rewrite diretta a
 //    /index.html in vercel.json, PRIMA della regola slug: senza, passavano da
 //    qui e ricevevano status 404 (il client poi disegnava comunque la pagina).
+//    Eccezione: `landing-dev` non ha la rewrite (fa 301 a `/` nei `redirects`
+//    di vercel.json) ma resta riservato qui, nei lookahead e in
+//    is_reserved_slug(), così nessuna sede può prendere quello slug.
 const SLUG_RE = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
 const RESERVED_SEGMENTS = new Set([
     "login",
@@ -95,7 +97,6 @@ const CLIENT_ASSET_BASE = "/public/";
 type RenderPublicModule = {
     renderPublic(args: {
         payload: unknown;
-        allergens: unknown;
         slug: string;
         url?: string;
     }): Promise<
@@ -169,7 +170,7 @@ async function fetchPayload(
     lang: string | undefined
 ): Promise<{ payload: PublicCatalogPayload; source: "live" | "stale" } | { error: string }> {
     const snapshotKey = makeSnapshotKey(slug, lang);
-    const edgeResult = await callResolvePublicCatalog({ slug, lang });
+    const edgeResult = await callResolvePublicCatalog({ slug, lang }, PUBLIC_PAGE_EDGE_OPTIONS);
 
     if (edgeResult.kind === "success") {
         const payload = edgeResult.payload;
@@ -291,15 +292,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
             }
         }
 
-        // Allergeni: stesso gating vertical della SPA (processPayload).
-        const verticalType = (payload as { vertical_type?: VerticalType | null }).vertical_type;
-        const needsAllergens = verticalType
-            ? VERTICAL_CONFIG[verticalType]?.productSections.allergens === true
-            : false;
-        const allergens = needsAllergens ? await fetchPublicAllergens() : null;
-
         const { renderPublic } = await loadRenderModule();
-        const result = await renderPublic({ payload, allergens, slug, url: `/${slug}` });
+        const result = await renderPublic({ payload, slug, url: `/${slug}` });
 
         if (result.kind !== "ready") {
             serveSpaFallback(res, 200, result.status);
@@ -317,8 +311,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         const shell = buildSsrShell({
             template: readTemplate(),
             payload: payload as PublicShellPayload,
-            // Shape hydration (4c): payload + allergeni già fetchati.
-            inlinePayload: { payload, allergens },
+            // Shape hydration (4c): il payload porta anche gli allergeni
+            // (`public_allergens`).
+            inlinePayload: { payload },
             origin,
             slug,
             clientAssets: buildClientAssets(

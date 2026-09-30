@@ -1,4 +1,4 @@
-import { Navigate, Routes, Route, useNavigate } from "react-router-dom";
+import { Navigate, Routes, Route, useLocation, useNavigate } from "react-router-dom";
 import ScrollToTop from "@/components/ScrollToTop/ScrollToTop";
 import { PromoCaptureRoot } from "@/components/PromoCaptureRoot/PromoCaptureRoot";
 import { lazy, Suspense, useEffect } from "react";
@@ -28,7 +28,6 @@ import ResetPassword from "./pages/Auth/ResetPassword";
 
 // Public pages — eager (entry point visitatori anonimi, evita round-trip extra del lazy chunk)
 import TableEntryPage from "./pages/TableEntryPage/TableEntryPage";
-import Home from "./pages/Home/Home";
 import LandingFallback from "@pages/CampaignLanding/LandingFallback";
 import { loadCampaignLanding, preloadCampaignLandingIfLanding } from "@pages/CampaignLanding/preload";
 import NotFound from "./pages/NotFound/NotFound";
@@ -93,9 +92,10 @@ const ActivitySalaRoute = lazy(() => import("./pages/Operativita/Attivita/routes
 const ActivityDisponibilitaRoute = lazy(() => import("./pages/Operativita/Attivita/routes/ActivityDisponibilitaRoute"));
 const SubscriptionPage = lazy(() => import("./pages/Business/SubscriptionPage"));
 
-// Landing di campagna (in costruzione): route di sviluppo /landing-dev, attiva
-// anche in produzione. Lo swap su / e /b arriva quando la pagina è completa.
-// Chunk e font partono al caricamento del modulo, prima che React monti la route.
+// Landing di campagna su / (variante form) e /b (variante signup, noindex).
+// /landing-dev e /landing-dev/b fanno 301 in vercel.json; qui restano come
+// redirect per la navigazione interna. Chunk e font partono al caricamento del
+// modulo, prima che React monti la route.
 preloadCampaignLandingIfLanding();
 const CampaignLandingPage = lazy(loadCampaignLanding);
 
@@ -105,6 +105,7 @@ const DevUiPage = import.meta.env.DEV ? lazy(() => import("./dev/ui/DevUiPage"))
 
 export default function App() {
     const navigate = useNavigate();
+    const { search } = useLocation();
 
     useEffect(() => {
         if (!window.location.hash) return;
@@ -129,7 +130,23 @@ export default function App() {
         <Suspense fallback={<AppLoader intent="dashboard" />}>
         <Routes>
             {/* Public routes */}
-            <Route path="/" element={<Home />} />
+            {/* Suspense proprio: il fallback globale parla di «dashboard» */}
+            <Route
+                path="/"
+                element={
+                    <Suspense fallback={<LandingFallback />}>
+                        <CampaignLandingPage variante="form" />
+                    </Suspense>
+                }
+            />
+            <Route
+                path="/b"
+                element={
+                    <Suspense fallback={<LandingFallback />}>
+                        <CampaignLandingPage variante="signup" />
+                    </Suspense>
+                }
+            />
 
             {/* Auth routes */}
             <Route
@@ -328,24 +345,9 @@ export default function App() {
             {/* Status page pubblica — DEVE stare prima del catch-all /:slug */}
             <Route path="/status" element={<StatusPage />} />
 
-            {/* Landing di campagna — route di sviluppo, prima del catch-all /:slug */}
-            {/* Suspense proprio: il fallback globale parla di «dashboard» */}
-            <Route
-                path="/landing-dev"
-                element={
-                    <Suspense fallback={<LandingFallback />}>
-                        <CampaignLandingPage variante="form" />
-                    </Suspense>
-                }
-            />
-            <Route
-                path="/landing-dev/b"
-                element={
-                    <Suspense fallback={<LandingFallback />}>
-                        <CampaignLandingPage variante="signup" />
-                    </Suspense>
-                }
-            />
+            {/* Vecchi indirizzi della landing (301 in vercel.json), prima del catch-all /:slug */}
+            <Route path="/landing-dev" element={<Navigate to={{ pathname: "/", search }} replace />} />
+            <Route path="/landing-dev/b" element={<Navigate to={{ pathname: "/b", search }} replace />} />
 
             {/* Admin (cross-tenant) — gate via platform_admins / is_platform_admin() */}
             <Route
