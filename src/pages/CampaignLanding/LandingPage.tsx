@@ -15,6 +15,7 @@ import Pricing from "@pages/CampaignLanding/components/sections/Pricing/Pricing"
 import SoldOut from "@pages/CampaignLanding/components/sections/SoldOut/SoldOut";
 import Start from "@pages/CampaignLanding/components/sections/Start/Start";
 import Supplier from "@pages/CampaignLanding/components/sections/Supplier/Supplier";
+import { useVariantHead } from "@pages/CampaignLanding/hooks/useVariantHead";
 import { LandingVariantContext, type Variante } from "@pages/CampaignLanding/variant";
 
 type LandingPageProps = {
@@ -25,6 +26,8 @@ type LandingPageProps = {
 export default function LandingPage({ variante }: LandingPageProps) {
     // UTM e provenienza all'arrivo, per il form contatti in fondo.
     useEffect(captureAttribution, []);
+    // /b: canonical su / e noindex.
+    useVariantHead(variante);
 
     return (
         <LandingVariantContext.Provider value={variante}>

@@ -231,11 +231,19 @@ describe("applyTenantHead", () => {
             OPTS
         );
         expect(html).not.toContain("javascript:alert(1)");
-        // cover scartata → resta il fallback generico del template, intatto
-        // (width/height inclusi: descrivono og-image.png, che è l'immagine servita)
-        expect(html).toContain('property="og:image" content="https://cataloglobe.com/og-image.png"');
-        expect(html).toContain('property="og:image:width"');
+        // cover scartata → nessuna immagine (il template non ne ha una generica)
+        // e card Twitter piccola, come nel template
+        expect(html).not.toContain('property="og:image"');
+        expect(html).not.toContain('name="twitter:image"');
+        expect(html).toContain('name="twitter:card" content="summary"');
+    });
+
+    it("cover https su template senza og:image: tag aggiunti una volta sola, card grande", () => {
+        const html = applyTenantHead(TEMPLATE, makePayload(), OPTS);
+        expect(TEMPLATE).not.toContain('property="og:image"');
         expect(html.match(/property="og:image"/g)?.length).toBe(1);
+        expect(html.match(/name="twitter:image"/g)?.length).toBe(1);
+        expect(html).toContain('name="twitter:card" content="summary_large_image"');
     });
 
     it("senza nome business: template invariato", () => {
