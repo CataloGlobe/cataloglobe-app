@@ -84,6 +84,7 @@ export const ACTION_STATUS: Record<Exclude<ModerationAction, "delete">, Exclude<
     hide: "hidden"
 };
 
+/** Il toast del successo; l'errore va nel banner della pagina. */
 export const STATUS_CHANGE_TOAST: Record<Exclude<ReviewStatus, "pending">, { success: string; error: string }> = {
     approved: {
         success: "Recensione pubblicata",

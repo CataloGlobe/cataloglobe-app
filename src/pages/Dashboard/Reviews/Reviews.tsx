@@ -22,6 +22,7 @@ import { ChipGroupSingle } from "@/components/ui/Chip/ChipGroup";
 import { Card } from "@/components/ui/Card/Card";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
+import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import { ListRow } from "@/components/ui/ListRow/ListRow";
 import { Rating } from "@/components/ui/Rating/Rating";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
@@ -117,6 +118,9 @@ export default function Reviews() {
 
     // Le recensioni col cambio di stato in volo: i loro bottoni aspettano.
     const [updatingIds, setUpdatingIds] = useState<ReadonlySet<string>>(new Set());
+    // L'ultimo cambio di stato fallito: in pagina, sopra la coda, finché il
+    // gesto successivo non lo sostituisce (regola 10, niente toast d'errore).
+    const [actionError, setActionError] = useState<string | null>(null);
     const queueTitleId = useId();
 
     // La recensione da eliminare: il DELETE è secco e l'ha scritta un
@@ -382,12 +386,12 @@ export default function Reviews() {
 
     /* ── Handlers ───────────────────────────────────── */
     // Pubblica · Tieni nascosta · Nascondi: reversibili, niente conferma. Un
-    // errore resta un toast (§50.14, deviazione 8): l'azione fallita non
-    // cambia la pagina, la recensione resta dov'era.
+    // errore lo dice il banner in cima: la recensione resta dov'era.
     async function handleStatusChange(review: Review, action: Exclude<ModerationAction, "delete">) {
         if (!tenantId) return;
         const status = ACTION_STATUS[action];
         setUpdatingIds(prev => new Set(prev).add(review.id));
+        setActionError(null);
         try {
             await updateReviewStatus(review.id, tenantId, status);
             setReviews(prev => prev.map(r => (r.id === review.id ? { ...r, status } : r)));
@@ -395,7 +399,7 @@ export default function Reviews() {
             refreshReviewsPending?.();
         } catch (error) {
             console.error("Cambio di stato della recensione:", error);
-            showToast({ message: STATUS_CHANGE_TOAST[status].error, type: "error" });
+            setActionError(STATUS_CHANGE_TOAST[status].error);
         } finally {
             setUpdatingIds(prev => {
                 const next = new Set(prev);
@@ -450,6 +454,8 @@ export default function Reviews() {
         <PageGate readPermission="reviews.read" activityId={selectedActivity || null}>
             {({ canEdit }) => (
                 <div className={styles.page}>
+                    {actionError && <InlineBanner variant="error">{actionError}</InlineBanner>}
+
                     {/* ── Coda di moderazione (§34.9/1): in cima, finché ce n'è ── */}
                     {!loading && !loadError && pendingReviews.length > 0 && (
                         <div role="region" aria-labelledby={queueTitleId}>
