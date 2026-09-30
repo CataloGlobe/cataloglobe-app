@@ -5,9 +5,13 @@
       "includeFiles": "{dist-server/**,dist/public/.vite/**,dist/index.html,index.html}"
     }
   },
+  "redirects": [
+    { "source": "/landing-dev", "destination": "/", "statusCode": 301 },
+    { "source": "/landing-dev/b", "destination": "/b", "statusCode": 301 }
+  ],
   "rewrites": [
     {
-      "source": "/:route(login|verify-otp|sign-up|check-email|email-confirmed|forgot-password|reset-password|workspace|select-business|onboarding|business|dashboard|invite|legal|status|admin|landing-dev|landing-dev/b)",
+      "source": "/:route(login|verify-otp|sign-up|check-email|email-confirmed|forgot-password|reset-password|workspace|select-business|onboarding|business|dashboard|invite|legal|status|admin)",
       "destination": "/index.html"
     },
     {

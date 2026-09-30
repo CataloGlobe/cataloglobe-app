@@ -58,6 +58,9 @@ import {
 //    Le rotte dell'app con un solo segmento hanno anche una rewrite diretta a
 //    /index.html in vercel.json, PRIMA della regola slug: senza, passavano da
 //    qui e ricevevano status 404 (il client poi disegnava comunque la pagina).
+//    Eccezione: `landing-dev` non ha la rewrite (fa 301 a `/` nei `redirects`
+//    di vercel.json) ma resta riservato qui, nei lookahead e in
+//    is_reserved_slug(), così nessuna sede può prendere quello slug.
 const SLUG_RE = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
 const RESERVED_SEGMENTS = new Set([
     "login",

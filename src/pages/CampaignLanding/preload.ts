@@ -7,7 +7,8 @@
  * attese in fila, con il segnaposto dell'hero a schermo.
  */
 
-const LANDING_PATH = /^\/landing-dev(\/|$)/;
+/** `/` e `/b`: le due varianti della landing (i vecchi `/landing-dev…` fanno 301 qui). */
+const LANDING_PATH = /^\/(b\/?)?$/;
 
 /** Font dell'hero (titolo e testo): gli stessi file di public/fonts/app-campaign.css. */
 const HERO_FONTS = ["/fonts/app/young-serif-400-normal-latin.woff2", "/fonts/app/instrument-sans-400-700-normal-latin.woff2"];
