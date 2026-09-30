@@ -417,7 +417,12 @@ type ActivityProductOverrideRow = {
 };
 
 // deno-lint-ignore no-explicit-any
-type SupabaseLike = { from: (table: string) => any };
+// `rpc` serve a get_schedule_featured_contents: senza, `deno check` falliva
+// (TS2339) anche se a runtime il client vero ce l'ha.
+type SupabaseLike = {
+    from: (table: string) => any;
+    rpc: (fn: string, args?: Record<string, unknown>) => any;
+};
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
