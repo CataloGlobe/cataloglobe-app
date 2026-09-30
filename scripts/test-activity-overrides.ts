@@ -137,7 +137,7 @@ async function main() {
         );
 
         const productIds =
-            result?.categories?.flatMap((c: any) => c.products.map((p: any) => p.id)) ?? [];
+            result?.categories?.flatMap((c: { products: Array<{ id: string }> }) => c.products.map(p => p.id)) ?? [];
         assert.ok(
             productIds.includes("prod-X"),
             `Expected prod-X to be restored, got: [${productIds}]`
@@ -163,7 +163,7 @@ async function main() {
         );
 
         const productIds =
-            result?.categories?.flatMap((c: any) => c.products.map((p: any) => p.id)) ?? [];
+            result?.categories?.flatMap((c: { products: Array<{ id: string }> }) => c.products.map(p => p.id)) ?? [];
         assert.ok(
             !productIds.includes("prod-X"),
             `Expected prod-X to be absent, got: [${productIds}]`
@@ -187,7 +187,7 @@ async function main() {
         );
 
         const productIds =
-            result?.categories?.flatMap((c: any) => c.products.map((p: any) => p.id)) ?? [];
+            result?.categories?.flatMap((c: { products: Array<{ id: string }> }) => c.products.map(p => p.id)) ?? [];
         assert.ok(productIds.includes("prod-A"), "prod-A should remain");
     });
 

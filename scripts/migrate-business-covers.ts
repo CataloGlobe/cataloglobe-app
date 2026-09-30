@@ -44,9 +44,6 @@ function toSafeSlug(input: string): string {
         .slice(0, 60);
 }
 
-/** UUID v4 regex per il check idempotenza */
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\//;
-
 let totalMoved = 0;
 let totalErrors = 0;
 

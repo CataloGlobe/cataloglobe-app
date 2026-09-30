@@ -3,7 +3,6 @@ import { usePageHeader } from "@/context/usePageHeader";
 import { Card } from "@/components/ui/Card/Card";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
-import { Select } from "@/components/ui/Select/Select";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { TextInput } from "@/components/ui/Input/TextInput";
@@ -16,7 +15,6 @@ import { PasswordRequirements } from "@/components/ui/PasswordRequirements/Passw
 import { isStrongPassword, isWeakPasswordError } from "@utils/validatePassword";
 import { useAuth } from "@/context/useAuth";
 import { useToast } from "@/context/Toast/ToastContext";
-import { useTheme } from "@/context/Theme/useTheme";
 import {
     getProfile,
     updateProfile,
@@ -40,10 +38,8 @@ import styles from "./WorkspaceSettingsPage.module.scss";
 export default function WorkspaceSettingsPage() {
     const { user } = useAuth();
     const { showToast } = useToast();
-    const { theme, setTheme } = useTheme();
     const [profile, setProfile] = useState<Profile | null>(null);
     const [loadingProfile, setLoadingProfile] = useState(true);
-    const [language, setLanguage] = useState("it");
     const [drawerOpen, setDrawerOpen] = useState(false);
     const [draftFirstName, setDraftFirstName] = useState("");
     const [draftLastName, setDraftLastName] = useState("");

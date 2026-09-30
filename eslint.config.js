@@ -6,7 +6,8 @@ import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  // `docs/extracted_*`: copie di codice per la documentazione, non sorgenti.
+  globalIgnores(['dist', 'docs/extracted_*']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [
@@ -18,6 +19,10 @@ export default defineConfig([
     languageOptions: {
       ecmaVersion: 2020,
       globals: globals.browser,
+    },
+    rules: {
+      // `_nome`: parametro tenuto per la firma del service (`tenantId`), non usato.
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
     },
   },
 ])

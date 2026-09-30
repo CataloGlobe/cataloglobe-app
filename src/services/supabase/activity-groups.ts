@@ -153,7 +153,9 @@ export async function getGroupsForActivity(activityId: string, tenantId: string)
         .eq("tenant_id", tenantId);
 
     if (error) throw error;
-    return (data || []).map(m => (m as any).group).filter(Boolean);
+    return (data || [])
+        .map(m => (m as unknown as { group: V2ActivityGroup | null }).group)
+        .filter((group): group is V2ActivityGroup => group !== null);
 }
 
 /**
