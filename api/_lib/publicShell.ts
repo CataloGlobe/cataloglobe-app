@@ -76,6 +76,10 @@ export function serializeCatalogPayload(data: unknown): string {
 /* ── Sostituzioni head (replacer-funzione, mai replacement string) ──────── */
 
 /** Sostituisce il content di un <meta property|name="key" content="…">. */
+function hasMeta(html: string, key: string): boolean {
+    return new RegExp(`<meta\\s+(?:property|name)="${key}"\\s`).test(html);
+}
+
 function setMetaContent(html: string, key: string, value: string): string {
     const re = new RegExp(`(<meta\\s+(?:property|name)="${key}"\\s+content=")[^"]*(")`);
     return html.replace(re, (_m, p1: string, p2: string) => p1 + value + p2);
@@ -156,11 +160,15 @@ export function applyTenantHead(
     if (cover) {
         const safeCover = escapeHtml(cover);
         // og:image/twitter:image: SEMPRE l'immagine raw full-size (gli scraper
-        // social vogliono l'originale, non la variante mobile). REPLACE del tag
-        // generico del template (non append): i crawler usano il PRIMO og:image
-        // del documento — un secondo tag appeso resterebbe ignorato.
-        html = setMetaContent(html, "og:image", safeCover);
-        html = setMetaContent(html, "twitter:image", safeCover);
+        // social vogliono l'originale, non la variante mobile). Se il template
+        // ha già il tag lo si sostituisce (i crawler usano il PRIMO og:image);
+        // index.html oggi non ne ha (niente immagine generica), quindi lo si
+        // aggiunge, e la card Twitter passa a immagine grande.
+        for (const [attr, key] of [["property", "og:image"], ["name", "twitter:image"]] as const) {
+            if (hasMeta(html, key)) html = setMetaContent(html, key, safeCover);
+            else extra.push(`<meta ${attr}="${key}" content="${safeCover}" />`);
+        }
+        html = setMetaContent(html, "twitter:card", "summary_large_image");
         // width/height del template descrivono og-image.png (1200×630): rimossi
         // quando l'immagine è la cover della sede — dichiarare dimensioni di
         // un'altra immagine causerebbe crop sbagliati negli scraper.
