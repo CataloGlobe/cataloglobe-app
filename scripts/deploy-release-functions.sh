@@ -37,6 +37,7 @@ FUNCTIONS=(
   resolve-public-catalog
   submit-order
   submit-order-admin
+  notify-support
 )
 
 REPO="$(git rev-parse --show-toplevel)"
