@@ -237,15 +237,51 @@
     color: var(--ld-terra);
 }
 
-// Conferma al posto del form, nella stessa scheda.
+// Form e conferma nella stessa cella. Da desktop il form, nascosto, tiene
+// l'altezza della scheda e la conferma ci si appoggia sopra (nessun salto).
+// Su mobile il form esce dal flusso e la scheda si adatta alla conferma.
+.stack {
+    display: grid;
+
+    > * {
+        grid-area: 1 / 1;
+    }
+}
+
+.formSent {
+    visibility: hidden;
+
+    @include mobile-only {
+        display: none;
+    }
+}
+
 .done {
+    align-items: center;
     justify-content: center;
-    min-height: 240px;
+    gap: 14px;
     text-align: center;
 
-    &:focus {
-        outline: none;
+    @include motion-ok {
+        animation: ld-done-in 320ms ease-out both;
     }
+}
+
+@keyframes ld-done-in {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+}
+
+.doneIcon {
+    display: grid;
+    place-items: center;
+    width: 56px;
+    height: 56px;
+    border-radius: 999px;
+    background: var(--ld-brand-s);
+    color: var(--ld-azione);
 }
 
 .doneTitle {
@@ -254,6 +290,10 @@
     font-size: 26px;
     line-height: 1.2;
     color: var(--ld-ink);
+
+    &:focus {
+        outline: none;
+    }
 }
 
 .doneText {
@@ -261,4 +301,8 @@
     font-size: 16px;
     line-height: 1.5;
     color: var(--ld-body);
+}
+
+.nowrap {
+    white-space: nowrap;
 }
