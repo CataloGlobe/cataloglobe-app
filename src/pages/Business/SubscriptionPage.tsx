@@ -405,7 +405,7 @@ export default function SubscriptionPage() {
 
     usePageHeader({
         title: "Abbonamento",
-        subtitle: !canReadBilling ? undefined : "Piano, sedi pagate, credito AI e pagamento."
+        subtitle: !canReadBilling ? undefined : "Piano, sedi, credito AI e pagamento."
     });
 
     const paidSeats = selectedTenant?.paid_seats ?? 0;
@@ -1036,7 +1036,12 @@ export default function SubscriptionPage() {
     const previewTrialFirstInvoice = preview?.trialFirstInvoiceCents ?? null;
 
     // --- La mappa stato → strip (§37.5, passo 2 del registro) ---------------
-    const seatsWord = displaySeats === 1 ? "sede pagata" : "sedi pagate";
+    // In prova le sedi non sono ancora pagate: sono incluse nella prova.
+    const isTrialing = status === "trialing";
+    const seatsWord = isTrialing
+        ? displaySeats === 1 ? "sede inclusa" : "sedi incluse"
+        : displaySeats === 1 ? "sede pagata" : "sedi pagate";
+    const seatsPlural = isTrialing ? "sedi incluse" : "sedi pagate";
     const stripTitle = `${displayPlanName} · ${displaySeats} ${seatsWord}${isFounder ? " · Founder" : ""}`;
     const renewalLabel = status === "trialing" ? "Fine prova" : "Prossimo rinnovo";
     const renewalValue = status === "trialing" ? formatDate(selectedTenant.trial_until) : formatDate(periodEndDate);
@@ -1056,7 +1061,7 @@ export default function SubscriptionPage() {
     // Stato non leggibile: importo e rinnovo non si inventano, resta la sola
     // cifra che viene dal DB.
     const stripFigures = [
-        { value: `${activityCount} di ${displaySeats}`, label: allSeatsUsed ? "sedi pagate · tutte usate" : "sedi pagate" },
+        { value: `${activityCount} di ${displaySeats}`, label: allSeatsUsed ? `${seatsPlural} · tutte usate` : seatsPlural },
         ...(subUnavailable
             ? []
             : [
@@ -1229,7 +1234,7 @@ export default function SubscriptionPage() {
         <div className={styles.page}>
             {canManageBilling && !canCancelBilling && (
                 <InlineBanner variant="info">
-                    Solo il proprietario può disdire l&apos;abbonamento. Tu puoi cambiare piano, sedi pagate e metodo di
+                    Solo il proprietario può disdire l&apos;abbonamento. Tu puoi cambiare piano, sedi e metodo di
                     pagamento.
                 </InlineBanner>
             )}
@@ -1263,7 +1268,9 @@ export default function SubscriptionPage() {
                         {seatOffer.kind === "free" ? (
                             <>
                                 <Text as="p" variant="body-sm">
-                                    Hai ancora {seatOffer.freeSeats} {seatOffer.freeSeats === 1 ? "sede pagata libera" : "sedi pagate libere"}: aprirne una non costa niente.
+                                    Hai ancora {seatOffer.freeSeats} {seatOffer.freeSeats === 1
+                                        ? isTrialing ? "sede inclusa libera" : "sede pagata libera"
+                                        : isTrialing ? "sedi incluse libere" : "sedi pagate libere"}: aprirne una non costa niente.
                                 </Text>
                                 <div className={styles.nextSeatAction}>
                                     <Button variant="secondary" size="sm" onClick={() => navigate(`/business/${selectedTenant.id}/locations`)}>
