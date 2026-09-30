@@ -95,7 +95,7 @@ verbi specifici per operazioni singolari/alto rischio · plurale+tenant
 
 40 esistenti + `translations.write` (mig. 120000). Scope/categoria invariati da v2 § 5. Modifiche:
 - **`stories.read` / `stories.write`** (activity, enforced any-activity come `featured.*`) — esistevano in DB (mig. 20260707125900) ma mancavano da questa matrice; aggiunti il 27/09/2026 (lotto Stili · Storie · In evidenza).
-- **Deriva nota, da riconciliare** (staging 27/09/2026: 50 permessi): mancano da qui anche `guests.read/manage`, `seatings.read/manage`, `support.read/write`, e `reviews.respond` in DB è diventato `reviews.moderate` + `reviews.delete`.
+- **Deriva nota, da riconciliare** (staging 27/09/2026: 50 permessi): mancano da qui anche `guests.read/manage`, `seatings.read/manage`, `support.read/write`. (`reviews.respond` → `reviews.moderate` + `reviews.delete`: riconciliato il 30/09/2026.)
 - **`translations.write`** (tenant, content) — NUOVO. Azioni `/languages`. Read via proxy `catalogs.read`.
 - **`activity_groups.write`** — esisteva già (mig. 130000 resa no-op con ON CONFLICT).
 - **Morti** (cleanup, § 10): `notifications.receive`, `tenant.transfer_ownership`.
@@ -140,7 +140,8 @@ verbi specifici per operazioni singolari/alto rischio · plurale+tenant
 | reservations.read | T | T | A | A | A |
 | reservations.manage | T | T | A | A | |
 | reviews.read | T | T | A | A | A |
-| reviews.respond | T | T | A | A | |
+| reviews.moderate | T | T | A | A | |
+| reviews.delete | T | T | | | |
 | analytics.read | T | T | A | | A |
 | notifications.receive | T | T | A | A | |
 | team.read | T | T | T | | |
@@ -173,7 +174,7 @@ mutazione gatati con helper espliciti.
 | stories | /stories/* | stories.read | stories.write (any-activity*) |
 | styles | /styles/* | styles.read | styles.write |
 | analytics | /analytics | analytics.read | — (read-only) |
-| reviews | /reviews | reviews.read | reviews.respond |
+| reviews | /reviews | reviews.read | reviews.moderate (solo `status`: privilegio di colonna, mig `20260930120300`); reviews.delete (tenant-wide) |
 | locations | /locations, /:id | activity.read | activities.create/delete (tenant), activity.manage/activity_hours.write (per sede dall'URL), activity_groups.write |
 | languages | /languages | catalogs.read (proxy) | translations.write (FE+BE) |
 | reservations | /reservations | reservations.read + `table_reservation` | reservations.manage |
