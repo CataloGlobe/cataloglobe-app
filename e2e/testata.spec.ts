@@ -21,9 +21,15 @@ import { stubStili } from "./stiliStub";
 async function stacked(page: Page, leading: Locator, action: Locator): Promise<void> {
     await expect(leading).toBeVisible();
     await expect(action).toBeVisible();
-    const leadingBox = (await leading.boundingBox())!;
-    const actionBox = (await action.boundingBox())!;
-    expect(leadingBox.y).toBeGreaterThanOrEqual(actionBox.y + actionBox.height);
+    // La banda si ridecide quando arrivano i permessi (la CTA allarga le
+    // azioni): si aspetta la forma finale invece di leggerla una volta.
+    await expect
+        .poll(async () => {
+            const leadingBox = await leading.boundingBox();
+            const actionBox = await action.boundingBox();
+            return leadingBox && actionBox ? leadingBox.y - (actionBox.y + actionBox.height) : -1;
+        })
+        .toBeGreaterThanOrEqual(0);
 }
 
 test.describe("Testata — sottotitolo", () => {
