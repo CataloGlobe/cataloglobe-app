@@ -801,6 +801,7 @@ export function TablesManagement({
                     />
                 ) : (
                     <DataTable<V2TableWithState>
+                        ariaLabel="Tavoli"
                         data={filteredItems}
                         allRowIds={allItemIds}
                         columns={columns}

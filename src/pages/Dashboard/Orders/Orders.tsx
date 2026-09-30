@@ -1160,6 +1160,7 @@ export default function Orders() {
                                 </div>
                             </div>
                             <DataTable<HistoryRowWithStorni>
+                                ariaLabel="Storico degli ordini"
                                 data={filteredHistory}
                                 columns={historyColumns}
                                 isLoading={isHistoryLoading}

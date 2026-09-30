@@ -254,6 +254,7 @@ export const BusinessList: React.FC<BusinessListProps> = ({
         // presa esplicitamente — solo delete di riga (kebab → Elimina).
         return (
             <DataTable
+                ariaLabel="Sedi"
                 data={businesses}
                 columns={columns}
                 isLoading={isLoading}

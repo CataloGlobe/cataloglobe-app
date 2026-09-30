@@ -261,6 +261,7 @@ export function ProductAttributesDrawer({
                                     </Text>
                                 ) : (
                                     <DataTable<V2ProductAttributeDefinition>
+                                        ariaLabel="Attributi"
                                         data={definitions}
                                         columns={columns}
                                         selectable

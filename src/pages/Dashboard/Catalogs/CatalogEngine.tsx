@@ -1746,6 +1746,7 @@ export default function CatalogEngine() {
                                     strategy={verticalListSortingStrategy}
                                 >
                                     <DataTable<ProductRow>
+                                        ariaLabel={selectedCategory.name}
                                         data={visibleRows}
                                         columns={columns}
                                         // Sul telefono niente selezione multipla: i 48 px della
@@ -1910,7 +1911,7 @@ export default function CatalogEngine() {
                         ))}
                     </Card>
                     <Card className={styles.categoryCard} bodyClassName={styles.categoryBody}>
-                        <DataTable<ProductRow> data={[]} columns={columns} isLoading />
+                        <DataTable<ProductRow> ariaLabel="Prodotti" data={[]} columns={columns} isLoading />
                     </Card>
                 </div>
             ) : (
@@ -2130,6 +2131,7 @@ export default function CatalogEngine() {
 
                             <div className={styles.assignTableWrap}>
                                 <DataTable<V2Product>
+                                    ariaLabel="Prodotti da aggiungere"
                                     data={assignableProducts}
                                     columns={assignColumns}
                                     selectable

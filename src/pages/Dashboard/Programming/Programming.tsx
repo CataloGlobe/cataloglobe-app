@@ -875,7 +875,7 @@ export default function Programming() {
                         Non riusciamo a caricare le regole.
                     </InlineBanner>
                 ) : isLoading ? (
-                    <RuleTable {...tableProps} rules={[]} isLoading />
+                    <RuleTable {...tableProps} ariaLabel="Le regole" rules={[]} isLoading />
                 ) : filteredRules.length === 0 ? (
                     (searchTerm || filterActivityId) ? (
                         <EmptyState
@@ -974,7 +974,7 @@ export default function Programming() {
                                             />
                                         )}
                                     </div>
-                                    {group.open && <RuleTable {...tableProps} rules={group.rules} />}
+                                    {group.open && <RuleTable {...tableProps} ariaLabel={group.title} rules={group.rules} />}
                                 </section>
                             ))}
                     </div>

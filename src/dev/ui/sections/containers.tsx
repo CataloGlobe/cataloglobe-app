@@ -65,7 +65,7 @@ const COLUMNS: ColumnDefinition<Row>[] = [
 ];
 
 function SampleTable(props: Partial<React.ComponentProps<typeof DataTable<Row>>>) {
-    return <DataTable<Row> data={ROWS} columns={COLUMNS} pageSize={5} getRowId={r => r.id} {...props} />;
+    return <DataTable<Row> ariaLabel="Prodotti di esempio" data={ROWS} columns={COLUMNS} pageSize={5} getRowId={r => r.id} {...props} />;
 }
 
 function CardSection() {

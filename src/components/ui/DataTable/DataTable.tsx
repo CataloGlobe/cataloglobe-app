@@ -134,10 +134,10 @@ interface DataTableProps<T> {
      */
     mutedRowIds?: string[];
     /**
-     * Nome della tabella. Con un nome la tabella si espone ai lettori di
-     * schermo come tabella (righe, intestazioni, celle).
+     * Nome della tabella, obbligatorio: la tabella si espone ai lettori di
+     * schermo come tabella (righe, intestazioni, celle) col suo nome.
      */
-    ariaLabel?: string;
+    ariaLabel: string;
 
     getRowId?: (row: T, rowIndex: number) => string;
 
@@ -183,8 +183,6 @@ interface DataTableRowProps<T> {
     isHighlighted?: boolean;
     isDisabled?: boolean;
     isMuted?: boolean;
-    /** Ruoli ARIA di riga e cella (la tabella ha un nome). */
-    semantic?: boolean;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     dragHandleProps?: any;
 }
@@ -203,7 +201,6 @@ function DataTableRow<T>({
     isHighlighted,
     isDisabled,
     isMuted,
-    semantic,
     dragHandleProps
 }: DataTableRowProps<T>) {
     const classes = [
@@ -221,7 +218,7 @@ function DataTableRow<T>({
         <div
             className={classes}
             style={gridStyle}
-            role={semantic ? "row" : undefined}
+            role="row"
             onClick={event => {
                 if (!onRowClick || isDisabled) return;
                 const target = event.target as HTMLElement | null;
@@ -239,7 +236,7 @@ function DataTableRow<T>({
                 <div
                     className={`${styles.cell} ${styles.checkboxCell}`}
                     data-row-click-ignore="true"
-                    role={semantic ? "cell" : undefined}
+                    role="cell"
                 >
                     <input
                         type="checkbox"
@@ -267,7 +264,7 @@ function DataTableRow<T>({
                         key={column.id}
                         className={`${styles.cell} ${getAlignClass(column.align)}${isActions ? ` ${styles.cellActions}` : ""}`}
                         data-actions={isActions || undefined}
-                        role={semantic ? "cell" : undefined}
+                        role="cell"
                     >
                         {content ?? null}
                     </div>
@@ -473,7 +470,6 @@ export function DataTable<T>({
         [disabledRowIds]
     );
     const mutedSet = useMemo(() => new Set(mutedRowIds ?? []), [mutedRowIds]);
-    const semantic = Boolean(ariaLabel);
     const selectedSet = useMemo(() => new Set(selected), [selected]);
 
     // ─── Selection handlers ────────────────────────────────────────────────
@@ -598,7 +594,6 @@ export function DataTable<T>({
                     isHighlighted={highlightSet.has(rowId)}
                     isDisabled={disabledSet.has(rowId)}
                     isMuted={mutedSet.has(rowId)}
-                    semantic={semantic}
                 />
             );
             return rowWrapper ? rowWrapper(element, row, rowIndex) : element;
@@ -701,10 +696,10 @@ export function DataTable<T>({
         <>
             <div ref={probeRef} className={styles.autoSizeProbe}>
                 <div ref={tableRef} className={styles.table} style={containerStyle}>
-                    <div className={styles.scrollArea} role={semantic ? "table" : undefined} aria-label={ariaLabel}>
-                        <div ref={headerRef} className={styles.header} style={gridStyle} role={semantic ? "row" : undefined}>
+                    <div className={styles.scrollArea} role="table" aria-label={ariaLabel}>
+                        <div ref={headerRef} className={styles.header} style={gridStyle} role="row">
                             {selectable && (
-                                <div className={`${styles.headerCell} ${styles.checkboxCell}`} role={semantic ? "columnheader" : undefined}>
+                                <div className={`${styles.headerCell} ${styles.checkboxCell}`} role="columnheader">
                                     <input
                                         type="checkbox"
                                         className={styles.checkbox}
@@ -722,14 +717,14 @@ export function DataTable<T>({
                                     key={column.id}
                                     className={`${styles.headerCell} ${getAlignClass(column.align)}${column.id === ACTIONS_COLUMN_ID ? ` ${styles.cellActions}` : ""}`}
                                     data-actions={column.id === ACTIONS_COLUMN_ID || undefined}
-                                    role={semantic ? "columnheader" : undefined}
+                                    role="columnheader"
                                 >
                                     {column.header}
                                 </div>
                             ))}
                         </div>
 
-                        <div ref={bodyRef} className={styles.body} aria-busy={isLoading || undefined} role={semantic ? "rowgroup" : undefined}>
+                        <div ref={bodyRef} className={styles.body} aria-busy={isLoading || undefined} role="rowgroup">
                             {renderRows()}
                         </div>
                     </div>

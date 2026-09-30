@@ -727,6 +727,7 @@ export default function TeamPage() {
                 ) : activeTab === "members" ? (
                     <div className={styles.tableBlock}>
                     <DataTable<TenantMemberRow>
+                        ariaLabel="Membri del team"
                         data={filteredActiveMembers}
                         columns={activeColumns}
                         isLoading={loading}
@@ -758,6 +759,7 @@ export default function TeamPage() {
                     </div>
                 ) : (
                     <DataTable<TenantMemberRow>
+                        ariaLabel="Inviti in attesa"
                         data={filteredPendingInvites}
                         columns={pendingColumns}
                         isLoading={loading}
