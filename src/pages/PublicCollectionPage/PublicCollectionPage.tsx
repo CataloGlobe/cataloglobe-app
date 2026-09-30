@@ -8,16 +8,13 @@ import { useLocation, useNavigate, useParams, useSearchParams } from "react-rout
 import { trackEvent } from "@/services/analytics/publicAnalytics";
 import type { HubTab } from "@/types/collectionStyle";
 import type { OrderingStateReason } from "@/types/orders";
-import { VERTICAL_CONFIG } from "@/constants/verticalTypes";
 import type { ResolvedPayloadShape } from "@/types/publicCatalog";
 import { derivePageState, resolveRedirect, type PageState } from "./derivePageState";
 import PublicCatalogReady from "./PublicCatalogReady";
-import { listAllAllergens, type Allergen } from "@/services/supabase/allergens";
 
 import { supabase } from "@/services/supabase/client";
 import {
     fetchPublicCatalog,
-    withTimeout,
     type CatalogSource,
     type PublicCatalogPayload
 } from "@/services/publicCatalog/fetchPublicCatalog";
@@ -38,7 +35,6 @@ import {
 } from "./previewControl";
 import pageStyles from "./PublicCollectionPage.module.scss";
 
-const ALLERGENS_TIMEOUT_MS = 3_000;
 
 // reviews_summary and recent_reviews still returned by edge function — unused in frontend for now
 
@@ -70,8 +66,8 @@ function messageForReason(reason: OrderingStateReason, t: TFunction): string {
  * unica dichiarazione, non tre copie della stessa shape.
  */
 export type PublicCatalogInitialPayload = {
+    /** Porta anche gli allergeni (`public_allergens`). */
     payload: ResolvedPayloadShape;
-    allergens: Allergen[] | null;
 };
 
 type Props = {
@@ -187,7 +183,7 @@ export default function PublicCollectionPage({ initialPayload }: Props) {
 
     const [state, setState] = useState<PageState>(() =>
         ssrPayload
-            ? derivePageState(ssrPayload.payload, ssrPayload.allergens)
+            ? derivePageState(ssrPayload.payload)
             : { status: "loading" }
     );
 
@@ -397,44 +393,16 @@ export default function PublicCollectionPage({ initialPayload }: Props) {
                 return;
             }
 
-            // Primo pass senza allergeni: decide se il payload arriva a
-            // "ready". Evita il fetch allergeni su inactive/subscription/empty
-            // (come oggi: in processPayload il fetch stava DOPO quegli early
-            // return). derivePageState è pura → richiamarla è gratis.
-            const probe = derivePageState(typedPayload, null);
-            if (probe.status !== "ready") {
-                setState(probe);
-                return;
-            }
-
-            const showAllergens = typedPayload.vertical_type
-                ? VERTICAL_CONFIG[typedPayload.vertical_type]?.productSections.allergens === true
-                : false;
-            let allergens: Allergen[] | null = null;
-            if (showAllergens) {
-                // Con timeout: la pagina resta sul loader finché questa lettura
-                // non chiude, e senza tetto una richiesta appesa la teneva lì
-                // per sempre. Scaduto, il menù parte con l'avviso «allergeni non
-                // disponibili» (allergensUnavailable in derivePageState).
-                try {
-                    allergens = await withTimeout(listAllAllergens(), ALLERGENS_TIMEOUT_MS);
-                } catch (e) {
-                    console.error("[PublicCollectionPage] allergens load error:", e);
-                    allergens = null;
-                }
-                if (cancelled) return;
-            }
-
             const isStale = opts.fromCache || opts.source === "stale";
 
-            const next = derivePageState(typedPayload, allergens);
-            if (next.status === "ready") {
-                setState({ ...next, isRefetching: false, isStale });
-            } else {
-                // Difensivo: derivePageState è pura, stesso payload del probe
-                // → non può cambiare status. Mai raggiunto.
+            // Gli allergeni sono nel payload (`public_allergens`): nessuna
+            // lettura separata, lo stato si deriva in un colpo.
+            const next = derivePageState(typedPayload);
+            if (next.status !== "ready") {
                 setState(next);
+                return;
             }
+            setState({ ...next, isRefetching: false, isStale });
 
             // Cache solo payload "healthy" provenienti da risposta LIVE (non stale).
             // Skip per:
@@ -444,7 +412,14 @@ export default function PublicCollectionPage({ initialPayload }: Props) {
             //   - opts.source === "stale": il server ha servito uno snapshot Redis
             //     vecchio (Supabase down). Salvarlo in localStorage con savedAt=now
             //     falsa la freschezza locale.
-            if (!opts.fromCache && !opts.isSimulate && opts.source !== "stale") {
+            //   - next.allergensUnavailable: payload mostrato col banner ma
+            //     incompleto, stessa regola di isHealthyPayload lato api/.
+            if (
+                !opts.fromCache &&
+                !opts.isSimulate &&
+                opts.source !== "stale" &&
+                !next.allergensUnavailable
+            ) {
                 setCached(slug!, validatedLang, payload);
             }
         }

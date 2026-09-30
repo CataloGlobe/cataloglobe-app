@@ -17,14 +17,12 @@ import {
     isHealthyPayload,
     type PublicCatalogPayload
 } from "../_lib/supabaseEdge.js";
-import { fetchPublicAllergens } from "../_lib/publicAllergens.js";
 import {
     buildClientAssets,
     buildSsrShell,
     type PublicShellPayload,
     type ViteManifest
 } from "../_lib/publicShell.js";
-import { VERTICAL_CONFIG, type VerticalType } from "../../src/constants/verticalTypes.js";
 
 /**
  * GET /api/ssr-render?slug=<slug>&lang=<lang>?    (stage 4b — ROUTE DI TEST)
@@ -96,7 +94,6 @@ const CLIENT_ASSET_BASE = "/public/";
 type RenderPublicModule = {
     renderPublic(args: {
         payload: unknown;
-        allergens: unknown;
         slug: string;
         url?: string;
     }): Promise<
@@ -292,15 +289,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
             }
         }
 
-        // Allergeni: stesso gating vertical della SPA (processPayload).
-        const verticalType = (payload as { vertical_type?: VerticalType | null }).vertical_type;
-        const needsAllergens = verticalType
-            ? VERTICAL_CONFIG[verticalType]?.productSections.allergens === true
-            : false;
-        const allergens = needsAllergens ? await fetchPublicAllergens() : null;
-
         const { renderPublic } = await loadRenderModule();
-        const result = await renderPublic({ payload, allergens, slug, url: `/${slug}` });
+        const result = await renderPublic({ payload, slug, url: `/${slug}` });
 
         if (result.kind !== "ready") {
             serveSpaFallback(res, 200, result.status);
@@ -318,8 +308,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         const shell = buildSsrShell({
             template: readTemplate(),
             payload: payload as PublicShellPayload,
-            // Shape hydration (4c): payload + allergeni già fetchati.
-            inlinePayload: { payload, allergens },
+            // Shape hydration (4c): il payload porta anche gli allergeni
+            // (`public_allergens`).
+            inlinePayload: { payload },
             origin,
             slug,
             clientAssets: buildClientAssets(

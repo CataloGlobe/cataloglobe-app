@@ -293,3 +293,14 @@ export const VERTICAL_CONFIG: Record<VerticalType, VerticalConfig> = {
         scheduleHints: ["Stagionale", "Saldi", "Promozione"]
     }
 };
+
+/**
+ * La pagina pubblica di questo vertical mostra gli allergeni? Unica regola,
+ * letta da `derivePageState` (avviso «allergeni non disponibili») e da
+ * `isHealthyPayload` in api/ (payload senza `public_allergens` non va in
+ * cache). Vertical assente o sconosciuto = no.
+ */
+export function verticalShowsAllergens(verticalType: string | null | undefined): boolean {
+    if (!verticalType) return false;
+    return VERTICAL_CONFIG[verticalType as VerticalType]?.productSections.allergens === true;
+}

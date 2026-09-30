@@ -7,7 +7,6 @@ import "@/i18n";
 import PublicProviders from "@/components/public/PublicProviders";
 import PublicCatalogReady from "@/pages/PublicCollectionPage/PublicCatalogReady";
 import { derivePageState } from "@/pages/PublicCollectionPage/derivePageState";
-import type { Allergen } from "@/services/supabase/allergens";
 import type { ResolvedPayloadShape } from "@/types/publicCatalog";
 
 /**
@@ -27,7 +26,6 @@ import type { ResolvedPayloadShape } from "@/types/publicCatalog";
 
 export type RenderPublicArgs = {
     payload: ResolvedPayloadShape;
-    allergens: Allergen[] | null;
     slug: string;
     /** URL per StaticRouter (pathname; default da slug). */
     url?: string;
@@ -46,10 +44,10 @@ export type RenderPublicResult =
 const noop = () => {};
 
 export async function renderPublic(args: RenderPublicArgs): Promise<RenderPublicResult> {
-    const { payload, allergens, slug } = args;
+    const { payload, slug } = args;
     const url = args.url ?? `/${slug}`;
 
-    const state = derivePageState(payload, allergens);
+    const state = derivePageState(payload);
     if (state.status !== "ready") {
         return { kind: "non-ready", status: state.status };
     }

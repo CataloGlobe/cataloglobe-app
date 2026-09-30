@@ -6,7 +6,7 @@ import type { OpeningHoursEntry, UpcomingClosure } from "@/components/PublicColl
 // `@/pages/...` e non `@pages/...`: vitest.config risolve solo l'alias `@`,
 // e questo modulo è sotto test (src/tests/pages/derivePageState.test.ts).
 import { hasBookableDays } from "@/pages/ReservationPage/utils/reservationSlots";
-import { VERTICAL_CONFIG } from "@/constants/verticalTypes";
+import { verticalShowsAllergens } from "@/constants/verticalTypes";
 
 /**
  * Derivazione PURA dello stato della pagina pubblica (SSR stage 3, step 1).
@@ -52,9 +52,10 @@ type CatalogPageData = {
      *  `business.enable_reservations`. Vedi `derivePageState`. */
     hasReservationHours: boolean;
     allergens: Allergen[] | null;
-    /** Il vertical mostra gli allergeni ma la lista non è arrivata (timeout o
-     *  errore): la pagina lo dice a vista, mai un menù senza allergeni in
-     *  silenzio. Vale per SSR e browser (stessa derivazione). */
+    /** Il vertical mostra gli allergeni ma il payload non porta
+     *  `public_allergens` (lettura fallita lato edge, o payload in cache
+     *  precedente al campo): la pagina lo dice a vista, mai un menù senza
+     *  allergeni in silenzio. Vale per SSR e browser (stessa derivazione). */
     allergensUnavailable: boolean;
     effectiveLanguage: string;
     baseLanguage: string;
@@ -145,14 +146,12 @@ export function resolveRedirect(
 }
 
 /**
- * Payload di successo → stato pagina. Gli allergeni arrivano dall'esterno
- * (l'orchestrazione li fetcha solo quando il payload arriva a "ready" e il
- * vertical li prevede). I flag isRefetching/isStale li applica il chiamante.
+ * Payload di successo → stato pagina. Gli allergeni vengono dal payload
+ * (`public_allergens`, messo dall'edge): nessuna lettura separata, così li
+ * portano con sé snapshot Redis, cache localStorage e HTML SSR. I flag
+ * isRefetching/isStale li applica il chiamante.
  */
-export function derivePageState(
-    payload: ResolvedPayloadShape,
-    allergens: Allergen[] | null
-): DerivedPageState {
+export function derivePageState(payload: ResolvedPayloadShape): DerivedPageState {
     const {
         business,
         tenantLogoUrl,
@@ -164,8 +163,10 @@ export function derivePageState(
         opening_hours,
         upcoming_closures,
         has_story,
-        vertical_type
+        vertical_type,
+        public_allergens
     } = payload;
+    const allergens: Allergen[] | null = public_allergens ?? null;
 
     if (subscription_inactive) {
         return { status: "subscription_inactive" };
@@ -253,10 +254,7 @@ export function derivePageState(
         upcomingClosures: menuHoursVisible ? upcoming_closures : undefined,
         hasReservationHours,
         allergens,
-        allergensUnavailable:
-            allergens === null &&
-            !!vertical_type &&
-            VERTICAL_CONFIG[vertical_type]?.productSections.allergens === true,
+        allergensUnavailable: allergens === null && verticalShowsAllergens(vertical_type),
         effectiveLanguage: effectiveLang,
         baseLanguage: baseLang,
         availableLanguages: availLangs,

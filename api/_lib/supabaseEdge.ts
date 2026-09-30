@@ -6,6 +6,7 @@ import {
     TimeoutError,
     withTimeout
 } from "./retry.js";
+import { verticalShowsAllergens } from "../../src/constants/verticalTypes.js";
 
 /**
  * Wrapper server-side per chiamare la Supabase Edge Function
@@ -186,6 +187,9 @@ export async function callResolvePublicCatalog(
  *     snapshot a quella combinazione slug+lang sarebbe muto)
  *   - `business.status !== "active"` (sede disattivata: anche se è un 200
  *     valido, l'eventuale riattivazione non invaliderebbe lo snapshot)
+ *   - vertical che mostra gli allergeni senza `public_allergens` (lettura
+ *     fallita lato edge): il payload si serve (la pagina mostra l'avviso) ma
+ *     non entra in cache, altrimenti l'avviso durerebbe quanto lo snapshot.
  *
  * Edge function `resolve-public-catalog` ritorna 200 con `business.status:
  * "inactive"` (vedi riga 361-373 dell'edge function) — caso esplicito da
@@ -199,5 +203,8 @@ export function isHealthyPayload(payload: PublicCatalogPayload): boolean {
     if (obj.lang_unsupported === true) return false;
     const business = obj.business as { status?: string } | undefined;
     if (!business || business.status !== "active") return false;
+    if (verticalShowsAllergens(obj.vertical_type as string | null | undefined) && !Array.isArray(obj.public_allergens)) {
+        return false;
+    }
     return true;
 }
