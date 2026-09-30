@@ -18,23 +18,28 @@
 --     cancella (0 righe), owner cancella
 --
 -- Helper nello schema reviews_guard_test, creato in testa e droppato in
--- coda: non pg_temp, perché lo SQL Editor di Studio passa da un pool e lo
--- schema temporaneo non sopravvive fra uno statement e l'altro (3F000).
--- Un `Test N FAIL` interrompe il file prima del DROP finale: il file si può
--- rilanciare così com'è (il DROP in testa pulisce), oppure a mano:
---   DROP SCHEMA IF EXISTS reviews_guard_test CASCADE;
+-- coda: non pg_temp, che nello SQL Editor di Studio non sopravviveva fra uno
+-- statement e l'altro (3F000).
 --
 -- Pattern: setup via postgres role (bypass RLS), poi anon o authenticated.
--- Ogni test in BEGIN … ROLLBACK. Prima delle migration falliscono 1, 2, 4, 5
--- e 6. La recensione di test è inserita dentro ogni transazione: nessuna riga
--- reale viene toccata.
+-- Una transazione sola per tutto il file, ogni test fra SAVEPOINT t<N> e
+-- ROLLBACK TO SAVEPOINT t<N>: schema e helper restano vivi per tutto il giro.
+-- Prima delle migration falliscono 1, 2, 4, 5 e 6. La recensione di test è
+-- inserita dentro ogni savepoint: nessuna riga reale viene toccata.
+--
+-- Transazione: il file apre la sua (BEGIN) e chiude con ROLLBACK, così non
+-- resta niente nemmeno se un test scrivesse fuori dal suo savepoint. Lo SQL
+-- Editor di Studio esegue già tutto in una transazione: lì il BEGIN è solo
+-- un WARNING («there is already a transaction in progress») e il ROLLBACK
+-- finale chiude la sua. Un FAIL annulla l'intera transazione, schema
+-- compreso: non c'è niente da pulire a mano.
 --
 -- Prerequisiti:
 --   - seed_permissions_test_data.sql già eseguito
 --   - almeno una recensione approvata di McDonald's (16 al 30/09/2026)
 --
--- Esecuzione: Studio SQL Editor di staging (ruolo postgres). Attesi 10
--- `NOTICE … OK`; un `Test N FAIL` interrompe il file.
+-- Esecuzione: Studio SQL Editor di staging (ruolo postgres), il file intero.
+-- Attesi 10 `NOTICE … OK`; un `Test N FAIL` interrompe il file.
 --
 -- UUID di riferimento:
 --   tenant McDonald's        5b37c952-1add-4196-aab3-9775d98a9c32
@@ -49,6 +54,8 @@
 -- -----------------------------------------------------------------------------
 -- Helper (schema di test: droppato in coda)
 -- -----------------------------------------------------------------------------
+BEGIN;
+
 DROP SCHEMA IF EXISTS reviews_guard_test CASCADE;
 CREATE SCHEMA reviews_guard_test;
 
@@ -105,7 +112,7 @@ GRANT EXECUTE ON FUNCTION reviews_guard_test.seed_review() TO service_role;
 -- -----------------------------------------------------------------------------
 -- TEST 1 — anon non legge le recensioni approvate
 -- -----------------------------------------------------------------------------
-BEGIN;
+SAVEPOINT t1;
 DO $$
 DECLARE
   v_count integer;
@@ -126,12 +133,12 @@ BEGIN
   END IF;
   RAISE NOTICE 'Test 1 OK: anon non legge recensioni, nemmeno le approvate';
 END$$;
-ROLLBACK;
+ROLLBACK TO SAVEPOINT t1;
 
 -- -----------------------------------------------------------------------------
 -- TEST 2 — anon non legge request_ip di una recensione appena approvata
 -- -----------------------------------------------------------------------------
-BEGIN;
+SAVEPOINT t2;
 DO $$
 DECLARE
   v_ip text;
@@ -150,12 +157,12 @@ BEGIN
   END IF;
   RAISE NOTICE 'Test 2 OK: request_ip della recensione pubblicata non leggibile da anon';
 END$$;
-ROLLBACK;
+ROLLBACK TO SAVEPOINT t2;
 
 -- -----------------------------------------------------------------------------
 -- TEST 3 — authenticated con reviews.read legge ancora tutti gli stati
 -- -----------------------------------------------------------------------------
-BEGIN;
+SAVEPOINT t3;
 DO $$
 DECLARE
   v_count integer;
@@ -172,12 +179,12 @@ BEGIN
   END IF;
   RAISE NOTICE 'Test 3 OK: viewer legge la recensione in attesa come prima';
 END$$;
-ROLLBACK;
+ROLLBACK TO SAVEPOINT t3;
 
 -- -----------------------------------------------------------------------------
 -- TEST 4 — Nessun membro inserisce recensioni: staff, manager, owner → 42501
 -- -----------------------------------------------------------------------------
-BEGIN;
+SAVEPOINT t4;
 DO $$
 DECLARE
   v_user record;
@@ -202,12 +209,12 @@ BEGIN
   END LOOP;
   RAISE NOTICE 'Test 4 OK: staff, manager e owner non inseriscono recensioni (42501)';
 END$$;
-ROLLBACK;
+ROLLBACK TO SAVEPOINT t4;
 
 -- -----------------------------------------------------------------------------
 -- TEST 5 — Chi modera non riscrive voto né commento: staff, manager, owner → 42501
 -- -----------------------------------------------------------------------------
-BEGIN;
+SAVEPOINT t5;
 DO $$
 DECLARE
   v_user record;
@@ -246,12 +253,12 @@ BEGIN
   END IF;
   RAISE NOTICE 'Test 5 OK: voto e commento intoccabili per staff, manager e owner (42501)';
 END$$;
-ROLLBACK;
+ROLLBACK TO SAVEPOINT t5;
 
 -- -----------------------------------------------------------------------------
 -- TEST 6 — Stato insieme a un'altra colonna: rifiutato anche lo stato
 -- -----------------------------------------------------------------------------
-BEGIN;
+SAVEPOINT t6;
 DO $$
 BEGIN
   SET LOCAL role postgres;
@@ -271,12 +278,12 @@ BEGIN
   END IF;
   RAISE NOTICE 'Test 6 OK: UPDATE misto rifiutato per intero (42501)';
 END$$;
-ROLLBACK;
+ROLLBACK TO SAVEPOINT t6;
 
 -- -----------------------------------------------------------------------------
 -- TEST 7 — Staff pubblica, poi nasconde (solo status)
 -- -----------------------------------------------------------------------------
-BEGIN;
+SAVEPOINT t7;
 DO $$
 DECLARE
   v_count integer;
@@ -301,12 +308,12 @@ BEGIN
   END IF;
   RAISE NOTICE 'Test 7 OK: staff pubblica e nasconde';
 END$$;
-ROLLBACK;
+ROLLBACK TO SAVEPOINT t7;
 
 -- -----------------------------------------------------------------------------
 -- TEST 8 — Viewer non cambia lo stato (0 righe, RLS: niente reviews.moderate)
 -- -----------------------------------------------------------------------------
-BEGIN;
+SAVEPOINT t8;
 DO $$
 DECLARE
   v_count integer;
@@ -324,12 +331,12 @@ BEGIN
   END IF;
   RAISE NOTICE 'Test 8 OK: viewer non modera (0 righe)';
 END$$;
-ROLLBACK;
+ROLLBACK TO SAVEPOINT t8;
 
 -- -----------------------------------------------------------------------------
 -- TEST 9 — Eliminazione invariata: staff 0 righe, owner 1
 -- -----------------------------------------------------------------------------
-BEGIN;
+SAVEPOINT t9;
 DO $$
 DECLARE
   v_count integer;
@@ -354,12 +361,12 @@ BEGIN
   END IF;
   RAISE NOTICE 'Test 9 OK: staff non cancella, owner sì';
 END$$;
-ROLLBACK;
+ROLLBACK TO SAVEPOINT t9;
 
 -- -----------------------------------------------------------------------------
 -- TEST 10 — Il service role (Edge submit-review) inserisce come prima
 -- -----------------------------------------------------------------------------
-BEGIN;
+SAVEPOINT t10;
 DO $$
 BEGIN
   SET LOCAL role service_role;
@@ -370,9 +377,10 @@ BEGIN
   END IF;
   RAISE NOTICE 'Test 10 OK: service role inserisce come prima';
 END$$;
-ROLLBACK;
+ROLLBACK TO SAVEPOINT t10;
 
 -- -----------------------------------------------------------------------------
 -- Pulizia
 -- -----------------------------------------------------------------------------
 DROP SCHEMA IF EXISTS reviews_guard_test CASCADE;
+ROLLBACK;
