@@ -5,11 +5,17 @@
 ```
 /:slug → PublicCollectionPage
   → Edge Function resolve-public-catalog({ slug, simulate? })
-  → { business, tenantLogoUrl, resolved: ResolvedCollections, subscription_inactive? }
+  → { business, tenantLogoUrl, resolved: ResolvedCollections, public_allergens?, subscription_inactive? }
   → mapCatalogToSectionGroups(resolved)
   → PublicThemeScope (applica CSS tokens dello stile)
     → CollectionView (componente condiviso con StylePreview)
 ```
+
+**Allergeni nel payload** (`public_allergens`): `resolve-public-catalog` legge la tabella di sistema `allergens` e la mette nel payload, per ogni vertical. Così la portano con sé snapshot Redis, cache localStorage e HTML SSR. **Niente letture separate** degli allergeni nella pagina o nell'SSR: `derivePageState(payload)` li prende solo da lì.
+- Chi li mostra: `verticalShowsAllergens` (`src/constants/verticalTypes.ts`), unica regola.
+- Campo assente con un vertical che li mostra (lettura fallita lato edge, o snapshot precedente al campo) → `allergensUnavailable`: avviso «Informazioni sugli allergeni momentaneamente non disponibili, chiedi al personale», mai il menù senza allergeni in silenzio. Il payload si serve ma **non va in cache**: `isHealthyPayload` (Redis) e la stessa regola sulla cache localStorage.
+- Snapshot vecchi senza campo: si aggiornano alla scadenza o con un revalidate manuale, niente invalidazione automatica.
+- **Ordine di deploy**: prima `resolve-public-catalog` (`supabase functions deploy`), poi push/Vercel. Al contrario ogni payload arriva senza `public_allergens`: avviso ovunque sui vertical food e niente in cache finché l'edge non è aggiornata.
 
 **Simulazione**: `?simulate=<ISO_DATE>` — solo per utenti autenticati. Mostra banner giallo in cima.
 
