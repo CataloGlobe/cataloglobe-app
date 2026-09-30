@@ -545,7 +545,9 @@ export default function OverviewPage() {
                   `${b}/reviews`,
                   c.reviews.active ? "active" : "todo",
                   c.reviews.active
-                      ? `${plural(c.reviews.total, "ricevuta", "ricevute")}, ${c.reviews.pending} senza risposta`
+                      // «in attesa», non «senza risposta»: le risposte non esistono, la
+                      // coda di Recensioni chiede di pubblicarle o tenerle nascoste.
+                      ? `${plural(c.reviews.total, "ricevuta", "ricevute")} · ${c.reviews.pending} in attesa`
                       : "La pagina pubblica può chiedere una recensione a fine pasto."
               ),
               capability(
