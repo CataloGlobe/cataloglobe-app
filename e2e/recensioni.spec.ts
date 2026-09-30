@@ -131,13 +131,6 @@ test.describe("Recensioni", () => {
         expect(list.slice(0, 2).sort()).toEqual(["Pizza ottima e2e, torneremo.", "Tiramisù da provare e2e"]);
     });
 
-    test("senza reviews.delete: niente elimina", async ({ page }) => {
-        await stub.revoke("reviews.delete");
-        await openPage(page);
-        await stub.revoked;
-        await expect(main(page).getByRole("button", { name: /Elimina recensione|^Azioni/ })).toHaveCount(0);
-    });
-
     test("senza lettura: la pagina è bloccata", async ({ page }) => {
         await stub.revoke("reviews.read");
         await openBusinessPage(page, "overview", "Panoramica");
@@ -182,7 +175,6 @@ test.describe("Recensioni — moderazione", () => {
     });
 
     test("la coda in cima: quante, da quanto, cosa vuol dire", async ({ page }) => {
-        test.fail();
         await openPage(page);
         await expect(queue(page)).toContainText("2 recensioni in attesa");
         await expect(queue(page)).toContainText("da 7 giorni");
@@ -192,7 +184,6 @@ test.describe("Recensioni — moderazione", () => {
     });
 
     test("il riepilogo conta solo le pubblicate", async ({ page }) => {
-        test.fail();
         await openPage(page);
         // Le cinque pubblicate: (5 + 2 + 4 + 5 + 1) / 5 = 3,4. Con le tre nuove sarebbe 3,1 su 8.
         await expect(main(page).getByText(/^3[.,]4$/).first()).toBeVisible();
@@ -200,7 +191,6 @@ test.describe("Recensioni — moderazione", () => {
     });
 
     test("«Pubblica» scrive solo lo stato e la sposta fra le pubblicate", async ({ page }) => {
-        test.fail();
         stub.onWrite("reviews.PATCH", () => [{ id: REVIEW.carbonara }]);
         await openPage(page);
         await press(rowOf(page, "Carbonara perfetta e2e").getByRole("button", { name: "Pubblica" }));
@@ -214,7 +204,6 @@ test.describe("Recensioni — moderazione", () => {
     });
 
     test("«Tieni nascosta» scrive solo lo stato", async ({ page }) => {
-        test.fail();
         stub.onWrite("reviews.PATCH", () => [{ id: REVIEW.scortese }]);
         await openPage(page);
         await press(rowOf(page, "Cameriere scortese e2e").getByRole("button", { name: "Tieni nascosta" }));
@@ -224,7 +213,6 @@ test.describe("Recensioni — moderazione", () => {
     });
 
     test("se il server non cambia niente lo dice, e la coda resta com'era", async ({ page }) => {
-        test.fail();
         // 0 righe: permesso tolto nel frattempo, o recensione già eliminata.
         stub.onWrite("reviews.PATCH", () => []);
         await openPage(page);
@@ -234,7 +222,6 @@ test.describe("Recensioni — moderazione", () => {
     });
 
     test("stato in riga e filtro «Nascoste»", async ({ page }) => {
-        test.fail();
         await openPage(page);
         await expect(rowOf(page, "Pizza ottima e2e, torneremo.").getByText("Pubblicata")).toBeVisible();
         await press(page.getByRole("radio", { name: /^Nascoste/ }));
@@ -243,7 +230,6 @@ test.describe("Recensioni — moderazione", () => {
     });
 
     test("Elimina solo sulle nascoste", async ({ page }) => {
-        test.fail();
         await openPage(page);
         await press(rowOf(page, "Pizza ottima e2e, torneremo.").getByRole("button", { name: /^Azioni/ }));
         await expect(page.getByRole("menuitem", { name: "Nascondi" })).toBeVisible();
@@ -264,6 +250,18 @@ test.describe("Recensioni — moderazione", () => {
         expect(stub.writes.find(w => w.key === "reviews.DELETE")?.params.get("id")).toBe(`eq.${REVIEW.spam}`);
     });
 
+    // Era «senza reviews.delete: niente elimina» nel blocco sopra, che contava
+    // il «⋯»: con la coda il menu porta anche Pubblica e Nascondi, e con le
+    // sole pubblicate Elimina non c'era comunque. Qui su una nascosta.
+    test("senza reviews.delete: la nascosta si ripubblica, non si elimina", async ({ page }) => {
+        await stub.revoke("reviews.delete");
+        await openPage(page);
+        await stub.revoked;
+        await press(rowOf(page, "Prova spam e2e").getByRole("button", { name: /^Azioni/ }));
+        await expect(page.getByRole("menuitem", { name: "Pubblica" })).toBeVisible();
+        await expect(page.getByRole("menuitem", { name: "Elimina" })).toHaveCount(0);
+    });
+
     test("la voce di sidebar conta le recensioni in attesa", async ({ page }) => {
         test.fail();
         await openPage(page);
@@ -272,13 +270,16 @@ test.describe("Recensioni — moderazione", () => {
     });
 
     test("senza reviews.moderate: la coda si legge, nessun comando né badge", async ({ page }) => {
-        test.fail();
         await stub.revoke("reviews.moderate");
         await openPage(page);
         await stub.revoked;
         await expect(queue(page)).toContainText("2 recensioni in attesa");
         await expect(main(page).getByRole("button", { name: /^(Pubblica|Tieni nascosta)$/ })).toHaveCount(0);
-        await expect(main(page).getByRole("button", { name: /^Azioni/ })).toHaveCount(0);
+        await expect(rowOf(page, "Pizza ottima e2e, torneremo.").getByRole("button", { name: /^Azioni/ })).toHaveCount(0);
+        // Elimina resta di reviews.delete, che qui c'è: sulla nascosta il menu ha solo quella.
+        await press(rowOf(page, "Prova spam e2e").getByRole("button", { name: /^Azioni/ }));
+        await expect(page.getByRole("menuitem")).toHaveText(["Elimina"]);
+        await page.keyboard.press("Escape");
         const link = page.getByRole("navigation", { name: "Menu principale" }).getByRole("link", { name: /^Recensioni/ });
         await expect(link).not.toContainText("2");
     });

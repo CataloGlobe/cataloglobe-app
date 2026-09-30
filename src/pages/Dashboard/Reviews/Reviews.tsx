@@ -1,7 +1,7 @@
-import { useEffect, useState, useMemo, useCallback, type ReactNode } from "react";
+import { useEffect, useId, useState, useMemo, useCallback, type ReactNode } from "react";
 import { useTenantId } from "@/context/useTenantId";
 import { useToast } from "@/context/Toast/ToastContext";
-import { listReviews, deleteReview } from "@/services/supabase/reviews";
+import { listReviews, deleteReview, updateReviewStatus } from "@/services/supabase/reviews";
 import { useSedeScope, SCOPE_ALL } from "@/hooks/useSedeScope";
 import type { Review } from "@/types/database";
 import { usePermissions } from "@/context/PermissionsContext";
@@ -17,14 +17,28 @@ import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedCont
 import { DateInput } from "@/components/ui/Input/DateInput";
 import { Button } from "@/components/ui/Button/Button";
 import { BarList } from "@/components/ui/BarList/BarList";
+import { ChipGroupSingle } from "@/components/ui/Chip/ChipGroup";
 import { Card } from "@/components/ui/Card/Card";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { ListRow } from "@/components/ui/ListRow/ListRow";
 import { Rating } from "@/components/ui/Rating/Rating";
-import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
+import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
+import { TableRowActions, type TableRowAction } from "@/components/ui/TableRowActions/TableRowActions";
 import Text from "@/components/ui/Text/Text";
 import { formatRelativeTime } from "@/utils/relativeTime";
+import {
+    ACTION_STATUS,
+    QUEUE_EXPLANATION,
+    REVIEW_STATUS_META,
+    STATUS_CHANGE_TOAST,
+    queueTitle,
+    rowActions,
+    splitByStatus,
+    waitingDays,
+    type ListFilter,
+    type ModerationAction
+} from "./reviewModeration";
 
 import styles from "./Reviews.module.scss";
 
@@ -81,6 +95,9 @@ export default function Reviews() {
             : canDoOnAnyActivity(permissions, "reviews.read"));
     const canDelete = (review: Review) =>
         permissions ? canDoOnActivity(permissions, "reviews.delete", review.activity_id) : false;
+    // Pubblica · Tieni nascosta · Nascondi: reversibili, per sede (§34.9/2).
+    const canModerate = (review: Review) =>
+        permissions ? canDoOnActivity(permissions, "reviews.moderate", review.activity_id) : false;
 
     /* ── State ──────────────────────────────────────── */
     const [reviews, setReviews] = useState<Review[]>([]);
@@ -94,6 +111,11 @@ export default function Reviews() {
     const [customTo, setCustomTo] = useState("");
     const [sortBy, setSortBy] = useState<SortOption>("newest");
     const [searchQuery, setSearchQuery] = useState("");
+    const [listFilter, setListFilter] = useState<ListFilter>("all");
+
+    // Le recensioni col cambio di stato in volo: i loro bottoni aspettano.
+    const [updatingIds, setUpdatingIds] = useState<ReadonlySet<string>>(new Set());
+    const queueTitleId = useId();
 
     // La recensione da eliminare: il DELETE è secco e l'ha scritta un
     // cliente, quindi passa da un ConfirmDialog (regola delle azioni
@@ -139,24 +161,28 @@ export default function Reviews() {
         return map;
     }, [readableActivities]);
 
+    /* ── Coda (in attesa) ed elenco (le altre) ─────── */
+    // La coda non segue i filtri della testata: è quello che resta da fare.
+    const { pending: pendingReviews, others: moderatedReviews } = useMemo(() => splitByStatus(reviews), [reviews]);
+
     /* ── Period filtering (base for stats) ──────────── */
     const periodFilteredReviews = useMemo(() => {
         const now = Date.now();
 
         if (filterPeriod === "7d") {
             const t = now - 7 * 86_400_000;
-            return reviews.filter((r) => new Date(r.created_at).getTime() >= t);
+            return moderatedReviews.filter((r) => new Date(r.created_at).getTime() >= t);
         }
         if (filterPeriod === "30d") {
             const t = now - 30 * 86_400_000;
-            return reviews.filter((r) => new Date(r.created_at).getTime() >= t);
+            return moderatedReviews.filter((r) => new Date(r.created_at).getTime() >= t);
         }
         if (filterPeriod === "90d") {
             const t = now - 90 * 86_400_000;
-            return reviews.filter((r) => new Date(r.created_at).getTime() >= t);
+            return moderatedReviews.filter((r) => new Date(r.created_at).getTime() >= t);
         }
         if (filterPeriod === "custom") {
-            return reviews.filter((r) => {
+            return moderatedReviews.filter((r) => {
                 const ts = new Date(r.created_at).getTime();
                 if (customFrom && ts < new Date(customFrom).getTime()) return false;
                 if (customTo && ts > new Date(customTo).getTime() + 86_400_000 - 1)
@@ -164,32 +190,53 @@ export default function Reviews() {
                 return true;
             });
         }
-        return reviews;
-    }, [reviews, filterPeriod, customFrom, customTo]);
+        return moderatedReviews;
+    }, [moderatedReviews, filterPeriod, customFrom, customTo]);
+
+    // Il riepilogo conta solo le pubblicate (R2, mockup «Riepilogo dei voti pubblicati»).
+    const publishedInPeriod = useMemo(
+        () => periodFilteredReviews.filter(r => r.status === "approved"),
+        [periodFilteredReviews]
+    );
 
     /* ── Stats ──────────────────────────────────────── */
     const average = useMemo(() => {
-        const total = periodFilteredReviews.length;
+        const total = publishedInPeriod.length;
         if (total === 0) return null;
-        const sum = periodFilteredReviews.reduce((s, r) => s + r.rating, 0);
+        const sum = publishedInPeriod.reduce((s, r) => s + r.rating, 0);
         return Math.round((sum / total) * 10) / 10;
-    }, [periodFilteredReviews]);
+    }, [publishedInPeriod]);
 
     // Distribuzione 5→1 a una serie sola (§34.9/4, §34.10): la lunghezza fa
     // il lavoro, tinta unica, il livello di stelle è l'etichetta.
     const distributionItems = useMemo(() => {
         const dist: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
-        for (const r of periodFilteredReviews) dist[r.rating] = (dist[r.rating] ?? 0) + 1;
+        for (const r of publishedInPeriod) dist[r.rating] = (dist[r.rating] ?? 0) + 1;
         return ([5, 4, 3, 2, 1] as const).map(star => ({
             id: String(star),
             label: <Rating value={star} showValue={false} />,
             value: dist[star]
         }));
-    }, [periodFilteredReviews]);
+    }, [publishedInPeriod]);
+
+    /* ── Filtro di stato dell'elenco, coi conteggi ─── */
+    const hiddenCount = useMemo(() => periodFilteredReviews.filter(r => r.status === "hidden").length, [periodFilteredReviews]);
+    const listFilterOptions = useMemo(
+        () => [
+            { value: "all" as const, label: "Tutte", count: periodFilteredReviews.length },
+            { value: "approved" as const, label: "Pubblicate", count: publishedInPeriod.length, disabled: publishedInPeriod.length === 0 },
+            { value: "hidden" as const, label: "Nascoste", count: hiddenCount, disabled: hiddenCount === 0 }
+        ],
+        [periodFilteredReviews.length, publishedInPeriod.length, hiddenCount]
+    );
 
     /* ── Final filtered + sorted reviews ────────────── */
     const displayedReviews = useMemo(() => {
         let result = [...periodFilteredReviews];
+
+        if (listFilter !== "all") {
+            result = result.filter((r) => r.status === listFilter);
+        }
 
         if (filterRating !== "all") {
             const rating = Number(filterRating);
@@ -219,10 +266,12 @@ export default function Reviews() {
         });
 
         return result;
-    }, [periodFilteredReviews, filterRating, searchQuery, sortBy]);
+    }, [periodFilteredReviews, listFilter, filterRating, searchQuery, sortBy]);
 
-    const isFiltered = filterRating !== "all" || searchQuery.trim() !== "" || filterPeriod !== "all";
+    const isFiltered =
+        filterRating !== "all" || searchQuery.trim() !== "" || filterPeriod !== "all" || listFilter !== "all";
     const clearFilters = useCallback(() => {
+        setListFilter("all");
         setFilterRating("all");
         setSearchQuery("");
         setFilterPeriod("all");
@@ -330,6 +379,33 @@ export default function Reviews() {
     });
 
     /* ── Handlers ───────────────────────────────────── */
+    // Pubblica · Tieni nascosta · Nascondi: reversibili, niente conferma. Un
+    // errore resta un toast (§50.14, deviazione 8): l'azione fallita non
+    // cambia la pagina, la recensione resta dov'era.
+    async function handleStatusChange(review: Review, action: Exclude<ModerationAction, "delete">) {
+        if (!tenantId) return;
+        const status = ACTION_STATUS[action];
+        setUpdatingIds(prev => new Set(prev).add(review.id));
+        try {
+            await updateReviewStatus(review.id, tenantId, status);
+            setReviews(prev => prev.map(r => (r.id === review.id ? { ...r, status } : r)));
+            showToast({ message: STATUS_CHANGE_TOAST[status].success, type: "success" });
+        } catch (error) {
+            console.error("Cambio di stato della recensione:", error);
+            showToast({ message: STATUS_CHANGE_TOAST[status].error, type: "error" });
+        } finally {
+            setUpdatingIds(prev => {
+                const next = new Set(prev);
+                next.delete(review.id);
+                return next;
+            });
+        }
+    }
+
+    const requestDelete = (review: Review) => {
+        setDeleteError(null);
+        setPendingDelete(review);
+    };
     async function handleConfirmDelete(): Promise<boolean> {
         if (!tenantId || !pendingDelete) return false;
         const target = pendingDelete;
@@ -350,13 +426,84 @@ export default function Reviews() {
         }
     }
 
+    /* ── Riga: commento e «quando · sede» ─────────────── */
+    const reviewTitle = (review: Review) =>
+        review.comment ? (
+            // Il commento è il contenuto della riga: va a capo intero, non
+            // si tronca come un nome.
+            <span className={styles.comment}>{review.comment}</span>
+        ) : (
+            <Text as="span" variant="body-sm" colorVariant="muted" className={styles.noComment}>
+                Nessun commento
+            </Text>
+        );
+    const reviewSubtitle = (review: Review) =>
+        [formatRelativeTime(review.created_at), !selectedActivity ? activityNameMap.get(review.activity_id) : null]
+            .filter(Boolean)
+            .join(" · ");
+
     /* ── Render ──────────────────────────────────────── */
     return (
         <PageGate readPermission="reviews.read" activityId={selectedActivity || null}>
             {({ canEdit }) => (
                 <div className={styles.page}>
-                    {/* ── Riepilogo: numero eroe + distribuzione ─── */}
-                    <Card title="Riepilogo">
+                    {/* ── Coda di moderazione (§34.9/1): in cima, finché ce n'è ── */}
+                    {!loading && !loadError && pendingReviews.length > 0 && (
+                        <div role="region" aria-labelledby={queueTitleId}>
+                            <Card
+                                title={queueTitle(pendingReviews.length, waitingDays(pendingReviews[0].created_at, Date.now()))}
+                                titleId={queueTitleId}
+                                subtitle={QUEUE_EXPLANATION}
+                                flush
+                            >
+                                {pendingReviews.map(review => {
+                                    const actions = rowActions(review.status, {
+                                        canModerate: canModerate(review),
+                                        canDelete: canDelete(review)
+                                    });
+                                    const busy = updatingIds.has(review.id);
+                                    return (
+                                        <ListRow
+                                            key={review.id}
+                                            title={reviewTitle(review)}
+                                            wrapSubtitle
+                                            subtitle={reviewSubtitle(review)}
+                                            meta={<Rating value={review.rating} />}
+                                            metaInline
+                                            trailingWrap
+                                            trailing={
+                                                actions.length > 0 ? (
+                                                    <div className={styles.queueActions}>
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            disabled={!canEdit || busy}
+                                                            title={!canEdit ? "L'abbonamento non è attivo." : undefined}
+                                                            onClick={() => void handleStatusChange(review, "hide")}
+                                                        >
+                                                            Tieni nascosta
+                                                        </Button>
+                                                        <Button
+                                                            variant="primary"
+                                                            size="sm"
+                                                            disabled={!canEdit || busy}
+                                                            title={!canEdit ? "L'abbonamento non è attivo." : undefined}
+                                                            onClick={() => void handleStatusChange(review, "publish")}
+                                                        >
+                                                            Pubblica
+                                                        </Button>
+                                                    </div>
+                                                ) : undefined
+                                            }
+                                        />
+                                    );
+                                })}
+                            </Card>
+                        </div>
+                    )}
+
+                    {/* ── Riepilogo: numero eroe + distribuzione, sulle pubblicate ─── */}
+                    <Card title="Riepilogo dei voti pubblicati">
                         <div className={styles.summary}>
                             {loading ? (
                                 <BarList className={styles.summaryFull} items={[]} loading />
@@ -367,11 +514,11 @@ export default function Reviews() {
                                             <Rating
                                                 value={average}
                                                 size="hero"
-                                                countLabel={`${periodFilteredReviews.length} ${periodFilteredReviews.length === 1 ? "recensione" : "recensioni"}`}
+                                                countLabel={`${publishedInPeriod.length} ${publishedInPeriod.length === 1 ? "recensione pubblicata" : "recensioni pubblicate"}`}
                                             />
                                         ) : (
                                             <Text variant="body-sm" colorVariant="muted">
-                                                Nessun voto nel periodo.
+                                                Nessun voto pubblicato nel periodo.
                                             </Text>
                                         )}
                                     </div>
@@ -433,64 +580,80 @@ export default function Reviews() {
                                 </Button>
                             }
                         />
-                    ) : displayedReviews.length === 0 ? (
-                        isFiltered && reviews.length > 0 ? (
-                            <EmptyState variant="filtered" title="Nessuna recensione trovata" onClearFilters={clearFilters} />
-                        ) : (
-                            <EmptyState
-                                variant="inline"
-                                icon={<MessageSquare />}
-                                title="Nessuna recensione"
-                                description="Le recensioni arrivano dal modulo sulla pagina pubblica delle sedi."
+                    ) : moderatedReviews.length === 0 && pendingReviews.length > 0 ? null /* tutto nella coda */ : (
+                        <>
+                        {periodFilteredReviews.length > 0 && (
+                            <ChipGroupSingle<ListFilter>
+                                ariaLabel="Stato delle recensioni"
+                                layout="auto"
+                                shape="pill"
+                                value={listFilter}
+                                onChange={setListFilter}
+                                options={listFilterOptions}
                             />
-                        )
-                    ) : (
-                        <Card flush>
-                            {displayedReviews.map((review) => (
-                                <ListRow
-                                    key={review.id}
-                                    title={
-                                        review.comment ? (
-                                            // Il commento è il contenuto della riga: va a capo
-                                            // intero, non si tronca come un nome.
-                                            <span className={styles.comment}>{review.comment}</span>
-                                        ) : (
-                                            <Text as="span" variant="body-sm" colorVariant="muted" className={styles.noComment}>
-                                                Nessun commento
-                                            </Text>
-                                        )
-                                    }
-                                    wrapSubtitle
-                                    subtitle={[
-                                        formatRelativeTime(review.created_at),
-                                        !selectedActivity ? activityNameMap.get(review.activity_id) : null
-                                    ]
-                                        .filter(Boolean)
-                                        .join(" · ")}
-                                    meta={<Rating value={review.rating} />}
-                                    metaInline
-                                    trailing={
-                                        canDelete(review) ? (
-                                            <TableRowActions
-                                                ariaLabel="Azioni recensione"
-                                                actions={[
-                                                    {
-                                                        label: "Elimina",
-                                                        variant: "destructive",
-                                                        disabled: !canEdit,
-                                                        description: !canEdit ? "L'abbonamento non è attivo." : undefined,
-                                                        onClick: () => {
-                                                            setDeleteError(null);
-                                                            setPendingDelete(review);
-                                                        }
-                                                    }
-                                                ]}
-                                            />
-                                        ) : undefined
-                                    }
+                        )}
+                        {displayedReviews.length === 0 ? (
+                            isFiltered && moderatedReviews.length > 0 ? (
+                                <EmptyState variant="filtered" title="Nessuna recensione trovata" onClearFilters={clearFilters} />
+                            ) : (
+                                <EmptyState
+                                    variant="inline"
+                                    icon={<MessageSquare />}
+                                    title="Nessuna recensione"
+                                    description="Le recensioni arrivano dal modulo sulla pagina pubblica delle sedi."
                                 />
-                            ))}
-                        </Card>
+                            )
+                        ) : (
+                            <Card flush>
+                                {displayedReviews.map((review) => {
+                                    const actions = rowActions(review.status, {
+                                        canModerate: canModerate(review),
+                                        canDelete: canDelete(review)
+                                    });
+                                    const busy = updatingIds.has(review.id);
+                                    const menu: TableRowAction[] = actions.map(action =>
+                                        action === "delete"
+                                            ? {
+                                                  label: "Elimina",
+                                                  variant: "destructive",
+                                                  separator: true,
+                                                  disabled: !canEdit,
+                                                  description: !canEdit ? "L'abbonamento non è attivo." : undefined,
+                                                  onClick: () => requestDelete(review)
+                                              }
+                                            : {
+                                                  label: action === "publish" ? "Pubblica" : "Nascondi",
+                                                  disabled: !canEdit || busy,
+                                                  description: !canEdit ? "L'abbonamento non è attivo." : undefined,
+                                                  onClick: () => void handleStatusChange(review, action)
+                                              }
+                                    );
+                                    const meta = REVIEW_STATUS_META[review.status];
+                                    return (
+                                        <ListRow
+                                            key={review.id}
+                                            title={reviewTitle(review)}
+                                            wrapSubtitle
+                                            subtitle={reviewSubtitle(review)}
+                                            // Voto e stato nel meta: sul telefono scendono sotto il
+                                            // commento, che resta largo quanto la riga.
+                                            meta={
+                                                <>
+                                                    <Rating value={review.rating} />
+                                                    <StatusBadge variant={meta.variant} label={meta.label} />
+                                                </>
+                                            }
+                                            trailing={
+                                                menu.length > 0 ? (
+                                                    <TableRowActions ariaLabel="Azioni recensione" actions={menu} />
+                                                ) : undefined
+                                            }
+                                        />
+                                    );
+                                })}
+                            </Card>
+                        )}
+                        </>
                     )}
 
                     {/* ── Piede ────────────────────────────────── */}
