@@ -9,24 +9,7 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 2rem;
-}
-
-.statusCell {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-}
-
-.expiryHint {
-  font-size: 0.7rem;
-  line-height: 1;
-}
-
-.roleDialogContent {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
+  gap: var(--space-24);
 }
 
 .emailCell {
@@ -35,41 +18,67 @@
   text-overflow: ellipsis;
 }
 
-.emptyState {
-  padding: 2rem 0.5rem;
-}
-
-.emailWithBadge {
+// Persona: avatar · email · «Tu».
+.person {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-8);
   min-width: 0;
 }
 
-// ─── RoleBadge palette (5 ruoli, viola monocromatico + slate per viewer) ───
-.roleBadge {
+// Ruolo e cosa può fare: badge sopra, frase sotto (cella a due righe, §44.8).
+.twoLines {
   display: inline-flex;
-  align-items: center;
-  padding: 3px 10px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 500;
-  line-height: 1.4;
-  white-space: nowrap;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
 }
 
-.roleOwner   { background: #534AB7; color: #FFFFFF; }
-.roleAdmin   { background: #7F77DD; color: #FFFFFF; }
-.roleManager { background: #CECBF6; color: #3C3489; }
-.roleStaff   { background: #EEEDFE; color: #534AB7; }
-.roleViewer  { background: #F1F5F9; color: #475569; }
+.badges {
+  display: inline-flex;
+  gap: var(--space-6);
+}
 
-.lockedWrap {
-  flex: 1;
+// Tabella + nota sui posti: la catena flex vincolata resta sulla tabella.
+.tableBlock {
+  flex: 1 1 auto;
+  min-height: 0;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 50vh;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+// «Solo tu»: le righe della card si toccano; i ruoli come lista definizioni.
+.rows {
+  gap: 0;
+}
+
+.roleList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  margin: 0;
+  text-align: left;
+}
+
+.roleRow {
+  display: flex;
+  gap: var(--space-8);
+
+  dt {
+    flex: 0 0 120px;
+  }
+
+  dd {
+    margin: 0;
+  }
+}
+
+.notes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin-top: var(--space-16);
 }
 
 // Header band: filtro Ruolo compatto accanto a search.

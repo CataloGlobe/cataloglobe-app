@@ -1,0 +1,52 @@
+@use "@/styles/mixins" as m;
+
+// Solo layout: le superfici sono Card, ListRow e i campi di ui/.
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-24);
+}
+
+.section {
+  scroll-margin-top: var(--space-24);
+}
+
+.rowActions {
+  display: flex;
+  gap: var(--space-8);
+  flex-wrap: wrap;
+}
+
+// Campo + interruttore «visibile ai clienti» sulla stessa riga.
+.contact {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-16);
+
+  @include m.phone {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+.contactInput {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.contactFlag {
+  flex: 0 0 auto;
+  padding-bottom: var(--space-8);
+}
+
+.reviewsRow {
+  margin-top: var(--space-16);
+  border-top: 1px solid var(--border);
+}
+
+.cover {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: var(--radius-inner);
+}

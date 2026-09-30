@@ -68,6 +68,9 @@ CSS_REFINEMENTS_AUDIT.md
 node-compile-cache/
 .vercel
 
+# Bun native addon cache (creato da tool esterni che girano su Bun, non dal progetto)
+.bun-*.node
+
 # Backup .md curati manualmente (CLAUDE.md, MEMORY.md) — tenuti locali per rollback
 *.original.md
 
@@ -83,3 +86,11 @@ node-compile-cache/
 
 # Landing hero mockup — non pubblicare (servito da public/)
 public/hero-concepts.html
+
+# Playwright E2E (sessione salvata dal global-setup + artefatti)
+e2e/.auth/
+playwright-report/
+test-results/
+
+# Security audit locale (finding aperti: repo pubblico, non committare)
+docs/security-audit/

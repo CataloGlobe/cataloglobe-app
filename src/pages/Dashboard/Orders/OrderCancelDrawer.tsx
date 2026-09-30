@@ -44,7 +44,7 @@ export default function OrderCancelDrawer({
     const isOverLimit = remaining < 0;
 
     return (
-        <SystemDrawer open={open} onClose={onClose} width={480}>
+        <SystemDrawer open={open} onClose={onClose} size="sm">
             <DrawerLayout
                 header={
                     <Text variant="title-sm" weight={600}>

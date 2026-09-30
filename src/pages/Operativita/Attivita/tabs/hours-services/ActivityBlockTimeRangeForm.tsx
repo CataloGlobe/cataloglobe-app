@@ -1,12 +1,18 @@
 import React, { useMemo, useState } from "react";
+import { FormField } from "@/components/ui/FormField/FormField";
+import { FormGrid } from "@/components/ui/FormGrid/FormGrid";
+import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
+import { DateInput } from "@/components/ui/Input/DateInput";
+import { TextInput } from "@/components/ui/Input/TextInput";
 import { TimeInput } from "@/components/ui/Input/TimeInput";
+import { ListRow } from "@/components/ui/ListRow/ListRow";
 import { createActivityClosure } from "@/services/supabase/activityClosures";
 import { useToast } from "@/context/Toast/ToastContext";
 import type { V2ActivityClosure } from "@/types/activity-closures";
 import type { V2ActivityHours } from "@/types/activity-hours";
 import Text from "@/components/ui/Text/Text";
 import { blockEndMinutes, computeBlockedDay, formatSlotList, type BlockTimeRangeResult } from "./blockTimeRange";
-import styles from "./HoursServices.module.scss";
+import styles from "./ActivityHoursForm.module.scss";
 
 // FASE 5.5 — l'operatore toglie una fascia da un giorno; la riga di
 // `activity_closures` che ne risulta la calcola `computeBlockedDay`. Il form
@@ -122,92 +128,60 @@ export const ActivityBlockTimeRangeForm: React.FC<ActivityBlockTimeRangeFormProp
 
     return (
         <form id={formId} onSubmit={handleSubmit} noValidate>
-            <div className={styles.closureFormLayout}>
-                <div className={styles.closureFormField}>
-                    <label htmlFor={`${formId}-date`} className={styles.closureFormLabel}>
-                        Data
-                    </label>
-                    <input
-                        id={`${formId}-date`}
-                        type="date"
-                        value={date}
-                        onChange={e => {
-                            setDate(e.target.value);
-                            setDateError(undefined);
-                        }}
-                        className={`${styles.closureFormInput}${dateError ? ` ${styles.closureFormInputError}` : ""}`}
-                    />
-                    {dateError && <span className={styles.closureFormError}>{dateError}</span>}
-                </div>
-
-                <div className={styles.closureFormField}>
-                    <label className={styles.closureFormLabel}>Fascia da bloccare</label>
-                    <Text variant="caption" colorVariant="muted">
-                        In questa fascia la sede risulta chiusa: non compare negli orari di apertura e non
-                        accetta prenotazioni. Gli orari si riferiscono al giorno scelto: per bloccare una fascia
-                        dopo la mezzanotte, scegli il giorno dopo.
-                    </Text>
-                    <div className={styles.slotInputs}>
-                        <TimeInput
-                            value={from}
-                            onChange={e => setFrom(e.target.value)}
-                            aria-label="Inizio della fascia bloccata"
-                        />
-                        <span className={styles.slotSeparator}>–</span>
-                        <TimeInput
-                            value={to}
-                            onChange={e => setTo(e.target.value)}
-                            aria-label="Fine della fascia bloccata"
-                        />
-                    </div>
-                    {rangeError && <span className={styles.closureFormError}>{rangeError}</span>}
-                    {showRangeHint && !rangeError && (
-                        <span className={styles.closureFormError}>Inserisci inizio e fine della fascia.</span>
+            <FormGrid cols={1} autoFocus>
+                <DateInput
+                    label="Giorno"
+                    value={date}
+                    onChange={e => {
+                        setDate(e.target.value);
+                        setDateError(undefined);
+                    }}
+                    error={dateError}
+                    required
+                />
+                <FormField
+                    label="Fascia da bloccare"
+                    helperText="In questa fascia la sede risulta chiusa: non compare negli orari di apertura e non accetta prenotazioni. Gli orari sono del giorno scelto: per bloccare dopo la mezzanotte, scegli il giorno dopo."
+                    error={rangeError ?? (showRangeHint ? "Inserisci inizio e fine della fascia." : undefined)}
+                >
+                    {() => (
+                        <div className={styles.slotInputs}>
+                            <TimeInput containerClassName={styles.time} value={from} onChange={e => setFrom(e.target.value)} aria-label="Dalle" />
+                            <Text as="span" variant="body-sm" colorVariant="muted" aria-hidden>
+                                –
+                            </Text>
+                            <TimeInput containerClassName={styles.time} value={to} onChange={e => setTo(e.target.value)} aria-label="Alle" />
+                        </div>
                     )}
-                </div>
+                </FormField>
 
-                {result && (
-                    <div
-                        className={`${styles.blockRangePreview}${blocking ? ` ${styles.blockRangePreviewError}` : ""}`}
-                        role="status"
-                    >
-                        {blocking ? (
-                            <span>{blocking}</span>
-                        ) : (
-                            <>
-                                <div className={styles.blockRangePreviewRow}>
-                                    <span className={styles.blockRangePreviewKey}>Orari del giorno</span>
-                                    <span>{formatSlotList(result.kind === "partial" || result.kind === "closed-all-day" ? result.before : [])}</span>
-                                </div>
-                                <div className={styles.blockRangePreviewRow}>
-                                    <span className={styles.blockRangePreviewKey}>Dopo il blocco</span>
-                                    <span>
-                                        {result.kind === "partial"
-                                            ? formatSlotList(result.slots)
-                                            : "Chiusa tutto il giorno: la fascia copre l'intera apertura."}
-                                    </span>
-                                </div>
-                            </>
-                        )}
+                {result && blocking && <InlineBanner variant="error">{blocking}</InlineBanner>}
+                {result && !blocking && (
+                    <div className={styles.preview} role="status">
+                        <ListRow
+                            title="Orari del giorno"
+                            subtitle={formatSlotList(result.kind === "partial" || result.kind === "closed-all-day" ? result.before : [])}
+                            muted
+                        />
+                        <ListRow
+                            title="Dopo il blocco"
+                            subtitle={
+                                result.kind === "partial"
+                                    ? formatSlotList(result.slots)
+                                    : "Chiusa tutto il giorno: la fascia copre l'intera apertura."
+                            }
+                        />
                     </div>
                 )}
 
-                <div className={styles.closureFormField}>
-                    <label htmlFor={`${formId}-label`} className={styles.closureFormLabel}>
-                        Etichetta
-                        <span className={styles.closureFormLabelOptional}>opzionale</span>
-                    </label>
-                    <input
-                        id={`${formId}-label`}
-                        type="text"
-                        placeholder="es. Evento privato, Manutenzione"
-                        value={label}
-                        onChange={e => setLabel(e.target.value)}
-                        className={styles.closureFormInput}
-                        maxLength={120}
-                    />
-                </div>
-            </div>
+                <TextInput
+                    label="Etichetta (opzionale)"
+                    placeholder="es. Evento privato, Manutenzione"
+                    value={label}
+                    onChange={e => setLabel(e.target.value)}
+                    maxLength={120}
+                />
+            </FormGrid>
         </form>
     );
 };

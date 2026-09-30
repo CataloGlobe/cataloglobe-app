@@ -15,6 +15,18 @@ function json(status: number, body: Record<string, unknown>) {
     return new Response(JSON.stringify(body), { status, headers: corsHeaders });
 }
 
+// Deep-link flows the client may ask for. The client only names the flow; the
+// server builds every URL of it (never taken from the request body).
+const ALLOWED_FLOWS = new Set(["payment_method_update"]);
+
+// App origins a flow may redirect back to. Same list as stripe-checkout.
+const APP_ORIGINS = [
+    "http://localhost:5173",
+    "https://staging.cataloglobe.com",
+    "https://cataloglobe.com",
+    "https://www.cataloglobe.com",
+];
+
 serve(async req => {
     if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
     if (req.method !== "POST") return json(405, { error: "method_not_allowed" });
@@ -48,7 +60,7 @@ serve(async req => {
         }
 
         // --- Parse body ---
-        let payload: { tenantId?: string; returnUrl?: string } | null = null;
+        let payload: { tenantId?: string; returnUrl?: string; flow?: string } | null = null;
         try {
             payload = await req.json();
         } catch {
@@ -58,7 +70,25 @@ serve(async req => {
         const tenantId = payload?.tenantId?.trim();
         if (!tenantId) return json(400, { error: "missing_tenant_id" });
 
-        const returnUrl = payload?.returnUrl || `${SUPABASE_URL.replace(".supabase.co", "")}/workspace/billing`;
+        const flow = payload?.flow?.trim() || null;
+        if (flow !== null && !ALLOWED_FLOWS.has(flow)) {
+            return json(400, { error: "invalid_flow" });
+        }
+
+        // A flow returns to the tenant's Subscription page on the caller's own
+        // app origin, allowlisted. Unknown origin → refuse rather than guess.
+        let flowReturnUrl: string | null = null;
+        if (flow !== null) {
+            const origin = req.headers.get("origin") ?? "";
+            if (!APP_ORIGINS.includes(origin)) {
+                console.warn(`stripe-portal: flow ${flow} refused, origin not allowed: ${origin || "none"}`);
+                return json(400, { error: "invalid_origin" });
+            }
+            flowReturnUrl = `${origin}/business/${encodeURIComponent(tenantId)}/subscription`;
+        }
+
+        const returnUrl =
+            flowReturnUrl ?? (payload?.returnUrl || `${SUPABASE_URL.replace(".supabase.co", "")}/workspace/billing`);
 
         // --- Ownership check + get stripe_customer_id ---
         const { data: tenantData, error: tenantError } = await supabaseUser
@@ -87,10 +117,19 @@ serve(async req => {
 
         const portalSession = await stripe.billingPortal.sessions.create({
             customer: tenantData.stripe_customer_id,
-            return_url: returnUrl
+            return_url: returnUrl,
+            // Straight to the card form; back on Subscription as soon as it is saved.
+            ...(flow === "payment_method_update" && flowReturnUrl
+                ? {
+                      flow_data: {
+                          type: "payment_method_update",
+                          after_completion: { type: "redirect", redirect: { return_url: flowReturnUrl } }
+                      }
+                  }
+                : {})
         });
 
-        console.log(`stripe-portal: Portal session created for tenant ${tenantId}`);
+        console.log(`stripe-portal: Portal session created for tenant ${tenantId}${flow ? ` (flow=${flow})` : ""}`);
 
         return json(200, { portal_url: portalSession.url });
     } catch (err) {

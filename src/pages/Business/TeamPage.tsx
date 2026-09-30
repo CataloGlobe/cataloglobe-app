@@ -1,15 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { supabase } from "@/services/supabase/client";
 import { useTenant } from "@/context/useTenant";
 import { useToast } from "@/context/Toast/ToastContext";
 import { usePageHeader } from "@/context/usePageHeader";
 import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
-import { canDoOnTenant, canChangeRoleOf, canRemoveMember } from "@/lib/permissions";
+import { canDoOnTenant, canChangeRoleOf, canRemoveMember, isOwnerOrAdmin } from "@/lib/permissions";
 import { usePermissions } from "@/context/PermissionsContext";
 import { useAuth } from "@/context/useAuth";
-import { Card } from "@/components/ui/Card/Card";
 import Text from "@/components/ui/Text/Text";
 import { Badge } from "@/components/ui/Badge/Badge";
+import { Avatar } from "@/components/ui/Avatar/Avatar";
+import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
+import { Card } from "@/components/ui/Card/Card";
+import { ListRow } from "@/components/ui/ListRow/ListRow";
+import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
+import { getActivities } from "@/services/supabase/activities";
 import { Button } from "@/components/ui/Button/Button";
 import { Select } from "@/components/ui/Select/Select";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
@@ -20,69 +24,69 @@ import { InviteMemberDrawer } from "@/components/Businesses/InviteMemberDrawer/I
 import { MemberDrawer } from "@/components/Businesses/MemberDrawer/MemberDrawer";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import { Lock, Send, UserCog, UserMinus, X } from "lucide-react";
+import { ROLE_LABEL, ROLE_ORDER, ROLE_PHRASE } from "@/constants/roles";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import styles from "./TeamPage.module.scss";
 
 import type { TenantMemberRow, EffectiveRole } from "@/types/team";
-import { listTenantMembers, removeTenantMember } from "@/services/supabase/team";
+import { listTenantMembers, removeTenantMember, resendInvite, revokeInvite } from "@/services/supabase/team";
 
 function formatExpiry(expiresAt: string): string {
     const days = Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 86_400_000);
     if (days <= 0) return "scade oggi";
     if (days === 1) return "scade domani";
-    return `tra ${days} gg`;
+    return `scade tra ${days} giorni`;
 }
 
-const ROLE_BADGE_LABEL: Record<EffectiveRole, string> = {
-    owner: "Owner",
-    admin: "Admin",
-    manager: "Manager",
-    staff: "Staff",
-    viewer: "Viewer"
-};
+/** Messaggio utente per gli errori delle RPC sugli inviti. */
+function inviteErrorMessage(err: unknown, fallback: string): string {
+    const msg = (err as { message?: string })?.message ?? "";
+    if (msg.includes("cannot resend invite to an active member")) return "L'invito è già stato accettato.";
+    if (msg.includes("not allowed")) return "Non hai i permessi per questo invito.";
+    if (msg.includes("member not found")) return "Invito non trovato.";
+    return fallback;
+}
 
-const ROLE_BADGE_CLASS: Record<EffectiveRole, string> = {
-    owner: styles.roleOwner,
-    admin: styles.roleAdmin,
-    manager: styles.roleManager,
-    staff: styles.roleStaff,
-    viewer: styles.roleViewer
-};
-
-function RoleBadge({ role }: { role: EffectiveRole }) {
+/** Ruolo e cosa può fare: cella a due righe (§44.8) — il nome non basta a
+ *  chi non ha letto `role_permissions`. */
+function roleCell(role: EffectiveRole) {
     return (
-        <span className={`${styles.roleBadge} ${ROLE_BADGE_CLASS[role]}`}>
-            {ROLE_BADGE_LABEL[role]}
+        <span className={styles.twoLines}>
+            <span>
+                <Badge variant="neutral">{ROLE_LABEL[role]}</Badge>
+            </span>
+            <Text as="span" variant="caption" colorVariant="muted">
+                {ROLE_PHRASE[role]}
+            </Text>
         </span>
     );
 }
 
-function ActivitiesCell({ member }: { member: TenantMemberRow }) {
+/** Su quali sedi: lo scope activity-granulare, oggi invisibile in lista. */
+function activitiesCell(member: TenantMemberRow, totalActivities: number | null) {
     if (member.effective_role === "owner" || member.effective_role === "admin") {
         return (
             <Text variant="body-sm" colorVariant="muted">
-                Tutte le sedi
+                {totalActivities == null
+                    ? "Tutte le sedi"
+                    : totalActivities === 1
+                        ? "L'unica sede"
+                        : `Tutte le ${totalActivities} sedi`}
             </Text>
         );
     }
     if (member.activity_names.length === 0) {
-        return (
-            <Text variant="body-sm" colorVariant="muted">
-                —
-            </Text>
-        );
+        return <Text variant="body-sm" colorVariant="muted">—</Text>;
     }
     if (member.activity_names.length <= 2) {
-        return (
-            <Text variant="body-sm">
-                {member.activity_names.join(", ")}
-            </Text>
-        );
+        return <Text variant="body-sm">{member.activity_names.join(", ")}</Text>;
     }
     return (
-        <Text variant="body-sm" title={member.activity_names.join(", ")}>
-            {member.activity_names.length} sedi
-        </Text>
+        <Tooltip content={member.activity_names.join(" · ")}>
+            <span>
+                <Badge variant="neutral">{member.activity_names.length} sedi</Badge>
+            </span>
+        </Tooltip>
     );
 }
 
@@ -92,7 +96,11 @@ export default function TeamPage() {
 
     const [members, setMembers] = useState<TenantMemberRow[]>([]);
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState(false);
     const [refreshKey, setRefreshKey] = useState(0);
+    // Quante sedi ha l'azienda: «Tutte le 4 sedi» dice più di «Tutte le sedi».
+    const [totalActivities, setTotalActivities] = useState<number | null>(null);
+    const [activityIds, setActivityIds] = useState<string[] | null>(null);
 
     const [inviteDrawerOpen, setInviteDrawerOpen] = useState(false);
     const [memberToRemove, setMemberToRemove] = useState<TenantMemberRow | null>(null);
@@ -131,8 +139,11 @@ export default function TeamPage() {
             const q = search.trim().toLowerCase();
             result = result.filter(m => m.email?.toLowerCase().includes(q));
         }
+        if (roleFilter) {
+            result = result.filter(m => m.effective_role === roleFilter);
+        }
         return result;
-    }, [members, search]);
+    }, [members, search, roleFilter]);
 
     // Id completi (pre-ricerca) per tab, cosi la prune-selection distingue
     // "membro rimosso" da "membro filtrato dalla ricerca".
@@ -153,6 +164,11 @@ export default function TeamPage() {
         [members]
     );
 
+    // Annullato l'ultimo invito la tab si spegne: si torna a Membri.
+    useEffect(() => {
+        if (!loading && pendingCount === 0 && activeTab === "invites") setActiveTab("members");
+    }, [loading, pendingCount, activeTab]);
+
     // ── Header band: leading (tab line) + actions (search + filtro + CTA) ──
     const leading = useMemo(() => (
         <Tabs<TeamTab>
@@ -162,10 +178,15 @@ export default function TeamPage() {
         >
             <Tabs.List>
                 <Tabs.Tab value="members">Membri</Tabs.Tab>
-                <Tabs.Tab value="invites">
-                    {pendingCount > 0
-                        ? `Inviti in attesa · ${pendingCount}`
-                        : "Inviti in attesa"}
+                {/* A zero resta elencata ma spenta (§42.2): una tab che sparisce
+                    fa sembrare che la funzione non esista. */}
+                <Tabs.Tab
+                    value="invites"
+                    badge={pendingCount}
+                    disabled={pendingCount === 0}
+                    disabledTooltip="Nessun invito in attesa"
+                >
+                    Inviti in attesa
                 </Tabs.Tab>
             </Tabs.List>
         </Tabs>
@@ -175,11 +196,7 @@ export default function TeamPage() {
     // filtro di quella compatta: un elenco solo, nessun rischio di divergenza.
     const roleFilterOptions = useMemo(() => [
         { value: "", label: "Tutti i ruoli" },
-        { value: "owner", label: "Owner" },
-        { value: "admin", label: "Admin" },
-        { value: "manager", label: "Manager" },
-        { value: "staff", label: "Staff" },
-        { value: "viewer", label: "Viewer" }
+        ...ROLE_ORDER.map(role => ({ value: role, label: ROLE_LABEL[role] }))
     ], []);
 
     const headerActions = useMemo(() => (
@@ -187,7 +204,7 @@ export default function TeamPage() {
             <ToolbarSearch
                 value={search}
                 onChange={setSearch}
-                placeholder="Cerca per email..."
+                placeholder="Cerca per email"
             />
             <Select
                 aria-label="Filtra per ruolo"
@@ -222,7 +239,7 @@ export default function TeamPage() {
         search: {
             value: search,
             onChange: setSearch,
-            placeholder: "Cerca per email..."
+            placeholder: "Cerca per email"
         },
         filterControls: [
             {
@@ -258,14 +275,18 @@ export default function TeamPage() {
 
         const fetchMembers = async () => {
             setLoading(true);
+            setLoadError(false);
             try {
                 const data = await listTenantMembers(selectedTenantId);
                 if (cancelled) return;
                 setMembers(data);
             } catch (error) {
+                // Niente lista vuota silenziosa: la pagina lo dichiara con un
+                // banner e un «Riprova».
                 if (cancelled) return;
                 console.error("[BusinessTeamPage] failed to fetch members:", error);
                 setMembers([]);
+                setLoadError(true);
             } finally {
                 if (!cancelled) setLoading(false);
             }
@@ -274,6 +295,22 @@ export default function TeamPage() {
         fetchMembers();
         return () => { cancelled = true; };
     }, [selectedTenantId, refreshKey, permissions, canReadTeam]);
+
+    useEffect(() => {
+        if (!selectedTenantId || (permissions && !canReadTeam)) return;
+        let cancelled = false;
+        getActivities(selectedTenantId)
+            .then(rows => {
+                if (cancelled) return;
+                setTotalActivities(rows.length);
+                setActivityIds(rows.map(a => a.id));
+            })
+            .catch(error => {
+                // Il conteggio è un dettaglio della colonna: senza, «Tutte le sedi».
+                console.error("[BusinessTeamPage] activities count failed:", error);
+            });
+        return () => { cancelled = true; };
+    }, [selectedTenantId, permissions, canReadTeam]);
 
     const handleRemove = useCallback((member: TenantMemberRow) => {
         setMemberToRemove(member);
@@ -303,30 +340,47 @@ export default function TeamPage() {
         setMemberDrawerTarget(member);
     }, []);
 
-    const handleCancelInvite = useCallback(async (member: TenantMemberRow) => {
-        const { error } = await supabase.rpc("revoke_invite", {
-            p_membership_id: member.membership_id,
-        });
-
-        if (error) {
-            console.error("[BusinessTeamPage] revoke invite failed:", error);
-            const msg = error.message ?? "";
-            let userMessage = "Impossibile annullare l'invito. Riprova più tardi.";
-            if (msg.includes("not allowed")) {
-                userMessage = "Non hai i permessi per annullare questo invito.";
-            } else if (msg.includes("member not found")) {
-                userMessage = "Invito non trovato.";
-            }
-            showToast({ type: "error", message: userMessage });
-            return;
-        }
-
-        showToast({ type: "success", message: "Invito annullato." });
-        setRefreshKey(k => k + 1);
-    }, [showToast]);
-
     const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
     const [selectedInviteIds, setSelectedInviteIds] = useState<string[]>([]);
+
+    // Annullare un invito chiede conferma, singolo e in blocco: il link che
+    // la persona ha ricevuto smette di funzionare.
+    const [invitesToCancel, setInvitesToCancel] = useState<TenantMemberRow[]>([]);
+    const handleCancelInvite = useCallback((member: TenantMemberRow) => {
+        setInvitesToCancel([member]);
+    }, []);
+
+    const handleConfirmCancelInvites = useCallback(async (): Promise<boolean> => {
+        if (invitesToCancel.length === 0) return false;
+        const results = await Promise.allSettled(
+            invitesToCancel.map(m => revokeInvite(m.membership_id))
+        );
+        const failed = results.filter(r => r.status === "rejected");
+        const ok = results.length - failed.length;
+        if (invitesToCancel.length === 1) {
+            if (failed.length === 0) {
+                showToast({ type: "success", message: "Invito annullato." });
+            } else {
+                const reason = (failed[0] as PromiseRejectedResult).reason;
+                showToast({
+                    type: "error",
+                    message: inviteErrorMessage(reason, "Impossibile annullare l'invito. Riprova più tardi.")
+                });
+            }
+        } else {
+            if (ok > 0) showToast({ type: "success", message: `${ok} inviti annullati` });
+            if (failed.length > 0) {
+                showToast({
+                    type: "error",
+                    message: failed.length === 1 ? "1 invito non annullato" : `${failed.length} inviti non annullati`
+                });
+            }
+        }
+        setSelectedInviteIds([]);
+        setRefreshKey(k => k + 1);
+        return true;
+    }, [invitesToCancel, showToast]);
+
     const [bulkRemovePendingIds, setBulkRemovePendingIds] = useState<string[]>([]);
     const bulkRemoveConfirmOpen = bulkRemovePendingIds.length > 0;
 
@@ -373,88 +427,60 @@ export default function TeamPage() {
         return true;
     }, [bulkRemovePendingIds, showToast]);
 
-    const handleBulkCancelInvites = useCallback(async (ids: string[]) => {
-        if (ids.length === 0) return;
-        const results = await Promise.allSettled(
-            ids.map(id =>
-                supabase
-                    .rpc("revoke_invite", { p_membership_id: id })
-                    .then(({ error }) => {
-                        if (error) throw error;
-                    })
-            )
-        );
-        const failed = results.filter(r => r.status === "rejected").length;
-        const ok = results.length - failed;
-        if (ok > 0) {
-            showToast({
-                type: "success",
-                message: ok === 1 ? "1 invito annullato" : `${ok} inviti annullati`,
-            });
-        }
-        if (failed > 0) {
-            showToast({
-                type: "error",
-                message: failed === 1
-                    ? "1 invito non annullato"
-                    : `${failed} inviti non annullati`,
-            });
-        }
-        setSelectedInviteIds([]);
-        setRefreshKey(k => k + 1);
-    }, [showToast]);
+    const handleBulkCancelInvites = useCallback((ids: string[]) => {
+        const targets = members.filter(m => m.status === "pending" && ids.includes(m.membership_id));
+        if (targets.length === 0) return;
+        setInvitesToCancel(targets);
+    }, [members]);
 
     const handleResendInvite = useCallback(async (member: TenantMemberRow) => {
-        const { error } = await supabase.rpc("resend_invite", {
-            p_membership_id: member.membership_id,
-        });
-
-        if (error) {
-            console.error("[BusinessTeamPage] resend invite failed:", error);
-            const msg = error.message ?? "";
-            let userMessage = "Impossibile rispedire l'invito. Riprova più tardi.";
-            if (msg.includes("cannot resend invite to an active member")) {
-                userMessage = "L'invito è già stato accettato. Non serve rispedirlo.";
-            } else if (msg.includes("not allowed")) {
-                userMessage = "Non hai i permessi per rispedire questo invito.";
-            }
-            showToast({ type: "error", message: userMessage });
+        try {
+            await resendInvite(member.membership_id);
+        } catch (err) {
+            console.error("[BusinessTeamPage] resend invite failed:", err);
+            showToast({
+                type: "error",
+                message: inviteErrorMessage(err, "Impossibile rispedire l'invito. Riprova più tardi.")
+            });
             return;
         }
-
-        showToast({ type: "success", message: "Invito inviato di nuovo." });
+        showToast({ type: "success", message: `Invito inviato di nuovo a ${member.email}.` });
         setRefreshKey(k => k + 1);
     }, [showToast]);
 
     const activeColumns = useMemo<ColumnDefinition<TenantMemberRow>[]>(() => {
         const base: ColumnDefinition<TenantMemberRow>[] = [
             {
-                id: "email",
-                header: "Email",
+                id: "person",
+                header: "Persona",
                 width: "2fr",
                 cell: (_, row) => {
                     const isSelf = callerUserId && row.user_id === callerUserId;
                     return (
-                        <span className={styles.emailWithBadge}>
+                        <span className={styles.person}>
+                            {/* Iniziali dall'email: i membri non hanno ancora un nome. */}
+                            <Avatar size="sm" name={row.email} />
                             <Text variant="body-sm" className={styles.emailCell}>
                                 {row.email || "—"}
                             </Text>
-                            {isSelf && <Badge variant="secondary">Tu</Badge>}
+                            {isSelf && <Badge variant="brand">Tu</Badge>}
                         </span>
                     );
                 },
             },
             {
                 id: "role",
-                header: "Ruolo",
-                width: "120px",
-                cell: (_, row) => <RoleBadge role={row.effective_role} />,
+                header: "Ruolo e cosa può fare",
+                hideOnPhone: true,
+                width: "2fr",
+                cell: (_, row) => roleCell(row.effective_role),
             },
             {
                 id: "activities",
-                header: "Sedi",
-                width: "2fr",
-                cell: (_, row) => <ActivitiesCell member={row} />,
+                header: "Su quali sedi",
+                hideOnPhone: true,
+                width: "1.5fr",
+                cell: (_, row) => activitiesCell(row, totalActivities),
             },
         ];
 
@@ -495,14 +521,15 @@ export default function TeamPage() {
         });
 
         return base;
-    }, [permissions, callerUserId, handleChangeRole, handleRemove]);
+    }, [permissions, callerUserId, totalActivities, handleChangeRole, handleRemove]);
 
     const pendingColumns = useMemo<ColumnDefinition<TenantMemberRow>[]>(() => {
         const base: ColumnDefinition<TenantMemberRow>[] = [
             {
-                id: "email",
-                header: "Email",
+                id: "person",
+                header: "Persona",
                 width: "2fr",
+                // Senza Avatar: non è ancora un utente.
                 cell: (_, row) => (
                     <Text variant="body-sm" className={styles.emailCell}>
                         {row.email || "—"}
@@ -511,19 +538,22 @@ export default function TeamPage() {
             },
             {
                 id: "role",
-                header: "Ruolo",
-                width: "120px",
-                cell: (_, row) => <RoleBadge role={row.effective_role} />,
+                header: "Ruolo e cosa può fare",
+                hideOnPhone: true,
+                width: "2fr",
+                cell: (_, row) => roleCell(row.effective_role),
             },
             {
                 id: "activities",
-                header: "Sedi",
+                header: "Su quali sedi",
+                hideOnPhone: true,
                 width: "1.5fr",
-                cell: (_, row) => <ActivitiesCell member={row} />,
+                cell: (_, row) => activitiesCell(row, totalActivities),
             },
             {
                 id: "invited_by",
                 header: "Invitato da",
+                hideOnPhone: true,
                 width: "1.5fr",
                 cell: (_, row) => (
                     <Text variant="body-sm" colorVariant="muted">
@@ -534,7 +564,8 @@ export default function TeamPage() {
             {
                 id: "expiry",
                 header: "Scadenza",
-                width: "120px",
+                hideOnPhone: true,
+                width: "150px",
                 cell: (_, row) => (
                     <Text variant="body-sm" colorVariant="muted">
                         {row.invite_expires_at ? formatExpiry(row.invite_expires_at) : "—"}
@@ -586,36 +617,122 @@ export default function TeamPage() {
         });
 
         return base;
-    }, [permissions, callerUserId, handleChangeRole, handleResendInvite, handleCancelInvite]);
+    }, [permissions, callerUserId, totalActivities, handleChangeRole, handleResendInvite, handleCancelInvite]);
 
-    const membersEmptyState = { title: "Nessun membro trovato." };
-    const membersLoadingState = { message: "Caricamento membri..." };
-    const invitesEmptyState = { title: "Nessun invito in attesa." };
+    // Sedi su cui il caller può assegnare ruoli scoped: tutte per owner/admin,
+    // le sue per un manager. Serve al drawer di invito (banner «senza sedi»).
+    const assignableActivityCount =
+        activityIds == null || !permissions
+            ? null
+            : isOwnerOrAdmin(permissions)
+                ? activityIds.length
+                : activityIds.filter(id => permissions.activityIds.includes(id)).length;
+
+    const isFiltered = search.trim().length > 0 || roleFilter !== "";
+    const clearFilters = useCallback(() => {
+        setSearch("");
+        setRoleFilter("");
+    }, []);
+    const filteredEmptyState = {
+        title: search.trim() ? `Nessun risultato per “${search.trim()}”` : "Nessun risultato per questo ruolo"
+    };
+    const activeCount = allActiveMemberIds.length;
+    // «Solo tu» (§42.2): lo stato reale di ogni azienda in produzione. Al
+    // posto della tabella, il motivo per invitare qualcuno.
+    const onlyMe = !loading && !loadError && activeCount === 1 && pendingCount === 0;
+    const me = onlyMe ? members.find(m => m.effective_role === "owner" || m.status === "active") : undefined;
+
+    const loadErrorBanner = (
+        <InlineBanner
+            variant="error"
+            action={
+                <Button variant="secondary" size="sm" onClick={() => setRefreshKey(k => k + 1)}>
+                    Riprova
+                </Button>
+            }
+        >
+            Non riusciamo a caricare il team.
+        </InlineBanner>
+    );
+
+    const seatsNote = (
+        <Text as="p" variant="caption" colorVariant="muted">
+            I posti pagati contano le sedi, non le persone: invitare non costa.
+        </Text>
+    );
 
     return (
         <>
             <div className={styles.page}>
-                {!selectedTenantId ? (
-                    <Card noHoverLift>
-                        <div className={styles.emptyState}>
-                            <Text variant="body">Seleziona un&apos;attività per vedere i membri.</Text>
-                        </div>
-                    </Card>
-                ) : !permissionsLoading && permissions && !canReadTeam ? (
-                    <div className={styles.lockedWrap}>
-                        <EmptyState
-                            icon={<Lock size={40} strokeWidth={1.5} />}
-                            title="Non hai accesso alla gestione del team"
-                            description="La gestione dei membri del team è riservata a proprietario, amministratori e manager. Contatta il proprietario o un amministratore se hai bisogno di accedere a queste informazioni."
-                        />
-                    </div>
+                {!permissionsLoading && permissions && !canReadTeam ? (
+                    // Permesso negato: sezione «Non hai accesso», senza CTA
+                    // (scheda EmptyState).
+                    <EmptyState
+                        variant="page"
+                        icon={<Lock />}
+                        title="Non hai accesso al Team"
+                        description="Lo gestiscono il proprietario, gli amministratori e i manager."
+                    />
+                ) : loadError ? (
+                    loadErrorBanner
+                ) : activeTab === "members" && onlyMe && me ? (
+                    <>
+                        <Card flush bodyClassName={styles.rows}>
+                            <ListRow
+                                leading={<Avatar size="sm" name={me.email} />}
+                                title={me.email}
+                                subtitle={ROLE_PHRASE[me.effective_role]}
+                                meta={
+                                    <span className={styles.badges}>
+                                        <Badge variant="brand">Tu</Badge>
+                                        <Badge variant="neutral">{ROLE_LABEL[me.effective_role]}</Badge>
+                                    </span>
+                                }
+                            />
+                        </Card>
+                        <Card>
+                            <EmptyState
+                                variant="inline"
+                                title="Per ora ci sei solo tu"
+                                description="Invita chi lavora con te: ognuno vede solo quello che gli serve."
+                                action={
+                                    canInvite ? (
+                                        <Button variant="primary" onClick={() => setInviteDrawerOpen(true)}>
+                                            Invita membro
+                                        </Button>
+                                    ) : undefined
+                                }
+                            >
+                                <dl className={styles.roleList}>
+                                    {ROLE_ORDER.filter(role => role !== "owner").map(role => (
+                                        <div key={role} className={styles.roleRow}>
+                                            <Text as="dt" variant="body-sm" weight={500}>
+                                                {ROLE_LABEL[role]}
+                                            </Text>
+                                            <Text as="dd" variant="body-sm" colorVariant="muted">
+                                                {ROLE_PHRASE[role]}
+                                            </Text>
+                                        </div>
+                                    ))}
+                                </dl>
+                            </EmptyState>
+                            <div className={styles.notes}>
+                                <Text as="p" variant="caption" colorVariant="muted">
+                                    Chi inviti riceve un'email e sceglie la password da sé: non devi dargli le tue credenziali.
+                                </Text>
+                                {seatsNote}
+                            </div>
+                        </Card>
+                    </>
                 ) : activeTab === "members" ? (
+                    <div className={styles.tableBlock}>
                     <DataTable<TenantMemberRow>
                         data={filteredActiveMembers}
                         columns={activeColumns}
                         isLoading={loading}
-                        emptyState={membersEmptyState}
-                        loadingState={membersLoadingState}
+                        isFiltered={isFiltered}
+                        onClearFilters={clearFilters}
+                        emptyState={filteredEmptyState}
                         getRowId={row => row.membership_id}
                         allRowIds={allActiveMemberIds}
                         selectable={canRemoveAny}
@@ -637,13 +754,16 @@ export default function TeamPage() {
                         onBulkDelete={handleBulkRemoveMembers}
                         bulkActionLabel="Rimuovi dal team"
                     />
+                    {seatsNote}
+                    </div>
                 ) : (
                     <DataTable<TenantMemberRow>
                         data={filteredPendingInvites}
                         columns={pendingColumns}
                         isLoading={loading}
-                        emptyState={invitesEmptyState}
-                        loadingState={membersLoadingState}
+                        isFiltered={isFiltered}
+                        onClearFilters={clearFilters}
+                        emptyState={filteredEmptyState}
                         getRowId={row => row.membership_id}
                         allRowIds={allPendingInviteIds}
                         selectable={canRemoveAny}
@@ -673,6 +793,7 @@ export default function TeamPage() {
                     open={inviteDrawerOpen}
                     onClose={() => setInviteDrawerOpen(false)}
                     tenantId={selectedTenantId}
+                    activityCount={assignableActivityCount}
                     onSuccess={() => setRefreshKey(k => k + 1)}
                 />
             )}
@@ -682,7 +803,7 @@ export default function TeamPage() {
                 onClose={() => setMemberToRemove(null)}
                 onConfirm={handleConfirmRemove}
                 title="Rimuovi dal team"
-                message={`Rimuovere ${memberToRemove?.email ?? memberToRemove?.user_id} dal team? Non avrà più accesso a questa azienda. Può essere reinvitato in futuro.`}
+                message={`Rimuovere ${memberToRemove?.email || "questo membro"} dal team? Non avrà più accesso a questa azienda. Potrà essere invitato di nuovo.`}
                 confirmLabel="Rimuovi"
             />
 
@@ -695,8 +816,21 @@ export default function TeamPage() {
                         ? "Rimuovi 1 membro dal team?"
                         : `Rimuovi ${bulkRemovePendingIds.length} membri dal team?`
                 }
-                message="I membri rimossi non avranno più accesso a questa azienda. Possono essere reinvitati in futuro."
+                message="I membri rimossi non avranno più accesso a questa azienda. Potranno essere invitati di nuovo."
                 confirmLabel="Rimuovi"
+            />
+
+            <ConfirmDialog
+                isOpen={invitesToCancel.length > 0}
+                onClose={() => setInvitesToCancel([])}
+                onConfirm={handleConfirmCancelInvites}
+                title={invitesToCancel.length === 1 ? "Annulla l'invito" : `Annulla ${invitesToCancel.length} inviti?`}
+                message={
+                    invitesToCancel.length === 1
+                        ? `Annullare l'invito a ${invitesToCancel[0].email}? Il link che ha ricevuto smetterà di funzionare.`
+                        : "I link ricevuti smetteranno di funzionare."
+                }
+                confirmLabel={invitesToCancel.length === 1 ? "Annulla invito" : "Annulla inviti"}
             />
 
             <MemberDrawer

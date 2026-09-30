@@ -334,6 +334,6 @@ describe("isFromPreviousService — il segnale legge il confine di serviceDay", 
     });
 
     it("il testo non conta i giorni: dice solo che è di un altro servizio", () => {
-        expect(PREVIOUS_SERVICE_LABEL).toBe("Aperta da un servizio precedente");
+        expect(PREVIOUS_SERVICE_LABEL).toBe("Servizio precedente");
     });
 });

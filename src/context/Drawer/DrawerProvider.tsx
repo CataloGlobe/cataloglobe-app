@@ -3,12 +3,6 @@ import { DrawerContext, DrawerOptions, DrawerSize } from "./DrawerContext";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 
-const SIZE_MAP: Record<DrawerSize, number> = {
-    sm: 420,
-    md: 520,
-    lg: 720
-};
-
 export const DrawerProvider = ({ children }: { children: ReactNode }) => {
     const [isOpen, setIsOpen] = useState(false);
 
@@ -84,9 +78,6 @@ export const DrawerProvider = ({ children }: { children: ReactNode }) => {
         [openDrawer, closeDrawer]
     );
 
-    // Derived props
-    const width = SIZE_MAP[drawerState.size];
-
     // ARIA Logic
     const titleId = drawerState.title ? drawerState.ariaLabelledBy || generatedTitleId : undefined;
 
@@ -98,7 +89,7 @@ export const DrawerProvider = ({ children }: { children: ReactNode }) => {
             <SystemDrawer
                 open={isOpen}
                 onClose={closeDrawer}
-                width={width}
+                size={drawerState.size}
                 aria-labelledby={finalAriaLabelledBy}
                 aria-describedby={drawerState.ariaDescribedBy}
             >

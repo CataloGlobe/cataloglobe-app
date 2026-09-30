@@ -1,0 +1,362 @@
+@use "@pages/CampaignLanding/styles/mixins" as *;
+
+.section {
+    overflow: hidden;
+}
+
+.grid {
+    @include desktop {
+        display: grid;
+        grid-template-columns: 0.85fr 1.15fr;
+        gap: ld-fluid-desk(48, 80);
+        align-items: center;
+    }
+}
+
+// Il telefono sta a sinistra su desktop, fra la lede e la lista su mobile.
+.phoneCol {
+    display: none;
+
+    @include desktop {
+        display: block;
+    }
+}
+
+.mobilePhone {
+    margin-top: 26px;
+
+    @include desktop {
+        display: none;
+    }
+}
+
+.handNote {
+    margin-bottom: 10px;
+
+    @include desktop {
+        margin-bottom: 12px;
+    }
+}
+
+.title {
+    @include ld-serif;
+    margin: 0;
+    font-size: 30px;
+    line-height: 1.12;
+    color: var(--ld-ink);
+    text-wrap: balance;
+
+    @include desktop {
+        font-size: 44px;
+        line-height: 1.1;
+    }
+}
+
+.titleHl {
+    color: var(--ld-azione);
+}
+
+.lede {
+    margin: 14px 0 0;
+    font-size: 16px;
+    line-height: 1.55;
+    color: var(--ld-body);
+
+    @include desktop {
+        font-size: 18px;
+    }
+}
+
+// ── Telefono ────────────────────────────────────────────────────────────────
+.phone {
+    width: 250px;
+    height: 450px;
+    box-sizing: border-box;
+    margin: 0 auto;
+    padding: 10px;
+    border-radius: 40px;
+    background: var(--ld-phone-body);
+    box-shadow:
+        0 30px 60px rgba(21, 20, 43, 0.28),
+        inset 0 0 0 2px var(--ld-phone-rim);
+
+    @include desktop {
+        width: 300px;
+        height: 600px;
+    }
+}
+
+.screen {
+    position: relative;
+    height: 100%;
+    overflow: hidden;
+    border-radius: 31px;
+}
+
+.screenBg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+}
+
+// Screenshot 390×808 (proporzioni dello schermo desktop): largo quanto lo
+// schermo, in alto; sul mobile (230×430) il resto si taglia sotto.
+// Dissolvenza: quello nuovo sale sopra; il vecchio sparisce a dissolvenza finita.
+.shot {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: top center;
+    opacity: 0;
+    transition: opacity 0s linear 220ms;
+}
+
+.shotOn {
+    z-index: 1;
+    opacity: 1;
+    transition: opacity 220ms ease;
+}
+
+@include reduced-motion {
+    .shot,
+    .shotOn {
+        transition: none;
+    }
+}
+
+.notch {
+    position: absolute;
+    z-index: 2;
+    top: 8px;
+    left: 50%;
+    width: 70px;
+    height: 20px;
+    margin-left: -35px;
+    border-radius: 12px;
+    background: var(--ld-phone-body);
+}
+
+// ── Lista dei locali ────────────────────────────────────────────────────────
+.list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 26px;
+
+    @include desktop {
+        margin-top: 28px;
+    }
+}
+
+.venue {
+    @include ld-reset-button;
+    @include ld-focus;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+    padding: 12px 16px 12px 12px;
+    border-radius: 16px;
+    background: var(--ld-white);
+    border: 1px solid var(--ld-line);
+    text-align: left;
+}
+
+.venueOn {
+    background: var(--ld-demo-on);
+    border: 2px solid var(--ld-azione);
+}
+
+// Pagina in miniatura coi colori del tema (SVG, `VenueIcon`).
+.thumb {
+    display: block;
+    flex-shrink: 0;
+    width: 48px;
+    height: 48px;
+    overflow: hidden;
+    border-radius: 12px;
+    box-shadow: 0 0 0 1px var(--ld-line);
+
+    @include desktop {
+        width: 56px;
+        height: 56px;
+    }
+}
+
+.venueText {
+    flex-grow: 1;
+    min-width: 0;
+}
+
+.venueName {
+    @include ld-serif;
+    display: block;
+    font-size: 17px;
+    color: var(--ld-ink);
+
+    @include desktop {
+        font-size: 19px;
+    }
+}
+
+.venueKind {
+    display: block;
+    margin-top: 3px;
+    font-size: 12px;
+    color: var(--ld-muted);
+
+    @include desktop {
+        font-size: 13px;
+    }
+}
+
+.open {
+    flex-shrink: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ld-azione);
+}
+
+// ── QR (solo desktop: chi guarda dal computer lo apre sul telefono) ─────────
+.qrCard {
+    display: none;
+
+    @include desktop {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        margin-top: 14px;
+        padding: 16px 18px;
+        border-radius: 16px;
+        border: 1px solid var(--ld-line);
+        background: var(--ld-paper);
+    }
+}
+
+.qr {
+    display: block;
+    flex-shrink: 0;
+    padding: 5px;
+    border-radius: 8px;
+    border: 1px solid var(--ld-line);
+    background: var(--ld-white);
+    color: var(--ld-ink);
+    line-height: 0;
+}
+
+.qrName {
+    @include ld-serif;
+    display: block;
+    font-size: 17px;
+    color: var(--ld-ink);
+}
+
+.qrCaption {
+    display: block;
+    margin-top: 3px;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--ld-body);
+}
+
+// ── Sheet ───────────────────────────────────────────────────────────────────
+// Token che PublicSheet legge dal tema della pagina pubblica, qui fissati.
+.sheetScope {
+    --pub-surface: var(--ld-white);
+    --pub-text: var(--ld-ink);
+    --pub-radius: 24px;
+
+    @include desktop {
+        --pub-radius: 22px;
+    }
+}
+
+.sheetHead {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px 12px 18px;
+    border-bottom: 1px solid var(--ld-line);
+}
+
+.sheetTitle {
+    flex-grow: 1;
+    min-width: 0;
+}
+
+.sheetName {
+    display: block;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--ld-ink);
+}
+
+.sheetUrl {
+    display: block;
+    font-size: 12px;
+    color: var(--ld-muted);
+}
+
+.sheetClose {
+    @include ld-reset-button;
+    @include ld-focus;
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 1px solid var(--ld-line);
+    background: var(--ld-white);
+    color: var(--ld-ink);
+    font-size: 18px;
+}
+
+// Alta quanto lo sheet della tavola (760 mobile, 720 desktop): il pannello
+// di PublicSheet la accorcia al suo massimo.
+.sheetBody {
+    flex: 1 1 auto;
+    min-height: 0;
+    height: 680px;
+    background: var(--ld-white);
+
+    @include desktop {
+        height: 600px;
+    }
+}
+
+.sheetFailed {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    height: 100%;
+    box-sizing: border-box;
+    padding: 32px 24px;
+    background: var(--ld-white);
+    text-align: center;
+}
+
+.sheetFailedTitle {
+    margin: 0;
+    @include ld-serif;
+    font-size: 22px;
+    line-height: 1.25;
+    color: var(--ld-ink);
+}
+
+.sheetFailedText {
+    margin: 0;
+    font-size: 15px;
+    line-height: 1.5;
+    color: var(--ld-muted);
+}
+
+.frame {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border: 0;
+}

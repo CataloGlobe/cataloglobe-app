@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
     isBillingDraftComplete,
     billingRecipientRequired,
+    hasBillingRecipient,
     billingDraftToPayload,
     type BillingDraft
 } from "@/pages/Business/components/billingDraft";
@@ -127,6 +128,15 @@ describe("billingRecipientRequired", () => {
     it("true con P.IVA, false senza", () => {
         expect(billingRecipientRequired(draft({ vatNumber: VALID_VAT }))).toBe(true);
         expect(billingRecipientRequired(draft({}))).toBe(false);
+    });
+});
+
+describe("hasBillingRecipient", () => {
+    it("true con SDI o PEC, false se entrambi vuoti o solo spazi", () => {
+        expect(hasBillingRecipient(draft({ codiceDestinatario: "ABC1234" }))).toBe(true);
+        expect(hasBillingRecipient(draft({ pec: "x@pec.it" }))).toBe(true);
+        expect(hasBillingRecipient(draft({ codiceDestinatario: "   ", pec: "" }))).toBe(false);
+        expect(hasBillingRecipient(draft({}))).toBe(false);
     });
 });
 

@@ -1,7 +1,8 @@
 .slot {
   position: relative;
-  background: #ffffff;
-  border-bottom: 1px solid #e5e7eb;
+  // A tema: con #fff fisso, in scuro la tab attiva (--text, chiara) spariva.
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
   padding: 0 24px;
   // Altezza canonica della banda = controllo 38px + padding-y 12*2 ≈ 62px.
   // Vale per entrambe le modalità, così il passaggio comoda ↔ compatta non fa
@@ -43,11 +44,40 @@
   width: auto;
   visibility: hidden;
   pointer-events: none;
+  // Invisibile ma presente: senza clip una riga più larga della viewport (le
+  // quattro tab della scheda sede a 375) allargava il `main` di 49 px. La
+  // misura legge `scrollWidth`, che il clip non cambia.
+  overflow: hidden;
 
   @media (max-width: 767px) {
     left: 16px;
     right: 16px;
   }
+}
+
+// Due righe (`condensed.stack`): le azioni sopra, a destra; le tab sotto, a
+// filo del bordo inferiore come in riga singola.
+.stacked .rawRow {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    "actions"
+    "leading";
+  row-gap: 0;
+}
+
+.stacked .actions {
+  padding-top: 12px;
+}
+
+// Copie delle versioni delle azioni, solo da misurare: fuori dal flusso,
+// larghe quanto il contenuto.
+.measure {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: max-content;
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .leading {

@@ -1,0 +1,51 @@
+// Intestazione del contesto di sede: l'uscita in cima, sotto il nome del
+// locale e il suo stato. Solo layout — colori e tipografia dai componenti.
+.header {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-8);
+}
+
+.headerCollapsed {
+  display: flex;
+  justify-content: center;
+}
+
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-height: var(--control-height-sm, 32px);
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-control);
+  color: var(--text-muted);
+  text-decoration: none;
+
+  &:hover {
+    background: var(--hover-bg);
+    color: var(--text);
+    text-decoration: none;
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-focus);
+  }
+}
+
+// Il nome può essere lungo quanto vuole: la colonna è 240 e la sidebar non
+// si allarga per un locale con un nome lungo.
+.name {
+  max-width: 100%;
+  padding: 0 var(--space-4);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// Lo stato sta sotto il nome, allineato a sinistra come tutto il blocco.
+.header > :last-child {
+  margin-left: var(--space-4);
+}

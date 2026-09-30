@@ -1,4 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { IconButton } from "@/components/ui/Button/IconButton";
+import Text from "@/components/ui/Text/Text";
 import { todayIsoDate } from "@/utils/dateLocal";
 import {
     parseLocalDate,
@@ -27,50 +30,12 @@ type Props = {
      *  reservations that were already in the past at edit time). When true
      *  the horizon expands backwards to the earliest of `value` and today. */
     allowPast?: boolean;
-    /** Optional id used by parent for aria-describedby on the field error. */
+    /** Id della riga d'errore del FormField, per `aria-describedby`. */
     errorId?: string;
+    /** Nome accessibile della striscia dei giorni (la label del campo). */
+    ariaLabel?: string;
     invalid?: boolean;
 };
-
-function ChevronLeft() {
-    return (
-        <svg
-            width={16}
-            height={16}
-            viewBox="0 0 24 24"
-            fill="none"
-            aria-hidden="true"
-        >
-            <path
-                d="M15 6l-6 6 6 6"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-            />
-        </svg>
-    );
-}
-
-function ChevronRight() {
-    return (
-        <svg
-            width={16}
-            height={16}
-            viewBox="0 0 24 24"
-            fill="none"
-            aria-hidden="true"
-        >
-            <path
-                d="M9 6l6 6-6 6"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-            />
-        </svg>
-    );
-}
 
 // Memoized formatter instances — cheap to construct but no reason to do it
 // on every render.
@@ -79,6 +44,11 @@ const monthFormatter = new Intl.DateTimeFormat("it-IT", {
     year: "numeric"
 });
 const weekdayFormatter = new Intl.DateTimeFormat("it-IT", { weekday: "short" });
+const fullDayFormatter = new Intl.DateTimeFormat("it-IT", {
+    weekday: "long",
+    day: "numeric",
+    month: "long"
+});
 
 function formatMonthLabel(view: CalendarMonthView): string {
     const sample = new Date(view.year, view.month, 1);
@@ -105,7 +75,8 @@ export default function AdminReservationDatePicker({
     closures,
     allowPast = false,
     errorId,
-    invalid
+    invalid,
+    ariaLabel = "Data"
 }: Props) {
     const today = useMemo(() => todayIsoDate(), []);
 
@@ -179,85 +150,112 @@ export default function AdminReservationDatePicker({
 
     const monthLabel = formatMonthLabel(view);
 
+    // Striscia dei giorni = radiogroup con tabindex mobile: un solo giorno nel
+    // giro del Tab (quello scelto, o il primo), le frecce si spostano e
+    // scelgono, Home/Fine vanno ai capi (scheda RadioGroup).
+    const stripRef = useRef<HTMLDivElement>(null);
+    const focusIso = days.some(d => d.iso === value) ? value : (days[0]?.iso ?? "");
+    const handleStripKey = (event: KeyboardEvent<HTMLDivElement>) => {
+        const idx = days.findIndex(d => d.iso === (event.target as HTMLElement).dataset.iso);
+        if (idx < 0) return;
+        const next =
+            event.key === "ArrowRight" || event.key === "ArrowDown"
+                ? Math.min(days.length - 1, idx + 1)
+                : event.key === "ArrowLeft" || event.key === "ArrowUp"
+                  ? Math.max(0, idx - 1)
+                  : event.key === "Home"
+                    ? 0
+                    : event.key === "End"
+                      ? days.length - 1
+                      : -1;
+        if (next < 0 || next === idx) return;
+        event.preventDefault();
+        const iso = days[next].iso;
+        handlePick(iso);
+        stripRef.current?.querySelector<HTMLButtonElement>(`[data-iso="${iso}"]`)?.focus();
+    };
+
     return (
         <div
             className={styles.wrapper}
             data-invalid={invalid ? "true" : undefined}
-            aria-describedby={errorId}
         >
             <div className={styles.header}>
-                <button
-                    type="button"
-                    className={styles.navBtn}
+                <IconButton
+                    icon={<ChevronLeft size={16} strokeWidth={2} />}
+                    aria-label="Mese precedente"
+                    size="sm"
                     onClick={goPrev}
                     disabled={!canPrev}
-                    aria-label="Mese precedente"
-                >
-                    <ChevronLeft />
-                </button>
-                <span className={styles.monthLabel} aria-live="polite">
+                />
+                <Text as="span" variant="body-sm" weight={600} className={styles.monthLabel} aria-live="polite">
                     {monthLabel}
-                </span>
-                <button
-                    type="button"
-                    className={styles.navBtn}
+                </Text>
+                <IconButton
+                    icon={<ChevronRight size={16} strokeWidth={2} />}
+                    aria-label="Mese successivo"
+                    size="sm"
                     onClick={goNext}
                     disabled={!canNext}
-                    aria-label="Mese successivo"
-                >
-                    <ChevronRight />
-                </button>
+                />
             </div>
 
             {days.length === 0 ? (
-                <p className={styles.emptyMonth}>
+                <Text as="p" variant="caption" colorVariant="muted" className={styles.emptyMonth}>
                     Nessun giorno disponibile in questo mese.
-                </p>
+                </Text>
             ) : (
-                <ul
+                <div
+                    ref={stripRef}
                     className={styles.strip}
-                    role="listbox"
-                    aria-label="Seleziona la data"
+                    role="radiogroup"
+                    aria-label={ariaLabel}
+                    aria-describedby={errorId}
+                    aria-invalid={invalid || undefined}
+                    onKeyDown={handleStripKey}
                 >
                     {days.map(d => {
                         const isSelected = d.iso === value;
                         // Admin permissivo: i giorni di chiusura restano
-                        // cliccabili, contrassegnati con badge "Chiuso".
+                        // sceglibili, con il segno «chiuso».
                         const isClosed = d.disabled;
                         const isPast = d.iso < today;
+                        const date = parseLocalDate(d.iso);
+                        const fullName = date ? fullDayFormatter.format(date) : d.iso;
                         return (
-                            <li key={d.iso} className={styles.cell}>
-                                <button
-                                    type="button"
-                                    role="option"
-                                    aria-selected={isSelected}
-                                    onClick={() => handlePick(d.iso)}
-                                    className={styles.dayBtn}
-                                    data-selected={isSelected ? "true" : undefined}
-                                    data-today={d.isToday ? "true" : undefined}
-                                    data-closed={isClosed ? "true" : undefined}
-                                    data-past={isPast ? "true" : undefined}
-                                    aria-label={
-                                        isClosed
-                                            ? `${d.weekdayShort} ${d.dayNum} (chiuso)`
-                                            : undefined
-                                    }
-                                >
-                                    <span className={styles.weekday}>{d.weekdayShort}</span>
-                                    <span className={styles.dayNum}>{d.dayNum}</span>
-                                    {isClosed && (
-                                        <span className={styles.closedTag}>chiuso</span>
-                                    )}
-                                    {!isClosed && d.isToday && (
-                                        <span className={styles.todayDot} aria-hidden="true" />
-                                    )}
-                                </button>
-                            </li>
+                            <button
+                                key={d.iso}
+                                type="button"
+                                role="radio"
+                                aria-checked={isSelected}
+                                tabIndex={d.iso === focusIso ? 0 : -1}
+                                data-iso={d.iso}
+                                onClick={() => handlePick(d.iso)}
+                                className={styles.dayBtn}
+                                data-selected={isSelected ? "true" : undefined}
+                                data-closed={isClosed ? "true" : undefined}
+                                data-past={isPast ? "true" : undefined}
+                                aria-label={`${fullName}${d.isToday ? ", oggi" : ""}${isClosed ? ", chiuso" : ""}`}
+                            >
+                                <Text as="span" variant="caption-xs" weight={600} className={styles.weekday}>
+                                    {d.weekdayShort}
+                                </Text>
+                                <Text as="span" variant="title-sm" weight={700} className={styles.dayNum}>
+                                    {d.dayNum}
+                                </Text>
+                                {isClosed && (
+                                    <Text as="span" variant="caption-xs" weight={600} className={styles.closedTag}>
+                                        chiuso
+                                    </Text>
+                                )}
+                                {!isClosed && d.isToday && (
+                                    <span className={styles.todayDot} aria-hidden="true" />
+                                )}
+                            </button>
                         );
                     })}
-                </ul>
+                </div>
             )}
         </div>
     );
 }
-

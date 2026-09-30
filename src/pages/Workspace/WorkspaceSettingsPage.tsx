@@ -32,6 +32,7 @@ import ModalLayout, {
     ModalLayoutFooter,
     ModalLayoutHeader
 } from "@/components/ui/ModalLayout/ModalLayout";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import { supabase } from "@/services/supabase/client";
 import { DeleteAccountDrawer } from "@/pages/Dashboard/Settings/DeleteAccountDrawer";
 import styles from "./WorkspaceSettingsPage.module.scss";
@@ -446,34 +447,16 @@ export default function WorkspaceSettingsPage() {
                 </DrawerLayout>
             </SystemDrawer>
 
-            <ModalLayout
+            <ConfirmDialog
                 isOpen={showLogoutModal}
                 onClose={() => setShowLogoutModal(false)}
-                width="xs"
-                height="fit"
-            >
-                <ModalLayoutHeader>
-                    <Text as="h2" variant="title-sm" weight={700}>
-                        Vuoi davvero uscire?
-                    </Text>
-                </ModalLayoutHeader>
-
-                <ModalLayoutContent>
-                    <Text variant="body-sm">
-                        L&apos;accesso verrà interrotto e dovrai effettuare nuovamente il login per
-                        rientrare.
-                    </Text>
-                </ModalLayoutContent>
-
-                <ModalLayoutFooter>
-                    <Button variant="secondary" onClick={() => setShowLogoutModal(false)}>
-                        Annulla
-                    </Button>
-                    <Button variant="primary" onClick={handleLogout} disabled={loggingOut}>
-                        {loggingOut ? "Uscita in corso..." : "Esci"}
-                    </Button>
-                </ModalLayoutFooter>
-            </ModalLayout>
+                onConfirm={handleLogout}
+                title="Vuoi davvero uscire?"
+                message="L'accesso verrà interrotto e dovrai effettuare nuovamente il login per rientrare."
+                confirmLabel={loggingOut ? "Uscita in corso..." : "Esci"}
+                confirmVariant="primary"
+                isLoading={loggingOut}
+            />
 
             <ModalLayout
                 isOpen={showPasswordModal}

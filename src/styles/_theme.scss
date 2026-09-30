@@ -90,6 +90,12 @@
   // Testo "buona notizia" (es. risparmio dell'annuale sotto il prezzo):
   // green-700, 5.6:1 su bianco.
   --text-success: #047857;
+  // Testo di errore e di avviso su bg/surface: in chiaro coincidono con
+  // --danger e --warning-700, in scuro salgono di due passi (red-400,
+  // amber-400) per restare sopra 4,5:1. I fill (danger-*, warning-*)
+  // restano quelli: questi sono solo per il testo nudo.
+  --text-danger: #dc2626;
+  --text-warning: #b45309;
   --color-danger: #dc2626; // = $error in _variables.scss
   // Rampa slate unica (§44.3): 300/400 passano da gray a slate.
   --color-gray-300: #cbd5e1;
@@ -132,6 +138,10 @@
   // --- Superfici e testo (nomi della tabella) ---
   --surface: var(--card-bg);
   --on-brand: #ffffff;
+  // Testo e icona su un fondo --brand-primary-soft (voce attiva della
+  // sidebar, Badge brand, tab attiva): in chiaro è --brand-primary, in scuro
+  // sale a indigo-300 perché --brand-primary misura 3,7:1 sul soft.
+  --on-brand-soft: var(--brand-primary);
   --gray-300: var(--color-gray-300);
   --gray-400: var(--color-gray-400);
   --gray-500: var(--color-gray-500);
@@ -156,7 +166,16 @@
   --success-500: var(--color-green-500);
   --success-800: var(--color-green-800);
   --info-100: var(--brand-primary-soft);
+  --info-200: #c7d2fe; // indigo-200: bordo di StatusStrip info
   --info-800: #3730a3;
+
+  // --- Tipi di regola (Programmazione, Settimana e segni di tipo) ---
+  // Quattro colori di categoria, uno per tipo. Tre sono alias di token che
+  // esistono; In evidenza ha il suo violetto (lotto ds-5-programmazione, P5).
+  --rule-layout: var(--brand-primary);
+  --rule-featured: #8b5cf6; // violet-500
+  --rule-price: var(--success-500);
+  --rule-visibility: var(--warning-500);
 
   // --- Tipografia ---
   --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
@@ -184,6 +203,8 @@
   --shadow-rest: 0 2px 6px rgba(0, 0, 0, 0.03);
   --shadow-float: 0 4px 16px rgba(0, 0, 0, 0.12);
   --shadow-overlay: 0 8px 24px rgba(0, 0, 0, 0.15);
+  // La variante orientata di shadow-overlay per il SystemDrawer (§2, Ombra).
+  --shadow-drawer: -4px 0 24px -4px rgba(0, 0, 0, 0.1);
   --shadow-focus-danger: 0 0 0 3px rgba(220, 38, 38, 0.2);
 
   // --- Strati ---
@@ -196,6 +217,8 @@
 
   // --- Misure fisse (--control-height è definito in cima al file) ---
   --row-height: 56px;
+  // ListRow dense: gli elenchi di servizio (agenda, sala), letti a colpo d'occhio.
+  --row-height-dense: 48px;
   --table-header-height: 44px;
   --drawer-sm: 420px;
   --drawer-md: 520px;
@@ -210,10 +233,16 @@
 }
 
 [data-theme="dark"] {
+  // In scuro il violetto sale di un gradino, come l'accento (#818cf8).
+  --rule-featured: #a78bfa; // violet-400
+
   --bg: #0f172a;
   --text: #f9fafb;
   --card-bg: #1e293b;
-  --border: #1f2a3a;
+  // Bordo visibile su entrambi i fondi: #1f2a3a stava a 1,23:1 su --bg e
+  // 1,01:1 su --surface (invisibile sulle card). #3b4a63 = 1,99:1 / 1,63:1,
+  // il primo valore della scala slate con entrambi sopra 1,5:1.
+  --border: #3b4a63;
   --hover-bg: #334155;
   // Accento indigo in entrambi i temi (§44.7): indigo-400 su slate-900.
   --brand-primary: #818cf8;
@@ -223,11 +252,30 @@
   --skeleton-base: #1e293b;
   --skeleton-highlight: #334155;
   --on-brand: #0f172a;
+  --on-brand-soft: #a5b4fc; // indigo-300: 5,5:1 su brand-primary-soft
+  --info-200: rgba(129, 140, 248, 0.45);
   --info-800: #c7d2fe;
+  // Semantici in scuro sul modello di --brand-primary-soft: fondo = alpha
+  // della tinta 400 (fill -50/-100, bordo -200), testo = tinta 200 della
+  // rampa (-800). StatusBadge, InlineBanner, StatusStrip e la riga verde
+  // della Checklist restano scuri invece di aprire una finestra chiara.
+  --success-50: rgba(52, 211, 153, 0.12);
+  --success-100: rgba(52, 211, 153, 0.18);
+  --success-200: rgba(52, 211, 153, 0.45);
+  --success-800: #a7f3d0; // emerald-200: 10:1 su success-100 + slate-900
+  --warning-50: rgba(251, 191, 36, 0.12);
+  --warning-100: rgba(251, 191, 36, 0.18);
+  --warning-200: rgba(251, 191, 36, 0.45);
+  --warning-800: #fde68a; // amber-200: 11:1
+  --danger-50: rgba(248, 113, 113, 0.12);
+  --danger-100: rgba(248, 113, 113, 0.18);
+  --danger-200: rgba(248, 113, 113, 0.45);
+  --danger-800: #fecaca; // red-200: 9:1
   --shadow-focus: 0 0 0 3px rgba(129, 140, 248, 0.45);
   --shadow-rest: 0 2px 6px rgba(0, 0, 0, 0.4);
   --shadow-float: 0 4px 16px rgba(0, 0, 0, 0.5);
   --shadow-overlay: 0 8px 24px rgba(0, 0, 0, 0.55);
+  --shadow-drawer: -4px 0 24px -4px rgba(0, 0, 0, 0.5);
   --shadow-focus-danger: 0 0 0 3px rgba(220, 38, 38, 0.4);
 
   // Green / success palette
@@ -240,6 +288,8 @@
   // del root scende sotto 3:1 su --bg dark).
   --text-muted: #94a3b8;
   --text-success: #34d399; // 9:1 su --bg dark
+  --text-danger: #f87171; // red-400
+  --text-warning: #fbbf24; // amber-400
 
   // Rampa grigi FASE 2: mirror simmetrico sulla scala slate (300↔600,
   // 400↔500, 800→chiaro) per restare leggibile su sfondo scuro. Nessun

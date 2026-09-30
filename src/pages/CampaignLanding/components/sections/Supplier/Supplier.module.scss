@@ -1,0 +1,118 @@
+@use "@pages/CampaignLanding/styles/mixins" as *;
+
+// Campo prezzo del telefono: − / valore / +, il valore nuovo in blu su --ld-brand-s.
+.stepper {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    overflow: hidden;
+    border: 1px solid var(--ld-line);
+    border-radius: 10px;
+    font-weight: 700;
+    line-height: 32px;
+}
+
+.stepBtn {
+    @include ld-reset-button;
+    width: 30px;
+    height: 32px;
+    background: var(--ld-paper);
+    font-size: 16px;
+    font-weight: 700;
+    line-height: 32px;
+    text-align: center;
+    color: var(--ld-muted);
+    transition:
+        color 150ms ease,
+        background-color 150ms ease;
+
+    &:hover:not(:disabled) {
+        background: var(--ld-brand-s);
+        color: var(--ld-azione);
+    }
+
+    &:disabled {
+        cursor: default;
+        opacity: 0.4;
+    }
+
+    // Il campo taglia quel che sborda: l'anello va dentro il pulsante.
+    &:focus-visible {
+        outline: 2px solid var(--ld-focus-ring);
+        outline-offset: -2px;
+    }
+}
+
+.stepValue {
+    display: block;
+    min-width: 58px;
+    height: 32px;
+    background: var(--ld-white);
+    font-size: 15px;
+    text-align: center;
+    color: var(--ld-ink);
+    transition:
+        color 250ms ease,
+        background-color 250ms ease;
+}
+
+.stepValueOn {
+    background: var(--ld-brand-s);
+    color: var(--ld-azione);
+}
+
+// Riga aggiornata nel menù del cliente: lampo blu una volta.
+@include motion-ok {
+    .rowUp {
+        animation: ld-supplier-flash 1000ms ease;
+    }
+}
+
+@keyframes ld-supplier-flash {
+    from {
+        background: rgba(70, 72, 198, 0.1);
+    }
+    to {
+        background: rgba(70, 72, 198, 0);
+    }
+}
+
+// Frase guida, come in «Un piatto è finito».
+.hint {
+    margin: 10px 0 0;
+    font-size: 13px;
+    color: var(--ld-muted);
+    text-align: center;
+}
+
+.loss {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 12px;
+    padding: 11px 14px;
+    border-radius: 14px;
+    background: var(--ld-peach);
+    border: 1px solid var(--ld-peach-line);
+}
+
+.amount {
+    @include ld-serif;
+    flex-shrink: 0;
+    font-size: 24px;
+    line-height: 1;
+    color: var(--ld-terra);
+}
+
+.lossText {
+    font-size: 13px;
+    line-height: 1.4;
+    color: var(--ld-ink);
+}
+
+.math {
+    display: block;
+    margin-top: 1px;
+    font-size: 12px;
+    color: var(--ld-muted);
+}

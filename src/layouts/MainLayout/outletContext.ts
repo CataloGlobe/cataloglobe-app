@@ -53,6 +53,12 @@ export interface BusinessOutletContext {
      * business. Stesso ruolo di `wakeTranslations`.
      */
     refreshSupportUnread: () => void;
+    /**
+     * Ricalcola le recensioni in attesa del badge di sidebar. Chiamato da
+     * Recensioni dopo Pubblica · Tieni nascosta: senza, il numero resterebbe
+     * vecchio fino al prossimo mount dell'area business.
+     */
+    refreshReviewsPending: () => void;
 }
 
 /**

@@ -1,202 +1,33 @@
-.empty {
-    padding: 24px;
-    text-align: center;
-}
+// Dettaglio comanda: solo layout. Le sezioni sono Card, le righe ListRow.
 
 .content {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: var(--space-16);
 }
 
-.headerInfo {
+.summary {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+}
+
+.summaryLine {
     display: flex;
     align-items: center;
-    gap: 12px;
+    flex-wrap: wrap;
+    gap: var(--space-8);
 }
 
-.metaRow {
-    display: flex;
-    gap: 6px;
-    align-items: baseline;
-}
-
-.rectificationBanner {
-    background: var(--color-warning-100, #fef3c7);
-    color: var(--color-warning-700, #b45309);
-    padding: 10px 12px;
-    border-radius: 8px;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-}
-
-// Chip "Rettificato" nell'header (padre con storni). Classe locale: stesso
-// linguaggio visivo del chip nello Storico, non importata (no accoppiamento
-// moduli). Token error/rose del repo.
-.rettificatoChip {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 2px 8px;
-    border-radius: 999px;
-    font-size: 0.6875rem;
-    font-weight: 600;
-    white-space: nowrap;
-    color: var(--color-error-fg, #b91c1c);
-    background: color-mix(in srgb, var(--color-error-fg, #b91c1c) 10%, transparent);
-}
-
-.section {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.items {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-.itemBlock {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    padding-bottom: 12px;
-    border-bottom: 1px dashed var(--border-default, #e1e3e8);
-
-    &:last-child {
-        border-bottom: none;
-        padding-bottom: 0;
-    }
-}
-
-.itemHeader {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-}
-
-// Riga annullata pre-servizio: barrata + attenuata, pill "Annullato".
-.itemBlockCancelled {
-    .itemHeader {
-        text-decoration: line-through;
-        color: var(--text-muted, #6b6f76);
-    }
-}
-
-.cancelledPill {
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
-    margin-left: 6px;
-    padding: 1px 6px;
-    border-radius: 999px;
-    font-size: 11px;
-    font-weight: 600;
-    text-decoration: none;
-    vertical-align: middle;
-    color: var(--color-gray-600, #475569);
-    background: var(--color-gray-100, #f1f5f9);
-    border: 1px solid var(--color-gray-200, #e2e8f0);
-}
-
-.itemQty {
-    font-weight: 600;
-    color: var(--text-muted, #6b6f76);
-    margin-right: 4px;
-    font-variant-numeric: tabular-nums;
-}
-
-.addons {
-    padding-left: 12px;
-
-    ul {
-        margin: 0;
-        padding-left: 18px;
-    }
-}
-
-.priceDelta {
-    color: var(--text-muted, #6b6f76);
-}
-
-.itemNotes {
-    display: flex;
-    gap: 4px;
-    padding: 6px 8px;
-    background: var(--surface-muted, #f4f5f7);
-    border-radius: 4px;
-}
-
-.totalRow {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 12px 0;
-    border-top: 1px solid var(--border-default, #e1e3e8);
-    border-bottom: 1px solid var(--border-default, #e1e3e8);
-}
-
-// Padre rettificato: lordo barrato + netto impilati a destra. Classi locali
-// (stesso pattern del conto, nessun import cross-modulo).
-.totalAmounts {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 1px;
-}
-
+// Lordo barrato accanto al netto, quando la comanda ha degli storni.
 .grossStrike {
     text-decoration: line-through;
 }
 
-.notesBox {
-    padding: 10px 12px;
-    background: var(--surface-muted, #f4f5f7);
-    border-radius: 6px;
+.eventDone {
+    color: var(--text-success);
 }
 
-.timeline {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-
-    li {
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
-    }
-}
-
-.timelineCheck {
-    color: var(--color-success-500, #10b981);
-    font-weight: 700;
-    margin-right: 6px;
-}
-
-.timelineCancel {
-    color: var(--color-error-500, #ef4444);
-    font-weight: 700;
-    margin-right: 6px;
-}
-
-.timelineTime {
-    color: var(--text-muted, #6b6f76);
-}
-
-.timelineMeta {
-    color: var(--text-muted, #6b6f76);
-}
-
-.footerActions {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 8px;
-    width: 100%;
+.eventCancelled {
+    color: var(--text-danger);
 }

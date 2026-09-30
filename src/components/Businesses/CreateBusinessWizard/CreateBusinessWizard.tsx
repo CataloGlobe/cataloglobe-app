@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { X, ArrowLeft, ArrowRight } from "lucide-react";
-import { supabase } from "@/services/supabase/client";
 import { useAuth } from "@/context/useAuth";
 import { useToast } from "@/context/Toast/ToastContext";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
@@ -8,7 +7,7 @@ import { Button } from "@/components/ui/Button/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import Text from "@/components/ui/Text/Text";
 
-import { uploadTenantLogo, updateTenantLogoUrl, updateTenantBillingDetails, getTenantBillingInterval, type TenantBillingDetails } from "@/services/supabase/tenants";
+import { uploadTenantLogo, updateTenantLogoUrl, updateTenantBillingDetails, getTenantBillingInterval, createTenant, updateTenantPlanSelection, type TenantBillingDetails } from "@/services/supabase/tenants";
 import { confirmCheckoutSession, createCheckoutSession } from "@/services/supabase/billing";
 import { listPublicPlans } from "@/services/supabase/plans";
 import { listPlanPrices } from "@/services/supabase/planPrices";
@@ -24,6 +23,7 @@ import type { V2Tenant, LegalEntityType } from "@/types/tenant";
 import type { AddressResult } from "@/components/ui/AddressAutocomplete/AddressAutocomplete";
 import { isValidPartitaIva, isValidCodiceFiscale } from "@/utils/fiscalValidators";
 import { isValidCapIT, isValidProvinciaIT } from "@/utils/addressValidators";
+import { billingRecipientRequired, hasBillingRecipient } from "@/pages/Business/components/billingDraft";
 
 import { Step1Info } from "./steps/Step1Info";
 import { Step2PlanSeats } from "./steps/Step2PlanSeats";
@@ -109,6 +109,13 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
     // duplicate tenants. This ref blocks re-entry within the same tick.
     const inFlightRef = useRef(false);
     const [submitError, setSubmitError] = useState<string | null>(null);
+    // P.IVA rifiutata lato server nonostante il check FE: mostrata sul campo
+    // del passo Fatturazione, azzerata alla prima modifica del valore.
+    const [vatServerError, setVatServerError] = useState<string | null>(null);
+    // Recapito e-fattura rifiutato lato server (trigger su tenants o gate di
+    // stripe-checkout): sul Codice Destinatario, azzerato alla prima modifica
+    // di SDI o PEC. Stesso trattamento della P.IVA, niente toast.
+    const [einvoiceServerError, setEinvoiceServerError] = useState<string | null>(null);
     const [promoError, setPromoError] = useState<string | null>(null);
     const [showCloseConfirm, setShowCloseConfirm] = useState(false);
 
@@ -315,6 +322,8 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
     const canProceedFromStepBilling = useMemo(() => {
         if (!billingAddressComplete) return false;
         if (!billingLengthsOk) return false;
+        if (vatServerError) return false;
+        if (einvoiceServerError) return false;
 
         const vatFilled = vatNumber.trim().length > 0;
         const cfFilled = fiscalCode.trim().length > 0;
@@ -346,7 +355,7 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
             default:
                 return false;
         }
-    }, [entityType, vatNumber, fiscalCode, legalName, firstName, lastName, codiceDestinatario, pec, billingAddressComplete, billingLengthsOk]);
+    }, [entityType, vatNumber, fiscalCode, legalName, firstName, lastName, codiceDestinatario, pec, billingAddressComplete, billingLengthsOk, vatServerError, einvoiceServerError]);
 
     const isDirty = resumeMode
         ? (
@@ -461,21 +470,21 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
                 const intervalChanged = storedInterval !== billingInterval;
 
                 if (planChanged || seatsChanged || intervalChanged) {
-                    const { error: alignError } = await supabase
-                        .from("tenants")
-                        .update({ plan: selectedPlan.code, paid_seats: seats, billing_interval: billingInterval })
-                        .eq("id", tenantId);
-
-                    if (alignError) {
-                        const wrap = new Error("tenant_align_failed");
-                        wrap.name = "tenant_align_failed";
-                        throw wrap;
-                    }
+                    await updateTenantPlanSelection(tenantId, {
+                        plan: selectedPlan.code,
+                        paidSeats: seats,
+                        billingInterval,
+                    });
                 }
 
                 // Persist billing only when it was missing and is now collected.
                 if (resumeNeedsBilling) {
-                    await updateTenantBillingDetails(tenantId, buildBillingPayload());
+                    try {
+                        await updateTenantBillingDetails(tenantId, buildBillingPayload());
+                    } catch (billingErr) {
+                        if (isVatRejection(billingErr)) throw namedError("invalid_vat_number");
+                        throw billingErr;
+                    }
                 }
             } else {
                 // Idempotency key: one per create-wizard session, generated lazily
@@ -488,57 +497,27 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
                     localStorage.setItem(IDEM_KEY_STORAGE, idempotencyKey);
                 }
 
-                const { data: tenantRow, error: insertError } = await supabase
-                    .from("tenants")
-                    .insert({
-                        owner_user_id: user!.id,
-                        name: name.trim(),
-                        vertical_type: "food_beverage",
-                        business_subtype: subtype,
-                        creation_idempotency_key: idempotencyKey,
-                        // Billing identity (intestatario fattura) + legal address.
-                        ...buildBillingPayload(),
-                    })
-                    .select("id")
-                    .single();
-
-                if (insertError) {
-                    // 23505 on the idempotency key means a concurrent/repeated submit
-                    // already created the tenant. Recover it (RLS scopes the read to
-                    // the current owner) and continue with the existing id instead of
-                    // surfacing an error or creating a duplicate.
-                    if (insertError.code === "23505") {
-                        const { data: existing, error: recoverError } = await supabase
-                            .from("tenants")
-                            .select("id")
-                            .eq("creation_idempotency_key", idempotencyKey)
-                            .eq("owner_user_id", user!.id)
-                            .single();
-
-                        if (recoverError || !existing) throw insertError;
-                        tenantId = existing.id as string;
-                    } else {
-                        throw insertError;
-                    }
-                } else {
-                    tenantId = tenantRow.id as string;
-                }
+                // Idempotente sulla chiave; il rifiuto fiscale del DB arriva
+                // come invalid_vat_number / missing_einvoice_recipient.
+                tenantId = await createTenant({
+                    ownerUserId: user!.id,
+                    name: name.trim(),
+                    verticalType: "food_beverage",
+                    businessSubtype: subtype,
+                    idempotencyKey,
+                    billing: buildBillingPayload(),
+                });
 
                 // Align plan + paid_seats + billing_interval to wizard selection.
                 // tenants defaults are plan='base' + paid_seats=1 + interval NULL;
                 // without this update, if the user abandons Stripe Checkout the
                 // tenant stays in DB with wrong values and the "Attiva abbonamento"
                 // retry would charge the wrong plan/quantity/interval.
-                const { error: alignError } = await supabase
-                    .from("tenants")
-                    .update({ plan: selectedPlan.code, paid_seats: seats, billing_interval: billingInterval })
-                    .eq("id", tenantId);
-
-                if (alignError) {
-                    const wrap = new Error("tenant_align_failed");
-                    wrap.name = "tenant_align_failed";
-                    throw wrap;
-                }
+                await updateTenantPlanSelection(tenantId, {
+                    plan: selectedPlan.code,
+                    paidSeats: seats,
+                    billingInterval,
+                });
 
                 if (logoFile) {
                     try {
@@ -591,6 +570,22 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
             if (code === "promo_code_invalid") {
                 setPromoError("Codice promozionale non valido. Verifica e riprova.");
                 setShowPromoInput(true);
+            } else if (code === "invalid_vat_number" && (!resumeMode || resumeNeedsBilling)) {
+                // Stesso esito dal CHECK, dalla RPC o dal gate di stripe-checkout:
+                // l'errore va sul campo, quindi si torna al passo Fatturazione.
+                // Solo se quel passo fa parte del flusso: in ripresa senza
+                // Fatturazione i dati non verrebbero salvati, resta il messaggio
+                // generico che rimanda alle impostazioni.
+                setVatServerError("Partita IVA non valida. Controlla le 11 cifre.");
+                setSubmitError(null);
+                setStep(3);
+            } else if (code === "missing_einvoice_recipient" && (!resumeMode || resumeNeedsBilling)) {
+                // Dal trigger su tenants (22023) o dal gate di stripe-checkout:
+                // come la P.IVA, l'errore va sul campo del passo Fatturazione
+                // (sotto il Codice Destinatario) e dice perché si è tornati lì.
+                setEinvoiceServerError("Con la Partita IVA serve un recapito per la fattura elettronica: Codice Destinatario SDI o PEC.");
+                setSubmitError(null);
+                setStep(3);
             } else if (code === "subscription_already_active" && tenantId !== null) {
                 // The guard found a live subscription our row does not know
                 // about (paid, tab closed, webhook lost). Adopt it and enter the
@@ -671,7 +666,11 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
                         legalName={legalName}
                         onLegalNameChange={setLegalName}
                         vatNumber={vatNumber}
-                        onVatNumberChange={setVatNumber}
+                        onVatNumberChange={value => {
+                            setVatNumber(value);
+                            setVatServerError(null);
+                        }}
+                        vatServerError={vatServerError}
                         fiscalCode={fiscalCode}
                         onFiscalCodeChange={setFiscalCode}
                         firstName={firstName}
@@ -679,9 +678,16 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
                         lastName={lastName}
                         onLastNameChange={setLastName}
                         pec={pec}
-                        onPecChange={setPec}
+                        onPecChange={value => {
+                            setPec(value);
+                            setEinvoiceServerError(null);
+                        }}
                         codiceDestinatario={codiceDestinatario}
-                        onCodiceDestinatarioChange={setCodiceDestinatario}
+                        onCodiceDestinatarioChange={value => {
+                            setCodiceDestinatario(value);
+                            setEinvoiceServerError(null);
+                        }}
+                        einvoiceServerError={einvoiceServerError}
                         billingAddress={billingAddress}
                         onAddressChange={setBillingAddress}
                         disabled={submitting}
@@ -870,6 +876,14 @@ function tenantHasFiscalData(t: V2Tenant): boolean {
         within(t.pec, BILLING_FIELD_MAX.pec);
     if (!optionalsOk) return false;
 
+    // Con una P.IVA serve un recapito e-fattura, come in Impostazioni e nel
+    // gate di stripe-checkout: senza, il resume salterebbe Fatturazione e il
+    // checkout risponderebbe `missing_einvoice_recipient`.
+    const recipientOk =
+        !billingRecipientRequired({ vatNumber: t.vat_number ?? "" }) ||
+        hasBillingRecipient({ codiceDestinatario: t.codice_destinatario ?? "", pec: t.pec ?? "" });
+    if (!recipientOk) return false;
+
     switch (t.legal_entity_type) {
         case "societa":
             return !!t.vat_number?.trim() && has(t.legal_name, BILLING_FIELD_MAX.legalName);
@@ -886,6 +900,22 @@ function tenantHasFiscalData(t: V2Tenant): boolean {
         default:
             return false;
     }
+}
+
+function namedError(code: string): Error {
+    const err = new Error(code);
+    err.name = code;
+    return err;
+}
+
+// P.IVA rifiutata dalla RPC update_tenant_billing_details (22023
+// invalid_vat_number) nel resume. Il 23514 del CHECK sul create lo traduce
+// createTenant.
+function isVatRejection(err: unknown): boolean {
+    if (typeof err !== "object" || err === null) return false;
+    const { code, message } = err as { code?: unknown; message?: unknown };
+    const msg = typeof message === "string" ? message : "";
+    return code === "22023" && msg.includes("invalid_vat_number");
 }
 
 function friendlyErrorMessage(code: string): string {
@@ -918,7 +948,7 @@ function friendlyErrorMessage(code: string): string {
             return "Il tuo abbonamento è già attivo. Se hai appena completato il pagamento, attendi qualche secondo e ricarica la pagina.";
         case "subscription_check_failed":
             return "Non siamo riusciti a verificare lo stato del tuo abbonamento. Non ti è stato addebitato nulla: riprova tra qualche istante.";
-        // Gate fiscale server-side di stripe-checkout. Normalmente il passo
+        // Gate fiscale server-side (DB o stripe-checkout). Normalmente il passo
         // Fatturazione li previene già; qui coprono la chiamata diretta o dati
         // modificati altrove.
         case "invalid_vat_number":

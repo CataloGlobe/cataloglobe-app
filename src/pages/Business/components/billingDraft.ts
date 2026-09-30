@@ -74,8 +74,13 @@ export function billingDraftToPayload(d: BillingDraft): TenantBillingDetails {
 }
 
 /** Con una P.IVA valorizzata serve un recapito e-fattura (SDI o PEC). */
-export function billingRecipientRequired(d: BillingDraft): boolean {
+export function billingRecipientRequired(d: Pick<BillingDraft, "vatNumber">): boolean {
     return d.vatNumber.trim().length > 0;
+}
+
+/** Recapito e-fattura presente: Codice Destinatario SDI oppure PEC. */
+export function hasBillingRecipient(d: Pick<BillingDraft, "codiceDestinatario" | "pec">): boolean {
+    return d.codiceDestinatario.trim().length > 0 || d.pec.trim().length > 0;
 }
 
 function lengthsOk(d: BillingDraft): boolean {
@@ -115,11 +120,7 @@ export function isBillingDraftComplete(d: BillingDraft): boolean {
     const vatFormatOk = !vatFilled || isValidPartitaIva(d.vatNumber);
     const cfFormatOk = !cfFilled || isValidCodiceFiscale(d.fiscalCode);
 
-    if (billingRecipientRequired(d)) {
-        const recipientOk =
-            d.codiceDestinatario.trim().length > 0 || d.pec.trim().length > 0;
-        if (!recipientOk) return false;
-    }
+    if (billingRecipientRequired(d) && !hasBillingRecipient(d)) return false;
 
     switch (d.entityType) {
         case "societa":

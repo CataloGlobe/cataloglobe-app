@@ -32,10 +32,10 @@ const DOMINANT_FALLBACK = "#9ca3af"; // neutral grey until a real hex is availab
 const PRESET_COLORS = ["#928E72", "#000000", "#ffffff", "#c2410c"];
 
 const FILL_OPTIONS: { value: MediaFillMode; label: string; icon: React.ReactNode }[] = [
+    { value: "none", label: "No", icon: <Ban size={14} /> },
     { value: "blur", label: "Sfocato", icon: <Layers size={14} /> },
     { value: "dominant", label: "Foto", icon: <Palette size={14} /> },
-    { value: "color", label: "Colore", icon: <span className={styles.dot} aria-hidden /> },
-    { value: "none", label: "No", icon: <Ban size={14} /> }
+    { value: "color", label: "Colore", icon: <span className={styles.dot} aria-hidden /> }
 ];
 
 /**

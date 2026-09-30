@@ -15,6 +15,8 @@ interface StepBillingProps {
     onLegalNameChange: (value: string) => void;
     vatNumber: string;
     onVatNumberChange: (value: string) => void;
+    /** P.IVA rifiutata dal server (CHECK tenants_vat_number_valid / RPC). */
+    vatServerError?: string | null;
     fiscalCode: string;
     onFiscalCodeChange: (value: string) => void;
     firstName: string;
@@ -25,6 +27,8 @@ interface StepBillingProps {
     onPecChange: (value: string) => void;
     codiceDestinatario: string;
     onCodiceDestinatarioChange: (value: string) => void;
+    /** Recapito e-fattura rifiutato dal server (trigger su tenants / stripe-checkout). */
+    einvoiceServerError?: string | null;
     billingAddress: AddressResult | null;
     onAddressChange: (next: AddressResult) => void;
     disabled: boolean;
@@ -51,6 +55,7 @@ export function StepBilling({
     legalName,
     onLegalNameChange,
     vatNumber,
+    vatServerError,
     onVatNumberChange,
     fiscalCode,
     onFiscalCodeChange,
@@ -62,6 +67,7 @@ export function StepBilling({
     onPecChange,
     codiceDestinatario,
     onCodiceDestinatarioChange,
+    einvoiceServerError,
     billingAddress,
     onAddressChange,
     disabled,
@@ -98,6 +104,7 @@ export function StepBilling({
     // un eventuale errore di lunghezza già presente.
     const codiceDestinatarioDisplayError =
         codiceDestinatarioError ??
+        einvoiceServerError ??
         (recipientMissing
             ? "Con la Partita IVA serve un recapito: Codice Destinatario SDI o PEC."
             : undefined);
@@ -186,7 +193,7 @@ export function StepBilling({
                         placeholder="11 cifre"
                         disabled={disabled}
                         required={!isAssociazione}
-                        error={vatError}
+                        error={vatError ?? vatServerError ?? undefined}
                         inputMode="numeric"
                     />
                 )}

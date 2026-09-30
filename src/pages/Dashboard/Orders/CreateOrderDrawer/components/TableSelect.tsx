@@ -28,7 +28,7 @@ function tableOptionLabel(t: V2TableWithState): string {
         parts.push(`${t.seats} ${t.seats === 1 ? "posto" : "posti"}`);
     }
     const status = deriveTableStatus(t);
-    if (status === "occupied") parts.push("(occupato)");
+    if (status === "occupied") parts.push("(aperto)");
     return parts.join(" · ");
 }
 

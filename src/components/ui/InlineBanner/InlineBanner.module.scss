@@ -1,26 +1,79 @@
-@use "@styles/variables" as *;
+// InlineBanner — scheda «InlineBanner»: «c'è un problema, e sta qui».
+// Icona 16 sempre presente (regola 8) · testo body-sm · padding 12 16 ·
+// gap 10 · raggio --radius-control. Coppie: error danger-50/200/800,
+// warning warning-100/200/800, info brand-primary-soft + text. Solo token.
 
 .banner {
-  padding: 0.75rem 1rem;
-  border-radius: 8px;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-10);
+  padding: var(--space-12) var(--space-16);
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
   font-size: 0.875rem;
   line-height: 1.4;
 }
 
+.icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  // Centra l'icona sulla prima riga di testo (14px × 1.4 ≈ 20).
+  margin-top: 2px;
+
+  svg {
+    display: block;
+    width: 16px;
+    height: 16px;
+  }
+}
+
+.content {
+  flex: 1;
+  min-width: 0;
+}
+
+// Azione a destra, sulla prima riga del contenuto: non va a capo e non si
+// comprime; se il testo cresce, cresce sotto, l'azione resta in alto.
+.action {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px; // = una riga di body-sm, così sta a filo del testo
+  white-space: nowrap;
+  font-weight: 600;
+  color: inherit;
+
+  a {
+    color: inherit;
+  }
+}
+
 .error {
-  background: #fef2f2;
-  border: 1px solid #fca5a5;
-  color: #991b1b;
+  background: var(--danger-50);
+  border-color: var(--danger-200);
+  color: var(--danger-800);
+
+  .icon {
+    color: var(--danger);
+  }
 }
 
 .warning {
-  background: var(--color-warning-50, #fffbeb);
-  border: 1px solid var(--color-warning-300, #fcd34d);
-  color: var(--color-warning-700, #b45309);
+  background: var(--warning-100);
+  border-color: var(--warning-200);
+  color: var(--warning-800);
+
+  .icon {
+    color: var(--warning-500);
+  }
 }
 
 .info {
-  background: #eff6ff;
-  border: 1px solid #93c5fd;
-  color: #1e40af;
+  background: var(--brand-primary-soft);
+  border-color: var(--brand-primary-soft-hover);
+  color: var(--text);
+
+  .icon {
+    color: var(--brand-primary);
+  }
 }

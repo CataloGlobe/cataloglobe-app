@@ -7,7 +7,7 @@
 .label {
     font-size: 0.82rem;
     font-weight: 500;
-    color: var(--text, #0f172a);
+    color: var(--text);
 }
 
 /* ── Input shell ─────────────────────────────────────────────────────────── */
@@ -25,7 +25,7 @@
 .icon {
     position: absolute;
     left: 10px;
-    color: var(--text-muted, #94a3b8);
+    color: var(--text-muted);
     pointer-events: none;
     flex-shrink: 0;
 }
@@ -33,43 +33,28 @@
 .input {
     width: 100%;
     padding: 0.62rem 2.25rem 0.62rem 2rem;
-    background: var(--card-bg, #fff);
-    color: var(--text, #0f172a);
+    background: var(--surface);
+    color: var(--text);
     font-size: 0.95rem;
     border-radius: 8px;
-    border: 1.5px solid var(--border, #e2e8f0);
+    border: 1.5px solid var(--border);
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
     font-family: inherit;
 
     &::placeholder {
-        color: var(--text-muted, #94a3b8);
+        color: var(--text-muted);
     }
 
     &:focus-visible {
         outline: none;
-        border-color: var(--brand-primary, #6366f1);
-        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+        border-color: var(--brand-primary);
+        box-shadow: var(--shadow-focus);
     }
 
     &:disabled {
         opacity: 0.6;
-        background: var(--hover-bg, #f1f5f9);
+        background: var(--hover-bg);
         cursor: not-allowed;
-    }
-
-    [data-theme="dark"] & {
-        background: #1e293b;
-        border-color: #334155;
-        color: #f1f5f9;
-
-        &::placeholder {
-            color: #64748b;
-        }
-
-        &:focus-visible {
-            border-color: var(--brand-primary, #6366f1);
-            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.35);
-        }
     }
 }
 
@@ -80,8 +65,8 @@
     right: 10px;
     width: 14px;
     height: 14px;
-    border: 2px solid var(--border, #e2e8f0);
-    border-top-color: var(--brand-primary, #6366f1);
+    border: 2px solid var(--border);
+    border-top-color: var(--brand-primary);
     border-radius: 50%;
     animation: spin 0.7s linear infinite;
     flex-shrink: 0;
@@ -99,23 +84,17 @@
     left: 0;
     right: 0;
     z-index: 200;
-    background: var(--card-bg, #fff);
-    border: 1.5px solid var(--border, #e2e8f0);
+    background: var(--surface);
+    border: 1.5px solid var(--border);
     border-radius: 8px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+    box-shadow: var(--shadow-float);
     overflow: hidden;
-
-    [data-theme="dark"] & {
-        background: #1e293b;
-        border-color: #334155;
-        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
-    }
 }
 
 .dropdownMessage {
     padding: 12px 14px;
     font-size: 0.85rem;
-    color: var(--text-muted, #94a3b8);
+    color: var(--text-muted);
     text-align: center;
 }
 
@@ -126,42 +105,30 @@
     padding: 10px 14px;
     cursor: pointer;
     transition: background 0.12s ease;
-    border-bottom: 1px solid var(--border, #e2e8f0);
+    border-bottom: 1px solid var(--border);
 
     &:last-child {
         border-bottom: none;
     }
 
     &:hover {
-        background: var(--hover-bg, #f1f5f9);
-    }
-
-    [data-theme="dark"] &:hover {
-        background: #334155;
+        background: var(--hover-bg);
     }
 }
 
 .dropdownItemHighlighted {
-    background: var(--color-background-secondary, #f1f5f9);
-
-    [data-theme="dark"] & {
-        background: #334155;
-    }
+    background: var(--hover-bg);
 }
 
 .dropdownItemName {
     font-size: 0.875rem;
     font-weight: 600;
-    color: var(--text, #0f172a);
-
-    [data-theme="dark"] & {
-        color: #f1f5f9;
-    }
+    color: var(--text);
 }
 
 .dropdownItemAddress {
     font-size: 0.78rem;
-    color: var(--text-muted, #64748b);
+    color: var(--text-muted);
 }
 
 /* ── Selected pill ───────────────────────────────────────────────────────── */
@@ -171,16 +138,16 @@
     align-items: center;
     gap: 0.5rem;
     padding: 0.62rem 0.75rem;
-    background: var(--color-background-secondary, #f8fafc);
-    border: 0.5px solid var(--color-border-secondary, #cbd5e1);
+    background: var(--bg);
+    border: 0.5px solid var(--gray-300);
     border-radius: 8px;
-    color: var(--color-text-primary, #0f172a);
+    color: var(--text);
     min-width: 0;
 }
 
 .pillIcon {
     flex-shrink: 0;
-    color: var(--color-text-secondary, #64748b);
+    color: var(--text-muted);
 }
 
 .pillText {
@@ -189,7 +156,7 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    color: var(--color-text-primary, #0f172a);
+    color: var(--text);
 }
 
 .pillClearBtn {
@@ -202,12 +169,12 @@
     border: none;
     border-radius: 4px;
     cursor: pointer;
-    color: var(--color-text-secondary, #64748b);
+    color: var(--text-muted);
     transition: color 0.15s, background 0.15s;
 
     &:hover {
-        color: var(--color-text-primary, #0f172a);
-        background: var(--color-border-secondary, #e2e8f0);
+        color: var(--text);
+        background: var(--border);
     }
 }
 
@@ -215,5 +182,5 @@
 
 .errorMessage {
     font-size: 0.78rem;
-    color: #dc2626;
+    color: var(--danger);
 }

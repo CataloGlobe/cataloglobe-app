@@ -28,8 +28,8 @@
     gap: 14px;
     padding: 20px;
     text-align: left;
-    background-color: var(--card-bg, #ffffff);
-    border: 2px solid var(--border, #e2e8f0);
+    background-color: var(--surface);
+    border: 2px solid var(--border);
     border-radius: 12px;
     cursor: pointer;
     transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
@@ -38,17 +38,17 @@
     color: inherit;
 
     &:hover:not(.planCardSelected) {
-        border-color: #cbd5e1;
+        border-color: var(--gray-300);
     }
 
     &:focus-visible {
-        outline: 2px solid var(--brand-primary, #6366f1);
+        outline: 2px solid var(--brand-primary);
         outline-offset: 2px;
     }
 }
 
 .planCardSelected {
-    border-color: var(--brand-primary, #6366f1);
+    border-color: var(--brand-primary);
     background-color: var(--brand-primary-soft, rgba(99, 102, 241, 0.1));
     box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.12);
 }
@@ -60,7 +60,7 @@
     padding: 3px 10px;
     border-radius: 999px;
     background-color: var(--brand-primary-soft, rgba(99, 102, 241, 0.15));
-    color: var(--brand-primary, #6366f1);
+    color: var(--brand-primary);
     font-size: 11px;
     font-weight: 700;
     letter-spacing: 0.02em;
@@ -70,7 +70,7 @@
 .planName {
     font-size: 18px;
     font-weight: 700;
-    color: var(--text, #0f172a);
+    color: var(--text);
 }
 
 .planPrice {
@@ -82,20 +82,20 @@
 .planPriceValue {
     font-size: 32px;
     font-weight: 700;
-    color: var(--text, #0f172a);
+    color: var(--text);
     line-height: 1;
 }
 
 .planPriceUnit {
     font-size: 13px;
-    color: #64748b;
+    color: var(--text-muted);
 }
 
 /* Month-by-month equivalent struck through before a yearly price. */
 .planPriceWas {
     font-size: 16px;
     font-weight: 500;
-    color: var(--text-muted, #64748b);
+    color: var(--text-muted);
     text-decoration-thickness: 1.5px;
     font-variant-numeric: tabular-nums;
     margin-right: 2px;
@@ -105,7 +105,7 @@
 .planAnnualPitch {
     font-size: 12px;
     font-weight: 500;
-    color: var(--text-success, #047857);
+    color: var(--text-success);
     font-variant-numeric: tabular-nums;
 }
 
@@ -116,7 +116,7 @@
 
 .planDescription {
     font-size: 13px;
-    color: #475569;
+    color: var(--gray-600);
     line-height: 1.5;
 }
 
@@ -134,13 +134,13 @@
     align-items: flex-start;
     gap: 8px;
     font-size: 13px;
-    color: #334155;
+    color: var(--gray-600);
     line-height: 1.45;
 }
 
 .planFeatureIcon {
     flex-shrink: 0;
-    color: var(--color-green-500, #10b981);
+    color: var(--success-500);
     margin-top: 1px;
 }
 
@@ -149,8 +149,8 @@
 // ──────────────────────────────────────────────────────────────────────────────
 
 .seatsPanel {
-    background-color: var(--bg, #f8fafc);
-    border: 1px solid var(--border, #e2e8f0);
+    background-color: var(--bg);
+    border: 1px solid var(--border);
     border-radius: 12px;
     padding: 20px;
     display: flex;
@@ -165,7 +165,7 @@
 }
 
 .seatsHint {
-    color: #64748b;
+    color: var(--text-muted);
     font-size: 13px;
 }
 
@@ -176,13 +176,13 @@
 }
 
 .seatsUnit {
-    color: #64748b;
+    color: var(--text-muted);
     font-size: 14px;
 }
 
 .breakdownBox {
-    background-color: var(--card-bg, #ffffff);
-    border: 1px solid var(--border, #e2e8f0);
+    background-color: var(--surface);
+    border: 1px solid var(--border);
     border-radius: 8px;
     padding: 12px 14px;
     display: flex;
@@ -195,7 +195,7 @@
     justify-content: space-between;
     align-items: center;
     font-size: 13px;
-    color: #334155;
+    color: var(--gray-600);
     padding: 2px 0;
 }
 
@@ -208,22 +208,22 @@
 .breakdownDiscountChip {
     font-size: 11px;
     font-weight: 600;
-    color: var(--color-green-900, #14532d);
-    background-color: var(--color-green-50, #f0fdf4);
-    border: 1px solid var(--color-green-200, #bbf7d0);
+    color: var(--color-green-900);
+    background-color: var(--success-50);
+    border: 1px solid var(--success-200);
     padding: 1px 6px;
     border-radius: 4px;
 }
 
 .breakdownTotalRow {
-    border-top: 1px solid var(--border, #e2e8f0);
+    border-top: 1px solid var(--border);
     margin-top: 4px;
     padding-top: 8px;
     display: flex;
     justify-content: space-between;
     font-size: 14px;
     font-weight: 700;
-    color: var(--text, #0f172a);
+    color: var(--text);
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -231,8 +231,8 @@
 // ──────────────────────────────────────────────────────────────────────────────
 
 .overLimit {
-    background-color: var(--color-warning-50, #fffbeb);
-    border: 1px solid var(--color-warning-200, #fde68a);
+    background-color: var(--warning-50);
+    border: 1px solid var(--warning-200);
     border-radius: 10px;
     padding: 14px 16px;
     display: flex;
@@ -241,13 +241,13 @@
 }
 
 .overLimitTitle {
-    color: var(--color-warning-700, #b45309);
+    color: var(--warning-700);
     font-weight: 600;
     font-size: 14px;
 }
 
 .overLimitText {
-    color: var(--color-warning-700, #b45309);
+    color: var(--warning-700);
     font-size: 13px;
     line-height: 1.5;
 }
@@ -260,14 +260,14 @@
     gap: 6px;
     padding: 8px 14px;
     border-radius: 8px;
-    background-color: var(--color-warning-700, #b45309);
-    color: #fff;
+    background-color: var(--warning-700);
+    color: var(--color-white);
     font-size: 13px;
     font-weight: 600;
     text-decoration: none;
     transition: background-color 0.15s ease;
 
     &:hover {
-        background-color: var(--color-warning-800, #92400e);
+        background-color: var(--warning-800);
     }
 }

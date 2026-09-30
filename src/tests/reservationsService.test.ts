@@ -92,6 +92,18 @@ describe("listReservations", () => {
         expect(rows).toHaveLength(1);
     });
 
+    it("con la sede chiede al server solo le sue righe (§48.1); senza, nessun filtro di sede", async () => {
+        const scoped = guardedBuilder("reservations", { data: [], error: null });
+        from.mockReturnValue(scoped.builder);
+        await listReservations("t1", { from: "2026-09-14", to: "2026-09-20" }, "a1");
+        expect(scoped.calls).toContainEqual({ method: "eq", args: ["activity_id", "a1"] });
+
+        const all = guardedBuilder("reservations", { data: [], error: null });
+        from.mockReturnValue(all.builder);
+        await listReservations("t1", { from: "2026-09-14", to: "2026-09-20" });
+        expect(all.calls.some(c => c.method === "eq" && c.args[0] === "activity_id")).toBe(false);
+    });
+
     it("con un intervallo rovesciato non tocca la rete", async () => {
         const rows = await listReservations("t1", { from: "2026-09-20", to: "2026-09-14" });
         expect(rows).toEqual([]);
@@ -125,6 +137,14 @@ describe("listPendingReservations", () => {
         });
         expect(calls).toContainEqual({ method: "limit", args: [PENDING_QUEUE_LIMIT + 1] });
         expect(page).toEqual({ rows: [row("a", "2026-09-01", "pending")], truncated: false });
+    });
+
+    it("con la sede, la coda è della sola sede (§48.1)", async () => {
+        const { builder, calls } = guardedBuilder("reservations", { data: [], error: null });
+        from.mockReturnValue(builder);
+        await listPendingReservations("t1", "a1");
+        expect(calls).toContainEqual({ method: "eq", args: ["activity_id", "a1"] });
+        expect(calls).toContainEqual({ method: "eq", args: ["status", "pending"] });
     });
 
     it("una riga oltre il tetto → truncated=true e si restituisce solo il tetto", async () => {

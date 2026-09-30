@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { respondReservation } from "@/services/supabase/reservations";
 import type { ReservationStatus } from "@/types/reservation";
+import { statusMetaLoose } from "@/utils/reservationStatusMeta";
 
 // Deve restare allineato a `RespondReservationAction` nel service e alla
 // matrice in `supabase/functions/_shared/reservationTransitions.ts`.
@@ -111,7 +112,7 @@ export function useDeferredCommit({
                     const cur = e.details?.current_status;
                     message =
                         cur && cur !== "unknown"
-                            ? `Stato cambiato (ora: ${cur}). Aggiorna la lista.`
+                            ? `Stato cambiato (ora: ${statusMetaLoose(cur).label}). Aggiorna la lista.`
                             : "Stato cambiato nel frattempo. Aggiorna la lista.";
                 } else if (e.code === "RESERVATION_NOT_FOUND") {
                     message = "Prenotazione non trovata o permessi insufficienti.";

@@ -1,0 +1,312 @@
+import { expect, test, type Locator, type Page } from "@playwright/test";
+import { openBusinessPage } from "./business";
+import { REVIEW, stubRecensioni, type RecensioniStub } from "./recensioniStub";
+
+/**
+ * Recensioni (lotto `ds-5-coda`, P0). Scritto sulla pagina di **oggi**, prima
+ * di ricomporla: deve restare verde passo dopo passo. Dove un controllo
+ * cambierà nei passi successivi il locator accetta quello di oggi e quello di
+ * domani (l'eliminazione: conferma nella riga oggi, ConfirmDialog domani); lo
+ * stato d'errore è `test.fail` finché il passo non lo porta.
+ *
+ * Dati finti in `recensioniStub.ts` (tutte le sedi, orologio fermo a
+ * mercoledì 23/09/2026); permessi, azienda e sidebar veri.
+ */
+
+function main(page: Page) {
+    return page.getByRole("main");
+}
+
+async function openPage(page: Page): Promise<void> {
+    await openBusinessPage(page, "reviews", "Recensioni");
+    await expect(main(page).getByText("Pizza ottima e2e, torneremo.")).toBeVisible({ timeout: 15_000 });
+}
+
+function comments(page: Page): Promise<string[]> {
+    return main(page).getByText(/^(Pizza ottima|Servizio lento|Tiramisù da provare|Freddo) e2e/).allTextContents();
+}
+
+/** La riga di una recensione: il più vicino antenato che ha il suo `data-list-row`. */
+function rowOf(page: Page, comment: string): Locator {
+    return main(page).locator("[data-list-row]").filter({ hasText: comment });
+}
+
+/**
+ * Clic su un bottone che deve esserci: prima l'attesa con scadenza, così
+ * un'assenza è un'asserzione fallita e non un timeout del test.
+ */
+async function press(button: Locator): Promise<void> {
+    await expect(button).toBeVisible();
+    await button.click();
+}
+
+/** La coda di moderazione: la sezione col nome «… in attesa …». */
+function queue(page: Page): Locator {
+    return main(page).getByRole("region", { name: /in attesa/ });
+}
+
+/**
+ * Un filtro della testata: il controllo comodo se c'è, altrimenti il bottone
+ * della barra compatta («Periodo: …. Cambia filtro») e l'opzione nel suo elenco.
+ */
+async function chooseFilter(page: Page, comfy: Locator, compactLabel: string, option: RegExp, comfyValue?: string): Promise<void> {
+    if (await comfy.isVisible().catch(() => false)) {
+        if (comfyValue !== undefined) await comfy.selectOption(comfyValue);
+        else await comfy.click();
+        return;
+    }
+    // Il bottone compatto dice «Filtra per periodo» a filtro vuoto, «Periodo: …» dopo.
+    await page.getByRole("button", { name: new RegExp(`^(Filtra per ${compactLabel.toLowerCase()}|${compactLabel}:)`) }).click();
+    await page.getByRole("option", { name: option }).click();
+}
+
+/** Ricerca in testata: il campo, o la lente della barra compatta. */
+async function search(page: Page, text: string): Promise<void> {
+    const field = page.getByPlaceholder(/^Cerca/).filter({ visible: true }).first();
+    if (!(await field.isVisible().catch(() => false))) {
+        await page.getByRole("button", { name: "Cerca", exact: true }).click();
+    }
+    await field.fill(text);
+}
+
+async function noSideScroll(page: Page): Promise<void> {
+    const overflow = await page.evaluate(() => {
+        const de = document.documentElement;
+        const scrollers = [de, ...Array.from(document.querySelectorAll<HTMLElement>("main"))];
+        return Math.max(...scrollers.map(el => el.scrollWidth - el.clientWidth));
+    });
+    expect(overflow).toBeLessThanOrEqual(0);
+}
+
+let stub: RecensioniStub;
+
+test.describe("Recensioni", () => {
+    test.beforeEach(async ({ page }) => {
+        stub = await stubRecensioni(page);
+    });
+
+    test("riepilogo: media, totale e distribuzione", async ({ page }) => {
+        await openPage(page);
+        // (5 + 2 + 4 + 5 + 1) / 5 = 3,4
+        await expect(main(page).getByText(/^3[.,]4$/).first()).toBeVisible();
+        await expect(main(page).getByText(/5 recensioni/).first()).toBeVisible();
+    });
+
+    test("elenco dal più recente, sede e «Nessun commento»", async ({ page }) => {
+        await openPage(page);
+        expect(await comments(page)).toEqual([
+            "Pizza ottima e2e, torneremo.",
+            "Servizio lento e2e, un'ora per il secondo.",
+            "Tiramisù da provare e2e",
+            "Freddo e2e"
+        ]);
+        await expect(main(page).getByText("Nessun commento")).toBeVisible();
+        await expect(main(page).getByText("Porto e2e").first()).toBeVisible();
+    });
+
+    test("filtro per stelle", async ({ page }) => {
+        await openPage(page);
+        await chooseFilter(page, page.getByRole("radio", { name: /^1$/ }), "Valutazione", /^1 stella$/);
+        expect(await comments(page)).toEqual(["Freddo e2e"]);
+    });
+
+    test("ricerca nei commenti", async ({ page }) => {
+        await openPage(page);
+        await search(page, "tiramisù");
+        expect(await comments(page)).toEqual(["Tiramisù da provare e2e"]);
+    });
+
+    test("periodo: ultimi 7 giorni", async ({ page }) => {
+        await openPage(page);
+        await chooseFilter(page, page.getByRole("combobox", { name: "Filtra per periodo" }), "Periodo", /Ultimi 7 giorni/, "7d");
+        await expect(main(page).getByText("Freddo e2e")).toHaveCount(0);
+        expect(await comments(page)).toEqual(["Pizza ottima e2e, torneremo.", "Servizio lento e2e, un'ora per il secondo."]);
+    });
+
+    test("ordinamento per voto più alto", async ({ page }) => {
+        await openPage(page);
+        await chooseFilter(page, page.getByRole("combobox", { name: "Ordina recensioni" }), "Ordinamento", /Voto (↑|più alto)/, "ratingDesc");
+        const list = await comments(page);
+        expect(list[list.length - 1]).toBe("Freddo e2e");
+        expect(list.slice(0, 2).sort()).toEqual(["Pizza ottima e2e, torneremo.", "Tiramisù da provare e2e"]);
+    });
+
+    test("senza lettura: la pagina è bloccata", async ({ page }) => {
+        await stub.revoke("reviews.read");
+        await openBusinessPage(page, "overview", "Panoramica");
+        await page.goto(page.url().replace(/\/overview$/, "/reviews"));
+        await stub.revoked;
+        await expect(main(page).getByText("Non hai accesso a questa sezione")).toBeVisible({ timeout: 15_000 });
+        await expect(main(page).getByText("Pizza ottima e2e, torneremo.")).toHaveCount(0);
+    });
+
+    test("a 375 nessuno scroll orizzontale", async ({ page }) => {
+        await openPage(page);
+        await page.setViewportSize({ width: 375, height: 800 });
+        await expect(main(page).getByText("Pizza ottima e2e, torneremo.")).toBeVisible();
+        await noSideScroll(page);
+    });
+});
+
+test.describe("Recensioni — vuoto ed errore", () => {
+    test("nessuna recensione", async ({ page }) => {
+        stub = await stubRecensioni(page, { empty: true });
+        await openBusinessPage(page, "reviews", "Recensioni");
+        await expect(main(page).getByText(/Nessuna recensione/).first()).toBeVisible({ timeout: 15_000 });
+    });
+
+    test("errore di caricamento: lo dice e offre «Riprova»", async ({ page }) => {
+        stub = await stubRecensioni(page);
+        await page.route(/\/rest\/v1\/reviews\?/, route => route.fulfill({ status: 500, json: { code: "E2E", message: "rotto" } }));
+        await openBusinessPage(page, "reviews", "Recensioni");
+        await expect(main(page).getByRole("button", { name: "Riprova" })).toBeVisible({ timeout: 15_000 });
+        await expect(main(page).getByText(/Nessuna recensione/)).toHaveCount(0);
+    });
+});
+
+/**
+ * La coda di moderazione (lotto `ds-5-moderazione`, §34.9/1, R1 della §50.14).
+ * Scritti sulla pagina di oggi: quello che la pagina non fa ancora è
+ * `test.fail`, tolto al passo che lo porta.
+ */
+test.describe("Recensioni — moderazione", () => {
+    test.beforeEach(async ({ page }) => {
+        stub = await stubRecensioni(page, { moderation: true });
+    });
+
+    test("la coda in cima: quante, da quanto, cosa vuol dire", async ({ page }) => {
+        await openPage(page);
+        await expect(queue(page)).toContainText("2 recensioni in attesa");
+        await expect(queue(page)).toContainText("da 7 giorni");
+        await expect(queue(page)).toContainText("Le recensioni arrivano sempre in attesa");
+        // La più vecchia in cima: si modera nell'ordine in cui sono arrivate.
+        await expect(queue(page).locator("[data-list-row]").first()).toContainText("Cameriere scortese e2e");
+    });
+
+    test("il riepilogo conta solo le pubblicate", async ({ page }) => {
+        await openPage(page);
+        // Le cinque pubblicate: (5 + 2 + 4 + 5 + 1) / 5 = 3,4. Con le tre nuove sarebbe 3,1 su 8.
+        await expect(main(page).getByText(/^3[.,]4$/).first()).toBeVisible();
+        await expect(main(page).getByText(/5 recensioni pubblicate/).first()).toBeVisible();
+    });
+
+    test("«Pubblica» scrive solo lo stato e la sposta fra le pubblicate", async ({ page }) => {
+        stub.onWrite("reviews.PATCH", () => [{ id: REVIEW.carbonara }]);
+        await openPage(page);
+        await press(rowOf(page, "Carbonara perfetta e2e").getByRole("button", { name: "Pubblica" }));
+        await expect(page.getByText("Recensione pubblicata")).toBeVisible();
+        const write = stub.writes.find(w => w.key === "reviews.PATCH");
+        expect(write?.body).toEqual({ status: "approved" });
+        expect(write?.params.get("id")).toBe(`eq.${REVIEW.carbonara}`);
+        expect(write?.params.get("tenant_id")).toMatch(/^eq\./);
+        await expect(queue(page)).toContainText("1 recensione in attesa");
+        await expect(rowOf(page, "Carbonara perfetta e2e").getByText("Pubblicata")).toBeVisible();
+    });
+
+    test("«Tieni nascosta» scrive solo lo stato", async ({ page }) => {
+        stub.onWrite("reviews.PATCH", () => [{ id: REVIEW.scortese }]);
+        await openPage(page);
+        await press(rowOf(page, "Cameriere scortese e2e").getByRole("button", { name: "Tieni nascosta" }));
+        await expect(page.getByText("Recensione nascosta")).toBeVisible();
+        expect(stub.writes.find(w => w.key === "reviews.PATCH")?.body).toEqual({ status: "hidden" });
+        await expect(rowOf(page, "Cameriere scortese e2e").getByText("Nascosta")).toBeVisible();
+    });
+
+    test("se il server non cambia niente lo dice, e la coda resta com'era", async ({ page }) => {
+        // 0 righe: permesso tolto nel frattempo, o recensione già eliminata.
+        stub.onWrite("reviews.PATCH", () => []);
+        await openPage(page);
+        await press(rowOf(page, "Carbonara perfetta e2e").getByRole("button", { name: "Pubblica" }));
+        await expect(page.getByText(/Non è stato possibile pubblicare/)).toBeVisible();
+        await expect(queue(page)).toContainText("2 recensioni in attesa");
+    });
+
+    test("stato in riga e filtro «Nascoste»", async ({ page }) => {
+        await openPage(page);
+        await expect(rowOf(page, "Pizza ottima e2e, torneremo.").getByText("Pubblicata")).toBeVisible();
+        await press(page.getByRole("radio", { name: /^Nascoste/ }));
+        await expect(rowOf(page, "Prova spam e2e").getByText("Nascosta")).toBeVisible();
+        await expect(main(page).getByText("Pizza ottima e2e, torneremo.")).toHaveCount(0);
+    });
+
+    test("Elimina solo sulle nascoste", async ({ page }) => {
+        await openPage(page);
+        await press(rowOf(page, "Pizza ottima e2e, torneremo.").getByRole("button", { name: /^Azioni/ }));
+        await expect(page.getByRole("menuitem", { name: "Nascondi" })).toBeVisible();
+        await expect(page.getByRole("menuitem", { name: "Elimina" })).toHaveCount(0);
+    });
+
+    // Sostituisce «eliminare chiede conferma, poi toglie la riga», che eliminava
+    // una pubblicata: con la coda Elimina resta solo sulle nascoste (R3, mockup).
+    test("eliminare una nascosta chiede conferma, poi toglie la riga", async ({ page }) => {
+        stub.onWrite("reviews.DELETE", () => [{ id: REVIEW.spam }]);
+        await openPage(page);
+        await rowOf(page, "Prova spam e2e").getByRole("button", { name: /^Azioni/ }).click();
+        await page.getByRole("menuitem", { name: "Elimina" }).click();
+        expect(stub.writes.filter(w => w.key === "reviews.DELETE")).toHaveLength(0);
+        await page.getByRole("button", { name: "Elimina", exact: true }).last().click();
+        await expect(page.getByText("Recensione eliminata")).toBeVisible();
+        await expect(main(page).getByText("Prova spam e2e")).toHaveCount(0);
+        expect(stub.writes.find(w => w.key === "reviews.DELETE")?.params.get("id")).toBe(`eq.${REVIEW.spam}`);
+    });
+
+    // Era «senza reviews.delete: niente elimina» nel blocco sopra, che contava
+    // il «⋯»: con la coda il menu porta anche Pubblica e Nascondi, e con le
+    // sole pubblicate Elimina non c'era comunque. Qui su una nascosta.
+    test("senza reviews.delete: la nascosta si ripubblica, non si elimina", async ({ page }) => {
+        await stub.revoke("reviews.delete");
+        await openPage(page);
+        await stub.revoked;
+        await press(rowOf(page, "Prova spam e2e").getByRole("button", { name: /^Azioni/ }));
+        await expect(page.getByRole("menuitem", { name: "Pubblica" })).toBeVisible();
+        await expect(page.getByRole("menuitem", { name: "Elimina" })).toHaveCount(0);
+    });
+
+    test("la voce di sidebar conta le recensioni in attesa", async ({ page }) => {
+        await openPage(page);
+        const link = page.getByRole("navigation", { name: "Menu principale" }).getByRole("link", { name: /^Recensioni/ });
+        await expect(link).toContainText("2");
+    });
+
+    test("senza reviews.moderate: la coda si legge, nessun comando né badge", async ({ page }) => {
+        await stub.revoke("reviews.moderate");
+        await openPage(page);
+        await stub.revoked;
+        await expect(queue(page)).toContainText("2 recensioni in attesa");
+        await expect(main(page).getByRole("button", { name: /^(Pubblica|Tieni nascosta)$/ })).toHaveCount(0);
+        await expect(rowOf(page, "Pizza ottima e2e, torneremo.").getByRole("button", { name: /^Azioni/ })).toHaveCount(0);
+        // Elimina resta di reviews.delete, che qui c'è: sulla nascosta il menu ha solo quella.
+        await press(rowOf(page, "Prova spam e2e").getByRole("button", { name: /^Azioni/ }));
+        await expect(page.getByRole("menuitem")).toHaveText(["Elimina"]);
+        await page.keyboard.press("Escape");
+        const link = page.getByRole("navigation", { name: "Menu principale" }).getByRole("link", { name: /^Recensioni/ });
+        await expect(link).not.toContainText("2");
+    });
+
+    test("a 375 nessuno scroll orizzontale, coda compresa", async ({ page }) => {
+        await openPage(page);
+        await page.setViewportSize({ width: 375, height: 800 });
+        await expect(main(page).getByText("Carbonara perfetta e2e")).toBeVisible();
+        await noSideScroll(page);
+    });
+
+    test("a 375 il commento lungo in coda prende tutta la riga, voto e bottoni sotto", async ({ page }) => {
+        await openPage(page);
+        await page.setViewportSize({ width: 375, height: 800 });
+        const row = queue(page).locator("[data-list-row]").filter({ hasText: "Cameriere scortese e2e" });
+        const comment = row.getByText(/^Cameriere scortese e2e/);
+        await expect(comment).toBeVisible();
+        const [rowBox, commentBox, ratingBox, buttonBox] = await Promise.all([
+            row.boundingBox(),
+            comment.boundingBox(),
+            row.getByRole("img").first().boundingBox(),
+            row.getByRole("button", { name: "Pubblica" }).boundingBox()
+        ]);
+        if (!rowBox || !commentBox || !ratingBox || !buttonBox) throw new Error("riga della coda non misurabile");
+        // Tutta la larghezza meno i rientri della riga (24 per lato in una Card flush).
+        expect(commentBox.width).toBeGreaterThanOrEqual(rowBox.width - 2 * 24 - 2);
+        // Voto e bottoni sotto il commento, non accanto.
+        expect(ratingBox.y).toBeGreaterThanOrEqual(commentBox.y + commentBox.height);
+        expect(buttonBox.y).toBeGreaterThanOrEqual(commentBox.y + commentBox.height);
+    });
+});

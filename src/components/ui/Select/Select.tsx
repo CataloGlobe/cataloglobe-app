@@ -1,5 +1,6 @@
 import React, { forwardRef } from "react";
-import { InputBase } from "../Input/InputBase";
+import { ChevronDown } from "lucide-react";
+import { FormField } from "../FormField/FormField";
 import styles from "./Select.module.scss";
 
 export interface SelectOption {
@@ -40,7 +41,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
         ref
     ) => {
         return (
-            <InputBase
+            <FormField
                 id={id}
                 label={label}
                 tooltip={tooltip}
@@ -75,11 +76,11 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
                         </select>
 
                         <div className={styles.caret} aria-hidden="true">
-                            ▾
+                            <ChevronDown size={16} />
                         </div>
                     </div>
                 )}
-            </InputBase>
+            </FormField>
         );
     }
 );

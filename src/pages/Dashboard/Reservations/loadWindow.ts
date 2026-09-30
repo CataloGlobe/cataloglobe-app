@@ -81,7 +81,7 @@ export function mergeDateRanges(ranges: readonly DateRange[]): DateRange[] {
     return out;
 }
 
-export function rangeContains(range: DateRange, iso: string): boolean {
+function rangeContains(range: DateRange, iso: string): boolean {
     return iso >= range.from && iso <= range.to;
 }
 

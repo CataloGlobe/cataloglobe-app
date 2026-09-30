@@ -1,55 +1,41 @@
-// Puoi collegarti al tuo sistema di temi:
-// :root[data-theme="light"] { --loader-color: #111827; }
-// :root[data-theme="dark"] { --loader-color: #f9fafb; }
-
-:root {
-  --loader-color: #111827;
-  --loader-overlay-bg: rgba(15, 23, 42, 0.55);
-}
-
-[data-theme="dark"] {
-  --loader-color: #f9fafb;
-  --loader-overlay-bg: rgba(15, 23, 42, 0.75);
-}
+// Loader — scheda «Loader»: uno spinner, solo quando il contenuto non ha
+// ancora una forma. Anello 2px --brand-primary su --border, 0,8 s lineare;
+// fermo con prefers-reduced-motion (resta l'anello). sm 16 · md 24 · lg 32.
+// Solo token: nessuna variabile locale né override per tema.
 
 .loaderSpinner {
   box-sizing: border-box;
-  border-radius: 999px;
-  border-style: solid;
-  border-width: 3px;
-  border-color: rgba(0, 0, 0, 0.08);
-  border-top-color: var(--loader-color);
+  border-radius: var(--radius-pill);
+  border: 2px solid var(--border);
+  border-top-color: var(--brand-primary);
   animation: loader-spin 0.8s linear infinite;
 }
 
 /* Dimensioni */
 .loaderSm {
-  width: 18px;
-  height: 18px;
-  border-width: 2px;
+  width: 16px;
+  height: 16px;
 }
 
 .loaderMd {
-  width: 28px;
-  height: 28px;
-  border-width: 3px;
+  width: 24px;
+  height: 24px;
 }
 
 .loaderLg {
-  width: 40px;
-  height: 40px;
-  border-width: 4px;
+  width: 32px;
+  height: 32px;
 }
 
-/* Fullscreen overlay */
+/* Fullscreen overlay: velo scuro sopra tutto (--z-loader), come AppLoader. */
 .fullscreenOverlay {
   position: fixed;
   inset: 0;
-  background: var(--loader-overlay-bg);
+  background: rgba(15, 23, 42, 0.55);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 9998;
+  z-index: var(--z-loader);
 }
 
 /* Accessibilità */
@@ -69,5 +55,11 @@
 @keyframes loader-spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loaderSpinner {
+    animation: none;
   }
 }

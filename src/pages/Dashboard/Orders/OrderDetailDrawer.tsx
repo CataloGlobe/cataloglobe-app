@@ -1,13 +1,17 @@
-import { useRef } from "react";
-import { Ban, Printer, RotateCcw } from "lucide-react";
+import { useId, useRef } from "react";
+import { Check, Printer, RotateCcw, X } from "lucide-react";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
+import { Badge } from "@/components/ui/Badge/Badge";
+import { Card } from "@/components/ui/Card/Card";
+import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
+import { ListRow } from "@/components/ui/ListRow/ListRow";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
-import type { StatusBadgeVariant } from "@/components/ui/StatusBadge/StatusBadge";
 import type { V2OrderWithItems } from "@/types/orders";
 import PrintReceipt from "./PrintReceipt";
+import { orderStatusBadge } from "./orderStatusBadge";
 import styles from "./OrderDetailDrawer.module.scss";
 
 /**
@@ -71,22 +75,28 @@ function formatAbsolute(iso: string): string {
     return DATETIME_FORMATTER.format(new Date(iso));
 }
 
-function statusInfo(status: V2OrderWithItems["status"]): {
-    variant: StatusBadgeVariant;
-    label: string;
-} {
-    switch (status) {
-        case "submitted":
-            return { variant: "warning", label: "Da prendere" };
-        case "acknowledged":
-            return { variant: "success", label: "In corso" };
-        case "ready":
-            return { variant: "success", label: "Pronto" };
-        case "delivered":
-            return { variant: "neutral", label: "Consegnato" };
-        case "cancelled":
-            return { variant: "neutral", label: "Cancellato" };
+type OrderItem = NonNullable<V2OrderWithItems["items"]>[number];
+
+/**
+ * Opzione, aggiunte e note di un articolo in una riga sola di testo, nell'ordine
+ * in cui la cucina le legge. Va nel sottotitolo della `ListRow` senza limite di
+ * righe (`wrapSubtitle="full"`): tagliata, direbbe metà delle aggiunte.
+ */
+function itemDetail(item: OrderItem): string | null {
+    const parts: string[] = [];
+    const primary = item.options_snapshot.primary_option;
+    if (primary) parts.push(`${primary.group_name}: ${primary.value_name}`);
+    const addons = item.options_snapshot.addons;
+    if (addons.length > 0) {
+        const list = addons.map(addon =>
+            addon.price_delta !== 0
+                ? `${addon.value_name} (${addon.price_delta > 0 ? "+" : ""}${formatEur(addon.price_delta)})`
+                : addon.value_name
+        );
+        parts.push(`Aggiunte: ${list.join(", ")}`);
     }
+    if (item.item_notes) parts.push(`Note: ${item.item_notes}`);
+    return parts.length > 0 ? parts.join(" · ") : null;
 }
 
 export default function OrderDetailDrawer({
@@ -100,6 +110,7 @@ export default function OrderDetailDrawer({
     onClose
 }: Props) {
     const printRef = useRef<HTMLDivElement>(null);
+    const titleId = useId();
 
     function handlePrint() {
         if (onPrint) {
@@ -115,28 +126,24 @@ export default function OrderDetailDrawer({
 
     if (!order) {
         return (
-            <SystemDrawer open={open} onClose={onClose} width={560}>
+            <SystemDrawer open={open} onClose={onClose} size="md" aria-labelledby={titleId} autoFocusFirstInput={false}>
                 <DrawerLayout
-                    header={
-                        <Text variant="title-sm" weight={600}>
-                            Dettaglio ordine
-                        </Text>
-                    }
+                    title="Dettaglio ordine"
+                    titleId={titleId}
+                    onClose={onClose}
                     footer={
                         <Button variant="secondary" onClick={onClose}>
                             Chiudi
                         </Button>
                     }
                 >
-                    <div className={styles.empty}>
-                        <Text colorVariant="muted">Ordine non disponibile</Text>
-                    </div>
+                    <Text colorVariant="muted">Ordine non disponibile</Text>
                 </DrawerLayout>
             </SystemDrawer>
         );
     }
 
-    const { variant: stVariant, label: stLabel } = statusInfo(order.status);
+    const { variant: stVariant, label: stLabel } = orderStatusBadge(order.status);
     const canPrint = order.status !== "cancelled";
 
     // Padre rettificato (NON l'ordine-che-È-storno, gestito dal banner più sotto).
@@ -147,16 +154,23 @@ export default function OrderDetailDrawer({
         order.netTotal != null &&
         order.netTotal !== order.total_amount;
 
+    // Chi l'ha mandata: l'operatore per le comande staff, il nome del cliente
+    // per quelle dal tavolo ("Comanda manuale" è un segnaposto, non un cliente).
+    const author =
+        order.created_by_user_id != null
+            ? `Creata da ${operatorNames?.get(order.created_by_user_id) ?? "Staff"}`
+            : order.customer_name_snapshot
+              ? `Cliente: ${order.customer_name_snapshot}`
+              : null;
+
     return (
-        <SystemDrawer open={open} onClose={onClose} width={560}>
+        <SystemDrawer open={open} onClose={onClose} size="md" aria-labelledby={titleId} autoFocusFirstInput={false}>
             <DrawerLayout
-                header={
-                    <Text variant="title-sm" weight={600}>
-                        Dettaglio ordine
-                    </Text>
-                }
+                title="Dettaglio ordine"
+                titleId={titleId}
+                onClose={onClose}
                 footer={
-                    <div className={styles.footerActions}>
+                    <>
                         <Button variant="secondary" onClick={onClose}>
                             Chiudi
                         </Button>
@@ -169,255 +183,129 @@ export default function OrderDetailDrawer({
                                 {hasPrinters ? "Ristampa comanda" : "Stampa"}
                             </Button>
                         )}
-                    </div>
+                    </>
                 }
             >
                 <div className={styles.content}>
-                    <div className={styles.headerInfo}>
-                        <StatusBadge variant={stVariant} label={stLabel} />
-                        {isRectifiedParent && (
-                            <span className={styles.rettificatoChip}>
-                                <RotateCcw size={11} aria-hidden />
-                                Rettificato
-                            </span>
-                        )}
-                        <Text weight={600}>
-                            {tableLabel}
-                            {tableZone ? ` · ${tableZone}` : ""}
-                        </Text>
-                    </div>
-
-                    <div className={styles.metaRow}>
-                        <Text variant="body-sm" colorVariant="muted">
-                            Inviato:
-                        </Text>
-                        <Text variant="body-sm">
-                            {formatAbsolute(order.submitted_at)}
-                        </Text>
-                    </div>
-
-                    {order.created_by_user_id != null ? (
-                        <div className={styles.metaRow}>
-                            <Text variant="body-sm" colorVariant="muted">
-                                Creata da:
-                            </Text>
-                            <Text variant="body-sm" weight={500}>
-                                {operatorNames?.get(order.created_by_user_id) ?? "Staff"}
+                    <div className={styles.summary}>
+                        <div className={styles.summaryLine}>
+                            <StatusBadge variant={stVariant} label={stLabel} />
+                            {isRectifiedParent && (
+                                <Badge>
+                                    <RotateCcw size={12} aria-hidden /> Rettificato
+                                </Badge>
+                            )}
+                            <Text weight={600}>
+                                {tableLabel}
+                                {tableZone ? ` · ${tableZone}` : ""}
                             </Text>
                         </div>
-                    ) : (
-                        order.customer_name_snapshot && (
-                            <div className={styles.metaRow}>
-                                <Text variant="body-sm" colorVariant="muted">
-                                    Cliente:
-                                </Text>
-                                <Text variant="body-sm" weight={500}>
-                                    {order.customer_name_snapshot}
-                                </Text>
-                            </div>
-                        )
-                    )}
+                        <Text variant="body-sm" colorVariant="muted">
+                            Inviato {formatAbsolute(order.submitted_at)}
+                            {author ? ` · ${author}` : ""}
+                        </Text>
+                    </div>
 
                     {order.is_rectification && (
-                        <div className={styles.rectificationBanner}>
-                            <Text variant="body-sm" weight={500}>
-                                Questa è una rettifica
-                            </Text>
-                            <Text variant="body-sm" colorVariant="muted">
-                                Storno parziale di un ordine precedente
-                            </Text>
-                        </div>
+                        <InlineBanner variant="info" icon={<RotateCcw size={16} aria-hidden />}>
+                            Questa è una rettifica: storno parziale di un ordine precedente.
+                        </InlineBanner>
                     )}
 
-                    <div className={styles.section}>
-                        <Text variant="body-sm" weight={600} colorVariant="muted">
-                            Articoli
-                        </Text>
-                        <div className={styles.items}>
-                            {(order.items ?? []).map(item => {
-                                const isCancelled = item.cancelled_at != null;
-                                return (
-                                <div
+                    <Card title="Articoli" flush>
+                        {(order.items ?? []).map(item => {
+                            const isCancelled = item.cancelled_at != null;
+                            return (
+                                <ListRow
                                     key={item.id}
-                                    className={
-                                        isCancelled
-                                            ? `${styles.itemBlock} ${styles.itemBlockCancelled}`
-                                            : styles.itemBlock
+                                    title={item.product_name_snapshot}
+                                    subtitle={itemDetail(item)}
+                                    wrapSubtitle="full"
+                                    metaInline
+                                    muted={isCancelled}
+                                    meta={
+                                        <>
+                                            {isCancelled && <StatusBadge variant="neutral" label="Annullato" />}
+                                            <Text variant="body-sm" colorVariant="muted">
+                                                {item.quantity}×
+                                            </Text>
+                                            <Text variant="body-sm" weight={500}>
+                                                {formatEur(item.line_total)}
+                                            </Text>
+                                        </>
                                     }
-                                >
-                                    <div className={styles.itemHeader}>
-                                        <Text weight={500}>
-                                            <span className={styles.itemQty}>
-                                                {item.quantity}x
-                                            </span>{" "}
-                                            {item.product_name_snapshot}
-                                            {isCancelled && (
-                                                <span className={styles.cancelledPill}>
-                                                    <Ban size={11} aria-hidden />
-                                                    Annullato
-                                                </span>
-                                            )}
+                                />
+                            );
+                        })}
+                        <ListRow
+                            title="Totale"
+                            metaInline
+                            meta={
+                                showNet ? (
+                                    <>
+                                        <Text variant="body-sm" colorVariant="muted" className={styles.grossStrike}>
+                                            {formatEur(order.total_amount)}
                                         </Text>
-                                        <Text weight={500}>
-                                            {formatEur(item.line_total)}
-                                        </Text>
-                                    </div>
-
-                                    {item.options_snapshot.primary_option && (
-                                        <Text variant="body-sm" colorVariant="muted">
-                                            {item.options_snapshot.primary_option.group_name}:{" "}
-                                            {item.options_snapshot.primary_option.value_name}
-                                        </Text>
-                                    )}
-
-                                    {item.options_snapshot.addons.length > 0 && (
-                                        <div className={styles.addons}>
-                                            <Text variant="body-sm" colorVariant="muted">
-                                                Aggiunte:
-                                            </Text>
-                                            <ul>
-                                                {item.options_snapshot.addons.map(
-                                                    (addon, idx) => (
-                                                        <li
-                                                            key={`${addon.value_id}-${idx}`}
-                                                        >
-                                                            <Text variant="body-sm">
-                                                                {addon.value_name}
-                                                                {addon.price_delta !== 0 && (
-                                                                    <span
-                                                                        className={
-                                                                            styles.priceDelta
-                                                                        }
-                                                                    >
-                                                                        {" "}
-                                                                        (
-                                                                        {addon.price_delta > 0
-                                                                            ? "+"
-                                                                            : ""}
-                                                                        {formatEur(addon.price_delta)}
-                                                                        )
-                                                                    </span>
-                                                                )}
-                                                            </Text>
-                                                        </li>
-                                                    )
-                                                )}
-                                            </ul>
-                                        </div>
-                                    )}
-
-                                    {item.item_notes && (
-                                        <div className={styles.itemNotes}>
-                                            <Text variant="body-sm" colorVariant="muted">
-                                                Note:
-                                            </Text>
-                                            <Text variant="body-sm">{item.item_notes}</Text>
-                                        </div>
-                                    )}
-                                </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-
-                    <div className={styles.totalRow}>
-                        <Text variant="title-sm" weight={600}>
-                            Totale
-                        </Text>
-                        {showNet ? (
-                            <div className={styles.totalAmounts}>
-                                <Text
-                                    variant="body-sm"
-                                    colorVariant="muted"
-                                    className={styles.grossStrike}
-                                >
-                                    {formatEur(order.total_amount)}
-                                </Text>
-                                <Text variant="title-sm" weight={600}>
-                                    {formatEur(order.netTotal as number)}
-                                </Text>
-                            </div>
-                        ) : (
-                            <Text variant="title-sm" weight={600}>
-                                {formatEur(order.total_amount)}
-                            </Text>
-                        )}
-                    </div>
+                                        <Text weight={600}>{formatEur(order.netTotal as number)}</Text>
+                                    </>
+                                ) : (
+                                    <Text weight={600}>{formatEur(order.total_amount)}</Text>
+                                )
+                            }
+                        />
+                    </Card>
 
                     {order.notes && (
-                        <div className={styles.section}>
-                            <Text variant="body-sm" weight={600} colorVariant="muted">
-                                Note ordine
-                            </Text>
-                            <div className={styles.notesBox}>
-                                <Text variant="body-sm">{order.notes}</Text>
-                            </div>
-                        </div>
+                        <Card title="Note ordine">
+                            <Text variant="body-sm">{order.notes}</Text>
+                        </Card>
                     )}
 
-                    <div className={styles.section}>
-                        <Text variant="body-sm" weight={600} colorVariant="muted">
-                            Storico
-                        </Text>
-                        <ul className={styles.timeline}>
-                            <li>
-                                <Text variant="body-sm">
-                                    <span className={styles.timelineCheck}>✓</span> Inviato{" "}
-                                    <span className={styles.timelineTime}>
-                                        {formatAbsolute(order.submitted_at)}
-                                    </span>
-                                </Text>
-                            </li>
-                            {order.acknowledged_at && (
-                                <li>
-                                    <Text variant="body-sm">
-                                        <span className={styles.timelineCheck}>✓</span>{" "}
-                                        Confermato{" "}
-                                        <span className={styles.timelineTime}>
-                                            {formatAbsolute(order.acknowledged_at)}
-                                        </span>
-                                    </Text>
-                                </li>
-                            )}
-                            {order.delivered_at && (
-                                <li>
-                                    <Text variant="body-sm">
-                                        <span className={styles.timelineCheck}>✓</span>{" "}
-                                        Consegnato{" "}
-                                        <span className={styles.timelineTime}>
-                                            {formatAbsolute(order.delivered_at)}
-                                        </span>
-                                    </Text>
-                                </li>
-                            )}
-                            {order.cancelled_at && (
-                                <li>
-                                    <Text variant="body-sm">
-                                        <span className={styles.timelineCancel}>✕</span>{" "}
-                                        Cancellato{" "}
-                                        <span className={styles.timelineTime}>
-                                            {formatAbsolute(order.cancelled_at)}
-                                        </span>
-                                        {order.cancelled_by && (
-                                            <span className={styles.timelineMeta}>
-                                                {" "}
-                                                (
-                                                {order.cancelled_by === "customer"
-                                                    ? "dal cliente"
-                                                    : "dallo staff"}
-                                                )
-                                            </span>
-                                        )}
-                                    </Text>
-                                    {order.cancellation_reason && (
-                                        <Text variant="body-sm" colorVariant="muted">
-                                            Motivo: {order.cancellation_reason}
-                                        </Text>
-                                    )}
-                                </li>
-                            )}
-                        </ul>
-                    </div>
+                    <Card title="Storico" flush>
+                        <ListRow
+                            leading={<Check size={16} aria-hidden className={styles.eventDone} />}
+                            title="Inviato"
+                            metaInline
+                            meta={<Text variant="body-sm" colorVariant="muted">{formatAbsolute(order.submitted_at)}</Text>}
+                        />
+                        {order.acknowledged_at && (
+                            <ListRow
+                                leading={<Check size={16} aria-hidden className={styles.eventDone} />}
+                                title="Confermato"
+                                metaInline
+                                meta={<Text variant="body-sm" colorVariant="muted">{formatAbsolute(order.acknowledged_at)}</Text>}
+                            />
+                        )}
+                        {order.delivered_at && (
+                            <ListRow
+                                leading={<Check size={16} aria-hidden className={styles.eventDone} />}
+                                title="Consegnato"
+                                metaInline
+                                meta={<Text variant="body-sm" colorVariant="muted">{formatAbsolute(order.delivered_at)}</Text>}
+                            />
+                        )}
+                        {order.cancelled_at && (
+                            <ListRow
+                                leading={<X size={16} aria-hidden className={styles.eventCancelled} />}
+                                title="Cancellato"
+                                subtitle={
+                                    [
+                                        order.cancelled_by
+                                            ? order.cancelled_by === "customer"
+                                                ? "Dal cliente"
+                                                : "Dallo staff"
+                                            : null,
+                                        order.cancellation_reason ? `Motivo: ${order.cancellation_reason}` : null
+                                    ]
+                                        .filter(Boolean)
+                                        .join(" · ") || undefined
+                                }
+                                wrapSubtitle="full"
+                                metaInline
+                                meta={<Text variant="body-sm" colorVariant="muted">{formatAbsolute(order.cancelled_at)}</Text>}
+                            />
+                        )}
+                    </Card>
                 </div>
 
                 <PrintReceipt

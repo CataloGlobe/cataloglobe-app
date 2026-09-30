@@ -1,21 +1,19 @@
-@use "@styles/variables" as *;
-
-// Altezza canonica dei controlli interattivi (search/select/CTA/segmented):
-// var(--control-height, 38px). Border-radius rounded-rect (non ovale) per
-// coerenza con select/input. Padding del track 4px + item 100% - 8px = 30px,
-// indicatore animato top:4 + height calc(100% - 8px) → aderente al segmento
-// attivo dentro i 38px senza overflow.
+// SegmentedControl — scheda «SegmentedControl». Contenitore --hover-bg con
+// raggio --radius-control e padding 2; segmenti md 34 (totale 38 =
+// --control-height), sm 26 (totale 30); attivo su --surface + --shadow-rest.
+// Solo token.
 
 .wrapper {
   position: relative;
   display: inline-flex;
   align-items: center;
-  height: var(--control-height, 38px);
+  height: var(--control-height);
   box-sizing: border-box;
 
-  padding: 4px;
-  background: var(--hover-bg, #f1f5f9);
-  border-radius: 10px;
+  padding: 2px;
+  gap: 2px;
+  background: var(--hover-bg);
+  border-radius: var(--radius-control);
 
   // Il track non si comprime e i segmenti non vanno a capo: quando lo spazio
   // manca si scorre. Scrollbar nascosta — l'affordance è la sfumatura destra.
@@ -35,20 +33,13 @@
 // Mask e non overlay in gradiente: il control vive su sfondi diversi (banda
 // header bianca, drawer, card) e la sfumatura deve restarne indipendente.
 .overflowEnd {
-  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent 100%);
-  mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, black calc(100% - 28px), transparent 100%);
+  mask-image: linear-gradient(to right, black calc(100% - 28px), transparent 100%);
 }
 
 // Variante `sm`: contesti densi (header di pagina). Stessa logica, misure ridotte.
 .wrapperSm {
   height: 30px;
-  padding: 3px;
-  border-radius: 8px;
-}
-
-.itemSm {
-  padding: 0 10px;
-  font-size: 12px;
 }
 
 .item {
@@ -58,39 +49,66 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: var(--space-6);
 
   // Niente vertical padding: altezza definita dal wrapper - padding track.
-  padding: 0 12px;
+  padding: 0 var(--space-12);
   height: 100%;
 
-  font-size: 13px;
   background: transparent;
   border: none;
-  border-radius: 6px;
+  border-radius: 6px; // radius-control − padding del track (8 − 2)
 
   cursor: pointer;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted);
   white-space: nowrap;
+
+  transition:
+    color var(--timing-motion-fast) var(--easing-state),
+    box-shadow var(--timing-motion-fast) var(--easing-state);
+
+  svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  &:hover {
+    color: var(--text);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-focus);
+  }
+}
+
+.itemLabel {
+  font-size: 14px;
+  color: inherit;
+}
+
+.itemSm .itemLabel {
+  font-size: 13px;
 }
 
 .item[aria-checked="true"] {
-  color: var(--text, #0f172a);
+  color: var(--text);
 }
 
 .indicator {
   position: absolute;
-  top: 4px;
+  top: 2px;
   left: 0;
 
-  height: calc(100% - 8px);
-  background: #ffffff;
-  border-radius: 6px;
-
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+  height: calc(100% - 4px);
+  background: var(--surface);
+  border-radius: 6px; // radius-control − padding del track (8 − 2)
+  box-shadow: var(--shadow-rest);
 }
 
 /* animazione SOLO dopo il primo render */
 .animate {
-  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition:
+    transform var(--timing-motion-base) var(--easing-surface),
+    width var(--timing-motion-base) var(--easing-surface);
 }

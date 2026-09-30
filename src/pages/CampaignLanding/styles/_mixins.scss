@@ -1,0 +1,129 @@
+@use "sass:math";
+
+// Mobile-first, un solo breakpoint di layout. Fra 768 e 1023 vale il layout
+// mobile, su una colonna di al massimo --ld-mobile-max: il traffico è da
+// smartphone e le tavole mobile sono a 390.
+// @media sul viewport, non @container: la landing non vive in un device frame.
+$ld-bp-desktop: 1024px;
+
+// Solo hero: da 1200 la programmazione di oggi sta in una card verticale fra
+// testo e telefono; sotto è la versione orizzontale sopra il telefono.
+$ld-bp-hero-wide: 1200px;
+
+@mixin hero-wide {
+    @media (min-width: $ld-bp-hero-wide) {
+        @content;
+    }
+}
+
+@mixin hero-narrow {
+    @media (max-width: $ld-bp-hero-wide - 1px) {
+        @content;
+    }
+}
+
+@mixin desktop {
+    @media (min-width: $ld-bp-desktop) {
+        @content;
+    }
+}
+
+@mixin mobile-only {
+    @media (max-width: $ld-bp-desktop - 1px) {
+        @content;
+    }
+}
+
+// Cursore fine (mouse): effetti che hanno senso solo con un puntatore.
+@mixin fine-pointer {
+    @media (pointer: fine) and (min-width: $ld-bp-desktop) {
+        @content;
+    }
+}
+
+@mixin motion-ok {
+    @media (prefers-reduced-motion: no-preference) {
+        @content;
+    }
+}
+
+@mixin reduced-motion {
+    @media (prefers-reduced-motion: reduce) {
+        @content;
+    }
+}
+
+// Interpolazione fra 1024 e 1280 (tavole desktop): sotto i 1280 i valori
+// desktop si stringono fino al minimo, sopra restano quelli della tavola.
+// Valori in px senza unità: ld-fluid-desk(40, 80) → clamp(40px, …, 80px).
+@function ld-fluid-desk($min, $max, $vmin: 1024, $vmax: 1280) {
+    $slope: math.div($max - $min, $vmax - $vmin);
+    $intercept: $min - $slope * $vmin;
+    $vw: math.div(math.round($slope * 100 * 10000), 10000);
+    $px: math.div(math.round($intercept * 100), 100);
+    @return clamp(#{$min}px, #{$px}px + #{$vw}vw, #{$max}px);
+}
+
+// ── Tipografia ──────────────────────────────────────────────────────────────
+// Young Serif esiste solo a 400: mai chiedere 700 (il browser lo falserebbe).
+
+@mixin ld-serif {
+    font-family: var(--ld-font-serif);
+    font-weight: 400;
+}
+
+// Etichetta piccola maiuscola dei pannelli («Dal tuo telefono», «In cucina»…).
+@mixin ld-kicker {
+    font-family: var(--ld-font-sans);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    line-height: 1.3;
+    text-transform: uppercase;
+}
+
+// Pillola maiuscola: «Con CataloGlobe», «Piano Pro».
+@mixin ld-tag {
+    padding: 4px 11px;
+    border-radius: 999px;
+    font-family: var(--ld-font-sans);
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.3;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+// Testo solo per lettori di schermo.
+@mixin ld-sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+@mixin ld-reset-button {
+    appearance: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+}
+
+@mixin ld-focus {
+    &:focus-visible {
+        outline: 2px solid var(--ld-focus-ring);
+        outline-offset: 3px;
+    }
+}
+

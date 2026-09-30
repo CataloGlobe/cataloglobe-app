@@ -19,6 +19,7 @@
     "preview": "vite preview",
     "ds:budget": "node scripts/ds-budget.mjs",
     "ds:budget:check": "node scripts/ds-budget.mjs --check",
+    "landing:demo-screenshots": "node --loader ./scripts/ts-loader.mjs scripts/landing-demo-screenshots.ts",
     "parity:check": "node --loader ./scripts/ts-loader.mjs scripts/parity-check.ts",
     "test:activity-overrides": "node --loader ./scripts/ts-loader.mjs scripts/test-activity-overrides.ts"
   },
@@ -53,6 +54,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.36.0",
+    "@playwright/test": "^1.63.0",
     "@types/culori": "^4.0.1",
     "@types/node": "^24.9.2",
     "@types/qrcode": "^1.5.6",

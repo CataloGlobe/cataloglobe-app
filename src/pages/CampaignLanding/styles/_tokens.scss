@@ -1,0 +1,165 @@
+@use "mixins" as *;
+
+// Token della landing di campagna (Versione C). Mixin e non selettore globale:
+// li applica Frame.module.scss sulla propria classe radice, così esistono SOLO
+// dentro la landing (mai su :root, mai in _theme.scss; --pub-* resta della
+// pagina pubblica dei cataloghi). Custom properties e non variabili SCSS perché
+// le sezioni scure ridefiniscono testo e bordi per scope (data-tone).
+
+// Fondo di html/body mentre la landing è montata: l'overscroll (rimbalzo iOS,
+// bordo sopra/sotto) mostra il bianco della pagina, non il fondo dell'app.
+$ld-page-bg: #FFFFFF;
+
+@mixin ld-page-backdrop($root) {
+    :global(html):has(#{$root}),
+    :global(body):has(#{$root}) {
+        background: $ld-page-bg;
+    }
+}
+
+@mixin ld-tokens {
+    // ── fondi (SPEC §3) ──
+    --ld-white: #{$ld-page-bg};
+    --ld-paper: #F2F2FA;         // superfici interne: campi, righe, pulsante Base
+    --ld-lilla: #EEEDF9;         // sezioni alternate
+    --ld-scuro: #15142B;         // bacheca, form, footer
+    --ld-peach: #FBEEE5;         // blocco ≈500 €, etichetta «Non disponibile»
+    --ld-peach-line: #F1D9C9;
+    // ── testo e bordi del tono chiaro (ridefiniti dal tono scuro) ──
+    @include ld-tokens-light;
+    --ld-line-2: #EDEDF6;
+    --ld-line-3: #E9E8F7;        // cornice dei riquadri FAQ
+    // ── brand ──
+    --ld-azione: #4648C6;        // azione, soluzione
+    --ld-azione-hover: #33359E;
+    --ld-azione-deep: #2A2860;   // pulsante copia dopo il clic
+    --ld-on-azione: #FFFFFF;
+    --ld-brand-s: #E6E5FC;       // blu tenue: etichette
+    --ld-brand-note: #F6F6FE;    // fondo del riquadro «Con CataloGlobe»
+    --ld-brand-dash: #7F81E0;    // bordo tratteggiato del riquadro
+    --ld-brand-hi: #B9BAF6;      // parola evidenziata su scuro (hero, bacheca)
+    --ld-brand-hi-2: #A9AAF2;    // parola evidenziata nel form
+    --ld-underline-dark: #6E70D8;
+    --ld-underline-light: #9B98F0;
+    --ld-terra: #A8461F;         // problema, esaurito, note a mano
+    --ld-terra-light: #E9A07F;   // note a mano su scuro
+    --ld-terra-ink: #8E3B1A;     // problema in corsivo sui foglietti
+    --ld-ok: #2F7D53;            // interruttore «Disponibile»
+    // ── stati di una riga di menù ──
+    --ld-off-ink: #A9A6BC;       // nome esaurito, prezzo barrato
+    --ld-off-price: #C9C7D8;     // prezzo esaurito
+    --ld-leader: #E0E0EE;        // puntini fra nome e prezzo
+    --ld-leader-hero: #CBC8DE;
+    --ld-strike: #9592A8;        // prezzo pieno barrato (prezzi)
+    // ── tono scuro ──
+    --ld-dark-body: #BDBAD2;
+    --ld-dark-muted: #7F7C99;
+    --ld-dark-line: #2E2C50;
+    --ld-dark-link: #CBC8DE;
+    --ld-dark-legal: #6F6C89;
+    --ld-dark-hint: #8E8BAA;
+    --ld-dark-dot: #4A4870;
+    --ld-dark-arrow: #3A3860;
+    // ── hero ──
+    --ld-hero-a: #24203A;
+    --ld-hero-b: #1A1830;
+    // ── hero: telefono simulato (HeroStage) ──
+    --ld-hp-body: #0B0B12;
+    --ld-hp-screen: #F6F3EE;
+    --ld-hp-ink: #1E1B18;
+    --ld-hp-muted: #8A847B;
+    --ld-hp-line: #E6E1D8;
+    --ld-hp-row-line: #EAE5DC;
+    --ld-hp-chip: #ECE6DC;
+    --ld-hp-chip-ink: #6F685E;
+    --ld-hp-brand: #B5482A;      // pillola attiva e logo del locale d'esempio
+    --ld-hp-logo: #F4EEE1;
+    --ld-hp-off: #B7B0A6;        // riga esaurita
+    --ld-hp-old: #AAA39A;        // prezzo barrato
+    --ld-hp-cover: #7E3323;      // copertina: vinaccia sotto la foto finché non arriva
+    // ── hero: programmazione di oggi ──
+    --ld-sched-bg: rgba(24, 23, 44, 0.9);
+    --ld-sched-text: #EDECF7;
+    --ld-sched-eyebrow: #9D9BB4;
+    --ld-sched-muted: #8E8CA6;
+    --ld-sched-done: #6F6D88;
+    --ld-sched-dot: #18172C;
+    --ld-sched-line: var(--ld-brand-hi-2);   // programmato: viola
+    --ld-live: #C9643A;                      // modifica al volo: terracotta
+    --ld-live-ink: #E9A07A;
+    --ld-live-text: #F3E7E0;
+    --ld-live-caption: #F0B08E;
+    // ── bacheca: foglietti ──
+    --ld-note-paper: #FFFDF6;
+    --ld-note-icon: #2B2A6B;
+    --ld-note-icon-fill: #F6DCCB;
+    --ld-string: #D9C3A0;
+    // ── ordini: comanda e sala ──
+    --ld-ticket-paper: #FFFEF7;
+    --ld-ticket-ink: #1E1C2E;
+    --ld-ticket-meta: #6B6880;
+    --ld-ticket-rule: #9C98B0;
+    --ld-chair: #CFCDE0;
+    --ld-chair-free: #E4E3EF;
+    --ld-chair-bill: #E7B9A2;
+    --ld-chair-call: #AFB0EC;
+    --ld-alert-time: #A9A6C4;
+    // ── import: il foglio di carta fotografato (caldo voluto: è carta vera) ──
+    --ld-illo-paper-bg: #F7F0E1;
+    --ld-illo-paper-ink: #4A3F35;
+    --ld-illo-paper-muted: #8C7B66;
+    --ld-illo-paper-dots: #B9AC97;
+    --ld-illo-paper-rule: #CDBFA8;
+    // ── telefono delle demo ──
+    --ld-phone-body: #1B1A2A;
+    --ld-phone-rim: #34324A;
+    --ld-demo-on: #F6F6FE;
+    --ld-handle: #D5D3E2;
+    // ── ombre ──
+    --ld-shadow-card: 0 18px 44px rgba(21, 20, 43, 0.08);
+    --ld-shadow-soft: 0 14px 34px rgba(21, 20, 43, 0.06);
+    --ld-shadow-thumb: 0 2px 8px rgba(21, 20, 43, 0.10);
+    --ld-shadow-cta: 0 10px 28px rgba(70, 72, 198, 0.45);
+    --ld-shadow-form: 0 22px 50px rgba(0, 0, 0, 0.30);
+    // ── ritmo ──
+    --ld-sec-y: 48px;            // SPEC §4: 48 mobile, 80 desktop
+    --ld-sec-x: 20px;
+    --ld-content-max: 1120px;
+    // ── curve e tempi ──
+    --ld-ease: cubic-bezier(0.22, 1, 0.36, 1);
+    --ld-ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1);
+    // ── famiglie ──
+    --ld-font-serif: 'Young Serif', Georgia, 'Times New Roman', serif;
+    --ld-font-sans: 'Instrument Sans Variable', system-ui, -apple-system, sans-serif;
+    --ld-font-hand: 'Caveat', 'Segoe Print', cursive;
+    --ld-font-mono: 'Courier New', Courier, monospace;
+
+    @include desktop {
+        --ld-sec-y: 80px;
+        --ld-sec-x: #{ld-fluid-desk(40, 80)};
+    }
+}
+
+// Tono chiaro: il default della pagina, e il ripristino per una superficie
+// chiara dentro una sezione scura (il form, i foglietti).
+@mixin ld-tokens-light {
+    --ld-ink: #15141F;
+    --ld-body: #3C3A4C;
+    --ld-muted: #63607A;
+    --ld-line: #E0E0EE;
+    --ld-accent: var(--ld-azione);   // seconda parte blu dei titoli
+    --ld-hand: var(--ld-terra);      // nota a mano sopra i titoli
+    --ld-hl-line: var(--ld-underline-light);
+    --ld-focus-ring: var(--ld-azione); // anello di focus: 7,0:1 sul bianco
+}
+
+@mixin ld-tokens-dark {
+    --ld-ink: #F2F2FA;
+    --ld-body: var(--ld-dark-body);
+    --ld-muted: var(--ld-dark-muted);
+    --ld-line: var(--ld-dark-line);
+    --ld-accent: var(--ld-brand-hi);
+    --ld-hand: var(--ld-terra-light);
+    --ld-hl-line: var(--ld-underline-dark);
+    --ld-focus-ring: var(--ld-brand-hi); // anello chiaro sul fondo scuro
+}

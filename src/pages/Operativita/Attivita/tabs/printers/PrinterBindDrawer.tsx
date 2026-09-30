@@ -31,7 +31,7 @@ export const PrinterBindDrawer: React.FC<PrinterBindDrawerProps> = ({
     const [isSaving, setIsSaving] = useState(false);
 
     return (
-        <SystemDrawer open={open} onClose={onClose} width={480}>
+        <SystemDrawer open={open} onClose={onClose} size="sm">
             <DrawerLayout
                 header={
                     <Text variant="title-sm" weight={600}>

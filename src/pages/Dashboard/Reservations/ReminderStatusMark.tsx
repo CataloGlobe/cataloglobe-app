@@ -6,6 +6,8 @@ import {
     showReminderStatus,
     RESERVATION_TIMEZONE
 } from "./reminderStatus";
+import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
+import Text from "@/components/ui/Text/Text";
 import styles from "./Reservations.module.scss";
 
 // Stato del promemoria della sera prima, nel drawer di dettaglio, accanto alla
@@ -72,10 +74,10 @@ export default function ReminderStatusMark({ reservation, reminderEnabled }: Pro
             ? formatDateAndTime(reservation.reminder_sent_at)
             : null;
         return (
-            <span className={styles.reminderMark}>
+            <Text as="span" variant="caption-xs" weight={500} colorVariant="muted" className={styles.reminderMark}>
                 <BellRing size={14} strokeWidth={2} aria-hidden />
                 <span>{when ? `Promemoria inviato · ${when}` : "Promemoria inviato"}</span>
-            </span>
+            </Text>
         );
     }
 
@@ -94,30 +96,25 @@ export default function ReminderStatusMark({ reservation, reminderEnabled }: Pro
                 : `Motivo: ${reason}.`;
 
         return (
-            <span
-                className={styles.reminderMarkAlert}
-                role="status"
-                // Il messaggio originale non sparisce: smette di essere testo
-                // da leggere e diventa dettaglio da cercare.
-                title={reservation.reminder_last_error ?? undefined}
-            >
-                <TriangleAlert size={14} strokeWidth={2.25} aria-hidden />
-                <span>
+            // Il messaggio originale non sparisce: smette di essere testo da
+            // leggere e diventa dettaglio da cercare (il `title`).
+            <div title={reservation.reminder_last_error ?? undefined}>
+                <InlineBanner variant="warning" icon={<TriangleAlert size={16} strokeWidth={2.25} aria-hidden />}>
                     {headline}
                     {when ? ` · ${when}` : ""}
                     {". "}
                     <span className={styles.reminderMarkDetail}>{detail}</span>
-                </span>
-            </span>
+                </InlineBanner>
+            </div>
         );
     }
 
     if (state === "pending") {
         return (
-            <span className={styles.reminderMark}>
+            <Text as="span" variant="caption-xs" weight={500} colorVariant="muted" className={styles.reminderMark}>
                 <Clock3 size={14} strokeWidth={2} aria-hidden />
                 <span>Promemoria in attesa · parte la sera prima, dalle 18</span>
-            </span>
+            </Text>
         );
     }
 
@@ -132,9 +129,9 @@ export default function ReminderStatusMark({ reservation, reminderEnabled }: Pro
                 : "";
 
     return (
-        <span className={styles.reminderMark}>
+        <Text as="span" variant="caption-xs" weight={500} colorVariant="muted" className={styles.reminderMark}>
             <BellOff size={14} strokeWidth={2} aria-hidden />
             <span>{`Promemoria non previsto${why}`}</span>
-        </span>
+        </Text>
     );
 }

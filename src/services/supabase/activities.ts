@@ -228,6 +228,36 @@ export async function getActivityById(id: string, tenantId: string): Promise<V2A
    MUTATIONS (DB)
  ===================================================== */
 
+export interface SeatLimitInfo {
+    used: number;
+    paid: number;
+}
+
+/**
+ * Vero se l'errore viene dal trigger DB `enforce_seat_limit`
+ * (20260413110000_enforce_seat_limit.sql:29). Il codice da solo non basta:
+ * P0001 e' il generico "raise_exception" di plpgsql senza ERRCODE esplicito,
+ * condiviso con altri RAISE nel DB — serve anche il testo del messaggio.
+ */
+export function isSeatLimitError(error: unknown): error is { code: string; message: string } {
+    if (!error || typeof error !== "object") return false;
+    const code = (error as { code?: unknown }).code;
+    const message = (error as { message?: unknown }).message;
+    return code === "P0001" && typeof message === "string" && message.startsWith("Limite sedi raggiunto");
+}
+
+/**
+ * Estrae used/paid dal messaggio del trigger ("Limite sedi raggiunto: % di %
+ * sedi utilizzate"). Null se il testo non fa match (messaggio del trigger
+ * cambiato senza aggiornare questo parser).
+ */
+export function parseSeatLimitError(error: unknown): SeatLimitInfo | null {
+    if (!isSeatLimitError(error)) return null;
+    const match = /Limite sedi raggiunto: (\d+) di (\d+) sedi utilizzate/.exec(error.message);
+    if (!match) return null;
+    return { used: Number(match[1]), paid: Number(match[2]) };
+}
+
 export async function createActivity(
     tenantId: string,
     params: {

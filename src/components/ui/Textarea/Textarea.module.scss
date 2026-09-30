@@ -1,55 +1,54 @@
-@use "@styles/variables" as *;
+// Textarea — scheda «FormField»: min 88, padding 8 12, resize verticale.
+// Solo token.
 
 .textarea {
+  box-sizing: border-box;
   width: 100%;
-  padding: 0.62rem 0.85rem;
+  min-height: 88px;
+  padding: var(--space-8) var(--space-12);
 
   font-family: inherit;
-  font-size: 0.95rem;
+  font-size: 14px;
   line-height: 1.5;
 
-  border-radius: 8px;
-  border: 1.5px solid var(--border, #cbd5e1);
+  border-radius: var(--radius-control);
+  border: 1px solid var(--border);
 
-  background: var(--card-bg, #ffffff);
-  color: var(--text, #0f172a);
+  background: var(--surface);
+  color: var(--text);
 
   resize: vertical;
-  min-height: 96px;
 
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    border-color var(--timing-motion-fast) var(--easing-state),
+    box-shadow var(--timing-motion-fast) var(--easing-state),
+    background var(--timing-motion-fast) var(--easing-state);
 
   &::placeholder {
-    color: var(--text-muted, #94a3b8);
+    color: var(--gray-400);
+  }
+
+  &:hover:not(:disabled):not(:focus-visible) {
+    border-color: var(--gray-300);
   }
 
   &:focus-visible {
     outline: none;
-    border-color: var(--brand-primary, #6366f1);
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+    border-color: var(--brand-primary);
+    box-shadow: var(--shadow-focus);
   }
 
   &:disabled {
     opacity: 0.6;
-    background: var(--hover-bg, #f1f5f9);
+    background: var(--hover-bg);
     cursor: not-allowed;
-  }
-
-  [data-theme="dark"] & {
-    background: #1e293b;
-    border-color: #334155;
-    color: #f1f5f9;
-
-    &::placeholder {
-      color: #64748b;
-    }
   }
 }
 
 .hasError {
-  border-color: #dc2626;
+  border-color: var(--danger);
 
   &:focus-visible {
-    box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.2);
+    box-shadow: var(--shadow-focus-danger);
   }
 }

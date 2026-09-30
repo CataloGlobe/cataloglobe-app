@@ -105,9 +105,9 @@ export function isFromPreviousService(
 /**
  * Come si dice, sulla riga. Dice CHE è di un altro servizio; da quanto lo
  * dice già la meta (`da 14 ore`, `da 2 giorni`), e non si ripete. Frammento:
- * niente punto finale.
+ * niente punto finale. Corto: è un badge, e a 375 ne stanno quattro per riga.
  */
-export const PREVIOUS_SERVICE_LABEL = "Aperta da un servizio precedente";
+export const PREVIOUS_SERVICE_LABEL = "Servizio precedente";
 
 /**
  * Chi occupa lo stesso tavolo, fra le tavolate aperte. Segnalato su ENTRAMBE

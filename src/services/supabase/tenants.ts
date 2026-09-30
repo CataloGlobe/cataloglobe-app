@@ -1,7 +1,7 @@
 import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "@/services/supabase/client";
 import { revalidatePublicCatalogForTenant } from "@services/publicCatalog/revalidatePublicCatalog";
-import type { VerticalType } from "@/constants/verticalTypes";
+import type { BusinessSubtype, VerticalType } from "@/constants/verticalTypes";
 import type { LegalEntityType, V2Tenant } from "@/types/tenant";
 import { BILLING_INTERVALS, type BillingInterval } from "@/types/plan";
 
@@ -112,7 +112,7 @@ export async function deleteTenantSoft(tenantId: string): Promise<void> {
                 throw new Error("Autenticazione non valida. Rifai il login e riprova.");
             }
             if (status === 403) {
-                throw new Error("Non sei autorizzato ad eliminare questa attività.");
+                throw new Error("Non sei autorizzato a eliminare questa azienda.");
             }
         }
         throw error;
@@ -190,7 +190,7 @@ export async function purgeTenantNow(tenantId: string): Promise<void> {
                 throw new Error("Autenticazione non valida. Rifai il login e riprova.");
             }
             if (status === 403) {
-                throw new Error("Non sei autorizzato ad eliminare questa attività.");
+                throw new Error("Non sei autorizzato a eliminare questa azienda.");
             }
             if (status === 404) {
                 throw new Error("Attività non trovata.");
@@ -338,34 +338,161 @@ export async function getTenantBillingInterval(tenantId: string): Promise<Billin
     return value && (BILLING_INTERVALS as readonly string[]).includes(value) ? (value as BillingInterval) : null;
 }
 
+/** Dati del create del wizard. `ownerUserId` è l'utente autenticato (policy INSERT). */
+export interface CreateTenantInput {
+    ownerUserId: string;
+    name: string;
+    verticalType: VerticalType;
+    businessSubtype: BusinessSubtype;
+    idempotencyKey: string;
+    billing: TenantBillingDetails;
+}
+
+/** Errore di un service tenants: `name` = token per la UI, `code` = SQLSTATE. */
+export type TenantServiceError = Error & { code?: string };
+
+function tenantError(token: string, code: string | undefined): TenantServiceError {
+    const err = new Error(token) as TenantServiceError;
+    err.name = token;
+    if (code) err.code = code;
+    return err;
+}
+
 /**
- * Persists billing identity onto an existing tenant (resume flow, when fiscal
- * data was missing at first checkout). Create flow writes these inline on INSERT.
+ * Traduce il rifiuto fiscale del DB nel token della UI, null se non è fiscale.
+ * - 23514 dal CHECK `tenants_vat_number_valid` → `invalid_vat_number`
+ *   (match sul nome: tenants ha altri CHECK che non riguardano la P.IVA).
+ * - 22023 dal trigger `trg_enforce_tenant_einvoice_recipient` (P.IVA senza
+ *   SDI né PEC) → `missing_einvoice_recipient`.
+ */
+function fiscalRejection(error: { code?: string; message?: string }): TenantServiceError | null {
+    const message = error.message ?? "";
+    if (error.code === "23514" && message.includes("tenants_vat_number_valid")) {
+        return tenantError("invalid_vat_number", error.code);
+    }
+    if (error.code === "22023" && message.includes("missing_einvoice_recipient")) {
+        return tenantError("missing_einvoice_recipient", error.code);
+    }
+    return null;
+}
+
+/**
+ * Crea il tenant del wizard e ne ritorna l'id. Nasce sospeso: le colonne
+ * abbonamento restano ai default (trigger `trg_protect_tenant_subscription_columns`).
  *
- * Same tenant.manage-gated RPC pattern as updateTenantName — see there.
+ * Idempotente sulla chiave di sessione del wizard: un 23505 sull'indice
+ * UNIQUE parziale `tenants_creation_idempotency_key_uidx` vuol dire che un
+ * submit ripetuto o concorrente l'ha già creato, quindi si rilegge l'id con la
+ * stessa chiave (RLS limita la lettura all'owner) invece di duplicarlo.
+ *
+ * Il gate fiscale è del DB (CHECK P.IVA + trigger recapito): il wizard lo
+ * anticipa, non lo sostituisce.
+ *
+ * Lancia un `TenantServiceError`: `invalid_vat_number` (23514),
+ * `missing_einvoice_recipient` (22023), altrimenti `tenant_create_failed` con
+ * il SQLSTATE originale (anche quando il recupero dopo il 23505 fallisce).
+ */
+export async function createTenant(input: CreateTenantInput): Promise<string> {
+    const { data, error } = await supabase
+        .from("tenants")
+        .insert({
+            owner_user_id: input.ownerUserId,
+            name: input.name,
+            vertical_type: input.verticalType,
+            business_subtype: input.businessSubtype,
+            creation_idempotency_key: input.idempotencyKey,
+            // Intestatario fattura + sede legale.
+            ...input.billing
+        })
+        .select("id")
+        .single();
+
+    if (!error) return (data as { id: string }).id;
+
+    if (error.code === "23505") {
+        const { data: existing, error: recoverError } = await supabase
+            .from("tenants")
+            .select("id")
+            .eq("creation_idempotency_key", input.idempotencyKey)
+            .eq("owner_user_id", input.ownerUserId)
+            .single();
+        if (recoverError || !existing) throw tenantError("tenant_create_failed", error.code);
+        return (existing as { id: string }).id;
+    }
+
+    throw fiscalRejection(error) ?? tenantError("tenant_create_failed", error.code);
+}
+
+/** Piano scelto nel wizard: piano, posti pagati, intervallo di fatturazione. */
+export interface TenantPlanSelection {
+    plan: string;
+    paidSeats: number;
+    billingInterval: BillingInterval;
+}
+
+/**
+ * Allinea piano, posti e intervallo del tenant alla scelta del wizard, prima
+ * del checkout: senza, un checkout abbandonato lascerebbe i default
+ * (`plan='base'`, `paid_seats=1`, intervallo NULL) e il riprova addebiterebbe
+ * il piano sbagliato. Consentito solo finché il tenant non è collegato a una
+ * subscription (dopo, `trg_protect_tenant_subscription_columns` rifiuta: 42501).
+ *
+ * Lancia un `TenantServiceError` `tenant_align_failed` col SQLSTATE originale.
+ */
+export async function updateTenantPlanSelection(
+    tenantId: string,
+    selection: TenantPlanSelection
+): Promise<void> {
+    const { error } = await supabase
+        .from("tenants")
+        .update({
+            plan: selection.plan,
+            paid_seats: selection.paidSeats,
+            billing_interval: selection.billingInterval
+        })
+        .eq("id", tenantId);
+    if (error) throw tenantError("tenant_align_failed", error.code);
+}
+
+/**
+ * Persists billing identity onto an existing tenant (Impostazioni + resume
+ * flow). Create flow writes these inline on INSERT (`createTenant`).
+ *
+ * Goes through the `update-billing-details` edge function: it runs the
+ * tenant.manage-gated RPC `update_tenant_billing_details` with the caller's
+ * JWT, then realigns the Stripe customer (name, address, tax id) best-effort.
+ * A Stripe failure never fails the save.
+ *
+ * Throws an Error whose `name` and `message` are the edge error:
+ * `insufficient_permission` (code `42501`), `invalid_vat_number` (code
+ * `22023`), `missing_einvoice_recipient` (code `22023`: VAT number set but
+ * neither SDI code nor PEC), `invalid_billing_details` for any other rejected value (code
+ * `invalid_billing_details`, no Postgres text), `unauthorized`, or
+ * `billing_update_failed` when the body is unreadable.
  */
 export async function updateTenantBillingDetails(
     tenantId: string,
     billing: TenantBillingDetails
 ): Promise<void> {
-    const { error } = await supabase.rpc("update_tenant_billing_details", {
-        p_tenant_id: tenantId,
-        p_legal_entity_type: billing.legal_entity_type,
-        p_legal_name: billing.legal_name,
-        p_vat_number: billing.vat_number,
-        p_fiscal_code: billing.fiscal_code,
-        p_first_name: billing.first_name,
-        p_last_name: billing.last_name,
-        p_pec: billing.pec,
-        p_codice_destinatario: billing.codice_destinatario,
-        p_address: billing.address,
-        p_street_number: billing.street_number,
-        p_postal_code: billing.postal_code,
-        p_city: billing.city,
-        p_province: billing.province,
-        p_country: billing.country
+    const { error } = await supabase.functions.invoke("update-billing-details", {
+        body: { tenantId, billing }
     });
-    if (error) throw error;
+    if (!error) return;
+
+    if (error instanceof FunctionsHttpError) {
+        let body: { error?: unknown; code?: unknown } = {};
+        try {
+            body = await error.context.json();
+        } catch {
+            // Non-JSON body: fall through to the generic error below.
+        }
+        const reason = typeof body.error === "string" && body.error ? body.error : "billing_update_failed";
+        const mapped = new Error(reason) as Error & { code?: string };
+        mapped.name = reason;
+        if (typeof body.code === "string") mapped.code = body.code;
+        throw mapped;
+    }
+    throw error;
 }
 
 /**

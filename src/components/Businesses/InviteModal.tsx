@@ -1,5 +1,7 @@
 import { useState } from "react";
-import { supabase } from "@/services/supabase/client";
+import { acceptInviteByToken, declineInviteByToken } from "@/services/supabase/team";
+import { ROLE_LABEL } from "@/constants/roles";
+import type { EffectiveRole } from "@/types/team";
 import { useToast } from "@/context/Toast/ToastContext";
 import ModalLayout, {
     ModalLayoutContent,
@@ -20,13 +22,6 @@ export type PendingInviteData = {
     activity_names: string[];
 };
 
-const ROLE_DISPLAY: Record<string, string> = {
-    admin: "Admin",
-    manager: "Manager",
-    staff: "Staff",
-    viewer: "Viewer"
-};
-
 type Props = {
     invite: PendingInviteData | null;
     onClose: () => void;
@@ -43,21 +38,21 @@ export function InviteModal({ invite, onClose, onAccepted, onDeclined }: Props) 
         if (!invite) return;
         setAccepting(true);
 
-        const { data: tenantId, error } = await supabase.rpc("accept_invite_by_token", {
-            p_token: invite.invite_token,
-        });
-
-        setAccepting(false);
-
-        if (error) {
-            const msg = error.message?.includes("invite expired")
+        let tenantId: string | null;
+        try {
+            tenantId = await acceptInviteByToken(invite.invite_token);
+        } catch (err) {
+            setAccepting(false);
+            const message = (err as { message?: string })?.message ?? "";
+            const msg = message.includes("invite expired")
                 ? "Il link di invito è scaduto. Chiedi un nuovo invito."
-                : error.message?.includes("already accepted")
+                : message.includes("already accepted")
                 ? "Hai già accettato questo invito."
                 : "Impossibile accettare l'invito.";
             showToast({ type: "error", message: msg });
             return;
         }
+        setAccepting(false);
 
         showToast({ type: "success", message: "Invito accettato. Benvenuto nel team!" });
         onAccepted(tenantId ?? invite.tenant_id);
@@ -67,16 +62,14 @@ export function InviteModal({ invite, onClose, onAccepted, onDeclined }: Props) 
         if (!invite) return;
         setDeclining(true);
 
-        const { error } = await supabase.rpc("decline_invite_by_token", {
-            p_token: invite.invite_token,
-        });
-
-        setDeclining(false);
-
-        if (error) {
+        try {
+            await declineInviteByToken(invite.invite_token);
+        } catch {
+            setDeclining(false);
             showToast({ type: "error", message: "Impossibile rifiutare l'invito." });
             return;
         }
+        setDeclining(false);
 
         showToast({ type: "success", message: "Invito rifiutato." });
         onDeclined(invite.id);
@@ -106,7 +99,7 @@ export function InviteModal({ invite, onClose, onAccepted, onDeclined }: Props) 
                         <div className={styles.row}>
                             <Text variant="body-sm" colorVariant="muted">Ruolo</Text>
                             <Text variant="body" weight={600}>
-                                {ROLE_DISPLAY[invite.effective_role] ?? invite.effective_role}
+                                {ROLE_LABEL[invite.effective_role as EffectiveRole] ?? invite.effective_role}
                             </Text>
                         </div>
                         <div className={styles.row}>

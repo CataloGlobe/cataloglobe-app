@@ -23,10 +23,16 @@ export interface ToolbarSearchProps {
     className?: string;
     /** Mostra il pulsante clear quando c'è valore. Default true. */
     allowClear?: boolean;
+    /**
+     * `min`: la larghezza più stretta ammessa (200), per le testate che
+     * scalano prima della barra compatta (`PageHeaderConfig.condensed`).
+     * Resta una larghezza fissa: la misura della banda deve restare vera.
+     */
+    width?: "default" | "min";
 }
 
 export const ToolbarSearch = forwardRef<HTMLInputElement, ToolbarSearchProps>(
-    ({ value, onChange, placeholder, className, allowClear = true }, ref) => {
+    ({ value, onChange, placeholder, className, allowClear = true, width = "default" }, ref) => {
         const [typed, setTyped] = useOwnedSearchValue(value, onChange);
         return (
             <SearchInput
@@ -36,7 +42,7 @@ export const ToolbarSearch = forwardRef<HTMLInputElement, ToolbarSearchProps>(
                 placeholder={placeholder}
                 allowClear={allowClear}
                 onClear={() => setTyped("")}
-                containerClassName={`${styles.wrap} ${className ?? ""}`}
+                containerClassName={`${styles.wrap} ${width === "min" ? styles.min : ""} ${className ?? ""}`}
                 inputClassName={styles.input}
             />
         );

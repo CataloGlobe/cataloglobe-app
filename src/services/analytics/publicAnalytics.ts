@@ -5,6 +5,8 @@
  * page close. Never blocks the UI — all errors are silenced.
  */
 
+import { randomUuid } from "@/utils/randomUuid";
+
 export type EventType =
     | "page_view"
     | "product_detail_open"
@@ -22,8 +24,6 @@ export type EventType =
 
 // ── Session-level constants (computed once at module load) ────────────
 
-const SESSION_ID = crypto.randomUUID();
-
 function getDeviceType(): "mobile" | "tablet" | "desktop" {
     // SSR: modulo importato anche server-side (albero CollectionView), dove
     // window non esiste. trackEvent gira comunque solo client-side.
@@ -34,8 +34,26 @@ function getDeviceType(): "mobile" | "tablet" | "desktop" {
     return "desktop";
 }
 
-const DEVICE_TYPE = getDeviceType();
-const SCREEN_WIDTH = typeof window === "undefined" ? 0 : window.innerWidth;
+type Session = { id: string; deviceType: "mobile" | "tablet" | "desktop"; screenWidth: number };
+
+/**
+ * Inizializzazione al caricamento del modulo, che le pagine pubbliche importano
+ * subito: un errore qui non deve mai bloccare il rendering. Se fallisce,
+ * `SESSION` resta null e gli eventi semplicemente non vengono tracciati.
+ */
+function initSession(): Session | null {
+    try {
+        return {
+            id: randomUuid(),
+            deviceType: getDeviceType(),
+            screenWidth: typeof window === "undefined" ? 0 : window.innerWidth
+        };
+    } catch {
+        return null;
+    }
+}
+
+const SESSION = initSession();
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const ENDPOINT = `${SUPABASE_URL}/functions/v1/log-analytics-event`;
@@ -47,14 +65,15 @@ export function trackEvent(
     eventType: EventType,
     metadata?: Record<string, unknown>
 ): void {
+    if (!SESSION) return;
     try {
         const payload = JSON.stringify({
             activity_id: activityId,
             event_type: eventType,
             metadata: metadata ?? {},
-            session_id: SESSION_ID,
-            device_type: DEVICE_TYPE,
-            screen_width: SCREEN_WIDTH
+            session_id: SESSION.id,
+            device_type: SESSION.deviceType,
+            screen_width: SESSION.screenWidth
         });
 
         const blob = new Blob([payload], { type: "text/plain" });

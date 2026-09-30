@@ -3,6 +3,7 @@ import type { ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import Text from "@/components/ui/Text/Text";
+import { orderStatusBadge } from "./orderStatusBadge";
 import { formatRelativeTime } from "@/utils/relativeTime";
 import type { V2OrderWithItems, V2Table } from "@/types/orders";
 import styles from "./historyColumns.module.scss";
@@ -52,6 +53,7 @@ export function makeHistoryColumns({
     return [
         {
             id: "status",
+            hideOnPhone: true,
             header: "Stato",
             width: "120px",
             accessor: (row) => row.status,
@@ -65,12 +67,10 @@ export function makeHistoryColumns({
                         </Text>
                     );
                 }
+                const { variant, label } = orderStatusBadge(row.status);
                 return (
                     <div className={styles.statusCell}>
-                        <StatusBadge
-                            variant={row.status === "delivered" ? "success" : "neutral"}
-                            label={row.status === "delivered" ? "Servito" : "Annullato"}
-                        />
+                        <StatusBadge variant={variant} label={label} />
                         {row.rectified && (
                             <span className={styles.rettificatoChip}>Rettificato</span>
                         )}
@@ -100,6 +100,7 @@ export function makeHistoryColumns({
         },
         {
             id: "operator",
+            hideOnPhone: true,
             header: "Operatore",
             accessor: (row) => row.created_by_user_id,
             cell: (_value, row) => {
@@ -117,6 +118,7 @@ export function makeHistoryColumns({
         },
         {
             id: "time",
+            hideOnPhone: true,
             header: "Orario",
             width: "130px",
             accessor: (row) =>
@@ -174,6 +176,9 @@ export function makeHistoryColumns({
             align: "right" as const,
             cell: (_value, row) => (
                 <TableRowActions
+                    // Il tavolo nel nome: «Azioni» da solo si confonde con
+                    // l'overflow della banda («Altre azioni») e fra righe.
+                    ariaLabel={`Azioni per ${tables.find(t => t.id === row.table_id)?.label ?? "l'ordine"}`}
                     actions={[
                         {
                             label: "Vedi dettaglio",

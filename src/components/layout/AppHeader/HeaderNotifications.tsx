@@ -6,41 +6,12 @@ import { useNotifications } from "@/context/useNotifications";
 import type { Notification } from "@/services/supabase/notifications";
 import { useNotificationChime } from "@/hooks/useNotificationChime";
 import { formatRelativeTime } from "@/utils/relativeTime";
+import { resolveTargetPath } from "./notificationTarget";
 import styles from "./AppHeader.module.scss";
 
 type HeaderNotificationsProps =
     | { scope: "tenant"; tenantId: string | null }
     | { scope: "account" };
-
-// Best-effort deep link from notification → page.
-// Both `reservation.new` (pending awaiting admin) and
-// `reservation.auto_confirmed` (auto-confirm path) route to the same
-// admin Reservations inbox for the tenant. Single-reservation deep link
-// is out of scope: the inbox surfaces the row.
-function resolveTargetPath(notification: Notification, fallbackTenantId: string | null): string | null {
-    if (
-        notification.event_type === "reservation.new" ||
-        notification.event_type === "reservation.auto_confirmed"
-    ) {
-        const tenantId =
-            notification.tenant_id ?? fallbackTenantId;
-        if (tenantId) return `/business/${tenantId}/reservations`;
-    }
-    // Risposta del supporto: qui il deep link al singolo thread serve davvero
-    // — a differenza delle prenotazioni, la lista non mostra il contenuto, e
-    // il messaggio da leggere è dentro la conversazione.
-    if (notification.event_type === "support.reply") {
-        const tenantId = notification.tenant_id ?? fallbackTenantId;
-        const ticketId = notification.data?.ticket_id;
-        if (tenantId && typeof ticketId === "string" && ticketId.length > 0) {
-            return `/business/${tenantId}/support/${ticketId}`;
-        }
-        // `data` malformato o ticket_id assente: si ripiega sulla lista, che
-        // è comunque il posto giusto. Meglio di un click che non fa nulla.
-        if (tenantId) return `/business/${tenantId}/support`;
-    }
-    return null;
-}
 
 export function HeaderNotifications(props: HeaderNotificationsProps) {
     const { notifications, markAsRead } = useNotifications();

@@ -27,7 +27,7 @@ import type {
 } from "@/types/reservationGuest";
 
 /** Tetto di righe per la lista. Oltre, si cerca invece di scorrere. */
-const DIRECTORY_LIMIT = 200;
+export const DIRECTORY_LIMIT = 200;
 
 /**
  * Ripulisce il termine di ricerca dai caratteri che hanno un significato nel

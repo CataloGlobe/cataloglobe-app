@@ -2,7 +2,7 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    color: var(--pub-primary, #4b5563);
+    color: var(--pub-primary, var(--gray-600));
     flex-shrink: 0;
     position: relative;
 }
@@ -29,7 +29,7 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    color: #4b5563;
+    color: var(--gray-600);
     font-weight: 700;
     font-size: 0.65em;
     line-height: 1;
@@ -43,7 +43,7 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    color: var(--pub-primary, #4b5563);
+    color: var(--pub-primary, var(--gray-600));
     font-weight: 700;
     font-size: 0.65em;
     line-height: 1;
@@ -56,7 +56,7 @@
 // La forma segue "Arrotondamento" via --pub-radius (none=0 → quadrato, soft → arrotondato,
 // rounded=20px → cerchio, poiché il browser clampa border-radius al 50% del lato).
 .chip {
-    background-color: var(--pub-primary-soft, #F1F3F5);
+    background-color: var(--pub-primary-soft, var(--hover-bg));
     border-radius: var(--pub-radius, 50%);
     padding: 4px;
 }
@@ -67,7 +67,7 @@
     left: 50%;
     transform: translateX(-50%);
     background: rgba(0, 0, 0, 0.8);
-    color: #fff;
+    color: var(--color-white);
     font-size: 11px;
     padding: 4px 8px;
     border-radius: 4px;

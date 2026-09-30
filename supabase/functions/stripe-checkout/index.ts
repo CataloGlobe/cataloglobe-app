@@ -4,11 +4,12 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import Stripe from "https://esm.sh/stripe@17?target=deno";
 import { stripeClientOptions } from "../_shared/stripe-helpers.ts";
 import {
-    clampForStripe,
-    clampMetadata,
-    STRIPE_CUSTOMER_DESCRIPTION_MAX,
-    STRIPE_CUSTOMER_NAME_MAX
-} from "../_shared/stripeLimits.ts";
+    buildReuseCustomerUpdate,
+    buildStripeCustomerProfile,
+    syncCustomerTaxId,
+    TENANT_FISCAL_COLUMNS,
+    type TenantFiscal
+} from "../_shared/stripeCustomerProfile.ts";
 import { lookupStripePriceId, type BillingInterval } from "../_shared/planPrices.ts";
 import { isValidPartitaIva } from "../_shared/fiscalValidators.ts";
 
@@ -38,6 +39,9 @@ const MAX_SELF_SERVICE_SEATS = 5;
 // policy — "how long is the first subscription free" — not a per-plan price
 // attribute; every plan gets the same trial.
 const TRIAL_PERIOD_DAYS = 30;
+// Promotion code metadata key that unlocks the card-free trial. Codes are
+// handed out one by one by us; see the trial-no-card branch below.
+const TRIAL_NO_CARD_METADATA_KEY = "trial_no_card";
 // Billing intervals a customer can pick at checkout. Same domain as Stripe
 // `recurring.interval`; the Price for (plan, interval) comes from `plan_prices`.
 const ALLOWED_BILLING_INTERVALS = new Set<BillingInterval>(["month", "year"]);
@@ -62,115 +66,6 @@ function appendCheckoutSessionPlaceholder(url: string): string {
     const separator = base.includes("?") ? "&" : "?";
     const withParam = `${base}${separator}${CHECKOUT_SESSION_PARAM}={CHECKOUT_SESSION_ID}`;
     return hash !== undefined ? `${withParam}#${hash}` : withParam;
-}
-
-// --- Billing pre-fill helpers (Stripe customer from tenant fiscal data) ---
-
-type TenantFiscal = {
-    legal_entity_type?: string | null;
-    legal_name?: string | null;
-    first_name?: string | null;
-    last_name?: string | null;
-    fiscal_code?: string | null;
-    vat_number?: string | null;
-    codice_destinatario?: string | null;
-    pec?: string | null;
-    address?: string | null;
-    street_number?: string | null;
-    postal_code?: string | null;
-    city?: string | null;
-    province?: string | null;
-    country?: string | null;
-};
-
-function clean(v: unknown): string {
-    return typeof v === "string" ? v.trim() : "";
-}
-
-/** Customer name: legal_name, else "first last". Undefined when empty. */
-function buildCustomerName(t: TenantFiscal): string | undefined {
-    const legal = clean(t.legal_name);
-    if (legal) return legal;
-    const full = `${clean(t.first_name)} ${clean(t.last_name)}`.trim();
-    return full || undefined;
-}
-
-/** Customer address from tenant legal address. Undefined when nothing usable. */
-function buildCustomerAddress(t: TenantFiscal): Record<string, string> | undefined {
-    const line1 = [clean(t.address), clean(t.street_number)].filter(Boolean).join(" ");
-    const postalCode = clean(t.postal_code);
-    const city = clean(t.city);
-    const state = clean(t.province);
-    const country = clean(t.country) || "IT";
-
-    if (!line1 && !postalCode && !city && !state) return undefined;
-
-    const address: Record<string, string> = { country };
-    if (line1) address.line1 = line1;
-    if (postalCode) address.postal_code = postalCode;
-    if (city) address.city = city;
-    if (state) address.state = state;
-    return address;
-}
-
-/** EU VAT value: country-prefixed VAT (e.g. "IT01234567897"). Null when absent. */
-function buildEuVatValue(vat?: string | null, country?: string | null): string | null {
-    const raw = clean(vat).toUpperCase().replace(/\s/g, "");
-    if (!raw) return null;
-    if (/^[A-Z]{2}/.test(raw)) return raw; // already country-prefixed
-    const cc = (clean(country).toUpperCase() || "IT").slice(0, 2);
-    return `${cc}${raw}`;
-}
-
-/** Stripe customer metadata from the tenant fiscal record. Empty keys omitted. */
-function buildCustomerMetadata(tenantId: string, t: TenantFiscal): Record<string, string> {
-    const meta: Record<string, string> = { tenant_id: tenantId };
-    const put = (key: string, value: unknown) => {
-        const v = clean(value);
-        if (v) meta[key] = v;
-    };
-    put("legal_entity_type", t.legal_entity_type);
-    put("legal_name", t.legal_name);
-    put("first_name", t.first_name);
-    put("last_name", t.last_name);
-    put("fiscal_code", t.fiscal_code);
-    put("vat_number", t.vat_number);
-    put("codice_destinatario", t.codice_destinatario);
-    put("pec", t.pec);
-    return meta;
-}
-
-/** Human-readable customer description, e.g. "Trattoria Da Mario S.r.l. · Milano (societa)". */
-function buildCustomerDescription(t: TenantFiscal): string | undefined {
-    const base = clean(t.legal_name) || `${clean(t.first_name)} ${clean(t.last_name)}`.trim();
-    const city = clean(t.city);
-    const type = clean(t.legal_entity_type);
-
-    let desc = base;
-    if (city) desc += `${desc ? " · " : ""}${city}`;
-    if (type) desc += `${desc ? " " : ""}(${type})`;
-    desc = desc.trim();
-    return desc || undefined;
-}
-
-/**
- * Best-effort: attach an eu_vat tax id to a customer if not already present.
- * Never throws — a rejected tax id must not block checkout (we keep the address).
- */
-async function ensureCustomerTaxId(stripe: Stripe, customerId: string, value: string): Promise<void> {
-    try {
-        const existing = await stripe.customers.listTaxIds(customerId, { limit: 100 });
-        const already = existing.data.some(
-            (t: { value?: string | null }) => clean(t.value).toUpperCase() === value.toUpperCase()
-        );
-        if (already) return;
-        await stripe.customers.createTaxId(customerId, { type: "eu_vat", value });
-    } catch (err) {
-        // Log only the error class — Stripe messages can echo the submitted value.
-        console.warn(
-            `stripe-checkout: tax id pre-fill skipped (non-fatal): code=${(err as any)?.code} type=${(err as any)?.type} status=${(err as any)?.statusCode}`
-        );
-    }
 }
 
 type CheckoutBody = {
@@ -297,6 +192,9 @@ serve(async req => {
 
         // --- Resolve promotion code (auto-detect: promo_ id vs human code) ---
         let resolvedPromotionId: string | null = null;
+        // Set when the resolved code carries `metadata.trial_no_card = "true"`:
+        // the code is only a key to the card-free trial, its coupon is never applied.
+        let isTrialNoCardCode = false;
         if (promotionCodeInput !== "") {
             try {
                 if (promotionCodeInput.startsWith("promo_")) {
@@ -305,6 +203,7 @@ serve(async req => {
                         return json(req, 400, { error: "promo_code_invalid" });
                     }
                     resolvedPromotionId = promo.id;
+                    isTrialNoCardCode = promo.metadata?.[TRIAL_NO_CARD_METADATA_KEY] === "true";
                 } else {
                     const list = await stripe.promotionCodes.list({
                         code: promotionCodeInput,
@@ -315,6 +214,7 @@ serve(async req => {
                         return json(req, 400, { error: "promo_code_invalid" });
                     }
                     resolvedPromotionId = list.data[0].id;
+                    isTrialNoCardCode = list.data[0].metadata?.[TRIAL_NO_CARD_METADATA_KEY] === "true";
                 }
             } catch (err) {
                 const message = err instanceof Error ? err.message : String(err);
@@ -323,12 +223,20 @@ serve(async req => {
             }
         }
 
+        // A card-free trial code is only good for a tenant's first subscription
+        // (one trial per tenant, see `isFirstSubscription` below). Rejected like
+        // an unknown code: no silent fallback to the card-required checkout.
+        if (isTrialNoCardCode && tenantData.stripe_subscription_id) {
+            console.warn(
+                `stripe-checkout: trial_no_card code ${resolvedPromotionId} refused for tenant ${tenantId} (not first subscription)`
+            );
+            return json(req, 400, { error: "promo_code_invalid" });
+        }
+
         // --- Fiscal profile for Stripe pre-fill (service_role, explicit tenant guard) ---
         const { data: fiscalRow, error: fiscalError } = await supabaseAdmin
             .from("tenants")
-            .select(
-                "legal_entity_type, legal_name, vat_number, first_name, last_name, fiscal_code, codice_destinatario, pec, address, street_number, postal_code, city, province, country"
-            )
+            .select(TENANT_FISCAL_COLUMNS)
             .eq("id", tenantId)
             .maybeSingle();
 
@@ -366,22 +274,17 @@ serve(async req => {
             }
         }
 
-        const customerName = buildCustomerName(fiscal);
-        const customerAddress = buildCustomerAddress(fiscal);
-        const euVatValue = buildEuVatValue(fiscal.vat_number, fiscal.country);
-        const customerMetadata = buildCustomerMetadata(tenantId, fiscal);
-        const customerDescription = buildCustomerDescription(fiscal);
-
-        // Clamp ai limiti Stripe: un campo fiscale troppo lungo (ragione sociale
-        // incollata male) farebbe fallire create/update con 400 e bloccherebbe
-        // il pagamento. Il DB resta la fonte di verita', Stripe ha il pre-fill.
-        const stripeCustomerName = customerName
-            ? clampForStripe(customerName, STRIPE_CUSTOMER_NAME_MAX, "customer.name")
-            : undefined;
-        const stripeCustomerDescription = customerDescription
-            ? clampForStripe(customerDescription, STRIPE_CUSTOMER_DESCRIPTION_MAX, "customer.description")
-            : undefined;
-        const stripeCustomerMetadata = clampMetadata(customerMetadata);
+        // Profilo customer (name, address, description, metadata, tax id) dal modulo
+        // condiviso con update-billing-details, gia' tagliato ai limiti Stripe:
+        // un campo troppo lungo farebbe fallire create o update con 400 e
+        // bloccherebbe il pagamento. Il DB resta la fonte di verita'.
+        const {
+            name: stripeCustomerName,
+            address: customerAddress,
+            description: stripeCustomerDescription,
+            metadata: stripeCustomerMetadata,
+            euVatValue
+        } = buildStripeCustomerProfile(tenantId, fiscal);
 
         // Create or reuse Stripe Customer, pre-filling name + address from the tenant.
         let stripeCustomerId = tenantData.stripe_customer_id;
@@ -416,23 +319,28 @@ serve(async req => {
                 console.error("stripe-checkout: Failed to save stripe_customer_id:", updateErr);
                 return json(req, 500, { error: "db_update_failed" });
             }
-        } else if (
-            stripeCustomerName ||
-            customerAddress ||
-            stripeCustomerDescription ||
-            Object.keys(stripeCustomerMetadata).length > 1
-        ) {
+        } else {
             // Reuse path: refresh profile on the existing customer. Best-effort —
             // a failed update must not block checkout (we still have the data our side).
-            // Stripe merges metadata (unspecified keys, e.g. user_id, are preserved).
-            try {
-                await stripe.customers.update(stripeCustomerId, {
+            // email + user_id follow the caller, who is the owner (checked above):
+            // realigns a customer left on a previous owner by an ownership transfer.
+            // With the fiscal row in hand, align like update-billing-details: a
+            // field emptied in the DB is emptied on Stripe too ("" = unset,
+            // metadata keys included). Without the row (maybeSingle → null) the
+            // empty profile would wipe the customer, so keep the pre-fill update:
+            // only filled fields, Stripe merges metadata.
+            const reuseUpdate = fiscalRow
+                ? buildReuseCustomerUpdate(tenantId, fiscal, userEmail, userId)
+                : {
+                    email: userEmail,
                     name: stripeCustomerName,
                     address: customerAddress,
                     description: stripeCustomerDescription,
                     preferred_locales: ["it"],
-                    metadata: stripeCustomerMetadata
-                });
+                    metadata: { ...stripeCustomerMetadata, user_id: userId }
+                };
+            try {
+                await stripe.customers.update(stripeCustomerId, reuseUpdate);
             } catch (err) {
                 // Log only the error class — Stripe messages can echo the submitted value.
                 console.warn(
@@ -441,10 +349,12 @@ serve(async req => {
             }
         }
 
-        // Attach the VAT id (best-effort, idempotent) when present. Associations
-        // without a P.IVA simply skip this.
-        if (euVatValue) {
-            await ensureCustomerTaxId(stripe, stripeCustomerId, euVatValue);
+        // Align the eu_vat tax id to the current P.IVA (best-effort, idempotent,
+        // never throws). On a reused customer this also removes a stale P.IVA
+        // left by an earlier checkout — Stripe copies every tax id onto the
+        // invoice. A brand-new customer has none: skip when there is no P.IVA.
+        if (euVatValue || tenantData.stripe_customer_id) {
+            await syncCustomerTaxId(stripe, stripeCustomerId, euVatValue, { fn: "stripe-checkout", tenant_id: tenantId });
         }
 
         // --- Anti double-checkout guard ---
@@ -511,7 +421,16 @@ serve(async req => {
         // silently becomes ~3 months total instead of the 4 we would be promising.
         // A `once` coupon is ambiguous for the same reason (which "first invoice"
         // counts). When a code was resolved, the coupon alone defines the offer.
-        const grantTrial = isFirstSubscription && !resolvedPromotionId;
+        //
+        // Exception: a `trial_no_card` code. Its coupon is never passed to the
+        // session (no `discounts` below), so no coupon window can run during the
+        // trial and the reason above does not apply — the code only unlocks the
+        // trial, and the trial is still first-subscription-only (checked above).
+        const grantTrial = isFirstSubscription && (!resolvedPromotionId || isTrialNoCardCode);
+
+        if (isTrialNoCardCode) {
+            subscriptionMetadata[TRIAL_NO_CARD_METADATA_KEY] = "true";
+        }
 
         const sessionParams: Stripe.Checkout.SessionCreateParams = {
             mode: "subscription",
@@ -534,14 +453,22 @@ serve(async req => {
             tax_id_collection: { enabled: false }
         };
 
-        if (resolvedPromotionId) {
+        if (isTrialNoCardCode) {
+            // Nothing is due today (30-day trial, no discount), so Checkout skips
+            // the card. Without a card at trial end Stripe cancels the
+            // subscription → customer.subscription.deleted → tenant `canceled`.
+            sessionParams.payment_method_collection = "if_required";
+            sessionParams.subscription_data!.trial_settings = {
+                end_behavior: { missing_payment_method: "cancel" }
+            };
+        } else if (resolvedPromotionId) {
             sessionParams.discounts = [{ promotion_code: resolvedPromotionId }];
         }
 
         const session = await stripe.checkout.sessions.create(sessionParams);
 
         console.log(
-            `stripe-checkout: Session ${session.id} created for tenant ${tenantId} (plan=${planCode}, interval=${billingInterval}, qty=${quantity}, promo=${resolvedPromotionId ?? "none"})`
+            `stripe-checkout: Session ${session.id} created for tenant ${tenantId} (plan=${planCode}, interval=${billingInterval}, qty=${quantity}, promo=${resolvedPromotionId ?? "none"}, trial_no_card=${isTrialNoCardCode})`
         );
 
         return json(req, 200, { checkout_url: session.url });

@@ -205,8 +205,7 @@ export async function getFeaturedContentById(id: string, tenantId: string): Prom
 
 export async function createFeaturedContent(
     tenantId: string,
-    contentData: Partial<FeaturedContent>,
-    productsData: Partial<FeaturedContentProduct>[] = []
+    contentData: Partial<FeaturedContent>
 ) {
     const { hashes, hashColumns } = await buildFeaturedTranslatableHashes(contentData);
 
@@ -222,28 +221,6 @@ export async function createFeaturedContent(
 
     if (contentError) throw contentError;
 
-    let insertedProducts: FeaturedContentProduct[] = [];
-    if (productsData.length > 0) {
-        // Compute note_hash per ogni product item (note opzionale).
-        const productsToInsert = await Promise.all(
-            productsData.map(async (p, index) => ({
-                ...p,
-                tenant_id: tenantId,
-                featured_content_id: content.id,
-                sort_order: p.sort_order ?? index,
-                note_hash: await computeFieldHash(p.note ?? null)
-            }))
-        );
-
-        const { data: insertedRows, error: productsError } = await supabase
-            .from("featured_content_products")
-            .insert(productsToInsert)
-            .select();
-
-        if (productsError) throw productsError;
-        insertedProducts = (insertedRows ?? []) as FeaturedContentProduct[];
-    }
-
     // Enqueue translation jobs (silent error).
     for (const field of FEATURED_TRANSLATABLE_FIELDS) {
         if (!hashes.has(field)) continue;
@@ -257,20 +234,6 @@ export async function createFeaturedContent(
             field,
             newSourceText: sourceText,
             newSourceHash: hash
-        });
-    }
-
-    for (const row of insertedProducts) {
-        if (!row.note) continue;
-        const noteHash = await computeFieldHash(row.note);
-        if (noteHash === null) continue;
-        await enqueueWithSilentError({
-            tenantId,
-            entityType: "featured_product",
-            entityId: row.id,
-            field: "note",
-            newSourceText: row.note,
-            newSourceHash: noteHash
         });
     }
 
@@ -654,4 +617,46 @@ export async function syncFeaturedContentProducts(
     }
 
     void revalidatePublicCatalogForTenant(tenantId);
+}
+
+export type FeaturedPickerProduct = {
+    id: string;
+    name: string;
+    base_price: number | null;
+    option_groups: Array<{
+        group_kind: string;
+        values: Array<{ absolute_price: number | null }>;
+    }> | null;
+};
+
+export type FeaturedPickerCatalog = {
+    products: FeaturedPickerProduct[];
+    groups: Array<{ id: string; name: string }>;
+    groupItems: Array<{ product_id: string; group_id: string }>;
+};
+
+/**
+ * I prodotti da collegare a un contenuto in evidenza, coi gruppi per filtrarli
+ * (prima la query stava nel componente del picker, con tre `any`).
+ */
+export async function listFeaturedPickerCatalog(tenantId: string): Promise<FeaturedPickerCatalog> {
+    const [productsRes, groupsRes, itemsRes] = await Promise.all([
+        supabase
+            .from("products")
+            .select(
+                "id, name, base_price, option_groups:product_option_groups(group_kind, values:product_option_values(absolute_price))"
+            )
+            .eq("tenant_id", tenantId)
+            .order("name", { ascending: true }),
+        supabase.from("product_groups").select("id, name").eq("tenant_id", tenantId).order("name", { ascending: true }),
+        supabase.from("product_group_items").select("product_id, group_id").eq("tenant_id", tenantId)
+    ]);
+    if (productsRes.error) throw productsRes.error;
+    if (groupsRes.error) throw groupsRes.error;
+    if (itemsRes.error) throw itemsRes.error;
+    return {
+        products: (productsRes.data ?? []) as unknown as FeaturedPickerProduct[],
+        groups: groupsRes.data ?? [],
+        groupItems: itemsRes.data ?? []
+    };
 }

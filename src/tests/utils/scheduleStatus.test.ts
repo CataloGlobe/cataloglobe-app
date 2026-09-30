@@ -9,7 +9,6 @@ const base = {
     isConfigDraft: false,
     isZeroReach: false,
     isActiveNow: true,
-    isOverridden: false,
     now
 };
 
@@ -54,16 +53,8 @@ describe("deriveScheduleStatus", () => {
         ).toBe("expired");
     });
 
-    it("active when isActiveNow and not overridden", () => {
-        expect(deriveScheduleStatus({ ...base, isActiveNow: true, isOverridden: false })).toBe(
-            "active"
-        );
-    });
-
-    it("scheduled when overridden by a more specific rule", () => {
-        expect(deriveScheduleStatus({ ...base, isActiveNow: true, isOverridden: true })).toBe(
-            "scheduled"
-        );
+    it("active when isActiveNow, even if another rule overrides it (§34.4: «Adesso» is the window)", () => {
+        expect(deriveScheduleStatus({ ...base, isActiveNow: true })).toBe("active");
     });
 
     it("scheduled when not currently active (future window)", () => {
@@ -77,8 +68,7 @@ describe("deriveScheduleStatus", () => {
                 endAt: null,
                 isConfigDraft: false,
                 isZeroReach: false,
-                isActiveNow: true,
-                isOverridden: false
+                isActiveNow: true
             })
         ).toBe("active");
     });

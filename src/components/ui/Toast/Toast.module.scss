@@ -1,34 +1,33 @@
-@use "sass:color";
-@use "@styles/variables" as *;
+// Toast — scheda «Toast»: «è fatto, e non devi fare niente». Superficie
+// --surface con bordo, raggio --radius-surface, ombra --shadow-overlay,
+// --z-toast; icona 16 (success-500 / brand-primary) · testo body-sm ·
+// al massimo un'azione · chiudi; larghezza max 400, padding 12 16.
+// Il tipo `error` resta funzionante (avviso in dev in Toast.tsx). Solo token.
 
 /* Ancorato alla navbar globale (unico elemento di altezza fissa e costante
- * in MainLayout/WorkspaceLayout — $global-header-height: 56px in entrambi,
- * a differenza del chrome per-pagina sotto, che varia). Centrato
- * verticalmente sull'altezza del PRIMO toast (~44px: padding 12px top+bottom
- * + line-height singola riga ~19.6px — misura reale di .toast, non stimata):
- * (56 - 44) / 2 = 6px. Dal secondo toast in poi lo stack cresce verso il
- * basso senza ricentrarsi (vedi flex-direction sotto).
- *
- * right: 1rem, appoggiato al bordo — copre volutamente campanella/avatar. */
+ * in MainLayout/WorkspaceLayout — 56px in entrambi). Centrato verticalmente
+ * sull'altezza del PRIMO toast (~44px: padding 12 top+bottom + una riga
+ * ~19.6px): (56 - 44) / 2 = 6px. Dal secondo toast in poi lo stack cresce
+ * verso il basso senza ricentrarsi. right: 16, appoggiato al bordo. */
 .toastContainer {
   position: fixed;
   top: 5px;
-  right: 1rem;
+  right: var(--space-16);
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  z-index: 9999;
+  gap: var(--space-12);
+  z-index: var(--z-toast);
 }
 
 .toastOverflowBadge {
   font-size: 0.75rem;
   font-weight: 600;
-  color: #374151;
-  background: #fff;
-  border: 1px solid #e5e7eb;
-  border-radius: 999px;
-  padding: 0.2rem 0.65rem;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  color: var(--text-muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  padding: var(--space-4) var(--space-10);
+  box-shadow: var(--shadow-rest);
 }
 
 /* Base toast */
@@ -36,44 +35,53 @@
   position: relative;
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: var(--space-10);
   min-width: 260px;
-  max-width: 360px;
-  padding: 0.75rem 1rem;
-  border-radius: 0.75rem;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
-  color: #fff;
+  max-width: 400px;
+  padding: var(--space-12) var(--space-16);
+  border-radius: var(--radius-surface);
+  box-shadow: var(--shadow-overlay);
+  color: var(--text);
   font-size: 0.875rem;
   line-height: 1.4;
-  background: #111827;
+  background: var(--surface);
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--border);
 }
 
-/* Varianti */
-.toastSuccess {
-  background: #047857;
-  border-color: color.scale(#047857, $lightness: -10%);
+/* Icona 16 per tipo: il colore è solo sull'icona, la superficie resta neutra. */
+.toastIcon {
+  display: inline-flex;
+  flex-shrink: 0;
+
+  svg {
+    display: block;
+    width: 16px;
+    height: 16px;
+  }
 }
 
-.toastError {
-  background: #b91c1c;
-  border-color: color.scale(#b91c1c, $lightness: -10%);
+.toastSuccess .toastIcon {
+  color: var(--success-500);
 }
 
-.toastInfo {
-  background: #1d4ed8;
-  border-color: color.scale(#1d4ed8, $lightness: -10%);
+.toastInfo .toastIcon {
+  color: var(--brand-primary);
 }
 
-.toastWarning {
-  background: #b45309;
-  border-color: color.scale(#b45309, $lightness: -10%);
+.toastWarning .toastIcon {
+  color: var(--warning-500);
+}
+
+/* Deprecato: un errore resta nella superficie (InlineBanner). */
+.toastError .toastIcon {
+  color: var(--danger);
 }
 
 /* Contenuto */
 .toastContent {
   flex: 1;
+  min-width: 0;
 }
 
 .toastMessage {
@@ -84,35 +92,33 @@
 .toastClose {
   border: none;
   background: transparent;
-  color: inherit;
+  color: var(--text-muted);
   font-size: 1.1rem;
   cursor: pointer;
   padding: 0;
   line-height: 1;
-  opacity: 0.7;
-  transition: opacity 0.15s ease;
+  transition: color var(--timing-motion-fast) var(--easing-state);
 
   &:hover {
-    opacity: 1;
+    color: var(--text);
   }
 }
 
 .toastAction {
-  margin-top: 0.25rem;
+  margin-top: var(--space-4);
   padding: 0;
   border: none;
   background: transparent;
 
-  color: #fff;
+  color: var(--brand-primary);
   font-weight: 600;
   font-size: 0.8rem;
 
   cursor: pointer;
   text-decoration: underline;
-  opacity: 0.9;
 
   &:hover {
-    opacity: 1;
+    color: var(--brand-primary-hover);
   }
 }
 
@@ -149,9 +155,7 @@
 
 /* Barra countdown sotto al toast con azione: si svuota linearmente lungo
  * la durata di auto-dismiss. Pausa su hover via classe paused (JS sospende
- * anche il timer di dismiss per restare sincronizzato). Colore neutro su
- * tinta semitrasparente del bianco per coerenza con tutte le varianti
- * (background tinto della variante). */
+ * anche il timer di dismiss per restare sincronizzato). */
 @keyframes toast-progress-shrink {
   from {
     transform: scaleX(1);
@@ -167,7 +171,7 @@
   right: 0;
   bottom: 0;
   height: 3px;
-  background: rgba(255, 255, 255, 0.85);
+  background: var(--brand-primary);
   transform-origin: left;
   transform: scaleX(1);
   animation: toast-progress-shrink var(--toast-progress-duration, 4000ms) linear

@@ -53,8 +53,14 @@ con service-role.
 | D — `menu-ai-import` | ✓ | **FIXATO** → `has_permission('catalogs.write')` via user-JWT |
 | E — `generate-menu-pdf` | ✓ | **FIXATO** → `has_permission('catalogs.read')` (no più owner-only) |
 
-`translations.write` enforced anche lato BE (RLS `tenant_languages` + RPC
-`retry_all_failed_translations`/`enqueue_tenant_language_backfill`, mig. 140000).
+`translations.write` enforced anche lato BE: RLS `tenant_languages` + RPC
+`retry_all_failed_translations`/`enqueue_tenant_language_backfill` (mig. 140000),
+`revert_manual_translation` (mig. 20260929160000), `upsert_manual_translation`
+(mig. 20260929170200), RLS insert/update di `translations` (mig. 20260929170100).
+**Ancora aperti a ogni membro**: delete su `translations` e tutte le scritture su
+`translation_jobs`, che il manager usa dal client per chiusure della sede
+(`activity_hours.write`) e In evidenza (`featured.write`). Si chiudono con una RPC
+di accodamento che controlla il permesso dell'entità sorgente (PR a parte).
 Hardening residuo: estrarre `_isMemberOfTenant` in `_shared/` (TODO FIX-3).
 Bonifica sicurezza: error detail/stack rimossi dai 5xx in tutte le edge function.
 
@@ -88,6 +94,8 @@ verbi specifici per operazioni singolari/alto rischio · plurale+tenant
 ## 5. Catalogo: 41 permessi
 
 40 esistenti + `translations.write` (mig. 120000). Scope/categoria invariati da v2 § 5. Modifiche:
+- **`stories.read` / `stories.write`** (activity, enforced any-activity come `featured.*`) — esistevano in DB (mig. 20260707125900) ma mancavano da questa matrice; aggiunti il 27/09/2026 (lotto Stili · Storie · In evidenza).
+- **Deriva nota, da riconciliare** (staging 27/09/2026: 50 permessi): mancano da qui anche `guests.read/manage`, `seatings.read/manage`, `support.read/write`. (`reviews.respond` → `reviews.moderate` + `reviews.delete`: riconciliato il 30/09/2026.)
 - **`translations.write`** (tenant, content) — NUOVO. Azioni `/languages`. Read via proxy `catalogs.read`.
 - **`activity_groups.write`** — esisteva già (mig. 130000 resa no-op con ON CONFLICT).
 - **Morti** (cleanup, § 10): `notifications.receive`, `tenant.transfer_ownership`.
@@ -118,6 +126,8 @@ verbi specifici per operazioni singolari/alto rischio · plurale+tenant
 | product_availability.write | T | T | A | | |
 | featured.read | T | T | A | A | A |
 | featured.write | T | T | A | | |
+| stories.read | T | T | A | A | A |
+| stories.write | T | T | A | | |
 | styles.read | T | T | T | T | T |
 | styles.write | T | T | | | |
 | translations.write | T | T | | | |
@@ -130,7 +140,8 @@ verbi specifici per operazioni singolari/alto rischio · plurale+tenant
 | reservations.read | T | T | A | A | A |
 | reservations.manage | T | T | A | A | |
 | reviews.read | T | T | A | A | A |
-| reviews.respond | T | T | A | A | |
+| reviews.moderate | T | T | A | A | |
+| reviews.delete | T | T | | | |
 | analytics.read | T | T | A | | A |
 | notifications.receive | T | T | A | A | |
 | team.read | T | T | T | | |
@@ -159,10 +170,11 @@ mutazione gatati con helper espliciti.
 | orders | /orders | orders.read + `table_ordering` | orders.manage (activity) |
 | tables | /tables (+ tab) | tables.read | tables.manage (activity) |
 | scheduling | /scheduling/* | scheduling.read | scheduling.write (any-activity*) |
-| featured | /featured/* | featured.read | featured.write (any-activity*) |
+| featured | /featured/* | featured.read | featured.write (any-activity*); crea/modifica prodotto dal contenuto: products.write |
+| stories | /stories/* | stories.read | stories.write (any-activity*) |
 | styles | /styles/* | styles.read | styles.write |
 | analytics | /analytics | analytics.read | — (read-only) |
-| reviews | /reviews | reviews.read | reviews.respond |
+| reviews | /reviews | reviews.read | reviews.moderate (solo `status`: privilegio di colonna, mig `20260930120300`); reviews.delete (tenant-wide) |
 | locations | /locations, /:id | activity.read | activities.create/delete (tenant), activity.manage/activity_hours.write (per sede dall'URL), activity_groups.write |
 | languages | /languages | catalogs.read (proxy) | translations.write (FE+BE) |
 | reservations | /reservations | reservations.read + `table_reservation` | reservations.manage |
@@ -212,7 +224,7 @@ mutazione gatati con helper espliciti.
 
 Cosa è ora vero e abilita i custom a costo basso:
 1. Ogni azione business passa per `has_permission` (BE) + `canDoOnTenant`/`canDoOnActivity` (FE) + PageGate.
-2. Risoluzione canonica su **tutti** i percorsi (edge function ribelli fixate, translations enforced BE).
+2. Risoluzione canonica su **tutti** i percorsi (edge function ribelli fixate, translations enforced BE salvo delete di `translations` e scritture di `translation_jobs`, § sopra).
 3. `owner` è grant-based → uniforme col modello "ruolo = set di permessi".
 
 Direzione architetturale (da discussione Track 0):

@@ -1,0 +1,51 @@
+@use "@pages/CampaignLanding/styles/mixins" as *;
+
+.state {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ld-ok);
+    transition: color 300ms ease;
+}
+
+.stateOff {
+    color: var(--ld-terra);
+}
+
+.switch {
+    @include ld-reset-button;
+    @include ld-focus;
+    position: relative;
+    flex-shrink: 0;
+    width: 38px;
+    height: 22px;
+    border-radius: 999px;
+    background: var(--ld-ok);
+    transition: background-color 300ms ease;
+}
+
+.switchOn {
+    background: var(--ld-terra);
+}
+
+.knob {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--ld-white);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+    transition: transform 300ms var(--ld-ease);
+}
+
+.switchOn .knob {
+    transform: translateX(16px);
+}
+
+.hint {
+    margin: 10px 0 0;
+    font-size: 13px;
+    color: var(--ld-muted);
+    text-align: center;
+}

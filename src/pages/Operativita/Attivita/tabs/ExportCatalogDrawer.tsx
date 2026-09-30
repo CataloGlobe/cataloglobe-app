@@ -313,15 +313,15 @@ export function ExportCatalogDrawer({
   }));
 
   return (
-    <SystemDrawer open={open} onClose={onClose} width={420}>
+    <SystemDrawer open={open} onClose={onClose} size="sm">
       <DrawerLayout
         header={
           <div>
             <Text variant="title-sm" weight={600}>
-              Esporta catalogo PDF
+              Esporta il menù in PDF
             </Text>
             <Text variant="body-sm" colorVariant="muted">
-              Scegli il catalogo da esportare in formato PDF stampabile.
+              Menù, stile e cosa includere. Lo stile vale solo per questo PDF.
             </Text>
           </div>
         }

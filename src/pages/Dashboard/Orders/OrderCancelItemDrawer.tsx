@@ -85,7 +85,7 @@ export default function OrderCancelItemDrawer({
 
     if (!order) {
         return (
-            <SystemDrawer open={open} onClose={onClose} width={560}>
+            <SystemDrawer open={open} onClose={onClose} size="sm">
                 <DrawerLayout
                     header={
                         <Text variant="title-sm" weight={600}>
@@ -107,7 +107,7 @@ export default function OrderCancelItemDrawer({
     }
 
     return (
-        <SystemDrawer open={open} onClose={onClose} width={560}>
+        <SystemDrawer open={open} onClose={onClose} size="sm">
             <DrawerLayout
                 header={
                     <Text variant="title-sm" weight={600}>

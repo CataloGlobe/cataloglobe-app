@@ -1,0 +1,18 @@
+-- is_valid_partita_iva: EXECUTE ai ruoli che scrivono su public.tenants.
+--
+-- Il CHECK tenants_vat_number_valid (20260923120200) valuta la funzione con
+-- i privilegi di chi esegue INSERT/UPDATE, non dell'owner della tabella:
+--   - authenticated: insert client-side del CreateBusinessWizard e gli
+--     UPDATE diretti su tenants dal client;
+--   - anon: richiesto esplicitamente, nessun write anon su tenants oggi;
+--   - service_role: edge function (stripe-webhook, stripe-checkout-confirm,
+--     …) che aggiornano tenants — il CHECK si rivaluta su OGNI UPDATE della
+--     riga, anche se non tocca vat_number.
+-- Supabase concede già EXECUTE a questi ruoli via default privileges sulle
+-- funzioni create da postgres in public: il GRANT qui è esplicito e
+-- idempotente, non dipende da quel default. Nessun REVOKE FROM PUBLIC: la
+-- funzione è pura e senza effetti, e toglierla a PUBLIC romperebbe
+-- qualunque altro ruolo che scriva su tenants.
+--
+-- File separato da 20260923120000 (regola 42601, vedi CLAUDE.md).
+GRANT EXECUTE ON FUNCTION public.is_valid_partita_iva(text) TO anon, authenticated, service_role;

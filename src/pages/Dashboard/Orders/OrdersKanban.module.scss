@@ -1,198 +1,116 @@
-.kanban {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 12px;
+@use "@styles/mixins" as *;
 
-    @media (min-width: 900px) {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 20px;
-        // Riempi l'altezza bounded propagata da .container (solo tab Comande).
-        flex: 1 1 auto;
-        min-height: 0;
-        align-items: stretch; // ERA: start -> impediva alle colonne di stirarsi
-        grid-template-rows: minmax(0, 1fr); // riga unica che riempie e si comprime
-    }
+// Board delle comande. Sopra 1024 tre corsie affiancate, a piena altezza,
+// con lo scroll nella corsia; sotto 1024 una lista sola, scelta dal
+// selettore di stato (passo 2 «375 e 768»). Solo token.
+//
+// Le corsie non sono `Card`: dentro ci sono le card delle comande, e una card
+// dentro una card è un divisore (scheda Card). Sono il fondo recessed su cui
+// le card stanno.
+
+.board {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-12);
+    flex: 1 1 auto;
+    min-height: 0;
 }
 
-// Lane neutra: box recessed grigio con angoli arrotondati. Header fisso in
-// cima (sibling, non scrolla), body card scrollabile su desktop (vedi media
-// query sotto). Le card bianche restano leggibili dentro la lane.
+// Il selettore esiste solo sotto 1024.
+.stateTabs {
+    display: none;
+}
+
+.kanban {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-rows: minmax(0, 1fr); // una riga che riempie e si comprime
+    gap: var(--space-16);
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
 .column {
     display: flex;
     flex-direction: column;
-    min-height: 200px; // floor su mobile/viewport corti
+    min-height: 0;
     background: var(--hover-bg);
     border: 1px solid var(--border);
-    border-radius: 16px;
-    overflow: hidden; // clippa il body scrollabile agli angoli arrotondati
+    border-radius: var(--radius-surface);
+    overflow: hidden; // clippa il corpo che scorre agli angoli
 }
 
 .columnHeader {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 8px;
-    padding: 12px 14px;
-    border-radius: 8px;
-    // Niente transition su background-color: l'animation pulse sotto e' la
-    // sorgente autorevole quando attiva; evita conflitti di timing.
+    gap: var(--space-8);
+    padding: var(--space-12) var(--space-16);
+    border-radius: var(--radius-control);
     outline: 2px solid transparent;
-    outline-offset: 0;
-}
-
-// Pulse sull'arrivo di una nuova comanda: background tint indaco + ring
-// outline netto, hold visibile al peak ~50% della durata. Sobrio (no
-// movimento, no scaling) ma percettibile a colpo d'occhio.
-.columnHeaderPulsing {
-    animation: orderPulse 1.5s ease-out;
-}
-
-@keyframes orderPulse {
-    0% {
-        background-color: transparent;
-        outline-color: rgba(99, 102, 241, 0);
-    }
-    6% {
-        background-color: rgba(99, 102, 241, 0.22);
-        outline-color: rgba(99, 102, 241, 0.65);
-    }
-    55% {
-        background-color: rgba(99, 102, 241, 0.22);
-        outline-color: rgba(99, 102, 241, 0.65);
-    }
-    100% {
-        background-color: transparent;
-        outline-color: rgba(99, 102, 241, 0);
-    }
-}
-
-.columnTitleGroup {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-}
-
-// Dot colorato per stato colonna. Color via [data-status] sul .column
-// padre (selettore parent → figlio per evitare prop drilling).
-.columnDot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--text-muted, #6b6f76);
-    flex-shrink: 0;
-}
-
-.column[data-status="submitted"] .columnDot {
-    background: var(--text-muted, #6b6f76);
-}
-
-.column[data-status="acknowledged"] .columnDot {
-    background: var(--color-warning-500, #f59e0b);
-}
-
-.column[data-status="ready"] .columnDot {
-    background: var(--color-green-500, #10b981);
-}
-
-.columnTitle {
-    font-weight: 600;
-    font-size: 12px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--text-muted, #6b6f76);
-}
-
-// Pill contatore con tinta leggera coerente al dot. Stesso pattern
-// [data-status] sul parent.
-.columnCount {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 24px;
-    height: 22px;
-    padding: 0 8px;
-    border-radius: 999px;
-    font-size: 12px;
-    font-weight: 600;
-    background: rgba(107, 111, 118, 0.12);
-    color: var(--text-primary, #1a1d21);
-}
-
-.column[data-status="acknowledged"] .columnCount {
-    background: rgba(245, 158, 11, 0.14);
-    color: var(--color-warning-700, #b45309);
-}
-
-.column[data-status="ready"] .columnCount {
-    background: rgba(16, 185, 129, 0.14);
-    color: var(--color-green-900, #14532d);
 }
 
 .columnList {
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    padding: 0 12px 12px;
+    gap: var(--space-12);
+    padding: 0 var(--space-12) var(--space-12);
+    flex: 1;
+    min-height: 0; // senza, overflow-y non si attiva
+    overflow-y: auto;
 }
 
-// Empty state: box tratteggiato sottile, neutro.
-.emptyColumn {
-    padding: 20px 12px;
-    text-align: center;
-    color: var(--text-muted, #6b6f76);
-    font-size: 13px;
-    border: 1px dashed var(--border-default, #e1e3e8);
-    border-radius: 8px;
-    background: transparent;
+// Pulse all'arrivo di una comanda (#101): l'unico movimento della pagina, per
+// chi guarda da lontano. Sull'intestazione della corsia sopra 1024, sulla tab
+// «Nuove» sotto. Niente transition: l'animazione è la sola sorgente.
+.pulsing {
+    animation: orderPulse 1.5s ease-out;
+    border-radius: var(--radius-control);
 }
 
-.skeleton {
-    height: 120px;
-    border-radius: 12px;
-    background: linear-gradient(
-        90deg,
-        var(--surface-elevated, #fff) 0%,
-        var(--surface-muted, #f6f7f9) 50%,
-        var(--surface-elevated, #fff) 100%
-    );
-    background-size: 200% 100%;
-    animation: shimmer 1.4s ease-in-out infinite;
-}
-
-@keyframes shimmer {
-    0% {
-        background-position: 200% 0;
-    }
+@keyframes orderPulse {
+    0%,
     100% {
-        background-position: -200% 0;
+        background-color: transparent;
+        outline-color: transparent;
+    }
+    6%,
+    55% {
+        background-color: color-mix(in srgb, var(--brand-primary) 22%, transparent);
+        outline-color: color-mix(in srgb, var(--brand-primary) 65%, transparent);
     }
 }
 
-.errorBanner {
-    padding: 12px;
-    border-radius: 8px;
-    background: var(--surface-elevated, #fff);
-    border: 1px solid var(--color-danger, #dc2626);
-    color: var(--color-danger, #dc2626);
-    font-size: 13px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-}
+@include below-sidebar {
+    .stateTabs {
+        display: block;
+    }
 
-// Scroll interno per-colonna: solo desktop. In fondo al file di proposito —
-// stessa specificita' di `.column`/`.columnList` base, deve vincere per source
-// order (override del floor min-height:200px). A piena altezza le 3 lane sono
-// alte uguali; scrolla solo il body (.columnList), l'header resta fisso.
-@media (min-width: 900px) {
+    .kanban {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: none;
+        flex: 0 0 auto;
+    }
+
+    // Una lista sola: le intestazioni le porta il selettore.
+    .columnHeader {
+        display: none;
+    }
+
     .column {
-        min-height: 0; // governa lo stretch del grid (override floor 200px)
+        background: none;
+        border: none;
+        overflow: visible;
     }
 
     .columnList {
-        flex: 1;
-        min-height: 0; // CRITICO: senza, overflow-y non si attiva
-        overflow-y: auto;
+        padding: 0;
+        overflow: visible;
+    }
+
+    .board[data-narrow-status="submitted"] .column:not([data-status="submitted"]),
+    .board[data-narrow-status="acknowledged"] .column:not([data-status="acknowledged"]),
+    .board[data-narrow-status="ready"] .column:not([data-status="ready"]) {
+        display: none;
     }
 }

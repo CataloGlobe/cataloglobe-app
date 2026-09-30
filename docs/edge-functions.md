@@ -14,10 +14,19 @@ Tutte in `supabase/functions/<nome>/index.ts`. Shared code in `_shared/`. `verif
 | `send-tenant-invite` | ✅ | Invito membro team (email via Resend) |
 | `generate-menu-pdf` | ✅ | PDF menu (usa Puppeteer) |
 | `stripe-checkout` / `stripe-webhook` / `stripe-portal` / `stripe-update-seats` | ✅ | Sottoscrizione Stripe |
+| `update-billing-details` | ✅ | Salva i dati fiscali del tenant (RPC `update_tenant_billing_details` col JWT utente) e riallinea il customer Stripe |
 | `submit-review` | ✅ | Invio recensione dalla pagina pubblica |
 | `search-google-places` | ✅ | Ricerca luoghi Google Places. Branch `query`: searchText per review URL (tab contatti). Branch `place_id`: Place Details con `addressComponents` per autocompletamento indirizzo strutturato (`address`, `street_number`, `postal_code`, `city`, `province`). |
 | `cleanup-draft-schedules` | ✅ | Elimina bozze schedules incomplete > 7 giorni (chiamata via pg_cron con PURGE_SECRET) |
 | `menu-ai-import` | ✅ | Import AI da menu via Gemini (immagini JPEG/PNG + PDF, max 5 file/richiesta) |
+| `submit-lead` | ✅ | Contatto dal form della landing campagna → tabella `leads` + mail interna (pubblica, rate limit per IP) |
+| `purge-leads` | ✅ | Cancella i lead non `won` più vecchi di 12 mesi (pg_cron 03:45 UTC, `X-Job-Secret`, dry-run di default) |
+
+## Contatti dalla landing — `submit-lead` e `purge-leads`
+
+`submit-lead` è pubblica (form della landing campagna). Controlla honeypot `website`, validazione in `_shared/leadValidation.ts` ↔ `src/utils/leadValidation.ts` (test di sync) e rate limit 5/ora per `ip_hash` (SHA-256 con `LEADS_IP_SALT`, l'IP in chiaro non si salva). Poi insert con service role e mail best-effort a `LEADS_NOTIFY_EMAIL`: se la mail fallisce la riga resta. CORS: le anteprime Vercel passano solo su staging. La prova del consenso la scrive il server: `consent_at` = ora dell'insert, `consent_text` = `PRIVACY_PUBLISHED_AT` (`_shared/consentVersions.ts`, fonte unica anche per `/legal/privacy`, separata da `CURRENT_CONSENT_VERSIONS.privacy`: alzarla non chiede un nuovo consenso al sign-up). Il client non manda `consent_text`.
+
+`purge-leads`: cancella i lead con `status ≠ 'won'` più vecchi di 12 mesi. Dry-run di default (`{"dry_run": false}` esplicito per cancellare), header `X-Job-Secret` = `LEADS_RETENTION_SECRET` confrontato a tempo costante (manca o è sbagliato → 401). Cron pg_cron `purge-leads` alle 03:45 UTC (mig `20260926130000`): URL e secret dal vault (`purge_leads_url`, `leads_retention_secret`, che deve essere uguale a `LEADS_RETENTION_SECRET`); se manca un valore nel vault il job salta. `_shared/sendEmail.ts` logga solo `name`/`message`/`statusCode` degli errori Resend (`safeErrorFields`): mai destinatario o corpo della mail.
 
 ## scheduleResolver — duplicazione critica
 
@@ -51,6 +60,23 @@ Senza entry esplicita il gateway Supabase applica `verify_jwt = true` di default
 ### Slash `/` nei commenti TypeScript Deno
 
 Il parser TS del bundler Deno (deploy Edge Function) può interpretare `/` dentro `//` o `/* */` come inizio di regex literal in certi contesti, causando deploy fail con `Failed to bundle the function (reason: The module's source code could not be parsed: Unterminated regexp literal)`. Bug noto del lexer. Workaround: sostituire `/` con `vs`, `or`, `|` nei commenti. Esempio: `// pattern: cancel-order-admin / acknowledge-order` → `// pattern: cancel-order-admin vs acknowledge-order`. Lezione appresa task 2.12 (`close-table`).
+
+### Customer Stripe dopo trasferimento di proprietà
+
+`transfer_ownership()` cambia solo `tenants.owner_user_id`: il customer Stripe restava con email e `metadata.user_id` del vecchio owner (ricevute, solleciti e portale al destinatario sbagliato). L'email sul customer è quella auth dell'owner (non esiste un'email di fatturazione tenant; la PEC è l'indirizzo SDI). Due punti la riallineano, entrambi via Stripe `customers.update` e non-throwing:
+- `delete-account` Step 2b, unico percorso di transfer (l'RPC non è eseguibile da `authenticated`): dopo il successo di `execute_account_deletion_tenant_ops` rilegge owner e `stripe_customer_id` dal DB (solo tenant del payload posseduti dal caller prima dell'RPC e non più dopo: l'RPC ritorna successo senza validare il payload quando il caller non possiede tenant attivi), email da `auth.admin.getUserById`, poi `syncStripeCustomerOwner` (`_shared/stripe-helpers.ts`). Un errore Stripe logga `stripe_customer_owner_sync_failed` (solo code, type, status) e non blocca l'eliminazione.
+- `stripe-checkout`, ramo riuso customer: `email` + `metadata.user_id` seguono il caller (già verificato owner). Rete di sicurezza: un customer rimasto stale si riallinea al primo checkout del nuovo owner.
+Bug fixato 24/09/2026.
+
+### Customer Stripe dopo modifica dei dati fiscali
+
+Prima del fix il customer Stripe si aggiornava solo al checkout, che per un abbonato attivo non si ripete: una modifica da Impostazioni (ragione sociale, indirizzo, P.IVA) non arrivava mai in fattura. Ora il FE (`updateTenantBillingDetails` in `tenants.ts`, usato da `BusinessSettingsPage` e dal ramo ripresa del wizard) chiama l'edge `update-billing-details`:
+1. RPC `update_tenant_billing_details` col JWT dell'utente (permesso `tenant.manage` + gate P.IVA nel DB). Errori: `insufficient_permission` (403, code 42501) e `invalid_vat_number` (400, code 22023) con message e code della RPC; ogni altro errore di classe 22 o 23 → 400 `invalid_billing_details`, senza testo Postgres. Il service lo rilancia come `Error` con `name = message = error` del body e `code`.
+2. Se il tenant ha `stripe_customer_id`, rilegge la riga salvata (service_role) e chiama `syncStripeCustomerProfile`: aggiorna name, address, description, `preferred_locales`, metadata fiscali (merge; un campo svuotato nel DB viene svuotato anche su Stripe con `""`) e tax id. **Mai** `email` né `metadata.user_id`: seguono l'owner, e i dati fiscali li può modificare anche un admin.
+3. Risposta sempre 200 dopo il salvataggio: `stripe_sync` = `updated` | `skipped_no_customer` | `customer_missing` | `error`. Un errore Stripe non fa fallire il salvataggio; il prossimo salvataggio o checkout riallinea.
+
+Costruzione del profilo condivisa con `stripe-checkout` in `_shared/stripeCustomerProfile.ts` (builder + clamp ai limiti Stripe). `syncCustomerTaxId` porta gli `eu_vat` del customer esattamente alla P.IVA corrente: crea il nuovo se manca, poi cancella ogni `eu_vat` diverso (Stripe copia in fattura TUTTI i tax id del customer, quindi una P.IVA vecchia finirebbe sul documento), P.IVA vuota → cancella tutti. Create prima del delete; altri tipi di tax id intatti. Il vecchio `ensureCustomerTaxId` di checkout aggiungeva soltanto. Log solo code/type/status, mai P.IVA né messaggi Stripe.
+Bug fixato 24/09/2026.
 
 ## Epic Ordinazioni dal tavolo — 11 Edge Functions
 

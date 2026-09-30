@@ -106,7 +106,7 @@ export function Step3Summary({
                                 placeholder="es. FOUNDER10"
                             />
                             <span className={styles.promoHint}>
-                                Il codice verrà verificato al checkout. Se valido, lo sconto o il trial esteso saranno applicati automaticamente.
+                                Il codice verrà verificato al checkout. Se valido, verrà applicato automaticamente.
                             </span>
                             {promoError && (
                                 <span className={styles.promoError}>{promoError}</span>
@@ -119,7 +119,7 @@ export function Step3Summary({
                     <span className={styles.infoTitle}>Cosa succede al click su "Vai al pagamento"</span>
                     <span className={styles.infoText}>
                         {isFirstSubscription
-                            ? "Sarai reindirizzato alla pagina sicura di Stripe. Inserirai la carta, ma non ti verrà addebitato nulla fino alla fine del periodo di prova di 30 giorni. Puoi cancellare l'abbonamento in qualsiasi momento dalla pagina Abbonamento."
+                            ? "Sarai reindirizzato alla pagina sicura di Stripe, dove vedrai l'importo dovuto oggi e cosa ti viene chiesto per attivare l'abbonamento. Puoi cancellare l'abbonamento in qualsiasi momento dalla pagina Abbonamento."
                             : "Sarai reindirizzato alla pagina sicura di Stripe. Inserirai la carta e l'addebito partirà subito. Puoi cancellare l'abbonamento in qualsiasi momento dalla pagina Abbonamento."}
                     </span>
                 </div>

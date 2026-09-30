@@ -1,0 +1,327 @@
+@use "@pages/CampaignLanding/styles/mixins" as *;
+
+// ── Sezione e pannello ──────────────────────────────────────────────────────
+.hero {
+    padding: 10px;
+    background: var(--ld-white);
+
+    @include desktop {
+        padding: 16px;
+    }
+}
+
+.panel {
+    position: relative;
+    overflow: hidden;
+    border-radius: 24px;
+    padding: 18px 20px 30px;
+    background: linear-gradient(160deg, var(--ld-hero-a) 0%, var(--ld-hero-b) 55%, var(--ld-scuro) 100%);
+    color: var(--ld-on-azione);
+    // Il 3D della scheda resta dentro il pannello.
+    isolation: isolate;
+    // Alto almeno quanto la viewport meno il margine esterno (10 + 10 mobile,
+    // 16 + 16 desktop, fino a 1000 px): altezza solo CSS, la stessa del
+    // segnaposto (LandingFallback.module.scss) dal primo paint. Testo e
+    // scheda restano un blocco centrato nello spazio sotto la testata.
+    display: flex;
+    flex-direction: column;
+    min-height: calc(100svh - 20px);
+
+    @include desktop {
+        min-height: min(calc(100svh - 32px), 1000px);
+        border-radius: 30px;
+        padding: 28px 56px 80px;
+    }
+}
+
+// Bagliore per fascia: tre livelli sovrapposti, si muove solo l'opacità
+// (niente interpolazione di gradienti, vedi note WebKit su PublicSheet).
+.glow {
+    position: absolute;
+    inset: -80px;
+    pointer-events: none;
+    transition: transform 900ms var(--ld-ease);
+}
+
+.glowLayer {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transition: opacity 1200ms ease;
+}
+
+.glowOn {
+    opacity: 1;
+}
+
+.glow0 {
+    background: radial-gradient(90% 70% at 85% 10%, rgba(233, 196, 106, 0.5) 0%, rgba(233, 196, 106, 0.1) 45%, rgba(0, 0, 0, 0) 72%);
+}
+
+.glow1 {
+    background: radial-gradient(90% 70% at 85% 10%, rgba(214, 116, 70, 0.58) 0%, rgba(168, 70, 31, 0.16) 45%, rgba(0, 0, 0, 0) 72%);
+}
+
+.glow2 {
+    background: radial-gradient(90% 70% at 85% 10%, rgba(110, 112, 216, 0.55) 0%, rgba(70, 72, 198, 0.16) 45%, rgba(0, 0, 0, 0) 72%);
+}
+
+// Alone che segue il cursore: posizione via transform (scritta in rAF).
+.spot {
+    position: absolute;
+    left: -120px;
+    top: -120px;
+    width: 240px;
+    height: 240px;
+    border-radius: 50%;
+    pointer-events: none;
+    opacity: 0;
+    background: radial-gradient(closest-side, rgba(185, 186, 246, 0.08), rgba(185, 186, 246, 0));
+    transition: opacity 500ms ease;
+
+    @include mobile-only {
+        display: none;
+    }
+}
+
+// ── Testata mobile (logo + Accedi): scorre via con l'hero ───────────────────
+.mobileTop {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    // Alta quanto la riga del logo: il bordo di «Accedi» sborda, come in tavola.
+    flex: none;
+    height: 28px;
+    // Spazio minimo sotto la testata: quello in più lo aggiunge la centratura.
+    // 34 e non 44: a 390×844 il contenuto sta nei 824 px del pannello, che
+    // quindi non cresce all'arrivo del chunk.
+    margin-bottom: 34px;
+    align-items: center;
+    justify-content: space-between;
+
+    @include desktop {
+        display: none;
+    }
+}
+
+// Wordmark all'altezza del testo della tavola (20 px di Young Serif).
+.mobileTop .mobileLogo {
+    height: 19px;
+}
+
+.mobileLogin {
+    padding: 8px 16px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.2;
+    text-decoration: none;
+    -webkit-tap-highlight-color: transparent;
+    @include ld-focus;
+
+    &,
+    &:hover {
+        color: var(--ld-on-azione);
+    }
+}
+
+// Desktop: la pillola è nella barra fissa, qui solo il suo spazio (54 px).
+.barSpace {
+    display: none;
+
+    @include desktop {
+        display: block;
+        flex: none;
+        height: 54px;
+        margin-bottom: 24px;
+    }
+}
+
+// ── Griglia: testo | scheda ─────────────────────────────────────────────────
+.grid {
+    position: relative;
+    z-index: 2;
+    margin: auto 0;
+
+    // Testo | palco (telefono + programmazione). Sotto 1200 il palco è largo
+    // quanto la linea orizzontale (338); da 1200 card 264 + 24 + telefono 284
+    // in scala 0,955 (HeroStage.module.scss); 50 px di colonna, ~56 a vista dal
+    // titolo, che si ferma a 9,2 em.
+    @include desktop {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 40px;
+        align-items: center;
+        width: 100%;
+        max-width: 1136px;
+        margin: auto;
+    }
+
+    @include hero-wide {
+        gap: 50px;
+    }
+}
+
+.copy {
+    transition: transform 900ms var(--ld-ease);
+}
+
+.eyebrow {
+    font-size: 12px;
+    font-weight: 600;
+    line-height: normal;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.58);
+}
+
+.title {
+    @include ld-serif;
+    margin: 12px 0 0;
+    font-size: 38px;
+    line-height: 1.08;
+    color: var(--ld-on-azione);
+    text-wrap: balance;
+
+    // Tre righe accanto al palco, come in tavola: «Il menù che si / aggiorna
+    // da solo. / Tu pensi alla sala.». Il corpo segue la colonna del testo
+    // (da 1280: 1136 − 594 = 542 px; «Tu pensi alla sala.», la riga più lunga,
+    // a 60 px con la spaziatura della tavola ne occupa ~534) e le righe si
+    // spezzano in avanti, non bilanciate: il bilanciamento ne farebbe quattro.
+    @include desktop {
+        margin-top: 14px;
+        font-size: ld-fluid-desk(52, 56, 1024, 1199);
+        line-height: 1.06;
+        letter-spacing: -0.01em;
+        text-wrap: wrap;
+        // «Tu» resta sulla terza riga anche quando il palco si rimpicciolisce
+        // (portatili) e la colonna si allarga: la riga più lunga, «Tu pensi alla
+        // sala.», è ~8,9 em; «aggiorna da solo. Tu» ~9,6.
+        max-width: 9.2em;
+    }
+
+    @include hero-wide {
+        font-size: ld-fluid-desk(51, 60, 1200, 1280);
+    }
+}
+
+.titleHl {
+    color: var(--ld-brand-hi);
+}
+
+.lede {
+    margin: 16px 0 0;
+    font-size: 17px;
+    line-height: 1.5;
+    color: rgba(255, 255, 255, 0.8);
+
+    @include desktop {
+        margin-top: 20px;
+        font-size: 20px;
+        line-height: 1.55;
+    }
+}
+
+.ctaRow {
+    margin-top: 24px;
+
+    @include desktop {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        margin-top: 30px;
+    }
+}
+
+.note {
+    margin: 11px 0 0;
+    font-size: 13px;
+    line-height: 1.5;
+    text-align: center;
+    color: rgba(255, 255, 255, 0.62);
+
+    @include desktop {
+        margin: 0;
+        font-size: 14px;
+        line-height: 1.45;
+        text-align: left;
+    }
+}
+
+// ── Palco: telefono e programmazione (HeroStage) ────────────────────────────
+.stageCol {
+    margin-top: 28px;
+
+    @include desktop {
+        margin-top: 0;
+    }
+}
+
+// ── Animazioni ──────────────────────────────────────────────────────────────
+@include motion-ok {
+    // Ingresso al caricamento, una volta sola.
+    .in1,
+    .in2,
+    .in3,
+    .in4,
+    .in5 {
+        animation: ld-hero-rise 700ms var(--ld-ease) both;
+    }
+
+    .in1 {
+        animation-delay: 80ms;
+    }
+
+    .in2 {
+        animation-delay: 180ms;
+    }
+
+    .in3 {
+        animation-delay: 300ms;
+    }
+
+    .in4 {
+        animation-delay: 400ms;
+    }
+
+    .in5 {
+        animation-delay: 460ms;
+
+        @include desktop {
+            animation-delay: 400ms;
+        }
+    }
+
+    .stageIn {
+        animation: ld-hero-card 900ms var(--ld-ease) both;
+        animation-delay: 560ms;
+
+        @include desktop {
+            animation-delay: 520ms;
+        }
+    }
+}
+
+@keyframes ld-hero-rise {
+    from {
+        opacity: 0;
+        transform: translateY(18px);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+@keyframes ld-hero-card {
+    from {
+        opacity: 0;
+        transform: translateY(28px) scale(0.96);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}

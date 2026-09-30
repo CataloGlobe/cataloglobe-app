@@ -178,7 +178,7 @@
         margin-top: -5px; // (track 6 - thumb 16) / 2
         border-radius: 50%;
         background: var(--brand-primary);
-        border: 2px solid #fff;
+        border: 2px solid var(--color-white);
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
     }
 
@@ -197,7 +197,7 @@
     &::-moz-range-thumb {
         width: 16px;
         height: 16px;
-        border: 2px solid #fff;
+        border: 2px solid var(--color-white);
         border-radius: 50%;
         background: var(--brand-primary);
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
@@ -278,7 +278,8 @@
     color: var(--color-muted);
 }
 
-// Small colored dot used as the "Colore" segmented icon.
+// Small colored dot used as the "Colore" segmented icon. Campione
+// decorativo: nessun token equivalente (segnalato nel report del lotto 2c).
 .dot {
     display: inline-block;
     width: 12px;
@@ -323,7 +324,7 @@
     font-weight: 700;
     letter-spacing: 0.02em;
     text-transform: uppercase;
-    color: #fff;
+    color: var(--color-white);
     text-shadow: 0 0 3px rgba(0, 0, 0, 0.6);
     pointer-events: none;
 }

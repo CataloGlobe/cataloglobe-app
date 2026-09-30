@@ -39,70 +39,107 @@ function naturalRowWidth(el: HTMLElement): number {
     return children.reduce((sum, child) => sum + naturalWidth(child), 0) + gap * (children.length - 1);
 }
 
+/** Come sta la banda: riga singola, due righe (azioni sopra, tab sotto) o barra compatta. */
+export type ToolbarLayout = {
+    mode: "row" | "stacked" | "compact";
+    /** Quale versione delle azioni usare: 0 è `actions`, poi le più strette. */
+    step: number;
+};
+
+const ROW: ToolbarLayout = { mode: "row", step: 0 };
+
 /**
- * Decide se la toolbar di sezione (tab a sinistra + azioni a destra) sta su una
- * riga sola o deve passare a due (azioni sopra, tab sotto).
+ * La parte pura della scelta, provata in `toolbarLayout.test.ts`.
+ *
+ * `actions` sono le larghezze naturali delle versioni delle azioni, dalla più
+ * comoda alla più stretta. Si prende la prima che sta in riga con `leading`;
+ * se nessuna ci sta e la pagina accetta due righe (`stack`), la prima che sta
+ * da sola sopra le tab; altrimenti la barra compatta.
+ */
+export function chooseToolbarLayout({
+    available,
+    gap,
+    leading,
+    actions,
+    stack
+}: {
+    available: number;
+    gap: number;
+    leading: number | null;
+    actions: Array<number | null>;
+    stack: boolean;
+}): ToolbarLayout {
+    // Tolleranza 1px: arrotondamenti sub-pixel non devono far sfarfallare il
+    // layout su un ridimensionamento continuo della finestra.
+    const fits = (width: number) => width <= available + 1;
+    const steps = actions.length > 0 ? actions : [null];
+
+    // Si misura ciò che c'è: uno slot solo può eccedere lo spazio da sé. Il
+    // gap conta solo quando ci sono davvero due slot a contendersi la riga.
+    for (let step = 0; step < steps.length; step++) {
+        const width = steps[step];
+        const required = (leading ?? 0) + (width ?? 0) + (leading !== null && width !== null ? gap : 0);
+        if (fits(required)) return { mode: "row", step };
+    }
+    if (stack && leading !== null && fits(leading)) {
+        const step = steps.findIndex(width => fits(width ?? 0));
+        if (step >= 0) return { mode: "stacked", step };
+    }
+    return { mode: "compact", step: 0 };
+}
+
+/**
+ * Decide come sta la toolbar di sezione (tab a sinistra + azioni a destra).
  *
  * La soglia NON è un breakpoint in px: confronta la larghezza naturale del
  * contenuto reale con lo spazio disponibile nel contenitore. Due pagine con
- * contenuto diverso passano quindi a due righe a larghezze diverse — è voluto.
+ * contenuto diverso cambiano forma a larghezze diverse — è voluto.
  *
- * I due slot si misurano sommando i loro figli (`naturalRowWidth`) invece di
+ * Gli slot si misurano sommando i loro figli (`naturalRowWidth`) invece di
  * leggerne la larghezza: sono celle di griglia, quindi si allargano fino alla
  * colonna assegnata — che in stato compatto è la riga intera. Leggerli
  * direttamente significherebbe misurare la banda invece del contenuto, e il
  * layout non tornerebbe mai a riga singola allargando la finestra.
+ *
+ * `actionsRefs` sono le versioni delle azioni da misurare: di solito una, lo
+ * slot stesso. Con più versioni (`PageHeaderConfig.condensed`) sono copie
+ * nascoste, così la misura non dipende da quale versione è a vista.
  */
 export function useCompactToolbar(
     containerRef: RefObject<HTMLElement | null>,
     leadingRef: RefObject<HTMLElement | null>,
-    actionsRef: RefObject<HTMLElement | null>,
+    actionsRefs: ReadonlyArray<RefObject<HTMLElement | null>>,
+    stack: boolean,
     signal?: unknown
-): boolean {
-    const [isCompact, setIsCompact] = useState(false);
-    const isCompactRef = useRef(false);
+): ToolbarLayout {
+    const [layout, setLayout] = useState<ToolbarLayout>(ROW);
+    const layoutRef = useRef<ToolbarLayout>(ROW);
 
     const measure = useCallback(() => {
         const container = containerRef.current;
         const leading = leadingRef.current;
-        const actions = actionsRef.current;
+        const actions = actionsRefs.map(ref => ref.current);
 
+        let next = ROW;
         // Nessuno slot da misurare: non c'è niente che possa non entrare.
-        if (!container || (!leading && !actions)) {
-            if (isCompactRef.current) {
-                isCompactRef.current = false;
-                setIsCompact(false);
-            }
-            return;
+        if (container && (leading || actions.some(Boolean))) {
+            const style = getComputedStyle(container);
+            next = chooseToolbarLayout({
+                available:
+                    container.clientWidth -
+                    (parseFloat(style.paddingLeft) || 0) -
+                    (parseFloat(style.paddingRight) || 0),
+                gap: parseFloat(style.columnGap) || 0,
+                leading: leading ? naturalRowWidth(leading) : null,
+                actions: actions.map(el => (el ? naturalRowWidth(el) : null)),
+                stack
+            });
         }
 
-        const style = getComputedStyle(container);
-        const available =
-            container.clientWidth -
-            (parseFloat(style.paddingLeft) || 0) -
-            (parseFloat(style.paddingRight) || 0);
-        const gap = parseFloat(style.columnGap) || 0;
-
-        // Gli slot si misurano sui figli, mai sul contenitore: sono celle di
-        // griglia e si allargano fino alla colonna assegnata, che in stato
-        // compatto è la riga intera. Misurarli direttamente vorrebbe dire
-        // leggere "largo quanto la banda" e non tornare mai a riga singola.
-        //
-        // Si misura ciò che c'è: uno slot solo può eccedere lo spazio da sé
-        // (una fila di azioni su schermo stretto, o molte tab). Il gap conta
-        // solo quando ci sono davvero due slot a contendersi la riga.
-        const required =
-            (leading ? naturalRowWidth(leading) : 0) +
-            (actions ? naturalRowWidth(actions) : 0) +
-            (leading && actions ? gap : 0);
-        // Tolleranza 1px: arrotondamenti sub-pixel non devono far sfarfallare
-        // il layout su un ridimensionamento continuo della finestra.
-        const next = required > available + 1;
-
-        if (next === isCompactRef.current) return;
-        isCompactRef.current = next;
-        setIsCompact(next);
-    }, [containerRef, leadingRef, actionsRef]);
+        if (next.mode === layoutRef.current.mode && next.step === layoutRef.current.step) return;
+        layoutRef.current = next;
+        setLayout(next);
+    }, [containerRef, leadingRef, actionsRefs, stack]);
 
     // Prima del paint: evita il flash della riga singola su una toolbar che
     // nasce già compatta.
@@ -116,17 +153,17 @@ export function useCompactToolbar(
 
         const observer = new ResizeObserver(() => measure());
         observer.observe(container);
-        // I due slot vanno osservati a parte: il loro contenuto cambia senza che
+        // Gli slot vanno osservati a parte: il loro contenuto cambia senza che
         // il contenitore cambi larghezza (azioni diverse per tab attiva, badge
         // con conteggio, CTA che compare al caricamento dei permessi).
         if (leadingRef.current) observer.observe(leadingRef.current);
-        if (actionsRef.current) observer.observe(actionsRef.current);
+        for (const ref of actionsRefs) if (ref.current) observer.observe(ref.current);
 
         return () => observer.disconnect();
         // `signal` riaggancia gli observer quando i nodi degli slot compaiono o
         // vengono sostituiti (config della pagina che arriva dopo il primo
         // render, oppure cambio pagina con lo slot riusato).
-    }, [containerRef, leadingRef, actionsRef, measure, signal]);
+    }, [containerRef, leadingRef, actionsRefs, measure, signal]);
 
-    return isCompact;
+    return layout;
 }

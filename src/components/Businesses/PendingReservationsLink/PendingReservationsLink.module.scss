@@ -1,0 +1,15 @@
+// Il Badge è il segno; il link porta il focus e il cursore.
+.link {
+  display: inline-flex;
+  border-radius: var(--radius-pill);
+  text-decoration: none;
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-focus);
+  }
+
+  &:hover {
+    text-decoration: underline;
+  }
+}

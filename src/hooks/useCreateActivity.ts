@@ -21,7 +21,7 @@
 // ============================================================
 
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
-import { createActivity, uploadActivityCover } from "@/services/supabase/activities";
+import { createActivity, uploadActivityCover, parseSeatLimitError, type SeatLimitInfo } from "@/services/supabase/activities";
 import { ensureUniqueBusinessSlug } from "@/utils/businessSlug";
 import { generateSlug, sanitizeSlugForSave } from "@/utils/slugify";
 import { compressImage, COMPRESS_PROFILES } from "@/utils/compressImage";
@@ -129,6 +129,13 @@ export interface UseCreateActivityOptions {
     /** Feedback utente (toast) prodotto dal flusso di creazione. */
     onNotify?: (options: ToastOptions) => void;
     /**
+     * Creazione rifiutata dal trigger DB `enforce_seat_limit` (limite sedi del
+     * piano raggiunto fra il check client-side e l'insert). Se presente,
+     * sostituisce il toast d'errore generico: il chiamante decide come
+     * mostrarlo (es. drawer sullo stato offerta).
+     */
+    onSeatLimit?: (info: SeatLimitInfo) => void;
+    /**
      * Eseguito dentro il try dopo la creazione (es. reload lista). Riceve la
      * riga appena inserita: è l'unico punto in cui l'entità è disponibile,
      * perché `values` a quel punto è già stato resettato. I chiamanti che non
@@ -162,6 +169,7 @@ export function useCreateActivity({
     beforeCreate,
     persistDraft = false,
     onNotify,
+    onSeatLimit,
     onSuccess,
     onSettled
 }: UseCreateActivityOptions): UseCreateActivityResult {
@@ -450,11 +458,16 @@ export function useCreateActivity({
                 await onSuccess?.(newActivity);
             } catch (err) {
                 console.error("Errore aggiunta business:", err);
-                const message =
-                    err instanceof Error && err.message === "SLUG_CONFLICT"
-                        ? "Indirizzo web già in uso. Scegli un indirizzo diverso."
-                        : "Errore durante la creazione della sede.";
-                onNotify?.({ message, type: "error" });
+                const seatLimit = parseSeatLimitError(err);
+                if (seatLimit && onSeatLimit) {
+                    onSeatLimit(seatLimit);
+                } else {
+                    const message =
+                        err instanceof Error && err.message === "SLUG_CONFLICT"
+                            ? "Indirizzo web già in uso. Scegli un indirizzo diverso."
+                            : "Errore durante la creazione della sede.";
+                    onNotify?.({ message, type: "error" });
+                }
             } finally {
                 setIsCreating(false);
                 onSettled?.();
@@ -470,6 +483,7 @@ export function useCreateActivity({
             beforeCreate,
             persistDraft,
             onNotify,
+            onSeatLimit,
             onSuccess,
             onSettled
         ]

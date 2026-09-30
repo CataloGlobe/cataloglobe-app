@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<title>Barra fissa — mobile</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Instrument+Sans:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0;font-family:'Instrument Sans', sans-serif;background:#E3E3F0}
+a{color:#4648C6}a:hover{color:#33359E}
+summary::-webkit-details-marker{display:none}
+@keyframes entra0{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
+@keyframes entra1{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
+@keyframes entra2{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
+@keyframes battito{0%,100%{opacity:1}50%{opacity:0.35}}
+@keyframes cresci{from{transform:scaleY(0.04)}to{transform:scaleY(1)}}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #E3E3F0; padding: 10px;">
+<div style="min-height: 100%; box-sizing: border-box; border-radius: 22px; overflow: hidden; background: #F2F2FA; color: #15141F; display: flex; flex-direction: column;">
+  <div style="position: relative; flex-grow: 1; display: flex; flex-direction: column;">
+    <div style="position: absolute; z-index: 5; top: 12px; left: 12px; right: 12px; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 8px 7px 16px; border-radius: 999px; background: rgba(255,255,255,0.88); backdrop-filter: blur(14px); border: 1px solid #E0E0EE; box-shadow: 0 8px 22px rgba(21,20,43,0.10);"><span style="font-family: 'Young Serif', serif; font-size: 17px; color: #15141F;">cataloglobe</span><a href="#" style="padding: 8px 15px; border-radius: 999px; border: 1px solid #E0E0EE; color: #15141F; font-size: 13px; font-weight: 600; text-decoration: none;">Accedi</a></div>
+    <div style="flex-grow: 1; overflow: hidden; padding: 74px 20px 0; background: #F2F2FA;">
+      <h2 style="margin: 0; font-family: 'Young Serif', serif; font-size: 28px; line-height: 1.12; font-weight: 400; color: #15141F;">Carta o PDF, il problema è lo stesso: non cambia mai.</h2>
+      <p style="margin: 14px 0 0; font-size: 16px; line-height: 1.55; color: #3C3A4C;">Un menù è vivo: il pesce finisce, la promo parte il venerdì, a pranzo lavori un altro menù.</p>
+      <div style="margin-top: 20px; background: #FFFFFF; border: 1px solid #E0E0EE; border-radius: 18px; padding: 20px;"><p style="margin: 0; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #63607A;">Oggi, su carta o su PDF</p><span style="display: flex; gap: 9px; align-items: flex-start; font-size: 14px; line-height: 1.45; color: #63607A; margin-top: 11px;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#B7B4C8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink: 0; margin-top: 3px;"><path d="M18 6 6 18M6 6l12 12"></path></svg><span>Ogni cambio è una ristampa, o un file da rifare</span></span><span style="display: flex; gap: 9px; align-items: flex-start; font-size: 14px; line-height: 1.45; color: #63607A; margin-top: 11px;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#B7B4C8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink: 0; margin-top: 3px;"><path d="M18 6 6 18M6 6l12 12"></path></svg><span>Intanto il prezzo sbagliato resta lì</span></span><span style="display: flex; gap: 9px; align-items: flex-start; font-size: 14px; line-height: 1.45; color: #63607A; margin-top: 11px;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#B7B4C8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink: 0; margin-top: 3px;"><path d="M18 6 6 18M6 6l12 12"></path></svg><span>Il menù vecchio continua a girare in sala</span></span></div>
+    </div>
+    <div style="flex-shrink: 0; padding: 12px 14px 20px; background: rgba(255,255,255,0.92); backdrop-filter: blur(14px); border-top: 1px solid #E0E0EE; box-shadow: 0 -10px 26px rgba(21,20,43,0.10);">
+      <a href="#contatto" style="display: block; padding: 16px; background: #4648C6; color: #FFFFFF; border-radius: 14px; font-size: 17px; font-weight: 600; text-align: center; text-decoration: none;">Parliamone</a>
+      <p style="margin: 8px 0 0; font-size: 12px; text-align: center; color: #63607A;">Ti richiamiamo entro 24 ore. Nessun impegno.</p>
+    </div>
+  </div>
+</div></div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+
+</script>
+</body>
+</html>

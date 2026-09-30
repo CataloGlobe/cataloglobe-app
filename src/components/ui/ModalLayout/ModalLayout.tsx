@@ -1,13 +1,16 @@
-import { useEffect, useRef, useState, Children, isValidElement } from "react";
+import { useEffect, useRef, Children, isValidElement } from "react";
 import { createPortal } from "react-dom";
 import FocusLock from "react-focus-lock";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import styles from "./ModalLayout.module.scss";
-
-import { ChevronLeft } from "lucide-react";
 
 import { ReactNode } from "react";
 
+/**
+ * ModalLayout — la modale centrata per guide e anteprime (regola 1): il
+ * CRUD è un SystemDrawer, la conferma è un ConfirmDialog. Gli slot
+ * Sidebar/Drawer (0 usi) sono stati rimossi nel lotto 3.
+ */
 export type ModalWidth = "xs" | "sm" | "md" | "lg" | "xl";
 
 export type ModalHeight = "sm" | "md" | "lg" | "fit";
@@ -24,15 +27,7 @@ export function ModalLayoutHeader({ children }: SlotProps) {
     return <>{children}</>;
 }
 
-export function ModalLayoutSidebar({ children }: SlotProps) {
-    return <>{children}</>;
-}
-
 export function ModalLayoutContent({ children }: SlotProps) {
-    return <>{children}</>;
-}
-
-export function ModalLayoutDrawer({ children }: SlotProps) {
     return <>{children}</>;
 }
 
@@ -59,7 +54,9 @@ type Props = {
     isOpen: boolean;
     onClose: () => void;
     children: ReactNode;
+    /** @deprecated Lo slot Drawer non esiste più: ignorata. Si rimuove nel lotto 6. */
     isDrawerOpen?: boolean;
+    /** @deprecated Lo slot Drawer non esiste più: ignorata. Si rimuove nel lotto 6. */
     onCloseDrawer?: () => void;
     width?: ModalWidth;
     height?: ModalHeight;
@@ -69,24 +66,17 @@ export default function ModalLayout({
     isOpen,
     onClose,
     children,
-    isDrawerOpen,
-    onCloseDrawer,
     width = "xl",
     height = "lg"
 }: Props) {
     const modalRef = useRef<HTMLDivElement | null>(null);
     const previouslyFocusedRef = useRef<HTMLElement | null>(null);
     const mouseDownOnOverlay = useRef(false);
-
-    const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+    const reducedMotion = useReducedMotion();
 
     const header = getSlot(children, ModalLayoutHeader);
-    const sidebar = getSlot(children, ModalLayoutSidebar);
     const content = getSlot(children, ModalLayoutContent);
-    const drawer = getSlot(children, ModalLayoutDrawer);
     const footer = getSlot(children, ModalLayoutFooter);
-
-    const hasDrawer = Boolean(drawer);
 
     /* --------------------------------------------------
      * ACCESSIBILITY / FOCUS / ESC
@@ -96,20 +86,13 @@ export default function ModalLayout({
 
         const onKey = (e: KeyboardEvent) => {
             if (e.key !== "Escape") return;
-
             e.preventDefault();
-
-            if (hasDrawer && isDrawerOpen && onCloseDrawer) {
-                onCloseDrawer();
-                return;
-            }
-
             onClose();
         };
 
         window.addEventListener("keydown", onKey);
         return () => window.removeEventListener("keydown", onKey);
-    }, [isOpen, isDrawerOpen, onCloseDrawer, onClose, hasDrawer]);
+    }, [isOpen, onClose]);
 
     useEffect(() => {
         if (!isOpen) {
@@ -137,12 +120,14 @@ export default function ModalLayout({
         modalRef.current?.focus();
     }, [isOpen]);
 
-    const sidebarWidth = 360;
-
     // SSR guard: createPortal requires document. Skip render in non-DOM
     // environments (build/test). In this Vite client-only app it never
     // triggers in practice, but the guard prevents future regressions.
     if (typeof document === "undefined") return null;
+
+    const transition = reducedMotion
+        ? { duration: 0 }
+        : { duration: 0.2, ease: [0.4, 0, 0.2, 1] as const };
 
     const overlayTree = (
         <AnimatePresence>
@@ -156,18 +141,14 @@ export default function ModalLayout({
                     }}
                     onMouseUp={e => {
                         if (mouseDownOnOverlay.current && e.target === e.currentTarget) {
-                            if (hasDrawer && isDrawerOpen && onCloseDrawer) {
-                                onCloseDrawer();
-                            } else {
-                                onClose();
-                            }
+                            onClose();
                         }
                         mouseDownOnOverlay.current = false;
                     }}
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    transition={{ duration: 0.2 }}
+                    transition={transition}
                 >
                     <FocusLock autoFocus={false} returnFocus>
                         <motion.div
@@ -177,119 +158,18 @@ export default function ModalLayout({
                             ref={modalRef}
                             tabIndex={-1}
                             onClick={e => e.stopPropagation()}
-                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                            initial={reducedMotion ? false : { opacity: 0, scale: 0.98, y: 8 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                            transition={{ type: "spring", duration: 0.4, bounce: 0.3 }}
+                            exit={reducedMotion ? undefined : { opacity: 0, scale: 0.98, y: 8 }}
+                            transition={transition}
                         >
                             {/* HEADER */}
                             <header className={styles.header}>{header}</header>
 
                             {/* BODY */}
-                            <motion.div
-                                className={styles.body}
-                                initial={false}
-                                animate={{
-                                    gridTemplateColumns: sidebar
-                                        ? isSidebarOpen
-                                            ? `${sidebarWidth}px 1fr`
-                                            : `0px 1fr`
-                                        : `1fr`
-                                }}
-                                transition={{
-                                    type: "spring",
-                                    stiffness: 300,
-                                    damping: 30,
-                                    restDelta: 0.5
-                                }}
-                            >
-                                {sidebar && (
-                                    <>
-                                        <motion.aside
-                                            className={styles.left}
-                                            initial={false}
-                                            animate={{
-                                                x: isSidebarOpen ? 0 : -sidebarWidth,
-                                                opacity: isSidebarOpen ? 1 : 0
-                                            }}
-                                            transition={{
-                                                type: "spring",
-                                                stiffness: 300,
-                                                damping: 30
-                                            }}
-                                        >
-                                            {/* Wrapper extra per bloccare la larghezza del contenuto */}
-                                            <div style={{ width: sidebarWidth - 40 }}>
-                                                {sidebar}
-                                            </div>
-                                        </motion.aside>
-
-                                        <motion.button
-                                            className={styles.collapseToggle}
-                                            onClick={() => setIsSidebarOpen(v => !v)}
-                                            initial={false}
-                                            animate={{
-                                                left: isSidebarOpen ? 360 - 16 : 0,
-                                                borderTopLeftRadius: "50%",
-                                                borderBottomLeftRadius: "50%",
-                                                borderTopRightRadius: isSidebarOpen ? "50%" : "0%",
-                                                borderBottomRightRadius: isSidebarOpen
-                                                    ? "50%"
-                                                    : "0%",
-                                                rotate: isSidebarOpen ? 0 : 180,
-                                                x: isSidebarOpen ? 0 : 0
-                                            }}
-                                            transition={{
-                                                type: "spring",
-                                                stiffness: 300,
-                                                damping: 30
-                                            }}
-                                        >
-                                            <ChevronLeft />
-                                        </motion.button>
-                                    </>
-                                )}
-
-                                <section className={styles.right}>
-                                    <div
-                                        className={styles.contentWrapper}
-                                        aria-hidden={hasDrawer && isDrawerOpen}
-                                    >
-                                        {content}
-                                    </div>
-
-                                    <AnimatePresence>
-                                        {hasDrawer && isDrawerOpen && (
-                                            <motion.div
-                                                className={styles.drawerSlot}
-                                                initial={{ x: 24, opacity: 0 }}
-                                                animate={{ x: 0, opacity: 1 }}
-                                                exit={{ x: 24, opacity: 0 }}
-                                                transition={{
-                                                    type: "spring",
-                                                    stiffness: 300,
-                                                    damping: 30
-                                                }}
-                                            >
-                                                {drawer}
-                                            </motion.div>
-                                        )}
-                                    </AnimatePresence>
-                                </section>
-
-                                <AnimatePresence>
-                                    {hasDrawer && isDrawerOpen && (
-                                        <motion.div
-                                            className={styles.contentScrim}
-                                            onClick={() => onCloseDrawer?.()}
-                                            initial={{ opacity: 0 }}
-                                            animate={{ opacity: 1 }}
-                                            exit={{ opacity: 0 }}
-                                            transition={{ duration: 0.18 }}
-                                        />
-                                    )}
-                                </AnimatePresence>
-                            </motion.div>
+                            <div className={styles.body}>
+                                <div className={styles.contentWrapper}>{content}</div>
+                            </div>
 
                             {/* FOOTER */}
                             {footer && <footer className={styles.footer}>{footer}</footer>}

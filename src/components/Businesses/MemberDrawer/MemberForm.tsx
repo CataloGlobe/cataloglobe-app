@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import type { PostgrestError } from "@supabase/supabase-js";
-import { supabase } from "@/services/supabase/client";
+import { changeMemberRole } from "@/services/supabase/team";
 import { useToast } from "@/context/Toast/ToastContext";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import { RoleSelector } from "@/components/ui/RoleSelector/RoleSelector";
@@ -27,7 +27,7 @@ const ASSIGNABLE_ROLES: UserRole[] = ["admin", "manager", "staff", "viewer"];
 
 function mapRpcError(error: PostgrestError): string {
     const msg = error.message ?? "";
-    if (error.code === "42501") return "Permesso negato per questa operazione.";
+    if (error.code === "42501") return "Permesso negato.";
     if (error.code === "44000") return msg || "Membership non trovata.";
     if (error.code === "22023") return msg || "Dati non validi.";
     return `Errore: ${msg || "operazione fallita"}`;
@@ -76,7 +76,7 @@ export function MemberForm({
     const callerIsTenantWide = isOwnerOrAdmin(permissions);
 
     const validate = useCallback((): string | null => {
-        if (!role) return "Seleziona un ruolo.";
+        if (!role) return "Scegli un ruolo.";
         if (role !== "admin" && activityIds.length === 0)
             return "Seleziona almeno una sede.";
         return null;
@@ -99,22 +99,13 @@ export function MemberForm({
             setSaving(true);
             onSavingChange(true);
 
-            const { error } = await supabase.rpc("change_member_role", {
-                p_membership_id: member.membership_id,
-                p_new_role: role,
-                p_activity_ids: finalActivityIds
-            });
-
-            if (error) {
-                setSubmitError(mapRpcError(error));
-                return;
-            }
-
+            await changeMemberRole(member.membership_id, role as Exclude<UserRole, "owner">, finalActivityIds);
             showToast({ type: "success", message: "Accessi aggiornati." });
             onSuccess();
         } catch (err) {
             console.error("[MemberForm] change_member_role failed:", err);
-            setSubmitError("Errore durante l'aggiornamento del ruolo.");
+            const error = err as PostgrestError;
+            setSubmitError(error?.message || error?.code ? mapRpcError(error) : "Errore durante l'aggiornamento del ruolo.");
         } finally {
             setSaving(false);
             onSavingChange(false);

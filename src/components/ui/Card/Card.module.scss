@@ -1,66 +1,130 @@
-@use "@styles/variables" as *;
+// Card — contenitore con nome e confine (design system §5, scheda Card).
+// Token da _theme.scss: tema scuro gratis via --surface/--border/--text.
+// Nessuna transizione su transform, nessun lift: la card non è interattiva.
 
-/* ----------------------------------------------------
-   CARD WRAPPER
----------------------------------------------------- */
 .card {
-  background: var(--card-bg, #ffffff);
-  border-radius: 12px;
-  border: 1px solid var(--border, #e5e7eb);
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-surface);
+  box-shadow: var(--shadow-rest);
+}
 
-  padding: 1.5rem;
+.header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  padding: var(--space-16) var(--space-24);
+  border-bottom: 1px solid var(--border);
+  // Sotto 768 le azioni scendono sotto il titolo invece di schiacciarlo.
+  flex-wrap: wrap;
+}
 
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+.headerText {
+  flex: 1 1 200px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
 
-  transition: background 0.3s ease, border 0.3s ease, transform 0.2s ease, box-shadow 0.2s ease;
+// Un'azione sola e solo icona (il «+» di un elenco) sta sempre accanto al
+// titolo: andare a capo per un bottone di 32 px lascerebbe una riga vuota.
+// Il bottone può essere avvolto (il trigger di un Tooltip): conta che
+// `.actions` abbia un figlio solo, IconButton o suo contenitore. (Un `:has`
+// dentro un altro `:has` non è valido: due selettori semplici.)
+.header:has(> .actions > [data-icon-only]:only-child) .headerText,
+.header:has(> .actions > :only-child > [data-icon-only]:only-child) .headerText {
+  flex-basis: 0;
+}
 
-  &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+// Tab della card: banda a tutta larghezza a filo sotto la testata. La
+// testata perde il suo divisore; la baseline è il bordo della banda, e
+// l'indicatore della tab attiva ci si posa sopra. Il padding tiene
+// l'etichetta allineata al titolo (24 meno i 14 di padding della tab).
+.header:has(+ .tabs) {
+  border-bottom: none;
+  padding-bottom: var(--space-8);
+}
+
+.tabs {
+  display: flex;
+  padding: 0 var(--space-10);
+  border-bottom: 1px solid var(--border);
+}
+
+// Sotto 400 la tab stringe il padding a 8 (Tabs.module.scss): la banda
+// compensa, e l'etichetta resta sotto il titolo.
+@media (max-width: 399px) {
+  .tabs {
+    padding: 0 var(--space-16);
   }
 }
 
-.noHoverLift {
-  &:hover {
-    transform: none;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
-  }
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
 }
 
-/* ----------------------------------------------------
-   TITLE
----------------------------------------------------- */
 .title {
-  font-size: 1rem;
-  font-weight: 600;
-
-  color: var(--brand-primary, #2563eb);
-
-  margin-bottom: 0.5rem;
+  // Il colore è del titolo, non del body: la variante danger lo cambia.
+  color: var(--text);
 }
 
-/* ----------------------------------------------------
-   CONTENT
----------------------------------------------------- */
-.content {
-  font-size: 0.95rem;
-  color: var(--text, #0f172a);
-  line-height: 1.4;
+.badge {
+  display: inline-flex;
+  align-items: center;
 }
 
-/* ----------------------------------------------------
-   DARK MODE — cosmetic tweaks only
----------------------------------------------------- */
-[data-theme="dark"] {
-  .card {
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+.actions {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
 
-    &:hover {
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.55);
-    }
+.body {
+  padding: var(--space-24);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+}
+
+// Body senza padding orizzontale: righe tabellari, DataTable, sotto-sezioni
+// collassabili con hover e divisori a tutta larghezza. Header invariato.
+.flush {
+  padding: var(--space-8) 0;
+
+  // Una ListRow ha 16 di padding (scheda ListRow), il titolo della Card 24:
+  // dentro una Card flush le righe partivano 8 px a sinistra del titolo
+  // (Utilizzo del prodotto, Panoramica, Team). Il rientro della riga segue
+  // quello della testata; nuda in un drawer la riga resta a 16.
+  [data-list-row] {
+    padding-inline: var(--space-24);
+  }
+}
+
+// Un body che contiene ListRow è una lista: le righe si toccano e a separarle
+// è il loro divisore. Col gap del body (12) lo spazio finiva tutto sotto una
+// riga e niente sopra la successiva — il divisore restava a 12 dal contenuto
+// di sopra e a 8 da quello di sotto. Panoramica e Checklist lo azzeravano già
+// per conto loro; ora lo fa il componente, e quelle restano come sono.
+.body:has(> [data-list-row]) {
+  gap: 0;
+}
+
+// Unica variante cromatica: la cornice avvisa e il titolo lo dice, il body
+// resta neutro (il bottone danger sta nell'header, a destra).
+.danger {
+  border-color: var(--danger-200);
+
+  .header {
+    border-bottom-color: var(--danger-200);
   }
 
-  .noHoverLift:hover {
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  .title {
+    color: var(--text-danger);
   }
 }

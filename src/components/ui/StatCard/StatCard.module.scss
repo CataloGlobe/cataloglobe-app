@@ -1,0 +1,72 @@
+// StatCard — una cifra, adesso, rispetto a prima (design system §5, scheda
+// StatCard). Variante di Card: la superficie è di Card, qui solo il ritmo
+// delle tre righe e il colore con segno del delta.
+
+.card {
+  min-width: 0;
+}
+
+.body {
+  gap: var(--space-4);
+}
+
+.label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.value {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+}
+
+.delta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+  color: var(--text-muted);
+}
+
+.deltaValue {
+  color: inherit;
+}
+
+.trend_up {
+  color: var(--text-success);
+}
+
+.trend_down {
+  color: var(--text-danger);
+}
+
+.trend_flat {
+  color: var(--text-muted);
+}
+
+.sample {
+  margin-top: var(--space-4);
+}
+
+.extra {
+  margin-top: var(--space-8);
+}
+
+.link {
+  align-self: flex-start;
+  margin-top: var(--space-4);
+  color: var(--brand-primary);
+  text-decoration: none;
+  border-radius: var(--radius-inner);
+
+  &:hover {
+    text-decoration: underline;
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-focus);
+  }
+}

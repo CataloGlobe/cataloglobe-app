@@ -1,4 +1,4 @@
-import { useRef, type RefObject } from "react";
+import { createRef, useMemo, useRef, type RefObject } from "react";
 import { useLocation } from "react-router-dom";
 import { useReadPageHeader } from "@/context/useReadPageHeader";
 import { useCompactToolbar } from "@/hooks/useCompactToolbar";
@@ -17,10 +17,13 @@ interface PageHeaderSlotProps {
  * Il titolo/sottotitolo passati via `usePageHeader` vengono ignorati (vivono nel
  * NavbarBreadcrumb post-refactor).
  *
- * Due modalità, scelte da `useCompactToolbar` misurando il contenuto reale
- * contro lo spazio disponibile — mai da un breakpoint in px:
+ * Modalità scelte da `useCompactToolbar` misurando il contenuto reale contro
+ * lo spazio disponibile — mai da un breakpoint in px:
  *
- * - **comoda**: riga singola, tab a sinistra e cluster azioni a destra;
+ * - **comoda**: riga singola, tab a sinistra e cluster azioni a destra; con
+ *   `condensed.actions` la pagina offre versioni più strette delle azioni, e
+ *   la banda usa la prima che ci sta;
+ * - **due righe** (solo con `condensed.stack`): azioni sopra, tab sotto;
  * - **compatta**: `PageHeaderCompactBar`, una UI diversa costruita per
  *   progressive disclosure.
  *
@@ -42,14 +45,36 @@ export function PageHeaderSlot(props: PageHeaderSlotProps) {
     const leadingRef = useRef<HTMLDivElement>(null);
     const actionsRef = useRef<HTMLDivElement>(null);
 
-    const isCompact = useCompactToolbar(rowRef, leadingRef, actionsRef, config);
+    // Con versioni più strette le azioni si misurano su copie nascoste, una
+    // per versione: quella a vista cambia con la scelta, la misura no.
+    const steps = useMemo(
+        () => (config?.condensed?.actions?.length ? [config.actions, ...config.condensed.actions] : null),
+        [config]
+    );
+    const stepRefs = useMemo(
+        () => (steps ? steps.map(() => createRef<HTMLDivElement>()) : [actionsRef]),
+        [steps]
+    );
+
+    const layout = useCompactToolbar(rowRef, leadingRef, stepRefs, Boolean(config?.condensed?.stack), config);
 
     if (!config?.leading && !config?.actions) return null;
 
-    const showCompactBar = isCompact && Boolean(config.compact);
+    const showCompactBar = layout.mode === "compact" && Boolean(config.compact);
+    const stacked = layout.mode === "stacked";
+    const actions = steps ? steps[layout.step] : config.actions;
 
     return (
-        <div className={`${styles.slot} ${showCompactBar ? styles.compactMode : ""}`}>
+        <div className={`${styles.slot} ${showCompactBar ? styles.compactMode : ""} ${stacked ? styles.stacked : ""}`}>
+            {steps && (
+                <div className={styles.measure} inert aria-hidden>
+                    {steps.map((step, index) => (
+                        <div key={index} ref={stepRefs[index]} className={styles.actions}>
+                            {step}
+                        </div>
+                    ))}
+                </div>
+            )}
             <div
                 ref={rowRef}
                 className={styles.rawRow}
@@ -61,9 +86,9 @@ export function PageHeaderSlot(props: PageHeaderSlotProps) {
                         {config.leading}
                     </div>
                 )}
-                {config.actions && (
+                {actions && (
                     <div ref={actionsRef} className={styles.actions}>
-                        {config.actions}
+                        {actions}
                     </div>
                 )}
             </div>

@@ -119,3 +119,89 @@ export async function getTenantSetupStatus(tenantId: string): Promise<TenantSetu
         hasActiveLayoutRule: layoutRules > 0
     };
 }
+
+/**
+ * Le otto capacità del blocco «Cosa hai attivato» (Panoramica, §38.3):
+ * non "quanti ne ho" ma "cosa di questo prodotto sto usando". Ogni voce
+ * porta i numeri che il dettaglio mostra; `active` è derivato qui, una
+ * volta, così la pagina non ripete il criterio.
+ *
+ * Traduzioni non è qui: è «In arrivo» per definizione (§25.10), nessuna
+ * query.
+ */
+export type TenantCapabilities = {
+    styles: { active: boolean; total: number; inUse: number };
+    featured: { active: boolean; total: number; published: number };
+    ordering: { active: boolean; locations: number; tables: number; ordersToday: number };
+    reservations: { active: boolean; locations: number; pending: number };
+    reviews: { active: boolean; total: number; pending: number };
+    stories: { active: boolean; published: number };
+    team: { active: boolean; members: number };
+};
+
+async function countRows(
+    build: () => PromiseLike<{ count: number | null; error: { message: string } | null }>
+): Promise<number> {
+    const { count, error } = await build();
+    if (error) throw error;
+    return count ?? 0;
+}
+
+/**
+ * Tredici count in parallelo più la RPC del giorno operativo (che precede il
+ * count degli ordini): 14 chiamate, tutte `head: true`, nessuna riga
+ * scaricata. Misurato su staging (McDonald's, 4 sedi, 21/09/2026): ~200–260 ms
+ * a connessione calda, 1,3 s la prima volta; le 5 count della checklist
+ * costano 184 ms. Stesso ordine di grandezza, non una seconda pagina.
+ */
+export async function getTenantCapabilities(tenantId: string): Promise<TenantCapabilities> {
+    const t = (table: Parameters<typeof supabase.from>[0]) =>
+        supabase.from(table).select("id", { count: "exact", head: true }).eq("tenant_id", tenantId);
+
+    const ordersToday = async () => {
+        const { data: dayStart, error } = await supabase.rpc("get_operative_day_start");
+        if (error) throw error;
+        return countRows(() => t("orders").gte("submitted_at", dayStart as string));
+    };
+
+    const [
+        stylesTotal,
+        stylesInUse,
+        featuredTotal,
+        featuredPublished,
+        orderingLocations,
+        tables,
+        orders,
+        reservationLocations,
+        reservationsPending,
+        reviewsTotal,
+        reviewsPending,
+        storiesPublished,
+        members
+    ] = await Promise.all([
+        countRows(() => t("styles").eq("is_system", false)),
+        countRows(() => t("schedule_layout")),
+        countRows(() => t("featured_contents")),
+        countRows(() => t("featured_contents").eq("status", "published")),
+        countRows(() => t("activities").eq("status", "active").eq("ordering_enabled", true)),
+        countRows(() => t("tables").is("deleted_at", null)),
+        ordersToday(),
+        countRows(() => t("activities").eq("status", "active").eq("enable_reservations", true)),
+        countRows(() => t("reservations").eq("status", "pending")),
+        countRows(() => t("reviews")),
+        countRows(() => t("reviews").eq("status", "pending")),
+        countRows(() => t("stories").eq("status", "published")),
+        // Membri accettati, più il proprietario che non ha riga (CLAUDE.md).
+        countRows(() => t("tenant_memberships").eq("status", "active")).then(n => n + 1)
+    ]);
+
+    return {
+        styles: { active: stylesTotal > 0, total: stylesTotal, inUse: stylesInUse },
+        featured: { active: featuredPublished > 0, total: featuredTotal, published: featuredPublished },
+        ordering: { active: orderingLocations > 0, locations: orderingLocations, tables, ordersToday: orders },
+        reservations: { active: reservationLocations > 0, locations: reservationLocations, pending: reservationsPending },
+        reviews: { active: reviewsTotal > 0, total: reviewsTotal, pending: reviewsPending },
+        stories: { active: storiesPublished > 0, published: storiesPublished },
+        team: { active: members > 1, members }
+    };
+}

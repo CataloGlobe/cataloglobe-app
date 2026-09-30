@@ -58,21 +58,18 @@ export function useNewOrderAlert({
     }, []);
 
     // ─── Title pulse ────────────────────────────────────────────────────
-    // Salva titolo originale al primo mount. Effect su (submittedCount,
-    // visibilita') applica o ripristina.
-    useEffect(() => {
-        if (originalTitleRef.current === "") {
-            originalTitleRef.current = document.title;
-        }
-    }, []);
-
+    // Il titolo non è nostro: lo scrive il layout. Qui si prende in prestito
+    // solo mentre c'è qualcosa da annunciare, e si restituisce quello che
+    // c'era un istante prima. (Prima si fotografava al mount — cioè prima che
+    // il layout scrivesse il suo — e si riscriveva sopra quella fotografia.)
     useEffect(() => {
         function applyTitle() {
-            const original = originalTitleRef.current || "CataloGlobe";
             if (submittedCount > 0 && document.hidden) {
+                if (!originalTitleRef.current) originalTitleRef.current = document.title;
                 document.title = `● (${submittedCount}) Nuove · Ordini · CataloGlobe`;
-            } else {
-                document.title = original;
+            } else if (originalTitleRef.current) {
+                document.title = originalTitleRef.current;
+                originalTitleRef.current = "";
             }
         }
         applyTitle();
@@ -82,11 +79,12 @@ export function useNewOrderAlert({
         };
     }, [submittedCount]);
 
-    // Cleanup unmount: ripristina sempre.
+    // Cleanup unmount: restituisce il titolo solo se è ancora in prestito.
     useEffect(() => {
         return () => {
             if (originalTitleRef.current) {
                 document.title = originalTitleRef.current;
+                originalTitleRef.current = "";
             }
         };
     }, []);

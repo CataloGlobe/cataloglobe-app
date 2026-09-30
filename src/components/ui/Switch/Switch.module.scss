@@ -1,10 +1,13 @@
-@use "@styles/variables" as *;
+// Switch — scheda «Switch»: traccia 36×20 (--gray-300 / --brand-primary),
+// pomello 16 bianco; `sm` 28×16 dentro le righe. Bersaglio 44 col padding.
+// Solo token; nessun override dark.
 
 .wrapper {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: var(--space-12);
+  min-height: 24px;
   cursor: pointer;
   user-select: none;
 }
@@ -25,56 +28,65 @@
 }
 
 .track {
-  width: 38px;
-  height: 22px;
-  border-radius: 999px;
-  background: var(--border, #cbd5e1);
   position: relative;
-  transition: background 0.2s ease;
   flex-shrink: 0;
+  width: 36px;
+  height: 20px;
+  border-radius: var(--radius-pill);
+  background: var(--gray-300);
+  transition:
+    background var(--timing-motion-fast) var(--easing-state),
+    box-shadow var(--timing-motion-fast) var(--easing-state);
 }
 
 .thumb {
-  width: 18px;
-  height: 18px;
-  background: #ffffff;
-  border-radius: 50%;
   position: absolute;
   top: 2px;
   left: 2px;
-  transition: transform 0.2s ease;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--color-white);
+  box-shadow: var(--shadow-rest);
+  transition: transform var(--timing-motion-fast) var(--easing-state);
 }
 
 /* checked */
 .input:checked + .track {
-  background: var(--brand-primary, #6366f1);
+  background: var(--brand-primary);
 }
 
 .input:checked + .track .thumb {
   transform: translateX(16px);
 }
 
-/* focus */
-.input:focus-visible + .track {
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+/* hover: traccia un passo più scura */
+.wrapper:hover .input:not(:checked) + .track {
+  background: var(--gray-400);
 }
 
-.text {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
+/* focus */
+.input:focus-visible + .track {
+  box-shadow: var(--shadow-focus);
+}
+
+/* sm: 28×16, pomello 12 */
+.sm {
+  .track {
+    width: 28px;
+    height: 16px;
+  }
+
+  .thumb {
+    width: 12px;
+    height: 12px;
+  }
+
+  .input:checked + .track .thumb {
+    transform: translateX(12px);
+  }
 }
 
 .description {
-  color: var(--text-muted, #94a3b8);
-}
-
-/* dark */
-[data-theme="dark"] .track {
-  background: #334155;
-}
-
-[data-theme="dark"] .input:checked + .track {
-  background: var(--brand-primary, #6366f1);
+  color: var(--text-muted);
 }

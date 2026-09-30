@@ -1,6 +1,7 @@
 import React from "react";
-import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { MoreHorizontal } from "lucide-react";
+import { Menu } from "@/components/ui/Menu/Menu";
+import { IconButton } from "@/components/ui/Button/IconButton";
 import styles from "./TableRowActions.module.scss";
 
 export interface TableRowAction {
@@ -10,55 +11,54 @@ export interface TableRowAction {
     variant?: "destructive" | "accent";
     separator?: boolean;
     hidden?: boolean;
+    /** Voce presente ma spenta: col perché in `description`, invece di sparire. */
+    disabled?: boolean;
+    description?: string;
 }
 
 interface TableRowActionsProps {
     actions: TableRowAction[];
+    /** Nome accessibile del «⋯»; default «Azioni». Fuori da una tabella (card) conviene dire di cosa: «Azioni sede». */
+    ariaLabel?: string;
 }
 
-export function TableRowActions({ actions }: TableRowActionsProps) {
+/**
+ * Il «⋯» di una riga di DataTable: un `Menu` (scheda «Menu») ancorato a un
+ * `IconButton ghost`. La voce distruttiva va in fondo, dopo un divisore:
+ * lo decide chi compone le azioni (`separator: true`). La tabella marca la
+ * cella che lo contiene come colonna azioni e la mostra al hover/focus.
+ */
+export function TableRowActions({ actions, ariaLabel = "Azioni" }: TableRowActionsProps) {
     const visibleActions = actions.filter(a => !a.hidden);
 
     return (
-        <DropdownMenu.Root>
-            <DropdownMenu.Trigger asChild>
-                <button
+        <Menu
+            align="end"
+            trigger={
+                <IconButton
+                    icon={<MoreHorizontal size={16} />}
+                    aria-label={ariaLabel}
+                    variant="ghost"
+                    size="sm"
                     className={styles.trigger}
-                    aria-label="Azioni"
                     onClick={e => e.stopPropagation()}
-                >
-                    <MoreHorizontal size={16} />
-                </button>
-            </DropdownMenu.Trigger>
-            <DropdownMenu.Portal>
-                <DropdownMenu.Content
-                    className={styles.content}
-                    align="end"
-                    sideOffset={4}
-                    onClick={e => e.stopPropagation()}
-                >
-                    {visibleActions.map((action, index) => (
-                        <React.Fragment key={index}>
-                            {action.separator && index > 0 && (
-                                <DropdownMenu.Separator className={styles.separator} />
-                            )}
-                            <DropdownMenu.Item
-                                className={`${styles.item}${
-                                    action.variant === "destructive"
-                                        ? ` ${styles.danger}`
-                                        : action.variant === "accent"
-                                            ? ` ${styles.accent}`
-                                            : ""
-                                }`}
-                                onClick={action.onClick}
-                            >
-                                {action.icon && <action.icon size={14} />}
-                                {action.label}
-                            </DropdownMenu.Item>
-                        </React.Fragment>
-                    ))}
-                </DropdownMenu.Content>
-            </DropdownMenu.Portal>
-        </DropdownMenu.Root>
+                />
+            }
+        >
+            {visibleActions.map((action, index) => (
+                <React.Fragment key={index}>
+                    {action.separator && index > 0 && <Menu.Separator />}
+                    <Menu.Item
+                        icon={action.icon}
+                        variant={action.variant === "destructive" ? "destructive" : action.variant === "accent" ? "accent" : "default"}
+                        onSelect={action.onClick}
+                        disabled={action.disabled}
+                        description={action.description}
+                    >
+                        {action.label}
+                    </Menu.Item>
+                </React.Fragment>
+            ))}
+        </Menu>
     );
 }

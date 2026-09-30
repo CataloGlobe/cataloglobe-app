@@ -1,6 +1,7 @@
 import {
     CSSProperties,
     ReactNode,
+    isValidElement,
     useCallback,
     useEffect,
     useMemo,
@@ -10,10 +11,12 @@ import {
 import { IconChevronLeft, IconChevronRight, IconInbox } from "@tabler/icons-react";
 import styles from "./DataTable.module.scss";
 import Text from "@/components/ui/Text/Text";
+import Skeleton from "@/components/ui/Skeleton/Skeleton";
 import { BulkBar } from "@/components/ui/BulkBar/BulkBar";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
-import { LoadingState } from "@/components/ui/LoadingState/LoadingState";
+import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { useAutoPageSize } from "./useAutoPageSize";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import {
     resolveNumericPageSize,
     withAutoOption,
@@ -30,6 +33,9 @@ export type ColumnDefinition<T> = {
     cell?: (value: CellValue, row: T, rowIndex: number, extra?: CellValue) => ReactNode;
     width?: string;
     align?: "left" | "center" | "right";
+    /** Sotto 768 la colonna sparisce: su telefono restano due colonne più
+     *  le azioni (scheda «DataTable»). La colonna azioni non si nasconde mai. */
+    hideOnPhone?: boolean;
 };
 
 export type DataTableEmptyState = {
@@ -37,9 +43,15 @@ export type DataTableEmptyState = {
     description?: string;
     action?: ReactNode;
     icon?: ReactNode;
+    /** @deprecated Il vuoto della tabella è sempre `EmptyState inline`: ignorato. */
     compact?: boolean;
 };
 
+/**
+ * @deprecated Il caricamento è sempre a righe Skeleton (scheda «DataTable»):
+ * `message` e `compact` sono ignorati. La prop resta per compatibilità e si
+ * rimuove nel lotto 6.
+ */
 export type DataTableLoadingState = {
     message?: string;
     compact?: boolean;
@@ -47,13 +59,38 @@ export type DataTableLoadingState = {
 
 export type DataTablePageSizeOption = PageSizeSelection; // number | "all" | "auto"
 
+/**
+ * Classi esportate per i consumer, così la pagina non dichiara font-size:
+ * `cellTwoLine` = cella a due righe (titolo 14/500 + caption muta), da
+ * mettere su un wrapper con due figli. `cellTwoLineWrap`, insieme alla prima:
+ * la seconda riga va a capo invece di troncarsi (telefono, dove la colonna è
+ * una sola e la riga deve dire tutto).
+ */
+export const DATA_TABLE_CLASSES = {
+    cellTwoLine: styles.cellTwoLine,
+    cellTwoLineWrap: styles.cellTwoLineWrap
+} as const;
+
+/** Colonna che rende `TableRowActions`: la tabella la mette ultima, a destra. */
+const ACTIONS_COLUMN_ID = "actions";
+const SKELETON_ROWS = 5;
+const SKELETON_WIDTHS = ["60%", "40%", "50%", "70%"];
+
 interface DataTableProps<T> {
     data: T[];
     columns: ColumnDefinition<T>[];
 
     isLoading?: boolean;
     emptyState?: DataTableEmptyState;
+    /** @deprecated Ignorata: il caricamento rende righe Skeleton. */
     loadingState?: DataTableLoadingState;
+    /**
+     * La lista esiste ma un filtro attivo non trova nulla: il vuoto diventa
+     * `EmptyState filtered` («Nessun risultato» + «Azzera filtri» se c'è
+     * `onClearFilters`) invece del vuoto di creazione.
+     */
+    isFiltered?: boolean;
+    onClearFilters?: () => void;
 
     maxHeight?: string;
 
@@ -80,11 +117,27 @@ interface DataTableProps<T> {
     /** Label custom per il pulsante azione nella BulkBar. */
     bulkActionLabel?: string;
     showSelectionBar?: boolean;
+    /**
+     * Il piede (conteggio, per pagina, pagine). `false` solo quando la tabella
+     * mostra tutte le righe e il conteggio è già detto da chi la contiene
+     * (es. il badge della `Card`): elenchi raggruppati in più tabelle.
+     */
+    showFooter?: boolean;
 
     /** Righe con animazione highlight transitorio (~2s fade amber). */
     highlightedRowIds?: string[];
     /** Righe visivamente attenuate e non interattive (es. in salvataggio, sola lettura). */
     disabledRowIds?: string[];
+    /**
+     * Righe spente ma leggibili e interattive: solo aspetto, come `ListRow
+     * muted` (es. la sede sospesa nella matrice di Programmazione).
+     */
+    mutedRowIds?: string[];
+    /**
+     * Nome della tabella. Con un nome la tabella si espone ai lettori di
+     * schermo come tabella (righe, intestazioni, celle).
+     */
+    ariaLabel?: string;
 
     getRowId?: (row: T, rowIndex: number) => string;
 
@@ -129,6 +182,9 @@ interface DataTableRowProps<T> {
     onSelect?: (id: string, checked: boolean) => void;
     isHighlighted?: boolean;
     isDisabled?: boolean;
+    isMuted?: boolean;
+    /** Ruoli ARIA di riga e cella (la tabella ha un nome). */
+    semantic?: boolean;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     dragHandleProps?: any;
 }
@@ -146,6 +202,8 @@ function DataTableRow<T>({
     onSelect,
     isHighlighted,
     isDisabled,
+    isMuted,
+    semantic,
     dragHandleProps
 }: DataTableRowProps<T>) {
     const classes = [
@@ -153,7 +211,8 @@ function DataTableRow<T>({
         onRowClick && !isDisabled ? styles.rowClickable : "",
         isSelected ? styles.rowSelected : "",
         isHighlighted ? styles.rowHighlighted : "",
-        isDisabled ? styles.rowDisabled : ""
+        isDisabled ? styles.rowDisabled : "",
+        isMuted ? styles.rowMuted : ""
     ]
         .filter(Boolean)
         .join(" ");
@@ -162,6 +221,7 @@ function DataTableRow<T>({
         <div
             className={classes}
             style={gridStyle}
+            role={semantic ? "row" : undefined}
             onClick={event => {
                 if (!onRowClick || isDisabled) return;
                 const target = event.target as HTMLElement | null;
@@ -179,6 +239,7 @@ function DataTableRow<T>({
                 <div
                     className={`${styles.cell} ${styles.checkboxCell}`}
                     data-row-click-ignore="true"
+                    role={semantic ? "cell" : undefined}
                 >
                     <input
                         type="checkbox"
@@ -196,11 +257,17 @@ function DataTableRow<T>({
                 const content = column.cell
                     ? column.cell(value, row, rowIndex, dragHandleProps)
                     : (value as ReactNode);
+                // Colonna azioni: per id, o perché la cella rende TableRowActions.
+                const isActions =
+                    column.id === ACTIONS_COLUMN_ID ||
+                    (isValidElement(content) && content.type === TableRowActions);
 
                 return (
                     <div
                         key={column.id}
-                        className={`${styles.cell} ${getAlignClass(column.align)}${column.id === "actions" ? ` ${styles.cellActions}` : ""}`}
+                        className={`${styles.cell} ${getAlignClass(column.align)}${isActions ? ` ${styles.cellActions}` : ""}`}
+                        data-actions={isActions || undefined}
+                        role={semantic ? "cell" : undefined}
                     >
                         {content ?? null}
                     </div>
@@ -212,10 +279,11 @@ function DataTableRow<T>({
 
 export function DataTable<T>({
     data,
-    columns,
+    columns: columnsProp,
     isLoading = false,
     emptyState,
-    loadingState,
+    isFiltered = false,
+    onClearFilters,
     maxHeight: maxHeightProp,
     pageSize,
     pageSizeOptions = DEFAULT_PAGE_SIZE_OPTIONS,
@@ -227,14 +295,30 @@ export function DataTable<T>({
     onBulkDelete,
     bulkActionLabel,
     showSelectionBar = true,
+    showFooter = true,
     highlightedRowIds,
     disabledRowIds,
+    mutedRowIds,
+    ariaLabel,
     getRowId = defaultGetRowId,
     rowWrapper,
     allRowIds
 }: DataTableProps<T>) {
     const maxHeight = maxHeightProp ?? DEFAULT_MAX_HEIGHT;
     const maxHeightIsExplicit = maxHeightProp !== undefined;
+
+    // La colonna azioni è sempre l'ultima, a destra (scheda «DataTable»):
+    // se il consumer la dichiara altrove, la tabella la sposta in coda.
+    const isPhone = useMediaQuery("(max-width: 767px)");
+    const columns = useMemo(() => {
+        // Su telefono le colonne `hideOnPhone` escono; le azioni restano.
+        const visible = isPhone
+            ? columnsProp.filter(c => !c.hideOnPhone || c.id === ACTIONS_COLUMN_ID)
+            : columnsProp;
+        const idx = visible.findIndex(c => c.id === ACTIONS_COLUMN_ID);
+        if (idx < 0 || idx === visible.length - 1) return visible;
+        return [...visible.filter((_, i) => i !== idx), visible[idx]];
+    }, [columnsProp, isPhone]);
     const initialSelection: PageSizeSelection = pageSize ?? "auto";
     const [currentPageSize, setCurrentPageSize] =
         useState<PageSizeSelection>(initialSelection);
@@ -388,6 +472,8 @@ export function DataTable<T>({
         () => new Set(disabledRowIds ?? []),
         [disabledRowIds]
     );
+    const mutedSet = useMemo(() => new Set(mutedRowIds ?? []), [mutedRowIds]);
+    const semantic = Boolean(ariaLabel);
     const selectedSet = useMemo(() => new Set(selected), [selected]);
 
     // ─── Selection handlers ────────────────────────────────────────────────
@@ -450,28 +536,48 @@ export function DataTable<T>({
 
     // ─── Rendering helpers ─────────────────────────────────────────────────
     const renderRows = () => {
+        // Caricamento = righe Skeleton: si sa dove andrà il contenuto.
         if (isLoading) {
-            return (
-                <div className={styles.state}>
-                    <LoadingState
-                        message={loadingState?.message}
-                        compact={loadingState?.compact}
-                    />
+            return Array.from({ length: SKELETON_ROWS }, (_, r) => (
+                <div key={r} className={`${styles.row} ${styles.rowSkeleton}`} style={gridStyle} aria-hidden="true">
+                    {selectable && (
+                        <div className={`${styles.cell} ${styles.checkboxCell}`}>
+                            <Skeleton width={16} height={16} radius="var(--radius-inner)" />
+                        </div>
+                    )}
+                    {columns.map((column, c) => (
+                        <div key={column.id} className={`${styles.cell} ${getAlignClass(column.align)}`}>
+                            <Skeleton
+                                width={SKELETON_WIDTHS[(r + c) % SKELETON_WIDTHS.length]}
+                                height={14}
+                                radius="var(--radius-inner)"
+                            />
+                        </div>
+                    ))}
                 </div>
-            );
+            ));
         }
 
+        // Vuoto = EmptyState inline dentro la tabella; filtered se c'è un
+        // filtro attivo (la lista esiste, il filtro non trova nulla).
         if (data.length === 0) {
-            return (
-                <div className={styles.state}>
+            if (isFiltered) {
+                return (
                     <EmptyState
-                        icon={emptyState?.icon ?? <IconInbox size={40} stroke={1} />}
+                        variant="filtered"
                         title={emptyState?.title ?? "Nessun risultato"}
-                        description={emptyState?.description}
-                        action={emptyState?.action}
-                        compact={emptyState?.compact}
+                        onClearFilters={onClearFilters}
                     />
-                </div>
+                );
+            }
+            return (
+                <EmptyState
+                    variant="inline"
+                    icon={emptyState?.icon ?? <IconInbox stroke={1.5} />}
+                    title={emptyState?.title ?? "Nessun risultato"}
+                    description={emptyState?.description}
+                    action={emptyState?.action}
+                />
             );
         }
 
@@ -491,6 +597,8 @@ export function DataTable<T>({
                     onSelect={handleSelectRow}
                     isHighlighted={highlightSet.has(rowId)}
                     isDisabled={disabledSet.has(rowId)}
+                    isMuted={mutedSet.has(rowId)}
+                    semantic={semantic}
                 />
             );
             return rowWrapper ? rowWrapper(element, row, rowIndex) : element;
@@ -527,7 +635,7 @@ export function DataTable<T>({
                     <div className={styles.footerRight}>
                         {showDropdown && (
                             <label className={styles.pageSizeSelector}>
-                                <Text variant="body-sm" colorVariant="muted">
+                                <Text variant="body-sm" colorVariant="muted" className={styles.pageSizeLabel}>
                                     Per pagina
                                 </Text>
                                 <select
@@ -593,10 +701,10 @@ export function DataTable<T>({
         <>
             <div ref={probeRef} className={styles.autoSizeProbe}>
                 <div ref={tableRef} className={styles.table} style={containerStyle}>
-                    <div className={styles.scrollArea}>
-                        <div ref={headerRef} className={styles.header} style={gridStyle}>
+                    <div className={styles.scrollArea} role={semantic ? "table" : undefined} aria-label={ariaLabel}>
+                        <div ref={headerRef} className={styles.header} style={gridStyle} role={semantic ? "row" : undefined}>
                             {selectable && (
-                                <div className={`${styles.headerCell} ${styles.checkboxCell}`}>
+                                <div className={`${styles.headerCell} ${styles.checkboxCell}`} role={semantic ? "columnheader" : undefined}>
                                     <input
                                         type="checkbox"
                                         className={styles.checkbox}
@@ -612,17 +720,21 @@ export function DataTable<T>({
                             {columns.map(column => (
                                 <div
                                     key={column.id}
-                                    className={`${styles.headerCell} ${getAlignClass(column.align)}${column.id === "actions" ? ` ${styles.cellActions}` : ""}`}
+                                    className={`${styles.headerCell} ${getAlignClass(column.align)}${column.id === ACTIONS_COLUMN_ID ? ` ${styles.cellActions}` : ""}`}
+                                    data-actions={column.id === ACTIONS_COLUMN_ID || undefined}
+                                    role={semantic ? "columnheader" : undefined}
                                 >
                                     {column.header}
                                 </div>
                             ))}
                         </div>
 
-                        <div ref={bodyRef} className={styles.body}>{renderRows()}</div>
+                        <div ref={bodyRef} className={styles.body} aria-busy={isLoading || undefined} role={semantic ? "rowgroup" : undefined}>
+                            {renderRows()}
+                        </div>
                     </div>
 
-                    <div ref={footerRef} className={styles.footer}>{renderFooter()}</div>
+                    {showFooter && <div ref={footerRef} className={styles.footer}>{renderFooter()}</div>}
                 </div>
             </div>
 

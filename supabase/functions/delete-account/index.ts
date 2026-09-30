@@ -1,7 +1,11 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { createStripeClient, scheduleStripeCancel } from "../_shared/stripe-helpers.ts";
+import {
+    createStripeClient,
+    scheduleStripeCancel,
+    syncStripeCustomerOwner
+} from "../_shared/stripe-helpers.ts";
 
 const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
@@ -23,6 +27,15 @@ interface TenantAction {
 interface RequestPayload {
     actions: TenantAction[];
 }
+
+// Error tokens raised by execute_account_deletion_tenant_ops, the only ones
+// returned to the client. Anything else becomes a generic "rpc_error".
+const EXPOSED_RPC_ERRORS = new Set([
+    "not_owner_of_tenant",
+    "incomplete_actions",
+    "invalid_action",
+    "not_authenticated"
+]);
 
 serve(async (req: Request) => {
     if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -97,11 +110,15 @@ serve(async (req: Request) => {
     // -------------------------------------------------------------------------
     // Step 1b — Pre-fetch Stripe subscription IDs for affected tenants
     //
-    // Must happen BEFORE the RPC: transfer_ownership() resets Stripe fields
-    // on transferred tenants, so the subscription_id would be lost after.
+    // Done BEFORE the RPC so the snapshot matches the tenants the actions
+    // refer to. transfer_ownership() only changes ownership: it never touches
+    // billing columns, so stripe_subscription_id survives a transfer.
     // The action ("lock" vs "transfer") is captured here so Step 2a can
     // discriminate behaviour: lock → schedule cancel at period end,
     // transfer → leave the subscription alone (it follows the tenant).
+    // Scoped to tenants owned by the caller: the RPC returns success without
+    // validating the payload when the caller owns no active tenant, so an
+    // unscoped read would let any account cancel another tenant's subscription.
     // -------------------------------------------------------------------------
     const actionMap = new Map<string, TenantAction["action"]>(
         payload.actions.map((a: TenantAction) => [a.tenant_id, a.action])
@@ -119,6 +136,7 @@ serve(async (req: Request) => {
                 .from("tenants")
                 .select("id, stripe_subscription_id")
                 .in("id", tenantIds)
+                .eq("owner_user_id", userId)
                 .not("stripe_subscription_id", "is", null);
 
             stripeSubsToProcess = (tenantsStripe ?? [])
@@ -143,6 +161,34 @@ serve(async (req: Request) => {
         }
     }
 
+    // Tenants the caller owns and asks to transfer, snapshotted BEFORE the RPC
+    // for Step 2b. The RPC returns early (success, payload unchecked) when the
+    // caller owns no active tenant, so the payload alone is not proof of a
+    // transfer: only tenants owned by the caller right now qualify.
+    let transferOwnedIds: string[] = [];
+    const requestedTransferIds = payload.actions
+        .filter((a: TenantAction) => a.action === "transfer")
+        .map((a: TenantAction) => a.tenant_id);
+
+    if (requestedTransferIds.length > 0) {
+        const { data: owned, error: ownedErr } = await supabaseAdmin
+            .from("tenants")
+            .select("id")
+            .in("id", requestedTransferIds)
+            .eq("owner_user_id", userId);
+        if (ownedErr) {
+            console.error(
+                JSON.stringify({
+                    event: "delete_account_customer_sync_prefetch_failed",
+                    user_id: userId,
+                    error_code: ownedErr.code
+                })
+            );
+        } else {
+            transferOwnedIds = (owned ?? []).map((t: { id: string }) => t.id);
+        }
+    }
+
     // -------------------------------------------------------------------------
     // Step 2 — RPC SQL: execute tenant operations atomically
     //
@@ -157,8 +203,11 @@ serve(async (req: Request) => {
     });
 
     if (rpcError) {
-        // RPC error messages embed a leading error code token (e.g. "not_authenticated: ...")
-        const errorCode = rpcError.code || rpcError.message?.split(":")[0]?.trim() || "rpc_error";
+        // RPC error messages embed a leading error code token (e.g. "not_authenticated: ...").
+        // Only allowlisted tokens reach the client (account.ts maps them to UI copy);
+        // the SQLSTATE and the Postgres message text are never forwarded.
+        const token = rpcError.message?.split(":")[0]?.trim() ?? "";
+        const errorCode = EXPOSED_RPC_ERRORS.has(token) ? token : "rpc_error";
 
         console.error(
             JSON.stringify({
@@ -169,10 +218,7 @@ serve(async (req: Request) => {
             })
         );
 
-        return json(400, {
-            error: errorCode,
-            message: rpcError.message
-        });
+        return json(400, { error: errorCode });
     }
 
     console.log(JSON.stringify({ event: "delete_account_sql_success", user_id: userId }));
@@ -183,7 +229,7 @@ serve(async (req: Request) => {
     // For "lock" tenants: schedule cancel_at_period_end so the user can
     // recover the account within 30 days and pick the subscription back up.
     // For "transfer" tenants: leave the subscription untouched — it now
-    // belongs to the new owner.
+    // belongs to the new owner (its customer is realigned in Step 2b).
     // -------------------------------------------------------------------------
     if (stripeSubsToProcess.length > 0) {
         const stripe = createStripeClient();
@@ -219,7 +265,74 @@ serve(async (req: Request) => {
     }
 
     // -------------------------------------------------------------------------
-    // Step 2b — Mark deletion timestamp
+    // Step 2b — Point the Stripe customer at the new owner (non-blocking)
+    //
+    // For "transfer" tenants the customer still carries the old owner's email
+    // and metadata.user_id. Owner and customer are re-read from the DB after
+    // the RPC (never from the payload); the email comes from auth admin.
+    // Scope: tenants owned by the caller before the RPC (transferOwnedIds)
+    // and no longer owned after it — i.e. actually transferred by this call.
+    // A Stripe failure is logged and skipped — the transfer is committed, and
+    // stripe-checkout realigns the customer on the new owner's next checkout.
+    // -------------------------------------------------------------------------
+    if (transferOwnedIds.length > 0) {
+        const { data: transferred, error: transferredErr } = await supabaseAdmin
+            .from("tenants")
+            .select("id, owner_user_id, stripe_customer_id")
+            .in("id", transferOwnedIds)
+            .neq("owner_user_id", userId)
+            .not("stripe_customer_id", "is", null);
+
+        if (transferredErr) {
+            console.error(
+                JSON.stringify({
+                    event: "delete_account_customer_sync_reread_failed",
+                    user_id: userId,
+                    error_code: transferredErr.code
+                })
+            );
+        } else if ((transferred ?? []).length > 0) {
+            const stripe = createStripeClient();
+            if (!stripe) {
+                console.warn(
+                    JSON.stringify({
+                        event: "delete_account_customer_sync_skipped_no_key",
+                        user_id: userId,
+                        pending: transferred.length
+                    })
+                );
+            } else {
+                for (const t of transferred as {
+                    id: string;
+                    owner_user_id: string;
+                    stripe_customer_id: string;
+                }[]) {
+                    const { data: ownerData, error: ownerErr } =
+                        await supabaseAdmin.auth.admin.getUserById(t.owner_user_id);
+                    const ownerEmail = ownerData?.user?.email;
+                    if (ownerErr || !ownerEmail) {
+                        console.error(
+                            JSON.stringify({
+                                event: "delete_account_customer_sync_owner_unresolved",
+                                user_id: userId,
+                                tenant_id: t.id
+                            })
+                        );
+                        continue;
+                    }
+                    await syncStripeCustomerOwner(
+                        stripe,
+                        t.stripe_customer_id,
+                        { email: ownerEmail, userId: t.owner_user_id },
+                        { user_id: userId, tenant_id: t.id, flow: "delete-account" }
+                    );
+                }
+            }
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Step 2c — Mark deletion timestamp
     //
     // Writes account_deleted_at = now() to profiles. This is the authoritative
     // source of truth for the 30-day recovery window and for purge-accounts.

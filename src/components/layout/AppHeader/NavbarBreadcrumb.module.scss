@@ -24,3 +24,20 @@
     display: none;
   }
 }
+
+// Pill della sede: dentro il contesto è l'unica cosa che la navbar dice.
+.sedePill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+  min-width: 0;
+  color: var(--text-muted);
+}
+
+.sedeName {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}

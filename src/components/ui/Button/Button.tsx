@@ -64,7 +64,7 @@ export const Button = forwardRef<HTMLButtonElement | HTMLAnchorElement, ButtonPr
             <>
                 {loading && <span className={styles.spinner} aria-hidden />}
                 {!loading && leftIcon && <span className={styles.icon}>{leftIcon}</span>}
-                <Text as="span" variant="button" weight={600} className={styles.label}>
+                <Text as="span" variant="button" weight={500} className={styles.label}>
                     {children}
                 </Text>
                 {!loading && rightIcon && <span className={styles.icon}>{rightIcon}</span>}

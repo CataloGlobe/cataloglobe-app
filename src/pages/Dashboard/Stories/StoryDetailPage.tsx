@@ -24,7 +24,10 @@ import { useTenantId } from "@/context/useTenantId";
 import { usePermissions } from "@/context/PermissionsContext";
 import { canDoOnAnyActivity } from "@/lib/permissions";
 import { PageGate } from "@/components/PageGate/PageGate";
-import { SectionCard } from "@/components/ui/SectionCard/SectionCard";
+import { Card } from "@/components/ui/Card/Card";
+import Skeleton from "@/components/ui/Skeleton/Skeleton";
+import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
+import { BookOpenText } from "lucide-react";
 import { StoryForm } from "./components/StoryForm";
 import { StoryBlockEditor } from "./components/StoryBlockEditor";
 import { createBlock } from "./components/createBlock";
@@ -32,8 +35,14 @@ import { HeaderSaveAction, DiscardChangesConfirmDialog } from "./components/Head
 import { buildSaveActionCompactConfig } from "./components/headerSaveActionCompact";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { StoryProductPicker } from "./components/StoryProductPicker";
+import { StoryPlacementCard } from "./components/StoryPlacementCard";
+import { getActivities } from "@/services/supabase/activities";
+import type { AppearanceActivity } from "@/utils/ruleAppearance";
 import { AddBlockMenu } from "./components/AddBlockMenu";
-import { useBeforeUnloadWarning } from "./hooks/useBeforeUnloadWarning";
+import { useUnsavedChangesGuard } from "@/components/ui/UnsavedChangesBar/useUnsavedChangesGuard";
+import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
+import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
+import { Badge } from "@/components/ui/Badge/Badge";
 import styles from "./Stories.module.scss";
 
 const STATUS_OPTIONS: { value: StoryStatus; label: string }[] = [
@@ -47,13 +56,19 @@ export default function StoryDetailPage() {
     const { showToast } = useToast();
     const tenantId = useTenantId();
     const { permissions } = usePermissions();
-    const canWrite = permissions ? canDoOnAnyActivity(permissions, "stories.write") : false;
+    const { canEdit } = useSubscriptionGuard();
+    // Gate di lettura prima di ogni fetch; il blocco lo rende `PageGate`.
+    const canRead = permissions != null && canDoOnAnyActivity(permissions, "stories.read");
+    // Chi non scrive (o ha l'abbonamento fermo) legge la storia com'è: campi e
+    // blocchi spenti, stato come etichetta, niente Salva.
+    const canWrite = permissions != null && canDoOnAnyActivity(permissions, "stories.write") && canEdit;
 
     // `story` è il baseline SALVATO. Il draft (campi + blocchi) vive qui nel
     // parent: isDirty deriva dal diff draft↔baseline, e un unico Salva persiste
     // meta + body_blocks insieme.
     const [story, setStory] = useState<StoryWithProduct | null>(null);
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     // Conferma dello scarto quando "Annulla" arriva dal kebab compatto: stessa
     // domanda del bottone in toolbar comoda.
@@ -64,6 +79,9 @@ export default function StoryDetailPage() {
     const [title, setTitle] = useState("");
     const [status, setStatus] = useState<StoryStatus>("draft");
     const [productId, setProductId] = useState<string | null>(null);
+    // Dove appare (§34.7): null = tutta l'azienda.
+    const [activityId, setActivityId] = useState<string | null>(null);
+    const [activities, setActivities] = useState<AppearanceActivity[]>([]);
     const [blocks, setBlocks] = useState<StoryBlock[]>([]);
     const [pendingCoverFile, setPendingCoverFile] = useState<File | null>(null);
     const [coverPreview, setCoverPreview] = useState<string | null>(null);
@@ -75,21 +93,37 @@ export default function StoryDetailPage() {
     const [pendingBlockImages, setPendingBlockImages] = useState<Record<string, File>>({});
 
     const refreshStory = useCallback(async () => {
-        if (!tenantId || !storyId) return;
+        if (!tenantId || !storyId || !canRead) return;
         try {
+            setLoadError(false);
             const data = await getStory(storyId, tenantId);
             setStory(data);
         } catch (error) {
-            console.error(error);
-            showToast({ type: "error", message: "Errore durante il caricamento della storia." });
+            // «Non trovata» è un 406 di PostgREST (PGRST116); ogni altro errore
+            // è un errore, e la pagina lo dice con «Riprova».
+            const code = (error as { code?: string } | null)?.code;
+            if (code === "PGRST116") {
+                setStory(null);
+            } else {
+                console.error("Caricamento storia:", error);
+                setLoadError(true);
+            }
         }
-    }, [tenantId, storyId, showToast]);
+    }, [tenantId, storyId, canRead]);
 
     useEffect(() => {
+        if (!tenantId || !canRead) return;
+        getActivities(tenantId)
+            .then(list => setActivities(list.map(a => ({ id: a.id, name: a.name, status: a.status }))))
+            .catch(error => console.warn("[StoryDetailPage] sedi non caricate:", error));
+    }, [tenantId, canRead]);
+
+    useEffect(() => {
+        if (!canRead) return;
         setLoading(true);
         refreshStory().finally(() => setLoading(false));
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [tenantId, storyId]);
+    }, [tenantId, storyId, canRead]);
 
     // Sync draft ← baseline. Usata al load iniziale, dopo un Salva riuscito, e
     // da `discardStory` (Annulla in header) per riallineare l'intero draft —
@@ -100,6 +134,7 @@ export default function StoryDetailPage() {
         setTitle(data.title);
         setStatus(data.status);
         setProductId(data.product_id);
+        setActivityId(data.activity_id);
         setBlocks(data.body_blocks);
         setPendingCoverFile(null);
         setCoverRemoved(false);
@@ -160,9 +195,10 @@ export default function StoryDetailPage() {
         if (title !== story.title) return true;
         if (status !== story.status) return true;
         if (productId !== story.product_id) return true;
+        if (activityId !== story.activity_id) return true;
         if (JSON.stringify(blocks) !== JSON.stringify(story.body_blocks)) return true;
         return false;
-    }, [story, eyebrow, title, status, productId, pendingCoverFile, coverRemoved, pendingBlockImages, blocks]);
+    }, [story, eyebrow, title, status, productId, activityId, pendingCoverFile, coverRemoved, pendingBlockImages, blocks]);
 
     const saveStory = useCallback(async (): Promise<boolean> => {
         if (!story || !tenantId || isSaving) return false;
@@ -224,6 +260,7 @@ export default function StoryDetailPage() {
                 eyebrow: eyebrow.trim() || null,
                 title: trimmedTitle,
                 product_id: productId,
+                activity_id: activityId,
                 status,
                 cover_media: coverMedia,
                 body_blocks: nextBlocks
@@ -266,11 +303,10 @@ export default function StoryDetailPage() {
         } finally {
             setIsSaving(false);
         }
-    }, [story, tenantId, isSaving, title, eyebrow, productId, status, pendingCoverFile, coverRemoved, pendingBlockImages, blocks, refreshStory, showToast]);
+    }, [story, tenantId, isSaving, title, eyebrow, productId, activityId, status, pendingCoverFile, coverRemoved, pendingBlockImages, blocks, refreshStory, showToast]);
 
-    // Protezione refresh / chiusura tab (prompt nativo). Il guard di navigazione
-    // SPA con dialog a 3 opzioni richiede un data router — vedi report.
-    useBeforeUnloadWarning(isDirty);
+    // Guardia all'uscita: refresh e navigazione interna (sidebar, briciole).
+    useUnsavedChangesGuard(isDirty && canWrite);
 
     const breadcrumbItems = useMemo(
         () => [
@@ -286,6 +322,7 @@ export default function StoryDetailPage() {
     const [focusBlockId, setFocusBlockId] = useState<string | null>(null);
 
     const imageBlockCount = useMemo(() => blocks.filter(b => b.type === "image").length, [blocks]);
+    const storyBadge = `${blocks.length} ${blocks.length === 1 ? "blocco" : "blocchi"} · ${imageBlockCount} ${imageBlockCount === 1 ? "immagine" : "immagini"} su ${MAX_STORY_IMAGES}`;
     const imageCapReached = imageBlockCount >= MAX_STORY_IMAGES;
 
     const handleAddBlock = useCallback(
@@ -306,14 +343,18 @@ export default function StoryDetailPage() {
     const actions = useMemo(
         () => (
             <div className={styles.headerActions}>
-                <div className={!canWrite ? styles.readonlyControl : undefined}>
+                {canWrite ? (
                     <SegmentedControl<StoryStatus>
                         value={status}
                         onChange={setStatus}
                         options={STATUS_OPTIONS}
                         size="sm"
                     />
-                </div>
+                ) : (
+                    <Badge variant={status === "published" ? "success" : "secondary"}>
+                        {status === "published" ? "Pubblicata" : "Bozza"}
+                    </Badge>
+                )}
                 {canWrite && (
                     <>
                         <span className={styles.headerSeparator} aria-hidden="true" />
@@ -352,24 +393,57 @@ export default function StoryDetailPage() {
 
     usePageHeader({ actions, compact: headerCompact });
 
+    if (permissions != null && !canRead) {
+        return <PageGate readPermission="stories.read">{() => null}</PageGate>;
+    }
+
     if (loading) {
+        // Stessa sagoma del contenuto: Informazioni, Dove appare, Prodotto collegato, Il racconto.
         return (
-            <div className={styles.wrapper}>
-                <Text colorVariant="muted">Caricamento in corso...</Text>
+            <div className={styles.wrapper} aria-busy="true" aria-label="Caricamento">
+                <Skeleton height="320px" />
+                <Skeleton height="160px" />
+                <Skeleton height="96px" />
+                <Skeleton height="240px" />
             </div>
+        );
+    }
+
+    if (loadError) {
+        return (
+            <EmptyState
+                variant="page"
+                icon={<BookOpenText />}
+                title="Non è stato possibile caricare la storia"
+                description="Controlla la connessione e riprova."
+                action={
+                    <Button
+                        variant="secondary"
+                        onClick={() => {
+                            setLoading(true);
+                            refreshStory().finally(() => setLoading(false));
+                        }}
+                    >
+                        Riprova
+                    </Button>
+                }
+            />
         );
     }
 
     if (!story) {
         return (
-            <div className={styles.wrapper}>
-                <Text variant="title-sm" colorVariant="error">
-                    Storia non trovata.
-                </Text>
-                <Button variant="secondary" onClick={() => navigate(`/business/${tenantId}/stories`)}>
-                    Torna alla lista
-                </Button>
-            </div>
+            <EmptyState
+                variant="page"
+                icon={<BookOpenText />}
+                title="Storia non trovata"
+                description="La storia che cerchi non esiste o è stata eliminata."
+                action={
+                    <Button onClick={() => navigate(`/business/${tenantId}/stories`)}>
+                        Torna a Storie
+                    </Button>
+                }
+            />
         );
     }
 
@@ -377,9 +451,17 @@ export default function StoryDetailPage() {
         <PageGate readPermission="stories.read">
             {() => (
                 <div className={styles.wrapper}>
-                    <SectionCard
+                    {!canWrite && permissions != null && (
+                        <InlineBanner variant="info">
+                            {canDoOnAnyActivity(permissions, "stories.write")
+                                ? "Sola lettura: l'abbonamento non è attivo."
+                                : "Sola lettura: per modificare le storie serve un ruolo da manager in su."}
+                        </InlineBanner>
+                    )}
+                    <fieldset className={styles.readOnlyScope} disabled={!canWrite}>
+                    <Card
                         title="Informazioni"
-                        subtitle="Titolo e copertina compaiono nell'elenco storie del catalogo"
+                        subtitle="Titolo e copertina sono quello che il cliente vede nell'elenco."
                     >
                         <StoryForm
                             eyebrow={eyebrow}
@@ -387,16 +469,23 @@ export default function StoryDetailPage() {
                             title={title}
                             onTitleChange={setTitle}
                             coverUrl={coverPreview ?? (coverRemoved ? null : story.cover_media)}
-                            pendingCoverFile={pendingCoverFile}
                             onCoverFileChange={handleCoverFileChange}
                             onCoverRemove={handleCoverRemove}
                             canWrite={canWrite}
                         />
-                    </SectionCard>
+                    </Card>
 
-                    <SectionCard
+                    <StoryPlacementCard
+                        activityId={activityId}
+                        onChange={setActivityId}
+                        activities={activities}
+                        status={status}
+                        disabled={!canWrite}
+                    />
+
+                    <Card
                         title="Prodotto collegato"
-                        subtitle="La storia comparirà nella scheda di questo prodotto, nel menu pubblico"
+                        subtitle="Se lo colleghi, la storia compare anche nella scheda di quel prodotto nel menù."
                     >
                         <StoryProductPicker
                             tenantId={tenantId}
@@ -404,11 +493,12 @@ export default function StoryDetailPage() {
                             onChange={setProductId}
                             disabled={!canWrite}
                         />
-                    </SectionCard>
+                    </Card>
 
-                    <SectionCard
-                        title="Contenuto"
-                        subtitle="Blocchi di testo, immagini e video nell'ordine in cui verranno letti"
+                    <Card
+                        title="Il racconto"
+                        badge={<Text as="span" variant="caption" colorVariant="muted">{storyBadge}</Text>}
+                        subtitle="Blocchi di testo, immagini e video, nell'ordine in cui si leggono."
                         actions={
                             canWrite ? (
                                 <AddBlockMenu onAdd={handleAddBlock} imageDisabled={imageCapReached} />
@@ -426,7 +516,8 @@ export default function StoryDetailPage() {
                             onFocusHandled={handleFocusHandled}
                             onAddBlock={handleAddBlock}
                         />
-                    </SectionCard>
+                    </Card>
+                    </fieldset>
 
                     <DiscardChangesConfirmDialog
                         isOpen={confirmDiscardOpen}

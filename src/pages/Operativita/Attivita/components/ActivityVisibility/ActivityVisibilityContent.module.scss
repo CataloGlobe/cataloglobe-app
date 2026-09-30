@@ -1,0 +1,77 @@
+// Disponibilità: vista (tab), filtri coi conteggi, tabella. Solo disposizione:
+// chip, tabella, controlli e stati vuoti sono del sistema.
+
+// flex:1 1 auto + min-height:0: nella rotta (parent bounded) la tabella
+// riempie e scorre dentro.
+.container {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+}
+
+// Le tab della vista non crescono: la tabella sotto prende lo spazio.
+.viewTabs {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: flex-start;
+}
+
+// Pannelli delle due viste. Montati entrambi dopo il primo ingresso in
+// Ingredienti, switch via display: filtri, ricerca e dati lazy sopravvivono.
+.viewPanel {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+}
+
+.viewPanelHidden {
+  display: none;
+}
+
+// Filtri a sinistra, ricerca a destra; sotto 768 la ricerca va a capo, piena.
+.toolbar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  flex-wrap: wrap;
+}
+
+.searchSlot {
+  margin-left: auto;
+  flex: 0 0 auto;
+
+  @media (max-width: 767px) {
+    margin-left: 0;
+    width: 100%;
+  }
+}
+
+.tableWrapper {
+  // Flex-container, non solo flex-item: il probe di auto-size del DataTable si
+  // stira solo dentro un flex-col bounded.
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.productCell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  min-width: 0;
+}
+
+// Sola lettura sul solo controllo: il fieldset non deve avere aspetto.
+.readOnlyScope {
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}

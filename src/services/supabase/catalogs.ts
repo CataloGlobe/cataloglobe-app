@@ -1,4 +1,5 @@
 import { supabase } from "@/services/supabase/client";
+import { countEmptyCategories } from "@/utils/catalogEmptyCategories";
 import { computeFieldHash } from "@/services/translation/hashUtils";
 import { enqueueWithSilentError } from "./translationJobs";
 import { deleteTranslationsForEntity } from "./translations";
@@ -39,6 +40,8 @@ export type V2CatalogCategoryProduct = {
 export type CatalogStats = {
     categoryCount: number;
     productCount: number;
+    /** Categorie che i clienti non vedono: senza prodotti, né propri né sotto (#238). */
+    emptyCategoryCount: number;
 };
 
 // ==========================================
@@ -105,26 +108,37 @@ export async function getCatalogStatsMap(
     const [catResult, prodResult] = await Promise.all([
         supabase
             .from("catalog_categories")
-            .select("catalog_id")
+            .select("catalog_id, id, parent_category_id")
             .eq("tenant_id", tenantId)
             .in("catalog_id", catalogIds),
         supabase
             .from("catalog_category_products")
-            .select("catalog_id")
+            .select("catalog_id, category_id")
             .eq("tenant_id", tenantId)
             .in("catalog_id", catalogIds)
     ]);
 
     const stats: Record<string, CatalogStats> = {};
+    const categoriesByCatalog: Record<string, Array<{ id: string; parent_category_id: string | null }>> = {};
+    const linkedByCatalog: Record<string, string[]> = {};
     catalogIds.forEach(id => {
-        stats[id] = { categoryCount: 0, productCount: 0 };
+        stats[id] = { categoryCount: 0, productCount: 0, emptyCategoryCount: 0 };
+        categoriesByCatalog[id] = [];
+        linkedByCatalog[id] = [];
     });
 
     (catResult.data ?? []).forEach(row => {
-        if (stats[row.catalog_id]) stats[row.catalog_id].categoryCount++;
+        if (!stats[row.catalog_id]) return;
+        stats[row.catalog_id].categoryCount++;
+        categoriesByCatalog[row.catalog_id].push(row);
     });
     (prodResult.data ?? []).forEach(row => {
-        if (stats[row.catalog_id]) stats[row.catalog_id].productCount++;
+        if (!stats[row.catalog_id]) return;
+        stats[row.catalog_id].productCount++;
+        linkedByCatalog[row.catalog_id].push(row.category_id);
+    });
+    catalogIds.forEach(id => {
+        stats[id].emptyCategoryCount = countEmptyCategories(categoriesByCatalog[id], linkedByCatalog[id]);
     });
 
     return stats;
@@ -489,5 +503,18 @@ export async function updateProductSortOrder(
 
     if (error) throw error;
     void revalidatePublicCatalogForTenant(tenantId);
+    return data;
+}
+
+/** Un catalogo dell'azienda. Lancia `PGRST116` se non c'è (o è di un'altra azienda). */
+export async function getCatalog(catalogId: string, tenantId: string): Promise<V2Catalog> {
+    const { data, error } = await supabase
+        .from("catalogs")
+        .select("*")
+        .eq("id", catalogId)
+        .eq("tenant_id", tenantId)
+        .single();
+
+    if (error) throw error;
     return data;
 }

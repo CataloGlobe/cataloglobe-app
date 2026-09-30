@@ -1,3 +1,6 @@
+// LoadingState — esce nel lotto 6 (→ Skeleton / DataTable.loadingState).
+// Qui solo i token al posto dei fallback hex; struttura invariata.
+
 .wrapper {
     padding: 64px 24px;
     max-width: 420px;
@@ -31,14 +34,14 @@
     width: 28px;
     height: 28px;
     border-radius: 50%;
-    border: 3px solid var(--border, #e2e8f0);
-    border-top-color: var(--brand-primary, #6366f1);
+    border: 3px solid var(--border);
+    border-top-color: var(--brand-primary);
     animation: spin 0.7s linear infinite;
 }
 
 .message {
     font-size: 14px;
-    color: var(--color-muted, #64748b);
+    color: var(--text-muted);
     margin: 0;
 }
 

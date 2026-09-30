@@ -37,7 +37,7 @@ export function ActivityBlockTimeRangeDrawer({
     };
 
     return (
-        <SystemDrawer open={open} onClose={onClose} width={520}>
+        <SystemDrawer open={open} onClose={onClose} size="md">
             <DrawerLayout
                 header={
                     <div>

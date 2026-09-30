@@ -1,0 +1,56 @@
+// ConfirmDialog — scheda «ConfirmDialog»: «sei sicuro?», solo per
+// l'irreversibile. Pannello 420, padding 24, radius-surface,
+// shadow-overlay, z-overlay. Solo token.
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-16);
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(2px);
+}
+
+.panel {
+  width: 420px;
+  max-width: 100%;
+  max-height: calc(100dvh - 2 * var(--space-16));
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+  padding: var(--space-24);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-surface);
+  box-shadow: var(--shadow-overlay);
+  outline: none;
+}
+
+.title {
+  color: var(--text);
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+}
+
+// Annulla a sinistra, il distruttivo (o il primario) a destra.
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+  margin-top: var(--space-8);
+}
+
+.footerRight {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}

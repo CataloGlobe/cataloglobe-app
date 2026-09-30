@@ -1087,11 +1087,34 @@ serve(async req => {
             };
         }
 
+        // Whether the trial can convert: the subscription's own default payment
+        // method wins, otherwise Stripe charges the customer's invoice default
+        // (the one the billing portal sets). A card-free trial has neither.
+        // null = could not tell (customer read failed): the page must not claim
+        // "no card" on the strength of a Stripe blip.
+        async function resolveHasPaymentMethod(): Promise<boolean | null> {
+            if (sub.default_payment_method) return true;
+            const customerId = typeof sub.customer === "string" ? sub.customer : sub.customer?.id;
+            if (!customerId) return null;
+            try {
+                const customer = await stripe.customers.retrieve(customerId);
+                if ((customer as { deleted?: boolean }).deleted) return false;
+                return !!(customer as Stripe.Customer).invoice_settings?.default_payment_method;
+            } catch (err) {
+                const message = err instanceof Error ? err.message : String(err);
+                console.warn(`stripe-change-subscription: customer retrieve for payment method failed: ${message}`);
+                return null;
+            }
+        }
+
         // =====================================================================
         // STATE — sola lettura
         // =====================================================================
         if (action === "state") {
-            return json(req, 200, await buildSubscriptionState());
+            return json(req, 200, {
+                ...(await buildSubscriptionState()),
+                hasPaymentMethod: await resolveHasPaymentMethod()
+            });
         }
 
         // =====================================================================

@@ -1,0 +1,125 @@
+@use "@pages/CampaignLanding/styles/mixins" as *;
+
+.cta {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    border: 0;
+    font-family: var(--ld-font-sans);
+    font-weight: 600;
+    line-height: 1.2;
+    text-align: center;
+    text-decoration: none;
+    white-space: nowrap;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition:
+        background-color 160ms ease,
+        border-color 160ms ease,
+        color 160ms ease;
+    @include ld-focus;
+}
+
+// Submit durante l'invio.
+.cta:disabled {
+    cursor: progress;
+    opacity: 0.72;
+}
+
+// ── look ──
+// Doppia classe: il colore dei link della landing (`:where(.landing) a`) perde.
+.cta.primary {
+    background: var(--ld-azione);
+    color: var(--ld-on-azione);
+
+    &:hover {
+        background: var(--ld-azione-hover);
+        color: var(--ld-on-azione);
+    }
+}
+
+.cta.dark {
+    background: var(--ld-scuro);
+    border: 1px solid var(--ld-scuro);
+    color: var(--ld-on-azione);
+    box-shadow: 0 10px 24px rgba(21, 20, 43, 0.28);
+
+    &:hover {
+        color: var(--ld-on-azione);
+    }
+}
+
+.cta.soft {
+    background: var(--ld-paper);
+    border: 1px solid var(--ld-line);
+    color: var(--ld-ink);
+
+    &:hover {
+        border-color: var(--ld-azione);
+        color: var(--ld-azione);
+    }
+}
+
+// ── shape ──
+.hero {
+    display: flex;
+    width: 100%;
+    padding: 17px;
+    border-radius: 14px;
+    font-size: 17px;
+    box-shadow: var(--ld-shadow-cta);
+
+    @include desktop {
+        display: inline-flex;
+        width: auto;
+        padding: 18px 34px;
+    }
+}
+
+.start {
+    display: flex;
+    width: 100%;
+    padding: 16px;
+    border-radius: 14px;
+    font-size: 17px;
+
+    @include desktop {
+        display: inline-flex;
+        width: auto;
+        padding: 17px 40px;
+    }
+}
+
+.pill {
+    height: 54px;
+    padding: 0 28px;
+    border-radius: 999px;
+    font-size: 15px;
+    box-shadow: 0 12px 30px rgba(70, 72, 198, 0.35);
+}
+
+.compact {
+    height: 36px;
+    padding: 0 16px;
+    border-radius: 999px;
+    font-size: 14px;
+}
+
+.plan {
+    display: flex;
+    width: 100%;
+    margin-top: 26px;
+    padding: 16px;
+    border-radius: 14px;
+    font-size: 16px;
+}
+
+.submit {
+    display: flex;
+    width: 100%;
+    min-height: 56px;
+    border: 0;
+    border-radius: 14px;
+    font-size: 17px;
+}

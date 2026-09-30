@@ -1,10 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { LifeBuoy, Lock, Mail } from "lucide-react";
+import { ChevronRight, LifeBuoy, Mail } from "lucide-react";
+import { PageGate } from "@/components/PageGate/PageGate";
+import { Badge } from "@/components/ui/Badge/Badge";
 import { Button } from "@/components/ui/Button/Button";
+import { Card } from "@/components/ui/Card/Card";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
-import { LoadingState } from "@/components/ui/LoadingState/LoadingState";
+import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
+import { ListRow } from "@/components/ui/ListRow/ListRow";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
+import Text from "@/components/ui/Text/Text";
 import { usePageHeader } from "@/context/usePageHeader";
 import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { usePermissions } from "@/context/PermissionsContext";
@@ -39,6 +44,11 @@ import styles from "./Support.module.scss";
  * assegnata). È la stessa congiunzione dei tre branch di
  * `has_permission_any_activity`. Usare qui `canDoOnTenant` mostrerebbe il
  * pulsante a chi poi si prende un 42501 dalla WITH CHECK.
+ *
+ * ── Niente guardia dell'abbonamento, di proposito ──────────────────────────
+ * Aprire e rispondere a una richiesta NON passano da `useEnsureActive`: con
+ * l'abbonamento fermo l'Assistenza è proprio la strada per sbloccarlo (S3,
+ * §50.14). Tutte le altre scritture del pannello la usano.
  */
 export default function Support() {
     const tenantId = useTenantId();
@@ -50,14 +60,18 @@ export default function Support() {
     const [activities, setActivities] = useState<V2Activity[]>([]);
     const [memberNames, setMemberNames] = useState<Map<string, string>>(() => new Map());
     const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState(false);
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
-    const canRead = permissions ? canDoOnTenant(permissions, "support.read") : true;
+    // Gate di lettura prima di ogni fetch: finché i permessi non ci sono non
+    // parte niente (prima era ottimista e la lista si chiedeva comunque).
+    const canRead = permissions != null && canDoOnTenant(permissions, "support.read");
     const canWrite = permissions ? canDoOnAnyActivity(permissions, "support.write") : false;
 
     const loadData = useCallback(async () => {
         if (!tenantId) return;
         setIsLoading(true);
+        setLoadError(false);
         try {
             // In parallelo: le tre fonti sono indipendenti e servono insieme
             // alla prima pittura della lista.
@@ -69,23 +83,17 @@ export default function Support() {
             setTickets(ticketRows);
             setActivities(activityRows);
             setMemberNames(names);
-        } catch {
-            showToast({
-                message: "Non è stato possibile caricare le richieste.",
-                type: "error"
-            });
+        } catch (error) {
+            // Un errore non è una lista vuota: la pagina lo dice, con «Riprova».
+            console.error("Caricamento richieste di supporto:", error);
+            setLoadError(true);
         } finally {
             setIsLoading(false);
         }
-    }, [tenantId, showToast]);
+    }, [tenantId]);
 
     useEffect(() => {
-        // Nessuna chiamata se il permesso manca: eviterebbe solo di raccogliere
-        // un 42501 inutile (pattern della TeamPage).
-        if (!canRead) {
-            setIsLoading(false);
-            return;
-        }
+        if (!canRead) return;
         void loadData();
     }, [canRead, loadData]);
 
@@ -106,11 +114,8 @@ export default function Support() {
 
     // PRIMA di qualsiasi early return: l'header è renderizzato dallo slot
     // centralizzato in MainLayout e l'hook non può stare sotto una condizione.
-    // Nessuna tab, nessuna ricerca (la pagina non ne ha una), nessun toggle
-    // vista: in compatto resta la sola CTA. Senza `support.write` non resta
-    // nessun campo valorizzato, quindi sparisce l'intera config invece di
-    // diventare `{primaryAction: undefined}` — che sarebbe comunque truthy e
-    // produrrebbe una barra compatta vuota.
+    // In compatto resta la sola CTA; senza `support.write` nessuna config
+    // (un `{primaryAction: undefined}` darebbe una barra compatta vuota).
     const headerCompact = useMemo<PageHeaderCompactConfig | undefined>(
         () => canWrite
             ? { primaryAction: { label: "+ Nuova richiesta", onClick: () => setIsDrawerOpen(true) } }
@@ -118,103 +123,117 @@ export default function Support() {
         [canWrite]
     );
 
-    usePageHeader({
-        title: "Assistenza",
-        subtitle: "Rispondiamo dal lunedì al venerdì.",
-        actions: headerActions,
-        compact: headerCompact
-    });
+    usePageHeader({ actions: headerActions, compact: headerCompact });
 
-    if (!canRead) {
-        return (
-            <div className={styles.locked}>
-                <EmptyState
-                    icon={<Lock size={40} strokeWidth={1.5} />}
-                    title="Non hai accesso a questa sezione"
-                    description="Contatta il proprietario o un amministratore per ottenere l'accesso."
-                />
-            </div>
+    if (permissions != null && !canRead) {
+        return <PageGate readPermission="support.read" scope="tenant">{() => null}</PageGate>;
+    }
+
+    const mailLink = (
+        <a href={`mailto:${COMPANY.contact.support}`}>{COMPANY.contact.support}</a>
+    );
+
+    let content;
+    if (isLoading || permissions == null) {
+        content = (
+            <Card flush>
+                <div aria-busy="true" aria-label="Caricamento richieste">
+                    <ListRow loading />
+                    <ListRow loading />
+                    <ListRow loading />
+                </div>
+            </Card>
+        );
+    } else if (loadError) {
+        content = (
+            <EmptyState
+                variant="page"
+                icon={<LifeBuoy />}
+                title="Non è stato possibile caricare le richieste"
+                description="Controlla la connessione e riprova."
+                action={
+                    <Button variant="secondary" onClick={() => void loadData()}>
+                        Riprova
+                    </Button>
+                }
+            />
+        );
+    } else if (tickets.length === 0) {
+        content = canWrite ? (
+            <EmptyState
+                variant="page"
+                icon={<LifeBuoy />}
+                title="Nessuna richiesta"
+                description="Quando apri una richiesta la trovi qui, con tutte le risposte."
+                action={
+                    <Button variant="primary" onClick={() => setIsDrawerOpen(true)}>
+                        + Nuova richiesta
+                    </Button>
+                }
+            />
+        ) : (
+            <EmptyState
+                variant="inline"
+                icon={<LifeBuoy />}
+                title="Nessuna richiesta"
+                description={`Per aprire una richiesta scrivi a ${COMPANY.contact.support}.`}
+            />
+        );
+    } else {
+        content = (
+            <Card flush>
+                {tickets.map(ticket => {
+                    const unread = hasUnreadReply(ticket);
+                    const author = ticket.created_by
+                        ? memberNames.get(ticket.created_by) ?? "Utente rimosso"
+                        : "Utente rimosso";
+                    const activityName = ticket.activity_id
+                        ? activityNames.get(ticket.activity_id)
+                        : null;
+                    return (
+                        <ListRow
+                            key={ticket.id}
+                            title={ticket.subject}
+                            subtitle={[author, activityName, formatDateTimeIt(ticket.last_message_at)]
+                                .filter(Boolean)
+                                .join(" · ")}
+                            meta={
+                                <>
+                                    {/* La risposta non letta si dice con una
+                                        parola, non con un pallino (regola 8). */}
+                                    {unread && <Badge variant="brand">Risposta nuova</Badge>}
+                                    <StatusBadge
+                                        variant={SUPPORT_STATUS_VARIANT[ticket.status]}
+                                        label={SUPPORT_STATUS_LABEL[ticket.status]}
+                                    />
+                                </>
+                            }
+                            trailing={<ChevronRight size={16} aria-hidden />}
+                            onClick={() => navigate(ticket.id)}
+                        />
+                    );
+                })}
+            </Card>
         );
     }
 
     return (
         <div className={styles.page}>
+            {/* Gli orari stavano nel sottotitolo della testata, che lo slot non
+                rende: qui li legge chi apre la pagina (S2). */}
+            <Text as="p" variant="caption" colorVariant="muted">
+                Rispondiamo dal lunedì al venerdì.
+            </Text>
+
             {/* Chi non può aprire richieste deve comunque poter chiedere aiuto:
                 il canale alternativo è l'email, non un vicolo cieco. */}
-            {!canWrite && (
-                <div className={styles.fallback}>
-                    <Mail size={18} aria-hidden />
-                    <span>
-                        Per aprire una richiesta scrivi a{" "}
-                        <a href={`mailto:${COMPANY.contact.support}`}>
-                            {COMPANY.contact.support}
-                        </a>
-                        .
-                    </span>
-                </div>
+            {!canWrite && permissions != null && (
+                <InlineBanner variant="info" icon={<Mail size={16} aria-hidden />}>
+                    Per aprire una richiesta scrivi a {mailLink}.
+                </InlineBanner>
             )}
 
-            {isLoading ? (
-                <LoadingState message="Caricamento richieste…" />
-            ) : tickets.length === 0 ? (
-                <EmptyState
-                    icon={<LifeBuoy size={40} strokeWidth={1.5} />}
-                    title="Nessuna richiesta"
-                    description={
-                        canWrite
-                            ? "Quando apri una richiesta la trovi qui, con tutte le risposte."
-                            : `Per aprire una richiesta scrivi a ${COMPANY.contact.support}.`
-                    }
-                    action={
-                        canWrite ? (
-                            <Button variant="primary" onClick={() => setIsDrawerOpen(true)}>
-                                + Nuova richiesta
-                            </Button>
-                        ) : undefined
-                    }
-                />
-            ) : (
-                <ul className={styles.list}>
-                    {tickets.map(ticket => {
-                        const unread = hasUnreadReply(ticket);
-                        const author = ticket.created_by
-                            ? memberNames.get(ticket.created_by) ?? "Utente rimosso"
-                            : "Utente rimosso";
-                        const activityName = ticket.activity_id
-                            ? activityNames.get(ticket.activity_id)
-                            : null;
-                        return (
-                            <li key={ticket.id}>
-                                <button
-                                    type="button"
-                                    className={styles.row}
-                                    onClick={() => navigate(ticket.id)}
-                                >
-                                    <span
-                                        className={styles.dot}
-                                        data-unread={unread || undefined}
-                                        aria-label={unread ? "Risposta non letta" : undefined}
-                                    />
-                                    <span className={styles.rowMain}>
-                                        <span className={styles.subject} data-unread={unread || undefined}>
-                                            {ticket.subject}
-                                        </span>
-                                        <span className={styles.meta}>
-                                            {author}
-                                            {activityName ? ` · ${activityName}` : ""}
-                                            {` · ${formatDateTimeIt(ticket.last_message_at)}`}
-                                        </span>
-                                    </span>
-                                    <StatusBadge
-                                        variant={SUPPORT_STATUS_VARIANT[ticket.status]}
-                                        label={SUPPORT_STATUS_LABEL[ticket.status]}
-                                    />
-                                </button>
-                            </li>
-                        );
-                    })}
-                </ul>
-            )}
+            {content}
 
             {tenantId && (
                 <SupportCreateDrawer

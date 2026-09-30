@@ -1,0 +1,51 @@
+// TrendChart — una serie nel tempo (design system §5, scheda TrendChart).
+// Altezza 160 (sparkline 24), tabular-nums ovunque, colori dai token via
+// useChartTokens (recharts scrive attributi SVG).
+
+.root {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.sparkline {
+  width: 80px;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.lastValue {
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+// Come ui/Tooltip: caption su fondo --text, testo --bg.
+.tooltip {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-6) var(--space-10);
+  border-radius: var(--radius-control);
+  background: var(--text);
+  color: var(--bg);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  box-shadow: var(--shadow-float);
+  pointer-events: none;
+
+  strong {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

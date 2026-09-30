@@ -60,7 +60,9 @@ export default defineConfig(({ mode, isSsrBuild }) => ({
             "@styles": path.resolve(__dirname, "./src/styles"),
             "@utils": path.resolve(__dirname, "./src/utils"),
             "@types": path.resolve(__dirname, "./src/types"),
-            "@assets": path.resolve(__dirname, "./src/assets")
+            "@assets": path.resolve(__dirname, "./src/assets"),
+            // Codice puro condiviso con le Edge Function (zero import, niente Deno).
+            "@shared": path.resolve(__dirname, "./supabase/functions/_shared")
         }
     }
 }));

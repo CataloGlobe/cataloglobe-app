@@ -1,15 +1,17 @@
-import { useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
+import { UnsavedChangesDialog } from "@/components/ui/UnsavedChangesDialog/UnsavedChangesDialog";
+import styles from "./Reservations.module.scss";
 import { ReservationForm } from "./ReservationForm";
 import type { V2Reservation } from "@/types/reservation";
 import type { V2Activity } from "@/types/activity";
 
 const FORM_ID = "reservation-form";
 
-export interface ManageableActivityCapacity
+interface ManageableActivityCapacity
     extends Pick<
         V2Activity,
         | "id"
@@ -53,6 +55,23 @@ export default function ReservationCreateEditDrawer({
     onDateChange
 }: Props) {
     const [isSaving, setIsSaving] = useState(false);
+    const [isDirty, setIsDirty] = useState(false);
+    const [confirmingExit, setConfirmingExit] = useState(false);
+    const titleId = useId();
+
+    useEffect(() => {
+        if (!open) {
+            setIsDirty(false);
+            setConfirmingExit(false);
+        }
+    }, [open]);
+
+    // Guardia di uscita (§27): Esc, backdrop, la X e «Annulla» chiedono prima
+    // di buttare quello che si è scritto. Dopo un salvataggio si chiude e basta.
+    const requestClose = () => {
+        if (isDirty && !isSaving) setConfirmingExit(true);
+        else onClose();
+    };
 
     const handleSuccess = async () => {
         await onSuccess();
@@ -60,25 +79,14 @@ export default function ReservationCreateEditDrawer({
     };
 
     return (
-        <SystemDrawer open={open} onClose={onClose} width={520}>
+        <SystemDrawer open={open} onClose={requestClose} size="md" aria-labelledby={titleId}>
             <DrawerLayout
-                header={
-                    <div>
-                        <Text variant="title-sm" weight={600}>
-                            {mode === "create"
-                                ? "Nuova prenotazione"
-                                : "Modifica prenotazione"}
-                        </Text>
-                        <Text variant="body-sm" colorVariant="muted">
-                            {mode === "create"
-                                ? "Inserisci una prenotazione telefonica o walk-in. Sarà confermata da subito."
-                                : "Aggiorna i dettagli della prenotazione. Lo stato non viene modificato."}
-                        </Text>
-                    </div>
-                }
+                title={mode === "create" ? "Nuova prenotazione" : "Modifica prenotazione"}
+                titleId={titleId}
+                onClose={requestClose}
                 footer={
                     <>
-                        <Button variant="secondary" onClick={onClose} disabled={isSaving}>
+                        <Button variant="secondary" onClick={requestClose} disabled={isSaving}>
                             Annulla
                         </Button>
                         <Button
@@ -92,6 +100,11 @@ export default function ReservationCreateEditDrawer({
                     </>
                 }
             >
+                <Text as="p" variant="body-sm" colorVariant="muted" className={styles.drawerLead}>
+                    {mode === "create"
+                        ? "Inserisci una prenotazione telefonica o walk-in. Sarà confermata da subito."
+                        : "Aggiorna i dettagli della prenotazione. Lo stato non viene modificato."}
+                </Text>
                 <ReservationForm
                     formId={FORM_ID}
                     mode={mode}
@@ -102,8 +115,20 @@ export default function ReservationCreateEditDrawer({
                     onSuccess={handleSuccess}
                     onSavingChange={setIsSaving}
                     onDateChange={onDateChange}
+                    onDirtyChange={setIsDirty}
                 />
             </DrawerLayout>
+            <UnsavedChangesDialog
+                isOpen={confirmingExit}
+                title="Uscire senza salvare?"
+                message="La prenotazione non è stata salvata: quello che hai scritto andrà perso."
+                cancelLabel="Resta"
+                onCancel={() => setConfirmingExit(false)}
+                onDiscard={() => {
+                    setConfirmingExit(false);
+                    onClose();
+                }}
+            />
         </SystemDrawer>
     );
 }

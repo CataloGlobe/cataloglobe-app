@@ -544,3 +544,54 @@ export async function deleteStripeCustomer(
         return "error";
     }
 }
+
+export type SyncCustomerOwnerResult = "updated" | "customer_missing" | "error";
+
+/**
+ * Point a Stripe customer at the tenant's current owner: `email` (receipts,
+ * dunning, portal) and `metadata.user_id`. Used after an ownership transfer,
+ * when the customer still carries the previous owner.
+ * Idempotent (same values → same state). Metadata is merged by Stripe, so the
+ * fiscal keys written by stripe-checkout are preserved.
+ * Logs only the error class: Stripe messages can echo the submitted email.
+ */
+export async function syncStripeCustomerOwner(
+    stripe: Stripe,
+    customerId: string,
+    owner: { email: string; userId: string },
+    context: Record<string, unknown> = {}
+): Promise<SyncCustomerOwnerResult> {
+    try {
+        await stripe.customers.update(customerId, {
+            email: owner.email,
+            metadata: { user_id: owner.userId }
+        });
+        console.log(JSON.stringify({
+            event: "stripe_customer_owner_synced",
+            customer_id: customerId,
+            ...context
+        }));
+        return "updated";
+    } catch (err) {
+        const code = (err as { code?: string })?.code;
+        const type = (err as { type?: string })?.type;
+        const statusCode = (err as { statusCode?: number })?.statusCode;
+        if (code === "resource_missing") {
+            console.warn(JSON.stringify({
+                event: "stripe_customer_owner_sync_missing",
+                customer_id: customerId,
+                ...context
+            }));
+            return "customer_missing";
+        }
+        console.error(JSON.stringify({
+            event: "stripe_customer_owner_sync_failed",
+            customer_id: customerId,
+            code,
+            type,
+            status_code: statusCode,
+            ...context
+        }));
+        return "error";
+    }
+}

@@ -1,4 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { type KeyboardEvent, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { Button } from "@/components/ui/Button/Button";
+import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
+import { TimeInput } from "@/components/ui/Input/TimeInput";
+import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
+import Text from "@/components/ui/Text/Text";
 import { snapTimeToQuarter } from "@pages/ReservationPage/validators";
 import type {
     OpeningHoursEntry,
@@ -23,8 +28,10 @@ type Props = {
     loading?: boolean;
     /** Pass-through error message for the upstream fetch failure. */
     error?: string;
-    /** Optional id wired by parent for aria-describedby on the field error. */
+    /** Id della riga d'errore del FormField, per `aria-describedby`. */
     errorId?: string;
+    /** Nome accessibile della griglia degli orari (la label del campo). */
+    ariaLabel?: string;
     invalid?: boolean;
 };
 
@@ -51,8 +58,11 @@ export default function AdminReservationTimePicker({
     loading,
     error,
     errorId,
-    invalid
+    invalid,
+    ariaLabel = "Ora"
 }: Props) {
+    const customInputId = useId();
+    const gridRef = useRef<HTMLDivElement>(null);
     // Passo cablato a SLOT_STEP_MIN, MAI al pacing della sede: i vincoli di
     // pacing chiudono il canale online, non l'operatore. Deve poter piazzare
     // una prenotazione a un quarto d'ora qualsiasi anche su una sede con
@@ -158,116 +168,121 @@ export default function AdminReservationTimePicker({
     const safeIdx = Math.min(Math.max(0, activeIdx), Math.max(0, periods.length - 1));
     const activePeriod = periods[safeIdx];
 
+    // Griglia degli orari = radiogroup con tabindex mobile, come la striscia
+    // dei giorni: un orario nel giro del Tab, le frecce si spostano e scelgono.
+    const slots = activePeriod?.slots ?? [];
+    const focusTime = slots.some(sl => sl.time === value) ? value : (slots[0]?.time ?? "");
+    const handleGridKey = (event: KeyboardEvent<HTMLDivElement>) => {
+        const idx = slots.findIndex(sl => sl.time === (event.target as HTMLElement).dataset.time);
+        if (idx < 0) return;
+        const next =
+            event.key === "ArrowRight" || event.key === "ArrowDown"
+                ? Math.min(slots.length - 1, idx + 1)
+                : event.key === "ArrowLeft" || event.key === "ArrowUp"
+                  ? Math.max(0, idx - 1)
+                  : event.key === "Home"
+                    ? 0
+                    : event.key === "End"
+                      ? slots.length - 1
+                      : -1;
+        if (next < 0 || next === idx) return;
+        event.preventDefault();
+        const time = slots[next].time;
+        handlePickSlot(time);
+        gridRef.current?.querySelector<HTMLButtonElement>(`[data-time="${time}"]`)?.focus();
+    };
+
     if (!date) {
         return (
-            <div
-                className={styles.wrapper}
-                data-invalid={invalid ? "true" : undefined}
-                aria-describedby={errorId}
-            >
-                <p className={styles.placeholder}>Scegli prima la data.</p>
+            <div className={styles.wrapper} data-invalid={invalid ? "true" : undefined}>
+                <Text as="p" variant="caption" colorVariant="muted" className={styles.placeholder}>
+                    Scegli prima la data.
+                </Text>
             </div>
         );
     }
 
     return (
-        <div
-            className={styles.wrapper}
-            data-invalid={invalid ? "true" : undefined}
-            aria-describedby={errorId}
-        >
+        <div className={styles.wrapper} data-invalid={invalid ? "true" : undefined}>
             {loading ? (
-                <p className={styles.placeholder}>Caricamento orari…</p>
+                <Text as="p" variant="caption" colorVariant="muted" className={styles.placeholder}>
+                    Caricamento orari…
+                </Text>
             ) : error ? (
-                <p className={styles.errorHint} role="alert">
-                    {error}
-                </p>
+                <InlineBanner variant="warning">{error}</InlineBanner>
             ) : periods.length === 0 ? (
-                <p className={styles.placeholder}>
-                    Nessun orario proposto per questo giorno. Usa “Altro orario…” per inserirlo a mano.
-                </p>
+                <Text as="p" variant="caption" colorVariant="muted" className={styles.placeholder}>
+                    Nessun orario proposto per questo giorno. Usa «Altro orario…» per inserirlo a mano.
+                </Text>
             ) : (
                 <>
                     {periods.length > 1 && (
+                        <div role="group" aria-label="Fascia oraria" className={styles.periods}>
+                            <SegmentedControl<number>
+                                size="sm"
+                                value={safeIdx}
+                                onChange={setActiveIdx}
+                                options={periods.map((p, i) => ({ value: i, label: p.label }))}
+                            />
+                        </div>
+                    )}
+
+                    {activePeriod && (
                         <div
-                            className={styles.segmented}
+                            ref={gridRef}
+                            className={styles.grid}
                             role="radiogroup"
-                            aria-label="Fascia oraria"
+                            aria-label={ariaLabel}
+                            aria-describedby={errorId}
+                            aria-invalid={invalid || undefined}
+                            onKeyDown={handleGridKey}
                         >
-                            {periods.map((p, i) => {
-                                const isActive = i === safeIdx;
+                            {activePeriod.slots.map(slot => {
+                                const isSelected = slot.time === value;
                                 return (
                                     <button
-                                        key={p.key}
+                                        key={slot.time}
                                         type="button"
                                         role="radio"
-                                        aria-checked={isActive}
-                                        onClick={() => setActiveIdx(i)}
-                                        className={styles.segment}
-                                        data-active={isActive ? "true" : undefined}
+                                        aria-checked={isSelected}
+                                        tabIndex={slot.time === focusTime ? 0 : -1}
+                                        data-time={slot.time}
+                                        onClick={() => handlePickSlot(slot.time)}
+                                        className={styles.slotBtn}
+                                        data-selected={isSelected ? "true" : undefined}
                                     >
-                                        {p.label}
+                                        <Text as="span" variant="body-sm" weight={600} className={styles.slotTime}>
+                                            {slot.time}
+                                        </Text>
                                     </button>
                                 );
                             })}
                         </div>
                     )}
-
-                    {activePeriod && (
-                        <ul
-                            className={styles.grid}
-                            role="listbox"
-                            aria-label="Seleziona l'orario"
-                        >
-                            {activePeriod.slots.map(slot => {
-                                const isSelected = slot.time === value;
-                                return (
-                                    <li key={slot.time} className={styles.cell}>
-                                        <button
-                                            type="button"
-                                            role="option"
-                                            aria-selected={isSelected}
-                                            onClick={() => handlePickSlot(slot.time)}
-                                            className={styles.slotBtn}
-                                            data-selected={isSelected ? "true" : undefined}
-                                        >
-                                            {slot.time}
-                                        </button>
-                                    </li>
-                                );
-                            })}
-                        </ul>
-                    )}
                 </>
             )}
 
             <div className={styles.customRow}>
-                <button
-                    type="button"
-                    className={styles.customToggle}
+                <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={handleToggleCustom}
                     aria-expanded={customMode}
-                    aria-controls="admin-time-custom-input"
+                    aria-controls={customInputId}
                 >
                     {customMode ? "Nascondi orario libero" : "Altro orario…"}
-                </button>
+                </Button>
                 {customMode && (
-                    <div className={styles.customField}>
-                        <input
-                            id="admin-time-custom-input"
-                            type="time"
-                            step={900}
-                            value={customDraft}
-                            placeholder="--:--"
-                            className={styles.customInput}
-                            onChange={e => handleCustomChange(e.target.value)}
-                            onBlur={e => commitCustom(e.target.value)}
-                            aria-label="Inserisci un orario libero"
-                        />
-                        <span className={styles.customHelp}>
-                            Snap automatico al quarto d'ora più vicino.
-                        </span>
-                    </div>
+                    <TimeInput
+                        id={customInputId}
+                        label="Orario libero"
+                        step={900}
+                        value={customDraft}
+                        onChange={e => handleCustomChange(e.target.value)}
+                        onBlur={e => commitCustom(e.target.value)}
+                        helperText="Arrotondato al quarto d'ora."
+                        containerClassName={styles.customField}
+                    />
                 )}
             </div>
         </div>

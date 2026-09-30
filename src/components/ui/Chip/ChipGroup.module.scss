@@ -1,0 +1,36 @@
+// ChipGroup — gruppo di Chip, single o multiple. Gap 6 (space-6).
+
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.group {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-6);
+}
+
+/* ========== AUTO (default) ========== */
+/* nessuna regola extra */
+
+/* ========== EQUAL ========== */
+.equal {
+  > div {
+    flex: 1 1 0;
+  }
+
+  /* evita chip troppo stretti */
+  min-width: 0;
+}
+
+/* ========== STRETCH ========== */
+.stretch {
+  display: flex;
+  width: 100%;
+
+  > div {
+    flex: 1 1 0;
+  }
+}

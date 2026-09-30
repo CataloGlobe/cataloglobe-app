@@ -1,0 +1,36 @@
+@use "@/styles/mixins" as m;
+
+// Solo layout: le superfici sono Card, ListRow e StatusStrip.
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-24);
+}
+
+.rowActions {
+  display: flex;
+  gap: var(--space-8);
+  flex-wrap: wrap;
+}
+
+.qrRow {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-24);
+
+  @include m.phone {
+    flex-direction: column;
+  }
+}
+
+.qrText {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+}
+
+.dangerBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+}

@@ -1,5 +1,6 @@
 import { supabase } from "@/services/supabase/client";
 import { revalidatePublicCatalogForTenant } from "@services/publicCatalog/revalidatePublicCatalog";
+import { daysOfWeekForDb } from "@utils/scheduleDays";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -87,8 +88,6 @@ function normalizeOne<T>(value: T | T[] | null | undefined): T | null {
     return Array.isArray(value) ? (value[0] ?? null) : value;
 }
 
-// ---------------------------------------------------------------------------
-// listFeaturedRules
 // ---------------------------------------------------------------------------
 
 export async function listFeaturedRules(tenantId: string): Promise<FeaturedRule[]> {
@@ -245,7 +244,7 @@ export async function updateFeaturedRule(input: {
     endAt: string | null;
     timeFrom: string | null;
     timeTo: string | null;
-    daysOfWeek: number[];
+    daysOfWeek: number[] | null;
     alwaysActive: boolean;
     targetMode: "all" | "activities" | "groups";
     activityIds: string[];
@@ -275,7 +274,7 @@ export async function updateFeaturedRule(input: {
             name: input.name,
             enabled: input.enabled,
             time_mode: input.alwaysActive ? "always" : "window",
-            days_of_week: input.alwaysActive ? null : input.daysOfWeek,
+            days_of_week: input.alwaysActive ? null : daysOfWeekForDb(input.daysOfWeek),
             time_from: input.alwaysActive ? null : input.timeFrom,
             time_to: input.alwaysActive ? null : input.timeTo,
             start_at: input.startAt,
@@ -292,7 +291,7 @@ export async function updateFeaturedRule(input: {
     // Inline columns (target_type/target_id/apply_to_all) written above are
     // the shim for Edge/resolver. schedule_targets — the actual multi-target
     // set — is written separately by the caller (update_schedule_targets
-    // RPC, FeaturedRuleDetail.tsx), not here: this function doesn't know the
+    // RPC, useRuleDetail.ts), not here: this function doesn't know the
     // full target list, only the legacy single target it just derived.
 
     // Delete + re-insert featured contents
@@ -320,46 +319,4 @@ export async function updateFeaturedRule(input: {
     }
 
     void revalidatePublicCatalogForTenant(input.tenantId);
-}
-
-// ---------------------------------------------------------------------------
-// deleteFeaturedRule
-// ---------------------------------------------------------------------------
-
-export async function deleteFeaturedRule(
-    id: string,
-    tenantId: string
-): Promise<void> {
-    const { error } = await supabase
-        .from("schedules")
-        .delete()
-        .eq("id", id)
-        .eq("tenant_id", tenantId);
-
-    if (error) throw error;
-
-    void revalidatePublicCatalogForTenant(tenantId);
-}
-
-// ---------------------------------------------------------------------------
-// reorderFeaturedRules
-// ---------------------------------------------------------------------------
-
-export async function reorderFeaturedRules(
-    tenantId: string,
-    updates: Array<{ id: string; display_order: number }>
-): Promise<void> {
-    if (updates.length === 0) return;
-
-    for (const u of updates) {
-        const { error } = await supabase
-            .from("schedules")
-            .update({ display_order: u.display_order })
-            .eq("id", u.id)
-            .eq("tenant_id", tenantId);
-
-        if (error) throw error;
-    }
-
-    void revalidatePublicCatalogForTenant(tenantId);
 }

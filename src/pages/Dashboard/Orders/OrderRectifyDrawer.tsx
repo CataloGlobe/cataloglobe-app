@@ -57,7 +57,7 @@ export default function OrderRectifyDrawer({
 
     if (!order) {
         return (
-            <SystemDrawer open={open} onClose={onClose} width={560}>
+            <SystemDrawer open={open} onClose={onClose} size="md">
                 <DrawerLayout
                     header={
                         <Text variant="title-sm" weight={600}>
@@ -79,7 +79,7 @@ export default function OrderRectifyDrawer({
     }
 
     return (
-        <SystemDrawer open={open} onClose={onClose} width={560}>
+        <SystemDrawer open={open} onClose={onClose} size="md">
             <DrawerLayout
                 header={
                     <Text variant="title-sm" weight={600}>

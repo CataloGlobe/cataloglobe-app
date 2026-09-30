@@ -4,9 +4,11 @@
 //
 // ⚠️ SYNC — il check-digit P.IVA di `isValidPartitaIva` vive in 3 posti:
 // qui, supabase/functions/_shared/fiscalValidators.ts (gate stripe-checkout) e
-// la RPC update_tenant_billing_details (migration
-// 20260920120000_...validate_vat.sql). Cambiando l'algoritmo, aggiorna i primi
-// due nello stesso commit e aggiungi una NUOVA migration per la RPC.
+// la funzione SQL public.is_valid_partita_iva (migration
+// 20260923120000_is_valid_partita_iva.sql), usata dal CHECK
+// tenants_vat_number_valid e dalla RPC update_tenant_billing_details.
+// Cambiando l'algoritmo, aggiorna i primi due nello stesso commit e aggiungi
+// una NUOVA migration per la funzione SQL.
 // =============================================================================
 
 /**

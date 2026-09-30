@@ -1,20 +1,17 @@
 import React, { useEffect, useState, useMemo, useCallback } from "react";
-import { useSearchParams, useParams, useNavigate } from "react-router-dom";
-import { IconLoader2 } from "@tabler/icons-react";
+import { Navigate, Outlet, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Store } from "lucide-react";
 import { Button } from "@/components/ui";
+import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
+import Skeleton from "@/components/ui/Skeleton/Skeleton";
+import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
+import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
+import { UnsavedChangesBar } from "@/components/ui/UnsavedChangesBar/UnsavedChangesBar";
+import { useUnsavedChangesGuard } from "@/components/ui/UnsavedChangesBar/useUnsavedChangesGuard";
 import { useBreadcrumbItems } from "@/context/useBreadcrumbItems";
 import { usePageHeader } from "@/context/usePageHeader";
 import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
-import { ActivityProfileTab } from "./tabs/ActivityProfileTab";
-import { ActivityAvailabilityTab } from "./tabs/ActivityAvailabilityTab";
-import { ActivitySettingsTab } from "./tabs/ActivitySettingsTab";
-import { ActivityOrderingTab } from "./tabs/ActivityOrderingTab";
-import { ActivityHoursTab } from "./tabs/ActivityHoursTab";
-import { ActivityReservationsTab } from "./tabs/ActivityReservationsTab";
-import { TablesManagement } from "@/components/Tables/TablesManagement/TablesManagement";
-import { TablesEmptyState } from "@/components/Tables/TablesManagement/TablesEmptyState";
-import { PageGate } from "@/components/PageGate/PageGate";
 import { getActivityById } from "@/services/supabase/activities";
 import { listActivityHours } from "@/services/supabase/activityHours";
 import { getTenantFiscalProfile } from "@/services/supabase/tenants";
@@ -22,87 +19,66 @@ import { V2Activity } from "@/types/activity";
 import type { V2ActivityHours } from "@/types/activity-hours";
 import { useToast } from "@/context/Toast/ToastContext";
 import { usePermissions } from "@/context/PermissionsContext";
-import { canDoOnActivity } from "@/lib/permissions";
+import { canDoOnActivity, canDoOnTenant } from "@/lib/permissions";
+import { formatInactiveReason } from "@/utils/activityStatus";
+import {
+    ACTIVITY_PAGES,
+    ACTIVITY_SECTION_LABELS,
+    ACTIVITY_SECTIONS,
+    type ActivityDetailOutletContext,
+    type ActivitySection
+} from "./ActivityDetailContext";
+import { useActivityDraft } from "./useActivityDraft";
 import styles from "./ActivityDetailPage.module.scss";
 
-// Ordine = sequenza in cui affrontarle (FASE 6). `availability` (visibilità
-// prodotti per sede) resta col suo nome: la sua destinazione è ancora aperta.
-type TabValue =
-    | "profile"
-    | "hours"
-    | "sala"
-    | "availability"
-    | "ordering"
-    | "reservations"
-    | "settings";
-
-const TAB_VALUES: readonly TabValue[] = [
-    "profile",
-    "hours",
-    "sala",
-    "availability",
-    "ordering",
-    "reservations",
-    "settings"
-];
-
-const TAB_LABELS: Record<TabValue, string> = {
-    profile: "Profilo",
-    hours: "Orari",
-    sala: "Sala",
-    availability: "Disponibilità",
-    ordering: "Ordinazioni",
-    reservations: "Prenotazioni",
-    settings: "Impostazioni"
+/**
+ * I vecchi `?tab=` (sette valori più cinque legacy di una consolidazione
+ * precedente) portano alla rotta giusta con `replace`: i link in giro
+ * continuano a funzionare (registro Sedi, chiusura 9; §29.2).
+ */
+const LEGACY_TAB_REDIRECT: Record<string, { section: ActivitySection; hash?: string }> = {
+    profile: { section: "anagrafica" },
+    info: { section: "anagrafica" },
+    media: { section: "anagrafica" },
+    hours: { section: "orari" },
+    ordering: { section: "ordini-prenotazioni", hash: "ordini" },
+    reservations: { section: "ordini-prenotazioni", hash: "prenotazioni" },
+    settings: { section: "pubblicazione" },
+    "hours-services": { section: "pubblicazione" },
+    "access-control": { section: "pubblicazione" },
+    sala: { section: "sala" },
+    tables: { section: "sala" },
+    availability: { section: "disponibilita" }
 };
 
-const LEGACY_TAB_MAP: Record<string, TabValue> = {
-    info: "profile",
-    media: "profile",
-    "hours-services": "settings",
-    "access-control": "settings",
-    tables: "sala"
-};
+const isSection = (v: string): v is ActivitySection =>
+    (ACTIVITY_SECTIONS as readonly string[]).includes(v);
 
-const isTabValue = (v: string): v is TabValue =>
-    (TAB_VALUES as readonly string[]).includes(v);
-
+/**
+ * Il locale in quattro pagine (§31): Anagrafica · Orari · Ordini e
+ * prenotazioni · Pubblicazione, più Sala e Disponibilità come rotte senza tab. Questo
+ * parent legge la sede, gli orari e la ragione sociale una volta, tiene il
+ * draft unico con la sua barra e la guardia all'uscita, e dà tutto alle
+ * rotte figlie via `Outlet` (`useActivityDetail`).
+ */
 const ActivityDetailPage: React.FC = () => {
     const { activityId, businessId } = useParams<{ activityId: string; businessId: string }>();
     const navigate = useNavigate();
+    const { pathname } = useLocation();
+    const [searchParams] = useSearchParams();
     const { showToast } = useToast();
     const { permissions } = usePermissions();
-    const [searchParams, setSearchParams] = useSearchParams();
 
-    // Normalize legacy tab params on first render
-    useEffect(() => {
-        const raw = searchParams.get("tab");
-        if (raw && LEGACY_TAB_MAP[raw]) {
-            setSearchParams(
-                prev => {
-                    prev.set("tab", LEGACY_TAB_MAP[raw]);
-                    return prev;
-                },
-                { replace: true }
-            );
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    const basePath = `/business/${businessId}/locations/${activityId}`;
+    const lastSegment = pathname.slice(basePath.length).split("/").filter(Boolean)[0] ?? "";
+    const section: ActivitySection = isSection(lastSegment) ? lastSegment : "anagrafica";
 
-    const rawTab = searchParams.get("tab");
-    const activeTab: TabValue =
-        rawTab && isTabValue(rawTab)
-            ? rawTab
-            : rawTab && LEGACY_TAB_MAP[rawTab]
-            ? LEGACY_TAB_MAP[rawTab]
-            : "profile";
-
-    const handleTabChange = useCallback((next: TabValue) => {
-        setSearchParams(prev => {
-            prev.set("tab", next);
-            return prev;
-        });
-    }, [setSearchParams]);
+    const goToSection = useCallback(
+        (next: ActivitySection, hash?: string) => {
+            navigate({ pathname: `${basePath}/${next}`, hash: hash ? `#${hash}` : "" });
+        },
+        [navigate, basePath]
+    );
 
     const [activity, setActivity] = useState<V2Activity | null>(null);
     const [loading, setLoading] = useState(true);
@@ -110,6 +86,9 @@ const ActivityDetailPage: React.FC = () => {
     const canManage = activityId && permissions
         ? canDoOnActivity(permissions, "activity.manage", activityId)
         : false;
+    // Eliminare una sede è tenant-scoped (proprietario e amministratore):
+    // senza il permesso la zona pericolosa non si mostra (registro Sedi #85).
+    const canDelete = permissions ? canDoOnTenant(permissions, "activities.delete") : false;
     const canManageHours = activityId && permissions
         ? canDoOnActivity(permissions, "activity_hours.write", activityId)
         : false;
@@ -137,9 +116,9 @@ const ActivityDetailPage: React.FC = () => {
         fetchData();
     }, [fetchData]);
 
-    // Orari a livello pagina: dato della sede, non di una tab. Li scrive la
-    // tab Orari, li legge anche Prenotazioni (nota "mancano gli orari"); una
-    // sola fonte, ricaricata dopo ogni scrittura via `loadHours`.
+    // Orari a livello pagina: dato della sede, non di una rotta. Li scrive
+    // Orari, li leggono anche Ordini e prenotazioni (prerequisito); una sola
+    // fonte, ricaricata dopo ogni scrittura via `loadHours`.
     const [hours, setHours] = useState<V2ActivityHours[]>([]);
     const [isHoursLoading, setIsHoursLoading] = useState(true);
 
@@ -161,7 +140,8 @@ const ActivityDetailPage: React.FC = () => {
 
     // Ragione sociale a livello pagina: `get_user_tenants()` (fonte di
     // `selectedTenant`) non espone i campi fiscali, quindi il contesto non
-    // basta. Una lettura per apertura sede; la legge Prenotazioni per il
+    // basta. Una lettura per apertura sede; la leggono Ordini e prenotazioni
+    // per il
     // prerequisito dell'informativa privacy. `null` = non ancora letta.
     const [legalName, setLegalName] = useState<string | null | undefined>(undefined);
 
@@ -192,143 +172,137 @@ const ActivityDetailPage: React.FC = () => {
 
     useBreadcrumbItems(breadcrumbItems);
 
-    // ── Header band: solo leading (tab line controllati). Lo stato sede
-    // (Pubblicata/Sospesa) è già visibile in lista Sedi (overlay card +
-    // colonna tabella) e nella tab Impostazioni: niente badge nella banda. ──
+    // Il draft unico (§31.4) vive qui, sopra le rotte: sopravvive al cambio di
+    // pagina della sede. Con la sede non ancora letta il draft è inerte.
+    const draft = useActivityDraft(
+        activity ?? ({ id: activityId ?? "", tenant_id: businessId ?? "" } as V2Activity),
+        businessId ?? "",
+        setActivity
+    );
+    useUnsavedChangesGuard(draft.isDirty);
+
+    // Testata: le quattro pagine come tab che navigano, lo stato della sede
+    // nelle azioni (su quattro pagine non è più a un click, come nel
+    // prototipo §31). Sala e Disponibilità non hanno una tab attiva.
     const leading = useMemo(() => (
-        <Tabs<TabValue> value={activeTab} onChange={handleTabChange} variant="line">
+        <Tabs<ActivitySection> value={section} onChange={next => goToSection(next)} variant="line">
             <Tabs.List>
-                {TAB_VALUES.map(value => (
-                    <Tabs.Tab key={value} value={value}>{TAB_LABELS[value]}</Tabs.Tab>
+                {ACTIVITY_PAGES.map(value => (
+                    <Tabs.Tab key={value} value={value}>{ACTIVITY_SECTION_LABELS[value]}</Tabs.Tab>
                 ))}
             </Tabs.List>
         </Tabs>
-    ), [activeTab, handleTabChange]);
+    ), [section, goToSection]);
 
-    // Solo sezioni: la pagina non ha azioni di banda (lo stato sede vive in
-    // lista e nella tab Impostazioni, vedi sopra), quindi in compatto la riga
-    // è il solo picker.
+    const statusLabel = activity
+        ? activity.status === "inactive"
+            ? activity.inactive_reason
+                ? `Sospesa · ${formatInactiveReason(activity.inactive_reason)}`
+                : "Sospesa"
+            : "Pubblicata"
+        : null;
+
+    const actions = useMemo(() => (
+        statusLabel ? (
+            <StatusBadge variant={activity?.status === "inactive" ? "neutral" : "success"} label={statusLabel} />
+        ) : null
+    ), [statusLabel, activity?.status]);
+
+    // In compatto il picker dice dove sei anche su Sala e Disponibilità, che
+    // non sono tab: la voce compare solo mentre ci sei.
     const headerCompact = useMemo<PageHeaderCompactConfig>(() => ({
-        sections: TAB_VALUES.map(value => ({ value, label: TAB_LABELS[value] })),
-        activeSection: activeTab,
-        onSectionChange: value => handleTabChange(value as TabValue)
-    }), [activeTab, handleTabChange]);
+        sections: [
+            ...ACTIVITY_PAGES.map(value => ({ value, label: ACTIVITY_SECTION_LABELS[value] })),
+            ...(ACTIVITY_PAGES.includes(section) ? [] : [{ value: section, label: ACTIVITY_SECTION_LABELS[section] }])
+        ],
+        activeSection: section,
+        onSectionChange: value => goToSection(value as ActivitySection),
+        statusIndicator: statusLabel ? { label: statusLabel } : undefined
+    }), [section, goToSection, statusLabel]);
 
     usePageHeader({
         leading,
+        actions,
         compact: headerCompact,
     });
+
+    // Redirect dei vecchi `?tab=`: prima di tutto, così un link vecchio non
+    // monta mai una rotta sbagliata.
+    const legacyTab = searchParams.get("tab");
+    if (legacyTab) {
+        const target = LEGACY_TAB_REDIRECT[legacyTab] ?? { section: "anagrafica" as ActivitySection };
+        return (
+            <Navigate
+                to={{ pathname: `${basePath}/${target.section}`, hash: target.hash ? `#${target.hash}` : "" }}
+                replace
+            />
+        );
+    }
 
     if (loading && !activity) {
         return (
             <div className={styles.container}>
-                <div className={styles.loadingState}>
-                    <IconLoader2 className="animate-spin" size={48} />
-                    <p>Caricamento sede...</p>
+                <div className={styles.loading} aria-busy="true" aria-label="Caricamento sede">
+                    <Skeleton height="40px" width="40%" />
+                    <Skeleton height="160px" />
+                    <Skeleton height="160px" />
                 </div>
             </div>
         );
     }
 
-    if (!activity) {
+    if (!activity || !businessId) {
         return (
             <div className={styles.container}>
-                <div className={styles.notFound}>
-                    <h1>Sede non trovata</h1>
-                    <p>La sede che stai cercando non esiste o è stata eliminata.</p>
-                    <Button onClick={() => navigate(`/business/${businessId}/locations`)}>
-                        Torna all'elenco
-                    </Button>
-                </div>
+                <EmptyState
+                    variant="page"
+                    icon={<Store />}
+                    title="Sede non trovata"
+                    description="La sede che stai cercando non esiste o è stata eliminata."
+                    action={
+                        <Button onClick={() => navigate(`/business/${businessId}/locations`)}>
+                            Torna alle sedi
+                        </Button>
+                    }
+                />
             </div>
         );
     }
 
+    const context: ActivityDetailOutletContext = {
+        activity,
+        businessId,
+        tenantId: businessId,
+        reload: fetchData,
+        hours,
+        isHoursLoading,
+        loadHours,
+        legalName,
+        canManage,
+        canManageHours,
+        canDelete,
+        draft,
+        goToSection
+    };
+
     return (
-        <div className={styles.container} data-active-tab={activeTab}>
+        <div className={styles.container} data-active-tab={section}>
             <div className={styles.contentWrapper}>
-                {activeTab === "profile" && (
-                    <ActivityProfileTab
-                        activity={activity}
-                        tenantId={businessId!}
-                        onReload={fetchData}
-                        canWrite={canManage}
-                    />
-                )}
-                {activeTab === "availability" && (
-                    <ActivityAvailabilityTab
-                        activity={activity}
-                        tenantId={businessId!}
-                        onReload={fetchData}
-                    />
-                )}
-                {activeTab === "sala" && (
-                    <PageGate readPermission="tables.read" activityId={activity.id}>
-                        {() => (
-                            // I tavoli servono a due domini: ordinazioni QR e
-                            // prenotazioni. Basta uno dei due abilitati per
-                            // poterli mappare. `orderingEnabled` resta il gate
-                            // delle sole azioni QR dentro la pagina.
-                            activity.ordering_enabled || activity.enable_reservations ? (
-                                <TablesManagement
-                                    tenantId={businessId!}
-                                    activityId={activity.id}
-                                    orderingEnabled={activity.ordering_enabled}
-                                    reservationsEnabled={activity.enable_reservations}
-                                    reservationCapacity={activity.reservation_capacity}
-                                    reservationDurationMinutes={activity.reservation_duration_minutes}
-                                    reservationConfirmationMode={activity.reservation_confirmation_mode}
-                                    onActivityChanged={fetchData}
-                                    canManageActivity={canManage}
-                                />
-                            ) : (
-                                <TablesEmptyState
-                                    onGoToOrdering={() => handleTabChange("ordering")}
-                                    onGoToReservations={() => handleTabChange("reservations")}
-                                />
-                            )
-                        )}
-                    </PageGate>
-                )}
-                {activeTab === "hours" && (
-                    <ActivityHoursTab
-                        activity={activity}
-                        tenantId={businessId!}
-                        hours={hours}
-                        isHoursLoading={isHoursLoading}
-                        onHoursChanged={loadHours}
-                        onReload={fetchData}
-                        canManageHours={canManageHours}
-                    />
-                )}
-                {activeTab === "ordering" && (
-                    <ActivityOrderingTab
-                        activity={activity}
-                        tenantId={businessId!}
-                        onReload={fetchData}
-                        canWrite={canManage}
-                    />
-                )}
-                {activeTab === "reservations" && (
-                    <ActivityReservationsTab
-                        activity={activity}
-                        tenantId={businessId!}
-                        onReload={fetchData}
-                        canWrite={canManage}
-                        hours={hours}
-                        isHoursLoading={isHoursLoading}
-                        legalName={legalName}
-                    />
-                )}
-                {activeTab === "settings" && (
-                    <ActivitySettingsTab
-                        activity={activity}
-                        tenantId={businessId!}
-                        onReload={fetchData}
-                        canWrite={canManage}
-                    />
-                )}
+                <Outlet context={context} />
             </div>
+            {draft.isDirty && (
+                <>
+                    {draft.error && <InlineBanner variant="error">{draft.error}</InlineBanner>}
+                    <UnsavedChangesBar
+                        isSaving={draft.isSaving}
+                        onCancel={draft.discard}
+                        onSave={() => {
+                            void draft.save();
+                        }}
+                        label={draft.dirtyCount === 1 ? "1 modifica non salvata" : `${draft.dirtyCount} modifiche non salvate`}
+                    />
+                </>
+            )}
         </div>
     );
 };

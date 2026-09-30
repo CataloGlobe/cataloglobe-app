@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import {
     Armchair,
     CalendarDays,
@@ -8,7 +8,6 @@ import {
     MapPin,
     PencilLine,
     Phone,
-    TriangleAlert,
     User,
     Users
 } from "lucide-react";
@@ -16,6 +15,8 @@ import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
+import { Badge } from "@/components/ui/Badge/Badge";
+import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import type { TableAssignmentView } from "@/components/ui/TableAssignmentBadge/TableAssignmentBadge";
 import { formatTableLabels } from "@/components/ui/TableAssignmentBadge/formatTableLabels";
@@ -209,11 +210,15 @@ function isInThePast(reservation: V2Reservation, now: Date = new Date()): boolea
  * "Tavolo"/"Tavoli" in tutti i casi, perché a cambiare non è l'argomento ma da
  * dove viene la risposta.
  *
- * `plan_live` tace quando la scelta è dell'operatore: il sistema annuncia le
- * proprie proposte, non le decisioni altrui. `plan_past` parla sempre — un
+ * `plan_live` distingue chi ha scelto: la proposta del sistema si rifà se la
+ * prenotazione cambia, la scelta a mano no — e va detto (§14), perché è la
+ * differenza che l'operatore non vede. `plan_past` parla sempre — un
  * elenco di tavoli su una prenotazione annullata, senza una frase, si legge
  * come un fatto avvenuto.
  */
+/** La scelta a mano sul piano: il motore non la ricalcola più (`set_reservation_tables`, manual). */
+const MANUAL_PLAN_HINT = "Scelto a mano: resta questo anche se la prenotazione cambia.";
+
 function tableSectionHint(
     note: TableSectionNote | undefined,
     view: TableAssignmentView | null
@@ -221,9 +226,10 @@ function tableSectionHint(
     const many = (view?.rows.length ?? 0) > 1;
     switch (note) {
         case "plan_live":
-            return view?.proposed === true
+            if (!view || view.rows.length === 0) return null;
+            return view.proposed === true
                 ? "Proposto dal sistema. Se la prenotazione viene spostata o cambia il numero di persone, la proposta viene rifatta."
-                : null;
+                : MANUAL_PLAN_HINT;
         case "plan_past":
             return many ? "Erano i tavoli previsti." : "Era il tavolo previsto.";
         case "seated":
@@ -298,6 +304,8 @@ export default function ReservationDetailDrawer({
     seatingPartySize,
     onSetSeatingPartySize
 }: Props) {
+    // Il titolo canonico di DrawerLayout nomina il dialog (`aria-labelledby`).
+    const titleId = useId();
     const durationMin = activityDurationMinutes ?? DEFAULT_DURATION_MINUTES;
 
     // ── Quale tavolo si sta guardando ────────────────────────────────
@@ -414,19 +422,20 @@ export default function ReservationDetailDrawer({
                 party_size: reservation.party_size
             }
         );
+        const [h, m] = reservation.reservation_time.split(":").map(n => parseInt(n, 10));
+        const endMin = (h ?? 0) * 60 + (m ?? 0) + durationMin;
         return {
             peak: result.peakWithCandidate,
             capacity: activityCapacity,
-            durationMin
+            from: reservation.reservation_time.slice(0, 5),
+            to: `${String(Math.floor(endMin / 60) % 24).padStart(2, "0")}:${String(endMin % 60).padStart(2, "0")}`
         };
     }, [reservation, allReservations, activityCapacity, durationMin]);
 
     if (!reservation) {
         return (
-            <SystemDrawer open={open} onClose={onClose} width={560}>
-                <DrawerLayout
-                    header={<Text variant="title-sm" weight={600}>Prenotazione</Text>}
-                >
+            <SystemDrawer open={open} onClose={onClose} size="md" aria-labelledby={titleId} autoFocusFirstInput={false}>
+                <DrawerLayout title="Prenotazione" titleId={titleId} onClose={onClose}>
                     <div className={styles.drawerBody}>
                         <Text variant="body" colorVariant="muted">
                             Nessuna prenotazione selezionata.
@@ -508,9 +517,9 @@ export default function ReservationDetailDrawer({
                 // non si può fare, non quale permesso manca. Il nome del
                 // permesso vive nella schermata Team, dove serve a chi lo
                 // assegna.
-                <p className={styles.drawerFooterHint}>
+                <Text as="p" variant="caption-xs" colorVariant="muted" className={styles.drawerFooterHint}>
                     Non hai i permessi per gestire questa prenotazione.
-                </p>
+                </Text>
             ) : reservation.status === "pending" ? (
                 <>
                     {canEdit && (
@@ -539,7 +548,7 @@ export default function ReservationDetailDrawer({
                         </Button>
                     )}
                     <Button variant="danger" onClick={() => handleAction("cancel")}>
-                        Annulla
+                        Annulla prenotazione
                     </Button>
                     {/* Immediato, non differito: vedi la nota sulle props. */}
                     {showArrive && (
@@ -554,7 +563,7 @@ export default function ReservationDetailDrawer({
                 </>
             ) : reservation.status === "seated" ? (
                 <>
-                    {/* "Annulla arrivo" e "Servizio concluso" dicono due cose
+                    {/* "Annulla apertura" e "Servizio concluso" dicono due cose
                         opposte — "non è successo" contro "è finito" — e la
                         prima cancella mentre la seconda conserva. Lo spazio in
                         mezzo è il modo in cui l'interfaccia dice che non sono
@@ -567,7 +576,7 @@ export default function ReservationDetailDrawer({
                             disabled={seatingBusy !== null}
                             onClick={() => void runSeatingAction("undo_arrival", onUndoArrival)}
                         >
-                            Annulla arrivo
+                            Annulla apertura
                         </Button>
                     )}
                     <span className={styles.drawerFooterSpacer} aria-hidden />
@@ -586,40 +595,36 @@ export default function ReservationDetailDrawer({
                         serve a chi lo assegna. Qui, in sala, citarlo chiede a
                         chi lavora di tradurre. */}
                     {!showUndoArrival && !showComplete && (
-                        <p className={styles.drawerFooterHint}>
+                        <Text as="p" variant="caption-xs" colorVariant="muted" className={styles.drawerFooterHint}>
                             Non hai i permessi per gestire il servizio su questa sede.
-                        </p>
+                        </Text>
                     )}
                 </>
             ) : reservation.status === "no_show" ? (
                 <>
-                    <p className={styles.drawerFooterHint}>
+                    <Text as="p" variant="caption-xs" colorVariant="muted" className={styles.drawerFooterHint}>
                         Il cliente non si è presentato.
-                    </p>
+                    </Text>
                     <Button variant="primary" onClick={() => handleAction("undo_no_show")}>
                         Annulla non presentato
                     </Button>
                 </>
             ) : (
-                <p className={styles.drawerFooterHint}>
+                <Text as="p" variant="caption-xs" colorVariant="muted" className={styles.drawerFooterHint}>
                     Questa prenotazione è in stato terminale. Nessuna azione disponibile.
-                </p>
+                </Text>
             )}
         </div>
     );
 
-    const header = (
-        <div className={styles.drawerHeaderTitle}>
-            <Text variant="title-sm" weight={600}>Prenotazione</Text>
-            <StatusBadge variant={st.variant} label={st.label} />
-        </div>
-    );
 
     if (asking && closeFlow.kind === "ask") {
         return (
-            <SystemDrawer open={open} onClose={onClose} width={560}>
+            <SystemDrawer open={open} onClose={onClose} size="md" aria-labelledby={titleId} autoFocusFirstInput={false}>
                 <DrawerLayout
-                    header={header}
+                    title="Prenotazione"
+                    titleId={titleId}
+                    onClose={onClose}
                     footer={
                         <SeatingCloseQuestionFooter
                             flow={closeFlow}
@@ -636,12 +641,12 @@ export default function ReservationDetailDrawer({
     }
 
     return (
-        <SystemDrawer open={open} onClose={onClose} width={560}>
-            <DrawerLayout header={header} footer={footer}>
+        <SystemDrawer open={open} onClose={onClose} size="md" aria-labelledby={titleId} autoFocusFirstInput={false}>
+            <DrawerLayout title="Prenotazione" titleId={titleId} onClose={onClose} footer={footer}>
                 <div className={styles.drawerBody}>
                     {/* ── Hero: data eroe + meta + sede ─────────────────── */}
                     <section className={styles.drawerHero}>
-                        <div className={styles.drawerHeroDate}>
+                        <Text as="div" variant="title-sm" weight={600} className={styles.drawerHeroDate}>
                             <CalendarDays
                                 size={18}
                                 strokeWidth={2}
@@ -651,7 +656,10 @@ export default function ReservationDetailDrawer({
                             <span className={styles.drawerHeroDateText}>
                                 {formatDateIt(reservation.reservation_date)}
                             </span>
-                        </div>
+                            {/* Lo stato stava nell'intestazione: quella
+                                canonica di DrawerLayout ha solo titolo e chiudi. */}
+                            <StatusBadge variant={st.variant} label={st.label} />
+                        </Text>
 
                         {/* Conferma del cliente, per esteso con data e ora.
                             Compare solo se ha risposto: chi tace non produce
@@ -678,7 +686,7 @@ export default function ReservationDetailDrawer({
                             />
                         </div>
 
-                        <div className={styles.drawerHeroMeta}>
+                        <Text as="div" variant="body-sm" colorVariant="muted" className={styles.drawerHeroMeta}>
                             <span className={styles.drawerHeroMetaItem}>
                                 <Clock size={15} strokeWidth={2} aria-hidden />
                                 {formatTimeIt(reservation.reservation_time)}
@@ -690,7 +698,7 @@ export default function ReservationDetailDrawer({
                                 {reservation.party_size === 1 ? "persona" : "persone"}
                             </span>
                             <span className={styles.drawerHeroMetaDot} aria-hidden>·</span>
-                            <span className={styles.drawerHeroChannel}>
+                            <Text as="span" variant="caption-xs" weight={500} colorVariant="muted" className={styles.drawerHeroChannel}>
                                 {reservation.source === "manual" ? (
                                     <>
                                         <PencilLine size={13} strokeWidth={2} aria-hidden />
@@ -702,7 +710,7 @@ export default function ReservationDetailDrawer({
                                         Online
                                     </>
                                 )}
-                            </span>
+                            </Text>
                             {/* Puntino e "Creata da" in UN blocco che non si
                                 spezza: la riga va a capo, e lasciare il
                                 separatore in coda alla riga sopra con il
@@ -729,12 +737,12 @@ export default function ReservationDetailDrawer({
                                         </span>
                                     </span>
                                 )}
-                        </div>
+                        </Text>
 
-                        <div className={styles.drawerHeroVenue}>
+                        <Text as="div" variant="caption" colorVariant="muted" className={styles.drawerHeroVenue}>
                             <MapPin size={13} strokeWidth={2} aria-hidden />
                             {activityName ?? "—"}
-                        </div>
+                        </Text>
                     </section>
 
                     {/* ── Tavolo ────────────────────────────────────────
@@ -750,28 +758,20 @@ export default function ReservationDetailDrawer({
                          è l'unica riga colorata della sezione. I gesti sono RPC
                          immediate: il drawer resta aperto e mostra il risultato.
 
-                         Tre cose che questa sezione NON fa, per scelta e non
-                         per dimenticanza:
-                         1. I coperti reali della tavolata (`seatings.party_size`)
-                            non si modificano: manca la RPC, e quel gesto
-                            appartiene alla vista di servizio — è all'ingresso
-                            che l'host scopre che sono in cinque invece di
-                            quattro. Arriva nella 2.5.
-                         2. Il rilevamento conflitti continua a lavorare solo su
-                            `reservation_tables`, quindi sul fatto non compare:
-                            estenderlo alle tavolate aperte richiede i dati
-                            dell'intera giornata, che è ciò che la vista di
-                            servizio caricherà. Farlo a metà qui darebbe
-                            avvisi incompleti, che sono peggio di nessun avviso.
-                         3. La vista di servizio non esiste ancora. */}
+                         Una cosa che questa sezione NON fa, per scelta: il
+                         rilevamento conflitti lavora solo su
+                         `reservation_tables`, quindi sul fatto non compare:
+                         estenderlo alle tavolate aperte richiede i dati
+                         dell'intera giornata. Farlo a metà qui darebbe avvisi
+                         incompleti, che sono peggio di nessun avviso. */}
                     {(hasTables || canEditTables) && (
                         <section className={styles.drawerSection}>
                             <div className={styles.drawerSectionHead}>
-                                <h3 className={styles.drawerSectionTitle}>
+                                <Text as="h3" variant="caption-xs" weight={600} colorVariant="muted" className={styles.drawerSectionTitle}>
                                     {hasTables && activeTableView.rows.length > 1
                                         ? "Tavoli"
                                         : "Tavolo"}
-                                </h3>
+                                </Text>
                                 {canEditTables && !pickerOpen && (
                                     <div className={styles.drawerTableActions}>
                                         {/* "Restituisci al sistema" riguarda la
@@ -807,7 +807,7 @@ export default function ReservationDetailDrawer({
                             {pickerOpen ? (
                                 <div className={styles.drawerTablePicker}>
                                     {tables === undefined ? (
-                                        <p className={styles.drawerTableHint}>Carico i tavoli…</p>
+                                        <Text as="p" variant="caption" colorVariant="muted" className={styles.drawerTableHint}>Carico i tavoli…</Text>
                                     ) : (
                                         <TableMultiSelect
                                             tables={tables}
@@ -816,6 +816,11 @@ export default function ReservationDetailDrawer({
                                             occupiedBy={tableOccupancy}
                                             disabled={savingTables}
                                         />
+                                    )}
+                                    {/* Prima di confermare, non dopo: scegliere qui
+                                        toglie la prenotazione al motore (§14). */}
+                                    {tableSection?.target === "plan" && (
+                                        <Text as="p" variant="caption" colorVariant="muted" className={styles.drawerTableHint}>{MANUAL_PLAN_HINT}</Text>
                                     )}
                                     <div className={styles.drawerTablePickerActions}>
                                         <Button
@@ -857,35 +862,29 @@ export default function ReservationDetailDrawer({
                                                     {formatTableLabels([row.label])}
                                                 </span>
                                                 {row.zone_name && (
-                                                    <span className={styles.drawerTableZone}>
+                                                    <Text as="span" variant="caption" colorVariant="muted" className={styles.drawerTableZone}>
                                                         {row.zone_name}
-                                                    </span>
+                                                    </Text>
                                                 )}
                                                 {row.deleted && (
-                                                    <span className={styles.drawerTableRemoved}>
+                                                    <Text as="span" variant="caption-xs" weight={500} colorVariant="warning">
                                                         rimosso dalla sala
-                                                    </span>
+                                                    </Text>
                                                 )}
                                             </li>
                                         ))}
                                     </ul>
                                     {tableHint !== null && (
-                                        <p className={styles.drawerTableHint}>{tableHint}</p>
+                                        <Text as="p" variant="caption" colorVariant="muted" className={styles.drawerTableHint}>{tableHint}</Text>
                                     )}
                                     {activeTableView.conflict && (
-                                        <div className={styles.drawerTableConflict} role="status">
-                                            <TriangleAlert
-                                                size={15}
-                                                strokeWidth={2.25}
-                                                aria-hidden
-                                                className={styles.drawerTableConflictIcon}
-                                            />
-                                            <span>{activeTableView.conflict.message}.</span>
-                                        </div>
+                                        <InlineBanner variant="warning">
+                                            {activeTableView.conflict.message}.
+                                        </InlineBanner>
                                     )}
                                 </>
                             ) : (
-                                <p className={styles.drawerTableHint}>{tableEmptyHint}</p>
+                                <Text as="p" variant="caption" colorVariant="muted" className={styles.drawerTableHint}>{tableEmptyHint}</Text>
                             )}
                         </section>
                     )}
@@ -901,7 +900,7 @@ export default function ReservationDetailDrawer({
                     {tableSection?.note === "seated" && (
                         <section className={styles.drawerSection}>
                             <div className={styles.drawerSectionHead}>
-                                <h3 className={styles.drawerSectionTitle}>Coperti</h3>
+                                <Text as="h3" variant="caption-xs" weight={600} colorVariant="muted" className={styles.drawerSectionTitle}>Coperti</Text>
                                 {tableSection.target === "seating" &&
                                     onSetSeatingPartySize &&
                                     !coversOpen && (
@@ -951,27 +950,27 @@ export default function ReservationDetailDrawer({
                                     </div>
                                 </div>
                             ) : (
-                                <p className={styles.drawerTableHint}>
+                                <Text as="p" variant="caption" colorVariant="muted" className={styles.drawerTableHint}>
                                     {seatingPartySize === undefined || seatingPartySize === null
                                         ? `Al tavolo: non indicati · prenotati ${reservation.party_size}`
                                         : seatingPartySize === reservation.party_size
                                           ? `Al tavolo: ${seatingPartySize}, come prenotato`
                                           : `Al tavolo: ${seatingPartySize} · prenotati ${reservation.party_size}`}
-                                </p>
+                                </Text>
                             )}
                         </section>
                     )}
 
                     {/* ── Cliente ───────────────────────────────────────── */}
                     <section className={styles.drawerSection}>
-                        <h3 className={styles.drawerSectionTitle}>Cliente</h3>
+                        <Text as="h3" variant="caption-xs" weight={600} colorVariant="muted" className={styles.drawerSectionTitle}>Cliente</Text>
                         <div className={styles.drawerCustomer}>
-                            <div className={styles.drawerCustomerName}>
+                            <Text as="div" variant="body" weight={600}>
                                 {reservation.customer_name}
-                            </div>
+                            </Text>
                             <ul className={styles.drawerCustomerList}>
                                 {reservation.customer_email?.trim() && (
-                                    <li className={styles.drawerCustomerItem}>
+                                    <Text as="li" variant="body-sm" colorVariant="muted" className={styles.drawerCustomerItem}>
                                         <Mail
                                             size={14}
                                             strokeWidth={2}
@@ -984,9 +983,9 @@ export default function ReservationDetailDrawer({
                                         >
                                             {reservation.customer_email}
                                         </a>
-                                    </li>
+                                    </Text>
                                 )}
-                                <li className={styles.drawerCustomerItem}>
+                                <Text as="li" variant="body-sm" colorVariant="muted" className={styles.drawerCustomerItem}>
                                     <Phone
                                         size={14}
                                         strokeWidth={2}
@@ -999,7 +998,7 @@ export default function ReservationDetailDrawer({
                                     >
                                         {reservation.customer_phone}
                                     </a>
-                                </li>
+                                </Text>
                             </ul>
 
                             {/* ── Chi è questa persona ───────────────────
@@ -1015,7 +1014,7 @@ export default function ReservationDetailDrawer({
                                  totale del cliente quando ne ha 5 altrove. */}
                             {guestSummary && (
                                 <div className={styles.guestInlineCard}>
-                                    <div className={styles.guestInlineStats}>
+                                    <Text as="div" variant="caption" className={styles.guestInlineStats}>
                                         <span className={styles.guestInlineVisits}>
                                             {formatVisitCount(guestSummary.visible_visits, tenantWide)}
                                         </span>
@@ -1030,86 +1029,76 @@ export default function ReservationDetailDrawer({
                                                 </span>
                                             </>
                                         )}
-                                    </div>
+                                    </Text>
 
                                     {guestNote && guestNote.tags.length > 0 && (
                                         <div className={styles.guestTags}>
                                             {guestNote.tags.map(t => (
-                                                <span key={t} className={styles.guestTag}>{t}</span>
+                                                <Badge key={t} role="presentation">{t}</Badge>
                                             ))}
                                         </div>
                                     )}
 
                                     {guestNote?.notes && (
-                                        <div className={styles.guestInlineNotes}>
+                                        <Text as="div" variant="caption" className={styles.guestInlineNotes}>
                                             {guestNote.notes}
-                                        </div>
+                                        </Text>
                                     )}
 
                                     {onOpenGuest && (
-                                        <button
-                                            type="button"
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
                                             className={styles.guestInlineLink}
                                             onClick={onOpenGuest}
                                         >
                                             Apri scheda cliente
-                                        </button>
+                                        </Button>
                                     )}
                                 </div>
                             )}
                         </div>
                     </section>
 
-                    {/* ── Capacity callout (solo pending) ────────────────
-                         Mostra il PICCO concorrente di coperti nella finestra
-                         [orario, orario+durata) calcolato dal motore di
-                         capacità condiviso. Quando la capienza è impostata,
-                         compara picco vs capienza con colore semaforo
-                         (verde <80%, ambra 80-100%, rosso >100%). Senza
-                         capienza, callout informativo "X coperti nella
-                         finestra di Y minuti". */}
+                    {/* ── Capienza (solo da gestire) ────────────────────
+                         Il PICCO di coperti nella finestra [ora, ora+durata)
+                         col motore di capacità condiviso — la finestra parte
+                         dall'arrivo, non è «±durata». Sopra l'80% della
+                         capienza è un avviso, sotto un'informazione; senza
+                         capienza dice il numero e che manca il tetto. */}
                     {reservation.status === "pending" && capacityCallout && (
-                        <div className={styles.drawerAggregate}>
-                            <Clock
-                                size={16}
-                                strokeWidth={2}
-                                aria-hidden
-                                className={styles.drawerAggregateIcon}
-                            />
-                            <div className={styles.drawerAggregateText}>
-                                {capacityCallout.capacity !== null ? (
-                                    <>
-                                        Picco previsto in finestra ±{capacityCallout.durationMin} min:{" "}
-                                        <strong
-                                            style={{
-                                                color:
-                                                    capacityCallout.peak > capacityCallout.capacity
-                                                        ? "#b91c1c"
-                                                        : capacityCallout.peak / capacityCallout.capacity >= 0.8
-                                                            ? "#b45309"
-                                                            : "#15803d"
-                                            }}
-                                        >
-                                            {capacityCallout.peak} / {capacityCallout.capacity}
-                                        </strong>{" "}
-                                        coperti.
-                                    </>
-                                ) : (
-                                    <>
-                                        Circa <strong>{capacityCallout.peak}</strong>{" "}
-                                        coperti nella finestra di {capacityCallout.durationMin}{" "}
-                                        min. Capienza non impostata.
-                                    </>
-                                )}
-                            </div>
-                        </div>
+                        <InlineBanner
+                            variant={
+                                capacityCallout.capacity !== null &&
+                                capacityCallout.peak / capacityCallout.capacity >= 0.8
+                                    ? "warning"
+                                    : "info"
+                            }
+                        >
+                            {capacityCallout.capacity !== null ? (
+                                <>
+                                    Con questa, dalle {capacityCallout.from} alle {capacityCallout.to} i
+                                    coperti arrivano a <strong>{capacityCallout.peak}</strong> su{" "}
+                                    {capacityCallout.capacity}
+                                    {capacityCallout.peak > capacityCallout.capacity
+                                        ? `: ${capacityCallout.peak - capacityCallout.capacity} oltre la capienza.`
+                                        : "."}
+                                </>
+                            ) : (
+                                <>
+                                    Con questa, dalle {capacityCallout.from} alle {capacityCallout.to} ci
+                                    sono circa <strong>{capacityCallout.peak}</strong> coperti. Capienza non
+                                    impostata.
+                                </>
+                            )}
+                        </InlineBanner>
                     )}
 
                     {/* ── Note ──────────────────────────────────────────── */}
                     {reservation.notes && (
                         <section className={styles.drawerSection}>
-                            <h3 className={styles.drawerSectionTitle}>Note</h3>
-                            <div className={styles.drawerNotes}>{reservation.notes}</div>
+                            <Text as="h3" variant="caption-xs" weight={600} colorVariant="muted" className={styles.drawerSectionTitle}>Note</Text>
+                            <Text as="div" variant="body-sm" className={styles.drawerNotes}>{reservation.notes}</Text>
                         </section>
                     )}
                 </div>

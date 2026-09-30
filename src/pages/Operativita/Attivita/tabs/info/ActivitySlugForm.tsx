@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { IconCheck, IconX, IconAlertTriangle } from "@tabler/icons-react";
+import { FormGrid } from "@/components/ui/FormGrid/FormGrid";
+import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { CheckboxInput } from "@/components/ui/Input/CheckboxInput";
-import Text from "@/components/ui/Text/Text";
 import { updateActivity } from "@/services/supabase/activities";
 import { createActivitySlugAlias } from "@/services/supabase/activitySlugAliases";
 import { ensureUniqueBusinessSlug } from "@/utils/businessSlug";
@@ -10,7 +10,6 @@ import { sanitizeSlugForInput, sanitizeSlugForSave } from "@/utils/slugify";
 import { RESERVED_SLUGS } from "@/constants/reservedSlugs";
 import type { V2Activity } from "@/types/activity";
 import { useToast } from "@/context/Toast/ToastContext";
-import styles from "./ActivitySlugForm.module.scss";
 
 // ⚠️ SYNC con DB: activities_slug_format CHECK constraint
 const SLUG_REGEX = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
@@ -31,7 +30,7 @@ type ActivitySlugFormProps = {
 export function ActivitySlugForm({
     formId,
     entityData,
-    tenantId: _tenantId,
+    tenantId,
     onSuccess,
     onSavingChange,
     onCanSubmitChange
@@ -142,10 +141,10 @@ export function ActivitySlugForm({
             onSavingChange(true);
             try {
                 const oldSlug = entityData.slug;
-                await updateActivity(entityData.id, entityData.tenant_id, { slug: canonicalSlug });
+                await updateActivity(entityData.id, tenantId, { slug: canonicalSlug });
                 // Salva il vecchio slug come alias — fire-and-forget, non blocca il flusso
                 try {
-                    await createActivitySlugAlias(entityData.id, entityData.tenant_id, oldSlug);
+                    await createActivitySlugAlias(entityData.id, tenantId, oldSlug);
                 } catch {
                     // Ignorato: non critico per il flusso principale
                 }
@@ -161,7 +160,7 @@ export function ActivitySlugForm({
                 onSavingChange(false);
             }
         },
-        [slug, slugStatus, hasConfirmed, isActive, entityData.id, entityData.tenant_id, entityData.slug, onSuccess, onSavingChange, showToast]
+        [slug, slugStatus, hasConfirmed, isActive, entityData.id, entityData.slug, tenantId, onSuccess, onSavingChange, showToast]
     );
 
     const canSubmit = isActive
@@ -172,68 +171,47 @@ export function ActivitySlugForm({
         onCanSubmitChange(canSubmit);
     }, [canSubmit, onCanSubmitChange]);
 
+    const statusHelper =
+        slugStatus === "checking"
+            ? "Verifica in corso…"
+            : slugStatus === "available"
+                ? "Indirizzo disponibile."
+                : "Solo lettere minuscole, numeri e trattini, almeno 3 caratteri.";
+    const statusError =
+        slugStatus === "taken"
+            ? "Indirizzo già in uso."
+            : slugStatus === "reserved"
+                ? "Indirizzo riservato: scegline un altro."
+                : slugStatus === "invalid"
+                    ? SLUG_NO_CONSECUTIVE_DASHES.test(slug)
+                        ? "Non puoi usare trattini consecutivi (--)."
+                        : "Solo lettere minuscole, numeri e trattini, almeno 3 caratteri."
+                    : undefined;
+
     return (
         <form id={formId} onSubmit={handleSubmit}>
-            <div className={styles.formFields}>
-                <div>
-                    <TextInput
-                        label="Indirizzo web"
-                        required
-                        value={slug}
-                        onChange={handleSlugChange}
-                        onBlur={handleSlugBlur}
-                        placeholder="es. pizzeria-roma-centro"
-                    />
-                    {slugStatus === "checking" && (
-                        <div className={`${styles.statusMessage} ${styles.checking}`}>
-                            Verifica in corso...
-                        </div>
-                    )}
-                    {slugStatus === "available" && (
-                        <div className={`${styles.statusMessage} ${styles.available}`}>
-                            <IconCheck size={14} />
-                            Indirizzo disponibile
-                        </div>
-                    )}
-                    {slugStatus === "taken" && (
-                        <div className={`${styles.statusMessage} ${styles.error}`}>
-                            <IconX size={14} />
-                            Indirizzo già in uso
-                        </div>
-                    )}
-                    {slugStatus === "reserved" && (
-                        <div className={`${styles.statusMessage} ${styles.error}`}>
-                            <IconX size={14} />
-                            Indirizzo riservato, scegline un altro
-                        </div>
-                    )}
-                    {slugStatus === "invalid" && (
-                        <div className={`${styles.statusMessage} ${styles.error}`}>
-                            <IconX size={14} />
-                            {SLUG_NO_CONSECUTIVE_DASHES.test(slug)
-                                ? "Non puoi usare trattini consecutivi (--)"
-                                : "Solo lettere minuscole, numeri e trattini (min. 3 caratteri)"}
-                        </div>
-                    )}
-                </div>
+            <FormGrid cols={1} autoFocus>
+                <TextInput
+                    label="Indirizzo web"
+                    required
+                    value={slug}
+                    onChange={handleSlugChange}
+                    onBlur={handleSlugBlur}
+                    placeholder="es. pizzeria-roma-centro"
+                    helperText={statusError ? undefined : statusHelper}
+                    error={statusError}
+                />
 
-                {/* Warning forte: solo per sedi attive */}
+                {/* Solo per sedi pubblicate: i link in giro cambiano destinazione. */}
                 {isActive && (
                     <>
-                        <div className={styles.warningBox} role="alert">
-                            <IconAlertTriangle size={18} className={styles.warningIcon} />
-                            <Text as="span" className={styles.warningText}>
-                                Stai cambiando l&apos;URL pubblico di una sede attiva. Il vecchio
-                                indirizzo rimarrà attivo come redirect automatico — puoi
-                                rimuoverlo in qualsiasi momento dalla sezione URL precedenti.
-                                I QR code esistenti continueranno a funzionare, ma ti
-                                consigliamo di aggiornarlo.
-                            </Text>
-                        </div>
-
+                        <InlineBanner variant="warning">
+                            Stai cambiando l&apos;indirizzo pubblico di una sede pubblicata. Il vecchio indirizzo resta
+                            come redirect automatico e compare qui sotto fra gli indirizzi precedenti, da dove puoi
+                            rimuoverlo. I QR già stampati continuano a funzionare, ma conviene aggiornarli.
+                        </InlineBanner>
                         <CheckboxInput
-                            label="Conferma modifica"
-                            description="Ho capito che l'URL pubblico della sede cambierà"
+                            label="Ho capito che l'URL pubblico della sede cambierà"
                             checked={hasConfirmed}
                             onChange={e => setHasConfirmed(e.target.checked)}
                             disabled={slugStatus !== "available" || slug === entityData.slug}
@@ -241,14 +219,9 @@ export function ActivitySlugForm({
                     </>
                 )}
 
-                {/* Hidden submit — actual button in DrawerLayout footer */}
-                <button
-                    type="submit"
-                    disabled={!canSubmit}
-                    hidden
-                    aria-hidden="true"
-                />
-            </div>
+                {/* Submit nascosto: il bottone vero sta nel footer del drawer. */}
+                <button type="submit" disabled={!canSubmit} hidden aria-hidden="true" />
+            </FormGrid>
         </form>
     );
 }

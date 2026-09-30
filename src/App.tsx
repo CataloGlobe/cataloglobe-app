@@ -29,6 +29,8 @@ import ResetPassword from "./pages/Auth/ResetPassword";
 // Public pages — eager (entry point visitatori anonimi, evita round-trip extra del lazy chunk)
 import TableEntryPage from "./pages/TableEntryPage/TableEntryPage";
 import Home from "./pages/Home/Home";
+import LandingFallback from "@pages/CampaignLanding/LandingFallback";
+import { loadCampaignLanding, preloadCampaignLandingIfLanding } from "@pages/CampaignLanding/preload";
 import NotFound from "./pages/NotFound/NotFound";
 import InvitePage from "./pages/Invite/InvitePage";
 import PrivacyPolicyPage from "./pages/Legal/PrivacyPolicyPage";
@@ -69,8 +71,7 @@ const BusinessSettingsPage = lazy(() => import("./pages/Business/BusinessSetting
 const SettingsLanguages = lazy(() => import("./pages/Business/SettingsLanguages"));
 const BusinessTeamPage = lazy(() => import("./pages/Business/TeamPage"));
 const Programming = lazy(() => import("./pages/Dashboard/Programming/Programming"));
-const ProgrammingRuleDetail = lazy(() => import("./pages/Dashboard/Programming/ProgrammingRuleDetail"));
-const FeaturedRuleDetail = lazy(() => import("./pages/Dashboard/Programming/FeaturedRuleDetail"));
+const RuleDetailPage = lazy(() => import("./pages/Dashboard/Programming/RuleDetailPage"));
 const Products = lazy(() => import("./pages/Dashboard/Products/Products"));
 const ProductPage = lazy(() => import("./pages/Dashboard/Products/ProductPage"));
 const Highlights = lazy(() => import("./pages/Dashboard/Highlights/Highlights"));
@@ -82,7 +83,25 @@ const SupportTicketPage = lazy(() => import("./pages/Dashboard/Support/SupportTi
 const Styles = lazy(() => import("./pages/Dashboard/Styles/Styles"));
 const StyleEditorPage = lazy(() => import("./pages/Dashboard/Styles/StyleEditorPage"));
 const ActivityDetailPage = lazy(() => import("./pages/Operativita/Attivita/ActivityDetailPage"));
+const ActivityAnagraficaRoute = lazy(() => import("./pages/Operativita/Attivita/routes/ActivityAnagraficaRoute"));
+const ActivityOrariRoute = lazy(() => import("./pages/Operativita/Attivita/routes/ActivityOrariRoute"));
+const ActivityOrdiniPrenotazioniRoute = lazy(() => import("./pages/Operativita/Attivita/routes/ActivityOrdiniPrenotazioniRoute"));
+const ActivitySectionRedirect = lazy(() => import("./pages/Operativita/Attivita/routes/ActivitySectionRedirect"));
+const SedeRedirect = lazy(() => import("./components/layout/SedeRedirect/SedeRedirect"));
+const ActivityPubblicazioneRoute = lazy(() => import("./pages/Operativita/Attivita/routes/ActivityPubblicazioneRoute"));
+const ActivitySalaRoute = lazy(() => import("./pages/Operativita/Attivita/routes/ActivitySalaRoute"));
+const ActivityDisponibilitaRoute = lazy(() => import("./pages/Operativita/Attivita/routes/ActivityDisponibilitaRoute"));
 const SubscriptionPage = lazy(() => import("./pages/Business/SubscriptionPage"));
+
+// Landing di campagna (in costruzione): route di sviluppo /landing-dev, attiva
+// anche in produzione. Lo swap su / e /b arriva quando la pagina è completa.
+// Chunk e font partono al caricamento del modulo, prima che React monti la route.
+preloadCampaignLandingIfLanding();
+const CampaignLandingPage = lazy(loadCampaignLanding);
+
+// Galleria dei componenti — solo sviluppo. Il ternario su import.meta.env.DEV
+// è statico al build: in produzione l'import() sparisce e il chunk non esiste.
+const DevUiPage = import.meta.env.DEV ? lazy(() => import("./dev/ui/DevUiPage")) : null;
 
 export default function App() {
     const navigate = useNavigate();
@@ -222,15 +241,38 @@ export default function App() {
                 <Route path="overview" element={<Overview />} />
 
                 <Route path="locations" element={<Businesses />} />
-                <Route path="locations/:activityId" element={<ActivityDetailPage />} />
+                {/* Comande e prenotazioni della sede: le pagine operative
+                    montate dentro il contesto, con la sede presa dal path
+                    (§46.1). Fuori dal parent della scheda: non sono sue
+                    pagine, e non devono ereditarne testata e draft. */}
+                <Route path="locations/:activityId/comande" element={<Orders />} />
+                <Route path="locations/:activityId/prenotazioni" element={<Reservations />} />
+                {/* La scheda della sede: quattro pagine (§31) più Sala e
+                    Disponibilità; i vecchi `?tab=` li reindirizza il parent. */}
+                <Route path="locations/:activityId" element={<ActivityDetailPage />}>
+                    <Route index element={<Navigate to="anagrafica" replace />} />
+                    <Route path="anagrafica" element={<ActivityAnagraficaRoute />} />
+                    <Route path="orari" element={<ActivityOrariRoute />} />
+                    <Route path="ordini-prenotazioni" element={<ActivityOrdiniPrenotazioniRoute />} />
+                    <Route path="canali" element={<ActivitySectionRedirect to="ordini-prenotazioni" keepHash />} />
+                    <Route path="pubblicazione" element={<ActivityPubblicazioneRoute />} />
+                    <Route path="sala" element={<ActivitySalaRoute />} />
+                    <Route path="disponibilita" element={<ActivityDisponibilitaRoute />} />
+                    {/* Un segmento sconosciuto sotto la sede apre l'Anagrafica:
+                        un link vecchio o storto resta dentro la scheda invece di
+                        finire sulla pagina "non trovata" di tutto il sito. */}
+                    <Route path="*" element={<ActivitySectionRedirect to="anagrafica" />} />
+                </Route>
 
-                <Route path="orders" element={<Orders />} />
-                <Route path="reservations" element={<Reservations />} />
+                {/* Le comande sono di una sede: il vecchio indirizzo d'azienda
+                    porta dentro il contesto (§46.1). */}
+                <Route path="orders" element={<SedeRedirect routeKey="orders" segment="comande" />} />
+                <Route path="reservations" element={<SedeRedirect routeKey="reservations" segment="prenotazioni" />} />
                 <Route path="guests" element={<Guests />} />
 
                 <Route path="scheduling" element={<Programming />} />
-                <Route path="scheduling/:ruleId" element={<ProgrammingRuleDetail />} />
-                <Route path="scheduling/featured/:ruleId" element={<FeaturedRuleDetail />} />
+                <Route path="scheduling/:ruleId" element={<RuleDetailPage />} />
+                <Route path="scheduling/featured/:ruleId" element={<RuleDetailPage />} />
 
                 <Route path="catalogs" element={<Catalogs />} />
                 <Route path="catalogs/:id" element={<CatalogEngine />} />
@@ -286,6 +328,25 @@ export default function App() {
             {/* Status page pubblica — DEVE stare prima del catch-all /:slug */}
             <Route path="/status" element={<StatusPage />} />
 
+            {/* Landing di campagna — route di sviluppo, prima del catch-all /:slug */}
+            {/* Suspense proprio: il fallback globale parla di «dashboard» */}
+            <Route
+                path="/landing-dev"
+                element={
+                    <Suspense fallback={<LandingFallback />}>
+                        <CampaignLandingPage variante="form" />
+                    </Suspense>
+                }
+            />
+            <Route
+                path="/landing-dev/b"
+                element={
+                    <Suspense fallback={<LandingFallback />}>
+                        <CampaignLandingPage variante="signup" />
+                    </Suspense>
+                }
+            />
+
             {/* Admin (cross-tenant) — gate via platform_admins / is_platform_admin() */}
             <Route
                 path="/admin"
@@ -302,6 +363,9 @@ export default function App() {
                     <Route path=":ticketId" element={<SupportTicketAdminPage />} />
                 </Route>
             </Route>
+
+            {/* Galleria UI — solo sviluppo (vedi DevUiPage sopra) */}
+            {DevUiPage && <Route path="/dev/ui" element={<DevUiPage />} />}
 
             {/* CUSTOMER ORDERING — QR bootstrap (DEVE precedere /:slug catch-all) */}
             <Route path="/t/:qrToken" element={<TableEntryPage />} />

@@ -97,7 +97,7 @@ export function SegmentedControl<T extends string | number>({
                     >
                         {opt.icon}
                         {!iconsOnly && (
-                            <Text weight={600} variant="body-sm">
+                            <Text weight={500} variant="body-sm" className={styles.itemLabel}>
                                 {opt.label}
                             </Text>
                         )}

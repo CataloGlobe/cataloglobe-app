@@ -1,283 +1,52 @@
-@use "@styles/variables" as *;
+// Card sede: la struttura è di CardGridItem; qui solo il layout della riga
+// «Menu attivo ora» nel footer e il segnaposto senza copertina.
+.placeholder {
+  display: inline-flex;
+  color: var(--text-muted);
+}
 
-.card {
-  background: var(--card-bg, #ffffff);
-  border: 1px solid var(--border, #e5e7eb);
-  border-radius: 16px;
-  overflow: hidden;
+.footer {
   display: flex;
   flex-direction: column;
-  transition:
-    transform 0.2s,
-    box-shadow 0.2s;
-  cursor: pointer;
-
-  &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  }
+  gap: var(--space-8);
 }
 
-.imageWrapper {
-  position: relative;
-  flex-shrink: 0;
-}
-
-.thumbnail {
-  aspect-ratio: 16 / 9;
-  width: 100%;
-  background: #f3f4f6;
-  display: block;
-  object-fit: cover;
-}
-
-.thumbnailPlaceholder {
-  aspect-ratio: 16 / 9;
-  width: 100%;
-  background: #e5e7eb;
+.footerMain {
   display: flex;
   align-items: center;
-  justify-content: center;
-  color: #9ca3af;
+  gap: var(--space-8);
+  min-height: 26px;
 }
 
-.imageOverlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.35);
-  display: flex;
-  align-items: flex-end;
-  padding: 8px 10px;
-}
-
-.overlayPill {
-  background: rgba(0, 0, 0, 0.6);
-  color: #fff;
-  font-size: 10px;
-  padding: 2px 9px;
-  border-radius: 20px;
-  font-weight: 500;
-}
-
-// Status pill bi-stato (Pubblicata / Sospesa) sempre visibile sulla cover.
-// Distinta dal dimming + overlayPill (inactive_reason) che restano inactive-only.
-.statusBadgeOverlay {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  z-index: 1;
-}
-
-.cardInactive {
-  opacity: 0.75;
-}
-
-.menuTrigger {
-  flex-shrink: 0;
-  width: 28px;
-  height: 28px;
-  border-radius: var(--radius-sm, 6px);
-  border: none;
-  background: transparent;
-  color: var(--color-gray-500, #64748b);
+.footerIcon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s;
-
-  &:hover {
-    background: var(--color-gray-100, #f1f5f9);
-    color: var(--color-gray-800, #1e293b);
-  }
-}
-
-.menuContent {
-  background-color: white;
-  border-radius: var(--radius-md, 12px);
-  padding: 6px;
-  box-shadow:
-    0 10px 38px -10px rgba(22, 23, 24, 0.35),
-    0 10px 20px -15px rgba(22, 23, 24, 0.2);
-  min-width: 180px;
-  border: 1px solid var(--color-gray-200, #e2e8f0);
-  z-index: 50;
-}
-
-.menuItem {
-  font-size: 13px;
-  line-height: 1;
-  color: var(--color-gray-700, #334155);
-  border-radius: var(--radius-sm, 8px);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  height: 32px;
-  padding: 0 12px;
-  position: relative;
-  user-select: none;
-  outline: none;
-  cursor: pointer;
-
-  &[data-highlighted] {
-    background-color: var(--color-gray-100, #f1f5f9);
-    color: var(--color-gray-900, #0f172a);
-  }
-}
-
-.menuSeparator {
-  height: 1px;
-  background-color: var(--color-gray-200, #e2e8f0);
-  margin: 6px -6px;
-}
-
-.menuDanger {
-  color: var(--color-red-600, #dc2626);
-
-  &[data-highlighted] {
-    background-color: var(--color-red-50, #fef2f2);
-    color: var(--color-red-700, #b91c1c);
-  }
-}
-
-.cardContent {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  padding: 11px 13px;
-}
-
-.mainInfo {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-}
-
-.titleRow {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 6px;
-}
-
-.entityName {
-  flex: 1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-size: 14px !important;
-  font-weight: 500 !important;
-}
-
-.address {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-size: 12px !important;
-  margin-bottom: 9px;
-}
-
-.divider {
-  height: 0.5px;
-  background: var(--color-border-tertiary, #f1f5f9);
-  margin: 0 0 9px;
-}
-
-.catalogFooter {
-  display: flex;
-  flex-direction: column;
-  background: var(--brand-primary-soft);
-  border-radius: var(--radius-md, 10px);
-
-  /* Solo il menù davvero attivo merita il fondo di marca. Negli altri tre
-     stati il blocco resta al suo posto (stessa struttura, zero salti) ma si
-     spegne: colorare "in attesa", "nessuno" o "non lo sappiamo" come una
-     vetrina accesa sarebbe il colore che mente. */
-  &[data-state="loading"],
-  &[data-state="none"],
-  &[data-state="error"] {
-    background: var(--hover-bg);
-
-    .catalogIcon {
-      color: var(--text);
-      opacity: 0.45;
-    }
-
-    .catalogFooterLabel {
-      color: var(--text) !important;
-      opacity: 0.55;
-    }
-  }
-}
-
-/* Placeholder del valore, alto quanto la riga di testo che sostituisce. */
-.catalogValueSkeleton {
-  display: block;
-  margin-top: 2px;
-}
-
-.catalogFooterMain {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 8px 8px 8px 10px;
-}
-
-/* Riga avviso override attivi (hidden/unavailable) — solo se presenti,
-   separata dalla riga principale da un bordo sottile, niente automatismi
-   di reset: solo promemoria passivo per il gestore. */
-.catalogWarningRow {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 10px 8px;
-  border-top: 1px solid var(--border);
-}
-
-.catalogWarningIcon {
-  flex-shrink: 0;
-  color: $warning;
-}
-
-.catalogFooterLeft {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.catalogIcon {
-  flex-shrink: 0;
+  flex: 0 0 auto;
   width: 26px;
   height: 26px;
-  border-radius: var(--radius-sm, 7px);
-  background: var(--card-bg, #fff);
-  color: var(--brand-primary);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  border-radius: var(--radius-pill);
+  background: var(--hover-bg);
+  color: var(--text-muted);
 }
 
-.catalogText {
+.footerText {
   display: flex;
   flex-direction: column;
-  gap: 0;
+  gap: var(--space-2);
+  flex: 1 1 auto;
   min-width: 0;
 }
 
-.catalogFooterLabel {
-  font-size: 10px !important;
-  font-weight: 700 !important;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  color: var(--brand-primary) !important;
-}
-
-.catalogName {
-  font-size: 13px !important;
-  white-space: nowrap;
+.footerValue {
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
+.footerWarning {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  color: var(--warning-500);
+}

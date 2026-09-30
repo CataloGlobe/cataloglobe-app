@@ -20,9 +20,16 @@ interface AddressAutocompleteProps {
     onSelect: (result: AddressResult) => void;
     placeholder?: string;
     disabled?: boolean;
+    /** Etichetta del campo e nome accessibile dell'input. Default «Cerca la tua attività». */
+    label?: string;
 }
 
-export function AddressAutocomplete({ onSelect, placeholder, disabled }: AddressAutocompleteProps) {
+export function AddressAutocomplete({
+    onSelect,
+    placeholder,
+    disabled,
+    label = "Cerca la tua attività"
+}: AddressAutocompleteProps) {
     const [query, setQuery] = useState("");
     const [results, setResults] = useState<Prediction[]>([]);
     const [showDropdown, setShowDropdown] = useState(false);
@@ -143,7 +150,7 @@ export function AddressAutocomplete({ onSelect, placeholder, disabled }: Address
 
     return (
         <div className={styles.wrapper}>
-            <span className={styles.label}>Cerca la tua attività</span>
+            <span className={styles.label}>{label}</span>
             {selectedAddress !== null ? (
                 <div className={styles.selectedPill} role="status" aria-label="Indirizzo selezionato">
                     <MapPin size={15} strokeWidth={2} className={styles.pillIcon} aria-hidden="true" />
@@ -176,7 +183,7 @@ export function AddressAutocomplete({ onSelect, placeholder, disabled }: Address
                         onChange={handleQueryChange}
                         onKeyDown={handleKeyDown}
                         disabled={disabled || isLoadingDetails}
-                        aria-label="Cerca la tua attività"
+                        aria-label={label}
                         aria-haspopup="listbox"
                         aria-expanded={showDropdown}
                         aria-autocomplete="list"

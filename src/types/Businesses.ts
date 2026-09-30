@@ -39,10 +39,14 @@ export interface BusinessCardProps {
      */
     catalogsStatus?: CatalogFetchStatus;
     onManageAvailability?: (id: string, name: string) => void;
+    /** Richieste di prenotazione in attesa della sede (§48.1/3); 0 o assente = niente segnale. */
+    pendingReservations?: number;
 }
 
 export interface BusinessListProps {
     businesses: BusinessWithCapabilities[];
+    /** Primo caricamento: card o righe Skeleton al posto dei dati. */
+    isLoading?: boolean;
     viewMode?: "grid" | "list";
     onEdit: (business: BusinessWithCapabilities) => void;
     onDelete?: (id: string) => void;
@@ -51,6 +55,8 @@ export interface BusinessListProps {
     catalogsStatus?: CatalogFetchStatus;
     onManageAvailability?: (id: string, name: string) => void;
     onCreateClick?: () => void;
+    /** Richieste in attesa per sede (`activity_id` → N), solo quelle con N > 0. */
+    pendingReservationsMap?: Record<string, number>;
     /**
      * Calcolata dal chiamante (che possiede gli stati dei filtri) e usata per
      * distinguere "nessuna sede esiste" da "la ricerca non ha prodotto
@@ -58,6 +64,8 @@ export interface BusinessListProps {
      * di riconoscere i due casi.
      */
     hasActiveFilter?: boolean;
+    /** «Azzera filtri» dell'empty state filtrato. */
+    onClearFilters?: () => void;
 }
 
 export type BusinessWithCapabilities = V2Activity & {

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, Outlet, useLocation, useParams } from "react-router-dom";
-import Sidebar from "@components/layout/Sidebar/Sidebar";
+import TenantSidebar from "@components/layout/Sidebar/TenantSidebar";
+import SedeSidebar from "@components/layout/Sidebar/SedeSidebar";
 import { AppHeader } from "@components/layout/AppHeader/AppHeader";
 import { OperationalAlerts } from "@components/layout/OperationalAlerts/OperationalAlerts";
 import { PageHeaderSlot } from "@components/layout/PageHeaderSlot";
@@ -9,39 +10,49 @@ import { BreadcrumbProvider } from "@/context/BreadcrumbProvider";
 import { PageHeaderProvider } from "@/context/PageHeaderProvider";
 import { SubscriptionBanner } from "@/components/Subscription/SubscriptionBanner";
 import { CheckoutConfirmScreen } from "@/components/Subscription/CheckoutConfirmScreen";
+import { UnsavedChangesGuardHost } from "@/components/ui/UnsavedChangesBar/UnsavedChangesGuardHost";
 import { useTenant } from "@/context/useTenant";
 import { useTenantId } from "@/context/useTenantId";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useTranslationCoverage } from "@/hooks/useTranslationCoverage";
+import { useVerticalConfig } from "@/hooks/useVerticalConfig";
+import { resolveBusinessRoute, businessRouteLabel } from "@components/layout/AppHeader/navbarBreadcrumbRoutes";
+import { ACTIVITY_SECTION_LABELS } from "@/pages/Operativita/Attivita/ActivityDetailContext";
 import { useAiImportSession } from "@/hooks/useAiImportSession";
 import { useAiUsage } from "@/hooks/useAiUsage";
 import { useCheckoutReturnSync } from "@/hooks/useCheckoutReturnSync";
 import { AiMenuImportDrawer } from "@/pages/Dashboard/Catalogs/AiMenuImport/AiMenuImportDrawer";
 import { hasUnreadReply, listMyTickets } from "@/services/supabase/support";
+import { countPendingReviews } from "@/services/supabase/reviews";
+import { usePermissions } from "@/context/PermissionsContext";
+import { canDoOnAnyActivity, isTenantWide } from "@/lib/permissions";
 import type { BusinessOutletContext } from "./outletContext";
 
 import styles from "./MainLayout.module.scss";
 
 const SIDEBAR_COLLAPSED_KEY = "cg:sidebar-collapsed";
 
-const PAGE_TITLES: Record<string, string> = {
-    overview: 'Panoramica',
-    products: 'Prodotti',
-    catalogs: 'Cataloghi',
-    locations: 'Sedi',
-    scheduling: 'Programmazione',
-    featured: 'In Evidenza',
-    styles: 'Stili',
-    attributes: 'Attributi',
-    reviews: 'Recensioni',
-    analytics: 'Analytics',
-    team: 'Team',
-    subscription: 'Abbonamento',
-    settings: 'Impostazioni',
+/** Le pagine che vivono dentro una sede: le sei della scheda più le due
+ *  operative, che sono pagine d'azienda montate sul contesto. */
+const SEDE_PAGE_LABELS: Record<string, string | undefined> = {
+    ...ACTIVITY_SECTION_LABELS,
+    comande: "Comande",
+    prenotazioni: "Prenotazioni"
 };
 
-function resolvePageTitle(businessId: string, pathname: string): string | undefined {
+/** `/business/:businessId/locations/:activityId[/...]` — dentro una sede. */
+const SEDE_CONTEXT_PATH = /^\/business\/[^/]+\/locations\/[^/]+/;
+
+/**
+ * Titolo di pagina per il <title> del browser. `resolvePageTitle` è
+ * module-level e non può chiamare `useVerticalConfig()`: `catalogLabel` arriva
+ * come argomento, letto dal componente. Le route di dettaglio restano
+ * parsate a mano (servono i segment 2/3, non solo la top-level key); per le
+ * route piatte la label passa da `businessRouteLabel` — fonte unica condivisa
+ * con breadcrumb e sidebar.
+ */
+function resolvePageTitle(businessId: string, pathname: string, catalogLabel: string): string | undefined {
     const prefix = `/business/${businessId}/`;
     const rest = pathname.startsWith(prefix) ? pathname.slice(prefix.length) : '';
     const segments = rest.split('/').filter(Boolean);
@@ -49,19 +60,29 @@ function resolvePageTitle(businessId: string, pathname: string): string | undefi
     const second = segments[1] ?? '';
     const third = segments[2] ?? '';
 
-    if (first === 'scheduling' && second === 'featured' && third) return 'Regola In Evidenza';
-    if (second && first === 'products') return 'Dettaglio Prodotto';
-    if (second && first === 'catalogs') return 'Dettaglio Catalogo';
-    if (second && first === 'locations') return 'Dettaglio Sede';
-    if (second && first === 'scheduling') return 'Dettaglio Regola';
-    if (second && first === 'featured') return 'Dettaglio In Evidenza';
-    if (second && first === 'styles') return 'Editor Stile';
+    if (first === 'scheduling' && second === 'featured' && third) return 'Regola in evidenza';
+    if (second && first === 'products') return 'Dettaglio prodotto';
+    if (second && first === 'catalogs') return `Dettaglio ${catalogLabel.toLowerCase()}`;
+    if (second && first === 'locations') {
+        // Le pagine della sede sono rotte: il titolo dice in quale sei,
+        // altrimenti le schede del browser si chiamano tutte uguale.
+        const label = SEDE_PAGE_LABELS[third];
+        return label ? `Sede · ${label}` : 'Dettaglio sede';
+    }
+    if (second && first === 'scheduling') return 'Dettaglio regola';
+    if (second && first === 'featured') return 'Dettaglio in evidenza';
+    if (second && first === 'styles') return 'Editor stile';
 
-    return PAGE_TITLES[first];
+    const { key } = resolveBusinessRoute(pathname, businessId);
+    return key ? businessRouteLabel(key, { catalogLabel }) : undefined;
 }
 
 export default function MainLayout() {
+    // Sotto 768 la sidebar è un cassetto; fra 768 e 1024 parte collassata
+    // (design system §2, breakpoint-sidebar): la scelta manuale resta
+    // possibile, ma non viene salvata finché la finestra è stretta.
     const isMobile = useMediaQuery("(max-width: 767px)");
+    const isNarrow = useMediaQuery("(max-width: 1023px)");
     const { selectedTenant, loading } = useTenant();
     const { businessId } = useParams<{ businessId: string }>();
     const { pathname } = useLocation();
@@ -69,7 +90,11 @@ export default function MainLayout() {
     // link the tenant before the "no subscription" gate below can bounce it.
     const checkoutSync = useCheckoutReturnSync();
 
-    const pageName = businessId ? resolvePageTitle(businessId, pathname) : undefined;
+    const { catalogLabel } = useVerticalConfig();
+    const pageName = businessId ? resolvePageTitle(businessId, pathname, catalogLabel) : undefined;
+    // Dentro una sede la sidebar è la sua (§46.1): il contesto è il path, non
+    // uno stato. `/locations` senza id resta azienda — è la porta, non la casa.
+    const inSedeContext = SEDE_CONTEXT_PATH.test(pathname);
     const tenantName = selectedTenant?.name;
     usePageTitle(pageName && tenantName ? `${pageName} — ${tenantName}` : pageName);
 
@@ -85,13 +110,17 @@ export default function MainLayout() {
     });
 
     useEffect(() => {
-        if (typeof window === "undefined") return;
+        if (typeof window === "undefined" || isNarrow) return;
         try {
             window.localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(sidebarCollapsed));
         } catch {
             // localStorage può fallire in modalità privata o quota piena, ignorare
         }
-    }, [sidebarCollapsed]);
+    }, [sidebarCollapsed, isNarrow]);
+
+    useEffect(() => {
+        if (isNarrow && !isMobile) setSidebarCollapsed(true);
+    }, [isNarrow, isMobile]);
 
     useEffect(() => {
         if (isMobile) setMobileSidebarOpen(false);
@@ -171,6 +200,38 @@ export default function MainLayout() {
         };
     }, [tenantId, supportRefreshKey]);
 
+    // ── Badge "recensioni in attesa" sulla voce Recensioni ─────────────────
+    // Stessa forma del pallino di supporto: un fetch al mount, nessun
+    // polling, ricalcolo su richiesta della pagina dopo una moderazione. Solo
+    // a chi può moderare (§34.9/1): per chi legge e basta non è una cosa da
+    // fare. Owner e admin contano tutte le sedi, gli altri le loro. Un errore
+    // spegne il badge: meglio nessun numero che uno inventato.
+    const { permissions } = usePermissions();
+    const canModerateReviews = permissions != null && canDoOnAnyActivity(permissions, "reviews.moderate");
+    const reviewScopeKey =
+        permissions == null ? "" : isTenantWide(permissions) ? "*" : permissions.activityIds.join(",");
+    const [reviewsPendingCount, setReviewsPendingCount] = useState(0);
+    const [reviewsRefreshKey, setReviewsRefreshKey] = useState(0);
+    const refreshReviewsPending = useCallback(() => setReviewsRefreshKey(k => k + 1), []);
+    useEffect(() => {
+        if (!tenantId || !canModerateReviews) {
+            setReviewsPendingCount(0);
+            return;
+        }
+        let cancelled = false;
+        const scope = reviewScopeKey === "*" ? null : reviewScopeKey.split(",").filter(Boolean);
+        void countPendingReviews(tenantId, scope)
+            .then(count => {
+                if (!cancelled) setReviewsPendingCount(count);
+            })
+            .catch(() => {
+                if (!cancelled) setReviewsPendingCount(0);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [tenantId, canModerateReviews, reviewScopeKey, reviewsRefreshKey]);
+
     const outletContext = useMemo<BusinessOutletContext>(
         () => ({
             translationCoverage,
@@ -180,7 +241,8 @@ export default function MainLayout() {
             importStatus: aiImport.status,
             aiUsage: aiUsage.usage,
             refreshAiUsage: aiUsage.refresh,
-            refreshSupportUnread
+            refreshSupportUnread,
+            refreshReviewsPending
         }),
         [
             translationCoverage,
@@ -190,7 +252,8 @@ export default function MainLayout() {
             aiImport.status,
             aiUsage.usage,
             aiUsage.refresh,
-            refreshSupportUnread
+            refreshSupportUnread,
+            refreshReviewsPending
         ]
     );
 
@@ -244,16 +307,27 @@ export default function MainLayout() {
                         </header>
 
                         <div className={styles.body}>
-                            <Sidebar
-                                isMobile={isMobile}
-                                mobileOpen={mobileSidebarOpen}
-                                collapsed={!isMobile && sidebarCollapsed}
-                                onRequestClose={() => setMobileSidebarOpen(false)}
-                                onToggleCollapse={() => setSidebarCollapsed(v => !v)}
-                                translationPendingCount={translationPendingCount}
-                                importInProgress={importInProgress}
-                                supportUnread={supportUnread}
-                            />
+                            {inSedeContext ? (
+                                <SedeSidebar
+                                    isMobile={isMobile}
+                                    mobileOpen={mobileSidebarOpen}
+                                    collapsed={!isMobile && sidebarCollapsed}
+                                    onRequestClose={() => setMobileSidebarOpen(false)}
+                                    onToggleCollapse={() => setSidebarCollapsed(v => !v)}
+                                />
+                            ) : (
+                                <TenantSidebar
+                                    isMobile={isMobile}
+                                    mobileOpen={mobileSidebarOpen}
+                                    collapsed={!isMobile && sidebarCollapsed}
+                                    onRequestClose={() => setMobileSidebarOpen(false)}
+                                    onToggleCollapse={() => setSidebarCollapsed(v => !v)}
+                                    translationPendingCount={translationPendingCount}
+                                    importInProgress={importInProgress}
+                                    supportUnread={supportUnread}
+                                    reviewsPendingCount={reviewsPendingCount}
+                                />
+                            )}
 
                             <main className={styles.main}>
                                 <PageHeaderSlot scrollContainerRef={contentRef} />
@@ -267,6 +341,11 @@ export default function MainLayout() {
                         {/* Drawer import AI: reso a livello di layout, FUORI dall'Outlet,
                             così stato e richiesta sopravvivono ai cambi route. */}
                         <AiMenuImportDrawer session={aiImport} />
+
+                        {/* Guardia "modifiche non salvate": unica per il layout
+                            (un solo useBlocker), alimentata da useUnsavedChangesGuard
+                            nelle pagine con draft. */}
+                        <UnsavedChangesGuardHost />
                     </PageHeaderProvider>
                 </BreadcrumbProvider>
             </DrawerProvider>

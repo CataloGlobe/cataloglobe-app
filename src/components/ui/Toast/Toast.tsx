@@ -1,5 +1,6 @@
 import React from "react";
-import type { Toast } from "@/types/toast";
+import { AlertCircle, AlertTriangle, CheckCircle2, Info } from "lucide-react";
+import type { Toast, ToastType } from "@/types/toast";
 import styles from "./Toast.module.scss";
 
 interface ToastItemProps {
@@ -9,9 +10,27 @@ interface ToastItemProps {
 
 const EXIT_ANIMATION_MS = 250; // deve combaciare con la durata in SCSS
 
+// Icona 16 per tipo (scheda «Toast»: spunta success-500, ⓘ brand-primary).
+const TYPE_ICON: Record<ToastType, React.ReactNode> = {
+    success: <CheckCircle2 size={16} aria-hidden />,
+    info: <Info size={16} aria-hidden />,
+    warning: <AlertTriangle size={16} aria-hidden />,
+    error: <AlertCircle size={16} aria-hidden />
+};
+
+// Un errore non sparisce da solo (regola 10): il tipo `error` resta
+// funzionante per le chiamate esistenti, ma in dev lo dice una volta sola.
+let warnedError = false;
+
 export const ToastItem: React.FC<ToastItemProps> = ({ toast, onRemove }) => {
     const [isLeaving, setIsLeaving] = React.useState(false);
     const [isPaused, setIsPaused] = React.useState(false);
+
+    React.useEffect(() => {
+        if (toast.type !== "error" || warnedError || !import.meta.env.DEV) return;
+        warnedError = true;
+        console.warn('[Toast] type="error" deprecato: usa InlineBanner');
+    }, [toast.type]);
 
     // Toast con azione (Annulla/Ripristina): mostra barra countdown e
     // sospende il timer su hover. I toast informativi senza azione restano
@@ -100,6 +119,8 @@ export const ToastItem: React.FC<ToastItemProps> = ({ toast, onRemove }) => {
             onMouseEnter={hasAction ? () => setIsPaused(true) : undefined}
             onMouseLeave={hasAction ? () => setIsPaused(false) : undefined}
         >
+            <span className={styles.toastIcon}>{TYPE_ICON[toast.type]}</span>
+
             <div className={styles.toastContent}>
                 <span className={styles.toastMessage}>{toast.message}</span>
 

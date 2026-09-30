@@ -1,11 +1,5 @@
 import { useEffect, useState } from "react";
-import ModalLayout, {
-    ModalLayoutContent,
-    ModalLayoutFooter,
-    ModalLayoutHeader
-} from "@/components/ui/ModalLayout/ModalLayout";
-import { Button } from "@/components/ui/Button/Button";
-import Text from "@/components/ui/Text/Text";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import { RadioGroup } from "@/components/ui/RadioGroup/RadioGroup";
 import type { InactiveReason } from "@/utils/activityStatus";
 
@@ -37,6 +31,11 @@ interface SuspendActivityDialogProps {
     initialReason?: InactiveReason | null;
 }
 
+/**
+ * Sospendere la pubblicazione è un'operazione di stato con una scelta da
+ * spiegare: `ConfirmDialog` con il `RadioGroup card` dei tre motivi (come la
+ * disdetta in Abbonamento), non una modale centrata (registro Sedi #84).
+ */
 export function SuspendActivityDialog({
     isOpen,
     onClose,
@@ -44,10 +43,7 @@ export function SuspendActivityDialog({
     mode = "suspend",
     initialReason
 }: SuspendActivityDialogProps) {
-    const [reason, setReason] = useState<InactiveReason>(
-        initialReason ?? "maintenance"
-    );
-    const [loading, setLoading] = useState(false);
+    const [reason, setReason] = useState<InactiveReason>(initialReason ?? "maintenance");
 
     useEffect(() => {
         if (isOpen) {
@@ -55,48 +51,29 @@ export function SuspendActivityDialog({
         }
     }, [isOpen, initialReason]);
 
-    const handleConfirm = async () => {
-        setLoading(true);
-        const ok = await onConfirm(reason);
-        setLoading(false);
-        if (ok) onClose();
-    };
-
     const isEditMode = mode === "edit-reason";
-    const title = isEditMode ? "Modifica motivo sospensione" : "Sospendi attività";
-    const description = isEditMode
-        ? "Aggiorna il motivo della sospensione. Verrà mostrato ai visitatori della pagina pubblica."
-        : "Seleziona il motivo della sospensione. Verrà mostrato ai visitatori della pagina pubblica.";
-    const ctaLabel = isEditMode ? "Aggiorna" : "Sospendi";
-    const ctaVariant: "primary" | "danger" = isEditMode ? "primary" : "danger";
 
     return (
-        <ModalLayout isOpen={isOpen} onClose={onClose} width="sm" height="fit">
-            <ModalLayoutHeader>
-                <Text variant="title-sm" weight={600}>
-                    {title}
-                </Text>
-            </ModalLayoutHeader>
-
-            <ModalLayoutContent>
-                <Text variant="body-sm" colorVariant="muted" style={{ marginBottom: 16 }}>
-                    {description}
-                </Text>
-                <RadioGroup
-                    value={reason}
-                    onChange={v => setReason(v as InactiveReason)}
-                    options={REASON_OPTIONS}
-                />
-            </ModalLayoutContent>
-
-            <ModalLayoutFooter>
-                <Button variant="secondary" size="sm" onClick={onClose} disabled={loading}>
-                    Annulla
-                </Button>
-                <Button variant={ctaVariant} size="sm" onClick={handleConfirm} loading={loading}>
-                    {ctaLabel}
-                </Button>
-            </ModalLayoutFooter>
-        </ModalLayout>
+        <ConfirmDialog
+            isOpen={isOpen}
+            onClose={onClose}
+            onConfirm={() => onConfirm(reason)}
+            title={isEditMode ? "Modifica il motivo" : "Sospendi la sede"}
+            message={
+                isEditMode
+                    ? "Il motivo compare a chi apre la pagina pubblica mentre la sede è sospesa."
+                    : "La pagina pubblica non è più raggiungibile: chi apre il link o il QR legge il motivo. Riprendi quando vuoi."
+            }
+            confirmLabel={isEditMode ? "Aggiorna" : "Sospendi"}
+            confirmVariant={isEditMode ? "primary" : "danger"}
+        >
+            <RadioGroup
+                label="Motivo"
+                value={reason}
+                onChange={v => setReason(v as InactiveReason)}
+                options={REASON_OPTIONS}
+                variant="card"
+            />
+        </ConfirmDialog>
     );
 }

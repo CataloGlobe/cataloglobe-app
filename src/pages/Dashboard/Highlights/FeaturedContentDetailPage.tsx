@@ -1,59 +1,64 @@
-import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useBreadcrumbItems } from "@/context/useBreadcrumbItems";
 import { usePageHeader } from "@/context/usePageHeader";
 import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
-import { useToast } from "@/context/Toast/ToastContext";
+import { Card } from "@/components/ui/Card/Card";
+import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
+import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
+import { TextInput } from "@/components/ui/Input/TextInput";
+import { Textarea } from "@/components/ui/Textarea/Textarea";
+import { Switch } from "@/components/ui/Switch/Switch";
+import { ImageUploadEditor } from "@/components/ui/ImageUploadEditor";
+import Skeleton from "@/components/ui/Skeleton/Skeleton";
+import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
-import { Pencil, Image, Megaphone, CalendarDays, Tag, Package } from "lucide-react";
+import { Pin } from "lucide-react";
+import { useToast } from "@/context/Toast/ToastContext";
 import ProductPickerList from "./ProductPickerList";
-import ProductsManagerCard from "./ProductsManagerCard";
+import { FeaturedProductsCard } from "./components/FeaturedProductsCard";
 import { ProductForm } from "@/pages/Dashboard/Products/components/ProductForm";
 import { type V2Product } from "@/services/supabase/products";
 import {
+    type FeaturedContent,
     type FeaturedContentWithProducts,
     type FeaturedContentType,
+    type FeaturedPickerProduct,
     getFeaturedContentById,
     columnsToFraming
 } from "@/services/supabase/featuredContents";
-import { FramedMedia } from "@/components/ui/FramedMedia";
+import { COMPRESS_PROFILES } from "@/utils/compressImage";
 import { useTenantId } from "@/context/useTenantId";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
+import { useRuleAppearance } from "@/hooks/useRuleAppearance";
+import { appearanceOf } from "@/utils/ruleAppearance";
+import { FeaturedPlacementCard } from "./components/FeaturedPlacementCard";
 import { usePermissions } from "@/context/PermissionsContext";
-import { canDoOnAnyActivity } from "@/lib/permissions";
+import { canDoOnAnyActivity, canDoOnTenant } from "@/lib/permissions";
 import { PageGate } from "@/components/PageGate/PageGate";
-import { FeaturedIdentityDrawer } from "./components/FeaturedIdentityDrawer";
-import { FeaturedMediaDrawer } from "./components/FeaturedMediaDrawer";
-import { FeaturedPricingModeDrawer } from "./components/FeaturedPricingModeDrawer";
-import { FeaturedCtaDrawer } from "./components/FeaturedCtaDrawer";
+import { useUnsavedChangesGuard } from "@/components/ui/UnsavedChangesBar/useUnsavedChangesGuard";
+import {
+    HeaderSaveAction,
+    DiscardChangesConfirmDialog
+} from "@/pages/Dashboard/Stories/components/HeaderSaveAction";
+import { buildSaveActionCompactConfig } from "@/pages/Dashboard/Stories/components/headerSaveActionCompact";
+import {
+    CONTENT_TYPE_LABEL,
+    CONTENT_TYPE_ORDER,
+    PRICING_LABEL,
+    PRICING_OF_TYPE,
+    typeHasProducts
+} from "./featuredContentTypes";
+import { useFeaturedDraft } from "./hooks/useFeaturedDraft";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { useFeaturedProductsDraft } from "./hooks/useFeaturedProductsDraft";
 import styles from "./FeaturedContentDetailPage.module.scss";
 
-const CONTENT_TYPE_INFO: Record<FeaturedContentType, { label: string; description: string; icon: React.ReactNode }> = {
-    announcement: {
-        label: "Annuncio",
-        description: "Comunica un'informazione, una novità o un avviso.",
-        icon: <Megaphone size={16} strokeWidth={1.75} />
-    },
-    event: {
-        label: "Evento",
-        description: "Promuovi una serata, un'inaugurazione o un'occasione speciale.",
-        icon: <CalendarDays size={16} strokeWidth={1.75} />
-    },
-    promo: {
-        label: "Promo",
-        description: "Metti in evidenza una selezione di prodotti con i loro prezzi.",
-        icon: <Tag size={16} strokeWidth={1.75} />
-    },
-    bundle: {
-        label: "Bundle",
-        description: "Proponi un pacchetto di prodotti a prezzo fisso.",
-        icon: <Package size={16} strokeWidth={1.75} />
-    }
-};
+type FeaturedDetailTab = "info" | "products";
 
 export default function FeaturedContentDetailPage() {
     const { featuredId } = useParams<{ featuredId: string }>();
@@ -63,19 +68,29 @@ export default function FeaturedContentDetailPage() {
     const { canEdit } = useSubscriptionGuard();
     const { permissions } = usePermissions();
     const canWrite = permissions ? canDoOnAnyActivity(permissions, "featured.write") : false;
+    // Gate di lettura prima di ogni fetch; il blocco lo rende `PageGate`.
+    const canRead = permissions != null && canDoOnAnyActivity(permissions, "featured.read");
+    // Dove e quando compare (§28.1): dalle regole che lo nominano.
+    const ruleAppearance = useRuleAppearance(tenantId, canRead);
+    const featuredAppearance =
+        ruleAppearance.index && featuredId ? appearanceOf(ruleAppearance.index, { kind: "featured", id: featuredId }) : null;
+    const activityName = (id: string) => ruleAppearance.activities.find(activity => activity.id === id)?.name;
+    // Creare un prodotto (tab «Nuovo») o modificarlo è `products.write`, che il
+    // manager non ha anche quando può collegare prodotti al contenuto.
+    const canWriteProducts = permissions != null && canDoOnTenant(permissions, "products.write");
+    const readOnly = !canWrite || !canEdit;
+    // Sul telefono i quattro tipi stanno nella card solo in taglia `sm`.
+    const isPhone = useMediaQuery("(max-width: 767px)");
 
     const [content, setContent] = useState<FeaturedContentWithProducts | null>(null);
     const [loading, setLoading] = useState(true);
-    const [pageError, setPageError] = useState<string | null>(null);
+    const [loadError, setLoadError] = useState(false);
+    const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
 
-    type FeaturedDetailTab = "info" | "products";
     const [searchParams, setSearchParams] = useSearchParams();
-    const initialTab: FeaturedDetailTab = useMemo(() => {
-        const t = searchParams.get("tab");
-        return t === "products" ? "products" : "info";
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-    const [activeTab, setActiveTab] = useState<FeaturedDetailTab>(initialTab);
+    const [activeTab, setActiveTab] = useState<FeaturedDetailTab>(() =>
+        searchParams.get("tab") === "products" ? "products" : "info"
+    );
 
     const handleTabChange = useCallback((next: FeaturedDetailTab) => {
         setActiveTab(next);
@@ -85,39 +100,93 @@ export default function FeaturedContentDetailPage() {
         }, { replace: true });
     }, [setSearchParams]);
 
-    // Drawer open states
-    const [isIdentityDrawerOpen, setIsIdentityDrawerOpen] = useState(false);
-    const [isMediaDrawerOpen, setIsMediaDrawerOpen] = useState(false);
-    const [isPricingDrawerOpen, setIsPricingDrawerOpen] = useState(false);
-    const [isCtaDrawerOpen, setIsCtaDrawerOpen] = useState(false);
-
     // Product picker state
     const [isProductPickerOpen, setIsProductPickerOpen] = useState(false);
-    const [linkedProductIds, setLinkedProductIds] = useState<string[]>([]);
     const [pendingSelectedProductIds, setPendingSelectedProductIds] = useState<string[]>([]);
-    const onApplyProductsRef = useRef<((ids: string[]) => Promise<void>) | null>(null);
+    const pickerCatalogRef = useRef<FeaturedPickerProduct[]>([]);
     const [addProductMode, setAddProductMode] = useState<"new" | "existing">("existing");
     const [isCreatingNewProduct, setIsCreatingNewProduct] = useState(false);
 
     const loadContent = useCallback(async () => {
-        if (!featuredId || !tenantId) return;
+        if (!featuredId || !tenantId || !canRead) return;
         try {
             setLoading(true);
-            setPageError(null);
+            setLoadError(false);
             const data = await getFeaturedContentById(featuredId, tenantId);
             setContent(data);
         } catch (err) {
-            console.error(err);
-            setPageError("Impossibile caricare il contenuto.");
-            showToast({ type: "error", message: "Errore nel caricamento del contenuto." });
+            // «Non trovato» è un 406 di PostgREST (PGRST116); ogni altro errore
+            // è un errore, e la pagina lo dice con «Riprova».
+            if ((err as { code?: string } | null)?.code === "PGRST116") {
+                setContent(null);
+            } else {
+                console.error("Caricamento contenuto in evidenza:", err);
+                setLoadError(true);
+            }
         } finally {
             setLoading(false);
         }
-    }, [featuredId, tenantId, showToast]);
+    }, [featuredId, tenantId, canRead]);
 
     useEffect(() => {
         loadContent();
     }, [loadContent]);
+
+    const handleSaved = useCallback((next: FeaturedContent) => {
+        setContent(prev => (prev ? { ...prev, ...next } : prev));
+    }, []);
+
+    const draft = useFeaturedDraft(content, tenantId ?? null, handleSaved);
+    // I prodotti collegati entrano nella stessa bozza (§50.11/2): si caricano
+    // alla prima apertura della tab.
+    const products = useFeaturedProductsDraft(featuredId, tenantId ?? null, activeTab === "products");
+
+    // Le azioni di testata dipendono da questi, non dagli oggetti delle bozze
+    // (nuovi a ogni render: rifarebbero la testata a ogni render, e i menu
+    // aperti nella pagina si richiuderebbero).
+    const isDirty = draft.isDirty || products.isDirty;
+    const isSaving = draft.isSaving || products.isSaving;
+    const { save: saveInfo, discard: discardInfo, isDirty: infoDirty } = draft;
+    const { save: saveProducts, discard: discardProducts, isDirty: productsDirty } = products;
+
+    // Un Salva per la pagina: prima il contenuto, poi i suoi prodotti.
+    const saveDraft = useCallback(async () => {
+        if (infoDirty && !(await saveInfo())) return;
+        if (productsDirty) {
+            try {
+                await saveProducts();
+                if (!infoDirty) showToast({ message: "Prodotti aggiornati.", type: "success" });
+            } catch (err) {
+                console.error("Salvataggio prodotti del contenuto:", err);
+                showToast({ message: "Impossibile salvare i prodotti.", type: "error" });
+            }
+        }
+    }, [infoDirty, saveInfo, productsDirty, saveProducts, showToast]);
+
+    const discardDraft = useCallback(() => {
+        discardInfo();
+        discardProducts();
+    }, [discardInfo, discardProducts]);
+
+    useUnsavedChangesGuard(isDirty && !readOnly);
+
+    // La tab Prodotti segue il tipo della bozza: sparisce appena scegli
+    // Annuncio o Evento, torna se annulli (§28.4).
+    const draftType: FeaturedContentType = draft.typeChoice?.type ?? content?.content_type ?? "announcement";
+    const productsEnabled = content != null && typeHasProducts(draftType);
+    const savedHasProducts = content != null && typeHasProducts(content.content_type ?? "announcement");
+
+    useEffect(() => {
+        // Solo a contenuto caricato: prima il tipo non si conosce (e un link a
+        // freddo con ?tab=products cadeva sempre su Info).
+        if (content && !productsEnabled && activeTab === "products") {
+            setActiveTab("info");
+            setSearchParams(prev => {
+                prev.delete("tab");
+                return prev;
+            }, { replace: true });
+        }
+    }, [content, productsEnabled, activeTab, setSearchParams]);
 
     const closeProductPicker = () => {
         setIsProductPickerOpen(false);
@@ -125,312 +194,275 @@ export default function FeaturedContentDetailPage() {
         setAddProductMode("existing");
     };
 
-    const handleNewProductCreated = async (createdProduct?: V2Product) => {
-        if (!createdProduct || !onApplyProductsRef.current) {
-            closeProductPicker();
-            return;
-        }
-        try {
-            await onApplyProductsRef.current([...linkedProductIds, createdProduct.id]);
-        } catch (err) {
-            console.error(err);
-            showToast({ type: "error", message: "Errore nell'associazione del prodotto." });
+    const openProductPicker = useCallback(() => {
+        setPendingSelectedProductIds(products.linkedProductIds);
+        setIsProductPickerOpen(true);
+    }, [products.linkedProductIds]);
+
+    // «Nuovo»: il prodotto si crea subito (è un prodotto), il collegamento va in
+    // bozza come gli altri.
+    const handleNewProductCreated = (createdProduct?: V2Product) => {
+        if (createdProduct) {
+            products.applySelection([...products.linkedProductIds, createdProduct.id], [
+                ...pickerCatalogRef.current,
+                {
+                    id: createdProduct.id,
+                    name: createdProduct.name,
+                    base_price: createdProduct.base_price ?? null,
+                    option_groups: null
+                }
+            ]);
         }
         closeProductPicker();
     };
 
     const hasPendingProductChanges = useCallback(() => {
-        const orig = new Set(linkedProductIds);
+        const orig = new Set(products.linkedProductIds);
         const pend = new Set(pendingSelectedProductIds);
         if (orig.size !== pend.size) return true;
         for (const id of orig) {
             if (!pend.has(id)) return true;
         }
         return false;
-    }, [linkedProductIds, pendingSelectedProductIds]);
+    }, [products.linkedProductIds, pendingSelectedProductIds]);
 
-    const applyProductSelection = async () => {
-        if (!onApplyProductsRef.current) return;
-        try {
-            await onApplyProductsRef.current(pendingSelectedProductIds);
-            closeProductPicker();
-        } catch (err) {
-            console.error(err);
-            showToast({ type: "error", message: "Errore nel salvataggio selezione prodotti." });
-        }
+    // «Applica»: la selezione entra nella bozza; si scrive col Salva.
+    const applyProductSelection = () => {
+        products.applySelection(pendingSelectedProductIds, pickerCatalogRef.current);
+        closeProductPicker();
     };
 
     const breadcrumbItems = useMemo(() => [
-        { label: "Contenuti in evidenza", to: `/business/${tenantId}/featured` },
-        { label: loading ? "Caricamento..." : content?.title || "Dettaglio" }
-    ], [tenantId, loading, content?.title]);
+        { label: "In evidenza", to: `/business/${tenantId}/featured` },
+        { label: loading ? "Caricamento..." : content?.internal_name || content?.title || "Contenuto" }
+    ], [tenantId, loading, content?.internal_name, content?.title]);
 
     useBreadcrumbItems(breadcrumbItems);
 
-    const productsEnabled = !loading && content?.pricing_mode !== "none";
-
-    // Se l'utente atterra con ?tab=products ma il tipo non supporta prodotti,
-    // ripristina la tab Info e ripulisci ?tab=.
-    useEffect(() => {
-        if (!productsEnabled && activeTab === "products") {
-            setActiveTab("info");
-            setSearchParams(prev => {
-                prev.delete("tab");
-                return prev;
-            }, { replace: true });
-        }
-    }, [productsEnabled, activeTab, setSearchParams]);
-
-    const addProductTriggerRef = useRef<(() => void) | null>(null);
-
     const leading = useMemo(() => (
-        <Tabs<FeaturedDetailTab>
-            value={activeTab}
-            onChange={handleTabChange}
-            variant="line"
-        >
+        <Tabs<FeaturedDetailTab> value={activeTab} onChange={handleTabChange} variant="line">
             <Tabs.List>
-                <Tabs.Tab value="info">Informazioni</Tabs.Tab>
-                <Tabs.Tab
-                    value="products"
-                    disabled={!productsEnabled}
-                    disabledTooltip="Seleziona il tipo Promo o Bundle"
-                >
-                    Prodotti inclusi
-                </Tabs.Tab>
+                <Tabs.Tab value="info">Info</Tabs.Tab>
+                {productsEnabled && <Tabs.Tab value="products">Prodotti</Tabs.Tab>}
             </Tabs.List>
         </Tabs>
     ), [activeTab, handleTabChange, productsEnabled]);
 
     const actions = useMemo(() => {
-        if (activeTab !== "products" || !productsEnabled || !canWrite) return undefined;
+        if (readOnly || !content) return undefined;
         return (
-            <Button
-                variant="primary"
-                className={styles.toolbarCta}
-                onClick={() => addProductTriggerRef.current?.()}
-                disabled={!canEdit}
-            >
-                + Aggiungi prodotto
-            </Button>
+            <HeaderSaveAction
+                isDirty={isDirty}
+                isSaving={isSaving}
+                onSave={() => void saveDraft()}
+                onDiscard={discardDraft}
+            />
         );
-    }, [activeTab, productsEnabled, canEdit, canWrite]);
+    }, [readOnly, content, isDirty, isSaving, saveDraft, discardDraft]);
 
-    // "Prodotti inclusi" resta in elenco anche quando non è raggiungibile: una
-    // voce che sparisce e riappare cambiando tipo confonde più di una spenta con
-    // scritto perché. La primaria segue la tab attiva, come su Sedi.
     const headerCompact = useMemo<PageHeaderCompactConfig>(() => ({
         sections: [
-            { value: "info", label: "Informazioni" },
-            {
-                value: "products",
-                label: "Prodotti inclusi",
-                disabled: !productsEnabled,
-                description: !productsEnabled ? "Seleziona il tipo Promo o Bundle" : undefined
-            }
+            { value: "info", label: "Info" },
+            ...(productsEnabled ? [{ value: "products", label: "Prodotti" }] : [])
         ],
         activeSection: activeTab,
         onSectionChange: value => handleTabChange(value as FeaturedDetailTab),
-        primaryAction: activeTab === "products" && productsEnabled && canWrite
-            ? {
-                  label: "+ Aggiungi prodotto",
-                  onClick: () => addProductTriggerRef.current?.(),
-                  disabled: !canEdit
-              }
-            : undefined
-    }), [activeTab, handleTabChange, productsEnabled, canWrite, canEdit]);
+        ...(!readOnly && content
+            ? buildSaveActionCompactConfig({
+                  isDirty,
+                  isSaving,
+                  onSave: () => void saveDraft(),
+                  onRequestDiscard: () => setConfirmDiscardOpen(true)
+              })
+            : {})
+    }), [activeTab, handleTabChange, productsEnabled, readOnly, content, isDirty, isSaving, saveDraft]);
 
-    usePageHeader({
-        leading,
-        actions,
-        compact: headerCompact,
-    });
+    usePageHeader({ leading, actions, compact: headerCompact });
 
-    if (pageError) {
+    if (permissions != null && !canRead) {
+        return <PageGate readPermission="featured.read">{() => null}</PageGate>;
+    }
+
+    if (loading) {
+        // Stessa sagoma della tab Info: Tipo e Cosa leggono i clienti.
         return (
-            <div className={styles.wrapper}>
-                <Text variant="title-sm" colorVariant="error">
-                    {pageError}
-                </Text>
-                <Button
-                    variant="secondary"
-                    onClick={() => navigate(`/business/${tenantId}/featured`)}
-                >
-                    Torna alla lista
-                </Button>
+            <div className={styles.wrapper} aria-busy="true" aria-label="Caricamento">
+                <Skeleton height="200px" />
+                <Skeleton height="480px" />
             </div>
         );
     }
 
-    const renderInfoCard = () => (
-        <>
-            {/* ── Identità ────────────────────────────────── */}
-            <div className={styles.block}>
-                <div className={styles.blockHeaderRow}>
-                    <p className={styles.blockHeaderTitle}>Identità</p>
-                    {canWrite && (
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            leftIcon={<Pencil size={14} />}
-                            onClick={() => setIsIdentityDrawerOpen(true)}
-                            disabled={loading || !canEdit}
-                        >
-                            Modifica
-                        </Button>
-                    )}
-                </div>
-                <div className={styles.readOnlyGrid}>
-                    <div className={styles.roField}>
-                        <span className={styles.roLabel}>Titolo pubblico</span>
-                        <span className={styles.roValue}>{content?.title || "—"}</span>
-                    </div>
-                    <div className={styles.roField}>
-                        <span className={styles.roLabel}>Nome interno</span>
-                        <span className={styles.roValue}>{content?.internal_name || "—"}</span>
-                    </div>
-                    <div className={styles.roField}>
-                        <span className={styles.roLabel}>Sottotitolo</span>
-                        {content?.subtitle ? (
-                            <span className={styles.roValue}>{content.subtitle}</span>
-                        ) : (
-                            <span className={styles.roValueEmpty}>Non impostato</span>
-                        )}
-                    </div>
-                    <div className={`${styles.roField} ${styles.roFieldFull}`}>
-                        <span className={styles.roLabel}>Descrizione</span>
-                        {content?.description ? (
-                            <span className={styles.roValue}>{content.description}</span>
-                        ) : (
-                            <span className={styles.roValueEmpty}>Nessuna descrizione</span>
-                        )}
-                    </div>
-                </div>
-            </div>
+    if (loadError) {
+        return (
+            <EmptyState
+                variant="page"
+                icon={<Pin />}
+                title="Non è stato possibile caricare il contenuto"
+                description="Controlla la connessione e riprova."
+                action={
+                    <Button variant="secondary" onClick={() => loadContent()}>
+                        Riprova
+                    </Button>
+                }
+            />
+        );
+    }
 
-            {/* ── Immagine ─────────────────────────────────── */}
-            <div className={styles.block}>
-                <div className={styles.blockHeaderRow}>
-                    <p className={styles.blockHeaderTitle}>Immagine</p>
-                    {canWrite && (
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            leftIcon={<Pencil size={14} />}
-                            onClick={() => setIsMediaDrawerOpen(true)}
-                            disabled={loading || !canEdit}
-                        >
-                            Modifica
-                        </Button>
+    if (!content || !draft.text || !draft.typeChoice || !draft.image) {
+        return (
+            <EmptyState
+                variant="page"
+                icon={<Pin />}
+                title="Contenuto non trovato"
+                description="Il contenuto che cerchi non esiste o è stato eliminato."
+                action={
+                    <Button onClick={() => navigate(`/business/${tenantId}/featured`)}>
+                        Torna a In evidenza
+                    </Button>
+                }
+            />
+        );
+    }
+
+    const { text, typeChoice, image } = draft;
+    const pricing = PRICING_OF_TYPE[typeChoice.type];
+
+    const renderInfo = () => (
+        <>
+            <Card title="Tipo" subtitle="Decide se il contenuto ha prodotti.">
+                <div className={styles.stack}>
+                    <SegmentedControl<FeaturedContentType>
+                        size={isPhone ? "sm" : "md"}
+                        value={typeChoice.type}
+                        onChange={draft.setType}
+                        options={CONTENT_TYPE_ORDER.map(value => ({ value, label: CONTENT_TYPE_LABEL[value] }))}
+                    />
+                    {savedHasProducts && !typeHasProducts(typeChoice.type) && (
+                        <InlineBanner variant="warning">
+                            Cambiando tipo sparisce la sezione Prodotti. Le note già scritte sui prodotti non si
+                            perdono: tornano se rimetti un tipo che li prevede.
+                        </InlineBanner>
+                    )}
+                    <div className={styles.pricing}>
+                        <Text variant="caption" colorVariant="muted">
+                            Prezzi
+                        </Text>
+                        <Text variant="body-sm">{PRICING_LABEL[pricing]}</Text>
+                    </div>
+                    {typeChoice.type === "bundle" && (
+                        <>
+                            <TextInput
+                                label="Prezzo del bundle (€)"
+                                type="number"
+                                min="0.01"
+                                step="0.01"
+                                inputMode="decimal"
+                                value={typeChoice.bundlePrice.replace(",", ".")}
+                                onChange={e => draft.patchType({ bundlePrice: e.target.value })}
+                                error={draft.errors.price}
+                                placeholder="Es: 25.00"
+                            />
+                            <Switch
+                                label="Mostra il totale originale barrato"
+                                description="La somma dei prezzi singoli, barrata accanto al prezzo del bundle."
+                                checked={typeChoice.showOriginalTotal}
+                                onChange={checked => draft.patchType({ showOriginalTotal: checked })}
+                            />
+                        </>
+                    )}
+                    {pricing !== "none" && (
+                        <Switch
+                            label="Mostra le immagini dei prodotti"
+                            checked={typeChoice.showImages}
+                            onChange={checked => draft.patchType({ showImages: checked })}
+                        />
                     )}
                 </div>
-                {content?.media_id ? (
-                    <div className={styles.mediaPreview}>
-                        <FramedMedia
-                            source={content.media_id}
-                            framing={columnsToFraming(content)}
-                            aspectRatio={content.media_aspect_ratio}
-                            alt="Anteprima"
+            </Card>
+
+            <Card title="Cosa leggono i clienti">
+                <div className={styles.stack}>
+                    <TextInput
+                        label="Titolo"
+                        required
+                        value={text.title}
+                        onChange={e => draft.setField("title", e.target.value)}
+                        error={draft.errors.title}
+                    />
+                    <TextInput
+                        label="Sottotitolo"
+                        value={text.subtitle}
+                        onChange={e => draft.setField("subtitle", e.target.value)}
+                    />
+                    <Textarea
+                        label="Descrizione"
+                        rows={3}
+                        value={text.description}
+                        onChange={e => draft.setField("description", e.target.value)}
+                    />
+                    <TextInput
+                        label="Nome interno"
+                        helperText="Serve a te per ritrovarlo: i clienti non lo vedono. Vuoto = il titolo."
+                        value={text.internalName}
+                        onChange={e => draft.setField("internalName", e.target.value)}
+                    />
+                    <ImageUploadEditor
+                        aspectRatio={16 / 9}
+                        backgroundFillModes={["blur", "dominant", "color", "none"]}
+                        compress={COMPRESS_PROFILES.featured}
+                        fieldLabel="Immagine"
+                        drawerTitle="Inquadra immagine"
+                        requiresConfirm={false}
+                        initialSource={draft.imageSource}
+                        initialFraming={image.framing}
+                        initialAspectRatio={image.file ? image.aspectRatio : content.media_aspect_ratio}
+                        onConfirm={({ file, framing, aspectRatio }) => {
+                            draft.setImage(prev =>
+                                prev
+                                    ? {
+                                          ...prev,
+                                          framing,
+                                          ...(file ? { file, aspectRatio, removed: false } : {})
+                                      }
+                                    : prev
+                            );
+                        }}
+                        onRemove={() =>
+                            draft.setImage(prev =>
+                                prev ? { ...prev, file: null, aspectRatio: null, removed: Boolean(content.media_id), framing: columnsToFraming({}) } : prev
+                            )
+                        }
+                    />
+                    {image.removed && (
+                        <Text variant="caption" colorVariant="muted">
+                            L'immagine si toglie al salvataggio: il blocco compare senza foto.
+                        </Text>
+                    )}
+                    <div className={styles.twoFields}>
+                        <TextInput
+                            label="Testo del bottone"
+                            value={text.ctaText}
+                            onChange={e => draft.setField("ctaText", e.target.value)}
+                            placeholder="Es: Scopri di più"
+                        />
+                        <TextInput
+                            label="Link del bottone"
+                            value={text.ctaUrl}
+                            onChange={e => draft.setField("ctaUrl", e.target.value)}
+                            placeholder="https://..."
+                            error={draft.errors.url}
                         />
                     </div>
-                ) : (
-                    <div className={styles.mediaPlaceholder}>
-                        <Image size={20} strokeWidth={1.5} />
-                        <span>Nessuna immagine caricata</span>
-                    </div>
-                )}
-            </div>
-
-            {/* ── Tipo di contenuto ────────────────────────── */}
-            <div className={styles.block}>
-                <div className={styles.blockHeaderRow}>
-                    <p className={styles.blockHeaderTitle}>Tipo di contenuto</p>
-                    {canWrite && (
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            leftIcon={<Pencil size={14} />}
-                            onClick={() => setIsPricingDrawerOpen(true)}
-                            disabled={loading || !canEdit}
-                        >
-                            Modifica
-                        </Button>
-                    )}
                 </div>
-                {content && (() => {
-                    const ct = content.content_type ?? "announcement";
-                    const info = CONTENT_TYPE_INFO[ct];
-                    return (
-                        <div className={styles.pricingModeCard}>
-                            <span className={styles.pricingModeCardLabel} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                                {info.icon}
-                                {info.label}
-                            </span>
-                            <span className={styles.pricingModeCardDescription}>
-                                {info.description}
-                            </span>
-                            {ct === "bundle" && content.bundle_price != null && (
-                                <div className={styles.pricingModeBundleDetails}>
-                                    <span className={styles.pricingModeBundleDetail}>
-                                        Prezzo bundle:{" "}
-                                        {new Intl.NumberFormat("it-IT", {
-                                            style: "currency",
-                                            currency: "EUR"
-                                        }).format(content.bundle_price)}
-                                    </span>
-                                    {content.show_original_total && (
-                                        <span className={styles.pricingModeBundleDetail}>
-                                            Mostra totale originale: Sì
-                                        </span>
-                                    )}
-                                </div>
-                            )}
-                            {(ct === "promo" || ct === "bundle") &&
-                                content.layout_style === "with_images" && (
-                                    <span className={styles.pricingModeBundleDetail}>
-                                        Immagini prodotti: Sì
-                                    </span>
-                                )}
-                        </div>
-                    );
-                })()}
-            </div>
-
-            {/* ── Call to Action ───────────────────────────── */}
-            <div className={styles.block}>
-                <div className={styles.blockHeaderRow}>
-                    <p className={styles.blockHeaderTitle}>Call to Action</p>
-                    {canWrite && (
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            leftIcon={<Pencil size={14} />}
-                            onClick={() => setIsCtaDrawerOpen(true)}
-                            disabled={loading || !canEdit}
-                        >
-                            Modifica
-                        </Button>
-                    )}
-                </div>
-                {content?.cta_text || content?.cta_url ? (
-                    <div className={styles.readOnlyGrid}>
-                        {content?.cta_text && (
-                            <div className={styles.roField}>
-                                <span className={styles.roLabel}>Testo pulsante</span>
-                                <span className={styles.roValue}>{content.cta_text}</span>
-                            </div>
-                        )}
-                        {content?.cta_url && (
-                            <div className={styles.roField}>
-                                <span className={styles.roLabel}>Link pulsante</span>
-                                <span className={styles.roValue}>{content.cta_url}</span>
-                            </div>
-                        )}
-                    </div>
-                ) : (
-                    <span className={styles.roValueEmpty}>Nessuna CTA configurata</span>
-                )}
-            </div>
+            </Card>
+            {featuredAppearance && (
+                <FeaturedPlacementCard
+                    appearance={featuredAppearance}
+                    activityName={activityName}
+                    businessId={tenantId ?? ""}
+                />
+            )}
         </>
     );
 
@@ -438,61 +470,48 @@ export default function FeaturedContentDetailPage() {
         <PageGate readPermission="featured.read">
             {() => (
         <div className={styles.wrapper}>
-            {activeTab === "info" && renderInfoCard()}
+            {readOnly && permissions != null && (
+                <InlineBanner variant="info">
+                    {canWrite
+                        ? "Sola lettura: l'abbonamento non è attivo."
+                        : "Sola lettura: per modificare i contenuti in evidenza serve un ruolo da manager in su."}
+                </InlineBanner>
+            )}
+
+            {activeTab === "info" && (
+                <fieldset className={styles.readOnlyScope} disabled={readOnly}>
+                    {renderInfo()}
+                </fieldset>
+            )}
 
             {activeTab === "products" && productsEnabled && (
-                <ProductsManagerCard
-                    featuredId={featuredId as string}
-                    pricingMode={content?.pricing_mode ?? "none"}
-                    showOriginalTotal={content?.show_original_total ?? false}
-                    onOpenProductPicker={(linkedIds, onApply) => {
-                        setLinkedProductIds(linkedIds);
-                        setPendingSelectedProductIds(linkedIds);
-                        onApplyProductsRef.current = onApply;
-                        setIsProductPickerOpen(true);
-                    }}
-                    onRegisterAddTrigger={trigger => {
-                        addProductTriggerRef.current = trigger;
-                    }}
+                <FeaturedProductsCard
+                    rows={products.rows}
+                    loading={!products.loaded && !products.loadError}
+                    loadError={products.loadError}
+                    onRetry={() => void products.reload()}
+                    dirtyNoteKeys={products.dirtyNoteKeys}
+                    showPrice={
+                        PRICING_OF_TYPE[draftType] === "per_item" ||
+                        (PRICING_OF_TYPE[draftType] === "bundle" && typeChoice.showOriginalTotal)
+                    }
+                    readOnly={readOnly}
+                    onAdd={openProductPicker}
+                    onMove={products.move}
+                    onNoteChange={products.setNote}
+                    onRemove={products.remove}
+                    productUrl={productId => `/business/${tenantId}/products/${productId}`}
                 />
             )}
 
-            {/* ── Section drawers ──────────────────────────── */}
-            {content && tenantId && (
-                <>
-                    <FeaturedIdentityDrawer
-                        open={isIdentityDrawerOpen}
-                        onClose={() => setIsIdentityDrawerOpen(false)}
-                        content={content}
-                        tenantId={tenantId}
-                        onSuccess={loadContent}
-                    />
-                    <FeaturedMediaDrawer
-                        open={isMediaDrawerOpen}
-                        onClose={() => setIsMediaDrawerOpen(false)}
-                        content={content}
-                        tenantId={tenantId}
-                        onSuccess={loadContent}
-                    />
-                    <FeaturedPricingModeDrawer
-                        open={isPricingDrawerOpen}
-                        onClose={() => setIsPricingDrawerOpen(false)}
-                        content={content}
-                        tenantId={tenantId}
-                        onSuccess={loadContent}
-                    />
-                    <FeaturedCtaDrawer
-                        open={isCtaDrawerOpen}
-                        onClose={() => setIsCtaDrawerOpen(false)}
-                        content={content}
-                        tenantId={tenantId}
-                        onSuccess={loadContent}
-                    />
-                </>
-            )}
+            <DiscardChangesConfirmDialog
+                isOpen={confirmDiscardOpen}
+                onClose={() => setConfirmDiscardOpen(false)}
+                onDiscard={draft.discard}
+            />
 
             {/* ── Product picker drawer ────────────────────── */}
-            <SystemDrawer open={isProductPickerOpen} onClose={closeProductPicker} width={640}>
+            <SystemDrawer open={isProductPickerOpen} onClose={closeProductPicker} size="lg">
                 <DrawerLayout
                     bodyLayout={addProductMode === "existing" ? "flex" : "block"}
                     headerFlush
@@ -506,7 +525,7 @@ export default function FeaturedContentDetailPage() {
                                 onChange={v => setAddProductMode(v as "new" | "existing")}
                             >
                                 <Tabs.List>
-                                    <Tabs.Tab value="new">Nuovo</Tabs.Tab>
+                                    {canWriteProducts && <Tabs.Tab value="new">Nuovo</Tabs.Tab>}
                                     <Tabs.Tab value="existing">Esistente</Tabs.Tab>
                                 </Tabs.List>
                             </Tabs>
@@ -559,6 +578,9 @@ export default function FeaturedContentDetailPage() {
                         <ProductPickerList
                             selectedProductIds={pendingSelectedProductIds}
                             onSelectionChange={setPendingSelectedProductIds}
+                            onCatalogLoaded={catalog => {
+                                pickerCatalogRef.current = catalog;
+                            }}
                         />
                     )}
                 </DrawerLayout>

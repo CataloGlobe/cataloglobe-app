@@ -36,7 +36,7 @@ export const PrinterUnbindDrawer: React.FC<PrinterUnbindDrawerProps> = ({
     };
 
     return (
-        <SystemDrawer open={open} onClose={onClose} width={420}>
+        <SystemDrawer open={open} onClose={onClose} size="sm">
             <DrawerLayout
                 header={
                     <Text variant="title-sm" weight={600}>

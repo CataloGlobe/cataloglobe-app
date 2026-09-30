@@ -5,7 +5,6 @@ import {
     formatOpenFor,
     seatingDrawerActionsFor,
     seatingDrawerFor,
-    walkinRowParts,
     walkinTitle
 } from "@/pages/Dashboard/Reservations/seatingDrawer";
 
@@ -93,37 +92,29 @@ describe("walkinTitle — i tavoli sono il nome", () => {
     });
 });
 
-describe("walkinRowParts — la riga con e senza tavoli, con e senza coperti", () => {
+describe("la riga di un walk-in — con e senza tavoli, con e senza coperti", () => {
     const openedAt = new Date(2026, 8, 14, 20, 15).toISOString(); // 45 min prima
+    // Le tre parti che la riga del Servizio mette insieme.
+    const parts = (tables: ReturnType<typeof table>[], party_size: number | null) => ({
+        title: walkinTitle({ tables }),
+        covers: formatCovers(party_size),
+        openFor: formatOpenFor(openedAt, NOW)
+    });
 
     it("tavoli + coperti: tutte e tre le parti", () => {
-        expect(
-            walkinRowParts(
-                { tables: [table("a", "7")], party_size: 4, opened_at: openedAt },
-                NOW
-            )
-        ).toEqual({ title: "Tavolo 7", covers: "4 coperti", openFor: "da 45 min" });
+        expect(parts([table("a", "7")], 4)).toEqual({ title: "Tavolo 7", covers: "4 coperti", openFor: "da 45 min" });
     });
 
     it("tavoli senza coperti: i coperti mancano, non sono zero", () => {
-        expect(
-            walkinRowParts(
-                { tables: [table("a", "7")], party_size: null, opened_at: openedAt },
-                NOW
-            )
-        ).toEqual({ title: "Tavolo 7", covers: null, openFor: "da 45 min" });
+        expect(parts([table("a", "7")], null)).toEqual({ title: "Tavolo 7", covers: null, openFor: "da 45 min" });
     });
 
     it("senza tavoli con coperti: vive di coperti e durata", () => {
-        expect(
-            walkinRowParts({ tables: [], party_size: 1, opened_at: openedAt }, NOW)
-        ).toEqual({ title: null, covers: "1 coperto", openFor: "da 45 min" });
+        expect(parts([], 1)).toEqual({ title: null, covers: "1 coperto", openFor: "da 45 min" });
     });
 
     it("senza tavoli né coperti: resta solo la durata, ed è giusto che sia scarna", () => {
-        expect(
-            walkinRowParts({ tables: [], party_size: null, opened_at: openedAt }, NOW)
-        ).toEqual({ title: null, covers: null, openFor: "da 45 min" });
+        expect(parts([], null)).toEqual({ title: null, covers: null, openFor: "da 45 min" });
     });
 });
 

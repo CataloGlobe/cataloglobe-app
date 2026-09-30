@@ -1,5 +1,5 @@
 import React from "react";
-import { InputBase } from "../Input/InputBase";
+import { FormField } from "../FormField/FormField";
 import Text from "@components/ui/Text/Text";
 import styles from "./Switch.module.scss";
 
@@ -20,6 +20,9 @@ export interface SwitchProps {
     disabled?: boolean;
     required?: boolean;
 
+    /** `sm` (28×16) dentro le righe di tabella e di lista. Default `md` (36×20). */
+    size?: "md" | "sm";
+
     containerClassName?: string;
 }
 
@@ -35,10 +38,11 @@ export const Switch: React.FC<SwitchProps> = ({
     onChange,
     disabled,
     required,
+    size = "md",
     containerClassName
 }) => {
     return (
-        <InputBase
+        <FormField
             id={id}
             label={label}
             tooltip={tooltip}
@@ -51,7 +55,7 @@ export const Switch: React.FC<SwitchProps> = ({
             {({ inputId, describedById, hasError, isDisabled }) => (
                 <label
                     htmlFor={inputId}
-                    className={`${styles.wrapper} ${isDisabled ? styles.disabled : ""}`}
+                    className={`${styles.wrapper} ${size === "sm" ? styles.sm : ""} ${isDisabled ? styles.disabled : ""}`}
                 >
                     <input
                         id={inputId}
@@ -77,6 +81,6 @@ export const Switch: React.FC<SwitchProps> = ({
                     )}
                 </label>
             )}
-        </InputBase>
+        </FormField>
     );
 };
