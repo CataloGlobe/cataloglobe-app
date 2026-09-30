@@ -98,6 +98,22 @@ function ListRowSection() {
                     <ListRow title="Cheeseburger" subtitle="Cottura: al sangue · + bacon, + cheddar, + cipolla croccante, + salsa BBQ, + jalapeños, + uovo · Note: senza sale, allergia alla senape — da portare insieme agli antipasti" meta="2× · € 21,80" wrapSubtitle="full" metaInline />
                 </Card>
             </State>
+            <State label="coda: due bottoni di testo nel trailing, trailingWrap (sotto 768 in una riga loro)" column>
+                <Card flush>
+                    <ListRow
+                        title="Pane ottimo, ma alle 19 era già finito quasi tutto. Tornerò più presto."
+                        subtitle="26 agosto · Garbagnate"
+                        wrapSubtitle
+                        trailingWrap
+                        trailing={
+                            <>
+                                <Button variant="outline" size="sm" onClick={noop}>Tieni nascosta</Button>
+                                <Button variant="primary" size="sm" onClick={noop}>Pubblica</Button>
+                            </>
+                        }
+                    />
+                </Card>
+            </State>
             <State label="dense (48): elenco di servizio — ora · nome · persone · stato" column>
                 <Card flush>
                     <ListRow dense onClick={noop} leading={<Text variant="body-sm" weight={600}>20:30</Text>} title="Sara Conti" subtitle="2 persone" meta={<StatusBadge variant="success" label="Confermata" />} metaInline />

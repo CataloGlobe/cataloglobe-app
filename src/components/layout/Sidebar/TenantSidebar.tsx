@@ -36,7 +36,7 @@ import { buildSidebarGroups, type SidebarNavGroup } from "./sidebarItems";
  * di sede (`buildSidebarGroups`). Il markup è tutto di `AppSidebar`.
  */
 
-function buildGroups(businessId: string, catalogLabel: string): SidebarNavGroup[] {
+function buildGroups(businessId: string, catalogLabel: string, reviewsPendingCount: number): SidebarNavGroup[] {
     const b = `/business/${businessId}`;
     return [
         {
@@ -98,7 +98,8 @@ function buildGroups(businessId: string, catalogLabel: string): SidebarNavGroup[
                 { to: `${b}/analytics`, label: businessRouteLabel("analytics"), icon: <BarChart3 size={18} />,
                   permission: perms => canDoOnAnyActivity(perms, "analytics.read") },
                 { to: `${b}/reviews`, label: businessRouteLabel("reviews"), icon: <MessageSquare size={18} />,
-                  permission: perms => canDoOnAnyActivity(perms, "reviews.read") },
+                  permission: perms => canDoOnAnyActivity(perms, "reviews.read"),
+                  count: reviewsPendingCount },
                 // Sta in Insight e non in Operatività: nessuno compila la
                 // rubrica: si popola da sola dall'interazione con gli
                 // avventori, come analitiche e recensioni. Il gate di piano
@@ -160,6 +161,11 @@ export interface TenantSidebarProps {
      * sidebar è montata su ogni pagina e non deve interrogare il DB da sé.
      */
     supportUnread?: boolean;
+    /**
+     * Recensioni in attesa sulle sedi che il chiamante modera (§34.9/1). Fonte
+     * unica in MainLayout, come le altre; 0 a chi non ha `reviews.moderate`.
+     */
+    reviewsPendingCount?: number;
 }
 
 export default function TenantSidebar({
@@ -170,14 +176,15 @@ export default function TenantSidebar({
     onToggleCollapse,
     translationPendingCount = 0,
     importInProgress = false,
-    supportUnread = false
+    supportUnread = false,
+    reviewsPendingCount = 0
 }: TenantSidebarProps) {
     const { businessId = "" } = useParams<{ businessId: string }>();
     const { t } = useTranslation("admin");
     const { catalogLabel } = useVerticalConfig();
     const { permissions } = usePermissions();
     const { hasFeature } = usePlanFeatures();
-    const groups = buildSidebarGroups(buildGroups(businessId, catalogLabel), {
+    const groups = buildSidebarGroups(buildGroups(businessId, catalogLabel, reviewsPendingCount), {
         permissions,
         hasFeature,
         signals: {

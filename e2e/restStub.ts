@@ -136,7 +136,12 @@ export async function stubRest(page: Page, options: RestStubOptions): Promise<Re
             let rows = tables[table].filter(row => matches(row, params));
             if (enrich) rows = enrich(table, rows, params);
             // I conteggi (`count: "exact"`, anche `head: true`) leggono il totale da qui.
-            const headers = { "content-range": rows.length ? `0-${rows.length - 1}/${rows.length}` : `*/0` };
+            // Cross-origin il browser lo passa a supabase-js solo se esposto, come fa
+            // PostgREST: senza, `count` arriva null.
+            const headers = {
+                "content-range": rows.length ? `0-${rows.length - 1}/${rows.length}` : `*/0`,
+                "access-control-expose-headers": "Content-Range"
+            };
             if (method === "HEAD") return route.fulfill({ status: 200, headers, body: "" });
             const wantsObject = (request.headers()["accept"] ?? "").includes("vnd.pgrst.object");
             if (!wantsObject) return route.fulfill({ json: rows, headers });

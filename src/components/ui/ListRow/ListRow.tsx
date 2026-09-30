@@ -44,6 +44,10 @@ interface ListRowBaseProps {
      *  gruppo di badge. */
     metaInline?: boolean;
     trailing?: ReactNode;
+    /** Sotto 768 il trailing scende in una riga sua, a destra: per due
+     *  bottoni di testo (una coda con «Tieni nascosta» · «Pubblica»), che
+     *  accanto al titolo a 375 lo schiaccerebbero a zero. */
+    trailingWrap?: boolean;
     /** Riga cliccabile: hover, focus, Enter/Spazio. */
     onClick?: (event: MouseEvent<HTMLElement>) => void;
     /** Riga che è un link interno (react-router). */
@@ -80,6 +84,7 @@ export function ListRow({
     meta,
     metaInline = false,
     trailing,
+    trailingWrap = false,
     onClick,
     to,
     selected = false,
@@ -110,6 +115,7 @@ export function ListRow({
         selected ? styles.selected : "",
         muted ? styles.muted : "",
         metaInline ? styles.metaInline : "",
+        trailingWrap ? styles.trailingWrap : "",
         dense ? styles.dense : "",
         className ?? ""
     ]

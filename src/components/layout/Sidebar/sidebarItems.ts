@@ -36,6 +36,12 @@ export interface SidebarNavItem {
     showImportBadge?: boolean;
     /** Pallino: una risposta del supporto non letta (`supportUnread`). */
     showUnreadDot?: boolean;
+    /**
+     * Cose che aspettano un gesto (le recensioni in attesa): sopra zero,
+     * `Badge` brand col numero. Il costruttore lo passa già filtrato per
+     * permesso: a chi non può agire arriva 0.
+     */
+    count?: number;
 }
 
 export interface SidebarNavGroup {
@@ -84,6 +90,7 @@ export function buildSidebarGroups(
                 })
                 .map((item): AppSidebarNavItem => {
                     const showTranslation = !!item.showTranslationBadge && translationPendingCount > 0;
+                    const count = item.count ?? 0;
                     const showImport = !!item.showImportBadge && importInProgress;
                     return {
                         to: item.to,
@@ -100,7 +107,8 @@ export function buildSidebarGroups(
                             : showImport
                                 ? "Importazione menù con AI in corso"
                                 : undefined,
-                        badge: showTranslation ? translationPendingCount : undefined,
+                        badge: showTranslation ? translationPendingCount : count > 0 ? count : undefined,
+                        badgeTone: !showTranslation && count > 0 ? "brand" : undefined,
                         showDot: !!item.showUnreadDot && supportUnread,
                         dotLabel: item.showUnreadDot ? "Hai una risposta non letta" : undefined
                     };
