@@ -503,10 +503,13 @@ export const CONTACT = {
     },
     /** Etichetta del pulsante durante l'invio. */
     sending: "Invio…",
-    /** Al posto del form, dopo l'invio riuscito. */
+    /** Al posto del form, dopo l'invio riuscito (`successCopy.ts` sceglie la frase). */
     success: {
         title: "Richiesta ricevuta.",
-        text: "Ti chiamiamo entro 24 ore al numero che ci hai lasciato."
+        titleNamed: (name: string) => `Grazie ${name}, richiesta ricevuta.`,
+        /** In mezzo il telefono, su una riga sola. */
+        text: { before: "Ti chiamiamo entro 24 ore al ", after: "." },
+        textNoPhone: "Ti chiamiamo entro 24 ore al numero che ci hai lasciato."
     },
     /** Sotto il pulsante se l'invio fallisce; in mezzo l'indirizzo email. */
     failure: {
