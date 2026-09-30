@@ -414,6 +414,9 @@
     "toast": {
         "translating": "Translating..."
     },
+    "allergens_unavailable": {
+        "message": "Allergen information is temporarily unavailable, please ask the staff."
+    },
     "stale_banner": {
         "message": "Content may be out of date.",
         "retry": "Retry"
@@ -438,7 +441,7 @@
         "notfound_title": "Page not found",
         "notfound_text": "The venue you're looking for doesn't exist or has changed address.",
         "error_title": "Loading failed",
-        "error_text": "Check your connection and reload the page.",
+        "error_text": "Check your connection and try again.",
         "inactive_title": "Venue unavailable",
         "inactive_text": "{{brand}} is not currently active on the platform.",
         "tagline": "Fill in the form, you'll get a confirmation by email.",

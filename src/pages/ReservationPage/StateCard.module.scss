@@ -76,6 +76,8 @@
     text-decoration: none;
     text-align: center;
     border: 1px solid var(--pub-accent);
+    font-family: inherit;
+    cursor: pointer;
     transition: opacity 0.15s ease, transform 0.12s ease;
 
     &:hover { opacity: 0.94; }

@@ -15,7 +15,12 @@ import PublicCatalogReady from "./PublicCatalogReady";
 import { listAllAllergens, type Allergen } from "@/services/supabase/allergens";
 
 import { supabase } from "@/services/supabase/client";
-import { fetchPublicCatalog, type CatalogSource, type PublicCatalogPayload } from "@/services/publicCatalog/fetchPublicCatalog";
+import {
+    fetchPublicCatalog,
+    withTimeout,
+    type CatalogSource,
+    type PublicCatalogPayload
+} from "@/services/publicCatalog/fetchPublicCatalog";
 import { getCached, setCached } from "@/services/publicCatalog/publicCatalogCache";
 
 import { AppLoader } from "@/components/ui/AppLoader/AppLoader";
@@ -32,6 +37,9 @@ import {
     shouldShowPreviewBar
 } from "./previewControl";
 import pageStyles from "./PublicCollectionPage.module.scss";
+
+const ALLERGENS_TIMEOUT_MS = 3_000;
+
 // reviews_summary and recent_reviews still returned by edge function — unused in frontend for now
 
 /* ===============================================
@@ -404,8 +412,12 @@ export default function PublicCollectionPage({ initialPayload }: Props) {
                 : false;
             let allergens: Allergen[] | null = null;
             if (showAllergens) {
+                // Con timeout: la pagina resta sul loader finché questa lettura
+                // non chiude, e senza tetto una richiesta appesa la teneva lì
+                // per sempre. Scaduto, il menù parte con l'avviso «allergeni non
+                // disponibili» (allergensUnavailable in derivePageState).
                 try {
-                    allergens = await listAllAllergens();
+                    allergens = await withTimeout(listAllAllergens(), ALLERGENS_TIMEOUT_MS);
                 } catch (e) {
                     console.error("[PublicCollectionPage] allergens load error:", e);
                     allergens = null;

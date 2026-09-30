@@ -34,6 +34,11 @@ export default function ReservationPage() {
     const [resolve, setResolve] = useState<ResolveState>({ status: "loading" });
     const [successSnapshot, setSuccessSnapshot] = useState<FormFields | null>(null);
     const [successStatus, setSuccessStatus] = useState<SubmitReservationStatus>("pending");
+    const [retryToken, setRetryToken] = useState(0);
+    const handleRetry = useCallback(() => {
+        setResolve({ status: "loading" });
+        setRetryToken(n => n + 1);
+    }, []);
 
     useEffect(() => {
         let cancelled = false;
@@ -123,7 +128,7 @@ export default function ReservationPage() {
         return () => {
             cancelled = true;
         };
-    }, [slug]);
+    }, [slug, retryToken]);
 
     const handleSuccess = useCallback(
         (snapshot: FormFields, status: SubmitReservationStatus) => {
@@ -213,7 +218,9 @@ export default function ReservationPage() {
                         icon={<WifiOffIcon />}
                         title={t("reservation.error_title")}
                         text={t("reservation.error_text")}
-                        actions={[]}
+                        actions={[
+                            { kind: "primary-button", onClick: handleRetry, label: t("error.retry") }
+                        ]}
                     />
                 </div>
             </div>

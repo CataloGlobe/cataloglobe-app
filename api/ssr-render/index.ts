@@ -13,6 +13,7 @@ import {
 } from "../_lib/redis.js";
 import {
     callResolvePublicCatalog,
+    PUBLIC_PAGE_EDGE_OPTIONS,
     isHealthyPayload,
     type PublicCatalogPayload
 } from "../_lib/supabaseEdge.js";
@@ -169,7 +170,7 @@ async function fetchPayload(
     lang: string | undefined
 ): Promise<{ payload: PublicCatalogPayload; source: "live" | "stale" } | { error: string }> {
     const snapshotKey = makeSnapshotKey(slug, lang);
-    const edgeResult = await callResolvePublicCatalog({ slug, lang });
+    const edgeResult = await callResolvePublicCatalog({ slug, lang }, PUBLIC_PAGE_EDGE_OPTIONS);
 
     if (edgeResult.kind === "success") {
         const payload = edgeResult.payload;

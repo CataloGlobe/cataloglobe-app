@@ -414,6 +414,9 @@
     "toast": {
         "translating": "Übersetze..."
     },
+    "allergens_unavailable": {
+        "message": "Allergeninformationen sind vorübergehend nicht verfügbar, bitte fragen Sie das Personal."
+    },
     "stale_banner": {
         "message": "Inhalte sind möglicherweise nicht aktuell.",
         "retry": "Erneut versuchen"
@@ -438,7 +441,7 @@
         "notfound_title": "Seite nicht gefunden",
         "notfound_text": "Der gesuchte Standort existiert nicht oder hat die Adresse geändert.",
         "error_title": "Laden fehlgeschlagen",
-        "error_text": "Überprüfen Sie Ihre Verbindung und laden Sie die Seite neu.",
+        "error_text": "Überprüfen Sie Ihre Verbindung und versuchen Sie es erneut.",
         "inactive_title": "Standort nicht verfügbar",
         "inactive_text": "{{brand}} ist derzeit nicht auf der Plattform aktiv.",
         "tagline": "Füllen Sie das Formular aus, Sie erhalten eine Bestätigung per E-Mail.",

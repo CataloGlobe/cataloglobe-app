@@ -6,6 +6,7 @@ import type { OpeningHoursEntry, UpcomingClosure } from "@/components/PublicColl
 // `@/pages/...` e non `@pages/...`: vitest.config risolve solo l'alias `@`,
 // e questo modulo è sotto test (src/tests/pages/derivePageState.test.ts).
 import { hasBookableDays } from "@/pages/ReservationPage/utils/reservationSlots";
+import { VERTICAL_CONFIG } from "@/constants/verticalTypes";
 
 /**
  * Derivazione PURA dello stato della pagina pubblica (SSR stage 3, step 1).
@@ -51,6 +52,10 @@ type CatalogPageData = {
      *  `business.enable_reservations`. Vedi `derivePageState`. */
     hasReservationHours: boolean;
     allergens: Allergen[] | null;
+    /** Il vertical mostra gli allergeni ma la lista non è arrivata (timeout o
+     *  errore): la pagina lo dice a vista, mai un menù senza allergeni in
+     *  silenzio. Vale per SSR e browser (stessa derivazione). */
+    allergensUnavailable: boolean;
     effectiveLanguage: string;
     baseLanguage: string;
     availableLanguages: AvailableLanguage[];
@@ -158,7 +163,8 @@ export function derivePageState(
         available_languages,
         opening_hours,
         upcoming_closures,
-        has_story
+        has_story,
+        vertical_type
     } = payload;
 
     if (subscription_inactive) {
@@ -247,6 +253,10 @@ export function derivePageState(
         upcomingClosures: menuHoursVisible ? upcoming_closures : undefined,
         hasReservationHours,
         allergens,
+        allergensUnavailable:
+            allergens === null &&
+            !!vertical_type &&
+            VERTICAL_CONFIG[vertical_type]?.productSections.allergens === true,
         effectiveLanguage: effectiveLang,
         baseLanguage: baseLang,
         availableLanguages: availLangs,

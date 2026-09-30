@@ -131,6 +131,17 @@ async function singleAttempt(args: { slug: string; lang?: string }): Promise<Edg
  */
 export type CallEdgeOptions = { maxAttempts?: number; timeoutMs?: number };
 
+/**
+ * Budget per le richieste di una pagina pubblica (api/public-catalog e
+ * api/ssr-render), stretto rispetto ai default (3×6s, ~22s): 2×3,5s + backoff
+ * ~1s ≈ 8,2s, più il fallback Redis (1,5s) ≈ 9,7s nel caso peggiore. Deve
+ * stare sotto il timeout del browser (PUBLIC_TIMEOUT_MS in
+ * src/services/publicCatalog/fetchPublicCatalog.ts, 11s): con i default il
+ * browser tagliava mentre qui si ritentava ancora, e una risposta lenta ma
+ * buona andava persa. Per l'SSR è il tempo massimo prima del primo byte.
+ */
+export const PUBLIC_PAGE_EDGE_OPTIONS: CallEdgeOptions = { maxAttempts: 2, timeoutMs: 3_500 };
+
 export async function callResolvePublicCatalog(
     args: {
         slug: string;

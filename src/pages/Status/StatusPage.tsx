@@ -23,9 +23,12 @@ import styles from "./StatusPage.module.scss";
 
 type ViewState =
     | { phase: "loading" }
-    | { phase: "error"; message: string }
+    | { phase: "error" }
     | {
           phase: "ready";
+          /** L'ultimo aggiornamento automatico è fallito: i dati mostrati
+           *  sono quelli dell'ultimo caricamento riuscito. */
+          refreshFailed: boolean;
           latest: Record<ServiceKey, StatusCheckRow | null>;
           uptime: Record<ServiceKey, DailyBucket[]>;
           activeIncidents: StatusIncident[];
@@ -212,6 +215,7 @@ export default function StatusPage() {
                 });
                 setView({
                     phase: "ready",
+                    refreshFailed: false,
                     latest,
                     uptime: uptimeMap,
                     activeIncidents: active,
@@ -219,10 +223,15 @@ export default function StatusPage() {
                 });
             } catch (err) {
                 if (cancelled) return;
-                setView({
-                    phase: "error",
-                    message: err instanceof Error ? err.message : String(err)
-                });
+                // Gli errori PostgREST sono oggetti, non Error: il testo grezzo
+                // finiva in pagina come "[object Object]". Il dettaglio va in
+                // console, alla pagina una frase sola.
+                console.error("[StatusPage] load error:", err);
+                // Un aggiornamento fallito non cancella i dati già in pagina:
+                // restano, con l'avviso. L'errore pieno solo al primo giro.
+                setView(prev =>
+                    prev.phase === "ready" ? { ...prev, refreshFailed: true } : { phase: "error" }
+                );
             }
         }
         void load();
@@ -312,7 +321,14 @@ export default function StatusPage() {
 
                 {view.phase === "error" && (
                     <div className={styles.errorBlock}>
-                        Errore nel caricamento dello stato: {view.message}
+                        Non riusciamo a leggere lo stato dei servizi. La pagina riprova da sola ogni minuto.
+                    </div>
+                )}
+
+                {view.phase === "ready" && view.refreshFailed && (
+                    <div className={styles.staleBlock} role="status">
+                        Dati non aggiornati: l'ultimo aggiornamento non è riuscito. La pagina
+                        riprova da sola ogni minuto.
                     </div>
                 )}
 

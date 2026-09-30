@@ -20,6 +20,8 @@ export type PublicAllergen = {
 };
 
 const MEMO_TTL_MS = 5 * 60 * 1000;
+/** Tetto della lettura: l'SSR aspetta questa risposta prima del primo byte. */
+const FETCH_TIMEOUT_MS = 1_500;
 
 let memo: { data: PublicAllergen[]; fetchedAt: number } | null = null;
 
@@ -31,9 +33,10 @@ function readSupabaseEnv(): { url: string; key: string } | null {
 }
 
 /**
- * Lista allergeni ordinata per sort_order. Ritorna `null` su qualsiasi
- * errore (env mancante, rete, non-200): il chiamante renderizza con
- * allergens=null, stesso degrade della SPA quando listAllAllergens fallisce.
+ * Lista allergeni ordinata per sort_order. Su errore o timeout (rete,
+ * non-200) ritorna l'ultima lista in memo anche se scaduta, altrimenti
+ * `null`: il chiamante renderizza con allergens=null, stesso degrade della
+ * SPA quando listAllAllergens fallisce.
  */
 export async function fetchPublicAllergens(): Promise<PublicAllergen[] | null> {
     if (memo && Date.now() - memo.fetchedAt < MEMO_TTL_MS) {
@@ -41,7 +44,7 @@ export async function fetchPublicAllergens(): Promise<PublicAllergen[] | null> {
     }
 
     const env = readSupabaseEnv();
-    if (!env) return null;
+    if (!env) return memo?.data ?? null;
 
     try {
         const response = await fetch(
@@ -50,15 +53,16 @@ export async function fetchPublicAllergens(): Promise<PublicAllergen[] | null> {
                 headers: {
                     apikey: env.key,
                     Authorization: `Bearer ${env.key}`
-                }
+                },
+                signal: AbortSignal.timeout(FETCH_TIMEOUT_MS)
             }
         );
-        if (!response.ok) return null;
+        if (!response.ok) return memo?.data ?? null;
         const data = (await response.json()) as PublicAllergen[];
-        if (!Array.isArray(data)) return null;
+        if (!Array.isArray(data)) return memo?.data ?? null;
         memo = { data, fetchedAt: Date.now() };
         return data;
     } catch {
-        return null;
+        return memo?.data ?? null;
     }
 }

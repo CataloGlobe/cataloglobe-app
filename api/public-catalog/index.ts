@@ -11,6 +11,7 @@ import {
 import {
     callResolvePublicCatalog,
     isHealthyPayload,
+    PUBLIC_PAGE_EDGE_OPTIONS,
     type PublicCatalogPayload
 } from "../_lib/supabaseEdge.js";
 
@@ -213,7 +214,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     const lang = langRaw ? langRaw.toLowerCase() : undefined;
     const snapshotKey = makeSnapshotKey(slug, lang);
 
-    const edgeResult = await callResolvePublicCatalog({ slug, lang });
+    const edgeResult = await callResolvePublicCatalog({ slug, lang }, PUBLIC_PAGE_EDGE_OPTIONS);
 
     if (edgeResult.kind === "success") {
         const payload = edgeResult.payload;

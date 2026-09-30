@@ -311,6 +311,26 @@ describe("derivePageState", () => {
         }
     });
 
+    it("allergensUnavailable: vertical con allergeni e lista assente → avviso", () => {
+        const state = derivePageState(makePayload({ vertical_type: "restaurant" }), null);
+        if (state.status !== "ready") return expect.unreachable("expected ready");
+        expect(state.allergensUnavailable).toBe(true);
+    });
+
+    it("allergensUnavailable: lista arrivata (anche vuota) → nessun avviso", () => {
+        const state = derivePageState(makePayload({ vertical_type: "restaurant" }), []);
+        if (state.status !== "ready") return expect.unreachable("expected ready");
+        expect(state.allergensUnavailable).toBe(false);
+    });
+
+    it("allergensUnavailable: vertical senza allergeni o assente → nessun avviso", () => {
+        for (const vertical_type of ["retail" as const, null, undefined]) {
+            const state = derivePageState(makePayload({ vertical_type }), null);
+            if (state.status !== "ready") return expect.unreachable("expected ready");
+            expect(state.allergensUnavailable).toBe(false);
+        }
+    });
+
     it("ready: non setta i flag isRefetching/isStale (competenza del chiamante)", () => {
         const state = derivePageState(makePayload(), null);
         if (state.status === "ready") {

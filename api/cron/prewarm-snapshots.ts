@@ -154,7 +154,12 @@ async function scanExtraPairs(activeSlugs: Set<string>): Promise<ExtraPair[]> {
     const seen = new Set<string>();
     let cursor: string | number = 0;
     do {
-        const [next, keys] = await getRedis().scan(cursor, { match, count: 250 });
+        // Tipo esplicito: `cursor` entra nella chiamata e ne esce, e senza
+        // annotazione TS non riesce a inferirlo (TS7022).
+        const [next, keys]: [string | number, string[]] = await getRedis().scan(cursor, {
+            match,
+            count: 250
+        });
         cursor = next;
         for (const key of keys) {
             const parsed = parseSnapshotKey(key);
