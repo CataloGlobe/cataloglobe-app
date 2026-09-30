@@ -3,7 +3,9 @@
 Riferimento route applicazione. Tutte definite in `src/App.tsx`, tranne le route pubbliche slug-based, definite in `src/routes/publicRoutes.tsx` e consumate da `App.tsx` e `src/entry-client.tsx`.
 
 ```
-/                          → Home (landing)
+/                          → Landing di campagna, variante form (CampaignLanding)
+/b                         → Landing di campagna, variante signup (canonical su /, noindex)
+/landing-dev, /landing-dev/b → 301 a / e /b (vercel.json `redirects`)
 /login, /sign-up, /verify-otp, /check-email, /forgot-password, /reset-password → Auth
 /workspace                 → WorkspaceLayout (no TenantProvider)
 /onboarding/create-business, /onboarding/activate-trial → Onboarding (no TenantProvider)
