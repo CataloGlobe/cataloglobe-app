@@ -53,19 +53,22 @@ const ROW: ToolbarLayout = { mode: "row", step: 0 };
  *
  * `actions` sono le larghezze naturali delle versioni delle azioni, dalla più
  * comoda alla più stretta. Si prende la prima che sta in riga con `leading`;
- * se nessuna ci sta, due righe con la prima che sta da sola sopra le tab (se
- * anche le tab stanno da sole); altrimenti la barra compatta.
+ * se nessuna ci sta e le due righe sono ammesse (`stack`: da 768 in su), la
+ * prima che sta da sola sopra le tab, se anche le tab stanno da sole;
+ * altrimenti la barra compatta.
  */
 export function chooseToolbarLayout({
     available,
     gap,
     leading,
-    actions
+    actions,
+    stack
 }: {
     available: number;
     gap: number;
     leading: number | null;
     actions: Array<number | null>;
+    stack: boolean;
 }): ToolbarLayout {
     // Tolleranza 1px: arrotondamenti sub-pixel non devono far sfarfallare il
     // layout su un ridimensionamento continuo della finestra.
@@ -79,7 +82,7 @@ export function chooseToolbarLayout({
         const required = (leading ?? 0) + (width ?? 0) + (leading !== null && width !== null ? gap : 0);
         if (fits(required)) return { mode: "row", step };
     }
-    if (leading !== null && fits(leading)) {
+    if (stack && leading !== null && fits(leading)) {
         const step = steps.findIndex(width => fits(width ?? 0));
         if (step >= 0) return { mode: "stacked", step };
     }
@@ -107,6 +110,7 @@ export function useCompactToolbar(
     containerRef: RefObject<HTMLElement | null>,
     leadingRef: RefObject<HTMLElement | null>,
     actionsRefs: ReadonlyArray<RefObject<HTMLElement | null>>,
+    stack: boolean,
     signal?: unknown
 ): ToolbarLayout {
     const [layout, setLayout] = useState<ToolbarLayout>(ROW);
@@ -128,14 +132,15 @@ export function useCompactToolbar(
                     (parseFloat(style.paddingRight) || 0),
                 gap: parseFloat(style.columnGap) || 0,
                 leading: leading ? naturalRowWidth(leading) : null,
-                actions: actions.map(el => (el ? naturalRowWidth(el) : null))
+                actions: actions.map(el => (el ? naturalRowWidth(el) : null)),
+                stack
             });
         }
 
         if (next.mode === layoutRef.current.mode && next.step === layoutRef.current.step) return;
         layoutRef.current = next;
         setLayout(next);
-    }, [containerRef, leadingRef, actionsRefs]);
+    }, [containerRef, leadingRef, actionsRefs, stack]);
 
     // Prima del paint: evita il flash della riga singola su una toolbar che
     // nasce già compatta.

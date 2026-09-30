@@ -12,7 +12,7 @@ import { stubStili } from "./stiliStub";
  *   Prima lo slot lo ignorava (§50.14, dev. 4).
  * - **Una sola testata**: quando tab e azioni non stanno in riga, ogni pagina
  *   con tab passa a due righe (azioni sopra, tab sotto) prima della barra
- *   compatta. Prima lo faceva solo Programmazione (`condensed.stack`).
+ *   compatta, da 768 in su; sotto 768 sempre la barra compatta. Prima lo faceva solo Programmazione (`condensed.stack`).
  *
  * Scritto prima del cambio: i test del comportamento nuovo nascono in
  * `test.fail` e passano a `test` col commit che li rende veri.
@@ -67,6 +67,15 @@ test.describe("Testata — due righe prima della barra compatta", () => {
         await openBusinessPage(page, "products", "Prodotti");
         await page.setViewportSize({ width: 1024, height: 900 });
         await stacked(page, page.getByRole("tab", { name: /^Gruppi/ }), page.getByPlaceholder(/^Cerca/).first());
+    });
+
+    test("Prodotti: a 768 le tab a vista, a 375 la barra compatta", async ({ page }) => {
+        await stubProdotti(page);
+        await openBusinessPage(page, "products", "Prodotti");
+        await page.setViewportSize({ width: 768, height: 900 });
+        await expect(page.getByRole("tab", { name: /^Gruppi/ })).toBeVisible();
+        await page.setViewportSize({ width: 375, height: 800 });
+        await expect(page.getByRole("tab", { name: /^Gruppi/ })).toBeHidden();
     });
 
     test("Team a 1024: tab sotto le azioni", async ({ page }) => {

@@ -110,7 +110,7 @@ function PageHeaderConfigurator({ subtitle }: { subtitle?: string }) {
 function PageHeaderSlotSection() {
     return (
         <>
-            <State label="header band: leading + actions" column>
+            <State label="header band: riga → azioni più strette → due righe (da 768) → barra compatta; stringi la finestra" column>
                 <div className={styles.box}>
                     <PageHeaderProvider>
                         <PageHeaderSlot />

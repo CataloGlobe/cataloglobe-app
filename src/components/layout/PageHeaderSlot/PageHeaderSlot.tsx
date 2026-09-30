@@ -3,6 +3,7 @@ import { useLocation } from "react-router-dom";
 import Text from "@/components/ui/Text/Text";
 import { useReadPageHeader } from "@/context/useReadPageHeader";
 import { useCompactToolbar } from "@/hooks/useCompactToolbar";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { PageHeaderCompactBar } from "./PageHeaderCompactBar";
 import styles from "./PageHeaderSlot.module.scss";
 
@@ -25,7 +26,8 @@ interface PageHeaderSlotProps {
  *   `narrowerActions` la pagina offre versioni più strette delle azioni, e
  *   la banda usa la prima che ci sta;
  * - **due righe**: azioni sopra, tab sotto, per ogni pagina con tab, finché
- *   tab e azioni stanno ciascuna nella sua riga;
+ *   tab e azioni stanno ciascuna nella sua riga. Solo da 768 in su: sul
+ *   telefono la barra compatta resta la testata (unica soglia in px, voluta);
  * - **compatta**: `PageHeaderCompactBar`, una UI diversa costruita per
  *   progressive disclosure: l'ultimo gradino.
  *
@@ -58,7 +60,8 @@ export function PageHeaderSlot(props: PageHeaderSlotProps) {
         [steps]
     );
 
-    const layout = useCompactToolbar(rowRef, leadingRef, stepRefs, config);
+    const allowStack = useMediaQuery("(min-width: 768px)");
+    const layout = useCompactToolbar(rowRef, leadingRef, stepRefs, allowStack, config);
 
     const subtitle = config?.subtitle ? (
         <div className={`${styles.subtitle} ${config.leading || config.actions ? "" : styles.subtitleAlone}`}>
