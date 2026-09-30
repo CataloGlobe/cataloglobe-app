@@ -7,6 +7,7 @@ import type { Review } from "@/types/database";
 import { usePermissions } from "@/context/PermissionsContext";
 import { canDoOnActivity, canDoOnAnyActivity } from "@/lib/permissions";
 import { PageGate } from "@/components/PageGate/PageGate";
+import { useBusinessOutletContext } from "@/layouts/MainLayout/outletContext";
 import { ArrowUpDown, CalendarRange, MessageSquare, Star } from "lucide-react";
 
 import { usePageHeader } from "@/context/usePageHeader";
@@ -80,6 +81,7 @@ const SORT_OPTIONS = [
 export default function Reviews() {
     const tenantId = useTenantId();
     const { showToast } = useToast();
+    const refreshReviewsPending = useBusinessOutletContext()?.refreshReviewsPending;
 
     /* ── Sede scope condivisa via navbar ────────────── */
     const { value: scopeValue, readableActivities } = useSedeScope();
@@ -390,6 +392,7 @@ export default function Reviews() {
             await updateReviewStatus(review.id, tenantId, status);
             setReviews(prev => prev.map(r => (r.id === review.id ? { ...r, status } : r)));
             showToast({ message: STATUS_CHANGE_TOAST[status].success, type: "success" });
+            refreshReviewsPending?.();
         } catch (error) {
             console.error("Cambio di stato della recensione:", error);
             showToast({ message: STATUS_CHANGE_TOAST[status].error, type: "error" });

@@ -263,7 +263,6 @@ test.describe("Recensioni — moderazione", () => {
     });
 
     test("la voce di sidebar conta le recensioni in attesa", async ({ page }) => {
-        test.fail();
         await openPage(page);
         const link = page.getByRole("navigation", { name: "Menu principale" }).getByRole("link", { name: /^Recensioni/ });
         await expect(link).toContainText("2");
