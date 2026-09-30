@@ -16,16 +16,43 @@ import { appearanceTables, freezeClock, sediOf } from "./appearanceStub";
  * | (nessun commento) | 4 | Centro | 10/09 |
  * | «Tiramisù da provare e2e» | 5 | Porto | 01/08 |
  * | «Freddo e2e» | 1 | Centro | 05/07 |
+ *
+ * Tutte pubblicate. Con `moderation` (lotto `ds-5-moderazione`) se ne
+ * aggiungono tre che il pubblico non ha mai visto:
+ *
+ * | Recensione | Voto | Sede | Quando | Stato |
+ * |---|---|---|---|---|
+ * | «Cameriere scortese e2e» | 2 | Porto | 16/09 (7 giorni fa) | in attesa |
+ * | «Carbonara perfetta e2e» | 5 | Centro | 21/09 | in attesa |
+ * | «Prova spam e2e» | 1 | Centro | 15/09 | nascosta |
  */
 
 export { TENANT_ID };
 
 const uuid = (n: number) => `e2e5e000-0000-4000-a000-${String(n).padStart(12, "0")}`;
 
-export const REVIEW = { pizza: uuid(1), lento: uuid(2), muto: uuid(3), tiramisu: uuid(4), freddo: uuid(5) } as const;
+export const REVIEW = {
+    pizza: uuid(1),
+    lento: uuid(2),
+    muto: uuid(3),
+    tiramisu: uuid(4),
+    freddo: uuid(5),
+    scortese: uuid(6),
+    carbonara: uuid(7),
+    spam: uuid(8)
+} as const;
 export const { SEDE } = sediOf("e2e5e000");
 
-function review(id: string, activityId: string, rating: number, comment: string | null, createdAt: string): Row {
+type Status = "pending" | "approved" | "hidden";
+
+function review(
+    id: string,
+    activityId: string,
+    rating: number,
+    comment: string | null,
+    createdAt: string,
+    status: Status = "approved"
+): Row {
     return {
         id,
         tenant_id: TENANT_ID,
@@ -34,7 +61,7 @@ function review(id: string, activityId: string, rating: number, comment: string 
         rating_category: rating >= 4 ? "positive" : rating === 3 ? "neutral" : "negative",
         comment,
         source: "public_form",
-        status: "approved",
+        status,
         session_id: null,
         created_at: createdAt
     };
@@ -57,9 +84,22 @@ export function makeTables(): Tables {
 export type { WriteCall, WriteHandler } from "./restStub";
 export type RecensioniStub = RestStub & { tables: Tables };
 
-export async function stubRecensioni(page: Page, options: { empty?: boolean } = {}): Promise<RecensioniStub> {
+/** Le tre recensioni della moderazione: due in attesa, una nascosta. */
+export function moderationReviews(): Row[] {
+    return [
+        review(REVIEW.scortese, SEDE.porto, 2, "Cameriere scortese e2e", "2026-09-16T10:00:00.000Z", "pending"),
+        review(REVIEW.carbonara, SEDE.centro, 5, "Carbonara perfetta e2e", "2026-09-21T19:00:00.000Z", "pending"),
+        review(REVIEW.spam, SEDE.centro, 1, "Prova spam e2e", "2026-09-15T10:00:00.000Z", "hidden")
+    ];
+}
+
+export async function stubRecensioni(
+    page: Page,
+    options: { empty?: boolean; moderation?: boolean } = {}
+): Promise<RecensioniStub> {
     const tables = makeTables();
     if (options.empty) tables.reviews = [];
+    if (options.moderation) tables.reviews = [...tables.reviews, ...moderationReviews()];
     const stub = await stubRest(page, {
         tables,
         enrich: (table, rows) =>
