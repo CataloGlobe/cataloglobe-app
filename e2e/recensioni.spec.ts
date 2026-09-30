@@ -289,4 +289,24 @@ test.describe("Recensioni — moderazione", () => {
         await expect(main(page).getByText("Carbonara perfetta e2e")).toBeVisible();
         await noSideScroll(page);
     });
+
+    test("a 375 il commento lungo in coda prende tutta la riga, voto e bottoni sotto", async ({ page }) => {
+        await openPage(page);
+        await page.setViewportSize({ width: 375, height: 800 });
+        const row = queue(page).locator("[data-list-row]").filter({ hasText: "Cameriere scortese e2e" });
+        const comment = row.getByText(/^Cameriere scortese e2e/);
+        await expect(comment).toBeVisible();
+        const [rowBox, commentBox, ratingBox, buttonBox] = await Promise.all([
+            row.boundingBox(),
+            comment.boundingBox(),
+            row.getByRole("img").first().boundingBox(),
+            row.getByRole("button", { name: "Pubblica" }).boundingBox()
+        ]);
+        if (!rowBox || !commentBox || !ratingBox || !buttonBox) throw new Error("riga della coda non misurabile");
+        // Tutta la larghezza meno i rientri della riga (24 per lato in una Card flush).
+        expect(commentBox.width).toBeGreaterThanOrEqual(rowBox.width - 2 * 24 - 2);
+        // Voto e bottoni sotto il commento, non accanto.
+        expect(ratingBox.y).toBeGreaterThanOrEqual(commentBox.y + commentBox.height);
+        expect(buttonBox.y).toBeGreaterThanOrEqual(commentBox.y + commentBox.height);
+    });
 });

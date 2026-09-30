@@ -477,8 +477,11 @@ export default function Reviews() {
                                             title={reviewTitle(review)}
                                             wrapSubtitle
                                             subtitle={reviewSubtitle(review)}
+                                            // Niente metaInline: sul telefono il voto scende
+                                            // sotto il commento, che resta a tutta larghezza
+                                            // (con un commento lungo, accanto al voto andava a
+                                            // capo in una colonna di 187 px su 341).
                                             meta={<Rating value={review.rating} />}
-                                            metaInline
                                             trailingWrap
                                             trailing={
                                                 actions.length > 0 ? (

@@ -22,7 +22,7 @@ import { appearanceTables, freezeClock, sediOf } from "./appearanceStub";
  *
  * | Recensione | Voto | Sede | Quando | Stato |
  * |---|---|---|---|---|
- * | «Cameriere scortese e2e» | 2 | Porto | 16/09 (7 giorni fa) | in attesa |
+ * | «Cameriere scortese e2e: …» (lungo, > 200 caratteri) | 2 | Porto | 16/09 (7 giorni fa) | in attesa |
  * | «Carbonara perfetta e2e» | 5 | Centro | 21/09 | in attesa |
  * | «Prova spam e2e» | 1 | Centro | 15/09 | nascosta |
  */
@@ -87,7 +87,17 @@ export type RecensioniStub = RestStub & { tables: Tables };
 /** Le tre recensioni della moderazione: due in attesa, una nascosta. */
 export function moderationReviews(): Row[] {
     return [
-        review(REVIEW.scortese, SEDE.porto, 2, "Cameriere scortese e2e", "2026-09-16T10:00:00.000Z", "pending"),
+        // Lungo di proposito (≥ 200 caratteri): in coda deve andare a capo a tutta
+        // larghezza anche a 375, non in una colonna accanto al voto (giro visivo del 30/09).
+        review(
+            REVIEW.scortese,
+            SEDE.porto,
+            2,
+            "Cameriere scortese e2e: abbiamo aspettato venti minuti per ordinare, poi ci ha portato il piatto " +
+                "sbagliato e quando l'abbiamo fatto notare ha risposto male davanti a tutti. Peccato, la cucina era buona.",
+            "2026-09-16T10:00:00.000Z",
+            "pending"
+        ),
         review(REVIEW.carbonara, SEDE.centro, 5, "Carbonara perfetta e2e", "2026-09-21T19:00:00.000Z", "pending"),
         review(REVIEW.spam, SEDE.centro, 1, "Prova spam e2e", "2026-09-15T10:00:00.000Z", "hidden")
     ];
