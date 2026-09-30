@@ -14,7 +14,7 @@ Riferimento schema. Per regole binding (RLS, naming, migration discipline) vedi 
 - `catalogs`, `catalog_categories`, `catalog_category_products` — catalogo
 - `products`, `product_variants`, `product_option_groups`, `product_option_values`
 - `styles`, `style_versions` — stili con versioni immutabili
-- `reviews` — recensioni (rebuild `20260413085957`)
+- `reviews` — recensioni (rebuild `20260413085957`). Nessuna lettura anon (`20260930120000`); i membri non inseriscono e aggiornano solo `status` (`20260930120100`–`120300`, privilegi di colonna): le recensioni nascono solo dalla Edge `submit-review` (service role)
 - `notifications` — notifiche estese (`20260410140000`)
 - Stripe billing su `tenants`: colonne `stripe_customer_id`, `stripe_subscription_id`, `subscription_status`, `paid_seats`, `trial_until` (`20260411100000`, `20260413100000`). Le tabelle `stripe_subscriptions` e `stripe_customers` NON esistono — i dati Stripe vivono come colonne su `tenants`.
 
