@@ -654,7 +654,16 @@ export default function AnalyticsPage() {
 
     // Periodo ed «Esporta Excel» solo a chi legge: sulla pagina bloccata la
     // testata resta vuota (#591).
-    usePageHeader(canRead ? { leading, actions: headerActions, compact: headerCompact } : null);
+    usePageHeader(
+        canRead
+            ? {
+                  subtitle: "Cosa fanno i clienti sulla pagina pubblica.",
+                  leading,
+                  actions: headerActions,
+                  compact: headerCompact
+              }
+            : null
+    );
 
     const periodPhrase: Record<PeriodKey, string> = {
         today: "Oggi",

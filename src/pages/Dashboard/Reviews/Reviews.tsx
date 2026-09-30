@@ -379,6 +379,7 @@ export default function Reviews() {
     }), [filterRating, filterPeriod, sortBy, searchQuery]);
 
     usePageHeader({
+        subtitle: "Quello che i clienti scrivono dopo essere stati da voi.",
         leading,
         actions: headerActions,
         compact: headerCompact,

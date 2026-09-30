@@ -169,7 +169,7 @@ export interface PageHeaderConfig {
     /** Titolo legacy — ignorato dal `PageHeaderSlot` post-breadcrumb (vive nel
      *  NavbarBreadcrumb). Mantenuto opzionale per backward compat con i call site. */
     title?: string;
-    /** Sottotitolo legacy — ignorato post-slim. */
+    /** Una frase sotto il titolo, resa dal `PageHeaderSlot` sopra la banda. */
     subtitle?: string;
     /** Addon legacy accanto al titolo — ignorato post-slim. */
     titleAddon?: ReactNode;

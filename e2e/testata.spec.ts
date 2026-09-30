@@ -27,7 +27,7 @@ async function stacked(page: Page, leading: Locator, action: Locator): Promise<v
 }
 
 test.describe("Testata — sottotitolo", () => {
-    test.fail("Analitiche: il sottotitolo del mockup", async ({ page }) => {
+    test("Analitiche: il sottotitolo del mockup", async ({ page }) => {
         await stubAnalitiche(page);
         await openBusinessPage(page, "analytics", "Analitiche");
         await expect(page.getByText("Cosa fanno i clienti sulla pagina pubblica.", { exact: true })).toBeVisible({
@@ -35,7 +35,7 @@ test.describe("Testata — sottotitolo", () => {
         });
     });
 
-    test.fail("Recensioni: il sottotitolo del mockup", async ({ page }) => {
+    test("Recensioni: il sottotitolo del mockup", async ({ page }) => {
         await stubRecensioni(page);
         await openBusinessPage(page, "reviews", "Recensioni");
         await expect(
@@ -43,7 +43,7 @@ test.describe("Testata — sottotitolo", () => {
         ).toBeVisible({ timeout: 15_000 });
     });
 
-    test.fail("Stili: il sottotitolo che la pagina passava già", async ({ page }) => {
+    test("Stili: il sottotitolo che la pagina passava già", async ({ page }) => {
         await stubStili(page);
         await openBusinessPage(page, "styles", "Stili");
         await expect(
@@ -51,7 +51,7 @@ test.describe("Testata — sottotitolo", () => {
         ).toBeVisible({ timeout: 15_000 });
     });
 
-    test.fail("a 375 il sottotitolo va a capo, senza scroll di lato", async ({ page }) => {
+    test("a 375 il sottotitolo va a capo, senza scroll di lato", async ({ page }) => {
         await stubRecensioni(page);
         await openBusinessPage(page, "reviews", "Recensioni");
         await page.setViewportSize({ width: 375, height: 800 });
