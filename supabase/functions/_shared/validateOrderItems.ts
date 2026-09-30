@@ -26,6 +26,14 @@
 // order_group_id, customer_name) is rederived from the customer_sessions row
 // looked up via the JWT-validated customer_session_id. NOTHING from the client
 // payload is trusted besides product_id / quantity / option ids / item_notes.
+// Any price sent by the client is ignored: RequestedOrderItem has no price
+// field and every unit price / line total / order total is recomputed here.
+//
+// Tenant scoping (CG-01): this module runs with service_role, so RLS does not
+// apply. Every row that feeds a price is scoped to the session's tenant:
+// catalog links, products, their option groups and option values, and the
+// price overrides. Rows of another tenant attached through a foreign key are
+// dropped, never priced.
 
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { resolveRulesForActivity } from "./scheduleResolver.ts";
@@ -181,7 +189,11 @@ export async function validateAndSnapshotOrderItems(
 
     const requestedProductIds = Array.from(new Set(requestedItems.map(i => i.product_id)));
 
-    const catalogProductIds = await _loadCatalogProductIds(supabase, catalogId);
+    const catalogProductIds = await _loadCatalogProductIds(
+        supabase,
+        catalogId,
+        session.tenant_id
+    );
     const invalidProductIds = requestedProductIds.filter(id => !catalogProductIds.has(id));
     if (invalidProductIds.length > 0) {
         throw new ValidateOrderItemsError(
@@ -214,6 +226,7 @@ export async function validateAndSnapshotOrderItems(
 
     const priceOverrides = await _loadPriceOverrides(
         supabase,
+        session.tenant_id,
         priceRuleId,
         requestedProductIds
     );
@@ -340,15 +353,19 @@ async function _resolveActiveCatalog(
 
 async function _loadCatalogProductIds(
     supabase: SupabaseClient,
-    catalogId: string
+    catalogId: string,
+    tenantId: string
 ): Promise<Set<string>> {
     // catalog_category_products links (catalog, category, product). It also
     // carries an optional `variant_product_id` for products that orderable as
     // variants — include both ids in the orderable set.
+    // tenant_id filter: a link row of another tenant pointing at this catalog
+    // must not make its product orderable here.
     const { data, error } = await supabase
         .from("catalog_category_products")
         .select("product_id, variant_product_id")
-        .eq("catalog_id", catalogId);
+        .eq("catalog_id", catalogId)
+        .eq("tenant_id", tenantId);
 
     if (error) {
         throw new ValidateOrderItemsError(
@@ -414,6 +431,7 @@ async function _loadProductDetails(
             tenant_id,
             option_groups:product_option_groups(
                 id,
+                tenant_id,
                 name,
                 group_kind,
                 pricing_mode,
@@ -421,6 +439,7 @@ async function _loadProductDetails(
                 max_selectable,
                 values:product_option_values(
                     id,
+                    tenant_id,
                     name,
                     absolute_price,
                     price_modifier
@@ -446,6 +465,7 @@ async function _loadProductDetails(
         option_groups:
             | Array<{
                 id: string;
+                tenant_id: string;
                 name: string;
                 group_kind: string;
                 pricing_mode: string;
@@ -454,6 +474,7 @@ async function _loadProductDetails(
                 values:
                     | Array<{
                         id: string;
+                        tenant_id: string;
                         name: string;
                         absolute_price: number | string | null;
                         price_modifier: number | string | null;
@@ -465,20 +486,27 @@ async function _loadProductDetails(
 
     const map = new Map<string, ProductWithOptions>();
     for (const row of (data ?? []) as RawProductRow[]) {
-        const optionGroups: OptionGroupRow[] = (row.option_groups ?? []).map(g => ({
-            id: g.id,
-            name: g.name,
-            group_kind: (g.group_kind as GroupKind) ?? "ADDON",
-            pricing_mode: (g.pricing_mode as PricingMode) ?? "DELTA",
-            is_required: g.is_required,
-            max_selectable: g.max_selectable,
-            values: (g.values ?? []).map(v => ({
-                id: v.id,
-                name: v.name,
-                absolute_price: _toNumberOrNull(v.absolute_price),
-                price_modifier: _toNumberOrNull(v.price_modifier)
-            }))
-        }));
+        // The embeds follow foreign keys only: an option group or value of
+        // another tenant attached to this product would come back here. Drop
+        // it before validation, so it can neither be selected nor priced.
+        const optionGroups: OptionGroupRow[] = (row.option_groups ?? [])
+            .filter(g => g.tenant_id === tenantId)
+            .map(g => ({
+                id: g.id,
+                name: g.name,
+                group_kind: (g.group_kind as GroupKind) ?? "ADDON",
+                pricing_mode: (g.pricing_mode as PricingMode) ?? "DELTA",
+                is_required: g.is_required,
+                max_selectable: g.max_selectable,
+                values: (g.values ?? [])
+                    .filter(v => v.tenant_id === tenantId)
+                    .map(v => ({
+                        id: v.id,
+                        name: v.name,
+                        absolute_price: _toNumberOrNull(v.absolute_price),
+                        price_modifier: _toNumberOrNull(v.price_modifier)
+                    }))
+            }));
         map.set(row.id, {
             id: row.id,
             name: row.name,
@@ -491,16 +519,20 @@ async function _loadProductDetails(
 
 async function _loadPriceOverrides(
     supabase: SupabaseClient,
+    tenantId: string,
     priceRuleId: string | null,
     productIds: string[]
 ): Promise<Map<string, PriceOverridesForProduct>> {
     const out = new Map<string, PriceOverridesForProduct>();
     if (!priceRuleId || productIds.length === 0) return out;
 
+    // tenant_id filter: an override row of another tenant attached to this
+    // price rule must not change what this tenant's customers pay.
     const { data, error } = await supabase
         .from("schedule_price_overrides")
         .select("product_id, option_value_id, override_price")
         .eq("schedule_id", priceRuleId)
+        .eq("tenant_id", tenantId)
         .in("product_id", productIds);
 
     if (error) {
