@@ -44,8 +44,8 @@ import { useUnsavedChangesGuard } from "@/components/ui/UnsavedChangesBar/useUns
 import {
     HeaderSaveAction,
     DiscardChangesConfirmDialog
-} from "@/pages/Dashboard/Stories/components/HeaderSaveAction";
-import { buildSaveActionCompactConfig } from "@/pages/Dashboard/Stories/components/headerSaveActionCompact";
+} from "@/components/ui/HeaderSaveAction/HeaderSaveAction";
+import { buildSaveActionCompactConfig } from "@/components/ui/HeaderSaveAction/headerSaveActionCompact";
 
 // Larghezza del drawer Proprietà. Single source: framer anima questa width
 // (0 ↔ PANEL_WIDTH); l'inner è fissato a PANEL_WIDTH così non reflowa durante

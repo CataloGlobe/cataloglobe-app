@@ -44,8 +44,8 @@ import { useUnsavedChangesGuard } from "@/components/ui/UnsavedChangesBar/useUns
 import {
     HeaderSaveAction,
     DiscardChangesConfirmDialog
-} from "@/pages/Dashboard/Stories/components/HeaderSaveAction";
-import { buildSaveActionCompactConfig } from "@/pages/Dashboard/Stories/components/headerSaveActionCompact";
+} from "@/components/ui/HeaderSaveAction/HeaderSaveAction";
+import { buildSaveActionCompactConfig } from "@/components/ui/HeaderSaveAction/headerSaveActionCompact";
 import {
     CONTENT_TYPE_LABEL,
     CONTENT_TYPE_ORDER,

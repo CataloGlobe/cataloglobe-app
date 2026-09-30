@@ -72,8 +72,8 @@ import { useUnsavedChangesGuard } from "@/components/ui/UnsavedChangesBar/useUns
 import {
     HeaderSaveAction,
     DiscardChangesConfirmDialog
-} from "@/pages/Dashboard/Stories/components/HeaderSaveAction";
-import { buildSaveActionCompactConfig } from "@/pages/Dashboard/Stories/components/headerSaveActionCompact";
+} from "@/components/ui/HeaderSaveAction/HeaderSaveAction";
+import { buildSaveActionCompactConfig } from "@/components/ui/HeaderSaveAction/headerSaveActionCompact";
 import { SplitButton } from "@/components/ui/Button/SplitButton";
 import { TranslationsTab } from "@/components/ui/TranslationsTab/TranslationsTab";
 import { ProductForm } from "@/pages/Dashboard/Products/components/ProductForm";

@@ -21,8 +21,8 @@ import { useAttributeValuesDraft } from "./hooks/useAttributeValuesDraft";
 import {
     HeaderSaveAction,
     DiscardChangesConfirmDialog
-} from "@/pages/Dashboard/Stories/components/HeaderSaveAction";
-import { buildSaveActionCompactConfig } from "@/pages/Dashboard/Stories/components/headerSaveActionCompact";
+} from "@/components/ui/HeaderSaveAction/HeaderSaveAction";
+import { buildSaveActionCompactConfig } from "@/components/ui/HeaderSaveAction/headerSaveActionCompact";
 import { useUnsavedChangesGuard } from "@/components/ui/UnsavedChangesBar/useUnsavedChangesGuard";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import Skeleton from "@/components/ui/Skeleton/Skeleton";

@@ -24,8 +24,8 @@ import { useUnsavedChangesGuard } from "@/components/ui/UnsavedChangesBar/useUns
 import {
     DiscardChangesConfirmDialog,
     HeaderSaveAction
-} from "@/pages/Dashboard/Stories/components/HeaderSaveAction";
-import { buildSaveActionCompactConfig } from "@/pages/Dashboard/Stories/components/headerSaveActionCompact";
+} from "@/components/ui/HeaderSaveAction/HeaderSaveAction";
+import { buildSaveActionCompactConfig } from "@/components/ui/HeaderSaveAction/headerSaveActionCompact";
 import { getToggleGuardResult } from "@utils/ruleToggleGuards";
 import { ruleTypeLabel } from "./ruleTypeLabel";
 import { useRuleDetail } from "./useRuleDetail";
