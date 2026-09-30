@@ -1,0 +1,35 @@
+@use "@pages/CampaignLanding/styles/mixins" as *;
+
+// Ingresso con `animation`, non con `transition`: un figlio che dichiara le sue
+// transizioni (la scheda prezzi: bordo e ombra) sostituirebbe quella
+// dell'ingresso e comparirebbe di colpo. L'animazione ha solo `from`: alla fine
+// il figlio torna ai suoi valori, trasformazioni comprese.
+.reveal {
+    --reveal-step: 60ms;
+    --reveal-rise: 16px;
+}
+
+// Schede prezzi: sfalsamento e salita più evidenti.
+.cards {
+    --reveal-step: 120ms;
+    --reveal-rise: 24px;
+}
+
+@include motion-ok {
+    .reveal:not(.in) > * {
+        opacity: 0;
+    }
+
+    // --reveal-i: posto fra i figli visibili (Reveal.tsx), i nascosti non contano.
+    .reveal.in > * {
+        animation: ld-reveal 500ms var(--ld-ease) backwards;
+        animation-delay: calc(var(--reveal-i, 0) * var(--reveal-step));
+    }
+}
+
+@keyframes ld-reveal {
+    from {
+        opacity: 0;
+        transform: translateY(var(--reveal-rise));
+    }
+}

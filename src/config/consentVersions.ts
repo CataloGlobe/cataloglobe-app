@@ -1,9 +1,6 @@
 /**
  * Versioni correnti dei documenti legali richiesti al sign-up.
- * Aggiornare qui quando privacy policy o termini di servizio vengono rivisti.
- * La data corrisponde alla data di pubblicazione del documento su /legal/*.
+ * Fonte unica condivisa con le Edge Functions: il valore sta in
+ * `supabase/functions/_shared/consentVersions.ts`, aggiornare lì.
  */
-export const CURRENT_CONSENT_VERSIONS = {
-    privacy: '2026-06-19',
-    terms: '2026-04-12',
-} as const;
+export { CURRENT_CONSENT_VERSIONS } from '@shared/consentVersions';

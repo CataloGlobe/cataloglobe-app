@@ -1,0 +1,58 @@
+@use "@pages/CampaignLanding/styles/mixins" as *;
+
+.grid {
+    @include desktop {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: ld-fluid-desk(48, 80);
+        align-items: center;
+    }
+}
+
+.title {
+    margin-top: 10px;
+}
+
+.lede {
+    margin: 14px 0 0;
+    font-size: 17px;
+    line-height: 1.55;
+    color: var(--ld-body);
+
+    @include desktop {
+        font-size: 18px;
+    }
+}
+
+.visualGap {
+    margin-top: 22px;
+
+    @include desktop {
+        margin-top: 0;
+    }
+}
+
+.visualInner {
+    @include desktop {
+        max-width: 460px;
+        margin-left: auto;
+    }
+}
+
+// Visivo a sinistra su desktop (esaurito): la colonna viene prima.
+.visualLeft {
+    @include desktop {
+        .visual {
+            grid-row: 1;
+            grid-column: 1;
+        }
+
+        .text {
+            grid-column: 2;
+        }
+
+        .visualInner {
+            margin-left: 0;
+        }
+    }
+}

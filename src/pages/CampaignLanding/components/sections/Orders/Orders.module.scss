@@ -1,0 +1,592 @@
+@use "@pages/CampaignLanding/styles/mixins" as *;
+
+// ── Linguette ───────────────────────────────────────────────────────────────
+.tabs {
+    position: relative;
+    display: flex;
+    margin-top: 24px;
+    padding: 5px;
+    border-radius: 16px;
+    background: var(--ld-line-2);
+    border: 1px solid var(--ld-line);
+}
+
+.cursor {
+    position: absolute;
+    top: 5px;
+    bottom: 5px;
+    left: 5px;
+    width: calc((100% - 10px) / 3);
+    box-sizing: border-box;
+    border-radius: 11px;
+    background: var(--ld-white);
+    border: 1px solid var(--ld-line);
+    box-shadow: var(--ld-shadow-thumb);
+    transition: transform 250ms var(--ld-ease);
+}
+
+.cursor1 {
+    transform: translateX(100%);
+}
+
+.cursor2 {
+    transform: translateX(200%);
+}
+
+.tab {
+    @include ld-reset-button;
+    @include ld-focus;
+    position: relative;
+    z-index: 1;
+    flex: 1 1 0;
+    // Il velo d'avanzamento resta dentro la linguetta, sotto il testo.
+    overflow: hidden;
+    border-radius: 11px;
+    padding: 8px 4px;
+    text-align: center;
+    color: var(--ld-muted);
+    transition: color 250ms ease;
+}
+
+.tabOn {
+    color: var(--ld-ink);
+}
+
+.tabLabel {
+    position: relative;
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.tabSub {
+    position: relative;
+    display: block;
+    margin-top: 2px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--ld-muted);
+    opacity: 0.75;
+}
+
+.tabOn .tabSub {
+    color: var(--ld-azione);
+    opacity: 1;
+}
+
+// Avanzamento del passo: la linguetta attiva si riempie da sinistra di un velo
+// blu tenue in $step-ms, lineare. ⚠️ Stessa durata di STEP_MS in Orders.tsx.
+$step-ms: 3000ms;
+
+.progress {
+    position: absolute;
+    inset: 0;
+    background: rgba(70, 72, 198, 0.07);
+    transform-origin: left;
+    animation: ld-orders-progress $step-ms linear both;
+    pointer-events: none;
+}
+
+@keyframes ld-orders-progress {
+    from {
+        transform: scaleX(0);
+    }
+    to {
+        transform: scaleX(1);
+    }
+}
+
+// ── Pannello ────────────────────────────────────────────────────────────────
+.panel {
+    height: 324px;
+    box-sizing: border-box;
+    margin-top: 12px;
+    // Scene 1 e 2 centrate da sole; la sala (scena 3) ha il suo padding.
+    overflow: hidden;
+    border-radius: 18px;
+    background: var(--ld-white);
+    border: 1px solid var(--ld-line);
+    box-shadow: 0 14px 34px rgba(21, 20, 43, 0.07);
+}
+
+.panelIn {
+    height: 100%;
+}
+
+// Cambio di passo: il pannello nuovo entra in 250 ms.
+@include motion-ok {
+    .panelIn {
+        animation: ld-orders-panel 250ms var(--ld-ease) both;
+    }
+}
+
+@keyframes ld-orders-panel {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+.printer {
+    margin: 14px 0 0;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--ld-muted);
+}
+
+// ── Passo 1: l'ordine ───────────────────────────────────────────────────────
+// Un solo elemento: la scheda dal telefono del cliente, al centro del riquadro.
+.order {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    padding: 0 16px;
+}
+
+.orderCard {
+    width: 300px;
+    max-width: 100%;
+    box-sizing: border-box;
+    padding: 16px 18px 14px;
+    border-radius: 18px;
+    background: var(--ld-white);
+    border: 1px solid var(--ld-line-2);
+    box-shadow: 0 14px 34px rgba(40, 36, 90, 0.1);
+}
+
+.orderHead {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 2px;
+}
+
+.tableChip {
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: var(--ld-brand-s);
+    color: var(--ld-azione);
+    font-size: 11.5px;
+    font-weight: 700;
+}
+
+.line {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--ld-line-2);
+    font-size: 14.5px;
+    color: var(--ld-ink);
+}
+
+.qty {
+    min-width: 20px;
+    font-weight: 700;
+    color: var(--ld-azione);
+}
+
+.lineName {
+    flex-grow: 1;
+}
+
+.linePrice {
+    font-weight: 700;
+}
+
+.total {
+    display: flex;
+    justify-content: space-between;
+    padding: 12px 0;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--ld-ink);
+}
+
+// Resta blu anche a ordine inviato, come il resto della pagina.
+.send {
+    padding: 12px;
+    border-radius: 12px;
+    background: var(--ld-azione);
+    color: var(--ld-on-azione);
+    font-size: 15px;
+    font-weight: 600;
+    text-align: center;
+    transition: transform 120ms ease;
+}
+
+.sendPress {
+    transform: scale(0.97);
+}
+
+.orderNote {
+    margin: 9px 0 0;
+    font-size: 11.5px;
+    line-height: 1.4;
+    color: var(--ld-muted);
+    text-align: center;
+}
+
+// ── Passo 2: la comanda ─────────────────────────────────────────────────────
+// Un solo elemento: la comanda esce dalla fessura della stampante e si srotola.
+.kitchen {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    padding: 0 16px;
+}
+
+.kitchenLabel {
+    position: absolute;
+    top: 16px;
+    left: 18px;
+}
+
+// Fessura della stampante: la comanda ci passa sotto.
+.slot {
+    position: relative;
+    z-index: 1;
+    width: 250px;
+    max-width: 100%;
+    height: 10px;
+    border-radius: 6px;
+    background: var(--ld-ticket-ink);
+    box-shadow: 0 2px 0 rgba(255, 255, 255, 0.6);
+}
+
+// Finestra della comanda: alta quanto la comanda, taglia quel che non è
+// ancora uscito. Il padding lascia spazio all'ombra.
+.ticketOut {
+    margin: -5px -14px 0;
+    padding: 0 14px 16px;
+    overflow: hidden;
+}
+
+.ticket {
+    width: 226px;
+    filter: drop-shadow(0 10px 14px rgba(21, 20, 43, 0.12));
+}
+
+.ticketPaper {
+    padding: 14px 16px 10px;
+    background: var(--ld-ticket-paper);
+    font-family: var(--ld-font-mono);
+    color: var(--ld-ticket-ink);
+}
+
+.ticketHead {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+}
+
+.ticketTable {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+}
+
+.ticketTime {
+    font-size: 12px;
+}
+
+.ticketMeta {
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    color: var(--ld-ticket-meta);
+}
+
+.ticketRule {
+    margin: 8px 0;
+    border-top: 1.5px dashed var(--ld-ticket-rule);
+}
+
+.ticketRuleEnd {
+    margin-bottom: 0;
+}
+
+.ticketLine {
+    display: flex;
+    gap: 10px;
+    font-size: 13.5px;
+    line-height: 1.7;
+    font-weight: 700;
+}
+
+// Bordo a zigzag della carta termica.
+.zigzag {
+    height: 9px;
+    background-image:
+        linear-gradient(135deg, var(--ld-ticket-paper) 50%, transparent 50%),
+        linear-gradient(225deg, var(--ld-ticket-paper) 50%, transparent 50%);
+    background-size: 12px 9px;
+    background-repeat: repeat-x;
+    background-position: left top;
+}
+
+.kitchenNote {
+    margin: 2px 0 0;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--ld-muted);
+    text-align: center;
+}
+
+@include motion-ok {
+    // Righe dell'ordine: una alla volta a 150 / 450 / 750 ms.
+    .line {
+        animation: ld-orders-row 320ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+    }
+
+    .line:nth-of-type(2) {
+        animation-delay: 150ms;
+    }
+
+    .line:nth-of-type(3) {
+        animation-delay: 450ms;
+    }
+
+    .line:nth-of-type(4) {
+        animation-delay: 750ms;
+    }
+
+    // La comanda esce: dopo 300 ms, 1400 ms dalla fessura verso il basso.
+    .ticket {
+        animation: ld-orders-print 1400ms cubic-bezier(0.4, 0, 0.2, 1) 300ms backwards;
+    }
+
+    .kitchenNote {
+        animation: ld-orders-row 400ms ease 1600ms backwards;
+    }
+}
+
+@keyframes ld-orders-row {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+}
+
+@keyframes ld-orders-print {
+    from {
+        transform: translateY(-100%);
+    }
+}
+
+// ── Passo 3: la sala ────────────────────────────────────────────────────────
+// Invariata: il padding che prima era del pannello.
+.floorScene {
+    padding: 18px;
+}
+
+.floor {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 2px 8px;
+    margin-top: 6px;
+}
+
+.cell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 62px;
+}
+
+.table {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    background: var(--ld-paper);
+    border: 1px solid var(--ld-line);
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--ld-ink);
+
+    --chair: var(--ld-chair);
+}
+
+.round {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+}
+
+.rect {
+    width: 58px;
+    height: 38px;
+    border-radius: 10px;
+}
+
+.free {
+    background: var(--ld-white);
+    border: 1.5px dashed var(--ld-chair);
+    color: var(--ld-off-ink);
+
+    --chair: var(--ld-chair-free);
+}
+
+.bill {
+    background: var(--ld-peach);
+    border: 1.5px solid var(--ld-terra);
+    color: var(--ld-terra);
+
+    --chair: var(--ld-chair-bill);
+}
+
+.call {
+    background: var(--ld-brand-s);
+    border: 1.5px solid var(--ld-azione);
+    color: var(--ld-azione);
+
+    --chair: var(--ld-chair-call);
+}
+
+.chair {
+    position: absolute;
+    height: 4px;
+    border-radius: 3px;
+    background: var(--chair);
+}
+
+.chairTop,
+.chairBottom {
+    left: calc(50% - 6px);
+    width: 12px;
+}
+
+.chairTop {
+    top: -8px;
+}
+
+.chairBottom {
+    bottom: -8px;
+}
+
+.chairTL,
+.chairTR,
+.chairBL,
+.chairBR {
+    width: 14px;
+}
+
+.chairTL,
+.chairTR {
+    top: -8px;
+}
+
+.chairBL,
+.chairBR {
+    bottom: -8px;
+}
+
+.chairTL,
+.chairBL {
+    left: 10px;
+}
+
+.chairTR,
+.chairBR {
+    right: 10px;
+}
+
+.flag {
+    position: absolute;
+    top: -9px;
+    right: -9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    color: var(--ld-white);
+}
+
+.bill .flag {
+    background: var(--ld-terra);
+    box-shadow: 0 0 0 4px rgba(168, 70, 31, 0.15);
+}
+
+.call .flag {
+    background: var(--ld-azione);
+    box-shadow: 0 0 0 4px rgba(70, 72, 198, 0.18);
+}
+
+.legend {
+    display: flex;
+    justify-content: center;
+    gap: 14px;
+    margin-top: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--ld-muted);
+}
+
+.legendItem {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.dot {
+    width: 8px;
+    height: 8px;
+    box-sizing: border-box;
+    border-radius: 50%;
+}
+
+.dotCall {
+    background: var(--ld-azione);
+}
+
+.dotBill {
+    background: var(--ld-terra);
+}
+
+.dotFree {
+    border: 1.5px dashed var(--ld-chair);
+}
+
+.alert {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 10px;
+    padding: 9px 12px;
+    border-radius: 12px;
+    background: var(--ld-scuro);
+    color: var(--ld-white);
+}
+
+.alertIcon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--ld-terra);
+}
+
+.alertText {
+    flex-grow: 1;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.alertTime {
+    font-size: 12px;
+    color: var(--ld-alert-time);
+}

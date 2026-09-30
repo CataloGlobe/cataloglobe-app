@@ -2,15 +2,17 @@
 @use "@pages/CampaignLanding/styles/tokens" as *;
 @use "@pages/CampaignLanding/styles/mixins" as *;
 
-// Radice della landing: token, font, piano esterno.
+// Radice della landing: token, font, pagina bianca a tutta larghezza.
 .landing {
     @include ld-tokens;
 
     min-height: 100vh;
     min-height: 100dvh;
-    background: var(--ld-fuori);
-    color: var(--ld-body);
+    background: var(--ld-white);
+    color: var(--ld-ink);
     font-family: var(--ld-font-sans);
+    // Come nelle tavole: interlinea «normal» dove un blocco non ne fissa una.
+    line-height: normal;
     -webkit-font-smoothing: antialiased;
     -webkit-text-size-adjust: 100%;
 
@@ -24,6 +26,20 @@
     }
 }
 
+// Anello di focus solo da tastiera (:focus-visible), col colore del tono
+// (chiaro sulle sezioni scure). Toglie quello di `index.css` su
+// `button:focus`, che compariva anche dopo un clic col mouse. Specificità
+// (0,2,0): batte `button:focus` globale, perde contro le classi di modulo
+// col loro `:focus-visible` (mixin ld-focus).
+.landing :where(a, button, summary, [tabindex]):focus:not(:focus-visible) {
+    outline: none;
+}
+
+.landing :where(a, button, summary, [tabindex]):focus-visible {
+    outline: 2px solid var(--ld-focus-ring);
+    outline-offset: 3px;
+}
+
 // Neutralizza la tipografia globale dell'app (_typography.scss: `p` grigio con
 // margine, heading con colore proprio) dentro la landing. `:where()` tiene la
 // specificità a quella del selettore globale (0,0,1): vince per ordine di
@@ -34,36 +50,22 @@
     color: inherit;
 }
 
+:where(.landing) a {
+    color: var(--ld-azione);
+    text-decoration: underline;
+
+    &:hover {
+        color: var(--ld-azione-hover);
+    }
+}
+
 @include ld-page-backdrop(".landing");
 
-// Ancore (#contatto, #funzioni…) con scorrimento morbido. Sta sull'elemento
-// che scorre davvero, il documento: su `.landing` (non scroll container) non
-// avrebbe effetto. `:has` limita la regola alle pagine che montano la landing.
-@media (prefers-reduced-motion: no-preference) {
-    :global(html):has(.landing) {
-        scroll-behavior: smooth;
-    }
-}
-
-// Scale dello sheet (Passata 2) andrà qui, NON su .landing: le barre fisse
-// sono sorelle di .frame e non devono scalare con la pagina.
-.frame {
-    padding: 10px;
-    background: var(--ld-fuori);
-
-    @include desktop {
-        padding: 16px;
-    }
-}
-
 .page {
-    max-width: var(--ld-page-max);
-    margin-inline: auto;
-    background: var(--ld-paper);
-    border-radius: var(--ld-r-frame);
-    // clip, non hidden: hidden creerebbe uno scroll container e gli sticky
-    // figli si aggancerebbero a .page invece che alla finestra.
-    overflow: clip;
-    // Spazio per la barra inferiore mobile (Passata 2), da subito.
-    padding-bottom: calc(var(--ld-bottom-bar) + env(safe-area-inset-bottom));
+    display: block;
+    // viewport-fit=cover: il footer scuro continua sotto l'indicatore home.
+    padding-bottom: env(safe-area-inset-bottom);
+    background: var(--ld-scuro);
+    // clip, non hidden: hidden creerebbe uno scroll container.
+    overflow-x: clip;
 }

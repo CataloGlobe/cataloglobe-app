@@ -1,97 +1,187 @@
 @use "@pages/CampaignLanding/styles/mixins" as *;
 
-.layout {
+// Desktop: dentro il blocco finale (LandingPage `.finale`) prende lo spazio
+// sopra il footer e ci centra il form in verticale.
+.section {
     @include desktop {
         display: flex;
-        align-items: center;
-        gap: 72px;
-        padding-block: 8px;
+        flex: 1 0 auto;
+        flex-direction: column;
+        justify-content: center;
     }
 }
 
-.text {
+.grid {
     @include desktop {
-        flex: 1 1 0;
-        max-width: 500px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: ld-fluid-desk(40, 72);
+        align-items: center;
+    }
+}
+
+.title {
+    @include ld-serif;
+    margin: 14px 0 0;
+    font-size: 32px;
+    line-height: 1.1;
+    color: var(--ld-ink);
+    text-wrap: balance;
+
+    @include desktop {
+        margin-top: 16px;
+        font-size: 48px;
+        line-height: 1.08;
+    }
+}
+
+.titleHl {
+    color: var(--ld-brand-hi-2);
+}
+
+.lede {
+    margin: 16px 0 0;
+    font-size: 17px;
+    line-height: 1.55;
+    color: var(--ld-body);
+
+    @include desktop {
+        margin-top: 18px;
+        font-size: 18px;
     }
 }
 
 .write {
-    margin-top: 14px;
-    font-family: var(--ld-font-sans);
+    margin: 14px 0 0;
     font-size: 14px;
-    color: var(--ld-muted);
+    color: var(--ld-dark-muted);
 
-    a {
-        color: var(--ld-body);
+    a,
+    a:hover {
+        color: var(--ld-dark-body);
+    }
+
+    @include desktop {
+        margin-top: 18px;
+        font-size: 15px;
+    }
+}
+
+.writeDesktop {
+    display: none;
+
+    @include desktop {
+        display: block;
+    }
+}
+
+.writeMobile {
+    @include desktop {
+        display: none;
     }
 }
 
 .signupCta {
-    margin-top: 26px;
+    margin-top: 24px;
 }
 
 .formCol {
     margin-top: 24px;
 
     @include desktop {
-        flex-shrink: 0;
-        width: 470px;
         margin-top: 0;
     }
 }
 
-// ── form (superficie chiara nella sezione scura) ──
+// ── Form ────────────────────────────────────────────────────────────────────
 .form {
     display: flex;
     flex-direction: column;
-    gap: 13px;
-    padding: 26px;
-    border-radius: 20px;
-    background: var(--ld-paper-2);
+    gap: 12px;
+    padding: 22px;
+    border-radius: 22px;
+    background: var(--ld-white);
     box-shadow: var(--ld-shadow-form);
-    font-family: var(--ld-font-sans);
-    color: var(--ld-ink);
+
+    @include desktop {
+        padding: 28px;
+    }
+}
+
+.fields {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+
+    @include desktop {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
 }
 
 .field {
     display: block;
     font-size: 13px;
     font-weight: 600;
+    color: var(--ld-ink);
 }
 
-// 16px: sotto, Safari iOS zooma sul campo al tocco.
+.optional {
+    font-weight: 500;
+    color: var(--ld-muted);
+}
+
 .input {
     display: block;
     width: 100%;
+    box-sizing: border-box;
     min-height: 48px;
     margin-top: 6px;
-    padding: 12px 15px;
-    border-radius: 12px;
+    padding: 12px 14px;
     border: 1px solid var(--ld-line);
+    border-radius: 12px;
     background: var(--ld-paper);
-    color: var(--ld-ink);
     font-family: var(--ld-font-sans);
-    font-size: 16px;
-    font-weight: 400;
+    font-size: 16px; // 16 px: niente zoom automatico su iOS
+    color: var(--ld-ink);
 
-    &:focus-visible {
+    &:focus {
         outline: 2px solid var(--ld-azione);
         outline-offset: 1px;
-        border-color: var(--ld-azione);
+        border-color: transparent;
     }
+}
+
+.inputError {
+    border-color: var(--ld-terra);
+}
+
+.error {
+    display: block;
+    margin-top: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.4;
+    color: var(--ld-terra);
+}
+
+// Honeypot: fuori schermo (non display:none, che alcuni bot saltano).
+.trap {
+    @include ld-sr-only;
 }
 
 .fieldset {
     margin: 2px 0 0;
     padding: 0;
     border: 0;
+    min-width: 0;
 }
 
 .legend {
     padding: 0;
     font-size: 13px;
     font-weight: 600;
+    color: var(--ld-ink);
 }
 
 .pills {
@@ -102,43 +192,34 @@
 }
 
 .pill {
+    @include ld-reset-button;
+    @include ld-focus;
     min-height: 40px;
     padding: 9px 14px;
-    border-radius: var(--ld-r-pill);
     border: 1px solid var(--ld-line);
+    border-radius: 999px;
     background: var(--ld-paper);
-    color: var(--ld-ink);
-    font-family: var(--ld-font-sans);
     font-size: 13px;
-    font-weight: 500;
-    cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
-
-    &:focus-visible {
-        outline: 2px solid var(--ld-brand);
-        outline-offset: 2px;
-    }
+    color: var(--ld-ink);
+    transition:
+        background-color 200ms ease,
+        border-color 200ms ease,
+        color 200ms ease;
 }
 
 .pillOn {
-    border-color: var(--ld-azione);
     background: var(--ld-brand-s);
+    border-color: var(--ld-azione);
     color: var(--ld-azione);
-    font-weight: 600;
 }
 
 .consent {
     display: flex;
-    align-items: flex-start;
     gap: 10px;
-    margin-top: 2px;
+    align-items: flex-start;
     font-size: 12.5px;
     line-height: 1.45;
     color: var(--ld-body);
-
-    a {
-        color: var(--ld-azione);
-    }
 }
 
 .checkbox {
@@ -149,7 +230,35 @@
     accent-color: var(--ld-azione);
 }
 
-.submit {
-    display: flex;
-    margin-top: 4px;
+.failure {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--ld-terra);
+}
+
+// Conferma al posto del form, nella stessa scheda.
+.done {
+    justify-content: center;
+    min-height: 240px;
+    text-align: center;
+
+    &:focus {
+        outline: none;
+    }
+}
+
+.doneTitle {
+    margin: 0;
+    @include ld-serif;
+    font-size: 26px;
+    line-height: 1.2;
+    color: var(--ld-ink);
+}
+
+.doneText {
+    margin: 0;
+    font-size: 16px;
+    line-height: 1.5;
+    color: var(--ld-body);
 }

@@ -1,10 +1,13 @@
 import LegalLayout from './LegalLayout';
 import { usePageTitle } from '@/hooks/usePageTitle';
 import { COMPANY, getFullAddress } from '@/config/company';
-import { CURRENT_CONSENT_VERSIONS } from '@/config/consentVersions';
+import { PRIVACY_PUBLISHED_AT } from '@shared/consentVersions';
 import styles from './PrivacyPolicyPage.module.scss';
 
-const LAST_UPDATED = CURRENT_CONSENT_VERSIONS.privacy;
+// Data mostrata come «Ultimo aggiornamento»: sta in _shared/consentVersions.ts
+// perché submit-lead la registra come versione accettata dai contatti della
+// landing. Separata da CURRENT_CONSENT_VERSIONS.privacy (vedi lì).
+const LAST_UPDATED = PRIVACY_PUBLISHED_AT;
 
 function formatDate(isoDate: string): string {
     const [year, month, day] = isoDate.split('-').map(Number);
@@ -121,6 +124,47 @@ export default function PrivacyPolicyPage() {
                             prevenzione di abusi (art. 6, par. 1, lett. f GDPR).
                         </li>
                     </ul>
+
+                    <p><strong>Richieste di contatto dalla landing:</strong></p>
+                    <p>
+                        Quando compili il modulo «Richiedi una demo» sulla pagina di presentazione di
+                        CataloGlobe, raccogliamo: nome, nome del locale, numero di telefono, indirizzo
+                        email (facoltativo), gli argomenti che ti interessano (menù, prenotazioni, ordini
+                        al tavolo), la data e l'ora in cui hai dato il consenso a essere ricontattato e il
+                        testo del consenso che hai accettato.
+                    </p>
+                    <p>
+                        Insieme alla richiesta registriamo anche la provenienza della visita: i parametri
+                        della campagna presenti nell'indirizzo (utm_source, utm_medium, utm_campaign,
+                        utm_content, utm_term), la pagina da cui sei arrivato (referrer) e la pagina di
+                        arrivo. L'indirizzo IP non viene salvato in chiaro: ne conserviamo solo
+                        un'impronta cifrata (hash SHA-256 con una chiave segreta), che non permette di
+                        risalire all'indirizzo.
+                    </p>
+                    <ul>
+                        <li>
+                            <strong>Finalità:</strong> ricontattarti per mostrarti CataloGlobe con una
+                            demo e rispondere alle tue domande, come da te richiesto. I dati di
+                            provenienza servono a capire quali campagne portano le richieste; l'impronta
+                            dell'IP serve solo a prevenire invii ripetuti e abusi del modulo.
+                        </li>
+                        <li>
+                            <strong>Base giuridica:</strong> esecuzione di misure precontrattuali adottate
+                            su tua richiesta (art. 6, par. 1, lett. b GDPR). Per i dati di provenienza e
+                            l'impronta dell'IP: legittimo interesse del Titolare alla misurazione delle
+                            campagne e alla prevenzione di abusi (art. 6, par. 1, lett. f GDPR).
+                        </li>
+                        <li>
+                            <strong>Conservazione:</strong> se non diventi cliente, i dati della richiesta
+                            sono cancellati 12 mesi dopo l'invio. Se diventi cliente, valgono i tempi
+                            indicati per i dati dell'account (Sezione 05).
+                        </li>
+                        <li>
+                            <strong>Destinatari:</strong> la richiesta è salvata sull'infrastruttura di
+                            Supabase e ci viene notificata via email tramite Resend (Sezione 08). Non la
+                            usiamo per invii promozionali e non la cediamo a terzi.
+                        </li>
+                    </ul>
                 </div>
 
                 {/* 3. Finalità e modalità del trattamento */}
@@ -155,6 +199,12 @@ export default function PrivacyPolicyPage() {
                             <strong>Analisi delle interazioni sui menu pubblici:</strong> migliorare il servizio
                             attraverso l'analisi aggregata e anonima delle interazioni dei visitatori con i
                             menu pubblici (vedi Sezione 02 — Dati di interazione).
+                        </li>
+                        <li>
+                            <strong>Richieste di contatto dalla landing:</strong> ricontattare chi compila
+                            il modulo «Richiedi una demo» per mostrargli CataloGlobe e rispondere alle sue
+                            domande; misurare quali campagne portano le richieste e prevenire abusi del
+                            modulo (vedi Sezione 02 — Richieste di contatto dalla landing).
                         </li>
                     </ul>
                     <p>
@@ -216,6 +266,10 @@ export default function PrivacyPolicyPage() {
                         <li>
                             <strong>Dati dei cataloghi pubblici:</strong> eliminati entro 30 giorni dalla
                             cancellazione dell'account o dalla richiesta dell'utente.
+                        </li>
+                        <li>
+                            <strong>Richieste di contatto dalla landing:</strong> 12 mesi dall'invio per
+                            chi non diventa cliente (Sezione 02).
                         </li>
                     </ul>
                     <p>
@@ -289,9 +343,11 @@ export default function PrivacyPolicyPage() {
 
                     <p><strong>Cookie e tecnologie di archiviazione locale</strong></p>
                     <p>
-                        Sulla pagina pubblica del menu non utilizziamo cookie HTTP scritti dal nostro
-                        codice. Utilizziamo invece le seguenti tecnologie di archiviazione locale del
-                        browser, tutte considerate tecniche/funzionali e non richiedenti consenso esplicito:
+                        Sulla pagina pubblica del menu e sulla pagina di presentazione di CataloGlobe
+                        (la landing con il modulo «Richiedi una demo») non utilizziamo cookie HTTP scritti
+                        dal nostro codice. Utilizziamo invece le seguenti tecnologie di archiviazione
+                        locale del browser, tutte considerate tecniche/funzionali e non richiedenti
+                        consenso esplicito:
                     </p>
 
                     <table className={styles.dataTable}>
@@ -326,6 +382,17 @@ export default function PrivacyPolicyPage() {
                                 <td>sessionStorage</td>
                                 <td>
                                     Memorizza la selezione di prodotti dell'utente durante la sessione.
+                                </td>
+                                <td>Solo durata sessione browser</td>
+                            </tr>
+                            <tr>
+                                <td><code>cg-landing-attribution</code></td>
+                                <td>sessionStorage</td>
+                                <td>
+                                    Sulla pagina di presentazione: conserva i parametri della campagna
+                                    (utm), la pagina di provenienza e quella di arrivo, per inviarli
+                                    insieme a un'eventuale richiesta di contatto. Nessun dato è inviato
+                                    se non compili il modulo.
                                 </td>
                                 <td>Solo durata sessione browser</td>
                             </tr>

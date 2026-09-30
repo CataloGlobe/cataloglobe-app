@@ -1,0 +1,487 @@
+@use "@pages/CampaignLanding/styles/mixins" as *;
+
+// Luce calda dietro la bacheca.
+.section {
+    overflow: hidden;
+
+    &::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(80% 50% at 50% 62%, rgba(168, 70, 31, 0.3) 0%, rgba(0, 0, 0, 0) 70%);
+        pointer-events: none;
+
+        @include desktop {
+            background: radial-gradient(60% 45% at 50% 60%, rgba(168, 70, 31, 0.26) 0%, rgba(0, 0, 0, 0) 70%);
+        }
+    }
+}
+
+.head {
+    padding: 0 20px;
+
+    @include desktop {
+        padding: 0;
+        text-align: center;
+    }
+}
+
+.handNote {
+    margin-bottom: 10px;
+
+    @include desktop {
+        margin-bottom: 12px;
+    }
+}
+
+.head .title {
+    color: var(--ld-ink);
+
+    @include desktop {
+        line-height: 1.1;
+    }
+}
+
+.defs {
+    position: absolute;
+    width: 0;
+    height: 0;
+    overflow: hidden;
+}
+
+.desktopOnly {
+    display: none;
+
+    @include desktop {
+        display: block;
+    }
+}
+
+.mobileOnly {
+    @include desktop {
+        display: none;
+    }
+}
+
+// ── Il filo ─────────────────────────────────────────────────────────────────
+.line {
+    position: absolute;
+    left: 0;
+    top: 0;
+    overflow: visible;
+}
+
+// ── Foglietto ───────────────────────────────────────────────────────────────
+.note {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 252px;
+    flex-shrink: 0;
+}
+
+.pegWrap {
+    margin-bottom: -20px;
+}
+
+.peg {
+    position: relative;
+    z-index: 3;
+    display: block;
+    filter: drop-shadow(0 3px 3px rgba(0, 0, 0, 0.45));
+}
+
+.paperShadow {
+    width: 100%;
+    filter: drop-shadow(0 16px 22px rgba(0, 0, 0, 0.4));
+}
+
+.paper {
+    display: flex;
+    flex-direction: column;
+    height: 284px;
+    box-sizing: border-box;
+    padding: 26px 18px 16px;
+    border-radius: 3px 3px 0 0;
+    background: var(--ld-note-paper);
+
+    @include desktop {
+        height: auto;
+        min-height: 296px;
+    }
+}
+
+.paperHead {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.icon {
+    flex-shrink: 0;
+    fill: none;
+    stroke: var(--ld-note-icon);
+    stroke-width: 2.2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.fill {
+    fill: var(--ld-note-icon-fill);
+}
+
+.pro,
+.withTag {
+    padding: 3px 8px;
+    border-radius: 999px;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ld-on-azione);
+}
+
+.pro {
+    background: var(--ld-scuro);
+}
+
+.noteTitle {
+    @include ld-serif;
+    margin: 10px 0 0;
+    font-size: 20px;
+    line-height: 1.15;
+    color: var(--ld-ink);
+}
+
+.problem {
+    // Il margine sotto tiene staccato il riquadro quando il foglietto si stringe (1024-1280).
+    margin: 10px 0 14px;
+    font-size: 14px;
+    line-height: 1.4;
+    font-style: italic;
+    color: var(--ld-terra-ink);
+}
+
+.with {
+    position: relative;
+    margin-top: auto;
+    padding: 16px 12px 10px;
+    border-radius: 10px;
+    background: var(--ld-brand-note);
+    border: 1.5px dashed var(--ld-brand-dash);
+}
+
+.withTag {
+    position: absolute;
+    left: 10px;
+    top: -9px;
+    background: var(--ld-azione);
+}
+
+.withText {
+    margin: 0;
+    font-size: 13.5px;
+    line-height: 1.42;
+    color: var(--ld-ink);
+}
+
+// Bordo strappato in fondo al foglietto.
+.tear {
+    height: 10px;
+    background-image:
+        linear-gradient(135deg, var(--ld-note-paper) 50%, transparent 50%),
+        linear-gradient(225deg, var(--ld-note-paper) 50%, transparent 50%);
+    background-size: 12px 10px;
+    background-repeat: repeat-x;
+    background-position: left top;
+}
+
+// ── Desktop: due file ───────────────────────────────────────────────────────
+.row {
+    position: relative;
+    margin-top: 44px;
+}
+
+.rowSecond {
+    margin-top: 52px;
+}
+
+.rowGrid {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: ld-fluid-desk(12, 28);
+    padding: 0 12px;
+    align-items: start;
+}
+
+.slot {
+    display: flex;
+    justify-content: center;
+    min-width: 0;
+
+    .note {
+        width: min(252px, 100%);
+    }
+}
+
+.tilt,
+.swing {
+    transform-origin: 50% 0;
+    min-width: 0;
+}
+
+.tiltA .tilt {
+    transform: rotate(-2.2deg);
+}
+
+.tiltB {
+    padding-top: 6px;
+
+    .tilt {
+        transform: rotate(-0.8deg);
+    }
+}
+
+.tiltC {
+    padding-top: 6px;
+
+    .tilt {
+        transform: rotate(0.8deg);
+    }
+}
+
+.tiltD .tilt {
+    transform: rotate(2.2deg);
+}
+
+@include motion-ok {
+    .swing0s6 {
+        animation: ld-swing0 6s ease-in-out infinite;
+    }
+    .swing0s8 {
+        animation: ld-swing0 8s ease-in-out infinite;
+    }
+    .swing1s6 {
+        animation: ld-swing1 6s ease-in-out infinite;
+    }
+    .swing1s7 {
+        animation: ld-swing1 7s ease-in-out infinite;
+    }
+    .swing2s6 {
+        animation: ld-swing2 6s ease-in-out infinite;
+    }
+    .swing2s8 {
+        animation: ld-swing2 8s ease-in-out infinite;
+    }
+    .swing3s6 {
+        animation: ld-swing3 6s ease-in-out infinite;
+    }
+    .swing3s7 {
+        animation: ld-swing3 7s ease-in-out infinite;
+    }
+}
+
+@keyframes ld-swing0 {
+    0%,
+    100% {
+        transform: rotate(-1.4deg);
+    }
+    50% {
+        transform: rotate(1.4deg);
+    }
+}
+
+@keyframes ld-swing1 {
+    0%,
+    100% {
+        transform: rotate(1.1deg);
+    }
+    50% {
+        transform: rotate(-1.1deg);
+    }
+}
+
+@keyframes ld-swing2 {
+    0%,
+    100% {
+        transform: rotate(-0.9deg);
+    }
+    50% {
+        transform: rotate(0.9deg);
+    }
+}
+
+@keyframes ld-swing3 {
+    0%,
+    100% {
+        transform: rotate(1.3deg);
+    }
+    50% {
+        transform: rotate(-1.3deg);
+    }
+}
+
+// ── Mobile: carosello ───────────────────────────────────────────────────────
+.rail {
+    position: relative;
+    margin-top: 30px;
+}
+
+// Livello proprio per il riquadro: WebKit ritaglia e ridisegna i figli
+// composti (track in transizione, card animate) rispetto a questo, non alla
+// pagina. Senza, su iPhone dopo uno scroll di pagina le card potevano
+// ricomparire in posizioni vecchie, sovrapposte.
+.viewport {
+    position: relative;
+    overflow: hidden;
+    touch-action: pan-y;
+    transform: translateZ(0);
+}
+
+// Card da 280 + 16 di spazio = 296 per passo; la card attiva è centrata.
+.track {
+    display: flex;
+    gap: 16px;
+    padding: 4px calc(50% - 140px) 34px;
+    transition: transform 560ms var(--ld-ease);
+    will-change: transform;
+}
+
+@for $i from 0 through 7 {
+    .at#{$i} {
+        transform: translateX(#{-$i * 296}px);
+    }
+}
+
+// Solo opacità e transform: niente `filter` su card che traslano (WebKit
+// le ri-rasterizza e ne sbaglia la posizione dopo lo scroll).
+.card {
+    flex-shrink: 0;
+    transform-origin: 50% 0;
+    transition: opacity 400ms ease;
+
+    .note {
+        width: 280px;
+    }
+}
+
+.cardOn {
+    opacity: 1;
+}
+
+.cardBefore,
+.cardAfter {
+    opacity: 0.4;
+}
+
+.cardBefore {
+    transform: rotate(-3deg) scale(0.94);
+}
+
+.cardAfter {
+    transform: rotate(3deg) scale(0.94);
+}
+
+@include motion-ok {
+    .cardOn {
+        // Niente fill-mode: finita l'oscillazione la card torna al suo stato
+        // (rotate 0, uguale all'ultimo fotogramma) e non resta un livello
+        // animato agganciato a una posizione del track ormai superata.
+        animation: ld-arrive0 1100ms cubic-bezier(0.3, 0.7, 0.4, 1);
+    }
+
+    .cardOnOdd {
+        animation-name: ld-arrive1;
+    }
+}
+
+@keyframes ld-arrive0 {
+    0% {
+        transform: rotate(-5deg);
+    }
+    35% {
+        transform: rotate(3.5deg);
+    }
+    65% {
+        transform: rotate(-1.6deg);
+    }
+    85% {
+        transform: rotate(0.6deg);
+    }
+    100% {
+        transform: rotate(0);
+    }
+}
+
+@keyframes ld-arrive1 {
+    0% {
+        transform: rotate(5deg);
+    }
+    35% {
+        transform: rotate(-3.5deg);
+    }
+    65% {
+        transform: rotate(1.6deg);
+    }
+    85% {
+        transform: rotate(-0.6deg);
+    }
+    100% {
+        transform: rotate(0);
+    }
+}
+
+.controls {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 18px;
+    padding: 0 20px;
+}
+
+.arrow {
+    @include ld-reset-button;
+    @include ld-focus;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: 1px solid var(--ld-dark-arrow);
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--ld-white);
+    font-size: 20px;
+    line-height: 1;
+}
+
+.dots {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.dot {
+    display: block;
+    width: 6px;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--ld-dark-dot);
+    transition:
+        width 300ms ease,
+        background-color 300ms ease;
+}
+
+.dotOn {
+    width: 20px;
+    background: var(--ld-white);
+}
+
+.hint {
+    position: relative;
+    margin: 12px 0 0;
+    font-size: 12px;
+    text-align: center;
+    color: var(--ld-dark-hint);
+}
