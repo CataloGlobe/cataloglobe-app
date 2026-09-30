@@ -1,56 +1,103 @@
 import { useState } from "react";
-import { formatEuroWholeCents, MONTHS_PER_INTERVAL } from "@utils/planPricing";
-import type { BillingInterval } from "@/types/plan";
 import LandingCta from "@pages/CampaignLanding/components/LandingCta/LandingCta";
 import Section from "@pages/CampaignLanding/components/Section/Section";
-import SectionHeader from "@pages/CampaignLanding/components/SectionHeader/SectionHeader";
+import { HandNote, SplitHeading } from "@pages/CampaignLanding/components/kit/Kit";
+import Reveal from "@pages/CampaignLanding/components/kit/Reveal";
 import { PRICING, type PlanKey } from "@pages/CampaignLanding/content/landing";
 import styles from "./Pricing.module.scss";
 
 const cx = (...names: (string | false | null | undefined)[]) => names.filter(Boolean).join(" ");
 
-const INTERVALS: BillingInterval[] = ["month", "year"];
-const PLANS: PlanKey[] = ["base", "pro"];
+type ItemKind = "ok" | "pro" | "no";
 
-function Check() {
+function ItemIcon({ kind }: { kind: ItemKind }) {
     return (
-        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-            <path d="M20 6 9 17l-5-5" />
-        </svg>
+        <span className={cx(styles.itemIcon, styles[`icon-${kind}`])}>
+            {kind === "no" ? (
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" aria-hidden="true">
+                    <path d="M18 6 6 18M6 6l12 12" />
+                </svg>
+            ) : (
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M20 6 9 17l-5-5" />
+                </svg>
+            )}
+        </span>
     );
 }
 
-function Cross() {
+/** Scheda di un piano: testata (nome, prezzo, CTA) e la stessa lista di voci per entrambi. */
+function PlanCard({ plan, annual, printer, className }: { plan: PlanKey; annual: boolean; printer: boolean; className?: string }) {
+    const p = PRICING.plans[plan];
+    const isPro = plan === "pro";
+    const items: { text: string; kind: ItemKind }[] = [
+        ...PRICING.items.map((text) => ({ text, kind: "ok" as const })),
+        ...PRICING.proItems.map((text) => ({ text, kind: isPro ? ("pro" as const) : ("no" as const) }))
+    ];
+
     return (
-        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-            <path d="M18 6 6 18M6 6l12 12" />
-        </svg>
+        <div className={cx(styles.card, isPro && styles.cardPro, className)}>
+            <div className={styles.cardTop}>
+                <div className={styles.glow} aria-hidden="true" />
+                <span className={styles.recommended}>{PRICING.recommended}</span>
+                <h3 className={styles.planName}>{p.name}</h3>
+                <p className={styles.claim}>{p.claim}</p>
+                <div className={styles.priceRow}>
+                    <span className={styles.price}>{annual ? p.year : p.month}</span>
+                    <span className={styles.period}>
+                        {annual ? PRICING.period.year : PRICING.period.month}
+                        <br />
+                        {PRICING.perVenue}
+                    </span>
+                    {annual && (
+                        <span className={styles.full}>
+                            <span className={styles.srOnly}>{PRICING.fullPriceLabel}: </span>
+                            <s>{p.yearFull}</s>
+                        </span>
+                    )}
+                </div>
+                <LandingCta placement={isPro ? "pricing-pro" : "pricing-base"} shape="plan" look={isPro ? "dark" : "soft"} />
+                <p className={styles.trial}>{PRICING.trial}</p>
+            </div>
+            <div className={styles.divider} />
+            <ul className={styles.items}>
+                {items.map((item) => (
+                    <li key={item.text} className={cx(styles.item, styles[`item-${item.kind}`])}>
+                        <ItemIcon kind={item.kind} />
+                        <span className={styles.itemText}>
+                            {item.kind === "no" && <span className={styles.srOnly}>{PRICING.notIncluded} </span>}
+                            {item.text}
+                        </span>
+                    </li>
+                ))}
+                {printer && (
+                    <li className={styles.printer}>
+                        <b>{PRICING.printer.label}</b>
+                        {PRICING.printer.text}
+                    </li>
+                )}
+            </ul>
+        </div>
     );
 }
 
 function Segmented<T extends string>({
-    label,
     options,
     value,
     onChange,
-    className
+    label,
+    variant
 }: {
-    label: string;
     options: { value: T; label: string }[];
     value: T;
-    onChange: (value: T) => void;
-    className?: string;
+    onChange: (v: T) => void;
+    label: string;
+    variant: "interval" | "plan";
 }) {
     return (
-        <div className={cx(styles.segmented, className)} role="group" aria-label={label}>
+        <div className={cx(styles.seg, styles[`seg-${variant}`])} role="group" aria-label={label}>
             {options.map((o) => (
-                <button
-                    key={o.value}
-                    type="button"
-                    className={cx(styles.segment, o.value === value && styles.segmentOn)}
-                    aria-pressed={o.value === value}
-                    onClick={() => onChange(o.value)}
-                >
+                <button key={o.value} type="button" className={cx(styles.segBtn, o.value === value && styles.segOn)} aria-pressed={o.value === value} onClick={() => onChange(o.value)}>
                     {o.label}
                 </button>
             ))}
@@ -58,111 +105,48 @@ function Segmented<T extends string>({
     );
 }
 
-function PlanCard({ plan, interval }: { plan: PlanKey; interval: BillingInterval }) {
-    const p = PRICING.plans[plan];
-    const isPro = plan === "pro";
-    const priceCents = interval === "year" ? p.yearCents : p.monthCents;
-    const fullYearCents = p.monthCents * MONTHS_PER_INTERVAL.year;
-
-    return (
-        <div className={styles.card}>
-            <div className={cx(styles.head, isPro ? styles.headPro : styles.headBase)}>
-                <span className={styles.sheen} aria-hidden="true" />
-                <span className={styles.streak} aria-hidden="true" />
-                {isPro && <span className={styles.glowIn} aria-hidden="true" />}
-                <div className={styles.headBody}>
-                    <div className={styles.planName}>
-                        <span className={styles.dot} aria-hidden="true" />
-                        {p.name}
-                    </div>
-                    <div className={styles.priceRow}>
-                        <span className={styles.price}>{formatEuroWholeCents(priceCents)}</span>
-                        <span className={styles.priceMeta}>
-                            {interval === "year" && (
-                                <s className={styles.full}>
-                                    <span className={styles.srOnly}>{PRICING.fullPriceLabel} </span>
-                                    {formatEuroWholeCents(fullYearCents)}
-                                </s>
-                            )}
-                            <span className={styles.period}>{PRICING.period[interval]}</span>
-                        </span>
-                    </div>
-                </div>
-            </div>
-
-            <p className={styles.claim}>{p.claim}</p>
-            <div className={styles.cta}>
-                <LandingCta
-                    placement={isPro ? "pricing-pro" : "pricing-base"}
-                    look={isPro ? "filled" : "ghost"}
-                    size="plan"
-                    block
-                />
-            </div>
-            <p className={styles.trial}>{PRICING.trial}</p>
-
-            <div className={styles.divider} />
-            <p className={styles.includes}>{PRICING.includes}</p>
-            <ul className={styles.items}>
-                {PRICING.items.map((item) => {
-                    const on = !item.proOnly || isPro;
-                    const iconClass = !on ? styles.iconOff : item.proOnly ? styles.iconStrong : styles.iconSoft;
-                    return (
-                        <li key={item.title} className={cx(styles.item, !on && styles.itemOff)}>
-                            <span className={cx(styles.icon, iconClass)}>{on ? <Check /> : <Cross />}</span>
-                            <span>
-                                <span className={styles.itemTitle}>{item.title}</span>
-                                <span className={styles.itemDesc}>{item.desc}</span>
-                            </span>
-                        </li>
-                    );
-                })}
-            </ul>
-            {isPro && <p className={styles.extra}>{PRICING.proExtra}</p>}
-        </div>
-    );
-}
-
-/**
- * 7 · Prezzi. Mobile: un piano alla volta, scelto dal selettore (Pro di
- * default). Desktop: i due piani affiancati, il Pro incorniciato come
- * consigliato. Importi da `content/landing.ts`, formattati con planPricing.
- */
+/** 8 · Quanto costa: mensile/annuale; su mobile una scheda sola con Base/Pro. */
 export default function Pricing() {
-    const [interval, setBillingInterval] = useState<BillingInterval>("month");
+    const [annual, setAnnual] = useState(false);
     const [plan, setPlan] = useState<PlanKey>("pro");
 
     return (
-        <Section tone="white" id="prezzi">
-            <div className={styles.header}>
-                <SectionHeader title={PRICING.title} lede={PRICING.lede} maxWidth={740} />
-            </div>
+        <Section id="prezzi" tone="lilla" labelledBy="landing-pricing-title">
+            <Reveal className={styles.head}>
+                <HandNote size="lg" className={styles.handNote}>{PRICING.note}</HandNote>
+                <SplitHeading id="landing-pricing-title" title={PRICING.title} size="section" className={styles.title} />
+                <p className={styles.anchor}>
+                    <span className={styles.anchorDesktop}>{PRICING.plans.base.anchor}</span>
+                    <span className={styles.anchorMobile}>{PRICING.plans[plan].anchor}</span>
+                </p>
+                <Segmented
+                    variant="interval"
+                    label={PRICING.intervalsLabel}
+                    value={annual ? "year" : "month"}
+                    onChange={(v) => setAnnual(v === "year")}
+                    options={[
+                        { value: "month", label: PRICING.intervals.month },
+                        { value: "year", label: PRICING.intervals.year }
+                    ]}
+                />
+                <Segmented
+                    variant="plan"
+                    label={PRICING.plansLabel}
+                    value={plan}
+                    onChange={setPlan}
+                    options={[
+                        { value: "base", label: PRICING.plans.base.name },
+                        { value: "pro", label: PRICING.plans.pro.name }
+                    ]}
+                />
+            </Reveal>
 
-            <Segmented
-                label={PRICING.intervalsLabel}
-                options={INTERVALS.map((i) => ({ value: i, label: PRICING.intervals[i] }))}
-                value={interval}
-                onChange={setBillingInterval}
-                className={styles.intervals}
-            />
-            {interval === "year" && <p className={styles.yearlyNote}>{PRICING.yearlyNote}</p>}
-            <Segmented
-                label={PRICING.plansLabel}
-                options={PLANS.map((k) => ({ value: k, label: PRICING.plans[k].name }))}
-                value={plan}
-                onChange={setPlan}
-                className={styles.plans}
-            />
-
-            <div className={styles.grid}>
-                <div className={cx(styles.col, styles.colBase, plan !== "base" && styles.hiddenMobile)}>
-                    <PlanCard plan="base" interval={interval} />
-                </div>
-                <div className={cx(styles.col, styles.colPro, plan !== "pro" && styles.hiddenMobile)}>
-                    <p className={styles.recommended}>{PRICING.recommended}</p>
-                    <PlanCard plan="pro" interval={interval} />
-                </div>
-            </div>
+            <Reveal className={styles.cards} variant="cards">
+                <PlanCard plan="base" annual={annual} printer={false} className={styles.desktopCard} />
+                <PlanCard plan="pro" annual={annual} printer className={styles.desktopCard} />
+                {/* Su mobile la stampante resta sotto la lista anche nel Base, come in tavola. */}
+                <PlanCard plan={plan} annual={annual} printer className={styles.mobileCard} />
+            </Reveal>
 
             <p className={styles.footnote}>{PRICING.footnote}</p>
         </Section>

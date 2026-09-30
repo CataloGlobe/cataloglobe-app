@@ -17,17 +17,29 @@
 --   - invariati: viewer non cambia lo stato (0 righe, RLS), staff non
 --     cancella (0 righe), owner cancella
 --
+-- Helper nello schema reviews_guard_test, creato in testa e droppato in
+-- coda: non pg_temp, che nello SQL Editor di Studio non sopravviveva fra uno
+-- statement e l'altro (3F000).
+--
 -- Pattern: setup via postgres role (bypass RLS), poi anon o authenticated.
--- Ogni test in BEGIN … ROLLBACK. Prima delle migration falliscono 1, 2, 4, 5
--- e 6. La recensione di test è inserita dentro ogni transazione: nessuna riga
--- reale viene toccata.
+-- Una transazione sola per tutto il file, ogni test fra SAVEPOINT t<N> e
+-- ROLLBACK TO SAVEPOINT t<N>: schema e helper restano vivi per tutto il giro.
+-- Prima delle migration falliscono 1, 2, 4, 5 e 6. La recensione di test è
+-- inserita dentro ogni savepoint: nessuna riga reale viene toccata.
+--
+-- Transazione: il file apre la sua (BEGIN) e chiude con ROLLBACK, così non
+-- resta niente nemmeno se un test scrivesse fuori dal suo savepoint. Lo SQL
+-- Editor di Studio esegue già tutto in una transazione: lì il BEGIN è solo
+-- un WARNING («there is already a transaction in progress») e il ROLLBACK
+-- finale chiude la sua. Un FAIL annulla l'intera transazione, schema
+-- compreso: non c'è niente da pulire a mano.
 --
 -- Prerequisiti:
 --   - seed_permissions_test_data.sql già eseguito
 --   - almeno una recensione approvata di McDonald's (16 al 30/09/2026)
 --
--- Esecuzione: Studio SQL Editor di staging (ruolo postgres). Attesi 10
--- `NOTICE … OK`; un `Test N FAIL` interrompe il file.
+-- Esecuzione: Studio SQL Editor di staging (ruolo postgres), il file intero.
+-- Attesi 10 `NOTICE … OK`; un `Test N FAIL` interrompe il file.
 --
 -- UUID di riferimento:
 --   tenant McDonald's        5b37c952-1add-4196-aab3-9775d98a9c32
@@ -40,9 +52,14 @@
 -- =============================================================================
 
 -- -----------------------------------------------------------------------------
--- Helper di sessione (pg_temp: spariscono a fine sessione)
+-- Helper (schema di test: droppato in coda)
 -- -----------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION pg_temp.as_user(p_user uuid)
+BEGIN;
+
+DROP SCHEMA IF EXISTS reviews_guard_test CASCADE;
+CREATE SCHEMA reviews_guard_test;
+
+CREATE OR REPLACE FUNCTION reviews_guard_test.as_user(p_user uuid)
 RETURNS void
 LANGUAGE plpgsql
 AS $$
@@ -53,7 +70,7 @@ BEGIN
 END;
 $$;
 
-CREATE OR REPLACE FUNCTION pg_temp.as_anon()
+CREATE OR REPLACE FUNCTION reviews_guard_test.as_anon()
 RETURNS void
 LANGUAGE plpgsql
 AS $$
@@ -65,7 +82,7 @@ END;
 $$;
 
 -- Recensione in attesa su Comasina, commento noto. Da chiamare come postgres.
-CREATE OR REPLACE FUNCTION pg_temp.seed_review()
+CREATE OR REPLACE FUNCTION reviews_guard_test.seed_review()
 RETURNS void
 LANGUAGE sql
 AS $$
@@ -79,17 +96,23 @@ AS $$
   );
 $$;
 
-CREATE OR REPLACE FUNCTION pg_temp.review()
+CREATE OR REPLACE FUNCTION reviews_guard_test.review()
 RETURNS public.reviews
 LANGUAGE sql
 AS $$
   SELECT * FROM public.reviews WHERE id = '00000000-0000-0000-0000-00000000ae01';
 $$;
 
+-- Il test 10 inserisce come service_role: gli servono schema e funzione.
+-- Nessun altro ruolo tocca lo schema (un CREATE SCHEMA non dà USAGE a PUBLIC).
+REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA reviews_guard_test FROM PUBLIC;
+GRANT USAGE ON SCHEMA reviews_guard_test TO service_role;
+GRANT EXECUTE ON FUNCTION reviews_guard_test.seed_review() TO service_role;
+
 -- -----------------------------------------------------------------------------
 -- TEST 1 — anon non legge le recensioni approvate
 -- -----------------------------------------------------------------------------
-BEGIN;
+SAVEPOINT t1;
 DO $$
 DECLARE
   v_count integer;
@@ -102,7 +125,7 @@ BEGIN
     RAISE EXCEPTION 'Test 1 FAIL: prerequisito — nessuna recensione approvata di McDonald''s';
   END IF;
 
-  PERFORM pg_temp.as_anon();
+  PERFORM reviews_guard_test.as_anon();
   SELECT count(*) INTO v_count FROM public.reviews;
   SET LOCAL role postgres;
   IF v_count <> 0 THEN
@@ -110,22 +133,22 @@ BEGIN
   END IF;
   RAISE NOTICE 'Test 1 OK: anon non legge recensioni, nemmeno le approvate';
 END$$;
-ROLLBACK;
+ROLLBACK TO SAVEPOINT t1;
 
 -- -----------------------------------------------------------------------------
 -- TEST 2 — anon non legge request_ip di una recensione appena approvata
 -- -----------------------------------------------------------------------------
-BEGIN;
+SAVEPOINT t2;
 DO $$
 DECLARE
   v_ip text;
 BEGIN
   SET LOCAL role postgres;
-  PERFORM pg_temp.seed_review();
+  PERFORM reviews_guard_test.seed_review();
   UPDATE public.reviews SET status = 'approved'
   WHERE id = '00000000-0000-0000-0000-00000000ae01';
 
-  PERFORM pg_temp.as_anon();
+  PERFORM reviews_guard_test.as_anon();
   SELECT request_ip INTO v_ip FROM public.reviews
   WHERE id = '00000000-0000-0000-0000-00000000ae01';
   SET LOCAL role postgres;
@@ -134,20 +157,20 @@ BEGIN
   END IF;
   RAISE NOTICE 'Test 2 OK: request_ip della recensione pubblicata non leggibile da anon';
 END$$;
-ROLLBACK;
+ROLLBACK TO SAVEPOINT t2;
 
 -- -----------------------------------------------------------------------------
 -- TEST 3 — authenticated con reviews.read legge ancora tutti gli stati
 -- -----------------------------------------------------------------------------
-BEGIN;
+SAVEPOINT t3;
 DO $$
 DECLARE
   v_count integer;
 BEGIN
   SET LOCAL role postgres;
-  PERFORM pg_temp.seed_review();
+  PERFORM reviews_guard_test.seed_review();
 
-  PERFORM pg_temp.as_user('d01359aa-d980-4030-bc5c-c5e84dfe3d0c');
+  PERFORM reviews_guard_test.as_user('d01359aa-d980-4030-bc5c-c5e84dfe3d0c');
   SELECT count(*) INTO v_count FROM public.reviews
   WHERE id = '00000000-0000-0000-0000-00000000ae01';
   SET LOCAL role postgres;
@@ -156,12 +179,12 @@ BEGIN
   END IF;
   RAISE NOTICE 'Test 3 OK: viewer legge la recensione in attesa come prima';
 END$$;
-ROLLBACK;
+ROLLBACK TO SAVEPOINT t3;
 
 -- -----------------------------------------------------------------------------
 -- TEST 4 — Nessun membro inserisce recensioni: staff, manager, owner → 42501
 -- -----------------------------------------------------------------------------
-BEGIN;
+SAVEPOINT t4;
 DO $$
 DECLARE
   v_user record;
@@ -173,7 +196,7 @@ BEGIN
       ('owner',   '9603ef2a-9f9d-4ebc-8d05-3b2600e36e49'::uuid)
     ) AS t(label, id)
   LOOP
-    PERFORM pg_temp.as_user(v_user.id);
+    PERFORM reviews_guard_test.as_user(v_user.id);
     BEGIN
       INSERT INTO public.reviews (tenant_id, activity_id, rating, rating_category, comment, status)
       VALUES ('5b37c952-1add-4196-aab3-9775d98a9c32', '347aae51-8df1-4a15-b7f6-40862bf94005',
@@ -186,18 +209,18 @@ BEGIN
   END LOOP;
   RAISE NOTICE 'Test 4 OK: staff, manager e owner non inseriscono recensioni (42501)';
 END$$;
-ROLLBACK;
+ROLLBACK TO SAVEPOINT t4;
 
 -- -----------------------------------------------------------------------------
 -- TEST 5 — Chi modera non riscrive voto né commento: staff, manager, owner → 42501
 -- -----------------------------------------------------------------------------
-BEGIN;
+SAVEPOINT t5;
 DO $$
 DECLARE
   v_user record;
 BEGIN
   SET LOCAL role postgres;
-  PERFORM pg_temp.seed_review();
+  PERFORM reviews_guard_test.seed_review();
 
   FOR v_user IN
     SELECT * FROM (VALUES
@@ -206,7 +229,7 @@ BEGIN
       ('owner',   '9603ef2a-9f9d-4ebc-8d05-3b2600e36e49'::uuid)
     ) AS t(label, id)
   LOOP
-    PERFORM pg_temp.as_user(v_user.id);
+    PERFORM reviews_guard_test.as_user(v_user.id);
     BEGIN
       UPDATE public.reviews SET comment = 'Riscritta'
       WHERE id = '00000000-0000-0000-0000-00000000ae01';
@@ -224,24 +247,24 @@ BEGIN
     SET LOCAL role postgres;
   END LOOP;
 
-  IF (pg_temp.review()).comment IS DISTINCT FROM 'Scritta dal cliente'
-     OR (pg_temp.review()).rating <> 2 THEN
+  IF (reviews_guard_test.review()).comment IS DISTINCT FROM 'Scritta dal cliente'
+     OR (reviews_guard_test.review()).rating <> 2 THEN
     RAISE EXCEPTION 'Test 5 FAIL: la recensione è cambiata';
   END IF;
   RAISE NOTICE 'Test 5 OK: voto e commento intoccabili per staff, manager e owner (42501)';
 END$$;
-ROLLBACK;
+ROLLBACK TO SAVEPOINT t5;
 
 -- -----------------------------------------------------------------------------
 -- TEST 6 — Stato insieme a un'altra colonna: rifiutato anche lo stato
 -- -----------------------------------------------------------------------------
-BEGIN;
+SAVEPOINT t6;
 DO $$
 BEGIN
   SET LOCAL role postgres;
-  PERFORM pg_temp.seed_review();
+  PERFORM reviews_guard_test.seed_review();
 
-  PERFORM pg_temp.as_user('9c6580e5-80bc-4fe8-9141-0d299be38f2f');
+  PERFORM reviews_guard_test.as_user('9c6580e5-80bc-4fe8-9141-0d299be38f2f');
   BEGIN
     UPDATE public.reviews SET status = 'approved', comment = 'Riscritta'
     WHERE id = '00000000-0000-0000-0000-00000000ae01';
@@ -250,25 +273,25 @@ BEGIN
     NULL;
   END;
   SET LOCAL role postgres;
-  IF (pg_temp.review()).status <> 'pending' THEN
-    RAISE EXCEPTION 'Test 6 FAIL: stato cambiato (%)', (pg_temp.review()).status;
+  IF (reviews_guard_test.review()).status <> 'pending' THEN
+    RAISE EXCEPTION 'Test 6 FAIL: stato cambiato (%)', (reviews_guard_test.review()).status;
   END IF;
   RAISE NOTICE 'Test 6 OK: UPDATE misto rifiutato per intero (42501)';
 END$$;
-ROLLBACK;
+ROLLBACK TO SAVEPOINT t6;
 
 -- -----------------------------------------------------------------------------
 -- TEST 7 — Staff pubblica, poi nasconde (solo status)
 -- -----------------------------------------------------------------------------
-BEGIN;
+SAVEPOINT t7;
 DO $$
 DECLARE
   v_count integer;
 BEGIN
   SET LOCAL role postgres;
-  PERFORM pg_temp.seed_review();
+  PERFORM reviews_guard_test.seed_review();
 
-  PERFORM pg_temp.as_user('9c6580e5-80bc-4fe8-9141-0d299be38f2f');
+  PERFORM reviews_guard_test.as_user('9c6580e5-80bc-4fe8-9141-0d299be38f2f');
   UPDATE public.reviews SET status = 'approved'
   WHERE id = '00000000-0000-0000-0000-00000000ae01'
     AND tenant_id = '5b37c952-1add-4196-aab3-9775d98a9c32';
@@ -280,48 +303,48 @@ BEGIN
   WHERE id = '00000000-0000-0000-0000-00000000ae01'
     AND tenant_id = '5b37c952-1add-4196-aab3-9775d98a9c32';
   SET LOCAL role postgres;
-  IF (pg_temp.review()).status <> 'hidden' THEN
-    RAISE EXCEPTION 'Test 7 FAIL: stato finale %', (pg_temp.review()).status;
+  IF (reviews_guard_test.review()).status <> 'hidden' THEN
+    RAISE EXCEPTION 'Test 7 FAIL: stato finale %', (reviews_guard_test.review()).status;
   END IF;
   RAISE NOTICE 'Test 7 OK: staff pubblica e nasconde';
 END$$;
-ROLLBACK;
+ROLLBACK TO SAVEPOINT t7;
 
 -- -----------------------------------------------------------------------------
 -- TEST 8 — Viewer non cambia lo stato (0 righe, RLS: niente reviews.moderate)
 -- -----------------------------------------------------------------------------
-BEGIN;
+SAVEPOINT t8;
 DO $$
 DECLARE
   v_count integer;
 BEGIN
   SET LOCAL role postgres;
-  PERFORM pg_temp.seed_review();
+  PERFORM reviews_guard_test.seed_review();
 
-  PERFORM pg_temp.as_user('d01359aa-d980-4030-bc5c-c5e84dfe3d0c');
+  PERFORM reviews_guard_test.as_user('d01359aa-d980-4030-bc5c-c5e84dfe3d0c');
   UPDATE public.reviews SET status = 'approved'
   WHERE id = '00000000-0000-0000-0000-00000000ae01';
   GET DIAGNOSTICS v_count = ROW_COUNT;
   SET LOCAL role postgres;
-  IF v_count <> 0 OR (pg_temp.review()).status <> 'pending' THEN
+  IF v_count <> 0 OR (reviews_guard_test.review()).status <> 'pending' THEN
     RAISE EXCEPTION 'Test 8 FAIL: il viewer ha cambiato lo stato';
   END IF;
   RAISE NOTICE 'Test 8 OK: viewer non modera (0 righe)';
 END$$;
-ROLLBACK;
+ROLLBACK TO SAVEPOINT t8;
 
 -- -----------------------------------------------------------------------------
 -- TEST 9 — Eliminazione invariata: staff 0 righe, owner 1
 -- -----------------------------------------------------------------------------
-BEGIN;
+SAVEPOINT t9;
 DO $$
 DECLARE
   v_count integer;
 BEGIN
   SET LOCAL role postgres;
-  PERFORM pg_temp.seed_review();
+  PERFORM reviews_guard_test.seed_review();
 
-  PERFORM pg_temp.as_user('9c6580e5-80bc-4fe8-9141-0d299be38f2f');
+  PERFORM reviews_guard_test.as_user('9c6580e5-80bc-4fe8-9141-0d299be38f2f');
   DELETE FROM public.reviews WHERE id = '00000000-0000-0000-0000-00000000ae01';
   GET DIAGNOSTICS v_count = ROW_COUNT;
   IF v_count <> 0 THEN
@@ -329,7 +352,7 @@ BEGIN
   END IF;
 
   SET LOCAL role postgres;
-  PERFORM pg_temp.as_user('9603ef2a-9f9d-4ebc-8d05-3b2600e36e49');
+  PERFORM reviews_guard_test.as_user('9603ef2a-9f9d-4ebc-8d05-3b2600e36e49');
   DELETE FROM public.reviews WHERE id = '00000000-0000-0000-0000-00000000ae01';
   GET DIAGNOSTICS v_count = ROW_COUNT;
   SET LOCAL role postgres;
@@ -338,20 +361,26 @@ BEGIN
   END IF;
   RAISE NOTICE 'Test 9 OK: staff non cancella, owner sì';
 END$$;
-ROLLBACK;
+ROLLBACK TO SAVEPOINT t9;
 
 -- -----------------------------------------------------------------------------
 -- TEST 10 — Il service role (Edge submit-review) inserisce come prima
 -- -----------------------------------------------------------------------------
-BEGIN;
+SAVEPOINT t10;
 DO $$
 BEGIN
   SET LOCAL role service_role;
-  PERFORM pg_temp.seed_review();
+  PERFORM reviews_guard_test.seed_review();
   SET LOCAL role postgres;
-  IF (pg_temp.review()).id IS NULL THEN
+  IF (reviews_guard_test.review()).id IS NULL THEN
     RAISE EXCEPTION 'Test 10 FAIL: il service role non ha inserito';
   END IF;
   RAISE NOTICE 'Test 10 OK: service role inserisce come prima';
 END$$;
+ROLLBACK TO SAVEPOINT t10;
+
+-- -----------------------------------------------------------------------------
+-- Pulizia
+-- -----------------------------------------------------------------------------
+DROP SCHEMA IF EXISTS reviews_guard_test CASCADE;
 ROLLBACK;

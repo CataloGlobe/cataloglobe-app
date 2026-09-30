@@ -1,0 +1,113 @@
+@use "@pages/CampaignLanding/styles/mixins" as *;
+
+.grid {
+    @include desktop {
+        display: grid;
+        grid-template-columns: 5fr 7fr;
+        gap: ld-fluid-desk(48, 80);
+        align-items: center;
+    }
+}
+
+.handNote {
+    margin-bottom: 10px;
+
+    @include desktop {
+        margin-bottom: 12px;
+    }
+}
+
+.ctaDesktop {
+    display: none;
+
+    @include desktop {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+        margin-top: 36px;
+    }
+}
+
+.ctaMobile {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    margin-top: 30px;
+
+    .ctaNote {
+        margin-top: 10px;
+        text-align: center;
+    }
+
+    @include desktop {
+        display: none;
+    }
+}
+
+.ctaNote {
+    margin: 0;
+    font-size: 14px;
+    color: var(--ld-muted);
+}
+
+.steps {
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+    margin-top: 32px;
+
+    @include desktop {
+        gap: 40px;
+        margin-top: 0;
+    }
+}
+
+.step {
+    @include desktop {
+        display: grid;
+        grid-template-columns: 150px 1fr;
+        gap: 24px;
+        align-items: baseline;
+    }
+}
+
+.when {
+    font-family: var(--ld-font-hand);
+    font-size: 24px;
+    line-height: 1;
+    color: var(--ld-hand);
+
+    @include desktop {
+        font-size: 28px;
+        text-align: right;
+    }
+}
+
+.stepTitle {
+    @include ld-serif;
+    margin: 4px 0 0;
+    font-size: 20px;
+    line-height: 1.2;
+    color: var(--ld-ink);
+
+    @include desktop {
+        margin-top: 0;
+        font-size: 23px;
+    }
+}
+
+.free {
+    color: var(--ld-azione);
+}
+
+.stepBody {
+    margin: 6px 0 0;
+    font-size: 15px;
+    line-height: 1.55;
+    color: var(--ld-body);
+
+    @include desktop {
+        font-size: 16px;
+    }
+}

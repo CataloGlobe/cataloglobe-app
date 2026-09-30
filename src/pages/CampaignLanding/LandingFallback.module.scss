@@ -3,30 +3,32 @@
 
 @include ld-page-backdrop(".fallback");
 
-// Stessa cornice di Frame, senza font né contenuto: è nel bundle principale,
-// quindi porta solo i token (niente @font-face).
+// Pagina bianca con il solo pannello dell'hero, senza font né contenuto: è nel
+// bundle principale, quindi porta solo i token (niente @font-face).
 .fallback {
     @include ld-tokens;
 
-    min-height: 100vh;
-    min-height: 100dvh;
+    min-height: 100svh;
     box-sizing: border-box;
     padding: 10px;
-    background: var(--ld-fuori);
+    background: var(--ld-white);
 
     @include desktop {
         padding: 16px;
     }
 }
 
+// Stesso CSS del pannello vero (.panel in Hero.module.scss): stesse
+// min-height, raggio e sfondo, così l'hero non cambia misura all'arrivo del
+// chunk. Se il contenuto è più alto dello schermo il pannello vero cresce,
+// ma solo sotto il bordo inferiore.
 .page {
-    max-width: var(--ld-page-max);
-    min-height: calc(100dvh - 20px);
-    margin-inline: auto;
-    border-radius: var(--ld-r-frame);
-    background: var(--ld-paper);
+    min-height: calc(100svh - 20px);
+    border-radius: 24px;
+    background: linear-gradient(160deg, var(--ld-hero-a) 0%, var(--ld-hero-b) 55%, var(--ld-scuro) 100%);
 
     @include desktop {
-        min-height: calc(100dvh - 32px);
+        min-height: min(calc(100svh - 32px), 1000px);
+        border-radius: 30px;
     }
 }

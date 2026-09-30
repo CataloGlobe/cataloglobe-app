@@ -1,0 +1,26 @@
+{
+    "il-molo-34": {
+        "bg": "#F7FAFE",
+        "surface": "#FFFFFF",
+        "primary": "#1A6B8A",
+        "accent": "#E2725B",
+        "text": "#1a1a1a",
+        "border": "#e1e4e7"
+    },
+    "la-pausa": {
+        "bg": "#FAF8F5",
+        "surface": "#FFFFFF",
+        "primary": "#C4713B",
+        "accent": "#059669",
+        "text": "#1a1a1a",
+        "border": "#e4e2df"
+    },
+    "velvet-garden": {
+        "bg": "#F7F4F0",
+        "surface": "#FFFFFF",
+        "primary": "#931A23",
+        "accent": "#D4AF37",
+        "text": "#1a1a1a",
+        "border": "#e1dedb"
+    }
+}

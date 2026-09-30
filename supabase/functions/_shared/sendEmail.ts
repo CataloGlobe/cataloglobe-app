@@ -20,7 +20,8 @@ export async function sendEmail(opts: {
         return;
     }
     try {
-        await new Resend(key).emails.send({
+        // Resend v4 non lancia sugli errori API: li restituisce in `error`.
+        const { error } = await new Resend(key).emails.send({
             from: COMPANY.email.sender,
             reply_to: COMPANY.contact.support,
             to: opts.to,
@@ -28,7 +29,25 @@ export async function sendEmail(opts: {
             html: opts.html,
             text: opts.text
         });
+        if (error) console.error("[sendEmail] Resend error:", safeErrorFields(error));
     } catch (err) {
-        console.error("[sendEmail] Resend error:", err); // best-effort, NON rilancia
+        console.error("[sendEmail] Resend error:", safeErrorFields(err)); // best-effort, NON rilancia
     }
+}
+
+/**
+ * Solo name/message/statusCode: l'oggetto d'errore (o la request allegata)
+ * può riportare destinatario e corpo dell'email, cioè dati personali.
+ */
+export function safeErrorFields(err: unknown): { name: string | null; message: string | null; statusCode: number | null } {
+    const e = (typeof err === "object" && err !== null ? err : {}) as {
+        name?: unknown;
+        message?: unknown;
+        statusCode?: unknown;
+    };
+    return {
+        name: typeof e.name === "string" ? e.name : null,
+        message: typeof e.message === "string" ? e.message : typeof err === "string" ? err : null,
+        statusCode: typeof e.statusCode === "number" ? e.statusCode : null
+    };
 }

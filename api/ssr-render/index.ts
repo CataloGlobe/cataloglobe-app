@@ -56,6 +56,9 @@ import { VERTICAL_CONFIG, type VerticalType } from "../../src/constants/vertical
 //    AGGIUNGERE UN SEGMENTO RISERVATO QUI SENZA AGGIORNARE vercel.json
 //    significa esporre quella rotta al framing same-origin — la nuova rotta
 //    passerebbe il lookahead e riceverebbe SAMEORIGIN invece di DENY.
+//    Le rotte dell'app con un solo segmento hanno anche una rewrite diretta a
+//    /index.html in vercel.json, PRIMA della regola slug: senza, passavano da
+//    qui e ricevevano status 404 (il client poi disegnava comunque la pagina).
 const SLUG_RE = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
 const RESERVED_SEGMENTS = new Set([
     "login",
@@ -74,6 +77,7 @@ const RESERVED_SEGMENTS = new Set([
     "legal",
     "status",
     "admin",
+    "landing-dev",
     "t",
     "api",
     "assets",

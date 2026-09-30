@@ -1,94 +1,104 @@
 @use "@pages/CampaignLanding/styles/mixins" as *;
 
+// Spazi misurati sul contenuto visibile (glifi e logo, non i box): 32 sopra e
+// sotto il footer, 24 sopra e sotto la linea su mobile; 40 e 32 su desktop.
+// I padding qui sotto sono quei valori meno la mezza interlinea del testo che
+// tocca il bordo (colonne, riga legale): per questo non sono tondi.
 .footer {
-    padding: 36px var(--ld-sec-x) 28px;
-    border-top: 1px solid var(--ld-line);
+    padding: 30px 20px 29px;
+    border-top: 1px solid var(--ld-dark-line);
     background: var(--ld-scuro);
-    font-family: var(--ld-font-sans);
 
     @include desktop {
-        padding: 48px var(--ld-sec-x) 32px;
+        padding: 40px var(--ld-sec-x) 37px;
+    }
+}
+
+.inner {
+    max-width: 600px;
+    margin: 0 auto;
+
+    @include desktop {
+        max-width: var(--ld-content-max);
     }
 }
 
 .top {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 28px;
-
     @include desktop {
-        flex-direction: row;
-        gap: 48px;
+        display: flex;
+        justify-content: space-between;
+        gap: 40px;
     }
 }
 
 .brand {
     @include desktop {
-        flex-shrink: 0;
-        width: 280px;
+        flex-grow: 1;
     }
 }
 
-.logo {
-    height: 22px;
+// Wordmark all'altezza del testo della tavola (22 px di Young Serif), in una
+// riga alta quanto la sua interlinea.
+.brand .logo {
+    box-sizing: content-box;
+    height: 21px;
+    padding: 2px 0 3px;
+
+    @include desktop {
+        padding: 5px 0;
+    }
 }
 
 .tagline {
-    margin-top: 8px;
+    margin: 8px 0 0;
     font-size: 14px;
-    line-height: 1.5;
-    color: var(--ld-muted);
+    color: var(--ld-dark-muted);
 }
 
 .columns {
     display: flex;
     flex-wrap: wrap;
-    gap: 24px 32px;
+    gap: 20px 32px;
+    margin-top: 24px;
 
     @include desktop {
-        gap: 48px;
+        flex-wrap: nowrap;
+        gap: 64px;
+        margin-top: 0;
     }
 }
 
-.column {
-    min-width: 128px;
-}
-
 .columnTitle {
+    margin: 0;
     font-size: 12px;
     font-weight: 600;
-    letter-spacing: 0.06em;
-    color: var(--ld-muted);
+    color: var(--ld-dark-muted);
 }
 
 .link {
     display: block;
     margin-top: 10px;
     font-size: 14px;
-    color: var(--ld-dark-link);
     text-decoration: none;
 
+    &,
     &:hover {
-        color: var(--ld-ink);
+        color: var(--ld-dark-link);
     }
 
-    &:focus-visible {
-        outline: 2px solid var(--ld-brand-hi);
-        outline-offset: 2px;
-        border-radius: 2px;
-    }
+    @include ld-focus;
 }
 
 .legal {
-    margin-top: 28px;
-    padding-top: 18px;
-    border-top: 1px solid var(--ld-line);
-    font-size: 12.5px;
+    margin: 24px 0 0;
+    padding-top: 22px;
+    border-top: 1px solid var(--ld-dark-line);
+    font-size: 12px;
     line-height: 1.6;
-    color: var(--ld-muted);
+    color: var(--ld-dark-legal);
 
     @include desktop {
-        margin-top: 36px;
+        margin-top: 32px;
+        padding-top: 30px;
     }
 }
