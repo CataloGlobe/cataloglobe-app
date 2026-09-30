@@ -37,15 +37,15 @@ import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 import { useRuleAppearance } from "@/hooks/useRuleAppearance";
 import { appearanceOf } from "@/utils/ruleAppearance";
 import { FeaturedPlacementCard } from "./components/FeaturedPlacementCard";
-import { usePermissions } from "@/context/PermissionsContext";
+import { usePermissions } from "@/context/usePermissions";
 import { canDoOnAnyActivity, canDoOnTenant } from "@/lib/permissions";
 import { PageGate } from "@/components/PageGate/PageGate";
 import { useUnsavedChangesGuard } from "@/components/ui/UnsavedChangesBar/useUnsavedChangesGuard";
 import {
     HeaderSaveAction,
     DiscardChangesConfirmDialog
-} from "@/pages/Dashboard/Stories/components/HeaderSaveAction";
-import { buildSaveActionCompactConfig } from "@/pages/Dashboard/Stories/components/headerSaveActionCompact";
+} from "@/components/ui/HeaderSaveAction/HeaderSaveAction";
+import { buildSaveActionCompactConfig } from "@/components/ui/HeaderSaveAction/headerSaveActionCompact";
 import {
     CONTENT_TYPE_LABEL,
     CONTENT_TYPE_ORDER,

@@ -27,7 +27,7 @@ import type { ActivityDraftField } from "../useActivityDraft";
 import { updateActivity, updateActivityOrderingEnabled } from "@/services/supabase/activities";
 import { listTenantMembers } from "@/services/supabase/team";
 import type { TenantMemberRow } from "@/types/team";
-import { usePermissions } from "@/context/PermissionsContext";
+import { usePermissions } from "@/context/usePermissions";
 import { canDoOnTenant } from "@/lib/permissions";
 import { usePlanFeatures } from "@/lib/planFeatures";
 import { useToast } from "@/context/Toast/ToastContext";

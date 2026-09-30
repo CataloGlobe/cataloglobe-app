@@ -23,6 +23,8 @@ export type { RuleInsight };
 
 export interface RuleTableProps {
     rules: LayoutRule[];
+    /** Nome della tabella per i lettori di schermo: il gruppo per stato. */
+    ariaLabel: string;
     insights: Map<string, RuleInsight>;
     /** Il tipo in riga solo quando l'elenco li mostra tutti. */
     showTypeBadge: boolean;
@@ -71,7 +73,8 @@ export function RuleTable({
     selectedIds,
     onSelectedIdsChange,
     isLoading = false,
-    whereWidth = "180px"
+    whereWidth = "180px",
+    ariaLabel
 }: RuleTableProps) {
     const { catalogLabel } = useVerticalConfig();
     const isPhone = useMediaQuery("(max-width: 767px)");
@@ -247,6 +250,7 @@ export function RuleTable({
 
     return (
         <DataTable<LayoutRule>
+            ariaLabel={ariaLabel}
             data={rules}
             columns={columns}
             isLoading={isLoading}

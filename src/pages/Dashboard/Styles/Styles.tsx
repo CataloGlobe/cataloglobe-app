@@ -17,7 +17,7 @@ import styles from "./Styles.module.scss";
 
 import { useNavigate } from "react-router-dom";
 import { useEnsureActive } from "@/hooks/useEnsureActive";
-import { usePermissions } from "@/context/PermissionsContext";
+import { usePermissions } from "@/context/usePermissions";
 import { canDoOnTenant } from "@/lib/permissions";
 import { PageGate } from "@/components/PageGate/PageGate";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";

@@ -19,7 +19,7 @@ import Text from "@/components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useTenantId } from "@/context/useTenantId";
 import { useSedeScope, SCOPE_ALL } from "@/hooks/useSedeScope";
-import { usePermissions } from "@/context/PermissionsContext";
+import { usePermissions } from "@/context/usePermissions";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 import { canDoOnActivity, canDoOnAnyActivity } from "@/lib/permissions";
 import { listActivityIdsByGroup } from "@/services/supabase/activity-groups";
@@ -716,8 +716,8 @@ export default function Programming() {
     ), [viewMode, searchTerm, headerSplitActions, isCreating]);
 
     const headerActions = useMemo(() => renderHeaderActions(0), [renderHeaderActions]);
-    const headerCondensed = useMemo(
-        () => ({ actions: [renderHeaderActions(1), renderHeaderActions(2)], stack: true }),
+    const headerNarrowerActions = useMemo(
+        () => [renderHeaderActions(1), renderHeaderActions(2)],
         [renderHeaderActions]
     );
 
@@ -763,7 +763,7 @@ export default function Programming() {
     usePageHeader({
         leading: headerLeading,
         actions: headerActions,
-        condensed: headerCondensed,
+        narrowerActions: headerNarrowerActions,
         compact: headerCompact,
     });
 
@@ -875,7 +875,7 @@ export default function Programming() {
                         Non riusciamo a caricare le regole.
                     </InlineBanner>
                 ) : isLoading ? (
-                    <RuleTable {...tableProps} rules={[]} isLoading />
+                    <RuleTable {...tableProps} ariaLabel="Le regole" rules={[]} isLoading />
                 ) : filteredRules.length === 0 ? (
                     (searchTerm || filterActivityId) ? (
                         <EmptyState
@@ -974,7 +974,7 @@ export default function Programming() {
                                             />
                                         )}
                                     </div>
-                                    {group.open && <RuleTable {...tableProps} rules={group.rules} />}
+                                    {group.open && <RuleTable {...tableProps} ariaLabel={group.title} rules={group.rules} />}
                                 </section>
                             ))}
                     </div>

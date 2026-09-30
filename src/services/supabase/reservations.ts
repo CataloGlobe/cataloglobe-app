@@ -969,7 +969,6 @@ export async function setReservationTables(
 export async function resetReservationTablesToSystem(
     reservationId: string,
     // Firma uniforme del service; tenant e sede vengono dalla riga lato server.
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     _tenantId: string
 ): Promise<ReservationTableAssignmentOutcome[]> {
     const { data, error } = await supabase.rpc("reset_reservation_tables_to_system", {
@@ -991,7 +990,6 @@ export async function reassignActivityTables(
     activityId: string,
     date: string,
     // Firma uniforme del service; il gate è sulla sede lato server.
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     _tenantId: string
 ): Promise<ReassignActivityTablesSummary> {
     const { data, error } = await supabase.rpc("reassign_activity_tables", {

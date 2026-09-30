@@ -214,7 +214,6 @@ export default function StatusIncidentsPage() {
 
     usePageHeader({
         title: "Incidenti",
-        subtitle: "Pubblica un incidente per comunicare disservizi ai clienti.",
         actions: headerActions,
         compact: headerCompact
     });

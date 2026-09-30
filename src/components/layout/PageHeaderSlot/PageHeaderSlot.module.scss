@@ -21,6 +21,25 @@
   }
 }
 
+/* ── Sottotitolo della pagina ─────────────────────────────── */
+
+// Sopra la banda, stesso fondo e stesso rientro: una testata sola. Senza tab
+// né azioni la riga chiude da sé, col bordo della banda.
+.subtitle {
+  background: var(--surface);
+  padding: var(--space-12) var(--space-24) 0;
+  flex-shrink: 0;
+
+  @media (max-width: 767px) {
+    padding: var(--space-12) var(--space-16) 0;
+  }
+}
+
+.subtitleAlone {
+  padding-bottom: var(--space-12);
+  border-bottom: 1px solid var(--border);
+}
+
 /* ── Riga raw (leading + actions dichiarati dalla pagina) ───── */
 
 .rawRow {
@@ -55,8 +74,8 @@
   }
 }
 
-// Due righe (`condensed.stack`): le azioni sopra, a destra; le tab sotto, a
-// filo del bordo inferiore come in riga singola.
+// Due righe: le azioni sopra, a destra; le tab sotto, a filo del bordo
+// inferiore come in riga singola.
 .stacked .rawRow {
   grid-template-columns: minmax(0, 1fr);
   grid-template-areas:
@@ -67,6 +86,12 @@
 
 .stacked .actions {
   padding-top: 12px;
+}
+
+// Sotto le azioni un controllo a scatola (le stelle di Recensioni) non ha una
+// linea da poggiare sul bordo come le tab: gli serve il suo respiro.
+.stacked .leading:not(:has([role="tablist"])) {
+  padding: var(--space-8) 0 var(--space-12);
 }
 
 // Copie delle versioni delle azioni, solo da misurare: fuori dal flusso,

@@ -25,7 +25,7 @@ import { useCheckoutReturnSync } from "@/hooks/useCheckoutReturnSync";
 import { AiMenuImportDrawer } from "@/pages/Dashboard/Catalogs/AiMenuImport/AiMenuImportDrawer";
 import { hasUnreadReply, listMyTickets } from "@/services/supabase/support";
 import { countPendingReviews } from "@/services/supabase/reviews";
-import { usePermissions } from "@/context/PermissionsContext";
+import { usePermissions } from "@/context/usePermissions";
 import { canDoOnAnyActivity, isTenantWide } from "@/lib/permissions";
 import type { BusinessOutletContext } from "./outletContext";
 

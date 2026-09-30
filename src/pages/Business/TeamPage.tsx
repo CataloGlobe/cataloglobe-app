@@ -4,7 +4,7 @@ import { useToast } from "@/context/Toast/ToastContext";
 import { usePageHeader } from "@/context/usePageHeader";
 import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { canDoOnTenant, canChangeRoleOf, canRemoveMember, isOwnerOrAdmin } from "@/lib/permissions";
-import { usePermissions } from "@/context/PermissionsContext";
+import { usePermissions } from "@/context/usePermissions";
 import { useAuth } from "@/context/useAuth";
 import Text from "@/components/ui/Text/Text";
 import { Badge } from "@/components/ui/Badge/Badge";
@@ -727,6 +727,7 @@ export default function TeamPage() {
                 ) : activeTab === "members" ? (
                     <div className={styles.tableBlock}>
                     <DataTable<TenantMemberRow>
+                        ariaLabel="Membri del team"
                         data={filteredActiveMembers}
                         columns={activeColumns}
                         isLoading={loading}
@@ -758,6 +759,7 @@ export default function TeamPage() {
                     </div>
                 ) : (
                     <DataTable<TenantMemberRow>
+                        ariaLabel="Inviti in attesa"
                         data={filteredPendingInvites}
                         columns={pendingColumns}
                         isLoading={loading}

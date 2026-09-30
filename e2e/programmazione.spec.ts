@@ -1137,4 +1137,25 @@ test.describe("Programmazione — banda e matrice", () => {
         await expect(matrix(page)).toBeHidden();
         await noHorizontalScroll(page);
     });
+
+    // La scelta fra tabella e blocchi segue lo spazio del contenuto, non la
+    // finestra (§50.7 apertura a): con la sidebar aperta a 1024, o a 768, sei
+    // colonne non stanno; a 1280 sì.
+    for (const width of [768, 1024]) {
+        test(`a ${width} lo spazio non basta a sei colonne: un blocco per sede`, async ({ page }) => {
+            await openList(page);
+            await page.setViewportSize({ width, height: 900 });
+            const blocks = main(page).getByRole("list", { name: "Cosa vede ogni sede" });
+            await expect(blocks.getByRole("listitem")).toHaveCount(3);
+            await expect(matrix(page)).toBeHidden();
+            await noHorizontalScroll(page);
+        });
+    }
+
+    test("a 1280 la matrice resta una tabella", async ({ page }) => {
+        await openList(page);
+        await page.setViewportSize({ width: 1280, height: 900 });
+        await expect(matrix(page)).toBeVisible();
+        await expect(main(page).getByRole("list", { name: "Cosa vede ogni sede" })).toBeHidden();
+    });
 });

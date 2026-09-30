@@ -22,7 +22,7 @@ import {
     type SupportedLanguage,
     type TenantLanguage
 } from "@/services/supabase/tenantLanguages";
-import { usePermissions } from "@/context/PermissionsContext";
+import { usePermissions } from "@/context/usePermissions";
 import { canDoOnAnyActivity, canDoOnTenant } from "@/lib/permissions";
 import { useEnsureActive } from "@/hooks/useEnsureActive";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";

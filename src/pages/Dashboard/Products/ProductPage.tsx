@@ -21,8 +21,8 @@ import { useAttributeValuesDraft } from "./hooks/useAttributeValuesDraft";
 import {
     HeaderSaveAction,
     DiscardChangesConfirmDialog
-} from "@/pages/Dashboard/Stories/components/HeaderSaveAction";
-import { buildSaveActionCompactConfig } from "@/pages/Dashboard/Stories/components/headerSaveActionCompact";
+} from "@/components/ui/HeaderSaveAction/HeaderSaveAction";
+import { buildSaveActionCompactConfig } from "@/components/ui/HeaderSaveAction/headerSaveActionCompact";
 import { useUnsavedChangesGuard } from "@/components/ui/UnsavedChangesBar/useUnsavedChangesGuard";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import Skeleton from "@/components/ui/Skeleton/Skeleton";
@@ -35,7 +35,7 @@ import { TranslationsTab } from "@/components/ui/TranslationsTab/TranslationsTab
 import { ProductCreateEditDrawer } from "./ProductCreateEditDrawer";
 import { PageGate } from "@/components/PageGate/PageGate";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
-import { usePermissions } from "@/context/PermissionsContext";
+import { usePermissions } from "@/context/usePermissions";
 import { canDoOnTenant } from "@/lib/permissions";
 import styles from "./ProductPage.module.scss";
 

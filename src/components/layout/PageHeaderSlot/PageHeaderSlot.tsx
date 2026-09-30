@@ -1,7 +1,9 @@
 import { createRef, useMemo, useRef, type RefObject } from "react";
 import { useLocation } from "react-router-dom";
+import Text from "@/components/ui/Text/Text";
 import { useReadPageHeader } from "@/context/useReadPageHeader";
 import { useCompactToolbar } from "@/hooks/useCompactToolbar";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { PageHeaderCompactBar } from "./PageHeaderCompactBar";
 import styles from "./PageHeaderSlot.module.scss";
 
@@ -13,19 +15,21 @@ interface PageHeaderSlotProps {
 }
 
 /**
- * Banda contestuale della pagina: rende `leading` (sinistra) + `actions` (destra).
- * Il titolo/sottotitolo passati via `usePageHeader` vengono ignorati (vivono nel
- * NavbarBreadcrumb post-refactor).
+ * Banda contestuale della pagina: rende `leading` (sinistra) + `actions` (destra),
+ * col `subtitle` della pagina in una riga muta sopra. Il titolo vive nel
+ * NavbarBreadcrumb; il sottotitolo resta qui, anche senza tab né azioni.
  *
  * Modalità scelte da `useCompactToolbar` misurando il contenuto reale contro
  * lo spazio disponibile — mai da un breakpoint in px:
  *
  * - **comoda**: riga singola, tab a sinistra e cluster azioni a destra; con
- *   `condensed.actions` la pagina offre versioni più strette delle azioni, e
+ *   `narrowerActions` la pagina offre versioni più strette delle azioni, e
  *   la banda usa la prima che ci sta;
- * - **due righe** (solo con `condensed.stack`): azioni sopra, tab sotto;
+ * - **due righe**: azioni sopra, tab sotto, per ogni pagina con tab, finché
+ *   tab e azioni stanno ciascuna nella sua riga. Solo da 768 in su: sul
+ *   telefono la barra compatta resta la testata (unica soglia in px, voluta);
  * - **compatta**: `PageHeaderCompactBar`, una UI diversa costruita per
- *   progressive disclosure.
+ *   progressive disclosure: l'ultimo gradino.
  *
  * Una pagina che non dichiara `compact` resta sempre in comoda: oggi non ne
  * esiste nessuna (tutte migrate), ma se ne nascesse una si comprimerebbe invece
@@ -48,7 +52,7 @@ export function PageHeaderSlot(props: PageHeaderSlotProps) {
     // Con versioni più strette le azioni si misurano su copie nascoste, una
     // per versione: quella a vista cambia con la scelta, la misura no.
     const steps = useMemo(
-        () => (config?.condensed?.actions?.length ? [config.actions, ...config.condensed.actions] : null),
+        () => (config?.narrowerActions?.length ? [config.actions, ...config.narrowerActions] : null),
         [config]
     );
     const stepRefs = useMemo(
@@ -56,54 +60,66 @@ export function PageHeaderSlot(props: PageHeaderSlotProps) {
         [steps]
     );
 
-    const layout = useCompactToolbar(rowRef, leadingRef, stepRefs, Boolean(config?.condensed?.stack), config);
+    const allowStack = useMediaQuery("(min-width: 768px)");
+    const layout = useCompactToolbar(rowRef, leadingRef, stepRefs, allowStack, config);
 
-    if (!config?.leading && !config?.actions) return null;
+    const subtitle = config?.subtitle ? (
+        <div className={`${styles.subtitle} ${config.leading || config.actions ? "" : styles.subtitleAlone}`}>
+            <Text as="p" variant="body-sm" colorVariant="muted">
+                {config.subtitle}
+            </Text>
+        </div>
+    ) : null;
+
+    if (!config?.leading && !config?.actions) return subtitle;
 
     const showCompactBar = layout.mode === "compact" && Boolean(config.compact);
     const stacked = layout.mode === "stacked";
     const actions = steps ? steps[layout.step] : config.actions;
 
     return (
-        <div className={`${styles.slot} ${showCompactBar ? styles.compactMode : ""} ${stacked ? styles.stacked : ""}`}>
-            {steps && (
-                <div className={styles.measure} inert aria-hidden>
-                    {steps.map((step, index) => (
-                        <div key={index} ref={stepRefs[index]} className={styles.actions}>
-                            {step}
-                        </div>
-                    ))}
-                </div>
-            )}
-            <div
-                ref={rowRef}
-                className={styles.rawRow}
-                inert={showCompactBar || undefined}
-                aria-hidden={showCompactBar || undefined}
-            >
-                {config.leading && (
-                    <div ref={leadingRef} className={styles.leading}>
-                        {config.leading}
+        <>
+            {subtitle}
+            <div className={`${styles.slot} ${showCompactBar ? styles.compactMode : ""} ${stacked ? styles.stacked : ""}`}>
+                {steps && (
+                    <div className={styles.measure} inert aria-hidden>
+                        {steps.map((step, index) => (
+                            <div key={index} ref={stepRefs[index]} className={styles.actions}>
+                                {step}
+                            </div>
+                        ))}
                     </div>
                 )}
-                {actions && (
-                    <div ref={actionsRef} className={styles.actions}>
-                        {actions}
-                    </div>
+                <div
+                    ref={rowRef}
+                    className={styles.rawRow}
+                    inert={showCompactBar || undefined}
+                    aria-hidden={showCompactBar || undefined}
+                >
+                    {config.leading && (
+                        <div ref={leadingRef} className={styles.leading}>
+                            {config.leading}
+                        </div>
+                    )}
+                    {actions && (
+                        <div ref={actionsRef} className={styles.actions}>
+                            {actions}
+                        </div>
+                    )}
+                </div>
+
+                {/* `key={pathname}`: la banda vive nel layout e non si smonta cambiando
+                    pagina, quindi lo stato transiente della barra compatta —
+                    l'overlay di ricerca aperto, un menu a tendina aperto (lo stato è
+                    interno a Radix, non nostro) — sopravviverebbe alla navigazione e
+                    si ritroverebbe sulla pagina nuova. La chiave rimonta la sola
+                    barra compatta: la riga raw, che è ciò che si misura, resta
+                    intatta. Non dipende dalla query string di proposito — cambiare
+                    sezione (`?tab=`) non deve chiudere la ricerca in corso. */}
+                {showCompactBar && config.compact && (
+                    <PageHeaderCompactBar key={pathname} config={config.compact} />
                 )}
             </div>
-
-            {/* `key={pathname}`: la banda vive nel layout e non si smonta cambiando
-                pagina, quindi lo stato transiente della barra compatta —
-                l'overlay di ricerca aperto, un menu a tendina aperto (lo stato è
-                interno a Radix, non nostro) — sopravviverebbe alla navigazione e
-                si ritroverebbe sulla pagina nuova. La chiave rimonta la sola
-                barra compatta: la riga raw, che è ciò che si misura, resta
-                intatta. Non dipende dalla query string di proposito — cambiare
-                sezione (`?tab=`) non deve chiudere la ricerca in corso. */}
-            {showCompactBar && config.compact && (
-                <PageHeaderCompactBar key={pathname} config={config.compact} />
-            )}
-        </div>
+        </>
     );
 }

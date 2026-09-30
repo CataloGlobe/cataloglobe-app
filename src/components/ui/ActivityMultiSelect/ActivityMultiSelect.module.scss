@@ -62,7 +62,7 @@
 .checkbox {
     width: 16px;
     height: 16px;
-    accent-color: var(--color-primary, #3b82f6);
+    accent-color: var(--brand-primary);
     cursor: pointer;
 
     &:disabled {

@@ -11,10 +11,8 @@ import StaleDataBanner from "@/components/StaleDataBanner/StaleDataBanner";
 import LanguageFallbackBanner from "@/components/PublicCollectionView/LanguageFallbackBanner/LanguageFallbackBanner";
 import PublicThemeScope from "@/features/public/components/PublicThemeScope";
 import { LanguageProvider } from "@context/Language/LanguageProvider";
-import {
-    CustomerSessionProvider,
-    useCustomerSession
-} from "@/context/CustomerSession/CustomerSessionContext";
+import { CustomerSessionProvider } from "@/context/CustomerSession/CustomerSessionContext";
+import { useCustomerSession } from "@/context/CustomerSession/useCustomerSession";
 import { parseTokens } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
 import { DEFAULT_COLLECTION_STYLE } from "@/types/collectionStyle";
 import type { HubTab } from "@/types/collectionStyle";

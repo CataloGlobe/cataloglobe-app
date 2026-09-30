@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronLeft, ChevronRight, ScrollText, Utensils, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, ScrollText, Utensils } from "lucide-react";
 import { IconLink } from "@tabler/icons-react";
 import Text from "@/components/ui/Text/Text";
 import AllergenIcon from "@/components/ui/AllergenIcon/AllergenIcon";

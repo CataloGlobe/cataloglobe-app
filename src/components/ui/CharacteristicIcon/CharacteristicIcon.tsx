@@ -145,7 +145,6 @@ function warnCustomMissing(name: string, fallbackName: string): void {
     if (typeof import.meta === "undefined" || !import.meta.env?.DEV) return;
     if (warnedCustomMisses.has(name)) return;
     warnedCustomMisses.add(name);
-    // eslint-disable-next-line no-console
     console.warn(
         `[CharacteristicIcon] custom icon "${name}" not yet provided as SVG, ` +
             `falling back to Lucide ${fallbackName}.`

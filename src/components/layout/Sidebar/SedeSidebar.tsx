@@ -3,7 +3,7 @@ import { ArrowLeft, CalendarCheck, ClipboardList, Eye, LayoutGrid, Store } from 
 import Text from "@/components/ui/Text/Text";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
-import { usePermissions } from "@/context/PermissionsContext";
+import { usePermissions } from "@/context/usePermissions";
 import { canDoOnActivity } from "@/lib/permissions";
 import { usePlanFeatures } from "@/lib/planFeatures";
 import { useActivitiesCount, useActivitySummary } from "@/hooks/useActivitySummary";

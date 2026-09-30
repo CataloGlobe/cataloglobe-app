@@ -4,11 +4,6 @@ import { isDeepStrictEqual } from "node:util";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-type ResolvedCollections = {
-    primary: string | null;
-    overlay: string | null;
-};
-
 type EffectiveItem = {
     id: string;
     effective_price: number | null;

@@ -1,20 +1,9 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useTenant } from "@/context/useTenant";
 import { useToast } from "@/context/Toast/ToastContext";
 import { fetchMyPermissions } from "@/services/supabase/permissions";
 import type { UserPermissions } from "@/lib/permissions";
-
-interface PermissionsContextValue {
-    permissions: UserPermissions | null;
-    loading: boolean;
-    refresh: () => Promise<void>;
-}
-
-const PermissionsContext = createContext<PermissionsContextValue>({
-    permissions: null,
-    loading: true,
-    refresh: async () => {}
-});
+import { PermissionsContext } from "@/context/permissionsContextBase";
 
 /**
  * Provider del set permessi del caller per il tenant attualmente selezionato.
@@ -76,21 +65,4 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
             {children}
         </PermissionsContext.Provider>
     );
-}
-
-/**
- * Hook per accedere ai permessi correnti.
- *
- * Ritorna:
- *  - `permissions: UserPermissions | null` — null se caricamento OR errore
- *  - `loading: boolean` — true durante il fetch
- *  - `refresh()` — Promise da chiamare dopo mutazioni del ruolo
- *
- * Pattern d'uso:
- *   const { permissions, loading } = usePermissions();
- *   if (loading || !permissions) return <Spinner />;
- *   if (!canDoOnTenant(permissions, "team.invite")) return null;
- */
-export function usePermissions(): PermissionsContextValue {
-    return useContext(PermissionsContext);
 }

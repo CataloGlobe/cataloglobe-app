@@ -5,7 +5,7 @@ import { useToast } from "@/context/Toast/ToastContext";
 import Text from "@/components/ui/Text/Text";
 import { usePageHeader } from "@/context/usePageHeader";
 import { canDoOnTenant } from "@/lib/permissions";
-import { usePermissions } from "@/context/PermissionsContext";
+import { usePermissions } from "@/context/usePermissions";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { Button } from "@/components/ui/Button/Button";

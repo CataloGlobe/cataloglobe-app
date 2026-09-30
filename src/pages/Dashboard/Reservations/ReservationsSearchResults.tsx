@@ -132,6 +132,7 @@ export default function ReservationsSearchResults({
             )}
             {truncated && <InlineBanner variant="warning">{SEARCH_TRUNCATED_TEXT}</InlineBanner>}
             <DataTable<V2Reservation>
+                ariaLabel="Prenotazioni trovate"
                 data={items}
                 columns={columns}
                 isLoading={isSearching && items.length === 0}

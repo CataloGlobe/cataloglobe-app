@@ -11,7 +11,7 @@ export type V2ProductAttributeDefinition = {
     code: string;
     label: string;
     type: AttributeType;
-    options: any | null; // Used for select/multi_select
+    options: unknown; // Used for select/multi_select
     is_required: boolean;
     show_in_public_channels: boolean;
     vertical: string | null;
@@ -34,7 +34,7 @@ export type AttributeValuePayload = {
     value_text?: string | null;
     value_number?: number | null;
     value_boolean?: boolean | null;
-    value_json?: any | null;
+    value_json?: unknown;
 };
 
 /**
@@ -68,7 +68,7 @@ export async function createAttributeDefinition(
         code: string;
         label: string;
         type: AttributeType;
-        options?: any;
+        options?: unknown;
         is_required?: boolean;
         show_in_public_channels?: boolean;
         vertical?: string;
@@ -124,7 +124,7 @@ export async function updateAttributeDefinition(
     data: {
         label?: string;
         is_required?: boolean;
-        options?: any;
+        options?: unknown;
         show_in_public_channels?: boolean;
     }
 ): Promise<V2ProductAttributeDefinition> {
