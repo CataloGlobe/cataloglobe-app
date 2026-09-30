@@ -1,4 +1,6 @@
 :root {
+  // Controlli nativi (caselle, data, barre di scorrimento) nel tema chiaro.
+  color-scheme: light;
   --bg: #f8fafc;
   --text: #0f172a;
   --card-bg: #ffffff;
@@ -139,9 +141,10 @@
   --surface: var(--card-bg);
   --on-brand: #ffffff;
   // Testo e icona su un fondo --brand-primary-soft (voce attiva della
-  // sidebar, Badge brand, tab attiva): in chiaro è --brand-primary, in scuro
-  // sale a indigo-300 perché --brand-primary misura 3,7:1 sul soft.
-  --on-brand-soft: var(--brand-primary);
+  // sidebar, Badge brand, tab attiva). In chiaro indigo-600: --brand-primary
+  // (#6366f1) faceva 3,95:1 sul soft, #4f46e5 fa 5,56:1. In scuro sale a
+  // indigo-300 perché --brand-primary misura 3,7:1 sul soft.
+  --on-brand-soft: #4f46e5;
   --gray-300: var(--color-gray-300);
   --gray-400: var(--color-gray-400);
   --gray-500: var(--color-gray-500);
@@ -233,6 +236,10 @@
 }
 
 [data-theme="dark"] {
+  // Caselle, selettori di data e barre di scorrimento native in scuro:
+  // senza, le caselle restavano bianche su --surface.
+  color-scheme: dark;
+
   // In scuro il violetto sale di un gradino, come l'accento (#818cf8).
   --rule-featured: #a78bfa; // violet-400
 
@@ -285,8 +292,10 @@
   --color-green-900: #14532d;
 
   // FASE 2 gap-closing: --text-muted più chiaro su sfondo scuro (#6b7280
-  // del root scende sotto 3:1 su --bg dark).
-  --text-muted: #94a3b8;
+  // del root scende sotto 3:1 su --bg dark). #a3b0c2 e non slate-400
+  // (#94a3b8): sulle bande --hover-bg (intestazione di DataTable) quello
+  // faceva 4,04:1, questo 4,71:1.
+  --text-muted: #a3b0c2;
   --text-success: #34d399; // 9:1 su --bg dark
   --text-danger: #f87171; // red-400
   --text-warning: #fbbf24; // amber-400
