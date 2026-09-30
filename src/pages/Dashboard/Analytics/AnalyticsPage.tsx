@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { BarChart3, Download } from "lucide-react";
 import { useTenantId } from "@/context/useTenantId";
-import { usePermissions } from "@/context/PermissionsContext";
+import { usePermissions } from "@/context/usePermissions";
 import { canDoOnActivity, canDoOnAnyActivity } from "@/lib/permissions";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { useSedeScope, SCOPE_ALL } from "@/hooks/useSedeScope";

@@ -21,7 +21,7 @@ import {
     Languages,
     Archive
 } from "lucide-react";
-import { usePermissions } from "@/context/PermissionsContext";
+import { usePermissions } from "@/context/usePermissions";
 import { canDoOnTenant, canDoOnAnyActivity } from "@/lib/permissions";
 import { usePlanFeatures } from "@/lib/planFeatures";
 import { businessRouteLabel } from "@/components/layout/AppHeader/navbarBreadcrumbRoutes";

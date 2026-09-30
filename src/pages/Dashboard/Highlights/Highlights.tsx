@@ -33,7 +33,7 @@ import styles from "./Highlights.module.scss";
 import { useNavigate } from "react-router-dom";
 import { useTenantId } from "@/context/useTenantId";
 import { useEnsureActive } from "@/hooks/useEnsureActive";
-import { usePermissions } from "@/context/PermissionsContext";
+import { usePermissions } from "@/context/usePermissions";
 import { canDoOnAnyActivity } from "@/lib/permissions";
 import { PageGate } from "@/components/PageGate/PageGate";
 

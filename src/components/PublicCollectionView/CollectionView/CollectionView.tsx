@@ -79,7 +79,7 @@ import PairingUpsellSheet, { type UpsellPairing } from "../PairingUpsellSheet/Pa
 import PublicOpeningHours from "../PublicOpeningHours/PublicOpeningHours";
 import { submitOrder } from "@/services/supabase/orders";
 import { subscribeToCustomerSession } from "@/services/supabase/customerSessions";
-import { useOptionalCustomerSession } from "@/context/CustomerSession/CustomerSessionContext";
+import { useOptionalCustomerSession } from "@/context/CustomerSession/useCustomerSession";
 import type { OrderItemRequest, SubmitOrderResult, OrderingStateReason } from "@/types/orders";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { AlertCircle } from "lucide-react";

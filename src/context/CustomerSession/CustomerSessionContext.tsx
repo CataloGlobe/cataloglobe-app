@@ -1,20 +1,11 @@
-import { createContext, useContext, useState, useCallback, useEffect, useMemo, type ReactNode } from "react";
+import { useState, useCallback, useEffect, useMemo, type ReactNode } from "react";
 import {
     loadCustomerSession,
     clearCustomerSession,
     updateCustomerSessionName,
     type CustomerSessionBlob,
 } from "@/services/customer/customerSessionStorage";
-
-interface CustomerSessionContextValue {
-    session: CustomerSessionBlob | null;
-    isActive: boolean;
-    clear: () => void;
-    refresh: () => void;
-    setCustomerName: (name: string | null) => void;
-}
-
-const CustomerSessionContext = createContext<CustomerSessionContextValue | null>(null);
+import { CustomerSessionContext, type CustomerSessionContextValue } from "./customerSessionContextBase";
 
 interface ProviderProps {
     activityId: string | null;
@@ -82,16 +73,4 @@ export function CustomerSessionProvider({ activityId, children }: ProviderProps)
             {children}
         </CustomerSessionContext.Provider>
     );
-}
-
-export function useCustomerSession(): CustomerSessionContextValue {
-    const ctx = useContext(CustomerSessionContext);
-    if (!ctx) {
-        throw new Error("useCustomerSession must be used within CustomerSessionProvider");
-    }
-    return ctx;
-}
-
-export function useOptionalCustomerSession(): CustomerSessionContextValue | null {
-    return useContext(CustomerSessionContext);
 }

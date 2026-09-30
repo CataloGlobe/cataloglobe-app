@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/TableRowActions/TableRowActions";
 
 import { useToast } from "@/context/Toast/ToastContext";
-import { usePermissions } from "@/context/PermissionsContext";
+import { usePermissions } from "@/context/usePermissions";
 import { canDoOnActivity } from "@/lib/permissions";
 import { closeTable } from "@/services/supabase/customerSessions";
 import { updateTable } from "@/services/supabase/tables";

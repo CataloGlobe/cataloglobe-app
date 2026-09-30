@@ -26,7 +26,7 @@ import {
   workspaceRoleIsOwner as isOwner,
   workspaceRoleIsAdmin as isAdmin,
 } from "@/utils/workspaceRole";
-import { usePermissions } from "@/context/PermissionsContext";
+import { usePermissions } from "@/context/usePermissions";
 import { canDoOnAnyActivity, canDoOnTenant } from "@/lib/permissions";
 import { countPendingReservationsByActivity } from "@/services/supabase/reservations";
 import { PageGate } from "@/components/PageGate/PageGate";

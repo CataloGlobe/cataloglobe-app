@@ -21,7 +21,7 @@ import {
 } from "@/services/supabase/upload";
 import { compressImage, COMPRESS_PROFILES } from "@/utils/compressImage";
 import { useTenantId } from "@/context/useTenantId";
-import { usePermissions } from "@/context/PermissionsContext";
+import { usePermissions } from "@/context/usePermissions";
 import { canDoOnAnyActivity } from "@/lib/permissions";
 import { PageGate } from "@/components/PageGate/PageGate";
 import { Card } from "@/components/ui/Card/Card";

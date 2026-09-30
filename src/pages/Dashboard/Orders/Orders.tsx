@@ -60,7 +60,7 @@ import { useActiveOrdersRealtime } from "./hooks/useActiveOrdersRealtime";
 import { useNewOrderAlert } from "./hooks/useNewOrderAlert";
 import { useNotificationChime } from "@/hooks/useNotificationChime";
 
-import { usePermissions } from "@/context/PermissionsContext";
+import { usePermissions } from "@/context/usePermissions";
 import { canDoOnActivity } from "@/lib/permissions";
 import { todayIsoDate, shiftIsoDate } from "@/utils/dateLocal";
 

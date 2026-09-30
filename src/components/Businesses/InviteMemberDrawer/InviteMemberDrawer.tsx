@@ -4,7 +4,7 @@ import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { Button } from "@/components/ui/Button/Button";
 import { Loader } from "@/components/ui/Loader/Loader";
 import Text from "@/components/ui/Text/Text";
-import { usePermissions } from "@/context/PermissionsContext";
+import { usePermissions } from "@/context/usePermissions";
 import { InviteMemberForm } from "./InviteMemberForm";
 import styles from "./InviteMemberDrawer.module.scss";
 

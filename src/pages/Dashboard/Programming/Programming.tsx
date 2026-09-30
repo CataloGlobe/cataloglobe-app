@@ -19,7 +19,7 @@ import Text from "@/components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useTenantId } from "@/context/useTenantId";
 import { useSedeScope, SCOPE_ALL } from "@/hooks/useSedeScope";
-import { usePermissions } from "@/context/PermissionsContext";
+import { usePermissions } from "@/context/usePermissions";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 import { canDoOnActivity, canDoOnAnyActivity } from "@/lib/permissions";
 import { listActivityIdsByGroup } from "@/services/supabase/activity-groups";

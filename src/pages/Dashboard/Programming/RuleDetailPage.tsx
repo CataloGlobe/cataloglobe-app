@@ -4,7 +4,7 @@ import { CalendarClock, Copy, MoreHorizontal, Trash2 } from "lucide-react";
 import { useBreadcrumbItems } from "@/context/useBreadcrumbItems";
 import { usePageHeader } from "@/context/usePageHeader";
 import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
-import { usePermissions } from "@/context/PermissionsContext";
+import { usePermissions } from "@/context/usePermissions";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import { canDoOnAnyActivity } from "@/lib/permissions";

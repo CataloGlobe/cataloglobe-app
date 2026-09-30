@@ -15,7 +15,7 @@ import {
 import { useBreadcrumbItems } from "@/context/useBreadcrumbItems";
 import { usePageHeader } from "@/context/usePageHeader";
 import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
-import { usePermissions } from "@/context/PermissionsContext";
+import { usePermissions } from "@/context/usePermissions";
 import { useAuth } from "@/context/useAuth";
 import { useTenantId } from "@/context/useTenantId";
 import { useToast } from "@/context/Toast/ToastContext";

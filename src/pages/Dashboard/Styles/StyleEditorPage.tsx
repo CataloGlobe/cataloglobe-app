@@ -35,7 +35,7 @@ import {
 } from "./Editor/StyleTokenModel";
 import styles from "./Styles.module.scss";
 import { loadPublicFonts } from "@utils/loadPublicFonts";
-import { usePermissions } from "@/context/PermissionsContext";
+import { usePermissions } from "@/context/usePermissions";
 import { canDoOnTenant } from "@/lib/permissions";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 import { PageGate } from "@/components/PageGate/PageGate";

@@ -37,7 +37,7 @@ import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 import { useRuleAppearance } from "@/hooks/useRuleAppearance";
 import { appearanceOf } from "@/utils/ruleAppearance";
 import { FeaturedPlacementCard } from "./components/FeaturedPlacementCard";
-import { usePermissions } from "@/context/PermissionsContext";
+import { usePermissions } from "@/context/usePermissions";
 import { canDoOnAnyActivity, canDoOnTenant } from "@/lib/permissions";
 import { PageGate } from "@/components/PageGate/PageGate";
 import { useUnsavedChangesGuard } from "@/components/ui/UnsavedChangesBar/useUnsavedChangesGuard";

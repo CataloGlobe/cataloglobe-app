@@ -16,7 +16,7 @@ import {
     findReservationGuestByPhone,
     getReservationGuestNoteForActivity
 } from "@/services/supabase/reservationGuests";
-import { usePermissions } from "@/context/PermissionsContext";
+import { usePermissions } from "@/context/usePermissions";
 import { isTenantWide } from "@/lib/permissions";
 import type { ReservationGuestSummary, V2ReservationGuestNote } from "@/types/reservationGuest";
 import { formatAbsenceCount, formatVisitCount } from "@/utils/guestVisibilityCopy";

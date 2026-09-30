@@ -2,7 +2,7 @@ import React, { type HTMLAttributes, useCallback, useEffect, useMemo, useRef, us
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useBreadcrumbItems } from "@/context/useBreadcrumbItems";
 import { usePageHeader } from "@/context/usePageHeader";
-import { usePermissions } from "@/context/PermissionsContext";
+import { usePermissions } from "@/context/usePermissions";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { canDoOnTenant } from "@/lib/permissions";
 import { type BreadcrumbItem } from "@/components/ui/Breadcrumb/Breadcrumb";

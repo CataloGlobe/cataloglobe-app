@@ -18,7 +18,7 @@ import { getTenantFiscalProfile } from "@/services/supabase/tenants";
 import { V2Activity } from "@/types/activity";
 import type { V2ActivityHours } from "@/types/activity-hours";
 import { useToast } from "@/context/Toast/ToastContext";
-import { usePermissions } from "@/context/PermissionsContext";
+import { usePermissions } from "@/context/usePermissions";
 import { canDoOnActivity, canDoOnTenant } from "@/lib/permissions";
 import { formatInactiveReason } from "@/utils/activityStatus";
 import {

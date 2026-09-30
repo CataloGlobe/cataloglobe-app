@@ -22,7 +22,7 @@
 
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useTenantId } from "@/context/useTenantId";
-import { usePermissions } from "@/context/PermissionsContext";
+import { usePermissions } from "@/context/usePermissions";
 import { isOwnerOrAdmin } from "@/lib/permissions";
 import type { V2Activity } from "@/types/activity";
 import {

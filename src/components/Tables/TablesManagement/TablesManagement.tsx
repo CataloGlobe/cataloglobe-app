@@ -22,7 +22,7 @@ import { Card } from "@/components/ui/Card/Card";
 import { updateActivity } from "@/services/supabase/activities";
 
 import { useToast } from "@/context/Toast/ToastContext";
-import { usePermissions } from "@/context/PermissionsContext";
+import { usePermissions } from "@/context/usePermissions";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 import { canDoOnActivity } from "@/lib/permissions";
 

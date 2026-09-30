@@ -4,7 +4,7 @@ import { useToast } from "@/context/Toast/ToastContext";
 import { listReviews, deleteReview, updateReviewStatus } from "@/services/supabase/reviews";
 import { useSedeScope, SCOPE_ALL } from "@/hooks/useSedeScope";
 import type { Review } from "@/types/database";
-import { usePermissions } from "@/context/PermissionsContext";
+import { usePermissions } from "@/context/usePermissions";
 import { canDoOnActivity, canDoOnAnyActivity } from "@/lib/permissions";
 import { PageGate } from "@/components/PageGate/PageGate";
 import { useBusinessOutletContext } from "@/layouts/MainLayout/outletContext";

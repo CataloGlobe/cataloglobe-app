@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Bell, Receipt } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { useCustomerSession } from "@/context/CustomerSession/CustomerSessionContext";
+import { useCustomerSession } from "@/context/CustomerSession/useCustomerSession";
 import { callWaiter, requestBill } from "@/services/supabase/customerSessions";
 import { getOrdersForSession } from "@/services/supabase/orders";
 import styles from "./AssistanceActions.module.scss";

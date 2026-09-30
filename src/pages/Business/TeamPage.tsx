@@ -4,7 +4,7 @@ import { useToast } from "@/context/Toast/ToastContext";
 import { usePageHeader } from "@/context/usePageHeader";
 import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { canDoOnTenant, canChangeRoleOf, canRemoveMember, isOwnerOrAdmin } from "@/lib/permissions";
-import { usePermissions } from "@/context/PermissionsContext";
+import { usePermissions } from "@/context/usePermissions";
 import { useAuth } from "@/context/useAuth";
 import Text from "@/components/ui/Text/Text";
 import { Badge } from "@/components/ui/Badge/Badge";

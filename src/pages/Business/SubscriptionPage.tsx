@@ -39,7 +39,7 @@ import { listPlanPrices } from "@/services/supabase/planPrices";
 import { calculateGraduatedFromPlan, nextSeatOffer } from "@/utils/pricing";
 import { DEFAULT_BILLING_INTERVAL, INTERVAL_ADJECTIVE, intervalUnit, priceCentsFor } from "@/utils/planPricing";
 import { canDoOnTenant } from "@/lib/permissions";
-import { usePermissions } from "@/context/PermissionsContext";
+import { usePermissions } from "@/context/usePermissions";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { StatusStrip, type StatusStripTone } from "@/components/ui/StatusStrip/StatusStrip";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";

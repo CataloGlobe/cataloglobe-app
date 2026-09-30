@@ -35,7 +35,7 @@ import { TranslationsTab } from "@/components/ui/TranslationsTab/TranslationsTab
 import { ProductCreateEditDrawer } from "./ProductCreateEditDrawer";
 import { PageGate } from "@/components/PageGate/PageGate";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
-import { usePermissions } from "@/context/PermissionsContext";
+import { usePermissions } from "@/context/usePermissions";
 import { canDoOnTenant } from "@/lib/permissions";
 import styles from "./ProductPage.module.scss";
 
