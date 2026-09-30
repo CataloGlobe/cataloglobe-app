@@ -319,7 +319,7 @@ Usare sempre `_shared/stripe-helpers.ts`. Pattern: `scheduleStripeCancel()` soft
 
 Tutte in `supabase/functions/<nome>/index.ts`. Shared code in `_shared/`. `verify_jwt: false` su tutte.
 
-Deploy sempre con --project-ref esplicito. La CLI locale è collegata a **staging** (`lxeawrpjfphgdspueiag`); produzione è `qomnpzerhbtstbnwxnqc`. Vedi `### CLI Supabase` in Plugin & MCP.
+Deploy sempre con --project-ref esplicito. La CLI locale è collegata a **staging** (`lxeawrpjfphgdspueiag`); produzione è `qomnpzerhbtstbnwxnqc`. Il deploy su prod lo fa solo Lorenzo (vedi `### CLI Supabase` in Plugin & MCP).
 
 **`scheduleResolver.ts` esiste in DUE posti**: `src/services/supabase/` e `supabase/functions/_shared/`. Sincronizzarli ENTRAMBI ad ogni modifica.
 
@@ -513,7 +513,7 @@ Nessuna query al DB di produzione da una sessione Claude, nemmeno in lettura. Pe
 
 ### CLI Supabase
 
-Progetti: **staging** `lxeawrpjfphgdspueiag`, **produzione** `qomnpzerhbtstbnwxnqc`. Cartella principale e worktree sono collegati a staging (`supabase/.temp/project-ref`); una sessione che la trova collegata a produzione si ferma e lo dice. `supabase db push`, `supabase link` e `supabase functions deploy` su produzione li lancia solo Lorenzo.
+Progetti: **staging** `lxeawrpjfphgdspueiag`, **produzione** `qomnpzerhbtstbnwxnqc`. Cartella principale e worktree sono collegati a staging (`supabase/.temp/project-ref`); una sessione che la trova collegata a produzione si ferma e lo dice. `supabase db push`, `supabase link` e `supabase functions deploy` su produzione li lancia solo Lorenzo, mai una sessione Claude. In `.claude/settings.json` questi comandi (più `migration repair`) sono in `permissions.ask`. Il 30/09 un `db push` partito dalla cartella principale ha applicato su staging migration non committate di un'altra sessione.
 
 **`supabase db push` (staging) solo dal worktree `cataloglobe-ds`** (`../cataloglobe-ds`, branch `refactor/design-system`, allineato a staging). Mai dalla cartella principale: è condivisa da più sessioni e contiene migration non committate, che il push applicherebbe insieme alle tue.
 1. `git pull` nel worktree, la migration committata è lì.
@@ -600,6 +600,6 @@ NON modificare automaticamente: `CLAUDE.md` (root + `docs/`), `MEMORY.md`, file 
 
 **Permessi**: usare `userRole` da `TenantContext` per gating (NULL per manager/staff/viewer) | usare API legacy (`Role` enum, `canManage`, `isOwner(string)`, `isAdmin`, `isMember` — eliminate Fase 5.C.C) | bypassare i gating frontend (`canChangeRoleOf`, `canRemoveMember`, `canInviteRole`) chiamando direttamente la RPC senza pre-check | montare `PermissionsProvider` fuori da `/business/:businessId/*` | usare `usePermissions()` in componenti workspace (`/workspace/*`, `/select-business`) — usa `workspaceRole` helpers | INSERT manuale `tenant_memberships.role='owner'` (constraint post-Fase 5.B.2 ammette solo NULL\|'admin')
 
-**Plugin & MCP**: invocare plugin disabilitati | DDL via Supabase MCP senza file migration creato prima | `supabase db push` fuori dal worktree `cataloglobe-ds` o senza `--dry-run` prima e `--include-all` | query (anche lettura) sul DB di produzione | test di `supabase/tests/` in produzione | `/clean_gone` senza conferma esplicita per branch | `caveman:compress` su CLAUDE.md/MEMORY.md senza conferma | `superpowers` brainstorm/write-plan quando il prompt è già strutturato | knowledge memorizzata su versioni libreria invece di `context7`
+**Plugin & MCP**: invocare plugin disabilitati | DDL via Supabase MCP senza file migration creato prima | `supabase db push` fuori dal worktree `cataloglobe-ds` o senza `--dry-run` prima e `--include-all` | `supabase db push`/`link`/`functions deploy` su prod da una sessione Claude | query (anche lettura) sul DB di produzione | test di `supabase/tests/` in produzione | `/clean_gone` senza conferma esplicita per branch | `caveman:compress` su CLAUDE.md/MEMORY.md senza conferma | `superpowers` brainstorm/write-plan quando il prompt è già strutturato | knowledge memorizzata su versioni libreria invece di `context7`
 
 **Test e2e**: `npx playwright test` diretto (solo `scripts/e2e.sh`) | suite e2e completa contro staging | `--repeat-each`, `--workers` > 1 o cicli `for` di run e2e
