@@ -178,14 +178,11 @@ export interface PageHeaderConfig {
     /** Slot destro: search, filtri secondari, CTA. */
     actions?: ReactNode;
     /**
-     * Cosa fare quando tab e azioni non stanno in riga, prima della barra
-     * compatta. `actions`: versioni via via più strette dello slot destro (es.
-     * vista a sole icone, poi ricerca minima); la banda usa la prima che sta
-     * in riga con `leading`. `stack`: se nessuna ci sta, due righe — azioni
-     * sopra, tab sotto — invece della barra compatta, finché ciascuna riga
-     * sta da sola.
+     * Versioni via via più strette di `actions` (es. vista a sole icone, poi
+     * ricerca minima): quando tab e azioni non stanno in riga, la banda prova
+     * queste prima delle due righe e della barra compatta.
      */
-    condensed?: { actions?: ReactNode[]; stack?: boolean };
+    narrowerActions?: ReactNode[];
     /** Versione a dati della stessa toolbar, usata quando lo spazio è poco. */
     compact?: PageHeaderCompactConfig;
 }

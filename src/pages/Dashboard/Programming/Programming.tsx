@@ -716,8 +716,8 @@ export default function Programming() {
     ), [viewMode, searchTerm, headerSplitActions, isCreating]);
 
     const headerActions = useMemo(() => renderHeaderActions(0), [renderHeaderActions]);
-    const headerCondensed = useMemo(
-        () => ({ actions: [renderHeaderActions(1), renderHeaderActions(2)], stack: true }),
+    const headerNarrowerActions = useMemo(
+        () => [renderHeaderActions(1), renderHeaderActions(2)],
         [renderHeaderActions]
     );
 
@@ -763,7 +763,7 @@ export default function Programming() {
     usePageHeader({
         leading: headerLeading,
         actions: headerActions,
-        condensed: headerCondensed,
+        narrowerActions: headerNarrowerActions,
         compact: headerCompact,
     });
 

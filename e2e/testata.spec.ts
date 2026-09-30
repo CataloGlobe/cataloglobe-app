@@ -62,14 +62,14 @@ test.describe("Testata — sottotitolo", () => {
 });
 
 test.describe("Testata — due righe prima della barra compatta", () => {
-    test.fail("Prodotti a 1024: tab sotto le azioni", async ({ page }) => {
+    test("Prodotti a 1024: tab sotto le azioni", async ({ page }) => {
         await stubProdotti(page);
         await openBusinessPage(page, "products", "Prodotti");
         await page.setViewportSize({ width: 1024, height: 900 });
         await stacked(page, page.getByRole("tab", { name: /^Gruppi/ }), page.getByPlaceholder(/^Cerca/).first());
     });
 
-    test.fail("Team a 1024: tab sotto le azioni", async ({ page }) => {
+    test("Team a 1024: tab sotto le azioni", async ({ page }) => {
         await openBusinessPage(page, "team", "Team");
         await page.setViewportSize({ width: 1024, height: 900 });
         await stacked(
@@ -80,7 +80,7 @@ test.describe("Testata — due righe prima della barra compatta", () => {
     });
 
     for (const width of [1024, 1280]) {
-        test.fail(`Recensioni a ${width}: stelle sotto le azioni`, async ({ page }) => {
+        test(`Recensioni a ${width}: stelle sotto le azioni`, async ({ page }) => {
             await stubRecensioni(page);
             await openBusinessPage(page, "reviews", "Recensioni");
             await page.setViewportSize({ width, height: 900 });

@@ -22,11 +22,12 @@ interface PageHeaderSlotProps {
  * lo spazio disponibile — mai da un breakpoint in px:
  *
  * - **comoda**: riga singola, tab a sinistra e cluster azioni a destra; con
- *   `condensed.actions` la pagina offre versioni più strette delle azioni, e
+ *   `narrowerActions` la pagina offre versioni più strette delle azioni, e
  *   la banda usa la prima che ci sta;
- * - **due righe** (solo con `condensed.stack`): azioni sopra, tab sotto;
+ * - **due righe**: azioni sopra, tab sotto, per ogni pagina con tab, finché
+ *   tab e azioni stanno ciascuna nella sua riga;
  * - **compatta**: `PageHeaderCompactBar`, una UI diversa costruita per
- *   progressive disclosure.
+ *   progressive disclosure: l'ultimo gradino.
  *
  * Una pagina che non dichiara `compact` resta sempre in comoda: oggi non ne
  * esiste nessuna (tutte migrate), ma se ne nascesse una si comprimerebbe invece
@@ -49,7 +50,7 @@ export function PageHeaderSlot(props: PageHeaderSlotProps) {
     // Con versioni più strette le azioni si misurano su copie nascoste, una
     // per versione: quella a vista cambia con la scelta, la misura no.
     const steps = useMemo(
-        () => (config?.condensed?.actions?.length ? [config.actions, ...config.condensed.actions] : null),
+        () => (config?.narrowerActions?.length ? [config.actions, ...config.narrowerActions] : null),
         [config]
     );
     const stepRefs = useMemo(
@@ -57,7 +58,7 @@ export function PageHeaderSlot(props: PageHeaderSlotProps) {
         [steps]
     );
 
-    const layout = useCompactToolbar(rowRef, leadingRef, stepRefs, Boolean(config?.condensed?.stack), config);
+    const layout = useCompactToolbar(rowRef, leadingRef, stepRefs, config);
 
     const subtitle = config?.subtitle ? (
         <div className={`${styles.subtitle} ${config.leading || config.actions ? "" : styles.subtitleAlone}`}>

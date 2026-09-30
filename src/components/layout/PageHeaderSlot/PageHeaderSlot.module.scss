@@ -74,8 +74,8 @@
   }
 }
 
-// Due righe (`condensed.stack`): le azioni sopra, a destra; le tab sotto, a
-// filo del bordo inferiore come in riga singola.
+// Due righe: le azioni sopra, a destra; le tab sotto, a filo del bordo
+// inferiore come in riga singola.
 .stacked .rawRow {
   grid-template-columns: minmax(0, 1fr);
   grid-template-areas:
