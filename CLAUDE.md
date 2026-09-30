@@ -425,13 +425,11 @@ Customer stepper (`OrderStatusStepper.tsx`): 4 step (Inviato → In cucina → P
 
 Tech-debt e refactor differiti. Non bloccanti per il task corrente; da valutare durante refactor mirati o cicli di consolidamento.
 
- **`leave_tenant` RPC rewrite** — vecchia firma `(p_tenant_id)`, no manager scope, no allineamento a `remove_tenant_member` v2. Low priority.
+- **`leave_tenant` RPC rewrite** — vecchia firma `(p_tenant_id)`, no manager scope, no allineamento a `remove_tenant_member` v2. Low priority.
 - **Realtime sync su `tenant_memberships`** — cambio ruolo runtime richiede refresh manuale (`usePermissions().refresh()`). Eventuale switch a Supabase Realtime channel per propagation automatica.
 - **Sidebar loading-optimistic** — oggi `permissions===null` mostra tutte le voci (transitorio). Visivo flash su utenti scoped. Alternativa: skeleton durante load.
 - **Permission `translations.read` dedicato** — mancante. Sidebar voce "Lingue" usa `catalogs.read` proxy. Creare permission dedicato se gating più fine.
-- **Bulk cancel pending invites senza ConfirmDialog** — asimmetria vs bulk remove members (che ora ha confirm intermedio). Aggiungere ConfirmDialog per coerenza UX.
 - **Storico admin — ripristino ordini annullati (caso A)** — Step 5b ha consegnato lo Storico (delivered + cancelled del giorno operativo) con azione "Ripristina" SOLO sui delivered (`restore-order`). Gli ordini `cancelled` restano terminali per design (no UI restore). Caso A futuro: recupero annullati richiederebbe una nuova edge function `restore-cancelled-order` (transition `cancelled → submitted` o `cancelled → acknowledged` con reset di `cancelled_at`/`cancelled_by`/`cancellation_reason` via `clear_fields`), source policy da concordare (es. solo entro N minuti dalla cancellazione).
-- **Coda di moderazione Recensioni** (§34.9/1) — lotto a sé subito dopo il checkpoint 11: Pubblica · Tieni nascosta, `StatusBadge` in riga, badge in sidebar (`NavItem.count`), riepilogo sulle pubblicate, Elimina solo sulle nascoste, `updateReviewStatus(id, tenantId, status)` che lancia a 0 righe.
 - **RLS delete `translations` e scritture `translation_jobs` aperte a ogni membro**: serve RPC di accodamento con permesso dell'entità sorgente + `enqueueWithSilentError` da rivedere (PR a parte, dopo la moderazione).
 
 ---
