@@ -60,13 +60,24 @@ Deno.serve(async (req: Request) => {
         const phone = lead.crm_contacts?.phone_e164;
         if (!phone) return text(422, "Questo lead non ha un telefono.");
 
-        const { error: logError } = await supabase.rpc("crm_log_whatsapp_opened", {
-            p_venue_id: lead.venue_id,
-            p_lead_id: lead.id,
-            p_actor_user_id: params.u
-        });
-        // Il contatto non registrato non deve impedire di scrivere.
-        if (logError) console.error("crm-wa: log", logError.code, logError.message);
+        // Lo stesso link riaperto (o inoltrato) entro 10 minuti non registra un
+        // secondo contatto: il link vale 30 giorni e si può riusare.
+        const { count: recent } = await supabase
+            .from("crm_events")
+            .select("id", { count: "exact", head: true })
+            .eq("lead_id", lead.id)
+            .eq("actor_user_id", params.u)
+            .eq("type", "whatsapp_opened")
+            .gt("created_at", new Date(Date.now() - 10 * 60_000).toISOString());
+        if (!recent) {
+            const { error: logError } = await supabase.rpc("crm_log_whatsapp_opened", {
+                p_venue_id: lead.venue_id,
+                p_lead_id: lead.id,
+                p_actor_user_id: params.u
+            });
+            // Il contatto non registrato non deve impedire di scrivere.
+            if (logError) console.error("crm-wa: log", logError.code, logError.message);
+        }
 
         const template = settings?.whatsapp_template ?? null;
         const message = template

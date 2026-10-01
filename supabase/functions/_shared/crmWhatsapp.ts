@@ -22,9 +22,11 @@ export function fillWhatsappTemplate(
     values: { contactName: string | null; venueName: string }
 ): string {
     const firstName = (values.contactName ?? "").trim().split(/\s+/)[0] ?? "";
+    const venueName = values.venueName.trim();
+    // Sostituzione con funzione: un «$&» nel nome (dal form pubblico) resta testo.
     return template
-        .replace(/\{nome\}/g, firstName)
-        .replace(/\{locale\}/g, values.venueName.trim())
+        .replace(/\{nome\}/g, () => firstName)
+        .replace(/\{locale\}/g, () => venueName)
         .replace(/Ciao ,/g, "Ciao,");
 }
 
