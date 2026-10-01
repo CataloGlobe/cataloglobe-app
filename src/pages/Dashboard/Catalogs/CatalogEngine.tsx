@@ -2,7 +2,7 @@ import React, { type HTMLAttributes, useCallback, useEffect, useMemo, useRef, us
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useBreadcrumbItems } from "@/context/useBreadcrumbItems";
 import { usePageHeader } from "@/context/usePageHeader";
-import { usePermissions } from "@/context/PermissionsContext";
+import { usePermissions } from "@/context/usePermissions";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { canDoOnTenant } from "@/lib/permissions";
 import { type BreadcrumbItem } from "@/components/ui/Breadcrumb/Breadcrumb";
@@ -72,8 +72,8 @@ import { useUnsavedChangesGuard } from "@/components/ui/UnsavedChangesBar/useUns
 import {
     HeaderSaveAction,
     DiscardChangesConfirmDialog
-} from "@/pages/Dashboard/Stories/components/HeaderSaveAction";
-import { buildSaveActionCompactConfig } from "@/pages/Dashboard/Stories/components/headerSaveActionCompact";
+} from "@/components/ui/HeaderSaveAction/HeaderSaveAction";
+import { buildSaveActionCompactConfig } from "@/components/ui/HeaderSaveAction/headerSaveActionCompact";
 import { SplitButton } from "@/components/ui/Button/SplitButton";
 import { TranslationsTab } from "@/components/ui/TranslationsTab/TranslationsTab";
 import { ProductForm } from "@/pages/Dashboard/Products/components/ProductForm";
@@ -1746,6 +1746,7 @@ export default function CatalogEngine() {
                                     strategy={verticalListSortingStrategy}
                                 >
                                     <DataTable<ProductRow>
+                                        ariaLabel={selectedCategory.name}
                                         data={visibleRows}
                                         columns={columns}
                                         // Sul telefono niente selezione multipla: i 48 px della
@@ -1910,7 +1911,7 @@ export default function CatalogEngine() {
                         ))}
                     </Card>
                     <Card className={styles.categoryCard} bodyClassName={styles.categoryBody}>
-                        <DataTable<ProductRow> data={[]} columns={columns} isLoading />
+                        <DataTable<ProductRow> ariaLabel="Prodotti" data={[]} columns={columns} isLoading />
                     </Card>
                 </div>
             ) : (
@@ -2130,6 +2131,7 @@ export default function CatalogEngine() {
 
                             <div className={styles.assignTableWrap}>
                                 <DataTable<V2Product>
+                                    ariaLabel="Prodotti da aggiungere"
                                     data={assignableProducts}
                                     columns={assignColumns}
                                     selectable

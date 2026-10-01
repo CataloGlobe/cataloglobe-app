@@ -335,6 +335,17 @@ test.describe("Comande", () => {
         await page.keyboard.press("Escape");
     });
 
+    // Sotto 768 la testata è sempre la barra compatta: tab e azioni ci
+    // starebbero su due righe (199 + 305 px su 343), ma sul telefono le due
+    // righe non entrano (lotto 6).
+    test("a 375 la testata è la barra compatta, non due righe", async ({ page }) => {
+        await openComande(page);
+        await page.setViewportSize({ width: 375, height: 800 });
+        await expect(page.getByRole("tab", { name: /^Storico/ })).toBeHidden();
+        await page.setViewportSize({ width: 1280, height: 900 });
+        await expect(page.getByRole("tab", { name: /^Storico/ })).toBeVisible();
+    });
+
     test("sopra 1024 tre colonne affiancate, niente selettore di stato", async ({ page }) => {
         await openComande(page);
         await page.setViewportSize({ width: 1280, height: 900 });

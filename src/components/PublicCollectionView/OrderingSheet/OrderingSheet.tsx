@@ -11,7 +11,7 @@ import OrderNoteEditor from "./OrderNoteEditor";
 import type { NoteEditorHandle } from "./noteEditorHandle";
 import type { SubmitOrderOverrides } from "./submitOrderOverrides";
 import { getOrdersForSession, cancelOrderCustomer, subscribeToSessionOrders } from "@/services/supabase/orders";
-import { useCustomerSession } from "@/context/CustomerSession/CustomerSessionContext";
+import { useCustomerSession } from "@/context/CustomerSession/useCustomerSession";
 import type { SessionOrderSummary } from "@/types/orders";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import styles from "./OrderingSheet.module.scss";

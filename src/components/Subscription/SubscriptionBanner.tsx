@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 import { useTenant } from "@/context/useTenant";
-import { usePermissions } from "@/context/PermissionsContext";
+import { usePermissions } from "@/context/usePermissions";
 import { canDoOnTenant } from "@/lib/permissions";
 import { createPortalSession } from "@/services/supabase/billing";
 import { useToast } from "@/context/Toast/ToastContext";

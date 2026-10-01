@@ -579,6 +579,7 @@ export function AssociatedContentSection({
 
                     <div className={styles.visibilityDrawerTableWrap}>
                         <DataTable<ProductDisplayOption>
+                            ariaLabel="Prodotti da aggiungere"
                             data={filteredProducts}
                             columns={productDrawerColumns}
                             selectable
@@ -655,6 +656,7 @@ export function AssociatedContentSection({
                     </div>
                 ) : (
                     <DataTable<VisibilityProductRow>
+                        ariaLabel="Prodotti della regola"
                         data={visibilityTableRows}
                         columns={visibilityTableColumns}
                         maxHeight="none"
@@ -693,6 +695,7 @@ export function AssociatedContentSection({
                 </div>
             ) : (
                 <DataTable<PriceTableRow>
+                    ariaLabel="Prezzi della regola"
                     data={priceRows}
                     columns={priceColumns}
                     getRowId={row => row.key}

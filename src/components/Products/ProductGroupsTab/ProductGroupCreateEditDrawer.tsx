@@ -271,6 +271,7 @@ export function ProductGroupCreateEditDrawer({
                         />
 
                         <DataTable<ProductPickerItem>
+                            ariaLabel="Prodotti da aggiungere al gruppo"
                             data={filteredProducts}
                             allRowIds={allProducts.map(p => p.id)}
                             columns={pickerColumns}

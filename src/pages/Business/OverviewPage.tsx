@@ -19,7 +19,7 @@ import {
 import { useTenant } from "@/context/useTenant";
 import { useTenantId } from "@/context/useTenantId";
 import { usePageHeader } from "@/context/usePageHeader";
-import { usePermissions } from "@/context/PermissionsContext";
+import { usePermissions } from "@/context/usePermissions";
 import { useToast } from "@/context/Toast/ToastContext";
 import { canDoOnActivity, isOwnerOrAdmin } from "@/lib/permissions";
 import Text from "@/components/ui/Text/Text";

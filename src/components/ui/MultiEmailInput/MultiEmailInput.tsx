@@ -188,4 +188,3 @@ export function MultiEmailInput({
     );
 }
 
-export { isValidEmail as isValidEmailAddress };

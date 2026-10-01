@@ -17,10 +17,7 @@ import { useBusinessOutletContext } from "@/layouts/MainLayout/outletContext";
 import type { SchedaDraft } from "./hooks/useSchedaDraft";
 import { AiDescriptionField } from "./components/AiDescriptionField";
 import { type V2Product } from "@/services/supabase/products";
-import {
-    CATEGORY_ORDER,
-    CATEGORY_LABELS
-} from "./components/CharacteristicsSection/CharacteristicsSection";
+import { CATEGORY_ORDER, CATEGORY_LABELS } from "./components/CharacteristicsSection/characteristicCategories";
 import ProductNotesSection from "./components/ProductNotesSection/ProductNotesSection";
 import PairingsSection from "./components/PairingsSection/PairingsSection";
 import { ProductAllergensDrawer } from "./ProductAllergensDrawer";

@@ -260,7 +260,6 @@ export async function getSeatingState(
 export async function openSeatingForReservation(
     reservationId: string,
     // Firma uniforme del service; tenant e sede vengono dalla riga lato server.
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     _tenantId: string
 ): Promise<Seating> {
     const { data, error } = await supabase.rpc("open_seating_for_reservation", {
@@ -288,7 +287,6 @@ export async function openWalkinSeating(
     tableIds: string[],
     partySize: number | null,
     // Firma uniforme del service; il tenant viene dalla sede lato server.
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     _tenantId: string
 ): Promise<Seating> {
     const { data, error } = await supabase.rpc("open_walkin_seating", {
@@ -348,7 +346,6 @@ export async function setSeatingPartySize(
     seatingId: string,
     partySize: number,
     // Firma uniforme del service; tenant e sede vengono dalla riga lato server.
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     _tenantId: string
 ): Promise<Seating> {
     const { data, error } = await supabase.rpc("set_seating_party_size", {
@@ -414,7 +411,6 @@ export async function closeSeating(
 export async function undoSeating(
     seatingId: string,
     // Firma uniforme del service; tenant e sede vengono dalla riga lato server.
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     _tenantId: string
 ): Promise<void> {
     const { error } = await supabase.rpc("undo_seating", {

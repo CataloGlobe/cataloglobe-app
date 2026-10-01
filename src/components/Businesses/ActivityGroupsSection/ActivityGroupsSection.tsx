@@ -200,6 +200,7 @@ export const ActivityGroupsSection: React.FC<ActivityGroupsSectionProps> = ({
                 )
             ) : (
                 <DataTable
+                    ariaLabel="Gruppi di sedi"
                     data={filteredGroups}
                     isLoading={isLoading}
                     allRowIds={allGroupIds}

@@ -25,7 +25,8 @@ import type {
 } from "./menuPdfTypes";
 import { buildPdfTheme, type PdfTheme } from "./pdfTheme";
 import { resolvePdfFontFamily } from "./pdfFonts";
-import { PdfIcon, allergenIconGeometry } from "./pdfIcons";
+import { PdfIcon } from "./pdfIcons";
+import { allergenIconGeometry } from "./pdfIconGeometry";
 import {
   ALLERGEN_COVERAGE_THRESHOLD,
   ALL_ALLERGENS,
@@ -114,7 +115,7 @@ function PdfUtensilsPlaceholder({
  * ⚠️ Stessi glifi delle icone inline di
  * `src/components/PublicCollectionView/PublicFooter/PublicFooter.tsx:21-75`
  * (path-data replicata, non importata): quelle sono **stroke-only** e mescolano
- * `<circle>/<rect>/<line>`, mentre `pdfIcons.extractIconGeometry` sa estrarre
+ * `<circle>/<rect>/<line>`, mentre `pdfIconGeometry.extractIconGeometry` sa estrarre
  * solo `<path>` fill-based → tornerebbe null. Stesso trattamento del segnaposto
  * posate qui sopra. Se cambiano i glifi del footer pubblico, questi restano
  * indietro senza rompersi (icona diversa, mai crash).

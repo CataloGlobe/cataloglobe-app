@@ -26,7 +26,7 @@ import styles from "./Stories.module.scss";
 
 import { useTenantId } from "@/context/useTenantId";
 import { useEnsureActive } from "@/hooks/useEnsureActive";
-import { usePermissions } from "@/context/PermissionsContext";
+import { usePermissions } from "@/context/usePermissions";
 import { canDoOnAnyActivity } from "@/lib/permissions";
 import { PageGate } from "@/components/PageGate/PageGate";
 

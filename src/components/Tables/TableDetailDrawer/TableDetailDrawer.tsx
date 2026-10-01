@@ -53,7 +53,7 @@ import type {
     RectifyOrderItem
 } from "@/types/orders";
 
-import { usePermissions } from "@/context/PermissionsContext";
+import { usePermissions } from "@/context/usePermissions";
 import { canDoOnActivity } from "@/lib/permissions";
 
 import { deriveTableStatus, type TableStatus } from "@/utils/tableState";

@@ -203,6 +203,7 @@ export function ProductGroupsEditDrawer({
                         )}
 
                         <DataTable<ProductGroup>
+                            ariaLabel="Gruppi"
                             data={filteredGroups}
                             allRowIds={allGroups.map(g => g.id)}
                             columns={columns}

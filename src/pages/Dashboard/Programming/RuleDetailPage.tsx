@@ -4,7 +4,7 @@ import { CalendarClock, Copy, MoreHorizontal, Trash2 } from "lucide-react";
 import { useBreadcrumbItems } from "@/context/useBreadcrumbItems";
 import { usePageHeader } from "@/context/usePageHeader";
 import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
-import { usePermissions } from "@/context/PermissionsContext";
+import { usePermissions } from "@/context/usePermissions";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import { canDoOnAnyActivity } from "@/lib/permissions";
@@ -24,8 +24,8 @@ import { useUnsavedChangesGuard } from "@/components/ui/UnsavedChangesBar/useUns
 import {
     DiscardChangesConfirmDialog,
     HeaderSaveAction
-} from "@/pages/Dashboard/Stories/components/HeaderSaveAction";
-import { buildSaveActionCompactConfig } from "@/pages/Dashboard/Stories/components/headerSaveActionCompact";
+} from "@/components/ui/HeaderSaveAction/HeaderSaveAction";
+import { buildSaveActionCompactConfig } from "@/components/ui/HeaderSaveAction/headerSaveActionCompact";
 import { getToggleGuardResult } from "@utils/ruleToggleGuards";
 import { ruleTypeLabel } from "./ruleTypeLabel";
 import { useRuleDetail } from "./useRuleDetail";

@@ -11,7 +11,7 @@ import {
     type ProductTabDef
 } from "@/hooks/useFilteredProductTabs";
 import { useEnsureActive } from "@/hooks/useEnsureActive";
-import { usePermissions } from "@/context/PermissionsContext";
+import { usePermissions } from "@/context/usePermissions";
 import { canDoOnTenant } from "@/lib/permissions";
 import { PageGate } from "@/components/PageGate/PageGate";
 import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
