@@ -26,7 +26,7 @@ npm run build        # tsc -b && vite build
 npm run lint         # eslint .
 npm test             # vitest run
 npm run test:watch   # vitest watch
-npx playwright test  # e2e (Playwright, chromium): serve `.env.e2e.local` — vedi ## Test e2e
+bash scripts/e2e.sh e2e/<pagina>.spec.ts  # e2e contro staging: solo spec singole — vedi ## Test e2e
 ```
 
 ---
@@ -319,7 +319,7 @@ Usare sempre `_shared/stripe-helpers.ts`. Pattern: `scheduleStripeCancel()` soft
 
 Tutte in `supabase/functions/<nome>/index.ts`. Shared code in `_shared/`. `verify_jwt: false` su tutte.
 
-Deploy sempre con --project-ref esplicito. La CLI locale è collegata a **staging** (`lxeawrpjfphgdspueiag`); produzione è `qomnpzerhbtstbnwxnqc`. Vedi `### CLI Supabase` in Plugin & MCP.
+Deploy sempre con --project-ref esplicito. La CLI locale è collegata a **staging** (`lxeawrpjfphgdspueiag`); produzione è `qomnpzerhbtstbnwxnqc`. Il deploy su prod lo fa solo Lorenzo (vedi `### CLI Supabase` in Plugin & MCP).
 
 **`scheduleResolver.ts` esiste in DUE posti**: `src/services/supabase/` e `supabase/functions/_shared/`. Sincronizzarli ENTRAMBI ad ogni modifica.
 
@@ -513,7 +513,7 @@ Nessuna query al DB di produzione da una sessione Claude, nemmeno in lettura. Pe
 
 ### CLI Supabase
 
-Progetti: **staging** `lxeawrpjfphgdspueiag`, **produzione** `qomnpzerhbtstbnwxnqc`. Cartella principale e worktree sono collegati a staging (`supabase/.temp/project-ref`); una sessione che la trova collegata a produzione si ferma e lo dice. `supabase db push`, `supabase link` e `supabase functions deploy` su produzione li lancia solo Lorenzo.
+Progetti: **staging** `lxeawrpjfphgdspueiag`, **produzione** `qomnpzerhbtstbnwxnqc`. Cartella principale e worktree sono collegati a staging (`supabase/.temp/project-ref`); una sessione che la trova collegata a produzione si ferma e lo dice. `supabase db push`, `supabase link` e `supabase functions deploy` su produzione li lancia solo Lorenzo, mai una sessione Claude. In `.claude/settings.json` questi comandi (più `migration repair`) sono in `permissions.ask`. Il 30/09 un `db push` partito dalla cartella principale ha applicato su staging migration non committate di un'altra sessione.
 
 **`supabase db push` (staging) solo dal worktree `cataloglobe-ds`** (`../cataloglobe-ds`, branch `refactor/design-system`, allineato a staging). Mai dalla cartella principale: è condivisa da più sessioni e contiene migration non committate, che il push applicherebbe insieme alle tue.
 1. `git pull` nel worktree, la migration committata è lì.
@@ -549,7 +549,7 @@ sbagliato, e il bug del menu weekend di Garbagnate l'ha trovato questo test.
 
 ### Test e2e (Playwright)
 
-`npx playwright test` — config `playwright.config.ts`, test in `e2e/*.spec.ts`, Vite su
+`bash scripts/e2e.sh e2e/<file>.spec.ts[:riga] …` — config `playwright.config.ts`, test in `e2e/*.spec.ts`, Vite su
 5174 avviato (o riusato) da Playwright; niente `vercel dev` finché nessuna pagina coperta
 chiama `/api`. Login una volta sola in `e2e/global-setup.ts` con `E2E_EMAIL`/`E2E_PASSWORD`
 da `.env.e2e.local` (ignorato da git; `E2E_BUSINESS_ID` opzionale, altrimenti prima card
@@ -562,7 +562,11 @@ aggiunge ` *` aria-hidden); la sidebar è `navigation "Menu principale"`.
 Pagine con scritture: stub dei dati via `page.route`. La macchina è in `e2e/restStub.ts` (filtri PostgREST, rete delle scritture a 500, `onWrite`, `revoke`), i dati per pagina in `e2e/menuStub.ts` e `e2e/programmazioneStub.ts`.
 Ogni write non registrata risponde 500, così un gesto non previsto fa fallire il test;
 i test di sola lettura aspettano `stub.revoked` prima di controllare un'assenza.
-`workers: 2` in `playwright.config.ts`: con 4 worker compaiono pagine bianche sotto carico (ambiente, non codice); non alzarlo.
+**Contro staging solo via `scripts/e2e.sh`**: una run alla volta su tutta la macchina (lock in
+`~/.cache/cataloglobe-e2e.lock`), solo spec singole passate come argomento, sempre `--workers=1`.
+Mai la suite completa, mai `--repeat-each`, mai cicli `for` di run. Motivo: il 30/09–01/10 le
+suite ripetute di più sessioni hanno esaurito il Disk IO di staging.
+`workers: 2` in `playwright.config.ts` vale per la CI; in locale `scripts/e2e.sh` forza `--workers=1`. Con 4 worker compaiono pagine bianche sotto carico: non alzarlo.
 Orologio fisso (`page.clock`, Programmazione: mer 23/09/2026 12:00 Roma): ferma anche le animazioni Framer, quindi negli screenshot gli elementi in entrata restano a opacity 0; per le prove visive, pagina senza orologio fisso.
 
 ### Slash commands matched-with-rules
@@ -596,4 +600,6 @@ NON modificare automaticamente: `CLAUDE.md` (root + `docs/`), `MEMORY.md`, file 
 
 **Permessi**: usare `userRole` da `TenantContext` per gating (NULL per manager/staff/viewer) | usare API legacy (`Role` enum, `canManage`, `isOwner(string)`, `isAdmin`, `isMember` — eliminate Fase 5.C.C) | bypassare i gating frontend (`canChangeRoleOf`, `canRemoveMember`, `canInviteRole`) chiamando direttamente la RPC senza pre-check | montare `PermissionsProvider` fuori da `/business/:businessId/*` | usare `usePermissions()` in componenti workspace (`/workspace/*`, `/select-business`) — usa `workspaceRole` helpers | INSERT manuale `tenant_memberships.role='owner'` (constraint post-Fase 5.B.2 ammette solo NULL\|'admin')
 
-**Plugin & MCP**: invocare plugin disabilitati | DDL via Supabase MCP senza file migration creato prima | `supabase db push` fuori dal worktree `cataloglobe-ds` o senza `--dry-run` prima e `--include-all` | query (anche lettura) sul DB di produzione | test di `supabase/tests/` in produzione | `/clean_gone` senza conferma esplicita per branch | `caveman:compress` su CLAUDE.md/MEMORY.md senza conferma | `superpowers` brainstorm/write-plan quando il prompt è già strutturato | knowledge memorizzata su versioni libreria invece di `context7`
+**Plugin & MCP**: invocare plugin disabilitati | DDL via Supabase MCP senza file migration creato prima | `supabase db push` fuori dal worktree `cataloglobe-ds` o senza `--dry-run` prima e `--include-all` | `supabase db push`/`link`/`functions deploy` su prod da una sessione Claude | query (anche lettura) sul DB di produzione | test di `supabase/tests/` in produzione | `/clean_gone` senza conferma esplicita per branch | `caveman:compress` su CLAUDE.md/MEMORY.md senza conferma | `superpowers` brainstorm/write-plan quando il prompt è già strutturato | knowledge memorizzata su versioni libreria invece di `context7`
+
+**Test e2e**: `npx playwright test` diretto (solo `scripts/e2e.sh`) | suite e2e completa contro staging | `--repeat-each`, `--workers` > 1 o cicli `for` di run e2e
