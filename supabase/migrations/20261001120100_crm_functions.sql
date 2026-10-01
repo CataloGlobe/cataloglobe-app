@@ -41,7 +41,10 @@ $$;
 -- crm_ingest_lead
 -- -----------------------------------------------------------------------------
 -- Regola dei doppioni:
---   * (source, source_ref) già visto           → 'duplicate', nessuna scrittura;
+--   * (source, source_ref) già visto           → 'duplicate', nessuna scrittura.
+--     Già visto = in crm_leads o in crm_imported_refs: un locale cancellato
+--     non rinasce né dalla copia della landing né da un CSV reimportato
+--     (lead_id e venue_id NULL in questo caso);
 --   * telefono nella lista di esclusione, o di un locale Perso per stop
 --                                              → 'suppressed', nessuna
 --     scrittura: chi ha chiesto lo stop non rientra da nessuna fonte;
@@ -52,6 +55,9 @@ $$;
 --     telefono non deve poter scrivere i dati di un contatto del CRM;
 --   * altrimenti                               → 'created': locale + contatto,
 --     assegnato a chi ha is_default_assignee.
+-- p_silent (import CSV): il lead entra già notificato e già sollecitato, così
+-- crm-notify non manda né il messaggio singolo né il sollecito; l'import manda
+-- un solo riepilogo (crm_import_runs).
 -- Un lock di transazione serializza gli ingressi: due arrivi simultanei con lo
 -- stesso telefono non creano due carte.
 CREATE OR REPLACE FUNCTION public.crm_ingest_lead(
@@ -69,7 +75,8 @@ CREATE OR REPLACE FUNCTION public.crm_ingest_lead(
     p_campaign      text        DEFAULT NULL,
     p_consent_at    timestamptz DEFAULT NULL,
     p_consent_text  text        DEFAULT NULL,
-    p_received_at   timestamptz DEFAULT NULL
+    p_received_at   timestamptz DEFAULT NULL,
+    p_silent        boolean     DEFAULT false
 )
 RETURNS TABLE (r_lead_id uuid, r_venue_id uuid, r_outcome text)
 LANGUAGE plpgsql
@@ -82,6 +89,7 @@ DECLARE
     v_name        text := coalesce(nullif(btrim(p_name), ''), 'Senza nome');
     v_venue_name  text := coalesce(nullif(btrim(p_venue_name), ''), v_name);
     v_received    timestamptz := coalesce(p_received_at, now());
+    v_silent_at   timestamptz := CASE WHEN p_silent THEN now() END;
     v_actor       uuid := auth.uid();
     v_contact_id  uuid;
     v_venue_id    uuid;
@@ -102,6 +110,13 @@ BEGIN
         WHERE l.source = p_source AND l.source_ref = p_source_ref;
         IF FOUND THEN
             RETURN QUERY SELECT v_lead_id, v_venue_id, 'duplicate'::text;
+            RETURN;
+        END IF;
+        IF EXISTS (
+            SELECT 1 FROM public.crm_imported_refs ir
+            WHERE ir.source = p_source AND ir.source_ref = p_source_ref
+        ) THEN
+            RETURN QUERY SELECT NULL::uuid, NULL::uuid, 'duplicate'::text;
             RETURN;
         END IF;
     END IF;
@@ -132,14 +147,16 @@ BEGIN
 
         INSERT INTO public.crm_leads (
             venue_id, contact_id, source, source_ref, ad_id, ad_name, campaign,
-            form_answers, interests, consent_at, consent_text, received_at
+            form_answers, interests, consent_at, consent_text, received_at,
+            notified_at, escalated_at
         ) VALUES (
             v_venue_id, v_contact_id, p_source, p_source_ref, p_ad_id, p_ad_name, p_campaign,
             coalesce(p_form_answers, '{}'::jsonb)
                 || CASE WHEN v_email IS NOT NULL THEN jsonb_build_object('email', v_email)
                         ELSE '{}'::jsonb END,
             coalesce(p_interests, '{}'),
-            p_consent_at, p_consent_text, v_received
+            p_consent_at, p_consent_text, v_received,
+            v_silent_at, v_silent_at
         ) RETURNING id INTO v_lead_id;
 
         INSERT INTO public.crm_events (venue_id, lead_id, type, actor_user_id, payload)
@@ -178,11 +195,13 @@ BEGIN
 
     INSERT INTO public.crm_leads (
         venue_id, contact_id, source, source_ref, ad_id, ad_name, campaign,
-        form_answers, interests, consent_at, consent_text, received_at
+        form_answers, interests, consent_at, consent_text, received_at,
+        notified_at, escalated_at
     ) VALUES (
         v_venue_id, v_contact_id, p_source, p_source_ref, p_ad_id, p_ad_name, p_campaign,
         coalesce(p_form_answers, '{}'::jsonb), coalesce(p_interests, '{}'),
-        p_consent_at, p_consent_text, v_received
+        p_consent_at, p_consent_text, v_received,
+        v_silent_at, v_silent_at
     ) RETURNING id INTO v_lead_id;
 
     INSERT INTO public.crm_events (venue_id, lead_id, type, actor_user_id, payload)
@@ -201,8 +220,8 @@ $$;
 -- Gira da pg_cron come postgres (unico ruolo con SELECT su `leads`); da
 -- authenticated fallirebbe sui privilegi di `leads` ed è comunque revocata.
 --
--- "Già copiato" = riga in crm_landing_imported, scritta per ogni esito
--- (entrato, doppione, escluso). Non si guarda crm_leads: se un admin cancella
+-- "Già copiato" = riga ('landing', leads.id) in crm_imported_refs, scritta per
+-- ogni esito (entrato, doppione, escluso). Non si guarda crm_leads: se un admin cancella
 -- il locale (cascata su contatti e lead), la riga in `leads` resta fino a 12
 -- mesi e la copia lo ricreerebbe al minuto dopo.
 --
@@ -227,8 +246,8 @@ BEGIN
         FROM public.leads l
         WHERE l.status <> 'spam'
           AND NOT EXISTS (
-              SELECT 1 FROM public.crm_landing_imported li
-              WHERE li.lead_id = l.id
+              SELECT 1 FROM public.crm_imported_refs ir
+              WHERE ir.source = 'landing' AND ir.source_ref = l.id::text
           )
         ORDER BY l.created_at
         LIMIT 200
@@ -262,8 +281,8 @@ BEGIN
                 p_consent_text := r.consent_text,
                 p_received_at  := r.created_at
             );
-            INSERT INTO public.crm_landing_imported (lead_id) VALUES (r.id)
-            ON CONFLICT (lead_id) DO NOTHING;
+            INSERT INTO public.crm_imported_refs (source, source_ref) VALUES ('landing', r.id::text)
+            ON CONFLICT (source, source_ref) DO NOTHING;
             v_count := v_count + 1;
         EXCEPTION WHEN OTHERS THEN
             RAISE WARNING 'crm_sync_landing_leads: lead % saltato (%: %)', r.id, SQLSTATE, SQLERRM;
@@ -273,6 +292,34 @@ BEGIN
     RETURN v_count;
 END;
 $$;
+
+-- -----------------------------------------------------------------------------
+-- crm_mark_imported_ref (trigger AFTER INSERT su crm_leads)
+-- -----------------------------------------------------------------------------
+-- Ogni lead con un id nella fonte lascia la sua riga in crm_imported_refs, da
+-- qualunque fonte arrivi (copia della landing, import CSV, futuro webhook
+-- Meta). SECURITY DEFINER perché nessun ruolo client scrive su
+-- crm_imported_refs; non ha argomenti e gira solo come trigger.
+CREATE OR REPLACE FUNCTION public.crm_mark_imported_ref()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO ''
+AS $$
+BEGIN
+    INSERT INTO public.crm_imported_refs (source, source_ref)
+    VALUES (NEW.source, NEW.source_ref)
+    ON CONFLICT (source, source_ref) DO NOTHING;
+    RETURN NULL;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS crm_leads_mark_imported_ref ON public.crm_leads;
+CREATE TRIGGER crm_leads_mark_imported_ref
+    AFTER INSERT ON public.crm_leads
+    FOR EACH ROW
+    WHEN (NEW.source_ref IS NOT NULL)
+    EXECUTE FUNCTION public.crm_mark_imported_ref();
 
 -- -----------------------------------------------------------------------------
 -- crm_suppress_stop_on_venue_delete (trigger BEFORE DELETE su crm_venues)
