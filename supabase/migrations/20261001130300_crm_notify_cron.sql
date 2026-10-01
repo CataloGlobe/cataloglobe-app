@@ -4,6 +4,7 @@
 -- Chiama l'edge `crm-notify` solo se c'è lavoro (pattern skip-when-idle di
 -- 20260930160000):
 --   * un lead non ancora notificato (outbox: crm_leads.notified_at IS NULL);
+--   * un import CSV col riepilogo da mandare (crm_import_runs.notified_at IS NULL);
 --   * oppure, tra le 9 e le 21 di Roma, un lead notificato e mai sollecitato
 --     la cui carta è ancora in Nuovo da più di 2 ore reali.
 --
@@ -40,6 +41,8 @@ SELECT cron.schedule(
     BEGIN
         IF NOT EXISTS (
             SELECT 1 FROM public.crm_leads l WHERE l.notified_at IS NULL
+        ) AND NOT EXISTS (
+            SELECT 1 FROM public.crm_import_runs r WHERE r.notified_at IS NULL
         ) AND NOT (
             v_rome_hour BETWEEN 9 AND 20
             AND EXISTS (

@@ -4,7 +4,7 @@ import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
-import { ingestCrmLead } from "@/services/supabase/crm";
+import { ingestCrmLead, recordCrmImportRun } from "@/services/supabase/crm";
 import { decodeMetaCsv, parseMetaLeadsCsv, type MetaCsvResult } from "@/utils/crm/metaCsv";
 import type { CrmIngestOutcome } from "@/types/crm";
 import styles from "./Crm.module.scss";
@@ -84,6 +84,13 @@ export function ImportMetaCsvDrawer({ open, onClose, onImported }: Props) {
         }
         setReport(counts);
         setIsImporting(false);
+        // Il riepilogo Telegram è un di più: se non si registra, l'import resta valido.
+        let summaryRecorded = true;
+        try {
+            await recordCrmImportRun(counts);
+        } catch {
+            summaryRecorded = false;
+        }
         await onImported();
         showToast({
             message:
@@ -91,8 +98,9 @@ export function ImportMetaCsvDrawer({ open, onClose, onImported }: Props) {
                 (counts.duplicate > 0 ? `, ${counts.duplicate} già importati` : "") +
                 (counts.suppressed > 0 ? `, ${counts.suppressed} esclusi (stop)` : "") +
                 (counts.failed > 0 ? `, ${counts.failed} non entrati` : "") +
-                ".",
-            type: counts.failed > 0 ? "warning" : "success"
+                "." +
+                (summaryRecorded ? "" : " Il riepilogo su Telegram non è partito."),
+            type: counts.failed > 0 || !summaryRecorded ? "warning" : "success"
         });
     }
 

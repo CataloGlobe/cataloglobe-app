@@ -38,24 +38,31 @@ describe("link firmato", () => {
 
     it("verifica il link appena firmato", async () => {
         const params = await signWaLink(SECRET, LEAD, USER, NOW);
-        expect(await verifyWaLink(SECRET, params, NOW + 60)).toBe(true);
+        expect(await verifyWaLink(SECRET, params, NOW + 60)).toBe("valid");
     });
 
-    it("rifiuta un link scaduto", async () => {
+    it("vale 7 giorni, poi è scaduto (non invalido)", async () => {
         const params = await signWaLink(SECRET, LEAD, USER, NOW);
-        expect(await verifyWaLink(SECRET, params, NOW + WA_LINK_TTL_SECONDS + 1)).toBe(false);
+        expect(WA_LINK_TTL_SECONDS).toBe(7 * 24 * 60 * 60);
+        expect(await verifyWaLink(SECRET, params, NOW + WA_LINK_TTL_SECONDS)).toBe("valid");
+        expect(await verifyWaLink(SECRET, params, NOW + WA_LINK_TTL_SECONDS + 1)).toBe("expired");
+    });
+
+    it("una scadenza allungata a mano è invalida, non scaduta né valida", async () => {
+        const params = await signWaLink(SECRET, LEAD, USER, NOW);
+        expect(await verifyWaLink(SECRET, { ...params, e: String(NOW - 10) }, NOW)).toBe("invalid");
     });
 
     it("rifiuta un lead, un utente o una scadenza cambiati", async () => {
         const params = await signWaLink(SECRET, LEAD, USER, NOW);
-        expect(await verifyWaLink(SECRET, { ...params, l: USER }, NOW)).toBe(false);
-        expect(await verifyWaLink(SECRET, { ...params, u: LEAD }, NOW)).toBe(false);
-        expect(await verifyWaLink(SECRET, { ...params, e: String(NOW + 10 ** 9) }, NOW)).toBe(false);
+        expect(await verifyWaLink(SECRET, { ...params, l: USER }, NOW)).toBe("invalid");
+        expect(await verifyWaLink(SECRET, { ...params, u: LEAD }, NOW)).toBe("invalid");
+        expect(await verifyWaLink(SECRET, { ...params, e: String(NOW + 10 ** 9) }, NOW)).toBe("invalid");
     });
 
     it("rifiuta un altro segreto e i parametri mancanti", async () => {
         const params = await signWaLink(SECRET, LEAD, USER, NOW);
-        expect(await verifyWaLink("altro", params, NOW)).toBe(false);
-        expect(await verifyWaLink(SECRET, { l: LEAD, u: USER }, NOW)).toBe(false);
+        expect(await verifyWaLink("altro", params, NOW)).toBe("invalid");
+        expect(await verifyWaLink(SECRET, { l: LEAD, u: USER }, NOW)).toBe("invalid");
     });
 });
