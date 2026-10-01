@@ -29,7 +29,15 @@ export type CrmEventType =
     | "whatsapp_opened"
     | "note"
     | "account_linked"
-    | "escalated";
+    | "escalated"
+    | "stage_locked"
+    | "stage_unlocked"
+    | "subscription_changed";
+
+/** Stato dell'account collegato, copiato dal job (20261001150000). */
+export type CrmAccountState = "registrato" | "trialing" | "active" | "past_due" | "suspended" | "canceled";
+
+export type CrmTrialKind = "carta" | "codice";
 
 /** `suppressed`: telefono che ha chiesto lo stop, nessuna scrittura. */
 export type CrmIngestOutcome = "created" | "returned" | "duplicate" | "suppressed";
@@ -95,6 +103,13 @@ export interface CrmVenue {
     stage_changed_at: string;
     first_contacted_at: string | null;
     last_activity_at: string;
+    account_state: CrmAccountState | null;
+    trial_kind: CrmTrialKind | null;
+    trial_ends_at: string | null;
+    /** «Fase bloccata a mano»: il job non sposta la carta. */
+    stage_locked_at: string | null;
+    stage_locked_by: string | null;
+    stage_lock_note: string | null;
 }
 
 /** Riga dell'elenco: il locale col suo primo contatto e gli ingressi. */

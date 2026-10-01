@@ -144,6 +144,26 @@ export async function moveCrmStage(
     return data === true;
 }
 
+/**
+ * Sposta e blocca la fase con una nota (dentro o fuori da In prova o Cliente
+ * pagante): il job degli abbonamenti non la sposta più finché non si sblocca.
+ */
+export async function moveCrmStageLocked(venueId: string, stage: CrmStage, note: string): Promise<void> {
+    const { error } = await supabase.rpc("crm_move_stage_locked", {
+        p_venue_id: venueId,
+        p_stage: stage,
+        p_note: note
+    });
+    if (error) throw error;
+}
+
+/** «Sblocca»: la carta torna a seguire l'abbonamento. */
+export async function unlockCrmStage(venueId: string): Promise<boolean> {
+    const { data, error } = await supabase.rpc("crm_unlock_stage", { p_venue_id: venueId });
+    if (error) throw error;
+    return data === true;
+}
+
 export async function assignCrmVenue(venueId: string, userId: string): Promise<boolean> {
     const { data, error } = await supabase.rpc("crm_assign", {
         p_venue_id: venueId,

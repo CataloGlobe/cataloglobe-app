@@ -7,27 +7,40 @@
 //   1. telefono del proprietario (profiles.phone, normalizzato E.164) uguale a
 //      quello di un contatto del CRM → crm_link_account('phone_auto'), salvo
 //      che quel collegamento sia stato scartato a mano (proposta dismessa);
-//   2. per ogni locale collegato, la fase segue l'abbonamento
-//      (nextStageForAccount: trialing → In prova, active → Cliente pagante,
-//      solo in avanti; da Perso solo se non è uno stop e non è stato deciso
-//      dopo il collegamento) via crm_move_stage con la fase attesa, attore
-//      NULL = sistema;
+//   2. per ogni locale collegato:
+//      a. lo stato dell'abbonamento (accountStateFor: 'registrato' senza
+//         subscription), il tipo di prova (metadata `trial_no_card` letti da
+//         Stripe, solo per le prove in corso e solo finché non è noto) e la
+//         scadenza (trial_until) vanno sul locale con crm_sync_account_state,
+//         che scrive `subscription_changed` nella storia se cambiano;
+//      b. la fase segue l'abbonamento (nextStageForAccount: trialing → In
+//         prova, active → Cliente pagante, solo in avanti; mai Perso, mai una
+//         «Fase bloccata a mano») via crm_move_stage con la fase attesa,
+//         attore NULL = sistema;
 //   3. email del proprietario o nome dell'azienda uguali a quelli di un locale
 //      non collegato → proposta in crm_account_suggestions (mai automatica).
 // Regole in _shared/crmAccountSync.ts (puro, testato).
 //
 // AUTENTICAZIONE fail-CLOSED: X-Job-Secret = CRM_JOB_SECRET.
-// Env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, CRM_JOB_SECRET.
+// Env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, CRM_JOB_SECRET,
+// STRIPE_SECRET_KEY (facoltativa: senza, il tipo di prova resta da sapere).
 // =============================================================================
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { timingSafeEqualStr } from "../_shared/timingSafeEqual.ts";
 import { normalizePhoneToE164 } from "../_shared/phoneNormalize.ts";
-import { nextStageForAccount, normalizeVenueName, pickTenant } from "../_shared/crmAccountSync.ts";
+import {
+    accountStateFor,
+    nextStageForAccount,
+    normalizeVenueName,
+    pickTenant,
+    trialKindFromMetadata
+} from "../_shared/crmAccountSync.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const JOB_SECRET = Deno.env.get("CRM_JOB_SECRET");
+const STRIPE_SECRET_KEY = Deno.env.get("STRIPE_SECRET_KEY");
 
 function json(status: number, body: Record<string, unknown>): Response {
     return new Response(JSON.stringify(body), {
@@ -50,21 +63,47 @@ async function fetchAll(build) {
     }
 }
 
+/**
+ * Tipo di prova dai metadata della subscription su Stripe. null se non si
+ * può sapere adesso (chiave assente, Stripe lento o in errore): riprova al
+ * giro dopo.
+ */
+async function fetchTrialKind(subscriptionId: string): Promise<"carta" | "codice" | null> {
+    if (!STRIPE_SECRET_KEY) return null;
+    try {
+        const res = await fetch(`https://api.stripe.com/v1/subscriptions/${encodeURIComponent(subscriptionId)}`, {
+            headers: { Authorization: `Bearer ${STRIPE_SECRET_KEY}` },
+            signal: AbortSignal.timeout(8000)
+        });
+        if (!res.ok) {
+            console.warn("crm-sync-accounts: Stripe", res.status);
+            return null;
+        }
+        const sub = await res.json();
+        return trialKindFromMetadata(sub?.metadata);
+    } catch (err) {
+        console.warn("crm-sync-accounts: Stripe non raggiungibile", String(err));
+        return null;
+    }
+}
+
 async function sync(supabase) {
-    const stats = { linked: 0, moved: 0, suggested: 0 };
+    const stats = { linked: 0, moved: 0, suggested: 0, account_changes: 0 };
 
     const [tenants, venues, suggestionRows] = await Promise.all([
         fetchAll(() =>
             supabase
                 .from("tenants")
-                .select("id, name, owner_user_id, subscription_status, created_at")
+                .select("id, name, owner_user_id, subscription_status, stripe_subscription_id, trial_until, created_at")
                 .is("deleted_at", null)
                 .order("id")
         ),
         fetchAll(() =>
             supabase
                 .from("crm_venues")
-                .select("id, name, stage, lost_kind, stage_changed_at, tenant_id, crm_contacts(phone_e164, email)")
+                .select(
+                    "id, name, stage, tenant_id, stage_locked_at, account_state, trial_kind, trial_ends_at, crm_contacts(phone_e164, email)"
+                )
                 .order("id")
         ),
         fetchAll(() =>
@@ -82,23 +121,6 @@ async function sync(supabase) {
             .in("id", ownerIds.slice(i, i + PROFILE_CHUNK));
         if (error) throw error;
         profiles.push(...(data ?? []));
-    }
-
-    // Quando è stato collegato ogni locale in Perso: un Perso deciso dopo resta.
-    const persoLinkedIds = venues.filter(v => v.stage === "perso" && v.tenant_id).map(v => v.id);
-    const linkedAt = new Map<string, string>();
-    for (let i = 0; i < persoLinkedIds.length; i += PROFILE_CHUNK) {
-        const { data, error } = await supabase
-            .from("crm_events")
-            .select("venue_id, created_at")
-            .eq("type", "account_linked")
-            .in("venue_id", persoLinkedIds.slice(i, i + PROFILE_CHUNK));
-        if (error) throw error;
-        for (const e of data ?? []) {
-            if (!linkedAt.has(e.venue_id) || linkedAt.get(e.venue_id) < e.created_at) {
-                linkedAt.set(e.venue_id, e.created_at);
-            }
-        }
     }
 
     const profileById = new Map(profiles.map(p => [p.id, p]));
@@ -141,16 +163,35 @@ async function sync(supabase) {
             }
         }
 
-        // 2. La fase segue l'abbonamento.
         if (tenantId) {
             const tenant = tenantById.get(tenantId);
-            const linkedTime = linkedAt.get(venue.id);
-            const next = tenant
-                ? nextStageForAccount(venue.stage, tenant.subscription_status, {
-                      lostKind: venue.lost_kind,
-                      lostAfterLink: Boolean(linkedTime && venue.stage_changed_at > linkedTime)
-                  })
-                : null;
+            if (!tenant) continue;
+
+            // 2a. Stato dell'abbonamento sul locale (e nella storia se cambia).
+            const state = accountStateFor(tenant);
+            const trialKind =
+                state === "trialing" && !venue.trial_kind && tenant.stripe_subscription_id
+                    ? await fetchTrialKind(tenant.stripe_subscription_id)
+                    : null;
+            const trialEndsAt = state === "trialing" ? tenant.trial_until ?? null : null;
+            const sameEnd =
+                (venue.trial_ends_at ? Date.parse(venue.trial_ends_at) : null) ===
+                (trialEndsAt ? Date.parse(trialEndsAt) : null);
+            if (venue.account_state !== state || !sameEnd || (trialKind && trialKind !== venue.trial_kind)) {
+                const { data: changed, error } = await supabase.rpc("crm_sync_account_state", {
+                    p_venue_id: venue.id,
+                    p_account_state: state,
+                    p_trial_kind: trialKind,
+                    p_trial_ends_at: trialEndsAt
+                });
+                if (error) throw error;
+                if (changed) stats.account_changes += 1;
+            }
+
+            // 2b. La fase segue l'abbonamento, salvo Perso e fase bloccata a mano.
+            const next = nextStageForAccount(venue.stage, tenant.subscription_status, {
+                locked: Boolean(venue.stage_locked_at)
+            });
             if (next) {
                 // Fase attesa = quella letta a inizio giro: se nel frattempo
                 // qualcuno ha spostato la carta, vince lui.

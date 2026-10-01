@@ -20,8 +20,10 @@ import {
     getCrmVenue,
     listCrmTeamMembers,
     logCrmWhatsappOpened,
-    moveCrmStage
+    moveCrmStage,
+    unlockCrmStage
 } from "@/services/supabase/crm";
+import { CRM_ACCOUNT_STATE_LABEL, crmAccountLabel, needsStageLock } from "@/utils/crm/accountLabels";
 import { crmWhatsappLink } from "@/utils/crm/whatsapp";
 import { formatDateTimeIt } from "@/utils/formatDateTime";
 import {
@@ -34,6 +36,7 @@ import {
 import {
     CRM_STAGES,
     type CrmEvent,
+    type CrmAccountState,
     type CrmContact,
     type CrmStage,
     type CrmTeamMember,
@@ -41,6 +44,7 @@ import {
 } from "@/types/crm";
 import { AccountCard } from "./AccountCard";
 import { LostStageDialog } from "./LostStageDialog";
+import { StageLockDialog, type StageLockRequest } from "./StageLockDialog";
 import styles from "./Crm.module.scss";
 
 /**
@@ -67,6 +71,19 @@ function describeEvent(event: CrmEvent, teamName: (id: string | null) => string)
             return `A ${teamName((p.to as string) ?? null)}`;
         case "note":
             return String(p.text ?? "");
+        case "stage_locked": {
+            const to = CRM_STAGE_LABEL[p.to as CrmStage] ?? String(p.to);
+            return `In ${to}: ${String(p.note ?? "")}`;
+        }
+        case "subscription_changed": {
+            const to = (p.to ?? {}) as { state?: CrmAccountState | null };
+            const from = (p.from ?? {}) as { state?: CrmAccountState | null };
+            const label = (state?: CrmAccountState | null) =>
+                state ? CRM_ACCOUNT_STATE_LABEL[state] : "nessuno";
+            return from.state === to.state
+                ? `Account ${label(to.state)}, prova aggiornata`
+                : `Account: ${label(from.state)} → ${label(to.state)}`;
+        }
         case "lead_in":
         case "lead_returned": {
             const source = CRM_SOURCE_LABEL[p.source as keyof typeof CRM_SOURCE_LABEL];
@@ -92,6 +109,7 @@ export default function LeadDetailPage() {
     const [note, setNote] = useState("");
     const [isSavingNote, setIsSavingNote] = useState(false);
     const [lostOpen, setLostOpen] = useState(false);
+    const [lockRequest, setLockRequest] = useState<StageLockRequest | null>(null);
 
     usePageTitle(detail?.venue.name ?? "Lead");
 
@@ -139,6 +157,10 @@ export default function LeadDetailPage() {
                 setLostOpen(true);
                 return;
             }
+            if (needsStageLock(detail.venue.stage, stage, Boolean(detail.venue.stage_locked_at))) {
+                setLockRequest({ venueId: detail.venue.id, venueName: detail.venue.name, stage });
+                return;
+            }
             setIsBusy(true);
             setActionError(null);
             try {
@@ -158,6 +180,21 @@ export default function LeadDetailPage() {
         await load();
         showToast({ message: "Spostato in Perso.", type: "success" });
     }, [load, showToast]);
+
+    const handleUnlock = useCallback(async () => {
+        if (!detail) return;
+        setIsBusy(true);
+        setActionError(null);
+        try {
+            await unlockCrmStage(detail.venue.id);
+            await load();
+            showToast({ message: "Fase sbloccata: segue di nuovo l'abbonamento.", type: "success" });
+        } catch (err) {
+            setActionError(crmErrorMessage(err));
+        } finally {
+            setIsBusy(false);
+        }
+    }, [detail, load, showToast]);
 
     const handleAssign = useCallback(
         async (userId: string) => {
@@ -295,6 +332,7 @@ export default function LeadDetailPage() {
 
     const { contacts, leads, events } = detail;
     const stopped = detail.venue.stage === "perso" && detail.venue.lost_kind === "stop";
+    const accountLabel = crmAccountLabel(detail.venue);
 
     return (
         <div className={styles.page}>
@@ -313,10 +351,29 @@ export default function LeadDetailPage() {
                 </Card>
             )}
 
+            {detail.venue.stage_locked_at && (
+                <Card
+                    title="Fase bloccata a mano"
+                    badge={<StatusBadge variant="warning" label={CRM_STAGE_LABEL[detail.venue.stage]} />}
+                    actions={
+                        <Button variant="secondary" size="sm" onClick={() => void handleUnlock()} disabled={isBusy}>
+                            Sblocca
+                        </Button>
+                    }
+                >
+                    <Text variant="body">{detail.venue.stage_lock_note}</Text>
+                    <Text variant="caption" colorVariant="muted">
+                        {teamName(detail.venue.stage_locked_by)} · {formatDateTimeIt(detail.venue.stage_locked_at)}.
+                        Il job non sposta la carta; i cambi di abbonamento finiscono nella storia.
+                    </Text>
+                </Card>
+            )}
+
             <AccountCard
                 venueId={detail.venue.id}
                 tenantId={detail.venue.tenant_id}
                 linkSource={detail.venue.link_source}
+                accountLabel={accountLabel}
                 onChanged={load}
             />
 
@@ -438,6 +495,18 @@ export default function LeadDetailPage() {
                     />
                 ))}
             </Card>
+
+            <StageLockDialog
+                request={lockRequest}
+                onClose={() => setLockRequest(null)}
+                onMoved={async request => {
+                    await load();
+                    showToast({
+                        message: `Spostato in ${CRM_STAGE_LABEL[request.stage]}, fase bloccata a mano.`,
+                        type: "success"
+                    });
+                }}
+            />
 
             <LostStageDialog
                 venueId={lostOpen ? detail.venue.id : null}

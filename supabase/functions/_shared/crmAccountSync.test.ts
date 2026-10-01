@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { nextStageForAccount, normalizeVenueName, pickTenant, stageForSubscription } from "./crmAccountSync";
+import {
+    accountStateFor,
+    nextStageForAccount,
+    normalizeVenueName,
+    pickTenant,
+    stageForSubscription,
+    trialKindFromMetadata
+} from "./crmAccountSync";
 
 describe("stageForSubscription", () => {
     it("trialing → In prova, active → Cliente pagante, il resto niente", () => {
@@ -24,15 +31,38 @@ describe("nextStageForAccount", () => {
         expect(nextStageForAccount("cliente_pagante", "canceled")).toBeNull();
     });
 
-    it("da Perso esce se l'account parte", () => {
-        expect(nextStageForAccount("perso", "trialing")).toBe("in_prova");
-        expect(nextStageForAccount("perso", "suspended")).toBeNull();
+    it("Perso non lo tocca mai, nemmeno se l'account parte", () => {
+        expect(nextStageForAccount("perso", "trialing")).toBeNull();
+        expect(nextStageForAccount("perso", "active")).toBeNull();
     });
 
-    it("da Perso non esce sopra uno stop né sopra un Perso deciso dopo il collegamento", () => {
-        expect(nextStageForAccount("perso", "active", { lostKind: "stop" })).toBeNull();
-        expect(nextStageForAccount("perso", "active", { lostKind: "obiezione", lostAfterLink: true })).toBeNull();
-        expect(nextStageForAccount("perso", "active", { lostKind: "obiezione" })).toBe("cliente_pagante");
+    it("una fase bloccata a mano non si sposta", () => {
+        expect(nextStageForAccount("contattato", "trialing", { locked: true })).toBeNull();
+        expect(nextStageForAccount("in_prova", "active", { locked: true })).toBeNull();
+    });
+
+    it("registrato senza prova: nessuno spostamento", () => {
+        expect(nextStageForAccount("contattato", "suspended")).toBeNull();
+    });
+});
+
+describe("accountStateFor", () => {
+    it("senza subscription è registrato, anche col default suspended", () => {
+        expect(accountStateFor({ subscription_status: "suspended", stripe_subscription_id: null })).toBe("registrato");
+    });
+
+    it("con subscription segue lo stato", () => {
+        expect(accountStateFor({ subscription_status: "trialing", stripe_subscription_id: "sub_1" })).toBe("trialing");
+        expect(accountStateFor({ subscription_status: "canceled", stripe_subscription_id: "sub_1" })).toBe("canceled");
+        expect(accountStateFor({ subscription_status: "boh", stripe_subscription_id: "sub_1" })).toBe("suspended");
+    });
+});
+
+describe("trialKindFromMetadata", () => {
+    it("trial_no_card = codice, altrimenti carta", () => {
+        expect(trialKindFromMetadata({ trial_no_card: "true", tenant_id: "x" })).toBe("codice");
+        expect(trialKindFromMetadata({ promotion_code_id: "promo_1" })).toBe("carta");
+        expect(trialKindFromMetadata(null)).toBe("carta");
     });
 });
 
