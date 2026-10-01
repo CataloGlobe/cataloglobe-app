@@ -70,7 +70,7 @@ export function ImportMetaCsvDrawer({ open, onClose, onImported }: Props) {
     async function handleImport() {
         if (!parsed || parsed.rows.length === 0) return;
         setIsImporting(true);
-        const counts: ImportReport = { created: 0, returned: 0, duplicate: 0, failed: 0 };
+        const counts: ImportReport = { created: 0, returned: 0, duplicate: 0, suppressed: 0, failed: 0 };
         // Una riga alla volta: crm_ingest_lead serializza comunque gli
         // ingressi, e così l'avanzamento è leggibile.
         for (let i = 0; i < parsed.rows.length; i++) {
@@ -89,6 +89,7 @@ export function ImportMetaCsvDrawer({ open, onClose, onImported }: Props) {
             message:
                 `Import finito: ${counts.created} nuovi, ${counts.returned} già nel CRM` +
                 (counts.duplicate > 0 ? `, ${counts.duplicate} già importati` : "") +
+                (counts.suppressed > 0 ? `, ${counts.suppressed} esclusi (stop)` : "") +
                 (counts.failed > 0 ? `, ${counts.failed} non entrati` : "") +
                 ".",
             type: counts.failed > 0 ? "warning" : "success"
@@ -194,6 +195,12 @@ export function ImportMetaCsvDrawer({ open, onClose, onImported }: Props) {
                                 Già nel CRM per telefono (richiesta aggiunta): {report.returned}
                             </Text>
                             <Text variant="body-sm">Già importati prima: {report.duplicate}</Text>
+                            {report.suppressed > 0 && (
+                                <Text variant="body-sm">
+                                    Esclusi perché hanno chiesto di non essere contattati:{" "}
+                                    {report.suppressed}
+                                </Text>
+                            )}
                             {report.failed > 0 && (
                                 <Text variant="body-sm" colorVariant="error">
                                     Non entrati: {report.failed}. Riprova lo stesso file: le
