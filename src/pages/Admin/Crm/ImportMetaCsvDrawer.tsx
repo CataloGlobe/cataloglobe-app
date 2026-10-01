@@ -15,7 +15,9 @@ import styles from "./Crm.module.scss";
  * Serve finché il webhook dei moduli Meta non è attivo, e come piano B se il
  * webhook si ferma. Ogni riga passa da `crm_ingest_lead` con source
  * `meta_form` e l'id del lead Meta: reimportare lo stesso file non crea
- * doppioni, e il webhook non reimporterà quello che è già entrato da qui.
+ * doppioni, nemmeno dopo aver cancellato il locale (crm_imported_refs), e il
+ * webhook non reimporterà quello che è già entrato da qui. Le righe entrano in
+ * silenzio: su Telegram arriva un solo riepilogo dell'import.
  */
 
 type Props = {
@@ -75,7 +77,8 @@ export function ImportMetaCsvDrawer({ open, onClose, onImported }: Props) {
         // ingressi, e così l'avanzamento è leggibile.
         for (let i = 0; i < parsed.rows.length; i++) {
             try {
-                const result = await ingestCrmLead(parsed.rows[i].input);
+                // Silenzioso: niente messaggio Telegram per riga.
+                const result = await ingestCrmLead({ ...parsed.rows[i].input, silent: true });
                 counts[result.outcome] += 1;
             } catch {
                 counts.failed += 1;
