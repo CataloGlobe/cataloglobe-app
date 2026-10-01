@@ -9,7 +9,9 @@
 //      che quel collegamento sia stato scartato a mano (proposta dismessa);
 //   2. per ogni locale collegato, la fase segue l'abbonamento
 //      (nextStageForAccount: trialing → In prova, active → Cliente pagante,
-//      solo in avanti) via crm_move_stage, attore NULL = sistema;
+//      solo in avanti; da Perso solo se non è uno stop e non è stato deciso
+//      dopo il collegamento) via crm_move_stage con la fase attesa, attore
+//      NULL = sistema;
 //   3. email del proprietario o nome dell'azienda uguali a quelli di un locale
 //      non collegato → proposta in crm_account_suggestions (mai automatica).
 // Regole in _shared/crmAccountSync.ts (puro, testato).
@@ -34,31 +36,72 @@ function json(status: number, body: Record<string, unknown>): Response {
     });
 }
 
+const PAGE = 1000;
+const PROFILE_CHUNK = 100;
+
+/** PostgREST risponde al massimo 1000 righe: si legge a pagine. */
+async function fetchAll(build) {
+    const rows = [];
+    for (let from = 0; ; from += PAGE) {
+        const { data, error } = await build().range(from, from + PAGE - 1);
+        if (error) throw error;
+        rows.push(...(data ?? []));
+        if (!data || data.length < PAGE) return rows;
+    }
+}
+
 async function sync(supabase) {
     const stats = { linked: 0, moved: 0, suggested: 0 };
 
-    const [tenantsRes, venuesRes, dismissedRes] = await Promise.all([
-        supabase
-            .from("tenants")
-            .select("id, name, owner_user_id, subscription_status, created_at")
-            .is("deleted_at", null),
-        supabase
-            .from("crm_venues")
-            .select("id, name, stage, tenant_id, crm_contacts(phone_e164, email)"),
-        supabase.from("crm_account_suggestions").select("venue_id, tenant_id, dismissed_at")
+    const [tenants, venues, suggestionRows] = await Promise.all([
+        fetchAll(() =>
+            supabase
+                .from("tenants")
+                .select("id, name, owner_user_id, subscription_status, created_at")
+                .is("deleted_at", null)
+                .order("id")
+        ),
+        fetchAll(() =>
+            supabase
+                .from("crm_venues")
+                .select("id, name, stage, lost_kind, stage_changed_at, tenant_id, crm_contacts(phone_e164, email)")
+                .order("id")
+        ),
+        fetchAll(() =>
+            supabase.from("crm_account_suggestions").select("venue_id, tenant_id, dismissed_at").order("id")
+        )
     ]);
-    if (tenantsRes.error) throw tenantsRes.error;
-    if (venuesRes.error) throw venuesRes.error;
-    if (dismissedRes.error) throw dismissedRes.error;
 
-    const tenants = tenantsRes.data ?? [];
+    // Gli id dei proprietari a gruppi: tutti insieme sforano la lunghezza dell'URL.
     const ownerIds = [...new Set(tenants.map(t => t.owner_user_id).filter(Boolean))];
-    const { data: profiles, error: profilesError } = ownerIds.length
-        ? await supabase.from("profiles").select("id, phone, email").in("id", ownerIds)
-        : { data: [], error: null };
-    if (profilesError) throw profilesError;
+    const profiles = [];
+    for (let i = 0; i < ownerIds.length; i += PROFILE_CHUNK) {
+        const { data, error } = await supabase
+            .from("profiles")
+            .select("id, phone, email")
+            .in("id", ownerIds.slice(i, i + PROFILE_CHUNK));
+        if (error) throw error;
+        profiles.push(...(data ?? []));
+    }
 
-    const profileById = new Map((profiles ?? []).map(p => [p.id, p]));
+    // Quando è stato collegato ogni locale in Perso: un Perso deciso dopo resta.
+    const persoLinkedIds = venues.filter(v => v.stage === "perso" && v.tenant_id).map(v => v.id);
+    const linkedAt = new Map<string, string>();
+    for (let i = 0; i < persoLinkedIds.length; i += PROFILE_CHUNK) {
+        const { data, error } = await supabase
+            .from("crm_events")
+            .select("venue_id, created_at")
+            .eq("type", "account_linked")
+            .in("venue_id", persoLinkedIds.slice(i, i + PROFILE_CHUNK));
+        if (error) throw error;
+        for (const e of data ?? []) {
+            if (!linkedAt.has(e.venue_id) || linkedAt.get(e.venue_id) < e.created_at) {
+                linkedAt.set(e.venue_id, e.created_at);
+            }
+        }
+    }
+
+    const profileById = new Map(profiles.map(p => [p.id, p]));
     const tenantById = new Map(tenants.map(t => [t.id, t]));
     const byPhone = new Map<string, typeof tenants>();
     const byEmail = new Map<string, typeof tenants>();
@@ -74,12 +117,10 @@ async function sync(supabase) {
         push(byName, normalizeVenueName(tenant.name ?? ""), tenant);
     }
 
-    const known = new Set((dismissedRes.data ?? []).map(s => `${s.venue_id}:${s.tenant_id}`));
-    const dismissed = new Set(
-        (dismissedRes.data ?? []).filter(s => s.dismissed_at).map(s => `${s.venue_id}:${s.tenant_id}`)
-    );
+    const known = new Set(suggestionRows.map(s => `${s.venue_id}:${s.tenant_id}`));
+    const dismissed = new Set(suggestionRows.filter(s => s.dismissed_at).map(s => `${s.venue_id}:${s.tenant_id}`));
 
-    for (const venue of venuesRes.data ?? []) {
+    for (const venue of venues) {
         let tenantId = venue.tenant_id;
 
         // 1. Telefono identico → collegamento automatico.
@@ -103,14 +144,23 @@ async function sync(supabase) {
         // 2. La fase segue l'abbonamento.
         if (tenantId) {
             const tenant = tenantById.get(tenantId);
-            const next = tenant ? nextStageForAccount(venue.stage, tenant.subscription_status) : null;
+            const linkedTime = linkedAt.get(venue.id);
+            const next = tenant
+                ? nextStageForAccount(venue.stage, tenant.subscription_status, {
+                      lostKind: venue.lost_kind,
+                      lostAfterLink: Boolean(linkedTime && venue.stage_changed_at > linkedTime)
+                  })
+                : null;
             if (next) {
-                const { error } = await supabase.rpc("crm_move_stage", {
+                // Fase attesa = quella letta a inizio giro: se nel frattempo
+                // qualcuno ha spostato la carta, vince lui.
+                const { data: moved, error } = await supabase.rpc("crm_move_stage", {
                     p_venue_id: venue.id,
-                    p_stage: next
+                    p_stage: next,
+                    p_expected_stage: venue.stage
                 });
                 if (error) throw error;
-                stats.moved += 1;
+                if (moved) stats.moved += 1;
             }
             continue;
         }
@@ -131,7 +181,7 @@ async function sync(supabase) {
                 .from("crm_account_suggestions")
                 .insert({ venue_id: venue.id, tenant_id: suggestedTenantId, reason });
             if (error && error.code !== "23505") throw error;
-            stats.suggested += 1;
+            if (!error) stats.suggested += 1;
         }
     }
     return stats;

@@ -107,13 +107,15 @@ export async function ingestCrmLead(input: CrmIngestInput): Promise<CrmIngestRes
 export async function moveCrmStage(
     venueId: string,
     stage: CrmStage,
-    lost?: { kind: CrmLostKind; reason: string }
+    lost?: { kind: CrmLostKind; reason: string },
+    expectedStage?: CrmStage
 ): Promise<boolean> {
     const { data, error } = await supabase.rpc("crm_move_stage", {
         p_venue_id: venueId,
         p_stage: stage,
         p_lost_kind: lost?.kind ?? null,
-        p_lost_reason: lost?.reason ?? null
+        p_lost_reason: lost?.reason ?? null,
+        p_expected_stage: expectedStage ?? null
     });
     if (error) throw error;
     return data === true;

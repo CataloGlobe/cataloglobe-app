@@ -148,8 +148,14 @@ export default function LeadsPage() {
             }
             setPageError(null);
             try {
-                await moveCrmStage(venue.id, stage);
+                // Fase attesa = quella che si vede: se un altro l'ha appena
+                // spostata (o il sistema), non si sovrascrive.
+                const moved = await moveCrmStage(venue.id, stage, undefined, venue.stage);
                 await load();
+                if (!moved) {
+                    setPageError(`${venue.name} era già stata spostata: ecco dove si trova ora.`);
+                    return;
+                }
                 showToast({
                     message: `${venue.name}: ${CRM_STAGE_LABEL[stage]}.`,
                     type: "success"
