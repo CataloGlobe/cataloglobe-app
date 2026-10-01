@@ -336,11 +336,8 @@ test.describe("Stili — editor", () => {
         await expect(page.getByRole("button", { name: /^v1\b/ })).toBeVisible();
         await page.getByRole("button", { name: /^v2\b/ }).click();
         await page.getByRole("button", { name: /^Ripristina/ }).click();
-        // Estate è in uso: da S2 il ripristino passa dall'avviso, come il Salva.
-        const warning = page.getByRole("alertdialog");
-        if (await warning.isVisible().catch(() => false)) {
-            await warning.getByRole("button", { name: /comunque$/ }).click();
-        }
+        // Estate è in uso: il ripristino passa dall'avviso, come il Salva (S2).
+        await page.getByRole("alertdialog").getByRole("button", { name: "Ripristina comunque" }).click();
         await expect.poll(() => write(stub, "style_versions.POST")?.body).toMatchObject({
             style_id: STYLE.estate,
             version: 4,
@@ -590,7 +587,7 @@ test.describe("Stili — lotto bug A", () => {
         await expect(page.getByRole("alertdialog")).toHaveCount(0);
     });
 
-    test.fail("S2: con modifiche non salvate «Ripristina» è spento", async ({ page }) => {
+    test("S2: con modifiche non salvate «Ripristina» è spento", async ({ page }) => {
         await openStyle(page, STYLE.estate);
         await expect(nameField(page)).toHaveValue("Estate e2e", { timeout: 15_000 });
         await touchToken(page);
@@ -600,7 +597,7 @@ test.describe("Stili — lotto bug A", () => {
         await expect(page.getByText(/Salva o annulla le modifiche/)).toBeVisible();
     });
 
-    test.fail("S2: ripristinare uno stile in uso passa dall'avviso «Stile in uso»", async ({ page }) => {
+    test("S2: ripristinare uno stile in uso passa dall'avviso «Stile in uso»", async ({ page }) => {
         wireStyleWrites(stub);
         await openStyle(page, STYLE.estate);
         await expect(nameField(page)).toHaveValue("Estate e2e", { timeout: 15_000 });

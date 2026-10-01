@@ -92,9 +92,13 @@ export default function StyleEditorPage() {
     const [name, setName] = useState("");
     const [tokenModel, setTokenModel] = useState<StyleTokenModel>(DEFAULT_STYLE_TOKENS);
     const [originalTokens, setOriginalTokens] = useState<StyleTokenModel>(DEFAULT_STYLE_TOKENS);
-    const [isConfirmOpen, setIsConfirmOpen] = useState(false);
-    // L'avviso prima di salvare (§34.5): chi vede la modifica, e quando.
+    // L'avviso prima di scrivere (§34.5): chi vede la modifica, e quando. Vale
+    // per il Salva e per il ripristino di una versione: scrivono tutti e due.
+    const [pendingWrite, setPendingWrite] = useState<
+        { kind: "save" } | { kind: "rollback"; versionId: string } | null
+    >(null);
     const [saveWarning, setSaveWarning] = useState<string | null>(null);
+    const [isCheckingRollback, setIsCheckingRollback] = useState(false);
     const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
 
     const isSystem = Boolean(styleData?.is_system);
@@ -169,6 +173,20 @@ export default function StyleEditorPage() {
         onRollbackComplete
     });
     const invalidateVersions = versioning.invalidate;
+    const { rollbackTo } = versioning;
+
+    // Le regole si rileggono a ogni scrittura: chi vede la modifica è quello di
+    // adesso. `undefined` = regole non lette: nessuna scrittura, il toast lo dice.
+    const readWriteWarning = useCallback(async (style: V2Style): Promise<string | null | undefined> => {
+        try {
+            const sources = await listAppearanceSources(style.tenant_id);
+            const index = buildAppearance({ ...sources, instant: toRomeDateTime(new Date()), subscriptionInactive: !canEdit });
+            return describeStyleSaveWarning(appearanceOf(index, { kind: "style", id: style.id }));
+        } catch {
+            showToast({ message: "Non riesco a leggere le regole che usano lo stile. Riprova.", type: "error" });
+            return undefined;
+        }
+    }, [canEdit, showToast]);
 
     const doSave = useCallback(async (): Promise<boolean> => {
         if (!styleData) return false;
@@ -212,25 +230,38 @@ export default function StyleEditorPage() {
             return;
         }
         setIsSaving(true);
-        let warning: string | null = null;
-        try {
-            // Le regole si rileggono al Salva: chi vede la modifica è quello di adesso.
-            const sources = await listAppearanceSources(styleData.tenant_id);
-            const index = buildAppearance({ ...sources, instant: toRomeDateTime(new Date()), subscriptionInactive: !canEdit });
-            warning = describeStyleSaveWarning(appearanceOf(index, { kind: "style", id: styleData.id }));
-        } catch {
-            showToast({ message: "Impossibile salvare lo stile.", type: "error" });
-            setIsSaving(false);
-            return;
-        }
+        const warning = await readWriteWarning(styleData);
         setIsSaving(false);
+        if (warning === undefined) return;
         if (warning) {
             setSaveWarning(warning);
-            setIsConfirmOpen(true);
+            setPendingWrite({ kind: "save" });
             return;
         }
         await doSave();
-    }, [name, styleData, readOnly, canEdit, tokensDirty, showToast, doSave]);
+    }, [name, styleData, readOnly, tokensDirty, showToast, doSave, readWriteWarning]);
+
+    // Ripristino: mai sopra una bozza sporca (il popover lo spegne), e con lo
+    // stesso avviso del Salva quando lo stile veste delle regole.
+    const handleRollbackRequest = useCallback(async () => {
+        const versionId = versioning.selectedVersionId;
+        if (!styleData || readOnly || isDirty || !versionId) return;
+        setIsCheckingRollback(true);
+        const warning = await readWriteWarning(styleData);
+        setIsCheckingRollback(false);
+        if (warning === undefined) return;
+        if (warning) {
+            setSaveWarning(warning);
+            setPendingWrite({ kind: "rollback", versionId });
+            return;
+        }
+        await rollbackTo(versionId);
+    }, [versioning.selectedVersionId, styleData, readOnly, isDirty, readWriteWarning, rollbackTo]);
+
+    const confirmPendingWrite = useCallback(async (): Promise<boolean> => {
+        if (pendingWrite?.kind === "rollback") return rollbackTo(pendingWrite.versionId);
+        return doSave();
+    }, [pendingWrite, rollbackTo, doSave]);
 
     const handleSubmit = useCallback(
         (e: React.FormEvent) => {
@@ -476,10 +507,11 @@ export default function StyleEditorPage() {
                                         isLoading={versioning.isVersionsLoading}
                                         currentVersionId={styleData.current_version_id}
                                         selectedVersionId={versioning.selectedVersionId}
-                                        isRollingBack={versioning.isRollingBack}
+                                        isRollingBack={versioning.isRollingBack || isCheckingRollback}
                                         onSelectVersion={versioning.handleVersionSelect}
-                                        onRollback={versioning.handleVersionRollback}
+                                        onRollback={() => void handleRollbackRequest()}
                                         readOnly={readOnly}
+                                        hasUnsavedChanges={isDirty}
                                         onClose={versioning.handleVersionClose}
                                         anchorEl={versionAnchorRef.current}
                                     />
@@ -517,12 +549,12 @@ export default function StyleEditorPage() {
             </div>
 
             <ConfirmDialog
-                isOpen={isConfirmOpen}
-                onClose={() => setIsConfirmOpen(false)}
-                onConfirm={doSave}
+                isOpen={pendingWrite !== null}
+                onClose={() => setPendingWrite(null)}
+                onConfirm={confirmPendingWrite}
                 title="Stile in uso"
                 message={saveWarning ?? ""}
-                confirmLabel="Salva comunque"
+                confirmLabel={pendingWrite?.kind === "rollback" ? "Ripristina comunque" : "Salva comunque"}
                 confirmVariant="primary"
             />
 
