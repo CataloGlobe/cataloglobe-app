@@ -16,12 +16,16 @@ import { openBusinessPage } from "./business";
 /** Riscrive la risposta di `get_my_permissions` aggiungendo `tenant.delete`. */
 async function grantTenantDelete(page: Page): Promise<void> {
     await page.route(/\/rest\/v1\/rpc\/get_my_permissions/, async route => {
-        const response = await route.fetch();
-        const rows = (await response.json()) as Array<{ permissions: string[] | null }>;
-        for (const row of rows) {
-            row.permissions = [...(row.permissions ?? []), "tenant.delete"];
+        try {
+            const response = await route.fetch();
+            const rows = (await response.json()) as Array<{ permissions: string[] | null }>;
+            for (const row of rows) {
+                row.permissions = [...(row.permissions ?? []), "tenant.delete"];
+            }
+            await route.fulfill({ response, json: rows });
+        } catch {
+            // Pagina chiusa a metà richiesta (fine del test): niente da riscrivere.
         }
-        await route.fulfill({ response, json: rows });
     });
     // Nessuna eliminazione può partire da questo test, nemmeno per sbaglio.
     await page.route(/\/functions\/v1\/delete-tenant/, route => route.abort());
