@@ -430,3 +430,9 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/import_map.json"
 entrypoint = "./functions/crm-wa/index.ts"
+
+[functions.crm-sync-accounts]
+enabled = true
+verify_jwt = false
+import_map = "./functions/import_map.json"
+entrypoint = "./functions/crm-sync-accounts/index.ts"

@@ -205,3 +205,61 @@ export async function logCrmWhatsappOpened(venueId: string, leadId?: string | nu
     if (error) throw error;
     return data === true;
 }
+
+// -----------------------------------------------------------------------------
+// Legame con gli account CataloGlobe
+// -----------------------------------------------------------------------------
+
+export interface CrmLinkableTenant {
+    id: string;
+    name: string;
+    subscription_status: string;
+}
+
+export interface CrmAccountSuggestion {
+    id: string;
+    tenant_id: string;
+    reason: "email" | "name";
+}
+
+/** Aziende leggibili dagli admin di piattaforma (policy 20260828130000). */
+export async function listCrmLinkableTenants(): Promise<CrmLinkableTenant[]> {
+    const { data, error } = await supabase
+        .from("tenants")
+        .select("id, name, subscription_status")
+        .is("deleted_at", null)
+        .order("name", { ascending: true });
+    if (error) throw error;
+    return (data ?? []) as CrmLinkableTenant[];
+}
+
+export async function listCrmAccountSuggestions(venueId: string): Promise<CrmAccountSuggestion[]> {
+    const { data, error } = await supabase
+        .from("crm_account_suggestions")
+        .select("id, tenant_id, reason")
+        .eq("venue_id", venueId)
+        .is("dismissed_at", null);
+    if (error) throw error;
+    return (data ?? []) as CrmAccountSuggestion[];
+}
+
+export async function dismissCrmAccountSuggestion(id: string): Promise<void> {
+    const { error } = await supabase
+        .from("crm_account_suggestions")
+        .update({ dismissed_at: new Date().toISOString() })
+        .eq("id", id);
+    if (error) throw error;
+}
+
+export async function linkCrmAccount(venueId: string, tenantId: string): Promise<void> {
+    const { error } = await supabase.rpc("crm_link_account", {
+        p_venue_id: venueId,
+        p_tenant_id: tenantId
+    });
+    if (error) throw error;
+}
+
+export async function unlinkCrmAccount(venueId: string): Promise<void> {
+    const { error } = await supabase.rpc("crm_unlink_account", { p_venue_id: venueId });
+    if (error) throw error;
+}

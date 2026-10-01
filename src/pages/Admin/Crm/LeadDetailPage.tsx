@@ -2,11 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/Button/Button";
 import { Card } from "@/components/ui/Card/Card";
-import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import { ListRow } from "@/components/ui/ListRow/ListRow";
 import { LoadingState } from "@/components/ui/LoadingState/LoadingState";
-import { RadioGroup } from "@/components/ui/RadioGroup/RadioGroup";
 import { Select } from "@/components/ui/Select/Select";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import Text from "@/components/ui/Text/Text";
@@ -37,11 +35,12 @@ import {
     CRM_STAGES,
     type CrmEvent,
     type CrmContact,
-    type CrmLostKind,
     type CrmStage,
     type CrmTeamMember,
     type CrmVenueDetail
 } from "@/types/crm";
+import { AccountCard } from "./AccountCard";
+import { LostStageDialog } from "./LostStageDialog";
 import styles from "./Crm.module.scss";
 
 /**
@@ -54,11 +53,6 @@ import styles from "./Crm.module.scss";
  */
 
 const STAGE_OPTIONS = CRM_STAGES.map(stage => ({ value: stage, label: CRM_STAGE_LABEL[stage] }));
-
-const LOST_KIND_OPTIONS = (Object.keys(CRM_LOST_KIND_LABEL) as CrmLostKind[]).map(kind => ({
-    value: kind,
-    label: CRM_LOST_KIND_LABEL[kind]
-}));
 
 function describeEvent(event: CrmEvent, teamName: (id: string | null) => string): string {
     const p = event.payload;
@@ -98,9 +92,6 @@ export default function LeadDetailPage() {
     const [note, setNote] = useState("");
     const [isSavingNote, setIsSavingNote] = useState(false);
     const [lostOpen, setLostOpen] = useState(false);
-    const [lostKind, setLostKind] = useState<CrmLostKind>("obiezione");
-    const [lostReason, setLostReason] = useState("");
-    const [lostError, setLostError] = useState<string | null>(null);
 
     usePageTitle(detail?.venue.name ?? "Lead");
 
@@ -136,9 +127,6 @@ export default function LeadDetailPage() {
         async (stage: CrmStage) => {
             if (!detail || stage === detail.venue.stage) return;
             if (stage === "perso") {
-                setLostKind("obiezione");
-                setLostReason("");
-                setLostError(null);
                 setLostOpen(true);
                 return;
             }
@@ -157,22 +145,10 @@ export default function LeadDetailPage() {
         [detail, load, showToast]
     );
 
-    const handleConfirmLost = useCallback(async () => {
-        if (!detail) return false;
-        if (!lostReason.trim()) {
-            setLostError("Scrivi il motivo: serve alla libreria delle obiezioni.");
-            return false;
-        }
-        try {
-            await moveCrmStage(detail.venue.id, "perso", { kind: lostKind, reason: lostReason.trim() });
-            await load();
-            showToast({ message: "Spostato in Perso.", type: "success" });
-            return true;
-        } catch (err) {
-            setLostError(crmErrorMessage(err));
-            return false;
-        }
-    }, [detail, lostKind, lostReason, load, showToast]);
+    const handleLostMoved = useCallback(async () => {
+        await load();
+        showToast({ message: "Spostato in Perso.", type: "success" });
+    }, [load, showToast]);
 
     const handleAssign = useCallback(
         async (userId: string) => {
@@ -328,6 +304,13 @@ export default function LeadDetailPage() {
                 </Card>
             )}
 
+            <AccountCard
+                venueId={detail.venue.id}
+                tenantId={detail.venue.tenant_id}
+                linkSource={detail.venue.link_source}
+                onChanged={load}
+            />
+
             <Card title="Contatti" flush>
                 {contacts.map(contact => (
                     <ListRow
@@ -447,33 +430,11 @@ export default function LeadDetailPage() {
                 ))}
             </Card>
 
-            <ConfirmDialog
-                isOpen={lostOpen}
+            <LostStageDialog
+                venueId={lostOpen ? detail.venue.id : null}
                 onClose={() => setLostOpen(false)}
-                onConfirm={handleConfirmLost}
-                title="Sposta in Perso"
-                confirmLabel="Sposta in Perso"
-                confirmVariant="primary"
-                error={lostError}
-            >
-                <div className={styles.drawerForm}>
-                    <RadioGroup
-                        label="Tipo"
-                        value={lostKind}
-                        onChange={value => setLostKind(value as CrmLostKind)}
-                        options={LOST_KIND_OPTIONS}
-                    />
-                    <Textarea
-                        label="Motivo"
-                        required
-                        rows={3}
-                        maxLength={500}
-                        value={lostReason}
-                        onChange={e => setLostReason(e.target.value)}
-                        placeholder="Es. usa già un altro menù digitale, costa troppo, non ha tempo adesso."
-                    />
-                </div>
-            </ConfirmDialog>
+                onMoved={handleLostMoved}
+            />
         </div>
     );
 }

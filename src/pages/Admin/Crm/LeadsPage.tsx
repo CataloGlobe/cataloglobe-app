@@ -1,12 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import { ChipGroupSingle, type ChipOption } from "@/components/ui/Chip/ChipGroup";
-import { DataTable, DATA_TABLE_CLASSES, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
+import {
+    DataTable,
+    DATA_TABLE_CLASSES,
+    type ColumnDefinition
+} from "@/components/ui/DataTable/DataTable";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
+import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
+import { useToast } from "@/context/Toast/ToastContext";
 import { usePageHeader } from "@/context/usePageHeader";
 import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { usePageTitle } from "@/hooks/usePageTitle";
@@ -14,24 +20,39 @@ import {
     getCrmSettings,
     listCrmTeamMembers,
     listCrmVenues,
-    logCrmWhatsappOpened
+    logCrmWhatsappOpened,
+    moveCrmStage
 } from "@/services/supabase/crm";
 import { crmWhatsappLink } from "@/utils/crm/whatsapp";
 import { formatDateTimeIt } from "@/utils/formatDateTime";
-import { CRM_SOURCE_LABEL, CRM_STAGE_LABEL, CRM_STAGE_VARIANT, crmErrorMessage } from "@/utils/crm/stages";
+import {
+    CRM_SOURCE_LABEL,
+    CRM_STAGE_LABEL,
+    CRM_STAGE_VARIANT,
+    crmErrorMessage
+} from "@/utils/crm/stages";
 import { CRM_STAGES, type CrmStage, type CrmTeamMember, type CrmVenueListItem } from "@/types/crm";
 import { AddLeadDrawer } from "./AddLeadDrawer";
 import { ImportMetaCsvDrawer } from "./ImportMetaCsvDrawer";
 import { SettingsDrawer } from "./SettingsDrawer";
+import { LostStageDialog } from "./LostStageDialog";
+import { PipelineBoard } from "./PipelineBoard";
 import styles from "./Crm.module.scss";
 
 /**
  * Elenco dei lead del CRM: un locale per riga, l'ultimo toccato in cima.
  *
- * Il filtro di default è «Da lavorare»: tutto tranne Cliente pagante e Perso,
- * cioè le carte su cui c'è ancora qualcosa da fare. La pipeline a colonne
- * (kanban) arriva con la sua PR; qui la fase è un badge e un filtro.
+ * Due viste in `?vista=`: elenco (default) e pipeline a 8 colonne. Nell'elenco
+ * il filtro di default è «Da lavorare»: tutto tranne Cliente pagante e Perso,
+ * cioè le carte su cui c'è ancora qualcosa da fare.
  */
+
+type View = "elenco" | "pipeline";
+
+const VIEW_OPTIONS: { value: View; label: string }[] = [
+    { value: "elenco", label: "Elenco" },
+    { value: "pipeline", label: "Pipeline" }
+];
 
 type StageFilter = CrmStage | "open" | "all";
 
@@ -46,6 +67,17 @@ function matchesFilter(venue: CrmVenueListItem, filter: StageFilter): boolean {
 export default function LeadsPage() {
     usePageTitle("Lead");
     const navigate = useNavigate();
+    const { showToast } = useToast();
+    const [searchParams, setSearchParams] = useSearchParams();
+    const view: View = searchParams.get("vista") === "pipeline" ? "pipeline" : "elenco";
+    const setView = useCallback(
+        (next: View) =>
+            setSearchParams(next === "elenco" ? {} : { vista: next }, {
+                replace: true
+            }),
+        [setSearchParams]
+    );
+    const [lostVenueId, setLostVenueId] = useState<string | null>(null);
 
     const [venues, setVenues] = useState<CrmVenueListItem[]>([]);
     const [team, setTeam] = useState<CrmTeamMember[]>([]);
@@ -69,7 +101,9 @@ export default function LeadsPage() {
             setTeam(members);
             setWhatsappTemplate(settings.whatsapp_template);
         } catch (err) {
-            setPageError(`Non è stato possibile caricare i lead: ${err instanceof Error ? err.message : String(err)}`);
+            setPageError(
+                `Non è stato possibile caricare i lead: ${err instanceof Error ? err.message : String(err)}`
+            );
         } finally {
             setIsLoading(false);
         }
@@ -81,7 +115,7 @@ export default function LeadsPage() {
 
     const teamName = useMemo(() => {
         const names = new Map(team.map(m => [m.user_id, m.display_name]));
-        return (userId: string | null) => (userId ? names.get(userId) ?? "—" : "Nessuno");
+        return (userId: string | null) => (userId ? (names.get(userId) ?? "—") : "Nessuno");
     }, [team]);
 
     const handleWhatsapp = useCallback(
@@ -103,6 +137,27 @@ export default function LeadsPage() {
                 .catch(err => setPageError(crmErrorMessage(err)));
         },
         [whatsappTemplate, load]
+    );
+
+    const handleMove = useCallback(
+        async (venue: CrmVenueListItem, stage: CrmStage) => {
+            if (stage === "perso") {
+                setLostVenueId(venue.id);
+                return;
+            }
+            setPageError(null);
+            try {
+                await moveCrmStage(venue.id, stage);
+                await load();
+                showToast({
+                    message: `${venue.name}: ${CRM_STAGE_LABEL[stage]}.`,
+                    type: "success"
+                });
+            } catch (err) {
+                setPageError(crmErrorMessage(err));
+            }
+        },
+        [load, showToast]
     );
 
     const filterOptions = useMemo<ChipOption<StageFilter>[]>(() => {
@@ -168,7 +223,9 @@ export default function LeadsPage() {
                         <div className={DATA_TABLE_CLASSES.cellTwoLine}>
                             <span>
                                 {CRM_SOURCE_LABEL[lead.source]}
-                                {row.crm_leads.length > 1 ? ` · ${row.crm_leads.length} richieste` : ""}
+                                {row.crm_leads.length > 1
+                                    ? ` · ${row.crm_leads.length} richieste`
+                                    : ""}
                             </span>
                             <span>{lead.ad_name ?? ""}</span>
                         </div>
@@ -239,7 +296,10 @@ export default function LeadsPage() {
 
     const headerCompact = useMemo<PageHeaderCompactConfig>(
         () => ({
-            primaryAction: { label: "Aggiungi lead", onClick: () => setIsAddOpen(true) },
+            primaryAction: {
+                label: "Aggiungi lead",
+                onClick: () => setIsAddOpen(true)
+            },
             secondaryActions: [
                 { label: "Importa CSV Meta", onClick: () => setIsImportOpen(true) },
                 { label: "Impostazioni", onClick: () => setIsSettingsOpen(true) }
@@ -248,7 +308,18 @@ export default function LeadsPage() {
         []
     );
 
-    usePageHeader({ title: "Lead", subtitle, actions: headerActions, compact: headerCompact });
+    const headerLeading = useMemo(
+        () => <SegmentedControl value={view} onChange={setView} options={VIEW_OPTIONS} size="sm" />,
+        [view, setView]
+    );
+
+    usePageHeader({
+        title: "Lead",
+        subtitle,
+        leading: headerLeading,
+        actions: headerActions,
+        compact: headerCompact
+    });
 
     const handleCreated = useCallback(
         (venueId: string) => {
@@ -276,28 +347,51 @@ export default function LeadsPage() {
                     {pageError}
                 </InlineBanner>
             )}
-            <ChipGroupSingle
-                options={filterOptions}
-                value={filter}
-                onChange={setFilter}
-                ariaLabel="Filtra per fase"
-            />
+            {view === "pipeline" ? (
+                <PipelineBoard
+                    venues={venues}
+                    teamName={teamName}
+                    onMove={(venue, stage) => void handleMove(venue, stage)}
+                    onOpen={id => navigate(id)}
+                />
+            ) : (
+                <>
+                    <ChipGroupSingle
+                        options={filterOptions}
+                        value={filter}
+                        onChange={setFilter}
+                        ariaLabel="Filtra per fase"
+                    />
 
-            <DataTable
-                data={visible}
-                columns={columns}
-                isLoading={isLoading}
-                onRowClick={row => navigate(row.id)}
-                ariaLabel="Lead"
-                isFiltered={filter !== "all"}
-                onClearFilters={() => setFilter("all")}
-                emptyState={{
-                    title: venues.length === 0 ? "Ancora nessun lead" : "Nessun lead con questo filtro",
-                    description:
-                        venues.length === 0
-                            ? "I lead della landing arrivano qui da soli entro un minuto. Quelli delle chat WhatsApp si aggiungono a mano."
-                            : undefined,
-                    icon: <UserPlus size={32} strokeWidth={1.5} />
+                    <DataTable
+                        data={visible}
+                        columns={columns}
+                        isLoading={isLoading}
+                        onRowClick={row => navigate(row.id)}
+                        ariaLabel="Lead"
+                        isFiltered={filter !== "all"}
+                        onClearFilters={() => setFilter("all")}
+                        emptyState={{
+                            title:
+                                venues.length === 0
+                                    ? "Ancora nessun lead"
+                                    : "Nessun lead con questo filtro",
+                            description:
+                                venues.length === 0
+                                    ? "I lead della landing arrivano qui da soli entro un minuto. Quelli delle chat WhatsApp si aggiungono a mano."
+                                    : undefined,
+                            icon: <UserPlus size={32} strokeWidth={1.5} />
+                        }}
+                    />
+                </>
+            )}
+
+            <LostStageDialog
+                venueId={lostVenueId}
+                onClose={() => setLostVenueId(null)}
+                onMoved={async () => {
+                    await load();
+                    showToast({ message: "Spostato in Perso.", type: "success" });
                 }}
             />
 
