@@ -8,19 +8,21 @@
 --   * la data più recente tra l'ultimo ingresso (crm_leads.received_at) e
 --     last_activity_at è prima di p_cutoff: un lead che torna non si perde;
 --   * la fase non è In prova né Cliente pagante;
---   * nessun account collegato (tenant_id nullo);
---   * nessun suo ingresso dalla landing ha ancora la riga in `public.leads`
---     (spam escluso). Altrimenti crm_sync_landing_leads, al minuto dopo, lo
---     ricopierebbe come lead nuovo con notifica Telegram. `purge-leads` (03:45
---     UTC) cancella quelle righe dopo 12 mesi; il locale va via la notte stessa,
---     dopo di lei. Chi in `leads` è 'won' resta, e con lui la sua carta.
+--   * nessun account collegato (tenant_id nullo).
+-- Un locale Perso per stop lascia l'impronta dei suoi telefoni in
+-- crm_suppressions (trigger crm_venues_suppress_stop, 20261001120100): dopo la
+-- cancellazione non rientra da nessuna fonte. Un contatto della landing
+-- ancora in `public.leads` non viene ricopiato: il marcatore
+-- crm_landing_imported non ha FK e resta.
+--
+-- Pulizia dei marcatori: una riga di crm_landing_imported serve solo finché
+-- il suo `leads.id` esiste (purge-leads, 03:45 UTC, lo toglie dopo 12 mesi).
+-- Quelle orfane si cancellano qui (non in dry-run). Nessun dato personale,
+-- ma non c'è motivo di tenerle.
 --
 -- p_dry_run (default true): conta e non cancella.
 -- La chiama solo l'edge crm-purge con la service role (che ha SELECT su
 -- `leads`). SECURITY INVOKER; ACL in 20261001160100 (42601 con db push).
---
--- Aperto (verifica GDPR entro il 21/10): uno stop definitivo (Perso, tipo
--- stop) cancellato qui non lascia traccia; serve una lista di esclusione.
 -- =============================================================================
 
 CREATE OR REPLACE FUNCTION public.crm_purge_venues(
@@ -51,14 +53,6 @@ BEGIN
                   v.last_activity_at,
                   (SELECT max(l.received_at) FROM public.crm_leads l WHERE l.venue_id = v.id)
               ) < p_cutoff
-          AND NOT EXISTS (
-              SELECT 1
-              FROM public.crm_leads cl
-              JOIN public.leads pl ON pl.id::text = cl.source_ref
-              WHERE cl.venue_id = v.id
-                AND cl.source = 'landing'
-                AND pl.status <> 'spam'
-          )
     ),
     deleted AS (
         DELETE FROM public.crm_venues v
@@ -68,6 +62,11 @@ BEGIN
         RETURNING v.id
     )
     SELECT count(*) INTO v_count FROM targets;
+
+    IF NOT p_dry_run THEN
+        DELETE FROM public.crm_landing_imported li
+        WHERE NOT EXISTS (SELECT 1 FROM public.leads l WHERE l.id = li.lead_id);
+    END IF;
 
     RETURN v_count;
 END;

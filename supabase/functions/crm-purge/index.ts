@@ -6,8 +6,8 @@
 // Invocata da pg_cron ogni notte (migration 20261001160200). Le regole stanno
 // in SQL, in public.crm_purge_venues (20261001160000): fermo da 12 mesi
 // (ultimo ingresso o ultima attività), non In prova né Cliente pagante, nessun
-// account collegato, nessun contatto della landing ancora in `leads`.
-// Contatti, ingressi ed eventi vanno via a cascata.
+// account collegato. Contatti, ingressi ed eventi vanno via a cascata; un
+// locale in stop lascia l'impronta del telefono in crm_suppressions.
 //
 // AUTENTICAZIONE fail-CLOSED: X-Job-Secret = CRM_JOB_SECRET.
 // DRY-RUN DI DEFAULT: senza `{"dry_run": false}` nel body conta e basta.
