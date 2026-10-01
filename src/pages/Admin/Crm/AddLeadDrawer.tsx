@@ -82,7 +82,20 @@ export function AddLeadDrawer({ open, onClose, onCreated }: Props) {
                 consentText:
                     source === "whatsapp" ? "Ha scritto per primo su WhatsApp" : null
             });
-            if (note.trim()) await addCrmNote(result.venueId, note.trim());
+            // Il lead ormai è dentro: se fallisce solo la nota, niente errore
+            // nel form (un secondo «Aggiungi» aggiungerebbe una richiesta doppia).
+            if (note.trim()) {
+                try {
+                    await addCrmNote(result.venueId, note.trim());
+                } catch {
+                    showToast({
+                        message: "Lead aggiunto, ma la nota non è stata salvata: aggiungila dalla scheda.",
+                        type: "warning"
+                    });
+                    onCreated(result.venueId);
+                    return;
+                }
+            }
             showToast({
                 message:
                     result.outcome === "created"

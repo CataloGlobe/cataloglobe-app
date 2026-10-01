@@ -33,6 +33,7 @@ export function ImportMetaCsvDrawer({ open, onClose, onImported }: Props) {
     const [isImporting, setIsImporting] = useState(false);
     const [progress, setProgress] = useState(0);
     const [report, setReport] = useState<ImportReport | null>(null);
+    const [fileError, setFileError] = useState<string | null>(null);
 
     useEffect(() => {
         if (!open) return;
@@ -41,15 +42,29 @@ export function ImportMetaCsvDrawer({ open, onClose, onImported }: Props) {
         setIsImporting(false);
         setProgress(0);
         setReport(null);
+        setFileError(null);
     }, [open]);
 
     async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
         const file = e.target.files?.[0];
         if (!file) return;
         setReport(null);
+        setFileError(null);
         setFileName(file.name);
-        const bytes = new Uint8Array(await file.arrayBuffer());
-        setParsed(parseMetaLeadsCsv(decodeMetaCsv(bytes)));
+        try {
+            const bytes = new Uint8Array(await file.arrayBuffer());
+            setParsed(parseMetaLeadsCsv(decodeMetaCsv(bytes)));
+        } catch {
+            setParsed(null);
+            setFileError("Non riesco a leggere questo file. È il CSV scaricato da Meta?");
+        }
+    }
+
+    // Durante l'import il drawer non si chiude (né da Annulla né da fuori):
+    // il ciclo continuerebbe in sottofondo e una riapertura ne lancerebbe un secondo.
+    function handleClose() {
+        if (isImporting) return;
+        onClose();
     }
 
     async function handleImport() {
@@ -71,7 +86,11 @@ export function ImportMetaCsvDrawer({ open, onClose, onImported }: Props) {
         setIsImporting(false);
         await onImported();
         showToast({
-            message: `Import finito: ${counts.created} nuovi, ${counts.returned} già nel CRM.`,
+            message:
+                `Import finito: ${counts.created} nuovi, ${counts.returned} già nel CRM` +
+                (counts.duplicate > 0 ? `, ${counts.duplicate} già importati` : "") +
+                (counts.failed > 0 ? `, ${counts.failed} non entrati` : "") +
+                ".",
             type: counts.failed > 0 ? "warning" : "success"
         });
     }
@@ -79,7 +98,7 @@ export function ImportMetaCsvDrawer({ open, onClose, onImported }: Props) {
     const readyCount = parsed?.rows.length ?? 0;
 
     return (
-        <SystemDrawer open={open} onClose={onClose} size="md">
+        <SystemDrawer open={open} onClose={handleClose} size="md">
             <DrawerLayout
                 header={
                     <Text variant="title-sm" weight={600}>
@@ -88,7 +107,7 @@ export function ImportMetaCsvDrawer({ open, onClose, onImported }: Props) {
                 }
                 footer={
                     <>
-                        <Button variant="secondary" onClick={onClose} disabled={isImporting}>
+                        <Button variant="secondary" onClick={handleClose} disabled={isImporting}>
                             {report ? "Chiudi" : "Annulla"}
                         </Button>
                         {!report && (
@@ -123,6 +142,11 @@ export function ImportMetaCsvDrawer({ open, onClose, onImported }: Props) {
                         {fileName && (
                             <Text variant="caption" colorVariant="muted">
                                 {fileName}
+                            </Text>
+                        )}
+                        {fileError && (
+                            <Text variant="body-sm" colorVariant="error">
+                                {fileError}
                             </Text>
                         )}
                     </label>
