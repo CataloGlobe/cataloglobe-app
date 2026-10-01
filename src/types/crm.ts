@@ -127,12 +127,17 @@ export interface CrmIngestInput {
     consentAt?: string | null;
     consentText?: string | null;
     receivedAt?: string | null;
+    /** Import CSV: entra già notificato, niente messaggio singolo né sollecito. */
+    silent?: boolean;
 }
 
 export interface CrmIngestResult {
-    /** Null solo con `suppressed`. */
+    /** Null con `suppressed` e con `duplicate` di un locale cancellato. */
     leadId: string | null;
-    /** Null con `suppressed` da lista di esclusione; il locale se è ancora in Perso per stop. */
+    /**
+     * Null con `suppressed` da lista di esclusione e con `duplicate` di un
+     * locale cancellato; il locale se è ancora in Perso per stop.
+     */
     venueId: string | null;
     outcome: CrmIngestOutcome;
 }
