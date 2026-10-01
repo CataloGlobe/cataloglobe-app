@@ -76,11 +76,19 @@ async function handleStart(supabase, message) {
         .eq("telegram_chat_id", chatId)
         .neq("user_id", member.user_id);
 
-    const { error: updateError } = await supabase
+    // Il token si consuma nello stesso update: due /start insieme, uno solo passa.
+    const { data: linked, error: updateError } = await supabase
         .from("crm_team_members")
         .update({ telegram_chat_id: chatId, telegram_link_token: null, telegram_link_expires_at: null })
-        .eq("user_id", member.user_id);
+        .eq("user_id", member.user_id)
+        .eq("telegram_link_token", token)
+        .gt("telegram_link_expires_at", new Date().toISOString())
+        .select("user_id");
     if (updateError) throw updateError;
+    if (!linked || linked.length === 0) {
+        await reply(chatId, "Link scaduto o già usato. Generane uno nuovo da /admin/lead.");
+        return;
+    }
 
     await reply(chatId, `Collegato come ${member.display_name}. Da ora i lead nuovi arrivano qui.`);
 }
