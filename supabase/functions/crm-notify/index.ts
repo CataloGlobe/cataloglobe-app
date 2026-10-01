@@ -12,9 +12,11 @@
 //      nessuno ce l'ha;
 //    * lead ricevuto più di 24 ore fa (import CSV di arretrati) → segnato come
 //      notificato senza messaggio, per non inondare il bot.
-//    `notified_at` si scrive solo se tutti gli invii sono andati: altrimenti il
-//    giro dopo riprova, e `crm_telegram_messages` (UNIQUE lead+utente+tipo)
-//    evita di rimandare a chi l'ha già ricevuto.
+//    `notified_at` si scrive solo se tutti gli invii sono andati (e c'era
+//    almeno un destinatario): altrimenti il giro dopo riprova. Ogni invio si
+//    prenota prima in `crm_telegram_messages` (UNIQUE lead+utente+tipo, mig
+//    20261001130400): niente doppioni a chi l'ha già ricevuto, né tra due
+//    giri accavallati.
 //
 // 2. SOLLECITO: carta ancora in Nuovo da 2 ore contate nella fascia 9-21 di
 //    Roma (`isEscalationDue`) → messaggio all'assegnato e a chi riceve le
@@ -49,16 +51,43 @@ function json(status: number, body: Record<string, unknown>): Response {
     });
 }
 
-/** Manda il messaggio di un lead a un destinatario, se non l'ha già ricevuto. */
+const CLAIM_STALE_MS = 5 * 60_000;
+
+/**
+ * Manda il messaggio di un lead a un destinatario, se non l'ha già ricevuto.
+ * L'invio si prenota prima con la riga in `crm_telegram_messages` (message_id
+ * nullo): due giri accavallati non mandano lo stesso messaggio due volte.
+ */
 async function sendTo(supabase, lead, member, data, team, kind): Promise<boolean> {
-    const { data: existing } = await supabase
+    const { data: claim, error: claimError } = await supabase
         .from("crm_telegram_messages")
+        .insert({
+            lead_id: lead.id,
+            venue_id: lead.venue_id,
+            user_id: member.user_id,
+            kind,
+            chat_id: member.telegram_chat_id,
+            message_id: null
+        })
         .select("id")
-        .eq("lead_id", lead.id)
-        .eq("user_id", member.user_id)
-        .eq("kind", kind)
-        .maybeSingle();
-    if (existing) return true;
+        .single();
+
+    if (claimError) {
+        if (claimError.code !== "23505") throw claimError;
+        const { data: existing } = await supabase
+            .from("crm_telegram_messages")
+            .select("id, message_id, created_at")
+            .eq("lead_id", lead.id)
+            .eq("user_id", member.user_id)
+            .eq("kind", kind)
+            .maybeSingle();
+        if (existing?.message_id != null) return true;
+        // Prenotazione di un giro caduto a metà: la libero, il giro dopo riprova.
+        if (existing && Date.now() - new Date(existing.created_at).getTime() > CLAIM_STALE_MS) {
+            await supabase.from("crm_telegram_messages").delete().eq("id", existing.id).is("message_id", null);
+        }
+        return false;
+    }
 
     const message = buildLeadMessage(data, member.user_id, team, await whatsappLinkFor(lead.id, member.user_id));
     const result = await telegramCall(BOT_TOKEN, "sendMessage", {
@@ -70,23 +99,20 @@ async function sendTo(supabase, lead, member, data, team, kind): Promise<boolean
     });
     if (!result.ok) {
         console.warn("crm-notify: invio fallito", member.user_id, result.description);
+        await supabase.from("crm_telegram_messages").delete().eq("id", claim.id);
         return false;
     }
 
-    const { error } = await supabase.from("crm_telegram_messages").insert({
-        lead_id: lead.id,
-        venue_id: lead.venue_id,
-        user_id: member.user_id,
-        kind,
-        chat_id: member.telegram_chat_id,
-        message_id: result.result.message_id
-    });
+    const { error } = await supabase
+        .from("crm_telegram_messages")
+        .update({ message_id: result.result.message_id })
+        .eq("id", claim.id);
     if (error) console.error("crm-notify: messaggio non registrato", error.code, error.message);
     return true;
 }
 
 async function processOutbox(supabase, team, appUrl, now: Date) {
-    const stats = { notified: 0, skipped_stale: 0, failed: 0 };
+    const stats = { notified: 0, skipped_stale: 0, failed: 0, no_recipients: 0 };
     const { data: leads, error } = await supabase
         .from("crm_leads")
         .select("id, venue_id, received_at, created_at, crm_venues(assigned_to)")
@@ -120,6 +146,12 @@ async function processOutbox(supabase, team, appUrl, now: Date) {
             kind === "returned" && assignee && linked.some(m => m.user_id === assignee)
                 ? linked.filter(m => m.user_id === assignee)
                 : linked;
+
+        // Nessuno collegato a Telegram: il lead resta in coda (fino alle 24 ore).
+        if (recipients.length === 0) {
+            stats.no_recipients += 1;
+            continue;
+        }
 
         let allSent = true;
         for (const member of recipients) {
@@ -160,6 +192,7 @@ async function processEscalations(supabase, team, appUrl, now: Date) {
         const recipients = team.filter(
             m => m.telegram_chat_id !== null && (m.receives_escalations || m.user_id === assignee)
         );
+        if (recipients.length === 0) continue;
         const data = await loadLeadMessageData(supabase, lead.id, "escalation", appUrl, now);
         if (!data) continue;
 

@@ -102,6 +102,7 @@ export async function refreshVenueMessages(
             .from("crm_telegram_messages")
             .select("lead_id, user_id, kind, chat_id, message_id")
             .eq("venue_id", venueId)
+            .not("message_id", "is", null)
     ]);
     if (error) throw error;
 
