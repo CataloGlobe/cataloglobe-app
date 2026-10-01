@@ -8,21 +8,48 @@
 -- ACL in file separato (20261001120200): CREATE FUNCTION + REVOKE/GRANT nello
 -- stesso file fanno fallire `supabase db push` con 42601.
 --
+--   crm_phone_fingerprint  impronta di un telefono E.164 (lista di esclusione)
 --   crm_ingest_lead        un ingresso, con regola dei doppioni sul telefono
 --   crm_sync_landing_leads copia nel CRM i nuovi `public.leads` (pg_cron)
+--   crm_suppress_stop_on_venue_delete
+--                          trigger: cancellando un locale in stop, le impronte
+--                          dei suoi telefoni entrano in crm_suppressions
 --   crm_move_stage         cambio di colonna + evento
 --   crm_assign             assegnazione + evento
 --   crm_add_note           nota nella storia
 -- =============================================================================
 
 -- -----------------------------------------------------------------------------
+-- crm_phone_fingerprint
+-- -----------------------------------------------------------------------------
+-- sha256 esadecimale del telefono E.164. È una pseudonimizzazione, non
+-- un'anonimizzazione (i numeri sono pochi e si possono provare tutti): basta
+-- per non tenere il numero in chiaro, la verifica GDPR dirà se è ammessa.
+-- sha256() è di pg_catalog (PG 11+), nessuna estensione.
+CREATE OR REPLACE FUNCTION public.crm_phone_fingerprint(p_phone_e164 text)
+RETURNS text
+LANGUAGE sql
+IMMUTABLE
+STRICT
+SECURITY INVOKER
+SET search_path TO ''
+AS $$
+    SELECT encode(pg_catalog.sha256(pg_catalog.convert_to(p_phone_e164, 'UTF8')), 'hex');
+$$;
+
+-- -----------------------------------------------------------------------------
 -- crm_ingest_lead
 -- -----------------------------------------------------------------------------
 -- Regola dei doppioni:
 --   * (source, source_ref) già visto           → 'duplicate', nessuna scrittura;
+--   * telefono nella lista di esclusione, o di un locale Perso per stop
+--                                              → 'suppressed', nessuna
+--     scrittura: chi ha chiesto lo stop non rientra da nessuna fonte;
 --   * telefono E.164 già di un contatto        → 'returned': il lead si attacca
 --     a quel locale, nessuna carta nuova, nessuna riassegnazione; se il locale
---     era Perso per obiezione torna in Nuovo, se era Perso per stop resta lì;
+--     era Perso per obiezione torna in Nuovo. L'email arrivata col lead va nel
+--     lead (form_answers.email), mai nel contatto esistente: chi conosce un
+--     telefono non deve poter scrivere i dati di un contatto del CRM;
 --   * altrimenti                               → 'created': locale + contatto,
 --     assegnato a chi ha is_default_assignee.
 -- Un lock di transazione serializza gli ingressi: due arrivi simultanei con lo
@@ -80,6 +107,14 @@ BEGIN
     END IF;
 
     IF v_phone IS NOT NULL THEN
+        IF EXISTS (
+            SELECT 1 FROM public.crm_suppressions s
+            WHERE s.phone_fingerprint = public.crm_phone_fingerprint(v_phone)
+        ) THEN
+            RETURN QUERY SELECT NULL::uuid, NULL::uuid, 'suppressed'::text;
+            RETURN;
+        END IF;
+
         SELECT c.id, c.venue_id INTO v_contact_id, v_venue_id
         FROM public.crm_contacts c
         WHERE c.phone_e164 = v_phone;
@@ -87,9 +122,12 @@ BEGIN
 
     IF v_venue_id IS NOT NULL THEN
         -- Doppione per telefono: stesso locale.
-        IF v_email IS NOT NULL THEN
-            UPDATE public.crm_contacts c SET email = v_email
-            WHERE c.id = v_contact_id AND c.email IS NULL;
+        SELECT v.stage, v.lost_kind INTO v_stage, v_lost_kind
+        FROM public.crm_venues v WHERE v.id = v_venue_id;
+
+        IF v_stage = 'perso' AND v_lost_kind = 'stop' THEN
+            RETURN QUERY SELECT NULL::uuid, v_venue_id, 'suppressed'::text;
+            RETURN;
         END IF;
 
         INSERT INTO public.crm_leads (
@@ -97,12 +135,12 @@ BEGIN
             form_answers, interests, consent_at, consent_text, received_at
         ) VALUES (
             v_venue_id, v_contact_id, p_source, p_source_ref, p_ad_id, p_ad_name, p_campaign,
-            coalesce(p_form_answers, '{}'::jsonb), coalesce(p_interests, '{}'),
+            coalesce(p_form_answers, '{}'::jsonb)
+                || CASE WHEN v_email IS NOT NULL THEN jsonb_build_object('email', v_email)
+                        ELSE '{}'::jsonb END,
+            coalesce(p_interests, '{}'),
             p_consent_at, p_consent_text, v_received
         ) RETURNING id INTO v_lead_id;
-
-        SELECT v.stage, v.lost_kind INTO v_stage, v_lost_kind
-        FROM public.crm_venues v WHERE v.id = v_venue_id;
 
         INSERT INTO public.crm_events (venue_id, lead_id, type, actor_user_id, payload)
         VALUES (v_venue_id, v_lead_id, 'lead_returned', v_actor,
@@ -162,8 +200,17 @@ $$;
 -- submit-lead) non ancora copiati. Solo lettura su `leads`, che resta com'è.
 -- Gira da pg_cron come postgres (unico ruolo con SELECT su `leads`); da
 -- authenticated fallirebbe sui privilegi di `leads` ed è comunque revocata.
--- Un contatto che non entra (dato malformato) viene saltato con un WARNING e
--- riprovato al giro dopo, senza fermare gli altri.
+--
+-- "Già copiato" = riga in crm_landing_imported, scritta per ogni esito
+-- (entrato, doppione, escluso). Non si guarda crm_leads: se un admin cancella
+-- il locale (cascata su contatti e lead), la riga in `leads` resta fino a 12
+-- mesi e la copia lo ricreerebbe al minuto dopo.
+--
+-- `leads.phone` ha solo un CHECK di lunghezza: il formato E.164 lo garantisce
+-- submit-lead, non il database. Un telefono fuori formato non blocca: il lead
+-- entra senza telefono e il valore originale resta in form_answers.phone_raw.
+-- Un contatto che non entra per altri motivi viene saltato con un WARNING,
+-- senza marcatore, e riprovato al giro dopo senza fermare gli altri.
 CREATE OR REPLACE FUNCTION public.crm_sync_landing_leads()
 RETURNS integer
 LANGUAGE plpgsql
@@ -171,27 +218,29 @@ SECURITY INVOKER
 SET search_path TO ''
 AS $$
 DECLARE
-    r        record;
-    v_count  integer := 0;
+    r          record;
+    v_count    integer := 0;
+    v_phone_ok boolean;
 BEGIN
     FOR r IN
         SELECT l.*
         FROM public.leads l
         WHERE l.status <> 'spam'
           AND NOT EXISTS (
-              SELECT 1 FROM public.crm_leads cl
-              WHERE cl.source = 'landing' AND cl.source_ref = l.id::text
+              SELECT 1 FROM public.crm_landing_imported li
+              WHERE li.lead_id = l.id
           )
         ORDER BY l.created_at
         LIMIT 200
     LOOP
+        v_phone_ok := r.phone ~ '^\+[1-9][0-9]{6,14}$';
         BEGIN
             PERFORM public.crm_ingest_lead(
                 p_source       := 'landing',
                 p_source_ref   := r.id::text,
                 p_name         := r.name,
                 p_venue_name   := r.venue_name,
-                p_phone_e164   := r.phone,
+                p_phone_e164   := CASE WHEN v_phone_ok THEN r.phone END,
                 p_email        := r.email,
                 p_interests    := r.interests,
                 p_form_answers := jsonb_strip_nulls(jsonb_build_object(
@@ -202,7 +251,8 @@ BEGIN
                     'utm_content',  r.utm_content,
                     'utm_term',     r.utm_term,
                     'referrer',     r.referrer,
-                    'landing_path', r.landing_path
+                    'landing_path', r.landing_path,
+                    'phone_raw',    CASE WHEN v_phone_ok THEN NULL ELSE r.phone END
                 )),
                 -- Con un annuncio Meta verso la landing, utm_content porta il
                 -- nome dell'annuncio (convenzione da concordare con Ferdinando).
@@ -212,6 +262,8 @@ BEGIN
                 p_consent_text := r.consent_text,
                 p_received_at  := r.created_at
             );
+            INSERT INTO public.crm_landing_imported (lead_id) VALUES (r.id)
+            ON CONFLICT (lead_id) DO NOTHING;
             v_count := v_count + 1;
         EXCEPTION WHEN OTHERS THEN
             RAISE WARNING 'crm_sync_landing_leads: lead % saltato (%: %)', r.id, SQLSTATE, SQLERRM;
@@ -221,6 +273,36 @@ BEGIN
     RETURN v_count;
 END;
 $$;
+
+-- -----------------------------------------------------------------------------
+-- crm_suppress_stop_on_venue_delete (trigger BEFORE DELETE su crm_venues)
+-- -----------------------------------------------------------------------------
+-- Cancellando un locale Perso per stop (a mano o dal job dei 12 mesi), le
+-- impronte dei telefoni dei suoi contatti entrano in crm_suppressions prima
+-- che la cascata tolga i contatti. SECURITY DEFINER perché nessun ruolo client
+-- scrive su crm_suppressions; non ha argomenti e gira solo come trigger.
+CREATE OR REPLACE FUNCTION public.crm_suppress_stop_on_venue_delete()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO ''
+AS $$
+BEGIN
+    IF OLD.stage = 'perso' AND OLD.lost_kind = 'stop' THEN
+        INSERT INTO public.crm_suppressions (phone_fingerprint)
+        SELECT public.crm_phone_fingerprint(c.phone_e164)
+        FROM public.crm_contacts c
+        WHERE c.venue_id = OLD.id AND c.phone_e164 IS NOT NULL
+        ON CONFLICT (phone_fingerprint) DO NOTHING;
+    END IF;
+    RETURN OLD;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS crm_venues_suppress_stop ON public.crm_venues;
+CREATE TRIGGER crm_venues_suppress_stop
+    BEFORE DELETE ON public.crm_venues
+    FOR EACH ROW EXECUTE FUNCTION public.crm_suppress_stop_on_venue_delete();
 
 -- -----------------------------------------------------------------------------
 -- crm_move_stage

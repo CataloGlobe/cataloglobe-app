@@ -23,6 +23,8 @@
 --   crm_leads         ogni ingresso (landing, form Meta, chat WhatsApp, a mano)
 --   crm_events        la storia unica del locale (solo aggiunte)
 --   crm_settings      una riga: impostazioni (testo WhatsApp pronto)
+--   crm_landing_imported  id dei contatti della landing già copiati (senza FK)
+--   crm_suppressions      impronte dei telefoni che hanno chiesto lo stop
 -- =============================================================================
 
 BEGIN;
@@ -180,6 +182,34 @@ CREATE TRIGGER crm_settings_set_updated_at
     FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 -- -----------------------------------------------------------------------------
+-- crm_landing_imported (marcatore della copia dalla landing)
+-- -----------------------------------------------------------------------------
+-- Una riga per ogni `public.leads.id` già passato dalla copia, qualunque sia
+-- l'esito (entrato, doppione, escluso). Niente FK, né verso `leads` né verso
+-- `crm_leads`: deve sopravvivere alla cancellazione del locale dal CRM,
+-- altrimenti la copia ogni minuto lo ricreerebbe finché la riga resta in
+-- `leads` (fino a 12 mesi). Nessun dato personale: solo l'id.
+CREATE TABLE IF NOT EXISTS public.crm_landing_imported (
+    lead_id      uuid        PRIMARY KEY,
+    imported_at  timestamptz NOT NULL DEFAULT now()
+);
+
+-- -----------------------------------------------------------------------------
+-- crm_suppressions (lista di esclusione degli stop)
+-- -----------------------------------------------------------------------------
+-- Chi ha chiesto di non essere più contattato (Perso, tipo stop) non deve
+-- rientrare da nessuna fonte, neanche dopo che il suo locale è stato
+-- cancellato. Si conserva solo l'impronta del telefono (sha256 dell'E.164,
+-- `public.crm_phone_fingerprint`), mai il numero in chiaro. La scrive il
+-- trigger di cancellazione di `crm_venues` (20261001120100); la legge
+-- `crm_ingest_lead`. Decisione di Alex del 2026-10-01, da validare col
+-- consulente nella verifica GDPR.
+CREATE TABLE IF NOT EXISTS public.crm_suppressions (
+    phone_fingerprint  text        PRIMARY KEY CHECK (phone_fingerprint ~ '^[0-9a-f]{64}$'),
+    created_at         timestamptz NOT NULL DEFAULT now()
+);
+
+-- -----------------------------------------------------------------------------
 -- Privilegi: niente ad anon; authenticated passa comunque dalle policy.
 -- -----------------------------------------------------------------------------
 REVOKE ALL ON TABLE
@@ -195,6 +225,14 @@ GRANT SELECT, INSERT ON TABLE public.crm_events TO authenticated;
 -- Impostazioni: la riga esiste già, si legge e si aggiorna.
 GRANT SELECT, UPDATE ON TABLE public.crm_settings TO authenticated;
 
+-- Marcatore ed esclusioni: li scrivono solo la copia (postgres, pg_cron) e il
+-- trigger SECURITY DEFINER. Gli admin leggono le esclusioni perché
+-- crm_ingest_lead (SECURITY INVOKER) le controlla anche dall'aggiunta a mano
+-- e dall'import CSV.
+REVOKE ALL ON TABLE public.crm_landing_imported, public.crm_suppressions
+    FROM PUBLIC, anon, authenticated;
+GRANT SELECT ON TABLE public.crm_suppressions TO authenticated;
+
 -- -----------------------------------------------------------------------------
 -- RLS: solo admin di piattaforma
 -- -----------------------------------------------------------------------------
@@ -204,6 +242,9 @@ ALTER TABLE public.crm_contacts     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.crm_leads        ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.crm_events       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.crm_settings     ENABLE ROW LEVEL SECURITY;
+-- Senza policy: nessun accesso da authenticated.
+ALTER TABLE public.crm_landing_imported ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.crm_suppressions     ENABLE ROW LEVEL SECURITY;
 
 DO $$
 DECLARE
@@ -245,6 +286,14 @@ CREATE POLICY "crm_settings update" ON public.crm_settings
     FOR UPDATE TO authenticated
     USING (public.is_platform_admin()) WITH CHECK (public.is_platform_admin());
 
+DROP POLICY IF EXISTS "crm_suppressions select" ON public.crm_suppressions;
+CREATE POLICY "crm_suppressions select" ON public.crm_suppressions
+    FOR SELECT TO authenticated USING (public.is_platform_admin());
+
+COMMENT ON TABLE public.crm_landing_imported IS
+    'CRM interno: id dei public.leads già copiati. Senza FK di proposito: sopravvive alla cancellazione del locale.';
+COMMENT ON TABLE public.crm_suppressions IS
+    'CRM interno: impronte (sha256 E.164) dei telefoni che hanno chiesto lo stop. Mai il numero in chiaro.';
 COMMENT ON TABLE public.crm_venues IS
     'CRM interno: il locale (carta della pipeline). Tabella di piattaforma: niente tenant_id, accesso solo is_platform_admin().';
 COMMENT ON TABLE public.crm_leads IS
