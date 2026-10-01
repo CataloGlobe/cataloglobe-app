@@ -230,6 +230,68 @@ export function buildLeadMessage(
 }
 
 // -----------------------------------------------------------------------------
+// Destinatari dell'outbox
+// -----------------------------------------------------------------------------
+// Lead nuovo → tutto il team collegato a Telegram. Lead che torna → solo chi
+// lo ha in carico (decisione di Alex, 2026-10-01); se nessuno ce l'ha, tutti.
+// `done` = niente da mandare e niente da riprovare: il lead torna a chi non ha
+// collegato Telegram, che lo vede nella scheda in /admin.
+
+export interface OutboxRecipient {
+    user_id: string;
+    telegram_chat_id: number | null;
+}
+
+export function pickOutboxRecipients<T extends OutboxRecipient>(
+    kind: "new_lead" | "returned",
+    assignedTo: string | null,
+    team: T[]
+): { recipients: T[]; done: boolean } {
+    const linked = team.filter(m => m.telegram_chat_id !== null);
+    if (kind === "returned" && assignedTo && team.some(m => m.user_id === assignedTo)) {
+        const recipients = linked.filter(m => m.user_id === assignedTo);
+        return { recipients, done: recipients.length === 0 };
+    }
+    return { recipients: linked, done: false };
+}
+
+// -----------------------------------------------------------------------------
+// Riepilogo di un import CSV
+// -----------------------------------------------------------------------------
+// I lead arrivati da più di 24 ore non hanno una notifica ciascuno: un solo
+// messaggio per import (decisione di Alex, 2026-10-01).
+
+export interface CrmImportSummaryData {
+    importerName: string | null;
+    created: number;
+    returned: number;
+    duplicate: number;
+    suppressed: number;
+    failed: number;
+    /** Link all'elenco in /admin, se APP_URL è configurato. */
+    listUrl: string | null;
+}
+
+export function buildImportSummaryMessage(data: CrmImportSummaryData): TelegramMessage {
+    const by = data.importerName ? ` di ${escapeHtml(data.importerName)}` : "";
+    const lines = [
+        `📥 <b>Import CSV Meta${by}</b>`,
+        "",
+        `Nuovi locali: ${data.created}`,
+        `Già nel CRM (richiesta aggiunta): ${data.returned}`
+    ];
+    if (data.duplicate > 0) lines.push(`Già importati prima: ${data.duplicate}`);
+    if (data.suppressed > 0) lines.push(`Esclusi perché hanno chiesto lo stop: ${data.suppressed}`);
+    if (data.failed > 0) lines.push(`Non entrati: ${data.failed}`);
+    lines.push("", "I lead arrivati da più di 24 ore non hanno una notifica ciascuno: sono nell'elenco.");
+
+    const keyboard: InlineButton[][] = data.listUrl
+        ? [[{ text: "Apri l'elenco", url: data.listUrl }]]
+        : [];
+    return { text: lines.join("\n"), reply_markup: { inline_keyboard: keyboard } };
+}
+
+// -----------------------------------------------------------------------------
 // Sollecito: minuti nella fascia 9-21 ora di Roma
 // -----------------------------------------------------------------------------
 // Decisione di Alex (2026-10-01): sollecito dopo 2 ore di Nuovo, contate solo

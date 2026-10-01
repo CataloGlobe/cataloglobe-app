@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
     assignmentButtons,
+    buildImportSummaryMessage,
     buildLeadMessage,
     chooseButtons,
     encodeAssign,
     escapeHtml,
     isEscalationDue,
     parseCallbackData,
+    pickOutboxRecipients,
     romeWindowMinutesBetween,
     shortToUuid,
     uuidToShort,
@@ -173,5 +175,74 @@ describe("fascia 9-21 di Roma", () => {
     it("dopo il cambio dell'ora (25 ottobre) resta sull'ora di Roma", () => {
         // 26 ottobre: ora solare, Roma = UTC+1. 9:00 Roma = 08:00Z.
         expect(romeWindowMinutesBetween(at("2026-10-26T07:00:00Z"), at("2026-10-26T09:00:00Z"))).toBe(60);
+    });
+});
+
+describe("pickOutboxRecipients", () => {
+    const team = [
+        { user_id: ALEX, telegram_chat_id: 1 },
+        { user_id: LORENZO, telegram_chat_id: 2 },
+        { user_id: TERZO, telegram_chat_id: null }
+    ];
+
+    it("lead nuovo: tutto il team collegato", () => {
+        const r = pickOutboxRecipients("new_lead", ALEX, team);
+        expect(r.recipients.map(m => m.user_id)).toEqual([ALEX, LORENZO]);
+        expect(r.done).toBe(false);
+    });
+
+    it("lead che torna: solo chi lo ha in carico", () => {
+        const r = pickOutboxRecipients("returned", LORENZO, team);
+        expect(r.recipients.map(m => m.user_id)).toEqual([LORENZO]);
+        expect(r.done).toBe(false);
+    });
+
+    it("lead che torna a chi non ha Telegram: nessun invio, chiuso", () => {
+        const r = pickOutboxRecipients("returned", TERZO, team);
+        expect(r.recipients).toEqual([]);
+        expect(r.done).toBe(true);
+    });
+
+    it("lead che torna senza assegnato (o assegnato uscito dal team): tutti", () => {
+        expect(pickOutboxRecipients("returned", null, team).recipients).toHaveLength(2);
+        expect(pickOutboxRecipients("returned", "99999999-2222-4333-8444-555555555555", team).recipients).toHaveLength(2);
+    });
+});
+
+describe("buildImportSummaryMessage", () => {
+    it("conta nuovi e già presenti, nasconde le righe a zero", () => {
+        const m = buildImportSummaryMessage({
+            importerName: "Alex <A>",
+            created: 12,
+            returned: 3,
+            duplicate: 0,
+            suppressed: 0,
+            failed: 0,
+            listUrl: "https://app.example/admin/lead"
+        });
+        expect(m.text).toContain("Import CSV Meta di Alex &lt;A&gt;");
+        expect(m.text).toContain("Nuovi locali: 12");
+        expect(m.text).toContain("Già nel CRM (richiesta aggiunta): 3");
+        expect(m.text).not.toContain("Già importati prima");
+        expect(m.text).not.toContain("Non entrati");
+        expect(m.reply_markup.inline_keyboard).toEqual([
+            [{ text: "Apri l'elenco", url: "https://app.example/admin/lead" }]
+        ]);
+    });
+
+    it("mostra doppioni, esclusi e scarti quando ci sono", () => {
+        const m = buildImportSummaryMessage({
+            importerName: null,
+            created: 0,
+            returned: 0,
+            duplicate: 4,
+            suppressed: 1,
+            failed: 2,
+            listUrl: null
+        });
+        expect(m.text).toContain("Già importati prima: 4");
+        expect(m.text).toContain("hanno chiesto lo stop: 1");
+        expect(m.text).toContain("Non entrati: 2");
+        expect(m.reply_markup.inline_keyboard).toEqual([]);
     });
 });
