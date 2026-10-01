@@ -82,17 +82,25 @@ export function AddLeadDrawer({ open, onClose, onCreated }: Props) {
                 consentText:
                     source === "whatsapp" ? "Ha scritto per primo su WhatsApp" : null
             });
+            if (result.outcome === "suppressed" || !result.venueId) {
+                setFormError(
+                    "Questo numero ha chiesto di non essere più contattato: non entra nel CRM."
+                );
+                setIsSaving(false);
+                return;
+            }
+            const venueId = result.venueId;
             // Il lead ormai è dentro: se fallisce solo la nota, niente errore
             // nel form (un secondo «Aggiungi» aggiungerebbe una richiesta doppia).
             if (note.trim()) {
                 try {
-                    await addCrmNote(result.venueId, note.trim());
+                    await addCrmNote(venueId, note.trim());
                 } catch {
                     showToast({
                         message: "Lead aggiunto, ma la nota non è stata salvata: aggiungila dalla scheda.",
                         type: "warning"
                     });
-                    onCreated(result.venueId);
+                    onCreated(venueId);
                     return;
                 }
             }
@@ -103,7 +111,7 @@ export function AddLeadDrawer({ open, onClose, onCreated }: Props) {
                         : "Questo telefono era già nel CRM: la richiesta è stata aggiunta al suo locale.",
                 type: result.outcome === "created" ? "success" : "info"
             });
-            onCreated(result.venueId);
+            onCreated(venueId);
         } catch (err) {
             setFormError(crmErrorMessage(err));
             setIsSaving(false);
