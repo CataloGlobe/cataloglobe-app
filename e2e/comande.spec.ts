@@ -209,10 +209,12 @@ test.describe("Comande", () => {
 
         const drawer = page.getByRole("dialog");
         await expect(drawer).toBeVisible();
+        // Il drawer si apre con la sola testata e carica il tavolo: prima la
+        // forma finale (la comanda in Nuove è un ordine in corso, confermabile
+        // da qui), poi il resto, che a drawer vuoto passerebbe per niente.
+        await expect(drawer.getByText(/^Ordini in corso/)).toBeVisible({ timeout: 15_000 });
         await expect(drawer.getByText(TAVOLO).first()).toBeVisible();
         await expect(drawer.getByText(/manutenzione|occupat/i)).toHaveCount(0);
-        // La comanda in Nuove è un ordine in corso, confermabile da qui.
-        await expect(drawer.getByText(/^Ordini in corso/)).toBeVisible({ timeout: 15_000 });
         await expect(drawer.getByRole("button", { name: "Conferma" })).toBeVisible();
         await expect(drawer.getByText("Nuova", { exact: true })).toBeVisible();
         await expect(drawer.getByText(/Da prendere|Da confermare|In preparazione/)).toHaveCount(0);

@@ -84,8 +84,10 @@ test.describe("Prenotazioni", () => {
     test("un vecchio link a «Da gestire» apre l'Agenda", async ({ page }) => {
         await openPrenotazioni(page);
         await page.goto(page.url().replace(/\?.*$/, "") + "?tab=inbox");
-        await expect(page.getByRole("tab", { name: /^Agenda/ })).toHaveAttribute("aria-selected", "true");
+        // Il goto riavvia l'app: prima la pagina pronta (stesso cancello di
+        // openPrenotazioni), poi la scheda scelta.
         await expect(main(page).getByText("Giulia Bianchi").first()).toBeVisible({ timeout: 15_000 });
+        await expect(page.getByRole("tab", { name: /^Agenda/ })).toHaveAttribute("aria-selected", "true");
     });
 
     test("«Da gestire»: le richieste della sede, le scadute a parte, le azioni in riga", async ({ page }) => {
