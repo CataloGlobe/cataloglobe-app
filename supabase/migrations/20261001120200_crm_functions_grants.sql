@@ -13,20 +13,21 @@
 --       authenticated + service_role (la usa crm_ingest_lead, SECURITY INVOKER)
 --   crm_sync_landing_leads
 --       solo postgres (pg_cron) e service_role
---   crm_suppress_stop_on_venue_delete
---       nessuno: è una funzione trigger (il trigger gira comunque)
+--   crm_suppress_stop_on_venue_delete, crm_mark_imported_ref
+--       nessuno: sono funzioni trigger (il trigger gira comunque)
 -- =============================================================================
 
 REVOKE ALL ON FUNCTION public.crm_phone_fingerprint(text) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.crm_phone_fingerprint(text) TO authenticated, service_role;
 
 REVOKE ALL ON FUNCTION public.crm_suppress_stop_on_venue_delete() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.crm_mark_imported_ref() FROM PUBLIC, anon, authenticated;
 
 REVOKE ALL ON FUNCTION public.crm_ingest_lead(
-    text, text, text, text, text, text, text, text[], jsonb, text, text, text, timestamptz, text, timestamptz
+    text, text, text, text, text, text, text, text[], jsonb, text, text, text, timestamptz, text, timestamptz, boolean
 ) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.crm_ingest_lead(
-    text, text, text, text, text, text, text, text[], jsonb, text, text, text, timestamptz, text, timestamptz
+    text, text, text, text, text, text, text, text[], jsonb, text, text, text, timestamptz, text, timestamptz, boolean
 ) TO authenticated, service_role;
 
 REVOKE ALL ON FUNCTION public.crm_sync_landing_leads() FROM PUBLIC, anon, authenticated;
