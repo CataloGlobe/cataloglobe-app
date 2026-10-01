@@ -15,7 +15,7 @@ import {
     type IncidentStatus,
     type ServiceKey,
     type StatusIncident
-} from "@/services/supabase/statusPage";
+} from "@/services/status/statusPage";
 import styles from "./StatusIncidentsPage.module.scss";
 
 const SEVERITY_OPTIONS = [

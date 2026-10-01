@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { decideAlertWithHysteresis } from "../../../api/_lib/statusAlerts";
+import { describe, it, expect, vi } from "vitest";
+import { decideAlertWithHysteresis, loadAlertInputs } from "../../../api/_lib/statusAlerts";
 import type {
     CheckResult,
     CheckStatus,
@@ -139,5 +139,64 @@ describe("decideAlertWithHysteresis", () => {
         expect(d.serviceKey).toBe(SVC);
         expect(d.currentStatus).toBe("down");
         expect(d.previousNotifiedStatus).toBe("up");
+    });
+});
+
+describe("loadAlertInputs", () => {
+    const fromDb = { previousObserved: "down" as CheckStatus, lastNotified: null, lastNotifiedAt: null };
+
+    it("Redis con stato → usa Redis, il DB non viene letto", async () => {
+        const readDb = vi.fn(async () => fromDb);
+        const inputs = await loadAlertInputs(
+            { ok: true, state: { lastObserved: "up", lastNotified: "down", lastNotifiedAt: "2026-10-01T00:00:00Z" } },
+            readDb
+        );
+        expect(readDb).not.toHaveBeenCalled();
+        expect(inputs).toEqual({
+            previousObserved: "up",
+            lastNotified: "down",
+            lastNotifiedAt: "2026-10-01T00:00:00Z",
+            source: "redis"
+        });
+    });
+
+    it("lettura Redis fallita → ripiega sul DB, mai «nessun precedente»", async () => {
+        const readDb = vi.fn(async () => fromDb);
+        const inputs = await loadAlertInputs({ ok: false }, readDb);
+        expect(readDb).toHaveBeenCalledOnce();
+        expect(inputs).toEqual({ ...fromDb, source: "db" });
+    });
+
+    it("chiave Redis assente (primo ciclo dopo il deploy) → ripiega sul DB", async () => {
+        const readDb = vi.fn(async () => fromDb);
+        const inputs = await loadAlertInputs({ ok: true, state: null }, readDb);
+        expect(readDb).toHaveBeenCalledOnce();
+        expect(inputs.source).toBe("db");
+    });
+
+    it("con lo stato da Redis l'isteresi funziona come col DB: down confermato → email", async () => {
+        const inputs = await loadAlertInputs(
+            { ok: true, state: { lastObserved: "down", lastNotified: null, lastNotifiedAt: null } },
+            async () => fromDb
+        );
+        const d = decideAlertWithHysteresis(
+            check("down"),
+            { last_notified_status: inputs.lastNotified },
+            inputs.previousObserved
+        );
+        expect(d.shouldNotify).toBe(true);
+    });
+
+    it("degraded sostenuto (es. menu da snapshot) → nessuna email", async () => {
+        const inputs = await loadAlertInputs(
+            { ok: true, state: { lastObserved: "degraded", lastNotified: "up", lastNotifiedAt: null } },
+            async () => fromDb
+        );
+        const d = decideAlertWithHysteresis(
+            check("degraded"),
+            { last_notified_status: inputs.lastNotified },
+            inputs.previousObserved
+        );
+        expect(d.shouldNotify).toBe(false);
     });
 });

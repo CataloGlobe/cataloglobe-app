@@ -34,10 +34,14 @@ type PgrestOptions = {
     query?: string;
     /** Header Prefer (es. "return=representation"). */
     prefer?: string;
+    /** Tetto della richiesta (AbortSignal.timeout). Assente = nessun tetto. */
+    timeoutMs?: number;
 };
 
 export type PgrestSuccess<T> = { ok: true; status: number; data: T };
-export type PgrestFailure = { ok: false; status: number; error: string };
+/** `status: 0` = nessuna risposta HTTP (timeout o errore di rete); `timedOut`
+ *  distingue il primo caso. */
+export type PgrestFailure = { ok: false; status: number; error: string; timedOut?: boolean };
 export type PgrestResult<T> = PgrestSuccess<T> | PgrestFailure;
 
 export async function pgrest<T = unknown>(
@@ -54,11 +58,31 @@ export async function pgrest<T = unknown>(
     if (opts.body !== undefined) headers["Content-Type"] = "application/json";
     if (opts.prefer) headers["Prefer"] = opts.prefer;
 
-    const response = await fetch(endpoint, {
-        method: opts.method ?? "GET",
-        headers,
-        body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined
-    });
+    // Errori di trasporto (timeout, rete) restituiti come `ok: false`, mai
+    // lanciati: il ciclo di status-check fa più chiamate in serie e un DB lento
+    // non deve farlo saltare tutto (il 29/09 il probe è arrivato a 130 s).
+    let response: Response;
+    try {
+        response = await fetch(endpoint, {
+            method: opts.method ?? "GET",
+            headers,
+            body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
+            ...(opts.timeoutMs ? { signal: AbortSignal.timeout(opts.timeoutMs) } : {})
+        });
+    } catch (err) {
+        const timedOut =
+            err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError");
+        return {
+            ok: false,
+            status: 0,
+            error: timedOut
+                ? `Timeout >${Math.round((opts.timeoutMs ?? 0) / 1000)}s`
+                : err instanceof Error
+                  ? err.message
+                  : String(err),
+            timedOut
+        };
+    }
 
     const status = response.status;
     if (status >= 200 && status < 300) {
@@ -96,12 +120,14 @@ export async function pgrest<T = unknown>(
  * mail in meno per blip di rete che N mail spurie.
  */
 export async function readPreviousObservation(
-    serviceKey: string
+    serviceKey: string,
+    timeoutMs?: number
 ): Promise<string | null> {
     const res = await pgrest<{ status: string }[]>("status_checks", {
         query:
             `select=status&service_key=eq.${encodeURIComponent(serviceKey)}` +
-            `&order=checked_at.desc&limit=1`
+            `&order=checked_at.desc&limit=1`,
+        timeoutMs
     });
     if (!res.ok) return null;
     const rows = Array.isArray(res.data) ? res.data : [];
@@ -111,20 +137,27 @@ export async function readPreviousObservation(
 /**
  * Probe banale del database via PostgREST.
  *
+ * Tetto di 10 s (DATABASE_PROBE_TIMEOUT_MS): oltre, `ok: false` con
+ * «Timeout >10s» → il servizio vale `down`.
+ *
  * Bersaglio: `tenants` con `select=id&limit=1`. Riprova:
  *   - misura latenza rete + tempo di Postgres per servire una SELECT triviale
  *   - non dipende dalle tabelle nuove di status (resta verde anche durante
  *     prime release pre-migration, evita falsi positivi al bootstrap)
  *   - tabella sicuramente esistente in tutti gli env (è la radice del dominio)
  */
+export const DATABASE_PROBE_TIMEOUT_MS = 10_000;
+
 export async function probeDatabase(): Promise<{ ok: boolean; ms: number; error?: string }> {
     const start = Date.now();
     try {
         const res = await pgrest<unknown[]>("tenants", {
-            query: "select=id&limit=1"
+            query: "select=id&limit=1",
+            timeoutMs: DATABASE_PROBE_TIMEOUT_MS
         });
         const ms = Date.now() - start;
         if (res.ok) return { ok: true, ms };
+        if (res.status === 0) return { ok: false, ms, error: res.error };
         return { ok: false, ms, error: `HTTP ${res.status}: ${res.error.slice(0, 200)}` };
     } catch (err) {
         const ms = Date.now() - start;

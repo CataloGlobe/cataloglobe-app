@@ -13,7 +13,7 @@ import {
     SERVICE_LABELS,
     type IncidentStatus,
     type StatusIncident
-} from "@/services/supabase/statusPage";
+} from "@/services/status/statusPage";
 import { IncidentDrawer } from "./IncidentDrawer";
 import styles from "./StatusIncidentsPage.module.scss";
 
@@ -136,7 +136,7 @@ export default function StatusIncidentsPage() {
         try {
             setLoading(true);
             setLoadError(null);
-            const list = await listAllIncidents(50);
+            const list = await listAllIncidents();
             setIncidents(list);
         } catch (err) {
             setLoadError(err instanceof Error ? err.message : String(err));

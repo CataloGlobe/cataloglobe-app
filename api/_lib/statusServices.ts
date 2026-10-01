@@ -22,6 +22,10 @@
  *
  * Slug canary:
  *   - `STATUS_CANARY_SLUG` (default `san-pietro-porta-venezia`).
+ *
+ * Dashboard: stato derivato, il peggiore tra HTML statico (Vercel), database
+ * e autenticazione (`/auth/v1/health`) — senza DB o auth la dashboard non
+ * serve, anche se l'HTML risponde. Vedi `combineDashboard`.
  */
 
 import { probeDatabase } from "./statusSupabase.js";
@@ -100,8 +104,16 @@ async function fetchWithTimeout(url: string, init?: RequestInit): Promise<Respon
  *
  * 4xx upstream (es. slug typo, sede sospesa) → 'down' con error string.
  * Sono comunque errori che il ristoratore vuole vedere.
+ *
+ * `X-Cataloglobe-Source: stale` → 'degraded': il proxy risponde 200 con lo
+ * snapshot Redis perché l'edge (o il DB dietro) non risponde. Senza questo
+ * il guasto del 29/09 sarebbe sembrato 'up'.
  */
-async function checkPublicMenu(): Promise<CheckResult> {
+/** Messaggio quando il proxy serve lo snapshot Redis invece del dato live. */
+export const PUBLIC_MENU_STALE_ERROR =
+    "Menu servito dalla copia di riserva (snapshot): edge o database non raggiungibili";
+
+export async function checkPublicMenu(): Promise<CheckResult> {
     const base = readTargetBaseUrl();
     const slug = readCanarySlug();
     const url = `${base}/api/public-catalog?slug=${encodeURIComponent(slug)}`;
@@ -144,11 +156,12 @@ async function checkPublicMenu(): Promise<CheckResult> {
                 error: "Payload missing `business` field"
             };
         }
+        const isStale = res.headers.get("x-cataloglobe-source") === "stale";
         return {
             serviceKey: "public-menu",
-            status: classifyByTiming(ms, false, false),
+            status: classifyByTiming(ms, false, isStale),
             responseTimeMs: ms,
-            error: null
+            error: isStale ? PUBLIC_MENU_STALE_ERROR : null
         };
     } catch (err) {
         const ms = Date.now() - start;
@@ -163,12 +176,14 @@ async function checkPublicMenu(): Promise<CheckResult> {
 }
 
 /**
- * Check 2: dashboard
+ * Check 2a: dashboard, parte statica
  *
  * GET / (homepage SPA). Vite serve `index.html` con il tag <title> di
- * CataloGlobe → marker affidabile che il deploy frontend è online.
+ * CataloGlobe → marker affidabile che il deploy frontend è online. Da solo
+ * non basta (era sempre "up"): lo stato della dashboard lo decide
+ * `combineDashboard` insieme a database e autenticazione.
  */
-async function checkDashboard(): Promise<CheckResult> {
+export async function checkDashboardStatic(): Promise<CheckResult> {
     const base = readTargetBaseUrl();
     const url = `${base}/`;
     const start = Date.now();
@@ -220,7 +235,7 @@ async function checkDashboard(): Promise<CheckResult> {
  * Query banale via PostgREST con service_role. Tempo round-trip include
  * connessione Vercel → Supabase REST → Postgres → ritorno.
  */
-async function checkDatabase(): Promise<CheckResult> {
+export async function checkDatabase(): Promise<CheckResult> {
     const probe = await probeDatabase();
     if (!probe.ok) {
         return {
@@ -290,12 +305,84 @@ async function checkCache(): Promise<CheckResult> {
     }
 }
 
+/** Esito di un controllo che entra nello stato della dashboard. */
+export type DashboardPart = { status: CheckStatus; error: string | null };
+
+/**
+ * Check 2b: autenticazione Supabase (GoTrue). GET `/auth/v1/health` con la
+ * anon key. Non è un servizio della status page: entra solo nello stato
+ * della dashboard.
+ */
+export async function checkAuth(): Promise<DashboardPart> {
+    const url = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL;
+    const key = process.env.SUPABASE_ANON_KEY ?? process.env.VITE_SUPABASE_ANON_KEY;
+    if (!url || !key) {
+        return { status: "down", error: "Autenticazione: mancano SUPABASE_URL / SUPABASE_ANON_KEY" };
+    }
+    const start = Date.now();
+    try {
+        const res = await fetchWithTimeout(`${url.replace(/\/+$/, "")}/auth/v1/health`, {
+            method: "GET",
+            headers: { apikey: key }
+        });
+        const ms = Date.now() - start;
+        if (!res.ok) return { status: "down", error: `Autenticazione: HTTP ${res.status}` };
+        const status = classifyByTiming(ms, false, false);
+        return {
+            status,
+            error: status === "up" ? null : `Autenticazione lenta (${ms} ms)`
+        };
+    } catch (err) {
+        const isAbort = err instanceof Error && err.name === "AbortError";
+        return {
+            status: "down",
+            error: `Autenticazione: ${isAbort ? "Timeout >10s" : err instanceof Error ? err.message : String(err)}`
+        };
+    }
+}
+
+const STATUS_RANK: Record<CheckStatus, number> = { up: 0, degraded: 1, down: 2 };
+
+/**
+ * Stato della dashboard = il peggiore tra HTML statico, database e
+ * autenticazione. `responseTimeMs` resta quello dell'HTML (la misura della
+ * dashboard in sé); `error` dice quale parte ha ceduto. Puro, provato in
+ * src/tests/api/statusServices.test.ts.
+ */
+export function combineDashboard(
+    staticCheck: CheckResult,
+    database: CheckResult,
+    auth: DashboardPart
+): CheckResult {
+    const parts: Array<{ status: CheckStatus; error: string | null }> = [
+        { status: staticCheck.status, error: staticCheck.error },
+        {
+            status: database.status,
+            error:
+                database.status === "up"
+                    ? null
+                    : `Database ${database.status === "down" ? "non disponibile" : "lento"}${database.error ? ` (${database.error})` : ""}`
+        },
+        auth
+    ];
+    let worst: CheckStatus = "up";
+    for (const p of parts) if (STATUS_RANK[p.status] > STATUS_RANK[worst]) worst = p.status;
+    const errors = parts.filter(p => p.status !== "up" && p.error).map(p => p.error as string);
+    return {
+        serviceKey: "dashboard",
+        status: worst,
+        responseTimeMs: staticCheck.responseTimeMs,
+        error: errors.length > 0 ? errors.join(" · ") : null
+    };
+}
+
 export async function runAllChecks(): Promise<CheckResult[]> {
-    const results = await Promise.all([
+    const [publicMenu, dashboardStatic, database, cache, auth] = await Promise.all([
         checkPublicMenu(),
-        checkDashboard(),
+        checkDashboardStatic(),
         checkDatabase(),
-        checkCache()
+        checkCache(),
+        checkAuth()
     ]);
-    return results;
+    return [publicMenu, combineDashboard(dashboardStatic, database, auth), database, cache];
 }

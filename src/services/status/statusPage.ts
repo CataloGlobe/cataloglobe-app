@@ -1,29 +1,26 @@
 /**
- * Service layer per la status page pubblica.
- *
- * Letture cross-tenant: RLS configurata in `20260520220000_create_status_tables.sql`
- * permette SELECT anonima su `status_checks` e `status_incidents`. Niente
- * tenant_id qui — i dati sono globali della piattaforma CataloGlobe.
- *
- * Le scritture di incident passano per l'endpoint Vercel
- * `/api/admin/status-incidents` (vedi sezione `admin/` qui sotto): valida il
- * JWT server-side e verifica l'appartenenza a `platform_admins`. Lì sta
- * l'autorizzazione reale. Il gate frontend in `AdminRoute.tsx` è cosmetico e
- * usa la RPC `is_platform_admin()`.
+ * Service della status page pubblica (`/status`) e del pannello admin degli
+ * incidenti. Accanto a `publicCatalog/` perché come lui parla con `/api`,
+ * non con Supabase:
+ *   - lettura pubblica: `GET /api/status` (api/status/index.ts). Stato
+ *     corrente e uptime a 90 giorni da Redis, incidenti dal DB lato server:
+ *     la pagina deve poter dire che il database è giù.
+ *   - incidenti admin: `/api/admin/status-incidents`, che valida il JWT
+ *     server-side e verifica `platform_admins`. Il gate in `AdminRoute.tsx`
+ *     è cosmetico.
  */
 
-import { supabase } from "./client";
+import { supabase } from "@/services/supabase/client";
 
 export type ServiceKey = "public-menu" | "dashboard" | "database" | "cache";
 export type CheckStatus = "up" | "degraded" | "down";
 
-export type StatusCheckRow = {
-    id: number;
-    service_key: ServiceKey;
+/** Ultimo controllo di un servizio (da `status:current` su Redis). */
+export type LatestCheck = {
     status: CheckStatus;
-    response_time_ms: number | null;
-    error_message: string | null;
-    checked_at: string;
+    responseTimeMs: number | null;
+    error: string | null;
+    checkedAt: string;
 };
 
 export type IncidentStatus = "investigating" | "identified" | "monitoring" | "resolved";
@@ -74,135 +71,83 @@ export function formatIncidentStatus(status: IncidentStatus): string {
     return INCIDENT_STATUS_LABEL[status];
 }
 
-/**
- * Latest check row per service. Una query unica con ordinamento + DISTINCT ON
- * sarebbe più efficiente ma richiederebbe una RPC. Per 4 servizi, 4 query
- * parallele sono accettabili (latenza < 200ms su Supabase free tier).
- */
-export async function listLatestChecks(): Promise<Record<ServiceKey, StatusCheckRow | null>> {
-    const results = await Promise.all(
-        SERVICE_KEYS.map(async (key) => {
-            const { data, error } = await supabase
-                .from("status_checks")
-                .select("id, service_key, status, response_time_ms, error_message, checked_at")
-                .eq("service_key", key)
-                .order("checked_at", { ascending: false })
-                .limit(1);
-            if (error) throw error;
-            return [key, (data?.[0] ?? null) as StatusCheckRow | null] as const;
-        })
-    );
-    const map = {} as Record<ServiceKey, StatusCheckRow | null>;
-    for (const [key, row] of results) {
-        map[key] = row;
-    }
-    return map;
-}
-
-/**
- * Ultimi N check di un servizio (per drill-down su anomalie recenti).
- * Non usato sulla pagina pubblica oggi — esposto per il pannello admin
- * di debug futuro.
- */
-export async function listRecentChecks(
-    serviceKey: ServiceKey,
-    limit = 50
-): Promise<StatusCheckRow[]> {
-    const { data, error } = await supabase
-        .from("status_checks")
-        .select("id, service_key, status, response_time_ms, error_message, checked_at")
-        .eq("service_key", serviceKey)
-        .order("checked_at", { ascending: false })
-        .limit(limit);
-    if (error) throw error;
-    return (data ?? []) as StatusCheckRow[];
-}
-
-/**
- * Aggregazione "giorni con problemi" su 90 giorni per il grafico uptime.
- *
- * Aggregazione server-side via RPC `public.get_daily_uptime(p_service_key, p_days)`:
- * una riga per giorno con dati, `worst` = worst-of-day (up<degraded<down),
- * `check_count` = numero check del giorno. Giorni senza dati: nessuna riga
- * dalla RPC → il fill-loop sotto li marca come `unknown` (renderizzato
- * neutro dal componente UptimeBar).
- *
- * Migrazione da query client-side: la vecchia SELECT senza LIMIT colpiva il
- * cap PostgREST (1000 righe) con ORDER BY ASC → solo i ~1.4 giorni piu'
- * vecchi della finestra finivano nei bucket, il resto della barra appariva
- * grigio nonostante i check esistessero. Vedi migration
- * `20260606130000_add_get_daily_uptime_rpc.sql`.
- */
 export type DailyBucket = {
     date: string; // YYYY-MM-DD (UTC)
     worst: CheckStatus | "unknown";
     checkCount: number;
 };
 
-type DailyUptimeRow = {
-    day: string;
-    worst: CheckStatus;
-    check_count: number;
+export type StatusOverview = {
+    /** Per servizio; `null` se il monitor non l'ha ancora controllato. */
+    latest: Record<ServiceKey, LatestCheck | null>;
+    /** 90 giorni per servizio, dal più vecchio; giorni senza dati = `unknown`. */
+    uptime: Record<ServiceKey, DailyBucket[]>;
+    activeIncidents: StatusIncident[];
+    recentIncidents: StatusIncident[];
+    /** false = il DB non ha risposto: incidenti non mostrabili, il resto sì. */
+    incidentsAvailable: boolean;
 };
 
-export async function listDailyUptime(
-    serviceKey: ServiceKey,
-    days = 90
-): Promise<DailyBucket[]> {
-    const { data, error } = await supabase.rpc("get_daily_uptime", {
-        p_service_key: serviceKey,
-        p_days: days
+type StatusApiResponse = {
+    current: {
+        checkedAt: string;
+        services: Partial<
+            Record<ServiceKey, { status: CheckStatus; responseTimeMs: number | null; error: string | null }>
+        >;
+    } | null;
+    uptime: Partial<Record<ServiceKey, DailyBucket[]>>;
+    activeIncidents: StatusIncident[];
+    recentIncidents: StatusIncident[];
+    incidentsAvailable: boolean;
+};
+
+/** Tetto della lettura: pagina pubblica, mai un loader infinito. */
+const STATUS_FETCH_TIMEOUT_MS = 10_000;
+
+/**
+ * Dati della pagina. Lancia `Error` (messaggio = codice) su risposta non 2xx
+ * o timeout: la pagina tiene gli ultimi dati con l'avviso, o mostra l'errore
+ * al primo caricamento.
+ */
+export async function fetchStatusOverview(): Promise<StatusOverview> {
+    const res = await fetch("/api/status", {
+        headers: { Accept: "application/json" },
+        signal: AbortSignal.timeout(STATUS_FETCH_TIMEOUT_MS)
     });
-    if (error) throw error;
+    if (!res.ok) throw new Error(`status_api_${res.status}`);
+    const body = (await res.json()) as StatusApiResponse;
 
-    const byDate = new Map<string, { worst: CheckStatus; checkCount: number }>();
-    for (const row of (data ?? []) as DailyUptimeRow[]) {
-        byDate.set(row.day, { worst: row.worst, checkCount: row.check_count });
+    const latest = {} as Record<ServiceKey, LatestCheck | null>;
+    const uptime = {} as Record<ServiceKey, DailyBucket[]>;
+    for (const key of SERVICE_KEYS) {
+        const svc = body.current?.services[key];
+        latest[key] =
+            svc && body.current
+                ? {
+                      status: svc.status,
+                      responseTimeMs: svc.responseTimeMs,
+                      error: svc.error,
+                      checkedAt: body.current.checkedAt
+                  }
+                : null;
+        uptime[key] = body.uptime?.[key] ?? [];
     }
-
-    const buckets: DailyBucket[] = [];
-    for (let i = days - 1; i >= 0; i--) {
-        const d = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
-        const isoDate = d.toISOString().slice(0, 10);
-        const slot = byDate.get(isoDate);
-        if (slot) {
-            buckets.push({ date: isoDate, worst: slot.worst, checkCount: slot.checkCount });
-        } else {
-            buckets.push({ date: isoDate, worst: "unknown", checkCount: 0 });
-        }
-    }
-    return buckets;
+    return {
+        latest,
+        uptime,
+        activeIncidents: body.activeIncidents ?? [],
+        recentIncidents: body.recentIncidents ?? [],
+        incidentsAvailable: body.incidentsAvailable !== false
+    };
 }
 
-export async function listActiveIncidents(): Promise<StatusIncident[]> {
-    const { data, error } = await supabase
-        .from("status_incidents")
-        .select("*")
-        .is("resolved_at", null)
-        .order("started_at", { ascending: false });
-    if (error) throw error;
-    return (data ?? []) as StatusIncident[];
-}
-
-export async function listRecentIncidents(limit = 5): Promise<StatusIncident[]> {
-    const { data, error } = await supabase
-        .from("status_incidents")
-        .select("*")
-        .not("resolved_at", "is", null)
-        .order("started_at", { ascending: false })
-        .limit(limit);
-    if (error) throw error;
-    return (data ?? []) as StatusIncident[];
-}
-
-export async function listAllIncidents(limit = 50): Promise<StatusIncident[]> {
-    const { data, error } = await supabase
-        .from("status_incidents")
-        .select("*")
-        .order("started_at", { ascending: false })
-        .limit(limit);
-    if (error) throw error;
-    return (data ?? []) as StatusIncident[];
+/** Elenco admin (ultimi 50, limite dell'endpoint). */
+export async function listAllIncidents(): Promise<StatusIncident[]> {
+    const result = await adminFetch<StatusIncident[]>(`/api/admin/status-incidents`, {
+        method: "GET"
+    });
+    if (!result.ok) throw new Error(result.error);
+    return result.data ?? [];
 }
 
 // ============================================================
@@ -322,7 +267,7 @@ export async function deleteIncident(id: string): Promise<void> {
 export type OverallStatus = "operational" | "partial" | "outage" | "unknown";
 
 export function deriveOverallStatus(
-    latest: Record<ServiceKey, StatusCheckRow | null>
+    latest: Record<ServiceKey, LatestCheck | null>
 ): OverallStatus {
     let down = 0;
     let degraded = 0;
