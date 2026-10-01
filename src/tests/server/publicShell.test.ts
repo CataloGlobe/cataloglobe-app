@@ -135,9 +135,11 @@ describe("applyTenantHead", () => {
         expect(html.match(/property="og:image"/g)?.length).toBe(1);
         expect(html.match(/name="twitter:image"/g)?.length).toBe(1);
         expect(html).not.toContain("og-image.png");
-        // width/height descrivevano og-image.png: rimossi con la cover tenant
+        // width/height/alt descrivevano og-image.png: rimossi con la cover tenant
+        expect(TEMPLATE).toContain('property="og:image:alt"');
         expect(html).not.toContain('property="og:image:width"');
         expect(html).not.toContain('property="og:image:height"');
+        expect(html).not.toContain('property="og:image:alt"');
     });
 
     it("cover storage Supabase, flag ON: preload responsive (imagesrcset) ma og:image resta raw", () => {
@@ -231,16 +233,21 @@ describe("applyTenantHead", () => {
             OPTS
         );
         expect(html).not.toContain("javascript:alert(1)");
-        // cover scartata → nessuna immagine (il template non ne ha una generica)
-        // e card Twitter piccola, come nel template
-        expect(html).not.toContain('property="og:image"');
-        expect(html).not.toContain('name="twitter:image"');
-        expect(html).toContain('name="twitter:card" content="summary"');
+        // cover scartata → resta l'immagine generica del template, con le sue
+        // dimensioni e il suo alt
+        expect(html).toContain('property="og:image" content="https://cataloglobe.com/og-image.png"');
+        expect(html).toContain('name="twitter:image" content="https://cataloglobe.com/og-image.png"');
+        expect(html).toContain('property="og:image:width" content="1200"');
+        expect(html).toContain('property="og:image:alt"');
     });
 
     it("cover https su template senza og:image: tag aggiunti una volta sola, card grande", () => {
-        const html = applyTenantHead(TEMPLATE, makePayload(), OPTS);
-        expect(TEMPLATE).not.toContain('property="og:image"');
+        const bare = TEMPLATE.replace(/\s*<meta\s+(?:property|name)="(?:og|twitter):image[^"]*"[^>]*>/g, "").replace(
+            'name="twitter:card" content="summary_large_image"',
+            'name="twitter:card" content="summary"'
+        );
+        expect(bare).not.toContain("og-image.png");
+        const html = applyTenantHead(bare, makePayload(), OPTS);
         expect(html.match(/property="og:image"/g)?.length).toBe(1);
         expect(html.match(/name="twitter:image"/g)?.length).toBe(1);
         expect(html).toContain('name="twitter:card" content="summary_large_image"');
