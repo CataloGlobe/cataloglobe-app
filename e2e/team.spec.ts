@@ -11,6 +11,12 @@ import { openBusinessPage } from "./business";
 test.describe("Team", () => {
     test.beforeEach(async ({ page }) => {
         await openBusinessPage(page, "team", "Team");
+        // Pagina pronta: i membri vengono dalla RPC vera (`get_tenant_members`),
+        // che sotto carico supera i 5 s. Stesso cancello da 15 s delle altre
+        // pagine: la tabella dei membri c'è e non sta più caricando.
+        const members = page.getByRole("table", { name: "Membri del team" });
+        await expect(members).toBeVisible({ timeout: 15_000 });
+        await expect(members.locator('[role="rowgroup"][aria-busy="true"]')).toHaveCount(0, { timeout: 15_000 });
     });
 
     test("titolo di pagina", async ({ page }) => {
