@@ -76,7 +76,7 @@ export async function listCrmTeamMembers(): Promise<CrmTeamMember[]> {
     return (data ?? []) as CrmTeamMember[];
 }
 
-type IngestRow = { r_lead_id: string; r_venue_id: string; r_outcome: CrmIngestOutcome };
+type IngestRow = { r_lead_id: string | null; r_venue_id: string | null; r_outcome: CrmIngestOutcome };
 
 /** Un ingresso, con la regola dei doppioni sul telefono (lato DB). */
 export async function ingestCrmLead(input: CrmIngestInput): Promise<CrmIngestResult> {
