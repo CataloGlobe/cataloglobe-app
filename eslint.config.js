@@ -25,4 +25,16 @@ export default defineConfig([
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
     },
   },
+  {
+    // Edge Functions: girano su Deno, non nel bundle Vite. Molti `index.ts`
+    // aprono con `// @ts-nocheck` di proposito: importano da URL
+    // (`https://esm.sh/...`, `https://deno.land/...`) e usano il global `Deno`,
+    // che il TypeScript dell'app non risolve. Il controllo tipi lì è
+    // `deno check`, non tsc. ESLint resta attivo su questi file (any, variabili
+    // inutilizzate): si spegne solo il divieto di `@ts-nocheck`.
+    files: ['supabase/functions/**/*.ts'],
+    rules: {
+      '@typescript-eslint/ban-ts-comment': ['error', { 'ts-nocheck': false }],
+    },
+  },
 ])
