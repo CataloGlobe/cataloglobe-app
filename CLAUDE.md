@@ -13,7 +13,7 @@ Regole vincolanti. In caso di dubbio: seguire il pattern esistente nel codice.
 - Security Advisor stato: `docs/security-advisor-status.md`
 - **Permissions Matrix** (v3, Track A completo): `docs/permissions-matrix.md` — 41 permessi, matrice ruolo×permesso, gating FE per pagina, readiness Fase 1
 - Roadmap: `docs/roadmap.md`
-- **Pattern dettagliati** (`docs/patterns/`): `delete-drawer.md`, `activity-detail.md`, `draft-unsaved-bar.md`, `public-page.md`, `style-editor.md`, `ui-components.md`, `storage-sql.md`, `epic-ordering.md`
+- **Pattern dettagliati** (`docs/patterns/`): `delete-drawer.md`, `activity-detail.md`, `draft-unsaved-bar.md`, `public-page.md`, `style-editor.md`, `ui-components.md`, `storage-sql.md`, `epic-ordering.md`, `status-page.md`
 
 ---
 
