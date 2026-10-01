@@ -316,6 +316,9 @@ test.describe("Menù — dettaglio", () => {
             if (await expand.count()) await expand.click();
         }
         await expect(node(page, "Fruttati e aromatici")).toBeVisible();
+        // Forma finale: l'albero resta in sola lettura (senza maniglie) finché
+        // non arrivano i permessi. Si misura solo quando c'è anche l'ultima.
+        await expect(tree.getByRole("button", { name: "Riordina Fruttati e aromatici" })).toBeVisible();
         for (const row of await rows.all()) {
             expect((await row.boundingBox())!.height).toBeLessThanOrEqual(36);
         }
