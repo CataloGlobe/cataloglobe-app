@@ -28,6 +28,12 @@ describe("nextStageForAccount", () => {
         expect(nextStageForAccount("perso", "trialing")).toBe("in_prova");
         expect(nextStageForAccount("perso", "suspended")).toBeNull();
     });
+
+    it("da Perso non esce sopra uno stop né sopra un Perso deciso dopo il collegamento", () => {
+        expect(nextStageForAccount("perso", "active", { lostKind: "stop" })).toBeNull();
+        expect(nextStageForAccount("perso", "active", { lostKind: "obiezione", lostAfterLink: true })).toBeNull();
+        expect(nextStageForAccount("perso", "active", { lostKind: "obiezione" })).toBe("cliente_pagante");
+    });
 });
 
 describe("pickTenant", () => {

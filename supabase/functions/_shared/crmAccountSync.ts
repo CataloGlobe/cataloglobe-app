@@ -7,7 +7,8 @@
 // l'abbonamento del tenant collegato:
 //   trialing → In prova · active → Cliente pagante · altri stati → nessuno
 // e si muove solo in avanti (mai da Cliente pagante a In prova). Da Perso si
-// esce se l'account parte: si è registrato da solo.
+// esce se l'account parte: si è registrato da solo. Non da uno stop, né da un
+// Perso deciso a mano quando l'account era già collegato.
 //
 // Usato dall'edge `crm-sync-accounts` e provato da crmAccountSync.test.ts.
 // =============================================================================
@@ -39,14 +40,27 @@ export function stageForSubscription(status: string | null | undefined): CrmStag
     return null;
 }
 
+export interface LostContext {
+    /** `crm_venues.lost_kind`: con «stop» la carta resta in Perso. */
+    lostKind?: string | null;
+    /** Perso deciso a mano DOPO il collegamento: la decisione resta. */
+    lostAfterLink?: boolean;
+}
+
 /** La fase verso cui spostare la carta, o null se resta dov'è. */
 export function nextStageForAccount(
     current: CrmStageKey,
-    subscriptionStatus: string | null | undefined
+    subscriptionStatus: string | null | undefined,
+    lost: LostContext = {}
 ): CrmStageKey | null {
     const target = stageForSubscription(subscriptionStatus);
     if (!target || target === current) return null;
-    if (current === "perso") return target;
+    if (current === "perso") {
+        // Si esce da Perso solo se l'account è partito dopo: mai sopra uno stop
+        // («non scrivetemi più») né sopra un Perso deciso a account già collegato.
+        if (lost.lostKind === "stop" || lost.lostAfterLink) return null;
+        return target;
+    }
     return RANK[target] > RANK[current] ? target : null;
 }
 
