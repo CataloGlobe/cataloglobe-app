@@ -425,7 +425,7 @@ const COVER_PNG = Buffer.from(
  * passa a `test` col commit che lo corregge.
  */
 test.describe("Storie — lotto bug A", () => {
-    test.fail("St1: a pari ordine l'elenco segue la data di creazione, come la pagina pubblica", async ({ page }) => {
+    test("St1: a pari ordine l'elenco segue la data di creazione, come la pagina pubblica", async ({ page }) => {
         const orders: string[] = [];
         page.on("request", r => {
             if (/\/rest\/v1\/stories\?/.test(r.url()) && r.method() === "GET") orders.push(new URL(r.url()).searchParams.get("order") ?? "");
