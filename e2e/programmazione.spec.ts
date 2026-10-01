@@ -1454,10 +1454,14 @@ test.describe("Programmazione — card «Adesso» e matrice", () => {
 
     test("abbonamento non attivo: la card dice che nessuna sede mostra il menù", async ({ page }) => {
         await page.route(/\/rest\/v1\/user_tenants_view/, async route => {
-            const response = await route.fetch();
-            const rows = (await response.json()) as Array<Record<string, unknown>>;
-            for (const row of rows) if (row.id === TENANT_ID) row.subscription_status = "suspended";
-            await route.fulfill({ response, json: rows });
+            try {
+                const response = await route.fetch();
+                const rows = (await response.json()) as Array<Record<string, unknown>>;
+                for (const row of rows) if (row.id === TENANT_ID) row.subscription_status = "suspended";
+                await route.fulfill({ response, json: rows });
+            } catch {
+                // Pagina chiusa a metà richiesta (fine del test): niente da riscrivere.
+            }
         });
         await openList(page);
         await expect(nowCard(page)).toContainText("Abbonamento non attivo: nessuna sede mostra il menù.");
