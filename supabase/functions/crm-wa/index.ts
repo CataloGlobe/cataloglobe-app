@@ -5,16 +5,20 @@
 //
 // GET ?l=<lead>&u=<destinatario>&e=<scadenza>&s=<firma>, link generato da
 // crm-notify per ciascun destinatario (_shared/crmWhatsapp.ts, HMAC con
-// CRM_WA_LINK_SECRET, 30 giorni). Se la firma è buona:
+// CRM_WA_LINK_SECRET, 7 giorni). Se la firma è buona:
 //   1. crm_log_whatsapp_opened → evento nella storia e, da Nuovo, Contattato;
 //   2. 302 verso wa.me col messaggio pronto di crm_settings.
+// Firma buona ma link scaduto → 302 alla scheda in /admin (che chiede il
+// login), dove il pulsante WhatsApp funziona sempre. Niente evento.
 // Un locale Perso per stop non si apre: ha chiesto di non essere contattato.
 //
 // Le risposte di errore sono testo semplice: le edge Supabase non servono HTML.
-// Env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, CRM_WA_LINK_SECRET.
+// Env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, CRM_WA_LINK_SECRET,
+// APP_URL (per il rimando alla scheda).
 // =============================================================================
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getPublicSiteUrl } from "../_shared/publicSiteUrl.ts";
 import { fillWhatsappTemplate, verifyWaLink, whatsappUrl } from "../_shared/crmWhatsapp.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -36,12 +40,28 @@ Deno.serve(async (req: Request) => {
     }
 
     const params = Object.fromEntries(new URL(req.url).searchParams);
-    const valid = await verifyWaLink(LINK_SECRET, params, Math.floor(Date.now() / 1000));
-    if (!valid) return text(403, "Link non valido o scaduto. Apri il lead da /admin.");
+    const check = await verifyWaLink(LINK_SECRET, params, Math.floor(Date.now() / 1000));
+    if (check === "invalid") return text(403, "Link non valido. Apri il lead da /admin.");
 
     const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 
     try {
+        if (check === "expired") {
+            const appUrl = getPublicSiteUrl();
+            const { data: expiredLead } = await supabase
+                .from("crm_leads")
+                .select("venue_id")
+                .eq("id", params.l)
+                .maybeSingle();
+            if (!appUrl || !expiredLead) {
+                return text(410, "Link scaduto (vale 7 giorni). Apri il lead da /admin.");
+            }
+            return new Response(null, {
+                status: 302,
+                headers: { Location: `${appUrl}/admin/lead/${expiredLead.venue_id}`, "Cache-Control": "no-store" }
+            });
+        }
+
         const [{ data: lead, error }, { data: settings }] = await Promise.all([
             supabase
                 .from("crm_leads")
@@ -61,7 +81,7 @@ Deno.serve(async (req: Request) => {
         if (!phone) return text(422, "Questo lead non ha un telefono.");
 
         // Lo stesso link riaperto (o inoltrato) entro 10 minuti non registra un
-        // secondo contatto: il link vale 30 giorni e si può riusare.
+        // secondo contatto: il link vale 7 giorni e si può riusare.
         const { count: recent } = await supabase
             .from("crm_events")
             .select("id", { count: "exact", head: true })
