@@ -11,7 +11,7 @@ Regole vincolanti. In caso di dubbio: seguire il pattern esistente nel codice.
 - Scheduling (Programmazione): `docs/scheduling.md`
 - Epic "Ordinazioni dal tavolo": `docs/orders-architecture.md` (v1.2) — state machine, RPC, optimistic locking, error code, roadmap 6 fasi. Dettaglio pattern: `docs/patterns/epic-ordering.md`
 - Security Advisor stato: `docs/security-advisor-status.md`
-- **Permissions Matrix** (v3, Track A completo): `docs/permissions-matrix.md` — 41 permessi, matrice ruolo×permesso, gating FE per pagina, readiness Fase 1
+- **Permissions Matrix** (v3, Track A completo): `docs/permissions-matrix.md` — 50 permessi, matrice ruolo×permesso, gating FE per pagina, readiness Fase 1
 - Roadmap: `docs/roadmap.md`
 - **Pattern dettagliati** (`docs/patterns/`): `delete-drawer.md`, `activity-detail.md`, `draft-unsaved-bar.md`, `public-page.md`, `style-editor.md`, `ui-components.md`, `storage-sql.md`, `epic-ordering.md`
 
@@ -77,7 +77,7 @@ Modello post-Fase 2: scope tenant-wide vs activity-scoped.
 
 ### Backend permission system
 
-- Tabella `role_permissions`: 41 permission seed, scope `tenant` o `activity`
+- Tabella `permissions`: 50 permessi (25 `tenant`, 25 `activity`, staging 01/10/2026); `role_permissions` = matrice ruolo×permesso. Fonte autoritativa la tabella, non il conteggio scritto qui
 - Helper SECURITY DEFINER:
   - `has_permission(p_permission_id text, p_activity_id uuid DEFAULT NULL) → boolean`
   - `has_permission_any_activity(p_permission_id text, p_tenant_id uuid) → boolean`
@@ -318,7 +318,7 @@ Usare sempre `_shared/stripe-helpers.ts`. Pattern: `scheduleStripeCancel()` soft
 
 Tutte in `supabase/functions/<nome>/index.ts`. Shared code in `_shared/`. `verify_jwt: false` su tutte.
 
-Deploy sempre con --project-ref esplicito: la CLI Supabase locale è collegata alla produzione.
+Deploy sempre con --project-ref esplicito. La CLI locale è collegata a **staging** (`lxeawrpjfphgdspueiag`); produzione è `qomnpzerhbtstbnwxnqc`. Vedi `### CLI Supabase` in Plugin & MCP.
 
 **`scheduleResolver.ts` esiste in DUE posti**: `src/services/supabase/` e `supabase/functions/_shared/`. Sincronizzarli ENTRAMBI ad ogni modifica.
 
@@ -508,6 +508,21 @@ L'MCP `supabase-staging` espone `apply_migration` e `execute_sql`. Bypassano fil
 
 **Regola** per ogni schema change DDL: (1) creare file `supabase/migrations/YYYYMMDDHHMMSS_*.sql`, (2) conferma esplicita utente, (3) solo dopo invocare `apply_migration`. Letture MCP (`list_tables`, `list_migrations`, `get_advisors`, `get_logs`, `generate_typescript_types`) non richiedono conferma.
 
+Nessuna query al DB di produzione da una sessione Claude, nemmeno in lettura. Per la documentazione e le verifiche fa fede staging.
+
+### CLI Supabase
+
+Progetti: **staging** `lxeawrpjfphgdspueiag`, **produzione** `qomnpzerhbtstbnwxnqc`. Cartella principale e worktree sono collegati a staging (`supabase/.temp/project-ref`); una sessione che la trova collegata a produzione si ferma e lo dice. `supabase db push`, `supabase link` e `supabase functions deploy` su produzione li lancia solo Lorenzo.
+
+**`supabase db push` (staging) solo dal worktree `cataloglobe-ds`** (`../cataloglobe-ds`, branch `refactor/design-system`, allineato a staging). Mai dalla cartella principale: è condivisa da più sessioni e contiene migration non committate, che il push applicherebbe insieme alle tue.
+1. `git pull` nel worktree, la migration committata è lì.
+2. `supabase db push --dry-run --include-all`: leggere l'elenco, deve contenere solo le migration attese.
+3. `supabase db push --include-all`. `--include-all` sempre: senza, una migration con timestamp anteriore all'ultima applicata viene saltata.
+
+**Timestamp delle migration**: sessioni parallele scelgono lo stesso numero e `db push` non avvisa. `ls supabase/migrations` prima di nominare, `list_migrations` su staging dopo. Caso noto: `20260929170000` è `account_deletion_functions_empty_search_path` perché un'altra sessione l'aveva già applicata su staging con quel numero; la guardia di `upsert_manual_translation` è stata rinumerata a `20260929170200` (commit `3b2989c5`). Le due migration non hanno legami.
+
+**Test SQL** (`supabase/tests/*.test.sql`): dipendono dai dati di staging (utenti, tenant, sedi), si eseguono solo su staging, **mai in produzione**. In Studio l'intero script gira in una sola transazione: per isolare un caso usare `SAVEPOINT` / `ROLLBACK TO SAVEPOINT`, non `BEGIN` / `ROLLBACK`.
+
 ### MCP — context7
 
 Per query su librerie/SDK del progetto (React 19, Vite 7, Framer Motion v12, Supabase JS v2, Stripe SDK, recharts, @dnd-kit), preferire `context7` alla knowledge memorizzata.
@@ -580,4 +595,4 @@ NON modificare automaticamente: `CLAUDE.md` (root + `docs/`), `MEMORY.md`, file 
 
 **Permessi**: usare `userRole` da `TenantContext` per gating (NULL per manager/staff/viewer) | usare API legacy (`Role` enum, `canManage`, `isOwner(string)`, `isAdmin`, `isMember` — eliminate Fase 5.C.C) | bypassare i gating frontend (`canChangeRoleOf`, `canRemoveMember`, `canInviteRole`) chiamando direttamente la RPC senza pre-check | montare `PermissionsProvider` fuori da `/business/:businessId/*` | usare `usePermissions()` in componenti workspace (`/workspace/*`, `/select-business`) — usa `workspaceRole` helpers | INSERT manuale `tenant_memberships.role='owner'` (constraint post-Fase 5.B.2 ammette solo NULL\|'admin')
 
-**Plugin & MCP**: invocare plugin disabilitati | DDL via Supabase MCP senza file migration creato prima | `/clean_gone` senza conferma esplicita per branch | `caveman:compress` su CLAUDE.md/MEMORY.md senza conferma | `superpowers` brainstorm/write-plan quando il prompt è già strutturato | knowledge memorizzata su versioni libreria invece di `context7`
+**Plugin & MCP**: invocare plugin disabilitati | DDL via Supabase MCP senza file migration creato prima | `supabase db push` fuori dal worktree `cataloglobe-ds` o senza `--dry-run` prima e `--include-all` | query (anche lettura) sul DB di produzione | test di `supabase/tests/` in produzione | `/clean_gone` senza conferma esplicita per branch | `caveman:compress` su CLAUDE.md/MEMORY.md senza conferma | `superpowers` brainstorm/write-plan quando il prompt è già strutturato | knowledge memorizzata su versioni libreria invece di `context7`

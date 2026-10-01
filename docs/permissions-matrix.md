@@ -10,7 +10,7 @@ Scope: route business `/business/:businessId/*`. Workspace escluso (modello
 > **Stato.** Backend coerente (owner grant-based, risoluzione canonica su tutti
 > i percorsi, tre assi ortogonali). **Enforcement FE completo**: ogni pagina
 > business gata le sue azioni via PageGate + helper di permesso. Il catalogo
-> (41 permessi) non è stato ridisegnato — solo cablato. Restano due permessi
+> (50 permessi) non è stato ridisegnato — solo cablato. Restano due permessi
 > morti da pulire (§ 10).
 
 ---
@@ -72,7 +72,7 @@ Bonifica sicurezza: error detail/stack rimossi dai 5xx in tutte le edge function
 
 ## 3. Modello ruoli
 
-5 built-in. `owner` **grant-based** (40/40 confermato, helper coerenti):
+5 built-in. `owner` **grant-based** (50/50 su staging, 01/10/2026, helper coerenti):
 cortocircuito via `owner_user_id` → legge `role_permissions WHERE role='owner'`.
 
 | Ruolo | Origine | Scope |
@@ -91,12 +91,12 @@ verbi specifici per operazioni singolari/alto rischio · plurale+tenant
 
 ---
 
-## 5. Catalogo: 41 permessi
+## 5. Catalogo: 50 permessi
 
-40 esistenti + `translations.write` (mig. 120000). Scope/categoria invariati da v2 § 5. Modifiche:
+25 `tenant` + 25 `activity` (staging, `public.permissions`, 01/10/2026). Scope/categoria invariati da v2 § 5. Modifiche:
 - **`stories.read` / `stories.write`** (activity, enforced any-activity come `featured.*`) — esistevano in DB (mig. 20260707125900) ma mancavano da questa matrice; aggiunti il 27/09/2026 (lotto Stili · Storie · In evidenza).
-- **Deriva nota, da riconciliare** (staging 27/09/2026: 50 permessi): mancano da qui anche `guests.read/manage`, `seatings.read/manage`, `support.read/write`. (`reviews.respond` → `reviews.moderate` + `reviews.delete`: riconciliato il 30/09/2026.)
-- **`translations.write`** (tenant, content) — NUOVO. Azioni `/languages`. Read via proxy `catalogs.read`.
+- **Riconciliati con staging il 01/10/2026**: `guests.read/manage` e `seatings.read/manage` (activity, epic Prenotazioni), `support.read/write` (tenant, Assistenza). `reviews.respond` → `reviews.moderate` + `reviews.delete` (mig. 20260918134400), applicati: `moderate` scrive solo `status` (privilegio di colonna, mig. 20260930120300), `delete` solo owner/admin.
+- **`translations.write`** (tenant, content) — solo owner/admin. Azioni `/languages`. Read via proxy `catalogs.read`.
 - **`activity_groups.write`** — esisteva già (mig. 130000 resa no-op con ON CONFLICT).
 - **Morti** (cleanup, § 10): `notifications.receive`, `tenant.transfer_ownership`.
 - `canEditSchedule`/`ScheduleShape` (helper FE orfani) — RIMOSSI in A3.
@@ -155,6 +155,12 @@ verbi specifici per operazioni singolari/alto rischio · plurale+tenant
 | tenant.manage | T | T | | | |
 | tenant.delete | T | | | | |
 | tenant.transfer_ownership | T | | | | |
+| guests.read | T | T | A | | |
+| guests.manage | T | T | A | | |
+| seatings.read | T | T | A | A | A |
+| seatings.manage | T | T | A | A | |
+| support.read | T | T | T | T | |
+| support.write | T | T | T | T | |
 
 ---
 
