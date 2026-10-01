@@ -56,14 +56,18 @@ export function SettingsDrawer({ open, onClose, onChanged }: Props) {
     const [error, setError] = useState<string | null>(null);
     const [isBusy, setIsBusy] = useState(false);
 
-    const load = useCallback(async () => {
+    // resetDrafts solo all'apertura: dopo un'azione (un interruttore,
+    // l'assegnatario) i testi in modifica e non salvati restano.
+    const load = useCallback(async (resetDrafts: boolean) => {
         try {
             const [members, settings] = await Promise.all([listCrmTeamMembers(), getCrmSettings()]);
             setTeam(members);
             setSavedBotUsername(settings.telegram_bot_username);
-            setBotUsername(settings.telegram_bot_username ?? "");
-            setTemplate(settings.whatsapp_template ?? "");
             setSavedTemplate(settings.whatsapp_template ?? "");
+            if (resetDrafts) {
+                setBotUsername(settings.telegram_bot_username ?? "");
+                setTemplate(settings.whatsapp_template ?? "");
+            }
             const me = members.find(m => m.user_id === user?.id);
             setDisplayName(prev => prev || me?.display_name || "");
         } catch (err) {
@@ -74,7 +78,7 @@ export function SettingsDrawer({ open, onClose, onChanged }: Props) {
     useEffect(() => {
         if (!open) return;
         setError(null);
-        void load();
+        void load(true);
     }, [open, load]);
 
     async function run(action: () => Promise<void>, success?: string) {
@@ -82,7 +86,7 @@ export function SettingsDrawer({ open, onClose, onChanged }: Props) {
         setError(null);
         try {
             await action();
-            await load();
+            await load(false);
             onChanged();
             if (success) showToast({ message: success, type: "success" });
         } catch (err) {

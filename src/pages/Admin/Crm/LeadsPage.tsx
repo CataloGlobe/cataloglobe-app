@@ -63,11 +63,12 @@ export default function LeadsPage() {
             const [rows, members, settings] = await Promise.all([
                 listCrmVenues(),
                 listCrmTeamMembers(),
-                getCrmSettings()
+                // Il testo di WhatsApp non deve far cadere la pagina.
+                getCrmSettings().catch(() => null)
             ]);
             setVenues(rows);
             setTeam(members);
-            setWhatsappTemplate(settings.whatsapp_template);
+            setWhatsappTemplate(settings?.whatsapp_template ?? null);
         } catch (err) {
             setPageError(`Non è stato possibile caricare i lead: ${err instanceof Error ? err.message : String(err)}`);
         } finally {
