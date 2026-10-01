@@ -551,7 +551,7 @@ test.describe("Stili — larghezze", () => {
  * passa a `test` col commit che lo corregge.
  */
 test.describe("Stili — lotto bug A", () => {
-    test.fail("S1: se la rilettura dopo il Salva fallisce, il salvataggio resta riuscito", async ({ page }) => {
+    test("S1: se la rilettura dopo il Salva fallisce, il salvataggio resta riuscito", async ({ page }) => {
         wireStyleWrites(stub);
         await page.route(/\/rest\/v1\/styles\?/, route =>
             route.request().method() === "GET" && write(stub, "styles.PATCH")
@@ -570,7 +570,7 @@ test.describe("Stili — lotto bug A", () => {
         expect(await page.getByText("Impossibile salvare lo stile.").count()).toBe(0);
     });
 
-    test.fail("S3: cambiare solo il nome non crea una versione", async ({ page }) => {
+    test("S3: cambiare solo il nome non crea una versione", async ({ page }) => {
         wireStyleWrites(stub);
         await openStyle(page, STYLE.sera);
         await expect(nameField(page)).toHaveValue("Sera e2e", { timeout: 15_000 });
@@ -580,7 +580,7 @@ test.describe("Stili — lotto bug A", () => {
         expect(writes(stub, "style_versions.POST")).toHaveLength(0);
     });
 
-    test.fail("S3: il solo nome di uno stile in uso si salva senza avviso", async ({ page }) => {
+    test("S3: il solo nome di uno stile in uso si salva senza avviso", async ({ page }) => {
         wireStyleWrites(stub);
         await openStyle(page, STYLE.estate);
         await expect(nameField(page)).toHaveValue("Estate e2e", { timeout: 15_000 });

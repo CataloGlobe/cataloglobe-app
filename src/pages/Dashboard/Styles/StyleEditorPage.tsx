@@ -100,9 +100,9 @@ export default function StyleEditorPage() {
     const isSystem = Boolean(styleData?.is_system);
     // Uno stile di sistema non si modifica da nessuno: si duplica.
     const readOnly = !canWrite || !canEdit || isSystem;
-    const isDirty =
-        styleData != null &&
-        (name !== styleData.name || JSON.stringify(tokenModel) !== JSON.stringify(originalTokens));
+    // Solo i token arrivano al pubblico: il nome resta nel back office.
+    const tokensDirty = JSON.stringify(tokenModel) !== JSON.stringify(originalTokens);
+    const isDirty = styleData != null && (name !== styleData.name || tokensDirty);
 
     useUnsavedChangesGuard(isDirty && !readOnly);
 
@@ -172,18 +172,23 @@ export default function StyleEditorPage() {
 
     const doSave = useCallback(async (): Promise<boolean> => {
         if (!styleData) return false;
-        const config = serializeTokens(tokenModel);
+        // Una versione nuova solo se cambiano i token: il solo nome non ne crea.
+        const config = tokensDirty ? serializeTokens(tokenModel) : undefined;
         setIsSaving(true);
         try {
-            await updateStyle(styleData.id, name.trim(), config, styleData.tenant_id);
-            showToast({ message: "Stile aggiornato (nuova versione creata).", type: "success" });
-            setOriginalTokens(parseTokens(config));
-            invalidateVersions();
-            const refreshed = await getStyle(styleData.id, styleData.tenant_id);
-            if (refreshed) {
-                setStyleData(refreshed);
-                setName(refreshed.name);
+            // La riga aggiornata torna dalla scrittura: nessuna seconda lettura
+            // che, fallendo, direbbe «non salvato» a un salvataggio riuscito.
+            const updated = await updateStyle(styleData.id, name.trim(), config, styleData.tenant_id);
+            showToast({
+                message: config ? "Stile aggiornato (nuova versione creata)." : "Stile aggiornato.",
+                type: "success"
+            });
+            if (config) {
+                setOriginalTokens(parseTokens(config));
+                invalidateVersions();
             }
+            setStyleData(updated);
+            setName(updated.name);
             return true;
         } catch {
             showToast({ message: "Impossibile salvare lo stile.", type: "error" });
@@ -191,14 +196,19 @@ export default function StyleEditorPage() {
         } finally {
             setIsSaving(false);
         }
-    }, [name, tokenModel, styleData, showToast, invalidateVersions]);
+    }, [name, tokenModel, tokensDirty, styleData, showToast, invalidateVersions]);
 
     // Salva: se lo stile veste delle regole, prima l'avviso (§34.5). L'avviso
-    // non si spegne: dice cosa succede ogni volta che è vero (§34.5/3).
+    // non si spegne: dice cosa succede ogni volta che è vero (§34.5/3). Il solo
+    // nome non lo chiede: il pubblico non lo vede.
     const handleSave = useCallback(async () => {
         if (!styleData || readOnly) return;
         if (!name.trim()) {
             showToast({ message: "Il nome dello stile è obbligatorio.", type: "error" });
+            return;
+        }
+        if (!tokensDirty) {
+            await doSave();
             return;
         }
         setIsSaving(true);
@@ -220,7 +230,7 @@ export default function StyleEditorPage() {
             return;
         }
         await doSave();
-    }, [name, styleData, readOnly, canEdit, showToast, doSave]);
+    }, [name, styleData, readOnly, canEdit, tokensDirty, showToast, doSave]);
 
     const handleSubmit = useCallback(
         (e: React.FormEvent) => {
