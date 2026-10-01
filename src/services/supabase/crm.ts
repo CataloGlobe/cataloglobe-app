@@ -95,7 +95,8 @@ export async function ingestCrmLead(input: CrmIngestInput): Promise<CrmIngestRes
         p_campaign: input.campaign ?? null,
         p_consent_at: input.consentAt ?? null,
         p_consent_text: input.consentText ?? null,
-        p_received_at: input.receivedAt ?? null
+        p_received_at: input.receivedAt ?? null,
+        p_silent: input.silent ?? false
     });
     if (error) throw error;
     const row = (data as IngestRow[] | null)?.[0];
