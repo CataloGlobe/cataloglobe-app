@@ -311,7 +311,7 @@ async function handleSendStep(
         if (eligible) {
             try {
                 await sendRecoveryOtp(supabaseAdmin, resolved.userId, email, otpPepper, resend);
-            } catch (e) {
+            } catch {
                 console.error(
                     JSON.stringify({
                         event: "recover_account_send_otp_error",

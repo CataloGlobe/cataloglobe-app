@@ -5,7 +5,7 @@ import {
     resolveActivityCatalogs,
     type ResolvedProduct
 } from "../_shared/resolveActivityCatalogs.ts";
-import { toRomeDateTime, getNowInRome } from "../_shared/schedulingNow.ts";
+import { toRomeDateTime } from "../_shared/schedulingNow.ts";
 import { VALID_SUBSCRIPTION_STATUSES } from "../_shared/checkOrderingState.ts";
 import { checkRateLimit, RateLimitExceededError, extractClientIp, hashIp } from "../_shared/rateLimit.ts";
 import { extractBearerJwt, isTenantMember } from "../_shared/tenantMembership.ts";
@@ -260,7 +260,7 @@ serve(async (req: Request) => {
     // without any DB call. The structured log lets get_logs separate
     // warmup pings from real invocations during pre-post analysis.
     if (req.headers.get("x-warmup") === "1") {
-        const _warm = createClient(
+        createClient(
             Deno.env.get("SUPABASE_URL")!,
             Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
         );

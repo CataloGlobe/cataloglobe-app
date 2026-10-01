@@ -263,7 +263,7 @@ async function _generateQrPng(url: string): Promise<Uint8Array> {
 
 async function _generatePdf(
     tables: TableRow[],
-    activitySlug: string
+    _activitySlug: string
 ): Promise<Uint8Array> {
     const pdfDoc = await PDFDocument.create();
     const font = await pdfDoc.embedFont(StandardFonts.HelveticaBold);

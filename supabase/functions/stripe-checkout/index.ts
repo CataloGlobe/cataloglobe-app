@@ -68,6 +68,15 @@ function appendCheckoutSessionPlaceholder(url: string): string {
     return hash !== undefined ? `${withParam}#${hash}` : withParam;
 }
 
+// Campi di un errore Stripe letti nei log (mai `message`, vedi i catch).
+type StripeErrorLike = {
+    code?: string;
+    type?: string;
+    statusCode?: number;
+    raw?: { param?: string };
+    requestId?: string;
+};
+
 type CheckoutBody = {
     tenantId?: string;
     successUrl?: string;
@@ -304,7 +313,7 @@ serve(async req => {
                 // Log only the error class + il parametro rifiutato — mai `message`,
                 // che echeggia il valore inviato (P.IVA, indirizzo, ragione sociale).
                 console.error(
-                    `stripe-checkout: customer create failed: code=${(err as any)?.code} type=${(err as any)?.type} status=${(err as any)?.statusCode} param=${(err as any)?.raw?.param} request_id=${(err as any)?.requestId}`
+                    `stripe-checkout: customer create failed: code=${(err as StripeErrorLike | null)?.code} type=${(err as StripeErrorLike | null)?.type} status=${(err as StripeErrorLike | null)?.statusCode} param=${(err as StripeErrorLike | null)?.raw?.param} request_id=${(err as StripeErrorLike | null)?.requestId}`
                 );
                 return json(req, 502, { error: "stripe_customer_create_failed" });
             }
@@ -344,7 +353,7 @@ serve(async req => {
             } catch (err) {
                 // Log only the error class — Stripe messages can echo the submitted value.
                 console.warn(
-                    `stripe-checkout: customer update skipped (non-fatal): code=${(err as any)?.code} type=${(err as any)?.type} status=${(err as any)?.statusCode}`
+                    `stripe-checkout: customer update skipped (non-fatal): code=${(err as StripeErrorLike | null)?.code} type=${(err as StripeErrorLike | null)?.type} status=${(err as StripeErrorLike | null)?.statusCode}`
                 );
             }
         }
@@ -388,7 +397,7 @@ serve(async req => {
         } catch (err) {
             // Fail-closed: if we cannot verify, do not risk a duplicate charge.
             console.error(
-                `stripe-checkout: subscriptions.list failed: code=${(err as any)?.code} type=${(err as any)?.type} status=${(err as any)?.statusCode}`
+                `stripe-checkout: subscriptions.list failed: code=${(err as StripeErrorLike | null)?.code} type=${(err as StripeErrorLike | null)?.type} status=${(err as StripeErrorLike | null)?.statusCode}`
             );
             return json(req, 502, { error: "subscription_check_failed" });
         }
