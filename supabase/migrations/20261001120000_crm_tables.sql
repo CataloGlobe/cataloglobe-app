@@ -23,7 +23,7 @@
 --   crm_leads         ogni ingresso (landing, form Meta, chat WhatsApp, a mano)
 --   crm_events        la storia unica del locale (solo aggiunte)
 --   crm_settings      una riga: impostazioni (testo WhatsApp pronto)
---   crm_landing_imported  id dei contatti della landing già copiati (senza FK)
+--   crm_imported_refs     id nella fonte dei lead già entrati (senza FK)
 --   crm_suppressions      impronte dei telefoni che hanno chiesto lo stop
 -- =============================================================================
 
@@ -182,16 +182,22 @@ CREATE TRIGGER crm_settings_set_updated_at
     FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 -- -----------------------------------------------------------------------------
--- crm_landing_imported (marcatore della copia dalla landing)
+-- crm_imported_refs (lista degli id già entrati, per ogni fonte)
 -- -----------------------------------------------------------------------------
--- Una riga per ogni `public.leads.id` già passato dalla copia, qualunque sia
--- l'esito (entrato, doppione, escluso). Niente FK, né verso `leads` né verso
--- `crm_leads`: deve sopravvivere alla cancellazione del locale dal CRM,
--- altrimenti la copia ogni minuto lo ricreerebbe finché la riga resta in
--- `leads` (fino a 12 mesi). Nessun dato personale: solo l'id.
-CREATE TABLE IF NOT EXISTS public.crm_landing_imported (
-    lead_id      uuid        PRIMARY KEY,
-    imported_at  timestamptz NOT NULL DEFAULT now()
+-- Una riga per ogni (source, source_ref) già passato da crm_ingest_lead:
+-- `public.leads.id` della landing, id del lead Meta dell'import CSV (e del
+-- futuro webhook). Niente FK, né verso `leads` né verso `crm_leads`: deve
+-- sopravvivere alla cancellazione del locale dal CRM, altrimenti la copia
+-- della landing (ogni minuto) o un CSV reimportato lo ricreerebbero.
+-- La scrive il trigger crm_leads_mark_imported_ref a ogni nuovo lead con
+-- source_ref; la copia della landing aggiunge anche gli esiti senza lead
+-- (doppione, escluso). crm_ingest_lead la legge: un id già visto è
+-- 'duplicate'. Nessun dato personale: solo l'id nella fonte.
+CREATE TABLE IF NOT EXISTS public.crm_imported_refs (
+    source       text        NOT NULL CHECK (source IN ('landing', 'meta_form', 'whatsapp', 'manuale')),
+    source_ref   text        NOT NULL CHECK (char_length(source_ref) <= 200),
+    imported_at  timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (source, source_ref)
 );
 
 -- -----------------------------------------------------------------------------
@@ -225,13 +231,12 @@ GRANT SELECT, INSERT ON TABLE public.crm_events TO authenticated;
 -- Impostazioni: la riga esiste già, si legge e si aggiorna.
 GRANT SELECT, UPDATE ON TABLE public.crm_settings TO authenticated;
 
--- Marcatore ed esclusioni: li scrivono solo la copia (postgres, pg_cron) e il
--- trigger SECURITY DEFINER. Gli admin leggono le esclusioni perché
--- crm_ingest_lead (SECURITY INVOKER) le controlla anche dall'aggiunta a mano
--- e dall'import CSV.
-REVOKE ALL ON TABLE public.crm_landing_imported, public.crm_suppressions
+-- Id già entrati ed esclusioni: li scrivono solo la copia (postgres, pg_cron)
+-- e i trigger SECURITY DEFINER. Gli admin li leggono perché crm_ingest_lead
+-- (SECURITY INVOKER) li controlla anche dall'aggiunta a mano e dall'import CSV.
+REVOKE ALL ON TABLE public.crm_imported_refs, public.crm_suppressions
     FROM PUBLIC, anon, authenticated;
-GRANT SELECT ON TABLE public.crm_suppressions TO authenticated;
+GRANT SELECT ON TABLE public.crm_imported_refs, public.crm_suppressions TO authenticated;
 
 -- -----------------------------------------------------------------------------
 -- RLS: solo admin di piattaforma
@@ -242,9 +247,9 @@ ALTER TABLE public.crm_contacts     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.crm_leads        ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.crm_events       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.crm_settings     ENABLE ROW LEVEL SECURITY;
--- Senza policy: nessun accesso da authenticated.
-ALTER TABLE public.crm_landing_imported ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.crm_suppressions     ENABLE ROW LEVEL SECURITY;
+-- Solo lettura per gli admin (policy sotto), nessuna scrittura dal client.
+ALTER TABLE public.crm_imported_refs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.crm_suppressions  ENABLE ROW LEVEL SECURITY;
 
 DO $$
 DECLARE
@@ -286,12 +291,16 @@ CREATE POLICY "crm_settings update" ON public.crm_settings
     FOR UPDATE TO authenticated
     USING (public.is_platform_admin()) WITH CHECK (public.is_platform_admin());
 
+DROP POLICY IF EXISTS "crm_imported_refs select" ON public.crm_imported_refs;
+CREATE POLICY "crm_imported_refs select" ON public.crm_imported_refs
+    FOR SELECT TO authenticated USING (public.is_platform_admin());
+
 DROP POLICY IF EXISTS "crm_suppressions select" ON public.crm_suppressions;
 CREATE POLICY "crm_suppressions select" ON public.crm_suppressions
     FOR SELECT TO authenticated USING (public.is_platform_admin());
 
-COMMENT ON TABLE public.crm_landing_imported IS
-    'CRM interno: id dei public.leads già copiati. Senza FK di proposito: sopravvive alla cancellazione del locale.';
+COMMENT ON TABLE public.crm_imported_refs IS
+    'CRM interno: (source, source_ref) dei lead già entrati. Senza FK di proposito: sopravvive alla cancellazione del locale.';
 COMMENT ON TABLE public.crm_suppressions IS
     'CRM interno: impronte (sha256 E.164) dei telefoni che hanno chiesto lo stop. Mai il numero in chiaro.';
 COMMENT ON TABLE public.crm_venues IS

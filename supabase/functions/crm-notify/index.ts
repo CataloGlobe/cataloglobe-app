@@ -11,9 +11,11 @@
 //    * lead tornato (stesso telefono) → solo a chi lo ha in carico, o a tutti
 //      se nessuno ce l'ha; se chi ce l'ha non ha collegato Telegram, niente
 //      (`pickOutboxRecipients`);
-//    * lead ricevuto più di 24 ore fa (import CSV di arretrati) → segnato come
-//      notificato senza messaggio, per non inondare il bot: l'import manda un
-//      solo riepilogo (passata 3).
+//    * lead ricevuto più di 24 ore fa → segnato come notificato senza
+//      messaggio (rete di sicurezza: un arretrato non inonda il bot).
+//    Le righe dell'import CSV non passano di qui: entrano già notificate e già
+//    sollecitate (`crm_ingest_lead` con p_silent) e l'import manda un solo
+//    riepilogo (passata 3).
 //    `notified_at` si scrive solo se tutti gli invii sono andati (e c'era
 //    almeno un destinatario): altrimenti il giro dopo riprova. Ogni invio si
 //    prenota prima in `crm_telegram_messages` (UNIQUE lead+utente+tipo, mig
