@@ -1,0 +1,4 @@
+# CampaignLanding — vincoli
+
+- **Demo della landing in iframe** (`CampaignLanding/components/sections/Demos/Demos.tsx`, `DemoFrame`): riconosce una pagina pubblica fallita da `#not-found-title` (`NotFound.tsx`) e da `#root > [role=alert]` (stato `error` di `PublicCollectionPage`), poi sostituisce l'iframe con un messaggio. Rinominare quell'id o cambiare il ruolo/la posizione del blocco errore = lo sheet torna a mostrare il 404 con «Torna alla home» che naviga dentro l'iframe. Aggiornare `DemoFrame` nello stesso commit.
+- **`LandingFallback` = stesso CSS del pannello hero** (`CampaignLanding/LandingFallback.module.scss` ↔ `.panel` in `sections/Hero/Hero.module.scss`): stessa `min-height` in `svh` (mobile `calc(100svh - 20px)`, desktop `min(calc(100svh - 32px), 1000px)`), padding esterno, raggio e sfondo. Altezza solo CSS, mai calcolata in JS: se divergono, l'hero cambia misura all'arrivo del chunk lazy (CLS). Modificarli nello stesso commit.
