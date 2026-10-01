@@ -31,7 +31,8 @@ export type CrmEventType =
     | "account_linked"
     | "escalated";
 
-export type CrmIngestOutcome = "created" | "returned" | "duplicate";
+/** `suppressed`: telefono che ha chiesto lo stop, nessuna scrittura. */
+export type CrmIngestOutcome = "created" | "returned" | "duplicate" | "suppressed";
 
 export interface CrmTeamMember {
     user_id: string;
@@ -129,7 +130,9 @@ export interface CrmIngestInput {
 }
 
 export interface CrmIngestResult {
-    leadId: string;
-    venueId: string;
+    /** Null solo con `suppressed`. */
+    leadId: string | null;
+    /** Null con `suppressed` da lista di esclusione; il locale se è ancora in Perso per stop. */
+    venueId: string | null;
     outcome: CrmIngestOutcome;
 }

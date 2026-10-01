@@ -9,9 +9,18 @@
 --   crm_ingest_lead, crm_move_stage, crm_assign, crm_add_note
 --       authenticated + service_role (le RLS lasciano passare solo gli admin
 --       di piattaforma; il service role serve alle edge del CRM)
+--   crm_phone_fingerprint
+--       authenticated + service_role (la usa crm_ingest_lead, SECURITY INVOKER)
 --   crm_sync_landing_leads
 --       solo postgres (pg_cron) e service_role
+--   crm_suppress_stop_on_venue_delete
+--       nessuno: è una funzione trigger (il trigger gira comunque)
 -- =============================================================================
+
+REVOKE ALL ON FUNCTION public.crm_phone_fingerprint(text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.crm_phone_fingerprint(text) TO authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.crm_suppress_stop_on_venue_delete() FROM PUBLIC, anon, authenticated;
 
 REVOKE ALL ON FUNCTION public.crm_ingest_lead(
     text, text, text, text, text, text, text, text[], jsonb, text, text, text, timestamptz, text, timestamptz
