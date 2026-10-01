@@ -103,11 +103,12 @@ export default function LeadDetailPage() {
             const [data, members, settings] = await Promise.all([
                 getCrmVenue(venueId),
                 listCrmTeamMembers(),
-                getCrmSettings()
+                // Il testo di WhatsApp non deve far cadere la pagina.
+                getCrmSettings().catch(() => null)
             ]);
             setDetail(data);
             setTeam(members);
-            setWhatsappTemplate(settings.whatsapp_template);
+            setWhatsappTemplate(settings?.whatsapp_template ?? null);
             setNotFound(false);
             loadedVenueRef.current = venueId;
         } catch {
