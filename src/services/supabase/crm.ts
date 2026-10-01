@@ -103,6 +103,29 @@ export async function ingestCrmLead(input: CrmIngestInput): Promise<CrmIngestRes
     return { leadId: row.r_lead_id, venueId: row.r_venue_id, outcome: row.r_outcome };
 }
 
+/**
+ * Registra un import CSV coi conteggi: crm-notify ne manda un solo
+ * riepilogo su Telegram (i lead più vecchi di 24 ore non hanno notifica).
+ */
+export async function recordCrmImportRun(counts: {
+    created: number;
+    returned: number;
+    duplicate: number;
+    suppressed: number;
+    failed: number;
+}): Promise<void> {
+    // created_by = auth.uid() di default (e la policy lo richiede).
+    const { error } = await supabase.from("crm_import_runs").insert({
+        source: "meta_csv",
+        created_count: counts.created,
+        returned_count: counts.returned,
+        duplicate_count: counts.duplicate,
+        suppressed_count: counts.suppressed,
+        failed_count: counts.failed
+    });
+    if (error) throw error;
+}
+
 /** Ritorna false se la carta era già lì (o non era in `expectedStage`). */
 export async function moveCrmStage(
     venueId: string,

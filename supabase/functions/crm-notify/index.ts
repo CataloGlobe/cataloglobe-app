@@ -4,14 +4,16 @@
 // =============================================================================
 //
 // Invocata da pg_cron ogni minuto, solo quando c'è lavoro (migration
-// 20261001130300). Due passate:
+// 20261001130300). Tre passate:
 //
 // 1. OUTBOX: i lead con `notified_at IS NULL`.
 //    * locale nuovo → a tutto il team collegato a Telegram;
-//    * lead tornato (stesso telefono) → solo all'assegnato, o a tutti se
-//      nessuno ce l'ha;
+//    * lead tornato (stesso telefono) → solo a chi lo ha in carico, o a tutti
+//      se nessuno ce l'ha; se chi ce l'ha non ha collegato Telegram, niente
+//      (`pickOutboxRecipients`);
 //    * lead ricevuto più di 24 ore fa (import CSV di arretrati) → segnato come
-//      notificato senza messaggio, per non inondare il bot.
+//      notificato senza messaggio, per non inondare il bot: l'import manda un
+//      solo riepilogo (passata 3).
 //    `notified_at` si scrive solo se tutti gli invii sono andati (e c'era
 //    almeno un destinatario): altrimenti il giro dopo riprova. Ogni invio si
 //    prenota prima in `crm_telegram_messages` (UNIQUE lead+utente+tipo, mig
@@ -21,6 +23,10 @@
 // 2. SOLLECITO: carta ancora in Nuovo da 2 ore contate nella fascia 9-21 di
 //    Roma (`isEscalationDue`) → messaggio all'assegnato e a chi riceve le
 //    escalation (Lorenzo), una volta sola (`escalated_at`) + evento.
+//
+// 3. RIEPILOGO IMPORT: le righe di `crm_import_runs` con `notified_at IS NULL`
+//    → un messaggio a tutto il team collegato. Prenotazione con l'UPDATE di
+//    `notified_at`; se nessun invio va, si libera e il giro dopo riprova.
 //
 // AUTENTICAZIONE fail-CLOSED: X-Job-Secret = CRM_JOB_SECRET (vault
 // `crm_job_secret`), confronto constant-time.
@@ -33,7 +39,12 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { timingSafeEqualStr } from "../_shared/timingSafeEqual.ts";
 import { getPublicSiteUrl } from "../_shared/publicSiteUrl.ts";
 import { telegramCall } from "../_shared/telegramApi.ts";
-import { buildLeadMessage, isEscalationDue } from "../_shared/crmTelegram.ts";
+import {
+    buildImportSummaryMessage,
+    buildLeadMessage,
+    isEscalationDue,
+    pickOutboxRecipients
+} from "../_shared/crmTelegram.ts";
 import { loadLeadMessageData, loadTeam, whatsappLinkFor } from "../_shared/crmLeadMessage.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -112,7 +123,7 @@ async function sendTo(supabase, lead, member, data, team, kind): Promise<boolean
 }
 
 async function processOutbox(supabase, team, appUrl, now: Date) {
-    const stats = { notified: 0, skipped_stale: 0, failed: 0, no_recipients: 0 };
+    const stats = { notified: 0, skipped_stale: 0, failed: 0, no_recipients: 0, assignee_not_linked: 0 };
     const { data: leads, error } = await supabase
         .from("crm_leads")
         .select("id, venue_id, received_at, created_at, crm_venues(assigned_to)")
@@ -120,8 +131,6 @@ async function processOutbox(supabase, team, appUrl, now: Date) {
         .order("received_at", { ascending: true })
         .limit(BATCH);
     if (error) throw error;
-
-    const linked = team.filter(m => m.telegram_chat_id !== null);
 
     for (const lead of leads ?? []) {
         if (now.getTime() - new Date(lead.received_at).getTime() > STALE_AFTER_MS) {
@@ -142,10 +151,12 @@ async function processOutbox(supabase, team, appUrl, now: Date) {
         if (!data) continue;
 
         const assignee = lead.crm_venues?.assigned_to ?? null;
-        const recipients =
-            kind === "returned" && assignee && linked.some(m => m.user_id === assignee)
-                ? linked.filter(m => m.user_id === assignee)
-                : linked;
+        const { recipients, done } = pickOutboxRecipients(kind, assignee, team);
+        if (done) {
+            await supabase.from("crm_leads").update({ notified_at: now.toISOString() }).eq("id", lead.id);
+            stats.assignee_not_linked += 1;
+            continue;
+        }
 
         // Nessuno collegato a Telegram: il lead resta in coda (fino alle 24 ore).
         if (recipients.length === 0) {
@@ -215,6 +226,61 @@ async function processEscalations(supabase, team, appUrl, now: Date) {
     return stats;
 }
 
+async function processImportRuns(supabase, team, appUrl, now: Date) {
+    const stats = { import_summaries: 0 };
+    const { data: runs, error } = await supabase
+        .from("crm_import_runs")
+        .select("id, created_by, created_count, returned_count, duplicate_count, suppressed_count, failed_count")
+        .is("notified_at", null)
+        .order("created_at", { ascending: true })
+        .limit(BATCH);
+    if (error) throw error;
+
+    const linked = team.filter(m => m.telegram_chat_id !== null);
+
+    for (const run of runs ?? []) {
+        // Prenotazione: un solo giro manda il riepilogo.
+        const { data: claimed, error: claimError } = await supabase
+            .from("crm_import_runs")
+            .update({ notified_at: now.toISOString() })
+            .eq("id", run.id)
+            .is("notified_at", null)
+            .select("id");
+        if (claimError) throw claimError;
+        if (!claimed?.length || linked.length === 0) continue;
+
+        const message = buildImportSummaryMessage({
+            importerName: team.find(m => m.user_id === run.created_by)?.display_name ?? null,
+            created: run.created_count,
+            returned: run.returned_count,
+            duplicate: run.duplicate_count,
+            suppressed: run.suppressed_count,
+            failed: run.failed_count,
+            listUrl: appUrl ? `${appUrl}/admin/lead` : null
+        });
+
+        let sentAny = false;
+        for (const member of linked) {
+            const result = await telegramCall(BOT_TOKEN, "sendMessage", {
+                chat_id: member.telegram_chat_id,
+                text: message.text,
+                parse_mode: "HTML",
+                disable_web_page_preview: true,
+                reply_markup: message.reply_markup
+            });
+            if (result.ok) sentAny = true;
+            else console.warn("crm-notify: riepilogo import non inviato", member.user_id, result.description);
+        }
+
+        if (sentAny) {
+            stats.import_summaries += 1;
+        } else {
+            await supabase.from("crm_import_runs").update({ notified_at: null }).eq("id", run.id);
+        }
+    }
+    return stats;
+}
+
 Deno.serve(async (req: Request) => {
     if (req.method !== "POST") return json(405, { error: "method_not_allowed" });
 
@@ -235,8 +301,9 @@ Deno.serve(async (req: Request) => {
         const team = await loadTeam(supabase);
         const outbox = await processOutbox(supabase, team, appUrl, now);
         const escalation = await processEscalations(supabase, team, appUrl, now);
-        console.log(JSON.stringify({ event: "crm_notify", ...outbox, ...escalation }));
-        return json(200, { ...outbox, ...escalation });
+        const imports = await processImportRuns(supabase, team, appUrl, now);
+        console.log(JSON.stringify({ event: "crm_notify", ...outbox, ...escalation, ...imports }));
+        return json(200, { ...outbox, ...escalation, ...imports });
     } catch (err) {
         const e = err as { code?: unknown; message?: unknown };
         console.error("crm-notify: error", e?.code ?? "", e?.message ?? String(err));
