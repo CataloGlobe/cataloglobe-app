@@ -23,7 +23,8 @@
 // AUTENTICAZIONE fail-CLOSED: X-Job-Secret = CRM_JOB_SECRET (vault
 // `crm_job_secret`), confronto constant-time.
 // Env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, CRM_JOB_SECRET,
-// TELEGRAM_BOT_TOKEN, APP_URL (facoltativo: link «Apri nel CRM»).
+// TELEGRAM_BOT_TOKEN, APP_URL (facoltativo: link «Apri nel CRM»),
+// CRM_WA_LINK_SECRET (facoltativo: senza, niente pulsante WhatsApp).
 // =============================================================================
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -31,7 +32,7 @@ import { timingSafeEqualStr } from "../_shared/timingSafeEqual.ts";
 import { getPublicSiteUrl } from "../_shared/publicSiteUrl.ts";
 import { telegramCall } from "../_shared/telegramApi.ts";
 import { buildLeadMessage, isEscalationDue } from "../_shared/crmTelegram.ts";
-import { loadLeadMessageData, loadTeam } from "../_shared/crmLeadMessage.ts";
+import { loadLeadMessageData, loadTeam, whatsappLinkFor } from "../_shared/crmLeadMessage.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -59,7 +60,7 @@ async function sendTo(supabase, lead, member, data, team, kind): Promise<boolean
         .maybeSingle();
     if (existing) return true;
 
-    const message = buildLeadMessage(data, member.user_id, team);
+    const message = buildLeadMessage(data, member.user_id, team, await whatsappLinkFor(lead.id, member.user_id));
     const result = await telegramCall(BOT_TOKEN, "sendMessage", {
         chat_id: member.telegram_chat_id,
         text: message.text,

@@ -8,6 +8,7 @@ import { ListRow } from "@/components/ui/ListRow/ListRow";
 import { RadioGroup } from "@/components/ui/RadioGroup/RadioGroup";
 import { Switch } from "@/components/ui/Switch/Switch";
 import Text from "@/components/ui/Text/Text";
+import { Textarea } from "@/components/ui/Textarea/Textarea";
 import { useAuth } from "@/context/useAuth";
 import { useToast } from "@/context/Toast/ToastContext";
 import {
@@ -22,13 +23,17 @@ import type { CrmTeamMember } from "@/types/crm";
 import styles from "./Crm.module.scss";
 
 /**
- * Chi lavora i lead e come lo avvisa il bot.
+ * Impostazioni del CRM: chi lavora i lead, come lo avvisa il bot, il testo
+ * del messaggio WhatsApp pronto.
  *
  * Ogni persona si collega da sola: «Collega Telegram» crea la sua riga del
  * team e apre il bot con un token monouso (15 minuti); il bot salva la chat.
  * Qui si sceglie a chi va il lead nuovo (uno solo) e chi riceve i solleciti
  * dei lead fermi in Nuovo (decisione 2026-10-01: Alex di default, sollecito
  * anche a Lorenzo). Ogni scelta si salva subito.
+ *
+ * Il messaggio WhatsApp lo manda Alex a mano: parla come Alessandro di
+ * CataloGlobe, non come Gea (decisione 2026-10-01).
  */
 
 type Props = {
@@ -39,13 +44,15 @@ type Props = {
 
 const BOT_USERNAME_RE = /^[A-Za-z0-9_]{5,32}$/;
 
-export function TeamDrawer({ open, onClose, onChanged }: Props) {
+export function SettingsDrawer({ open, onClose, onChanged }: Props) {
     const { user } = useAuth();
     const { showToast } = useToast();
     const [team, setTeam] = useState<CrmTeamMember[]>([]);
     const [botUsername, setBotUsername] = useState("");
     const [savedBotUsername, setSavedBotUsername] = useState<string | null>(null);
     const [displayName, setDisplayName] = useState("");
+    const [template, setTemplate] = useState("");
+    const [savedTemplate, setSavedTemplate] = useState("");
     const [error, setError] = useState<string | null>(null);
     const [isBusy, setIsBusy] = useState(false);
 
@@ -55,6 +62,8 @@ export function TeamDrawer({ open, onClose, onChanged }: Props) {
             setTeam(members);
             setSavedBotUsername(settings.telegram_bot_username);
             setBotUsername(settings.telegram_bot_username ?? "");
+            setTemplate(settings.whatsapp_template ?? "");
+            setSavedTemplate(settings.whatsapp_template ?? "");
             const me = members.find(m => m.user_id === user?.id);
             setDisplayName(prev => prev || me?.display_name || "");
         } catch (err) {
@@ -117,7 +126,7 @@ export function TeamDrawer({ open, onClose, onChanged }: Props) {
             <DrawerLayout
                 header={
                     <Text variant="title-sm" weight={600}>
-                        Team e Telegram
+                        Impostazioni del CRM
                     </Text>
                 }
                 footer={
@@ -171,6 +180,35 @@ export function TeamDrawer({ open, onClose, onChanged }: Props) {
                         <Button variant="primary" onClick={() => void handleLink()} disabled={isBusy}>
                             {me?.telegram_chat_id ? "Ricollega" : "Collega Telegram"}
                         </Button>
+                    </div>
+
+                    <div className={styles.drawerForm}>
+                        <Textarea
+                            label="Messaggio WhatsApp pronto"
+                            helperText="{nome} diventa il nome della persona, {locale} il nome del locale. Lo mandi tu, come Alessandro di CataloGlobe."
+                            rows={7}
+                            maxLength={1000}
+                            value={template}
+                            onChange={e => setTemplate(e.target.value)}
+                            disabled={isBusy}
+                        />
+                        <div className={styles.noteActions}>
+                            <Button
+                                variant="secondary"
+                                onClick={() =>
+                                    void run(
+                                        () =>
+                                            updateCrmSettings({
+                                                whatsapp_template: template.trim() || null
+                                            }),
+                                        "Messaggio salvato."
+                                    )
+                                }
+                                disabled={isBusy || template === savedTemplate}
+                            >
+                                Salva messaggio
+                            </Button>
+                        </div>
                     </div>
 
                     {team.length > 0 && (

@@ -6,16 +6,23 @@ import { ChipGroupSingle, type ChipOption } from "@/components/ui/Chip/ChipGroup
 import { DataTable, DATA_TABLE_CLASSES, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
+import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { usePageHeader } from "@/context/usePageHeader";
 import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { usePageTitle } from "@/hooks/usePageTitle";
-import { listCrmTeamMembers, listCrmVenues } from "@/services/supabase/crm";
+import {
+    getCrmSettings,
+    listCrmTeamMembers,
+    listCrmVenues,
+    logCrmWhatsappOpened
+} from "@/services/supabase/crm";
+import { crmWhatsappLink } from "@/utils/crm/whatsapp";
 import { formatDateTimeIt } from "@/utils/formatDateTime";
-import { CRM_SOURCE_LABEL, CRM_STAGE_LABEL, CRM_STAGE_VARIANT } from "@/utils/crm/stages";
+import { CRM_SOURCE_LABEL, CRM_STAGE_LABEL, CRM_STAGE_VARIANT, crmErrorMessage } from "@/utils/crm/stages";
 import { CRM_STAGES, type CrmStage, type CrmTeamMember, type CrmVenueListItem } from "@/types/crm";
 import { AddLeadDrawer } from "./AddLeadDrawer";
 import { ImportMetaCsvDrawer } from "./ImportMetaCsvDrawer";
-import { TeamDrawer } from "./TeamDrawer";
+import { SettingsDrawer } from "./SettingsDrawer";
 import styles from "./Crm.module.scss";
 
 /**
@@ -42,21 +49,27 @@ export default function LeadsPage() {
 
     const [venues, setVenues] = useState<CrmVenueListItem[]>([]);
     const [team, setTeam] = useState<CrmTeamMember[]>([]);
+    const [whatsappTemplate, setWhatsappTemplate] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
-    const [loadError, setLoadError] = useState<string | null>(null);
+    const [pageError, setPageError] = useState<string | null>(null);
     const [filter, setFilter] = useState<StageFilter>("open");
     const [isAddOpen, setIsAddOpen] = useState(false);
     const [isImportOpen, setIsImportOpen] = useState(false);
-    const [isTeamOpen, setIsTeamOpen] = useState(false);
+    const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
     const load = useCallback(async () => {
-        setLoadError(null);
+        setPageError(null);
         try {
-            const [rows, members] = await Promise.all([listCrmVenues(), listCrmTeamMembers()]);
+            const [rows, members, settings] = await Promise.all([
+                listCrmVenues(),
+                listCrmTeamMembers(),
+                getCrmSettings()
+            ]);
             setVenues(rows);
             setTeam(members);
+            setWhatsappTemplate(settings.whatsapp_template);
         } catch (err) {
-            setLoadError(err instanceof Error ? err.message : String(err));
+            setPageError(`Non è stato possibile caricare i lead: ${err instanceof Error ? err.message : String(err)}`);
         } finally {
             setIsLoading(false);
         }
@@ -70,6 +83,27 @@ export default function LeadsPage() {
         const names = new Map(team.map(m => [m.user_id, m.display_name]));
         return (userId: string | null) => (userId ? names.get(userId) ?? "—" : "Nessuno");
     }, [team]);
+
+    const handleWhatsapp = useCallback(
+        (venue: CrmVenueListItem) => {
+            const contact = venue.crm_contacts[0];
+            if (!contact?.phone_e164) return;
+            // Prima la finestra (gesto dell'utente), poi la registrazione.
+            window.open(
+                crmWhatsappLink(contact.phone_e164, whatsappTemplate, {
+                    contactName: contact.name,
+                    venueName: venue.name
+                }),
+                "_blank",
+                "noopener"
+            );
+            setPageError(null);
+            void logCrmWhatsappOpened(venue.id, venue.crm_leads[0]?.id ?? null)
+                .then(() => load())
+                .catch(err => setPageError(crmErrorMessage(err)));
+        },
+        [whatsappTemplate, load]
+    );
 
     const filterOptions = useMemo<ChipOption<StageFilter>[]>(() => {
         const count = (f: StageFilter) => venues.filter(v => matchesFilter(v, f)).length;
@@ -152,9 +186,29 @@ export default function LeadsPage() {
                 header: "Ultima attività",
                 hideOnPhone: true,
                 accessor: row => formatDateTimeIt(row.last_activity_at)
+            },
+            {
+                id: "actions",
+                header: "",
+                width: "56px",
+                align: "right",
+                cell: (_v, row) => (
+                    <TableRowActions
+                        actions={[
+                            {
+                                label: "Scrivi su WhatsApp",
+                                onClick: () => handleWhatsapp(row),
+                                hidden:
+                                    !row.crm_contacts[0]?.phone_e164 ||
+                                    (row.stage === "perso" && row.lost_kind === "stop")
+                            },
+                            { label: "Apri", onClick: () => navigate(row.id) }
+                        ]}
+                    />
+                )
             }
         ],
-        [teamName]
+        [teamName, handleWhatsapp, navigate]
     );
 
     const newCount = useMemo(() => venues.filter(v => v.stage === "nuovo").length, [venues]);
@@ -169,8 +223,8 @@ export default function LeadsPage() {
     const headerActions = useMemo(
         () => (
             <div className={styles.headerActions}>
-                <Button variant="secondary" onClick={() => setIsTeamOpen(true)}>
-                    Team e Telegram
+                <Button variant="secondary" onClick={() => setIsSettingsOpen(true)}>
+                    Impostazioni
                 </Button>
                 <Button variant="secondary" onClick={() => setIsImportOpen(true)}>
                     Importa CSV Meta
@@ -188,7 +242,7 @@ export default function LeadsPage() {
             primaryAction: { label: "Aggiungi lead", onClick: () => setIsAddOpen(true) },
             secondaryActions: [
                 { label: "Importa CSV Meta", onClick: () => setIsImportOpen(true) },
-                { label: "Team e Telegram", onClick: () => setIsTeamOpen(true) }
+                { label: "Impostazioni", onClick: () => setIsSettingsOpen(true) }
             ]
         }),
         []
@@ -210,7 +264,7 @@ export default function LeadsPage() {
 
     return (
         <div className={styles.page}>
-            {loadError && (
+            {pageError && (
                 <InlineBanner
                     variant="error"
                     action={
@@ -219,7 +273,7 @@ export default function LeadsPage() {
                         </Button>
                     }
                 >
-                    Non è stato possibile caricare i lead: {loadError}
+                    {pageError}
                 </InlineBanner>
             )}
             <ChipGroupSingle
@@ -257,9 +311,9 @@ export default function LeadsPage() {
                 onClose={() => setIsImportOpen(false)}
                 onImported={handleImported}
             />
-            <TeamDrawer
-                open={isTeamOpen}
-                onClose={() => setIsTeamOpen(false)}
+            <SettingsDrawer
+                open={isSettingsOpen}
+                onClose={() => setIsSettingsOpen(false)}
                 onChanged={() => void load()}
             />
         </div>

@@ -18,10 +18,13 @@ import { usePageTitle } from "@/hooks/usePageTitle";
 import {
     addCrmNote,
     assignCrmVenue,
+    getCrmSettings,
     getCrmVenue,
     listCrmTeamMembers,
+    logCrmWhatsappOpened,
     moveCrmStage
 } from "@/services/supabase/crm";
+import { crmWhatsappLink } from "@/utils/crm/whatsapp";
 import { formatDateTimeIt } from "@/utils/formatDateTime";
 import {
     CRM_EVENT_LABEL,
@@ -33,6 +36,7 @@ import {
 import {
     CRM_STAGES,
     type CrmEvent,
+    type CrmContact,
     type CrmLostKind,
     type CrmStage,
     type CrmTeamMember,
@@ -86,6 +90,7 @@ export default function LeadDetailPage() {
 
     const [detail, setDetail] = useState<CrmVenueDetail | null>(null);
     const [team, setTeam] = useState<CrmTeamMember[]>([]);
+    const [whatsappTemplate, setWhatsappTemplate] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [notFound, setNotFound] = useState(false);
     const [isBusy, setIsBusy] = useState(false);
@@ -101,9 +106,14 @@ export default function LeadDetailPage() {
 
     const load = useCallback(async () => {
         try {
-            const [data, members] = await Promise.all([getCrmVenue(venueId), listCrmTeamMembers()]);
+            const [data, members, settings] = await Promise.all([
+                getCrmVenue(venueId),
+                listCrmTeamMembers(),
+                getCrmSettings()
+            ]);
             setDetail(data);
             setTeam(members);
+            setWhatsappTemplate(settings.whatsapp_template);
             setNotFound(false);
         } catch {
             setNotFound(true);
@@ -181,6 +191,23 @@ export default function LeadDetailPage() {
         },
         [detail, load, showToast, teamName]
     );
+
+    function handleWhatsapp(contact: CrmContact) {
+        if (!detail || !contact.phone_e164) return;
+        // Prima la finestra (gesto dell'utente), poi la registrazione.
+        window.open(
+            crmWhatsappLink(contact.phone_e164, whatsappTemplate, {
+                contactName: contact.name,
+                venueName: detail.venue.name
+            }),
+            "_blank",
+            "noopener"
+        );
+        setActionError(null);
+        void logCrmWhatsappOpened(detail.venue.id, detail.leads[0]?.id ?? null)
+            .then(() => load())
+            .catch(err => setActionError(crmErrorMessage(err)));
+    }
 
     async function handleAddNote() {
         if (!detail || !note.trim()) return;
@@ -282,6 +309,7 @@ export default function LeadDetailPage() {
     }
 
     const { contacts, leads, events } = detail;
+    const stopped = detail.venue.stage === "perso" && detail.venue.lost_kind === "stop";
 
     return (
         <div className={styles.page}>
@@ -306,17 +334,29 @@ export default function LeadDetailPage() {
                         key={contact.id}
                         title={contact.name}
                         subtitle={[contact.phone_e164, contact.email].filter(Boolean).join(" · ")}
+                        trailingWrap
                         trailing={
                             contact.phone_e164 ? (
-                                <Button
-                                    variant="secondary"
-                                    size="sm"
-                                    onClick={() => {
-                                        window.location.href = `tel:${contact.phone_e164}`;
-                                    }}
-                                >
-                                    Chiama
-                                </Button>
+                                <div className={styles.headerActions}>
+                                    {!stopped && (
+                                        <Button
+                                            variant="primary"
+                                            size="sm"
+                                            onClick={() => handleWhatsapp(contact)}
+                                        >
+                                            Scrivi su WhatsApp
+                                        </Button>
+                                    )}
+                                    <Button
+                                        variant="secondary"
+                                        size="sm"
+                                        onClick={() => {
+                                            window.location.href = `tel:${contact.phone_e164}`;
+                                        }}
+                                    >
+                                        Chiama
+                                    </Button>
+                                </div>
                             ) : undefined
                         }
                     />

@@ -38,5 +38,6 @@ export function crmErrorMessage(err: unknown): string {
     if (message.includes("venue_not_found")) return "Questo locale non esiste più.";
     if (message.includes("not_a_team_member")) return "Questa persona non è nel team del CRM.";
     if (message.includes("invalid_note")) return "La nota è vuota o troppo lunga.";
+    if (message.includes("contact_stopped")) return "Ha chiesto di non essere contattato.";
     return "Qualcosa non ha funzionato. Riprova.";
 }

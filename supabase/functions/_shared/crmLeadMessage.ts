@@ -16,6 +16,19 @@ import {
     type TelegramMessage
 } from "./crmTelegram.ts";
 import { telegramCall, isNotModified } from "./telegramApi.ts";
+import { signWaLink } from "./crmWhatsapp.ts";
+
+/**
+ * Link «Scrivi su WhatsApp» per un destinatario: passa dall'edge `crm-wa`, che
+ * registra il contatto e rimanda a wa.me. Null se manca il segreto o l'URL.
+ */
+export async function whatsappLinkFor(leadId: string, userId: string): Promise<string | null> {
+    const secret = Deno.env.get("CRM_WA_LINK_SECRET");
+    const base = Deno.env.get("SUPABASE_URL");
+    if (!secret || !base) return null;
+    const params = await signWaLink(secret, leadId, userId, Math.floor(Date.now() / 1000));
+    return `${base}/functions/v1/crm-wa?${new URLSearchParams({ ...params }).toString()}`;
+}
 
 export interface TeamMemberRow extends CrmTeamMemberLite {
     telegram_chat_id: number | null;
@@ -69,7 +82,7 @@ export async function loadLeadMessageData(
         assignedTo: venue.assigned_to,
         waitingHours: kind === "escalation" ? Math.max(2, Math.floor(waitingMinutes / 60)) : undefined,
         adminUrl: appUrl ? `${appUrl}/admin/lead/${venue.id}` : null,
-        whatsappUrl: null
+        hasPhone: Boolean(lead.crm_contacts?.phone_e164)
     };
 }
 
@@ -100,7 +113,12 @@ export async function refreshVenueMessages(
         }
         const data = cache.get(key);
         if (!data) continue;
-        const message: TelegramMessage = buildLeadMessage(data, row.user_id, team);
+        const message: TelegramMessage = buildLeadMessage(
+            data,
+            row.user_id,
+            team,
+            await whatsappLinkFor(row.lead_id, row.user_id)
+        );
         const result = await telegramCall(token, "editMessageText", {
             chat_id: row.chat_id,
             message_id: row.message_id,

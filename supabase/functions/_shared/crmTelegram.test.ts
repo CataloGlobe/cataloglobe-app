@@ -41,6 +41,7 @@ function data(overrides: Partial<CrmLeadMessageData> = {}): CrmLeadMessageData {
         stoppedBefore: false,
         assignedTo: ALEX,
         adminUrl: "https://staging.cataloglobe.com/admin/lead/x",
+        hasPhone: true,
         ...overrides
     };
 }
@@ -126,14 +127,29 @@ describe("buildLeadMessage", () => {
 
     it("segnala lo stop e toglie il pulsante WhatsApp", () => {
         const msg = buildLeadMessage(
-            data({ kind: "returned", stoppedBefore: true, whatsappUrl: "https://wa.example" }),
+            data({ kind: "returned", stoppedBefore: true }),
             ALEX,
-            TWO
+            TWO,
+            "https://wa.example"
         );
         expect(msg.text).toContain("Aveva chiesto di non essere contattato");
         const texts = msg.reply_markup.inline_keyboard.flat().map(b => b.text);
         expect(texts).not.toContain("Scrivi su WhatsApp");
         expect(texts).toContain("Apri nel CRM");
+    });
+
+    it("pulsante WhatsApp col link del destinatario, prima dei tasti di passaggio", () => {
+        const msg = buildLeadMessage(data(), ALEX, TWO, "https://wa.example/alex");
+        expect(msg.reply_markup.inline_keyboard[0][0]).toEqual({
+            text: "Scrivi su WhatsApp",
+            url: "https://wa.example/alex"
+        });
+        expect(msg.reply_markup.inline_keyboard[1][0].text).toBe("Gira a Lorenzo");
+    });
+
+    it("senza telefono niente pulsante WhatsApp", () => {
+        const msg = buildLeadMessage(data({ hasPhone: false }), ALEX, TWO, "https://wa.example");
+        expect(msg.reply_markup.inline_keyboard.flat().map(b => b.text)).not.toContain("Scrivi su WhatsApp");
     });
 
     it("sollecito con le ore di attesa", () => {

@@ -45,8 +45,8 @@ export interface CrmLeadMessageData {
     waitingHours?: number;
     /** Link alla scheda in /admin, se APP_URL è configurato. */
     adminUrl: string | null;
-    /** Link firmato per aprire WhatsApp (PR WhatsApp), se disponibile. */
-    whatsappUrl?: string | null;
+    /** Il contatto ha un telefono: il pulsante WhatsApp ha senso. */
+    hasPhone: boolean;
 }
 
 export interface InlineButton {
@@ -180,10 +180,15 @@ function assignmentLine(
     return `Preso da ${escapeHtml(name)}`;
 }
 
+/**
+ * `whatsappUrl` è per destinatario (link firmato con il suo id, edge
+ * `crm-wa`): lo calcola il chiamante. Null = niente pulsante WhatsApp.
+ */
 export function buildLeadMessage(
     data: CrmLeadMessageData,
     recipientId: string,
-    team: CrmTeamMemberLite[]
+    team: CrmTeamMemberLite[],
+    whatsappUrl: string | null = null
 ): TelegramMessage {
     const lines: string[] = [headline(data), ""];
 
@@ -220,7 +225,9 @@ export function buildLeadMessage(
 
     const keyboard: InlineButton[][] = [];
     const links: InlineButton[] = [];
-    if (data.whatsappUrl && !data.stoppedBefore) links.push({ text: "Scrivi su WhatsApp", url: data.whatsappUrl });
+    if (whatsappUrl && data.hasPhone && !data.stoppedBefore) {
+        links.push({ text: "Scrivi su WhatsApp", url: whatsappUrl });
+    }
     if (data.adminUrl) links.push({ text: "Apri nel CRM", url: data.adminUrl });
     if (links.length) keyboard.push(links);
     const assign = assignmentButtons(data.venueId, data.assignedTo, recipientId, team);

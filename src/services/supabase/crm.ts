@@ -191,3 +191,17 @@ export async function setCrmReceivesEscalations(userId: string, value: boolean):
         .eq("user_id", userId);
     if (error) throw error;
 }
+
+// -----------------------------------------------------------------------------
+// WhatsApp
+// -----------------------------------------------------------------------------
+
+/** Evento nella storia e, se la carta è in Nuovo, passaggio a Contattato. */
+export async function logCrmWhatsappOpened(venueId: string, leadId?: string | null): Promise<boolean> {
+    const { data, error } = await supabase.rpc("crm_log_whatsapp_opened", {
+        p_venue_id: venueId,
+        p_lead_id: leadId ?? null
+    });
+    if (error) throw error;
+    return data === true;
+}
