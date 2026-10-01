@@ -436,3 +436,9 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/import_map.json"
 entrypoint = "./functions/crm-sync-accounts/index.ts"
+
+[functions.crm-purge]
+enabled = true
+verify_jwt = false
+import_map = "./functions/import_map.json"
+entrypoint = "./functions/crm-purge/index.ts"
