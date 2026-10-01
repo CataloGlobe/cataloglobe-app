@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { openBusinessPage } from "./business";
-import { stubReservations, type ReservationsStub } from "./reservationsStub";
+import { NOW, stubReservations, type ReservationsStub } from "./reservationsStub";
 
 /**
  * Prenotazioni (lotto `ds-5-prenotazioni`, passo 2 P0). Scritto sulla pagina
@@ -57,6 +57,15 @@ let stub: ReservationsStub;
 test.beforeEach(async ({ page }) => {
     stub = await stubReservations(page);
 });
+
+/**
+ * Orologio fermo su `NOW` e righe datate da lì, per i test che leggono
+ * «oggi» e «domani»: non dipendono più dall'ora reale. Le rotte registrate
+ * dopo vincono su quelle del `beforeEach`.
+ */
+async function freezeClock(page: Page): Promise<void> {
+    stub = await stubReservations(page, { now: NOW });
+}
 
 test.describe("Prenotazioni", () => {
     test("si apre sull'Agenda, con la coda da gestire in cima e lo stato di oggi", async ({ page }) => {
@@ -345,6 +354,7 @@ test.describe("Prenotazioni", () => {
     });
 
     test("cablaggio: «Crea prenotazione» inserisce nella sede, confermata e a mano", async ({ page }) => {
+        await freezeClock(page);
         stub.onWrite("reservations.insert", body => ({ ...(body as object), id: "00000000-0000-4000-8000-0000000000ff" }));
         await openPrenotazioni(page);
         await page.getByRole("button", { name: "Nuova prenotazione" }).first().click();
@@ -384,6 +394,7 @@ test.describe("Prenotazioni", () => {
     });
 
     test("il filtro canale restringe l'agenda", async ({ page }) => {
+        await freezeClock(page);
         await openPrenotazioni(page);
         const m = main(page);
 
