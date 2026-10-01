@@ -4,9 +4,9 @@
 // =============================================================================
 //
 // Invocata da pg_cron ogni notte (migration 20261001160200). Le regole stanno
-// in SQL, in public.crm_purge_venues (20261001160000): fermo da 12 mesi
-// (ultimo ingresso o ultima attività), non In prova né Cliente pagante, nessun
-// account collegato. Contatti, ingressi ed eventi vanno via a cascata; un
+// in SQL, in public.crm_purge_venues (20261001160000): ultima richiesta
+// (crm_leads.received_at) di più di 12 mesi fa, come dice l'informativa, non
+// In prova né Cliente pagante, nessun account collegato. Contatti, ingressi ed eventi vanno via a cascata; un
 // locale in stop lascia l'impronta del telefono in crm_suppressions.
 //
 // AUTENTICAZIONE fail-CLOSED: X-Job-Secret = CRM_JOB_SECRET.

@@ -2,8 +2,8 @@
 -- CRM interno (Fase 0): conservazione 12 mesi, ogni notte
 -- =============================================================================
 -- Chiama l'edge `crm-purge` alle 04:15 UTC, dopo `purge-leads` (03:45): i
--- contatti della landing scaduti spariscono prima da `leads`, poi i loro
--- marcatori in crm_landing_imported la notte stessa (vedi crm_purge_venues).
+-- contatti della landing scaduti spariscono prima da `leads`, poi le loro
+-- righe di crm_imported_refs la notte stessa (vedi crm_purge_venues).
 --
 -- ⚠️ IL BODY E' `{}`, cioe' DRY-RUN: il job conta e logga, non cancella.
 -- Per accenderlo, dopo aver controllato i conteggi nei log, una migration
