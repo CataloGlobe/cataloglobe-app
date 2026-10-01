@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+    DEFAULT_WHATSAPP_TEMPLATE,
     fillWhatsappTemplate,
     signWaLink,
     verifyWaLink,
@@ -7,17 +8,27 @@ import {
     WA_LINK_TTL_SECONDS
 } from "./crmWhatsapp";
 
-const TEMPLATE =
-    "Ciao {nome}, sono Alessandro di CataloGlobe.\nHo visto la richiesta che hai lasciato per {locale}, grazie!";
-
 describe("fillWhatsappTemplate", () => {
-    it("usa solo il nome di battesimo e il nome del locale", () => {
-        expect(fillWhatsappTemplate(TEMPLATE, { contactName: "Mario Rossi", venueName: " Trattoria da Mario " }))
-            .toBe("Ciao Mario, sono Alessandro di CataloGlobe.\nHo visto la richiesta che hai lasciato per Trattoria da Mario, grazie!");
+    it("testo predefinito: solo il nome di battesimo", () => {
+        expect(fillWhatsappTemplate(DEFAULT_WHATSAPP_TEMPLATE, { contactName: "Mario Rossi", venueName: null })).toBe(
+            "Ciao Mario, sono Alessandro di CataloGlobe. Ho visto che hai lasciato i contatti per il tuo locale. Quando hai 10 minuti per sentirci al telefono?"
+        );
     });
 
     it("senza nome non lascia «Ciao ,»", () => {
-        expect(fillWhatsappTemplate(TEMPLATE, { contactName: null, venueName: "Bar" })).toMatch(/^Ciao, sono/);
+        expect(fillWhatsappTemplate(DEFAULT_WHATSAPP_TEMPLATE, { contactName: null, venueName: "Bar" })).toMatch(
+            /^Ciao, sono/
+        );
+    });
+
+    it("{locale} col nome del locale, o «il tuo locale» se è da completare", () => {
+        const template = "Ciao {nome}, ho visto la richiesta per {locale}.";
+        expect(fillWhatsappTemplate(template, { contactName: "Anna", venueName: " Trattoria da Mario " })).toBe(
+            "Ciao Anna, ho visto la richiesta per Trattoria da Mario."
+        );
+        expect(fillWhatsappTemplate(template, { contactName: "Anna", venueName: null })).toBe(
+            "Ciao Anna, ho visto la richiesta per il tuo locale."
+        );
     });
 });
 

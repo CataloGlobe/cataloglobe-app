@@ -152,15 +152,17 @@ export function CardBody({
                 {venue.name}
             </Text>
             <Text as="span" variant="caption" colorVariant="muted">
-                {[contact?.name, venue.city].filter(Boolean).join(" · ")}
+                {/* Locale da completare: il titolo è già il nome della persona. */}
+                {[venue.name_pending ? null : contact?.name, venue.city].filter(Boolean).join(" · ")}
             </Text>
             <Text as="span" variant="caption" colorVariant="muted">
                 {[lead ? CRM_SOURCE_LABEL[lead.source] : null, teamName(venue.assigned_to)]
                     .filter(Boolean)
                     .join(" · ")}
             </Text>
-            {(account || venue.stage_locked_at) && (
+            {(account || venue.stage_locked_at || venue.name_pending) && (
                 <span className={styles.boardCardBadges}>
+                    {venue.name_pending && <StatusBadge variant="warning" label="Locale da completare" />}
                     {account && <StatusBadge variant={account.variant} label={account.label} />}
                     {venue.stage_locked_at && <StatusBadge variant="warning" label="Fase bloccata a mano" />}
                 </span>

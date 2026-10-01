@@ -18,13 +18,29 @@
 // sia in Deno sia nei browser e in Node.
 // =============================================================================
 
-/** {nome} → primo nome della persona, {locale} → nome del locale. */
+/**
+ * Testo predefinito, approvato da Alex il 2026-10-01 (call con Ferdinando):
+ * breve, niente funzioni né domande, che Alex fa in chiamata. Non usa
+ * {locale} perché il form Meta non chiede il nome del locale.
+ * ⚠️ SYNC con la migration 20261001170000 (crm_settings.whatsapp_template).
+ */
+export const DEFAULT_WHATSAPP_TEMPLATE =
+    "Ciao {nome}, sono Alessandro di CataloGlobe. Ho visto che hai lasciato i contatti per il tuo locale. Quando hai 10 minuti per sentirci al telefono?";
+
+/** {locale} quando il locale è ancora da completare (crm_venues.name_pending). */
+export const PENDING_VENUE_PLACEHOLDER = "il tuo locale";
+
+/**
+ * {nome} → primo nome della persona, {locale} → nome del locale.
+ * `venueName` null = locale da completare: la carta porta il nome della
+ * persona, che nel testo non va.
+ */
 export function fillWhatsappTemplate(
     template: string,
-    values: { contactName: string | null; venueName: string }
+    values: { contactName: string | null; venueName: string | null }
 ): string {
     const firstName = (values.contactName ?? "").trim().split(/\s+/)[0] ?? "";
-    const venueName = values.venueName.trim();
+    const venueName = values.venueName?.trim() || PENDING_VENUE_PLACEHOLDER;
     // Sostituzione con funzione: un «$&» nel nome (dal form pubblico) resta testo.
     return template
         .replace(/\{nome\}/g, () => firstName)

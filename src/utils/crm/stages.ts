@@ -30,7 +30,8 @@ export const CRM_EVENT_LABEL: Record<CrmEventType, string> = {
     escalated: "Sollecito",
     stage_locked: "Fase bloccata a mano",
     stage_unlocked: "Fase sbloccata",
-    subscription_changed: "Abbonamento"
+    subscription_changed: "Abbonamento",
+    venue_renamed: "Locale completato"
 };
 
 /** Messaggio italiano per gli errori delle RPC `crm_*` (RAISE in 20261001120100). */
@@ -42,6 +43,8 @@ export function crmErrorMessage(err: unknown): string {
     if (message.includes("not_a_team_member")) return "Questa persona non è nel team del CRM.";
     if (message.includes("invalid_note")) return "La nota è vuota o troppo lunga.";
     if (message.includes("lock_note_required")) return "Scrivi una nota: perché blocchi la fase.";
+    if (message.includes("invalid_venue_name")) return "Scrivi il nome del locale (al massimo 160 caratteri).";
+    if (message.includes("invalid_city")) return "La città è troppo lunga.";
     if (message.includes("contact_stopped")) return "Ha chiesto di non essere contattato.";
     return "Qualcosa non ha funzionato. Riprova.";
 }

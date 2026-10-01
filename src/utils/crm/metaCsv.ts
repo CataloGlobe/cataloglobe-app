@@ -199,7 +199,8 @@ export function parseMetaLeadsCsv(text: string): MetaCsvResult {
                 source: "meta_form",
                 sourceRef,
                 name: fullName || "Senza nome",
-                venueName: venueName || fullName || "Senza nome",
+                // Il form Meta non chiede il locale: vuoto, il DB segna «Locale da completare».
+                venueName,
                 phoneE164: phone,
                 email: pick(record, EMAIL_COLUMNS) || null,
                 city: pick(record, CITY_COLUMNS) || null,

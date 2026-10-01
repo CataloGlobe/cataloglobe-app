@@ -1,5 +1,6 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { fillWhatsappTemplate } from "@shared/crmWhatsapp";
+import { DEFAULT_WHATSAPP_TEMPLATE, fillWhatsappTemplate } from "@shared/crmWhatsapp";
 
 describe("fillWhatsappTemplate", () => {
     it("mette primo nome e locale", () => {
@@ -19,5 +20,17 @@ describe("fillWhatsappTemplate", () => {
         expect(fillWhatsappTemplate("{nome} da {locale}", { contactName: "$&", venueName: "Bar $'" })).toBe(
             "$& da Bar $'"
         );
+    });
+
+    it("{locale} vuoto (locale da completare) diventa «il tuo locale»", () => {
+        expect(fillWhatsappTemplate("per {locale}", { contactName: null, venueName: null })).toBe("per il tuo locale");
+    });
+});
+
+describe("DEFAULT_WHATSAPP_TEMPLATE", () => {
+    // ⚠️ SYNC: la migration scrive lo stesso testo in crm_settings.
+    it("è lo stesso testo della migration 20261001170000", () => {
+        const sql = readFileSync("supabase/migrations/20261001170000_crm_venue_name_pending.sql", "utf8");
+        expect(sql).toContain(`SET whatsapp_template = '${DEFAULT_WHATSAPP_TEMPLATE.replace(/'/g, "''")}'`);
     });
 });

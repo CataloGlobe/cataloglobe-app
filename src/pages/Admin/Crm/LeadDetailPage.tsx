@@ -45,6 +45,7 @@ import {
 import { AccountCard } from "./AccountCard";
 import { LostStageDialog } from "./LostStageDialog";
 import { StageLockDialog, type StageLockRequest } from "./StageLockDialog";
+import { VenueNameCard } from "./VenueNameCard";
 import styles from "./Crm.module.scss";
 
 /**
@@ -71,6 +72,8 @@ function describeEvent(event: CrmEvent, teamName: (id: string | null) => string)
             return `A ${teamName((p.to as string) ?? null)}`;
         case "note":
             return String(p.text ?? "");
+        case "venue_renamed":
+            return `${String(p.from ?? "")} → ${String(p.to ?? "")}`;
         case "stage_locked": {
             const to = CRM_STAGE_LABEL[p.to as CrmStage] ?? String(p.to);
             return `In ${to}: ${String(p.note ?? "")}`;
@@ -220,7 +223,7 @@ export default function LeadDetailPage() {
         window.open(
             crmWhatsappLink(contact.phone_e164, whatsappTemplate, {
                 contactName: contact.name,
-                venueName: detail.venue.name
+                venueName: detail.venue.name_pending ? null : detail.venue.name
             }),
             "_blank",
             "noopener"
@@ -368,6 +371,8 @@ export default function LeadDetailPage() {
                     </Text>
                 </Card>
             )}
+
+            {detail.venue.name_pending && <VenueNameCard venue={detail.venue} onSaved={load} />}
 
             <AccountCard
                 venueId={detail.venue.id}

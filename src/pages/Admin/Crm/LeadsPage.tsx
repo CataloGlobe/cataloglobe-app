@@ -130,7 +130,7 @@ export default function LeadsPage() {
             window.open(
                 crmWhatsappLink(contact.phone_e164, whatsappTemplate, {
                     contactName: contact.name,
-                    venueName: venue.name
+                    venueName: venue.name_pending ? null : venue.name
                 }),
                 "_blank",
                 "noopener"
@@ -198,7 +198,9 @@ export default function LeadsPage() {
                 cell: (_v, row) => (
                     <div className={DATA_TABLE_CLASSES.cellTwoLine}>
                         <span>{row.name}</span>
-                        <span>{row.city ?? ""}</span>
+                        <span>
+                            {[row.name_pending ? "Locale da completare" : null, row.city].filter(Boolean).join(" · ")}
+                        </span>
                     </div>
                 )
             },

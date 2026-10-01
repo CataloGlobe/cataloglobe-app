@@ -65,7 +65,7 @@ Deno.serve(async (req: Request) => {
         const [{ data: lead, error }, { data: settings }] = await Promise.all([
             supabase
                 .from("crm_leads")
-                .select("id, venue_id, crm_contacts(name, phone_e164), crm_venues(name, stage, lost_kind)")
+                .select("id, venue_id, crm_contacts(name, phone_e164), crm_venues(name, name_pending, stage, lost_kind)")
                 .eq("id", params.l)
                 .maybeSingle(),
             supabase.from("crm_settings").select("whatsapp_template").eq("id", true).maybeSingle()
@@ -101,7 +101,10 @@ Deno.serve(async (req: Request) => {
 
         const template = settings?.whatsapp_template ?? null;
         const message = template
-            ? fillWhatsappTemplate(template, { contactName: lead.crm_contacts?.name ?? null, venueName: venue.name })
+            ? fillWhatsappTemplate(template, {
+                  contactName: lead.crm_contacts?.name ?? null,
+                  venueName: venue.name_pending ? null : venue.name
+              })
             : null;
 
         return new Response(null, {

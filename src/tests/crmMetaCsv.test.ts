@@ -139,11 +139,11 @@ describe("parseMetaLeadsCsv", () => {
         ]);
     });
 
-    it("usa il nome della persona se manca il locale", () => {
+    it("senza colonna del locale lascia il locale vuoto (da completare)", () => {
         const text = "id,first_name,last_name,phone_number\nl:1,Anna,Bianchi,+393331234567";
         const input = parseMetaLeadsCsv(text).rows[0].input;
         expect(input.name).toBe("Anna Bianchi");
-        expect(input.venueName).toBe("Anna Bianchi");
+        expect(input.venueName).toBe("");
     });
 
     it("file vuoto o solo intestazione: nessuna riga", () => {

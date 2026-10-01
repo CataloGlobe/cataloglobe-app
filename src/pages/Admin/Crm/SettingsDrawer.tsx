@@ -20,6 +20,7 @@ import {
     updateCrmSettings
 } from "@/services/supabase/crm";
 import type { CrmTeamMember } from "@/types/crm";
+import { DEFAULT_WHATSAPP_TEMPLATE } from "@shared/crmWhatsapp";
 import styles from "./Crm.module.scss";
 
 /**
@@ -189,7 +190,7 @@ export function SettingsDrawer({ open, onClose, onChanged }: Props) {
                     <div className={styles.drawerForm}>
                         <Textarea
                             label="Messaggio WhatsApp pronto"
-                            helperText="{nome} diventa il nome della persona, {locale} il nome del locale. Lo mandi tu, come Alessandro di CataloGlobe."
+                            helperText="{nome} diventa il nome della persona, {locale} il nome del locale («il tuo locale» se è da completare). Lo mandi tu, come Alessandro di CataloGlobe."
                             rows={7}
                             maxLength={1000}
                             value={template}
@@ -197,6 +198,15 @@ export function SettingsDrawer({ open, onClose, onChanged }: Props) {
                             disabled={isBusy}
                         />
                         <div className={styles.noteActions}>
+                            {template !== DEFAULT_WHATSAPP_TEMPLATE && (
+                                <Button
+                                    variant="ghost"
+                                    onClick={() => setTemplate(DEFAULT_WHATSAPP_TEMPLATE)}
+                                    disabled={isBusy}
+                                >
+                                    Usa il testo predefinito
+                                </Button>
+                            )}
                             <Button
                                 variant="secondary"
                                 onClick={() =>

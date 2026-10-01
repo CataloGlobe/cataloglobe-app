@@ -8,7 +8,7 @@ import { fillWhatsappTemplate, whatsappUrl } from "@shared/crmWhatsapp";
 export function crmWhatsappLink(
     phoneE164: string,
     template: string | null,
-    values: { contactName: string | null; venueName: string }
+    values: { contactName: string | null; venueName: string | null }
 ): string {
     return whatsappUrl(phoneE164, template ? fillWhatsappTemplate(template, values) : null);
 }
