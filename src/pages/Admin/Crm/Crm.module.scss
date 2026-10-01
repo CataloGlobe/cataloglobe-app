@@ -186,3 +186,10 @@
     box-shadow: none;
   }
 }
+
+.boardCardBadges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  min-width: 0;
+}

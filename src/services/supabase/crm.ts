@@ -103,6 +103,29 @@ export async function ingestCrmLead(input: CrmIngestInput): Promise<CrmIngestRes
     return { leadId: row.r_lead_id, venueId: row.r_venue_id, outcome: row.r_outcome };
 }
 
+/**
+ * Registra un import CSV coi conteggi: crm-notify ne manda un solo
+ * riepilogo su Telegram (i lead più vecchi di 24 ore non hanno notifica).
+ */
+export async function recordCrmImportRun(counts: {
+    created: number;
+    returned: number;
+    duplicate: number;
+    suppressed: number;
+    failed: number;
+}): Promise<void> {
+    // created_by = auth.uid() di default (e la policy lo richiede).
+    const { error } = await supabase.from("crm_import_runs").insert({
+        source: "meta_csv",
+        created_count: counts.created,
+        returned_count: counts.returned,
+        duplicate_count: counts.duplicate,
+        suppressed_count: counts.suppressed,
+        failed_count: counts.failed
+    });
+    if (error) throw error;
+}
+
 /** Ritorna false se la carta era già lì (o non era in `expectedStage`). */
 export async function moveCrmStage(
     venueId: string,
@@ -117,6 +140,26 @@ export async function moveCrmStage(
         p_lost_reason: lost?.reason ?? null,
         p_expected_stage: expectedStage ?? null
     });
+    if (error) throw error;
+    return data === true;
+}
+
+/**
+ * Sposta e blocca la fase con una nota (dentro o fuori da In prova o Cliente
+ * pagante): il job degli abbonamenti non la sposta più finché non si sblocca.
+ */
+export async function moveCrmStageLocked(venueId: string, stage: CrmStage, note: string): Promise<void> {
+    const { error } = await supabase.rpc("crm_move_stage_locked", {
+        p_venue_id: venueId,
+        p_stage: stage,
+        p_note: note
+    });
+    if (error) throw error;
+}
+
+/** «Sblocca»: la carta torna a seguire l'abbonamento. */
+export async function unlockCrmStage(venueId: string): Promise<boolean> {
+    const { data, error } = await supabase.rpc("crm_unlock_stage", { p_venue_id: venueId });
     if (error) throw error;
     return data === true;
 }

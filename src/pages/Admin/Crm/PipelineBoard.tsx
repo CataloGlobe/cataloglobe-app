@@ -11,7 +11,9 @@ import {
     type DragEndEvent,
     type DragStartEvent
 } from "@dnd-kit/core";
+import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import Text from "@/components/ui/Text/Text";
+import { crmAccountLabel } from "@/utils/crm/accountLabels";
 import { CRM_SOURCE_LABEL, CRM_STAGE_LABEL } from "@/utils/crm/stages";
 import { CRM_STAGES, type CrmStage, type CrmVenueListItem } from "@/types/crm";
 import styles from "./Crm.module.scss";
@@ -143,6 +145,7 @@ export function CardBody({
 }) {
     const contact = venue.crm_contacts[0];
     const lead = venue.crm_leads[0];
+    const account = crmAccountLabel(venue);
     return (
         <span className={styles.boardCardBody}>
             <Text as="span" variant="body-sm" weight={600}>
@@ -156,6 +159,12 @@ export function CardBody({
                     .filter(Boolean)
                     .join(" · ")}
             </Text>
+            {(account || venue.stage_locked_at) && (
+                <span className={styles.boardCardBadges}>
+                    {account && <StatusBadge variant={account.variant} label={account.label} />}
+                    {venue.stage_locked_at && <StatusBadge variant="warning" label="Fase bloccata a mano" />}
+                </span>
+            )}
         </span>
     );
 }

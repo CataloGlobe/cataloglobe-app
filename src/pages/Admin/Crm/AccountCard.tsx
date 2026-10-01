@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import type { CrmAccountLabel } from "@/utils/crm/accountLabels";
 import { Button } from "@/components/ui/Button/Button";
 import { Card } from "@/components/ui/Card/Card";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
@@ -44,10 +45,12 @@ type Props = {
     venueId: string;
     tenantId: string | null;
     linkSource: "phone_auto" | "manual" | null;
+    /** «Prova con carta · scade il …», «Registrato, prova non partita» (dal job). */
+    accountLabel?: CrmAccountLabel | null;
     onChanged: () => Promise<void> | void;
 };
 
-export function AccountCard({ venueId, tenantId, linkSource, onChanged }: Props) {
+export function AccountCard({ venueId, tenantId, linkSource, accountLabel, onChanged }: Props) {
     const [tenants, setTenants] = useState<CrmLinkableTenant[]>([]);
     const [suggestions, setSuggestions] = useState<CrmAccountSuggestion[]>([]);
     const [manualTenant, setManualTenant] = useState("");
@@ -88,7 +91,7 @@ export function AccountCard({ venueId, tenantId, linkSource, onChanged }: Props)
     }
 
     const linked = tenantId ? tenantById.get(tenantId) : null;
-    const status = linked ? STATUS_LABEL[linked.subscription_status] : null;
+    const status = accountLabel ?? (linked ? STATUS_LABEL[linked.subscription_status] : null);
 
     return (
         <Card

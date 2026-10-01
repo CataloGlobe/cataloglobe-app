@@ -31,11 +31,13 @@ import {
     CRM_STAGE_VARIANT,
     crmErrorMessage
 } from "@/utils/crm/stages";
+import { needsStageLock } from "@/utils/crm/accountLabels";
 import { CRM_STAGES, type CrmStage, type CrmTeamMember, type CrmVenueListItem } from "@/types/crm";
 import { AddLeadDrawer } from "./AddLeadDrawer";
 import { ImportMetaCsvDrawer } from "./ImportMetaCsvDrawer";
 import { SettingsDrawer } from "./SettingsDrawer";
 import { LostStageDialog } from "./LostStageDialog";
+import { StageLockDialog, type StageLockRequest } from "./StageLockDialog";
 import { PipelineBoard } from "./PipelineBoard";
 import styles from "./Crm.module.scss";
 
@@ -78,6 +80,7 @@ export default function LeadsPage() {
         [setSearchParams]
     );
     const [lostVenueId, setLostVenueId] = useState<string | null>(null);
+    const [lockRequest, setLockRequest] = useState<StageLockRequest | null>(null);
 
     const [venues, setVenues] = useState<CrmVenueListItem[]>([]);
     const [team, setTeam] = useState<CrmTeamMember[]>([]);
@@ -144,6 +147,10 @@ export default function LeadsPage() {
         async (venue: CrmVenueListItem, stage: CrmStage) => {
             if (stage === "perso") {
                 setLostVenueId(venue.id);
+                return;
+            }
+            if (needsStageLock(venue.stage, stage, Boolean(venue.stage_locked_at))) {
+                setLockRequest({ venueId: venue.id, venueName: venue.name, stage });
                 return;
             }
             setPageError(null);
@@ -399,6 +406,18 @@ export default function LeadsPage() {
                 onMoved={async () => {
                     await load();
                     showToast({ message: "Spostato in Perso.", type: "success" });
+                }}
+            />
+
+            <StageLockDialog
+                request={lockRequest}
+                onClose={() => setLockRequest(null)}
+                onMoved={async request => {
+                    await load();
+                    showToast({
+                        message: `${request.venueName}: ${CRM_STAGE_LABEL[request.stage]}, fase bloccata a mano.`,
+                        type: "success"
+                    });
                 }}
             />
 
