@@ -31,6 +31,7 @@
 
 import type { CheckResult, CheckStatus, ServiceKey } from "./statusServices.js";
 import { SERVICE_LABELS } from "./statusServices.js";
+import type { AlertState } from "./statusRedis.js";
 
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
 const SENDER = "CataloGlobe <noreply@cataloglobe.com>";
@@ -74,7 +75,7 @@ export type PendingAlert = {
  */
 export function decideAlertWithHysteresis(
     current: CheckResult,
-    state: ServiceStateRow | null,
+    state: Pick<ServiceStateRow, "last_notified_status"> | null,
     previousObservedStatus: CheckStatus | null
 ): AlertDecision {
     const prevNotified = (state?.last_notified_status ?? null) as CheckStatus | null;
@@ -100,6 +101,36 @@ export function decideAlertWithHysteresis(
         previousNotifiedStatus: prevNotified,
         currentStatus: current.status
     };
+}
+
+/** Ingressi dell'isteresi per un servizio, da Redis o dal DB. */
+export type AlertInputs = {
+    previousObserved: CheckStatus | null;
+    lastNotified: CheckStatus | null;
+    lastNotifiedAt: string | null;
+    source: "redis" | "db";
+};
+
+/**
+ * Sceglie da dove leggere lo stato degli avvisi. Redis è la fonte primaria
+ * (gli avvisi devono partire anche a DB giù). Se la lettura Redis fallisce
+ * — o la chiave manca, come al primo ciclo dopo il deploy — si ripiega sul
+ * DB come prima (`status_checks` + `status_service_state`), invece di
+ * trattarla come «nessun precedente», che spegnerebbe l'isteresi.
+ */
+export async function loadAlertInputs(
+    redis: { ok: true; state: AlertState | null } | { ok: false },
+    readFromDb: () => Promise<Omit<AlertInputs, "source">>
+): Promise<AlertInputs> {
+    if (redis.ok && redis.state) {
+        return {
+            previousObserved: redis.state.lastObserved,
+            lastNotified: redis.state.lastNotified,
+            lastNotifiedAt: redis.state.lastNotifiedAt,
+            source: "redis"
+        };
+    }
+    return { ...(await readFromDb()), source: "db" };
 }
 
 function statusLabel(s: CheckStatus): string {
