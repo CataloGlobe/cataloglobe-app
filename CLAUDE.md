@@ -17,32 +17,6 @@ Regole vincolanti. In caso di dubbio: seguire il pattern esistente nel codice.
 
 ---
 
-## Quick start
-
-```bash
-npm install
-npm run dev          # vite dev server
-npm run build        # tsc -b && vite build
-npm run lint         # eslint .
-npm test             # vitest run
-npm run test:watch   # vitest watch
-npx playwright test  # e2e (Playwright, chromium): serve `.env.e2e.local` — vedi ## Test e2e
-```
-
----
-
-## Stack tecnologico
-
-- React 19 + TypeScript 5.9 (strict) + Vite 7
-- React Router v7 — tutte le route in `src/App.tsx`
-- Supabase JS v2 — client solo in `src/services/supabase/client.ts`
-- Framer Motion v12 — animazioni
-- SCSS Modules (`.module.scss`) — niente CSS inline
-- Icons: Lucide React + `@tabler/icons-react`
-- Charts: recharts | DnD: @dnd-kit | Testing: Vitest | Export Excel: xlsx-js-style
-
----
-
 ## Architettura
 
 - **Service layer obbligatorio**: `Componente → src/services/supabase/<dominio>.ts → Supabase Client → PostgreSQL`. MAI chiamare Supabase da componenti React.
@@ -175,16 +149,7 @@ Esempi in produzione: `SchedaTab` (6 sezioni prodotto), `ActivitySettingsTab`. D
 - **Dettaglio sede** (`/business/:businessId/locations/:activityId`) — 7 tab via `?tab=`: `profile` (identità + cosa offre il locale) · `hours` (orari, caricati a livello pagina) · `sala` (tavoli + capienza/durata) · `availability` (visibilità prodotti, destinazione da decidere) · `ordering` · `reservations` · `settings` (URL/QR/PDF, stato, eliminazione). `tables` legacy → `sala`. Valori+label in `TAB_VALUES`/`TAB_LABELS`. Card condivise in `tabs/ActivityTabCards.module.scss`. Prerequisiti canale via `ui/PrerequisitesRow`. Dettaglio: `docs/patterns/activity-detail.md`.
 - **Route pubbliche slug-based**: dichiarate UNA VOLTA in `src/routes/publicRoutes.tsx`, consumate da `App.tsx` e `src/entry-client.tsx`. Mai aggiungere una route pubblica direttamente in un entry. Il catch-all `*` resta invece per-entry: è il fallback terminale del set di route di quell'entry, non una route pubblica.
 - **Pagina pubblica** (`/:slug`) — flusso `resolve-public-catalog` → `CollectionView`. Container queries (`@container collection`, MAI `@media`). 4 combinazioni card prodotto (Card/Compatto × List/Grid). Slot featured: solo `before_catalog`/`after_catalog` (hero rimosso). Dettaglio: `docs/patterns/public-page.md`.
-- **PublicSheet** — modali pagina pubblica. **Non usare** SystemDrawer/DrawerLayout nella pagina pubblica. iOS scroll-lock via `body.position:fixed` (scroll listener su window deve leggere `body.style.top` durante lock). Import: `@components/PublicCollectionView/PublicSheet/PublicSheet`. Dettaglio: `docs/patterns/public-page.md`.
-  - **Uscita mobile su WAAPI (`element.animate()`), non spring Framer**: il rilascio del body-lock a inizio uscita è un reflow full-page sincrono che stalla una spring JS (rAF, main thread) su iOS Safari/WebKit — la WAAPI gira sul compositor ed è immune. Il body-lock **deve** restare rilasciato a inizio uscita (rilasciarlo a fine animazione = ~300ms di input bloccato). Drag resta su motion value Framer (deve seguire il dito); solo release/uscita passa a WAAPI. Fallback spring Framer se `element.animate` assente — `y.set(targetY)` va eseguito solo sul path WAAPI.
-  - **`dragMomentum={false}` obbligatorio** sul panel draggabile: con momentum attivo, Framer continua a scrivere l'inline `transform` sotto la WAAPI e al `cancel()` il panel ricade sulla posizione stale del momentum (glitch). Un solo owner del `transform` per volta durante l'uscita.
-  - **Mai `backdrop-filter` su elemento che trasla** (impedisce compositing layer, forza ri-rasterizzazione ad ogni frame su WebKit): il glass card treatment resta solo sul dialog desktop, mai sul bottom sheet mobile.
-  - **Immagini**: prefetch immediato (`new Image().src` all'apertura) + `width`/`height`/`decoding="async"` espliciti. Non differire il render di un'immagine già prefetchata (pop-in senza motivo) e non differire il fetch (pop-in visibile).
-  - **Testing performance iOS**: solo su iPhone reale, sessione **incognito** — iOS Safari serve il bundle vecchio dalla cache con grande persistenza; un test post-deploy su tab normale misura quasi certamente codice stale. Playwright su Chrome desktop verifica assenza di regressioni, non presenza di un fix WebKit.
-  - Listener di scroll su `window` (header lerp, section-tracking) vanno congelati a sheet aperto: `hasOpenSheet()` (`useScrollCollapse.ts`) + prop `frozen` su `PublicCollectionHeader` — il lock/unlock del body genera scroll event spuri (`position:fixed` azzera `scrollY`, il `scrollTo` al rilascio ne genera un altro) proprio nei frame critici dell'animazione.
-  - **Niente `scroll-behavior: smooth` sul documento** nelle pagine che montano PublicSheet: il body-lock ripristina la posizione con `scrollTo` al rilascio, e col CSS globale diventa uno scorrimento visibile alla chiusura. Ancore interne gestite in JS (delega del clic + `scrollIntoView`, vedi `src/pages/CampaignLanding/components/Frame/Frame.tsx`).
-  - **Demo della landing in iframe** (`CampaignLanding/components/sections/Demos/Demos.tsx`, `DemoFrame`): riconosce una pagina pubblica fallita da `#not-found-title` (`NotFound.tsx`) e da `#root > [role=alert]` (stato `error` di `PublicCollectionPage`), poi sostituisce l'iframe con un messaggio. Rinominare quell'id o cambiare il ruolo/la posizione del blocco errore = lo sheet torna a mostrare il 404 con «Torna alla home» che naviga dentro l'iframe. Aggiornare `DemoFrame` nello stesso commit.
-  - **`LandingFallback` = stesso CSS del pannello hero** (`CampaignLanding/LandingFallback.module.scss` ↔ `.panel` in `sections/Hero/Hero.module.scss`): stessa `min-height` in `svh` (mobile `calc(100svh - 20px)`, desktop `min(calc(100svh - 32px), 1000px)`), padding esterno, raggio e sfondo. Altezza solo CSS, mai calcolata in JS: se divergono, l'hero cambia misura all'arrivo del chunk lazy (CLS). Modificarli nello stesso commit.
+- **PublicSheet** — modali pagina pubblica. **Non usare** SystemDrawer/DrawerLayout nella pagina pubblica. iOS scroll-lock via `body.position:fixed` (scroll listener su window deve leggere `body.style.top` durante lock). Import: `@components/PublicCollectionView/PublicSheet/PublicSheet`. Dettaglio: `docs/patterns/public-page.md`. Gotcha iOS/WAAPI/scroll-lock: `src/components/PublicCollectionView/CLAUDE.md`; demo in iframe e `LandingFallback`: `src/pages/CampaignLanding/CLAUDE.md`.
 - **Style Editor** (`/business/:businessId/styles/:styleId`) — preview/runtime devono restare sincronizzati via `parseTokens()`. Salva in testata (`HeaderSaveAction`) + `useUnsavedChangesGuard`; una sola vista in sola lettura (pannello in `fieldset disabled` + banner) per chi non ha `styles.write`, per l'abbonamento fermo e per gli stili di sistema. L'avviso «Stile in uso» non si spegne: mai una chiave `localStorage` che nasconde un avviso (§34.5/3). Eliminare uno stile in uso = drawer `sm` col sostitutivo (Pattern C), non usato = `ConfirmDialog`. Elenco su `CardGrid` con `StyleSwatch` (SVG, colori negli attributi `fill`, niente `style={{}}`). Dettaglio: `docs/patterns/style-editor.md`.
 - **Stories** (`/business/:businessId/stories/...`) — editor a blocchi (`StoryBlockEditor`, blocchi in `src/pages/Dashboard/Stories/components/blocks/`): tipi `heading`, `quote`, `list` (bullet/check), `image` (framing 3:2/4:5 via `StoryImageFramingDrawer` + stack framing condiviso), `text`, `video`. Metadati tipo in `blockTypeMeta.ts`; ogni nuovo blocco = type TS + component + entry meta + factory + voce menu. Body persistito come JSONB `stories.body_blocks[]`. Render pubblico via `resolve-public-story` (parallelo a `resolve-public-catalog`).
   - **Emphasis inline ristretta** (`src/components/PublicCollectionView/StoryView/blocks/parseInlineEmphasis.ts`): riconosce SOLO `**bold**` e `*italic*` — no nesting, marker spaiati restano literal, longest-match (`**` prima di `*`). Emette nodi TS (`text`/`strong`/`em`), **MAI HTML** → React escapa il testo, nessun vettore XSS. La regex di strip-excerpt in `resolve-public-story/index.ts` DEVE rispecchiare le stesse regole (header `⚠️ SYNC` in `parseInlineEmphasis.ts`).
@@ -230,20 +195,7 @@ Spec autoritativa: `docs/orders-architecture.md` v1.2. Dettaglio pattern (dual-a
 - **Edge Functions customer-only** (`submit-order`, `cancel-order`, `get-orders-for-session`) NON callable da contesto admin (richiedono customer JWT custom).
 - `orders.version` increment **applicativo** (no trigger DB).
 
-Service layer in `src/services/supabase/`: `tables.ts`, `tableZones.ts` (4 funzioni + `getZoneTableCounts` per drawer "Gestisci zone"), `customerSessions.ts`, `productAvailability.ts`, `orders.ts`. Tipi in `src/types/orders.ts`.
-
-UI shared CRUD tavoli in `src/components/Tables/`:
-- `TablesManagement/` — componente shared per CRUD tavoli + stato live. Usato dalla tab "Tavoli" di `ActivityDetailPage` (unico call site post Step 6). Header con bottoni "Gestisci zone" + "Nuovo tavolo" renderizzato inline, sempre. `TablesEmptyState` sub-componente per prerequisito `ordering_enabled=false`.
-- `ZoneSelectField/` — dropdown zone nel form Crea/Modifica tavolo con expand inline "+ Crea nuova zona" (mini-form). Niente modali nested.
-- `TableZoneManagementDrawer/` — drawer dedicato per CRUD zone (md=520px). Rename inline, delete con conferma + count tavoli orfanati, callback `onZonesChanged` notifica parent.
-- `TablesLiveView/` — vista operativa live tavoli (card per zona, read-only) usata in tab "Tavoli" di pagina Ordini. Realtime via hook `useTablesLiveRealtime` (Step 4c): 1 canale con 3 binding `postgres_changes` su `orders + order_groups + customer_sessions` filter `activity_id=eq.<id>`, refetch debounced 250ms di `listTablesWithState`, reconnect-resilience via refetch su `SUBSCRIBED`. Niente polling. `CardGrid` per zona (3 · 2 · 1 colonne), tessere `CardGridItem` senza media. Filtri Tutti/Aperti/Liberi/Fuori servizio, raggruppamento per `zone_name` (no-zone fallback ultimo).
-- `TableDetailDrawer/` — drawer admin per dettaglio tavolo (`SystemDrawer md` + `DrawerLayout`, sezioni `Card flush` di `ListRow`). Piede: «Chiudi tavolo» o «Fatto»; azioni in riga: Conferma, Storna, conto/cameriere gestiti, «Fuori servizio». Mostra: stato (Libero/Aperto/Fuori servizio + seats), sessioni attive (customer_name + tempo trascorso `now - first_seen_at` calcolato all'apertura — snapshot statico, no ticking timer), open `order_group`, ordini attivi (submitted/acknowledged/ready) + ordini serviti del tavolo. Service helper `getOpenOrderGroupForTable(tenantId, tableId)` in `customerSessions.ts` (filtro tenant+table esplicito oltre RLS).
-
-Pagina Ordini (`src/pages/Dashboard/Orders/`):
-- 3 tab principali: Comande (board a 3 colonne Nuove/In lavorazione/Pronte + filtro per tavolo) / Tavoli (`<TablesLiveView>`) / Storico (delivered + cancelled della giornata operativa, con azione Ripristina sui delivered — Step 5b).
-- Rotta di sede `/locations/:activityId/comande` (sede dal path, §46.1); `/orders` reindirizza all'ultima sede usata. Nessun selettore di sede in pagina.
-- Niente auto-refresh: aggiornamento via realtime (`useActiveOrdersRealtime`) + bottone «Aggiorna» manuale.
-- Service helper `orders.ts:listOrdersHistoryToday` — boundary "giornata operativa" calcolata server-side via RPC `get_operative_day_start()` (migration `20260601150000`). Formula `date_trunc('day', now() AT TIME ZONE 'Europe/Rome') AT TIME ZONE 'Europe/Rome'` — DST-aware, no off-by-1h ai cambi stagionali (29/3 + 25/10). Funzione `SECURITY INVOKER`, `SET search_path TO ''`, GRANT solo `authenticated`. `listOrdersHistoryToday` (Step 5b): `.eq('tenant_id') + .eq('activity_id')` esplicito (defense in depth oltre RLS) + `.or(and(status.eq.delivered,delivered_at.gte.X),and(status.eq.cancelled,cancelled_at.gte.X))` per la disgiunzione del filtro temporale; sort `updated_at DESC` (coincide con `delivered_at`/`cancelled_at` come exit-timestamp; rectify-order non muta il parent). TODO multi-region: parametrizzare il timezone via `activities.iana_timezone` quando arriveranno tenant non-IT.
+Dettaglio UI (componenti tavoli, pagina Ordini, realtime admin/customer): `src/components/Tables/CLAUDE.md`, `src/pages/Dashboard/Orders/CLAUDE.md`. Edge (`resolve-table`, transizioni admin, `adminOrderTransition.ts`): `supabase/functions/CLAUDE.md`.
 
 ---
 
@@ -266,12 +218,7 @@ Prenotazioni online (pubblico, via slug sede) + gestione admin (conferma/rifiuto
 - `update-reservation` modifica SOLO i dati (data/ora/coperti/contatti/note), MAI lo status — le transizioni di stato passano solo da `respond-reservation`.
 - Link pubblici (cancellazione, conferma presenza) sono **no-oracle**: stesso errore/status per token invalido e prenotazione inesistente.
 
-**Edge Functions** (`supabase/functions/`): `submit-reservation` (pubblica, rate-limit doppio slug+IP, gate subscription/piano attivi, validazione orari, poi RPC atomica) · `respond-reservation` (admin: confirm/decline/cancel/mark_no_show/undo_no_show) · `update-reservation` (admin, solo dati) · `cancel-reservation-public` (link firmato email) · `confirm-reservation-attendance` (link "confermo che vengo" nel reminder) · `reservation-availability` (lettura, solo slot già proposti dal client — no conteggi/motivi commerciali) · `resolve-reservation-privacy` · `send-reservation-reminders` (cron, 3 passate 18/19/20 IT) · `purge-reservation-data` (cron retention 36 mesi, dry-run default, auth fail-closed).
-
-**`_shared/reservation*.ts`**: `reservationEmailCopy.ts` (copy cliente 5 lingue, dizionario TS — chiave mancante = errore di compilazione, non stringa vuota runtime) · `reservationEmails.ts` (builder puri, no I/O) · `reservationIcs.ts` (generatore .ics puro, `now` iniettato) · `reservationUpdate.ts` (`decideMoveNotification` — mail di spostamento SOLO se cambia data/ora) · `reservationTransitions.ts` (state machine, condivisa da `respond-reservation` e cancellazione pubblica) · `reservationToken.ts` / `reservationAlertRecipients.ts` / `reservationRetention.ts` / `reservationCancellation.ts`.
-
-Service layer FE: `src/services/supabase/reservations.ts`, `reservationGuests.ts`, `seatings.ts`, `seatingRpcMessages.ts`. UI in `src/pages/Dashboard/Reservations/`, rotta di sede `/locations/:id/prenotazioni` (`/reservations` reindirizza, §48.1): `Reservations.tsx` (host) + `ReservationsInbox/Agenda/Service.tsx` + drawer create/edit/detail + `SeatingCloseQuestion.tsx`. Due schede, Agenda · Servizio; «Da gestire» è una `Card` in cima all'Agenda, la ricerca è una `DataTable`. Righe su `ListRow` (coda a 56, Agenda e Servizio `dense` a 48). Il segnale d'azienda è «N da gestire» sulla card in Sedi (`countPendingReservationsByActivity`). `serviceDay.ts` — boundary giorno servizio, v. `## Edge Functions` sopra.
-
+Service layer FE + UI (`src/pages/Dashboard/Reservations/`, rotta `/locations/:id/prenotazioni`): `src/pages/Dashboard/Reservations/CLAUDE.md`. Edge Functions e `_shared/reservation*.ts`: `supabase/functions/CLAUDE.md`.
 ---
 
 ## Database
@@ -317,7 +264,7 @@ Usare sempre `_shared/stripe-helpers.ts`. Pattern: `scheduleStripeCancel()` soft
 
 Tutte in `supabase/functions/<nome>/index.ts`. Shared code in `_shared/`. `verify_jwt: false` su tutte.
 
-Deploy sempre con --project-ref esplicito: la CLI Supabase locale è collegata alla produzione.
+Deploy sempre con --project-ref esplicito. Il deploy su prod lo fa solo Lorenzo (vedi `### CLI Supabase` in Plugin & MCP).
 
 **`scheduleResolver.ts` esiste in DUE posti**: `src/services/supabase/` e `supabase/functions/_shared/`. Sincronizzarli ENTRAMBI ad ogni modifica.
 
@@ -358,37 +305,7 @@ Deploy sempre con --project-ref esplicito: la CLI Supabase locale è collegata a
 
 Catalogo completo, bug history (`purgeTenantData` ordine FK, `purgeActivityFolder` ricorsivo, `config.toml` entry obbligatoria, slash `/` nei commenti Deno) + 11 Edge Functions epic ordering → `docs/edge-functions.md`.
 
-**`resolve-table` + `get-orders-for-session`**: post-migration `table_zones` (γ-lite), entrambe fanno JOIN `tables → table_zones` e mappano `zone_data.name → zone` (alias backward-compat) nel payload customer. Customer storage (`localStorage tableZone`) + `ResolveTableResult.table.zone` invariati. Refactor effettuato nella stessa migration di `table_zones` per evitare runtime errors (SELECT su colonna droppata).
-
-**Admin order transitions** (5 endpoint, tutti wrapper di `_shared/adminOrderTransition.ts`):
-- `acknowledge-order`: `submitted → acknowledged` (popola `acknowledged_at`)
-- `mark-order-ready`: `acknowledged → ready` (popola `ready_at`) — Step 4a
-- `deliver-order`: `acknowledged|ready → delivered` (popola `delivered_at`) — Step 4a estende il source set: ora accetta entrambi cosi i workflow che saltano lo step "ready" continuano a funzionare
-- `cancel-order-admin`: `submitted|acknowledged → cancelled` (popola `cancelled_at`, `cancelled_by='admin'`, `cancellation_reason`)
-- `restore-order`: `delivered → acknowledged` (azzera `delivered_at` + `ready_at` via `clear_fields`, nessun timestamp dedicato di ripristino) — Step 5a, usato dallo Storico per recuperare i "Servito" accidentali. NB: ordini `cancelled` NON sono ripristinabili (terminale per design).
-Tutte: optimistic locking via `expected_version`, error mapping unificato (409 `OPTIMISTIC_LOCK_CONFLICT` vs wrong-state via `details.reason`), rate limit 30/min per `(user, order)` con namespace per `function_name`. Service mirror in `src/services/supabase/orders.ts`: `acknowledgeOrder`, `markOrderReady`, `deliverOrder`, `cancelOrderAdmin`, `restoreOrder` — tutte ritornano `throwMappedTransitionError(parseInvokeError(err))` sui 4xx/5xx.
-
-**Helper `_shared/adminOrderTransition.ts` — estensione Step 5a**: `TransitionConfig.timestamp_field` ora `?: string | null` (opzionale: passare `null` quando la transition non ha colonna timestamp dedicata, come `restore-order`). Nuovo `TransitionConfig.clear_fields?: string[]` — colonne SET = NULL al success (es. `restore-order` clears `delivered_at` + `ready_at`). `updated_at` settato SEMPRE indipendentemente da `timestamp_field`. Backward-compat: i 4 wrapper esistenti passano una stringa → invariati.
-
-**Realtime su `orders`** (Step 4b): tabella `orders` in publication `supabase_realtime` (insieme a `customer_sessions`, `order_groups`, `notifications`). RLS SELECT su `orders` filtra automaticamente i `postgres_changes` per il subscriber autenticato:
-- Customer JWT custom: policy `customer_session_id = get_jwt_customer_session_id()`
-- Admin user JWT: policy `has_permission('orders.read', activity_id)`
-
-Nessun leak cross-tenant: il server realtime non emette eventi per righe non visibili via RLS SELECT del subscriber.
-
-Hook admin: `src/pages/Dashboard/Orders/hooks/useActiveOrdersRealtime.ts`. Subscribe con filter `activity_id=eq.<id>` (volume reduction; RLS è la security boundary). Pattern: initial fetch via REST (`listOrdersForActivity` con status `['submitted','acknowledged','ready']`) + subscribe `postgres_changes` event=`*`. UPDATE applica patch con **version-max gate** (`new.version > local.version`) — scarta echi della propria azione e update stale. Se nuovo status non-attivo (`delivered`/`cancelled`) → drop dalla board + callback `onOrderLeftBoard` (parent refresha KPI). INSERT triggera silent refetch (postgres_changes NON delivera `items[]`). Re-SUBSCRIBED → refetch (colma eventi persi durante disconnect, wifi sala flaky). Cleanup canale on unmount/activityId-change.
-
-Hook customer: `subscribeToSessionOrders` (in `orders.ts`), già pre-Step 4b. RLS via JWT custom `customer_session_id`. Pattern singleton `supabase.realtime.setAuth(jwt)` (no riconnessione WS, swap auth contesto).
-
-Kanban admin "Comande" (`src/pages/Dashboard/Orders/OrdersKanban.tsx`): 3 colonne (Nuove / In lavorazione / Pronte) basate su status. Card actions per colonna:
-- submitted: primary "Conferma" + secondary "Cancella"
-- acknowledged: primary "Pronto" + secondary "Servito direttamente" (skip-ready workflow) + "Cancella"
-- ready: primary "Servito" + secondary "Cancella"
-
-Transition: bottone loading durante invoke (NO optimistic-move). Post-success: `applyLocalPatch(response)` con `(status, version, timestamp)` — realtime echo deduplicato dal version-max. Errori discriminati: `OPTIMISTIC_LOCK_CONFLICT` → toast warning + refetch silenzioso. `INVALID_STATE_TRANSITION` → toast error con `details.current_status` + refetch.
-
-Customer stepper (`OrderStatusStepper.tsx`): 4 step (Inviato → In cucina → Pronto → Consegnato). Stato `ready` mostra step "Pronto" come `active` (icona `BellRing`).
-
+Dettaglio edge ordini (`resolve-table`, 5 transizioni admin, `adminOrderTransition.ts`, realtime su `orders`): `supabase/functions/CLAUDE.md` + `src/pages/Dashboard/Orders/CLAUDE.md`.
 ---
 
 ## Integrazioni
@@ -425,17 +342,7 @@ Customer stepper (`OrderStatusStepper.tsx`): 4 step (Inviato → In cucina → P
 
 ## Aree in sviluppo / da completare
 
-Tech-debt e refactor differiti. Non bloccanti per il task corrente; da valutare durante refactor mirati o cicli di consolidamento.
-
- **`leave_tenant` RPC rewrite** — vecchia firma `(p_tenant_id)`, no manager scope, no allineamento a `remove_tenant_member` v2. Low priority.
-- **Realtime sync su `tenant_memberships`** — cambio ruolo runtime richiede refresh manuale (`usePermissions().refresh()`). Eventuale switch a Supabase Realtime channel per propagation automatica.
-- **Sidebar loading-optimistic** — oggi `permissions===null` mostra tutte le voci (transitorio). Visivo flash su utenti scoped. Alternativa: skeleton durante load.
-- **Permission `translations.read` dedicato** — mancante. Sidebar voce "Lingue" usa `catalogs.read` proxy. Creare permission dedicato se gating più fine.
-- **Bulk cancel pending invites senza ConfirmDialog** — asimmetria vs bulk remove members (che ora ha confirm intermedio). Aggiungere ConfirmDialog per coerenza UX.
-- **Storico admin — ripristino ordini annullati (caso A)** — Step 5b ha consegnato lo Storico (delivered + cancelled del giorno operativo) con azione "Ripristina" SOLO sui delivered (`restore-order`). Gli ordini `cancelled` restano terminali per design (no UI restore). Caso A futuro: recupero annullati richiederebbe una nuova edge function `restore-cancelled-order` (transition `cancelled → submitted` o `cancelled → acknowledged` con reset di `cancelled_at`/`cancelled_by`/`cancellation_reason` via `clear_fields`), source policy da concordare (es. solo entro N minuti dalla cancellazione).
-- **Coda di moderazione Recensioni** (§34.9/1) — lotto a sé subito dopo il checkpoint 11: Pubblica · Tieni nascosta, `StatusBadge` in riga, badge in sidebar (`NavItem.count`), riepilogo sulle pubblicate, Elimina solo sulle nascoste, `updateReviewStatus(id, tenantId, status)` che lancia a 0 righe.
-- **RLS delete `translations` e scritture `translation_jobs` aperte a ogni membro**: serve RPC di accodamento con permesso dell'entità sorgente + `enqueueWithSilentError` da rivedere (PR a parte, dopo la moderazione).
-
+Tech-debt e refactor differiti: `docs/roadmap.md`, sezione «Aree in sviluppo / da completare (da CLAUDE.md)».
 ---
 
 ## Plugin & MCP — regole d'uso
@@ -509,6 +416,10 @@ L'MCP `supabase-staging` espone `apply_migration` e `execute_sql`. Bypassano fil
 
 **Regola** per ogni schema change DDL: (1) creare file `supabase/migrations/YYYYMMDDHHMMSS_*.sql`, (2) conferma esplicita utente, (3) solo dopo invocare `apply_migration`. Letture MCP (`list_tables`, `list_migrations`, `get_advisors`, `get_logs`, `generate_typescript_types`) non richiedono conferma.
 
+### CLI Supabase
+
+Cartella principale e worktree sempre collegate a staging (`supabase/.temp/project-ref` = `lxeawrpjfphgdspueiag`). `supabase db push`, `supabase link` e `supabase functions deploy` su prod li lancia solo Lorenzo, mai una sessione Claude. Una sessione Claude che trova la CLI collegata a prod si ferma e lo dice. In `.claude/settings.json` questi comandi (più `migration repair`) sono in `permissions.ask`. Il 30/09 un `db push` partito dalla cartella principale ha applicato su staging migration non committate di un'altra sessione.
+
 ### MCP — context7
 
 Per query su librerie/SDK del progetto (React 19, Vite 7, Framer Motion v12, Supabase JS v2, Stripe SDK, recharts, @dnd-kit), preferire `context7` alla knowledge memorizzata.
@@ -533,22 +444,7 @@ Il resolver non ha DOM: il browser è lo strumento
 sbagliato, e il bug del menu weekend di Garbagnate l'ha trovato questo test.
 
 ### Test e2e (Playwright)
-
-`npx playwright test` — config `playwright.config.ts`, test in `e2e/*.spec.ts`, Vite su
-5174 avviato (o riusato) da Playwright; niente `vercel dev` finché nessuna pagina coperta
-chiama `/api`. Login una volta sola in `e2e/global-setup.ts` con `E2E_EMAIL`/`E2E_PASSWORD`
-da `.env.e2e.local` (ignorato da git; `E2E_BUSINESS_ID` opzionale, altrimenti prima card
-del workspace), sessione in `e2e/.auth/user.json` (ignorato).
-**OTP non automatizzabile**: l'utente e2e va verificato a mano (`/verify-otp`) una volta
-ogni 30 giorni (`otp_user_verifications`); scaduta, il global-setup fallisce con messaggio
-esplicito. Regola M17: il test e2e di una pagina si scrive PRIMA della sua riscrittura e
-resta verde dopo. Locator: nomi accessibili (`getByRole`), non testo label (`required`
-aggiunge ` *` aria-hidden); la sidebar è `navigation "Menu principale"`.
-Pagine con scritture: stub dei dati via `page.route`. La macchina è in `e2e/restStub.ts` (filtri PostgREST, rete delle scritture a 500, `onWrite`, `revoke`), i dati per pagina in `e2e/menuStub.ts` e `e2e/programmazioneStub.ts`.
-Ogni write non registrata risponde 500, così un gesto non previsto fa fallire il test;
-i test di sola lettura aspettano `stub.revoked` prima di controllare un'assenza.
-`workers: 2` in `playwright.config.ts`: con 4 worker compaiono pagine bianche sotto carico (ambiente, non codice); non alzarlo.
-Orologio fisso (`page.clock`, Programmazione: mer 23/09/2026 12:00 Roma): ferma anche le animazioni Framer, quindi negli screenshot gli elementi in entrata restano a opacity 0; per le prove visive, pagina senza orologio fisso.
+`npx playwright test`. Regola M17: il test e2e di una pagina si scrive PRIMA della sua riscrittura e resta verde dopo. Setup, OTP (scade ogni 30 giorni), stub, `workers: 2`, orologio fisso: `e2e/CLAUDE.md`.
 
 ### Slash commands matched-with-rules
 
@@ -581,4 +477,4 @@ NON modificare automaticamente: `CLAUDE.md` (root + `docs/`), `MEMORY.md`, file 
 
 **Permessi**: usare `userRole` da `TenantContext` per gating (NULL per manager/staff/viewer) | usare API legacy (`Role` enum, `canManage`, `isOwner(string)`, `isAdmin`, `isMember` — eliminate Fase 5.C.C) | bypassare i gating frontend (`canChangeRoleOf`, `canRemoveMember`, `canInviteRole`) chiamando direttamente la RPC senza pre-check | montare `PermissionsProvider` fuori da `/business/:businessId/*` | usare `usePermissions()` in componenti workspace (`/workspace/*`, `/select-business`) — usa `workspaceRole` helpers | INSERT manuale `tenant_memberships.role='owner'` (constraint post-Fase 5.B.2 ammette solo NULL\|'admin')
 
-**Plugin & MCP**: invocare plugin disabilitati | DDL via Supabase MCP senza file migration creato prima | `/clean_gone` senza conferma esplicita per branch | `caveman:compress` su CLAUDE.md/MEMORY.md senza conferma | `superpowers` brainstorm/write-plan quando il prompt è già strutturato | knowledge memorizzata su versioni libreria invece di `context7`
+**Plugin & MCP**: invocare plugin disabilitati | DDL via Supabase MCP senza file migration creato prima | `supabase db push`/`link`/`functions deploy` su prod da una sessione Claude | `/clean_gone` senza conferma esplicita per branch | `caveman:compress` su CLAUDE.md/MEMORY.md senza conferma | `superpowers` brainstorm/write-plan quando il prompt è già strutturato | knowledge memorizzata su versioni libreria invece di `context7`
