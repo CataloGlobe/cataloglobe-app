@@ -40,8 +40,7 @@ function buildGroups(supportPending: boolean): AppSidebarNavGroup[] {
                 {
                     to: "/admin/lead",
                     label: "Lead",
-                    icon: <UserPlus size={18} />,
-                    disabled: true
+                    icon: <UserPlus size={18} />
                 }
             ]
         },

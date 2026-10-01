@@ -44,6 +44,8 @@ const SupportQueuePage = lazy(() => import("./pages/Admin/Support/SupportQueuePa
 const SupportTicketAdminPage = lazy(
     () => import("./pages/Admin/Support/SupportTicketAdminPage")
 );
+const CrmLeadsPage = lazy(() => import("./pages/Admin/Crm/LeadsPage"));
+const CrmLeadDetailPage = lazy(() => import("./pages/Admin/Crm/LeadDetailPage"));
 
 // Workspace — lazy (solo utenti autenticati)
 const WorkspacePage = lazy(() => import("./pages/Workspace/WorkspacePage"));
@@ -363,6 +365,10 @@ export default function App() {
                 <Route path="supporto">
                     <Route index element={<SupportQueuePage />} />
                     <Route path=":ticketId" element={<SupportTicketAdminPage />} />
+                </Route>
+                <Route path="lead">
+                    <Route index element={<CrmLeadsPage />} />
+                    <Route path=":venueId" element={<CrmLeadDetailPage />} />
                 </Route>
             </Route>
 

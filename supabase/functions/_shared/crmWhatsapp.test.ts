@@ -1,0 +1,68 @@
+import { describe, expect, it } from "vitest";
+import {
+    fillWhatsappTemplate,
+    signWaLink,
+    verifyWaLink,
+    whatsappUrl,
+    WA_LINK_TTL_SECONDS
+} from "./crmWhatsapp";
+
+const TEMPLATE =
+    "Ciao {nome}, sono Alessandro di CataloGlobe.\nHo visto la richiesta che hai lasciato per {locale}, grazie!";
+
+describe("fillWhatsappTemplate", () => {
+    it("usa solo il nome di battesimo e il nome del locale", () => {
+        expect(fillWhatsappTemplate(TEMPLATE, { contactName: "Mario Rossi", venueName: " Trattoria da Mario " }))
+            .toBe("Ciao Mario, sono Alessandro di CataloGlobe.\nHo visto la richiesta che hai lasciato per Trattoria da Mario, grazie!");
+    });
+
+    it("senza nome non lascia «Ciao ,»", () => {
+        expect(fillWhatsappTemplate(TEMPLATE, { contactName: null, venueName: "Bar" })).toMatch(/^Ciao, sono/);
+    });
+});
+
+describe("whatsappUrl", () => {
+    it("solo cifre nel numero e testo codificato", () => {
+        expect(whatsappUrl("+393331234567", "Ciao & grazie\n!")).toBe(
+            "https://wa.me/393331234567?text=Ciao%20%26%20grazie%0A!"
+        );
+        expect(whatsappUrl("+393331234567", null)).toBe("https://wa.me/393331234567");
+    });
+});
+
+describe("link firmato", () => {
+    const SECRET = "segreto-di-prova";
+    const LEAD = "6f1c2e8a-3b4d-4c5e-9f60-7a8b9c0d1e2f";
+    const USER = "11111111-2222-4333-8444-555555555555";
+    const NOW = 1_790_000_000;
+
+    it("verifica il link appena firmato", async () => {
+        const params = await signWaLink(SECRET, LEAD, USER, NOW);
+        expect(await verifyWaLink(SECRET, params, NOW + 60)).toBe("valid");
+    });
+
+    it("vale 7 giorni, poi è scaduto (non invalido)", async () => {
+        const params = await signWaLink(SECRET, LEAD, USER, NOW);
+        expect(WA_LINK_TTL_SECONDS).toBe(7 * 24 * 60 * 60);
+        expect(await verifyWaLink(SECRET, params, NOW + WA_LINK_TTL_SECONDS)).toBe("valid");
+        expect(await verifyWaLink(SECRET, params, NOW + WA_LINK_TTL_SECONDS + 1)).toBe("expired");
+    });
+
+    it("una scadenza allungata a mano è invalida, non scaduta né valida", async () => {
+        const params = await signWaLink(SECRET, LEAD, USER, NOW);
+        expect(await verifyWaLink(SECRET, { ...params, e: String(NOW - 10) }, NOW)).toBe("invalid");
+    });
+
+    it("rifiuta un lead, un utente o una scadenza cambiati", async () => {
+        const params = await signWaLink(SECRET, LEAD, USER, NOW);
+        expect(await verifyWaLink(SECRET, { ...params, l: USER }, NOW)).toBe("invalid");
+        expect(await verifyWaLink(SECRET, { ...params, u: LEAD }, NOW)).toBe("invalid");
+        expect(await verifyWaLink(SECRET, { ...params, e: String(NOW + 10 ** 9) }, NOW)).toBe("invalid");
+    });
+
+    it("rifiuta un altro segreto e i parametri mancanti", async () => {
+        const params = await signWaLink(SECRET, LEAD, USER, NOW);
+        expect(await verifyWaLink("altro", params, NOW)).toBe("invalid");
+        expect(await verifyWaLink(SECRET, { l: LEAD, u: USER }, NOW)).toBe("invalid");
+    });
+});
