@@ -615,7 +615,7 @@ test.describe("Stili — lotto bug A", () => {
         });
     });
 
-    test.fail("S4: elenco letto prima che una regola lo usasse: si apre il sostitutivo, non la conferma", async ({ page }) => {
+    test("S4: elenco letto prima che una regola lo usasse: si apre il sostitutivo, non la conferma", async ({ page }) => {
         await openList(page);
         // Un'altra sessione mette Notte su una regola dopo la lettura dell'elenco.
         const id = "e2e5e000-0000-4000-a000-000000000104";

@@ -272,6 +272,22 @@ export async function duplicateStyle(styleId: string, newName: string, tenantId:
     return createStyle(sourceStyle.tenant_id, newName, sourceStyle.current_version.config);
 }
 
+/**
+ * Le righe di `schedule_layout` che nominano lo stile, lette adesso: è il
+ * vincolo che `deleteStyle` controlla. Il drawer di eliminazione la rilegge
+ * all'apertura invece di fidarsi del conteggio dell'elenco.
+ */
+export async function countStyleUsage(styleId: string, tenantId: string): Promise<number> {
+    const { data, error } = await supabase
+        .from("schedule_layout")
+        .select("id")
+        .eq("style_id", styleId)
+        .eq("tenant_id", tenantId);
+
+    if (error) throw error;
+    return data?.length ?? 0;
+}
+
 export async function deleteStyle(styleId: string, tenantId: string, replaceWithStyleId?: string): Promise<void> {
     const style = await getStyle(styleId, tenantId);
     if (!style) return;
@@ -280,19 +296,12 @@ export async function deleteStyle(styleId: string, tenantId: string, replaceWith
         throw new Error("Cannot delete a system style");
     }
 
-    // Check usage
-    const { data: usages, error: usageError } = await supabase
-        .from("schedule_layout")
-        .select("id")
-        .eq("style_id", styleId)
-        .eq("tenant_id", tenantId);
+    const usages = await countStyleUsage(styleId, tenantId);
 
-    if (usageError) throw usageError;
-
-    if (usages && usages.length > 0) {
+    if (usages > 0) {
         if (!replaceWithStyleId) {
             throw new Error(
-                `Cannot delete style because it is used in ${usages.length} layout rules. Please provide a replacement style.`
+                `Cannot delete style because it is used in ${usages} layout rules. Please provide a replacement style.`
             );
         }
 
