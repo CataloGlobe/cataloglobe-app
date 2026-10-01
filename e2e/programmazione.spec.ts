@@ -422,6 +422,10 @@ test.describe("Programmazione — settimana, simulatore, guida", () => {
     test("sotto 768 la Settimana mostra un giorno alla volta", async ({ page }) => {
         await openList(page, "layout");
         await page.setViewportSize({ width: 375, height: 812 });
+        // La testata si rimisura dopo il resize: si aspetta la forma finale
+        // (barra compatta, «Settimana» è un'icona) prima di cliccare, o il
+        // click aggancia il radio della forma comoda che sta per sparire.
+        await expect(page.getByRole("button", { name: "Settimana", exact: true })).toBeVisible();
         await openWeek(page);
         await expect(main(page).getByText("Mercoledì 23 settembre")).toBeVisible();
         const days = main(page).getByRole("radiogroup", { name: "Giorno" });
