@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { supabase } from "@services/supabase/client";
 import { AuthContext } from "./AuthContextBase";
-import { runWithRetry, withTimeout } from "./authRetry";
+import { isDefinitiveNoSession, resolveBootstrapUser, runWithRetry, withTimeout } from "./authRetry";
 import type { User } from "@supabase/supabase-js";
 
 // Budget e timeout. Single source of truth — i 4s singolo-shot pre-fix
@@ -137,14 +137,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         async function init() {
             try {
-                const { data } = await withTimeout(supabase.auth.getUser(), GET_USER_TIMEOUT_MS);
+                // Stesso retry e budget del check OTP: un getUser lento non
+                // è un logout. Se il server non risponde (e non ha detto
+                // «nessuna sessione») resta l'utente della sessione locale
+                // valida; il check OTP poi dice «non sappiamo», non /login.
+                const res = await resolveBootstrapUser<User>(
+                    async () => {
+                        const { data, error } = await supabase.auth.getUser();
+                        if (error) throw error;
+                        return data.user ?? null;
+                    },
+                    async () => {
+                        const { data } = await withTimeout(supabase.auth.getSession(), GET_USER_TIMEOUT_MS);
+                        const session = data.session;
+                        return session && (session.expires_at ?? 0) * 1000 > Date.now() ? session.user : null;
+                    },
+                    {
+                        schedule: OTP_BACKOFF_MS,
+                        perAttemptTimeoutMs: GET_USER_TIMEOUT_MS,
+                        totalBudgetMs: TOTAL_BUDGET_MS,
+                        startedAt: Date.now(),
+                        jitterMs: JITTER_MS
+                    }
+                );
                 if (cancelled) return;
+                // «Nessuna sessione» (pagina di login) è un esito, non un errore.
+                if (res.error && !isDefinitiveNoSession(res.error)) console.error("[auth] init getUser failed (user from %s):", res.source, res.error);
 
-                setUser(data.user ?? null);
+                setUser(res.user);
 
                 // IMPORTANTISSIMO:
                 // non bloccare l'app aspettando OTP check
-                if (data.user) void checkOtpForUser("bootstrap");
+                if (res.user) void checkOtpForUser("bootstrap");
                 else {
                     setOtpVerified(false);
                     setOtpLoading(false);

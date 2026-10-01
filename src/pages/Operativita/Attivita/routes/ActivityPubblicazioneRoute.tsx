@@ -108,6 +108,9 @@ export default function ActivityPubblicazioneRoute() {
 
     // ── Elimina ─────────────────────────────────────────────────────────────
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+    // Riferimento stabile: il dialogo ricalcola l'impatto a ogni cambio di
+    // `activity`, e un oggetto nuovo a ogni render annullava il conteggio in volo.
+    const deleteTarget = useMemo(() => ({ id: activity.id, name: activity.name }), [activity.id, activity.name]);
 
     return (
         <div className={styles.page}>
@@ -281,7 +284,7 @@ export default function ActivityPubblicazioneRoute() {
             />
             <DeleteActivityDialog
                 isOpen={isDeleteOpen}
-                activity={{ id: activity.id, name: activity.name }}
+                activity={deleteTarget}
                 businessId={businessId}
                 tenantId={tenantId}
                 onClose={() => setIsDeleteOpen(false)}
