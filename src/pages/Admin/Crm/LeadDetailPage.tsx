@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/Button/Button";
 import { Card } from "@/components/ui/Card/Card";
@@ -95,6 +95,9 @@ export default function LeadDetailPage() {
 
     usePageTitle(detail?.venue.name ?? "Lead");
 
+    // Un errore di rete dopo un'azione non deve far sparire la scheda già
+    // aperta: «non trovato» solo se la scheda non è mai arrivata.
+    const loadedVenueRef = useRef<string | null>(null);
     const load = useCallback(async () => {
         try {
             const [data, members, settings] = await Promise.all([
@@ -106,8 +109,13 @@ export default function LeadDetailPage() {
             setTeam(members);
             setWhatsappTemplate(settings.whatsapp_template);
             setNotFound(false);
+            loadedVenueRef.current = venueId;
         } catch {
-            setNotFound(true);
+            if (loadedVenueRef.current === venueId) {
+                setActionError("Non riesco ad aggiornare la scheda. Ricarica la pagina.");
+            } else {
+                setNotFound(true);
+            }
         } finally {
             setIsLoading(false);
         }

@@ -114,6 +114,17 @@ describe("parseMetaLeadsCsv", () => {
         expect(parseMetaLeadsCsv(text).rows[0].input.phoneE164).toBe("+393331234567");
     });
 
+    it("senza colonna id usa una chiave stabile, così il reimport non duplica", () => {
+        const text = tsv([
+            ["created_time", "full_name", "phone_number"],
+            ["2026-10-06T18:30:00+02:00", "Anna", "333 123 4567"],
+            ["", "Bruno", "+393339876543"]
+        ]);
+        const first = parseMetaLeadsCsv(text).rows.map(r => r.input.sourceRef);
+        expect(first).toEqual(["csv:+393331234567:2026-10-06T18:30:00+02:00", "csv:+393339876543"]);
+        expect(parseMetaLeadsCsv(text).rows.map(r => r.input.sourceRef)).toEqual(first);
+    });
+
     it("scarta le righe senza telefono valido, col numero di riga", () => {
         const text = tsv([
             ["id", "full_name", "phone_number"],
