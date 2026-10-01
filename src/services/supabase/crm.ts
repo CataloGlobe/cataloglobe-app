@@ -135,3 +135,59 @@ export async function addCrmNote(venueId: string, text: string): Promise<void> {
     });
     if (error) throw error;
 }
+
+// -----------------------------------------------------------------------------
+// Team e Telegram
+// -----------------------------------------------------------------------------
+
+export interface CrmSettings {
+    telegram_bot_username: string | null;
+    whatsapp_template: string | null;
+}
+
+export async function getCrmSettings(): Promise<CrmSettings> {
+    const { data, error } = await supabase
+        .from("crm_settings")
+        .select("telegram_bot_username, whatsapp_template")
+        .eq("id", true)
+        .single();
+    if (error) throw error;
+    return data as CrmSettings;
+}
+
+export async function updateCrmSettings(patch: Partial<CrmSettings>): Promise<void> {
+    const { error } = await supabase.from("crm_settings").update(patch).eq("id", true);
+    if (error) throw error;
+}
+
+/** Crea o aggiorna la propria riga del team e ritorna il token per /start. */
+export async function startCrmTelegramLink(displayName: string): Promise<string> {
+    const { data, error } = await supabase.rpc("crm_start_telegram_link", {
+        p_display_name: displayName
+    });
+    if (error) throw error;
+    return data as string;
+}
+
+/** Un solo assegnatario di default (indice unico parziale): prima si toglie, poi si mette. */
+export async function setCrmDefaultAssignee(userId: string): Promise<void> {
+    const { error: clearError } = await supabase
+        .from("crm_team_members")
+        .update({ is_default_assignee: false })
+        .eq("is_default_assignee", true)
+        .neq("user_id", userId);
+    if (clearError) throw clearError;
+    const { error } = await supabase
+        .from("crm_team_members")
+        .update({ is_default_assignee: true })
+        .eq("user_id", userId);
+    if (error) throw error;
+}
+
+export async function setCrmReceivesEscalations(userId: string, value: boolean): Promise<void> {
+    const { error } = await supabase
+        .from("crm_team_members")
+        .update({ receives_escalations: value })
+        .eq("user_id", userId);
+    if (error) throw error;
+}

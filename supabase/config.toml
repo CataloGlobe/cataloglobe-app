@@ -412,3 +412,15 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/import_map.json"
 entrypoint = "./functions/purge-leads/index.ts"
+
+[functions.crm-notify]
+enabled = true
+verify_jwt = false
+import_map = "./functions/import_map.json"
+entrypoint = "./functions/crm-notify/index.ts"
+
+[functions.crm-telegram-webhook]
+enabled = true
+verify_jwt = false
+import_map = "./functions/import_map.json"
+entrypoint = "./functions/crm-telegram-webhook/index.ts"

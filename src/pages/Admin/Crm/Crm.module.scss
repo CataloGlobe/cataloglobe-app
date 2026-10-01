@@ -88,3 +88,19 @@
   display: flex;
   justify-content: flex-end;
 }
+
+// Campo + bottone sulla stessa riga, bottone allineato all'input.
+.inlineField {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-8);
+
+  > :first-child {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  > button {
+    margin-top: var(--space-24);
+  }
+}

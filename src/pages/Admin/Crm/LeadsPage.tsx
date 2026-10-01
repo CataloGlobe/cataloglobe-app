@@ -15,6 +15,7 @@ import { CRM_SOURCE_LABEL, CRM_STAGE_LABEL, CRM_STAGE_VARIANT } from "@/utils/cr
 import { CRM_STAGES, type CrmStage, type CrmTeamMember, type CrmVenueListItem } from "@/types/crm";
 import { AddLeadDrawer } from "./AddLeadDrawer";
 import { ImportMetaCsvDrawer } from "./ImportMetaCsvDrawer";
+import { TeamDrawer } from "./TeamDrawer";
 import styles from "./Crm.module.scss";
 
 /**
@@ -46,6 +47,7 @@ export default function LeadsPage() {
     const [filter, setFilter] = useState<StageFilter>("open");
     const [isAddOpen, setIsAddOpen] = useState(false);
     const [isImportOpen, setIsImportOpen] = useState(false);
+    const [isTeamOpen, setIsTeamOpen] = useState(false);
 
     const load = useCallback(async () => {
         setLoadError(null);
@@ -167,6 +169,9 @@ export default function LeadsPage() {
     const headerActions = useMemo(
         () => (
             <div className={styles.headerActions}>
+                <Button variant="secondary" onClick={() => setIsTeamOpen(true)}>
+                    Team e Telegram
+                </Button>
                 <Button variant="secondary" onClick={() => setIsImportOpen(true)}>
                     Importa CSV Meta
                 </Button>
@@ -182,7 +187,8 @@ export default function LeadsPage() {
         () => ({
             primaryAction: { label: "Aggiungi lead", onClick: () => setIsAddOpen(true) },
             secondaryActions: [
-                { label: "Importa CSV Meta", onClick: () => setIsImportOpen(true) }
+                { label: "Importa CSV Meta", onClick: () => setIsImportOpen(true) },
+                { label: "Team e Telegram", onClick: () => setIsTeamOpen(true) }
             ]
         }),
         []
@@ -250,6 +256,11 @@ export default function LeadsPage() {
                 open={isImportOpen}
                 onClose={() => setIsImportOpen(false)}
                 onImported={handleImported}
+            />
+            <TeamDrawer
+                open={isTeamOpen}
+                onClose={() => setIsTeamOpen(false)}
+                onChanged={() => void load()}
             />
         </div>
     );

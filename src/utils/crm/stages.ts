@@ -1,17 +1,7 @@
 import type { StatusBadgeVariant } from "@/components/ui/StatusBadge/StatusBadge";
-import type { CrmEventType, CrmLeadSource, CrmLostKind, CrmStage } from "@/types/crm";
+import type { CrmEventType, CrmLostKind, CrmStage } from "@/types/crm";
 
-/** Etichette delle 8 colonne della pipeline (wiki: pipeline-crm). */
-export const CRM_STAGE_LABEL: Record<CrmStage, string> = {
-    nuovo: "Nuovo",
-    contattato: "Contattato",
-    in_conversazione: "In conversazione",
-    appuntamento: "Appuntamento",
-    chiamata_fatta: "Chiamata fatta",
-    in_prova: "In prova",
-    cliente_pagante: "Cliente pagante",
-    perso: "Perso"
-};
+export { CRM_STAGE_LABEL, CRM_SOURCE_LABEL } from "@shared/crmLabels";
 
 export const CRM_STAGE_VARIANT: Record<CrmStage, StatusBadgeVariant> = {
     nuovo: "pending",
@@ -27,13 +17,6 @@ export const CRM_STAGE_VARIANT: Record<CrmStage, StatusBadgeVariant> = {
 export const CRM_LOST_KIND_LABEL: Record<CrmLostKind, string> = {
     obiezione: "Non adesso (si può riprovare)",
     stop: "Non vuole essere contattato"
-};
-
-export const CRM_SOURCE_LABEL: Record<CrmLeadSource, string> = {
-    landing: "Landing",
-    meta_form: "Modulo Meta",
-    whatsapp: "Chat WhatsApp",
-    manuale: "A mano"
 };
 
 export const CRM_EVENT_LABEL: Record<CrmEventType, string> = {
