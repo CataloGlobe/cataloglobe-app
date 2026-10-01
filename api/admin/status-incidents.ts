@@ -132,7 +132,9 @@ async function authenticateAdmin(req: VercelRequest): Promise<AuthOk | AuthFail>
 
 function jsonError(res: VercelResponse, status: number, code: string, message?: string): void {
     res.setHeader("Cache-Control", "no-store");
-    res.status(status).json({ error: { code, ...(message ? { message } : {}) } });
+    // `pgrest` dà status 0 su timeout/errore di rete (nessuna risposta HTTP):
+    // per il client è un 502, non un codice invalido.
+    res.status(status >= 100 ? status : 502).json({ error: { code, ...(message ? { message } : {}) } });
 }
 
 function readBody(req: VercelRequest): Record<string, unknown> {
