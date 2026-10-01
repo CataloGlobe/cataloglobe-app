@@ -632,7 +632,7 @@ test.describe("Stili — lotto bug A", () => {
         { width: 768, height: 900 },
         { width: 1280, height: 600 }
     ]) {
-        test.fail(`S7: a ${size.width}×${size.height} l'anteprima mobile sta nel suo spazio`, async ({ page }) => {
+        test(`S7: a ${size.width}×${size.height} l'anteprima mobile sta nel suo spazio`, async ({ page }) => {
             await page.setViewportSize(size);
             await openStyle(page, STYLE.sera);
             await expect(nameField(page)).toBeVisible({ timeout: 15_000 });

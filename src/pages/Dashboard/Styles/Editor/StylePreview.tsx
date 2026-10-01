@@ -501,6 +501,7 @@ export const StylePreview = ({
           format={viewMode}
           isTransitioning={isTransitioning}
           screenRef={setScreenEl}
+          fit="contain"
         >
           <CollectionView
             businessName={businessName}

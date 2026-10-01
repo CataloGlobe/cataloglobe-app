@@ -42,7 +42,7 @@
 
 .deviceVisualWrapper {
   /* Width e height applicate inline da JS: width/height logiche * scale
-     (scale = 1 su "mobile", che non scala mai). flex:none — il wrapper non
+     (scale = 1 su "mobile", salvo fit="contain"). flex:none — il wrapper non
      cresce/shrink: dimensioni determinate dagli inline style. Quando il frame
      è scalato trabocca logicamente dal wrapper ma viene clippato visivamente
      da .host { overflow:hidden }.
