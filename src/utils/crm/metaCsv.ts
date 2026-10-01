@@ -188,12 +188,16 @@ export function parseMetaLeadsCsv(text: string): MetaCsvResult {
         const createdAt = toIsoOrNull(record.get("created_time") ?? "");
         const formName = (record.get("form_name") ?? "").trim();
         const leadId = stripMetaPrefix(record.get("id") ?? "");
+        // Senza la colonna id (export rinominato o tagliato) serve comunque
+        // una chiave stabile, altrimenti ogni reimport aggiunge una richiesta.
+        const rawCreated = (record.get("created_time") ?? "").trim();
+        const sourceRef = leadId || `csv:${phone}${rawCreated ? `:${rawCreated}` : ""}`;
 
         result.rows.push({
             line,
             input: {
                 source: "meta_form",
-                sourceRef: leadId || null,
+                sourceRef,
                 name: fullName || "Senza nome",
                 venueName: venueName || fullName || "Senza nome",
                 phoneE164: phone,
