@@ -272,6 +272,9 @@ export async function stubProdotti(page: Page, options: { vertical?: string } = 
             if (table === "products" && select.includes("variants")) {
                 return rows.map(row => ({ ...row, variants: tables.products.filter(v => v.parent_product_id === row.id) }));
             }
+            if (table === "product_option_groups" && select.includes("values:")) {
+                return rows.map(row => ({ ...row, values: tables.product_option_values.filter(v => v.option_group_id === row.id) }));
+            }
             if (table === "product_groups" && select.includes("product_group_items")) {
                 return rows.map(row => ({
                     ...row,

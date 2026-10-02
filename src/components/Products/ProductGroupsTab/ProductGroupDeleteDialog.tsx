@@ -23,7 +23,7 @@ export function ProductGroupDeleteDialog({ open, onClose, groupData, onSuccess }
     const handleConfirm = async (): Promise<boolean> => {
         if (!groupData) return false;
         try {
-            await deleteProductGroup(groupData.id);
+            await deleteProductGroup(groupData.id, groupData.tenant_id);
             showToast({ message: `Gruppo «${groupData.name}» eliminato.`, type: "success" });
             onSuccess();
             return true;

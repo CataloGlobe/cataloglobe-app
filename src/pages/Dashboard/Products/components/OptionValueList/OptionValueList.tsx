@@ -148,6 +148,11 @@ export function OptionValueList({
             setAddError("Il nome è obbligatorio");
             return;
         }
+        // Un formato senza prezzo non parte (r.7); una scelta vuota vale + 0.
+        if (priceMode === "absolute" && addPrice.trim() === "") {
+            setAddError("Inserisci un prezzo (es. 3,50)");
+            return;
+        }
         const price = parsePrice(addPrice || "0");
         if (price === null) {
             setAddError(priceMode === "delta" ? "Inserisci un numero valido (es. 0,50 o -0,50)" : "Inserisci un prezzo valido (es. 3,50)");

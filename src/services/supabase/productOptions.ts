@@ -100,6 +100,38 @@ export async function getProductOptions(productId: string): Promise<ProductOptio
     return { primaryPriceGroup, addonGroups };
 }
 
+/**
+ * Il gruppo Formato (PRIMARY_PRICE) di più prodotti con i suoi valori, in una
+ * richiesta sola (le varianti di Prezzi & Opzioni; prima una
+ * `getProductOptions` per variante, e ognuna leggeva un gruppo per volta).
+ * Stessa scelta di `getProductOptions`: il primo gruppo per data, valori per
+ * data. Ogni id chiesto c'è nella mappa, `null` se non ha formati.
+ */
+export async function getPrimaryPriceGroups(
+    productIds: string[],
+    tenantId: string
+): Promise<Record<string, GroupWithValues | null>> {
+    const result: Record<string, GroupWithValues | null> = {};
+    for (const id of productIds) result[id] = null;
+    if (productIds.length === 0) return result;
+
+    const { data, error } = await supabase
+        .from("product_option_groups")
+        .select("*, values:product_option_values(*)")
+        .eq("tenant_id", tenantId)
+        .eq("group_kind", "PRIMARY_PRICE")
+        .in("product_id", productIds)
+        .order("created_at", { ascending: true });
+
+    if (error) throw error;
+    const byDate = (a: { created_at: string }, b: { created_at: string }) => a.created_at.localeCompare(b.created_at);
+    for (const group of (data ?? []) as GroupWithValues[]) {
+        if (result[group.product_id] !== null) continue;
+        result[group.product_id] = { ...group, values: [...(group.values ?? [])].sort(byDate) };
+    }
+    return result;
+}
+
 export async function createProductOptionGroup(data: {
     tenant_id: string;
     product_id: string;
