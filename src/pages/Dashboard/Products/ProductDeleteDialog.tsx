@@ -82,7 +82,8 @@ export function ProductDeleteDialog({ open, onClose, productData, onSuccess }: P
         setIsDeleting(true);
         try {
             await deleteProduct(productData.id, productData.tenant_id);
-            const withVariants = variantsCount > 0 ? " e le sue varianti" : "";
+            const withVariants =
+                variantsCount === 1 ? " e la sua variante" : variantsCount > 1 ? " e le sue varianti" : "";
             showToast({
                 message: `«${productData.name}»${withVariants} ${variantsCount > 0 ? "eliminati" : isVariant ? "eliminata" : "eliminato"}.${impactText ? ` Tolto da ${impactText}.` : ""}`,
                 type: "success"
@@ -106,9 +107,11 @@ export function ProductDeleteDialog({ open, onClose, productData, onSuccess }: P
             locked={isDeleting}
             title={`Eliminare «${productData.name}»?`}
             message={
-                variantsCount > 0
-                    ? `Se ne vanno anche le sue ${variantsCount} ${variantsCount === 1 ? "variante" : "varianti"}, e non si torna indietro.`
-                    : "Non si torna indietro."
+                variantsCount === 1
+                    ? "Se ne va anche la sua variante, e non si torna indietro."
+                    : variantsCount > 1
+                      ? `Se ne vanno anche le sue ${variantsCount} varianti, e non si torna indietro.`
+                      : "Non si torna indietro."
             }
             error={
                 impactFailed

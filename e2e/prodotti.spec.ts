@@ -781,6 +781,25 @@ test.describe("Prodotti — lotto bug B", () => {
         await expect.poll(() => write(stub, "products.DELETE")?.params.get("id")).toBe(`eq.${PRODUCT.hamburger}`);
     });
 
+    test("eliminazione: una variante al singolare, più varianti al plurale", async ({ page }) => {
+        await openList(page);
+        await search(page, "Coca");
+        await actionsOf(product(page, "Coca-Cola")).click();
+        await page.getByRole("menuitem", { name: /^Elimina$/ }).click();
+        const confirm = page.getByRole("alertdialog");
+        await expect(confirm).toContainText("Se ne vanno anche le sue 2 varianti, e non si torna indietro.");
+        await confirm.getByRole("button", { name: "Annulla" }).click();
+
+        stub.tables.products = stub.tables.products.filter(p => p.id !== PRODUCT.cocaLight);
+        await page.reload();
+        await expect(product(page, "Coca-Cola")).toBeVisible({ timeout: 15_000 });
+        await search(page, "Coca");
+        await actionsOf(product(page, "Coca-Cola")).click();
+        await page.getByRole("menuitem", { name: /^Elimina$/ }).click();
+        await expect(confirm).toContainText("Se ne va anche la sua variante, e non si torna indietro.");
+        expect(stub.writes).toHaveLength(0);
+    });
+
     test("r.6: modifica ed eliminazione di un gruppo filtrano anche l'azienda", async ({ page }) => {
         stub.onWrite("product_groups.PATCH", call => [{ ...stub.tables.product_groups.find(g => g.id === GROUP.bevande), ...(call.body as object) }]);
         stub.onWrite("product_groups.DELETE", () => null);
