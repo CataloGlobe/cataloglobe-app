@@ -9,7 +9,7 @@ import { uploadProductImage } from "@/services/supabase/upload";
 import { compressImage, COMPRESS_PROFILES } from "@/utils/compressImage";
 import { FileInput } from "@/components/ui/Input/FileInput";
 import { listAllergens, setProductAllergens, V2SystemAllergen } from "@/services/supabase/allergens";
-import { getProductGroupAssignments, assignProductToGroup } from "@/services/supabase/productGroups";
+import { getProductGroupAssignments, getProductGroups, assignProductToGroup } from "@/services/supabase/productGroups";
 import {
     getIngredients,
     setProductIngredients,
@@ -106,8 +106,9 @@ export function ProductForm({
     const [isLoadingAllergens, setIsLoadingAllergens] = useState(false);
     const [allergenSearchQuery, setAllergenSearchQuery] = useState("");
 
-    // Groups state: una variante entra nei gruppi del padre.
+    // Groups state: una variante entra nei gruppi del padre, e il form lo dice (r.4).
     const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
+    const [parentGroupNames, setParentGroupNames] = useState<string[]>([]);
 
     // Ingredients state
     const [systemIngredients, setSystemIngredients] = useState<V2Ingredient[]>([]);
@@ -138,6 +139,7 @@ export function ProductForm({
         setPendingImageFile(null);
         setSelectedAllergens([]);
         setSelectedIngredients([]);
+        setParentGroupNames([]);
 
         if (mode === "create_variant" && parentProduct) {
             setName(parentProduct.name);
@@ -179,10 +181,16 @@ export function ProductForm({
         try {
 
             if (mode === "create_variant" && parentProduct) {
-                const assignedGroups = await getProductGroupAssignments(parentProduct.id);
-                setSelectedGroups(assignedGroups.map(g => g.group_id));
+                const [assignedGroups, groups] = await Promise.all([
+                    getProductGroupAssignments(parentProduct.id),
+                    getProductGroups(tenantId)
+                ]);
+                const assignedIds = assignedGroups.map(g => g.group_id);
+                setSelectedGroups(assignedIds);
+                setParentGroupNames(groups.filter(g => assignedIds.includes(g.id)).map(g => g.name));
             } else {
                 setSelectedGroups([]);
+                setParentGroupNames([]);
             }
         } catch (error) {
             console.error("Errore nel caricamento dei gruppi:", error);
@@ -377,6 +385,11 @@ export function ProductForm({
             {mode === "create_variant" && parentProduct && (
                 <Text variant="body-sm" colorVariant="muted">
                     Variante di <strong className={styles.strong}>{parentProduct.name}</strong>
+                </Text>
+            )}
+            {mode === "create_variant" && parentGroupNames.length > 0 && (
+                <Text variant="body-sm" colorVariant="muted">
+                    Entra nei gruppi del padre: {parentGroupNames.join(", ")}.
                 </Text>
             )}
             {/* ── Informazioni ──────────────────────────────────────── */}

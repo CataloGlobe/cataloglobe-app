@@ -916,7 +916,7 @@ test.describe("Prodotti — lotto bug B", () => {
         expect(stub.writes.filter(w => w.key === "products.POST")).toHaveLength(1);
     });
 
-    test.fail("r.4: la variante dice in quali gruppi entra, presi dal padre", async ({ page }) => {
+    test("r.4: la variante dice in quali gruppi entra, presi dal padre", async ({ page }) => {
         stub.onWrite("products.POST", call => ({ ...(call.body as object), tenant_id: TENANT_ID }));
         stub.onWrite("products.PATCH", call => ({ ...stub.tables.products[0], ...(call.body as object) }));
         stub.onWrite("rpc.replace_product_allergens", () => null);
