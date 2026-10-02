@@ -2171,7 +2171,6 @@ export default function CatalogEngine() {
                         <ProductForm
                             formId="product-form-unified"
                             mode="create_base"
-                            productData={null}
                             parentProduct={null}
                             tenantId={currentTenantId ?? null}
                             onSuccess={handleProductCreated}

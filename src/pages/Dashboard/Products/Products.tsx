@@ -145,7 +145,7 @@ export default function Products() {
 
     // Drawer States
     const [isCreateEditOpen, setIsCreateEditOpen] = useState(false);
-    const [createEditMode, setCreateEditMode] = useState<Exclude<ProductFormMode, "edit">>("create_base");
+    const [createEditMode, setCreateEditMode] = useState<ProductFormMode>("create_base");
     const [parentForVariant, setParentForVariant] = useState<V2Product | null>(null);
 
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);

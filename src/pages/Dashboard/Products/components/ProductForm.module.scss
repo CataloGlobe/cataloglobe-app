@@ -26,16 +26,6 @@
   font-weight: 500;
 }
 
-.link {
-  color: var(--brand-primary);
-
-  &:focus-visible {
-    outline: none;
-    box-shadow: var(--shadow-focus);
-    border-radius: var(--radius-inner);
-  }
-}
-
 .fitContent {
   width: fit-content;
 }
