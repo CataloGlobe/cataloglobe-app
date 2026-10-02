@@ -993,6 +993,24 @@ for (const width of [375, 768, 1280]) {
 
 // Banda del momento e matrice sedi × strati (§20, decisioni §50.7). Scritti
 // prima della banda in `test.fail`, passati a `test` col commit che li rende veri.
+// Sopra le otto sedi `ActivityMultiSelect` mostra una ricerca (§50.16,
+// `ACTIVITY_SEARCH_THRESHOLD`): finora provata solo su `filterActivityOptions`.
+test("con più di otto sedi «Dove si applica» cerca le sedi per nome", async ({ page }) => {
+    await stubProgrammazione(page, { manySeats: true });
+    await openRule(page, "pranzo");
+    const sedi = main(page).getByRole("group", { name: "Sedi disponibili" });
+    await expect(sedi.getByRole("checkbox")).toHaveCount(10);
+    const search = main(page).getByRole("textbox", { name: "Cerca una sede" });
+    await search.fill("lag");
+    await expect(sedi.getByRole("checkbox")).toHaveCount(1);
+    await expect(sedi.getByRole("checkbox", { name: "Lago e2e" })).toBeVisible();
+    // Senza maiuscole né accenti; la selezione resta quella della regola.
+    await search.fill("CENTRÒ");
+    await expect(sedi.getByRole("checkbox", { name: "Centro e2e" })).toBeChecked();
+    await search.fill("nessuna");
+    await expect(sedi).toContainText("Nessuna sede con «nessuna».");
+});
+
 test.describe("Programmazione — banda e matrice", () => {
     test.beforeEach(async ({ page }) => {
         await stubProgrammazione(page, { matrix: true });
