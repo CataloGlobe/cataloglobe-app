@@ -348,7 +348,10 @@ export default function PrivacyPolicyPage() {
 
                     <p><strong>Cookie e tecnologie di archiviazione locale</strong></p>
                     <p>
-                        Sulla pagina pubblica del menu non utilizziamo cookie HTTP. Sulla pagina di
+                        Sulla pagina pubblica del menu (comprese le ordinazioni al tavolo) non
+                        utilizziamo cookie HTTP: usiamo solo l'archiviazione locale del browser, in forma
+                        tecnica e necessaria al funzionamento del menu e delle ordinazioni, come indicato
+                        nella tabella che segue. Sulla pagina di
                         presentazione di CataloGlobe (la landing con il modulo «Richiedi una demo»,
                         indirizzi <em>/</em> e <em>/b</em>) i soli cookie sono quelli di Microsoft Clarity,
                         installati unicamente se presti il consenso dal banner (vedi sotto «Microsoft
@@ -391,6 +394,52 @@ export default function PrivacyPolicyPage() {
                                     Memorizza la selezione di prodotti dell'utente durante la sessione.
                                 </td>
                                 <td>Solo durata sessione browser</td>
+                            </tr>
+                            <tr>
+                                <td><code>cataloglobe:public-menu:v2:&lt;indirizzo&gt;:&lt;lingua&gt;</code></td>
+                                <td>localStorage</td>
+                                <td>
+                                    Conserva una copia del menu già visto, per mostrarlo anche se la
+                                    connessione cade o il servizio non risponde. Contiene solo i dati
+                                    pubblici del menu, nessun dato del visitatore.
+                                </td>
+                                <td>Persistente (logica applicativa: 7 giorni, poi eliminata)</td>
+                            </tr>
+                            <tr>
+                                <td><code>cataloglobe-allergens-&lt;id&gt;</code></td>
+                                <td>sessionStorage</td>
+                                <td>
+                                    Memorizza gli allergeni che hai scelto di escludere dal menu, per
+                                    mantenere il filtro mentre navighi.
+                                </td>
+                                <td>Solo durata sessione browser</td>
+                            </tr>
+                            <tr>
+                                <td><code>cataloglobe-allergens-notice-&lt;id&gt;</code></td>
+                                <td>sessionStorage</td>
+                                <td>Ricorda che l'avviso sugli allergeni è già stato mostrato.</td>
+                                <td>Solo durata sessione browser</td>
+                            </tr>
+                            <tr>
+                                <td><code>cataloglobe-device-id</code></td>
+                                <td>localStorage</td>
+                                <td>
+                                    Solo se inquadri il QR di un tavolo: identificativo casuale del
+                                    dispositivo, non collegato alla tua identità, che permette di ritrovare
+                                    la stessa sessione di ordinazione se riapri la pagina invece di
+                                    crearne una nuova.
+                                </td>
+                                <td>Persistente, finché non cancelli i dati del sito</td>
+                            </tr>
+                            <tr>
+                                <td><code>cataloglobe-customer-&lt;id&gt;</code></td>
+                                <td>sessionStorage</td>
+                                <td>
+                                    Solo per le ordinazioni al tavolo: token della sessione di
+                                    ordinazione (tavolo, sede e, se lo indichi, il nome con cui ordini),
+                                    necessario per inviare gli ordini e seguirne lo stato.
+                                </td>
+                                <td>Solo durata sessione browser, al massimo 12 ore</td>
                             </tr>
                             <tr>
                                 <td><code>cg-landing-attribution</code></td>
