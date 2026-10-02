@@ -52,7 +52,7 @@ import { BrandRulesDrawer, type BrandRulesDrawerState } from "./BrandRulesDrawer
 import styles from "./Crm.module.scss";
 
 /**
- * Agenti del CRM: il freno a mano (tirato finché una persona non lo toglie),
+ * Agenti del CRM: la pausa degli agenti (attiva finché una persona non li riattiva),
  * la spesa AI coi due tetti, il modello per ruolo con la prova di
  * collegamento, le regole del brand (versioni approvate da una persona) e il
  * diario di ogni decisione. Gli agenti arrivano con le PR successive: questa
@@ -70,7 +70,7 @@ const ROLE_HINT: Record<CrmAiRole, string> = {
     conversation: "Scrive ai locali e risponde.",
     reviewer: "Rilegge ogni messaggio prima che parta.",
     sensitive: "Prezzi, codici promo, casi delicati.",
-    gea: "L'assistente del team su Telegram; il freno non la ferma."
+    gea: "L'assistente del team su Telegram; la pausa non la ferma."
 };
 
 const RULES_STATUS: Record<CrmBrandRulesStatus, { label: string; variant: "success" | "warning" | "neutral" }> = {
@@ -145,7 +145,7 @@ export default function AgentsPage() {
 
     usePageHeader({
         title: "Agenti",
-        subtitle: "Freno a mano, spesa, modelli e regole che gli agenti seguono."
+        subtitle: "Pausa, spesa, modelli e regole che gli agenti seguono."
     });
 
     function openBrakeDialog(kind: "stop" | "release") {
@@ -163,7 +163,7 @@ export default function AgentsPage() {
             await setCrmBrake(on, on ? brakeReason.trim() || null : null);
             await load();
             setBrakeDialog(null);
-            showToast({ message: on ? "Agenti fermi." : "Agenti ripartiti.", type: "success" });
+            showToast({ message: on ? "Agenti in pausa." : "Agenti riattivati.", type: "success" });
             return true;
         } catch (err) {
             setBrakeError(crmAgentErrorMessage(err));
@@ -252,21 +252,21 @@ export default function AgentsPage() {
             {pageError && <InlineBanner variant="error">{pageError}</InlineBanner>}
 
             <Card
-                title="Freno a mano"
+                title="Pausa agenti"
                 badge={
                     <StatusBadge
                         variant={settings.brake_on ? "danger" : "success"}
-                        label={settings.brake_on ? "Agenti fermi" : "Agenti accesi"}
+                        label={settings.brake_on ? "Agenti in pausa" : "Agenti attivi"}
                     />
                 }
                 actions={
                     settings.brake_on ? (
                         <Button variant="primary" size="sm" onClick={() => openBrakeDialog("release")}>
-                            Fai ripartire
+                            Riattiva
                         </Button>
                     ) : (
                         <Button variant="secondary" size="sm" onClick={() => openBrakeDialog("stop")}>
-                            Ferma gli agenti
+                            Metti in pausa
                         </Button>
                     )
                 }
@@ -306,7 +306,7 @@ export default function AgentsPage() {
                     aria-label="Spesa del mese"
                 />
                 <Text variant="caption" colorVariant="muted">
-                    All'80% arriva un avviso su Telegram; al tetto gli agenti si fermano da soli. Giorno e mese
+                    All'80% arriva un avviso su Telegram; al tetto gli agenti vanno in pausa da soli. Giorno e mese
                     secondo l'ora di Roma.
                 </Text>
                 {capError && <InlineBanner variant="error">{capError}</InlineBanner>}
@@ -461,13 +461,13 @@ export default function AgentsPage() {
                 isOpen={brakeDialog !== null}
                 onClose={() => setBrakeDialog(null)}
                 onConfirm={handleBrake}
-                title={brakeDialog === "stop" ? "Fermare gli agenti?" : "Far ripartire gli agenti?"}
+                title={brakeDialog === "stop" ? "Mettere in pausa gli agenti?" : "Riattivare gli agenti?"}
                 message={
                     brakeDialog === "stop"
-                        ? "Smettono di scrivere ai locali finché qualcuno non li fa ripartire. Gea su Telegram resta attiva."
+                        ? "Smettono di scrivere ai locali finché una persona non li riattiva. Gea su Telegram resta attiva."
                         : "Riprendono a scrivere ai locali, con le regole del brand in vigore e nei tetti di spesa."
                 }
-                confirmLabel={brakeDialog === "stop" ? "Ferma" : "Fai ripartire"}
+                confirmLabel={brakeDialog === "stop" ? "Metti in pausa" : "Riattiva"}
                 confirmVariant={brakeDialog === "stop" ? "danger" : "primary"}
                 isLoading={isBrakeSaving}
                 error={brakeError}

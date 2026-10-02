@@ -118,7 +118,7 @@ async function record(supabase, call: CrmClaudeCall, model: string, values): Pro
     if (error) {
         console.error("crmClaude: costo non registrato", error.code, error.message);
         // Chiamata pagata ma non contata: il tetto non la vede. Meglio agenti
-        // fermi che spesa fuori controllo: freno tirato e team avvisato.
+        // in pausa che spesa fuori controllo: pausa e team avvisato.
         if (values.costUsd > 0) await brakeOnUnrecordedCost(supabase, values.costUsd);
         return;
     }

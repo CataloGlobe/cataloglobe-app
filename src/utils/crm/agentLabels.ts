@@ -1,5 +1,5 @@
 /**
- * Parole della pagina Agenti (/admin/agenti): diario, freno a mano, prova di
+ * Parole della pagina Agenti (/admin/agenti): diario, pausa degli agenti, prova di
  * collegamento, errori delle funzioni crm_* degli agenti.
  */
 import type { CrmAgentCheckResult, CrmBrakeSource, CrmDecisionActor } from "@/types/crm";
@@ -23,8 +23,8 @@ export const CRM_DECISION_ACTOR_LABEL: Record<CrmDecisionActor, string> = {
 };
 
 const ACTION_LABEL: Record<string, string> = {
-    brake_on: "Freno a mano tirato",
-    brake_off: "Freno a mano tolto",
+    brake_on: "Agenti messi in pausa",
+    brake_off: "Agenti riattivati",
     spend_alert: "Avviso di spesa",
     agent_settings_changed: "Impostazioni cambiate",
     brand_rules_proposed: "Regole proposte",
@@ -49,7 +49,7 @@ export function modelLabel(model: string): string {
 
 const CHECK_REASON: Record<string, string> = {
     not_configured: "Manca la chiave API di Anthropic nei segreti delle edge.",
-    brake: "Freno a mano tirato.",
+    brake: "Agenti in pausa.",
     day_cap: "Tetto di spesa di oggi raggiunto.",
     month_cap: "Tetto di spesa del mese raggiunto.",
     unpriced_model: "Il modello scelto non è nel listino.",
@@ -70,7 +70,7 @@ export function agentCheckMessage(result: CrmAgentCheckResult): string {
 export function crmAgentErrorMessage(err: unknown): string {
     const message =
         err && typeof err === "object" && "message" in err ? String((err as { message: unknown }).message) : String(err ?? "");
-    if (message.includes("brake_release_needs_person")) return "Per far ripartire gli agenti serve una persona.";
+    if (message.includes("brake_release_needs_person")) return "Per riattivare gli agenti serve una persona.";
     if (message.includes("approval_needs_person")) return "Le regole le approva una persona.";
     if (message.includes("rules_not_draft")) return "Questa versione non è più in bozza.";
     if (message.includes("rules_not_found")) return "Questa versione non esiste.";

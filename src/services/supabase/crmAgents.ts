@@ -1,5 +1,5 @@
 /**
- * Agenti del CRM (/admin/agenti): freno a mano, spesa AI, modelli per ruolo,
+ * Agenti del CRM (/admin/agenti): pausa degli agenti, spesa AI, modelli per ruolo,
  * regole del brand, diario delle decisioni.
  *
  * Tabelle di piattaforma (migration 20261002160000): niente tenant_id, il
@@ -44,7 +44,7 @@ export async function updateCrmAgentSettings(patch: CrmAgentSettingsPatch): Prom
     if (error) throw error;
 }
 
-/** Tira o toglie il freno; false se era già così. */
+/** Mette in pausa o riattiva gli agenti; false se era già così. */
 export async function setCrmBrake(on: boolean, reason: string | null): Promise<boolean> {
     const { data, error } = await supabase.rpc("crm_set_brake", { p_on: on, p_reason: reason });
     if (error) throw error;

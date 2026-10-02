@@ -121,7 +121,7 @@ BEGIN
             NEW.brake_changed_by,
             CASE WHEN NEW.brake_on THEN 'brake_on' ELSE 'brake_off' END,
             coalesce(NEW.brake_reason,
-                     CASE WHEN NEW.brake_on THEN 'Freno a mano tirato.' ELSE 'Freno a mano tolto.' END),
+                     CASE WHEN NEW.brake_on THEN 'Agenti messi in pausa.' ELSE 'Agenti riattivati.' END),
             jsonb_build_object('source', NEW.brake_source)
         );
     END IF;

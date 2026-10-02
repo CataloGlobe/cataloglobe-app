@@ -59,13 +59,13 @@ describe("agentCheckMessage", () => {
 
 describe("messaggi", () => {
     it("azioni del diario: etichetta o codice leggibile", () => {
-        expect(decisionActionLabel("brake_on")).toBe("Freno a mano tirato");
+        expect(decisionActionLabel("brake_on")).toBe("Agenti messi in pausa");
         expect(decisionActionLabel("message_sent")).toBe("message sent");
     });
 
     it("errori delle funzioni crm_*", () => {
         expect(crmAgentErrorMessage({ message: "brake_release_needs_person" })).toBe(
-            "Per far ripartire gli agenti serve una persona."
+            "Per riattivare gli agenti serve una persona."
         );
         expect(crmAgentErrorMessage(new Error('violates check constraint "crm_settings_ai_day_cap_within_month"'))).toBe(
             "Il tetto di oggi non può superare quello del mese."

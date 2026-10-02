@@ -161,19 +161,19 @@ export function spendAlertMessage(alert: CrmSpendAlert, spend: CrmSpendSnapshot)
     const month = `${formatUsd(spend.monthUsd)} su ${formatUsd(spend.monthCap)}`;
     switch (alert) {
         case "day_80":
-            return `<b>Spesa AI all'80% del tetto di oggi</b>\n${day}. Al 100% gli agenti si fermano.`;
+            return `<b>Spesa AI all'80% del tetto di oggi</b>\n${day}. Al 100% gli agenti vanno in pausa.`;
         case "month_80":
-            return `<b>Spesa AI all'80% del tetto del mese</b>\n${month}. Al 100% gli agenti si fermano.`;
+            return `<b>Spesa AI all'80% del tetto del mese</b>\n${month}. Al 100% gli agenti vanno in pausa.`;
         case "day_cap":
-            return `<b>Agenti fermi: tetto di spesa di oggi raggiunto</b>\n${day}. I lead si gestiscono a mano. Per ripartire: /admin, Agenti.`;
+            return `<b>Agenti in pausa: tetto di spesa di oggi raggiunto</b>\n${day}. I lead si gestiscono a mano. Per riattivarli: /admin, Agenti.`;
         case "month_cap":
-            return `<b>Agenti fermi: tetto di spesa del mese raggiunto</b>\n${month}. I lead si gestiscono a mano. Per ripartire: /admin, Agenti.`;
+            return `<b>Agenti in pausa: tetto di spesa del mese raggiunto</b>\n${month}. I lead si gestiscono a mano. Per riattivarli: /admin, Agenti.`;
     }
 }
 
-/** Avviso quando una chiamata pagata non entra nel registro dei costi: agenti fermi. */
+/** Avviso quando una chiamata pagata non entra nel registro dei costi: agenti in pausa. */
 export function unrecordedCostMessage(costUsd: number): string {
-    return `<b>Agenti fermi: un costo AI non è stato registrato</b>\nChiamata da ${formatUsd(costUsd)} non contata nel tetto di spesa. I lead si gestiscono a mano. Controllare i log delle funzioni CRM, poi per ripartire: /admin, Agenti.`;
+    return `<b>Agenti in pausa: un costo AI non è stato registrato</b>\nChiamata da ${formatUsd(costUsd)} non contata nel tetto di spesa. I lead si gestiscono a mano. Controllare i log delle funzioni CRM, poi per riattivarli: /admin, Agenti.`;
 }
 
 /** Quota del tetto, 0-1 (oltre il tetto resta 1). */

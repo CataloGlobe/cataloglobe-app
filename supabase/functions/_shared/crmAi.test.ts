@@ -122,22 +122,22 @@ describe("avvisi di spesa", () => {
 
     it("80% del giorno e del mese", () => {
         expect(spendAlertMessage("day_80", spend)).toBe(
-            "<b>Spesa AI all'80% del tetto di oggi</b>\n8,50 $ su 10,00 $. Al 100% gli agenti si fermano."
+            "<b>Spesa AI all'80% del tetto di oggi</b>\n8,50 $ su 10,00 $. Al 100% gli agenti vanno in pausa."
         );
         expect(spendAlertMessage("month_80", spend)).toContain("41,24 $ su 100,00 $");
     });
 
-    it("tetto raggiunto: agenti fermi e dove ripartire", () => {
-        expect(spendAlertMessage("day_cap", spend)).toMatch(/^<b>Agenti fermi: tetto di spesa di oggi raggiunto<\/b>/);
-        expect(spendAlertMessage("month_cap", spend)).toContain("Per ripartire: /admin, Agenti.");
+    it("tetto raggiunto: agenti in pausa e dove riattivarli", () => {
+        expect(spendAlertMessage("day_cap", spend)).toMatch(/^<b>Agenti in pausa: tetto di spesa di oggi raggiunto<\/b>/);
+        expect(spendAlertMessage("month_cap", spend)).toContain("Per riattivarli: /admin, Agenti.");
     });
 
-    it("costo non registrato: agenti fermi, importo e dove ripartire", () => {
+    it("costo non registrato: agenti in pausa, importo e dove riattivarli", () => {
         const text = unrecordedCostMessage(0.0362);
-        expect(text).toMatch(/^<b>Agenti fermi: un costo AI non è stato registrato<\/b>/);
+        expect(text).toMatch(/^<b>Agenti in pausa: un costo AI non è stato registrato<\/b>/);
         expect(text).toContain("non contata nel tetto di spesa");
         expect(text).toContain("0,04 $");
-        expect(text).toContain("per ripartire: /admin, Agenti.");
+        expect(text).toContain("per riattivarli: /admin, Agenti.");
     });
 
     it("quota del tetto tra 0 e 1", () => {
