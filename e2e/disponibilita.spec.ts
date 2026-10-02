@@ -207,7 +207,7 @@ test.describe("Cosa vedono i clienti — esito e provenienza", () => {
         await expect(rowText(page, "Coca e2e")).toContainText("Nascosto dalla regola «Sera e2e» · la modifica a mano non lo rimette");
     });
 
-    test.fail("il prezzo è quello della regola, col listino barrato", async ({ page }) => {
+    test("il prezzo è quello della regola, col listino barrato", async ({ page }) => {
         await openDisponibilita(page, { rules: true });
         const big = rowText(page, "Big e2e");
         await expect(big).toContainText(/6[.,]00/, { timeout: 15_000 });

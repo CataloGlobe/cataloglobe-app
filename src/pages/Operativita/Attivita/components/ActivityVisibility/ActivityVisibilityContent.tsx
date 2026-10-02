@@ -73,6 +73,10 @@ type VisibilityRow = {
     name: string;
     categoryName: string | null;
     price: string;
+    /** Il listino barrato, quando la regola prezzi lo mostra al cliente. */
+    originalPrice: string | null;
+    /** «Prezzo dalla regola «X»». */
+    priceNote: string | null;
     /** Il valore del tri-stato: la modifica a mano (`visible` = nessuna). */
     control: ProductVisibilityState;
     /** Lo stato su cui contano filtri e conteggi: per il cliente, se lo sappiamo. */
@@ -86,6 +90,8 @@ function rowsFromRenderable(products: RenderableProduct[]): VisibilityRow[] {
         name: p.name,
         categoryName: p.category_name ?? null,
         price: getDisplayPrice({ base_price: p.final_price, from_price: p.from_price }).label,
+        originalPrice: null,
+        priceNote: null,
         control: p.visibility_state,
         state: p.visibility_state,
         note: null
@@ -98,6 +104,8 @@ function rowsFromExplanation(data: CatalogExplanationData): VisibilityRow[] {
         name: p.name,
         categoryName: p.categoryName,
         price: p.price ?? "—",
+        originalPrice: p.originalPrice,
+        priceNote: p.priceNote,
         control: p.manual === "hidden" || p.manual === "unavailable" ? p.manual : "visible",
         state: p.state,
         note: p.note
@@ -302,11 +310,24 @@ export const ActivityVisibilityContent: React.FC<ActivityVisibilityContentProps>
     const columns = useMemo<ColumnDefinition<VisibilityRow>[]>(() => {
         // La provenienza (§19.4): sotto il nome, chi ha deciso lo stato.
         const note = (product: VisibilityRow) =>
-            product.note ? (
-                <Text as="span" variant="caption" colorVariant="muted" className={styles.note}>
-                    {product.note}
+            [product.note, product.priceNote].filter(Boolean).map(line => (
+                <Text key={line} as="span" variant="caption" colorVariant="muted" className={styles.note}>
+                    {line}
                 </Text>
-            ) : null;
+            ));
+        // Il prezzo che vede il cliente; il listino barrato se la regola lo mostra.
+        const price = (product: VisibilityRow) => (
+            <>
+                {product.originalPrice && (
+                    <>
+                        <s className={styles.listPrice}>
+                            {product.originalPrice}
+                        </s>{" "}
+                    </>
+                )}
+                {product.price}
+            </>
+        );
         const control = (product: VisibilityRow) => (
             // Sola lettura come Prodotti: fieldset disabled, ma solo sul
             // controllo, così ricerca e filtri restano.
@@ -330,7 +351,8 @@ export const ActivityVisibilityContent: React.FC<ActivityVisibilityContentProps>
                             <div className={`${DATA_TABLE_CLASSES.cellTwoLine} ${DATA_TABLE_CLASSES.cellTwoLineWrap}`}>
                                 <span>{product.name}</span>
                                 <span>
-                                    {[product.categoryName, product.price].filter(Boolean).join(" · ")}
+                                    {product.categoryName ? `${product.categoryName} · ` : ""}
+                                    {price(product)}
                                 </span>
                                 {note(product)}
                             </div>
@@ -356,11 +378,12 @@ export const ActivityVisibilityContent: React.FC<ActivityVisibilityContentProps>
             {
                 id: "price",
                 header: "Prezzo",
-                width: "100px",
+                // Con il listino barrato accanto: due prezzi «da» non stanno in 100.
+                width: "160px",
                 align: "right",
                 cell: (_, product) => (
                     <Text variant="body-sm" weight={500}>
-                        {product.price}
+                        {price(product)}
                     </Text>
                 )
             },

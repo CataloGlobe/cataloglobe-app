@@ -81,3 +81,9 @@
   white-space: normal;
   overflow-wrap: anywhere;
 }
+
+// Il listino barrato accanto al prezzo della regola (§19bis.1).
+.listPrice {
+  color: var(--text-muted);
+  font-weight: 400;
+}
