@@ -3,6 +3,8 @@
  *
  * ⚠️ SYNC con `public.crm_phone_fingerprint` (migration 20261001120100): stessa
  * formula, così le impronte scritte dal browser e dal database si confrontano.
+ * Il caso noto in src/tests/crmPhoneFingerprint.test.ts è controllato anche
+ * dalla migration 20261002155000 sul database.
  * Pseudonimizzazione, non anonimizzazione: serve a non tenere il numero in
  * chiaro dove basta riconoscerlo (chiavi dei lead Meta senza id).
  */
