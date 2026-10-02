@@ -252,6 +252,9 @@ export default function StoryDetailPage() {
         }
 
         setIsSaving(true);
+        // I file caricati in questo Salva: se la scrittura fallisce si tolgono,
+        // la storia continua a usare i suoi.
+        const uploaded: Array<{ id: string; url: string }> = [];
         try {
             let coverMedia = story.cover_media;
             if (pendingCoverFile) {
@@ -260,6 +263,7 @@ export default function StoryDetailPage() {
                     story.id,
                     await compressImage(pendingCoverFile, COMPRESS_PROFILES.cover)
                 );
+                uploaded.push({ id: story.id, url: coverMedia });
             } else if (coverRemoved) {
                 coverMedia = null;
             }
@@ -275,6 +279,7 @@ export default function StoryDetailPage() {
                     // (4:5). La copertina sopra resta sul profilo `cover` (landscape).
                     await compressImage(file, COMPRESS_PROFILES.story)
                 );
+                uploaded.push({ id: `${story.id}/${blockId}`, url });
                 nextBlocks = nextBlocks.map(b => (b.id === blockId ? { ...b, url } : b));
             }
 
@@ -323,6 +328,11 @@ export default function StoryDetailPage() {
             return true;
         } catch (error) {
             console.error("Errore salvataggio storia:", error);
+            for (const file of uploaded) {
+                deleteStoryImageBestEffort(tenantId, file.id, file.url).catch(err =>
+                    console.warn("[storage] story upload rollback failed:", err)
+                );
+            }
             const message =
                 error instanceof Error && error.message ? error.message : "Impossibile salvare la storia.";
             showToast({ message, type: "error" });
@@ -485,7 +495,9 @@ export default function StoryDetailPage() {
                                 : "Sola lettura: per modificare le storie serve un ruolo da manager in su."}
                         </InlineBanner>
                     )}
-                    <fieldset className={styles.readOnlyScope} disabled={!canWrite}>
+                    {/* Spento anche durante il Salva: la rilettura che lo chiude
+                        riallinea la bozza e perderebbe quello che si scrive nel mentre. */}
+                    <fieldset className={styles.readOnlyScope} disabled={!canWrite || isSaving}>
                     <Card
                         title="Informazioni"
                         subtitle="Titolo e copertina sono quello che il cliente vede nell'elenco."

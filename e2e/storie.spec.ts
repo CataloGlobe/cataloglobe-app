@@ -490,7 +490,7 @@ test.describe("Storie — lotto bug A", () => {
         expect(write(stub, "stories.PATCH")).toBeUndefined();
     });
 
-    test.fail("St4: copertina nuova e Salva rifiutato: la copertina pubblicata non si tocca", async ({ page }) => {
+    test("St4: copertina nuova e Salva rifiutato: la copertina pubblicata non si tocca", async ({ page }) => {
         const storage: Array<{ method: string; path: string; upsert: string | undefined; body: string | null }> = [];
         await page.route(/\/storage\/v1\/object\//, route => {
             const request = route.request();
@@ -517,7 +517,7 @@ test.describe("Storie — lotto bug A", () => {
         await expect.poll(() => storage.find(r => r.method === "DELETE")?.body ?? "").toContain(upload!.path.replace(/^stories\//, ""));
     });
 
-    test.fail("St4: durante il Salva i campi sono spenti", async ({ page }) => {
+    test("St4: durante il Salva i campi sono spenti", async ({ page }) => {
         let release: () => void = () => {};
         const gate = new Promise<void>(resolve => {
             release = resolve;
