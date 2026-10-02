@@ -7,23 +7,26 @@ describe("fillWhatsappTemplate", () => {
         expect(
             fillWhatsappTemplate("Ciao {nome}, sono Alessandro di {locale}?", {
                 contactName: "Mario Rossi",
-                venueName: " Trattoria da Mario "
+                venueName: " Trattoria da Mario ",
+                senderName: null
             })
         ).toBe("Ciao Mario, sono Alessandro di Trattoria da Mario?");
     });
 
     it("senza nome toglie lo spazio prima della virgola", () => {
-        expect(fillWhatsappTemplate("Ciao {nome}, ciao", { contactName: null, venueName: "X" })).toBe("Ciao, ciao");
+        expect(fillWhatsappTemplate("Ciao {nome}, ciao", { contactName: null, venueName: "X", senderName: null })).toBe("Ciao, ciao");
     });
 
     it("i $ nei nomi restano testo", () => {
-        expect(fillWhatsappTemplate("{nome} da {locale}", { contactName: "$&", venueName: "Bar $'" })).toBe(
-            "$& da Bar $'"
+        expect(fillWhatsappTemplate("{nome} da {locale} per {mittente}", { contactName: "$&", venueName: "Bar $'", senderName: "$1" })).toBe(
+            "$& da Bar $' per $1"
         );
     });
 
     it("{locale} vuoto (locale da completare) diventa «il tuo locale»", () => {
-        expect(fillWhatsappTemplate("per {locale}", { contactName: null, venueName: null })).toBe("per il tuo locale");
+        expect(fillWhatsappTemplate("per {locale}", { contactName: null, venueName: null, senderName: null })).toBe(
+            "per il tuo locale"
+        );
     });
 });
 

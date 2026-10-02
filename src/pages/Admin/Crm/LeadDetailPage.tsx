@@ -9,6 +9,7 @@ import { Select } from "@/components/ui/Select/Select";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import Text from "@/components/ui/Text/Text";
 import { Textarea } from "@/components/ui/Textarea/Textarea";
+import { useAuth } from "@/context/useAuth";
 import { useToast } from "@/context/Toast/ToastContext";
 import { usePageHeader } from "@/context/usePageHeader";
 import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
@@ -24,7 +25,7 @@ import {
     unlockCrmStage
 } from "@/services/supabase/crm";
 import { CRM_ACCOUNT_STATE_LABEL, crmAccountLabel, needsStageLock } from "@/utils/crm/accountLabels";
-import { crmWhatsappLink } from "@/utils/crm/whatsapp";
+import { crmSenderName, crmWhatsappLink } from "@/utils/crm/whatsapp";
 import { formatDateTimeIt } from "@/utils/formatDateTime";
 import {
     CRM_EVENT_LABEL,
@@ -101,6 +102,7 @@ export default function LeadDetailPage() {
     const { venueId = "" } = useParams<{ venueId: string }>();
     const navigate = useNavigate();
     const { showToast } = useToast();
+    const { user } = useAuth();
 
     const [detail, setDetail] = useState<CrmVenueDetail | null>(null);
     const [team, setTeam] = useState<CrmTeamMember[]>([]);
@@ -223,7 +225,8 @@ export default function LeadDetailPage() {
         window.open(
             crmWhatsappLink(contact.phone_e164, whatsappTemplate, {
                 contactName: contact.name,
-                venueName: detail.venue.name_pending ? null : detail.venue.name
+                venueName: detail.venue.name_pending ? null : detail.venue.name,
+                senderName: crmSenderName(team, user?.id)
             }),
             "_blank",
             "noopener"

@@ -190,7 +190,7 @@ export function SettingsDrawer({ open, onClose, onChanged }: Props) {
                     <div className={styles.drawerForm}>
                         <Textarea
                             label="Messaggio WhatsApp pronto"
-                            helperText="{nome} diventa il nome della persona, {locale} il nome del locale («il tuo locale» se è da completare). Lo mandi tu, come Alessandro di CataloGlobe."
+                            helperText="{nome} diventa il nome della persona, {locale} il nome del locale («il tuo locale» se è da completare), {mittente} il nome di chi lo manda (quello del collegamento a Telegram)."
                             rows={7}
                             maxLength={1000}
                             value={template}

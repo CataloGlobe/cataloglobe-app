@@ -12,6 +12,7 @@ import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
+import { useAuth } from "@/context/useAuth";
 import { useToast } from "@/context/Toast/ToastContext";
 import { usePageHeader } from "@/context/usePageHeader";
 import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
@@ -23,7 +24,7 @@ import {
     logCrmWhatsappOpened,
     moveCrmStage
 } from "@/services/supabase/crm";
-import { crmWhatsappLink } from "@/utils/crm/whatsapp";
+import { crmSenderName, crmWhatsappLink } from "@/utils/crm/whatsapp";
 import { formatDateTimeIt } from "@/utils/formatDateTime";
 import {
     CRM_SOURCE_LABEL,
@@ -83,6 +84,7 @@ export default function LeadsPage() {
     const [lockRequest, setLockRequest] = useState<StageLockRequest | null>(null);
 
     const [venues, setVenues] = useState<CrmVenueListItem[]>([]);
+    const { user } = useAuth();
     const [team, setTeam] = useState<CrmTeamMember[]>([]);
     const [whatsappTemplate, setWhatsappTemplate] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -130,7 +132,8 @@ export default function LeadsPage() {
             window.open(
                 crmWhatsappLink(contact.phone_e164, whatsappTemplate, {
                     contactName: contact.name,
-                    venueName: venue.name_pending ? null : venue.name
+                    venueName: venue.name_pending ? null : venue.name,
+                    senderName: crmSenderName(team, user?.id)
                 }),
                 "_blank",
                 "noopener"
@@ -140,7 +143,7 @@ export default function LeadsPage() {
                 .then(() => load())
                 .catch(err => setPageError(crmErrorMessage(err)));
         },
-        [whatsappTemplate, load]
+        [whatsappTemplate, team, user, load]
     );
 
     const handleMove = useCallback(

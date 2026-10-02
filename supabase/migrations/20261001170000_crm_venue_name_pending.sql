@@ -245,10 +245,11 @@ END;
 $$;
 
 -- -----------------------------------------------------------------------------
--- Testo WhatsApp (approvato da Alex il 2026-10-01)
+-- Testo WhatsApp (approvato da Alex il 2026-10-01; {mittente} chiesto da
+-- Lorenzo il 2026-10-01: firma chi invia)
 -- -----------------------------------------------------------------------------
 UPDATE public.crm_settings
-SET whatsapp_template = 'Ciao {nome}, sono Alessandro di CataloGlobe. Ho visto che hai lasciato i contatti per il tuo locale. Quando hai 10 minuti per sentirci al telefono?'
+SET whatsapp_template = 'Ciao {nome}, sono {mittente} di CataloGlobe. Ho visto che hai lasciato i contatti per il tuo locale. Quando hai 10 minuti per sentirci al telefono?'
 WHERE id = true
   AND (whatsapp_template IS NULL
        OR whatsapp_template = E'Ciao {nome}, sono Alessandro di CataloGlobe.\nHo visto la richiesta che hai lasciato per {locale}, grazie!\n\nTi scrivo per capire cosa ti serve (menù digitale, prenotazioni, ordini al tavolo) e mostrarti come funziona in una breve chiamata.\n\nQuando ti è più comodo sentirci?');

@@ -3,7 +3,8 @@
 // =============================================================================
 //
 // * `fillWhatsappTemplate`: il testo di crm_settings.whatsapp_template con
-//   {nome} (solo il nome di battesimo) e {locale}.
+//   {nome} (solo il nome di battesimo), {locale} e {mittente} (primo nome di
+//   chi invia, da crm_team_members.display_name: scrivono Alex e Lorenzo).
 // * `whatsappUrl`: link wa.me col testo. wa.me non sceglie il mittente: la
 //   chat parte dall'account WhatsApp aperto sul dispositivo (numero dedicato
 //   su WhatsApp Web o WhatsApp Business, wiki piano-costruzione).
@@ -21,30 +22,41 @@
 /**
  * Testo predefinito, approvato da Alex il 2026-10-01 (call con Ferdinando):
  * breve, niente funzioni né domande, che Alex fa in chiamata. Non usa
- * {locale} perché il form Meta non chiede il nome del locale.
+ * {locale} perché il form Meta non chiede il nome del locale. {mittente} al
+ * posto di «Alessandro» (Lorenzo, 2026-10-01): firma chi lo manda.
  * ⚠️ SYNC con la migration 20261001170000 (crm_settings.whatsapp_template).
  */
 export const DEFAULT_WHATSAPP_TEMPLATE =
-    "Ciao {nome}, sono Alessandro di CataloGlobe. Ho visto che hai lasciato i contatti per il tuo locale. Quando hai 10 minuti per sentirci al telefono?";
+    "Ciao {nome}, sono {mittente} di CataloGlobe. Ho visto che hai lasciato i contatti per il tuo locale. Quando hai 10 minuti per sentirci al telefono?";
 
 /** {locale} quando il locale è ancora da completare (crm_venues.name_pending). */
 export const PENDING_VENUE_PLACEHOLDER = "il tuo locale";
 
+/** {mittente} quando chi invia non ha un nome nel team del CRM. */
+export const UNKNOWN_SENDER_PLACEHOLDER = "il team";
+
+function firstWord(value: string | null | undefined): string {
+    return (value ?? "").trim().split(/\s+/)[0] ?? "";
+}
+
 /**
- * {nome} → primo nome della persona, {locale} → nome del locale.
+ * {nome} → primo nome della persona, {locale} → nome del locale, {mittente}
+ * → primo nome di chi invia.
  * `venueName` null = locale da completare: la carta porta il nome della
  * persona, che nel testo non va.
  */
 export function fillWhatsappTemplate(
     template: string,
-    values: { contactName: string | null; venueName: string | null }
+    values: { contactName: string | null; venueName: string | null; senderName: string | null }
 ): string {
-    const firstName = (values.contactName ?? "").trim().split(/\s+/)[0] ?? "";
+    const firstName = firstWord(values.contactName);
     const venueName = values.venueName?.trim() || PENDING_VENUE_PLACEHOLDER;
+    const sender = firstWord(values.senderName) || UNKNOWN_SENDER_PLACEHOLDER;
     // Sostituzione con funzione: un «$&» nel nome (dal form pubblico) resta testo.
     return template
         .replace(/\{nome\}/g, () => firstName)
         .replace(/\{locale\}/g, () => venueName)
+        .replace(/\{mittente\}/g, () => sender)
         .replace(/Ciao ,/g, "Ciao,");
 }
 
