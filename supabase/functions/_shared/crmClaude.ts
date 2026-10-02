@@ -28,7 +28,8 @@ import {
     CRM_AI_PRICE_VERSION,
     isPricedModel,
     parseClaudeResponse,
-    spendAlertMessage
+    spendAlertMessage,
+    unrecordedCostMessage
 } from "./crmAi.ts";
 
 const API_URL = "https://api.anthropic.com/v1/messages";
@@ -85,6 +86,20 @@ async function notifyTeam(supabase, text: string): Promise<void> {
     }
 }
 
+async function brakeOnUnrecordedCost(supabase, costUsd: number): Promise<void> {
+    const { data: changed, error } = await supabase.rpc("crm_set_brake", {
+        p_on: true,
+        p_reason: "Un costo di Claude non è stato registrato: il tetto di spesa non lo conta.",
+        p_source: "system"
+    });
+    if (error) {
+        console.error("crmClaude: freno non tirato dopo un costo non registrato", error.code, error.message);
+        return;
+    }
+    if (!changed) return; // già tirato: avviso già partito o freno messo da altri
+    await notifyTeam(supabase, unrecordedCostMessage(costUsd));
+}
+
 async function record(supabase, call: CrmClaudeCall, model: string, values): Promise<void> {
     const { data: alert, error } = await supabase.rpc("crm_record_ai_usage", {
         p_role: call.role,
@@ -101,8 +116,10 @@ async function record(supabase, call: CrmClaudeCall, model: string, values): Pro
         p_venue_id: call.venueId ?? null
     });
     if (error) {
-        // Il costo non registrato non ferma la risposta, ma va visto: il tetto non lo conta.
         console.error("crmClaude: costo non registrato", error.code, error.message);
+        // Chiamata pagata ma non contata: il tetto non la vede. Meglio agenti
+        // fermi che spesa fuori controllo: freno tirato e team avvisato.
+        if (values.costUsd > 0) await brakeOnUnrecordedCost(supabase, values.costUsd);
         return;
     }
     if (!alert) return;

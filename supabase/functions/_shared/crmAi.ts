@@ -171,6 +171,11 @@ export function spendAlertMessage(alert: CrmSpendAlert, spend: CrmSpendSnapshot)
     }
 }
 
+/** Avviso quando una chiamata pagata non entra nel registro dei costi: agenti fermi. */
+export function unrecordedCostMessage(costUsd: number): string {
+    return `<b>Agenti fermi: un costo AI non è stato registrato</b>\nChiamata da ${formatUsd(costUsd)} non contata nel tetto di spesa. I lead si gestiscono a mano. Controllare i log delle funzioni CRM, poi per ripartire: /admin, Agenti.`;
+}
+
 /** Quota del tetto, 0-1 (oltre il tetto resta 1). */
 export function spendShare(spent: number, cap: number): number {
     if (!(cap > 0)) return 1;

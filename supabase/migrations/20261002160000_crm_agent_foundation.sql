@@ -156,9 +156,18 @@ ALTER TABLE public.crm_brand_rules     ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "crm_agent_decisions select" ON public.crm_agent_decisions;
 CREATE POLICY "crm_agent_decisions select" ON public.crm_agent_decisions
     FOR SELECT TO authenticated USING (public.is_platform_admin());
+-- Dal client una persona scrive solo a nome suo: niente righe a nome degli
+-- agenti, del Revisore o di un'altra persona (i trigger crm_* scrivono
+-- 'person' con crm_agent_actor() = auth.uid()). Il resto lo scrive il service role.
 DROP POLICY IF EXISTS "crm_agent_decisions insert" ON public.crm_agent_decisions;
 CREATE POLICY "crm_agent_decisions insert" ON public.crm_agent_decisions
-    FOR INSERT TO authenticated WITH CHECK (public.is_platform_admin());
+    FOR INSERT TO authenticated WITH CHECK (
+        public.is_platform_admin()
+        AND actor = 'person'
+        AND actor_user_id = auth.uid()
+        AND review_outcome IS NULL
+        AND (decided_by IS NULL OR decided_by = auth.uid())
+    );
 
 DROP POLICY IF EXISTS "crm_ai_usage select" ON public.crm_ai_usage;
 CREATE POLICY "crm_ai_usage select" ON public.crm_ai_usage

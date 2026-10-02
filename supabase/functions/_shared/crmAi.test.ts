@@ -7,7 +7,8 @@ import {
     isPricedModel,
     parseClaudeResponse,
     spendAlertMessage,
-    spendShare
+    spendShare,
+    unrecordedCostMessage
 } from "./crmAi";
 
 describe("claudeCostUsd", () => {
@@ -129,6 +130,14 @@ describe("avvisi di spesa", () => {
     it("tetto raggiunto: agenti fermi e dove ripartire", () => {
         expect(spendAlertMessage("day_cap", spend)).toMatch(/^<b>Agenti fermi: tetto di spesa di oggi raggiunto<\/b>/);
         expect(spendAlertMessage("month_cap", spend)).toContain("Per ripartire: /admin, Agenti.");
+    });
+
+    it("costo non registrato: agenti fermi, importo e dove ripartire", () => {
+        const text = unrecordedCostMessage(0.0362);
+        expect(text).toMatch(/^<b>Agenti fermi: un costo AI non è stato registrato<\/b>/);
+        expect(text).toContain("non contata nel tetto di spesa");
+        expect(text).toContain("0,04 $");
+        expect(text).toContain("per ripartire: /admin, Agenti.");
     });
 
     it("quota del tetto tra 0 e 1", () => {

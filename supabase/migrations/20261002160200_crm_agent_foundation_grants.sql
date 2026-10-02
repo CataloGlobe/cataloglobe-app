@@ -56,3 +56,7 @@ REVOKE ALL ON FUNCTION public.crm_settings_agent_guard() FROM PUBLIC, anon, auth
 REVOKE ALL ON FUNCTION public.crm_settings_agent_log() FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.crm_brand_rules_guard() FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.crm_brand_rules_log() FROM PUBLIC, anon, authenticated;
+
+-- Cancella dati: solo service_role (edge crm-purge), mai dal client.
+REVOKE ALL ON FUNCTION public.crm_purge_agent_decisions(timestamptz, boolean) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.crm_purge_agent_decisions(timestamptz, boolean) TO service_role;

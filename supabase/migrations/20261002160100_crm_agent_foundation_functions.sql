@@ -87,8 +87,9 @@ BEGIN
         NEW.brake_changed_at := now();
         NEW.brake_changed_by := v_actor;
         NEW.brake_reason := nullif(btrim(NEW.brake_reason), '');
-        -- Un UPDATE diretto da /admin non dice la fonte.
-        IF NEW.brake_source IS NOT DISTINCT FROM OLD.brake_source AND auth.uid() IS NOT NULL THEN
+        -- Una persona dal client agisce sempre da /admin: la fonte non si dichiara
+        -- ('telegram', 'spend_cap', 'channel' solo dal service role).
+        IF auth.uid() IS NOT NULL THEN
             NEW.brake_source := 'admin';
         END IF;
     ELSE
@@ -521,6 +522,43 @@ BEGIN
     IF NOT FOUND THEN
         RAISE EXCEPTION 'rules_not_draft' USING ERRCODE = '22023';
     END IF;
+END;
+$$;
+
+-- -----------------------------------------------------------------------------
+-- Conservazione del diario
+-- -----------------------------------------------------------------------------
+-- Le righe legate a un locale o a un lead se ne vanno a cascata con
+-- crm_purge_venues. Quelle senza legame (agenti, sistema, impostazioni) possono
+-- comunque citare un lead nel motivo o nel payload: stessa soglia di 12 mesi.
+-- La chiama solo l'edge crm-purge con la service role, dry-run di default.
+CREATE OR REPLACE FUNCTION public.crm_purge_agent_decisions(
+    p_cutoff  timestamptz,
+    p_dry_run boolean DEFAULT true
+)
+RETURNS integer
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path TO ''
+AS $$
+DECLARE
+    v_count integer;
+BEGIN
+    IF p_cutoff IS NULL OR p_cutoff > now() - interval '11 months' THEN
+        -- Difesa contro una soglia sbagliata passata dall'edge.
+        RAISE EXCEPTION 'invalid_cutoff' USING ERRCODE = '22023';
+    END IF;
+
+    IF p_dry_run THEN
+        SELECT count(*)::integer INTO v_count
+        FROM public.crm_agent_decisions d
+        WHERE d.venue_id IS NULL AND d.lead_id IS NULL AND d.created_at < p_cutoff;
+    ELSE
+        DELETE FROM public.crm_agent_decisions d
+        WHERE d.venue_id IS NULL AND d.lead_id IS NULL AND d.created_at < p_cutoff;
+        GET DIAGNOSTICS v_count = ROW_COUNT;
+    END IF;
+    RETURN v_count;
 END;
 $$;
 
