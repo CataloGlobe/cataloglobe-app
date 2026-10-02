@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+    authorizeWorkerCall,
+    buildSendInstruction,
+    buildUnknownChatAlert,
+    WA_WORKER_ACTIONS,
     buildChannelAlert,
     buildInboundAlert,
     isFromMe,
@@ -116,5 +120,69 @@ describe("testi Telegram", () => {
         expect(buildChannelAlert("warning")).toContain("un avviso.");
         expect(buildChannelAlert("silent")).toContain("15 minuti");
         expect(buildChannelAlert("failures")).toContain("Tre invii");
+    });
+});
+
+describe("authorizeWorkerCall", () => {
+    const secrets = { worker: "w-secret", job: "j-secret" };
+    const matches = (given: string | null, which: "worker" | "job") => given === secrets[which];
+
+    it("il segreto del Mac apre solo le sue quattro azioni", () => {
+        expect([...WA_WORKER_ACTIONS]).toEqual(["heartbeat", "chats", "next", "result"]);
+        for (const action of WA_WORKER_ACTIONS) {
+            expect(authorizeWorkerCall(action, { worker: "w-secret", job: null }, matches)).toBe(action);
+        }
+        expect(authorizeWorkerCall("watchdog", { worker: "w-secret", job: null }, matches)).toBeNull();
+        for (const action of ["settings", "brake", "release", "send", "", null, 42]) {
+            expect(authorizeWorkerCall(action, { worker: "w-secret", job: "j-secret" }, matches)).toBeNull();
+        }
+    });
+
+    it("il segreto dei job apre solo il watchdog", () => {
+        expect(authorizeWorkerCall("watchdog", { worker: null, job: "j-secret" }, matches)).toBe("watchdog");
+        expect(authorizeWorkerCall("next", { worker: null, job: "j-secret" }, matches)).toBeNull();
+        expect(authorizeWorkerCall("next", { worker: "j-secret", job: null }, matches)).toBeNull();
+    });
+
+    it("senza segreto o con quello sbagliato nessuna azione", () => {
+        expect(authorizeWorkerCall("next", { worker: null, job: null }, matches)).toBeNull();
+        expect(authorizeWorkerCall("next", { worker: "altro", job: null }, matches)).toBeNull();
+    });
+});
+
+describe("buildSendInstruction", () => {
+    const ok = { messageId: "m1", phone: "+393331112222", body: "  Ciao Mario, sono Alessandro.  " };
+
+    it("al Mac va solo il testo finale, con id e numero", () => {
+        const r = buildSendInstruction(ok);
+        expect(r).toEqual({
+            ok: true,
+            value: { message_id: "m1", phone: "+393331112222", body: "Ciao Mario, sono Alessandro." }
+        });
+        if (r.ok) expect(Object.keys(r.value).sort()).toEqual(["body", "message_id", "phone"]);
+    });
+
+    it("un segnaposto non riempito non parte", () => {
+        expect(buildSendInstruction({ ...ok, body: "Ciao {nome}" })).toEqual({
+            ok: false,
+            error: "Testo con un segnaposto non riempito."
+        });
+        expect(buildSendInstruction({ ...ok, body: "Sono {mittente}" }).ok).toBe(false);
+    });
+
+    it("testo vuoto, troppo lungo, numero o id mancanti non partono", () => {
+        expect(buildSendInstruction({ ...ok, body: "   " }).ok).toBe(false);
+        expect(buildSendInstruction({ ...ok, body: null }).ok).toBe(false);
+        expect(buildSendInstruction({ ...ok, body: "a".repeat(4001) }).ok).toBe(false);
+        expect(buildSendInstruction({ ...ok, phone: "3331112222" }).ok).toBe(false);
+        expect(buildSendInstruction({ ...ok, messageId: null }).ok).toBe(false);
+    });
+});
+
+describe("buildUnknownChatAlert", () => {
+    it("dice quante chat e cosa fare", () => {
+        expect(buildUnknownChatAlert(1)).toContain("Una chat");
+        expect(buildUnknownChatAlert(3)).toContain("3 chat");
+        expect(buildUnknownChatAlert(1)).toContain("/admin, Agenti");
     });
 });

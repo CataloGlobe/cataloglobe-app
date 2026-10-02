@@ -6,7 +6,9 @@
 --
 --   * un messaggio alla volta, poi una pausa casuale di 2-4 minuti;
 --   * ordine: risposte a chi ha scritto, poi primi messaggi, poi follow-up;
---   * agenti in pausa (brake_on) = niente invii;
+--   * ogni messaggio passa da crm_lead_send_gate (20261002210100) subito
+--     prima di essere preso: agenti in pausa (brake_on) = niente invii, stop e
+--     lista stop = messaggio annullato;
 --   * al massimo 30 primi messaggi al giorno (giorno di Roma);
 --   * fasce 21:30-8:30, 12-15 e 19-22:30 (Roma): ferme per i follow-up e per
 --     i primi messaggi a lead entrati da più di 30 minuti; un lead entrato da
@@ -26,9 +28,11 @@
 --   * crm_wa_claim_next, crm_wa_report_result, crm_wa_heartbeat,
 --     crm_wa_ingest_chat: l'edge crm-wa-worker col service role (il Mac
 --     non tocca il database);
---   * crm_wa_watchdog: la stessa edge, chiamata da pg_cron (170300);
---   * crm_set_agent_hold, crm_wa_cancel_message: /admin.
--- SECURITY INVOKER, tranne il trigger che accoda il primo messaggio (vedi sotto).
+--   * crm_wa_watchdog: la stessa edge, chiamata da pg_cron (220300);
+--   * crm_set_agent_hold, crm_wa_cancel_message: /admin;
+--   * crm_purge_messages: l'edge crm-purge, ogni notte (12 mesi).
+-- SECURITY INVOKER, tranne i trigger che accodano il primo messaggio, rimettono
+-- a posto il canale alla ripartenza e scrivono il diario (vedi sotto).
 -- =============================================================================
 
 BEGIN;
@@ -163,6 +167,7 @@ DECLARE
     v_stuck        integer;
     v_first_today  integer;
     v_cancel       text;
+    v_gate         record;
     m              record;
 BEGIN
     SELECT c.next_send_at, c.failures_in_row, c.wa_state INTO v_next_send, v_failures, v_wa_state
@@ -231,7 +236,7 @@ BEGIN
     WHERE f.purpose = 'first_message' AND f.status = 'sent' AND f.sent_at >= v_day_start;
 
     FOR m IN
-        SELECT q.id, q.venue_id, q.purpose, q.body, q.created_at,
+        SELECT q.id, q.venue_id, q.contact_id, q.purpose, q.body, q.created_at,
                c.phone_e164, c.name AS contact_name,
                v.name AS venue_name, v.name_pending, v.stage, v.first_contacted_at, v.agent_hold_at,
                l.received_at
@@ -244,13 +249,28 @@ BEGIN
         LIMIT 200
         FOR UPDATE OF q SKIP LOCKED
     LOOP
+        -- Il cancello unico di ogni invio verso un lead (20261002210100): pausa
+        -- agenti, stop, lista stop, telefono. Il primo messaggio è un testo
+        -- fisso ('system'), il resto lo scrive l'agente ('agent').
+        SELECT * INTO v_gate FROM public.crm_lead_send_gate(
+            m.contact_id, 'whatsapp',
+            CASE WHEN m.purpose = 'first_message' THEN 'system' ELSE 'agent' END
+        );
+        IF v_gate.r_reason = 'brake' THEN
+            RETURN QUERY SELECT NULL::uuid, NULL::uuid, NULL::text, NULL::text, NULL::text, NULL::boolean,
+                NULL::text, NULL::text, NULL::text, 60, 'brake'::text;
+            RETURN;
+        END IF;
+
         v_cancel := CASE
+            WHEN NOT v_gate.r_allowed THEN CASE v_gate.r_reason
+                WHEN 'stop' THEN 'Ha chiesto di non essere più contattato.'
+                WHEN 'suppressed' THEN 'Telefono nella lista stop.'
+                WHEN 'no_phone' THEN 'Contatto senza telefono.'
+                WHEN 'not_found' THEN 'Contatto non trovato.'
+                ELSE 'Invio non permesso (' || coalesce(v_gate.r_reason, '?') || ').'
+            END
             WHEN m.stage = 'perso' THEN 'Locale in Perso.'
-            WHEN m.phone_e164 IS NULL THEN 'Contatto senza telefono.'
-            WHEN EXISTS (
-                SELECT 1 FROM public.crm_suppressions s
-                WHERE s.phone_fingerprint = public.crm_phone_fingerprint(m.phone_e164)
-            ) THEN 'Telefono nella lista stop.'
             WHEN m.purpose = 'first_message' AND v_template IS NULL THEN 'Primo messaggio automatico spento.'
             WHEN m.purpose = 'first_message' AND m.first_contacted_at IS NOT NULL THEN 'Locale già contattato.'
             WHEN m.purpose = 'first_message' AND EXISTS (
@@ -677,10 +697,12 @@ $$;
 -- -----------------------------------------------------------------------------
 -- Diario: impostazioni WhatsApp cambiate (testo, prova, quanti numeri)
 -- -----------------------------------------------------------------------------
+-- SECURITY DEFINER come i trigger di log di 20261002210100: dal client il
+-- diario è in sola lettura.
 CREATE OR REPLACE FUNCTION public.crm_settings_wa_log()
 RETURNS trigger
 LANGUAGE plpgsql
-SECURITY INVOKER
+SECURITY DEFINER
 SET search_path TO ''
 AS $$
 DECLARE
@@ -711,5 +733,45 @@ CREATE TRIGGER crm_settings_wa_log
           OR OLD.wa_test_only IS DISTINCT FROM NEW.wa_test_only
           OR OLD.wa_test_numbers IS DISTINCT FROM NEW.wa_test_numbers)
     EXECUTE FUNCTION public.crm_settings_wa_log();
+
+-- -----------------------------------------------------------------------------
+-- crm_purge_messages: conservazione dei messaggi (12 mesi), chiamata da crm-purge
+-- -----------------------------------------------------------------------------
+-- I messaggi di un locale cancellato dalla conservazione dei 12 mesi
+-- (crm_purge_venues) vanno via a cascata, e un locale in stop lascia
+-- l'impronta del telefono in crm_suppressions. Qui si tolgono anche i messaggi
+-- più vecchi della stessa soglia nei locali che restano (In prova, Cliente
+-- pagante, locali con un ingresso recente): nessun testo di chat resta più di
+-- 12 mesi. Dry-run di default, solo service role (review di Lorenzo del
+-- 2026-10-02).
+CREATE OR REPLACE FUNCTION public.crm_purge_messages(
+    p_cutoff  timestamptz,
+    p_dry_run boolean DEFAULT true
+)
+RETURNS integer
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path TO ''
+AS $$
+DECLARE
+    v_count integer;
+BEGIN
+    IF p_cutoff IS NULL OR p_cutoff > now() - interval '11 months' THEN
+        -- Difesa contro una soglia sbagliata passata dall'edge.
+        RAISE EXCEPTION 'invalid_cutoff' USING ERRCODE = '22023';
+    END IF;
+
+    IF p_dry_run THEN
+        SELECT count(*)::integer INTO v_count
+        FROM public.crm_messages m
+        WHERE coalesce(m.sent_at, m.created_at) < p_cutoff;
+    ELSE
+        DELETE FROM public.crm_messages m
+        WHERE coalesce(m.sent_at, m.created_at) < p_cutoff;
+        GET DIAGNOSTICS v_count = ROW_COUNT;
+    END IF;
+    RETURN v_count;
+END;
+$$;
 
 COMMIT;

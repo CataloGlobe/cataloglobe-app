@@ -17,10 +17,13 @@
 //       lead partono su Telegram a chi ha il locale in carico.
 //   * next {}
 //       il prossimo messaggio da mandare: { send: { message_id, phone, body } }
-//       oppure { wait: { reason, seconds } }. Il testo del primo messaggio si
-//       scrive qui, dal testo delle impostazioni.
+//       oppure { wait: { reason, seconds } }. Il testo è sempre finale e deciso
+//       qui o nel database: il Mac lo copia, non compone niente
+//       (buildSendInstruction). Il primo messaggio si scrive qui, dal testo
+//       approvato nelle impostazioni.
 //   * result { message_id, ok, wa_message_id?, error? }
 //       esito dell'invio. Terzo fallimento di fila → pausa e messaggio.
+// Il segreto del Mac apre solo queste quattro azioni (authorizeWorkerCall).
 // POST { action: "watchdog" } con X-Job-Secret = CRM_JOB_SECRET (pg_cron,
 // migration 20261002220300): Mac muto da 15 minuti → pausa e messaggio; ritenta
 // l'avviso di pausa che Telegram non aveva consegnato.
@@ -35,7 +38,14 @@ import { timingSafeEqualStr } from "../_shared/timingSafeEqual.ts";
 import { getPublicSiteUrl } from "../_shared/publicSiteUrl.ts";
 import { fillWhatsappTemplate } from "../_shared/crmWhatsapp.ts";
 import { sendToTeam } from "../_shared/crmTeamAlert.ts";
-import { buildChannelAlert, buildInboundAlert, parseSnapshotBatch } from "../_shared/crmWaWorker.ts";
+import {
+    authorizeWorkerCall,
+    buildChannelAlert,
+    buildInboundAlert,
+    buildSendInstruction,
+    buildUnknownChatAlert,
+    parseSnapshotBatch
+} from "../_shared/crmWaWorker.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -169,6 +179,7 @@ async function chats(supabase, body) {
     if (!parsed.ok) return json(400, { error: parsed.error });
 
     const results = [];
+    let unknownFromUs = 0;
     for (const chat of parsed.value) {
         const { data, error } = await supabase.rpc("crm_wa_ingest_chat", {
             p_phone: chat.phone,
@@ -180,6 +191,7 @@ async function chats(supabase, body) {
             continue;
         }
         const row = data?.[0];
+        if (row?.r_status === "unknown" && chat.messages.some(m => m.from_me === true)) unknownFromUs++;
         results.push({
             phone: chat.phone,
             status: row?.r_status ?? "error",
@@ -188,6 +200,9 @@ async function chats(supabase, body) {
             matched: row?.r_matched ?? 0
         });
     }
+    // Rete contro un Mac che scrive di testa sua (per esempio istruito dal
+    // messaggio di un lead): un nostro messaggio verso un numero sconosciuto.
+    if (unknownFromUs > 0) await sendToTeam(supabase, buildUnknownChatAlert(unknownFromUs), { logTag: LOG });
     const notified = await flushInbound(supabase);
     return json(200, { ok: true, chats: results, notified });
 }
@@ -229,18 +244,20 @@ async function next(supabase) {
             .eq("status", "sending");
         if (bodyError) text = null;
     }
-    if (!text?.trim()) {
-        // Senza testo (o solo spazi) non si manda: esito fallito, così il messaggio non resta in invio.
+    const instruction = buildSendInstruction({ messageId: row.r_message_id, phone: row.r_phone, body: text });
+    if (!instruction.ok) {
+        // Testo mancante, vuoto o con un segnaposto: non si manda. Esito
+        // fallito, così il messaggio non resta in invio.
         const { data: outcome, error: reportError } = await supabase.rpc("crm_wa_report_result", {
             p_message_id: row.r_message_id,
             p_ok: false,
-            p_error: "Testo del messaggio mancante."
+            p_error: instruction.error
         });
         if (reportError) console.error(`${LOG}: esito del testo mancante non registrato`, reportError.code);
         if (outcome === "failures") await alertChannel(supabase, "failures");
         return json(200, { wait: { reason: "empty", seconds: 5 } });
     }
-    return json(200, { send: { message_id: row.r_message_id, phone: row.r_phone, body: text } });
+    return json(200, { send: instruction.value });
 }
 
 async function result(supabase, body) {
@@ -281,14 +298,15 @@ Deno.serve(async (req: Request) => {
     const body = await req.json().catch(() => null);
     const action = typeof body?.action === "string" ? body.action : "";
 
-    if (action === "watchdog") {
-        if (!secretMatches(req.headers.get("x-job-secret"), JOB_SECRET)) return json(401, { error: "unauthorized" });
-    } else if (!secretMatches(req.headers.get("x-worker-secret"), WORKER_SECRET)) {
-        return json(401, { error: "unauthorized" });
-    }
+    const allowed = authorizeWorkerCall(
+        action,
+        { worker: req.headers.get("x-worker-secret"), job: req.headers.get("x-job-secret") },
+        (given, which) => secretMatches(given, which === "job" ? JOB_SECRET : WORKER_SECRET)
+    );
+    if (!allowed) return json(401, { error: "unauthorized" });
 
     const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } });
-    switch (action) {
+    switch (allowed) {
         case "heartbeat":
             return heartbeat(supabase, body);
         case "chats":

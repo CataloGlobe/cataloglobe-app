@@ -1,5 +1,5 @@
 -- =============================================================================
--- CRM interno (Fase 1, F1-2): ACL delle funzioni di 20261002220000/170100
+-- CRM interno (Fase 1, F1-2): ACL delle funzioni di 20261002220000/220100
 -- =============================================================================
 -- File separato dalla CREATE FUNCTION (42601 con `supabase db push`).
 -- REVOKE FROM PUBLIC non basta: Supabase dà EXECUTE di default ad anon e
@@ -15,6 +15,8 @@
 --   crm_wa_claim_next, crm_wa_report_result, crm_wa_heartbeat,
 --   crm_wa_ingest_chat, crm_wa_watchdog
 --       solo service_role: le chiama l'edge crm-wa-worker
+--   crm_purge_messages
+--       solo service_role: la chiama l'edge crm-purge
 --   crm_messages_guard, crm_wa_enqueue_first_message, crm_settings_wa_log,
 --   crm_wa_reset_on_release
 --       nessuno: sono funzioni trigger (il trigger gira comunque)
@@ -51,3 +53,6 @@ REVOKE ALL ON FUNCTION public.crm_messages_guard() FROM PUBLIC, anon, authentica
 REVOKE ALL ON FUNCTION public.crm_wa_enqueue_first_message() FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.crm_settings_wa_log() FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.crm_wa_reset_on_release() FROM PUBLIC, anon, authenticated;
+
+REVOKE ALL ON FUNCTION public.crm_purge_messages(timestamptz, boolean) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.crm_purge_messages(timestamptz, boolean) TO service_role;

@@ -194,3 +194,64 @@ export function buildChannelAlert(code: WaChannelAlert, detail?: string | null):
     };
     return `${head}\n${body[code]}\nPer riattivarli: /admin, Agenti.`;
 }
+
+// -----------------------------------------------------------------------------
+// Chi può chiamare cosa (review di Lorenzo del 2026-10-02)
+// -----------------------------------------------------------------------------
+// Il segreto del Mac apre solo le sue quattro azioni; il controllo del Mac
+// muto (watchdog) apre solo col segreto dei job di pg_cron. Un segreto del Mac
+// rubato non tocca altro: niente letture del CRM, niente impostazioni, niente
+// pausa tolta, niente testo scelto da lui.
+export const WA_WORKER_ACTIONS = ["heartbeat", "chats", "next", "result"] as const;
+export type WaWorkerAction = (typeof WA_WORKER_ACTIONS)[number];
+
+export function authorizeWorkerCall(
+    action: unknown,
+    headers: { worker: string | null; job: string | null },
+    matches: (given: string | null, which: "worker" | "job") => boolean
+): WaWorkerAction | "watchdog" | null {
+    if (action === "watchdog") return matches(headers.job, "job") ? "watchdog" : null;
+    if (typeof action !== "string" || !(WA_WORKER_ACTIONS as readonly string[]).includes(action)) return null;
+    return matches(headers.worker, "worker") ? (action as WaWorkerAction) : null;
+}
+
+// -----------------------------------------------------------------------------
+// Il testo lo decide il server, il Mac lo copia
+// -----------------------------------------------------------------------------
+// `next` restituisce al Mac solo id, numero e testo finale: niente modello,
+// niente segnaposto, niente nome da completare. Il testo viene da
+// crm_messages.body (scritto lato server) o dal primo messaggio approvato,
+// riempito nell'edge. Un segnaposto rimasto ({nome}…) o un testo vuoto non
+// partono: il Mac non ha niente da comporre. I messaggi dei lead entrano solo
+// come dati (chats → crm_messages) e non diventano mai testo in uscita da qui.
+export interface WaSendInstruction {
+    message_id: string;
+    phone: string;
+    body: string;
+}
+
+const LEFTOVER_PLACEHOLDER = /\{[a-z_]+\}/i;
+export const WA_MAX_BODY = 4000;
+
+export function buildSendInstruction(input: {
+    messageId: string | null | undefined;
+    phone: string | null | undefined;
+    body: string | null | undefined;
+}): ParseResult<WaSendInstruction> {
+    const body = typeof input.body === "string" ? input.body.trim() : "";
+    if (!input.messageId) return { ok: false, error: "Messaggio senza id." };
+    if (!input.phone || !E164.test(input.phone)) return { ok: false, error: "Numero non valido." };
+    if (!body) return { ok: false, error: "Testo del messaggio mancante." };
+    if (body.length > WA_MAX_BODY) return { ok: false, error: "Testo del messaggio troppo lungo." };
+    if (LEFTOVER_PLACEHOLDER.test(body)) return { ok: false, error: "Testo con un segnaposto non riempito." };
+    return { ok: true, value: { message_id: input.messageId, phone: input.phone, body } };
+}
+
+/** Il numero dell'agente ha scritto in una chat che il CRM non conosce. */
+export function buildUnknownChatAlert(count: number): string {
+    return (
+        "<b>Il numero dell'agente ha scritto fuori dal CRM</b>\n" +
+        `${count === 1 ? "Una chat" : `${count} chat`} con messaggi nostri verso numeri che non sono lead. ` +
+        "Il Mac deve mandare solo i testi della coda: controlla WhatsApp Web e, se non sei stato tu, metti in pausa gli agenti da /admin, Agenti."
+    );
+}
