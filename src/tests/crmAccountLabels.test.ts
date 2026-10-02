@@ -33,7 +33,7 @@ describe("crmAccountLabel", () => {
 describe("needsStageLock", () => {
     it("dentro o fuori da In prova e Cliente pagante", () => {
         expect(needsStageLock("contattato", "in_prova", false)).toBe(true);
-        expect(needsStageLock("in_prova", "chiamata_fatta", false)).toBe(true);
+        expect(needsStageLock("in_prova", "telefonata_fatta", false)).toBe(true);
         expect(needsStageLock("in_prova", "cliente_pagante", false)).toBe(true);
     });
 

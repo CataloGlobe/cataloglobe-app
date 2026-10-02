@@ -45,7 +45,7 @@ import styles from "./Crm.module.scss";
 /**
  * Elenco dei lead del CRM: un locale per riga, l'ultimo toccato in cima.
  *
- * Due viste in `?vista=`: elenco (default) e pipeline a 8 colonne. Nell'elenco
+ * Due viste in `?vista=`: elenco (default) e pipeline a 10 colonne. Nell'elenco
  * il filtro di default è «Da lavorare»: tutto tranne Cliente pagante e Perso,
  * cioè le carte su cui c'è ancora qualcosa da fare.
  */

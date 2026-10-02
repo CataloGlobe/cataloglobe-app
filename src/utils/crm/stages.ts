@@ -7,8 +7,10 @@ export const CRM_STAGE_VARIANT: Record<CrmStage, StatusBadgeVariant> = {
     nuovo: "pending",
     contattato: "info",
     in_conversazione: "info",
-    appuntamento: "info",
-    chiamata_fatta: "info",
+    telefonata_fissata: "info",
+    telefonata_fatta: "info",
+    demo_fissata: "info",
+    demo_fatta: "info",
     in_prova: "warning",
     cliente_pagante: "success",
     perso: "neutral"

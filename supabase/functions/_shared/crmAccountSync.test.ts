@@ -21,8 +21,13 @@ describe("stageForSubscription", () => {
 describe("nextStageForAccount", () => {
     it("porta avanti dalle fasi di lavoro", () => {
         expect(nextStageForAccount("contattato", "trialing")).toBe("in_prova");
-        expect(nextStageForAccount("chiamata_fatta", "active")).toBe("cliente_pagante");
+        expect(nextStageForAccount("telefonata_fatta", "active")).toBe("cliente_pagante");
         expect(nextStageForAccount("in_prova", "active")).toBe("cliente_pagante");
+    });
+
+    it("le fasi della demo stanno prima della prova", () => {
+        expect(nextStageForAccount("demo_fissata", "trialing")).toBe("in_prova");
+        expect(nextStageForAccount("demo_fatta", "active")).toBe("cliente_pagante");
     });
 
     it("non torna mai indietro e non si ripete", () => {

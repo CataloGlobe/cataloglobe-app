@@ -20,8 +20,10 @@ export type CrmStageKey =
     | "nuovo"
     | "contattato"
     | "in_conversazione"
-    | "appuntamento"
-    | "chiamata_fatta"
+    | "telefonata_fissata"
+    | "telefonata_fatta"
+    | "demo_fissata"
+    | "demo_fatta"
     | "in_prova"
     | "cliente_pagante"
     | "perso";
@@ -30,10 +32,12 @@ const RANK: Record<CrmStageKey, number> = {
     nuovo: 0,
     contattato: 1,
     in_conversazione: 2,
-    appuntamento: 3,
-    chiamata_fatta: 4,
-    in_prova: 5,
-    cliente_pagante: 6,
+    telefonata_fissata: 3,
+    telefonata_fatta: 4,
+    demo_fissata: 5,
+    demo_fatta: 6,
+    in_prova: 7,
+    cliente_pagante: 8,
     perso: -1
 };
 
