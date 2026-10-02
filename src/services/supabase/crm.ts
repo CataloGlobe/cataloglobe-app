@@ -21,7 +21,7 @@ import type {
     CrmVenue,
     CrmVenueDetail,
     CrmVenueListItem,
-    CrmVenueNameCheck
+    CrmVenueNameChoice
 } from "@/types/crm";
 
 const VENUE_LIST_SELECT =
@@ -177,11 +177,12 @@ export async function renameCrmVenue(venueId: string, name: string, city?: strin
 }
 
 /**
- * Lead tornato con un altro nome del locale: «È lo stesso locale» (`same`,
- * toglie l'etichetta) o «Decido dopo» (`later`, «Locale da verificare»).
- * False se quel lead aveva già quella scelta.
+ * Lead tornato con un altro nome del locale: è lo stesso locale e tiene il
+ * nome che avevamo (`same`) o prende quello scritto nel modulo (`rename`).
+ * Entrambe tolgono l'etichetta «Locale da verificare». False se quel lead
+ * aveva già quella scelta.
  */
-export async function resolveCrmVenueName(leadId: string, choice: CrmVenueNameCheck): Promise<boolean> {
+export async function resolveCrmVenueName(leadId: string, choice: CrmVenueNameChoice): Promise<boolean> {
     const { data, error } = await supabase.rpc("crm_resolve_venue_name", {
         p_lead_id: leadId,
         p_choice: choice

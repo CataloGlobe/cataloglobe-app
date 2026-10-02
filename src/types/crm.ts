@@ -41,8 +41,10 @@ export type CrmEventType =
 
 /** Lead tornato: confronto del locale scritto con quello della carta (20261002130000). */
 export type CrmVenueNameMatch = "same" | "typo" | "other";
-/** Scelta su quel lead: «È lo stesso locale» o «Decido dopo». */
+/** Scelta scritta su quel lead: «È lo stesso locale» o «Decido dopo» (solo dati vecchi). */
 export type CrmVenueNameCheck = "same" | "later";
+/** Scelte offerte oggi (20261002230000): tieni il nome che avevamo o usa quello nuovo. */
+export type CrmVenueNameChoice = "same" | "rename";
 
 /** Stato dell'account collegato, copiato dal job (20261001150000). */
 export type CrmAccountState = "registrato" | "trialing" | "active" | "past_due" | "suspended" | "canceled";
