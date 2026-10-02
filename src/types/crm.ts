@@ -72,6 +72,8 @@ export interface CrmContact {
 
 export interface CrmLead {
     id: string;
+    /** Quando è entrato nel CRM; `received_at` è quando la persona l'ha mandato. */
+    created_at: string;
     venue_id: string;
     contact_id: string | null;
     source: CrmLeadSource;

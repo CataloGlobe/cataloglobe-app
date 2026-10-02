@@ -1,3 +1,4 @@
+import { phoneFingerprint } from "@/utils/crm/phoneFingerprint";
 import { describe, expect, it } from "vitest";
 import {
     decodeMetaCsv,
@@ -61,7 +62,7 @@ describe("stripMetaPrefix", () => {
 });
 
 describe("parseMetaLeadsCsv", () => {
-    it("mappa un lead del modulo Meta sull'ingresso del CRM", () => {
+    it("mappa un lead del modulo Meta sull'ingresso del CRM", async () => {
         const text = tsv([
             HEADER,
             [
@@ -80,7 +81,7 @@ describe("parseMetaLeadsCsv", () => {
                 "prenotazioni"
             ]
         ]);
-        const { rows, errors } = parseMetaLeadsCsv(text);
+        const { rows, errors } = await parseMetaLeadsCsv(text);
         expect(errors).toEqual([]);
         expect(rows).toHaveLength(1);
         expect(rows[0].input).toMatchObject({
@@ -96,42 +97,44 @@ describe("parseMetaLeadsCsv", () => {
             consentText: "Modulo Meta «Richiedi demo»",
             receivedAt: "2026-10-06T16:30:00.000Z"
         });
-        // Solo le risposte del modulo, non le colonne di sistema.
+        // Solo le risposte del modulo: nome, telefono e locale hanno già i loro campi.
         expect(rows[0].input.formAnswers).toEqual({
-            full_name: "Mario Rossi",
-            phone_number: "p:+393331234567",
             email: "mario@example.com",
-            nome_del_locale: "Trattoria da Mario",
             "cosa_ti_interessa?": "prenotazioni"
         });
     });
 
-    it("normalizza un telefono in forma nazionale", () => {
+    it("normalizza un telefono in forma nazionale", async () => {
         const text = tsv([
             ["id", "full_name", "phone_number"],
             ["l:1", "Anna", "333 123 4567"]
         ]);
-        expect(parseMetaLeadsCsv(text).rows[0].input.phoneE164).toBe("+393331234567");
+        expect((await parseMetaLeadsCsv(text)).rows[0].input.phoneE164).toBe("+393331234567");
     });
 
-    it("senza colonna id usa una chiave stabile, così il reimport non duplica", () => {
+    it("senza colonna id usa una chiave stabile, così il reimport non duplica", async () => {
         const text = tsv([
             ["created_time", "full_name", "phone_number"],
             ["2026-10-06T18:30:00+02:00", "Anna", "333 123 4567"],
             ["", "Bruno", "+393339876543"]
         ]);
-        const first = parseMetaLeadsCsv(text).rows.map(r => r.input.sourceRef);
-        expect(first).toEqual(["csv:+393331234567:2026-10-06T18:30:00+02:00", "csv:+393339876543"]);
-        expect(parseMetaLeadsCsv(text).rows.map(r => r.input.sourceRef)).toEqual(first);
+        const first = (await parseMetaLeadsCsv(text)).rows.map(r => r.input.sourceRef);
+        // Impronta del telefono (sha256, come crm_phone_fingerprint), mai il numero.
+        expect(first).toEqual([
+            "csv:78f00e1ca317fb2af02c89b17b8b07382ff70336aba0997ad1f3ef3645b4e682:2026-10-06T18:30:00+02:00",
+            `csv:${await phoneFingerprint("+393339876543")}`
+        ]);
+        expect(first.join()).not.toContain("333");
+        expect((await parseMetaLeadsCsv(text)).rows.map(r => r.input.sourceRef)).toEqual(first);
     });
 
-    it("scarta le righe senza telefono valido, col numero di riga", () => {
+    it("scarta le righe senza telefono valido, col numero di riga", async () => {
         const text = tsv([
             ["id", "full_name", "phone_number"],
             ["l:1", "Anna", ""],
             ["l:2", "Bruno", "p:123"]
         ]);
-        const { rows, errors } = parseMetaLeadsCsv(text);
+        const { rows, errors } = await parseMetaLeadsCsv(text);
         expect(rows).toEqual([]);
         expect(errors).toEqual([
             { line: 2, reason: "telefono mancante" },
@@ -139,15 +142,15 @@ describe("parseMetaLeadsCsv", () => {
         ]);
     });
 
-    it("senza colonna del locale lascia il locale vuoto (da completare)", () => {
+    it("senza colonna del locale lascia il locale vuoto (da completare)", async () => {
         const text = "id,first_name,last_name,phone_number\nl:1,Anna,Bianchi,+393331234567";
-        const input = parseMetaLeadsCsv(text).rows[0].input;
+        const input = (await parseMetaLeadsCsv(text)).rows[0].input;
         expect(input.name).toBe("Anna Bianchi");
         expect(input.venueName).toBe("");
     });
 
-    it("file vuoto o solo intestazione: nessuna riga", () => {
-        expect(parseMetaLeadsCsv("")).toEqual({ rows: [], errors: [] });
-        expect(parseMetaLeadsCsv("id\tfull_name")).toEqual({ rows: [], errors: [] });
+    it("file vuoto o solo intestazione: nessuna riga", async () => {
+        expect(await parseMetaLeadsCsv("")).toEqual({ rows: [], errors: [] });
+        expect(await parseMetaLeadsCsv("id\tfull_name")).toEqual({ rows: [], errors: [] });
     });
 });

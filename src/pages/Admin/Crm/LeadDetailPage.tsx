@@ -350,7 +350,7 @@ export default function LeadDetailPage() {
     const { contacts, leads, events } = detail;
     const stopped = detail.venue.stage === "perso" && detail.venue.lost_kind === "stop";
     const accountLabel = crmAccountLabel(detail.venue);
-    const verifyLead = detail.venue.name_pending ? null : leadToVerify(leads);
+    const verifyLead = detail.venue.name_pending ? null : leadToVerify(leads, events);
 
     return (
         <div className={styles.page}>

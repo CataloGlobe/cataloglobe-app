@@ -1,4 +1,5 @@
 import type { CrmLead } from "@/types/crm";
+import { META_CONTACT_COLUMNS, isMetaVenueColumn } from "@/utils/crm/metaCsv";
 
 /**
  * Campi tecnici della landing (copiati da `crm_sync_landing_leads`): servono
@@ -51,8 +52,12 @@ export function leadAnswerRows(lead: CrmLead): LeadAnswerRow[] {
     }
     if (lead.interests.length > 0) rows.push({ label: "Interessi", value: lead.interests.join(", ") });
 
+    // I lead Meta importati prima del 2026-10-02 hanno nome, telefono e locale
+    // anche tra le risposte: stanno già sopra (il telefono nei Contatti).
+    const isMeta = lead.source === "meta_form";
     for (const [key, value] of Object.entries(answers)) {
         if (TECHNICAL_KEYS.has(key) || OWN_ROW_KEYS.has(key) || !text(value)) continue;
+        if (isMeta && (META_CONTACT_COLUMNS.has(key) || isMetaVenueColumn(key))) continue;
         rows.push({ label: humanize(key), value: text(value) });
     }
     return rows;
