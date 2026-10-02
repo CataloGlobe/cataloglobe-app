@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { captureAttribution } from "@pages/CampaignLanding/attribution";
+import CookieBanner from "@pages/CampaignLanding/components/CookieBanner/CookieBanner";
 import Frame from "@pages/CampaignLanding/components/Frame/Frame";
 import NavBar from "@pages/CampaignLanding/components/NavBar/NavBar";
 import Board from "@pages/CampaignLanding/components/sections/Board/Board";
@@ -31,7 +32,14 @@ export default function LandingPage({ variante }: LandingPageProps) {
 
     return (
         <LandingVariantContext.Provider value={variante}>
-            <Frame fixed={<NavBar />}>
+            <Frame
+                fixed={
+                    <>
+                        <NavBar />
+                        <CookieBanner />
+                    </>
+                }
+            >
                 <Hero />
                 <Supplier />
                 <SoldOut />

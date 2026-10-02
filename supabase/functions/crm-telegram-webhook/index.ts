@@ -122,9 +122,10 @@ async function handleVenueName(supabase, parsed, actor, answer, appUrl) {
     });
     if (error) {
         console.error("crm-telegram-webhook: crm_resolve_venue_name", error.code, error.message);
-        // Lead entrato prima di una rinomina: il nome è già stato deciso nella scheda.
+        // Lead entrato prima di una rinomina: il nome è già stato deciso nella
+        // scheda. SQLSTATE dedicato (migration 20261002155000).
         await answer(
-            String(error.message).includes("nothing_to_verify")
+            error.code === "VN001"
                 ? "Il nome del locale è già stato sistemato nella scheda."
                 : "Non ci sono riuscito. Riprova da /admin."
         );

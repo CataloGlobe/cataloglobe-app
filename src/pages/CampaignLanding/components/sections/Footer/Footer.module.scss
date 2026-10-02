@@ -102,3 +102,17 @@
         padding-top: 30px;
     }
 }
+
+// «Preferenze cookie» non porta altrove, riapre il banner: è un bottone con
+// l'aspetto dei link della colonna.
+.linkButton {
+    @include ld-reset-button;
+
+    display: block;
+    margin-top: 10px;
+    font-size: 14px;
+    text-align: left;
+    color: var(--ld-dark-link);
+
+    @include ld-focus;
+}
