@@ -424,6 +424,22 @@ test.describe("Programmazione — settimana, simulatore, guida", () => {
         await expect(main(page).getByText(/28 set|25 set|Giovedì 24/)).toBeVisible();
     });
 
+    test("con la sede scelta nella navbar la Settimana mostra solo le sue regole; la ricerca no", async ({ page }) => {
+        await page.addInitScript(
+            ([key, value]) => window.sessionStorage.setItem(key, value),
+            [`cataloglobe:sedeScope:${TENANT_ID}`, SEDE.centro] as const
+        );
+        await openList(page, "layout");
+        // La ricerca dell'elenco non entra nella Settimana, dove non si vede.
+        await searchFor(page, "Carta");
+        await openWeek(page);
+        const card = (key: keyof typeof RULE) => main(page).getByRole("button", { name: new RegExp(RULE_NAME[key]) });
+        await expect(card("pranzo").first()).toBeVisible();
+        await expect(card("carta").first()).toBeVisible();
+        // L'aperitivo è di Porto.
+        await expect(card("aperitivo")).toHaveCount(0);
+    });
+
     test("sotto 768 la Settimana mostra un giorno alla volta", async ({ page }) => {
         await openList(page, "layout");
         await page.setViewportSize({ width: 375, height: 812 });

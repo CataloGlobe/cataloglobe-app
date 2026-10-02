@@ -268,23 +268,23 @@ export default function Programming() {
         void loadInitialData();
     }, [loadInitialData]);
 
-    // Sede e ricerca: i conteggi del filtro per tipo si leggono da qui.
+    // La sede scelta nella navbar: vale per l'elenco e per la Settimana.
+    const seatRules = useMemo(() => {
+        if (!filterActivityId) return rules;
+        return rules.filter(rule => {
+            if (rule.applyToAll) return true;
+            if (rule.activityIds.includes(filterActivityId)) return true;
+            return rule.groupIds.some(gId =>
+                (activityIdsByGroupId[gId] ?? []).includes(filterActivityId)
+            );
+        });
+    }, [activityIdsByGroupId, filterActivityId, rules]);
+
+    // Sede e ricerca: i conteggi del filtro per tipo si leggono da qui. La
+    // ricerca resta all'elenco: in Settimana non si vede, e non la filtra.
     const searchedRules = useMemo(() => {
         const query = searchTerm.trim().toLowerCase();
-        let result = rules;
-
-        // 1. Filter by selected activity
-        if (filterActivityId) {
-            result = result.filter(rule => {
-                if (rule.applyToAll) return true;
-                if (rule.activityIds.includes(filterActivityId)) return true;
-                return rule.groupIds.some(gId =>
-                    (activityIdsByGroupId[gId] ?? []).includes(filterActivityId)
-                );
-            });
-        }
-
-        // 2. Filter by search term
+        const result = seatRules;
         if (!query) return result;
 
         return result.filter(rule => {
@@ -313,7 +313,7 @@ export default function Programming() {
                 .toLowerCase()
                 .includes(query);
         });
-    }, [activityById, activityIdsByGroupId, catalogById, catalogLabel, filterActivityId, rules, searchTerm, styleById]);
+    }, [activityById, catalogById, catalogLabel, seatRules, searchTerm, styleById]);
 
     const filteredRules = useMemo(
         () => (ruleTypeFilter === "all" ? searchedRules : searchedRules.filter(rule => rule.rule_type === ruleTypeFilter)),
@@ -981,7 +981,7 @@ export default function Programming() {
                 )
             ) : (
                 <CalendarView
-                    rules={rules}
+                    rules={seatRules}
                     ruleTypeFilter={ruleTypeFilter}
                     onRuleClick={rule => navigate(ruleHref(rule))}
                 />
