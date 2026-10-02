@@ -55,7 +55,7 @@ export function ImportMetaCsvDrawer({ open, onClose, onImported }: Props) {
         setFileName(file.name);
         try {
             const bytes = new Uint8Array(await file.arrayBuffer());
-            setParsed(parseMetaLeadsCsv(decodeMetaCsv(bytes)));
+            setParsed(await parseMetaLeadsCsv(decodeMetaCsv(bytes)));
         } catch {
             setParsed(null);
             setFileError("Non riesco a leggere questo file. È il CSV scaricato da Meta?");

@@ -17,6 +17,7 @@ function lead(overrides: Partial<CrmLead>): CrmLead {
         consent_at: null,
         consent_text: null,
         received_at: "2026-10-01T10:00:00Z",
+        created_at: "2026-10-01T10:00:00Z",
         notified_at: null,
         contact_name_given: null,
         venue_name_given: null,
@@ -63,6 +64,30 @@ describe("leadAnswerRows", () => {
             { label: "Locale", value: "Il modulo Meta non lo chiede" },
             { label: "Quanti coperti hai", value: "80" }
         ]);
+    });
+
+    it("modulo Meta importato prima: nome, telefono e locale non tornano due volte", () => {
+        const rows = leadAnswerRows(
+            lead({
+                source: "meta_form",
+                contact_name_given: "Mario Rossi",
+                venue_name_given: "Trattoria da Mario",
+                form_answers: {
+                    full_name: "Mario Rossi",
+                    phone_number: "p:+393331234567",
+                    email: "mario@example.com",
+                    nome_del_locale: "Trattoria da Mario",
+                    quanti_coperti_hai: "80"
+                }
+            })
+        );
+        expect(rows).toEqual([
+            { label: "Nome", value: "Mario Rossi" },
+            { label: "Locale", value: "Trattoria da Mario" },
+            { label: "Email", value: "mario@example.com" },
+            { label: "Quanti coperti hai", value: "80" }
+        ]);
+        expect(JSON.stringify(rows)).not.toContain("333");
     });
 
     it("telefono scritto male in evidenza", () => {

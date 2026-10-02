@@ -11,6 +11,7 @@
  * Meta, così il webhook in tempo reale non le reimporta).
  */
 import { normalizePhoneToE164 } from "@/utils/phoneNormalize";
+import { phoneFingerprint } from "@/utils/crm/phoneFingerprint";
 import type { CrmIngestInput } from "@/types/crm";
 
 export interface MetaCsvRowOk {
@@ -144,7 +145,27 @@ function toIsoOrNull(value: string): string | null {
     return Number.isNaN(time) ? null : new Date(time).toISOString();
 }
 
-export function parseMetaLeadsCsv(text: string): MetaCsvResult {
+/**
+ * Colonne del contatto: hanno già i loro campi (nome, telefono), quindi non
+ * finiscono tra le risposte del modulo, che la scheda mostrerebbe due volte.
+ */
+export const META_CONTACT_COLUMNS = new Set([
+    ...NAME_COLUMNS,
+    ...FIRST_NAME_COLUMNS,
+    ...LAST_NAME_COLUMNS,
+    ...PHONE_COLUMNS
+]);
+
+/** La domanda sul nome del locale, riconosciuta dal testo dell'intestazione. */
+export function isMetaVenueColumn(header: string): boolean {
+    return !META_FIXED_COLUMNS.has(header) && VENUE_PATTERN.test(header);
+}
+
+/**
+ * Asincrona per l'impronta del telefono (WebCrypto) nelle chiavi delle righe
+ * senza id.
+ */
+export async function parseMetaLeadsCsv(text: string): Promise<MetaCsvResult> {
     const firstLineEnd = text.search(/\r?\n/);
     const headerLine = firstLineEnd === -1 ? text : text.slice(0, firstLineEnd);
     const table = parseDelimited(text, detectDelimiter(headerLine));
@@ -152,11 +173,9 @@ export function parseMetaLeadsCsv(text: string): MetaCsvResult {
     if (table.length < 2) return result;
 
     const headers = table[0].map(normalizeHeader);
-    const venueColumn = headers.find(
-        h => !META_FIXED_COLUMNS.has(h) && VENUE_PATTERN.test(h)
-    );
+    const venueColumn = headers.find(isMetaVenueColumn);
 
-    table.slice(1).forEach((cells, index) => {
+    for (const [index, cells] of table.slice(1).entries()) {
         const line = index + 2;
         const record = new Map<string, string>();
         headers.forEach((header, col) => record.set(header, cells[col] ?? ""));
@@ -168,7 +187,7 @@ export function parseMetaLeadsCsv(text: string): MetaCsvResult {
                 line,
                 reason: rawPhone ? `telefono non valido (${rawPhone})` : "telefono mancante"
             });
-            return;
+            continue;
         }
 
         const fullName =
@@ -181,7 +200,8 @@ export function parseMetaLeadsCsv(text: string): MetaCsvResult {
         const formAnswers: Record<string, string> = {};
         headers.forEach(header => {
             const value = (record.get(header) ?? "").trim();
-            if (!value || META_FIXED_COLUMNS.has(header)) return;
+            if (!value || META_FIXED_COLUMNS.has(header) || META_CONTACT_COLUMNS.has(header)) return;
+            if (header === venueColumn) return;
             formAnswers[header] = value;
         });
 
@@ -190,8 +210,11 @@ export function parseMetaLeadsCsv(text: string): MetaCsvResult {
         const leadId = stripMetaPrefix(record.get("id") ?? "");
         // Senza la colonna id (export rinominato o tagliato) serve comunque
         // una chiave stabile, altrimenti ogni reimport aggiunge una richiesta.
+        // Il telefono entra come impronta: la chiave resta per sempre in
+        // crm_imported_refs, anche dopo la cancellazione del locale.
         const rawCreated = (record.get("created_time") ?? "").trim();
-        const sourceRef = leadId || `csv:${phone}${rawCreated ? `:${rawCreated}` : ""}`;
+        const sourceRef =
+            leadId || `csv:${await phoneFingerprint(phone)}${rawCreated ? `:${rawCreated}` : ""}`;
 
         result.rows.push({
             line,
@@ -213,7 +236,7 @@ export function parseMetaLeadsCsv(text: string): MetaCsvResult {
                 receivedAt: createdAt
             }
         });
-    });
+    }
 
     return result;
 }

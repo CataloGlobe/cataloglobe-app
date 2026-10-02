@@ -122,17 +122,33 @@ async function handleVenueName(supabase, parsed, actor, answer, appUrl) {
     });
     if (error) {
         console.error("crm-telegram-webhook: crm_resolve_venue_name", error.code, error.message);
-        await answer("Non ci sono riuscito. Riprova da /admin.");
+        // Lead entrato prima di una rinomina: il nome è già stato deciso nella scheda.
+        await answer(
+            String(error.message).includes("nothing_to_verify")
+                ? "Il nome del locale è già stato sistemato nella scheda."
+                : "Non ci sono riuscito. Riprova da /admin."
+        );
         return;
     }
 
     await refreshVenueMessages(supabase, BOT_TOKEN, lead.venue_id, appUrl);
     const known = lead.crm_venues?.name ?? "il locale";
     const stage = CRM_STAGE_LABEL[lead.crm_venues?.stage] ?? lead.crm_venues?.stage ?? "";
+    if (choice === "same") {
+        await answer(`Ok, tengo ${known}. Resta in ${stage}.`);
+        return;
+    }
+    // L'etichetta segue la richiesta più recente: su una più vecchia la scelta
+    // resta scritta ma l'etichetta no (crm_refresh_name_to_verify).
+    const { data: venue } = await supabase
+        .from("crm_venues")
+        .select("name_to_verify")
+        .eq("id", lead.venue_id)
+        .maybeSingle();
     await answer(
-        choice === "same"
-            ? `Ok, tengo ${known}. Resta in ${stage}.`
-            : `Ok, ho messo l'etichetta «Locale da verificare» su ${known}.`
+        venue?.name_to_verify
+            ? `Ok, ho messo l'etichetta «Locale da verificare» su ${known}.`
+            : `Ok, segnato. Su ${known} c'è una richiesta più recente da decidere nella scheda.`
     );
 }
 
