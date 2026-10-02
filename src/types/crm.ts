@@ -133,7 +133,7 @@ export interface CrmVenue {
     stage_locked_at: string | null;
     stage_locked_by: string | null;
     stage_lock_note: string | null;
-    /** «La prendo io» (20261002170000): l'agente WhatsApp non scrive a questo locale. */
+    /** «La prendo io» (20261002220000): l'agente WhatsApp non scrive a questo locale. */
     agent_hold_at: string | null;
     agent_hold_by: string | null;
 }
@@ -249,7 +249,7 @@ export type CrmAgentCheckResult =
     | { ok: false; reason: string; model: string | null; detail: string | null };
 
 // -----------------------------------------------------------------------------
-// Connettore WhatsApp Web (F1-2, migration 20261002170000)
+// Connettore WhatsApp Web (F1-2, migration 20261002220000)
 // -----------------------------------------------------------------------------
 export type CrmMessageDirection = "in" | "out";
 export type CrmMessageAuthor = "lead" | "agent" | "person";

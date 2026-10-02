@@ -21,7 +21,7 @@
 --   * crm_events: tipi agent_hold / agent_released.
 --
 -- Tabelle di piattaforma come le altre crm_*: niente tenant_id, RLS su
--- is_platform_admin(). Funzioni in 20261002170100, GRANT in 170200.
+-- is_platform_admin(). Funzioni in 20261002220100, GRANT in 220200.
 -- =============================================================================
 
 BEGIN;
@@ -152,7 +152,7 @@ CREATE TRIGGER crm_wa_channel_set_updated_at
 -- -----------------------------------------------------------------------------
 REVOKE ALL ON TABLE public.crm_messages, public.crm_wa_channel FROM PUBLIC, anon, authenticated;
 -- Messaggi: le persone leggono e annullano un messaggio in coda (solo le due
--- colonne, e la guardia di 170100 ammette solo in coda → annullato). Scrive
+-- colonne, e la guardia di 220100 ammette solo in coda → annullato). Scrive
 -- tutto il resto l'edge col service role.
 GRANT SELECT ON TABLE public.crm_messages TO authenticated;
 GRANT UPDATE (status, status_reason) ON TABLE public.crm_messages TO authenticated;

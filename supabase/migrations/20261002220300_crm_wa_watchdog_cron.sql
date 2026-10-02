@@ -6,7 +6,7 @@
 -- Mac negli ultimi 15 minuti. L'edge mette in pausa gli agenti (crm_wa_watchdog) e
 -- avvisa il team su Telegram.
 --
--- ⚠️ SYNC con le condizioni di `crm_wa_watchdog` (20261002170100). Falso
+-- ⚠️ SYNC con le condizioni di `crm_wa_watchdog` (20261002220100). Falso
 -- positivo = una chiamata a vuoto; falso negativo = nessun avviso.
 --
 -- PREREQUISITI, nel SQL Editor PRIMA di applicare (i segreti non stanno in un

@@ -2,7 +2,7 @@
  * Connettore WhatsApp Web del CRM (F1-2): conversazione nella scheda del
  * lead, «La prendo io», stato del canale e impostazioni nella pagina Agenti.
  *
- * Tabelle di piattaforma (migration 20261002170000): niente tenant_id, il
+ * Tabelle di piattaforma (migration 20261002220000): niente tenant_id, il
  * confine è RLS su `is_platform_admin()`. I messaggi li scrive l'edge
  * `crm-wa-worker`; da qui si può solo annullare un messaggio in coda.
  */

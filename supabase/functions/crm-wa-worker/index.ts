@@ -6,7 +6,7 @@
 // Sul Mac di casa Claude in Chrome tiene aperto WhatsApp Web sul numero
 // dell'agente; il comando `scripts/crm-wa/crm-wa.mjs` chiama questa edge.
 // Il Mac non tocca il database: tutte le regole stanno nelle funzioni SQL
-// (migration 20261002170100).
+// (migration 20261002220100).
 //
 // POST { action, ... } con X-Worker-Secret = CRM_WA_WORKER_SECRET:
 //   * heartbeat { state: ok|needs_relink|warning, detail?, version? }
@@ -22,7 +22,7 @@
 //   * result { message_id, ok, wa_message_id?, error? }
 //       esito dell'invio. Terzo fallimento di fila → pausa e messaggio.
 // POST { action: "watchdog" } con X-Job-Secret = CRM_JOB_SECRET (pg_cron,
-// migration 20261002170300): Mac muto da 15 minuti → pausa e messaggio; ritenta
+// migration 20261002220300): Mac muto da 15 minuti → pausa e messaggio; ritenta
 // l'avviso di pausa che Telegram non aveva consegnato.
 //
 // AUTENTICAZIONE fail-CLOSED, confronto constant-time; segreti mai nei log.
