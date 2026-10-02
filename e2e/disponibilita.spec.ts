@@ -199,7 +199,7 @@ test.describe("Cosa vedono i clienti — esito e provenienza", () => {
         await expect(main(page).getByText(/Stai modificando solo/)).toHaveCount(0);
     });
 
-    test.fail("su ogni riga chi ha deciso lo stato: la regola o la mano", async ({ page }) => {
+    test("su ogni riga chi ha deciso lo stato: la regola o la mano", async ({ page }) => {
         await openDisponibilita(page, { rules: true });
         await expect(band(page)).toContainText("0 visibili · 2 nascosti · 1 non disponibile", { timeout: 15_000 });
         await expect(rowText(page, "Big e2e")).toContainText("Non disponibile per la regola «Sera e2e»");

@@ -1,4 +1,3 @@
-import { useCallback } from "react";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import { PageGate } from "@/components/PageGate/PageGate";
 import { usePermissions } from "@/context/usePermissions";
@@ -42,8 +41,6 @@ export default function ActivityDisponibilitaRoute() {
               renderable: explanation.data.renderable
           })
         : null;
-    const reloadExplanation = explanation.reload;
-    const handleChanged = useCallback(() => void reloadExplanation(true), [reloadExplanation]);
 
     if (permissions != null && !canRead) {
         return <PageGate readPermission="activity.read" activityId={activity.id}>{() => null}</PageGate>;
@@ -81,16 +78,13 @@ export default function ActivityDisponibilitaRoute() {
                     }}
                 />
             )}
-            {canExplain && explanation.error && (
-                <InlineBanner variant="error">Non è stato possibile caricare cosa vedono i clienti.</InlineBanner>
-            )}
             {permissions != null && !canExplain && (
                 <InlineBanner variant="info">Per vedere perché, serve l'accesso a Programmazione.</InlineBanner>
             )}
             {canRead && (
                 <ActivityVisibilityContent
                     activityId={activity.id}
-                    onChanged={handleChanged}
+                    explanation={canExplain ? explanation : undefined}
                     readOnly={!canWrite}
                 />
             )}
