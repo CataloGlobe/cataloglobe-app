@@ -206,6 +206,11 @@ export default function PrivacyPolicyPage() {
                             domande; misurare quali campagne portano le richieste e prevenire abusi del
                             modulo (vedi Sezione 02 — Richieste di contatto dalla landing).
                         </li>
+                        <li>
+                            <strong>Analisi della pagina di presentazione:</strong> solo con il tuo consenso,
+                            capire come viene usata la landing per migliorarla, tramite Microsoft Clarity
+                            (vedi Sezione 07 — Microsoft Clarity).
+                        </li>
                     </ul>
                     <p>
                         Il trattamento avviene con modalità prevalentemente automatizzate, nel rispetto
@@ -343,11 +348,13 @@ export default function PrivacyPolicyPage() {
 
                     <p><strong>Cookie e tecnologie di archiviazione locale</strong></p>
                     <p>
-                        Sulla pagina pubblica del menu e sulla pagina di presentazione di CataloGlobe
-                        (la landing con il modulo «Richiedi una demo») non utilizziamo cookie HTTP scritti
-                        dal nostro codice. Utilizziamo invece le seguenti tecnologie di archiviazione
-                        locale del browser, tutte considerate tecniche/funzionali e non richiedenti
-                        consenso esplicito:
+                        Sulla pagina pubblica del menu non utilizziamo cookie HTTP. Sulla pagina di
+                        presentazione di CataloGlobe (la landing con il modulo «Richiedi una demo»,
+                        indirizzi <em>/</em> e <em>/b</em>) i soli cookie sono quelli di Microsoft Clarity,
+                        installati unicamente se presti il consenso dal banner (vedi sotto «Microsoft
+                        Clarity»). Utilizziamo inoltre le seguenti tecnologie di archiviazione locale del
+                        browser, tutte considerate tecniche/funzionali e non richiedenti consenso
+                        esplicito:
                     </p>
 
                     <table className={styles.dataTable}>
@@ -397,6 +404,16 @@ export default function PrivacyPolicyPage() {
                                 <td>Solo durata sessione browser</td>
                             </tr>
                             <tr>
+                                <td><code>cg-cookie-consent</code></td>
+                                <td>localStorage</td>
+                                <td>
+                                    Sulla pagina di presentazione: ricorda la tua scelta sui cookie di
+                                    analisi (accettati o rifiutati), con la versione del banner e la data
+                                    della scelta, per non riproporti il banner a ogni visita.
+                                </td>
+                                <td>6 mesi dalla scelta, poi il banner viene riproposto</td>
+                            </tr>
+                            <tr>
                                 <td>Identificatore di sessione analytics</td>
                                 <td>Memoria volatile (RAM)</td>
                                 <td>
@@ -427,6 +444,82 @@ export default function PrivacyPolicyPage() {
                         <li>
                             <strong>Supabase</strong>: in qualità di responsabile del trattamento per
                             l'erogazione del servizio.
+                        </li>
+                        <li>
+                            <strong>Microsoft Clarity</strong> (<em>clarity.ms</em>): solo sulla pagina di
+                            presentazione e solo con il tuo consenso, per l'analisi del comportamento di
+                            navigazione descritta sotto.
+                        </li>
+                    </ul>
+
+                    <p><strong>Microsoft Clarity (solo con il tuo consenso)</strong></p>
+                    <p>
+                        Sulla sola pagina di presentazione (indirizzi <em>/</em> e <em>/b</em>) e solo se
+                        clicchi «Accetta» nel banner dei cookie, utilizziamo Microsoft Clarity, un servizio
+                        di analisi del comportamento di navigazione. Prima del consenso lo script di Clarity
+                        non viene caricato e nessun dato viene inviato a Microsoft. Clarity non è mai attivo
+                        sulle pagine pubbliche dei menu né nell'area riservata.
+                    </p>
+                    <ul>
+                        <li>
+                            <strong>Finalità:</strong> capire come i visitatori usano la pagina di
+                            presentazione (clic, scorrimento, movimenti del puntatore, parti lette o
+                            ignorate), anche tramite mappe di calore e registrazioni della sessione di
+                            navigazione, per migliorarne contenuti e struttura.
+                        </li>
+                        <li>
+                            <strong>Fornitore:</strong> Microsoft Corporation (One Microsoft Way, Redmond,
+                            WA 98052, Stati Uniti), che tratta i dati secondo l'
+                            <a
+                                href="https://www.microsoft.com/privacy/privacystatement"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
+                                Informativa sulla privacy di Microsoft
+                            </a>{' '}
+                            e la{' '}
+                            <a
+                                href="https://learn.microsoft.com/clarity/setup-and-installation/clarity-cookies"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
+                                documentazione di Clarity sui cookie
+                            </a>.
+                        </li>
+                        <li>
+                            <strong>Dati raccolti:</strong> un identificativo pseudonimo del browser e della
+                            sessione, le interazioni con la pagina (clic, scorrimento, movimenti del mouse,
+                            ridimensionamento della finestra), informazioni tecniche su dispositivo e browser
+                            (tipo di dispositivo, sistema operativo, dimensioni dello schermo), pagina di
+                            provenienza e indirizzo IP. Il testo digitato nei campi del modulo di contatto
+                            è mascherato da Clarity e non viene registrato. I dati sono conservati sui
+                            server cloud di Microsoft (Azure).
+                        </li>
+                        <li>
+                            <strong>Base giuridica:</strong> il tuo consenso (art. 6, par. 1, lett. a GDPR e
+                            art. 122 del Codice Privacy), facoltativo: se rifiuti o chiudi il banner, la
+                            pagina funziona allo stesso modo.
+                        </li>
+                        <li>
+                            <strong>Trasferimento extra UE:</strong> i dati possono essere trattati da
+                            Microsoft negli Stati Uniti, sulla base del Data Privacy Framework UE-USA a cui
+                            Microsoft aderisce e delle clausole contrattuali standard.
+                        </li>
+                        <li>
+                            <strong>Durata:</strong> il cookie <code>_clck</code> (identificativo del
+                            visitatore) dura 1 anno, il cookie <code>_clsk</code> (collega le pagine viste in
+                            un'unica sessione) dura 1 giorno; Clarity può installare inoltre cookie di
+                            terze parti di Microsoft (<code>MUID</code>, <code>CLID</code>,{' '}
+                            <code>ANONCHK</code>, <code>MR</code>, <code>SM</code>) con la durata stabilita da
+                            Microsoft. Le registrazioni restano disponibili per 30 giorni; un campione può
+                            essere conservato da Microsoft fino a 9 mesi.
+                        </li>
+                        <li>
+                            <strong>Come revocare:</strong> in qualsiasi momento, dal link «Preferenze
+                            cookie» in fondo alla pagina di presentazione, scegliendo «Rifiuta»: i cookie
+                            <code> _clck</code> e <code>_clsk</code> vengono cancellati e la pagina viene
+                            ricaricata senza Clarity. Puoi anche cancellare i cookie dalle impostazioni del
+                            browser. La scelta, accettazione o rifiuto, viene richiesta di nuovo dopo 6 mesi.
                         </li>
                     </ul>
 
