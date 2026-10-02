@@ -22,31 +22,33 @@
 --      il viewer con catalogs.write prestato nel blocco riceve
 --      «Forbidden: missing products.write»
 --
--- Ogni caso stampa `PASS`, `FAIL`, `SKIP` (nessuna riga di esempio
--- nell'azienda) o `INCONCLUSO` (errore diverso da quello atteso, col
--- SQLSTATE: va letto). Il file non si interrompe su un FAIL.
+-- Esecuzione: Studio SQL Editor di staging, file intero. È un solo blocco
+-- DO: lo Studio mostra solo l'ultima istruzione e non i RAISE NOTICE, quindi
+-- gli esiti escono tutti nel messaggio dell'errore finale.
 --
--- Pattern: si parte dal ruolo postgres (Studio). Ogni gesto gira come
--- authenticated con request.jwt.claims dell'utente, dentro un blocco
--- BEGIN … EXCEPTION che si annulla da solo (errore sentinella P0099): niente
--- resta scritto nemmeno a metà file. Tutto il file è in BEGIN … ROLLBACK.
--- I gesti riusano righe esistenti dell'azienda: UPDATE senza cambiare nulla
--- (tenant_id = tenant_id), DELETE + reinserimento della stessa riga, INSERT
--- della copia della riga (per chi non può scrivere: la RLS rifiuta prima del
--- vincolo di unicità).
+-- L'ERRORE FINALE È VOLUTO: il blocco termina sempre con RAISE EXCEPTION
+-- «PASS n / FAIL m …» seguito da una riga per caso (prima le FAIL, poi i casi
+-- non provati, poi le PASS). L'eccezione annulla ogni scrittura fatta dal
+-- test, comprese la promozione ad admin e il permesso prestato al viewer.
+-- In più ogni caso gira in un sotto-blocco che si annulla da solo (errore
+-- sentinella P0099), quindi nemmeno a metà blocco resta qualcosa scritto.
 --
--- Admin: se `rls_test.admin` è vuoto, il test promuove `rls_test.staff` ad
--- admin dentro il proprio blocco (role = 'admin', tolte le righe di sede),
--- come in translations_write_guard.test.sql; il blocco si annulla.
+-- Riga di esito: «PASS|FAIL · ruolo · tabella/RPC · operazione · atteso · ottenuto».
+-- «NON PROVATO» = nessuna riga di esempio nell'azienda per quel gesto (o
+-- nessun prodotto per le RPC): il caso non dimostra nulla, va letto.
 --
--- Esecuzione: Studio SQL Editor di staging, ruolo postgres, file intero.
--- =============================================================================
-
-BEGIN;
-
--- -----------------------------------------------------------------------------
--- Parametri (utenti di test di staging, come negli altri test di supabase/tests)
--- Verifica dei ruoli:
+-- Pattern: si parte dal ruolo postgres. Ogni gesto gira come authenticated
+-- (set_config('role') + request.jwt.claims dell'utente); dopo ogni caso
+-- RESET ROLE. I gesti riusano righe esistenti dell'azienda: UPDATE senza
+-- cambiare nulla (tenant_id = tenant_id), DELETE + reinserimento della stessa
+-- riga, INSERT della copia della riga (per chi non può scrivere: la RLS
+-- rifiuta prima del vincolo di unicità).
+--
+-- Admin: se c_admin è NULL, il test promuove c_staff ad admin dentro il
+-- blocco di quell'utente (role = 'admin', tolte le righe di sede), come in
+-- translations_write_guard.test.sql; il blocco si annulla.
+--
+-- Verifica dei ruoli (prima di lanciare, se servono altri utenti):
 --   SELECT tm.user_id, u.email, tm.role AS ruolo_azienda,
 --          tma.role AS ruolo_sede, a.name AS sede
 --   FROM public.tenant_memberships tm
@@ -56,342 +58,94 @@ BEGIN;
 --   WHERE tm.tenant_id = '<tenant>' AND tm.status = 'active'
 --   ORDER BY u.email;
 --   SELECT owner_user_id FROM public.tenants WHERE id = '<tenant>';
--- -----------------------------------------------------------------------------
-SELECT set_config('rls_test.tenant',  '5b37c952-1add-4196-aab3-9775d98a9c32', true); -- McDonald's
-SELECT set_config('rls_test.owner',   '9603ef2a-9f9d-4ebc-8d05-3b2600e36e49', true); -- owner (tenants.owner_user_id)
-SELECT set_config('rls_test.admin',   '',                                     true); -- vuoto = staff promosso ad admin
-SELECT set_config('rls_test.manager', '16595820-3e80-4ce2-aded-f4c5f01ab92d', true); -- test.manager
-SELECT set_config('rls_test.staff',   '9c6580e5-80bc-4fe8-9141-0d299be38f2f', true); -- test.staff
-SELECT set_config('rls_test.viewer',  'd01359aa-d980-4030-bc5c-c5e84dfe3d0c', true); -- test.viewer
+-- =============================================================================
 
--- -----------------------------------------------------------------------------
--- Helper (pg_temp: spariscono a fine sessione)
--- -----------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION pg_temp.param(p_key text)
-RETURNS uuid
-LANGUAGE sql
-AS $$ SELECT NULLIF(current_setting('rls_test.' || p_key), '')::uuid $$;
-
-CREATE OR REPLACE FUNCTION pg_temp.as_user(p_user uuid)
-RETURNS void
-LANGUAGE plpgsql
-AS $$
-BEGIN
-  PERFORM set_config('request.jwt.claims',
-    json_build_object('sub', p_user, 'role', 'authenticated')::text, true);
-  SET LOCAL role authenticated;
-END;
-$$;
-
-CREATE OR REPLACE FUNCTION pg_temp.as_postgres()
-RETURNS void
-LANGUAGE plpgsql
-AS $$
-BEGIN
-  SET LOCAL role postgres;
-  PERFORM set_config('request.jwt.claims', '', true);
-END;
-$$;
-
--- Una riga di esempio dell'azienda (come postgres, salta la RLS).
-CREATE OR REPLACE FUNCTION pg_temp.sample_row(p_table text, OUT o_row jsonb, OUT o_ctid tid)
-LANGUAGE plpgsql
-AS $$
-BEGIN
-  IF p_table = 'product_variant_assignment_values' THEN
-    SELECT to_jsonb(v), v.ctid INTO o_row, o_ctid
-    FROM public.product_variant_assignment_values v
-    JOIN public.product_variant_assignments a ON a.id = v.assignment_id
-    WHERE a.tenant_id = pg_temp.param('tenant')
-    LIMIT 1;
-  ELSE
-    EXECUTE format('SELECT to_jsonb(x), x.ctid FROM public.%I x WHERE x.tenant_id = $1 LIMIT 1', p_table)
-    INTO o_row, o_ctid
-    USING pg_temp.param('tenant');
-  END IF;
-END;
-$$;
-
--- INSERT, UPDATE e DELETE di `p_label` su `p_table`, con l'esito atteso.
-CREATE OR REPLACE FUNCTION pg_temp.check_table(p_table text, p_label text, p_user uuid, p_expect boolean)
-RETURNS void
-LANGUAGE plpgsql
-AS $$
+DO $$
 DECLARE
-  v_row  jsonb;
-  v_ctid tid;
-  v_n    int;
-  v_tag  text := p_label || ' · ' || p_table;
-BEGIN
-  PERFORM pg_temp.as_postgres();
-  SELECT s.o_row, s.o_ctid INTO v_row, v_ctid FROM pg_temp.sample_row(p_table) s;
+  -- ---------------------------------------------------------------------------
+  -- Parametri (utenti di test di staging, come negli altri test di supabase/tests)
+  -- ---------------------------------------------------------------------------
+  c_tenant  CONSTANT uuid := '5b37c952-1add-4196-aab3-9775d98a9c32'; -- McDonald's
+  c_owner   CONSTANT uuid := '9603ef2a-9f9d-4ebc-8d05-3b2600e36e49'; -- owner (tenants.owner_user_id)
+  c_admin   CONSTANT uuid := NULL;                                   -- NULL = c_staff promosso ad admin
+  c_manager CONSTANT uuid := '16595820-3e80-4ce2-aded-f4c5f01ab92d'; -- test.manager
+  c_staff   CONSTANT uuid := '9c6580e5-80bc-4fe8-9141-0d299be38f2f'; -- test.staff
+  c_viewer  CONSTANT uuid := 'd01359aa-d980-4030-bc5c-c5e84dfe3d0c'; -- test.viewer
 
-  -- INSERT --------------------------------------------------------------------
-  IF v_row IS NULL AND p_expect THEN
-    RAISE NOTICE 'SKIP %: INSERT/UPDATE/DELETE, nessuna riga di esempio nell''azienda', v_tag;
-    RETURN;
-  END IF;
+  c_gated CONSTANT text[] := ARRAY[
+    'ingredients', 'product_ingredients', 'product_allergens',
+    'product_characteristic_assignments', 'product_pairings', 'product_groups',
+    'product_group_items', 'product_option_groups', 'product_option_values',
+    'product_attribute_values', 'product_attribute_definitions'];
+  c_variant CONSTANT text[] := ARRAY[
+    'product_variant_dimensions', 'product_variant_dimension_values',
+    'product_variant_assignments', 'product_variant_assignment_values'];
+  c_rpcs CONSTANT text[] := ARRAY[
+    'replace_product_allergens', 'replace_product_ingredients',
+    'replace_product_characteristics', 'replace_product_pairings'];
+  c_forbidden CONSTANT text := '42501 Forbidden: missing products.write';
+  c_import_categories CONSTANT jsonb :=
+    '[{"ref": "c1", "existing_id": null, "name": "Test RLS", "name_hash": "test",
+       "level": 1, "parent_ref": null, "sort_order": 0}]';
+  c_import_products CONSTANT jsonb :=
+    '[{"action": "create", "category_ref": "c1", "sort_order": 0,
+       "product": {"name": "Test RLS import", "base_price": 1, "product_type": "simple",
+                   "format_group_name_hash": "test",
+                   "formats": [{"name": "Piccolo", "absolute_price": 1, "name_hash": "test"}]}}]';
 
-  BEGIN
-    PERFORM pg_temp.as_user(p_user);
-    IF p_expect THEN
-      -- La stessa riga tolta e rimessa: niente vincoli violati.
-      EXECUTE format('DELETE FROM public.%I WHERE ctid = $1', p_table) USING v_ctid;
-      GET DIAGNOSTICS v_n = ROW_COUNT;
-      IF v_n <> 1 THEN
-        RAISE NOTICE 'FAIL %: DELETE ha tolto % righe, attesa 1', v_tag, v_n;
-      ELSE
-        RAISE NOTICE 'PASS %: DELETE ammessa', v_tag;
-      END IF;
-      EXECUTE format('INSERT INTO public.%I SELECT (jsonb_populate_record(NULL::public.%I, $1)).*', p_table, p_table)
-      USING v_row;
-      RAISE NOTICE 'PASS %: INSERT ammessa', v_tag;
-    ELSIF v_row IS NOT NULL THEN
-      EXECUTE format('INSERT INTO public.%I SELECT (jsonb_populate_record(NULL::public.%I, $1)).*', p_table, p_table)
-      USING v_row;
-      RAISE NOTICE 'FAIL %: INSERT riuscita, attesa 42501', v_tag;
-    ELSIF p_table = 'product_variant_assignment_values' THEN
-      INSERT INTO public.product_variant_assignment_values (assignment_id, dimension_value_id)
-      VALUES (gen_random_uuid(), gen_random_uuid());
-      RAISE NOTICE 'FAIL %: INSERT riuscita, attesa 42501', v_tag;
-    ELSE
-      -- Nessuna riga da copiare: la RLS rifiuta prima dei vincoli NOT NULL.
-      EXECUTE format('INSERT INTO public.%I (tenant_id) VALUES ($1)', p_table) USING pg_temp.param('tenant');
-      RAISE NOTICE 'FAIL %: INSERT riuscita, attesa 42501', v_tag;
-    END IF;
-    RAISE EXCEPTION USING ERRCODE = 'P0099';
-  EXCEPTION
-    WHEN SQLSTATE 'P0099' THEN NULL;
-    WHEN insufficient_privilege THEN
-      IF p_expect THEN
-        RAISE NOTICE 'FAIL %: 42501 su INSERT/DELETE, attesa riuscita (%)', v_tag, SQLERRM;
-      ELSE
-        RAISE NOTICE 'PASS %: INSERT rifiutata (42501)', v_tag;
-      END IF;
-    WHEN OTHERS THEN
-      RAISE NOTICE 'INCONCLUSO %: INSERT/DELETE, SQLSTATE % (%)', v_tag, SQLSTATE, SQLERRM;
-  END;
+  -- Esiti
+  v_pass    text[] := '{}';
+  v_fail    text[] := '{}';
+  v_skipped text[] := '{}';
+  v_line    text;
 
-  IF v_row IS NULL THEN
-    RAISE NOTICE 'SKIP %: UPDATE/DELETE, nessuna riga di esempio nell''azienda', v_tag;
-    RETURN;
-  END IF;
+  -- Utenti
+  v_labels text[];
+  v_users  uuid[];
+  v_writer boolean[];
+  v_i      int;
+  v_label  text;
+  v_user   uuid;
+  v_claims text;
+  v_can    boolean;
 
-  -- UPDATE (senza cambiare nulla) ---------------------------------------------
-  BEGIN
-    PERFORM pg_temp.as_user(p_user);
-    IF p_table = 'product_variant_assignment_values' THEN
-      UPDATE public.product_variant_assignment_values SET assignment_id = assignment_id WHERE ctid = v_ctid;
-    ELSE
-      EXECUTE format('UPDATE public.%I SET tenant_id = tenant_id WHERE ctid = $1', p_table) USING v_ctid;
-    END IF;
-    GET DIAGNOSTICS v_n = ROW_COUNT;
-    IF (p_expect AND v_n = 1) OR (NOT p_expect AND v_n = 0) THEN
-      RAISE NOTICE 'PASS %: UPDATE % righe', v_tag, v_n;
-    ELSE
-      RAISE NOTICE 'FAIL %: UPDATE % righe, attese %', v_tag, v_n, CASE WHEN p_expect THEN 1 ELSE 0 END;
-    END IF;
-    RAISE EXCEPTION USING ERRCODE = 'P0099';
-  EXCEPTION
-    WHEN SQLSTATE 'P0099' THEN NULL;
-    WHEN insufficient_privilege THEN
-      IF p_expect THEN
-        RAISE NOTICE 'FAIL %: UPDATE 42501, attesa riuscita (%)', v_tag, SQLERRM;
-      ELSE
-        RAISE NOTICE 'PASS %: UPDATE rifiutata (42501)', v_tag;
-      END IF;
-    WHEN OTHERS THEN
-      RAISE NOTICE 'INCONCLUSO %: UPDATE, SQLSTATE % (%)', v_tag, SQLSTATE, SQLERRM;
-  END;
+  -- Casi
+  v_cases  text[] := '{}';
+  v_case   text;
+  v_table  text;
+  v_op     text;
+  v_obj    text;
+  v_deny   boolean;
+  v_exp    text;
+  v_got    text;
+  v_status text;
+  v_row    jsonb;
+  v_ctid   tid;
+  v_n      int;
+  v_perm   text;
+  v_bad    text;
+  v_result jsonb;
 
-  -- DELETE di chi non può (per chi può l'ha già provata il blocco INSERT) -----
-  IF NOT p_expect THEN
-    BEGIN
-      PERFORM pg_temp.as_user(p_user);
-      EXECUTE format('DELETE FROM public.%I WHERE ctid = $1', p_table) USING v_ctid;
-      GET DIAGNOSTICS v_n = ROW_COUNT;
-      IF v_n = 0 THEN
-        RAISE NOTICE 'PASS %: DELETE 0 righe', v_tag;
-      ELSE
-        RAISE NOTICE 'FAIL %: DELETE ha tolto % righe, attese 0', v_tag, v_n;
-      END IF;
-      RAISE EXCEPTION USING ERRCODE = 'P0099';
-    EXCEPTION
-      WHEN SQLSTATE 'P0099' THEN NULL;
-      WHEN insufficient_privilege THEN
-        RAISE NOTICE 'PASS %: DELETE rifiutata (42501)', v_tag;
-      WHEN OTHERS THEN
-        RAISE NOTICE 'INCONCLUSO %: DELETE, SQLSTATE % (%)', v_tag, SQLSTATE, SQLERRM;
-    END;
-  END IF;
-
-  PERFORM pg_temp.as_postgres();
-END;
-$$;
-
--- Le 4 RPC, chiamate coi valori che il prodotto ha già (un successo non cambia
--- nulla, e comunque si annulla).
-CREATE OR REPLACE FUNCTION pg_temp.check_rpcs(p_label text, p_user uuid, p_expect boolean)
-RETURNS void
-LANGUAGE plpgsql
-AS $$
-DECLARE
-  v_tenant  uuid := pg_temp.param('tenant');
+  -- Prodotto di esempio per le RPC
   v_product uuid;
   v_allerg  int[];
   v_ingr    jsonb;
   v_char    uuid[];
   v_pair    jsonb;
-  v_rpc     text;
 BEGIN
-  PERFORM pg_temp.as_postgres();
-  SELECT p.id INTO v_product
-  FROM public.products p
-  WHERE p.tenant_id = v_tenant AND p.parent_product_id IS NULL
-  ORDER BY (SELECT count(*) FROM public.product_allergens pa WHERE pa.product_id = p.id) DESC
-  LIMIT 1;
-  IF v_product IS NULL THEN
-    RAISE NOTICE 'SKIP % · RPC: nessun prodotto nell''azienda', p_label;
-    RETURN;
-  END IF;
-  SELECT COALESCE(array_agg(allergen_id::int), '{}') INTO v_allerg
-  FROM public.product_allergens WHERE product_id = v_product;
-  SELECT COALESCE(jsonb_agg(jsonb_build_object('ingredient_id', ingredient_id, 'sort_order', sort_order) ORDER BY sort_order), '[]')
-  INTO v_ingr FROM public.product_ingredients WHERE product_id = v_product;
-  SELECT COALESCE(array_agg(characteristic_id), '{}') INTO v_char
-  FROM public.product_characteristic_assignments WHERE product_id = v_product;
-  SELECT COALESCE(jsonb_agg(jsonb_build_object('paired_product_id', paired_product_id, 'note', note, 'sort_order', sort_order) ORDER BY sort_order), '[]')
-  INTO v_pair FROM public.product_pairings WHERE product_id = v_product;
+  -- ---------------------------------------------------------------------------
+  -- Parametri obbligatori
+  -- ---------------------------------------------------------------------------
+  IF c_tenant  IS NULL THEN RAISE EXCEPTION 'Parametro mancante: c_tenant';  END IF;
+  IF c_owner   IS NULL THEN RAISE EXCEPTION 'Parametro mancante: c_owner';   END IF;
+  IF c_manager IS NULL THEN RAISE EXCEPTION 'Parametro mancante: c_manager'; END IF;
+  IF c_staff   IS NULL THEN RAISE EXCEPTION 'Parametro mancante: c_staff';   END IF;
+  IF c_viewer  IS NULL THEN RAISE EXCEPTION 'Parametro mancante: c_viewer';  END IF;
 
-  FOREACH v_rpc IN ARRAY ARRAY['replace_product_allergens', 'replace_product_ingredients',
-                               'replace_product_characteristics', 'replace_product_pairings']
-  LOOP
-    BEGIN
-      PERFORM pg_temp.as_user(p_user);
-      CASE v_rpc
-        WHEN 'replace_product_allergens'       THEN PERFORM public.replace_product_allergens(v_tenant, v_product, v_allerg);
-        WHEN 'replace_product_ingredients'     THEN PERFORM public.replace_product_ingredients(v_tenant, v_product, v_ingr);
-        WHEN 'replace_product_characteristics' THEN PERFORM public.replace_product_characteristics(v_tenant, v_product, v_char);
-        WHEN 'replace_product_pairings'        THEN PERFORM public.replace_product_pairings(v_tenant, v_product, v_pair);
-      END CASE;
-      IF p_expect THEN
-        RAISE NOTICE 'PASS % · %: ok', p_label, v_rpc;
-      ELSE
-        RAISE NOTICE 'FAIL % · %: riuscita, attesa 42501', p_label, v_rpc;
-      END IF;
-      RAISE EXCEPTION USING ERRCODE = 'P0099';
-    EXCEPTION
-      WHEN SQLSTATE 'P0099' THEN NULL;
-      WHEN insufficient_privilege THEN
-        IF p_expect THEN
-          RAISE NOTICE 'FAIL % · %: 42501, attesa riuscita (%)', p_label, v_rpc, SQLERRM;
-        ELSIF SQLERRM = 'Forbidden: missing products.write' THEN
-          RAISE NOTICE 'PASS % · %: 42501 (%)', p_label, v_rpc, SQLERRM;
-        ELSE
-          RAISE NOTICE 'FAIL % · %: 42501 da un altro controllo (%)', p_label, v_rpc, SQLERRM;
-        END IF;
-      WHEN OTHERS THEN
-        RAISE NOTICE 'INCONCLUSO % · %: SQLSTATE % (%)', p_label, v_rpc, SQLSTATE, SQLERRM;
-    END;
-  END LOOP;
-  PERFORM pg_temp.as_postgres();
-END;
-$$;
-
--- import_products_into_catalog: un catalogo nuovo con una categoria e un
--- prodotto con un formato (scrive products, product_option_groups e
--- product_option_values). p_message: messaggio 42501 atteso, NULL = qualunque
--- 42501 (chi non ha catalogs.write si ferma al controllo che viene prima).
-CREATE OR REPLACE FUNCTION pg_temp.check_import(p_label text, p_user uuid, p_expect boolean, p_message text DEFAULT NULL)
-RETURNS void
-LANGUAGE plpgsql
-AS $$
-DECLARE
-  v_result jsonb;
-BEGIN
-  BEGIN
-    PERFORM pg_temp.as_user(p_user);
-    v_result := public.import_products_into_catalog(
-      pg_temp.param('tenant'),
-      NULL,
-      'Test RLS import',
-      '[{"ref": "c1", "existing_id": null, "name": "Test RLS", "name_hash": "test",
-         "level": 1, "parent_ref": null, "sort_order": 0}]'::jsonb,
-      '[{"action": "create", "category_ref": "c1", "sort_order": 0,
-         "product": {"name": "Test RLS import", "base_price": 1, "product_type": "simple",
-                     "format_group_name_hash": "test",
-                     "formats": [{"name": "Piccolo", "absolute_price": 1, "name_hash": "test"}]}}]'::jsonb);
-    IF NOT p_expect THEN
-      RAISE NOTICE 'FAIL % · import_products_into_catalog: riuscita, attesa 42501', p_label;
-    ELSIF (v_result->>'created_products')::int = 1 THEN
-      RAISE NOTICE 'PASS % · import_products_into_catalog: ok (%)', p_label, v_result;
-    ELSE
-      RAISE NOTICE 'FAIL % · import_products_into_catalog: esito inatteso (%)', p_label, v_result;
-    END IF;
-    RAISE EXCEPTION USING ERRCODE = 'P0099';
-  EXCEPTION
-    WHEN SQLSTATE 'P0099' THEN NULL;
-    WHEN insufficient_privilege THEN
-      IF p_expect THEN
-        RAISE NOTICE 'FAIL % · import_products_into_catalog: 42501, attesa riuscita (%)', p_label, SQLERRM;
-      ELSIF p_message IS NULL OR SQLERRM = p_message THEN
-        RAISE NOTICE 'PASS % · import_products_into_catalog: 42501 (%)', p_label, SQLERRM;
-      ELSE
-        RAISE NOTICE 'FAIL % · import_products_into_catalog: 42501 da un altro controllo (%)', p_label, SQLERRM;
-      END IF;
-    WHEN OTHERS THEN
-      RAISE NOTICE 'INCONCLUSO % · import_products_into_catalog: SQLSTATE % (%)', p_label, SQLSTATE, SQLERRM;
-  END;
-  PERFORM pg_temp.as_postgres();
-END;
-$$;
-
--- Tutti i casi per un utente.
-CREATE OR REPLACE FUNCTION pg_temp.check_user(p_label text, p_user uuid, p_writer boolean)
-RETURNS void
-LANGUAGE plpgsql
-AS $$
-DECLARE
-  v_table text;
-BEGIN
-  IF p_user IS NULL THEN
-    RAISE NOTICE 'SKIP %: utente non impostato', p_label;
-    RETURN;
-  END IF;
-  FOREACH v_table IN ARRAY ARRAY[
-    'ingredients', 'product_ingredients', 'product_allergens',
-    'product_characteristic_assignments', 'product_pairings', 'product_groups',
-    'product_group_items', 'product_option_groups', 'product_option_values',
-    'product_attribute_values', 'product_attribute_definitions']
-  LOOP
-    PERFORM pg_temp.check_table(v_table, p_label, p_user, p_writer);
-  END LOOP;
-  FOREACH v_table IN ARRAY ARRAY[
-    'product_variant_dimensions', 'product_variant_dimension_values',
-    'product_variant_assignments', 'product_variant_assignment_values']
-  LOOP
-    PERFORM pg_temp.check_table(v_table, p_label, p_user, false);
-  END LOOP;
-  PERFORM pg_temp.check_rpcs(p_label, p_user, p_writer);
-  PERFORM pg_temp.check_import(p_label, p_user, p_writer);
-END;
-$$;
-
--- -----------------------------------------------------------------------------
--- TEST 0 — Forma delle policy di scrittura dopo le migration
--- -----------------------------------------------------------------------------
-DO $$
-DECLARE
-  v_table text;
-  v_perm  text;
-  v_bad   text;
-BEGIN
-  FOREACH v_table IN ARRAY ARRAY[
-    'ingredients', 'product_ingredients', 'product_allergens',
-    'product_characteristic_assignments', 'product_pairings', 'product_groups',
-    'product_group_items', 'product_option_groups', 'product_option_values',
-    'product_attribute_values', 'product_attribute_definitions']
-  LOOP
+  -- ---------------------------------------------------------------------------
+  -- TEST 0 — Forma delle policy di scrittura dopo le migration
+  -- ---------------------------------------------------------------------------
+  FOREACH v_table IN ARRAY c_gated LOOP
     v_perm := CASE WHEN v_table = 'product_attribute_definitions' THEN 'attributes.write' ELSE 'products.write' END;
     SELECT string_agg(p.policyname || ' (' || p.cmd || ')', ', ') INTO v_bad
     FROM pg_policies p
@@ -404,87 +158,265 @@ BEGIN
         AND COALESCE(p.qual, p.with_check) LIKE '%has_permission_any_activity(''' || v_perm || '''%'
         AND (p.cmd <> 'UPDATE' OR p.with_check LIKE '%has_permission_any_activity(''' || v_perm || '''%')
       );
-    IF v_bad IS NULL THEN
-      RAISE NOTICE 'PASS policy · %: solo le tre policy base con %', v_table, v_perm;
-    ELSE
-      RAISE NOTICE 'FAIL policy · %: %', v_table, v_bad;
-    END IF;
+    v_line := format('%s · schema · %s · policy · atteso: solo le tre policy base con %s · ottenuto: %s',
+                     CASE WHEN v_bad IS NULL THEN 'PASS' ELSE 'FAIL' END, v_table, v_perm,
+                     COALESCE(v_bad, 'ok'));
+    IF v_bad IS NULL THEN v_pass := v_pass || v_line; ELSE v_fail := v_fail || v_line; END IF;
   END LOOP;
 
-  FOREACH v_table IN ARRAY ARRAY[
-    'product_variant_dimensions', 'product_variant_dimension_values',
-    'product_variant_assignments', 'product_variant_assignment_values']
-  LOOP
+  FOREACH v_table IN ARRAY c_variant LOOP
     SELECT string_agg(p.policyname || ' (' || p.cmd || ')', ', ') INTO v_bad
     FROM pg_policies p
     WHERE p.schemaname = 'public' AND p.tablename = v_table
       AND p.permissive = 'PERMISSIVE'
       AND p.cmd IN ('INSERT', 'UPDATE', 'DELETE', 'ALL')
       AND (p.roles && ARRAY['authenticated', 'public']::name[]);
-    IF v_bad IS NULL THEN
-      RAISE NOTICE 'PASS policy · %: nessuna scrittura per authenticated', v_table;
-    ELSE
-      RAISE NOTICE 'FAIL policy · %: %', v_table, v_bad;
-    END IF;
+    v_line := format('%s · schema · %s · policy · atteso: nessuna scrittura per authenticated · ottenuto: %s',
+                     CASE WHEN v_bad IS NULL THEN 'PASS' ELSE 'FAIL' END, v_table,
+                     COALESCE(v_bad, 'ok'));
+    IF v_bad IS NULL THEN v_pass := v_pass || v_line; ELSE v_fail := v_fail || v_line; END IF;
   END LOOP;
-END $$;
 
--- -----------------------------------------------------------------------------
--- TEST 1–3 — owner, manager, staff, viewer
--- -----------------------------------------------------------------------------
-SELECT pg_temp.check_user('owner',   pg_temp.param('owner'),   true);
-SELECT pg_temp.check_user('manager', pg_temp.param('manager'), false);
-SELECT pg_temp.check_user('staff',   pg_temp.param('staff'),   false);
-SELECT pg_temp.check_user('viewer',  pg_temp.param('viewer'),  false);
+  -- ---------------------------------------------------------------------------
+  -- Prodotto di esempio per le RPC: chiamate coi valori che ha già (un
+  -- successo non cambia nulla, e comunque si annulla).
+  -- ---------------------------------------------------------------------------
+  SELECT p.id INTO v_product
+  FROM public.products p
+  WHERE p.tenant_id = c_tenant AND p.parent_product_id IS NULL
+  ORDER BY (SELECT count(*) FROM public.product_allergens pa WHERE pa.product_id = p.id) DESC
+  LIMIT 1;
+  SELECT COALESCE(array_agg(allergen_id::int), '{}') INTO v_allerg
+  FROM public.product_allergens WHERE product_id = v_product;
+  SELECT COALESCE(jsonb_agg(jsonb_build_object('ingredient_id', ingredient_id, 'sort_order', sort_order) ORDER BY sort_order), '[]')
+  INTO v_ingr FROM public.product_ingredients WHERE product_id = v_product;
+  SELECT COALESCE(array_agg(characteristic_id), '{}') INTO v_char
+  FROM public.product_characteristic_assignments WHERE product_id = v_product;
+  SELECT COALESCE(jsonb_agg(jsonb_build_object('paired_product_id', paired_product_id, 'note', note, 'sort_order', sort_order) ORDER BY sort_order), '[]')
+  INTO v_pair FROM public.product_pairings WHERE product_id = v_product;
 
--- -----------------------------------------------------------------------------
--- TEST 1–3 — admin (utente dato, o staff promosso dentro un blocco annullato)
--- -----------------------------------------------------------------------------
-DO $$
-DECLARE
-  v_admin uuid := COALESCE(pg_temp.param('admin'), pg_temp.param('staff'));
-BEGIN
-  BEGIN
-    IF pg_temp.param('admin') IS NULL THEN
-      DELETE FROM public.tenant_membership_activities tma
-      USING public.tenant_memberships tm
-      WHERE tma.tenant_membership_id = tm.id
-        AND tm.tenant_id = pg_temp.param('tenant')
-        AND tm.user_id = v_admin;
-      UPDATE public.tenant_memberships SET role = 'admin'
-      WHERE tenant_id = pg_temp.param('tenant') AND user_id = v_admin;
-      RAISE NOTICE 'Nota: staff promosso ad admin per questo blocco';
-    END IF;
-    PERFORM pg_temp.check_user('admin', v_admin, true);
-    RAISE EXCEPTION USING ERRCODE = 'P0099';
-  EXCEPTION
-    WHEN SQLSTATE 'P0099' THEN NULL;
-  END;
-END $$;
+  -- ---------------------------------------------------------------------------
+  -- Casi per utente: «oggetto:operazione»
+  -- ---------------------------------------------------------------------------
+  FOREACH v_table IN ARRAY c_gated || c_variant LOOP
+    FOREACH v_op IN ARRAY ARRAY['INSERT', 'UPDATE', 'DELETE'] LOOP
+      v_cases := v_cases || (v_table || ':' || v_op);
+    END LOOP;
+  END LOOP;
+  FOREACH v_obj IN ARRAY c_rpcs LOOP
+    v_cases := v_cases || (v_obj || ':chiamata');
+  END LOOP;
+  v_cases := v_cases || 'import_products_into_catalog:chiamata'::text;
 
--- -----------------------------------------------------------------------------
--- TEST 4 — import_products_into_catalog, controllo products.write da solo.
--- Il viewer si ferma già a catalogs.write (TEST 1–3). Qui il ruolo viewer
--- riceve catalogs.write in role_permissions dentro un blocco annullato, così
--- l'import arriva al controllo nuovo e deve fermarsi lì.
--- -----------------------------------------------------------------------------
-DO $$
-BEGIN
-  IF pg_temp.param('viewer') IS NULL THEN
-    RAISE NOTICE 'SKIP viewer+catalogs.write: utente non impostato';
-    RETURN;
-  END IF;
+  v_labels := ARRAY['owner', 'manager', 'staff', 'viewer', 'admin'];
+  v_users  := ARRAY[c_owner, c_manager, c_staff, c_viewer, COALESCE(c_admin, c_staff)];
+  v_writer := ARRAY[true, false, false, false, true];
+
+  -- ---------------------------------------------------------------------------
+  -- TEST 1–4 — un sotto-blocco per utente (l'admin promosso vive solo lì)
+  -- ---------------------------------------------------------------------------
+  FOR v_i IN 1 .. array_length(v_labels, 1) LOOP
+    v_label  := v_labels[v_i];
+    v_user   := v_users[v_i];
+    v_can    := v_writer[v_i];
+    v_claims := format('{"sub":"%s","role":"authenticated"}', v_user);
+
+    BEGIN
+      IF v_label = 'admin' AND c_admin IS NULL THEN
+        DELETE FROM public.tenant_membership_activities tma
+        USING public.tenant_memberships tm
+        WHERE tma.tenant_membership_id = tm.id
+          AND tm.tenant_id = c_tenant
+          AND tm.user_id = v_user;
+        UPDATE public.tenant_memberships SET role = 'admin'
+        WHERE tenant_id = c_tenant AND user_id = v_user;
+        v_label := 'admin (staff promosso)';
+      END IF;
+
+      FOREACH v_case IN ARRAY v_cases LOOP
+        v_obj    := split_part(v_case, ':', 1);
+        v_op     := split_part(v_case, ':', 2);
+        v_status := NULL;
+        v_got    := NULL;
+        v_row    := NULL;
+        v_ctid   := NULL;
+
+        -- Atteso e riga di esempio, come postgres (salta la RLS).
+        IF v_obj = ANY (c_gated || c_variant) THEN
+          v_deny := NOT v_can OR v_obj = ANY (c_variant);
+          IF v_obj = 'product_variant_assignment_values' THEN
+            SELECT to_jsonb(v), v.ctid INTO v_row, v_ctid
+            FROM public.product_variant_assignment_values v
+            JOIN public.product_variant_assignments a ON a.id = v.assignment_id
+            WHERE a.tenant_id = c_tenant
+            LIMIT 1;
+          ELSE
+            EXECUTE format('SELECT to_jsonb(x), x.ctid FROM public.%I x WHERE x.tenant_id = $1 LIMIT 1', v_obj)
+            INTO v_row, v_ctid
+            USING c_tenant;
+          END IF;
+          v_exp := CASE
+            WHEN v_deny AND v_op = 'INSERT' THEN '42501'
+            WHEN v_deny                     THEN '0 righe o 42501'
+            WHEN v_op = 'INSERT'            THEN 'ok'
+            ELSE '1 riga' END;
+          -- Senza riga: chi scrive non ha niente da togliere e rimettere; chi
+          -- non scrive prova comunque l'INSERT, ma UPDATE e DELETE non provano nulla.
+          IF v_row IS NULL AND (NOT v_deny OR v_op <> 'INSERT') THEN
+            v_status := 'NON PROVATO';
+            v_got    := 'nessuna riga di esempio nell''azienda';
+          END IF;
+        ELSIF v_obj = ANY (c_rpcs) THEN
+          v_exp := CASE WHEN v_can THEN 'ok' ELSE c_forbidden END;
+          IF v_product IS NULL THEN
+            v_status := 'NON PROVATO';
+            v_got    := 'nessun prodotto nell''azienda';
+          END IF;
+        ELSE
+          -- import: chi non ha catalogs.write si ferma al controllo che viene
+          -- prima, quindi qui basta un 42501 qualsiasi (il controllo nuovo da
+          -- solo lo prova il TEST 4).
+          v_exp := CASE WHEN v_can THEN 'ok (1 prodotto creato)' ELSE '42501' END;
+        END IF;
+
+        IF v_status IS NULL THEN
+          BEGIN
+            PERFORM set_config('role', 'authenticated', true);
+            PERFORM set_config('request.jwt.claims', v_claims, true);
+
+            IF v_obj = ANY (c_gated || c_variant) THEN
+              IF v_op = 'INSERT' THEN
+                IF NOT v_deny THEN
+                  -- La stessa riga tolta e rimessa: niente vincoli violati.
+                  EXECUTE format('DELETE FROM public.%I WHERE ctid = $1', v_obj) USING v_ctid;
+                  EXECUTE format('INSERT INTO public.%I SELECT (jsonb_populate_record(NULL::public.%I, $1)).*', v_obj, v_obj)
+                  USING v_row;
+                  v_got := 'ok';
+                ELSIF v_row IS NOT NULL THEN
+                  EXECUTE format('INSERT INTO public.%I SELECT (jsonb_populate_record(NULL::public.%I, $1)).*', v_obj, v_obj)
+                  USING v_row;
+                  v_got := 'riuscita';
+                ELSIF v_obj = 'product_variant_assignment_values' THEN
+                  INSERT INTO public.product_variant_assignment_values (assignment_id, dimension_value_id)
+                  VALUES (gen_random_uuid(), gen_random_uuid());
+                  v_got := 'riuscita';
+                ELSE
+                  -- Nessuna riga da copiare: la RLS rifiuta prima dei vincoli NOT NULL.
+                  EXECUTE format('INSERT INTO public.%I (tenant_id) VALUES ($1)', v_obj) USING c_tenant;
+                  v_got := 'riuscita';
+                END IF;
+              ELSIF v_op = 'UPDATE' THEN
+                -- Senza cambiare nulla.
+                IF v_obj = 'product_variant_assignment_values' THEN
+                  UPDATE public.product_variant_assignment_values SET assignment_id = assignment_id WHERE ctid = v_ctid;
+                ELSE
+                  EXECUTE format('UPDATE public.%I SET tenant_id = tenant_id WHERE ctid = $1', v_obj) USING v_ctid;
+                END IF;
+                GET DIAGNOSTICS v_n = ROW_COUNT;
+                v_got := v_n || CASE WHEN v_n = 1 THEN ' riga' ELSE ' righe' END;
+              ELSE
+                EXECUTE format('DELETE FROM public.%I WHERE ctid = $1', v_obj) USING v_ctid;
+                GET DIAGNOSTICS v_n = ROW_COUNT;
+                v_got := v_n || CASE WHEN v_n = 1 THEN ' riga' ELSE ' righe' END;
+              END IF;
+
+            ELSIF v_obj = ANY (c_rpcs) THEN
+              CASE v_obj
+                WHEN 'replace_product_allergens'       THEN PERFORM public.replace_product_allergens(c_tenant, v_product, v_allerg);
+                WHEN 'replace_product_ingredients'     THEN PERFORM public.replace_product_ingredients(c_tenant, v_product, v_ingr);
+                WHEN 'replace_product_characteristics' THEN PERFORM public.replace_product_characteristics(c_tenant, v_product, v_char);
+                WHEN 'replace_product_pairings'        THEN PERFORM public.replace_product_pairings(c_tenant, v_product, v_pair);
+              END CASE;
+              v_got := 'ok';
+
+            ELSE
+              v_result := public.import_products_into_catalog(
+                c_tenant, NULL, 'Test RLS import', c_import_categories, c_import_products);
+              v_got := CASE WHEN (v_result->>'created_products')::int = 1
+                            THEN 'ok (1 prodotto creato)'
+                            ELSE 'esito inatteso ' || v_result::text END;
+            END IF;
+
+            RAISE EXCEPTION USING ERRCODE = 'P0099';
+          EXCEPTION
+            WHEN SQLSTATE 'P0099' THEN NULL;
+            WHEN OTHERS THEN v_got := SQLSTATE || ' ' || SQLERRM;
+          END;
+          EXECUTE 'RESET ROLE';
+          PERFORM set_config('request.jwt.claims', '', true);
+
+          v_status := CASE
+            WHEN v_got = v_exp THEN 'PASS'
+            WHEN v_exp = '42501' AND v_got LIKE '42501 %' THEN 'PASS'
+            WHEN v_exp = '0 righe o 42501' AND (v_got = '0 righe' OR v_got LIKE '42501 %') THEN 'PASS'
+            ELSE 'FAIL' END;
+        END IF;
+
+        v_line := format('%s · %s · %s · %s · atteso: %s · ottenuto: %s',
+                         v_status, v_label, v_obj, v_op, v_exp, v_got);
+        IF v_status = 'PASS' THEN
+          v_pass := v_pass || v_line;
+        ELSIF v_status = 'FAIL' THEN
+          v_fail := v_fail || v_line;
+        ELSE
+          v_skipped := v_skipped || v_line;
+        END IF;
+      END LOOP;
+
+      RAISE EXCEPTION USING ERRCODE = 'P0099';
+    EXCEPTION
+      WHEN SQLSTATE 'P0099' THEN NULL;
+      WHEN OTHERS THEN
+        v_fail := v_fail || format('FAIL · %s · - · blocco utente · atteso: nessun errore · ottenuto: %s %s',
+                                   v_label, SQLSTATE, SQLERRM);
+    END;
+    EXECUTE 'RESET ROLE';
+    PERFORM set_config('request.jwt.claims', '', true);
+  END LOOP;
+
+  -- ---------------------------------------------------------------------------
+  -- TEST 4 — import_products_into_catalog, controllo products.write da solo.
+  -- Il viewer si ferma già a catalogs.write. Qui il ruolo viewer riceve
+  -- catalogs.write in role_permissions dentro un blocco annullato, così
+  -- l'import arriva al controllo nuovo e deve fermarsi lì.
+  -- ---------------------------------------------------------------------------
+  v_got := NULL;
   BEGIN
     INSERT INTO public.role_permissions (role, permission_id)
     VALUES ('viewer', 'catalogs.write')
     ON CONFLICT DO NOTHING;
-    RAISE NOTICE 'Nota: catalogs.write dato al ruolo viewer per questo blocco';
-    PERFORM pg_temp.check_import('viewer+catalogs.write', pg_temp.param('viewer'), false,
-                                 'Forbidden: missing products.write');
+    BEGIN
+      PERFORM set_config('role', 'authenticated', true);
+      PERFORM set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', c_viewer), true);
+      v_result := public.import_products_into_catalog(
+        c_tenant, NULL, 'Test RLS import', c_import_categories, c_import_products);
+      v_got := 'riuscita ' || v_result::text;
+      RAISE EXCEPTION USING ERRCODE = 'P0099';
+    EXCEPTION
+      WHEN SQLSTATE 'P0099' THEN NULL;
+      WHEN OTHERS THEN v_got := SQLSTATE || ' ' || SQLERRM;
+    END;
+    EXECUTE 'RESET ROLE';
+    PERFORM set_config('request.jwt.claims', '', true);
     RAISE EXCEPTION USING ERRCODE = 'P0099';
   EXCEPTION
     WHEN SQLSTATE 'P0099' THEN NULL;
+    WHEN OTHERS THEN v_got := COALESCE(v_got, SQLSTATE || ' ' || SQLERRM);
   END;
-END $$;
+  EXECUTE 'RESET ROLE';
+  PERFORM set_config('request.jwt.claims', '', true);
+  v_line := format('%s · viewer+catalogs.write · import_products_into_catalog · chiamata · atteso: %s · ottenuto: %s',
+                   CASE WHEN v_got = c_forbidden THEN 'PASS' ELSE 'FAIL' END, c_forbidden, v_got);
+  IF v_got = c_forbidden THEN v_pass := v_pass || v_line; ELSE v_fail := v_fail || v_line; END IF;
 
-ROLLBACK;
+  -- ---------------------------------------------------------------------------
+  -- Riepilogo: l'eccezione mostra gli esiti nello Studio e annulla tutto.
+  -- ---------------------------------------------------------------------------
+  RAISE EXCEPTION '%', concat_ws(E'\n',
+    format('PASS %s / FAIL %s', cardinality(v_pass), cardinality(v_fail))
+      || CASE WHEN cardinality(v_skipped) > 0
+              THEN format(' (non provati %s)', cardinality(v_skipped)) ELSE '' END,
+    NULLIF(array_to_string(v_fail, E'\n'), ''),
+    NULLIF(array_to_string(v_skipped, E'\n'), ''),
+    NULLIF(array_to_string(v_pass, E'\n'), ''));
+END $$;
