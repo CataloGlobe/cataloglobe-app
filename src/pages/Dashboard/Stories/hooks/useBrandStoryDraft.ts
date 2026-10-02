@@ -138,6 +138,8 @@ export function useBrandStoryDraft(tenantId: string | null, active: boolean): Br
         if (!saved || !tenantId || isSaving) return false;
 
         setIsSaving(true);
+        // Copertina caricata in questo save: se la scrittura fallisce si toglie.
+        let uploadedCover: string | null = null;
         try {
             let cover = saved.story_cover;
             if (pendingCoverFile) {
@@ -146,6 +148,7 @@ export function useBrandStoryDraft(tenantId: string | null, active: boolean): Br
                     BRAND_COVER_ID,
                     await compressImage(pendingCoverFile, COMPRESS_PROFILES.cover)
                 );
+                uploadedCover = cover;
             } else if (coverRemoved) {
                 cover = null;
             }
@@ -178,6 +181,11 @@ export function useBrandStoryDraft(tenantId: string | null, active: boolean): Br
             return true;
         } catch (err) {
             console.error("Errore salvataggio del cappello:", err);
+            if (uploadedCover) {
+                deleteStoryImageBestEffort(tenantId, BRAND_COVER_ID, uploadedCover).catch(error =>
+                    console.warn("[storage] brand cover rollback failed:", error)
+                );
+            }
             const message =
                 err instanceof Error && err.message ? err.message : "Errore durante il salvataggio. Riprova.";
             showToast({ message, type: "error" });

@@ -599,3 +599,43 @@ test.describe("In evidenza — larghezze", () => {
         });
     }
 });
+
+/**
+ * Lotto bug A (censimento del 01/10/2026): ogni caso nasce in `test.fail` e
+ * passa a `test` col commit che lo corregge.
+ */
+test.describe("In evidenza — lotto bug A", () => {
+    test("E2: il picker «Aggiungi» non offre le varianti", async ({ page }) => {
+        stub.tables.products.push({
+            ...stub.tables.products.find(p => p.id === PRODUCT.bigArch)!,
+            id: "e2eef000-0000-4000-a000-000000000105",
+            name: "Big Arch maxi e2e",
+            parent_product_id: PRODUCT.bigArch
+        });
+        await openContent(page, FEATURED.coppia);
+        await openProductsTab(page);
+        await page.getByRole("button", { name: /Aggiungi/ }).first().click();
+        const drawer = dialog(page);
+        await expect(drawer.getByText("Tagliere e2e")).toBeVisible();
+        expect(await drawer.getByText("Big Arch maxi e2e").count()).toBe(0);
+    });
+
+    test("E1: se non riesco a contare dove è usato, non si elimina; «Riprova» rilegge", async ({ page }) => {
+        stub.onWrite("featured_contents.DELETE", () => null);
+        await openList(page);
+        let fail = true;
+        await page.route(/\/rest\/v1\/schedule_featured_contents\?/, route =>
+            fail && route.request().method() === "GET" ? route.fulfill({ status: 500, json: { message: "e2e" } }) : route.fallback()
+        );
+        await actionsOf(contentName(page, "Aperitivo giovedì e2e")).click();
+        await page.getByRole("menuitem", { name: "Elimina" }).click();
+        const confirm = page.getByRole("alertdialog");
+        await expect(confirm).toContainText("Non riesco a controllare dove è usato");
+        await expect(confirm.getByRole("button", { name: "Elimina contenuto" })).toBeDisabled();
+        fail = false;
+        await confirm.getByRole("button", { name: "Riprova" }).click();
+        await expect(confirm).toContainText(/1 regol/);
+        await confirm.getByRole("button", { name: "Elimina contenuto" }).click();
+        await expect.poll(() => write(stub, "featured_contents.DELETE")?.params.get("id")).toBe(`eq.${FEATURED.aperitivo}`);
+    });
+});

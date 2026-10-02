@@ -86,7 +86,7 @@ export async function stubStorie(page: Page): Promise<StorieStub> {
             const select = params.get("select") ?? "";
             if (table === "stories" && select.includes("product:")) {
                 return rows
-                    .map(row => {
+                    .map((row): Row => {
                         const product = tables.products.find(p => p.id === row.product_id);
                         return { ...row, product: product ? { id: product.id, name: product.name } : null };
                     })
