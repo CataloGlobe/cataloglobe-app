@@ -1,5 +1,5 @@
 import type { CrmLead } from "@/types/crm";
-import { META_CONTACT_COLUMNS, isMetaVenueColumn } from "@/utils/crm/metaCsv";
+import { META_CONTACT_COLUMNS, isMetaVenueColumn } from "@shared/metaLeadFields";
 
 /**
  * Campi tecnici della landing (copiati da `crm_sync_landing_leads`): servono

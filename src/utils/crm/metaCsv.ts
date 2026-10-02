@@ -8,10 +8,12 @@
  *
  * Puro: niente DOM, niente rete. La pagina passa i byte e riceve le righe
  * pronte per `crm_ingest_lead` (source `meta_form`, source_ref = id del lead
- * Meta, così il webhook in tempo reale non le reimporta).
+ * Meta, così il webhook in tempo reale non le reimporta). La mappatura dei
+ * campi è la stessa del webhook: `@shared/metaLeadFields`.
  */
 import { normalizePhoneToE164 } from "@/utils/phoneNormalize";
 import { phoneFingerprint } from "@/utils/crm/phoneFingerprint";
+import { mapMetaLeadRecord, normalizeMetaHeader } from "@shared/metaLeadFields";
 import type { CrmIngestInput } from "@/types/crm";
 
 export interface MetaCsvRowOk {
@@ -28,33 +30,6 @@ export interface MetaCsvResult {
     rows: MetaCsvRowOk[];
     errors: MetaCsvRowError[];
 }
-
-/** Colonne di sistema di Meta: non sono risposte del modulo. */
-const META_FIXED_COLUMNS = new Set([
-    "id",
-    "created_time",
-    "ad_id",
-    "ad_name",
-    "adset_id",
-    "adset_name",
-    "campaign_id",
-    "campaign_name",
-    "form_id",
-    "form_name",
-    "is_organic",
-    "platform",
-    "lead_status",
-    "inbox_url"
-]);
-
-const NAME_COLUMNS = ["full_name", "nome_e_cognome", "nome_completo", "nome"];
-const FIRST_NAME_COLUMNS = ["first_name", "nome"];
-const LAST_NAME_COLUMNS = ["last_name", "cognome"];
-const PHONE_COLUMNS = ["phone_number", "phone", "numero_di_telefono", "telefono"];
-const EMAIL_COLUMNS = ["email", "e-mail", "indirizzo_email"];
-const CITY_COLUMNS = ["city", "città", "citta"];
-/** Domanda personalizzata sul nome del locale: si riconosce dal testo. */
-const VENUE_PATTERN = /(company|business|locale|attivit|ristorante|nome_del|insegna)/;
 
 /** Decodifica i byte del file: UTF-16LE/BE col BOM, altrimenti UTF-8. */
 export function decodeMetaCsv(bytes: Uint8Array): string {
@@ -122,45 +97,6 @@ export function parseDelimited(text: string, delimiter: string): string[][] {
     return rows.filter(r => r.some(cell => cell.trim().length > 0));
 }
 
-/** Toglie i prefissi di Meta ("l:123", "p:+39…", "ag:…"). */
-export function stripMetaPrefix(value: string): string {
-    return value.trim().replace(/^[a-z]{1,3}:/, "").trim();
-}
-
-function normalizeHeader(header: string): string {
-    return header.trim().toLowerCase().replace(/\s+/g, "_");
-}
-
-function pick(record: Map<string, string>, candidates: string[]): string {
-    for (const key of candidates) {
-        const value = record.get(key);
-        if (value && value.trim()) return value.trim();
-    }
-    return "";
-}
-
-function toIsoOrNull(value: string): string | null {
-    if (!value) return null;
-    const time = Date.parse(value);
-    return Number.isNaN(time) ? null : new Date(time).toISOString();
-}
-
-/**
- * Colonne del contatto: hanno già i loro campi (nome, telefono), quindi non
- * finiscono tra le risposte del modulo, che la scheda mostrerebbe due volte.
- */
-export const META_CONTACT_COLUMNS = new Set([
-    ...NAME_COLUMNS,
-    ...FIRST_NAME_COLUMNS,
-    ...LAST_NAME_COLUMNS,
-    ...PHONE_COLUMNS
-]);
-
-/** La domanda sul nome del locale, riconosciuta dal testo dell'intestazione. */
-export function isMetaVenueColumn(header: string): boolean {
-    return !META_FIXED_COLUMNS.has(header) && VENUE_PATTERN.test(header);
-}
-
 /**
  * Asincrona per l'impronta del telefono (WebCrypto) nelle chiavi delle righe
  * senza id.
@@ -172,15 +108,14 @@ export async function parseMetaLeadsCsv(text: string): Promise<MetaCsvResult> {
     const result: MetaCsvResult = { rows: [], errors: [] };
     if (table.length < 2) return result;
 
-    const headers = table[0].map(normalizeHeader);
-    const venueColumn = headers.find(isMetaVenueColumn);
+    const headers = table[0].map(normalizeMetaHeader);
 
     for (const [index, cells] of table.slice(1).entries()) {
         const line = index + 2;
         const record = new Map<string, string>();
         headers.forEach((header, col) => record.set(header, cells[col] ?? ""));
 
-        const rawPhone = stripMetaPrefix(pick(record, PHONE_COLUMNS));
+        const { leadId, rawCreated, rawPhone, ...fields } = mapMetaLeadRecord(record, headers);
         const phone = normalizePhoneToE164(rawPhone);
         if (!phone) {
             result.errors.push({
@@ -190,51 +125,16 @@ export async function parseMetaLeadsCsv(text: string): Promise<MetaCsvResult> {
             continue;
         }
 
-        const fullName =
-            pick(record, NAME_COLUMNS) ||
-            [pick(record, FIRST_NAME_COLUMNS), pick(record, LAST_NAME_COLUMNS)]
-                .filter(Boolean)
-                .join(" ");
-        const venueName = venueColumn ? (record.get(venueColumn) ?? "").trim() : "";
-
-        const formAnswers: Record<string, string> = {};
-        headers.forEach(header => {
-            const value = (record.get(header) ?? "").trim();
-            if (!value || META_FIXED_COLUMNS.has(header) || META_CONTACT_COLUMNS.has(header)) return;
-            if (header === venueColumn) return;
-            formAnswers[header] = value;
-        });
-
-        const createdAt = toIsoOrNull(record.get("created_time") ?? "");
-        const formName = (record.get("form_name") ?? "").trim();
-        const leadId = stripMetaPrefix(record.get("id") ?? "");
         // Senza la colonna id (export rinominato o tagliato) serve comunque
         // una chiave stabile, altrimenti ogni reimport aggiunge una richiesta.
         // Il telefono entra come impronta: la chiave resta per sempre in
         // crm_imported_refs, anche dopo la cancellazione del locale.
-        const rawCreated = (record.get("created_time") ?? "").trim();
         const sourceRef =
             leadId || `csv:${await phoneFingerprint(phone)}${rawCreated ? `:${rawCreated}` : ""}`;
 
         result.rows.push({
             line,
-            input: {
-                source: "meta_form",
-                sourceRef,
-                name: fullName || "Senza nome",
-                // Il form Meta non chiede il locale: vuoto, il DB segna «Locale da completare».
-                venueName,
-                phoneE164: phone,
-                email: pick(record, EMAIL_COLUMNS) || null,
-                city: pick(record, CITY_COLUMNS) || null,
-                formAnswers,
-                adId: stripMetaPrefix(record.get("ad_id") ?? "") || null,
-                adName: (record.get("ad_name") ?? "").trim() || null,
-                campaign: (record.get("campaign_name") ?? "").trim() || null,
-                consentAt: createdAt,
-                consentText: formName ? `Modulo Meta «${formName}»` : "Modulo Meta",
-                receivedAt: createdAt
-            }
+            input: { source: "meta_form", sourceRef, phoneE164: phone, ...fields }
         });
     }
 
