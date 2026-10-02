@@ -10,15 +10,17 @@
 // POST evento: firma `X-Hub-Signature-256` sul corpo grezzo con
 //      META_APP_SECRET, poi per ogni leadgen_id:
 //        1. già entrato (crm_leads o crm_imported_refs) → niente;
-//        2. lead dalla Graph API col token della Pagina (+ appsecret_proof),
+//        2. lead dalla Graph API col token della Pagina nell'header
+//           Authorization (mai nell'URL: finirebbe nei log) e appsecret_proof,
 //           nome del modulo con una seconda chiamata (senza: «Modulo Meta»);
 //        3. stessa mappatura dell'import CSV (`_shared/metaLeadFields.ts`),
 //           source_ref = id del lead: un lead arrivato qui e poi reimportato
 //           dal CSV è un doppione, e viceversa;
 //        4. `crm_ingest_lead`: la notifica Telegram la manda crm-notify
 //           dall'outbox, come per la landing.
-//      Telefono non valido o assente: il lead entra lo stesso, senza
-//      telefono, con quello scritto in `phone_raw` (la scheda lo mostra).
+//      Telefono non valido o assente: il lead NON entra, come nell'import CSV
+//      (un numero in lista stop scritto male rientrerebbe senza impronta).
+//      Avviso su Telegram al team con l'id del lead: resta nel Centro lead.
 //
 // Risposte: 200 quando ogni lead è entrato (o era già entrato); 500 su
 // qualsiasi errore (rete, Graph, database, token), così Meta riprova per
@@ -32,6 +34,7 @@
 // =============================================================================
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { sendToTeam } from "../_shared/crmTeamAlert.ts";
 import { timingSafeEqualStr } from "../_shared/timingSafeEqual.ts";
 import { normalizePhoneToE164 } from "../_shared/phoneNormalize.ts";
 import { mapMetaLeadRecord } from "../_shared/metaLeadFields.ts";
@@ -61,9 +64,11 @@ function text(status: number, body: string): Response {
 async function graphGet(path: string, fields: string, proof: string): Promise<Record<string, unknown>> {
     const url = new URL(`https://graph.facebook.com/${GRAPH_VERSION}/${encodeURIComponent(path)}`);
     url.searchParams.set("fields", fields);
-    url.searchParams.set("access_token", PAGE_TOKEN);
     url.searchParams.set("appsecret_proof", proof);
-    const res = await fetch(url, { signal: AbortSignal.timeout(GRAPH_TIMEOUT_MS) });
+    const res = await fetch(url, {
+        headers: { Authorization: `Bearer ${PAGE_TOKEN}` },
+        signal: AbortSignal.timeout(GRAPH_TIMEOUT_MS)
+    });
     const body = await res.json().catch(() => ({}));
     if (res.ok) return body;
     // Niente eccezioni per «lead inesistente» (100/33): Graph dà lo stesso
@@ -71,6 +76,15 @@ async function graphGet(path: string, fields: string, proof: string): Promise<Re
     // lead in silenzio. Si riprova; i lead restano comunque nel Centro lead.
     const err = body?.error ?? {};
     throw new Error(`graph ${res.status}/${err.code ?? "?"}/${err.error_subcode ?? "-"}: ${err.type ?? "errore"}`);
+}
+
+function discardedLeadMessage(leadgenId: string, hadPhone: boolean): string {
+    const why = hadPhone ? "il telefono scritto non è un numero valido" : "manca il telefono";
+    return (
+        `⚠️ Lead Meta non entrato nel CRM: ${why}.\n` +
+        `Lo trovi nel Centro lead di Meta, id <code>${leadgenId.replace(/[^0-9A-Za-z_-]/g, "")}</code>. ` +
+        `Se vuoi contattarlo, aggiungilo a mano col numero giusto.`
+    );
 }
 
 async function alreadyIngested(supabase, leadgenId: string): Promise<boolean> {
@@ -105,8 +119,14 @@ async function ingestOne(supabase, leadgenId: string, proof: string): Promise<st
     const { record, headers } = graphLeadToRecord(lead, formName);
     const { leadId, rawPhone, ...fields } = mapMetaLeadRecord(record, headers);
     const phone = normalizePhoneToE164(rawPhone);
-    const formAnswers = { ...fields.formAnswers };
-    if (!phone && rawPhone) formAnswers.phone_raw = rawPhone;
+    if (!phone) {
+        // Come l'import CSV: senza un E.164 non c'è impronta, e la lista stop
+        // non lo fermerebbe. Il lead resta nel Centro lead di Meta.
+        await sendToTeam(supabase, discardedLeadMessage(leadgenId, Boolean(rawPhone)), {
+            logTag: "crm-meta-webhook"
+        });
+        return rawPhone ? "discarded_invalid_phone" : "discarded_missing_phone";
+    }
 
     const { data, error } = await supabase.rpc("crm_ingest_lead", {
         p_source: "meta_form",
@@ -117,7 +137,7 @@ async function ingestOne(supabase, leadgenId: string, proof: string): Promise<st
         p_email: fields.email,
         p_city: fields.city,
         p_interests: [],
-        p_form_answers: formAnswers,
+        p_form_answers: fields.formAnswers,
         p_ad_id: fields.adId,
         p_ad_name: fields.adName,
         p_campaign: fields.campaign,
