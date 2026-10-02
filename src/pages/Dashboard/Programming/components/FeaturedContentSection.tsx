@@ -15,6 +15,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical, X } from "lucide-react";
+import { IconButton } from "@/components/ui/Button/IconButton";
 import Text from "@/components/ui/Text/Text";
 import { Select } from "@/components/ui/Select/Select";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
@@ -60,14 +61,13 @@ function SortableFeaturedRow({ item, name, onRemove }: SortableFeaturedRowProps)
                 {name}
             </Text>
 
-            <button
-                type="button"
-                className={styles.featuredRemoveButton}
+            <IconButton
+                icon={<X size={16} />}
+                variant="ghost"
+                size="sm"
                 onClick={onRemove}
                 aria-label={`Rimuovi ${name}`}
-            >
-                <X size={14} />
-            </button>
+            />
         </div>
     );
 }
@@ -122,6 +122,8 @@ type SlotGroupProps = {
     onAdd: (id: string, slot: FeaturedContentItem["slot"]) => void;
     onRemove: (id: string) => void;
     onReorder: (slot: FeaturedContentItem["slot"], activeId: string, overId: string) => void;
+    /** Sola lettura: il `fieldset` spegne i bottoni, non il trascinamento. */
+    readOnly: boolean;
 };
 
 function SlotGroup({
@@ -133,7 +135,8 @@ function SlotGroup({
     allEmpty,
     onAdd,
     onRemove,
-    onReorder
+    onReorder,
+    readOnly
 }: SlotGroupProps) {
     const sensors = useSensors(useSensor(PointerSensor));
 
@@ -159,6 +162,7 @@ function SlotGroup({
                         <SortableContext
                             items={items.map(fc => fc.featuredContentId)}
                             strategy={verticalListSortingStrategy}
+                            disabled={readOnly}
                         >
                             {items.map(fc => (
                                 <SortableFeaturedRow
@@ -193,12 +197,14 @@ export interface FeaturedContentSectionProps {
     featuredContents: FeaturedContentItem[];
     tenantFeaturedContents: LayoutRuleOption[];
     onFormChange: (updates: { featuredContents: FeaturedContentItem[] }) => void;
+    readOnly?: boolean;
 }
 
 export function FeaturedContentSection({
     featuredContents,
     tenantFeaturedContents,
-    onFormChange
+    onFormChange,
+    readOnly = false
 }: FeaturedContentSectionProps) {
     const { catalogLabel } = useVerticalConfig();
     const menu = catalogLabel.toLowerCase();
@@ -283,6 +289,7 @@ export function FeaturedContentSection({
                     onAdd={handleAdd}
                     onRemove={handleRemove}
                     onReorder={handleReorder}
+                    readOnly={readOnly}
                 />
 
                 <SlotGroup
@@ -295,6 +302,7 @@ export function FeaturedContentSection({
                     onAdd={handleAdd}
                     onRemove={handleRemove}
                     onReorder={handleReorder}
+                    readOnly={readOnly}
                 />
             </div>
         </section>

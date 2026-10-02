@@ -241,7 +241,8 @@ function isMissingColumnError(error: unknown, column: string): boolean {
     );
 }
 
-async function selectSchedulesWithNameFallback(tenantId: string): Promise<RawScheduleRow[]> {
+/** Le regole dell'azienda; con `ruleId` solo quella (il dettaglio, `duplicateRule`). */
+async function selectSchedulesWithNameFallback(tenantId: string, ruleId?: string): Promise<RawScheduleRow[]> {
     let includeName = true;
     let includeApplyToAll = true;
     let includeVisibilityMode = true;
@@ -269,10 +270,9 @@ async function selectSchedulesWithNameFallback(tenantId: string): Promise<RawSch
             "created_at"
         ].join(", ");
 
-        const result = await supabase
-            .from("schedules")
-            .select(selectColumns)
-            .eq("tenant_id", tenantId)
+        let query = supabase.from("schedules").select(selectColumns).eq("tenant_id", tenantId);
+        if (ruleId) query = query.eq("id", ruleId);
+        const result = await query
             .order("priority", { ascending: true })
             .order("created_at", { ascending: false });
 
@@ -513,7 +513,16 @@ export async function getSystemActivityGroupId(tenantId: string): Promise<string
 }
 
 export async function listLayoutRules(tenantId: string): Promise<LayoutRule[]> {
-    const data = await selectSchedulesWithNameFallback(tenantId);
+    return loadLayoutRules(tenantId);
+}
+
+/**
+ * Le regole con tutto ciò che le completa (menù, prezzi, disponibilità,
+ * contenuti, sedi). Con `ruleId` legge una regola sola: ogni query che segue
+ * prende gli id dalle regole lette, quindi resta su quella.
+ */
+async function loadLayoutRules(tenantId: string, ruleId?: string): Promise<LayoutRule[]> {
+    const data = await selectSchedulesWithNameFallback(tenantId, ruleId);
     const applyToAllByScheduleId = new Map(data.map(row => [row.id, row.apply_to_all]));
 
     const baseRules = data.map(row => ({
@@ -1137,7 +1146,8 @@ export async function updateLayoutRule(input: {
 }
 
 export async function getLayoutRuleById(ruleId: string, tenantId: string): Promise<LayoutRule | null> {
-    const rules = await listLayoutRules(tenantId);
+    // Solo la regola chiesta, non tutte quelle dell'azienda (lotto bug C, Pr8).
+    const rules = await loadLayoutRules(tenantId, ruleId);
     return rules.find(rule => rule.id === ruleId) ?? null;
 }
 

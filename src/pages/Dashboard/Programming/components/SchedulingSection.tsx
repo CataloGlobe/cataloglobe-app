@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { DateInput } from "@/components/ui/Input/DateInput";
 import { ChipGroupMultiple } from "@/components/ui/Chip/ChipGroup";
 import { Switch } from "@/components/ui/Switch/Switch";
@@ -20,8 +19,11 @@ const DAY_OPTIONS = [
 
 interface SchedulingSectionProps {
     alwaysActive: boolean;
+    /** «In un periodo» e «In certe ore», dal form: così «Annulla» li riallinea. */
+    periodEnabled: boolean;
     startAt: string;
     endAt: string;
+    timeEnabled: boolean;
     /** «In certi giorni», dal form: acceso senza giorni è un errore di `validateRuleForm`. */
     daysEnabled: boolean;
     daysOfWeek: string[];
@@ -31,6 +33,8 @@ interface SchedulingSectionProps {
         updates: Partial<{
             alwaysActive: boolean;
             timeMode: LayoutTimeMode;
+            periodEnabled: boolean;
+            timeEnabled: boolean;
             startAt: string;
             endAt: string;
             daysEnabled: boolean;
@@ -47,8 +51,10 @@ interface SchedulingSectionProps {
 
 export function SchedulingSection({
     alwaysActive,
+    periodEnabled,
     startAt,
     endAt,
+    timeEnabled,
     daysEnabled,
     daysOfWeek,
     timeFrom,
@@ -58,10 +64,6 @@ export function SchedulingSection({
     onFieldBlur
 }: SchedulingSectionProps) {
 
-    // Progressive toggle states — initialized from existing prop values
-    const [hasPeriod, setHasPeriod] = useState(!!(startAt || endAt));
-    const [hasTime, setHasTime] = useState(!!(timeFrom || timeTo));
-
     const handleToggleAlways = (checked: boolean) => {
         onFormChange({
             alwaysActive: checked,
@@ -70,13 +72,11 @@ export function SchedulingSection({
     };
 
     const handleTogglePeriod = (checked: boolean) => {
-        setHasPeriod(checked);
-        if (!checked) onFormChange({ startAt: "", endAt: "" });
+        onFormChange(checked ? { periodEnabled: true } : { periodEnabled: false, startAt: "", endAt: "" });
     };
 
     const handleToggleTime = (checked: boolean) => {
-        setHasTime(checked);
-        if (!checked) onFormChange({ timeFrom: "", timeTo: "" });
+        onFormChange(checked ? { timeEnabled: true } : { timeEnabled: false, timeFrom: "", timeTo: "" });
     };
 
     const handleToggleDays = (checked: boolean) => {
@@ -106,10 +106,10 @@ export function SchedulingSection({
                     {/* Step 1 — Periodo */}
                     <div className={styles.inlineBlock}>
                         <div className={styles.switchRow}>
-                            <Switch ariaLabel="In un periodo" checked={hasPeriod} onChange={handleTogglePeriod} />
+                            <Switch ariaLabel="In un periodo" checked={periodEnabled} onChange={handleTogglePeriod} />
                             <Text variant="body-sm">In un periodo</Text>
                         </div>
-                        {hasPeriod && (
+                        {periodEnabled && (
                             <>
                                 <div className={styles.sectionGrid}>
                                     <DateInput
@@ -146,10 +146,10 @@ export function SchedulingSection({
                     {/* Step 2 — Orario */}
                     <div className={styles.inlineBlock}>
                         <div className={styles.switchRow}>
-                            <Switch ariaLabel="In certe ore" checked={hasTime} onChange={handleToggleTime} />
+                            <Switch ariaLabel="In certe ore" checked={timeEnabled} onChange={handleToggleTime} />
                             <Text variant="body-sm">In certe ore</Text>
                         </div>
-                        {hasTime && (
+                        {timeEnabled && (
                             <>
                                 <div className={styles.sectionGrid}>
                                     <TimeInput

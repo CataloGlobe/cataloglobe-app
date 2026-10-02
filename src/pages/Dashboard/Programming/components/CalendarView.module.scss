@@ -18,11 +18,13 @@
 .calendarNavLabel {
   min-width: 200px;
   text-align: center;
+}
 
-  @media (max-width: 767px) {
-    min-width: 0;
-    flex: 1;
-  }
+// Un giorno alla volta (lo spazio misurato, non la finestra): l'etichetta
+// prende la riga.
+.narrow .calendarNavLabel {
+  min-width: 0;
+  flex: 1;
 }
 
 /* ─── Settimana: sette colonne di schede (mockup) ────────────── */
@@ -92,8 +94,10 @@
   text-align: left;
   cursor: pointer;
 
+  // A metà fra hover e superficie: su --hover-bg pieno la didascalia muted
+  // dell'orario scendeva a 4,34:1 in chiaro.
   &:hover {
-    background: var(--hover-bg);
+    background: color-mix(in srgb, var(--hover-bg) 50%, var(--surface));
   }
 
   &:focus-visible {
@@ -119,7 +123,8 @@
   line-clamp: 2;
 }
 
-// Fra 768 e 1023 le sette colonne sono ~90 px: meno aria intorno al testo.
+// Sotto 1024 le sette colonne (quando lo spazio basta) sono le più strette:
+// meno aria intorno al testo.
 @media (max-width: 1023px) {
   .cards {
     padding: var(--space-4);

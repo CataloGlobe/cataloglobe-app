@@ -47,6 +47,17 @@
   gap: var(--space-12);
 }
 
+/* Chi non scrive: un fieldset spento, senza la sua cornice, col banner sopra il form. */
+.readOnlyScope {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
 .formLayout {
   display: grid;
   grid-template-columns: 1.6fr 1fr;
@@ -100,7 +111,7 @@
 
 .schedulingSeparator {
   border: none;
-  border-top: 1px solid var(--border, #e2e8f0);
+  border-top: 1px solid var(--border);
   margin: 0;
 }
 
@@ -145,7 +156,8 @@
   border: 1px dashed var(--border);
   border-radius: 10px;
   padding: 0.7rem;
-  background: color-mix(in srgb, var(--hover-bg) 85%, white 15%);
+  // Col fondo della card, non col bianco: in scuro `white` accendeva il riquadro.
+  background: color-mix(in srgb, var(--hover-bg) 85%, var(--card-bg) 15%);
 }
 
 .drawerHeader {
@@ -187,7 +199,7 @@
 }
 
 .variantArrow {
-  color: var(--color-gray-400, #9ca3af);
+  color: var(--color-gray-400);
   margin-right: 1px;
   font-style: normal;
 }
@@ -229,14 +241,15 @@
   flex-direction: column;
   gap: 0.5rem;
   padding: 0.75rem;
-  background: var(--surface, #fafafa);
-  border: 1px solid var(--border, #e2e8f0);
-  border-radius: var(--radius-md, 8px);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
 }
 
+// Dimensione dal `Text` (body-sm). --text-secondary non esiste: il fallback
+// #64748b restava anche in scuro.
 .slotGroupTitle {
-  color: var(--text-secondary, #64748b);
-  font-size: 0.875rem;
+  color: var(--text-muted);
 }
 
 .slotGroupEmpty {
@@ -244,28 +257,28 @@
 }
 
 .featuredListBorder {
-  border: 1px solid var(--border, #e2e8f0);
-  border-radius: var(--radius-md, 8px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
   overflow: hidden;
 }
 
 .featuredRow {
   display: grid;
-  grid-template-columns: 20px 1fr 24px;
+  grid-template-columns: 20px 1fr auto;
   align-items: center;
   gap: 0.75rem;
   padding: 0.5rem 0.75rem;
   min-height: 44px;
-  border-bottom: 1px solid var(--border, #e2e8f0);
+  border-bottom: 1px solid var(--border);
   background: var(--surface);
-  transition: background 0.1s;
+  transition: background var(--timing-motion-fast) var(--easing-state);
 
   &:last-child {
     border-bottom: none;
   }
 
   &:hover {
-    background: color-mix(in srgb, var(--hover-bg, #f1f5f9) 60%, white 40%);
+    background: color-mix(in srgb, var(--hover-bg) 60%, var(--card-bg) 40%);
   }
 }
 
@@ -280,13 +293,13 @@
   align-items: center;
   justify-content: center;
   cursor: grab;
-  color: var(--text-muted, #94a3b8);
+  color: var(--text-muted);
   padding: 2px;
   border-radius: 4px;
-  transition: color 0.12s;
+  transition: color var(--timing-motion-fast) var(--easing-state);
 
   &:hover {
-    color: var(--color-gray-600, #4b5563);
+    color: var(--color-gray-600);
   }
 
   &:active {
@@ -299,26 +312,6 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.featuredRemoveButton {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: none;
-  background: none;
-  border-radius: 6px;
-  cursor: pointer;
-  color: var(--color-gray-400, #9ca3af);
-  transition: background 0.1s, color 0.1s;
-  flex-shrink: 0;
-
-  &:hover {
-    background: var(--danger-50);
-    color: var(--text-danger);
-  }
 }
 
 /* ─── Responsive ─────────────────────────────────────────────── */
