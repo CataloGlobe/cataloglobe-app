@@ -993,6 +993,48 @@ for (const width of [375, 768, 1280]) {
 
 // Banda del momento e matrice sedi × strati (§20, decisioni §50.7). Scritti
 // prima della banda in `test.fail`, passati a `test` col commit che li rende veri.
+// Le icone senza testo (SegmentedControl `iconsOnly`, icone fisse della barra
+// compatta) dicono il nome col Tooltip di sistema, non col `title` del browser.
+test.describe("Programmazione — Elenco e Settimana a sole icone", () => {
+    test.beforeEach(async ({ page }) => {
+        await stubProgrammazione(page);
+    });
+
+    test("nella testata stretta il radio a icona ha il tooltip e l'indicatore segue la scelta", async ({ page }) => {
+        await openList(page);
+        // A 768 le azioni comode non stanno nemmeno da sole: la testata va su
+        // due righe con Elenco/Settimana a sole icone (`narrowerActions`).
+        await page.setViewportSize({ width: 768, height: 900 });
+        const week = page.getByRole("radio", { name: "Settimana" });
+        await expect(week).toHaveText("");
+        await expect(week).not.toHaveAttribute("title");
+        await week.hover();
+        await expect(page.getByRole("tooltip", { name: "Settimana" })).toBeVisible();
+        await week.click();
+        await expect(week).toHaveAttribute("aria-checked", "true");
+        // L'indicatore misura il bottone dal suo ref: sotto il Tooltip deve
+        // ancora trovarlo (si aspetta la fine della sua transizione).
+        const indicatorOffset = () =>
+            week.evaluate(el => {
+                const bar = el.parentElement!.firstElementChild as HTMLElement;
+                const left = new DOMMatrix(getComputedStyle(bar).transform).m41;
+                return bar.getBoundingClientRect().width > 0 ? Math.round(left) - (el as HTMLElement).offsetLeft : null;
+            });
+        await expect.poll(indicatorOffset).toBe(0);
+    });
+
+    test("nella barra compatta l'icona Elenco/Settimana ha il tooltip", async ({ page }) => {
+        await openList(page);
+        await page.setViewportSize({ width: 375, height: 812 });
+        const icon = page.getByRole("button", { name: "Settimana", exact: true }).filter({ visible: true }).first();
+        await expect(icon).not.toHaveAttribute("title");
+        await icon.hover();
+        await expect(page.getByRole("tooltip", { name: "Settimana" })).toBeVisible();
+        await icon.click();
+        await expect(page.getByRole("button", { name: "Elenco", exact: true }).filter({ visible: true }).first()).toBeVisible();
+    });
+});
+
 // Sopra le otto sedi `ActivityMultiSelect` mostra una ricerca (§50.16,
 // `ACTIVITY_SEARCH_THRESHOLD`): finora provata solo su `filterActivityOptions`.
 test("con più di otto sedi «Dove si applica» cerca le sedi per nome", async ({ page }) => {
