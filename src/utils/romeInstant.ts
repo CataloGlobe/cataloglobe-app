@@ -27,3 +27,40 @@ export function romeInstantAt(day: RomeDay, minutes: number): RomeDateTime {
     }
     return toRomeDateTime(new Date(wall - HOUR));
 }
+
+const pad = (n: number) => String(n).padStart(2, "0");
+
+/** Il giorno di Roma di `date` come `YYYY-MM-DD`: il formato dei campi data. */
+export function romeDateString(date: Date): string {
+    const { year, month, day } = romeDayOf(date);
+    return `${year}-${pad(month + 1)}-${pad(day)}`;
+}
+
+/** `YYYY-MM-DD` (campo data) come giorno di Roma; null se non è una data. */
+export function parseRomeDay(value: string): RomeDay | null {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+    if (!match) return null;
+    const [year, month, day] = [Number(match[1]), Number(match[2]) - 1, Number(match[3])];
+    const check = new Date(Date.UTC(year, month, day));
+    if (check.getUTCFullYear() !== year || check.getUTCMonth() !== month || check.getUTCDate() !== day) return null;
+    return { year, month, day };
+}
+
+/** L'ora di Roma di `date` come `YYYY-MM-DDTHH:MM`: il formato di `datetime-local`. */
+export function romeDateTimeLocalValue(date: Date): string {
+    const t = toRomeDateTime(date);
+    return `${t.year}-${pad(t.month + 1)}-${pad(t.day)}T${pad(t.hour)}:${pad(t.minute)}`;
+}
+
+/**
+ * Un valore `datetime-local` letto come ora di Roma, qualunque sia il fuso
+ * del browser (`new Date(value)` lo leggerebbe nel fuso del browser).
+ */
+export function parseRomeDateTimeLocal(value: string): RomeDateTime | null {
+    const match = /^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})/.exec(value);
+    if (!match) return null;
+    const day = parseRomeDay(match[1]);
+    const [hour, minute] = [Number(match[2]), Number(match[3])];
+    if (!day || hour > 23 || minute > 59) return null;
+    return romeInstantAt(day, hour * 60 + minute);
+}

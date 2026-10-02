@@ -8,6 +8,7 @@ import type {
 import { ruleTypeLabel } from "@/pages/Dashboard/Programming/ruleTypeLabel";
 import { parseDecimalPrice } from "@/utils/priceParser";
 import { isStartDateInPast } from "@/utils/ruleStartDate";
+import { parseRomeDay, romeDateString, romeInstantAt } from "@/utils/romeInstant";
 
 /**
  * Il form del dettaglio regola, uno per i quattro tipi (P8, §50.1 d): prima
@@ -49,8 +50,15 @@ export type RuleDetailForm = {
     enabled: boolean;
     alwaysActive: boolean;
     timeMode: LayoutTimeMode;
+    /**
+     * Gli interruttori «In un periodo» e «In certe ore» stanno nella bozza,
+     * così «Annulla» li riallinea. Acceso coi campi vuoti vale come spento:
+     * si salvano le date e le ore, non l'interruttore.
+     */
+    periodEnabled: boolean;
     startAt: string;
     endAt: string;
+    timeEnabled: boolean;
     /** L'interruttore «In certi giorni»: acceso senza giorni non si salva. */
     daysEnabled: boolean;
     daysOfWeek: string[];
@@ -72,13 +80,25 @@ export const RULE_FORM_FIELDS = ["name", "timeFrom", "timeTo", "when", "startAt"
 export type RuleFormField = (typeof RULE_FORM_FIELDS)[number];
 export type RuleFormErrors = Partial<Record<RuleFormField, string>>;
 
-function toLocalDateString(d: Date): string {
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+/**
+ * Oggi a Roma, come `YYYY-MM-DD`: il formato dei campi data. Le regole valgono
+ * all'ora di Roma (il resolver), non a quella del browser: alle 01:00 di Roma
+ * un browser a Los Angeles è ancora a ieri.
+ */
+export function todayInRome(now: Date = new Date()): string {
+    return romeDateString(now);
 }
 
-/** Oggi, come `YYYY-MM-DD` locale: il formato dei campi data. */
-export function todayLocal(now: Date = new Date()): string {
-    return toLocalDateString(now);
+/**
+ * Le date del form come istanti di `start_at`/`end_at`: l'inizio alla
+ * mezzanotte di Roma del primo giorno, la fine alle 23:59:59 di Roma
+ * dell'ultimo (mai la mezzanotte UTC). Una data illeggibile vale null.
+ */
+export function ruleDateToIso(value: string, edge: "start" | "end"): string | null {
+    const day = value ? parseRomeDay(value) : null;
+    if (!day) return null;
+    const epoch = edge === "start" ? romeInstantAt(day, 0).epoch : romeInstantAt(day, 23 * 60 + 59).epoch + 59_000;
+    return new Date(epoch).toISOString();
 }
 
 export function buildRuleDetailForm(
@@ -160,10 +180,12 @@ export function buildRuleDetailForm(
         enabled: rule.enabled,
         alwaysActive: rule.time_mode === "always",
         timeMode: rule.time_mode,
-        startAt: rule.start_at ? toLocalDateString(new Date(rule.start_at)) : "",
-        endAt: rule.end_at ? toLocalDateString(new Date(rule.end_at)) : "",
+        periodEnabled: Boolean(rule.start_at || rule.end_at),
+        startAt: rule.start_at ? romeDateString(new Date(rule.start_at)) : "",
+        endAt: rule.end_at ? romeDateString(new Date(rule.end_at)) : "",
         daysEnabled: (rule.days_of_week?.length ?? 0) > 0,
         daysOfWeek: (rule.days_of_week ?? []).map(day => String(day)),
+        timeEnabled: Boolean(rule.time_from || rule.time_to),
         timeFrom: rule.time_from?.slice(0, 5) ?? "",
         timeTo: rule.time_to?.slice(0, 5) ?? ""
     };

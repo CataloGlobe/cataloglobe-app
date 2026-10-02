@@ -17,10 +17,13 @@ export type ActiveCatalogMeta = {
     catalogId: string | null;
     catalogName: string | null;
     hasActiveCatalog: boolean;
-    /** Prodotti rimossi dalla pagina pubblica (override realtime, mode='hide'). */
-    hiddenCount: number;
-    /** Prodotti mostrati come "Non disponibile" (override realtime, mode='disable'). */
-    unavailableCount: number;
+    /**
+     * Prodotti rimossi dalla pagina pubblica (override realtime, mode='hide').
+     * Null se il conteggio non si è caricato: non vuol dire «nessuno».
+     */
+    hiddenCount: number | null;
+    /** Prodotti mostrati come "Non disponibile" (override realtime, mode='disable'). Null come sopra. */
+    unavailableCount: number | null;
 };
 
 /**
@@ -62,7 +65,8 @@ type OverrideCounts = { hiddenCount: number; unavailableCount: number };
  * Batch fetch di conteggi hidden/unavailable per più attività in UNA query
  * (`.in("activity_id", ...)`), aggregati lato client — mai una query per
  * sede. Stesso fallback di `deriveVisibilityState`: `mode` assente/'hide' →
- * hidden, 'disable' → unavailable.
+ * hidden, 'disable' → unavailable. L'errore arriva al chiamante: un
+ * conteggio mancante non è «nessuna modifica».
  */
 async function getOverrideCountsForActivities(
     activityIds: string[]
@@ -76,9 +80,9 @@ async function getOverrideCountsForActivities(
         .eq("visible_override", false)
         .in("activity_id", activityIds);
 
-    if (error || !data) return result;
+    if (error) throw error;
 
-    for (const row of data as Array<{ activity_id: string; mode: VisibilityMode | null }>) {
+    for (const row of (data ?? []) as Array<{ activity_id: string; mode: VisibilityMode | null }>) {
         const counts = result[row.activity_id] ?? { hiddenCount: 0, unavailableCount: 0 };
         if (row.mode === "disable") counts.unavailableCount += 1;
         else counts.hiddenCount += 1;
@@ -111,16 +115,21 @@ export async function countManualOverridesByActivity(activityIds: string[]): Pro
     return counts;
 }
 
+/** Conteggio delle modifiche a mano non caricato: si dice, non si spaccia per zero. */
+export const OVERRIDES_UNKNOWN_LABEL = "Modifiche a mano non caricate";
+
 /**
  * Formatta il riepilogo override per card/tabella Sedi: "N nascosti, M non
  * disponibili", omettendo la parte a zero. Null se non ci sono override
- * attivi (nessuna riga renderizzata dal chiamante).
+ * attivi (nessuna riga renderizzata dal chiamante); `OVERRIDES_UNKNOWN_LABEL`
+ * se il conteggio non si è caricato.
  */
 export function formatOverrideSummary(
-    hiddenCount: number,
-    unavailableCount: number,
+    hiddenCount: number | null,
+    unavailableCount: number | null,
     options?: { abbreviate?: boolean }
 ): string | null {
+    if (hiddenCount === null || unavailableCount === null) return OVERRIDES_UNKNOWN_LABEL;
     if (hiddenCount === 0 && unavailableCount === 0) return null;
     const parts: string[] = [];
     if (hiddenCount > 0) {
@@ -176,21 +185,26 @@ export async function getActiveCatalogForActivities(
                 }
             })
         ),
-        getOverrideCountsForActivities(activityIds)
+        // Un conteggio che fallisce non spegne il nome del menù: resta null
+        // e la card dice che non si è caricato.
+        getOverrideCountsForActivities(activityIds).catch(error => {
+            console.error("[activeCatalog] override counts failed:", error);
+            return null;
+        })
     ]);
 
     // ── Step 2: Build result map ────────────────────────────────────────────
     const result: Record<string, ActiveCatalogMeta> = {};
 
     for (const { activityId, catalogId, catalogName } of resolvedList) {
-        const counts = overrideCounts[activityId];
+        const counts = overrideCounts ? (overrideCounts[activityId] ?? { hiddenCount: 0, unavailableCount: 0 }) : null;
         result[activityId] = {
             activityId,
             catalogId,
             catalogName,
             hasActiveCatalog: catalogId !== null,
-            hiddenCount: counts?.hiddenCount ?? 0,
-            unavailableCount: counts?.unavailableCount ?? 0
+            hiddenCount: counts?.hiddenCount ?? null,
+            unavailableCount: counts?.unavailableCount ?? null
         };
     }
 
