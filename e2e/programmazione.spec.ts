@@ -809,6 +809,19 @@ test.describe("Programmazione — dettaglio", () => {
         await expect(before).toBeDisabled();
     });
 
+    test("in evidenza: «Rimuovi» è un bottone a icona di sistema e toglie il contenuto dalla bozza", async ({ page }) => {
+        await openRule(page, "promoPorto");
+        const remove = main(page).getByRole("button", { name: "Rimuovi Serata jazz e2e" });
+        await expect(remove).toHaveAttribute("data-icon-only", "");
+        await remove.click();
+        await expect(remove).toHaveCount(0);
+        // Tolto, torna fra le scelte di «sotto il menù».
+        await expect(
+            main(page).getByRole("combobox", { name: "Aggiungi un contenuto sotto il menù" }).getByRole("option", { name: "Serata jazz e2e" })
+        ).toHaveCount(1);
+        await expect(page.getByRole("button", { name: "Salva", exact: true }).first()).toBeVisible();
+    });
+
     test("cablaggio: salvare una regola in evidenza (schedules.PATCH + contenuti riscritti)", async ({ page }) => {
         stub.onWrite("schedules.PATCH", () => null);
         stub.onWrite("schedule_featured_contents.DELETE", () => null);

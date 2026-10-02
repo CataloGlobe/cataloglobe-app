@@ -15,6 +15,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical, X } from "lucide-react";
+import { IconButton } from "@/components/ui/Button/IconButton";
 import Text from "@/components/ui/Text/Text";
 import { Select } from "@/components/ui/Select/Select";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
@@ -60,14 +61,13 @@ function SortableFeaturedRow({ item, name, onRemove }: SortableFeaturedRowProps)
                 {name}
             </Text>
 
-            <button
-                type="button"
-                className={styles.featuredRemoveButton}
+            <IconButton
+                icon={<X size={16} />}
+                variant="ghost"
+                size="sm"
                 onClick={onRemove}
                 aria-label={`Rimuovi ${name}`}
-            >
-                <X size={14} />
-            </button>
+            />
         </div>
     );
 }
