@@ -7,6 +7,15 @@
   gap: var(--space-16);
 }
 
+// Elenco dei lead: catena flex vincolata come TeamPage. Senza un'altezza
+// limitata il probe del DataTable cresce col contenuto, la tabella prende
+// come tetto la propria altezza della prima misura e non si allunga più
+// (una riga visibile su tre dopo un import).
+.listPage {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
 .headerActions {
   display: flex;
   align-items: center;

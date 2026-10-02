@@ -348,7 +348,7 @@ export default function LeadsPage() {
     }, [load]);
 
     return (
-        <div className={styles.page}>
+        <div className={view === "elenco" ? `${styles.page} ${styles.listPage}` : styles.page}>
             {pageError && (
                 <InlineBanner
                     variant="error"
