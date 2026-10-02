@@ -759,7 +759,7 @@ test.describe("Prodotti — lotto bug B", () => {
         expect(background).not.toBe("rgb(249, 250, 251)");
     });
 
-    test.fail("eliminazione: se non riesco a contare dove è usato, non si elimina; «Riprova» rilegge", async ({ page }) => {
+    test("eliminazione: se non riesco a contare dove è usato, non si elimina; «Riprova» rilegge", async ({ page }) => {
         stub.onWrite("products.DELETE", () => null);
         stub.onWrite("translations.DELETE", () => null);
         stub.onWrite("translation_jobs.DELETE", () => null);
