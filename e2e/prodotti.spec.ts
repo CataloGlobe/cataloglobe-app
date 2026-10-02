@@ -476,8 +476,7 @@ test.describe("Prodotti — negozio", () => {
     test("attributi del prodotto: i valori in bozza, pallino, Salva nell'header", async ({ page }) => {
         stub.onWrite("product_attribute_values.PATCH", () => null);
         stub.onWrite("product_attribute_values.POST", () => null);
-        // Dalla tab, non da ?tab=attributes: a freddo il verticale arriva dopo il
-        // primo render e il deep link cade su Scheda (comportamento di oggi).
+        // Dalla tab: il deep link a freddo ha il suo test nel lotto bug B (P2).
         await openProduct(page, PRODUCT.hamburger);
         await page.getByRole("tab", { name: "Attributi" }).click();
         const colore = main(page).getByRole("textbox", { name: "Colore" });
@@ -499,8 +498,7 @@ test.describe("Prodotti — negozio", () => {
     });
 
     test("attributi del prodotto: un richiesto vuoto blocca il salvataggio", async ({ page }) => {
-        // Dalla tab, non da ?tab=attributes: a freddo il verticale arriva dopo il
-        // primo render e il deep link cade su Scheda (comportamento di oggi).
+        // Dalla tab: il deep link a freddo ha il suo test nel lotto bug B (P2).
         await openProduct(page, PRODUCT.hamburger);
         await page.getByRole("tab", { name: "Attributi" }).click();
         const taglia = main(page).getByRole("textbox", { name: "Taglia" });
@@ -513,8 +511,7 @@ test.describe("Prodotti — negozio", () => {
 
     test("attributi del prodotto: «Rimuovi» è immediato", async ({ page }) => {
         stub.onWrite("product_attribute_values.DELETE", () => null);
-        // Dalla tab, non da ?tab=attributes: a freddo il verticale arriva dopo il
-        // primo render e il deep link cade su Scheda (comportamento di oggi).
+        // Dalla tab: il deep link a freddo ha il suo test nel lotto bug B (P2).
         await openProduct(page, PRODUCT.hamburger);
         await page.getByRole("tab", { name: "Attributi" }).click();
         await expect(main(page).getByRole("textbox", { name: "Colore" })).toBeVisible({ timeout: 15_000 });
@@ -943,14 +940,14 @@ test.describe("Prodotti — lotto bug B", () => {
             stub = await stubProdotti(page, { vertical: "retail" });
         });
 
-        test.fail("P2: ?tab=attributes a freddo apre gli Attributi del prodotto", async ({ page }) => {
+        test("P2: ?tab=attributes a freddo apre gli Attributi del prodotto", async ({ page }) => {
             await openProduct(page, PRODUCT.hamburger, "attributes");
             await expect(page.getByRole("tab", { name: "Attributi" })).toHaveAttribute("aria-selected", "true", { timeout: 15_000 });
             await expect(main(page).getByRole("textbox", { name: "Taglia" })).toHaveValue("M", { timeout: 15_000 });
             await expect(page).toHaveURL(/\?tab=attributes$/);
         });
 
-        test.fail("P2: ?tab=attributes a freddo apre gli Attributi dell'elenco", async ({ page }) => {
+        test("P2: ?tab=attributes a freddo apre gli Attributi dell'elenco", async ({ page }) => {
             await openList(page);
             await page.goto(`${page.url().split("?")[0]}?tab=attributes`);
             await expect(collection(page, /^Attributi$/)).toHaveAttribute("aria-selected", "true", { timeout: 15_000 });

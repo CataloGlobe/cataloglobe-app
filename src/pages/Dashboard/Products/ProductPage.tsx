@@ -83,7 +83,7 @@ export default function ProductPage() {
         ],
         [product, verticalConfig]
     );
-    const { visibleTabs, initialTab } = useFilteredProductTabs<ProductPageTab>(
+    const { visibleTabs, initialTab, ready: tabsReady } = useFilteredProductTabs<ProductPageTab>(
         allTabs,
         "scheda",
         // Legacy redirects:
@@ -102,6 +102,11 @@ export default function ProductPage() {
     );
     const [, setSearchParams] = useSearchParams();
     const [activeTab, setActiveTab] = useState<ProductPageTab>(initialTab);
+    // A freddo il verticale arriva dopo il primo render: un `?tab` sotto gate
+    // (es. `attributes`) si apre quando l'azienda c'è.
+    useEffect(() => {
+        if (tabsReady) setActiveTab(initialTab);
+    }, [tabsReady, initialTab]);
 
     // Tab change: sincronizza ?tab= con lo stato (replace per non polluire history).
     // Il `useFilteredProductTabs` continua a gestire la legacy map al mount iniziale.

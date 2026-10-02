@@ -118,8 +118,13 @@ export default function Products() {
         ],
         [verticalConfig]
     );
-    const { visibleTabs, initialTab } = useFilteredProductTabs<ProductsTab>(allTabs, "products");
+    const { visibleTabs, initialTab, ready: tabsReady } = useFilteredProductTabs<ProductsTab>(allTabs, "products");
     const [activeTab, setActiveTab] = useState<ProductsTab>(initialTab);
+    // A freddo il verticale arriva dopo il primo render: un `?tab` sotto gate
+    // (es. `attributes`) si apre quando l'azienda c'è.
+    useEffect(() => {
+        if (tabsReady) setActiveTab(initialTab);
+    }, [tabsReady, initialTab]);
     const [isCreateGroupOpen, setCreateGroupOpen] = useState(false);
     const [attrCreateSeq, setAttrCreateSeq] = useState(0);
     const [ingredientCreateSeq, setIngredientCreateSeq] = useState(0);
