@@ -442,3 +442,9 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/import_map.json"
 entrypoint = "./functions/crm-purge/index.ts"
+
+[functions.crm-meta-webhook]
+enabled = true
+verify_jwt = false
+import_map = "./functions/import_map.json"
+entrypoint = "./functions/crm-meta-webhook/index.ts"
