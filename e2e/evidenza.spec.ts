@@ -620,7 +620,7 @@ test.describe("In evidenza — lotto bug A", () => {
         expect(await drawer.getByText("Big Arch maxi e2e").count()).toBe(0);
     });
 
-    test.fail("E1: se non riesco a contare dove è usato, non si elimina; «Riprova» rilegge", async ({ page }) => {
+    test("E1: se non riesco a contare dove è usato, non si elimina; «Riprova» rilegge", async ({ page }) => {
         stub.onWrite("featured_contents.DELETE", () => null);
         await openList(page);
         let fail = true;
