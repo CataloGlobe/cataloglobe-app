@@ -567,6 +567,26 @@ test.describe("Stili — lotto bug A", () => {
         expect(await page.getByText("Impossibile salvare lo stile.").count()).toBe(0);
     });
 
+    test("S1: dopo il Salva, senza ricaricare, versione e data sono quelle scritte", async ({ page }) => {
+        wireStyleWrites(stub);
+        await openStyle(page, STYLE.sera);
+        await expect(nameField(page)).toHaveValue("Sera e2e", { timeout: 15_000 });
+        await expect(page.getByRole("button", { name: /Versione 1/ }).first()).toContainText("Aggiornata 19/03/2026");
+        await touchToken(page);
+        await saveButton(page).click();
+        await expect(page.getByRole("status").filter({ hasText: /^Salvato$/ }).first()).toBeVisible();
+        // Pannello: versione nuova e data della scrittura (orologio fermo al 23/09).
+        const control = page.getByRole("button", { name: /Versione 2/ }).first();
+        await expect(control).toContainText("Aggiornata 23/09/2026");
+        await control.click();
+        const current = page.getByRole("button", { name: /^v2\b/ });
+        await expect(current).toBeVisible();
+        await expect(current).toContainText("attiva");
+        await expect(page.getByRole("button", { name: /^v1\b/ })).not.toContainText("attiva");
+        // Nessuna seconda lettura dello stile dopo la scrittura.
+        expect(writes(stub, "styles.PATCH")).toHaveLength(1);
+    });
+
     test("S3: cambiare solo il nome non crea una versione", async ({ page }) => {
         wireStyleWrites(stub);
         await openStyle(page, STYLE.sera);
