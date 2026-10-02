@@ -750,7 +750,7 @@ test.describe("Prodotti — lotto bug B", () => {
         await expect(page.getByRole("tab", { name: "Attributi" })).toHaveCount(0);
     });
 
-    test.fail("P3: nel tema scuro l'anteprima vuota dell'immagine non è chiara", async ({ page }) => {
+    test("P3: nel tema scuro l'anteprima vuota dell'immagine non è chiara", async ({ page }) => {
         await page.addInitScript(() => localStorage.setItem("theme", "dark"));
         await openProduct(page, PRODUCT.hamburger);
         const dropzone = main(page).getByRole("button", { name: /Clicca o trascina/ });

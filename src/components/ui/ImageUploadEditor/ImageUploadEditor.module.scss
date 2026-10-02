@@ -127,7 +127,8 @@
   border-radius: 12px;
   overflow: hidden;
   border: 1px solid var(--border);
-  background: var(--color-bg-subtle);
+  // --bg segue il tema; --color-bg-subtle no (in scuro restava #f9fafb).
+  background: var(--bg);
 }
 
 // 1:1 (logo, avatar): la scheda ImageUploadField dà 96 px all'anteprima
