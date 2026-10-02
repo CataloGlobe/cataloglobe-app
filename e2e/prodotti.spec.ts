@@ -5,6 +5,7 @@ import {
     INGREDIENT,
     MISSING_PRODUCT,
     PRODUCT,
+    TENANT_ID,
     stubProdotti,
     type ProdottiStub,
     type WriteCall
@@ -721,4 +722,239 @@ test.describe("Prodotti — larghezze", () => {
             await noSideScroll(page);
         });
     }
+});
+
+/**
+ * Lotto bug B (§50.18). Ogni caso nasce in `test.fail` sul codice di prima e
+ * passa a `test` col commit che lo chiude.
+ */
+test.describe("Prodotti — lotto bug B", () => {
+    test.use({ viewport: { width: 1440, height: 900 } });
+
+    /** La card «Prezzo» di Prezzi & Opzioni: le Configurazioni hanno la stessa riga di aggiunta. */
+    function priceCard(page: Page): Locator {
+        return main(page).getByText("Prezzo", { exact: true }).first().locator("xpath=ancestor::section[1]");
+    }
+
+    test.fail("P1: «Imposta un prezzo proprio» su una variante che eredita apre il campo", async ({ page }) => {
+        stub.onWrite("products.PATCH", call => [{ ...stub.tables.products.find(p => p.id === PRODUCT.cocaZero), ...(call.body as object) }]);
+        await openProduct(page, PRODUCT.cocaZero, "prezzi-opzioni");
+        await main(page).getByRole("button", { name: "Imposta un prezzo proprio" }).click({ timeout: 15_000 });
+        const price = main(page).getByRole("spinbutton", { name: "Prezzo" });
+        await expect(price).toBeVisible();
+        await price.fill("2.9");
+        await main(page).getByRole("button", { name: "Salva" }).click();
+        await expect.poll(() => write(stub, "products.PATCH")?.body).toMatchObject({ base_price: 2.9 });
+    });
+
+    test("P2: in F&B un ?tab=attributes a freddo cade sulla Scheda", async ({ page }) => {
+        await openProduct(page, PRODUCT.hamburger, "attributes");
+        await expect(page.getByRole("tab", { name: "Scheda" })).toHaveAttribute("aria-selected", "true", { timeout: 15_000 });
+        await expect(page.getByRole("tab", { name: "Attributi" })).toHaveCount(0);
+    });
+
+    test.fail("P3: nel tema scuro l'anteprima vuota dell'immagine non è chiara", async ({ page }) => {
+        await page.addInitScript(() => localStorage.setItem("theme", "dark"));
+        await openProduct(page, PRODUCT.hamburger);
+        const dropzone = main(page).getByRole("button", { name: /Clicca o trascina/ });
+        await expect(dropzone).toBeVisible({ timeout: 15_000 });
+        const background = await dropzone.evaluate(el => getComputedStyle(el.parentElement as HTMLElement).backgroundColor);
+        expect(background).not.toBe("rgb(249, 250, 251)");
+    });
+
+    test.fail("eliminazione: se non riesco a contare dove è usato, non si elimina; «Riprova» rilegge", async ({ page }) => {
+        stub.onWrite("products.DELETE", () => null);
+        stub.onWrite("translations.DELETE", () => null);
+        stub.onWrite("translation_jobs.DELETE", () => null);
+        await openList(page);
+        await search(page, "Hamburger");
+        let fail = true;
+        await page.route(/\/rest\/v1\/catalog_category_products\?/, route =>
+            fail && route.request().method() === "GET" ? route.fulfill({ status: 500, json: { message: "e2e" } }) : route.fallback()
+        );
+        await actionsOf(product(page, "Hamburger")).click();
+        await page.getByRole("menuitem", { name: /^Elimina$/ }).click();
+        const confirm = page.getByRole("alertdialog");
+        await expect(confirm).toContainText("Non riesco a controllare dove è usato");
+        await expect(confirm.getByRole("button", { name: /^Elimina/ })).toBeDisabled();
+        fail = false;
+        await confirm.getByRole("button", { name: "Riprova" }).click();
+        await expect(confirm).toContainText("2 menù");
+        await confirm.getByRole("button", { name: /^Elimina/ }).click();
+        await expect.poll(() => write(stub, "products.DELETE")?.params.get("id")).toBe(`eq.${PRODUCT.hamburger}`);
+    });
+
+    test.fail("r.6: modifica ed eliminazione di un gruppo filtrano anche l'azienda", async ({ page }) => {
+        stub.onWrite("product_groups.PATCH", call => [{ ...stub.tables.product_groups.find(g => g.id === GROUP.bevande), ...(call.body as object) }]);
+        stub.onWrite("product_groups.DELETE", () => null);
+        stub.onWrite("product_group_items.POST", () => []);
+        stub.onWrite("product_group_items.DELETE", () => null);
+        await openList(page);
+        await openCollection(page, /^Gruppi$/);
+        await actionsOf(main(page).getByText("Bevande e2e", { exact: true })).click();
+        await page.getByRole("menuitem", { name: "Modifica" }).click();
+        await dialog(page).getByRole("textbox", { name: /Nome/ }).fill("Bibite e2e");
+        await dialog(page).getByRole("button", { name: "Salva" }).click();
+        await expect.poll(() => write(stub, "product_groups.PATCH")?.params.get("tenant_id")).toBe(`eq.${TENANT_ID}`);
+
+        await actionsOf(main(page).getByText("Contorni e2e", { exact: true })).click();
+        await page.getByRole("menuitem", { name: "Elimina" }).click();
+        await page.getByRole("alertdialog").getByRole("button", { name: "Elimina" }).click();
+        await expect.poll(() => write(stub, "product_groups.DELETE")?.params.get("tenant_id")).toBe(`eq.${TENANT_ID}`);
+    });
+
+    test.fail("r.9: un formato nuovo sul padre aggiorna il prezzo ereditato delle varianti", async ({ page }) => {
+        const groupId = "e2e0d000-0000-4000-a000-000000000960";
+        stub.onWrite("product_option_groups.POST", call => {
+            const row = { ...(call.body as object), id: groupId, sort_order: 0, created_at: "2026-03-17T10:00:00.000Z" };
+            stub.tables.product_option_groups.push(row);
+            return row;
+        });
+        stub.onWrite("product_option_values.POST", call => {
+            const row = { ...(call.body as object), id: "e2e0d000-0000-4000-a000-000000000961", sort_order: 0, created_at: "2026-03-17T10:00:00.000Z" };
+            stub.tables.product_option_values.push(row);
+            return row;
+        });
+        stub.onWrite("products.PATCH", call => [{ ...stub.tables.products.find(p => p.id === PRODUCT.cocaCola), ...(call.body as object) }]);
+        stub.onWrite("rpc.enqueue_translation_jobs", () => null);
+        stub.onWrite("translation_jobs.POST", () => []);
+        await openProduct(page, PRODUCT.cocaCola, "prezzi-opzioni");
+        const zero = main(page).getByRole("row", { name: /Coca-Cola Zero/ });
+        await expect(zero).toContainText("€ 2,50 (ereditato)", { timeout: 15_000 });
+        await main(page).getByRole("radio", { name: "Prezzo per formato" }).click();
+        const card = priceCard(page);
+        await card.getByRole("textbox", { name: "Nome" }).fill("Lattina");
+        await card.getByRole("spinbutton", { name: "Prezzo" }).fill("3");
+        await card.getByRole("button", { name: "Aggiungi" }).click();
+        await expect(card.getByText("Lattina", { exact: true })).toBeVisible();
+        await expect(zero).toContainText("€ 3,00 (ereditato)");
+    });
+
+    /** Un gruppo di scelte «Aggiunte e2e» sull'Hamburger, con max_selectable dato. */
+    function addonGroup(max: number | null): string {
+        const id = "e2e0d000-0000-4000-a000-000000000970";
+        stub.tables.product_option_groups.push({
+            id,
+            tenant_id: TENANT_ID,
+            product_id: PRODUCT.hamburger,
+            name: "Aggiunte e2e",
+            group_kind: "ADDON",
+            pricing_mode: "DELTA",
+            is_required: false,
+            max_selectable: max,
+            sort_order: 1,
+            created_at: "2026-03-17T10:00:00.000Z"
+        });
+        stub.tables.product_option_values.push(
+            { id: "e2e0d000-0000-4000-a000-000000000971", tenant_id: TENANT_ID, option_group_id: id, name: "Bacon", absolute_price: null, price_modifier: 1, sort_order: 0, created_at: "2026-03-17T10:00:00.000Z" }
+        );
+        return id;
+    }
+
+    async function editAddonGroup(page: Page): Promise<void> {
+        await openProduct(page, PRODUCT.hamburger, "prezzi-opzioni");
+        await main(page).getByRole("button", { name: "Azioni Aggiunte e2e" }).click({ timeout: 15_000 });
+        await page.getByRole("menuitem", { name: "Modifica" }).click();
+    }
+
+    test.fail("r.8: un gruppo senza limite si apre «più d'una, senza limite» e Salva senza modifiche non scrive", async ({ page }) => {
+        stub.onWrite("product_option_groups.PATCH", call => [call.body]);
+        addonGroup(null);
+        await editAddonGroup(page);
+        await expect(main(page).getByText(/senza limite/)).toBeVisible();
+        await main(page).getByRole("button", { name: "Modifica le regole di scelta" }).click();
+        await expect(main(page).getByRole("radio", { name: "Sì, più d'una" })).toHaveAttribute("aria-checked", "true");
+        await expect(main(page).getByRole("spinbutton", { name: "Fino a quante?" })).toHaveValue("");
+        await main(page).getByRole("button", { name: "Salva" }).click();
+        await expect(main(page).getByRole("button", { name: "Azioni Aggiunte e2e" })).toBeVisible();
+        expect(stub.writes.filter(w => w.key === "product_option_groups.PATCH")).toHaveLength(0);
+    });
+
+    test.fail("r.8: N = 1 con «più d'una» dà errore e non salva", async ({ page }) => {
+        stub.onWrite("product_option_groups.PATCH", call => [call.body]);
+        addonGroup(3);
+        await editAddonGroup(page);
+        await main(page).getByRole("button", { name: "Modifica le regole di scelta" }).click();
+        await main(page).getByRole("spinbutton", { name: "Fino a quante?" }).fill("1");
+        await main(page).getByRole("button", { name: "Salva" }).click();
+        await expect(main(page).getByText(/da 2 in su/)).toBeVisible();
+        expect(stub.writes.filter(w => w.key === "product_option_groups.PATCH")).toHaveLength(0);
+    });
+
+    test.fail("r.7: un formato senza prezzo non parte", async ({ page }) => {
+        stub.onWrite("product_option_values.POST", call => [call.body]);
+        await openProduct(page, PRODUCT.patatine, "prezzi-opzioni");
+        await expect(main(page).getByText("Grandi", { exact: true })).toBeVisible({ timeout: 15_000 });
+        const card = priceCard(page);
+        await card.getByRole("textbox", { name: "Nome" }).fill("Maxi");
+        await card.getByRole("button", { name: "Aggiungi" }).click();
+        await expect(card.getByText(/Inserisci un prezzo/)).toBeVisible();
+        expect(stub.writes.filter(w => w.key === "product_option_values.POST")).toHaveLength(0);
+    });
+
+    test.fail("r.1 + r.10: creato il prodotto, un errore dopo non lo ricrea: avviso e drawer chiuso", async ({ page }) => {
+        stub.onWrite("products.POST", call => ({ ...(call.body as object), tenant_id: TENANT_ID }));
+        stub.onWrite("products.PATCH", call => ({ ...stub.tables.products[0], ...(call.body as object) }));
+        // Il formato non si salva (product_option_groups.POST senza risposta = 500)
+        // e nemmeno gli allergeni: il prodotto però esiste già.
+        stub.onWrite("rpc.replace_product_allergens", () => new StubError(500));
+        stub.onWrite("rpc.replace_product_ingredients", () => null);
+        stub.onWrite("rpc.enqueue_translation_jobs", () => null);
+        stub.onWrite("translation_jobs.POST", () => []);
+        await openList(page);
+        await page.getByRole("button", { name: "Crea prodotto" }).click();
+        const name = dialog(page).getByRole("textbox", { name: /^Nome/ });
+        await expect(name).toBeFocused();
+        await name.fill("Panino e2e");
+        await dialog(page).getByRole("radio", { name: "Prezzi per formato" }).click();
+        await dialog(page).getByRole("textbox", { name: "Nome formato" }).fill("33cl");
+        await dialog(page).getByRole("spinbutton", { name: "Prezzo (€)" }).fill("3");
+        await dialog(page).getByRole("button", { name: "Aggiungi formato" }).click();
+        await dialog(page).getByRole("button", { name: /^Crea$/ }).click();
+        const warning = page.getByText(/creato\. Non salvat/);
+        await expect(warning).toBeVisible();
+        await expect(warning).toContainText("formati");
+        await expect(warning).toContainText("allergeni");
+        await expect(page.getByRole("dialog", { name: "Nuovo prodotto" })).toHaveCount(0);
+        expect(stub.writes.filter(w => w.key === "products.POST")).toHaveLength(1);
+    });
+
+    test.fail("r.4: la variante dice in quali gruppi entra, presi dal padre", async ({ page }) => {
+        stub.onWrite("products.POST", call => ({ ...(call.body as object), tenant_id: TENANT_ID }));
+        stub.onWrite("products.PATCH", call => ({ ...stub.tables.products[0], ...(call.body as object) }));
+        stub.onWrite("rpc.replace_product_allergens", () => null);
+        stub.onWrite("rpc.replace_product_ingredients", () => null);
+        stub.onWrite("product_attribute_values.POST", () => []);
+        stub.onWrite("product_group_items.POST", () => []);
+        stub.onWrite("rpc.enqueue_translation_jobs", () => null);
+        stub.onWrite("translation_jobs.POST", () => []);
+        await openList(page);
+        await search(page, "Hamburger");
+        await actionsOf(product(page, "Hamburger")).click();
+        await page.getByRole("menuitem", { name: /^Aggiungi variante$/i }).click();
+        await expect(dialog(page)).toContainText(/Entra nei gruppi del padre: (Panini e2e, Manzo e2e|Manzo e2e, Panini e2e)/);
+        await dialog(page).getByRole("button", { name: /^Crea$/ }).click();
+        await expect.poll(() => stub.writes.filter(w => w.key === "product_group_items.POST").length).toBe(2);
+    });
+
+    test.describe("negozio", () => {
+        test.beforeEach(async ({ page }) => {
+            await page.unrouteAll({ behavior: "ignoreErrors" });
+            stub = await stubProdotti(page, { vertical: "retail" });
+        });
+
+        test.fail("P2: ?tab=attributes a freddo apre gli Attributi del prodotto", async ({ page }) => {
+            await openProduct(page, PRODUCT.hamburger, "attributes");
+            await expect(page.getByRole("tab", { name: "Attributi" })).toHaveAttribute("aria-selected", "true", { timeout: 15_000 });
+            await expect(main(page).getByRole("textbox", { name: "Taglia" })).toHaveValue("M", { timeout: 15_000 });
+            await expect(page).toHaveURL(/\?tab=attributes$/);
+        });
+
+        test.fail("P2: ?tab=attributes a freddo apre gli Attributi dell'elenco", async ({ page }) => {
+            await openList(page);
+            await page.goto(`${page.url().split("?")[0]}?tab=attributes`);
+            await expect(collection(page, /^Attributi$/)).toHaveAttribute("aria-selected", "true", { timeout: 15_000 });
+            await expect(main(page).getByText("Taglia", { exact: true })).toBeVisible();
+        });
+    });
 });
