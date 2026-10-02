@@ -8,7 +8,7 @@
 // (crm_leads.received_at) di più di 12 mesi fa, come dice l'informativa, non
 // In prova né Cliente pagante, nessun account collegato. Contatti, ingressi ed eventi vanno via a cascata; un
 // locale in stop lascia l'impronta del telefono in crm_suppressions.
-// Poi public.crm_purge_agent_decisions (20261002160100): righe del diario degli
+// Poi public.crm_purge_agent_decisions (20261002210100): righe del diario degli
 // agenti senza locale né lead, stessa soglia.
 //
 // AUTENTICAZIONE fail-CLOSED: X-Job-Secret = CRM_JOB_SECRET.

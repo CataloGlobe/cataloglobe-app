@@ -26,7 +26,7 @@
 --
 -- La persona arriva ai trigger da auth.uid() o dall'impostazione locale della
 -- transazione `crm.agent_actor`, che scrivono solo queste funzioni.
--- SECURITY INVOKER: le RLS `crm_*` restano il cancello. ACL in 20261002160200.
+-- SECURITY INVOKER: le RLS `crm_*` restano il cancello. ACL in 20261002210200.
 -- =============================================================================
 
 BEGIN;

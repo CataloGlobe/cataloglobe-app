@@ -25,8 +25,8 @@
 --       il testo di una versione non più in bozza non cambia.
 --
 -- Il freno parte TIRATO: gli agenti non esistono ancora, e la prima
--- accensione resta un gesto di una persona. Funzioni in 20261002160100,
--- ACL in 20261002160200 (42601 con `supabase db push`).
+-- accensione resta un gesto di una persona. Funzioni in 20261002210100,
+-- ACL in 20261002210200 (42601 con `supabase db push`).
 -- =============================================================================
 
 BEGIN;

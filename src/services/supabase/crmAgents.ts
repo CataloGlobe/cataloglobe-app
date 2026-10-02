@@ -2,7 +2,7 @@
  * Agenti del CRM (/admin/agenti): pausa degli agenti, spesa AI, modelli per ruolo,
  * regole del brand, diario delle decisioni.
  *
- * Tabelle di piattaforma (migration 20261002160000): niente tenant_id, il
+ * Tabelle di piattaforma (migration 20261002210000): niente tenant_id, il
  * confine è RLS su `is_platform_admin()`. Chi ha agito lo scrivono i trigger
  * dal JWT, mai il client: qui si passano solo le scelte.
  */

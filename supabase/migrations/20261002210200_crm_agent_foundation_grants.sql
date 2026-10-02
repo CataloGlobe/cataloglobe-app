@@ -1,5 +1,5 @@
 -- =============================================================================
--- CRM interno (Fase 1, F1-1): ACL delle funzioni di 20261002160100
+-- CRM interno (Fase 1, F1-1): ACL delle funzioni di 20261002210100
 -- =============================================================================
 -- File separato dalla CREATE FUNCTION (42601 con `supabase db push`).
 -- REVOKE FROM PUBLIC non basta: Supabase dà EXECUTE di default ad anon e
