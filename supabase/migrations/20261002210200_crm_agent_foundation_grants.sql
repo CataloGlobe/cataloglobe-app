@@ -14,11 +14,15 @@
 --   crm_propose_brand_rules, crm_approve_brand_rules, crm_discard_brand_rules
 --       authenticated + service_role (le RLS lasciano passare solo gli admin
 --       di piattaforma; il service role serve alle edge del CRM)
+--   crm_lead_send_gate
+--       authenticated + service_role (sola lettura: lo chiamano le edge e il
+--       worker d'invio; da /admin dice perché un messaggio è fermo)
 --   crm_record_ai_usage
 --       solo service_role: il registro dei costi lo scrivono le edge
 --   crm_settings_agent_guard, crm_settings_agent_log,
 --   crm_brand_rules_guard, crm_brand_rules_log
---       nessuno: sono funzioni trigger (il trigger gira comunque)
+--       nessuno: sono funzioni trigger (il trigger gira comunque). I due _log
+--       sono SECURITY DEFINER: il diario lo scrivono solo loro e le edge.
 -- =============================================================================
 
 REVOKE ALL ON FUNCTION public.crm_agent_actor() FROM PUBLIC, anon;
@@ -35,6 +39,9 @@ GRANT EXECUTE ON FUNCTION public.crm_ai_spend() TO authenticated, service_role;
 
 REVOKE ALL ON FUNCTION public.crm_ai_gate(text) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.crm_ai_gate(text) TO authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.crm_lead_send_gate(uuid, text, text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.crm_lead_send_gate(uuid, text, text) TO authenticated, service_role;
 
 REVOKE ALL ON FUNCTION public.crm_record_ai_usage(
     text, text, integer, integer, integer, integer, numeric, text, boolean, text, uuid, uuid

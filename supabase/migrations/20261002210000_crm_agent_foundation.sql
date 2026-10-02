@@ -5,7 +5,8 @@
 -- da un agente (decisioni di Alex del 2026-10-01, domande 1, 6 e 7 della Fase 1):
 --
 --   crm_settings (colonne nuove)
---       freno a mano: ferma ogni invio degli agenti; si aziona da /admin, da
+--       freno a mano (pausa agenti): ferma ogni invio verso i lead, che passa
+--       sempre da crm_lead_send_gate (20261002210100); si aziona da /admin, da
 --       Telegram o in automatico dalle altre reti; per ripartire serve una
 --       persona (trigger crm_settings_agent_guard, funzione crm_set_brake);
 --       tetto di spesa AI: 100 dollari al mese e 10 al giorno, avviso all'80%,
@@ -14,8 +15,9 @@
 --       cose sensibili; si cambia senza rilasci.
 --   crm_agent_decisions
 --       il diario: ogni azione degli agenti e delle reti, col motivo in una
---       riga, l'esito del Revisore e chi ha approvato. Solo lettura e aggiunta
---       (come crm_events); se ne va a cascata col locale (dati del lead).
+--       riga, l'esito del Revisore e chi ha approvato. Dal client solo
+--       lettura: lo scrivono i trigger di log e le edge; se ne va a cascata
+--       col locale (dati del lead).
 --   crm_ai_usage
 --       registro dei costi: una riga per chiamata a Claude, coi token e il
 --       costo in dollari. Lo scrive solo il service role (crm_record_ai_usage).
@@ -142,8 +144,10 @@ CREATE UNIQUE INDEX IF NOT EXISTS crm_brand_rules_one_approved_idx
 REVOKE ALL ON TABLE public.crm_agent_decisions, public.crm_ai_usage, public.crm_brand_rules
     FROM PUBLIC, anon, authenticated;
 
--- Diario: solo lettura e aggiunta, come la storia (crm_events).
-GRANT SELECT, INSERT ON TABLE public.crm_agent_decisions TO authenticated;
+-- Diario: dal client solo lettura. Lo scrivono i trigger di log (SECURITY
+-- DEFINER, 20261002210100) e le edge col service role: una riga del diario è
+-- sempre la traccia di un cambio vero, mai una riga scritta a mano.
+GRANT SELECT ON TABLE public.crm_agent_decisions TO authenticated;
 -- Costi: li scrive solo il service role.
 GRANT SELECT ON TABLE public.crm_ai_usage TO authenticated;
 -- Regole: le scrivono le funzioni crm_*_brand_rules (SECURITY INVOKER).
@@ -156,18 +160,8 @@ ALTER TABLE public.crm_brand_rules     ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "crm_agent_decisions select" ON public.crm_agent_decisions;
 CREATE POLICY "crm_agent_decisions select" ON public.crm_agent_decisions
     FOR SELECT TO authenticated USING (public.is_platform_admin());
--- Dal client una persona scrive solo a nome suo: niente righe a nome degli
--- agenti, del Revisore o di un'altra persona (i trigger crm_* scrivono
--- 'person' con crm_agent_actor() = auth.uid()). Il resto lo scrive il service role.
+-- Nessuna policy di insert: dal client non si scrive nel diario.
 DROP POLICY IF EXISTS "crm_agent_decisions insert" ON public.crm_agent_decisions;
-CREATE POLICY "crm_agent_decisions insert" ON public.crm_agent_decisions
-    FOR INSERT TO authenticated WITH CHECK (
-        public.is_platform_admin()
-        AND actor = 'person'
-        AND actor_user_id = auth.uid()
-        AND review_outcome IS NULL
-        AND (decided_by IS NULL OR decided_by = auth.uid())
-    );
 
 DROP POLICY IF EXISTS "crm_ai_usage select" ON public.crm_ai_usage;
 CREATE POLICY "crm_ai_usage select" ON public.crm_ai_usage
