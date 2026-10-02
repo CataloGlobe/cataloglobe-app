@@ -34,7 +34,8 @@ import { createBlock } from "./components/createBlock";
 import { HeaderSaveAction, DiscardChangesConfirmDialog } from "@/components/ui/HeaderSaveAction/HeaderSaveAction";
 import { buildSaveActionCompactConfig } from "@/components/ui/HeaderSaveAction/headerSaveActionCompact";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
-import { StoryProductPicker } from "./components/StoryProductPicker";
+import { StoryProductPicker, type StoryProductOptions } from "./components/StoryProductPicker";
+import { listBaseProductsForPicker } from "@/services/supabase/products";
 import { StoryPlacementCard } from "./components/StoryPlacementCard";
 import { getActivities } from "@/services/supabase/activities";
 import type { AppearanceActivity } from "@/utils/ruleAppearance";
@@ -82,6 +83,8 @@ export default function StoryDetailPage() {
     // Dove appare (§34.7): null = tutta l'azienda.
     const [activityId, setActivityId] = useState<string | null>(null);
     const [activities, setActivities] = useState<AppearanceActivity[]>([]);
+    // I prodotti base, una lettura sola per il picker in pagina e i blocchi Prodotto.
+    const [productOptions, setProductOptions] = useState<StoryProductOptions>({ items: null, failed: false });
     const [blocks, setBlocks] = useState<StoryBlock[]>([]);
     const [pendingCoverFile, setPendingCoverFile] = useState<File | null>(null);
     const [coverPreview, setCoverPreview] = useState<string | null>(null);
@@ -116,6 +119,23 @@ export default function StoryDetailPage() {
         getActivities(tenantId)
             .then(list => setActivities(list.map(a => ({ id: a.id, name: a.name, status: a.status }))))
             .catch(error => console.warn("[StoryDetailPage] sedi non caricate:", error));
+    }, [tenantId, canRead]);
+
+    useEffect(() => {
+        if (!tenantId || !canRead) return;
+        let cancelled = false;
+        setProductOptions({ items: null, failed: false });
+        listBaseProductsForPicker(tenantId)
+            .then(items => {
+                if (!cancelled) setProductOptions({ items, failed: false });
+            })
+            .catch(error => {
+                console.warn("[StoryDetailPage] prodotti non caricati:", error);
+                if (!cancelled) setProductOptions({ items: null, failed: true });
+            });
+        return () => {
+            cancelled = true;
+        };
     }, [tenantId, canRead]);
 
     useEffect(() => {
@@ -491,6 +511,8 @@ export default function StoryDetailPage() {
                             tenantId={tenantId}
                             value={productId}
                             onChange={setProductId}
+                            options={productOptions}
+                            fallbackName={productId === story.product_id ? story.product?.name : null}
                             disabled={!canWrite}
                         />
                     </Card>
@@ -511,6 +533,7 @@ export default function StoryDetailPage() {
                             pendingImages={pendingBlockImages}
                             onPendingImageChange={handleBlockImageChange}
                             tenantId={tenantId}
+                            productOptions={productOptions}
                             disabled={!canWrite}
                             focusBlockId={focusBlockId}
                             onFocusHandled={handleFocusHandled}

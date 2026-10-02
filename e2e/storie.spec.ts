@@ -435,7 +435,7 @@ test.describe("Storie — lotto bug A", () => {
         expect(orders.some(o => /^sort_order\.asc,created_at\.asc$/.test(o))).toBe(true);
     });
 
-    test.fail("St2: elenco prodotti non caricato: il prodotto collegato resta, niente «Collega un prodotto»", async ({ page }) => {
+    test("St2: elenco prodotti non caricato: il prodotto collegato resta, niente «Collega un prodotto»", async ({ page }) => {
         await page.route(/\/rest\/v1\/products\?/, route =>
             route.request().method() === "GET" ? route.fulfill({ status: 500, json: { message: "e2e" } }) : route.fallback()
         );
@@ -446,7 +446,7 @@ test.describe("Storie — lotto bug A", () => {
         expect(await main(page).getByRole("button", { name: "Collega un prodotto" }).count()).toBe(0);
     });
 
-    test.fail("St2: prodotto collegato che non c'è più: lo dice, con Cambia e Rimuovi", async ({ page }) => {
+    test("St2: prodotto collegato che non c'è più: lo dice, con Cambia e Rimuovi", async ({ page }) => {
         stub.tables.stories.find(r => r.id === STORY.brigata)!.product_id = "e2e57000-0000-4000-a000-000000000199";
         await openStory(page, STORY.brigata);
         await expect(titleField(page)).toHaveValue("La brigata e2e", { timeout: 15_000 });
@@ -456,7 +456,7 @@ test.describe("Storie — lotto bug A", () => {
         expect(await main(page).getByRole("button", { name: "Collega un prodotto" }).count()).toBe(0);
     });
 
-    test.fail("St5: tre blocchi prodotto, una sola lettura dei prodotti", async ({ page }) => {
+    test("St5: tre blocchi prodotto, una sola lettura dei prodotti", async ({ page }) => {
         const forno = stub.tables.stories.find(r => r.id === STORY.forno)!;
         forno.body_blocks = [
             ...(forno.body_blocks as Row[]),
