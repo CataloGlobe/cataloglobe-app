@@ -15,6 +15,9 @@
 //     («Preso da <nome>», pulsanti invertiti);
 //   * «Gira a…» (più di due persone) → mostra la scelta tra i nomi;
 //     «Annulla» la richiude.
+//   * «È lo stesso locale» / «Decido dopo» su un lead tornato con un altro
+//     nome del locale → crm_resolve_venue_name, riscrive i messaggi e
+//     conferma cosa ha fatto (mig 20261002130000).
 // Chi tocca è riconosciuto dal suo id Telegram, che in chat privata coincide
 // col chat_id salvato al collegamento. Chi non è nel team non può fare nulla.
 //
@@ -30,6 +33,7 @@ import { timingSafeEqualStr } from "../_shared/timingSafeEqual.ts";
 import { getPublicSiteUrl } from "../_shared/publicSiteUrl.ts";
 import { telegramCall } from "../_shared/telegramApi.ts";
 import { chooseButtons, parseCallbackData } from "../_shared/crmTelegram.ts";
+import { CRM_STAGE_LABEL } from "../_shared/crmLabels.ts";
 import { loadTeam, refreshVenueMessages } from "../_shared/crmLeadMessage.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -93,6 +97,45 @@ async function handleStart(supabase, message) {
     await reply(chatId, `Collegato come ${member.display_name}. Da ora i lead nuovi arrivano qui.`);
 }
 
+/**
+ * «È lo stesso locale» / «Decido dopo» su un lead tornato con un altro nome
+ * del locale: crm_resolve_venue_name, poi riscrive i messaggi del locale e
+ * conferma cosa ha fatto.
+ */
+async function handleVenueName(supabase, parsed, actor, answer, appUrl) {
+    const { data: lead, error: leadError } = await supabase
+        .from("crm_leads")
+        .select("id, venue_id, venue_name_given, crm_venues(name, stage)")
+        .eq("id", parsed.leadId)
+        .maybeSingle();
+    if (leadError) throw leadError;
+    if (!lead) {
+        await answer("Questo lead non c'è più.");
+        return;
+    }
+
+    const choice = parsed.action === "venue_same" ? "same" : "later";
+    const { error } = await supabase.rpc("crm_resolve_venue_name", {
+        p_lead_id: lead.id,
+        p_choice: choice,
+        p_actor_user_id: actor.user_id
+    });
+    if (error) {
+        console.error("crm-telegram-webhook: crm_resolve_venue_name", error.code, error.message);
+        await answer("Non ci sono riuscito. Riprova da /admin.");
+        return;
+    }
+
+    await refreshVenueMessages(supabase, BOT_TOKEN, lead.venue_id, appUrl);
+    const known = lead.crm_venues?.name ?? "il locale";
+    const stage = CRM_STAGE_LABEL[lead.crm_venues?.stage] ?? lead.crm_venues?.stage ?? "";
+    await answer(
+        choice === "same"
+            ? `Ok, tengo ${known}. Resta in ${stage}.`
+            : `Ok, ho messo l'etichetta «Locale da verificare» su ${known}.`
+    );
+}
+
 async function handleCallback(supabase, query, appUrl) {
     const answer = (text: string) =>
         telegramCall(BOT_TOKEN, "answerCallbackQuery", { callback_query_id: query.id, text });
@@ -126,6 +169,11 @@ async function handleCallback(supabase, query, appUrl) {
     if (parsed.action === "cancel") {
         await refreshVenueMessages(supabase, BOT_TOKEN, parsed.venueId, appUrl);
         await answer("");
+        return;
+    }
+
+    if (parsed.action === "venue_same" || parsed.action === "venue_later") {
+        await handleVenueName(supabase, parsed, actor, answer, appUrl);
         return;
     }
 

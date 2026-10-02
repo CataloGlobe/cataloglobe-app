@@ -160,9 +160,10 @@ export function CardBody({
                     .filter(Boolean)
                     .join(" · ")}
             </Text>
-            {(account || venue.stage_locked_at || venue.name_pending) && (
+            {(account || venue.stage_locked_at || venue.name_pending || venue.name_to_verify) && (
                 <span className={styles.boardCardBadges}>
                     {venue.name_pending && <StatusBadge variant="warning" label="Locale da completare" />}
+                    {venue.name_to_verify && <StatusBadge variant="warning" label="Locale da verificare" />}
                     {account && <StatusBadge variant={account.variant} label={account.label} />}
                     {venue.stage_locked_at && <StatusBadge variant="warning" label="Fase bloccata a mano" />}
                 </span>

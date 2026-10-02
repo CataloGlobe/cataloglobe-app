@@ -202,7 +202,11 @@ export default function LeadsPage() {
                     <div className={DATA_TABLE_CLASSES.cellTwoLine}>
                         <span>{row.name}</span>
                         <span>
-                            {[row.name_pending ? "Locale da completare" : null, row.city].filter(Boolean).join(" · ")}
+                            {[
+                                row.name_pending ? "Locale da completare" : null,
+                                row.name_to_verify ? "Locale da verificare" : null,
+                                row.city
+                            ].filter(Boolean).join(" · ")}
                         </span>
                     </div>
                 )
