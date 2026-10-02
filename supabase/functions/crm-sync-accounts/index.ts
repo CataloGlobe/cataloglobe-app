@@ -102,7 +102,7 @@ async function sync(supabase) {
             supabase
                 .from("crm_venues")
                 .select(
-                    "id, name, stage, tenant_id, stage_locked_at, account_state, trial_kind, trial_ends_at, crm_contacts(phone_e164, email)"
+                    "id, name, name_pending, stage, tenant_id, stage_locked_at, account_state, trial_kind, trial_ends_at, crm_contacts(phone_e164, email)"
                 )
                 .order("id")
         ),
@@ -213,7 +213,9 @@ async function sync(supabase) {
                 suggestions.set(t.id, "email");
             }
         }
-        for (const t of byName.get(normalizeVenueName(venue.name)) ?? []) {
+        // Locale da completare: `name` è quello della persona, non del locale.
+        const venueNameKey = venue.name_pending ? "" : normalizeVenueName(venue.name);
+        for (const t of (venueNameKey ? byName.get(venueNameKey) : null) ?? []) {
             if (!suggestions.has(t.id)) suggestions.set(t.id, "name");
         }
         for (const [suggestedTenantId, reason] of suggestions) {

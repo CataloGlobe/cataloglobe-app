@@ -32,7 +32,8 @@ export type CrmEventType =
     | "escalated"
     | "stage_locked"
     | "stage_unlocked"
-    | "subscription_changed";
+    | "subscription_changed"
+    | "venue_renamed";
 
 /** Stato dell'account collegato, copiato dal job (20261001150000). */
 export type CrmAccountState = "registrato" | "trialing" | "active" | "past_due" | "suspended" | "canceled";
@@ -92,6 +93,8 @@ export interface CrmVenue {
     created_at: string;
     updated_at: string;
     name: string;
+    /** «Locale da completare»: entrato senza nome del locale (form Meta), `name` è quello della persona. */
+    name_pending: boolean;
     city: string | null;
     stage: CrmStage;
     lost_kind: CrmLostKind | null;
@@ -130,6 +133,7 @@ export interface CrmIngestInput {
     source: CrmLeadSource;
     sourceRef: string | null;
     name: string;
+    /** Vuoto = locale da completare (il DB usa il nome della persona). */
     venueName: string;
     phoneE164: string;
     email?: string | null;

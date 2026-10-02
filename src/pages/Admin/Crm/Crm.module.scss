@@ -28,6 +28,18 @@
   gap: var(--space-16);
 }
 
+.venueNameForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+}
+
+.venueNameFields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-12);
+}
+
 .fileField {
   display: flex;
   flex-direction: column;

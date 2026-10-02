@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+    DEFAULT_WHATSAPP_TEMPLATE,
     fillWhatsappTemplate,
     signWaLink,
     verifyWaLink,
@@ -7,17 +8,42 @@ import {
     WA_LINK_TTL_SECONDS
 } from "./crmWhatsapp";
 
-const TEMPLATE =
-    "Ciao {nome}, sono Alessandro di CataloGlobe.\nHo visto la richiesta che hai lasciato per {locale}, grazie!";
-
 describe("fillWhatsappTemplate", () => {
-    it("usa solo il nome di battesimo e il nome del locale", () => {
-        expect(fillWhatsappTemplate(TEMPLATE, { contactName: "Mario Rossi", venueName: " Trattoria da Mario " }))
-            .toBe("Ciao Mario, sono Alessandro di CataloGlobe.\nHo visto la richiesta che hai lasciato per Trattoria da Mario, grazie!");
+    it("testo predefinito: nome di battesimo del lead e di chi invia", () => {
+        expect(
+            fillWhatsappTemplate(DEFAULT_WHATSAPP_TEMPLATE, {
+                contactName: "Mario Rossi",
+                venueName: null,
+                senderName: "Alessandro D'Elia"
+            })
+        ).toBe(
+            "Ciao Mario, sono Alessandro di CataloGlobe. Ho visto che hai lasciato i contatti per il tuo locale. Quando hai 10 minuti per sentirci al telefono?"
+        );
+        expect(
+            fillWhatsappTemplate(DEFAULT_WHATSAPP_TEMPLATE, { contactName: "Mario", venueName: null, senderName: "Lorenzo" })
+        ).toMatch(/^Ciao Mario, sono Lorenzo di CataloGlobe\./);
+    });
+
+    it("{mittente} senza nome nel team diventa «il team»", () => {
+        expect(
+            fillWhatsappTemplate(DEFAULT_WHATSAPP_TEMPLATE, { contactName: "Mario", venueName: null, senderName: " " })
+        ).toMatch(/^Ciao Mario, sono il team di CataloGlobe\./);
     });
 
     it("senza nome non lascia «Ciao ,»", () => {
-        expect(fillWhatsappTemplate(TEMPLATE, { contactName: null, venueName: "Bar" })).toMatch(/^Ciao, sono/);
+        expect(fillWhatsappTemplate(DEFAULT_WHATSAPP_TEMPLATE, { contactName: null, venueName: "Bar", senderName: "Lorenzo" })).toMatch(
+            /^Ciao, sono/
+        );
+    });
+
+    it("{locale} col nome del locale, o «il tuo locale» se è da completare", () => {
+        const template = "Ciao {nome}, ho visto la richiesta per {locale}.";
+        expect(fillWhatsappTemplate(template, { contactName: "Anna", venueName: " Trattoria da Mario ", senderName: null })).toBe(
+            "Ciao Anna, ho visto la richiesta per Trattoria da Mario."
+        );
+        expect(fillWhatsappTemplate(template, { contactName: "Anna", venueName: null, senderName: null })).toBe(
+            "Ciao Anna, ho visto la richiesta per il tuo locale."
+        );
     });
 });
 

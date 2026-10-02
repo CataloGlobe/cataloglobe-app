@@ -165,6 +165,16 @@ export async function unlockCrmStage(venueId: string): Promise<boolean> {
     return data === true;
 }
 
+/** Nome vero del locale (e città, se data): toglie «Locale da completare». */
+export async function renameCrmVenue(venueId: string, name: string, city?: string | null): Promise<void> {
+    const { error } = await supabase.rpc("crm_rename_venue", {
+        p_venue_id: venueId,
+        p_name: name,
+        p_city: city ?? null
+    });
+    if (error) throw error;
+}
+
 export async function assignCrmVenue(venueId: string, userId: string): Promise<boolean> {
     const { data, error } = await supabase.rpc("crm_assign", {
         p_venue_id: venueId,

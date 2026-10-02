@@ -62,13 +62,15 @@ Deno.serve(async (req: Request) => {
             });
         }
 
-        const [{ data: lead, error }, { data: settings }] = await Promise.all([
+        const [{ data: lead, error }, { data: settings }, { data: sender }] = await Promise.all([
             supabase
                 .from("crm_leads")
-                .select("id, venue_id, crm_contacts(name, phone_e164), crm_venues(name, stage, lost_kind)")
+                .select("id, venue_id, crm_contacts(name, phone_e164), crm_venues(name, name_pending, stage, lost_kind)")
                 .eq("id", params.l)
                 .maybeSingle(),
-            supabase.from("crm_settings").select("whatsapp_template").eq("id", true).maybeSingle()
+            supabase.from("crm_settings").select("whatsapp_template").eq("id", true).maybeSingle(),
+            // {mittente}: chi ha toccato il pulsante, cioè il destinatario del link.
+            supabase.from("crm_team_members").select("display_name").eq("user_id", params.u).maybeSingle()
         ]);
         if (error) throw error;
         if (!lead || !lead.crm_venues) return text(404, "Questo lead non esiste più.");
@@ -101,7 +103,11 @@ Deno.serve(async (req: Request) => {
 
         const template = settings?.whatsapp_template ?? null;
         const message = template
-            ? fillWhatsappTemplate(template, { contactName: lead.crm_contacts?.name ?? null, venueName: venue.name })
+            ? fillWhatsappTemplate(template, {
+                  contactName: lead.crm_contacts?.name ?? null,
+                  venueName: venue.name_pending ? null : venue.name,
+                  senderName: sender?.display_name ?? null
+              })
             : null;
 
         return new Response(null, {

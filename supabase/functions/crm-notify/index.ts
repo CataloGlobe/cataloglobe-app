@@ -11,8 +11,9 @@
 //    * lead tornato (stesso telefono) → solo a chi lo ha in carico, o a tutti
 //      se nessuno ce l'ha; se chi ce l'ha non ha collegato Telegram, niente
 //      (`pickOutboxRecipients`);
-//    * lead ricevuto più di 24 ore fa → segnato come notificato senza
-//      messaggio (rete di sicurezza: un arretrato non inonda il bot).
+//    * lead ricevuto più di 24 ore fa → segnato come notificato e già
+//      sollecitato, senza messaggio (rete di sicurezza: un arretrato non
+//      inonda il bot, nemmeno coi «Lead fermo» al primo collegamento).
 //    Le righe dell'import CSV non passano di qui: entrano già notificate e già
 //    sollecitate (`crm_ingest_lead` con p_silent) e l'import manda un solo
 //    riepilogo (passata 3).
@@ -136,7 +137,12 @@ async function processOutbox(supabase, team, appUrl, now: Date) {
 
     for (const lead of leads ?? []) {
         if (now.getTime() - new Date(lead.received_at).getTime() > STALE_AFTER_MS) {
-            await supabase.from("crm_leads").update({ notified_at: now.toISOString() }).eq("id", lead.id);
+            // Anche escalated_at: senza, al primo collegamento di Telegram
+            // partirebbe un «Lead fermo» per ognuno (mig 20261002120000).
+            await supabase
+                .from("crm_leads")
+                .update({ notified_at: now.toISOString(), escalated_at: now.toISOString() })
+                .eq("id", lead.id);
             stats.skipped_stale += 1;
             continue;
         }

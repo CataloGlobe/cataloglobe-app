@@ -9,6 +9,7 @@ import { Select } from "@/components/ui/Select/Select";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import Text from "@/components/ui/Text/Text";
 import { Textarea } from "@/components/ui/Textarea/Textarea";
+import { useAuth } from "@/context/useAuth";
 import { useToast } from "@/context/Toast/ToastContext";
 import { usePageHeader } from "@/context/usePageHeader";
 import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
@@ -24,7 +25,7 @@ import {
     unlockCrmStage
 } from "@/services/supabase/crm";
 import { CRM_ACCOUNT_STATE_LABEL, crmAccountLabel, needsStageLock } from "@/utils/crm/accountLabels";
-import { crmWhatsappLink } from "@/utils/crm/whatsapp";
+import { crmSenderName, crmWhatsappLink } from "@/utils/crm/whatsapp";
 import { formatDateTimeIt } from "@/utils/formatDateTime";
 import {
     CRM_EVENT_LABEL,
@@ -45,6 +46,7 @@ import {
 import { AccountCard } from "./AccountCard";
 import { LostStageDialog } from "./LostStageDialog";
 import { StageLockDialog, type StageLockRequest } from "./StageLockDialog";
+import { VenueNameCard } from "./VenueNameCard";
 import styles from "./Crm.module.scss";
 
 /**
@@ -71,6 +73,8 @@ function describeEvent(event: CrmEvent, teamName: (id: string | null) => string)
             return `A ${teamName((p.to as string) ?? null)}`;
         case "note":
             return String(p.text ?? "");
+        case "venue_renamed":
+            return `${String(p.from ?? "")} → ${String(p.to ?? "")}`;
         case "stage_locked": {
             const to = CRM_STAGE_LABEL[p.to as CrmStage] ?? String(p.to);
             return `In ${to}: ${String(p.note ?? "")}`;
@@ -98,6 +102,7 @@ export default function LeadDetailPage() {
     const { venueId = "" } = useParams<{ venueId: string }>();
     const navigate = useNavigate();
     const { showToast } = useToast();
+    const { user } = useAuth();
 
     const [detail, setDetail] = useState<CrmVenueDetail | null>(null);
     const [team, setTeam] = useState<CrmTeamMember[]>([]);
@@ -220,7 +225,8 @@ export default function LeadDetailPage() {
         window.open(
             crmWhatsappLink(contact.phone_e164, whatsappTemplate, {
                 contactName: contact.name,
-                venueName: detail.venue.name
+                venueName: detail.venue.name_pending ? null : detail.venue.name,
+                senderName: crmSenderName(team, user?.id)
             }),
             "_blank",
             "noopener"
@@ -368,6 +374,8 @@ export default function LeadDetailPage() {
                     </Text>
                 </Card>
             )}
+
+            {detail.venue.name_pending && <VenueNameCard venue={detail.venue} onSaved={load} />}
 
             <AccountCard
                 venueId={detail.venue.id}
