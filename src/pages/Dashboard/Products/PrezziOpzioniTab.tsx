@@ -28,7 +28,8 @@ import {
     createOptionValue,
     updateOptionValue,
     deleteOptionValue,
-    getProductOptions
+    getProductOptions,
+    getPrimaryPriceGroups
 } from "@/services/supabase/productOptions";
 import { OptionValueList } from "./components/OptionValueList/OptionValueList";
 import { ChoiceRulesEditor } from "./components/ChoiceRulesEditor";
@@ -275,46 +276,20 @@ export default function PrezziOpzioniTab({
     const [variantOptions, setVariantOptions] = useState<
         Record<string, GroupWithValues | null>
     >({});
-    const [parentGroup, setParentGroup] = useState<
-        GroupWithValues | null | undefined
-    >(undefined);
 
-    useEffect(() => {
-        if (isVariant) return;
-        let cancelled = false;
-        void getProductOptions(product.id)
-            .then(opts => {
-                if (!cancelled) setParentGroup(opts.primaryPriceGroup);
-            })
-            .catch(() => {
-                if (!cancelled) setParentGroup(null);
-            });
-        return () => {
-            cancelled = true;
-        };
-    }, [product.id, isVariant]);
-
+    // I formati delle varianti in una lettura sola (r.9).
     useEffect(() => {
         if (isVariant || variants.length === 0) {
             setVariantOptions({});
             return;
         }
         let cancelled = false;
-        void Promise.all(
-            variants.map(v =>
-                getProductOptions(v.id).then(opts => ({
-                    id: v.id,
-                    group: opts.primaryPriceGroup
-                }))
-            )
+        void getPrimaryPriceGroups(
+            variants.map(v => v.id),
+            tenantId
         )
-            .then(results => {
-                if (cancelled) return;
-                const map: Record<string, GroupWithValues | null> = {};
-                for (const r of results) {
-                    map[r.id] = r.group;
-                }
-                setVariantOptions(map);
+            .then(map => {
+                if (!cancelled) setVariantOptions(map);
             })
             .catch(() => {
                 /* silent — price cells fall back to "—" */
@@ -322,9 +297,15 @@ export default function PrezziOpzioniTab({
         return () => {
             cancelled = true;
         };
-    }, [variants, isVariant]);
+    }, [variants, isVariant, tenantId]);
 
-    const variantsParentFromPrice = computeFromPrice(parentGroup, product.base_price);
+    // Il prezzo che una variante eredita viene dai formati del padre, cioè
+    // da questa stessa pagina: la prop si aggiorna a ogni formato salvato,
+    // una seconda lettura restava indietro (r.9).
+    const variantsParentFromPrice = computeFromPrice(
+        optionsLoading ? undefined : primaryPriceGroup,
+        product.base_price
+    );
 
     // Value CRUD sul gruppo Formato (PRIMARY_PRICE) — salvataggio immediato.
     // Creazione lazy: il gruppo PRIMARY_PRICE nasce insieme al suo primo

@@ -800,7 +800,7 @@ test.describe("Prodotti — lotto bug B", () => {
         await expect.poll(() => write(stub, "product_groups.DELETE")?.params.get("tenant_id")).toBe(`eq.${TENANT_ID}`);
     });
 
-    test.fail("r.9: un formato nuovo sul padre aggiorna il prezzo ereditato delle varianti", async ({ page }) => {
+    test("r.9: un formato nuovo sul padre aggiorna il prezzo ereditato delle varianti", async ({ page }) => {
         const groupId = "e2e0d000-0000-4000-a000-000000000960";
         stub.onWrite("product_option_groups.POST", call => {
             const row = { ...(call.body as object), id: groupId, sort_order: 0, created_at: "2026-03-17T10:00:00.000Z" };
