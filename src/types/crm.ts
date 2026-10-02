@@ -8,8 +8,10 @@ export const CRM_STAGES = [
     "nuovo",
     "contattato",
     "in_conversazione",
-    "appuntamento",
-    "chiamata_fatta",
+    "telefonata_fissata",
+    "telefonata_fatta",
+    "demo_fissata",
+    "demo_fatta",
     "in_prova",
     "cliente_pagante",
     "perso"

@@ -19,7 +19,7 @@ import { CRM_STAGES, type CrmStage, type CrmVenueListItem } from "@/types/crm";
 import styles from "./Crm.module.scss";
 
 /**
- * Pipeline a 8 colonne (wiki: pipeline-crm). Si trascina una carta in
+ * Pipeline a 10 colonne (wiki: pipeline-crm). Si trascina una carta in
  * un'altra colonna; Perso apre il dialogo del motivo (lo gestisce la pagina
  * con `onMove`). Clic sulla carta = scheda del locale. Da tastiera: Tab sulla
  * carta, spazio per prenderla, frecce, spazio per lasciarla.

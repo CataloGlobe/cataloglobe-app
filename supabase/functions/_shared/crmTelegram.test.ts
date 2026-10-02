@@ -364,7 +364,7 @@ describe("lead tornato", () => {
             "tornato in Nuovo da solo"
         );
         expect(returnedAdvice(ctx({ stageKey: "cliente_pagante" }))).toContain("È già cliente");
-        expect(returnedAdvice(ctx({ stageKey: "appuntamento" }))).toContain("già in trattativa");
+        expect(returnedAdvice(ctx({ stageKey: "demo_fissata" }))).toContain("già in trattativa");
     });
 
     it("senza contesto resta il vecchio messaggio", () => {

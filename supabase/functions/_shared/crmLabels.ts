@@ -10,21 +10,25 @@ export type CrmStageKey =
     | "nuovo"
     | "contattato"
     | "in_conversazione"
-    | "appuntamento"
-    | "chiamata_fatta"
+    | "telefonata_fissata"
+    | "telefonata_fatta"
+    | "demo_fissata"
+    | "demo_fatta"
     | "in_prova"
     | "cliente_pagante"
     | "perso";
 
 export type CrmSourceKey = "landing" | "meta_form" | "whatsapp" | "manuale";
 
-/** Le 8 colonne della pipeline (wiki: pipeline-crm). */
+/** Le 10 colonne della pipeline (wiki: pipeline-crm; telefonata e demo separate, mig 20261002140000). */
 export const CRM_STAGE_LABEL: Record<CrmStageKey, string> = {
     nuovo: "Nuovo",
     contattato: "Contattato",
     in_conversazione: "In conversazione",
-    appuntamento: "Appuntamento",
-    chiamata_fatta: "Chiamata fatta",
+    telefonata_fissata: "Telefonata fissata",
+    telefonata_fatta: "Telefonata fatta",
+    demo_fissata: "Demo fissata",
+    demo_fatta: "Demo fatta",
     in_prova: "In prova",
     cliente_pagante: "Cliente pagante",
     perso: "Perso"
