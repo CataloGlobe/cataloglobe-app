@@ -54,6 +54,8 @@ export type VisibilityContentMeta = {
 type ActivityVisibilityContentProps = {
     activityId: string;
     onMetaChange?: (meta: VisibilityContentMeta) => void;
+    /** Dopo ogni scrittura riuscita: la banda dell'esito si rilegge. */
+    onChanged?: () => void;
     /** Sola lettura: il tri-stato e le azioni in blocco sono spenti (fieldset). */
     readOnly?: boolean;
 };
@@ -70,6 +72,7 @@ function plural(n: number, one: string, many: string): string {
 export const ActivityVisibilityContent: React.FC<ActivityVisibilityContentProps> = ({
     activityId,
     onMetaChange,
+    onChanged,
     readOnly = false
 }) => {
     const tenantId = useTenantId();
@@ -146,10 +149,16 @@ export const ActivityVisibilityContent: React.FC<ActivityVisibilityContentProps>
         loadData();
     }, [loadData]);
 
+    const onChangedRef = useRef(onChanged);
+    useEffect(() => {
+        onChangedRef.current = onChanged;
+    }, [onChanged]);
+
     // Reload silenzioso (niente skeleton): usato dopo il singolo cambio stato
     // e dopo le azioni in blocco della vista Ingredienti.
     const refreshData = useCallback(async () => {
         if (!tenantId) return;
+        onChangedRef.current?.();
         const [cat, ovs] = await Promise.all([
             getRenderableCatalogForActivity(activityId, tenantId),
             getActivityProductOverrides(activityId)

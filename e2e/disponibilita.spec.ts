@@ -291,7 +291,7 @@ test.describe("Cosa vedono i clienti — chi vede la spiegazione", () => {
     // `scheduling.read` sulla sede e `activity_groups.read` non vede tutte le
     // regole, quindi la spiegazione sarebbe falsa (§50.20).
     for (const role of ["staff", "viewer"] as const) {
-        test.fail(`${role}: niente banda, la riga dice cosa serve`, async ({ page }) => {
+        test(`${role}: niente banda, la riga dice cosa serve`, async ({ page }) => {
             await openDisponibilita(page, { role });
             await expect(main(page).getByText("Big e2e", { exact: true })).toBeVisible({ timeout: 15_000 });
             await expect(main(page).getByText("Per vedere perché, serve l'accesso a Programmazione.")).toBeVisible();
@@ -300,7 +300,7 @@ test.describe("Cosa vedono i clienti — chi vede la spiegazione", () => {
         });
     }
 
-    test.fail("manager della sede: vede la banda", async ({ page }) => {
+    test("manager della sede: vede la banda", async ({ page }) => {
         const { name } = await openDisponibilita(page, { role: "manager" });
         await expect(band(page)).toContainText(`I clienti di ${name} vedono Menù e2e`, { timeout: 15_000 });
         await expect(main(page).getByText("Per vedere perché, serve l'accesso a Programmazione.")).toHaveCount(0);

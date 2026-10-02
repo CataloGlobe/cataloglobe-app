@@ -4,11 +4,14 @@ import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import { PageGate } from "@/components/PageGate/PageGate";
 import { usePermissions } from "@/context/usePermissions";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
-import { canDoOnActivity } from "@/lib/permissions";
+import { canDoOnActivity, canExplainActivityCatalog } from "@/lib/permissions";
+import { useCatalogExplanation } from "@/hooks/useCatalogExplanation";
+import { describeCounts, describeOutcome } from "@/utils/catalogExplanation";
 import {
     ActivityVisibilityContent,
     type VisibilityContentMeta
 } from "../components/ActivityVisibility/ActivityVisibilityContent";
+import { CatalogOutcomeBand } from "../components/ActivityVisibility/CatalogOutcomeBand";
 import { useActivityDetail } from "../ActivityDetailContext";
 import { getRenderableCatalogForActivity } from "@/services/supabase/activeCatalog";
 import styles from "./ActivityDisponibilitaRoute.module.scss";
@@ -30,13 +33,31 @@ export default function ActivityDisponibilitaRoute() {
     const canRead = permissions != null && canDoOnActivity(permissions, "activity.read", activity.id);
     const hasWritePermission = permissions != null && canDoOnActivity(permissions, "activity.manage", activity.id);
     const canWrite = hasWritePermission && canEdit;
+    // Il solo gate della spiegazione (banda, provenienza, prezzo dalla
+    // regola, menù attivo): vedi `canExplainActivityCatalog`.
+    const canExplain = permissions != null && canExplainActivityCatalog(permissions, activity.id);
+    const explanation = useCatalogExplanation(activity.id, tenantId, canRead && canExplain);
+    const outcome = explanation.data
+        ? describeOutcome({
+              seatName: activity.name,
+              seatPublished: activity.status === "active",
+              // Lo stesso insieme di `useSubscriptionGuard().canEdit` e di
+              // `VALID_SUBSCRIPTION_STATUSES` dell'Edge: active, trialing, past_due.
+              subscriptionServing: canEdit,
+              hasCatalogRule: explanation.data.hasCatalogRule,
+              catalogName: explanation.data.catalogName,
+              renderable: explanation.data.renderable
+          })
+        : null;
+    const reloadExplanation = explanation.reload;
+    const handleChanged = useCallback(() => void reloadExplanation(true), [reloadExplanation]);
     const [meta, setMeta] = useState<VisibilityContentMeta | null>(null);
     const [activeSchedule, setActiveSchedule] = useState<ActiveSchedule | null>(null);
 
     const handleMeta = useCallback((m: VisibilityContentMeta) => setMeta(m), []);
 
     useEffect(() => {
-        if (!canRead) return;
+        if (!canRead || !canExplain) return;
         let cancelled = false;
         getRenderableCatalogForActivity(activity.id, tenantId)
             .then(r => {
@@ -48,7 +69,7 @@ export default function ActivityDisponibilitaRoute() {
         return () => {
             cancelled = true;
         };
-    }, [activity.id, tenantId, canRead]);
+    }, [activity.id, tenantId, canRead, canExplain]);
 
     const hasActiveCatalog = meta?.catalogId !== null && meta?.catalogId !== undefined;
 
@@ -65,7 +86,20 @@ export default function ActivityDisponibilitaRoute() {
                         : "Sola lettura: per cambiare la disponibilità serve un ruolo da manager della sede in su."}
                 </InlineBanner>
             )}
-            {hasActiveCatalog && (
+            {canExplain && explanation.data && outcome && (
+                <CatalogOutcomeBand
+                    at={explanation.data.at}
+                    outcome={outcome}
+                    counts={outcome.kind === "showing" && explanation.data.explanation ? describeCounts(explanation.data.explanation.counts) : null}
+                />
+            )}
+            {canExplain && explanation.error && (
+                <InlineBanner variant="error">Non è stato possibile caricare cosa vedono i clienti.</InlineBanner>
+            )}
+            {permissions != null && !canExplain && (
+                <InlineBanner variant="info">Per vedere perché, serve l'accesso a Programmazione.</InlineBanner>
+            )}
+            {canExplain && hasActiveCatalog && (
                 <InlineBanner
                     variant="info"
                     action={
@@ -91,6 +125,7 @@ export default function ActivityDisponibilitaRoute() {
                 <ActivityVisibilityContent
                     activityId={activity.id}
                     onMetaChange={handleMeta}
+                    onChanged={handleChanged}
                     readOnly={!canWrite}
                 />
             )}

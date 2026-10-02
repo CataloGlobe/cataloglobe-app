@@ -1,0 +1,22 @@
+// Banda dell'esito (§19.2): stesso fondo della banda di Programmazione, in
+// ambra quando i clienti non vedono il menù.
+
+.band {
+  background: linear-gradient(180deg, var(--brand-primary-soft), transparent), var(--surface);
+}
+
+.warning {
+  background: linear-gradient(180deg, var(--warning-50), transparent), var(--surface);
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-variant-numeric: tabular-nums;
+}
