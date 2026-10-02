@@ -736,7 +736,7 @@ test.describe("Prodotti — lotto bug B", () => {
         return main(page).getByText("Prezzo", { exact: true }).first().locator("xpath=ancestor::section[1]");
     }
 
-    test.fail("P1: «Imposta un prezzo proprio» su una variante che eredita apre il campo", async ({ page }) => {
+    test("P1: «Imposta un prezzo proprio» su una variante che eredita apre il campo", async ({ page }) => {
         stub.onWrite("products.PATCH", call => [{ ...stub.tables.products.find(p => p.id === PRODUCT.cocaZero), ...(call.body as object) }]);
         await openProduct(page, PRODUCT.cocaZero, "prezzi-opzioni");
         await main(page).getByRole("button", { name: "Imposta un prezzo proprio" }).click({ timeout: 15_000 });

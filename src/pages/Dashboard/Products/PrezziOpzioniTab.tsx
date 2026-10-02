@@ -207,7 +207,9 @@ export default function PrezziOpzioniTab({
     const [parentProduct, setParentProduct] = useState<V2Product | null>(null);
     const [parentPrimaryGroup, setParentPrimaryGroup] = useState<GroupWithValues | null>(null);
     const [isLoadingParent, setIsLoadingParent] = useState(false);
-    const isInheriting = isVariant && !hasPrimaryGroup && product.base_price === null;
+    // «Imposta un prezzo proprio» apre il campo: finché si scrive, la variante
+    // non è più mostrata come ereditante; «Annulla» la riporta lì.
+    const isInheriting = isVariant && !hasPrimaryGroup && product.base_price === null && !editingBasePrice;
 
     const loadParent = useCallback(async () => {
         if (!isVariant || !product.parent_product_id) return;
