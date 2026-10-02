@@ -29,7 +29,9 @@ const ACTION_LABEL: Record<string, string> = {
     agent_settings_changed: "Impostazioni cambiate",
     brand_rules_proposed: "Regole proposte",
     brand_rules_approved: "Regole in vigore",
-    brand_rules_discarded: "Regole scartate"
+    brand_rules_discarded: "Regole scartate",
+    message_sent: "Messaggio WhatsApp inviato",
+    wa_settings_changed: "Impostazioni WhatsApp cambiate"
 };
 
 /** Azioni nuove (dalle PR dopo) senza etichetta: il codice, leggibile. */

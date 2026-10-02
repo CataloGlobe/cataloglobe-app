@@ -48,6 +48,7 @@ import { LostStageDialog } from "./LostStageDialog";
 import { StageLockDialog, type StageLockRequest } from "./StageLockDialog";
 import { VenueNameCard } from "./VenueNameCard";
 import { VenueNameCheckCard } from "./VenueNameCheckCard";
+import { WhatsappConversationCard } from "./WhatsappConversationCard";
 import { leadAnswerRows } from "@/utils/crm/leadAnswers";
 import { leadToVerify } from "@/utils/crm/venueNameCheck";
 import styles from "./Crm.module.scss";
@@ -433,6 +434,8 @@ export default function LeadDetailPage() {
                     />
                 ))}
             </Card>
+
+            <WhatsappConversationCard venue={detail.venue} teamName={teamName} onChanged={load} />
 
             <Card title={leads.length === 1 ? "Richiesta" : `Richieste (${leads.length})`}>
                 <div className={styles.leadList}>

@@ -37,7 +37,9 @@ export type CrmEventType =
     | "subscription_changed"
     | "venue_renamed"
     | "venue_name_confirmed"
-    | "venue_name_deferred";
+    | "venue_name_deferred"
+    | "agent_hold"
+    | "agent_released";
 
 /** Lead tornato: confronto del locale scritto con quello della carta (20261002130000). */
 export type CrmVenueNameMatch = "same" | "typo" | "other";
@@ -131,6 +133,9 @@ export interface CrmVenue {
     stage_locked_at: string | null;
     stage_locked_by: string | null;
     stage_lock_note: string | null;
+    /** «La prendo io» (20261002170000): l'agente WhatsApp non scrive a questo locale. */
+    agent_hold_at: string | null;
+    agent_hold_by: string | null;
 }
 
 /** Riga dell'elenco: il locale col suo primo contatto e gli ingressi. */
@@ -242,3 +247,48 @@ export interface CrmBrandRules {
 export type CrmAgentCheckResult =
     | { ok: true; model: string; reply: string; cost_usd: number; latency_ms: number }
     | { ok: false; reason: string; model: string | null; detail: string | null };
+
+// -----------------------------------------------------------------------------
+// Connettore WhatsApp Web (F1-2, migration 20261002170000)
+// -----------------------------------------------------------------------------
+export type CrmMessageDirection = "in" | "out";
+export type CrmMessageAuthor = "lead" | "agent" | "person";
+export type CrmMessageKind = "text" | "voice" | "image" | "video" | "document" | "sticker" | "other";
+export type CrmMessagePurpose = "first_message" | "reply" | "follow_up";
+export type CrmMessageStatus = "queued" | "sending" | "sent" | "failed" | "cancelled";
+
+export interface CrmMessage {
+    id: string;
+    created_at: string;
+    venue_id: string;
+    contact_id: string | null;
+    lead_id: string | null;
+    direction: CrmMessageDirection;
+    author: CrmMessageAuthor;
+    kind: CrmMessageKind;
+    body: string | null;
+    purpose: CrmMessagePurpose | null;
+    status: CrmMessageStatus | null;
+    status_reason: string | null;
+    sent_at: string | null;
+}
+
+export type CrmWaState = "unknown" | "ok" | "needs_relink" | "warning";
+
+export interface CrmWaChannel {
+    last_heartbeat_at: string | null;
+    wa_state: CrmWaState;
+    wa_state_detail: string | null;
+    wa_state_at: string | null;
+    worker_version: string | null;
+    failures_in_row: number;
+    next_send_at: string | null;
+    silent_alerted_at: string | null;
+}
+
+export interface CrmWaSettings {
+    /** NULL = nessun primo messaggio automatico. */
+    wa_first_message: string | null;
+    wa_test_only: boolean;
+    wa_test_numbers: string[];
+}
