@@ -38,6 +38,13 @@ export async function cancelCrmMessage(messageId: string): Promise<boolean> {
     return data === true;
 }
 
+/** «Riprova» su un primo messaggio fallito; false se non era più fallito. */
+export async function retryCrmMessage(messageId: string): Promise<boolean> {
+    const { data, error } = await supabase.rpc("crm_wa_retry_message", { p_message_id: messageId });
+    if (error) throw error;
+    return data === true;
+}
+
 export async function getCrmWaChannel(): Promise<CrmWaChannel | null> {
     const { data, error } = await supabase
         .from("crm_wa_channel")

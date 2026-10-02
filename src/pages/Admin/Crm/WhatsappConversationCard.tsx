@@ -6,7 +6,7 @@ import { ListRow } from "@/components/ui/ListRow/ListRow";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import Text from "@/components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
-import { cancelCrmMessage, listCrmMessages, setCrmAgentHold } from "@/services/supabase/crmWhatsappAgent";
+import { cancelCrmMessage, listCrmMessages, retryCrmMessage, setCrmAgentHold } from "@/services/supabase/crmWhatsappAgent";
 import { formatDateTimeIt } from "@/utils/formatDateTime";
 import { messageAuthorLabel, messageStatusLine, messageText, waErrorMessage } from "@/utils/crm/waLabels";
 import type { CrmMessage, CrmVenue } from "@/types/crm";
@@ -80,6 +80,21 @@ export function WhatsappConversationCard({
         }
     }
 
+    async function handleRetry(messageId: string) {
+        setBusyId(messageId);
+        setActionError(null);
+        try {
+            const retried = await retryCrmMessage(messageId);
+            await load();
+            if (retried) showToast({ message: "Di nuovo in coda: parte al prossimo giro.", type: "success" });
+            else setActionError("Il messaggio non era più fallito: guarda la conversazione.");
+        } catch (err) {
+            setActionError(waErrorMessage(err));
+        } finally {
+            setBusyId(null);
+        }
+    }
+
     return (
         <Card
             title="WhatsApp dell'agente"
@@ -129,6 +144,15 @@ export function WhatsappConversationCard({
                                     loading={busyId === message.id}
                                 >
                                     Annulla
+                                </Button>
+                            ) : message.status === "failed" && message.purpose === "first_message" ? (
+                                <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    onClick={() => void handleRetry(message.id)}
+                                    loading={busyId === message.id}
+                                >
+                                    Riprova
                                 </Button>
                             ) : undefined
                         }

@@ -9,7 +9,7 @@
 --   crm_e164_list_ok, crm_wa_is_quiet
 --       authenticated + service_role (pure; la prima la usa il CHECK di
 --       crm_settings quando una persona salva la lista dei numeri di prova)
---   crm_set_agent_hold, crm_wa_cancel_message
+--   crm_set_agent_hold, crm_wa_cancel_message, crm_wa_retry_message
 --       authenticated + service_role (/admin; le RLS lasciano passare solo
 --       gli admin di piattaforma)
 --   crm_wa_claim_next, crm_wa_report_result, crm_wa_heartbeat,
@@ -33,6 +33,8 @@ GRANT EXECUTE ON FUNCTION public.crm_set_agent_hold(uuid, boolean) TO authentica
 
 REVOKE ALL ON FUNCTION public.crm_wa_cancel_message(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.crm_wa_cancel_message(uuid) TO authenticated, service_role;
+REVOKE ALL ON FUNCTION public.crm_wa_retry_message(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.crm_wa_retry_message(uuid) TO authenticated, service_role;
 
 REVOKE ALL ON FUNCTION public.crm_wa_claim_next(timestamptz) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.crm_wa_claim_next(timestamptz) TO service_role;
