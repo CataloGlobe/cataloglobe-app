@@ -854,7 +854,7 @@ test.describe("Prodotti — lotto bug B", () => {
         await page.getByRole("menuitem", { name: "Modifica" }).click();
     }
 
-    test.fail("r.8: un gruppo senza limite si apre «più d'una, senza limite» e Salva senza modifiche non scrive", async ({ page }) => {
+    test("r.8: un gruppo senza limite si apre «più d'una, senza limite» e Salva senza modifiche non scrive", async ({ page }) => {
         stub.onWrite("product_option_groups.PATCH", call => [call.body]);
         addonGroup(null);
         await editAddonGroup(page);
@@ -867,7 +867,7 @@ test.describe("Prodotti — lotto bug B", () => {
         expect(stub.writes.filter(w => w.key === "product_option_groups.PATCH")).toHaveLength(0);
     });
 
-    test.fail("r.8: N = 1 con «più d'una» dà errore e non salva", async ({ page }) => {
+    test("r.8: N = 1 con «più d'una» dà errore e non salva", async ({ page }) => {
         stub.onWrite("product_option_groups.PATCH", call => [call.body]);
         addonGroup(3);
         await editAddonGroup(page);
@@ -878,7 +878,7 @@ test.describe("Prodotti — lotto bug B", () => {
         expect(stub.writes.filter(w => w.key === "product_option_groups.PATCH")).toHaveLength(0);
     });
 
-    test.fail("r.7: un formato senza prezzo non parte", async ({ page }) => {
+    test("r.7: un formato senza prezzo non parte", async ({ page }) => {
         stub.onWrite("product_option_values.POST", call => [call.body]);
         await openProduct(page, PRODUCT.patatine, "prezzi-opzioni");
         await expect(main(page).getByText("Grandi", { exact: true })).toBeVisible({ timeout: 15_000 });

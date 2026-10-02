@@ -15,13 +15,16 @@ type Props = {
     expanded: boolean;
     onExpand: () => void;
     disabled?: boolean;
+    /** Errore su «Fino a quante?» (N = 1, 0 o non intero). */
+    error?: string | null;
 };
 
 /**
  * Regole di scelta di un gruppo Configurazioni — progressive disclosure: una
  * riga di riepilogo e «Modifica le regole», poi due scelte su
  * `SegmentedControl` (erano pillole rifatte a mano, lotto Prodotti P7).
- * «Fino a quante?» compare solo quando il cliente può sceglierne più d'una.
+ * «Fino a quante?» compare solo quando il cliente può sceglierne più d'una;
+ * vuoto vuol dire senza limite.
  */
 export function ChoiceRulesEditor({
     mode,
@@ -32,7 +35,8 @@ export function ChoiceRulesEditor({
     onRequiredChange,
     expanded,
     onExpand,
-    disabled
+    disabled,
+    error
 }: Props) {
     if (!expanded) {
         return (
@@ -65,10 +69,12 @@ export function ChoiceRulesEditor({
                     {mode === "many" && (
                         <NumberInput
                             aria-label="Fino a quante?"
-                            placeholder="Fino a quante?"
+                            placeholder="Senza limite"
                             min="2"
+                            step="1"
                             value={n}
                             onChange={e => onNChange(e.target.value)}
+                            error={error ?? undefined}
                             containerClassName={styles.quantityN}
                         />
                     )}
