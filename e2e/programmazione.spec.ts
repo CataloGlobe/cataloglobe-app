@@ -699,6 +699,49 @@ test.describe("Programmazione — dettaglio", () => {
         await expect(main(page).getByRole("textbox", { name: /Nome/ })).toHaveValue(RULE_NAME.pranzo, { timeout: 15_000 });
     });
 
+    test("il dettaglio legge solo la sua regola, non tutte quelle dell'azienda", async ({ page }) => {
+        await openList(page);
+        const reads: URL[] = [];
+        page.on("request", request => {
+            const url = new URL(request.url());
+            if (request.method() === "GET" && url.pathname.includes("/rest/v1/")) reads.push(url);
+        });
+        await page.goto(page.url().replace(/scheduling.*$/, `scheduling/${RULE.pranzo}`));
+        await expect(main(page).getByRole("textbox", { name: /Nome/ })).toHaveValue(RULE_NAME.pranzo, { timeout: 15_000 });
+        const table = (url: URL) => url.pathname.split("/rest/v1/")[1];
+        // Prima `getLayoutRuleById` leggeva le regole di tutta l'azienda e i
+        // loro prezzi, disponibilità e contenuti, per poi tenerne una.
+        const ruleReads = reads.filter(url => table(url) === "schedules" && (url.searchParams.get("select") ?? "").includes("time_mode"));
+        expect(ruleReads).toHaveLength(1);
+        expect(ruleReads[0].searchParams.get("id")).toBe(`eq.${RULE.pranzo}`);
+        // Una regola di menù non chiede prezzi, disponibilità né contenuti in evidenza.
+        const otherLayers = reads.filter(url =>
+            ["schedule_price_overrides", "schedule_visibility_overrides", "schedule_featured_contents"].includes(table(url))
+        );
+        expect(otherLayers).toEqual([]);
+        for (const url of reads.filter(url => ["schedule_layout", "schedule_targets"].includes(table(url)))) {
+            expect(url.searchParams.get("schedule_id")).toBe(`in.(${RULE.pranzo})`);
+        }
+    });
+
+    test("cablaggio: «Duplica» dal dettaglio copia la regola letta per id", async ({ page }) => {
+        const COPY_ID = "e2e0d000-0000-4000-a000-000000000779";
+        stub.onWrite("schedules.POST", () => ({ id: COPY_ID }));
+        stub.onWrite("schedules.PATCH", () => null);
+        stub.onWrite("schedule_targets.POST", () => null);
+        stub.onWrite("schedule_price_overrides.POST", () => null);
+        await openRule(page, "spritz");
+        await page.getByRole("button", { name: /Altre azioni sulla regola/ }).first().click();
+        await page.getByRole("menuitem", { name: /Duplica/ }).click();
+        await expect.poll(() => writesOf(stub, "schedule_price_overrides.POST").length).toBe(1);
+        const copied = writesOf(stub, "schedule_price_overrides.POST")[0].body as Array<Record<string, unknown>>;
+        expect(copied.every(r => r.schedule_id === COPY_ID)).toBe(true);
+        expect(copied).toHaveLength(3);
+        const created = writesOf(stub, "schedules.POST")[0].body as Record<string, unknown>;
+        expect(created.rule_type).toBe("price");
+        await expect(page).toHaveURL(new RegExp(`/scheduling/${COPY_ID}`));
+    });
+
     test("«Come funziona» nella testata del dettaglio apre la guida del tipo", async ({ page }) => {
         await openRule(page, "spritz");
         await main(page).getByRole("button", { name: "Come funzionano le regole di prezzo" }).click();
