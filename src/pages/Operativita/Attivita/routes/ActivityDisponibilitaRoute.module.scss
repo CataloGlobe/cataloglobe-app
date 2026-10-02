@@ -1,4 +1,4 @@
-// Anello della catena bounded: banner fisso sopra, la tabella cresce e
+// Anello della catena bounded: banda dell'esito sopra, la tabella cresce e
 // scorre dentro (`data-active-tab="disponibilita"` nel parent).
 .layout {
   flex: 1 1 auto;
@@ -6,11 +6,4 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-16);
-}
-
-.link {
-  color: inherit;
-  font-weight: 600;
-  text-decoration: underline;
-  text-underline-offset: 2px;
 }

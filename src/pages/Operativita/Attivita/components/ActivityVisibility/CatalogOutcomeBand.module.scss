@@ -20,3 +20,19 @@
   letter-spacing: 0.08em;
   font-variant-numeric: tabular-nums;
 }
+
+.chainRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: var(--space-12);
+  row-gap: var(--space-4);
+  margin: 0;
+}
+
+.link {
+  color: var(--brand-primary);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}

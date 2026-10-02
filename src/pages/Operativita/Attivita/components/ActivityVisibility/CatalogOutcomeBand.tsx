@@ -1,7 +1,8 @@
+import { Link } from "react-router-dom";
 import { Card } from "@/components/ui/Card/Card";
 import Text from "@/components/ui/Text/Text";
 import type { RomeDateTime } from "@/services/supabase/schedulingNow";
-import type { Outcome } from "@/utils/catalogExplanation";
+import type { Outcome, RuleRef } from "@/utils/catalogExplanation";
 import styles from "./CatalogOutcomeBand.module.scss";
 
 type CatalogOutcomeBandProps = {
@@ -9,6 +10,8 @@ type CatalogOutcomeBandProps = {
     outcome: Outcome;
     /** «1 visibile · 1 nascosto · 1 non disponibile», solo se mostrano un menù. */
     counts: string | null;
+    /** Riga 1 della catena (§19.3): il menù che vince e la sua regola. */
+    menu: { catalogName: string; rule: RuleRef | null; ruleHref: string | null } | null;
 };
 
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -17,7 +20,7 @@ const pad = (n: number) => String(n).padStart(2, "0");
  * La banda dell'esito di «Cosa vedono i clienti» (§19.2): cosa trova adesso
  * chi inquadra il QR della sede. Statica, senza cursore (§50.20, D3).
  */
-export function CatalogOutcomeBand({ at, outcome, counts }: CatalogOutcomeBandProps) {
+export function CatalogOutcomeBand({ at, outcome, counts, menu }: CatalogOutcomeBandProps) {
     const warning = outcome.kind !== "showing";
     return (
         <div role="region" aria-label="Cosa vedono i clienti">
@@ -33,6 +36,24 @@ export function CatalogOutcomeBand({ at, outcome, counts }: CatalogOutcomeBandPr
                         <Text as="p" variant="body-sm" colorVariant="muted">
                             {counts}
                         </Text>
+                    )}
+                    {menu && (
+                        <p className={styles.chainRow}>
+                            <Text as="span" variant="body-sm">
+                                Menù <strong>{menu.catalogName}</strong>
+                                {menu.rule && (
+                                    <>
+                                        {" "}
+                                        · regola <strong>{menu.rule.name}</strong>
+                                    </>
+                                )}
+                            </Text>
+                            {menu.ruleHref && (
+                                <Link to={menu.ruleHref} className={styles.link}>
+                                    Vedi la regola
+                                </Link>
+                            )}
+                        </p>
                     )}
                 </div>
             </Card>

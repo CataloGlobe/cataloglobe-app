@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { useCallback } from "react";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import { PageGate } from "@/components/PageGate/PageGate";
 import { usePermissions } from "@/context/usePermissions";
@@ -7,22 +6,16 @@ import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 import { canDoOnActivity, canExplainActivityCatalog } from "@/lib/permissions";
 import { useCatalogExplanation } from "@/hooks/useCatalogExplanation";
 import { describeCounts, describeOutcome } from "@/utils/catalogExplanation";
-import {
-    ActivityVisibilityContent,
-    type VisibilityContentMeta
-} from "../components/ActivityVisibility/ActivityVisibilityContent";
+import { ActivityVisibilityContent } from "../components/ActivityVisibility/ActivityVisibilityContent";
 import { CatalogOutcomeBand } from "../components/ActivityVisibility/CatalogOutcomeBand";
 import { useActivityDetail } from "../ActivityDetailContext";
-import { getRenderableCatalogForActivity } from "@/services/supabase/activeCatalog";
 import styles from "./ActivityDisponibilitaRoute.module.scss";
-
-type ActiveSchedule = { id: string; name: string };
 
 /**
  * Disponibilità: cosa trova chi inquadra il QR di questa sede, adesso.
  * Rotta senza tab, raggiunta da «Gestisci» in Sedi; il drawer da 900 non
- * esiste più (§19.5). Diventerà «Cosa vedono i clienti» con la milestone
- * 7: esito e catena del resolver arrivano allora.
+ * esiste più (§19.5). In cima la banda dell'esito con il menù che vince
+ * (§19.2, riga 1 della catena), solo per chi può leggere tutte le regole.
  */
 export default function ActivityDisponibilitaRoute() {
     const { activity, tenantId } = useActivityDetail();
@@ -51,27 +44,6 @@ export default function ActivityDisponibilitaRoute() {
         : null;
     const reloadExplanation = explanation.reload;
     const handleChanged = useCallback(() => void reloadExplanation(true), [reloadExplanation]);
-    const [meta, setMeta] = useState<VisibilityContentMeta | null>(null);
-    const [activeSchedule, setActiveSchedule] = useState<ActiveSchedule | null>(null);
-
-    const handleMeta = useCallback((m: VisibilityContentMeta) => setMeta(m), []);
-
-    useEffect(() => {
-        if (!canRead || !canExplain) return;
-        let cancelled = false;
-        getRenderableCatalogForActivity(activity.id, tenantId)
-            .then(r => {
-                if (!cancelled) setActiveSchedule(r.activeSchedule);
-            })
-            .catch(() => {
-                if (!cancelled) setActiveSchedule(null);
-            });
-        return () => {
-            cancelled = true;
-        };
-    }, [activity.id, tenantId, canRead, canExplain]);
-
-    const hasActiveCatalog = meta?.catalogId !== null && meta?.catalogId !== undefined;
 
     if (permissions != null && !canRead) {
         return <PageGate readPermission="activity.read" activityId={activity.id}>{() => null}</PageGate>;
@@ -91,6 +63,17 @@ export default function ActivityDisponibilitaRoute() {
                     at={explanation.data.at}
                     outcome={outcome}
                     counts={outcome.kind === "showing" && explanation.data.explanation ? describeCounts(explanation.data.explanation.counts) : null}
+                    menu={
+                        explanation.data.catalogName
+                            ? {
+                                  catalogName: explanation.data.catalogName,
+                                  rule: explanation.data.layoutRule,
+                                  ruleHref: explanation.data.layoutRule
+                                      ? `/business/${tenantId}/scheduling/${explanation.data.layoutRule.id}`
+                                      : null
+                              }
+                            : null
+                    }
                 />
             )}
             {canExplain && explanation.error && (
@@ -99,32 +82,9 @@ export default function ActivityDisponibilitaRoute() {
             {permissions != null && !canExplain && (
                 <InlineBanner variant="info">Per vedere perché, serve l'accesso a Programmazione.</InlineBanner>
             )}
-            {canExplain && hasActiveCatalog && (
-                <InlineBanner
-                    variant="info"
-                    action={
-                        activeSchedule ? (
-                            <Link to={`/business/${tenantId}/scheduling/${activeSchedule.id}`} className={styles.link}>
-                                Vedi la regola
-                            </Link>
-                        ) : undefined
-                    }
-                >
-                    {canWrite ? `Stai modificando solo ${activity.name}: le altre sedi e il catalogo non cambiano. ` : ""}
-                    Menù attivo:{" "}
-                    <strong>{meta?.catalogName ?? "—"}</strong>
-                    {activeSchedule && (
-                        <>
-                            {" "}
-                            · regola <strong>{activeSchedule.name}</strong>
-                        </>
-                    )}
-                </InlineBanner>
-            )}
             {canRead && (
                 <ActivityVisibilityContent
                     activityId={activity.id}
-                    onMetaChange={handleMeta}
                     onChanged={handleChanged}
                     readOnly={!canWrite}
                 />
