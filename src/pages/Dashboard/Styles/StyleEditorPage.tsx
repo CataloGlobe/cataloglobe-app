@@ -173,7 +173,7 @@ export default function StyleEditorPage() {
         onRollbackComplete
     });
     const invalidateVersions = versioning.invalidate;
-    const { rollbackTo } = versioning;
+    const { rollbackTo, handleVersionClose } = versioning;
 
     // Le regole si rileggono a ogni scrittura: chi vede la modifica è quello di
     // adesso. `undefined` = regole non lette: nessuna scrittura, il toast lo dice.
@@ -251,12 +251,14 @@ export default function StyleEditorPage() {
         setIsCheckingRollback(false);
         if (warning === undefined) return;
         if (warning) {
+            // Il menu Versioni è portalato sopra l'app: resterebbe sopra lo scrim.
+            handleVersionClose();
             setSaveWarning(warning);
             setPendingWrite({ kind: "rollback", versionId });
             return;
         }
         await rollbackTo(versionId);
-    }, [versioning.selectedVersionId, styleData, readOnly, isDirty, readWriteWarning, rollbackTo]);
+    }, [versioning.selectedVersionId, styleData, readOnly, isDirty, readWriteWarning, rollbackTo, handleVersionClose]);
 
     const confirmPendingWrite = useCallback(async (): Promise<boolean> => {
         if (pendingWrite?.kind === "rollback") return rollbackTo(pendingWrite.versionId);
