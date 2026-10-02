@@ -5,18 +5,19 @@ import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 import { canDoOnActivity, canExplainActivityCatalog } from "@/lib/permissions";
 import { useCatalogExplanation } from "@/hooks/useCatalogExplanation";
 import { describeCounts, describeOutcome } from "@/utils/catalogExplanation";
+import { buildPublicUrl } from "@/utils/publicUrl";
 import { ActivityVisibilityContent } from "../components/ActivityVisibility/ActivityVisibilityContent";
 import { CatalogOutcomeBand } from "../components/ActivityVisibility/CatalogOutcomeBand";
 import { useActivityDetail } from "../ActivityDetailContext";
-import styles from "./ActivityDisponibilitaRoute.module.scss";
+import styles from "./ActivityCosaVedonoRoute.module.scss";
 
 /**
- * Disponibilità: cosa trova chi inquadra il QR di questa sede, adesso.
- * Rotta senza tab, raggiunta da «Gestisci» in Sedi; il drawer da 900 non
- * esiste più (§19.5). In cima la banda dell'esito con il menù che vince
+ * «Cosa vedono i clienti» (§19, milestone 7): cosa trova chi inquadra il QR
+ * di questa sede, adesso. Rotta senza tab (`cosa-vedono`, la vecchia
+ * `disponibilita` rimanda qui), raggiunta da «Gestisci» in Sedi. In cima la banda dell'esito con il menù che vince
  * (§19.2, riga 1 della catena), solo per chi può leggere tutte le regole.
  */
-export default function ActivityDisponibilitaRoute() {
+export default function ActivityCosaVedonoRoute() {
     const { activity, tenantId } = useActivityDetail();
     const { permissions } = usePermissions();
     const { canEdit } = useSubscriptionGuard();
@@ -71,6 +72,7 @@ export default function ActivityDisponibilitaRoute() {
                               }
                             : null
                     }
+                    publicUrl={buildPublicUrl(activity.slug)}
                     fixes={{
                         seat: { label: "Vai a Pubblicazione", href: `/business/${tenantId}/locations/${activity.id}/pubblicazione` },
                         subscription: { label: "Vai ad Abbonamento", href: `/business/${tenantId}/subscription` },

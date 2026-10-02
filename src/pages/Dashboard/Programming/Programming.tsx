@@ -144,7 +144,7 @@ export default function Programming() {
     // Il nome della sede nella matrice: la sua pagina «Cosa vedono i clienti»
     // (oggi «Disponibilità», §20.3).
     const seatHref = useCallback(
-        (activityId: string) => `/business/${currentTenantId}/locations/${activityId}/disponibilita`,
+        (activityId: string) => `/business/${currentTenantId}/locations/${activityId}/cosa-vedono`,
         [currentTenantId]
     );
     const sedeScope = useSedeScope();

@@ -184,11 +184,12 @@ test.describe("Disponibilità — vuoto ed errore", () => {
 
 /**
  * Milestone 7, «Cosa vedono i clienti» (§19, §50.20): esito, provenienza,
- * prezzo dalla regola, stati della sede. `test.fail` finché il passo che li
- * porta non li rende veri.
+ * prezzo dalla regola, stati della sede, chi vede la spiegazione, nome e
+ * indirizzo nuovi. Scritti in `test.fail` prima del lotto, tolti al passo
+ * che li ha resi veri.
  */
 test.describe("Cosa vedono i clienti — esito e provenienza", () => {
-    test.fail("la banda dice menù, regola e conteggi di adesso", async ({ page }) => {
+    test("la banda dice menù, regola e conteggi di adesso", async ({ page }) => {
         const { name } = await openDisponibilita(page);
         await expect(band(page)).toBeVisible({ timeout: 15_000 });
         await expect(band(page)).toContainText(`I clienti di ${name} vedono Menù e2e`);
@@ -308,14 +309,14 @@ test.describe("Cosa vedono i clienti — chi vede la spiegazione", () => {
 });
 
 test.describe("Cosa vedono i clienti — nome e indirizzo", () => {
-    test.fail("la voce si chiama «Cosa vedono i clienti» e porta alla pagina nuova", async ({ page }) => {
+    test("la voce si chiama «Cosa vedono i clienti» e porta alla pagina nuova", async ({ page }) => {
         await openDisponibilita(page);
         await expect(main(page).getByText("Big e2e", { exact: true })).toBeVisible({ timeout: 15_000 });
         await expect(page).toHaveURL(/\/cosa-vedono$/);
         await expect(page.getByRole("navigation", { name: "Menu principale" }).getByRole("link", { name: "Cosa vedono i clienti", exact: true })).toBeVisible();
     });
 
-    test.fail("il vecchio indirizzo rimanda al nuovo, con la vista", async ({ page }) => {
+    test("il vecchio indirizzo rimanda al nuovo, con la vista", async ({ page }) => {
         const { activityId } = await openDisponibilita(page);
         await expect(main(page).getByText("Big e2e", { exact: true })).toBeVisible({ timeout: 15_000 });
         await page.goto(page.url().replace(/\/locations\/.*$/, `/locations/${activityId}/disponibilita?vista=ingredienti`));

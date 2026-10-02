@@ -14,13 +14,13 @@
 // Bounded scoped per le tab a tabella (Disponibilità + Sala): la tabella deve
 // riempire e scrollare internamente. Le altre tab sono form lunghi page-scroll
 // → restano invariate (nessun match del data-attribute).
-.container[data-active-tab="disponibilita"],
+.container[data-active-tab="cosa-vedono"],
 .container[data-active-tab="sala"] {
   flex: 1 1 auto;
   min-height: 0;
 }
 
-.container[data-active-tab="disponibilita"] .contentWrapper,
+.container[data-active-tab="cosa-vedono"] .contentWrapper,
 .container[data-active-tab="sala"] .contentWrapper {
   flex: 1 1 auto;
   min-height: 0;
