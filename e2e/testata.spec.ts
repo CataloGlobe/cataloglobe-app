@@ -1,4 +1,4 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, test, type Locator } from "@playwright/test";
 import { openBusinessPage } from "./business";
 import { stubAnalitiche } from "./analiticheStub";
 import { stubProdotti } from "./prodottiStub";
@@ -18,7 +18,7 @@ import { stubStili } from "./stiliStub";
  * `test.fail` e passano a `test` col commit che li rende veri.
  */
 
-async function stacked(page: Page, leading: Locator, action: Locator): Promise<void> {
+async function stacked(leading: Locator, action: Locator): Promise<void> {
     await expect(leading).toBeVisible();
     await expect(action).toBeVisible();
     // La banda si ridecide quando arrivano i permessi (la CTA allarga le
@@ -72,7 +72,7 @@ test.describe("Testata — due righe prima della barra compatta", () => {
         await stubProdotti(page);
         await openBusinessPage(page, "products", "Prodotti");
         await page.setViewportSize({ width: 1024, height: 900 });
-        await stacked(page, page.getByRole("tab", { name: /^Gruppi/ }), page.getByPlaceholder(/^Cerca/).first());
+        await stacked(page.getByRole("tab", { name: /^Gruppi/ }), page.getByPlaceholder(/^Cerca/).first());
     });
 
     test("Prodotti: a 768 le tab a vista, a 375 la barra compatta", async ({ page }) => {
@@ -88,7 +88,6 @@ test.describe("Testata — due righe prima della barra compatta", () => {
         await openBusinessPage(page, "team", "Team");
         await page.setViewportSize({ width: 1024, height: 900 });
         await stacked(
-            page,
             page.getByRole("tab", { name: "Membri" }),
             page.getByRole("button", { name: "Invita membro" }).first()
         );
@@ -100,7 +99,6 @@ test.describe("Testata — due righe prima della barra compatta", () => {
             await openBusinessPage(page, "reviews", "Recensioni");
             await page.setViewportSize({ width, height: 900 });
             await stacked(
-                page,
                 page.getByRole("radio", { name: "Tutte" }).first(),
                 page.getByPlaceholder("Cerca commenti...")
             );

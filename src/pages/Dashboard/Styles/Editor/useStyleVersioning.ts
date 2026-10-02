@@ -19,7 +19,11 @@ type UseStyleVersioningReturn = {
     handleVersionClick: () => Promise<void>;
     handleVersionSelect: (v: V2StyleVersion) => void;
     handleVersionClose: () => void;
-    handleVersionRollback: () => Promise<void>;
+    /**
+     * Ripristina una versione (la scrive come versione nuova). Prende l'id e
+     * non la selezione: l'avviso «in uso» chiude il menu prima della conferma.
+     */
+    rollbackTo: (versionId: string) => Promise<boolean>;
     /** Call after a successful save to force re-fetch on next popover open. */
     invalidate: () => void;
 };
@@ -80,10 +84,10 @@ export function useStyleVersioning({
         setPreviewOverrideTokens(null);
     }, []);
 
-    const handleVersionRollback = useCallback(async () => {
-        if (!styleId || !tenantId || !selectedVersionId) return;
-        const targetVersion = versions.find(v => v.id === selectedVersionId);
-        if (!targetVersion) return;
+    const rollbackTo = useCallback(async (versionId: string): Promise<boolean> => {
+        if (!styleId || !tenantId) return false;
+        const targetVersion = versions.find(v => v.id === versionId);
+        if (!targetVersion) return false;
 
         setIsRollingBack(true);
         try {
@@ -97,12 +101,14 @@ export function useStyleVersioning({
             setPreviewOverrideTokens(null);
             setVersionsLoaded(false);
             await onRollbackComplete();
+            return true;
         } catch {
             showToast({ message: "Errore durante il ripristino della versione.", type: "error" });
+            return false;
         } finally {
             setIsRollingBack(false);
         }
-    }, [styleId, tenantId, selectedVersionId, versions, showToast, onRollbackComplete]);
+    }, [styleId, tenantId, versions, showToast, onRollbackComplete]);
 
     return {
         versions,
@@ -114,7 +120,7 @@ export function useStyleVersioning({
         handleVersionClick,
         handleVersionSelect,
         handleVersionClose,
-        handleVersionRollback,
+        rollbackTo,
         invalidate
     };
 }

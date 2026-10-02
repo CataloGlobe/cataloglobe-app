@@ -647,6 +647,8 @@ export async function listFeaturedPickerCatalog(tenantId: string): Promise<Featu
                 "id, name, base_price, option_groups:product_option_groups(group_kind, values:product_option_values(absolute_price))"
             )
             .eq("tenant_id", tenantId)
+            // Solo i prodotti base, come gli altri picker: le varianti sono formati del loro prodotto.
+            .is("parent_product_id", null)
             .order("name", { ascending: true }),
         supabase.from("product_groups").select("id, name").eq("tenant_id", tenantId).order("name", { ascending: true }),
         supabase.from("product_group_items").select("product_id, group_id").eq("tenant_id", tenantId)
