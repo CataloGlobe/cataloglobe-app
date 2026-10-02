@@ -48,6 +48,15 @@ const VISIBILITY_OPTIONS: { value: ProductVisibilityState; label: string }[] = [
     { value: "unavailable", label: "Non disponibile" }
 ];
 
+// Con la spiegazione la prima voce dice cosa fa davvero (§19.4): toglie la
+// modifica a mano e torna a quello che dicono le regole, che può essere
+// «nascosto». Chiamarla «Visibile» sarebbe falso; la riga dice dove porta.
+const EXPLAINED_OPTIONS: { value: ProductVisibilityState; label: string }[] = [
+    { value: "visible", label: "Come dice la regola" },
+    { value: "hidden", label: "Nascosto" },
+    { value: "unavailable", label: "Non disponibile" }
+];
+
 /**
  * La spiegazione che la rotta ha letto (§50.20), solo con
  * `canExplainActivityCatalog`. Senza, la pagina legge da sé le sole
@@ -336,7 +345,7 @@ export const ActivityVisibilityContent: React.FC<ActivityVisibilityContentProps>
                     value={product.control}
                     onChange={next => handleSetState(product.productId, next)}
                     size="sm"
-                    options={VISIBILITY_OPTIONS}
+                    options={explained ? EXPLAINED_OPTIONS : VISIBILITY_OPTIONS}
                 />
             </fieldset>
         );
@@ -392,12 +401,13 @@ export const ActivityVisibilityContent: React.FC<ActivityVisibilityContentProps>
                 header: "Disponibilità",
                 // Il tri-stato `sm` scritto è largo 280: con i 24 + 24 della
                 // cella, 300 lo troncava e «Non disponibile» scorreva dentro.
-                width: "344px",
+                // «Come dice la regola» al posto di «Visibile» ne chiede 80 in più.
+                width: explained ? "424px" : "344px",
                 align: "right",
                 cell: (_, product) => control(product)
             }
         ];
-    }, [isPhone, readOnly, handleSetState]);
+    }, [isPhone, readOnly, handleSetState, explained]);
 
     const showLoading = explained ? explanation.loading : isLoading;
     const showError = explained ? explanation.error : loadError;

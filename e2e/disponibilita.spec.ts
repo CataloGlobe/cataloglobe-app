@@ -215,7 +215,7 @@ test.describe("Cosa vedono i clienti — esito e provenienza", () => {
         await expect(big).toContainText("Prezzo dalla regola «Happy e2e»");
     });
 
-    test.fail("«Come dice la regola» toglie la modifica a mano", async ({ page }) => {
+    test("«Come dice la regola» toglie la modifica a mano", async ({ page }) => {
         const { stub } = await openDisponibilita(page, { rules: true });
         const coca = productRow(page, "Coca e2e");
         await expect(coca.getByRole("radio", { name: "Come dice la regola" })).toBeVisible({ timeout: 15_000 });
