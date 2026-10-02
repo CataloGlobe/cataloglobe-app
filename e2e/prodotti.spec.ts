@@ -781,7 +781,7 @@ test.describe("Prodotti — lotto bug B", () => {
         await expect.poll(() => write(stub, "products.DELETE")?.params.get("id")).toBe(`eq.${PRODUCT.hamburger}`);
     });
 
-    test.fail("r.6: modifica ed eliminazione di un gruppo filtrano anche l'azienda", async ({ page }) => {
+    test("r.6: modifica ed eliminazione di un gruppo filtrano anche l'azienda", async ({ page }) => {
         stub.onWrite("product_groups.PATCH", call => [{ ...stub.tables.product_groups.find(g => g.id === GROUP.bevande), ...(call.body as object) }]);
         stub.onWrite("product_groups.DELETE", () => null);
         stub.onWrite("product_group_items.POST", () => []);

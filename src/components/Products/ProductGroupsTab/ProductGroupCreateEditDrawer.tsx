@@ -141,7 +141,7 @@ export function ProductGroupCreateEditDrawer({
             let successMessage: string;
 
             if (isEditing && groupData) {
-                await updateProductGroup(groupData.id, {
+                await updateProductGroup(groupData.id, groupData.tenant_id, {
                     name: name.trim(),
                     parent_group_id: parentGroupId || null
                 });
