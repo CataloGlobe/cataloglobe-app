@@ -204,6 +204,16 @@ test.describe("Programmazione — elenco", () => {
         await expect(rowOf(rule(page, "natale"))).toContainText("mostra 1 contenuto");
     });
 
+    test("a 375 la riga di «Tutte» non ripete il tipo: lo dice il verbo", async ({ page }) => {
+        await openList(page, "all");
+        await page.setViewportSize({ width: 375, height: 812 });
+        const spritz = rowOf(rule(page, "spritz"));
+        await expect(spritz).toContainText("cambia 3 prezzi");
+        await expect(spritz).not.toContainText("Prezzi ·");
+        // Una bozza senza verbo tiene il tipo.
+        await expect(rowOf(rule(page, "bozza"))).toContainText("Menù e stile");
+    });
+
     test("il filtro per tipo tiene solo quel tipo e va nell'indirizzo", async ({ page }) => {
         await openList(page);
         await chooseType(page, /^Tutte/, /^Prezzi/);
@@ -462,13 +472,54 @@ test.describe("Programmazione — settimana, simulatore, guida", () => {
         await noHorizontalScroll(page);
     });
 
-    test("sopra 768 la Settimana mostra sette giorni", async ({ page }) => {
+    test("a 1280 la Settimana mostra sette giorni", async ({ page }) => {
         await openList(page, "layout");
         await openWeek(page);
         for (const day of ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"]) {
             await expect(main(page).getByText(day, { exact: true })).toBeVisible();
         }
         await expect(main(page).getByRole("radiogroup", { name: "Giorno" })).toHaveCount(0);
+    });
+
+    // Si misura lo spazio della Settimana, non la finestra (lotto bug C, Pr14):
+    // a 900 sette colonne sarebbero da ~100 px.
+    test("a 900 la Settimana non ci sta in sette colonne: un giorno alla volta", async ({ page }) => {
+        await openList(page, "layout");
+        await page.setViewportSize({ width: 900, height: 900 });
+        await openWeek(page);
+        await expect(main(page).getByRole("radiogroup", { name: "Giorno" })).toBeVisible();
+        await expect(main(page).getByText("Mercoledì 23 settembre")).toBeVisible();
+        await main(page).getByRole("button", { name: "Giorno successivo" }).click();
+        await expect(main(page).getByText("Giovedì 24 settembre")).toBeVisible();
+        await noHorizontalScroll(page);
+    });
+
+    test("le schede dicono il tipo nel nome; l'orario si legge anche sotto il puntatore", async ({ page }) => {
+        await openList(page, "all");
+        await openWeek(page);
+        // Il tipo, che in chiaro dice solo il bordo (sotto 3:1), sta nel nome del bottone.
+        const card = main(page).getByRole("button", { name: `${RULE_NAME.pranzo}, Menù e stile, 11:00–15:00` }).first();
+        await expect(card).toBeVisible();
+        await expect(main(page).getByRole("button", { name: new RegExp(`^${RULE_NAME.spritz}, Prezzi, `) }).first()).toBeVisible();
+        await card.hover();
+        const ratio = await card.evaluate(el => {
+            const caption = Array.from(el.querySelectorAll("span")).find(s => s.textContent === "11:00–15:00")!;
+            // `color-mix` si legge come `color(srgb r g b)` in 0–1, il resto come `rgb()`.
+            const rgb = (c: string) => {
+                const values = (c.match(/[\d.]+/g) ?? []).slice(0, 3).map(Number);
+                return c.startsWith("color(srgb") ? values.map(v => v * 255) : values;
+            };
+            const lum = ([r, g, b]: number[]) => {
+                const ch = (v: number) => {
+                    const x = v / 255;
+                    return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4;
+                };
+                return 0.2126 * ch(r) + 0.7152 * ch(g) + 0.0722 * ch(b);
+            };
+            const [a, b] = [lum(rgb(getComputedStyle(caption).color)), lum(rgb(getComputedStyle(el).backgroundColor))].sort((x, y) => y - x);
+            return (a + 0.05) / (b + 0.05);
+        });
+        expect(ratio).toBeGreaterThanOrEqual(4.5);
     });
 
     test("il simulatore dice cosa vince in una sede; l'anteprima è spenta per la sede sospesa", async ({ page }) => {
