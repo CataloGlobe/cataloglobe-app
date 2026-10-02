@@ -442,3 +442,9 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/import_map.json"
 entrypoint = "./functions/crm-purge/index.ts"
+
+[functions.crm-agent-check]
+enabled = true
+verify_jwt = false
+import_map = "./functions/import_map.json"
+entrypoint = "./functions/crm-agent-check/index.ts"
