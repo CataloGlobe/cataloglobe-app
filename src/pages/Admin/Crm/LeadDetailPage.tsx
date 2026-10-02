@@ -48,6 +48,7 @@ import { LostStageDialog } from "./LostStageDialog";
 import { StageLockDialog, type StageLockRequest } from "./StageLockDialog";
 import { VenueNameCard } from "./VenueNameCard";
 import { VenueNameCheckCard } from "./VenueNameCheckCard";
+import { leadAnswerRows } from "@/utils/crm/leadAnswers";
 import { leadToVerify } from "@/utils/crm/venueNameCheck";
 import styles from "./Crm.module.scss";
 
@@ -436,7 +437,7 @@ export default function LeadDetailPage() {
             <Card title={leads.length === 1 ? "Richiesta" : `Richieste (${leads.length})`}>
                 <div className={styles.leadList}>
                     {leads.map(lead => {
-                        const answers = Object.entries(lead.form_answers ?? {});
+                        const answers = leadAnswerRows(lead);
                         return (
                             <div key={lead.id} className={styles.leadItem}>
                                 <Text variant="body" weight={600}>
@@ -448,22 +449,17 @@ export default function LeadDetailPage() {
                                         {[lead.ad_name, lead.campaign].filter(Boolean).join(" · ")}
                                     </Text>
                                 )}
-                                {lead.interests.length > 0 && (
-                                    <Text variant="body-sm">
-                                        Interessi: {lead.interests.join(", ")}
-                                    </Text>
-                                )}
                                 {answers.length > 0 && (
                                     <dl className={styles.answers}>
-                                        {answers.map(([key, value]) => (
-                                            <div key={key} className={styles.answerRow}>
+                                        {answers.map(row => (
+                                            <div key={row.label} className={styles.answerRow}>
                                                 <dt>
                                                     <Text variant="caption" colorVariant="muted">
-                                                        {key.replace(/_/g, " ")}
+                                                        {row.label}
                                                     </Text>
                                                 </dt>
                                                 <dd>
-                                                    <Text variant="body-sm">{String(value)}</Text>
+                                                    <Text variant="body-sm">{row.value}</Text>
                                                 </dd>
                                             </div>
                                         ))}
