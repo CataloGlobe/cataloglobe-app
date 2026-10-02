@@ -275,29 +275,44 @@ export function ProductForm({
             const savedProductId = newProduct.id;
             let savedProduct: V2Product = newProduct;
 
+            // Da qui il prodotto esiste: un errore non lo ricrea mai (r.1). Quello
+            // che non si salva si raccoglie in un avviso solo e si completa
+            // dalla pagina del prodotto (r.10).
+            const notSaved: string[] = [];
+
             if (pendingImageFile) {
-                const imageUrl = await uploadProductImage(tenantId, newProduct.id, await compressImage(pendingImageFile, COMPRESS_PROFILES.product));
-                savedProduct = await updateProduct(newProduct.id, tenantId, { image_url: imageUrl });
+                try {
+                    const imageUrl = await uploadProductImage(tenantId, newProduct.id, await compressImage(pendingImageFile, COMPRESS_PROFILES.product));
+                    savedProduct = await updateProduct(newProduct.id, tenantId, { image_url: imageUrl });
+                } catch (imageError) {
+                    console.error("Errore caricamento immagine:", imageError);
+                    notSaved.push("immagine");
+                }
             }
 
             if (hasFormatPricing && draftFormats.length > 0) {
-                const newPrimaryGroup = await createProductOptionGroup({
-                    tenant_id: tenantId,
-                    product_id: savedProductId,
-                    name: "Formato",
-                    is_required: true,
-                    max_selectable: 1,
-                    group_kind: "PRIMARY_PRICE",
-                    pricing_mode: "ABSOLUTE"
-                });
-                for (const format of draftFormats) {
-                    await createOptionValue({
+                try {
+                    const newPrimaryGroup = await createProductOptionGroup({
                         tenant_id: tenantId,
-                        option_group_id: newPrimaryGroup.id,
-                        name: format.name,
-                        price_modifier: null,
-                        absolute_price: format.absolute_price
+                        product_id: savedProductId,
+                        name: "Formato",
+                        is_required: true,
+                        max_selectable: 1,
+                        group_kind: "PRIMARY_PRICE",
+                        pricing_mode: "ABSOLUTE"
                     });
+                    for (const format of draftFormats) {
+                        await createOptionValue({
+                            tenant_id: tenantId,
+                            option_group_id: newPrimaryGroup.id,
+                            name: format.name,
+                            price_modifier: null,
+                            absolute_price: format.absolute_price
+                        });
+                    }
+                } catch (formatError) {
+                    console.error("Errore salvataggio formati:", formatError);
+                    notSaved.push("formati");
                 }
             }
 
@@ -305,7 +320,7 @@ export function ProductForm({
                 await setProductAllergens(tenantId, savedProductId, selectedAllergens);
             } catch (allergenError) {
                 console.error("Errore salvataggio allergeni:", allergenError);
-                showToast({ message: "Impossibile salvare gli allergeni del prodotto.", type: "info" });
+                notSaved.push("allergeni");
             }
 
             try {
@@ -314,14 +329,22 @@ export function ProductForm({
                 }
             } catch (groupError) {
                 console.error("Errore associazione gruppi:", groupError);
-                throw new Error("Errore nell'associazione dei gruppi prodotto.");
+                notSaved.push("gruppi");
             }
 
             try {
                 await setProductIngredients(tenantId, savedProductId, selectedIngredients);
             } catch (ingredientError) {
                 console.error("Errore salvataggio ingredienti:", ingredientError);
-                showToast({ message: "Impossibile salvare gli ingredienti del prodotto.", type: "info" });
+                notSaved.push("ingredienti");
+            }
+
+            if (notSaved.length > 0) {
+                const created = mode === "create_variant" ? "Variante creata" : `${verticalConfig.productLabel} creato`;
+                showToast({
+                    message: `${created}. Non salvati: ${notSaved.join(", ")}. Completali dalla sua pagina.`,
+                    type: "warning"
+                });
             }
 
             // Dopo la creazione si apre la pagina del prodotto, sui prezzi.

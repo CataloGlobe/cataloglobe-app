@@ -889,7 +889,7 @@ test.describe("Prodotti — lotto bug B", () => {
         expect(stub.writes.filter(w => w.key === "product_option_values.POST")).toHaveLength(0);
     });
 
-    test.fail("r.1 + r.10: creato il prodotto, un errore dopo non lo ricrea: avviso e drawer chiuso", async ({ page }) => {
+    test("r.1 + r.10: creato il prodotto, un errore dopo non lo ricrea: avviso e drawer chiuso", async ({ page }) => {
         stub.onWrite("products.POST", call => ({ ...(call.body as object), tenant_id: TENANT_ID }));
         stub.onWrite("products.PATCH", call => ({ ...stub.tables.products[0], ...(call.body as object) }));
         // Il formato non si salva (product_option_groups.POST senza risposta = 500)
