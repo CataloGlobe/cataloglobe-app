@@ -58,7 +58,7 @@ SECURITY INVOKER
 SET search_path TO ''
 AS $$
 BEGIN
-    IF auth.uid() IS NOT NULL AND NOT (OLD.status = 'queued' AND NEW.status = 'cancelled') THEN
+    IF auth.uid() IS NOT NULL AND NOT coalesce(OLD.status = 'queued' AND NEW.status = 'cancelled', false) THEN
         RAISE EXCEPTION 'message_not_cancellable' USING ERRCODE = '42501';
     END IF;
     RETURN NEW;
@@ -129,7 +129,9 @@ CREATE TRIGGER crm_leads_enqueue_first_message
 -- r_reason: 'send' (c'è un messaggio, preso in carico: status 'sending'),
 -- 'brake', 'busy' (un invio aspetta ancora l'esito), 'pacing' (pausa tra due
 -- invii), 'empty' (niente da mandare adesso), 'failures' (invii rimasti senza
--- esito hanno messo in pausa gli agenti: l'edge avvisa il team).
+-- esito hanno messo in pausa gli agenti: l'edge avvisa il team),
+-- 'needs_relink' / 'warning' (agenti riattivati mentre WhatsApp Web era ancora
+-- da ricollegare o in avviso: di nuovo in pausa, l'edge avvisa il team).
 -- r_wait_seconds: quando conviene richiedere.
 CREATE OR REPLACE FUNCTION public.crm_wa_claim_next(p_now timestamptz DEFAULT now())
 RETURNS TABLE (
@@ -156,13 +158,14 @@ DECLARE
     v_test_only    boolean;
     v_test_numbers text[];
     v_next_send    timestamptz;
+    v_wa_state     text;
     v_failures     integer;
     v_stuck        integer;
     v_first_today  integer;
     v_cancel       text;
     m              record;
 BEGIN
-    SELECT c.next_send_at, c.failures_in_row INTO v_next_send, v_failures
+    SELECT c.next_send_at, c.failures_in_row, c.wa_state INTO v_next_send, v_failures, v_wa_state
     FROM public.crm_wa_channel c WHERE c.id FOR UPDATE;
 
     SELECT s.brake_on, s.wa_first_message, s.wa_test_only, s.wa_test_numbers
@@ -190,6 +193,23 @@ BEGIN
     IF v_brake THEN
         RETURN QUERY SELECT NULL::uuid, NULL::uuid, NULL::text, NULL::text, NULL::text, NULL::boolean,
             NULL::text, NULL::text, NULL::text, 60, 'brake'::text;
+        RETURN;
+    END IF;
+
+    -- Il battito mette la pausa solo quando lo stato cambia: se una persona
+    -- riattiva gli agenti con WhatsApp Web ancora da ricollegare o in avviso,
+    -- la pausa torna qui, prima di qualsiasi invio.
+    IF v_wa_state IN ('needs_relink', 'warning') THEN
+        PERFORM public.crm_set_brake(
+            true,
+            CASE v_wa_state
+                WHEN 'needs_relink' THEN 'WhatsApp Web chiede ancora di ricollegare il telefono.'
+                ELSE 'WhatsApp Web mostra ancora un avviso.'
+            END,
+            'channel'
+        );
+        RETURN QUERY SELECT NULL::uuid, NULL::uuid, NULL::text, NULL::text, NULL::text, NULL::boolean,
+            NULL::text, NULL::text, NULL::text, 60, v_wa_state;
         RETURN;
     END IF;
 
@@ -227,6 +247,10 @@ BEGIN
         v_cancel := CASE
             WHEN m.stage = 'perso' THEN 'Locale in Perso.'
             WHEN m.phone_e164 IS NULL THEN 'Contatto senza telefono.'
+            WHEN EXISTS (
+                SELECT 1 FROM public.crm_suppressions s
+                WHERE s.phone_fingerprint = public.crm_phone_fingerprint(m.phone_e164)
+            ) THEN 'Telefono nella lista stop.'
             WHEN m.purpose = 'first_message' AND v_template IS NULL THEN 'Primo messaggio automatico spento.'
             WHEN m.purpose = 'first_message' AND m.first_contacted_at IS NOT NULL THEN 'Locale già contattato.'
             WHEN m.purpose = 'first_message' AND EXISTS (
@@ -458,7 +482,7 @@ SECURITY DEFINER
 SET search_path TO ''
 AS $$
 BEGIN
-    UPDATE public.crm_wa_channel c SET failures_in_row = 0, silent_alerted_at = NULL WHERE c.id;
+    UPDATE public.crm_wa_channel c SET failures_in_row = 0, silent_alerted_at = NULL, alert_pending = NULL WHERE c.id;
     RETURN NULL;
 END;
 $$;

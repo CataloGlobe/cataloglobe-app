@@ -29,6 +29,7 @@ Istruzioni per Claude Code sul Mac. Si ripetono finché la sessione è aperta.
    - Se WhatsApp Web mostra il QR: `heartbeat needs_relink`.
    - Se mostra un avviso (telefono non connesso, account limitato, qualunque banner): `heartbeat warning "<testo del banner>"`.
    - Negli ultimi due casi il CRM mette in pausa gli agenti e avvisa il team su Telegram. Tu non mandi più nulla finché qualcuno non li riattiva.
+   - Appena il telefono è ricollegato o l'avviso sparisce, manda subito `heartbeat ok`: finché il CRM vede l'ultimo stato «da ricollegare» o «avviso», rimette la pausa anche se una persona ha riattivato gli agenti.
    - Senza battito per 15 minuti, il CRM mette in pausa gli agenti da solo.
 2. **Chat nuove**: per ogni chat con messaggi non letti,
    1. aprila;

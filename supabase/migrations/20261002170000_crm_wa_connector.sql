@@ -133,7 +133,11 @@ CREATE TABLE IF NOT EXISTS public.crm_wa_channel (
     -- Pausa casuale di 2-4 minuti dopo ogni invio.
     next_send_at       timestamptz,
     -- Mac muto: avviso già dato per questo silenzio (si azzera al battito).
-    silent_alerted_at  timestamptz
+    silent_alerted_at  timestamptz,
+    -- Avviso di pausa che Telegram non ha consegnato: l'edge lo ritenta a ogni
+    -- controllo del watchdog finché non arriva, o finché una persona riattiva.
+    alert_pending      text        CHECK (alert_pending IS NULL
+                                          OR alert_pending IN ('failures', 'needs_relink', 'warning', 'silent'))
 );
 
 INSERT INTO public.crm_wa_channel (id) VALUES (true) ON CONFLICT (id) DO NOTHING;

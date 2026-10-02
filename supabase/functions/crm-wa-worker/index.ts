@@ -22,7 +22,8 @@
 //   * result { message_id, ok, wa_message_id?, error? }
 //       esito dell'invio. Terzo fallimento di fila → pausa e messaggio.
 // POST { action: "watchdog" } con X-Job-Secret = CRM_JOB_SECRET (pg_cron,
-// migration 20261002170300): Mac muto da 15 minuti → pausa e messaggio.
+// migration 20261002170300): Mac muto da 15 minuti → pausa e messaggio; ritenta
+// l'avviso di pausa che Telegram non aveva consegnato.
 //
 // AUTENTICAZIONE fail-CLOSED, confronto constant-time; segreti mai nei log.
 // Env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, CRM_WA_WORKER_SECRET,
@@ -52,8 +53,30 @@ function secretMatches(given: string | null, expected: string | undefined): bool
     return !!expected && !!given && timingSafeEqualStr(given, expected);
 }
 
+// Un avviso di pausa che Telegram non consegna resta in crm_wa_channel.alert_pending
+// e lo ritenta il watchdog (ogni 5 minuti): col Mac spento è l'unico che gira.
 async function alertChannel(supabase, code, detail?: string | null): Promise<void> {
-    await sendToTeam(supabase, buildChannelAlert(code, detail), { logTag: LOG });
+    const delivered = await sendToTeam(supabase, buildChannelAlert(code, detail), { logTag: LOG });
+    const { error } = await supabase
+        .from("crm_wa_channel")
+        .update({ alert_pending: delivered > 0 ? null : code })
+        .eq("id", true);
+    if (error) console.error(`${LOG}: avviso in sospeso non registrato`, error.code);
+}
+
+async function retryPendingAlert(supabase): Promise<boolean> {
+    const { data, error } = await supabase
+        .from("crm_wa_channel")
+        .select("alert_pending")
+        .eq("id", true)
+        .maybeSingle();
+    if (error) {
+        console.error(`${LOG}: avviso in sospeso non letto`, error.code);
+        return false;
+    }
+    if (!data?.alert_pending) return false;
+    await alertChannel(supabase, data.alert_pending);
+    return true;
 }
 
 // -----------------------------------------------------------------------------
@@ -185,7 +208,9 @@ async function next(supabase) {
         console.error(`${LOG}: coda non letta`, error?.code);
         return json(500, { error: "claim_failed" });
     }
-    if (row.r_reason === "failures") await alertChannel(supabase, "failures");
+    if (row.r_reason === "failures" || row.r_reason === "needs_relink" || row.r_reason === "warning") {
+        await alertChannel(supabase, row.r_reason);
+    }
     if (row.r_reason !== "send") {
         return json(200, { wait: { reason: row.r_reason, seconds: row.r_wait_seconds } });
     }
@@ -204,13 +229,15 @@ async function next(supabase) {
             .eq("status", "sending");
         if (bodyError) text = null;
     }
-    if (!text) {
-        // Senza testo non si manda: esito fallito, così il messaggio non resta in invio.
-        await supabase.rpc("crm_wa_report_result", {
+    if (!text?.trim()) {
+        // Senza testo (o solo spazi) non si manda: esito fallito, così il messaggio non resta in invio.
+        const { data: outcome, error: reportError } = await supabase.rpc("crm_wa_report_result", {
             p_message_id: row.r_message_id,
             p_ok: false,
             p_error: "Testo del messaggio mancante."
         });
+        if (reportError) console.error(`${LOG}: esito del testo mancante non registrato`, reportError.code);
+        if (outcome === "failures") await alertChannel(supabase, "failures");
         return json(200, { wait: { reason: "empty", seconds: 5 } });
     }
     return json(200, { send: { message_id: row.r_message_id, phone: row.r_phone, body: text } });
@@ -243,6 +270,7 @@ async function watchdog(supabase) {
         return json(500, { error: "watchdog_failed" });
     }
     if (data === true) await alertChannel(supabase, "silent");
+    else await retryPendingAlert(supabase);
     return json(200, { ok: true, alerted: data === true });
 }
 
