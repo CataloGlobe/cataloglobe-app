@@ -28,11 +28,12 @@ import {
     createOptionValue,
     updateOptionValue,
     deleteOptionValue,
-    getProductOptions
+    getProductOptions,
+    getPrimaryPriceGroups
 } from "@/services/supabase/productOptions";
 import { OptionValueList } from "./components/OptionValueList/OptionValueList";
 import { ChoiceRulesEditor } from "./components/ChoiceRulesEditor";
-import { parseMaxSelectable, type MaxSelectableMode } from "./components/choiceRules";
+import { choiceRulesFromMax, parseMaxSelectable, type MaxSelectableMode } from "./components/choiceRules";
 import { resolvePriceMode, shouldConfirmRevertToUnico, type PriceMode } from "./priceMode";
 import { getDisplayPrice } from "@/utils/priceDisplay";
 import { resolvePriceSummary } from "@/utils/priceSummary";
@@ -207,7 +208,9 @@ export default function PrezziOpzioniTab({
     const [parentProduct, setParentProduct] = useState<V2Product | null>(null);
     const [parentPrimaryGroup, setParentPrimaryGroup] = useState<GroupWithValues | null>(null);
     const [isLoadingParent, setIsLoadingParent] = useState(false);
-    const isInheriting = isVariant && !hasPrimaryGroup && product.base_price === null;
+    // «Imposta un prezzo proprio» apre il campo: finché si scrive, la variante
+    // non è più mostrata come ereditante; «Annulla» la riporta lì.
+    const isInheriting = isVariant && !hasPrimaryGroup && product.base_price === null && !editingBasePrice;
 
     const loadParent = useCallback(async () => {
         if (!isVariant || !product.parent_product_id) return;
@@ -273,46 +276,20 @@ export default function PrezziOpzioniTab({
     const [variantOptions, setVariantOptions] = useState<
         Record<string, GroupWithValues | null>
     >({});
-    const [parentGroup, setParentGroup] = useState<
-        GroupWithValues | null | undefined
-    >(undefined);
 
-    useEffect(() => {
-        if (isVariant) return;
-        let cancelled = false;
-        void getProductOptions(product.id)
-            .then(opts => {
-                if (!cancelled) setParentGroup(opts.primaryPriceGroup);
-            })
-            .catch(() => {
-                if (!cancelled) setParentGroup(null);
-            });
-        return () => {
-            cancelled = true;
-        };
-    }, [product.id, isVariant]);
-
+    // I formati delle varianti in una lettura sola (r.9).
     useEffect(() => {
         if (isVariant || variants.length === 0) {
             setVariantOptions({});
             return;
         }
         let cancelled = false;
-        void Promise.all(
-            variants.map(v =>
-                getProductOptions(v.id).then(opts => ({
-                    id: v.id,
-                    group: opts.primaryPriceGroup
-                }))
-            )
+        void getPrimaryPriceGroups(
+            variants.map(v => v.id),
+            tenantId
         )
-            .then(results => {
-                if (cancelled) return;
-                const map: Record<string, GroupWithValues | null> = {};
-                for (const r of results) {
-                    map[r.id] = r.group;
-                }
-                setVariantOptions(map);
+            .then(map => {
+                if (!cancelled) setVariantOptions(map);
             })
             .catch(() => {
                 /* silent — price cells fall back to "—" */
@@ -320,9 +297,15 @@ export default function PrezziOpzioniTab({
         return () => {
             cancelled = true;
         };
-    }, [variants, isVariant]);
+    }, [variants, isVariant, tenantId]);
 
-    const variantsParentFromPrice = computeFromPrice(parentGroup, product.base_price);
+    // Il prezzo che una variante eredita viene dai formati del padre, cioè
+    // da questa stessa pagina: la prop si aggiorna a ogni formato salvato,
+    // una seconda lettura restava indietro (r.9).
+    const variantsParentFromPrice = computeFromPrice(
+        optionsLoading ? undefined : primaryPriceGroup,
+        product.base_price
+    );
 
     // Value CRUD sul gruppo Formato (PRIMARY_PRICE) — salvataggio immediato.
     // Creazione lazy: il gruppo PRIMARY_PRICE nasce insieme al suo primo
@@ -393,19 +376,23 @@ export default function PrezziOpzioniTab({
     const [newGroupName, setNewGroupName] = useState("");
     const [newGroupMaxMode, setNewGroupMaxMode] = useState<MaxSelectableMode>("one");
     const [newGroupMaxN, setNewGroupMaxN] = useState("2");
+    const [newGroupMaxBad, setNewGroupMaxBad] = useState(false);
     const [newGroupRequired, setNewGroupRequired] = useState(false);
     const [newGroupRulesExpanded, setNewGroupRulesExpanded] = useState(false);
     const [savingNewGroup, setSavingNewGroup] = useState(false);
     const [newGroupError, setNewGroupError] = useState<string | null>(null);
+    const [newGroupMaxError, setNewGroupMaxError] = useState<string | null>(null);
 
     const handleOpenCreateGroup = () => {
         setIsCreatingGroup(true);
         setNewGroupName("");
         setNewGroupMaxMode("one");
+        setNewGroupMaxBad(false);
         setNewGroupMaxN("2");
         setNewGroupRequired(false);
         setNewGroupRulesExpanded(false);
         setNewGroupError(null);
+        setNewGroupMaxError(null);
     };
 
     const handleCloseCreateGroup = () => {
@@ -419,6 +406,12 @@ export default function PrezziOpzioniTab({
             setNewGroupError("Il nome è obbligatorio");
             return;
         }
+        const max = parseMaxSelectable(newGroupMaxMode, newGroupMaxN, newGroupMaxBad);
+        if (!max.ok) {
+            setNewGroupMaxError(max.error);
+            setNewGroupRulesExpanded(true);
+            return;
+        }
         try {
             setSavingNewGroup(true);
             setNewGroupError(null);
@@ -427,7 +420,7 @@ export default function PrezziOpzioniTab({
                 product_id: productId,
                 name,
                 is_required: newGroupRequired,
-                max_selectable: parseMaxSelectable(newGroupMaxMode, newGroupMaxN),
+                max_selectable: max.value,
                 group_kind: "ADDON",
                 pricing_mode: "DELTA"
             });
@@ -448,10 +441,12 @@ export default function PrezziOpzioniTab({
     const [editGroupName, setEditGroupName] = useState("");
     const [editGroupMaxMode, setEditGroupMaxMode] = useState<MaxSelectableMode>("one");
     const [editGroupMaxN, setEditGroupMaxN] = useState("2");
+    const [editGroupMaxBad, setEditGroupMaxBad] = useState(false);
     const [editGroupRequired, setEditGroupRequired] = useState(false);
     const [editGroupRulesExpanded, setEditGroupRulesExpanded] = useState(false);
     const [savingGroupId, setSavingGroupId] = useState<string | null>(null);
     const [groupEditError, setGroupEditError] = useState<string | null>(null);
+    const [groupEditMaxError, setGroupEditMaxError] = useState<string | null>(null);
 
     // Delete group dialog
     const [deleteGroup, setDeleteGroup] = useState<GroupWithValues | null>(null);
@@ -459,16 +454,15 @@ export default function PrezziOpzioniTab({
     const handleStartEditGroup = (group: GroupWithValues) => {
         setEditingGroupId(group.id);
         setEditGroupName(group.name);
-        if (group.max_selectable != null && group.max_selectable > 1) {
-            setEditGroupMaxMode("many");
-            setEditGroupMaxN(String(group.max_selectable));
-        } else {
-            setEditGroupMaxMode("one");
-            setEditGroupMaxN("2");
-        }
+        // null = senza limite: si apre «più d'una» col campo vuoto (r.8).
+        const rules = choiceRulesFromMax(group.max_selectable);
+        setEditGroupMaxMode(rules.mode);
+        setEditGroupMaxBad(false);
+        setEditGroupMaxN(rules.n);
         setEditGroupRequired(group.is_required);
         setEditGroupRulesExpanded(false);
         setGroupEditError(null);
+        setGroupEditMaxError(null);
     };
 
     const handleCancelEditGroup = () => {
@@ -482,11 +476,22 @@ export default function PrezziOpzioniTab({
             setGroupEditError("Il nome è obbligatorio");
             return;
         }
+        const max = parseMaxSelectable(editGroupMaxMode, editGroupMaxN, editGroupMaxBad);
+        if (!max.ok) {
+            setGroupEditMaxError(max.error);
+            setEditGroupRulesExpanded(true);
+            return;
+        }
+        // Aprire e salvare senza cambiare niente non scrive.
+        if (name === group.name && max.value === group.max_selectable && editGroupRequired === group.is_required) {
+            setEditingGroupId(null);
+            return;
+        }
         try {
             setSavingGroupId(group.id);
             await updateProductOptionGroup(group.id, {
                 name,
-                max_selectable: parseMaxSelectable(editGroupMaxMode, editGroupMaxN),
+                max_selectable: max.value,
                 is_required: editGroupRequired
             });
             await onRefreshOptions();
@@ -817,9 +822,18 @@ export default function PrezziOpzioniTab({
 
                             <ChoiceRulesEditor
                                 mode={newGroupMaxMode}
-                                onModeChange={setNewGroupMaxMode}
+                                onModeChange={mode => {
+                                    setNewGroupMaxMode(mode);
+                                    setNewGroupMaxBad(false);
+                                    setNewGroupMaxError(null);
+                                }}
                                 n={newGroupMaxN}
-                                onNChange={setNewGroupMaxN}
+                                onNChange={(n, bad) => {
+                                    setNewGroupMaxN(n);
+                                    setNewGroupMaxBad(bad);
+                                    setNewGroupMaxError(null);
+                                }}
+                                error={newGroupMaxError}
                                 required={newGroupRequired}
                                 onRequiredChange={setNewGroupRequired}
                                 expanded={newGroupRulesExpanded}
@@ -883,9 +897,18 @@ export default function PrezziOpzioniTab({
                                             />
                                             <ChoiceRulesEditor
                                                 mode={editGroupMaxMode}
-                                                onModeChange={setEditGroupMaxMode}
+                                                onModeChange={mode => {
+                                                    setEditGroupMaxMode(mode);
+                                                    setEditGroupMaxBad(false);
+                                                    setGroupEditMaxError(null);
+                                                }}
                                                 n={editGroupMaxN}
-                                                onNChange={setEditGroupMaxN}
+                                                onNChange={(n, bad) => {
+                                                    setEditGroupMaxN(n);
+                                                    setEditGroupMaxBad(bad);
+                                                    setGroupEditMaxError(null);
+                                                }}
+                                                error={groupEditMaxError}
                                                 required={editGroupRequired}
                                                 onRequiredChange={setEditGroupRequired}
                                                 expanded={editGroupRulesExpanded}

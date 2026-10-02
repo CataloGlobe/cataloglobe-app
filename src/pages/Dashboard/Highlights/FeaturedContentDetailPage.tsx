@@ -567,7 +567,6 @@ export default function FeaturedContentDetailPage() {
                         <ProductForm
                             formId="product-form-featured"
                             mode="create_base"
-                            productData={null}
                             parentProduct={null}
                             tenantId={tenantId ?? null}
                             onSuccess={handleNewProductCreated}

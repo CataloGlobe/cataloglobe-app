@@ -15,7 +15,7 @@ type ProductCreateEditDrawerProps = {
      * Crea un {prodotto} o una variante. La modifica non passa più da qui
      * (§50.9/5): si fa nella pagina del prodotto.
      */
-    mode: Exclude<ProductFormMode, "edit">;
+    mode: ProductFormMode;
     parentProduct: V2Product | null;
     onSuccess: (savedProduct?: V2Product) => void | Promise<void>;
     tenantId?: string;
@@ -51,7 +51,6 @@ export function ProductCreateEditDrawer({
                 <ProductForm
                     formId="product-form"
                     mode={mode}
-                    productData={null}
                     parentProduct={parentProduct}
                     tenantId={tenantId || null}
                     onSuccess={onSuccess}

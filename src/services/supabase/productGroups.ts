@@ -86,6 +86,7 @@ export async function createProductGroup(data: ProductGroupInsert): Promise<Prod
 
 export async function updateProductGroup(
     id: string,
+    tenantId: string,
     data: ProductGroupUpdate
 ): Promise<ProductGroup> {
     const updatePayload: ProductGroupUpdate = {};
@@ -96,6 +97,7 @@ export async function updateProductGroup(
         .from("product_groups")
         .update(updatePayload)
         .eq("id", id)
+        .eq("tenant_id", tenantId)
         .select()
         .single();
 
@@ -103,8 +105,8 @@ export async function updateProductGroup(
     return updatedGroup;
 }
 
-export async function deleteProductGroup(id: string): Promise<void> {
-    const { error } = await supabase.from("product_groups").delete().eq("id", id);
+export async function deleteProductGroup(id: string, tenantId: string): Promise<void> {
+    const { error } = await supabase.from("product_groups").delete().eq("id", id).eq("tenant_id", tenantId);
 
     if (error) throw error;
 }
