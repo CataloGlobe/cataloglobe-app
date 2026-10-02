@@ -1,0 +1,128 @@
+@use "@pages/CampaignLanding/styles/mixins" as *;
+
+// Barra fissa in basso, sopra il contenuto e sotto la NavBar (z 50, in alto:
+// non si incontrano). Overlay e non blocco nel flusso: nessuno spostamento del
+// layout all'apertura o alla chiusura. Su mobile resta bassa (testo + una fila
+// di bottoni) e la pagina scorre sotto: la CTA del form si raggiunge comunque.
+.banner {
+    position: fixed;
+    z-index: 40;
+    left: 12px;
+    right: 12px;
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    box-sizing: border-box;
+    display: grid;
+    gap: 12px;
+    padding: 14px 44px 14px 16px;
+    border: 1px solid var(--ld-line);
+    border-radius: 16px;
+    background: var(--ld-white);
+    color: var(--ld-ink);
+    box-shadow: var(--ld-shadow-card);
+
+    &:focus-visible {
+        outline: 2px solid var(--ld-focus-ring);
+        outline-offset: 3px;
+    }
+
+    @include desktop {
+        left: 50%;
+        right: auto;
+        bottom: 20px;
+        width: min(920px, calc(100% - 40px));
+        transform: translateX(-50%);
+        grid-template-columns: 1fr auto;
+        align-items: center;
+        gap: 24px;
+        padding: 16px 56px 16px 24px;
+    }
+}
+
+.body {
+    min-width: 0;
+}
+
+.title {
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.3;
+}
+
+.text {
+    margin-top: 4px;
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--ld-body);
+
+    @include desktop {
+        font-size: 14px;
+    }
+}
+
+// Doppia classe: il colore dei link della landing (`:where(.landing) a`) perde.
+.text .link {
+    color: var(--ld-azione);
+    font-weight: 600;
+    text-decoration: underline;
+    @include ld-focus;
+}
+
+.actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+
+    @include desktop {
+        grid-template-columns: auto auto;
+    }
+}
+
+// Stessa classe per «Accetta» e «Rifiuta»: stessa evidenza, per scelta.
+.choice {
+    @include ld-reset-button;
+    @include ld-focus;
+
+    min-height: 44px;
+    padding: 0 20px;
+    border-radius: 999px;
+    background: var(--ld-scuro);
+    color: var(--ld-on-azione);
+    font-size: 15px;
+    font-weight: 600;
+    white-space: nowrap;
+    transition: background-color 160ms ease;
+
+    &:hover {
+        background: var(--ld-azione-hover);
+    }
+
+    @include desktop {
+        min-width: 120px;
+    }
+}
+
+.close {
+    @include ld-reset-button;
+    @include ld-focus;
+
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 999px;
+    color: var(--ld-muted);
+
+    &:hover {
+        background: var(--ld-paper);
+        color: var(--ld-ink);
+    }
+
+    @include desktop {
+        top: 50%;
+        right: 12px;
+        transform: translateY(-50%);
+    }
+}

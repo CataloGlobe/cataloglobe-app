@@ -1,11 +1,7 @@
 import { phoneFingerprint } from "@/utils/crm/phoneFingerprint";
 import { describe, expect, it } from "vitest";
-import {
-    decodeMetaCsv,
-    parseDelimited,
-    parseMetaLeadsCsv,
-    stripMetaPrefix
-} from "@/utils/crm/metaCsv";
+import { decodeMetaCsv, parseDelimited, parseMetaLeadsCsv } from "@/utils/crm/metaCsv";
+import { stripMetaPrefix } from "@shared/metaLeadFields";
 
 const HEADER = [
     "id",

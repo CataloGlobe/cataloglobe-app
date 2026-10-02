@@ -15,6 +15,9 @@
 --       Prima di ogni chiamata a Claude: il modello del ruolo e se si può
 --       chiamare. Sopra un tetto nessun ruolo; col freno tirato solo Gea
 --       (risponde alle domande, non scrive ai lead).
+--   crm_lead_send_gate(contact, channel, sender)
+--       Il controllo unico prima di ogni invio verso un lead: pausa agenti,
+--       stop, recapito. Gea non passa mai.
 --   crm_record_ai_usage(...)
 --       Dopo ogni chiamata (solo service role): registra token e costo, poi
 --       al 100% di un tetto tira il freno, all'80% segna l'avviso (uno al
@@ -26,7 +29,7 @@
 --
 -- La persona arriva ai trigger da auth.uid() o dall'impostazione locale della
 -- transazione `crm.agent_actor`, che scrivono solo queste funzioni.
--- SECURITY INVOKER: le RLS `crm_*` restano il cancello. ACL in 20261002160200.
+-- SECURITY INVOKER: le RLS `crm_*` restano il cancello. ACL in 20261002210200.
 -- =============================================================================
 
 BEGIN;
@@ -45,7 +48,7 @@ AS $$
 $$;
 
 -- Prepara `crm.agent_actor` per i trigger: dal client vale solo auth.uid();
--- dal service role un utente del team del CRM.
+-- dal service role un utente del team del CRM che sia admin di piattaforma.
 CREATE OR REPLACE FUNCTION public.crm_bind_agent_actor(p_actor_user_id uuid)
 RETURNS uuid
 LANGUAGE plpgsql
@@ -58,8 +61,13 @@ BEGIN
     IF auth.uid() IS NOT NULL AND p_actor_user_id IS NOT NULL AND p_actor_user_id <> auth.uid() THEN
         RAISE EXCEPTION 'actor_mismatch' USING ERRCODE = '42501';
     END IF;
+    -- Dal service role (Telegram) solo chi è del team del CRM e admin di
+    -- piattaforma, come chi lo farebbe da /admin.
     IF auth.uid() IS NULL AND p_actor_user_id IS NOT NULL AND NOT EXISTS (
-        SELECT 1 FROM public.crm_team_members tm WHERE tm.user_id = p_actor_user_id
+        SELECT 1
+        FROM public.crm_team_members tm
+        JOIN public.platform_admins pa ON pa.user_id = tm.user_id
+        WHERE tm.user_id = p_actor_user_id
     ) THEN
         RAISE EXCEPTION 'not_a_team_member' USING ERRCODE = '22023';
     END IF;
@@ -105,7 +113,7 @@ $$;
 CREATE OR REPLACE FUNCTION public.crm_settings_agent_log()
 RETURNS trigger
 LANGUAGE plpgsql
-SECURITY INVOKER
+SECURITY DEFINER
 SET search_path TO ''
 AS $$
 DECLARE
@@ -262,8 +270,94 @@ BEGIN
         r_reason := 'month_cap';
     ELSIF v_spend.r_day_usd >= v_spend.r_day_cap THEN
         r_reason := 'day_cap';
+    -- Gea passa anche con la pausa: risponde al team. Non può scrivere ai lead
+    -- perché ogni invio passa da crm_lead_send_gate, che la rifiuta sempre.
     ELSIF v_spend.r_brake_on AND p_role <> 'gea' THEN
         r_reason := 'brake';
+    ELSE
+        r_allowed := true;
+        r_reason := NULL;
+    END IF;
+    RETURN NEXT;
+END;
+$$;
+
+
+-- -----------------------------------------------------------------------------
+-- crm_lead_send_gate: il controllo unico prima di ogni invio verso un lead
+-- -----------------------------------------------------------------------------
+-- Contratto (review di Lorenzo del 2026-10-02): ogni invio fatto dal sistema
+-- verso un lead (WhatsApp dal connettore, email, qualunque canale futuro) passa
+-- da qui subito prima di partire, nella stessa transazione che lo segna come
+-- inviato. Se ritorna r_allowed = false il messaggio non parte.
+-- Ferma:
+--   - la pausa agenti (brake_on), per tutti i mittenti del sistema;
+--   - un locale Perso per stop e un telefono nella lista stop (crm_suppressions);
+--   - un contatto senza il recapito del canale.
+-- Mittenti ammessi: 'agent' (risposte e follow-up scritti da Claude) e
+-- 'system' (testi fissi, come il primo messaggio). Gea non scrive mai ai lead:
+-- 'gea' e qualunque altro mittente ricevono sempre un no. Resta fuori solo il
+-- messaggio che una persona scrive dal proprio telefono (link wa.me di crm-wa).
+-- Codice puro e test: supabase/functions/_shared/crmLeadSendGate.ts.
+CREATE OR REPLACE FUNCTION public.crm_lead_send_gate(
+    p_contact_id uuid,
+    p_channel    text,
+    p_sender     text
+)
+RETURNS TABLE (r_allowed boolean, r_reason text)
+LANGUAGE plpgsql
+STABLE
+SECURITY INVOKER
+SET search_path TO ''
+AS $$
+DECLARE
+    v_brake    boolean;
+    v_phone    text;
+    v_email    text;
+    v_stage    text;
+    v_lost     text;
+BEGIN
+    IF p_channel IS NULL OR p_channel NOT IN ('whatsapp', 'email') THEN
+        RAISE EXCEPTION 'invalid_channel' USING ERRCODE = '22023';
+    END IF;
+
+    r_allowed := false;
+
+    IF p_sender IS NULL OR p_sender NOT IN ('agent', 'system') THEN
+        r_reason := 'sender_not_allowed';
+        RETURN NEXT;
+        RETURN;
+    END IF;
+
+    SELECT s.brake_on INTO v_brake FROM public.crm_settings s WHERE s.id;
+    IF v_brake IS DISTINCT FROM false THEN
+        r_reason := 'brake';
+        RETURN NEXT;
+        RETURN;
+    END IF;
+
+    SELECT c.phone_e164, c.email, v.stage, v.lost_kind
+    INTO v_phone, v_email, v_stage, v_lost
+    FROM public.crm_contacts c
+    JOIN public.crm_venues v ON v.id = c.venue_id
+    WHERE c.id = p_contact_id;
+    IF NOT FOUND THEN
+        r_reason := 'not_found';
+        RETURN NEXT;
+        RETURN;
+    END IF;
+
+    IF v_stage = 'perso' AND v_lost = 'stop' THEN
+        r_reason := 'stop';
+    ELSIF v_phone IS NOT NULL AND EXISTS (
+        SELECT 1 FROM public.crm_suppressions sp
+        WHERE sp.phone_fingerprint = public.crm_phone_fingerprint(v_phone)
+    ) THEN
+        r_reason := 'suppressed';
+    ELSIF p_channel = 'whatsapp' AND v_phone IS NULL THEN
+        r_reason := 'no_phone';
+    ELSIF p_channel = 'email' AND (v_email IS NULL OR btrim(v_email) = '') THEN
+        r_reason := 'no_email';
     ELSE
         r_allowed := true;
         r_reason := NULL;
@@ -413,7 +507,7 @@ $$;
 CREATE OR REPLACE FUNCTION public.crm_brand_rules_log()
 RETURNS trigger
 LANGUAGE plpgsql
-SECURITY INVOKER
+SECURITY DEFINER
 SET search_path TO ''
 AS $$
 DECLARE

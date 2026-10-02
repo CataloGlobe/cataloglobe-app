@@ -15,6 +15,10 @@
 //      (costo 0). Se ritorna un avviso (80% o tetto raggiunto, freno già
 //      tirato dal database) lo manda su Telegram a tutto il team collegato.
 //
+// Questo file decide solo se si può chiamare Claude, non se un testo può
+// partire: ogni invio verso un lead passa da `crmLeadSendGate.ts`
+// (crm_lead_send_gate), che ferma la pausa agenti per tutti e Gea sempre.
+//
 // Non lancia: ritorna `{ ok: false, reason }` e chi chiama decide (la bozza
 // resta da fare a mano, il lead resta in coda).
 // Il client `supabase` deve essere service role. Env: CRM_ANTHROPIC_API_KEY,
