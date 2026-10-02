@@ -878,6 +878,32 @@ test.describe("Prodotti — lotto bug B", () => {
         expect(stub.writes.filter(w => w.key === "product_option_groups.PATCH")).toHaveLength(0);
     });
 
+    test("r.8: testo non numerico («tre») in «più d'una» dà errore e non salva", async ({ page }) => {
+        stub.onWrite("product_option_groups.POST", call => ({ ...(call.body as object), id: "e2e0d000-0000-4000-a000-000000000972" }));
+        stub.onWrite("product_option_groups.PATCH", call => [call.body]);
+        addonGroup(3);
+        // Testo che il browser non legge come numero: il campo vale "", come
+        // vuoto. «tre», non «2,5»: Chromium scarta la virgola e legge 25.
+        await editAddonGroup(page);
+        await main(page).getByRole("button", { name: "Modifica le regole di scelta" }).click();
+        const n = main(page).getByRole("spinbutton", { name: "Fino a quante?" });
+        await n.clear();
+        await n.pressSequentially("tre");
+        await expect.poll(() => n.evaluate(el => (el as HTMLInputElement).validity.badInput)).toBe(true);
+        await main(page).getByRole("button", { name: "Salva" }).click();
+        await expect(main(page).getByText(/da 2 in su/)).toBeVisible();
+        await main(page).getByRole("button", { name: "Annulla" }).click();
+
+        await main(page).getByRole("button", { name: "Nuovo gruppo" }).click();
+        await main(page).getByRole("textbox", { name: /Cosa può scegliere il cliente/ }).fill("Salse e2e");
+        await main(page).getByRole("button", { name: "Modifica le regole di scelta" }).click();
+        await main(page).getByRole("radio", { name: "Sì, più d'una" }).click();
+        await main(page).getByRole("spinbutton", { name: "Fino a quante?" }).pressSequentially("tre");
+        await main(page).getByRole("button", { name: /^Crea$/ }).click();
+        await expect(main(page).getByText(/da 2 in su/)).toBeVisible();
+        expect(stub.writes.filter(w => w.key.startsWith("product_option_groups."))).toHaveLength(0);
+    });
+
     test("r.7: un formato senza prezzo non parte", async ({ page }) => {
         stub.onWrite("product_option_values.POST", call => [call.body]);
         await openProduct(page, PRODUCT.patatine, "prezzi-opzioni");

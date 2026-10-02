@@ -4,15 +4,21 @@ export type MaxSelectableMode = "one" | "many";
 
 /**
  * `max_selectable` dal form. `null` = senza limite (è lo stato più comune in
- * staging, e resta valido): «più d'una» con N vuoto. N = 1, 0 o non intero è
- * un errore, mai un limite deciso in silenzio (r.8).
+ * staging, e resta valido): «più d'una» con N vuoto. N = 1, 0, non intero o
+ * non numerico è un errore, mai un limite deciso in silenzio (r.8).
  */
 export type ParsedMaxSelectable = { ok: true; value: number | null } | { ok: false; error: string };
 
 export const MAX_SELECTABLE_ERROR = "Scrivi un numero da 2 in su, o lascia vuoto per nessun limite.";
 
-export function parseMaxSelectable(mode: MaxSelectableMode, n: string): ParsedMaxSelectable {
+/**
+ * `badInput`: il campo numerico ha del testo che il browser non legge come
+ * numero («2,5», «tre»). Il suo `value` è allora "", come un campo vuoto: senza
+ * questo segnale diventerebbe «senza limite».
+ */
+export function parseMaxSelectable(mode: MaxSelectableMode, n: string, badInput = false): ParsedMaxSelectable {
     if (mode === "one") return { ok: true, value: 1 };
+    if (badInput) return { ok: false, error: MAX_SELECTABLE_ERROR };
     const trimmed = n.trim();
     if (trimmed === "") return { ok: true, value: null };
     if (!/^\d+$/.test(trimmed) || Number(trimmed) < 2) return { ok: false, error: MAX_SELECTABLE_ERROR };

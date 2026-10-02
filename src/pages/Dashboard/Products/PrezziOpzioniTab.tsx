@@ -376,6 +376,7 @@ export default function PrezziOpzioniTab({
     const [newGroupName, setNewGroupName] = useState("");
     const [newGroupMaxMode, setNewGroupMaxMode] = useState<MaxSelectableMode>("one");
     const [newGroupMaxN, setNewGroupMaxN] = useState("2");
+    const [newGroupMaxBad, setNewGroupMaxBad] = useState(false);
     const [newGroupRequired, setNewGroupRequired] = useState(false);
     const [newGroupRulesExpanded, setNewGroupRulesExpanded] = useState(false);
     const [savingNewGroup, setSavingNewGroup] = useState(false);
@@ -386,6 +387,7 @@ export default function PrezziOpzioniTab({
         setIsCreatingGroup(true);
         setNewGroupName("");
         setNewGroupMaxMode("one");
+        setNewGroupMaxBad(false);
         setNewGroupMaxN("2");
         setNewGroupRequired(false);
         setNewGroupRulesExpanded(false);
@@ -404,7 +406,7 @@ export default function PrezziOpzioniTab({
             setNewGroupError("Il nome è obbligatorio");
             return;
         }
-        const max = parseMaxSelectable(newGroupMaxMode, newGroupMaxN);
+        const max = parseMaxSelectable(newGroupMaxMode, newGroupMaxN, newGroupMaxBad);
         if (!max.ok) {
             setNewGroupMaxError(max.error);
             setNewGroupRulesExpanded(true);
@@ -439,6 +441,7 @@ export default function PrezziOpzioniTab({
     const [editGroupName, setEditGroupName] = useState("");
     const [editGroupMaxMode, setEditGroupMaxMode] = useState<MaxSelectableMode>("one");
     const [editGroupMaxN, setEditGroupMaxN] = useState("2");
+    const [editGroupMaxBad, setEditGroupMaxBad] = useState(false);
     const [editGroupRequired, setEditGroupRequired] = useState(false);
     const [editGroupRulesExpanded, setEditGroupRulesExpanded] = useState(false);
     const [savingGroupId, setSavingGroupId] = useState<string | null>(null);
@@ -454,6 +457,7 @@ export default function PrezziOpzioniTab({
         // null = senza limite: si apre «più d'una» col campo vuoto (r.8).
         const rules = choiceRulesFromMax(group.max_selectable);
         setEditGroupMaxMode(rules.mode);
+        setEditGroupMaxBad(false);
         setEditGroupMaxN(rules.n);
         setEditGroupRequired(group.is_required);
         setEditGroupRulesExpanded(false);
@@ -472,7 +476,7 @@ export default function PrezziOpzioniTab({
             setGroupEditError("Il nome è obbligatorio");
             return;
         }
-        const max = parseMaxSelectable(editGroupMaxMode, editGroupMaxN);
+        const max = parseMaxSelectable(editGroupMaxMode, editGroupMaxN, editGroupMaxBad);
         if (!max.ok) {
             setGroupEditMaxError(max.error);
             setEditGroupRulesExpanded(true);
@@ -820,11 +824,13 @@ export default function PrezziOpzioniTab({
                                 mode={newGroupMaxMode}
                                 onModeChange={mode => {
                                     setNewGroupMaxMode(mode);
+                                    setNewGroupMaxBad(false);
                                     setNewGroupMaxError(null);
                                 }}
                                 n={newGroupMaxN}
-                                onNChange={n => {
+                                onNChange={(n, bad) => {
                                     setNewGroupMaxN(n);
+                                    setNewGroupMaxBad(bad);
                                     setNewGroupMaxError(null);
                                 }}
                                 error={newGroupMaxError}
@@ -893,11 +899,13 @@ export default function PrezziOpzioniTab({
                                                 mode={editGroupMaxMode}
                                                 onModeChange={mode => {
                                                     setEditGroupMaxMode(mode);
+                                                    setEditGroupMaxBad(false);
                                                     setGroupEditMaxError(null);
                                                 }}
                                                 n={editGroupMaxN}
-                                                onNChange={n => {
+                                                onNChange={(n, bad) => {
                                                     setEditGroupMaxN(n);
+                                                    setEditGroupMaxBad(bad);
                                                     setGroupEditMaxError(null);
                                                 }}
                                                 error={groupEditMaxError}

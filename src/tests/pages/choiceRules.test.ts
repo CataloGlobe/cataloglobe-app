@@ -27,6 +27,12 @@ describe("parseMaxSelectable (r.8)", () => {
             expect(parseMaxSelectable("many", n)).toEqual({ ok: false, error: MAX_SELECTABLE_ERROR });
         }
     });
+
+    it("testo non numerico nel campo (badInput, valore \"\") è un errore, non «senza limite»", () => {
+        expect(parseMaxSelectable("many", "", true)).toEqual({ ok: false, error: MAX_SELECTABLE_ERROR });
+        expect(parseMaxSelectable("many", "", false)).toEqual({ ok: true, value: null });
+        expect(parseMaxSelectable("one", "", true)).toEqual({ ok: true, value: 1 });
+    });
 });
 
 describe("choiceRulesFromMax", () => {
