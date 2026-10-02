@@ -693,6 +693,20 @@ test.describe("Programmazione — dettaglio", () => {
         await expect(page).toHaveURL(/\/products/);
     });
 
+    test("senza scrittura il dettaglio è in sola lettura e uscire non chiede niente", async ({ page }) => {
+        await stub.revoke("scheduling.write");
+        await openRule(page, "pranzo");
+        await stub.revoked;
+        await expect(main(page).getByText(/^Sola lettura: per modificare le regole/)).toBeVisible();
+        await expect(main(page).getByRole("textbox", { name: /Nome/ })).toBeDisabled();
+        await expect(main(page).getByRole("switch", { name: "In certi giorni" })).toBeDisabled();
+        await expect(main(page).getByRole("group", { name: "Sedi disponibili" }).getByRole("checkbox", { name: "Centro e2e" })).toBeDisabled();
+        await expect(page.getByRole("button", { name: "Salva", exact: true })).toHaveCount(0);
+        await page.getByRole("navigation", { name: "Menu principale" }).getByRole("link", { name: "Prodotti" }).click();
+        await expect(page).toHaveURL(/\/products/);
+        expect(stub.writes).toHaveLength(0);
+    });
+
     test("con modifiche «Duplica» è spenta e dice perché; la bozza non si accende e dice perché", async ({ page }) => {
         await openRule(page, "aperitivo");
         await main(page).getByRole("textbox", { name: /Nome/ }).fill("Aperitivo lungo e2e");
