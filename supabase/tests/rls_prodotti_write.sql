@@ -3,7 +3,7 @@
 -- =============================================================================
 --
 -- Test — scritture di Prodotti: products.write / attributes.write
--- (PR di sicurezza 1/5, migration 20261002160000–20261002160600)
+-- (PR di sicurezza 1/5, migration 20261002160000–20261002160700)
 --
 -- Verifica, per owner, admin, manager, staff e viewer della stessa azienda:
 --   0. forma delle policy: sulle 11 tabelle restano solo le tre policy base di
@@ -17,6 +17,10 @@
 --   2. le 4 tabelle variant: nessun ruolo scrive, nemmeno l'owner
 --   3. le 4 RPC replace_product_*: owner e admin ok; manager, staff e viewer
 --      42501 «Forbidden: missing products.write»
+--   4. import_products_into_catalog: owner e admin ok; manager, staff e viewer
+--      42501 (senza catalogs.write si fermano al controllo che viene prima);
+--      il viewer con catalogs.write prestato nel blocco riceve
+--      «Forbidden: missing products.write»
 --
 -- Ogni caso stampa `PASS`, `FAIL`, `SKIP` (nessuna riga di esempio
 -- nell'azienda) o `INCONCLUSO` (errore diverso da quello atteso, col
@@ -294,6 +298,54 @@ BEGIN
 END;
 $$;
 
+-- import_products_into_catalog: un catalogo nuovo con una categoria e un
+-- prodotto con un formato (scrive products, product_option_groups e
+-- product_option_values). p_message: messaggio 42501 atteso, NULL = qualunque
+-- 42501 (chi non ha catalogs.write si ferma al controllo che viene prima).
+CREATE OR REPLACE FUNCTION pg_temp.check_import(p_label text, p_user uuid, p_expect boolean, p_message text DEFAULT NULL)
+RETURNS void
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_result jsonb;
+BEGIN
+  BEGIN
+    PERFORM pg_temp.as_user(p_user);
+    v_result := public.import_products_into_catalog(
+      pg_temp.param('tenant'),
+      NULL,
+      'Test RLS import',
+      '[{"ref": "c1", "existing_id": null, "name": "Test RLS", "name_hash": "test",
+         "level": 1, "parent_ref": null, "sort_order": 0}]'::jsonb,
+      '[{"action": "create", "category_ref": "c1", "sort_order": 0,
+         "product": {"name": "Test RLS import", "base_price": 1, "product_type": "simple",
+                     "format_group_name_hash": "test",
+                     "formats": [{"name": "Piccolo", "absolute_price": 1, "name_hash": "test"}]}}]'::jsonb);
+    IF NOT p_expect THEN
+      RAISE NOTICE 'FAIL % · import_products_into_catalog: riuscita, attesa 42501', p_label;
+    ELSIF (v_result->>'created_products')::int = 1 THEN
+      RAISE NOTICE 'PASS % · import_products_into_catalog: ok (%)', p_label, v_result;
+    ELSE
+      RAISE NOTICE 'FAIL % · import_products_into_catalog: esito inatteso (%)', p_label, v_result;
+    END IF;
+    RAISE EXCEPTION USING ERRCODE = 'P0099';
+  EXCEPTION
+    WHEN SQLSTATE 'P0099' THEN NULL;
+    WHEN insufficient_privilege THEN
+      IF p_expect THEN
+        RAISE NOTICE 'FAIL % · import_products_into_catalog: 42501, attesa riuscita (%)', p_label, SQLERRM;
+      ELSIF p_message IS NULL OR SQLERRM = p_message THEN
+        RAISE NOTICE 'PASS % · import_products_into_catalog: 42501 (%)', p_label, SQLERRM;
+      ELSE
+        RAISE NOTICE 'FAIL % · import_products_into_catalog: 42501 da un altro controllo (%)', p_label, SQLERRM;
+      END IF;
+    WHEN OTHERS THEN
+      RAISE NOTICE 'INCONCLUSO % · import_products_into_catalog: SQLSTATE % (%)', p_label, SQLSTATE, SQLERRM;
+  END;
+  PERFORM pg_temp.as_postgres();
+END;
+$$;
+
 -- Tutti i casi per un utente.
 CREATE OR REPLACE FUNCTION pg_temp.check_user(p_label text, p_user uuid, p_writer boolean)
 RETURNS void
@@ -321,6 +373,7 @@ BEGIN
     PERFORM pg_temp.check_table(v_table, p_label, p_user, false);
   END LOOP;
   PERFORM pg_temp.check_rpcs(p_label, p_user, p_writer);
+  PERFORM pg_temp.check_import(p_label, p_user, p_writer);
 END;
 $$;
 
@@ -403,6 +456,31 @@ BEGIN
       RAISE NOTICE 'Nota: staff promosso ad admin per questo blocco';
     END IF;
     PERFORM pg_temp.check_user('admin', v_admin, true);
+    RAISE EXCEPTION USING ERRCODE = 'P0099';
+  EXCEPTION
+    WHEN SQLSTATE 'P0099' THEN NULL;
+  END;
+END $$;
+
+-- -----------------------------------------------------------------------------
+-- TEST 4 — import_products_into_catalog, controllo products.write da solo.
+-- Il viewer si ferma già a catalogs.write (TEST 1–3). Qui il ruolo viewer
+-- riceve catalogs.write in role_permissions dentro un blocco annullato, così
+-- l'import arriva al controllo nuovo e deve fermarsi lì.
+-- -----------------------------------------------------------------------------
+DO $$
+BEGIN
+  IF pg_temp.param('viewer') IS NULL THEN
+    RAISE NOTICE 'SKIP viewer+catalogs.write: utente non impostato';
+    RETURN;
+  END IF;
+  BEGIN
+    INSERT INTO public.role_permissions (role, permission_id)
+    VALUES ('viewer', 'catalogs.write')
+    ON CONFLICT DO NOTHING;
+    RAISE NOTICE 'Nota: catalogs.write dato al ruolo viewer per questo blocco';
+    PERFORM pg_temp.check_import('viewer+catalogs.write', pg_temp.param('viewer'), false,
+                                 'Forbidden: missing products.write');
     RAISE EXCEPTION USING ERRCODE = 'P0099';
   EXCEPTION
     WHEN SQLSTATE 'P0099' THEN NULL;
