@@ -953,5 +953,35 @@ test.describe("Prodotti — lotto bug B", () => {
             await expect(collection(page, /^Attributi$/)).toHaveAttribute("aria-selected", "true", { timeout: 15_000 });
             await expect(main(page).getByText("Taglia", { exact: true })).toBeVisible();
         });
+
+        test("creazione: «Nuovo prodotto» e «Aggiungi variante» non hanno campi attributo", async ({ page }) => {
+            // Un attributo di piattaforma obbligatorio del negozio, oltre a quelli dell'azienda.
+            stub.tables.product_attribute_definitions.push({
+                id: "e2e0d000-0000-4000-a000-000000000980",
+                tenant_id: null,
+                code: "marca",
+                label: "Marca",
+                type: "text",
+                options: null,
+                is_required: true,
+                show_in_public_channels: true,
+                vertical: "retail",
+                created_at: "2026-03-17T10:00:00.000Z"
+            });
+            const labels = ["Marca", "Materiale", "Taglia", "Colore"];
+            await openList(page);
+            await page.getByRole("button", { name: "Crea prodotto" }).click();
+            await expect(dialog(page).getByRole("textbox", { name: /^Nome/ })).toBeFocused();
+            for (const label of labels) await expect(dialog(page).getByLabel(label)).toHaveCount(0);
+            await dialog(page).getByRole("button", { name: "Annulla" }).click();
+
+            await search(page, "Hamburger");
+            await actionsOf(product(page, "Hamburger")).click();
+            await page.getByRole("menuitem", { name: /^Aggiungi variante$/i }).click();
+            await expect(dialog(page)).toContainText("Variante di");
+            await expect(dialog(page).getByRole("textbox", { name: /^Nome/ })).toBeVisible();
+            for (const label of labels) await expect(dialog(page).getByLabel(label)).toHaveCount(0);
+            expect(stub.writes).toHaveLength(0);
+        });
     });
 });
