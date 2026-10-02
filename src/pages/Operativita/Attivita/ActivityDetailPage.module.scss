@@ -1,4 +1,5 @@
 @use "@/styles/variables" as v;
+@use "@styles/mixins" as *;
 
 .container {
   display: flex;
@@ -26,6 +27,16 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
+}
+
+// «Cosa vedono i clienti» sul telefono: la banda dell'esito prende quasi
+// tutto lo schermo, e una tabella che scorre dentro resterebbe senza righe.
+// Sotto 768 la pagina scorre intera.
+@include phone {
+  .container[data-active-tab="cosa-vedono"],
+  .container[data-active-tab="cosa-vedono"] .contentWrapper {
+    flex: none;
+  }
 }
 
 .grid12 {

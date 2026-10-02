@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { IconListDetails } from "@tabler/icons-react";
 import Text from "@/components/ui/Text/Text";
@@ -10,6 +10,7 @@ import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedCont
 import { Tabs } from "@/components/ui/Tabs/Tabs";
 import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
 import { ActivityVisibilityIngredients } from "./ActivityVisibilityIngredients";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useTenantId } from "@/context/useTenantId";
 import {
     getActivityProductOverrides,
@@ -25,7 +26,6 @@ import type { CustomerState } from "@/utils/catalogExplanation";
 import { getDisplayPrice } from "@/utils/priceDisplay";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useEnsureActive } from "@/hooks/useEnsureActive";
-import { useMediaQuery } from "@/hooks/useMediaQuery";
 import styles from "./ActivityVisibilityContent.module.scss";
 
 /** `manual` = le righe con una modifica a mano: il contenuto dello strato 4 (§19.4). */
@@ -76,6 +76,12 @@ type ActivityVisibilityContentProps = {
     /** Sola lettura: il tri-stato e le azioni in blocco sono spenti (fieldset). */
     readOnly?: boolean;
 };
+
+/**
+ * Sotto questa larghezza della pagina l'elenco va a una colonna: prodotto
+ * (~200) + prezzo + tri-stato. Con la spiegazione prezzo 160 e tri-stato 424.
+ */
+const TABLE_MIN_WIDTH = { plain: 640, explained: 840 } as const;
 
 /** Una riga dell'elenco, da qualunque delle due letture venga. */
 type VisibilityRow = {
@@ -179,9 +185,25 @@ export const ActivityVisibilityContent: React.FC<ActivityVisibilityContentProps>
     const { showToast } = useToast();
     const { ensureActive } = useEnsureActive();
     const [searchParams, setSearchParams] = useSearchParams();
-    // Sul telefono una colonna sola (regola DataTable): prezzo e tri-stato
-    // scendono sotto il nome. Colonne scelte qui, non duplicate in CSS.
-    const isPhone = useMediaQuery("(max-width: 767px)");
+    // Una colonna sola quando le tre non ci stanno (regola DataTable): prezzo
+    // e tri-stato scendono sotto il nome. Si misura lo spazio della pagina,
+    // non la finestra, come la Settimana e la matrice: con la spiegazione il
+    // tri-stato e il prezzo sono più larghi e la soglia sale.
+    // Sotto 768 la pagina scorre intera (ActivityDetailPage.module.scss): la
+    // tabella non ha un'altezza da riempire, quindi una pagina da 10 righe
+    // invece del calcolo «Auto», che senza altezza ne darebbe zero.
+    const pageScrolls = useMediaQuery("(max-width: 767px)");
+    const [box, setBox] = useState<HTMLDivElement | null>(null);
+    const [isPhone, setIsPhone] = useState(false);
+    useLayoutEffect(() => {
+        if (!box) return;
+        const min = explained ? TABLE_MIN_WIDTH.explained : TABLE_MIN_WIDTH.plain;
+        const measure = () => setIsPhone(box.clientWidth < min);
+        measure();
+        const observer = new ResizeObserver(measure);
+        observer.observe(box);
+        return () => observer.disconnect();
+    }, [box, explained]);
 
     const [isLoading, setIsLoading] = useState(true);
     const [loadError, setLoadError] = useState(false);
@@ -496,7 +518,7 @@ export const ActivityVisibilityContent: React.FC<ActivityVisibilityContentProps>
     const isFiltered = filter !== "all" || search.trim() !== "";
 
     return (
-        <div className={styles.container}>
+        <div ref={setBox} className={styles.container}>
             <div className={styles.viewTabs}>
                 <Tabs<VisibilityView> value={view} onChange={setView} variant="primary">
                     <Tabs.List>
@@ -535,6 +557,7 @@ export const ActivityVisibilityContent: React.FC<ActivityVisibilityContentProps>
                         data={filtered}
                         columns={columns}
                         getRowId={p => p.productId}
+                        pageSize={pageScrolls ? 10 : undefined}
                         disabledRowIds={savingId ? [savingId] : []}
                         isFiltered={isFiltered}
                         onClearFilters={() => {
