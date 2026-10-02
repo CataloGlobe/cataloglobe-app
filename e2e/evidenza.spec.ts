@@ -605,7 +605,7 @@ test.describe("In evidenza — larghezze", () => {
  * passa a `test` col commit che lo corregge.
  */
 test.describe("In evidenza — lotto bug A", () => {
-    test.fail("E2: il picker «Aggiungi» non offre le varianti", async ({ page }) => {
+    test("E2: il picker «Aggiungi» non offre le varianti", async ({ page }) => {
         stub.tables.products.push({
             ...stub.tables.products.find(p => p.id === PRODUCT.bigArch)!,
             id: "e2eef000-0000-4000-a000-000000000105",
