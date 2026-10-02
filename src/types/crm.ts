@@ -33,7 +33,14 @@ export type CrmEventType =
     | "stage_locked"
     | "stage_unlocked"
     | "subscription_changed"
-    | "venue_renamed";
+    | "venue_renamed"
+    | "venue_name_confirmed"
+    | "venue_name_deferred";
+
+/** Lead tornato: confronto del locale scritto con quello della carta (20261002130000). */
+export type CrmVenueNameMatch = "same" | "typo" | "other";
+/** Scelta su quel lead: «È lo stesso locale» o «Decido dopo». */
+export type CrmVenueNameCheck = "same" | "later";
 
 /** Stato dell'account collegato, copiato dal job (20261001150000). */
 export type CrmAccountState = "registrato" | "trialing" | "active" | "past_due" | "suspended" | "canceled";
@@ -76,6 +83,11 @@ export interface CrmLead {
     consent_text: string | null;
     received_at: string;
     notified_at: string | null;
+    /** Cosa ha scritto la persona in questa richiesta (null nei dati vecchi). */
+    contact_name_given: string | null;
+    venue_name_given: string | null;
+    venue_name_match: CrmVenueNameMatch | null;
+    venue_name_check: CrmVenueNameCheck | null;
 }
 
 export interface CrmEvent {
@@ -95,6 +107,8 @@ export interface CrmVenue {
     name: string;
     /** «Locale da completare»: entrato senza nome del locale (form Meta), `name` è quello della persona. */
     name_pending: boolean;
+    /** «Locale da verificare»: il nome diverso scritto da un lead tornato, finché qualcuno non decide. */
+    name_to_verify: string | null;
     city: string | null;
     stage: CrmStage;
     lost_kind: CrmLostKind | null;

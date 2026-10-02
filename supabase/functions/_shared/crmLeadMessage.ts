@@ -12,6 +12,7 @@ import {
     romeWindowMinutesBetween,
     type CrmLeadMessageData,
     type CrmNotificationKind,
+    type CrmReturnedContext,
     type CrmTeamMemberLite,
     type TelegramMessage
 } from "./crmTelegram.ts";
@@ -54,13 +55,36 @@ export async function loadLeadMessageData(
 ): Promise<CrmLeadMessageData | null> {
     const { data: lead, error } = await supabase
         .from("crm_leads")
-        .select("id, venue_id, source, ad_name, campaign, interests, form_answers, received_at, crm_contacts(name, phone_e164), crm_venues(id, name, city, stage, lost_kind, assigned_to)")
+        .select("id, venue_id, source, ad_name, campaign, interests, form_answers, received_at, venue_name_given, venue_name_match, venue_name_check, crm_contacts(name, phone_e164), crm_venues(id, name, city, stage, lost_kind, assigned_to, created_at, stage_changed_at)")
         .eq("id", leadId)
         .maybeSingle();
     if (error) throw error;
     if (!lead || !lead.crm_venues) return null;
 
     const venue = lead.crm_venues;
+    let returned: CrmReturnedContext | undefined;
+    if (kind === "returned") {
+        // Fase al momento del ritorno: l'ingresso può averla cambiata
+        // (Perso «non adesso» → Nuovo).
+        const { data: event } = await supabase
+            .from("crm_events")
+            .select("payload")
+            .eq("lead_id", lead.id)
+            .eq("type", "lead_returned")
+            .maybeSingle();
+        returned = {
+            leadId: lead.id,
+            knownSince: venue.created_at,
+            stageKey: venue.stage,
+            daysInStage: Math.max(0, Math.floor((now.getTime() - new Date(venue.stage_changed_at).getTime()) / 86_400_000)),
+            previousStage: event?.payload?.stage ?? null,
+            previousLostKind: event?.payload?.lost_kind ?? null,
+            venueNameGiven: lead.venue_name_given ?? null,
+            venueNameMatch: lead.venue_name_match ?? null,
+            venueNameCheck: lead.venue_name_check ?? null
+        };
+    }
+
     const waitingMinutes = kind === "escalation"
         ? romeWindowMinutesBetween(new Date(lead.received_at), now)
         : 0;
@@ -82,7 +106,8 @@ export async function loadLeadMessageData(
         assignedTo: venue.assigned_to,
         waitingHours: kind === "escalation" ? Math.max(2, Math.floor(waitingMinutes / 60)) : undefined,
         adminUrl: appUrl ? `${appUrl}/admin/lead/${venue.id}` : null,
-        hasPhone: Boolean(lead.crm_contacts?.phone_e164)
+        hasPhone: Boolean(lead.crm_contacts?.phone_e164),
+        returned
     };
 }
 

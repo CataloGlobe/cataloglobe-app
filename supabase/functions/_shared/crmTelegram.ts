@@ -47,6 +47,33 @@ export interface CrmLeadMessageData {
     adminUrl: string | null;
     /** Il contatto ha un telefono: il pulsante WhatsApp ha senso. */
     hasPhone: boolean;
+    /** Solo `returned`: contesto, consiglio e confronto del nome del locale. */
+    returned?: CrmReturnedContext;
+}
+
+export type CrmVenueNameMatch = "same" | "typo" | "other";
+export type CrmVenueNameCheck = "same" | "later";
+
+/**
+ * Lead tornato con lo stesso telefono (decisione di Alex del 2026-10-02, wiki
+ * ingresso-lead-e-assegnazione): chi è, da quando lo conosciamo, a che punto
+ * è, cosa conviene fare; se ha scritto un altro nome del locale, i tasti
+ * «È lo stesso locale» e «Decido dopo».
+ */
+export interface CrmReturnedContext {
+    leadId: string;
+    /** Primo ingresso del locale (crm_venues.created_at). */
+    knownSince: string;
+    /** Fase attuale (chiave). */
+    stageKey: string;
+    /** Giorni interi nella fase attuale. */
+    daysInStage: number;
+    /** Fase e tipo di Perso al momento del ritorno (evento lead_returned). */
+    previousStage: string | null;
+    previousLostKind: string | null;
+    venueNameGiven: string | null;
+    venueNameMatch: CrmVenueNameMatch | null;
+    venueNameCheck: CrmVenueNameCheck | null;
 }
 
 export interface InlineButton {
@@ -102,7 +129,9 @@ export function shortToUuid(short: string): string | null {
 export type CrmCallback =
     | { action: "assign"; venueId: string; userId: string }
     | { action: "choose"; venueId: string }
-    | { action: "cancel"; venueId: string };
+    | { action: "cancel"; venueId: string }
+    | { action: "venue_same"; leadId: string }
+    | { action: "venue_later"; leadId: string };
 
 export function encodeAssign(venueId: string, userId: string): string {
     return `a:${uuidToShort(venueId)}:${uuidToShort(userId)}`;
@@ -118,6 +147,9 @@ export function parseCallbackData(data: string): CrmCallback | null {
     }
     if (parts[0] === "g" && parts.length === 2) return { action: "choose", venueId };
     if (parts[0] === "x" && parts.length === 2) return { action: "cancel", venueId };
+    // «s»/«l» portano l'id del lead, non del locale.
+    if (parts[0] === "s" && parts.length === 2) return { action: "venue_same", leadId: venueId };
+    if (parts[0] === "l" && parts.length === 2) return { action: "venue_later", leadId: venueId };
     return null;
 }
 
@@ -160,12 +192,92 @@ export function chooseButtons(
 // -----------------------------------------------------------------------------
 // Messaggio
 // -----------------------------------------------------------------------------
+const ROME_DAY_MONTH = new Intl.DateTimeFormat("it-IT", {
+    timeZone: "Europe/Rome",
+    day: "2-digit",
+    month: "2-digit"
+});
+
+function firstWord(name: string | undefined): string | null {
+    const word = (name ?? "").trim().split(/\s+/)[0];
+    return word ? word : null;
+}
+
+function daysText(days: number): string {
+    if (days <= 0) return "da oggi";
+    return days === 1 ? "da 1 giorno" : `da ${days} giorni`;
+}
+
+/** Cosa conviene fare con un lead tornato, dalla fase in cui era. */
+export function returnedAdvice(ctx: CrmReturnedContext): string {
+    if (ctx.previousStage === "perso" && ctx.previousLostKind === "obiezione") {
+        return "Era in Perso perché «non adesso» ed è tornato in Nuovo da solo: ora è interessato, scrivigli subito.";
+    }
+    switch (ctx.stageKey) {
+        case "nuovo":
+            return "Non l'abbiamo ancora contattato: scrivigli adesso, ha appena compilato il modulo.";
+        case "contattato":
+            return `È in Contattato ${daysText(ctx.daysInStage)} senza risposta: è il momento buono per richiamarlo.`;
+        case "in_prova":
+            return "È in prova: forse gli serve una mano, sentilo.";
+        case "cliente_pagante":
+            return "È già cliente: forse gli serve assistenza o vuole aggiungere un locale, sentilo.";
+        case "perso":
+            return "Era in Perso: ha richiesto informazioni, vale la pena riprovare.";
+        default:
+            return "È già in trattativa: tienine conto al prossimo contatto.";
+    }
+}
+
+/** Tasti sul nome del locale: solo se ha scritto un nome diverso. */
+export function venueNameButtons(ctx: CrmReturnedContext | undefined): InlineButton[] {
+    if (!ctx || (ctx.venueNameMatch !== "typo" && ctx.venueNameMatch !== "other")) return [];
+    if (ctx.venueNameCheck === "same") return [];
+    const short = uuidToShort(ctx.leadId);
+    const same = { text: "È lo stesso locale", callback_data: `s:${short}` };
+    if (ctx.venueNameCheck === "later") return [same];
+    return [same, { text: "Decido dopo", callback_data: `l:${short}` }];
+}
+
+function returnedLines(
+    data: CrmLeadMessageData,
+    ctx: CrmReturnedContext,
+    recipientId: string,
+    team: CrmTeamMemberLite[]
+): string[] {
+    const who = firstWord(team.find(m => m.user_id === recipientId)?.display_name);
+    const person = data.contactName ? `<b>${escapeHtml(data.contactName)}</b>` : "Una persona che conosciamo";
+    const phone = data.phoneE164 ? ` (${escapeHtml(data.phoneE164)})` : "";
+    const since = ROME_DAY_MONTH.format(new Date(ctx.knownSince));
+    const lines = [
+        `${who ? `${escapeHtml(who)}, ` : ""}${person}${phone} ha compilato di nuovo il modulo. ` +
+            `Lo conosciamo già come <b>${escapeHtml(data.venueName)}</b> ` +
+            `(entrato il ${since}, ora in <i>${escapeHtml(data.stageLabel)}</i> ${daysText(ctx.daysInStage)}).`
+    ];
+    const differs = ctx.venueNameMatch === "typo" || ctx.venueNameMatch === "other";
+    if (differs && ctx.venueNameGiven) {
+        const guess = ctx.venueNameMatch === "typo" ? "sembra un refuso" : "sembra un altro locale";
+        lines.push(`Stavolta ha scritto <b>${escapeHtml(ctx.venueNameGiven)}</b>: ${guess}.`);
+        if (ctx.venueNameCheck === "same") {
+            lines.push(`✅ Deciso: è lo stesso locale, resta ${escapeHtml(data.venueName)}.`);
+        } else if (ctx.venueNameCheck === "later") {
+            lines.push("🕓 Da verificare: sulla scheda c'è l'etichetta «Locale da verificare». Chiediglielo al prossimo contatto.");
+        }
+    }
+    lines.push(`👉 ${escapeHtml(returnedAdvice(ctx))}`);
+    return lines;
+}
+
 function headline(data: CrmLeadMessageData): string {
     if (data.kind === "escalation") {
         const hours = data.waitingHours ?? 2;
         return `⏰ <b>Lead fermo in Nuovo da ${hours} ${hours === 1 ? "ora" : "ore"}</b>`;
     }
-    if (data.kind === "returned") return "↩️ <b>È tornato un lead già nel CRM</b>";
+    if (data.kind === "returned") {
+        return data.returned
+            ? "↩️ <b>Ha compilato di nuovo il modulo</b>"
+            : "↩️ <b>È tornato un lead già nel CRM</b>";
+    }
     return "🆕 <b>Nuovo lead</b>";
 }
 
@@ -196,11 +308,15 @@ export function buildLeadMessage(
         lines.push("🛑 <b>Aveva chiesto di non essere contattato.</b> Non scrivergli.", "");
     }
 
-    lines.push(
-        `<b>${escapeHtml(data.venueName)}</b>${data.city ? ` · ${escapeHtml(data.city)}` : ""}`
-    );
-    const person = [data.contactName, data.phoneE164].filter(Boolean).map(v => escapeHtml(String(v)));
-    if (person.length) lines.push(person.join(" · "));
+    if (data.kind === "returned" && data.returned) {
+        lines.push(...returnedLines(data, data.returned, recipientId, team), "");
+    } else {
+        lines.push(
+            `<b>${escapeHtml(data.venueName)}</b>${data.city ? ` · ${escapeHtml(data.city)}` : ""}`
+        );
+        const person = [data.contactName, data.phoneE164].filter(Boolean).map(v => escapeHtml(String(v)));
+        if (person.length) lines.push(person.join(" · "));
+    }
 
     const origin = [data.sourceLabel, data.adName, data.campaign]
         .filter(Boolean)
@@ -230,6 +346,8 @@ export function buildLeadMessage(
     }
     if (data.adminUrl) links.push({ text: "Apri nel CRM", url: data.adminUrl });
     if (links.length) keyboard.push(links);
+    const venueName = data.kind === "returned" ? venueNameButtons(data.returned) : [];
+    if (venueName.length) keyboard.push(venueName);
     const assign = assignmentButtons(data.venueId, data.assignedTo, recipientId, team);
     if (assign.length) keyboard.push(assign);
 

@@ -31,7 +31,9 @@ export const CRM_EVENT_LABEL: Record<CrmEventType, string> = {
     stage_locked: "Fase bloccata a mano",
     stage_unlocked: "Fase sbloccata",
     subscription_changed: "Abbonamento",
-    venue_renamed: "Locale completato"
+    venue_renamed: "Locale completato",
+    venue_name_confirmed: "Stesso locale confermato",
+    venue_name_deferred: "Locale da verificare"
 };
 
 /** Messaggio italiano per gli errori delle RPC `crm_*` (RAISE in 20261001120100). */
@@ -45,6 +47,7 @@ export function crmErrorMessage(err: unknown): string {
     if (message.includes("lock_note_required")) return "Scrivi una nota: perché blocchi la fase.";
     if (message.includes("invalid_venue_name")) return "Scrivi il nome del locale (al massimo 160 caratteri).";
     if (message.includes("invalid_city")) return "La città è troppo lunga.";
+    if (message.includes("nothing_to_verify")) return "Non c'è un nome del locale da verificare.";
     if (message.includes("contact_stopped")) return "Ha chiesto di non essere contattato.";
     return "Qualcosa non ha funzionato. Riprova.";
 }

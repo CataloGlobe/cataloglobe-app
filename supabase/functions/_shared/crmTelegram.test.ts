@@ -9,10 +9,13 @@ import {
     isEscalationDue,
     parseCallbackData,
     pickOutboxRecipients,
+    returnedAdvice,
     romeWindowMinutesBetween,
+    venueNameButtons,
     shortToUuid,
     uuidToShort,
-    type CrmLeadMessageData
+    type CrmLeadMessageData,
+    type CrmReturnedContext
 } from "./crmTelegram";
 
 const VENUE = "6f1c2e8a-3b4d-4c5e-9f60-7a8b9c0d1e2f";
@@ -260,5 +263,112 @@ describe("buildImportSummaryMessage", () => {
         expect(m.text).toContain("hanno chiesto lo stop: 1");
         expect(m.text).toContain("Non entrati: 2");
         expect(m.reply_markup.inline_keyboard).toEqual([]);
+    });
+});
+
+const LEAD = "22222222-3333-4444-8555-666666666666";
+
+function ctx(overrides: Partial<CrmReturnedContext> = {}): CrmReturnedContext {
+    return {
+        leadId: LEAD,
+        knownSince: "2026-09-30T10:00:00Z",
+        stageKey: "contattato",
+        daysInStage: 5,
+        previousStage: "contattato",
+        previousLostKind: null,
+        venueNameGiven: null,
+        venueNameMatch: null,
+        venueNameCheck: null,
+        ...overrides
+    };
+}
+
+function returned(c: Partial<CrmReturnedContext> = {}): CrmLeadMessageData {
+    return data({
+        kind: "returned",
+        venueName: "Pizzeria Gino",
+        stageLabel: "Contattato",
+        returned: ctx(c)
+    });
+}
+
+describe("lead tornato", () => {
+    it("contesto: chi, da quando, a che punto, consiglio", () => {
+        const { text } = buildLeadMessage(returned(), ALEX, TWO);
+        expect(text).toContain("Ha compilato di nuovo il modulo");
+        expect(text).toContain("Alex, <b>Mario Rossi</b> (+393331234567) ha compilato di nuovo il modulo.");
+        expect(text).toContain("Lo conosciamo già come <b>Pizzeria Gino</b> (entrato il 30/09, ora in <i>Contattato</i> da 5 giorni).");
+        expect(text).toContain("È in Contattato da 5 giorni senza risposta: è il momento buono per richiamarlo.");
+        expect(text).not.toContain("Stavolta ha scritto");
+    });
+
+    it("stesso nome: niente tasti sul locale", () => {
+        const msg = buildLeadMessage(returned({ venueNameGiven: "pizzeria gino", venueNameMatch: "same" }), ALEX, TWO);
+        expect(msg.text).not.toContain("Stavolta ha scritto");
+        const texts = msg.reply_markup.inline_keyboard.flat().map(b => b.text);
+        expect(texts).not.toContain("È lo stesso locale");
+    });
+
+    it("nome simile: refuso, con i due tasti", () => {
+        const msg = buildLeadMessage(returned({ venueNameGiven: "Pizzeria Ginno", venueNameMatch: "typo" }), ALEX, TWO);
+        expect(msg.text).toContain("Stavolta ha scritto <b>Pizzeria Ginno</b>: sembra un refuso.");
+        const row = msg.reply_markup.inline_keyboard.find(r => r.some(b => b.text === "È lo stesso locale"));
+        expect(row?.map(b => b.text)).toEqual(["È lo stesso locale", "Decido dopo"]);
+        expect(row?.[0].callback_data).toBe(`s:${uuidToShort(LEAD)}`);
+        expect(row?.[1].callback_data).toBe(`l:${uuidToShort(LEAD)}`);
+    });
+
+    it("nome molto diverso: altro locale", () => {
+        const { text } = buildLeadMessage(returned({ venueNameGiven: "Bar Centrale", venueNameMatch: "other" }), ALEX, TWO);
+        expect(text).toContain("sembra un altro locale");
+    });
+
+    it("dopo «Decido dopo»: etichetta detta, resta solo «È lo stesso locale»", () => {
+        const msg = buildLeadMessage(
+            returned({ venueNameGiven: "Bar Centrale", venueNameMatch: "other", venueNameCheck: "later" }),
+            ALEX,
+            TWO
+        );
+        expect(msg.text).toContain("Locale da verificare");
+        expect(venueNameButtons(ctx({ venueNameMatch: "other", venueNameCheck: "later" })).map(b => b.text)).toEqual([
+            "È lo stesso locale"
+        ]);
+    });
+
+    it("dopo «È lo stesso locale»: conferma, niente tasti", () => {
+        const msg = buildLeadMessage(
+            returned({ venueNameGiven: "Pizzeria Ginno", venueNameMatch: "typo", venueNameCheck: "same" }),
+            ALEX,
+            TWO
+        );
+        expect(msg.text).toContain("Deciso: è lo stesso locale, resta Pizzeria Gino.");
+        expect(venueNameButtons(ctx({ venueNameMatch: "typo", venueNameCheck: "same" }))).toEqual([]);
+    });
+
+    it("il nome del locale è escapato", () => {
+        const { text } = buildLeadMessage(returned({ venueNameGiven: "<b>x</b>", venueNameMatch: "other" }), ALEX, TWO);
+        expect(text).toContain("&lt;b&gt;x&lt;/b&gt;");
+    });
+
+    it("callback del lead", () => {
+        expect(parseCallbackData(`s:${uuidToShort(LEAD)}`)).toEqual({ action: "venue_same", leadId: LEAD });
+        expect(parseCallbackData(`l:${uuidToShort(LEAD)}`)).toEqual({ action: "venue_later", leadId: LEAD });
+        expect(parseCallbackData("s:corto")).toBeNull();
+    });
+
+    it("consiglio per fase", () => {
+        expect(returnedAdvice(ctx({ stageKey: "nuovo" }))).toContain("Non l'abbiamo ancora contattato");
+        expect(returnedAdvice(ctx({ daysInStage: 0 }))).toContain("in Contattato da oggi");
+        expect(returnedAdvice(ctx({ daysInStage: 1 }))).toContain("da 1 giorno");
+        expect(returnedAdvice(ctx({ stageKey: "nuovo", previousStage: "perso", previousLostKind: "obiezione" }))).toContain(
+            "tornato in Nuovo da solo"
+        );
+        expect(returnedAdvice(ctx({ stageKey: "cliente_pagante" }))).toContain("È già cliente");
+        expect(returnedAdvice(ctx({ stageKey: "appuntamento" }))).toContain("già in trattativa");
+    });
+
+    it("senza contesto resta il vecchio messaggio", () => {
+        const { text } = buildLeadMessage(data({ kind: "returned" }), ALEX, TWO);
+        expect(text).toContain("È tornato un lead già nel CRM");
     });
 });

@@ -47,6 +47,8 @@ import { AccountCard } from "./AccountCard";
 import { LostStageDialog } from "./LostStageDialog";
 import { StageLockDialog, type StageLockRequest } from "./StageLockDialog";
 import { VenueNameCard } from "./VenueNameCard";
+import { VenueNameCheckCard } from "./VenueNameCheckCard";
+import { leadToVerify } from "@/utils/crm/venueNameCheck";
 import styles from "./Crm.module.scss";
 
 /**
@@ -91,8 +93,16 @@ function describeEvent(event: CrmEvent, teamName: (id: string | null) => string)
         case "lead_in":
         case "lead_returned": {
             const source = CRM_SOURCE_LABEL[p.source as keyof typeof CRM_SOURCE_LABEL];
-            return source ? `Da ${source}` : "";
+            const given =
+                event.type === "lead_returned" && p.venue_name_given && p.venue_name_match !== "same"
+                    ? `, ha scritto «${String(p.venue_name_given)}»`
+                    : "";
+            return source ? `Da ${source}${given}` : "";
         }
+        case "venue_name_confirmed":
+            return `Resta «${String(p.kept ?? "")}», «${String(p.given ?? "")}» era lo stesso`;
+        case "venue_name_deferred":
+            return `Ha scritto «${String(p.given ?? "")}», da chiarire`;
         default:
             return "";
     }
@@ -339,6 +349,7 @@ export default function LeadDetailPage() {
     const { contacts, leads, events } = detail;
     const stopped = detail.venue.stage === "perso" && detail.venue.lost_kind === "stop";
     const accountLabel = crmAccountLabel(detail.venue);
+    const verifyLead = detail.venue.name_pending ? null : leadToVerify(leads);
 
     return (
         <div className={styles.page}>
@@ -376,6 +387,8 @@ export default function LeadDetailPage() {
             )}
 
             {detail.venue.name_pending && <VenueNameCard venue={detail.venue} onSaved={load} />}
+
+            {verifyLead && <VenueNameCheckCard venue={detail.venue} lead={verifyLead} onChanged={load} />}
 
             <AccountCard
                 venueId={detail.venue.id}
