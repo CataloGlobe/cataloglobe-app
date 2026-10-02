@@ -386,8 +386,10 @@ export default function RuleDetailPage() {
                 <div className={styles.formColumnRight}>
                     <SchedulingSection
                         alwaysActive={form.alwaysActive}
+                        periodEnabled={form.periodEnabled}
                         startAt={form.startAt}
                         endAt={form.endAt}
+                        timeEnabled={form.timeEnabled}
                         daysEnabled={form.daysEnabled}
                         daysOfWeek={form.daysOfWeek}
                         timeFrom={form.timeFrom}

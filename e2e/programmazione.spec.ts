@@ -1000,6 +1000,34 @@ test.describe("Programmazione — dettaglio", () => {
         expect(writesOf(stub, "schedules.PATCH")).toHaveLength(0);
     });
 
+    test("«Annulla» riallinea anche «In un periodo» e «In certe ore»", async ({ page }) => {
+        const discard = async () => {
+            await page.getByRole("button", { name: "Annulla", exact: true }).first().click();
+            await dialog(page).getByRole("button", { name: "Scarta" }).click();
+        };
+        // Natale ha un periodo: spento e annullato, torna acceso con le sue date.
+        await openRule(page, "natale");
+        const period = main(page).getByRole("switch", { name: "In un periodo" });
+        await expect(period).toBeChecked();
+        await press(period);
+        await expect(period).not.toBeChecked();
+        await discard();
+        await expect(period).toBeChecked();
+        await expect(main(page).getByLabel(/Data (di )?inizio/)).toHaveValue("2026-12-01");
+
+        // Aperitivo ha le ore e nessun periodo: le ore spente tornano, il
+        // periodo acceso torna spento.
+        await openRule(page, "aperitivo");
+        const hours = main(page).getByRole("switch", { name: "In certe ore" });
+        await press(hours);
+        await press(main(page).getByRole("switch", { name: "In un periodo" }));
+        await discard();
+        await expect(hours).toBeChecked();
+        await expect(main(page).getByLabel(/Ora di inizio/)).toHaveValue("18:00");
+        await expect(main(page).getByRole("switch", { name: "In un periodo" })).not.toBeChecked();
+        expect(writesOf(stub, "schedules.PATCH")).toHaveLength(0);
+    });
+
     test("«In certi giorni» acceso senza giorni non si salva: lo dice su «Quando»", async ({ page }) => {
         await openRule(page, "pranzo");
         const days = main(page).getByRole("group", { name: "Giorni della settimana" });

@@ -50,8 +50,15 @@ export type RuleDetailForm = {
     enabled: boolean;
     alwaysActive: boolean;
     timeMode: LayoutTimeMode;
+    /**
+     * Gli interruttori «In un periodo» e «In certe ore» stanno nella bozza,
+     * così «Annulla» li riallinea. Acceso coi campi vuoti vale come spento:
+     * si salvano le date e le ore, non l'interruttore.
+     */
+    periodEnabled: boolean;
     startAt: string;
     endAt: string;
+    timeEnabled: boolean;
     /** L'interruttore «In certi giorni»: acceso senza giorni non si salva. */
     daysEnabled: boolean;
     daysOfWeek: string[];
@@ -173,10 +180,12 @@ export function buildRuleDetailForm(
         enabled: rule.enabled,
         alwaysActive: rule.time_mode === "always",
         timeMode: rule.time_mode,
+        periodEnabled: Boolean(rule.start_at || rule.end_at),
         startAt: rule.start_at ? romeDateString(new Date(rule.start_at)) : "",
         endAt: rule.end_at ? romeDateString(new Date(rule.end_at)) : "",
         daysEnabled: (rule.days_of_week?.length ?? 0) > 0,
         daysOfWeek: (rule.days_of_week ?? []).map(day => String(day)),
+        timeEnabled: Boolean(rule.time_from || rule.time_to),
         timeFrom: rule.time_from?.slice(0, 5) ?? "",
         timeTo: rule.time_to?.slice(0, 5) ?? ""
     };
