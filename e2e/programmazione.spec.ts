@@ -133,16 +133,21 @@ async function press(toggle: Locator): Promise<void> {
 
 /**
  * Passa alla Settimana. La testata alterna la forma comoda (segmented) e la
- * compatta (icona) mentre si assesta: si clicca quella a vista.
+ * compatta (icona) mentre si assesta: si clicca quella a vista. Il clic si
+ * ritenta da capo, risolvendo di nuovo il bottone: subito dopo un
+ * `setViewportSize` il locator poteva agganciare il radio della riga comoda,
+ * che un attimo dopo la barra compatta nasconde, e aspettarlo fino al timeout.
  */
 async function openWeek(page: Page): Promise<void> {
     const name = /Vista calendario|Settimana/;
-    await page
-        .getByRole("radio", { name })
-        .or(page.getByRole("button", { name }))
-        .filter({ visible: true })
-        .first()
-        .click();
+    await expect(async () => {
+        await page
+            .getByRole("radio", { name })
+            .or(page.getByRole("button", { name }))
+            .filter({ visible: true })
+            .first()
+            .click({ timeout: 2_000 });
+    }).toPass({ timeout: 15_000 });
 }
 
 function writesOf(stub: ProgrammazioneStub, key: string): WriteCall[] {
@@ -611,6 +616,54 @@ test.describe("Programmazione — settimana, simulatore, guida", () => {
         await expect(guide.getByRole("heading", { name: /Come funzionano/ })).toBeVisible();
         await guide.getByRole("button", { name: /Simula/ }).click();
         await expect(dialog(page).getByRole("heading", { name: /Simula/ })).toBeVisible();
+    });
+});
+
+// Il browser a Los Angeles, Roma all'01:00 di mercoledì 23/09 (a LA è martedì
+// 22 alle 16): Settimana, simulatore e date del dettaglio contano all'ora di
+// Roma, come il resolver (lotto bug C, Pr3 e Pr12). Il resto dello spec forza
+// Europe/Rome e non vedrebbe la differenza.
+test.describe("Programmazione — fuori dal fuso di Roma", () => {
+    test.use({ timezoneId: "America/Los_Angeles" });
+    let stub: ProgrammazioneStub;
+    test.beforeEach(async ({ page }) => {
+        stub = await stubProgrammazione(page);
+        await page.clock.setFixedTime(new Date("2026-09-23T01:00:00+02:00"));
+    });
+
+    test("la Settimana si apre su mercoledì 23, il giorno di Roma", async ({ page }) => {
+        await openList(page, "layout");
+        await page.setViewportSize({ width: 375, height: 812 });
+        await openWeek(page);
+        await expect(main(page).getByText("Mercoledì 23 settembre")).toBeVisible();
+        await expect(main(page).getByRole("radiogroup", { name: "Giorno" }).getByRole("radio", { name: /Mer 23/ })).toBeChecked();
+    });
+
+    test("il simulatore parte dall'ora di Roma e l'andamento dalla sua mezzanotte", async ({ page }) => {
+        await openList(page);
+        const drawer = await openSimulator(page);
+        await expect(drawer.locator('input[type="datetime-local"]')).toHaveValue("2026-09-23T01:00");
+        await drawer.getByRole("combobox", { name: /Sede/ }).selectOption({ label: "Centro e2e" });
+        await drawer.getByRole("button", { name: "Mostra Andamento della giornata" }).click();
+        // Mercoledì a Centro il pranzo vale dalle 11 alle 15 di Roma.
+        await expect(drawer.getByText(/^11:00–15:00$/)).toBeVisible({ timeout: 15_000 });
+    });
+
+    test("una data d'inizio al 22 è già passata: a Roma è il 23", async ({ page }) => {
+        await openRule(page, "aperitivo");
+        const periodSwitch = main(page)
+            .getByText(/^In un periodo$/)
+            .locator("xpath=ancestor::*[.//*[@role='switch']][1]")
+            .getByRole("switch")
+            .first();
+        await press(periodSwitch);
+        const start = main(page).getByLabel(/Data (di )?inizio/);
+        await start.fill("2026-09-22");
+        await main(page).getByLabel(/Data (di )?fine/).fill("2026-10-01");
+        await page.getByRole("button", { name: "Salva", exact: true }).first().click();
+        await expect(start).toHaveAttribute("aria-invalid", "true");
+        await expect(main(page).getByText("La data di inizio è già passata.")).toBeVisible();
+        expect(stub.writes).toHaveLength(0);
     });
 });
 
