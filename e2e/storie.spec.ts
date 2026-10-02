@@ -479,7 +479,7 @@ test.describe("Storie — lotto bug A", () => {
         expect(reads).toHaveLength(1);
     });
 
-    test.fail("St3: un blocco immagine senza file non si salva", async ({ page }) => {
+    test("St3: un blocco immagine senza file non si salva", async ({ page }) => {
         stub.onWrite("stories.PATCH", () => stub.tables.stories.find(s => s.id === STORY.forno) ?? null);
         await openStory(page, STORY.forno);
         await expect(titleField(page)).toHaveValue("Il nostro forno e2e", { timeout: 15_000 });

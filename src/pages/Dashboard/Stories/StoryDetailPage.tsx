@@ -51,6 +51,27 @@ const STATUS_OPTIONS: { value: StoryStatus; label: string }[] = [
     { value: "published", label: "Pubblicata" }
 ];
 
+/**
+ * Il primo blocco che non si può salvare, detto per numero. Un blocco immagine
+ * senza file si pubblicherebbe come un'immagine rotta; uno con un file
+ * pendente ma senza `mediaAspectRatio` salverebbe un framing orfano (guard
+ * trappola-featured: ImageBlock lo scrive sempre alla selezione, se manca la
+ * lettura del ratio è fallita).
+ */
+function blockProblem(blocks: StoryBlock[], pendingImages: Record<string, File>): string | null {
+    for (const [index, block] of blocks.entries()) {
+        if (block.type !== "image") continue;
+        const pending = block.id in pendingImages;
+        if (!pending && !block.url) {
+            return `Il blocco ${index + 1} è un'immagine senza file: caricala o togli il blocco.`;
+        }
+        if (pending && block.mediaAspectRatio == null) {
+            return "Un'immagine non ha proporzioni valide. Ricaricala e riprova.";
+        }
+    }
+    return null;
+}
+
 export default function StoryDetailPage() {
     const { storyId } = useParams<{ storyId: string }>();
     const navigate = useNavigate();
@@ -224,24 +245,10 @@ export default function StoryDetailPage() {
         if (!story || !tenantId || isSaving) return false;
 
         const trimmedTitle = title.trim();
-        if (!trimmedTitle) {
-            showToast({ message: "Il titolo della storia è obbligatorio.", type: "error" });
+        const problem = trimmedTitle ? blockProblem(blocks, pendingBlockImages) : "Il titolo della storia è obbligatorio.";
+        if (problem) {
+            showToast({ message: problem, type: "error" });
             return false;
-        }
-
-        // Guard trappola-featured: mai persistere un blocco immagine con un file
-        // pendente ma senza mediaAspectRatio. ImageBlock lo scrive sempre alla
-        // selezione; se manca, la lettura del ratio è fallita → abortisci invece
-        // di salvare un framing orfano che il render ignorerebbe (path cover).
-        for (const blockId of Object.keys(pendingBlockImages)) {
-            const b = blocks.find(x => x.id === blockId);
-            if (b?.type === "image" && b.mediaAspectRatio == null) {
-                showToast({
-                    message: "Un'immagine non ha proporzioni valide. Ricaricala e riprova.",
-                    type: "error"
-                });
-                return false;
-            }
         }
 
         setIsSaving(true);
