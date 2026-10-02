@@ -28,7 +28,8 @@ import { useEnsureActive } from "@/hooks/useEnsureActive";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import styles from "./ActivityVisibilityContent.module.scss";
 
-type FilterValue = "all" | "visible" | "hidden" | "unavailable";
+/** `manual` = le righe con una modifica a mano: il contenuto dello strato 4 (§19.4). */
+type FilterValue = "all" | "visible" | "hidden" | "unavailable" | "manual";
 
 /** Le due viste della pagina: tabella prodotti o tabella ingredienti. */
 type VisibilityView = "products" | "ingredients";
@@ -90,10 +91,15 @@ type VisibilityRow = {
     control: ProductVisibilityState;
     /** Lo stato su cui contano filtri e conteggi: per il cliente, se lo sappiamo. */
     state: CustomerState;
+    /** Ha una modifica a mano, qualunque. */
+    manual: boolean;
     note: string | null;
 };
 
-function rowsFromRenderable(products: RenderableProduct[]): VisibilityRow[] {
+function rowsFromRenderable(
+    products: RenderableProduct[],
+    overrides: Record<string, ActivityProductOverride>
+): VisibilityRow[] {
     return products.map(p => ({
         productId: p.product_id,
         name: p.name,
@@ -103,6 +109,7 @@ function rowsFromRenderable(products: RenderableProduct[]): VisibilityRow[] {
         priceNote: null,
         control: p.visibility_state,
         state: p.visibility_state,
+        manual: overrides[p.product_id]?.visible_override != null,
         note: null
     }));
 }
@@ -117,6 +124,7 @@ function rowsFromExplanation(data: CatalogExplanationData): VisibilityRow[] {
         priceNote: p.priceNote,
         control: p.manual === "hidden" || p.manual === "unavailable" ? p.manual : "visible",
         state: p.state,
+        manual: p.manual !== null,
         note: p.note
     }));
 }
@@ -269,8 +277,8 @@ export const ActivityVisibilityContent: React.FC<ActivityVisibilityContentProps>
 
     const explanationData = explanation?.data ?? null;
     const rows = useMemo<VisibilityRow[]>(
-        () => (explained ? (explanationData ? rowsFromExplanation(explanationData) : []) : rowsFromRenderable(catalog?.products ?? [])),
-        [explained, explanationData, catalog]
+        () => (explained ? (explanationData ? rowsFromExplanation(explanationData) : []) : rowsFromRenderable(catalog?.products ?? [], overrides)),
+        [explained, explanationData, catalog, overrides]
     );
     // La vista Ingredienti e le sue conferme leggono le modifiche a mano.
     const ingredientSource = useMemo(
@@ -288,7 +296,8 @@ export const ActivityVisibilityContent: React.FC<ActivityVisibilityContentProps>
             all: rows.length,
             visible: rows.filter(p => p.state === "visible").length,
             hidden: rows.filter(p => p.state === "hidden").length,
-            unavailable: rows.filter(p => p.state === "unavailable").length
+            unavailable: rows.filter(p => p.state === "unavailable").length,
+            manual: rows.filter(p => p.manual).length
         }),
         [rows]
     );
@@ -297,7 +306,7 @@ export const ActivityVisibilityContent: React.FC<ActivityVisibilityContentProps>
         const term = search.trim().toLowerCase();
         return rows.filter(p => {
             // Filtri mutuamente esclusivi sullo stato (unavailable NON è "visibile").
-            if (filter !== "all" && p.state !== filter) return false;
+            if (filter === "manual" ? !p.manual : filter !== "all" && p.state !== filter) return false;
             if (!term) return true;
             const inName = p.name.toLowerCase().includes(term);
             const inCategory = p.categoryName?.toLowerCase().includes(term) ?? false;
@@ -311,7 +320,9 @@ export const ActivityVisibilityContent: React.FC<ActivityVisibilityContentProps>
             { value: "all", label: "Tutti", count: counts.all },
             { value: "visible", label: "Visibili", count: counts.visible, disabled: counts.visible === 0 },
             { value: "hidden", label: "Nascosti", count: counts.hidden, disabled: counts.hidden === 0 },
-            { value: "unavailable", label: "Non disponibili", count: counts.unavailable, disabled: counts.unavailable === 0 }
+            { value: "unavailable", label: "Non disponibili", count: counts.unavailable, disabled: counts.unavailable === 0 },
+            // Il conteggio delle modifiche a mano sta qui, non in un badge sulla voce (§50.20, D5).
+            { value: "manual", label: "Modificati a mano", count: counts.manual, disabled: counts.manual === 0 }
         ],
         [counts]
     );

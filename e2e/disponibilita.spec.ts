@@ -226,7 +226,7 @@ test.describe("Cosa vedono i clienti — esito e provenienza", () => {
         await expect(rowText(page, "Coca e2e")).toContainText("Nascosto dalla regola «Sera e2e»");
     });
 
-    test.fail("filtro «Modificati a mano» col conteggio", async ({ page }) => {
+    test("filtro «Modificati a mano» col conteggio", async ({ page }) => {
         await openDisponibilita(page);
         await expect(main(page).getByText("Big e2e", { exact: true })).toBeVisible({ timeout: 15_000 });
         const chip = main(page).getByRole("radio", { name: /^Modificati a mano/ });
