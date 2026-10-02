@@ -1,8 +1,10 @@
+import { useId } from "react";
 import { Link } from "react-router-dom";
 import { Card } from "@/components/ui/Card/Card";
 import Text from "@/components/ui/Text/Text";
 import type { RomeDateTime } from "@/services/supabase/schedulingNow";
-import type { Outcome, RuleRef } from "@/utils/catalogExplanation";
+import { CircleAlert } from "lucide-react";
+import { MISSING_STEP_LABEL, type MissingStep, type Outcome, type RuleRef } from "@/utils/catalogExplanation";
 import styles from "./CatalogOutcomeBand.module.scss";
 
 type CatalogOutcomeBandProps = {
@@ -12,6 +14,8 @@ type CatalogOutcomeBandProps = {
     counts: string | null;
     /** Riga 1 della catena (§19.3): il menù che vince e la sua regola. */
     menu: { catalogName: string; rule: RuleRef | null; ruleHref: string | null } | null;
+    /** Dove si sistema ogni passo di «Cosa manca»; senza, il passo non ha link. */
+    fixes: Partial<Record<MissingStep, { label: string; href: string }>>;
 };
 
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -20,8 +24,9 @@ const pad = (n: number) => String(n).padStart(2, "0");
  * La banda dell'esito di «Cosa vedono i clienti» (§19.2): cosa trova adesso
  * chi inquadra il QR della sede. Statica, senza cursore (§50.20, D3).
  */
-export function CatalogOutcomeBand({ at, outcome, counts, menu }: CatalogOutcomeBandProps) {
+export function CatalogOutcomeBand({ at, outcome, counts, menu, fixes }: CatalogOutcomeBandProps) {
     const warning = outcome.kind !== "showing";
+    const missingId = useId();
     return (
         <div role="region" aria-label="Cosa vedono i clienti">
             <Card className={`${styles.band}${warning ? ` ${styles.warning}` : ""}`}>
@@ -54,6 +59,28 @@ export function CatalogOutcomeBand({ at, outcome, counts, menu }: CatalogOutcome
                                 </Link>
                             )}
                         </p>
+                    )}
+                    {outcome.missing.length > 0 && (
+                        <div className={styles.missing}>
+                            <Text as="p" variant="body-sm" weight={600} id={missingId}>
+                                Cosa manca
+                            </Text>
+                            <ul aria-labelledby={missingId} className={styles.missingList}>
+                                {outcome.missing.map(step => (
+                                    <li key={step} className={styles.missingItem}>
+                                        <CircleAlert size={16} aria-hidden className={styles.missingIcon} />
+                                        <Text as="span" variant="body-sm">
+                                            {MISSING_STEP_LABEL[step]}
+                                        </Text>
+                                        {fixes[step] && (
+                                            <Link to={fixes[step].href} className={styles.link}>
+                                                {fixes[step].label}
+                                            </Link>
+                                        )}
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
                     )}
                 </div>
             </Card>

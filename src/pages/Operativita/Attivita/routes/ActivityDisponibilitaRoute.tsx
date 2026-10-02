@@ -74,6 +74,11 @@ export default function ActivityDisponibilitaRoute() {
                               }
                             : null
                     }
+                    fixes={{
+                        seat: { label: "Vai a Pubblicazione", href: `/business/${tenantId}/locations/${activity.id}/pubblicazione` },
+                        subscription: { label: "Vai ad Abbonamento", href: `/business/${tenantId}/subscription` },
+                        rule: { label: "Vai a Programmazione", href: `/business/${tenantId}/scheduling` }
+                    }}
                 />
             )}
             {canExplain && explanation.error && (

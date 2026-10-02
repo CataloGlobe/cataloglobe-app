@@ -239,7 +239,7 @@ test.describe("Cosa vedono i clienti — esito e provenienza", () => {
 });
 
 test.describe("Cosa vedono i clienti — stati della sede", () => {
-    test.fail("sede sospesa: i clienti non vedono il menù, e cosa manca", async ({ page }) => {
+    test("sede sospesa: i clienti non vedono il menù, e cosa manca", async ({ page }) => {
         await openDisponibilita(page, {
             before: async (_stub, activityId) => {
                 await page.route(/\/rest\/v1\/activities\?/, async route => {
@@ -255,7 +255,7 @@ test.describe("Cosa vedono i clienti — stati della sede", () => {
         await expect(band(page).getByRole("list", { name: "Cosa manca" })).toContainText("Sede pubblicata");
     });
 
-    test.fail("abbonamento non attivo: lo dice", async ({ page }) => {
+    test("abbonamento non attivo: lo dice", async ({ page }) => {
         await openDisponibilita(page, {
             before: async () => {
                 await page.route(/\/rest\/v1\/user_tenants_view/, async route => {
@@ -270,7 +270,7 @@ test.describe("Cosa vedono i clienti — stati della sede", () => {
         await expect(band(page).getByRole("list", { name: "Cosa manca" })).toContainText("Abbonamento attivo");
     });
 
-    test.fail("nessuna regola menù: lo dice, e porta a Programmazione", async ({ page }) => {
+    test("nessuna regola menù: lo dice, e porta a Programmazione", async ({ page }) => {
         await openDisponibilita(page, { noRule: true });
         await expect(band(page)).toContainText("nessuna regola gliene assegna uno", { timeout: 15_000 });
         const missing = band(page).getByRole("list", { name: "Cosa manca" });
@@ -278,7 +278,7 @@ test.describe("Cosa vedono i clienti — stati della sede", () => {
         await expect(missing.getByRole("link", { name: "Vai a Programmazione" })).toBeVisible();
     });
 
-    test.fail("menù vuoto: tutti i prodotti nascosti", async ({ page }) => {
+    test("menù vuoto: tutti i prodotti nascosti", async ({ page }) => {
         await openDisponibilita(page, { allHidden: true });
         await expect(band(page)).toContainText("Menù e2e è vuoto", { timeout: 15_000 });
         await expect(band(page).getByRole("list", { name: "Cosa manca" })).toContainText("Almeno un prodotto visibile");
