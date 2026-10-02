@@ -26,7 +26,8 @@ export type V2ProductAttributeValue = {
     value_text: string | null;
     value_number: number | null;
     value_boolean: boolean | null;
-    value_json: any | null;
+    /** jsonb: per `multi_select` un elenco di stringhe; altro non è garantito. */
+    value_json: unknown;
     created_at: string;
 };
 

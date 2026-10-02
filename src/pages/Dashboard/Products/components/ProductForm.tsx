@@ -424,7 +424,7 @@ export function ProductForm({
                     } else if (def.type === "boolean") {
                         initialValues[def.id] = val.value_boolean || false;
                     } else if (def.type === "multi_select") {
-                        initialValues[def.id] = val.value_json || [];
+                        initialValues[def.id] = Array.isArray(val.value_json) ? val.value_json : [];
                     }
                 });
 
