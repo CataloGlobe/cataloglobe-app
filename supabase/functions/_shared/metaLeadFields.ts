@@ -104,6 +104,23 @@ export interface MetaLeadFields {
     receivedAt: string | null;
 }
 
+// Limiti delle colonne di crm_leads / crm_contacts (CHECK in 20261001120000):
+// un valore oltre il limite fa fallire crm_ingest_lead e, dal webhook, il lead
+// non entrerebbe mai (Meta ritenta, sempre con lo stesso errore).
+const MAX_AD_TEXT = 300;
+const MAX_REF = 200;
+const MAX_EMAIL = 254;
+
+/** Testo libero (nome dell'annuncio, campagna): accorciato al limite. */
+function clip(value: string, max: number): string | null {
+    return value ? value.slice(0, max) : null;
+}
+
+/** Identificativi ed email: troncarli li renderebbe sbagliati, oltre il limite si scartano. */
+function withinLimit(value: string, max: number): string | null {
+    return value && value.length <= max ? value : null;
+}
+
 /**
  * I campi di un lead Meta. `record` ha le chiavi già normalizzate
  * (`normalizeMetaHeader`), `headers` le stesse chiavi nell'ordine del modulo.
@@ -133,12 +150,12 @@ export function mapMetaLeadRecord(record: Map<string, string>, headers: string[]
         rawPhone: stripMetaPrefix(pick(record, META_PHONE_COLUMNS)),
         name: fullName || "Senza nome",
         venueName: venueColumn ? (record.get(venueColumn) ?? "").trim() : "",
-        email: pick(record, META_EMAIL_COLUMNS) || null,
+        email: withinLimit(pick(record, META_EMAIL_COLUMNS), MAX_EMAIL),
         city: pick(record, META_CITY_COLUMNS) || null,
         formAnswers,
-        adId: stripMetaPrefix(record.get("ad_id") ?? "") || null,
-        adName: (record.get("ad_name") ?? "").trim() || null,
-        campaign: (record.get("campaign_name") ?? "").trim() || null,
+        adId: withinLimit(stripMetaPrefix(record.get("ad_id") ?? ""), MAX_REF),
+        adName: clip((record.get("ad_name") ?? "").trim(), MAX_AD_TEXT),
+        campaign: clip((record.get("campaign_name") ?? "").trim(), MAX_AD_TEXT),
         consentAt: createdAt,
         consentText: formName ? `Modulo Meta «${formName}»` : "Modulo Meta",
         receivedAt: createdAt

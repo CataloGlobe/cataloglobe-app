@@ -128,6 +128,25 @@ describe("graphLeadToRecord + mapMetaLeadRecord", () => {
         expect(record.get("id")).toBe("1");
     });
 
+    it("valori oltre i limiti del DB: testi accorciati, id ed email scartati", () => {
+        const { record, headers } = graphLeadToRecord(
+            {
+                id: "7",
+                ad_id: "9".repeat(201),
+                ad_name: "a".repeat(400),
+                campaign_name: "c".repeat(301),
+                field_data: [{ name: "email", values: [`${"m".repeat(250)}@x.it`] }]
+            },
+            null
+        );
+        const fields = mapMetaLeadRecord(record, headers);
+        expect(fields.adName).toBe("a".repeat(300));
+        expect(fields.campaign).toBe("c".repeat(300));
+        expect(fields.adId).toBeNull();
+        expect(fields.email).toBeNull();
+        expect(fields.leadId).toBe("7");
+    });
+
     it("lead malformato: record vuoto, nessuna eccezione", () => {
         const { record, headers } = graphLeadToRecord("x", null);
         expect(record.size).toBe(0);
