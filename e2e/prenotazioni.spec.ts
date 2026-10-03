@@ -31,7 +31,8 @@ async function openPrenotazioni(page: Page): Promise<void> {
     const card = main(page).getByRole("listitem").filter({ hasText: SEDE }).first();
     await expect(card).toBeVisible({ timeout: 15_000 });
     await card.getByRole("link").first().click();
-    await page.waitForURL(/\/locations\/[0-9a-f-]+\/anagrafica$/);
+    // L'indice della sede porta alla prima voce: si aspetta il redirect.
+    await page.waitForURL(/\/locations\/[0-9a-f-]+\/[a-z-]+$/);
     await page
         .getByRole("navigation", { name: "Menu principale" })
         .getByRole("link", { name: "Prenotazioni", exact: true })

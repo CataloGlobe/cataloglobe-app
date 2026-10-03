@@ -39,9 +39,9 @@ async function openComande(page: Page): Promise<void> {
     const card = page.getByRole("main").getByRole("listitem").filter({ hasText: SEDE }).first();
     await expect(card).toBeVisible({ timeout: 15_000 });
     await card.getByRole("link").first().click();
-    // L'indice della sede reindirizza all'Anagrafica: cliccare prima che il
+    // L'indice della sede reindirizza alla prima voce: cliccare prima che il
     // redirect sia avvenuto farebbe vincere il redirect sul click.
-    await page.waitForURL(/\/locations\/[0-9a-f-]+\/anagrafica$/);
+    await page.waitForURL(/\/locations\/[0-9a-f-]+\/[a-z-]+$/);
     await nav(page).getByRole("link", { name: "Comande", exact: true }).click();
     await expect(page).toHaveURL(/\/locations\/[0-9a-f-]+\/comande$/, { timeout: 15_000 });
     // La board è pronta quando la card della fixture c'è (il nome del tavolo
