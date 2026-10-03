@@ -1,6 +1,5 @@
-import { useEffect, useRef, useState, type SyntheticEvent } from "react";
+import { lazy, Suspense, useEffect, useRef, useState, type SyntheticEvent } from "react";
 import { QRCodeSVG } from "qrcode.react";
-import PublicSheet from "@components/PublicCollectionView/PublicSheet/PublicSheet";
 import Section from "@pages/CampaignLanding/components/Section/Section";
 import { HandNote, UnderlinedText } from "@pages/CampaignLanding/components/kit/Kit";
 import Reveal from "@pages/CampaignLanding/components/kit/Reveal";
@@ -96,6 +95,10 @@ function PhonePreview({ selected, preload }: { selected: number; preload: boolea
     );
 }
 
+// Lo sheet porta con sé framer-motion: si scarica quando la griglia delle demo
+// entra in vista (o al primo clic), non con la pagina.
+const PublicSheet = lazy(() => import("@components/PublicCollectionView/PublicSheet/PublicSheet"));
+
 /** Il percorso mostrato nell'iframe è ancora la pagina del locale (anche con la lingua, `/slug/en`). */
 const isVenuePath = (pathname: string, path: string) => pathname === path || pathname.startsWith(`${path}/`);
 
@@ -158,33 +161,37 @@ function DemoFrame({ path, title }: { path: string; title: string }) {
  * Niente link «apri in una nuova scheda»: nelle webview in-app porta fuori
  * dalla landing senza ritorno.
  */
-function DemoSheet({ venue, open, onClose }: { venue: DemoVenue; open: boolean; onClose: () => void }) {
+function DemoSheet({ venue, open, ready, onClose }: { venue: DemoVenue; open: boolean; ready: boolean; onClose: () => void }) {
     const path = `/${venue.slug}`;
     return (
         <div className={styles.sheetScope}>
-            <PublicSheet
-                isOpen={open}
-                onClose={onClose}
-                ariaLabel={venue.name}
-                contentKey={venue.key}
-                headerContent={
-                    <div className={styles.sheetHead}>
-                        <span className={styles.sheetTitle}>
-                            <span className={styles.sheetName}>{venue.name}</span>
-                            <span className={styles.sheetUrl}>
-                                {DEMOS.publicHost}/{venue.slug}
-                            </span>
-                        </span>
-                        <button type="button" className={styles.sheetClose} aria-label={DEMOS.sheetClose} onClick={onClose}>
-                            ✕
-                        </button>
-                    </div>
-                }
-            >
-                <div className={styles.sheetBody}>
-                    {open && <DemoFrame key={path} path={path} title={venue.name} />}
-                </div>
-            </PublicSheet>
+            {ready && (
+                <Suspense fallback={null}>
+                    <PublicSheet
+                        isOpen={open}
+                        onClose={onClose}
+                        ariaLabel={venue.name}
+                        contentKey={venue.key}
+                        headerContent={
+                            <div className={styles.sheetHead}>
+                                <span className={styles.sheetTitle}>
+                                    <span className={styles.sheetName}>{venue.name}</span>
+                                    <span className={styles.sheetUrl}>
+                                        {DEMOS.publicHost}/{venue.slug}
+                                    </span>
+                                </span>
+                                <button type="button" className={styles.sheetClose} aria-label={DEMOS.sheetClose} onClick={onClose}>
+                                    ✕
+                                </button>
+                            </div>
+                        }
+                    >
+                        <div className={styles.sheetBody}>
+                            {open && <DemoFrame key={path} path={path} title={venue.name} />}
+                        </div>
+                    </PublicSheet>
+                </Suspense>
+            )}
         </div>
     );
 }
@@ -245,7 +252,7 @@ export default function Demos() {
                     </div>
                 </Reveal>
             </div>
-            <DemoSheet venue={venue} open={open} onClose={() => setOpen(false)} />
+            <DemoSheet venue={venue} open={open} ready={preload || open} onClose={() => setOpen(false)} />
         </Section>
     );
 }
