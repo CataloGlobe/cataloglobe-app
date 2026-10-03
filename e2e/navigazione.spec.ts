@@ -429,3 +429,73 @@ test.describe("Impostazioni con tab (§51.12)", () => {
         await expect(settingsTabs(page)).toHaveCount(0);
     });
 });
+
+test.describe("Andamento a due livelli (§51.10)", () => {
+    /** Il `p_activity_id` della prima lettura del riepilogo di Analitiche. */
+    function overviewActivity(page: Page): Promise<string | null> {
+        return page
+            .waitForRequest(r => r.url().includes("/rpc/analytics_overview_stats"), { timeout: 20_000 })
+            .then(r => (r.postDataJSON() as { p_activity_id: string | null }).p_activity_id);
+    }
+
+    /** Le sedi chieste dall'elenco delle recensioni (`activity_id=in.(…)`). */
+    function reviewsActivities(page: Page): Promise<string[]> {
+        return page
+            .waitForRequest(r => /\/rest\/v1\/reviews\?/.test(r.url()) && r.method() === "GET" && r.url().includes("activity_id=in."), {
+                timeout: 20_000
+            })
+            .then(r => {
+                const value = new URL(r.url()).searchParams.get("activity_id") ?? "";
+                return value.replace(/^in\.\(|\)$/g, "").split(",").map(s => s.replace(/"/g, "")).filter(Boolean);
+            });
+    }
+
+    test("dentro la sede: Analitiche e Recensioni di quella sede", async ({ page }) => {
+        const paths = await locationPaths(page);
+        test.skip(paths.length < 2, "serve più di una sede");
+        const id = activityIdOf(paths[1]);
+
+        const analytics = overviewActivity(page);
+        await page.goto(`${paths[1]}/analitiche`);
+        expect(await analytics).toBe(id);
+        await expect(nav(page).getByRole("link", { name: "Analitiche", exact: true })).toHaveAttribute("aria-current", "page");
+
+        const reviews = reviewsActivities(page);
+        await page.goto(`${paths[1]}/recensioni`);
+        expect(await reviews).toEqual([id]);
+    });
+
+    test("in azienda: il totale delle sedi leggibili, senza selettore", async ({ page }) => {
+        const paths = await locationPaths(page);
+        test.skip(paths.length < 2, "serve più di una sede");
+        const root = businessRoot(paths[0]);
+
+        const analytics = overviewActivity(page);
+        await page.goto(`${root}/analytics`);
+        expect(await analytics).toBeNull();
+
+        const reviews = reviewsActivities(page);
+        await page.goto(`${root}/reviews`);
+        expect((await reviews).length).toBeGreaterThanOrEqual(2);
+        await expect(page.getByRole("button", { name: "Sede attiva" })).toHaveCount(0);
+    });
+
+    test("una sede: /analytics e /reviews portano alle rotte della sede, con la query", async ({ page }) => {
+        const paths = await locationPaths(page);
+        await asSingleSede(page);
+        const root = businessRoot(paths[0]);
+        await page.goto(`${root}/analytics?period=7d`);
+        await expect(page).toHaveURL(`${paths[0]}/analitiche?period=7d`, { timeout: 15_000 });
+        await page.goto(`${root}/reviews`);
+        await expect(page).toHaveURL(`${paths[0]}/recensioni`, { timeout: 15_000 });
+    });
+
+    test("staff dentro la sede: Recensioni sì, Analitiche no (gate sulla sede)", async ({ page }) => {
+        const paths = await locationPaths(page);
+        test.skip(paths.length < 2, "serve più di una sede");
+        await asRole(page, "staff", [activityIdOf(paths[0]), activityIdOf(paths[1])], "pro");
+        await page.goto(`${paths[1]}/servizio`);
+        await expect(nav(page).getByRole("link", { name: "Recensioni", exact: true })).toBeVisible({ timeout: 15_000 });
+        await expect(nav(page).getByRole("link", { name: "Analitiche", exact: true })).toHaveCount(0);
+    });
+});

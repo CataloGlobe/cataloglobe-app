@@ -95,7 +95,7 @@ const ActivitySectionRedirect = lazy(() => import("./pages/Operativita/Attivita/
 const SedeRedirect = lazy(() => import("./components/layout/SedeRedirect/SedeRedirect"));
 const BusinessHomeRedirect = lazy(() => import("./components/layout/LandingRedirect/BusinessHomeRedirect"));
 const SedeHomeRedirect = lazy(() => import("./components/layout/LandingRedirect/SedeHomeRedirect"));
-const LocationsIndexRoute = lazy(() => import("./components/layout/LandingRedirect/LocationsIndexRoute"));
+const SingleSedeRoute = lazy(() => import("./components/layout/LandingRedirect/SingleSedeRoute"));
 const ActivityPubblicazioneRoute = lazy(() => import("./pages/Operativita/Attivita/routes/ActivityPubblicazioneRoute"));
 const ActivityCosaVedonoRoute = lazy(() => import("./pages/Operativita/Attivita/routes/ActivityCosaVedonoRoute"));
 const SubscriptionPage = lazy(() => import("./pages/Business/SubscriptionPage"));
@@ -270,9 +270,9 @@ export default function App() {
                 <Route
                     path="locations"
                     element={
-                        <LocationsIndexRoute>
+                        <SingleSedeRoute segment="anagrafica">
                             <Businesses />
-                        </LocationsIndexRoute>
+                        </SingleSedeRoute>
                     }
                 />
                 <Route path="locations/:activityId">
@@ -291,6 +291,10 @@ export default function App() {
                     <Route path="storico" element={<OrdersHistory />} />
                     <Route path="prenotazioni" element={<Reservations />} />
                     <Route path="cosa-vedono" element={<ActivityCosaVedonoRoute />} />
+                    {/* Andamento della sede (§51.10): stesse pagine d'azienda,
+                        la sede dal path. */}
+                    <Route path="analitiche" element={<AnalyticsPage />} />
+                    <Route path="recensioni" element={<Reviews />} />
                     {/* Il vecchio nome (Disponibilità, §50.14): link e preferiti restano buoni. */}
                     <Route path="disponibilita" element={<ActivitySectionRedirect to="cosa-vedono" keepHash keepSearch />} />
                     {/* La scheda della sede: quattro pagine (§31). */}
@@ -347,8 +351,23 @@ export default function App() {
                     <Route path=":ticketId" element={<SupportTicketPage />} />
                 </Route>
 
-                <Route path="reviews" element={<Reviews />} />
-                <Route path="analytics" element={<AnalyticsPage />} />
+                {/* Il totale delle sedi leggibili; con una sede la rotta di sede (§51.14). */}
+                <Route
+                    path="reviews"
+                    element={
+                        <SingleSedeRoute segment="recensioni">
+                            <Reviews />
+                        </SingleSedeRoute>
+                    }
+                />
+                <Route
+                    path="analytics"
+                    element={
+                        <SingleSedeRoute segment="analitiche">
+                            <AnalyticsPage />
+                        </SingleSedeRoute>
+                    }
+                />
 
                 {/* Impostazioni: Azienda · Team · Abbonamento (§51.12). I
                     vecchi indirizzi portano alle tab, con query e ancora

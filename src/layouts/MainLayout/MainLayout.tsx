@@ -26,7 +26,7 @@ import { AiMenuImportDrawer } from "@/pages/Dashboard/Catalogs/AiMenuImport/AiMe
 import { hasUnreadReply, listMyTickets } from "@/services/supabase/support";
 import { countPendingReviews } from "@/services/supabase/reviews";
 import { usePermissions } from "@/context/usePermissions";
-import { canDoOnAnyActivity, isTenantWide } from "@/lib/permissions";
+import { canDoOnActivity, canDoOnAnyActivity, isTenantWide } from "@/lib/permissions";
 import { useSedeScope } from "@/hooks/useSedeScope";
 import { resolveNavContext } from "@/utils/navModel";
 import type { BusinessOutletContext } from "./outletContext";
@@ -42,7 +42,9 @@ const SEDE_PAGE_LABELS: Record<string, string | undefined> = {
     servizio: "Servizio",
     comande: "Comande",
     storico: "Storico",
-    prenotazioni: "Prenotazioni"
+    prenotazioni: "Prenotazioni",
+    analitiche: "Analitiche",
+    recensioni: "Recensioni"
 };
 
 /** `/business/:businessId/locations/:activityId[/...]` — dentro una sede. */
@@ -218,9 +220,22 @@ export default function MainLayout() {
     // fare. Owner e admin contano tutte le sedi, gli altri le loro. Un errore
     // spegne il badge: meglio nessun numero che uno inventato.
     const { permissions } = usePermissions();
-    const canModerateReviews = permissions != null && canDoOnAnyActivity(permissions, "reviews.moderate");
+    // Il perimetro segue la voce (§51.10): dentro la sede le sue, fuori
+    // tutte quelle che chi guarda modera.
+    const reviewSedeId = navContext === "sede" ? pathActivityId : null;
+    const canModerateReviews =
+        permissions != null &&
+        (reviewSedeId
+            ? canDoOnActivity(permissions, "reviews.moderate", reviewSedeId)
+            : canDoOnAnyActivity(permissions, "reviews.moderate"));
     const reviewScopeKey =
-        permissions == null ? "" : isTenantWide(permissions) ? "*" : permissions.activityIds.join(",");
+        permissions == null
+            ? ""
+            : reviewSedeId
+              ? reviewSedeId
+              : isTenantWide(permissions)
+                ? "*"
+                : permissions.activityIds.join(",");
     const [reviewsPendingCount, setReviewsPendingCount] = useState(0);
     const [reviewsRefreshKey, setReviewsRefreshKey] = useState(0);
     const refreshReviewsPending = useCallback(() => setReviewsRefreshKey(k => k + 1), []);

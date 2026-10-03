@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { BarChart3, Download } from "lucide-react";
 import { useTenantId } from "@/context/useTenantId";
 import { usePermissions } from "@/context/usePermissions";
 import { canDoOnActivity, canDoOnAnyActivity } from "@/lib/permissions";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
-import { useSedeScope, SCOPE_ALL } from "@/hooks/useSedeScope";
+import { useSedeScope } from "@/hooks/useSedeScope";
 import {
     getPageViewsTrend,
     getTopViewedProducts,
@@ -82,10 +82,12 @@ export default function AnalyticsPage() {
     const { permissions } = usePermissions();
 
     // ── Filtri ───────────────────────────────────────────────────────────
-    // Sede attiva: dalla navbar via useSedeScope. SCOPE_ALL → "tutte le sedi"
-    // (passare `undefined` come activityId ai service analytics).
-    const { value: scopeValue, readableActivities } = useSedeScope();
-    const selectedActivityId = scopeValue === SCOPE_ALL ? "all" : scopeValue;
+    // Due livelli (§51.10): dentro la sede (`/locations/:activityId/analitiche`)
+    // la sede è nel path; fuori è il totale delle sedi leggibili ("all" →
+    // `undefined` ai service analytics). Nessun selettore.
+    const { activityId: routeActivityId } = useParams<{ activityId?: string }>();
+    const { readableActivities } = useSedeScope();
+    const selectedActivityId = routeActivityId ?? "all";
     // Gate di lettura prima di ogni fetch (#590): lo stesso che rende `PageGate`.
     const canRead =
         permissions != null &&
