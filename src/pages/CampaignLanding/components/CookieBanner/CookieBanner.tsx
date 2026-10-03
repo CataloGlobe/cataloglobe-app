@@ -114,8 +114,8 @@ export default function CookieBanner() {
                     Cookie di analisi
                 </h2>
                 <p id={textId} className={styles.text}>
-                    Usiamo Microsoft Clarity, che salva cookie di analisi, per migliorare questa pagina. Solo
-                    se accetti.{" "}
+                    Usiamo solo strumenti tecnici necessari e, se accetti, Microsoft Clarity (cookie di
+                    analisi) per migliorare questa pagina. Chiudendo con la X continui senza.{" "}
                     <a className={styles.link} href="/legal/privacy">
                         Informativa privacy
                     </a>
