@@ -4,6 +4,10 @@
  * piattaforma (RLS su `is_platform_admin()`).
  */
 
+import type { CrmBillingInterval, CrmExpenseCategory, CrmExpenseKind } from "@shared/crmExpenses";
+
+export type { CrmBillingInterval, CrmExpenseCategory, CrmExpenseKind };
+
 export const CRM_STAGES = [
     "nuovo",
     "contattato",
@@ -177,4 +181,53 @@ export interface CrmIngestResult {
      */
     venueId: string | null;
     outcome: CrmIngestOutcome;
+}
+
+// -----------------------------------------------------------------------------
+// Sezione costi (/admin/costi, migration 20261003120000)
+// -----------------------------------------------------------------------------
+
+export interface CrmExpense {
+    id: string;
+    kind: CrmExpenseKind;
+    name: string;
+    category: CrmExpenseCategory;
+    /** Centesimi di euro, IVA inclusa. */
+    amount_cents: number;
+    paid_by: string | null;
+    /** Una tantum: giorno del pagamento. */
+    paid_on: string | null;
+    /** Abbonamento: primo addebito al prezzo indicato. */
+    first_charge_on: string | null;
+    billing_interval: CrmBillingInterval | null;
+    /** Abbonamento disdetto: niente addebiti da questo giorno in poi. */
+    cancelled_on: string | null;
+    /** Promemoria su Telegram N giorni prima del rinnovo; null = nessuno. */
+    remind_days_before: number | null;
+    reminded_for: string | null;
+    notes: string | null;
+    created_by: string | null;
+    created_at: string;
+    updated_at: string;
+}
+
+/** Un addebito calcolato da `crm_expense_charges`. */
+export interface CrmExpenseCharge {
+    expenseId: string;
+    chargedOn: string;
+    amountCents: number;
+}
+
+export interface CrmExpenseInput {
+    kind: CrmExpenseKind;
+    name: string;
+    category: CrmExpenseCategory;
+    amountCents: number;
+    paidBy: string | null;
+    paidOn: string | null;
+    firstChargeOn: string | null;
+    billingInterval: CrmBillingInterval | null;
+    cancelledOn: string | null;
+    remindDaysBefore: number | null;
+    notes: string | null;
 }
