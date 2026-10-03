@@ -65,7 +65,8 @@ AS $$
 BEGIN
     IF auth.uid() IS NOT NULL AND NOT coalesce(
         (OLD.status = 'queued' AND NEW.status = 'cancelled')
-        OR (OLD.status = 'failed' AND NEW.status = 'queued' AND OLD.purpose = 'first_message'),
+        OR (OLD.status = 'failed' AND NEW.status = 'queued' AND OLD.purpose = 'first_message'
+            AND NEW.body IS NULL),
         false
     ) THEN
         RAISE EXCEPTION 'message_not_cancellable' USING ERRCODE = '42501';
@@ -702,8 +703,10 @@ $$;
 -- «Riprova» su un primo messaggio fallito: torna in coda e la coda decide di
 -- nuovo all'invio (cancello, fasce, «solo numeri di prova», testo del
 -- momento). Con «solo numeri di prova» acceso un numero fuori lista si
--- annulla di nuovo, come voluto (Alex, 2026-10-02). Il body del primo
--- messaggio resta NULL fino all'invio, quindi non c'è altro da azzerare.
+-- annulla di nuovo, come voluto (Alex, 2026-10-02). Il testo si azzera:
+-- l'edge lo scrive quando prende il messaggio, e con il testo vecchio ancora
+-- lì ripartirebbe quello invece del testo e dei nomi di adesso (review di
+-- Lorenzo, 2026-10-03). La guardia lo pretende anche per l'UPDATE diretto.
 CREATE OR REPLACE FUNCTION public.crm_wa_retry_message(p_message_id uuid)
 RETURNS boolean
 LANGUAGE plpgsql
@@ -712,7 +715,7 @@ SET search_path TO ''
 AS $$
 BEGIN
     UPDATE public.crm_messages x
-    SET status = 'queued', status_reason = NULL
+    SET status = 'queued', status_reason = NULL, body = NULL, claimed_at = NULL
     WHERE x.id = p_message_id AND x.status = 'failed' AND x.purpose = 'first_message';
     RETURN FOUND;
 END;

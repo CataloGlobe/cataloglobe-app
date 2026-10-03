@@ -13,7 +13,8 @@ import {
     phoneFromWaId,
     romeWallClockToIso,
     WA_MAX_CHATS,
-    WA_MAX_MESSAGES
+    WA_MAX_MESSAGES,
+    WA_CHATS_REPLY
 } from "./crmWaWorker";
 
 describe("phoneFromWaId / isFromMe", () => {
@@ -184,5 +185,12 @@ describe("buildUnknownChatAlert", () => {
         expect(buildUnknownChatAlert(1)).toContain("Una chat");
         expect(buildUnknownChatAlert(3)).toContain("3 chat");
         expect(buildUnknownChatAlert(1)).toContain("/admin, Agenti");
+    });
+});
+
+describe("WA_CHATS_REPLY", () => {
+    it("non dice niente sui numeri: solo ok, e non si può modificare", () => {
+        expect(WA_CHATS_REPLY).toEqual({ ok: true });
+        expect(Object.isFrozen(WA_CHATS_REPLY)).toBe(true);
     });
 });

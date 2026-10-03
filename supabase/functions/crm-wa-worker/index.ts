@@ -14,7 +14,8 @@
 //       pausa e messaggio al team.
 //   * chats { chats: [{ phone?, messages: [{ id, from_me?, kind?, text?, at? }] }] }
 //       istantanee delle chat (fino a 20 per chiamata). I messaggi nuovi del
-//       lead partono su Telegram a chi ha il locale in carico.
+//       lead partono su Telegram a chi ha il locale in carico. Risponde
+//       sempre WA_CHATS_REPLY: nessun esito per numero.
 //   * next {}
 //       il prossimo messaggio da mandare: { send: { message_id, phone, body } }
 //       oppure { wait: { reason, seconds } }. Il testo è sempre finale e deciso
@@ -44,7 +45,8 @@ import {
     buildInboundAlert,
     buildSendInstruction,
     buildUnknownChatAlert,
-    parseSnapshotBatch
+    parseSnapshotBatch,
+    WA_CHATS_REPLY
 } from "../_shared/crmWaWorker.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
@@ -178,33 +180,30 @@ async function chats(supabase, body) {
     const parsed = parseSnapshotBatch(body);
     if (!parsed.ok) return json(400, { error: parsed.error });
 
-    const results = [];
+    // La risposta è sempre la stessa, qualunque numero arrivi: niente esito per
+    // chat, niente conteggi. Con il solo segreto del Mac non si deve poter
+    // capire se un numero è un lead del CRM (review di Lorenzo, 2026-10-03).
+    // Le istantanee si rimandano a ogni giro e i messaggi già salvati si
+    // saltano (wa_message_id), quindi un errore qui si ripara da solo.
     let unknownFromUs = 0;
+    let failed = 0;
     for (const chat of parsed.value) {
         const { data, error } = await supabase.rpc("crm_wa_ingest_chat", {
             p_phone: chat.phone,
             p_messages: chat.messages
         });
         if (error) {
-            console.error(`${LOG}: chat non salvata`, error.code);
-            results.push({ phone: chat.phone, status: "error" });
+            failed++;
             continue;
         }
-        const row = data?.[0];
-        if (row?.r_status === "unknown" && chat.messages.some(m => m.from_me === true)) unknownFromUs++;
-        results.push({
-            phone: chat.phone,
-            status: row?.r_status ?? "error",
-            new_in: row?.r_new_in ?? 0,
-            new_person: row?.r_new_person ?? 0,
-            matched: row?.r_matched ?? 0
-        });
+        if (data?.[0]?.r_status === "unknown" && chat.messages.some(m => m.from_me === true)) unknownFromUs++;
     }
+    if (failed > 0) console.error(`${LOG}: chat non salvate`, failed);
     // Rete contro un Mac che scrive di testa sua (per esempio istruito dal
     // messaggio di un lead): un nostro messaggio verso un numero sconosciuto.
     if (unknownFromUs > 0) await sendToTeam(supabase, buildUnknownChatAlert(unknownFromUs), { logTag: LOG });
-    const notified = await flushInbound(supabase);
-    return json(200, { ok: true, chats: results, notified });
+    await flushInbound(supabase);
+    return json(200, WA_CHATS_REPLY);
 }
 
 async function senderNameFor(supabase, venueId: string): Promise<string | null> {

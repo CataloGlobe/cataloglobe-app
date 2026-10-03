@@ -124,6 +124,10 @@ export function parseSnapshotChat(input: unknown): ParseResult<WaSnapshotChat> {
     return { ok: true, value: { phone, messages } };
 }
 
+// Risposta unica di «chats»: uguale per un lead, un numero sconosciuto o un
+// errore di salvataggio, così il segreto del Mac non dice chi è nel CRM.
+export const WA_CHATS_REPLY: Readonly<{ ok: true }> = Object.freeze({ ok: true });
+
 export function parseSnapshotBatch(input: unknown): ParseResult<WaSnapshotChat[]> {
     const chats = (input as { chats?: unknown } | null)?.chats;
     if (!Array.isArray(chats)) return { ok: false, error: "invalid_chats" };
