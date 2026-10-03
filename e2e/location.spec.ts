@@ -122,7 +122,6 @@ test.describe("Scheda della sede", () => {
 
     test("i vecchi ?tab=sala e ?tab=tables portano a Servizio, in Gestisci la sala", async ({ page }) => {
         // Lotto B-a: la Sala non è più una pagina della sede, è un modo di Servizio.
-        test.fail();
         await openFirstLocation(page);
         const base = page.url().replace(/[?#].*$/, "").replace(/\/(anagrafica|orari|ordini-prenotazioni|canali|pubblicazione)$/, "");
         for (const tab of ["sala", "tables"]) {

@@ -69,8 +69,7 @@ function tessera(page: Page) {
 
 test.describe("Servizio", () => {
     test("la sidebar della sede ha Servizio e Storico, non più Sala", async ({ page }) => {
-        test.fail();
-        await openVoce(page, "Scheda");
+                await openVoce(page, "Scheda");
         const sidebar = nav(page);
         const voci = ["Servizio", "Comande", "Storico", "Prenotazioni", "Cosa vedono i clienti", "Scheda"];
         for (const voce of voci) {
@@ -78,7 +77,7 @@ test.describe("Servizio", () => {
         }
         await expect(sidebar.getByRole("link", { name: "Sala", exact: true })).toHaveCount(0);
         // Nell'ordine della sidebar: Servizio è la prima voce.
-        const labels = await sidebar.getByRole("link").allInnerTexts();
+        const labels = await sidebar.getByRole("link").allTextContents();
         const ordered = labels.map(l => l.trim()).filter(l => voci.includes(l));
         expect(ordered).toEqual(voci);
     });
@@ -124,6 +123,7 @@ test.describe("Servizio", () => {
         await openVoce(page, "Servizio");
         const filtri = main(page).getByRole("radiogroup");
         await expect(main(page).getByRole("list", { name: "Tavoli" })).toHaveCount(0, { timeout: 15_000 });
+        await expect(filtri.getByRole("radio", { name: "Aperti", exact: true })).toBeVisible({ timeout: 15_000 });
         await filtri.getByRole("radio", { name: "Aperti", exact: true }).click();
         const aperto = main(page).getByRole("button", { name: new RegExp(`^${TAVOLO}, Aperto`) });
         await expect(aperto).toBeVisible();
@@ -167,6 +167,7 @@ test.describe("Servizio", () => {
         await expect(main(page).getByText("Capienza della sala")).toHaveCount(0);
 
         // E si torna alla Mappa.
+        await expect(modo(page, "Mappa")).toBeVisible();
         await modo(page, "Mappa").click();
         await expect(page).toHaveURL(/\/servizio\?modo=mappa$/);
         await expect(tessera(page)).toBeVisible({ timeout: 15_000 });
@@ -201,8 +202,7 @@ test.describe("Servizio: piano e ruolo", () => {
     });
 
     test("col piano base ?modo=mappa porta in Gestisci la sala", async ({ page }) => {
-        test.fail();
-        const base = await sedePath(page);
+                const base = await sedePath(page);
         await asBasePlan(page);
         await page.goto(`${base}/servizio?modo=mappa`);
         await expect(modo(page, "Gestisci la sala")).toHaveAttribute("aria-selected", "true", { timeout: 15_000 });
@@ -233,7 +233,8 @@ test.describe("Servizio: piano e ruolo", () => {
         { role: "viewer", plan: "base", modoAtteso: "Gestisci la sala" }
     ] as const) {
         test(`${role}, piano ${plan}: entrando nella sede si arriva a Servizio, in ${modoAtteso}`, async ({ page }) => {
-            test.fail();
+            // La Mappa arriva col passo dopo: fino ad allora fallisce.
+            test.fail(modoAtteso === "Mappa");
             const base = await sedePath(page);
             await asRole(page, role, base.split("/").pop()!, plan);
             await page.goto(base);
@@ -285,12 +286,12 @@ test.describe("Storico", () => {
     });
 
     test("col piano base lo Storico ha il lucchetto e non è un atterraggio", async ({ page }) => {
-        test.fail();
-        const base = await sedePath(page);
+                const base = await sedePath(page);
         await asBasePlan(page);
         await page.goto(base);
         await expect(page).toHaveURL(/\/servizio$/, { timeout: 15_000 });
-        await expect(nav(page).getByRole("link", { name: "Storico", exact: true }).locator(LUCCHETTO)).toHaveCount(1, {
+        // Il lucchetto entra nel nome accessibile della voce: «Storico …».
+        await expect(nav(page).getByRole("link", { name: /^Storico/ }).locator(LUCCHETTO)).toHaveCount(1, {
             timeout: 15_000
         });
     });
@@ -298,8 +299,7 @@ test.describe("Storico", () => {
 
 test.describe("Indirizzi vecchi", () => {
     test("/sala porta a Servizio, in Gestisci la sala", async ({ page }) => {
-        test.fail();
-        const base = await sedePath(page);
+                const base = await sedePath(page);
         await page.goto(`${base}/sala`);
         await expect(page).toHaveURL(/\/servizio\?modo=gestisci$/, { timeout: 15_000 });
         await expect(modo(page, "Gestisci la sala")).toHaveAttribute("aria-selected", "true");
@@ -331,8 +331,7 @@ test.describe("Indirizzi vecchi", () => {
 
 test.describe("Capienza nella Scheda", () => {
     test("capienza e durata stanno in Ordini e prenotazioni, nella bozza della Scheda", async ({ page }) => {
-        test.fail();
-        const base = await sedePath(page);
+                const base = await sedePath(page);
         // Le prenotazioni della sede di test risultano attive: i campi stanno
         // nella sezione Prenotazioni, che senza non mostra le regole.
         await page.route(/\/rest\/v1\/activities\?.*id=eq\./, async route => {

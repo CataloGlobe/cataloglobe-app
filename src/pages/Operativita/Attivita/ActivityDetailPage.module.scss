@@ -12,22 +12,6 @@
   margin: 0 auto;
 }
 
-// Bounded scoped per la Sala, a tabella: la tabella deve riempire e
-// scrollare internamente. Le altre pagine sono form lunghi page-scroll →
-// restano invariate (nessun match del data-attribute). «Cosa vedono i
-// clienti» è fuori dalla Scheda e porta il suo layout.
-.container[data-active-tab="sala"] {
-  flex: 1 1 auto;
-  min-height: 0;
-}
-
-.container[data-active-tab="sala"] .contentWrapper {
-  flex: 1 1 auto;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-
 .grid12 {
   display: grid;
   grid-template-columns: repeat(12, 1fr);

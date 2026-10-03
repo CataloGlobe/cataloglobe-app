@@ -4,7 +4,7 @@ import { asRole } from "./asRole";
 
 /**
  * Il contesto di sede (lotto `ds-5-sede-nav`, §46.1): entrando in un locale la
- * sidebar diventa la sua — cinque voci, la freccia per uscire, il nome della
+ * sidebar diventa la sua — le sue voci, la freccia per uscire, il nome della
  * sede — e quella dell'azienda sparisce. Scritto **prima** del guscio: finché
  * P0 non c'è questi test sono rossi per disegno.
  *
@@ -12,10 +12,13 @@ import { asRole } from "./asRole";
  * `/prenotazioni`) e prendono la sede dal path; `/orders` reindirizza
  * nell'ultima sede usata.
  *
+ * Lotto B-a: Servizio prende il posto di Sala (che ne è il modo «Gestisci la
+ * sala») ed è la prima voce, quella su cui si atterra; lo Storico è una voce.
+ *
  * Locator per ruolo, mai per tag. Nessuna scrittura.
  */
 
-const SEDE_VOCI = ["Comande", "Prenotazioni", "Sala", "Cosa vedono i clienti", "Scheda"] as const;
+const SEDE_VOCI = ["Servizio", "Comande", "Storico", "Prenotazioni", "Cosa vedono i clienti", "Scheda"] as const;
 
 /** Le voci dell'azienda che dentro una sede NON devono esserci. */
 const VOCI_AZIENDA = ["Panoramica", "Programmazione", "Team", "Abbonamento"] as const;
@@ -59,15 +62,17 @@ test.describe("Contesto di sede", () => {
         await openFirstLocation(page);
         const sidebar = nav(page);
 
+        // Per ruolo link: «Servizio» è anche il titolo del gruppo, finché i
+        // gruppi non si rifanno (§19.5, lotto B-b).
         for (const voce of SEDE_VOCI) {
-            await expect(sidebar.getByText(voce, { exact: true })).toBeVisible({ timeout: 15_000 });
+            await expect(sidebar.getByRole("link", { name: voce, exact: true })).toBeVisible({ timeout: 15_000 });
         }
         for (const voce of VOCI_AZIENDA) {
             await expect(sidebar.getByRole("link", { name: voce, exact: true })).toHaveCount(0);
         }
     });
 
-    test("tutte e cinque le voci sono navigabili", async ({ page }) => {
+    test("tutte le voci sono navigabili", async ({ page }) => {
         await openFirstLocation(page);
         const sidebar = nav(page);
         for (const voce of SEDE_VOCI) {
@@ -120,12 +125,12 @@ test.describe("Contesto di sede", () => {
         await expect(nav(page).getByRole("link", { name: "Panoramica", exact: true })).toBeVisible();
     });
 
-    test("le tre voci navigabili portano alle rotte della sede", async ({ page }) => {
+    test("le voci senza piano portano alle rotte della sede", async ({ page }) => {
         await openFirstLocation(page);
         const sidebar = nav(page);
 
-        await sidebar.getByRole("link", { name: "Sala", exact: true }).click();
-        await expect(page).toHaveURL(/\/sala$/, { timeout: 15_000 });
+        await sidebar.getByRole("link", { name: "Servizio", exact: true }).click();
+        await expect(page).toHaveURL(/\/servizio$/, { timeout: 15_000 });
 
         await sidebar.getByRole("link", { name: "Cosa vedono i clienti", exact: true }).click();
         await expect(page).toHaveURL(/\/cosa-vedono$/, { timeout: 15_000 });
@@ -297,12 +302,13 @@ test.describe("Atterraggio per ruolo", () => {
         }
     }
 
+    // Servizio è la prima voce e ha sempre un modo senza lucchetto (Gestisci
+    // la sala): ci si atterra con ogni piano. Il modo lo prova servizio.spec.
     const CASI = [
-        { role: "staff", plan: "pro", segment: "comande" },
-        { role: "viewer", plan: "pro", segment: "comande" },
-        // Col piano base Comande e Prenotazioni hanno il lucchetto: si atterra sulla Sala.
-        { role: "staff", plan: "base", segment: "sala" },
-        { role: "viewer", plan: "base", segment: "sala" }
+        { role: "staff", plan: "pro", segment: "servizio" },
+        { role: "viewer", plan: "pro", segment: "servizio" },
+        { role: "staff", plan: "base", segment: "servizio" },
+        { role: "viewer", plan: "base", segment: "servizio" }
     ] as const;
 
     for (const { role, plan, segment } of CASI) {

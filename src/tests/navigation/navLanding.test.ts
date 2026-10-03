@@ -18,21 +18,23 @@ function perms(role: UserRole, permissions: string[], activityIds: string[] = []
 const pro = (): boolean => true;
 const base = (f: PlanFeature): boolean => f !== "table_ordering" && f !== "table_reservation";
 
-const TUTTI = ["orders.read", "reservations.read", "tables.read", "activity.read"];
+const TUTTI = ["orders.read", "reservations.read", "tables.read", "seatings.read", "activity.read"];
 
 describe("firstSedeSegment — la prima voce usabile, nell'ordine della sidebar", () => {
-    it("owner col piano Pro atterra su Comande", () => {
-        expect(firstSedeSegment(perms("owner", TUTTI), pro, SEDE)).toBe("comande");
+    it("owner col piano Pro atterra su Servizio", () => {
+        expect(firstSedeSegment(perms("owner", TUTTI), pro, SEDE)).toBe("servizio");
     });
 
-    it("col piano base salta le voci col lucchetto e atterra su Sala", () => {
-        expect(firstSedeSegment(perms("owner", TUTTI), base, SEDE)).toBe("sala");
+    it("col piano base atterra comunque su Servizio: Gestisci la sala non ha lucchetto", () => {
+        expect(firstSedeSegment(perms("owner", TUTTI), base, SEDE)).toBe("servizio");
     });
 
-    it("senza orders.read atterra su Prenotazioni", () => {
-        expect(firstSedeSegment(perms("admin", ["reservations.read", "tables.read", "activity.read"]), pro, SEDE)).toBe(
-            "prenotazioni"
-        );
+    it("senza tables.read Servizio non ha un modo da usare: si atterra su Comande", () => {
+        expect(firstSedeSegment(perms("admin", ["orders.read", "seatings.read", "activity.read"]), pro, SEDE)).toBe("comande");
+    });
+
+    it("senza tavoli né ordini atterra su Prenotazioni", () => {
+        expect(firstSedeSegment(perms("admin", ["reservations.read", "activity.read"]), pro, SEDE)).toBe("prenotazioni");
     });
 
     it("chi legge solo la sede atterra su Cosa vedono i clienti", () => {
@@ -49,10 +51,10 @@ describe("firstSedeSegment — la prima voce usabile, nell'ordine della sidebar"
 
     it("l'ordine è quello della sidebar", () => {
         expect(SEDE_NAV_ENTRIES.map(e => e.segment)).toEqual([
+            "servizio",
             "comande",
             "storico",
             "prenotazioni",
-            "sala",
             "cosa-vedono",
             "anagrafica"
         ]);
@@ -78,6 +80,11 @@ describe("legacyTabTarget — i vecchi ?tab= della scheda", () => {
         expect(legacyTabTarget("hours")).toEqual({ segment: "orari" });
         expect(legacyTabTarget("reservations")).toEqual({ segment: "ordini-prenotazioni", hash: "prenotazioni" });
         expect(legacyTabTarget("availability")).toEqual({ segment: "cosa-vedono" });
+    });
+
+    it("la Sala è il modo Gestisci la sala di Servizio", () => {
+        expect(legacyTabTarget("sala")).toEqual({ segment: "servizio", search: "modo=gestisci" });
+        expect(legacyTabTarget("tables")).toEqual({ segment: "servizio", search: "modo=gestisci" });
     });
 
     it("un valore sconosciuto apre l'Anagrafica", () => {
