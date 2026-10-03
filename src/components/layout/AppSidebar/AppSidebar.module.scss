@@ -83,10 +83,20 @@ $footer-padding-x-expanded: $scroll-padding-x + $item-padding-x + math.div($icon
 }
 
 /* ===== Nav (gaps come from dividers, not from nav gap) ===== */
+// La nav tiene lo scroll delle voci e, sotto, il piede (Assistenza): una
+// sola `nav` «Menu principale», il piede non scorre via.
 .nav {
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 0;
+}
+
+.footerList {
+  flex-shrink: 0;
+  border-top: 1px solid var(--border);
+  padding: var(--space-4) $scroll-padding-x;
 }
 
 // Divisore solo fra gruppi SENZA titolo (il titolo è già il separatore).

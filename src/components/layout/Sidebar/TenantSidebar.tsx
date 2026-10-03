@@ -1,174 +1,49 @@
 import { useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
-import {
-    LayoutDashboard,
-    Store,
-    ClipboardList,
-    CalendarCheck,
-    LifeBuoy,
-    Settings,
-    Calendar,
-    BookOpen,
-    BookOpenText,
-    Pin,
-    Palette,
-    BarChart3,
-    MessageSquare,
-    Users,
-    BookUser,
-    CreditCard,
-    Languages,
-    Archive
-} from "lucide-react";
 import { usePermissions } from "@/context/usePermissions";
-import { canDoOnTenant, canDoOnAnyActivity } from "@/lib/permissions";
 import { usePlanFeatures } from "@/lib/planFeatures";
-import { businessRouteLabel } from "@/components/layout/AppHeader/navbarBreadcrumbRoutes";
 import { AppSidebar } from "@/components/layout/AppSidebar/AppSidebar";
-import { buildSidebarGroups, type SidebarNavGroup } from "./sidebarItems";
+import { NAV_MODELS } from "@/utils/navModel";
+import { buildSidebarGroups } from "./sidebarItems";
+import { navSidebarGroups } from "./navSidebarGroups";
 
 /**
- * TenantSidebar — il costruttore delle voci del contesto **azienda** (scheda
- * «AppSidebar»): dichiara le voci con la loro etichetta da
- * `businessRouteLabel` (fonte unica dei nomi di pagina) e il permesso che le
- * merita; il filtro per permessi, piano e segnali è condiviso con la sidebar
- * di sede (`buildSidebarGroups`). Il markup è tutto di `AppSidebar`.
+ * TenantSidebar — il costruttore delle voci fuori da una sede (§51): la
+ * sidebar **unica** (una sede leggibile, un elenco solo) e quella
+ * dell'**azienda** (più sedi). Voci, ordine e gate stanno in `navModel`; il
+ * filtro per permessi, piano e segnali è condiviso con la sidebar di sede
+ * (`buildSidebarGroups`). Il markup è tutto di `AppSidebar`.
  */
 
-function buildGroups(businessId: string, catalogLabel: string, reviewsPendingCount: number): SidebarNavGroup[] {
-    const b = `/business/${businessId}`;
-    return [
-        {
-            title: null,
-            items: [
-                {
-                    to: `${b}/overview`,
-                    label: businessRouteLabel("overview"),
-                    icon: <LayoutDashboard size={18} />,
-                    end: true
-                }
-            ]
-        },
-        {
-            // La porta del contesto sede (§5). Ordini e Prenotazioni sono
-            // pagine di sede: qui portano all'ultima sede usata (§48.1/2).
-            title: "Sedi",
-            items: [
-                { to: `${b}/locations`, label: businessRouteLabel("locations"), icon: <Store size={18} />,
-                  permission: perms => canDoOnAnyActivity(perms, "activity.read") },
-                { to: `${b}/orders`, label: businessRouteLabel("orders"), icon: <ClipboardList size={18} />,
-                  permission: perms => canDoOnAnyActivity(perms, "orders.read"),
-                  requiresFeature: "table_ordering" },
-                { to: `${b}/reservations`, label: businessRouteLabel("reservations"), icon: <CalendarCheck size={18} />,
-                  permission: perms => canDoOnAnyActivity(perms, "reservations.read"),
-                  requiresFeature: "table_reservation" }
-            ]
-        },
-        {
-            title: "Catalogo",
-            items: [
-                { to: `${b}/catalogs`, label: businessRouteLabel("catalogs", { catalogLabel }), icon: <BookOpen size={18} />,
-                  permission: perms => canDoOnTenant(perms, "catalogs.read"),
-                  showImportBadge: true },
-                { to: `${b}/products`, label: businessRouteLabel("products"), icon: <Archive size={18} />,
-                  permission: perms => canDoOnTenant(perms, "products.read") },
-                { to: `${b}/styles`, label: businessRouteLabel("styles"), icon: <Palette size={18} />,
-                  permission: perms => canDoOnTenant(perms, "styles.read") },
-                {
-                    to: `${b}/featured`,
-                    label: businessRouteLabel("featured"),
-                    icon: <Pin size={18} />,
-                    permission: perms => canDoOnAnyActivity(perms, "featured.read")
-                },
-                {
-                    to: `${b}/stories`,
-                    label: businessRouteLabel("stories"),
-                    icon: <BookOpenText size={18} />,
-                    permission: perms => canDoOnAnyActivity(perms, "stories.read")
-                },
-                // Lingue resta pagina propria (§50.14 L1): traduce il catalogo.
-                { to: `${b}/languages`, label: businessRouteLabel("languages"), icon: <Languages size={18} />,
-                  permission: perms => canDoOnTenant(perms, "catalogs.read"),
-                  showTranslationBadge: true }
-            ]
-        },
-        {
-            // Le pagine che guardano tutte le sedi insieme (§5, §46.1 c).
-            title: "Confronto",
-            items: [
-                { to: `${b}/scheduling`, label: businessRouteLabel("scheduling"), icon: <Calendar size={18} />,
-                  permission: perms => canDoOnAnyActivity(perms, "scheduling.read") },
-                { to: `${b}/analytics`, label: businessRouteLabel("analytics"), icon: <BarChart3 size={18} />,
-                  permission: perms => canDoOnAnyActivity(perms, "analytics.read") },
-                { to: `${b}/reviews`, label: businessRouteLabel("reviews"), icon: <MessageSquare size={18} />,
-                  permission: perms => canDoOnAnyActivity(perms, "reviews.read"),
-                  count: reviewsPendingCount },
-                // La rubrica è di tutta l'azienda (§6): si popola da sola
-                // dall'interazione con gli avventori. Il gate di piano resta
-                // `table_reservation` finché le prenotazioni sono l'unica
-                // sorgente dei profili — quando arriveranno anche dagli ordini
-                // al tavolo andrà allargato, non spostato.
-                { to: `${b}/guests`, label: businessRouteLabel("guests"), icon: <BookUser size={18} />,
-                  permission: perms => canDoOnAnyActivity(perms, "guests.read"),
-                  requiresFeature: "table_reservation" }
-            ]
-        },
-        {
-            title: "Sistema",
-            items: [
-                { to: `${b}/team`, label: businessRouteLabel("team"), icon: <Users size={18} />,
-                  permission: perms => canDoOnTenant(perms, "team.read") },
-                { to: `${b}/subscription`, label: businessRouteLabel("subscription"), icon: <CreditCard size={18} />,
-                  permission: perms => canDoOnTenant(perms, "billing.read") },
-                {
-                    to: `${b}/settings`,
-                    label: businessRouteLabel("settings"),
-                    icon: <Settings size={18} />,
-                    end: true
-                },
-                // "Assistenza" e non "Aiuto": "Aiuto" fa pensare alla
-                // documentazione, questo è un canale verso una persona.
-                //
-                // Gate su `canDoOnTenant` e non su `canDoOnAnyActivity`,
-                // deliberatamente più largo di RLS: un manager senza sedi
-                // assegnate possiede support.read ma has_permission_any_activity
-                // non lo ammette, quindi la lista gli tornerà vuota. Deve
-                // comunque poter raggiungere la pagina — è lì che trova
-                // l'indirizzo email con cui chiedere aiuto lo stesso.
-                {
-                    to: `${b}/support`,
-                    label: businessRouteLabel("support"),
-                    icon: <LifeBuoy size={18} />,
-                    permission: perms => canDoOnTenant(perms, "support.read"),
-                    showUnreadDot: true
-                }
-            ]
-        }
-    ];
+export interface SidebarSignalProps {
+    /** Pending traduzioni tenant-wide (fonte unica: MainLayout). 0 = nessun badge. */
+    translationPendingCount?: number;
+    /** Import AI in volo (analyzing|creating). Accende lo spinner sul catalogo. */
+    importInProgress?: boolean;
+    /**
+     * Almeno una richiesta di supporto ha una risposta non letta. Calcolato una
+     * volta in MainLayout: la sidebar è montata su ogni pagina e non deve
+     * interrogare il DB da sé.
+     */
+    supportUnread?: boolean;
+    /**
+     * Recensioni in attesa nel perimetro della voce Recensioni (§34.9/1,
+     * §51.10): l'azienda fuori, la sede dentro. 0 a chi non ha `reviews.moderate`.
+     */
+    reviewsPendingCount?: number;
 }
 
-export interface TenantSidebarProps {
+export interface TenantSidebarProps extends SidebarSignalProps {
     isMobile: boolean;
     mobileOpen: boolean;
     collapsed: boolean;
     onRequestClose: () => void;
     onToggleCollapse: () => void;
-    /** Pending traduzioni tenant-wide (fonte unica: MainLayout). 0 = nessun badge. */
-    translationPendingCount?: number;
-    /** Import AI in volo (analyzing|creating). Accende lo spinner su Cataloghi. */
-    importInProgress?: boolean;
-    /**
-     * Almeno una richiesta di supporto ha una risposta non letta. Calcolato una
-     * volta in MainLayout (fonte unica, come translationPendingCount): la
-     * sidebar è montata su ogni pagina e non deve interrogare il DB da sé.
-     */
-    supportUnread?: boolean;
-    /**
-     * Recensioni in attesa sulle sedi che il chiamante modera (§34.9/1). Fonte
-     * unica in MainLayout, come le altre; 0 a chi non ha `reviews.moderate`.
-     */
-    reviewsPendingCount?: number;
+    /** `unica` (una sede leggibile) o `azienda` (più sedi, o nessuna). */
+    context?: "unica" | "azienda";
+    /** Con la sidebar unica: la sola sede, a cui portano le voci di sede. */
+    activityId?: string | null;
 }
 
 export default function TenantSidebar({
@@ -177,6 +52,8 @@ export default function TenantSidebar({
     collapsed,
     onRequestClose,
     onToggleCollapse,
+    context = "azienda",
+    activityId = null,
     translationPendingCount = 0,
     importInProgress = false,
     supportUnread = false,
@@ -187,7 +64,13 @@ export default function TenantSidebar({
     const { catalogLabel } = useVerticalConfig();
     const { permissions } = usePermissions();
     const { hasFeature } = usePlanFeatures();
-    const groups = buildSidebarGroups(buildGroups(businessId, catalogLabel, reviewsPendingCount), {
+    const { groups, footer } = navSidebarGroups(NAV_MODELS[context], {
+        businessId,
+        activityId: context === "unica" ? activityId : null,
+        catalogLabel,
+        reviewsPendingCount
+    });
+    const options = {
         permissions,
         hasFeature,
         signals: {
@@ -196,11 +79,12 @@ export default function TenantSidebar({
             importInProgress,
             supportUnread
         }
-    });
+    };
 
     return (
         <AppSidebar
-            groups={groups}
+            groups={buildSidebarGroups(groups, options)}
+            footerItems={buildSidebarGroups(footer, options).flatMap(g => g.items)}
             isMobile={isMobile}
             mobileOpen={mobileOpen}
             collapsed={collapsed}

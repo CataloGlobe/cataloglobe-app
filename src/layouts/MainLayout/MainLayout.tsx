@@ -27,6 +27,8 @@ import { hasUnreadReply, listMyTickets } from "@/services/supabase/support";
 import { countPendingReviews } from "@/services/supabase/reviews";
 import { usePermissions } from "@/context/usePermissions";
 import { canDoOnAnyActivity, isTenantWide } from "@/lib/permissions";
+import { useSedeScope } from "@/hooks/useSedeScope";
+import { resolveNavContext } from "@/utils/navModel";
 import type { BusinessOutletContext } from "./outletContext";
 
 import styles from "./MainLayout.module.scss";
@@ -44,7 +46,7 @@ const SEDE_PAGE_LABELS: Record<string, string | undefined> = {
 };
 
 /** `/business/:businessId/locations/:activityId[/...]` — dentro una sede. */
-const SEDE_CONTEXT_PATH = /^\/business\/[^/]+\/locations\/[^/]+/;
+const SEDE_CONTEXT_PATH = /^\/business\/[^/]+\/locations\/([^/]+)/;
 
 /**
  * Titolo di pagina per il <title> del browser. `resolvePageTitle` è
@@ -94,9 +96,13 @@ export default function MainLayout() {
 
     const { catalogLabel } = useVerticalConfig();
     const pageName = businessId ? resolvePageTitle(businessId, pathname, catalogLabel) : undefined;
-    // Dentro una sede la sidebar è la sua (§46.1): il contesto è il path, non
-    // uno stato. `/locations` senza id resta azienda — è la porta, non la casa.
-    const inSedeContext = SEDE_CONTEXT_PATH.test(pathname);
+    // Il contesto della sidebar (§51.2): dalle sedi che chi guarda legge e dal
+    // path. Una sede: sidebar unica, ovunque. Più sedi: dentro una sede la
+    // sidebar è la sua; `/locations` senza id resta azienda.
+    const pathActivityId = SEDE_CONTEXT_PATH.exec(pathname)?.[1] ?? null;
+    const { readableActivities, isLoaded: sediLoaded } = useSedeScope();
+    const navContext = resolveNavContext(sediLoaded ? readableActivities.length : null, pathActivityId !== null);
+    const soleActivityId = readableActivities.length === 1 ? readableActivities[0].id : null;
     const tenantName = selectedTenant?.name;
     usePageTitle(pageName && tenantName ? `${pageName} — ${tenantName}` : pageName);
 
@@ -309,13 +315,17 @@ export default function MainLayout() {
                         </header>
 
                         <div className={styles.body}>
-                            {inSedeContext ? (
+                            {navContext === "sede" ? (
                                 <SedeSidebar
                                     isMobile={isMobile}
                                     mobileOpen={mobileSidebarOpen}
                                     collapsed={!isMobile && sidebarCollapsed}
                                     onRequestClose={() => setMobileSidebarOpen(false)}
                                     onToggleCollapse={() => setSidebarCollapsed(v => !v)}
+                                    translationPendingCount={translationPendingCount}
+                                    importInProgress={importInProgress}
+                                    supportUnread={supportUnread}
+                                    reviewsPendingCount={reviewsPendingCount}
                                 />
                             ) : (
                                 <TenantSidebar
@@ -324,6 +334,8 @@ export default function MainLayout() {
                                     collapsed={!isMobile && sidebarCollapsed}
                                     onRequestClose={() => setMobileSidebarOpen(false)}
                                     onToggleCollapse={() => setSidebarCollapsed(v => !v)}
+                                    context={navContext}
+                                    activityId={soleActivityId}
                                     translationPendingCount={translationPendingCount}
                                     importInProgress={importInProgress}
                                     supportUnread={supportUnread}

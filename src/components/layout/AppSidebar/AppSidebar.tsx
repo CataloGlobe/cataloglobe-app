@@ -77,6 +77,11 @@ export interface AppSidebarProps {
     headerSlot?: ReactNode;
     /** Contenuto opzionale reso in fondo alla nav, sopra il footer di collapse. */
     footerSlot?: ReactNode;
+    /**
+     * Le voci del piede (§51.12: Assistenza), fuori dallo scroll e uguali in
+     * tutti i contesti. Stanno nella stessa `nav` delle altre voci.
+     */
+    footerItems?: AppSidebarNavItem[];
 }
 
 function NavItemBody({ link, collapsedDesktop }: { link: AppSidebarNavItem; collapsedDesktop: boolean }) {
@@ -133,10 +138,45 @@ export function AppSidebar({
     onRequestClose,
     onToggleCollapse,
     headerSlot,
-    footerSlot
+    footerSlot,
+    footerItems = []
 }: AppSidebarProps) {
     const collapsedDesktop = !isMobile && collapsed;
     const { pathname } = useLocation();
+
+    const renderItem = (link: AppSidebarNavItem) =>
+        link.disabled ? (
+            <li key={link.to}>
+                <Tooltip
+                    content={link.disabledHint ?? "In arrivo"}
+                    side="right"
+                    sideOffset={collapsedDesktop ? 28 : 12}
+                >
+                    <span className={`${styles.link} ${styles.disabled}`} aria-disabled="true">
+                        <span className={styles.icon}>{link.icon}</span>
+                        <span className={styles.label}>{link.label}</span>
+                    </span>
+                </Tooltip>
+            </li>
+        ) : (
+            <li key={link.to}>
+                <NavLink
+                    to={link.to}
+                    end={link.end}
+                    className={({ isActive }) =>
+                        [
+                            styles.link,
+                            isActive || link.matchPrefixes?.some(p => pathname.startsWith(p)) ? styles.active : ""
+                        ].join(" ")
+                    }
+                    onClick={() => {
+                        if (isMobile) onRequestClose();
+                    }}
+                >
+                    <NavItemBody link={link} collapsedDesktop={collapsedDesktop} />
+                </NavLink>
+            </li>
+        );
     return (
         <>
             {isMobile && mobileOpen && (
@@ -183,8 +223,8 @@ export function AppSidebar({
                     </nav>
                 )}
 
-                <div className={styles.sidebarScroll}>
-                    <nav className={styles.nav} aria-label="Menu principale">
+                <nav className={styles.nav} aria-label="Menu principale">
+                    <div className={styles.sidebarScroll}>
                         {groups.map((group, i) => (
                             <Fragment key={i}>
                                 {/* Il titolo è il separatore: il divisore resta solo per i gruppi senza titolo. */}
@@ -195,53 +235,16 @@ export function AppSidebar({
                                             {group.title}
                                         </Text>
                                     )}
-                                    <ul className={styles.list}>
-                                        {group.items.map(link =>
-                                            link.disabled ? (
-                                                <li key={link.to}>
-                                                    <Tooltip
-                                                        content={link.disabledHint ?? "In arrivo"}
-                                                        side="right"
-                                                        sideOffset={collapsedDesktop ? 28 : 12}
-                                                    >
-                                                        <span
-                                                            className={`${styles.link} ${styles.disabled}`}
-                                                            aria-disabled="true"
-                                                        >
-                                                            <span className={styles.icon}>{link.icon}</span>
-                                                            <span className={styles.label}>{link.label}</span>
-                                                        </span>
-                                                    </Tooltip>
-                                                </li>
-                                            ) : (
-                                                <li key={link.to}>
-                                                    <NavLink
-                                                        to={link.to}
-                                                        end={link.end}
-                                                        className={({ isActive }) =>
-                                                            [
-                                                                styles.link,
-                                                                isActive || link.matchPrefixes?.some(p => pathname.startsWith(p))
-                                                                    ? styles.active
-                                                                    : ""
-                                                            ].join(" ")
-                                                        }
-                                                        onClick={() => {
-                                                            if (isMobile) onRequestClose();
-                                                        }}
-                                                    >
-                                                        <NavItemBody link={link} collapsedDesktop={collapsedDesktop} />
-                                                    </NavLink>
-                                                </li>
-                                            )
-                                        )}
-                                    </ul>
+                                    <ul className={styles.list}>{group.items.map(renderItem)}</ul>
                                 </div>
                             </Fragment>
                         ))}
                         {footerSlot}
-                    </nav>
-                </div>
+                    </div>
+                    {footerItems.length > 0 && (
+                        <ul className={`${styles.list} ${styles.footerList}`}>{footerItems.map(renderItem)}</ul>
+                    )}
+                </nav>
 
                 {!isMobile && (
                     <div className={styles.collapseFooter}>
