@@ -14,11 +14,12 @@ import { asRole } from "./asRole";
  *
  * Lotto B-a: Servizio prende il posto di Sala (che ne è il modo «Gestisci la
  * sala») ed è la prima voce, quella su cui si atterra; lo Storico è una voce.
+ * Lotto B-b: sei voci a gruppi (§19.5), Ospiti e Ordini; le ultime due fuori.
  *
  * Locator per ruolo, mai per tag. Nessuna scrittura.
  */
 
-const SEDE_VOCI = ["Servizio", "Comande", "Storico", "Prenotazioni", "Cosa vedono i clienti", "Scheda"] as const;
+const SEDE_VOCI = ["Servizio", "Prenotazioni", "Comande", "Storico", "Cosa vedono i clienti", "Scheda"] as const;
 
 /** Le voci dell'azienda che dentro una sede NON devono esserci. */
 const VOCI_AZIENDA = ["Panoramica", "Programmazione", "Team", "Abbonamento"] as const;
@@ -62,8 +63,6 @@ test.describe("Contesto di sede", () => {
         await openFirstLocation(page);
         const sidebar = nav(page);
 
-        // Per ruolo link: «Servizio» è anche il titolo del gruppo, finché i
-        // gruppi non si rifanno (§19.5, lotto B-b).
         for (const voce of SEDE_VOCI) {
             await expect(sidebar.getByRole("link", { name: voce, exact: true })).toBeVisible({ timeout: 15_000 });
         }
@@ -263,6 +262,30 @@ test.describe("Ingresso nell'azienda", () => {
         // E l'azienda resta raggiungibile.
         await contextNav(page).getByRole("link", { name: "Azienda", exact: true }).click();
         await expect(page).toHaveURL(/\/overview$/, { timeout: 15_000 });
+    });
+});
+
+test.describe("Sidebar della sede (§19.5, lotto B-b)", () => {
+    test("sei voci: Ospiti e Ordini a gruppi, le ultime due fuori gruppo", async ({ page }) => {
+        await openFirstLocation(page);
+        const sidebar = nav(page);
+        const GRUPPI: Record<string, string[]> = {
+            Ospiti: ["Servizio", "Prenotazioni"],
+            Ordini: ["Comande", "Storico"]
+        };
+        for (const [gruppo, voci] of Object.entries(GRUPPI)) {
+            const group = sidebar.getByRole("group", { name: gruppo, exact: true });
+            await expect(group.getByText(gruppo, { exact: true }).first()).toBeVisible({ timeout: 15_000 });
+            for (const voce of voci) await expect(group.getByRole("link", { name: voce, exact: true })).toBeVisible();
+        }
+        // Nessun gruppo di una voce sola e nessun titolo uguale a una voce.
+        await expect(sidebar.getByRole("group", { name: /^(Servizio|Clienti|Il locale)$/ })).toHaveCount(0);
+        for (const voce of ["Cosa vedono i clienti", "Scheda"]) {
+            await expect(sidebar.getByRole("link", { name: voce, exact: true })).toBeVisible();
+        }
+        const ordine = ["Servizio", "Prenotazioni", "Comande", "Storico", "Cosa vedono i clienti", "Scheda"];
+        const labels = (await sidebar.getByRole("link").allTextContents()).map(l => l.trim()).filter(l => ordine.includes(l));
+        expect(labels).toEqual(ordine);
     });
 });
 

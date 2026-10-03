@@ -7,7 +7,7 @@
  * quali sono:
  *
  *   - la settimana dell'Agenda (lun–dom, `weekOffset` da oggi);
- *   - oggi, sempre (contatori in testa, scheda Servizio);
+ *   - oggi, sempre (contatori in testa, Elenco di Servizio);
  *   - il giorno della prenotazione aperta nel drawer e quello scelto nel
  *     form, con il giorno prima e il giorno dopo — l'avviso di capienza
  *     ragiona sulle finestre di durata, che scavalcano la mezzanotte (stessa
