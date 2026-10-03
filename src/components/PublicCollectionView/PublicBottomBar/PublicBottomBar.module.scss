@@ -3,15 +3,10 @@
 // z-index 150: sopra contenuto/section-nav (10/20) e FAB (55/60),
 // SOTTO toast/SearchOverlay (200) e sheet (900). Sheet e ricerca la coprono.
 
-// Ingombro reale della barra (per il padding-bottom dei contenitori scrollabili
-// pubblici, pattern `max(<token>, env(safe-area-inset-bottom))` — la safe-area
-// resta a parte, gestita da chi consuma il token). 16px = offset `.barWrap`
-// dal fondo; 58px = altezza pill (stesso valore già in uso per
-// `.submitFeedbackAboveBar` in CollectionView.module.scss); 12px = respiro
-// tra contenuto e barra. Fonte unica: se la pill cambia altezza, aggiorna qui.
-:global(:root) {
-  --pub-bottombar-clearance: 86px;
-}
+// Ingombro in fondo: NIENTE valori fissi qui. L'altezza reale (non scalata)
+// la misura PublicBottomBar.tsx e la scrive in `--pub-bottombar-h` su
+// `main.page`; offset, gap e clearance unica (`--pub-bottom-clearance`)
+// sono definiti su `.page` in CollectionView.module.scss.
 
 // Wrapper: posizionamento fisso + centratura (senza transform) + entry.
 // La centratura usa left/right + margin auto così il `transform` resta libero
@@ -20,7 +15,7 @@
   position: fixed;
   left: 0;
   right: 0;
-  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(var(--pub-bottombar-offset, 16px) + env(safe-area-inset-bottom, 0px));
   margin: 0 auto;
   z-index: 150;
 
@@ -56,14 +51,16 @@
   position: sticky;
   // left/right ignorati in sticky (in-flow); la centratura resta via margin auto
   // + width:fit-content ereditati dalla regola base.
-  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(var(--pub-bottombar-offset, 16px) + env(safe-area-inset-bottom, 0px));
   pointer-events: none;
-  // Margin-top negativo pari all'ingombro proprio del box (16px offset dal
-  // fondo + 58px altezza pill, stessi valori del commento sopra) evita che lo
-  // sticky aggiunga flow in fondo alla preview — il runtime pubblico è
-  // position:fixed e non occupa flow. Stesso rimedio di
-  // PublicBottomScrim.module.scss `.root[data-preview]`.
-  margin-top: calc(-1 * (16px + 58px) - env(safe-area-inset-bottom, 0px));
+  // Margin-top negativo pari all'ingombro proprio del box (offset dal fondo +
+  // altezza misurata della pill) evita che lo sticky aggiunga flow in fondo
+  // alla preview — il runtime pubblico è position:fixed e non occupa flow.
+  // Stesso rimedio di PublicBottomScrim.module.scss `.root[data-preview]`.
+  margin-top: calc(
+    -1 * (var(--pub-bottombar-offset, 16px) + var(--pub-bottombar-h, 54px)) -
+      env(safe-area-inset-bottom, 0px)
+  );
 }
 
 .bar {

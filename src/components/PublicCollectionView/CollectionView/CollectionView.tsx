@@ -3233,7 +3233,7 @@ export default function CollectionView({
                             ? styles.submitFeedbackSuccess
                             : styles.submitFeedbackError,
                         // Con la bottom bar attiva il toast condivide l'ancora a 16px:
-                        // lo solleviamo sopra la barra (~58px + gap) SOLO ≤640px (dove
+                        // lo solleviamo sopra la barra (altezza misurata + gap) SOLO ≤640px (dove
                         // la barra è visibile) — gating CSS, non inline, per non
                         // sollevarlo su desktop dove la barra è nascosta.
                         useBottomBar ? styles.submitFeedbackAboveBar : "",

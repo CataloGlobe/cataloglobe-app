@@ -93,6 +93,32 @@ export default function PublicBottomBar({
         return () => mq.removeEventListener("change", update);
     }, [preview]);
 
+    // Altezza reale della barra → `--pub-bottombar-h` sul parent (`main.page`),
+    // fonte unica dello spazio in fondo (clearance, scrim, toast: vedi `.page`
+    // in CollectionView.module.scss). offsetHeight = altezza di layout, NON
+    // toccata dallo scale 0.86 dello shrink (che vive sul `.bar` interno):
+    // la clearance non deve pulsare a ogni shrink. Gira anche in preview (RO
+    // sull'elemento, niente window). Altezza 0 = barra nascosta (desktop) →
+    // proprietà rimossa, vale il fallback CSS.
+    const wrapRef = useRef<HTMLDivElement | null>(null);
+    useEffect(() => {
+        const wrap = wrapRef.current;
+        const host = wrap?.parentElement;
+        if (!wrap || !host || typeof ResizeObserver === "undefined") return;
+        const write = () => {
+            const h = wrap.offsetHeight;
+            if (h > 0) host.style.setProperty("--pub-bottombar-h", `${h}px`);
+            else host.style.removeProperty("--pub-bottombar-h");
+        };
+        write();
+        const ro = new ResizeObserver(write);
+        ro.observe(wrap);
+        return () => {
+            ro.disconnect();
+            host.style.removeProperty("--pub-bottombar-h");
+        };
+    }, []);
+
     const groupRef = useRef<HTMLDivElement | null>(null);
     const tabRefs = useRef<Partial<Record<HubTab, HTMLButtonElement | null>>>({
         menu: null,
@@ -177,7 +203,7 @@ export default function PublicBottomBar({
         // Wrapper: posizionamento fisso + centratura + animazione di entrata (opacity/translateY).
         // Lo scale di shrink vive sul `.bar` interno per non collidere col transform dell'entry
         // (animation-fill su transform sovrascriverebbe lo scale del data-shrink).
-        <div className={styles.barWrap} data-preview={preview ? "true" : undefined}>
+        <div ref={wrapRef} className={styles.barWrap} data-preview={preview ? "true" : undefined}>
             <nav
                 className={styles.bar}
                 data-shrink={shrink ? "true" : "false"}
