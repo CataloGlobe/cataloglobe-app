@@ -28,6 +28,7 @@ import { countPendingReviews } from "@/services/supabase/reviews";
 import { usePermissions } from "@/context/usePermissions";
 import { canDoOnActivity, canDoOnAnyActivity, isTenantWide } from "@/lib/permissions";
 import { useSedeScope } from "@/hooks/useSedeScope";
+import { rememberLastSede } from "@/hooks/sedeScopeStore";
 import { resolveNavContext } from "@/utils/navModel";
 import type { BusinessOutletContext } from "./outletContext";
 
@@ -108,6 +109,14 @@ export default function MainLayout() {
     const { readableActivities, isLoaded: sediLoaded } = useSedeScope();
     const navContext = resolveNavContext(sediLoaded ? readableActivities.length : null, pathActivityId !== null);
     const soleActivityId = readableActivities.length === 1 ? readableActivities[0].id : null;
+    // Entrare in una sede la fa diventare l'ultima usata (§51.9): `/orders` e
+    // `/reservations` ci tornano. Solo una sede leggibile: un id sbagliato
+    // nell'indirizzo non si ricorda.
+    const rememberedSedeId =
+        pathActivityId && readableActivities.some(a => a.id === pathActivityId) ? pathActivityId : null;
+    useEffect(() => {
+        if (rememberedSedeId) rememberLastSede(rememberedSedeId);
+    }, [rememberedSedeId]);
     const tenantName = selectedTenant?.name;
     usePageTitle(pageName && tenantName ? `${pageName} — ${tenantName}` : pageName);
 

@@ -15,8 +15,8 @@ export interface SedeRedirectProps {
  * invece di aprirsi e poi chiedere «di quale sede?» (§46.1 per le comande,
  * §48.1 per le prenotazioni).
  *
- * Dove: l'ultima sede usata — la stessa che il selettore single-site già
- * ricorda fra le sessioni — o l'unica che c'è. Se non si può decidere, la
+ * Dove: l'ultima sede usata — quella in cui si è entrati l'ultima volta (§51.9,
+ * `rememberLastSede` nel layout) — o l'unica che c'è. Se non si può decidere, la
  * scelta la fa l'utente in Sedi, che è la porta del contesto.
  *
  * Query e ancora passano: `/orders?tab=tavoli` (il «Vai» degli avvisi, i

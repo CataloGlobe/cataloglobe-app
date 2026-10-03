@@ -3,6 +3,7 @@ import {
     SCOPE_ALL,
     clearSedeScopeLocal,
     readSedeScopeLocal,
+    rememberLastSede,
     resolveSedeScope,
     resolveSedeScopeSingle,
     subscribeSedeScope,
@@ -255,5 +256,19 @@ describe("sedeScopeStore — localStorage single-site", () => {
 
         writeSedeScopeLocal(ACT_1);
         expect(l).toHaveBeenCalledTimes(1);
+    });
+
+    it("rememberLastSede scrive l'ultima sede e notifica solo quando cambia (§51.9)", () => {
+        const l = vi.fn();
+        track(subscribeSedeScope(l));
+
+        rememberLastSede(ACT_1);
+        rememberLastSede(ACT_1);
+        expect(readSedeScopeLocal()).toBe(ACT_1);
+        expect(l).toHaveBeenCalledTimes(1);
+
+        rememberLastSede(ACT_2);
+        expect(readSedeScopeLocal()).toBe(ACT_2);
+        expect(l).toHaveBeenCalledTimes(2);
     });
 });

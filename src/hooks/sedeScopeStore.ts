@@ -4,7 +4,8 @@
 // Navigazione v2 (§51): la sede la dice l'indirizzo (le pagine di
 // sede) o il filtro della pagina (Programmazione, `?sede=`). Lo
 // scope "di navbar" in sessionStorage non c'è più. Resta la sola
-// ultima sede usata (localStorage), per `/orders` e `/reservations`
+// ultima sede usata (localStorage), scritta entrando in una sede
+// (`rememberLastSede`) e letta da `/orders` e `/reservations`
 // (`SedeRedirect`). Sync intra-tab: subscriber set module-level.
 //
 // File splittato dalla parte React per consentire test unitari
@@ -64,6 +65,16 @@ export function writeSedeScopeLocal(value: string): void {
         }
     }
     notify();
+}
+
+/**
+ * L'ultima sede usata è quella in cui si è entrati (§51.9): la scrive il
+ * layout quando l'indirizzo è di una sede leggibile. Scrive e notifica solo
+ * se cambia, così chi ascolta non si ridisegna a ogni navigazione.
+ */
+export function rememberLastSede(activityId: string): void {
+    if (readSedeScopeLocal() === activityId) return;
+    writeSedeScopeLocal(activityId);
 }
 
 /** Rimuove l'entry localStorage e notifica. Utile per test/cleanup. */

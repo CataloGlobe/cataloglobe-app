@@ -376,6 +376,24 @@ test.describe("Atterraggio (§51.6) e indirizzi (§51.14)", () => {
         await expect(page).toHaveURL(/\/locations\/[0-9a-f-]+\/prenotazioni$|\/locations$/, { timeout: 15_000 });
     });
 
+    test("/orders e /reservations tornano all'ultima sede in cui si è entrati (§51.9)", async ({ page }) => {
+        const paths = await locationPaths(page);
+        test.skip(paths.length < 2, "serve più di una sede");
+        const root = businessRoot(paths[0]);
+        await page.evaluate(() => window.localStorage.removeItem("cataloglobe:orders:lastActivityId"));
+        // Due sedi in ordine inverso: almeno una non è la prima dell'elenco,
+        // quindi il ritorno non può venire dal default.
+        for (const [sede, legacy, segment] of [
+            [paths[1], "orders", "comande"],
+            [paths[0], "reservations", "prenotazioni"]
+        ] as const) {
+            await page.goto(`${sede}/anagrafica`);
+            await expect(sedeSwitcher(page)).toBeVisible({ timeout: 15_000 });
+            await page.goto(`${root}/${legacy}`);
+            await expect(page).toHaveURL(new RegExp(`${sede}/${segment}`), { timeout: 15_000 });
+        }
+    });
+
     test("il logo porta all'ingresso dell'azienda", async ({ page }) => {
         const paths = await locationPaths(page);
         await page.goto(`${businessRoot(paths[0])}/products`);
