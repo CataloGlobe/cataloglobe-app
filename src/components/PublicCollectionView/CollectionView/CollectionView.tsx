@@ -30,6 +30,8 @@ import CollectionSectionNav from "../CollectionSectionNav/CollectionSectionNav";
 import type { CollectionStyle, CompactLayoutStyle, ContentDensity } from "@/types/collectionStyle";
 import styles from "./CollectionView.module.scss";
 import EventsView from "../EventsView/EventsView";
+import { FeaturedCtaFooter } from "../FeaturedBlock/FeaturedContentDetail";
+import { hasFeaturedCta } from "../FeaturedBlock/featuredCta";
 import PublicBottomBar from "../PublicBottomBar/PublicBottomBar";
 import PublicBottomScrim from "../PublicBottomScrim/PublicBottomScrim";
 import { hasOpenSheet } from "../hooks/useScrollCollapse";
@@ -1032,6 +1034,9 @@ export default function CollectionView({
     // "menu" resta l'unica vista primaria di activeTab; eventi/recensioni si
     // aprono/chiudono in stato locale, indipendente dal tab attivo.
     const [isEventsSheetOpen, setIsEventsSheetOpen] = useState(false);
+    // Contenuto aperto nel dettaglio della sheet «In evidenza» (null = elenco).
+    // Qui e non in EventsView: la sua CTA va nel footerContent della sheet.
+    const [selectedEvent, setSelectedEvent] = useState<V2FeaturedContent | null>(null);
     const [isReviewsSheetOpen, setIsReviewsSheetOpen] = useState(false);
     // Voto pre-impostato dal widget stelle in footer — undefined = flow normale
     // da "stars" (header/bottombar). Passato a ReviewsView come `initialRating`.
@@ -1041,6 +1046,9 @@ export default function CollectionView({
         if (mode === "public" && activityId) {
             trackEvent(activityId, "tab_switch", { from_tab: activeTab, to_tab: "events" });
         }
+        // Riparte dall'elenco a ogni apertura (azzerarlo alla chiusura cambierebbe
+        // il contenuto durante l'animazione d'uscita).
+        setSelectedEvent(null);
         setIsEventsSheetOpen(true);
     }, [mode, activityId, activeTab]);
     const closeEventsSheet = useCallback(() => setIsEventsSheetOpen(false), []);
@@ -3117,9 +3125,14 @@ export default function CollectionView({
                             </button>
                         </div>
                     }
+                    footerContent={
+                        selectedEvent && hasFeaturedCta(selectedEvent)
+                            ? <FeaturedCtaFooter block={selectedEvent} />
+                            : undefined
+                    }
                 >
                     <div className={`${styles.infoSheetContent} ${styles.eventsListContent}`}>
-                        <EventsView featuredContents={featuredContents} layout={style?.featuredStyle} showSubtitle={style?.showFeaturedSubtitle} showTitle={style?.showFeaturedTitle} showCta={style?.showFeaturedCta} />
+                        <EventsView featuredContents={featuredContents} layout={style?.featuredStyle} showSubtitle={style?.showFeaturedSubtitle} showTitle={style?.showFeaturedTitle} showCta={style?.showFeaturedCta} selectedFeatured={selectedEvent} onSelectFeatured={setSelectedEvent} />
                     </div>
                 </PublicSheet>
             )}
