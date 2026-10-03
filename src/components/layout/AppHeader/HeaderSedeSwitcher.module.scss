@@ -38,6 +38,17 @@
   color: var(--text-muted);
 }
 
+// Sul telefono ogni pixel va al nome della sede, che resta intero.
+@media (max-width: 767px) {
+  .storeIcon {
+    display: none;
+  }
+
+  .trigger {
+    padding: 0 var(--space-4);
+  }
+}
+
 .trigger .name {
   color: inherit;
 }

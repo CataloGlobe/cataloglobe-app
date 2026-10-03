@@ -166,6 +166,12 @@ test.describe("Aspetto della sidebar (§51.15)", () => {
         await expect.poll(async () => (await aside(page).boundingBox())?.width).toBe(64);
         const closed = await linkTops(page);
 
+        // Chiusa la riga sta nei 64 meno i margini (64 − bordo − 2 × 11): il
+        // testo è tagliato, non a vista.
+        const widths = await nav(page)
+            .getByRole("link")
+            .evaluateAll(links => links.map(l => Math.round(l.getBoundingClientRect().width)));
+        for (const w of widths) expect(w).toBeLessThanOrEqual(42);
         expect(closed.length).toBe(open.length);
         closed.forEach((y, i) => expect(Math.abs(y - open[i])).toBeLessThanOrEqual(1));
         expect((await contextNav(page).boundingBox())?.height).toBe(header?.height);
@@ -310,6 +316,8 @@ test.describe("Header: percorso e selettore di sede (§51.7, §51.8)", () => {
         // La sede resta intera, l'azienda si accorcia: niente scroll orizzontale.
         const sede = (await sedeSwitcher(page).boundingBox())!;
         expect(sede.x + sede.width).toBeLessThanOrEqual(375);
+        const azienda = (await banner(page).getByRole("button", { name: /^Azienda:/ }).boundingBox())!;
+        expect(azienda.x + azienda.width).toBeLessThanOrEqual(sede.x);
         expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
     });
 
@@ -395,6 +403,11 @@ test.describe("Impostazioni con tab (§51.12)", () => {
         const main = page.getByRole("main");
         await expect(main.getByRole("tab", { name: "Membri" })).toBeVisible({ timeout: 15_000 });
         await expect(main.getByRole("tab", { name: /^Inviti in attesa/ })).toBeVisible();
+        // In cima al corpo, sopra la tabella: non si prendono l'altezza della pagina.
+        const membri = (await main.getByRole("tab", { name: "Membri" }).boundingBox())!;
+        const table = (await main.getByRole("table").first().boundingBox())!;
+        expect(membri.y).toBeLessThan(table.y);
+        expect(table.y - (membri.y + membri.height)).toBeLessThan(80);
         await expect(nav(page).getByRole("link", { name: "Impostazioni", exact: true })).toHaveAttribute(
             "aria-current",
             "page"

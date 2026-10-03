@@ -673,7 +673,7 @@ export default function TeamPage() {
                 ) : loadError ? (
                     loadErrorBanner
                 ) : null}
-                {!denied && !loadError && teamTabs}
+                {!denied && !loadError && <div className={styles.subTabs}>{teamTabs}</div>}
                 {denied || loadError ? null : activeTab === "members" && onlyMe && me ? (
                     <>
                         <Card flush bodyClassName={styles.rows}>

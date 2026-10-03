@@ -135,11 +135,15 @@ $dash-margin: 14px;
   }
 }
 
+// Colonna `minmax(0, 1fr)`: con `auto` la traccia si allargherebbe al
+// min-content del testo (nowrap) e da chiusa la riga uscirebbe dai 42 px,
+// mostrando le prime lettere invece di tagliarle.
 .list {
   list-style: none;
   padding: 0;
   margin: 0;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 0;
 }
 
