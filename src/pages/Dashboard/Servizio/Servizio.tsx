@@ -9,6 +9,7 @@ import { Tabs } from "@/components/ui/Tabs/Tabs";
 import { TablesLiveView } from "@/components/Tables/TablesLiveView/TablesLiveView";
 import { TablesManagement } from "@/components/Tables/TablesManagement/TablesManagement";
 import { TablesEmptyState } from "@/components/Tables/TablesManagement/TablesEmptyState";
+import ServizioElenco from "./ServizioElenco";
 import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { usePageHeader } from "@/context/usePageHeader";
 import { usePermissions } from "@/context/usePermissions";
@@ -22,17 +23,19 @@ import styles from "./Servizio.module.scss";
 const LOCKED_HINT = "Disponibile con il piano Pro";
 
 /**
- * Servizio (§18.2, lotto B-a): la sala di una sede, in più modi. Il modo
+ * Servizio (§18.2, lotti B-a e B-b): la sala di una sede, in tre modi —
+ * Elenco, Mappa, Gestisci la sala. Il modo
  * sta in `?modo=`; senza, il primo che si può usare (`servizioModes.ts`).
  * Un modo col lucchetto si vede spento e non si apre: `?modo=` che lo chiede
  * passa al primo usabile. Fuori dal parent della Scheda: legge la sede da sé,
  * come «Cosa vedono i clienti».
  *
- * Un modo solo montato alla volta: cambiando modo il canale realtime della
- * Mappa (`useTablesLiveRealtime`) si chiude, e si riapre tornandoci.
+ * Un modo solo montato alla volta: cambiando modo i canali realtime del
+ * modo lasciato (Elenco: prenotazioni e tavolate; Mappa:
+ * `useTablesLiveRealtime`) si chiudono, e si riaprono tornandoci.
  *
  * `/sala` e i vecchi `?tab=sala|tables` portano qui, in Gestisci la sala;
- * `comande?tab=tavoli` alla Mappa.
+ * `comande?tab=tavoli` alla Mappa; `prenotazioni?tab=service` all'Elenco.
  */
 export default function Servizio() {
     const { activityId = "", businessId = "" } = useParams<{ activityId: string; businessId: string }>();
@@ -171,6 +174,7 @@ export default function Servizio() {
 
     return (
         <div className={styles.container} data-mode={mode}>
+            {mode === "elenco" && <ServizioElenco activityId={activity.id} />}
             {mode === "mappa" && <TablesLiveView tenantId={businessId} activityId={activity.id} />}
             {mode === "gestisci" &&
                 // I tavoli servono a due canali: ordini al tavolo e prenotazioni.

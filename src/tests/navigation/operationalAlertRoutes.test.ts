@@ -20,7 +20,8 @@ describe("alertTarget", () => {
 describe("isAlertViewOpen", () => {
     it("tace sulla Mappa della stessa sede, anche senza ?modo=", () => {
         expect(isAlertViewOpen(`${base}/servizio`, "?modo=mappa", B, A, "tables")).toBe(true);
-        expect(isAlertViewOpen(`${base}/servizio`, "", B, A, "tables")).toBe(true);
+        // Lotto B-b: senza `?modo=` Servizio apre l'Elenco, che non mostra gli avvisi.
+        expect(isAlertViewOpen(`${base}/servizio`, "", B, A, "tables")).toBe(false);
     });
 
     it("parla in Gestisci la sala, che non mostra le richieste", () => {

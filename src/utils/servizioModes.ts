@@ -12,9 +12,9 @@ import type { PlanFeature } from "@/lib/planFeatures";
  *   atterra mai e non si apre;
  * - `hidden` — senza permesso non si mostra.
  *
- * L'Elenco (le tavolate) arriva col lotto B-b.
+ * L'Elenco (le tavolate, lotto B-b) è il primo: col piano Pro si atterra lì.
  */
-export type ServizioMode = "mappa" | "gestisci";
+export type ServizioMode = "elenco" | "mappa" | "gestisci";
 
 export interface ServizioModeEntry {
     mode: ServizioMode;
@@ -25,6 +25,15 @@ export interface ServizioModeEntry {
 }
 
 export const SERVIZIO_MODES: readonly ServizioModeEntry[] = [
+    // La sala del momento (In sala adesso · In arrivo · Concluse): era la
+    // scheda Servizio di Prenotazioni, con i suoi gate. Legge prenotazioni e
+    // tavolate; senza prenotazioni nel piano ha il lucchetto.
+    {
+        mode: "elenco",
+        label: "Elenco",
+        permissions: ["reservations.read", "seatings.read"],
+        requiresFeature: "table_reservation"
+    },
     // La sala per zona, col pannello del conto: era Comande → Tavoli. Legge
     // tavoli e ordini; senza ordini al tavolo nel piano ha il lucchetto.
     { mode: "mappa", label: "Mappa", permissions: ["tables.read", "orders.read"], requiresFeature: "table_ordering" },
