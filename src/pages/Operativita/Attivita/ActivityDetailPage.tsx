@@ -21,6 +21,7 @@ import { useToast } from "@/context/Toast/ToastContext";
 import { usePermissions } from "@/context/usePermissions";
 import { canDoOnActivity, canDoOnTenant } from "@/lib/permissions";
 import { formatInactiveReason } from "@/utils/activityStatus";
+import { legacyTabTarget } from "@/utils/navLanding";
 import {
     ACTIVITY_PAGES,
     ACTIVITY_SECTION_LABELS,
@@ -31,32 +32,12 @@ import {
 import { useActivityDraft } from "./useActivityDraft";
 import styles from "./ActivityDetailPage.module.scss";
 
-/**
- * I vecchi `?tab=` (sette valori più cinque legacy di una consolidazione
- * precedente) portano alla rotta giusta con `replace`: i link in giro
- * continuano a funzionare (registro Sedi, chiusura 9; §29.2).
- */
-const LEGACY_TAB_REDIRECT: Record<string, { section: ActivitySection; hash?: string }> = {
-    profile: { section: "anagrafica" },
-    info: { section: "anagrafica" },
-    media: { section: "anagrafica" },
-    hours: { section: "orari" },
-    ordering: { section: "ordini-prenotazioni", hash: "ordini" },
-    reservations: { section: "ordini-prenotazioni", hash: "prenotazioni" },
-    settings: { section: "pubblicazione" },
-    "hours-services": { section: "pubblicazione" },
-    "access-control": { section: "pubblicazione" },
-    sala: { section: "sala" },
-    tables: { section: "sala" },
-    availability: { section: "cosa-vedono" }
-};
-
 const isSection = (v: string): v is ActivitySection =>
     (ACTIVITY_SECTIONS as readonly string[]).includes(v);
 
 /**
  * Il locale in quattro pagine (§31): Anagrafica · Orari · Ordini e
- * prenotazioni · Pubblicazione, più Sala e Disponibilità come rotte senza tab. Questo
+ * prenotazioni · Pubblicazione, più Sala come rotta senza tab. Questo
  * parent legge la sede, gli orari e la ragione sociale una volta, tiene il
  * draft unico con la sua barra e la guardia all'uscita, e dà tutto alle
  * rotte figlie via `Outlet` (`useActivityDetail`).
@@ -183,7 +164,7 @@ const ActivityDetailPage: React.FC = () => {
 
     // Testata: le quattro pagine come tab che navigano, lo stato della sede
     // nelle azioni (su quattro pagine non è più a un click, come nel
-    // prototipo §31). Sala e Disponibilità non hanno una tab attiva.
+    // prototipo §31). Sala non ha una tab attiva.
     const leading = useMemo(() => (
         <Tabs<ActivitySection> value={section} onChange={next => goToSection(next)} variant="line">
             <Tabs.List>
@@ -208,8 +189,8 @@ const ActivityDetailPage: React.FC = () => {
         ) : null
     ), [statusLabel, activity?.status]);
 
-    // In compatto il picker dice dove sei anche su Sala e Disponibilità, che
-    // non sono tab: la voce compare solo mentre ci sei.
+    // In compatto il picker dice dove sei anche su Sala, che non è una tab:
+    // la voce compare solo mentre ci sei.
     const headerCompact = useMemo<PageHeaderCompactConfig>(() => ({
         sections: [
             ...ACTIVITY_PAGES.map(value => ({ value, label: ACTIVITY_SECTION_LABELS[value] })),
@@ -226,14 +207,15 @@ const ActivityDetailPage: React.FC = () => {
         compact: headerCompact,
     });
 
-    // Redirect dei vecchi `?tab=`: prima di tutto, così un link vecchio non
+    // Redirect dei vecchi `?tab=` anche su una pagina della scheda (sull'indice
+    // li legge `SedeHomeRedirect`): prima di tutto, così un link vecchio non
     // monta mai una rotta sbagliata.
     const legacyTab = searchParams.get("tab");
     if (legacyTab) {
-        const target = LEGACY_TAB_REDIRECT[legacyTab] ?? { section: "anagrafica" as ActivitySection };
+        const target = legacyTabTarget(legacyTab);
         return (
             <Navigate
-                to={{ pathname: `${basePath}/${target.section}`, hash: target.hash ? `#${target.hash}` : "" }}
+                to={{ pathname: `${basePath}/${target.segment}`, hash: target.hash ? `#${target.hash}` : "" }}
                 replace
             />
         );

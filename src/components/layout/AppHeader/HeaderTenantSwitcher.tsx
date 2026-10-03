@@ -39,7 +39,8 @@ export function HeaderTenantSwitcher() {
         setOpen(false);
         if (id !== selectedTenantId) {
             selectTenant(id);
-            navigate(`/business/${id}/overview`);
+            // Si entra dall'indice dell'azienda (D1): sede o Panoramica.
+            navigate(`/business/${id}`);
         }
     };
 
