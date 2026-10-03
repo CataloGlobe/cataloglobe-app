@@ -12,8 +12,8 @@
     bottom: calc(12px + env(safe-area-inset-bottom, 0px));
     box-sizing: border-box;
     display: grid;
-    gap: 12px;
-    padding: 14px 44px 14px 16px;
+    gap: 10px;
+    padding: 12px 44px 12px 16px;
     border: 1px solid var(--ld-line);
     border-radius: 16px;
     background: var(--ld-white);
@@ -164,9 +164,9 @@
         color: var(--ld-ink);
     }
 
+    // In alto a destra anche su desktop, come su mobile.
     @include desktop {
-        top: 50%;
-        right: 12px;
-        transform: translateY(-50%);
+        top: 8px;
+        right: 8px;
     }
 }
