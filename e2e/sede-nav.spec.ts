@@ -185,7 +185,7 @@ test.describe("Contesto di sede", () => {
             .innerText();
         await page.goto(`${paths[1].replace(/\/locations\/.*$/, "/scheduling")}?sede=${id}`);
         await expect(page).toHaveURL(/\/scheduling$/, { timeout: 15_000 });
-        await expect(page.getByRole("banner").getByRole("combobox", { name: "Sede attiva" })).toContainText(
+        await expect(page.getByRole("banner").getByRole("button", { name: "Sede attiva" })).toContainText(
             name.split("\n")[0].trim(),
             { timeout: 15_000 }
         );
@@ -218,7 +218,8 @@ test.describe("Contesto di sede", () => {
 
     test("dentro la sede non c'è il selettore di sede della navbar", async ({ page }) => {
         await openFirstLocation(page);
-        await expect(page.getByRole("banner").getByRole("combobox", { name: /[Ss]ede/ })).toHaveCount(0);
+        // Il selettore è un bottone «Sede attiva» (`SedeScopeSelect`), non un combobox.
+        await expect(page.getByRole("banner").getByRole("button", { name: "Sede attiva" })).toHaveCount(0);
     });
 });
 
