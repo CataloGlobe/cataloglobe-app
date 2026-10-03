@@ -1,6 +1,6 @@
-// Il segmento sede dell'header (§51.7, §51.8). Sul telefono a stringersi è
-// prima l'azienda, fino al cerchio con le iniziali; se la sede da sola non ci
-// sta, si accorcia coi puntini anche lei.
+// Il segmento sede dell'header (§51.7, §51.8). Sul telefono la sede tiene la
+// sua misura e l'azienda prende lo spazio che avanza, fino al cerchio con le
+// iniziali; se la sede da sola non ci sta, si accorcia coi puntini anche lei.
 .separator {
   flex-shrink: 0;
   color: var(--border);

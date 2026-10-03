@@ -328,13 +328,21 @@ test.describe("Header: percorso e selettore di sede (§51.7, §51.8)", () => {
         return { azienda: await box(/^Azienda:/), sede: await box(/^Sede:/), notifiche: await box(/^Notifiche/) };
     }
 
-    /** Il nome è tagliato coi puntini: il testo è più largo del suo box. */
+    /**
+     * Il nome è tagliato coi puntini: il testo è più largo del suo box. Si
+     * misura il testo (Range), non `scrollWidth`: arrotonda, e i puntini
+     * compaiono già con una frazione di pixel.
+     */
     const isTruncated = (page: Page, name: RegExp, selector: string) =>
         banner(page)
             .getByRole("button", { name })
             .locator(selector)
             .first()
-            .evaluate(el => el.scrollWidth > el.clientWidth);
+            .evaluate(el => {
+                const range = document.createRange();
+                range.selectNodeContents(el);
+                return range.getBoundingClientRect().width - el.getBoundingClientRect().width > 0.01;
+            });
 
     test("375, nomi lunghi: l'azienda scende al cerchio, poi si accorcia la sede (§51.8)", async ({ page }) => {
         const paths = await locationPaths(page);
@@ -366,7 +374,7 @@ test.describe("Header: percorso e selettore di sede (§51.7, §51.8)", () => {
         await expect(page.getByRole("menu").getByText("Le tue aziende")).toBeVisible();
     });
 
-    test("375, azienda lunga e sede corta: la sede resta intera (§51.8)", async ({ page }) => {
+    test("375, azienda lunga e sede corta: la sede resta intera, il menu nello schermo (§51.8)", async ({ page }) => {
         const paths = await locationPaths(page);
         test.skip(paths.length < 2, "serve più di una sede");
         await withLongNames(page, {
@@ -381,6 +389,17 @@ test.describe("Header: percorso e selettore di sede (§51.7, §51.8)", () => {
         expect(sede.x + sede.width).toBeLessThanOrEqual(notifiche.x);
         expect(await isTruncated(page, /^Sede:/, "span")).toBe(false);
         expect(await isTruncated(page, /^Azienda:/, "span:nth-child(2)")).toBe(true);
+
+        // In azienda: «Tutte le sedi» intera, l'azienda si accorcia.
+        await page.goto(`${businessRoot(paths[0])}/products`);
+        await expect(sedeSwitcher(page)).toHaveAccessibleName("Sede: Tutte le sedi", { timeout: 15_000 });
+        expect(await isTruncated(page, /^Sede:/, "span")).toBe(false);
+        expect(await isTruncated(page, /^Azienda:/, "span:nth-child(2)")).toBe(true);
+
+        // Il menu delle aziende resta nello schermo.
+        await banner(page).getByRole("button", { name: /^Azienda:/ }).click();
+        const menu = (await page.getByRole("menu").boundingBox())!;
+        expect(menu.x + menu.width).toBeLessThanOrEqual(375);
     });
 
     test("nessun selettore di scope «Sede attiva» nell'header", async ({ page }) => {

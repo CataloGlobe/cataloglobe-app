@@ -141,11 +141,14 @@
   display: inline-flex;
   min-width: 0;
 
-  // Sul telefono cede per prima (fattore 1000 contro l'1 della sede) e si
-  // ferma al cerchio: 24 + 4 + 4 di padding + 2 di bordo.
+  // Sul telefono prende solo lo spazio che la sede lascia (base 0, cresce
+  // fino al proprio contenuto) e si ferma al cerchio: 24 + 4 + 4 di padding
+  // + 2 di bordo. Un fattore di shrink alto non basta: la sede cederebbe
+  // comunque una frazione di pixel, e i puntini compaiono già con quella.
   @media (max-width: 767px) {
-    flex: 0 1000 auto;
+    flex: 1 1 0;
     min-width: 34px;
+    max-width: max-content;
   }
 }
 
@@ -210,6 +213,14 @@
   top: calc(100% + 6px);
   left: 0;
   min-width: 240px;
+
+  // Sul telefono resta nello schermo: parte a 54 (12 di padding + 36 del
+  // pulsante menu + 6) e lascia 12 a destra.
+  @media (max-width: 767px) {
+    min-width: min(240px, calc(100vw - 66px));
+    max-width: calc(100vw - 66px);
+  }
+
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 10px;
