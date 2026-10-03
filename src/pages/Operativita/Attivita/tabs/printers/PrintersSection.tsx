@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Printer as PrinterIcon, Unlink } from "lucide-react";
+import { ExternalLink, Printer as PrinterIcon, Unlink } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import { Card } from "@/components/ui/Card/Card";
 import { ListRow } from "@/components/ui/ListRow/ListRow";
@@ -206,7 +206,7 @@ export const PrintersSection: React.FC<PrintersSectionProps> = ({
           title="Nessuna stampante collegata"
           description={
             canManage
-              ? "Si collega col numero di serie della stampante più un nome. Funzionano solo le stampanti acquistate dal nostro link: vengono abbinate al nostro sistema alla spedizione."
+              ? "Si collega col numero di serie della stampante più un nome. Funzionano solo le stampanti acquistate su Logiscenter, il nostro rivenditore: vengono abbinate al nostro sistema alla spedizione."
               : "Non ci sono stampanti collegate a questa sede."
           }
           action={
@@ -261,6 +261,24 @@ export const PrintersSection: React.FC<PrintersSectionProps> = ({
               ma in cucina nessuno la vede su carta.
             </Text>
           </div>
+          {canManage && (
+            <p className={styles.note}>
+              <Text as="span" variant="caption" colorVariant="muted">
+                Altre stampanti si acquistano dal nostro rivenditore.
+              </Text>{" "}
+              <Button
+                as="a"
+                href={PRINTER_PURCHASE_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                variant="ghost"
+                size="sm"
+                leftIcon={<ExternalLink size={14} />}
+              >
+                Acquista su Logiscenter
+              </Button>
+            </p>
+          )}
         </>
       )}
 
