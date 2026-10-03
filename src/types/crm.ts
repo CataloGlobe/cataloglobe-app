@@ -186,6 +186,70 @@ export interface CrmIngestResult {
 }
 
 // -----------------------------------------------------------------------------
+// Agenti (Fase 1, F1-1): freno a mano, spesa AI, regole del brand, diario
+// -----------------------------------------------------------------------------
+
+export type { CrmAiRole } from "@shared/crmAi";
+
+export type CrmBrakeSource = "setup" | "admin" | "telegram" | "spend_cap" | "channel" | "system";
+
+export interface CrmAgentSettings {
+    brake_on: boolean;
+    brake_reason: string | null;
+    brake_source: CrmBrakeSource;
+    brake_changed_at: string | null;
+    brake_changed_by: string | null;
+    ai_month_cap_usd: number;
+    ai_day_cap_usd: number;
+    ai_model_conversation: string;
+    ai_model_reviewer: string;
+    ai_model_sensitive: string;
+    ai_model_gea: string;
+}
+
+export interface CrmAiSpend {
+    dayUsd: number;
+    monthUsd: number;
+    dayCap: number;
+    monthCap: number;
+}
+
+export type CrmDecisionActor = "agent" | "reviewer" | "gea" | "system" | "person";
+
+export interface CrmAgentDecision {
+    id: string;
+    created_at: string;
+    actor: CrmDecisionActor;
+    actor_user_id: string | null;
+    action: string;
+    reason: string;
+    venue_id: string | null;
+    lead_id: string | null;
+    review_outcome: "ok" | "rejected" | null;
+    decided_by: string | null;
+    decided_at: string | null;
+    payload: Record<string, unknown>;
+}
+
+export type CrmBrandRulesStatus = "draft" | "approved" | "retired" | "discarded";
+
+export interface CrmBrandRules {
+    id: string;
+    version: number;
+    created_at: string;
+    created_by: string | null;
+    body: string;
+    note: string | null;
+    status: CrmBrandRulesStatus;
+    approved_by: string | null;
+    approved_at: string | null;
+}
+
+export type CrmAgentCheckResult =
+    | { ok: true; model: string; reply: string; cost_usd: number; latency_ms: number }
+    | { ok: false; reason: string; model: string | null; detail: string | null };
+
+// -----------------------------------------------------------------------------
 // Sezione costi (/admin/costi, migration 20261003120000)
 // -----------------------------------------------------------------------------
 

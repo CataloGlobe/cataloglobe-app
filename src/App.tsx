@@ -46,6 +46,7 @@ const SupportTicketAdminPage = lazy(
 );
 const CrmLeadsPage = lazy(() => import("./pages/Admin/Crm/LeadsPage"));
 const CrmLeadDetailPage = lazy(() => import("./pages/Admin/Crm/LeadDetailPage"));
+const CrmAgentsPage = lazy(() => import("./pages/Admin/Crm/AgentsPage"));
 const CrmCostsPage = lazy(() => import("./pages/Admin/Costs/CostsPage"));
 
 // Workspace — lazy (solo utenti autenticati)
@@ -383,6 +384,7 @@ export default function App() {
                     <Route index element={<CrmLeadsPage />} />
                     <Route path=":venueId" element={<CrmLeadDetailPage />} />
                 </Route>
+                <Route path="agenti" element={<CrmAgentsPage />} />
                 <Route path="costi" element={<CrmCostsPage />} />
             </Route>
 
