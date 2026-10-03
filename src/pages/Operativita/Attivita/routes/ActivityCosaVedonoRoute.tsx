@@ -6,7 +6,6 @@ import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import Skeleton from "@/components/ui/Skeleton/Skeleton";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import { PageGate } from "@/components/PageGate/PageGate";
-import { useToast } from "@/context/Toast/ToastContext";
 import { getActivityById } from "@/services/supabase/activities";
 import type { V2Activity } from "@/types/activity";
 import { usePermissions } from "@/context/usePermissions";
@@ -31,20 +30,16 @@ import styles from "./ActivityCosaVedonoRoute.module.scss";
 export default function ActivityCosaVedonoRoute() {
     const { activityId = "", businessId = "" } = useParams<{ activityId: string; businessId: string }>();
     const navigate = useNavigate();
-    const { showToast } = useToast();
     const [activity, setActivity] = useState<V2Activity | null>(null);
     const [loading, setLoading] = useState(true);
 
+    // `getActivityById` non lancia: una lettura fallita è `null`, e la
+    // pagina lo dice con lo stato «Sede non trovata».
     const load = useCallback(async () => {
         setLoading(true);
-        try {
-            setActivity(await getActivityById(activityId, businessId));
-        } catch {
-            showToast({ message: "Impossibile caricare la sede.", type: "error" });
-        } finally {
-            setLoading(false);
-        }
-    }, [activityId, businessId, showToast]);
+        setActivity(await getActivityById(activityId, businessId));
+        setLoading(false);
+    }, [activityId, businessId]);
 
     useEffect(() => {
         void load();
@@ -74,7 +69,8 @@ export default function ActivityCosaVedonoRoute() {
     return <CosaVedonoContent activity={activity} tenantId={businessId} />;
 }
 
-function CosaVedonoContent({ activity, tenantId }: { activity: V2Activity; tenantId: string }) {
+/** Il corpo della pagina, con la sede già letta. */
+export function CosaVedonoContent({ activity, tenantId }: { activity: V2Activity; tenantId: string }) {
     const { permissions } = usePermissions();
     const { canEdit } = useSubscriptionGuard();
     // Legge chi legge la sede; scrive chi ha `activity.manage` (le RLS di
