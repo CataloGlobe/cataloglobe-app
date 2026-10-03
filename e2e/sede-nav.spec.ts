@@ -281,3 +281,92 @@ test.describe("Sidebar dell'azienda", () => {
         await expect(sidebar.getByRole("group", { name: /^(Operatività|Contenuti|Insight)$/ })).toHaveCount(0);
     });
 });
+
+test.describe("Atterraggio per ruolo", () => {
+    /** I permessi veri dei due ruoli di sede (`docs/permissions-matrix.md` §6). */
+    const PERMESSI: Record<"staff" | "viewer", string[]> = {
+        staff: [
+            "activity.read", "catalogs.read", "products.read", "featured.read", "stories.read", "styles.read",
+            "tables.read", "tables.manage", "orders.read", "orders.manage", "reservations.read", "reservations.manage",
+            "reviews.read", "reviews.moderate", "notifications.receive", "tenant.read", "seatings.read",
+            "seatings.manage", "support.read", "support.write"
+        ],
+        viewer: [
+            "activity.read", "catalogs.read", "products.read", "featured.read", "stories.read", "styles.read",
+            "scheduling.read", "tables.read", "orders.read", "reservations.read", "reviews.read", "analytics.read",
+            "tenant.read", "seatings.read"
+        ]
+    };
+
+    /** L'utente e2e diventa `role` della sola sede `activityId`, col piano `plan`. */
+    async function asRole(page: Page, role: "staff" | "viewer", activityId: string, plan: "pro" | "base"): Promise<void> {
+        await page.route(/\/rest\/v1\/rpc\/get_my_permissions/, async route => {
+            try {
+                const response = await route.fetch();
+                const rows = (await response.json()) as Array<Record<string, unknown>>;
+                for (const row of rows) {
+                    row.role = role;
+                    row.activity_ids = [activityId];
+                    row.permissions = PERMESSI[role];
+                }
+                await route.fulfill({ response, json: rows });
+            } catch {
+                // Pagina chiusa a metà richiesta: niente da riscrivere.
+            }
+        });
+        if (plan === "base") {
+            await page.route(/\/rest\/v1\/user_tenants_view/, async route => {
+                try {
+                    const response = await route.fetch();
+                    const rows = (await response.json()) as Array<Record<string, unknown>>;
+                    for (const row of rows) row.plan = "base";
+                    await route.fulfill({ response, json: rows });
+                } catch {
+                    // idem
+                }
+            });
+        }
+    }
+
+    /** Dove si è atterrati: una pagina vera, mai il lucchetto né l'accesso negato. */
+    async function expectUsableLanding(page: Page, segment: string): Promise<void> {
+        await expect(page).toHaveURL(new RegExp(`/locations/[0-9a-f-]+/${segment}$`), { timeout: 15_000 });
+        const current = nav(page).locator('a[aria-current="page"]');
+        await expect(current).toHaveCount(1, { timeout: 15_000 });
+        await expect(current.locator('[aria-label="Funzione del piano Pro"]')).toHaveCount(0);
+        const main = page.getByRole("main");
+        await expect(main.getByRole("button").first()).toBeVisible({ timeout: 15_000 });
+        for (const blocked of ["Non hai accesso", "richiede il piano Pro", "Sede non trovata"]) {
+            await expect(main.getByText(blocked)).toHaveCount(0);
+        }
+    }
+
+    const CASI = [
+        { role: "staff", plan: "pro", segment: "comande" },
+        { role: "viewer", plan: "pro", segment: "comande" },
+        // Col piano base Comande e Prenotazioni hanno il lucchetto: si atterra sulla Sala.
+        { role: "staff", plan: "base", segment: "sala" },
+        { role: "viewer", plan: "base", segment: "sala" }
+    ] as const;
+
+    for (const { role, plan, segment } of CASI) {
+        test(`${role}, piano ${plan}: entrando nella sede si arriva a ${segment}`, async ({ page }) => {
+            const paths = await locationPaths(page);
+            const id = paths[0].split("/").pop()!;
+            await asRole(page, role, id, plan);
+            await page.goto(paths[0]);
+            await expectUsableLanding(page, segment);
+        });
+
+        test(`${role}, piano ${plan}: con una sola sede leggibile l'azienda si apre nella sede`, async ({ page }) => {
+            const paths = await locationPaths(page);
+            const id = paths[0].split("/").pop()!;
+            await asRole(page, role, id, plan);
+            await page.goto(paths[0].replace(/\/locations\/.*$/, ""));
+            await expect(page).toHaveURL(new RegExp(`/locations/${id}/`), { timeout: 15_000 });
+            await expectUsableLanding(page, segment);
+            // L'uscita dice «Azienda»: una sede sola, niente elenco.
+            await expect(contextNav(page).getByRole("link", { name: "Azienda", exact: true })).toBeVisible();
+        });
+    }
+});
