@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { IconListDetails } from "@tabler/icons-react";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
@@ -187,7 +187,6 @@ export const ActivityVisibilityContent: React.FC<ActivityVisibilityContentProps>
 }) => {
     const explained = explanation !== undefined;
     const tenantId = useTenantId();
-    const navigate = useNavigate();
     const { showToast } = useToast();
     const { ensureActive } = useEnsureActive();
     const [searchParams, setSearchParams] = useSearchParams();
@@ -484,18 +483,16 @@ export const ActivityVisibilityContent: React.FC<ActivityVisibilityContentProps>
         );
     }
 
+    // Senza la spiegazione le regole si leggono con le RLS di chi guarda
+    // (`canExplainActivityCatalog`): un menù che non risulta non vuol dire che
+    // i clienti non ne vedono uno. La rotta aggiunge «Per vedere perché…».
     if (!explained && (!catalog || !catalog.catalogId)) {
         return (
             <EmptyState
-                variant="page"
+                variant="inline"
                 icon={<IconListDetails />}
-                title="Nessun catalogo attivo"
-                description="La disponibilità si gestisce quando una regola di programmazione assegna un menù a questa sede."
-                action={
-                    <Button variant="secondary" onClick={() => navigate(`/business/${tenantId}/scheduling`)}>
-                        Vai a Programmazione
-                    </Button>
-                }
+                title="Il menù di questa sede non è visibile con il tuo accesso"
+                description="I clienti potrebbero vederne uno: le regole che lo scelgono non si leggono col tuo ruolo."
             />
         );
     }

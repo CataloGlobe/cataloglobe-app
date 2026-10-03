@@ -327,6 +327,16 @@ test.describe("Cosa vedono i clienti — chi vede la spiegazione", () => {
         });
     }
 
+    test("staff senza menù leggibile: non dice «Nessun catalogo attivo»", async ({ page }) => {
+        // Senza `scheduling.read` le regole non si leggono: un menù che non
+        // risulta non vuol dire che i clienti non ne vedono uno.
+        await openDisponibilita(page, { role: "staff", noRule: true });
+        await expect(main(page).getByText("Il menù di questa sede non è visibile con il tuo accesso")).toBeVisible({ timeout: 15_000 });
+        await expect(main(page).getByText("Per vedere perché, serve l'accesso a Programmazione.")).toBeVisible();
+        await expect(main(page).getByText("Nessun catalogo attivo")).toHaveCount(0);
+        await expect(main(page).getByRole("button", { name: "Vai a Programmazione" })).toHaveCount(0);
+    });
+
     test("manager della sede: vede la banda", async ({ page }) => {
         const { name } = await openDisponibilita(page, { role: "manager" });
         await expect(band(page)).toContainText(`I clienti di ${name} vedono Menù e2e`, { timeout: 15_000 });
