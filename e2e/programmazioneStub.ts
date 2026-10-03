@@ -39,6 +39,10 @@ import { stubRest, type RestStub, type Row, type Tables } from "./restStub";
  *
  * «A mano» (`activity_product_overrides`): tre modifiche su Centro, nessuna
  * altrove.
+ *
+ * Con `{ manySeats: true }` sette sedi in più, senza regole (dieci in tutto):
+ * sopra le otto `ActivityMultiSelect` accende la ricerca. Nessun nome nuovo
+ * contiene «lag».
  */
 
 export { TENANT_ID };
@@ -97,7 +101,10 @@ export const RULE_NAME: Record<keyof typeof RULE, string> = {
 
 const CREATED = "2026-03-17T10:00:00.000Z";
 
-function activities(): Row[] {
+/** Le sedi in più di `{ manySeats: true }`. */
+const EXTRA_SEATS = ["Castello", "Duomo", "Fiera", "Mercato", "Navigli", "Stazione", "Teatro"];
+
+function activities(manySeats: boolean): Row[] {
     const a = (id: string, name: string, slug: string, status: "active" | "inactive", inactive_reason: string | null): Row => ({
         id,
         tenant_id: TENANT_ID,
@@ -107,10 +114,14 @@ function activities(): Row[] {
         inactive_reason,
         created_at: CREATED
     });
+    const extra = manySeats
+        ? EXTRA_SEATS.map((name, i) => a(uuid(81 + i), `${name} e2e`, `e2e-${name.toLowerCase()}`, "active", null))
+        : [];
     return [
         a(SEDE.centro, "Centro e2e", "e2e-centro", "active", null),
         a(SEDE.lago, "Lago e2e", "e2e-lago", "inactive", "closed"),
-        a(SEDE.porto, "Porto e2e", "e2e-porto", "active", null)
+        a(SEDE.porto, "Porto e2e", "e2e-porto", "active", null),
+        ...extra
     ];
 }
 
@@ -182,7 +193,7 @@ function scheduleRow(r: StubRule): Row {
     };
 }
 
-function makeTables(matrix: boolean): Tables {
+function makeTables(matrix: boolean, manySeats: boolean): Tables {
     const rs = rules(matrix);
     const style = { id: STYLE.base, name: "Stile base e2e", current_version: { config: {} } };
     const layout = (key: keyof typeof RULE, catalog: string | null): Row => ({
@@ -249,7 +260,7 @@ function makeTables(matrix: boolean): Tables {
             sfc("promoPorto", FEATURED.jazz, "after_catalog", 0),
             sfc("natale", FEATURED.natale, "before_catalog", 0)
         ],
-        activities: activities(),
+        activities: activities(manySeats),
         activity_groups: [
             { id: GROUP.system, tenant_id: TENANT_ID, name: "Tutte le sedi", is_system: true },
             { id: GROUP.costa, tenant_id: TENANT_ID, name: "Costa e2e", is_system: false },
@@ -288,8 +299,11 @@ function makeTables(matrix: boolean): Tables {
 export { StubError, type WriteCall } from "./restStub";
 export type ProgrammazioneStub = RestStub;
 
-export async function stubProgrammazione(page: Page, options: { matrix?: boolean } = {}): Promise<ProgrammazioneStub> {
-    const tables = makeTables(Boolean(options.matrix));
+export async function stubProgrammazione(
+    page: Page,
+    options: { matrix?: boolean; manySeats?: boolean } = {}
+): Promise<ProgrammazioneStub> {
+    const tables = makeTables(Boolean(options.matrix), Boolean(options.manySeats));
     const stub = await stubRest(page, {
         tables,
         // Il resolver del simulatore legge il menù come embedding di `schedules`.

@@ -33,11 +33,13 @@ import styles from "./MainLayout.module.scss";
 
 const SIDEBAR_COLLAPSED_KEY = "cg:sidebar-collapsed";
 
-/** Le pagine che vivono dentro una sede: le sei della scheda più le due
- *  operative, che sono pagine d'azienda montate sul contesto. */
+/** Le pagine che vivono dentro una sede: quelle della scheda più le
+ *  operative, montate sul contesto. */
 const SEDE_PAGE_LABELS: Record<string, string | undefined> = {
     ...ACTIVITY_SECTION_LABELS,
+    servizio: "Servizio",
     comande: "Comande",
+    storico: "Storico",
     prenotazioni: "Prenotazioni"
 };
 

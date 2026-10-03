@@ -9,6 +9,8 @@ import type { CrmEvent, CrmLead } from "@/types/crm";
  * ⚠️ SYNC con `crm_refresh_name_to_verify` (migration 20261002150000), che con
  * la stessa regola scrive l'etichetta `crm_venues.name_to_verify` (la chiamano
  * `crm_resolve_venue_name` e il trigger sui lead tornati, 20261002155000).
+ * Dal 20261002230000 l'etichetta c'è finché questo lead esiste, senza
+ * aspettare «Decido dopo».
  */
 export function leadToVerify(leads: CrmLead[], events: CrmEvent[] = []): CrmLead | null {
     const lastSame = leads

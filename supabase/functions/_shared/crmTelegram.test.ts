@@ -82,30 +82,30 @@ describe("uuid corti", () => {
 });
 
 describe("pulsanti per destinatario", () => {
-    it("chi ha il lead vede «Gira a <altro>»", () => {
+    it("chi ha il lead vede «Assegnalo a <altro>»", () => {
         expect(assignmentButtons(VENUE, ALEX, ALEX, TWO)).toEqual([
-            { text: "Gira a Lorenzo", callback_data: encodeAssign(VENUE, LORENZO) }
+            { text: "Assegnalo a Lorenzo", callback_data: encodeAssign(VENUE, LORENZO) }
         ]);
     });
 
     it("l'altro vede «Lo prendo io», che assegna a sé", () => {
         expect(assignmentButtons(VENUE, ALEX, LORENZO, TWO)).toEqual([
-            { text: "Lo prendo io", callback_data: encodeAssign(VENUE, LORENZO) }
+            { text: "Lo prendo io: assegnalo a me", callback_data: encodeAssign(VENUE, LORENZO) }
         ]);
     });
 
     it("dopo il passaggio i pulsanti si invertono", () => {
-        expect(assignmentButtons(VENUE, LORENZO, ALEX, TWO)[0].text).toBe("Lo prendo io");
-        expect(assignmentButtons(VENUE, LORENZO, LORENZO, TWO)[0].text).toBe("Gira a Alex");
+        expect(assignmentButtons(VENUE, LORENZO, ALEX, TWO)[0].text).toBe("Lo prendo io: assegnalo a me");
+        expect(assignmentButtons(VENUE, LORENZO, LORENZO, TWO)[0].text).toBe("Assegnalo a Alex");
     });
 
     it("lead non assegnato: tutti vedono «Lo prendo io»", () => {
-        expect(assignmentButtons(VENUE, null, ALEX, TWO)[0].text).toBe("Lo prendo io");
+        expect(assignmentButtons(VENUE, null, ALEX, TWO)[0].text).toBe("Lo prendo io: assegnalo a me");
     });
 
-    it("con più di due persone «Gira a…» apre la scelta tra i nomi", () => {
+    it("con più di due persone un tasto apre la scelta tra i nomi", () => {
         expect(assignmentButtons(VENUE, ALEX, ALEX, THREE)).toEqual([
-            { text: "Gira a…", callback_data: `g:${uuidToShort(VENUE)}` }
+            { text: "Assegnalo a un'altra persona…", callback_data: `g:${uuidToShort(VENUE)}` }
         ]);
         const rows = chooseButtons(VENUE, ALEX, THREE);
         expect(rows.map(r => r[0].text)).toEqual(["Lorenzo", "Terzo", "Annulla"]);
@@ -139,22 +139,35 @@ describe("buildLeadMessage", () => {
         );
         expect(msg.text).toContain("Aveva chiesto di non essere contattato");
         const texts = msg.reply_markup.inline_keyboard.flat().map(b => b.text);
-        expect(texts).not.toContain("Scrivi su WhatsApp");
-        expect(texts).toContain("Apri nel CRM");
+        expect(texts).not.toContain("Scrivigli su WhatsApp");
+        expect(texts).toContain("Apri la scheda nel CRM");
     });
 
     it("pulsante WhatsApp col link del destinatario, prima dei tasti di passaggio", () => {
         const msg = buildLeadMessage(data(), ALEX, TWO, "https://wa.example/alex");
         expect(msg.reply_markup.inline_keyboard[0][0]).toEqual({
-            text: "Scrivi su WhatsApp",
+            text: "Scrivigli su WhatsApp",
             url: "https://wa.example/alex"
         });
-        expect(msg.reply_markup.inline_keyboard[1][0].text).toBe("Gira a Lorenzo");
+        expect(msg.reply_markup.inline_keyboard[1][0].text).toBe("Assegnalo a Lorenzo");
     });
 
     it("senza telefono niente pulsante WhatsApp", () => {
         const msg = buildLeadMessage(data({ hasPhone: false }), ALEX, TWO, "https://wa.example");
-        expect(msg.reply_markup.inline_keyboard.flat().map(b => b.text)).not.toContain("Scrivi su WhatsApp");
+        expect(msg.reply_markup.inline_keyboard.flat().map(b => b.text)).not.toContain("Scrivigli su WhatsApp");
+    });
+
+    it("niente campi tecnici della landing, telefono scritto male con la sua etichetta", () => {
+        const { text } = buildLeadMessage(
+            data({ formAnswers: { variant: "b", landing_path: "/b", utm_source: "fb", phone_raw: "333 12", note: "ciao" } }),
+            ALEX,
+            TWO
+        );
+        expect(text).not.toContain("variant");
+        expect(text).not.toContain("landing");
+        expect(text).not.toContain("utm");
+        expect(text).toContain("<i>telefono scritto (non valido)</i>: 333 12");
+        expect(text).toContain("<i>note</i>: ciao");
     });
 
     it("sollecito con le ore di attesa", () => {
@@ -306,16 +319,18 @@ describe("lead tornato", () => {
         const msg = buildLeadMessage(returned({ venueNameGiven: "pizzeria gino", venueNameMatch: "same" }), ALEX, TWO);
         expect(msg.text).not.toContain("Stavolta ha scritto");
         const texts = msg.reply_markup.inline_keyboard.flat().map(b => b.text);
-        expect(texts).not.toContain("È lo stesso locale");
+        expect(texts.some(t => t.startsWith("Stesso locale"))).toBe(false);
     });
 
     it("nome simile: refuso, con i due tasti", () => {
         const msg = buildLeadMessage(returned({ venueNameGiven: "Pizzeria Ginno", venueNameMatch: "typo" }), ALEX, TWO);
         expect(msg.text).toContain("Stavolta ha scritto <b>Pizzeria Ginno</b>: sembra un refuso.");
-        const row = msg.reply_markup.inline_keyboard.find(r => r.some(b => b.text === "È lo stesso locale"));
-        expect(row?.map(b => b.text)).toEqual(["È lo stesso locale", "Decido dopo"]);
-        expect(row?.[0].callback_data).toBe(`s:${uuidToShort(LEAD)}`);
-        expect(row?.[1].callback_data).toBe(`l:${uuidToShort(LEAD)}`);
+        expect(msg.text).toContain("etichetta «Locale da verificare»");
+        const rows = msg.reply_markup.inline_keyboard.filter(r => r[0].text.startsWith("Stesso locale"));
+        expect(rows).toEqual([
+            [{ text: "Stesso locale: tieni «Pizzeria Gino»", callback_data: `s:${uuidToShort(LEAD)}` }],
+            [{ text: "Stesso locale: chiamalo «Pizzeria Ginno»", callback_data: `n:${uuidToShort(LEAD)}` }]
+        ]);
     });
 
     it("nome molto diverso: altro locale", () => {
@@ -323,16 +338,29 @@ describe("lead tornato", () => {
         expect(text).toContain("sembra un altro locale");
     });
 
-    it("dopo «Decido dopo»: etichetta detta, resta solo «È lo stesso locale»", () => {
+    it("«Decido dopo» di un messaggio vecchio: etichetta e gli stessi due tasti", () => {
         const msg = buildLeadMessage(
             returned({ venueNameGiven: "Bar Centrale", venueNameMatch: "other", venueNameCheck: "later" }),
             ALEX,
             TWO
         );
         expect(msg.text).toContain("Locale da verificare");
-        expect(venueNameButtons(ctx({ venueNameMatch: "other", venueNameCheck: "later" })).map(b => b.text)).toEqual([
-            "È lo stesso locale"
-        ]);
+        expect(
+            venueNameButtons(ctx({ venueNameGiven: "Bar Centrale", venueNameMatch: "other", venueNameCheck: "later" }), "Pizzeria Gino").map(b => b.callback_data)
+        ).toEqual([`s:${uuidToShort(LEAD)}`, `n:${uuidToShort(LEAD)}`]);
+    });
+
+    it("tasti uno per riga, nomi lunghi accorciati", () => {
+        const msg = buildLeadMessage(
+            returned({ venueNameGiven: "Ristorante Pizzeria Braceria da Gino al Porto", venueNameMatch: "other" }),
+            ALEX,
+            TWO,
+            "https://wa.example"
+        );
+        expect(msg.reply_markup.inline_keyboard.every(r => r.length === 1)).toBe(true);
+        const texts = msg.reply_markup.inline_keyboard.map(r => r[0].text);
+        expect(texts).toContain("Stesso locale: chiamalo «Ristorante Pizzeria Braceri…»");
+        expect(texts.at(-1)).toBe("Apri la scheda nel CRM");
     });
 
     it("dopo «È lo stesso locale»: conferma, niente tasti", () => {
@@ -341,8 +369,8 @@ describe("lead tornato", () => {
             ALEX,
             TWO
         );
-        expect(msg.text).toContain("Deciso: è lo stesso locale, resta Pizzeria Gino.");
-        expect(venueNameButtons(ctx({ venueNameMatch: "typo", venueNameCheck: "same" }))).toEqual([]);
+        expect(msg.text).toContain("Deciso: è lo stesso locale, si chiama Pizzeria Gino.");
+        expect(venueNameButtons(ctx({ venueNameGiven: "Pizzeria Ginno", venueNameMatch: "typo", venueNameCheck: "same" }), "Pizzeria Gino")).toEqual([]);
     });
 
     it("il nome del locale è escapato", () => {
@@ -352,6 +380,7 @@ describe("lead tornato", () => {
 
     it("callback del lead", () => {
         expect(parseCallbackData(`s:${uuidToShort(LEAD)}`)).toEqual({ action: "venue_same", leadId: LEAD });
+        expect(parseCallbackData(`n:${uuidToShort(LEAD)}`)).toEqual({ action: "venue_rename", leadId: LEAD });
         expect(parseCallbackData(`l:${uuidToShort(LEAD)}`)).toEqual({ action: "venue_later", leadId: LEAD });
         expect(parseCallbackData("s:corto")).toBeNull();
     });

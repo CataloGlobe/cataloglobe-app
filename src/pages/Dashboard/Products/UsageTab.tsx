@@ -174,7 +174,8 @@ export function UsageTab({ productId, tenantId, usageData, usageLoading }: Usage
                     <div role="list">
                         {data.activities.map(activity => (
                             <div role="listitem" key={activity.id}>
-                                <ListRow title={activity.name} to={`/business/${businessId}/locations/${activity.id}`} />
+                                {/* Dove il prodotto si vede, sede per sede: la sua riga in «Cosa vedono i clienti». */}
+                                <ListRow title={activity.name} to={`/business/${businessId}/locations/${activity.id}/cosa-vedono`} />
                             </div>
                         ))}
                     </div>

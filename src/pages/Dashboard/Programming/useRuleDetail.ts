@@ -19,7 +19,8 @@ import {
     buildRuleDetailForm,
     firstRuleFormError,
     missingDraftFields,
-    todayLocal,
+    todayInRome,
+    ruleDateToIso,
     validateRuleForm,
     type ProductLabels,
     type RuleDetailForm,
@@ -101,7 +102,7 @@ export function useRuleDetail({
     const allErrors = useMemo<RuleFormErrors>(
         () =>
             form
-                ? validateRuleForm(form, { today: todayLocal(), products: options.products, labels, savedStartAt })
+                ? validateRuleForm(form, { today: todayInRome(), products: options.products, labels, savedStartAt })
                 : {},
         [form, options.products, labels, savedStartAt]
     );
@@ -271,8 +272,8 @@ export function useRuleDetail({
         const hasDays = form.daysEnabled && form.daysOfWeek.length > 0;
         const hasBothTimes = Boolean(form.timeFrom && form.timeTo);
         const name = form.name.trim();
-        const startAt = form.startAt ? new Date(form.startAt + "T00:00:00").toISOString() : null;
-        const endAt = form.endAt ? new Date(form.endAt + "T23:59:59").toISOString() : null;
+        const startAt = ruleDateToIso(form.startAt, "start");
+        const endAt = ruleDateToIso(form.endAt, "end");
         const timeFrom = isWindow && hasBothTimes ? form.timeFrom : null;
         const timeTo = isWindow && hasBothTimes ? form.timeTo : null;
 

@@ -161,13 +161,14 @@ export default function WorkspacePage() {
 
     const handleSelect = (id: string) => {
         localStorage.setItem(STORAGE_KEY, id);
-        navigate(`/business/${id}/overview`);
+        // L'ingresso lo decide l'indice dell'azienda (D1): sede o Panoramica.
+        navigate(`/business/${id}`);
     };
 
     const handleInviteAccepted = (tenantId: string) => {
         setActiveInvite(null);
         localStorage.setItem(STORAGE_KEY, tenantId);
-        navigate(`/business/${tenantId}/overview`);
+        navigate(`/business/${tenantId}`);
     };
 
     const handleInviteDeclined = (inviteId: string) => {

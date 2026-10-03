@@ -5,6 +5,8 @@ interface ActivitySectionRedirectProps {
     to: ActivitySection;
     /** L'ancora del vecchio indirizzo va portata al nuovo (`#ordini`). */
     keepHash?: boolean;
+    /** La query del vecchio indirizzo va portata al nuovo (`?vista=ingredienti`). */
+    keepSearch?: boolean;
 }
 
 /**
@@ -14,7 +16,13 @@ interface ActivitySectionRedirectProps {
  * l'Anagrafica, non la pagina «non trovata» di tutto il sito (stessa regola
  * dei vecchi `?tab=`).
  */
-export default function ActivitySectionRedirect({ to, keepHash = false }: ActivitySectionRedirectProps) {
-    const { hash } = useLocation();
-    return <Navigate to={{ pathname: `../${to}`, hash: keepHash ? hash : "" }} replace relative="path" />;
+export default function ActivitySectionRedirect({ to, keepHash = false, keepSearch = false }: ActivitySectionRedirectProps) {
+    const { hash, search } = useLocation();
+    return (
+        <Navigate
+            to={{ pathname: `../${to}`, hash: keepHash ? hash : "", search: keepSearch ? search : "" }}
+            replace
+            relative="path"
+        />
+    );
 }

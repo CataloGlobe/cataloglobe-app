@@ -11,6 +11,7 @@ import {
     buildSsrShell,
     escapeHtml,
     serializeCatalogPayload,
+    stripLandingSeoForFallback,
     type PublicShellPayload,
     type ViteManifest
 } from "../../../api/_lib/publicShell";
@@ -251,6 +252,26 @@ describe("applyTenantHead", () => {
         expect(html.match(/property="og:image"/g)?.length).toBe(1);
         expect(html.match(/name="twitter:image"/g)?.length).toBe(1);
         expect(html).toContain('name="twitter:card" content="summary_large_image"');
+    });
+
+    it("toglie il JSON-LD della landing e il suo canonical", () => {
+        const landingLd = TEMPLATE.match(/<script\s+type="application\/ld\+json"\s+data-landing-ld>/g);
+        expect(landingLd?.length).toBe(2);
+        expect(TEMPLATE).toContain('<link rel="canonical" href="https://cataloglobe.com/" />');
+
+        const html = applyTenantHead(TEMPLATE, makePayload(), OPTS);
+        expect(html).not.toContain("application/ld+json");
+        expect(html).not.toContain('"SoftwareApplication"');
+        expect(html).toContain('<link rel="canonical" href="https://cataloglobe.com/san-pietro" />');
+        expect(html).toContain("</head>");
+    });
+
+    it("fallback SPA su URL di sede: niente JSON-LD della landing né canonical alla home", () => {
+        const html = stripLandingSeoForFallback(TEMPLATE);
+        expect(html).not.toContain("application/ld+json");
+        expect(html).not.toContain('rel="canonical"');
+        expect(html).toContain("<title>");
+        expect(html).toContain('<div id="root"></div>');
     });
 
     it("senza nome business: template invariato", () => {

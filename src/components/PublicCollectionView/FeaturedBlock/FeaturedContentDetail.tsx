@@ -18,10 +18,33 @@ type Props = {
 };
 
 /**
+ * Pulsante d'azione del contenuto in evidenza, da passare allo slot
+ * `footerContent` di PublicSheet: sta fuori dall'area che scorre, sempre
+ * visibile, e si muove col pannello (nessuna animazione propria).
+ * Null se il contenuto non ha CTA.
+ */
+export function FeaturedCtaFooter({ block }: Props) {
+    if (!block.cta_text || !block.cta_url) return null;
+    return (
+        <div className={styles.ctaFooter}>
+            <a
+                href={block.cta_url}
+                className={styles.ctaBtn}
+                target="_blank"
+                rel="noopener noreferrer"
+            >
+                {block.cta_text}
+            </a>
+        </div>
+    );
+}
+
+/**
  * Corpo del dettaglio contenuto in evidenza — estratto da `FeaturedPreviewModal`
  * per essere riusabile sia come sheet standalone (carosello inline nel menu,
  * via `FeaturedPreviewModal`) sia in-place dentro `EventsView` (sheet "Eventi &
  * Promo", nessuna seconda `PublicSheet` impilata). Stesso rendering, stessi dati.
+ * La CTA non sta qui: è `FeaturedCtaFooter`, nel footer della sheet.
  */
 export function FeaturedContentDetail({ block }: Props) {
     const { t } = useTranslation("public");
@@ -181,17 +204,6 @@ export function FeaturedContentDetail({ block }: Props) {
                         </div>
                     )}
 
-                {/* CTA */}
-                {block.cta_text && block.cta_url && (
-                    <a
-                        href={block.cta_url}
-                        className={styles.ctaBtn}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                    >
-                        {block.cta_text}
-                    </a>
-                )}
             </div>
         </div>
     );

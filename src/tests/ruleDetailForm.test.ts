@@ -3,6 +3,8 @@ import {
     buildRuleDetailForm,
     firstRuleFormError,
     missingDraftFields,
+    ruleDateToIso,
+    todayInRome,
     validateRuleForm,
     withPluralArticle,
     type RuleDetailForm
@@ -59,8 +61,10 @@ function makeForm(overrides: Partial<RuleDetailForm> = {}): RuleDetailForm {
         enabled: true,
         alwaysActive: false,
         timeMode: "window",
+        periodEnabled: false,
         startAt: "",
         endAt: "",
+        timeEnabled: false,
         daysEnabled: true,
         daysOfWeek: ["1"],
         timeFrom: "",
@@ -126,6 +130,25 @@ describe("validateRuleForm", () => {
         expect(validateRuleForm({ ...started, startAt: "2026-08-15" }, opts).startAt).toBe("La data di inizio è già passata.");
         // Senza inizio salvato (regola nuova), un inizio passato blocca.
         expect(validate(started).startAt).toBe("La data di inizio è già passata.");
+    });
+
+    it("vicino alla mezzanotte «oggi» è il giorno di Roma, non quello del browser", () => {
+        // 23:30Z del 22/09 = 01:30 del 23 a Roma: un browser a UTC (o a Los
+        // Angeles) è ancora al 22, e prima un inizio al 22 passava.
+        const justAfterMidnight = new Date("2026-09-22T23:30:00Z");
+        expect(todayInRome(justAfterMidnight)).toBe("2026-09-23");
+        const opts = { today: todayInRome(justAfterMidnight), products: NO_PRODUCTS };
+        expect(validateRuleForm(makeForm({ startAt: "2026-09-22", endAt: "2026-12-31" }), opts).startAt).toBe(
+            "La data di inizio è già passata."
+        );
+        expect(validateRuleForm(makeForm({ startAt: "2026-09-23", endAt: "2026-12-31" }), opts).startAt).toBeUndefined();
+        // Un minuto prima della mezzanotte di Roma è ancora il 22.
+        expect(todayInRome(new Date("2026-09-22T21:59:00Z"))).toBe("2026-09-22");
+    });
+
+    it("«In un periodo» e «In certe ore» accesi coi campi vuoti valgono come spenti (lotto C, Pr4)", () => {
+        // Gli interruttori stanno nella bozza per «Annulla», non aggiungono regole.
+        expect(validate(makeForm({ periodEnabled: true, timeEnabled: true }))).toEqual(validate(makeForm()));
     });
 
     it("la fine non viene prima dell'inizio, né per le date né per le ore", () => {
@@ -205,6 +228,20 @@ describe("missingDraftFields", () => {
 describe("buildRuleDetailForm", () => {
     const activityById = new Map([["sede-1", { id: "sede-1", name: "Centro", tenant_id: "t" }]]);
 
+    it("il periodo si legge nei giorni di Roma e si salva dalla mezzanotte alle 23:59:59 di Roma", () => {
+        // Salvato da Roma: inizio 1/10 00:00 (+2), fine 31/10 23:59:59 (+1, dopo il cambio d'ora).
+        const form = buildRuleDetailForm(
+            makeRule({ time_mode: "window", start_at: "2026-09-30T22:00:00.000Z", end_at: "2026-10-31T22:59:59.000Z" }),
+            activityById,
+            "Menù"
+        );
+        expect(form).toMatchObject({ periodEnabled: true, startAt: "2026-10-01", endAt: "2026-10-31" });
+        expect(ruleDateToIso(form.startAt, "start")).toBe("2026-09-30T22:00:00.000Z");
+        expect(ruleDateToIso(form.endAt, "end")).toBe("2026-10-31T22:59:59.000Z");
+        expect(ruleDateToIso("", "start")).toBeNull();
+        expect(ruleDateToIso("2026-02-30", "end")).toBeNull();
+    });
+
     it("legge periodo, giorni e ore come li mostra il form", () => {
         const form = buildRuleDetailForm(
             makeRule({ time_mode: "window", days_of_week: [1, 5], time_from: "11:00:00", time_to: "15:00:00" }),
@@ -212,6 +249,8 @@ describe("buildRuleDetailForm", () => {
             "Menù"
         );
         expect(form).toMatchObject({ timeMode: "window", alwaysActive: false, daysEnabled: true, daysOfWeek: ["1", "5"], timeFrom: "11:00", timeTo: "15:00" });
+        // Gli interruttori partono da ciò che è salvato.
+        expect(form).toMatchObject({ periodEnabled: false, timeEnabled: true });
     });
 
     it("giorni salvati come [] (dato vecchio): l'interruttore parte spento", () => {

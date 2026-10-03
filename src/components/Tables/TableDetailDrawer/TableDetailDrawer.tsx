@@ -281,6 +281,12 @@ export function TableDetailDrawer({
         !!permissions &&
         canDoOnActivity(permissions, "tables.manage", activityId);
     const hasClosePermission = canManageTable && !!onRequestClose;
+    // «Conferma» è una transizione dell'ordine: lo stesso permesso della board
+    // di Comande, non quello del tavolo.
+    const canManageOrders =
+        !!activityId &&
+        !!permissions &&
+        canDoOnActivity(permissions, "orders.manage", activityId);
 
     const loadDetail = useCallback(async () => {
         if (!tenantId || !activityId || !tableId) return;
@@ -739,7 +745,7 @@ export function TableDetailDrawer({
                                                         </>
                                                     }
                                                     trailing={
-                                                        isPending ? (
+                                                        isPending && canManageOrders ? (
                                                             <Button
                                                                 variant="primary"
                                                                 size="sm"

@@ -1,4 +1,4 @@
-import { ArrowLeft, Activity, Bot, Building2, LifeBuoy, UserPlus } from "lucide-react";
+import { ArrowLeft, Activity, Bot, Building2, LifeBuoy, UserPlus, Wallet } from "lucide-react";
 import {
     AppSidebar,
     type AppSidebarNavGroup
@@ -46,6 +46,11 @@ function buildGroups(supportPending: boolean): AppSidebarNavGroup[] {
                     to: "/admin/agenti",
                     label: "Agenti",
                     icon: <Bot size={18} />
+                },
+                {
+                    to: "/admin/costi",
+                    label: "Costi",
+                    icon: <Wallet size={18} />
                 }
             ]
         },

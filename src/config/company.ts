@@ -102,7 +102,7 @@ export function getOrganizationSchema() {
     name: COMPANY.businessName,
     legalName: COMPANY.legalName,
     url: COMPANY.web.homepage,
-    description: "Piattaforma SaaS per cataloghi digitali multi-tenant",
+    description: "Menù digitale con QR per ristoranti e bar, che si aggiorna da solo.",
     address: {
       "@type": "PostalAddress",
       streetAddress: `${COMPANY.legalAddress.street}, ${COMPANY.legalAddress.streetNumber}`,

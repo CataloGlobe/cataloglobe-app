@@ -179,7 +179,7 @@ export const BusinessList: React.FC<BusinessListProps> = ({
                         <TableRowActions
                             actions={[
                                 {
-                                    label: "Apri dettaglio",
+                                    label: "Apri sede",
                                     icon: FileText,
                                     onClick: () =>
                                         navigate(`/business/${businessId}/locations/${business.id}`)

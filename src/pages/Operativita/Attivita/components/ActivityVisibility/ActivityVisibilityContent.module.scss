@@ -75,3 +75,15 @@
   padding: 0;
   border: 0;
 }
+
+// La provenienza (§19.4) sotto nome e categoria: va a capo, non si tronca.
+.note {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+// Il listino barrato accanto al prezzo della regola (§19bis.1).
+.listPrice {
+  color: var(--text-muted);
+  font-weight: 400;
+}

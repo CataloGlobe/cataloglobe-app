@@ -4,6 +4,10 @@
  * piattaforma (RLS su `is_platform_admin()`).
  */
 
+import type { CrmBillingInterval, CrmExpenseCategory, CrmExpenseKind } from "@shared/crmExpenses";
+
+export type { CrmBillingInterval, CrmExpenseCategory, CrmExpenseKind };
+
 export const CRM_STAGES = [
     "nuovo",
     "contattato",
@@ -41,8 +45,10 @@ export type CrmEventType =
 
 /** Lead tornato: confronto del locale scritto con quello della carta (20261002130000). */
 export type CrmVenueNameMatch = "same" | "typo" | "other";
-/** Scelta su quel lead: «È lo stesso locale» o «Decido dopo». */
+/** Scelta scritta su quel lead: «È lo stesso locale» o «Decido dopo» (solo dati vecchi). */
 export type CrmVenueNameCheck = "same" | "later";
+/** Scelte offerte oggi (20261002230000): tieni il nome che avevamo o usa quello nuovo. */
+export type CrmVenueNameChoice = "same" | "rename";
 
 /** Stato dell'account collegato, copiato dal job (20261001150000). */
 export type CrmAccountState = "registrato" | "trialing" | "active" | "past_due" | "suspended" | "canceled";
@@ -242,3 +248,52 @@ export interface CrmBrandRules {
 export type CrmAgentCheckResult =
     | { ok: true; model: string; reply: string; cost_usd: number; latency_ms: number }
     | { ok: false; reason: string; model: string | null; detail: string | null };
+
+// -----------------------------------------------------------------------------
+// Sezione costi (/admin/costi, migration 20261003120000)
+// -----------------------------------------------------------------------------
+
+export interface CrmExpense {
+    id: string;
+    kind: CrmExpenseKind;
+    name: string;
+    category: CrmExpenseCategory;
+    /** Centesimi di euro, IVA inclusa. */
+    amount_cents: number;
+    paid_by: string | null;
+    /** Una tantum: giorno del pagamento. */
+    paid_on: string | null;
+    /** Abbonamento: primo addebito al prezzo indicato. */
+    first_charge_on: string | null;
+    billing_interval: CrmBillingInterval | null;
+    /** Abbonamento disdetto: niente addebiti da questo giorno in poi. */
+    cancelled_on: string | null;
+    /** Promemoria su Telegram N giorni prima del rinnovo; null = nessuno. */
+    remind_days_before: number | null;
+    reminded_for: string | null;
+    notes: string | null;
+    created_by: string | null;
+    created_at: string;
+    updated_at: string;
+}
+
+/** Un addebito calcolato da `crm_expense_charges`. */
+export interface CrmExpenseCharge {
+    expenseId: string;
+    chargedOn: string;
+    amountCents: number;
+}
+
+export interface CrmExpenseInput {
+    kind: CrmExpenseKind;
+    name: string;
+    category: CrmExpenseCategory;
+    amountCents: number;
+    paidBy: string | null;
+    paidOn: string | null;
+    firstChargeOn: string | null;
+    billingInterval: CrmBillingInterval | null;
+    cancelledOn: string | null;
+    remindDaysBefore: number | null;
+    notes: string | null;
+}

@@ -22,22 +22,22 @@
 }
 
 /* Clearance su mobile: i link legali restano fuori dalla zona di dissolvenza
-   di PublicBottomScrim (che copre anche la barra). Token `--pub-scrim-clearance`
-   (120px scrim + 16px respiro, definito in PublicBottomScrim.module.scss) +
-   safe-area SOMMATA (home indicator iOS). Stesso meccanismo di StoryView /
-   StoryReader / .emptyState del menu.
+   di PublicBottomScrim (che copre anche la barra). `--pub-bottom-clearance`
+   (definita su `.page`, CollectionView.module.scss: barra misurata + offset +
+   gap + safe-area) è la stessa altezza dello scrim. Stesso meccanismo di
+   StoryView / StoryReader / .emptyState del menu.
    Doppio gating: @media per il runtime pubblico (viewport reale, iframe di
    ?preview= compreso) + `.preview-mobile` per lo Style Editor, dove il viewport
    è quello dell'editor e la @media non scatta (stesso pattern di `.frame` in
    CollectionView.module.scss). */
 @media (max-width: 640px) {
   .footer {
-    padding-bottom: calc(var(--pub-scrim-clearance) + env(safe-area-inset-bottom, 0px));
+    padding-bottom: var(--pub-bottom-clearance);
   }
 }
 
 :global(.preview-mobile) .footer {
-  padding-bottom: calc(var(--pub-scrim-clearance) + env(safe-area-inset-bottom, 0px));
+  padding-bottom: var(--pub-bottom-clearance);
 }
 
 /* ── REVIEW WIDGET ──────────────────────────────────────── */

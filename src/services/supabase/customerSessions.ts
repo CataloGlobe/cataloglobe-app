@@ -9,6 +9,7 @@ import type {
     CloseTableOpenOrdersAction
 } from "@/types/orders";
 import { ResolveTableOrderingUnavailableError } from "@/types/orders";
+import { realtimeTopic } from "@/utils/realtimeTopic";
 
 function getEnvValue(key: string): string | undefined {
     const importMetaEnv =
@@ -442,7 +443,7 @@ export function subscribeToCustomerSession(
     try {
         supabase.realtime.setAuth(customerJwt);
         const channel = supabase
-            .channel("customer-session-" + Date.now())
+            .channel(realtimeTopic("customer-session"))
             .on(
                 "postgres_changes",
                 { event: "UPDATE", schema: "public", table: "customer_sessions" },

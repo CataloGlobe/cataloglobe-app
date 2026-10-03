@@ -38,9 +38,17 @@ export const CRM_EVENT_LABEL: Record<CrmEventType, string> = {
     venue_name_deferred: "Locale da verificare"
 };
 
-/** Messaggio italiano per gli errori delle RPC `crm_*` (RAISE in 20261001120100). */
+/** Messaggio italiano per gli errori delle RPC `crm_*` (RAISE in 20261001120100; VN001 in 20261002155000). */
 export function crmErrorMessage(err: unknown): string {
-    const message = err instanceof Error ? err.message : String(err ?? "");
+    // Codici SQLSTATE dedicati prima del testo: il messaggio può cambiare, il codice no.
+    const code = typeof err === "object" && err !== null && "code" in err ? (err as { code?: unknown }).code : null;
+    if (code === "VN001") return "Non c'è un nome del locale da verificare.";
+    const message =
+        err instanceof Error
+            ? err.message
+            : typeof err === "object" && err !== null && typeof (err as { message?: unknown }).message === "string"
+              ? (err as { message: string }).message
+              : String(err ?? "");
     if (message.includes("lost_reason_required")) return "Per Perso servono tipo e motivo.";
     if (message.includes("invalid_phone")) return "Il telefono non è valido.";
     if (message.includes("venue_not_found")) return "Questo locale non esiste più.";
@@ -49,7 +57,6 @@ export function crmErrorMessage(err: unknown): string {
     if (message.includes("lock_note_required")) return "Scrivi una nota: perché blocchi la fase.";
     if (message.includes("invalid_venue_name")) return "Scrivi il nome del locale (al massimo 160 caratteri).";
     if (message.includes("invalid_city")) return "La città è troppo lunga.";
-    if (message.includes("nothing_to_verify")) return "Non c'è un nome del locale da verificare.";
     if (message.includes("contact_stopped")) return "Ha chiesto di non essere contattato.";
     return "Qualcosa non ha funzionato. Riprova.";
 }

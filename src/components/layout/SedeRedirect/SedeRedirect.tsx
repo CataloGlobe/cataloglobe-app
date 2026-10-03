@@ -1,4 +1,4 @@
-import { Navigate, useParams } from "react-router-dom";
+import { Navigate, useLocation, useParams } from "react-router-dom";
 import { AppLoader } from "@/components/ui/AppLoader/AppLoader";
 import { SCOPE_ALL, useSedeScope } from "@/hooks/useSedeScope";
 import type { BusinessRouteKey } from "@/components/layout/AppHeader/navbarBreadcrumbRoutes";
@@ -18,16 +18,20 @@ export interface SedeRedirectProps {
  * Dove: l'ultima sede usata — la stessa che il selettore single-site già
  * ricorda fra le sessioni — o l'unica che c'è. Se non si può decidere, la
  * scelta la fa l'utente in Sedi, che è la porta del contesto.
+ *
+ * Query e ancora passano: `/orders?tab=tavoli` (il «Vai» degli avvisi, i
+ * link salvati) arriva alla vista che chiedeva, non alla prima della pagina.
  */
 export default function SedeRedirect({ routeKey, segment }: SedeRedirectProps) {
     const { businessId = "" } = useParams<{ businessId: string }>();
-    const { value, readableActivities } = useSedeScope({ routeKey });
+    const { value, readableActivities, isLoaded } = useSedeScope({ routeKey });
+    const { search, hash } = useLocation();
 
-    if (readableActivities.length === 0) {
-        // Ancora niente elenco: può essere il caricamento, o nessuna sede
-        // leggibile. Un attimo di attesa e poi la decisione qui sotto.
+    if (readableActivities.length === 0 && !isLoaded) {
+        // Ancora niente elenco. Con una sede ricordata si parte subito; senza,
+        // si aspetta l'elenco per decidere.
         return value && value !== SCOPE_ALL ? (
-            <Navigate to={`/business/${businessId}/locations/${value}/${segment}`} replace />
+            <Navigate to={{ pathname: `/business/${businessId}/locations/${value}/${segment}`, search, hash }} replace />
         ) : (
             <AppLoader />
         );
@@ -37,7 +41,11 @@ export default function SedeRedirect({ routeKey, segment }: SedeRedirectProps) {
 
     return (
         <Navigate
-            to={target ? `/business/${businessId}/locations/${target}/${segment}` : `/business/${businessId}/locations`}
+            to={
+                target
+                    ? { pathname: `/business/${businessId}/locations/${target}/${segment}`, search, hash }
+                    : `/business/${businessId}/locations`
+            }
             replace
         />
     );

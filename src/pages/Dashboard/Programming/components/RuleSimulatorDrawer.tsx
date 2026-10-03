@@ -16,9 +16,9 @@ import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
 import Text from "@/components/ui/Text/Text";
 import { supabase } from "@/services/supabase/client";
 import { resolveRulesForActivity, type ResolveRulesForActivityResult } from "@/services/supabase/scheduleResolver";
-import { toRomeDateTime } from "@/services/supabase/schedulingNow";
 import type { LayoutRule, LayoutRuleOption, RuleType } from "@/services/supabase/layoutScheduling";
 import { formatInactiveReason } from "@/utils/activityStatus";
+import { parseRomeDateTimeLocal, romeDateTimeLocalValue, romeInstantAt } from "@/utils/romeInstant";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import { ruleTypeLabel } from "../ruleTypeLabel";
 import { buildDailyTimeline } from "../simulatorTimeline";
@@ -27,11 +27,6 @@ import styles from "./RuleSimulatorDrawer.module.scss";
 const DAILY_TIMELINE_STEP_MINUTES = 30;
 const SIM_ERROR = "Non riusciamo a simulare questo momento.";
 const INVALID_DATE = "Data e ora non valide.";
-
-function toDateTimeLocalValue(date: Date): string {
-    const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-    return localDate.toISOString().slice(0, 16);
-}
 
 function getSpecificityLabel(value: number | null) {
     if (value === 2) return "Sede";
@@ -87,7 +82,9 @@ export function RuleSimulatorDrawer({
     // (`activity.status !== "active"` → pagina pubblica senza catalogo).
     const simActivity = activities.find(a => a.id === simActivityId) ?? null;
     const simActivityInactive = simActivity !== null && simActivity.status !== "active";
-    const [simDateTime, setSimDateTime] = useState(() => toDateTimeLocalValue(new Date()));
+    // Il momento si legge e si scrive all'ora di Roma, come lo gioca il
+    // resolver: il fuso del browser non sposta né il campo né il calcolo.
+    const [simDateTime, setSimDateTime] = useState(() => romeDateTimeLocalValue(new Date()));
     const [simResult, setSimResult] = useState<ResolveRulesForActivityResult | null>(null);
     const [isSimLoading, setIsSimLoading] = useState(false);
     const [simError, setSimError] = useState<string | null>(null);
@@ -106,8 +103,8 @@ export function RuleSimulatorDrawer({
             setSimError(null);
             return;
         }
-        const selectedDate = new Date(simDateTime);
-        if (Number.isNaN(selectedDate.getTime())) {
+        const selected = parseRomeDateTimeLocal(simDateTime);
+        if (!selected) {
             setSimResult(null);
             setSimError(INVALID_DATE);
             return;
@@ -119,7 +116,7 @@ export function RuleSimulatorDrawer({
                 supabase,
                 activityId: simActivityId,
                 tenantId,
-                now: toRomeDateTime(selectedDate),
+                now: selected,
                 includeLayoutStyle: true
             });
             setSimResult(result);
@@ -139,16 +136,15 @@ export function RuleSimulatorDrawer({
         if (!open || !timelineOpen || !simActivityId || !simDateTime) {
             return { timelineBlocks: [], timelineError: null };
         }
-        const selectedDate = new Date(simDateTime);
-        if (Number.isNaN(selectedDate.getTime())) {
+        const selected = parseRomeDateTimeLocal(simDateTime);
+        if (!selected) {
             return { timelineBlocks: [], timelineError: INVALID_DATE };
         }
-        const dayStart = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 0, 0, 0, 0);
+        // La giornata di Roma del momento scelto, dalla sua mezzanotte.
+        const day = { year: selected.year, month: selected.month, day: selected.day };
         const slots = [];
         for (let minutes = 0; minutes < 24 * 60; minutes += DAILY_TIMELINE_STEP_MINUTES) {
-            const slotTime = new Date(dayStart);
-            slotTime.setMinutes(minutes);
-            slots.push({ minutesOffset: minutes, now: toRomeDateTime(slotTime) });
+            slots.push({ minutesOffset: minutes, now: romeInstantAt(day, minutes) });
         }
         const seat = {
             activityId: simActivityId,
@@ -195,7 +191,9 @@ export function RuleSimulatorDrawer({
                 variant="primary"
                 disabled={previewBlockedReason !== null}
                 onClick={() => {
-                    const url = `/${activitySlug}?simulate=${new Date(simDateTime).toISOString()}`;
+                    const at = parseRomeDateTimeLocal(simDateTime);
+                    if (!at) return;
+                    const url = `/${activitySlug}?simulate=${new Date(at.epoch).toISOString()}`;
                     window.open(url, "_blank");
                 }}
             >

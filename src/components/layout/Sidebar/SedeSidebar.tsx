@@ -1,19 +1,21 @@
+import type { ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, CalendarCheck, ClipboardList, Eye, LayoutGrid, Store } from "lucide-react";
+import { ArrowLeft, CalendarCheck, ClipboardList, Eye, History, LayoutGrid, Store } from "lucide-react";
 import Text from "@/components/ui/Text/Text";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
 import { usePermissions } from "@/context/usePermissions";
-import { canDoOnActivity } from "@/lib/permissions";
 import { usePlanFeatures } from "@/lib/planFeatures";
-import { useActivitiesCount, useActivitySummary } from "@/hooks/useActivitySummary";
+import { useActivitySummary } from "@/hooks/useActivitySummary";
+import { useSedeScope } from "@/hooks/useSedeScope";
 import { AppSidebar } from "@/components/layout/AppSidebar/AppSidebar";
+import { SEDE_NAV_ENTRIES, canSeeSedeEntry } from "@/utils/navLanding";
 import { buildSidebarGroups, type SidebarNavGroup } from "./sidebarItems";
 import styles from "./SedeSidebar.module.scss";
 
 /**
  * SedeSidebar — il costruttore delle voci del contesto **sede** (§46.1).
- * Entrando in un locale la sidebar diventa la sua: cinque voci, e sopra
+ * Entrando in un locale la sidebar diventa la sua: le sue voci, e sopra
  * l'intestazione che dice dove sei e come si esce.
  *
  * I permessi si chiedono **su questa sede** (`canDoOnActivity`): dentro il
@@ -24,65 +26,39 @@ import styles from "./SedeSidebar.module.scss";
  * sempre su questa sede e non su quella che il selettore ricordava.
  */
 
+const ICONS: Record<string, ReactNode> = {
+    servizio: <LayoutGrid size={18} />,
+    comande: <ClipboardList size={18} />,
+    storico: <History size={18} />,
+    prenotazioni: <CalendarCheck size={18} />,
+    "cosa-vedono": <Eye size={18} />,
+    anagrafica: <Store size={18} />
+};
+
+/**
+ * Le voci e il loro ordine stanno in `SEDE_NAV_ENTRIES` (`utils/navLanding`):
+ * lo stesso elenco decide dove si atterra entrando nella sede (§46.1 f).
+ * Qui si aggiungono icone e indirizzi, e si raggruppa.
+ */
 function buildGroups(businessId: string, activityId: string): SidebarNavGroup[] {
     const s = `/business/${businessId}/locations/${activityId}`;
-    return [
-        {
-            title: "Servizio",
-            items: [
-                {
-                    to: `${s}/comande`,
-                    label: "Comande",
-                    icon: <ClipboardList size={18} />,
-                    permission: perms => canDoOnActivity(perms, "orders.read", activityId),
-                    requiresFeature: "table_ordering"
-                },
-                {
-                    to: `${s}/prenotazioni`,
-                    label: "Prenotazioni",
-                    icon: <CalendarCheck size={18} />,
-                    permission: perms => canDoOnActivity(perms, "reservations.read", activityId),
-                    requiresFeature: "table_reservation"
-                },
-                {
-                    to: `${s}/sala`,
-                    label: "Sala",
-                    icon: <LayoutGrid size={18} />,
-                    permission: perms => canDoOnActivity(perms, "tables.read", activityId)
-                }
-            ]
-        },
-        {
-            title: "Clienti",
-            items: [
-                {
-                    // Diventerà «Cosa vedono i clienti» con la §19: il nome
-                    // nuovo prometterebbe una pagina che non c'è ancora.
-                    to: `${s}/disponibilita`,
-                    label: "Disponibilità",
-                    icon: <Eye size={18} />,
-                    // Chi legge la sede la vede in sola lettura; scrive chi ha
-                    // `activity.manage`, lo stesso permesso delle RLS (D2, §50.14).
-                    // `product_availability.write` resta al gate degli ordini.
-                    permission: perms => canDoOnActivity(perms, "activity.read", activityId)
-                }
-            ]
-        },
-        {
-            title: "Il locale",
-            items: [
-                {
-                    to: `${s}/anagrafica`,
-                    label: "Scheda",
-                    icon: <Store size={18} />,
-                    // Una voce, quattro pagine: resta accesa anche su Orari,
-                    // Ordini e prenotazioni, Pubblicazione.
-                    matchPrefixes: [`${s}/orari`, `${s}/ordini-prenotazioni`, `${s}/pubblicazione`],
-                    permission: perms => canDoOnActivity(perms, "activity.read", activityId)
-                }
-            ]
+    const groups: SidebarNavGroup[] = [];
+    for (const entry of SEDE_NAV_ENTRIES) {
+        let group = groups.find(g => g.title === entry.group);
+        if (!group) {
+            group = { title: entry.group, items: [] };
+            groups.push(group);
         }
-    ];
+        group.items.push({
+            to: `${s}/${entry.segment}`,
+            label: entry.label,
+            icon: ICONS[entry.segment],
+            permission: perms => canSeeSedeEntry(perms, entry, activityId),
+            requiresFeature: entry.requiresFeature,
+            matchPrefixes: entry.matchSegments?.map(segment => `${s}/${segment}`)
+        });
+    }
+    return groups;
 }
 
 export interface SedeSidebarProps {
@@ -104,12 +80,15 @@ export default function SedeSidebar({
     const { permissions } = usePermissions();
     const { hasFeature } = usePlanFeatures();
     const summary = useActivitySummary(activityId);
-    const activitiesCount = useActivitiesCount();
+    // Le sedi che chi guarda può leggere: la stessa misura dell'ingresso
+    // nell'azienda (`businessHomePath`). Un manager di una sede sola esce
+    // verso l'azienda, non verso un elenco di una riga (§46.1 i).
+    const { readableActivities, isLoaded } = useSedeScope();
 
     const groups = buildSidebarGroups(buildGroups(businessId, activityId), { permissions, hasFeature });
 
     // Con una sede sola non esiste un «tutte»: si torna all'azienda.
-    const single = activitiesCount === 1;
+    const single = isLoaded && readableActivities.length === 1;
     const backLabel = single ? "Azienda" : "Tutte le sedi";
     const backTo = single ? `/business/${businessId}/overview` : `/business/${businessId}/locations`;
     const collapsedDesktop = !isMobile && collapsed;

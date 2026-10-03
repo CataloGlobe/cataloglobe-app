@@ -1,13 +1,13 @@
-import { useMemo, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import Text from "@components/ui/Text/Text";
 import { Button } from "@components/ui/Button/Button";
 import { IconButton } from "@components/ui/Button/IconButton";
 import { ChipGroupSingle } from "@components/ui/Chip/ChipGroup";
 import { EmptyState } from "@components/ui/EmptyState/EmptyState";
-import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { Tooltip } from "@components/ui/Tooltip/Tooltip";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { LayoutRule, RuleType } from "@services/supabase/layoutScheduling";
+import { romeDayOf, type RomeDay } from "@utils/romeInstant";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import { ruleTypeLabel } from "../ruleTypeLabel";
 import styles from "./CalendarView.module.scss";
@@ -55,37 +55,42 @@ function getRuleName(rule: LayoutRule, catalogLabel: string): string {
     return (rule.name ?? `${ruleTypeLabel(rule.rule_type, catalogLabel)} · ${rule.id.slice(0, 6)}`).trim();
 }
 
+/*
+ * I giorni della Settimana sono giorni del calendario di Roma, non del
+ * browser: le regole valgono all'ora di Roma (il resolver). Ogni giorno è
+ * la sua mezzanotte UTC (`civil`), così l'aritmetica dei giorni non incontra
+ * mai un cambio d'ora e il fuso del browser non entra.
+ */
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function civil({ year, month, day }: RomeDay): Date {
+    return new Date(Date.UTC(year, month, day));
+}
+
+/** Il giorno di Roma in cui cade un istante (`start_at`, `end_at`, adesso). */
+function romeCivilDayOf(instant: Date): Date {
+    return civil(romeDayOf(instant));
+}
+
 function getMonday(weekOffset: number): Date {
-    const now = new Date();
-    const day = now.getDay();
+    const today = romeCivilDayOf(new Date());
+    const day = today.getUTCDay();
     const diff = day === 0 ? -6 : 1 - day;
-    const monday = new Date(now);
-    monday.setDate(now.getDate() + diff + weekOffset * 7);
-    monday.setHours(0, 0, 0, 0);
-    return monday;
-}
-
-function isSameDay(a: Date, b: Date): boolean {
-    return (
-        a.getFullYear() === b.getFullYear() &&
-        a.getMonth() === b.getMonth() &&
-        a.getDate() === b.getDate()
-    );
-}
-
-function startOfDay(d: Date): Date {
-    const copy = new Date(d);
-    copy.setHours(0, 0, 0, 0);
-    return copy;
-}
-
-function endOfDay(d: Date): Date {
-    const copy = new Date(d);
-    copy.setHours(23, 59, 59, 999);
-    return copy;
+    return new Date(today.getTime() + (diff + weekOffset * 7) * DAY_MS);
 }
 
 /* ─── Week-aware filtering ───────────────────────────────────── */
+
+const NO_START = new Date(0);
+const NO_END = new Date(8640000000000000);
+
+/** Il primo e l'ultimo giorno di Roma del periodo della regola. */
+function ruleDays(rule: LayoutRule): { first: Date; last: Date } {
+    return {
+        first: rule.start_at ? romeCivilDayOf(new Date(rule.start_at)) : NO_START,
+        last: rule.end_at ? romeCivilDayOf(new Date(rule.end_at)) : NO_END
+    };
+}
 
 function isRuleRelevantForWeek(
     rule: LayoutRule,
@@ -93,9 +98,8 @@ function isRuleRelevantForWeek(
     weekEnd: Date
 ): boolean {
     if (rule.start_at || rule.end_at) {
-        const ruleStart = rule.start_at ? startOfDay(new Date(rule.start_at)) : new Date(0);
-        const ruleEnd = rule.end_at ? endOfDay(new Date(rule.end_at)) : new Date(8640000000000000);
-        return ruleStart <= endOfDay(weekEnd) && ruleEnd >= startOfDay(weekStart);
+        const { first, last } = ruleDays(rule);
+        return first <= weekEnd && last >= weekStart;
     }
     return true;
 }
@@ -106,12 +110,11 @@ function getDaysForRule(rule: LayoutRule, weekDates: Date[]): number[] {
     }
 
     if (rule.start_at || rule.end_at) {
-        const ruleStart = rule.start_at ? startOfDay(new Date(rule.start_at)) : new Date(0);
-        const ruleEnd = rule.end_at ? endOfDay(new Date(rule.end_at)) : new Date(8640000000000000);
+        const { first, last } = ruleDays(rule);
 
         return weekDates
             .map((date, colIndex) => ({ date, colIndex }))
-            .filter(({ date }) => date >= ruleStart && date <= ruleEnd)
+            .filter(({ date }) => date >= first && date <= last)
             .map(({ colIndex }) => colIndex);
     }
 
@@ -174,16 +177,20 @@ function renderCard(
 ) {
     const name = getRuleName(b.rule, catalogLabel);
     const when = b.from === 0 && b.to === TOTAL_MINUTES ? "tutto il giorno" : `${fmtTime(b.from)}–${fmtTime(b.to)}`;
+    const type = ruleTypeLabel(b.rule.rule_type, catalogLabel);
 
     return (
         <Tooltip
             key={`${b.rule.id}-${b.day}-${b.from}-${i}`}
-            content={`${name} · ${ruleTypeLabel(b.rule.rule_type, catalogLabel)}`}
+            content={`${name} · ${type}`}
             side="top"
         >
             <button
                 type="button"
                 data-type={b.rule.rule_type}
+                // Il tipo lo dice il colore del bordo, che in chiaro non
+                // arriva a 3:1: lo dice anche il nome del bottone.
+                aria-label={`${name}, ${type}, ${when}`}
                 className={styles.card}
                 onClick={() => onRuleClick?.(b.rule)}
             >
@@ -208,15 +215,23 @@ export interface CalendarViewProps {
 
 const DAY_LONG = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"];
 
+/**
+ * Sotto questa larghezza della Settimana sette colonne non stanno (circa
+ * 120 px l'una): un giorno alla volta. Si misura lo spazio, non la finestra,
+ * come la matrice (`SeatMatrix`): fra 768 e 1023, o a 1024 con la sidebar
+ * aperta, le colonne scendevano a ~90 px.
+ */
+const WEEK_MIN_WIDTH = 7 * 120;
+
 function todayColumn(): number {
-    return jsDayToCol(new Date().getDay());
+    return jsDayToCol(romeCivilDayOf(new Date()).getUTCDay());
 }
 
 /**
  * La Settimana come il mockup (`programmazione-settimana.png`): per ogni
  * giorno una pila di schede, una per regola accesa, col bordo del colore del
- * tipo, nome e orario. Niente asse delle ore. Sopra 768 sette colonne; sotto,
- * un giorno alla volta, con i sette giorni come scelta e le frecce che
+ * tipo, nome e orario. Niente asse delle ore. Sette colonne se lo spazio
+ * basta (`WEEK_MIN_WIDTH`); altrimenti un giorno alla volta, con i sette giorni come scelta e le frecce che
  * spostano di un giorno.
  *
  * Ogni scheda è la finestra della regola, non il pezzo che vince: la
@@ -226,22 +241,28 @@ export function CalendarView({ rules, ruleTypeFilter, onRuleClick }: CalendarVie
     const [weekOffset, setWeekOffset] = useState(0);
     const [dayIdx, setDayIdx] = useState(todayColumn);
     const { catalogLabel } = useVerticalConfig();
-    const isPhone = useMediaQuery("(max-width: 767px)");
+    const wrapperRef = useRef<HTMLDivElement>(null);
+    const [isNarrow, setIsNarrow] = useState(false);
+    useLayoutEffect(() => {
+        const box = wrapperRef.current;
+        if (!box) return;
+        const measure = () => setIsNarrow(box.clientWidth < WEEK_MIN_WIDTH);
+        measure();
+        const observer = new ResizeObserver(measure);
+        observer.observe(box);
+        return () => observer.disconnect();
+    }, []);
     const activeType = ruleTypeFilter;
 
     // Week dates
     const weekDates = useMemo(() => {
         const monday = getMonday(weekOffset);
-        return Array.from({ length: 7 }, (_, i) => {
-            const d = new Date(monday);
-            d.setDate(monday.getDate() + i);
-            return d;
-        });
+        return Array.from({ length: 7 }, (_, i) => new Date(monday.getTime() + i * DAY_MS));
     }, [weekOffset]);
 
     const weekStart = weekDates[0];
     const weekEnd = weekDates[6];
-    const today = new Date();
+    const today = romeCivilDayOf(new Date());
 
     const relevantRules = useMemo(
         () => rules.filter(r => r.enabled && isRuleRelevantForWeek(r, weekStart, weekEnd)),
@@ -255,8 +276,8 @@ export function CalendarView({ rules, ruleTypeFilter, onRuleClick }: CalendarVie
         return byDay.map(cards => cards.sort(compareCards));
     }, [relevantRules, weekDates, activeType]);
 
-    const visibleDays = isPhone ? [dayIdx] : [0, 1, 2, 3, 4, 5, 6];
-    const isCurrent = weekOffset === 0 && (!isPhone || dayIdx === todayColumn());
+    const visibleDays = isNarrow ? [dayIdx] : [0, 1, 2, 3, 4, 5, 6];
+    const isCurrent = weekOffset === 0 && (!isNarrow || dayIdx === todayColumn());
 
     const stepDay = (delta: 1 | -1) => {
         const next = dayIdx + delta;
@@ -276,19 +297,20 @@ export function CalendarView({ rules, ruleTypeFilter, onRuleClick }: CalendarVie
     };
 
     const selected = weekDates[dayIdx];
-    const navLabel = isPhone
-        ? `${DAY_LONG[dayIdx]} ${selected.getDate()} ${selected.toLocaleDateString("it-IT", { month: "long" })}`
-        : `${weekStart.toLocaleDateString("it-IT", { day: "2-digit", month: "short" })} — ${weekEnd.toLocaleDateString("it-IT", { day: "2-digit", month: "short", year: "numeric" })}`;
+    // Giorni civili (mezzanotte UTC): si leggono in UTC.
+    const navLabel = isNarrow
+        ? `${DAY_LONG[dayIdx]} ${selected.getUTCDate()} ${selected.toLocaleDateString("it-IT", { month: "long", timeZone: "UTC" })}`
+        : `${weekStart.toLocaleDateString("it-IT", { day: "2-digit", month: "short", timeZone: "UTC" })} — ${weekEnd.toLocaleDateString("it-IT", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" })}`;
 
     return (
-        <div className={styles.calendarWrapper}>
+        <div ref={wrapperRef} className={`${styles.calendarWrapper} ${isNarrow ? styles.narrow : ""}`}>
             <div className={styles.calendarNav}>
                 <IconButton
                     icon={<ChevronLeft size={16} />}
                     variant="secondary"
                     size="sm"
-                    aria-label={isPhone ? "Giorno precedente" : "Settimana precedente"}
-                    onClick={() => (isPhone ? stepDay(-1) : setWeekOffset(w => w - 1))}
+                    aria-label={isNarrow ? "Giorno precedente" : "Settimana precedente"}
+                    onClick={() => (isNarrow ? stepDay(-1) : setWeekOffset(w => w - 1))}
                 />
                 <Text as="span" variant="body-sm" weight={600} className={styles.calendarNavLabel}>
                     {navLabel}
@@ -297,8 +319,8 @@ export function CalendarView({ rules, ruleTypeFilter, onRuleClick }: CalendarVie
                     icon={<ChevronRight size={16} />}
                     variant="secondary"
                     size="sm"
-                    aria-label={isPhone ? "Giorno successivo" : "Settimana successiva"}
-                    onClick={() => (isPhone ? stepDay(1) : setWeekOffset(w => w + 1))}
+                    aria-label={isNarrow ? "Giorno successivo" : "Settimana successiva"}
+                    onClick={() => (isNarrow ? stepDay(1) : setWeekOffset(w => w + 1))}
                 />
                 {!isCurrent && (
                     <Button variant="ghost" size="sm" onClick={goToday}>
@@ -307,14 +329,14 @@ export function CalendarView({ rules, ruleTypeFilter, onRuleClick }: CalendarVie
                 )}
             </div>
 
-            {isPhone && (
+            {isNarrow && (
                 <ChipGroupSingle<string>
                     ariaLabel="Giorno"
                     value={String(dayIdx)}
                     onChange={value => setDayIdx(Number(value))}
                     options={weekDates.map((date, i) => ({
                         value: String(i),
-                        label: `${DAY_SHORT[i]} ${date.getDate()}`
+                        label: `${DAY_SHORT[i]} ${date.getUTCDate()}`
                     }))}
                     layout="auto"
                     shape="pill"
@@ -325,18 +347,18 @@ export function CalendarView({ rules, ruleTypeFilter, onRuleClick }: CalendarVie
                 <EmptyState variant="inline" title="Nessuna regola attiva questa settimana" />
             )}
 
-            <div className={`${styles.week} ${isPhone ? styles.singleDay : ""}`}>
+            <div className={`${styles.week} ${isNarrow ? styles.singleDay : ""}`}>
                 {visibleDays.map(col => {
-                    const isToday = isSameDay(weekDates[col], today);
+                    const isToday = weekDates[col].getTime() === today.getTime();
                     return (
                         <div key={col} className={`${styles.day} ${isToday ? styles.dayToday : ""}`}>
-                            {!isPhone && (
+                            {!isNarrow && (
                                 <div className={styles.dayHeader}>
                                     <Text as="span" variant="caption" weight={500} colorVariant={isToday ? undefined : "muted"} className={isToday ? styles.todayText : undefined}>
                                         {DAY_SHORT[col]}
                                     </Text>
                                     <Text as="span" variant="body-sm" weight={600} className={isToday ? styles.todayNumber : undefined}>
-                                        {weekDates[col].getDate()}
+                                        {weekDates[col].getUTCDate()}
                                     </Text>
                                 </div>
                             )}

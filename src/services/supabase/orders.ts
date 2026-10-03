@@ -51,6 +51,7 @@ import type {
     V2RectifiableResidual,
     ListOrdersOptions
 } from "@/types/orders";
+import { realtimeTopic } from "@/utils/realtimeTopic";
 
 // ─── Error detail shapes ───────────────────────────────────────────────────
 // Esportati per consentire al consumer UI di tipizzare correttamente
@@ -1114,7 +1115,7 @@ export function subscribeToSessionOrders(
         supabase.realtime.setAuth(customerJwt);
 
         const channel = supabase
-            .channel("session-orders-" + Date.now())
+            .channel(realtimeTopic("session-orders"))
             .on(
                 "postgres_changes",
                 { event: "*", schema: "public", table: "orders" },

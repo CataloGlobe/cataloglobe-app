@@ -6,28 +6,17 @@
 // Nessun transform/transition/will-change: i layer backdrop-filter devono
 // restare statici sul compositor.
 
-$scrim-height: 120px;
-
-// Clearance inferiore per i contenitori scrollabili pubblici che stanno SOTTO lo
-// scrim: 120px (altezza dello scrim, $scrim-height) + 16px di respiro = 136px.
-// La safe-area resta a parte e va SOMMATA dal consumer:
-//   padding-bottom: calc(var(--pub-scrim-clearance) + env(safe-area-inset-bottom, 0px))
-// (mai `max()`: su iPhone con home indicator la safe-area va aggiunta, non confrontata).
-// Definito su :root — stesso selettore di `--pub-bottombar-clearance` in
-// PublicBottomBar.module.scss — perché footer e Storie sono SIBLING dello scrim,
-// non discendenti: su `.root` non erediterebbero e var() cadrebbe sul fallback.
-// Distinto da `--pub-bottombar-clearance` (86px = ingombro reale della pill):
-// concetti diversi, devono poter divergere. Se $scrim-height cambia, aggiorna qui.
-:global(:root) {
-  --pub-scrim-clearance: #{$scrim-height + 16px};
-}
+// Altezza = `--pub-bottom-clearance` (definita su `.page`, CollectionView
+// .module.scss): offset + altezza misurata della barra + gap + safe-area. Così
+// lo scrim finisce esattamente dove a riposo finisce il contenuto (stessa
+// variabile del padding-bottom di footer / Storie / empty state).
 
 .root {
   position: fixed;
   left: 0;
   right: 0;
   bottom: 0;
-  height: calc(#{$scrim-height} + env(safe-area-inset-bottom, 0px));
+  height: var(--pub-bottom-clearance);
   z-index: 100;
   pointer-events: none;
 
@@ -45,11 +34,11 @@ $scrim-height: 120px;
    `.deviceScreen` è lo scroll container: position:fixed si ancorerebbe alla
    finestra dell'editor, non al frame → sticky bottom (come .barWrap[data-preview]).
    Il margin-top negativo pari all'altezza evita che l'overlay aggiunga flow in
-   fondo alla preview. In preview la safe-area vale 0 → 120px netti. */
+   fondo alla preview. */
 .root[data-preview] {
   position: sticky;
   bottom: 0;
-  margin-top: calc(-1 * #{$scrim-height} - env(safe-area-inset-bottom, 0px));
+  margin-top: calc(-1 * var(--pub-bottom-clearance));
 }
 
 /* ── Strato A — scrim gradiente ─────────────────────────────────────────────

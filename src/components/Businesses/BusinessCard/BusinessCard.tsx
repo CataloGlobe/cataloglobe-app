@@ -130,7 +130,7 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
                 <TableRowActions
                     ariaLabel="Azioni sede"
                     actions={[
-                        { label: "Apri dettaglio", icon: FileText, onClick: () => navigate(detailPath) },
+                        { label: "Apri sede", icon: FileText, onClick: () => navigate(detailPath) },
                         {
                             label: "Apri URL pubblico",
                             icon: ExternalLink,

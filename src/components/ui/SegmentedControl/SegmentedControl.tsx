@@ -1,11 +1,14 @@
 import React, { useEffect, useRef, useState } from "react";
 import Text from "@components/ui/Text/Text";
+import { Tooltip } from "@components/ui/Tooltip/Tooltip";
 import { useHorizontalOverflow } from "@/hooks/useHorizontalOverflow";
 import styles from "./SegmentedControl.module.scss";
 
 interface SegmentedOption<T extends string | number> {
     value: T;
     label: string;
+    /** Nome accessibile quando `label` è una forma corta del nome intero. */
+    ariaLabel?: string;
     icon?: React.ReactNode;
 }
 
@@ -75,7 +78,7 @@ export function SegmentedControl<T extends string | number>({
             {options.map(opt => {
                 const isActive = opt.value === value;
 
-                return (
+                const item = (
                     <button
                         key={opt.value}
                         ref={el => {
@@ -86,9 +89,8 @@ export function SegmentedControl<T extends string | number>({
                         aria-checked={isActive}
                         // In iconsOnly mode il testo non è renderizzato → senza
                         // aria-label il pulsante avrebbe nome accessibile vuoto.
-                        // Il `title` fornisce anche tooltip nativo on-hover.
-                        aria-label={iconsOnly ? opt.label : undefined}
-                        title={iconsOnly ? opt.label : undefined}
+                        // L'etichetta a vista la dà il Tooltip, non il `title`.
+                        aria-label={iconsOnly ? opt.label : opt.ariaLabel}
                         className={`${styles.item} ${size === "sm" ? styles.itemSm : ""}`}
                         onClick={() => {
                             setHasInteracted(true);
@@ -102,6 +104,14 @@ export function SegmentedControl<T extends string | number>({
                             </Text>
                         )}
                     </button>
+                );
+
+                return iconsOnly ? (
+                    <Tooltip key={opt.value} content={opt.label}>
+                        {item}
+                    </Tooltip>
+                ) : (
+                    item
                 );
             })}
         </div>

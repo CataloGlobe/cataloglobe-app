@@ -34,6 +34,12 @@
   gap: var(--space-12);
 }
 
+.choiceActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+}
+
 .venueNameFields {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));

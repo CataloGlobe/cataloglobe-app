@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Pin } from "lucide-react";
 import type { V2FeaturedContent } from "@/types/resolvedCollections";
@@ -16,14 +15,17 @@ type EventsViewProps = {
     showTitle?: boolean;
     /** Mostra il pulsante CTA nella card overview. Default true (comportamento storico). */
     showCta?: boolean;
+    /** Contenuto aperto nel dettaglio (null = elenco). Controllato dal parent:
+     *  la CTA del dettaglio sta nel footer della PublicSheet, che è del parent. */
+    selectedFeatured: V2FeaturedContent | null;
+    onSelectFeatured: (block: V2FeaturedContent | null) => void;
 };
 
-export default function EventsView({ featuredContents, layout = "card", showSubtitle = true, showTitle = true, showCta = true }: EventsViewProps) {
+export default function EventsView({ featuredContents, layout = "card", showSubtitle = true, showTitle = true, showCta = true, selectedFeatured, onSelectFeatured }: EventsViewProps) {
     const { t } = useTranslation("public");
     // Dettaglio in-place: niente seconda PublicSheet impilata sopra "Eventi &
     // Promo" (era il bug — doppio backdrop/handle). Stesso pattern di
     // ReviewsView "← Cambia voto": swap di contenuto dentro la stessa sheet.
-    const [selectedFeatured, setSelectedFeatured] = useState<V2FeaturedContent | null>(null);
 
     if (selectedFeatured) {
         return (
@@ -32,7 +34,7 @@ export default function EventsView({ featuredContents, layout = "card", showSubt
                     <button
                         type="button"
                         className={styles.backLink}
-                        onClick={() => setSelectedFeatured(null)}
+                        onClick={() => onSelectFeatured(null)}
                     >
                         {t("events.back")}
                     </button>
@@ -66,7 +68,7 @@ export default function EventsView({ featuredContents, layout = "card", showSubt
                     <FeaturedCard
                         key={fc.id}
                         block={fc}
-                        onClick={() => setSelectedFeatured(fc)}
+                        onClick={() => onSelectFeatured(fc)}
                         className={styles.cardFull}
                         variant={layout}
                         showSubtitle={showSubtitle}
