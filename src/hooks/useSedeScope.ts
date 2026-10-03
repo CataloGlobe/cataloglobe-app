@@ -29,7 +29,7 @@ import {
     SEDE_SINGLE_SITE_ROUTES,
     type BusinessRouteKey
 } from "@/components/layout/AppHeader/navbarBreadcrumbRoutes";
-import { getActivitiesCached, readActivitiesCache } from "./activitiesCache";
+import { getActivitiesCached, readActivitiesCache, subscribeActivitiesCache } from "./activitiesCache";
 import {
     SCOPE_ALL,
     readSedeScope,
@@ -116,6 +116,20 @@ export function useSedeScope(opts?: UseSedeScopeOpts): UseSedeScopeResult {
         return () => {
             cancelled = true;
         };
+    }, [tenantId]);
+
+    // Una sede creata, eliminata, rinominata o sospesa altrove: si rilegge.
+    useEffect(() => {
+        if (!tenantId) return;
+        return subscribeActivitiesCache(changed => {
+            if (changed !== tenantId) return;
+            const rows = readActivitiesCache(tenantId);
+            if (rows) setActivities(rows);
+            else
+                getActivitiesCached(tenantId)
+                    .then(setActivities)
+                    .catch(() => setActivities([]));
+        });
     }, [tenantId]);
 
     const readableActivities = useMemo<V2Activity[]>(() => {

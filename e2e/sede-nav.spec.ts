@@ -154,7 +154,10 @@ test.describe("Contesto di sede", () => {
         await expect(page.getByRole("tab", { name: /^(Anagrafica|Orari|Pubblicazione)$/ })).toHaveCount(0);
     });
 
+    // Il filtro sede di Programmazione passa dall'header alla pagina (§51.11):
+    // riscritto nel passo 8.
     test("«Vai a Programmazione» con la sede: Programmazione si apre su quella sede", async ({ page }) => {
+        test.fail(true, "filtro sede nella pagina: passo 8");
         const paths = await locationPaths(page);
         test.skip(paths.length < 2, "con una sede sola il filtro non c'è");
         const id = paths[1].split("/").pop()!;
@@ -183,12 +186,6 @@ test.describe("Contesto di sede", () => {
         const sidebar = nav(page);
         await expect(sidebar.getByRole("link", { name: "Scheda", exact: true })).toBeVisible({ timeout: 15_000 });
         await expect(contextNav(page).getByRole("link", { name: /^(Tutte le sedi|Azienda)$/ })).toBeVisible();
-    });
-
-    test("dentro la sede non c'è il selettore di sede della navbar", async ({ page }) => {
-        await openFirstLocation(page);
-        // Il selettore è un bottone «Sede attiva» (`SedeScopeSelect`), non un combobox.
-        await expect(page.getByRole("banner").getByRole("button", { name: "Sede attiva" })).toHaveCount(0);
     });
 });
 

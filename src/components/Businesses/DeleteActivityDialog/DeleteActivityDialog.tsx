@@ -11,6 +11,7 @@ import {
 } from "@/services/supabase/activities";
 import { countStoriesForActivity } from "@/services/supabase/stories";
 import { useToast } from "@/context/Toast/ToastContext";
+import { refreshActivitiesCache } from "@/hooks/activitiesCache";
 
 export interface DeleteActivityDialogProps {
     isOpen: boolean;
@@ -93,6 +94,9 @@ export function DeleteActivityDialog({
                         ? `Sede eliminata. ${disabled} regole di Programmazione sono passate in bozza perché non raggiungono più nessuna sede.`
                         : "Sede eliminata.";
             showToast({ message, type: "success", duration: disabled > 0 ? 4000 : 2500 });
+            // Una sede in meno può cambiare la navigazione (§51.2): sidebar e
+            // header rileggono l'elenco.
+            await refreshActivitiesCache(tenantId);
             await onDeleted(result);
             return true;
         } catch (e) {
@@ -113,7 +117,7 @@ export function DeleteActivityDialog({
         } finally {
             setIsDeleting(false);
         }
-    }, [activity, onDeleted, showToast]);
+    }, [activity, onDeleted, showToast, tenantId]);
 
     return (
         <ConfirmDialog

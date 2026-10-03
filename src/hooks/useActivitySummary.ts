@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTenantId } from "@/context/useTenantId";
 import type { V2Activity } from "@/types/activity";
-import { getActivitiesCached, readActivitiesCache } from "./activitiesCache";
+import { getActivitiesCached, readActivitiesCache, subscribeActivitiesCache } from "./activitiesCache";
 
 export interface ActivitySummary {
     id: string;
@@ -11,8 +11,8 @@ export interface ActivitySummary {
 }
 
 /**
- * Nome e stato di una sede, per chi deve solo **dire dove sei**: la sidebar
- * del contesto e la pill della navbar, montate su ogni pagina della sede.
+ * Nome e stato di una sede, per chi deve solo **dire dove sei**: il
+ * selettore di sede nell'header (§51.7), montato su ogni pagina.
  *
  * Passa dalla cache per tenant che già alimenta lo scope (`activitiesCache`):
  * una lettura sola per azienda, condivisa, e lo snapshot sincrono evita il
@@ -47,6 +47,14 @@ export function useActivitySummary(activityId: string | undefined): ActivitySumm
         return () => {
             cancelled = true;
         };
+    }, [tenantId, activityId]);
+
+    // Nome o stato cambiati altrove (Scheda, Pubblicazione): si rilegge.
+    useEffect(() => {
+        if (!tenantId || !activityId) return;
+        return subscribeActivitiesCache(changed => {
+            if (changed === tenantId) setSummary(pick(tenantId, activityId));
+        });
     }, [tenantId, activityId]);
 
     return summary;

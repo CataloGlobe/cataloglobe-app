@@ -1,0 +1,50 @@
+// Il segmento sede dell'header (§51.7, §51.8). La sede resta sempre intera:
+// a stringersi, sul telefono, è l'azienda.
+.separator {
+  flex-shrink: 0;
+  color: var(--border);
+  user-select: none;
+}
+
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-6);
+  flex-shrink: 0;
+  min-height: 32px;
+  padding: 0 var(--space-8);
+  border: none;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--timing-motion-fast) var(--easing-state);
+
+  &:hover {
+    background: var(--hover-bg);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-focus);
+  }
+}
+
+.storeIcon,
+.chevron {
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+.trigger .name {
+  color: inherit;
+}
+
+.iconSpacer {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}

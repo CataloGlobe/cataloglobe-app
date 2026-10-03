@@ -7,6 +7,7 @@ import {
     contextNav,
     locationPaths,
     nav,
+    sedeSwitcher,
     sidebarShape
 } from "./nav";
 
@@ -200,5 +201,124 @@ test.describe("Aspetto della sidebar (§51.15)", () => {
         const box = (await aside(page).boundingBox())!;
         expect(Math.round(box.height)).toBe(800);
         await expect(page.getByRole("button", { name: /menù laterale/ })).toHaveCount(0);
+    });
+});
+
+test.describe("Header: percorso e selettore di sede (§51.7, §51.8)", () => {
+    const banner = (page: Page) => page.getByRole("banner");
+
+    /** Il nome della sede dalla sua pagina: la Scheda lo ha nel campo «Nome del locale». */
+    async function sedeName(page: Page, path: string): Promise<string> {
+        await page.goto(`${path}/anagrafica`);
+        const field = page.getByRole("textbox", { name: /Nome del locale/ });
+        await expect(field).not.toHaveValue("", { timeout: 15_000 });
+        return field.inputValue();
+    }
+
+    test("una sede: il nome della sede, il menu con «Aggiungi una sede» che apre la creazione", async ({ page }) => {
+        const paths = await locationPaths(page);
+        const name = await sedeName(page, paths[0]);
+        await asSingleSede(page);
+        await page.goto(`${businessRoot(paths[0])}/products`);
+        await expect(sedeSwitcher(page)).toContainText(name, { timeout: 15_000 });
+        await sedeSwitcher(page).click();
+        const menu = page.getByRole("menu");
+        await expect(menu.getByRole("menuitem", { name: new RegExp(name) })).toBeVisible();
+        await expect(menu.getByRole("menuitem", { name: "Tutte le sedi" })).toHaveCount(0);
+        await menu.getByRole("menuitem", { name: "Aggiungi una sede" }).click();
+        await expect(page.getByRole("dialog").getByText(/Nuova sede|Aggiungi una sede al piano/).first()).toBeVisible();
+    });
+
+    test("più sedi, in azienda: «Tutte le sedi», scegliere una sede ci entra", async ({ page }) => {
+        const paths = await locationPaths(page);
+        test.skip(paths.length < 2, "serve più di una sede");
+        const name = await sedeName(page, paths[1]);
+        await page.goto(`${businessRoot(paths[0])}/products`);
+        await expect(sedeSwitcher(page)).toContainText("Tutte le sedi", { timeout: 15_000 });
+        await sedeSwitcher(page).click();
+        const menu = page.getByRole("menu");
+        await expect(menu.getByRole("menuitem", { name: "Aggiungi una sede" })).toBeVisible();
+        await expect(menu.getByRole("menuitem", { name: "Tutte le sedi" })).toBeVisible();
+        await menu.getByRole("menuitem", { name: new RegExp(`^${name}`) }).click();
+        await expect(page).toHaveURL(new RegExp(`${paths[1]}/[a-z-]+$`), { timeout: 15_000 });
+        await expect(sedeSwitcher(page)).toContainText(name);
+    });
+
+    test("dentro una sede: cambiare sede resta su Comande", async ({ page }) => {
+        const paths = await locationPaths(page);
+        test.skip(paths.length < 2, "serve più di una sede");
+        const name = await sedeName(page, paths[1]);
+        await page.goto(`${paths[0]}/comande`);
+        await sedeSwitcher(page).click();
+        await page.getByRole("menu").getByRole("menuitem", { name: new RegExp(`^${name}`) }).click();
+        await expect(page).toHaveURL(`${paths[1]}/comande`, { timeout: 15_000 });
+        await expect(sedeSwitcher(page)).toContainText(name);
+    });
+
+    test("manager di una sede: il menu ha la sola sede, senza «Aggiungi»", async ({ page }) => {
+        const paths = await locationPaths(page);
+        await asRole(page, "manager", activityIdOf(paths[0]), "pro");
+        await page.goto(`${paths[0]}/anagrafica`);
+        await sedeSwitcher(page).click();
+        const menu = page.getByRole("menu");
+        await expect(menu.getByRole("menuitem")).toHaveCount(1);
+        await expect(menu.getByRole("menuitem", { name: "Aggiungi una sede" })).toHaveCount(0);
+    });
+
+    test("una sede sospesa: «Sospesa» accanto al nome", async ({ page }) => {
+        const paths = await locationPaths(page);
+        await page.route(/\/rest\/v1\/activities\?/, async route => {
+            try {
+                const response = await route.fetch();
+                const text = await response.text();
+                const body: unknown = text ? JSON.parse(text) : null;
+                if (!Array.isArray(body)) {
+                    await route.fulfill({ response, body: text });
+                    return;
+                }
+                const rows = (body as Array<Record<string, unknown>>).map(r =>
+                    r.id === activityIdOf(paths[0]) ? { ...r, status: "inactive", inactive_reason: "renovation" } : r
+                );
+                await route.fulfill({ response, json: rows });
+            } catch {
+                // Pagina chiusa a metà richiesta.
+            }
+        });
+        await page.goto(`${paths[0]}/comande`);
+        await expect(sedeSwitcher(page)).toContainText("Sospesa", { timeout: 15_000 });
+        await expect(banner(page).getByText("Pubblicata")).toHaveCount(0);
+    });
+
+    test("1280: logo / azienda / sede / pagina", async ({ page }) => {
+        const paths = await locationPaths(page);
+        test.skip(paths.length < 2, "serve più di una sede");
+        await page.goto(`${paths[0]}/comande`);
+        await expect(sedeSwitcher(page)).toBeVisible({ timeout: 15_000 });
+        await expect(banner(page).getByRole("link", { name: /CataloGlobe/ })).toBeVisible();
+        await expect(banner(page).getByText("Comande", { exact: true })).toBeVisible();
+    });
+
+    test("375: azienda e sede, niente logo né pagina", async ({ page }) => {
+        const paths = await locationPaths(page);
+        test.skip(paths.length < 2, "serve più di una sede");
+        await page.setViewportSize({ width: 375, height: 800 });
+        await page.goto(`${paths[0]}/comande`);
+        await expect(sedeSwitcher(page)).toBeVisible({ timeout: 15_000 });
+        await expect(banner(page).getByRole("button", { name: /^Azienda:/ })).toBeVisible();
+        await expect(banner(page).getByRole("link", { name: /CataloGlobe/ })).toBeHidden();
+        await expect(banner(page).getByText("Comande", { exact: true })).toBeHidden();
+        // La sede resta intera, l'azienda si accorcia: niente scroll orizzontale.
+        const sede = (await sedeSwitcher(page).boundingBox())!;
+        expect(sede.x + sede.width).toBeLessThanOrEqual(375);
+        expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
+    });
+
+    test("nessun selettore di scope «Sede attiva» nell'header", async ({ page }) => {
+        const paths = await locationPaths(page);
+        for (const p of ["analytics", "reviews", "scheduling"]) {
+            await page.goto(`${businessRoot(paths[0])}/${p}`);
+            await expect(sedeSwitcher(page)).toBeVisible({ timeout: 15_000 });
+            await expect(banner(page).getByRole("button", { name: "Sede attiva" })).toHaveCount(0);
+        }
     });
 });

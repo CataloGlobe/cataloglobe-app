@@ -2,6 +2,7 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { updateActivity } from "@/services/supabase/activities";
 import { useToast } from "@/context/Toast/ToastContext";
 import type { V2Activity } from "@/types/activity";
+import { refreshActivitiesCache } from "@/hooks/activitiesCache";
 
 /** I campi della sede che il draft può toccare. */
 export type ActivityDraftPatch = Partial<Omit<V2Activity, "id" | "tenant_id" | "created_at">>;
@@ -107,6 +108,8 @@ export function useActivityDraft(
         setError(null);
         try {
             const updated = await updateActivity(activity.id, tenantId, patch);
+            // Il nome della sede sta anche nell'header (§51.7).
+            if ("name" in patch) void refreshActivitiesCache(tenantId);
             onSaved(updated);
             setPatch({});
             showToast({ message: "Modifiche salvate.", type: "success" });

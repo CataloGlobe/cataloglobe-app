@@ -26,6 +26,15 @@
   margin: 0 -2px;
 }
 
+// Solo da 768 in su: logo e il suo separatore (§51.8).
+.wideOnly {
+  display: contents;
+
+  @media (max-width: 767px) {
+    display: none;
+  }
+}
+
 .greeting {
   font-size: 13px;
   font-weight: 600;
@@ -116,6 +125,7 @@
 .tenantWrapper {
   position: relative;
   display: inline-flex;
+  min-width: 0;
 }
 
 .tenantButton {
@@ -143,6 +153,8 @@
   }
 }
 
+// L'azienda si accorcia con i puntini (§51.8): oltre ~170, e sul telefono
+// anche meno, perché la sede resta intera.
 .tenantName {
   font-size: 13px;
   font-weight: 600;
@@ -150,7 +162,8 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 180px;
+  max-width: 170px;
+  min-width: 0;
 }
 
 .tenantChevron {
