@@ -8,11 +8,14 @@
 //
 // Pulsanti per destinatario (decisione di Alex, 2026-10-01): il bot è uno ma
 // ogni messaggio va nella chat privata di ciascuno.
-//   * chi ha il lead assegnato vede «Gira a <nome dell'altro>»;
-//     con più di due persone «Gira a…» apre la scelta tra i nomi;
-//   * chi non ce l'ha vede «Lo prendo io».
+//   * chi ha il lead assegnato vede «Assegnalo a <nome dell'altro>»;
+//     con più di due persone «Assegnalo a un'altra persona…» apre i nomi;
+//   * chi non ce l'ha vede «Lo prendo io: assegnalo a me».
 // Dopo ogni passaggio il webhook riscrive il messaggio di tutti: «Preso da
 // <nome>» e pulsanti invertiti.
+//
+// Un tasto per riga, col testo che dice cosa succede (Alex, 2026-10-02 sera):
+// affiancati si troncano e non si capisce cosa fanno.
 //
 // callback_data ha un limite di 64 byte: gli uuid viaggiano in base64url
 // (22 caratteri), «a:<venue>:<user>» = 47 byte.
@@ -55,10 +58,27 @@ export type CrmVenueNameMatch = "same" | "typo" | "other";
 export type CrmVenueNameCheck = "same" | "later";
 
 /**
+ * Campi tecnici della landing (copiati da `crm_sync_landing_leads`): servono
+ * all'attribuzione, non a chi chiama. Fuori dal messaggio Telegram e dalla
+ * scheda in /admin (decisione di Alex del 2026-10-02).
+ */
+export const CRM_TECHNICAL_ANSWER_KEYS: ReadonlySet<string> = new Set([
+    "variant",
+    "utm_source",
+    "utm_medium",
+    "utm_campaign",
+    "utm_content",
+    "utm_term",
+    "referrer",
+    "landing_path"
+]);
+
+/**
  * Lead tornato con lo stesso telefono (decisione di Alex del 2026-10-02, wiki
  * ingresso-lead-e-assegnazione): chi è, da quando lo conosciamo, a che punto
- * è, cosa conviene fare; se ha scritto un altro nome del locale, i tasti
- * «È lo stesso locale» e «Decido dopo».
+ * è, cosa conviene fare; se ha scritto un altro nome del locale, l'etichetta
+ * «Locale da verificare» c'è già e i tasti scelgono il nome: quello che
+ * avevamo o quello nuovo.
  */
 export interface CrmReturnedContext {
     leadId: string;
@@ -89,6 +109,12 @@ export interface TelegramMessage {
 
 const MAX_ANSWERS = 8;
 const MAX_ANSWER_LENGTH = 200;
+const MAX_BUTTON_NAME = 28;
+
+function buttonName(name: string): string {
+    const text = name.trim();
+    return text.length > MAX_BUTTON_NAME ? `${text.slice(0, MAX_BUTTON_NAME - 1)}…` : text;
+}
 
 export function escapeHtml(value: string): string {
     return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -124,14 +150,15 @@ export function shortToUuid(short: string): string | null {
 // callback_data
 // -----------------------------------------------------------------------------
 //   a:<venue>:<user>  assegna il locale a <user>
-//   g:<venue>         apri la scelta «Gira a…»
+//   g:<venue>         apri la scelta tra i nomi
 //   x:<venue>         chiudi la scelta (torna ai pulsanti normali)
 export type CrmCallback =
     | { action: "assign"; venueId: string; userId: string }
     | { action: "choose"; venueId: string }
     | { action: "cancel"; venueId: string }
     | { action: "venue_same"; leadId: string }
-    | { action: "venue_later"; leadId: string };
+    | { action: "venue_later"; leadId: string }
+    | { action: "venue_rename"; leadId: string };
 
 export function encodeAssign(venueId: string, userId: string): string {
     return `a:${uuidToShort(venueId)}:${uuidToShort(userId)}`;
@@ -147,8 +174,10 @@ export function parseCallbackData(data: string): CrmCallback | null {
     }
     if (parts[0] === "g" && parts.length === 2) return { action: "choose", venueId };
     if (parts[0] === "x" && parts.length === 2) return { action: "cancel", venueId };
-    // «s»/«l» portano l'id del lead, non del locale.
+    // «s»/«n»/«l» portano l'id del lead, non del locale. «l» («Decido dopo»)
+    // non si offre più: resta per i messaggi vecchi.
     if (parts[0] === "s" && parts.length === 2) return { action: "venue_same", leadId: venueId };
+    if (parts[0] === "n" && parts.length === 2) return { action: "venue_rename", leadId: venueId };
     if (parts[0] === "l" && parts.length === 2) return { action: "venue_later", leadId: venueId };
     return null;
 }
@@ -163,17 +192,17 @@ export function assignmentButtons(
     team: CrmTeamMemberLite[]
 ): InlineButton[] {
     if (assignedTo !== recipientId) {
-        return [{ text: "Lo prendo io", callback_data: encodeAssign(venueId, recipientId) }];
+        return [{ text: "Lo prendo io: assegnalo a me", callback_data: encodeAssign(venueId, recipientId) }];
     }
     const others = team.filter(m => m.user_id !== recipientId);
     if (others.length === 0) return [];
     if (others.length === 1) {
         return [{
-            text: `Gira a ${others[0].display_name}`,
+            text: `Assegnalo a ${others[0].display_name}`,
             callback_data: encodeAssign(venueId, others[0].user_id)
         }];
     }
-    return [{ text: "Gira a…", callback_data: `g:${uuidToShort(venueId)}` }];
+    return [{ text: "Assegnalo a un'altra persona…", callback_data: `g:${uuidToShort(venueId)}` }];
 }
 
 /** La scelta tra i nomi dopo «Gira a…». */
@@ -229,14 +258,21 @@ export function returnedAdvice(ctx: CrmReturnedContext): string {
     }
 }
 
-/** Tasti sul nome del locale: solo se ha scritto un nome diverso. */
-export function venueNameButtons(ctx: CrmReturnedContext | undefined): InlineButton[] {
+/**
+ * Tasti sul nome del locale, solo se ha scritto un nome diverso e nessuno ha
+ * ancora scelto: tenere il nome che avevamo o usare quello nuovo.
+ */
+export function venueNameButtons(
+    ctx: CrmReturnedContext | undefined,
+    knownName: string
+): InlineButton[] {
     if (!ctx || (ctx.venueNameMatch !== "typo" && ctx.venueNameMatch !== "other")) return [];
-    if (ctx.venueNameCheck === "same") return [];
+    if (ctx.venueNameCheck === "same" || !ctx.venueNameGiven) return [];
     const short = uuidToShort(ctx.leadId);
-    const same = { text: "È lo stesso locale", callback_data: `s:${short}` };
-    if (ctx.venueNameCheck === "later") return [same];
-    return [same, { text: "Decido dopo", callback_data: `l:${short}` }];
+    return [
+        { text: `Stesso locale: tieni «${buttonName(knownName)}»`, callback_data: `s:${short}` },
+        { text: `Stesso locale: chiamalo «${buttonName(ctx.venueNameGiven)}»`, callback_data: `n:${short}` }
+    ];
 }
 
 function returnedLines(
@@ -259,9 +295,12 @@ function returnedLines(
         const guess = ctx.venueNameMatch === "typo" ? "sembra un refuso" : "sembra un altro locale";
         lines.push(`Stavolta ha scritto <b>${escapeHtml(ctx.venueNameGiven)}</b>: ${guess}.`);
         if (ctx.venueNameCheck === "same") {
-            lines.push(`✅ Deciso: è lo stesso locale, resta ${escapeHtml(data.venueName)}.`);
-        } else if (ctx.venueNameCheck === "later") {
-            lines.push("🕓 Da verificare: sulla scheda c'è l'etichetta «Locale da verificare». Chiediglielo al prossimo contatto.");
+            lines.push(`✅ Deciso: è lo stesso locale, si chiama ${escapeHtml(data.venueName)}.`);
+        } else {
+            lines.push(
+                "🕓 Sulla scheda c'è l'etichetta «Locale da verificare». Se non lo sai, chiediglielo al prossimo contatto; " +
+                    "è un altro locale? Per ora scrivilo in una nota."
+            );
         }
     }
     lines.push(`👉 ${escapeHtml(returnedAdvice(ctx))}`);
@@ -325,33 +364,34 @@ export function buildLeadMessage(
     if (data.interests.length) lines.push(`Interessi: ${escapeHtml(data.interests.join(", "))}`);
 
     const answers = Object.entries(data.formAnswers ?? {}).filter(
-        ([, value]) => value !== null && value !== undefined && String(value).trim() !== ""
+        ([key, value]) =>
+            !CRM_TECHNICAL_ANSWER_KEYS.has(key) &&
+            value !== null &&
+            value !== undefined &&
+            String(value).trim() !== ""
     );
     if (answers.length) {
         lines.push("");
         for (const [key, value] of answers.slice(0, MAX_ANSWERS)) {
             const text = String(value);
             const short = text.length > MAX_ANSWER_LENGTH ? `${text.slice(0, MAX_ANSWER_LENGTH)}…` : text;
-            lines.push(`<i>${escapeHtml(key.replace(/_/g, " "))}</i>: ${escapeHtml(short)}`);
+            const label = key === "phone_raw" ? "telefono scritto (non valido)" : key.replace(/_/g, " ");
+            lines.push(`<i>${escapeHtml(label)}</i>: ${escapeHtml(short)}`);
         }
         if (answers.length > MAX_ANSWERS) lines.push(`… e altre ${answers.length - MAX_ANSWERS} risposte`);
     }
 
     lines.push("", `${escapeHtml(data.stageLabel)} · ${assignmentLine(data.assignedTo, recipientId, team)}`);
 
-    const keyboard: InlineButton[][] = [];
-    const links: InlineButton[] = [];
+    const buttons: InlineButton[] = [];
     if (whatsappUrl && data.hasPhone && !data.stoppedBefore) {
-        links.push({ text: "Scrivi su WhatsApp", url: whatsappUrl });
+        buttons.push({ text: "Scrivigli su WhatsApp", url: whatsappUrl });
     }
-    if (data.adminUrl) links.push({ text: "Apri nel CRM", url: data.adminUrl });
-    if (links.length) keyboard.push(links);
-    const venueName = data.kind === "returned" ? venueNameButtons(data.returned) : [];
-    if (venueName.length) keyboard.push(venueName);
-    const assign = assignmentButtons(data.venueId, data.assignedTo, recipientId, team);
-    if (assign.length) keyboard.push(assign);
+    if (data.kind === "returned") buttons.push(...venueNameButtons(data.returned, data.venueName));
+    buttons.push(...assignmentButtons(data.venueId, data.assignedTo, recipientId, team));
+    if (data.adminUrl) buttons.push({ text: "Apri la scheda nel CRM", url: data.adminUrl });
 
-    return { text: lines.join("\n"), reply_markup: { inline_keyboard: keyboard } };
+    return { text: lines.join("\n"), reply_markup: { inline_keyboard: buttons.map(b => [b]) } };
 }
 
 // -----------------------------------------------------------------------------

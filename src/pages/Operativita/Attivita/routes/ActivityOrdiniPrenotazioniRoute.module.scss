@@ -12,6 +12,12 @@
   scroll-margin-top: var(--space-24);
 }
 
+// L'ancora della capienza (Checklist, conferma automatica): lo scroll si
+// ferma con lo stesso respiro delle sezioni.
+.anchor {
+  scroll-margin-top: var(--space-24);
+}
+
 .stack {
   display: flex;
   flex-direction: column;

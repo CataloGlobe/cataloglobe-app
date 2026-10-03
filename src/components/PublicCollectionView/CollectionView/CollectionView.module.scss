@@ -27,6 +27,21 @@
   background-repeat: repeat;
   color: var(--pub-text);
   font-family: var(--pub-font-family, sans-serif);
+
+  /* Spazio in fondo per la bottom bar flottante — FONTE UNICA.
+     `--pub-bottombar-h`: altezza reale (non scalata) di `.barWrap`, scritta
+     inline su questo elemento dal ResizeObserver di PublicBottomBar.tsx;
+     fallback 54px (pill a riposo) finché non è misurata o se la barra non c'è.
+     `--pub-bottom-clearance`: offset dal fondo + barra + gap + safe-area
+     SOMMATA. La usano scrim (altezza), footer, Storie, empty state
+     (padding-bottom). Definita qui e non su :root: var() si risolve
+     sull'elemento che dichiara la proprietà, e la misura vive su `.page`. */
+  --pub-bottombar-offset: 16px;
+  --pub-bottombar-gap: 48px;
+  --pub-bottom-clearance: calc(
+    var(--pub-bottombar-offset) + var(--pub-bottombar-h, 54px) + var(--pub-bottombar-gap) +
+      env(safe-area-inset-bottom, 0px)
+  );
 }
 
 .maintenanceBanner {
@@ -1052,15 +1067,15 @@
 
   /* Senza footer (non montato in emptyState) questo è l'ultimo contenuto in
      flusso: sotto PublicBottomScrim (≤640px) serve la stessa clearance del
-     footer, token `--pub-scrim-clearance` + safe-area sommata. Doppio gating
+     footer, `--pub-bottom-clearance` (safe-area inclusa). Doppio gating
      @media + `.preview-mobile` come il footer (Style Editor non passa dalla
      @media: il viewport è quello dell'editor). */
   @media (max-width: 640px) {
-    padding-bottom: calc(var(--pub-scrim-clearance) + env(safe-area-inset-bottom, 0px));
+    padding-bottom: var(--pub-bottom-clearance);
   }
 
   :global(.preview-mobile) & {
-    padding-bottom: calc(var(--pub-scrim-clearance) + env(safe-area-inset-bottom, 0px));
+    padding-bottom: var(--pub-bottom-clearance);
   }
 }
 
@@ -1271,7 +1286,7 @@
 }
 
 /* Bottone chiudi testuale, stesso pattern di CategoriesSheet/AllergensSheet
-   .closeBtn: nascosto <640px (chiusura via swipe/tap-fuori su mobile),
+   .closeBtn: nascosto ≤640px (chiusura via swipe/tap-fuori su mobile),
    visibile da desktop in su dove l'unica via era il click sul backdrop. */
 .eventsCloseBtn {
   display: none;
@@ -1294,7 +1309,7 @@
     background: color-mix(in srgb, var(--pub-text, #000) 14%, transparent);
   }
 
-  @media (min-width: 640px) {
+  @media (min-width: 641px) {
     display: inline-flex;
   }
 }
@@ -1416,7 +1431,10 @@
    è nascosta → il toast resta all'ancora 16px standard. */
 .submitFeedbackAboveBar {
   @media (max-width: 640px) {
-    bottom: calc(16px + 58px + 12px + env(safe-area-inset-bottom, 0px));
+    bottom: calc(
+      var(--pub-bottombar-offset) + var(--pub-bottombar-h, 54px) + 12px +
+        env(safe-area-inset-bottom, 0px)
+    );
   }
 }
 

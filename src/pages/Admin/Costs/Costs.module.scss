@@ -1,0 +1,35 @@
+// Sezione costi del CRM in /admin. Solo token di _theme.scss; la tipografia
+// la porta il componente Text.
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+}
+
+// Cifre in fila: al più tre per riga, a capo quando non ci stanno (come
+// Analitiche).
+.statGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(max(220px, calc((100% - 2 * var(--space-16)) / 3)), 1fr));
+  gap: var(--space-16);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+}
+
+// Due campi affiancati, uno sotto l'altro quando non ci stanno.
+.fieldRow {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-12);
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}

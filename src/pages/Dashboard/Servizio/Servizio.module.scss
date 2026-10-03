@@ -1,0 +1,32 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+}
+
+// Gestisci la sala è una tabella: la catena flex vincolata porta l'altezza
+// di `MainLayout .content` fino al probe del DataTable. Gli altri modi sono
+// griglie a scorrimento di pagina e restano ad altezza libera.
+.container[data-mode="gestisci"] {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+// L'Elenco: la banda di oggi sopra le tre sezioni della sala.
+.elenco {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+}
+
+.loading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+}
+
+.lockedTab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+}

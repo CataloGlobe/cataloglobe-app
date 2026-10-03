@@ -9,7 +9,7 @@
   },
   "functions": {
     "api/ssr-render/index.ts": {
-      "includeFiles": "{dist-server/**,dist/public/.vite/**,dist/index.html,index.html}"
+      "includeFiles": "{dist-server/**,dist/public/.vite/**,dist/app.html,index.html}"
     }
   },
   "redirects": [
@@ -18,8 +18,12 @@
   ],
   "rewrites": [
     {
-      "source": "/:route(login|verify-otp|sign-up|check-email|email-confirmed|forgot-password|reset-password|workspace|select-business|onboarding|business|dashboard|invite|legal|status|admin)",
+      "source": "/b",
       "destination": "/index.html"
+    },
+    {
+      "source": "/:route(login|verify-otp|sign-up|check-email|email-confirmed|forgot-password|reset-password|workspace|select-business|onboarding|business|dashboard|invite|legal|status|admin)",
+      "destination": "/app.html"
     },
     {
       "source": "/:slug([a-z0-9][a-z0-9-]*[a-z0-9])",
@@ -27,10 +31,37 @@
     },
     {
       "source": "/(.*)",
-      "destination": "/index.html"
+      "destination": "/app.html"
     }
   ],
   "headers": [
+    {
+      "source": "/assets/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/public/assets/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/b",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex"
+        }
+      ]
+    },
     {
       "source": "/(.*)",
       "headers": [

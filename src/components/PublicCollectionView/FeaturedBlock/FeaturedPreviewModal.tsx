@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { V2FeaturedContent } from "@/types/resolvedCollections";
 import PublicSheet from "../PublicSheet/PublicSheet";
-import { FeaturedContentDetail } from "./FeaturedContentDetail";
+import { FeaturedContentDetail, FeaturedCtaFooter } from "./FeaturedContentDetail";
+import { hasFeaturedCta } from "./featuredCta";
 import styles from "./FeaturedPreviewModal.module.scss";
 
 type Props = {
@@ -41,6 +42,7 @@ export function FeaturedPreviewModal({ block, isOpen, onClose }: Props) {
                     </button>
                 </div>
             }
+            footerContent={hasFeaturedCta(displayBlock) ? <FeaturedCtaFooter block={displayBlock} /> : undefined}
         >
             <FeaturedContentDetail block={displayBlock} />
         </PublicSheet>

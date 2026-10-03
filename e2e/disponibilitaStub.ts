@@ -27,6 +27,9 @@ const uuid = (n: number) => `e2e5f000-0000-4000-a000-${String(n).padStart(12, "0
 
 export const RULE_ID = uuid(1);
 export const CATALOG_ID = uuid(2);
+/** Le due regole di `{ rules: true }`: disponibilità programmata e prezzi. */
+export const VIS_RULE_ID = uuid(4);
+export const PRICE_RULE_ID = uuid(5);
 export const PRODUCT = { big: uuid(101), crispy: uuid(102), coca: uuid(103) } as const;
 export const INGREDIENT = { pane: uuid(201), pollo: uuid(202), ghiaccio: uuid(203) } as const;
 
@@ -69,9 +72,54 @@ export const CATALOG_TREE = {
     ]
 };
 
-export function makeTables(activityId: string, options: { noRule?: boolean }): Tables {
+export type DisponibilitaOptions = {
+    /** Nessuna regola menù: la sede non mostra niente. */
+    noRule?: boolean;
+    /**
+     * Due regole in più su tutte le sedi: «Sera e2e» (disponibilità: Big non
+     * disponibile, Coca nascosta) e «Happy e2e» (prezzi: Big a 6,00 col
+     * listino barrato). Coca resta nascosta: la modifica a mano «non
+     * disponibile» non rimette un prodotto che la regola ha tolto.
+     */
+    rules?: boolean;
+    /** Tutti e tre i prodotti nascosti a mano: il menù c'è, ma è vuoto. */
+    allHidden?: boolean;
+};
+
+const timeRule = (id: string, name: string, ruleType: string, priority: number): Row => ({
+    id,
+    tenant_id: TENANT_ID,
+    name,
+    rule_type: ruleType,
+    target_type: null,
+    target_id: null,
+    apply_to_all: true,
+    priority,
+    enabled: true,
+    time_mode: "always",
+    days_of_week: null,
+    time_from: null,
+    time_to: null,
+    start_at: null,
+    end_at: null,
+    visibility_mode: "hide",
+    created_at: "2026-03-01T10:00:00.000Z"
+});
+
+export function makeTables(activityId: string, options: DisponibilitaOptions): Tables {
+    const hideAll = options.allHidden
+        ? [PRODUCT.big, PRODUCT.crispy, PRODUCT.coca].map((productId, i) => ({
+              id: uuid(310 + i),
+              activity_id: activityId,
+              product_id: productId,
+              visible_override: false,
+              price_override: null,
+              mode: "hide"
+          }))
+        : null;
     return {
-        schedules: options.noRule
+        schedules: [
+            ...(options.noRule
             ? []
             : [
                   {
@@ -93,14 +141,37 @@ export function makeTables(activityId: string, options: { noRule?: boolean }): T
                       visibility_mode: "hide",
                       created_at: "2026-03-01T10:00:00.000Z"
                   }
-              ],
+              ]),
+            ...(options.rules
+                ? [timeRule(VIS_RULE_ID, "Sera e2e", "visibility", 21), timeRule(PRICE_RULE_ID, "Happy e2e", "price", 21)]
+                : [])
+        ],
         schedule_targets: [],
+        schedule_visibility_overrides: options.rules
+            ? [
+                  { id: uuid(401), tenant_id: TENANT_ID, schedule_id: VIS_RULE_ID, product_id: PRODUCT.big, visible: false, mode: "disable" },
+                  { id: uuid(402), tenant_id: TENANT_ID, schedule_id: VIS_RULE_ID, product_id: PRODUCT.coca, visible: false, mode: "hide" }
+              ]
+            : [],
+        schedule_price_overrides: options.rules
+            ? [
+                  {
+                      id: uuid(411),
+                      tenant_id: TENANT_ID,
+                      schedule_id: PRICE_RULE_ID,
+                      product_id: PRODUCT.big,
+                      option_value_id: null,
+                      override_price: 6,
+                      show_original_price: true
+                  }
+              ]
+            : [],
         schedule_layout: options.noRule
             ? []
             : [{ id: uuid(3), tenant_id: TENANT_ID, schedule_id: RULE_ID, catalog_id: CATALOG_ID, style_id: null }],
         schedule_featured_contents: [],
         activity_group_members: [],
-        activity_product_overrides: [
+        activity_product_overrides: hideAll ?? [
             { id: uuid(301), activity_id: activityId, product_id: PRODUCT.crispy, visible_override: false, price_override: null, mode: "hide" },
             { id: uuid(302), activity_id: activityId, product_id: PRODUCT.coca, visible_override: false, price_override: null, mode: "disable" }
         ],
@@ -127,7 +198,7 @@ export type DisponibilitaStub = RestStub & { tables: Tables };
 export async function stubDisponibilita(
     page: Page,
     activityId: string,
-    options: { noRule?: boolean } = {}
+    options: DisponibilitaOptions = {}
 ): Promise<DisponibilitaStub> {
     const tables = makeTables(activityId, options);
     const stub = await stubRest(page, {
@@ -173,4 +244,36 @@ export async function stubDisponibilita(
     });
     await freezeClock(page);
     return Object.assign(stub, { tables });
+}
+
+/** Un ruolo di sede, con i permessi che ha davvero (`docs/permissions-matrix.md`). */
+export type SeatRole = "manager" | "staff" | "viewer";
+
+/** Cosa toglie ogni ruolo ai permessi dell'utente e2e (owner) che servono qui. */
+const MISSING: Record<SeatRole, string[]> = {
+    manager: [],
+    staff: ["scheduling.read", "scheduling.write", "activity_groups.read", "activity.manage"],
+    viewer: ["scheduling.write", "activity_groups.read", "activity.manage"]
+};
+
+/**
+ * L'utente e2e entra come `role` della sola sede `activityId`: riscrive la
+ * risposta vera di `get_my_permissions`. Da chiamare prima di aprire la
+ * pagina (i permessi si leggono al caricamento).
+ */
+export async function asSeatRole(page: Page, role: SeatRole, activityId: string): Promise<void> {
+    await page.route(/\/rest\/v1\/rpc\/get_my_permissions/, async route => {
+        try {
+            const response = await route.fetch();
+            const rows = (await response.json()) as Array<{ role: string; activity_ids: string[] | null; permissions: string[] | null }>;
+            for (const row of rows) {
+                row.role = role;
+                row.activity_ids = [activityId];
+                row.permissions = (row.permissions ?? []).filter(p => !MISSING[role].includes(p));
+            }
+            await route.fulfill({ response, json: rows });
+        } catch {
+            // Pagina chiusa a metà richiesta (fine del test): niente da riscrivere.
+        }
+    });
 }

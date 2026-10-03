@@ -106,7 +106,7 @@ export default function InvitePage() {
         }
 
         showToast({ type: "success", message: "Invito accettato. Benvenuto nel team!" });
-        navigate(tenantId ? `/business/${tenantId}/overview` : "/workspace", { replace: true });
+        navigate(tenantId ? `/business/${tenantId}` : "/workspace", { replace: true });
     };
 
     const handleDecline = async () => {

@@ -517,8 +517,9 @@ export default function PrivacyPolicyPage() {
                             navigazione, per migliorarne contenuti e struttura.
                         </li>
                         <li>
-                            <strong>Fornitore:</strong> Microsoft Corporation (One Microsoft Way, Redmond,
-                            WA 98052, Stati Uniti), che tratta i dati secondo l'
+                            <strong>Fornitore:</strong> Microsoft Ireland Operations Limited (Dublino,
+                            Irlanda), che trasferisce i dati a Microsoft Corporation (USA). I dati sono
+                            trattati secondo l'
                             <a
                                 href="https://www.microsoft.com/privacy/privacystatement"
                                 target="_blank"
@@ -536,6 +537,20 @@ export default function PrivacyPolicyPage() {
                             </a>.
                         </li>
                         <li>
+                            <strong>Trattamento da parte di Microsoft come titolare autonomo:</strong>{' '}
+                            Microsoft tratta i dati raccolti tramite Clarity anche come titolare autonomo,
+                            per finalità proprie (miglioramento dei propri servizi, sicurezza, pubblicità),
+                            come descritto nell'
+                            <a
+                                href="https://www.microsoft.com/privacy/privacystatement"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
+                                Informativa sulla privacy di Microsoft
+                            </a>. Quando accetti, comunichiamo a Clarity il tuo consenso solo per
+                            l'analisi: il segnale di consenso per la pubblicità resta negato.
+                        </li>
+                        <li>
                             <strong>Dati raccolti:</strong> un identificativo pseudonimo del browser e della
                             sessione, le interazioni con la pagina (clic, scorrimento, movimenti del mouse,
                             ridimensionamento della finestra), informazioni tecniche su dispositivo e browser
@@ -550,18 +565,24 @@ export default function PrivacyPolicyPage() {
                             pagina funziona allo stesso modo.
                         </li>
                         <li>
-                            <strong>Trasferimento extra UE:</strong> i dati possono essere trattati da
-                            Microsoft negli Stati Uniti, sulla base del Data Privacy Framework UE-USA a cui
-                            Microsoft aderisce e delle clausole contrattuali standard.
+                            <strong>Trasferimento extra UE:</strong> Microsoft Ireland Operations Limited
+                            trasferisce i dati a Microsoft Corporation negli Stati Uniti sulla base delle
+                            clausole contrattuali standard e del Data Privacy Framework UE-USA a cui
+                            Microsoft aderisce.
                         </li>
                         <li>
-                            <strong>Durata:</strong> il cookie <code>_clck</code> (identificativo del
+                            <strong>Durata dei cookie:</strong> il cookie <code>_clck</code> (identificativo del
                             visitatore) dura 1 anno, il cookie <code>_clsk</code> (collega le pagine viste in
                             un'unica sessione) dura 1 giorno; Clarity può installare inoltre cookie di
                             terze parti di Microsoft (<code>MUID</code>, <code>CLID</code>,{' '}
                             <code>ANONCHK</code>, <code>MR</code>, <code>SM</code>) con la durata stabilita da
-                            Microsoft. Le registrazioni restano disponibili per 30 giorni; un campione può
-                            essere conservato da Microsoft fino a 9 mesi.
+                            Microsoft.
+                        </li>
+                        <li>
+                            <strong>Conservazione:</strong> le registrazioni delle sessioni sono conservate
+                            per 30 giorni; i dati aggregati (mappe di calore, dati delle dashboard) e le
+                            sessioni contrassegnate sono conservati per 9 mesi. Trascorsi questi periodi i
+                            dati vengono cancellati.
                         </li>
                         <li>
                             <strong>Come revocare:</strong> in qualsiasi momento, dal link «Preferenze

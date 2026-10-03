@@ -144,7 +144,7 @@ export default function Programming() {
     // Il nome della sede nella matrice: la sua pagina «Cosa vedono i clienti»
     // (oggi «Disponibilità», §20.3).
     const seatHref = useCallback(
-        (activityId: string) => `/business/${currentTenantId}/locations/${activityId}/disponibilita`,
+        (activityId: string) => `/business/${currentTenantId}/locations/${activityId}/cosa-vedono`,
         [currentTenantId]
     );
     const sedeScope = useSedeScope();
@@ -177,6 +177,25 @@ export default function Programming() {
 
     const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
     const [searchTerm, setSearchTerm] = useState("");
+    // `?sede=<id>` arriva da una pagina della sede («Vai a Programmazione»,
+    // D2 §1): imposta il filtro della navbar su quella sede, poi esce
+    // dall'indirizzo. Il filtro resta la sola fonte; una sede che chi guarda
+    // non legge si ignora.
+    const sedeFromUrl = searchParams.get("sede");
+    const { isLoaded: sedeScopeLoaded, readableActivities: readableSedi, setValue: setSedeScope } = sedeScope;
+    useEffect(() => {
+        if (!sedeFromUrl || !sedeScopeLoaded) return;
+        if (readableSedi.some(a => a.id === sedeFromUrl)) setSedeScope(sedeFromUrl);
+        setSearchParams(
+            prev => {
+                const next = new URLSearchParams(prev);
+                next.delete("sede");
+                return next;
+            },
+            { replace: true }
+        );
+    }, [sedeFromUrl, sedeScopeLoaded, readableSedi, setSedeScope, setSearchParams]);
+
     // Filtro sede deriva da useSedeScope (navbar). SCOPE_ALL → nessun filtro.
     const filterActivityId = sedeScope.value === SCOPE_ALL ? null : sedeScope.value;
     const canWrite = permissions ? canDoOnAnyActivity(permissions, "scheduling.write") : false;
@@ -268,23 +287,23 @@ export default function Programming() {
         void loadInitialData();
     }, [loadInitialData]);
 
-    // Sede e ricerca: i conteggi del filtro per tipo si leggono da qui.
+    // La sede scelta nella navbar: vale per l'elenco e per la Settimana.
+    const seatRules = useMemo(() => {
+        if (!filterActivityId) return rules;
+        return rules.filter(rule => {
+            if (rule.applyToAll) return true;
+            if (rule.activityIds.includes(filterActivityId)) return true;
+            return rule.groupIds.some(gId =>
+                (activityIdsByGroupId[gId] ?? []).includes(filterActivityId)
+            );
+        });
+    }, [activityIdsByGroupId, filterActivityId, rules]);
+
+    // Sede e ricerca: i conteggi del filtro per tipo si leggono da qui. La
+    // ricerca resta all'elenco: in Settimana non si vede, e non la filtra.
     const searchedRules = useMemo(() => {
         const query = searchTerm.trim().toLowerCase();
-        let result = rules;
-
-        // 1. Filter by selected activity
-        if (filterActivityId) {
-            result = result.filter(rule => {
-                if (rule.applyToAll) return true;
-                if (rule.activityIds.includes(filterActivityId)) return true;
-                return rule.groupIds.some(gId =>
-                    (activityIdsByGroupId[gId] ?? []).includes(filterActivityId)
-                );
-            });
-        }
-
-        // 2. Filter by search term
+        const result = seatRules;
         if (!query) return result;
 
         return result.filter(rule => {
@@ -313,7 +332,7 @@ export default function Programming() {
                 .toLowerCase()
                 .includes(query);
         });
-    }, [activityById, activityIdsByGroupId, catalogById, catalogLabel, filterActivityId, rules, searchTerm, styleById]);
+    }, [activityById, catalogById, catalogLabel, seatRules, searchTerm, styleById]);
 
     const filteredRules = useMemo(
         () => (ruleTypeFilter === "all" ? searchedRules : searchedRules.filter(rule => rule.rule_type === ruleTypeFilter)),
@@ -981,7 +1000,7 @@ export default function Programming() {
                 )
             ) : (
                 <CalendarView
-                    rules={rules}
+                    rules={seatRules}
                     ruleTypeFilter={ruleTypeFilter}
                     onRuleClick={rule => navigate(ruleHref(rule))}
                 />

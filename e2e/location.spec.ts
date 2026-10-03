@@ -29,7 +29,14 @@ async function openFirstLocation(page: Page): Promise<void> {
     const firstCard = main.getByRole("listitem").first();
     await expect(firstCard).toBeVisible({ timeout: 15_000 });
     await firstCard.getByRole("link").first().click();
-    await page.waitForURL(/\/locations\/[0-9a-f-]+/);
+    // Entrando si atterra sulla prima voce della sede (§46.1 f): la scheda è
+    // la voce «Scheda». Si aspetta l'atterraggio prima del clic, altrimenti
+    // il redirect vincerebbe sul clic.
+    await page.waitForURL(/\/locations\/[0-9a-f-]+\/[a-z-]+$/);
+    await page
+        .getByRole("navigation", { name: "Menu principale" })
+        .getByRole("link", { name: "Scheda", exact: true })
+        .click();
     await expect(page.getByRole("tab", { name: TAB.anagrafica })).toBeVisible({ timeout: 15_000 });
 }
 
@@ -111,6 +118,16 @@ test.describe("Scheda della sede", () => {
         await page.goto(`${base}?tab=hours-services`);
         await expect(page.getByRole("tab", { name: TAB.pubblicazione })).toHaveAttribute("aria-selected", "true", { timeout: 15_000 });
         await expect(page).toHaveURL(/(tab=settings|\/pubblicazione)/);
+    });
+
+    test("i vecchi ?tab=sala e ?tab=tables portano a Servizio, in Gestisci la sala", async ({ page }) => {
+        // Lotto B-a: la Sala non è più una pagina della sede, è un modo di Servizio.
+        await openFirstLocation(page);
+        const base = page.url().replace(/[?#].*$/, "").replace(/\/(anagrafica|orari|ordini-prenotazioni|canali|pubblicazione)$/, "");
+        for (const tab of ["sala", "tables"]) {
+            await page.goto(`${base}?tab=${tab}`);
+            await expect(page).toHaveURL(/\/servizio\?modo=gestisci$/, { timeout: 15_000 });
+        }
     });
 
     test("il vecchio indirizzo /canali porta a Ordini e prenotazioni, ancora compresa", async ({ page }) => {

@@ -4,7 +4,7 @@
 // =============================================================================
 //
 // Invocata da pg_cron ogni minuto, solo quando c'è lavoro (migration
-// 20261001130300). Tre passate:
+// 20261001130300). Tre passate ogni minuto, più una al giorno (4):
 //
 // 1. OUTBOX: i lead con `notified_at IS NULL`.
 //    * locale nuovo → a tutto il team collegato a Telegram;
@@ -31,6 +31,12 @@
 //    → un messaggio a tutto il team collegato. Prenotazione con l'UPDATE di
 //    `notified_at`; se nessun invio va, si libera e il giro dopo riprova.
 //
+// 4. RINNOVI (solo col body {"job":"renewals"}, dal cron delle 9 di Roma,
+//    mig 20261003120300): gli abbonamenti della sezione costi che si rinnovano
+//    entro i loro giorni di preavviso (`crm_expense_renewals_due`) → un
+//    messaggio a tutto il team collegato. Prenotazione con l'UPDATE di
+//    `reminded_for`; se nessun invio va, si libera e il giorno dopo riprova.
+//
 // AUTENTICAZIONE fail-CLOSED: X-Job-Secret = CRM_JOB_SECRET (vault
 // `crm_job_secret`), confronto constant-time.
 // Env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, CRM_JOB_SECRET,
@@ -49,6 +55,7 @@ import {
     pickOutboxRecipients
 } from "../_shared/crmTelegram.ts";
 import { loadLeadMessageData, loadTeam, whatsappLinkFor } from "../_shared/crmLeadMessage.ts";
+import { buildRenewalReminderMessage } from "../_shared/crmExpenses.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -289,6 +296,68 @@ async function processImportRuns(supabase, team, appUrl, now: Date) {
     return stats;
 }
 
+/** «AAAA-MM-GG» del giorno a Roma. */
+function romeToday(now: Date): string {
+    return new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Europe/Rome",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit"
+    }).format(now);
+}
+
+async function processRenewals(supabase, team, appUrl, now) {
+    const stats = { renewal_reminders: 0 };
+    const linked = team.filter(m => m.telegram_chat_id != null);
+    if (linked.length === 0) return stats;
+
+    const today = romeToday(now);
+    const { data: due, error } = await supabase.rpc("crm_expense_renewals_due", { p_today: today });
+    if (error) throw error;
+
+    for (const row of due ?? []) {
+        // Prenotazione: un solo giro ricorda questo rinnovo.
+        const { data: claimed, error: claimError } = await supabase
+            .from("crm_expenses")
+            .update({ reminded_for: row.r_next_charge_on })
+            .eq("id", row.r_expense_id)
+            .or(`reminded_for.is.null,reminded_for.neq.${row.r_next_charge_on}`)
+            .select("id");
+        if (claimError) throw claimError;
+        if (!claimed?.length) continue;
+
+        const message = buildRenewalReminderMessage({
+            name: row.r_name,
+            amountCents: row.r_amount_cents,
+            interval: row.r_billing_interval,
+            nextChargeOn: row.r_next_charge_on,
+            today,
+            paidBy: row.r_paid_by,
+            costsUrl: appUrl ? `${appUrl}/admin/costi` : null
+        });
+
+        let sentAny = false;
+        for (const member of linked) {
+            const result = await telegramCall(BOT_TOKEN, "sendMessage", {
+                chat_id: member.telegram_chat_id,
+                text: message.text,
+                parse_mode: "HTML",
+                disable_web_page_preview: true,
+                reply_markup: message.reply_markup
+            });
+            if (result.ok) sentAny = true;
+            else console.warn("crm-notify: promemoria rinnovo non inviato", member.user_id, result.description);
+        }
+
+        if (sentAny) {
+            stats.renewal_reminders += 1;
+        } else {
+            await supabase.from("crm_expenses").update({ reminded_for: null }).eq("id", row.r_expense_id);
+        }
+    }
+    return stats;
+}
+
 Deno.serve(async (req: Request) => {
     if (req.method !== "POST") return json(405, { error: "method_not_allowed" });
 
@@ -307,6 +376,12 @@ Deno.serve(async (req: Request) => {
 
     try {
         const team = await loadTeam(supabase);
+        const body = await req.json().catch(() => ({}));
+        if (body?.job === "renewals") {
+            const renewals = await processRenewals(supabase, team, appUrl, now);
+            console.log(JSON.stringify({ event: "crm_notify_renewals", ...renewals }));
+            return json(200, renewals);
+        }
         const outbox = await processOutbox(supabase, team, appUrl, now);
         const escalation = await processEscalations(supabase, team, appUrl, now);
         const imports = await processImportRuns(supabase, team, appUrl, now);

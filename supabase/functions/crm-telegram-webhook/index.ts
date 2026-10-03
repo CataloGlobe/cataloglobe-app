@@ -10,14 +10,15 @@
 // Cosa gestisce:
 //   * "/start <token>" in chat privata → collega la chat a chi ha generato il
 //     token in /admin (crm_start_telegram_link, valido 15 minuti);
-//   * tocco su «Lo prendo io» / «Gira a <nome>» → crm_assign con l'autore del
-//     tocco come attore, poi riscrive i messaggi di tutti per quel locale
-//     («Preso da <nome>», pulsanti invertiti);
-//   * «Gira a…» (più di due persone) → mostra la scelta tra i nomi;
-//     «Annulla» la richiude.
-//   * «È lo stesso locale» / «Decido dopo» su un lead tornato con un altro
-//     nome del locale → crm_resolve_venue_name, riscrive i messaggi e
-//     conferma cosa ha fatto (mig 20261002130000).
+//   * tocco su «Lo prendo io» / «Assegnalo a <nome>» → crm_assign con
+//     l'autore del tocco come attore, poi riscrive i messaggi di tutti per
+//     quel locale («Preso da <nome>», pulsanti invertiti);
+//   * «Assegnalo a un'altra persona…» (più di due) → mostra la scelta tra i
+//     nomi; «Annulla» la richiude.
+//   * «Stesso locale: tieni …» / «Stesso locale: chiamalo …» su un lead
+//     tornato con un altro nome del locale → crm_resolve_venue_name ('same' /
+//     'rename', mig 20261002230000), riscrive i messaggi e conferma cosa ha
+//     fatto. «Decido dopo» ('later') arriva solo da messaggi vecchi.
 // Chi tocca è riconosciuto dal suo id Telegram, che in chat privata coincide
 // col chat_id salvato al collegamento. Chi non è nel team non può fare nulla.
 //
@@ -98,9 +99,9 @@ async function handleStart(supabase, message) {
 }
 
 /**
- * «È lo stesso locale» / «Decido dopo» su un lead tornato con un altro nome
- * del locale: crm_resolve_venue_name, poi riscrive i messaggi del locale e
- * conferma cosa ha fatto.
+ * Scelta sul nome di un lead tornato con un altro nome del locale:
+ * crm_resolve_venue_name, poi riscrive i messaggi del locale e conferma cosa
+ * ha fatto.
  */
 async function handleVenueName(supabase, parsed, actor, answer, appUrl) {
     const { data: lead, error: leadError } = await supabase
@@ -114,7 +115,8 @@ async function handleVenueName(supabase, parsed, actor, answer, appUrl) {
         return;
     }
 
-    const choice = parsed.action === "venue_same" ? "same" : "later";
+    const choice =
+        parsed.action === "venue_same" ? "same" : parsed.action === "venue_rename" ? "rename" : "later";
     const { error } = await supabase.rpc("crm_resolve_venue_name", {
         p_lead_id: lead.id,
         p_choice: choice,
@@ -139,18 +141,13 @@ async function handleVenueName(supabase, parsed, actor, answer, appUrl) {
         await answer(`Ok, tengo ${known}. Resta in ${stage}.`);
         return;
     }
-    // L'etichetta segue la richiesta più recente: su una più vecchia la scelta
-    // resta scritta ma l'etichetta no (crm_refresh_name_to_verify).
-    const { data: venue } = await supabase
-        .from("crm_venues")
-        .select("name_to_verify")
-        .eq("id", lead.venue_id)
-        .maybeSingle();
-    await answer(
-        venue?.name_to_verify
-            ? `Ok, ho messo l'etichetta «Locale da verificare» su ${known}.`
-            : `Ok, segnato. Su ${known} c'è una richiesta più recente da decidere nella scheda.`
-    );
+    if (choice === "rename") {
+        await answer(`Ok, ora si chiama ${lead.venue_name_given}. Resta in ${stage}.`);
+        return;
+    }
+    // «Decido dopo» da un messaggio vecchio: l'etichetta c'è già dall'arrivo
+    // del lead (mig 20261002230000).
+    await answer(`Ok, su ${known} resta l'etichetta «Locale da verificare».`);
 }
 
 async function handleCallback(supabase, query, appUrl) {
@@ -189,7 +186,7 @@ async function handleCallback(supabase, query, appUrl) {
         return;
     }
 
-    if (parsed.action === "venue_same" || parsed.action === "venue_later") {
+    if (parsed.action === "venue_same" || parsed.action === "venue_later" || parsed.action === "venue_rename") {
         await handleVenueName(supabase, parsed, actor, answer, appUrl);
         return;
     }

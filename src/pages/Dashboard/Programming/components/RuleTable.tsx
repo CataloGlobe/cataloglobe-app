@@ -122,7 +122,11 @@ export function RuleTable({
                             </span>
                             <span>
                                 {[
-                                    showTypeBadge && isCompact ? ruleTypeLabel(rule.rule_type, catalogLabel) : null,
+                                    // Sotto 768 il tipo lo dice già il verbo («mostra Carta»,
+                                    // «cambia 3 prezzi»): resta solo se il verbo manca (bozza).
+                                    showTypeBadge && isCompact && (!isPhone || !action)
+                                        ? ruleTypeLabel(rule.rule_type, catalogLabel)
+                                        : null,
                                     action,
                                     summary,
                                     isPhone ? target.label : null

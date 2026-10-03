@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Logo } from "@components/ui/Logo/Logo";
+import { WORDMARK_INTRINSIC } from "@components/ui/Logo/logoDimensions";
 import LandingCta from "@pages/CampaignLanding/components/LandingCta/LandingCta";
 import { BRAND } from "@pages/CampaignLanding/content/landing";
 import styles from "./NavBar.module.scss";
@@ -60,8 +61,8 @@ export default function NavBar() {
                 <div ref={desk} className={styles.deskInner}>
                     <nav className={cx(styles.pill, state.pastHero && styles.pillSolid)} aria-label="Principale">
                         <span className={styles.logos}>
-                            <Logo variant="wordmark" color="mono-white" className={cx(styles.logo, styles.logoLight)} alt={BRAND.name} />
-                            <Logo variant="wordmark" color="mono-dark" className={cx(styles.logo, styles.logoDark)} alt="" />
+                            <Logo variant="wordmark" {...WORDMARK_INTRINSIC} color="mono-white" className={cx(styles.logo, styles.logoLight)} alt={BRAND.name} />
+                            <Logo variant="wordmark" {...WORDMARK_INTRINSIC} color="mono-dark" className={cx(styles.logo, styles.logoDark)} alt="" />
                         </span>
                         <span className={styles.divider} aria-hidden="true" />
                         <a className={styles.login} href={BRAND.login.href}>
@@ -75,7 +76,7 @@ export default function NavBar() {
             </div>
 
             <div className={cx(styles.mobileBar, state.pastHero && styles.on)} aria-hidden={!state.pastHero || undefined}>
-                <Logo variant="wordmark" color="mono-dark" className={styles.mobileLogo} alt={BRAND.name} />
+                <Logo variant="wordmark" {...WORDMARK_INTRINSIC} color="mono-dark" className={styles.mobileLogo} alt={BRAND.name} />
                 <div className={cx(styles.mobileCta, showCta && styles.on)}>
                     <LandingCta placement="bar-mobile" shape="compact" inert={!showCta} />
                 </div>

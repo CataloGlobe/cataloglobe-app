@@ -39,6 +39,7 @@ import { useEffect, useRef } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 
 import { supabase } from "@/services/supabase/client";
+import { realtimeTopic } from "@/utils/realtimeTopic";
 
 const REFETCH_DEBOUNCE_MS = 300;
 
@@ -70,7 +71,7 @@ export function useSeatingsRealtime(
         };
 
         channel = supabase
-            .channel(`seatings-${activityId}-${Date.now()}`)
+            .channel(realtimeTopic(`seatings-${activityId}`))
             .on(
                 "postgres_changes",
                 {

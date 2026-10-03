@@ -1,20 +1,6 @@
 import type { CrmLead } from "@/types/crm";
 import { META_CONTACT_COLUMNS, isMetaVenueColumn } from "@shared/metaLeadFields";
-
-/**
- * Campi tecnici della landing (copiati da `crm_sync_landing_leads`): servono
- * all'attribuzione, non a chi chiama. Annuncio e campagna restano sopra.
- */
-const TECHNICAL_KEYS = new Set([
-    "variant",
-    "utm_source",
-    "utm_medium",
-    "utm_campaign",
-    "utm_content",
-    "utm_term",
-    "referrer",
-    "landing_path"
-]);
+import { CRM_TECHNICAL_ANSWER_KEYS } from "@shared/crmTelegram";
 
 /** Chiavi che hanno una riga loro, con un'etichetta italiana. */
 const OWN_ROW_KEYS = new Set(["email", "phone_raw"]);
@@ -56,7 +42,7 @@ export function leadAnswerRows(lead: CrmLead): LeadAnswerRow[] {
     // anche tra le risposte: stanno già sopra (il telefono nei Contatti).
     const isMeta = lead.source === "meta_form";
     for (const [key, value] of Object.entries(answers)) {
-        if (TECHNICAL_KEYS.has(key) || OWN_ROW_KEYS.has(key) || !text(value)) continue;
+        if (CRM_TECHNICAL_ANSWER_KEYS.has(key) || OWN_ROW_KEYS.has(key) || !text(value)) continue;
         if (isMeta && (META_CONTACT_COLUMNS.has(key) || isMetaVenueColumn(key))) continue;
         rows.push({ label: humanize(key), value: text(value) });
     }

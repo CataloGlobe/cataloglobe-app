@@ -364,14 +364,14 @@ export function TablesLiveView({
                 <EmptyState
                     icon={<Grid2X2 />}
                     title="Nessun tavolo configurato"
-                    description="Configura i tavoli dalla scheda Sala della sede."
+                    description="I tavoli si creano in Gestisci la sala."
                     action={
                         businessId ? (
                             <Button
                                 variant="secondary"
-                                onClick={() => navigate(`/business/${businessId}/locations/${activityId}/sala`)}
+                                onClick={() => navigate(`/business/${businessId}/locations/${activityId}/servizio?modo=gestisci`)}
                             >
-                                Vai alla Sala
+                                Vai a Gestisci la sala
                             </Button>
                         ) : undefined
                     }

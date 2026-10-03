@@ -52,6 +52,7 @@ import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { businessRouteLabel } from "@/components/layout/AppHeader/navbarBreadcrumbRoutes";
 import { buildPublicUrl } from "@/utils/publicUrl";
+import { SERVIZIO_READ_PERMISSIONS } from "@/utils/servizioModes";
 import styles from "./OverviewPage.module.scss";
 
 /** Sede attiva raggiungibile dal pubblico. Il menù attivo NON sta qui: arriva
@@ -656,14 +657,16 @@ export default function OverviewPage() {
             onClick: () => navigate(`${b}/locations/${activityId}/prenotazioni`)
         },
         {
-            label: "Disponibilità",
+            label: "Cosa vedono i clienti",
             hidden: !canDoOnActivity(permissions, "activity.read", activityId),
-            onClick: () => navigate(`${b}/locations/${activityId}/disponibilita`)
+            onClick: () => navigate(`${b}/locations/${activityId}/cosa-vedono`)
         },
         {
-            label: "Tavoli",
-            hidden: !canDoOnActivity(permissions, "tables.read", activityId),
-            onClick: () => navigate(`${b}/locations/${activityId}/sala`)
+            // La voce Servizio della sede (lotto B-a): la vede chi legge i
+            // tavoli o le tavolate, come in sidebar.
+            label: "Servizio",
+            hidden: !SERVIZIO_READ_PERMISSIONS.some(p => canDoOnActivity(permissions, p, activityId)),
+            onClick: () => navigate(`${b}/locations/${activityId}/servizio`)
         }
     ];
 
@@ -698,7 +701,7 @@ export default function OverviewPage() {
                 subtitle={reason}
                 meta={<StatusBadge variant="danger" label="Sospesa" />}
                 trailing={
-                    <Button variant="secondary" size="sm" onClick={() => navigate(`${b}/locations/${location.id}`)}>
+                    <Button variant="secondary" size="sm" onClick={() => navigate(`${b}/locations/${location.id}/pubblicazione`)}>
                         Apri sede
                     </Button>
                 }

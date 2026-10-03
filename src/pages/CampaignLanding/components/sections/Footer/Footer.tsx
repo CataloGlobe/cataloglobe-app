@@ -1,4 +1,5 @@
 import { Logo } from "@components/ui/Logo/Logo";
+import { WORDMARK_INTRINSIC } from "@components/ui/Logo/logoDimensions";
 import { COMPANY } from "@/config/company";
 import { BRAND, FOOTER } from "@pages/CampaignLanding/content/landing";
 import { openCookiePreferences } from "@pages/CampaignLanding/cookieConsentBrowser";
@@ -16,7 +17,7 @@ export default function Footer() {
             <div className={styles.inner}>
                 <div className={styles.top}>
                     <div className={styles.brand}>
-                        <Logo variant="wordmark" color="mono-white" className={styles.logo} alt={BRAND.name} />
+                        <Logo variant="wordmark" {...WORDMARK_INTRINSIC} color="mono-white" className={styles.logo} alt={BRAND.name} />
                         <p className={styles.tagline}>{FOOTER.tagline}</p>
                     </div>
 

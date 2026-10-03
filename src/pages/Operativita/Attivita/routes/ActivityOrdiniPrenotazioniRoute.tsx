@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Lock } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
@@ -26,6 +26,8 @@ import { useActivityDetail } from "../ActivityDetailContext";
 import type { ActivityDraftField } from "../useActivityDraft";
 import { updateActivity, updateActivityOrderingEnabled } from "@/services/supabase/activities";
 import { listTenantMembers } from "@/services/supabase/team";
+import { listTables } from "@/services/supabase/tables";
+import type { V2Table } from "@/types/orders";
 import type { TenantMemberRow } from "@/types/team";
 import { usePermissions } from "@/context/usePermissions";
 import { canDoOnTenant } from "@/lib/permissions";
@@ -37,6 +39,8 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /** I campi numerici delle regole: si scrivono come testo, si validano al Salva. */
 type NumericRuleField =
+    | "reservation_capacity"
+    | "reservation_duration_minutes"
     | "reservation_pacing_max_covers"
     | "reservation_pacing_max_bookings"
     | "reservation_min_notice_minutes"
@@ -47,8 +51,10 @@ type NumericRuleField =
  * e con che regole. Si chiamava «Canali»: il nome nominava il contenitore,
  * non le due cose dentro. Ordini al tavolo e prenotazioni restano due sezioni distinte, con
  * le ancore `#ordini` e `#prenotazioni`. Gli interruttori e le email degli
- * avvisi salvano subito (§31.4); l'email privacy e le cinque regole di
- * accettazione stanno nel draft di pagina (§31.2).
+ * avvisi salvano subito (§31.4); l'email privacy, la capienza della sala e
+ * le cinque regole di accettazione stanno nel draft di pagina (§31.2).
+ * Capienza e durata erano nella Sala: sono regole di prenotazione, e chi le
+ * scrive è chi ha `activity.manage` (lotto B-a, D3).
  */
 export default function ActivityOrdiniPrenotazioniRoute() {
     const { activity, tenantId, reload, canManage, hours, isHoursLoading, legalName, draft, goToSection } =
@@ -162,7 +168,9 @@ export default function ActivityOrdiniPrenotazioniRoute() {
     };
 
     const d = draft.draft;
-    const hasCapacity = activity.reservation_capacity != null;
+    // La capienza della bozza: la conferma automatica si sblocca appena la si
+    // scrive, senza salvare prima.
+    const hasCapacity = d.reservation_capacity != null && Number.isFinite(d.reservation_capacity) && d.reservation_capacity > 0;
     const autoDisabled = !hasCapacity;
     const privacyEmail = d.reservation_privacy_contact_email ?? "";
 
@@ -172,8 +180,16 @@ export default function ActivityOrdiniPrenotazioniRoute() {
             if (email !== "" && !EMAIL_RE.test(email)) {
                 return "Email per le richieste sui dati personali: inserisci un indirizzo valido.";
             }
+            const capacity = d.reservation_capacity;
+            if (capacity != null && (!Number.isInteger(capacity) || capacity <= 0)) {
+                return "Capienza: inserisci un numero di coperti maggiore di zero, oppure lascia il campo vuoto per non avere limiti.";
+            }
+            const duration = d.reservation_duration_minutes;
+            if (!Number.isInteger(duration) || duration < 15 || duration > 600) {
+                return "Durata media del tavolo: inserisci un numero di minuti da 15 a 600.";
+            }
             if (d.reservation_confirmation_mode === "auto" && !hasCapacity) {
-                return "La conferma automatica richiede una capienza impostata nella sala.";
+                return "La conferma automatica richiede una capienza: impostala in «Capienza della sala».";
             }
             for (const [field, label] of [
                 ["reservation_pacing_max_covers", "Persone per fascia"],
@@ -200,6 +216,43 @@ export default function ActivityOrdiniPrenotazioniRoute() {
     }, [draft, d, hasCapacity]);
 
     const showNoticeHorizonWarning = noticeExceedsHorizon(d.reservation_min_notice_minutes, d.reservation_horizon_days);
+
+    // I tavoli della sede, per il controllo di realtà della capienza: la somma
+    // dei posti mappati. Informativa, mai bloccante. Solo con prenotazioni.
+    const [tables, setTables] = useState<V2Table[]>([]);
+    useEffect(() => {
+        if (!activity.enable_reservations) return;
+        let cancelled = false;
+        listTables(tenantId, activity.id)
+            .then(rows => {
+                if (!cancelled) setTables(rows);
+            })
+            .catch(() => {
+                // Silente: senza tavoli la somma non si mostra.
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [activity.enable_reservations, activity.id, tenantId]);
+
+    const seats = useMemo(
+        () => ({
+            total: tables.reduce((sum, t) => sum + (t.seats ?? 0), 0),
+            count: tables.length,
+            withoutSeats: tables.filter(t => t.seats == null).length
+        }),
+        [tables]
+    );
+    // Divergenza rilevante: oltre il 20% della capienza e almeno 4 coperti di
+    // scarto. Sotto, il rumore supererebbe il segnale.
+    const capacityMismatch = (() => {
+        if (seats.count === 0 || !hasCapacity) return null;
+        const declared = d.reservation_capacity as number;
+        const delta = seats.total - declared;
+        return Math.abs(delta) >= 4 && Math.abs(delta) >= declared * 0.2 ? { delta, declared } : null;
+    })();
+
+    const scrollToCapacity = () => document.getElementById("capienza")?.scrollIntoView({ block: "start" });
 
     // ── Prerequisiti ────────────────────────────────────────────────────────
     const hasOpenHours = hours.some(h => !h.is_closed && h.opens_at && h.closes_at);
@@ -232,9 +285,9 @@ export default function ActivityOrdiniPrenotazioniRoute() {
             shortTitle: "Capienza",
             description:
                 "Senza capienza le prenotazioni online non hanno limiti e la conferma automatica non è disponibile.",
-            done: hasCapacity,
-            actionLabel: "Vai alla sala",
-            onAction: () => goToSection("sala")
+            done: activity.reservation_capacity != null,
+            actionLabel: "Imposta la capienza",
+            onAction: scrollToCapacity
         },
         {
             id: "legal",
@@ -282,9 +335,9 @@ export default function ActivityOrdiniPrenotazioniRoute() {
                         <ul className={styles.points}>
                             <li>
                                 <Text as="span" variant="caption" colorVariant="muted">
-                                    I tavoli e i loro QR stanno nella{" "}
-                                    <Link to="../sala" relative="path" className={styles.link}>
-                                        sala
+                                    I tavoli e i loro QR stanno in{" "}
+                                    <Link to="../servizio?modo=gestisci" relative="path" className={styles.link}>
+                                        Gestisci la sala
                                     </Link>
                                     .
                                 </Text>
@@ -434,6 +487,54 @@ export default function ActivityOrdiniPrenotazioniRoute() {
                             </FormGrid>
                         </Card>
 
+                        <div id="capienza" className={styles.anchor}>
+                            <Card
+                                title="Capienza della sala"
+                                subtitle="Coperti accettabili dalle prenotazioni online e durata media di un tavolo"
+                            >
+                                <div className={styles.stack}>
+                                    <FormGrid cols={2}>
+                                        <NumberInput
+                                            label="Capienza (coperti)"
+                                            placeholder="Es. 40"
+                                            min={1}
+                                            value={numberText("reservation_capacity")}
+                                            onChange={e => setNumber("reservation_capacity", e.target.value, true)}
+                                            disabled={!canManage}
+                                            helperText={
+                                                numberText("reservation_capacity").trim() === ""
+                                                    ? "Senza capienza le prenotazioni online non hanno limiti e la conferma automatica non è disponibile."
+                                                    : seats.count > 0
+                                                      ? `Posti mappati sui tavoli: ${seats.total} su ${seats.count} ${seats.count === 1 ? "tavolo" : "tavoli"}.${
+                                                            seats.withoutSeats > 0
+                                                                ? ` ${seats.withoutSeats} ${seats.withoutSeats === 1 ? "tavolo non dichiara" : "tavoli non dichiarano"} i posti: la somma è parziale.`
+                                                                : ""
+                                                        }`
+                                                      : undefined
+                                            }
+                                        />
+                                        <NumberInput
+                                            label="Durata media tavolo (minuti)"
+                                            placeholder="120"
+                                            min={15}
+                                            max={600}
+                                            value={numberText("reservation_duration_minutes")}
+                                            onChange={e => setNumber("reservation_duration_minutes", e.target.value, false)}
+                                            disabled={!canManage}
+                                            helperText="Quanto resta occupato un tavolo, di solito. Default 120."
+                                        />
+                                    </FormGrid>
+                                    {capacityMismatch && (
+                                        <InlineBanner variant="warning">
+                                            {capacityMismatch.delta < 0
+                                                ? `I tavoli reggono ${seats.total} posti, meno della capienza impostata: alcune prenotazioni accettate potrebbero restare senza tavolo.`
+                                                : `Il modulo online si ferma a ${capacityMismatch.declared} coperti anche se i tavoli ne reggono ${seats.total}. Se è voluto — per esempio la cucina non regge la sala piena — va bene così.`}
+                                        </InlineBanner>
+                                    )}
+                                </div>
+                            </Card>
+                        </div>
+
                         <Card title="Regole di accettazione" subtitle="Cinque regole, un solo salvataggio">
                             <FormGrid cols={1}>
                                 <RadioGroup
@@ -474,15 +575,18 @@ export default function ActivityOrdiniPrenotazioniRoute() {
                                                 ? "Serve la capienza della sala: senza, non c'è un «entro capienza»."
                                                 : "Le prenotazioni online entro la capienza vengono confermate subito.",
                                             disabled: autoDisabled,
-                                            disabledReason: "Imposta la capienza nella sala."
+                                            disabledReason: "Imposta la capienza della sala."
                                         }
                                     ]}
                                 />
                                 {autoDisabled && (
                                     <Text variant="caption" colorVariant="muted">
-                                        <Link to="../sala" relative="path" className={styles.link}>
-                                            Imposta la capienza nella sala
-                                        </Link>{" "}
+                                        <a href="#capienza" onClick={e => {
+                                            e.preventDefault();
+                                            scrollToCapacity();
+                                        }} className={styles.link}>
+                                            Imposta la capienza della sala
+                                        </a>{" "}
                                         per abilitare la conferma automatica.
                                     </Text>
                                 )}

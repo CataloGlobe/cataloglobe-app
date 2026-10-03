@@ -10,6 +10,7 @@ import FeaturedBlock from "@/components/PublicCollectionView/FeaturedBlock/Featu
 import StaleDataBanner from "@/components/StaleDataBanner/StaleDataBanner";
 import LanguageFallbackBanner from "@/components/PublicCollectionView/LanguageFallbackBanner/LanguageFallbackBanner";
 import PublicThemeScope from "@/features/public/components/PublicThemeScope";
+import { usePublicDocumentChrome } from "@/components/PublicCollectionView/hooks/usePublicDocumentChrome";
 import { LanguageProvider } from "@context/Language/LanguageProvider";
 import { CustomerSessionProvider } from "@/context/CustomerSession/CustomerSessionContext";
 import { useCustomerSession } from "@/context/CustomerSession/useCustomerSession";
@@ -361,6 +362,9 @@ export default function PublicCatalogReady({
 
     // Derive CollectionStyle from stored tokens so runtime matches preview
     const tokens = parseTokens(resolved.style?.config ?? null);
+    // html/body + theme-color con lo sfondo dello stile (non il --bg admin):
+    // è il colore che Safari dipinge dietro barre e rimbalzo dello scroll.
+    usePublicDocumentChrome(tokens.colors.pageBackground, true);
     const navStyle = tokens.navigation.style; // "filled" | "outline" | "tabs" | "minimal" | "tinted"
     const cardTemplate: "no-image" | "left" | "right" =
         tokens.card.image.mode === "hide"

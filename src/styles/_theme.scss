@@ -51,6 +51,11 @@
   --color-green-800: #065f46;
   --color-green-900: #14532d;
 
+  // Violet palette: il colore di tipo di In evidenza (--rule-featured), il
+  // 500 in chiaro e il 400 in scuro.
+  --color-violet-400: #a78bfa;
+  --color-violet-500: #8b5cf6;
+
   // === FASE 2 gap-closing (2026-09-13) ===
   // Layer di compatibilità: chiude i var() referenziati nel perimetro admin
   // ma mai definiti (audit "custom property fantasma"). Due categorie:
@@ -174,9 +179,10 @@
 
   // --- Tipi di regola (Programmazione, Settimana e segni di tipo) ---
   // Quattro colori di categoria, uno per tipo. Tre sono alias di token che
-  // esistono; In evidenza ha il suo violetto (lotto ds-5-programmazione, P5).
+  // esistono; In evidenza ha il suo violetto (lotto ds-5-programmazione, P5),
+  // alias della palette come gli altri.
   --rule-layout: var(--brand-primary);
-  --rule-featured: #8b5cf6; // violet-500
+  --rule-featured: var(--color-violet-500);
   --rule-price: var(--success-500);
   --rule-visibility: var(--warning-500);
 
@@ -241,7 +247,7 @@
   color-scheme: dark;
 
   // In scuro il violetto sale di un gradino, come l'accento (#818cf8).
-  --rule-featured: #a78bfa; // violet-400
+  --rule-featured: var(--color-violet-400);
 
   --bg: #0f172a;
   --text: #f9fafb;

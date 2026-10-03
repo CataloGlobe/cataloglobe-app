@@ -38,7 +38,7 @@
         outline-offset: 2px;
     }
 
-    @media (min-width: 640px) {
+    @media (min-width: 641px) {
         display: inline-flex;
     }
 }
@@ -235,17 +235,25 @@
 
 /* ── CTA ─────────────────────────────────────────────────────────────────── */
 
+/* Footer della sheet (slot `footerContent` di PublicSheet): fuori dallo
+   scroll, la CTA resta visibile senza scorrere. La safe-area la mette già il
+   `.panel` di PublicSheet sotto questo blocco. */
+.ctaFooter {
+    padding: 12px 20px;
+    border-top: 1px solid var(--pub-surface-border);
+    background: var(--pub-surface, #fff);
+}
+
 .ctaBtn {
-    display: inline-block;
-    margin-top: 4px;
-    padding: 11px 22px;
+    display: block;
+    padding: 12px 22px;
+    text-align: center;
     background: var(--pub-cta-bg, var(--pub-primary, #6366f1));
     color: var(--pub-cta-text, #fff);
     border-radius: var(--pub-btn-radius, 8px);
     text-decoration: none;
     font-weight: 600;
     font-size: 0.9rem;
-    align-self: flex-start;
     transition: opacity 0.15s ease;
 
     &:hover {

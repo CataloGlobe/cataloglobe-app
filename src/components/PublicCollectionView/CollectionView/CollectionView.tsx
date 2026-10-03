@@ -28,9 +28,10 @@ import PublicFooter from "../PublicFooter/PublicFooter";
 import { PublicFeeRows } from "../PublicFooter/PublicFees";
 import CollectionSectionNav from "../CollectionSectionNav/CollectionSectionNav";
 import type { CollectionStyle, CompactLayoutStyle, ContentDensity } from "@/types/collectionStyle";
-import { contrastText } from "@/features/public/utils/mapStyleTokensToCssVars";
 import styles from "./CollectionView.module.scss";
 import EventsView from "../EventsView/EventsView";
+import { FeaturedCtaFooter } from "../FeaturedBlock/FeaturedContentDetail";
+import { hasFeaturedCta } from "../FeaturedBlock/featuredCta";
 import PublicBottomBar from "../PublicBottomBar/PublicBottomBar";
 import PublicBottomScrim from "../PublicBottomScrim/PublicBottomScrim";
 import { hasOpenSheet } from "../hooks/useScrollCollapse";
@@ -1033,6 +1034,9 @@ export default function CollectionView({
     // "menu" resta l'unica vista primaria di activeTab; eventi/recensioni si
     // aprono/chiudono in stato locale, indipendente dal tab attivo.
     const [isEventsSheetOpen, setIsEventsSheetOpen] = useState(false);
+    // Contenuto aperto nel dettaglio della sheet «In evidenza» (null = elenco).
+    // Qui e non in EventsView: la sua CTA va nel footerContent della sheet.
+    const [selectedEvent, setSelectedEvent] = useState<V2FeaturedContent | null>(null);
     const [isReviewsSheetOpen, setIsReviewsSheetOpen] = useState(false);
     // Voto pre-impostato dal widget stelle in footer — undefined = flow normale
     // da "stars" (header/bottombar). Passato a ReviewsView come `initialRating`.
@@ -1042,6 +1046,9 @@ export default function CollectionView({
         if (mode === "public" && activityId) {
             trackEvent(activityId, "tab_switch", { from_tab: activeTab, to_tab: "events" });
         }
+        // Riparte dall'elenco a ogni apertura (azzerarlo alla chiusura cambierebbe
+        // il contenuto durante l'animazione d'uscita).
+        setSelectedEvent(null);
         setIsEventsSheetOpen(true);
     }, [mode, activityId, activeTab]);
     const closeEventsSheet = useCallback(() => setIsEventsSheetOpen(false), []);
@@ -3118,9 +3125,14 @@ export default function CollectionView({
                             </button>
                         </div>
                     }
+                    footerContent={
+                        selectedEvent && hasFeaturedCta(selectedEvent)
+                            ? <FeaturedCtaFooter block={selectedEvent} />
+                            : undefined
+                    }
                 >
                     <div className={`${styles.infoSheetContent} ${styles.eventsListContent}`}>
-                        <EventsView featuredContents={featuredContents} layout={style?.featuredStyle} showSubtitle={style?.showFeaturedSubtitle} showTitle={style?.showFeaturedTitle} showCta={style?.showFeaturedCta} />
+                        <EventsView featuredContents={featuredContents} layout={style?.featuredStyle} showSubtitle={style?.showFeaturedSubtitle} showTitle={style?.showFeaturedTitle} showCta={style?.showFeaturedCta} selectedFeatured={selectedEvent} onSelectFeatured={setSelectedEvent} />
                     </div>
                 </PublicSheet>
             )}
@@ -3218,10 +3230,6 @@ export default function CollectionView({
                     }}
                     isSheetOpen={mode === "preview" ? false : (!!selectedItem || isOrderingOpen)}
                     preview={mode === "preview"}
-                    // Vetro adattivo: bg pagina chiaro → vetro chiaro, altrimenti scuro.
-                    // contrastText() riusa isLight() (luminanza); "#1a1a1a" ⇒ bg chiaro.
-                    // Parse-fail ⇒ "#ffffff" ⇒ "dark" (preserva il comportamento storico).
-                    surfaceTheme={contrastText(style.backgroundColor) === "#1a1a1a" ? "light" : "dark"}
                 />
             )}
 
@@ -3238,7 +3246,7 @@ export default function CollectionView({
                             ? styles.submitFeedbackSuccess
                             : styles.submitFeedbackError,
                         // Con la bottom bar attiva il toast condivide l'ancora a 16px:
-                        // lo solleviamo sopra la barra (~58px + gap) SOLO ≤640px (dove
+                        // lo solleviamo sopra la barra (altezza misurata + gap) SOLO ≤640px (dove
                         // la barra è visibile) — gating CSS, non inline, per non
                         // sollevarlo su desktop dove la barra è nascosta.
                         useBottomBar ? styles.submitFeedbackAboveBar : "",
