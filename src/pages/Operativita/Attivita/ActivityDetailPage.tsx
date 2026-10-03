@@ -48,7 +48,7 @@ const LEGACY_TAB_REDIRECT: Record<string, { section: ActivitySection; hash?: str
     "access-control": { section: "pubblicazione" },
     sala: { section: "sala" },
     tables: { section: "sala" },
-    availability: { section: "disponibilita" }
+    availability: { section: "cosa-vedono" }
 };
 
 const isSection = (v: string): v is ActivitySection =>

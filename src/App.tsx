@@ -91,7 +91,7 @@ const ActivitySectionRedirect = lazy(() => import("./pages/Operativita/Attivita/
 const SedeRedirect = lazy(() => import("./components/layout/SedeRedirect/SedeRedirect"));
 const ActivityPubblicazioneRoute = lazy(() => import("./pages/Operativita/Attivita/routes/ActivityPubblicazioneRoute"));
 const ActivitySalaRoute = lazy(() => import("./pages/Operativita/Attivita/routes/ActivitySalaRoute"));
-const ActivityDisponibilitaRoute = lazy(() => import("./pages/Operativita/Attivita/routes/ActivityDisponibilitaRoute"));
+const ActivityCosaVedonoRoute = lazy(() => import("./pages/Operativita/Attivita/routes/ActivityCosaVedonoRoute"));
 const SubscriptionPage = lazy(() => import("./pages/Business/SubscriptionPage"));
 
 // Landing di campagna su / (variante form) e /b (variante signup, noindex).
@@ -276,7 +276,9 @@ export default function App() {
                     <Route path="canali" element={<ActivitySectionRedirect to="ordini-prenotazioni" keepHash />} />
                     <Route path="pubblicazione" element={<ActivityPubblicazioneRoute />} />
                     <Route path="sala" element={<ActivitySalaRoute />} />
-                    <Route path="disponibilita" element={<ActivityDisponibilitaRoute />} />
+                    <Route path="cosa-vedono" element={<ActivityCosaVedonoRoute />} />
+                    {/* Il vecchio nome (Disponibilità, §50.14): link e preferiti restano buoni. */}
+                    <Route path="disponibilita" element={<ActivitySectionRedirect to="cosa-vedono" keepHash keepSearch />} />
                     {/* Un segmento sconosciuto sotto la sede apre l'Anagrafica:
                         un link vecchio o storto resta dentro la scheda invece di
                         finire sulla pagina "non trovata" di tutto il sito. */}

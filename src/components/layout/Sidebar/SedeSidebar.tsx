@@ -56,10 +56,10 @@ function buildGroups(businessId: string, activityId: string): SidebarNavGroup[] 
             title: "Clienti",
             items: [
                 {
-                    // Diventerà «Cosa vedono i clienti» con la §19: il nome
-                    // nuovo prometterebbe una pagina che non c'è ancora.
-                    to: `${s}/disponibilita`,
-                    label: "Disponibilità",
+                    // «Cosa vedono i clienti» (§19, milestone 7): esito,
+                    // provenienza e prezzi ci sono, il nome li mantiene.
+                    to: `${s}/cosa-vedono`,
+                    label: "Cosa vedono i clienti",
                     icon: <Eye size={18} />,
                     // Chi legge la sede la vede in sola lettura; scrive chi ha
                     // `activity.manage`, lo stesso permesso delle RLS (D2, §50.14).

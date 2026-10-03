@@ -7,6 +7,8 @@ import styles from "./SegmentedControl.module.scss";
 interface SegmentedOption<T extends string | number> {
     value: T;
     label: string;
+    /** Nome accessibile quando `label` è una forma corta del nome intero. */
+    ariaLabel?: string;
     icon?: React.ReactNode;
 }
 
@@ -88,7 +90,7 @@ export function SegmentedControl<T extends string | number>({
                         // In iconsOnly mode il testo non è renderizzato → senza
                         // aria-label il pulsante avrebbe nome accessibile vuoto.
                         // L'etichetta a vista la dà il Tooltip, non il `title`.
-                        aria-label={iconsOnly ? opt.label : undefined}
+                        aria-label={iconsOnly ? opt.label : opt.ariaLabel}
                         className={`${styles.item} ${size === "sm" ? styles.itemSm : ""}`}
                         onClick={() => {
                             setHasInteracted(true);
