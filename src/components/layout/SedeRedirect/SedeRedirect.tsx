@@ -21,11 +21,11 @@ export interface SedeRedirectProps {
  */
 export default function SedeRedirect({ routeKey, segment }: SedeRedirectProps) {
     const { businessId = "" } = useParams<{ businessId: string }>();
-    const { value, readableActivities } = useSedeScope({ routeKey });
+    const { value, readableActivities, isLoaded } = useSedeScope({ routeKey });
 
-    if (readableActivities.length === 0) {
-        // Ancora niente elenco: può essere il caricamento, o nessuna sede
-        // leggibile. Un attimo di attesa e poi la decisione qui sotto.
+    if (readableActivities.length === 0 && !isLoaded) {
+        // Ancora niente elenco. Con una sede ricordata si parte subito; senza,
+        // si aspetta l'elenco per decidere.
         return value && value !== SCOPE_ALL ? (
             <Navigate to={`/business/${businessId}/locations/${value}/${segment}`} replace />
         ) : (
