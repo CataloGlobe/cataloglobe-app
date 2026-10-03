@@ -132,7 +132,8 @@ function CosaVedonoContent({ activity, tenantId }: { activity: V2Activity; tenan
                     fixes={{
                         seat: { label: "Vai a Pubblicazione", href: `/business/${tenantId}/locations/${activity.id}/pubblicazione` },
                         subscription: { label: "Vai ad Abbonamento", href: `/business/${tenantId}/subscription` },
-                        rule: { label: "Vai a Programmazione", href: `/business/${tenantId}/scheduling` }
+                        // Programmazione si apre già su questa sede (D2 §1).
+                        rule: { label: "Vai a Programmazione", href: `/business/${tenantId}/scheduling?sede=${activity.id}` }
                     }}
                 />
             )}
