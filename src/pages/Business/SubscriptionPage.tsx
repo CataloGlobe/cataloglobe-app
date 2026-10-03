@@ -526,7 +526,9 @@ export default function SubscriptionPage() {
                 tenantId: selectedTenant.id,
                 planCode: selectedTenant.plan,
                 billingInterval,
-                quantity: paidSeats > 0 ? paidSeats : 1,
+                // The edge refuses a quantity below the existing activities
+                // (`seats_below_activities`): re-activation covers all of them.
+                quantity: Math.max(1, paidSeats, activityCount),
                 successUrl: `${window.location.origin}/business/${selectedTenant.id}/settings/abbonamento?session=success`,
                 cancelUrl: `${window.location.origin}/business/${selectedTenant.id}/settings/abbonamento?session=cancel`
             });
@@ -578,6 +580,21 @@ export default function SubscriptionPage() {
             } else if (code === "fiscal_profile_unavailable") {
                 showToast({
                     message: "Non siamo riusciti a leggere i dati di fatturazione. Non ti è stato addebitato nulla: riprova tra qualche istante.",
+                    type: "error"
+                });
+            } else if (code === "seats_over_self_service") {
+                showToast({
+                    message: "La tua azienda ha più sedi di quante se ne possano attivare online. Contatta l'assistenza per riattivare l'abbonamento.",
+                    type: "error"
+                });
+            } else if (code === "seats_below_activities") {
+                showToast({
+                    message: "L'abbonamento deve coprire tutte le sedi della tua azienda. Ricarica la pagina e riprova.",
+                    type: "error"
+                });
+            } else if (code === "activity_count_unavailable") {
+                showToast({
+                    message: "Non siamo riusciti a verificare le sedi della tua azienda. Non ti è stato addebitato nulla: riprova tra qualche istante.",
                     type: "error"
                 });
             } else {
@@ -1114,6 +1131,8 @@ export default function SubscriptionPage() {
             size="sm"
             onClick={handleCheckout}
             loading={checkoutLoading}
+            // quantity covers the activities: no checkout before they are counted.
+            disabled={activityCountLoaded === null}
             leftIcon={<CreditCard size={14} />}
         >
             {label}
