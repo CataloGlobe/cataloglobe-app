@@ -58,6 +58,12 @@ const EXPLAINED_OPTIONS: { value: ProductVisibilityState; label: string }[] = [
     { value: "unavailable", label: "Non disponibile" }
 ];
 
+// Sotto 768 «Come dice la regola» non sta nella riga con le altre due (§50.20):
+// a vista «Regola», il nome intero resta il nome accessibile.
+const EXPLAINED_OPTIONS_SHORT = EXPLAINED_OPTIONS.map(option =>
+    option.value === "visible" ? { ...option, label: "Regola", ariaLabel: option.label } : option
+);
+
 /**
  * La spiegazione che la rotta ha letto (§50.20), solo con
  * `canExplainActivityCatalog`. Senza, la pagina legge da sé le sole
@@ -378,7 +384,7 @@ export const ActivityVisibilityContent: React.FC<ActivityVisibilityContentProps>
                     value={product.control}
                     onChange={next => handleSetState(product.productId, next)}
                     size="sm"
-                    options={explained ? EXPLAINED_OPTIONS : VISIBILITY_OPTIONS}
+                    options={explained ? (pageScrolls ? EXPLAINED_OPTIONS_SHORT : EXPLAINED_OPTIONS) : VISIBILITY_OPTIONS}
                 />
             </fieldset>
         );
@@ -440,7 +446,7 @@ export const ActivityVisibilityContent: React.FC<ActivityVisibilityContentProps>
                 cell: (_, product) => control(product)
             }
         ];
-    }, [isPhone, readOnly, handleSetState, explained]);
+    }, [isPhone, readOnly, handleSetState, explained, pageScrolls]);
 
     const showLoading = explained ? explanation.loading : isLoading;
     const showError = explained ? explanation.error : loadError;

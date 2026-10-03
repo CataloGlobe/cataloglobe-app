@@ -145,6 +145,32 @@ test.describe("Disponibilità — prodotti", () => {
     });
 });
 
+test.describe("Cosa vedono i clienti — tri-stato a 375", () => {
+    test("le tre voci stanno intere nella finestra, col nome intero", async ({ page }) => {
+        await openDisponibilita(page);
+        await expect(main(page).getByText("Big e2e", { exact: true })).toBeVisible({ timeout: 15_000 });
+        await page.setViewportSize({ width: 375, height: 800 });
+        const row = productRow(page, "Big e2e");
+        // Sotto 768 la voce a vista è «Regola»: si misura dopo il cambio.
+        await expect(row.getByRole("radio", { name: "Come dice la regola" })).toHaveText("Regola");
+        // Dentro la finestra e dentro il gruppo: il gruppo scorre, una voce
+        // tagliata dal suo bordo starebbe comunque nella finestra. In poll: la
+        // colonna unica arriva dal ResizeObserver, dopo il cambio di finestra.
+        const cut = async () => {
+            const group = await row.getByRole("radiogroup").boundingBox();
+            if (!group) return ["gruppo"];
+            const out: string[] = [];
+            for (const name of ["Come dice la regola", "Nascosto", "Non disponibile"]) {
+                const box = await row.getByRole("radio", { name, exact: true }).boundingBox();
+                if (!box || box.x < Math.max(0, group.x) || box.x + box.width > Math.min(375, group.x + group.width)) out.push(name);
+            }
+            return out;
+        };
+        await expect.poll(cut).toEqual([]);
+        await noSideScroll(page);
+    });
+});
+
 test.describe("Disponibilità — ingredienti", () => {
     test("un ingrediente cambia tutti i suoi prodotti, dopo la conferma", async ({ page }) => {
         const { stub } = await openDisponibilita(page);
