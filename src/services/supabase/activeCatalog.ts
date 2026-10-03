@@ -2,11 +2,15 @@ import { supabase } from "@/services/supabase/client";
 import {
     resolveActivityCatalogs,
     findLayoutCatalogId,
+    loadCatalogById,
     normalizeCatalog,
-    type RawCatalogRow
+    type ActivityProductOverrideRow,
+    type RawCatalogRow,
+    type VisibilityOverrideRow
 } from "./resolveActivityCatalogs";
-import { getNowInRome } from "@/services/supabase/schedulingNow";
-import type { VisibilityMode } from "@/services/supabase/scheduleResolver";
+import { getNowInRome, type RomeDateTime } from "@/services/supabase/schedulingNow";
+import { resolveRulesForActivity, type VisibilityMode } from "@/services/supabase/scheduleResolver";
+import { explainCatalog, type CatalogExplanation, type PriceRuleRow, type RuleRef } from "@/utils/catalogExplanation";
 
 // ==========================================
 // TYPES
@@ -547,4 +551,114 @@ export function deriveVisibilityState(
         return mode === "disable" ? "unavailable" : "hidden";
     }
     return "visible";
+}
+
+// ==========================================
+// «COSA VEDONO I CLIENTI» (§19, milestone 7)
+// ==========================================
+
+export type CatalogExplanationData = {
+    /** L'istante di Roma della lettura: la banda dice «adesso, alle HH:MM». */
+    at: RomeDateTime;
+    catalogId: string | null;
+    catalogName: string | null;
+    /** Le regole che vincono adesso, per tipo. */
+    layoutRule: RuleRef | null;
+    visibilityRule: RuleRef | null;
+    priceRule: RuleRef | null;
+    /** Esiste almeno una regola menù accesa per la sede, anche se non vince adesso. */
+    hasCatalogRule: boolean;
+    /** Il resolver ha qualcosa da mostrare. */
+    renderable: boolean;
+    /** Null senza menù. */
+    explanation: CatalogExplanation | null;
+};
+
+/**
+ * Cosa vedono i clienti della sede adesso, e perché (§50.20).
+ *
+ * Il catalogo finale è quello del resolver del frontend, la copia in SYNC con
+ * l'Edge; la provenienza la ricava `explainCatalog`. Gira con le RLS di chi
+ * guarda: la pagina lo chiama solo con `canExplainActivityCatalog`, perché
+ * senza quei permessi le regole lette non sono tutte quelle dell'Edge.
+ */
+export async function getCatalogExplanation(activityId: string, tenantId: string): Promise<CatalogExplanationData> {
+    const now = getNowInRome();
+    const [resolved, rules] = await Promise.all([
+        resolveActivityCatalogs(activityId, now, tenantId),
+        resolveRulesForActivity({ supabase, activityId, tenantId, now })
+    ]);
+
+    const catalogId = rules.layout.catalogId;
+    const visibilityRuleId = rules.visibilityRule?.scheduleId ?? null;
+    const priceRuleId = rules.priceRuleId;
+    const ruleIds = [rules.layout.scheduleId, visibilityRuleId, priceRuleId].filter((id): id is string => !!id);
+
+    const [base, ruleNames, visibilityRows, priceRows, manual] = await Promise.all([
+        catalogId ? loadCatalogById(catalogId, tenantId) : Promise.resolve(undefined),
+        loadScheduleNames(ruleIds, tenantId),
+        visibilityRuleId ? loadVisibilityRuleRows(visibilityRuleId, tenantId) : Promise.resolve([]),
+        priceRuleId ? loadPriceRuleRows(priceRuleId, tenantId) : Promise.resolve([]),
+        catalogId ? getActivityProductOverrides(activityId) : Promise.resolve<Record<string, ActivityProductOverride>>({})
+    ]);
+
+    const ref = (id: string | null): RuleRef | null => (id ? { id, name: ruleNames[id] ?? "Regola senza nome" } : null);
+    const visibilityRule = ref(visibilityRuleId);
+    const priceRule = ref(priceRuleId);
+
+    const manualRows: Record<string, ActivityProductOverrideRow> = {};
+    for (const [productId, row] of Object.entries(manual)) {
+        manualRows[productId] = { product_id: productId, visible_override: row.visible_override, mode: row.mode };
+    }
+
+    return {
+        at: now,
+        catalogId: base ? catalogId : null,
+        catalogName: base ? base.name || "Catalogo senza nome" : null,
+        layoutRule: ref(rules.layout.scheduleId),
+        visibilityRule,
+        priceRule,
+        hasCatalogRule: resolved.hasConfiguredCatalogRule ?? rules.layoutCandidateCount > 0,
+        renderable: !!resolved.catalog,
+        explanation: base
+            ? explainCatalog({
+                  base,
+                  final: resolved.catalog,
+                  visibilityRule: visibilityRule && rules.visibilityRule ? { ...visibilityRule, mode: rules.visibilityRule.mode } : null,
+                  visibilityRows,
+                  priceRule,
+                  priceRows,
+                  manual: manualRows
+              })
+            : null
+    };
+}
+
+async function loadScheduleNames(ids: string[], tenantId: string): Promise<Record<string, string>> {
+    if (ids.length === 0) return {};
+    const { data, error } = await supabase.from("schedules").select("id, name").eq("tenant_id", tenantId).in("id", ids);
+    if (error) throw error;
+    const names: Record<string, string> = {};
+    for (const row of (data ?? []) as Array<{ id: string; name: string | null }>) names[row.id] = row.name ?? "";
+    return names;
+}
+
+async function loadVisibilityRuleRows(scheduleId: string, tenantId: string): Promise<VisibilityOverrideRow[]> {
+    const { data, error } = await supabase
+        .from("schedule_visibility_overrides")
+        .select("product_id, visible, mode")
+        .eq("tenant_id", tenantId)
+        .eq("schedule_id", scheduleId);
+    if (error) throw error;
+    return (data ?? []) as VisibilityOverrideRow[];
+}
+
+async function loadPriceRuleRows(scheduleId: string, tenantId: string): Promise<PriceRuleRow[]> {
+    const { data, error } = await supabase
+        .from("schedule_price_overrides")
+        .select("product_id, option_value_id")
+        .eq("tenant_id", tenantId)
+        .eq("schedule_id", scheduleId);
+    if (error) throw error;
+    return (data ?? []) as PriceRuleRow[];
 }

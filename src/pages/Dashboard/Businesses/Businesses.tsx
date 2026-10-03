@@ -610,7 +610,7 @@ export default function Businesses() {
                 // «Gestisci» apre la pagina della sede (§19.5): il drawer da
                 // 900 non esiste più.
                 onManageAvailability={id =>
-                  navigate(`/business/${businessId}/locations/${id}/disponibilita`)
+                  navigate(`/business/${businessId}/locations/${id}/cosa-vedono`)
                 }
                 onCreateClick={canCreate ? handleAddActivity : undefined}
                 pendingReservationsMap={pendingReservationsMap}

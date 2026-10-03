@@ -1338,7 +1338,7 @@ test.describe("Programmazione — banda e matrice", () => {
         await expect(page).toHaveURL(new RegExp(`/scheduling/featured/${RULE.promoPorto}`));
         await page.goBack();
         await seatRow(page, "Centro e2e").getByRole("link", { name: "Centro e2e", exact: true }).click();
-        await expect(page).toHaveURL(new RegExp(`/locations/${SEDE.centro}/disponibilita`));
+        await expect(page).toHaveURL(new RegExp(`/locations/${SEDE.centro}/cosa-vedono`));
     });
 
     test("sotto la matrice la nota dice che le colonne sono passaggi in fila", async ({ page }) => {

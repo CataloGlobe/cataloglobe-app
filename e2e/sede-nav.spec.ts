@@ -14,7 +14,7 @@ import { openBusinessPage } from "./business";
  * Locator per ruolo, mai per tag. Nessuna scrittura.
  */
 
-const SEDE_VOCI = ["Comande", "Prenotazioni", "Sala", "Disponibilità", "Scheda"] as const;
+const SEDE_VOCI = ["Comande", "Prenotazioni", "Sala", "Cosa vedono i clienti", "Scheda"] as const;
 
 /** Le voci dell'azienda che dentro una sede NON devono esserci. */
 const VOCI_AZIENDA = ["Panoramica", "Programmazione", "Team", "Abbonamento"] as const;
@@ -126,8 +126,8 @@ test.describe("Contesto di sede", () => {
         await sidebar.getByRole("link", { name: "Sala", exact: true }).click();
         await expect(page).toHaveURL(/\/sala$/, { timeout: 15_000 });
 
-        await sidebar.getByRole("link", { name: "Disponibilità", exact: true }).click();
-        await expect(page).toHaveURL(/\/disponibilita$/, { timeout: 15_000 });
+        await sidebar.getByRole("link", { name: "Cosa vedono i clienti", exact: true }).click();
+        await expect(page).toHaveURL(/\/cosa-vedono$/, { timeout: 15_000 });
 
         await sidebar.getByRole("link", { name: "Scheda", exact: true }).click();
         await expect(page).toHaveURL(/\/anagrafica$/, { timeout: 15_000 });

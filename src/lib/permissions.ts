@@ -65,6 +65,23 @@ export function canDoOnAnyActivity(perms: UserPermissions, permissionId: string)
     return perms.activityIds.length > 0;
 }
 
+/**
+ * Può vedere perché la sede mostra quello che mostra: la banda dell'esito,
+ * la provenienza per riga, il prezzo dalla regola e il menù attivo di
+ * «Cosa vedono i clienti» (§50.20). È l'unico gate di quei punti.
+ *
+ * Il resolver del pannello legge con le RLS di chi guarda, l'Edge della
+ * pagina pubblica con `service_role`. Senza `scheduling.read` sulla sede le
+ * regole non si leggono affatto (`can_read_schedule`); senza
+ * `activity_groups.read` non si leggono i gruppi della sede
+ * (`activity_group_members`), quindi mancano le regole che puntano a un
+ * gruppo. In entrambi i casi la spiegazione sarebbe falsa: oggi staff e
+ * viewer vedono solo le modifiche a mano.
+ */
+export function canExplainActivityCatalog(perms: UserPermissions, activityId: string): boolean {
+    return canDoOnActivity(perms, "scheduling.read", activityId) && canDoOnAnyActivity(perms, "activity_groups.read");
+}
+
 // ----------------------------------------------------------------------------
 // Composite role checks
 // ----------------------------------------------------------------------------
