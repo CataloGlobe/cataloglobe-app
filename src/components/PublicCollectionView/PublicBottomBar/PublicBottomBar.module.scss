@@ -29,6 +29,7 @@
   // residuo (translateY(0) permanente = layer e containing block inutili).
   animation: barIn 0.42s cubic-bezier(0.22, 1, 0.36, 1) backwards;
 
+  // ⚠️ SYNC con PUBLIC_MOBILE_MAX_WIDTH (publicBreakpoints.ts): mobile ≤640px.
   // CSS-driven split: la barra è sempre montata (markup SSR-safe), visibile solo
   // su mobile. ≥641px esce dal flow E dall'accessibility tree (no doppio tablist).
   // Esclusa la preview ([data-preview]): lì lo split è pilotato dal device frame

@@ -5,6 +5,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import { BookOpenText, MessageCircle, Pin, ReceiptText, Utensils } from "lucide-react";
 import type { HubTab } from "@/types/collectionStyle";
 import { useScrollCollapse } from "../hooks/useScrollCollapse";
+import { PUBLIC_MOBILE_QUERY } from "../publicBreakpoints";
 import styles from "./PublicBottomBar.module.scss";
 
 /**
@@ -86,7 +87,7 @@ export default function PublicBottomBar({
         // viewport del browser → niente matchMedia su window. Barra statica.
         if (preview) return;
         if (typeof window === "undefined" || !window.matchMedia) return;
-        const mq = window.matchMedia("(max-width: 640px)");
+        const mq = window.matchMedia(PUBLIC_MOBILE_QUERY);
         const update = () => setIsMobileActive(mq.matches);
         update();
         mq.addEventListener("change", update);
