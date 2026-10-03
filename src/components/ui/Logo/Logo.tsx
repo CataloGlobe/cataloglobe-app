@@ -31,6 +31,9 @@ interface LogoProps {
     size?: number;
     className?: string;
     alt?: string;
+    /** Dimensioni intrinseche per riservare lo spazio prima del caricamento (CLS); la misura resta al CSS. */
+    width?: number;
+    height?: number;
 }
 
 const ASSETS: Record<LogoVariant, { flat: string; gradient: string; monoDark: string; monoWhite: string }> = {
@@ -50,7 +53,7 @@ const ASSETS: Record<LogoVariant, { flat: string; gradient: string; monoDark: st
     }
 };
 
-export function Logo({ variant, color = "auto", size, className, alt = "CataloGlobe" }: LogoProps) {
+export function Logo({ variant, color = "auto", size, className, alt = "CataloGlobe", width, height }: LogoProps) {
     const { theme } = useTheme();
     const set = ASSETS[variant];
 
@@ -71,6 +74,8 @@ export function Logo({ variant, color = "auto", size, className, alt = "CataloGl
         <img
             src={src}
             alt={alt}
+            width={width}
+            height={height}
             className={`${styles.logo} ${className ?? ""}`}
             style={size ? { height: size, width: "auto" } : undefined}
         />

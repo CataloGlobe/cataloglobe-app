@@ -20,6 +20,7 @@ import {
 import {
     buildClientAssets,
     buildSsrShell,
+    stripLandingSeoForFallback,
     type PublicShellPayload,
     type ViteManifest
 } from "../_lib/publicShell.js";
@@ -136,7 +137,9 @@ let spaFallbackCache: string | null = null;
 function readSpaFallback(): string | null {
     if (spaFallbackCache === null) {
         try {
-            spaFallbackCache = readFileSync(join(process.cwd(), "dist", "index.html"), "utf-8");
+            spaFallbackCache = stripLandingSeoForFallback(
+                readFileSync(join(process.cwd(), "dist", "index.html"), "utf-8")
+            );
         } catch {
             return null;
         }

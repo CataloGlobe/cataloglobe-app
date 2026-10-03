@@ -110,9 +110,9 @@ export default function CookieBanner() {
             onAnimationEnd={onAnimationEnd}
         >
             <div className={styles.body}>
-                <h2 id={titleId} className={styles.title}>
+                <p id={titleId} className={styles.title}>
                     Cookie di analisi
-                </h2>
+                </p>
                 <p id={textId} className={styles.text}>
                     Usiamo solo strumenti tecnici necessari e, se accetti, Microsoft Clarity (cookie di
                     analisi) per migliorare questa pagina. Chiudendo con la X continui senza.{" "}
