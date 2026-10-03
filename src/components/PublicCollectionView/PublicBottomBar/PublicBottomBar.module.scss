@@ -54,14 +54,14 @@
   // + width:fit-content ereditati dalla regola base.
   bottom: calc(var(--pub-bottombar-offset, 16px) + env(safe-area-inset-bottom, 0px));
   pointer-events: none;
-  // Margin-top negativo pari all'ingombro proprio del box (offset dal fondo +
-  // altezza misurata della pill) evita che lo sticky aggiunga flow in fondo
-  // alla preview — il runtime pubblico è position:fixed e non occupa flow.
-  // Stesso rimedio di PublicBottomScrim.module.scss `.root[data-preview]`.
-  margin-top: calc(
-    -1 * (var(--pub-bottombar-offset, 16px) + var(--pub-bottombar-h, 54px)) -
-      env(safe-area-inset-bottom, 0px)
-  );
+  // Margin-top negativo pari alla SOLA altezza misurata del box: lo sticky
+  // non aggiunge flow in fondo alla preview (il runtime pubblico è
+  // position:fixed e non occupa flow). L'offset dal fondo lo dà `bottom`
+  // dello sticky, non va tolto anche qui: sottrarlo spostava 16px più in alto
+  // il flow successivo, e lo scrim sticky (fratello dopo la barra) finiva
+  // staccato dal fondo del device frame. Stesso rimedio di
+  // PublicBottomScrim.module.scss `.root[data-preview]`.
+  margin-top: calc(-1 * var(--pub-bottombar-h, 54px));
 }
 
 .bar {
