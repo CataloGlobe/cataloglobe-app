@@ -188,6 +188,8 @@ test.describe("Aspetto della sidebar (§51.15)", () => {
         const paths = await locationPaths(page);
         await page.goto(`${businessRoot(paths[0])}/products`);
         await ensureOpen(page);
+        // Finché le sedi caricano la sidebar non ha voci: si misura dopo.
+        await expect(nav(page).getByRole("link", { name: "Prodotti", exact: true })).toBeVisible({ timeout: 15_000 });
         const rows = await nav(page)
             .getByRole("link")
             .evaluateAll(links => links.map(l => Math.round(l.getBoundingClientRect().height)));
