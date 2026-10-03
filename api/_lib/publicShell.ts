@@ -85,6 +85,23 @@ function setMetaContent(html: string, key: string, value: string): string {
     return html.replace(re, (_m, p1: string, p2: string) => p1 + value + p2);
 }
 
+/** JSON-LD della landing in index.html (Organization + SoftwareApplication coi prezzi). */
+const LANDING_LD_RE = /\s*<script\s+type="application\/ld\+json"\s+data-landing-ld>[\s\S]*?<\/script>/g;
+
+/** Toglie il JSON-LD della landing: descrive il sito, non la sede. */
+export function stripLandingJsonLd(html: string): string {
+    return html.replace(LANDING_LD_RE, () => "");
+}
+
+/**
+ * Shell SPA servita su un URL di sede senza SSR (`serveSpaFallback`): niente
+ * JSON-LD della landing e niente canonical alla home, che dichiarerebbe la
+ * sede un doppione di `/`.
+ */
+export function stripLandingSeoForFallback(html: string): string {
+    return stripLandingJsonLd(html).replace(/\s*<link\s+rel="canonical"\s+href="[^"]*"\s*\/>/, () => "");
+}
+
 /* ── Trasformazione shell ───────────────────────────────────────────────── */
 
 export type TenantHeadOptions = {
@@ -131,6 +148,7 @@ export function applyTenantHead(
         /(<link\s+rel="canonical"\s+href=")[^"]*(")/,
         (_m, p1: string, p2: string) => p1 + canonical + p2
     );
+    html = stripLandingJsonLd(html);
 
     const extra: string[] = [];
 
