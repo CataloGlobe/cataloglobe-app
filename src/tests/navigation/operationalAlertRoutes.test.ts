@@ -7,7 +7,7 @@ const base = `/business/${B}/locations/${A}`;
 
 describe("alertTarget", () => {
     it("porta alla vista della sede da cui viene l'avviso", () => {
-        expect(alertTarget(B, A, "tables")).toBe(`${base}/comande?tab=tavoli`);
+        expect(alertTarget(B, A, "tables")).toBe(`${base}/servizio?modo=mappa`);
         expect(alertTarget(B, A, "orders")).toBe(`${base}/comande`);
     });
 
@@ -18,15 +18,20 @@ describe("alertTarget", () => {
 });
 
 describe("isAlertViewOpen", () => {
-    it("tace sui tavoli della stessa sede", () => {
-        expect(isAlertViewOpen(`${base}/comande`, "?tab=tavoli", B, A, "tables")).toBe(true);
+    it("tace sulla Mappa della stessa sede, anche senza ?modo=", () => {
+        expect(isAlertViewOpen(`${base}/servizio`, "?modo=mappa", B, A, "tables")).toBe(true);
+        expect(isAlertViewOpen(`${base}/servizio`, "", B, A, "tables")).toBe(true);
+    });
+
+    it("parla in Gestisci la sala, che non mostra le richieste", () => {
+        expect(isAlertViewOpen(`${base}/servizio`, "?modo=gestisci", B, A, "tables")).toBe(false);
     });
 
     it("parla sui tavoli di un'altra sede", () => {
-        expect(isAlertViewOpen(`/business/${B}/locations/a2/comande`, "?tab=tavoli", B, A, "tables")).toBe(false);
+        expect(isAlertViewOpen(`/business/${B}/locations/a2/servizio`, "?modo=mappa", B, A, "tables")).toBe(false);
     });
 
-    it("la board senza ?tab= è la vista delle comande, non dei tavoli", () => {
+    it("la board di Comande è la vista delle comande, non dei tavoli", () => {
         expect(isAlertViewOpen(`${base}/comande`, "", B, A, "orders")).toBe(true);
         expect(isAlertViewOpen(`${base}/comande`, "", B, A, "tables")).toBe(false);
     });

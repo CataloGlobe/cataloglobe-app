@@ -3,8 +3,8 @@
  * Puro: niente router, niente DB.
  *
  * Due avvisi, due viste della sede da cui vengono:
- * - `tables` (cameriere, conto): la vista dei tavoli, che li mostra già sulla
- *   tessera;
+ * - `tables` (cameriere, conto): la Mappa di Servizio, che li mostra già
+ *   sulla tessera;
  * - `orders` (nuove comande): la board di Comande.
  *
  * L'avviso tace solo se quella vista è in primo piano **sulla stessa sede**:
@@ -22,7 +22,7 @@ export function alertTarget(businessId: string, activityId: string | null | unde
         return view === "tables" ? `/business/${businessId}/orders?tab=tavoli` : `/business/${businessId}/orders`;
     }
     const base = sedeBase(businessId, activityId);
-    return view === "tables" ? `${base}/comande?tab=tavoli` : `${base}/comande`;
+    return view === "tables" ? `${base}/servizio?modo=mappa` : `${base}/comande`;
 }
 
 /** `true` se chi guarda ha già davanti la vista che mostra l'avviso. */
@@ -34,8 +34,11 @@ export function isAlertViewOpen(
     view: AlertView
 ): boolean {
     if (!activityId) return false;
-    if (pathname.replace(/\/$/, "") !== `${sedeBase(businessId, activityId)}/comande`) return false;
-    // Comande senza `?tab=` è la board.
-    const tab = new URLSearchParams(search).get("tab") ?? "comande";
-    return view === "tables" ? tab === "tavoli" : tab === "comande";
+    const path = pathname.replace(/\/$/, "");
+    const base = sedeBase(businessId, activityId);
+    if (view === "orders") return path === `${base}/comande`;
+    // Servizio senza `?modo=` apre la Mappa, quando la si può usare: è il
+    // caso di chi riceve gli avvisi dei tavoli.
+    const modo = new URLSearchParams(search).get("modo");
+    return path === `${base}/servizio` && (modo === null || modo === "mappa");
 }

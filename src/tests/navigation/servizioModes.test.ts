@@ -12,6 +12,8 @@ function perms(role: UserRole, permissions: string[], activityIds: string[] = [S
 const pro = (): boolean => true;
 const base = (f: PlanFeature): boolean => f !== "table_ordering" && f !== "table_reservation";
 const gestisci = SERVIZIO_MODES.find(m => m.mode === "gestisci")!;
+const mappa = SERVIZIO_MODES.find(m => m.mode === "mappa")!;
+const LEGGE = ["tables.read", "orders.read"];
 
 describe("modeAccess", () => {
     it("Gestisci la sala: chi legge i tavoli, con ogni piano", () => {
@@ -27,8 +29,35 @@ describe("modeAccess", () => {
     });
 });
 
+describe("modeAccess — Mappa", () => {
+    it("col piano Pro chi legge tavoli e ordini", () => {
+        expect(modeAccess(mappa, perms("viewer", LEGGE), pro, SEDE)).toBe("usable");
+    });
+
+    it("col piano base si vede col lucchetto", () => {
+        expect(modeAccess(mappa, perms("viewer", LEGGE), base, SEDE)).toBe("locked");
+    });
+
+    it("senza orders.read non si mostra", () => {
+        expect(modeAccess(mappa, perms("viewer", ["tables.read"]), pro, SEDE)).toBe("hidden");
+    });
+});
+
 describe("resolveServizioMode", () => {
-    it("senza ?modo= il primo usabile", () => {
+    it("senza ?modo= il primo usabile: la Mappa col piano Pro", () => {
+        expect(resolveServizioMode(null, perms("staff", LEGGE), pro, SEDE)).toBe("mappa");
+    });
+
+    it("col piano base Gestisci la sala, anche se si chiede la Mappa", () => {
+        expect(resolveServizioMode(null, perms("staff", LEGGE), base, SEDE)).toBe("gestisci");
+        expect(resolveServizioMode("mappa", perms("staff", LEGGE), base, SEDE)).toBe("gestisci");
+    });
+
+    it("il modo chiesto, se si può usare", () => {
+        expect(resolveServizioMode("gestisci", perms("staff", LEGGE), pro, SEDE)).toBe("gestisci");
+    });
+
+    it("senza orders.read la Mappa non c'è: Gestisci la sala", () => {
         expect(resolveServizioMode(null, perms("staff", ["tables.read"]), pro, SEDE)).toBe("gestisci");
     });
 

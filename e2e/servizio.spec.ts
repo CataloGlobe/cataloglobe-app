@@ -9,8 +9,8 @@ import { asBasePlan, asRole } from "./asRole";
  * `/sala`. Lo Storico degli ordini diventa una voce a sé. L'Elenco (le
  * tavolate) arriva col lotto B-b: fino ad allora resta in Prenotazioni.
  *
- * Scritto **prima** della pagina: i casi sono in `test.fail` finché la
- * navigazione nuova non c'è.
+ * Scritto **prima** della pagina, in `test.fail`; ogni caso è passato a
+ * `test` col commit che lo rende vero.
  *
  * Fixture su staging, la stessa di `comande.spec.ts`: la sede «Garbagnate»
  * ha tre tavoli, due senza zona, e una sola comanda attiva, in Nuove, sul
@@ -83,7 +83,6 @@ test.describe("Servizio", () => {
     });
 
     test("col piano Pro Servizio si apre sulla Mappa, coi tavoli per zona", async ({ page }) => {
-        test.fail();
         await openVoce(page, "Servizio");
         await expect(page).toHaveURL(/\/servizio$/, { timeout: 15_000 });
         await expect(modo(page, "Mappa")).toHaveAttribute("aria-selected", "true", { timeout: 15_000 });
@@ -101,7 +100,6 @@ test.describe("Servizio", () => {
     });
 
     test("dalla Mappa si apre il pannello del conto del tavolo", async ({ page }) => {
-        test.fail();
         await openVoce(page, "Servizio");
         await expect(tessera(page)).toBeVisible({ timeout: 15_000 });
         await tessera(page).click();
@@ -119,7 +117,6 @@ test.describe("Servizio", () => {
     });
 
     test("la Mappa: «Aperti» e «Liberi» filtrano le tessere", async ({ page }) => {
-        test.fail();
         await openVoce(page, "Servizio");
         const filtri = main(page).getByRole("radiogroup");
         await expect(main(page).getByRole("list", { name: "Tavoli" })).toHaveCount(0, { timeout: 15_000 });
@@ -137,7 +134,6 @@ test.describe("Servizio", () => {
     });
 
     test("la Mappa è una griglia per zona: 3, 2, 1 colonne", async ({ page }) => {
-        test.fail();
         await openVoce(page, "Servizio");
         const zona = main(page).getByRole("list", { name: "Senza zona" });
         await expect(zona.getByRole("listitem")).toHaveCount(2, { timeout: 15_000 });
@@ -151,7 +147,6 @@ test.describe("Servizio", () => {
     });
 
     test("Gestisci la sala: i tavoli, le zone, il nuovo tavolo; la capienza non c'è più", async ({ page }) => {
-        test.fail();
         await openVoce(page, "Servizio");
         await modo(page, "Gestisci la sala").click();
         await expect(page).toHaveURL(/\/servizio\?modo=gestisci$/, { timeout: 15_000 });
@@ -173,8 +168,7 @@ test.describe("Servizio", () => {
         await expect(tessera(page)).toBeVisible({ timeout: 15_000 });
     });
 
-    test("a 375 la testata è la barra compatta e la pagina non scorre di lato", async ({ page }) => {
-        test.fail();
+    test("a 768 e 375 la Mappa non scorre di lato e i due modi restano a vista", async ({ page }) => {
         await openVoce(page, "Servizio");
         await expect(tessera(page)).toBeVisible({ timeout: 15_000 });
         for (const width of [768, 375]) {
@@ -183,13 +177,15 @@ test.describe("Servizio", () => {
             const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
             expect(overflow).toBeLessThanOrEqual(0);
         }
-        await expect(modo(page, "Mappa")).toBeHidden();
+        // Due tab corte stanno nella riga anche a 375: la testata le tiene
+        // (useCompactToolbar misura, non guarda la larghezza della finestra).
+        await expect(modo(page, "Mappa")).toBeVisible();
+        await expect(modo(page, "Gestisci la sala")).toBeVisible();
     });
 });
 
 test.describe("Servizio: piano e ruolo", () => {
     test("col piano base la Mappa ha il lucchetto e si atterra in Gestisci la sala", async ({ page }) => {
-        test.fail();
         const base = await sedePath(page);
         await asBasePlan(page);
         await page.goto(`${base}/servizio`);
@@ -210,7 +206,6 @@ test.describe("Servizio: piano e ruolo", () => {
     });
 
     test("il viewer legge la Mappa ma non conferma ordini né crea tavoli", async ({ page }) => {
-        test.fail();
         const base = await sedePath(page);
         await asRole(page, "viewer", base.split("/").pop()!, "pro");
         await page.goto(`${base}/servizio`);
@@ -233,8 +228,6 @@ test.describe("Servizio: piano e ruolo", () => {
         { role: "viewer", plan: "base", modoAtteso: "Gestisci la sala" }
     ] as const) {
         test(`${role}, piano ${plan}: entrando nella sede si arriva a Servizio, in ${modoAtteso}`, async ({ page }) => {
-            // La Mappa arriva col passo dopo: fino ad allora fallisce.
-            test.fail(modoAtteso === "Mappa");
             const base = await sedePath(page);
             await asRole(page, role, base.split("/").pop()!, plan);
             await page.goto(base);
@@ -306,7 +299,6 @@ test.describe("Indirizzi vecchi", () => {
     });
 
     test("comande?tab=tavoli porta alla Mappa", async ({ page }) => {
-        test.fail();
         const base = await sedePath(page);
         await page.goto(`${base}/comande?tab=tavoli`);
         await expect(page).toHaveURL(/\/servizio\?modo=mappa$/, { timeout: 15_000 });
@@ -320,7 +312,6 @@ test.describe("Indirizzi vecchi", () => {
     });
 
     test("/orders?tab=tavoli, il link dei toast, porta alla Mappa dell'ultima sede", async ({ page }) => {
-        test.fail();
         const base = await sedePath(page);
         await page.goto(`${base}/comande`);
         await expect(page).toHaveURL(/\/comande$/, { timeout: 15_000 });

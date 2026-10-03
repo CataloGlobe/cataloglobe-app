@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button/Button";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import Skeleton from "@/components/ui/Skeleton/Skeleton";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
+import { TablesLiveView } from "@/components/Tables/TablesLiveView/TablesLiveView";
 import { TablesManagement } from "@/components/Tables/TablesManagement/TablesManagement";
 import { TablesEmptyState } from "@/components/Tables/TablesManagement/TablesEmptyState";
 import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
@@ -27,7 +28,11 @@ const LOCKED_HINT = "Disponibile con il piano Pro";
  * passa al primo usabile. Fuori dal parent della Scheda: legge la sede da sé,
  * come «Cosa vedono i clienti».
  *
- * `/sala` e i vecchi `?tab=sala|tables` portano qui, in Gestisci la sala.
+ * Un modo solo montato alla volta: cambiando modo il canale realtime della
+ * Mappa (`useTablesLiveRealtime`) si chiude, e si riapre tornandoci.
+ *
+ * `/sala` e i vecchi `?tab=sala|tables` portano qui, in Gestisci la sala;
+ * `comande?tab=tavoli` alla Mappa.
  */
 export default function Servizio() {
     const { activityId = "", businessId = "" } = useParams<{ activityId: string; businessId: string }>();
@@ -170,6 +175,7 @@ export default function Servizio() {
 
     return (
         <div className={styles.container} data-mode={mode}>
+            {mode === "mappa" && <TablesLiveView tenantId={businessId} activityId={activity.id} />}
             {mode === "gestisci" &&
                 // I tavoli servono a due canali: ordini al tavolo e prenotazioni.
                 // Basta uno dei due acceso per mapparli.

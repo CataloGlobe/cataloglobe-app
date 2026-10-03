@@ -6,12 +6,10 @@
   gap: 16px;
 }
 
-// Scroll interno per-colonna (board Comande): solo sopra 1024 e solo quando la
-// tab attiva e' "comande". L'altezza bounded si propaga da qui giu' fino a
-// .columnList (vedi OrdersKanban.module.scss). Tavoli resta ad altezza auto
-// -> page-scroll come prima (wrapper .container condiviso).
+// Scroll interno per-colonna della board: solo sopra 1024. L'altezza bounded
+// si propaga da qui giu' fino a .columnList (vedi OrdersKanban.module.scss).
 @media (min-width: $bp-sidebar) {
-  .container[data-active-tab="comande"] {
+  .container {
     flex: 1;
     min-height: 0;
   }

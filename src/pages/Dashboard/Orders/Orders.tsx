@@ -4,13 +4,11 @@ import { Plus, RefreshCw, Volume2, VolumeX } from "lucide-react";
 
 import { usePageHeader } from "@/context/usePageHeader";
 import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
-import { Tabs } from "@/components/ui/Tabs/Tabs";
 import { Select } from "@/components/ui/Select/Select";
 import { IconButton } from "@/components/ui/Button/IconButton";
 import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import { Button } from "@/components/ui/Button/Button";
-import { TablesLiveView } from "@/components/Tables/TablesLiveView/TablesLiveView";
 import { PageGate } from "@/components/PageGate/PageGate";
 
 import { useTenantId } from "@/context/useTenantId";
@@ -56,15 +54,16 @@ import { canDoOnActivity } from "@/lib/permissions";
 
 import styles from "./Orders.module.scss";
 
-type MainTab = "comande" | "tavoli";
-
 /**
- * `comande?tab=storico` è lo Storico, che ora è una voce della sede
- * (lotto B-a): ci si va prima di montare la board.
+ * Comande è la board e basta (lotto B-a). Le vecchie tab hanno una casa
+ * loro: `?tab=storico` è la voce Storico, `?tab=tavoli` la Mappa di
+ * Servizio. Ci si va prima di montare la board.
  */
 export default function Orders() {
     const [searchParams] = useSearchParams();
-    if (searchParams.get("tab") === "storico") return <Navigate to="../storico" relative="path" replace />;
+    const tab = searchParams.get("tab");
+    if (tab === "storico") return <Navigate to="../storico" relative="path" replace />;
+    if (tab === "tavoli") return <Navigate to="../servizio?modo=mappa" relative="path" replace />;
     return <OrdersBoard />;
 }
 
@@ -73,27 +72,11 @@ function OrdersBoard() {
     const { showToast } = useToast();
     const { hasFeature } = usePlanFeatures();
     const { canEdit } = useSubscriptionGuard();
-    const [searchParams, setSearchParams] = useSearchParams();
-
     // La sede arriva dal path: la pagina è montata solo dentro il contesto
     // (`/locations/:id/comande`, §46.1), quindi qui c'è sempre. Il `null` del
     // tipo resta perché `useActivityScope` serve anche le pagine d'azienda.
     const sedeScope = useActivityScope({ routeKey: "orders" });
     const selectedActivityId: string | null = sedeScope.activityId;
-
-    // Le due viste della pagina, init da ?tab=
-    const initialMainTab: MainTab = useMemo(() => {
-        return searchParams.get("tab") === "tavoli" ? "tavoli" : "comande";
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-    const [mainTab, setMainTab] = useState<MainTab>(initialMainTab);
-    const handleTabChange = useCallback((next: MainTab) => {
-        setMainTab(next);
-        setSearchParams(prev => {
-            prev.set("tab", next);
-            return prev;
-        }, { replace: true });
-    }, [setSearchParams]);
 
     // Data
     const [tables, setTables] = useState<V2Table[]>([]);
@@ -104,7 +87,7 @@ function OrdersBoard() {
         () => new Map()
     );
 
-    // Filtri (tab Comande): solo dropdown tavolo.
+    // Filtri: solo dropdown tavolo.
     const [tableFilter, setTableFilter] = useState<string>("all");
 
     // Detail drawer
@@ -272,28 +255,9 @@ function OrdersBoard() {
         [canCreateOrder, canEdit, selectedActivityId, refreshAll, isLoadingOrders, soundEnabled, toggleSound]
     );
 
-    const headerLeading = useMemo(() => (
-        <Tabs<MainTab>
-            value={mainTab}
-            onChange={handleTabChange}
-            variant="line"
-        >
-            <Tabs.List>
-                <Tabs.Tab value="comande">Comande</Tabs.Tab>
-                <Tabs.Tab value="tavoli">Tavoli</Tabs.Tab>
-            </Tabs.List>
-        </Tabs>
-    ), [mainTab, handleTabChange]);
-
     // Stessa toolbar a dati per lo stato compatto. Nessuna `search`: il filtro
     // per tavolo è un select in-page, non vive nella banda.
     const headerCompact = useMemo<PageHeaderCompactConfig>(() => ({
-        sections: [
-            { value: "comande", label: "Comande" },
-            { value: "tavoli", label: "Tavoli" }
-        ],
-        activeSection: mainTab,
-        onSectionChange: value => handleTabChange(value as MainTab),
         // Il suono resta a vista: in sala si alza o si abbassa al volo, e il suo
         // stato acceso/spento va letto senza aprire nulla.
         persistentIcons: [
@@ -314,8 +278,6 @@ function OrdersBoard() {
             ? { label: "Crea ordine", onClick: () => setIsCreateOrderOpen(true), disabled: !canEdit }
             : undefined
     }), [
-        mainTab,
-        handleTabChange,
         soundEnabled,
         toggleSound,
         refreshAll,
@@ -336,8 +298,8 @@ function OrdersBoard() {
     const headerConfig = useMemo(
         () => isLocked
             ? null
-            : { leading: headerLeading, actions: headerActions, compact: headerCompact },
-        [isLocked, headerLeading, headerActions, headerCompact]
+            : { actions: headerActions, compact: headerCompact },
+        [isLocked, headerActions, headerCompact]
     );
     usePageHeader(headerConfig);
 
@@ -693,65 +655,54 @@ function OrdersBoard() {
     return (
         <PageGate feature="table_ordering" readPermission="orders.read" activityId={selectedActivityId}>
         {() => (
-        <section className={styles.container} data-active-tab={mainTab}>
-            {mainTab === "comande" && (
-                <>
-                    {selectedActivityId && hasPrinters === false && canManagePrinters && printersHref && (
-                        <InlineBanner
-                            variant="info"
-                            action={<Link to={printersHref}>Gestisci stampanti</Link>}
-                        >
-                            Nessuna stampante collegata a questa sede: le comande non
-                            vengono stampate in automatico.
-                        </InlineBanner>
-                    )}
+        <section className={styles.container}>
+            {selectedActivityId && hasPrinters === false && canManagePrinters && printersHref && (
+                <InlineBanner
+                    variant="info"
+                    action={<Link to={printersHref}>Gestisci stampanti</Link>}
+                >
+                    Nessuna stampante collegata a questa sede: le comande non
+                    vengono stampate in automatico.
+                </InlineBanner>
+            )}
 
-                    {tables.length > 0 && (
-                        <div className={styles.filtersRow}>
-                            <Select
-                                aria-label="Filtra per tavolo"
-                                containerClassName={styles.tableFilter}
-                                value={tableFilter}
-                                onChange={e => setTableFilter(e.target.value)}
-                                options={[
-                                    { value: "all", label: "Tutti i tavoli" },
-                                    ...tables.map(t => ({ value: t.id, label: t.label }))
-                                ]}
-                            />
-                        </div>
-                    )}
-
-                    <OrdersKanban
-                        orders={filteredOrders}
-                        tables={tables}
-                        operatorNames={operatorNames}
-                        comandaPrintStates={comandaPrintStates}
-                        onReprint={handleReprint}
-                        printersHref={printersHref}
-                        isLoading={isLoadingOrders}
-                        error={ordersError}
-                        onRetry={() => void refetchOrders()}
-                        onAcknowledge={handleAcknowledge}
-                        onMarkReady={handleMarkReady}
-                        onDeliver={handleDeliver}
-                        onCancel={handleCancelOpen}
-                        onCancelItem={handleCancelItemOpen}
-                        onViewDetail={handleViewDetail}
-                        onUnacknowledge={handleUnacknowledge}
-                        onUnready={handleUnready}
-                        pulseSubmittedToken={pulseToken}
-                        canManage={canManage}
-                        canEdit={canEdit}
+            {tables.length > 0 && (
+                <div className={styles.filtersRow}>
+                    <Select
+                        aria-label="Filtra per tavolo"
+                        containerClassName={styles.tableFilter}
+                        value={tableFilter}
+                        onChange={e => setTableFilter(e.target.value)}
+                        options={[
+                            { value: "all", label: "Tutti i tavoli" },
+                            ...tables.map(t => ({ value: t.id, label: t.label }))
+                        ]}
                     />
-                </>
+                </div>
             )}
 
-            {mainTab === "tavoli" && tenantId && selectedActivityId && (
-                <TablesLiveView
-                    tenantId={tenantId}
-                    activityId={selectedActivityId}
-                />
-            )}
+            <OrdersKanban
+                orders={filteredOrders}
+                tables={tables}
+                operatorNames={operatorNames}
+                comandaPrintStates={comandaPrintStates}
+                onReprint={handleReprint}
+                printersHref={printersHref}
+                isLoading={isLoadingOrders}
+                error={ordersError}
+                onRetry={() => void refetchOrders()}
+                onAcknowledge={handleAcknowledge}
+                onMarkReady={handleMarkReady}
+                onDeliver={handleDeliver}
+                onCancel={handleCancelOpen}
+                onCancelItem={handleCancelItemOpen}
+                onViewDetail={handleViewDetail}
+                onUnacknowledge={handleUnacknowledge}
+                onUnready={handleUnready}
+                pulseSubmittedToken={pulseToken}
+                canManage={canManage}
+                canEdit={canEdit}
+            />
 
             {orderToPrint && (
                 <PrintReceipt

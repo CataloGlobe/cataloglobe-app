@@ -14,7 +14,7 @@ import type { PlanFeature } from "@/lib/planFeatures";
  *
  * L'Elenco (le tavolate) arriva col lotto B-b.
  */
-export type ServizioMode = "gestisci";
+export type ServizioMode = "mappa" | "gestisci";
 
 export interface ServizioModeEntry {
     mode: ServizioMode;
@@ -25,6 +25,9 @@ export interface ServizioModeEntry {
 }
 
 export const SERVIZIO_MODES: readonly ServizioModeEntry[] = [
+    // La sala per zona, col pannello del conto: era Comande → Tavoli. Legge
+    // tavoli e ordini; senza ordini al tavolo nel piano ha il lucchetto.
+    { mode: "mappa", label: "Mappa", permissions: ["tables.read", "orders.read"], requiresFeature: "table_ordering" },
     // La configurazione della sala: libera da ogni piano, i tavoli servono
     // anche a chi non ordina né prenota online.
     { mode: "gestisci", label: "Gestisci la sala", permissions: ["tables.read"] }
