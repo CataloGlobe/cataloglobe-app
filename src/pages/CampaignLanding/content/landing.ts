@@ -550,5 +550,6 @@ export const FOOTER = {
         },
         contacts: { title: "Contatti", write: "Scrivici", phone: "Telefono" }
     },
-    vatLabel: "P.IVA"
+    vatLabel: "P.IVA",
+    cookiePreferences: "Preferenze cookie"
 };

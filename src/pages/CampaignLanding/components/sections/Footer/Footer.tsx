@@ -1,6 +1,7 @@
 import { Logo } from "@components/ui/Logo/Logo";
 import { COMPANY } from "@/config/company";
 import { BRAND, FOOTER } from "@pages/CampaignLanding/content/landing";
+import { openCookiePreferences } from "@pages/CampaignLanding/cookieConsentBrowser";
 import styles from "./Footer.module.scss";
 
 /** 12 · Footer: marchio e frase, tre colonne di link, riga legale da company.ts. */
@@ -28,6 +29,11 @@ export default function Footer() {
                                         {link.label}
                                     </a>
                                 ))}
+                                {col === legal && (
+                                    <button type="button" className={styles.linkButton} onClick={openCookiePreferences}>
+                                        {FOOTER.cookiePreferences}
+                                    </button>
+                                )}
                             </nav>
                         ))}
                         <div className={styles.column}>
