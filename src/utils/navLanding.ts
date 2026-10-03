@@ -1,5 +1,6 @@
 import { canDoOnActivity, type UserPermissions } from "@/lib/permissions";
 import type { PlanFeature } from "@/lib/planFeatures";
+import { SERVIZIO_READ_PERMISSIONS, resolveServizioMode } from "@/utils/servizioModes";
 
 /**
  * Dove si atterra (D1 §1, §46.1 f). Puro: nessun router, nessun DB. Le voci
@@ -14,16 +15,40 @@ export interface SedeNavEntry {
     label: string;
     /** Titolo del gruppo di sidebar. */
     group: string;
-    /** Permesso chiesto su **questa** sede (`canDoOnActivity`). */
-    permission: string;
+    /** Permesso chiesto su **questa** sede (`canDoOnActivity`); con un elenco, ne basta uno. */
+    permission: string | readonly string[];
     /** Gate di piano: la voce resta visibile col lucchetto, ma non ci si atterra. */
     requiresFeature?: PlanFeature;
     /** Altri segmenti che tengono accesa la voce (la Scheda, quattro pagine). */
     matchSegments?: string[];
+    /**
+     * Per una voce a più modi (Servizio): si atterra solo se almeno un modo
+     * si può usare. Vedere la voce non basta: un modo col lucchetto non è un
+     * posto dove arrivare.
+     */
+    usable?: (permissions: UserPermissions, hasFeature: (feature: PlanFeature) => boolean, activityId: string) => boolean;
+}
+
+/** Il permesso di una voce, su questa sede: con un elenco ne basta uno. */
+export function canSeeSedeEntry(permissions: UserPermissions, entry: SedeNavEntry, activityId: string): boolean {
+    const list = typeof entry.permission === "string" ? [entry.permission] : entry.permission;
+    return list.some(p => canDoOnActivity(permissions, p, activityId));
 }
 
 export const SEDE_NAV_ENTRIES: readonly SedeNavEntry[] = [
+    // Servizio (§18.2): la sala del momento, coi suoi modi. Prima voce: è
+    // dove si atterra. La vede chi legge i tavoli o le tavolate (D1).
+    {
+        segment: "servizio",
+        label: "Servizio",
+        group: "Servizio",
+        permission: SERVIZIO_READ_PERMISSIONS,
+        usable: (permissions, hasFeature, activityId) =>
+            resolveServizioMode(null, permissions, hasFeature, activityId) !== null
+    },
     { segment: "comande", label: "Comande", group: "Servizio", permission: "orders.read", requiresFeature: "table_ordering" },
+    // Lo Storico degli ordini: una voce, non più una tab di Comande (lotto B-a).
+    { segment: "storico", label: "Storico", group: "Servizio", permission: "orders.read", requiresFeature: "table_ordering" },
     {
         segment: "prenotazioni",
         label: "Prenotazioni",
@@ -31,7 +56,6 @@ export const SEDE_NAV_ENTRIES: readonly SedeNavEntry[] = [
         permission: "reservations.read",
         requiresFeature: "table_reservation"
     },
-    { segment: "sala", label: "Sala", group: "Servizio", permission: "tables.read" },
     // «Cosa vedono i clienti» (§19, M7): legge chi legge la sede; scrive chi
     // ha `activity.manage`, lo stesso permesso delle RLS (D2, §50.14).
     { segment: "cosa-vedono", label: "Cosa vedono i clienti", group: "Clienti", permission: "activity.read" },
@@ -59,8 +83,9 @@ export function firstSedeSegment(
 ): string {
     const usable = entries.find(
         entry =>
-            canDoOnActivity(permissions, entry.permission, activityId) &&
-            (!entry.requiresFeature || hasFeature(entry.requiresFeature))
+            canSeeSedeEntry(permissions, entry, activityId) &&
+            (!entry.requiresFeature || hasFeature(entry.requiresFeature)) &&
+            (!entry.usable || entry.usable(permissions, hasFeature, activityId))
     );
     return usable?.segment ?? SEDE_FALLBACK_SEGMENT;
 }
@@ -80,9 +105,15 @@ export function businessHomePath(businessId: string, readableActivityIds: readon
  * I vecchi `?tab=` della scheda (sette valori più cinque legacy): portano
  * alla rotta giusta con `replace`, così i link in giro continuano a
  * funzionare (registro Sedi, chiusura 9; §29.2). Un valore sconosciuto apre
- * l'Anagrafica.
+ * l'Anagrafica. La Sala è il modo «Gestisci la sala» di Servizio (lotto B-a).
  */
-const LEGACY_TAB_REDIRECT: Record<string, { segment: string; hash?: string }> = {
+export interface LegacyTabTarget {
+    segment: string;
+    hash?: string;
+    search?: string;
+}
+
+const LEGACY_TAB_REDIRECT: Record<string, LegacyTabTarget> = {
     profile: { segment: "anagrafica" },
     info: { segment: "anagrafica" },
     media: { segment: "anagrafica" },
@@ -92,11 +123,11 @@ const LEGACY_TAB_REDIRECT: Record<string, { segment: string; hash?: string }> = 
     settings: { segment: "pubblicazione" },
     "hours-services": { segment: "pubblicazione" },
     "access-control": { segment: "pubblicazione" },
-    sala: { segment: "sala" },
-    tables: { segment: "sala" },
+    sala: { segment: "servizio", search: "modo=gestisci" },
+    tables: { segment: "servizio", search: "modo=gestisci" },
     availability: { segment: "cosa-vedono" }
 };
 
-export function legacyTabTarget(tab: string): { segment: string; hash?: string } {
+export function legacyTabTarget(tab: string): LegacyTabTarget {
     return LEGACY_TAB_REDIRECT[tab] ?? { segment: "anagrafica" };
 }

@@ -1,22 +1,21 @@
 import type { ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, CalendarCheck, ClipboardList, Eye, LayoutGrid, Store } from "lucide-react";
+import { ArrowLeft, CalendarCheck, ClipboardList, Eye, History, LayoutGrid, Store } from "lucide-react";
 import Text from "@/components/ui/Text/Text";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
 import { usePermissions } from "@/context/usePermissions";
-import { canDoOnActivity } from "@/lib/permissions";
 import { usePlanFeatures } from "@/lib/planFeatures";
 import { useActivitySummary } from "@/hooks/useActivitySummary";
 import { useSedeScope } from "@/hooks/useSedeScope";
 import { AppSidebar } from "@/components/layout/AppSidebar/AppSidebar";
-import { SEDE_NAV_ENTRIES } from "@/utils/navLanding";
+import { SEDE_NAV_ENTRIES, canSeeSedeEntry } from "@/utils/navLanding";
 import { buildSidebarGroups, type SidebarNavGroup } from "./sidebarItems";
 import styles from "./SedeSidebar.module.scss";
 
 /**
  * SedeSidebar — il costruttore delle voci del contesto **sede** (§46.1).
- * Entrando in un locale la sidebar diventa la sua: cinque voci, e sopra
+ * Entrando in un locale la sidebar diventa la sua: le sue voci, e sopra
  * l'intestazione che dice dove sei e come si esce.
  *
  * I permessi si chiedono **su questa sede** (`canDoOnActivity`): dentro il
@@ -28,9 +27,10 @@ import styles from "./SedeSidebar.module.scss";
  */
 
 const ICONS: Record<string, ReactNode> = {
+    servizio: <LayoutGrid size={18} />,
     comande: <ClipboardList size={18} />,
+    storico: <History size={18} />,
     prenotazioni: <CalendarCheck size={18} />,
-    sala: <LayoutGrid size={18} />,
     "cosa-vedono": <Eye size={18} />,
     anagrafica: <Store size={18} />
 };
@@ -53,7 +53,7 @@ function buildGroups(businessId: string, activityId: string): SidebarNavGroup[] 
             to: `${s}/${entry.segment}`,
             label: entry.label,
             icon: ICONS[entry.segment],
-            permission: perms => canDoOnActivity(perms, entry.permission, activityId),
+            permission: perms => canSeeSedeEntry(perms, entry, activityId),
             requiresFeature: entry.requiresFeature,
             matchPrefixes: entry.matchSegments?.map(segment => `${s}/${segment}`)
         });

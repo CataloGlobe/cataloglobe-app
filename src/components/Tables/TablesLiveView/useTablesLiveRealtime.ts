@@ -36,6 +36,7 @@ import type { RealtimeChannel } from "@supabase/supabase-js";
 import { supabase } from "@/services/supabase/client";
 import { listTablesWithState } from "@/services/supabase/tables";
 import type { V2TableWithState } from "@/types/orders";
+import { realtimeTopic } from "@/utils/realtimeTopic";
 
 const REFETCH_DEBOUNCE_MS = 250;
 
@@ -109,7 +110,7 @@ export function useTablesLiveRealtime(
         const filter = `activity_id=eq.${activityId}`;
 
         channel = supabase
-            .channel(`tables-live-${activityId}-${Date.now()}`)
+            .channel(realtimeTopic(`tables-live-${activityId}`))
             .on(
                 "postgres_changes",
                 { event: "*", schema: "public", table: "orders", filter },

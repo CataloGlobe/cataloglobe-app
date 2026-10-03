@@ -1,0 +1,74 @@
+@use "@styles/mixins" as *;
+
+// Box grid-aligned della sotto-riga: parte sotto "Tavolo" (24 padding +
+// 120 colonna Stato) e finisce a fine "Totale" (56 azioni + 24 gutter),
+// senza sforare nella colonna kebab.
+.stornoStripRow {
+  padding: 2px 80px 2px 144px;
+
+  // Sotto 768 Stato esce dalla tabella (hideOnPhone): la striscia si allinea
+  // a Tavolo, che è la prima colonna, e lascia libera solo quella delle azioni.
+  @include phone {
+    padding: var(--space-2) 56px var(--space-2) var(--space-16);
+  }
+}
+
+// Card inset: rosa tenue, arrotondata, ~mezza altezza, con barretta
+// connettore a sinistra (inset box-shadow → niente reflow, angoli puliti).
+.stornoStrip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  line-height: 1.3;
+  color: var(--color-error-fg, #b91c1c);
+  background: color-mix(in srgb, var(--color-error-fg, #b91c1c) 6%, transparent);
+  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--color-error-fg, #b91c1c) 50%, transparent);
+}
+
+.stornoStripLeft {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.stornoStripArrow {
+  color: var(--text-muted, #64748b);
+  font-size: 0.875rem;
+}
+
+.stornoStripIcon {
+  flex-shrink: 0;
+}
+
+.stornoStripTag {
+  font-weight: 700;
+}
+
+// Separatore "·" discreto tra i segmenti.
+.stornoStripSep {
+  color: color-mix(in srgb, var(--color-error-fg, #b91c1c) 45%, transparent);
+}
+
+.stornoStripItems {
+  color: color-mix(in srgb, var(--color-error-fg, #b91c1c) 85%, transparent);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stornoStripReason {
+  color: var(--text-muted, #64748b);
+  font-style: italic;
+}
+
+.stornoStripAmount {
+  flex-shrink: 0;
+  font-weight: 700;
+  white-space: nowrap;
+}

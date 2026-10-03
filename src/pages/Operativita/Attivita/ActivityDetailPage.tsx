@@ -37,7 +37,7 @@ const isSection = (v: string): v is ActivitySection =>
 
 /**
  * Il locale in quattro pagine (§31): Anagrafica · Orari · Ordini e
- * prenotazioni · Pubblicazione, più Sala come rotta senza tab. Questo
+ * prenotazioni · Pubblicazione. Questo
  * parent legge la sede, gli orari e la ragione sociale una volta, tiene il
  * draft unico con la sua barra e la guardia all'uscita, e dà tutto alle
  * rotte figlie via `Outlet` (`useActivityDetail`).
@@ -164,7 +164,7 @@ const ActivityDetailPage: React.FC = () => {
 
     // Testata: le quattro pagine come tab che navigano, lo stato della sede
     // nelle azioni (su quattro pagine non è più a un click, come nel
-    // prototipo §31). Sala non ha una tab attiva.
+    // prototipo §31).
     const leading = useMemo(() => (
         <Tabs<ActivitySection> value={section} onChange={next => goToSection(next)} variant="line">
             <Tabs.List>
@@ -189,8 +189,8 @@ const ActivityDetailPage: React.FC = () => {
         ) : null
     ), [statusLabel, activity?.status]);
 
-    // In compatto il picker dice dove sei anche su Sala, che non è una tab:
-    // la voce compare solo mentre ci sei.
+    // In compatto il picker dice dove sei anche su una sezione che non è una
+    // tab: la voce compare solo mentre ci sei.
     const headerCompact = useMemo<PageHeaderCompactConfig>(() => ({
         sections: [
             ...ACTIVITY_PAGES.map(value => ({ value, label: ACTIVITY_SECTION_LABELS[value] })),
@@ -215,7 +215,11 @@ const ActivityDetailPage: React.FC = () => {
         const target = legacyTabTarget(legacyTab);
         return (
             <Navigate
-                to={{ pathname: `${basePath}/${target.segment}`, hash: target.hash ? `#${target.hash}` : "" }}
+                to={{
+                    pathname: `${basePath}/${target.segment}`,
+                    search: target.search ? `?${target.search}` : "",
+                    hash: target.hash ? `#${target.hash}` : ""
+                }}
                 replace
             />
         );

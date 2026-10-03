@@ -22,7 +22,16 @@ export default function SedeHomeRedirect() {
     const legacyTab = searchParams.get("tab");
     if (legacyTab) {
         const target = legacyTabTarget(legacyTab);
-        return <Navigate to={{ pathname: `${base}/${target.segment}`, hash: target.hash ? `#${target.hash}` : "" }} replace />;
+        return (
+            <Navigate
+                to={{
+                    pathname: `${base}/${target.segment}`,
+                    search: target.search ? `?${target.search}` : "",
+                    hash: target.hash ? `#${target.hash}` : ""
+                }}
+                replace
+            />
+        );
     }
 
     // Permessi e piano devono esserci: con quelli ottimistici del caricamento

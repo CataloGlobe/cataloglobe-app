@@ -6,7 +6,7 @@ import type { ActivityDraft } from "./useActivityDraft";
 /** Le pagine della sede con un'etichetta (titolo del browser, picker in
  *  compatto). «Cosa vedono i clienti» sta fuori dalla Scheda, ma il titolo lo
  *  prende da qui. */
-export const ACTIVITY_SECTIONS = ["anagrafica", "orari", "ordini-prenotazioni", "pubblicazione", "sala", "cosa-vedono"] as const;
+export const ACTIVITY_SECTIONS = ["anagrafica", "orari", "ordini-prenotazioni", "pubblicazione", "cosa-vedono"] as const;
 export type ActivitySection = (typeof ACTIVITY_SECTIONS)[number];
 
 /** Le quattro pagine del locale (§31.1): sono le tab della testata. */
@@ -17,7 +17,6 @@ export const ACTIVITY_SECTION_LABELS: Record<ActivitySection, string> = {
     orari: "Orari",
     "ordini-prenotazioni": "Ordini e prenotazioni",
     pubblicazione: "Pubblicazione",
-    sala: "Sala",
     "cosa-vedono": "Cosa vedono i clienti"
 };
 

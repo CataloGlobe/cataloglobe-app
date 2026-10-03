@@ -1,9 +1,10 @@
 import { expect, test, type Page } from "@playwright/test";
 import { openBusinessPage } from "./business";
+import { asRole } from "./asRole";
 
 /**
  * Il contesto di sede (lotto `ds-5-sede-nav`, §46.1): entrando in un locale la
- * sidebar diventa la sua — cinque voci, la freccia per uscire, il nome della
+ * sidebar diventa la sua — le sue voci, la freccia per uscire, il nome della
  * sede — e quella dell'azienda sparisce. Scritto **prima** del guscio: finché
  * P0 non c'è questi test sono rossi per disegno.
  *
@@ -11,10 +12,13 @@ import { openBusinessPage } from "./business";
  * `/prenotazioni`) e prendono la sede dal path; `/orders` reindirizza
  * nell'ultima sede usata.
  *
+ * Lotto B-a: Servizio prende il posto di Sala (che ne è il modo «Gestisci la
+ * sala») ed è la prima voce, quella su cui si atterra; lo Storico è una voce.
+ *
  * Locator per ruolo, mai per tag. Nessuna scrittura.
  */
 
-const SEDE_VOCI = ["Comande", "Prenotazioni", "Sala", "Cosa vedono i clienti", "Scheda"] as const;
+const SEDE_VOCI = ["Servizio", "Comande", "Storico", "Prenotazioni", "Cosa vedono i clienti", "Scheda"] as const;
 
 /** Le voci dell'azienda che dentro una sede NON devono esserci. */
 const VOCI_AZIENDA = ["Panoramica", "Programmazione", "Team", "Abbonamento"] as const;
@@ -58,15 +62,17 @@ test.describe("Contesto di sede", () => {
         await openFirstLocation(page);
         const sidebar = nav(page);
 
+        // Per ruolo link: «Servizio» è anche il titolo del gruppo, finché i
+        // gruppi non si rifanno (§19.5, lotto B-b).
         for (const voce of SEDE_VOCI) {
-            await expect(sidebar.getByText(voce, { exact: true })).toBeVisible({ timeout: 15_000 });
+            await expect(sidebar.getByRole("link", { name: voce, exact: true })).toBeVisible({ timeout: 15_000 });
         }
         for (const voce of VOCI_AZIENDA) {
             await expect(sidebar.getByRole("link", { name: voce, exact: true })).toHaveCount(0);
         }
     });
 
-    test("tutte e cinque le voci sono navigabili", async ({ page }) => {
+    test("tutte le voci sono navigabili", async ({ page }) => {
         await openFirstLocation(page);
         const sidebar = nav(page);
         for (const voce of SEDE_VOCI) {
@@ -119,12 +125,12 @@ test.describe("Contesto di sede", () => {
         await expect(nav(page).getByRole("link", { name: "Panoramica", exact: true })).toBeVisible();
     });
 
-    test("le tre voci navigabili portano alle rotte della sede", async ({ page }) => {
+    test("le voci senza piano portano alle rotte della sede", async ({ page }) => {
         await openFirstLocation(page);
         const sidebar = nav(page);
 
-        await sidebar.getByRole("link", { name: "Sala", exact: true }).click();
-        await expect(page).toHaveURL(/\/sala$/, { timeout: 15_000 });
+        await sidebar.getByRole("link", { name: "Servizio", exact: true }).click();
+        await expect(page).toHaveURL(/\/servizio$/, { timeout: 15_000 });
 
         await sidebar.getByRole("link", { name: "Cosa vedono i clienti", exact: true }).click();
         await expect(page).toHaveURL(/\/cosa-vedono$/, { timeout: 15_000 });
@@ -283,51 +289,6 @@ test.describe("Sidebar dell'azienda", () => {
 });
 
 test.describe("Atterraggio per ruolo", () => {
-    /** I permessi veri dei due ruoli di sede (`docs/permissions-matrix.md` §6). */
-    const PERMESSI: Record<"staff" | "viewer", string[]> = {
-        staff: [
-            "activity.read", "catalogs.read", "products.read", "featured.read", "stories.read", "styles.read",
-            "tables.read", "tables.manage", "orders.read", "orders.manage", "reservations.read", "reservations.manage",
-            "reviews.read", "reviews.moderate", "notifications.receive", "tenant.read", "seatings.read",
-            "seatings.manage", "support.read", "support.write"
-        ],
-        viewer: [
-            "activity.read", "catalogs.read", "products.read", "featured.read", "stories.read", "styles.read",
-            "scheduling.read", "tables.read", "orders.read", "reservations.read", "reviews.read", "analytics.read",
-            "tenant.read", "seatings.read"
-        ]
-    };
-
-    /** L'utente e2e diventa `role` della sola sede `activityId`, col piano `plan`. */
-    async function asRole(page: Page, role: "staff" | "viewer", activityId: string, plan: "pro" | "base"): Promise<void> {
-        await page.route(/\/rest\/v1\/rpc\/get_my_permissions/, async route => {
-            try {
-                const response = await route.fetch();
-                const rows = (await response.json()) as Array<Record<string, unknown>>;
-                for (const row of rows) {
-                    row.role = role;
-                    row.activity_ids = [activityId];
-                    row.permissions = PERMESSI[role];
-                }
-                await route.fulfill({ response, json: rows });
-            } catch {
-                // Pagina chiusa a metà richiesta: niente da riscrivere.
-            }
-        });
-        if (plan === "base") {
-            await page.route(/\/rest\/v1\/user_tenants_view/, async route => {
-                try {
-                    const response = await route.fetch();
-                    const rows = (await response.json()) as Array<Record<string, unknown>>;
-                    for (const row of rows) row.plan = "base";
-                    await route.fulfill({ response, json: rows });
-                } catch {
-                    // idem
-                }
-            });
-        }
-    }
-
     /** Dove si è atterrati: una pagina vera, mai il lucchetto né l'accesso negato. */
     async function expectUsableLanding(page: Page, segment: string): Promise<void> {
         await expect(page).toHaveURL(new RegExp(`/locations/[0-9a-f-]+/${segment}$`), { timeout: 15_000 });
@@ -341,12 +302,13 @@ test.describe("Atterraggio per ruolo", () => {
         }
     }
 
+    // Servizio è la prima voce e ha sempre un modo senza lucchetto (Gestisci
+    // la sala): ci si atterra con ogni piano. Il modo lo prova servizio.spec.
     const CASI = [
-        { role: "staff", plan: "pro", segment: "comande" },
-        { role: "viewer", plan: "pro", segment: "comande" },
-        // Col piano base Comande e Prenotazioni hanno il lucchetto: si atterra sulla Sala.
-        { role: "staff", plan: "base", segment: "sala" },
-        { role: "viewer", plan: "base", segment: "sala" }
+        { role: "staff", plan: "pro", segment: "servizio" },
+        { role: "viewer", plan: "pro", segment: "servizio" },
+        { role: "staff", plan: "base", segment: "servizio" },
+        { role: "viewer", plan: "base", segment: "servizio" }
     ] as const;
 
     for (const { role, plan, segment } of CASI) {
