@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- Landing di campagna (/ e /b). ⚠️ SYNC con index.html: stesso head, tranne preconnect a Supabase e app-inter.css
+         (Inter lo carica entry-landing.tsx senza bloccare il render), più il preload dei font dell'hero. Lo verifica src/tests/landing/landingHtml.test.ts.
+         Al build questo file diventa dist/index.html e la shell dell'app diventa dist/app.html (scripts/landing-html.mjs). -->
+    <link rel="icon" type="image/svg+xml" href="/favicon/cataloglobe_icon_flat_primary.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon/cataloglobe_icon_flat_primary_32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon/cataloglobe_icon_flat_primary_16.png" />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/favicon/cataloglobe_icon_flat_primary_180.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta name="theme-color" content="#6B2DE6" />
+
+    <!-- Font dell'hero (titolo e testo), gli stessi di public/fonts/app-campaign.css: partono con l'HTML. -->
+    <link rel="preload" href="/fonts/app/young-serif-400-normal-latin.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/app/instrument-sans-400-700-normal-latin.woff2" as="font" type="font/woff2" crossorigin />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
+    <!-- ⚠️ SYNC con src/config/company.ts. Se modifichi dati legali, aggiorna anche qui. -->
+    <title>CataloGlobe — Il menù digitale che si aggiorna da solo</title>
+    <meta name="description" content="Menù digitale con QR per ristoranti e bar: cambia da solo tra pranzo, aperitivo e cena, prezzi ed esauriti in un tocco, ordini al tavolo inclusi." />
+    <meta name="author" content="CataloGlobe di D'Elia Alessandro" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="CataloGlobe — Il menù digitale che si aggiorna da solo" />
+    <meta property="og:description" content="Menù digitale con QR per ristoranti e bar: cambia da solo tra pranzo, aperitivo e cena, prezzi ed esauriti in un tocco, ordini al tavolo inclusi." />
+    <meta property="og:url" content="https://cataloglobe.com/" />
+    <meta property="og:site_name" content="CataloGlobe" />
+    <meta property="og:locale" content="it_IT" />
+    <meta property="og:image" content="https://cataloglobe.com/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Il menù digitale di CataloGlobe su un telefono" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="https://cataloglobe.com/og-image.png" />
+    <meta name="twitter:title" content="CataloGlobe — Il menù digitale che si aggiorna da solo" />
+    <meta name="twitter:description" content="Menù digitale con QR per ristoranti e bar: cambia da solo tra pranzo, aperitivo e cena, prezzi ed esauriti in un tocco, ordini al tavolo inclusi." />
+
+    <link rel="canonical" href="https://cataloglobe.com/" />
+
+    <!-- ⚠️ SYNC con src/config/company.ts (helper getOrganizationSchema). Se modifichi dati legali, aggiorna anche qui. -->
+    <script type="application/ld+json" data-landing-ld>
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "CataloGlobe",
+      "legalName": "CataloGlobe di D'Elia Alessandro",
+      "url": "https://cataloglobe.com",
+      "description": "Menù digitale con QR per ristoranti e bar, che si aggiorna da solo.",
+      "address": {
+        "@type": "PostalAddress",
+        "streetAddress": "Via Verdi, 30",
+        "postalCode": "20092",
+        "addressLocality": "Cinisello Balsamo",
+        "addressRegion": "MI",
+        "addressCountry": "IT"
+      },
+      "contactPoint": {
+        "@type": "ContactPoint",
+        "contactType": "Customer Service",
+        "email": "support@cataloglobe.com",
+        "availableLanguage": ["Italian"]
+      }
+    }
+    </script>
+
+    <!-- ⚠️ SYNC con PRICING in src/pages/CampaignLanding/content/landing.ts. Se cambiano i prezzi, aggiorna anche qui.
+         I due blocchi data-landing-ld sono solo della landing: applyTenantHead (api/_lib/publicShell.ts) li toglie dalle pagine sede. -->
+    <script type="application/ld+json" data-landing-ld>
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "CataloGlobe",
+      "url": "https://cataloglobe.com/",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "Web",
+      "inLanguage": "it",
+      "description": "Menù digitale con QR per ristoranti e bar: cambia da solo tra pranzo, aperitivo e cena, prezzi ed esauriti in un tocco, ordini al tavolo inclusi.",
+      "offers": [
+        {
+          "@type": "Offer",
+          "name": "Base, mensile",
+          "description": "Prezzo per locale, 30 giorni di prova gratuita",
+          "price": "39",
+          "priceCurrency": "EUR",
+          "priceSpecification": { "@type": "UnitPriceSpecification", "price": "39", "priceCurrency": "EUR", "billingDuration": "P1M" }
+        },
+        {
+          "@type": "Offer",
+          "name": "Base, annuale",
+          "description": "Prezzo per locale, 30 giorni di prova gratuita",
+          "price": "390",
+          "priceCurrency": "EUR",
+          "priceSpecification": { "@type": "UnitPriceSpecification", "price": "390", "priceCurrency": "EUR", "billingDuration": "P1Y" }
+        },
+        {
+          "@type": "Offer",
+          "name": "Pro, mensile",
+          "description": "Prezzo per locale, 30 giorni di prova gratuita",
+          "price": "59",
+          "priceCurrency": "EUR",
+          "priceSpecification": { "@type": "UnitPriceSpecification", "price": "59", "priceCurrency": "EUR", "billingDuration": "P1M" }
+        },
+        {
+          "@type": "Offer",
+          "name": "Pro, annuale",
+          "description": "Prezzo per locale, 30 giorni di prova gratuita",
+          "price": "590",
+          "priceCurrency": "EUR",
+          "priceSpecification": { "@type": "UnitPriceSpecification", "price": "590", "priceCurrency": "EUR", "billingDuration": "P1Y" }
+        }
+      ]
+    }
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/entry-landing.tsx"></script>
+  </body>
+</html>
