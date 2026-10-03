@@ -51,7 +51,9 @@ function buildGroups(businessId: string, catalogLabel: string, reviewsPendingCou
             ]
         },
         {
-            title: "Operatività",
+            // La porta del contesto sede (§5). Ordini e Prenotazioni sono
+            // pagine di sede: qui portano all'ultima sede usata (§48.1/2).
+            title: "Sedi",
             items: [
                 { to: `${b}/locations`, label: businessRouteLabel("locations"), icon: <Store size={18} />,
                   permission: perms => canDoOnAnyActivity(perms, "activity.read") },
@@ -60,19 +62,19 @@ function buildGroups(businessId: string, catalogLabel: string, reviewsPendingCou
                   requiresFeature: "table_ordering" },
                 { to: `${b}/reservations`, label: businessRouteLabel("reservations"), icon: <CalendarCheck size={18} />,
                   permission: perms => canDoOnAnyActivity(perms, "reservations.read"),
-                  requiresFeature: "table_reservation" },
-                { to: `${b}/scheduling`, label: businessRouteLabel("scheduling"), icon: <Calendar size={18} />,
-                  permission: perms => canDoOnAnyActivity(perms, "scheduling.read") }
+                  requiresFeature: "table_reservation" }
             ]
         },
         {
-            title: "Contenuti",
+            title: "Catalogo",
             items: [
                 { to: `${b}/catalogs`, label: businessRouteLabel("catalogs", { catalogLabel }), icon: <BookOpen size={18} />,
                   permission: perms => canDoOnTenant(perms, "catalogs.read"),
                   showImportBadge: true },
                 { to: `${b}/products`, label: businessRouteLabel("products"), icon: <Archive size={18} />,
                   permission: perms => canDoOnTenant(perms, "products.read") },
+                { to: `${b}/styles`, label: businessRouteLabel("styles"), icon: <Palette size={18} />,
+                  permission: perms => canDoOnTenant(perms, "styles.read") },
                 {
                     to: `${b}/featured`,
                     label: businessRouteLabel("featured"),
@@ -85,27 +87,28 @@ function buildGroups(businessId: string, catalogLabel: string, reviewsPendingCou
                     icon: <BookOpenText size={18} />,
                     permission: perms => canDoOnAnyActivity(perms, "stories.read")
                 },
-                { to: `${b}/styles`, label: businessRouteLabel("styles"), icon: <Palette size={18} />,
-                  permission: perms => canDoOnTenant(perms, "styles.read") },
+                // Lingue resta pagina propria (§50.14 L1): traduce il catalogo.
                 { to: `${b}/languages`, label: businessRouteLabel("languages"), icon: <Languages size={18} />,
                   permission: perms => canDoOnTenant(perms, "catalogs.read"),
                   showTranslationBadge: true }
             ]
         },
         {
-            title: "Insight",
+            // Le pagine che guardano tutte le sedi insieme (§5, §46.1 c).
+            title: "Confronto",
             items: [
+                { to: `${b}/scheduling`, label: businessRouteLabel("scheduling"), icon: <Calendar size={18} />,
+                  permission: perms => canDoOnAnyActivity(perms, "scheduling.read") },
                 { to: `${b}/analytics`, label: businessRouteLabel("analytics"), icon: <BarChart3 size={18} />,
                   permission: perms => canDoOnAnyActivity(perms, "analytics.read") },
                 { to: `${b}/reviews`, label: businessRouteLabel("reviews"), icon: <MessageSquare size={18} />,
                   permission: perms => canDoOnAnyActivity(perms, "reviews.read"),
                   count: reviewsPendingCount },
-                // Sta in Insight e non in Operatività: nessuno compila la
-                // rubrica: si popola da sola dall'interazione con gli
-                // avventori, come analitiche e recensioni. Il gate di piano
-                // resta `table_reservation` finché le prenotazioni sono
-                // l'unica sorgente dei profili — quando arriveranno anche
-                // dagli ordini al tavolo andrà allargato, non spostato.
+                // La rubrica è di tutta l'azienda (§6): si popola da sola
+                // dall'interazione con gli avventori. Il gate di piano resta
+                // `table_reservation` finché le prenotazioni sono l'unica
+                // sorgente dei profili — quando arriveranno anche dagli ordini
+                // al tavolo andrà allargato, non spostato.
                 { to: `${b}/guests`, label: businessRouteLabel("guests"), icon: <BookUser size={18} />,
                   permission: perms => canDoOnAnyActivity(perms, "guests.read"),
                   requiresFeature: "table_reservation" }
