@@ -1,21 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
     SCOPE_ALL,
-    SEDE_SCOPED_ROUTES,
-    clearSedeScope,
     clearSedeScopeLocal,
-    readSedeScope,
     readSedeScopeLocal,
     resolveSedeScope,
     resolveSedeScopeSingle,
     subscribeSedeScope,
-    writeSedeScope,
     writeSedeScopeLocal
 } from "@/hooks/sedeScopeStore";
 
 // ============================================================
-// sessionStorage polyfill — `vitest.config.ts` usa environment
-// "node", quindi `window.sessionStorage` non esiste di default.
+// Storage polyfill — `vitest.config.ts` usa environment "node",
+// quindi `window.localStorage` non esiste di default. Lo scope in
+// sessionStorage è uscito con la navigazione v2 (§51).
 // ============================================================
 
 function makeStorage(): Storage {
@@ -36,7 +33,7 @@ function makeStorage(): Storage {
     };
 }
 
-function installSessionStorageMock(): void {
+function installStorageMock(): void {
     // jsdom non disponibile: definiamo `window` minimal con session+local storage.
     (globalThis as unknown as { window: { sessionStorage: Storage; localStorage: Storage } }).window = {
         sessionStorage: makeStorage(),
@@ -44,12 +41,10 @@ function installSessionStorageMock(): void {
     };
 }
 
-function uninstallSessionStorageMock(): void {
+function uninstallStorageMock(): void {
     delete (globalThis as unknown as { window?: unknown }).window;
 }
 
-const TENANT_A = "tenant-aaaa";
-const TENANT_B = "tenant-bbbb";
 const ACT_1 = "11111111-1111-1111-1111-111111111111";
 const ACT_2 = "22222222-2222-2222-2222-222222222222";
 const ACT_3 = "33333333-3333-3333-3333-333333333333";
@@ -66,7 +61,7 @@ function track(unsub: () => void): () => void {
 }
 
 beforeEach(() => {
-    installSessionStorageMock();
+    installStorageMock();
 });
 
 afterEach(() => {
@@ -77,7 +72,7 @@ afterEach(() => {
             /* best effort */
         }
     }
-    uninstallSessionStorageMock();
+    uninstallStorageMock();
 });
 
 // ============================================================
@@ -138,64 +133,6 @@ describe("resolveSedeScope — default single vs multi-site", () => {
 });
 
 // ============================================================
-// Store primitive — sessionStorage namespacing per tenant
-// ============================================================
-
-describe("sedeScopeStore — namespacing per tenant", () => {
-    it("read/write isolati per tenant: TENANT_A non legge TENANT_B", () => {
-        writeSedeScope(TENANT_A, ACT_1);
-        writeSedeScope(TENANT_B, ACT_2);
-
-        expect(readSedeScope(TENANT_A)).toBe(ACT_1);
-        expect(readSedeScope(TENANT_B)).toBe(ACT_2);
-    });
-
-    it("switch tenant senza scrittura: nessun bleed", () => {
-        writeSedeScope(TENANT_A, ACT_1);
-        // Niente write su TENANT_B
-        expect(readSedeScope(TENANT_B)).toBeNull();
-    });
-
-    it("clearSedeScope rimuove solo il tenant target", () => {
-        writeSedeScope(TENANT_A, ACT_1);
-        writeSedeScope(TENANT_B, ACT_2);
-
-        clearSedeScope(TENANT_A);
-
-        expect(readSedeScope(TENANT_A)).toBeNull();
-        expect(readSedeScope(TENANT_B)).toBe(ACT_2);
-    });
-
-    it("readSedeScope ritorna null se nessuna entry", () => {
-        expect(readSedeScope(TENANT_A)).toBeNull();
-    });
-
-    it("SCOPE_ALL persiste come stringa letterale", () => {
-        writeSedeScope(TENANT_A, SCOPE_ALL);
-        expect(readSedeScope(TENANT_A)).toBe(SCOPE_ALL);
-    });
-});
-
-// ============================================================
-// Store primitive — persistenza tra "mount" simulati
-// ============================================================
-
-describe("sedeScopeStore — persistenza tra mount", () => {
-    it("read dopo write nello stesso ciclo torna il valore", () => {
-        writeSedeScope(TENANT_A, ACT_2);
-        // Simula remount: la stessa sessionStorage è ancora viva
-        // (il polyfill è installato per l'intero `it`).
-        expect(readSedeScope(TENANT_A)).toBe(ACT_2);
-    });
-
-    it("overwrite sullo stesso tenant: vince l'ultimo write", () => {
-        writeSedeScope(TENANT_A, ACT_1);
-        writeSedeScope(TENANT_A, ACT_2);
-        expect(readSedeScope(TENANT_A)).toBe(ACT_2);
-    });
-});
-
-// ============================================================
 // Store primitive — subscriber notification
 // ============================================================
 
@@ -206,7 +143,7 @@ describe("sedeScopeStore — subscriber sync intra-tab", () => {
         track(subscribeSedeScope(l1));
         track(subscribeSedeScope(l2));
 
-        writeSedeScope(TENANT_A, ACT_1);
+        writeSedeScopeLocal(ACT_1);
 
         expect(l1).toHaveBeenCalledTimes(1);
         expect(l2).toHaveBeenCalledTimes(1);
@@ -216,52 +153,23 @@ describe("sedeScopeStore — subscriber sync intra-tab", () => {
         const l1 = vi.fn();
         const u1 = subscribeSedeScope(l1);
 
-        writeSedeScope(TENANT_A, ACT_1);
+        writeSedeScopeLocal(ACT_1);
         expect(l1).toHaveBeenCalledTimes(1);
 
         u1();
 
-        writeSedeScope(TENANT_A, ACT_2);
+        writeSedeScopeLocal(ACT_2);
         expect(l1).toHaveBeenCalledTimes(1);
     });
 
-    it("clearSedeScope notifica i subscriber", () => {
-        writeSedeScope(TENANT_A, ACT_1);
+    it("clearSedeScopeLocal notifica i subscriber", () => {
+        writeSedeScopeLocal(ACT_1);
 
         const l = vi.fn();
         track(subscribeSedeScope(l));
 
-        clearSedeScope(TENANT_A);
+        clearSedeScopeLocal();
         expect(l).toHaveBeenCalledTimes(1);
-    });
-
-    it("una write su TENANT_A notifica subscriber che osservano TENANT_B (subscriber è globale)", () => {
-        // I subscriber non sono per-tenant: il filtro avviene lato hook
-        // via getSnapshot. Il contratto del module-level subscriber è
-        // notify-all → ogni listener decide se rerender confrontando lo
-        // snapshot. Validiamo questo contratto.
-        const l = vi.fn();
-        track(subscribeSedeScope(l));
-
-        writeSedeScope(TENANT_B, ACT_2);
-        expect(l).toHaveBeenCalledTimes(1);
-    });
-});
-
-// ============================================================
-// SEDE_SCOPED_ROUTES — contratto stabile per gating futuro
-// ============================================================
-
-describe("SEDE_SCOPED_ROUTES", () => {
-    it("contiene le 5 route sede-scoped, NON include scheduling", () => {
-        expect(SEDE_SCOPED_ROUTES).toEqual([
-            "orders",
-            "reservations",
-            "tables",
-            "analytics",
-            "reviews"
-        ]);
-        expect((SEDE_SCOPED_ROUTES as readonly string[]).includes("scheduling")).toBe(false);
     });
 });
 
@@ -347,13 +255,5 @@ describe("sedeScopeStore — localStorage single-site", () => {
 
         writeSedeScopeLocal(ACT_1);
         expect(l).toHaveBeenCalledTimes(1);
-    });
-
-    it("write sessionStorage e write localStorage sono indipendenti come storage", () => {
-        writeSedeScope(TENANT_A, ACT_1);
-        writeSedeScopeLocal(ACT_2);
-
-        expect(readSedeScope(TENANT_A)).toBe(ACT_1);
-        expect(readSedeScopeLocal()).toBe(ACT_2);
     });
 });

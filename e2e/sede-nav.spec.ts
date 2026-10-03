@@ -153,26 +153,17 @@ test.describe("Contesto di sede", () => {
         await expect(page.getByRole("tab", { name: /^(Anagrafica|Orari|Pubblicazione)$/ })).toHaveCount(0);
     });
 
-    // Il filtro sede di Programmazione passa dall'header alla pagina (§51.11):
-    // riscritto nel passo 8.
+    // Il filtro sede di Programmazione sta nella pagina (§51.11), non più
+    // nell'header; `?sede=` resta nell'indirizzo ed è il filtro.
     test("«Vai a Programmazione» con la sede: Programmazione si apre su quella sede", async ({ page }) => {
-        test.fail(true, "filtro sede nella pagina: passo 8");
         const paths = await locationPaths(page);
         test.skip(paths.length < 2, "con una sede sola il filtro non c'è");
         const id = paths[1].split("/").pop()!;
-        const name = await page
-            .getByRole("main")
-            .getByRole("listitem")
-            .nth(1)
-            .getByRole("link")
-            .first()
-            .innerText();
         await page.goto(`${paths[1].replace(/\/locations\/.*$/, "/scheduling")}?sede=${id}`);
-        await expect(page).toHaveURL(/\/scheduling$/, { timeout: 15_000 });
-        await expect(page.getByRole("banner").getByRole("button", { name: "Sede attiva" })).toContainText(
-            name.split("\n")[0].trim(),
-            { timeout: 15_000 }
-        );
+        await expect(page).toHaveURL(new RegExp(`/scheduling\\?sede=${id}$`), { timeout: 15_000 });
+        await expect(page.getByRole("main").getByRole("combobox", { name: "Sede" })).toHaveValue(id, {
+            timeout: 15_000
+        });
     });
 
     test("a 375 il contesto vive nel cassetto, e la sede si legge nella navbar", async ({ page }) => {

@@ -602,7 +602,7 @@ export default function AnalyticsPage() {
         period
     ]);
 
-    // Selettore sede vive nella navbar (SedeScopeSelect). Nella banda:
+    // Nessun selettore di sede: il livello lo dice l'indirizzo (§51.10). Nella banda:
     // periodo a sinistra (leading), Esporta a destra (actions).
     const periodOptions = useMemo<{ value: PeriodKey; label: string }[]>(() => [
         { value: "today", label: "Oggi" },

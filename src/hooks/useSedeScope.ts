@@ -6,8 +6,8 @@
 // corrente (SedeScopeValue) e il setter.
 //
 // Modalità (route-driven via opts.routeKey):
-//   - default: persistenza sessionStorage per-tenant, "Tutte le sedi"
-//     (SCOPE_ALL) ammesso come valore.
+//   - default: nessuna persistenza (§51: la sede la dice l'indirizzo);
+//     il valore è l'unica sede leggibile o "Tutte le sedi" (SCOPE_ALL).
 //   - single-site (routeKey ∈ SEDE_SINGLE_SITE_ROUTES): persistenza
 //     localStorage cross-session (key globale, NON tenant-scoped),
 //     SCOPE_ALL NON ammesso (resolver dedicato ritorna sempre un
@@ -32,22 +32,16 @@ import {
 import { getActivitiesCached, readActivitiesCache, subscribeActivitiesCache } from "./activitiesCache";
 import {
     SCOPE_ALL,
-    readSedeScope,
     readSedeScopeLocal,
     resolveSedeScope,
     resolveSedeScopeSingle,
     subscribeSedeScope,
-    writeSedeScope,
     writeSedeScopeLocal,
     type SedeScopeValue
 } from "./sedeScopeStore";
 
 export type { SedeScopeValue } from "./sedeScopeStore";
-export {
-    SCOPE_ALL,
-    SEDE_SCOPED_ROUTES,
-    type SedeScopedRoute
-} from "./sedeScopeStore";
+export { SCOPE_ALL } from "./sedeScopeStore";
 
 export interface UseSedeScopeOpts {
     /** Route corrente. Se ∈ `SEDE_SINGLE_SITE_ROUTES` attiva modalità
@@ -58,7 +52,7 @@ export interface UseSedeScopeOpts {
 export interface UseSedeScopeResult {
     /** Valore corrente: `SCOPE_ALL` oppure un `activityId` leggibile. */
     value: SedeScopeValue;
-    /** Setter. Persiste nello storage di modalità e notifica i subscriber. */
+    /** Setter: solo in modalità single-site (l'ultima sede usata). Altrove non fa niente. */
     setValue: (next: SedeScopeValue) => void;
     /** Sedi che l'utente può vedere (owner/admin = tutte, scoped = solo le sue). */
     readableActivities: V2Activity[];
@@ -152,10 +146,9 @@ export function useSedeScope(opts?: UseSedeScopeOpts): UseSedeScopeResult {
     );
     const getSnapshot = useCallback<() => SedeScopeValue | null>(
         () => {
-            if (isSingle) return readSedeScopeLocal();
-            return tenantId ? readSedeScope(tenantId) : null;
+            return isSingle ? readSedeScopeLocal() : null;
         },
-        [tenantId, isSingle]
+        [isSingle]
     );
     const getServerSnapshot = useCallback<() => SedeScopeValue | null>(
         () => null,
@@ -170,18 +163,10 @@ export function useSedeScope(opts?: UseSedeScopeOpts): UseSedeScopeResult {
 
     const setValue = useCallback(
         (next: SedeScopeValue) => {
-            if (isSingle) {
-                // Single-site: ignora un eventuale tentativo di scrivere
-                // SCOPE_ALL (non valido in questa modalità).
-                if (next !== SCOPE_ALL) {
-                    writeSedeScopeLocal(next);
-                }
-                return;
-            }
-            if (!tenantId) return;
-            writeSedeScope(tenantId, next);
+            // Single-site: ignora SCOPE_ALL (non valido in questa modalità).
+            if (isSingle && next !== SCOPE_ALL) writeSedeScopeLocal(next);
         },
-        [tenantId, isSingle]
+        [isSingle]
     );
 
     const isLoaded = permissions != null && tenantId != null && loadedTenantId === tenantId;

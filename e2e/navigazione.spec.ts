@@ -499,3 +499,50 @@ test.describe("Andamento a due livelli (§51.10)", () => {
         await expect(nav(page).getByRole("link", { name: "Analitiche", exact: true })).toHaveCount(0);
     });
 });
+
+test.describe("Programmazione: il filtro sede nella pagina (§51.11)", () => {
+    const sedeFilter = (page: Page) => page.getByRole("main").getByRole("combobox", { name: "Sede" });
+
+    test("dalla pagina: scegliere una sede la mette nell'indirizzo; «Tutte le sedi» la toglie", async ({ page }) => {
+        const paths = await locationPaths(page);
+        test.skip(paths.length < 2, "serve più di una sede");
+        const root = businessRoot(paths[0]);
+        const id = activityIdOf(paths[1]);
+        await page.goto(`${root}/scheduling`);
+        await expect(sedeFilter(page)).toHaveValue("", { timeout: 15_000 });
+        await sedeFilter(page).selectOption(id);
+        await expect(page).toHaveURL(`${root}/scheduling?sede=${id}`);
+        await sedeFilter(page).selectOption("");
+        await expect(page).toHaveURL(`${root}/scheduling`);
+    });
+
+    test("da «Cosa vedono i clienti»: Programmazione si apre filtrata sulla sede", async ({ page }) => {
+        const paths = await locationPaths(page);
+        test.skip(paths.length < 2, "serve più di una sede");
+        const id = activityIdOf(paths[1]);
+        await page.goto(`${paths[1]}/cosa-vedono`);
+        await expect(page.getByRole("main").getByRole("table").first()).toBeVisible({ timeout: 15_000 });
+        // Il link compare solo quando c'è qualcosa da sistemare in Programmazione:
+        // se c'è, porta già filtrato sulla sede.
+        const link = page.getByRole("main").getByRole("link", { name: "Vai a Programmazione" });
+        if ((await link.count()) > 0) {
+            await expect(link.first()).toHaveAttribute("href", `${businessRoot(paths[1])}/scheduling?sede=${id}`);
+        }
+        await page.goto(`${businessRoot(paths[1])}/scheduling?sede=${id}`);
+        await expect(sedeFilter(page)).toHaveValue(id, { timeout: 15_000 });
+        // Fuori dal contesto sede: la sidebar è quella dell'azienda.
+        await expect(nav(page).getByRole("link", { name: "Sedi", exact: true })).toBeVisible();
+    });
+
+    test("una sede: niente filtro", async ({ page }) => {
+        const paths = await locationPaths(page);
+        await asSingleSede(page);
+        await page.goto(`${businessRoot(paths[0])}/scheduling`);
+        await expect(nav(page).getByRole("link", { name: "Programmazione", exact: true })).toHaveAttribute(
+            "aria-current",
+            "page",
+            { timeout: 15_000 }
+        );
+        await expect(sedeFilter(page)).toHaveCount(0);
+    });
+});
