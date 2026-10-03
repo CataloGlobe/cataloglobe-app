@@ -52,12 +52,16 @@ describe("firstSedeSegment — la prima voce usabile, nell'ordine della sidebar"
     it("l'ordine è quello della sidebar", () => {
         expect(SEDE_NAV_ENTRIES.map(e => e.segment)).toEqual([
             "servizio",
+            "prenotazioni",
             "comande",
             "storico",
-            "prenotazioni",
             "cosa-vedono",
             "anagrafica"
         ]);
+    });
+
+    it("i gruppi della §19.5: Ospiti, Ordini, e due voci fuori gruppo", () => {
+        expect(SEDE_NAV_ENTRIES.map(e => e.group)).toEqual(["Ospiti", "Ospiti", "Ordini", "Ordini", null, null]);
     });
 });
 
@@ -85,6 +89,10 @@ describe("legacyTabTarget — i vecchi ?tab= della scheda", () => {
     it("la Sala è il modo Gestisci la sala di Servizio", () => {
         expect(legacyTabTarget("sala")).toEqual({ segment: "servizio", search: "modo=gestisci" });
         expect(legacyTabTarget("tables")).toEqual({ segment: "servizio", search: "modo=gestisci" });
+    });
+
+    it("la sala del momento è l'Elenco di Servizio", () => {
+        expect(legacyTabTarget("service")).toEqual({ segment: "servizio", search: "modo=elenco" });
     });
 
     it("un valore sconosciuto apre l'Anagrafica", () => {

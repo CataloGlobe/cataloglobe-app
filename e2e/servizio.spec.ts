@@ -85,9 +85,10 @@ function tessera(page: Page) {
 
 test.describe("Servizio", () => {
     test("la sidebar della sede ha Servizio e Storico, non più Sala", async ({ page }) => {
-                await openVoce(page, "Scheda");
+        await openVoce(page, "Scheda");
         const sidebar = nav(page);
-        const voci = ["Servizio", "Comande", "Storico", "Prenotazioni", "Cosa vedono i clienti", "Scheda"];
+        // L'ordine dei gruppi della §19.5 (lotto B-b): Ospiti, Ordini, poi le due fuori gruppo.
+        const voci = ["Servizio", "Prenotazioni", "Comande", "Storico", "Cosa vedono i clienti", "Scheda"];
         for (const voce of voci) {
             await expect(sidebar.getByRole("link", { name: voce, exact: true })).toBeVisible();
         }
