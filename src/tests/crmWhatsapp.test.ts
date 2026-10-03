@@ -3,6 +3,11 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_WHATSAPP_TEMPLATE, fillWhatsappTemplate } from "@shared/crmWhatsapp";
 
 describe("fillWhatsappTemplate", () => {
+    it("testo di soli segnaposto e contatto senza nome: resta vuoto o di soli spazi, e crm-wa-worker non lo manda", () => {
+        const text = fillWhatsappTemplate("{nome} ", { contactName: null, venueName: null, senderName: null });
+        expect(text.trim()).toBe("");
+    });
+
     it("mette primo nome e locale", () => {
         expect(
             fillWhatsappTemplate("Ciao {nome}, sono Alessandro di {locale}?", {
