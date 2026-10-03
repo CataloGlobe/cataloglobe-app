@@ -24,6 +24,8 @@ export interface SedeNavEntry {
 
 export const SEDE_NAV_ENTRIES: readonly SedeNavEntry[] = [
     { segment: "comande", label: "Comande", group: "Servizio", permission: "orders.read", requiresFeature: "table_ordering" },
+    // Lo Storico degli ordini: una voce, non più una tab di Comande (lotto B-a).
+    { segment: "storico", label: "Storico", group: "Servizio", permission: "orders.read", requiresFeature: "table_ordering" },
     {
         segment: "prenotazioni",
         label: "Prenotazioni",

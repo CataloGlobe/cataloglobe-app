@@ -49,7 +49,9 @@ async function openVoce(page: Page, voce: string): Promise<string> {
     const base = await sedePath(page);
     await page.goto(base);
     await page.waitForURL(/\/locations\/[0-9a-f-]+\/[a-z-]+/);
-    // Il redirect dell'indice è avvenuto: la sidebar della sede è montata.
+    // Si clicca a atterraggio finito (una voce corrente in sidebar): un click
+    // durante il redirect dell'indice verrebbe superato dal redirect.
+    await expect(nav(page).locator('a[aria-current="page"]')).toHaveCount(1, { timeout: 10_000 });
     const link = nav(page).getByRole("link", { name: voce, exact: true });
     await expect(link).toBeVisible({ timeout: 10_000 });
     await link.click();
@@ -244,7 +246,6 @@ test.describe("Servizio: piano e ruolo", () => {
 
 test.describe("Storico", () => {
     test("è una voce della sede, coi segmenti, il giorno e la tabella", async ({ page }) => {
-        test.fail();
         await openVoce(page, "Storico");
         await expect(page).toHaveURL(/\/storico$/, { timeout: 15_000 });
         await expect(nav(page).getByRole("link", { name: "Storico", exact: true })).toHaveAttribute("aria-current", "page");
@@ -264,7 +265,6 @@ test.describe("Storico", () => {
     });
 
     test("un giorno con una comanda servita: dettaglio, Ripristina, e a 375 niente scroll di lato", async ({ page }) => {
-        test.fail();
         await openVoce(page, "Storico");
         await expect(main(page).getByText(/^\d+ element[oi]$/)).toBeVisible({ timeout: 15_000 });
         await page.getByLabel("Scegli il giorno dello storico").fill(GIORNO_STORICO);
@@ -314,7 +314,6 @@ test.describe("Indirizzi vecchi", () => {
     });
 
     test("comande?tab=storico porta allo Storico", async ({ page }) => {
-        test.fail();
         const base = await sedePath(page);
         await page.goto(`${base}/comande?tab=storico`);
         await expect(page).toHaveURL(/\/storico$/, { timeout: 15_000 });

@@ -1,15 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { flushSync } from "react-dom";
-import { Link, useParams, useSearchParams } from "react-router-dom";
-import { AlertCircle, Calendar, ChevronLeft, ChevronRight, Plus, RefreshCw, RotateCcw, Volume2, VolumeX } from "lucide-react";
+import { Link, Navigate, useParams, useSearchParams } from "react-router-dom";
+import { Plus, RefreshCw, Volume2, VolumeX } from "lucide-react";
 
 import { usePageHeader } from "@/context/usePageHeader";
 import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
-import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { Select } from "@/components/ui/Select/Select";
-import { DateInput } from "@/components/ui/Input/DateInput";
-import Text from "@/components/ui/Text/Text";
 import { IconButton } from "@/components/ui/Button/IconButton";
 import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
@@ -35,15 +31,12 @@ import {
     undeliverToReady,
     uncancelToSubmitted,
     uncancelToAcknowledged,
-    uncancelToReady,
-    listOrdersHistory,
-    getOperativeDayBounds
+    uncancelToReady
 } from "@/services/supabase/orders";
 import type { CancelOrderItemResult } from "@/services/supabase/orders";
 import type { V2OrderWithItems } from "@/types/orders";
 
 import { listTables } from "@/services/supabase/tables";
-import { listPrinters, reprintOrder, PrinterServiceError } from "@/services/supabase/printers";
 import { getTenantMemberNames } from "@/services/supabase/team";
 import type { V2Table } from "@/types/orders";
 
@@ -51,90 +44,31 @@ import OrderDetailDrawer from "./OrderDetailDrawer";
 import PrintReceipt from "./PrintReceipt";
 import OrderCancelDrawer from "./OrderCancelDrawer";
 import OrderCancelItemDrawer from "./OrderCancelItemDrawer";
-import { DataTable } from "@/components/ui/DataTable/DataTable";
-import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
-import { makeHistoryColumns, type HistoryRow } from "./historyColumns";
 import OrdersKanban from "./OrdersKanban";
 import { CreateOrderDrawer } from "./CreateOrderDrawer/CreateOrderDrawer";
 import { useActiveOrdersRealtime } from "./hooks/useActiveOrdersRealtime";
+import { useOrderPrinting } from "./hooks/useOrderPrinting";
 import { useNewOrderAlert } from "./hooks/useNewOrderAlert";
 import { useNotificationChime } from "@/hooks/useNotificationChime";
 
 import { usePermissions } from "@/context/usePermissions";
 import { canDoOnActivity } from "@/lib/permissions";
-import { todayIsoDate, shiftIsoDate } from "@/utils/dateLocal";
 
 import styles from "./Orders.module.scss";
 
-type MainTab = "comande" | "tavoli" | "storico";
-type HistoryFilter = "all" | "delivered" | "cancelled";
+type MainTab = "comande" | "tavoli";
 
 /**
- * Riga Storico con gli storni figli agganciati. `storni` vive qui (non in
- * `HistoryRow`): il rowWrapper li renderizza come sotto-righe DENTRO il blocco
- * del padre.
+ * `comande?tab=storico` è lo Storico, che ora è una voce della sede
+ * (lotto B-a): ci si va prima di montare la board.
  */
-type HistoryRowWithStorni = HistoryRow & { storni?: HistoryRow[] };
-
-const STORNO_CURRENCY_FORMATTER = new Intl.NumberFormat("it-IT", {
-    style: "currency",
-    currency: "EUR"
-});
-
-function formatStornoEur(n: number): string {
-    return STORNO_CURRENCY_FORMATTER.format(n);
-}
-
-/**
- * Sotto-riga storno: NON è una riga del DataTable, ma vive DENTRO il blocco
- * del padre (rowWrapper) allineata alla gabbia delle colonne. Il box esterno
- * (`stornoStripRow`) usa padding-left 144px (= padding 24 + Stato 120) per
- * partire sotto "Tavolo" e padding-right 80px (= azioni 56 + gutter 24) per
- * fermarsi a fine "Totale" (mai dentro il kebab). Dentro: card rosa compatta
- * con connettore a sinistra. Niente netto qui (è nella colonna Totale del padre).
- *   ↳  ⟲ Storno · <articoli> · <motivo>                          −<importo>
- */
-function StornoStrip({ storno }: { storno: HistoryRow }) {
-    const items = (storno.items ?? [])
-        .map(it => `${it.quantity}× ${it.product_name_snapshot}`)
-        .join(", ");
-    return (
-        <div className={styles.stornoStripRow}>
-            <div className={styles.stornoStrip}>
-                <div className={styles.stornoStripLeft}>
-                    <span className={styles.stornoStripArrow} aria-hidden>
-                        ↳
-                    </span>
-                    <RotateCcw size={12} aria-hidden className={styles.stornoStripIcon} />
-                    <span className={styles.stornoStripTag}>Storno</span>
-                    {items && (
-                        <>
-                            <span className={styles.stornoStripSep} aria-hidden>
-                                ·
-                            </span>
-                            <span className={styles.stornoStripItems}>{items}</span>
-                        </>
-                    )}
-                    {storno.notes && (
-                        <>
-                            <span className={styles.stornoStripSep} aria-hidden>
-                                ·
-                            </span>
-                            <span className={styles.stornoStripReason}>
-                                {storno.notes}
-                            </span>
-                        </>
-                    )}
-                </div>
-                <span className={styles.stornoStripAmount}>
-                    {formatStornoEur(-storno.total_amount)}
-                </span>
-            </div>
-        </div>
-    );
-}
-
 export default function Orders() {
+    const [searchParams] = useSearchParams();
+    if (searchParams.get("tab") === "storico") return <Navigate to="../storico" relative="path" replace />;
+    return <OrdersBoard />;
+}
+
+function OrdersBoard() {
     const tenantId = useTenantId();
     const { showToast } = useToast();
     const { hasFeature } = usePlanFeatures();
@@ -147,10 +81,9 @@ export default function Orders() {
     const sedeScope = useActivityScope({ routeKey: "orders" });
     const selectedActivityId: string | null = sedeScope.activityId;
 
-    // Main tabs (3 sezioni principali), init da ?tab=
+    // Le due viste della pagina, init da ?tab=
     const initialMainTab: MainTab = useMemo(() => {
-        const t = searchParams.get("tab");
-        return t === "tavoli" || t === "storico" ? t : "comande";
+        return searchParams.get("tab") === "tavoli" ? "tavoli" : "comande";
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
     const [mainTab, setMainTab] = useState<MainTab>(initialMainTab);
@@ -164,14 +97,6 @@ export default function Orders() {
 
     // Data
     const [tables, setTables] = useState<V2Table[]>([]);
-    // true = la sede ha almeno una stampante cloud Sunmi attiva: il bottone
-    // "Stampa" del drawer dettaglio / storico diventa "Ristampa comanda"
-    // (job Sunmi invece del dialogo di stampa del browser) e la riga
-    // "nessuna stampante" in testa alle Comande resta nascosta.
-    // `null` = lookup non ancora concluso: la riga non deve lampeggiare
-    // prima della risposta.
-    const [hasPrinters, setHasPrinters] = useState<boolean | null>(null);
-
     // Attribuzione operatore: user_id → display_name. Fetch UNA volta per
     // tenantId (membri del tenant cambiano raramente, no realtime). Map
     // vuota in caso di errore RPC → fallback "Staff" sulla pill.
@@ -179,32 +104,12 @@ export default function Orders() {
         () => new Map()
     );
 
-    // Storico (delivered + cancelled della giornata operativa)
-    const [historyOrders, setHistoryOrders] = useState<V2OrderWithItems[]>([]);
-    const [isHistoryLoading, setIsHistoryLoading] = useState(false);
-    const [historyError, setHistoryError] = useState<Error | null>(null);
-    const [historyFilter, setHistoryFilter] = useState<HistoryFilter>("all");
-    // Giorno operativo visualizzato nello Storico (data civile "YYYY-MM-DD"
-    // Europe/Rome). Default = oggi. La FINESTRA [start,end) è sempre risolta
-    // server-side da getOperativeDayBounds(historyDate): qui la stringa data
-    // serve solo per UI + navigazione ±1 giorno (pura aritmetica calendario).
-    const today = useMemo(() => todayIsoDate(), []);
-    const [historyDate, setHistoryDate] = useState<string>(() => today);
-
     // Filtri (tab Comande): solo dropdown tavolo.
     const [tableFilter, setTableFilter] = useState<string>("all");
 
     // Detail drawer
     const [isDetailOpen, setIsDetailOpen] = useState(false);
-    // HistoryRowWithStorni (non V2OrderWithItems grezzo): dallo Storico l'ordine
-    // porta a runtime l'annotazione `rectified`/`netTotal`/`storni` — tipizzarla
-    // qui la preserva fino al drawer. Dalla board Comande arriva un ordine grezzo
-    // (campi opzionali assenti) → assegnabile, quel path resta invariato.
-    const [orderInDetail, setOrderInDetail] = useState<HistoryRowWithStorni | null>(null);
-
-    // Standalone print (from card, without opening the detail drawer)
-    const [orderToPrint, setOrderToPrint] = useState<V2OrderWithItems | null>(null);
-    const standalonePrintRef = useRef<HTMLDivElement>(null);
+    const [orderInDetail, setOrderInDetail] = useState<V2OrderWithItems | null>(null);
 
     // Cancel drawer
     const [isCancelOpen, setIsCancelOpen] = useState(false);
@@ -244,35 +149,6 @@ export default function Orders() {
 
     // Table detail + close drawer (tab "Tavoli"): ora interni a
     // TablesLiveView (Step 4c + close-table). Nessuno state qui.
-
-    // ── Storico (delivered + cancelled del giorno operativo) ──
-    // Niente realtime: vista review, fetch on open + refetch dopo Ripristina.
-    const loadHistory = useCallback(async () => {
-        if (!tenantId || !selectedActivityId) {
-            setHistoryOrders([]);
-            setHistoryError(null);
-            return;
-        }
-        setIsHistoryLoading(true);
-        setHistoryError(null);
-        try {
-            // Bounds SEMPRE da RPC (DST-safe, unico punto di verità): mai
-            // calcolati in JS. historyDate === today ⇒ stessa finestra del
-            // no-arg (DEFAULT server-side).
-            const { dayStart, dayEnd } = await getOperativeDayBounds(historyDate);
-            const data = await listOrdersHistory(
-                tenantId,
-                selectedActivityId,
-                dayStart,
-                dayEnd
-            );
-            setHistoryOrders(data);
-        } catch (err) {
-            setHistoryError(err instanceof Error ? err : new Error("Errore caricamento storico"));
-        } finally {
-            setIsHistoryLoading(false);
-        }
-    }, [tenantId, selectedActivityId, historyDate]);
 
     // ── Realtime active orders board ──
     // triggerAlert e' definito DOPO la chiamata a useActiveOrdersRealtime
@@ -322,25 +198,12 @@ export default function Orders() {
         void loadTables();
     }, [loadTables]);
 
-    // ── Stampanti (per decidere "Stampa" vs "Ristampa comanda" nel menu) ──
-    const loadPrinters = useCallback(async () => {
-        if (!tenantId || !selectedActivityId) {
-            setHasPrinters(null);
-            return;
-        }
-        setHasPrinters(null);
-        try {
-            const data = await listPrinters(tenantId, selectedActivityId);
-            setHasPrinters(data.some(p => p.is_active));
-        } catch {
-            /* silent: lookup ottimizzazione, come loadTables. Resta null:
-               senza risposta non si afferma "nessuna stampante". */
-        }
-    }, [tenantId, selectedActivityId]);
-
-    useEffect(() => {
-        void loadPrinters();
-    }, [loadPrinters]);
+    // Stampa e ristampa (stampante cloud o dialogo del browser): «Stampa» vs
+    // «Ristampa comanda» nel menu, e la riga "nessuna stampante" in testa.
+    const { hasPrinters, orderToPrint, printRef, handlePrint, handleReprint } = useOrderPrinting(
+        tenantId,
+        selectedActivityId
+    );
 
     // Fetch nomi operatori una volta per tenant. Cancellation via flag locale
     // per evitare setState dopo unmount o swap tenantId rapido.
@@ -362,15 +225,7 @@ export default function Orders() {
     // Reset filtri al cambio sede.
     useEffect(() => {
         setTableFilter("all");
-        setHistoryFilter("all");
-        setHistoryDate(today);
-    }, [selectedActivityId, today]);
-
-    // Carica lo Storico solo quando la tab e' attiva (o si cambia sede / si rientra).
-    useEffect(() => {
-        if (mainTab !== "storico") return;
-        void loadHistory();
-    }, [mainTab, loadHistory]);
+    }, [selectedActivityId]);
 
     // ── Refresh totale (header button) ──
     // Force-refetch del kanban realtime + lookup tavoli per il dropdown filtro.
@@ -426,7 +281,6 @@ export default function Orders() {
             <Tabs.List>
                 <Tabs.Tab value="comande">Comande</Tabs.Tab>
                 <Tabs.Tab value="tavoli">Tavoli</Tabs.Tab>
-                <Tabs.Tab value="storico">Storico</Tabs.Tab>
             </Tabs.List>
         </Tabs>
     ), [mainTab, handleTabChange]);
@@ -436,8 +290,7 @@ export default function Orders() {
     const headerCompact = useMemo<PageHeaderCompactConfig>(() => ({
         sections: [
             { value: "comande", label: "Comande" },
-            { value: "tavoli", label: "Tavoli" },
-            { value: "storico", label: "Storico" }
+            { value: "tavoli", label: "Tavoli" }
         ],
         activeSection: mainTab,
         onSectionChange: value => handleTabChange(value as MainTab),
@@ -493,101 +346,6 @@ export default function Orders() {
         if (tableFilter === "all") return activeOrders;
         return activeOrders.filter(o => o.table_id === tableFilter);
     }, [activeOrders, tableFilter]);
-
-    // ── Storico: annotazione (rectified + netto) + storni agganciati al padre ──
-    // Calcolato sull'insieme COMPLETO (pre-filtro segmenti) così il padre
-    // conosce i suoi storni anche nel segmento "Serviti".
-    const annotatedHistory = useMemo<HistoryRowWithStorni[]>(() => {
-        // Mappa figli storno per parent_order_id.
-        const stornoByParent = new Map<string, V2OrderWithItems[]>();
-        for (const o of historyOrders) {
-            if (o.is_rectification && o.parent_order_id) {
-                const arr = stornoByParent.get(o.parent_order_id);
-                if (arr) arr.push(o);
-                else stornoByParent.set(o.parent_order_id, [o]);
-            }
-        }
-
-        const groupTime = (o: V2OrderWithItems): number =>
-            new Date(o.updated_at).getTime();
-
-        const parents = historyOrders.filter(o => !o.is_rectification);
-        const parentIds = new Set(parents.map(p => p.id));
-
-        // Una riga per comanda: il padre porta i suoi storni in `storni`
-        // (resi come sotto-righe DENTRO il blocco padre dal rowWrapper).
-        // Nessuna riga storno interlacciata → il contatore conta le comande.
-        const rows: HistoryRowWithStorni[] = parents.map(p => {
-            const children = (stornoByParent.get(p.id) ?? [])
-                .slice()
-                .sort(
-                    (a, b) =>
-                        new Date(a.created_at).getTime() -
-                        new Date(b.created_at).getTime()
-                );
-            const hasStorno = children.length > 0;
-            if (!hasStorno) return p;
-            const net =
-                p.total_amount - children.reduce((s, c) => s + c.total_amount, 0);
-            return { ...p, rectified: true, netTotal: net, storni: children };
-        });
-
-        // Edge case orfano: storno il cui padre non è nell'insieme (es. padre
-        // servito ieri, storno oggi) → riga standalone, non persa.
-        for (const o of historyOrders) {
-            if (
-                o.is_rectification &&
-                (!o.parent_order_id || !parentIds.has(o.parent_order_id))
-            ) {
-                rows.push(o);
-            }
-        }
-
-        // Ordine: per timestamp più recente DESC. Per un padre rettificato il
-        // timestamp è il max tra il suo updated_at e i created_at degli storni.
-        const rowTime = (r: HistoryRowWithStorni): number =>
-            Math.max(groupTime(r), ...(r.storni ?? []).map(groupTime));
-        return rows.sort((a, b) => rowTime(b) - rowTime(a));
-    }, [historyOrders]);
-
-    // ── Storico: filtro segmenti (dopo annotazione) ──
-    const filteredHistory = useMemo<HistoryRowWithStorni[]>(() => {
-        if (historyFilter === "delivered") {
-            // Serviti: esclude gli storni orfani (non inquina il conteggio).
-            return annotatedHistory.filter(
-                o => o.status === "delivered" && !o.is_rectification
-            );
-        }
-        if (historyFilter === "cancelled") {
-            return annotatedHistory.filter(o => o.status === "cancelled");
-        }
-        return annotatedHistory; // "all" — padri (con storni annidati) + orfani
-    }, [annotatedHistory, historyFilter]);
-
-    // ── Storico: navigazione giorno operativo ──
-    const isToday = historyDate === today;
-    // La data la mostra il campo; «Oggi» / «Ieri» restano accanto, come testo.
-    const relativeDayLabel = useMemo(() => {
-        if (historyDate === today) return "Oggi";
-        if (historyDate === shiftIsoDate(today, -1)) return "Ieri";
-        return null;
-    }, [historyDate, today]);
-    const goPrevDay = useCallback(() => {
-        setHistoryDate(d => shiftIsoDate(d, -1));
-    }, []);
-    const goNextDay = useCallback(() => {
-        setHistoryDate(d => {
-            const next = shiftIsoDate(d, 1);
-            return next > today ? d : next; // mai oltre oggi (nessun futuro)
-        });
-    }, [today]);
-    const onPickDay = useCallback(
-        (iso: string) => {
-            if (!iso) return; // input svuotato → ignora
-            setHistoryDate(iso > today ? today : iso);
-        },
-        [today]
-    );
 
     function labelFor(order: V2OrderWithItems): string {
         const t = tables.find(tt => tt.id === order.table_id);
@@ -759,59 +517,9 @@ export default function Orders() {
         }
     }
 
-    function handleViewDetail(order: HistoryRowWithStorni) {
+    function handleViewDetail(order: V2OrderWithItems) {
         setOrderInDetail(order);
         setIsDetailOpen(true);
-    }
-
-    function handlePrint(order: V2OrderWithItems) {
-        if (hasPrinters === true) {
-            void handleReprint(order);
-            return;
-        }
-        // flushSync forces a synchronous DOM update so standalonePrintRef is
-        // populated before window.print() is called — no useEffect/flag needed.
-        flushSync(() => setOrderToPrint(order));
-        if (standalonePrintRef.current) {
-            standalonePrintRef.current.setAttribute("data-printing", "true");
-            window.print();
-            standalonePrintRef.current.removeAttribute("data-printing");
-        }
-        setOrderToPrint(null);
-    }
-
-    // Ristampa cloud: aspetta la risposta reale di Sunmi (non ottimistico) e
-    // mostra un toast vero. La stampante spenta NON e' un errore: Sunmi
-    // accetta comunque il lavoro e lo consegna alla riaccensione.
-    async function handleReprint(order: V2OrderWithItems) {
-        if (!tenantId) return;
-        try {
-            const res = await reprintOrder(order.id, tenantId);
-            if (res.printed === 0) {
-                showToast({
-                    message: "Ristampa non riuscita su nessuna stampante. Riprova tra poco.",
-                    type: "error"
-                });
-            } else if (res.failed > 0) {
-                showToast({
-                    message: `Ristampa inviata a ${res.printed} di ${res.total} stampanti. Se una stampante è spenta, la comanda uscirà alla riaccensione.`,
-                    type: "info"
-                });
-            } else {
-                showToast({
-                    message: "Ristampa inviata. Se la stampante è spenta, la comanda uscirà alla riaccensione.",
-                    type: "success"
-                });
-            }
-        } catch (err) {
-            showToast({
-                message:
-                    err instanceof PrinterServiceError
-                        ? err.message
-                        : "Errore durante la ristampa.",
-                type: "error"
-            });
-        }
     }
 
     function handleCancelOpen(order: V2OrderWithItems) {
@@ -982,62 +690,6 @@ export default function Orders() {
         }
     }
 
-    async function handleRestore(order: V2OrderWithItems) {
-        try {
-            // Branch sull'origine effettiva: deliver-order NON azzera ready_at,
-            // quindi se l'ordine era passato per "Pronto" (ready_at != null) il
-            // ripristino deve riportarlo in `ready`, altrimenti in `acknowledged`
-            // (era stato servito direttamente da acknowledged).
-            const cameFromReady = order.ready_at != null;
-            if (cameFromReady) {
-                await undeliverToReady(order.id, order.version);
-            } else {
-                await restoreOrder(order.id, order.version);
-            }
-            // Rimuovi la riga dalla lista; rientrera' nel kanban via realtime
-            // (sia ready che acknowledged sono status attivi).
-            setHistoryOrders(prev => prev.filter(o => o.id !== order.id));
-            showToast({
-                message: `Ordine ${labelFor(order)} ripristinato`,
-                type: "success"
-            });
-        } catch (err) {
-            if (err instanceof Error) {
-                if (err.message === "OPTIMISTIC_LOCK_CONFLICT") {
-                    showToast({
-                        message:
-                            "L'ordine è stato modificato da un altro utente, aggiorno lo storico",
-                        type: "warning"
-                    });
-                    void loadHistory();
-                    return;
-                }
-                if (err.message === "INVALID_STATE_TRANSITION") {
-                    const details = (err as Error & {
-                        details?: { current_status?: string };
-                    }).details;
-                    showToast({
-                        message: `Impossibile ripristinare: stato corrente ${details?.current_status ?? "non valido"}`,
-                        type: "error"
-                    });
-                    void loadHistory();
-                    return;
-                }
-            }
-            showToast({ message: "Errore durante il ripristino", type: "error" });
-        }
-    }
-
-    const historyColumns = makeHistoryColumns({
-        tables,
-        operatorNames,
-        onViewDetail: handleViewDetail,
-        onRestore: handleRestore,
-        onPrint: handlePrint,
-        hasPrinters: hasPrinters === true,
-        canManage
-    });
-
     return (
         <PageGate feature="table_ordering" readPermission="orders.read" activityId={selectedActivityId}>
         {() => (
@@ -1101,113 +753,9 @@ export default function Orders() {
                 />
             )}
 
-            {mainTab === "storico" && (
-                <>
-                    {historyError ? (
-                        <EmptyState
-                            icon={<AlertCircle size={40} strokeWidth={1.5} />}
-                            title="Errore caricamento storico"
-                            description={historyError.message}
-                            action={
-                                <Button variant="secondary" onClick={() => void loadHistory()}>
-                                    Riprova
-                                </Button>
-                            }
-                        />
-                    ) : (
-                        <div className={styles.historySection}>
-                            <div className={styles.historyToolbar}>
-                                {/* Ordine allineato a ReservationsAgenda:
-                                    filtri-segmento a SINISTRA, navigazione data
-                                    a DESTRA. justify-content:space-between li
-                                    distribuisce agli estremi. */}
-                                <SegmentedControl<HistoryFilter>
-                                    value={historyFilter}
-                                    onChange={setHistoryFilter}
-                                    options={[
-                                        { value: "all", label: "Tutti" },
-                                        { value: "delivered", label: "Serviti" },
-                                        { value: "cancelled", label: "Annullati" }
-                                    ]}
-                                />
-                                <div className={styles.dayNav}>
-                                    <IconButton
-                                        icon={<ChevronLeft size={18} />}
-                                        variant="secondary"
-                                        onClick={goPrevDay}
-                                        aria-label="Giorno precedente"
-                                    />
-                                    <DateInput
-                                        containerClassName={styles.dayField}
-                                        startAdornment={<Calendar size={16} aria-hidden="true" />}
-                                        value={historyDate}
-                                        max={today}
-                                        onChange={e => onPickDay(e.target.value)}
-                                        aria-label="Scegli il giorno dello storico"
-                                    />
-                                    <IconButton
-                                        icon={<ChevronRight size={18} />}
-                                        variant="secondary"
-                                        onClick={goNextDay}
-                                        disabled={isToday}
-                                        aria-label="Giorno successivo"
-                                    />
-                                    {relativeDayLabel && (
-                                        <Text variant="body-sm" colorVariant="muted">
-                                            {relativeDayLabel}
-                                        </Text>
-                                    )}
-                                </div>
-                            </div>
-                            <DataTable<HistoryRowWithStorni>
-                                ariaLabel="Storico degli ordini"
-                                data={filteredHistory}
-                                columns={historyColumns}
-                                isLoading={isHistoryLoading}
-                                getRowId={o => o.id}
-                                rowWrapper={(rowEl, rowData) => {
-                                    // Storno orfano: blocco standalone (solo striscia).
-                                    if (rowData.is_rectification) {
-                                        return (
-                                            <div
-                                                key={rowData.id}
-                                                className={styles.rectifiedBlock}
-                                            >
-                                                <StornoStrip storno={rowData} />
-                                            </div>
-                                        );
-                                    }
-                                    // Padre rettificato: riga nativa + sotto-righe storno
-                                    // DENTRO un unico blocco (un solo separatore in fondo).
-                                    if (rowData.storni && rowData.storni.length > 0) {
-                                        return (
-                                            <div
-                                                key={rowData.id}
-                                                className={styles.rectifiedBlock}
-                                            >
-                                                {rowEl}
-                                                {rowData.storni.map(s => (
-                                                    <StornoStrip key={s.id} storno={s} />
-                                                ))}
-                                            </div>
-                                        );
-                                    }
-                                    return rowEl;
-                                }}
-                                emptyState={{
-                                    title: "Nessun ordine nello storico di oggi",
-                                    description: "Gli ordini serviti o annullati nella giornata operativa appariranno qui."
-                                }}
-                                loadingState={{ compact: true }}
-                            />
-                        </div>
-                    )}
-                </>
-            )}
-
             {orderToPrint && (
                 <PrintReceipt
-                    ref={standalonePrintRef}
+                    ref={printRef}
                     order={orderToPrint}
                     tableLabel={tables.find(t => t.id === orderToPrint.table_id)?.label ?? "?"}
                     tableZone={tables.find(t => t.id === orderToPrint.table_id)?.zone_name ?? null}

@@ -62,6 +62,7 @@ const SetupWizardPage = lazy(() => import("./pages/Setup/SetupWizardPage"));
 const Overview = lazy(() => import("@/pages/Business/OverviewPage"));
 const Businesses = lazy(() => import("./pages/Dashboard/Businesses/Businesses"));
 const Orders = lazy(() => import("./pages/Dashboard/Orders/Orders"));
+const OrdersHistory = lazy(() => import("./pages/Dashboard/Orders/OrdersHistory"));
 const Reservations = lazy(() => import("./pages/Dashboard/Reservations/Reservations"));
 const Guests = lazy(() => import("./pages/Dashboard/Guests/Guests"));
 const Catalogs = lazy(() => import("./pages/Dashboard/Catalogs/Catalogs"));
@@ -272,6 +273,7 @@ export default function App() {
                         fuori dal parent della scheda, di cui non devono
                         ereditare testata e draft. */}
                     <Route path="comande" element={<Orders />} />
+                    <Route path="storico" element={<OrdersHistory />} />
                     <Route path="prenotazioni" element={<Reservations />} />
                     <Route path="cosa-vedono" element={<ActivityCosaVedonoRoute />} />
                     {/* Il vecchio nome (Disponibilità, §50.14): link e preferiti restano buoni. */}

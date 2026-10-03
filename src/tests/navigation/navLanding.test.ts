@@ -48,7 +48,14 @@ describe("firstSedeSegment — la prima voce usabile, nell'ordine della sidebar"
     });
 
     it("l'ordine è quello della sidebar", () => {
-        expect(SEDE_NAV_ENTRIES.map(e => e.segment)).toEqual(["comande", "prenotazioni", "sala", "cosa-vedono", "anagrafica"]);
+        expect(SEDE_NAV_ENTRIES.map(e => e.segment)).toEqual([
+            "comande",
+            "storico",
+            "prenotazioni",
+            "sala",
+            "cosa-vedono",
+            "anagrafica"
+        ]);
     });
 });
 

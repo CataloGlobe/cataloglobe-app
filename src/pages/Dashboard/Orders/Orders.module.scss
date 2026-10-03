@@ -8,26 +8,14 @@
 
 // Scroll interno per-colonna (board Comande): solo sopra 1024 e solo quando la
 // tab attiva e' "comande". L'altezza bounded si propaga da qui giu' fino a
-// .columnList (vedi OrdersKanban.module.scss). Tavoli/Storico restano ad
-// altezza auto -> page-scroll come prima (wrapper .container condiviso).
+// .columnList (vedi OrdersKanban.module.scss). Tavoli resta ad altezza auto
+// -> page-scroll come prima (wrapper .container condiviso).
 @media (min-width: $bp-sidebar) {
   .container[data-active-tab="comande"] {
     flex: 1;
     min-height: 0;
   }
 }
-
-// Catena flex vincolata per la tab Storico (template Prodotti/Cataloghi):
-// propaga l'altezza bounded di `MainLayout .content` fino al `.autoSizeProbe`
-// del DataTable, così l'auto-pagesize misura lo spazio reale invece del
-// fallback. A TUTTE le larghezze (tabella normale, scroll interno anche su
-// mobile). Scoped su [data-active-tab="storico"] per non vincolare
-// Comande (kanban) e Tavoli (card), che restano ad altezza auto → page-scroll.
-.container[data-active-tab="storico"] {
-  flex: 1 1 auto;
-  min-height: 0;
-}
-
 
 .headerActions {
   display: flex;
@@ -56,132 +44,6 @@
   gap: 12px;
   align-items: center;
   flex-wrap: wrap;
-}
-
-
-.historySection {
-  // Anello intermedio della catena flex Storico: toolbar (auto) + DataTable
-  // (flex:1 interno). min-height:0 rompe il default min-height:auto così il
-  // probe del DataTable misura l'altezza bounded ereditata da .container.
-  flex: 1 1 auto;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-// Toolbar Storico: navigatore giorno (sinistra) + filtro segmenti (destra).
-.historyToolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.dayNav {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-8);
-}
-
-// Il campo data è un DateInput di sistema: qui solo la larghezza, che non
-// deve saltare passando da un giorno all'altro.
-.dayField {
-  width: 168px;
-}
-
-// ── Blocco comanda rettificata: padre (riga nativa) + sotto-righe storno ──
-// Reso dal rowWrapper. Un SOLO separatore in fondo al blocco (= separatore
-// nativo tra comande). La riga padre interna NON ha border-bottom (nessuna
-// linea tra padre e storno). Token bordo identico a `.row` del DataTable.
-.rectifiedBlock {
-  padding-bottom: 6px;
-  border-bottom: 1px solid var(--border, #e2e8f0);
-
-  // riga padre nativa (primo figlio): rimuove la sua linea inferiore
-  > :first-child {
-    border-bottom: none;
-  }
-
-  // ultimo blocco della lista: niente separatore finale (come l'ultima riga)
-  &:last-child {
-    border-bottom: none;
-    padding-bottom: 0;
-  }
-}
-
-// Box grid-aligned della sotto-riga: parte sotto "Tavolo" (24 padding +
-// 120 colonna Stato) e finisce a fine "Totale" (56 azioni + 24 gutter),
-// senza sforare nella colonna kebab.
-.stornoStripRow {
-  padding: 2px 80px 2px 144px;
-
-  // Sotto 768 Stato esce dalla tabella (hideOnPhone): la striscia si allinea
-  // a Tavolo, che è la prima colonna, e lascia libera solo quella delle azioni.
-  @include phone {
-    padding: var(--space-2) 56px var(--space-2) var(--space-16);
-  }
-}
-
-// Card inset: rosa tenue, arrotondata, ~mezza altezza, con barretta
-// connettore a sinistra (inset box-shadow → niente reflow, angoli puliti).
-.stornoStrip {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 6px 14px;
-  border-radius: 8px;
-  font-size: 0.8125rem;
-  line-height: 1.3;
-  color: var(--color-error-fg, #b91c1c);
-  background: color-mix(in srgb, var(--color-error-fg, #b91c1c) 6%, transparent);
-  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--color-error-fg, #b91c1c) 50%, transparent);
-}
-
-.stornoStripLeft {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-  flex-wrap: wrap;
-}
-
-.stornoStripArrow {
-  color: var(--text-muted, #64748b);
-  font-size: 0.875rem;
-}
-
-.stornoStripIcon {
-  flex-shrink: 0;
-}
-
-.stornoStripTag {
-  font-weight: 700;
-}
-
-// Separatore "·" discreto tra i segmenti.
-.stornoStripSep {
-  color: color-mix(in srgb, var(--color-error-fg, #b91c1c) 45%, transparent);
-}
-
-.stornoStripItems {
-  color: color-mix(in srgb, var(--color-error-fg, #b91c1c) 85%, transparent);
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.stornoStripReason {
-  color: var(--text-muted, #64748b);
-  font-style: italic;
-}
-
-.stornoStripAmount {
-  flex-shrink: 0;
-  font-weight: 700;
-  white-space: nowrap;
 }
 
 // Suono spento: l'IconButton resta, l'icona arretra.

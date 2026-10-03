@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, CalendarCheck, ClipboardList, Eye, LayoutGrid, Store } from "lucide-react";
+import { ArrowLeft, CalendarCheck, ClipboardList, Eye, History, LayoutGrid, Store } from "lucide-react";
 import Text from "@/components/ui/Text/Text";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
@@ -29,6 +29,7 @@ import styles from "./SedeSidebar.module.scss";
 
 const ICONS: Record<string, ReactNode> = {
     comande: <ClipboardList size={18} />,
+    storico: <History size={18} />,
     prenotazioni: <CalendarCheck size={18} />,
     sala: <LayoutGrid size={18} />,
     "cosa-vedono": <Eye size={18} />,
