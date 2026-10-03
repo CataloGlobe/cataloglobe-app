@@ -63,6 +63,9 @@ bash scripts/e2e.sh e2e/<pagina>.spec.ts  # e2e contro staging: solo spec singol
 - `tenant_id` SOLO da `useTenantId()` o `useTenant().selectedTenantId`. **MAI** da `auth.user.id`.
 - OGNI write al DB include `tenant_id`. Nessun dato cross-tenant (eccezione: `allergens`).
 - RLS obbligatorio su ogni tabella tenant-scoped: `tenant_id IN (SELECT get_my_tenant_ids())` (NON `= ANY(...)` — funzione set-returning). Per scope activity-granulare usa `has_permission(permission_id, activity_id?)` — vedi `## Sistema permessi multi-sede`.
+- **Parent dello stesso tenant (CG-01, mig `20260930150000`)**: sulle tabelle figlie/ponte (categorie, collegamenti catalogo, opzioni, allergeni, attributi, in evidenza…) due policy RESTRICTIVE `Parent same tenant on insert/update`: ogni FK verso un'entità tenant-scoped deve puntare a una riga dello stesso tenant (ammessi i parent di piattaforma con `tenant_id` NULL). Nuova tabella figlia = stessa coppia di policy.
+- **Tabelle di sede (CG-09, mig `20260930150400`/`150500`)**: trigger `enforce_activity_tenant_match()` sulle tabelle con `activity_id` + `tenant_id`: `tenant_id` diverso da quello della sede → 42501 `activity_tenant_mismatch`. Nuova tabella di sede = aggiungere il trigger. `orders` e `customer_sessions` agganciano solo un `order_group` della stessa sede (`order_group_activity_mismatch`).
+- **`activities.tenant_id` e `activities.id` immutabili (CG-07)**: trigger `prevent_activity_reparent()`. Spostare una sede in un'altra azienda non è un'operazione supportata.
 
 ---
 
@@ -234,6 +237,7 @@ Spec autoritativa: `docs/orders-architecture.md` v1.2. Dettaglio pattern (dual-a
 - **Optimistic locking obbligatorio** sulle transition admin (`acknowledge` / `deliver` / `cancel-admin`). `expected_version` sempre richiesto, 409 `OPTIMISTIC_LOCK_CONFLICT` da rispettare.
 - **Edge Functions customer-only** (`submit-order`, `cancel-order`, `get-orders-for-session`) NON callable da contesto admin (richiedono customer JWT custom).
 - `orders.version` increment **applicativo** (no trigger DB).
+- `_shared/validateOrderItems.ts` (submit-order, submit-order-admin) filtra per `tenant_id` ogni nodo letto via embed (collegamenti catalogo, gruppi/valori opzione, override prezzo): un id di un altro tenant fa rifiutare l'ordine (`INVALID_OPTIONS`). Il prezzo inviato dal client è sempre ignorato.
 
 Service layer in `src/services/supabase/`: `tables.ts`, `tableZones.ts` (4 funzioni + `getZoneTableCounts` per drawer "Gestisci zone"), `customerSessions.ts`, `productAvailability.ts`, `orders.ts`. Tipi in `src/types/orders.ts`.
 
@@ -313,6 +317,7 @@ Dettaglio completo + esempi SQL: `docs/patterns/storage-sql.md`.
 - `REVOKE EXECUTE ... FROM PUBLIC` dopo `CREATE FUNCTION`.
 - `SECURITY DEFINER` non destinata a `anon`/`authenticated`: `REVOKE FROM PUBLIC` NON basta — Supabase pre-configura grant default a `anon, authenticated, service_role`. Pattern: REVOKE espliciti da `PUBLIC + anon + authenticated`, GRANT solo a `service_role`. Verifica post-deploy con query `pg_proc + has_function_privilege`.
 - **`RETURNS TABLE` alias collision**: le colonne OUT della `RETURNS TABLE` sono in scope nel body plpgsql come variabili. `SELECT/EXISTS` su tabella con colonna stesso nome senza qualificazione → `column reference "X" is ambiguous`. Pattern: qualifica SEMPRE le colonne con alias tabella (`tm.role`, `t.id`); per CTE con alias output identici alle cols `RETURNS TABLE`, prefisso `r_*` (vedi `20260530190000_fix_get_tenant_members_ambiguous.sql`). Incappato 2 volte (Fase 4 + Fase 5.B.2).
+- **Policy che interroga la propria tabella → 42P17** (`infinite recursion detected in policy`): la sottoquery riapplica l'RLS della tabella stessa, e ogni INSERT/UPDATE fallisce, anche quelli legittimi. Vale anche per cicli tra due tabelle le cui policy si interrogano a vicenda. Pattern: helper SQL `STABLE SECURITY DEFINER`, `search_path ''` (owner postgres: niente RLS dentro, una funzione SQL DEFINER non viene inlined), che risponde solo per i tenant del chiamante, es. `catalog_category_in_tenant(category_id, tenant_id)` (mig `20260930150900`/`150910`); REVOKE da `PUBLIC, anon`, GRANT ad `authenticated`. Una policy nuova con sottoquery: provarla con un INSERT reale da `authenticated` su staging, non solo leggere `pg_policies`.
 
 ### Stripe lifecycle
 Usare sempre `_shared/stripe-helpers.ts`. Pattern: `scheduleStripeCancel()` soft-delete → `reactivateStripeSubIfScheduled()` recovery → `cancelStripeSubImmediate()` + `deleteStripeCustomer()` hard-delete. Tutti idempotenti e non-throwing. NON chiamare `stripe.subscriptions.cancel()` direttamente in soft-delete.
