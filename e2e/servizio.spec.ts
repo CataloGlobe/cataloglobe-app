@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { openBusinessPage } from "./business";
 import { asBasePlan, asRole } from "./asRole";
+import { stubReservations, type ReservationsStub } from "./reservationsStub";
 
 /**
  * Servizio (lotto B-a, §18.2, §50.21): una pagina di sede con due modi,
@@ -8,6 +9,12 @@ import { asBasePlan, asRole } from "./asRole";
  * Comande → Tavoli, col pannello del conto; Gestisci la sala è la vecchia
  * `/sala`. Lo Storico degli ordini diventa una voce a sé. L'Elenco (le
  * tavolate) arriva col lotto B-b: fino ad allora resta in Prenotazioni.
+ *
+ * Lotto B-b: il modo **Elenco** (la tavolata, estratta da Prenotazioni →
+ * Servizio) è il predefinito; col piano Pro si atterra lì. I casi della
+ * Mappa aprono la Mappa per nome, non per atterraggio. Le prenotazioni e la
+ * sala dell'Elenco sono finte (`reservationsStub.ts`), come in
+ * `prenotazioni.spec.ts`.
  *
  * Scritto **prima** della pagina, in `test.fail`; ogni caso è passato a
  * `test` col commit che lo rende vero.
@@ -58,8 +65,17 @@ async function openVoce(page: Page, voce: string): Promise<string> {
     return base;
 }
 
-function modo(page: Page, name: "Mappa" | "Gestisci la sala") {
+function modo(page: Page, name: "Elenco" | "Mappa" | "Gestisci la sala") {
     return page.getByRole("tab", { name: new RegExp(`^${name}`) });
+}
+
+/** Apre Servizio dalla sidebar e sceglie la Mappa per nome. */
+async function openMappa(page: Page): Promise<string> {
+    const base = await openVoce(page, "Servizio");
+    await expect(modo(page, "Mappa")).toBeVisible({ timeout: 15_000 });
+    await modo(page, "Mappa").click();
+    await expect(modo(page, "Mappa")).toHaveAttribute("aria-selected", "true");
+    return base;
 }
 
 /** La tessera del tavolo della fixture nella Mappa. */
@@ -100,7 +116,7 @@ test.describe("Servizio", () => {
     });
 
     test("dalla Mappa si apre il pannello del conto del tavolo", async ({ page }) => {
-        await openVoce(page, "Servizio");
+        await openMappa(page);
         await expect(tessera(page)).toBeVisible({ timeout: 15_000 });
         await tessera(page).click();
 
@@ -117,7 +133,7 @@ test.describe("Servizio", () => {
     });
 
     test("la Mappa: «Aperti» e «Liberi» filtrano le tessere", async ({ page }) => {
-        await openVoce(page, "Servizio");
+        await openMappa(page);
         const filtri = main(page).getByRole("radiogroup");
         await expect(main(page).getByRole("list", { name: "Tavoli" })).toHaveCount(0, { timeout: 15_000 });
         await expect(filtri.getByRole("radio", { name: "Aperti", exact: true })).toBeVisible({ timeout: 15_000 });
@@ -134,7 +150,7 @@ test.describe("Servizio", () => {
     });
 
     test("la Mappa è una griglia per zona: 3, 2, 1 colonne", async ({ page }) => {
-        await openVoce(page, "Servizio");
+        await openMappa(page);
         const zona = main(page).getByRole("list", { name: "Senza zona" });
         await expect(zona.getByRole("listitem")).toHaveCount(2, { timeout: 15_000 });
         const tops = () => zona.getByRole("listitem").evaluateAll(els => els.map(e => Math.round(e.getBoundingClientRect().top)));
@@ -169,7 +185,7 @@ test.describe("Servizio", () => {
     });
 
     test("a 768 e 375 la Mappa non scorre di lato e i due modi restano a vista", async ({ page }) => {
-        await openVoce(page, "Servizio");
+        await openMappa(page);
         await expect(tessera(page)).toBeVisible({ timeout: 15_000 });
         for (const width of [768, 375]) {
             await page.setViewportSize({ width, height: 900 });
@@ -208,7 +224,7 @@ test.describe("Servizio: piano e ruolo", () => {
     test("il viewer legge la Mappa ma non conferma ordini né crea tavoli", async ({ page }) => {
         const base = await sedePath(page);
         await asRole(page, "viewer", base.split("/").pop()!, "pro");
-        await page.goto(`${base}/servizio`);
+        await page.goto(`${base}/servizio?modo=mappa`);
         await expect(tessera(page)).toBeVisible({ timeout: 15_000 });
         await tessera(page).click();
         const drawer = page.getByRole("dialog");
@@ -236,6 +252,107 @@ test.describe("Servizio: piano e ruolo", () => {
             await expect(main(page).getByText(/Non hai accesso|richiede il piano Pro/)).toHaveCount(0);
         });
     }
+});
+
+test.describe("Elenco (lotto B-b)", () => {
+    let stub: ReservationsStub;
+    test.beforeEach(async ({ page }) => {
+        stub = await stubReservations(page);
+    });
+
+    test.fail("col piano Pro Servizio si apre sull'Elenco", async ({ page }) => {
+        await openVoce(page, "Servizio");
+        await expect(page).toHaveURL(/\/servizio$/, { timeout: 15_000 });
+        await expect(modo(page, "Elenco")).toHaveAttribute("aria-selected", "true", { timeout: 15_000 });
+        await expect(modo(page, "Mappa")).toBeVisible();
+        await expect(modo(page, "Gestisci la sala")).toBeVisible();
+    });
+
+    test.fail("l'Elenco: in sala adesso, in arrivo, «Senza prenotazione»", async ({ page }) => {
+        const base = await sedePath(page);
+        await page.goto(`${base}/servizio?modo=elenco`);
+        const m = main(page);
+        await expect(m.getByText(/in sala adesso/i)).toBeVisible({ timeout: 15_000 });
+        await expect(m.getByText("Paolo Gallo").first()).toBeVisible();
+        await expect(m.getByText(/in arrivo/i)).toBeVisible();
+        await expect(m.getByText("Sara Conti").first()).toBeVisible();
+        await expect(m.getByText("Elena Riva").first()).toBeVisible();
+        await expect(m.getByText("Ospite di Varedo")).toHaveCount(0);
+        await expect(m.getByRole("button", { name: "Senza prenotazione" })).toBeVisible();
+        // Lo stato di oggi resta in testa, come nella scheda di Prenotazioni.
+        await expect(m.getByRole("status", { name: /arrivo|prenotazione oggi/ })).toContainText("Oggi");
+    });
+
+    test.fail("cablaggio: dall'Elenco la prenotazione al tavolo apre il suo dettaglio, e «Annulla apertura» spedisce undo_seating", async ({ page }) => {
+        const base = await sedePath(page);
+        stub.onWrite("undo_seating", () => null);
+        await page.goto(`${base}/servizio?modo=elenco`);
+        await expect(main(page).getByText("Paolo Gallo").first()).toBeVisible({ timeout: 15_000 });
+        await main(page).getByText("Paolo Gallo").first().click();
+        const drawer = page.getByRole("dialog");
+        await drawer.getByRole("button", { name: "Annulla apertura" }).click();
+        await expect.poll(() => stub.writes).toEqual([{ fn: "undo_seating", body: { p_seating_id: stub.seatingId } }]);
+        await expect(page.getByText("Apertura annullata. Per riaprirla: Arrivato.")).toBeVisible();
+    });
+
+    test.fail("«Senza prenotazione» apre la tavolata nuova e si chiude senza scrivere", async ({ page }) => {
+        const base = await sedePath(page);
+        await page.goto(`${base}/servizio?modo=elenco`);
+        await main(page).getByRole("button", { name: "Senza prenotazione" }).click({ timeout: 15_000 });
+        const drawer = page.getByRole("dialog");
+        await expect(drawer.getByText("Tavolata senza prenotazione").first()).toBeVisible();
+        await expect(drawer.getByRole("button", { name: "Apri tavolata" })).toBeVisible();
+        await page.keyboard.press("Escape");
+        await expect(drawer).toHaveCount(0);
+        expect(stub.writes).toHaveLength(0);
+    });
+
+    test.fail("il viewer legge l'Elenco ma non apre tavolate", async ({ page }) => {
+        const base = await sedePath(page);
+        await asRole(page, "viewer", base.split("/").pop()!, "pro");
+        await page.goto(`${base}/servizio?modo=elenco`);
+        await expect(main(page).getByText("Paolo Gallo").first()).toBeVisible({ timeout: 15_000 });
+        await expect(main(page).getByRole("button", { name: "Senza prenotazione" })).toHaveCount(0);
+    });
+
+    test.fail("col piano base l'Elenco ha il lucchetto", async ({ page }) => {
+        const base = await sedePath(page);
+        await asBasePlan(page);
+        await page.goto(`${base}/servizio?modo=elenco`);
+        await expect(modo(page, "Elenco")).toHaveAttribute("aria-disabled", "true", { timeout: 15_000 });
+        await expect(modo(page, "Elenco").locator(LUCCHETTO)).toHaveCount(1);
+        await expect(modo(page, "Gestisci la sala")).toHaveAttribute("aria-selected", "true");
+    });
+
+    for (const role of ["manager", "staff", "viewer"] as const) {
+        test.fail(`${role}, piano pro: entrando nella sede si arriva a Servizio, nell'Elenco`, async ({ page }) => {
+            const base = await sedePath(page);
+            await asRole(page, role, base.split("/").pop()!, "pro");
+            await page.goto(base);
+            await expect(page).toHaveURL(/\/servizio$/, { timeout: 15_000 });
+            await expect(modo(page, "Elenco")).toHaveAttribute("aria-selected", "true", { timeout: 15_000 });
+            await expect(main(page).getByText(/Non hai accesso|richiede il piano Pro/)).toHaveCount(0);
+        });
+    }
+
+    test.fail("prenotazioni?tab=service porta all'Elenco", async ({ page }) => {
+        const base = await sedePath(page);
+        await page.goto(`${base}/prenotazioni?tab=service`);
+        await expect(page).toHaveURL(/\/servizio\?modo=elenco$/, { timeout: 15_000 });
+        await expect(main(page).getByText(/in sala adesso/i)).toBeVisible({ timeout: 15_000 });
+    });
+
+    test.fail("a 768 e 375 l'Elenco non scorre di lato", async ({ page }) => {
+        const base = await sedePath(page);
+        await page.goto(`${base}/servizio?modo=elenco`);
+        await expect(main(page).getByText("Paolo Gallo").first()).toBeVisible({ timeout: 15_000 });
+        for (const width of [768, 375]) {
+            await page.setViewportSize({ width, height: 900 });
+            await expect(main(page).getByText("Paolo Gallo").first()).toBeVisible();
+            const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+            expect(overflow).toBeLessThanOrEqual(0);
+        }
+    });
 });
 
 test.describe("Storico", () => {

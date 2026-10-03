@@ -82,6 +82,15 @@ test.describe("Prenotazioni", () => {
         await expect(oggi).toContainText("~15");
     });
 
+    test.fail("Prenotazioni non ha più la scheda Servizio: la sala è l'Elenco di Servizio (lotto B-b)", async ({ page }) => {
+        await openPrenotazioni(page);
+        await expect(page.getByRole("tab", { name: "Servizio", exact: true })).toHaveCount(0, { timeout: 5_000 });
+        await expect(main(page).getByText(/in sala adesso/i)).toHaveCount(0);
+        // L'Agenda resta, con la coda in cima e la creazione.
+        await expect(main(page).getByText("Da gestire", { exact: true }).first()).toBeVisible();
+        await expect(page.getByRole("button", { name: "Nuova prenotazione" }).first()).toBeVisible();
+    });
+
     test("un vecchio link a «Da gestire» apre l'Agenda", async ({ page }) => {
         await openPrenotazioni(page);
         await page.goto(page.url().replace(/\?.*$/, "") + "?tab=inbox");

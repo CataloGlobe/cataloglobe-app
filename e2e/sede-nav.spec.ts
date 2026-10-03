@@ -266,6 +266,30 @@ test.describe("Ingresso nell'azienda", () => {
     });
 });
 
+test.describe("Sidebar della sede (§19.5, lotto B-b)", () => {
+    test.fail("sei voci: Ospiti e Ordini a gruppi, le ultime due fuori gruppo", async ({ page }) => {
+        await openFirstLocation(page);
+        const sidebar = nav(page);
+        const GRUPPI: Record<string, string[]> = {
+            Ospiti: ["Servizio", "Prenotazioni"],
+            Ordini: ["Comande", "Storico"]
+        };
+        for (const [gruppo, voci] of Object.entries(GRUPPI)) {
+            const group = sidebar.getByRole("group", { name: gruppo, exact: true });
+            await expect(group.getByText(gruppo, { exact: true }).first()).toBeVisible({ timeout: 15_000 });
+            for (const voce of voci) await expect(group.getByRole("link", { name: voce, exact: true })).toBeVisible();
+        }
+        // Nessun gruppo di una voce sola e nessun titolo uguale a una voce.
+        await expect(sidebar.getByRole("group", { name: /^(Servizio|Clienti|Il locale)$/ })).toHaveCount(0);
+        for (const voce of ["Cosa vedono i clienti", "Scheda"]) {
+            await expect(sidebar.getByRole("link", { name: voce, exact: true })).toBeVisible();
+        }
+        const ordine = ["Servizio", "Prenotazioni", "Comande", "Storico", "Cosa vedono i clienti", "Scheda"];
+        const labels = (await sidebar.getByRole("link").allTextContents()).map(l => l.trim()).filter(l => ordine.includes(l));
+        expect(labels).toEqual(ordine);
+    });
+});
+
 test.describe("Sidebar dell'azienda", () => {
     const GRUPPI: Record<string, string[]> = {
         Sedi: ["Sedi", "Ordini", "Prenotazioni"],

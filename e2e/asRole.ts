@@ -1,7 +1,16 @@
 import type { Page } from "@playwright/test";
 
 /** I permessi veri dei due ruoli di sede (`docs/permissions-matrix.md` §6). */
-export const PERMESSI_DI_SEDE: Record<"staff" | "viewer", string[]> = {
+export const PERMESSI_DI_SEDE: Record<"manager" | "staff" | "viewer", string[]> = {
+    manager: [
+        "activity.read", "activity.manage", "activity_hours.write", "activity_groups.read", "catalogs.read",
+        "products.read", "product_availability.write", "featured.read", "featured.write", "stories.read",
+        "stories.write", "styles.read", "scheduling.read", "scheduling.write", "tables.read", "tables.manage",
+        "orders.read", "orders.manage", "reservations.read", "reservations.manage", "reviews.read",
+        "reviews.moderate", "analytics.read", "notifications.receive", "team.read", "team.invite",
+        "team.manage_roles", "team.remove", "tenant.read", "guests.read", "guests.manage", "seatings.read",
+        "seatings.manage", "support.read", "support.write"
+    ],
     staff: [
         "activity.read", "catalogs.read", "products.read", "featured.read", "stories.read", "styles.read",
         "tables.read", "tables.manage", "orders.read", "orders.manage", "reservations.read", "reservations.manage",
@@ -22,7 +31,7 @@ export const PERMESSI_DI_SEDE: Record<"staff" | "viewer", string[]> = {
  */
 export async function asRole(
     page: Page,
-    role: "staff" | "viewer",
+    role: "manager" | "staff" | "viewer",
     activityId: string,
     plan: "pro" | "base"
 ): Promise<void> {
