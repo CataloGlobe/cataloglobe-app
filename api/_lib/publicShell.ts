@@ -161,19 +161,18 @@ export function applyTenantHead(
         const safeCover = escapeHtml(cover);
         // og:image/twitter:image: SEMPRE l'immagine raw full-size (gli scraper
         // social vogliono l'originale, non la variante mobile). Se il template
-        // ha già il tag lo si sostituisce (i crawler usano il PRIMO og:image);
-        // index.html oggi non ne ha (niente immagine generica), quindi lo si
-        // aggiunge, e la card Twitter passa a immagine grande.
+        // ha già il tag (index.html: og-image.png) lo si sostituisce, i crawler
+        // usano il PRIMO og:image; se manca lo si aggiunge. Card Twitter grande.
         for (const [attr, key] of [["property", "og:image"], ["name", "twitter:image"]] as const) {
             if (hasMeta(html, key)) html = setMetaContent(html, key, safeCover);
             else extra.push(`<meta ${attr}="${key}" content="${safeCover}" />`);
         }
         html = setMetaContent(html, "twitter:card", "summary_large_image");
-        // width/height del template descrivono og-image.png (1200×630): rimossi
-        // quando l'immagine è la cover della sede — dichiarare dimensioni di
-        // un'altra immagine causerebbe crop sbagliati negli scraper.
+        // width/height/alt del template descrivono og-image.png (1200×630):
+        // rimossi quando l'immagine è la cover della sede — dimensioni di
+        // un'altra immagine causerebbero crop sbagliati, e l'alt mentirebbe.
         html = html.replace(
-            /\s*<meta\s+property="og:image:(?:width|height)"\s+content="[^"]*"\s*\/>/g,
+            /\s*<meta\s+property="og:image:(?:width|height|alt)"\s+content="[^"]*"\s*\/>/g,
             () => ""
         );
         // Preload LCP: responsive set IDENTICO all'<img> della cover
