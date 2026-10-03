@@ -37,6 +37,7 @@ import type { RealtimeChannel, RealtimePostgresChangesPayload } from "@supabase/
 import { supabase } from "@/services/supabase/client";
 import type { V2Reservation } from "@/types/reservation";
 import type { ReservationRealtimeEvent } from "../loadWindow";
+import { realtimeTopic } from "@/utils/realtimeTopic";
 
 const FLUSH_DEBOUNCE_MS = 300;
 
@@ -86,7 +87,7 @@ export function useReservationsRealtime(
         };
 
         channel = supabase
-            .channel(`reservations-${activityId ?? tenantId}-${Date.now()}`)
+            .channel(realtimeTopic(`reservations-${activityId ?? tenantId}`))
             .on<V2Reservation>(
                 "postgres_changes",
                 {
