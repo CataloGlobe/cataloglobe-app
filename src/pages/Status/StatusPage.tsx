@@ -5,20 +5,17 @@ import { usePageTitle } from "@/hooks/usePageTitle";
 import { formatDateTimeIt } from "@/utils/formatDateTime";
 import {
     deriveOverallStatus,
+    fetchStatusOverview,
     formatIncidentStatus,
-    listActiveIncidents,
-    listDailyUptime,
-    listLatestChecks,
-    listRecentIncidents,
     SERVICE_KEYS,
     SERVICE_LABELS,
     type CheckStatus,
     type DailyBucket,
+    type LatestCheck,
     type OverallStatus,
     type ServiceKey,
-    type StatusCheckRow,
     type StatusIncident
-} from "@/services/supabase/statusPage";
+} from "@/services/status/statusPage";
 import styles from "./StatusPage.module.scss";
 
 type ViewState =
@@ -29,10 +26,12 @@ type ViewState =
           /** L'ultimo aggiornamento automatico è fallito: i dati mostrati
            *  sono quelli dell'ultimo caricamento riuscito. */
           refreshFailed: boolean;
-          latest: Record<ServiceKey, StatusCheckRow | null>;
+          latest: Record<ServiceKey, LatestCheck | null>;
           uptime: Record<ServiceKey, DailyBucket[]>;
           activeIncidents: StatusIncident[];
           recentIncidents: StatusIncident[];
+          /** false = il DB non ha risposto: incidenti non mostrabili. */
+          incidentsAvailable: boolean;
       };
 
 const BANNER_TEXT: Record<OverallStatus, { title: string; subtext: string }> = {
@@ -170,7 +169,7 @@ function ServiceRow({
     uptime
 }: {
     serviceKey: ServiceKey;
-    latest: StatusCheckRow | null;
+    latest: LatestCheck | null;
     uptime: DailyBucket[];
 }) {
     const status: CheckStatus | "unknown" = latest?.status ?? "unknown";
@@ -202,30 +201,13 @@ export default function StatusPage() {
         let cancelled = false;
         async function load() {
             try {
-                const [latest, active, recent, ...uptimeEntries] = await Promise.all([
-                    listLatestChecks(),
-                    listActiveIncidents(),
-                    listRecentIncidents(5),
-                    ...SERVICE_KEYS.map((k) => listDailyUptime(k, 90))
-                ]);
+                const overview = await fetchStatusOverview();
                 if (cancelled) return;
-                const uptimeMap = {} as Record<ServiceKey, DailyBucket[]>;
-                SERVICE_KEYS.forEach((k, i) => {
-                    uptimeMap[k] = uptimeEntries[i] as DailyBucket[];
-                });
-                setView({
-                    phase: "ready",
-                    refreshFailed: false,
-                    latest,
-                    uptime: uptimeMap,
-                    activeIncidents: active,
-                    recentIncidents: recent
-                });
+                setView({ phase: "ready", refreshFailed: false, ...overview });
             } catch (err) {
                 if (cancelled) return;
-                // Gli errori PostgREST sono oggetti, non Error: il testo grezzo
-                // finiva in pagina come "[object Object]". Il dettaglio va in
-                // console, alla pagina una frase sola.
+                // Il dettaglio va in console, alla pagina una frase sola
+                // (prima un errore-oggetto finiva in pagina come "[object Object]").
                 console.error("[StatusPage] load error:", err);
                 // Un aggiornamento fallito non cancella i dati già in pagina:
                 // restano, con l'avviso. L'errore pieno solo al primo giro.
@@ -253,8 +235,8 @@ export default function StatusPage() {
         let max = 0;
         for (const key of SERVICE_KEYS) {
             const row = view.latest[key];
-            if (!row?.checked_at) continue;
-            const t = new Date(row.checked_at).getTime();
+            if (!row?.checkedAt) continue;
+            const t = new Date(row.checkedAt).getTime();
             if (Number.isFinite(t) && t > max) max = t;
         }
         return max > 0 ? max : null;
@@ -332,6 +314,13 @@ export default function StatusPage() {
                     </div>
                 )}
 
+                {view.phase === "ready" && !view.incidentsAvailable && (
+                    <div className={styles.staleBlock} role="status">
+                        Gli incidenti pubblicati non sono leggibili in questo momento. Lo stato
+                        dei servizi qui sotto è aggiornato.
+                    </div>
+                )}
+
                 {view.phase === "ready" && view.activeIncidents.length > 0 && (
                     <>
                         <h2 className={styles.sectionHeading}>Incident in corso</h2>
@@ -374,6 +363,7 @@ export default function StatusPage() {
                 )}
 
                 {view.phase === "ready" &&
+                    view.incidentsAvailable &&
                     view.activeIncidents.length === 0 &&
                     view.recentIncidents.length === 0 && (
                         <>
