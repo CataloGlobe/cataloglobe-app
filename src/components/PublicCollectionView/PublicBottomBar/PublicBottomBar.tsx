@@ -52,8 +52,6 @@ type Props = {
     /** True quando una sheet (dettaglio prodotto o ordine) è aperta: congela lo shrink
      *  per evitare il flicker dovuto al body scroll-lock che azzera window.scrollY. */
     isSheetOpen?: boolean;
-    /** Luminanza dello stile pagina → vetro chiaro/scuro. Default "dark" (comportamento storico). */
-    surfaceTheme?: "light" | "dark";
     /** Solo Style Editor preview: barra montata per fedeltà di layout ma STATICA e
      *  inerte. Salta gli effetti basati su window (matchMedia + shrink-on-scroll) e
      *  disattiva i pointer events. Default false (runtime invariato). */
@@ -73,7 +71,6 @@ export default function PublicBottomBar({
     reviewDot,
     onReviewDotDismiss,
     isSheetOpen = false,
-    surfaceTheme = "dark",
     preview = false,
 }: Props) {
     const { t } = useTranslation("public");
@@ -184,7 +181,6 @@ export default function PublicBottomBar({
             <nav
                 className={styles.bar}
                 data-shrink={shrink ? "true" : "false"}
-                data-theme={surfaceTheme}
                 aria-label={t("nav.bottom_aria")}
             >
                 <div className={styles.group} ref={groupRef}>

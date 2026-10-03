@@ -28,7 +28,6 @@ import PublicFooter from "../PublicFooter/PublicFooter";
 import { PublicFeeRows } from "../PublicFooter/PublicFees";
 import CollectionSectionNav from "../CollectionSectionNav/CollectionSectionNav";
 import type { CollectionStyle, CompactLayoutStyle, ContentDensity } from "@/types/collectionStyle";
-import { contrastText } from "@/features/public/utils/mapStyleTokensToCssVars";
 import styles from "./CollectionView.module.scss";
 import EventsView from "../EventsView/EventsView";
 import PublicBottomBar from "../PublicBottomBar/PublicBottomBar";
@@ -3218,10 +3217,6 @@ export default function CollectionView({
                     }}
                     isSheetOpen={mode === "preview" ? false : (!!selectedItem || isOrderingOpen)}
                     preview={mode === "preview"}
-                    // Vetro adattivo: bg pagina chiaro → vetro chiaro, altrimenti scuro.
-                    // contrastText() riusa isLight() (luminanza); "#1a1a1a" ⇒ bg chiaro.
-                    // Parse-fail ⇒ "#ffffff" ⇒ "dark" (preserva il comportamento storico).
-                    surfaceTheme={contrastText(style.backgroundColor) === "#1a1a1a" ? "light" : "dark"}
                 />
             )}
 
