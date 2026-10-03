@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Check } from "lucide-react";
 import { COMPANY } from "@/config/company";
-import { SubmitLeadError, submitLead } from "@/services/supabase/leads";
 import { validateLead, type LeadField, type LeadFieldError, type LeadInterest } from "@/utils/leadValidation";
 import { normalizePhoneToE164 } from "@/utils/phoneNormalize";
 import { getAttribution } from "@pages/CampaignLanding/attribution";
@@ -15,6 +14,16 @@ import styles from "./Contact.module.scss";
 import { leadSuccessCopy } from "./successCopy";
 
 const cx = (...names: (string | false | null | undefined)[]) => names.filter(Boolean).join(" ");
+
+// Il client Supabase serve solo all'invio: si scarica quando il form prende il
+// fuoco, non con la pagina. Un download fallito si riprova al tentativo dopo.
+type LeadsModule = typeof import("@/services/supabase/leads");
+let leadsModule: Promise<LeadsModule> | null = null;
+const loadLeads = () =>
+    (leadsModule ??= import("@/services/supabase/leads").catch((err: unknown) => {
+        leadsModule = null;
+        throw err;
+    }));
 
 type Values = { name: string; venueName: string; phone: string; email: string };
 type Errors = Partial<Record<LeadField, LeadFieldError>>;
@@ -98,9 +107,11 @@ function ContactForm() {
         }
         setErrors({});
         setStatus("sending");
+        let leads: LeadsModule | null = null;
         try {
+            leads = await loadLeads();
             const origin = getAttribution();
-            await submitLead({
+            await leads.submitLead({
                 name: values.name,
                 venue_name: values.venueName,
                 phone: values.phone,
@@ -122,7 +133,7 @@ function ContactForm() {
         } catch (err) {
             // Il server ha l'ultima parola sui campi: se ne rifiuta uno, lo si
             // mostra sotto il campo come gli errori del client.
-            if (err instanceof SubmitLeadError && err.code === "INVALID_PAYLOAD" && Object.keys(err.fields).length > 0) {
+            if (leads && err instanceof leads.SubmitLeadError && err.code === "INVALID_PAYLOAD" && Object.keys(err.fields).length > 0) {
                 setErrors(err.fields);
                 setStatus("idle");
                 focusFirst(err.fields);
@@ -148,6 +159,7 @@ function ContactForm() {
             <form
                 ref={form}
                 id={LANDING_CONTACT_FORM_ID}
+                onFocus={() => void loadLeads().catch(() => undefined)}
                 className={cx(styles.form, sent && styles.formSent)}
                 data-tone="light"
                 onSubmit={handleSubmit}

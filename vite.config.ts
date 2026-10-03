@@ -6,6 +6,8 @@ import path from "path";
 // SSR pubblico (stage 4a): tre build distinte, lo script `build` SPA resta
 // IDENTICO (stessa config di sempre quando mode/isSsrBuild non sono quelli SSR):
 //   - `vite build`                                        → SPA, dist/ (invariato)
+//   - `vite build --mode landing`                         → landing di campagna,
+//                                                           dist/landing.html + assets
 //   - `vite build --ssr src/entry-server.tsx --outDir dist/server`
 //                                                         → bundle server (isSsrBuild)
 //   - `vite build --mode public-client`                   → bundle hydration client,
@@ -29,9 +31,23 @@ export default defineConfig(({ mode, isSsrBuild }) => ({
                   manifest: true,
               }
             : {}),
+        // Landing di campagna: build a parte nella stessa dist/, dopo quello
+        // della SPA. Nello stesso build Rollup estrarrebbe i moduli condivisi
+        // (global.scss, PublicSheet) in chunk propri e cambierebbe l'ordine dei
+        // CSS dell'app.
+        ...(mode === "landing"
+            ? {
+                  outDir: "dist",
+                  emptyOutDir: false,
+                  copyPublicDir: false,
+              }
+            : {}),
         rollupOptions: {
             ...(mode === "public-client"
                 ? { input: path.resolve(__dirname, "./src/entry-client.tsx") }
+                : {}),
+            ...(mode === "landing"
+                ? { input: path.resolve(__dirname, "./landing.html") }
                 : {}),
             output: {
                 // manualChunks solo sui build client: sul bundle server SSR lo
