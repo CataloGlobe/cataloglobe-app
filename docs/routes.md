@@ -13,8 +13,11 @@ Riferimento route applicazione. Tutte definite in `src/App.tsx`, tranne le route
   (indice)                 → una sede leggibile: la sede; altrimenti overview (BusinessHomeRedirect)
   overview | locations
   locations/:activityId    → prima voce usabile della sidebar di sede (SedeHomeRedirect; i vecchi ?tab= vincono)
-  locations/:activityId/   comande | prenotazioni | cosa-vedono (disponibilita → cosa-vedono)
-                           anagrafica | orari | ordini-prenotazioni | pubblicazione | sala (Scheda, ActivityDetailPage)
+  locations/:activityId/   servizio (?modo=elenco|mappa|gestisci) | prenotazioni | comande | storico | cosa-vedono
+                           (sala → servizio?modo=gestisci, disponibilita → cosa-vedono,
+                            comande?tab=tavoli → servizio?modo=mappa, comande?tab=storico → storico,
+                            prenotazioni?tab=service → servizio?modo=elenco)
+                           anagrafica | orari | ordini-prenotazioni | pubblicazione (Scheda, ActivityDetailPage; canali → ordini-prenotazioni)
   orders | reservations    → redirect all'ultima sede usata (SedeRedirect), o a locations
   guests
   scheduling | scheduling/:ruleId | scheduling/featured/:ruleId
