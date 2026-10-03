@@ -1,0 +1,35 @@
+# CataloGlobe
+
+> Menù digitale con QR per ristoranti e bar. Il menù cambia da solo tra pranzo, aperitivo e cena, prezzi e piatti esauriti si aggiornano dal telefono in un tocco, e con il piano Pro i clienti ordinano dal tavolo.
+
+CataloGlobe è un servizio italiano per ristoranti, bar e locali. Il cliente inquadra il QR sul tavolo e apre il menù nel browser del telefono, senza app e senza registrarsi. Il QR non cambia mai: il locale aggiorna il menù e il QR resta quello.
+
+## Cosa fa
+
+- Prezzi, piatti ed esauriti modificabili dal telefono, subito visibili ai clienti
+- Menù che cambiano da soli in base all'orario: pranzo, cena, eventi
+- Menù tradotto in più lingue
+- Piatti in evidenza, abbinamenti, allergeni e storie del locale
+- Statistiche su cosa guardano i clienti
+- Menù importato da una foto o da un PDF
+- Più locali e team, ognuno con i suoi permessi
+- Solo piano Pro: ordini dal tavolo con la comanda in cucina, chiamate al cameriere e richieste del conto, prenotazioni online con promemoria, incassi piatto per piatto
+
+## Prezzi
+
+Un prezzo per ogni locale, senza costi aggiuntivi. Dal secondo locale, −10% su ognuno.
+
+- Base: 39 € al mese, oppure 390 € all'anno
+- Pro: 59 € al mese, oppure 590 € all'anno
+
+30 giorni di prova gratuita, poi si disdice quando si vuole, senza penali. La stampante per la cucina è opzionale e si acquista a parte.
+
+## Link
+
+- [Sito e richiesta demo](https://cataloglobe.com/)
+- [Informativa privacy](https://cataloglobe.com/legal/privacy)
+- [Termini e condizioni](https://cataloglobe.com/legal/termini)
+
+## Contatti
+
+Email: support@cataloglobe.com
