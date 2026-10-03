@@ -103,6 +103,17 @@ test.describe("Comande", () => {
         await expect(page.getByRole("button", { name: /suoni notifiche/ })).toHaveAttribute("aria-pressed", /true|false/);
     });
 
+    test("Comande è la board e basta: Tavoli e Storico stanno altrove", async ({ page }) => {
+        // Lotto B-a: i tavoli sono la Mappa di Servizio, lo Storico una voce a sé.
+        test.fail();
+        await openComande(page);
+        await expect(page.getByRole("tab", { name: /^(Comande|Tavoli|Storico)$/ })).toHaveCount(0);
+        for (const colonna of COLONNE) {
+            await expect(page.getByRole("main").getByRole("region", { name: colonna })).toBeVisible();
+        }
+        await expect(page.getByRole("button", { name: "Crea ordine" })).toBeVisible();
+    });
+
     test("il dettaglio della comanda si apre dal menu della card", async ({ page }) => {
         await openComande(page);
         await openCardMenu(page);

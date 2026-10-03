@@ -51,4 +51,14 @@ test.describe("Panoramica", () => {
         // Il menu ⋯ della riga (Copia link · Scarica QR).
         await expect(main.getByRole("button", { name: "Azioni" }).first()).toBeVisible();
     });
+
+    test("l'azione «Servizio» di una sede porta alla sua pagina Servizio", async ({ page }) => {
+        // Lotto B-a: «Tavoli» portava a /sala; i nomi delle azioni sono le voci di sidebar.
+        test.fail();
+        const main = page.getByRole("main");
+        await main.getByRole("button", { name: /^Azioni per / }).first().click();
+        await expect(page.getByRole("menuitem", { name: "Tavoli", exact: true })).toHaveCount(0);
+        await page.getByRole("menuitem", { name: "Servizio", exact: true }).click();
+        await expect(page).toHaveURL(/\/locations\/[0-9a-f-]+\/servizio$/, { timeout: 15_000 });
+    });
 });

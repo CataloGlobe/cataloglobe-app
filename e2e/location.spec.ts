@@ -120,6 +120,17 @@ test.describe("Scheda della sede", () => {
         await expect(page).toHaveURL(/(tab=settings|\/pubblicazione)/);
     });
 
+    test("i vecchi ?tab=sala e ?tab=tables portano a Servizio, in Gestisci la sala", async ({ page }) => {
+        // Lotto B-a: la Sala non è più una pagina della sede, è un modo di Servizio.
+        test.fail();
+        await openFirstLocation(page);
+        const base = page.url().replace(/[?#].*$/, "").replace(/\/(anagrafica|orari|ordini-prenotazioni|canali|pubblicazione)$/, "");
+        for (const tab of ["sala", "tables"]) {
+            await page.goto(`${base}?tab=${tab}`);
+            await expect(page).toHaveURL(/\/servizio\?modo=gestisci$/, { timeout: 15_000 });
+        }
+    });
+
     test("il vecchio indirizzo /canali porta a Ordini e prenotazioni, ancora compresa", async ({ page }) => {
         await openFirstLocation(page);
         const base = page.url().replace(/[?#].*$/, "").replace(/\/(anagrafica|orari|ordini-prenotazioni|canali|pubblicazione)$/, "");
