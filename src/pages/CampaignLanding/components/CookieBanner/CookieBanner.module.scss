@@ -84,6 +84,9 @@
 }
 
 .title {
+    // Era un h2 e prendeva il font dei titoli da _typography.scss: lo stesso
+    // valore qui, così il passaggio a <p> (niente heading nell'outline) non si vede.
+    font-family: var(--preview-font-family, var(--pub-font-family, "Outfit", sans-serif));
     font-size: 14px;
     font-weight: 700;
     line-height: 1.3;
