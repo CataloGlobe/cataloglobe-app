@@ -270,8 +270,9 @@ export default function ReservationsService({
     return (
         <div className={styles.serviceBoard}>
             {/* ── In sala adesso ──────────────────────────────────── */}
-            {/* «Senza prenotazione» qui e non nel PageHeader: lì vive «+ Nuova
-                prenotazione», condivisa con l'Agenda, ed è un'altra cosa. */}
+            {/* «Senza prenotazione» qui, nella sezione: la testata di Servizio
+                tiene i modi (lotto B-b), «+ Nuova prenotazione» sta in
+                Prenotazioni ed è un'altra cosa. */}
             <Card
                 title="In sala adesso"
                 badge={board.inRoom.length > 0 ? <Badge>{board.inRoom.length}</Badge> : undefined}

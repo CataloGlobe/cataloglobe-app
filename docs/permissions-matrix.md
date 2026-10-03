@@ -173,8 +173,9 @@ mutazione gatati con helper espliciti.
 |---|---|---|---|
 | catalogs | /catalogs, /:id | catalogs.read | catalogs.write |
 | products | /products, /:id | products.read | products.write, attributes.write |
-| orders | /orders | orders.read + `table_ordering` | orders.manage (activity) |
-| tables | /tables (+ tab) | tables.read | tables.manage (activity) |
+| orders | /locations/:id/comande (`/orders` → ultima sede) | orders.read + `table_ordering` | orders.manage (activity) |
+| storico ordini | /locations/:id/storico | orders.read + `table_ordering` | Ripristina: orders.manage (activity) |
+| servizio | /locations/:id/servizio | voce: tables.read **o** seatings.read (activity); per modo, vedi sotto | per modo, vedi sotto |
 | scheduling | /scheduling/* | scheduling.read | scheduling.write (any-activity*) |
 | featured | /featured/* | featured.read | featured.write (any-activity*); crea/modifica prodotto dal contenuto: products.write |
 | stories | /stories/* | stories.read | stories.write (any-activity*) |
@@ -183,12 +184,22 @@ mutazione gatati con helper espliciti.
 | reviews | /reviews | reviews.read | reviews.moderate (solo `status`: privilegio di colonna, mig `20260930120300`); reviews.delete (tenant-wide) |
 | locations | /locations, /:id | activity.read | activities.create/delete (tenant), activity.manage/activity_hours.write (per sede dall'URL), activity_groups.write |
 | languages | /languages | catalogs.read (proxy) | translations.write (FE+BE) |
-| reservations | /reservations | reservations.read + `table_reservation` | reservations.manage |
+| reservations | /locations/:id/prenotazioni (`/reservations` → ultima sede) | reservations.read (any-activity*) + `table_reservation` | reservations.manage (activity) |
 | team | /team | team.read | team.invite/manage_roles/remove |
 | billing | /subscription | billing.read | billing.manage/cancel |
 | settings | /settings | tenant.read | tenant.manage/delete |
 
-\* gate any-activity perché l'entità non è per-sede (vedi § 9).
+\* gate any-activity perché l'entità non è per-sede (vedi § 9). Prenotazioni fa eccezione: la pagina è di sede ma il gate di lettura è ancora any-activity (`Reservations.tsx`, apertura §50.22/2).
+
+**Servizio, per modo** (`src/utils/servizioModes.ts`, lotti B-a e B-b): ogni modo chiede i suoi permessi **su questa sede**; senza il piano il modo ha il lucchetto, senza i permessi non si mostra.
+
+| modo | lettura | piano | mutazioni |
+|---|---|---|---|
+| Elenco (predefinito) | reservations.read + seatings.read | `table_reservation` | walk-in, tavoli e coperti della tavolata, Annulla apertura, Servizio concluso: seatings.manage; gesti della prenotazione: reservations.manage |
+| Mappa | tables.read + orders.read | `table_ordering` | Fuori servizio, Chiudi tavolo, conto e cameriere gestiti, Storna: tables.manage; Conferma: orders.manage |
+| Gestisci la sala | tables.read | — | tables.manage |
+
+Capienza e durata media non stanno più in Sala: sono nella Scheda «Ordini e prenotazioni», sotto activity.manage.
 
 ---
 

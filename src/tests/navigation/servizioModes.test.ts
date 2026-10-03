@@ -13,7 +13,10 @@ const pro = (): boolean => true;
 const base = (f: PlanFeature): boolean => f !== "table_ordering" && f !== "table_reservation";
 const gestisci = SERVIZIO_MODES.find(m => m.mode === "gestisci")!;
 const mappa = SERVIZIO_MODES.find(m => m.mode === "mappa")!;
+const elenco = SERVIZIO_MODES.find(m => m.mode === "elenco")!;
 const LEGGE = ["tables.read", "orders.read"];
+/** Staff e viewer della matrice (§6): leggono tavoli, ordini, prenotazioni e tavolate. */
+const TUTTO = ["tables.read", "orders.read", "reservations.read", "seatings.read"];
 
 describe("modeAccess", () => {
     it("Gestisci la sala: chi legge i tavoli, con ogni piano", () => {
@@ -43,7 +46,34 @@ describe("modeAccess — Mappa", () => {
     });
 });
 
+describe("modeAccess — Elenco (lotto B-b)", () => {
+    it("col piano Pro chi legge prenotazioni e tavolate", () => {
+        expect(modeAccess(elenco, perms("viewer", ["reservations.read", "seatings.read"]), pro, SEDE)).toBe("usable");
+    });
+
+    it("col piano base si vede col lucchetto", () => {
+        expect(modeAccess(elenco, perms("viewer", ["reservations.read", "seatings.read"]), base, SEDE)).toBe("locked");
+    });
+
+    it("senza reservations.read non si mostra", () => {
+        expect(modeAccess(elenco, perms("viewer", ["seatings.read", "tables.read"]), pro, SEDE)).toBe("hidden");
+    });
+
+    it("è il primo modo", () => {
+        expect(SERVIZIO_MODES.map(m => m.mode)).toEqual(["elenco", "mappa", "gestisci"]);
+    });
+});
+
 describe("resolveServizioMode", () => {
+    it("col piano Pro e tutti i permessi si atterra sull'Elenco", () => {
+        expect(resolveServizioMode(null, perms("staff", TUTTO), pro, SEDE)).toBe("elenco");
+    });
+
+    it("col piano base, coi permessi di tutto, Gestisci la sala", () => {
+        expect(resolveServizioMode(null, perms("staff", TUTTO), base, SEDE)).toBe("gestisci");
+        expect(resolveServizioMode("elenco", perms("staff", TUTTO), base, SEDE)).toBe("gestisci");
+    });
+
     it("senza ?modo= il primo usabile: la Mappa col piano Pro", () => {
         expect(resolveServizioMode(null, perms("staff", LEGGE), pro, SEDE)).toBe("mappa");
     });

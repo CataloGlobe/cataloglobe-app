@@ -37,8 +37,8 @@ export function isAlertViewOpen(
     const path = pathname.replace(/\/$/, "");
     const base = sedeBase(businessId, activityId);
     if (view === "orders") return path === `${base}/comande`;
-    // Servizio senza `?modo=` apre la Mappa, quando la si può usare: è il
-    // caso di chi riceve gli avvisi dei tavoli.
+    // Solo la Mappa mostra cameriere e conto sulla tessera. Servizio senza
+    // `?modo=` apre l'Elenco col piano Pro (lotto B-b): lì l'avviso serve.
     const modo = new URLSearchParams(search).get("modo");
-    return path === `${base}/servizio` && (modo === null || modo === "mappa");
+    return path === `${base}/servizio` && modo === "mappa";
 }

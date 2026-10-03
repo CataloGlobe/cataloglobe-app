@@ -13,8 +13,11 @@ export interface SedeNavEntry {
     /** Segmento sotto `/locations/:activityId/`. */
     segment: string;
     label: string;
-    /** Titolo del gruppo di sidebar. */
-    group: string;
+    /**
+     * Titolo del gruppo di sidebar; `null` = fuori gruppo (§19.5: un gruppo di
+     * una voce sola è un titolo che non raggruppa niente).
+     */
+    group: string | null;
     /** Permesso chiesto su **questa** sede (`canDoOnActivity`); con un elenco, ne basta uno. */
     permission: string | readonly string[];
     /** Gate di piano: la voce resta visibile col lucchetto, ma non ci si atterra. */
@@ -35,34 +38,39 @@ export function canSeeSedeEntry(permissions: UserPermissions, entry: SedeNavEntr
     return list.some(p => canDoOnActivity(permissions, p, activityId));
 }
 
+/**
+ * Sei voci (§19.5, lotto B-b): **Ospiti** (Servizio · Prenotazioni) ·
+ * **Ordini** (Comande · Storico) · Cosa vedono i clienti · Scheda, le ultime
+ * due fuori gruppo.
+ */
 export const SEDE_NAV_ENTRIES: readonly SedeNavEntry[] = [
     // Servizio (§18.2): la sala del momento, coi suoi modi. Prima voce: è
     // dove si atterra. La vede chi legge i tavoli o le tavolate (D1).
     {
         segment: "servizio",
         label: "Servizio",
-        group: "Servizio",
+        group: "Ospiti",
         permission: SERVIZIO_READ_PERMISSIONS,
         usable: (permissions, hasFeature, activityId) =>
             resolveServizioMode(null, permissions, hasFeature, activityId) !== null
     },
-    { segment: "comande", label: "Comande", group: "Servizio", permission: "orders.read", requiresFeature: "table_ordering" },
-    // Lo Storico degli ordini: una voce, non più una tab di Comande (lotto B-a).
-    { segment: "storico", label: "Storico", group: "Servizio", permission: "orders.read", requiresFeature: "table_ordering" },
     {
         segment: "prenotazioni",
         label: "Prenotazioni",
-        group: "Servizio",
+        group: "Ospiti",
         permission: "reservations.read",
         requiresFeature: "table_reservation"
     },
+    { segment: "comande", label: "Comande", group: "Ordini", permission: "orders.read", requiresFeature: "table_ordering" },
+    // Lo Storico degli ordini: una voce, non più una tab di Comande (lotto B-a).
+    { segment: "storico", label: "Storico", group: "Ordini", permission: "orders.read", requiresFeature: "table_ordering" },
     // «Cosa vedono i clienti» (§19, M7): legge chi legge la sede; scrive chi
     // ha `activity.manage`, lo stesso permesso delle RLS (D2, §50.14).
-    { segment: "cosa-vedono", label: "Cosa vedono i clienti", group: "Clienti", permission: "activity.read" },
+    { segment: "cosa-vedono", label: "Cosa vedono i clienti", group: null, permission: "activity.read" },
     {
         segment: "anagrafica",
         label: "Scheda",
-        group: "Il locale",
+        group: null,
         permission: "activity.read",
         matchSegments: ["orari", "ordini-prenotazioni", "pubblicazione"]
     }
@@ -105,7 +113,9 @@ export function businessHomePath(businessId: string, readableActivityIds: readon
  * I vecchi `?tab=` della scheda (sette valori più cinque legacy): portano
  * alla rotta giusta con `replace`, così i link in giro continuano a
  * funzionare (registro Sedi, chiusura 9; §29.2). Un valore sconosciuto apre
- * l'Anagrafica. La Sala è il modo «Gestisci la sala» di Servizio (lotto B-a).
+ * l'Anagrafica. La Sala è il modo «Gestisci la sala» di Servizio (lotto B-a);
+ * la sala del momento (`service`, era una scheda di Prenotazioni) è il modo
+ * Elenco (lotto B-b).
  */
 export interface LegacyTabTarget {
     segment: string;
@@ -125,6 +135,7 @@ const LEGACY_TAB_REDIRECT: Record<string, LegacyTabTarget> = {
     "access-control": { segment: "pubblicazione" },
     sala: { segment: "servizio", search: "modo=gestisci" },
     tables: { segment: "servizio", search: "modo=gestisci" },
+    service: { segment: "servizio", search: "modo=elenco" },
     availability: { segment: "cosa-vedono" }
 };
 

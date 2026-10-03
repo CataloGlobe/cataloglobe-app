@@ -12,6 +12,13 @@
   min-height: 0;
 }
 
+// L'Elenco: la banda di oggi sopra le tre sezioni della sala.
+.elenco {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+}
+
 .loading {
   display: flex;
   flex-direction: column;
