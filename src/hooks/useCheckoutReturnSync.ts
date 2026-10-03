@@ -49,7 +49,7 @@ export interface CheckoutReturnSync {
  * waiting for the webhook.
  *
  * Mounted on both landing pages — `SetupWizardPage` (first subscription,
- * outside MainLayout) and `MainLayout` (re-subscribe on /subscription, where
+ * outside MainLayout) and `MainLayout` (re-subscribe on /settings/abbonamento, where
  * the "no subscription → workspace" gate would otherwise fire before the page
  * mounts). While `status !== "idle"` the caller renders `CheckoutConfirmScreen`
  * INSTEAD of the page and must NOT evaluate that gate.

@@ -377,3 +377,55 @@ test.describe("Atterraggio (§51.6) e indirizzi (§51.14)", () => {
         );
     });
 });
+
+test.describe("Impostazioni con tab (§51.12)", () => {
+    /** Le tab della testata: Azienda · Team · Abbonamento (Membri · Inviti stanno nel corpo). */
+    const settingsTabs = (page: Page) =>
+        page.getByRole("tab", { name: /^(Azienda|Team|Abbonamento)$/ });
+
+    test("tre tab che navigano; Membri · Inviti dentro Team", async ({ page }) => {
+        const paths = await locationPaths(page);
+        const root = businessRoot(paths[0]);
+        await page.goto(`${root}/settings`);
+        await expect(settingsTabs(page)).toHaveText(["Azienda", "Team", "Abbonamento"], { timeout: 15_000 });
+        await expect(page.getByRole("tab", { name: "Azienda" })).toHaveAttribute("aria-selected", "true");
+
+        await page.getByRole("tab", { name: "Team" }).click();
+        await expect(page).toHaveURL(`${root}/settings/team`);
+        const main = page.getByRole("main");
+        await expect(main.getByRole("tab", { name: "Membri" })).toBeVisible({ timeout: 15_000 });
+        await expect(main.getByRole("tab", { name: /^Inviti in attesa/ })).toBeVisible();
+        await expect(nav(page).getByRole("link", { name: "Impostazioni", exact: true })).toHaveAttribute(
+            "aria-current",
+            "page"
+        );
+
+        await page.getByRole("tab", { name: "Abbonamento" }).click();
+        await expect(page).toHaveURL(`${root}/settings/abbonamento`);
+        await expect(page).toHaveTitle(/^Abbonamento — /);
+    });
+
+    test("/team e /subscription portano alle tab, con query e ancora", async ({ page }) => {
+        const paths = await locationPaths(page);
+        const root = businessRoot(paths[0]);
+        await page.goto(`${root}/team`);
+        await expect(page).toHaveURL(`${root}/settings/team`, { timeout: 15_000 });
+        await page.goto(`${root}/subscription?prova=1#utilizzo-ai`);
+        await expect(page).toHaveURL(`${root}/settings/abbonamento?prova=1#utilizzo-ai`, { timeout: 15_000 });
+    });
+
+    test("manager: Azienda e Team, niente Abbonamento", async ({ page }) => {
+        const paths = await locationPaths(page);
+        await asRole(page, "manager", activityIdOf(paths[0]), "pro");
+        await page.goto(`${businessRoot(paths[0])}/settings`);
+        await expect(settingsTabs(page)).toHaveText(["Azienda", "Team"], { timeout: 15_000 });
+    });
+
+    test("staff: una tab sola, nessuna fila di tab", async ({ page }) => {
+        const paths = await locationPaths(page);
+        await asRole(page, "staff", activityIdOf(paths[0]), "pro");
+        await page.goto(`${businessRoot(paths[0])}/settings`);
+        await expect(nav(page).getByRole("link", { name: "Impostazioni", exact: true })).toBeVisible({ timeout: 15_000 });
+        await expect(settingsTabs(page)).toHaveCount(0);
+    });
+});

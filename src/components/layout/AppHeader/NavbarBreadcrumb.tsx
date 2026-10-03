@@ -53,7 +53,8 @@ export function NavbarBreadcrumb() {
 
         const label = businessRouteLabel(routeInfo.key, { catalogLabel });
 
-        if (routeInfo.isDetail) {
+        // Le tab di Impostazioni sono la stessa pagina (§51.12).
+        if (routeInfo.isDetail && routeInfo.key !== "settings") {
             // Detail route senza items registrati (fase di caricamento iniziale):
             // solo il segmento intermedio col link al list-root. Il leaf
             // comparirà quando la pagina chiamerà `useBreadcrumbItems`.

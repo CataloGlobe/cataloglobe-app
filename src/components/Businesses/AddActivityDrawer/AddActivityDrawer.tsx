@@ -116,7 +116,7 @@ export function AddActivityDrawer({ open, onClose, usedSeats, onCreated }: AddAc
 
     const openPlanUpgradeFromOffer = useCallback(() => {
         onClose();
-        navigate(`/business/${tenantId}/subscription#modifica-piano`);
+        navigate(`/business/${tenantId}/settings/abbonamento#modifica-piano`);
     }, [onClose, navigate, tenantId]);
 
     // La creazione è comunque respinta dal trigger DB se il limite viene

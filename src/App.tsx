@@ -14,6 +14,7 @@ import { AdminRoute } from "./components/Routes/AdminRoute";
 import { TenantProvider } from "@context/TenantProvider";
 import { PermissionsProvider } from "@context/PermissionsContext";
 import { DashboardRedirect } from "./components/Routes/DashboardRedirect";
+import { BusinessPathRedirect } from "./components/Routes/BusinessPathRedirect";
 import { AppLoader } from "@/components/ui/AppLoader/AppLoader";
 import { publicRoutes } from "@/routes/publicRoutes";
 
@@ -349,9 +350,14 @@ export default function App() {
                 <Route path="reviews" element={<Reviews />} />
                 <Route path="analytics" element={<AnalyticsPage />} />
 
-                <Route path="team" element={<BusinessTeamPage />} />
-                <Route path="subscription" element={<SubscriptionPage />} />
+                {/* Impostazioni: Azienda · Team · Abbonamento (§51.12). I
+                    vecchi indirizzi portano alle tab, con query e ancora
+                    (ritorni da Stripe, link nelle email). */}
                 <Route path="settings" element={<BusinessSettingsPage />} />
+                <Route path="settings/team" element={<BusinessTeamPage />} />
+                <Route path="settings/abbonamento" element={<SubscriptionPage />} />
+                <Route path="team" element={<BusinessPathRedirect to="settings/team" />} />
+                <Route path="subscription" element={<BusinessPathRedirect to="settings/abbonamento" />} />
             </Route>
 
             {/* Legacy backward-compatibility redirects */}

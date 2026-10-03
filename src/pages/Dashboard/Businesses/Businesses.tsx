@@ -330,7 +330,7 @@ export default function Businesses() {
           type: "info",
           duration: 6000,
           actionLabel: "Modifica piano",
-          onAction: () => navigate(`/business/${businessId}/subscription`),
+          onAction: () => navigate(`/business/${businessId}/settings/abbonamento`),
         });
       }
     },

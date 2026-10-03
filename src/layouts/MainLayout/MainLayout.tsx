@@ -73,6 +73,9 @@ function resolvePageTitle(businessId: string, pathname: string, catalogLabel: st
         const label = SEDE_PAGE_LABELS[third];
         return label ? `Sede · ${label}` : 'Dettaglio sede';
     }
+    // Le tab di Impostazioni (§51.12) tengono il nome della pagina di prima.
+    if (first === 'settings' && second === 'team') return businessRouteLabel('team');
+    if (first === 'settings' && second === 'abbonamento') return businessRouteLabel('subscription');
     if (second && first === 'scheduling') return 'Dettaglio regola';
     if (second && first === 'featured') return 'Dettaglio in evidenza';
     if (second && first === 'styles') return 'Editor stile';
@@ -90,7 +93,7 @@ export default function MainLayout() {
     const { selectedTenant, loading } = useTenant();
     const { businessId } = useParams<{ businessId: string }>();
     const { pathname } = useLocation();
-    // Return from Stripe (re-subscribe lands on /subscription?checkout_session=):
+    // Return from Stripe (re-subscribe lands on /settings/abbonamento?checkout_session=):
     // link the tenant before the "no subscription" gate below can bounce it.
     const checkoutSync = useCheckoutReturnSync();
 
@@ -289,16 +292,18 @@ export default function MainLayout() {
     // A canceled tenant KEEPS its stripe_subscription_id — the
     // `customer.subscription.deleted` webhook only flips subscription_status — so
     // it falls through the workspace-resume branch above and reaches this one.
-    // Allow-list /subscription itself to avoid a redirect loop AND so the
+    // Allow-list Abbonamento itself (and the old /subscription, which redirects
+    // there keeping the query) to avoid a redirect loop AND so the
     // post-reactivation success return is never trapped even while the webhook
     // hasn't yet synced the status back to 'active'.
     if (
         !loading &&
         selectedTenant &&
         selectedTenant.subscription_status === "canceled" &&
+        !pathname.endsWith("/settings/abbonamento") &&
         !pathname.endsWith("/subscription")
     ) {
-        return <Navigate to={`/business/${selectedTenant.id}/subscription`} replace />;
+        return <Navigate to={`/business/${selectedTenant.id}/settings/abbonamento`} replace />;
     }
 
     return (
