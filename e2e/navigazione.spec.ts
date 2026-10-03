@@ -8,7 +8,8 @@ import {
     locationPaths,
     nav,
     sedeSwitcher,
-    sidebarShape
+    sidebarShape,
+    withLongNames
 } from "./nav";
 
 /**
@@ -319,6 +320,67 @@ test.describe("Header: percorso e selettore di sede (§51.7, §51.8)", () => {
         const azienda = (await banner(page).getByRole("button", { name: /^Azienda:/ }).boundingBox())!;
         expect(azienda.x + azienda.width).toBeLessThanOrEqual(sede.x);
         expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
+    });
+
+    /** I box di azienda, sede e notifiche, nell'ordine in cui stanno. */
+    async function headerBoxes(page: Page) {
+        const box = async (name: RegExp) => (await banner(page).getByRole("button", { name }).boundingBox())!;
+        return { azienda: await box(/^Azienda:/), sede: await box(/^Sede:/), notifiche: await box(/^Notifiche/) };
+    }
+
+    /** Il nome è tagliato coi puntini: il testo è più largo del suo box. */
+    const isTruncated = (page: Page, name: RegExp, selector: string) =>
+        banner(page)
+            .getByRole("button", { name })
+            .locator(selector)
+            .first()
+            .evaluate(el => el.scrollWidth > el.clientWidth);
+
+    test("375, nomi lunghi: l'azienda scende al cerchio, poi si accorcia la sede (§51.8)", async ({ page }) => {
+        const paths = await locationPaths(page);
+        test.skip(paths.length < 2, "serve più di una sede");
+        await withLongNames(page, {
+            azienda: "Ristorante Pizzeria Trattoria Al Vecchio Mulino di Montebello",
+            sede: "Sede storica di Corso Vittorio Emanuele secondo angolo Piazza Duomo"
+        });
+        await page.setViewportSize({ width: 375, height: 800 });
+        await page.goto(`${paths[0]}/anagrafica`);
+        await expect(sedeSwitcher(page)).toBeVisible({ timeout: 15_000 });
+        const { azienda, sede, notifiche } = await headerBoxes(page);
+
+        // L'azienda resta almeno il cerchio con le iniziali, intero.
+        const cerchio = banner(page).getByRole("button", { name: /^Azienda:/ }).getByRole("img");
+        const c = (await cerchio.boundingBox())!;
+        expect(c.width).toBeGreaterThanOrEqual(24);
+        expect(c.x).toBeGreaterThanOrEqual(azienda.x);
+        expect(c.x + c.width).toBeLessThanOrEqual(azienda.x + azienda.width);
+
+        // In riga senza sovrapporsi: azienda, sede, notifiche; niente scroll.
+        expect(azienda.x + azienda.width).toBeLessThanOrEqual(sede.x);
+        expect(sede.x + sede.width).toBeLessThanOrEqual(notifiche.x);
+        expect(await isTruncated(page, /^Sede:/, "span")).toBe(true);
+        expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
+
+        // Il cerchio apre ancora il menu delle aziende.
+        await banner(page).getByRole("button", { name: /^Azienda:/ }).click();
+        await expect(page.getByRole("menu").getByText("Le tue aziende")).toBeVisible();
+    });
+
+    test("375, azienda lunga e sede corta: la sede resta intera (§51.8)", async ({ page }) => {
+        const paths = await locationPaths(page);
+        test.skip(paths.length < 2, "serve più di una sede");
+        await withLongNames(page, {
+            azienda: "Ristorante Pizzeria Trattoria Al Vecchio Mulino di Montebello",
+            sede: "Centro"
+        });
+        await page.setViewportSize({ width: 375, height: 800 });
+        await page.goto(`${paths[0]}/anagrafica`);
+        await expect(sedeSwitcher(page)).toBeVisible({ timeout: 15_000 });
+        const { azienda, sede, notifiche } = await headerBoxes(page);
+        expect(azienda.x + azienda.width).toBeLessThanOrEqual(sede.x);
+        expect(sede.x + sede.width).toBeLessThanOrEqual(notifiche.x);
+        expect(await isTruncated(page, /^Sede:/, "span")).toBe(false);
+        expect(await isTruncated(page, /^Azienda:/, "span:nth-child(2)")).toBe(true);
     });
 
     test("nessun selettore di scope «Sede attiva» nell'header", async ({ page }) => {

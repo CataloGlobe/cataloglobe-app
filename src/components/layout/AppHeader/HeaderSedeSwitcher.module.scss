@@ -1,5 +1,6 @@
-// Il segmento sede dell'header (§51.7, §51.8). La sede resta sempre intera:
-// a stringersi, sul telefono, è l'azienda.
+// Il segmento sede dell'header (§51.7, §51.8). Sul telefono a stringersi è
+// prima l'azienda, fino al cerchio con le iniziali; se la sede da sola non ci
+// sta, si accorcia coi puntini anche lei.
 .separator {
   flex-shrink: 0;
   color: var(--border);
@@ -38,14 +39,22 @@
   color: var(--text-muted);
 }
 
-// Sul telefono ogni pixel va al nome della sede, che resta intero.
+// Sul telefono ogni pixel va al nome della sede.
 @media (max-width: 767px) {
   .storeIcon {
     display: none;
   }
 
   .trigger {
+    flex-shrink: 1;
+    min-width: 0;
     padding: 0 var(--space-4);
+  }
+
+  .trigger .name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 }
 

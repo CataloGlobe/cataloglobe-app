@@ -64,6 +64,31 @@ export async function asSingleSede(page: Page): Promise<void> {
     });
 }
 
+/**
+ * Nomi lunghi in pagina, senza scrivere niente: riscrive `name` nelle letture
+ * delle aziende (`user_tenants_view`) e, se `sede` c'è, delle sedi.
+ */
+export async function withLongNames(page: Page, names: { azienda: string; sede?: string }): Promise<void> {
+    const rename = (pattern: RegExp, name: string) =>
+        page.route(pattern, async route => {
+            try {
+                const response = await route.fetch();
+                const text = await response.text();
+                const body: unknown = text ? JSON.parse(text) : null;
+                const json = Array.isArray(body)
+                    ? body.map(row => ({ ...(row as object), name }))
+                    : body && typeof body === "object" && "name" in body
+                      ? { ...body, name }
+                      : null;
+                await route.fulfill(json ? { response, json } : { response, body: text });
+            } catch {
+                // Pagina chiusa a metà richiesta.
+            }
+        });
+    await rename(/\/rest\/v1\/user_tenants_view\?/, names.azienda);
+    if (names.sede) await rename(/\/rest\/v1\/activities\?/, names.sede);
+}
+
 /** Gruppi e voci della sidebar come si leggono: `[titolo | null, voci]`. */
 export async function sidebarShape(page: Page): Promise<Array<[string | null, string[]]>> {
     const sidebar = nav(page);

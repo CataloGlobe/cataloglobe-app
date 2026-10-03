@@ -140,6 +140,13 @@
   position: relative;
   display: inline-flex;
   min-width: 0;
+
+  // Sul telefono cede per prima (fattore 1000 contro l'1 della sede) e si
+  // ferma al cerchio: 24 + 4 + 4 di padding + 2 di bordo.
+  @media (max-width: 767px) {
+    flex: 0 1000 auto;
+    min-width: 34px;
+  }
 }
 
 .tenantButton {
@@ -157,14 +164,11 @@
   min-width: 0;
   overflow: hidden;
 
-  // Sul telefono l'azienda cede spazio alla sede (§51.8): niente avatar,
-  // resta il nome coi puntini.
+  // Sul telefono l'azienda cede spazio alla sede (§51.8): il nome si
+  // accorcia fino a sparire, il cerchio con le iniziali resta e apre il menu.
   @media (max-width: 767px) {
-    padding: 4px 6px 4px 8px;
-
-    > :first-child {
-      display: none;
-    }
+    padding: 4px;
+    gap: 6px;
   }
 
   &:hover {
@@ -179,7 +183,7 @@
 }
 
 // L'azienda si accorcia con i puntini (§51.8): oltre ~170, e sul telefono
-// anche meno, perché la sede resta intera.
+// fino al solo cerchio, prima che si accorci la sede.
 .tenantName {
   font-size: 13px;
   font-weight: 600;
@@ -194,6 +198,10 @@
 .tenantChevron {
   color: var(--text-muted);
   flex-shrink: 0;
+
+  @media (max-width: 767px) {
+    display: none;
+  }
 }
 
 /* ===== Tenant dropdown (inline, custom) ===== */
