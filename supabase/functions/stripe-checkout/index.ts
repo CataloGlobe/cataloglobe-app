@@ -39,6 +39,10 @@ const MAX_SELF_SERVICE_SEATS = 5;
 // policy — "how long is the first subscription free" — not a per-plan price
 // attribute; every plan gets the same trial.
 const TRIAL_PERIOD_DAYS = 30;
+// Checkout Session lifetime. Stripe accepts 30 min to 24 h from the moment it
+// creates the session; the extra minute absorbs the gap between our clock and
+// Stripe's creation time, which would otherwise make exactly 30 min a 400.
+const CHECKOUT_SESSION_TTL_SECONDS = 30 * 60 + 60;
 // Promotion code metadata key that unlocks the card-free trial. Codes are
 // handed out one by one by us; see the trial-no-card branch below.
 const TRIAL_NO_CARD_METADATA_KEY = "trial_no_card";
@@ -187,6 +191,37 @@ serve(async req => {
         // --- Stripe ---
         const stripe = new Stripe(STRIPE_SECRET_KEY, stripeClientOptions());
         const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+        // --- Seats vs existing activities (CG-03) ---
+        // The subscription must cover every activity the tenant already has:
+        // webhook and confirm write paid_seats = quantity, and the seat trigger
+        // only guards new inserts. Counted with service_role so the number does
+        // not depend on RLS, and fail-closed: no count, no checkout.
+        const { count: activityCount, error: activityCountError } = await supabaseAdmin
+            .from("activities")
+            .select("id", { count: "exact", head: true })
+            .eq("tenant_id", tenantId);
+
+        if (activityCountError || activityCount === null) {
+            console.error(
+                `stripe-checkout: activity count failed for tenant ${tenantId}: ${activityCountError?.message ?? "null count"}`
+            );
+            return json(req, 503, { error: "activity_count_unavailable" });
+        }
+
+        if (activityCount > MAX_SELF_SERVICE_SEATS) {
+            console.warn(
+                `stripe-checkout: tenant ${tenantId} has ${activityCount} activities, over the self-service cap ${MAX_SELF_SERVICE_SEATS}`
+            );
+            return json(req, 409, { error: "seats_over_self_service", min_seats: activityCount });
+        }
+
+        if (quantity < activityCount) {
+            console.warn(
+                `stripe-checkout: quantity ${quantity} below ${activityCount} activities for tenant ${tenantId}`
+            );
+            return json(req, 409, { error: "seats_below_activities", min_seats: activityCount });
+        }
 
         // --- Resolve price_id from plan_prices (DB-driven, single source of truth) ---
         // No row for (plan, interval) → clean error, never a fallback to another
@@ -452,6 +487,10 @@ serve(async req => {
             metadata: sessionMetadata,
             success_url: successUrl,
             cancel_url: cancelUrl,
+            // Short-lived session (default 24h): the seat check above counts the
+            // activities when the session is created, so a long-open session
+            // leaves room to add activities before paying (CG-03 residual).
+            expires_at: Math.floor(Date.now() / 1000) + CHECKOUT_SESSION_TTL_SECONDS,
             // Disabled: forfettario regime, no VAT applied. See LICENSE/README
             automatic_tax: { enabled: false },
             // Address + P.IVA are pre-filled on the customer above, so Stripe no
