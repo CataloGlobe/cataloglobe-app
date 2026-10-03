@@ -10,7 +10,13 @@ Riferimento route applicazione. Tutte definite in `src/App.tsx`, tranne le route
 /workspace                 → WorkspaceLayout (no TenantProvider)
 /onboarding/create-business, /onboarding/activate-trial → Onboarding (no TenantProvider)
 /business/:businessId/     → MainLayout + TenantProvider
-  overview | locations | locations/:activityId
+  (indice)                 → una sede leggibile: la sede; altrimenti overview (BusinessHomeRedirect)
+  overview | locations
+  locations/:activityId    → prima voce usabile della sidebar di sede (SedeHomeRedirect; i vecchi ?tab= vincono)
+  locations/:activityId/   comande | prenotazioni | cosa-vedono (disponibilita → cosa-vedono)
+                           anagrafica | orari | ordini-prenotazioni | pubblicazione | sala (Scheda, ActivityDetailPage)
+  orders | reservations    → redirect all'ultima sede usata (SedeRedirect), o a locations
+  guests
   scheduling | scheduling/:ruleId | scheduling/featured/:ruleId
   catalogs | catalogs/:id
   products | products/:productId
@@ -30,5 +36,6 @@ Riferimento route applicazione. Tutte definite in `src/App.tsx`, tranne le route
 
 - Una route pubblica slug-based nuova va aggiunta in `src/routes/publicRoutes.tsx`, mai direttamente in uno dei due entry.
 - `businessId` = source of truth per tenant (vedi `CLAUDE.md` → Architettura).
+- Gli ingressi nell'azienda (workspace, cambio azienda, invito, `/dashboard`) puntano a `/business/:businessId`, non a `/overview`: l'indice decide (D1). Le voci di sede e il loro ordine stanno in `src/utils/navLanding.ts` (`SEDE_NAV_ENTRIES`), letti dalla sidebar di sede e dall'atterraggio.
 - `/workspace` e `/onboarding/*` NON hanno `TenantProvider` (utente non ha ancora selezionato un'azienda).
 - `/:slug` matcha qualunque slug non riservato. Slug riservati enforced a DB level via `is_reserved_slug()` (vedi `docs/database-reference.md`).

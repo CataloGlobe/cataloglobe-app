@@ -698,7 +698,7 @@ export default function OverviewPage() {
                 subtitle={reason}
                 meta={<StatusBadge variant="danger" label="Sospesa" />}
                 trailing={
-                    <Button variant="secondary" size="sm" onClick={() => navigate(`${b}/locations/${location.id}`)}>
+                    <Button variant="secondary" size="sm" onClick={() => navigate(`${b}/locations/${location.id}/pubblicazione`)}>
                         Apri sede
                     </Button>
                 }

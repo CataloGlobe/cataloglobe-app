@@ -3,7 +3,9 @@ import type { V2Activity } from "@/types/activity";
 import type { V2ActivityHours } from "@/types/activity-hours";
 import type { ActivityDraft } from "./useActivityDraft";
 
-/** Le sei rotte della scheda (registro Sedi, chiusura 1 e 9). */
+/** Le pagine della sede con un'etichetta (titolo del browser, picker in
+ *  compatto). «Cosa vedono i clienti» sta fuori dalla Scheda, ma il titolo lo
+ *  prende da qui. */
 export const ACTIVITY_SECTIONS = ["anagrafica", "orari", "ordini-prenotazioni", "pubblicazione", "sala", "cosa-vedono"] as const;
 export type ActivitySection = (typeof ACTIVITY_SECTIONS)[number];
 

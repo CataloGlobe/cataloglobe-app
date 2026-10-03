@@ -18,7 +18,12 @@ export async function openBusinessPage(page: Page, path: string, sidebarLabel: s
     // worker in parallelo i 5 s di default non bastano sempre.
     await expect(firstCard).toBeVisible({ timeout: 15_000 });
     await firstCard.click();
-    await page.waitForURL(/\/business\/[0-9a-f-]+\/overview$/);
+    // L'ingresso nell'azienda è la Panoramica, o la sede quando è una sola
+    // (D1): da lì si passa alla Panoramica, che ha la sidebar dell'azienda.
+    await page.waitForURL(/\/business\/[0-9a-f-]+\/(overview|locations\/[0-9a-f-]+\/[a-z-]+)$/);
+    if (!/\/overview$/.test(page.url())) {
+        await page.goto(page.url().replace(/\/locations\/.*$/, "/overview"));
+    }
     // L'URL cambia prima che il layout dell'azienda sia montato (route lazy in
     // transizione): finché non lo è, la sidebar visibile è ancora quella del
     // workspace, con una sua «Impostazioni». Si aspetta la voce «Panoramica».

@@ -177,6 +177,25 @@ export default function Programming() {
 
     const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
     const [searchTerm, setSearchTerm] = useState("");
+    // `?sede=<id>` arriva da una pagina della sede («Vai a Programmazione»,
+    // D2 §1): imposta il filtro della navbar su quella sede, poi esce
+    // dall'indirizzo. Il filtro resta la sola fonte; una sede che chi guarda
+    // non legge si ignora.
+    const sedeFromUrl = searchParams.get("sede");
+    const { isLoaded: sedeScopeLoaded, readableActivities: readableSedi, setValue: setSedeScope } = sedeScope;
+    useEffect(() => {
+        if (!sedeFromUrl || !sedeScopeLoaded) return;
+        if (readableSedi.some(a => a.id === sedeFromUrl)) setSedeScope(sedeFromUrl);
+        setSearchParams(
+            prev => {
+                const next = new URLSearchParams(prev);
+                next.delete("sede");
+                return next;
+            },
+            { replace: true }
+        );
+    }, [sedeFromUrl, sedeScopeLoaded, readableSedi, setSedeScope, setSearchParams]);
+
     // Filtro sede deriva da useSedeScope (navbar). SCOPE_ALL → nessun filtro.
     const filterActivityId = sedeScope.value === SCOPE_ALL ? null : sedeScope.value;
     const canWrite = permissions ? canDoOnAnyActivity(permissions, "scheduling.write") : false;

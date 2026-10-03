@@ -133,10 +133,62 @@ test.describe("Contesto di sede", () => {
         await expect(page).toHaveURL(/\/anagrafica$/, { timeout: 15_000 });
     });
 
-    test("l'atterraggio dalla griglia resta l'Anagrafica", async ({ page }) => {
+    test("entrando dalla griglia si atterra sulla prima voce che si può usare", async ({ page }) => {
         await openFirstLocation(page);
-        await expect(page).toHaveURL(/\/anagrafica$/, { timeout: 15_000 });
-        await expect(page.getByRole("tab", { name: /^(Anagrafica|Profilo)$/ })).toHaveAttribute("aria-selected", "true");
+        await expect(page).toHaveURL(/\/locations\/[0-9a-f-]+\/[a-z-]+$/, { timeout: 15_000 });
+        const links = nav(page).getByRole("link");
+        await expect(links.first()).toBeVisible({ timeout: 15_000 });
+        // La prima voce senza il lucchetto del piano: è quella su cui si atterra.
+        const count = await links.count();
+        let first: string | null = null;
+        for (let i = 0; i < count; i++) {
+            const link = links.nth(i);
+            if ((await link.locator('[aria-label="Funzione del piano Pro"]').count()) === 0) {
+                first = await link.getAttribute("href");
+                break;
+            }
+        }
+        expect(first).not.toBeNull();
+        expect(new URL(page.url()).pathname).toBe(first);
+    });
+
+    test("i vecchi ?tab= sull'indirizzo della sede portano ancora alla sezione", async ({ page }) => {
+        const paths = await locationPaths(page);
+        await page.goto(`${paths[0]}?tab=hours`);
+        await expect(page).toHaveURL(/\/orari$/, { timeout: 15_000 });
+        await page.goto(`${paths[0]}?tab=availability`);
+        await expect(page).toHaveURL(/\/cosa-vedono$/, { timeout: 15_000 });
+    });
+
+    test("«Cosa vedono i clienti» è una voce a sé: niente tab della Scheda", async ({ page }) => {
+        const paths = await locationPaths(page);
+        await page.goto(`${paths[0]}/cosa-vedono`);
+        await expect(nav(page).getByRole("link", { name: "Cosa vedono i clienti", exact: true })).toHaveAttribute(
+            "aria-current",
+            "page",
+            { timeout: 15_000 }
+        );
+        await expect(page.getByRole("main").getByRole("table").first()).toBeVisible({ timeout: 15_000 });
+        await expect(page.getByRole("tab", { name: /^(Anagrafica|Orari|Pubblicazione)$/ })).toHaveCount(0);
+    });
+
+    test("«Vai a Programmazione» con la sede: Programmazione si apre su quella sede", async ({ page }) => {
+        const paths = await locationPaths(page);
+        test.skip(paths.length < 2, "con una sede sola il filtro non c'è");
+        const id = paths[1].split("/").pop()!;
+        const name = await page
+            .getByRole("main")
+            .getByRole("listitem")
+            .nth(1)
+            .getByRole("link")
+            .first()
+            .innerText();
+        await page.goto(`${paths[1].replace(/\/locations\/.*$/, "/scheduling")}?sede=${id}`);
+        await expect(page).toHaveURL(/\/scheduling$/, { timeout: 15_000 });
+        await expect(page.getByRole("banner").getByRole("button", { name: "Sede attiva" })).toContainText(
+            name.split("\n")[0].trim(),
+            { timeout: 15_000 }
+        );
     });
 
     test("il nome della sede si legge: in sidebar a 1280, nella navbar a 768", async ({ page }) => {
@@ -166,6 +218,155 @@ test.describe("Contesto di sede", () => {
 
     test("dentro la sede non c'è il selettore di sede della navbar", async ({ page }) => {
         await openFirstLocation(page);
-        await expect(page.getByRole("banner").getByRole("combobox", { name: /[Ss]ede/ })).toHaveCount(0);
+        // Il selettore è un bottone «Sede attiva» (`SedeScopeSelect`), non un combobox.
+        await expect(page.getByRole("banner").getByRole("button", { name: "Sede attiva" })).toHaveCount(0);
     });
+});
+
+test.describe("Ingresso nell'azienda", () => {
+    /** L'indirizzo dell'azienda, senza pagina: `/business/:id`. */
+    async function businessRoot(page: Page): Promise<string> {
+        const paths = await locationPaths(page);
+        return paths[0].replace(/\/locations\/.*$/, "");
+    }
+
+    test("con più sedi l'indirizzo dell'azienda apre la Panoramica", async ({ page }) => {
+        const paths = await locationPaths(page);
+        test.skip(paths.length < 2, "serve più di una sede");
+        await page.goto(paths[0].replace(/\/locations\/.*$/, ""));
+        await expect(page).toHaveURL(/\/overview$/, { timeout: 15_000 });
+    });
+
+    test("con una sede sola l'indirizzo dell'azienda entra nella sede", async ({ page }) => {
+        const root = await businessRoot(page);
+        // L'elenco delle sedi ridotto alla prima: l'azienda, per chi guarda, ne
+        // ha una sola. Le letture di una sede sola (oggetto, non elenco) passano.
+        await page.route(/\/rest\/v1\/activities\?/, async route => {
+            const response = await route.fetch();
+            const text = await response.text();
+            // HEAD e conteggi non hanno corpo: passano come sono.
+            const body: unknown = text ? JSON.parse(text) : null;
+            if (!Array.isArray(body)) {
+                await route.fulfill({ response, body: text });
+                return;
+            }
+            await route.fulfill({ response, json: body.slice(0, 1) });
+        });
+        await page.goto(root);
+        await expect(page).toHaveURL(/\/locations\/[0-9a-f-]+\/[a-z-]+$/, { timeout: 15_000 });
+        // E l'azienda resta raggiungibile.
+        await contextNav(page).getByRole("link", { name: "Azienda", exact: true }).click();
+        await expect(page).toHaveURL(/\/overview$/, { timeout: 15_000 });
+    });
+});
+
+test.describe("Sidebar dell'azienda", () => {
+    const GRUPPI: Record<string, string[]> = {
+        Sedi: ["Sedi", "Ordini", "Prenotazioni"],
+        Catalogo: ["Prodotti", "Stili", "In evidenza", "Storie", "Lingue"],
+        Confronto: ["Programmazione", "Analitiche", "Recensioni", "Clienti"],
+        Sistema: ["Team", "Abbonamento", "Impostazioni", "Assistenza"]
+    };
+
+    test("le voci stanno nei gruppi della §5, coi titoli a vista", async ({ page }) => {
+        await openBusinessPage(page, "locations", "Sedi");
+        const sidebar = nav(page);
+        for (const [gruppo, voci] of Object.entries(GRUPPI)) {
+            const group = sidebar.getByRole("group", { name: gruppo, exact: true });
+            await expect(group.getByText(gruppo, { exact: true }).first()).toBeVisible({ timeout: 15_000 });
+            for (const voce of voci) {
+                await expect(group.getByRole("link", { name: voce, exact: true })).toBeVisible();
+            }
+        }
+        await expect(sidebar.getByRole("group", { name: /^(Operatività|Contenuti|Insight)$/ })).toHaveCount(0);
+    });
+});
+
+test.describe("Atterraggio per ruolo", () => {
+    /** I permessi veri dei due ruoli di sede (`docs/permissions-matrix.md` §6). */
+    const PERMESSI: Record<"staff" | "viewer", string[]> = {
+        staff: [
+            "activity.read", "catalogs.read", "products.read", "featured.read", "stories.read", "styles.read",
+            "tables.read", "tables.manage", "orders.read", "orders.manage", "reservations.read", "reservations.manage",
+            "reviews.read", "reviews.moderate", "notifications.receive", "tenant.read", "seatings.read",
+            "seatings.manage", "support.read", "support.write"
+        ],
+        viewer: [
+            "activity.read", "catalogs.read", "products.read", "featured.read", "stories.read", "styles.read",
+            "scheduling.read", "tables.read", "orders.read", "reservations.read", "reviews.read", "analytics.read",
+            "tenant.read", "seatings.read"
+        ]
+    };
+
+    /** L'utente e2e diventa `role` della sola sede `activityId`, col piano `plan`. */
+    async function asRole(page: Page, role: "staff" | "viewer", activityId: string, plan: "pro" | "base"): Promise<void> {
+        await page.route(/\/rest\/v1\/rpc\/get_my_permissions/, async route => {
+            try {
+                const response = await route.fetch();
+                const rows = (await response.json()) as Array<Record<string, unknown>>;
+                for (const row of rows) {
+                    row.role = role;
+                    row.activity_ids = [activityId];
+                    row.permissions = PERMESSI[role];
+                }
+                await route.fulfill({ response, json: rows });
+            } catch {
+                // Pagina chiusa a metà richiesta: niente da riscrivere.
+            }
+        });
+        if (plan === "base") {
+            await page.route(/\/rest\/v1\/user_tenants_view/, async route => {
+                try {
+                    const response = await route.fetch();
+                    const rows = (await response.json()) as Array<Record<string, unknown>>;
+                    for (const row of rows) row.plan = "base";
+                    await route.fulfill({ response, json: rows });
+                } catch {
+                    // idem
+                }
+            });
+        }
+    }
+
+    /** Dove si è atterrati: una pagina vera, mai il lucchetto né l'accesso negato. */
+    async function expectUsableLanding(page: Page, segment: string): Promise<void> {
+        await expect(page).toHaveURL(new RegExp(`/locations/[0-9a-f-]+/${segment}$`), { timeout: 15_000 });
+        const current = nav(page).locator('a[aria-current="page"]');
+        await expect(current).toHaveCount(1, { timeout: 15_000 });
+        await expect(current.locator('[aria-label="Funzione del piano Pro"]')).toHaveCount(0);
+        const main = page.getByRole("main");
+        await expect(main.getByRole("button").first()).toBeVisible({ timeout: 15_000 });
+        for (const blocked of ["Non hai accesso", "richiede il piano Pro", "Sede non trovata"]) {
+            await expect(main.getByText(blocked)).toHaveCount(0);
+        }
+    }
+
+    const CASI = [
+        { role: "staff", plan: "pro", segment: "comande" },
+        { role: "viewer", plan: "pro", segment: "comande" },
+        // Col piano base Comande e Prenotazioni hanno il lucchetto: si atterra sulla Sala.
+        { role: "staff", plan: "base", segment: "sala" },
+        { role: "viewer", plan: "base", segment: "sala" }
+    ] as const;
+
+    for (const { role, plan, segment } of CASI) {
+        test(`${role}, piano ${plan}: entrando nella sede si arriva a ${segment}`, async ({ page }) => {
+            const paths = await locationPaths(page);
+            const id = paths[0].split("/").pop()!;
+            await asRole(page, role, id, plan);
+            await page.goto(paths[0]);
+            await expectUsableLanding(page, segment);
+        });
+
+        test(`${role}, piano ${plan}: con una sola sede leggibile l'azienda si apre nella sede`, async ({ page }) => {
+            const paths = await locationPaths(page);
+            const id = paths[0].split("/").pop()!;
+            await asRole(page, role, id, plan);
+            await page.goto(paths[0].replace(/\/locations\/.*$/, ""));
+            await expect(page).toHaveURL(new RegExp(`/locations/${id}/`), { timeout: 15_000 });
+            await expectUsableLanding(page, segment);
+            // L'uscita dice «Azienda»: una sede sola, niente elenco.
+            await expect(contextNav(page).getByRole("link", { name: "Azienda", exact: true })).toBeVisible();
+        });
+    }
 });

@@ -64,6 +64,11 @@ export interface UseSedeScopeResult {
     readableActivities: V2Activity[];
     /** True se 1 sola sede leggibile (la UI deve nascondere il selettore). */
     isForcedSingleSite: boolean;
+    /**
+     * Sedi e permessi sono arrivati: da qui `readableActivities` vuoto vuol
+     * dire «nessuna sede leggibile», non «sto ancora caricando».
+     */
+    isLoaded: boolean;
 }
 
 export function useSedeScope(opts?: UseSedeScopeOpts): UseSedeScopeResult {
@@ -78,6 +83,10 @@ export function useSedeScope(opts?: UseSedeScopeOpts): UseSedeScopeResult {
     const [activities, setActivities] = useState<V2Activity[]>(() =>
         tenantId ? (readActivitiesCache(tenantId) ?? []) : []
     );
+    // Per quale tenant l'elenco è arrivato (anche vuoto, anche in errore).
+    const [loadedTenantId, setLoadedTenantId] = useState<string | null>(() =>
+        tenantId && readActivitiesCache(tenantId) ? tenantId : null
+    );
 
     // Fetch activities per tenant via cache. Una sola call per tenant
     // (deduplicata anche se più hook mount in parallelo). Reset on switch.
@@ -89,6 +98,7 @@ export function useSedeScope(opts?: UseSedeScopeOpts): UseSedeScopeResult {
         const cached = readActivitiesCache(tenantId);
         if (cached) {
             setActivities(cached);
+            setLoadedTenantId(tenantId);
             return;
         }
         let cancelled = false;
@@ -96,10 +106,12 @@ export function useSedeScope(opts?: UseSedeScopeOpts): UseSedeScopeResult {
             .then(rows => {
                 if (cancelled) return;
                 setActivities(rows);
+                setLoadedTenantId(tenantId);
             })
             .catch(() => {
                 if (cancelled) return;
                 setActivities([]);
+                setLoadedTenantId(tenantId);
             });
         return () => {
             cancelled = true;
@@ -158,5 +170,7 @@ export function useSedeScope(opts?: UseSedeScopeOpts): UseSedeScopeResult {
         [tenantId, isSingle]
     );
 
-    return { value, setValue, readableActivities, isForcedSingleSite };
+    const isLoaded = permissions != null && tenantId != null && loadedTenantId === tenantId;
+
+    return { value, setValue, readableActivities, isForcedSingleSite, isLoaded };
 }
