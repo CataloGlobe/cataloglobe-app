@@ -12,7 +12,7 @@ import { TablesEmptyState } from "@/components/Tables/TablesManagement/TablesEmp
 import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { usePageHeader } from "@/context/usePageHeader";
 import { usePermissions } from "@/context/usePermissions";
-import { hasFeature as planHasFeature, usePlanFeatures, type PlanFeature } from "@/lib/planFeatures";
+import { usePlanFeatures } from "@/lib/planFeatures";
 import { getActivityById } from "@/services/supabase/activities";
 import type { V2Activity } from "@/types/activity";
 import { SERVIZIO_MODES, modeAccess, resolveServizioMode, type ServizioMode } from "@/utils/servizioModes";
@@ -39,11 +39,7 @@ export default function Servizio() {
     const [searchParams, setSearchParams] = useSearchParams();
     const navigate = useNavigate();
     const { permissions } = usePermissions();
-    // `usePlanFeatures().hasFeature` è una funzione nuova a ogni render: qui
-    // si lega al piano, perché i modi entrano nella testata e una testata
-    // rifatta a ogni render rimonta le tab in un ciclo senza fine.
-    const { plan } = usePlanFeatures();
-    const hasFeature = useCallback((feature: PlanFeature) => planHasFeature(plan, feature), [plan]);
+    const { hasFeature } = usePlanFeatures();
 
     const [activity, setActivity] = useState<V2Activity | null>(null);
     const [loading, setLoading] = useState(true);
