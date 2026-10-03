@@ -1,28 +1,17 @@
-// Intestazione del contesto di sede: solo l'uscita (§51.4); nome e stato
-// della sede stanno nell'header. Solo layout — colori e tipografia dai
-// componenti.
-.header {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-4);
-  padding: var(--space-4) var(--space-8);
-}
-
-.headerCollapsed {
-  display: flex;
-  justify-content: center;
-}
-
+// «← Tutte le sedi» (§51.4): l'unica cosa in testa alla sidebar della sede;
+// nome e stato stanno nell'header. Stessa geometria di una riga della
+// sidebar (36, padding 12, icona 18, gap 12): aperta e chiusa non si
+// sposta niente, chiusa il testo viene tagliato.
 .back {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: var(--space-4);
-  min-height: var(--control-height-sm, 32px);
-  padding: 0 var(--space-4);
+  gap: var(--space-12);
+  height: 36px;
+  padding: 0 var(--space-12);
   border-radius: var(--radius-control);
   color: var(--text-muted);
   text-decoration: none;
+  overflow: hidden;
 
   &:hover {
     background: var(--hover-bg);
@@ -34,4 +23,13 @@
     outline: none;
     box-shadow: var(--shadow-focus);
   }
+
+  svg {
+    flex: 0 0 auto;
+  }
+}
+
+.back .backLabel {
+  white-space: nowrap;
+  color: inherit;
 }

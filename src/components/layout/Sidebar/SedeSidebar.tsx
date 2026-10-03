@@ -69,23 +69,22 @@ export default function SedeSidebar({
     const backTo = `/business/${businessId}/locations`;
     const collapsedDesktop = !isMobile && collapsed;
 
+    // Stessa riga aperta e chiusa: chiusa resta la freccia, il nome passa al
+    // tooltip (§51.15).
+    const back = (
+        <Link to={backTo} className={styles.back} onClick={() => isMobile && onRequestClose()}>
+            <ArrowLeft size={18} aria-hidden="true" />
+            <Text as="span" variant="body-sm" className={styles.backLabel}>
+                {BACK_LABEL}
+            </Text>
+        </Link>
+    );
     const header = collapsedDesktop ? (
-        <div className={styles.headerCollapsed}>
-            <Tooltip content={BACK_LABEL} side="right" sideOffset={28}>
-                <Link to={backTo} className={styles.back} aria-label={BACK_LABEL}>
-                    <ArrowLeft size={16} aria-hidden="true" />
-                </Link>
-            </Tooltip>
-        </div>
+        <Tooltip content={BACK_LABEL} side="right" sideOffset={12}>
+            {back}
+        </Tooltip>
     ) : (
-        <div className={styles.header}>
-            <Link to={backTo} className={styles.back} onClick={() => isMobile && onRequestClose()}>
-                <ArrowLeft size={16} aria-hidden="true" />
-                <Text as="span" variant="caption">
-                    {BACK_LABEL}
-                </Text>
-            </Link>
-        </div>
+        back
     );
 
     return (

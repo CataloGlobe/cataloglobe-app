@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { asRole } from "./asRole";
 import {
     activityIdOf,
@@ -130,5 +130,75 @@ test.describe("Sidebar (§51.5)", () => {
             `${paths[0]}/anagrafica`
         );
         await expect(nav(page).getByRole("link", { name: "Sedi", exact: true })).toHaveCount(0);
+    });
+});
+
+test.describe("Aspetto della sidebar (§51.15)", () => {
+    /** La sidebar desktop: l'`aside` che contiene il menu. */
+    const aside = (page: Page) =>
+        page.locator("aside").filter({ has: nav(page) });
+
+    async function ensureOpen(page: Page): Promise<void> {
+        const expand = page.getByRole("button", { name: "Espandi menù laterale" });
+        if (await expand.isVisible()) await expand.click();
+        await expect(page.getByRole("button", { name: "Comprimi menù laterale" })).toBeVisible();
+        await expect.poll(async () => (await aside(page).boundingBox())?.width).toBe(232);
+    }
+
+    /** La y delle voci, dall'alto: aperta e chiusa devono coincidere. */
+    async function linkTops(page: Page): Promise<number[]> {
+        return nav(page)
+            .getByRole("link")
+            .evaluateAll(links => links.map(l => Math.round(l.getBoundingClientRect().top)));
+    }
+
+    test("aperta 232, chiusa 64: le voci restano alla stessa altezza", async ({ page }) => {
+        const paths = await locationPaths(page);
+        test.skip(paths.length < 2, "serve più di una sede");
+        await page.goto(`${paths[0]}/anagrafica`);
+        await expect(nav(page).getByRole("link", { name: "Scheda", exact: true })).toBeVisible({ timeout: 15_000 });
+        await ensureOpen(page);
+
+        const open = await linkTops(page);
+        const header = await contextNav(page).boundingBox();
+        await page.getByRole("button", { name: "Comprimi menù laterale" }).click();
+        await expect.poll(async () => (await aside(page).boundingBox())?.width).toBe(64);
+        const closed = await linkTops(page);
+
+        expect(closed.length).toBe(open.length);
+        closed.forEach((y, i) => expect(Math.abs(y - open[i])).toBeLessThanOrEqual(1));
+        expect((await contextNav(page).boundingBox())?.height).toBe(header?.height);
+
+        // Chiusa: il nome della voce nel tooltip, al passaggio e al focus.
+        await nav(page).getByRole("link", { name: "Comande", exact: true }).hover();
+        await expect(page.getByRole("tooltip")).toContainText("Comande");
+        await page.getByRole("button", { name: "Espandi menù laterale" }).click();
+        await expect.poll(async () => (await aside(page).boundingBox())?.width).toBe(232);
+    });
+
+    test("righe 36 e titoli di gruppo in uno slot di 28", async ({ page }) => {
+        const paths = await locationPaths(page);
+        await page.goto(`${businessRoot(paths[0])}/products`);
+        await ensureOpen(page);
+        const rows = await nav(page)
+            .getByRole("link")
+            .evaluateAll(links => links.map(l => Math.round(l.getBoundingClientRect().height)));
+        expect(new Set(rows)).toEqual(new Set([36]));
+        const title = nav(page).getByRole("group", { name: "Catalogo" }).getByText("Catalogo", { exact: true });
+        expect(Math.round((await title.boundingBox())!.height)).toBe(28);
+    });
+
+    test("fra 768 e 1023 parte chiusa, sotto 768 è un pannello dal pulsante menu", async ({ page }) => {
+        const paths = await locationPaths(page);
+        await page.setViewportSize({ width: 900, height: 800 });
+        await page.goto(`${businessRoot(paths[0])}/products`);
+        await expect.poll(async () => (await aside(page).boundingBox())?.width, { timeout: 15_000 }).toBe(64);
+
+        await page.setViewportSize({ width: 375, height: 800 });
+        await page.getByRole("button", { name: "Apri menù di navigazione" }).click();
+        await expect(nav(page).getByRole("link", { name: "Prodotti", exact: true })).toBeVisible();
+        const box = (await aside(page).boundingBox())!;
+        expect(Math.round(box.height)).toBe(800);
+        await expect(page.getByRole("button", { name: /menù laterale/ })).toHaveCount(0);
     });
 });
