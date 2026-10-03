@@ -16,14 +16,14 @@
 
     <!-- ⚠️ SYNC con src/config/company.ts. Se modifichi dati legali, aggiorna anche qui. -->
     <title>CataloGlobe — Il menù digitale che si aggiorna da solo</title>
-    <meta name="description" content="Menù digitale con QR per ristoranti e bar: cambia da solo tra pranzo, aperitivo e cena, prezzi ed esauriti si aggiornano in un tocco, ordini al tavolo inclusi. Richiedi una demo." />
+    <meta name="description" content="Menù digitale con QR per ristoranti e bar: cambia da solo tra pranzo, aperitivo e cena, prezzi ed esauriti in un tocco, ordini al tavolo inclusi." />
     <meta name="author" content="CataloGlobe di D'Elia Alessandro" />
 
     <!-- Open Graph -->
     <meta property="og:type" content="website" />
     <meta property="og:title" content="CataloGlobe — Il menù digitale che si aggiorna da solo" />
-    <meta property="og:description" content="Menù digitale con QR per ristoranti e bar: cambia da solo tra pranzo, aperitivo e cena, prezzi ed esauriti si aggiornano in un tocco, ordini al tavolo inclusi. Richiedi una demo." />
-    <meta property="og:url" content="https://cataloglobe.com" />
+    <meta property="og:description" content="Menù digitale con QR per ristoranti e bar: cambia da solo tra pranzo, aperitivo e cena, prezzi ed esauriti in un tocco, ordini al tavolo inclusi." />
+    <meta property="og:url" content="https://cataloglobe.com/" />
     <meta property="og:site_name" content="CataloGlobe" />
     <meta property="og:locale" content="it_IT" />
     <meta property="og:image" content="https://cataloglobe.com/og-image.png" />
@@ -35,19 +35,19 @@
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:image" content="https://cataloglobe.com/og-image.png" />
     <meta name="twitter:title" content="CataloGlobe — Il menù digitale che si aggiorna da solo" />
-    <meta name="twitter:description" content="Menù digitale con QR per ristoranti e bar: cambia da solo tra pranzo, aperitivo e cena, prezzi ed esauriti si aggiornano in un tocco, ordini al tavolo inclusi. Richiedi una demo." />
+    <meta name="twitter:description" content="Menù digitale con QR per ristoranti e bar: cambia da solo tra pranzo, aperitivo e cena, prezzi ed esauriti in un tocco, ordini al tavolo inclusi." />
 
-    <link rel="canonical" href="https://cataloglobe.com" />
+    <link rel="canonical" href="https://cataloglobe.com/" />
 
     <!-- ⚠️ SYNC con src/config/company.ts (helper getOrganizationSchema). Se modifichi dati legali, aggiorna anche qui. -->
-    <script type="application/ld+json">
+    <script type="application/ld+json" data-landing-ld>
     {
       "@context": "https://schema.org",
       "@type": "Organization",
       "name": "CataloGlobe",
       "legalName": "CataloGlobe di D'Elia Alessandro",
       "url": "https://cataloglobe.com",
-      "description": "Piattaforma SaaS per cataloghi digitali multi-tenant",
+      "description": "Menù digitale con QR per ristoranti e bar, che si aggiorna da solo.",
       "address": {
         "@type": "PostalAddress",
         "streetAddress": "Via Verdi, 30",
@@ -62,6 +62,55 @@
         "email": "support@cataloglobe.com",
         "availableLanguage": ["Italian"]
       }
+    }
+    </script>
+
+    <!-- ⚠️ SYNC con PRICING in src/pages/CampaignLanding/content/landing.ts. Se cambiano i prezzi, aggiorna anche qui.
+         I due blocchi data-landing-ld sono solo della landing: applyTenantHead (api/_lib/publicShell.ts) li toglie dalle pagine sede. -->
+    <script type="application/ld+json" data-landing-ld>
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "CataloGlobe",
+      "url": "https://cataloglobe.com/",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "Web",
+      "inLanguage": "it",
+      "description": "Menù digitale con QR per ristoranti e bar: cambia da solo tra pranzo, aperitivo e cena, prezzi ed esauriti in un tocco, ordini al tavolo inclusi.",
+      "offers": [
+        {
+          "@type": "Offer",
+          "name": "Base, mensile",
+          "description": "Prezzo per locale, 30 giorni di prova gratuita",
+          "price": "39",
+          "priceCurrency": "EUR",
+          "priceSpecification": { "@type": "UnitPriceSpecification", "price": "39", "priceCurrency": "EUR", "billingDuration": "P1M" }
+        },
+        {
+          "@type": "Offer",
+          "name": "Base, annuale",
+          "description": "Prezzo per locale, 30 giorni di prova gratuita",
+          "price": "390",
+          "priceCurrency": "EUR",
+          "priceSpecification": { "@type": "UnitPriceSpecification", "price": "390", "priceCurrency": "EUR", "billingDuration": "P1Y" }
+        },
+        {
+          "@type": "Offer",
+          "name": "Pro, mensile",
+          "description": "Prezzo per locale, 30 giorni di prova gratuita",
+          "price": "59",
+          "priceCurrency": "EUR",
+          "priceSpecification": { "@type": "UnitPriceSpecification", "price": "59", "priceCurrency": "EUR", "billingDuration": "P1M" }
+        },
+        {
+          "@type": "Offer",
+          "name": "Pro, annuale",
+          "description": "Prezzo per locale, 30 giorni di prova gratuita",
+          "price": "590",
+          "priceCurrency": "EUR",
+          "priceSpecification": { "@type": "UnitPriceSpecification", "price": "590", "priceCurrency": "EUR", "billingDuration": "P1Y" }
+        }
+      ]
     }
     </script>
   </head>

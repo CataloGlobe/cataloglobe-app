@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent } from "react";
 import { Logo } from "@components/ui/Logo/Logo";
+import { WORDMARK_INTRINSIC } from "@components/ui/Logo/logoDimensions";
 import LandingCta from "@pages/CampaignLanding/components/LandingCta/LandingCta";
 import { useCtaEntry } from "@pages/CampaignLanding/hooks/useCtaEntry";
 import { UnderlinedText } from "@pages/CampaignLanding/components/kit/Kit";
@@ -110,7 +111,7 @@ export default function Hero() {
                 <div ref={refs.spot} className={styles.spot} aria-hidden="true" />
 
                 <div className={styles.mobileTop}>
-                    <Logo variant="wordmark" color="mono-white" className={styles.mobileLogo} alt={BRAND.name} />
+                    <Logo variant="wordmark" {...WORDMARK_INTRINSIC} color="mono-white" className={styles.mobileLogo} alt={BRAND.name} />
                     <a className={styles.mobileLogin} href={BRAND.login.href}>
                         {BRAND.login.label}
                     </a>
