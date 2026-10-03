@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { AnimatePresence, animate, motion, useMotionValue, useTransform, useDragControls, useReducedMotion } from "framer-motion";
 import { useSheetBodyLock } from "../hooks/useSheetBodyLock";
 import { PublicPortalContext } from "@/features/public/components/PublicPortalContext";
+import { PUBLIC_MOBILE_QUERY } from "../publicBreakpoints";
 import styles from "./PublicSheet.module.scss";
 
 // ── Uscita mobile: WAAPI sul compositor ─────────────────────────────────────
@@ -16,17 +17,18 @@ const EXIT_DURATION_MS = 280;
 const EXIT_MIN_DURATION_MS = 140;
 const EXIT_EASING = "cubic-bezier(0.32, 0.72, 0, 1)";
 
-function useIsMobile(breakpoint = 640) {
+// Stessa soglia della bottom bar (publicBreakpoints.ts): ≤640px = bottom sheet.
+function useIsMobile() {
     const [isMobile, setIsMobile] = useState(
-        () => typeof window !== "undefined" && window.innerWidth < breakpoint
+        () => typeof window !== "undefined" && !!window.matchMedia?.(PUBLIC_MOBILE_QUERY).matches
     );
     useEffect(() => {
-        const mq = window.matchMedia(`(max-width: ${breakpoint - 1}px)`);
+        const mq = window.matchMedia(PUBLIC_MOBILE_QUERY);
         const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
         setIsMobile(mq.matches);
         mq.addEventListener("change", handler);
         return () => mq.removeEventListener("change", handler);
-    }, [breakpoint]);
+    }, []);
     return isMobile;
 }
 

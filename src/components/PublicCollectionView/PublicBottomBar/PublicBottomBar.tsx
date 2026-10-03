@@ -5,6 +5,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import { BookOpenText, MessageCircle, Pin, ReceiptText, Utensils } from "lucide-react";
 import type { HubTab } from "@/types/collectionStyle";
 import { useScrollCollapse } from "../hooks/useScrollCollapse";
+import { PUBLIC_MOBILE_QUERY } from "../publicBreakpoints";
 import styles from "./PublicBottomBar.module.scss";
 
 /**
@@ -52,8 +53,6 @@ type Props = {
     /** True quando una sheet (dettaglio prodotto o ordine) è aperta: congela lo shrink
      *  per evitare il flicker dovuto al body scroll-lock che azzera window.scrollY. */
     isSheetOpen?: boolean;
-    /** Luminanza dello stile pagina → vetro chiaro/scuro. Default "dark" (comportamento storico). */
-    surfaceTheme?: "light" | "dark";
     /** Solo Style Editor preview: barra montata per fedeltà di layout ma STATICA e
      *  inerte. Salta gli effetti basati su window (matchMedia + shrink-on-scroll) e
      *  disattiva i pointer events. Default false (runtime invariato). */
@@ -73,7 +72,6 @@ export default function PublicBottomBar({
     reviewDot,
     onReviewDotDismiss,
     isSheetOpen = false,
-    surfaceTheme = "dark",
     preview = false,
 }: Props) {
     const { t } = useTranslation("public");
@@ -89,12 +87,38 @@ export default function PublicBottomBar({
         // viewport del browser → niente matchMedia su window. Barra statica.
         if (preview) return;
         if (typeof window === "undefined" || !window.matchMedia) return;
-        const mq = window.matchMedia("(max-width: 640px)");
+        const mq = window.matchMedia(PUBLIC_MOBILE_QUERY);
         const update = () => setIsMobileActive(mq.matches);
         update();
         mq.addEventListener("change", update);
         return () => mq.removeEventListener("change", update);
     }, [preview]);
+
+    // Altezza reale della barra → `--pub-bottombar-h` sul parent (`main.page`),
+    // fonte unica dello spazio in fondo (clearance, scrim, toast: vedi `.page`
+    // in CollectionView.module.scss). offsetHeight = altezza di layout, NON
+    // toccata dallo scale 0.86 dello shrink (che vive sul `.bar` interno):
+    // la clearance non deve pulsare a ogni shrink. Gira anche in preview (RO
+    // sull'elemento, niente window). Altezza 0 = barra nascosta (desktop) →
+    // proprietà rimossa, vale il fallback CSS.
+    const wrapRef = useRef<HTMLDivElement | null>(null);
+    useEffect(() => {
+        const wrap = wrapRef.current;
+        const host = wrap?.parentElement;
+        if (!wrap || !host || typeof ResizeObserver === "undefined") return;
+        const write = () => {
+            const h = wrap.offsetHeight;
+            if (h > 0) host.style.setProperty("--pub-bottombar-h", `${h}px`);
+            else host.style.removeProperty("--pub-bottombar-h");
+        };
+        write();
+        const ro = new ResizeObserver(write);
+        ro.observe(wrap);
+        return () => {
+            ro.disconnect();
+            host.style.removeProperty("--pub-bottombar-h");
+        };
+    }, []);
 
     const groupRef = useRef<HTMLDivElement | null>(null);
     const tabRefs = useRef<Partial<Record<HubTab, HTMLButtonElement | null>>>({
@@ -180,11 +204,10 @@ export default function PublicBottomBar({
         // Wrapper: posizionamento fisso + centratura + animazione di entrata (opacity/translateY).
         // Lo scale di shrink vive sul `.bar` interno per non collidere col transform dell'entry
         // (animation-fill su transform sovrascriverebbe lo scale del data-shrink).
-        <div className={styles.barWrap} data-preview={preview ? "true" : undefined}>
+        <div ref={wrapRef} className={styles.barWrap} data-preview={preview ? "true" : undefined}>
             <nav
                 className={styles.bar}
                 data-shrink={shrink ? "true" : "false"}
-                data-theme={surfaceTheme}
                 aria-label={t("nav.bottom_aria")}
             >
                 <div className={styles.group} ref={groupRef}>
