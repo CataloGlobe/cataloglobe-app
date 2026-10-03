@@ -322,3 +322,58 @@ test.describe("Header: percorso e selettore di sede (§51.7, §51.8)", () => {
         }
     });
 });
+
+test.describe("Atterraggio (§51.6) e indirizzi (§51.14)", () => {
+    test("owner con una sede: l'azienda apre la Panoramica", async ({ page }) => {
+        const paths = await locationPaths(page);
+        await asSingleSede(page);
+        await page.goto(businessRoot(paths[0]));
+        await expect(page).toHaveURL(/\/overview$/, { timeout: 15_000 });
+    });
+
+    test("manager di una sede: l'azienda apre la Panoramica", async ({ page }) => {
+        const paths = await locationPaths(page);
+        await asRole(page, "manager", activityIdOf(paths[0]), "pro");
+        await page.goto(businessRoot(paths[0]));
+        await expect(page).toHaveURL(/\/overview$/, { timeout: 15_000 });
+    });
+
+    test("staff con più sedi: l'azienda apre Sedi, entrando si arriva a Servizio", async ({ page }) => {
+        const paths = await locationPaths(page);
+        test.skip(paths.length < 2, "serve più di una sede");
+        await asRole(page, "staff", [activityIdOf(paths[0]), activityIdOf(paths[1])], "pro");
+        await page.goto(businessRoot(paths[0]));
+        await expect(page).toHaveURL(/\/locations$/, { timeout: 15_000 });
+        await page.goto(paths[1]);
+        await expect(page).toHaveURL(`${paths[1]}/servizio`, { timeout: 15_000 });
+    });
+
+    test("owner con più sedi: entrare in una sede porta alla Scheda", async ({ page }) => {
+        const paths = await locationPaths(page);
+        test.skip(paths.length < 2, "serve più di una sede");
+        await page.goto(paths[1]);
+        await expect(page).toHaveURL(`${paths[1]}/anagrafica`, { timeout: 15_000 });
+    });
+
+    test("/locations con una sede porta alla sua Scheda", async ({ page }) => {
+        const paths = await locationPaths(page);
+        await asSingleSede(page);
+        await page.goto(`${businessRoot(paths[0])}/locations`);
+        await expect(page).toHaveURL(`${paths[0]}/anagrafica`, { timeout: 15_000 });
+    });
+
+    test("/reservations porta dentro una sede", async ({ page }) => {
+        const paths = await locationPaths(page);
+        await page.goto(`${businessRoot(paths[0])}/reservations`);
+        await expect(page).toHaveURL(/\/locations\/[0-9a-f-]+\/prenotazioni$|\/locations$/, { timeout: 15_000 });
+    });
+
+    test("il logo porta all'ingresso dell'azienda", async ({ page }) => {
+        const paths = await locationPaths(page);
+        await page.goto(`${businessRoot(paths[0])}/products`);
+        await expect(page.getByRole("banner").getByRole("link", { name: /CataloGlobe/ })).toHaveAttribute(
+            "href",
+            businessRoot(paths[0])
+        );
+    });
+});

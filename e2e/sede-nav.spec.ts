@@ -127,9 +127,8 @@ test.describe("Contesto di sede", () => {
     });
 
     // §51.6: chi configura entra nella sede dalla Scheda (era: la prima voce
-    // usabile della sidebar, che oggi comincia dal locale). Passo 5.
+    // usabile della sidebar).
     test("entrando dalla griglia chi configura atterra sulla Scheda", async ({ page }) => {
-        test.fail(true, "atterraggio §51.6: passo 5");
         await openFirstLocation(page);
         await expect(page).toHaveURL(/\/locations\/[0-9a-f-]+\/anagrafica$/, { timeout: 15_000 });
     });
@@ -204,9 +203,8 @@ test.describe("Ingresso nell'azienda", () => {
     });
 
     // §51.6: chi configura atterra sulla Panoramica anche con una sede sola
-    // (era: si entrava nella sede, con l'uscita «Azienda»). Passo 5.
+    // (era: si entrava nella sede, con l'uscita «Azienda»).
     test("con una sede sola chi configura apre la Panoramica", async ({ page }) => {
-        test.fail(true, "atterraggio §51.6: passo 5");
         const root = await businessRoot(page);
         await asSingleSede(page);
         await page.goto(root);

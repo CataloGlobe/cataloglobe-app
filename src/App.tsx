@@ -94,6 +94,7 @@ const ActivitySectionRedirect = lazy(() => import("./pages/Operativita/Attivita/
 const SedeRedirect = lazy(() => import("./components/layout/SedeRedirect/SedeRedirect"));
 const BusinessHomeRedirect = lazy(() => import("./components/layout/LandingRedirect/BusinessHomeRedirect"));
 const SedeHomeRedirect = lazy(() => import("./components/layout/LandingRedirect/SedeHomeRedirect"));
+const LocationsIndexRoute = lazy(() => import("./components/layout/LandingRedirect/LocationsIndexRoute"));
 const ActivityPubblicazioneRoute = lazy(() => import("./pages/Operativita/Attivita/routes/ActivityPubblicazioneRoute"));
 const ActivityCosaVedonoRoute = lazy(() => import("./pages/Operativita/Attivita/routes/ActivityCosaVedonoRoute"));
 const SubscriptionPage = lazy(() => import("./pages/Business/SubscriptionPage"));
@@ -258,16 +259,25 @@ export default function App() {
                     </ProtectedRoute>
                 }
             >
-                {/* L'ingresso nell'azienda (D1): con una sede sola la sede,
-                    altrimenti la Panoramica. */}
+                {/* L'ingresso nell'azienda (§51.6): chi configura la
+                    Panoramica, staff e viewer la loro sede o Sedi. */}
                 <Route index element={<BusinessHomeRedirect />} />
 
                 <Route path="overview" element={<Overview />} />
 
-                <Route path="locations" element={<Businesses />} />
+                {/* Con una sede sola non c'è la pagina Sedi (§51.3). */}
+                <Route
+                    path="locations"
+                    element={
+                        <LocationsIndexRoute>
+                            <Businesses />
+                        </LocationsIndexRoute>
+                    }
+                />
                 <Route path="locations/:activityId">
-                    {/* Entrando nella sede: la prima voce che si può usare
-                        (§46.1 f); i vecchi `?tab=` portano alla loro sezione. */}
+                    {/* Entrando nella sede (§51.6): la Scheda per chi la
+                        gestisce, Operatività per gli altri; i vecchi `?tab=`
+                        portano alla loro sezione. */}
                     <Route index element={<SedeHomeRedirect />} />
                     {/* Le voci della sede che non sono la scheda: montate
                         dentro il contesto, con la sede presa dal path (§46.1),
