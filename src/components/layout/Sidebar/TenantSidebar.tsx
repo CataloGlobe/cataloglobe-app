@@ -44,6 +44,12 @@ export interface TenantSidebarProps extends SidebarSignalProps {
     context?: "unica" | "azienda";
     /** Con la sidebar unica: la sola sede, a cui portano le voci di sede. */
     activityId?: string | null;
+    /**
+     * Sedi non ancora arrivate: il contesto non si sa ancora (una o più
+     * sedi), quindi niente voci invece di un contesto provvisorio che poi
+     * cambia sotto gli occhi.
+     */
+    loading?: boolean;
 }
 
 export default function TenantSidebar({
@@ -54,6 +60,7 @@ export default function TenantSidebar({
     onToggleCollapse,
     context = "azienda",
     activityId = null,
+    loading = false,
     translationPendingCount = 0,
     importInProgress = false,
     supportUnread = false,
@@ -83,8 +90,8 @@ export default function TenantSidebar({
 
     return (
         <AppSidebar
-            groups={buildSidebarGroups(groups, options)}
-            footerItems={buildSidebarGroups(footer, options).flatMap(g => g.items)}
+            groups={loading ? [] : buildSidebarGroups(groups, options)}
+            footerItems={loading ? [] : buildSidebarGroups(footer, options).flatMap(g => g.items)}
             isMobile={isMobile}
             mobileOpen={mobileOpen}
             collapsed={collapsed}

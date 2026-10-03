@@ -79,13 +79,16 @@ export function invalidateActivitiesCache(tenantId?: string): void {
 /**
  * Rilegge l'elenco del tenant e avvisa i sottoscrittori: da chiamare dopo
  * una creazione, un'eliminazione, un cambio di nome o di stato di una sede.
- * Un errore lascia la cache vuota (la prossima lettura riprova) e avvisa lo
- * stesso: chi legge torna a chiedere.
+ * Non rifiuta mai: il gesto che la chiama è già riuscito. Un errore lascia la
+ * cache vuota (la prossima lettura riprova) e avvisa lo stesso: chi legge
+ * torna a chiedere.
  */
 export async function refreshActivitiesCache(tenantId: string): Promise<void> {
     invalidateActivitiesCache(tenantId);
     try {
         await getActivitiesCached(tenantId);
+    } catch (error) {
+        console.error("[activitiesCache] refresh failed:", error);
     } finally {
         for (const listener of listeners) listener(tenantId);
     }

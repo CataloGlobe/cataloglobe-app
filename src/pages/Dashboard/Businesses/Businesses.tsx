@@ -28,6 +28,7 @@ import { useAddActivityGate } from "@/hooks/useAddActivityGate";
 import { LayoutGrid, List as ListIcon } from "lucide-react";
 import styles from "./Businesses.module.scss";
 import { AddActivityDrawer } from "@/components/Businesses/AddActivityDrawer/AddActivityDrawer";
+import { subscribeActivitiesCache } from "@/hooks/activitiesCache";
 import { Button } from "@/components/ui";
 import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
@@ -129,6 +130,15 @@ export default function Businesses() {
   useEffect(() => {
     refreshBusinesses();
   }, [refreshBusinesses]);
+
+  // Una sede creata dall'header (§51.7) o eliminata altrove: l'elenco e il
+  // conteggio delle sedi usate si rileggono.
+  useEffect(() => {
+    if (!tenantId) return;
+    return subscribeActivitiesCache((changed) => {
+      if (changed === tenantId) void refreshBusinesses();
+    });
+  }, [tenantId, refreshBusinesses]);
 
   // «N da gestire» sulla card della sede (§48.1/3). Un di più: se la conta
   // fallisce la pagina resta com'è, senza segnale. Senza permesso di lettura

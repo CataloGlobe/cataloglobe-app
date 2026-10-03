@@ -183,7 +183,17 @@ export default function Programming() {
     // della sede. Una sede che chi guarda non legge si ignora; finché
     // l'elenco non c'è vale quella dell'indirizzo.
     const sedeFromUrl = searchParams.get("sede");
-    const { isLoaded: sedeScopeLoaded, readableActivities: readableSedi } = sedeScope;
+    const { isLoaded: sedeScopeLoaded } = sedeScope;
+    // Le sedi del filtro: quelle di cui chi guarda legge la Programmazione.
+    // Una sede senza `scheduling.read` chiuderebbe la pagina nel gate, e il
+    // filtro con lei.
+    const readableSedi = useMemo(
+        () =>
+            permissions
+                ? sedeScope.readableActivities.filter(a => canDoOnActivity(permissions, "scheduling.read", a.id))
+                : [],
+        [permissions, sedeScope.readableActivities]
+    );
     const filterActivityId = !sedeFromUrl
         ? null
         : !sedeScopeLoaded || readableSedi.some(a => a.id === sedeFromUrl)

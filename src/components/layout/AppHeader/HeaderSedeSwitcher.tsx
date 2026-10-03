@@ -42,6 +42,9 @@ export function HeaderSedeSwitcher() {
     const { readableActivities, isLoaded } = useSedeScope();
     const { canCreate, tryOpen } = useAddActivityGate();
     const [addOpen, setAddOpen] = useState(false);
+    // Il drawer (piano, prezzi, intervallo) si monta al primo «Aggiungi»: non
+    // a ogni pagina.
+    const [addMounted, setAddMounted] = useState(false);
 
     const match = SEDE_PATH.exec(pathname);
     const pathActivityId = match?.[1] ?? null;
@@ -69,7 +72,9 @@ export function HeaderSedeSwitcher() {
     };
 
     const openAdd = () => {
-        if (tryOpen()) setAddOpen(true);
+        if (!tryOpen()) return;
+        setAddMounted(true);
+        setAddOpen(true);
     };
 
     const trigger = (
@@ -115,7 +120,7 @@ export function HeaderSedeSwitcher() {
                     </Menu.Item>
                 )}
             </Menu>
-            {canCreate && (
+            {canCreate && addMounted && (
                 <AddActivityDrawer
                     open={addOpen}
                     onClose={() => setAddOpen(false)}

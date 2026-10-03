@@ -335,7 +335,7 @@ export default function MainLayout() {
                         </header>
 
                         <div className={styles.body}>
-                            {navContext === "sede" ? (
+                            {sediLoaded && navContext === "sede" ? (
                                 <SedeSidebar
                                     isMobile={isMobile}
                                     mobileOpen={mobileSidebarOpen}
@@ -354,8 +354,9 @@ export default function MainLayout() {
                                     collapsed={!isMobile && sidebarCollapsed}
                                     onRequestClose={() => setMobileSidebarOpen(false)}
                                     onToggleCollapse={() => setSidebarCollapsed(v => !v)}
-                                    context={navContext}
+                                    context={navContext === "unica" ? "unica" : "azienda"}
                                     activityId={soleActivityId}
+                                    loading={!sediLoaded}
                                     translationPendingCount={translationPendingCount}
                                     importInProgress={importInProgress}
                                     supportUnread={supportUnread}
