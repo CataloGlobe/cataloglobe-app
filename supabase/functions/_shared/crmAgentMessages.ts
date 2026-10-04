@@ -150,7 +150,7 @@ export function buildAutoSentMessage(info: AgentDraftInfo, appUrl: string | null
     const lines = [`🤖 Partita da sola per ${who(info)} (${info.kind === "follow_up" ? "follow-up" : "risposta"})`];
     for (const m of info.lastMessages) lines.push(`${m.from === "lead" ? "Lead" : "Noi"}: ${escapeHtml(clip(m.text))}`);
     if (info.proposedText) lines.push("", `<i>${escapeHtml(info.proposedText)}</i>`);
-    lines.push("", "Se era sbagliata, il tipo torna in approvazione per 3 bozze. Il messaggio è già partito.");
+    lines.push("", "Se era sbagliata, il tipo torna in approvazione per 3 bozze. Se il messaggio è ancora in coda non parte; se è già partito, correggilo a mano in chat.");
     const rows: InlineButton[][] = [[{ text: "Era sbagliata", callback_data: encodeDraftDecision(info.draftId, "wrong") }]];
     if (appUrl) rows.push([{ text: "Apri la scheda", url: `${appUrl}/admin/lead/${info.venueId}` }]);
     return { text: lines.join("\n"), reply_markup: { inline_keyboard: rows } };

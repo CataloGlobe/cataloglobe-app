@@ -27,6 +27,7 @@ import { CRM_STAGE_LABEL } from "./crmLabels.ts";
 import { CRM_TECHNICAL_ANSWER_KEYS, escapeHtml } from "./crmTelegram.ts";
 import {
     FOLLOW_UP_MAX,
+    mentionsCallTime,
     buildDraftRequest,
     buildReviewRequest,
     classifyLeadMessages,
@@ -323,7 +324,7 @@ async function draftWithClaude(supabase, ctx, venueId) {
     };
 }
 
-async function insertDraft(supabase, base, fields) {
+async function insertDraft(supabase, base, fields, options: { allowAuto?: boolean } = {}) {
     const { data, error } = await supabase
         .from("crm_agent_drafts")
         .insert({ ...base, ...fields })
@@ -343,7 +344,7 @@ async function insertDraft(supabase, base, fields) {
             cost_usd: fields.cost_usd ?? 0
         });
     }
-    if (data.kind === "reply" || data.kind === "follow_up") {
+    if ((data.kind === "reply" || data.kind === "follow_up") && options.allowAuto !== false) {
         const { data: auto, error: autoError } = await supabase.rpc("crm_agent_auto_send", { p_draft_id: data.id });
         if (autoError) console.error(`${LOG}: invio autonomo`, autoError.code, autoError.message);
         if (auto === true) data.auto_sent = true;
@@ -574,6 +575,9 @@ export async function processAgent(supabase, team, botToken, appUrl, now = new D
             trigger_message_id: c.r_last_in_id ?? null
         };
 
+        // Resta da approvare anche con l'autonomia: dubbio di stop già visto
+        // come obiezione, orari chiesti da una persona, orari nel testo.
+        let holdForPerson = false;
         if (c.r_kind === "reply") {
             const lastOut = c.r_last_out_at ? new Date(c.r_last_out_at).getTime() : 0;
             const unanswered = chat.filter(m => m.direction === "in" && new Date(m.created_at).getTime() > lastOut);
@@ -604,6 +608,7 @@ export async function processAgent(supabase, team, botToken, appUrl, now = new D
                 if (await insertDraft(supabase, base, { kind: "stop_check", reason: "Potrebbe essere uno stop." })) stats.drafts += 1;
                 continue;
             }
+            if (signals.stop === "uncertain") holdForPerson = true;
             if (signals.callNow) {
                 if (await insertDraft(supabase, base, { kind: "ask", reason: "Chiede di essere chiamato subito: non si conferma un orario." }))
                     stats.drafts += 1;
@@ -663,7 +668,9 @@ export async function processAgent(supabase, team, botToken, appUrl, now = new D
             cost_usd: result.cost,
             follow_up_number: kind === "follow_up" ? c.r_follow_ups + 1 : null
         };
-        const saved = await insertDraft(supabase, base, fields);
+        const allowAuto =
+            !holdForPerson && !ctx.extraInstruction && !fields.proposed_starts_at && !mentionsCallTime(fields.proposed_text);
+        const saved = await insertDraft(supabase, base, fields, { allowAuto });
         if (saved) stats.drafts += 1;
         if (saved?.auto_sent) {
             stats.auto_sent += 1;

@@ -272,7 +272,20 @@ async function handleDraft(supabase, parsed, actor, answer, query) {
             await answer(DRAFT_ERRORS[error.code] ?? "Non ci sono riuscito.");
             return;
         }
-        await answer(status ? "Segnata: il tipo torna in approvazione per 3." : "Era già segnata.");
+        if (status && query.message?.chat?.id && query.message?.message_id) {
+            await telegramCall(BOT_TOKEN, "editMessageReplyMarkup", {
+                chat_id: query.message.chat.id,
+                message_id: query.message.message_id,
+                reply_markup: { inline_keyboard: [] }
+            });
+        }
+        await answer(
+            status === "wrong_stopped"
+                ? "Segnata e fermata prima dell'invio: il tipo torna in approvazione per 3."
+                : status
+                  ? "Segnata: il tipo torna in approvazione per 3. Il messaggio era già partito."
+                  : "Era già segnata."
+        );
         return;
     }
     if (draft.status !== "pending") {

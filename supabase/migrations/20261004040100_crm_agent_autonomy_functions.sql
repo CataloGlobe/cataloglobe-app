@@ -72,7 +72,9 @@ DECLARE
     v_decision uuid;
     v_message  uuid;
 BEGIN
-    SELECT s.agent_autonomy_on INTO v_on FROM public.crm_settings s WHERE s.id;
+    -- Pausa agenti: niente invii da soli (il blocco invii li fermerebbe in
+    -- coda, ma la bozza resta da approvare invece di risultare partita).
+    SELECT s.agent_autonomy_on AND NOT s.brake_on INTO v_on FROM public.crm_settings s WHERE s.id;
     IF NOT coalesce(v_on, false) THEN
         RETURN false;
     END IF;
@@ -80,7 +82,15 @@ BEGIN
     IF NOT FOUND OR d.status <> 'pending' OR d.kind NOT IN ('reply', 'follow_up') OR d.proposed_text IS NULL THEN
         RETURN false;
     END IF;
-    SELECT t.autonomous INTO v_auto FROM public.crm_agent_trust t WHERE t.kind = d.kind;
+    -- Locale in mano a una persona, in Perso o cliente: si approva a mano.
+    IF NOT EXISTS (SELECT 1 FROM public.crm_venues v
+                   WHERE v.id = d.venue_id AND v.agent_hold_at IS NULL
+                     AND v.stage NOT IN ('perso', 'cliente_pagante')) THEN
+        RETURN false;
+    END IF;
+    -- Lock sulla fiducia: una correzione decisa nello stesso momento la
+    -- azzera prima di questa lettura o aspetta la fine dell'invio.
+    SELECT t.autonomous INTO v_auto FROM public.crm_agent_trust t WHERE t.kind = d.kind FOR UPDATE;
     IF NOT coalesce(v_auto, false) THEN
         RETURN false;
     END IF;
@@ -126,6 +136,7 @@ DECLARE
     v_caller    uuid;
     v_duration  integer;
     v_appt      uuid;
+    v_stage     text;
 BEGIN
     IF v_actor IS NULL THEN
         RAISE EXCEPTION 'decision_needs_person' USING ERRCODE = '42501';
@@ -139,8 +150,8 @@ BEGIN
         RAISE EXCEPTION 'draft_not_found' USING ERRCODE = 'P0002';
     END IF;
     -- «Era sbagliata» su un messaggio partito in autonomia: conta come una
-    -- correzione (il tipo torna in approvazione per 3). Il messaggio è già
-    -- partito: si corregge a mano in chat.
+    -- correzione (il tipo torna in approvazione per 3). Se è ancora in coda
+    -- non parte più; se è già partito, si corregge a mano in chat.
     IF p_decision = 'wrong' THEN
         IF d.reason = 'Era sbagliata.' THEN
             RETURN NULL;
@@ -150,13 +161,18 @@ BEGIN
         END IF;
         UPDATE public.crm_agent_drafts x SET reason = 'Era sbagliata.', decided_by = v_actor, decided_at = now()
         WHERE x.id = d.id;
+        UPDATE public.crm_messages m SET status = 'cancelled', status_reason = 'Segnato come sbagliato.'
+        WHERE m.id = d.message_id AND m.status = 'queued';
+        IF FOUND THEN
+            v_status := 'wrong_stopped';
+        END IF;
         UPDATE public.crm_agent_trust t
         SET approved_in_row = 0, since = NULL, total_edited = t.total_edited + 1, updated_at = now()
         WHERE t.kind = d.kind;
         INSERT INTO public.crm_agent_decisions (actor, actor_user_id, action, reason, venue_id, lead_id, decided_by, decided_at, payload)
         VALUES ('person', v_actor, 'draft_wrong', 'Messaggio autonomo segnato come sbagliato: il tipo torna in approvazione.',
                 d.venue_id, d.lead_id, v_actor, now(), jsonb_build_object('draft_id', d.id, 'kind', d.kind));
-        RETURN 'wrong';
+        RETURN coalesce(v_status, 'wrong');
     END IF;
 
     IF d.status <> 'pending' THEN
@@ -186,9 +202,11 @@ BEGIN
             IF EXISTS (SELECT 1 FROM public.crm_venues v WHERE v.id = d.venue_id AND v.stage = 'perso' AND v.lost_kind = 'stop') THEN
                 RAISE EXCEPTION 'contact_stopped' USING ERRCODE = '42501';
             END IF;
-            PERFORM public.crm_move_stage(
+            IF NOT public.crm_move_stage(
                 p_venue_id := d.venue_id, p_stage := 'contattato', p_expected_stage := 'perso', p_actor_user_id := v_actor
-            );
+            ) THEN
+                RAISE EXCEPTION 'stage_changed' USING ERRCODE = 'AG001';
+            END IF;
         END IF;
         INSERT INTO public.crm_agent_decisions (actor, actor_user_id, action, reason, venue_id, lead_id, decided_by, decided_at, payload)
         VALUES ('person', v_actor, CASE WHEN p_decision = 'send' THEN 'draft_sent' ELSE 'draft_edited' END,
@@ -254,12 +272,25 @@ BEGIN
     END IF;
 
     IF p_decision = 'lost' THEN
+        -- Nel frattempo il locale è cambiato (già in Perso, magari per uno
+        -- stop, o cliente) o il lead ha scritto: la proposta non vale più.
+        -- Mai sovrascrivere un lost_kind 'stop' (lo legge il blocco invii).
+        SELECT v.stage INTO v_stage FROM public.crm_venues v WHERE v.id = d.venue_id FOR UPDATE;
+        IF v_stage IS NULL OR v_stage IN ('perso', 'cliente_pagante')
+           OR EXISTS (SELECT 1 FROM public.crm_messages m
+                      WHERE m.venue_id = d.venue_id AND m.direction = 'in' AND m.created_at > d.created_at) THEN
+            UPDATE public.crm_agent_drafts x SET status = 'expired', reason = 'Il locale è cambiato nel frattempo.'
+            WHERE x.id = d.id;
+            RETURN 'expired';
+        END IF;
         UPDATE public.crm_agent_drafts x SET status = 'handled', reason = 'Messo in Perso.', decided_by = v_actor, decided_at = now()
         WHERE x.id = d.id;
-        PERFORM public.crm_move_stage(
-            p_venue_id := d.venue_id, p_stage := 'perso', p_lost_kind := 'obiezione',
+        IF NOT public.crm_move_stage(
+            p_venue_id := d.venue_id, p_stage := 'perso', p_expected_stage := v_stage, p_lost_kind := 'obiezione',
             p_lost_reason := 'Nessuna risposta dopo i follow-up.', p_actor_user_id := v_actor
-        );
+        ) THEN
+            RAISE EXCEPTION 'stage_changed' USING ERRCODE = 'AG001';
+        END IF;
         INSERT INTO public.crm_agent_decisions (actor, actor_user_id, action, reason, venue_id, lead_id, decided_by, decided_at, payload)
         VALUES ('person', v_actor, 'draft_lost', 'Messo in Perso dopo i follow-up senza risposta.',
                 d.venue_id, d.lead_id, v_actor, now(), jsonb_build_object('draft_id', d.id));
