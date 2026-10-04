@@ -102,8 +102,9 @@ const ActivityCosaVedonoRoute = lazy(() => import("./pages/Operativita/Attivita/
 const SubscriptionPage = lazy(() => import("./pages/Business/SubscriptionPage"));
 
 // Landing di campagna su / (variante form) e /b (variante signup, noindex).
-// In produzione / e /b sono serviti da landing.html con il suo entry
-// (src/entry-landing.tsx, vercel.json): queste route restano per il dev server
+// In produzione / e /b sono serviti da dist/index.html e dist/b.html,
+// prerenderizzati al build e idratati da src/entry-landing.tsx
+// (scripts/prerender-landing.mjs, vercel.json): queste route restano per il dev server
 // e come rete di sicurezza. /landing-dev e /landing-dev/b fanno 301 in
 // vercel.json; qui restano come redirect per la navigazione interna. Chunk e
 // font partono al caricamento del modulo, prima che React monti la route.
