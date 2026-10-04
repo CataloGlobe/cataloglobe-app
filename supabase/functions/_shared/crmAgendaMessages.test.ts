@@ -5,12 +5,14 @@ import {
     buildCallerDeclinedText,
     buildCallerOtherTimeMessage,
     buildCallerRequestMessage,
+    buildCreatorQuestionMessage,
     buildHandedOverCallerText,
     buildHandedOverText,
     buildLeadOtherTimeText,
     buildOtherTimeProposedText,
     buildOutcomeMessage,
     encodeCallAnswer,
+    encodeCallAskCreator,
     encodeCallHandover,
     encodeCallOtherMenu,
     encodeCallOtherTime,
@@ -47,6 +49,7 @@ describe("callback dell'agenda", () => {
             expect(parseCallbackData(encodeCallOutcome(AP, outcome))).toEqual({ action: "call_outcome", appointmentId: AP, outcome });
         }
         expect(parseCallbackData(encodeCallHandover(AP))).toEqual({ action: "call_handover", appointmentId: AP });
+        expect(parseCallbackData(encodeCallAskCreator(AP))).toEqual({ action: "call_ask_creator", appointmentId: AP });
         expect(parseCallbackData(encodeCallOtherMenu(AP, true))).toEqual({ action: "call_other_menu", appointmentId: AP, open: true });
         expect(parseCallbackData(encodeCallOtherMenu(AP, false))).toEqual({ action: "call_other_menu", appointmentId: AP, open: false });
         for (const shiftMinutes of [15, 30, 60, 1440] as const) {
@@ -81,11 +84,11 @@ describe("messaggi", () => {
         expect(m.text).toContain("prima dell'orario la telefonata passa a Alessandro");
         expect(m.text).not.toContain("Ancora senza risposta");
         const rows = m.reply_markup.inline_keyboard;
-        expect(rows.map(r => r[0].text)).toEqual(["Sì, chiamo io", "Propongo un altro orario", "Chiamala tu, Alessandro", "Apri la scheda"]);
+        expect(rows.map(r => r[0].text)).toEqual(["Sì, chiamo io", "Propongo un altro orario", "Chiedo a Alessandro se può lui", "Apri la scheda"]);
         expect(rows.slice(0, 3).map(r => r[0].callback_data)).toEqual([
             encodeCallAnswer(AP, true),
             encodeCallOtherMenu(AP, true),
-            encodeCallHandover(AP)
+            encodeCallAskCreator(AP)
         ]);
         expect(rows[3][0].url).toBe(`https://app.x/admin/lead/${VENUE}`);
     });
@@ -96,7 +99,7 @@ describe("messaggi", () => {
         expect(m.reply_markup.inline_keyboard).toHaveLength(3);
     });
 
-    it("se l'ha fissata chi chiama, niente «Chiamala tu»", () => {
+    it("se l'ha fissata chi chiama, niente «Chiedo a…»", () => {
         const m = buildCallerRequestMessage({ ...info, canHandOver: false }, null);
         expect(m.reply_markup.inline_keyboard.map(r => r[0].text)).toEqual(["Sì, chiamo io", "Propongo un altro orario"]);
         expect(m.text).not.toContain("passa a");
@@ -112,7 +115,8 @@ describe("messaggi", () => {
             "Indietro"
         ]);
         expect(m.reply_markup.inline_keyboard[4][0].callback_data).toBe(encodeCallOtherMenu(AP, false));
-        expect(m.text).toContain("parte solo quando lo approvate");
+        expect(m.text).toContain("<b>Che orario proponi a Mario Rossi?</b>");
+        expect(m.text).toContain("Questa telefonata si annulla. Preparo il messaggio per lui: arriva qui come bozza e parte solo quando lo approvi.");
     });
 
     it("messaggio al lead al singolare", () => {
@@ -122,12 +126,26 @@ describe("messaggi", () => {
     });
 
     it("passaggio e proposta: testi per chi l'ha fissata e per chi chiamava", () => {
-        expect(buildHandedOverText(info, true)).toContain("Lorenzo non ha risposto al «Puoi tu?»: la telefonata con Bar &lt;Roma&gt; di giovedì 8 alle 17:45 la fai tu.");
-        expect(buildHandedOverText(info, false)).toContain("Lorenzo ti passa la telefonata");
+        expect(buildHandedOverText(info)).toContain("Lorenzo non ha risposto al «Puoi tu?»: la telefonata con Bar &lt;Roma&gt; di giovedì 8 alle 17:45 la fai tu.");
+        expect(buildHandedOverText(info, true)).toContain("📞 Non hai risposto: la telefonata con Bar &lt;Roma&gt; di giovedì 8 alle 17:45 resta a te.");
         expect(buildHandedOverCallerText(info)).toBe(
             "La telefonata con Bar &lt;Roma&gt; di giovedì 8 alle 17:45 l'ha presa Alessandro: non avevi risposto."
         );
+        expect(buildHandedOverCallerText(info, true)).toBe(
+            "📞 La telefonata con Bar &lt;Roma&gt; di giovedì 8 alle 17:45 la fa Alessandro. Al lead parte la conferma."
+        );
         expect(buildOtherTimeProposedText(info, "A <b>")).toContain("«A &lt;b&gt;»");
+        expect(buildOtherTimeProposedText(info, "Ok", "Alessandro")).toMatch(/^Alessandro non può fare la telefonata/);
+    });
+
+    it("«Chiedo a…»: la domanda a chi l'ha fissata, con sì e altro orario", () => {
+        const m = buildCreatorQuestionMessage({ ...info, creatorAsked: true }, "https://app.x");
+        expect(m.text).toContain("Lorenzo non può fare la telefonata con <b>Bar &lt;Roma&gt;</b>, Milano (Mario Rossi).");
+        expect(m.text).toContain("<b>Puoi tu giovedì 8 alle 17:45?</b>");
+        expect(m.text).toContain("Finché non rispondi, al lead non parte la conferma.");
+        const rows = m.reply_markup.inline_keyboard;
+        expect(rows.map(r => r[0].text)).toEqual(["Sì, chiamo io", "No, proponi un altro orario", "Apri la scheda"]);
+        expect(rows.slice(0, 2).map(r => r[0].callback_data)).toEqual([encodeCallHandover(AP), encodeCallOtherMenu(AP, true)]);
     });
 
     it("passaggio: 2 ore prima, non prima del sollecito, non a meno di 10 minuti", () => {

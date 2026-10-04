@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
     buildDraftClosedText,
+    draftOutcomeLabel,
+    reactivationReason,
     buildDraftMessage,
     buildEditPromptText,
     buildRemindersText,
@@ -38,8 +40,7 @@ describe("tasti per tipo", () => {
     it("richiesta senza testo: niente «Invia così»", () => {
         expect(decisions({ ...base, kind: "ask", proposedText: null, reason: "Chiede uno sconto" })).toEqual([
             "edit",
-            "discard",
-            "handle"
+            "discard"
         ]);
     });
     it("orario accettato", () => {
@@ -56,12 +57,32 @@ describe("tasti per tipo", () => {
 });
 
 describe("F1-6", () => {
-    it("proposta di Perso: Metti in Perso, No resta aperto, Lo gestisco io", () => {
+    it("proposta di Perso: sì, no, scrivo io", () => {
         expect(decisions({ ...base, kind: "lost_proposal", proposedText: null })).toEqual(["lost", "discard", "handle"]);
     });
     it("riattivazione: come una bozza", () => {
         expect(decisions({ ...base, kind: "reactivation" })).toEqual(["send", "edit", "discard", "handle"]);
-        expect(buildDraftMessage({ ...base, kind: "reactivation" }, null).text).toContain("Riattivare");
+        expect(buildDraftMessage({ ...base, kind: "reactivation" }, null).text).toContain("🌱 Riproviamo con");
+    });
+    it("Perso e riattivazione: testi", () => {
+        const lost = buildDraftMessage({ ...base, kind: "lost_proposal", proposedText: null, reason: "10 solleciti senza risposta." }, null);
+        expect(lost.text).toContain("non risponde da 10 solleciti. Lo mettiamo in Perso?");
+        expect(lost.text).toContain("In Perso l'agente smette di scrivergli. Se ricompila il modulo, vi arriva un avviso.");
+        expect(lost.text).not.toContain("Perché:");
+        expect(lost.reply_markup.inline_keyboard.flat().map(b => b.text).slice(0, 3)).toEqual([
+            "Sì, mettilo in Perso",
+            "No, lascialo aperto",
+            "Scrivo io al lead"
+        ]);
+        expect(draftOutcomeLabel("handled", "Messo in Perso.")).toContain("messo in Perso");
+        const now = new Date("2026-10-04T10:00:00Z");
+        expect(reactivationReason({ body: "Ora no, magari dopo l'estate", createdAt: "2026-05-20T10:00:00Z" }, "2026-06-01T10:00:00Z", now)).toBe(
+            "A maggio aveva detto «Ora no, magari dopo l'estate». È in Perso da 4 mesi."
+        );
+        expect(reactivationReason({ body: "No", createdAt: "2026-04-02T10:00:00Z" }, "2026-09-01T10:00:00Z", now)).toBe(
+            "Ad aprile aveva detto «No». È in Perso da un mese."
+        );
+        expect(reactivationReason(null, "2026-06-01T10:00:00Z", now)).toBe("È in Perso da 4 mesi.");
     });
 });
 
@@ -79,7 +100,7 @@ describe("testi", () => {
         );
     });
     it("follow-up col numero, richiesta col perché", () => {
-        expect(buildDraftMessage({ ...base, kind: "follow_up", followUpNumber: 3 }, null).text).toContain("Follow-up n. 3");
+        expect(buildDraftMessage({ ...base, kind: "follow_up", followUpNumber: 3 }, null).text).toContain("Sollecito n. 3");
         expect(buildDraftMessage({ ...base, kind: "ask", reason: "Chiede uno sconto" }, null).text).toContain("Perché: Chiede uno sconto");
     });
     it("chiusa, sollecito, richiesta di correzione", () => {
@@ -87,6 +108,22 @@ describe("testi", () => {
         expect(buildDraftClosedText(base, "expired", null)).toContain("scaduta");
         expect(buildRemindersText([{ info: base, minutes: 10 }])).toBe("⏰ Ancora in attesa da 10 minuti: bozza per Bar <Roma>.");
         expect(buildEditPromptText(base)).toContain("rispondendo a questo messaggio");
+    });
+    it("dubbio stop: cita il lead e chiude con l'esito vero", () => {
+        const info = {
+            ...base,
+            kind: "stop_check" as const,
+            proposedText: null,
+            lastMessages: [{ from: "lead" as const, text: "Per ora no grazie" }]
+        };
+        const text = buildDraftMessage(info, null).text;
+        expect(text).toContain("✋ Ho un dubbio su");
+        expect(text).toContain("ha scritto: «Per ora no grazie»");
+        expect(text).toContain("o un <b>«non adesso»</b>");
+        expect(draftOutcomeLabel("handled", "È uno stop.")).toContain("messo in Perso");
+        expect(draftOutcomeLabel("handled", "Obiezione, non stop.")).toContain("«non adesso»");
+        expect(draftOutcomeLabel("handled", null)).toContain("ci pensa una persona");
+        expect(buildDraftClosedText({ ...info, reason: "È uno stop." }, "handled", "Alex")).toContain("messo in Perso");
     });
     it("chat lunga: in un riquadro apribile, dopo la proposta", () => {
         const lastMessages = Array.from({ length: 15 }, (_, i) => ({ from: i % 2 ? "noi" : "lead", text: `messaggio ${i}` }) as const);
@@ -111,7 +148,7 @@ describe("testi", () => {
             { info: { ...base, venueName: "Pizzeria Due", kind: "stop_check" }, minutes: 125 }
         ]);
         expect(text).toBe(
-            "⏰ 2 bozze aspettano da voi (le trovate più su in questa chat):\n• Bar <Roma>: bozza, da 30 minuti\n• Pizzeria Due: stop o obiezione, da più di 2 ore"
+            "⏰ 2 bozze aspettano da voi (le trovate più su in questa chat):\n• Bar <Roma>: bozza, da 30 minuti\n• Pizzeria Due: dubbio, stop o «non adesso», da più di 2 ore"
         );
     });
     it("solleciti a 10, 30, 60 e 120 minuti; dopo la notte uno solo", () => {

@@ -25,6 +25,8 @@ export interface AgentDraftInfo {
     reason: string | null;
     proposedStartsAt: string | null;
     followUpNumber: number | null;
+    /** Chi farà la telefonata, per le bozze `schedule`. */
+    callerName?: string | null;
     /** Gli ultimi messaggi della chat, dal più vecchio. */
     lastMessages: { from: "lead" | "noi"; text: string }[];
 }
@@ -53,20 +55,62 @@ function title(info: AgentDraftInfo): string {
         case "reply":
             return `✍️ Bozza di risposta per ${who(info)}`;
         case "follow_up":
-            return `🔁 Follow-up${info.followUpNumber ? ` n. ${info.followUpNumber}` : ""} per ${who(info)}: non risponde`;
+            return `🔁 Sollecito${info.followUpNumber ? ` n. ${info.followUpNumber}` : ""} per ${who(info)}: non risponde`;
         case "bot_question":
-            return `🤖 ${who(info)} chiede se è un bot. Rispondete voi: ecco una proposta`;
+            return `🤖 ${who(info)} chiede se parla con un robot o con una persona. Decidete voi: ecco una proposta`;
         case "ask":
             return `🙋 Serve una persona per ${who(info)}`;
-        case "schedule":
-            return `📞 ${who(info)} ha accettato ${info.proposedStartsAt ? when(info.proposedStartsAt) : "un orario"}`;
+        case "schedule": {
+            const at = info.proposedStartsAt ? when(info.proposedStartsAt) : "un orario";
+            const caller = info.callerName ? ` Chiama ${escapeHtml(info.callerName)}.` : "";
+            return `📞 ${who(info)} ha accettato ${at}.${caller}`;
+        }
         case "stop_check":
-            return `✋ Stop o obiezione? ${who(info)}`;
+            return `✋ Ho un dubbio su ${who(info)}`;
         case "lost_proposal":
-            return `🪦 ${who(info)} non risponde dopo 10 follow-up. Lo mettiamo in Perso?`;
+            return `🪦 ${who(info)} non risponde da 10 solleciti. Lo mettiamo in Perso?`;
         case "reactivation":
-            return `🌱 Riattivare ${who(info)}? È in Perso per obiezione da mesi`;
+            return `🌱 Riproviamo con ${who(info)}?`;
     }
+}
+
+/** Il dubbio della bozza `stop_check`: la frase del lead e le due letture possibili. */
+function stopCheckLines(info: AgentDraftInfo): string[] {
+    const last = [...info.lastMessages].reverse().find(m => m.from === "lead");
+    const lines: string[] = [];
+    if (last) lines.push(`${escapeHtml(info.contactName ?? "Il lead")} ha scritto: «${escapeHtml(clip(last.text))}»`);
+    lines.push("Non so se è uno <b>stop</b> (non vuole più messaggi) o un <b>«non adesso»</b> (più avanti magari sì).");
+    return lines;
+}
+
+const LOST_PROPOSAL_LINE = "In Perso l'agente smette di scrivergli. Se ricompila il modulo, vi arriva un avviso.";
+
+const MONTHS = [
+    "gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno",
+    "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"
+];
+
+/**
+ * Contesto della riattivazione: «A maggio aveva detto «…». È in Perso da 4
+ * mesi.» `lastIn` = l'ultimo messaggio del lead prima di Perso, se c'è.
+ */
+export function reactivationReason(
+    lastIn: { body: string; createdAt: string } | null,
+    lostSince: string,
+    now: Date
+): string {
+    const since = new Date(lostSince);
+    const months = Math.max(
+        1,
+        (now.getUTCFullYear() - since.getUTCFullYear()) * 12 + now.getUTCMonth() - since.getUTCMonth()
+    );
+    const time = months === 1 ? "da un mese" : `da ${months} mesi`;
+    if (!lastIn) return `È in Perso ${time}.`;
+    const said = new Date(lastIn.createdAt);
+    const month = MONTHS[Number(said.toLocaleString("en-US", { timeZone: "Europe/Rome", month: "numeric" })) - 1];
+    const body = lastIn.body.length > 200 ? `${lastIn.body.slice(0, 199)}…` : lastIn.body;
+    const prefix = month === "aprile" || month === "agosto" || month === "ottobre" ? "Ad" : "A";
+    return `${prefix} ${month} aveva detto «${body}». È in Perso ${time}.`;
 }
 
 function keyboard(info: AgentDraftInfo, appUrl: string | null): InlineButton[][] {
@@ -77,24 +121,26 @@ function keyboard(info: AgentDraftInfo, appUrl: string | null): InlineButton[][]
     const rows: InlineButton[][] = [];
     switch (info.kind) {
         case "stop_check":
-            rows.push([b("È uno stop", "stop"), b("È un'obiezione", "objection")]);
+            rows.push([b("È uno stop", "stop"), b("È un «non adesso»", "objection")]);
             break;
         case "schedule":
-            rows.push([b("Va bene, fissala", "schedule"), b("Proponi altro", "other")]);
-            rows.push([b("Lo gestisco io", "handle")]);
+            rows.push([b("Fissa la telefonata", "schedule")]);
+            rows.push([b("Proponi altri orari al lead", "other")]);
+            rows.push([b("Scrivo io al lead", "handle")]);
             break;
         case "lost_proposal":
-            rows.push([b("Metti in Perso", "lost")]);
-            rows.push([b("No, resta aperto", "discard"), b("Lo gestisco io", "handle")]);
+            rows.push([b("Sì, mettilo in Perso", "lost")]);
+            rows.push([b("No, lascialo aperto", "discard"), b("Scrivo io al lead", "handle")]);
             break;
         default:
             if (info.proposedText) {
-                rows.push([b("Invia così", "send")]);
-                rows.push([b("Lo correggo io", "edit")]);
+                rows.push([b("Invia questo messaggio", "send")]);
+                rows.push([b("Modifico il testo", "edit"), b("Non mandare niente", "discard")]);
+                rows.push([b("Scrivo io al lead", "handle")]);
             } else {
                 rows.push([b("Scrivo io la risposta", "edit")]);
+                rows.push([b("Non serve rispondere", "discard")]);
             }
-            rows.push([b("Non mandare", "discard"), b("Lo gestisco io", "handle")]);
     }
     if (appUrl) rows.push([{ text: "Apri la scheda", url: `${appUrl}/admin/lead/${info.venueId}` }]);
     return rows;
@@ -106,18 +152,23 @@ function chatLines(messages: AgentDraftInfo["lastMessages"]): string[] {
 
 function composeDraftText(info: AgentDraftInfo, messages: AgentDraftInfo["lastMessages"]): string {
     const lines = [title(info)];
-    if (info.reason && info.kind !== "follow_up") lines.push(`Perché: ${escapeHtml(info.reason)}`);
+    if (info.kind === "stop_check") lines.push(...stopCheckLines(info));
+    else if (info.kind === "lost_proposal") lines.push(LOST_PROPOSAL_LINE);
+    // La riattivazione porta già la frase intera (reactivationReason).
+    else if (info.kind === "reactivation" && info.reason) lines.push(escapeHtml(info.reason));
+    else if (info.reason && info.kind !== "follow_up") lines.push(`Perché: ${escapeHtml(info.reason)}`);
     const collapsed = messages.length > INLINE_MESSAGES;
     if (messages.length && !collapsed) lines.push("", ...chatLines(messages));
     if (info.proposedText) {
-        lines.push("", info.kind === "schedule" ? "<b>Conferma al lead</b> (parte con la conferma dell'agenda):" : "<b>Proposta</b>:");
+        const lead = escapeHtml(info.contactName ?? "il lead");
+        lines.push("", info.kind === "schedule" ? `<b>Conferma per ${lead}</b> (parte insieme alla telefonata in agenda):` : "<b>Proposta</b>:");
         lines.push(`<i>${escapeHtml(info.proposedText)}</i>`);
     }
     if (collapsed) {
         lines.push("", `💬 La chat, ultimi ${messages.length} messaggi (tocca per aprirla):`);
         lines.push(`<blockquote expandable>${chatLines(messages).join("\n")}</blockquote>`);
     }
-    if (info.kind === "stop_check") lines.push("", "Finché non scegliete, l'agente non scrive.");
+    if (info.kind === "stop_check") lines.push("", "Finché non scegliete, l'agente non gli scrive.");
     return lines.join("\n");
 }
 
@@ -137,13 +188,29 @@ export const DRAFT_OUTCOME_LABEL: Record<string, string> = {
     edited: "inviata con le correzioni",
     discarded: "non mandata",
     scheduled: "telefonata fissata",
-    handled: "gestita da una persona",
+    handled: "ci pensa una persona: l'agente non gli scrive",
     expired: "scaduta: nel frattempo è cambiato qualcosa"
 };
 
+/**
+ * Le decisioni che chiudono la bozza come `handled` si distinguono dal motivo
+ * scritto dalla funzione SQL (crm_agent_decide_draft). ⚠️ SYNC con quei testi.
+ */
+const HANDLED_OUTCOME_BY_REASON: Record<string, string> = {
+    "È uno stop.": "messo in Perso (stop): nessuno gli scrive più",
+    "Obiezione, non stop.": "è un «non adesso»: resta aperto, l'agente prepara una risposta",
+    "Proponi altri orari.": "l'agente propone altri orari al lead",
+    "Messo in Perso.": "messo in Perso: l'agente non gli scrive più"
+};
+
+export function draftOutcomeLabel(status: string, reason: string | null): string {
+    if (status === "handled" && reason && HANDLED_OUTCOME_BY_REASON[reason]) return HANDLED_OUTCOME_BY_REASON[reason];
+    return DRAFT_OUTCOME_LABEL[status] ?? status;
+}
+
 /** Il messaggio chiuso, senza tasti: chi ha deciso e cosa. */
 export function buildDraftClosedText(info: AgentDraftInfo, status: string, actorName: string | null): string {
-    const label = DRAFT_OUTCOME_LABEL[status] ?? status;
+    const label = draftOutcomeLabel(status, info.reason);
     const by = actorName ? ` (${escapeHtml(actorName)})` : "";
     const text = info.proposedText ? `\n<i>${escapeHtml(clip(info.proposedText, 200))}</i>` : "";
     return `${title(info)}\n➡️ ${escapeHtml(label)}${by}${text}`;
@@ -167,7 +234,7 @@ function waitedLabel(minutes: number): string {
 
 /** Il sollecito: testo semplice (niente HTML), una bozza o tutte quelle in attesa. */
 export function buildRemindersText(items: { info: AgentDraftInfo; minutes: number }[]): string {
-    const label = (info: AgentDraftInfo) => (info.kind === "stop_check" ? "stop o obiezione" : "bozza");
+    const label = (info: AgentDraftInfo) => (info.kind === "stop_check" ? "dubbio, stop o «non adesso»" : "bozza");
     if (items.length === 1) {
         const { info, minutes } = items[0];
         return `⏰ Ancora in attesa da ${waitedLabel(minutes)}: ${label(info)} per ${info.venueName}.`;

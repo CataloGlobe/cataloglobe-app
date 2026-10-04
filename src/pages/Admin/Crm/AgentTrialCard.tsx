@@ -26,7 +26,7 @@ import { formatDateTimeIt } from "@/utils/formatDateTime";
 import styles from "./Crm.module.scss";
 
 /**
- * Agente WhatsApp in prova (F1-3): gli interruttori di risposte e follow-up,
+ * Agente WhatsApp in prova (F1-3): gli interruttori di risposte e solleciti,
  * le approvate di fila per tipo e le ultime bozze. Le bozze si decidono su
  * Telegram; qui si leggono.
  */
@@ -101,11 +101,11 @@ export function AgentTrialCard() {
                                 }
                             />
                             <Switch
-                                label="Follow-up"
+                                label="Solleciti"
                                 description="Se il lead non risponde, un messaggio ogni 24-48 ore, fino a 10. Solo con le risposte accese."
                                 checked={settings.agent_followups_on}
                                 disabled={saving || !settings.agent_replies_on}
-                                onChange={on => void toggle({ agent_followups_on: on }, on ? "Follow-up accesi." : "Follow-up spenti.")}
+                                onChange={on => void toggle({ agent_followups_on: on }, on ? "Solleciti accesi." : "Solleciti spenti.")}
                             />
                         </>
                     )}
@@ -156,7 +156,7 @@ export function AgentTrialCard() {
                     )}
                     {trust.map(t => (
                         <Text key={t.kind} variant="body-sm">
-                            {t.kind === "reply" ? "Risposte" : "Follow-up"}: {describeTrust(t)}.
+                            {t.kind === "reply" ? "Risposte" : "Solleciti"}: {describeTrust(t)}.
                         </Text>
                     ))}
                 </div>
