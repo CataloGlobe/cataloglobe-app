@@ -37,11 +37,17 @@
 //    messaggio a tutto il team collegato. Prenotazione con l'UPDATE di
 //    `reminded_for`; se nessun invio va, si libera e il giorno dopo riprova.
 //
+// 5. RIEPILOGO SETTIMANALE (solo col body {"job":"weekly"}, dal cron del
+//    lunedì alle 8 di Roma, mig 20261004020200): i numeri della settimana
+//    appena finita (crm_summary) per email a tutto il team del CRM.
+//    Prenotazione con `crm_settings.summary_mail_week`.
+//
 // AUTENTICAZIONE fail-CLOSED: X-Job-Secret = CRM_JOB_SECRET (vault
 // `crm_job_secret`), confronto constant-time.
 // Env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, CRM_JOB_SECRET,
 // TELEGRAM_BOT_TOKEN, APP_URL (facoltativo: link «Apri nel CRM»),
-// CRM_WA_LINK_SECRET (facoltativo: senza, niente pulsante WhatsApp).
+// CRM_WA_LINK_SECRET (facoltativo: senza, niente pulsante WhatsApp),
+// RESEND_API_KEY (riepilogo settimanale).
 // =============================================================================
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -56,6 +62,8 @@ import {
 } from "../_shared/crmTelegram.ts";
 import { loadLeadMessageData, loadTeam, whatsappLinkFor } from "../_shared/crmLeadMessage.ts";
 import { buildRenewalReminderMessage } from "../_shared/crmExpenses.ts";
+import { buildWeeklyEmail, lastWeekBounds } from "../_shared/crmWeeklyEmail.ts";
+import { sendEmail } from "../_shared/sendEmail.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -358,6 +366,43 @@ async function processRenewals(supabase, team, appUrl, now) {
     return stats;
 }
 
+async function processWeekly(supabase, team, appUrl, now) {
+    const week = lastWeekBounds(now);
+    const { data: claimed, error: claimError } = await supabase
+        .from("crm_settings")
+        .update({ summary_mail_week: week.key })
+        .eq("id", true)
+        .or(`summary_mail_week.is.null,summary_mail_week.neq.${week.key}`)
+        .select("id");
+    if (claimError) throw claimError;
+    if (!claimed?.length) return { weekly: "already_sent" };
+
+    const [{ data: current, error: e1 }, { data: previous, error: e2 }] = await Promise.all([
+        supabase.rpc("crm_summary", { p_from: week.from.toISOString(), p_to: week.to.toISOString() }),
+        supabase.rpc("crm_summary", { p_from: week.previousFrom.toISOString(), p_to: week.from.toISOString() })
+    ]);
+    if (e1 || e2) {
+        await supabase.from("crm_settings").update({ summary_mail_week: null }).eq("id", true);
+        throw e1 ?? e2;
+    }
+    const mail = buildWeeklyEmail({
+        current,
+        previous,
+        weekLabel: week.label,
+        summaryUrl: appUrl ? `${appUrl}/admin/riepilogo` : null
+    });
+    let sent = 0;
+    for (const member of team) {
+        const { data } = await supabase.auth.admin.getUserById(member.user_id);
+        const email = data?.user?.email;
+        if (!email) continue;
+        await sendEmail({ to: email, subject: mail.subject, html: mail.html, text: mail.text });
+        sent += 1;
+    }
+    if (sent === 0) await supabase.from("crm_settings").update({ summary_mail_week: null }).eq("id", true);
+    return { weekly: "sent", recipients: sent };
+}
+
 Deno.serve(async (req: Request) => {
     if (req.method !== "POST") return json(405, { error: "method_not_allowed" });
 
@@ -377,6 +422,11 @@ Deno.serve(async (req: Request) => {
     try {
         const team = await loadTeam(supabase);
         const body = await req.json().catch(() => ({}));
+        if (body?.job === "weekly") {
+            const weekly = await processWeekly(supabase, team, appUrl, now);
+            console.log(JSON.stringify({ event: "crm_notify_weekly", ...weekly }));
+            return json(200, weekly);
+        }
         if (body?.job === "renewals") {
             const renewals = await processRenewals(supabase, team, appUrl, now);
             console.log(JSON.stringify({ event: "crm_notify_renewals", ...renewals }));
