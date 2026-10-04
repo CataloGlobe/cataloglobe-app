@@ -82,7 +82,7 @@ describe("messaggi", () => {
         const m = buildCallerRequestMessage(info, "https://app.x");
         expect(m.text).toContain("Alessandro ha fissato una telefonata con <b>Bar &lt;Roma&gt;</b>, Milano (Mario Rossi).");
         expect(m.text).toContain("<b>Puoi tu giovedì 8 alle 17:45?</b> Dura 10 minuti.");
-        expect(m.text).toContain("prima dell'orario la telefonata passa a Alessandro");
+        expect(m.text).toContain("la telefonata passa a Alessandro 2 ore prima dell'orario (mai a meno di 10 minuti)");
         expect(m.text).not.toContain("Ancora senza risposta");
         const rows = m.reply_markup.inline_keyboard;
         expect(rows.map(r => r[0].text)).toEqual(["Sì, chiamo io", "Propongo un altro orario", "Chiedo a Alessandro se può lui", "Apri la scheda"]);

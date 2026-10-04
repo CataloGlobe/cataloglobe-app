@@ -125,7 +125,7 @@ function callerRequestLines(info: AgendaCallInfo, reminder: boolean): string[] {
     if (info.note) lines.push(`Nota: ${escapeHtml(info.note)}`);
     lines.push("Finché non rispondi, al lead non parte la conferma.");
     if (info.canHandOver && info.createdByName) {
-        lines.push(`Se non rispondi, prima dell'orario la telefonata passa a ${escapeHtml(info.createdByName)}.`);
+        lines.push(`Se non rispondi, la telefonata passa a ${escapeHtml(info.createdByName)} ${HANDOVER_HOURS_BEFORE} ore prima dell'orario (mai a meno di ${HANDOVER_LAST_MINUTES} minuti).`);
     }
     return lines;
 }

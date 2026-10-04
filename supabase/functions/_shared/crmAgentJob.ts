@@ -541,7 +541,7 @@ export async function processAgent(supabase, team, botToken, appUrl, now = new D
                     stats.stops += 1;
                     await sendToTeam(
                         supabase,
-                        `✋ <b>${escapeHtml(venue.name)}</b> ha chiesto di non essere più contattato: «${escapeHtml(quote)}». Messo in Perso (stop), coda annullata.`,
+                        `✋ <b>${escapeHtml(venue.name)}</b> ha chiesto di non essere più contattato: «${escapeHtml(quote)}». Messo in Perso (stop) e i messaggi in attesa sono stati cancellati.`,
                         { logTag: LOG }
                     );
                 } else {
