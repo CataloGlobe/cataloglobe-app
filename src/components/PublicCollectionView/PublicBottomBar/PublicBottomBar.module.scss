@@ -3,21 +3,26 @@
 // z-index 150: sopra contenuto/section-nav (10/20) e FAB (55/60),
 // SOTTO toast/SearchOverlay (200) e sheet (900). Sheet e ricerca la coprono.
 
-// Ingombro in fondo: NIENTE valori fissi qui. L'altezza reale (non scalata)
-// la misura PublicBottomBar.tsx e la scrive in `--pub-bottombar-h` su
-// `main.page`; offset, gap e clearance unica (`--pub-bottom-clearance`)
-// sono definiti su `.page` in CollectionView.module.scss.
+// Ingombro in fondo: NIENTE valori fissi qui. L'altezza reale la misura
+// PublicBottomBar.tsx e la scrive in `--pub-bottombar-h` su `main.page`;
+// distanza dal fondo (`--pub-bottombar-bottom`), gap e clearance unica
+// (`--pub-bottom-clearance`) sono definiti su `.page` in CollectionView.module.scss.
 
-// Wrapper: posizionamento fisso + centratura (senza transform) + entry.
-// La centratura usa left/right + margin auto così il `transform` resta libero
-// per l'animazione di entrata, senza collidere con lo scale del `.bar` interno.
+// Wrapper: posizionamento fisso + centratura (senza transform) + entry +
+// nascondi/mostra. La centratura usa left/right + margin auto così il
+// `transform` resta libero per entrata e uscita.
 .barWrap {
   position: fixed;
   left: 0;
   right: 0;
-  bottom: calc(var(--pub-bottombar-offset, 16px) + env(safe-area-inset-bottom, 0px));
+  bottom: var(--pub-bottombar-bottom, 34px);
   margin: 0 auto;
   z-index: 150;
+
+  // Nascondi/mostra tutto o niente (data-hidden da useBottomBarAutoHide).
+  transition:
+    transform 0.25s cubic-bezier(0.32, 0.72, 0, 1),
+    opacity 0.25s ease;
 
   // Larghezza-contenuto: la barra si dimensiona agli slot (tab a stadio + azioni),
   // resta centrata via left/right/margin auto. max-width come guard anti-overflow
@@ -52,11 +57,11 @@
   position: sticky;
   // left/right ignorati in sticky (in-flow); la centratura resta via margin auto
   // + width:fit-content ereditati dalla regola base.
-  bottom: calc(var(--pub-bottombar-offset, 16px) + env(safe-area-inset-bottom, 0px));
+  bottom: var(--pub-bottombar-bottom, 34px);
   pointer-events: none;
   // Margin-top negativo pari alla SOLA altezza misurata del box: lo sticky
   // non aggiunge flow in fondo alla preview (il runtime pubblico è
-  // position:fixed e non occupa flow). L'offset dal fondo lo dà `bottom`
+  // position:fixed e non occupa flow). La distanza dal fondo la dà `bottom`
   // dello sticky, non va tolto anche qui: sottrarlo spostava 16px più in alto
   // il flow successivo, e lo scrim sticky (fratello dopo la barra) finiva
   // staccato dal fondo del device frame. Stesso rimedio di
@@ -73,7 +78,7 @@
   padding: 6px;
   box-sizing: border-box;
 
-  // Niente backdrop-filter: `.bar` si scala (shrink 0.86) e su WebKit un
+  // Niente backdrop-filter: la barra trasla quando si nasconde e su WebKit un
   // elemento con blur che cambia transform viene ri-rasterizzato a ogni frame
   // (stesso divieto di PublicSheet). Sotto la pill c'è lo scrim quasi opaco,
   // quindi il vetro sfocava comunque un colore piatto: sfondo pieno al 92%.
@@ -83,12 +88,6 @@
   border: 1px solid var(--pub-surface-border, rgba(0, 0, 0, 0.07));
   border-radius: 999px;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.18);
-
-  transform-origin: bottom center;
-  transform: scale(1);
-  // Shrink-on-scroll gestito qui via data-shrink: il `.bar` possiede SOLO lo scale,
-  // nessun transform di centratura/entry a sovrascriverlo.
-  transition: transform 0.32s cubic-bezier(0.32, 0.72, 0, 1);
 
   .indicator {
     // Lozenge in tinta (IG-style): tint piatto del testo surface.
@@ -111,12 +110,12 @@
   }
 }
 
-// Shrink-on-scroll: scala verso il basso (origin bottom center).
-.bar[data-shrink="false"] {
-  transform: scale(1);
-}
-.bar[data-shrink="true"] {
-  transform: scale(0.86);
+// Fuori vista: scende oltre il bordo (altezza + distanza dal fondo) e sfuma.
+// `inert` + `aria-hidden` li mette il .tsx.
+.barWrap[data-hidden] {
+  transform: translateY(calc(100% + var(--pub-bottombar-bottom, 34px)));
+  opacity: 0;
+  pointer-events: none;
 }
 
 // Entry sul wrapper: solo opacity + translateY (transform indipendente dal `.bar`).
@@ -226,24 +225,9 @@
   }
 }
 
-// Wrapper icona carrello — origine al centro per il bump on-add.
+// Wrapper icona carrello.
 .cartIcon {
   display: inline-flex;
-  transform-origin: center;
-}
-.cartIcon[data-bump="true"] {
-  animation: cartBump 0.34s ease;
-}
-@keyframes cartBump {
-  0% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.22);
-  }
-  100% {
-    transform: scale(1);
-  }
 }
 
 // Badge numerico carrello: conteggio selezione, in alto a destra dell'icona.
@@ -272,15 +256,38 @@
   border: 2px solid var(--pub-surface, #fff);
   line-height: 1;
   pointer-events: none;
+  transform-origin: center;
+}
+// Rimbalzo quando il conteggio sale. Il translate di ancoraggio resta in
+// ogni keyframe: l'animazione sostituisce il transform intero.
+.cartBadge[data-bump] {
+  animation: badgeBump 0.34s ease;
+}
+@keyframes badgeBump {
+  0% {
+    transform: translate(3px, -13px) scale(1);
+  }
+  50% {
+    transform: translate(3px, -13px) scale(1.3);
+  }
+  100% {
+    transform: translate(3px, -13px) scale(1);
+  }
 }
 
-// Rispetta prefers-reduced-motion: niente animazioni di scala/entrata.
+// Rispetta prefers-reduced-motion: niente animazioni di scala/entrata;
+// nascondi/mostra solo in opacity, senza spostamento.
 @media (prefers-reduced-motion: reduce) {
-  .barWrap,
-  .bar,
   .indicator,
-  .cartIcon {
+  .cartBadge {
     animation: none;
     transition: none;
+  }
+  .barWrap {
+    animation: none;
+    transition: opacity 0.25s ease;
+  }
+  .barWrap[data-hidden] {
+    transform: none;
   }
 }
