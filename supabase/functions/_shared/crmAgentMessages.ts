@@ -144,3 +144,22 @@ export function cleanEditText(raw: string | null | undefined): string | null {
     if (!text || text.length > 1000) return null;
     return text;
 }
+
+/** Partita da sola (tipo fuori dalla prova, F1-7): si legge, e si può segnare sbagliata. */
+export function buildAutoSentMessage(info: AgentDraftInfo, appUrl: string | null): TelegramMessage {
+    const lines = [`🤖 Partita da sola per ${who(info)} (${info.kind === "follow_up" ? "follow-up" : "risposta"})`];
+    for (const m of info.lastMessages) lines.push(`${m.from === "lead" ? "Lead" : "Noi"}: ${escapeHtml(clip(m.text))}`);
+    if (info.proposedText) lines.push("", `<i>${escapeHtml(info.proposedText)}</i>`);
+    lines.push("", "Se era sbagliata, il tipo torna in approvazione per 3 bozze. Il messaggio è già partito.");
+    const rows: InlineButton[][] = [[{ text: "Era sbagliata", callback_data: encodeDraftDecision(info.draftId, "wrong") }]];
+    if (appUrl) rows.push([{ text: "Apri la scheda", url: `${appUrl}/admin/lead/${info.venueId}` }]);
+    return { text: lines.join("\n"), reply_markup: { inline_keyboard: rows } };
+}
+
+/** Un tipo è uscito dalla prova. */
+export function buildTrustReadyText(kind: "reply" | "follow_up", inRow: number, autonomyOn: boolean): string {
+    const what = kind === "reply" ? "Le risposte" : "I follow-up";
+    return autonomyOn
+        ? `✅ ${what} escono dalla prova (${inRow} approvazioni di fila): da ora partono senza approvazione, ogni messaggio con «Era sbagliata».`
+        : `✅ ${what} possono uscire dalla prova (${inRow} approvazioni di fila). L'autonomia è spenta: si accende da /admin/agenti.`;
+}

@@ -94,3 +94,15 @@ describe("riattivazione (F1-6)", () => {
         expect(reactivationTextError("x".repeat(1001))).toBe("Al massimo 1000 caratteri.");
     });
 });
+
+describe("uscita dalla prova (F1-7)", () => {
+    it("stato del tipo", async () => {
+        const { describeTrust } = await import("@/utils/crm/agentLabels");
+        expect(describeTrust({ approved_in_row: 2, total_approved: 2, total_edited: 0, total_discarded: 0, required_in_row: 5, autonomous: false })).toContain(
+            "in prova (ne servono 5 di fila e 3 giorni)"
+        );
+        expect(describeTrust({ approved_in_row: 6, total_approved: 6, total_edited: 0, total_discarded: 0, required_in_row: 5, autonomous: true, total_auto: 4 })).toMatch(
+            /^fuori dalla prova · .*4 partite da sole$/
+        );
+    });
+});

@@ -138,7 +138,21 @@ export const CRM_AGENT_DRAFT_STATUS_LABEL: Record<CrmAgentDraftStatus, string> =
 };
 
 /** «4 approvate di fila senza modifiche · in tutto …». */
-export function describeTrust(t: { approved_in_row: number; total_approved: number; total_edited: number; total_discarded: number }): string {
+export function describeTrust(t: {
+    approved_in_row: number;
+    total_approved: number;
+    total_edited: number;
+    total_discarded: number;
+    required_in_row?: number;
+    autonomous?: boolean;
+    total_auto?: number;
+}): string {
     const row = t.approved_in_row === 1 ? "1 approvata di fila" : `${t.approved_in_row} approvate di fila`;
-    return `${row} senza modifiche · in tutto ${t.total_approved} approvate, ${t.total_edited} corrette, ${t.total_discarded} scartate`;
+    const state = t.autonomous
+        ? "fuori dalla prova"
+        : t.required_in_row
+          ? `in prova (ne servono ${t.required_in_row} di fila e 3 giorni)`
+          : null;
+    const auto = t.total_auto ? `, ${t.total_auto} partite da sole` : "";
+    return `${state ? `${state} · ` : ""}${row} senza modifiche · in tutto ${t.total_approved} approvate, ${t.total_edited} corrette, ${t.total_discarded} scartate${auto}`;
 }

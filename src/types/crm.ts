@@ -439,6 +439,8 @@ export interface CrmAgentTrialSettings {
     /** NULL = riattivazione spenta (F1-6). */
     agent_reactivation_message: string | null;
     agent_reactivation_days: number;
+    /** F1-7: i tipi fuori dalla prova partono senza approvazione. Spenta di default. */
+    agent_autonomy_on: boolean;
 }
 
 export interface CrmAgentTrust {
@@ -448,6 +450,9 @@ export interface CrmAgentTrust {
     total_approved: number;
     total_edited: number;
     total_discarded: number;
+    required_in_row: number;
+    autonomous: boolean;
+    total_auto: number;
 }
 
 export interface CrmAgentDraftRow {

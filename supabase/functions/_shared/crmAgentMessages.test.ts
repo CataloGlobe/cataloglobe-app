@@ -64,6 +64,18 @@ describe("F1-6", () => {
     });
 });
 
+describe("F1-7", () => {
+    it("partita da sola: solo «Era sbagliata»", async () => {
+        const { buildAutoSentMessage, buildTrustReadyText } = await import("./crmAgentMessages");
+        const m = buildAutoSentMessage(base, null);
+        expect(m.text).toContain("Partita da sola");
+        const data = m.reply_markup.inline_keyboard.flat().map(b => (b.callback_data ? parseCallbackData(b.callback_data) : null));
+        expect(data).toEqual([{ action: "draft", draftId: D, decision: "wrong" }]);
+        expect(buildTrustReadyText("reply", 5, false)).toContain("L'autonomia è spenta");
+        expect(buildTrustReadyText("follow_up", 3, true)).toContain("I follow-up escono dalla prova");
+    });
+});
+
 describe("testi", () => {
     it("bozza: titolo, chat e proposta, testo protetto", () => {
         const m = buildDraftMessage(base, "https://app.x");

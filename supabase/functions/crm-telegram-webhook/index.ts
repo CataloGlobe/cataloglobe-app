@@ -261,6 +261,19 @@ async function handleDraft(supabase, parsed, actor, answer, query) {
         await answer("Questa bozza non c'è più.");
         return;
     }
+    if (parsed.decision === "wrong") {
+        const { data: status, error } = await supabase.rpc("crm_agent_decide_draft", {
+            p_draft_id: draft.id,
+            p_decision: "wrong",
+            p_actor_user_id: actor.user_id
+        });
+        if (error) {
+            await answer(DRAFT_ERRORS[error.code] ?? "Non ci sono riuscito.");
+            return;
+        }
+        await answer(status ? "Segnata: il tipo torna in approvazione per 3." : "Era già segnata.");
+        return;
+    }
     if (draft.status !== "pending") {
         await answer("Già decisa.");
         await closeDraftMessages(supabase, BOT_TOKEN, draft.id, draft.status, null);

@@ -101,6 +101,15 @@ export function AgentTrialCard() {
                                 }
                             />
                             <Switch
+                                label="Autonomia"
+                                description="Le risposte o i follow-up usciti dalla prova (5 approvate di fila e 3 giorni; 3 dopo una correzione) partono senza approvazione, ognuno con «Era sbagliata» su Telegram. Le richieste per una persona restano sempre da approvare."
+                                checked={settings.agent_autonomy_on}
+                                disabled={saving || !settings.agent_replies_on}
+                                onChange={on =>
+                                    void toggle({ agent_autonomy_on: on }, on ? "Autonomia accesa." : "Autonomia spenta.")
+                                }
+                            />
+                            <Switch
                                 label="Follow-up"
                                 description="Se il lead non risponde, un messaggio ogni 24-48 ore, fino a 10. Solo con le risposte accese."
                                 checked={settings.agent_followups_on}
