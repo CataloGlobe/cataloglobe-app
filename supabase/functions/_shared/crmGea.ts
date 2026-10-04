@@ -377,10 +377,16 @@ export function commandNoopText(command: GeaCommand, venueName?: string, personN
 export function confirmQuestionText(command: GeaCommand): string {
     switch (command.name) {
         case "resume_agents":
-            return "Riprendo gli agenti? Da quel momento possono ripartire i messaggi ai lead, sempre con le regole della prova.";
+            return "Riprendo gli agenti? Da subito possono tornare a scrivere ai lead, con le stesse regole di prima: le bozze arrivano qui da approvare.";
         default:
             return "Confermi?";
     }
+}
+
+/** I due tasti sotto la domanda di conferma. */
+export function confirmButtonLabels(command: GeaCommand | null | undefined): { yes: string; no: string } {
+    if (command?.name === "resume_agents") return { yes: "Sì, riprendi gli agenti", no: "No, lascia in pausa" };
+    return { yes: "Sì, fallo", no: "No" };
 }
 
 /** Una riga per il diario (crm_agent_decisions.reason, attore gea). */

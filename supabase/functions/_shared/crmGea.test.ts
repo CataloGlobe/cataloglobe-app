@@ -9,6 +9,8 @@ import {
     chooseVenue,
     diaryReason,
     needsConfirmation,
+    confirmButtonLabels,
+    confirmQuestionText,
     parseUnderstanding,
     refuseText,
     sourceLine,
@@ -49,6 +51,11 @@ describe("capire: il JSON del modello passa dagli elenchi chiusi", () => {
         const resume = parseUnderstanding('{"intent":"command","command":{"name":"resume_agents"}}');
         expect(resume).toEqual({ intent: "command", command: { name: "resume_agents" } });
         expect(needsConfirmation({ name: "resume_agents" })).toBe(true);
+        expect(confirmQuestionText({ name: "resume_agents" })).toBe(
+            "Riprendo gli agenti? Da subito possono tornare a scrivere ai lead, con le stesse regole di prima: le bozze arrivano qui da approvare."
+        );
+        expect(confirmButtonLabels({ name: "resume_agents" })).toEqual({ yes: "Sì, riprendi gli agenti", no: "No, lascia in pausa" });
+        expect(confirmButtonLabels(null)).toEqual({ yes: "Sì, fallo", no: "No" });
         expect(needsConfirmation({ name: "pause_agents", reason: "x" })).toBe(false);
         expect(needsConfirmation({ name: "add_note", venue: "x", text: "y" })).toBe(false);
     });

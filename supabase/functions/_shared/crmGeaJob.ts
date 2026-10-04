@@ -31,6 +31,7 @@ import {
     choosePerson,
     commandDoneText,
     commandNoopText,
+    confirmButtonLabels,
     confirmQuestionText,
     diaryReason,
     manyVenuesText,
@@ -39,7 +40,8 @@ import {
     parseUnderstanding,
     refuseText,
     sourceLine,
-    withSource
+    withSource,
+    type GeaCommand
 } from "./crmGea.ts";
 
 interface Outcome {
@@ -296,8 +298,8 @@ export async function handleGeaMessage(supabase, botToken: string, message, acto
             ? {
                   reply_markup: {
                       inline_keyboard: [[
-                          { text: "Sì, fallo", callback_data: encodeGeaConfirm(inboxId, true) },
-                          { text: "No", callback_data: encodeGeaConfirm(inboxId, false) }
+                          { text: confirmButtonLabels(out.pending as GeaCommand).yes, callback_data: encodeGeaConfirm(inboxId, true) },
+                          { text: confirmButtonLabels(out.pending as GeaCommand).no, callback_data: encodeGeaConfirm(inboxId, false) }
                       ]]
                   }
               }
