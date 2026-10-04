@@ -565,7 +565,7 @@ export default function OverviewPage() {
                   "team",
                   <Users size={20} />,
                   businessRouteLabel("team"),
-                  `${b}/team`,
+                  `${b}/settings/team`,
                   c.team.active ? "active" : "todo",
                   c.team.active
                       ? plural(c.team.members, "persona", "persone")

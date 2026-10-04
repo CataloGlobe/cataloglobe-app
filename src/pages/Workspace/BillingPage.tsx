@@ -99,7 +99,7 @@ export default function BillingPage() {
                                 <button
                                     key={tenant.id}
                                     className={styles.tenantRow}
-                                    onClick={() => navigate(`/business/${tenant.id}/subscription`)}
+                                    onClick={() => navigate(`/business/${tenant.id}/settings/abbonamento`)}
                                 >
                                     <div className={styles.tenantInfo}>
                                         <div className={styles.tenantAvatar}>

@@ -2,7 +2,8 @@ import { expect, test } from "@playwright/test";
 import { openBusinessPage } from "./business";
 
 /**
- * Team (`/business/:businessId/team`), visto da un amministratore.
+ * Team (`/business/:businessId/settings/team`, tab di Impostazioni dal
+ * §51.12), visto da un amministratore.
  * Copre le feature che sopravvivono alla riscrittura (registro feature,
  * §Team passo 2): header con tab, ricerca, filtro e CTA; la tabella dei
  * membri con la propria riga marcata «Tu» e il menu ⋯ sulle altre; il
@@ -10,14 +11,17 @@ import { openBusinessPage } from "./business";
  */
 test.describe("Team", () => {
     test.beforeEach(async ({ page }) => {
-        await openBusinessPage(page, "team", "Team");
+        // Team è una tab di Impostazioni (§51.12): non è più una voce di sidebar.
+        await openBusinessPage(page, "settings", "Impostazioni");
+        await page.getByRole("tab", { name: "Team", exact: true }).click();
+        await page.waitForURL(/\/settings\/team$/);
     });
 
     test("titolo di pagina", async ({ page }) => {
         await expect(page).toHaveTitle(/^Team — .+ \| CataloGlobe$/);
     });
 
-    test("header: tab, ricerca, filtro ruolo, invito", async ({ page }) => {
+    test("tab Membri · Inviti, ricerca, filtro ruolo, invito", async ({ page }) => {
         await expect(page.getByRole("tab", { name: "Membri" })).toHaveAttribute("aria-selected", "true");
         await expect(page.getByRole("tab", { name: /^Inviti in attesa/ })).toBeVisible();
         await expect(page.getByRole("textbox", { name: /Cerca per email/ })).toBeVisible();

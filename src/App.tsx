@@ -14,6 +14,7 @@ import { AdminRoute } from "./components/Routes/AdminRoute";
 import { TenantProvider } from "@context/TenantProvider";
 import { PermissionsProvider } from "@context/PermissionsContext";
 import { DashboardRedirect } from "./components/Routes/DashboardRedirect";
+import { BusinessPathRedirect } from "./components/Routes/BusinessPathRedirect";
 import { AppLoader } from "@/components/ui/AppLoader/AppLoader";
 import { publicRoutes } from "@/routes/publicRoutes";
 
@@ -94,6 +95,7 @@ const ActivitySectionRedirect = lazy(() => import("./pages/Operativita/Attivita/
 const SedeRedirect = lazy(() => import("./components/layout/SedeRedirect/SedeRedirect"));
 const BusinessHomeRedirect = lazy(() => import("./components/layout/LandingRedirect/BusinessHomeRedirect"));
 const SedeHomeRedirect = lazy(() => import("./components/layout/LandingRedirect/SedeHomeRedirect"));
+const SingleSedeRoute = lazy(() => import("./components/layout/LandingRedirect/SingleSedeRoute"));
 const ActivityPubblicazioneRoute = lazy(() => import("./pages/Operativita/Attivita/routes/ActivityPubblicazioneRoute"));
 const ActivityCosaVedonoRoute = lazy(() => import("./pages/Operativita/Attivita/routes/ActivityCosaVedonoRoute"));
 const SubscriptionPage = lazy(() => import("./pages/Business/SubscriptionPage"));
@@ -258,16 +260,25 @@ export default function App() {
                     </ProtectedRoute>
                 }
             >
-                {/* L'ingresso nell'azienda (D1): con una sede sola la sede,
-                    altrimenti la Panoramica. */}
+                {/* L'ingresso nell'azienda (§51.6): chi configura la
+                    Panoramica, staff e viewer la loro sede o Sedi. */}
                 <Route index element={<BusinessHomeRedirect />} />
 
                 <Route path="overview" element={<Overview />} />
 
-                <Route path="locations" element={<Businesses />} />
+                {/* Con una sede sola non c'è la pagina Sedi (§51.3). */}
+                <Route
+                    path="locations"
+                    element={
+                        <SingleSedeRoute segment="anagrafica">
+                            <Businesses />
+                        </SingleSedeRoute>
+                    }
+                />
                 <Route path="locations/:activityId">
-                    {/* Entrando nella sede: la prima voce che si può usare
-                        (§46.1 f); i vecchi `?tab=` portano alla loro sezione. */}
+                    {/* Entrando nella sede (§51.6): la Scheda per chi la
+                        gestisce, Operatività per gli altri; i vecchi `?tab=`
+                        portano alla loro sezione. */}
                     <Route index element={<SedeHomeRedirect />} />
                     {/* Le voci della sede che non sono la scheda: montate
                         dentro il contesto, con la sede presa dal path (§46.1),
@@ -280,6 +291,10 @@ export default function App() {
                     <Route path="storico" element={<OrdersHistory />} />
                     <Route path="prenotazioni" element={<Reservations />} />
                     <Route path="cosa-vedono" element={<ActivityCosaVedonoRoute />} />
+                    {/* Andamento della sede (§51.10): stesse pagine d'azienda,
+                        la sede dal path. */}
+                    <Route path="analitiche" element={<AnalyticsPage />} />
+                    <Route path="recensioni" element={<Reviews />} />
                     {/* Il vecchio nome (Disponibilità, §50.14): link e preferiti restano buoni. */}
                     <Route path="disponibilita" element={<ActivitySectionRedirect to="cosa-vedono" keepHash keepSearch />} />
                     {/* La scheda della sede: quattro pagine (§31). */}
@@ -336,12 +351,32 @@ export default function App() {
                     <Route path=":ticketId" element={<SupportTicketPage />} />
                 </Route>
 
-                <Route path="reviews" element={<Reviews />} />
-                <Route path="analytics" element={<AnalyticsPage />} />
+                {/* Il totale delle sedi leggibili; con una sede la rotta di sede (§51.14). */}
+                <Route
+                    path="reviews"
+                    element={
+                        <SingleSedeRoute segment="recensioni">
+                            <Reviews />
+                        </SingleSedeRoute>
+                    }
+                />
+                <Route
+                    path="analytics"
+                    element={
+                        <SingleSedeRoute segment="analitiche">
+                            <AnalyticsPage />
+                        </SingleSedeRoute>
+                    }
+                />
 
-                <Route path="team" element={<BusinessTeamPage />} />
-                <Route path="subscription" element={<SubscriptionPage />} />
+                {/* Impostazioni: Azienda · Team · Abbonamento (§51.12). I
+                    vecchi indirizzi portano alle tab, con query e ancora
+                    (ritorni da Stripe, link nelle email). */}
                 <Route path="settings" element={<BusinessSettingsPage />} />
+                <Route path="settings/team" element={<BusinessTeamPage />} />
+                <Route path="settings/abbonamento" element={<SubscriptionPage />} />
+                <Route path="team" element={<BusinessPathRedirect to="settings/team" />} />
+                <Route path="subscription" element={<BusinessPathRedirect to="settings/abbonamento" />} />
             </Route>
 
             {/* Legacy backward-compatibility redirects */}
