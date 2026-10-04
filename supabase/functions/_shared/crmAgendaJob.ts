@@ -241,10 +241,10 @@ export async function sendToCaller(botToken: string, team, callerId: string, mes
 }
 
 /** Prenota una colonna-passo; ritorna la riga se la prenotazione è nostra. */
-async function claimStep(supabase, id: string, column: string, now: Date) {
+async function claimStep(supabase, id: string, column: string, now: Date, extra: Record<string, unknown> = {}) {
     const { data, error } = await supabase
         .from("crm_appointments")
-        .update({ [column]: now.toISOString() })
+        .update({ [column]: now.toISOString(), ...extra })
         .eq("id", id)
         .is(column, null)
         .select("id")
@@ -319,8 +319,12 @@ export async function processAgenda(supabase, team, botToken: string | null, app
         .is("caller_asked_at", null)
         .gt("starts_at", nowIso)
         .limit(20);
+    const askedNow = new Set<string>();
     for (const row of proposed ?? []) {
-        if (!(await claimStep(supabase, row.id, "caller_asked_at", now))) continue;
+        // Un «Puoi tu?» nuovo (anche dopo uno spostamento, che azzera solo
+        // caller_asked_at) riporta a zero il suo sollecito.
+        if (!(await claimStep(supabase, row.id, "caller_asked_at", now, { caller_reminded_at: null }))) continue;
+        askedNow.add(row.id);
         const sent = await sendToCaller(botToken, team, row.caller_user_id, buildCallerRequestMessage(toCallInfo(row, team), appUrl));
         if (sent > 0) stats.caller_requests += 1;
         else if (!nobodyLinked) await releaseStep(supabase, row.id, "caller_asked_at");
@@ -337,6 +341,9 @@ export async function processAgenda(supabase, team, botToken: string | null, app
         .limit(50);
     const handedOver = new Set<string>();
     for (const row of waiting ?? []) {
+        // Appena chiesta in questo giro: almeno un giro per rispondere, così
+        // «Puoi tu?» e passaggio non arrivano insieme.
+        if (askedNow.has(row.id)) continue;
         const info = toCallInfo(row, team);
         if (!info.canHandOver || handoverAt(row.starts_at, row.caller_asked_at) > now) continue;
         const { data: status, error } = await supabase.rpc("crm_handover_call", {

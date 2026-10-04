@@ -18,8 +18,8 @@ import {
 import type { CrmAgentDraftRow, CrmAgentTrialSettings, CrmAgentTrust } from "@/types/crm";
 import {
     CRM_AGENT_DRAFT_KIND_LABEL,
-    CRM_AGENT_DRAFT_STATUS_LABEL,
     describeTrust,
+    draftStatusLabel,
     reactivationTextError
 } from "@/utils/crm/agentLabels";
 import { formatDateTimeIt } from "@/utils/formatDateTime";
@@ -104,7 +104,7 @@ export function AgentTrialCard() {
                                 label="Autonomia"
                                 description="Le risposte o i solleciti usciti dalla prova (5 approvate di fila e 3 giorni; 3 dopo una correzione) partono senza approvazione, ognuno con «Non andava bene, torna in prova» su Telegram. Le richieste per una persona restano sempre da approvare."
                                 checked={settings.agent_autonomy_on}
-                                disabled={saving || (!settings.agent_replies_on && !settings.agent_autonomy_on)}
+                                disabled={saving || (!settings.agent_autonomy_on && !settings.agent_replies_on && !settings.agent_followups_on)}
                                 onChange={on =>
                                     void toggle({ agent_autonomy_on: on }, on ? "Autonomia accesa." : "Autonomia spenta.")
                                 }
@@ -181,7 +181,7 @@ export function AgentTrialCard() {
                     trailing={
                         <StatusBadge
                             variant={d.status === "pending" ? "warning" : d.status === "expired" || d.status === "discarded" ? "neutral" : "success"}
-                            label={CRM_AGENT_DRAFT_STATUS_LABEL[d.status]}
+                            label={draftStatusLabel(d.status, d.reason, d.kind)}
                         />
                     }
                 />

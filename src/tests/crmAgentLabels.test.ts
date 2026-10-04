@@ -4,6 +4,7 @@ import {
     CRM_MODEL_OPTIONS,
     crmAgentErrorMessage,
     decisionActionLabel,
+    draftStatusLabel,
     formatUsdInput,
     modelLabel,
     parseUsdCap
@@ -104,5 +105,27 @@ describe("uscita dalla prova (F1-7)", () => {
         expect(describeTrust({ approved_in_row: 6, total_approved: 6, total_edited: 0, total_discarded: 0, required_in_row: 5, autonomous: true, total_auto: 4 })).toMatch(
             /^fuori dalla prova · .*4 partite da sole$/
         );
+    });
+});
+
+describe("draftStatusLabel", () => {
+    it("«Gestita» dice quale esito, dal motivo", () => {
+        expect(draftStatusLabel("handled", "È uno stop.")).toBe("Stop");
+        expect(draftStatusLabel("handled", "Obiezione, non stop.")).toBe("«Non adesso»");
+        expect(draftStatusLabel("handled", "Proponi altri orari.")).toBe("Altri orari");
+        expect(draftStatusLabel("handled", null)).toBe("Gestita da una persona");
+        expect(draftStatusLabel("sent", "È uno stop.")).toBe("Inviata così");
+        expect(draftStatusLabel("handled", "Messo in Perso.")).toBe("Messo in Perso");
+        expect(draftStatusLabel("discarded", null, "lost_proposal")).toBe("Resta aperto");
+        expect(draftStatusLabel("sent", "Inviata in autonomia.")).toBe("Partita da sola");
+        expect(draftStatusLabel("sent", "Era sbagliata.")).toBe("Partita da sola, era sbagliata");
+    });
+});
+
+describe("azioni del Diario dell'agente in prova", () => {
+    it("in italiano, mai il codice", () => {
+        for (const a of ["lead_stop", "draft_created", "draft_sent", "draft_edited", "draft_discard", "draft_handle", "draft_stop", "draft_objection", "draft_other", "call_from_agent", "draft_lost", "draft_auto_sent", "draft_wrong"]) {
+            expect(decisionActionLabel(a)).not.toBe(a.replace(/_/g, " "));
+        }
     });
 });

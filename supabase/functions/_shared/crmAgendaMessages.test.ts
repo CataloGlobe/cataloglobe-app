@@ -122,6 +122,12 @@ describe("messaggi", () => {
     it("messaggio al lead al singolare", () => {
         expect(buildLeadOtherTimeText(info, 15)).toBe("Giovedì 8 alle 17:45 non riesco, possiamo fare alle 18:00?");
         expect(buildLeadOtherTimeText(info, 1440)).toBe("Giovedì 8 alle 17:45 non riesco, possiamo fare venerdì 9 alla stessa ora?");
+        // A cavallo di mezzanotte l'ora cambia: va scritta.
+        const late = { ...info, startsAt: "2026-10-08T21:45:00Z" };
+        expect(buildLeadOtherTimeText(late, 15)).toBe("Giovedì 8 alle 23:45 non riesco, possiamo fare venerdì 9 alle 00:00?");
+        // Cambio d'ora (domenica 25/10): domani è un'ora dopo sull'orologio.
+        const dst = { ...info, startsAt: "2026-10-24T15:45:00Z" };
+        expect(buildLeadOtherTimeText(dst, 1440)).toBe("Sabato 24 alle 17:45 non riesco, possiamo fare domenica 25 alle 16:45?");
         for (const m of [15, 30, 60, 1440] as const) expect(buildLeadOtherTimeText(info, m)).not.toMatch(/riusciamo|possiamo noi/);
     });
 

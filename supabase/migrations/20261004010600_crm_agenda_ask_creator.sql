@@ -55,6 +55,12 @@ BEGIN
     IF a.created_by IS NULL OR a.created_by = a.caller_user_id THEN
         RAISE EXCEPTION 'no_one_to_hand_over' USING ERRCODE = 'CL007';
     END IF;
+    -- Già chiesto per quest'ultimo «Puoi tu?» (tasto toccato due volte):
+    -- niente secondo evento né seconda domanda.
+    IF a.creator_asked_at IS NOT NULL AND a.caller_asked_at IS NOT NULL
+       AND a.creator_asked_at >= a.caller_asked_at THEN
+        RETURN 'already_asked';
+    END IF;
 
     UPDATE public.crm_appointments x
     SET creator_asked_at = now()
@@ -101,6 +107,13 @@ BEGIN
     -- gliel'hanno chiesto.
     IF v_actor IS NOT NULL AND v_actor IS DISTINCT FROM a.caller_user_id
        AND NOT (v_asked AND v_actor = a.created_by) THEN
+        RAISE EXCEPTION 'not_the_caller' USING ERRCODE = 'CL006';
+    END IF;
+    -- Dopo «Chiedo a {nome}» decide chi l'ha fissata: chi doveva chiamare non
+    -- può più passargliela da solo (es. tasto del messaggio girato a tutto il
+    -- team perché chi l'ha fissata non ha Telegram).
+    IF v_asked AND v_actor IS NOT NULL AND v_actor = a.caller_user_id
+       AND v_actor IS DISTINCT FROM a.created_by THEN
         RAISE EXCEPTION 'not_the_caller' USING ERRCODE = 'CL006';
     END IF;
     IF a.created_by IS NULL OR a.created_by = a.caller_user_id THEN
@@ -159,7 +172,8 @@ BEGIN
     END IF;
     v_asked := a.creator_asked_at IS NOT NULL AND a.caller_asked_at IS NOT NULL
                AND a.creator_asked_at >= a.caller_asked_at;
-    IF v_actor IS DISTINCT FROM a.caller_user_id AND NOT (v_asked AND v_actor = a.created_by) THEN
+    IF v_actor IS NULL
+       OR (v_actor IS DISTINCT FROM a.caller_user_id AND NOT (v_asked AND v_actor = a.created_by)) THEN
         RAISE EXCEPTION 'not_the_caller' USING ERRCODE = 'CL006';
     END IF;
     IF a.status <> 'proposed' THEN

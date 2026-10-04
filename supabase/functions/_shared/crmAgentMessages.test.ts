@@ -128,6 +128,7 @@ describe("testi", () => {
         expect(buildDraftClosedText(base, "sent", "Lorenzo")).toContain("➡️ inviata così (Lorenzo)");
         expect(buildDraftClosedText(base, "expired", null)).toContain("scaduta");
         expect(buildRemindersText([{ info: base, minutes: 10 }])).toBe("⏰ Ancora in attesa da 10 minuti: bozza per Bar <Roma>.");
+        expect(buildRemindersText([{ info: { ...base, kind: "lost_proposal" }, minutes: 30 }])).toContain("proposta di Perso per");
         expect(buildEditPromptText(base)).toContain("rispondendo a questo messaggio");
     });
     it("dubbio stop: cita il lead e chiude con l'esito vero", () => {
@@ -144,6 +145,8 @@ describe("testi", () => {
         expect(draftOutcomeLabel("handled", "È uno stop.")).toContain("messo in Perso");
         expect(draftOutcomeLabel("handled", "Obiezione, non stop.")).toContain("«non adesso»");
         expect(draftOutcomeLabel("handled", null)).toContain("ci pensa una persona");
+        expect(draftOutcomeLabel("discarded", null, "lost_proposal")).toContain("resta aperto");
+        expect(draftOutcomeLabel("discarded", null, "reply")).toBe("non mandata");
         expect(buildDraftClosedText({ ...info, reason: "È uno stop." }, "handled", "Alex")).toContain("messo in Perso");
     });
     it("chat lunga: in un riquadro apribile, dopo la proposta", () => {
