@@ -220,9 +220,11 @@ async function think(supabase, botToken, text: string, actor, team, appUrl, now:
         }
         case "command": {
             if (needsConfirmation(understood.command)) {
+                const { data: settings } = await supabase.from("crm_settings").select("agent_autonomy_on").maybeSingle();
                 return {
                     status: "pending", intent: "command", tool: understood.command.name,
-                    reply: confirmQuestionText(understood.command), costUsd: cost, pending: understood.command
+                    reply: confirmQuestionText(understood.command, settings?.agent_autonomy_on === true),
+                    costUsd: cost, pending: understood.command
                 };
             }
             const done = await runCommand(supabase, botToken, understood.command, actor, team, appUrl);

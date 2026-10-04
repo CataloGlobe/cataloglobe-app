@@ -374,10 +374,13 @@ export function commandNoopText(command: GeaCommand, venueName?: string, personN
     }
 }
 
-export function confirmQuestionText(command: GeaCommand): string {
+/** `autonomyOn`: con l'Autonomia accesa non tutto passa da Telegram (F1-7). */
+export function confirmQuestionText(command: GeaCommand, autonomyOn = false): string {
     switch (command.name) {
         case "resume_agents":
-            return "Riprendo gli agenti? Da subito possono tornare a scrivere ai lead, con le stesse regole di prima: le bozze arrivano qui da approvare.";
+            return autonomyOn
+                ? "Riprendo gli agenti? Da subito possono tornare a scrivere ai lead, con le stesse regole di prima. L'Autonomia è accesa: le risposte e i solleciti usciti dalla prova partono da soli, il resto arriva qui da approvare."
+                : "Riprendo gli agenti? Da subito possono tornare a scrivere ai lead, con le stesse regole di prima: le bozze arrivano qui da approvare.";
         default:
             return "Confermi?";
     }

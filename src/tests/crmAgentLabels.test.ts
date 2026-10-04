@@ -124,7 +124,7 @@ describe("draftStatusLabel", () => {
 
 describe("azioni del Diario dell'agente in prova", () => {
     it("in italiano, mai il codice", () => {
-        for (const a of ["lead_stop", "draft_created", "draft_sent", "draft_edited", "draft_discard", "draft_handle", "draft_stop", "draft_objection", "draft_other", "call_from_agent", "draft_lost", "draft_auto_sent", "draft_wrong"]) {
+        for (const a of ["lead_stop", "draft_created", "draft_sent", "draft_edited", "draft_discard", "draft_handle", "draft_stop", "draft_objection", "draft_other", "call_from_agent", "draft_lost", "draft_auto_sent", "draft_wrong", "gea_note", "gea_move_stage", "gea_assign", "gea_pause", "gea_resume", "gea_refused"]) {
             expect(decisionActionLabel(a)).not.toBe(a.replace(/_/g, " "));
         }
     });

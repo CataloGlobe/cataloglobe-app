@@ -50,7 +50,13 @@ const ACTION_LABEL: Record<string, string> = {
     call_from_agent: "Telefonata fissata da una bozza",
     draft_lost: "Messo in Perso",
     draft_auto_sent: "Partita da sola",
-    draft_wrong: "Segnata come sbagliata"
+    draft_wrong: "Segnata come sbagliata",
+    gea_note: "Nota da Gea",
+    gea_move_stage: "Fase cambiata da Gea",
+    gea_assign: "Lead girato da Gea",
+    gea_pause: "Agenti in pausa da Gea",
+    gea_resume: "Agenti ripresi da Gea",
+    gea_refused: "Richiesta rifiutata da Gea"
 };
 
 /** Azioni nuove (dalle PR dopo) senza etichetta: il codice, leggibile. */

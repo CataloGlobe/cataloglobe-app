@@ -54,6 +54,8 @@ describe("capire: il JSON del modello passa dagli elenchi chiusi", () => {
         expect(confirmQuestionText({ name: "resume_agents" })).toBe(
             "Riprendo gli agenti? Da subito possono tornare a scrivere ai lead, con le stesse regole di prima: le bozze arrivano qui da approvare."
         );
+        expect(confirmQuestionText({ name: "resume_agents" }, true)).toContain("partono da soli");
+        expect(confirmQuestionText({ name: "resume_agents" }, true)).not.toContain("le bozze arrivano qui da approvare");
         expect(confirmButtonLabels({ name: "resume_agents" })).toEqual({ yes: "Sì, riprendi gli agenti", no: "No, lascia in pausa" });
         expect(confirmButtonLabels(null)).toEqual({ yes: "Sì, fallo", no: "No" });
         expect(needsConfirmation({ name: "pause_agents", reason: "x" })).toBe(false);
