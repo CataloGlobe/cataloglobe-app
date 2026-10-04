@@ -4,7 +4,8 @@
 -- Chiama l'edge `crm-wa-worker` (azione watchdog) solo quando serve: agenti
 -- attivi (non in pausa), silenzio non ancora segnalato e nessun battito del
 -- Mac negli ultimi 15 minuti. L'edge mette in pausa gli agenti (crm_wa_watchdog) e
--- avvisa il team su Telegram.
+-- avvisa il team su Telegram. La chiama anche quando un avviso di pausa non è
+-- stato consegnato (crm_wa_channel.alert_pending), per ritentarlo.
 --
 -- ⚠️ SYNC con le condizioni di `crm_wa_watchdog` (20261002220100). Falso
 -- positivo = una chiamata a vuoto; falso negativo = nessun avviso.
@@ -34,13 +35,20 @@ SELECT cron.schedule(
         v_url TEXT;
         v_secret TEXT;
     BEGIN
+        -- Si chiama l'edge se il Mac tace ad agenti attivi, oppure se un avviso
+        -- di pausa non è arrivato su Telegram (alert_pending): con gli agenti
+        -- già in pausa il primo caso non scatta più e l'avviso resterebbe
+        -- fermo (review di Lorenzo, 2026-10-04).
         IF NOT EXISTS (
             SELECT 1
             FROM public.crm_settings s, public.crm_wa_channel c
             WHERE s.id AND c.id
-              AND NOT s.brake_on
-              AND c.silent_alerted_at IS NULL
-              AND (c.last_heartbeat_at IS NULL OR c.last_heartbeat_at < now() - interval '15 minutes')
+              AND (
+                  c.alert_pending IS NOT NULL
+                  OR (NOT s.brake_on
+                      AND c.silent_alerted_at IS NULL
+                      AND (c.last_heartbeat_at IS NULL OR c.last_heartbeat_at < now() - interval '15 minutes'))
+              )
         ) THEN
             RETURN;
         END IF;
