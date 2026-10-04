@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
     authorizeWorkerCall,
     buildSendInstruction,
+    buildHandWrittenAlert,
     buildUnknownChatAlert,
     WA_WORKER_ACTIONS,
     buildChannelAlert,
@@ -177,6 +178,17 @@ describe("buildSendInstruction", () => {
         expect(buildSendInstruction({ ...ok, body: "a".repeat(4001) }).ok).toBe(false);
         expect(buildSendInstruction({ ...ok, phone: "3331112222" }).ok).toBe(false);
         expect(buildSendInstruction({ ...ok, messageId: null }).ok).toBe(false);
+    });
+});
+
+describe("buildHandWrittenAlert", () => {
+    it("nomina i locali, senza doppioni, e dice cosa fare", () => {
+        expect(buildHandWrittenAlert(["Bar Roma"])).toContain("Un messaggio a Bar Roma non viene dalla coda");
+        expect(buildHandWrittenAlert(["Bar Roma", "Pizzeria <Due>", "Bar Roma"])).toContain(
+            "a 2 lead (Bar Roma, Pizzeria &lt;Due&gt;)"
+        );
+        expect(buildHandWrittenAlert([])).toContain("Un messaggio a un lead");
+        expect(buildHandWrittenAlert(["Bar Roma"])).toContain("metti in pausa gli agenti");
     });
 });
 
