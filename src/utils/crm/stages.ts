@@ -37,7 +37,12 @@ export const CRM_EVENT_LABEL: Record<CrmEventType, string> = {
     venue_name_confirmed: "Stesso locale confermato",
     venue_name_deferred: "Locale da verificare",
     agent_hold: "La gestisce una persona",
-    agent_released: "Ridato all'agente"
+    agent_released: "Ridato all'agente",
+    call_scheduled: "Telefonata fissata",
+    call_moved: "Telefonata spostata",
+    call_cancelled: "Telefonata annullata",
+    call_caller_answered: "Risposta di chi chiama",
+    call_outcome: "Esito della telefonata"
 };
 
 /** Messaggio italiano per gli errori delle RPC `crm_*` (RAISE in 20261001120100; VN001 in 20261002155000). */

@@ -152,13 +152,18 @@ export function shortToUuid(short: string): string | null {
 //   a:<venue>:<user>  assegna il locale a <user>
 //   g:<venue>         apri la scelta tra i nomi
 //   x:<venue>         chiudi la scelta (torna ai pulsanti normali)
+//   cy|cn:<call>      chi deve chiamare dice sì / no (agenda)
+//   od|on|op:<call>   esito: fatta / non ha risposto / rimandata (agenda)
 export type CrmCallback =
     | { action: "assign"; venueId: string; userId: string }
     | { action: "choose"; venueId: string }
     | { action: "cancel"; venueId: string }
     | { action: "venue_same"; leadId: string }
     | { action: "venue_later"; leadId: string }
-    | { action: "venue_rename"; leadId: string };
+    | { action: "venue_rename"; leadId: string }
+    // Agenda (F1-4a): «Puoi tu?» a chi deve chiamare, «Com'è andata?» dopo.
+    | { action: "call_answer"; appointmentId: string; accept: boolean }
+    | { action: "call_outcome"; appointmentId: string; outcome: "done" | "no_show" | "postponed" };
 
 export function encodeAssign(venueId: string, userId: string): string {
     return `a:${uuidToShort(venueId)}:${uuidToShort(userId)}`;
@@ -179,6 +184,15 @@ export function parseCallbackData(data: string): CrmCallback | null {
     if (parts[0] === "s" && parts.length === 2) return { action: "venue_same", leadId: venueId };
     if (parts[0] === "n" && parts.length === 2) return { action: "venue_rename", leadId: venueId };
     if (parts[0] === "l" && parts.length === 2) return { action: "venue_later", leadId: venueId };
+    // Agenda: l'id è della telefonata.
+    if (parts.length === 2) {
+        const appointmentId = venueId;
+        if (parts[0] === "cy") return { action: "call_answer", appointmentId, accept: true };
+        if (parts[0] === "cn") return { action: "call_answer", appointmentId, accept: false };
+        if (parts[0] === "od") return { action: "call_outcome", appointmentId, outcome: "done" };
+        if (parts[0] === "on") return { action: "call_outcome", appointmentId, outcome: "no_show" };
+        if (parts[0] === "op") return { action: "call_outcome", appointmentId, outcome: "postponed" };
+    }
     return null;
 }
 
