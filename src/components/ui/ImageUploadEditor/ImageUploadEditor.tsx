@@ -22,8 +22,8 @@ import { deriveCompressProfile, resolveShowFillPanel } from "./imageUploadPreset
 import { bakeFramedImage, type BakeOptions } from "./bakeFraming";
 import styles from "./ImageUploadEditor.module.scss";
 
-/** Formati sempre accettati dal wrapper — include WEBP ovunque. */
-const DEFAULT_ACCEPTED_FORMATS = ["image/png", "image/jpeg", "image/webp"];
+/** Formati sempre accettati dal wrapper — include WEBP e AVIF ovunque (ricodificati da compressImage). */
+const DEFAULT_ACCEPTED_FORMATS = ["image/png", "image/jpeg", "image/webp", "image/avif"];
 const DEFAULT_MAX_SIZE_MB = 10; // limite REALE (compressImage), non i 5MB cosmetici.
 const DEFAULT_FILL_MODES: MediaFillMode[] = ["blur", "dominant", "color", "none"];
 const DEFAULT_DRAWER_WIDTH = 420; // sm
@@ -235,7 +235,7 @@ export function ImageUploadEditor({
         async (file: File) => {
             setError(null);
             if (!acceptedFormats.includes(file.type)) {
-                setError("Formato non supportato. Usa PNG, JPG o WEBP.");
+                setError("Formato non supportato. Usa PNG, JPG, WEBP o AVIF.");
                 return;
             }
             try {
