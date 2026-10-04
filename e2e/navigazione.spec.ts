@@ -23,6 +23,16 @@ const PAGINA_PUBBLICA = ["Pagina pubblica", ["Stili", "In evidenza", "Storie", "
 const OPERATIVITA = ["Operatività", ["Servizio", "Prenotazioni", "Comande", "Storico"]] as const;
 const IL_LOCALE = ["Il locale", ["Scheda", "Cosa vedono i clienti"]] as const;
 
+/** Le voci del piede: quelle della nav fuori da ogni gruppo, in ordine. */
+async function footerLinks(page: Page): Promise<string[]> {
+    await expect(nav(page).getByRole("link").first()).toBeVisible({ timeout: 15_000 });
+    return nav(page)
+        .getByRole("link")
+        .evaluateAll(links =>
+            links.filter(l => !l.closest('[role="group"]')).map(l => (l.textContent ?? "").trim().replace(/\s*\d+\+?$/, ""))
+        );
+}
+
 test.describe("Sidebar (§51.5)", () => {
     test("azienda con più sedi: Sedi sotto Panoramica, niente Ordini, Prenotazioni, Team, Abbonamento", async ({ page }) => {
         const paths = await locationPaths(page);
@@ -34,10 +44,11 @@ test.describe("Sidebar (§51.5)", () => {
                 [null, ["Panoramica", "Sedi"]],
                 CATALOGO,
                 PAGINA_PUBBLICA,
-                ["Andamento", ["Analitiche", "Recensioni", "Clienti"]],
-                [null, ["Impostazioni"]]
+                ["Andamento", ["Analitiche", "Recensioni", "Clienti"]]
             ]);
-        await expect(nav(page).getByRole("link", { name: "Assistenza", exact: true })).toBeVisible();
+        // Piede: Impostazioni · Assistenza, poi apri/chiudi; nessun separatore speciale.
+        expect(await footerLinks(page)).toEqual(["Impostazioni", "Assistenza"]);
+        await expect(nav(page).getByRole("separator")).toHaveCount(0);
         for (const voce of ["Ordini", "Team", "Abbonamento"]) {
             await expect(nav(page).getByRole("link", { name: voce, exact: true })).toHaveCount(0);
         }
@@ -50,7 +61,9 @@ test.describe("Sidebar (§51.5)", () => {
         await expect
             .poll(() => sidebarShape(page), { timeout: 15_000 })
             .toEqual([IL_LOCALE, OPERATIVITA, ["Andamento", ["Analitiche", "Recensioni"]]]);
-        await expect(nav(page).getByRole("link", { name: "Assistenza", exact: true })).toBeVisible();
+        // Il piede della sede: solo Assistenza (§51.5, Impostazioni è d'azienda).
+        expect(await footerLinks(page)).toEqual(["Assistenza"]);
+        await expect(nav(page).getByRole("link", { name: "Impostazioni", exact: true })).toHaveCount(0);
         // In testa solo il ritorno: nome e stato della sede stanno nell'header.
         await expect(contextNav(page).getByRole("link")).toHaveText(["Tutte le sedi"]);
         await contextNav(page).getByRole("link", { name: "Tutte le sedi" }).click();
@@ -84,9 +97,10 @@ test.describe("Sidebar (§51.5)", () => {
                 CATALOGO,
                 PAGINA_PUBBLICA,
                 OPERATIVITA,
-                ["Andamento", ["Analitiche", "Recensioni", "Clienti"]],
-                [null, ["Impostazioni"]]
+                ["Andamento", ["Analitiche", "Recensioni", "Clienti"]]
             ]);
+        expect(await footerLinks(page)).toEqual(["Impostazioni", "Assistenza"]);
+        await expect(nav(page).getByRole("separator")).toHaveCount(0);
         await expect(nav(page).getByRole("link", { name: "Sedi", exact: true })).toHaveCount(0);
         await expect(contextNav(page)).toHaveCount(0);
         // Le voci di sede portano alla sola sede, anche da una pagina d'azienda.
@@ -184,7 +198,7 @@ test.describe("Aspetto della sidebar (§51.15)", () => {
         await expect.poll(async () => (await aside(page).boundingBox())?.width).toBe(232);
     });
 
-    test("righe 36 e titoli di gruppo in uno slot di 28", async ({ page }) => {
+    test("righe 36, titoli in uno slot di 36 col testo in basso: più spazio sopra che sotto", async ({ page }) => {
         const paths = await locationPaths(page);
         await page.goto(`${businessRoot(paths[0])}/products`);
         await ensureOpen(page);
@@ -194,8 +208,18 @@ test.describe("Aspetto della sidebar (§51.15)", () => {
             .getByRole("link")
             .evaluateAll(links => links.map(l => Math.round(l.getBoundingClientRect().height)));
         expect(new Set(rows)).toEqual(new Set([36]));
-        const title = nav(page).getByRole("group", { name: "Catalogo" }).getByText("Catalogo", { exact: true });
-        expect(Math.round((await title.boundingBox())!.height)).toBe(28);
+        const group = nav(page).getByRole("group", { name: "Catalogo" });
+        const title = group.getByText("Catalogo", { exact: true });
+        expect(Math.round((await title.boundingBox())!.height)).toBe(36);
+        // Il testo del titolo sta più vicino alle sue voci che a quelle sopra.
+        const gaps = await title.evaluate(el => {
+            const range = document.createRange();
+            range.selectNodeContents(el);
+            const text = range.getBoundingClientRect();
+            const slot = el.getBoundingClientRect();
+            return { above: text.top - slot.top, below: slot.bottom - text.bottom };
+        });
+        expect(gaps.above).toBeGreaterThan(gaps.below * 2);
     });
 
     test("fra 768 e 1023 parte chiusa, sotto 768 è un pannello dal pulsante menu", async ({ page }) => {

@@ -1,5 +1,6 @@
 // AppSidebar — §51.15 (riferimento: la sidebar di Supabase Studio). Elenco
-// con titoli di gruppo, i gruppi non si chiudono. Aperta 232, chiusa 64:
+// con titoli di gruppo, i gruppi non si chiudono; nel piede Impostazioni,
+// Assistenza e apri/chiudi. Aperta 232, chiusa 64:
 // **le righe restano alla stessa altezza e l'icona allo stesso posto**, si
 // anima solo la larghezza e il testo viene tagliato. La geometria fa sì che
 // l'icona (18) cada al centro dei 64 senza cambiare un padding:
@@ -13,7 +14,9 @@ $row-height: 36px;
 $row-height-touch: 40px;
 $icon-size: 18px;
 $icon-gap: 12px;
-$title-slot: 28px;
+$title-slot: 36px;
+$title-pad-bottom: 6px;
+$title-text: 11px;
 $dash-margin: 14px;
 
 .sidebar {
@@ -91,27 +94,24 @@ $dash-margin: 14px;
 }
 
 /* ===== Gruppi ===== */
-// Divisore solo fra gruppi SENZA titolo (il titolo è già il separatore).
-// Uguale aperta e chiusa.
-.groupDivider {
-  height: 1px;
-  background: var(--border);
-  margin: var(--space-8) 0;
-}
-
+// Fra i gruppi solo titoli (aperta) e trattini (chiusa), nessun divisore.
 .group {
   display: block;
 }
 
-// Lo slot del titolo: alto 28 aperto e chiuso. Chiuso il testo sparisce e
-// resta un trattino di 1px.
+// Lo slot del titolo: alto 36 aperto e chiuso, il testo in basso, così lo
+// spazio sta sopra il titolo e il titolo resta attaccato alle sue voci.
+// Colore muted come le voci: nessun token più chiaro tiene 4,5:1 su
+// --surface in chiaro (gray-400 2,56:1), quindi separa lo spazio.
+// Chiuso il testo sparisce e al suo posto resta un trattino di 1px.
 .groupTitle {
   position: relative;
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   height: $title-slot;
-  padding: 0 $row-x;
-  font-size: 11px;
+  padding: 0 $row-x $title-pad-bottom;
+  box-sizing: border-box;
+  font-size: $title-text;
   font-weight: 600;
   letter-spacing: 0.06em;
   line-height: 1;
@@ -129,7 +129,8 @@ $dash-margin: 14px;
     position: absolute;
     left: $dash-margin;
     right: $dash-margin;
-    top: 50%;
+    // All'altezza del testo che sostituisce.
+    bottom: $title-pad-bottom + $title-text * 0.5;
     height: 1px;
     background: var(--border);
   }

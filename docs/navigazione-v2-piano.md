@@ -29,7 +29,7 @@ Un solo elenco, nessun contesto in cui entrare, **nessuna pagina Sedi**: `/locat
 Passando da 1 a 2 sedi entrano nella sede Il locale, Operatività e la parte di sede di Andamento, e compare la voce Sedi; tutto il resto resta dov'era. Nessun avviso dedicato.
 
 ### 51.5 Gruppi e ordine (segue il percorso dell'utente)
-**Sidebar unica (1 sede)** — 18 voci:
+**Sidebar unica (1 sede)** — 18 voci (16 nei gruppi, 2 nel piede):
 | Gruppo | Voci |
 |---|---|
 | — | Panoramica |
@@ -38,12 +38,11 @@ Passando da 1 a 2 sedi entrano nella sede Il locale, Operatività e la parte di 
 | Pagina pubblica | Stili · In evidenza · Storie · Lingue |
 | Operatività | Servizio · Prenotazioni · Comande · Storico |
 | Andamento | Analitiche · Recensioni · Clienti |
-| — | Impostazioni |
-| piede | Assistenza |
+| piede | Impostazioni · Assistenza |
 
-**Azienda (2+ sedi)**: — Panoramica · Sedi | Catalogo (Menù · Prodotti · Programmazione) | Pagina pubblica (Stili · In evidenza · Storie · Lingue) | Andamento (Analitiche · Recensioni · Clienti) | — Impostazioni | piede Assistenza.
+**Azienda (2+ sedi)**: — Panoramica · Sedi | Catalogo (Menù · Prodotti · Programmazione) | Pagina pubblica (Stili · In evidenza · Storie · Lingue) | Andamento (Analitiche · Recensioni · Clienti) | piede Impostazioni · Assistenza.
 
-**Sede (2+ sedi)**: ← Tutte le sedi | Il locale (Scheda · Cosa vedono i clienti) | Operatività (Servizio · Prenotazioni · Comande · Storico) | Andamento (Analitiche · Recensioni) | piede Assistenza.
+**Sede (2+ sedi)**: ← Tutte le sedi | Il locale (Scheda · Cosa vedono i clienti) | Operatività (Servizio · Prenotazioni · Comande · Storico) | Andamento (Analitiche · Recensioni) | piede Assistenza (Impostazioni è dell'azienda, non sta nella sede).
 
 Ordine voluto: prima il locale, poi cosa offre, poi il lavoro in sala, poi i risultati. Operatività non sta in cima perché è del piano Pro.
 «Menù» è l'etichetta di verticale (`catalogLabel`), non una stringa fissa.
@@ -107,12 +106,12 @@ L'elenco completo dei punti che linkano queste pagine lo produce il censimento.
 
 ### 51.15 La sidebar: aspetto e comportamento
 Modello: elenco con titoli di gruppo (riferimento: sidebar di Supabase Studio). **I gruppi non si chiudono.**
-- **Aperta**: larghezza 232px. Ogni gruppo ha il titolo (11px, semibold, maiuscolo, spaziatura .06em, colore muted) in uno slot alto 28px. Righe alte 36px, icona 18px, padding orizzontale 12px, gap icona-testo 12px.
-- **Chiusa**: larghezza 64px. **Le righe restano esattamente alla stessa altezza**: sparisce il testo, resta l'icona. Lo slot del titolo resta alto uguale e mostra un trattino (linea 1px, colore line, margini 14px). Al passaggio del mouse/focus: tooltip col nome della voce (componente `Tooltip` esistente).
+- **Aperta**: larghezza 232px. Ogni gruppo ha il titolo (11px, semibold, maiuscolo, spaziatura .06em) in uno slot alto 36px col testo in basso (6px sotto): lo spazio sta sopra il titolo, che resta attaccato alle sue voci. Colore muted come le voci: nessun token di `_theme.scss` più chiaro tiene 4,5:1 su `--surface` in chiaro (`--color-gray-400` 2,56:1; `--color-gray-500` in chiaro è uguale alle voci), quindi i gruppi si separano con lo spazio. Fra i gruppi nessun divisore: solo titoli. Righe alte 36px, icona 18px, padding orizzontale 12px, gap icona-testo 12px.
+- **Chiusa**: larghezza 64px. **Le righe restano esattamente alla stessa altezza**: sparisce il testo, resta l'icona. Lo slot del titolo resta alto uguale (36px) e al posto del testo mostra un trattino (linea 1px, colore line, margini 14px), tutti uguali. Al passaggio del mouse/focus: tooltip col nome della voce (componente `Tooltip` esistente).
 - **Animazione**: solo la larghezza (≈200ms, ease); il testo viene tagliato, non riposizionato. Con `prefers-reduced-motion`: nessuna transizione.
 - **Voce attiva**: sfondo accent-soft, testo e icona accent, semibold. Hover: sfondo sunken.
 - **Segnali** (quelli di oggi, nessuno nuovo): aperta → a destra della riga (contatore a pillola, spinner 14px dell'import, pallino 7px, lucchetto 14px muted); chiusa → badge piccolo in alto a destra dell'icona (contatore, spinner, pallino); voce col lucchetto → icona muted, tooltip «Nome · Pro».
-- **Piede**: Assistenza + pulsante apri/chiudi. Stato aperta/chiusa salvato come oggi.
+- **Piede**: Impostazioni · Assistenza · pulsante apri/chiudi (nella sede: Assistenza · apri/chiudi). Stato aperta/chiusa salvato come oggi.
 - **Sotto 1024px** parte chiusa (resta apribile). **Sotto 768px** nessuna versione chiusa: pannello a tutta altezza dal pulsante menu, come oggi.
 - Solo token esistenti di `_theme.scss` e componenti di `src/components/ui/`: nessun colore nuovo, nessuna libreria nuova.
 

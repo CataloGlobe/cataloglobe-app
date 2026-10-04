@@ -1,4 +1,4 @@
-import { Fragment, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { motion, useReducedMotion } from "framer-motion";
 import { Lock, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
@@ -274,15 +274,12 @@ export function AppSidebar({
 
                 <nav className={styles.nav} aria-label="Menu principale">
                     <div className={styles.sidebarScroll}>
+                        {/* Fra i gruppi solo i titoli (aperta) e i loro trattini (chiusa), §51.15. */}
                         {groups.map((group, i) => (
-                            <Fragment key={i}>
-                                {/* Il titolo è il separatore: il divisore resta solo per i gruppi senza titolo. */}
-                                {i > 0 && !group.title && <div className={styles.groupDivider} role="separator" />}
-                                <div className={styles.group} role="group" aria-label={group.title}>
-                                    {group.title && <span className={styles.groupTitle}>{group.title}</span>}
-                                    <ul className={styles.list}>{group.items.map(renderItem)}</ul>
-                                </div>
-                            </Fragment>
+                            <div key={i} className={styles.group} role="group" aria-label={group.title}>
+                                {group.title && <span className={styles.groupTitle}>{group.title}</span>}
+                                <ul className={styles.list}>{group.items.map(renderItem)}</ul>
+                            </div>
                         ))}
                         {footerSlot}
                     </div>

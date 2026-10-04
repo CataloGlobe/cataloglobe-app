@@ -19,7 +19,7 @@ Voci, ordine e gruppi dei tre contesti stanno **solo** in `NAV_MODELS` (`src/uti
 | Andamento | Analitiche | `analitiche` | `analytics.read` | — |
 | Andamento | Recensioni | `recensioni` | `reviews.read` | — |
 
-Assistenza sta nel piede, in tutti i contesti. I permessi si chiedono **su questa sede** (`canDoOnActivity`). Una voce senza piano resta visibile col lucchetto; una senza permesso sparisce.
+Il piede ha Assistenza in tutti i contesti, e sopra Impostazioni fuori dalla sede (sidebar unica e d'azienda). I permessi si chiedono **su questa sede** (`canDoOnActivity`). Una voce senza piano resta visibile col lucchetto; una senza permesso sparisce.
 
 **Atterraggio** (`SedeHomeRedirect`, `sedeLandingSegment`, §51.6): chi gestisce la sede (owner, admin, `activity.manage` sulla sede) entra dalla Scheda; staff e viewer dalla prima voce di Operatività usabile (permesso + piano; per Servizio almeno un modo usabile, `NavEntry.usable`). Nessuna voce usabile: la Scheda, che dice il perché.
 

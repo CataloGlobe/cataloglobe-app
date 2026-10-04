@@ -315,23 +315,22 @@ export const NAV_MODELS: Record<NavContext, NavModel> = {
             CATALOGO,
             PAGINA_PUBBLICA,
             OPERATIVITA,
-            { title: "Andamento", entries: [ANALITICHE, RECENSIONI, GUESTS] },
-            { title: null, entries: [SETTINGS] }
+            { title: "Andamento", entries: [ANALITICHE, RECENSIONI, GUESTS] }
         ],
-        footer: [SUPPORT]
+        footer: [SETTINGS, SUPPORT]
     },
     azienda: {
         groups: [
             { title: null, entries: [OVERVIEW, LOCATIONS] },
             CATALOGO,
             PAGINA_PUBBLICA,
-            { title: "Andamento", entries: [ANALYTICS, REVIEWS, GUESTS] },
-            { title: null, entries: [SETTINGS] }
+            { title: "Andamento", entries: [ANALYTICS, REVIEWS, GUESTS] }
         ],
-        footer: [SUPPORT]
+        footer: [SETTINGS, SUPPORT]
     },
     sede: {
         groups: [IL_LOCALE, OPERATIVITA, { title: "Andamento", entries: [ANALITICHE, RECENSIONI] }],
+        // Impostazioni è dell'azienda: dentro la sede il piede ha solo Assistenza.
         footer: [SUPPORT]
     }
 };

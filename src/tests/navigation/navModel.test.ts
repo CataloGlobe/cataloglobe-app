@@ -82,17 +82,16 @@ describe("resolveNavContext — una o più sedi leggibili (§51.2)", () => {
 });
 
 describe("NAV_MODELS — gruppi e ordine (§51.5)", () => {
-    it("sidebar unica: 17 voci nei gruppi, Assistenza nel piede", () => {
+    it("sidebar unica: 16 voci nei gruppi, Impostazioni e Assistenza nel piede", () => {
         expect(shape("unica")).toEqual([
             [null, ["Panoramica"]],
             ["Il locale", ["Scheda", "Cosa vedono i clienti"]],
             ["Catalogo", ["Cataloghi", "Prodotti", "Programmazione"]],
             ["Pagina pubblica", ["Stili", "In evidenza", "Storie", "Lingue"]],
             ["Operatività", ["Servizio", "Prenotazioni", "Comande", "Storico"]],
-            ["Andamento", ["Analitiche", "Recensioni", "Clienti"]],
-            [null, ["Impostazioni"]]
+            ["Andamento", ["Analitiche", "Recensioni", "Clienti"]]
         ]);
-        expect(NAV_MODELS.unica.footer.map(e => e.label)).toEqual(["Assistenza"]);
+        expect(NAV_MODELS.unica.footer.map(e => e.label)).toEqual(["Impostazioni", "Assistenza"]);
     });
 
     it("azienda: Sedi sotto Panoramica, niente Ordini né Prenotazioni, niente Team né Abbonamento", () => {
@@ -100,10 +99,9 @@ describe("NAV_MODELS — gruppi e ordine (§51.5)", () => {
             [null, ["Panoramica", "Sedi"]],
             ["Catalogo", ["Cataloghi", "Prodotti", "Programmazione"]],
             ["Pagina pubblica", ["Stili", "In evidenza", "Storie", "Lingue"]],
-            ["Andamento", ["Analitiche", "Recensioni", "Clienti"]],
-            [null, ["Impostazioni"]]
+            ["Andamento", ["Analitiche", "Recensioni", "Clienti"]]
         ]);
-        expect(NAV_MODELS.azienda.footer.map(e => e.label)).toEqual(["Assistenza"]);
+        expect(NAV_MODELS.azienda.footer.map(e => e.label)).toEqual(["Impostazioni", "Assistenza"]);
     });
 
     it("sede: il locale, il lavoro in sala, i risultati della sede", () => {
