@@ -7,6 +7,8 @@
 --   crm_agent_auto_send(id)     service: invia una bozza da sola se il tipo
 --                               è autonomo e l'autonomia è accesa
 --   crm_agent_decide_draft      rifatta da 20261004030100 con «Era sbagliata»
+--   crm_settings_agent_switch_log  trigger: nel diario chi accende o spegne
+--                               Autonomia, risposte e solleciti
 -- =============================================================================
 
 CREATE OR REPLACE FUNCTION public.crm_agent_trust_rules()
@@ -334,3 +336,50 @@ BEGIN
     RETURN v_status;
 END;
 $$;
+
+-- -----------------------------------------------------------------------------
+-- Diario degli interruttori dell'agente: chi accende o spegne Autonomia,
+-- risposte e solleciti. Trigger nuovo, accanto a crm_settings_agent_log
+-- (20261002210100, che registra pausa, tetti e modelli e resta com'è).
+-- -----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.crm_settings_agent_switch_log()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO ''
+AS $$
+DECLARE
+    v_actor  uuid := public.crm_agent_actor();
+    v_field  text;
+    v_on     boolean;
+BEGIN
+    FOREACH v_field IN ARRAY ARRAY['agent_autonomy_on', 'agent_replies_on', 'agent_followups_on']
+    LOOP
+        IF to_jsonb(OLD) -> v_field IS DISTINCT FROM to_jsonb(NEW) -> v_field THEN
+            v_on := (to_jsonb(NEW) ->> v_field)::boolean;
+            INSERT INTO public.crm_agent_decisions (actor, actor_user_id, action, reason, payload)
+            VALUES (
+                CASE WHEN v_actor IS NOT NULL THEN 'person' ELSE 'system' END,
+                v_actor,
+                CASE v_field
+                    WHEN 'agent_autonomy_on' THEN 'autonomy'
+                    WHEN 'agent_replies_on' THEN 'replies'
+                    ELSE 'followups'
+                END || CASE WHEN v_on THEN '_on' ELSE '_off' END,
+                CASE v_field
+                    WHEN 'agent_autonomy_on' THEN CASE WHEN v_on THEN 'Autonomia accesa.' ELSE 'Autonomia spenta.' END
+                    WHEN 'agent_replies_on' THEN CASE WHEN v_on THEN 'Risposte dell''agente accese.' ELSE 'Risposte dell''agente spente.' END
+                    ELSE CASE WHEN v_on THEN 'Solleciti dell''agente accesi.' ELSE 'Solleciti dell''agente spenti.' END
+                END,
+                jsonb_build_object('field', v_field, 'on', v_on)
+            );
+        END IF;
+    END LOOP;
+    RETURN NULL;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS crm_settings_agent_switch_log ON public.crm_settings;
+CREATE TRIGGER crm_settings_agent_switch_log
+    AFTER UPDATE OF agent_autonomy_on, agent_replies_on, agent_followups_on ON public.crm_settings
+    FOR EACH ROW EXECUTE FUNCTION public.crm_settings_agent_switch_log();

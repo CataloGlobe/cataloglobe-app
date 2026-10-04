@@ -51,7 +51,13 @@ const ACTION_LABEL: Record<string, string> = {
     draft_lost: "Messo in Perso",
     draft_auto_sent: "Partita da sola",
     draft_wrong: "Segnata come sbagliata",
-    reactivation_lost: "Di nuovo in Perso: nessuna risposta alla riattivazione"
+    reactivation_lost: "Di nuovo in Perso: nessuna risposta alla riattivazione",
+    autonomy_on: "Autonomia accesa",
+    autonomy_off: "Autonomia spenta",
+    replies_on: "Risposte dell'agente accese",
+    replies_off: "Risposte dell'agente spente",
+    followups_on: "Solleciti dell'agente accesi",
+    followups_off: "Solleciti dell'agente spenti"
 };
 
 /** Azioni nuove (dalle PR dopo) senza etichetta: il codice, leggibile. */
