@@ -60,6 +60,8 @@ export function summaryRange(period: CrmSummaryPeriod, now: Date = new Date()): 
         // ieri è sempre nel giorno di calendario giusto, anche al cambio dell'ora.
         const y = romeParts(new Date(from.getTime() - 12 * 3_600_000));
         const previousFrom = romeMidnight(y.year, y.month, y.day);
+        // Il giorno del cambio dell'ora «ieri alla stessa ora» sbaglia di un'ora:
+        // accettato, è un confronto indicativo.
         return {
             from,
             to: now,
@@ -76,7 +78,9 @@ export function summaryRange(period: CrmSummaryPeriod, now: Date = new Date()): 
             from,
             to: now,
             previousFrom,
-            previousTo: new Date(previousFrom.getTime() + (now.getTime() - from.getTime())),
+            // Mese prima più corto (il 31 marzo): il confronto non entra nel
+            // mese corrente, si ferma alla sua fine.
+            previousTo: new Date(Math.min(previousFrom.getTime() + (now.getTime() - from.getTime()), from.getTime())),
             compareLabel: "vs lo stesso punto del mese prima"
         };
     }
