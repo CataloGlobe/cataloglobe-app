@@ -521,17 +521,25 @@ export async function processAgent(supabase, team, botToken, appUrl, now = new D
     for (const c of candidates ?? []) {
         if (worked >= MAX_CANDIDATES) break;
         // Riattivazione corta: nessuna risposta in 7 giorni, il locale torna
-        // in Perso. Nessun messaggio al lead, nessun modello.
+        // in Perso. Nessun messaggio al lead, nessun modello: anche di notte,
+        // ma solo coi solleciti accesi (è la loro fine). Solo da Contattato e
+        // con la fase non bloccata: se una persona l'ha spostato, decide lei.
+        // Non conta fra i lavorati: un locale che non si sposta non toglie
+        // il posto agli altri.
         if (c.r_kind === "reactivation_lost") {
-            worked += 1;
-            const { data: v } = await supabase.from("crm_venues").select("id, stage").eq("id", c.r_venue_id).maybeSingle();
-            if (!v || v.stage === "perso" || v.stage === "cliente_pagante") continue;
+            if (!settings.agent_followups_on) continue;
+            const { data: v } = await supabase
+                .from("crm_venues")
+                .select("id, stage, stage_locked_at")
+                .eq("id", c.r_venue_id)
+                .maybeSingle();
+            if (!v || v.stage !== "contattato" || v.stage_locked_at) continue;
             const { data: moved, error: moveError } = await supabase.rpc("crm_move_stage", {
                 p_venue_id: v.id,
                 p_stage: "perso",
                 p_lost_kind: "obiezione",
                 p_lost_reason: REACTIVATION_LOST_REASON,
-                p_expected_stage: v.stage,
+                p_expected_stage: "contattato",
                 p_actor_user_id: null
             });
             if (moveError || !moved) {
