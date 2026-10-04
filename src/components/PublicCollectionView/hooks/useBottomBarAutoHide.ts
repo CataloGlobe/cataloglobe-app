@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { PUBLIC_MOBILE_QUERY } from "../publicBreakpoints";
 import {
+    IDLE_REVEAL_MS,
     initialBarState,
     PROGRAMMATIC_IGNORE_MS,
     PROGRAMMATIC_MAX_EXTRA_MS,
@@ -35,7 +36,7 @@ export type BottomBarAutoHide = {
  * `bottomBarVisibility.ts`. Listener passive + rAF; stato congelato a sheet
  * aperta (stessa fonte dell'header: prop `frozen` + `hasOpenSheet()`), con
  * re-baseline al primo scroll utile dopo il freeze (il body-lock falsa lo
- * scroll). Pagina pubblica: solo sotto PUBLIC_MOBILE_QUERY, sopra la barra
+ * scroll). Da fermo, nascosta e senza sheet, ricompare dopo IDLE_REVEAL_MS. Pagina pubblica: solo sotto PUBLIC_MOBILE_QUERY, sopra la barra
  * non c'è e non si nasconde mai. Preview: scroll del device frame.
  */
 export function useBottomBarAutoHide({
@@ -97,6 +98,26 @@ export function useBottomBarAutoHide({
         }
         const target: HTMLElement | Window = preview && scrollContainerEl ? scrollContainerEl : window;
         let rafId: number | null = null;
+        let idleTimer: ReturnType<typeof setTimeout> | null = null;
+
+        const isFrozen = () => frozenRef.current || hasOpenSheet();
+
+        const clearIdle = () => {
+            if (idleTimer !== null) clearTimeout(idleTimer);
+            idleTimer = null;
+        };
+        // Ricomparsa da fermo: armato dopo uno scroll dell'utente che lascia la
+        // barra nascosta. Allo scadere ricontrolla sheet e scroll programmatico.
+        const armIdle = () => {
+            clearIdle();
+            idleTimer = setTimeout(() => {
+                idleTimer = null;
+                const now = performance.now();
+                if (!stateRef.current.hidden || isFrozen()) return;
+                if (now < ignoreUntilRef.current || now < awaitScrollEndUntilRef.current) return;
+                reveal();
+            }, IDLE_REVEAL_MS);
+        };
 
         // Stessa lettura di PublicCollectionHeader.readScroll: col body in lock
         // (position:fixed) la posizione reale sta in body.style.top.
@@ -116,9 +137,9 @@ export function useBottomBarAutoHide({
             return { y: window.scrollY, maxY };
         };
 
-        const isFrozen = () => frozenRef.current || hasOpenSheet();
-
         const handleScroll = () => {
+            // Ogni scroll azzera il conto della ricomparsa da fermo.
+            clearIdle();
             if (isFrozen()) {
                 needsResyncRef.current = true;
                 return;
@@ -143,6 +164,7 @@ export function useBottomBarAutoHide({
                 }
                 stateRef.current = stepScroll(stateRef.current, y, maxY);
                 commitHidden(stateRef.current.hidden);
+                if (stateRef.current.hidden) armIdle();
             });
         };
 
@@ -167,6 +189,7 @@ export function useBottomBarAutoHide({
             target.removeEventListener("scrollend", handleScrollEnd);
             document.removeEventListener("visibilitychange", handleVisibility);
             unsubscribeSheetClose();
+            clearIdle();
             if (rafId !== null) cancelAnimationFrame(rafId);
         };
     }, [active, preview, scrollContainerEl, reveal, commitHidden]);

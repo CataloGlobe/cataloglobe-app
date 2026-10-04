@@ -19,6 +19,9 @@ export const PROGRAMMATIC_IGNORE_MS = 900;
 /** Smooth scroll lungo: dove c'è `scrollend`, si continua a ignorare fino a
  *  quello, al massimo per tanto oltre la finestra. */
 export const PROGRAMMATIC_MAX_EXTRA_MS = 1500;
+/** Da fermo: nascosta e senza sheet aperte, ricompare dopo tanto dall'ultimo
+ *  scroll. Ogni scroll azzera il conto; gli scroll programmatici non lo avviano. */
+export const IDLE_REVEAL_MS = 1500;
 /** Margine per riconoscere la fine pagina (arrotondamenti subpixel). */
 const END_EPSILON_PX = 2;
 

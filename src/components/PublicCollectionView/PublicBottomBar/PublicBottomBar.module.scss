@@ -20,9 +20,16 @@
   z-index: 150;
 
   // Nascondi/mostra tutto o niente (data-hidden da useBottomBarAutoHide).
+  // Sempre montata: si muove solo questo elemento, che porta transform e
+  // transition. Entrata 280ms con curva morbida; l'uscita sta su [data-hidden].
+  // La curva di prima (0.32, 0.72, 0, 1 in 250ms) faceva il 70% della corsa nei
+  // primi ~60ms: su telefono, quattro frame, letta come uno scatto.
+  // `visibility` torna visibile subito all'entrata (delay 0).
+  visibility: visible;
   transition:
-    transform 0.25s cubic-bezier(0.32, 0.72, 0, 1),
-    opacity 0.25s ease;
+    transform 280ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    opacity 280ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    visibility 0s linear 0s;
 
   // Larghezza-contenuto: la barra si dimensiona agli slot (tab a stadio + azioni),
   // resta centrata via left/right/margin auto. max-width come guard anti-overflow
@@ -110,12 +117,19 @@
   }
 }
 
-// Fuori vista: scende oltre il bordo (altezza + distanza dal fondo) e sfuma.
-// `inert` + `aria-hidden` li mette il .tsx.
+// Fuori vista: scende oltre il bordo (altezza + distanza dal fondo) e sfuma in
+// 220ms ease-in. `visibility: hidden` arriva a fine uscita (delay = durata),
+// così l'animazione si vede e alla fine la barra esce anche dal rendering.
+// `inert` + `aria-hidden` li mette il .tsx, subito.
 .barWrap[data-hidden] {
   transform: translateY(calc(100% + var(--pub-bottombar-bottom, 34px)));
   opacity: 0;
+  visibility: hidden;
   pointer-events: none;
+  transition:
+    transform 220ms ease-in,
+    opacity 220ms ease-in,
+    visibility 0s linear 220ms;
 }
 
 // Entry sul wrapper: solo opacity + translateY (transform indipendente dal `.bar`).
@@ -283,11 +297,17 @@
     animation: none;
     transition: none;
   }
+  // Solo opacity, 150ms (non 0: la comparsa resta leggibile).
   .barWrap {
     animation: none;
-    transition: opacity 0.25s ease;
+    transition:
+      opacity 150ms ease,
+      visibility 0s linear 0s;
   }
   .barWrap[data-hidden] {
     transform: none;
+    transition:
+      opacity 150ms ease,
+      visibility 0s linear 150ms;
   }
 }
