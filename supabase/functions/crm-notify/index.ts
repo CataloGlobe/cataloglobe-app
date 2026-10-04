@@ -37,7 +37,12 @@
 //    messaggio a tutto il team collegato. Prenotazione con l'UPDATE di
 //    `reminded_for`; se nessun invio va, si libera e il giorno dopo riprova.
 //
-// 5. RIEPILOGO SETTIMANALE (solo col body {"job":"weekly"}, dal cron del
+// 5. AGENDA (solo col body {"job":"agenda"}, dal cron ogni 5 minuti, mig
+//    20261003230300, solo se crm_agenda_has_work): eventi del calendario
+//    Google, «Puoi tu?» a chi deve chiamare, brief un'ora prima, «Com'è
+//    andata?» dopo (`processAgenda` in _shared/crmAgendaJob.ts).
+//
+// 6. RIEPILOGO SETTIMANALE (solo col body {"job":"weekly"}, dal cron del
 //    lunedì alle 8 di Roma, mig 20261004020200): i numeri della settimana
 //    appena finita (crm_summary) per email a tutto il team del CRM.
 //    Prenotazione con `crm_settings.summary_mail_week`.
@@ -47,6 +52,7 @@
 // Env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, CRM_JOB_SECRET,
 // TELEGRAM_BOT_TOKEN, APP_URL (facoltativo: link «Apri nel CRM»),
 // CRM_WA_LINK_SECRET (facoltativo: senza, niente pulsante WhatsApp),
+// GOOGLE_SERVICE_ACCOUNT_JSON (facoltativo: agenda su Google Calendar),
 // RESEND_API_KEY (riepilogo settimanale).
 // =============================================================================
 
@@ -62,6 +68,7 @@ import {
 } from "../_shared/crmTelegram.ts";
 import { loadLeadMessageData, loadTeam, whatsappLinkFor } from "../_shared/crmLeadMessage.ts";
 import { buildRenewalReminderMessage } from "../_shared/crmExpenses.ts";
+import { processAgenda } from "../_shared/crmAgendaJob.ts";
 import { buildWeeklyEmail, lastWeekBounds } from "../_shared/crmWeeklyEmail.ts";
 import { sendEmailWithResult } from "../_shared/sendEmail.ts";
 import { sendToTeam } from "../_shared/crmTeamAlert.ts";
@@ -443,6 +450,11 @@ Deno.serve(async (req: Request) => {
     try {
         const team = await loadTeam(supabase);
         const body = await req.json().catch(() => ({}));
+        if (body?.job === "agenda") {
+            const agenda = await processAgenda(supabase, team, BOT_TOKEN, appUrl, now);
+            console.log(JSON.stringify({ event: "crm_notify_agenda", ...agenda }));
+            return json(200, agenda);
+        }
         if (body?.job === "weekly") {
             const weekly = await processWeekly(supabase, team, appUrl, now);
             console.log(JSON.stringify({ event: "crm_notify_weekly", ...weekly }));

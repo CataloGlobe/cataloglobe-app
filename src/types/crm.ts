@@ -41,7 +41,14 @@ export type CrmEventType =
     | "subscription_changed"
     | "venue_renamed"
     | "venue_name_confirmed"
-    | "venue_name_deferred";
+    | "venue_name_deferred"
+    | "agent_hold"
+    | "agent_released"
+    | "call_scheduled"
+    | "call_moved"
+    | "call_cancelled"
+    | "call_caller_answered"
+    | "call_outcome";
 
 /** Lead tornato: confronto del locale scritto con quello della carta (20261002130000). */
 export type CrmVenueNameMatch = "same" | "typo" | "other";
@@ -137,6 +144,9 @@ export interface CrmVenue {
     stage_locked_at: string | null;
     stage_locked_by: string | null;
     stage_lock_note: string | null;
+    /** «La prendo io» (20261002220000): l'agente WhatsApp non scrive a questo locale. */
+    agent_hold_at: string | null;
+    agent_hold_by: string | null;
 }
 
 /** Riga dell'elenco: il locale col suo primo contatto e gli ingressi. */
@@ -250,6 +260,52 @@ export type CrmAgentCheckResult =
     | { ok: false; reason: string; model: string | null; detail: string | null };
 
 // -----------------------------------------------------------------------------
+// Connettore WhatsApp Web (F1-2, migration 20261002220000)
+// -----------------------------------------------------------------------------
+export type CrmMessageDirection = "in" | "out";
+export type CrmMessageAuthor = "lead" | "agent" | "person";
+export type CrmMessageKind = "text" | "voice" | "image" | "video" | "document" | "sticker" | "other";
+export type CrmMessagePurpose = "first_message" | "reply" | "follow_up" | "call_confirm" | "call_reminder";
+export type CrmMessageStatus = "queued" | "sending" | "sent" | "failed" | "cancelled";
+
+export interface CrmMessage {
+    id: string;
+    created_at: string;
+    venue_id: string;
+    contact_id: string | null;
+    lead_id: string | null;
+    direction: CrmMessageDirection;
+    author: CrmMessageAuthor;
+    kind: CrmMessageKind;
+    body: string | null;
+    purpose: CrmMessagePurpose | null;
+    status: CrmMessageStatus | null;
+    status_reason: string | null;
+    sent_at: string | null;
+    appointment_id: string | null;
+}
+
+export type CrmWaState = "unknown" | "ok" | "needs_relink" | "warning";
+
+export interface CrmWaChannel {
+    last_heartbeat_at: string | null;
+    wa_state: CrmWaState;
+    wa_state_detail: string | null;
+    wa_state_at: string | null;
+    worker_version: string | null;
+    failures_in_row: number;
+    next_send_at: string | null;
+    silent_alerted_at: string | null;
+}
+
+export interface CrmWaSettings {
+    /** NULL = nessun primo messaggio automatico. */
+    wa_first_message: string | null;
+    wa_test_only: boolean;
+    wa_test_numbers: string[];
+}
+
+// -----------------------------------------------------------------------------
 // Sezione costi (/admin/costi, migration 20261003120000)
 // -----------------------------------------------------------------------------
 
@@ -296,6 +352,71 @@ export interface CrmExpenseInput {
     cancelledOn: string | null;
     remindDaysBefore: number | null;
     notes: string | null;
+}
+
+// -----------------------------------------------------------------------------
+// Agenda delle telefonate (F1-4a, migration 20261003230000)
+// -----------------------------------------------------------------------------
+export type CrmAppointmentStatus = "proposed" | "confirmed" | "cancelled" | "done" | "no_show" | "postponed";
+export type CrmCallOutcome = "done" | "no_show" | "postponed";
+export type CrmGoogleSync = "pending" | "ok" | "error" | "none";
+
+export interface CrmAppointment {
+    id: string;
+    created_at: string;
+    venue_id: string;
+    lead_id: string | null;
+    contact_id: string | null;
+    starts_at: string;
+    ends_at: string;
+    time_set_at: string;
+    caller_user_id: string;
+    created_by: string | null;
+    status: CrmAppointmentStatus;
+    status_reason: string | null;
+    note: string | null;
+    google_sync: CrmGoogleSync;
+    google_error: string | null;
+    reminder_queued_at: string | null;
+    brief_sent_at: string | null;
+    outcome_at: string | null;
+    outcome_by: string | null;
+}
+
+/** Una telefonata con il nome del locale, per la pagina Agenda. */
+export interface CrmAppointmentWithVenue extends CrmAppointment {
+    venue_name: string;
+    venue_city: string | null;
+}
+
+export interface CrmCallWindow {
+    days: number[];
+    start: string;
+    end: string;
+}
+
+export interface CrmAgendaSettings {
+    call_windows: CrmCallWindow[];
+    call_duration_minutes: number;
+    call_min_notice_minutes: number;
+    google_calendar_id: string | null;
+    call_confirm_message: string | null;
+    call_reminder_message: string | null;
+}
+
+/** Un impegno per gli orari liberi: telefonata del CRM o evento del calendario Google. */
+export interface CrmAgendaBusy {
+    start: string;
+    end: string;
+    label: string;
+    appointment_id: string | null;
+    caller_user_id: string | null;
+}
+
+export interface CrmAgendaBusyResult {
+    google: "ok" | "off" | "error";
+    google_error: string | null;
+    busy: CrmAgendaBusy[];
 }
 
 // -----------------------------------------------------------------------------
