@@ -19,8 +19,11 @@
 //     tornato con un altro nome del locale → crm_resolve_venue_name ('same' /
 //     'rename', mig 20261002230000), riscrive i messaggi e conferma cosa ha
 //     fatto. «Decido dopo» ('later') arriva solo da messaggi vecchi.
-//   * agenda (F1-4a): «Sì, chiamo io» / «No, non posso» → crm_answer_call
-//     (solo chi deve chiamare; se dice no, avvisa chi l'ha fissata); «Fatta» /
+//   * agenda (F1-4a): «Sì, chiamo io» → crm_answer_call (solo chi deve
+//     chiamare; «No, non posso» resta per i messaggi vecchi e avvisa chi l'ha
+//     fissata); «Chiamala tu» → crm_handover_call, passa a chi l'ha fissata;
+//     «Propongo un altro orario» apre gli orari, la scelta →
+//     crm_call_propose_other (bozza per il lead, al singolare); «Fatta» /
 //     «Non ha risposto» / «Rimandata» → crm_set_call_outcome. Il messaggio
 //     perde i pulsanti e dice cosa è successo.
 //   * agente in prova (F1-3): tasti delle bozze → crm_agent_decide_draft;
@@ -50,7 +53,16 @@ import { chooseButtons, parseCallbackData } from "../_shared/crmTelegram.ts";
 import { CRM_STAGE_LABEL } from "../_shared/crmLabels.ts";
 import { loadTeam, refreshVenueMessages } from "../_shared/crmLeadMessage.ts";
 import { loadAppointment, syncAppointmentGoogle, toCallInfo } from "../_shared/crmAgendaJob.ts";
-import { CALL_OUTCOME_LABEL, buildAnsweredText, buildCallerDeclinedText } from "../_shared/crmAgendaMessages.ts";
+import {
+    CALL_OUTCOME_LABEL,
+    buildAnsweredText,
+    buildCallerDeclinedText,
+    buildCallerOtherTimeMessage,
+    buildCallerRequestMessage,
+    buildHandedOverText,
+    buildLeadOtherTimeText,
+    buildOtherTimeProposedText
+} from "../_shared/crmAgendaMessages.ts";
 import { sendToTeam } from "../_shared/crmTeamAlert.ts";
 import { closeDraftMessages } from "../_shared/crmAgentJob.ts";
 import { buildEditPromptText, cleanEditText } from "../_shared/crmAgentMessages.ts";
@@ -187,8 +199,35 @@ const CALL_ERRORS: Record<string, string> = {
     CL003: "L'orario è già passato: fissane un altro dalla scheda.",
     CL004: "Questa telefonata non è più attiva.",
     CL006: "Può rispondere solo chi deve chiamare.",
+    CL007: "L'ha fissata chi deve chiamare: non c'è nessuno a cui passarla.",
+    CL008: "Per questo locale c'è già una bozza aperta: decidete prima quella.",
+    CL001: "Chi l'ha fissata ha già un'altra telefonata a quell'ora: decidete dalla scheda.",
+    "22023": "Chi l'ha fissata non è più nel team: decidete dalla scheda.",
     P0002: "Questa telefonata non c'è più."
 };
+
+/** Riscrive testo e tasti del messaggio toccato (scelta dell'orario e ritorno). */
+async function replaceMessage(query, message) {
+    const chatId = query.message?.chat?.id;
+    const messageId = query.message?.message_id;
+    if (!chatId || !messageId) return;
+    await telegramCall(BOT_TOKEN, "editMessageText", {
+        chat_id: chatId,
+        message_id: messageId,
+        text: message.text,
+        parse_mode: "HTML",
+        disable_web_page_preview: true,
+        reply_markup: message.reply_markup
+    });
+}
+
+async function syncGoogleQuietly(supabase, id: string, team, appUrl) {
+    try {
+        await syncAppointmentGoogle(supabase, id, team, appUrl);
+    } catch (err) {
+        console.error("crm-telegram-webhook: Google", (err as Error)?.message);
+    }
+}
 
 async function handleCall(supabase, parsed, actor, team, answer, query, appUrl) {
     const row = await loadAppointment(supabase, parsed.appointmentId);
@@ -197,6 +236,80 @@ async function handleCall(supabase, parsed, actor, team, answer, query, appUrl) 
         return;
     }
     const info = toCallInfo(row, team);
+
+    if (parsed.action === "call_other_menu") {
+        if (row.status !== "proposed") {
+            await answer("Già deciso.");
+            await closeMessage(query, buildAnsweredText(info, "già decisa"));
+            return;
+        }
+        if (actor.user_id !== row.caller_user_id) {
+            await answer(CALL_ERRORS.CL006);
+            return;
+        }
+        await replaceMessage(query, parsed.open ? buildCallerOtherTimeMessage(info) : buildCallerRequestMessage(info, appUrl));
+        await answer("");
+        return;
+    }
+
+    if (parsed.action === "call_other_time") {
+        const leadText = buildLeadOtherTimeText(info, parsed.shiftMinutes);
+        const { data: draftId, error } = await supabase.rpc("crm_call_propose_other", {
+            p_appointment_id: row.id,
+            p_text: leadText,
+            p_actor_user_id: actor.user_id
+        });
+        if (error) {
+            console.error("crm-telegram-webhook: crm_call_propose_other", error.code, error.message);
+            await answer(CALL_ERRORS[error.code] ?? "Non ci sono riuscito. Riprova dalla scheda.");
+            return;
+        }
+        if (draftId === null) {
+            await answer("Già deciso.");
+            await closeMessage(query, buildAnsweredText(info, "già decisa"));
+            return;
+        }
+        await closeMessage(
+            query,
+            buildAnsweredText(info, `annullata, proponi un altro orario. Al lead andrà: «${leadText}». La bozza arriva qui, da approvare.`)
+        );
+        await answer("Bozza preparata.");
+        if (row.created_by && row.created_by !== actor.user_id) {
+            await sendToTeam(supabase, buildOtherTimeProposedText(info, leadText), {
+                preferUserIds: [row.created_by],
+                logTag: "crm-telegram-webhook"
+            });
+        }
+        // Google: l'evento, se c'era, va tolto.
+        await syncGoogleQuietly(supabase, row.id, team, appUrl);
+        return;
+    }
+
+    if (parsed.action === "call_handover") {
+        const { data: status, error } = await supabase.rpc("crm_handover_call", {
+            p_appointment_id: row.id,
+            p_actor_user_id: actor.user_id
+        });
+        if (error) {
+            console.error("crm-telegram-webhook: crm_handover_call", error.code, error.message);
+            await answer(CALL_ERRORS[error.code] ?? "Non ci sono riuscito. Riprova dalla scheda.");
+            return;
+        }
+        if (status === null) {
+            await answer("Già deciso.");
+            await closeMessage(query, buildAnsweredText(info, "già decisa"));
+            return;
+        }
+        const to = info.createdByName ?? "chi l'ha fissata";
+        await closeMessage(query, buildAnsweredText(info, `passata a ${to}. Al lead parte la conferma.`));
+        await answer("Passata.");
+        await sendToTeam(supabase, buildHandedOverText({ ...info, callerName: actor.display_name }, false), {
+            preferUserIds: [row.created_by],
+            logTag: "crm-telegram-webhook"
+        });
+        await syncGoogleQuietly(supabase, row.id, team, appUrl);
+        return;
+    }
 
     if (parsed.action === "call_answer") {
         const { data: status, error } = await supabase.rpc("crm_answer_call", {
@@ -448,7 +561,13 @@ async function handleCallback(supabase, query, appUrl) {
         return;
     }
 
-    if (parsed.action === "call_answer" || parsed.action === "call_outcome") {
+    if (
+        parsed.action === "call_answer" ||
+        parsed.action === "call_outcome" ||
+        parsed.action === "call_handover" ||
+        parsed.action === "call_other_menu" ||
+        parsed.action === "call_other_time"
+    ) {
         await handleCall(supabase, parsed, actor, team, answer, query, appUrl);
         return;
     }

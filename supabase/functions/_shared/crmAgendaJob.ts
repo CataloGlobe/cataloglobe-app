@@ -6,10 +6,11 @@
 // (da /admin, subito dopo un cambio) e crm-telegram-webhook (dopo un sì).
 //
 //   syncAppointmentGoogle  scrive, sposta o toglie l'evento nel calendario
-//   processAgenda          tutti i passi dovuti: Google, «Puoi tu?», brief,
-//                          «Com'è andata?»
+//   processAgenda          tutti i passi dovuti: Google, «Puoi tu?» (col
+//                          sollecito e il passaggio a chi l'ha fissata),
+//                          brief, «Com'è andata?»
 //
-// ⚠️ SYNC con crm_agenda_has_work (migration 20261003230100): le condizioni
+// ⚠️ SYNC con crm_agenda_has_work (migration 20261004010400): le condizioni
 // dei passi sono le stesse. Se cambiano qui, cambiano là (falso negativo =
 // passo mai fatto; falso positivo = una chiamata a vuoto).
 //
@@ -25,9 +26,13 @@ import { telegramCall } from "./telegramApi.ts";
 import { CRM_STAGE_LABEL } from "./crmLabels.ts";
 import { CRM_TECHNICAL_ANSWER_KEYS } from "./crmTelegram.ts";
 import {
+    CALLER_REMINDER_MINUTES,
     buildBriefMessage,
     buildCallerRequestMessage,
+    buildHandedOverCallerText,
+    buildHandedOverText,
     buildOutcomeMessage,
+    handoverAt,
     type AgendaCallInfo
 } from "./crmAgendaMessages.ts";
 import {
@@ -49,6 +54,7 @@ const OUTCOME_GIVE_UP_DAYS = 3;
 
 const APPOINTMENT_SELECT =
     "id, venue_id, lead_id, starts_at, ends_at, status, note, caller_user_id, created_by, google_event_id, google_rev, " +
+    "caller_asked_at, caller_reminded_at, " +
     "crm_venues(name, city, stage), crm_contacts(name, phone_e164)";
 
 function teamName(team, userId: string | null): string | null {
@@ -67,6 +73,7 @@ export function toCallInfo(row, team): AgendaCallInfo {
         endsAt: row.ends_at,
         callerName: teamName(team, row.caller_user_id),
         createdByName: teamName(team, row.created_by),
+        canHandOver: Boolean(row.created_by) && row.created_by !== row.caller_user_id,
         note: row.note ?? null
     };
 }
@@ -265,7 +272,7 @@ async function briefExtras(supabase, row) {
 // Il giro completo
 // -----------------------------------------------------------------------------
 export async function processAgenda(supabase, team, botToken: string | null, appUrl: string | null, now = new Date()) {
-    const stats = { google: 0, google_errors: 0, caller_requests: 0, briefs: 0, outcomes: 0 };
+    const stats = { google: 0, google_errors: 0, caller_requests: 0, caller_reminders: 0, handovers: 0, briefs: 0, outcomes: 0 };
     const nowIso = now.toISOString();
 
     // 1. Google
@@ -305,6 +312,52 @@ export async function processAgenda(supabase, team, botToken: string | null, app
         const sent = await sendToCaller(botToken, team, row.caller_user_id, buildCallerRequestMessage(toCallInfo(row, team), appUrl));
         if (sent > 0) stats.caller_requests += 1;
         else if (!nobodyLinked) await releaseStep(supabase, row.id, "caller_asked_at");
+    }
+
+    // 2b. Nessuna risposta: la telefonata passa a chi l'ha fissata (handoverAt).
+    // Prima del sollecito, così non arrivano sollecito e passaggio insieme.
+    const { data: waiting } = await supabase
+        .from("crm_appointments")
+        .select(APPOINTMENT_SELECT)
+        .eq("status", "proposed")
+        .not("caller_asked_at", "is", null)
+        .gt("starts_at", nowIso)
+        .limit(50);
+    const handedOver = new Set<string>();
+    for (const row of waiting ?? []) {
+        const info = toCallInfo(row, team);
+        if (!info.canHandOver || handoverAt(row.starts_at, row.caller_asked_at) > now) continue;
+        const { data: status, error } = await supabase.rpc("crm_handover_call", {
+            p_appointment_id: row.id,
+            p_actor_user_id: null
+        });
+        if (error) {
+            // Chi l'ha fissata ha un'altra telefonata a quell'ora o non è più
+            // nel team: resta proposta, e all'orario scade come oggi.
+            console.warn(`${LOG}: passaggio non riuscito`, row.id, error.code);
+            continue;
+        }
+        if (status !== "confirmed") continue;
+        handedOver.add(row.id);
+        stats.handovers += 1;
+        await sendToCaller(botToken, team, row.created_by, { text: buildHandedOverText(info, true) });
+        await sendToCaller(botToken, team, row.caller_user_id, { text: buildHandedOverCallerText(info) });
+        try {
+            await syncAppointmentGoogle(supabase, row.id, team, appUrl, now);
+        } catch (err) {
+            console.error(`${LOG}: Google dopo il passaggio`, (err as Error)?.message);
+        }
+    }
+
+    // 2c. Sollecito del «Puoi tu?», una volta sola, dopo 30 minuti.
+    const remindBefore = now.getTime() - CALLER_REMINDER_MINUTES * 60_000;
+    for (const row of waiting ?? []) {
+        if (handedOver.has(row.id) || row.caller_reminded_at) continue;
+        if (new Date(row.caller_asked_at).getTime() > remindBefore) continue;
+        if (!(await claimStep(supabase, row.id, "caller_reminded_at", now))) continue;
+        const sent = await sendToCaller(botToken, team, row.caller_user_id, buildCallerRequestMessage(toCallInfo(row, team), appUrl, true));
+        if (sent > 0) stats.caller_reminders += 1;
+        else if (!nobodyLinked) await releaseStep(supabase, row.id, "caller_reminded_at");
     }
 
     // 3. Brief un'ora prima

@@ -342,8 +342,9 @@ AS $$
             WHERE d.status = 'pending'
               AND (d.notified_at IS NULL
                    OR d.created_at < p_now - interval '48 hours'
-                   OR (d.reminders < 12 AND NOT public.crm_agent_is_night(p_now)
-                       AND coalesce(d.last_reminded_at, d.notified_at) < p_now - interval '5 minutes'))
+                   -- Solleciti a 10, 30, 60 e 120 minuti dall'avviso (REMINDER_AFTER_MINUTES).
+                   OR (d.reminders < 4 AND NOT public.crm_agent_is_night(p_now)
+                       AND d.notified_at <= p_now - (ARRAY[10, 30, 60, 120])[d.reminders + 1] * interval '1 minute'))
         )
         OR (
             (SELECT agent_replies_on AND NOT brake_on FROM s)
