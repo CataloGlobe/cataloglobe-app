@@ -29,10 +29,11 @@
 --     crm_wa_ingest_chat: l'edge crm-wa-worker col service role (il Mac
 --     non tocca il database);
 --   * crm_wa_watchdog: la stessa edge, chiamata da pg_cron (220300);
---   * crm_set_agent_hold, crm_wa_cancel_message: /admin;
+--   * crm_set_agent_hold, crm_wa_cancel_message, crm_wa_retry_message: /admin;
 --   * crm_purge_messages: l'edge crm-purge, ogni notte (12 mesi).
 -- SECURITY INVOKER, tranne i trigger che accodano il primo messaggio, rimettono
--- a posto il canale alla ripartenza e scrivono il diario (vedi sotto).
+-- a posto il canale alla ripartenza e scrivono il diario, e «Riprova» (vedi
+-- sotto).
 -- =============================================================================
 
 BEGIN;
@@ -707,13 +708,21 @@ $$;
 -- l'edge lo scrive quando prende il messaggio, e con il testo vecchio ancora
 -- lì ripartirebbe quello invece del testo e dei nomi di adesso (review di
 -- Lorenzo, 2026-10-03). La guardia lo pretende anche per l'UPDATE diretto.
+-- SECURITY DEFINER: dal client authenticated aggiorna solo status e
+-- status_reason (220000), e azzerare testo e presa da INVOKER dava 42501
+-- («Riprova non funziona», review di Lorenzo, 2026-10-04). Il controllo
+-- sull'admin prende il posto della RLS; la guardia resta attiva, perché
+-- legge auth.uid() dal token e non il ruolo.
 CREATE OR REPLACE FUNCTION public.crm_wa_retry_message(p_message_id uuid)
 RETURNS boolean
 LANGUAGE plpgsql
-SECURITY INVOKER
+SECURITY DEFINER
 SET search_path TO ''
 AS $$
 BEGIN
+    IF NOT public.is_platform_admin() THEN
+        RAISE EXCEPTION 'not_platform_admin' USING ERRCODE = '42501';
+    END IF;
     UPDATE public.crm_messages x
     SET status = 'queued', status_reason = NULL, body = NULL, claimed_at = NULL
     WHERE x.id = p_message_id AND x.status = 'failed' AND x.purpose = 'first_message';
