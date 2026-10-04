@@ -32,6 +32,12 @@ describe("periodi in ora di Roma", () => {
         expect(jan.previousFrom.toISOString()).toBe("2026-11-30T23:00:00.000Z");
     });
 
+    it("mese: con il mese prima più corto il confronto non entra nel mese corrente", () => {
+        const r = summaryRange("month", new Date("2027-03-31T10:00:00Z"));
+        expect(r.previousFrom.toISOString()).toBe("2027-01-31T23:00:00.000Z");
+        expect(r.previousTo.toISOString()).toBe(r.from.toISOString());
+    });
+
     it("7 e 30 giorni a scorrere", () => {
         const now = new Date("2026-10-04T08:00:00Z");
         const r = summaryRange("7d", now);
