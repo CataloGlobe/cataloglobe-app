@@ -34,20 +34,28 @@ function normalize(text: string): string {
 
 const EXPLICIT_STOP: RegExp[] = [
     /^\s*stop\s*[.!]*\s*$/,
-    // Seconda persona e «più», o il messaggio intero: «non chiamatemi prima
-    // delle 10» non è uno stop (è nei casi incerti, decide una persona).
-    /\b(non|nn) (mi |ci )?(scrivete|scrivetemi|scriveteci|contattatemi|contattateci|contattate|cercatemi|scrivermi|contattarmi)\b.*\bpiu\b/,
+    // Seconda persona e «più» vicino, o il messaggio intero: «non chiamatemi
+    // prima delle 10» e «non scrivetemi ora, più tardi sì» non sono stop (sono
+    // nei casi incerti, decide una persona).
+    /\b(non|nn) (mi |ci )?(scrivete|scrivetemi|scriveteci|contattatemi|contattateci|contattate|cercatemi|scrivermi|contattarmi)( \S+){0,3} piu\b(?! (tardi|avanti|in la|spesso|presto))/,
     /^\s*(non|nn) (mi |ci )?(scrivete|scrivetemi|scriveteci|contattatemi|contattateci|disturbatemi|cercatemi)\s*(piu)?\s*[.!]*\s*$/,
-    /\b(non|nn) voglio (piu )?(essere )?(contattat|ricevere|messaggi)/,
-    /\b(cancellami|cancellatemi|cancella(te)? il mio numero|toglietemi|toglimi|rimuovetemi|rimuovimi)\b/,
-    /\b(smettete\w*|smetti\w*|smettila|basta) (di )?(scriv|contatt|mand)\w*/,
-    /\bbasta messaggi\b/,
+    /\b(non|nn) voglio (piu )?(essere (contattat|cercat|disturbat)|ricevere (piu |altri )?(messaggi|comunicazioni|notifiche|offerte)|messaggi)/,
+    // «toglimi un dubbio», «cancellami la prenotazione»: solo con la lista o il numero.
+    /\b(cancellami|cancellatemi|toglietemi|toglimi|rimuovetemi|rimuovimi) (dalla |dalle |dai |dal |da )?(vostr\w* )?(lista|liste|contatti|rubrica|mailing|elenc\w*|numer\w*)\b/,
+    /\b(cancellami|cancellatemi|toglietemi|toglimi|rimuovetemi|rimuovimi)\s*[.!]*\s*$/,
+    /\bcancella(te)? il mio numero\b/,
+    // «basta mandarmi il link» vuol dire il contrario: solo «smettete».
+    /\b(smettete\w*|smetti\w*|smettila) (di )?(scriv|contatt|mand)\w*/,
+    /\bbasta (con )?(i |questi )?messaggi\b/,
     /\bunsubscribe\b/,
     /\b(lasciatemi|lasciami) in pace\b/
 ];
 
 const UNCERTAIN_STOP: RegExp[] = [
     /\b(non|nn) (mi |ci )?(scrivete|scrivetemi|scriveteci|scrivermi|contatt\w*|chiamate\w*|chiamatemi|chiamarmi|disturb\w*|cercatemi)\b/,
+    /\b(non|nn) voglio (piu )?(essere )?(contattat|ricevere|messaggi)/,
+    /\b(cancellami|cancellatemi|toglietemi|toglimi|rimuovetemi|rimuovimi)\b/,
+    /\bbasta (di )?(scriv|contatt|mand)\w*/,
     /\bnon (mi |ci )?(interessa|interessano|serve|servono)\b/,
     /\b(ora|adesso|per ora|per il momento) no\b/,
     /\bno grazie\b/,
