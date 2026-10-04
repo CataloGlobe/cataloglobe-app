@@ -2,7 +2,8 @@ import { expect, test } from "@playwright/test";
 import { openBusinessPage } from "./business";
 
 /**
- * Abbonamento (`/business/:businessId/subscription`), visto da un
+ * Abbonamento (`/business/:businessId/settings/abbonamento`, tab di
+ * Impostazioni dal §51.12), visto da un
  * amministratore (billing.read + billing.manage, non billing.cancel) su
  * un'azienda attiva, Pro, 5 sedi pagate. Copre le feature che sopravvivono
  * alla riscrittura (registro feature, §Abbonamento passo 2): titolo; il
@@ -14,7 +15,10 @@ import { openBusinessPage } from "./business";
  */
 test.describe("Abbonamento", () => {
     test.beforeEach(async ({ page }) => {
-        await openBusinessPage(page, "subscription", "Abbonamento");
+        // Abbonamento è una tab di Impostazioni (§51.12): non è più una voce di sidebar.
+        await openBusinessPage(page, "settings", "Impostazioni");
+        await page.getByRole("tab", { name: "Abbonamento", exact: true }).click();
+        await page.waitForURL(/\/settings\/abbonamento$/);
     });
 
     test("titolo di pagina", async ({ page }) => {

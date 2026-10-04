@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTenant } from "@/context/useTenant";
 import { useToast } from "@/context/Toast/ToastContext";
+import { useSettingsTabs } from "./useSettingsTabs";
 import { usePageHeader } from "@/context/usePageHeader";
 import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { canDoOnTenant, canChangeRoleOf, canRemoveMember, isOwnerOrAdmin } from "@/lib/permissions";
@@ -169,8 +170,9 @@ export default function TeamPage() {
         if (!loading && pendingCount === 0 && activeTab === "invites") setActiveTab("members");
     }, [loading, pendingCount, activeTab]);
 
-    // ── Header band: leading (tab line) + actions (search + filtro + CTA) ──
-    const leading = useMemo(() => (
+    // ── Membri · Inviti: nel corpo, sopra la tabella. In testata stanno le
+    // tab di Impostazioni (§51.12); azioni (ricerca, filtro, CTA) restano lì.
+    const teamTabs = useMemo(() => (
         <Tabs<TeamTab>
             value={activeTab}
             onChange={handleTabChange}
@@ -226,16 +228,9 @@ export default function TeamPage() {
         </>
     ), [search, roleFilter, canInvite, roleFilterOptions]);
 
+    const settingsTabs = useSettingsTabs();
     const headerCompact = useMemo<PageHeaderCompactConfig>(() => ({
-        sections: [
-            { value: "members", label: "Membri" },
-            {
-                value: "invites",
-                label: pendingCount > 0 ? `Inviti in attesa · ${pendingCount}` : "Inviti in attesa"
-            }
-        ],
-        activeSection: activeTab,
-        onSectionChange: value => handleTabChange(value as TeamTab),
+        ...settingsTabs.compact,
         search: {
             value: search,
             onChange: setSearch,
@@ -254,10 +249,10 @@ export default function TeamPage() {
         primaryAction: canInvite
             ? { label: "Invita membro", onClick: () => setInviteDrawerOpen(true) }
             : undefined
-    }), [activeTab, handleTabChange, pendingCount, search, roleFilter, roleFilterOptions, canInvite]);
+    }), [settingsTabs.compact, search, roleFilter, roleFilterOptions, canInvite]);
 
     usePageHeader({
-        leading: canReadTeam ? leading : undefined,
+        leading: settingsTabs.leading,
         actions: canReadTeam ? headerActions : undefined,
         compact: canReadTeam ? headerCompact : undefined,
     });
@@ -661,10 +656,12 @@ export default function TeamPage() {
         </Text>
     );
 
+    const denied = !permissionsLoading && permissions != null && !canReadTeam;
+
     return (
         <>
             <div className={styles.page}>
-                {!permissionsLoading && permissions && !canReadTeam ? (
+                {denied ? (
                     // Permesso negato: sezione «Non hai accesso», senza CTA
                     // (scheda EmptyState).
                     <EmptyState
@@ -675,7 +672,9 @@ export default function TeamPage() {
                     />
                 ) : loadError ? (
                     loadErrorBanner
-                ) : activeTab === "members" && onlyMe && me ? (
+                ) : null}
+                {!denied && !loadError && <div className={styles.subTabs}>{teamTabs}</div>}
+                {denied || loadError ? null : activeTab === "members" && onlyMe && me ? (
                     <>
                         <Card flush bodyClassName={styles.rows}>
                             <ListRow

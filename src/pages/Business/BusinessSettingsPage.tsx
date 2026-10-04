@@ -3,6 +3,7 @@ import { Lock } from "lucide-react";
 import { useTenant } from "@/context/useTenant";
 import { useToast } from "@/context/Toast/ToastContext";
 import Text from "@/components/ui/Text/Text";
+import { useSettingsTabs } from "./useSettingsTabs";
 import { usePageHeader } from "@/context/usePageHeader";
 import { canDoOnTenant } from "@/lib/permissions";
 import { usePermissions } from "@/context/usePermissions";
@@ -191,9 +192,12 @@ export default function BusinessSettingsPage() {
         }
     };
 
+    const settingsTabs = useSettingsTabs();
     usePageHeader({
         title: "Impostazioni",
-        subtitle: "Nome, dati di fatturazione e logo dell'azienda; qui si elimina."
+        subtitle: "Nome, dati di fatturazione e logo dell'azienda; qui si elimina.",
+        leading: settingsTabs.leading,
+        compact: settingsTabs.leading ? settingsTabs.compact : undefined
     });
 
     // Riceve dal wrapper l'immagine GIÀ ritagliata (baked, quadrata): carica quel
