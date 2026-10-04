@@ -362,6 +362,7 @@ export default function ProductPage() {
                         handleTabChange(tab as ProductPageTab)
                     }
                     draft={schedaDraft}
+                    canWrite={canWrite}
                 />
             )}
             {activeTab === "prezzi-opzioni" && (

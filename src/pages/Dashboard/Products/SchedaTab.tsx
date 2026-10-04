@@ -35,6 +35,8 @@ interface SchedaTabProps {
     onNavigateToTab: (tab: string) => void;
     /** Draft sollevato in `ProductPage` via `useSchedaDraft` — sopravvive al cambio tab. */
     draft: SchedaDraft;
+    /** `products.write`: senza, la descrizione non offre «Genera con AI». */
+    canWrite: boolean;
 }
 
 /**
@@ -48,7 +50,7 @@ interface SchedaTabProps {
  * I gruppi del prodotto non stanno più qui (§50.9/3): salvavano subito in
  * una pagina in bozza. Sono in Utilizzo.
  */
-export function SchedaTab({ product, productId, tenantId, vertical, onNavigateToTab, draft }: SchedaTabProps) {
+export function SchedaTab({ product, productId, tenantId, vertical, onNavigateToTab, draft, canWrite }: SchedaTabProps) {
     const verticalConfig = useVerticalConfig();
     const isBaseProduct = product.parent_product_id === null;
     const { image, information, allergens, ingredients, characteristics, pairings, notes } = draft;
@@ -100,6 +102,7 @@ export function SchedaTab({ product, productId, tenantId, vertical, onNavigateTo
                             isGenerating={ai.isGenerating}
                             canGenerate={ai.canGenerate}
                             onGenerate={ai.generate}
+                            readOnly={!canWrite}
                         >
                             <Textarea
                                 value={information.draftDescription}

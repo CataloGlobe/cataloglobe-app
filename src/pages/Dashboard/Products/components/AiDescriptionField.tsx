@@ -12,6 +12,12 @@ export interface AiDescriptionFieldProps {
     isGenerating: boolean;
     canGenerate: boolean;
     onGenerate: () => void;
+    /**
+     * Senza `products.write` (sola lettura): niente «Genera con AI» né i
+     * suggerimenti legati alla generazione. Il campo resta, disabilitato dal
+     * fieldset della pagina.
+     */
+    readOnly?: boolean;
     /** The description field itself (a controlled <Textarea>), owned by the caller. */
     children: React.ReactNode;
 }
@@ -28,6 +34,7 @@ export function AiDescriptionField({
     isGenerating,
     canGenerate,
     onGenerate,
+    readOnly = false,
     children
 }: AiDescriptionFieldProps) {
     // name is filled whenever we can generate, or while a generation is in flight
@@ -40,23 +47,25 @@ export function AiDescriptionField({
                 <Text variant="body-sm" weight={600}>
                     {label}
                 </Text>
-                <Button
-                    variant="outline"
-                    size="sm"
-                    leftIcon={<Sparkles size={14} />}
-                    loading={isGenerating}
-                    disabled={!canGenerate}
-                    onClick={onGenerate}
-                >
-                    {isGenerating
-                        ? "Generazione…"
-                        : aiState !== "none"
-                            ? "Rigenera"
-                            : "Genera con AI"}
-                </Button>
+                {!readOnly && (
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        leftIcon={<Sparkles size={14} />}
+                        loading={isGenerating}
+                        disabled={!canGenerate}
+                        onClick={onGenerate}
+                    >
+                        {isGenerating
+                            ? "Generazione…"
+                            : aiState !== "none"
+                                ? "Rigenera"
+                                : "Genera con AI"}
+                    </Button>
+                )}
             </div>
             {children}
-            {!nameFilled && (
+            {!readOnly && !nameFilled && (
                 <Text variant="body-sm" colorVariant="muted">
                     Inserisci il nome del prodotto per abilitare la generazione AI.
                 </Text>
