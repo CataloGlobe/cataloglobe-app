@@ -90,13 +90,13 @@ describe("F1-7", () => {
     it("partita da sola: «Non andava bene, torna in prova» e chat WhatsApp", async () => {
         const { buildAutoSentMessage, buildTrustReadyText } = await import("./crmAgentMessages");
         const m = buildAutoSentMessage(base, null);
-        expect(m.text).toContain("🤖 Ho risposto da solo a");
+        expect(m.text).toContain("🤖 Risposta partita da sola a");
         expect(m.text).toContain("le risposte tornano in prova e ti chiedo l'ok finché non ne approvi 3 di fila");
         const data = m.reply_markup.inline_keyboard.flat().map(b => (b.callback_data ? parseCallbackData(b.callback_data) : null));
         expect(data).toEqual([{ action: "draft", draftId: D, decision: "wrong" }]);
         expect(m.reply_markup.inline_keyboard[0][0].text).toBe("Non andava bene, torna in prova");
         const w = buildAutoSentMessage({ ...base, kind: "follow_up" }, "https://app.x", "https://wa.x/1");
-        expect(w.text).toContain("Ho mandato da solo un sollecito");
+        expect(w.text).toContain("Sollecito partito da solo a");
         expect(w.reply_markup.inline_keyboard.map(r => r[0].text)).toEqual([
             "Non andava bene, torna in prova",
             "Apri la chat su WhatsApp",

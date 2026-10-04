@@ -121,7 +121,7 @@ function keyboard(info: AgentDraftInfo, appUrl: string | null): InlineButton[][]
     const rows: InlineButton[][] = [];
     switch (info.kind) {
         case "stop_check":
-            rows.push([b("È uno stop", "stop"), b("È un «non adesso»", "objection")]);
+            rows.push([b("Non vuole più messaggi", "stop"), b("Dice solo «non adesso»", "objection")]);
             break;
         case "schedule":
             rows.push([b("Fissa la telefonata", "schedule")]);
@@ -280,7 +280,7 @@ export function buildAutoSentMessage(
     const what = followUp ? "i solleciti tornano" : "le risposte tornano";
     const to = info.contactName ? `a ${escapeHtml(info.contactName)}` : "al lead";
     const compose = (messages: AgentDraftInfo["lastMessages"]): string => {
-        const lines = [followUp ? `🤖 Ho mandato da solo un sollecito a ${who(info)}` : `🤖 Ho risposto da solo a ${who(info)}`];
+        const lines = [followUp ? `🤖 Sollecito partito da solo a ${who(info)}` : `🤖 Risposta partita da sola a ${who(info)}`];
         const collapsed = messages.length > INLINE_MESSAGES;
         if (messages.length && !collapsed) lines.push("", ...chatLines(messages));
         if (info.proposedText) lines.push("", "<b>Messaggio</b>:", `<i>${escapeHtml(info.proposedText)}</i>`);

@@ -65,7 +65,7 @@ export function AgentTrialCard() {
             await load();
             showToast({ message, type: "success" });
         } catch {
-            setError("Non sono riuscito a salvare. Riprova.");
+            setError("Salvataggio non riuscito. Riprova.");
         } finally {
             setSaving(false);
         }
