@@ -203,14 +203,16 @@ const HANDLED_OUTCOME_BY_REASON: Record<string, string> = {
     "Messo in Perso.": "messo in Perso: l'agente non gli scrive più"
 };
 
-export function draftOutcomeLabel(status: string, reason: string | null): string {
+export function draftOutcomeLabel(status: string, reason: string | null, kind?: AgentDraftKind): string {
+    // «No, lascialo aperto» sulla proposta di Perso: non c'era niente da mandare.
+    if (status === "discarded" && kind === "lost_proposal") return "resta aperto: l'agente continua coi solleciti";
     if (status === "handled" && reason && HANDLED_OUTCOME_BY_REASON[reason]) return HANDLED_OUTCOME_BY_REASON[reason];
     return DRAFT_OUTCOME_LABEL[status] ?? status;
 }
 
 /** Il messaggio chiuso, senza tasti: chi ha deciso e cosa. */
 export function buildDraftClosedText(info: AgentDraftInfo, status: string, actorName: string | null): string {
-    const label = draftOutcomeLabel(status, info.reason);
+    const label = draftOutcomeLabel(status, info.reason, info.kind);
     const by = actorName ? ` (${escapeHtml(actorName)})` : "";
     const text = info.proposedText ? `\n<i>${escapeHtml(clip(info.proposedText, 200))}</i>` : "";
     return `${title(info)}\n➡️ ${escapeHtml(label)}${by}${text}`;
@@ -234,7 +236,14 @@ function waitedLabel(minutes: number): string {
 
 /** Il sollecito: testo semplice (niente HTML), una bozza o tutte quelle in attesa. */
 export function buildRemindersText(items: { info: AgentDraftInfo; minutes: number }[]): string {
-    const label = (info: AgentDraftInfo) => (info.kind === "stop_check" ? "dubbio, stop o «non adesso»" : "bozza");
+    const label = (info: AgentDraftInfo) =>
+        info.kind === "stop_check"
+            ? "dubbio, stop o «non adesso»"
+            : info.kind === "lost_proposal"
+              ? "proposta di Perso"
+              : info.kind === "reactivation"
+                ? "riattivazione"
+                : "bozza";
     if (items.length === 1) {
         const { info, minutes } = items[0];
         return `⏰ Ancora in attesa da ${waitedLabel(minutes)}: ${label(info)} per ${info.venueName}.`;

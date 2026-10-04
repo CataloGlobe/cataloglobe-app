@@ -274,6 +274,10 @@ async function handleCall(supabase, parsed, actor, team, answer, query, appUrl) 
             return;
         }
         const to = info.createdByName ?? "chi l'ha fissata";
+        if (status === "already_asked") {
+            await answer(`Già chiesto a ${to}.`);
+            return;
+        }
         await closeMessage(
             query,
             buildAnsweredText(info, `chiesto a ${to} se può lui. Finché non risponde, al lead non parte la conferma.`)
@@ -324,6 +328,11 @@ async function handleCall(supabase, parsed, actor, team, answer, query, appUrl) 
     }
 
     if (parsed.action === "call_handover") {
+        if (isCaller && info.creatorAsked === true && actor.user_id !== row.created_by) {
+            const who = info.createdByName ?? "chi l'ha fissata";
+            await answer(`Hai già chiesto a ${who}: ora decide ${who}.`);
+            return;
+        }
         const { data: status, error } = await supabase.rpc("crm_handover_call", {
             p_appointment_id: row.id,
             p_actor_user_id: actor.user_id
