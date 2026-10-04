@@ -219,7 +219,7 @@ export function buildDraftClosedText(info: AgentDraftInfo, status: string, actor
 }
 
 export function buildEditPromptText(info: AgentDraftInfo): string {
-    return `Scrivi qui il messaggio per ${info.venueName}${info.contactName ? ` (${info.contactName})` : ""}, rispondendo a questo messaggio. Parte così com'è.`;
+    return `Scrivi qui il messaggio per ${info.venueName}${info.contactName ? ` (${info.contactName})` : ""}, rispondendo a questo messaggio (tieni premuto qui e scegli Rispondi). Parte così com'è.`;
 }
 
 /** Quanti solleciti spettano a una bozza adesso (mai meno di quelli già mandati). */
@@ -246,7 +246,15 @@ export function buildRemindersText(items: { info: AgentDraftInfo; minutes: numbe
                 : "bozza";
     if (items.length === 1) {
         const { info, minutes } = items[0];
-        return `⏰ Ancora in attesa da ${waitedLabel(minutes)}: ${label(info)} per ${info.venueName}.`;
+        const what =
+            info.kind === "stop_check"
+                ? "Un dubbio (stop o «non adesso»)"
+                : info.kind === "lost_proposal"
+                  ? "Una proposta di Perso"
+                  : info.kind === "reactivation"
+                    ? "Una riattivazione"
+                    : "Una bozza";
+        return `⏰ ${what} per ${info.venueName} aspetta da ${waitedLabel(minutes)}: tocca un tasto sul messaggio qui sopra.`;
     }
     const lines = items.map(({ info, minutes }) => `• ${info.venueName}: ${label(info)}, da ${waitedLabel(minutes)}`);
     return `⏰ ${items.length} bozze aspettano da voi (le trovate più su in questa chat):\n${lines.join("\n")}`;

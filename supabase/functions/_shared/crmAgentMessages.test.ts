@@ -109,9 +109,9 @@ describe("testi", () => {
     it("chiusa, sollecito, richiesta di correzione", () => {
         expect(buildDraftClosedText(base, "sent", "Lorenzo")).toContain("➡️ inviata così (Lorenzo)");
         expect(buildDraftClosedText(base, "expired", null)).toContain("scaduta");
-        expect(buildRemindersText([{ info: base, minutes: 10 }])).toBe("⏰ Ancora in attesa da 10 minuti: bozza per Bar <Roma>.");
-        expect(buildRemindersText([{ info: { ...base, kind: "lost_proposal" }, minutes: 30 }])).toContain("proposta di Perso per");
-        expect(buildEditPromptText(base)).toContain("rispondendo a questo messaggio");
+        expect(buildRemindersText([{ info: base, minutes: 10 }])).toBe("⏰ Una bozza per Bar <Roma> aspetta da 10 minuti: tocca un tasto sul messaggio qui sopra.");
+        expect(buildRemindersText([{ info: { ...base, kind: "lost_proposal" }, minutes: 30 }])).toContain("Una proposta di Perso per");
+        expect(buildEditPromptText(base)).toContain("tieni premuto qui e scegli Rispondi");
     });
     it("dubbio stop: cita il lead e chiude con l'esito vero", () => {
         const info = {
