@@ -47,7 +47,8 @@ const ACTION_LABEL: Record<string, string> = {
     draft_stop: "Confermato lo stop",
     draft_objection: "È un «non adesso»",
     draft_other: "Proposti altri orari",
-    call_from_agent: "Telefonata fissata da una bozza"
+    call_from_agent: "Telefonata fissata da una bozza",
+    draft_lost: "Messo in Perso"
 };
 
 /** Azioni nuove (dalle PR dopo) senza etichetta: il codice, leggibile. */
@@ -155,10 +156,12 @@ export const CRM_AGENT_DRAFT_STATUS_LABEL: Record<CrmAgentDraftStatus, string> =
 const HANDLED_STATUS_BY_REASON: Record<string, string> = {
     "È uno stop.": "Stop",
     "Obiezione, non stop.": "«Non adesso»",
-    "Proponi altri orari.": "Altri orari"
+    "Proponi altri orari.": "Altri orari",
+    "Messo in Perso.": "Messo in Perso"
 };
 
-export function draftStatusLabel(status: CrmAgentDraftStatus, reason: string | null): string {
+export function draftStatusLabel(status: CrmAgentDraftStatus, reason: string | null, kind?: CrmAgentDraftKind): string {
+    if (status === "discarded" && kind === "lost_proposal") return "Resta aperto";
     if (status === "handled" && reason && HANDLED_STATUS_BY_REASON[reason]) return HANDLED_STATUS_BY_REASON[reason];
     return CRM_AGENT_DRAFT_STATUS_LABEL[status];
 }
