@@ -449,7 +449,7 @@ async function handleDraft(supabase, parsed, actor, answer, query) {
             p_actor_user_id: actor.user_id
         });
         if (error) {
-            await answer(DRAFT_ERRORS[error.code] ?? "Non ci sono riuscito.");
+            await answer(DRAFT_ERRORS[error.code] ?? "Non è andata a buon fine.");
             return;
         }
         if (status && query.message?.chat?.id && query.message?.message_id) {

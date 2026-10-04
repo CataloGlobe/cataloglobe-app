@@ -280,7 +280,7 @@ export function buildAutoSentMessage(
     const what = followUp ? "i solleciti tornano" : "le risposte tornano";
     const to = info.contactName ? `a ${escapeHtml(info.contactName)}` : "al lead";
     const compose = (messages: AgentDraftInfo["lastMessages"]): string => {
-        const lines = [followUp ? `🤖 Ho mandato da solo un sollecito a ${who(info)}` : `🤖 Ho risposto da solo a ${who(info)}`];
+        const lines = [followUp ? `🤖 Sollecito partito da solo a ${who(info)}` : `🤖 Risposta partita da sola a ${who(info)}`];
         const collapsed = messages.length > INLINE_MESSAGES;
         if (messages.length && !collapsed) lines.push("", ...chatLines(messages));
         if (info.proposedText) lines.push("", "<b>Messaggio</b>:", `<i>${escapeHtml(info.proposedText)}</i>`);
