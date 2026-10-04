@@ -119,7 +119,7 @@ export function AgentTrialCard() {
                                 onChange={e => setReactivationText(e.target.value)}
                                 helperText={
                                     reactivationError ??
-                                    "Dopo i giorni qui sotto, una bozza con questo testo su Telegram, una volta sola per locale. Segnaposti: {nome} {locale} {mittente}. Vuoto = spenta."
+                                    "Dopo i giorni qui sotto, una bozza con questo testo su Telegram, una volta sola per locale. Se il lead non risponde entro 7 giorni torna in Perso, senza solleciti. Segnaposti: {nome} {locale} {mittente}. Vuoto = spenta."
                                 }
                                 disabled={saving}
                             />

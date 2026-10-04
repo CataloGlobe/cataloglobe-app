@@ -48,7 +48,8 @@ const ACTION_LABEL: Record<string, string> = {
     draft_objection: "È un «non adesso»",
     draft_other: "Proposti altri orari",
     call_from_agent: "Telefonata fissata da una bozza",
-    draft_lost: "Messo in Perso"
+    draft_lost: "Messo in Perso",
+    reactivation_lost: "Di nuovo in Perso: nessuna risposta alla riattivazione"
 };
 
 /** Azioni nuove (dalle PR dopo) senza etichetta: il codice, leggibile. */

@@ -11,6 +11,9 @@
 --     agent_reactivation_days giorni (90 di default) riceve, dopo il tocco,
 --     il testo agent_reactivation_message; all'invio il locale torna in
 --     Contattato. Una volta sola per locale. Gli stop non si riattivano mai.
+--     Riattivazione corta (decisa da Alex il 2026-10-04): dopo il messaggio
+--     nessun sollecito; se il lead non risponde entro 7 giorni il locale
+--     torna in Perso da solo. Al massimo 10 solleciti più 1 riattivazione.
 --
 -- Rifatte da 20261004010100 (solo le parti nuove, il resto è identico):
 -- crm_agent_decide_draft, crm_agent_candidates, crm_agent_has_work.
