@@ -311,8 +311,12 @@ export function buildAutoSentMessage(
 
 /** Un tipo è uscito dalla prova. */
 export function buildTrustReadyText(kind: "reply" | "follow_up", inRow: number, autonomyOn: boolean): string {
-    const what = kind === "reply" ? "Le risposte" : "I solleciti";
+    const g =
+        kind === "reply"
+            ? { what: "risposte", fix: "correggerle", them: "le", one: "una", alone: "da sole" }
+            : { what: "solleciti", fix: "correggerli", them: "li", one: "uno", alone: "da soli" };
+    const done = `✅ Avete approvato ${inRow} ${g.what} di fila senza ${g.fix}`;
     return autonomyOn
-        ? `✅ ${what} escono dalla prova (${inRow} approvazioni di fila): da ora partono senza approvazione, ogni messaggio con «Non andava bene, torna in prova».`
-        : `✅ ${what} possono uscire dalla prova (${inRow} approvazioni di fila). L'autonomia è spenta: si accende da /admin/agenti.`;
+        ? `${done}: da ora l'agente ${g.them} manda da solo e vi avvisa dopo. Se ${g.one} non va bene, tocca «Non andava bene, torna in prova».`
+        : `${done}: possono partire ${g.alone}. L'invio automatico è spento: si accende da /admin, pagina Agenti.`;
 }

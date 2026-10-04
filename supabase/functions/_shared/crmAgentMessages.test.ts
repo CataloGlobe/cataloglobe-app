@@ -102,8 +102,10 @@ describe("F1-7", () => {
             "Apri la chat su WhatsApp",
             "Apri la scheda"
         ]);
-        expect(buildTrustReadyText("reply", 5, false)).toContain("L'autonomia è spenta");
-        expect(buildTrustReadyText("follow_up", 3, true)).toContain("I solleciti escono dalla prova");
+        expect(buildTrustReadyText("reply", 5, false)).toContain("L'invio automatico è spento: si accende da /admin, pagina Agenti.");
+        expect(buildTrustReadyText("follow_up", 3, true)).toBe(
+            "✅ Avete approvato 3 solleciti di fila senza correggerli: da ora l'agente li manda da solo e vi avvisa dopo. Se uno non va bene, tocca «Non andava bene, torna in prova»."
+        );
     });
 });
 
