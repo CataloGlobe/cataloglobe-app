@@ -383,19 +383,52 @@ async function _loadCatalogProductIds(
     return ids;
 }
 
+/**
+ * Prodotti non ordinabili per la sede, dalle due fonti di disponibilità:
+ * - `activity_product_overrides` con `visible_override = false`: è quello che
+ *   scrive il pannello (`updateActivityProductVisibility`). `mode = 'disable'`
+ *   = «Non disponibile» (mostrato ma spento), `'hide'`/null = nascosto: in
+ *   entrambi i casi il resolver pubblico non lo rende ordinabile, quindi
+ *   nemmeno qui.
+ * - `product_availability_overrides` con `available = false`: tabella legacy,
+ *   scritta solo dall'edge `toggle-product-availability`. Resta controllata
+ *   finché quell'edge esiste.
+ * Funzione pura, esportata per i test.
+ */
+export function findUnavailableProductIds(
+    legacyRows: ReadonlyArray<{ product_id: string }>,
+    activityRows: ReadonlyArray<{ product_id: string; visible_override: boolean | null }>
+): string[] {
+    const unavailable = new Set<string>();
+    for (const row of legacyRows) unavailable.add(row.product_id);
+    for (const row of activityRows) {
+        if (row.visible_override === false) unavailable.add(row.product_id);
+    }
+    return Array.from(unavailable);
+}
+
 async function _checkAvailabilityOverrides(
     supabase: SupabaseClient,
     activityId: string,
     productIds: string[]
 ): Promise<void> {
     if (productIds.length === 0) return;
-    const { data, error } = await supabase
-        .from("product_availability_overrides")
-        .select("product_id")
-        .eq("activity_id", activityId)
-        .eq("available", false)
-        .in("product_id", productIds);
+    const [legacy, activity] = await Promise.all([
+        supabase
+            .from("product_availability_overrides")
+            .select("product_id")
+            .eq("activity_id", activityId)
+            .eq("available", false)
+            .in("product_id", productIds),
+        supabase
+            .from("activity_product_overrides")
+            .select("product_id, visible_override")
+            .eq("activity_id", activityId)
+            .eq("visible_override", false)
+            .in("product_id", productIds)
+    ]);
 
+    const error = legacy.error ?? activity.error;
     if (error) {
         throw new ValidateOrderItemsError(
             "INTERNAL_ERROR",
@@ -404,7 +437,10 @@ async function _checkAvailabilityOverrides(
         );
     }
 
-    const unavailable = (data ?? []).map(row => (row as { product_id: string }).product_id);
+    const unavailable = findUnavailableProductIds(
+        (legacy.data ?? []) as Array<{ product_id: string }>,
+        (activity.data ?? []) as Array<{ product_id: string; visible_override: boolean | null }>
+    );
     if (unavailable.length > 0) {
         throw new ValidateOrderItemsError(
             "UNAVAILABLE_PRODUCTS",
