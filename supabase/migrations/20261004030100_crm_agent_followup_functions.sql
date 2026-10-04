@@ -221,7 +221,7 @@ SECURITY INVOKER
 SET search_path TO ''
 AS $$
     WITH x AS (
-        SELECT v.id AS venue_id, v.stage,
+        SELECT v.id AS venue_id, v.stage, v.stage_locked_at IS NOT NULL AS locked,
                (SELECT m.id FROM public.crm_messages m
                 WHERE m.venue_id = v.id AND m.direction = 'in' ORDER BY m.created_at DESC LIMIT 1) AS last_in_id,
                (SELECT max(m.created_at) FROM public.crm_messages m
@@ -324,9 +324,12 @@ AS $$
         -- Riattivazione senza risposta da 7 giorni: il locale torna in Perso
         -- (lo fa l'edge, senza tocco). Non ne parte un'altra: la riattivazione
         -- inviata resta, quindi al massimo 10 solleciti più 1 riattivazione.
+        -- Solo da Contattato, dove l'ha messo la riattivazione, e mai con la
+        -- fase bloccata: se una persona l'ha spostato, decide lei.
         SELECT x.venue_id, 'reactivation_lost'::text, x.last_in_id, x.last_in, x.last_reactivation, 0, false
         FROM x
         WHERE x.last_reactivation IS NOT NULL AND x.last_reactivation < p_now - interval '7 days'
+          AND x.stage = 'contattato' AND NOT x.locked
           AND (x.last_in IS NULL OR x.last_in < x.last_reactivation)
           AND (x.last_person IS NULL OR x.last_person < x.last_reactivation)
           AND NOT x.busy
@@ -458,16 +461,17 @@ AS $$
                   )
             )
         )
-        -- Riattivazione senza risposta da 7 giorni: torna in Perso. Più
-        -- largo di crm_agent_candidates (falso positivo = una chiamata a vuoto).
+        -- Riattivazione senza risposta da 7 giorni: torna in Perso, solo coi
+        -- solleciti accesi (è la loro fine). Più largo di
+        -- crm_agent_candidates (falso positivo = una chiamata a vuoto).
         OR (
-            (SELECT NOT brake_on FROM s)
+            (SELECT agent_followups_on AND NOT brake_on FROM s)
             AND EXISTS (
                 SELECT 1 FROM public.crm_agent_drafts r
                 JOIN public.crm_venues v ON v.id = r.venue_id
                 WHERE r.kind = 'reactivation' AND r.status IN ('sent', 'edited')
                   AND r.decided_at < p_now - interval '7 days'
-                  AND v.stage NOT IN ('perso', 'cliente_pagante') AND v.agent_hold_at IS NULL
+                  AND v.stage = 'contattato' AND v.stage_locked_at IS NULL AND v.agent_hold_at IS NULL
                   AND NOT EXISTS (SELECT 1 FROM public.crm_messages m
                                   WHERE m.venue_id = v.id AND m.direction = 'in' AND m.created_at > r.decided_at)
             )
