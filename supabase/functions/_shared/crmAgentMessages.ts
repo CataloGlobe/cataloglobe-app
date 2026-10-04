@@ -159,10 +159,10 @@ function composeDraftText(info: AgentDraftInfo, messages: AgentDraftInfo["lastMe
     else if (info.reason && info.kind !== "follow_up") lines.push(`Perché: ${escapeHtml(info.reason)}`);
     const collapsed = messages.length > INLINE_MESSAGES;
     if (messages.length && !collapsed) lines.push("", ...chatLines(messages));
-    if (info.proposedText) {
-        const lead = escapeHtml(info.contactName ?? "il lead");
-        lines.push("", info.kind === "schedule" ? `<b>Conferma per ${lead}</b> (parte insieme alla telefonata in agenda):` : "<b>Proposta</b>:");
-        lines.push(`<i>${escapeHtml(info.proposedText)}</i>`);
+    if (info.kind === "schedule") {
+        lines.push("", `Se la fissate, a ${escapeHtml(info.contactName ?? "il lead")} parte il messaggio fisso di conferma con giorno e ora.`);
+    } else if (info.proposedText) {
+        lines.push("", "<b>Proposta</b>:", `<i>${escapeHtml(info.proposedText)}</i>`);
     }
     if (collapsed) {
         lines.push("", `💬 La chat, ultimi ${messages.length} messaggi (tocca per aprirla):`);

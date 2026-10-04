@@ -25,6 +25,12 @@ ALTER TABLE public.crm_appointments
 COMMENT ON COLUMN public.crm_appointments.creator_asked_at IS
     'Quando chi doveva chiamare ha chiesto a chi l''ha fissata di farla lui (vale se >= caller_asked_at).';
 
+ALTER TABLE public.crm_appointments
+    ADD COLUMN IF NOT EXISTS handover_failed_at timestamptz;
+
+COMMENT ON COLUMN public.crm_appointments.handover_failed_at IS
+    'Quando il passaggio automatico a chi l''ha fissata non è riuscito: l''avviso al team parte una volta sola. Si azzera con un nuovo «Puoi tu?».';
+
 -- -----------------------------------------------------------------------------
 -- crm_call_ask_creator: «Chiedo a {nome} se può lui»
 -- -----------------------------------------------------------------------------

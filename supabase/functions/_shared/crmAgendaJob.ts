@@ -31,6 +31,7 @@ import {
     buildCallerRequestMessage,
     buildHandedOverCallerText,
     buildHandedOverText,
+    buildHandoverFailedText,
     buildOutcomeMessage,
     handoverAt,
     type AgendaCallInfo
@@ -323,7 +324,7 @@ export async function processAgenda(supabase, team, botToken: string | null, app
     for (const row of proposed ?? []) {
         // Un «Puoi tu?» nuovo (anche dopo uno spostamento, che azzera solo
         // caller_asked_at) riporta a zero il suo sollecito.
-        if (!(await claimStep(supabase, row.id, "caller_asked_at", now, { caller_reminded_at: null }))) continue;
+        if (!(await claimStep(supabase, row.id, "caller_asked_at", now, { caller_reminded_at: null, handover_failed_at: null }))) continue;
         askedNow.add(row.id);
         const sent = await sendToCaller(botToken, team, row.caller_user_id, buildCallerRequestMessage(toCallInfo(row, team), appUrl));
         if (sent > 0) stats.caller_requests += 1;
@@ -353,7 +354,13 @@ export async function processAgenda(supabase, team, botToken: string | null, app
         if (error) {
             // Chi l'ha fissata ha un'altra telefonata a quell'ora o non è più
             // nel team: resta proposta, e all'orario scade come oggi.
+            // L'avviso parte una volta sola (handover_failed_at), a tutti e due.
             console.warn(`${LOG}: passaggio non riuscito`, row.id, error.code);
+            if (await claimStep(supabase, row.id, "handover_failed_at", now)) {
+                const text = buildHandoverFailedText(info);
+                await sendToCaller(botToken, team, row.created_by, { text });
+                await sendToCaller(botToken, team, row.caller_user_id, { text });
+            }
             continue;
         }
         if (status !== "confirmed") continue;
