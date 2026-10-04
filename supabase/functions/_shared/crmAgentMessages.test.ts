@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
     buildDraftClosedText,
+    draftOutcomeLabel,
     buildDraftMessage,
     buildEditPromptText,
     buildRemindersText,
@@ -38,8 +39,7 @@ describe("tasti per tipo", () => {
     it("richiesta senza testo: niente «Invia così»", () => {
         expect(decisions({ ...base, kind: "ask", proposedText: null, reason: "Chiede uno sconto" })).toEqual([
             "edit",
-            "discard",
-            "handle"
+            "discard"
         ]);
     });
     it("orario accettato", () => {
@@ -69,7 +69,7 @@ describe("testi", () => {
         );
     });
     it("follow-up col numero, richiesta col perché", () => {
-        expect(buildDraftMessage({ ...base, kind: "follow_up", followUpNumber: 3 }, null).text).toContain("Follow-up n. 3");
+        expect(buildDraftMessage({ ...base, kind: "follow_up", followUpNumber: 3 }, null).text).toContain("Sollecito n. 3");
         expect(buildDraftMessage({ ...base, kind: "ask", reason: "Chiede uno sconto" }, null).text).toContain("Perché: Chiede uno sconto");
     });
     it("chiusa, sollecito, richiesta di correzione", () => {
@@ -77,6 +77,22 @@ describe("testi", () => {
         expect(buildDraftClosedText(base, "expired", null)).toContain("scaduta");
         expect(buildRemindersText([{ info: base, minutes: 10 }])).toBe("⏰ Ancora in attesa da 10 minuti: bozza per Bar <Roma>.");
         expect(buildEditPromptText(base)).toContain("rispondendo a questo messaggio");
+    });
+    it("dubbio stop: cita il lead e chiude con l'esito vero", () => {
+        const info = {
+            ...base,
+            kind: "stop_check" as const,
+            proposedText: null,
+            lastMessages: [{ from: "lead" as const, text: "Per ora no grazie" }]
+        };
+        const text = buildDraftMessage(info, null).text;
+        expect(text).toContain("✋ Ho un dubbio su");
+        expect(text).toContain("ha scritto: «Per ora no grazie»");
+        expect(text).toContain("o un <b>«non adesso»</b>");
+        expect(draftOutcomeLabel("handled", "È uno stop.")).toContain("messo in Perso");
+        expect(draftOutcomeLabel("handled", "Obiezione, non stop.")).toContain("«non adesso»");
+        expect(draftOutcomeLabel("handled", null)).toContain("ci pensa una persona");
+        expect(buildDraftClosedText({ ...info, reason: "È uno stop." }, "handled", "Alex")).toContain("messo in Perso");
     });
     it("chat lunga: in un riquadro apribile, dopo la proposta", () => {
         const lastMessages = Array.from({ length: 15 }, (_, i) => ({ from: i % 2 ? "noi" : "lead", text: `messaggio ${i}` }) as const);
@@ -101,7 +117,7 @@ describe("testi", () => {
             { info: { ...base, venueName: "Pizzeria Due", kind: "stop_check" }, minutes: 125 }
         ]);
         expect(text).toBe(
-            "⏰ 2 bozze aspettano da voi (le trovate più su in questa chat):\n• Bar <Roma>: bozza, da 30 minuti\n• Pizzeria Due: stop o obiezione, da più di 2 ore"
+            "⏰ 2 bozze aspettano da voi (le trovate più su in questa chat):\n• Bar <Roma>: bozza, da 30 minuti\n• Pizzeria Due: dubbio, stop o «non adesso», da più di 2 ore"
         );
     });
     it("solleciti a 10, 30, 60 e 120 minuti; dopo la notte uno solo", () => {

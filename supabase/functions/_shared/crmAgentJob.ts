@@ -44,7 +44,8 @@ const LOG = "crm-agent";
 export const REMINDER_AFTER_MINUTES = [10, 30, 60, 120];
 const MAX_CANDIDATES = 3;
 const CHAT_MESSAGES = 30;
-const BOT_QUESTION_MESSAGES = 15;
+/** Messaggi della chat mostrati sotto ogni bozza (meno se la chat è più corta). */
+const DRAFT_CHAT_MESSAGES = 15;
 const DRAFT_MAX_TOKENS = 700;
 const REVIEW_MAX_TOKENS = 400;
 
@@ -65,7 +66,7 @@ function teamName(team, userId) {
 // -----------------------------------------------------------------------------
 async function draftInfo(supabase, draft) {
     const [{ data: venue }, { data: contact }, { data: msgs }] = await Promise.all([
-        supabase.from("crm_venues").select("name").eq("id", draft.venue_id).maybeSingle(),
+        supabase.from("crm_venues").select("name, assigned_to").eq("id", draft.venue_id).maybeSingle(),
         draft.contact_id
             ? supabase.from("crm_contacts").select("name").eq("id", draft.contact_id).maybeSingle()
             : Promise.resolve({ data: null }),
@@ -76,8 +77,13 @@ async function draftInfo(supabase, draft) {
             .not("body", "is", null)
             .lte("created_at", draft.created_at)
             .order("created_at", { ascending: false })
-            .limit(draft.kind === "bot_question" ? BOT_QUESTION_MESSAGES : 3)
+            .limit(DRAFT_CHAT_MESSAGES)
     ]);
+    // Chi chiamerà: chi ha il locale, altrimenti chi conferma (crm_agent_decide_draft).
+    const { data: caller } =
+        draft.kind === "schedule" && venue?.assigned_to
+            ? await supabase.from("crm_team_members").select("display_name").eq("user_id", venue.assigned_to).maybeSingle()
+            : { data: null };
     return {
         draftId: draft.id,
         venueId: draft.venue_id,
@@ -88,6 +94,7 @@ async function draftInfo(supabase, draft) {
         reason: draft.reason ?? null,
         proposedStartsAt: draft.proposed_starts_at ?? null,
         followUpNumber: draft.follow_up_number ?? null,
+        callerName: caller?.display_name ?? null,
         lastMessages: (msgs ?? [])
             .filter(m => m.direction === "in" || m.author === "person" || m.status === "sent")
             .reverse()
@@ -339,7 +346,7 @@ async function insertDraft(supabase, base, fields) {
     await logDecision(supabase, {
         actor: "agent",
         action: "draft_created",
-        reason: fields.reason ?? (fields.kind === "follow_up" ? "Follow-up proposto." : "Bozza proposta."),
+        reason: fields.reason ?? (fields.kind === "follow_up" ? "Sollecito proposto." : "Bozza proposta."),
         venue_id: base.venue_id,
         lead_id: base.lead_id,
         review_outcome: fields.review_rounds ? (fields.kind === "ask" ? "rejected" : "ok") : null,
@@ -593,7 +600,7 @@ export async function processAgent(supabase, team, botToken, appUrl, now = new D
                 .maybeSingle();
             if (other?.proposed_starts_at) {
                 const d = new Date(other.proposed_starts_at);
-                ctx.extraInstruction = `Alessandro ha chiesto di proporre orari diversi da ${formatCallDay(d)} alle ${formatCallTime(d)}: proponine due tra quelli liberi, non quello.`;
+                ctx.extraInstruction = `Il team ha chiesto di proporre orari diversi da ${formatCallDay(d)} alle ${formatCallTime(d)}: proponine due tra quelli liberi, non quello.`;
                 ctx.freeSlots = ctx.freeSlots.filter(s => new Date(s.iso).getTime() !== d.getTime());
             }
         }
