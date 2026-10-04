@@ -110,14 +110,16 @@ export default function HomePage() {
     const myName = user ? teamName(user.id).split(" ")[0] : "";
     const waitingYou = todos.filter(t => t.level !== "normale").length;
 
+    // Nell'area admin la testata mostra solo il sottotitolo: il saluto sta lì.
+    const hello = myName ? `${greeting(now)}, ${myName}` : greeting(now);
     usePageHeader({
-        title: myName ? `${greeting(now)}, ${myName}` : greeting(now),
+        title: "Home",
         subtitle:
             waitingYou === 0
-                ? "Nessuno sta aspettando."
+                ? `${hello}: nessuno sta aspettando.`
                 : waitingYou === 1
-                  ? "1 cosa aspetta voi."
-                  : `${waitingYou} cose aspettano voi.`
+                  ? `${hello}: 1 cosa aspetta voi.`
+                  : `${hello}: ${waitingYou} cose aspettano voi.`
     });
 
     const toggle = useCallback((tile: Tile) => setExpanded(e => (e === tile ? null : tile)), []);

@@ -382,17 +382,23 @@
 }
 
 /* Scheda del lead: Da lavorare | conversazione | dati. */
+/* La scheda misura il proprio spazio, non la finestra: la barra laterale ne
+   toglie 232 e a 1280 le tre colonne non ci stanno. */
+.leadFrame {
+  container: lead / inline-size;
+}
+
 .leadLayout {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: var(--space-16);
   align-items: start;
 
-  @media (min-width: 1024px) {
+  @container lead (min-width: 760px) {
     grid-template-columns: minmax(0, 1fr) 320px;
   }
 
-  @media (min-width: 1280px) {
+  @container lead (min-width: 1120px) {
     grid-template-columns: 260px minmax(0, 1fr) 320px;
   }
 }
@@ -400,11 +406,17 @@
 .leadQueue {
   display: none;
 
-  @media (min-width: 1280px) {
+  @container lead (min-width: 1120px) {
     display: block;
     position: sticky;
     top: var(--space-16);
   }
+}
+
+.contactActions {
+  flex-direction: row;
+  flex-wrap: wrap;
+  padding-top: 0;
 }
 
 .leadMain,
