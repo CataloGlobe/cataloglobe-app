@@ -20,11 +20,12 @@ import { telegramCall } from "./telegramApi.ts";
 import { callCrmClaude } from "./crmClaude.ts";
 import { refreshVenueMessages } from "./crmLeadMessage.ts";
 import { encodeGeaConfirm } from "./crmTelegram.ts";
+import { answerReads, writeText } from "./crmGeaReads.ts";
 import {
     GEA_MAX_INPUT,
+    GEA_MEMORY_MINUTES,
+    GEA_MEMORY_TURNS,
     GEA_TEXT,
-    agendaBounds,
-    buildAnswerRequest,
     buildTodayText,
     buildUnderstandRequest,
     chooseVenue,
@@ -44,8 +45,8 @@ import {
     parseUnderstanding,
     refuseText,
     sourceLine,
-    withSource,
-    type GeaCommand
+    type GeaCommand,
+    type GeaTurn
 } from "./crmGea.ts";
 
 interface Outcome {
@@ -73,39 +74,38 @@ async function resolveVenue(supabase, query: string) {
 }
 
 // -----------------------------------------------------------------------------
-// Domande
+// Memoria corta (Gea 2): gli ultimi scambi con la stessa persona, dalla
+// tabella che già registra ogni messaggio. Nessuna tabella nuova.
 // -----------------------------------------------------------------------------
-async function answerQuestion(supabase, understood, text: string, now: Date): Promise<Outcome> {
-    const tool = understood.tool;
-    let data;
-    let detail: string | undefined;
+async function recentTurns(supabase, userId: string, currentId: string, now: Date): Promise<GeaTurn[]> {
+    const since = new Date(now.getTime() - GEA_MEMORY_MINUTES * 60 * 1000).toISOString();
+    const { data, error } = await supabase
+        .from("crm_gea_inbox")
+        .select("id, body, reply")
+        .eq("user_id", userId)
+        .neq("id", currentId)
+        .in("status", ["answered", "refused", "pending"])
+        .gte("created_at", since)
+        .not("body", "is", null)
+        .not("reply", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(GEA_MEMORY_TURNS);
+    // Senza memoria Gea risponde lo stesso: la memoria è un aiuto, non un requisito.
+    if (error || !data) return [];
+    return data.reverse().map(r => ({ asked: r.body, replied: r.reply }));
+}
 
-    if (tool === "venue_card") {
-        const choice = await resolveVenue(supabase, understood.venue);
-        if ("none" in choice) return { status: "answered", intent: "question", tool, reply: noVenueText(understood.venue), costUsd: 0 };
-        if ("many" in choice) return { status: "answered", intent: "question", tool, reply: manyVenuesText(understood.venue, choice.many), costUsd: 0 };
-        data = await rpc(supabase, "crm_gea_venue_card", { p_venue_id: choice.venue.id });
-        detail = choice.venue.name;
-    } else if (tool === "find_venues") {
-        data = await rpc(supabase, "crm_gea_find_venues", { p_query: understood.query });
-        detail = `«${understood.query}»`;
-    } else if (tool === "pipeline") {
-        data = await rpc(supabase, "crm_gea_pipeline");
-    } else if (tool === "agenda") {
-        const { from, to } = agendaBounds(now, understood.days);
-        data = await rpc(supabase, "crm_gea_agenda", { p_from: from.toISOString(), p_to: to.toISOString() });
-        detail = understood.days === 1 ? "oggi" : `prossimi ${understood.days} giorni`;
-    } else if (tool === "stale") {
-        data = await rpc(supabase, "crm_gea_stale", { p_days: understood.days });
-        detail = `fermi da ${understood.days} giorni`;
-    }
+function deps(supabase, team) {
+    return {
+        rpc: (fn: string, args: Record<string, unknown> = {}) => rpc(supabase, fn, args),
+        callModel: request => callCrmClaude(supabase, { role: "gea", ...request }),
+        team
+    };
+}
 
-    const request = buildAnswerRequest({ question: text, tool, data, now });
-    const res = await callCrmClaude(supabase, { role: "gea", ...request, maxTokens: 700 });
-    if (!res.ok) {
-        return { status: "failed", intent: "question", tool, reply: claudeFailText(res.reason), costUsd: 0, error: `answer: ${res.reason}` };
-    }
-    return { status: "answered", intent: "question", tool, reply: withSource(res.text, tool, now, detail), costUsd: res.costUsd };
+async function brandRules(supabase): Promise<string | null> {
+    const { data } = await supabase.from("crm_brand_rules").select("body").eq("status", "approved").maybeSingle();
+    return data?.body ?? null;
 }
 
 // -----------------------------------------------------------------------------
@@ -183,14 +183,15 @@ async function runCommand(supabase, botToken: string, command, actor, team, appU
 // -----------------------------------------------------------------------------
 // Il giro di un messaggio
 // -----------------------------------------------------------------------------
-async function think(supabase, botToken, text: string, actor, team, appUrl, now: Date): Promise<Outcome> {
+async function think(supabase, botToken, text: string, actor, team, appUrl, now: Date, history: GeaTurn[]): Promise<Outcome> {
     if (text.length > GEA_MAX_INPUT) return { status: "answered", reply: GEA_TEXT.tooLong, costUsd: 0 };
 
     const request = buildUnderstandRequest({
         text,
         askerName: actor.display_name,
         teamNames: team.map(m => m.display_name),
-        now
+        now,
+        history
     });
     const res = await callCrmClaude(supabase, { role: "gea", ...request, maxTokens: 300 });
     if (!res.ok) return { status: "failed", reply: claudeFailText(res.reason), costUsd: 0, error: `understand: ${res.reason}` };
@@ -220,8 +221,23 @@ async function think(supabase, botToken, text: string, actor, team, appUrl, now:
             };
         }
         case "question": {
-            const out = await answerQuestion(supabase, understood, text, now);
-            return { ...out, costUsd: out.costUsd + cost };
+            const out = await answerReads(deps(supabase, team), {
+                question: text, reads: understood.reads, now, askerName: actor.display_name, history
+            });
+            return {
+                status: out.error && !out.error.startsWith("missing") ? "failed" : "answered",
+                intent: "question", tool: out.tool, reply: out.reply, costUsd: out.costUsd + cost, error: out.error
+            };
+        }
+        case "write": {
+            const out = await writeText(deps(supabase, team), {
+                brief: understood.brief, venue: understood.venue, now, askerName: actor.display_name,
+                brandRules: await brandRules(supabase), history
+            });
+            return {
+                status: out.error ? "failed" : "answered",
+                intent: "write", tool: "write", reply: out.reply, costUsd: out.costUsd + cost, error: out.error
+            };
         }
         case "command": {
             if (needsConfirmation(understood.command)) {
@@ -279,7 +295,9 @@ export async function handleGeaMessage(supabase, botToken: string, message, acto
 
     let out: Outcome;
     try {
-        out = await think(supabase, botToken, text, actor, team, appUrl, new Date());
+        const now = new Date();
+        const history = await recentTurns(supabase, actor.user_id, inboxId, now);
+        out = await think(supabase, botToken, text, actor, team, appUrl, now, history);
     } catch (err) {
         console.error("crmGea: giro", err?.fn ?? "", err?.code ?? "", err?.message ?? String(err));
         out = { status: "failed", reply: GEA_TEXT.failed, costUsd: 0, error: `${err?.fn ?? "giro"}: ${err?.code ?? err?.message ?? "errore"}` };
