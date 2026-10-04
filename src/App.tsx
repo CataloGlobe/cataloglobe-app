@@ -48,6 +48,7 @@ const CrmLeadsPage = lazy(() => import("./pages/Admin/Crm/LeadsPage"));
 const CrmLeadDetailPage = lazy(() => import("./pages/Admin/Crm/LeadDetailPage"));
 const CrmAgentsPage = lazy(() => import("./pages/Admin/Crm/AgentsPage"));
 const CrmCostsPage = lazy(() => import("./pages/Admin/Costs/CostsPage"));
+const CrmSummaryPage = lazy(() => import("./pages/Admin/Crm/SummaryPage"));
 
 // Workspace — lazy (solo utenti autenticati)
 const WorkspacePage = lazy(() => import("./pages/Workspace/WorkspacePage"));
@@ -388,6 +389,7 @@ export default function App() {
                 </Route>
                 <Route path="agenti" element={<CrmAgentsPage />} />
                 <Route path="costi" element={<CrmCostsPage />} />
+                <Route path="riepilogo" element={<CrmSummaryPage />} />
             </Route>
 
             {/* Galleria UI — solo sviluppo (vedi DevUiPage sopra) */}

@@ -297,3 +297,18 @@ export interface CrmExpenseInput {
     remindDaysBefore: number | null;
     notes: string | null;
 }
+
+// -----------------------------------------------------------------------------
+// Riepilogo del giro (F1-9, migration 20261004020000)
+// -----------------------------------------------------------------------------
+export interface CrmSummary {
+    leads_in: number;
+    leads_by_source: Partial<Record<CrmLeadSource, number>>;
+    new_venues: number;
+    returned: number;
+    contacted: number;
+    stages: Partial<Record<CrmStage, number>>;
+    lost: Partial<Record<CrmLostKind, number>>;
+    first_contact_minutes_median: number | null;
+    pipeline: Partial<Record<CrmStage, number>>;
+}
