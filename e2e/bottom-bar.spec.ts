@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
+import { IDLE_REVEAL_MS } from "../src/components/PublicCollectionView/hooks/bottomBarVisibility";
 import { CATEGORIES, SLUG, stubPublicPage } from "./publicPageStub";
 
 /**
@@ -172,13 +173,16 @@ test.describe("ordinazione, carrello pieno", () => {
         await expect(badge).toHaveText("2");
 
         const y = await page.evaluate(() => window.scrollY);
+        // 60px giù (meno di 80) non bastano; oltre 80 sì. Margine sopra la
+        // soglia: il primo evento dopo la ricomparsa fa da riferimento e, se
+        // due eventi cadono nello stesso frame, conta per 20px invece di 10.
         await scrollTo(page, y + 60, 10);
         await expectBarShown(page);
-        await scrollTo(page, y + 90, 10);
+        await scrollTo(page, y + 110, 10);
         await expectBarHidden(page);
 
         // Ordini apre il carrello se ci sono articoli.
-        await scrollTo(page, y + 60, 10);
+        await scrollTo(page, y + 90, 10);
         await expectBarShown(page);
         await cartButton(page).click();
         const sheet = page.getByRole("dialog").last();
@@ -203,5 +207,148 @@ test.describe("sopra la soglia mobile", () => {
         await scrollTo(page, 1200);
         await expect(barWrap(page)).toBeHidden();
         await expect(barWrap(page)).not.toHaveAttribute("data-hidden", /.*/);
+    });
+});
+
+type Frame = { tag: "hide" | "show"; t: number; ty: number; op: number; vis: string };
+
+/** Registra transform (translateY) e opacity della barra a ogni frame, per
+ *  450ms da ogni cambio di `data-hidden`. */
+async function recordFrames(page: Page): Promise<() => Promise<Frame[]>> {
+    await page.evaluate(() => {
+        const el = document.querySelector('[class*="barWrap"]') as HTMLElement;
+        const w = window as unknown as { __frames: unknown[] };
+        w.__frames = [];
+        new MutationObserver(() => {
+            const t0 = performance.now();
+            const tag = el.hasAttribute("data-hidden") ? "hide" : "show";
+            const tick = () => {
+                const cs = getComputedStyle(el);
+                const m = cs.transform === "none" ? 0 : Number(cs.transform.split(",")[5]?.replace(")", "") ?? 0);
+                w.__frames.push({ tag, t: performance.now() - t0, ty: m, op: Number(cs.opacity), vis: cs.visibility });
+                if (performance.now() - t0 < 450) requestAnimationFrame(tick);
+            };
+            tick();
+        }).observe(el, { attributes: true, attributeFilter: ["data-hidden"] });
+    });
+    return () => page.evaluate(() => (window as unknown as { __frames: Frame[] }).__frames);
+}
+
+function settledAt(frames: Frame[], done: (f: Frame) => boolean): number {
+    const first = frames.find(done);
+    return first ? first.t : Infinity;
+}
+
+test.describe("animazione di uscita e entrata", () => {
+    for (const reducedMotion of ["no-preference", "reduce"] as const) {
+        test(`valori intermedi per frame — ${reducedMotion}`, async ({ page }) => {
+            await page.emulateMedia({ reducedMotion });
+            await openPage(page, true);
+            const frames = await recordFrames(page);
+
+            await scrollTo(page, 900);
+            await expectBarHidden(page);
+            await page.waitForTimeout(500);
+            await scrollTo(page, 880, 4);
+            await expectBarShown(page);
+            await page.waitForTimeout(500);
+
+            const all = await frames();
+            const hide = all.filter(f => f.tag === "hide");
+            const show = all.filter(f => f.tag === "show");
+            const midOpacity = (fs: Frame[]) => fs.filter(f => f.op > 0.05 && f.op < 0.95).length;
+
+            expect(midOpacity(hide)).toBeGreaterThanOrEqual(3);
+            expect(midOpacity(show)).toBeGreaterThanOrEqual(3);
+            // Durante l'uscita resta visibile; `visibility: hidden` solo a fine corsa.
+            expect(hide.filter(f => f.op > 0.05).every(f => f.vis === "visible")).toBe(true);
+            expect(hide.at(-1)?.vis).toBe("hidden");
+            // All'entrata torna visibile da subito.
+            expect(show[1]?.vis).toBe("visible");
+
+            if (reducedMotion === "reduce") {
+                expect(all.every(f => f.ty === 0)).toBe(true);
+                expect(settledAt(hide, f => f.op === 0)).toBeLessThan(260);
+                expect(settledAt(show, f => f.op === 1)).toBeLessThan(260);
+            } else {
+                const travel = Math.max(...hide.map(f => f.ty));
+                expect(travel).toBeGreaterThan(50);
+                expect(hide.filter(f => f.ty > 2 && f.ty < travel - 2).length).toBeGreaterThanOrEqual(3);
+                expect(show.filter(f => f.ty > 2 && f.ty < travel - 2).length).toBeGreaterThanOrEqual(3);
+                // Uscita ~220ms, entrata ~280ms (margine per il campionamento).
+                const hideEnd = settledAt(hide, f => f.op === 0);
+                const showEnd = settledAt(show, f => f.op === 1 && f.ty === 0);
+                expect(hideEnd).toBeGreaterThan(150);
+                expect(hideEnd).toBeLessThan(330);
+                expect(showEnd).toBeGreaterThan(hideEnd);
+                expect(showEnd).toBeLessThan(400);
+            }
+        });
+    }
+});
+
+test.describe("ricomparsa da fermo", () => {
+    test(`nascosta e ferma: torna dopo ${IDLE_REVEAL_MS}ms`, async ({ page }) => {
+        await openPage(page, true);
+        await scrollTo(page, 900);
+        // Tempi misurati nella pagina dall'ultimo scroll, non dal runner:
+        // i round-trip di Playwright sotto carico mangerebbero la tolleranza.
+        const seen = await page.evaluate(async idle => {
+            const el = document.querySelector('[class*="barWrap"]') as HTMLElement;
+            const hidden = () => el.hasAttribute("data-hidden");
+            const wait = (ms: number) => new Promise(r => setTimeout(r, ms));
+            window.scrollTo(0, window.scrollY + 20);
+            await wait(100);
+            const before = hidden();
+            await wait(idle - 400);
+            const justBefore = hidden();
+            await wait(800);
+            return { before, justBefore, after: hidden() };
+        }, IDLE_REVEAL_MS);
+        expect(seen).toEqual({ before: true, justBefore: true, after: false });
+        await expectBarShown(page);
+    });
+
+    test("ogni scroll azzera il conto", async ({ page }) => {
+        await openPage(page, true);
+        await scrollTo(page, 900);
+        await expectBarHidden(page);
+        const seen = await page.evaluate(async idle => {
+            const el = document.querySelector('[class*="barWrap"]') as HTMLElement;
+            const hidden = () => el.hasAttribute("data-hidden");
+            const wait = (ms: number) => new Promise(r => setTimeout(r, ms));
+            const states: boolean[] = [];
+            // Uno scroll piccolo ogni (idle - 500)ms, per tre volte: mai fermi abbastanza.
+            for (let i = 0; i < 3; i++) {
+                window.scrollTo(0, window.scrollY + 20);
+                await wait(idle - 500);
+                states.push(hidden());
+            }
+            await wait(idle + 300);
+            states.push(hidden());
+            return states;
+        }, IDLE_REVEAL_MS);
+        expect(seen).toEqual([true, true, true, false]);
+    });
+
+    test("non vale con una sheet aperta", async ({ page }) => {
+        await openPage(page, true);
+        await scrollTo(page, 1200);
+        await expectBarHidden(page);
+        await page.getByText(`${CATEGORIES[1]} 4`, { exact: true }).first().click();
+        await expect(page.getByRole("dialog").last()).toBeVisible();
+        await page.waitForTimeout(IDLE_REVEAL_MS + 500);
+        await expectBarHidden(page);
+    });
+
+    test("non vale per uno scroll programmatico", async ({ page }) => {
+        await openPage(page, true);
+        await scrollTo(page, 600);
+        await expectBarHidden(page);
+        const nav = page.getByRole("navigation").filter({ hasText: CATEGORIES[3] }).first();
+        await nav.getByText(CATEGORIES[3]).first().click();
+        await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(1500);
+        await page.waitForTimeout(IDLE_REVEAL_MS + 800);
+        await expectBarHidden(page);
     });
 });
