@@ -283,6 +283,10 @@ async function draftWithClaude(supabase, ctx, venueId) {
                 cost
             };
         }
+        if (parsed.action === "schedule") {
+            // Al lead non va nessun testo del modello: niente Revisore.
+            return { draft: { kind: "schedule", proposed_text: null, proposed_starts_at: parsed.startsAt, review_rounds: round }, cost };
+        }
         lastText = parsed.text;
         // Il Revisore controlla ogni testo che andrebbe al lead.
         const review = buildReviewRequest({
@@ -302,10 +306,7 @@ async function draftWithClaude(supabase, ctx, venueId) {
         const verdict = parseReviewReply(checked.text);
         if (verdict.ok) {
             return {
-                draft:
-                    parsed.action === "schedule"
-                        ? { kind: "schedule", proposed_text: parsed.text, proposed_starts_at: parsed.startsAt, review_rounds: round }
-                        : { kind: ctx.kind === "follow_up" ? "follow_up" : "reply", proposed_text: parsed.text, review_rounds: round },
+                draft: { kind: ctx.kind === "follow_up" ? "follow_up" : "reply", proposed_text: parsed.text, review_rounds: round },
                 cost
             };
         }
