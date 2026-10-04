@@ -178,14 +178,15 @@ export async function checkPublicMenu(): Promise<CheckResult> {
 /**
  * Check 2a: dashboard, parte statica
  *
- * GET / (homepage SPA). Vite serve `index.html` con il tag <title> di
- * CataloGlobe → marker affidabile che il deploy frontend è online. Da solo
+ * GET /login (shell SPA dell'app, dist/app.html: `/` è la landing con un
+ * entry suo) con il tag <title> di CataloGlobe → marker affidabile che il
+ * deploy frontend è online. Da solo
  * non basta (era sempre "up"): lo stato della dashboard lo decide
  * `combineDashboard` insieme a database e autenticazione.
  */
 export async function checkDashboardStatic(): Promise<CheckResult> {
     const base = readTargetBaseUrl();
-    const url = `${base}/`;
+    const url = `${base}/login`;
     const start = Date.now();
     try {
         const res = await fetchWithTimeout(url, {

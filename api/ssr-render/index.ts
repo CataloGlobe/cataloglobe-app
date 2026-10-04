@@ -20,6 +20,7 @@ import {
 import {
     buildClientAssets,
     buildSsrShell,
+    stripLandingSeoForFallback,
     type PublicShellPayload,
     type ViteManifest
 } from "../_lib/publicShell.js";
@@ -37,7 +38,7 @@ import {
  * (head per-tenant → markup → payload inline + script client dal manifest).
  *
  * SSR SOLO sul ramo ready: non-ready (inactive/subscription/empty), errori
- * di fetch, slug invalidi → fallback shell SPA statica (dist/index.html),
+ * di fetch, slug invalidi → fallback shell SPA statica (dist/app.html),
  * comportamento identico a oggi per quei casi.
  */
 
@@ -56,7 +57,7 @@ import {
 //    significa esporre quella rotta al framing same-origin — la nuova rotta
 //    passerebbe il lookahead e riceverebbe SAMEORIGIN invece di DENY.
 //    Le rotte dell'app con un solo segmento hanno anche una rewrite diretta a
-//    /index.html in vercel.json, PRIMA della regola slug: senza, passavano da
+//    /app.html in vercel.json, PRIMA della regola slug: senza, passavano da
 //    qui e ricevevano status 404 (il client poi disegnava comunque la pagina).
 //    Eccezione: `landing-dev` non ha la rewrite (fa 301 a `/` nei `redirects`
 //    di vercel.json) ma resta riservato qui, nei lookahead e in
@@ -136,7 +137,10 @@ let spaFallbackCache: string | null = null;
 function readSpaFallback(): string | null {
     if (spaFallbackCache === null) {
         try {
-            spaFallbackCache = readFileSync(join(process.cwd(), "dist", "index.html"), "utf-8");
+            spaFallbackCache = stripLandingSeoForFallback(
+                // Shell dell'app: dist/index.html è la landing (scripts/landing-html.mjs).
+                readFileSync(join(process.cwd(), "dist", "app.html"), "utf-8")
+            );
         } catch {
             return null;
         }

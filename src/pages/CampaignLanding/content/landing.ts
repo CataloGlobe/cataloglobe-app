@@ -385,7 +385,8 @@ export type PlanKey = "base" | "pro";
 /**
  * Prezzi uguali a `plan_prices` (verificati su staging il 23/09/2026:
  * 3900/39000 Base, 5900/59000 Pro). Il prezzo barrato dell'annuale è
- * 12 × il mensile. Se cambiano i piani, cambiare qui.
+ * 12 × il mensile. Se cambiano i piani, cambiare qui, nel JSON-LD
+ * SoftwareApplication di `index.html` e in `public/llms.txt` (⚠️ SYNC).
  */
 export const PRICING = {
     note: "la domanda di tutti",

@@ -2,6 +2,9 @@
 <html lang="it">
   <head>
     <meta charset="UTF-8" />
+    <!-- Landing di campagna (/ e /b). ⚠️ SYNC con index.html: stesso head, tranne preconnect a Supabase e app-inter.css
+         (Inter lo carica entry-landing.tsx senza bloccare il render), più il preload dei font dell'hero. Lo verifica src/tests/landing/landingHtml.test.ts.
+         Al build questo file diventa dist/index.html e la shell dell'app diventa dist/app.html (scripts/landing-html.mjs). -->
     <link rel="icon" type="image/svg+xml" href="/favicon/cataloglobe_icon_flat_primary.svg" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon/cataloglobe_icon_flat_primary_32.png" />
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon/cataloglobe_icon_flat_primary_16.png" />
@@ -10,8 +13,9 @@
     <link rel="manifest" href="/site.webmanifest" />
     <meta name="theme-color" content="#6B2DE6" />
 
-    <link rel="preconnect" href="%VITE_SUPABASE_URL%" crossorigin />
-    <link href="/fonts/app-inter.css" rel="stylesheet" />
+    <!-- Font dell'hero (titolo e testo), gli stessi di public/fonts/app-campaign.css: partono con l'HTML. -->
+    <link rel="preload" href="/fonts/app/young-serif-400-normal-latin.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/app/instrument-sans-400-700-normal-latin.woff2" as="font" type="font/woff2" crossorigin />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 
     <!-- ⚠️ SYNC con src/config/company.ts. Se modifichi dati legali, aggiorna anche qui. -->
@@ -116,6 +120,6 @@
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+    <script type="module" src="/src/entry-landing.tsx"></script>
   </body>
 </html>

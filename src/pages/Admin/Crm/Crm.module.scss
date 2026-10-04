@@ -220,3 +220,16 @@
   gap: var(--space-4);
   min-width: 0;
 }
+
+// Testo lungo scritto a mano (regole del brand): gli a capo restano.
+.preWrap {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+// Pagina Agenti: due tetti affiancati, impilati sul telefono.
+.capFields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--space-12);
+}

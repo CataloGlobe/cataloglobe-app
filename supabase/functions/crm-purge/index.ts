@@ -8,6 +8,8 @@
 // (crm_leads.received_at) di più di 12 mesi fa, come dice l'informativa, non
 // In prova né Cliente pagante, nessun account collegato. Contatti, ingressi ed eventi vanno via a cascata; un
 // locale in stop lascia l'impronta del telefono in crm_suppressions.
+// Poi public.crm_purge_agent_decisions (20261002210100): righe del diario degli
+// agenti senza locale né lead, stessa soglia.
 //
 // AUTENTICAZIONE fail-CLOSED: X-Job-Secret = CRM_JOB_SECRET.
 // DRY-RUN DI DEFAULT: senza `{"dry_run": false}` nel body conta e basta.
@@ -60,7 +62,16 @@ Deno.serve(async (req: Request) => {
         });
         if (error) throw error;
         const count = typeof data === "number" ? data : 0;
-        const result = dryRun ? { dry_run: true, cutoff, would_delete: count } : { dry_run: false, cutoff, deleted: count };
+        // Diario degli agenti: righe senza locale né lead (le altre vanno a cascata sopra).
+        const { data: diary, error: diaryError } = await supabase.rpc("crm_purge_agent_decisions", {
+            p_cutoff: cutoff,
+            p_dry_run: dryRun
+        });
+        if (diaryError) throw diaryError;
+        const decisions = typeof diary === "number" ? diary : 0;
+        const result = dryRun
+            ? { dry_run: true, cutoff, would_delete: count, would_delete_decisions: decisions }
+            : { dry_run: false, cutoff, deleted: count, deleted_decisions: decisions };
         console.log(JSON.stringify({ event: "crm_purge", ...result }));
         return json(200, result);
     } catch (err) {

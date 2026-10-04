@@ -47,6 +47,7 @@ const SupportTicketAdminPage = lazy(
 );
 const CrmLeadsPage = lazy(() => import("./pages/Admin/Crm/LeadsPage"));
 const CrmLeadDetailPage = lazy(() => import("./pages/Admin/Crm/LeadDetailPage"));
+const CrmAgentsPage = lazy(() => import("./pages/Admin/Crm/AgentsPage"));
 const CrmCostsPage = lazy(() => import("./pages/Admin/Costs/CostsPage"));
 
 // Workspace — lazy (solo utenti autenticati)
@@ -101,9 +102,11 @@ const ActivityCosaVedonoRoute = lazy(() => import("./pages/Operativita/Attivita/
 const SubscriptionPage = lazy(() => import("./pages/Business/SubscriptionPage"));
 
 // Landing di campagna su / (variante form) e /b (variante signup, noindex).
-// /landing-dev e /landing-dev/b fanno 301 in vercel.json; qui restano come
-// redirect per la navigazione interna. Chunk e font partono al caricamento del
-// modulo, prima che React monti la route.
+// In produzione / e /b sono serviti da landing.html con il suo entry
+// (src/entry-landing.tsx, vercel.json): queste route restano per il dev server
+// e come rete di sicurezza. /landing-dev e /landing-dev/b fanno 301 in
+// vercel.json; qui restano come redirect per la navigazione interna. Chunk e
+// font partono al caricamento del modulo, prima che React monti la route.
 preloadCampaignLandingIfLanding();
 const CampaignLandingPage = lazy(loadCampaignLanding);
 
@@ -418,6 +421,7 @@ export default function App() {
                     <Route index element={<CrmLeadsPage />} />
                     <Route path=":venueId" element={<CrmLeadDetailPage />} />
                 </Route>
+                <Route path="agenti" element={<CrmAgentsPage />} />
                 <Route path="costi" element={<CrmCostsPage />} />
             </Route>
 
