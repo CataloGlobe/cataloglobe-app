@@ -233,3 +233,10 @@
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: var(--space-12);
 }
+
+// Riepilogo del giro: tre numeri per riga al massimo (regola di StatCard).
+.statGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(max(220px, calc((100% - 2 * var(--space-16)) / 3)), 1fr));
+  gap: var(--space-16);
+}
