@@ -307,7 +307,7 @@ async function handleCall(supabase, parsed, actor, team, answer, query, appUrl) 
         }
         await closeMessage(
             query,
-            buildAnsweredText(info, `annullata, proponi un altro orario. Al lead andrà: «${leadText}». La bozza arriva qui, da approvare.`)
+            buildAnsweredText(info, `annullata. Al lead propongo un altro orario: «${leadText}». La bozza arriva qui da approvare.`)
         );
         await answer("Bozza preparata.");
         if (otherPerson && otherPerson !== actor.user_id) {
@@ -550,7 +550,7 @@ async function handleEditReply(supabase, message) {
         return;
     }
     await closeDraftMessages(supabase, BOT_TOKEN, prompt.draft_id, status, actor.display_name);
-    await reply(chatId, "In coda: parte appena il canale WhatsApp può mandarlo.");
+    await reply(chatId, "Messaggio preso: parte appena il Mac con WhatsApp è pronto (di notte parte la mattina).");
 }
 
 async function handleCallback(supabase, query, appUrl) {
