@@ -319,3 +319,56 @@
     font-weight: 600;
   }
 }
+
+/* Home del CRM: numeri in riga, riquadri a coppie allineati, ingrandibili. */
+.homeFigures {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-3);
+
+  @media (max-width: 767px) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.homeGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+  gap: var(--space-4);
+
+  &[data-expanded] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  @media (max-width: 1023px) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.homeTile {
+  height: 100%;
+}
+
+/* Il colore dell'attesa sta solo nel filo a sinistra e nel tempo. */
+.waitRowOrange {
+  box-shadow: inset 3px 0 0 var(--color-warning-500);
+}
+
+.waitRowRed {
+  box-shadow: inset 3px 0 0 var(--danger);
+}
+
+.waitTime {
+  font-variant-numeric: tabular-nums;
+
+  &[data-level="arancio"] {
+    color: var(--text-warning);
+    font-weight: 600;
+  }
+
+  &[data-level="rosso"] {
+    color: var(--text-danger);
+    font-weight: 600;
+  }
+}

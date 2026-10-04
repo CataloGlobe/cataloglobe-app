@@ -48,6 +48,7 @@ const SupportTicketAdminPage = lazy(
 const CrmLeadsPage = lazy(() => import("./pages/Admin/Crm/LeadsPage"));
 const CrmLeadDetailPage = lazy(() => import("./pages/Admin/Crm/LeadDetailPage"));
 const CrmAgentsPage = lazy(() => import("./pages/Admin/Crm/AgentsPage"));
+const CrmHomePage = lazy(() => import("./pages/Admin/Crm/HomePage"));
 const CrmCostsPage = lazy(() => import("./pages/Admin/Costs/CostsPage"));
 const CrmAgendaPage = lazy(() => import("./pages/Admin/Crm/AgendaPage"));
 
@@ -412,7 +413,7 @@ export default function App() {
                     </AdminRoute>
                 }
             >
-                <Route index element={<Navigate to="status-incidents" replace />} />
+                <Route index element={<CrmHomePage />} />
                 <Route path="status-incidents" element={<StatusIncidentsAdminPage />} />
                 <Route path="supporto">
                     <Route index element={<SupportQueuePage />} />

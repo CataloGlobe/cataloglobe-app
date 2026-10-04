@@ -1,4 +1,4 @@
-import { ArrowLeft, Activity, Bot, CalendarClock, LifeBuoy, UserPlus, Wallet } from "lucide-react";
+import { ArrowLeft, Activity, Bot, CalendarClock, House, LifeBuoy, UserPlus, Wallet } from "lucide-react";
 import {
     AppSidebar,
     type AppSidebarNavGroup
@@ -21,6 +21,7 @@ function buildGroups(supportPending: boolean): AppSidebarNavGroup[] {
         {
             title: "CRM",
             items: [
+                { to: "/admin", label: "Home", icon: <House size={18} />, end: true },
                 { to: "/admin/lead", label: "Lead", icon: <UserPlus size={18} /> },
                 { to: "/admin/agenda", label: "Agenda", icon: <CalendarClock size={18} /> },
                 { to: "/admin/agenti", label: "Agenti", icon: <Bot size={18} /> },
