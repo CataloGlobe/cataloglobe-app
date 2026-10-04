@@ -1,8 +1,9 @@
+import { useParams } from "react-router-dom";
 import { useEffect, useId, useState, useMemo, useCallback, type ReactNode } from "react";
 import { useTenantId } from "@/context/useTenantId";
 import { useToast } from "@/context/Toast/ToastContext";
 import { listReviews, deleteReview, updateReviewStatus } from "@/services/supabase/reviews";
-import { useSedeScope, SCOPE_ALL } from "@/hooks/useSedeScope";
+import { useSedeScope } from "@/hooks/useSedeScope";
 import type { Review } from "@/types/database";
 import { usePermissions } from "@/context/usePermissions";
 import { canDoOnActivity, canDoOnAnyActivity } from "@/lib/permissions";
@@ -84,10 +85,12 @@ export default function Reviews() {
     const { showToast } = useToast();
     const refreshReviewsPending = useBusinessOutletContext()?.refreshReviewsPending;
 
-    /* ── Sede scope condivisa via navbar ────────────── */
-    const { value: scopeValue, readableActivities } = useSedeScope();
-    // SCOPE_ALL → stringa vuota = "tutte"
-    const selectedActivity = scopeValue === SCOPE_ALL ? "" : scopeValue;
+    /* ── Due livelli (§51.10) ───────────────────────── */
+    // Dentro la sede (`/locations/:activityId/recensioni`) la sede è nel path;
+    // fuori, stringa vuota = tutte le sedi leggibili, con la sede su ogni riga.
+    const { activityId: routeActivityId } = useParams<{ activityId?: string }>();
+    const { readableActivities } = useSedeScope();
+    const selectedActivity = routeActivityId ?? "";
 
     const { permissions } = usePermissions();
     // Gate di lettura prima di ogni fetch (#646): lo stesso che rende `PageGate`.
@@ -325,7 +328,7 @@ export default function Reviews() {
         </>
     ), [searchQuery, filterPeriod, sortBy]);
 
-    // Selettore sede nella navbar (SedeScopeSelect), titolo nel breadcrumb.
+    // Nessun selettore di sede: il livello lo dice l'indirizzo (§51.10).
     // In compatto la valutazione prende il posto del picker sezione (la pagina
     // non ha sezioni); periodo e ordinamento restano icone con overlay e chip,
     // diverse perché due bottoni identici non direbbero quale filtro aprono.

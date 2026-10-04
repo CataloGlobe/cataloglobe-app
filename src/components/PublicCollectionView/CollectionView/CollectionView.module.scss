@@ -29,18 +29,20 @@
   font-family: var(--pub-font-family, sans-serif);
 
   /* Spazio in fondo per la bottom bar flottante — FONTE UNICA.
-     `--pub-bottombar-h`: altezza reale (non scalata) di `.barWrap`, scritta
-     inline su questo elemento dal ResizeObserver di PublicBottomBar.tsx;
-     fallback 54px (pill a riposo) finché non è misurata o se la barra non c'è.
-     `--pub-bottom-clearance`: offset dal fondo + barra + gap + safe-area
-     SOMMATA. La usano scrim (altezza), footer, Storie, empty state
-     (padding-bottom). Definita qui e non su :root: var() si risolve
+     `--pub-bottombar-bottom`: distanza della barra dal fondo, almeno 34px e
+     comunque 6px sopra la safe-area (home indicator).
+     `--pub-bottombar-h`: altezza reale di `.barWrap`, scritta inline su
+     questo elemento dal ResizeObserver di PublicBottomBar.tsx; fallback 54px
+     (pill a riposo) finché non è misurata o se la barra non c'è.
+     `--pub-bottom-clearance`: distanza dal fondo + barra + gap, stessa
+     formula della barra. Non cambia quando la barra si nasconde (niente
+     salti del contenuto). La usano scrim (altezza), footer, Storie, empty
+     state (padding-bottom). Definita qui e non su :root: var() si risolve
      sull'elemento che dichiara la proprietà, e la misura vive su `.page`. */
-  --pub-bottombar-offset: 16px;
+  --pub-bottombar-bottom: max(34px, calc(env(safe-area-inset-bottom, 0px) + 6px));
   --pub-bottombar-gap: 48px;
   --pub-bottom-clearance: calc(
-    var(--pub-bottombar-offset) + var(--pub-bottombar-h, 54px) + var(--pub-bottombar-gap) +
-      env(safe-area-inset-bottom, 0px)
+    var(--pub-bottombar-bottom) + var(--pub-bottombar-h, 54px) + var(--pub-bottombar-gap)
   );
 }
 
@@ -679,6 +681,16 @@
   .compactRow:hover {
     opacity: 1;
   }
+}
+
+/* Preview mobile: la bottom bar è sticky dentro il device frame e, nascosta,
+   trasla in basso. Un transform conta nell'area scorrevole dello scroll
+   container: senza clip la pagina si allunga della traslazione e la «fine
+   pagina» (che fa ricomparire la barra) non si raggiunge mai. Al pubblico la
+   barra è position:fixed e non conta. `clip` non crea scroll container: lo
+   sticky di header e nav resta intatto. */
+.page[data-preview-device="mobile"] {
+  overflow-y: clip;
 }
 
 .productRowImageRight {
@@ -1431,10 +1443,7 @@
    è nascosta → il toast resta all'ancora 16px standard. */
 .submitFeedbackAboveBar {
   @media (max-width: 640px) {
-    bottom: calc(
-      var(--pub-bottombar-offset) + var(--pub-bottombar-h, 54px) + 12px +
-        env(safe-area-inset-bottom, 0px)
-    );
+    bottom: calc(var(--pub-bottombar-bottom) + var(--pub-bottombar-h, 54px) + 12px);
   }
 }
 

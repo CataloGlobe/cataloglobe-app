@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { motion, useReducedMotion } from "framer-motion";
 import { BookOpenText, ImageIcon, MessageCircle, MoreHorizontal, Pin, ReceiptText, Search, Utensils } from "lucide-react";
 import type { HubTab } from "@/types/collectionStyle";
-import { hasOpenSheet } from "../hooks/useScrollCollapse";
+import { hasOpenSheet } from "../hooks/openSheets";
 import { buildCoverImageSet } from "@/utils/imageTransform";
 import LanguageSelector from "@components/PublicCollectionView/LanguageSelector/LanguageSelector";
 import styles from "./PublicCollectionHeader.module.scss";
@@ -117,8 +117,8 @@ export type PublicCollectionHeaderProps = {
     /** Congela il tracking scroll (lerp header) mentre una sheet è aperta: gli
      *  scroll event indotti dal body-lock/unlock di PublicSheet vengono ignorati
      *  esplicitamente invece di affidarsi solo al defensive read di body.style.top
-     *  (che resta come rete di sicurezza). Stesso pattern dual-source del freeze
-     *  in useScrollCollapse: prop dal parent + contatore modulo hasOpenSheet(). */
+     *  (che resta come rete di sicurezza). Freeze dual-source, come la bottom bar
+     *  (useBottomBarAutoHide): prop dal parent + contatore modulo hasOpenSheet(). */
     frozen?: boolean;
 };
 
@@ -158,8 +158,8 @@ export default function PublicCollectionHeader({
 }: PublicCollectionHeaderProps) {
     const { t } = useTranslation("public");
     const prefersReducedMotion = useReducedMotion();
-    // Aggiornato sincronicamente ad ogni render (stesso pattern di freezeRef in
-    // useScrollCollapse): già true prima degli scroll event post-apertura sheet,
+    // Aggiornato sincronicamente ad ogni render: già true prima degli scroll
+    // event post-apertura sheet,
     // senza ri-attaccare il listener.
     const frozenRef = useRef(frozen);
     frozenRef.current = frozen;

@@ -280,7 +280,7 @@ export function ReservationsAgendaPage() {
                     title="Le prenotazioni sono una funzione Pro"
                     description="Accetta richieste di prenotazione tavolo dalla pagina pubblica e gestiscile da qui. Disponibile con il piano Pro."
                     action={
-                        <Button variant="primary" onClick={() => navigate(`/business/${businessId}/subscription`)}>
+                        <Button variant="primary" onClick={() => navigate(`/business/${businessId}/settings/abbonamento`)}>
                             Passa a Pro
                         </Button>
                     }

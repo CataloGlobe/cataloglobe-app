@@ -3,13 +3,15 @@ import { AppLoader } from "@/components/ui/AppLoader/AppLoader";
 import { useTenant } from "@/context/useTenant";
 import { usePermissions } from "@/context/usePermissions";
 import { usePlanFeatures } from "@/lib/planFeatures";
-import { firstSedeSegment, legacyTabTarget } from "@/utils/navLanding";
+import { legacyTabTarget } from "@/utils/navLanding";
+import { sedeLandingSegment } from "@/utils/navModel";
 
 /**
- * `/locations/:activityId` senza pagina: si atterra sulla prima voce della
- * sidebar di sede che chi guarda può usare (§46.1 f), saltando quelle col
- * lucchetto del piano. I vecchi `?tab=` della scheda vincono: un link vecchio
- * porta ancora alla sua sezione.
+ * `/locations/:activityId` senza pagina: l'ingresso nella sede (§51.6). Chi
+ * la gestisce parte dalla Scheda; staff e viewer dalla prima voce di
+ * Operatività che possono usare, saltando quelle col lucchetto del piano.
+ * I vecchi `?tab=` della scheda vincono: un link vecchio porta ancora alla
+ * sua sezione.
  */
 export default function SedeHomeRedirect() {
     const { businessId = "", activityId = "" } = useParams<{ businessId: string; activityId: string }>();
@@ -38,5 +40,5 @@ export default function SedeHomeRedirect() {
     // si atterrerebbe su una voce che poi sparisce o prende il lucchetto.
     if (!permissions || !selectedTenant) return <AppLoader />;
 
-    return <Navigate to={`${base}/${firstSedeSegment(permissions, hasFeature, activityId)}`} replace />;
+    return <Navigate to={`${base}/${sedeLandingSegment(permissions, hasFeature, activityId)}`} replace />;
 }
