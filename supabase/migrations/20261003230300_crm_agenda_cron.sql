@@ -1,6 +1,7 @@
 -- =============================================================================
 -- CRM interno (F1-4a): agenda, ogni 5 minuti
 -- =============================================================================
+-- 0. Chiude le telefonate dimenticate (crm_agenda_expire).
 -- 1. Accoda i promemoria dovuti al lead (crm_agenda_enqueue_reminders, solo
 --    SQL: niente chiamata HTTP). Poi li manda la coda WhatsApp della #188.
 -- 2. Se c'è lavoro per l'edge (crm_agenda_has_work: evento Google da
@@ -27,6 +28,7 @@ SELECT cron.schedule(
         v_url TEXT;
         v_secret TEXT;
     BEGIN
+        PERFORM public.crm_agenda_expire(now());
         PERFORM public.crm_agenda_enqueue_reminders(now());
 
         IF NOT public.crm_agenda_has_work(now()) THEN

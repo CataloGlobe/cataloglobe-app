@@ -138,8 +138,9 @@ export function buildOutcomeMessage(info: AgendaCallInfo, appUrl: string | null)
 
 /** A chi l'ha fissata: chi doveva chiamare non può. */
 export function buildCallerDeclinedText(info: AgendaCallInfo): string {
-    const who = info.callerName ?? "Chi doveva chiamare";
-    return `${who} non può fare la telefonata con ${info.venueName} di ${when(info)}. Annullata: fissane un'altra dalla scheda.`;
+    // Va a sendToTeam, che manda in HTML: il nome del locale va protetto.
+    const who = escapeHtml(info.callerName ?? "Chi doveva chiamare");
+    return `${who} non può fare la telefonata con ${escapeHtml(info.venueName)} di ${when(info)}. Annullata: fissane un'altra dalla scheda.`;
 }
 
 /** Testo che sostituisce il messaggio dopo il tocco, senza più pulsanti di scelta. */
