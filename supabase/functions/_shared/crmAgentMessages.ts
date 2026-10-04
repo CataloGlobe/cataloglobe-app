@@ -219,7 +219,7 @@ export function buildDraftClosedText(info: AgentDraftInfo, status: string, actor
 }
 
 export function buildEditPromptText(info: AgentDraftInfo): string {
-    return `Scrivi qui il messaggio per ${info.venueName}${info.contactName ? ` (${info.contactName})` : ""}, rispondendo a questo messaggio. Parte così com'è.`;
+    return `Scrivi qui il messaggio per ${info.venueName}${info.contactName ? ` (${info.contactName})` : ""}, rispondendo a questo messaggio (tieni premuto qui e scegli Rispondi). Parte così com'è.`;
 }
 
 /** Quanti solleciti spettano a una bozza adesso (mai meno di quelli già mandati). */
@@ -246,7 +246,15 @@ export function buildRemindersText(items: { info: AgentDraftInfo; minutes: numbe
                 : "bozza";
     if (items.length === 1) {
         const { info, minutes } = items[0];
-        return `⏰ Ancora in attesa da ${waitedLabel(minutes)}: ${label(info)} per ${info.venueName}.`;
+        const what =
+            info.kind === "stop_check"
+                ? "Un dubbio (stop o «non adesso»)"
+                : info.kind === "lost_proposal"
+                  ? "Una proposta di Perso"
+                  : info.kind === "reactivation"
+                    ? "Una riattivazione"
+                    : "Una bozza";
+        return `⏰ ${what} per ${info.venueName} aspetta da ${waitedLabel(minutes)}: tocca un tasto sul messaggio qui sopra.`;
     }
     const lines = items.map(({ info, minutes }) => `• ${info.venueName}: ${label(info)}, da ${waitedLabel(minutes)}`);
     return `⏰ ${items.length} bozze aspettano da voi (le trovate più su in questa chat):\n${lines.join("\n")}`;
@@ -303,8 +311,12 @@ export function buildAutoSentMessage(
 
 /** Un tipo è uscito dalla prova. */
 export function buildTrustReadyText(kind: "reply" | "follow_up", inRow: number, autonomyOn: boolean): string {
-    const what = kind === "reply" ? "Le risposte" : "I solleciti";
+    const g =
+        kind === "reply"
+            ? { what: "risposte", fix: "correggerle", them: "le", one: "una", alone: "da sole" }
+            : { what: "solleciti", fix: "correggerli", them: "li", one: "uno", alone: "da soli" };
+    const done = `✅ Avete approvato ${inRow} ${g.what} di fila senza ${g.fix}`;
     return autonomyOn
-        ? `✅ ${what} escono dalla prova (${inRow} approvazioni di fila): da ora partono senza approvazione, ogni messaggio con «Non andava bene, torna in prova».`
-        : `✅ ${what} possono uscire dalla prova (${inRow} approvazioni di fila). L'autonomia è spenta: si accende da /admin/agenti.`;
+        ? `${done}: da ora l'agente ${g.them} manda da solo e vi avvisa dopo. Se ${g.one} non va bene, tocca «Non andava bene, torna in prova».`
+        : `${done}: possono partire ${g.alone}. L'invio automatico è spento: si accende da /admin, pagina Agenti.`;
 }

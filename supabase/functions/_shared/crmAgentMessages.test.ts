@@ -102,8 +102,10 @@ describe("F1-7", () => {
             "Apri la chat su WhatsApp",
             "Apri la scheda"
         ]);
-        expect(buildTrustReadyText("reply", 5, false)).toContain("L'autonomia è spenta");
-        expect(buildTrustReadyText("follow_up", 3, true)).toContain("I solleciti escono dalla prova");
+        expect(buildTrustReadyText("reply", 5, false)).toContain("L'invio automatico è spento: si accende da /admin, pagina Agenti.");
+        expect(buildTrustReadyText("follow_up", 3, true)).toBe(
+            "✅ Avete approvato 3 solleciti di fila senza correggerli: da ora l'agente li manda da solo e vi avvisa dopo. Se uno non va bene, tocca «Non andava bene, torna in prova»."
+        );
     });
 });
 
@@ -130,9 +132,9 @@ describe("testi", () => {
     it("chiusa, sollecito, richiesta di correzione", () => {
         expect(buildDraftClosedText(base, "sent", "Lorenzo")).toContain("➡️ inviata così (Lorenzo)");
         expect(buildDraftClosedText(base, "expired", null)).toContain("scaduta");
-        expect(buildRemindersText([{ info: base, minutes: 10 }])).toBe("⏰ Ancora in attesa da 10 minuti: bozza per Bar <Roma>.");
-        expect(buildRemindersText([{ info: { ...base, kind: "lost_proposal" }, minutes: 30 }])).toContain("proposta di Perso per");
-        expect(buildEditPromptText(base)).toContain("rispondendo a questo messaggio");
+        expect(buildRemindersText([{ info: base, minutes: 10 }])).toBe("⏰ Una bozza per Bar <Roma> aspetta da 10 minuti: tocca un tasto sul messaggio qui sopra.");
+        expect(buildRemindersText([{ info: { ...base, kind: "lost_proposal" }, minutes: 30 }])).toContain("Una proposta di Perso per");
+        expect(buildEditPromptText(base)).toContain("tieni premuto qui e scegli Rispondi");
     });
     it("dubbio stop: cita il lead e chiude con l'esito vero", () => {
         const info = {
