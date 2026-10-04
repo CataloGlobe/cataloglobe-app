@@ -216,7 +216,7 @@ Usa "schedule" solo se il lead ha detto chiaramente di sì a un giorno e un'ora 
 export function buildDraftRequest(ctx: DraftContext): { system: string[]; messages: { role: "user"; content: string }[] } {
     const task =
         ctx.kind === "follow_up"
-            ? `Il lead non risponde dall'ultimo messaggio. Scrivi il follow-up numero ${ctx.followUpNumber} (al massimo 10): corto, diverso dai precedenti, senza insistere, sempre con lo scopo di fissare 10 minuti di telefonata.`
+            ? `Il lead non risponde dall'ultimo messaggio. Scrivi il sollecito numero ${ctx.followUpNumber} (al massimo 10): corto, diverso dai precedenti, senza insistere, sempre con lo scopo di fissare 10 minuti di telefonata.`
             : ctx.kind === "bot_question"
               ? "Il lead chiede se sta parlando con un bot o con una persona. Non rispondi tu: proponi ad Alessandro e Lorenzo una risposta naturale, che hanno letto tutta la chat, da ritoccare o confermare. Usa ask_humans con la tua proposta nel campo text."
               : "Il lead ha scritto. Scrivi la risposta seguendo le regole.";

@@ -169,7 +169,7 @@ describe("richiesta a Claude", () => {
     });
 
     it("follow-up e domanda sul bot cambiano il compito", () => {
-        expect(buildDraftRequest({ ...ctx, kind: "follow_up", followUpNumber: 3 }).messages[0].content).toContain("follow-up numero 3");
+        expect(buildDraftRequest({ ...ctx, kind: "follow_up", followUpNumber: 3 }).messages[0].content).toContain("sollecito numero 3");
         expect(buildDraftRequest({ ...ctx, kind: "bot_question" }).messages[0].content).toContain("ask_humans");
     });
 
