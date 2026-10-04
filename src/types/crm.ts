@@ -265,7 +265,7 @@ export type CrmAgentCheckResult =
 export type CrmMessageDirection = "in" | "out";
 export type CrmMessageAuthor = "lead" | "agent" | "person";
 export type CrmMessageKind = "text" | "voice" | "image" | "video" | "document" | "sticker" | "other";
-export type CrmMessagePurpose = "first_message" | "reply" | "follow_up" | "call_confirm" | "call_reminder";
+export type CrmMessagePurpose = "first_message" | "reply" | "follow_up" | "call_confirm" | "call_reminder" | "call_soon";
 export type CrmMessageStatus = "queued" | "sending" | "sent" | "failed" | "cancelled";
 
 export interface CrmMessage {
@@ -378,6 +378,8 @@ export interface CrmAppointment {
     google_sync: CrmGoogleSync;
     google_error: string | null;
     reminder_queued_at: string | null;
+    /** L'orario per cui è partito il promemoria di un'ora prima (spostata, ne parte un altro). */
+    soon_queued_for: string | null;
     brief_sent_at: string | null;
     outcome_at: string | null;
     outcome_by: string | null;
@@ -402,6 +404,7 @@ export interface CrmAgendaSettings {
     google_calendar_id: string | null;
     call_confirm_message: string | null;
     call_reminder_message: string | null;
+    call_soon_message: string | null;
 }
 
 /** Un impegno per gli orari liberi: telefonata del CRM o evento del calendario Google. */

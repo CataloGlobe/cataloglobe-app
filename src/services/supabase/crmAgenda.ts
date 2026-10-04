@@ -17,7 +17,7 @@ import type {
 
 const APPOINTMENT_SELECT =
     "id, created_at, venue_id, lead_id, contact_id, starts_at, ends_at, time_set_at, caller_user_id, created_by, " +
-    "status, status_reason, note, google_sync, google_error, reminder_queued_at, brief_sent_at, outcome_at, outcome_by";
+    "status, status_reason, note, google_sync, google_error, reminder_queued_at, soon_queued_for, brief_sent_at, outcome_at, outcome_by";
 
 const AGENDA_TIMEOUT_MS = 15_000;
 
@@ -145,7 +145,7 @@ export async function runCrmAgenda(): Promise<void> {
 }
 
 const SETTINGS_SELECT =
-    "call_windows, call_duration_minutes, call_min_notice_minutes, google_calendar_id, call_confirm_message, call_reminder_message";
+    "call_windows, call_duration_minutes, call_min_notice_minutes, google_calendar_id, call_confirm_message, call_reminder_message, call_soon_message";
 
 export async function getCrmAgendaSettings(): Promise<CrmAgendaSettings> {
     const { data, error } = await supabase.from("crm_settings").select(SETTINGS_SELECT).eq("id", true).single();

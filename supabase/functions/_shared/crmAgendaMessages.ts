@@ -37,6 +37,8 @@ export interface AgendaCallInfo {
     canHandOver: boolean;
     /** Chi doveva chiamare ha già chiesto a chi l'ha fissata (creator_asked_at). */
     creatorAsked?: boolean;
+    /** Il passaggio a chi l'ha fissata non è riuscito (handover_failed_at). */
+    handoverFailed?: boolean;
     note: string | null;
 }
 
@@ -237,6 +239,26 @@ export function buildHandedOverText(info: AgendaCallInfo, creatorAsked = false):
  * A tutti e due, quando il passaggio automatico non riesce (chi l'ha fissata
  * ha un'altra telefonata a quell'ora o non è più nel team).
  */
+/**
+ * Passaggio non riuscito perché chi l'ha fissata ha un'altra telefonata a
+ * quell'ora: le si chiede di gestirla (Alex, 2026-10-04), con un altro orario
+ * da proporre al lead (bozza da approvare) o dalla scheda.
+ */
+export function buildHandoverBusyQuestion(info: AgendaCallInfo, appUrl: string | null): TelegramMessage {
+    const caller = escapeHtml(info.callerName ?? "Chi doveva chiamare");
+    const lines = [
+        `⚠️ ${caller} non ha risposto per la telefonata con ${venueLine(info)}${info.contactName ? ` (${escapeHtml(info.contactName)})` : ""} di ${when(info)}, e tu a quell'ora hai già un'altra telefonata.`,
+        "<b>Riesci a gestirla?</b> Puoi proporre al lead un altro orario (la bozza arriva qui da approvare) o sistemarla dalla scheda.",
+        "Finché non decidete, al lead non parte la conferma."
+    ];
+    const rows: InlineButton[][] = [
+        [{ text: "Propongo un altro orario al lead", callback_data: encodeCallOtherMenu(info.appointmentId, true) }]
+    ];
+    const open = openButton(appUrl, info.venueId);
+    if (open.length) rows.push(open);
+    return { text: lines.join("\n"), reply_markup: { inline_keyboard: rows } };
+}
+
 export function buildHandoverFailedText(info: AgendaCallInfo): string {
     const name = info.createdByName ?? "chi l'ha fissata";
     const to = `${/^[aeiou]/i.test(name) ? "ad" : "a"} ${escapeHtml(name)}`;

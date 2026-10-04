@@ -176,8 +176,11 @@ BEGIN
     IF NOT FOUND THEN
         RAISE EXCEPTION 'appointment_not_found' USING ERRCODE = 'P0002';
     END IF;
-    v_asked := a.creator_asked_at IS NOT NULL AND a.caller_asked_at IS NOT NULL
-               AND a.creator_asked_at >= a.caller_asked_at;
+    -- Chi l'ha fissata propone anche dopo un passaggio non riuscito (aveva
+    -- un'altra telefonata a quell'ora): è lei a gestirla (Alex, 2026-10-04).
+    v_asked := (a.creator_asked_at IS NOT NULL AND a.caller_asked_at IS NOT NULL
+                AND a.creator_asked_at >= a.caller_asked_at)
+               OR a.handover_failed_at IS NOT NULL;
     IF v_actor IS NULL
        OR (v_actor IS DISTINCT FROM a.caller_user_id AND NOT (v_asked AND v_actor = a.created_by)) THEN
         RAISE EXCEPTION 'not_the_caller' USING ERRCODE = 'CL006';

@@ -252,6 +252,21 @@ export function buildSendInstruction(input: {
 }
 
 /** Il numero dell'agente ha scritto in una chat che il CRM non conosce. */
+/**
+ * Messaggi partiti dal numero dell'agente verso lead del CRM che non sono testi
+ * della coda: li ha scritti una persona dal telefono, o il Mac di testa sua
+ * (review di Lorenzo, 2026-10-04). Il team lo sa in ogni caso.
+ */
+export function buildHandWrittenAlert(venueNames: string[]): string {
+    const names = [...new Set(venueNames.map(n => n.trim()).filter(Boolean))];
+    const where = names.length === 0 ? "a un lead" : names.length === 1 ? `a ${escapeHtml(names[0])}` : `a ${names.length} lead (${names.map(escapeHtml).join(", ")})`;
+    return (
+        "<b>Scritto a mano dal numero dell'agente</b>\n" +
+        `Un messaggio ${where} non viene dalla coda del CRM. ` +
+        "Se l'ha scritto qualcuno del team va bene così: la coda di quel locale è stata annullata. Se non è stato nessuno, controlla WhatsApp Web e metti in pausa gli agenti da /admin, Agenti."
+    );
+}
+
 export function buildUnknownChatAlert(count: number): string {
     return (
         "<b>Il numero dell'agente ha scritto fuori dal CRM</b>\n" +
