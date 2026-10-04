@@ -64,3 +64,13 @@ describe("waErrorMessage", () => {
         expect(waErrorMessage("boh")).toBe("Operazione non riuscita. Riprova.");
     });
 });
+
+describe("messaggi della telefonata (F1-4a)", () => {
+    it("chi scrive e testo in coda", () => {
+        expect(messageAuthorLabel({ author: "agent", purpose: "call_confirm" })).toBe("Agente, conferma della telefonata");
+        expect(messageAuthorLabel({ author: "agent", purpose: "call_reminder" })).toBe("Agente, promemoria della telefonata");
+        expect(messageText({ body: null, kind: "text", purpose: "call_reminder", status: "queued" })).toContain(
+            "impostazioni dell'agenda"
+        );
+    });
+});

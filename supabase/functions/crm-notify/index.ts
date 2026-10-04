@@ -37,11 +37,17 @@
 //    messaggio a tutto il team collegato. Prenotazione con l'UPDATE di
 //    `reminded_for`; se nessun invio va, si libera e il giorno dopo riprova.
 //
+// 5. AGENDA (solo col body {"job":"agenda"}, dal cron ogni 5 minuti, mig
+//    20261003230300, solo se crm_agenda_has_work): eventi del calendario
+//    Google, «Puoi tu?» a chi deve chiamare, brief un'ora prima, «Com'è
+//    andata?» dopo (`processAgenda` in _shared/crmAgendaJob.ts).
+//
 // AUTENTICAZIONE fail-CLOSED: X-Job-Secret = CRM_JOB_SECRET (vault
 // `crm_job_secret`), confronto constant-time.
 // Env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, CRM_JOB_SECRET,
 // TELEGRAM_BOT_TOKEN, APP_URL (facoltativo: link «Apri nel CRM»),
-// CRM_WA_LINK_SECRET (facoltativo: senza, niente pulsante WhatsApp).
+// CRM_WA_LINK_SECRET (facoltativo: senza, niente pulsante WhatsApp),
+// GOOGLE_SERVICE_ACCOUNT_JSON (facoltativo: agenda su Google Calendar).
 // =============================================================================
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -56,6 +62,7 @@ import {
 } from "../_shared/crmTelegram.ts";
 import { loadLeadMessageData, loadTeam, whatsappLinkFor } from "../_shared/crmLeadMessage.ts";
 import { buildRenewalReminderMessage } from "../_shared/crmExpenses.ts";
+import { processAgenda } from "../_shared/crmAgendaJob.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -377,6 +384,11 @@ Deno.serve(async (req: Request) => {
     try {
         const team = await loadTeam(supabase);
         const body = await req.json().catch(() => ({}));
+        if (body?.job === "agenda") {
+            const agenda = await processAgenda(supabase, team, BOT_TOKEN, appUrl, now);
+            console.log(JSON.stringify({ event: "crm_notify_agenda", ...agenda }));
+            return json(200, agenda);
+        }
         if (body?.job === "renewals") {
             const renewals = await processRenewals(supabase, team, appUrl, now);
             console.log(JSON.stringify({ event: "crm_notify_renewals", ...renewals }));

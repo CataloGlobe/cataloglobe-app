@@ -38,6 +38,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { timingSafeEqualStr } from "../_shared/timingSafeEqual.ts";
 import { getPublicSiteUrl } from "../_shared/publicSiteUrl.ts";
 import { fillWhatsappTemplate } from "../_shared/crmWhatsapp.ts";
+import { fillCallPlaceholders } from "../_shared/crmCallSlots.ts";
 import { sendToTeam } from "../_shared/crmTeamAlert.ts";
 import {
     authorizeWorkerCall,
@@ -215,6 +216,24 @@ async function senderNameFor(supabase, venueId: string): Promise<string | null> 
     return owner?.display_name ?? null;
 }
 
+/**
+ * {giorno} e {ora} della telefonata legata al messaggio. Se non si legge, il
+ * testo resta coi segnaposto e `buildSendInstruction` non lo manda.
+ */
+async function fillCallTemplate(supabase, messageId: string, template: string): Promise<string> {
+    const { data, error } = await supabase
+        .from("crm_messages")
+        .select("crm_appointments(starts_at)")
+        .eq("id", messageId)
+        .maybeSingle();
+    const startsAt = data?.crm_appointments?.starts_at;
+    if (error || !startsAt) {
+        console.error(`${LOG}: orario della telefonata non letto`, error?.code);
+        return template;
+    }
+    return fillCallPlaceholders(template, new Date(startsAt));
+}
+
 async function next(supabase) {
     const { data, error } = await supabase.rpc("crm_wa_claim_next");
     const row = data?.[0];
@@ -230,8 +249,15 @@ async function next(supabase) {
     }
 
     let text = row.r_body;
-    if (!text && row.r_purpose === "first_message" && row.r_template) {
-        text = fillWhatsappTemplate(row.r_template, {
+    const isCall = row.r_purpose === "call_confirm" || row.r_purpose === "call_reminder";
+    let template = row.r_template;
+    if (!text && isCall && template) {
+        // Conferma e promemoria della telefonata: {giorno} e {ora} dall'orario
+        // attuale della telefonata (la coda annulla i messaggi di un orario vecchio).
+        template = await fillCallTemplate(supabase, row.r_message_id, template);
+    }
+    if (!text && (row.r_purpose === "first_message" || isCall) && template) {
+        text = fillWhatsappTemplate(template, {
             contactName: row.r_contact_name,
             venueName: row.r_name_pending ? null : row.r_venue_name,
             senderName: await senderNameFor(supabase, row.r_venue_id)

@@ -10,7 +10,7 @@ import { supabase } from "@/services/supabase/client";
 import type { CrmMessage, CrmWaChannel, CrmWaSettings } from "@/types/crm";
 
 const MESSAGE_SELECT =
-    "id, created_at, venue_id, contact_id, lead_id, direction, author, kind, body, purpose, status, status_reason, sent_at";
+    "id, created_at, venue_id, contact_id, lead_id, direction, author, kind, body, purpose, status, status_reason, sent_at, appointment_id";
 
 /** Gli ultimi messaggi del locale, dal più vecchio. */
 export async function listCrmMessages(venueId: string, limit = 100): Promise<CrmMessage[]> {

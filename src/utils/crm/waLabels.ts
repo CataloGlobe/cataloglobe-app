@@ -27,7 +27,10 @@ export const CRM_MESSAGE_STATUS_LABEL: Record<CrmMessageStatus, string> = {
 export function messageAuthorLabel(message: Pick<CrmMessage, "author" | "purpose">): string {
     if (message.author === "lead") return "Lead";
     if (message.author === "person") return "Scritto a mano";
-    return message.purpose === "first_message" ? "Agente, primo messaggio" : "Agente";
+    if (message.purpose === "first_message") return "Agente, primo messaggio";
+    if (message.purpose === "call_confirm") return "Agente, conferma della telefonata";
+    if (message.purpose === "call_reminder") return "Agente, promemoria della telefonata";
+    return "Agente";
 }
 
 /** Testo da mostrare: il corpo, o cosa è (vocale, foto…), o il primo messaggio ancora da comporre. */
@@ -37,6 +40,9 @@ export function messageText(message: Pick<CrmMessage, "body" | "kind" | "purpose
     }
     if (message.purpose === "first_message" && message.status === "queued") {
         return "Testo del primo messaggio, scritto al momento dell'invio.";
+    }
+    if ((message.purpose === "call_confirm" || message.purpose === "call_reminder") && message.status === "queued") {
+        return "Testo fisso dalle impostazioni dell'agenda, scritto al momento dell'invio.";
     }
     return CRM_MESSAGE_KIND_LABEL[message.kind];
 }
