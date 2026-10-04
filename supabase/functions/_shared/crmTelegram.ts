@@ -152,7 +152,10 @@ export function shortToUuid(short: string): string | null {
 //   a:<venue>:<user>  assegna il locale a <user>
 //   g:<venue>         apri la scelta tra i nomi
 //   x:<venue>         chiudi la scelta (torna ai pulsanti normali)
-//   cy|cn:<call>      chi deve chiamare dice sì / no (agenda)
+//   cy|cn:<call>      chi deve chiamare dice sì / no (agenda; «cn» solo nei messaggi vecchi)
+//   ch:<call>         «Chiamala tu»: passa a chi l'ha fissata
+//   cx|cb:<call>      apre / chiude la scelta di un altro orario
+//   ct:<call>:<min>   propone al lead lo stesso giorno <min> minuti dopo (1440 = domani)
 //   od|on|op:<call>   esito: fatta / non ha risposto / rimandata (agenda)
 //   ds|de|dx|dv|dp|dh|dk|dj:<bozza>  tocco su una bozza dell'agente (F1-3)
 export type CrmCallback =
@@ -164,9 +167,16 @@ export type CrmCallback =
     | { action: "venue_rename"; leadId: string }
     // Agenda (F1-4a): «Puoi tu?» a chi deve chiamare, «Com'è andata?» dopo.
     | { action: "call_answer"; appointmentId: string; accept: boolean }
+    | { action: "call_handover"; appointmentId: string }
+    | { action: "call_other_menu"; appointmentId: string; open: boolean }
+    | { action: "call_other_time"; appointmentId: string; shiftMinutes: CallShiftMinutes }
     | { action: "call_outcome"; appointmentId: string; outcome: "done" | "no_show" | "postponed" }
     // Agente in prova (F1-3): il tocco su una bozza.
     | { action: "draft"; draftId: string; decision: CrmDraftDecision };
+
+/** Spostamenti offerti da «Propongo un altro orario»: 1440 = domani alla stessa ora. */
+export const CALL_SHIFT_MINUTES = [15, 30, 60, 1440] as const;
+export type CallShiftMinutes = (typeof CALL_SHIFT_MINUTES)[number];
 
 export type CrmDraftDecision = "send" | "edit" | "discard" | "schedule" | "other" | "handle" | "stop" | "objection" | "lost";
 
@@ -205,11 +215,19 @@ export function parseCallbackData(data: string): CrmCallback | null {
     if (parts[0] === "s" && parts.length === 2) return { action: "venue_same", leadId: venueId };
     if (parts[0] === "n" && parts.length === 2) return { action: "venue_rename", leadId: venueId };
     if (parts[0] === "l" && parts.length === 2) return { action: "venue_later", leadId: venueId };
+    if (parts[0] === "ct" && parts.length === 3) {
+        const shift = Number(parts[2]);
+        const known = CALL_SHIFT_MINUTES.find(m => m === shift);
+        return known ? { action: "call_other_time", appointmentId: venueId, shiftMinutes: known } : null;
+    }
     // Agenda: l'id è della telefonata.
     if (parts.length === 2) {
         const appointmentId = venueId;
         if (parts[0] === "cy") return { action: "call_answer", appointmentId, accept: true };
         if (parts[0] === "cn") return { action: "call_answer", appointmentId, accept: false };
+        if (parts[0] === "ch") return { action: "call_handover", appointmentId };
+        if (parts[0] === "cx") return { action: "call_other_menu", appointmentId, open: true };
+        if (parts[0] === "cb") return { action: "call_other_menu", appointmentId, open: false };
         if (parts[0] === "od") return { action: "call_outcome", appointmentId, outcome: "done" };
         if (parts[0] === "on") return { action: "call_outcome", appointmentId, outcome: "no_show" };
         if (parts[0] === "op") return { action: "call_outcome", appointmentId, outcome: "postponed" };

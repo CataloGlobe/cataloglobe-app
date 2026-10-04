@@ -35,14 +35,14 @@ import {
     parseDraftReply,
     parseReviewReply
 } from "./crmAgentRules.ts";
-import { buildDraftClosedText, buildDraftMessage, buildReminderText } from "./crmAgentMessages.ts";
+import { buildDraftClosedText, buildDraftMessage, buildRemindersText, remindersDue } from "./crmAgentMessages.ts";
 import { loadAgendaBusy } from "./crmAgendaJob.ts";
 import { formatCallDay, formatCallTime, parseCallWindows, suggestCallSlots } from "./crmCallSlots.ts";
 import { fillWhatsappTemplate } from "./crmWhatsapp.ts";
 
 const LOG = "crm-agent";
-const REMINDER_EVERY_MINUTES = 5;
-const MAX_REMINDERS = 12;
+/** Solleciti di una bozza non toccata, in minuti dall'avviso. ⚠️ SYNC con crm_agent_has_work (SQL). */
+export const REMINDER_AFTER_MINUTES = [10, 30, 60, 120];
 const MAX_CANDIDATES = 3;
 const CHAT_MESSAGES = 30;
 const BOT_QUESTION_MESSAGES = 15;
@@ -417,40 +417,59 @@ export async function processAgent(supabase, team, botToken, appUrl, now = new D
             else await supabase.from("crm_agent_drafts").update({ notified_at: null }).eq("id", d.id);
         }
 
-        // 3. Solleciti, mai di notte.
+        // 3. Solleciti, mai di notte: un messaggio solo per chi ha bozze in attesa,
+        // con tutte quelle aperte, quando almeno una arriva al suo prossimo sollecito.
         if (!night) {
-            const before = new Date(now.getTime() - REMINDER_EVERY_MINUTES * 60_000).toISOString();
-            const { data: waiting } = await supabase
+            const { data: open } = await supabase
                 .from("crm_agent_drafts")
                 .select("*")
                 .eq("status", "pending")
                 .not("notified_at", "is", null)
-                .lt("last_reminded_at", before)
-                .lt("reminders", MAX_REMINDERS)
-                .limit(10);
-            for (const d of waiting ?? []) {
+                .order("notified_at", { ascending: true })
+                .limit(30);
+            const due = (open ?? []).filter(d => remindersDue(d.notified_at, d.reminders, now, REMINDER_AFTER_MINUTES) > d.reminders);
+            const claimedIds = new Set<string>();
+            for (const d of due) {
+                // Dopo una notte si salta ai solleciti già passati: ne parte uno, non tre.
+                const reached = remindersDue(d.notified_at, d.reminders, now, REMINDER_AFTER_MINUTES);
                 const { data: claimed } = await supabase
                     .from("crm_agent_drafts")
-                    .update({ last_reminded_at: nowIso, reminders: d.reminders + 1 })
+                    .update({ last_reminded_at: nowIso, reminders: reached })
                     .eq("id", d.id)
                     .eq("reminders", d.reminders)
                     .select("id");
-                if (!claimed?.length) continue;
-                const info = await draftInfo(supabase, d);
-                const minutes = Math.round((now.getTime() - new Date(d.notified_at).getTime()) / 60_000);
+                if (claimed?.length) claimedIds.add(d.id);
+            }
+            if (claimedIds.size) {
+                const openDrafts = open ?? [];
                 const { data: msgs } = await supabase
                     .from("crm_agent_draft_messages")
-                    .select("chat_id, message_id")
-                    .eq("draft_id", d.id)
+                    .select("draft_id, chat_id, message_id")
+                    .in("draft_id", openDrafts.map(d => d.id))
                     .eq("role", "draft");
+                const byChat = new Map<string, { draftId: string; messageId: number }[]>();
                 for (const m of msgs ?? []) {
+                    const list = byChat.get(String(m.chat_id)) ?? [];
+                    list.push({ draftId: m.draft_id, messageId: m.message_id });
+                    byChat.set(String(m.chat_id), list);
+                }
+                const infos = new Map();
+                for (const d of openDrafts) infos.set(d.id, await draftInfo(supabase, d));
+                for (const [chatId, list] of byChat) {
+                    // Solo chi ha almeno una delle bozze arrivate al sollecito.
+                    if (!list.some(x => claimedIds.has(x.draftId))) continue;
+                    const items = list.map(x => {
+                        const d = openDrafts.find(o => o.id === x.draftId);
+                        return { info: infos.get(x.draftId), minutes: Math.round((now.getTime() - new Date(d.notified_at).getTime()) / 60_000) };
+                    });
                     await telegramCall(botToken, "sendMessage", {
-                        chat_id: m.chat_id,
-                        text: buildReminderText(info, minutes),
-                        reply_to_message_id: m.message_id
+                        chat_id: chatId,
+                        text: buildRemindersText(items),
+                        // Con una bozza sola il sollecito risponde al suo messaggio.
+                        ...(list.length === 1 ? { reply_to_message_id: list[0].messageId } : {})
                     });
                 }
-                stats.reminders += 1;
+                stats.reminders += claimedIds.size;
             }
         }
     }

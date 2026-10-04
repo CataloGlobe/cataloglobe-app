@@ -3,8 +3,9 @@ import {
     buildDraftClosedText,
     buildDraftMessage,
     buildEditPromptText,
-    buildReminderText,
+    buildRemindersText,
     cleanEditText,
+    remindersDue,
     type AgentDraftInfo
 } from "./crmAgentMessages";
 import { encodeDraftDecision, parseCallbackData } from "./crmTelegram";
@@ -84,8 +85,45 @@ describe("testi", () => {
     it("chiusa, sollecito, richiesta di correzione", () => {
         expect(buildDraftClosedText(base, "sent", "Lorenzo")).toContain("➡️ inviata così (Lorenzo)");
         expect(buildDraftClosedText(base, "expired", null)).toContain("scaduta");
-        expect(buildReminderText(base, 10)).toBe("⏰ Ancora in attesa da 10 minuti: bozza per Bar <Roma>.");
+        expect(buildRemindersText([{ info: base, minutes: 10 }])).toBe("⏰ Ancora in attesa da 10 minuti: bozza per Bar <Roma>.");
         expect(buildEditPromptText(base)).toContain("rispondendo a questo messaggio");
+    });
+    it("chat lunga: in un riquadro apribile, dopo la proposta", () => {
+        const lastMessages = Array.from({ length: 15 }, (_, i) => ({ from: i % 2 ? "noi" : "lead", text: `messaggio ${i}` }) as const);
+        const text = buildDraftMessage({ ...base, kind: "bot_question", lastMessages }, null).text;
+        expect(text).toContain("ultimi 15 messaggi (tocca per aprirla)");
+        expect(text).toMatch(/<blockquote expandable>Lead: messaggio 0\n[\s\S]*Noi: messaggio 13\nLead: messaggio 14<\/blockquote>/);
+        expect(text.indexOf("<b>Proposta</b>")).toBeLessThan(text.indexOf("<blockquote"));
+    });
+    it("chat corta: resta in chiaro", () => {
+        expect(buildDraftMessage(base, null).text).not.toContain("blockquote");
+    });
+    it("mai oltre il limite di Telegram: cadono i messaggi più vecchi", () => {
+        const lastMessages = Array.from({ length: 15 }, (_, i) => ({ from: "lead", text: `${i}:${"é&<".repeat(200)}` }) as const);
+        const text = buildDraftMessage({ ...base, kind: "bot_question", proposedText: "x".repeat(1000), lastMessages }, null).text;
+        expect(text.length).toBeLessThanOrEqual(4000);
+        expect(text).toContain("Lead: 14:");
+        expect(text).not.toContain("Lead: 0:");
+    });
+    it("sollecito di più bozze: un messaggio solo", () => {
+        const text = buildRemindersText([
+            { info: base, minutes: 30 },
+            { info: { ...base, venueName: "Pizzeria Due", kind: "stop_check" }, minutes: 125 }
+        ]);
+        expect(text).toBe(
+            "⏰ 2 bozze aspettano da voi (le trovate più su in questa chat):\n• Bar <Roma>: bozza, da 30 minuti\n• Pizzeria Due: stop o obiezione, da più di 2 ore"
+        );
+    });
+    it("solleciti a 10, 30, 60 e 120 minuti; dopo la notte uno solo", () => {
+        const at = (min: number) => new Date(Date.parse("2026-10-05T08:00:00Z") + min * 60_000);
+        const steps = [10, 30, 60, 120];
+        const n = "2026-10-05T08:00:00Z";
+        expect(remindersDue(n, 0, at(9), steps)).toBe(0);
+        expect(remindersDue(n, 0, at(10), steps)).toBe(1);
+        expect(remindersDue(n, 1, at(29), steps)).toBe(1);
+        expect(remindersDue(n, 1, at(30), steps)).toBe(2);
+        expect(remindersDue(n, 0, at(400), steps)).toBe(4);
+        expect(remindersDue(n, 4, at(9999), steps)).toBe(4);
     });
     it("testo corretto", () => {
         expect(cleanEditText("  Ciao!\r\n  ")).toBe("Ciao!");
