@@ -106,7 +106,7 @@ export function AgendaSettingsDrawer({ open, settings, onClose, onSaved }: Props
             });
             await onSaved();
         } catch {
-            setError("Non sono riuscito a salvare. Riprova.");
+            setError("Salvataggio non riuscito. Riprova.");
             setIsSaving(false);
         }
     }
