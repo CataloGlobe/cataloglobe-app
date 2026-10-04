@@ -34,6 +34,8 @@ import {
     confirmButtonLabels,
     confirmQuestionText,
     isStopLocked,
+    moveConfirmText,
+    moveNeedsConfirmation,
     stopLockedText,
     diaryReason,
     manyVenuesText,
@@ -229,6 +231,17 @@ async function think(supabase, botToken, text: string, actor, team, appUrl, now:
                     reply: confirmQuestionText(understood.command, settings?.agent_autonomy_on === true),
                     costUsd: cost, pending: understood.command
                 };
+            }
+            if (understood.command.name === "move_stage") {
+                const choice = await resolveVenue(supabase, understood.command.venue);
+                if ("venue" in choice && !isStopLocked(choice.venue, understood.command.stage)
+                    && moveNeedsConfirmation(choice.venue, understood.command.stage)) {
+                    return {
+                        status: "pending", intent: "command", tool: "move_stage",
+                        reply: moveConfirmText(choice.venue.name, choice.venue.stage, understood.command.stage),
+                        costUsd: cost, pending: understood.command
+                    };
+                }
             }
             const done = await runCommand(supabase, botToken, understood.command, actor, team, appUrl);
             return { status: "answered", intent: "command", tool: done.tool, reply: done.reply, costUsd: cost };

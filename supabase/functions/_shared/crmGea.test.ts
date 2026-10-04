@@ -12,6 +12,8 @@ import {
     confirmButtonLabels,
     confirmQuestionText,
     isStopLocked,
+    moveConfirmText,
+    moveNeedsConfirmation,
     stopLockedText,
     parseUnderstanding,
     refuseText,
@@ -196,5 +198,31 @@ describe("stop", () => {
         expect(isStopLocked({ stage: "perso", lost_kind: "obiezione" }, "contattato")).toBe(false);
         expect(isStopLocked({ stage: "contattato", lost_kind: null }, "demo")).toBe(false);
         expect(stopLockedText("Bar Roma")).toContain("dalla scheda");
+    });
+});
+
+describe("spostamenti con conferma", () => {
+    it("uscita da Perso e ingresso in Cliente chiedono il tasto", () => {
+        expect(moveNeedsConfirmation({ stage: "perso" }, "contattato")).toBe(true);
+        expect(moveNeedsConfirmation({ stage: "demo_fissata" }, "cliente_pagante")).toBe(true);
+        expect(moveNeedsConfirmation({ stage: "perso" }, "cliente_pagante")).toBe(true);
+    });
+
+    it("gli altri spostamenti restano immediati", () => {
+        expect(moveNeedsConfirmation({ stage: "contattato" }, "in_conversazione")).toBe(false);
+        expect(moveNeedsConfirmation({ stage: "cliente_pagante" }, "cliente_pagante")).toBe(false);
+        expect(moveNeedsConfirmation({ stage: "perso" }, "perso")).toBe(false);
+        expect(moveNeedsConfirmation(null, "cliente_pagante")).toBe(false);
+    });
+
+    it("domanda e tasti", () => {
+        expect(moveConfirmText("Bar Roma", "perso", "contattato")).toBe(
+            "Sposto Bar Roma da Perso a Contattato? Esce da Perso: gli agenti possono tornare a scrivergli."
+        );
+        expect(moveConfirmText("Bar Roma", "demo_fissata", "cliente_pagante")).toMatch(/^Sposto Bar Roma da .+ a Cliente pagante\?$/);
+        expect(confirmButtonLabels({ name: "move_stage", venue: "Bar Roma", stage: "cliente_pagante" })).toEqual({
+            yes: "Sì, spostalo",
+            no: "No, lascialo dov'è"
+        });
     });
 });

@@ -11,7 +11,9 @@
 //   3. domanda: lo strumento SQL legge, Claude risponde solo da quei dati e
 //      il server aggiunge sempre la riga della fonte (non la scrive Claude);
 //   4. comando: gruppo 1 eseguito e confermato, gruppo 2 con il tasto «Sì,
-//      fallo», gruppo 3 (soldi, cancellazioni, chiavi e accessi) rifiutato.
+//      fallo» (anche gli spostamenti fuori da Perso o in Cliente pagante,
+//      moveNeedsConfirmation), gruppo 3 (soldi, cancellazioni, chiavi e
+//      accessi) rifiutato.
 //      Ogni comando va nel diario.
 //
 // Il testo della persona entra nel prompt tra delimitatori, come dato: le
@@ -386,6 +388,27 @@ export function stopLockedText(venueName: string): string {
     return `${venueName} ha chiesto di non essere più contattato: non lo sposto. Se va tolto lo stop, fallo dalla scheda in /admin.`;
 }
 
+/**
+ * Due spostamenti chiedono il tasto «Sì, spostalo» (review di Lorenzo,
+ * 2026-10-04): l'uscita da Perso, che riapre il locale agli agenti, e
+ * l'ingresso in Cliente. Lo stop è già escluso da isStopLocked.
+ */
+export function moveNeedsConfirmation(venue: { stage?: string | null } | null, toStage: string): boolean {
+    if (!venue) return false;
+    if (venue.stage === "perso" && toStage !== "perso") return true;
+    return toStage === "cliente_pagante" && venue.stage !== "cliente_pagante";
+}
+
+function stageLabel(stage: string | null | undefined): string {
+    return CRM_STAGE_LABEL[stage as keyof typeof CRM_STAGE_LABEL] ?? stage ?? "";
+}
+
+export function moveConfirmText(venueName: string, fromStage: string | null | undefined, toStage: string): string {
+    const ask = `Sposto ${venueName} da ${stageLabel(fromStage)} a ${stageLabel(toStage)}?`;
+    if (fromStage === "perso") return `${ask} Esce da Perso: gli agenti possono tornare a scrivergli.`;
+    return ask;
+}
+
 /** `autonomyOn`: con l'Autonomia accesa non tutto passa da Telegram (F1-7). */
 export function confirmQuestionText(command: GeaCommand, autonomyOn = false): string {
     switch (command.name) {
@@ -401,6 +424,7 @@ export function confirmQuestionText(command: GeaCommand, autonomyOn = false): st
 /** I due tasti sotto la domanda di conferma. */
 export function confirmButtonLabels(command: GeaCommand | null | undefined): { yes: string; no: string } {
     if (command?.name === "resume_agents") return { yes: "Sì, riprendi gli agenti", no: "No, lascia in pausa" };
+    if (command?.name === "move_stage") return { yes: "Sì, spostalo", no: "No, lascialo dov'è" };
     return { yes: "Sì, fallo", no: "No" };
 }
 

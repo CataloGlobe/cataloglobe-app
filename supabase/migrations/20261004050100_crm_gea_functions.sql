@@ -89,9 +89,12 @@ SECURITY INVOKER
 SET search_path TO ''
 AS $$
 BEGIN
+    -- Un comando confermato torna a 'working' alla conferma: i 5 minuti
+    -- contano da lì, non dalla domanda (review di Lorenzo, 2026-10-04).
     UPDATE public.crm_gea_inbox i
     SET status = 'failed', error = 'interrotto', answered_at = now()
-    WHERE i.status = 'working' AND i.created_at < now() - interval '5 minutes';
+    WHERE i.status = 'working'
+      AND coalesce(i.confirmed_at, i.created_at) < now() - interval '5 minutes';
 
     UPDATE public.crm_gea_inbox i SET status = 'working'
     WHERE i.id = p_id AND i.status = 'received';
@@ -226,7 +229,7 @@ AS $$
         'city', v.city,
         'stage', v.stage,
         'lost_kind', v.lost_kind,
-        'lost_reason', v.lost_reason,
+        'lost_reason', public.crm_gea_mask(v.lost_reason),
         'assigned_to', m.display_name,
         'created_at', v.created_at,
         'stage_changed_at', v.stage_changed_at,
@@ -323,7 +326,7 @@ AS $$
                'venue', v.name,
                'city', v.city,
                'caller', m.display_name,
-               'note', a.note
+               'note', public.crm_gea_mask(a.note)
            ) ORDER BY a.starts_at), '[]'::jsonb)
     FROM public.crm_appointments a
     JOIN public.crm_venues v ON v.id = a.venue_id
