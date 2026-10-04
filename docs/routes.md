@@ -10,23 +10,31 @@ Riferimento route applicazione. Tutte definite in `src/App.tsx`, tranne le route
 /workspace                 → WorkspaceLayout (no TenantProvider)
 /onboarding/create-business, /onboarding/activate-trial → Onboarding (no TenantProvider)
 /business/:businessId/     → MainLayout + TenantProvider
-  (indice)                 → una sede leggibile: la sede; altrimenti overview (BusinessHomeRedirect)
-  overview | locations
-  locations/:activityId    → prima voce usabile della sidebar di sede (SedeHomeRedirect; i vecchi ?tab= vincono)
+  (indice)                 → chi configura: overview; staff/viewer con una sede la prima voce di
+                             Operatività usabile, con più sedi locations (BusinessHomeRedirect, §51.6)
+  overview
+  locations                → con una sede leggibile → locations/:id/anagrafica (SingleSedeRoute, §51.3)
+  locations/:activityId    → chi gestisce la sede: anagrafica; staff/viewer la prima voce di Operatività
+                             usabile (SedeHomeRedirect; i vecchi ?tab= vincono)
   locations/:activityId/   servizio (?modo=elenco|mappa|gestisci) | prenotazioni | comande | storico | cosa-vedono
+                           analitiche | recensioni (Andamento della sede, §51.10: stesse pagine d'azienda, sede dal path)
                            (sala → servizio?modo=gestisci, disponibilita → cosa-vedono,
                             comande?tab=tavoli → servizio?modo=mappa, comande?tab=storico → storico,
                             prenotazioni?tab=service → servizio?modo=elenco)
                            anagrafica | orari | ordini-prenotazioni | pubblicazione (Scheda, ActivityDetailPage; canali → ordini-prenotazioni)
   orders | reservations    → redirect all'ultima sede usata (SedeRedirect), o a locations
   guests
-  scheduling | scheduling/:ruleId | scheduling/featured/:ruleId
+  scheduling (?sede=<id> = filtro della pagina, §51.11) | scheduling/:ruleId | scheduling/featured/:ruleId
   catalogs | catalogs/:id
   products | products/:productId
   featured | featured/:featuredId
   styles | styles/:styleId
   languages
-  attributes | reviews | analytics | team | subscription | settings
+  analytics | reviews       → totale delle sedi leggibili; con una sede → locations/:id/analitiche|recensioni
+                             con query e ancora (SingleSedeRoute, §51.14)
+  settings | settings/team | settings/abbonamento → Impostazioni a tab (Azienda · Team · Abbonamento, §51.12)
+  team → settings/team, subscription → settings/abbonamento (BusinessPathRedirect, query e ancora)
+  attributes → products?tab=attributes
 /invite/:token             → InvitePage
 /legal/privacy | /legal/termini → pagine legali
 /status                    → StatusPage
@@ -39,6 +47,7 @@ Riferimento route applicazione. Tutte definite in `src/App.tsx`, tranne le route
 
 - Una route pubblica slug-based nuova va aggiunta in `src/routes/publicRoutes.tsx`, mai direttamente in uno dei due entry.
 - `businessId` = source of truth per tenant (vedi `CLAUDE.md` → Architettura).
-- Gli ingressi nell'azienda (workspace, cambio azienda, invito, `/dashboard`) puntano a `/business/:businessId`, non a `/overview`: l'indice decide (D1). Le voci di sede e il loro ordine stanno in `src/utils/navLanding.ts` (`SEDE_NAV_ENTRIES`), letti dalla sidebar di sede e dall'atterraggio.
+- Gli ingressi nell'azienda (workspace, cambio azienda, logo, invito, `/dashboard`) puntano a `/business/:businessId`, non a `/overview`: l'indice decide (§51.6). Voci, gruppi, ordine dei tre contesti (sidebar unica, azienda, sede) e atterraggio stanno in `src/utils/navModel.ts` (`NAV_MODELS`, `businessHomePath`, `sedeLandingSegment`, `switchSedePath`); `src/utils/navLanding.ts` tiene solo i vecchi `?tab=` della Scheda.
+- Le Edge che generano indirizzi usano ancora i vecchi (`stripe-portal` → `/subscription`, `_shared/publicSiteUrl.ts` → `/reservations`, `/support/:id`): funzionano tramite i redirect.
 - `/workspace` e `/onboarding/*` NON hanno `TenantProvider` (utente non ha ancora selezionato un'azienda).
 - `/:slug` matcha qualunque slug non riservato. Slug riservati enforced a DB level via `is_reserved_slug()` (vedi `docs/database-reference.md`).

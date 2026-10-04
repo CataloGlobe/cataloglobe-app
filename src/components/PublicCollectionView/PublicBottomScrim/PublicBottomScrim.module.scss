@@ -3,11 +3,12 @@
 // con container-type → nessun containing block imprevisto per il fixed).
 // z-index 100: fascia libera 31–149 — sopra header sticky (30) e FAB (55/60),
 // SOTTO PublicBottomBar (150), toast/SearchOverlay (200), PublicSheet (900).
-// Nessun transform/transition/will-change: i layer backdrop-filter devono
-// restare statici sul compositor.
+// Nessun transform/will-change: i layer backdrop-filter devono restare
+// statici sul compositor. Unica transizione: opacity, quando si nasconde
+// insieme alla barra (tutto o niente, data-hidden).
 
 // Altezza = `--pub-bottom-clearance` (definita su `.page`, CollectionView
-// .module.scss): offset + altezza misurata della barra + gap + safe-area. Così
+// .module.scss): distanza dal fondo + altezza misurata della barra + gap. Così
 // lo scrim finisce esattamente dove a riposo finisce il contenuto (stessa
 // variabile del padding-bottom di footer / Storie / empty state).
 
@@ -19,6 +20,32 @@
   height: var(--pub-bottom-clearance);
   z-index: 100;
   pointer-events: none;
+  // Stessi tempi della barra (PublicBottomBar.module.scss .barWrap): entrata
+  // 280ms, uscita 220ms ease-in, reduced motion 150ms.
+  visibility: visible;
+  transition:
+    opacity 280ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    visibility 0s linear 0s;
+
+  &[data-hidden] {
+    opacity: 0;
+    visibility: hidden;
+    transition:
+      opacity 220ms ease-in,
+      visibility 0s linear 220ms;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition:
+      opacity 150ms ease,
+      visibility 0s linear 0s;
+
+    &[data-hidden] {
+      transition:
+        opacity 150ms ease,
+        visibility 0s linear 150ms;
+    }
+  }
 
   // CSS-driven split (stesso pattern di PublicBottomBar .barWrap): montato
   // sempre in public, visibile solo ≤640px. Esclusa la preview ([data-preview]):
