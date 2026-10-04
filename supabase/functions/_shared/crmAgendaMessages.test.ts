@@ -8,6 +8,7 @@ import {
     buildCreatorQuestionMessage,
     buildHandedOverCallerText,
     buildHandedOverText,
+    buildHandoverFailedText,
     buildLeadOtherTimeText,
     buildOtherTimeProposedText,
     buildOutcomeMessage,
@@ -129,6 +130,12 @@ describe("messaggi", () => {
         const dst = { ...info, startsAt: "2026-10-24T15:45:00Z" };
         expect(buildLeadOtherTimeText(dst, 1440)).toBe("Sabato 24 alle 17:45 non riesco, possiamo fare domenica 25 alle 16:45?");
         for (const m of [15, 30, 60, 1440] as const) expect(buildLeadOtherTimeText(info, m)).not.toMatch(/riusciamo|possiamo noi/);
+    });
+
+    it("passaggio non riuscito: lo sanno tutti e due", () => {
+        const t = buildHandoverFailedText(info);
+        expect(t).toContain("⚠️ La telefonata con Bar &lt;Roma&gt; di giovedì 8 alle 17:45 non è passata ad Alessandro");
+        expect(t).toContain("al lead non è partita la conferma");
     });
 
     it("passaggio e proposta: testi per chi l'ha fissata e per chi chiamava", () => {

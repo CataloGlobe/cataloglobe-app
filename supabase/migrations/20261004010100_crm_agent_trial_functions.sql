@@ -362,6 +362,11 @@ AS $$
                       SELECT 1 FROM public.crm_agent_drafts d
                       WHERE d.venue_id = v.id AND d.status <> 'expired' AND d.created_at >= x.last_sent
                   )
+                  -- Telefonata in agenda o già fatta: niente solleciti.
+                  AND NOT EXISTS (
+                      SELECT 1 FROM public.crm_appointments a
+                      WHERE a.venue_id = v.id AND a.status IN ('proposed', 'confirmed', 'done')
+                  )
             )
         );
 $$;
@@ -376,7 +381,8 @@ $$;
 -- dell'agente, inviata da almeno 24 ore, il lead non ha più scritto, niente
 -- in coda; r_follow_ups = follow-up già inviati dopo l'ultimo messaggio del
 -- lead (l'edge decide l'attesa precisa tra 24 e 48 ore e il tetto di 10).
--- Esclusi: Perso, Cliente pagante, «La prendo io». ⚠️ SYNC con
+-- Esclusi: Perso, Cliente pagante, «La prendo io»; per i follow-up anche chi
+-- ha una telefonata proposta, confermata o fatta. ⚠️ SYNC con
 -- crm_agent_has_work (stesse condizioni, più larghe là).
 CREATE OR REPLACE FUNCTION public.crm_agent_candidates(p_now timestamptz DEFAULT now(), p_limit integer DEFAULT 5)
 RETURNS TABLE (
@@ -442,6 +448,13 @@ AS $$
           AND NOT EXISTS (
               SELECT 1 FROM public.crm_agent_drafts d
               WHERE d.venue_id = x.venue_id AND d.status <> 'expired' AND d.created_at >= x.last_agent_sent
+          )
+          -- Telefonata in agenda o già fatta: il sollecito chiede di fissarne
+          -- una, quindi non serve (la conferma e il promemoria della
+          -- telefonata sono messaggi dell'agente e lo farebbero ripartire).
+          AND NOT EXISTS (
+              SELECT 1 FROM public.crm_appointments a
+              WHERE a.venue_id = x.venue_id AND a.status IN ('proposed', 'confirmed', 'done')
           )
     ) c
     ORDER BY 4 NULLS LAST

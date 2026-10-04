@@ -234,6 +234,16 @@ export function buildHandedOverText(info: AgendaCallInfo, creatorAsked = false):
 }
 
 /**
+ * A tutti e due, quando il passaggio automatico non riesce (chi l'ha fissata
+ * ha un'altra telefonata a quell'ora o non è più nel team).
+ */
+export function buildHandoverFailedText(info: AgendaCallInfo): string {
+    const name = info.createdByName ?? "chi l'ha fissata";
+    const to = `${/^[aeiou]/i.test(name) ? "ad" : "a"} ${escapeHtml(name)}`;
+    return `⚠️ La telefonata con ${escapeHtml(info.venueName)} di ${when(info)} non è passata ${to}: ha un'altra telefonata a quell'ora o non è più nel team.\nNessuno la fa ancora e al lead non è partita la conferma. Decidete voi chi chiama, oppure spostatela o annullatela dalla scheda.`;
+}
+
+/**
  * A chi doveva chiamare, quando la telefonata passa a chi l'ha fissata.
  * `creatorAsked`: dopo la sua domanda (sì di chi l'ha fissata, o nessuna
  * risposta); altrimenti è lui che non aveva risposto.

@@ -119,6 +119,9 @@ describe("testi", () => {
         expect(buildDraftMessage({ ...base, kind: "schedule", proposedStartsAt: "2026-10-08T07:15:00Z" }, null).text).toContain(
             "ha accettato giovedì 8 alle 09:15"
         );
+        const t = buildDraftMessage({ ...base, kind: "schedule", proposedStartsAt: "2026-10-08T07:15:00Z", proposedText: "Testo vecchio" }, null).text;
+        expect(t).toContain("parte il messaggio fisso di conferma");
+        expect(t).not.toContain("Testo vecchio");
     });
     it("follow-up col numero, richiesta col perché", () => {
         expect(buildDraftMessage({ ...base, kind: "follow_up", followUpNumber: 3 }, null).text).toContain("Sollecito n. 3");

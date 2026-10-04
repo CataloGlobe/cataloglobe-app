@@ -51,6 +51,19 @@ const EXPLICIT_STOP: RegExp[] = [
     /\b(lasciatemi|lasciami) in pace\b/
 ];
 
+/**
+ * Il lead chiede un altro canale («non scrivetemi più su WhatsApp,
+ * chiamatemi») o dice solo «su WhatsApp»: non è uno stop esplicito, decide una
+ * persona. Si guarda il testo senza le frasi negate, così «non chiamatemi e non
+ * scrivetemi più» resta uno stop.
+ */
+const CHANNEL_SWITCH =
+    /\b(chiamatemi|chiamami|chiamarmi|chiamateci|mi chiami|mi chiamate|telefonatemi|telefonami|telefonarmi|al telefono|per telefono|di persona|(e-?)?mail|whatsapp|wa|sms|su questo numero|qui)\b/;
+
+function asksOtherChannel(t: string): boolean {
+    return CHANNEL_SWITCH.test(t.replace(/\b(non|nn) (mi |ci )?\S+/g, " "));
+}
+
 const UNCERTAIN_STOP: RegExp[] = [
     /\b(non|nn) (mi |ci )?(scrivete|scrivetemi|scriveteci|scrivermi|contatt\w*|chiamate\w*|chiamatemi|chiamarmi|disturb\w*|cercatemi)\b/,
     /\b(non|nn) voglio (piu )?(essere )?(contattat|ricevere|messaggi)/,
@@ -83,8 +96,9 @@ const CALL_NOW: RegExp[] = [
 export function classifyLeadText(text: string | null | undefined): LeadTextSignals {
     const t = normalize(text ?? "");
     if (!t) return { stop: null, botQuestion: false, callNow: false };
-    const explicit = EXPLICIT_STOP.some(r => r.test(t));
-    const uncertain = !explicit && UNCERTAIN_STOP.some(r => r.test(t));
+    const matched = EXPLICIT_STOP.some(r => r.test(t));
+    const explicit = matched && !asksOtherChannel(t);
+    const uncertain = !explicit && (matched || UNCERTAIN_STOP.some(r => r.test(t)));
     return {
         stop: explicit ? "explicit" : uncertain ? "uncertain" : null,
         botQuestion: BOT_QUESTION.some(r => r.test(t)),
@@ -194,7 +208,7 @@ function sanitizeData(text: string): string {
 
 const OUTPUT_RULES = `Rispondi SOLO con un oggetto JSON, senza altro testo, in una di queste forme:
 {"action":"reply","text":"<messaggio WhatsApp da mandare al lead>"}
-{"action":"schedule","starts_at":"<istante ISO 8601 di un orario che il lead ha accettato>","text":"<breve conferma da mandare al lead>"}
+{"action":"schedule","starts_at":"<istante ISO 8601 di un orario che il lead ha accettato>"}
 {"action":"ask_humans","reason":"<perché serve Alessandro o Lorenzo, una frase>","text":"<bozza facoltativa da far vedere a loro, o stringa vuota>"}
 Il messaggio per il lead è sempre al singolare: parla una persona sola, in prima persona («ti scrivo», «ti chiamo»), mai «noi», «vi scriviamo» o «il team».
 Usa "schedule" solo se il lead ha detto chiaramente di sì a un giorno e un'ora precisi. Usa "ask_humans" in tutti i casi del punto «Quando ti fermi e chiedi» delle regole, e ogni volta che non sei sicuro.`;
@@ -234,7 +248,7 @@ export function buildDraftRequest(ctx: DraftContext): { system: string[]; messag
 
 export type DraftReply =
     | { action: "reply"; text: string }
-    | { action: "schedule"; startsAt: string; text: string }
+    | { action: "schedule"; startsAt: string }
     | { action: "ask_humans"; reason: string; text: string };
 
 export const MAX_DRAFT_TEXT = 1000;
@@ -262,20 +276,22 @@ export function parseDraftReply(raw: string): DraftReply | { invalid: string } {
         const reason = typeof json.reason === "string" ? json.reason.trim().slice(0, 300) : "";
         return { action: "ask_humans", reason: reason || "Il modello chiede una persona.", text: text.slice(0, MAX_DRAFT_TEXT) };
     }
-    if (!text) return { invalid: "Testo vuoto." };
-    if (text.length > MAX_DRAFT_TEXT) return { invalid: "Testo troppo lungo." };
-    if (BANNED.test(text)) return { invalid: "Testo con il trattino lungo." };
-    if (/\{[a-z_]+\}/i.test(text)) return { invalid: "Testo con un segnaposto." };
-    if (json.action === "reply") return { action: "reply", text };
     if (json.action === "schedule") {
+        // Niente testo: al lead parte il messaggio fisso di conferma
+        // (crm_settings.call_confirm_message), accodato quando si fissa.
         const startsAt = typeof json.starts_at === "string" ? json.starts_at : "";
         const date = new Date(startsAt);
         if (!startsAt || Number.isNaN(date.getTime())) return { invalid: "Orario non valido." };
         // Può essere uno degli orari proposti o uno scritto dal lead: lo
         // controlla una persona su Telegram («Va bene») prima di fissarlo.
         if (date.getTime() <= Date.now()) return { invalid: "Orario nel passato." };
-        return { action: "schedule", startsAt: date.toISOString(), text };
+        return { action: "schedule", startsAt: date.toISOString() };
     }
+    if (!text) return { invalid: "Testo vuoto." };
+    if (text.length > MAX_DRAFT_TEXT) return { invalid: "Testo troppo lungo." };
+    if (BANNED.test(text)) return { invalid: "Testo con il trattino lungo." };
+    if (/\{[a-z_]+\}/i.test(text)) return { invalid: "Testo con un segnaposto." };
+    if (json.action === "reply") return { action: "reply", text };
     return { invalid: "Azione sconosciuta." };
 }
 
