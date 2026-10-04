@@ -13,7 +13,7 @@ import {
 } from "./crmTelegram.ts";
 import { formatCallDay, formatCallTime } from "./crmCallSlots.ts";
 
-export type AgentDraftKind = "reply" | "follow_up" | "bot_question" | "ask" | "schedule" | "stop_check";
+export type AgentDraftKind = "reply" | "follow_up" | "bot_question" | "ask" | "schedule" | "stop_check" | "lost_proposal" | "reactivation";
 
 export interface AgentDraftInfo {
     draftId: string;
@@ -58,6 +58,10 @@ function title(info: AgentDraftInfo): string {
             return `📞 ${who(info)} ha accettato ${info.proposedStartsAt ? when(info.proposedStartsAt) : "un orario"}`;
         case "stop_check":
             return `✋ Stop o obiezione? ${who(info)}`;
+        case "lost_proposal":
+            return `🪦 ${who(info)} non risponde dopo 10 follow-up. Lo mettiamo in Perso?`;
+        case "reactivation":
+            return `🌱 Riattivare ${who(info)}? È in Perso per obiezione da mesi`;
     }
 }
 
@@ -74,6 +78,10 @@ function keyboard(info: AgentDraftInfo, appUrl: string | null): InlineButton[][]
         case "schedule":
             rows.push([b("Va bene, fissala", "schedule"), b("Proponi altro", "other")]);
             rows.push([b("Lo gestisco io", "handle")]);
+            break;
+        case "lost_proposal":
+            rows.push([b("Metti in Perso", "lost")]);
+            rows.push([b("Non adesso", "discard"), b("Lo gestisco io", "handle")]);
             break;
         default:
             if (info.proposedText) {

@@ -54,6 +54,16 @@ describe("tasti per tipo", () => {
     });
 });
 
+describe("F1-6", () => {
+    it("proposta di Perso: Metti in Perso, Non adesso, Lo gestisco io", () => {
+        expect(decisions({ ...base, kind: "lost_proposal", proposedText: null })).toEqual(["lost", "discard", "handle"]);
+    });
+    it("riattivazione: come una bozza", () => {
+        expect(decisions({ ...base, kind: "reactivation" })).toEqual(["send", "edit", "discard", "handle"]);
+        expect(buildDraftMessage({ ...base, kind: "reactivation" }, null).text).toContain("Riattivare");
+    });
+});
+
 describe("testi", () => {
     it("bozza: titolo, chat e proposta, testo protetto", () => {
         const m = buildDraftMessage(base, "https://app.x");

@@ -4,6 +4,9 @@ import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import { ListRow } from "@/components/ui/ListRow/ListRow";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import { Switch } from "@/components/ui/Switch/Switch";
+import { Button } from "@/components/ui/Button/Button";
+import { NumberInput } from "@/components/ui/Input/NumberInput";
+import { Textarea } from "@/components/ui/Textarea/Textarea";
 import Text from "@/components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
 import {
@@ -13,7 +16,12 @@ import {
     updateCrmAgentTrialSettings
 } from "@/services/supabase/crmAgentTrial";
 import type { CrmAgentDraftRow, CrmAgentTrialSettings, CrmAgentTrust } from "@/types/crm";
-import { CRM_AGENT_DRAFT_KIND_LABEL, CRM_AGENT_DRAFT_STATUS_LABEL, describeTrust } from "@/utils/crm/agentLabels";
+import {
+    CRM_AGENT_DRAFT_KIND_LABEL,
+    CRM_AGENT_DRAFT_STATUS_LABEL,
+    describeTrust,
+    reactivationTextError
+} from "@/utils/crm/agentLabels";
 import { formatDateTimeIt } from "@/utils/formatDateTime";
 import styles from "./Crm.module.scss";
 
@@ -29,11 +37,15 @@ export function AgentTrialCard() {
     const [drafts, setDrafts] = useState<CrmAgentDraftRow[]>([]);
     const [error, setError] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
+    const [reactivationText, setReactivationText] = useState("");
+    const [reactivationDays, setReactivationDays] = useState("90");
 
     const load = useCallback(async () => {
         try {
             const [s, t, d] = await Promise.all([getCrmAgentTrialSettings(), listCrmAgentTrust(), listCrmAgentDrafts(15)]);
             setSettings(s);
+            setReactivationText(s.agent_reactivation_message ?? "");
+            setReactivationDays(String(s.agent_reactivation_days));
             setTrust(t);
             setDrafts(d);
             setError(null);
@@ -60,6 +72,12 @@ export function AgentTrialCard() {
     }
 
     const pending = drafts.filter(d => d.status === "pending").length;
+    const reactivationError = reactivationTextError(reactivationText);
+    const days = Number(reactivationDays);
+    const daysError = Number.isInteger(days) && days >= 30 && days <= 365 ? null : "Da 30 a 365 giorni.";
+    const reactivationDirty =
+        settings !== null &&
+        ((settings.agent_reactivation_message ?? "") !== reactivationText.trim() || settings.agent_reactivation_days !== days);
 
     return (
         <Card
@@ -89,6 +107,51 @@ export function AgentTrialCard() {
                                 disabled={saving || !settings.agent_replies_on}
                                 onChange={on => void toggle({ agent_followups_on: on }, on ? "Follow-up accesi." : "Follow-up spenti.")}
                             />
+                        </>
+                    )}
+                    {settings && (
+                        <>
+                            <Textarea
+                                label="Riattivazione dei Persi per obiezione"
+                                rows={2}
+                                maxLength={1000}
+                                value={reactivationText}
+                                onChange={e => setReactivationText(e.target.value)}
+                                helperText={
+                                    reactivationError ??
+                                    "Dopo i giorni qui sotto, una bozza con questo testo su Telegram, una volta sola per locale. Segnaposti: {nome} {locale} {mittente}. Vuoto = spenta."
+                                }
+                                disabled={saving}
+                            />
+                            <div className={styles.capFields}>
+                                <NumberInput
+                                    label="Dopo quanti giorni in Perso"
+                                    min={30}
+                                    max={365}
+                                    value={reactivationDays}
+                                    onChange={e => setReactivationDays(e.target.value)}
+                                    error={daysError ?? undefined}
+                                    disabled={saving}
+                                />
+                            </div>
+                            <div>
+                                <Button
+                                    size="sm"
+                                    variant="secondary"
+                                    disabled={saving || !reactivationDirty || Boolean(reactivationError) || Boolean(daysError)}
+                                    onClick={() =>
+                                        void toggle(
+                                            {
+                                                agent_reactivation_message: reactivationText.trim() || null,
+                                                agent_reactivation_days: days
+                                            },
+                                            "Riattivazione salvata."
+                                        )
+                                    }
+                                >
+                                    Salva la riattivazione
+                                </Button>
+                            </div>
                         </>
                     )}
                     {trust.map(t => (

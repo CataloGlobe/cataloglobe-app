@@ -38,6 +38,7 @@ import {
 import { buildDraftClosedText, buildDraftMessage, buildReminderText } from "./crmAgentMessages.ts";
 import { loadAgendaBusy } from "./crmAgendaJob.ts";
 import { formatCallDay, formatCallTime, parseCallWindows, suggestCallSlots } from "./crmCallSlots.ts";
+import { fillWhatsappTemplate } from "./crmWhatsapp.ts";
 
 const LOG = "crm-agent";
 const REMINDER_EVERY_MINUTES = 5;
@@ -454,6 +455,42 @@ export async function processAgent(supabase, team, botToken, appUrl, now = new D
     let worked = 0;
     for (const c of candidates ?? []) {
         if (worked >= MAX_CANDIDATES) break;
+        // F1-6: proposta di Perso e riattivazione, senza modello. Mai di notte.
+        if (c.r_kind === "lost_proposal" || c.r_kind === "reactivation") {
+            if (night) continue;
+            worked += 1;
+            const { venue, lead, contact } = await venueContext(supabase, c.r_venue_id);
+            if (!venue) continue;
+            const base = { venue_id: venue.id, lead_id: lead?.id ?? null, contact_id: contact?.id ?? null, trigger_message_id: null };
+            if (c.r_kind === "lost_proposal") {
+                if (await insertDraft(supabase, base, { kind: "lost_proposal", reason: `${c.r_follow_ups} follow-up senza risposta.` }))
+                    stats.drafts += 1;
+                continue;
+            }
+            const { data: st } = await supabase.from("crm_settings").select("agent_reactivation_message").eq("id", true).maybeSingle();
+            if (!st?.agent_reactivation_message) continue;
+            const sender =
+                teamName(team, venue.assigned_to) ?? teamName(team, team.find(m => m.is_default_assignee)?.user_id) ?? null;
+            const text = fillWhatsappTemplate(st.agent_reactivation_message, {
+                contactName: contact?.name ?? null,
+                venueName: venue.name_pending ? null : venue.name,
+                senderName: sender
+            });
+            // Un segnaposto sconosciuto nel testo: non si propone (lo dice il log).
+            if (/\{[a-z_]+\}/i.test(text)) {
+                console.warn(`${LOG}: testo della riattivazione con un segnaposto sconosciuto`);
+                continue;
+            }
+            if (
+                await insertDraft(supabase, base, {
+                    kind: "reactivation",
+                    reason: "In Perso per obiezione da mesi.",
+                    proposed_text: text.slice(0, 1000)
+                })
+            )
+                stats.drafts += 1;
+            continue;
+        }
         if (c.r_kind === "follow_up") {
             if (!settings.agent_followups_on || night) continue;
             if (c.r_follow_ups >= FOLLOW_UP_MAX) continue;

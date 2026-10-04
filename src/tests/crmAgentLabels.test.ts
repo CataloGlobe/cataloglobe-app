@@ -84,3 +84,13 @@ describe("agente in prova (F1-3)", () => {
         expect(describeTrust({ approved_in_row: 4, total_approved: 4, total_edited: 0, total_discarded: 0 })).toContain("4 approvate di fila");
     });
 });
+
+describe("riattivazione (F1-6)", () => {
+    it("segnaposti ammessi", async () => {
+        const { reactivationTextError } = await import("@/utils/crm/agentLabels");
+        expect(reactivationTextError("")).toBeNull();
+        expect(reactivationTextError("Ciao {nome}, sono {mittente} di CataloGlobe: {locale} come va?")).toBeNull();
+        expect(reactivationTextError("Ciao {giorno}")).toBe("Segnaposto sconosciuto: {giorno}.");
+        expect(reactivationTextError("x".repeat(1001))).toBe("Al massimo 1000 caratteri.");
+    });
+});

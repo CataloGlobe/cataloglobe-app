@@ -113,8 +113,19 @@ export const CRM_AGENT_DRAFT_KIND_LABEL: Record<CrmAgentDraftKind, string> = {
     bot_question: "«Sei un bot?»",
     ask: "Serve una persona",
     schedule: "Orario accettato",
-    stop_check: "Stop o obiezione?"
+    stop_check: "Stop o obiezione?",
+    lost_proposal: "Proposta di Perso",
+    reactivation: "Riattivazione"
 };
+
+/** Testo della riattivazione: vuoto = spento; segnaposti {nome} {locale} {mittente}. */
+export function reactivationTextError(text: string): string | null {
+    const trimmed = text.trim();
+    if (!trimmed) return null;
+    if (trimmed.length > 1000) return "Al massimo 1000 caratteri.";
+    const unknown = [...trimmed.matchAll(/\{([a-z_]+)\}/gi)].map(m => m[1]).find(n => !["nome", "locale", "mittente"].includes(n));
+    return unknown ? `Segnaposto sconosciuto: {${unknown}}.` : null;
+}
 
 export const CRM_AGENT_DRAFT_STATUS_LABEL: Record<CrmAgentDraftStatus, string> = {
     pending: "In attesa",
