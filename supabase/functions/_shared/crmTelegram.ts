@@ -10,7 +10,7 @@
 // ogni messaggio va nella chat privata di ciascuno.
 //   * chi ha il lead assegnato vede «Assegnalo a <nome dell'altro>»;
 //     con più di due persone «Assegnalo a un'altra persona…» apre i nomi;
-//   * chi non ce l'ha vede «Lo prendo io: assegnalo a me».
+//   * chi non ce l'ha vede «Lo prendo io».
 // Dopo ogni passaggio il webhook riscrive il messaggio di tutti: «Preso da
 // <nome>» e pulsanti invertiti.
 //
@@ -153,10 +153,11 @@ export function shortToUuid(short: string): string | null {
 //   g:<venue>         apri la scelta tra i nomi
 //   x:<venue>         chiudi la scelta (torna ai pulsanti normali)
 //   cy|cn:<call>      chi deve chiamare dice sì / no (agenda; «cn» solo nei messaggi vecchi)
-//   ch:<call>         «Chiamala tu»: passa a chi l'ha fissata
+//   ch:<call>         passa a chi l'ha fissata («Sì, chiamo io» di chi l'ha fissata)
+//   ck:<call>         «Chiedo a {nome} se può lui»: la domanda a chi l'ha fissata
 //   cx|cb:<call>      apre / chiude la scelta di un altro orario
 //   ct:<call>:<min>   propone al lead lo stesso giorno <min> minuti dopo (1440 = domani)
-//   od|on|op:<call>   esito: fatta / non ha risposto / rimandata (agenda)
+//   od|on|op:<call>   esito: fatta / non ha risposto / da fissare di nuovo (agenda)
 //   ds|de|dx|dv|dp|dh|dk|dj:<bozza>  tocco su una bozza dell'agente (F1-3)
 export type CrmCallback =
     | { action: "assign"; venueId: string; userId: string }
@@ -168,6 +169,7 @@ export type CrmCallback =
     // Agenda (F1-4a): «Puoi tu?» a chi deve chiamare, «Com'è andata?» dopo.
     | { action: "call_answer"; appointmentId: string; accept: boolean }
     | { action: "call_handover"; appointmentId: string }
+    | { action: "call_ask_creator"; appointmentId: string }
     | { action: "call_other_menu"; appointmentId: string; open: boolean }
     | { action: "call_other_time"; appointmentId: string; shiftMinutes: CallShiftMinutes }
     | { action: "call_outcome"; appointmentId: string; outcome: "done" | "no_show" | "postponed" }
@@ -227,6 +229,7 @@ export function parseCallbackData(data: string): CrmCallback | null {
         if (parts[0] === "cy") return { action: "call_answer", appointmentId, accept: true };
         if (parts[0] === "cn") return { action: "call_answer", appointmentId, accept: false };
         if (parts[0] === "ch") return { action: "call_handover", appointmentId };
+        if (parts[0] === "ck") return { action: "call_ask_creator", appointmentId };
         if (parts[0] === "cx") return { action: "call_other_menu", appointmentId, open: true };
         if (parts[0] === "cb") return { action: "call_other_menu", appointmentId, open: false };
         if (parts[0] === "od") return { action: "call_outcome", appointmentId, outcome: "done" };
@@ -250,7 +253,7 @@ export function assignmentButtons(
     team: CrmTeamMemberLite[]
 ): InlineButton[] {
     if (assignedTo !== recipientId) {
-        return [{ text: "Lo prendo io: assegnalo a me", callback_data: encodeAssign(venueId, recipientId) }];
+        return [{ text: "Lo prendo io", callback_data: encodeAssign(venueId, recipientId) }];
     }
     const others = team.filter(m => m.user_id !== recipientId);
     if (others.length === 0) return [];
@@ -328,8 +331,8 @@ export function venueNameButtons(
     if (ctx.venueNameCheck === "same" || !ctx.venueNameGiven) return [];
     const short = uuidToShort(ctx.leadId);
     return [
-        { text: `Stesso locale: tieni «${buttonName(knownName)}»`, callback_data: `s:${short}` },
-        { text: `Stesso locale: chiamalo «${buttonName(ctx.venueNameGiven)}»`, callback_data: `n:${short}` }
+        { text: `È lo stesso locale: resta «${buttonName(knownName)}»`, callback_data: `s:${short}` },
+        { text: `È lo stesso locale: rinominalo «${buttonName(ctx.venueNameGiven)}»`, callback_data: `n:${short}` }
     ];
 }
 
@@ -443,11 +446,11 @@ export function buildLeadMessage(
 
     const buttons: InlineButton[] = [];
     if (whatsappUrl && data.hasPhone && !data.stoppedBefore) {
-        buttons.push({ text: "Scrivigli su WhatsApp", url: whatsappUrl });
+        buttons.push({ text: "Apri la chat su WhatsApp", url: whatsappUrl });
     }
     if (data.kind === "returned") buttons.push(...venueNameButtons(data.returned, data.venueName));
     buttons.push(...assignmentButtons(data.venueId, data.assignedTo, recipientId, team));
-    if (data.adminUrl) buttons.push({ text: "Apri la scheda nel CRM", url: data.adminUrl });
+    if (data.adminUrl) buttons.push({ text: "Apri la scheda", url: data.adminUrl });
 
     return { text: lines.join("\n"), reply_markup: { inline_keyboard: buttons.map(b => [b]) } };
 }
