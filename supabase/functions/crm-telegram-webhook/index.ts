@@ -248,6 +248,7 @@ const DRAFT_ERRORS: Record<string, string> = {
     CL002: "C'è già una telefonata fissata per questo locale.",
     CL003: "L'orario è già passato.",
     CL005: "Il locale è in Perso.",
+    AG001: "Il locale ha cambiato fase nel frattempo: non ho fatto niente.",
     "42501": "Non puoi decidere questa bozza."
 };
 
@@ -310,7 +311,7 @@ async function handleDraft(supabase, parsed, actor, answer, query) {
         return;
     }
     await closeDraftMessages(supabase, BOT_TOKEN, draft.id, status ?? "handled", status ? actor.display_name : null);
-    await answer(status ? "Fatto." : "Già decisa.");
+    await answer(status === "expired" ? "Il locale è cambiato nel frattempo: bozza chiusa." : status ? "Fatto." : "Già decisa.");
 }
 
 /** Testo scritto in risposta a «Lo correggo io». */

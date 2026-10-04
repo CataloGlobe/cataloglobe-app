@@ -481,6 +481,8 @@ export async function processAgent(supabase, team, botToken, appUrl, now = new D
         // F1-6: proposta di Perso e riattivazione, senza modello. Mai di notte.
         if (c.r_kind === "lost_proposal" || c.r_kind === "reactivation") {
             if (night) continue;
+            // Come crm_agent_has_work: la proposta di Perso segue i follow-up.
+            if (c.r_kind === "lost_proposal" && !settings.agent_followups_on) continue;
             worked += 1;
             const { venue, lead, contact } = await venueContext(supabase, c.r_venue_id);
             if (!venue) continue;

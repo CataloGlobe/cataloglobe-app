@@ -32,6 +32,7 @@ DECLARE
     v_caller    uuid;
     v_duration  integer;
     v_appt      uuid;
+    v_stage     text;
 BEGIN
     IF v_actor IS NULL THEN
         RAISE EXCEPTION 'decision_needs_person' USING ERRCODE = '42501';
@@ -71,9 +72,11 @@ BEGIN
             IF EXISTS (SELECT 1 FROM public.crm_venues v WHERE v.id = d.venue_id AND v.stage = 'perso' AND v.lost_kind = 'stop') THEN
                 RAISE EXCEPTION 'contact_stopped' USING ERRCODE = '42501';
             END IF;
-            PERFORM public.crm_move_stage(
+            IF NOT public.crm_move_stage(
                 p_venue_id := d.venue_id, p_stage := 'contattato', p_expected_stage := 'perso', p_actor_user_id := v_actor
-            );
+            ) THEN
+                RAISE EXCEPTION 'stage_changed' USING ERRCODE = 'AG001';
+            END IF;
         END IF;
         INSERT INTO public.crm_agent_decisions (actor, actor_user_id, action, reason, venue_id, lead_id, decided_by, decided_at, payload)
         VALUES ('person', v_actor, CASE WHEN p_decision = 'send' THEN 'draft_sent' ELSE 'draft_edited' END,
@@ -139,12 +142,25 @@ BEGIN
     END IF;
 
     IF p_decision = 'lost' THEN
+        -- Nel frattempo il locale è cambiato (già in Perso, magari per uno
+        -- stop, o cliente) o il lead ha scritto: la proposta non vale più.
+        -- Mai sovrascrivere un lost_kind 'stop' (lo legge il blocco invii).
+        SELECT v.stage INTO v_stage FROM public.crm_venues v WHERE v.id = d.venue_id FOR UPDATE;
+        IF v_stage IS NULL OR v_stage IN ('perso', 'cliente_pagante')
+           OR EXISTS (SELECT 1 FROM public.crm_messages m
+                      WHERE m.venue_id = d.venue_id AND m.direction = 'in' AND m.created_at > d.created_at) THEN
+            UPDATE public.crm_agent_drafts x SET status = 'expired', reason = 'Il locale è cambiato nel frattempo.'
+            WHERE x.id = d.id;
+            RETURN 'expired';
+        END IF;
         UPDATE public.crm_agent_drafts x SET status = 'handled', reason = 'Messo in Perso.', decided_by = v_actor, decided_at = now()
         WHERE x.id = d.id;
-        PERFORM public.crm_move_stage(
-            p_venue_id := d.venue_id, p_stage := 'perso', p_lost_kind := 'obiezione',
+        IF NOT public.crm_move_stage(
+            p_venue_id := d.venue_id, p_stage := 'perso', p_expected_stage := v_stage, p_lost_kind := 'obiezione',
             p_lost_reason := 'Nessuna risposta dopo i follow-up.', p_actor_user_id := v_actor
-        );
+        ) THEN
+            RAISE EXCEPTION 'stage_changed' USING ERRCODE = 'AG001';
+        END IF;
         INSERT INTO public.crm_agent_decisions (actor, actor_user_id, action, reason, venue_id, lead_id, decided_by, decided_at, payload)
         VALUES ('person', v_actor, 'draft_lost', 'Messo in Perso dopo i follow-up senza risposta.',
                 d.venue_id, d.lead_id, v_actor, now(), jsonb_build_object('draft_id', d.id));
@@ -218,7 +234,16 @@ AS $$
                (SELECT max(coalesce(m.sent_at, m.created_at)) FROM public.crm_messages m
                 WHERE m.venue_id = v.id AND m.author = 'person') AS last_person,
                EXISTS (SELECT 1 FROM public.crm_messages m
-                       WHERE m.venue_id = v.id AND m.status IN ('queued', 'sending')) AS busy
+                       WHERE m.venue_id = v.id AND m.status IN ('queued', 'sending')) AS busy,
+               -- I follow-up si contano dall'ultima risposta del lead o
+               -- dall'ultima riattivazione partita, se è dopo.
+               greatest(
+                   coalesce((SELECT max(m.created_at) FROM public.crm_messages m
+                             WHERE m.venue_id = v.id AND m.direction = 'in'), '-infinity'::timestamptz),
+                   coalesce((SELECT max(d.decided_at) FROM public.crm_agent_drafts d
+                             WHERE d.venue_id = v.id AND d.kind = 'reactivation' AND d.status IN ('sent', 'edited')),
+                            '-infinity'::timestamptz)
+               ) AS count_from
         FROM public.crm_venues v
         WHERE v.stage NOT IN ('perso', 'cliente_pagante') AND v.agent_hold_at IS NULL
           AND EXISTS (SELECT 1 FROM public.crm_messages m0 WHERE m0.venue_id = v.id)
@@ -243,16 +268,18 @@ AS $$
         SELECT x.venue_id, 'lost_proposal'::text, x.last_in_id, x.last_in, x.last_agent_sent,
                (SELECT count(*)::integer FROM public.crm_messages f
                 WHERE f.venue_id = x.venue_id AND f.purpose = 'follow_up' AND f.status = 'sent'
-                  AND f.sent_at > coalesce(x.last_in, '-infinity'::timestamptz)),
+                  AND f.sent_at > x.count_from),
                false
         FROM x
         WHERE x.stage <> 'nuovo'
           AND x.last_agent_sent IS NOT NULL AND x.last_agent_sent < p_now - interval '48 hours'
           AND (x.last_in IS NULL OR x.last_in < x.last_agent_sent)
           AND NOT x.busy
+          AND x.last_agent_sent >= coalesce(x.last_out, x.last_agent_sent)
+          AND (x.last_person IS NULL OR x.last_person < p_now - interval '30 minutes')
           AND (SELECT count(*) FROM public.crm_messages f
                WHERE f.venue_id = x.venue_id AND f.purpose = 'follow_up' AND f.status = 'sent'
-                 AND f.sent_at > coalesce(x.last_in, '-infinity'::timestamptz)) >= 10
+                 AND f.sent_at > x.count_from) >= 10
           AND NOT EXISTS (
               SELECT 1 FROM public.crm_agent_drafts d
               WHERE d.venue_id = x.venue_id AND d.status <> 'expired' AND d.kind = 'lost_proposal'
@@ -262,7 +289,7 @@ AS $$
         SELECT x.venue_id, 'follow_up'::text, x.last_in_id, x.last_in, x.last_agent_sent,
                (SELECT count(*)::integer FROM public.crm_messages f
                 WHERE f.venue_id = x.venue_id AND f.purpose = 'follow_up' AND f.status = 'sent'
-                  AND f.sent_at > coalesce(x.last_in, '-infinity'::timestamptz)),
+                  AND f.sent_at > x.count_from),
                false
         FROM x
         WHERE x.stage <> 'nuovo'
@@ -275,18 +302,26 @@ AS $$
               WHERE d.venue_id = x.venue_id AND d.status <> 'expired' AND d.created_at >= x.last_agent_sent
           )
         UNION ALL
-        -- Riattivazione: Perso per obiezione da almeno N giorni, mai riattivato
-        -- prima, col testo impostato (vuoto = spento).
+        -- Riattivazione: Perso per obiezione da almeno N giorni, col testo
+        -- impostato (vuoto = spento), telefono non in lista stop. Una volta
+        -- sola: nessuna bozza aperta o decisa, al massimo 3 proposte scadute.
         SELECT v.id, 'reactivation'::text, NULL::uuid, NULL::timestamptz, v.stage_changed_at, 0, false
         FROM public.crm_venues v, public.crm_settings s
         WHERE s.id AND s.agent_reactivation_message IS NOT NULL
           AND v.stage = 'perso' AND v.lost_kind = 'obiezione' AND v.agent_hold_at IS NULL
           AND v.stage_changed_at < p_now - make_interval(days => s.agent_reactivation_days)
-          AND EXISTS (SELECT 1 FROM public.crm_contacts ct WHERE ct.venue_id = v.id AND ct.phone_e164 IS NOT NULL)
+          AND EXISTS (
+              SELECT 1 FROM public.crm_contacts ct
+              WHERE ct.venue_id = v.id AND ct.phone_e164 IS NOT NULL
+                AND NOT EXISTS (SELECT 1 FROM public.crm_suppressions su
+                                WHERE su.phone_fingerprint = public.crm_phone_fingerprint(ct.phone_e164))
+          )
           AND NOT EXISTS (
               SELECT 1 FROM public.crm_agent_drafts d
               WHERE d.venue_id = v.id AND d.kind = 'reactivation' AND d.status <> 'expired'
           )
+          AND (SELECT count(*) FROM public.crm_agent_drafts d
+               WHERE d.venue_id = v.id AND d.kind = 'reactivation') < 3
     ) c
     ORDER BY 4 NULLS LAST
     LIMIT greatest(1, least(coalesce(p_limit, 5), 20));
@@ -343,7 +378,14 @@ AS $$
                 SELECT 1 FROM public.crm_venues v, public.crm_settings st
                 WHERE st.id AND v.stage = 'perso' AND v.lost_kind = 'obiezione' AND v.agent_hold_at IS NULL
                   AND v.stage_changed_at < p_now - make_interval(days => st.agent_reactivation_days)
+                  AND EXISTS (
+                      SELECT 1 FROM public.crm_contacts ct
+                      WHERE ct.venue_id = v.id AND ct.phone_e164 IS NOT NULL
+                        AND NOT EXISTS (SELECT 1 FROM public.crm_suppressions su
+                                        WHERE su.phone_fingerprint = public.crm_phone_fingerprint(ct.phone_e164))
+                  )
                   AND NOT EXISTS (SELECT 1 FROM public.crm_agent_drafts d WHERE d.venue_id = v.id AND d.kind = 'reactivation' AND d.status <> 'expired')
+                  AND (SELECT count(*) FROM public.crm_agent_drafts d WHERE d.venue_id = v.id AND d.kind = 'reactivation') < 3
             )
         )
         OR (
