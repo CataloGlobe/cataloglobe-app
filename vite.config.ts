@@ -8,6 +8,9 @@ import path from "path";
 //   - `vite build`                                        → SPA, dist/ (invariato)
 //   - `vite build --mode landing`                         → landing di campagna,
 //                                                           dist/landing.html + assets
+//   - `vite build --ssr src/entry-landing-server.tsx --outDir dist-landing-server`
+//                                                         → render della landing al build
+//                                                           (scripts/prerender-landing.mjs)
 //   - `vite build --ssr src/entry-server.tsx --outDir dist/server`
 //                                                         → bundle server (isSsrBuild)
 //   - `vite build --mode public-client`                   → bundle hydration client,

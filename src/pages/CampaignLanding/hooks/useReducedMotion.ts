@@ -1,20 +1,21 @@
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 
 const QUERY = "(prefers-reduced-motion: reduce)";
 
+function subscribe(onChange: () => void): () => void {
+    if (typeof window.matchMedia !== "function") return () => undefined;
+    const mq = window.matchMedia(QUERY);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+}
+
+const getSnapshot = () => typeof window.matchMedia === "function" && window.matchMedia(QUERY).matches;
+
+// L'HTML prerenderizzato non conosce la preferenza: idrata con `false`, poi
+// React passa da solo al valore del browser (nessun mismatch di idratazione).
+const getServerSnapshot = () => false;
+
 /** `prefers-reduced-motion: reduce`, aggiornato se l'utente lo cambia. */
 export function useReducedMotion(): boolean {
-    const [reduced, setReduced] = useState(
-        () => typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia(QUERY).matches
-    );
-
-    useEffect(() => {
-        if (typeof window.matchMedia !== "function") return;
-        const mq = window.matchMedia(QUERY);
-        const onChange = (e: MediaQueryListEvent) => setReduced(e.matches);
-        mq.addEventListener("change", onChange);
-        return () => mq.removeEventListener("change", onChange);
-    }, []);
-
-    return reduced;
+    return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }
