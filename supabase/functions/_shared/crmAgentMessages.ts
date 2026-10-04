@@ -13,7 +13,7 @@ import {
 } from "./crmTelegram.ts";
 import { formatCallDay, formatCallTime } from "./crmCallSlots.ts";
 
-export type AgentDraftKind = "reply" | "follow_up" | "bot_question" | "ask" | "schedule" | "stop_check";
+export type AgentDraftKind = "reply" | "follow_up" | "bot_question" | "ask" | "schedule" | "stop_check" | "lost_proposal" | "reactivation";
 
 export interface AgentDraftInfo {
     draftId: string;
@@ -67,6 +67,10 @@ function title(info: AgentDraftInfo): string {
         }
         case "stop_check":
             return `✋ Ho un dubbio su ${who(info)}`;
+        case "lost_proposal":
+            return `🪦 ${who(info)} non risponde da 10 solleciti. Lo mettiamo in Perso?`;
+        case "reactivation":
+            return `🌱 Riproviamo con ${who(info)}?`;
     }
 }
 
@@ -77,6 +81,36 @@ function stopCheckLines(info: AgentDraftInfo): string[] {
     if (last) lines.push(`${escapeHtml(info.contactName ?? "Il lead")} ha scritto: «${escapeHtml(clip(last.text))}»`);
     lines.push("Non so se è uno <b>stop</b> (non vuole più messaggi) o un <b>«non adesso»</b> (più avanti magari sì).");
     return lines;
+}
+
+const LOST_PROPOSAL_LINE = "In Perso l'agente smette di scrivergli. Se ricompila il modulo, vi arriva un avviso.";
+
+const MONTHS = [
+    "gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno",
+    "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"
+];
+
+/**
+ * Contesto della riattivazione: «A maggio aveva detto «…». È in Perso da 4
+ * mesi.» `lastIn` = l'ultimo messaggio del lead prima di Perso, se c'è.
+ */
+export function reactivationReason(
+    lastIn: { body: string; createdAt: string } | null,
+    lostSince: string,
+    now: Date
+): string {
+    const since = new Date(lostSince);
+    const months = Math.max(
+        1,
+        (now.getUTCFullYear() - since.getUTCFullYear()) * 12 + now.getUTCMonth() - since.getUTCMonth()
+    );
+    const time = months === 1 ? "da un mese" : `da ${months} mesi`;
+    if (!lastIn) return `È in Perso ${time}.`;
+    const said = new Date(lastIn.createdAt);
+    const month = MONTHS[Number(said.toLocaleString("en-US", { timeZone: "Europe/Rome", month: "numeric" })) - 1];
+    const body = lastIn.body.length > 200 ? `${lastIn.body.slice(0, 199)}…` : lastIn.body;
+    const prefix = month === "aprile" || month === "agosto" || month === "ottobre" ? "Ad" : "A";
+    return `${prefix} ${month} aveva detto «${body}». È in Perso ${time}.`;
 }
 
 function keyboard(info: AgentDraftInfo, appUrl: string | null): InlineButton[][] {
@@ -93,6 +127,10 @@ function keyboard(info: AgentDraftInfo, appUrl: string | null): InlineButton[][]
             rows.push([b("Fissa la telefonata", "schedule")]);
             rows.push([b("Proponi altri orari al lead", "other")]);
             rows.push([b("Scrivo io al lead", "handle")]);
+            break;
+        case "lost_proposal":
+            rows.push([b("Sì, mettilo in Perso", "lost")]);
+            rows.push([b("No, lascialo aperto", "discard"), b("Scrivo io al lead", "handle")]);
             break;
         default:
             if (info.proposedText) {
@@ -115,6 +153,9 @@ function chatLines(messages: AgentDraftInfo["lastMessages"]): string[] {
 function composeDraftText(info: AgentDraftInfo, messages: AgentDraftInfo["lastMessages"]): string {
     const lines = [title(info)];
     if (info.kind === "stop_check") lines.push(...stopCheckLines(info));
+    else if (info.kind === "lost_proposal") lines.push(LOST_PROPOSAL_LINE);
+    // La riattivazione porta già la frase intera (reactivationReason).
+    else if (info.kind === "reactivation" && info.reason) lines.push(escapeHtml(info.reason));
     else if (info.reason && info.kind !== "follow_up") lines.push(`Perché: ${escapeHtml(info.reason)}`);
     const collapsed = messages.length > INLINE_MESSAGES;
     if (messages.length && !collapsed) lines.push("", ...chatLines(messages));
@@ -148,7 +189,7 @@ export const DRAFT_OUTCOME_LABEL: Record<string, string> = {
     discarded: "non mandata",
     scheduled: "telefonata fissata",
     handled: "ci pensa una persona: l'agente non gli scrive",
-    expired: "scaduta: il lead ha scritto ancora"
+    expired: "scaduta: nel frattempo è cambiato qualcosa"
 };
 
 /**
@@ -158,17 +199,20 @@ export const DRAFT_OUTCOME_LABEL: Record<string, string> = {
 const HANDLED_OUTCOME_BY_REASON: Record<string, string> = {
     "È uno stop.": "messo in Perso (stop): nessuno gli scrive più",
     "Obiezione, non stop.": "è un «non adesso»: resta aperto, l'agente prepara una risposta",
-    "Proponi altri orari.": "l'agente propone altri orari al lead"
+    "Proponi altri orari.": "l'agente propone altri orari al lead",
+    "Messo in Perso.": "messo in Perso: l'agente non gli scrive più"
 };
 
-export function draftOutcomeLabel(status: string, reason: string | null): string {
+export function draftOutcomeLabel(status: string, reason: string | null, kind?: AgentDraftKind): string {
+    // «No, lascialo aperto» sulla proposta di Perso: non c'era niente da mandare.
+    if (status === "discarded" && kind === "lost_proposal") return "resta aperto: l'agente continua coi solleciti";
     if (status === "handled" && reason && HANDLED_OUTCOME_BY_REASON[reason]) return HANDLED_OUTCOME_BY_REASON[reason];
     return DRAFT_OUTCOME_LABEL[status] ?? status;
 }
 
 /** Il messaggio chiuso, senza tasti: chi ha deciso e cosa. */
 export function buildDraftClosedText(info: AgentDraftInfo, status: string, actorName: string | null): string {
-    const label = draftOutcomeLabel(status, info.reason);
+    const label = draftOutcomeLabel(status, info.reason, info.kind);
     const by = actorName ? ` (${escapeHtml(actorName)})` : "";
     const text = info.proposedText ? `\n<i>${escapeHtml(clip(info.proposedText, 200))}</i>` : "";
     return `${title(info)}\n➡️ ${escapeHtml(label)}${by}${text}`;
@@ -192,10 +236,24 @@ function waitedLabel(minutes: number): string {
 
 /** Il sollecito: testo semplice (niente HTML), una bozza o tutte quelle in attesa. */
 export function buildRemindersText(items: { info: AgentDraftInfo; minutes: number }[]): string {
-    const label = (info: AgentDraftInfo) => (info.kind === "stop_check" ? "dubbio, stop o «non adesso»" : "bozza");
+    const label = (info: AgentDraftInfo) =>
+        info.kind === "stop_check"
+            ? "dubbio, stop o «non adesso»"
+            : info.kind === "lost_proposal"
+              ? "proposta di Perso"
+              : info.kind === "reactivation"
+                ? "riattivazione"
+                : "bozza";
     if (items.length === 1) {
         const { info, minutes } = items[0];
-        const what = info.kind === "stop_check" ? "Un dubbio (stop o «non adesso»)" : "Una bozza";
+        const what =
+            info.kind === "stop_check"
+                ? "Un dubbio (stop o «non adesso»)"
+                : info.kind === "lost_proposal"
+                  ? "Una proposta di Perso"
+                  : info.kind === "reactivation"
+                    ? "Una riattivazione"
+                    : "Una bozza";
         return `⏰ ${what} per ${info.venueName} aspetta da ${waitedLabel(minutes)}: tocca un tasto sul messaggio qui sopra.`;
     }
     const lines = items.map(({ info, minutes }) => `• ${info.venueName}: ${label(info)}, da ${waitedLabel(minutes)}`);

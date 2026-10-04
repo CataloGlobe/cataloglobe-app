@@ -47,7 +47,9 @@ const ACTION_LABEL: Record<string, string> = {
     draft_stop: "Confermato lo stop",
     draft_objection: "È un «non adesso»",
     draft_other: "Proposti altri orari",
-    call_from_agent: "Telefonata fissata da una bozza"
+    call_from_agent: "Telefonata fissata da una bozza",
+    draft_lost: "Messo in Perso",
+    reactivation_lost: "Di nuovo in Perso: nessuna risposta alla riattivazione"
 };
 
 /** Azioni nuove (dalle PR dopo) senza etichetta: il codice, leggibile. */
@@ -123,8 +125,19 @@ export const CRM_AGENT_DRAFT_KIND_LABEL: Record<CrmAgentDraftKind, string> = {
     bot_question: "«Sei un bot?»",
     ask: "Serve una persona",
     schedule: "Orario accettato",
-    stop_check: "Stop o «non adesso»?"
+    stop_check: "Stop o «non adesso»?",
+    lost_proposal: "Proposta di Perso",
+    reactivation: "Riattivazione"
 };
+
+/** Testo della riattivazione: vuoto = spento; segnaposti {nome} {locale} {mittente}. */
+export function reactivationTextError(text: string): string | null {
+    const trimmed = text.trim();
+    if (!trimmed) return null;
+    if (trimmed.length > 1000) return "Al massimo 1000 caratteri.";
+    const unknown = [...trimmed.matchAll(/\{([a-z_]+)\}/gi)].map(m => m[1]).find(n => !["nome", "locale", "mittente"].includes(n));
+    return unknown ? `Segnaposto sconosciuto: {${unknown}}.` : null;
+}
 
 export const CRM_AGENT_DRAFT_STATUS_LABEL: Record<CrmAgentDraftStatus, string> = {
     pending: "In attesa",
@@ -144,10 +157,12 @@ export const CRM_AGENT_DRAFT_STATUS_LABEL: Record<CrmAgentDraftStatus, string> =
 const HANDLED_STATUS_BY_REASON: Record<string, string> = {
     "È uno stop.": "Stop",
     "Obiezione, non stop.": "«Non adesso»",
-    "Proponi altri orari.": "Altri orari"
+    "Proponi altri orari.": "Altri orari",
+    "Messo in Perso.": "Messo in Perso"
 };
 
-export function draftStatusLabel(status: CrmAgentDraftStatus, reason: string | null): string {
+export function draftStatusLabel(status: CrmAgentDraftStatus, reason: string | null, kind?: CrmAgentDraftKind): string {
+    if (status === "discarded" && kind === "lost_proposal") return "Resta aperto";
     if (status === "handled" && reason && HANDLED_STATUS_BY_REASON[reason]) return HANDLED_STATUS_BY_REASON[reason];
     return CRM_AGENT_DRAFT_STATUS_LABEL[status];
 }

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
     buildDraftClosedText,
     draftOutcomeLabel,
+    reactivationReason,
     buildDraftMessage,
     buildEditPromptText,
     buildRemindersText,
@@ -55,6 +56,36 @@ describe("tasti per tipo", () => {
     });
 });
 
+describe("F1-6", () => {
+    it("proposta di Perso: sì, no, scrivo io", () => {
+        expect(decisions({ ...base, kind: "lost_proposal", proposedText: null })).toEqual(["lost", "discard", "handle"]);
+    });
+    it("riattivazione: come una bozza", () => {
+        expect(decisions({ ...base, kind: "reactivation" })).toEqual(["send", "edit", "discard", "handle"]);
+        expect(buildDraftMessage({ ...base, kind: "reactivation" }, null).text).toContain("🌱 Riproviamo con");
+    });
+    it("Perso e riattivazione: testi", () => {
+        const lost = buildDraftMessage({ ...base, kind: "lost_proposal", proposedText: null, reason: "10 solleciti senza risposta." }, null);
+        expect(lost.text).toContain("non risponde da 10 solleciti. Lo mettiamo in Perso?");
+        expect(lost.text).toContain("In Perso l'agente smette di scrivergli. Se ricompila il modulo, vi arriva un avviso.");
+        expect(lost.text).not.toContain("Perché:");
+        expect(lost.reply_markup.inline_keyboard.flat().map(b => b.text).slice(0, 3)).toEqual([
+            "Sì, mettilo in Perso",
+            "No, lascialo aperto",
+            "Scrivo io al lead"
+        ]);
+        expect(draftOutcomeLabel("handled", "Messo in Perso.")).toContain("messo in Perso");
+        const now = new Date("2026-10-04T10:00:00Z");
+        expect(reactivationReason({ body: "Ora no, magari dopo l'estate", createdAt: "2026-05-20T10:00:00Z" }, "2026-06-01T10:00:00Z", now)).toBe(
+            "A maggio aveva detto «Ora no, magari dopo l'estate». È in Perso da 4 mesi."
+        );
+        expect(reactivationReason({ body: "No", createdAt: "2026-04-02T10:00:00Z" }, "2026-09-01T10:00:00Z", now)).toBe(
+            "Ad aprile aveva detto «No». È in Perso da un mese."
+        );
+        expect(reactivationReason(null, "2026-06-01T10:00:00Z", now)).toBe("È in Perso da 4 mesi.");
+    });
+});
+
 describe("testi", () => {
     it("bozza: titolo, chat e proposta, testo protetto", () => {
         const m = buildDraftMessage(base, "https://app.x");
@@ -79,6 +110,7 @@ describe("testi", () => {
         expect(buildDraftClosedText(base, "sent", "Lorenzo")).toContain("➡️ inviata così (Lorenzo)");
         expect(buildDraftClosedText(base, "expired", null)).toContain("scaduta");
         expect(buildRemindersText([{ info: base, minutes: 10 }])).toBe("⏰ Una bozza per Bar <Roma> aspetta da 10 minuti: tocca un tasto sul messaggio qui sopra.");
+        expect(buildRemindersText([{ info: { ...base, kind: "lost_proposal" }, minutes: 30 }])).toContain("Una proposta di Perso per");
         expect(buildEditPromptText(base)).toContain("tieni premuto qui e scegli Rispondi");
     });
     it("dubbio stop: cita il lead e chiude con l'esito vero", () => {
@@ -95,6 +127,8 @@ describe("testi", () => {
         expect(draftOutcomeLabel("handled", "È uno stop.")).toContain("messo in Perso");
         expect(draftOutcomeLabel("handled", "Obiezione, non stop.")).toContain("«non adesso»");
         expect(draftOutcomeLabel("handled", null)).toContain("ci pensa una persona");
+        expect(draftOutcomeLabel("discarded", null, "lost_proposal")).toContain("resta aperto");
+        expect(draftOutcomeLabel("discarded", null, "reply")).toBe("non mandata");
         expect(buildDraftClosedText({ ...info, reason: "È uno stop." }, "handled", "Alex")).toContain("messo in Perso");
     });
     it("chat lunga: in un riquadro apribile, dopo la proposta", () => {

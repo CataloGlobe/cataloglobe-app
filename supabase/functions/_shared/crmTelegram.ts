@@ -180,7 +180,7 @@ export type CrmCallback =
 export const CALL_SHIFT_MINUTES = [15, 30, 60, 1440] as const;
 export type CallShiftMinutes = (typeof CALL_SHIFT_MINUTES)[number];
 
-export type CrmDraftDecision = "send" | "edit" | "discard" | "schedule" | "other" | "handle" | "stop" | "objection";
+export type CrmDraftDecision = "send" | "edit" | "discard" | "schedule" | "other" | "handle" | "stop" | "objection" | "lost";
 
 export const DRAFT_DECISION_PREFIX: Record<CrmDraftDecision, string> = {
     send: "ds",
@@ -190,7 +190,8 @@ export const DRAFT_DECISION_PREFIX: Record<CrmDraftDecision, string> = {
     other: "dp",
     handle: "dh",
     stop: "dk",
-    objection: "dj"
+    objection: "dj",
+    lost: "dl"
 };
 
 export function encodeDraftDecision(draftId: string, decision: CrmDraftDecision): string {

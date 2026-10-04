@@ -35,9 +35,16 @@ import {
     parseDraftReply,
     parseReviewReply
 } from "./crmAgentRules.ts";
-import { buildDraftClosedText, buildDraftMessage, buildRemindersText, remindersDue } from "./crmAgentMessages.ts";
+import {
+    buildDraftClosedText,
+    buildDraftMessage,
+    buildRemindersText,
+    reactivationReason,
+    remindersDue
+} from "./crmAgentMessages.ts";
 import { loadAgendaBusy } from "./crmAgendaJob.ts";
 import { formatCallDay, formatCallTime, parseCallWindows, suggestCallSlots } from "./crmCallSlots.ts";
+import { fillWhatsappTemplate } from "./crmWhatsapp.ts";
 
 const LOG = "crm-agent";
 /** Solleciti di una bozza non toccata, in minuti dall'avviso. ⚠️ SYNC con crm_agent_has_work (SQL). */
@@ -158,7 +165,7 @@ async function notifyDraft(supabase, botToken, team, draft, appUrl) {
 async function venueContext(supabase, venueId) {
     const { data: venue } = await supabase
         .from("crm_venues")
-        .select("id, name, city, stage, name_pending, assigned_to")
+        .select("id, name, city, stage, stage_changed_at, name_pending, assigned_to")
         .eq("id", venueId)
         .maybeSingle();
     const { data: lead } = await supabase
@@ -182,6 +189,13 @@ async function venueContext(supabase, venueId) {
         .filter(m => m.direction === "in" || m.author === "person" || m.status === "sent")
         .reverse();
     return { venue, lead, contact, chat };
+}
+
+/** L'ultimo messaggio del lead prima che il locale andasse in Perso. */
+function lastInBeforeLost(chat, lostSince: string): { body: string; createdAt: string } | null {
+    const since = new Date(lostSince).getTime();
+    const m = [...chat].reverse().find(x => x.direction === "in" && x.body && new Date(x.created_at).getTime() <= since);
+    return m ? { body: m.body, createdAt: m.created_at } : null;
 }
 
 function answersOf(lead) {
@@ -224,6 +238,8 @@ async function freeSlots(supabase, team, callerId, now) {
         return [];
     }
 }
+
+const REACTIVATION_LOST_REASON = "Nessuna risposta alla riattivazione in 7 giorni.";
 
 async function logDecision(supabase, row) {
     const { data } = await supabase.from("crm_agent_decisions").insert(row).select("id").single();
@@ -361,7 +377,7 @@ async function insertDraft(supabase, base, fields) {
 // Il giro
 // -----------------------------------------------------------------------------
 export async function processAgent(supabase, team, botToken, appUrl, now = new Date()) {
-    const stats = { expired: 0, notified: 0, reminders: 0, stops: 0, drafts: 0, skipped: 0, stopped_by: null };
+    const stats = { expired: 0, notified: 0, reminders: 0, stops: 0, drafts: 0, reactivations_lost: 0, skipped: 0, stopped_by: null };
     const nowIso = now.toISOString();
     const night = isAgentNight(now);
 
@@ -504,6 +520,80 @@ export async function processAgent(supabase, team, botToken, appUrl, now = new D
     let worked = 0;
     for (const c of candidates ?? []) {
         if (worked >= MAX_CANDIDATES) break;
+        // Riattivazione corta: nessuna risposta in 7 giorni, il locale torna
+        // in Perso. Nessun messaggio al lead, nessun modello: anche di notte,
+        // ma solo coi solleciti accesi (è la loro fine). Solo da Contattato e
+        // con la fase non bloccata: se una persona l'ha spostato, decide lei.
+        // Non conta fra i lavorati: un locale che non si sposta non toglie
+        // il posto agli altri.
+        if (c.r_kind === "reactivation_lost") {
+            if (!settings.agent_followups_on) continue;
+            const { data: v } = await supabase
+                .from("crm_venues")
+                .select("id, stage, stage_locked_at")
+                .eq("id", c.r_venue_id)
+                .maybeSingle();
+            if (!v || v.stage !== "contattato" || v.stage_locked_at) continue;
+            const { data: moved, error: moveError } = await supabase.rpc("crm_move_stage", {
+                p_venue_id: v.id,
+                p_stage: "perso",
+                p_lost_kind: "obiezione",
+                p_lost_reason: REACTIVATION_LOST_REASON,
+                p_expected_stage: "contattato",
+                p_actor_user_id: null
+            });
+            if (moveError || !moved) {
+                console.warn(`${LOG}: ritorno in Perso non riuscito`, moveError?.code ?? "stage_changed");
+                continue;
+            }
+            await logDecision(supabase, {
+                actor: "agent",
+                action: "reactivation_lost",
+                reason: REACTIVATION_LOST_REASON,
+                venue_id: v.id,
+                payload: { from_stage: v.stage }
+            });
+            stats.reactivations_lost += 1;
+            continue;
+        }
+        // F1-6: proposta di Perso e riattivazione, senza modello. Mai di notte.
+        if (c.r_kind === "lost_proposal" || c.r_kind === "reactivation") {
+            if (night) continue;
+            // Come crm_agent_has_work: la proposta di Perso segue i follow-up.
+            if (c.r_kind === "lost_proposal" && !settings.agent_followups_on) continue;
+            worked += 1;
+            const { venue, lead, contact, chat } = await venueContext(supabase, c.r_venue_id);
+            if (!venue) continue;
+            const base = { venue_id: venue.id, lead_id: lead?.id ?? null, contact_id: contact?.id ?? null, trigger_message_id: null };
+            if (c.r_kind === "lost_proposal") {
+                if (await insertDraft(supabase, base, { kind: "lost_proposal", reason: `${c.r_follow_ups} solleciti senza risposta.` }))
+                    stats.drafts += 1;
+                continue;
+            }
+            const { data: st } = await supabase.from("crm_settings").select("agent_reactivation_message").eq("id", true).maybeSingle();
+            if (!st?.agent_reactivation_message) continue;
+            const sender =
+                teamName(team, venue.assigned_to) ?? teamName(team, team.find(m => m.is_default_assignee)?.user_id) ?? null;
+            const text = fillWhatsappTemplate(st.agent_reactivation_message, {
+                contactName: contact?.name ?? null,
+                venueName: venue.name_pending ? null : venue.name,
+                senderName: sender
+            });
+            // Un segnaposto sconosciuto nel testo: non si propone (lo dice il log).
+            if (/\{[a-z_]+\}/i.test(text)) {
+                console.warn(`${LOG}: testo della riattivazione con un segnaposto sconosciuto`);
+                continue;
+            }
+            if (
+                await insertDraft(supabase, base, {
+                    kind: "reactivation",
+                    reason: reactivationReason(lastInBeforeLost(chat, venue.stage_changed_at), venue.stage_changed_at, now),
+                    proposed_text: text.slice(0, 1000)
+                })
+            )
+                stats.drafts += 1;
+            continue;
+        }
         if (c.r_kind === "follow_up") {
             if (!settings.agent_followups_on || night) continue;
             if (c.r_follow_ups >= FOLLOW_UP_MAX) continue;

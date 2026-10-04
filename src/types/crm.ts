@@ -425,12 +425,23 @@ export interface CrmAgendaBusyResult {
 // -----------------------------------------------------------------------------
 // Agente WhatsApp in prova (F1-3, migration 20261004010000)
 // -----------------------------------------------------------------------------
-export type CrmAgentDraftKind = "reply" | "follow_up" | "bot_question" | "ask" | "schedule" | "stop_check";
+export type CrmAgentDraftKind =
+    | "reply"
+    | "follow_up"
+    | "bot_question"
+    | "ask"
+    | "schedule"
+    | "stop_check"
+    | "lost_proposal"
+    | "reactivation";
 export type CrmAgentDraftStatus = "pending" | "sent" | "edited" | "discarded" | "expired" | "scheduled" | "handled";
 
 export interface CrmAgentTrialSettings {
     agent_replies_on: boolean;
     agent_followups_on: boolean;
+    /** NULL = riattivazione spenta (F1-6). */
+    agent_reactivation_message: string | null;
+    agent_reactivation_days: number;
 }
 
 export interface CrmAgentTrust {
