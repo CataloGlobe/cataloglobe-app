@@ -5,6 +5,7 @@ import { HeaderTenantSwitcher } from "./HeaderTenantSwitcher";
 import { HeaderNotifications } from "./HeaderNotifications";
 import { HeaderUserMenu } from "./HeaderUserMenu";
 import { NavbarBreadcrumb } from "./NavbarBreadcrumb";
+import { HeaderSedeSwitcher } from "./HeaderSedeSwitcher";
 import { AiUsagePill } from "./AiUsagePill";
 import type { AiUsageCycle } from "@/types/aiUsage";
 import styles from "./AppHeader.module.scss";
@@ -30,9 +31,14 @@ export function AppHeader({ onOpenMobileSidebar, aiUsage = null }: AppHeaderProp
                         <Menu size={20} />
                     </button>
                 )}
-                <HeaderLogo />
-                <span className={styles.separator} aria-hidden="true">/</span>
+                {/* Percorso a cartelle (§51.8): logo / azienda / sede / pagina.
+                    Sotto 768 restano azienda e sede: la pagina è il titolo sotto. */}
+                <span className={styles.wideOnly}>
+                    <HeaderLogo />
+                </span>
+                <span className={`${styles.separator} ${styles.wideOnly}`} aria-hidden="true">/</span>
                 <HeaderTenantSwitcher />
+                <HeaderSedeSwitcher />
                 <NavbarBreadcrumb />
             </div>
             <div className={styles.right}>

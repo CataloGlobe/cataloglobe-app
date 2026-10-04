@@ -5,6 +5,15 @@
   padding-bottom: var(--space-32);
 }
 
+// Il filtro sede della pagina (§51.11): largo quanto serve, non quanto la riga.
+.sedeFilter {
+  display: flex;
+
+  > * {
+    width: min(100%, 280px);
+  }
+}
+
 // CTA della header band: altezza armonizzata a search/segmented via --control-height.
 .headerActions {
   display: flex;
