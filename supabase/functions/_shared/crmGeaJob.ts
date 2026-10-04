@@ -33,6 +33,8 @@ import {
     commandNoopText,
     confirmButtonLabels,
     confirmQuestionText,
+    isStopLocked,
+    stopLockedText,
     diaryReason,
     manyVenuesText,
     needsConfirmation,
@@ -127,6 +129,7 @@ async function runCommand(supabase, botToken: string, command, actor, team, appU
     }
 
     if (command.name === "move_stage") {
+        if (isStopLocked(venue, command.stage)) return { reply: stopLockedText(venue.name), tool };
         const changed = await rpc(supabase, "crm_move_stage", {
             p_venue_id: venue.id, p_stage: command.stage, p_actor_user_id: actor.user_id
         });

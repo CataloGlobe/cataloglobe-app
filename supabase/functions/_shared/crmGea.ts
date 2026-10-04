@@ -374,6 +374,18 @@ export function commandNoopText(command: GeaCommand, venueName?: string, personN
     }
 }
 
+/**
+ * Un locale in Perso per stop ha chiesto di non essere più contattato: Gea non
+ * lo sposta (uscire da Perso toglie lo stop). Si fa dalla scheda, a mano.
+ */
+export function isStopLocked(venue: { stage?: string | null; lost_kind?: string | null } | null, toStage: string): boolean {
+    return venue?.stage === "perso" && venue?.lost_kind === "stop" && toStage !== "perso";
+}
+
+export function stopLockedText(venueName: string): string {
+    return `${venueName} ha chiesto di non essere più contattato: non lo sposto. Se va tolto lo stop, fallo dalla scheda in /admin.`;
+}
+
 /** `autonomyOn`: con l'Autonomia accesa non tutto passa da Telegram (F1-7). */
 export function confirmQuestionText(command: GeaCommand, autonomyOn = false): string {
     switch (command.name) {

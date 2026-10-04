@@ -201,7 +201,7 @@ BEGIN
     RETURN coalesce((
         SELECT jsonb_agg(row_to_json(r)::jsonb ORDER BY r.starts_with DESC, r.last_activity_at DESC)
         FROM (
-            SELECT v.id, v.name, v.city, v.stage, m.display_name AS assigned_to, v.last_activity_at,
+            SELECT v.id, v.name, v.city, v.stage, v.lost_kind, m.display_name AS assigned_to, v.last_activity_at,
                    (v.name ILIKE (replace(replace(replace(v_q, '\', '\\'), '%', '\%'), '_', '\_') || '%')) AS starts_with
             FROM public.crm_venues v
             LEFT JOIN public.crm_team_members m ON m.user_id = v.assigned_to

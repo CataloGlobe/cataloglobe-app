@@ -11,6 +11,8 @@ import {
     needsConfirmation,
     confirmButtonLabels,
     confirmQuestionText,
+    isStopLocked,
+    stopLockedText,
     parseUnderstanding,
     refuseText,
     sourceLine,
@@ -184,5 +186,15 @@ describe("risposte", () => {
             "Bar Uno girato a Lorenzo, chiesto da Alessandro."
         );
         expect(diaryReason({ name: "pause_agents", reason: "x".repeat(600) }, "Alessandro").length).toBeLessThanOrEqual(500);
+    });
+});
+
+describe("stop", () => {
+    it("Gea non toglie uno stop spostando il locale", () => {
+        expect(isStopLocked({ stage: "perso", lost_kind: "stop" }, "contattato")).toBe(true);
+        expect(isStopLocked({ stage: "perso", lost_kind: "stop" }, "perso")).toBe(false);
+        expect(isStopLocked({ stage: "perso", lost_kind: "obiezione" }, "contattato")).toBe(false);
+        expect(isStopLocked({ stage: "contattato", lost_kind: null }, "demo")).toBe(false);
+        expect(stopLockedText("Bar Roma")).toContain("dalla scheda");
     });
 });
