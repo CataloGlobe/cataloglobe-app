@@ -21,20 +21,25 @@ import styles from "./PublicBottomScrim.module.scss";
  * resa. Markup e regole SCSS dei layer restano per un eventuale riesame su
  * stili con `pageBackground` scuro: `data-blur="on"` dal DevTools li riaccende.
  *
+ * `hidden`: si nasconde insieme alla bottom bar (tutto o niente), solo
+ * opacity: niente transform su un elemento con layer backdrop-filter.
+ *
  * `isPreview`: nello Style Editor lo scroll container è `.deviceScreen`, non
  * la finestra → `position: sticky` invece di `fixed` (stesso pattern di
  * `.barWrap[data-preview]` in PublicBottomBar).
  */
 type Props = {
     isPreview?: boolean;
+    hidden?: boolean;
 };
 
-export default function PublicBottomScrim({ isPreview = false }: Props) {
+export default function PublicBottomScrim({ isPreview = false, hidden = false }: Props) {
     return (
         <div
             className={styles.root}
             aria-hidden="true"
             data-preview={isPreview ? "true" : undefined}
+            data-hidden={hidden ? "true" : undefined}
             data-blur="off"
         >
             <div className={styles.layer1} />
