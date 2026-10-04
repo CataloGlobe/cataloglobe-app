@@ -21,6 +21,7 @@ import {
     type TelegramMessage
 } from "./crmTelegram.ts";
 import { formatCallDay, formatCallTime } from "./crmCallSlots.ts";
+import { fillWhatsappTemplate } from "./crmWhatsapp.ts";
 
 export interface AgendaCallInfo {
     appointmentId: string;
@@ -208,8 +209,15 @@ function capitalize(text: string): string {
 /**
  * Il messaggio al lead, sempre al singolare (parla una persona):
  * «Giovedì 8 alle 17:45 non riesco, possiamo fare alle 18:00?».
+ * Dopo un rimbalzo fra voi due (chi chiamava ha chiesto a chi l'ha fissata,
+ * o il passaggio non è riuscito) il lead aspetta da più tempo: ci si scusa,
+ * «Scusa Mario, ho avuto un contrattempo: al posto di giovedì 8 alle 17:45
+ * riusciamo a fare alle 18:30?» (deciso da Alex il 2026-10-04).
  */
-export function buildLeadOtherTimeText(info: Pick<AgendaCallInfo, "startsAt">, shiftMinutes: CallShiftMinutes): string {
+export function buildLeadOtherTimeText(
+    info: Pick<AgendaCallInfo, "startsAt"> & Partial<Pick<AgendaCallInfo, "creatorAsked" | "handoverFailed" | "contactName">>,
+    shiftMinutes: CallShiftMinutes
+): string {
     const at = new Date(info.startsAt);
     const next = new Date(at.getTime() + shiftMinutes * 60_000);
     const sameDay = formatCallDay(next) === formatCallDay(at);
@@ -219,6 +227,11 @@ export function buildLeadOtherTimeText(info: Pick<AgendaCallInfo, "startsAt">, s
     const proposal = sameDay
         ? `alle ${formatCallTime(next)}`
         : `${formatCallDay(next)} ${sameTime ? "alla stessa ora" : `alle ${formatCallTime(next)}`}`;
+    if (info.creatorAsked || info.handoverFailed) {
+        const name = fillWhatsappTemplate("{nome}", { contactName: info.contactName ?? null, venueName: null, senderName: null }).trim();
+        const was = `${formatCallDay(at)} alle ${formatCallTime(at)}`;
+        return `Scusa${name ? ` ${name}` : ""}, ho avuto un contrattempo: al posto di ${was} riusciamo a fare ${proposal}?`;
+    }
     return `${capitalize(formatCallDay(at))} alle ${formatCallTime(at)} non riesco, possiamo fare ${proposal}?`;
 }
 
