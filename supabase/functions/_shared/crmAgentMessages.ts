@@ -87,7 +87,7 @@ function keyboard(info: AgentDraftInfo, appUrl: string | null): InlineButton[][]
     const rows: InlineButton[][] = [];
     switch (info.kind) {
         case "stop_check":
-            rows.push([b("È uno stop", "stop"), b("È un «non adesso»", "objection")]);
+            rows.push([b("Non vuole più messaggi", "stop"), b("Dice solo «non adesso»", "objection")]);
             break;
         case "schedule":
             rows.push([b("Fissa la telefonata", "schedule")]);

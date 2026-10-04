@@ -156,7 +156,7 @@ async function handleVenueName(supabase, parsed, actor, answer, appUrl) {
         await answer(
             error.code === "VN001"
                 ? "Il nome del locale è già stato sistemato nella scheda."
-                : "Non ci sono riuscito. Riprova da /admin."
+                : "Non è andata a buon fine. Riprova da /admin."
         );
         return;
     }
@@ -266,7 +266,7 @@ async function handleCall(supabase, parsed, actor, team, answer, query, appUrl) 
         });
         if (error) {
             console.error("crm-telegram-webhook: crm_call_ask_creator", error.code, error.message);
-            await answer(CALL_ERRORS[error.code] ?? "Non ci sono riuscito. Riprova dalla scheda.");
+            await answer(CALL_ERRORS[error.code] ?? "Non è andata a buon fine. Riprova dalla scheda.");
             return;
         }
         if (status === null) {
@@ -304,7 +304,7 @@ async function handleCall(supabase, parsed, actor, team, answer, query, appUrl) 
         });
         if (error) {
             console.error("crm-telegram-webhook: crm_call_propose_other", error.code, error.message);
-            await answer(CALL_ERRORS[error.code] ?? "Non ci sono riuscito. Riprova dalla scheda.");
+            await answer(CALL_ERRORS[error.code] ?? "Non è andata a buon fine. Riprova dalla scheda.");
             return;
         }
         if (draftId === null) {
@@ -340,7 +340,7 @@ async function handleCall(supabase, parsed, actor, team, answer, query, appUrl) 
         });
         if (error) {
             console.error("crm-telegram-webhook: crm_handover_call", error.code, error.message);
-            await answer(CALL_ERRORS[error.code] ?? "Non ci sono riuscito. Riprova dalla scheda.");
+            await answer(CALL_ERRORS[error.code] ?? "Non è andata a buon fine. Riprova dalla scheda.");
             return;
         }
         if (status === null) {
@@ -380,7 +380,7 @@ async function handleCall(supabase, parsed, actor, team, answer, query, appUrl) 
         });
         if (error) {
             console.error("crm-telegram-webhook: crm_answer_call", error.code, error.message);
-            await answer(CALL_ERRORS[error.code] ?? "Non ci sono riuscito. Riprova dalla scheda.");
+            await answer(CALL_ERRORS[error.code] ?? "Non è andata a buon fine. Riprova dalla scheda.");
             return;
         }
         if (status === null) {
@@ -414,7 +414,7 @@ async function handleCall(supabase, parsed, actor, team, answer, query, appUrl) 
     });
     if (error) {
         console.error("crm-telegram-webhook: crm_set_call_outcome", error.code, error.message);
-        await answer(CALL_ERRORS[error.code] ?? "Non ci sono riuscito. Riprova dalla scheda.");
+        await answer(CALL_ERRORS[error.code] ?? "Non è andata a buon fine. Riprova dalla scheda.");
         return;
     }
     const label = CALL_OUTCOME_LABEL[parsed.outcome];
@@ -475,7 +475,7 @@ async function handleDraft(supabase, parsed, actor, answer, query) {
             });
             await answer("Scrivi il testo rispondendo al messaggio.");
         } else {
-            await answer("Non ci sono riuscito. Riprova.");
+            await answer("Non è andata a buon fine. Riprova.");
         }
         return;
     }
@@ -486,7 +486,7 @@ async function handleDraft(supabase, parsed, actor, answer, query) {
     });
     if (error) {
         console.error("crm-telegram-webhook: crm_agent_decide_draft", error.code, error.message);
-        await answer(DRAFT_ERRORS[error.code] ?? "Non ci sono riuscito. Riprova dalla scheda.");
+        await answer(DRAFT_ERRORS[error.code] ?? "Non è andata a buon fine. Riprova dalla scheda.");
         return;
     }
     await closeDraftMessages(supabase, BOT_TOKEN, draft.id, status ?? "handled", status ? actor.display_name : null);
@@ -522,7 +522,7 @@ async function handleEditReply(supabase, message) {
     });
     if (error) {
         console.error("crm-telegram-webhook: correzione", error.code, error.message);
-        await reply(chatId, DRAFT_ERRORS[error.code] ?? "Non ci sono riuscito. Riprova dalla scheda.");
+        await reply(chatId, DRAFT_ERRORS[error.code] ?? "Non è andata a buon fine. Riprova dalla scheda.");
         return;
     }
     if (!status) {
@@ -604,7 +604,7 @@ async function handleCallback(supabase, query, appUrl) {
     });
     if (error) {
         console.error("crm-telegram-webhook: crm_assign", error.code, error.message);
-        await answer("Non sono riuscito ad assegnarlo. Riprova da /admin.");
+        await answer("Assegnazione non riuscita. Riprova da /admin.");
         return;
     }
 
