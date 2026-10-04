@@ -34,7 +34,8 @@ import { FeaturedCtaFooter } from "../FeaturedBlock/FeaturedContentDetail";
 import { hasFeaturedCta } from "../FeaturedBlock/featuredCta";
 import PublicBottomBar from "../PublicBottomBar/PublicBottomBar";
 import PublicBottomScrim from "../PublicBottomScrim/PublicBottomScrim";
-import { hasOpenSheet } from "../hooks/useScrollCollapse";
+import { hasOpenSheet } from "../hooks/openSheets";
+import { useBottomBarAutoHide } from "../hooks/useBottomBarAutoHide";
 import { hasOrderablePrice } from "../itemPricing";
 import type { SelectionItem, SelectedFormat, SelectedAddon } from "../OrderingSheet/OrderingSheet";
 import type { SubmitOrderOverrides } from "../OrderingSheet/submitOrderOverrides";
@@ -78,7 +79,7 @@ import type { Allergen } from "@/services/supabase/allergens";
 import PublicSheet from "../PublicSheet/PublicSheet";
 import PairingUpsellSheet, { type UpsellPairing } from "../PairingUpsellSheet/PairingUpsellSheet";
 import PublicOpeningHours from "../PublicOpeningHours/PublicOpeningHours";
-import { submitOrder } from "@/services/supabase/orders";
+import { submitOrder, subscribeToSessionOrders } from "@/services/supabase/orders";
 import { subscribeToCustomerSession } from "@/services/supabase/customerSessions";
 import { useOptionalCustomerSession } from "@/context/CustomerSession/useCustomerSession";
 import type { OrderItemRequest, SubmitOrderResult, OrderingStateReason } from "@/types/orders";
@@ -1524,6 +1525,47 @@ export default function CollectionView({
         setIsOrderingOpen(true);
     }, [selectionCount]);
 
+    // ── Bottom bar: nascondi/mostra tutto o niente (regole in bottomBarVisibility.ts) ──
+    const isBottomBarMounted = useBottomBar || (mode === "preview" && previewDevice === "mobile");
+    const {
+        hidden: isBottomBarHidden,
+        reveal: revealBottomBar,
+        ignoreProgrammaticScroll,
+    } = useBottomBarAutoHide({
+        mounted: isBottomBarMounted,
+        preview: mode === "preview",
+        scrollContainerEl,
+        frozen: mode === "preview" ? false : (!!selectedItem || isOrderingOpen),
+    });
+
+    // Aggiunta al carrello → la barra ricompare (badge in vista) e per
+    // nasconderla di nuovo serve più scroll del solito.
+    const prevSelectionCountRef = useRef(selectionCount);
+    useEffect(() => {
+        if (selectionCount > prevSelectionCountRef.current) revealBottomBar(true);
+        prevSelectionCountRef.current = selectionCount;
+    }, [selectionCount, revealBottomBar]);
+
+    // Cambio di stato di un ordine via realtime → la barra ricompare. A sheet
+    // ordini aperta ascolta già l'OrderingSheet (e la barra è coperta): qui
+    // solo a sheet chiusa, un canale per volta. Il primo UPDATE di un ordine
+    // non ancora visto conta come cambio (payload senza `old`).
+    const customerSessionJwt = customerSession?.session?.jwt;
+    useEffect(() => {
+        if (!useBottomBar || !customerSessionJwt || isOrderingOpen) return;
+        const lastStatusById = new Map<string, string>();
+        const channel = subscribeToSessionOrders(customerSessionJwt, {
+            onUpdate: order => {
+                const prev = lastStatusById.get(order.id);
+                lastStatusById.set(order.id, order.status);
+                if (prev !== order.status) revealBottomBar();
+            },
+        });
+        return () => {
+            channel?.unsubscribe();
+        };
+    }, [useBottomBar, customerSessionJwt, isOrderingOpen, revealBottomBar]);
+
     useEffect(() => {
         if (!submitFeedback) return;
         const tm = setTimeout(() => setSubmitFeedback(null), 5000);
@@ -1982,6 +2024,7 @@ export default function CollectionView({
 
         // scrollTo manuale (mirror di scrollToSection) sullo STESSO container del
         // tracking scroll esistente — così lo scroll-end detector riceve eventi.
+        ignoreProgrammaticScroll();
         const container: HTMLElement | Window = containerRef.current ?? window;
         if (container === window) {
             const top = rect.top + window.scrollY - scrollOffset;
@@ -2020,7 +2063,7 @@ export default function CollectionView({
 
         // Rete di sicurezza: l'effetto parte comunque entro ~800ms.
         highlightMaxTimeoutRef.current = setTimeout(fire, 800);
-    }, [applyHighlight, cleanupHighlightDetector, recomputeStickyOffset]);
+    }, [applyHighlight, cleanupHighlightDetector, recomputeStickyOffset, ignoreProgrammaticScroll]);
 
     // Cleanup di timer/listener all'unmount.
     useEffect(() => {
@@ -2120,8 +2163,12 @@ export default function CollectionView({
     // ── Scroll a top al cambio di tab ────────────────────────────────────────
     useEffect(() => {
         if (mode === "preview") {
-            if (scrollContainerEl) scrollContainerEl.scrollTop = 0;
-        } else {
+            if (scrollContainerEl && scrollContainerEl.scrollTop > 0) {
+                ignoreProgrammaticScroll();
+                scrollContainerEl.scrollTop = 0;
+            }
+        } else if (window.scrollY > 0) {
+            ignoreProgrammaticScroll();
             window.scrollTo(0, 0);
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2327,6 +2374,7 @@ export default function CollectionView({
         const container = containerRef.current;
         if (!container) return;
 
+        ignoreProgrammaticScroll();
         if (container === window) {
             const top = el.getBoundingClientRect().top + window.scrollY - scrollOffset;
             window.scrollTo({ top, behavior: "smooth" });
@@ -2348,12 +2396,13 @@ export default function CollectionView({
         // Non scrivere lo scroll mentre il body è in lock iOS (PublicSheet aperto).
         // Caso non raggiungibile dal re-tap (sheet copre la barra), guardia difensiva.
         if (document.body.style.position === "fixed") return;
+        ignoreProgrammaticScroll();
         if (container === window) {
             window.scrollTo({ top: 0, behavior: "smooth" });
         } else {
             (container as HTMLElement).scrollTo({ top: 0, behavior: "smooth" });
         }
-    }, []);
+    }, [ignoreProgrammaticScroll]);
 
     // ── Intercetta il tap hub tab: re-tap su "menu" = apre l'indice categorie
     // (sostituisce lo scroll-to-top diretto, che resta la prima voce della
@@ -2453,6 +2502,7 @@ export default function CollectionView({
             const container = containerRef.current;
             if (!container) return;
 
+            ignoreProgrammaticScroll();
             if (container === window) {
                 const top = el.getBoundingClientRect().top + window.scrollY - scrollOffset;
                 window.scrollTo({ top, behavior: "smooth" });
@@ -2466,7 +2516,7 @@ export default function CollectionView({
                 containerEl.scrollTo({ top, behavior: "smooth" });
             }
         },
-        [sectionGroups, recomputeStickyOffset]
+        [sectionGroups, recomputeStickyOffset, ignoreProgrammaticScroll]
     );
 
     // ── Scroll differito alla chiusura della sheet Categorie ────────────────
@@ -3208,7 +3258,7 @@ export default function CollectionView({
             {/* reviewDot riusa `valutaVisible` (stessa eligibilità 4h + scroll≥70% + no review <24h). */}
             {/* Preview mobile: barra montata SOLO per fedeltà di layout, completamente
                 inerte (props no-op, ordering OFF). Runtime (useBottomBar) invariato. */}
-            {(useBottomBar || (mode === "preview" && previewDevice === "mobile")) && (
+            {isBottomBarMounted && (
                 <PublicBottomBar
                     activeTab={mode === "preview" ? "menu" : activeTab}
                     onTabChange={mode === "preview" ? () => {} : handleHubTabTap}
@@ -3228,15 +3278,15 @@ export default function CollectionView({
                         setValutaVisible(false);
                         valutaEligibleRef.current = false;
                     }}
-                    isSheetOpen={mode === "preview" ? false : (!!selectedItem || isOrderingOpen)}
+                    hidden={isBottomBarHidden}
                     preview={mode === "preview"}
                 />
             )}
 
             {/* ── SCRIM bordo inferiore — stessa condizione di mount della barra.
                 Sotto la barra (z 100 < 150), sopra il contenuto. Solo CSS. ── */}
-            {(useBottomBar || (mode === "preview" && previewDevice === "mobile")) && (
-                <PublicBottomScrim isPreview={mode === "preview"} />
+            {isBottomBarMounted && (
+                <PublicBottomScrim isPreview={mode === "preview"} hidden={isBottomBarHidden} />
             )}
 
             {submitFeedback && (

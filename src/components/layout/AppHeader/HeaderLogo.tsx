@@ -15,11 +15,12 @@ export function HeaderLogo() {
     }
 
     return (
+        // L'ingresso nell'azienda (§51.6): decide `BusinessHomeRedirect`.
         <Link
-            to={`/business/${selectedTenantId}/overview`}
+            to={`/business/${selectedTenantId}`}
             className={styles.logoLink}
-            title="Vai alla panoramica"
-            aria-label="CataloGlobe — Vai alla panoramica"
+            title="Vai all'inizio"
+            aria-label="CataloGlobe — Vai all'inizio"
         >
             {content}
         </Link>

@@ -17,6 +17,7 @@ import { useToast } from "@/context/Toast/ToastContext";
 import { useTenant } from "@/context/useTenant";
 import { buildPublicUrl } from "@/utils/publicUrl";
 import { formatInactiveReason, type InactiveReason } from "@/utils/activityStatus";
+import { refreshActivitiesCache } from "@/hooks/activitiesCache";
 import styles from "./ActivityPubblicazioneRoute.module.scss";
 
 /**
@@ -73,6 +74,7 @@ export default function ActivityPubblicazioneRoute() {
         setIsResuming(true);
         try {
             await updateActivity(activity.id, tenantId, { status: "active", inactive_reason: null });
+            void refreshActivitiesCache(tenantId);
             await reload();
             showToast({ message: "Sede pubblicata.", type: "success" });
         } catch {
@@ -91,6 +93,8 @@ export default function ActivityPubblicazioneRoute() {
                     showToast({ message: "Motivo aggiornato.", type: "success" });
                 } else {
                     await updateActivity(activity.id, tenantId, { status: "inactive", inactive_reason: reason });
+                    // «Sospesa» compare accanto alla sede nell'header (§51.7).
+                    void refreshActivitiesCache(tenantId);
                     await reload();
                     showToast({ message: "Sede sospesa.", type: "success" });
                 }

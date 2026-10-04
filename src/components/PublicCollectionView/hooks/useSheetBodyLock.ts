@@ -1,5 +1,5 @@
 import { useCallback, useLayoutEffect, useRef } from "react";
-import { popSheetOpen, pushSheetOpen } from "./useScrollCollapse";
+import { popSheetOpen, pushSheetOpen } from "./openSheets";
 
 /**
  * Body scroll lock delle superfici modali della pagina pubblica.
@@ -67,8 +67,9 @@ export function useSheetBodyLock(isOpen: boolean): {
 
         // Contatore sheet aperte (modulo) — incrementato SINCRONO qui, PRIMA che
         // il body-lock sotto (position:fixed) induca lo scroll event. Così
-        // useScrollCollapse vede già freeze>0 e non rimpicciolisce la bottom bar.
-        // Decremento nel cleanup → copre close (isOpen=false) e unmount.
+        // header e bottom bar vedono già hasOpenSheet() e congelano lo stato.
+        // Decremento nel cleanup → copre close (isOpen=false) e unmount, e
+        // notifica la chiusura (la bottom bar ricompare).
         pushSheetOpen();
 
         savedScrollYRef.current = window.scrollY;

@@ -1,21 +1,23 @@
-@use 'sass:math';
-
-// AppSidebar — scheda «AppSidebar»: fondo --surface, bordo destro --border,
-// voce 32 su desktop (40 nel cassetto mobile) con padding 0 12 e raggio
-// --radius-control, attiva brand-primary-soft + on-brand-soft, hover
-// --hover-bg, gap 0, --z-nav. Il titolo di gruppo (12/600 uppercase
-// text-muted) è il separatore: nessun divisore dove c'è un titolo (§45.6:
-// 18 voci + 4 titoli devono stare in 800 px di finestra senza scroll).
+// AppSidebar — §51.15 (riferimento: la sidebar di Supabase Studio). Elenco
+// con titoli di gruppo, i gruppi non si chiudono; nel piede Impostazioni,
+// Assistenza e apri/chiudi. Aperta 232, chiusa 64:
+// **le righe restano alla stessa altezza e l'icona allo stesso posto**, si
+// anima solo la larghezza e il testo viene tagliato. La geometria fa sì che
+// l'icona (18) cada al centro dei 64 senza cambiare un padding:
+// 11 (contenitore) + 12 (riga) = 23 = (64 − 18) / 2.
 // Solo token: nel tema scuro segue --surface.
 
-/* ===== Spacing scale ===== */
-$scroll-padding-x: 12px;
-$nav-padding-x-collapsed: 4px;
-$item-padding-x: 12px;
-$icon-size: 20px;
-$toggle-size: 32px;
-// Footer expanded: aligns toggle glyph CENTER with nav icon slot CENTER.
-$footer-padding-x-expanded: $scroll-padding-x + $item-padding-x + math.div($icon-size - $toggle-size, 2);
+/* ===== Geometria ===== */
+$container-x: 11px;
+$row-x: 12px;
+$row-height: 36px;
+$row-height-touch: 40px;
+$icon-size: 18px;
+$icon-gap: 12px;
+$title-slot: 36px;
+$title-pad-bottom: 6px;
+$title-text: 11px;
+$dash-margin: 14px;
 
 .sidebar {
   position: relative;
@@ -26,17 +28,16 @@ $footer-padding-x-expanded: $scroll-padding-x + $item-padding-x + math.div($icon
   overflow: hidden;
 }
 
-// In flusso, sotto l'header (--z-nav): il menu tenant che scende
-// dall'header deve passarle sopra. --z-sticky basta per stare sopra il
-// contenuto.
+// In flusso, sotto l'header (--z-nav): il menu che scende dall'header deve
+// passarle sopra. --z-sticky basta per stare sopra il contenuto.
 .desktop {
   position: relative;
   height: 100%;
   z-index: var(--z-sticky);
 }
 
-// Cassetto su telefono: sopra l'header (--z-nav) e sotto i drawer.
-// Backdrop e pannello sullo stesso strato: il pannello viene dopo nel DOM.
+// Sotto 768: nessuna versione chiusa, pannello a tutta altezza dal pulsante
+// menu, sopra l'header (--z-nav) e sotto i drawer.
 .mobile {
   position: fixed;
   inset: 0;
@@ -61,84 +62,111 @@ $footer-padding-x-expanded: $scroll-padding-x + $item-padding-x + math.div($icon
 }
 
 /* ===== Intestazione del contesto (sede) ===== */
-// Fuori dallo scroll: dove sei non scorre via con le voci. Il divisore la
-// separa dalle voci; il contenuto (compresa la resa collassata) lo decide
-// chi passa lo slot.
+// Fuori dallo scroll, stessa geometria aperta e chiusa: le voci sotto non
+// si spostano.
 .headerSlot {
   flex-shrink: 0;
-  padding: var(--space-8);
+  padding: var(--space-8) $container-x;
   border-bottom: 1px solid var(--border);
 }
 
-.sidebar[data-collapsed="true"] .headerSlot {
-  padding: var(--space-8) var(--space-4);
+/* ===== Nav: scroll delle voci + piede ===== */
+.nav {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
-/* ===== Scroll area ===== */
 .sidebarScroll {
   flex: 1;
   min-height: 0;
+  overflow-x: hidden;
   overflow-y: auto;
-  padding: var(--space-8) $scroll-padding-x;
+  padding: var(--space-8) $container-x;
 }
 
-/* ===== Nav (gaps come from dividers, not from nav gap) ===== */
-.nav {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
+// Il piede: Assistenza e il pulsante apri/chiudi, fuori dallo scroll.
+.footer {
+  flex-shrink: 0;
+  border-top: 1px solid var(--border);
+  padding: var(--space-4) $container-x;
 }
 
-// Divisore solo fra gruppi SENZA titolo (il titolo è già il separatore).
-.groupDivider {
-  height: 1px;
-  background: var(--border);
-  margin: var(--space-6) 0;
-}
-
+/* ===== Gruppi ===== */
+// Fra i gruppi solo titoli (aperta) e trattini (chiusa), nessun divisore.
 .group {
   display: block;
 }
 
-/* Titolo di gruppo = separatore: margin-top 6, padding 4/2, line-height 1.2
-   → 26,4 px. Il corpo (12px) e il peso li mette `Text variant="caption-xs"
-   weight={600}` nel markup: questo modulo è nel perimetro del budget e non
-   dichiara font-size. */
-.group .groupTitle {
-  display: block;
-  margin-top: var(--space-6);
-  padding: var(--space-4) $item-padding-x var(--space-2);
-  line-height: 1.2;
-  letter-spacing: 0.04em;
+// Lo slot del titolo: alto 36 aperto e chiuso, il testo in basso, così lo
+// spazio sta sopra il titolo e il titolo resta attaccato alle sue voci.
+// Colore muted come le voci: nessun token più chiaro tiene 4,5:1 su
+// --surface in chiaro (gray-400 2,56:1), quindi separa lo spazio.
+// Chiuso il testo sparisce e al suo posto resta un trattino di 1px.
+.groupTitle {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  height: $title-slot;
+  padding: 0 $row-x $title-pad-bottom;
+  box-sizing: border-box;
+  font-size: $title-text;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  line-height: 1;
   text-transform: uppercase;
   color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;
-  max-height: 32px;
-  transition: opacity 0.16s ease 0.06s, max-height 0.22s ease, padding 0.22s ease;
 }
 
+.sidebar[data-collapsed="true"] .groupTitle {
+  color: transparent;
+
+  &::after {
+    content: "";
+    position: absolute;
+    left: $dash-margin;
+    right: $dash-margin;
+    // All'altezza del testo che sostituisce.
+    bottom: $title-pad-bottom + $title-text * 0.5;
+    height: 1px;
+    background: var(--border);
+  }
+}
+
+// Colonna `minmax(0, 1fr)`: con `auto` la traccia si allargherebbe al
+// min-content del testo (nowrap) e da chiusa la riga uscirebbe dai 42 px,
+// mostrando le prime lettere invece di tagliarle.
 .list {
   list-style: none;
   padding: 0;
   margin: 0;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 0;
 }
 
+/* ===== Riga ===== */
+// Il contenitore del tooltip (chiusa): non aggiunge geometria.
+.tipAnchor {
+  display: block;
+}
+
+// Padding e altezza fissi: chiusa la riga si stringe e il testo viene
+// tagliato dall'overflow, nessun elemento si riposiziona.
 .link {
   position: relative;
   display: flex;
   align-items: center;
-  justify-content: flex-start;
-  padding: 0 $item-padding-x;
-  height: 32px;
+  height: $row-height;
+  padding: 0 $row-x;
   box-sizing: border-box;
   border-radius: var(--radius-control);
   color: var(--text-muted);
-  font-weight: 500;
-  font-size: 14px;
   text-decoration: none;
+  overflow: hidden;
   transition:
     background var(--timing-motion-fast) var(--easing-state),
     color var(--timing-motion-fast) var(--easing-state);
@@ -155,19 +183,51 @@ $footer-padding-x-expanded: $scroll-padding-x + $item-padding-x + math.div($icon
   }
 }
 
-.icon {
-  display: inline-flex;
-  min-width: $icon-size;
+// Nel pannello mobile la riga resta a 40: è un bersaglio touch.
+.mobile .link {
+  height: $row-height-touch;
 }
 
-.label {
+.iconWrap {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 $icon-size;
+  width: $icon-size;
+  height: $icon-size;
+}
+
+.icon {
+  display: inline-flex;
+
+  svg {
+    width: $icon-size;
+    height: $icon-size;
+  }
+}
+
+.link .label {
   flex: 1 1 auto;
+  min-width: 0;
+  margin-inline-start: $icon-gap;
   white-space: nowrap;
-  max-width: 220px;
-  margin-inline-start: var(--space-10);
   overflow: hidden;
-  opacity: 1;
-  transition: opacity 0.16s ease 0.06s, max-width 0.22s ease, margin-inline-start 0.22s ease;
+  font-weight: 500;
+  color: inherit;
+}
+
+// Voce attiva: fondo accent-soft, testo e icona accent, semibold.
+.active {
+  background: var(--brand-primary-soft);
+  color: var(--on-brand-soft);
+
+  &:hover {
+    background: var(--brand-primary-soft-hover);
+    color: var(--on-brand-soft);
+  }
+
+  .label {
+    font-weight: 600;
+  }
 }
 
 /* Voce annunciata ma non navigabile («In arrivo»): attenuata, con tooltip. */
@@ -181,92 +241,24 @@ $footer-padding-x-expanded: $scroll-padding-x + $item-padding-x + math.div($icon
   }
 }
 
-.active {
-  background: var(--brand-primary-soft);
-  color: var(--on-brand-soft);
-
-  &:hover {
-    background: var(--brand-primary-soft-hover);
-    color: var(--on-brand-soft);
-  }
-}
-
-// Nel cassetto mobile la voce torna a 40: è un bersaglio touch.
-.mobile .link {
-  height: 40px;
-}
-
-.link.active::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 6px;
-  bottom: 6px;
-  width: 3px;
-  background: var(--brand-primary);
-  border-radius: 0 2px 2px 0;
-}
-
-/* ===== Collapsed state ===== */
-.sidebar[data-collapsed="true"] .link {
-  padding: 0 calc((var(--sidebar-collapsed) - 2 * #{$scroll-padding-x} - 2 * #{$nav-padding-x-collapsed} - #{$icon-size}) / 2);
-}
-
-.sidebar[data-collapsed="true"] .icon::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-}
-
-.sidebar[data-collapsed="true"] .nav {
-  padding: 0 $nav-padding-x-collapsed;
-}
-
-.sidebar[data-collapsed="true"] .label,
-.sidebar[data-collapsed="true"] .lock {
-  opacity: 0;
-  max-width: 0;
-  margin-inline-start: 0;
-  transition: opacity 0.08s ease, max-width 0.22s ease, margin-inline-start 0.22s ease;
-}
-
-// Collassata il titolo diventa una riga di 1px: resta il confine fra i
-// gruppi senza il testo.
-.sidebar[data-collapsed="true"] .group .groupTitle {
-  max-height: 1px;
-  padding: 0;
-  margin: var(--space-6) 0;
-  color: transparent;
-  background: var(--border);
-  transition: max-height 0.22s ease, padding 0.22s ease;
-}
-
-// Collassata resta solo il segnale (spinner, puntino): il contatore sparisce
-// con l'etichetta, il tooltip sull'icona dice il resto.
-.sidebar[data-collapsed="true"] .badge {
-  display: none;
-}
-
-/* ===== Lucchetto «Pro» =====
-   Segue il colore della voce (currentColor) attenuato: un accenno, non un
-   badge. Si nasconde come .label quando la sidebar è collassata. */
+/* ===== Lucchetto «Pro» ===== */
+// Aperta: lucchetto 14 muto a destra. Chiusa: l'icona della voce si attenua
+// e il tooltip dice «Nome · Pro».
 .lock {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
   margin-inline-start: var(--space-8);
   flex-shrink: 0;
   color: currentColor;
   opacity: 0.55;
-  max-width: 16px;
-  overflow: hidden;
-  transition: opacity 0.16s ease 0.06s, max-width 0.22s ease, margin-inline-start 0.22s ease;
 }
 
-/* ===== Coda della voce: spinner · contatore · puntino =====
-   Espansa è l'ultimo elemento della riga (dopo etichetta e lucchetto);
-   collassata si ancora in assoluto dentro `.link` (già `position: relative`),
-   così il segnale resta visibile anche dove `.label` sparisce. */
+.sidebar[data-collapsed="true"] .locked .icon {
+  opacity: 0.55;
+}
+
+/* ===== Segnali ===== */
+// Aperta: in coda alla riga (contatore a pillola, spinner 14, pallino 7).
 .trailing {
   margin-inline-start: auto;
   padding-inline-start: var(--space-8);
@@ -277,16 +269,50 @@ $footer-padding-x-expanded: $scroll-padding-x + $item-padding-x + math.div($icon
   pointer-events: none;
 }
 
-.sidebar[data-collapsed="true"] .trailing {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  right: var(--space-8);
-  padding-inline-start: 0;
-}
-
 .badge {
   flex-shrink: 0;
+}
+
+.sidebar[data-collapsed="true"] .trailing,
+.sidebar[data-collapsed="true"] .lock {
+  visibility: hidden;
+}
+
+// Chiusa: un badge piccolo in alto a destra dell'icona.
+.miniSignal {
+  display: none;
+  position: absolute;
+  top: -6px;
+  right: -8px;
+  pointer-events: none;
+}
+
+.sidebar[data-collapsed="true"] .miniSignal {
+  display: inline-flex;
+}
+
+.iconWrap .miniBadge {
+  min-width: 16px;
+  height: 16px;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-pill);
+  line-height: 16px;
+  text-align: center;
+  background: var(--hover-bg);
+  color: var(--text);
+  box-shadow: 0 0 0 2px var(--surface);
+
+  &[data-tone="brand"] {
+    background: var(--brand-primary);
+    color: var(--surface);
+  }
+}
+
+.spinner.miniSpinner {
+  width: 10px;
+  height: 10px;
+  -webkit-mask: radial-gradient(circle, transparent 2.5px, black 3px);
+  mask: radial-gradient(circle, transparent 2.5px, black 3px);
 }
 
 /* Spinner 14 ambra: un lavoro in corso su questa voce (traduzioni, import). */
@@ -319,32 +345,30 @@ $footer-padding-x-expanded: $scroll-padding-x + $item-padding-x + math.div($icon
   }
 }
 
-/* ===== Collapse footer ===== */
-.collapseFooter {
-  border-top: 1px solid var(--border);
-  padding: var(--space-4) $footer-padding-x-expanded;
-  display: flex;
-  justify-content: flex-start;
+/* Pallino senza numero (una risposta non letta): quanti siano non cambia
+   cosa fai. */
+.navDot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--brand-primary);
   flex-shrink: 0;
-  transition: padding 0.22s ease;
 }
 
-.sidebar[data-collapsed="true"] .collapseFooter {
-  padding: var(--space-4) calc((var(--sidebar-collapsed) - #{$toggle-size}) / 2);
-}
-
+/* ===== Pulsante apri/chiudi ===== */
+// Stessa geometria di una riga: l'icona sta in colonna con quelle delle voci.
 .collapseToggle {
-  position: relative;
-  width: $toggle-size;
-  height: $toggle-size;
-  border-radius: var(--radius-control);
+  display: flex;
+  align-items: center;
+  width: $row-x * 2 + $icon-size;
+  height: $row-height;
+  padding: 0 $row-x;
   border: none;
+  border-radius: var(--radius-control);
   background: transparent;
   color: var(--gray-400);
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   transition:
     background var(--timing-motion-fast) var(--easing-state),
     color var(--timing-motion-fast) var(--easing-state);
@@ -358,41 +382,4 @@ $footer-padding-x-expanded: $scroll-padding-x + $item-padding-x + math.div($icon
     outline: none;
     box-shadow: var(--shadow-focus);
   }
-}
-
-.toggleIcon {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: opacity 0.18s ease;
-}
-
-.toggleIconExpanded {
-  opacity: 1;
-}
-
-.toggleIconCollapsed {
-  opacity: 0;
-}
-
-.sidebar[data-collapsed="true"] .toggleIconExpanded {
-  opacity: 0;
-}
-
-.sidebar[data-collapsed="true"] .toggleIconCollapsed {
-  opacity: 1;
-}
-
-/* ===== Nav dot =====
-   Pallino senza numero su una voce di nav (dentro `.trailing`, quindi
-   visibile anche collassata). Nessun numero: quanti siano non cambia cosa
-   fai. */
-.navDot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--brand-primary);
-  flex-shrink: 0;
 }

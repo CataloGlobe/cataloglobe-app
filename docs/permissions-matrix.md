@@ -176,18 +176,18 @@ mutazione gatati con helper espliciti.
 | orders | /locations/:id/comande (`/orders` → ultima sede) | orders.read + `table_ordering` | orders.manage (activity) |
 | storico ordini | /locations/:id/storico | orders.read + `table_ordering` | Ripristina: orders.manage (activity) |
 | servizio | /locations/:id/servizio | voce: tables.read **o** seatings.read (activity); per modo, vedi sotto | per modo, vedi sotto |
-| scheduling | /scheduling/* | scheduling.read | scheduling.write (any-activity*) |
+| scheduling | /scheduling/* (filtro sede in pagina: `?sede=`) | scheduling.read; con `?sede=` sulla sede | scheduling.write (any-activity*) |
 | featured | /featured/* | featured.read | featured.write (any-activity*); crea/modifica prodotto dal contenuto: products.write |
 | stories | /stories/* | stories.read | stories.write (any-activity*) |
 | styles | /styles/* | styles.read | styles.write |
-| analytics | /analytics | analytics.read | — (read-only) |
-| reviews | /reviews | reviews.read | reviews.moderate (solo `status`: privilegio di colonna, mig `20260930120300`); reviews.delete (tenant-wide) |
-| locations | /locations, /:id | activity.read | activities.create/delete (tenant), activity.manage/activity_hours.write (per sede dall'URL), activity_groups.write |
+| analytics | /analytics (totale delle sedi leggibili) · /locations/:id/analitiche | analytics.read (any-activity · sulla sede) | — (read-only) |
+| reviews | /reviews (totale) · /locations/:id/recensioni | reviews.read (any-activity · sulla sede) | reviews.moderate (solo `status`: privilegio di colonna, mig `20260930120300`); reviews.delete (tenant-wide) |
+| locations | /locations (con una sede → la sua Scheda), /:id | activity.read | activities.create/delete (tenant; «Aggiungi una sede» anche dal selettore dell'header), activity.manage/activity_hours.write (per sede dall'URL), activity_groups.write |
 | languages | /languages | catalogs.read (proxy) | translations.write (FE+BE) |
 | reservations | /locations/:id/prenotazioni (`/reservations` → ultima sede) | reservations.read (any-activity*) + `table_reservation` | reservations.manage (activity) |
-| team | /team | team.read | team.invite/manage_roles/remove |
-| billing | /subscription | billing.read | billing.manage/cancel |
-| settings | /settings | tenant.read | tenant.manage/delete |
+| team | /settings/team (`/team` reindirizza); tab mostrata con team.read | team.read | team.invite/manage_roles/remove |
+| billing | /settings/abbonamento (`/subscription` reindirizza); tab mostrata con billing.read | billing.read | billing.manage/cancel |
+| settings | /settings (tab Azienda) | tenant.read | tenant.manage/delete |
 
 \* gate any-activity perché l'entità non è per-sede (vedi § 9). Prenotazioni fa eccezione: la pagina è di sede ma il gate di lettura è ancora any-activity (`Reservations.tsx`, apertura §50.22/2).
 

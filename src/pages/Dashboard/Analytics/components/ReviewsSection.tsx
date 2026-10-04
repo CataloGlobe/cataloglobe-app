@@ -21,14 +21,18 @@ type Props = {
  */
 export default function ReviewsSection({ data, isLoading }: Props) {
     const navigate = useNavigate();
-    const { businessId } = useParams<{ businessId: string }>();
+    const { businessId, activityId } = useParams<{ businessId: string; activityId?: string }>();
+    // Dentro la sede, le recensioni della sede (§51.10).
+    const reviewsPath = activityId
+        ? `/business/${businessId}/locations/${activityId}/recensioni`
+        : `/business/${businessId}/reviews`;
     const total = data?.total ?? 0;
 
     return (
         <Card
             title="Recensioni"
             actions={
-                <Button variant="ghost" size="sm" onClick={() => navigate(`/business/${businessId}/reviews`)}>
+                <Button variant="ghost" size="sm" onClick={() => navigate(reviewsPath)}>
                     Vai alle recensioni
                 </Button>
             }

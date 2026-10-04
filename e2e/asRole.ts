@@ -25,23 +25,25 @@ export const PERMESSI_DI_SEDE: Record<"manager" | "staff" | "viewer", string[]> 
 };
 
 /**
- * L'utente e2e diventa `role` della sola sede `activityId`, col piano `plan`:
- * le risposte vere di `get_my_permissions` e `user_tenants_view` riscritte in
- * pagina. Da chiamare prima di aprire la pagina.
+ * L'utente e2e diventa `role` delle sole sedi `activityId` (una o più), col
+ * piano `plan`: le risposte vere di `get_my_permissions` e
+ * `user_tenants_view` riscritte in pagina. Da chiamare prima di aprire la
+ * pagina.
  */
 export async function asRole(
     page: Page,
     role: "manager" | "staff" | "viewer",
-    activityId: string,
+    activityId: string | readonly string[],
     plan: "pro" | "base"
 ): Promise<void> {
+    const activityIds = typeof activityId === "string" ? [activityId] : [...activityId];
     await page.route(/\/rest\/v1\/rpc\/get_my_permissions/, async route => {
         try {
             const response = await route.fetch();
             const rows = (await response.json()) as Array<Record<string, unknown>>;
             for (const row of rows) {
                 row.role = role;
-                row.activity_ids = [activityId];
+                row.activity_ids = activityIds;
                 row.permissions = PERMESSI_DI_SEDE[role];
             }
             await route.fulfill({ response, json: rows });

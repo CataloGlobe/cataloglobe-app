@@ -13,12 +13,13 @@ import { Menu } from "@/components/ui/Menu";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { ToolbarSearch } from "@/components/ui/ToolbarSearch/ToolbarSearch";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
+import { Select } from "@/components/ui/Select/Select";
 import { SplitButton, type SplitButtonAction } from "@/components/ui/SplitButton";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import Text from "@/components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useTenantId } from "@/context/useTenantId";
-import { useSedeScope, SCOPE_ALL } from "@/hooks/useSedeScope";
+import { useSedeScope } from "@/hooks/useSedeScope";
 import { usePermissions } from "@/context/usePermissions";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 import { canDoOnActivity, canDoOnAnyActivity } from "@/lib/permissions";
@@ -177,27 +178,44 @@ export default function Programming() {
 
     const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
     const [searchTerm, setSearchTerm] = useState("");
-    // `?sede=<id>` arriva da una pagina della sede («Vai a Programmazione»,
-    // D2 §1): imposta il filtro della navbar su quella sede, poi esce
-    // dall'indirizzo. Il filtro resta la sola fonte; una sede che chi guarda
-    // non legge si ignora.
+    // Il filtro sede sta nella pagina (§51.11) ed è `?sede=<id>`: lo scrive il
+    // selettore qui sotto, ci arriva «Vai a Programmazione» da una pagina
+    // della sede. Una sede che chi guarda non legge si ignora; finché
+    // l'elenco non c'è vale quella dell'indirizzo.
     const sedeFromUrl = searchParams.get("sede");
-    const { isLoaded: sedeScopeLoaded, readableActivities: readableSedi, setValue: setSedeScope } = sedeScope;
-    useEffect(() => {
-        if (!sedeFromUrl || !sedeScopeLoaded) return;
-        if (readableSedi.some(a => a.id === sedeFromUrl)) setSedeScope(sedeFromUrl);
-        setSearchParams(
-            prev => {
-                const next = new URLSearchParams(prev);
-                next.delete("sede");
-                return next;
-            },
-            { replace: true }
-        );
-    }, [sedeFromUrl, sedeScopeLoaded, readableSedi, setSedeScope, setSearchParams]);
-
-    // Filtro sede deriva da useSedeScope (navbar). SCOPE_ALL → nessun filtro.
-    const filterActivityId = sedeScope.value === SCOPE_ALL ? null : sedeScope.value;
+    const { isLoaded: sedeScopeLoaded } = sedeScope;
+    // Le sedi del filtro: quelle di cui chi guarda legge la Programmazione.
+    // Una sede senza `scheduling.read` chiuderebbe la pagina nel gate, e il
+    // filtro con lei.
+    const readableSedi = useMemo(
+        () =>
+            permissions
+                ? sedeScope.readableActivities.filter(a => canDoOnActivity(permissions, "scheduling.read", a.id))
+                : [],
+        [permissions, sedeScope.readableActivities]
+    );
+    const filterActivityId = !sedeFromUrl
+        ? null
+        : !sedeScopeLoaded || readableSedi.some(a => a.id === sedeFromUrl)
+          ? sedeFromUrl
+          : null;
+    const setFilterActivityId = useCallback(
+        (next: string | null) =>
+            setSearchParams(
+                prev => {
+                    const params = new URLSearchParams(prev);
+                    if (next) params.set("sede", next);
+                    else params.delete("sede");
+                    return params;
+                },
+                { replace: true }
+            ),
+        [setSearchParams]
+    );
+    const sedeFilterOptions = useMemo(
+        () => [{ value: "", label: "Tutte le sedi" }, ...readableSedi.map(a => ({ value: a.id, label: a.name }))],
+        [readableSedi]
+    );
     const canWrite = permissions ? canDoOnAnyActivity(permissions, "scheduling.write") : false;
     // Stessa regola di PageGate: sulla sede del filtro, se c'è.
     const canRead = permissions
@@ -838,6 +856,18 @@ export default function Programming() {
         <PageGate readPermission="scheduling.read" activityId={filterActivityId}>
             {() => (
         <section className={styles.programming}>
+            {/* Il filtro sede della pagina (§51.11): matrice, elenco e
+                Settimana. Con una sede sola non c'è niente da filtrare. */}
+            {readableSedi.length > 1 && (
+                <div className={styles.sedeFilter}>
+                    <Select
+                        aria-label="Sede"
+                        value={filterActivityId ?? ""}
+                        onChange={e => setFilterActivityId(e.target.value || null)}
+                        options={sedeFilterOptions}
+                    />
+                </div>
+            )}
             {showMoment && (
                 <MomentBand
                     timeLabel={momentLabel}
