@@ -490,15 +490,17 @@ serve(async req => {
         // 180 for a six-month offer). Invalid or over the cap → the code is
         // refused, never silently downgraded to the default.
         let trialPeriodDays = TRIAL_PERIOD_DAYS;
-        if (isTrialNoCardCode) {
+        if (isTrialNoCardCode && grantTrial) {
             const promoTrialDays = resolvePromoTrialDays(promoMetadata);
             if (promoTrialDays === null) {
                 console.warn(`stripe-checkout: promo ${resolvedPromotionId} has an invalid ${TRIAL_DAYS_METADATA_KEY}`);
                 return json(req, 400, { error: "promo_code_invalid" });
             }
             trialPeriodDays = promoTrialDays;
-            subscriptionMetadata[TRIAL_NO_CARD_METADATA_KEY] = "true";
             subscriptionMetadata[TRIAL_DAYS_METADATA_KEY] = String(trialPeriodDays);
+        }
+        if (isTrialNoCardCode) {
+            subscriptionMetadata[TRIAL_NO_CARD_METADATA_KEY] = "true";
         }
 
         const sessionParams: Stripe.Checkout.SessionCreateParams = {
