@@ -9,7 +9,9 @@
 // In prova né Cliente pagante, nessun account collegato. Contatti, ingressi ed eventi vanno via a cascata; un
 // locale in stop lascia l'impronta del telefono in crm_suppressions.
 // Poi public.crm_purge_agent_decisions (20261002210100): righe del diario degli
-// agenti senza locale né lead, stessa soglia.
+// agenti senza locale né lead, stessa soglia. Poi public.crm_purge_messages
+// (20261002220100): messaggi WhatsApp più vecchi della soglia, anche nei
+// locali che restano.
 //
 // AUTENTICAZIONE fail-CLOSED: X-Job-Secret = CRM_JOB_SECRET.
 // DRY-RUN DI DEFAULT: senza `{"dry_run": false}` nel body conta e basta.
@@ -69,9 +71,22 @@ Deno.serve(async (req: Request) => {
         });
         if (diaryError) throw diaryError;
         const decisions = typeof diary === "number" ? diary : 0;
+        // Messaggi WhatsApp: quelli dei locali cancellati sono già andati a cascata.
+        const { data: chat, error: chatError } = await supabase.rpc("crm_purge_messages", {
+            p_cutoff: cutoff,
+            p_dry_run: dryRun
+        });
+        if (chatError) throw chatError;
+        const messages = typeof chat === "number" ? chat : 0;
         const result = dryRun
-            ? { dry_run: true, cutoff, would_delete: count, would_delete_decisions: decisions }
-            : { dry_run: false, cutoff, deleted: count, deleted_decisions: decisions };
+            ? {
+                  dry_run: true,
+                  cutoff,
+                  would_delete: count,
+                  would_delete_decisions: decisions,
+                  would_delete_messages: messages
+              }
+            : { dry_run: false, cutoff, deleted: count, deleted_decisions: decisions, deleted_messages: messages };
         console.log(JSON.stringify({ event: "crm_purge", ...result }));
         return json(200, result);
     } catch (err) {
