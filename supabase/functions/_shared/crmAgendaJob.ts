@@ -54,11 +54,21 @@ const OUTCOME_GIVE_UP_DAYS = 3;
 
 const APPOINTMENT_SELECT =
     "id, venue_id, lead_id, starts_at, ends_at, status, note, caller_user_id, created_by, google_event_id, google_rev, " +
-    "caller_asked_at, caller_reminded_at, " +
+    "caller_asked_at, caller_reminded_at, creator_asked_at, " +
     "crm_venues(name, city, stage), crm_contacts(name, phone_e164)";
 
 function teamName(team, userId: string | null): string | null {
     return team.find(m => m.user_id === userId)?.display_name ?? null;
+}
+
+/**
+ * Chi doveva chiamare ha chiesto a chi l'ha fissata, per l'ultimo «Puoi tu?».
+ * ⚠️ SYNC con v_asked in crm_handover_call / crm_call_propose_other e con
+ * crm_agenda_has_work (migration 20261004010600).
+ */
+export function creatorAsked(row): boolean {
+    return Boolean(row.creator_asked_at && row.caller_asked_at) &&
+        new Date(row.creator_asked_at).getTime() >= new Date(row.caller_asked_at).getTime();
 }
 
 export function toCallInfo(row, team): AgendaCallInfo {
@@ -74,6 +84,7 @@ export function toCallInfo(row, team): AgendaCallInfo {
         callerName: teamName(team, row.caller_user_id),
         createdByName: teamName(team, row.created_by),
         canHandOver: Boolean(row.created_by) && row.created_by !== row.caller_user_id,
+        creatorAsked: creatorAsked(row),
         note: row.note ?? null
     };
 }
@@ -214,7 +225,8 @@ async function sendTo(botToken: string, chatId: number, message) {
  * A chi chiama; se non ha collegato Telegram, a tutto il team collegato (con
  * una riga che dice per chi è). Ritorna quanti invii sono andati.
  */
-async function sendToCaller(botToken: string, team, callerId: string, message): Promise<number> {
+/** A una persona del team; se non ha collegato Telegram, a tutti con «Per {nome}». */
+export async function sendToCaller(botToken: string, team, callerId: string, message): Promise<number> {
     const caller = team.find(m => m.user_id === callerId && m.telegram_chat_id);
     const targets = caller ? [caller] : team.filter(m => m.telegram_chat_id);
     const name = teamName(team, callerId) ?? "chi chiama";
@@ -340,8 +352,9 @@ export async function processAgenda(supabase, team, botToken: string | null, app
         if (status !== "confirmed") continue;
         handedOver.add(row.id);
         stats.handovers += 1;
-        await sendToCaller(botToken, team, row.created_by, { text: buildHandedOverText(info, true) });
-        await sendToCaller(botToken, team, row.caller_user_id, { text: buildHandedOverCallerText(info) });
+        const asked = info.creatorAsked === true;
+        await sendToCaller(botToken, team, row.created_by, { text: buildHandedOverText(info, asked) });
+        await sendToCaller(botToken, team, row.caller_user_id, { text: buildHandedOverCallerText(info, asked) });
         try {
             await syncAppointmentGoogle(supabase, row.id, team, appUrl, now);
         } catch (err) {
@@ -349,10 +362,11 @@ export async function processAgenda(supabase, team, botToken: string | null, app
         }
     }
 
-    // 2c. Sollecito del «Puoi tu?», una volta sola, dopo 30 minuti.
+    // 2c. Sollecito del «Puoi tu?», una volta sola, dopo 30 minuti. Non se
+    // chi doveva chiamare ha già risposto chiedendo a chi l'ha fissata.
     const remindBefore = now.getTime() - CALLER_REMINDER_MINUTES * 60_000;
     for (const row of waiting ?? []) {
-        if (handedOver.has(row.id) || row.caller_reminded_at) continue;
+        if (handedOver.has(row.id) || row.caller_reminded_at || creatorAsked(row)) continue;
         if (new Date(row.caller_asked_at).getTime() > remindBefore) continue;
         if (!(await claimStep(supabase, row.id, "caller_reminded_at", now))) continue;
         const sent = await sendToCaller(botToken, team, row.caller_user_id, buildCallerRequestMessage(toCallInfo(row, team), appUrl, true));

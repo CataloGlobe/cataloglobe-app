@@ -1,10 +1,13 @@
 // Agenda del CRM (F1-4a): i messaggi Telegram per chi chiama, puri.
 //
 //   * «Puoi tu?»: la telefonata l'ha fissata un altro e chiama te → «Sì, chiamo
-//     io» / «Propongo un altro orario» / «Chiamala tu»; stesso messaggio dopo
-//     30 minuti senza risposta, poi passa a chi l'ha fissata (handoverAt)
+//     io» / «Propongo un altro orario» / «Chiedo a {nome} se può lui»; stesso
+//     messaggio dopo 30 minuti senza risposta, poi passa a chi l'ha fissata
+//     (handoverAt)
+//   * «Chiedo a {nome}»: a chi l'ha fissata arriva «Puoi tu?» → «Sì, chiamo io»
+//     / «No, proponi un altro orario»; la conferma al lead parte solo dopo il sì
 //   * brief un'ora prima: chi è, che locale, cosa ha chiesto, ultimi messaggi
-//   * «Com'è andata?» dopo la fine → Fatta / Non ha risposto / Rimandata
+//   * «Com'è andata?» dopo la fine → Fatta / Non ha risposto / Da fissare di nuovo
 //   * avviso a chi l'ha fissata quando chi doveva chiamare dice no
 //
 // Lo usano crm-notify (job «agenda») e crm-telegram-webhook.
@@ -30,8 +33,10 @@ export interface AgendaCallInfo {
     endsAt: string;
     callerName: string | null;
     createdByName: string | null;
-    /** Chi l'ha fissata è un'altra persona del team: «Chiamala tu» ha senso. */
+    /** Chi l'ha fissata è un'altra persona del team: si può chiedere a lei. */
     canHandOver: boolean;
+    /** Chi doveva chiamare ha già chiesto a chi l'ha fissata (creator_asked_at). */
+    creatorAsked?: boolean;
     note: string | null;
 }
 
@@ -77,7 +82,7 @@ export function encodeCallOutcome(appointmentId: string, outcome: "done" | "no_s
     return `${prefix}:${uuidToShort(appointmentId)}`;
 }
 
-// ⚠️ SYNC con crm_agenda_has_work (migration 20261004010400).
+// ⚠️ SYNC con crm_agenda_has_work (migration 20261004010600).
 export const CALLER_REMINDER_MINUTES = 30;
 const HANDOVER_HOURS_BEFORE = 2;
 const HANDOVER_LAST_MINUTES = 10;
@@ -96,6 +101,10 @@ export function handoverAt(startsAt: string, callerAskedAt: string): Date {
 
 export function encodeCallHandover(appointmentId: string): string {
     return `ch:${uuidToShort(appointmentId)}`;
+}
+
+export function encodeCallAskCreator(appointmentId: string): string {
+    return `ck:${uuidToShort(appointmentId)}`;
 }
 
 export function encodeCallOtherMenu(appointmentId: string, open: boolean): string {
@@ -136,11 +145,35 @@ export function buildCallerRequestMessage(
         [{ text: "Propongo un altro orario", callback_data: encodeCallOtherMenu(info.appointmentId, true) }]
     ];
     if (info.canHandOver) {
-        const to = info.createdByName ? `Chiamala tu, ${info.createdByName}` : "Chiamala tu";
-        rows.push([{ text: to, callback_data: encodeCallHandover(info.appointmentId) }]);
+        const to = info.createdByName ? `Chiedo a ${info.createdByName} se può lui` : "Chiedo a chi l'ha fissata";
+        rows.push([{ text: to, callback_data: encodeCallAskCreator(info.appointmentId) }]);
     }
     if (open.length) rows.push(open);
     return { text: callerRequestLines(info, reminder).join("\n"), reply_markup: { inline_keyboard: rows } };
+}
+
+/**
+ * «Chiedo a {nome} se può lui»: la domanda a chi l'ha fissata. Il sì gliela
+ * passa (crm_handover_call), il no apre gli altri orari come per chi chiamava.
+ */
+export function buildCreatorQuestionMessage(info: AgendaCallInfo, appUrl: string | null): TelegramMessage {
+    const caller = escapeHtml(info.callerName ?? "Chi doveva chiamare");
+    const lines = [
+        `${caller} non può fare la telefonata con ${venueLine(info)}${info.contactName ? ` (${escapeHtml(info.contactName)})` : ""}.`,
+        `<b>Puoi tu ${when(info)}?</b> Dura ${minutes(info)} minuti.`
+    ];
+    if (info.note) lines.push(`Nota: ${escapeHtml(info.note)}`);
+    lines.push(
+        "Finché non rispondi, al lead non parte la conferma.",
+        "Se non rispondi, prima dell'orario la telefonata resta a te e al lead parte la conferma."
+    );
+    const open = openButton(appUrl, info.venueId);
+    const rows: InlineButton[][] = [
+        [{ text: "Sì, chiamo io", callback_data: encodeCallHandover(info.appointmentId) }],
+        [{ text: "No, proponi un altro orario", callback_data: encodeCallOtherMenu(info.appointmentId, true) }]
+    ];
+    if (open.length) rows.push(open);
+    return { text: lines.join("\n"), reply_markup: { inline_keyboard: rows } };
 }
 
 function shifted(info: AgendaCallInfo, shiftMinutes: CallShiftMinutes): Date {
@@ -156,10 +189,11 @@ export function buildCallerOtherTimeMessage(info: AgendaCallInfo): TelegramMessa
         }
     ]);
     rows.push([{ text: "Indietro", callback_data: encodeCallOtherMenu(info.appointmentId, false) }]);
+    const to = info.contactName ? `a ${escapeHtml(info.contactName)}` : "al lead";
     const lines = [
         `Telefonata con ${venueLine(info)} di ${when(info)}.`,
-        "<b>Che orario proponi al lead?</b>",
-        "Preparo il messaggio per il lead: arriva qui come bozza e parte solo quando lo approvate.",
+        `<b>Che orario proponi ${to}?</b>`,
+        "Questa telefonata si annulla. Preparo il messaggio per lui: arriva qui come bozza e parte solo quando lo approvi.",
         "Per un altro giorno, fissala dalla scheda."
     ];
     return { text: lines.join("\n"), reply_markup: { inline_keyboard: rows } };
@@ -181,26 +215,40 @@ export function buildLeadOtherTimeText(info: Pick<AgendaCallInfo, "startsAt">, s
     return `${capitalize(formatCallDay(at))} alle ${formatCallTime(at)} non riesco, possiamo fare ${proposal}?`;
 }
 
-/** A chi l'ha fissata: la telefonata ora è sua. `noAnswer` = passata dal sistema. */
-export function buildHandedOverText(info: AgendaCallInfo, noAnswer: boolean): string {
+/**
+ * A chi l'ha fissata, quando la telefonata passa a lei dal sistema (nessuna
+ * risposta a 2 ore dall'orario). `creatorAsked`: chi chiamava aveva già
+ * chiesto a lei, ed è lei che non ha risposto.
+ */
+export function buildHandedOverText(info: AgendaCallInfo, creatorAsked = false): string {
     const caller = escapeHtml(info.callerName ?? "Chi doveva chiamare");
-    const first = noAnswer
-        ? `📞 ${caller} non ha risposto al «Puoi tu?»: la telefonata con ${escapeHtml(info.venueName)} di ${when(info)} la fai tu.`
-        : `📞 ${caller} ti passa la telefonata con ${escapeHtml(info.venueName)} di ${when(info)}: la fai tu.`;
+    const first = creatorAsked
+        ? `📞 Non hai risposto: la telefonata con ${escapeHtml(info.venueName)} di ${when(info)} resta a te.`
+        : `📞 ${caller} non ha risposto al «Puoi tu?»: la telefonata con ${escapeHtml(info.venueName)} di ${when(info)} la fai tu.`;
     return `${first}\nÈ confermata e al lead parte la conferma. Se non puoi, spostala o annullala dalla scheda.`;
 }
 
-/** A chi doveva chiamare, quando la telefonata passa senza la sua risposta. */
-export function buildHandedOverCallerText(info: AgendaCallInfo): string {
+/**
+ * A chi doveva chiamare, quando la telefonata passa a chi l'ha fissata.
+ * `creatorAsked`: dopo la sua domanda (sì di chi l'ha fissata, o nessuna
+ * risposta); altrimenti è lui che non aveva risposto.
+ */
+export function buildHandedOverCallerText(info: AgendaCallInfo, creatorAsked = false): string {
     const to = escapeHtml(info.createdByName ?? "chi l'ha fissata");
-    return `La telefonata con ${escapeHtml(info.venueName)} di ${when(info)} l'ha presa ${to}: non avevi risposto.`;
+    return creatorAsked
+        ? `📞 La telefonata con ${escapeHtml(info.venueName)} di ${when(info)} la fa ${to}. Al lead parte la conferma.`
+        : `La telefonata con ${escapeHtml(info.venueName)} di ${when(info)} l'ha presa ${to}: non avevi risposto.`;
 }
 
-/** A chi l'ha fissata: chi doveva chiamare propone un altro orario al lead. */
-export function buildOtherTimeProposedText(info: AgendaCallInfo, leadText: string): string {
-    const caller = escapeHtml(info.callerName ?? "Chi doveva chiamare");
+/**
+ * All'altra persona: chi ha in mano la domanda propone un altro orario al
+ * lead. `byName` = chi propone (chi chiamava, o chi l'ha fissata dopo la
+ * domanda).
+ */
+export function buildOtherTimeProposedText(info: AgendaCallInfo, leadText: string, byName?: string | null): string {
+    const by = escapeHtml(byName ?? info.callerName ?? "Chi doveva chiamare");
     return (
-        `${caller} non può fare la telefonata con ${escapeHtml(info.venueName)} di ${when(info)} e propone un altro orario. ` +
+        `${by} non può fare la telefonata con ${escapeHtml(info.venueName)} di ${when(info)} e propone un altro orario. ` +
         `La telefonata è annullata; al lead andrà: «${escapeHtml(leadText)}». La bozza arriva qui, da approvare.`
     );
 }
@@ -242,10 +290,10 @@ export function buildOutcomeMessage(info: AgendaCallInfo, appUrl: string | null)
         reply_markup: {
             inline_keyboard: [
                 [
-                    { text: "Fatta", callback_data: encodeCallOutcome(info.appointmentId, "done") },
+                    { text: "Fatta, ci ho parlato", callback_data: encodeCallOutcome(info.appointmentId, "done") },
                     { text: "Non ha risposto", callback_data: encodeCallOutcome(info.appointmentId, "no_show") }
                 ],
-                [{ text: "Rimandata", callback_data: encodeCallOutcome(info.appointmentId, "postponed") }, ...open]
+                [{ text: "Da fissare di nuovo", callback_data: encodeCallOutcome(info.appointmentId, "postponed") }, ...open]
             ]
         }
     };
@@ -264,7 +312,7 @@ export function buildAnsweredText(info: AgendaCallInfo, answer: string): string 
 }
 
 export const CALL_OUTCOME_LABEL: Record<"done" | "no_show" | "postponed", string> = {
-    done: "fatta",
+    done: "fatta, ci ha parlato",
     no_show: "non ha risposto",
-    postponed: "rimandata, da fissare di nuovo"
+    postponed: "da fissare di nuovo"
 };

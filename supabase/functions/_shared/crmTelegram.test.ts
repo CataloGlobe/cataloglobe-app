@@ -94,17 +94,17 @@ describe("pulsanti per destinatario", () => {
 
     it("l'altro vede «Lo prendo io», che assegna a sé", () => {
         expect(assignmentButtons(VENUE, ALEX, LORENZO, TWO)).toEqual([
-            { text: "Lo prendo io: assegnalo a me", callback_data: encodeAssign(VENUE, LORENZO) }
+            { text: "Lo prendo io", callback_data: encodeAssign(VENUE, LORENZO) }
         ]);
     });
 
     it("dopo il passaggio i pulsanti si invertono", () => {
-        expect(assignmentButtons(VENUE, LORENZO, ALEX, TWO)[0].text).toBe("Lo prendo io: assegnalo a me");
+        expect(assignmentButtons(VENUE, LORENZO, ALEX, TWO)[0].text).toBe("Lo prendo io");
         expect(assignmentButtons(VENUE, LORENZO, LORENZO, TWO)[0].text).toBe("Assegnalo a Alex");
     });
 
     it("lead non assegnato: tutti vedono «Lo prendo io»", () => {
-        expect(assignmentButtons(VENUE, null, ALEX, TWO)[0].text).toBe("Lo prendo io: assegnalo a me");
+        expect(assignmentButtons(VENUE, null, ALEX, TWO)[0].text).toBe("Lo prendo io");
     });
 
     it("con più di due persone un tasto apre la scelta tra i nomi", () => {
@@ -143,14 +143,14 @@ describe("buildLeadMessage", () => {
         );
         expect(msg.text).toContain("Aveva chiesto di non essere contattato");
         const texts = msg.reply_markup.inline_keyboard.flat().map(b => b.text);
-        expect(texts).not.toContain("Scrivigli su WhatsApp");
-        expect(texts).toContain("Apri la scheda nel CRM");
+        expect(texts).not.toContain("Apri la chat su WhatsApp");
+        expect(texts).toContain("Apri la scheda");
     });
 
     it("pulsante WhatsApp col link del destinatario, prima dei tasti di passaggio", () => {
         const msg = buildLeadMessage(data(), ALEX, TWO, "https://wa.example/alex");
         expect(msg.reply_markup.inline_keyboard[0][0]).toEqual({
-            text: "Scrivigli su WhatsApp",
+            text: "Apri la chat su WhatsApp",
             url: "https://wa.example/alex"
         });
         expect(msg.reply_markup.inline_keyboard[1][0].text).toBe("Assegnalo a Lorenzo");
@@ -158,7 +158,7 @@ describe("buildLeadMessage", () => {
 
     it("senza telefono niente pulsante WhatsApp", () => {
         const msg = buildLeadMessage(data({ hasPhone: false }), ALEX, TWO, "https://wa.example");
-        expect(msg.reply_markup.inline_keyboard.flat().map(b => b.text)).not.toContain("Scrivigli su WhatsApp");
+        expect(msg.reply_markup.inline_keyboard.flat().map(b => b.text)).not.toContain("Apri la chat su WhatsApp");
     });
 
     it("niente campi tecnici della landing, telefono scritto male con la sua etichetta", () => {
@@ -323,17 +323,17 @@ describe("lead tornato", () => {
         const msg = buildLeadMessage(returned({ venueNameGiven: "pizzeria gino", venueNameMatch: "same" }), ALEX, TWO);
         expect(msg.text).not.toContain("Stavolta ha scritto");
         const texts = msg.reply_markup.inline_keyboard.flat().map(b => b.text);
-        expect(texts.some(t => t.startsWith("Stesso locale"))).toBe(false);
+        expect(texts.some(t => t.startsWith("È lo stesso locale"))).toBe(false);
     });
 
     it("nome simile: refuso, con i due tasti", () => {
         const msg = buildLeadMessage(returned({ venueNameGiven: "Pizzeria Ginno", venueNameMatch: "typo" }), ALEX, TWO);
         expect(msg.text).toContain("Stavolta ha scritto <b>Pizzeria Ginno</b>: sembra un refuso.");
         expect(msg.text).toContain("etichetta «Locale da verificare»");
-        const rows = msg.reply_markup.inline_keyboard.filter(r => r[0].text.startsWith("Stesso locale"));
+        const rows = msg.reply_markup.inline_keyboard.filter(r => r[0].text.startsWith("È lo stesso locale"));
         expect(rows).toEqual([
-            [{ text: "Stesso locale: tieni «Pizzeria Gino»", callback_data: `s:${uuidToShort(LEAD)}` }],
-            [{ text: "Stesso locale: chiamalo «Pizzeria Ginno»", callback_data: `n:${uuidToShort(LEAD)}` }]
+            [{ text: "È lo stesso locale: resta «Pizzeria Gino»", callback_data: `s:${uuidToShort(LEAD)}` }],
+            [{ text: "È lo stesso locale: rinominalo «Pizzeria Ginno»", callback_data: `n:${uuidToShort(LEAD)}` }]
         ]);
     });
 
@@ -363,8 +363,8 @@ describe("lead tornato", () => {
         );
         expect(msg.reply_markup.inline_keyboard.every(r => r.length === 1)).toBe(true);
         const texts = msg.reply_markup.inline_keyboard.map(r => r[0].text);
-        expect(texts).toContain("Stesso locale: chiamalo «Ristorante Pizzeria Braceri…»");
-        expect(texts.at(-1)).toBe("Apri la scheda nel CRM");
+        expect(texts).toContain("È lo stesso locale: rinominalo «Ristorante Pizzeria Braceri…»");
+        expect(texts.at(-1)).toBe("Apri la scheda");
     });
 
     it("dopo «È lo stesso locale»: conferma, niente tasti", () => {

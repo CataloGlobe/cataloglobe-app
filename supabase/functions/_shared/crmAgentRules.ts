@@ -188,6 +188,7 @@ const OUTPUT_RULES = `Rispondi SOLO con un oggetto JSON, senza altro testo, in u
 {"action":"reply","text":"<messaggio WhatsApp da mandare al lead>"}
 {"action":"schedule","starts_at":"<istante ISO 8601 di un orario che il lead ha accettato>","text":"<breve conferma da mandare al lead>"}
 {"action":"ask_humans","reason":"<perché serve Alessandro o Lorenzo, una frase>","text":"<bozza facoltativa da far vedere a loro, o stringa vuota>"}
+Il messaggio per il lead è sempre al singolare: parla una persona sola, in prima persona («ti scrivo», «ti chiamo»), mai «noi», «vi scriviamo» o «il team».
 Usa "schedule" solo se il lead ha detto chiaramente di sì a un giorno e un'ora precisi. Usa "ask_humans" in tutti i casi del punto «Quando ti fermi e chiedi» delle regole, e ogni volta che non sei sicuro.`;
 
 export function buildDraftRequest(ctx: DraftContext): { system: string[]; messages: { role: "user"; content: string }[] } {

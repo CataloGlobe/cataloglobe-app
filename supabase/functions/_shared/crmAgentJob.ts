@@ -42,18 +42,21 @@ import {
     buildDraftMessage,
     buildRemindersText,
     buildTrustReadyText,
+    reactivationReason,
     remindersDue
 } from "./crmAgentMessages.ts";
 import { loadAgendaBusy } from "./crmAgendaJob.ts";
 import { formatCallDay, formatCallTime, parseCallWindows, suggestCallSlots } from "./crmCallSlots.ts";
 import { fillWhatsappTemplate } from "./crmWhatsapp.ts";
+import { whatsappLinkFor } from "./crmLeadMessage.ts";
 
 const LOG = "crm-agent";
 /** Solleciti di una bozza non toccata, in minuti dall'avviso. ⚠️ SYNC con crm_agent_has_work (SQL). */
 export const REMINDER_AFTER_MINUTES = [10, 30, 60, 120];
 const MAX_CANDIDATES = 3;
 const CHAT_MESSAGES = 30;
-const BOT_QUESTION_MESSAGES = 15;
+/** Messaggi della chat mostrati sotto ogni bozza (meno se la chat è più corta). */
+const DRAFT_CHAT_MESSAGES = 15;
 const DRAFT_MAX_TOKENS = 700;
 const REVIEW_MAX_TOKENS = 400;
 
@@ -74,7 +77,7 @@ function teamName(team, userId) {
 // -----------------------------------------------------------------------------
 async function draftInfo(supabase, draft) {
     const [{ data: venue }, { data: contact }, { data: msgs }] = await Promise.all([
-        supabase.from("crm_venues").select("name").eq("id", draft.venue_id).maybeSingle(),
+        supabase.from("crm_venues").select("name, assigned_to").eq("id", draft.venue_id).maybeSingle(),
         draft.contact_id
             ? supabase.from("crm_contacts").select("name").eq("id", draft.contact_id).maybeSingle()
             : Promise.resolve({ data: null }),
@@ -85,8 +88,13 @@ async function draftInfo(supabase, draft) {
             .not("body", "is", null)
             .lte("created_at", draft.created_at)
             .order("created_at", { ascending: false })
-            .limit(draft.kind === "bot_question" ? BOT_QUESTION_MESSAGES : 3)
+            .limit(DRAFT_CHAT_MESSAGES)
     ]);
+    // Chi chiamerà: chi ha il locale, altrimenti chi conferma (crm_agent_decide_draft).
+    const { data: caller } =
+        draft.kind === "schedule" && venue?.assigned_to
+            ? await supabase.from("crm_team_members").select("display_name").eq("user_id", venue.assigned_to).maybeSingle()
+            : { data: null };
     return {
         draftId: draft.id,
         venueId: draft.venue_id,
@@ -97,6 +105,7 @@ async function draftInfo(supabase, draft) {
         reason: draft.reason ?? null,
         proposedStartsAt: draft.proposed_starts_at ?? null,
         followUpNumber: draft.follow_up_number ?? null,
+        callerName: caller?.display_name ?? null,
         lastMessages: (msgs ?? [])
             .filter(m => m.direction === "in" || m.author === "person" || m.status === "sent")
             .reverse()
@@ -128,9 +137,13 @@ export async function closeDraftMessages(supabase, botToken, draftId, status, ac
 
 async function notifyDraft(supabase, botToken, team, draft, appUrl, autoSent = false) {
     const info = await draftInfo(supabase, draft);
-    const message = autoSent ? buildAutoSentMessage(info, appUrl) : buildDraftMessage(info, appUrl);
+    const draftMessage = autoSent ? null : buildDraftMessage(info, appUrl);
     let sent = 0;
     for (const member of team.filter(m => m.telegram_chat_id)) {
+        // Partita da sola: col link alla chat WhatsApp, firmato per chi lo apre.
+        const message =
+            draftMessage ??
+            buildAutoSentMessage(info, appUrl, draft.lead_id ? await whatsappLinkFor(draft.lead_id, member.user_id) : null);
         const r = await telegramCall(botToken, "sendMessage", {
             chat_id: member.telegram_chat_id,
             text: message.text,
@@ -160,7 +173,7 @@ async function notifyDraft(supabase, botToken, team, draft, appUrl, autoSent = f
 async function venueContext(supabase, venueId) {
     const { data: venue } = await supabase
         .from("crm_venues")
-        .select("id, name, city, stage, name_pending, assigned_to")
+        .select("id, name, city, stage, stage_changed_at, name_pending, assigned_to")
         .eq("id", venueId)
         .maybeSingle();
     const { data: lead } = await supabase
@@ -184,6 +197,13 @@ async function venueContext(supabase, venueId) {
         .filter(m => m.direction === "in" || m.author === "person" || m.status === "sent")
         .reverse();
     return { venue, lead, contact, chat };
+}
+
+/** L'ultimo messaggio del lead prima che il locale andasse in Perso. */
+function lastInBeforeLost(chat, lostSince: string): { body: string; createdAt: string } | null {
+    const since = new Date(lostSince).getTime();
+    const m = [...chat].reverse().find(x => x.direction === "in" && x.body && new Date(x.created_at).getTime() <= since);
+    return m ? { body: m.body, createdAt: m.created_at } : null;
 }
 
 function answersOf(lead) {
@@ -353,7 +373,7 @@ async function insertDraft(supabase, base, fields, options: { allowAuto?: boolea
     await logDecision(supabase, {
         actor: "agent",
         action: "draft_created",
-        reason: fields.reason ?? (fields.kind === "follow_up" ? "Follow-up proposto." : "Bozza proposta."),
+        reason: fields.reason ?? (fields.kind === "follow_up" ? "Sollecito proposto." : "Bozza proposta."),
         venue_id: base.venue_id,
         lead_id: base.lead_id,
         review_outcome: fields.review_rounds ? (fields.kind === "ask" ? "rejected" : "ok") : null,
@@ -540,11 +560,11 @@ export async function processAgent(supabase, team, botToken, appUrl, now = new D
             // Come crm_agent_has_work: la proposta di Perso segue i follow-up.
             if (c.r_kind === "lost_proposal" && !settings.agent_followups_on) continue;
             worked += 1;
-            const { venue, lead, contact } = await venueContext(supabase, c.r_venue_id);
+            const { venue, lead, contact, chat } = await venueContext(supabase, c.r_venue_id);
             if (!venue) continue;
             const base = { venue_id: venue.id, lead_id: lead?.id ?? null, contact_id: contact?.id ?? null, trigger_message_id: null };
             if (c.r_kind === "lost_proposal") {
-                if (await insertDraft(supabase, base, { kind: "lost_proposal", reason: `${c.r_follow_ups} follow-up senza risposta.` }))
+                if (await insertDraft(supabase, base, { kind: "lost_proposal", reason: `${c.r_follow_ups} solleciti senza risposta.` }))
                     stats.drafts += 1;
                 continue;
             }
@@ -565,7 +585,7 @@ export async function processAgent(supabase, team, botToken, appUrl, now = new D
             if (
                 await insertDraft(supabase, base, {
                     kind: "reactivation",
-                    reason: "In Perso per obiezione da mesi.",
+                    reason: reactivationReason(lastInBeforeLost(chat, venue.stage_changed_at), venue.stage_changed_at, now),
                     proposed_text: text.slice(0, 1000)
                 })
             )
@@ -673,7 +693,7 @@ export async function processAgent(supabase, team, botToken, appUrl, now = new D
                 .maybeSingle();
             if (other?.proposed_starts_at) {
                 const d = new Date(other.proposed_starts_at);
-                ctx.extraInstruction = `Alessandro ha chiesto di proporre orari diversi da ${formatCallDay(d)} alle ${formatCallTime(d)}: proponine due tra quelli liberi, non quello.`;
+                ctx.extraInstruction = `Il team ha chiesto di proporre orari diversi da ${formatCallDay(d)} alle ${formatCallTime(d)}: proponine due tra quelli liberi, non quello.`;
                 ctx.freeSlots = ctx.freeSlots.filter(s => new Date(s.iso).getTime() !== d.getTime());
             }
         }
