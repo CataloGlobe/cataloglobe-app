@@ -34,3 +34,4 @@ GRANT EXECUTE ON FUNCTION public.crm_wa_claim_next(timestamptz) TO service_role;
 
 REVOKE ALL ON FUNCTION public.crm_wa_enqueue_first_message() FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.crm_agent_drafts_touch() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.crm_settings_agent_trial_since() FROM PUBLIC, anon, authenticated;

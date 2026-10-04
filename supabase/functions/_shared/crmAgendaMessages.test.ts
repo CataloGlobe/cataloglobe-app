@@ -96,7 +96,7 @@ describe("messaggi", () => {
 
     it("avvisi in chiaro", () => {
         expect(buildCallerDeclinedText(info)).toBe(
-            "Lorenzo non può fare la telefonata con Bar <Roma> di giovedì 8 alle 17:45. Annullata: fissane un'altra dalla scheda."
+            "Lorenzo non può fare la telefonata con Bar &lt;Roma&gt; di giovedì 8 alle 17:45. Annullata: fissane un'altra dalla scheda."
         );
         expect(buildAnsweredText(info, "confermata")).toBe("Telefonata con <b>Bar &lt;Roma&gt;</b>, Milano di giovedì 8 alle 17:45: confermata");
     });

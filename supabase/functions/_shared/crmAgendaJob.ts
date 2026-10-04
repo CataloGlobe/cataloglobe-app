@@ -109,7 +109,7 @@ export async function syncAppointmentGoogle(supabase, id: string, team, appUrl: 
         .from("crm_appointments")
         .update({ google_claimed_at: now.toISOString() })
         .eq("id", id)
-        .eq("google_sync", "pending")
+        .in("google_sync", ["pending", "error"])
         .or(`google_claimed_at.is.null,google_claimed_at.lt.${staleBefore}`)
         .select("id, google_rev")
         .maybeSingle();
@@ -270,11 +270,16 @@ export async function processAgenda(supabase, team, botToken: string | null, app
 
     // 1. Google
     const staleBefore = new Date(now.getTime() - CLAIM_MINUTES * 60_000).toISOString();
+    // Errori di Google riprovati dopo 15 minuti (ogni tentativo rinfresca
+    // updated_at: l'attesa si rinnova da sola).
+    const retryBefore = new Date(now.getTime() - 15 * 60_000).toISOString();
     const { data: pending } = await supabase
         .from("crm_appointments")
         .select("id")
-        .eq("google_sync", "pending")
-        .or(`google_claimed_at.is.null,google_claimed_at.lt.${staleBefore}`)
+        .or(
+            `and(google_sync.eq.pending,or(google_claimed_at.is.null,google_claimed_at.lt.${staleBefore})),` +
+                `and(google_sync.eq.error,updated_at.lt.${retryBefore})`
+        )
         .limit(20);
     for (const p of pending ?? []) {
         const r = await syncAppointmentGoogle(supabase, p.id, team, appUrl, now);
@@ -283,6 +288,9 @@ export async function processAgenda(supabase, team, botToken: string | null, app
     }
 
     if (!botToken) return stats;
+    // Nessuno collegato a Telegram: i passi si segnano fatti senza riprovare
+    // ogni 5 minuti (la scheda mostra comunque tutto).
+    const nobodyLinked = !team.some(m => m.telegram_chat_id);
 
     // 2. «Puoi tu?» a chi deve chiamare
     const { data: proposed } = await supabase
@@ -296,7 +304,7 @@ export async function processAgenda(supabase, team, botToken: string | null, app
         if (!(await claimStep(supabase, row.id, "caller_asked_at", now))) continue;
         const sent = await sendToCaller(botToken, team, row.caller_user_id, buildCallerRequestMessage(toCallInfo(row, team), appUrl));
         if (sent > 0) stats.caller_requests += 1;
-        else await releaseStep(supabase, row.id, "caller_asked_at");
+        else if (!nobodyLinked) await releaseStep(supabase, row.id, "caller_asked_at");
     }
 
     // 3. Brief un'ora prima
@@ -314,7 +322,7 @@ export async function processAgenda(supabase, team, botToken: string | null, app
         const message = buildBriefMessage(toCallInfo(row, team), await briefExtras(supabase, row), appUrl);
         const sent = await sendToCaller(botToken, team, row.caller_user_id, message);
         if (sent > 0) stats.briefs += 1;
-        else await releaseStep(supabase, row.id, "brief_sent_at");
+        else if (!nobodyLinked) await releaseStep(supabase, row.id, "brief_sent_at");
     }
 
     // 4. «Com'è andata?»
@@ -332,7 +340,7 @@ export async function processAgenda(supabase, team, botToken: string | null, app
         if (!(await claimStep(supabase, row.id, "outcome_asked_at", now))) continue;
         const sent = await sendToCaller(botToken, team, row.caller_user_id, buildOutcomeMessage(toCallInfo(row, team), appUrl));
         if (sent > 0) stats.outcomes += 1;
-        else await releaseStep(supabase, row.id, "outcome_asked_at");
+        else if (!nobodyLinked) await releaseStep(supabase, row.id, "outcome_asked_at");
     }
 
     return stats;

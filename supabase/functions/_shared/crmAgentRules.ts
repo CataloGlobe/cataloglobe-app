@@ -34,7 +34,10 @@ function normalize(text: string): string {
 
 const EXPLICIT_STOP: RegExp[] = [
     /^\s*stop\s*[.!]*\s*$/,
-    /\b(non|nn) (mi )?(scriv|contatt|chiam|disturb)\w*/,
+    // Seconda persona e «più», o il messaggio intero: «non chiamatemi prima
+    // delle 10» non è uno stop (è nei casi incerti, decide una persona).
+    /\b(non|nn) (mi |ci )?(scrivete|scrivetemi|scriveteci|contattatemi|contattateci|contattate|cercatemi|scrivermi|contattarmi)\b.*\bpiu\b/,
+    /^\s*(non|nn) (mi |ci )?(scrivete|scrivetemi|scriveteci|contattatemi|contattateci|disturbatemi|cercatemi)\s*(piu)?\s*[.!]*\s*$/,
     /\b(non|nn) voglio (piu )?(essere )?(contattat|ricevere|messaggi)/,
     /\b(cancellami|cancellatemi|cancella(te)? il mio numero|toglietemi|toglimi|rimuovetemi|rimuovimi)\b/,
     /\b(smettete\w*|smetti\w*|smettila|basta) (di )?(scriv|contatt|mand)\w*/,
@@ -44,6 +47,7 @@ const EXPLICIT_STOP: RegExp[] = [
 ];
 
 const UNCERTAIN_STOP: RegExp[] = [
+    /\b(non|nn) (mi |ci )?(scrivete|scrivetemi|scriveteci|scrivermi|contatt\w*|chiamate\w*|chiamatemi|chiamarmi|disturb\w*|cercatemi)\b/,
     /\bnon (mi |ci )?(interessa|interessano|serve|servono)\b/,
     /\b(ora|adesso|per ora|per il momento) no\b/,
     /\bno grazie\b/,
@@ -161,6 +165,8 @@ export interface DraftContext {
     /** Orari liberi da proporre, già scritti («giovedì 8 alle 09:15»), con l'istante ISO. */
     freeSlots: { label: string; iso: string }[];
     followUpNumber: number;
+    /** Indicazione in più da una persona (per esempio «Proponi altro»). */
+    extraInstruction?: string | null;
     /** Dal più vecchio. */
     messages: { from: "lead" | "noi"; text: string; at: string }[];
     nowLabel: string;
@@ -213,7 +219,7 @@ export function buildDraftRequest(ctx: DraftContext): { system: string[]; messag
         .slice(-MAX_MESSAGES)
         .map(m => `[${m.at}] ${m.from === "lead" ? "Lead" : "Noi"}: ${sanitizeData(m.text)}`)
         .join("\n");
-    const content = `Adesso: ${ctx.nowLabel} (ora di Roma).\n\n<scheda>\n${scheda || "Niente."}\n</scheda>\n\n<orari>\nOrari liberi per la telefonata (proponine al massimo due):\n${orari}\n</orari>\n\n<chat>\n${chat || "Nessun messaggio."}\n</chat>\n\n${task}`;
+    const content = `Adesso: ${ctx.nowLabel} (ora di Roma).\n\n<scheda>\n${scheda || "Niente."}\n</scheda>\n\n<orari>\nOrari liberi per la telefonata (proponine al massimo due):\n${orari}\n</orari>\n\n<chat>\n${chat || "Nessun messaggio."}\n</chat>\n\n${task}${ctx.extraInstruction ? `\n\n${ctx.extraInstruction}` : ""}`;
     return { system, messages: [{ role: "user", content }] };
 }
 
