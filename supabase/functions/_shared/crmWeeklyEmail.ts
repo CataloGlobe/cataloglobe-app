@@ -37,7 +37,7 @@ function value(s: WeeklySummaryNumbers, key: string): number {
 }
 
 function escapeHtml(v: string): string {
-    return v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    return v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
 /** «+3», «-1», «=». */

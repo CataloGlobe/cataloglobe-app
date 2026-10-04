@@ -63,7 +63,8 @@ import {
 import { loadLeadMessageData, loadTeam, whatsappLinkFor } from "../_shared/crmLeadMessage.ts";
 import { buildRenewalReminderMessage } from "../_shared/crmExpenses.ts";
 import { buildWeeklyEmail, lastWeekBounds } from "../_shared/crmWeeklyEmail.ts";
-import { sendEmail } from "../_shared/sendEmail.ts";
+import { sendEmailWithResult } from "../_shared/sendEmail.ts";
+import { sendToTeam } from "../_shared/crmTeamAlert.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -366,6 +367,10 @@ async function processRenewals(supabase, team, appUrl, now) {
     return stats;
 }
 
+function romeHour(now: Date): number {
+    return Number(new Intl.DateTimeFormat("it-IT", { timeZone: "Europe/Rome", hour: "2-digit", hourCycle: "h23" }).format(now));
+}
+
 async function processWeekly(supabase, team, appUrl, now) {
     const week = lastWeekBounds(now);
     const { data: claimed, error: claimError } = await supabase
@@ -391,16 +396,32 @@ async function processWeekly(supabase, team, appUrl, now) {
         weekLabel: week.label,
         summaryUrl: appUrl ? `${appUrl}/admin/riepilogo` : null
     });
+    // Si contano solo gli invii riusciti. Nessuno riuscito: la settimana torna
+    // libera e il giro dopo del cron (fino alle 10 di Roma) riprova; all'ultimo
+    // giro (10:40) si avvisa il team su Telegram. Qualcuno riuscito: la settimana resta
+    // presa (niente doppioni a chi l'ha ricevuta), i mancati restano nei log.
+    // Un giro interrotto a metà (timeout dell'edge) lascia la settimana presa:
+    // chi non l'ha ricevuta la perde, scelta voluta contro i doppioni.
     let sent = 0;
+    let failed = 0;
     for (const member of team) {
         const { data } = await supabase.auth.admin.getUserById(member.user_id);
         const email = data?.user?.email;
         if (!email) continue;
-        await sendEmail({ to: email, subject: mail.subject, html: mail.html, text: mail.text });
-        sent += 1;
+        const ok = await sendEmailWithResult({ to: email, subject: mail.subject, html: mail.html, text: mail.text });
+        if (ok) sent += 1;
+        else failed += 1;
     }
-    if (sent === 0) await supabase.from("crm_settings").update({ summary_mail_week: null }).eq("id", true);
-    return { weekly: "sent", recipients: sent };
+    if (sent === 0) {
+        await supabase.from("crm_settings").update({ summary_mail_week: null }).eq("id", true);
+        if (romeHour(now) >= 10 && now.getUTCMinutes() >= 40) {
+            await sendToTeam(supabase, "La mail del lunedì col riepilogo non è partita. Il riepilogo è in /admin/riepilogo.", {
+                logTag: "crm-notify weekly"
+            });
+        }
+        return { weekly: "not_sent", recipients: 0, failed };
+    }
+    return { weekly: "sent", recipients: sent, failed };
 }
 
 Deno.serve(async (req: Request) => {

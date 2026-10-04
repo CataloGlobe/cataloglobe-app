@@ -3,8 +3,10 @@
 -- =============================================================================
 -- crm_settings.summary_mail_week: il lunedì della settimana già mandata
 -- (prenotazione con UPDATE ... WHERE IS DISTINCT FROM: due giri, una mail).
--- Il cron gira alle 6 e alle 7 UTC e passa solo quando a Roma sono le 8
--- (ora legale e solare), poi chiama crm-notify con {"job":"weekly"}.
+-- Il cron gira ogni 20 minuti dalle 6 alle 9 UTC e passa solo quando a Roma
+-- sono tra le 8 e le 10 (ora legale e solare): il primo giro manda, gli altri
+-- trovano la settimana presa; se nessuna mail parte, l'edge la libera e il
+-- giro dopo riprova. Chiama crm-notify con {"job":"weekly"}.
 -- Usa i segreti del vault del cron di crm-notify (20261001130300).
 -- =============================================================================
 
@@ -20,14 +22,14 @@ END $$;
 
 SELECT cron.schedule(
     'crm-summary-mail',
-    '0 6,7 * * 1',
+    '*/20 6-9 * * 1',
     $job$
     DO $$
     DECLARE
         v_url TEXT;
         v_secret TEXT;
     BEGIN
-        IF extract(hour FROM now() AT TIME ZONE 'Europe/Rome') <> 8 THEN
+        IF extract(hour FROM now() AT TIME ZONE 'Europe/Rome') NOT BETWEEN 8 AND 10 THEN
             RETURN;
         END IF;
 
