@@ -145,8 +145,27 @@ export function buildEditPromptText(info: AgentDraftInfo): string {
     return `Scrivi qui il messaggio per ${info.venueName}${info.contactName ? ` (${info.contactName})` : ""}, rispondendo a questo messaggio. Parte così com'è.`;
 }
 
-export function buildReminderText(info: AgentDraftInfo, minutes: number): string {
-    return `⏰ Ancora in attesa da ${minutes} minuti: ${info.kind === "stop_check" ? "stop o obiezione" : "bozza"} per ${info.venueName}.`;
+/** Quanti solleciti spettano a una bozza adesso (mai meno di quelli già mandati). */
+export function remindersDue(notifiedAt: string, sent: number, now: Date, afterMinutes: number[]): number {
+    const waited = (now.getTime() - new Date(notifiedAt).getTime()) / 60_000;
+    return Math.max(sent, afterMinutes.filter(m => waited >= m).length);
+}
+
+function waitedLabel(minutes: number): string {
+    if (minutes < 60) return `${minutes} minuti`;
+    const h = Math.floor(minutes / 60);
+    return h === 1 ? "più di un'ora" : `più di ${h} ore`;
+}
+
+/** Il sollecito: testo semplice (niente HTML), una bozza o tutte quelle in attesa. */
+export function buildRemindersText(items: { info: AgentDraftInfo; minutes: number }[]): string {
+    const label = (info: AgentDraftInfo) => (info.kind === "stop_check" ? "stop o obiezione" : "bozza");
+    if (items.length === 1) {
+        const { info, minutes } = items[0];
+        return `⏰ Ancora in attesa da ${waitedLabel(minutes)}: ${label(info)} per ${info.venueName}.`;
+    }
+    const lines = items.map(({ info, minutes }) => `• ${info.venueName}: ${label(info)}, da ${waitedLabel(minutes)}`);
+    return `⏰ ${items.length} bozze aspettano da voi (le trovate più su in questa chat):\n${lines.join("\n")}`;
 }
 
 /** Testo scritto in risposta alla richiesta di correzione: pulito e nei limiti. */
