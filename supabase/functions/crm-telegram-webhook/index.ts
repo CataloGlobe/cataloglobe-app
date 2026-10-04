@@ -254,6 +254,7 @@ const DRAFT_ERRORS: Record<string, string> = {
     CL002: "C'è già una telefonata fissata per questo locale.",
     CL003: "L'orario è già passato.",
     CL005: "Il locale è in Perso.",
+    AG001: "Il locale ha cambiato fase nel frattempo: non ho fatto niente.",
     "42501": "Non puoi decidere questa bozza."
 };
 
@@ -277,7 +278,20 @@ async function handleDraft(supabase, parsed, actor, answer, query) {
             await answer(DRAFT_ERRORS[error.code] ?? "Non ci sono riuscito.");
             return;
         }
-        await answer(status ? "Segnata: il tipo torna in approvazione per 3." : "Era già segnata.");
+        if (status && query.message?.chat?.id && query.message?.message_id) {
+            await telegramCall(BOT_TOKEN, "editMessageReplyMarkup", {
+                chat_id: query.message.chat.id,
+                message_id: query.message.message_id,
+                reply_markup: { inline_keyboard: [] }
+            });
+        }
+        await answer(
+            status === "wrong_stopped"
+                ? "Segnata e fermata prima dell'invio: il tipo torna in approvazione per 3."
+                : status
+                  ? "Segnata: il tipo torna in approvazione per 3. Il messaggio era già partito."
+                  : "Era già segnata."
+        );
         return;
     }
     if (draft.status !== "pending") {
@@ -329,7 +343,7 @@ async function handleDraft(supabase, parsed, actor, answer, query) {
         return;
     }
     await closeDraftMessages(supabase, BOT_TOKEN, draft.id, status ?? "handled", status ? actor.display_name : null);
-    await answer(status ? "Fatto." : "Già decisa.");
+    await answer(status === "expired" ? "Il locale è cambiato nel frattempo: bozza chiusa." : status ? "Fatto." : "Già decisa.");
 }
 
 /** Testo scritto in risposta a «Lo correggo io». */

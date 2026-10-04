@@ -55,7 +55,7 @@ describe("tasti per tipo", () => {
 });
 
 describe("F1-6", () => {
-    it("proposta di Perso: Metti in Perso, Non adesso, Lo gestisco io", () => {
+    it("proposta di Perso: Metti in Perso, No resta aperto, Lo gestisco io", () => {
         expect(decisions({ ...base, kind: "lost_proposal", proposedText: null })).toEqual(["lost", "discard", "handle"]);
     });
     it("riattivazione: come una bozza", () => {

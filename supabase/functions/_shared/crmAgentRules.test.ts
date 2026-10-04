@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
     FOLLOW_UP_MAX,
+    mentionsCallTime,
     buildDraftRequest,
     buildReviewRequest,
     classifyLeadMessages,
@@ -195,3 +196,15 @@ describe("parseReviewReply", () => {
         expect(parseReviewReply('{"ok":false}')).toEqual({ ok: false, problems: ["Bocciata senza motivo."] });
     });
 });
+
+describe("mentionsCallTime", () => {
+    it("riconosce giorni e orari", () => {
+        for (const t of ["Ci sentiamo alle 15?", "Va bene 15:30", "domani mattina", "Giovedì pomeriggio", "venerdi alle 10", "Lunedì?"])
+            expect(mentionsCallTime(t), t).toBe(true);
+    });
+    it("non scatta sul resto", () => {
+        for (const t of ["Ciao Marco, ti scrivo per il menù", "Domenico, grazie!", "Costa 29 euro al mese", null, ""])
+            expect(mentionsCallTime(t), String(t)).toBe(false);
+    });
+});
+

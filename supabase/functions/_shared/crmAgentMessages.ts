@@ -81,7 +81,7 @@ function keyboard(info: AgentDraftInfo, appUrl: string | null): InlineButton[][]
             break;
         case "lost_proposal":
             rows.push([b("Metti in Perso", "lost")]);
-            rows.push([b("Non adesso", "discard"), b("Lo gestisco io", "handle")]);
+            rows.push([b("No, resta aperto", "discard"), b("Lo gestisco io", "handle")]);
             break;
         default:
             if (info.proposedText) {
@@ -119,7 +119,7 @@ export const DRAFT_OUTCOME_LABEL: Record<string, string> = {
     discarded: "non mandata",
     scheduled: "telefonata fissata",
     handled: "gestita da una persona",
-    expired: "scaduta: il lead ha scritto ancora"
+    expired: "scaduta: nel frattempo è cambiato qualcosa"
 };
 
 /** Il messaggio chiuso, senza tasti: chi ha deciso e cosa. */
@@ -150,7 +150,7 @@ export function buildAutoSentMessage(info: AgentDraftInfo, appUrl: string | null
     const lines = [`🤖 Partita da sola per ${who(info)} (${info.kind === "follow_up" ? "follow-up" : "risposta"})`];
     for (const m of info.lastMessages) lines.push(`${m.from === "lead" ? "Lead" : "Noi"}: ${escapeHtml(clip(m.text))}`);
     if (info.proposedText) lines.push("", `<i>${escapeHtml(info.proposedText)}</i>`);
-    lines.push("", "Se era sbagliata, il tipo torna in approvazione per 3 bozze. Il messaggio è già partito.");
+    lines.push("", "Se era sbagliata, il tipo torna in approvazione per 3 bozze. Se il messaggio è ancora in coda non parte; se è già partito, correggilo a mano in chat.");
     const rows: InlineButton[][] = [[{ text: "Era sbagliata", callback_data: encodeDraftDecision(info.draftId, "wrong") }]];
     if (appUrl) rows.push([{ text: "Apri la scheda", url: `${appUrl}/admin/lead/${info.venueId}` }]);
     return { text: lines.join("\n"), reply_markup: { inline_keyboard: rows } };
