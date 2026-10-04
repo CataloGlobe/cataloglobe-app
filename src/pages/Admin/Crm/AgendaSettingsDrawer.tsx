@@ -37,6 +37,7 @@ export function AgendaSettingsDrawer({ open, settings, onClose, onSaved }: Props
     const [calendarId, setCalendarId] = useState("");
     const [confirmText, setConfirmText] = useState("");
     const [reminderText, setReminderText] = useState("");
+    const [soonText, setSoonText] = useState("");
     const [error, setError] = useState<string | null>(null);
     const [isSaving, setIsSaving] = useState(false);
 
@@ -48,12 +49,14 @@ export function AgendaSettingsDrawer({ open, settings, onClose, onSaved }: Props
         setCalendarId(settings.google_calendar_id ?? "");
         setConfirmText(settings.call_confirm_message ?? "");
         setReminderText(settings.call_reminder_message ?? "");
+        setSoonText(settings.call_soon_message ?? "");
         setError(null);
         setIsSaving(false);
     }, [open, settings]);
 
     const confirmError = callTemplateError(confirmText);
     const reminderError = callTemplateError(reminderText);
+    const soonError = callTemplateError(soonText);
 
     function patchWindow(index: number, patch: Partial<WindowDraft>) {
         setWindows(prev => prev.map((w, i) => (i === index ? { ...w, ...patch } : w)));
@@ -80,7 +83,7 @@ export function AgendaSettingsDrawer({ open, settings, onClose, onSaved }: Props
             setError("Il preavviso va da 0 a 1440 minuti.");
             return;
         }
-        if (confirmError || reminderError) {
+        if (confirmError || reminderError || soonError) {
             setError("Controlla i testi al lead.");
             return;
         }
@@ -98,7 +101,8 @@ export function AgendaSettingsDrawer({ open, settings, onClose, onSaved }: Props
                 call_min_notice_minutes: n,
                 google_calendar_id: cal || null,
                 call_confirm_message: confirmText.trim() || null,
-                call_reminder_message: reminderText.trim() || null
+                call_reminder_message: reminderText.trim() || null,
+                call_soon_message: soonText.trim() || null
             });
             await onSaved();
         } catch {
@@ -250,6 +254,15 @@ export function AgendaSettingsDrawer({ open, settings, onClose, onSaved }: Props
                         value={reminderText}
                         onChange={e => setReminderText(e.target.value)}
                         helperText={reminderError ?? `${PLACEHOLDERS} Non parte se la telefonata è fissata dopo le 18 del giorno prima.`}
+                        disabled={isSaving}
+                    />
+                    <Textarea
+                        label="Promemoria al lead, un'ora prima"
+                        rows={3}
+                        maxLength={1000}
+                        value={soonText}
+                        onChange={e => setSoonText(e.target.value)}
+                        helperText={soonError ?? `${PLACEHOLDERS} Non parte se la telefonata è fissata meno di 2 ore prima.`}
                         disabled={isSaving}
                     />
                 </form>

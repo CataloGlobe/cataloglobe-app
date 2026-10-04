@@ -256,7 +256,7 @@ async function next(supabase) {
     }
 
     let text = row.r_body;
-    const isCall = row.r_purpose === "call_confirm" || row.r_purpose === "call_reminder";
+    const isCall = row.r_purpose === "call_confirm" || row.r_purpose === "call_reminder" || row.r_purpose === "call_soon";
     let template = row.r_template;
     if (!text && isCall && template) {
         // Conferma e promemoria della telefonata: {giorno} e {ora} dall'orario

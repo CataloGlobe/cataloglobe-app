@@ -64,7 +64,7 @@ export function describeCallTime(a: Pick<CrmAppointment, "starts_at" | "ends_at"
 /** Cosa succede al lead: conferma, promemoria, o perché no. */
 export function describeLeadMessages(
     a: Pick<CrmAppointment, "starts_at" | "time_set_at" | "status" | "reminder_queued_at">,
-    settings: Pick<CrmAgendaSettings, "call_confirm_message" | "call_reminder_message"> | null
+    settings: Pick<CrmAgendaSettings, "call_confirm_message" | "call_reminder_message" | "call_soon_message"> | null
 ): string {
     if (a.status === "proposed") return "Al lead parte la conferma solo quando chi chiama dice sì.";
     if (!settings) return "";
@@ -80,6 +80,16 @@ export function describeLeadMessages(
             at
                 ? `Promemoria ${formatCallDay(at)} alle ${formatCallTime(at)}.`
                 : "Niente promemoria: fissata dopo le 18 del giorno prima (basta la conferma)."
+        );
+    }
+    if (settings.call_soon_message) {
+        // ⚠️ SYNC con crm_agenda_enqueue_reminders (20261004010100): fissata
+        // almeno 2 ore prima dell'orario.
+        const starts = new Date(a.starts_at).getTime();
+        parts.push(
+            new Date(a.time_set_at).getTime() < starts - 2 * 3_600_000
+                ? "Un altro promemoria un'ora prima."
+                : "Niente promemoria un'ora prima: fissata meno di 2 ore prima."
         );
     }
     return parts.join(" ");

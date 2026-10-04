@@ -30,6 +30,7 @@ export function messageAuthorLabel(message: Pick<CrmMessage, "author" | "purpose
     if (message.purpose === "first_message") return "Agente, primo messaggio";
     if (message.purpose === "call_confirm") return "Agente, conferma della telefonata";
     if (message.purpose === "call_reminder") return "Agente, promemoria della telefonata";
+    if (message.purpose === "call_soon") return "Agente, promemoria un'ora prima";
     return "Agente";
 }
 
@@ -41,7 +42,8 @@ export function messageText(message: Pick<CrmMessage, "body" | "kind" | "purpose
     if (message.purpose === "first_message" && message.status === "queued") {
         return "Testo del primo messaggio, scritto al momento dell'invio.";
     }
-    if ((message.purpose === "call_confirm" || message.purpose === "call_reminder") && message.status === "queued") {
+    const isCall = message.purpose === "call_confirm" || message.purpose === "call_reminder" || message.purpose === "call_soon";
+    if (isCall && message.status === "queued") {
         return "Testo fisso dalle impostazioni dell'agenda, scritto al momento dell'invio.";
     }
     return CRM_MESSAGE_KIND_LABEL[message.kind];
