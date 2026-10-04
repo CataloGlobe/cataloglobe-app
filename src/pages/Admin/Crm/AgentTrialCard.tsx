@@ -13,7 +13,7 @@ import {
     updateCrmAgentTrialSettings
 } from "@/services/supabase/crmAgentTrial";
 import type { CrmAgentDraftRow, CrmAgentTrialSettings, CrmAgentTrust } from "@/types/crm";
-import { CRM_AGENT_DRAFT_KIND_LABEL, CRM_AGENT_DRAFT_STATUS_LABEL, describeTrust } from "@/utils/crm/agentLabels";
+import { CRM_AGENT_DRAFT_KIND_LABEL, describeTrust, draftStatusLabel } from "@/utils/crm/agentLabels";
 import { formatDateTimeIt } from "@/utils/formatDateTime";
 import styles from "./Crm.module.scss";
 
@@ -109,7 +109,7 @@ export function AgentTrialCard() {
                     trailing={
                         <StatusBadge
                             variant={d.status === "pending" ? "warning" : d.status === "expired" || d.status === "discarded" ? "neutral" : "success"}
-                            label={CRM_AGENT_DRAFT_STATUS_LABEL[d.status]}
+                            label={draftStatusLabel(d.status, d.reason)}
                         />
                     }
                 />

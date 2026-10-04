@@ -211,7 +211,12 @@ export function buildLeadOtherTimeText(info: Pick<AgendaCallInfo, "startsAt">, s
     const at = new Date(info.startsAt);
     const next = new Date(at.getTime() + shiftMinutes * 60_000);
     const sameDay = formatCallDay(next) === formatCallDay(at);
-    const proposal = sameDay ? `alle ${formatCallTime(next)}` : `${formatCallDay(next)} alla stessa ora`;
+    const sameTime = formatCallTime(next) === formatCallTime(at);
+    // «alla stessa ora» solo se lo è davvero (non a cavallo di mezzanotte né
+    // nel giorno del cambio d'ora).
+    const proposal = sameDay
+        ? `alle ${formatCallTime(next)}`
+        : `${formatCallDay(next)} ${sameTime ? "alla stessa ora" : `alle ${formatCallTime(next)}`}`;
     return `${capitalize(formatCallDay(at))} alle ${formatCallTime(at)} non riesco, possiamo fare ${proposal}?`;
 }
 
