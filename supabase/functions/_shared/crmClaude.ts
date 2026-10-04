@@ -25,7 +25,7 @@
 // TELEGRAM_BOT_TOKEN (facoltativo: senza, gli avvisi restano nel diario).
 // =============================================================================
 
-import { telegramCall } from "./telegramApi.ts";
+import { sendToTeam } from "./crmTeamAlert.ts";
 import {
     buildClaudeRequest,
     claudeCostUsd,
@@ -69,25 +69,7 @@ export type CrmClaudeResult =
       };
 
 async function notifyTeam(supabase, text: string): Promise<void> {
-    const token = Deno.env.get("TELEGRAM_BOT_TOKEN");
-    if (!token) return;
-    const { data: team, error } = await supabase
-        .from("crm_team_members")
-        .select("telegram_chat_id")
-        .not("telegram_chat_id", "is", null);
-    if (error) {
-        console.error("crmClaude: team non letto per l'avviso", error.code);
-        return;
-    }
-    for (const member of team ?? []) {
-        const result = await telegramCall(token, "sendMessage", {
-            chat_id: member.telegram_chat_id,
-            text,
-            parse_mode: "HTML",
-            disable_web_page_preview: true
-        });
-        if (!result.ok) console.warn("crmClaude: avviso non consegnato", result.description);
-    }
+    await sendToTeam(supabase, text, { logTag: "crmClaude" });
 }
 
 async function brakeOnUnrecordedCost(supabase, costUsd: number): Promise<void> {

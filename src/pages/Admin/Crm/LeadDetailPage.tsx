@@ -44,12 +44,15 @@ import {
     type CrmVenueDetail
 } from "@/types/crm";
 import { AccountCard } from "./AccountCard";
+import { CallCard } from "./CallCard";
 import { LostStageDialog } from "./LostStageDialog";
 import { StageLockDialog, type StageLockRequest } from "./StageLockDialog";
 import { VenueNameCard } from "./VenueNameCard";
 import { VenueNameCheckCard } from "./VenueNameCheckCard";
+import { WhatsappConversationCard } from "./WhatsappConversationCard";
 import { leadAnswerRows } from "@/utils/crm/leadAnswers";
 import { leadToVerify } from "@/utils/crm/venueNameCheck";
+import { describeCallEvent } from "@/utils/crm/agenda";
 import styles from "./Crm.module.scss";
 
 /**
@@ -104,6 +107,12 @@ function describeEvent(event: CrmEvent, teamName: (id: string | null) => string)
             return `Resta «${String(p.kept ?? "")}», «${String(p.given ?? "")}» era lo stesso`;
         case "venue_name_deferred":
             return `Ha scritto «${String(p.given ?? "")}», da chiarire`;
+        case "call_scheduled":
+        case "call_moved":
+        case "call_cancelled":
+        case "call_caller_answered":
+        case "call_outcome":
+            return describeCallEvent(event.type, p, teamName);
         default:
             return "";
     }
@@ -433,6 +442,18 @@ export default function LeadDetailPage() {
                     />
                 ))}
             </Card>
+
+            <CallCard
+                venueId={detail.venue.id}
+                venueName={detail.venue.name}
+                lost={detail.venue.stage === "perso"}
+                team={team}
+                currentUserId={user?.id ?? null}
+                teamName={teamName}
+                onChanged={load}
+            />
+
+            <WhatsappConversationCard venue={detail.venue} teamName={teamName} onChanged={load} />
 
             <Card title={leads.length === 1 ? "Richiesta" : `Richieste (${leads.length})`}>
                 <div className={styles.leadList}>
