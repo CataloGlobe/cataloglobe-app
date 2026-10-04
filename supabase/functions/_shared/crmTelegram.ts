@@ -166,7 +166,9 @@ export type CrmCallback =
     | { action: "call_answer"; appointmentId: string; accept: boolean }
     | { action: "call_outcome"; appointmentId: string; outcome: "done" | "no_show" | "postponed" }
     // Agente in prova (F1-3): il tocco su una bozza.
-    | { action: "draft"; draftId: string; decision: CrmDraftDecision };
+    | { action: "draft"; draftId: string; decision: CrmDraftDecision }
+    // Gea 1 (F1-8): «Sì, fallo» / «No» su un comando del gruppo 2.
+    | { action: "gea_confirm"; inboxId: string; accept: boolean };
 
 export type CrmDraftDecision = "send" | "edit" | "discard" | "schedule" | "other" | "handle" | "stop" | "objection" | "lost" | "wrong";
 
@@ -185,6 +187,10 @@ export const DRAFT_DECISION_PREFIX: Record<CrmDraftDecision, string> = {
 
 export function encodeDraftDecision(draftId: string, decision: CrmDraftDecision): string {
     return `${DRAFT_DECISION_PREFIX[decision]}:${uuidToShort(draftId)}`;
+}
+
+export function encodeGeaConfirm(inboxId: string, accept: boolean): string {
+    return `${accept ? "gy" : "gn"}:${uuidToShort(inboxId)}`;
 }
 
 export function encodeAssign(venueId: string, userId: string): string {
@@ -214,6 +220,8 @@ export function parseCallbackData(data: string): CrmCallback | null {
         if (parts[0] === "od") return { action: "call_outcome", appointmentId, outcome: "done" };
         if (parts[0] === "on") return { action: "call_outcome", appointmentId, outcome: "no_show" };
         if (parts[0] === "op") return { action: "call_outcome", appointmentId, outcome: "postponed" };
+        if (parts[0] === "gy") return { action: "gea_confirm", inboxId: appointmentId, accept: true };
+        if (parts[0] === "gn") return { action: "gea_confirm", inboxId: appointmentId, accept: false };
         const decision = (Object.keys(DRAFT_DECISION_PREFIX) as CrmDraftDecision[]).find(
             d => DRAFT_DECISION_PREFIX[d] === parts[0]
         );
