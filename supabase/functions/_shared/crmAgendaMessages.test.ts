@@ -130,7 +130,19 @@ describe("messaggi", () => {
         // Cambio d'ora (domenica 25/10): domani è un'ora dopo sull'orologio.
         const dst = { ...info, startsAt: "2026-10-24T15:45:00Z" };
         expect(buildLeadOtherTimeText(dst, 1440)).toBe("Sabato 24 alle 17:45 non riesco, possiamo fare domenica 25 alle 16:45?");
-        for (const m of [15, 30, 60, 1440] as const) expect(buildLeadOtherTimeText(info, m)).not.toMatch(/riusciamo|possiamo noi/);
+        const first = { ...info, creatorAsked: false, handoverFailed: false };
+        for (const m of [15, 30, 60, 1440] as const) expect(buildLeadOtherTimeText(first, m)).not.toMatch(/riusciamo|possiamo noi|Scusa/);
+    });
+
+    it("messaggio al lead dopo un rimbalzo: con le scuse", () => {
+        const busy = { ...info, contactName: "Mario Rossi", creatorAsked: false, handoverFailed: true };
+        expect(buildLeadOtherTimeText(busy, 30)).toBe(
+            "Scusa Mario, ho avuto un contrattempo: al posto di giovedì 8 alle 17:45 riusciamo a fare alle 18:15?"
+        );
+        const asked = { ...info, contactName: null, creatorAsked: true, handoverFailed: false };
+        expect(buildLeadOtherTimeText(asked, 1440)).toBe(
+            "Scusa, ho avuto un contrattempo: al posto di giovedì 8 alle 17:45 riusciamo a fare venerdì 9 alla stessa ora?"
+        );
     });
 
     it("passaggio non riuscito: lo sanno tutti e due", () => {
