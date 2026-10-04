@@ -11,7 +11,7 @@ import { ProgressBar } from "@/components/ui/ProgressBar/ProgressBar";
 import { Select } from "@/components/ui/Select/Select";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import { StatusStrip } from "@/components/ui/StatusStrip/StatusStrip";
-import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
+import { DATA_TABLE_CLASSES, DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
 import Text from "@/components/ui/Text/Text";
 import { Textarea } from "@/components/ui/Textarea/Textarea";
@@ -194,10 +194,21 @@ export default function AgentsPage() {
     );
 
     const columns: ColumnDefinition<AgentRow>[] = [
-        { id: "name", header: "Agente", accessor: r => r.name, cell: v => <Text variant="body-sm" weight={600}>{String(v)}</Text> },
+        {
+            id: "name",
+            header: "Agente",
+            accessor: r => r.name,
+            // Sul telefono «Oggi» esce dalle colonne e scende sotto il nome.
+            cell: (_v, r) => (
+                <div className={`${DATA_TABLE_CLASSES.cellTwoLine} ${DATA_TABLE_CLASSES.cellTwoLineWrap}`}>
+                    <Text variant="body-sm" weight={600}>{r.name}</Text>
+                    <span className={styles.agentTodayPhone}>{r.today}</span>
+                </div>
+            )
+        },
         { id: "step", header: "Passo", accessor: r => (r.step === null ? "fuori" : r.step), width: "72px", hideOnPhone: true },
         { id: "status", header: "Stato", accessor: r => r.status, cell: (_v, r) => <StatusBadge variant={r.tone} label={r.status} /> },
-        { id: "today", header: "Oggi", accessor: r => r.today },
+        { id: "today", header: "Oggi", accessor: r => r.today, hideOnPhone: true },
         {
             id: "share",
             header: "Inviate così",

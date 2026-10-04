@@ -384,6 +384,12 @@
 /* Scheda del lead: Da lavorare | conversazione | dati. */
 /* La scheda misura il proprio spazio, non la finestra: la barra laterale ne
    toglie 232 e a 1280 le tre colonne non ci stanno. */
+.agentTodayPhone {
+  @media (min-width: 768px) {
+    display: none;
+  }
+}
+
 .leadFrame {
   container: lead / inline-size;
 }
