@@ -53,6 +53,7 @@ import { AiUsageSection } from "@/pages/Business/components/AiUsageSection";
 import { useBusinessOutletContext } from "@/layouts/MainLayout/outletContext";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
+import { useSettingsTabs } from "./useSettingsTabs";
 import { usePageHeader } from "@/context/usePageHeader";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
@@ -403,9 +404,12 @@ export default function SubscriptionPage() {
         reloadSubState();
     }, [selectedTenant?.id, canManageBilling, reloadSubState]);
 
+    const settingsTabs = useSettingsTabs();
     usePageHeader({
         title: "Abbonamento",
-        subtitle: !canReadBilling ? undefined : "Piano, sedi, credito AI e pagamento."
+        subtitle: !canReadBilling ? undefined : "Piano, sedi, credito AI e pagamento.",
+        leading: settingsTabs.leading,
+        compact: settingsTabs.leading ? settingsTabs.compact : undefined
     });
 
     const paidSeats = selectedTenant?.paid_seats ?? 0;
@@ -523,8 +527,8 @@ export default function SubscriptionPage() {
                 planCode: selectedTenant.plan,
                 billingInterval,
                 quantity: paidSeats > 0 ? paidSeats : 1,
-                successUrl: `${window.location.origin}/business/${selectedTenant.id}/subscription?session=success`,
-                cancelUrl: `${window.location.origin}/business/${selectedTenant.id}/subscription?session=cancel`
+                successUrl: `${window.location.origin}/business/${selectedTenant.id}/settings/abbonamento?session=success`,
+                cancelUrl: `${window.location.origin}/business/${selectedTenant.id}/settings/abbonamento?session=cancel`
             });
             window.location.href = url;
         } catch (err) {
@@ -589,7 +593,7 @@ export default function SubscriptionPage() {
         try {
             const url = await createPortalSession(
                 selectedTenant.id,
-                `${window.location.origin}/business/${selectedTenant.id}/subscription`,
+                `${window.location.origin}/business/${selectedTenant.id}/settings/abbonamento`,
                 flow
             );
             window.location.href = url;

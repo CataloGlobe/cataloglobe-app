@@ -48,7 +48,7 @@ export function SubscriptionBanner() {
     };
 
     const goToSubscription = () => {
-        navigate(`/business/${businessId}/subscription`);
+        navigate(`/business/${businessId}/settings/abbonamento`);
     };
 
     if (status === "trialing") {

@@ -76,10 +76,16 @@ function dialog(page: Page): Locator {
     return page.getByRole("dialog").or(page.getByRole("alertdialog")).last();
 }
 
-async function openList(page: Page, type = "all"): Promise<void> {
+/**
+ * `sede`: il filtro sede della pagina, che dalla navigazione v2 (§51.11) è
+ * `?sede=` e non più lo scope della navbar in sessionStorage. Le `<option>`
+ * di quel filtro portano i nomi delle sedi (« e2e»): si aspetta un testo a
+ * vista.
+ */
+async function openList(page: Page, type = "all", sede?: string): Promise<void> {
     await openBusinessPage(page, "scheduling", "Programmazione");
-    await page.goto(`${new URL(page.url()).pathname}?type=${type}`);
-    await expect(main(page).getByText(/ e2e$/).first()).toBeVisible({ timeout: 15_000 });
+    await page.goto(`${new URL(page.url()).pathname}?type=${type}${sede ? `&sede=${sede}` : ""}`);
+    await expect(main(page).getByText(/ e2e$/).filter({ visible: true }).first()).toBeVisible({ timeout: 15_000 });
 }
 
 async function openRule(page: Page, key: keyof typeof RULE): Promise<void> {
@@ -434,12 +440,8 @@ test.describe("Programmazione — settimana, simulatore, guida", () => {
         await expect(main(page).getByText(/28 set|25 set|Giovedì 24/)).toBeVisible();
     });
 
-    test("con la sede scelta nella navbar la Settimana mostra solo le sue regole; la ricerca no", async ({ page }) => {
-        await page.addInitScript(
-            ([key, value]) => window.sessionStorage.setItem(key, value),
-            [`cataloglobe:sedeScope:${TENANT_ID}`, SEDE.centro] as const
-        );
-        await openList(page, "layout");
+    test("con la sede scelta nel filtro la Settimana mostra solo le sue regole; la ricerca no", async ({ page }) => {
+        await openList(page, "layout", SEDE.centro);
         // La ricerca dell'elenco non entra nella Settimana, dove non si vede.
         await searchFor(page, "Carta");
         await openWeek(page);
@@ -1363,11 +1365,7 @@ test.describe("Programmazione — banda e matrice", () => {
     });
 
     test("col filtro sede la matrice ha una riga e la banda parla al singolare", async ({ page }) => {
-        await page.addInitScript(
-            ([key, value]) => window.sessionStorage.setItem(key, value),
-            [`cataloglobe:sedeScope:${TENANT_ID}`, SEDE.centro] as const
-        );
-        await openList(page);
+        await openList(page, "all", SEDE.centro);
         await expect(band(page)).toContainText("Centro e2e sta mostrando Pranzo e2e");
         await expect(band(page)).toContainText("Ha modifiche a mano in corso, che vincono sulle regole.");
         await expect(matrix(page).getByRole("row")).toHaveCount(2);
