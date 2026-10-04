@@ -74,3 +74,13 @@ describe("messaggi", () => {
         expect(crmAgentErrorMessage(null)).toBe("Qualcosa non ha funzionato. Riprova.");
     });
 });
+
+describe("agente in prova (F1-3)", () => {
+    it("fiducia in una riga", async () => {
+        const { describeTrust } = await import("@/utils/crm/agentLabels");
+        expect(describeTrust({ approved_in_row: 1, total_approved: 3, total_edited: 1, total_discarded: 0 })).toBe(
+            "1 approvata di fila senza modifiche · in tutto 3 approvate, 1 corrette, 0 scartate"
+        );
+        expect(describeTrust({ approved_in_row: 4, total_approved: 4, total_edited: 0, total_discarded: 0 })).toContain("4 approvate di fila");
+    });
+});

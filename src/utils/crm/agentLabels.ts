@@ -2,7 +2,13 @@
  * Parole della pagina Agenti (/admin/agenti): diario, pausa degli agenti, prova di
  * collegamento, errori delle funzioni crm_* degli agenti.
  */
-import type { CrmAgentCheckResult, CrmBrakeSource, CrmDecisionActor } from "@/types/crm";
+import type {
+    CrmAgentCheckResult,
+    CrmAgentDraftKind,
+    CrmAgentDraftStatus,
+    CrmBrakeSource,
+    CrmDecisionActor
+} from "@/types/crm";
 import { CLAUDE_PRICES } from "@shared/crmAi";
 
 export const CRM_BRAKE_SOURCE_LABEL: Record<CrmBrakeSource, string> = {
@@ -96,4 +102,32 @@ export function parseUsdCap(text: string): number | null {
 /** «12.5» come lo scrive una persona: «12,50». */
 export function formatUsdInput(value: number): string {
     return value.toFixed(2).replace(".", ",");
+}
+
+// -----------------------------------------------------------------------------
+// Agente in prova (F1-3)
+// -----------------------------------------------------------------------------
+export const CRM_AGENT_DRAFT_KIND_LABEL: Record<CrmAgentDraftKind, string> = {
+    reply: "Risposta",
+    follow_up: "Follow-up",
+    bot_question: "«Sei un bot?»",
+    ask: "Serve una persona",
+    schedule: "Orario accettato",
+    stop_check: "Stop o obiezione?"
+};
+
+export const CRM_AGENT_DRAFT_STATUS_LABEL: Record<CrmAgentDraftStatus, string> = {
+    pending: "In attesa",
+    sent: "Inviata così",
+    edited: "Corretta e inviata",
+    discarded: "Non mandata",
+    expired: "Scaduta",
+    scheduled: "Telefonata fissata",
+    handled: "Gestita da una persona"
+};
+
+/** «4 approvate di fila senza modifiche · in tutto …». */
+export function describeTrust(t: { approved_in_row: number; total_approved: number; total_edited: number; total_discarded: number }): string {
+    const row = t.approved_in_row === 1 ? "1 approvata di fila" : `${t.approved_in_row} approvate di fila`;
+    return `${row} senza modifiche · in tutto ${t.total_approved} approvate, ${t.total_edited} corrette, ${t.total_discarded} scartate`;
 }

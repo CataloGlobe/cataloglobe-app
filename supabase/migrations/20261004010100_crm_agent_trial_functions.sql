@@ -7,6 +7,7 @@
 --   crm_agent_mark_stop(venue, reason, ...)    stop: Perso (stop), coda e
 --                                              telefonate annullate
 --   crm_agent_has_work(now)                    cron: c'è qualcosa per l'edge?
+--   crm_agent_candidates(now, limit)           i locali su cui lavorare adesso
 --   crm_agent_drafts_touch                     trigger: updated_at
 --   crm_wa_enqueue_first_message               rifatta da 20261002220100: il
 --                                              primo messaggio aspetta 2-5 minuti
@@ -306,6 +307,7 @@ AS $$
                   AND NOT EXISTS (
                       SELECT 1 FROM public.crm_agent_drafts d
                       WHERE d.venue_id = v.id AND d.status <> 'expired' AND d.created_at >= x.last_in
+                        AND NOT (d.kind = 'stop_check' AND d.status = 'handled' AND d.reason = 'Obiezione, non stop.')
                   )
             )
         )
@@ -330,6 +332,86 @@ AS $$
                   )
             )
         );
+$$;
+
+
+-- -----------------------------------------------------------------------------
+-- crm_agent_candidates: i locali su cui l'agente deve lavorare adesso
+-- -----------------------------------------------------------------------------
+-- r_kind 'reply': il lead ha scritto dopo l'ultima uscita (nostra o a mano),
+-- nessuna bozza nata dopo quel messaggio (salvo «È un'obiezione»), nessuno ha
+-- scritto a mano nell'ultima mezz'ora. r_kind 'follow_up': l'ultima uscita è
+-- dell'agente, inviata da almeno 24 ore, il lead non ha più scritto, niente
+-- in coda; r_follow_ups = follow-up già inviati dopo l'ultimo messaggio del
+-- lead (l'edge decide l'attesa precisa tra 24 e 48 ore e il tetto di 10).
+-- Esclusi: Perso, Cliente pagante, «La prendo io». ⚠️ SYNC con
+-- crm_agent_has_work (stesse condizioni, più larghe là).
+CREATE OR REPLACE FUNCTION public.crm_agent_candidates(p_now timestamptz DEFAULT now(), p_limit integer DEFAULT 5)
+RETURNS TABLE (
+    r_venue_id     uuid,
+    r_kind         text,
+    r_last_in_id   uuid,
+    r_last_in_at   timestamptz,
+    r_last_out_at  timestamptz,
+    r_follow_ups   integer,
+    r_objection    boolean
+)
+LANGUAGE sql
+STABLE
+SECURITY INVOKER
+SET search_path TO ''
+AS $$
+    WITH x AS (
+        SELECT v.id AS venue_id, v.stage,
+               (SELECT m.id FROM public.crm_messages m
+                WHERE m.venue_id = v.id AND m.direction = 'in' ORDER BY m.created_at DESC LIMIT 1) AS last_in_id,
+               (SELECT max(m.created_at) FROM public.crm_messages m
+                WHERE m.venue_id = v.id AND m.direction = 'in') AS last_in,
+               (SELECT max(coalesce(m.sent_at, m.created_at)) FROM public.crm_messages m
+                WHERE m.venue_id = v.id AND m.direction = 'out'
+                  AND (m.author = 'person' OR m.status IN ('queued', 'sending', 'sent'))) AS last_out,
+               (SELECT max(m.sent_at) FROM public.crm_messages m
+                WHERE m.venue_id = v.id AND m.direction = 'out' AND m.author = 'agent' AND m.status = 'sent') AS last_agent_sent,
+               (SELECT max(coalesce(m.sent_at, m.created_at)) FROM public.crm_messages m
+                WHERE m.venue_id = v.id AND m.author = 'person') AS last_person,
+               EXISTS (SELECT 1 FROM public.crm_messages m
+                       WHERE m.venue_id = v.id AND m.status IN ('queued', 'sending')) AS busy
+        FROM public.crm_venues v
+        WHERE v.stage NOT IN ('perso', 'cliente_pagante') AND v.agent_hold_at IS NULL
+          AND EXISTS (SELECT 1 FROM public.crm_messages m0 WHERE m0.venue_id = v.id)
+    )
+    SELECT * FROM (
+        SELECT x.venue_id, 'reply'::text, x.last_in_id, x.last_in, x.last_out, 0,
+               EXISTS (SELECT 1 FROM public.crm_agent_drafts d
+                       WHERE d.venue_id = x.venue_id AND d.kind = 'stop_check' AND d.status = 'handled'
+                         AND d.reason = 'Obiezione, non stop.' AND d.created_at >= x.last_in)
+        FROM x
+        WHERE x.last_in IS NOT NULL AND (x.last_out IS NULL OR x.last_in > x.last_out)
+          AND (x.last_person IS NULL OR x.last_person < p_now - interval '30 minutes')
+          AND NOT EXISTS (
+              SELECT 1 FROM public.crm_agent_drafts d
+              WHERE d.venue_id = x.venue_id AND d.status <> 'expired' AND d.created_at >= x.last_in
+                AND NOT (d.kind = 'stop_check' AND d.status = 'handled' AND d.reason = 'Obiezione, non stop.')
+          )
+        UNION ALL
+        SELECT x.venue_id, 'follow_up'::text, x.last_in_id, x.last_in, x.last_agent_sent,
+               (SELECT count(*)::integer FROM public.crm_messages f
+                WHERE f.venue_id = x.venue_id AND f.purpose = 'follow_up' AND f.status = 'sent'
+                  AND f.sent_at > coalesce(x.last_in, '-infinity'::timestamptz)),
+               false
+        FROM x
+        WHERE x.stage <> 'nuovo'
+          AND x.last_agent_sent IS NOT NULL AND x.last_agent_sent < p_now - interval '24 hours'
+          AND x.last_agent_sent >= coalesce(x.last_out, x.last_agent_sent)
+          AND (x.last_in IS NULL OR x.last_in < x.last_agent_sent)
+          AND NOT x.busy
+          AND NOT EXISTS (
+              SELECT 1 FROM public.crm_agent_drafts d
+              WHERE d.venue_id = x.venue_id AND d.status <> 'expired' AND d.created_at >= x.last_agent_sent
+          )
+    ) c
+    ORDER BY 4 NULLS LAST
+    LIMIT greatest(1, least(coalesce(p_limit, 5), 20));
 $$;
 
 -- -----------------------------------------------------------------------------

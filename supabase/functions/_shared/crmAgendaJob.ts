@@ -36,10 +36,12 @@ import {
     deleteEvent,
     getAccessToken,
     insertEvent,
+    listEvents,
+    parseCalendarEvents,
     parseServiceAccount,
     patchEvent
 } from "./crmGoogleCalendar.ts";
-import { BRIEF_MINUTES_BEFORE, OUTCOME_MINUTES_AFTER } from "./crmCallSlots.ts";
+import { BRIEF_MINUTES_BEFORE, OUTCOME_MINUTES_AFTER, romeWallClock } from "./crmCallSlots.ts";
 
 const LOG = "crm-agenda";
 const CLAIM_MINUTES = 2;
@@ -334,4 +336,54 @@ export async function processAgenda(supabase, team, botToken: string | null, app
     }
 
     return stats;
+}
+
+// -----------------------------------------------------------------------------
+// Impegni (crm-agenda «busy», agente F1-3 per gli orari da proporre)
+// -----------------------------------------------------------------------------
+function romeDayStart(day: string): string {
+    const [y, m, d] = day.split("-").map(Number);
+    return romeWallClock(y, m, d, 0, 0).toISOString();
+}
+
+/** Impegni tra due istanti: telefonate attive del CRM + eventi del calendario Google. */
+export async function loadAgendaBusy(supabase, team, from: Date, to: Date) {
+    const { data: rows, error } = await supabase
+        .from("crm_appointments")
+        .select("id, starts_at, ends_at, caller_user_id, crm_venues(name)")
+        .in("status", ["proposed", "confirmed"])
+        .lt("starts_at", to.toISOString())
+        .gt("ends_at", from.toISOString());
+    if (error) throw error;
+    const crm = (rows ?? []).map(r => {
+        const caller = team.find(m => m.user_id === r.caller_user_id)?.display_name;
+        return {
+            start: new Date(r.starts_at).toISOString(),
+            end: new Date(r.ends_at).toISOString(),
+            label: `Telefonata: ${r.crm_venues?.name ?? "locale"}${caller ? ` (chiama ${caller})` : ""}`,
+            appointment_id: r.id,
+            caller_user_id: r.caller_user_id
+        };
+    });
+
+    const { data: settings } = await supabase.from("crm_settings").select("google_calendar_id").eq("id", true).maybeSingle();
+    const calendarId = settings?.google_calendar_id?.trim() || null;
+    const account = parseServiceAccount(Deno.env.get("GOOGLE_SERVICE_ACCOUNT_JSON"));
+    if (!calendarId) return { google: "off", google_error: null, busy: crm };
+    if (!account) {
+        return { google: "error", google_error: "Chiave dell'account di servizio Google mancante.", busy: crm };
+    }
+    try {
+        const token = await getAccessToken(account);
+        const items = await listEvents(token, calendarId, from.toISOString(), to.toISOString());
+        // Gli eventi creati dal CRM ci sono già come telefonate: non si contano due volte.
+        const known = new Set(crm.map(c => c.appointment_id));
+        const google = parseCalendarEvents(items, romeDayStart)
+            .filter(e => !e.appointmentId || !known.has(e.appointmentId))
+            .map(e => ({ start: e.start, end: e.end, label: e.label, appointment_id: e.appointmentId, caller_user_id: null }));
+        return { google: "ok", google_error: null, busy: [...crm, ...google] };
+    } catch (err) {
+        console.error("crm-agenda: Google", (err as Error)?.message);
+        return { google: "error", google_error: "Calendario Google non raggiungibile.", busy: crm };
+    }
 }

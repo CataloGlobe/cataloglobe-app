@@ -10,6 +10,7 @@
 --                                      di Telegram e l'edge crm-agent, con
 --                                      l'attore verificato da crm_bind_agent_actor
 --   crm_agent_has_work                 postgres (cron) e service_role
+--   crm_agent_candidates               solo service_role (edge crm-agent)
 --   crm_wa_claim_next                  invariata: solo service_role
 --   crm_wa_enqueue_first_message,
 --   crm_agent_drafts_touch             nessuno: funzioni trigger
@@ -23,6 +24,8 @@ GRANT EXECUTE ON FUNCTION public.crm_agent_decide_draft(uuid, text, text, uuid) 
 REVOKE ALL ON FUNCTION public.crm_agent_mark_stop(uuid, text, uuid) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.crm_agent_mark_stop(uuid, text, uuid) TO service_role;
 
+REVOKE ALL ON FUNCTION public.crm_agent_candidates(timestamptz, integer) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.crm_agent_candidates(timestamptz, integer) TO service_role;
 REVOKE ALL ON FUNCTION public.crm_agent_has_work(timestamptz) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.crm_agent_has_work(timestamptz) TO postgres, service_role;
 

@@ -23,6 +23,10 @@
 //     (solo chi deve chiamare; se dice no, avvisa chi l'ha fissata); «Fatta» /
 //     «Non ha risposto» / «Rimandata» → crm_set_call_outcome. Il messaggio
 //     perde i pulsanti e dice cosa è successo.
+//   * agente in prova (F1-3): tasti delle bozze → crm_agent_decide_draft;
+//     «Lo correggo io» manda una risposta forzata, e il testo scritto in
+//     risposta a quel messaggio va in coda al posto della bozza. Decisa una
+//     bozza, i messaggi di tutti perdono i tasti e dicono chi ha deciso.
 // Chi tocca è riconosciuto dal suo id Telegram, che in chat privata coincide
 // col chat_id salvato al collegamento. Chi non è nel team non può fare nulla.
 //
@@ -43,6 +47,8 @@ import { loadTeam, refreshVenueMessages } from "../_shared/crmLeadMessage.ts";
 import { loadAppointment, syncAppointmentGoogle, toCallInfo } from "../_shared/crmAgendaJob.ts";
 import { CALL_OUTCOME_LABEL, buildAnsweredText, buildCallerDeclinedText } from "../_shared/crmAgendaMessages.ts";
 import { sendToTeam } from "../_shared/crmTeamAlert.ts";
+import { closeDraftMessages } from "../_shared/crmAgentJob.ts";
+import { buildEditPromptText, cleanEditText } from "../_shared/crmAgentMessages.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -236,6 +242,117 @@ async function handleCall(supabase, parsed, actor, team, answer, query, appUrl) 
     await answer(changed ? "Segnato." : "Era già segnato.");
 }
 
+const DRAFT_ERRORS: Record<string, string> = {
+    P0002: "Questa bozza non c'è più.",
+    CL001: "Chi chiama ha già un'altra telefonata a quell'ora: fissala dalla scheda.",
+    CL002: "C'è già una telefonata fissata per questo locale.",
+    CL003: "L'orario è già passato.",
+    CL005: "Il locale è in Perso.",
+    "42501": "Non puoi decidere questa bozza."
+};
+
+async function handleDraft(supabase, parsed, actor, answer, query) {
+    const { data: draft } = await supabase
+        .from("crm_agent_drafts")
+        .select("id, status, venue_id, kind, proposed_text, crm_venues(name), crm_contacts(name)")
+        .eq("id", parsed.draftId)
+        .maybeSingle();
+    if (!draft) {
+        await answer("Questa bozza non c'è più.");
+        return;
+    }
+    if (draft.status !== "pending") {
+        await answer("Già decisa.");
+        await closeDraftMessages(supabase, BOT_TOKEN, draft.id, draft.status, null);
+        return;
+    }
+    if (parsed.decision === "edit") {
+        // Risposta forzata: il testo scritto in risposta va in coda.
+        const chatId = query.message?.chat?.id;
+        const sent = await telegramCall(BOT_TOKEN, "sendMessage", {
+            chat_id: chatId,
+            text: buildEditPromptText({
+                draftId: draft.id,
+                venueId: draft.venue_id,
+                kind: draft.kind,
+                venueName: draft.crm_venues?.name ?? "il locale",
+                contactName: draft.crm_contacts?.name ?? null,
+                proposedText: draft.proposed_text,
+                reason: null,
+                proposedStartsAt: null,
+                followUpNumber: null,
+                lastMessages: []
+            }),
+            reply_markup: { force_reply: true, input_field_placeholder: "Il messaggio per il lead" }
+        });
+        if (sent.ok && sent.result?.message_id) {
+            await supabase.from("crm_agent_draft_messages").insert({
+                draft_id: draft.id,
+                user_id: actor.user_id,
+                chat_id: chatId,
+                message_id: sent.result.message_id,
+                role: "edit_prompt"
+            });
+            await answer("Scrivi il testo rispondendo al messaggio.");
+        } else {
+            await answer("Non ci sono riuscito. Riprova.");
+        }
+        return;
+    }
+    const { data: status, error } = await supabase.rpc("crm_agent_decide_draft", {
+        p_draft_id: draft.id,
+        p_decision: parsed.decision,
+        p_actor_user_id: actor.user_id
+    });
+    if (error) {
+        console.error("crm-telegram-webhook: crm_agent_decide_draft", error.code, error.message);
+        await answer(DRAFT_ERRORS[error.code] ?? "Non ci sono riuscito. Riprova dalla scheda.");
+        return;
+    }
+    await closeDraftMessages(supabase, BOT_TOKEN, draft.id, status ?? "handled", status ? actor.display_name : null);
+    await answer(status ? "Fatto." : "Già decisa.");
+}
+
+/** Testo scritto in risposta a «Lo correggo io». */
+async function handleEditReply(supabase, message) {
+    const chatId = message.chat?.id;
+    const replyTo = message.reply_to_message?.message_id;
+    if (!chatId || !replyTo) return;
+    const { data: prompt } = await supabase
+        .from("crm_agent_draft_messages")
+        .select("draft_id")
+        .eq("chat_id", chatId)
+        .eq("message_id", replyTo)
+        .eq("role", "edit_prompt")
+        .maybeSingle();
+    if (!prompt) return;
+    const team = await loadTeam(supabase);
+    const actor = team.find(m => m.telegram_chat_id === message.from?.id);
+    if (!actor) return;
+    const text = cleanEditText(message.text);
+    if (!text) {
+        await reply(chatId, "Il testo deve avere da 1 a 1000 caratteri. Rispondi di nuovo al messaggio.");
+        return;
+    }
+    const { data: status, error } = await supabase.rpc("crm_agent_decide_draft", {
+        p_draft_id: prompt.draft_id,
+        p_decision: "edit",
+        p_text: text,
+        p_actor_user_id: actor.user_id
+    });
+    if (error) {
+        console.error("crm-telegram-webhook: correzione", error.code, error.message);
+        await reply(chatId, DRAFT_ERRORS[error.code] ?? "Non ci sono riuscito. Riprova dalla scheda.");
+        return;
+    }
+    if (!status) {
+        await reply(chatId, "La bozza era già stata decisa: il tuo testo non è partito.");
+        return;
+    }
+    await closeDraftMessages(supabase, BOT_TOKEN, prompt.draft_id, status, actor.display_name);
+    await reply(chatId, "In coda: parte appena il canale WhatsApp può mandarlo.");
+}
+
 async function handleCallback(supabase, query, appUrl) {
     const answer = (text: string) =>
         telegramCall(BOT_TOKEN, "answerCallbackQuery", { callback_query_id: query.id, text });
@@ -269,6 +386,11 @@ async function handleCallback(supabase, query, appUrl) {
     if (parsed.action === "cancel") {
         await refreshVenueMessages(supabase, BOT_TOKEN, parsed.venueId, appUrl);
         await answer("");
+        return;
+    }
+
+    if (parsed.action === "draft") {
+        await handleDraft(supabase, parsed, actor, answer, query);
         return;
     }
 
@@ -328,6 +450,8 @@ Deno.serve(async (req: Request) => {
             await handleCallback(supabase, update.callback_query, getPublicSiteUrl());
         } else if (typeof update.message?.text === "string" && update.message.text.startsWith("/start")) {
             await handleStart(supabase, update.message);
+        } else if (typeof update.message?.text === "string" && update.message.reply_to_message) {
+            await handleEditReply(supabase, update.message);
         }
     } catch (err) {
         const e = err as { code?: unknown; message?: unknown };

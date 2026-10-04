@@ -418,3 +418,36 @@ export interface CrmAgendaBusyResult {
     google_error: string | null;
     busy: CrmAgendaBusy[];
 }
+
+// -----------------------------------------------------------------------------
+// Agente WhatsApp in prova (F1-3, migration 20261004010000)
+// -----------------------------------------------------------------------------
+export type CrmAgentDraftKind = "reply" | "follow_up" | "bot_question" | "ask" | "schedule" | "stop_check";
+export type CrmAgentDraftStatus = "pending" | "sent" | "edited" | "discarded" | "expired" | "scheduled" | "handled";
+
+export interface CrmAgentTrialSettings {
+    agent_replies_on: boolean;
+    agent_followups_on: boolean;
+}
+
+export interface CrmAgentTrust {
+    kind: "reply" | "follow_up";
+    approved_in_row: number;
+    since: string | null;
+    total_approved: number;
+    total_edited: number;
+    total_discarded: number;
+}
+
+export interface CrmAgentDraftRow {
+    id: string;
+    created_at: string;
+    venue_id: string;
+    venue_name: string;
+    kind: CrmAgentDraftKind;
+    status: CrmAgentDraftStatus;
+    reason: string | null;
+    proposed_text: string | null;
+    final_text: string | null;
+    decided_at: string | null;
+}

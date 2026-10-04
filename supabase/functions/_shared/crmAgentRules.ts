@@ -175,7 +175,7 @@ function clip(text: string, max = MAX_TEXT): string {
 
 /** Il testo del lead non deve poter chiudere il blocco dei dati. */
 function sanitizeData(text: string): string {
-    return clip(text.replace(/<\/?(chat|scheda|orari)[^>]*>/gi, "").replace(/\u0000/g, ""));
+    return clip(text.replace(/<\/?(chat|scheda|orari)[^>]*>/gi, "").split(String.fromCharCode(0)).join(""));
 }
 
 const OUTPUT_RULES = `Rispondi SOLO con un oggetto JSON, senza altro testo, in una di queste forme:
