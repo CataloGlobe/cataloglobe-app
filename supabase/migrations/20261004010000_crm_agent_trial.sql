@@ -29,7 +29,10 @@ BEGIN;
 
 ALTER TABLE public.crm_settings
     ADD COLUMN IF NOT EXISTS agent_replies_on boolean NOT NULL DEFAULT false,
-    ADD COLUMN IF NOT EXISTS agent_followups_on boolean NOT NULL DEFAULT false;
+    ADD COLUMN IF NOT EXISTS agent_followups_on boolean NOT NULL DEFAULT false,
+    -- Da quando le risposte sono accese: i messaggi dei lead arrivati prima
+    -- non diventano bozze (niente valanga di chat vecchie all'accensione).
+    ADD COLUMN IF NOT EXISTS agent_replies_on_since timestamptz;
 
 CREATE TABLE IF NOT EXISTS public.crm_agent_drafts (
     id                  uuid        PRIMARY KEY DEFAULT gen_random_uuid(),

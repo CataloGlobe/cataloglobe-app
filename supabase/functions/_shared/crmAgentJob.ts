@@ -324,8 +324,17 @@ async function insertDraft(supabase, base, fields) {
         .single();
     if (error) {
         // 23505: un'altra bozza aperta sullo stesso locale (giro accavallato).
-        if (error.code !== "23505") console.error(`${LOG}: bozza non salvata`, error.code, error.message);
-        return null;
+        if (error.code === "23505") return null;
+        console.error(`${LOG}: bozza non salvata`, error.code, error.message);
+        // Senza una bozza il locale resterebbe candidato e Claude verrebbe
+        // richiamato ogni minuto: si chiude il giro con una richiesta per una persona.
+        if (fields.kind === "ask" && !fields.proposed_text) return null;
+        return insertDraft(supabase, base, {
+            kind: "ask",
+            reason: "La bozza non si è salvata: serve una persona.",
+            proposed_text: null,
+            cost_usd: fields.cost_usd ?? 0
+        });
     }
     await logDecision(supabase, {
         actor: "agent",
@@ -351,6 +360,20 @@ export async function processAgent(supabase, team, botToken, appUrl, now = new D
     // 1. Scadute: il lead ha scritto di nuovo dopo la bozza.
     const { data: pending } = await supabase.from("crm_agent_drafts").select("*").eq("status", "pending");
     for (const d of pending ?? []) {
+        // Nessuna decisione in 48 ore: si chiude (solleciti finiti da tempo).
+        if (now.getTime() - new Date(d.created_at).getTime() > 48 * 60 * 60_000) {
+            const { data: old } = await supabase
+                .from("crm_agent_drafts")
+                .update({ status: "expired", reason: "Nessuna decisione in 48 ore." })
+                .eq("id", d.id)
+                .eq("status", "pending")
+                .select("id");
+            if (old?.length) {
+                stats.expired += 1;
+                if (botToken) await closeDraftMessages(supabase, botToken, d.id, "expired", null);
+            }
+            continue;
+        }
         if (d.kind === "stop_check") continue;
         const { data: newer } = await supabase
             .from("crm_messages")
@@ -520,7 +543,13 @@ export async function processAgent(supabase, team, botToken, appUrl, now = new D
                     if (await insertDraft(supabase, base, { kind: "bot_question", reason: "Chiede se è un bot." })) stats.drafts += 1;
                     break;
                 }
-                const fields = { ...result.draft, kind: "bot_question", reason: "Chiede se è un bot.", cost_usd: result.cost };
+                const fields = {
+                    ...result.draft,
+                    kind: "bot_question",
+                    reason: "Chiede se è un bot.",
+                    proposed_starts_at: null,
+                    cost_usd: result.cost
+                };
                 if (await insertDraft(supabase, base, fields)) stats.drafts += 1;
                 continue;
             }
@@ -530,6 +559,25 @@ export async function processAgent(supabase, team, botToken, appUrl, now = new D
 
         const kind = c.r_kind === "follow_up" ? "follow_up" : "reply";
         const ctx = await buildContext(supabase, team, venue, lead, contact, chat, kind, rules.body, c.r_follow_ups + 1, now);
+        if (kind === "reply") {
+            // «Proponi altro» su Telegram: altri orari, non quello di prima.
+            const { data: other } = await supabase
+                .from("crm_agent_drafts")
+                .select("proposed_starts_at")
+                .eq("venue_id", venue.id)
+                .eq("kind", "schedule")
+                .eq("status", "handled")
+                .eq("reason", "Proponi altri orari.")
+                .gte("created_at", c.r_last_in_at ?? "1970-01-01")
+                .order("created_at", { ascending: false })
+                .limit(1)
+                .maybeSingle();
+            if (other?.proposed_starts_at) {
+                const d = new Date(other.proposed_starts_at);
+                ctx.extraInstruction = `Alessandro ha chiesto di proporre orari diversi da ${formatCallDay(d)} alle ${formatCallTime(d)}: proponine due tra quelli liberi, non quello.`;
+                ctx.freeSlots = ctx.freeSlots.filter(s => new Date(s.iso).getTime() !== d.getTime());
+            }
+        }
         const result = await draftWithClaude(supabase, ctx, venue.id);
         if (result.stop) {
             // Freno, tetti o chiave mancante: nessuna bozza, si riprova al giro dopo.

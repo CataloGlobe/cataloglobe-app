@@ -43,6 +43,26 @@ CREATE TRIGGER crm_agent_drafts_touch
     BEFORE UPDATE ON public.crm_agent_drafts
     FOR EACH ROW EXECUTE FUNCTION public.crm_agent_drafts_touch();
 
+-- Accendere le risposte segna da quando: contano i messaggi dei lead arrivati dopo.
+CREATE OR REPLACE FUNCTION public.crm_settings_agent_trial_since()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path TO ''
+AS $$
+BEGIN
+    IF NEW.agent_replies_on AND NOT coalesce(OLD.agent_replies_on, false) THEN
+        NEW.agent_replies_on_since := now();
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS crm_settings_agent_trial_since ON public.crm_settings;
+CREATE TRIGGER crm_settings_agent_trial_since
+    BEFORE UPDATE OF agent_replies_on ON public.crm_settings
+    FOR EACH ROW EXECUTE FUNCTION public.crm_settings_agent_trial_since();
+
 -- -----------------------------------------------------------------------------
 -- crm_agent_mark_stop: il lead non vuole essere contattato
 -- -----------------------------------------------------------------------------
@@ -287,9 +307,17 @@ AS $$
     WITH s AS (SELECT agent_replies_on, agent_followups_on, brake_on FROM public.crm_settings WHERE id)
     SELECT
         -- Bozze aperte: solleciti, scadenze.
-        EXISTS (SELECT 1 FROM public.crm_agent_drafts d WHERE d.status = 'pending')
+        EXISTS (
+            SELECT 1 FROM public.crm_agent_drafts d
+            WHERE d.status = 'pending'
+              AND (d.notified_at IS NULL
+                   OR d.created_at < p_now - interval '48 hours'
+                   OR (d.reminders < 12 AND NOT public.crm_agent_is_night(p_now)
+                       AND coalesce(d.last_reminded_at, d.notified_at) < p_now - interval '5 minutes'))
+        )
         OR (
             (SELECT agent_replies_on AND NOT brake_on FROM s)
+            AND NOT public.crm_agent_is_night(p_now)
             AND EXISTS (
                 SELECT 1
                 FROM public.crm_venues v
@@ -302,17 +330,20 @@ AS $$
                 ) x ON true
                 WHERE v.stage NOT IN ('perso', 'cliente_pagante') AND v.agent_hold_at IS NULL
                   AND x.last_in IS NOT NULL AND (x.last_out IS NULL OR x.last_in > x.last_out)
+                  AND x.last_in > coalesce((SELECT agent_replies_on_since FROM public.crm_settings WHERE id), '-infinity'::timestamptz)
                   -- Già gestito: una bozza (decisa, scartata, stop o obiezione)
                   -- nata dopo l'ultimo messaggio del lead.
                   AND NOT EXISTS (
                       SELECT 1 FROM public.crm_agent_drafts d
                       WHERE d.venue_id = v.id AND d.status <> 'expired' AND d.created_at >= x.last_in
                         AND NOT (d.kind = 'stop_check' AND d.status = 'handled' AND d.reason = 'Obiezione, non stop.')
+                        AND NOT (d.kind = 'schedule' AND d.status = 'handled' AND d.reason = 'Proponi altri orari.')
                   )
             )
         )
         OR (
             (SELECT agent_followups_on AND NOT brake_on FROM s)
+            AND NOT public.crm_agent_is_night(p_now)
             AND EXISTS (
                 SELECT 1
                 FROM public.crm_venues v
@@ -387,11 +418,13 @@ AS $$
                          AND d.reason = 'Obiezione, non stop.' AND d.created_at >= x.last_in)
         FROM x
         WHERE x.last_in IS NOT NULL AND (x.last_out IS NULL OR x.last_in > x.last_out)
+          AND x.last_in > coalesce((SELECT agent_replies_on_since FROM public.crm_settings WHERE id), '-infinity'::timestamptz)
           AND (x.last_person IS NULL OR x.last_person < p_now - interval '30 minutes')
           AND NOT EXISTS (
               SELECT 1 FROM public.crm_agent_drafts d
               WHERE d.venue_id = x.venue_id AND d.status <> 'expired' AND d.created_at >= x.last_in
                 AND NOT (d.kind = 'stop_check' AND d.status = 'handled' AND d.reason = 'Obiezione, non stop.')
+                AND NOT (d.kind = 'schedule' AND d.status = 'handled' AND d.reason = 'Proponi altri orari.')
           )
         UNION ALL
         SELECT x.venue_id, 'follow_up'::text, x.last_in_id, x.last_in, x.last_agent_sent,

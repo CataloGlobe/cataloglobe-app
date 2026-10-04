@@ -18,6 +18,7 @@ describe("classifyLeadText", () => {
         "stop.",
         "Non scrivetemi più",
         "non contattatemi",
+        "Non contattatemi più per favore",
         "Per favore cancellatemi",
         "smettetela di scrivermi",
         "basta messaggi",
@@ -27,14 +28,14 @@ describe("classifyLeadText", () => {
         expect(classifyLeadText(text).stop).toBe("explicit");
     });
 
-    it.each(["Non mi interessa", "per ora no grazie", "no grazie", "non sono interessato", "abbiamo già un gestionale", "ce lo abbiamo già"])(
+    it.each(["Non mi interessa", "non chiamatemi prima delle 10, scrivetemi qui", "per ora no grazie", "no grazie", "non sono interessato", "abbiamo già un gestionale", "ce lo abbiamo già"])(
         "stop incerto: %s",
         text => {
             expect(classifyLeadText(text).stop).toBe("uncertain");
         }
     );
 
-    it.each(["Ok chiamami giovedì", "Va bene alle 17:30", "Quanto costa?", "Stop alle 18 chiudo, chiamami dopo le 15", "Non so ancora, sentiamoci"])(
+    it.each(["non scrivo bene l'italiano", "Ok chiamami giovedì", "Va bene alle 17:30", "Quanto costa?", "Stop alle 18 chiudo, chiamami dopo le 15", "Non so ancora, sentiamoci"])(
         "nessuno stop: %s",
         text => {
             expect(classifyLeadText(text).stop).toBeNull();
@@ -127,6 +128,10 @@ describe("richiesta a Claude", () => {
         expect(content.match(/<\/chat>/g)).toHaveLength(1);
         expect(content).toContain("giovedì 8 alle 09:15 (2026-10-08T07:15:00.000Z)");
         expect(content).toContain("Coperti: 80");
+    });
+
+    it("indicazione in più in fondo", () => {
+        expect(buildDraftRequest({ ...ctx, extraInstruction: "Proponi altri orari." }).messages[0].content.endsWith("Proponi altri orari.")).toBe(true);
     });
 
     it("follow-up e domanda sul bot cambiano il compito", () => {
