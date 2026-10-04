@@ -100,6 +100,7 @@ export function SchedaTab({ product, productId, tenantId, vertical, onNavigateTo
                             isGenerating={ai.isGenerating}
                             canGenerate={ai.canGenerate}
                             onGenerate={ai.generate}
+                            quota={businessOutlet?.aiUsage}
                         >
                             <Textarea
                                 value={information.draftDescription}
