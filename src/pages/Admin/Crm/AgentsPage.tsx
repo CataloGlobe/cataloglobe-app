@@ -49,6 +49,8 @@ import {
 import { formatDateTimeIt } from "@/utils/formatDateTime";
 import { CRM_AI_ROLES, CRM_AI_ROLE_LABEL, formatUsd, spendShare } from "@shared/crmAi";
 import { BrandRulesDrawer, type BrandRulesDrawerState } from "./BrandRulesDrawer";
+import { AgentTrialCard } from "./AgentTrialCard";
+import { WhatsappChannelCard } from "./WhatsappChannelCard";
 import styles from "./Crm.module.scss";
 
 /**
@@ -283,6 +285,10 @@ export default function AgentsPage() {
                     </Text>
                 )}
             </Card>
+
+            <WhatsappChannelCard />
+
+            <AgentTrialCard />
 
             <Card title="Spesa AI">
                 <Text variant="body-sm" weight={600}>

@@ -449,6 +449,24 @@ verify_jwt = false
 import_map = "./functions/import_map.json"
 entrypoint = "./functions/crm-agent-check/index.ts"
 
+[functions.crm-agent]
+enabled = true
+verify_jwt = false
+import_map = "./functions/import_map.json"
+entrypoint = "./functions/crm-agent/index.ts"
+
+[functions.crm-agenda]
+enabled = true
+verify_jwt = false
+import_map = "./functions/import_map.json"
+entrypoint = "./functions/crm-agenda/index.ts"
+
+[functions.crm-wa-worker]
+enabled = true
+verify_jwt = false
+import_map = "./functions/import_map.json"
+entrypoint = "./functions/crm-wa-worker/index.ts"
+
 [functions.crm-meta-webhook]
 enabled = true
 verify_jwt = false

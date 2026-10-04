@@ -2,7 +2,13 @@
  * Parole della pagina Agenti (/admin/agenti): diario, pausa degli agenti, prova di
  * collegamento, errori delle funzioni crm_* degli agenti.
  */
-import type { CrmAgentCheckResult, CrmBrakeSource, CrmDecisionActor } from "@/types/crm";
+import type {
+    CrmAgentCheckResult,
+    CrmAgentDraftKind,
+    CrmAgentDraftStatus,
+    CrmBrakeSource,
+    CrmDecisionActor
+} from "@/types/crm";
 import { CLAUDE_PRICES } from "@shared/crmAi";
 
 export const CRM_BRAKE_SOURCE_LABEL: Record<CrmBrakeSource, string> = {
@@ -29,7 +35,9 @@ const ACTION_LABEL: Record<string, string> = {
     agent_settings_changed: "Impostazioni cambiate",
     brand_rules_proposed: "Regole proposte",
     brand_rules_approved: "Regole in vigore",
-    brand_rules_discarded: "Regole scartate"
+    brand_rules_discarded: "Regole scartate",
+    message_sent: "Messaggio WhatsApp inviato",
+    wa_settings_changed: "Impostazioni WhatsApp cambiate"
 };
 
 /** Azioni nuove (dalle PR dopo) senza etichetta: il codice, leggibile. */
@@ -94,4 +102,57 @@ export function parseUsdCap(text: string): number | null {
 /** «12.5» come lo scrive una persona: «12,50». */
 export function formatUsdInput(value: number): string {
     return value.toFixed(2).replace(".", ",");
+}
+
+// -----------------------------------------------------------------------------
+// Agente in prova (F1-3)
+// -----------------------------------------------------------------------------
+export const CRM_AGENT_DRAFT_KIND_LABEL: Record<CrmAgentDraftKind, string> = {
+    reply: "Risposta",
+    follow_up: "Follow-up",
+    bot_question: "«Sei un bot?»",
+    ask: "Serve una persona",
+    schedule: "Orario accettato",
+    stop_check: "Stop o obiezione?",
+    lost_proposal: "Proposta di Perso",
+    reactivation: "Riattivazione"
+};
+
+/** Testo della riattivazione: vuoto = spento; segnaposti {nome} {locale} {mittente}. */
+export function reactivationTextError(text: string): string | null {
+    const trimmed = text.trim();
+    if (!trimmed) return null;
+    if (trimmed.length > 1000) return "Al massimo 1000 caratteri.";
+    const unknown = [...trimmed.matchAll(/\{([a-z_]+)\}/gi)].map(m => m[1]).find(n => !["nome", "locale", "mittente"].includes(n));
+    return unknown ? `Segnaposto sconosciuto: {${unknown}}.` : null;
+}
+
+export const CRM_AGENT_DRAFT_STATUS_LABEL: Record<CrmAgentDraftStatus, string> = {
+    pending: "In attesa",
+    sent: "Inviata così",
+    edited: "Corretta e inviata",
+    discarded: "Non mandata",
+    expired: "Scaduta",
+    scheduled: "Telefonata fissata",
+    handled: "Gestita da una persona"
+};
+
+/** «4 approvate di fila senza modifiche · in tutto …». */
+export function describeTrust(t: {
+    approved_in_row: number;
+    total_approved: number;
+    total_edited: number;
+    total_discarded: number;
+    required_in_row?: number;
+    autonomous?: boolean;
+    total_auto?: number;
+}): string {
+    const row = t.approved_in_row === 1 ? "1 approvata di fila" : `${t.approved_in_row} approvate di fila`;
+    const state = t.autonomous
+        ? "fuori dalla prova"
+        : t.required_in_row
+          ? `in prova (ne servono ${t.required_in_row} di fila e 3 giorni)`
+          : null;
+    const auto = t.total_auto ? `, ${t.total_auto} partite da sole` : "";
+    return `${state ? `${state} · ` : ""}${row} senza modifiche · in tutto ${t.total_approved} approvate, ${t.total_edited} corrette, ${t.total_discarded} scartate${auto}`;
 }
