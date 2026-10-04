@@ -18,6 +18,10 @@
 --     (il primo messaggio aspetta 2-5 minuti dopo il form).
 --   * crm_settings: agent_replies_on, agent_followups_on (spenti: li accende
 --     Alex quando le regole del brand sono approvate).
+--   * Promemoria un'ora prima della telefonata (Alex, 2026-10-04): testo in
+--     crm_settings.call_soon_message (vuoto = spento), messaggi 'call_soon',
+--     crm_appointments.soon_queued_for = l'orario per cui è stato accodato
+--     (spostata la telefonata, ne parte uno nuovo).
 --
 -- Tabelle di piattaforma come le altre crm_*: niente tenant_id, RLS su
 -- is_platform_admin(), dal client solo lettura. Scrive l'edge crm-agent e il
@@ -98,6 +102,21 @@ INSERT INTO public.crm_agent_trust (kind) VALUES ('reply'), ('follow_up') ON CON
 ALTER TABLE public.crm_messages
     ADD COLUMN IF NOT EXISTS draft_id uuid REFERENCES public.crm_agent_drafts(id) ON DELETE SET NULL,
     ADD COLUMN IF NOT EXISTS send_after timestamptz;
+
+ALTER TABLE public.crm_settings
+    ADD COLUMN IF NOT EXISTS call_soon_message text
+        CHECK (call_soon_message IS NULL OR char_length(btrim(call_soon_message)) BETWEEN 1 AND 1000);
+ALTER TABLE public.crm_appointments
+    ADD COLUMN IF NOT EXISTS soon_queued_for timestamptz;
+
+ALTER TABLE public.crm_messages DROP CONSTRAINT IF EXISTS crm_messages_purpose_check;
+ALTER TABLE public.crm_messages ADD CONSTRAINT crm_messages_purpose_check CHECK (
+    purpose IN ('first_message', 'reply', 'follow_up', 'call_confirm', 'call_reminder', 'call_soon')
+);
+ALTER TABLE public.crm_messages DROP CONSTRAINT IF EXISTS crm_messages_call_has_appointment;
+ALTER TABLE public.crm_messages ADD CONSTRAINT crm_messages_call_has_appointment CHECK (
+    (purpose IN ('call_confirm', 'call_reminder', 'call_soon')) = (appointment_id IS NOT NULL)
+);
 
 -- -----------------------------------------------------------------------------
 -- Privilegi e RLS: dal client solo lettura

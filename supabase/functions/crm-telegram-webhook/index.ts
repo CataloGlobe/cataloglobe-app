@@ -60,6 +60,7 @@ import {
     buildCallerOtherTimeMessage,
     buildCallerRequestMessage,
     buildCreatorQuestionMessage,
+    buildHandoverBusyQuestion,
     buildHandedOverCallerText,
     buildLeadOtherTimeText,
     buildOtherTimeProposedText
@@ -240,6 +241,8 @@ async function handleCall(supabase, parsed, actor, team, answer, query, appUrl) 
     // Dopo «Chiedo a {nome} se può lui» risponde chi l'ha fissata.
     const isCaller = actor.user_id === row.caller_user_id;
     const isAskedCreator = info.creatorAsked === true && actor.user_id === row.created_by;
+    // Passaggio non riuscito (aveva un'altra telefonata): la gestisce chi l'ha fissata.
+    const isBusyCreator = info.handoverFailed === true && actor.user_id === row.created_by && !isCaller;
     const otherPerson = isCaller ? row.created_by : row.caller_user_id;
 
     if (parsed.action === "call_other_menu") {
@@ -248,11 +251,15 @@ async function handleCall(supabase, parsed, actor, team, answer, query, appUrl) 
             await closeMessage(query, buildAnsweredText(info, "già decisa"));
             return;
         }
-        if (!isCaller && !isAskedCreator) {
+        if (!isCaller && !isAskedCreator && !isBusyCreator) {
             await answer(CALL_ERRORS.CL006);
             return;
         }
-        const back = isCaller ? buildCallerRequestMessage(info, appUrl) : buildCreatorQuestionMessage(info, appUrl);
+        const back = isCaller
+            ? buildCallerRequestMessage(info, appUrl)
+            : isAskedCreator
+              ? buildCreatorQuestionMessage(info, appUrl)
+              : buildHandoverBusyQuestion(info, appUrl);
         await replaceMessage(query, parsed.open ? buildCallerOtherTimeMessage(info) : back);
         await answer("");
         return;

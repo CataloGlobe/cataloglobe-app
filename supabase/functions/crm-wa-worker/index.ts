@@ -45,6 +45,7 @@ import {
     buildChannelAlert,
     buildInboundAlert,
     buildSendInstruction,
+    buildHandWrittenAlert,
     buildUnknownChatAlert,
     parseSnapshotBatch,
     WA_CHATS_REPLY
@@ -187,6 +188,7 @@ async function chats(supabase, body) {
     // Le istantanee si rimandano a ogni giro e i messaggi già salvati si
     // saltano (wa_message_id), quindi un errore qui si ripara da solo.
     let unknownFromUs = 0;
+    const handWrittenVenues = new Set<string>();
     let failed = 0;
     for (const chat of parsed.value) {
         const { data, error } = await supabase.rpc("crm_wa_ingest_chat", {
@@ -198,11 +200,16 @@ async function chats(supabase, body) {
             continue;
         }
         if (data?.[0]?.r_status === "unknown" && chat.messages.some(m => m.from_me === true)) unknownFromUs++;
+        if (data?.[0]?.r_new_person > 0 && data[0].r_venue_id) handWrittenVenues.add(data[0].r_venue_id);
     }
     if (failed > 0) console.error(`${LOG}: chat non salvate`, failed);
     // Rete contro un Mac che scrive di testa sua (per esempio istruito dal
     // messaggio di un lead): un nostro messaggio verso un numero sconosciuto.
     if (unknownFromUs > 0) await sendToTeam(supabase, buildUnknownChatAlert(unknownFromUs), { logTag: LOG });
+    if (handWrittenVenues.size > 0) {
+        const { data: venues } = await supabase.from("crm_venues").select("name").in("id", [...handWrittenVenues]);
+        await sendToTeam(supabase, buildHandWrittenAlert((venues ?? []).map(v => v.name)), { logTag: LOG });
+    }
     await flushInbound(supabase);
     return json(200, WA_CHATS_REPLY);
 }
@@ -249,7 +256,7 @@ async function next(supabase) {
     }
 
     let text = row.r_body;
-    const isCall = row.r_purpose === "call_confirm" || row.r_purpose === "call_reminder";
+    const isCall = row.r_purpose === "call_confirm" || row.r_purpose === "call_reminder" || row.r_purpose === "call_soon";
     let template = row.r_template;
     if (!text && isCall && template) {
         // Conferma e promemoria della telefonata: {giorno} e {ora} dall'orario
