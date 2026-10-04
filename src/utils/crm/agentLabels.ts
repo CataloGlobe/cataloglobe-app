@@ -109,11 +109,11 @@ export function formatUsdInput(value: number): string {
 // -----------------------------------------------------------------------------
 export const CRM_AGENT_DRAFT_KIND_LABEL: Record<CrmAgentDraftKind, string> = {
     reply: "Risposta",
-    follow_up: "Follow-up",
+    follow_up: "Sollecito",
     bot_question: "«Sei un bot?»",
     ask: "Serve una persona",
     schedule: "Orario accettato",
-    stop_check: "Stop o obiezione?"
+    stop_check: "Stop o «non adesso»?"
 };
 
 export const CRM_AGENT_DRAFT_STATUS_LABEL: Record<CrmAgentDraftStatus, string> = {
