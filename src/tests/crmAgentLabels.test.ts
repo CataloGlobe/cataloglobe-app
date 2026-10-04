@@ -60,7 +60,8 @@ describe("agentCheckMessage", () => {
 describe("messaggi", () => {
     it("azioni del diario: etichetta o codice leggibile", () => {
         expect(decisionActionLabel("brake_on")).toBe("Agenti messi in pausa");
-        expect(decisionActionLabel("message_sent")).toBe("message sent");
+        expect(decisionActionLabel("message_sent")).toBe("Messaggio WhatsApp inviato");
+        expect(decisionActionLabel("call_booked")).toBe("call booked");
     });
 
     it("errori delle funzioni crm_*", () => {
