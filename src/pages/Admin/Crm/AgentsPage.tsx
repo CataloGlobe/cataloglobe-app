@@ -10,6 +10,9 @@ import { LoadingState } from "@/components/ui/LoadingState/LoadingState";
 import { ProgressBar } from "@/components/ui/ProgressBar/ProgressBar";
 import { Select } from "@/components/ui/Select/Select";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
+import { StatusStrip } from "@/components/ui/StatusStrip/StatusStrip";
+import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
+import { Tabs } from "@/components/ui/Tabs/Tabs";
 import Text from "@/components/ui/Text/Text";
 import { Textarea } from "@/components/ui/Textarea/Textarea";
 import { useToast } from "@/context/Toast/ToastContext";
@@ -26,9 +29,13 @@ import {
     updateCrmAgentSettings,
     type CrmAgentSettingsPatch
 } from "@/services/supabase/crmAgents";
+import { getCrmAgentTrialSettings, listCrmAgentDrafts, listCrmAgentTrust } from "@/services/supabase/crmAgentTrial";
 import type {
     CrmAgentDecision,
+    CrmAgentDraftRow,
     CrmAgentSettings,
+    CrmAgentTrialSettings,
+    CrmAgentTrust,
     CrmAiRole,
     CrmAiSpend,
     CrmBrandRules,
@@ -48,17 +55,19 @@ import {
 } from "@/utils/crm/agentLabels";
 import { formatDateTimeIt } from "@/utils/formatDateTime";
 import { CRM_AI_ROLES, CRM_AI_ROLE_LABEL, formatUsd, spendShare } from "@shared/crmAi";
+import { CRM_MESSAGE_STEPS, guideTopic as guideTopicOf } from "@shared/crmGuide";
+import { agentRows, giroToday, type AgentRow } from "@/utils/crm/agentsOverview";
 import { BrandRulesDrawer, type BrandRulesDrawerState } from "./BrandRulesDrawer";
 import { AgentTrialCard } from "./AgentTrialCard";
 import { WhatsappChannelCard } from "./WhatsappChannelCard";
 import styles from "./Crm.module.scss";
 
 /**
- * Agenti del CRM: la pausa degli agenti (attiva finché una persona non li riattiva),
- * la spesa AI coi due tetti, il modello per ruolo con la prova di
- * collegamento, le regole del brand (versioni approvate da una persona) e il
- * diario di ogni decisione. Gli agenti arrivano con le PR successive: questa
- * pagina è il quadro comandi che li tiene in mano.
+ * Agenti del CRM (grafica decisa il 2026-10-05): in cima lo stato con la
+ * pausa, poi il giro di un messaggio di oggi (cliccando un passo si accende
+ * chi lo fa nella tabella), la tabella degli agenti con «Come funziona» dalla
+ * guida condivisa, la spesa AI e, in schede, diario, bozze e interruttori,
+ * WhatsApp, modelli e regole del brand.
  */
 
 const MODEL_FIELD: Record<CrmAiRole, keyof CrmAgentSettingsPatch> = {
@@ -73,6 +82,16 @@ const ROLE_HINT: Record<CrmAiRole, string> = {
     reviewer: "Rilegge ogni messaggio prima che parta.",
     sensitive: "Prezzi, codici promo, casi delicati.",
     gea: "L'assistente del team su Telegram; la pausa non la ferma."
+};
+
+type AgentsTab = "diario" | "bozze" | "whatsapp" | "modelli" | "regole";
+
+const STEP_COUNT: Record<number, (g: ReturnType<typeof giroToday>) => string> = {
+    1: () => "dai lead",
+    2: g => (g.written === 1 ? "1 bozza" : `${g.written} bozze`),
+    3: g => `${g.reviewed} ${g.reviewed === 1 ? "riletta" : "rilette"}, ${g.stopped} ${g.stopped === 1 ? "fermata" : "fermate"}`,
+    4: g => (g.waiting === 0 ? "niente in attesa" : `${g.waiting} ${g.waiting === 1 ? "aspetta" : "aspettano"} · ${g.oldestWait}`),
+    5: g => (g.sent === 1 ? "1 partito" : `${g.sent} partiti`)
 };
 
 const RULES_STATUS: Record<CrmBrandRulesStatus, { label: string; variant: "success" | "warning" | "neutral" }> = {
@@ -91,6 +110,12 @@ export default function AgentsPage() {
     const [decisions, setDecisions] = useState<CrmAgentDecision[]>([]);
     const [rules, setRules] = useState<CrmBrandRules[]>([]);
     const [team, setTeam] = useState<CrmTeamMember[]>([]);
+    const [trialSettings, setTrialSettings] = useState<CrmAgentTrialSettings | null>(null);
+    const [trust, setTrust] = useState<CrmAgentTrust[]>([]);
+    const [drafts, setDrafts] = useState<CrmAgentDraftRow[]>([]);
+    const [selectedStep, setSelectedStep] = useState<number | null>(null);
+    const [guideFor, setGuideFor] = useState<AgentRow["id"] | null>(null);
+    const [tab, setTab] = useState<AgentsTab>("diario");
     const [isLoading, setIsLoading] = useState(true);
     const [pageError, setPageError] = useState<string | null>(null);
 
@@ -113,13 +138,20 @@ export default function AgentsPage() {
     const load = useCallback(async () => {
         setPageError(null);
         try {
-            const [nextSettings, nextSpend, nextDecisions, nextRules, members] = await Promise.all([
-                getCrmAgentSettings(),
-                getCrmAiSpend(),
-                listCrmAgentDecisions(),
-                listCrmBrandRules(),
-                listCrmTeamMembers()
-            ]);
+            const [nextSettings, nextSpend, nextDecisions, nextRules, members, nextTrial, nextTrust, nextDrafts] =
+                await Promise.all([
+                    getCrmAgentSettings(),
+                    getCrmAiSpend(),
+                    listCrmAgentDecisions(),
+                    listCrmBrandRules(),
+                    listCrmTeamMembers(),
+                    getCrmAgentTrialSettings(),
+                    listCrmAgentTrust(),
+                    listCrmAgentDrafts(100)
+                ]);
+            setTrialSettings(nextTrial);
+            setTrust(nextTrust);
+            setDrafts(nextDrafts);
             setSettings(nextSettings);
             setSpend(nextSpend);
             setDecisions(nextDecisions);
@@ -147,8 +179,48 @@ export default function AgentsPage() {
 
     usePageHeader({
         title: "Agenti",
-        subtitle: "Pausa, spesa, modelli e regole che gli agenti seguono."
+        subtitle: "Chi scrive ai lead, cosa ha fatto oggi e quanto costa."
     });
+
+    const now = useMemo(() => new Date(), [drafts, decisions]); // eslint-disable-line react-hooks/exhaustive-deps
+    const giro = useMemo(() => giroToday(drafts, decisions, now), [drafts, decisions, now]);
+    const rows = useMemo(
+        () => (trialSettings ? agentRows({ settings: trialSettings, trust, drafts, giro, now }) : []),
+        [trialSettings, trust, drafts, giro, now]
+    );
+    const highlighted = useMemo(
+        () => (selectedStep === null ? [] : rows.filter(r => r.step === selectedStep).map(r => r.id)),
+        [rows, selectedStep]
+    );
+
+    const columns: ColumnDefinition<AgentRow>[] = [
+        { id: "name", header: "Agente", accessor: r => r.name, cell: v => <Text variant="body-sm" weight={600}>{String(v)}</Text> },
+        { id: "step", header: "Passo", accessor: r => (r.step === null ? "fuori" : r.step), width: "72px", hideOnPhone: true },
+        { id: "status", header: "Stato", accessor: r => r.status, cell: (_v, r) => <StatusBadge variant={r.tone} label={r.status} /> },
+        { id: "today", header: "Oggi", accessor: r => r.today },
+        {
+            id: "share",
+            header: "Inviate così",
+            accessor: r => r.approvedShare,
+            hideOnPhone: true,
+            cell: (_v, r) =>
+                r.approvedShare === null ? (
+                    <Text variant="body-sm" colorVariant="muted">—</Text>
+                ) : (
+                    <ProgressBar inline value={Math.round(r.approvedShare * 100)} max={100} label={`${Math.round(r.approvedShare * 100)} %`} aria-label={`${r.name}: bozze inviate senza modifiche`} />
+                )
+        },
+        {
+            id: "guide",
+            header: <span className="visually-hidden">Come funziona</span>,
+            align: "right",
+            cell: (_v, r) => (
+                <Button variant="ghost" size="sm" aria-expanded={guideFor === r.id} onClick={() => setGuideFor(g => (g === r.id ? null : r.id))}>
+                    Come funziona
+                </Button>
+            )
+        }
+    ];
 
     function openBrakeDialog(kind: "stop" | "release") {
         setBrakeReason("");
@@ -249,46 +321,90 @@ export default function AgentsPage() {
     const dayShare = spendShare(spend.dayUsd, spend.dayCap);
     const monthShare = spendShare(spend.monthUsd, spend.monthCap);
 
+    const brakeAction = settings.brake_on ? (
+        <Button variant="primary" size="sm" onClick={() => openBrakeDialog("release")}>
+            Riattiva
+        </Button>
+    ) : (
+        <Button variant="secondary" size="sm" onClick={() => openBrakeDialog("stop")}>
+            Metti in pausa tutto
+        </Button>
+    );
+    const openGuide = guideFor ? guideTopicOf(guideFor) : null;
+
     return (
         <div className={styles.page}>
             {pageError && <InlineBanner variant="error">{pageError}</InlineBanner>}
 
-            <Card
-                title="Pausa agenti"
-                badge={
-                    <StatusBadge
-                        variant={settings.brake_on ? "danger" : "success"}
-                        label={settings.brake_on ? "Agenti in pausa" : "Agenti attivi"}
-                    />
+            <StatusStrip
+                tone={settings.brake_on ? "danger" : "success"}
+                badge={settings.brake_on ? "In pausa" : "Attivi"}
+                title={settings.brake_on ? (settings.brake_reason ?? "Agenti in pausa, nessun motivo scritto.") : "Gli agenti lavorano"}
+                description={
+                    settings.brake_changed_at
+                        ? `${CRM_BRAKE_SOURCE_LABEL[settings.brake_source]} · ${teamName(settings.brake_changed_by)} · ${formatDateTimeIt(settings.brake_changed_at)}`
+                        : undefined
                 }
-                actions={
-                    settings.brake_on ? (
-                        <Button variant="primary" size="sm" onClick={() => openBrakeDialog("release")}>
-                            Riattiva
-                        </Button>
-                    ) : (
-                        <Button variant="secondary" size="sm" onClick={() => openBrakeDialog("stop")}>
-                            Metti in pausa
-                        </Button>
-                    )
-                }
-            >
-                <Text variant="body">
-                    {settings.brake_on
-                        ? (settings.brake_reason ?? "Nessun motivo scritto.")
-                        : "Gli agenti possono scrivere ai locali, nei limiti di spesa qui sotto."}
-                </Text>
-                {settings.brake_changed_at && (
+                figures={[
+                    { value: giro.sent, label: "partiti oggi" },
+                    { value: giro.waiting, label: "aspettano voi" },
+                    { value: formatUsd(spend.dayUsd), label: `spesa oggi, tetto ${formatUsd(spend.dayCap)}` }
+                ]}
+                action={brakeAction}
+            />
+
+            <Card title="Il giro di un messaggio, oggi" subtitle="Scegli un passo: nella tabella si accende chi lo fa.">
+                <ol className={styles.giro}>
+                    {CRM_MESSAGE_STEPS.map(step => (
+                        <li key={step.step}>
+                            <button
+                                type="button"
+                                className={styles.giroStep}
+                                data-selected={selectedStep === step.step}
+                                data-level={step.step === 4 ? giro.oldestLevel : undefined}
+                                aria-pressed={selectedStep === step.step}
+                                onClick={() => setSelectedStep(s => (s === step.step ? null : step.step))}
+                            >
+                                <span className={styles.giroNumber} aria-hidden="true">
+                                    {step.step}
+                                </span>
+                                <span>
+                                    <Text as="span" variant="body-sm" weight={600}>
+                                        {step.title}
+                                    </Text>
+                                    <Text as="span" variant="caption" className={styles.giroCount}>
+                                        {STEP_COUNT[step.step](giro)}
+                                    </Text>
+                                </span>
+                            </button>
+                        </li>
+                    ))}
+                </ol>
+                {selectedStep === 4 && (
                     <Text variant="caption" colorVariant="muted">
-                        {CRM_BRAKE_SOURCE_LABEL[settings.brake_source]} · {teamName(settings.brake_changed_by)} ·{" "}
-                        {formatDateTimeIt(settings.brake_changed_at)}
+                        Il passo 4 siete voi: le bozze in attesa si decidono su Telegram o nella scheda del lead.
                     </Text>
                 )}
             </Card>
 
-            <WhatsappChannelCard />
-
-            <AgentTrialCard />
+            <Card title="Agenti" flush>
+                <DataTable
+                    ariaLabel="Agenti"
+                    data={rows}
+                    columns={columns}
+                    getRowId={r => r.id}
+                    highlightedRowIds={highlighted}
+                    showFooter={false}
+                />
+                {openGuide && (
+                    <div className={styles.cardPadding}>
+                        <InlineBanner variant="info">
+                            <strong>{openGuide.title}.</strong> {openGuide.short} {openGuide.body}
+                            {openGuide.example ? ` Esempio: ${openGuide.example}` : ""}
+                        </InlineBanner>
+                    </div>
+                )}
+            </Card>
 
             <Card title="Spesa AI">
                 <Text variant="body-sm" weight={600}>
@@ -348,7 +464,48 @@ export default function AgentsPage() {
                 </div>
             </Card>
 
-            <Card title="Modelli" flush>
+            <Tabs value={tab} onChange={setTab} variant="line">
+                <Tabs.List aria-label="Dettagli degli agenti">
+                    <Tabs.Tab value="diario">Diario</Tabs.Tab>
+                    <Tabs.Tab value="bozze" badge={giro.waiting > 0 ? giro.waiting : undefined} badgeTone="brand">
+                        Bozze e interruttori
+                    </Tabs.Tab>
+                    <Tabs.Tab value="whatsapp">WhatsApp</Tabs.Tab>
+                    <Tabs.Tab value="modelli">Modelli</Tabs.Tab>
+                    <Tabs.Tab value="regole">Regole del brand</Tabs.Tab>
+                </Tabs.List>
+                <Tabs.Panel value="diario">
+                    <Card title="Diario" flush>
+                {decisions.length === 0 ? (
+                    <div className={styles.cardPadding}>
+                        <EmptyState variant="inline" title="Ancora nessuna decisione" />
+                    </div>
+                ) : (
+                    decisions.map(decision => (
+                        <ListRow
+                            key={decision.id}
+                            dense
+                            title={decisionActionLabel(decision.action)}
+                            subtitle={decision.reason ?? undefined}
+                            wrapSubtitle
+                            meta={`${formatDateTimeIt(decision.created_at)} · ${
+                                decision.actor_user_id
+                                    ? teamName(decision.actor_user_id)
+                                    : CRM_DECISION_ACTOR_LABEL[decision.actor]
+                            }`}
+                        />
+                    ))
+                )}
+            </Card>
+                </Tabs.Panel>
+                <Tabs.Panel value="bozze">
+                    <AgentTrialCard />
+                </Tabs.Panel>
+                <Tabs.Panel value="whatsapp">
+                    <WhatsappChannelCard />
+                </Tabs.Panel>
+                <Tabs.Panel value="modelli">
+                    <Card title="Modelli" flush>
                 {modelError && (
                     <div className={styles.cardPadding}>
                         <InlineBanner variant="error">{modelError}</InlineBanner>
@@ -387,8 +544,9 @@ export default function AgentsPage() {
                     );
                 })}
             </Card>
-
-            <Card
+                </Tabs.Panel>
+                <Tabs.Panel value="regole">
+                    <Card
                 title="Regole del brand"
                 badge={
                     approved ? <StatusBadge variant="success" label={`Versione ${approved.version}`} /> : undefined
@@ -439,29 +597,8 @@ export default function AgentsPage() {
                     />
                 ))}
             </Card>
-
-            <Card title="Diario" flush>
-                {decisions.length === 0 ? (
-                    <div className={styles.cardPadding}>
-                        <EmptyState variant="inline" title="Ancora nessuna decisione" />
-                    </div>
-                ) : (
-                    decisions.map(decision => (
-                        <ListRow
-                            key={decision.id}
-                            dense
-                            title={decisionActionLabel(decision.action)}
-                            subtitle={decision.reason ?? undefined}
-                            wrapSubtitle
-                            meta={`${formatDateTimeIt(decision.created_at)} · ${
-                                decision.actor_user_id
-                                    ? teamName(decision.actor_user_id)
-                                    : CRM_DECISION_ACTOR_LABEL[decision.actor]
-                            }`}
-                        />
-                    ))
-                )}
-            </Card>
+                </Tabs.Panel>
+            </Tabs>
 
             <ConfirmDialog
                 isOpen={brakeDialog !== null}
@@ -473,7 +610,7 @@ export default function AgentsPage() {
                         ? "Smettono di scrivere ai locali finché una persona non li riattiva. Gea su Telegram resta attiva."
                         : "Riprendono a scrivere ai locali, con le regole del brand in vigore e nei tetti di spesa."
                 }
-                confirmLabel={brakeDialog === "stop" ? "Metti in pausa" : "Riattiva"}
+                confirmLabel={brakeDialog === "stop" ? "Metti in pausa tutto" : "Riattiva"}
                 confirmVariant={brakeDialog === "stop" ? "danger" : "primary"}
                 isLoading={isBrakeSaving}
                 error={brakeError}

@@ -183,6 +183,16 @@
   // alias della palette come gli altri.
   --rule-layout: var(--brand-primary);
   --rule-featured: var(--color-violet-500);
+  // Barra del CRM in /admin (grafica decisa il 2026-10-05, «7A2»): indaco
+  // profondo, uguale nei due temi. Li legge solo AdminLayout.module.scss.
+  --crm-nav-bg: #1b1a3d;
+  --crm-nav-border: #2c2a5e;
+  --crm-nav-hover: #23214d;
+  --crm-nav-active: #312e6b;
+  --crm-nav-active-hover: #3a3680;
+  --crm-nav-text: #c3c1ea;
+  --crm-nav-text-strong: #ffffff;
+  --crm-nav-disabled: #6e6aa8;
   --rule-price: var(--success-500);
   --rule-visibility: var(--warning-500);
 

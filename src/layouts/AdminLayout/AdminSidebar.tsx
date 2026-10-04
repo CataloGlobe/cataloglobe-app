@@ -1,12 +1,13 @@
-import { ArrowLeft, Activity, Bot, Building2, CalendarClock, LifeBuoy, UserPlus, Wallet } from "lucide-react";
+import { ArrowLeft, Activity, Bot, CalendarClock, LifeBuoy, UserPlus, Wallet } from "lucide-react";
 import {
     AppSidebar,
     type AppSidebarNavGroup
 } from "@/components/layout/AppSidebar/AppSidebar";
 
 /**
- * Navigazione dell'area admin di piattaforma. Lista piatta, nessun collapse di
- * sezione: aggiungere una sezione = aggiungere una voce a `buildGroups`.
+ * Navigazione dell'area admin: gruppo CRM in cima, poi Piattaforma (grafica
+ * del CRM decisa il 2026-10-05). Aggiungere una sezione = aggiungere una voce
+ * a `buildGroups`. La voce «Tenant», mai navigabile, è uscita.
  *
  * Il ritorno al workspace è un secondo gruppo, non un footer custom: l'area
  * admin si raggiunge solo dal menu utente e senza via d'uscita esplicita
@@ -18,18 +19,17 @@ import {
 function buildGroups(supportPending: boolean): AppSidebarNavGroup[] {
     return [
         {
+            title: "CRM",
             items: [
-                {
-                    to: "/admin/status-incidents",
-                    label: "Status incidents",
-                    icon: <Activity size={18} />
-                },
-                {
-                    to: "/admin/tenant",
-                    label: "Tenant",
-                    icon: <Building2 size={18} />,
-                    disabled: true
-                },
+                { to: "/admin/lead", label: "Lead", icon: <UserPlus size={18} /> },
+                { to: "/admin/agenda", label: "Agenda", icon: <CalendarClock size={18} /> },
+                { to: "/admin/agenti", label: "Agenti", icon: <Bot size={18} /> },
+                { to: "/admin/costi", label: "Costi", icon: <Wallet size={18} /> }
+            ]
+        },
+        {
+            title: "Piattaforma",
+            items: [
                 {
                     to: "/admin/supporto",
                     label: "Supporto",
@@ -37,32 +37,11 @@ function buildGroups(supportPending: boolean): AppSidebarNavGroup[] {
                     showDot: supportPending,
                     dotLabel: "Ci sono richieste in attesa di risposta"
                 },
-                {
-                    to: "/admin/lead",
-                    label: "Lead",
-                    icon: <UserPlus size={18} />
-                },
-                {
-                    to: "/admin/agenda",
-                    label: "Agenda",
-                    icon: <CalendarClock size={18} />
-                },
-                {
-                    to: "/admin/agenti",
-                    label: "Agenti",
-                    icon: <Bot size={18} />
-                },
-                {
-                    to: "/admin/costi",
-                    label: "Costi",
-                    icon: <Wallet size={18} />
-                }
+                { to: "/admin/status-incidents", label: "Incidenti", icon: <Activity size={18} /> }
             ]
         },
         {
-            items: [
-                { to: "/workspace", label: "Torna al workspace", icon: <ArrowLeft size={18} /> }
-            ]
+            items: [{ to: "/workspace", label: "Torna al workspace", icon: <ArrowLeft size={18} /> }]
         }
     ];
 }
