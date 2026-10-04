@@ -50,6 +50,7 @@ import { StageLockDialog, type StageLockRequest } from "./StageLockDialog";
 import { VenueNameCard } from "./VenueNameCard";
 import { VenueNameCheckCard } from "./VenueNameCheckCard";
 import { WhatsappConversationCard } from "./WhatsappConversationCard";
+import { LeadQueue } from "./components/LeadQueue";
 import { leadAnswerRows } from "@/utils/crm/leadAnswers";
 import { leadToVerify } from "@/utils/crm/venueNameCheck";
 import { describeCallEvent } from "@/utils/crm/agenda";
@@ -400,139 +401,147 @@ export default function LeadDetailPage() {
 
             {verifyLead && <VenueNameCheckCard venue={detail.venue} lead={verifyLead} onChanged={load} />}
 
-            <AccountCard
-                venueId={detail.venue.id}
-                tenantId={detail.venue.tenant_id}
-                linkSource={detail.venue.link_source}
-                accountLabel={accountLabel}
-                onChanged={load}
-            />
+            <div className={styles.leadLayout}>
+                <LeadQueue currentVenueId={detail.venue.id} />
+                <div className={styles.leadMain}>
+                    <WhatsappConversationCard venue={detail.venue} teamName={teamName} onChanged={load} />
 
-            <Card title="Contatti" flush>
-                {contacts.map(contact => (
-                    <ListRow
-                        key={contact.id}
-                        title={contact.name}
-                        subtitle={[contact.phone_e164, contact.email].filter(Boolean).join(" · ")}
-                        trailingWrap
-                        trailing={
-                            contact.phone_e164 ? (
-                                <div className={styles.headerActions}>
-                                    {!stopped && (
-                                        <Button
-                                            variant="primary"
-                                            size="sm"
-                                            onClick={() => handleWhatsapp(contact)}
-                                        >
-                                            Scrivi su WhatsApp
-                                        </Button>
-                                    )}
-                                    <Button
-                                        variant="secondary"
-                                        size="sm"
-                                        onClick={() => {
-                                            window.location.href = `tel:${contact.phone_e164}`;
-                                        }}
-                                    >
-                                        Chiama
-                                    </Button>
-                                </div>
-                            ) : undefined
-                        }
+                    <CallCard
+                        venueId={detail.venue.id}
+                        venueName={detail.venue.name}
+                        lost={detail.venue.stage === "perso"}
+                        team={team}
+                        currentUserId={user?.id ?? null}
+                        teamName={teamName}
+                        onChanged={load}
                     />
-                ))}
-            </Card>
 
-            <CallCard
-                venueId={detail.venue.id}
-                venueName={detail.venue.name}
-                lost={detail.venue.stage === "perso"}
-                team={team}
-                currentUserId={user?.id ?? null}
-                teamName={teamName}
-                onChanged={load}
-            />
-
-            <WhatsappConversationCard venue={detail.venue} teamName={teamName} onChanged={load} />
-
-            <Card title={leads.length === 1 ? "Richiesta" : `Richieste (${leads.length})`}>
-                <div className={styles.leadList}>
-                    {leads.map(lead => {
-                        const answers = leadAnswerRows(lead);
-                        return (
-                            <div key={lead.id} className={styles.leadItem}>
-                                <Text variant="body" weight={600}>
-                                    {CRM_SOURCE_LABEL[lead.source]} ·{" "}
-                                    {formatDateTimeIt(lead.received_at)}
-                                </Text>
-                                {(lead.ad_name || lead.campaign) && (
-                                    <Text variant="body-sm" colorVariant="muted">
-                                        {[lead.ad_name, lead.campaign].filter(Boolean).join(" · ")}
-                                    </Text>
-                                )}
-                                {answers.length > 0 && (
-                                    <dl className={styles.answers}>
-                                        {answers.map(row => (
-                                            <div key={row.label} className={styles.answerRow}>
-                                                <dt>
-                                                    <Text variant="caption" colorVariant="muted">
-                                                        {row.label}
-                                                    </Text>
-                                                </dt>
-                                                <dd>
-                                                    <Text variant="body-sm">{row.value}</Text>
-                                                </dd>
-                                            </div>
-                                        ))}
-                                    </dl>
-                                )}
-                                {lead.consent_text && (
-                                    <Text variant="caption" colorVariant="muted">
-                                        Consenso: {lead.consent_text}
-                                        {lead.consent_at ? ` (${formatDateTimeIt(lead.consent_at)})` : ""}
-                                    </Text>
-                                )}
+                    <Card title="Storia" flush>
+                        <div className={styles.noteComposer}>
+                            <Textarea
+                                label="Nuova nota"
+                                rows={2}
+                                maxLength={4000}
+                                value={note}
+                                onChange={e => setNote(e.target.value)}
+                                disabled={isSavingNote}
+                            />
+                            <div className={styles.noteActions}>
+                                <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    onClick={() => void handleAddNote()}
+                                    loading={isSavingNote}
+                                    disabled={!note.trim()}
+                                >
+                                    Aggiungi nota
+                                </Button>
                             </div>
-                        );
-                    })}
-                </div>
-            </Card>
+                        </div>
+                        {events.map(event => (
+                            <ListRow
+                                key={event.id}
+                                dense
+                                title={CRM_EVENT_LABEL[event.type]}
+                                subtitle={describeEvent(event, teamName) || undefined}
+                                wrapSubtitle
+                                meta={`${formatDateTimeIt(event.created_at)} · ${
+                                    event.actor_user_id ? teamName(event.actor_user_id) : "Sistema"
+                                }`}
+                            />
+                        ))}
+                    </Card>
 
-            <Card title="Storia" flush>
-                <div className={styles.noteComposer}>
-                    <Textarea
-                        label="Nuova nota"
-                        rows={2}
-                        maxLength={4000}
-                        value={note}
-                        onChange={e => setNote(e.target.value)}
-                        disabled={isSavingNote}
-                    />
-                    <div className={styles.noteActions}>
-                        <Button
-                            variant="secondary"
-                            size="sm"
-                            onClick={() => void handleAddNote()}
-                            loading={isSavingNote}
-                            disabled={!note.trim()}
-                        >
-                            Aggiungi nota
-                        </Button>
-                    </div>
                 </div>
-                {events.map(event => (
-                    <ListRow
-                        key={event.id}
-                        dense
-                        title={CRM_EVENT_LABEL[event.type]}
-                        subtitle={describeEvent(event, teamName) || undefined}
-                        wrapSubtitle
-                        meta={`${formatDateTimeIt(event.created_at)} · ${
-                            event.actor_user_id ? teamName(event.actor_user_id) : "Sistema"
-                        }`}
+                <aside className={styles.leadSide} aria-label="Dati del lead">
+                    <Card title="Contatti" flush>
+                        {contacts.map(contact => (
+                            <ListRow
+                                key={contact.id}
+                                title={contact.name}
+                                subtitle={[contact.phone_e164, contact.email].filter(Boolean).join(" · ")}
+                                trailingWrap
+                                trailing={
+                                    contact.phone_e164 ? (
+                                        <div className={styles.headerActions}>
+                                            {!stopped && (
+                                                <Button
+                                                    variant="primary"
+                                                    size="sm"
+                                                    onClick={() => handleWhatsapp(contact)}
+                                                >
+                                                    Scrivi su WhatsApp
+                                                </Button>
+                                            )}
+                                            <Button
+                                                variant="secondary"
+                                                size="sm"
+                                                onClick={() => {
+                                                    window.location.href = `tel:${contact.phone_e164}`;
+                                                }}
+                                            >
+                                                Chiama
+                                            </Button>
+                                        </div>
+                                    ) : undefined
+                                }
+                            />
+                        ))}
+                    </Card>
+
+                    <Card title={leads.length === 1 ? "Richiesta" : `Richieste (${leads.length})`}>
+                        <div className={styles.leadList}>
+                            {leads.map(lead => {
+                                const answers = leadAnswerRows(lead);
+                                return (
+                                    <div key={lead.id} className={styles.leadItem}>
+                                        <Text variant="body" weight={600}>
+                                            {CRM_SOURCE_LABEL[lead.source]} ·{" "}
+                                            {formatDateTimeIt(lead.received_at)}
+                                        </Text>
+                                        {(lead.ad_name || lead.campaign) && (
+                                            <Text variant="body-sm" colorVariant="muted">
+                                                {[lead.ad_name, lead.campaign].filter(Boolean).join(" · ")}
+                                            </Text>
+                                        )}
+                                        {answers.length > 0 && (
+                                            <dl className={styles.answers}>
+                                                {answers.map(row => (
+                                                    <div key={row.label} className={styles.answerRow}>
+                                                        <dt>
+                                                            <Text variant="caption" colorVariant="muted">
+                                                                {row.label}
+                                                            </Text>
+                                                        </dt>
+                                                        <dd>
+                                                            <Text variant="body-sm">{row.value}</Text>
+                                                        </dd>
+                                                    </div>
+                                                ))}
+                                            </dl>
+                                        )}
+                                        {lead.consent_text && (
+                                            <Text variant="caption" colorVariant="muted">
+                                                Consenso: {lead.consent_text}
+                                                {lead.consent_at ? ` (${formatDateTimeIt(lead.consent_at)})` : ""}
+                                            </Text>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </Card>
+
+                    <AccountCard
+                        venueId={detail.venue.id}
+                        tenantId={detail.venue.tenant_id}
+                        linkSource={detail.venue.link_source}
+                        accountLabel={accountLabel}
+                        onChanged={load}
                     />
-                ))}
-            </Card>
+
+                </aside>
+            </div>
 
             <StageLockDialog
                 request={lockRequest}
