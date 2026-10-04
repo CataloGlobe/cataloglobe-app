@@ -8,6 +8,7 @@ import {
     buildCreatorQuestionMessage,
     buildHandedOverCallerText,
     buildHandedOverText,
+    buildHandoverBusyQuestion,
     buildHandoverFailedText,
     buildLeadOtherTimeText,
     buildOtherTimeProposedText,
@@ -136,6 +137,16 @@ describe("messaggi", () => {
         const t = buildHandoverFailedText(info);
         expect(t).toContain("⚠️ La telefonata con Bar &lt;Roma&gt; di giovedì 8 alle 17:45 non è passata ad Alessandro");
         expect(t).toContain("al lead non è partita la conferma");
+    });
+
+    it("passaggio non riuscito per un'altra telefonata: a chi l'ha fissata si chiede di gestirla", () => {
+        const m = buildHandoverBusyQuestion(info, "https://app.example");
+        expect(m.text).toContain("⚠️ Lorenzo non ha risposto per la telefonata con");
+        expect(m.text).toContain("e tu a quell'ora hai già un'altra telefonata.");
+        expect(m.text).toContain("<b>Riesci a gestirla?</b>");
+        const buttons = m.reply_markup.inline_keyboard.flat();
+        expect(buttons[0]).toEqual({ text: "Propongo un altro orario al lead", callback_data: encodeCallOtherMenu(AP, true) });
+        expect(buttons.some(b => "url" in b)).toBe(true);
     });
 
     it("passaggio e proposta: testi per chi l'ha fissata e per chi chiamava", () => {

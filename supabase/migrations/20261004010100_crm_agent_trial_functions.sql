@@ -13,7 +13,10 @@
 --                                              primo messaggio aspetta 2-5 minuti
 --   crm_wa_claim_next                          rifatta da 20261003230100: salta
 --                                              ciò che non è pronto (send_after)
---                                              e tutto da mezzanotte alle 6:30
+--                                              e tutto da mezzanotte alle 6:30;
+--                                              promemoria di un'ora prima
+--   crm_agenda_enqueue_reminders               rifatta da 20261003230100: anche
+--                                              il promemoria di un'ora prima
 -- =============================================================================
 
 -- ⚠️ SYNC con isAgentNight (supabase/functions/_shared/crmAgentRules.ts).
@@ -533,6 +536,7 @@ DECLARE
     v_template     text;
     v_confirm_tpl  text;
     v_reminder_tpl text;
+    v_soon_tpl     text;
     v_test_only    boolean;
     v_test_numbers text[];
     v_next_send    timestamptz;
@@ -547,9 +551,9 @@ BEGIN
     SELECT c.next_send_at, c.failures_in_row, c.wa_state INTO v_next_send, v_failures, v_wa_state
     FROM public.crm_wa_channel c WHERE c.id FOR UPDATE;
 
-    SELECT s.brake_on, s.wa_first_message, s.call_confirm_message, s.call_reminder_message,
+    SELECT s.brake_on, s.wa_first_message, s.call_confirm_message, s.call_reminder_message, s.call_soon_message,
            s.wa_test_only, s.wa_test_numbers
-    INTO v_brake, v_template, v_confirm_tpl, v_reminder_tpl, v_test_only, v_test_numbers
+    INTO v_brake, v_template, v_confirm_tpl, v_reminder_tpl, v_soon_tpl, v_test_only, v_test_numbers
     FROM public.crm_settings s WHERE s.id;
 
     -- Invii presi e mai chiusi (Mac spento a metà): non si sa se sono partiti,
@@ -623,8 +627,9 @@ BEGIN
         LEFT JOIN public.crm_leads l ON l.id = q.lead_id
         LEFT JOIN public.crm_appointments ap ON ap.id = q.appointment_id
         WHERE q.status = 'queued'
+        -- Il promemoria di un'ora prima non può aspettare: per primo.
         ORDER BY CASE q.purpose
-                     WHEN 'reply' THEN 0 WHEN 'call_confirm' THEN 1 WHEN 'call_reminder' THEN 1
+                     WHEN 'call_soon' THEN 0 WHEN 'reply' THEN 0 WHEN 'call_confirm' THEN 1 WHEN 'call_reminder' THEN 1
                      WHEN 'first_message' THEN 2 ELSE 3
                  END, q.created_at
         LIMIT 200
@@ -635,7 +640,7 @@ BEGIN
         -- promemoria sono testi fissi ('system'), il resto lo scrive l'agente.
         SELECT * INTO v_gate FROM public.crm_lead_send_gate(
             m.contact_id, 'whatsapp',
-            CASE WHEN m.purpose IN ('first_message', 'call_confirm', 'call_reminder') THEN 'system' ELSE 'agent' END
+            CASE WHEN m.purpose IN ('first_message', 'call_confirm', 'call_reminder', 'call_soon') THEN 'system' ELSE 'agent' END
         );
         IF v_gate.r_reason = 'brake' THEN
             RETURN QUERY SELECT NULL::uuid, NULL::uuid, NULL::text, NULL::text, NULL::text, NULL::boolean,
@@ -661,11 +666,18 @@ BEGIN
             ) THEN 'C''è già una conversazione.'
             WHEN m.purpose = 'call_confirm' AND v_confirm_tpl IS NULL THEN 'Conferma della telefonata spenta.'
             WHEN m.purpose = 'call_reminder' AND v_reminder_tpl IS NULL THEN 'Promemoria della telefonata spento.'
-            WHEN m.purpose IN ('call_confirm', 'call_reminder') AND m.call_status IS DISTINCT FROM 'confirmed'
+            WHEN m.purpose = 'call_soon' AND v_soon_tpl IS NULL THEN 'Promemoria di un''ora prima spento.'
+            WHEN m.purpose IN ('call_confirm', 'call_reminder', 'call_soon') AND m.call_status IS DISTINCT FROM 'confirmed'
                 THEN 'Telefonata non più confermata.'
             WHEN m.purpose = 'call_confirm' AND m.call_starts_at <= p_now THEN 'Telefonata già passata.'
             WHEN m.purpose = 'call_reminder' AND m.call_starts_at <= p_now + interval '1 hour'
                 THEN 'Troppo vicino alla telefonata.'
+            -- Un'ora prima: non a meno di 10 minuti, e non se la telefonata
+            -- nel frattempo è stata spostata più avanti.
+            WHEN m.purpose = 'call_soon' AND m.call_starts_at <= p_now + interval '10 minutes'
+                THEN 'Troppo vicino alla telefonata.'
+            WHEN m.purpose = 'call_soon' AND m.call_starts_at > p_now + interval '70 minutes'
+                THEN 'Telefonata spostata.'
             WHEN v_test_only AND NOT (m.phone_e164 = ANY (v_test_numbers)) THEN 'Solo numeri di prova: numero fuori lista.'
         END;
         IF v_cancel IS NOT NULL THEN
@@ -713,6 +725,7 @@ BEGIN
                 WHEN 'first_message' THEN v_template
                 WHEN 'call_confirm' THEN v_confirm_tpl
                 WHEN 'call_reminder' THEN v_reminder_tpl
+                WHEN 'call_soon' THEN v_soon_tpl
             END,
             0, 'send'::text;
         RETURN;
@@ -720,5 +733,68 @@ BEGIN
 
     RETURN QUERY SELECT NULL::uuid, NULL::uuid, NULL::text, NULL::text, NULL::text, NULL::boolean,
         NULL::text, NULL::text, NULL::text, 60, 'empty'::text;
+END;
+$$;
+
+-- -----------------------------------------------------------------------------
+-- crm_agenda_enqueue_reminders, rifatta da 20261003230100
+-- -----------------------------------------------------------------------------
+-- Come prima, il promemoria del giorno prima alle 18. In più il promemoria
+-- un'ora prima (Alex, 2026-10-04): col testo impostato, solo se la telefonata
+-- è fissata da almeno 2 ore prima dell'orario (fissata da poco, basta la
+-- conferma) e non a meno di 10 minuti. soon_queued_for tiene l'orario per cui
+-- è partito: spostata la telefonata, ne parte uno per l'orario nuovo.
+-- Ritorna quanti ne ha accodati in tutto.
+CREATE OR REPLACE FUNCTION public.crm_agenda_enqueue_reminders(p_now timestamptz DEFAULT now())
+RETURNS integer
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path TO ''
+AS $$
+DECLARE
+    v_count integer := 0;
+    v_soon  integer := 0;
+BEGIN
+    IF EXISTS (SELECT 1 FROM public.crm_settings s WHERE s.id AND s.call_reminder_message IS NOT NULL) THEN
+        WITH due AS (
+            UPDATE public.crm_appointments a
+            SET reminder_queued_at = p_now
+            FROM public.crm_contacts c
+            WHERE c.id = a.contact_id AND c.phone_e164 IS NOT NULL
+              AND a.status = 'confirmed'
+              AND a.reminder_queued_at IS NULL
+              AND p_now >= public.crm_call_reminder_at(a.starts_at)
+              AND a.time_set_at < public.crm_call_reminder_at(a.starts_at)
+              AND a.starts_at > p_now + interval '1 hour'
+            RETURNING a.id, a.venue_id, a.contact_id, a.lead_id
+        )
+        INSERT INTO public.crm_messages
+            (venue_id, contact_id, lead_id, direction, author, purpose, status, appointment_id)
+        SELECT d.venue_id, d.contact_id, d.lead_id, 'out', 'agent', 'call_reminder', 'queued', d.id
+        FROM due d;
+        GET DIAGNOSTICS v_count = ROW_COUNT;
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM public.crm_settings s WHERE s.id AND s.call_soon_message IS NOT NULL) THEN
+        WITH due AS (
+            UPDATE public.crm_appointments a
+            SET soon_queued_for = a.starts_at
+            FROM public.crm_contacts c
+            WHERE c.id = a.contact_id AND c.phone_e164 IS NOT NULL
+              AND a.status = 'confirmed'
+              AND a.soon_queued_for IS DISTINCT FROM a.starts_at
+              AND p_now >= a.starts_at - interval '1 hour'
+              AND a.starts_at > p_now + interval '10 minutes'
+              AND a.time_set_at < a.starts_at - interval '2 hours'
+            RETURNING a.id, a.venue_id, a.contact_id, a.lead_id
+        )
+        INSERT INTO public.crm_messages
+            (venue_id, contact_id, lead_id, direction, author, purpose, status, appointment_id)
+        SELECT d.venue_id, d.contact_id, d.lead_id, 'out', 'agent', 'call_soon', 'queued', d.id
+        FROM due d;
+        GET DIAGNOSTICS v_soon = ROW_COUNT;
+    END IF;
+
+    RETURN v_count + v_soon;
 END;
 $$;

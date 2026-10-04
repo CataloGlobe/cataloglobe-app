@@ -31,6 +31,7 @@ import {
     buildCallerRequestMessage,
     buildHandedOverCallerText,
     buildHandedOverText,
+    buildHandoverBusyQuestion,
     buildHandoverFailedText,
     buildOutcomeMessage,
     handoverAt,
@@ -55,7 +56,7 @@ const OUTCOME_GIVE_UP_DAYS = 3;
 
 const APPOINTMENT_SELECT =
     "id, venue_id, lead_id, starts_at, ends_at, status, note, caller_user_id, created_by, google_event_id, google_rev, " +
-    "caller_asked_at, caller_reminded_at, creator_asked_at, " +
+    "caller_asked_at, caller_reminded_at, creator_asked_at, handover_failed_at, " +
     "crm_venues(name, city, stage), crm_contacts(name, phone_e164)";
 
 function teamName(team, userId: string | null): string | null {
@@ -86,6 +87,7 @@ export function toCallInfo(row, team): AgendaCallInfo {
         createdByName: teamName(team, row.created_by),
         canHandOver: Boolean(row.created_by) && row.created_by !== row.caller_user_id,
         creatorAsked: creatorAsked(row),
+        handoverFailed: Boolean(row.handover_failed_at),
         note: row.note ?? null
     };
 }
@@ -358,7 +360,15 @@ export async function processAgenda(supabase, team, botToken: string | null, app
             console.warn(`${LOG}: passaggio non riuscito`, row.id, error.code);
             if (await claimStep(supabase, row.id, "handover_failed_at", now)) {
                 const text = buildHandoverFailedText(info);
-                await sendToCaller(botToken, team, row.created_by, { text });
+                // Aveva un'altra telefonata a quell'ora: a chi l'ha fissata si
+                // chiede di gestirla, coi tasti per proporre un altro orario.
+                const busy = error.code === "CL001" && teamName(team, row.created_by) !== null;
+                await sendToCaller(
+                    botToken,
+                    team,
+                    row.created_by,
+                    busy ? buildHandoverBusyQuestion({ ...info, handoverFailed: true }, appUrl) : { text }
+                );
                 await sendToCaller(botToken, team, row.caller_user_id, { text });
             }
             continue;
