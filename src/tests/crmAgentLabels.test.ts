@@ -60,7 +60,8 @@ describe("agentCheckMessage", () => {
 describe("messaggi", () => {
     it("azioni del diario: etichetta o codice leggibile", () => {
         expect(decisionActionLabel("brake_on")).toBe("Agenti messi in pausa");
-        expect(decisionActionLabel("message_sent")).toBe("message sent");
+        expect(decisionActionLabel("message_sent")).toBe("Messaggio WhatsApp inviato");
+        expect(decisionActionLabel("call_booked")).toBe("call booked");
     });
 
     it("errori delle funzioni crm_*", () => {
@@ -71,5 +72,25 @@ describe("messaggi", () => {
             "Il tetto di oggi non può superare quello del mese."
         );
         expect(crmAgentErrorMessage(null)).toBe("Qualcosa non ha funzionato. Riprova.");
+    });
+});
+
+describe("agente in prova (F1-3)", () => {
+    it("fiducia in una riga", async () => {
+        const { describeTrust } = await import("@/utils/crm/agentLabels");
+        expect(describeTrust({ approved_in_row: 1, total_approved: 3, total_edited: 1, total_discarded: 0 })).toBe(
+            "1 approvata di fila senza modifiche · in tutto 3 approvate, 1 corrette, 0 scartate"
+        );
+        expect(describeTrust({ approved_in_row: 4, total_approved: 4, total_edited: 0, total_discarded: 0 })).toContain("4 approvate di fila");
+    });
+});
+
+describe("riattivazione (F1-6)", () => {
+    it("segnaposti ammessi", async () => {
+        const { reactivationTextError } = await import("@/utils/crm/agentLabels");
+        expect(reactivationTextError("")).toBeNull();
+        expect(reactivationTextError("Ciao {nome}, sono {mittente} di CataloGlobe: {locale} come va?")).toBeNull();
+        expect(reactivationTextError("Ciao {giorno}")).toBe("Segnaposto sconosciuto: {giorno}.");
+        expect(reactivationTextError("x".repeat(1001))).toBe("Al massimo 1000 caratteri.");
     });
 });
