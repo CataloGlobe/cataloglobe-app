@@ -115,7 +115,15 @@ export default function AgendaPage() {
             <ListRow
                 key={a.id}
                 to={`/admin/lead/${a.venue_id}`}
-                title={`${showDay ? `${formatCallDay(start)} ` : ""}${formatCallTime(start)} · ${a.venue_name}`}
+                leading={
+                    <span className={styles.agendaTime}>
+                        {showDay && <Text as="span" variant="caption" colorVariant="muted">{formatCallDay(start)}</Text>}
+                        <Text as="span" variant="body-sm" weight={600}>
+                            {formatCallTime(start)}
+                        </Text>
+                    </span>
+                }
+                title={a.venue_name}
                 subtitle={[a.venue_city, `chiama ${teamName(a.caller_user_id)}`, a.note].filter(Boolean).join(" · ")}
                 trailing={
                     <StatusBadge
