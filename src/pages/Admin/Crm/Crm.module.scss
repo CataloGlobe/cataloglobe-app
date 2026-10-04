@@ -193,6 +193,14 @@
     border-color: var(--brand-primary);
   }
 
+  &[data-level="arancio"] {
+    box-shadow: inset 3px 0 0 var(--color-warning-500);
+  }
+
+  &[data-level="rosso"] {
+    box-shadow: inset 3px 0 0 var(--danger);
+  }
+
   &[data-dragging] {
     opacity: 0.4;
   }

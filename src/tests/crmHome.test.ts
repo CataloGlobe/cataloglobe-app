@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CrmAgentDraftRow, CrmAppointmentWithVenue, CrmVenueListItem } from "@/types/crm";
-import { greeting, homeAgendaToday, homeFigures, homeHot, homeTodos } from "@/utils/crm/crmHome";
+import { greeting, homeAgendaToday, homeFigures, homeHot, homeTodos, venueWaits } from "@/utils/crm/crmHome";
 
 // Lunedì 5 ottobre 2026, 15:00 di Roma
 const NOW = new Date("2026-10-05T13:00:00Z");
@@ -142,5 +142,21 @@ describe("homeAgendaToday e greeting", () => {
         expect(greeting(new Date("2026-10-05T07:00:00Z"))).toBe("Buongiorno");
         expect(greeting(NOW)).toBe("Buon pomeriggio");
         expect(greeting(new Date("2026-10-05T17:30:00Z"))).toBe("Buonasera");
+    });
+});
+
+describe("venueWaits", () => {
+    it("per ogni locale la cosa più urgente, col suo colore", () => {
+        const waits = venueWaits({
+            drafts: [
+                draft({ venue_id: "a", created_at: "2026-10-05T12:50:00Z" }),
+                draft({ venue_id: "a", kind: "reply", created_at: "2026-10-05T10:30:00Z" })
+            ],
+            venues: [venue({ id: "b", stage: "nuovo", assigned_to: null, created_at: "2026-10-05T12:20:00Z" }), venue({ id: "c" })],
+            now: NOW
+        });
+        expect(waits.get("a")).toEqual({ level: "rosso", wait: "2 ore", text: "ha scritto: la risposta è pronta" });
+        expect(waits.get("b")).toMatchObject({ level: "arancio", wait: "40 min" });
+        expect(waits.has("c")).toBe(false);
     });
 });

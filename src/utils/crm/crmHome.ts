@@ -134,3 +134,25 @@ export function greeting(now: Date): string {
     if (hour < 18) return "Buon pomeriggio";
     return "Buonasera";
 }
+
+export interface VenueWait {
+    level: CrmWaitLevel;
+    /** Già nel formato unico («40 min»). */
+    wait: string;
+    /** Cosa aspetta, per il nome accessibile e il sottotitolo. */
+    text: string;
+}
+
+/**
+ * L'attesa di ogni locale per la lista Lead e la pipeline: la cosa più urgente
+ * che aspetta voi (bozza o lead nuovo senza nessuno), come nella Home.
+ * I locali che non aspettano nulla non ci sono.
+ */
+export function venueWaits(input: { drafts: CrmAgentDraftRow[]; venues: CrmVenueListItem[]; now: Date }): Map<string, VenueWait> {
+    const waits = new Map<string, VenueWait>();
+    for (const todo of homeTodos({ ...input, callsWithoutOutcome: [] })) {
+        if (todo.wait === null || waits.has(todo.venueId)) continue;
+        waits.set(todo.venueId, { level: todo.level, wait: todo.wait, text: todo.text });
+    }
+    return waits;
+}

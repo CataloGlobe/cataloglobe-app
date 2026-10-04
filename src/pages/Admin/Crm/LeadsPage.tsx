@@ -33,6 +33,9 @@ import {
     crmErrorMessage
 } from "@/utils/crm/stages";
 import { needsStageLock } from "@/utils/crm/accountLabels";
+import { venueWaits } from "@/utils/crm/crmHome";
+import { listCrmAgentDrafts } from "@/services/supabase/crmAgentTrial";
+import type { CrmAgentDraftRow } from "@/types/crm";
 import { CRM_STAGES, type CrmStage, type CrmTeamMember, type CrmVenueListItem } from "@/types/crm";
 import { AddLeadDrawer } from "./AddLeadDrawer";
 import { ImportMetaCsvDrawer } from "./ImportMetaCsvDrawer";
@@ -86,6 +89,8 @@ export default function LeadsPage() {
     const [venues, setVenues] = useState<CrmVenueListItem[]>([]);
     const { user } = useAuth();
     const [team, setTeam] = useState<CrmTeamMember[]>([]);
+    const [drafts, setDrafts] = useState<CrmAgentDraftRow[]>([]);
+    const [now, setNow] = useState(() => new Date());
     const [whatsappTemplate, setWhatsappTemplate] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [pageError, setPageError] = useState<string | null>(null);
@@ -97,14 +102,18 @@ export default function LeadsPage() {
     const load = useCallback(async () => {
         setPageError(null);
         try {
-            const [rows, members, settings] = await Promise.all([
+            const [rows, members, settings, pending] = await Promise.all([
                 listCrmVenues(),
                 listCrmTeamMembers(),
                 // Il testo di WhatsApp non deve far cadere la pagina.
-                getCrmSettings().catch(() => null)
+                getCrmSettings().catch(() => null),
+                // Nemmeno le bozze: senza, la lista resta senza colori.
+                listCrmAgentDrafts(100).catch(() => [])
             ]);
             setVenues(rows);
             setTeam(members);
+            setDrafts(pending);
+            setNow(new Date());
             setWhatsappTemplate(settings?.whatsapp_template ?? null);
         } catch (err) {
             setPageError(
@@ -193,6 +202,8 @@ export default function LeadsPage() {
 
     const visible = useMemo(() => venues.filter(v => matchesFilter(v, filter)), [venues, filter]);
 
+    const waits = useMemo(() => venueWaits({ drafts, venues, now }), [drafts, venues, now]);
+
     const columns = useMemo<ColumnDefinition<CrmVenueListItem>[]>(
         () => [
             {
@@ -234,6 +245,20 @@ export default function LeadsPage() {
                         label={CRM_STAGE_LABEL[row.stage]}
                     />
                 )
+            },
+            {
+                id: "wait",
+                header: "Aspetta",
+                cell: (_v, row) => {
+                    const w = waits.get(row.id);
+                    if (!w) return "—";
+                    return (
+                        <span className={styles.waitTime} data-level={w.level}>
+                            {w.wait}
+                            <span className="visually-hidden">, {w.text}</span>
+                        </span>
+                    );
+                }
             },
             {
                 id: "source",
@@ -288,7 +313,7 @@ export default function LeadsPage() {
                 )
             }
         ],
-        [teamName, handleWhatsapp, navigate]
+        [teamName, handleWhatsapp, navigate, waits]
     );
 
     const newCount = useMemo(() => venues.filter(v => v.stage === "nuovo").length, [venues]);
@@ -373,6 +398,7 @@ export default function LeadsPage() {
             {view === "pipeline" ? (
                 <PipelineBoard
                     venues={venues}
+                    waits={waits}
                     teamName={teamName}
                     onMove={(venue, stage) => void handleMove(venue, stage)}
                     onOpen={id => navigate(id)}
