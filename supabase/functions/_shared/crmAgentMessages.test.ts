@@ -77,6 +77,23 @@ describe("testi", () => {
         expect(buildReminderText(base, 10)).toBe("⏰ Ancora in attesa da 10 minuti: bozza per Bar <Roma>.");
         expect(buildEditPromptText(base)).toContain("rispondendo a questo messaggio");
     });
+    it("chat lunga: in un riquadro apribile, dopo la proposta", () => {
+        const lastMessages = Array.from({ length: 15 }, (_, i) => ({ from: i % 2 ? "noi" : "lead", text: `messaggio ${i}` }) as const);
+        const text = buildDraftMessage({ ...base, kind: "bot_question", lastMessages }, null).text;
+        expect(text).toContain("ultimi 15 messaggi (tocca per aprirla)");
+        expect(text).toMatch(/<blockquote expandable>Lead: messaggio 0\n[\s\S]*Noi: messaggio 13\nLead: messaggio 14<\/blockquote>/);
+        expect(text.indexOf("<b>Proposta</b>")).toBeLessThan(text.indexOf("<blockquote"));
+    });
+    it("chat corta: resta in chiaro", () => {
+        expect(buildDraftMessage(base, null).text).not.toContain("blockquote");
+    });
+    it("mai oltre il limite di Telegram: cadono i messaggi più vecchi", () => {
+        const lastMessages = Array.from({ length: 15 }, (_, i) => ({ from: "lead", text: `${i}:${"é&<".repeat(200)}` }) as const);
+        const text = buildDraftMessage({ ...base, kind: "bot_question", proposedText: "x".repeat(1000), lastMessages }, null).text;
+        expect(text.length).toBeLessThanOrEqual(4000);
+        expect(text).toContain("Lead: 14:");
+        expect(text).not.toContain("Lead: 0:");
+    });
     it("testo corretto", () => {
         expect(cleanEditText("  Ciao!\r\n  ")).toBe("Ciao!");
         expect(cleanEditText("")).toBeNull();

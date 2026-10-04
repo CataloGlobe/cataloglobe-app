@@ -30,6 +30,10 @@ export interface AgentDraftInfo {
 }
 
 const MAX_QUOTE = 400;
+/** Oltre questi messaggi la chat va in un riquadro chiuso, che si apre col tocco. */
+const INLINE_MESSAGES = 3;
+/** Telegram rifiuta i messaggi oltre 4096 caratteri: si resta sotto, contando anche i tag. */
+const MAX_MESSAGE_LENGTH = 4000;
 
 function clip(text: string, max = MAX_QUOTE): string {
     return text.length > max ? `${text.slice(0, max - 1)}…` : text;
@@ -88,21 +92,36 @@ function keyboard(info: AgentDraftInfo, appUrl: string | null): InlineButton[][]
     return rows;
 }
 
-export function buildDraftMessage(info: AgentDraftInfo, appUrl: string | null): TelegramMessage {
+function chatLines(messages: AgentDraftInfo["lastMessages"]): string[] {
+    return messages.map(m => `${m.from === "lead" ? "Lead" : "Noi"}: ${escapeHtml(clip(m.text))}`);
+}
+
+function composeDraftText(info: AgentDraftInfo, messages: AgentDraftInfo["lastMessages"]): string {
     const lines = [title(info)];
     if (info.reason && info.kind !== "follow_up") lines.push(`Perché: ${escapeHtml(info.reason)}`);
-    if (info.lastMessages.length) {
-        lines.push("");
-        for (const m of info.lastMessages) {
-            lines.push(`${m.from === "lead" ? "Lead" : "Noi"}: ${escapeHtml(clip(m.text))}`);
-        }
-    }
+    const collapsed = messages.length > INLINE_MESSAGES;
+    if (messages.length && !collapsed) lines.push("", ...chatLines(messages));
     if (info.proposedText) {
         lines.push("", info.kind === "schedule" ? "<b>Conferma al lead</b> (parte con la conferma dell'agenda):" : "<b>Proposta</b>:");
         lines.push(`<i>${escapeHtml(info.proposedText)}</i>`);
     }
+    if (collapsed) {
+        lines.push("", `💬 La chat, ultimi ${messages.length} messaggi (tocca per aprirla):`);
+        lines.push(`<blockquote expandable>${chatLines(messages).join("\n")}</blockquote>`);
+    }
     if (info.kind === "stop_check") lines.push("", "Finché non scegliete, l'agente non scrive.");
-    return { text: lines.join("\n"), reply_markup: { inline_keyboard: keyboard(info, appUrl) } };
+    return lines.join("\n");
+}
+
+export function buildDraftMessage(info: AgentDraftInfo, appUrl: string | null): TelegramMessage {
+    // Se il testo è troppo lungo per Telegram, cadono per primi i messaggi più vecchi della chat.
+    let messages = info.lastMessages;
+    let text = composeDraftText(info, messages);
+    while (text.length > MAX_MESSAGE_LENGTH && messages.length) {
+        messages = messages.slice(1);
+        text = composeDraftText(info, messages);
+    }
+    return { text, reply_markup: { inline_keyboard: keyboard(info, appUrl) } };
 }
 
 export const DRAFT_OUTCOME_LABEL: Record<string, string> = {
