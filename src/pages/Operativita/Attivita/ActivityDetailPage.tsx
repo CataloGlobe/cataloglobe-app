@@ -8,7 +8,6 @@ import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import { UnsavedChangesBar } from "@/components/ui/UnsavedChangesBar/UnsavedChangesBar";
 import { useUnsavedChangesGuard } from "@/components/ui/UnsavedChangesBar/useUnsavedChangesGuard";
-import { useBreadcrumbItems } from "@/context/useBreadcrumbItems";
 import { usePageHeader } from "@/context/usePageHeader";
 import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
@@ -143,15 +142,8 @@ const ActivityDetailPage: React.FC = () => {
         };
     }, [businessId]);
 
-    const breadcrumbItems = useMemo(
-        () => [
-            { label: "Sedi", to: `/business/${businessId}/locations` },
-            { label: activity?.name || "Dettaglio Sede" }
-        ],
-        [activity, businessId]
-    );
-
-    useBreadcrumbItems(breadcrumbItems);
+    // Niente briciole proprie: la sede è nel suo selettore dell'header e la
+    // pagina («Scheda») la deriva l'header dalla voce di sidebar (§51.8).
 
     // Il draft unico (§31.4) vive qui, sopra le rotte: sopravvive al cambio di
     // pagina della sede. Con la sede non ancora letta il draft è inerte.

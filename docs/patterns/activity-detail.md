@@ -1,25 +1,29 @@
 # La sede: contesto, voci, Scheda
 
-Rifatto col lotto navigazione B-b (03/10/2026, §50.23). Sostituisce la pagina «a 7 tab» (`?tab=`), che non esiste più.
+Rifatto col lotto navigazione B-b (03/10/2026, §50.23) e con la Navigazione v2 (§51). Sostituisce la pagina «a 7 tab» (`?tab=`), che non esiste più.
 
 ## Contesto di sede
 
-Entrando in una sede (`/business/:businessId/locations/:activityId/…`) la sidebar diventa quella della sede (`SedeSidebar`, §46.1): intestazione con «← Tutte le sedi» (o «← Azienda» con una sede sola leggibile), nome e stato della sede, poi le voci.
+Si conta sulle sedi **che chi guarda può leggere** (§51.2). Con **una** sede non c'è un contesto in cui entrare: la sidebar è una sola (`TenantSidebar`, contesto `unica`) e le voci di sede portano a quella sede anche da una pagina d'azienda; `/locations` porta alla Scheda. Con **più** sedi, entrando in una sede (`/business/:businessId/locations/:activityId/…`) la sidebar diventa quella della sede (`SedeSidebar`): in testa solo «← Tutte le sedi»; nome e stato («Sospesa») stanno nel selettore di sede dell'header (`HeaderSedeSwitcher`, §51.7).
 
-Voci, ordine e gruppi stanno **solo** in `SEDE_NAV_ENTRIES` (`src/utils/navLanding.ts`), letti dalla sidebar e dall'atterraggio. Sei voci (§19.5):
+Voci, ordine e gruppi dei tre contesti stanno **solo** in `NAV_MODELS` (`src/utils/navModel.ts`), letti dalle sidebar (via `navSidebarGroups`), dall'header e dall'atterraggio. Dentro la sede (§51.5):
 
 | Gruppo | Voce | Rotta | Lettura | Piano |
 |---|---|---|---|---|
-| Ospiti | Servizio | `servizio` | `tables.read` **o** `seatings.read` | — (un modo è sempre aperto) |
-| Ospiti | Prenotazioni | `prenotazioni` | `reservations.read` | `table_reservation` |
-| Ordini | Comande | `comande` | `orders.read` | `table_ordering` |
-| Ordini | Storico | `storico` | `orders.read` | `table_ordering` |
-| — | Cosa vedono i clienti | `cosa-vedono` | `activity.read` | — |
-| — | Scheda | `anagrafica` (+ `orari`, `ordini-prenotazioni`, `pubblicazione`) | `activity.read` | — |
+| Il locale | Scheda | `anagrafica` (+ `orari`, `ordini-prenotazioni`, `pubblicazione`) | `activity.read` | — |
+| Il locale | Cosa vedono i clienti | `cosa-vedono` | `activity.read` | — |
+| Operatività | Servizio | `servizio` | `tables.read` **o** `seatings.read` | — (un modo è sempre aperto) |
+| Operatività | Prenotazioni | `prenotazioni` | `reservations.read` | `table_reservation` |
+| Operatività | Comande | `comande` | `orders.read` | `table_ordering` |
+| Operatività | Storico | `storico` | `orders.read` | `table_ordering` |
+| Andamento | Analitiche | `analitiche` | `analytics.read` | — |
+| Andamento | Recensioni | `recensioni` | `reviews.read` | — |
 
-I permessi si chiedono **su questa sede** (`canDoOnActivity`). Una voce senza piano resta visibile col lucchetto; una senza permesso sparisce.
+Il piede ha Assistenza in tutti i contesti, e sopra Impostazioni fuori dalla sede (sidebar unica e d'azienda). I permessi si chiedono **su questa sede** (`canDoOnActivity`). Una voce senza piano resta visibile col lucchetto; una senza permesso sparisce.
 
-**Atterraggio** (`SedeHomeRedirect`, indice della sede): la prima voce usabile nell'ordine della sidebar (permesso + piano; per Servizio almeno un modo usabile, `SedeNavEntry.usable`). Nessuna voce usabile: la Scheda, che dice il perché.
+**Atterraggio** (`SedeHomeRedirect`, `sedeLandingSegment`, §51.6): chi gestisce la sede (owner, admin, `activity.manage` sulla sede) entra dalla Scheda; staff e viewer dalla prima voce di Operatività usabile (permesso + piano; per Servizio almeno un modo usabile, `NavEntry.usable`). Nessuna voce usabile: la Scheda, che dice il perché.
+
+**Cambio sede** dal selettore dell'header (`switchSedePath`): resta sulla stessa pagina se nella sede nuova si può usare, altrimenti si atterra come entrando.
 
 ## Servizio
 
@@ -46,10 +50,10 @@ Quattro rotte figlie del parent `ActivityDetailPage` (§31): **Anagrafica** · *
 
 ## Fuori dal parent
 
-`servizio`, `comande`, `storico`, `prenotazioni` e `cosa-vedono` sono rotte della sede ma non figlie della Scheda: niente tab della Scheda in testata, ognuna legge da sé.
+`servizio`, `comande`, `storico`, `prenotazioni`, `cosa-vedono`, `analitiche` e `recensioni` sono rotte della sede ma non figlie della Scheda: niente tab della Scheda in testata, ognuna legge da sé. Analitiche e Recensioni sono le pagine d'azienda montate sulla rotta di sede (sede dal path, §51.10).
 
 ## Indirizzi vecchi
 
-- `?tab=` sull'indice della sede → `legacyTabTarget` (`navLanding.ts`): `profile`/`info`/`media` → Anagrafica, `hours` → Orari, `ordering`/`reservations` → Ordini e prenotazioni (`#ordini`/`#prenotazioni`), `settings`/`hours-services`/`access-control` → Pubblicazione, `sala`/`tables` → `servizio?modo=gestisci`, `service` → `servizio?modo=elenco`, `availability` → Cosa vedono. Sconosciuto → Anagrafica.
+- `?tab=` sull'indice della sede → `legacyTabTarget` (`navLanding.ts`, che tiene solo questo): `profile`/`info`/`media` → Anagrafica, `hours` → Orari, `ordering`/`reservations` → Ordini e prenotazioni (`#ordini`/`#prenotazioni`), `settings`/`hours-services`/`access-control` → Pubblicazione, `sala`/`tables` → `servizio?modo=gestisci`, `service` → `servizio?modo=elenco`, `availability` → Cosa vedono. Sconosciuto → Anagrafica.
 - Rotte: `sala` → `servizio?modo=gestisci`; `canali` → `ordini-prenotazioni`; `disponibilita` → `cosa-vedono`.
 - `comande?tab=tavoli` → `servizio?modo=mappa`; `comande?tab=storico` → `storico`; `prenotazioni?tab=service` → `servizio?modo=elenco`.

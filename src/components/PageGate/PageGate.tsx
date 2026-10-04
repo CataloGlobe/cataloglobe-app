@@ -81,7 +81,7 @@ export function PageGate({ feature, readPermission, activityId, scope, children 
                             <Button
                                 variant="primary"
                                 onClick={() =>
-                                    navigate(`/business/${businessId}/subscription`)
+                                    navigate(`/business/${businessId}/settings/abbonamento`)
                                 }
                             >
                                 Passa a Pro

@@ -21,7 +21,7 @@ export function AiUsagePill({ usage }: { usage: AiUsageCycle | null }) {
     const label = blocked ? "AI esaurita" : `AI all'${formatUsagePercent(usage.percent)}`;
 
     const go = () => {
-        if (selectedTenantId) navigate(`/business/${selectedTenantId}/subscription#utilizzo-ai`);
+        if (selectedTenantId) navigate(`/business/${selectedTenantId}/settings/abbonamento#utilizzo-ai`);
     };
 
     return (

@@ -26,7 +26,10 @@ import { AiMenuImportDrawer } from "@/pages/Dashboard/Catalogs/AiMenuImport/AiMe
 import { hasUnreadReply, listMyTickets } from "@/services/supabase/support";
 import { countPendingReviews } from "@/services/supabase/reviews";
 import { usePermissions } from "@/context/usePermissions";
-import { canDoOnAnyActivity, isTenantWide } from "@/lib/permissions";
+import { canDoOnActivity, canDoOnAnyActivity, isTenantWide } from "@/lib/permissions";
+import { useSedeScope } from "@/hooks/useSedeScope";
+import { rememberLastSede } from "@/hooks/sedeScopeStore";
+import { resolveNavContext } from "@/utils/navModel";
 import type { BusinessOutletContext } from "./outletContext";
 
 import styles from "./MainLayout.module.scss";
@@ -40,11 +43,13 @@ const SEDE_PAGE_LABELS: Record<string, string | undefined> = {
     servizio: "Servizio",
     comande: "Comande",
     storico: "Storico",
-    prenotazioni: "Prenotazioni"
+    prenotazioni: "Prenotazioni",
+    analitiche: "Analitiche",
+    recensioni: "Recensioni"
 };
 
 /** `/business/:businessId/locations/:activityId[/...]` — dentro una sede. */
-const SEDE_CONTEXT_PATH = /^\/business\/[^/]+\/locations\/[^/]+/;
+const SEDE_CONTEXT_PATH = /^\/business\/[^/]+\/locations\/([^/]+)/;
 
 /**
  * Titolo di pagina per il <title> del browser. `resolvePageTitle` è
@@ -71,6 +76,9 @@ function resolvePageTitle(businessId: string, pathname: string, catalogLabel: st
         const label = SEDE_PAGE_LABELS[third];
         return label ? `Sede · ${label}` : 'Dettaglio sede';
     }
+    // Le tab di Impostazioni (§51.12) tengono il nome della pagina di prima.
+    if (first === 'settings' && second === 'team') return businessRouteLabel('team');
+    if (first === 'settings' && second === 'abbonamento') return businessRouteLabel('subscription');
     if (second && first === 'scheduling') return 'Dettaglio regola';
     if (second && first === 'featured') return 'Dettaglio in evidenza';
     if (second && first === 'styles') return 'Editor stile';
@@ -88,15 +96,27 @@ export default function MainLayout() {
     const { selectedTenant, loading } = useTenant();
     const { businessId } = useParams<{ businessId: string }>();
     const { pathname } = useLocation();
-    // Return from Stripe (re-subscribe lands on /subscription?checkout_session=):
+    // Return from Stripe (re-subscribe lands on /settings/abbonamento?checkout_session=):
     // link the tenant before the "no subscription" gate below can bounce it.
     const checkoutSync = useCheckoutReturnSync();
 
     const { catalogLabel } = useVerticalConfig();
     const pageName = businessId ? resolvePageTitle(businessId, pathname, catalogLabel) : undefined;
-    // Dentro una sede la sidebar è la sua (§46.1): il contesto è il path, non
-    // uno stato. `/locations` senza id resta azienda — è la porta, non la casa.
-    const inSedeContext = SEDE_CONTEXT_PATH.test(pathname);
+    // Il contesto della sidebar (§51.2): dalle sedi che chi guarda legge e dal
+    // path. Una sede: sidebar unica, ovunque. Più sedi: dentro una sede la
+    // sidebar è la sua; `/locations` senza id resta azienda.
+    const pathActivityId = SEDE_CONTEXT_PATH.exec(pathname)?.[1] ?? null;
+    const { readableActivities, isLoaded: sediLoaded } = useSedeScope();
+    const navContext = resolveNavContext(sediLoaded ? readableActivities.length : null, pathActivityId !== null);
+    const soleActivityId = readableActivities.length === 1 ? readableActivities[0].id : null;
+    // Entrare in una sede la fa diventare l'ultima usata (§51.9): `/orders` e
+    // `/reservations` ci tornano. Solo una sede leggibile: un id sbagliato
+    // nell'indirizzo non si ricorda.
+    const rememberedSedeId =
+        pathActivityId && readableActivities.some(a => a.id === pathActivityId) ? pathActivityId : null;
+    useEffect(() => {
+        if (rememberedSedeId) rememberLastSede(rememberedSedeId);
+    }, [rememberedSedeId]);
     const tenantName = selectedTenant?.name;
     usePageTitle(pageName && tenantName ? `${pageName} — ${tenantName}` : pageName);
 
@@ -209,9 +229,22 @@ export default function MainLayout() {
     // fare. Owner e admin contano tutte le sedi, gli altri le loro. Un errore
     // spegne il badge: meglio nessun numero che uno inventato.
     const { permissions } = usePermissions();
-    const canModerateReviews = permissions != null && canDoOnAnyActivity(permissions, "reviews.moderate");
+    // Il perimetro segue la voce (§51.10): dentro la sede le sue, fuori
+    // tutte quelle che chi guarda modera.
+    const reviewSedeId = navContext === "sede" ? pathActivityId : null;
+    const canModerateReviews =
+        permissions != null &&
+        (reviewSedeId
+            ? canDoOnActivity(permissions, "reviews.moderate", reviewSedeId)
+            : canDoOnAnyActivity(permissions, "reviews.moderate"));
     const reviewScopeKey =
-        permissions == null ? "" : isTenantWide(permissions) ? "*" : permissions.activityIds.join(",");
+        permissions == null
+            ? ""
+            : reviewSedeId
+              ? reviewSedeId
+              : isTenantWide(permissions)
+                ? "*"
+                : permissions.activityIds.join(",");
     const [reviewsPendingCount, setReviewsPendingCount] = useState(0);
     const [reviewsRefreshKey, setReviewsRefreshKey] = useState(0);
     const refreshReviewsPending = useCallback(() => setReviewsRefreshKey(k => k + 1), []);
@@ -283,16 +316,18 @@ export default function MainLayout() {
     // A canceled tenant KEEPS its stripe_subscription_id — the
     // `customer.subscription.deleted` webhook only flips subscription_status — so
     // it falls through the workspace-resume branch above and reaches this one.
-    // Allow-list /subscription itself to avoid a redirect loop AND so the
+    // Allow-list Abbonamento itself (and the old /subscription, which redirects
+    // there keeping the query) to avoid a redirect loop AND so the
     // post-reactivation success return is never trapped even while the webhook
     // hasn't yet synced the status back to 'active'.
     if (
         !loading &&
         selectedTenant &&
         selectedTenant.subscription_status === "canceled" &&
+        !pathname.endsWith("/settings/abbonamento") &&
         !pathname.endsWith("/subscription")
     ) {
-        return <Navigate to={`/business/${selectedTenant.id}/subscription`} replace />;
+        return <Navigate to={`/business/${selectedTenant.id}/settings/abbonamento`} replace />;
     }
 
     return (
@@ -309,13 +344,17 @@ export default function MainLayout() {
                         </header>
 
                         <div className={styles.body}>
-                            {inSedeContext ? (
+                            {sediLoaded && navContext === "sede" ? (
                                 <SedeSidebar
                                     isMobile={isMobile}
                                     mobileOpen={mobileSidebarOpen}
                                     collapsed={!isMobile && sidebarCollapsed}
                                     onRequestClose={() => setMobileSidebarOpen(false)}
                                     onToggleCollapse={() => setSidebarCollapsed(v => !v)}
+                                    translationPendingCount={translationPendingCount}
+                                    importInProgress={importInProgress}
+                                    supportUnread={supportUnread}
+                                    reviewsPendingCount={reviewsPendingCount}
                                 />
                             ) : (
                                 <TenantSidebar
@@ -324,6 +363,9 @@ export default function MainLayout() {
                                     collapsed={!isMobile && sidebarCollapsed}
                                     onRequestClose={() => setMobileSidebarOpen(false)}
                                     onToggleCollapse={() => setSidebarCollapsed(v => !v)}
+                                    context={navContext === "unica" ? "unica" : "azienda"}
+                                    activityId={soleActivityId}
+                                    loading={!sediLoaded}
                                     translationPendingCount={translationPendingCount}
                                     importInProgress={importInProgress}
                                     supportUnread={supportUnread}
