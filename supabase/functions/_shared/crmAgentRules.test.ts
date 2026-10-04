@@ -59,6 +59,29 @@ describe("classifyLeadText", () => {
         expect(classifyLeadText(null)).toEqual({ stop: null, botQuestion: false, callNow: false });
     });
 
+    it.each([
+        "Basta mandarmi il link e lo guardo",
+        "Toglimi un dubbio: quanto costa?",
+        "Cancellami la prenotazione delle 20, grazie",
+        "Non voglio ricevere chiamate, scrivetemi qui",
+        "Non scrivetemi ora, più tardi sì",
+        "Non mi scrivete prima delle 10, poi più avanti va bene"
+    ])("non è uno stop esplicito: %s", text => {
+        expect(classifyLeadText(text).stop).not.toBe("explicit");
+    });
+
+    it.each([
+        "Non scrivetemi più",
+        "Non mi contattate mai più, grazie",
+        "Non voglio più ricevere messaggi",
+        "Toglietemi dalla vostra lista",
+        "Cancellami",
+        "Smettetela di scrivermi",
+        "Basta con questi messaggi"
+    ])("resta uno stop esplicito: %s", text => {
+        expect(classifyLeadText(text).stop).toBe("explicit");
+    });
+
     it("più messaggi: vince il più forte", () => {
         expect(classifyLeadMessages(["non mi interessa", "anzi cancellatemi"]).stop).toBe("explicit");
         expect(classifyLeadMessages(["ciao", "sei un bot?"]).botQuestion).toBe(true);
