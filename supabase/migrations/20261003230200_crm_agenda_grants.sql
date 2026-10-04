@@ -16,7 +16,7 @@
 --   crm_agenda_begin, crm_agenda_check_slot, crm_call_advance_stage
 --       authenticated + service_role: aiuti delle funzioni qui sopra, che
 --       sono SECURITY INVOKER e quindi li chiamano coi privilegi di chi agisce
---   crm_agenda_enqueue_reminders, crm_agenda_has_work
+--   crm_agenda_enqueue_reminders, crm_agenda_has_work, crm_agenda_expire
 --       solo postgres (cron) e service_role
 --   crm_wa_claim_next, crm_wa_report_result
 --       invariate: solo service_role (rifatte con CREATE OR REPLACE, l'ACL
@@ -50,6 +50,8 @@ GRANT EXECUTE ON FUNCTION public.crm_call_advance_stage(uuid, text, uuid) TO aut
 
 REVOKE ALL ON FUNCTION public.crm_agenda_enqueue_reminders(timestamptz) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.crm_agenda_enqueue_reminders(timestamptz) TO postgres, service_role;
+REVOKE ALL ON FUNCTION public.crm_agenda_expire(timestamptz) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.crm_agenda_expire(timestamptz) TO postgres, service_role;
 REVOKE ALL ON FUNCTION public.crm_agenda_has_work(timestamptz) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.crm_agenda_has_work(timestamptz) TO postgres, service_role;
 

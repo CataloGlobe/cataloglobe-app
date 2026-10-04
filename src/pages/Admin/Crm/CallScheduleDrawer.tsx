@@ -230,6 +230,7 @@ export function CallScheduleDrawer({
                 confirmLabel={appointment ? "Sposta comunque" : "Fissa comunque"}
                 confirmVariant="primary"
                 isLoading={isSaving}
+                error={formError}
                 onConfirm={async () => {
                     const ok = await save(true);
                     if (ok) setOverlapQuestion(null);

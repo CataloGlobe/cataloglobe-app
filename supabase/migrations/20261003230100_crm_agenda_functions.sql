@@ -8,6 +8,7 @@
 --   crm_set_call_outcome(id, outcome)          Fatta / Non ha risposto / Rimandata
 --   crm_agenda_enqueue_reminders(now)          cron: accoda i promemoria dovuti
 --   crm_agenda_has_work(now)                   cron: c'è qualcosa per l'edge?
+--   crm_agenda_expire(now)                     cron: chiude le telefonate dimenticate
 --   crm_appointments_guard / crm_appointments_queue   trigger
 --   crm_wa_claim_next, crm_wa_report_result    rifatte da 20261002220100 con
 --                                              i due scopi nuovi (call_confirm,
@@ -320,7 +321,10 @@ BEGIN
         caller_user_id     = p_caller_user_id,
         status             = v_status,
         time_set_at        = CASE WHEN x.starts_at <> p_starts_at THEN now() ELSE x.time_set_at END,
-        caller_asked_at    = CASE WHEN v_status = 'proposed' AND p_caller_user_id <> a.caller_user_id THEN NULL ELSE x.caller_asked_at END,
+        -- Proposta con orario o chiamante nuovi: si richiede a chi chiama
+        -- (il «Sì» sul messaggio vecchio non deve confermare l'orario nuovo).
+        caller_asked_at    = CASE WHEN v_status = 'proposed' AND (p_caller_user_id <> a.caller_user_id OR x.starts_at <> p_starts_at)
+                                  THEN NULL ELSE x.caller_asked_at END,
         caller_answered_at = CASE WHEN v_status = 'confirmed' AND p_caller_user_id <> a.caller_user_id THEN now()
                                   WHEN v_status = 'proposed' THEN NULL ELSE x.caller_answered_at END,
         reminder_queued_at = CASE WHEN x.starts_at <> p_starts_at THEN NULL ELSE x.reminder_queued_at END,
@@ -427,6 +431,9 @@ BEGIN
     SET status             = v_status,
         status_reason      = CASE WHEN p_accept THEN NULL ELSE 'Chi doveva chiamare non può.' END,
         caller_answered_at = now(),
+        -- Accettata adesso: per il promemoria conta da ora (accettata dopo le
+        -- 18 del giorno prima, basta la conferma).
+        time_set_at        = CASE WHEN p_accept THEN now() ELSE x.time_set_at END,
         google_sync        = CASE WHEN p_accept OR x.google_event_id IS NOT NULL THEN 'pending' ELSE 'none' END,
         google_rev         = x.google_rev + 1,
         google_error       = NULL
@@ -531,6 +538,36 @@ BEGIN
 END;
 $$;
 
+-- -----------------------------------------------------------------------------
+-- crm_agenda_expire: le telefonate dimenticate non bloccano il locale
+-- -----------------------------------------------------------------------------
+-- Proposta con l'orario già passato (chi doveva chiamare non ha mai detto
+-- sì) e confermata senza esito da 3 giorni: annullate, col motivo. Senza,
+-- il locale resterebbe con una telefonata «attiva» (una sola per locale) e
+-- conterebbe negli accavallamenti. Ritorna quante ne ha chiuse.
+CREATE OR REPLACE FUNCTION public.crm_agenda_expire(p_now timestamptz DEFAULT now())
+RETURNS integer
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path TO ''
+AS $$
+DECLARE
+    v_count integer;
+BEGIN
+    UPDATE public.crm_appointments a
+    SET status = 'cancelled',
+        status_reason = CASE WHEN a.status = 'proposed'
+            THEN 'Chi doveva chiamare non ha risposto prima dell''orario.'
+            ELSE 'Esito non segnato entro 3 giorni.' END,
+        google_sync = CASE WHEN a.status = 'proposed' AND a.google_event_id IS NOT NULL THEN 'pending' ELSE a.google_sync END,
+        google_rev = a.google_rev + 1
+    WHERE (a.status = 'proposed' AND a.starts_at <= p_now)
+       OR (a.status = 'confirmed' AND a.ends_at < p_now - interval '3 days');
+    GET DIAGNOSTICS v_count = ROW_COUNT;
+    RETURN v_count;
+END;
+$$;
+
 -- C'è qualcosa per l'edge (crm-notify, job «agenda»)? Il cron chiama l'edge
 -- solo se sì. ⚠️ SYNC con le condizioni di processAgenda (crm-notify/agenda.ts).
 CREATE OR REPLACE FUNCTION public.crm_agenda_has_work(p_now timestamptz DEFAULT now())
@@ -544,6 +581,9 @@ AS $$
         SELECT 1 FROM public.crm_appointments a
         WHERE (a.google_sync = 'pending'
                AND (a.google_claimed_at IS NULL OR a.google_claimed_at < p_now - interval '2 minutes'))
+           OR (a.google_sync = 'error' AND a.updated_at < p_now - interval '15 minutes')
+           OR (a.status = 'proposed' AND a.starts_at <= p_now)
+           OR (a.status = 'confirmed' AND a.ends_at < p_now - interval '3 days')
            OR (a.status = 'proposed' AND a.caller_asked_at IS NULL AND a.starts_at > p_now)
            OR (a.status = 'confirmed' AND a.brief_sent_at IS NULL
                AND p_now >= a.starts_at - interval '60 minutes' AND p_now < a.ends_at)

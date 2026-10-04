@@ -130,6 +130,9 @@ export function buildCallEvent(input: CallEventInput): Record<string, unknown> {
     ].filter(Boolean);
     return {
         summary: `Telefonata: ${input.venueName}${who}`,
+        // Un evento cancellato a mano resta su Google come «cancelled» e il
+        // PATCH risponde 200: lo stato esplicito lo rimette in calendario.
+        status: "confirmed",
         description: lines.join("\n"),
         start: { dateTime: input.startsAt, timeZone: "Europe/Rome" },
         end: { dateTime: input.endsAt, timeZone: "Europe/Rome" },
