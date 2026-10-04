@@ -10,7 +10,7 @@
 // ogni messaggio va nella chat privata di ciascuno.
 //   * chi ha il lead assegnato vede «Assegnalo a <nome dell'altro>»;
 //     con più di due persone «Assegnalo a un'altra persona…» apre i nomi;
-//   * chi non ce l'ha vede «Lo prendo io: assegnalo a me».
+//   * chi non ce l'ha vede «Lo prendo io».
 // Dopo ogni passaggio il webhook riscrive il messaggio di tutti: «Preso da
 // <nome>» e pulsanti invertiti.
 //
@@ -152,8 +152,13 @@ export function shortToUuid(short: string): string | null {
 //   a:<venue>:<user>  assegna il locale a <user>
 //   g:<venue>         apri la scelta tra i nomi
 //   x:<venue>         chiudi la scelta (torna ai pulsanti normali)
-//   cy|cn:<call>      chi deve chiamare dice sì / no (agenda)
-//   od|on|op:<call>   esito: fatta / non ha risposto / rimandata (agenda)
+//   cy|cn:<call>      chi deve chiamare dice sì / no (agenda; «cn» solo nei messaggi vecchi)
+//   ch:<call>         passa a chi l'ha fissata («Sì, chiamo io» di chi l'ha fissata)
+//   ck:<call>         «Chiedo a {nome} se può lui»: la domanda a chi l'ha fissata
+//   cx|cb:<call>      apre / chiude la scelta di un altro orario
+//   ct:<call>:<min>   propone al lead lo stesso giorno <min> minuti dopo (1440 = domani)
+//   od|on|op:<call>   esito: fatta / non ha risposto / da fissare di nuovo (agenda)
+//   ds|de|dx|dv|dp|dh|dk|dj:<bozza>  tocco su una bozza dell'agente (F1-3)
 export type CrmCallback =
     | { action: "assign"; venueId: string; userId: string }
     | { action: "choose"; venueId: string }
@@ -163,7 +168,34 @@ export type CrmCallback =
     | { action: "venue_rename"; leadId: string }
     // Agenda (F1-4a): «Puoi tu?» a chi deve chiamare, «Com'è andata?» dopo.
     | { action: "call_answer"; appointmentId: string; accept: boolean }
-    | { action: "call_outcome"; appointmentId: string; outcome: "done" | "no_show" | "postponed" };
+    | { action: "call_handover"; appointmentId: string }
+    | { action: "call_ask_creator"; appointmentId: string }
+    | { action: "call_other_menu"; appointmentId: string; open: boolean }
+    | { action: "call_other_time"; appointmentId: string; shiftMinutes: CallShiftMinutes }
+    | { action: "call_outcome"; appointmentId: string; outcome: "done" | "no_show" | "postponed" }
+    // Agente in prova (F1-3): il tocco su una bozza.
+    | { action: "draft"; draftId: string; decision: CrmDraftDecision };
+
+/** Spostamenti offerti da «Propongo un altro orario»: 1440 = domani alla stessa ora. */
+export const CALL_SHIFT_MINUTES = [15, 30, 60, 1440] as const;
+export type CallShiftMinutes = (typeof CALL_SHIFT_MINUTES)[number];
+
+export type CrmDraftDecision = "send" | "edit" | "discard" | "schedule" | "other" | "handle" | "stop" | "objection";
+
+export const DRAFT_DECISION_PREFIX: Record<CrmDraftDecision, string> = {
+    send: "ds",
+    edit: "de",
+    discard: "dx",
+    schedule: "dv",
+    other: "dp",
+    handle: "dh",
+    stop: "dk",
+    objection: "dj"
+};
+
+export function encodeDraftDecision(draftId: string, decision: CrmDraftDecision): string {
+    return `${DRAFT_DECISION_PREFIX[decision]}:${uuidToShort(draftId)}`;
+}
 
 export function encodeAssign(venueId: string, userId: string): string {
     return `a:${uuidToShort(venueId)}:${uuidToShort(userId)}`;
@@ -184,14 +216,27 @@ export function parseCallbackData(data: string): CrmCallback | null {
     if (parts[0] === "s" && parts.length === 2) return { action: "venue_same", leadId: venueId };
     if (parts[0] === "n" && parts.length === 2) return { action: "venue_rename", leadId: venueId };
     if (parts[0] === "l" && parts.length === 2) return { action: "venue_later", leadId: venueId };
+    if (parts[0] === "ct" && parts.length === 3) {
+        const shift = Number(parts[2]);
+        const known = CALL_SHIFT_MINUTES.find(m => m === shift);
+        return known ? { action: "call_other_time", appointmentId: venueId, shiftMinutes: known } : null;
+    }
     // Agenda: l'id è della telefonata.
     if (parts.length === 2) {
         const appointmentId = venueId;
         if (parts[0] === "cy") return { action: "call_answer", appointmentId, accept: true };
         if (parts[0] === "cn") return { action: "call_answer", appointmentId, accept: false };
+        if (parts[0] === "ch") return { action: "call_handover", appointmentId };
+        if (parts[0] === "ck") return { action: "call_ask_creator", appointmentId };
+        if (parts[0] === "cx") return { action: "call_other_menu", appointmentId, open: true };
+        if (parts[0] === "cb") return { action: "call_other_menu", appointmentId, open: false };
         if (parts[0] === "od") return { action: "call_outcome", appointmentId, outcome: "done" };
         if (parts[0] === "on") return { action: "call_outcome", appointmentId, outcome: "no_show" };
         if (parts[0] === "op") return { action: "call_outcome", appointmentId, outcome: "postponed" };
+        const decision = (Object.keys(DRAFT_DECISION_PREFIX) as CrmDraftDecision[]).find(
+            d => DRAFT_DECISION_PREFIX[d] === parts[0]
+        );
+        if (decision) return { action: "draft", draftId: appointmentId, decision };
     }
     return null;
 }
@@ -206,7 +251,7 @@ export function assignmentButtons(
     team: CrmTeamMemberLite[]
 ): InlineButton[] {
     if (assignedTo !== recipientId) {
-        return [{ text: "Lo prendo io: assegnalo a me", callback_data: encodeAssign(venueId, recipientId) }];
+        return [{ text: "Lo prendo io", callback_data: encodeAssign(venueId, recipientId) }];
     }
     const others = team.filter(m => m.user_id !== recipientId);
     if (others.length === 0) return [];
@@ -284,8 +329,8 @@ export function venueNameButtons(
     if (ctx.venueNameCheck === "same" || !ctx.venueNameGiven) return [];
     const short = uuidToShort(ctx.leadId);
     return [
-        { text: `Stesso locale: tieni «${buttonName(knownName)}»`, callback_data: `s:${short}` },
-        { text: `Stesso locale: chiamalo «${buttonName(ctx.venueNameGiven)}»`, callback_data: `n:${short}` }
+        { text: `È lo stesso locale: resta «${buttonName(knownName)}»`, callback_data: `s:${short}` },
+        { text: `È lo stesso locale: rinominalo «${buttonName(ctx.venueNameGiven)}»`, callback_data: `n:${short}` }
     ];
 }
 
@@ -399,11 +444,11 @@ export function buildLeadMessage(
 
     const buttons: InlineButton[] = [];
     if (whatsappUrl && data.hasPhone && !data.stoppedBefore) {
-        buttons.push({ text: "Scrivigli su WhatsApp", url: whatsappUrl });
+        buttons.push({ text: "Apri la chat su WhatsApp", url: whatsappUrl });
     }
     if (data.kind === "returned") buttons.push(...venueNameButtons(data.returned, data.venueName));
     buttons.push(...assignmentButtons(data.venueId, data.assignedTo, recipientId, team));
-    if (data.adminUrl) buttons.push({ text: "Apri la scheda nel CRM", url: data.adminUrl });
+    if (data.adminUrl) buttons.push({ text: "Apri la scheda", url: data.adminUrl });
 
     return { text: lines.join("\n"), reply_markup: { inline_keyboard: buttons.map(b => [b]) } };
 }

@@ -186,7 +186,8 @@ export default function AgendaPage() {
                         </Text>
                         <Text variant="body-sm">
                             Conferma al lead: {settings.call_confirm_message ? "accesa" : "spenta"}. Promemoria il giorno
-                            prima alle 18: {settings.call_reminder_message ? "acceso" : "spento"}.
+                            prima alle 18: {settings.call_reminder_message ? "acceso" : "spento"}. Promemoria un'ora prima:{" "}
+                            {settings.call_soon_message ? "acceso" : "spento"}.
                         </Text>
                     </div>
                 </Card>

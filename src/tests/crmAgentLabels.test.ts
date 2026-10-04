@@ -4,6 +4,7 @@ import {
     CRM_MODEL_OPTIONS,
     crmAgentErrorMessage,
     decisionActionLabel,
+    draftStatusLabel,
     formatUsdInput,
     modelLabel,
     parseUsdCap
@@ -72,5 +73,33 @@ describe("messaggi", () => {
             "Il tetto di oggi non può superare quello del mese."
         );
         expect(crmAgentErrorMessage(null)).toBe("Qualcosa non ha funzionato. Riprova.");
+    });
+});
+
+describe("agente in prova (F1-3)", () => {
+    it("fiducia in una riga", async () => {
+        const { describeTrust } = await import("@/utils/crm/agentLabels");
+        expect(describeTrust({ approved_in_row: 1, total_approved: 3, total_edited: 1, total_discarded: 0 })).toBe(
+            "1 approvata di fila senza modifiche · in tutto 3 approvate, 1 corrette, 0 scartate"
+        );
+        expect(describeTrust({ approved_in_row: 4, total_approved: 4, total_edited: 0, total_discarded: 0 })).toContain("4 approvate di fila");
+    });
+});
+
+describe("draftStatusLabel", () => {
+    it("«Gestita» dice quale esito, dal motivo", () => {
+        expect(draftStatusLabel("handled", "È uno stop.")).toBe("Stop");
+        expect(draftStatusLabel("handled", "Obiezione, non stop.")).toBe("«Non adesso»");
+        expect(draftStatusLabel("handled", "Proponi altri orari.")).toBe("Altri orari");
+        expect(draftStatusLabel("handled", null)).toBe("Gestita da una persona");
+        expect(draftStatusLabel("sent", "È uno stop.")).toBe("Inviata così");
+    });
+});
+
+describe("azioni del Diario dell'agente in prova", () => {
+    it("in italiano, mai il codice", () => {
+        for (const a of ["lead_stop", "draft_created", "draft_sent", "draft_edited", "draft_discard", "draft_handle", "draft_stop", "draft_objection", "draft_other", "call_from_agent"]) {
+            expect(decisionActionLabel(a)).not.toBe(a.replace(/_/g, " "));
+        }
     });
 });

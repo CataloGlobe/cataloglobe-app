@@ -2,7 +2,13 @@
  * Parole della pagina Agenti (/admin/agenti): diario, pausa degli agenti, prova di
  * collegamento, errori delle funzioni crm_* degli agenti.
  */
-import type { CrmAgentCheckResult, CrmBrakeSource, CrmDecisionActor } from "@/types/crm";
+import type {
+    CrmAgentCheckResult,
+    CrmAgentDraftKind,
+    CrmAgentDraftStatus,
+    CrmBrakeSource,
+    CrmDecisionActor
+} from "@/types/crm";
 import { CLAUDE_PRICES } from "@shared/crmAi";
 
 export const CRM_BRAKE_SOURCE_LABEL: Record<CrmBrakeSource, string> = {
@@ -31,7 +37,17 @@ const ACTION_LABEL: Record<string, string> = {
     brand_rules_approved: "Regole in vigore",
     brand_rules_discarded: "Regole scartate",
     message_sent: "Messaggio WhatsApp inviato",
-    wa_settings_changed: "Impostazioni WhatsApp cambiate"
+    wa_settings_changed: "Impostazioni WhatsApp cambiate",
+    lead_stop: "Stop del lead",
+    draft_created: "Bozza preparata",
+    draft_sent: "Bozza inviata così",
+    draft_edited: "Bozza corretta e inviata",
+    draft_discard: "Bozza non mandata",
+    draft_handle: "Scrive una persona al lead",
+    draft_stop: "Confermato lo stop",
+    draft_objection: "È un «non adesso»",
+    draft_other: "Proposti altri orari",
+    call_from_agent: "Telefonata fissata da una bozza"
 };
 
 /** Azioni nuove (dalle PR dopo) senza etichetta: il codice, leggibile. */
@@ -96,4 +112,48 @@ export function parseUsdCap(text: string): number | null {
 /** «12.5» come lo scrive una persona: «12,50». */
 export function formatUsdInput(value: number): string {
     return value.toFixed(2).replace(".", ",");
+}
+
+// -----------------------------------------------------------------------------
+// Agente in prova (F1-3)
+// -----------------------------------------------------------------------------
+export const CRM_AGENT_DRAFT_KIND_LABEL: Record<CrmAgentDraftKind, string> = {
+    reply: "Risposta",
+    follow_up: "Sollecito",
+    bot_question: "«Sei un bot?»",
+    ask: "Serve una persona",
+    schedule: "Orario accettato",
+    stop_check: "Stop o «non adesso»?"
+};
+
+export const CRM_AGENT_DRAFT_STATUS_LABEL: Record<CrmAgentDraftStatus, string> = {
+    pending: "In attesa",
+    sent: "Inviata così",
+    edited: "Corretta e inviata",
+    discarded: "Non mandata",
+    expired: "Scaduta",
+    scheduled: "Telefonata fissata",
+    handled: "Gestita da una persona"
+};
+
+/**
+ * «Gestita da una persona» copre esiti diversi: stop, «non adesso», altri
+ * orari. Il motivo scritto dall'SQL (crm_agent_decide_draft) dice quale.
+ * Stessi motivi di HANDLED_OUTCOME_BY_REASON in crmAgentMessages.ts.
+ */
+const HANDLED_STATUS_BY_REASON: Record<string, string> = {
+    "È uno stop.": "Stop",
+    "Obiezione, non stop.": "«Non adesso»",
+    "Proponi altri orari.": "Altri orari"
+};
+
+export function draftStatusLabel(status: CrmAgentDraftStatus, reason: string | null): string {
+    if (status === "handled" && reason && HANDLED_STATUS_BY_REASON[reason]) return HANDLED_STATUS_BY_REASON[reason];
+    return CRM_AGENT_DRAFT_STATUS_LABEL[status];
+}
+
+/** «4 approvate di fila senza modifiche · in tutto …». */
+export function describeTrust(t: { approved_in_row: number; total_approved: number; total_edited: number; total_discarded: number }): string {
+    const row = t.approved_in_row === 1 ? "1 approvata di fila" : `${t.approved_in_row} approvate di fila`;
+    return `${row} senza modifiche · in tutto ${t.total_approved} approvate, ${t.total_edited} corrette, ${t.total_discarded} scartate`;
 }
