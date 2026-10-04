@@ -72,13 +72,23 @@ describe("classifyLeadText", () => {
     });
 
     it.each([
+        "Non mi scrivete più su WhatsApp, chiamatemi",
+        "Non scrivetemi più qui, mandatemi una mail",
+        "Basta messaggi, chiamami al telefono",
+        "Non scrivetemi più su whatsapp"
+    ])("cambio di canale: dubbio, non stop esplicito: %s", text => {
+        expect(classifyLeadText(text).stop).toBe("uncertain");
+    });
+
+    it.each([
         "Non scrivetemi più",
         "Non mi contattate mai più, grazie",
         "Non voglio più ricevere messaggi",
         "Toglietemi dalla vostra lista",
         "Cancellami",
         "Smettetela di scrivermi",
-        "Basta con questi messaggi"
+        "Basta con questi messaggi",
+        "Non chiamatemi e non scrivetemi più"
     ])("resta uno stop esplicito: %s", text => {
         expect(classifyLeadText(text).stop).toBe("explicit");
     });
@@ -192,7 +202,9 @@ describe("parseDraftReply", () => {
 
     it("schedule nel futuro", () => {
         const r = parseDraftReply('{"action":"schedule","starts_at":"2099-01-08T07:15:00Z","text":"Perfetto"}');
-        expect(r).toEqual({ action: "schedule", startsAt: "2099-01-08T07:15:00.000Z", text: "Perfetto" });
+        expect(r).toEqual({ action: "schedule", startsAt: "2099-01-08T07:15:00.000Z" });
+        // Il testo non serve: al lead parte il messaggio fisso di conferma.
+        expect(parseDraftReply('{"action":"schedule","starts_at":"2099-01-08T07:15:00Z"}')).toEqual({ action: "schedule", startsAt: "2099-01-08T07:15:00.000Z" });
         expect(parseDraftReply('{"action":"schedule","starts_at":"2001-01-01T07:15:00Z","text":"x"}')).toEqual({ invalid: "Orario nel passato." });
     });
 

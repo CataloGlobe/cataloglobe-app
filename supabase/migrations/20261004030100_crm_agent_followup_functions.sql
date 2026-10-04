@@ -4,7 +4,7 @@
 --   crm_agent_decide_draft  decisione 'lost' (proposta di Perso → Perso,
 --                           obiezione); l'invio di una riattivazione riporta
 --                           il locale in Contattato (mai uno stop)
---   crm_agent_candidates    tipi 'lost_proposal' e 'reactivation'
+--   crm_agent_candidates    tipi 'lost_proposal', 'reactivation' e 'reactivation_lost'
 --   crm_agent_has_work      riattivazioni dovute
 -- L'ACL non cambia (CREATE OR REPLACE la conserva).
 -- =============================================================================
@@ -243,7 +243,9 @@ AS $$
                    coalesce((SELECT max(d.decided_at) FROM public.crm_agent_drafts d
                              WHERE d.venue_id = v.id AND d.kind = 'reactivation' AND d.status IN ('sent', 'edited')),
                             '-infinity'::timestamptz)
-               ) AS count_from
+               ) AS count_from,
+               (SELECT max(d.decided_at) FROM public.crm_agent_drafts d
+                WHERE d.venue_id = v.id AND d.kind = 'reactivation' AND d.status IN ('sent', 'edited')) AS last_reactivation
         FROM public.crm_venues v
         WHERE v.stage NOT IN ('perso', 'cliente_pagante') AND v.agent_hold_at IS NULL
           AND EXISTS (SELECT 1 FROM public.crm_messages m0 WHERE m0.venue_id = v.id)
@@ -285,6 +287,13 @@ AS $$
               WHERE d.venue_id = x.venue_id AND d.status <> 'expired' AND d.kind = 'lost_proposal'
                 AND d.created_at >= x.last_agent_sent
           )
+          -- Telefonata in agenda o già fatta: niente solleciti né proposta di
+          -- Perso (la conferma e il promemoria della telefonata sono messaggi
+          -- dell'agente e farebbero ripartire il conto).
+          AND NOT EXISTS (
+              SELECT 1 FROM public.crm_appointments a
+              WHERE a.venue_id = x.venue_id AND a.status IN ('proposed', 'confirmed', 'done')
+          )
         UNION ALL
         SELECT x.venue_id, 'follow_up'::text, x.last_in_id, x.last_in, x.last_agent_sent,
                (SELECT count(*)::integer FROM public.crm_messages f
@@ -297,9 +306,37 @@ AS $$
           AND x.last_agent_sent >= coalesce(x.last_out, x.last_agent_sent)
           AND (x.last_in IS NULL OR x.last_in < x.last_agent_sent)
           AND NOT x.busy
+          -- Riattivazione corta: dopo il messaggio di riattivazione nessun
+          -- sollecito, finché il lead non risponde.
+          AND (x.last_reactivation IS NULL OR x.last_in > x.last_reactivation)
           AND NOT EXISTS (
               SELECT 1 FROM public.crm_agent_drafts d
               WHERE d.venue_id = x.venue_id AND d.status <> 'expired' AND d.created_at >= x.last_agent_sent
+          )
+          -- Telefonata in agenda o già fatta: niente solleciti né proposta di
+          -- Perso (la conferma e il promemoria della telefonata sono messaggi
+          -- dell'agente e farebbero ripartire il conto).
+          AND NOT EXISTS (
+              SELECT 1 FROM public.crm_appointments a
+              WHERE a.venue_id = x.venue_id AND a.status IN ('proposed', 'confirmed', 'done')
+          )
+        UNION ALL
+        -- Riattivazione senza risposta da 7 giorni: il locale torna in Perso
+        -- (lo fa l'edge, senza tocco). Non ne parte un'altra: la riattivazione
+        -- inviata resta, quindi al massimo 10 solleciti più 1 riattivazione.
+        SELECT x.venue_id, 'reactivation_lost'::text, x.last_in_id, x.last_in, x.last_reactivation, 0, false
+        FROM x
+        WHERE x.last_reactivation IS NOT NULL AND x.last_reactivation < p_now - interval '7 days'
+          AND (x.last_in IS NULL OR x.last_in < x.last_reactivation)
+          AND (x.last_person IS NULL OR x.last_person < x.last_reactivation)
+          AND NOT x.busy
+          AND NOT EXISTS (
+              SELECT 1 FROM public.crm_agent_drafts d
+              WHERE d.venue_id = x.venue_id AND d.status = 'pending'
+          )
+          AND NOT EXISTS (
+              SELECT 1 FROM public.crm_appointments a
+              WHERE a.venue_id = x.venue_id AND a.status IN ('proposed', 'confirmed', 'done')
           )
         UNION ALL
         -- Riattivazione: Perso per obiezione da almeno N giorni, col testo
@@ -406,9 +443,33 @@ AS $$
                   AND (x.last_in IS NULL OR x.last_in < x.last_sent)
                   AND NOT coalesce(x.busy, false)
                   AND NOT EXISTS (
+                      SELECT 1 FROM public.crm_agent_drafts r
+                      WHERE r.venue_id = v.id AND r.kind = 'reactivation' AND r.status IN ('sent', 'edited')
+                        AND (x.last_in IS NULL OR x.last_in < r.decided_at)
+                  )
+                  AND NOT EXISTS (
                       SELECT 1 FROM public.crm_agent_drafts d
                       WHERE d.venue_id = v.id AND d.status <> 'expired' AND d.created_at >= x.last_sent
                   )
+                  -- Telefonata in agenda o già fatta: niente solleciti.
+                  AND NOT EXISTS (
+                      SELECT 1 FROM public.crm_appointments a
+                      WHERE a.venue_id = v.id AND a.status IN ('proposed', 'confirmed', 'done')
+                  )
+            )
+        )
+        -- Riattivazione senza risposta da 7 giorni: torna in Perso. Più
+        -- largo di crm_agent_candidates (falso positivo = una chiamata a vuoto).
+        OR (
+            (SELECT NOT brake_on FROM s)
+            AND EXISTS (
+                SELECT 1 FROM public.crm_agent_drafts r
+                JOIN public.crm_venues v ON v.id = r.venue_id
+                WHERE r.kind = 'reactivation' AND r.status IN ('sent', 'edited')
+                  AND r.decided_at < p_now - interval '7 days'
+                  AND v.stage NOT IN ('perso', 'cliente_pagante') AND v.agent_hold_at IS NULL
+                  AND NOT EXISTS (SELECT 1 FROM public.crm_messages m
+                                  WHERE m.venue_id = v.id AND m.direction = 'in' AND m.created_at > r.decided_at)
             )
         );
 $$;

@@ -50,7 +50,8 @@ const ACTION_LABEL: Record<string, string> = {
     call_from_agent: "Telefonata fissata da una bozza",
     draft_lost: "Messo in Perso",
     draft_auto_sent: "Partita da sola",
-    draft_wrong: "Segnata come sbagliata"
+    draft_wrong: "Segnata come sbagliata",
+    reactivation_lost: "Di nuovo in Perso: nessuna risposta alla riattivazione"
 };
 
 /** Azioni nuove (dalle PR dopo) senza etichetta: il codice, leggibile. */
