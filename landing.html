@@ -4,7 +4,8 @@
     <meta charset="UTF-8" />
     <!-- Landing di campagna (/ e /b). ⚠️ SYNC con index.html: stesso head, tranne preconnect a Supabase e app-inter.css
          (Inter lo carica entry-landing.tsx senza bloccare il render), più il preload dei font dell'hero. Lo verifica src/tests/landing/landingHtml.test.ts.
-         Al build questo file diventa dist/index.html e la shell dell'app diventa dist/app.html (scripts/landing-html.mjs). -->
+         Al build diventa dist/index.html (/) e dist/b.html (/b), con la pagina già renderizzata al posto di landing-ssr;
+         la shell dell'app diventa dist/app.html (scripts/prerender-landing.mjs). -->
     <link rel="icon" type="image/svg+xml" href="/favicon/cataloglobe_icon_flat_primary.svg" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon/cataloglobe_icon_flat_primary_32.png" />
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon/cataloglobe_icon_flat_primary_16.png" />
@@ -119,7 +120,7 @@
     </script>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root"><!--landing-ssr--></div>
     <script type="module" src="/src/entry-landing.tsx"></script>
   </body>
 </html>

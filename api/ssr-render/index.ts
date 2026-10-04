@@ -138,7 +138,7 @@ function readSpaFallback(): string | null {
     if (spaFallbackCache === null) {
         try {
             spaFallbackCache = stripLandingSeoForFallback(
-                // Shell dell'app: dist/index.html è la landing (scripts/landing-html.mjs).
+                // Shell dell'app: dist/index.html è la landing (scripts/prerender-landing.mjs).
                 readFileSync(join(process.cwd(), "dist", "app.html"), "utf-8")
             );
         } catch {
