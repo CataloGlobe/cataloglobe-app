@@ -6,23 +6,16 @@ import Text from "@/components/ui/Text/Text";
 import type { CrmAppointmentWithVenue, CrmVenueListItem } from "@/types/crm";
 import type { VenueWait } from "@/utils/crm/crmHome";
 import { relativeAgo } from "@/utils/crm/crmHome";
+import { crmShortcutLabel, isCrmShortcut, useCrmShortcutsOn } from "@/utils/crm/crmShortcuts";
 import { contactLine, LEAD_VIEWS, matchesView, shortDayAndTime, waitSentence, type LeadView } from "@/utils/crm/leadViews";
 import styles from "../LeadDetail.module.scss";
 
 const LEVEL_ORDER = { rosso: 0, arancio: 1, normale: 2 } as const;
 
-/** Un tasto senza modificatori, fuori dai campi di testo e dai dialoghi aperti. */
-function isPlainKey(event: KeyboardEvent, key: string): boolean {
-    if (event.key !== key || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return false;
-    if (event.repeat || event.isComposing) return false;
-    if (document.querySelector('[role="dialog"], [role="alertdialog"], [role="menu"]')) return false;
-    const target = event.target as HTMLElement | null;
-    return !target?.closest("input, textarea, select, [contenteditable='true']");
-}
-
 /**
  * La colonna a sinistra della scheda (V5): la vista da cui si è arrivati
- * («Da lavorare ▾» si cambia), quanti sono, J e K per passare al prossimo.
+ * («Da lavorare ▾» si cambia), quanti sono, Alt+J e Alt+K per passare al
+ * prossimo (spente dalle Impostazioni, `crmShortcuts.ts`).
  * Prima chi aspetta voi (rosso, arancio), poi gli altri dal più recente.
  * Le righe che aspettano prendono il filo del colore dell'attesa.
  */
@@ -49,6 +42,7 @@ export function LeadDetailList({
 }) {
     const navigate = useNavigate();
     const navRef = useRef<HTMLElement>(null);
+    const shortcutsOn = useCrmShortcutsOn();
     const listView: LeadView = view === "riepilogo" ? "da-lavorare" : view;
     const label = LEAD_VIEWS.find(m => m.view === listView)?.label ?? "Da lavorare";
 
@@ -68,7 +62,7 @@ export function LeadDetailList({
 
     useEffect(() => {
         function onKey(event: KeyboardEvent) {
-            const step = isPlainKey(event, "j") ? 1 : isPlainKey(event, "k") ? -1 : 0;
+            const step = isCrmShortcut(event, "j") ? 1 : isCrmShortcut(event, "k") ? -1 : 0;
             if (step === 0 || rows.length === 0) return;
             // Nascosta (display: none) non ha offsetParent: niente scorciatoie.
             if (!navRef.current?.offsetParent) return;
@@ -105,10 +99,15 @@ export function LeadDetailList({
                 <Text as="span" variant="caption" colorVariant="muted" className={styles.listCount}>
                     {venues ? rows.length : ""}
                 </Text>
-                <span className={styles.keys} aria-label="J e K per passare al prossimo">
-                    <kbd>J</kbd>
-                    <kbd>K</kbd>
-                </span>
+                {shortcutsOn && (
+                    <span
+                        className={styles.keys}
+                        aria-label={`${crmShortcutLabel("j")} e ${crmShortcutLabel("k")} per passare al prossimo`}
+                    >
+                        <kbd>{crmShortcutLabel("j")}</kbd>
+                        <kbd>{crmShortcutLabel("k")}</kbd>
+                    </span>
+                )}
             </div>
             {venues && rows.length === 0 && (
                 <Text variant="body-sm" colorVariant="muted" className={styles.listEmpty}>

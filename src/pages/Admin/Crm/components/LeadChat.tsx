@@ -13,6 +13,7 @@ import { cancelCrmMessage, retryCrmMessage, setCrmAgentHold } from "@/services/s
 import type { CrmAgentDraftRow, CrmMessage } from "@/types/crm";
 import type { VenueWait } from "@/utils/crm/crmHome";
 import { chatTime, QUICK_REPLIES, type ChatItem } from "@/utils/crm/leadDetail";
+import { crmShortcutLabel, isCrmShortcut, useCrmShortcutsOn } from "@/utils/crm/crmShortcuts";
 import { CRM_NOT_YET_ACTIVE, crmErrorMessage, isMissingOnDatabase } from "@/utils/crm/stages";
 import { messageAuthorLabel, messageStatusLine, messageText, waErrorMessage } from "@/utils/crm/waLabels";
 import styles from "../LeadDetail.module.scss";
@@ -23,19 +24,10 @@ function errorText(err: unknown): string {
     return isMissingOnDatabase(err) ? CRM_NOT_YET_ACTIVE : crmErrorMessage(err);
 }
 
-/** Una lettera senza modificatori, fuori dai campi di testo e dai dialoghi. */
-function isPlainLetter(event: KeyboardEvent, key: string): boolean {
-    if (event.key.toLowerCase() !== key || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return false;
-    if (event.repeat || event.isComposing) return false;
-    if (document.querySelector('[role="dialog"], [role="alertdialog"], [role="menu"]')) return false;
-    const target = event.target as HTMLElement | null;
-    return !target?.closest("input, textarea, select, [contenteditable='true']");
-}
-
 /**
  * Il filo della scheda (V5, T8b): i messaggi col numero dell'agente, letti da
  * WhatsApp Web, e in mezzo i fatti (fase, telefonate). In fondo la bozza
- * dell'agente: «Inviala così» (I), «Modifica» (M, il testo si cambia qui e
+ * dell'agente: «Inviala così» (Alt+I), «Modifica» (Alt+M, il testo si cambia qui e
  * parte quello), «Scrivo io» (la bozza si scarta e il locale passa a una
  * persona: l'agente non gli scrive più). Le risposte pronte riempiono la
  * bozza da modificare, non partono da sole.
@@ -82,6 +74,8 @@ export function LeadChat({
     const [busy, setBusy] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [writeText, setWriteText] = useState("");
+    const shortcutsOn = useCrmShortcutsOn();
+    const showKeys = shortcutsOn && !phone;
 
     // `?bozza=modifica` (dalla Home): l'editor si apre quando la bozza arriva.
     const wantsEdit = params.get("bozza") === "modifica";
@@ -135,14 +129,15 @@ export function LeadChat({
         }
     }
 
-    // I invia, M apre la modifica: solo con la bozza a vista e niente editor aperto.
+    // Alt+I invia, Alt+M apre la modifica: solo con la bozza a vista e niente
+    // editor aperto, e con le scorciatoie accese (`crmShortcuts.ts`).
     useEffect(() => {
         if (!draft || editing !== null || phone) return;
         function onKey(event: KeyboardEvent) {
-            if (isPlainLetter(event, "i")) {
+            if (isCrmShortcut(event, "i")) {
                 event.preventDefault();
                 void decide("send");
-            } else if (isPlainLetter(event, "m")) {
+            } else if (isCrmShortcut(event, "m")) {
                 event.preventDefault();
                 setEditing(draft?.proposed_text ?? "");
             }
@@ -254,7 +249,8 @@ export function LeadChat({
                                         disabled={busy !== null}
                                         onClick={() => void decide("send")}
                                     >
-                                        Inviala così {!phone && <kbd className={styles.kbdOnBrand}>I</kbd>}
+                                        Inviala così{" "}
+                                        {showKeys && <kbd className={styles.kbdOnBrand}>{crmShortcutLabel("i")}</kbd>}
                                     </Button>
                                     <Button
                                         variant="secondary"
@@ -262,7 +258,7 @@ export function LeadChat({
                                         disabled={busy !== null}
                                         onClick={() => setEditing(draft.proposed_text ?? "")}
                                     >
-                                        Modifica {!phone && <kbd>M</kbd>}
+                                        Modifica {showKeys && <kbd>{crmShortcutLabel("m")}</kbd>}
                                     </Button>
                                     <Button
                                         variant="secondary"
