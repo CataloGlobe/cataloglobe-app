@@ -67,7 +67,6 @@ export default function SettingsLanguages() {
 
     usePageHeader({
         title: t("languages.title"),
-        subtitle: t("languages.description"),
     });
 
     const loadData = useCallback(async () => {

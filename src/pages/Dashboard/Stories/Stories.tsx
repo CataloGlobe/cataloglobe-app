@@ -135,7 +135,6 @@ export default function Stories() {
 
     usePageHeader({
         title: "Storie",
-        subtitle: "I racconti che i clienti trovano nella pagina pubblica delle sedi.",
         actions,
         compact: headerCompact
     });

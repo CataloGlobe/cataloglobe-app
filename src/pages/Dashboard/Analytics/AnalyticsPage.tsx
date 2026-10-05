@@ -659,7 +659,6 @@ export default function AnalyticsPage() {
     usePageHeader(
         canRead
             ? {
-                  subtitle: "Cosa fanno i clienti sulla pagina pubblica.",
                   leading,
                   actions: headerActions,
                   compact: headerCompact

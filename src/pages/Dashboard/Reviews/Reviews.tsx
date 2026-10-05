@@ -329,7 +329,6 @@ export default function Reviews() {
     }), [filterRating, filterPeriod, sortBy, searchQuery]);
 
     usePageHeader({
-        subtitle: "Quello che i clienti scrivono dopo essere stati da voi. Lo leggete solo voi: non compare sulla pagina pubblica.",
         leading,
         actions: headerActions,
         compact: headerCompact,

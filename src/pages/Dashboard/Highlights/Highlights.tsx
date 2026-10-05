@@ -147,7 +147,6 @@ export default function Highlights() {
 
     usePageHeader({
         title: "In evidenza",
-        subtitle: "Blocchi sopra o sotto il menù. Dove e quando lo decide la regola.",
         actions: headerActions,
         compact: headerCompact
     });

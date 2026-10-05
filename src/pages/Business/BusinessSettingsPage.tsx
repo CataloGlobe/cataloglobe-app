@@ -195,7 +195,6 @@ export default function BusinessSettingsPage() {
     const settingsTabs = useSettingsTabs();
     usePageHeader({
         title: "Impostazioni",
-        subtitle: "Nome, dati di fatturazione e logo dell'azienda; qui si elimina.",
         leading: settingsTabs.leading,
         compact: settingsTabs.leading ? settingsTabs.compact : undefined
     });

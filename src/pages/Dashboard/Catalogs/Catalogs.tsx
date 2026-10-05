@@ -265,7 +265,6 @@ export default function Catalogs() {
 
     usePageHeader({
         title: verticalConfig.catalogLabel,
-        subtitle: `Le ${categoryPluralLower} e i ${productPluralLower} di ogni ${catalogLower}: quello che i clienti vedono.`,
         actions: headerActions,
         compact: headerCompact,
     });

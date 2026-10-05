@@ -8,8 +8,8 @@ import { stubStili } from "./stiliStub";
 /**
  * La testata di pagina (`PageHeaderSlot`), lotto 6 «cleanup DS».
  *
- * - **Sottotitolo**: `usePageHeader({ subtitle })` si vede, sopra la banda.
- *   Prima lo slot lo ignorava (§50.14, dev. 4).
+ * - **Sottotitolo**: le pagine dell'azienda non lo passano più (M1); lo slot
+ *   lo disegna ancora per le pagine admin.
  * - **Una sola testata**: quando tab e azioni non stanno in riga, ogni pagina
  *   con tab passa a due righe (azioni sopra, tab sotto) prima della barra
  *   compatta, da 768 in su; sotto 768 sempre la barra compatta. Prima lo faceva solo Programmazione (`condensed.stack`).
@@ -32,38 +32,29 @@ async function stacked(leading: Locator, action: Locator): Promise<void> {
         .toBeGreaterThanOrEqual(0);
 }
 
-test.describe("Testata — sottotitolo", () => {
-    test("Analitiche: il sottotitolo del mockup", async ({ page }) => {
+// M1 (correzioni UI, ottobre 2026): niente frase sotto la testata. Le pagine
+// dell'azienda non passano più il `subtitle`; la spiegazione sta negli stati vuoti.
+test.describe("Testata — niente sottotitolo (M1)", () => {
+    test("Analitiche: nessuna frase sotto la testata", async ({ page }) => {
         await stubAnalitiche(page);
         await openBusinessPage(page, "analytics", "Analitiche");
-        await expect(page.getByText("Cosa fanno i clienti sulla pagina pubblica.", { exact: true })).toBeVisible({
-            timeout: 15_000
-        });
+        await expect(page.getByText("Cosa fanno i clienti sulla pagina pubblica.", { exact: true })).toHaveCount(0);
     });
 
-    test("Recensioni: il sottotitolo del mockup", async ({ page }) => {
+    test("Recensioni: nessuna frase sotto la testata", async ({ page }) => {
         await stubRecensioni(page);
         await openBusinessPage(page, "reviews", "Recensioni");
         await expect(
             page.getByText("Quello che i clienti scrivono dopo essere stati da voi. Lo leggete solo voi: non compare sulla pagina pubblica.", { exact: true })
-        ).toBeVisible({ timeout: 15_000 });
+        ).toHaveCount(0);
     });
 
-    test("Stili: il sottotitolo che la pagina passava già", async ({ page }) => {
+    test("Stili: nessuna frase sotto la testata", async ({ page }) => {
         await stubStili(page);
         await openBusinessPage(page, "styles", "Stili");
         await expect(
             page.getByText("Personalizza l'aspetto visivo e i colori del tuo catalogo.", { exact: true })
-        ).toBeVisible({ timeout: 15_000 });
-    });
-
-    test("a 375 il sottotitolo va a capo, senza scroll di lato", async ({ page }) => {
-        await stubRecensioni(page);
-        await openBusinessPage(page, "reviews", "Recensioni");
-        await page.setViewportSize({ width: 375, height: 800 });
-        const subtitle = page.getByText("Quello che i clienti scrivono dopo essere stati da voi. Lo leggete solo voi: non compare sulla pagina pubblica.", { exact: true });
-        await expect(subtitle).toBeVisible({ timeout: 15_000 });
-        expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+        ).toHaveCount(0);
     });
 });
 

@@ -430,7 +430,6 @@ export default function SubscriptionPage() {
     const settingsTabs = useSettingsTabs();
     usePageHeader({
         title: "Abbonamento",
-        subtitle: !canReadBilling ? undefined : "Piano, sedi, credito AI e pagamento.",
         leading: settingsTabs.leading,
         compact: settingsTabs.leading ? settingsTabs.compact : undefined
     });

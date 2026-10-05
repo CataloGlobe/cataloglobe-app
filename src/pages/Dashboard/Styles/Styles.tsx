@@ -156,7 +156,6 @@ export default function Styles() {
 
     usePageHeader({
         title: "Stili",
-        subtitle: "Personalizza l'aspetto visivo e i colori del tuo catalogo.",
         actions: headerActions,
         compact: headerCompact
     });

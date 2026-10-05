@@ -64,7 +64,6 @@ export default function WorkspacePage() {
 
     usePageHeader({
         title: "Le tue attività",
-        subtitle: "Seleziona un'attività per accedere alla sua dashboard",
     });
 
     useEffect(() => {
