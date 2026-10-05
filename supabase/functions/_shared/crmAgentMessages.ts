@@ -12,6 +12,7 @@ import {
     type TelegramMessage
 } from "./crmTelegram.ts";
 import { formatCallDay, formatCallTime } from "./crmCallSlots.ts";
+import { FOLLOW_UP_MAX } from "./crmAgentRules.ts";
 
 export type AgentDraftKind = "reply" | "follow_up" | "bot_question" | "ask" | "schedule" | "stop_check" | "lost_proposal" | "reactivation";
 
@@ -68,7 +69,7 @@ function title(info: AgentDraftInfo): string {
         case "stop_check":
             return `✋ Ho un dubbio su ${who(info)}`;
         case "lost_proposal":
-            return `🪦 ${who(info)} non risponde da 10 solleciti. Lo mettiamo in Perso?`;
+            return `🪦 ${who(info)} non risponde da ${FOLLOW_UP_MAX} solleciti. Lo mettiamo in Perso?`;
         case "reactivation":
             return `🌱 Riproviamo con ${who(info)}?`;
     }
@@ -205,7 +206,7 @@ const HANDLED_OUTCOME_BY_REASON: Record<string, string> = {
 
 export function draftOutcomeLabel(status: string, reason: string | null, kind?: AgentDraftKind): string {
     // «No, lascialo aperto» sulla proposta di Perso: non c'era niente da mandare.
-    if (status === "discarded" && kind === "lost_proposal") return "resta aperto: l'agente continua coi solleciti";
+    if (status === "discarded" && kind === "lost_proposal") return "resta aperto, niente altri solleciti";
     if (status === "handled" && reason && HANDLED_OUTCOME_BY_REASON[reason]) return HANDLED_OUTCOME_BY_REASON[reason];
     return DRAFT_OUTCOME_LABEL[status] ?? status;
 }
