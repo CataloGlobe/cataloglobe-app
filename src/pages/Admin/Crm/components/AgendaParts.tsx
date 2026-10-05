@@ -4,7 +4,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import { IconButton } from "@/components/ui/Button/IconButton";
 import Text from "@/components/ui/Text/Text";
-import type { AgendaItem, AgendaWeekDay } from "@/utils/crm/agendaDay";
+import type { AgendaItem, AgendaWeekColumn, AgendaWeekDay } from "@/utils/crm/agendaDay";
 import { formatCallTime } from "@shared/crmCallSlots";
 import styles from "../Agenda.module.scss";
 
@@ -165,5 +165,69 @@ export function AgendaDayList({
             ))}
             {nowIndex === items.length && nowLine}
         </ol>
+    );
+}
+
+const WEEK_KIND: Record<AgendaItem["kind"], string> = {
+    telefonata: "telefonata",
+    partito: "partito",
+    programma: "parte da solo"
+};
+
+/**
+ * La settimana a sette colonne (R4): ogni cosa nel suo giorno, a colpo
+ * d'occhio. Il giorno in testa porta alla vista del giorno, il locale alla
+ * sua scheda.
+ */
+export function AgendaWeekGrid({
+    days,
+    columns,
+    onOpenDay
+}: {
+    days: AgendaWeekDay[];
+    columns: AgendaWeekColumn[];
+    onOpenDay: (key: string) => void;
+}) {
+    return (
+        <div className={styles.grid} role="group" aria-label="La settimana">
+            {days.map((d, i) => {
+                const items = columns[i]?.items ?? [];
+                return (
+                    <section key={d.key} className={styles.gridDay} data-today={d.isToday || undefined} aria-label={`${d.weekday} ${d.day}`}>
+                        <button type="button" className={styles.gridHead} onClick={() => onOpenDay(d.key)} aria-label={`Apri ${d.weekday} ${d.day}`}>
+                            <Text as="span" variant="caption" color="inherit">
+                                {d.weekday}
+                            </Text>
+                            <Text as="span" variant="body" weight={700} color="inherit">
+                                {d.day}
+                            </Text>
+                        </button>
+                        {items.length === 0 ? (
+                            <Text as="span" variant="caption" colorVariant="muted" className={styles.gridFree}>
+                                libero
+                            </Text>
+                        ) : (
+                            <ol className={styles.gridList}>
+                                {items.map(item => (
+                                    <li key={item.key} className={styles.gridItem} data-kind={item.kind} data-past={item.past || undefined}>
+                                        <Link to={`/admin/lead/${item.venueId}`} className={styles.gridLink}>
+                                            <Text as="span" variant="caption" weight={700} color="inherit">
+                                                {item.time}
+                                            </Text>{" "}
+                                            <Text as="span" variant="caption" weight={600} color="inherit">
+                                                {item.venueName}
+                                            </Text>
+                                        </Link>
+                                        <Text as="span" variant="caption" colorVariant="muted">
+                                            {WEEK_KIND[item.kind]}
+                                        </Text>
+                                    </li>
+                                ))}
+                            </ol>
+                        )}
+                    </section>
+                );
+            })}
+        </div>
     );
 }
