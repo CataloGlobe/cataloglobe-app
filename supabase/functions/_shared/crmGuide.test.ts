@@ -97,6 +97,8 @@ describe("waitLevel e formatWait", () => {
         expect(formatWait(5)).toBe("5 min");
         expect(formatWait(60)).toBe("1 ora");
         expect(formatWait(150)).toBe("2 ore");
-        expect(formatWait(3 * 1440 + 10)).toBe("3 gg");
+        expect(formatWait(10 * 60 + 59)).toBe("10 ore");
+        // Tre giorni di lavoro fermi: «3 gg», non «33 ore».
+        expect(formatWait(3 * 660 + 10)).toBe("3 gg");
     });
 });

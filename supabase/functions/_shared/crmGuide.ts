@@ -304,12 +304,20 @@ export function waitLevel(workingMinutes: number): CrmWaitLevel {
     return "normale";
 }
 
-/** Tempo di attesa sempre nello stesso formato: «5 min», «2 ore», «3 gg». */
+/** Un giorno di lavoro, in minuti (dalle 9 alle 20). */
+const WORK_DAY_MINUTES = WORK_END_MINUTE - WORK_START_MINUTE;
+
+/**
+ * Tempo di attesa sempre nello stesso formato: «5 min», «2 ore», «3 gg».
+ * Riceve minuti lavorativi (`workingMinutesBetween`): oltre un giorno di
+ * lavoro conta i giorni di lavoro, non le 24 ore.
+ */
 export function formatWait(minutes: number): string {
     const m = Math.max(0, Math.floor(minutes));
     if (m < 60) return `${m} min`;
-    const h = Math.floor(m / 60);
-    if (h < 24) return h === 1 ? "1 ora" : `${h} ore`;
-    const d = Math.floor(h / 24);
-    return `${d} gg`;
+    if (m < WORK_DAY_MINUTES) {
+        const h = Math.floor(m / 60);
+        return h === 1 ? "1 ora" : `${h} ore`;
+    }
+    return `${Math.floor(m / WORK_DAY_MINUTES)} gg`;
 }

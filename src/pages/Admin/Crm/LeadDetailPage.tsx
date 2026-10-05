@@ -403,7 +403,7 @@ export default function LeadDetailPage() {
 
             <div className={styles.leadFrame}>
                 <div className={styles.leadLayout}>
-                    <LeadQueue currentVenueId={detail.venue.id} />
+                    <LeadQueue currentVenueId={detail.venue.id} refreshKey={detail} />
                     <div className={styles.leadMain}>
                         <WhatsappConversationCard venue={detail.venue} teamName={teamName} onChanged={load} />
 

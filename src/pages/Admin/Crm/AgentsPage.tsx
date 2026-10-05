@@ -24,12 +24,13 @@ import {
     getCrmAgentSettings,
     getCrmAiSpend,
     listCrmAgentDecisions,
+    listCrmAgentDecisionsSince,
     listCrmBrandRules,
     setCrmBrake,
     updateCrmAgentSettings,
     type CrmAgentSettingsPatch
 } from "@/services/supabase/crmAgents";
-import { getCrmAgentTrialSettings, listCrmAgentDrafts, listCrmAgentTrust } from "@/services/supabase/crmAgentTrial";
+import { getCrmAgentTrialSettings, listCrmAgentDraftsOpenOrSince, listCrmAgentTrust } from "@/services/supabase/crmAgentTrial";
 import type {
     CrmAgentDecision,
     CrmAgentDraftRow,
@@ -56,7 +57,7 @@ import {
 import { formatDateTimeIt } from "@/utils/formatDateTime";
 import { CRM_AI_ROLES, CRM_AI_ROLE_LABEL, formatUsd, spendShare } from "@shared/crmAi";
 import { CRM_MESSAGE_STEPS, guideTopic as guideTopicOf } from "@shared/crmGuide";
-import { agentRows, giroToday, type AgentRow } from "@/utils/crm/agentsOverview";
+import { agentRows, giroToday, romeTodayStart, type AgentRow } from "@/utils/crm/agentsOverview";
 import { BrandRulesDrawer, type BrandRulesDrawerState } from "./BrandRulesDrawer";
 import { AgentTrialCard } from "./AgentTrialCard";
 import { WhatsappChannelCard } from "./WhatsappChannelCard";
@@ -108,6 +109,7 @@ export default function AgentsPage() {
     const [settings, setSettings] = useState<CrmAgentSettings | null>(null);
     const [spend, setSpend] = useState<CrmAiSpend | null>(null);
     const [decisions, setDecisions] = useState<CrmAgentDecision[]>([]);
+    const [decisionsToday, setDecisionsToday] = useState<CrmAgentDecision[]>([]);
     const [rules, setRules] = useState<CrmBrandRules[]>([]);
     const [team, setTeam] = useState<CrmTeamMember[]>([]);
     const [trialSettings, setTrialSettings] = useState<CrmAgentTrialSettings | null>(null);
@@ -137,8 +139,9 @@ export default function AgentsPage() {
 
     const load = useCallback(async () => {
         setPageError(null);
+        const since = romeTodayStart(new Date());
         try {
-            const [nextSettings, nextSpend, nextDecisions, nextRules, members, nextTrial, nextTrust, nextDrafts] =
+            const [nextSettings, nextSpend, nextDecisions, nextRules, members, nextTrial, nextTrust, nextDrafts, nextToday] =
                 await Promise.all([
                     getCrmAgentSettings(),
                     getCrmAiSpend(),
@@ -147,7 +150,8 @@ export default function AgentsPage() {
                     listCrmTeamMembers(),
                     getCrmAgentTrialSettings(),
                     listCrmAgentTrust(),
-                    listCrmAgentDrafts(100)
+                    listCrmAgentDraftsOpenOrSince(since),
+                    listCrmAgentDecisionsSince(since)
                 ]);
             setTrialSettings(nextTrial);
             setTrust(nextTrust);
@@ -155,6 +159,7 @@ export default function AgentsPage() {
             setSettings(nextSettings);
             setSpend(nextSpend);
             setDecisions(nextDecisions);
+            setDecisionsToday(nextToday);
             setRules(nextRules);
             setTeam(members);
             setMonthCap(formatUsdInput(nextSettings.ai_month_cap_usd));
@@ -182,8 +187,8 @@ export default function AgentsPage() {
         subtitle: "Chi scrive ai lead, cosa ha fatto oggi e quanto costa."
     });
 
-    const now = useMemo(() => new Date(), [drafts, decisions]); // eslint-disable-line react-hooks/exhaustive-deps
-    const giro = useMemo(() => giroToday(drafts, decisions, now), [drafts, decisions, now]);
+    const now = useMemo(() => new Date(), [drafts, decisionsToday]); // eslint-disable-line react-hooks/exhaustive-deps
+    const giro = useMemo(() => giroToday(drafts, decisionsToday, now), [drafts, decisionsToday, now]);
     const rows = useMemo(
         () => (trialSettings ? agentRows({ settings: trialSettings, trust, drafts, giro, now }) : []),
         [trialSettings, trust, drafts, giro, now]
@@ -510,7 +515,7 @@ export default function AgentsPage() {
             </Card>
                 </Tabs.Panel>
                 <Tabs.Panel value="bozze">
-                    <AgentTrialCard />
+                    <AgentTrialCard onChanged={load} />
                 </Tabs.Panel>
                 <Tabs.Panel value="whatsapp">
                     <WhatsappChannelCard />

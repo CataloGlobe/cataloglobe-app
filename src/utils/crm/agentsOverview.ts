@@ -5,11 +5,18 @@
  */
 import type { CrmAgentDecision, CrmAgentDraftRow, CrmAgentTrialSettings, CrmAgentTrust } from "@/types/crm";
 import { formatWait, waitLevel, workingMinutesBetween, type CrmWaitLevel } from "@shared/crmGuide";
+import { romeParts, romeWallClock } from "@shared/crmCallSlots";
 
 const ROME_DAY = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome" });
 
 export function isRomeToday(iso: string, now: Date): boolean {
     return ROME_DAY.format(new Date(iso)) === ROME_DAY.format(now);
+}
+
+/** La mezzanotte di Roma di oggi, in ISO: da qui si contano i numeri di oggi. */
+export function romeTodayStart(now: Date): string {
+    const p = romeParts(now);
+    return romeWallClock(p.year, p.month, p.day, 0, 0).toISOString();
 }
 
 export interface GiroToday {

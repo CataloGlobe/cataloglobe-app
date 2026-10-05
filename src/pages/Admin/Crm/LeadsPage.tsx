@@ -34,7 +34,8 @@ import {
 } from "@/utils/crm/stages";
 import { needsStageLock } from "@/utils/crm/accountLabels";
 import { venueWaits } from "@/utils/crm/crmHome";
-import { listCrmAgentDrafts } from "@/services/supabase/crmAgentTrial";
+import { listCrmAgentDraftsOpenOrSince } from "@/services/supabase/crmAgentTrial";
+import { romeTodayStart } from "@/utils/crm/agentsOverview";
 import type { CrmAgentDraftRow } from "@/types/crm";
 import { CRM_STAGES, type CrmStage, type CrmTeamMember, type CrmVenueListItem } from "@/types/crm";
 import { AddLeadDrawer } from "./AddLeadDrawer";
@@ -108,7 +109,7 @@ export default function LeadsPage() {
                 // Il testo di WhatsApp non deve far cadere la pagina.
                 getCrmSettings().catch(() => null),
                 // Nemmeno le bozze: senza, la lista resta senza colori.
-                listCrmAgentDrafts(100).catch(() => [])
+                listCrmAgentDraftsOpenOrSince(romeTodayStart(new Date())).catch(() => [])
             ]);
             setVenues(rows);
             setTeam(members);

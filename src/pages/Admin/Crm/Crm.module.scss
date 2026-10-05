@@ -201,6 +201,15 @@
     box-shadow: inset 3px 0 0 var(--danger);
   }
 
+  /* Col filo colorato l'anello del focus si aggiunge, non sparisce. */
+  &[data-level="arancio"]:focus-visible {
+    box-shadow: inset 3px 0 0 var(--color-warning-500), var(--shadow-focus);
+  }
+
+  &[data-level="rosso"]:focus-visible {
+    box-shadow: inset 3px 0 0 var(--danger), var(--shadow-focus);
+  }
+
   &[data-dragging] {
     opacity: 0.4;
   }

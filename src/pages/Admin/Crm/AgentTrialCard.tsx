@@ -30,7 +30,7 @@ import styles from "./Crm.module.scss";
  * le approvate di fila per tipo e le ultime bozze. Le bozze si decidono su
  * Telegram; qui si leggono.
  */
-export function AgentTrialCard() {
+export function AgentTrialCard({ onChanged }: { onChanged?: () => void } = {}) {
     const { showToast } = useToast();
     const [settings, setSettings] = useState<CrmAgentTrialSettings | null>(null);
     const [trust, setTrust] = useState<CrmAgentTrust[]>([]);
@@ -63,6 +63,7 @@ export function AgentTrialCard() {
         try {
             await updateCrmAgentTrialSettings(patch);
             await load();
+            onChanged?.();
             showToast({ message, type: "success" });
         } catch {
             setError("Salvataggio non riuscito. Riprova.");

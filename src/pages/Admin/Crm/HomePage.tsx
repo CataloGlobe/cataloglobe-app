@@ -15,7 +15,7 @@ import { usePageTitle } from "@/hooks/usePageTitle";
 import { listCrmTeamMembers, listCrmVenues } from "@/services/supabase/crm";
 import { listCrmAppointments, listCrmCallsWithoutOutcome } from "@/services/supabase/crmAgenda";
 import { getCrmAgentSettings, getCrmAiSpend } from "@/services/supabase/crmAgents";
-import { listCrmAgentDrafts } from "@/services/supabase/crmAgentTrial";
+import { listCrmAgentDraftsOpenOrSince } from "@/services/supabase/crmAgentTrial";
 import type {
     CrmAgentDraftRow,
     CrmAgentSettings,
@@ -24,6 +24,7 @@ import type {
     CrmTeamMember,
     CrmVenueListItem
 } from "@/types/crm";
+import { isRomeToday, romeTodayStart } from "@/utils/crm/agentsOverview";
 import { CRM_STAGE_LABEL } from "@/utils/crm/stages";
 import { greeting, homeAgendaToday, homeFigures, homeHot, homeTodos, type HomeTodo } from "@/utils/crm/crmHome";
 import { formatUsd } from "@shared/crmAi";
@@ -73,7 +74,7 @@ export default function HomePage() {
         try {
             const [v, d, a, o, s, sp, t] = await Promise.all([
                 listCrmVenues(),
-                listCrmAgentDrafts(100),
+                listCrmAgentDraftsOpenOrSince(romeTodayStart(at)),
                 listCrmAppointments(dayStart, dayEnd),
                 listCrmCallsWithoutOutcome(at.toISOString()),
                 getCrmAgentSettings(),
@@ -266,7 +267,7 @@ export default function HomePage() {
                                     key={v.id}
                                     title={v.name}
                                     subtitle={CRM_STAGE_LABEL[v.stage]}
-                                    meta={TIME.format(new Date(v.last_activity_at))}
+                                    meta={`${isRomeToday(v.last_activity_at, now) ? "" : "ieri "}${TIME.format(new Date(v.last_activity_at))}`}
                                     metaInline
                                     onClick={() => navigate(`/admin/lead/${v.id}`)}
                                 />

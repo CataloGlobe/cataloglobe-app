@@ -15,4 +15,7 @@
   --brand-primary-soft-hover: var(--crm-nav-active-hover);
   --on-brand-soft: var(--crm-nav-text-strong);
   --gray-400: var(--crm-nav-disabled);
+  /* Sul fondo indaco l'anello e il grigio del tasto apri/chiudi non si vedrebbero. */
+  --shadow-focus: var(--crm-nav-focus);
+  --gray-600: var(--crm-nav-text);
 }
