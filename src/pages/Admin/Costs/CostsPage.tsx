@@ -1,21 +1,31 @@
 import { useCallback, useMemo, useState } from "react";
-import { Wallet } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
+import { CalendarDays, List } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import { Card } from "@/components/ui/Card/Card";
-import { ChipGroupSingle, type ChipOption } from "@/components/ui/Chip/ChipGroup";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
-import { DataTable, DATA_TABLE_CLASSES, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { ListRow } from "@/components/ui/ListRow/ListRow";
+import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
-import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import Text from "@/components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
 import { usePageHeader } from "@/context/usePageHeader";
 import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { usePageTitle } from "@/hooks/usePageTitle";
-import { deleteCrmExpense, listCrmExpenseCharges, listCrmExpenseNextCharges, listCrmExpenses } from "@/services/supabase/crmExpenses";
-import { CRM_BILLING_INTERVAL_LABEL, CRM_EXPENSE_CATEGORY_LABEL, daysBetween, formatDaysLeft, formatEuroCents } from "@shared/crmExpenses";
+import { listCrmTeamMembers } from "@/services/supabase/crm";
+import {
+    createCrmExpenseSettlements,
+    deleteCrmExpense,
+    deleteCrmExpenseSettlement,
+    listCrmExpenseCharges,
+    listCrmExpenseNextCharges,
+    listCrmExpenses,
+    listCrmExpenseSettlements
+} from "@/services/supabase/crmExpenses";
+import { CRM_BILLING_INTERVAL_LABEL, daysBetween, formatDaysLeft, formatEuroCents } from "@shared/crmExpenses";
+import { computeExpenseBalance, isJointAccount, payerSuggestions, transfersToSettlements } from "@/utils/crm/expenseBalance";
+import { lastDayOfMonth, shiftDay, shiftMonth } from "@/utils/crm/expenseCalendar";
 import {
     formatMonthIt,
     formatShortDateIt,
@@ -24,65 +34,129 @@ import {
     summarizeCharges,
     upcomingRenewals
 } from "@/utils/crm/expenses";
-import type { CrmExpense } from "@/types/crm";
+import { isMissingOnDatabase } from "@/utils/crm/stages";
+import type { CrmExpense, CrmExpenseSettlement } from "@/types/crm";
 import { TileState } from "@/pages/Admin/Crm/components/TileState";
 import { useCrmLoad } from "@/pages/Admin/Crm/hooks/useCrmLoad";
+import { CostsCalendar } from "./components/CostsCalendar";
+import { ExpenseTabs } from "./components/ExpenseTabs";
+import { PayersCard } from "./components/PayersCard";
 import { ExpenseDrawer } from "./ExpenseDrawer";
+import { SettlementDrawer } from "./SettlementDrawer";
 import styles from "./Costs.module.scss";
 
 /**
- * Sezione costi del CRM, prima versione a mano (decisione di Alex del
- * 2026-10-02): spese una tantum e abbonamenti, totale del mese e da inizio,
- * mese per mese, prossimi rinnovi. Il promemoria su Telegram lo manda
- * crm-notify alle 9 (mig 20261003120300). Qonto, Stripe e Meta in Fase 3.
+ * Sezione costi del CRM (rifatta il 2026-10-05 dalle scelte di Alex sul
+ * canvas: K2 come base, il calendario K5 accanto, chi ha pagato cosa). Spese a
+ * mano, una tantum e abbonamenti; il promemoria dei rinnovi su Telegram lo
+ * manda crm-notify alle 9. Qonto, Stripe e Meta in Fase 3.
  */
 
-type KindFilter = "all" | "subscription" | "one_off";
+type CostsView = "list" | "calendar";
 
-function describeWhen(expense: CrmExpense, nextChargeOn: string | undefined): string {
-    if (expense.kind === "one_off") return expense.paid_on ? formatShortDateIt(expense.paid_on) : "—";
-    if (expense.cancelled_on) return `Disdetto il ${formatShortDateIt(expense.cancelled_on)}`;
-    if (nextChargeOn) return `Rinnovo il ${formatShortDateIt(nextChargeOn)}`;
-    return "Concluso";
-}
+/** Quanti giorni guarda «In arrivo». */
+const UPCOMING_DAYS = 30;
 
-function describeAmount(expense: CrmExpense): string {
-    const amount = formatEuroCents(expense.amount_cents);
-    if (expense.kind === "one_off" || !expense.billing_interval) return `${amount} una tantum`;
-    return `${amount} ${CRM_BILLING_INTERVAL_LABEL[expense.billing_interval]}`;
+const VIEW_OPTIONS = [
+    { value: "list" as const, label: "Elenco", icon: <List size={16} aria-hidden="true" /> },
+    { value: "calendar" as const, label: "Calendario", icon: <CalendarDays size={16} aria-hidden="true" /> }
+];
+
+function signedDelta(cents: number, previousMonth: string): string {
+    if (cents === 0) return `come ${previousMonth}`;
+    return `${cents > 0 ? "+" : "−"}${formatEuroCents(Math.abs(cents))} su ${previousMonth}`;
 }
 
 export default function CostsPage() {
     usePageTitle("Costi");
     const { showToast } = useToast();
+    const [searchParams, setSearchParams] = useSearchParams();
+    const view: CostsView = searchParams.get("vista") === "calendario" ? "calendar" : "list";
     const [tick, setTick] = useState(0);
     const isPhone = useMediaQuery("(max-width: 767px)");
     const figureVariant = isPhone ? "title-sm" : "title-lg";
-    const [filter, setFilter] = useState<KindFilter>("all");
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [selected, setSelected] = useState<CrmExpense | null>(null);
     const [toDelete, setToDelete] = useState<CrmExpense | null>(null);
-    const [isDeleting, setIsDeleting] = useState(false);
-    const [deleteError, setDeleteError] = useState<string | null>(null);
+    const [moveToDelete, setMoveToDelete] = useState<CrmExpenseSettlement | null>(null);
+    const [isSettleOpen, setIsSettleOpen] = useState(false);
+    const [isMoveOpen, setIsMoveOpen] = useState(false);
+    const [isBusy, setIsBusy] = useState(false);
+    const [dialogError, setDialogError] = useState<string | null>(null);
 
-    // Tre letture che stanno da sole: se una manca si spegne solo il suo pezzo.
     const today = useMemo(() => romeTodayIso(), [tick]); // eslint-disable-line react-hooks/exhaustive-deps
+    const [calMonth, setCalMonth] = useState(() => today.slice(0, 7));
+    const [calDay, setCalDay] = useState(today);
+
+    // Gli addebiti arrivano fino alla fine del mese prossimo: servono al
+    // calendario e a «In arrivo» (oggi + 30 giorni, se va oltre).
+    const until = useMemo(() => {
+        const endNext = lastDayOfMonth(shiftMonth(today.slice(0, 7), 1));
+        const in30 = shiftDay(today, UPCOMING_DAYS);
+        return in30 > endNext ? in30 : endNext;
+    }, [today]);
+
+    // Letture che stanno da sole: se una manca si spegne solo il suo pezzo.
     const expensesLoad = useCrmLoad(listCrmExpenses, tick);
-    const chargesLoad = useCrmLoad(() => listCrmExpenseCharges(today), tick);
+    const chargesLoad = useCrmLoad(() => listCrmExpenseCharges(until), tick);
     const nextLoad = useCrmLoad(() => listCrmExpenseNextCharges(today), tick);
+    const teamLoad = useCrmLoad(listCrmTeamMembers, tick);
+    const settlementsLoad = useCrmLoad(
+        () =>
+            listCrmExpenseSettlements().catch((err: unknown) => {
+                // Tabella non ancora sul database: il conto vale lo stesso.
+                if (isMissingOnDatabase(err)) return null;
+                throw err;
+            }),
+        tick
+    );
     const reload = useCallback(() => setTick(t => t + 1), []);
-    const load = useCallback(async () => reload(), [reload]);
 
     const expenses = useMemo(() => expensesLoad.data ?? [], [expensesLoad.data]);
-    const charges = useMemo(() => chargesLoad.data ?? [], [chargesLoad.data]);
+    const allCharges = useMemo(() => chargesLoad.data ?? [], [chargesLoad.data]);
     const nextCharges = useMemo(() => nextLoad.data ?? new Map<string, string>(), [nextLoad.data]);
+    const team = useMemo(() => (teamLoad.data ?? []).map(m => m.display_name), [teamLoad.data]);
+    const settlementsMissing = settlementsLoad.data === null && !settlementsLoad.loading && !settlementsLoad.error;
+    const settlements = useMemo(() => settlementsLoad.data ?? [], [settlementsLoad.data]);
+
     const isLoading = expensesLoad.loading && !expensesLoad.data;
     const figuresLoading = isLoading || (chargesLoad.loading && !chargesLoad.data) || (nextLoad.loading && !nextLoad.data);
     const figuresError = expensesLoad.error ?? chargesLoad.error ?? nextLoad.error;
 
-    const summary = useMemo(() => summarizeCharges(charges, expenses, today), [charges, expenses, today]);
+    const summary = useMemo(() => summarizeCharges(allCharges, expenses, today), [allCharges, expenses, today]);
     const monthlyRecurring = useMemo(() => recurringMonthlyCents(expenses, nextCharges), [expenses, nextCharges]);
-    const renewals = useMemo(() => upcomingRenewals(expenses, nextCharges), [expenses, nextCharges]);
+    const activeCount = useMemo(() => upcomingRenewals(expenses, nextCharges).length, [expenses, nextCharges]);
+    const upcoming = useMemo(() => {
+        const last = shiftDay(today, UPCOMING_DAYS);
+        return allCharges.filter(c => c.chargedOn >= today && c.chargedOn <= last).sort((a, b) => (a.chargedOn < b.chargedOn ? -1 : 1));
+    }, [allCharges, today]);
+    const upcomingTotal = upcoming.reduce((sum, c) => sum + c.amountCents, 0);
+    const byId = useMemo(() => new Map(expenses.map(e => [e.id, e])), [expenses]);
+
+    const balance = useMemo(
+        () => computeExpenseBalance({ charges: allCharges, expenses, settlements, team, today }),
+        [allCharges, expenses, settlements, team, today]
+    );
+    const payers = useMemo(() => payerSuggestions(team), [team]);
+    const people = useMemo(() => balance.people.map(p => p.name), [balance.people]);
+
+    const currentMonth = today.slice(0, 7);
+    const firstMonth = summary.months.at(-1)?.month ?? currentMonth;
+
+    const setView = useCallback(
+        (next: CostsView) => {
+            setSearchParams(
+                prev => {
+                    const params = new URLSearchParams(prev);
+                    if (next === "calendar") params.set("vista", "calendario");
+                    else params.delete("vista");
+                    return params;
+                },
+                { replace: true }
+            );
+        },
+        [setSearchParams]
+    );
 
     const openCreate = useCallback(() => {
         setSelected(null);
@@ -94,121 +168,58 @@ export default function CostsPage() {
         setIsDrawerOpen(true);
     }, []);
 
+    const askDelete = useCallback((expense: CrmExpense) => {
+        setDialogError(null);
+        setToDelete(expense);
+    }, []);
+
     const handleSaved = useCallback(
         async (mode: "create" | "edit") => {
-            await load();
+            reload();
             setIsDrawerOpen(false);
             showToast({ message: mode === "create" ? "Spesa aggiunta." : "Spesa salvata.", type: "success" });
         },
-        [load, showToast]
+        [reload, showToast]
     );
 
-    const handleDelete = useCallback(async () => {
-        if (!toDelete) return false;
-        setIsDeleting(true);
-        setDeleteError(null);
-        try {
-            await deleteCrmExpense(toDelete.id);
-            await load();
-            setToDelete(null);
-            showToast({ message: "Spesa eliminata.", type: "success" });
-        } catch {
-            // L'errore lo dice il dialogo, che resta aperto.
-            setDeleteError("Non è stato possibile eliminarla. Riprova.");
-            return false;
-        } finally {
-            setIsDeleting(false);
-        }
-    }, [toDelete, load, showToast]);
+    const handleMoveSaved = useCallback(async () => {
+        reload();
+        setIsMoveOpen(false);
+        showToast({ message: "Movimento registrato.", type: "success" });
+    }, [reload, showToast]);
 
-    const counts = useMemo(
-        () => ({
-            all: expenses.length,
-            subscription: expenses.filter(e => e.kind === "subscription").length,
-            one_off: expenses.filter(e => e.kind === "one_off").length
-        }),
-        [expenses]
-    );
-
-    const filterOptions = useMemo<ChipOption<KindFilter>[]>(
-        () => [
-            { value: "all", label: "Tutte", count: counts.all },
-            { value: "subscription", label: "Abbonamenti", count: counts.subscription, disabled: counts.subscription === 0 },
-            { value: "one_off", label: "Una tantum", count: counts.one_off, disabled: counts.one_off === 0 }
-        ],
-        [counts]
-    );
-
-    const visible = useMemo(() => (filter === "all" ? expenses : expenses.filter(e => e.kind === filter)), [expenses, filter]);
-
-    const columns = useMemo<ColumnDefinition<CrmExpense>[]>(
-        () => [
-            {
-                id: "name",
-                header: "Spesa",
-                cell: (_v, row) => (
-                    <div className={`${DATA_TABLE_CLASSES.cellTwoLine} ${DATA_TABLE_CLASSES.cellTwoLineWrap}`}>
-                        <span>{row.name}</span>
-                        <span>{CRM_EXPENSE_CATEGORY_LABEL[row.category]}</span>
-                    </div>
-                )
-            },
-            {
-                id: "amount",
-                header: "Importo",
-                cell: (_v, row) => (
-                    <div className={DATA_TABLE_CLASSES.cellTwoLine}>
-                        <span>{describeAmount(row)}</span>
-                        <span>{describeWhen(row, nextCharges.get(row.id))}</span>
-                    </div>
-                )
-            },
-            {
-                id: "paidBy",
-                header: "Pagata da",
-                hideOnPhone: true,
-                cell: (_v, row) => row.paid_by ?? "—"
-            },
-            {
-                id: "actions",
-                header: "",
-                width: "56px",
-                align: "right",
-                cell: (_v, row) => (
-                    <TableRowActions
-                        actions={[
-                            { label: "Modifica", onClick: () => openEdit(row) },
-                            {
-                                label: "Elimina",
-                                variant: "destructive",
-                                separator: true,
-                                onClick: () => {
-                                    setDeleteError(null);
-                                    setToDelete(row);
-                                }
-                            }
-                        ]}
-                    />
-                )
+    /** Le tre conferme della pagina: stessa forma, cambia solo cosa fanno. */
+    const confirm = useCallback(
+        async (work: () => Promise<void>, done: string, close: () => void) => {
+            setIsBusy(true);
+            setDialogError(null);
+            try {
+                await work();
+                reload();
+                close();
+                showToast({ message: done, type: "success" });
+            } catch {
+                // L'errore lo dice il dialogo, che resta aperto.
+                setDialogError("Non è andata a buon fine. Riprova.");
+                return false;
+            } finally {
+                setIsBusy(false);
             }
-        ],
-        [nextCharges, openEdit]
+        },
+        [reload, showToast]
     );
-
-    const monthRows = summary.months;
-
-    const subtitle = "Spese inserite a mano, IVA inclusa.";
 
     // MEMOIZZATO: usePageHeader confronta `actions` per reference.
     const headerActions = useMemo(
         () => (
             <div className={styles.headerActions}>
+                <SegmentedControl value={view} onChange={setView} options={VIEW_OPTIONS} size="sm" />
                 <Button variant="primary" onClick={openCreate}>
                     Aggiungi spesa
                 </Button>
             </div>
         ),
-        [openCreate]
+        [view, setView, openCreate]
     );
 
     const headerCompact = useMemo<PageHeaderCompactConfig>(
@@ -216,11 +227,11 @@ export default function CostsPage() {
         [openCreate]
     );
 
-    usePageHeader({ title: "Costi", subtitle, actions: headerActions, compact: headerCompact });
+    usePageHeader({ title: "Costi", subtitle: "Spese inserite a mano, IVA inclusa.", actions: headerActions, compact: headerCompact });
 
-    const activeCount = renewals.length;
-
-    const monthName = formatMonthIt(today.slice(0, 7)).split(" ")[0];
+    const monthName = formatMonthIt(currentMonth).split(" ")[0];
+    const previousName = formatMonthIt(shiftMonth(currentMonth, -1)).split(" ")[0];
+    const delta = summary.thisMonthCents - (summary.months[1]?.totalCents ?? 0);
 
     return (
         <div className={styles.page}>
@@ -228,10 +239,26 @@ export default function CostsPage() {
                 <TileState loading={figuresLoading} error={figuresError} onRetry={reload}>
                     <div className={styles.figure}>
                         <Text as="span" variant="caption" colorVariant="muted">
-                            {isPhone ? monthName.charAt(0).toUpperCase() + monthName.slice(1) : `Speso a ${monthName}`}
+                            Speso a {monthName}
                         </Text>
                         <Text as="span" variant={figureVariant} weight={700} className={styles.figureValue}>
                             {formatEuroCents(summary.thisMonthCents)}
+                        </Text>
+                        {summary.months.length > 1 && (
+                            <Text as="span" variant="caption" colorVariant="muted">
+                                {signedDelta(delta, previousName)}
+                            </Text>
+                        )}
+                    </div>
+                    <div className={styles.figure}>
+                        <Text as="span" variant="caption" colorVariant="muted">
+                            Abbonamenti, al mese
+                        </Text>
+                        <Text as="span" variant={figureVariant} weight={700} className={styles.figureValue}>
+                            {formatEuroCents(monthlyRecurring)}
+                        </Text>
+                        <Text as="span" variant="caption" colorVariant="muted">
+                            {activeCount === 1 ? "1 attivo" : `${activeCount} attivi`}
                         </Text>
                     </div>
                     <div className={styles.figure}>
@@ -241,124 +268,188 @@ export default function CostsPage() {
                         <Text as="span" variant={figureVariant} weight={700} className={styles.figureValue}>
                             {formatEuroCents(summary.sinceStartCents)}
                         </Text>
-                    </div>
-                    <div className={styles.figure}>
-                        <Text as="span" variant="caption" colorVariant="muted">
-                            {isPhone ? "Al mese" : activeCount === 1 ? "1 abbonamento, al mese" : `${activeCount} abbonamenti, al mese`}
-                        </Text>
-                        <Text as="span" variant={figureVariant} weight={700} className={styles.figureValue}>
-                            {formatEuroCents(monthlyRecurring)}
-                        </Text>
+                        {summary.months.length > 0 && (
+                            <Text as="span" variant="caption" colorVariant="muted">
+                                da {formatMonthIt(firstMonth)}
+                            </Text>
+                        )}
                     </div>
                 </TileState>
             </section>
 
-            <div className={styles.bottom}>
-                <Card title="Prossimi rinnovi" flush>
-                    <TileState
-                        loading={figuresLoading}
-                        error={figuresError}
-                        onRetry={reload}
-                        empty={renewals.length === 0}
-                        emptyText="Nessun abbonamento attivo."
-                    >
-                        {renewals.map(({ expense, nextChargeOn }) => {
-                            const daysLeft = daysBetween(today, nextChargeOn);
-                            const soon = expense.remind_days_before != null && daysLeft <= expense.remind_days_before;
-                            return (
-                                <ListRow
-                                    key={expense.id}
-                                    title={expense.name}
-                                    subtitle={[describeAmount(expense), expense.paid_by].filter(Boolean).join(" · ")}
-                                    onClick={() => openEdit(expense)}
-                                    trailing={
-                                        soon ? (
-                                            <StatusBadge variant="warning" label={formatDaysLeft(daysLeft)} />
-                                        ) : (
-                                            formatShortDateIt(nextChargeOn)
-                                        )
-                                    }
-                                />
-                            );
-                        })}
-                    </TileState>
-                </Card>
-
-                <Card title="Mese per mese" flush>
-                    <TileState
-                        loading={figuresLoading}
-                        error={figuresError}
-                        onRetry={reload}
-                        empty={monthRows.length === 0}
-                        emptyText="I mesi compaiono con la prima spesa."
-                    >
-                        {monthRows.map(m => (
-                            <ListRow
-                                key={m.month}
-                                title={formatMonthIt(m.month)}
-                                subtitle={`Abbonamenti ${formatEuroCents(m.subscriptionCents)} · una tantum ${formatEuroCents(m.oneOffCents)}`}
-                                trailing={
-                                    <Text as="span" variant="body-sm" weight={700} className={styles.figureValue}>
-                                        {formatEuroCents(m.totalCents)}
-                                    </Text>
-                                }
-                            />
-                        ))}
-                    </TileState>
-                </Card>
-            </div>
-
-            <Card title="Tutte le spese">
-                <TileState loading={false} error={expensesLoad.error} onRetry={reload}>
-                    <div className={styles.listBody}>
-                        <ChipGroupSingle
-                            options={filterOptions}
-                            value={filter}
-                            onChange={setFilter}
-                            ariaLabel="Filtra per tipo"
-                            layout="auto"
-                        />
-                        <DataTable
-                            data={visible}
-                            columns={columns}
-                            isLoading={isLoading}
-                            onRowClick={row => openEdit(row)}
-                            ariaLabel="Spese"
-                            pageSize={20}
-                            isFiltered={filter !== "all"}
-                            onClearFilters={() => setFilter("all")}
-                            emptyState={{
-                                title: "Ancora nessuna spesa",
-                                description:
-                                    "Aggiungi gli abbonamenti con la data del rinnovo e le spese una tantum: i totali si fanno da soli.",
-                                icon: <Wallet size={32} strokeWidth={1.5} />,
-                                action: (
-                                    <Button variant="primary" size="sm" onClick={openCreate}>
-                                        Aggiungi spesa
-                                    </Button>
-                                )
+            {view === "calendar" ? (
+                <CostsCalendar
+                    month={calMonth}
+                    minMonth={firstMonth < currentMonth ? firstMonth : shiftMonth(currentMonth, -1)}
+                    maxMonth={shiftMonth(currentMonth, 1)}
+                    selectedDay={calDay}
+                    today={today}
+                    charges={allCharges}
+                    expenses={expenses}
+                    isPhone={isPhone}
+                    loading={figuresLoading}
+                    error={figuresError}
+                    onRetry={reload}
+                    onMonth={m => {
+                        setCalMonth(m);
+                        setCalDay(m === currentMonth ? today : `${m}-01`);
+                    }}
+                    onDay={setCalDay}
+                    onOpen={openEdit}
+                />
+            ) : (
+                <>
+                    <div className={styles.duo}>
+                        <PayersCard
+                            balance={balance}
+                            loading={figuresLoading || (teamLoad.loading && !teamLoad.data)}
+                            error={figuresError ?? settlementsLoad.error}
+                            settlements={settlements}
+                            settlementsMissing={settlementsMissing}
+                            onRetry={reload}
+                            onSettle={() => {
+                                setDialogError(null);
+                                setIsSettleOpen(true);
+                            }}
+                            onRecord={() => setIsMoveOpen(true)}
+                            onDeleteMove={move => {
+                                setDialogError(null);
+                                setMoveToDelete(move);
                             }}
                         />
-                    </div>
-                </TileState>
-            </Card>
 
-            <ExpenseDrawer open={isDrawerOpen} expense={selected} onClose={() => setIsDrawerOpen(false)} onSaved={handleSaved} />
+                        <Card
+                            title={`In arrivo, ${UPCOMING_DAYS} giorni`}
+                            subtitle={upcoming.length > 0 ? `${formatEuroCents(upcomingTotal)} in tutto.` : undefined}
+                            flush
+                        >
+                            <TileState
+                                loading={figuresLoading}
+                                error={figuresError}
+                                onRetry={reload}
+                                empty={upcoming.length === 0}
+                                emptyText="Nessun addebito nei prossimi 30 giorni."
+                            >
+                                {upcoming.map((c, i) => {
+                                    const expense = byId.get(c.expenseId);
+                                    const daysLeft = daysBetween(today, c.chargedOn);
+                                    const soon = expense?.remind_days_before != null && daysLeft <= expense.remind_days_before;
+                                    const interval = expense?.billing_interval;
+                                    return (
+                                        <ListRow
+                                            key={`${c.expenseId}-${c.chargedOn}-${i}`}
+                                            title={expense?.name ?? "Spesa"}
+                                            subtitle={[
+                                                `${formatEuroCents(c.amountCents)}${interval ? ` ${CRM_BILLING_INTERVAL_LABEL[interval]}` : ""}`,
+                                                expense?.paid_by &&
+                                                    (isJointAccount(expense.paid_by) ? "dal conto comune" : `paga ${expense.paid_by}`)
+                                            ]
+                                                .filter(Boolean)
+                                                .join(" · ")}
+                                            onClick={expense ? () => openEdit(expense) : undefined}
+                                            trailing={
+                                                soon ? (
+                                                    <StatusBadge variant="warning" label={formatDaysLeft(daysLeft)} />
+                                                ) : (
+                                                    formatShortDateIt(c.chargedOn)
+                                                )
+                                            }
+                                        />
+                                    );
+                                })}
+                            </TileState>
+                        </Card>
+                    </div>
+
+                    <ExpenseTabs
+                        expenses={expenses}
+                        nextCharges={nextCharges}
+                        months={summary.months}
+                        today={today}
+                        loading={figuresLoading}
+                        error={figuresError}
+                        onRetry={reload}
+                        onOpen={openEdit}
+                        onDelete={askDelete}
+                        onCreate={openCreate}
+                    />
+                </>
+            )}
+
+            <ExpenseDrawer
+                open={isDrawerOpen}
+                expense={selected}
+                payers={payers}
+                onClose={() => setIsDrawerOpen(false)}
+                onSaved={handleSaved}
+            />
+            <SettlementDrawer open={isMoveOpen} people={people} onClose={() => setIsMoveOpen(false)} onSaved={handleMoveSaved} />
 
             <ConfirmDialog
                 isOpen={toDelete != null}
                 onClose={() => setToDelete(null)}
-                onConfirm={handleDelete}
+                onConfirm={() =>
+                    toDelete
+                        ? confirm(
+                              () => deleteCrmExpense(toDelete.id),
+                              "Spesa eliminata.",
+                              () => setToDelete(null)
+                          )
+                        : false
+                }
                 title="Eliminare la spesa?"
                 message={
                     toDelete
-                        ? `«${toDelete.name}» esce dai totali, anche dai mesi passati. Per un abbonamento finito usa piuttosto «Disdetto»: i mesi pagati restano.`
+                        ? `«${toDelete.name}» esce dai totali e dal conto tra voi, anche dai mesi passati. Per un abbonamento finito usa piuttosto «Disdetto»: i mesi pagati restano.`
                         : undefined
                 }
                 confirmLabel="Elimina"
                 confirmVariant="danger"
-                isLoading={isDeleting}
-                error={deleteError}
+                isLoading={isBusy}
+                error={dialogError}
+            />
+
+            <ConfirmDialog
+                isOpen={isSettleOpen}
+                onClose={() => setIsSettleOpen(false)}
+                onConfirm={() =>
+                    confirm(
+                        () => createCrmExpenseSettlements(transfersToSettlements(balance.transfers, today)),
+                        "Conto pareggiato.",
+                        () => setIsSettleOpen(false)
+                    )
+                }
+                title="Segnare il conto come pareggiato?"
+                message={`Si registra ${balance.transfers
+                    .map(t => `${t.from} → ${t.to}, ${formatEuroCents(t.amountCents)}`)
+                    .join("; ")}, con la data di oggi. Fallo dopo che i soldi sono passati davvero.`}
+                confirmLabel="Segna come pareggiato"
+                isLoading={isBusy}
+                error={dialogError}
+            />
+
+            <ConfirmDialog
+                isOpen={moveToDelete != null}
+                onClose={() => setMoveToDelete(null)}
+                onConfirm={() =>
+                    moveToDelete
+                        ? confirm(
+                              () => deleteCrmExpenseSettlement(moveToDelete.id),
+                              "Movimento tolto.",
+                              () => setMoveToDelete(null)
+                          )
+                        : false
+                }
+                title="Togliere il movimento?"
+                message={
+                    moveToDelete
+                        ? `${moveToDelete.from_name} → ${moveToDelete.to_name}, ${formatEuroCents(moveToDelete.amount_cents)} del ${formatShortDateIt(moveToDelete.settled_on)}: il conto tra voi torna come prima.`
+                        : undefined
+                }
+                confirmLabel="Togli"
+                confirmVariant="danger"
+                isLoading={isBusy}
+                error={dialogError}
             />
         </div>
     );

@@ -385,6 +385,26 @@ export interface CrmExpenseInput {
     notes: string | null;
 }
 
+/** Un rimborso tra persone, o un versamento sul conto comune (mig 20261005180000). */
+export interface CrmExpenseSettlement {
+    id: string;
+    from_name: string;
+    to_name: string;
+    amount_cents: number;
+    settled_on: string;
+    note: string | null;
+    created_by: string | null;
+    created_at: string;
+}
+
+export interface CrmExpenseSettlementInput {
+    fromName: string;
+    toName: string;
+    amountCents: number;
+    settledOn: string;
+    note: string | null;
+}
+
 // -----------------------------------------------------------------------------
 // Agenda delle telefonate (F1-4a, migration 20261003230000)
 // -----------------------------------------------------------------------------

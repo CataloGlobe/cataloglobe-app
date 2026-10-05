@@ -2,59 +2,59 @@ import { useEffect, useState } from "react";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { Button } from "@/components/ui/Button/Button";
-import Text from "@/components/ui/Text/Text";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
-import { createCrmExpense, updateCrmExpense } from "@/services/supabase/crmExpenses";
+import Text from "@/components/ui/Text/Text";
+import { createCrmExpenseSettlements } from "@/services/supabase/crmExpenses";
 import {
-    expenseDraftFrom,
-    expenseDraftToInput,
-    romeTodayIso,
-    validateExpenseDraft,
-    type CrmExpenseDraft,
-    type CrmExpenseDraftErrors
-} from "@/utils/crm/expenses";
+    settlementDraftToInput,
+    validateSettlementDraft,
+    type SettlementDraft,
+    type SettlementDraftErrors
+} from "@/utils/crm/expenseBalance";
+import { romeTodayIso } from "@/utils/crm/expenses";
 import { crmErrorMessage } from "@/utils/crm/stages";
-import type { CrmExpense } from "@/types/crm";
-import { ExpenseForm } from "./components/ExpenseForm";
+import { SettlementForm } from "./components/SettlementForm";
 import styles from "./Costs.module.scss";
 
-const FORM_ID = "crm-expense-form";
+const FORM_ID = "crm-settlement-form";
 
 type Props = {
     open: boolean;
-    /** null = nuova spesa. */
-    expense: CrmExpense | null;
+    /** Le persone del conto, per «Da» e «A». */
+    people: string[];
     onClose: () => void;
-    onSaved: (mode: "create" | "edit") => Promise<void> | void;
-    /** Nomi pronti per «Pagata da». */
-    payers?: string[];
+    onSaved: () => Promise<void> | void;
 };
 
-export function ExpenseDrawer({ open, expense, onClose, onSaved, payers }: Props) {
-    const [draft, setDraft] = useState<CrmExpenseDraft>(() => expenseDraftFrom(null, romeTodayIso()));
-    const [errors, setErrors] = useState<CrmExpenseDraftErrors>({});
+function emptyDraft(people: string[]): SettlementDraft {
+    return { fromName: people[1] ?? "", toName: people[0] ?? "", amount: "", settledOn: romeTodayIso(), note: "" };
+}
+
+/** Un rimborso tra voi o un versamento sul conto comune, a mano. */
+export function SettlementDrawer({ open, people, onClose, onSaved }: Props) {
+    const [draft, setDraft] = useState<SettlementDraft>(() => emptyDraft(people));
+    const [errors, setErrors] = useState<SettlementDraftErrors>({});
     const [formError, setFormError] = useState<string | null>(null);
     const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
         if (!open) return;
-        setDraft(expenseDraftFrom(expense, romeTodayIso()));
+        setDraft(emptyDraft(people));
         setErrors({});
         setFormError(null);
         setIsSaving(false);
-    }, [open, expense]);
+        // Si riparte da capo solo all'apertura.
+    }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
     async function handleSubmit() {
-        const found = validateExpenseDraft(draft);
+        const found = validateSettlementDraft(draft);
         setErrors(found);
         if (Object.keys(found).length > 0) return;
         setFormError(null);
         setIsSaving(true);
         try {
-            const input = expenseDraftToInput(draft);
-            if (expense) await updateCrmExpense(expense.id, input);
-            else await createCrmExpense(input);
-            await onSaved(expense ? "edit" : "create");
+            await createCrmExpenseSettlements([settlementDraftToInput(draft)]);
+            await onSaved();
         } catch (err) {
             setFormError(crmErrorMessage(err));
             setIsSaving(false);
@@ -62,11 +62,11 @@ export function ExpenseDrawer({ open, expense, onClose, onSaved, payers }: Props
     }
 
     return (
-        <SystemDrawer open={open} onClose={onClose} size="md">
+        <SystemDrawer open={open} onClose={onClose} size="sm">
             <DrawerLayout
                 header={
                     <Text variant="title-sm" weight={600}>
-                        {expense ? "Modifica spesa" : "Aggiungi spesa"}
+                        Registra un movimento
                     </Text>
                 }
                 footer={
@@ -75,21 +75,21 @@ export function ExpenseDrawer({ open, expense, onClose, onSaved, payers }: Props
                             Annulla
                         </Button>
                         <Button variant="primary" type="submit" form={FORM_ID} loading={isSaving}>
-                            {expense ? "Salva" : "Aggiungi"}
+                            Registra
                         </Button>
                     </>
                 }
             >
                 <div className={styles.form}>
                     {formError && <InlineBanner variant="error">{formError}</InlineBanner>}
-                    <ExpenseForm
+                    <SettlementForm
                         formId={FORM_ID}
                         draft={draft}
                         errors={errors}
+                        people={people}
                         disabled={isSaving}
                         onChange={patch => setDraft(prev => ({ ...prev, ...patch }))}
                         onSubmit={() => void handleSubmit()}
-                        payers={payers}
                     />
                 </div>
             </DrawerLayout>
