@@ -9,14 +9,15 @@ import { ListRow } from "@/components/ui/ListRow/ListRow";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import Text from "@/components/ui/Text/Text";
 import type { CrmAgentSettings, CrmBrandRules, CrmBrandRulesStatus } from "@/types/crm";
-import { crmAgentErrorMessage, formatUsdInput, parseUsdCap } from "@/utils/crm/agentLabels";
+import { CAP_MAX_EUR, crmAgentErrorMessage, formatCapInput, parseEurCap } from "@/utils/crm/agentLabels";
+import { eurToUsd } from "@shared/crmAi";
 import { formatDateTimeIt } from "@/utils/formatDateTime";
 import { updateCrmAgentSettings } from "@/services/supabase/crmAgents";
 import styles from "../Agents.module.scss";
 
 const CAPS_FORM = "crm-spend-caps";
 
-/** «Cambia i tetti»: mese e giorno in dollari, all'80% l'avviso, al tetto la pausa. */
+/** «Cambia i tetti»: mese e giorno in euro (sul database in dollari), all'80% l'avviso, al tetto la pausa. */
 export function SpendCapsDrawer({
     settings,
     onClose,
@@ -33,16 +34,16 @@ export function SpendCapsDrawer({
 
     useEffect(() => {
         if (!settings) return;
-        setMonth(formatUsdInput(settings.ai_month_cap_usd));
-        setDay(formatUsdInput(settings.ai_day_cap_usd));
+        setMonth(formatCapInput(settings.ai_month_cap_usd));
+        setDay(formatCapInput(settings.ai_day_cap_usd));
         setError(null);
     }, [settings]);
 
     async function handleSubmit() {
-        const m = parseUsdCap(month);
-        const d = parseUsdCap(day);
+        const m = parseEurCap(month);
+        const d = parseEurCap(day);
         if (m === null || d === null) {
-            setError("Scrivi due importi in dollari maggiori di zero, come 100 o 12,50 (al massimo 10.000).");
+            setError(`Scrivi due importi in euro maggiori di zero, come 100 o 12,50 (al massimo ${CAP_MAX_EUR.toLocaleString("it-IT")}).`);
             return;
         }
         if (d > m) {
@@ -52,7 +53,7 @@ export function SpendCapsDrawer({
         setSaving(true);
         setError(null);
         try {
-            await updateCrmAgentSettings({ ai_month_cap_usd: m, ai_day_cap_usd: d });
+            await updateCrmAgentSettings({ ai_month_cap_usd: eurToUsd(m), ai_day_cap_usd: eurToUsd(d) });
             onSaved();
         } catch (err) {
             setError(crmAgentErrorMessage(err));
@@ -91,14 +92,14 @@ export function SpendCapsDrawer({
                 >
                     {error && <InlineBanner variant="error">{error}</InlineBanner>}
                     <TextInput
-                        label="Tetto del mese ($)"
+                        label="Tetto del mese (€)"
                         inputMode="decimal"
                         value={month}
                         onChange={e => setMonth(e.target.value)}
                         disabled={saving}
                     />
                     <TextInput
-                        label="Tetto di oggi ($)"
+                        label="Tetto di oggi (€)"
                         inputMode="decimal"
                         value={day}
                         onChange={e => setDay(e.target.value)}

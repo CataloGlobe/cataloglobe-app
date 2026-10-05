@@ -9,7 +9,7 @@ import type {
     CrmBrakeSource,
     CrmDecisionActor
 } from "@/types/crm";
-import { CLAUDE_PRICES, type CrmAiRole } from "@shared/crmAi";
+import { CLAUDE_PRICES, formatAiCost, USD_TO_EUR, usdToEur, type CrmAiRole } from "@shared/crmAi";
 
 export const CRM_BRAKE_SOURCE_LABEL: Record<CrmBrakeSource, string> = {
     setup: "avvio",
@@ -94,8 +94,7 @@ const CHECK_REASON: Record<string, string> = {
 /** Esito della prova di collegamento, in una riga. */
 export function agentCheckMessage(result: CrmAgentCheckResult): string {
     if (result.ok) {
-        const cost = result.cost_usd.toFixed(4).replace(".", ",");
-        return `${modelLabel(result.model)} risponde: ${result.latency_ms} ms, ${cost} $.`;
+        return `${modelLabel(result.model)} risponde: ${result.latency_ms} ms, ${formatAiCost(result.cost_usd, 4)}.`;
     }
     const reason = CHECK_REASON[result.reason] ?? "La prova non è riuscita.";
     return result.detail && result.reason === "api_error" ? `${reason} (${result.detail})` : reason;
@@ -112,22 +111,25 @@ export function crmAgentErrorMessage(err: unknown): string {
     if (message.includes("empty_rules")) return "Scrivi le regole.";
     if (message.includes("crm_settings_ai_day_cap_within_month")) return "Il tetto di oggi non può superare quello del mese.";
     if (message.includes("ai_month_cap_usd") || message.includes("ai_day_cap_usd")) {
-        return "Il tetto deve essere maggiore di zero (al massimo 10.000 $ al mese).";
+        return `Il tetto deve essere maggiore di zero (al massimo ${CAP_MAX_EUR.toLocaleString("it-IT")} € al mese).`;
     }
     return "Qualcosa non ha funzionato. Riprova.";
 }
 
-/** Tetto scritto a mano («12,50», «100»): numero positivo con al massimo due decimali, o null. */
-export function parseUsdCap(text: string): number | null {
-    const clean = text.trim().replace(/\s|\$/g, "").replace(",", ".");
+/** Il tetto più alto: il database accetta fino a 10.000 dollari al mese. */
+export const CAP_MAX_EUR = Math.floor(10_000 * USD_TO_EUR);
+
+/** Tetto scritto a mano in euro («12,50», «100 €»): numero positivo con al massimo due decimali, o null. */
+export function parseEurCap(text: string): number | null {
+    const clean = text.trim().replace(/\s|€/g, "").replace(",", ".");
     if (!/^\d+(\.\d{1,2})?$/.test(clean)) return null;
     const value = Number(clean);
-    return value > 0 && value <= 10_000 ? value : null;
+    return value > 0 && value <= CAP_MAX_EUR ? value : null;
 }
 
-/** «12.5» come lo scrive una persona: «12,50». */
-export function formatUsdInput(value: number): string {
-    return value.toFixed(2).replace(".", ",");
+/** Un tetto del database (dollari) come lo scrive una persona, in euro: «12,50». */
+export function formatCapInput(usd: number): string {
+    return usdToEur(usd).toFixed(2).replace(".", ",");
 }
 
 // -----------------------------------------------------------------------------

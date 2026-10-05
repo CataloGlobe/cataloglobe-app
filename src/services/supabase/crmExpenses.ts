@@ -7,7 +7,7 @@
  * pagina e per il promemoria dei rinnovi.
  */
 import { supabase } from "@/services/supabase/client";
-import type { CrmExpense, CrmExpenseCharge, CrmExpenseInput } from "@/types/crm";
+import type { CrmExpense, CrmExpenseCharge, CrmExpenseInput, CrmExpenseSettlement, CrmExpenseSettlementInput } from "@/types/crm";
 
 export async function listCrmExpenses(): Promise<CrmExpense[]> {
     const { data, error } = await supabase
@@ -84,5 +84,40 @@ export async function updateCrmExpense(id: string, input: CrmExpenseInput): Prom
 
 export async function deleteCrmExpense(id: string): Promise<void> {
     const { error } = await supabase.from("crm_expenses").delete().eq("id", id);
+    if (error) throw error;
+}
+
+// -----------------------------------------------------------------------------
+// Chi ha pagato cosa: rimborsi e versamenti sul conto comune (mig 20261005180000)
+// -----------------------------------------------------------------------------
+
+/** I movimenti tra le persone, i più recenti prima. */
+export async function listCrmExpenseSettlements(): Promise<CrmExpenseSettlement[]> {
+    const { data, error } = await supabase
+        .from("crm_expense_settlements")
+        .select("*")
+        .order("settled_on", { ascending: false })
+        .order("created_at", { ascending: false });
+    if (error) throw error;
+    return (data ?? []) as CrmExpenseSettlement[];
+}
+
+/** Più movimenti insieme («Segna come pareggiato»): tutti o nessuno. */
+export async function createCrmExpenseSettlements(inputs: CrmExpenseSettlementInput[]): Promise<void> {
+    if (inputs.length === 0) return;
+    const { error } = await supabase.from("crm_expense_settlements").insert(
+        inputs.map(input => ({
+            from_name: input.fromName.trim(),
+            to_name: input.toName.trim(),
+            amount_cents: input.amountCents,
+            settled_on: input.settledOn,
+            note: input.note
+        }))
+    );
+    if (error) throw error;
+}
+
+export async function deleteCrmExpenseSettlement(id: string): Promise<void> {
+    const { error } = await supabase.from("crm_expense_settlements").delete().eq("id", id);
     if (error) throw error;
 }

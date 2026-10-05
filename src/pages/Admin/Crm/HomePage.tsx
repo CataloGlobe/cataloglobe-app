@@ -39,7 +39,7 @@ import {
     type HomeTodo
 } from "@/utils/crm/crmHome";
 import { crmErrorMessage } from "@/utils/crm/stages";
-import { formatUsd } from "@shared/crmAi";
+import { formatAiCost } from "@shared/crmAi";
 import { AddLeadDrawer } from "./AddLeadDrawer";
 import { HomeAgendaDay } from "./components/HomeAgendaDay";
 import { HomeGoalCell } from "./components/HomeGoalCell";
@@ -518,7 +518,7 @@ export default function HomePage() {
                                 Spesa AI oggi
                             </Text>
                             <Text as="dd" variant="body-sm" weight={700}>
-                                {spend.data ? formatUsd(spend.data.dayUsd) : "—"}
+                                {spend.data ? formatAiCost(spend.data.dayUsd) : "—"}
                             </Text>
                         </div>
                     </dl>

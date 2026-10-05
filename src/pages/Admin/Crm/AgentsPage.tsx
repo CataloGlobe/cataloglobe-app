@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Button } from "@/components/ui/Button/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
@@ -7,7 +8,7 @@ import { Textarea } from "@/components/ui/Textarea/Textarea";
 import { useToast } from "@/context/Toast/ToastContext";
 import { usePageHeader } from "@/context/usePageHeader";
 import { usePageTitle } from "@/hooks/usePageTitle";
-import { listCrmTeamMembers } from "@/services/supabase/crm";
+import { listCrmTeamMembers, listCrmVenues } from "@/services/supabase/crm";
 import {
     checkCrmAgent,
     getCrmAgentSettings,
@@ -20,6 +21,7 @@ import {
     updateCrmAgentSettings
 } from "@/services/supabase/crmAgents";
 import {
+    decideCrmDraft,
     getCrmAgentTrialSettings,
     listCrmAgentDraftsOpenOrSince,
     listCrmAgentTrust,
@@ -31,19 +33,24 @@ import {
     countCrmQueuedMessages,
     getCrmWaChannel,
     getCrmWaSettings,
+    listCrmMessagesSince,
     listCrmQueuedMessages
 } from "@/services/supabase/crmWhatsappAgent";
 import type { CrmAgentTrialSettings, CrmAiRole, CrmQueuedMessage, CrmWaSettings } from "@/types/crm";
 import { agentCheckMessage, crmAgentErrorMessage, MODEL_FIELD, modelLabel } from "@/utils/crm/agentLabels";
-import { agentRows, costPerMessage, giroToday, romeTodayStart, spendByRole, type AgentRow } from "@/utils/crm/agentsOverview";
+import { agentDetail, agentUsageSince, monthSpendByRole } from "@/utils/crm/agentDetail";
+import { agentRows, costPerMessage, giroToday, isRomeToday, romeTodayStart, spendByRole, type AgentRow } from "@/utils/crm/agentsOverview";
+import { arrivedToday, giroItems, type GiroItem, type GiroStepNumber } from "@/utils/crm/giroSteps";
 import { crmErrorMessage } from "@/utils/crm/stages";
 import { channelHealth } from "@/utils/crm/waLabels";
 import { CRM_AI_ROLE_LABEL } from "@shared/crmAi";
 import { BrandRulesDrawer, type BrandRulesDrawerState } from "./BrandRulesDrawer";
+import { AgentDetail } from "./components/AgentDetail";
 import { AgentPanel } from "./components/AgentPanel";
 import { AgentsActivity } from "./components/AgentsActivity";
 import { BrandRulesListDrawer, SpendCapsDrawer } from "./components/AgentsDrawers";
-import { AgentsStatusLine, GiroStrip, SpendCard } from "./components/AgentsParts";
+import { GiroStrip } from "./components/AgentsGiro";
+import { AgentsStatusLine, SpendCard } from "./components/AgentsParts";
 import { AgentsTable } from "./components/AgentsTable";
 import { TileState } from "./components/TileState";
 import { useCrmLoad } from "./hooks/useCrmLoad";
@@ -56,8 +63,11 @@ import styles from "./Agents.module.scss";
  * messaggio di oggi (un passo accende chi lo fa), la tabella degli agenti con
  * «Come funziona ▾» (spiegazione e comandi dell'agente), la spesa AI e le
  * schede In arrivo, Fermati dal revisore, Uscita dalla prova e Diario.
+ * «Apri ›» porta alla pagina dell'agente (A2) in `?agente=`.
  * Ogni pezzo carica da solo: se una lettura manca si spegne solo lui.
  */
+const AGENT_IDS: AgentRow["id"][] = ["conversazione", "solleciti", "decisioni_sensibili", "revisore", "riattivazione", "gea"];
+
 export default function AgentsPage() {
     usePageTitle("Agenti");
     const { showToast } = useToast();
@@ -67,7 +77,8 @@ export default function AgentsPage() {
     const since = useMemo(() => romeTodayStart(new Date()), [tick]); // eslint-disable-line react-hooks/exhaustive-deps
     const settings = useCrmLoad(getCrmAgentSettings, tick);
     const spend = useCrmLoad(getCrmAiSpend, tick);
-    const usage = useCrmLoad(() => listCrmAiUsageSince(since), tick);
+    // Le chiamate a Claude da inizio mese o da sei giorni fa: oggi, la settimana dell'agente, il mese.
+    const usage = useCrmLoad(() => listCrmAiUsageSince(agentUsageSince(new Date(since))), tick);
     const trial = useCrmLoad(
         () =>
             Promise.all([
@@ -86,8 +97,11 @@ export default function AgentsPage() {
         tick
     );
     const queued = useCrmLoad(() => listCrmQueuedMessages(), tick);
+    // Il giro passo per passo: i messaggi di oggi e i nomi dei locali.
+    const giroSources = useCrmLoad(() => Promise.all([listCrmMessagesSince(since), listCrmVenues()]), tick);
 
-    const [selectedStep, setSelectedStep] = useState<number | null>(null);
+    // Finché non si sceglie, il giro si apre sul passo 4 se qualcosa aspetta.
+    const [pickedStep, setPickedStep] = useState<GiroStepNumber | null | undefined>(undefined);
     const [openAgent, setOpenAgent] = useState<AgentRow["id"] | null>(null);
     const [busy, setBusy] = useState<string | null>(null);
     const [actionError, setActionError] = useState<string | null>(null);
@@ -111,11 +125,34 @@ export default function AgentsPage() {
         () => (trial.data && giro ? agentRows({ settings: trial.data[0], trust: trial.data[1], drafts: trial.data[2], giro, now }) : []),
         [trial.data, giro, now]
     );
-    const byRole = useMemo(() => (usage.data ? spendByRole(usage.data) : null), [usage.data]);
+    const byRole = useMemo(
+        () => (usage.data ? spendByRole(usage.data.filter(u => isRomeToday(u.created_at, now))) : null),
+        [usage.data, now]
+    );
+    const monthByRole = useMemo(() => (usage.data ? monthSpendByRole(usage.data, now) : null), [usage.data, now]);
+    const selectedStep: GiroStepNumber | null = pickedStep !== undefined ? pickedStep : giro && giro.waiting > 0 ? 4 : null;
     const highlighted = useMemo(
         () => (selectedStep === null ? [] : rows.filter(r => r.step === selectedStep).map(r => r.id)),
         [rows, selectedStep]
     );
+    const venueName = useMemo(() => {
+        const names = new Map((giroSources.data?.[1] ?? []).map(v => [v.id, v.name]));
+        return (venueId: string) => names.get(venueId) ?? "Un locale";
+    }, [giroSources.data]);
+    const stepItems = useMemo(
+        () =>
+            selectedStep === null || !trial.data
+                ? []
+                : giroItems(selectedStep, {
+                      messages: giroSources.data?.[0] ?? [],
+                      drafts: trial.data[2],
+                      decisions: trial.data[3],
+                      venueName,
+                      now
+                  }),
+        [selectedStep, trial.data, giroSources.data, venueName, now]
+    );
+    const needsMessages = selectedStep === 1 || selectedStep === 5;
 
     const brakeOn = settings.data?.brake_on ?? null;
     // `?pausa=1` (dal Cerca): la stessa conferma di «Metti in pausa tutto», se non è già in pausa.
@@ -132,6 +169,37 @@ export default function AgentsPage() {
             { replace: true }
         );
     }, [wantsPause, brakeOn, setParams]);
+    const reduceMotion = useReducedMotion();
+    // La vista la sceglie il parametro: aprendo un link all'agente non si passa dall'elenco.
+    const agentParam = params.get("agente");
+    const wantsAgent = agentParam !== null && AGENT_IDS.includes(agentParam as AgentRow["id"]);
+    const detailRow = wantsAgent ? (rows.find(r => r.id === agentParam) ?? null) : null;
+    const detail = useMemo(
+        () =>
+            detailRow && trial.data && usage.data
+                ? agentDetail(detailRow, {
+                      drafts: trial.data[2],
+                      decisions: trial.data[3],
+                      trust: trial.data[1],
+                      usage: usage.data,
+                      venueName,
+                      now
+                  })
+                : null,
+        [detailRow, trial.data, usage.data, venueName, now]
+    );
+    const showAgent = useCallback(
+        (id: AgentRow["id"] | null) => {
+            setParams(p => {
+                if (id) p.set("agente", id);
+                else p.delete("agente");
+                return p;
+            });
+            window.scrollTo({ top: 0 });
+        },
+        [setParams]
+    );
+
     const headerActions = useMemo(
         () => (
             <>
@@ -232,69 +300,135 @@ export default function AgentsPage() {
         }
     }
 
+    function handleSend(item: GiroItem) {
+        if (!item.draftId) return;
+        const draftId = item.draftId;
+        void run(draftId, () => decideCrmDraft(draftId, "send"), `Messaggio a ${item.venueName} in partenza.`);
+    }
+
     const health = wa.data ? channelHealth(wa.data[0], now) : null;
 
     return (
         <div className={styles.page}>
             {actionError && <InlineBanner variant="error">{actionError}</InlineBanner>}
 
-            <AgentsStatusLine
-                brakeOn={brakeOn}
-                brakeReason={settings.data?.brake_reason ?? null}
-                health={health}
-                firstToday={wa.data ? wa.data[2] : null}
-                queued={wa.data ? wa.data[3] : null}
-                testOnly={wa.data ? wa.data[1].wa_test_only : null}
-                spend={spend.data}
-                onWhatsapp={() => wa.data && setWaSettings(wa.data[1])}
-            />
-
-            <GiroStrip giro={giro} selected={selectedStep} onSelect={setSelectedStep} />
-
-            <section className={styles.tableBox} aria-label="Agenti">
-                <TileState loading={trial.loading && !trial.data} error={trial.error} onRetry={reload}>
-                    <AgentsTable
-                        rows={rows}
-                        highlighted={highlighted}
-                        spend={byRole}
-                        openId={openAgent}
-                        onToggle={id => setOpenAgent(a => (a === id ? null : id))}
-                        renderPanel={row => (
-                            <AgentPanel
-                                row={row}
-                                trial={trial.data?.[0] ?? null}
-                                trust={trial.data?.[1] ?? []}
-                                models={settings.data}
-                                saving={busy !== null}
-                                checking={row.role !== null && busy === `check:${row.role}`}
-                                onTrial={handleTrial}
-                                onModel={handleModel}
-                                onCheck={role => void handleCheck(role)}
-                                onClose={() => setOpenAgent(null)}
+            <AnimatePresence mode="wait" initial={false}>
+                {wantsAgent ? (
+                    <motion.div
+                        key={`agente-${agentParam}`}
+                        className={styles.page}
+                        initial={reduceMotion ? { opacity: 0 } : { opacity: 0, x: 12 }}
+                        animate={reduceMotion ? { opacity: 1 } : { opacity: 1, x: 0 }}
+                        exit={reduceMotion ? { opacity: 0 } : { opacity: 0, x: -12 }}
+                        transition={{ duration: reduceMotion ? 0 : 0.22, ease: [0.2, 0.9, 0.25, 1] }}
+                    >
+                        {detailRow ? (
+                            <AgentDetail
+                                row={detailRow}
+                                data={detail}
+                                loading={usage.loading || trial.loading}
+                                now={now}
+                                onBack={() => showAgent(null)}
+                                panel={
+                                    <AgentPanel
+                                        row={detailRow}
+                                        trial={trial.data?.[0] ?? null}
+                                        trust={trial.data?.[1] ?? []}
+                                        models={settings.data}
+                                        saving={busy !== null}
+                                        checking={detailRow.role !== null && busy === `check:${detailRow.role}`}
+                                        onTrial={handleTrial}
+                                        onModel={handleModel}
+                                        onCheck={role => void handleCheck(role)}
+                                    />
+                                }
                             />
+                        ) : (
+                            <TileState loading={trial.loading} error={trial.error} onRetry={reload}>
+                                <InlineBanner variant="info">Questo agente non c'è.</InlineBanner>
+                            </TileState>
                         )}
-                    />
-                </TileState>
-            </section>
+                    </motion.div>
+                ) : (
+                    <motion.div
+                        key="agenti"
+                        className={styles.page}
+                        initial={reduceMotion ? { opacity: 0 } : { opacity: 0, x: -12 }}
+                        animate={reduceMotion ? { opacity: 1 } : { opacity: 1, x: 0 }}
+                        exit={reduceMotion ? { opacity: 0 } : { opacity: 0, x: -12 }}
+                        transition={{ duration: reduceMotion ? 0 : 0.22, ease: [0.2, 0.9, 0.25, 1] }}
+                    >
+                        <AgentsStatusLine
+                            brakeOn={brakeOn}
+                            brakeReason={settings.data?.brake_reason ?? null}
+                            health={health}
+                            firstToday={wa.data ? wa.data[2] : null}
+                            queued={wa.data ? wa.data[3] : null}
+                            testOnly={wa.data ? wa.data[1].wa_test_only : null}
+                            spend={spend.data}
+                            onWhatsapp={() => wa.data && setWaSettings(wa.data[1])}
+                        />
 
-            <div className={styles.bottom}>
-                <SpendCard
-                    spend={spend.data}
-                    perMessage={spend.data && giro ? costPerMessage(spend.data.dayUsd, giro.sent) : null}
-                    now={now}
-                    onCaps={() => setCapsOpen(true)}
-                />
-                <AgentsActivity
-                    queued={queued}
-                    decisions={decisions}
-                    trust={trial.data?.[1] ?? []}
-                    now={now}
-                    teamName={teamName}
-                    cancelling={busy}
-                    onCancel={m => void handleCancel(m)}
-                    onRetry={reload}
-                />
-            </div>
+                        <GiroStrip
+                            giro={giro}
+                            arrived={giroSources.data ? arrivedToday(giroSources.data[0], now) : null}
+                            selected={selectedStep}
+                            items={stepItems}
+                            itemsError={needsMessages && giroSources.error !== null && !giroSources.data}
+                            sending={busy}
+                            onSelect={setPickedStep}
+                            onSend={handleSend}
+                        />
+
+                        <section className={styles.tableBox} aria-label="Agenti">
+                            <TileState loading={trial.loading && !trial.data} error={trial.error} onRetry={reload}>
+                                <AgentsTable
+                                    rows={rows}
+                                    highlighted={highlighted}
+                                    spend={byRole}
+                                    openId={openAgent}
+                                    onToggle={id => setOpenAgent(a => (a === id ? null : id))}
+                                    onOpen={id => showAgent(id)}
+                                    renderPanel={row => (
+                                        <AgentPanel
+                                            row={row}
+                                            trial={trial.data?.[0] ?? null}
+                                            trust={trial.data?.[1] ?? []}
+                                            models={settings.data}
+                                            saving={busy !== null}
+                                            checking={row.role !== null && busy === `check:${row.role}`}
+                                            onTrial={handleTrial}
+                                            onModel={handleModel}
+                                            onCheck={role => void handleCheck(role)}
+                                            onClose={() => setOpenAgent(null)}
+                                        />
+                                    )}
+                                />
+                            </TileState>
+                        </section>
+
+                        <div className={styles.bottom}>
+                            <SpendCard
+                                spend={spend.data}
+                                monthByRole={monthByRole}
+                                perMessage={spend.data && giro ? costPerMessage(spend.data.dayUsd, giro.sent) : null}
+                                now={now}
+                                onCaps={() => setCapsOpen(true)}
+                            />
+                            <AgentsActivity
+                                queued={queued}
+                                decisions={decisions}
+                                trust={trial.data?.[1] ?? []}
+                                now={now}
+                                teamName={teamName}
+                                cancelling={busy}
+                                onCancel={m => void handleCancel(m)}
+                                onRetry={reload}
+                            />
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
             <ConfirmDialog
                 isOpen={brakeDialog !== null}
