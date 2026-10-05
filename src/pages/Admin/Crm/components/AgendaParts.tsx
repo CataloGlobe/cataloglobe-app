@@ -182,14 +182,17 @@ const WEEK_KIND: Record<AgendaItem["kind"], string> = {
 export function AgendaWeekGrid({
     days,
     columns,
+    loading = false,
     onOpenDay
 }: {
     days: AgendaWeekDay[];
     columns: AgendaWeekColumn[];
+    /** Mentre carica la griglia resta, coi giorni vuoti e senza «libero». */
+    loading?: boolean;
     onOpenDay: (key: string) => void;
 }) {
     return (
-        <div className={styles.grid} role="group" aria-label="La settimana">
+        <div className={styles.grid} role="group" aria-label="La settimana" aria-busy={loading || undefined}>
             {days.map((d, i) => {
                 const items = columns[i]?.items ?? [];
                 return (
@@ -202,7 +205,7 @@ export function AgendaWeekGrid({
                                 {d.day}
                             </Text>
                         </button>
-                        {items.length === 0 ? (
+                        {loading ? null : items.length === 0 ? (
                             <Text as="span" variant="caption" colorVariant="muted" className={styles.gridFree}>
                                 libero
                             </Text>
@@ -228,6 +231,34 @@ export function AgendaWeekGrid({
                     </section>
                 );
             })}
+        </div>
+    );
+}
+
+/** Le ore del giorno vuoto: la forma della giornata anche quando non c'è niente. */
+const EMPTY_DAY_HOURS = ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00"];
+
+/**
+ * Il giorno senza niente in programma: la frase in testa e sotto le ore come
+ * riquadri vuoti, così la pagina non resta bianca e si vede dove andrebbero
+ * le telefonate.
+ */
+export function AgendaEmptyDay({ message, loading = false }: { message: string; loading?: boolean }) {
+    return (
+        <div className={styles.emptyDay} aria-busy={loading || undefined}>
+            <Text as="p" variant="body-sm" colorVariant="muted" className={styles.emptyDayMessage}>
+                {loading ? "Carico…" : message}
+            </Text>
+            <ol className={styles.emptyDayHours} aria-hidden="true">
+                {EMPTY_DAY_HOURS.map(hour => (
+                    <li key={hour} className={styles.emptyDayHour}>
+                        <Text as="span" variant="caption" colorVariant="muted" className={styles.emptyDayTime}>
+                            {hour}
+                        </Text>
+                        <span className={styles.emptyDaySlot} />
+                    </li>
+                ))}
+            </ol>
         </div>
     );
 }

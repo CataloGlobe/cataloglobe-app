@@ -32,7 +32,7 @@ import {
 } from "@/utils/crm/agendaDay";
 import { formatCallDay, formatCallTime, romeDayKey } from "@shared/crmCallSlots";
 import { AgendaSettingsDrawer } from "./AgendaSettingsDrawer";
-import { AgendaDayList, AgendaWeekGrid, AgendaWeekStrip } from "./components/AgendaParts";
+import { AgendaDayList, AgendaEmptyDay, AgendaWeekGrid, AgendaWeekStrip } from "./components/AgendaParts";
 import { TileState } from "./components/TileState";
 import { useCrmLoad } from "./hooks/useCrmLoad";
 import styles from "./Agenda.module.scss";
@@ -265,15 +265,20 @@ export default function AgendaPage() {
                             onClick={() => pick(shiftDayKey(selected, 7))}
                         />
                     </div>
-                    <TileState
-                        loading={dayLoading}
-                        error={dayError}
-                        onRetry={retry}
-                        empty={weekEmpty}
-                        emptyText="Niente in questa settimana: nessuna telefonata e nessun messaggio."
-                    >
-                        <AgendaWeekGrid days={weekDays} columns={weekColumns} onOpenDay={openDay} />
-                    </TileState>
+                    {weekEmpty && !dayLoading && !dayError && (
+                        <Text as="p" variant="body-sm" colorVariant="muted" className={styles.weekEmpty}>
+                            Niente in questa settimana: nessuna telefonata e nessun messaggio.
+                        </Text>
+                    )}
+                    {/* La griglia resta anche vuota o mentre carica: la settimana ha
+                        sempre la sua forma. Solo l'errore la sostituisce. */}
+                    {dayError ? (
+                        <TileState loading={false} error={dayError} onRetry={retry}>
+                            {null}
+                        </TileState>
+                    ) : (
+                        <AgendaWeekGrid days={weekDays} columns={weekColumns} loading={dayLoading} onOpenDay={openDay} />
+                    )}
                 </>
             ) : (
                 <div className={styles.dayLayout}>
@@ -288,24 +293,27 @@ export default function AgendaPage() {
                             onToday={() => pick(today)}
                         />
 
-                        <TileState
-                            loading={dayLoading}
-                            error={dayError}
-                            onRetry={retry}
-                            empty={items.length === 0}
-                            emptyText={
-                                selected < today
-                                    ? "In questo giorno non è partito niente e non c'erano telefonate."
-                                    : "Niente in programma: nessuna telefonata e nessun messaggio in partenza."
-                            }
-                        >
+                        {dayError ? (
+                            <TileState loading={false} error={dayError} onRetry={retry}>
+                                {null}
+                            </TileState>
+                        ) : dayLoading || items.length === 0 ? (
+                            <AgendaEmptyDay
+                                loading={dayLoading}
+                                message={
+                                    selected < today
+                                        ? "In questo giorno non è partito niente e non c'erano telefonate."
+                                        : "Niente in programma: nessuna telefonata e nessun messaggio in partenza."
+                                }
+                            />
+                        ) : (
                             <AgendaDayList
                                 items={items}
                                 nowIndex={nowIndex}
                                 now={now}
                                 onMove={item => navigate(`/admin/lead/${item.venueId}?telefonata=sposta`)}
                             />
-                        </TileState>
+                        )}
                     </div>
                     <aside className={styles.dayAside} aria-label="Da chiudere e domani">
                         {toCloseCard}

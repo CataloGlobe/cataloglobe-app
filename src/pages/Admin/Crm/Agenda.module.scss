@@ -96,7 +96,16 @@
 }
 
 .gridFree {
-    padding: var(--space-8) var(--space-12);
+    // Il giorno libero è un riquadro vuoto che riempie la colonna: la
+    // settimana si legge anche senza niente in programma.
+    flex: 1;
+    margin: var(--space-8) var(--space-6);
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: var(--space-8);
+    border: 1px dashed var(--border);
+    border-radius: var(--radius-control);
 }
 
 .gridList {
@@ -322,4 +331,52 @@
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius-surface);
+}
+
+// Settimana vuota: la frase sta sopra la griglia, che resta.
+.weekEmpty {
+    margin: 0;
+}
+
+// Giorno vuoto: le ore come riquadri vuoti, perché la pagina abbia la forma
+// della giornata anche quando non c'è niente.
+.emptyDay {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-12);
+}
+
+.emptyDayMessage {
+    margin: 0;
+}
+
+.emptyDayHours {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+}
+
+.emptyDayHour {
+    display: grid;
+    grid-template-columns: 64px minmax(0, 1fr);
+    align-items: center;
+    gap: var(--space-12);
+
+    @media (max-width: 767px) {
+        grid-template-columns: 52px minmax(0, 1fr);
+    }
+}
+
+.emptyDayTime {
+    font-variant-numeric: tabular-nums;
+}
+
+.emptyDaySlot {
+    height: 40px;
+    border: 1px dashed var(--border);
+    border-radius: var(--radius-control);
+    background: var(--surface);
 }
