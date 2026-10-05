@@ -94,7 +94,6 @@ describe("buildCallEvent", () => {
             venueName: "Bar Roma",
             city: "Milano",
             contactName: "Mario",
-            phone: "+393331112233",
             callerName: "Alessandro",
             startsAt: "2026-10-08T15:45:00.000Z",
             endsAt: "2026-10-08T15:55:00.000Z",
@@ -102,7 +101,7 @@ describe("buildCallEvent", () => {
             note: null
         });
         expect(e.summary).toBe("Telefonata: Bar Roma (Mario)");
-        expect(e.description).toBe("Telefono: +393331112233\nCittà: Milano\nChiama: Alessandro\nScheda: https://x/admin/lead/v1");
+        expect(e.description).toBe("Città: Milano\nChiama: Alessandro\nScheda: https://x/admin/lead/v1");
         expect(e.start).toEqual({ dateTime: "2026-10-08T15:45:00.000Z", timeZone: "Europe/Rome" });
         expect(e.extendedProperties).toEqual({ private: { crm_appointment_id: "ap-1" } });
         expect(e).not.toHaveProperty("attendees");

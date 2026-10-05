@@ -44,8 +44,11 @@ const EXPLICIT_STOP: RegExp[] = [
     /\b(cancellami|cancellatemi|toglietemi|toglimi|rimuovetemi|rimuovimi) (dalla |dalle |dai |dal |da )?(vostr\w* )?(lista|liste|contatti|rubrica|mailing|elenc\w*|numer\w*)\b/,
     /\b(cancellami|cancellatemi|toglietemi|toglimi|rimuovetemi|rimuovimi)\s*[.!]*\s*$/,
     /\bcancella(te)? il mio numero\b/,
-    // «basta mandarmi il link» vuol dire il contrario: solo «smettete».
-    /\b(smettete\w*|smetti\w*|smettila) (di )?(scriv|contatt|mand)\w*/,
+    // «basta mandarmi il link» vuol dire il contrario: solo «smettete». E
+    // «smettete di mandare vocali» chiede un'altra forma, non di sparire:
+    // «mandare» è uno stop solo coi messaggi o da solo in fondo.
+    /\b(smettete\w*|smetti\w*|smettila) (di )?(scriv|contatt|cercar|disturbar)\w*(?! (\S+ )?(vocal\w*|audio|maiuscol\w*))\b/,
+    /\b(smettete\w*|smetti\w*|smettila) (di )?mandar\w*( (dei |degli |i |questi |altri )?(messaggi|mail|email|sms|offerte|notifiche|pubblicita)\b|\s*[.!]*\s*$)/,
     /\bbasta (con )?(i |questi )?messaggi\b/,
     /\bunsubscribe\b/,
     /\b(lasciatemi|lasciami) in pace\b/

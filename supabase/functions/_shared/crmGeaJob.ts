@@ -78,7 +78,7 @@ async function resolveVenue(supabase, query: string) {
 // Memoria corta (Gea 2): gli ultimi scambi con la stessa persona, dalla
 // tabella che già registra ogni messaggio. Nessuna tabella nuova.
 // -----------------------------------------------------------------------------
-async function recentTurns(supabase, userId: string, currentId: string, now: Date): Promise<GeaTurn[]> {
+export async function recentTurns(supabase, userId: string, currentId: string, now: Date): Promise<GeaTurn[]> {
     const since = new Date(now.getTime() - GEA_MEMORY_MINUTES * 60 * 1000).toISOString();
     const { data, error } = await supabase
         .from("crm_gea_inbox")

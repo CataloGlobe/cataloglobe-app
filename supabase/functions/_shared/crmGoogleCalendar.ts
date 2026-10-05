@@ -111,7 +111,6 @@ export interface CallEventInput {
     venueName: string;
     city: string | null;
     contactName: string | null;
-    phone: string | null;
     callerName: string | null;
     startsAt: string;
     endsAt: string;
@@ -121,8 +120,10 @@ export interface CallEventInput {
 
 export function buildCallEvent(input: CallEventInput): Record<string, unknown> {
     const who = input.contactName?.trim() ? ` (${input.contactName.trim()})` : "";
+    // Niente telefono del lead (deciso da Alex il 2026-10-05, GDPR): Google ne
+    // terrebbe una copia che la pulizia dei 12 mesi non tocca. Il numero sta
+    // nella scheda (link sotto) e nel brief Telegram di un'ora prima.
     const lines = [
-        input.phone ? `Telefono: ${input.phone}` : null,
         input.city ? `Città: ${input.city}` : null,
         input.callerName ? `Chiama: ${input.callerName}` : null,
         input.note ? `Nota: ${input.note}` : null,

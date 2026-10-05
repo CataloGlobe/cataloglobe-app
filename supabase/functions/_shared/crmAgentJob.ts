@@ -368,11 +368,8 @@ async function insertDraft(supabase, base, fields, options: { allowAuto?: boolea
             cost_usd: fields.cost_usd ?? 0
         });
     }
-    if ((data.kind === "reply" || data.kind === "follow_up") && options.allowAuto !== false) {
-        const { data: auto, error: autoError } = await supabase.rpc("crm_agent_auto_send", { p_draft_id: data.id });
-        if (autoError) console.error(`${LOG}: invio autonomo`, autoError.code, autoError.message);
-        if (auto === true) data.auto_sent = true;
-    }
+    // Prima la bozza nel diario, poi l'eventuale invio autonomo: l'ordine
+    // delle righe segue quello dei fatti.
     await logDecision(supabase, {
         actor: "agent",
         action: "draft_created",
@@ -383,6 +380,11 @@ async function insertDraft(supabase, base, fields, options: { allowAuto?: boolea
         review_notes: fields.review_notes ?? null,
         payload: { draft_id: data.id, kind: fields.kind, cost_usd: fields.cost_usd ?? 0 }
     });
+    if ((data.kind === "reply" || data.kind === "follow_up") && options.allowAuto !== false) {
+        const { data: auto, error: autoError } = await supabase.rpc("crm_agent_auto_send", { p_draft_id: data.id });
+        if (autoError) console.error(`${LOG}: invio autonomo`, autoError.code, autoError.message);
+        if (auto === true) data.auto_sent = true;
+    }
     return data;
 }
 
@@ -555,6 +557,7 @@ export async function processAgent(supabase, team, botToken, appUrl, now = new D
     if (candError) throw candError;
 
     let worked = 0;
+    let placeholderWarned = false;
     for (const c of candidates ?? []) {
         if (worked >= MAX_CANDIDATES) break;
         // Riattivazione corta: nessuna risposta in 7 giorni, il locale torna
@@ -616,9 +619,11 @@ export async function processAgent(supabase, team, botToken, appUrl, now = new D
                 venueName: venue.name_pending ? null : venue.name,
                 senderName: sender
             });
-            // Un segnaposto sconosciuto nel testo: non si propone (lo dice il log).
+            // Un segnaposto sconosciuto nel testo: non si propone. Il log lo dice
+            // una volta per giro, non per ogni locale.
             if (/\{[a-z_]+\}/i.test(text)) {
-                console.warn(`${LOG}: testo della riattivazione con un segnaposto sconosciuto`);
+                if (!placeholderWarned) console.warn(`${LOG}: testo della riattivazione con un segnaposto sconosciuto`);
+                placeholderWarned = true;
                 continue;
             }
             if (
