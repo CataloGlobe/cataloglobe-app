@@ -2,7 +2,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import Stripe from "https://esm.sh/stripe@17?target=deno";
-import { stripeClientOptions } from "../_shared/stripe-helpers.ts";
+import { deleteStripeCustomer, stripeClientOptions } from "../_shared/stripe-helpers.ts";
 import {
     buildReuseCustomerUpdate,
     buildStripeCustomerProfile,
@@ -392,7 +392,11 @@ serve(async req => {
                     };
                 },
                 deleteCustomer: async id => {
-                    await stripe.customers.del(id);
+                    // Helper idempotente con log; un errore non blocca il checkout.
+                    await deleteStripeCustomer(stripe, id, {
+                        tenant_id: tenantId,
+                        reason: "parallel_checkout_duplicate"
+                    });
                 }
             });
 
