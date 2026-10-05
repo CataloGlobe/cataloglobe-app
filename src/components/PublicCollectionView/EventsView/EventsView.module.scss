@@ -1,5 +1,3 @@
-@use "@styles/mixins" as *;
-
 .emptyState {
   display: flex;
   flex-direction: column;
@@ -49,45 +47,4 @@
 .cardFull:only-child {
   justify-self: center;
   max-width: 560px;
-}
-
-/* Vista dettaglio in-place (click su una card dentro "Eventi & Promo"):
-   niente seconda PublicSheet — stesso spazio della lista, back link +
-   FeaturedContentDetail. .backLink stessi valori di ReviewsView.module.scss. */
-.detailView {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-/* Annulla SOLO lati/basso del padding del wrapper .infoSheetContent
-   (CollectionView.module.scss) ereditato dal parent: FeaturedContentDetail
-   porta già il proprio padding (16px 20px 32px, vedi
-   FeaturedPreviewModal.module.scss .content) — identico al caso standalone
-   (FeaturedPreviewModal), che non ha alcun wrapper extra e quindi paga solo
-   quel padding. Margin-top volutamente 0 (NON negativo): .detailContent è
-   preceduto da .backLink nello stesso flex column con gap — un margin-top
-   negativo abbastanza da annullare il padding del container lo fa risalire
-   sopra .backLink, sovrapponendosi e bloccandone il click (bug riscontrato
-   con Playwright). Il gap naturale sotto backLink resta, non è "doppio
-   padding" nello stesso senso offensivo dei lati/basso. */
-.detailContent {
-  margin: 0 -1.5rem calc(-1 * max(2rem, env(safe-area-inset-bottom)));
-}
-
-.backLink {
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-family: inherit;
-  font-size: 0.85rem;
-  font-weight: 500;
-  color: var(--pub-bg-text-muted);
-  padding: 0;
-  align-self: flex-start;
-  transition: color 0.12s ease;
-
-  @include hover {
-    color: var(--pub-bg-text);
-  }
 }

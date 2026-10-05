@@ -26,7 +26,7 @@
 - `PublicFooter` — orari, tariffe (via `PublicFees`), social.
 - `PublicFees` / `PublicFeeRows` — tariffe nel footer (solo `fees`, non `payment_methods`/`services`). `PublicFeeRows` riusato in InfoSheet.
 - **InfoSheet** (modale "Informazioni" inline in `CollectionView`) — orari, tariffe, metodi pagamento, servizi, contatti, indirizzo. `payment_methods` e `services` renderizzati QUI come chip, NON nel footer.
-- `SearchOverlay`, `SelectionSheet`, `ItemDetail`, `ReviewsView`, `FeaturedBlock` (slot wrapper per `before_catalog`/`after_catalog`), `FeaturedCard` (card component con variant `card`/`highlight`), `FeaturedPreviewModal`, `PublicCatalogTree`, `CollectionSectionNav`, `LanguageSelector`, `PublicSheet`.
+- `SearchOverlay`, `SelectionSheet`, `ItemDetail`, `ReviewsView`, `FeaturedBlock` (carosello per `before_catalog`/`after_catalog`, reso da `CollectionView`; oltre `FEATURED_CAROUSEL_LIMIT` = 4 card chiude con «Vedi tutti»), `FeaturedCard` (variant `card`/`highlight`/`compact`), `EventsView` (elenco + dettaglio della sheet «In evidenza»), `PublicCatalogTree`, `CollectionSectionNav`, `LanguageSelector`, `PublicSheet`.
 
 **Card prodotto** — 4 combinazioni:
 
@@ -48,8 +48,8 @@
 - `reviews` — recensioni via `submit-review` edge function
 
 **Slot FeaturedBlock** (solo 2, hero rimosso, migration `20260414190000`):
-- `before_catalog` — tra header e catalogo, a livello `.frame` (fuori da `.container`)
-- `after_catalog` — sotto catalogo, prop `featuredAfterCatalogSlot` su `CollectionView`, a livello `.frame`
+- `before_catalog` / `after_catalog` — array `featuredBeforeCatalog` / `featuredAfterCatalog` su `CollectionView`, che rende i caroselli in testa e in coda a `.container`.
+- **Sheet «In evidenza»**: una sola, posseduta da `CollectionView`. Nessuna voce in barra né in header. Card del carosello → dettaglio (solo chiusura); «Vedi tutti» → elenco dei contenuti di oggi (prima poi dopo, deduplicati per id) → dettaglio con freccia indietro nell'header. Cambia solo il contenuto, mai `contentKey`; scroll a zero a ogni passaggio. CTA in `footerContent` (`FeaturedCtaFooter`).
 
 **Stati pagina**: `loading | error | inactive | subscription_inactive | empty | ready`
 

@@ -69,7 +69,8 @@ function categories(): ResolvedCategory[] {
     }));
 }
 
-function featured(): V2FeaturedContent {
+/** Un contenuto in evidenza pubblicato; `overrides` per id, titolo, CTA… */
+export function featured(overrides: Partial<V2FeaturedContent> = {}): V2FeaturedContent {
     return {
         id: "feat-1",
         internal_name: "Serata e2e",
@@ -94,10 +95,16 @@ function featured(): V2FeaturedContent {
         products: [],
         created_at: "2026-09-01T10:00:00Z",
         updated_at: "2026-09-01T10:00:00Z",
+        ...overrides,
     };
 }
 
-function payload(): ResolvedPayloadShape {
+export type FeaturedSlots = {
+    before_catalog?: V2FeaturedContent[];
+    after_catalog?: V2FeaturedContent[];
+};
+
+function payload(featuredSlots: FeaturedSlots): ResolvedPayloadShape {
     return {
         business: business(),
         tenantLogoUrl: null,
@@ -106,15 +113,19 @@ function payload(): ResolvedPayloadShape {
         public_allergens: [],
         resolved: {
             catalog: { id: "catalog-1", name: "Menu", categories: categories() },
-            featured: { before_catalog: [featured()] },
+            featured: featuredSlots,
             hasRenderableItems: true,
         } as ResolvedPayloadShape["resolved"],
     };
 }
 
-export async function stubPublicPage(page: Page, opts: { ordering: boolean }): Promise<void> {
+export async function stubPublicPage(
+    page: Page,
+    opts: { ordering: boolean; featured?: FeaturedSlots }
+): Promise<void> {
+    const featuredSlots = opts.featured ?? { before_catalog: [featured()] };
     await page.route("**/api/public-catalog**", route =>
-        route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(payload()) })
+        route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(payload(featuredSlots)) })
     );
     await page.route("**/functions/v1/log-analytics-event**", route => route.fulfill({ status: 204 }));
     await page.route("**/functions/v1/get-orders-for-session**", route =>

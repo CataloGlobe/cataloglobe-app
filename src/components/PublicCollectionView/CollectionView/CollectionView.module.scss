@@ -1297,6 +1297,41 @@
   flex-shrink: 0;
 }
 
+/* Titolo «In evidenza»: occupa lo spazio tra freccia indietro e chiudi. */
+.eventsSheetTitle {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Freccia indietro (dettaglio aperto dall'elenco): torna all'elenco nella
+   stessa sheet. Rientra di 6px così il chevron sta sul filo del padding. */
+.eventsBackBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  margin-left: -6px;
+  margin-right: -4px;
+  padding: 0;
+  border: none;
+  border-radius: var(--pub-btn-radius, 6px);
+  background: transparent;
+  color: var(--pub-surface-text);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+
+  &:hover {
+    background: color-mix(in srgb, var(--pub-text, #000) 8%, transparent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--pub-accent, var(--pub-primary));
+    outline-offset: 2px;
+  }
+}
+
 /* Bottone chiudi testuale, stesso pattern di CategoriesSheet/AllergensSheet
    .closeBtn: nascosto ≤640px (chiusura via swipe/tap-fuori su mobile),
    visibile da desktop in su dove l'unica via era il click sul backdrop. */
@@ -1333,6 +1368,12 @@
    rispetto ai lati). Scoped alla sola sheet eventi: Info resta invariata. */
 .eventsListContent.infoSheetContent {
   padding-top: 1.5rem;
+}
+
+/* Dettaglio: FeaturedContentDetail porta il proprio padding (immagine 20px,
+   testo 16px 20px 32px), come il dettaglio standalone: niente padding qui. */
+.eventsDetailContent.infoSheetContent {
+  padding: 0;
 }
 
 .infoSection {

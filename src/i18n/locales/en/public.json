@@ -271,12 +271,16 @@
         "indicator_aria": "Featured content indicator",
         "section_aria": "Featured content",
         "dot_aria": "Item {{index}} of {{count}}",
-        "preview_close_aria": "Close"
+        "preview_close_aria": "Close",
+        "see_all": "See all →",
+        "see_all_label_one": "featured item",
+        "see_all_label_other": "featured items",
+        "see_all_aria": "See all featured content ({{count}})"
     },
     "events": {
         "list_aria": "Featured",
         "empty": "No events or promotions active right now.",
-        "back": "← Back to list",
+        "back_aria": "Back to the list",
         "close_aria": "Close",
         "close_label": "Close"
     },

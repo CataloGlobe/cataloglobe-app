@@ -2,6 +2,8 @@ import { useTranslation } from "react-i18next";
 import { ImageIcon } from "lucide-react";
 import type { V2FeaturedContent } from "@/types/resolvedCollections";
 import Text from "@/components/ui/Text/Text";
+import { FramedMedia } from "@components/ui/FramedMedia";
+import { toFeaturedFraming } from "./featuredFraming";
 import { resolveFeaturedDisplayPrice } from "@utils/resolveFeaturedDisplayPrice";
 import styles from "./FeaturedPreviewModal.module.scss";
 
@@ -40,10 +42,9 @@ export function FeaturedCtaFooter({ block }: Props) {
 }
 
 /**
- * Corpo del dettaglio contenuto in evidenza — estratto da `FeaturedPreviewModal`
- * per essere riusabile sia come sheet standalone (carosello inline nel menu,
- * via `FeaturedPreviewModal`) sia in-place dentro `EventsView` (sheet "Eventi &
- * Promo", nessuna seconda `PublicSheet` impilata). Stesso rendering, stessi dati.
+ * Corpo del dettaglio contenuto in evidenza, reso in-place dentro `EventsView`
+ * (l'unica sheet «In evidenza» di CollectionView: elenco e dettaglio nella
+ * stessa sheet, mai una seconda `PublicSheet` impilata).
  * La CTA non sta qui: è `FeaturedCtaFooter`, nel footer della sheet.
  */
 export function FeaturedContentDetail({ block }: Props) {
@@ -74,13 +75,17 @@ export function FeaturedContentDetail({ block }: Props) {
     return (
         <div className={styles.body}>
             {/* Immagine */}
+            {/* Stesso framing della card (FramedMedia), riquadro 16:9 come l'editor. */}
             {block.media_id && (
-                <img
-                    src={block.media_id}
-                    alt={block.title}
-                    className={styles.image}
-                    loading="lazy"
-                />
+                <div className={styles.image}>
+                    <FramedMedia
+                        source={block.media_id}
+                        framing={toFeaturedFraming(block)}
+                        aspectRatio={block.media_aspect_ratio}
+                        alt={block.title}
+                        eager
+                    />
+                </div>
             )}
 
             <div className={styles.content}>
