@@ -26,11 +26,13 @@ type Props = {
     expense: CrmExpense | null;
     onClose: () => void;
     onSaved: (mode: "create" | "edit") => Promise<void> | void;
+    /** Nuova spesa da «Più dettagli»: arriva già con quello scritto nella riga veloce. */
+    initialDraft?: CrmExpenseDraft | null;
     /** Nomi pronti per «Pagata da». */
     payers?: string[];
 };
 
-export function ExpenseDrawer({ open, expense, onClose, onSaved, payers }: Props) {
+export function ExpenseDrawer({ open, expense, onClose, onSaved, payers, initialDraft = null }: Props) {
     const [draft, setDraft] = useState<CrmExpenseDraft>(() => expenseDraftFrom(null, romeTodayIso()));
     const [errors, setErrors] = useState<CrmExpenseDraftErrors>({});
     const [formError, setFormError] = useState<string | null>(null);
@@ -38,11 +40,11 @@ export function ExpenseDrawer({ open, expense, onClose, onSaved, payers }: Props
 
     useEffect(() => {
         if (!open) return;
-        setDraft(expenseDraftFrom(expense, romeTodayIso()));
+        setDraft(!expense && initialDraft ? initialDraft : expenseDraftFrom(expense, romeTodayIso()));
         setErrors({});
         setFormError(null);
         setIsSaving(false);
-    }, [open, expense]);
+    }, [open, expense, initialDraft]);
 
     async function handleSubmit() {
         const found = validateExpenseDraft(draft);
@@ -87,7 +89,8 @@ export function ExpenseDrawer({ open, expense, onClose, onSaved, payers }: Props
                         draft={draft}
                         errors={errors}
                         disabled={isSaving}
-                        onChange={patch => setDraft(prev => ({ ...prev, ...patch }))}
+                        isEdit={expense != null}
+                        onChange={setDraft}
                         onSubmit={() => void handleSubmit()}
                         payers={payers}
                     />
