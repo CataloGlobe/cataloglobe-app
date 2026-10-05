@@ -1,5 +1,6 @@
 import { forwardRef } from "react";
 import { CTA, type CtaPlacement } from "@pages/CampaignLanding/content/cta";
+import { useHydrated } from "@pages/CampaignLanding/hooks/useHydrated";
 import { useLandingVariant } from "@pages/CampaignLanding/variant";
 import styles from "./LandingCta.module.scss";
 
@@ -34,11 +35,17 @@ const LandingCta = forwardRef<HTMLAnchorElement, LandingCtaProps>(function Landi
     ref
 ) {
     const variante = useLandingVariant();
+    const hydrated = useHydrated();
     const entry = CTA[variante][placement];
     const cls = [styles.cta, styles[shape], styles[look], className].filter(Boolean).join(" ");
 
     // In variante form `final` è il submit del form di contatto; in signup
-    // porta alla registrazione come le altre.
+    // porta alla registrazione come le altre. Nell'HTML prerenderizzato il
+    // submit è disabilitato finché React non idrata: il form non ha action,
+    // e un invio nativo farebbe una GET con nome e telefono nell'URL e
+    // perderebbe il contatto. Con il pulsante disabilitato non invia nemmeno
+    // l'Invio da tastiera. A vista non cambia nulla: lo stile «in invio»
+    // segue `aria-busy`, non `:disabled`.
     if (placement === "final" && variante === "form") {
         return (
             <button
@@ -47,7 +54,7 @@ const LandingCta = forwardRef<HTMLAnchorElement, LandingCtaProps>(function Landi
                 className={cls}
                 data-cta={placement}
                 data-variante={variante}
-                disabled={busyLabel !== undefined}
+                disabled={busyLabel !== undefined || !hydrated}
                 aria-busy={busyLabel !== undefined || undefined}
             >
                 {busyLabel ?? entry.label}

@@ -21,8 +21,9 @@
     @include ld-focus;
 }
 
-// Submit durante l'invio.
-.cta:disabled {
+// Submit durante l'invio. Su `aria-busy`, non su `:disabled`: prima
+// dell'idratazione il submit è disabilitato ma deve restare uguale.
+.cta[aria-busy="true"] {
     cursor: progress;
     opacity: 0.72;
 }
