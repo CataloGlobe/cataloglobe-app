@@ -13,7 +13,8 @@ import { SectionCard } from "@/components/ui/SectionCard/SectionCard";
 import Text from "@/components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useBusinessOutletContext } from "@/layouts/MainLayout/outletContext";
-import { Languages, Pencil, Sparkles } from "lucide-react";
+import { Languages, Pencil } from "lucide-react";
+import { AiSparkles } from "@/components/ui/Button/AiSparkles";
 import {
     listTranslationsForEntity,
     getActiveTenantLanguages,
@@ -623,7 +624,7 @@ export function TranslationsTab({
                                                                 disabled={isSaving}
                                                             >
                                                                 <span className={styles.btnIconLabel}>
-                                                                    <Sparkles size={14} />
+                                                                    <AiSparkles size={14} />
                                                                     {t(
                                                                         "translations_tab.revert_auto"
                                                                     )}

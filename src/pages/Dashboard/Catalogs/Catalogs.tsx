@@ -15,6 +15,7 @@ import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedCont
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
+import { AiSparkles } from "@/components/ui/Button/AiSparkles";
 import { IconBook2 } from "@tabler/icons-react";
 import { Sparkles, Eye, LayoutGrid, List as ListIcon } from "lucide-react";
 import { Loader } from "@/components/ui/Loader/Loader";
@@ -188,7 +189,7 @@ export default function Catalogs() {
             />
             {canWriteCatalog && (
                 <Button
-                    variant="outline"
+                    variant="secondary"
                     onClick={handleOpenAiImport}
                     disabled={!canEdit}
                     leftIcon={
@@ -196,7 +197,7 @@ export default function Catalogs() {
                             ? <Loader size="sm" className={styles.importSpinner} />
                             : importStatus === "review"
                                 ? <Eye size={16} />
-                                : <Sparkles size={16} />
+                                : <AiSparkles size={16} />
                     }
                     className={styles.toolbarCta}
                 >
