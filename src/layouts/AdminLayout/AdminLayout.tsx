@@ -72,6 +72,13 @@ export default function AdminLayout() {
         setGeaOpen(true);
     }, []);
     const clearGeaQuestion = useCallback(() => setGeaQuestion(null), []);
+    // Uscendo dalle pagine di Gea, niente resta in sospeso: una domanda
+    // lasciata qui partirebbe da sola alla prima pagina del CRM.
+    useEffect(() => {
+        if (showGea) return;
+        setGeaOpen(false);
+        setGeaQuestion(null);
+    }, [showGea]);
 
     // ── Pallino "richieste in attesa" ──────────────────────────────────────
     // Fonte UNICA, montata qui come il gemello lato cliente in `MainLayout`:
@@ -141,7 +148,7 @@ export default function AdminLayout() {
                                                     venues={nav.venues}
                                                     waits={nav.waits}
                                                     homeCount={nav.home.count}
-                                                    onAskGea={askGea}
+                                                    onAskGea={showGea ? askGea : undefined}
                                                 />
                                             }
                                         />

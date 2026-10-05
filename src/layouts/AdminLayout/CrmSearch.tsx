@@ -20,7 +20,8 @@ interface CrmSearchProps {
     waits: Map<string, VenueWait>;
     /** Le cose che aspettano voi (contatore di Home), a destra di «Bozze che aspettano te». */
     homeCount: number;
-    onAskGea: (question: string) => void;
+    /** Assente dove Gea non c'è (Supporto, Incidenti): niente «Chiedi a Gea». */
+    onAskGea?: (question: string) => void;
 }
 
 type Item = { kind: "lead"; venue: CrmVenueListItem } | { kind: "action"; action: CrmSearchAction } | { kind: "gea" };
@@ -61,26 +62,28 @@ export function CrmSearch({ collapsed, venues, waits, homeCount, onAskGea }: Crm
     const leads = useMemo(() => searchLeads(venues, { query, scope, userId, waiting }), [venues, query, scope, userId, waiting]);
     const actions = useMemo(() => searchActions(query, scope), [query, scope]);
     const hasQuery = query.trim() !== "";
+    const canAskGea = hasQuery && onAskGea !== undefined;
     const items = useMemo<Item[]>(
         () => [
             ...leads.map(venue => ({ kind: "lead" as const, venue })),
             ...actions.map(action => ({ kind: "action" as const, action })),
-            ...(hasQuery ? [{ kind: "gea" as const }] : [])
+            ...(canAskGea ? [{ kind: "gea" as const }] : [])
         ],
-        [leads, actions, hasQuery]
+        [leads, actions, canAskGea]
     );
-    const geaIndex = hasQuery ? items.length - 1 : -1;
+    const geaIndex = canAskGea ? items.length - 1 : -1;
 
     // Senza lead trovati, Invio chiede a Gea; altrimenti si parte dal primo.
     useEffect(() => {
-        setActive(hasQuery && leads.length === 0 ? items.length - 1 : 0);
-    }, [query, scope, hasQuery, leads.length, items.length]);
+        setActive(canAskGea && leads.length === 0 ? items.length - 1 : 0);
+    }, [query, scope, canAskGea, leads.length, items.length]);
 
     const close = useCallback(() => {
         setOpen(false);
         setQuery("");
         setScope("tutto");
     }, []);
+    const triggerRef = useRef<HTMLButtonElement>(null);
 
     // Il riquadro si posiziona accanto al campo, alla sua altezza.
     useLayoutEffect(() => {
@@ -103,17 +106,19 @@ export function CrmSearch({ collapsed, venues, waits, homeCount, onAskGea }: Crm
         (collapsed ? innerFieldRef : fieldRef).current?.focus();
     }, [open, collapsed, placed]);
 
-    // ⌘K apre e chiude; un clic fuori dal campo e dal riquadro chiude.
+    // ⌘K apre e chiude (chiudendo svuota, come Esc); un clic fuori dal campo
+    // e dal riquadro chiude.
     useEffect(() => {
         const onKey = (e: KeyboardEvent) => {
             if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
                 e.preventDefault();
-                setOpen(v => !v);
+                if (open) close();
+                else setOpen(true);
             }
         };
         window.addEventListener("keydown", onKey);
         return () => window.removeEventListener("keydown", onKey);
-    }, []);
+    }, [open, close]);
     useEffect(() => {
         if (!open) return;
         const onDown = (e: PointerEvent) => {
@@ -138,7 +143,7 @@ export function CrmSearch({ collapsed, venues, waits, homeCount, onAskGea }: Crm
     const askGea = () => {
         const q = query.trim();
         close();
-        onAskGea(q);
+        onAskGea?.(q);
     };
     const run = (item: Item | undefined, write = false) => {
         if (!item) return;
@@ -164,7 +169,10 @@ export function CrmSearch({ collapsed, venues, waits, homeCount, onAskGea }: Crm
         } else if (e.key === "Escape") {
             e.preventDefault();
             close();
-            e.currentTarget.blur();
+            // A barra chiusa il campo sparisce col riquadro: il focus torna
+            // alla lente che l'ha aperto.
+            if (collapsed) triggerRef.current?.focus();
+            else e.currentTarget.blur();
         }
     };
 
@@ -272,7 +280,10 @@ export function CrmSearch({ collapsed, venues, waits, homeCount, onAskGea }: Crm
                                             >
                                                 {wait?.wait ?? relativeAgo(venue.last_activity_at, now)}
                                             </Text>
-                                            <span className={styles.acts} onClick={e => e.stopPropagation()}>
+                                            <span className="visually-hidden">Invio apre, Comando Invio scrive al lead.</span>
+                                            {/* Solo per il mouse: da tastiera Invio apre e ⌘Invio scrive; dentro
+                                                un'opzione non ci vanno controlli. */}
+                                            <span className={styles.acts} aria-hidden="true" onClick={e => e.stopPropagation()}>
                                                 {phone && (
                                                     <Button variant="secondary" size="sm" tabIndex={-1} onClick={() => callLead(venue)}>
                                                         Chiama
@@ -323,7 +334,7 @@ export function CrmSearch({ collapsed, venues, waits, homeCount, onAskGea }: Crm
                                 })}
                             </div>
                         )}
-                        {hasQuery && (
+                        {canAskGea && (
                             <div role="group" aria-label="Gea" className={styles.group}>
                                 <Text as="div" variant="caption-xs" weight={600} colorVariant="muted" className={styles.caption}>
                                     GEA
@@ -376,7 +387,13 @@ export function CrmSearch({ collapsed, venues, waits, homeCount, onAskGea }: Crm
     const trigger = collapsed ? (
         <Tooltip content="Cerca (⌘K)" side="right" sideOffset={12}>
             <span>
-                <button type="button" className={styles.iconTrigger} onClick={() => setOpen(v => !v)} aria-label="Cerca nel CRM (⌘K)">
+                <button
+                    ref={triggerRef}
+                    type="button"
+                    className={styles.iconTrigger}
+                    onClick={() => setOpen(v => !v)}
+                    aria-label="Cerca nel CRM (⌘K)"
+                >
                     <Search size={16} aria-hidden="true" />
                 </button>
             </span>
