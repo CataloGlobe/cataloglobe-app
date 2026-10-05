@@ -15,17 +15,16 @@ import { getCrmAgentSettings, getCrmAiSpend, listCrmAgentDecisionsSince, setCrmB
 import { listAllTickets } from "@/services/supabase/support";
 import { crmAgentErrorMessage } from "@/utils/crm/agentLabels";
 import { giroToday, romeTodayStart, type GiroToday } from "@/utils/crm/agentsOverview";
+import { formatAiCost } from "@shared/crmAi";
 import { useCrmLoad } from "./hooks/useCrmLoad";
 import styles from "./Crm.module.scss";
-
-const usd = (n: number) => `${n.toFixed(2).replace(".", ",")} $`;
 
 /** «in pausa · 12 messaggi oggi · 0,42 $»: la riga sotto «Agenti». */
 function agentsLine(brakeOn: boolean | null, giro: GiroToday | null, dayUsd: number | null): string {
     const parts = [
         brakeOn === null ? "stato non letto" : brakeOn ? "in pausa" : "attivi",
         giro ? `${giro.sent} ${giro.sent === 1 ? "messaggio" : "messaggi"} oggi` : null,
-        dayUsd !== null ? usd(dayUsd) : null
+        dayUsd !== null ? formatAiCost(dayUsd) : null
     ];
     return parts.filter(Boolean).join(" · ");
 }

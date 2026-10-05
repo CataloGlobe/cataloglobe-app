@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { CrmAppointmentWithVenue, CrmVenueListItem } from "@/types/crm";
+import type { CrmAppointmentWithVenue, CrmNextStep, CrmVenueListItem } from "@/types/crm";
 import {
     boardVenues,
     cardMeta,
@@ -7,9 +7,11 @@ import {
     dayAndTime,
     formatDuration,
     initials,
+    lastContactLine,
     leadSummary,
     matchesView,
     nextAppointments,
+    nextStepLine,
     parseLeadView,
     PIPELINE_STAGES,
     searchLeads,
@@ -194,6 +196,62 @@ describe("ultimo contatto", () => {
             NOW
         );
         expect(map.get("v1")?.id).toBe("next");
+    });
+});
+
+describe("colonne Prossimo passo e Ultimo contatto (R2)", () => {
+    const step = (p: Partial<CrmNextStep>): CrmNextStep => ({
+        venue_id: "v1",
+        step: "Mandare il listino",
+        due_on: null,
+        owner_user_id: null,
+        set_by: "u1",
+        set_at: "2026-10-04T10:00:00Z",
+        snoozed: false,
+        ...p
+    });
+    const base = { wait: undefined, step: undefined, next: undefined, now: NOW };
+
+    it("la risposta che aspetta vince sul passo scritto", () => {
+        const line = nextStepLine({
+            ...base,
+            venue: venue({ stage: "nuovo" }),
+            wait: { level: "arancio", wait: "40 min", text: "è nuovo e nessuno lo segue" },
+            step: step({})
+        });
+        expect(line).toEqual({ text: "Nessuno lo segue", sub: "da 40 min", warn: true });
+    });
+
+    it("il passo della scheda, con la scadenza", () => {
+        expect(nextStepLine({ ...base, venue: venue({}), step: step({ due_on: "2026-10-06" }) })).toEqual({
+            text: "Mandare il listino",
+            sub: "entro domani",
+            warn: false
+        });
+        expect(nextStepLine({ ...base, venue: venue({}), step: step({ due_on: "2026-10-02" }) }).warn).toBe(true);
+        expect(nextStepLine({ ...base, venue: venue({}), step: step({}) }).sub).toBeNull();
+    });
+
+    it("telefonata, demo e prova", () => {
+        expect(nextStepLine({ ...base, venue: venue({ stage: "demo_fissata" }), next: appt({}) })).toEqual({
+            text: "Demo",
+            sub: "oggi 17:45",
+            warn: false
+        });
+        const v = venue({ stage: "in_prova", stage_changed_at: "2026-09-26T10:00:00Z", trial_ends_at: "2026-10-26T10:00:00Z" });
+        expect(nextStepLine({ ...base, venue: v }).sub).toBe("giorno 10 di 30");
+    });
+
+    it("fermo senza passo: da ricontattare", () => {
+        const v = venue({ stage: "contattato", last_activity_at: "2026-10-01T10:00:00Z" });
+        expect(nextStepLine({ ...base, venue: v })).toEqual({ text: "Ricontattare", sub: "nessun passo fissato", warn: true });
+        expect(nextStepLine({ ...base, venue: venue({}) }).text).toBe("—");
+    });
+
+    it("ultimo contatto: solo quando", () => {
+        expect(lastContactLine(venue({}), NOW)).toEqual({ text: "1 ora fa", sub: null, warn: false });
+        const v = venue({ stage: "contattato", last_activity_at: "2026-10-01T10:00:00Z" });
+        expect(lastContactLine(v, NOW)).toEqual({ text: "4 giorni fa", sub: null, warn: true });
     });
 });
 

@@ -39,7 +39,8 @@ export function AgentPanel({
     onTrial: (patch: Partial<CrmAgentTrialSettings>, done: string) => void;
     onModel: (role: CrmAiRole, model: string) => void;
     onCheck: (role: CrmAiRole) => void;
-    onClose: () => void;
+    /** Senza, niente «×»: nella pagina dell'agente il pannello resta aperto. */
+    onClose?: () => void;
 }) {
     const topic = guideTopic(row.id);
     const trustOf =
@@ -55,7 +56,7 @@ export function AgentPanel({
                 <Text as="h3" id={`agente-${row.id}`} variant="body" weight={700}>
                     {row.name}: come funziona
                 </Text>
-                <IconButton icon={<X size={16} />} aria-label="Chiudi" variant="ghost" size="sm" onClick={onClose} />
+                {onClose && <IconButton icon={<X size={16} />} aria-label="Chiudi" variant="ghost" size="sm" onClick={onClose} />}
             </div>
             {topic && (
                 <div className={styles.panelText}>

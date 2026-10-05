@@ -122,9 +122,9 @@ describe("avvisi di spesa", () => {
 
     it("80% del giorno e del mese", () => {
         expect(spendAlertMessage("day_80", spend)).toBe(
-            "<b>Spesa AI all'80% del tetto di oggi</b>\n8,50 $ su 10,00 $. Al 100% gli agenti vanno in pausa."
+            "<b>Spesa AI all'80% del tetto di oggi</b>\n7,31 € su 8,60 €. Al 100% gli agenti vanno in pausa."
         );
-        expect(spendAlertMessage("month_80", spend)).toContain("41,24 $ su 100,00 $");
+        expect(spendAlertMessage("month_80", spend)).toContain("35,46 € su 86,00 €");
     });
 
     it("tetto raggiunto: agenti in pausa e dove riattivarli", () => {
@@ -136,7 +136,7 @@ describe("avvisi di spesa", () => {
         const text = unrecordedCostMessage(0.0362);
         expect(text).toMatch(/^<b>Agenti in pausa: un costo AI non è stato registrato<\/b>/);
         expect(text).toContain("non contata nel tetto di spesa");
-        expect(text).toContain("0,04 $");
+        expect(text).toContain("0,03 €");
         expect(text).toContain("per riattivarli: /admin, Agenti.");
     });
 

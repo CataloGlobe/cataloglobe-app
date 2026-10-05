@@ -30,7 +30,8 @@ import adminStyles from "./AdminLayout.module.scss";
  *
  * Grafica del CRM (canvas, versione finale del 2026-10-05): niente testata in
  * alto, la barra indaco porta marchio, Cerca (C4, ⌘K) e contatori; il titolo sta
- * nella pagina. Sulla scheda di un lead la barra parte chiusa. Al telefono la
+ * nella pagina. La barra non si chiude da sola in nessuna pagina, Lead compresi
+ * (deciso da Alex il 2026-10-05: lo spazio in orizzontale basta). Al telefono la
  * barra in basso (Home · Lead · Agenda · Altro) prende il posto del menu.
  */
 export default function AdminLayout() {
@@ -40,18 +41,14 @@ export default function AdminLayout() {
 
     const isMobile = useMediaQuery("(max-width: 767px)");
     const isNarrow = useMediaQuery("(max-width: 1023px)");
-    // Due preferenze: le pagine normali (aperta, chiusa tra 768 e 1023) e i
-    // lead (chiusa: la colonna delle viste, le nove colonne, elenco, chat e
-    // dati della scheda hanno bisogno di spazio; canvas V4 e V5).
-    const isLeadDetail = /^\/admin\/lead(\/|$)/.test(pathname);
     // Dentro la conversazione di un lead (T8b) la barra in basso lascia il
     // posto alla bozza e a «Scrivi tu»: si torna indietro con la freccia.
     const isLeadChat = /^\/admin\/lead\/[^/]+/.test(pathname);
     const showBottomBar = isMobile && !isLeadChat;
     const [pagesCollapsed, setPagesCollapsed] = useState<boolean | null>(null);
-    const [detailCollapsed, setDetailCollapsed] = useState(true);
-    const sidebarCollapsed = isLeadDetail ? detailCollapsed : (pagesCollapsed ?? isNarrow);
-    const toggleCollapse = () => (isLeadDetail ? setDetailCollapsed(v => !v) : setPagesCollapsed(() => !sidebarCollapsed));
+    // Aperta, chiusa tra 768 e 1023; la scelta a mano vale per tutte le pagine.
+    const sidebarCollapsed = pagesCollapsed ?? isNarrow;
+    const toggleCollapse = () => setPagesCollapsed(() => !sidebarCollapsed);
 
     const nav = useCrmNavData(pathname);
     useEffect(() => {

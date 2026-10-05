@@ -182,7 +182,7 @@ describe("risposte", () => {
         expect(text).toContain("• Nuovo, Roma");
         expect(text).toContain("• Fermo (In conversazione)");
         expect(text).toContain("Agenti in pausa.");
-        expect(text).toContain("Spesa AI di oggi: 0,43 $.");
+        expect(text).toContain("Spesa AI di oggi: 0,37 €.");
     });
 
     it("oggi vuoto e lunghe liste", () => {

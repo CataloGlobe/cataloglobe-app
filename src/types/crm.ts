@@ -314,6 +314,7 @@ export interface CrmQueuedMessage {
 export interface CrmAiUsageCost {
     role: CrmAiRole;
     cost_usd: number;
+    created_at: string;
 }
 
 export type CrmWaState = "unknown" | "ok" | "needs_relink" | "warning";
@@ -383,6 +384,26 @@ export interface CrmExpenseInput {
     cancelledOn: string | null;
     remindDaysBefore: number | null;
     notes: string | null;
+}
+
+/** Un rimborso tra persone, o un versamento sul conto comune (mig 20261005180000). */
+export interface CrmExpenseSettlement {
+    id: string;
+    from_name: string;
+    to_name: string;
+    amount_cents: number;
+    settled_on: string;
+    note: string | null;
+    created_by: string | null;
+    created_at: string;
+}
+
+export interface CrmExpenseSettlementInput {
+    fromName: string;
+    toName: string;
+    amountCents: number;
+    settledOn: string;
+    note: string | null;
 }
 
 // -----------------------------------------------------------------------------

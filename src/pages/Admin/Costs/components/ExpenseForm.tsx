@@ -1,3 +1,4 @@
+import { ChipGroupSingle } from "@/components/ui/Chip/ChipGroup";
 import { RadioGroup } from "@/components/ui/RadioGroup/RadioGroup";
 import { Select } from "@/components/ui/Select/Select";
 import { Switch } from "@/components/ui/Switch/Switch";
@@ -45,10 +46,13 @@ type Props = {
     disabled: boolean;
     onChange: (patch: Partial<CrmExpenseDraft>) => void;
     onSubmit: () => void;
+    /** Nomi pronti per «Pagata da»: il team e il conto comune. */
+    payers?: string[];
 };
 
-export function ExpenseForm({ formId, draft, errors, disabled, onChange, onSubmit }: Props) {
+export function ExpenseForm({ formId, draft, errors, disabled, onChange, onSubmit, payers = [] }: Props) {
     const isSubscription = draft.kind === "subscription";
+    const pickedPayer = payers.find(p => p.toLocaleLowerCase("it") === draft.paidBy.trim().toLocaleLowerCase("it"));
 
     return (
         <form
@@ -127,14 +131,25 @@ export function ExpenseForm({ formId, draft, errors, disabled, onChange, onSubmi
                     options={CATEGORY_OPTIONS}
                     disabled={disabled}
                 />
-                <TextInput
-                    label="Pagata da"
-                    maxLength={60}
-                    placeholder="Per esempio Alex"
-                    value={draft.paidBy}
-                    onChange={e => onChange({ paidBy: e.target.value })}
-                    disabled={disabled}
-                />
+                <div className={styles.payerField}>
+                    <TextInput
+                        label="Pagata da"
+                        maxLength={60}
+                        placeholder="Per esempio Alessandro"
+                        value={draft.paidBy}
+                        onChange={e => onChange({ paidBy: e.target.value })}
+                        disabled={disabled}
+                    />
+                    {payers.length > 0 && (
+                        <ChipGroupSingle
+                            options={payers.map(p => ({ value: p, label: p, disabled }))}
+                            value={pickedPayer}
+                            onChange={paidBy => onChange({ paidBy })}
+                            ariaLabel="Chi l'ha pagata"
+                            layout="auto"
+                        />
+                    )}
+                </div>
             </div>
             {isSubscription && (
                 <>

@@ -1,32 +1,36 @@
 import { describe, expect, it } from "vitest";
 import {
+    CAP_MAX_EUR,
     agentCheckMessage,
     CRM_MODEL_OPTIONS,
     crmAgentErrorMessage,
     decisionActionLabel,
     draftStatusLabel,
-    formatUsdInput,
+    formatCapInput,
     modelLabel,
-    parseUsdCap
+    parseEurCap
 } from "@/utils/crm/agentLabels";
+import { eurToUsd } from "@shared/crmAi";
 
-describe("parseUsdCap", () => {
+describe("parseEurCap", () => {
     it("accetta virgola, punto, simbolo e spazi", () => {
-        expect(parseUsdCap("100")).toBe(100);
-        expect(parseUsdCap("12,50")).toBe(12.5);
-        expect(parseUsdCap(" 12.5 $")).toBe(12.5);
+        expect(parseEurCap("100")).toBe(100);
+        expect(parseEurCap("12,50")).toBe(12.5);
+        expect(parseEurCap(" 12.5 €")).toBe(12.5);
     });
 
-    it("rifiuta zero, negativi, testo, tre decimali e oltre 10.000", () => {
-        for (const text of ["0", "-5", "dieci", "1,234", "10000,01", "", "1.000,00"]) {
-            expect(parseUsdCap(text)).toBeNull();
+    it("rifiuta zero, negativi, testo, tre decimali e oltre il massimo", () => {
+        for (const text of ["0", "-5", "dieci", "1,234", `${CAP_MAX_EUR + 1}`, "", "1.000,00"]) {
+            expect(parseEurCap(text)).toBeNull();
         }
-        expect(parseUsdCap("10000")).toBe(10000);
+        expect(parseEurCap(`${CAP_MAX_EUR}`)).toBe(CAP_MAX_EUR);
+        // Il massimo in euro, riportato in dollari, sta nel limite del database.
+        expect(eurToUsd(CAP_MAX_EUR)).toBeLessThanOrEqual(10_000);
     });
 
-    it("formatUsdInput torna indietro", () => {
-        expect(formatUsdInput(12.5)).toBe("12,50");
-        expect(parseUsdCap(formatUsdInput(99.99))).toBe(99.99);
+    it("formatCapInput mostra in euro e torna ai dollari", () => {
+        expect(formatCapInput(100)).toBe("86,00");
+        expect(eurToUsd(parseEurCap(formatCapInput(116.28)) as number)).toBe(116.28);
     });
 });
 
@@ -42,7 +46,7 @@ describe("agentCheckMessage", () => {
     it("riuscita: modello, tempo e costo", () => {
         expect(
             agentCheckMessage({ ok: true, model: "claude-x", reply: "ok", cost_usd: 0.00042, latency_ms: 812 })
-        ).toBe("claude-x risponde: 812 ms, 0,0004 $.");
+        ).toBe("claude-x risponde: 812 ms, 0,0004 €.");
     });
 
     it("fallita: motivo noto, dettaglio solo per l'errore di Claude", () => {

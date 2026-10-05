@@ -55,7 +55,7 @@ export type AgentTone = "success" | "warning" | "neutral";
 
 export interface AgentRow {
     /** Id della voce in `CRM_GUIDE`. */
-    id: "conversazione" | "solleciti" | "decisioni_sensibili" | "revisore" | "riattivazione" | "gea";
+    id: "conversazione" | "solleciti" | "decisioni_sensibili" | "revisore" | "riattivazione" | "gea" | "sentinella";
     name: string;
     /** Il ruolo AI che lavora per lui: modello e spesa. Solleciti e riattivazione usano quello della conversazione. */
     role: CrmAiRole | null;
@@ -187,6 +187,19 @@ export function agentRows(input: {
             step: null,
             status: "Su Telegram",
             tone: "success",
+            today: "—",
+            approvedShare: null,
+            mix: null
+        },
+        // Sentinella (sicurezza e bug di tutto CataloGlobe): in lista dal 2026-10-05, si accende quando Alex e Lorenzo lo decidono.
+        {
+            id: "sentinella",
+            name: "Sentinella",
+            role: null,
+            spendShared: false,
+            step: null,
+            status: "In arrivo",
+            tone: "neutral",
             today: "—",
             approvedShare: null,
             mix: null
