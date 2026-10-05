@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { CalendarDays, List } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
@@ -9,6 +9,7 @@ import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedCont
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import Text from "@/components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
+import { useAuth } from "@/context/useAuth";
 import { usePageHeader } from "@/context/usePageHeader";
 import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
@@ -32,7 +33,8 @@ import {
     recurringMonthlyCents,
     romeTodayIso,
     summarizeCharges,
-    upcomingRenewals
+    upcomingRenewals,
+    type CrmExpenseDraft
 } from "@/utils/crm/expenses";
 import { isMissingOnDatabase } from "@/utils/crm/stages";
 import type { CrmExpense, CrmExpenseSettlement } from "@/types/crm";
@@ -41,6 +43,7 @@ import { useCrmLoad } from "@/pages/Admin/Crm/hooks/useCrmLoad";
 import { CostsCalendar } from "./components/CostsCalendar";
 import { ExpenseTabs } from "./components/ExpenseTabs";
 import { PayersCard } from "./components/PayersCard";
+import { QuickExpenseRow } from "./components/QuickExpenseRow";
 import { ExpenseDrawer } from "./ExpenseDrawer";
 import { SettlementDrawer } from "./SettlementDrawer";
 import styles from "./Costs.module.scss";
@@ -77,6 +80,9 @@ export default function CostsPage() {
     const figureVariant = isPhone ? "title-sm" : "title-lg";
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [selected, setSelected] = useState<CrmExpense | null>(null);
+    const [drawerDraft, setDrawerDraft] = useState<CrmExpenseDraft | null>(null);
+    const quickNameRef = useRef<HTMLInputElement>(null);
+    const { user } = useAuth();
     const [toDelete, setToDelete] = useState<CrmExpense | null>(null);
     const [moveToDelete, setMoveToDelete] = useState<CrmExpenseSettlement | null>(null);
     const [isSettleOpen, setIsSettleOpen] = useState(false);
@@ -138,6 +144,10 @@ export default function CostsPage() {
         [allCharges, expenses, settlements, team, today]
     );
     const payers = useMemo(() => payerSuggestions(team), [team]);
+    const myName = useMemo(
+        () => (teamLoad.data ?? []).find(m => m.user_id === user?.id)?.display_name ?? "",
+        [teamLoad.data, user?.id]
+    );
     const people = useMemo(() => balance.people.map(p => p.name), [balance.people]);
 
     const currentMonth = today.slice(0, 7);
@@ -158,15 +168,43 @@ export default function CostsPage() {
         [setSearchParams]
     );
 
+    // «Aggiungi spesa»: nell'elenco porta alla riga veloce, nel calendario
+    // (dove la riga non c'è) apre il drawer.
     const openCreate = useCallback(() => {
+        if (view === "list" && quickNameRef.current) {
+            quickNameRef.current.scrollIntoView({ block: "center", behavior: "smooth" });
+            quickNameRef.current.focus({ preventScroll: true });
+            return;
+        }
         setSelected(null);
+        setDrawerDraft(null);
+        setIsDrawerOpen(true);
+    }, [view]);
+
+    const openDetails = useCallback((draft: CrmExpenseDraft) => {
+        setSelected(null);
+        setDrawerDraft(draft);
         setIsDrawerOpen(true);
     }, []);
 
     const openEdit = useCallback((expense: CrmExpense) => {
         setSelected(expense);
+        setDrawerDraft(null);
         setIsDrawerOpen(true);
     }, []);
+
+    const handleQuickAdded = useCallback(
+        (summary: string, expense: CrmExpense) => {
+            reload();
+            showToast({
+                message: `Aggiunta: ${summary}.`,
+                type: "success",
+                actionLabel: "Dettagli",
+                onAction: () => openEdit(expense)
+            });
+        },
+        [reload, showToast, openEdit]
+    );
 
     const askDelete = useCallback((expense: CrmExpense) => {
         setDialogError(null);
@@ -299,6 +337,15 @@ export default function CostsPage() {
                 />
             ) : (
                 <>
+                    <QuickExpenseRow
+                        ref={quickNameRef}
+                        expenses={expenses}
+                        today={today}
+                        defaultPayer={myName}
+                        onAdded={handleQuickAdded}
+                        onDetails={openDetails}
+                    />
+
                     <div className={styles.duo}>
                         <PayersCard
                             balance={balance}
@@ -379,6 +426,7 @@ export default function CostsPage() {
             <ExpenseDrawer
                 open={isDrawerOpen}
                 expense={selected}
+                initialDraft={drawerDraft}
                 payers={payers}
                 onClose={() => setIsDrawerOpen(false)}
                 onSaved={handleSaved}

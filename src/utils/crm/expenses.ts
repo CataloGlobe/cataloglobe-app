@@ -4,6 +4,7 @@
  * `crm_expense_charges` (una regola sola, in SQL): qui si sommano soltanto.
  */
 import {
+    formatEuroCents,
     monthlyEquivalentCents,
     parseEuroToCents,
     type CrmBillingInterval,
@@ -231,4 +232,93 @@ export function expenseDraftToInput(draft: CrmExpenseDraft): CrmExpenseInput {
         remindDaysBefore: isSubscription && draft.remind ? Number(draft.remindDaysBefore.trim()) : null,
         notes: draft.notes.trim() || null
     };
+}
+
+// -----------------------------------------------------------------------------
+// Riga veloce e «Quanto spesso» (D38, scelta da Alex il 2026-10-05)
+// -----------------------------------------------------------------------------
+
+/** Come la dice il form: una sola scelta al posto di Tipo + Si rinnova. */
+export type CrmExpenseFrequency = "once" | "month" | "year";
+
+export const CRM_EXPENSE_FREQUENCY_OPTIONS: { value: CrmExpenseFrequency; label: string }[] = [
+    { value: "once", label: "Una volta" },
+    { value: "month", label: "Ogni mese" },
+    { value: "year", label: "Ogni anno" }
+];
+
+export function frequencyOf(draft: CrmExpenseDraft): CrmExpenseFrequency {
+    return draft.kind === "one_off" ? "once" : draft.billingInterval;
+}
+
+/** La data a vista: «Pagata il» per una volta, il primo addebito per gli abbonamenti. */
+export function expenseDateOf(draft: CrmExpenseDraft): string {
+    return draft.kind === "one_off" ? draft.paidOn : draft.firstChargeOn;
+}
+
+/** La data vale per tutte e due le forme: cambiando frequenza non si perde. */
+export function withExpenseDate(draft: CrmExpenseDraft, date: string): CrmExpenseDraft {
+    return { ...draft, paidOn: date, firstChargeOn: date };
+}
+
+export function withFrequency(draft: CrmExpenseDraft, frequency: CrmExpenseFrequency): CrmExpenseDraft {
+    const date = expenseDateOf(draft);
+    const next: CrmExpenseDraft =
+        frequency === "once"
+            ? { ...draft, kind: "one_off" }
+            : { ...draft, kind: "subscription", billingInterval: frequency };
+    return withExpenseDate(next, date);
+}
+
+/** Bozza vuota della riga veloce: chi è entrato paga, categoria «Altro». */
+export function quickExpenseDraft(today: string, paidBy: string): CrmExpenseDraft {
+    return { ...expenseDraftFrom(null, today), category: "other", paidBy };
+}
+
+function nameKey(name: string): string {
+    return name.trim().toLocaleLowerCase("it").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+/**
+ * Spese già viste che somigliano a quello che si sta scrivendo: l'ultima per
+ * ogni nome, prima chi comincia così, poi chi lo contiene. Da 2 lettere.
+ */
+export function suggestExpenses(expenses: CrmExpense[], typed: string, limit = 3): CrmExpense[] {
+    const q = nameKey(typed);
+    if (q.length < 2) return [];
+    const latest = new Map<string, CrmExpense>();
+    for (const e of expenses) {
+        const key = nameKey(e.name);
+        const seen = latest.get(key);
+        if (!seen || e.created_at > seen.created_at) latest.set(key, e);
+    }
+    const starts: CrmExpense[] = [];
+    const contains: CrmExpense[] = [];
+    for (const [key, e] of latest) {
+        if (key.startsWith(q)) starts.push(e);
+        else if (key.includes(q)) contains.push(e);
+    }
+    const byName = (a: CrmExpense, b: CrmExpense) => a.name.localeCompare(b.name, "it");
+    return [...starts.sort(byName), ...contains.sort(byName)].slice(0, limit);
+}
+
+/** Come l'ultima con quel nome, con la data di oggi; disdetta e note no. */
+export function draftFromPrevious(expense: CrmExpense, today: string): CrmExpenseDraft {
+    const base = expenseDraftFrom(expense, today);
+    return withExpenseDate({ ...base, cancelled: false, cancelledOn: today, notes: "" }, today);
+}
+
+/** «90,00 € al mese, 1.080,00 € l'anno»; null finché l'importo non è valido. */
+export function expenseDraftSummary(draft: CrmExpenseDraft): string | null {
+    const cents = parseEuroToCents(draft.amount);
+    if (cents == null) return null;
+    const amount = formatEuroCents(cents);
+    switch (frequencyOf(draft)) {
+        case "once":
+            return `${amount} una volta sola`;
+        case "month":
+            return `${amount} al mese, ${formatEuroCents(cents * 12)} l'anno`;
+        case "year":
+            return `${amount} l'anno, ${formatEuroCents(monthlyEquivalentCents(cents, "year"))} al mese`;
+    }
 }
