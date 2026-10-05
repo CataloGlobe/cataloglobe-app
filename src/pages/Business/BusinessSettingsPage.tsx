@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Lock } from "lucide-react";
 import { useTenant } from "@/context/useTenant";
 import { useToast } from "@/context/Toast/ToastContext";
@@ -209,20 +209,29 @@ export default function BusinessSettingsPage() {
     const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
     const showSave = canManageTenant && draft !== null;
     const settingsTabs = useSettingsTabs();
-    usePageHeader({
-        title: "Impostazioni",
-        leading: settingsTabs.leading,
-        actions: showSave ? (
-            <HeaderSaveAction
-                isDirty={isDirty}
-                isSaving={saving}
-                onSave={handleSave}
-                onDiscard={handleCancel}
-                saveDisabled={!canSave}
-                changeCount={changeCount}
-            />
-        ) : undefined,
-        compact:
+    // Azioni e barra compatta memoizzate: `usePageHeader` si ridisegna a ogni
+    // riferimento nuovo, e un riferimento nuovo a ogni render lo manda in ciclo
+    // (la tab Team non si apriva più). I gestori passano da un ref.
+    const handlersRef = useRef({ save: handleSave, discard: handleCancel });
+    handlersRef.current = { save: handleSave, discard: handleCancel };
+    const onSave = useCallback(() => handlersRef.current.save(), []);
+    const onDiscard = useCallback(() => handlersRef.current.discard(), []);
+    const actions = useMemo(
+        () =>
+            showSave ? (
+                <HeaderSaveAction
+                    isDirty={isDirty}
+                    isSaving={saving}
+                    onSave={onSave}
+                    onDiscard={onDiscard}
+                    saveDisabled={!canSave}
+                    changeCount={changeCount}
+                />
+            ) : undefined,
+        [showSave, isDirty, saving, onSave, onDiscard, canSave, changeCount]
+    );
+    const compact = useMemo(
+        () =>
             settingsTabs.leading || showSave
                 ? {
                       ...(settingsTabs.leading ? settingsTabs.compact : {}),
@@ -230,14 +239,16 @@ export default function BusinessSettingsPage() {
                           ? buildSaveActionCompactConfig({
                                 isDirty,
                                 isSaving: saving,
-                                onSave: handleSave,
+                                onSave,
                                 onRequestDiscard: () => setConfirmDiscardOpen(true),
                                 saveDisabled: !canSave
                             })
                           : {})
                   }
-                : undefined
-    });
+                : undefined,
+        [settingsTabs.leading, settingsTabs.compact, showSave, isDirty, saving, onSave, canSave]
+    );
+    usePageHeader({ title: "Impostazioni", leading: settingsTabs.leading, actions, compact });
 
     // Riceve dal wrapper l'immagine GIÀ ritagliata (baked, quadrata): carica quel
     // singolo file col servizio esistente. Nessun framing metadata persistito,
