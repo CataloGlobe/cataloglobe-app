@@ -38,6 +38,7 @@
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { resolveRulesForActivity } from "./scheduleResolver.ts";
 import { getNowInRome } from "./schedulingNow.ts";
+import { availabilityLookupIds, findUnavailableProductIds } from "./orderAvailability.ts";
 import { enforceOrderCaps } from "./orderCaps.ts";
 
 // ============================================================
@@ -189,7 +190,7 @@ export async function validateAndSnapshotOrderItems(
 
     const requestedProductIds = Array.from(new Set(requestedItems.map(i => i.product_id)));
 
-    const catalogProductIds = await _loadCatalogProductIds(
+    const { ids: catalogProductIds, parentByVariant } = await _loadCatalogProductIds(
         supabase,
         catalogId,
         session.tenant_id
@@ -203,7 +204,12 @@ export async function validateAndSnapshotOrderItems(
         );
     }
 
-    await _checkAvailabilityOverrides(supabase, session.activity_id, requestedProductIds);
+    await _checkAvailabilityOverrides(
+        supabase,
+        session.activity_id,
+        requestedProductIds,
+        parentByVariant
+    );
 
     const productsById = await _loadProductDetails(
         supabase,
@@ -355,10 +361,11 @@ async function _loadCatalogProductIds(
     supabase: SupabaseClient,
     catalogId: string,
     tenantId: string
-): Promise<Set<string>> {
+): Promise<{ ids: Set<string>; parentByVariant: Map<string, string> }> {
     // catalog_category_products links (catalog, category, product). It also
     // carries an optional `variant_product_id` for products that orderable as
-    // variants — include both ids in the orderable set.
+    // variants — include both ids in the orderable set, and remember the
+    // variant → parent pair for the availability check.
     // tenant_id filter: a link row of another tenant pointing at this catalog
     // must not make its product orderable here.
     const { data, error } = await supabase
@@ -376,56 +383,39 @@ async function _loadCatalogProductIds(
     }
 
     const ids = new Set<string>();
+    const parentByVariant = new Map<string, string>();
     for (const row of (data ?? []) as Array<{ product_id: string; variant_product_id: string | null }>) {
         ids.add(row.product_id);
-        if (row.variant_product_id) ids.add(row.variant_product_id);
+        if (row.variant_product_id) {
+            ids.add(row.variant_product_id);
+            parentByVariant.set(row.variant_product_id, row.product_id);
+        }
     }
-    return ids;
-}
-
-/**
- * Prodotti non ordinabili per la sede, dalle due fonti di disponibilità:
- * - `activity_product_overrides` con `visible_override = false`: è quello che
- *   scrive il pannello (`updateActivityProductVisibility`). `mode = 'disable'`
- *   = «Non disponibile» (mostrato ma spento), `'hide'`/null = nascosto: in
- *   entrambi i casi il resolver pubblico non lo rende ordinabile, quindi
- *   nemmeno qui.
- * - `product_availability_overrides` con `available = false`: tabella legacy,
- *   scritta solo dall'edge `toggle-product-availability`. Resta controllata
- *   finché quell'edge esiste.
- * Funzione pura, esportata per i test.
- */
-export function findUnavailableProductIds(
-    legacyRows: ReadonlyArray<{ product_id: string }>,
-    activityRows: ReadonlyArray<{ product_id: string; visible_override: boolean | null }>
-): string[] {
-    const unavailable = new Set<string>();
-    for (const row of legacyRows) unavailable.add(row.product_id);
-    for (const row of activityRows) {
-        if (row.visible_override === false) unavailable.add(row.product_id);
-    }
-    return Array.from(unavailable);
+    return { ids, parentByVariant };
 }
 
 async function _checkAvailabilityOverrides(
     supabase: SupabaseClient,
     activityId: string,
-    productIds: string[]
+    productIds: string[],
+    parentByVariant: ReadonlyMap<string, string>
 ): Promise<void> {
     if (productIds.length === 0) return;
+    // A variant is off when its parent is: look up both.
+    const lookupIds = availabilityLookupIds(productIds, parentByVariant);
     const [legacy, activity] = await Promise.all([
         supabase
             .from("product_availability_overrides")
             .select("product_id")
             .eq("activity_id", activityId)
             .eq("available", false)
-            .in("product_id", productIds),
+            .in("product_id", lookupIds),
         supabase
             .from("activity_product_overrides")
             .select("product_id, visible_override")
             .eq("activity_id", activityId)
             .eq("visible_override", false)
-            .in("product_id", productIds)
+            .in("product_id", lookupIds)
     ]);
 
     const error = legacy.error ?? activity.error;
@@ -438,6 +428,8 @@ async function _checkAvailabilityOverrides(
     }
 
     const unavailable = findUnavailableProductIds(
+        productIds,
+        parentByVariant,
         (legacy.data ?? []) as Array<{ product_id: string }>,
         (activity.data ?? []) as Array<{ product_id: string; visible_override: boolean | null }>
     );
