@@ -17,6 +17,7 @@
     "typecheck:e2e": "tsc -p tsconfig.e2e.json",
     "test": "vitest run --config vitest.config.ts",
     "test:watch": "vitest --config vitest.config.ts",
+    "test:landing-build": "playwright test -c playwright.landing.config.ts",
     "preview": "vite preview",
     "ds:budget": "node scripts/ds-budget.mjs",
     "ds:budget:check": "node scripts/ds-budget.mjs --check",
