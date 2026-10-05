@@ -19,6 +19,12 @@ export interface AiDescriptionFieldProps {
      * riga; esaurita o senza abbonamento → bottone spento e la data di ripartenza.
      */
     quota?: AiUsageCycle | null;
+    /**
+     * Senza `products.write` (sola lettura): niente «Genera con AI» né i
+     * suggerimenti legati alla generazione. Il campo resta, disabilitato dal
+     * fieldset della pagina.
+     */
+    readOnly?: boolean;
     /** The description field itself (a controlled <Textarea>), owned by the caller. */
     children: React.ReactNode;
 }
@@ -36,6 +42,7 @@ export function AiDescriptionField({
     canGenerate,
     onGenerate,
     quota,
+    readOnly = false,
     children
 }: AiDescriptionFieldProps) {
     const quotaHint = aiQuotaHint(quota);
@@ -49,28 +56,30 @@ export function AiDescriptionField({
                 <Text variant="body-sm" weight={600}>
                     {label}
                 </Text>
-                <Button
-                    variant="outline"
-                    size="sm"
-                    leftIcon={<Sparkles size={14} />}
-                    loading={isGenerating}
-                    disabled={!canGenerate || quotaHint?.blocked === true}
-                    onClick={onGenerate}
-                >
-                    {isGenerating
-                        ? "Generazione…"
-                        : aiState !== "none"
-                            ? "Rigenera"
-                            : "Genera con AI"}
-                </Button>
+                {!readOnly && (
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        leftIcon={<Sparkles size={14} />}
+                        loading={isGenerating}
+                        disabled={!canGenerate || quotaHint?.blocked === true}
+                        onClick={onGenerate}
+                    >
+                        {isGenerating
+                            ? "Generazione…"
+                            : aiState !== "none"
+                                ? "Rigenera"
+                                : "Genera con AI"}
+                    </Button>
+                )}
             </div>
             {children}
-            {quotaHint && !isGenerating && (
+            {!readOnly && quotaHint && !isGenerating && (
                 <Text variant="body-sm" colorVariant="muted">
                     {quotaHint.message}
                 </Text>
             )}
-            {!nameFilled && (
+            {!readOnly && !nameFilled && (
                 <Text variant="body-sm" colorVariant="muted">
                     Inserisci il nome del prodotto per abilitare la generazione AI.
                 </Text>
