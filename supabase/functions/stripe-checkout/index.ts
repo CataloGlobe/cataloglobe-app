@@ -12,6 +12,12 @@ import {
 } from "../_shared/stripeCustomerProfile.ts";
 import { lookupStripePriceId, type BillingInterval } from "../_shared/planPrices.ts";
 import { isValidPartitaIva } from "../_shared/fiscalValidators.ts";
+import {
+    DEFAULT_TRIAL_PERIOD_DAYS,
+    resolvePromoTrialDays,
+    resolveReturnUrl,
+    TRIAL_DAYS_METADATA_KEY
+} from "../_shared/checkoutPolicy.ts";
 
 const ALLOWED_ORIGINS = [
     "http://localhost:5173",
@@ -37,8 +43,9 @@ const DEFAULT_PLAN_CODE = "pro";
 const MAX_SELF_SERVICE_SEATS = 5;
 // Free trial length. Lives here (not on `plans`) because it is a checkout-time
 // policy — "how long is the first subscription free" — not a per-plan price
-// attribute; every plan gets the same trial.
-const TRIAL_PERIOD_DAYS = 30;
+// attribute; every plan gets the same trial. A card-free code may set its own
+// length with the `trial_days` metadata (capped, see _shared/checkoutPolicy).
+const TRIAL_PERIOD_DAYS = DEFAULT_TRIAL_PERIOD_DAYS;
 // Checkout Session lifetime. Stripe accepts 30 min to 24 h from the moment it
 // creates the session; the extra minute absorbs the gap between our clock and
 // Stripe's creation time, which would otherwise make exactly 30 min a 400.
@@ -163,13 +170,17 @@ serve(async req => {
         // page hands it to stripe-checkout-confirm, which links the tenant to
         // the subscription without waiting for the webhook. Appended here, not
         // by the callers, so every return URL carries it.
-        const successUrl = appendCheckoutSessionPlaceholder(
-            payload?.successUrl ||
-            `${SUPABASE_URL.replace(".supabase.co", "")}/workspace/billing?session=success`
-        );
-        const cancelUrl =
-            payload?.cancelUrl ||
-            `${SUPABASE_URL.replace(".supabase.co", "")}/workspace/billing?session=cancel`;
+        //
+        // Both URLs must sit on one of our app origins: Stripe redirects there
+        // after payment, so a URL from the body would otherwise be an open
+        // redirect behind a trusted checkout page. Missing or foreign → 400.
+        const allowedSuccessUrl = resolveReturnUrl(payload?.successUrl, ALLOWED_ORIGINS);
+        const cancelUrl = resolveReturnUrl(payload?.cancelUrl, ALLOWED_ORIGINS);
+        if (!allowedSuccessUrl || !cancelUrl) {
+            console.warn("stripe-checkout: refused, successUrl/cancelUrl missing or not on an app origin");
+            return json(req, 400, { error: "invalid_return_url" });
+        }
+        const successUrl = appendCheckoutSessionPlaceholder(allowedSuccessUrl);
 
         // --- Ownership check ---
         const { data: tenantData, error: tenantError } = await supabaseUser
@@ -239,6 +250,7 @@ serve(async req => {
         // Set when the resolved code carries `metadata.trial_no_card = "true"`:
         // the code is only a key to the card-free trial, its coupon is never applied.
         let isTrialNoCardCode = false;
+        let promoMetadata: Record<string, string> | null = null;
         if (promotionCodeInput !== "") {
             try {
                 if (promotionCodeInput.startsWith("promo_")) {
@@ -247,6 +259,7 @@ serve(async req => {
                         return json(req, 400, { error: "promo_code_invalid" });
                     }
                     resolvedPromotionId = promo.id;
+                    promoMetadata = promo.metadata ?? null;
                     isTrialNoCardCode = promo.metadata?.[TRIAL_NO_CARD_METADATA_KEY] === "true";
                 } else {
                     const list = await stripe.promotionCodes.list({
@@ -258,6 +271,7 @@ serve(async req => {
                         return json(req, 400, { error: "promo_code_invalid" });
                     }
                     resolvedPromotionId = list.data[0].id;
+                    promoMetadata = list.data[0].metadata ?? null;
                     isTrialNoCardCode = list.data[0].metadata?.[TRIAL_NO_CARD_METADATA_KEY] === "true";
                 }
             } catch (err) {
@@ -472,6 +486,19 @@ serve(async req => {
         // trial, and the trial is still first-subscription-only (checked above).
         const grantTrial = isFirstSubscription && (!resolvedPromotionId || isTrialNoCardCode);
 
+        // A card-free code may carry its own trial length (`trial_days`, e.g.
+        // 180 for a six-month offer). Invalid or over the cap → the code is
+        // refused, never silently downgraded to the default.
+        let trialPeriodDays = TRIAL_PERIOD_DAYS;
+        if (isTrialNoCardCode && grantTrial) {
+            const promoTrialDays = resolvePromoTrialDays(promoMetadata);
+            if (promoTrialDays === null) {
+                console.warn(`stripe-checkout: promo ${resolvedPromotionId} has an invalid ${TRIAL_DAYS_METADATA_KEY}`);
+                return json(req, 400, { error: "promo_code_invalid" });
+            }
+            trialPeriodDays = promoTrialDays;
+            subscriptionMetadata[TRIAL_DAYS_METADATA_KEY] = String(trialPeriodDays);
+        }
         if (isTrialNoCardCode) {
             subscriptionMetadata[TRIAL_NO_CARD_METADATA_KEY] = "true";
         }
@@ -482,7 +509,7 @@ serve(async req => {
             line_items: [{ price: resolvedPriceId, quantity }],
             subscription_data: {
                 metadata: subscriptionMetadata,
-                ...(grantTrial ? { trial_period_days: TRIAL_PERIOD_DAYS } : {})
+                ...(grantTrial ? { trial_period_days: trialPeriodDays } : {})
             },
             metadata: sessionMetadata,
             success_url: successUrl,
@@ -502,7 +529,7 @@ serve(async req => {
         };
 
         if (isTrialNoCardCode) {
-            // Nothing is due today (30-day trial, no discount), so Checkout skips
+            // Nothing is due today (trial, no discount), so Checkout skips
             // the card. Without a card at trial end Stripe cancels the
             // subscription → customer.subscription.deleted → tenant `canceled`.
             sessionParams.payment_method_collection = "if_required";
@@ -516,7 +543,7 @@ serve(async req => {
         const session = await stripe.checkout.sessions.create(sessionParams);
 
         console.log(
-            `stripe-checkout: Session ${session.id} created for tenant ${tenantId} (plan=${planCode}, interval=${billingInterval}, qty=${quantity}, promo=${resolvedPromotionId ?? "none"}, trial_no_card=${isTrialNoCardCode})`
+            `stripe-checkout: Session ${session.id} created for tenant ${tenantId} (plan=${planCode}, interval=${billingInterval}, qty=${quantity}, promo=${resolvedPromotionId ?? "none"}, trial_no_card=${isTrialNoCardCode}, trial_days=${grantTrial ? trialPeriodDays : 0})`
         );
 
         return json(req, 200, { checkout_url: session.url });
