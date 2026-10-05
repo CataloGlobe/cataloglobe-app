@@ -1,8 +1,8 @@
-import { ProgressBar } from "@/components/ui/ProgressBar/ProgressBar";
+import { BarList } from "@/components/ui/BarList/BarList";
 import Text from "@/components/ui/Text/Text";
 import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
-import { formatUsd, spendShare } from "@shared/crmAi";
-import type { CrmAiSpend } from "@/types/crm";
+import { CRM_AI_ROLE_LABEL, formatUsd, spendShare } from "@shared/crmAi";
+import type { CrmAiRole, CrmAiSpend } from "@/types/crm";
 import type { DraftMix } from "@/utils/crm/agentsOverview";
 import type { ChannelHealth } from "@/utils/crm/waLabels";
 import styles from "../Agents.module.scss";
@@ -117,24 +117,37 @@ export function MixBar({ mix, name }: { mix: DraftMix | null; name: string }) {
 
 const MONTH = new Intl.DateTimeFormat("it-IT", { timeZone: "Europe/Rome", month: "long" });
 
-/** Spesa AI (U2): oggi e il mese sui loro tetti, quanto costa un messaggio. */
+/**
+ * Spesa AI del mese (A2): la classifica per agente, poi mese e oggi sui loro
+ * tetti e quanto costa un messaggio. Conversazione comprende Solleciti e
+ * Riattivazione, che usano lo stesso conto.
+ */
 export function SpendCard({
     spend,
+    monthByRole,
     perMessage,
     now,
     onCaps
 }: {
     spend: CrmAiSpend | null;
+    monthByRole: Record<CrmAiRole, number> | null;
     perMessage: number | null;
     now: Date;
     onCaps: () => void;
 }) {
     const month = MONTH.format(now);
+    const ranking = monthByRole
+        ? (Object.keys(monthByRole) as CrmAiRole[])
+              .map(role => ({ role, usd: monthByRole[role] }))
+              .filter(r => r.usd > 0)
+              .sort((a, b) => b.usd - a.usd)
+        : [];
+    const warn = spend !== null && (spendShare(spend.dayUsd, spend.dayCap) >= 0.8 || spendShare(spend.monthUsd, spend.monthCap) >= 0.8);
     return (
         <section className={styles.spendBox} aria-labelledby="agenti-spesa">
             <div className={styles.boxHead}>
                 <Text as="h2" id="agenti-spesa" variant="body-sm" weight={700}>
-                    Spesa AI
+                    Spesa AI, {month}
                 </Text>
                 <button type="button" className={styles.linkButton} onClick={onCaps} disabled={!spend}>
                     <Text as="span" variant="body-sm" color="inherit">
@@ -142,43 +155,46 @@ export function SpendCard({
                     </Text>
                 </button>
             </div>
+            <div className={styles.spendRows}>
+                {monthByRole && ranking.length === 0 ? (
+                    <Text variant="body-sm" colorVariant="muted">
+                        Ancora nessuna chiamata a Claude questo mese.
+                    </Text>
+                ) : (
+                    <BarList
+                        aria-label={`Spesa AI di ${month} per agente`}
+                        loading={!monthByRole}
+                        items={ranking.map(r => ({
+                            id: r.role,
+                            label: CRM_AI_ROLE_LABEL[r.role],
+                            value: r.usd,
+                            valueLabel: formatUsd(r.usd)
+                        }))}
+                    />
+                )}
+                {ranking.some(r => r.role === "conversation") && (
+                    <Text variant="caption" colorVariant="muted">
+                        Conversazione comprende Solleciti e Riattivazione.
+                    </Text>
+                )}
+            </div>
             {spend && (
-                <>
-                    <div className={styles.spendRows}>
-                        <div className={styles.spendRow}>
-                            <Text as="span" variant="body-sm">
-                                Oggi
-                            </Text>
-                            <ProgressBar
-                                value={spend.dayUsd}
-                                max={spend.dayCap}
-                                variant={spendShare(spend.dayUsd, spend.dayCap) >= 0.8 ? "warning" : "brand"}
-                                aria-label="Spesa di oggi"
-                                label={`${formatUsd(spend.dayUsd)} di ${formatUsd(spend.dayCap)}`}
-                            />
-                        </div>
-                        <div className={styles.spendRow}>
-                            <Text as="span" variant="body-sm">
-                                {month.charAt(0).toUpperCase() + month.slice(1)}
-                            </Text>
-                            <ProgressBar
-                                value={spend.monthUsd}
-                                max={spend.monthCap}
-                                variant={spendShare(spend.monthUsd, spend.monthCap) >= 0.8 ? "warning" : "brand"}
-                                aria-label="Spesa del mese"
-                                label={`${formatUsd(spend.monthUsd)} di ${formatUsd(spend.monthCap)}`}
-                            />
-                        </div>
-                    </div>
-                    <div className={styles.spendFoot}>
-                        <Text as="span" variant="body-sm" colorVariant="muted">
-                            A messaggio
-                        </Text>
-                        <Text as="span" variant="body-sm" weight={700}>
+                <div className={styles.spendFoot} data-warn={warn || undefined}>
+                    <Text as="span" variant="body-sm" colorVariant="muted">
+                        Totale{" "}
+                        <Text as="span" variant="body-sm" weight={700} color="inherit" className={styles.spendStrong}>
+                            {formatUsd(spend.monthUsd)} di {formatUsd(spend.monthCap)}
+                        </Text>{" "}
+                        · oggi{" "}
+                        <Text as="span" variant="body-sm" weight={700} color="inherit" className={styles.spendStrong}>
+                            {formatUsd(spend.dayUsd)} di {formatUsd(spend.dayCap)}
+                        </Text>{" "}
+                        · a messaggio{" "}
+                        <Text as="span" variant="body-sm" weight={700} color="inherit" className={styles.spendStrong}>
                             {perMessage === null ? "—" : `${perMessage.toFixed(3).replace(".", ",")} $`}
                         </Text>
-                    </div>
-                </>
+                    </Text>
+                </div>
             )}
         </section>
     );

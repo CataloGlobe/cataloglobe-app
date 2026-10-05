@@ -314,6 +314,7 @@ export interface CrmQueuedMessage {
 export interface CrmAiUsageCost {
     role: CrmAiRole;
     cost_usd: number;
+    created_at: string;
 }
 
 export type CrmWaState = "unknown" | "ok" | "needs_relink" | "warning";

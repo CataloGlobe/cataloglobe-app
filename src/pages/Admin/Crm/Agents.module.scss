@@ -437,6 +437,31 @@ tr[data-on] .stepCell {
 .guideCell {
   text-align: right;
   width: 1%;
+  white-space: nowrap;
+}
+
+// «Apri ›» (A2): il bottone morbido accanto a «Come funziona».
+.openAgent {
+  all: unset;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: var(--space-12);
+  padding: var(--space-4) var(--space-8);
+  border: 1px solid var(--brand-primary-soft);
+  border-radius: var(--radius-control);
+  background: var(--brand-primary-soft);
+  color: var(--on-brand-soft);
+  cursor: pointer;
+
+  &:hover {
+    border-color: var(--brand-primary);
+  }
+
+  &:focus-visible {
+    box-shadow: var(--shadow-focus);
+  }
 }
 
 // Al telefono resta la freccia; il nome accessibile tiene «Come funziona».
@@ -624,19 +649,21 @@ tr[data-on] .stepCell {
   padding: 0 var(--space-16) var(--space-12);
 }
 
-.spendRow {
-  display: grid;
-  grid-template-columns: 64px minmax(0, 1fr);
-  align-items: center;
-  gap: var(--space-12);
-}
-
 .spendFoot {
   display: flex;
   align-items: baseline;
   gap: var(--space-8);
   padding: var(--space-12) var(--space-16);
   border-top: 1px solid var(--border);
+
+  &[data-warn] .spendStrong {
+    color: var(--text-warning);
+  }
+}
+
+.spendStrong {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
 }
 
 .activity {
@@ -701,4 +728,190 @@ tr[data-on] .stepCell {
 
 .preWrap {
   white-space: pre-wrap;
+}
+
+/* ===== Pagina dell'agente (A2) ===== */
+.detail {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-16);
+
+  > .linkButton {
+    align-self: flex-start;
+  }
+}
+
+.detailHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-12);
+
+  h2 {
+    margin: 0;
+  }
+}
+
+.kpis {
+  @extend .box;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0;
+
+  @media (max-width: 767px) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.kpi {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-12) var(--space-16);
+  animation: kpiIn 0.3s cubic-bezier(0.2, 0.9, 0.25, 1.15) both;
+
+  & + & {
+    border-left: 1px solid var(--border);
+  }
+
+  @for $i from 2 through 4 {
+    &:nth-child(#{$i}) {
+      animation-delay: #{($i - 1) * 0.04}s;
+    }
+  }
+
+  dd {
+    margin: 0;
+  }
+
+  @media (max-width: 767px) {
+    &:nth-child(3) {
+      border-left: 0;
+    }
+
+    &:nth-child(n + 3) {
+      border-top: 1px solid var(--border);
+    }
+  }
+}
+
+.kpiValue {
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes kpiIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+.detailBottom {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: var(--space-16);
+  align-items: start;
+
+  @media (max-width: 1023px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.detailRows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.detailRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-12);
+  padding: var(--space-8) 0;
+
+  & + & {
+    border-top: 1px solid var(--border);
+  }
+}
+
+.detailRow[data-when] {
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+}
+
+.detailSub {
+  display: block;
+}
+
+.detailNote {
+  margin: 0;
+  padding: 0 var(--space-16) var(--space-12);
+}
+
+.week {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: var(--space-8);
+  list-style: none;
+  margin: 0;
+  padding: var(--space-8) var(--space-16) var(--space-12);
+}
+
+.weekDay {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+
+  @for $i from 2 through 7 {
+    &:nth-child(#{$i}) .weekBar {
+      animation-delay: #{($i - 1) * 0.03}s;
+    }
+  }
+}
+
+.weekTrack {
+  display: flex;
+  align-items: flex-end;
+  width: 100%;
+  height: 72px;
+}
+
+.weekBar {
+  display: block;
+  width: 100%;
+  height: 2px;
+  border-radius: var(--radius-inner) var(--radius-inner) 0 0;
+  background: var(--brand-primary-soft);
+  transform-origin: bottom;
+  animation: weekGrow 0.45s cubic-bezier(0.2, 0.9, 0.25, 1) both;
+
+  &[data-today] {
+    background: var(--brand-primary);
+  }
+
+  @for $i from 1 through 10 {
+    &[data-level="#{$i}"] {
+      height: #{$i * 10%};
+    }
+  }
+}
+
+@keyframes weekGrow {
+  from {
+    transform: scaleY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kpi,
+  .weekBar {
+    animation: none;
+  }
+}
+
+.detailPanel {
+  @extend .box;
+  overflow: hidden;
 }

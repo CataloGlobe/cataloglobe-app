@@ -1,6 +1,6 @@
 import { Fragment, type ReactNode } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import Text from "@/components/ui/Text/Text";
 import type { CrmAiRole } from "@/types/crm";
@@ -13,7 +13,8 @@ import styles from "../Agents.module.scss";
  * La tabella degli agenti (U2): sei righe fisse, dense, senza pagine. Il passo
  * scelto nel giro accende le sue righe finché non se ne sceglie un altro (la
  * tabella del design system ha solo il lampo che svanisce). «Come funziona ▾»
- * apre il pannello dell'agente subito sotto la sua riga.
+ * apre il pannello dell'agente subito sotto la sua riga, «Apri ›» la sua
+ * pagina (A2).
  */
 export function AgentsTable({
     rows,
@@ -21,6 +22,7 @@ export function AgentsTable({
     spend,
     openId,
     onToggle,
+    onOpen,
     renderPanel
 }: {
     rows: AgentRow[];
@@ -28,6 +30,7 @@ export function AgentsTable({
     spend: Record<CrmAiRole, number> | null;
     openId: AgentRow["id"] | null;
     onToggle: (id: AgentRow["id"]) => void;
+    onOpen: (id: AgentRow["id"]) => void;
     renderPanel: (row: AgentRow) => ReactNode;
 }) {
     const reduceMotion = useReducedMotion();
@@ -125,6 +128,17 @@ export function AgentsTable({
                                             Come funziona
                                         </Text>
                                         <ChevronDown size={14} aria-hidden="true" data-open={open} />
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={styles.openAgent}
+                                        aria-label={`Apri la pagina di ${r.name}`}
+                                        onClick={() => onOpen(r.id)}
+                                    >
+                                        <Text as="span" variant="body-sm" weight={600} color="inherit">
+                                            Apri
+                                        </Text>
+                                        <ChevronRight size={14} aria-hidden="true" />
                                     </button>
                                 </td>
                             </tr>
