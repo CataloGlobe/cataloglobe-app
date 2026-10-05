@@ -11,7 +11,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import { Card } from "@/components/ui/Card/Card";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
-import { formatCurrency } from "@/utils/formatCurrency";
+import { formatPrice } from "@/utils/formatCurrency";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import Text from "@/components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
@@ -56,7 +56,7 @@ function computeFromPrice(
 function formatPricePreview(group: GroupWithValues, menuLabel: string): string | null {
     const summary = resolvePriceSummary(group.values.map(v => v.absolute_price));
     if (summary.kind === "none" || summary.min === null) return null;
-    const price = formatCurrency(summary.min);
+    const price = formatPrice(summary.min);
     return `Nel ${menuLabel} si legge ${summary.kind === "single" ? price : `da ${price}`}.`;
 }
 
@@ -576,7 +576,7 @@ export default function PrezziOpzioniTab({
                 const fromPrice = computeFromPrice(group, null);
                 if (group !== null && group.values.length > 0) {
                     return fromPrice !== null ? (
-                        <Text variant="body-sm">da {formatCurrency(fromPrice)}</Text>
+                        <Text variant="body-sm">da {formatPrice(fromPrice)}</Text>
                     ) : (
                         <Text variant="body-sm" colorVariant="muted">
                             —
@@ -585,13 +585,13 @@ export default function PrezziOpzioniTab({
                 }
                 if (variant.base_price != null) {
                     return (
-                        <Text variant="body-sm">{formatCurrency(variant.base_price)}</Text>
+                        <Text variant="body-sm">{formatPrice(variant.base_price)}</Text>
                     );
                 }
                 if (variantsParentFromPrice !== null) {
                     return (
                         <Text variant="body-sm" colorVariant="muted">
-                            {formatCurrency(variantsParentFromPrice)} (ereditato)
+                            {formatPrice(variantsParentFromPrice)} (ereditato)
                         </Text>
                     );
                 }
@@ -754,7 +754,7 @@ export default function PrezziOpzioniTab({
                         ) : (
                             <div className={styles.priceDisplay}>
                                 <Text variant="title-md" weight={600}>
-                                    {formatCurrency(product.base_price)}
+                                    {formatPrice(product.base_price)}
                                 </Text>
                                 <Button variant="secondary" size="sm" onClick={handleStartEditBasePrice}>
                                     Modifica
@@ -782,7 +782,7 @@ export default function PrezziOpzioniTab({
                     onClose={() => setConfirmInherit(false)}
                     onConfirm={handleRevertToInherit}
                     title="Usare il prezzo del padre?"
-                    message={`Il prezzo della variante${product.base_price !== null ? ` (${formatCurrency(product.base_price)})` : ""} si cancella.`}
+                    message={`Il prezzo della variante${product.base_price !== null ? ` (${formatPrice(product.base_price)})` : ""} si cancella.`}
                     confirmLabel="Usa il prezzo del padre"
                     confirmVariant="primary"
                 />

@@ -157,10 +157,10 @@ test.describe("Prodotti — elenco", () => {
     test("riga: prezzo e menù nella riga muta, formati e difetti a parole", async ({ page }) => {
         await openList(page);
         const row = (name: string) => product(page, name).locator("xpath=ancestor::*[@role='row'][1]");
-        await expect(row("Hamburger")).toContainText("€ 2,90 · in 2 menù");
-        await expect(row("Patatine")).toContainText("da € 2,50 · in 2 menù");
+        await expect(row("Hamburger")).toContainText("2,90 € · in 2 menù");
+        await expect(row("Patatine")).toContainText("da 2,50 € · in 2 menù");
         await expect(row("Patatine")).toContainText("3 formati");
-        await expect(row("Muffin al cioccolato")).toContainText("€ 2,20 · in nessun menù");
+        await expect(row("Muffin al cioccolato")).toContainText("2,20 € · in nessun menù");
         await expect(row("Insalatona")).toContainText("senza prezzo · in nessun menù");
         // La descrizione non sta nella riga: è nella Scheda.
         await expect(main(page).getByText("Carne 100% bovino", { exact: false })).toHaveCount(0);
@@ -169,7 +169,7 @@ test.describe("Prodotti — elenco", () => {
         await search(page, "Coca");
         await main(page).getByRole("button", { name: "Mostra varianti di Coca-Cola" }).click();
         await expect(main(page).getByRole("button", { name: "Nascondi varianti di Coca-Cola" })).toHaveAttribute("aria-expanded", "true");
-        await expect(row("Coca-Cola Zero")).toContainText("€ 2,50 (ereditato) · in 1 menù");
+        await expect(row("Coca-Cola Zero")).toContainText("2,50 € (ereditato) · in 1 menù");
     });
 
     test("vista predefinita: lista", async ({ page }) => {
@@ -658,8 +658,8 @@ test.describe("Prodotti — dettaglio", () => {
         await openProduct(page, PRODUCT.patatine, "prezzi-opzioni");
         await expect(main(page).getByText(/ogni modifica si salva subito/)).toBeVisible({ timeout: 15_000 });
         await expect(main(page).getByRole("radio", { name: "Prezzo per formato" })).toHaveAttribute("aria-checked", "true");
-        await expect(main(page).getByText("€ 2,50", { exact: true })).toBeVisible();
-        await expect(main(page).getByText("Nel menù si legge da € 2,50.")).toBeVisible();
+        await expect(main(page).getByText("2,50 €", { exact: true })).toBeVisible();
+        await expect(main(page).getByText("Nel menù si legge da 2,50 €.")).toBeVisible();
 
         await actionsOf(main(page).getByText("Grandi", { exact: true })).click();
         await page.getByRole("menuitem", { name: "Elimina" }).click();
@@ -673,9 +673,9 @@ test.describe("Prodotti — dettaglio", () => {
     test("variante: «Usa il prezzo del padre» chiede conferma e azzera il prezzo", async ({ page }) => {
         stub.onWrite("products.PATCH", call => [{ ...stub.tables.products.find(p => p.id === PRODUCT.cocaLight), ...(call.body as object) }]);
         await openProduct(page, PRODUCT.cocaLight, "prezzi-opzioni");
-        await expect(main(page).getByText("€ 2,70")).toBeVisible({ timeout: 15_000 });
+        await expect(main(page).getByText("2,70 €")).toBeVisible({ timeout: 15_000 });
         await main(page).getByRole("button", { name: "Usa il prezzo del padre" }).click();
-        await expect(page.getByRole("alertdialog")).toContainText("Il prezzo della variante (€ 2,70) si cancella.");
+        await expect(page.getByRole("alertdialog")).toContainText("Il prezzo della variante (2,70 €) si cancella.");
         await page.getByRole("alertdialog").getByRole("button", { name: "Usa il prezzo del padre" }).click();
         await expect.poll(() => write(stub, "products.PATCH")?.body).toMatchObject({ base_price: null });
     });
@@ -836,14 +836,14 @@ test.describe("Prodotti — lotto bug B", () => {
         stub.onWrite("translation_jobs.POST", () => []);
         await openProduct(page, PRODUCT.cocaCola, "prezzi-opzioni");
         const zero = main(page).getByRole("row", { name: /Coca-Cola Zero/ });
-        await expect(zero).toContainText("€ 2,50 (ereditato)", { timeout: 15_000 });
+        await expect(zero).toContainText("2,50 € (ereditato)", { timeout: 15_000 });
         await main(page).getByRole("radio", { name: "Prezzo per formato" }).click();
         const card = priceCard(page);
         await card.getByRole("textbox", { name: "Nome" }).fill("Lattina");
         await card.getByRole("spinbutton", { name: "Prezzo" }).fill("3");
         await card.getByRole("button", { name: "Aggiungi" }).click();
         await expect(card.getByText("Lattina", { exact: true })).toBeVisible();
-        await expect(zero).toContainText("€ 3,00 (ereditato)");
+        await expect(zero).toContainText("3,00 € (ereditato)");
     });
 
     /** Un gruppo di scelte «Aggiunte e2e» sull'Hamburger, con max_selectable dato. */

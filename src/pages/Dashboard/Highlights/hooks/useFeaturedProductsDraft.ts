@@ -8,7 +8,7 @@ import {
     type FeaturedContentProductRow,
     type FeaturedPickerProduct
 } from "@/services/supabase/featuredContents";
-import { formatCurrency } from "@/utils/formatCurrency";
+import { formatPrice } from "@/utils/formatCurrency";
 
 /** Una riga della bozza: collegata (`id`) o da collegare al Salva (`id` null). */
 export type FeaturedProductDraftRow = {
@@ -26,10 +26,10 @@ type PriceSource = Pick<FeaturedPickerProduct, "base_price" | "option_groups">;
 /** «€ 7,90», «da € 3,20» per chi ha formati, null senza prezzo. */
 export function priceLabelOf(product: PriceSource | null): string | null {
     if (!product) return null;
-    if (product.base_price != null) return formatCurrency(product.base_price);
+    if (product.base_price != null) return formatPrice(product.base_price);
     const primary = (product.option_groups ?? []).find(g => g.group_kind === "PRIMARY_PRICE");
     const prices = (primary?.values ?? []).map(v => v.absolute_price).filter((p): p is number => p != null);
-    return prices.length > 0 ? `da ${formatCurrency(Math.min(...prices))}` : null;
+    return prices.length > 0 ? `da ${formatPrice(Math.min(...prices))}` : null;
 }
 
 function fromSaved(row: FeaturedContentProductRow): FeaturedProductDraftRow {

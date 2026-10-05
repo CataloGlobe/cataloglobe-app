@@ -1,4 +1,4 @@
-import { formatCurrency } from "@/utils/formatCurrency";
+import { formatPrice } from "@/utils/formatCurrency";
 import Text from "@/components/ui/Text/Text";
 import { useMemo, useState } from "react";
 import { Package } from "lucide-react";
@@ -89,7 +89,7 @@ export function StoryProductPicker({ tenantId, value, onChange, options, fallbac
         ) : loading ? (
             <Skeleton width="100%" height={40} radius="var(--radius-inner)" />
         ) : selected ? (
-            row(selected.name, selected.base_price != null ? formatCurrency(selected.base_price) : null, selected.image_url)
+            row(selected.name, selected.base_price != null ? formatPrice(selected.base_price) : null, selected.image_url)
         ) : options.failed ? (
             row(fallbackName ?? "Prodotto collegato", "Dettagli del prodotto non caricati.", null)
         ) : (

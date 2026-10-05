@@ -42,6 +42,18 @@
     overflow-x: hidden;
 }
 
+// V3: in pagina la tabella è alta quanto le sue righe e scorre la pagina.
+// L'intestazione non si appiccica: fissa resta solo la barra della pagina.
+.flowsWithPage {
+    .scrollArea {
+        overflow-y: visible;
+    }
+
+    .header {
+        position: static;
+    }
+}
+
 // ── Intestazione ─────────────────────────────────────────────────────────────
 
 .header {

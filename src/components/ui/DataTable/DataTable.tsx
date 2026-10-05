@@ -92,10 +92,15 @@ interface DataTableProps<T> {
     isFiltered?: boolean;
     onClearFilters?: () => void;
 
+    /**
+     * Solo per le tabelle dentro un contenitore alto quanto lo schermo
+     * (drawer, picker): con `maxHeight` la tabella scorre dentro di sé. Senza,
+     * scorre con la pagina (V3), che è il caso di ogni pagina del back office.
+     */
     maxHeight?: string;
 
-    /** Override manuale iniziale. Se omesso, il pageSize è calcolato
-     *  automaticamente dallo spazio disponibile (mode "auto"). */
+    /** Righe per pagina iniziali. Se omesso: 25 (V3). "auto" resta
+     *  disponibile solo a chi lo chiede esplicitamente. */
     pageSize?: number;
     pageSizeOptions?: DataTablePageSizeOption[];
 
@@ -145,7 +150,7 @@ interface DataTableProps<T> {
 }
 
 const DEFAULT_PAGE_SIZE_OPTIONS: DataTablePageSizeOption[] = [25, 50, 100, "all"];
-const DEFAULT_MAX_HEIGHT = "calc(100dvh - 280px)";
+const DEFAULT_PAGE_SIZE = 25;
 const CHECKBOX_COLUMN_WIDTH = "48px";
 
 function defaultGetRowId<T>(row: T, index: number): string {
@@ -301,8 +306,10 @@ export function DataTable<T>({
     rowWrapper,
     allRowIds
 }: DataTableProps<T>) {
-    const maxHeight = maxHeightProp ?? DEFAULT_MAX_HEIGHT;
+    // Senza `maxHeight` la tabella scorre con la pagina: niente scatola a
+    // scorrimento interno, niente intestazione appiccicata (V3).
     const maxHeightIsExplicit = maxHeightProp !== undefined;
+    const flowsWithPage = !maxHeightIsExplicit;
 
     // La colonna azioni è sempre l'ultima, a destra (scheda «DataTable»):
     // se il consumer la dichiara altrove, la tabella la sposta in coda.
@@ -316,14 +323,14 @@ export function DataTable<T>({
         if (idx < 0 || idx === visible.length - 1) return visible;
         return [...visible.filter((_, i) => i !== idx), visible[idx]];
     }, [columnsProp, isPhone]);
-    const initialSelection: PageSizeSelection = pageSize ?? "auto";
+    const initialSelection: PageSizeSelection = pageSize ?? DEFAULT_PAGE_SIZE;
     const [currentPageSize, setCurrentPageSize] =
         useState<PageSizeSelection>(initialSelection);
     const [currentPage, setCurrentPage] = useState(1);
 
     // External pageSize prop changes reset internal state
     useEffect(() => {
-        setCurrentPageSize(pageSize ?? "auto");
+        setCurrentPageSize(pageSize ?? DEFAULT_PAGE_SIZE);
         setCurrentPage(1);
     }, [pageSize]);
 
@@ -427,7 +434,9 @@ export function DataTable<T>({
     const { fit: autoFit, measuredHeightPx } = useAutoPageSize({
         // Misura sempre (anche in manuale) per riempire il probe vincolato; il
         // fit (righe/pagina) è calcolato solo in auto via `autoMode`.
-        enabled: !isLoading && data.length > 0,
+        // In pagina non c'è uno spazio da riempire: si misura solo dentro un
+        // contenitore vincolato o quando qualcuno chiede "auto".
+        enabled: !isLoading && data.length > 0 && (maxHeightIsExplicit || isAutoMode),
         autoMode: isAutoMode,
         probeRef,
         tableRef,
@@ -644,7 +653,7 @@ export function DataTable<T>({
                                     }}
                                     aria-label="Righe per pagina"
                                 >
-                                    {withAutoOption(pageSizeOptions).map(opt => (
+                                    {(maxHeightIsExplicit || isAutoMode ? withAutoOption(pageSizeOptions) : pageSizeOptions).map(opt => (
                                         <option key={String(opt)} value={String(opt)}>
                                             {formatPageSizeLabel(opt)}
                                         </option>
@@ -688,14 +697,18 @@ export function DataTable<T>({
     // `.table` resta shrink-to-fit (nessun flex-grow) → altezza = min(contenuto,
     // probe): corta con poche righe, cappata + scroll interno quando il
     // contenuto eccede. Il default `maxHeight` resta per fallback/drawer.
-    const containerStyle: CSSProperties = {
-        maxHeight: measuredHeightPx != null ? `${measuredHeightPx}px` : maxHeight
-    };
+    const containerStyle: CSSProperties = flowsWithPage
+        ? {}
+        : { maxHeight: measuredHeightPx != null ? `${measuredHeightPx}px` : maxHeightProp };
 
     return (
         <>
             <div ref={probeRef} className={styles.autoSizeProbe}>
-                <div ref={tableRef} className={styles.table} style={containerStyle}>
+                <div
+                    ref={tableRef}
+                    className={`${styles.table}${flowsWithPage ? ` ${styles.flowsWithPage}` : ""}`}
+                    style={containerStyle}
+                >
                     <div className={styles.scrollArea} role="table" aria-label={ariaLabel}>
                         <div ref={headerRef} className={styles.header} style={gridStyle} role="row">
                             {selectable && (

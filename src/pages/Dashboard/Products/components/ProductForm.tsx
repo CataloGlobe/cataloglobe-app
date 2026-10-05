@@ -19,7 +19,7 @@ import {
 import { createProductOptionGroup, createOptionValue } from "@/services/supabase/productOptions";
 import { Chip } from "@/components/ui/Chip/Chip";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
-import { formatCurrency } from "@/utils/formatCurrency";
+import { formatPrice } from "@/utils/formatCurrency";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import { Textarea } from "@/components/ui/Textarea/Textarea";
@@ -463,7 +463,7 @@ export function ProductForm({
                             {parentProduct.product_type === "formats"
                                 ? "prezzi per formato"
                                 : parentProduct.base_price !== null
-                                  ? formatCurrency(parentProduct.base_price)
+                                  ? formatPrice(parentProduct.base_price)
                                   : "nessun prezzo"}
                             .
                         </InlineBanner>
@@ -490,7 +490,7 @@ export function ProductForm({
                                             <Text variant="body-sm">{fmt.name}</Text>
                                             <span className={styles.formatRowEnd}>
                                                 <Text variant="body-sm" colorVariant="muted">
-                                                    {formatCurrency(fmt.absolute_price)}
+                                                    {formatPrice(fmt.absolute_price)}
                                                 </Text>
                                                 <Button
                                                     variant="ghost"

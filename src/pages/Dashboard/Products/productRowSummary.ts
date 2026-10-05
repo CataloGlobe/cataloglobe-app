@@ -1,4 +1,4 @@
-import { formatCurrency } from "@/utils/formatCurrency";
+import { formatPrice } from "@/utils/formatCurrency";
 import type { ProductListMetadata } from "@/services/supabase/products";
 
 /**
@@ -25,19 +25,19 @@ export function describePrice(
     parentMeta?: ProductListMetadata | null
 ): PriceText {
     if (meta.pricedFormatsCount > 1 && meta.fromPrice !== null) {
-        return { kind: "price", text: `da ${formatCurrency(meta.fromPrice)}`, inherited: false };
+        return { kind: "price", text: `da ${formatPrice(meta.fromPrice)}`, inherited: false };
     }
     if (meta.pricedFormatsCount === 1 && meta.fromPrice !== null) {
-        return { kind: "price", text: formatCurrency(meta.fromPrice), inherited: false };
+        return { kind: "price", text: formatPrice(meta.fromPrice), inherited: false };
     }
     if (product.base_price !== null) {
-        return { kind: "price", text: formatCurrency(product.base_price), inherited: false };
+        return { kind: "price", text: formatPrice(product.base_price), inherited: false };
     }
     if (parent) {
         const inherited = parentMeta?.fromPrice ?? parent.base_price;
         if (inherited !== null && inherited !== undefined) {
             const multi = (parentMeta?.pricedFormatsCount ?? 0) > 1;
-            return { kind: "price", text: `${multi ? "da " : ""}${formatCurrency(inherited)}`, inherited: true };
+            return { kind: "price", text: `${multi ? "da " : ""}${formatPrice(inherited)}`, inherited: true };
         }
     }
     return { kind: "none" };

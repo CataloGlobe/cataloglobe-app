@@ -6,7 +6,7 @@ import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import Text from "@/components/ui/Text/Text";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
-import { formatCurrency } from "@/utils/formatCurrency";
+import { formatPrice as formatEuro } from "@/utils/formatCurrency";
 import { type V2ProductOptionValue } from "@/services/supabase/productOptions";
 import styles from "./OptionValueList.module.scss";
 
@@ -34,8 +34,8 @@ function readPrice(value: V2ProductOptionValue, priceMode: OptionValuePriceMode)
 
 function formatPrice(price: number | null, priceMode: OptionValuePriceMode): string {
     if (price === null) return "—";
-    if (priceMode === "absolute") return formatCurrency(price);
-    return price >= 0 ? `+ ${formatCurrency(price)}` : `− ${formatCurrency(Math.abs(price))}`;
+    if (priceMode === "absolute") return formatEuro(price);
+    return price >= 0 ? `+ ${formatEuro(price)}` : `− ${formatEuro(Math.abs(price))}`;
 }
 
 function parsePrice(raw: string): number | null {

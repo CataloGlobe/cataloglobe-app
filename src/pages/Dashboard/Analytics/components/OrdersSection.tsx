@@ -6,7 +6,7 @@ import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedCont
 import { StatCard } from "@/components/ui/StatCard/StatCard";
 import Text from "@/components/ui/Text/Text";
 import { TrendChart } from "@/components/ui/TrendChart/TrendChart";
-import { formatCurrency } from "@/utils/formatCurrency";
+import { formatPrice } from "@/utils/formatCurrency";
 import type {
     OrdersConversion,
     OrdersHourlyPoint,
@@ -73,7 +73,7 @@ export default function OrdersSection({
                 header: "Ricavi",
                 width: "120px",
                 align: "right",
-                cell: (_, row) => <Text variant="body-sm">{formatCurrency(row.revenue)}</Text>
+                cell: (_, row) => <Text variant="body-sm">{formatPrice(row.revenue)}</Text>
             }
         ],
         []
@@ -97,10 +97,10 @@ export default function OrdersSection({
 
             <div className={styles.statGridPairs}>
                 <StatCard label="Ordini" value={nf.format(o?.orders_count ?? 0)} delta={deltaOf(o?.orders_count ?? 0, previous?.orders_count)} />
-                <StatCard label="Ricavi" value={formatCurrency(o?.revenue ?? 0)} delta={deltaOf(o?.revenue ?? 0, previous?.revenue)} />
+                <StatCard label="Ricavi" value={formatPrice(o?.revenue ?? 0)} delta={deltaOf(o?.revenue ?? 0, previous?.revenue)} />
                 <StatCard
                     label="Valore medio ordine"
-                    value={formatCurrency(o?.avg_order_value ?? 0)}
+                    value={formatPrice(o?.avg_order_value ?? 0)}
                     delta={deltaOf(o?.avg_order_value ?? 0, previous?.avg_order_value)}
                 />
                 <StatCard
@@ -129,7 +129,7 @@ export default function OrdersSection({
                     <TrendChart
                         aria-label="Ricavi nel tempo"
                         data={fillDaily(trend.map(p => ({ date: p.date, value: p.revenue })), dateRange, period)}
-                        formatValue={formatCurrency}
+                        formatValue={formatPrice}
                         emptyTitle="Nessun ricavo nel periodo"
                     />
                 </Card>
