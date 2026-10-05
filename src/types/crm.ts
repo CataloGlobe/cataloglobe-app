@@ -5,6 +5,7 @@
  */
 
 import type { CrmBillingInterval, CrmExpenseCategory, CrmExpenseKind } from "@shared/crmExpenses";
+import type { CrmAiRole } from "@shared/crmAi";
 
 export type { CrmBillingInterval, CrmExpenseCategory, CrmExpenseKind };
 
@@ -64,6 +65,19 @@ export type CrmTrialKind = "carta" | "codice";
 
 /** `suppressed`: telefono che ha chiesto lo stop, nessuna scrittura. */
 export type CrmIngestOutcome = "created" | "returned" | "duplicate" | "suppressed";
+
+/** Il prossimo passo di un locale (`crm_next_steps`, scheda del lead). */
+export interface CrmNextStep {
+    venue_id: string;
+    step: string;
+    /** AAAA-MM-GG; null = senza scadenza. */
+    due_on: string | null;
+    owner_user_id: string | null;
+    set_by: string;
+    set_at: string;
+    /** Scritto dal gesto «rimanda a domani» (migration 20261005150400). */
+    snoozed: boolean;
+}
 
 export interface CrmTeamMember {
     user_id: string;
@@ -285,6 +299,24 @@ export interface CrmMessage {
     appointment_id: string | null;
 }
 
+/** Un messaggio in coda con il nome del locale (pagina Agenti, «In arrivo»). */
+export interface CrmQueuedMessage {
+    id: string;
+    created_at: string;
+    send_after: string | null;
+    venue_id: string;
+    venue_name: string;
+    purpose: CrmMessagePurpose | null;
+    body: string | null;
+}
+
+/** Una chiamata a Claude, solo ruolo e costo (spesa per agente). */
+export interface CrmAiUsageCost {
+    role: CrmAiRole;
+    cost_usd: number;
+    created_at: string;
+}
+
 export type CrmWaState = "unknown" | "ok" | "needs_relink" | "warning";
 
 export interface CrmWaChannel {
@@ -352,6 +384,26 @@ export interface CrmExpenseInput {
     cancelledOn: string | null;
     remindDaysBefore: number | null;
     notes: string | null;
+}
+
+/** Un rimborso tra persone, o un versamento sul conto comune (mig 20261005180000). */
+export interface CrmExpenseSettlement {
+    id: string;
+    from_name: string;
+    to_name: string;
+    amount_cents: number;
+    settled_on: string;
+    note: string | null;
+    created_by: string | null;
+    created_at: string;
+}
+
+export interface CrmExpenseSettlementInput {
+    fromName: string;
+    toName: string;
+    amountCents: number;
+    settledOn: string;
+    note: string | null;
 }
 
 // -----------------------------------------------------------------------------

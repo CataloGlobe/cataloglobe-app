@@ -73,7 +73,7 @@ export function StoryBrandDrawer({ open, onClose, brand }: StoryBrandDrawerProps
                         onFileChange={brand.onCoverFileChange}
                         onRemove={brand.onCoverRemove}
                         thumbShape="wide"
-                        accept="image/png,image/jpeg,image/webp"
+                        accept="image/png,image/jpeg,image/webp,image/avif"
                         maxSizeMb={5}
                     />
                     <TextInput label="Titolo" value={brand.title} onChange={e => brand.onTitleChange(e.target.value)} />

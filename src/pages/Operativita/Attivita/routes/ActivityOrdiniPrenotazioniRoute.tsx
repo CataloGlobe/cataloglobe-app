@@ -274,7 +274,7 @@ export default function ActivityOrdiniPrenotazioniRoute() {
             id: "hours",
             title: "Orari di apertura configurati",
             shortTitle: "Orari",
-            description: "Senza orari le richieste di prenotazione non vengono filtrate sulle fasce di apertura.",
+            description: "Senza orari la pagina pubblica non offre nessuna data: le prenotazioni online non partono.",
             done: hasOpenHours,
             actionLabel: "Vai a Orari",
             onAction: () => goToSection("orari")

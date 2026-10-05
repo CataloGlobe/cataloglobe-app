@@ -1,0 +1,708 @@
+/* Home del CRM (canvas V3, R3b): banda «Da stamattina», numeri con
+   l'obiettivo, riquadri a coppie; ingrandito, due terzi e un terzo. */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  min-width: 0;
+}
+
+/* ── Da stamattina ───────────────────────────────────────────────────── */
+.strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-4) var(--space-16);
+  padding: var(--space-10) var(--space-16);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-surface);
+}
+
+.stripLink,
+.inlineLink,
+.more {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--on-brand-soft);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: 2px solid var(--brand-primary);
+    outline-offset: 2px;
+    border-radius: var(--radius-inner);
+  }
+}
+
+.stripLink {
+  margin-left: auto;
+}
+
+/* ── Numeri ──────────────────────────────────────────────────────────── */
+.figures {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) minmax(0, 1.4fr);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-surface);
+  overflow: hidden;
+
+  > * + * {
+    border-left: 1px solid var(--border);
+  }
+
+  &[data-compact] {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--space-4) var(--space-24);
+    padding: var(--space-12) var(--space-16);
+
+    > * + * {
+      border-left: 0;
+    }
+  }
+
+  @media (max-width: 1023px) {
+    &:not([data-compact]) {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+
+      > * + * {
+        border-left: 0;
+      }
+
+      > * {
+        border-top: 1px solid var(--border);
+      }
+
+      > :nth-child(-n + 2) {
+        border-top: 0;
+      }
+
+      > :nth-child(even) {
+        border-left: 1px solid var(--border);
+      }
+
+      > :last-child {
+        grid-column: 1 / -1;
+        border-left: 0;
+      }
+    }
+  }
+}
+
+.figure,
+.goal {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-12) var(--space-16);
+  min-width: 0;
+}
+
+.goal {
+  gap: var(--space-6);
+}
+
+.figureValue {
+  font-variant-numeric: tabular-nums;
+}
+
+.figureInline {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-6);
+}
+
+.delta {
+  color: var(--text-muted);
+
+  &[data-sign="up"] {
+    color: var(--success-800, var(--text-muted));
+  }
+}
+
+.figureLink {
+  color: var(--text-muted);
+  text-decoration: none;
+
+  &:hover,
+  &:focus-visible {
+    color: var(--on-brand-soft);
+    text-decoration: underline;
+  }
+}
+
+.goalLine {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-4) var(--space-12);
+}
+
+.goalForm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+.goalInput {
+  width: 88px;
+}
+
+/* ── Griglia ─────────────────────────────────────────────────────────── */
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+  align-items: stretch;
+  gap: var(--space-12);
+
+  @media (max-width: 1023px) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.gridExpanded {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-12);
+
+  @media (max-width: 1023px) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.expandedMain,
+.expandedSide {
+  min-width: 0;
+}
+
+.tile {
+  height: 100%;
+}
+
+.tileExpanded {
+  outline: 1px solid var(--brand-primary);
+  outline-offset: -1px;
+}
+
+.tileMessage {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-16) var(--space-24);
+}
+
+.tileFootnote {
+  margin: 0;
+  padding: var(--space-12) var(--space-24);
+  border-top: 1px solid var(--border);
+}
+
+.rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+
+  > li + li {
+    border-top: 1px solid var(--border);
+  }
+}
+
+.more {
+  display: block;
+  width: 100%;
+  padding: var(--space-12) var(--space-24);
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  text-decoration: none;
+  text-align: left;
+
+  &:hover {
+    color: var(--on-brand-soft);
+    text-decoration: underline;
+  }
+}
+
+.rowLink {
+  color: inherit;
+  font-weight: 700;
+  text-decoration: none;
+
+  &:hover,
+  &:focus-visible {
+    text-decoration: underline;
+  }
+}
+
+/* ── Da fare ─────────────────────────────────────────────────────────── */
+/* Il colore dell'attesa sta solo nel filo a sinistra e nel tempo. */
+.todo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8) var(--space-12);
+  padding: var(--space-10) var(--space-16) var(--space-10) var(--space-24);
+
+  &[data-level="arancio"] {
+    box-shadow: inset 3px 0 0 var(--warning-500);
+  }
+
+  &[data-level="rosso"] {
+    box-shadow: inset 3px 0 0 var(--danger);
+  }
+
+  &[data-open="true"] {
+    align-items: flex-start;
+  }
+
+  @media (max-width: 767px) {
+    flex-wrap: wrap;
+  }
+}
+
+.todoMain {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.todoText {
+  flex: 1 1 0;
+  min-width: 0;
+  margin: 0;
+}
+
+.eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+
+  &[data-level="arancio"] {
+    color: var(--text-warning);
+  }
+
+  &[data-level="rosso"] {
+    color: var(--text-danger);
+  }
+}
+
+.quote {
+  margin: var(--space-4) 0 0;
+  padding: var(--space-8) var(--space-12);
+  border-left: 2px solid var(--brand-primary);
+  border-radius: 0 var(--radius-control) var(--radius-control) 0;
+  background: var(--hover-bg);
+}
+
+.todoStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  flex: none;
+
+  @media (max-width: 767px) {
+    flex-direction: row;
+    width: 100%;
+  }
+}
+
+.todoPair {
+  display: flex;
+  gap: var(--space-8);
+  flex: none;
+}
+
+.wait {
+  flex: none;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+
+  &[data-level="arancio"] {
+    color: var(--text-warning);
+    font-weight: 600;
+  }
+
+  &[data-level="rosso"] {
+    color: var(--text-danger);
+    font-weight: 600;
+  }
+}
+
+.compactRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-8) var(--space-16);
+  color: inherit;
+  text-decoration: none;
+
+  &:hover,
+  &:focus-visible {
+    background: var(--hover-bg);
+  }
+}
+
+.dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--text-muted);
+
+  &[data-level="arancio"] {
+    background: var(--warning-500);
+  }
+
+  &[data-level="rosso"] {
+    background: var(--danger);
+  }
+}
+
+/* ── Agenda ──────────────────────────────────────────────────────────── */
+.agendaRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  padding: var(--space-10) var(--space-16) var(--space-10) var(--space-24);
+  color: inherit;
+  text-decoration: none;
+
+  &:is(a):hover,
+  &:is(a):focus-visible {
+    background: var(--hover-bg);
+  }
+}
+
+.agendaTime {
+  flex: none;
+  width: 48px;
+  font-variant-numeric: tabular-nums;
+}
+
+.agendaBody {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* Agenda ingrandita: la giornata ora per ora. */
+.dayNav {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-6);
+}
+
+.timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.hourRow {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr);
+  gap: var(--space-8);
+  min-height: 48px;
+  padding: var(--space-6) var(--space-16) var(--space-6) var(--space-24);
+
+  & + & {
+    border-top: 1px solid var(--border);
+  }
+}
+
+.hourLabel {
+  padding-top: var(--space-6);
+  font-variant-numeric: tabular-nums;
+}
+
+.hourEvents {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.event {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-6) var(--space-12);
+  border-left: 3px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--hover-bg);
+
+  &[data-tone="attesa"] {
+    border-left-color: var(--warning-500);
+    background: var(--warning-50);
+  }
+
+  &[data-tone="telefonata"] {
+    border-left-color: var(--brand-primary);
+    background: var(--brand-primary-soft);
+  }
+
+  &[data-tone="programma"] {
+    color: var(--text-muted);
+  }
+}
+
+.eventText {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.eventVenue {
+  color: inherit;
+  font-weight: 700;
+  text-decoration: none;
+
+  &:hover,
+  &:focus-visible {
+    text-decoration: underline;
+  }
+}
+
+.eventOpen {
+  flex: none;
+  padding: var(--space-4) var(--space-12);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: inherit;
+  text-decoration: none;
+
+  &:hover,
+  &:focus-visible {
+    background: var(--hover-bg);
+  }
+}
+
+.nowLine {
+  position: relative;
+
+  /* Adesso in cima a un'ora vuota: la riga scende sotto l'ora. */
+  &:first-child {
+    margin-top: var(--space-20);
+  }
+
+  height: 2px;
+  margin: var(--space-2) 0;
+  background: var(--danger);
+}
+
+.nowLabel {
+  position: absolute;
+  top: var(--space-4);
+  left: calc(-1 * (56px + var(--space-8)));
+  color: var(--text-danger);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Caldi adesso ────────────────────────────────────────────────────── */
+.hotRow {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-12);
+  padding: var(--space-12) var(--space-16) var(--space-12) var(--space-24);
+  color: inherit;
+  text-decoration: none;
+
+  &:hover,
+  &:focus-visible {
+    background: var(--hover-bg);
+  }
+}
+
+.hotName {
+  flex: none;
+  max-width: 45%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hotQuote {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hotAgo {
+  flex: none;
+}
+
+/* ── Agenti ──────────────────────────────────────────────────────────── */
+.agentState {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-6);
+}
+
+.stateDot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--success-500, var(--text-muted));
+
+  [data-state="in prova"] > & {
+    background: var(--warning-500);
+  }
+
+  [data-state="in pausa"] > & {
+    background: var(--text-muted);
+  }
+}
+
+.facts {
+  margin: 0;
+}
+
+.fact {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-12);
+  padding: var(--space-12) var(--space-24);
+
+  & + & {
+    border-top: 1px solid var(--border);
+  }
+
+  dd {
+    margin: 0;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+}
+
+/* ── Telefono (canvas U8a) ───────────────────────────────────────────── */
+.phoneHeader {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.phoneMorning {
+  margin: var(--space-4) 0 0;
+}
+
+.phoneDraft {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding: var(--space-12) var(--space-16);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-surface);
+
+  &[data-level="arancio"] {
+    box-shadow: inset 3px 0 0 var(--warning-500);
+  }
+
+  &[data-level="rosso"] {
+    box-shadow: inset 3px 0 0 var(--danger);
+  }
+
+  p {
+    margin: 0;
+  }
+}
+
+.phoneDraftHead {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-8);
+}
+
+.phoneDraftTitle {
+  color: var(--on-brand-soft);
+}
+
+.phoneDraftActions {
+  display: flex;
+  gap: var(--space-8);
+}
+
+.phoneGrow {
+  flex: 1 1 0;
+}
+
+.phoneList {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-surface);
+  overflow: hidden;
+}
+
+.phoneRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  min-height: 48px;
+  padding: var(--space-8) var(--space-16);
+  color: inherit;
+  text-decoration: none;
+
+  &[data-level="arancio"] {
+    box-shadow: inset 3px 0 0 var(--warning-500);
+  }
+
+  &[data-level="rosso"] {
+    box-shadow: inset 3px 0 0 var(--danger);
+  }
+
+  &:active,
+  &:focus-visible {
+    background: var(--hover-bg);
+  }
+}
+
+.phoneChevron {
+  flex: none;
+  color: var(--text-muted);
+}
+
+.phoneEmpty {
+  margin: 0;
+}
+
+.phoneGoal {
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  padding: var(--space-10) var(--space-16);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-surface);
+
+  > :first-child {
+    flex: 1 1 auto;
+  }
+}
+
+.phoneGoalBar {
+  flex: 0 1 140px;
+}
+
+.actionError {
+  margin: 0;
+  padding: var(--space-8) var(--space-24);
+  border-bottom: 1px solid var(--border);
+}
+
+.goalError {
+  flex-basis: 100%;
+}

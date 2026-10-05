@@ -40,3 +40,297 @@
   font-size: 13px;
   color: var(--color-warning-700);
 }
+
+/* ===== Da 768 in su: filtri in alto e tre colonne (D39) ===== */
+// Come la scheda del lead: attaccate alla barra del CRM, escono dal padding
+// del contenuto e scendono per tutta l'altezza; ogni colonna scorre da sola.
+.desk {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    margin: calc(-1 * var(--space-24));
+    background: var(--surface);
+}
+
+.toolbar {
+    display: flex;
+    align-items: center;
+    gap: var(--space-16);
+    padding: var(--space-10) var(--space-16);
+    border-bottom: 1px solid var(--border);
+}
+
+.backLink {
+    flex-shrink: 0;
+    color: var(--brand-primary);
+    text-decoration: none;
+
+    &:hover {
+        text-decoration: underline;
+    }
+
+    &:focus-visible {
+        outline: none;
+        box-shadow: var(--shadow-focus);
+        border-radius: var(--radius-inner);
+    }
+}
+
+.frame {
+    display: grid;
+    grid-template-columns: 260px minmax(0, 1fr) 280px;
+    flex: 1 1 auto;
+    min-height: 0;
+
+    // Sotto i 1180 la scheda del cliente lascia spazio alla conversazione.
+    @media (max-width: 1179px) {
+        grid-template-columns: 240px minmax(0, 1fr);
+
+        .side {
+            display: none;
+        }
+    }
+}
+
+.ellipsis {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Elenco a sinistra */
+.list {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    border-right: 1px solid var(--border);
+}
+
+.listHead {
+    display: flex;
+    align-items: center;
+    gap: var(--space-8);
+    padding: var(--space-8) var(--space-12);
+    border-bottom: 1px solid var(--border);
+}
+
+.keys {
+    display: inline-flex;
+    gap: var(--space-2);
+    margin-left: auto;
+}
+
+.keys kbd {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 var(--space-4);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-inner);
+    background: var(--surface);
+    color: var(--text-muted);
+    font: inherit;
+    font-weight: 600;
+}
+
+.listEmpty {
+    padding: var(--space-16) var(--space-12);
+}
+
+.listRows {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.groupHead {
+    margin: 0;
+    padding: var(--space-8) var(--space-12) var(--space-4);
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+}
+
+.rows {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.listRow {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-10) var(--space-12);
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    text-decoration: none;
+
+    &:hover {
+        background: var(--hover-bg);
+    }
+
+    &:focus-visible {
+        outline: none;
+        box-shadow: inset var(--shadow-focus);
+    }
+
+    &[data-ours] {
+        box-shadow: inset 3px 0 0 var(--brand-primary);
+    }
+
+    &[data-late] {
+        box-shadow: inset 3px 0 0 var(--warning-500);
+    }
+
+    &[aria-current="page"] {
+        background: var(--brand-primary-soft);
+    }
+}
+
+.listRowTop {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-8);
+    min-width: 0;
+}
+
+.listWhen {
+    flex-shrink: 0;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+
+    &[data-late] {
+        color: var(--text-warning);
+    }
+}
+
+/* Centro: testata, conversazione, risposta */
+.center {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    background: var(--bg);
+}
+
+.head {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    padding: var(--space-12) var(--space-20);
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+
+    p {
+        margin: 0;
+    }
+}
+
+.titleRow {
+    display: flex;
+    align-items: center;
+    gap: var(--space-12);
+    min-width: 0;
+}
+
+.titleActions {
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
+// Stesso contratto di `.page`: il thread scorre, la risposta resta sotto.
+.conversation {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: var(--space-12) var(--space-20) var(--space-16);
+}
+
+.ready {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-8);
+}
+
+.readyChip {
+    font: inherit;
+    padding: var(--space-4) var(--space-12);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-pill);
+    background: var(--brand-primary-soft);
+    color: var(--on-brand-soft);
+    cursor: pointer;
+
+    &:disabled {
+        opacity: 0.5;
+        cursor: default;
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--brand-primary);
+        outline-offset: 2px;
+    }
+}
+
+/* Destra: il cliente */
+.side {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    border-left: 1px solid var(--border);
+    overflow-y: auto;
+}
+
+.fact {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+    padding: var(--space-12) var(--space-12) var(--space-16);
+    border-bottom: 1px solid var(--border);
+
+    p {
+        margin: 0;
+    }
+}
+
+.factList {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.factRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-8);
+    min-width: 0;
+}
+
+.otherLink {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    min-width: 0;
+    color: var(--text);
+    text-decoration: none;
+
+    &:hover > span:first-child {
+        text-decoration: underline;
+    }
+
+    &:focus-visible {
+        outline: none;
+        box-shadow: var(--shadow-focus);
+        border-radius: var(--radius-inner);
+    }
+}

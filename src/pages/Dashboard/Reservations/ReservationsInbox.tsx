@@ -120,9 +120,15 @@ export default function ReservationsInbox({
                                 {r.notes}
                             </>
                         )}
+                        {r.allergies && (
+                            <>
+                                <br />
+                                <strong>Allergie:</strong> {r.allergies}
+                            </>
+                        )}
                     </>
                 }
-                wrapSubtitle={Boolean(r.notes)}
+                wrapSubtitle={Boolean(r.notes || r.allergies)}
                 meta={tableView ? <TableAssignmentBadge view={tableView} /> : undefined}
                 trailing={
                     canManage ? (

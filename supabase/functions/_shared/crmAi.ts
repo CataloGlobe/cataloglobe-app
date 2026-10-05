@@ -151,14 +151,33 @@ export interface CrmSpendSnapshot {
     monthCap: number;
 }
 
-export function formatUsd(value: number): string {
-    return `${value.toFixed(2).replace(".", ",")} $`;
+/**
+ * Cambio fisso dollari → euro (deciso da Alex il 2026-10-05: nel CRM tutto in
+ * euro). Anthropic fattura in dollari e registro e tetti restano in dollari
+ * sul database; si converte solo per mostrare e per scrivere i tetti. Il
+ * valore vero lo dice l'estratto della carta: se il cambio si sposta, si
+ * aggiorna qui.
+ */
+export const USD_TO_EUR = 0.86;
+
+export function usdToEur(usd: number): number {
+    return usd * USD_TO_EUR;
+}
+
+/** Euro scritti da una persona → dollari del database, al centesimo. */
+export function eurToUsd(eur: number): number {
+    return Math.round((eur / USD_TO_EUR) * 100) / 100;
+}
+
+/** Una spesa AI registrata in dollari, mostrata in euro: «12,50 €». */
+export function formatAiCost(usd: number, digits = 2): string {
+    return `${usdToEur(usd).toFixed(digits).replace(".", ",")} €`;
 }
 
 /** Testo Telegram (HTML) dell'avviso di spesa. */
 export function spendAlertMessage(alert: CrmSpendAlert, spend: CrmSpendSnapshot): string {
-    const day = `${formatUsd(spend.dayUsd)} su ${formatUsd(spend.dayCap)}`;
-    const month = `${formatUsd(spend.monthUsd)} su ${formatUsd(spend.monthCap)}`;
+    const day = `${formatAiCost(spend.dayUsd)} su ${formatAiCost(spend.dayCap)}`;
+    const month = `${formatAiCost(spend.monthUsd)} su ${formatAiCost(spend.monthCap)}`;
     switch (alert) {
         case "day_80":
             return `<b>Spesa AI all'80% del tetto di oggi</b>\n${day}. Al 100% gli agenti vanno in pausa.`;
@@ -173,7 +192,7 @@ export function spendAlertMessage(alert: CrmSpendAlert, spend: CrmSpendSnapshot)
 
 /** Avviso quando una chiamata pagata non entra nel registro dei costi: agenti in pausa. */
 export function unrecordedCostMessage(costUsd: number): string {
-    return `<b>Agenti in pausa: un costo AI non è stato registrato</b>\nChiamata da ${formatUsd(costUsd)} non contata nel tetto di spesa. I lead si gestiscono a mano. Controllare i log delle funzioni CRM, poi per riattivarli: /admin, Agenti.`;
+    return `<b>Agenti in pausa: un costo AI non è stato registrato</b>\nChiamata da ${formatAiCost(costUsd)} non contata nel tetto di spesa. I lead si gestiscono a mano. Controllare i log delle funzioni CRM, poi per riattivarli: /admin, Agenti.`;
 }
 
 /** Quota del tetto, 0-1 (oltre il tetto resta 1). */

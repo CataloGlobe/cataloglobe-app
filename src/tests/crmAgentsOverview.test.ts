@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CrmAgentDecision, CrmAgentDraftRow, CrmAgentTrialSettings, CrmAgentTrust } from "@/types/crm";
-import { agentRows, giroToday, isRomeToday } from "@/utils/crm/agentsOverview";
+import { agentRows, costPerMessage, giroToday, isRomeToday, mixOf, queueWhen, spendByRole } from "@/utils/crm/agentsOverview";
 
 // Lunedì 5 ottobre 2026, 11:00 di Roma
 const NOW = new Date("2026-10-05T09:00:00Z");
@@ -125,5 +125,42 @@ describe("agentRows", () => {
         expect(off[0].status).toBe("In prova · 3 di 5");
         const on = agentRows({ settings: { ...SETTINGS, agent_autonomy_on: true }, trust, drafts: [], giro, now: NOW });
         expect(on[0].status).toBe("Fuori dalla prova");
+    });
+});
+
+describe("righe, spesa e coda", () => {
+    it("sette agenti, Sentinella in arrivo, nell'ordine del canvas, la spesa condivisa segnata", () => {
+        const rows = agentRows({ settings: SETTINGS, trust: TRUST, drafts: [], giro: giroToday([], [], NOW), now: NOW });
+        expect(rows.map(r => r.id)).toEqual(["conversazione", "solleciti", "decisioni_sensibili", "revisore", "riattivazione", "gea", "sentinella"]);
+        expect(rows.filter(r => r.spendShared).map(r => r.id)).toEqual(["solleciti", "riattivazione"]);
+        expect(rows.find(r => r.id === "riattivazione")!.step).toBeNull();
+    });
+
+    it("quote della barra a tre colori", () => {
+        const mix = mixOf({ ...TRUST[0], total_approved: 2, total_edited: 1, total_discarded: 1 });
+        expect(mix).toEqual({ approved: 0.5, edited: 0.25, discarded: 0.25 });
+        expect(mixOf({ ...TRUST[0], total_approved: 0, total_edited: 0, total_discarded: 0 })).toBeNull();
+        expect(mixOf(undefined)).toBeNull();
+    });
+
+    it("spesa per ruolo e a messaggio", () => {
+        const by = spendByRole([
+            { role: "conversation", cost_usd: 0.1 },
+            { role: "conversation", cost_usd: 0.05 },
+            { role: "gea", cost_usd: 0.02 }
+        ]);
+        expect(by.conversation).toBeCloseTo(0.15);
+        expect(by.reviewer).toBe(0);
+        expect(costPerMessage(0.42, 0)).toBeNull();
+        expect(costPerMessage(0.4, 4)).toBeCloseTo(0.1);
+    });
+
+    it("quando parte un messaggio in coda", () => {
+        expect(queueWhen(null, NOW)).toBe("adesso");
+        expect(queueWhen(new Date(NOW.getTime() - 60_000).toISOString(), NOW)).toBe("adesso");
+        const later = new Date(NOW.getTime() + 60 * 60_000);
+        expect(queueWhen(later.toISOString(), NOW)).toMatch(/^\d\d:\d\d$/);
+        const nextDay = new Date(NOW.getTime() + 2 * 24 * 60 * 60_000);
+        expect(queueWhen(nextDay.toISOString(), NOW)).not.toMatch(/:/);
     });
 });

@@ -45,11 +45,23 @@ export const CRM_EVENT_LABEL: Record<CrmEventType, string> = {
     call_outcome: "Esito della telefonata"
 };
 
+/**
+ * La tabella o la funzione non c'è ancora sul database (migrazione non
+ * applicata): PostgREST risponde PGRST202/PGRST205, Postgres 42P01/42883.
+ */
+export function isMissingOnDatabase(err: unknown): boolean {
+    const code = typeof err === "object" && err !== null && "code" in err ? (err as { code?: unknown }).code : null;
+    return code === "PGRST202" || code === "PGRST205" || code === "42P01" || code === "42883";
+}
+
+export const CRM_NOT_YET_ACTIVE = "Non ancora attivo: manca l'aggiornamento del database.";
+
 /** Messaggio italiano per gli errori delle RPC `crm_*` (RAISE in 20261001120100; VN001 in 20261002155000). */
 export function crmErrorMessage(err: unknown): string {
     // Codici SQLSTATE dedicati prima del testo: il messaggio può cambiare, il codice no.
     const code = typeof err === "object" && err !== null && "code" in err ? (err as { code?: unknown }).code : null;
     if (code === "VN001") return "Non c'è un nome del locale da verificare.";
+    if (isMissingOnDatabase(err)) return CRM_NOT_YET_ACTIVE;
     const message =
         err instanceof Error
             ? err.message
@@ -65,5 +77,10 @@ export function crmErrorMessage(err: unknown): string {
     if (message.includes("invalid_venue_name")) return "Scrivi il nome del locale (al massimo 160 caratteri).";
     if (message.includes("invalid_city")) return "La città è troppo lunga.";
     if (message.includes("contact_stopped")) return "Ha chiesto di non essere contattato.";
+    if (message.includes("draft_not_found")) return "Questa bozza non c'è più.";
+    if (message.includes("invalid_text")) return "Il testo è vuoto o troppo lungo.";
+    if (message.includes("stage_changed")) return "La fase del lead è cambiata: riapri la scheda.";
+    if (message.includes("decision_not_allowed")) return "Questa bozza non si può più decidere così.";
+    if (message.includes("not_allowed")) return "Non hai i permessi per farlo.";
     return "Qualcosa non ha funzionato. Riprova.";
 }

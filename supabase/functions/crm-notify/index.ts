@@ -42,12 +42,18 @@
 //    Google, «Puoi tu?» a chi deve chiamare, brief un'ora prima, «Com'è
 //    andata?» dopo (`processAgenda` in _shared/crmAgendaJob.ts).
 //
+// 6. RIEPILOGO SETTIMANALE (solo col body {"job":"weekly"}, dal cron del
+//    lunedì alle 8 di Roma, mig 20261004020200): i numeri della settimana
+//    appena finita (crm_summary) per email a tutto il team del CRM.
+//    Prenotazione con `crm_settings.summary_mail_week`.
+//
 // AUTENTICAZIONE fail-CLOSED: X-Job-Secret = CRM_JOB_SECRET (vault
 // `crm_job_secret`), confronto constant-time.
 // Env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, CRM_JOB_SECRET,
 // TELEGRAM_BOT_TOKEN, APP_URL (facoltativo: link «Apri nel CRM»),
 // CRM_WA_LINK_SECRET (facoltativo: senza, niente pulsante WhatsApp),
-// GOOGLE_SERVICE_ACCOUNT_JSON (facoltativo: agenda su Google Calendar).
+// GOOGLE_SERVICE_ACCOUNT_JSON (facoltativo: agenda su Google Calendar),
+// RESEND_API_KEY (riepilogo settimanale).
 // =============================================================================
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -63,6 +69,9 @@ import {
 import { loadLeadMessageData, loadTeam, whatsappLinkFor } from "../_shared/crmLeadMessage.ts";
 import { buildRenewalReminderMessage } from "../_shared/crmExpenses.ts";
 import { processAgenda } from "../_shared/crmAgendaJob.ts";
+import { buildWeeklyEmail, lastWeekBounds } from "../_shared/crmWeeklyEmail.ts";
+import { sendEmailWithResult } from "../_shared/sendEmail.ts";
+import { sendToTeam } from "../_shared/crmTeamAlert.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -365,6 +374,63 @@ async function processRenewals(supabase, team, appUrl, now) {
     return stats;
 }
 
+function romeHour(now: Date): number {
+    return Number(new Intl.DateTimeFormat("it-IT", { timeZone: "Europe/Rome", hour: "2-digit", hourCycle: "h23" }).format(now));
+}
+
+async function processWeekly(supabase, team, appUrl, now) {
+    const week = lastWeekBounds(now);
+    const { data: claimed, error: claimError } = await supabase
+        .from("crm_settings")
+        .update({ summary_mail_week: week.key })
+        .eq("id", true)
+        .or(`summary_mail_week.is.null,summary_mail_week.neq.${week.key}`)
+        .select("id");
+    if (claimError) throw claimError;
+    if (!claimed?.length) return { weekly: "already_sent" };
+
+    const [{ data: current, error: e1 }, { data: previous, error: e2 }] = await Promise.all([
+        supabase.rpc("crm_summary", { p_from: week.from.toISOString(), p_to: week.to.toISOString() }),
+        supabase.rpc("crm_summary", { p_from: week.previousFrom.toISOString(), p_to: week.from.toISOString() })
+    ]);
+    if (e1 || e2) {
+        await supabase.from("crm_settings").update({ summary_mail_week: null }).eq("id", true);
+        throw e1 ?? e2;
+    }
+    const mail = buildWeeklyEmail({
+        current,
+        previous,
+        weekLabel: week.label,
+        summaryUrl: appUrl ? `${appUrl}/admin/lead?vista=riepilogo` : null
+    });
+    // Si contano solo gli invii riusciti. Nessuno riuscito: la settimana torna
+    // libera e il giro dopo del cron (fino alle 10 di Roma) riprova; all'ultimo
+    // giro (10:40) si avvisa il team su Telegram. Qualcuno riuscito: la settimana resta
+    // presa (niente doppioni a chi l'ha ricevuta), i mancati restano nei log.
+    // Un giro interrotto a metà (timeout dell'edge) lascia la settimana presa:
+    // chi non l'ha ricevuta la perde, scelta voluta contro i doppioni.
+    let sent = 0;
+    let failed = 0;
+    for (const member of team) {
+        const { data } = await supabase.auth.admin.getUserById(member.user_id);
+        const email = data?.user?.email;
+        if (!email) continue;
+        const ok = await sendEmailWithResult({ to: email, subject: mail.subject, html: mail.html, text: mail.text });
+        if (ok) sent += 1;
+        else failed += 1;
+    }
+    if (sent === 0) {
+        await supabase.from("crm_settings").update({ summary_mail_week: null }).eq("id", true);
+        if (romeHour(now) >= 10 && now.getUTCMinutes() >= 40) {
+            await sendToTeam(supabase, "La mail del lunedì col riepilogo non è partita. Il riepilogo è in /admin/lead?vista=riepilogo.", {
+                logTag: "crm-notify weekly"
+            });
+        }
+        return { weekly: "not_sent", recipients: 0, failed };
+    }
+    return { weekly: "sent", recipients: sent, failed };
+}
+
 Deno.serve(async (req: Request) => {
     if (req.method !== "POST") return json(405, { error: "method_not_allowed" });
 
@@ -388,6 +454,11 @@ Deno.serve(async (req: Request) => {
             const agenda = await processAgenda(supabase, team, BOT_TOKEN, appUrl, now);
             console.log(JSON.stringify({ event: "crm_notify_agenda", ...agenda }));
             return json(200, agenda);
+        }
+        if (body?.job === "weekly") {
+            const weekly = await processWeekly(supabase, team, appUrl, now);
+            console.log(JSON.stringify({ event: "crm_notify_weekly", ...weekly }));
+            return json(200, weekly);
         }
         if (body?.job === "renewals") {
             const renewals = await processRenewals(supabase, team, appUrl, now);

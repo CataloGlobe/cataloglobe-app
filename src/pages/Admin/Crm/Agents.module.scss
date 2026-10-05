@@ -1,0 +1,970 @@
+// Agenti (canvas U2, versione finale del 2026-10-05).
+// Solo token di _theme.scss; la tipografia la porta il componente Text.
+// Colori dell'attesa come nel resto del CRM: solo il filo e il testo.
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+}
+
+.box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-surface);
+}
+
+/* ===== Riga di stato ===== */
+.statusLine {
+  @extend .box;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-8) var(--space-20);
+  padding: var(--space-12) var(--space-16);
+}
+
+.statusItem {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+  min-width: 0;
+}
+
+.statusButton {
+  all: unset;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+  color: var(--text);
+  border-radius: var(--radius-control);
+  cursor: pointer;
+
+  &:hover {
+    text-decoration: underline;
+  }
+
+  &:focus-visible {
+    box-shadow: var(--shadow-focus);
+  }
+}
+
+.statusSpend {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-8);
+  margin-left: auto;
+}
+
+.dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--text-muted);
+
+  &[data-tone="success"] {
+    background: var(--text-success);
+  }
+
+  &[data-tone="warning"] {
+    background: var(--text-warning);
+  }
+
+  &[data-tone="danger"] {
+    background: var(--text-danger);
+  }
+}
+
+/* ===== Il giro di un messaggio (M1) ===== */
+.giroBox {
+  @extend .box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  padding: var(--space-12) var(--space-16) var(--space-16);
+}
+
+.giroHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-4) var(--space-12);
+
+  h2 {
+    margin: 0;
+  }
+}
+
+.giroSteps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--space-8);
+
+  // Al telefono le tessere scorrono in orizzontale dentro il riquadro.
+  @media (max-width: 767px) {
+    grid-template-columns: repeat(5, minmax(140px, 1fr));
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    margin: 0 calc(-1 * var(--space-16));
+    padding: 0 var(--space-16) var(--space-2);
+  }
+}
+
+.giroItem {
+  scroll-snap-align: start;
+  display: flex;
+  min-width: 0;
+}
+
+.giroTile {
+  all: unset;
+  box-sizing: border-box;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-10) var(--space-12);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-surface);
+  background: var(--surface);
+  cursor: pointer;
+
+  &:hover {
+    border-color: var(--brand-primary-soft);
+    background: var(--hover-bg);
+  }
+
+  &:focus-visible {
+    box-shadow: var(--shadow-focus);
+  }
+
+  &[data-selected="true"] {
+    border-color: var(--brand-primary);
+    background: var(--brand-primary-soft);
+    color: var(--on-brand-soft);
+  }
+
+  // Il passo 4 prende il colore dell'attesa più vecchia.
+  &[data-level="arancio"] {
+    box-shadow: inset 0 -3px 0 var(--text-warning);
+  }
+
+  &[data-level="rosso"] {
+    box-shadow: inset 0 -3px 0 var(--text-danger);
+  }
+}
+
+.giroTileHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  min-width: 0;
+  color: var(--text-muted);
+
+  [data-selected="true"] & {
+    color: inherit;
+  }
+}
+
+.giroNumber {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-pill);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--hover-bg);
+  color: var(--text-muted);
+  font-weight: 600;
+
+  [data-selected="true"] & {
+    background: var(--brand-primary);
+    color: var(--on-brand);
+  }
+}
+
+.giroValue {
+  [data-level="arancio"] & {
+    color: var(--text-warning);
+  }
+
+  [data-level="rosso"] & {
+    color: var(--text-danger);
+  }
+}
+
+.giroCount {
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  [data-selected="true"] & {
+    color: inherit;
+  }
+}
+
+.giroDetailWrap {
+  overflow: hidden;
+}
+
+// Sempre la stessa altezza minima: cambiare passo non fa saltare la pagina.
+.giroDetail {
+  display: grid;
+  grid-template-columns: minmax(200px, 280px) minmax(0, 1fr);
+  min-height: 236px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-surface);
+  overflow: hidden;
+
+  @media (max-width: 767px) {
+    grid-template-columns: minmax(0, 1fr);
+    min-height: 0;
+  }
+}
+
+.giroWhy {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  padding: var(--space-12) var(--space-16);
+  border-right: 1px solid var(--border);
+  background: var(--bg);
+
+  h3 {
+    margin: 0;
+  }
+
+  @media (max-width: 767px) {
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+}
+
+.giroWho {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-6);
+
+  li {
+    padding: var(--space-2) var(--space-10);
+    border-radius: var(--radius-pill);
+    background: var(--brand-primary-soft);
+    color: var(--on-brand-soft);
+  }
+}
+
+.giroList {
+  min-width: 0;
+
+  ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+}
+
+.giroEmpty {
+  padding: var(--space-16);
+}
+
+@keyframes giroPop {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.giroRow {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-12);
+  min-height: 52px;
+  padding: var(--space-8) var(--space-16);
+  border-top: 1px solid var(--border);
+  animation: giroPop 0.3s cubic-bezier(0.2, 0.9, 0.25, 1.15) both;
+
+  &:first-child {
+    border-top: 0;
+  }
+
+  @for $i from 2 through 5 {
+    &:nth-child(#{$i}) {
+      animation-delay: #{($i - 1) * 0.04}s;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+
+  @media (max-width: 767px) {
+    grid-template-columns: 44px minmax(0, 1fr);
+
+    .giroActs {
+      grid-column: 2;
+    }
+  }
+}
+
+.giroWhen {
+  white-space: nowrap;
+}
+
+.giroWhat {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.giroExcerpt {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.giroActs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-6);
+}
+
+.giroTag {
+  padding: var(--space-2) var(--space-8);
+  border-radius: var(--radius-pill);
+  background: var(--hover-bg);
+  color: var(--text-muted);
+  white-space: nowrap;
+
+  &[data-tone="success"] {
+    background: var(--success-100);
+    color: var(--success-800);
+  }
+
+  &[data-tone="warning"] {
+    background: var(--warning-100);
+    color: var(--warning-800);
+  }
+
+  &[data-tone="danger"] {
+    background: var(--danger-100);
+    color: var(--danger-800);
+  }
+
+  &[data-tone="brand"] {
+    background: var(--brand-primary-soft);
+    color: var(--on-brand-soft);
+  }
+}
+
+/* ===== Tabella ===== */
+.tableBox {
+  @extend .box;
+  overflow: hidden;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+
+  th,
+  td {
+    padding: var(--space-8) var(--space-12);
+    text-align: left;
+    vertical-align: middle;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+
+  thead th {
+    padding-top: var(--space-10);
+    padding-bottom: var(--space-10);
+  }
+
+  tbody th {
+    font-weight: inherit;
+  }
+
+  th:first-child,
+  td:first-child {
+    padding-left: var(--space-16);
+  }
+
+  th:last-child,
+  td:last-child {
+    padding-right: var(--space-16);
+  }
+
+  tbody tr:last-child > * {
+    border-bottom: 0;
+  }
+
+  // Il passo scelto nel giro: la riga resta accesa, col filo brand a sinistra.
+  tbody tr[data-on] > * {
+    background: var(--brand-primary-soft);
+  }
+
+  tbody tr[data-on] > :first-child {
+    box-shadow: inset 3px 0 0 var(--brand-primary);
+  }
+}
+
+.guideCell {
+  text-align: right;
+  width: 1%;
+  white-space: nowrap;
+}
+
+.table tbody th {
+  @media (max-width: 767px) {
+    white-space: normal;
+  }
+}
+
+// R1 variante A: Agente prende lo spazio che avanza, le altre colonne stanno
+// strette sul loro contenuto.
+.table tbody th,
+.table thead th:first-child {
+  width: 100%;
+}
+
+.numCol {
+  text-align: right;
+}
+
+.table th.numCol,
+.table td.numCol {
+  text-align: right;
+}
+
+// Il nome è il bottone vero (tastiera e lettori); la riga intera apre col mouse.
+.agentName {
+  all: unset;
+  box-sizing: border-box;
+  color: var(--brand-primary);
+  cursor: pointer;
+  border-radius: var(--radius-inner);
+
+  &:focus-visible {
+    box-shadow: var(--shadow-focus);
+  }
+}
+
+.agentSub {
+  display: block;
+}
+
+.table tbody tr[data-opens] {
+  cursor: pointer;
+}
+
+.table tbody tr[data-opens]:hover > * {
+  background: var(--hover-bg);
+}
+
+.table tbody tr[data-opens]:hover > :first-child {
+  box-shadow: inset 3px 0 0 var(--brand-primary);
+}
+
+.table tbody tr[data-opens]:hover .agentName {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.rowActions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+// La «i»: piccola e grigia, è solo la spiegazione.
+.infoToggle {
+  all: unset;
+  box-sizing: border-box;
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  color: var(--text-muted);
+  cursor: pointer;
+
+  &:hover,
+  &[data-open] {
+    color: var(--brand-primary);
+    border-color: var(--brand-primary);
+  }
+
+  &:focus-visible {
+    box-shadow: var(--shadow-focus);
+  }
+}
+
+// «Apri ›»: solo la freccia a riposo, la parola compare quando la riga si accende.
+.openHint {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-6) var(--space-2) var(--space-8);
+  border-radius: var(--radius-control);
+  color: var(--text-muted);
+}
+
+.openHintLabel {
+  opacity: 0;
+}
+
+.table tbody tr[data-opens]:hover .openHint {
+  background: var(--brand-primary-soft);
+  color: var(--on-brand-soft);
+}
+
+.table tbody tr[data-opens]:hover .openHintLabel {
+  opacity: 1;
+}
+
+@media (max-width: 767px) {
+  .openHintLabel {
+    display: none;
+  }
+}
+
+.table .panelRow > td {
+  padding: 0;
+  white-space: normal;
+}
+
+// «Come funziona» scende invece di comparire di colpo.
+.panelOpen {
+  overflow: hidden;
+}
+
+.hidePhone {
+  @media (max-width: 767px) {
+    display: none;
+  }
+}
+
+.linkButton {
+  all: unset;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  color: var(--brand-primary);
+  cursor: pointer;
+  white-space: nowrap;
+  border-radius: var(--radius-control);
+
+  &:hover {
+    text-decoration: underline;
+  }
+
+  &:focus-visible {
+    box-shadow: var(--shadow-focus);
+  }
+
+  &:disabled {
+    color: var(--text-muted);
+    cursor: default;
+    text-decoration: none;
+  }
+
+}
+
+.mix {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+.mixBar {
+  width: 110px;
+  height: 6px;
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+}
+
+.mixTrack {
+  fill: var(--hover-bg);
+}
+
+.mixApproved {
+  fill: var(--text-success);
+}
+
+.mixEdited {
+  fill: var(--text-warning);
+}
+
+.mixDiscarded {
+  fill: var(--text-muted);
+}
+
+/* ===== «Come funziona» di un agente ===== */
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  padding: var(--space-16);
+  background: var(--bg);
+}
+
+.panelHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-12);
+
+  h3 {
+    margin: 0;
+  }
+}
+
+.panelText {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  max-width: 72ch;
+}
+
+.panelControls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  max-width: 560px;
+}
+
+.panelModel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: var(--space-12);
+  max-width: 560px;
+
+  @media (max-width: 767px) {
+    grid-template-columns: 1fr;
+    justify-items: start;
+  }
+}
+
+/* ===== In basso: spesa e schede ===== */
+.bottom {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  gap: var(--space-16);
+  align-items: start;
+
+  @media (max-width: 1023px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.spendBox {
+  @extend .box;
+}
+
+.boxHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-12);
+  min-height: 44px;
+  padding: var(--space-4) var(--space-16);
+
+  h2 {
+    margin: 0;
+  }
+}
+
+.spendRows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  padding: 0 var(--space-16) var(--space-12);
+}
+
+.spendFoot {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-8);
+  padding: var(--space-12) var(--space-16);
+  border-top: 1px solid var(--border);
+
+  &[data-warn] .spendStrong {
+    color: var(--text-warning);
+  }
+}
+
+.spendStrong {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.activity {
+  @extend .box;
+  padding: 0 var(--space-16) var(--space-8);
+  min-width: 0;
+}
+
+.activityRows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.activityRow {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-12);
+  min-height: 36px;
+  padding: var(--space-4) 0;
+
+  & + & {
+    border-top: 1px solid var(--border);
+  }
+}
+
+.activityWhen {
+  white-space: nowrap;
+}
+
+.activityText {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.activityLink {
+  color: var(--brand-primary);
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.activityEmpty {
+  padding: var(--space-8) 0;
+}
+
+/* ===== Drawer ===== */
+.drawerForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+}
+
+.rulesHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+.preWrap {
+  white-space: pre-wrap;
+}
+
+/* ===== Pagina dell'agente (A2) ===== */
+.detail {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-16);
+
+  > .linkButton {
+    align-self: flex-start;
+  }
+}
+
+.detailHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-12);
+
+  h2 {
+    margin: 0;
+  }
+}
+
+.kpis {
+  @extend .box;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0;
+
+  @media (max-width: 767px) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.kpi {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-12) var(--space-16);
+  animation: kpiIn 0.3s cubic-bezier(0.2, 0.9, 0.25, 1.15) both;
+
+  & + & {
+    border-left: 1px solid var(--border);
+  }
+
+  @for $i from 2 through 4 {
+    &:nth-child(#{$i}) {
+      animation-delay: #{($i - 1) * 0.04}s;
+    }
+  }
+
+  dd {
+    margin: 0;
+  }
+
+  @media (max-width: 767px) {
+    &:nth-child(3) {
+      border-left: 0;
+    }
+
+    &:nth-child(n + 3) {
+      border-top: 1px solid var(--border);
+    }
+  }
+}
+
+.kpiValue {
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes kpiIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+.detailBottom {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: var(--space-16);
+  align-items: start;
+
+  @media (max-width: 1023px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.detailRows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.detailRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-12);
+  padding: var(--space-8) 0;
+
+  & + & {
+    border-top: 1px solid var(--border);
+  }
+}
+
+.detailRow[data-when] {
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+}
+
+.detailSub {
+  display: block;
+}
+
+.detailNote {
+  margin: 0;
+  padding: 0 var(--space-16) var(--space-12);
+}
+
+.week {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: var(--space-8);
+  list-style: none;
+  margin: 0;
+  padding: var(--space-8) var(--space-16) var(--space-12);
+}
+
+.weekDay {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+
+  @for $i from 2 through 7 {
+    &:nth-child(#{$i}) .weekBar {
+      animation-delay: #{($i - 1) * 0.03}s;
+    }
+  }
+}
+
+.weekTrack {
+  display: flex;
+  align-items: flex-end;
+  width: 100%;
+  height: 72px;
+}
+
+.weekBar {
+  display: block;
+  width: 100%;
+  height: 2px;
+  border-radius: var(--radius-inner) var(--radius-inner) 0 0;
+  background: var(--brand-primary-soft);
+  transform-origin: bottom;
+  animation: weekGrow 0.45s cubic-bezier(0.2, 0.9, 0.25, 1) both;
+
+  &[data-today] {
+    background: var(--brand-primary);
+  }
+
+  @for $i from 1 through 10 {
+    &[data-level="#{$i}"] {
+      height: #{$i * 10%};
+    }
+  }
+}
+
+@keyframes weekGrow {
+  from {
+    transform: scaleY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kpi,
+  .weekBar {
+    animation: none;
+  }
+}
+
+.detailPanel {
+  @extend .box;
+  overflow: hidden;
+}

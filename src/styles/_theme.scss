@@ -194,6 +194,11 @@
   --crm-nav-text-strong: #ffffff;
   --crm-nav-disabled: #6e6aa8;
   --crm-nav-focus: 0 0 0 3px rgba(195, 193, 234, 0.7);
+  // Il campo Cerca aperto nella barra (C4): chiaro, con l'anello lilla.
+  --crm-nav-field-bg: #ffffff;
+  --crm-nav-field-text: #15171c;
+  --crm-nav-field-border: #8f89f5;
+  --crm-nav-field-ring: 0 0 0 3px rgba(143, 137, 245, 0.35);
   --rule-price: var(--success-500);
   --rule-visibility: var(--warning-500);
 

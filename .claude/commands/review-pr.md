@@ -1,5 +1,5 @@
 ---
-description: Review di una PR in un worktree isolato (regole CLAUDE.md, tsc, lint, vitest, build, security review) con esito pubblicato su GitHub
+description: Review di una PR in un worktree isolato (regole CLAUDE.md, tsc, lint, vitest, build, security review) con esito pubblicato su GitHub e merge solo dopo l'ok esplicito di Lorenzo
 argument-hint: <numero PR>
 ---
 
@@ -11,7 +11,8 @@ Nel resto del comando `N` = `$ARGUMENTS`, `ROOT` = cartella principale del repo 
 ## Vincoli assoluti
 
 - Tutto il lavoro sul codice della PR avviene in `WT`. MAI `gh pr checkout`, `git checkout`, `git switch`, `git stash` o `git reset` nella cartella principale: lì ci sono modifiche WIP di altre sessioni.
-- NON fare merge, NON fare push, NON fare commit, NON modificare file della PR.
+- NON fare push, NON fare commit, NON modificare file della PR.
+- NON fare merge, tranne al passo 7: solo con esito «✅ Pronta per merge» e dopo l'ok esplicito di Lorenzo su quella PR, dato DOPO il report finale. Un ok generico («procedi», «vai avanti») o dato prima della review non vale.
 - NON applicare migration: niente `supabase db push`, `supabase link`, `supabase functions deploy`, niente `apply_migration`/`execute_sql` via MCP.
 - MAI `/security-review` diretto dalla cartella principale: la security review la fa un subagente sul worktree (passo 4).
 - Il passo 6 (pulizia) va eseguito SEMPRE, anche se un passo precedente fallisce.
@@ -181,4 +182,27 @@ git worktree list
 
 ## Report finale all'utente
 
-In chat, breve: esito pubblicato (request-changes o comment «✅ Pronta per merge») con link alla PR, conteggio problemi per severità, controlli falliti, se la security review è stata eseguita, conferma rimozione worktree.
+In chat, in italiano semplice, in quest'ordine:
+
+1. **Cosa fa la PR**: in 3-6 righe, cosa cambia per chi usa l'app (o per il team), senza gergo; poi i file principali toccati e se ci sono migration o edge nuove.
+2. **Cosa ho controllato**: esito pubblicato (request-changes o comment «✅ Pronta per merge») con link alla PR, controlli passati e falliti, se la security review è stata eseguita.
+3. **Problemi**: conteggio per severità e i punti che richiedono il giudizio di Lorenzo, con `file:riga`.
+4. **Dopo il merge**: i passi operativi in ordine (migration con nome completo e se serve `--include-all`, segreti solo per nome, deploy di edge, cron, interruttori), presi dalla PR e dalla sua descrizione.
+5. Conferma rimozione worktree e head rivisto (`headRefOid`, 8 caratteri).
+
+Se l'esito è «✅ Pronta per merge», chiudi chiedendo: «Unisco la #N?». Poi fermati e aspetta la risposta.
+
+## 7. Merge (solo dopo l'ok)
+
+Solo se l'esito è «✅ Pronta per merge» e Lorenzo, DOPO aver letto il report, risponde sì a «Unisco la #N?». Senza quell'ok esplicito non si unisce, mai.
+
+```bash
+H=<headRefOid completo rivisto al passo 1>
+CUR=$(gh pr view N --json headRefOid -q .headRefOid)
+[ "$CUR" = "$H" ] && gh pr merge N --merge --match-head-commit "$H"
+gh pr view N --json state,mergeCommit
+```
+
+- Se l'head è cambiato dopo la review: NON unire. Rivedi solo i commit nuovi (`git diff $H $CUR`), riporta l'esito e richiedi l'ok.
+- Metodo: merge commit (`--merge`), come le altre PR del repo. Mai `--admin`, mai `--delete-branch` sui branch di altri.
+- Dopo il merge: riporta il merge commit e ripeti i passi «Dopo il merge». Migration, segreti, deploy e cron restano a Lorenzo: questo comando non li esegue.

@@ -1,129 +1,84 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { ChevronDown, ChevronLeft, MoreHorizontal, Phone } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
-import { Card } from "@/components/ui/Card/Card";
+import { IconButton } from "@/components/ui/Button/IconButton";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
-import { ListRow } from "@/components/ui/ListRow/ListRow";
 import { LoadingState } from "@/components/ui/LoadingState/LoadingState";
-import { Select } from "@/components/ui/Select/Select";
+import { Menu } from "@/components/ui/Menu";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
+import { Tabs } from "@/components/ui/Tabs/Tabs";
 import Text from "@/components/ui/Text/Text";
-import { Textarea } from "@/components/ui/Textarea/Textarea";
 import { useAuth } from "@/context/useAuth";
 import { useToast } from "@/context/Toast/ToastContext";
 import { usePageHeader } from "@/context/usePageHeader";
-import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import {
-    addCrmNote,
     assignCrmVenue,
     getCrmSettings,
     getCrmVenue,
     listCrmTeamMembers,
+    listCrmVenues,
     logCrmWhatsappOpened,
     moveCrmStage,
     unlockCrmStage
 } from "@/services/supabase/crm";
-import { CRM_ACCOUNT_STATE_LABEL, crmAccountLabel, needsStageLock } from "@/utils/crm/accountLabels";
+import { listCrmAppointmentsCreatedSince } from "@/services/supabase/crmAgenda";
+import { listCrmAgentDraftsOpenOrSince } from "@/services/supabase/crmAgentTrial";
+import { getCrmNextStep } from "@/services/supabase/crmNextSteps";
+import { listCrmMessages, setCrmAgentHold } from "@/services/supabase/crmWhatsappAgent";
+import { CRM_STAGES, type CrmAppointment, type CrmContact, type CrmStage, type CrmTeamMember, type CrmVenueDetail } from "@/types/crm";
+import { crmAccountLabel, needsStageLock } from "@/utils/crm/accountLabels";
+import { romeTodayStart } from "@/utils/crm/agentsOverview";
+import { venueWaits } from "@/utils/crm/crmHome";
+import { chatItems, leadBrief } from "@/utils/crm/leadDetail";
+import { LEAD_VIEWS, nextAppointments, parseLeadView, type LeadView } from "@/utils/crm/leadViews";
+import { CRM_EVENT_LABEL, CRM_LOST_KIND_LABEL, CRM_STAGE_LABEL, CRM_STAGE_VARIANT, crmErrorMessage } from "@/utils/crm/stages";
+import { leadToVerify } from "@/utils/crm/venueNameCheck";
+import { waErrorMessage } from "@/utils/crm/waLabels";
 import { crmSenderName, crmWhatsappLink } from "@/utils/crm/whatsapp";
-import { formatDateTimeIt } from "@/utils/formatDateTime";
-import {
-    CRM_EVENT_LABEL,
-    CRM_LOST_KIND_LABEL,
-    CRM_SOURCE_LABEL,
-    CRM_STAGE_LABEL,
-    crmErrorMessage
-} from "@/utils/crm/stages";
-import {
-    CRM_STAGES,
-    type CrmEvent,
-    type CrmAccountState,
-    type CrmContact,
-    type CrmStage,
-    type CrmTeamMember,
-    type CrmVenueDetail
-} from "@/types/crm";
+import { whatsappUrl } from "@shared/crmWhatsapp";
 import { AccountCard } from "./AccountCard";
 import { CallCard } from "./CallCard";
 import { LostStageDialog } from "./LostStageDialog";
 import { StageLockDialog, type StageLockRequest } from "./StageLockDialog";
 import { VenueNameCard } from "./VenueNameCard";
 import { VenueNameCheckCard } from "./VenueNameCheckCard";
-import { WhatsappConversationCard } from "./WhatsappConversationCard";
-import { LeadQueue } from "./components/LeadQueue";
-import { leadAnswerRows } from "@/utils/crm/leadAnswers";
-import { leadToVerify } from "@/utils/crm/venueNameCheck";
-import { describeCallEvent } from "@/utils/crm/agenda";
-import styles from "./Crm.module.scss";
+import { LeadChat } from "./components/LeadChat";
+import { LeadDetailList } from "./components/LeadDetailList";
+import { ContactsSection, History, NextStepSection, NotesSection, RequestsSection } from "./components/LeadFacts";
+import { useCrmLoad } from "./hooks/useCrmLoad";
+import styles from "./LeadDetail.module.scss";
 
 /**
- * Scheda del locale: contatti, richieste (una per ingresso, con le risposte
- * del modulo), storia unica con le note. Fase e assegnatario stanno nella
- * testata perché sono lo stato della carta, come lo stato di un ticket.
+ * La scheda del lead (canvas V5 e T8b, versione finale del 2026-10-05).
  *
- * Perso chiede sempre tipo e motivo (vincolo anche a DB): obiezione = si può
- * riprovare più avanti, stop = non vuole essere contattato, definitivo.
+ * Scrivania: a sinistra la vista da cui si arriva (J e K per il prossimo), in
+ * mezzo la conversazione con la bozza dell'agente in fondo, a destra prossimo
+ * passo, contatti, richieste, telefonata, account e note. Fase e chi lo segue
+ * stanno nella testata, come lo stato di un ticket.
+ *
+ * Telefono: nome e fase in alto, quattro schede (Chat, Dati, Telefonata,
+ * Storia), la bozza e «Scrivi tu» in fondo alla chat.
+ *
+ * Ogni lettura sta da sola: se la conversazione non si carica, il resto
+ * della scheda c'è. Perso chiede sempre tipo e motivo (vincolo anche a DB).
  */
 
-const STAGE_OPTIONS = CRM_STAGES.map(stage => ({ value: stage, label: CRM_STAGE_LABEL[stage] }));
+const DAY_MS = 24 * 60 * 60 * 1000;
 
-function describeEvent(event: CrmEvent, teamName: (id: string | null) => string): string {
-    const p = event.payload;
-    switch (event.type) {
-        case "stage_changed": {
-            const from = CRM_STAGE_LABEL[p.from as CrmStage] ?? String(p.from);
-            const to = CRM_STAGE_LABEL[p.to as CrmStage] ?? String(p.to);
-            const reason = p.lost_reason ? ` (${String(p.lost_reason)})` : "";
-            return `${from} → ${to}${reason}`;
-        }
-        case "assigned":
-            return `A ${teamName((p.to as string) ?? null)}`;
-        case "note":
-            return String(p.text ?? "");
-        case "venue_renamed":
-            return `${String(p.from ?? "")} → ${String(p.to ?? "")}`;
-        case "stage_locked": {
-            const to = CRM_STAGE_LABEL[p.to as CrmStage] ?? String(p.to);
-            return `In ${to}: ${String(p.note ?? "")}`;
-        }
-        case "subscription_changed": {
-            const to = (p.to ?? {}) as { state?: CrmAccountState | null };
-            const from = (p.from ?? {}) as { state?: CrmAccountState | null };
-            const label = (state?: CrmAccountState | null) =>
-                state ? CRM_ACCOUNT_STATE_LABEL[state] : "nessuno";
-            return from.state === to.state
-                ? `Account ${label(to.state)}, prova aggiornata`
-                : `Account: ${label(from.state)} → ${label(to.state)}`;
-        }
-        case "lead_in":
-        case "lead_returned": {
-            const source = CRM_SOURCE_LABEL[p.source as keyof typeof CRM_SOURCE_LABEL];
-            const given =
-                event.type === "lead_returned" && p.venue_name_given && p.venue_name_match !== "same"
-                    ? `, ha scritto «${String(p.venue_name_given)}»`
-                    : "";
-            return source ? `Da ${source}${given}` : "";
-        }
-        case "venue_name_confirmed":
-            return `Resta «${String(p.kept ?? "")}», «${String(p.given ?? "")}» era lo stesso`;
-        case "venue_name_deferred":
-            return `Ha scritto «${String(p.given ?? "")}», da chiarire`;
-        case "call_scheduled":
-        case "call_moved":
-        case "call_cancelled":
-        case "call_caller_answered":
-        case "call_outcome":
-            return describeCallEvent(event.type, p, teamName);
-        default:
-            return "";
-    }
-}
+type PhoneTab = "chat" | "dati" | "telefonata" | "storia";
 
 export default function LeadDetailPage() {
     const { venueId = "" } = useParams<{ venueId: string }>();
+    const [params] = useSearchParams();
     const navigate = useNavigate();
     const { showToast } = useToast();
     const { user } = useAuth();
+    const userId = user?.id ?? null;
+    const isPhone = useMediaQuery("(max-width: 767px)");
+    const view: LeadView = parseLeadView(params.get("vista"));
 
     const [detail, setDetail] = useState<CrmVenueDetail | null>(null);
     const [team, setTeam] = useState<CrmTeamMember[]>([]);
@@ -132,17 +87,22 @@ export default function LeadDetailPage() {
     const [notFound, setNotFound] = useState(false);
     const [isBusy, setIsBusy] = useState(false);
     const [actionError, setActionError] = useState<string | null>(null);
-    const [note, setNote] = useState("");
-    const [isSavingNote, setIsSavingNote] = useState(false);
     const [lostOpen, setLostOpen] = useState(false);
     const [lockRequest, setLockRequest] = useState<StageLockRequest | null>(null);
+    const [scheduleOpen, setScheduleOpen] = useState(false);
+    const [activeCall, setActiveCall] = useState<CrmAppointment | null>(null);
+    const [phoneTab, setPhoneTab] = useState<PhoneTab>("chat");
+    const [tick, setTick] = useState(0);
+    const [now, setNow] = useState(() => new Date());
 
     usePageTitle(detail?.venue.name ?? "Lead");
+    // La testata la disegna la pagina (V5): niente PageHeader del guscio.
+    usePageHeader({});
 
     // Un errore di rete dopo un'azione non deve far sparire la scheda già
     // aperta: «non trovato» solo se la scheda non è mai arrivata.
     const loadedVenueRef = useRef<string | null>(null);
-    const load = useCallback(async () => {
+    const loadDetail = useCallback(async () => {
         try {
             const [data, members, settings] = await Promise.all([
                 getCrmVenue(venueId),
@@ -167,13 +127,60 @@ export default function LeadDetailPage() {
     }, [venueId]);
 
     useEffect(() => {
-        void load();
-    }, [load]);
+        void loadDetail();
+    }, [loadDetail]);
+
+    // Cambiando lead si riparte dalla chat; «Sposta» dall'Agenda arriva con
+    // ?telefonata=sposta e apre la telefonata (al telefono la sua scheda).
+    const moveCall = params.get("telefonata") === "sposta";
+    useEffect(() => {
+        setPhoneTab(moveCall ? "telefonata" : "chat");
+        setScheduleOpen(moveCall);
+        setActiveCall(null);
+    }, [venueId, moveCall]);
+
+    const reload = useCallback(async () => {
+        await loadDetail();
+        setTick(t => t + 1);
+        setNow(new Date());
+    }, [loadDetail]);
+
+    const key = `${venueId}:${tick}`;
+    const messages = useCrmLoad(() => listCrmMessages(venueId), key);
+    const nextStep = useCrmLoad(() => getCrmNextStep(venueId), key);
+    const drafts = useCrmLoad(() => listCrmAgentDraftsOpenOrSince(romeTodayStart(new Date())), tick);
+    const venues = useCrmLoad(() => listCrmVenues(), tick);
+    const appointments = useCrmLoad(() => listCrmAppointmentsCreatedSince(new Date(Date.now() - 90 * DAY_MS).toISOString()), tick);
 
     const teamName = useCallback(
-        (userId: string | null) =>
-            userId ? team.find(m => m.user_id === userId)?.display_name ?? "—" : "Nessuno",
+        (id: string | null) => (id ? (team.find(m => m.user_id === id)?.display_name ?? "—") : "Nessuno"),
         [team]
+    );
+    const nameOrNull = useCallback((id: string | null) => (id ? (team.find(m => m.user_id === id)?.display_name ?? null) : null), [team]);
+
+    const waits = useMemo(
+        () => venueWaits({ drafts: drafts.data ?? [], venues: venues.data ?? [], now }),
+        [drafts.data, venues.data, now]
+    );
+    const next = useMemo(() => nextAppointments(appointments.data ?? [], now), [appointments.data, now]);
+    const draft = useMemo(
+        () => (drafts.data ?? []).find(d => d.venue_id === venueId && d.status === "pending") ?? null,
+        [drafts.data, venueId]
+    );
+    const labelOf = useCallback((type: keyof typeof CRM_EVENT_LABEL) => CRM_EVENT_LABEL[type], []);
+    const items = useMemo(
+        () => (messages.data && detail ? chatItems(messages.data, detail.events, teamName, labelOf) : null),
+        [messages.data, detail, teamName, labelOf]
+    );
+
+    const viewSuffix = view === "da-lavorare" ? "" : `?vista=${view}`;
+    const hrefOf = useCallback((id: string) => `/admin/lead/${id}${viewSuffix}`, [viewSuffix]);
+    const viewHref = useCallback(
+        (v: LeadView) => {
+            const target = (venues.data ?? []).length > 0 ? `/admin/lead/${venueId}` : "/admin/lead";
+            return v === "da-lavorare" ? target : `${target}?vista=${v}`;
+        },
+        [venues.data, venueId]
     );
 
     const handleStageChange = useCallback(
@@ -190,8 +197,8 @@ export default function LeadDetailPage() {
             setIsBusy(true);
             setActionError(null);
             try {
-                await moveCrmStage(detail.venue.id, stage);
-                await load();
+                await moveCrmStage(detail.venue.id, stage, undefined, detail.venue.stage);
+                await reload();
                 showToast({ message: `Spostato in ${CRM_STAGE_LABEL[stage]}.`, type: "success" });
             } catch (err) {
                 setActionError(crmErrorMessage(err));
@@ -199,157 +206,55 @@ export default function LeadDetailPage() {
                 setIsBusy(false);
             }
         },
-        [detail, load, showToast]
+        [detail, reload, showToast]
     );
 
-    const handleLostMoved = useCallback(async () => {
-        await load();
-        showToast({ message: "Spostato in Perso.", type: "success" });
-    }, [load, showToast]);
-
-    const handleUnlock = useCallback(async () => {
-        if (!detail) return;
+    async function runAction(action: () => Promise<unknown>, message: string, toError = crmErrorMessage) {
         setIsBusy(true);
         setActionError(null);
         try {
-            await unlockCrmStage(detail.venue.id);
-            await load();
-            showToast({ message: "Fase sbloccata: segue di nuovo l'abbonamento.", type: "success" });
+            await action();
+            await reload();
+            showToast({ message, type: "success" });
         } catch (err) {
-            setActionError(crmErrorMessage(err));
+            setActionError(toError(err));
         } finally {
             setIsBusy(false);
         }
-    }, [detail, load, showToast]);
+    }
 
-    const handleAssign = useCallback(
-        async (userId: string) => {
-            if (!detail || !userId) return;
-            setIsBusy(true);
-            setActionError(null);
-            try {
-                await assignCrmVenue(detail.venue.id, userId);
-                await load();
-                showToast({ message: `Assegnato a ${teamName(userId)}.`, type: "success" });
-            } catch (err) {
-                setActionError(crmErrorMessage(err));
-            } finally {
-                setIsBusy(false);
-            }
-        },
-        [detail, load, showToast, teamName]
-    );
+    const contact: CrmContact | undefined = detail?.contacts.find(c => c.phone_e164) ?? detail?.contacts[0];
+    const stopped = detail?.venue.stage === "perso" && detail.venue.lost_kind === "stop";
+    const canWrite = Boolean(contact?.phone_e164) && !stopped;
 
-    function handleWhatsapp(contact: CrmContact) {
-        if (!detail || !contact.phone_e164) return;
+    /** Apre WhatsApp col testo (o col messaggio di partenza) e lo segna nella storia. */
+    function openWhatsapp(text?: string) {
+        if (!detail || !contact?.phone_e164) return;
         // Prima la finestra (gesto dell'utente), poi la registrazione.
-        window.open(
-            crmWhatsappLink(contact.phone_e164, whatsappTemplate, {
-                contactName: contact.name,
-                venueName: detail.venue.name_pending ? null : detail.venue.name,
-                senderName: crmSenderName(team, user?.id)
-            }),
-            "_blank",
-            "noopener"
-        );
+        const url = text
+            ? whatsappUrl(contact.phone_e164, text)
+            : crmWhatsappLink(contact.phone_e164, whatsappTemplate, {
+                  contactName: contact.name,
+                  venueName: detail.venue.name_pending ? null : detail.venue.name,
+                  senderName: crmSenderName(team, userId)
+              });
+        window.open(url, "_blank", "noopener");
         setActionError(null);
         void logCrmWhatsappOpened(detail.venue.id, detail.leads[0]?.id ?? null)
-            .then(() => load())
+            .then(() => reload())
             .catch(err => setActionError(crmErrorMessage(err)));
     }
-
-    async function handleAddNote() {
-        if (!detail || !note.trim()) return;
-        setIsSavingNote(true);
-        setActionError(null);
-        try {
-            await addCrmNote(detail.venue.id, note.trim());
-            setNote("");
-            await load();
-        } catch (err) {
-            setActionError(crmErrorMessage(err));
-        } finally {
-            setIsSavingNote(false);
-        }
-    }
-
-    const assigneeOptions = useMemo(
-        () => [
-            ...(detail?.venue.assigned_to ? [] : [{ value: "", label: "Nessuno" }]),
-            ...team.map(m => ({ value: m.user_id, label: m.display_name }))
-        ],
-        [team, detail?.venue.assigned_to]
-    );
-
-    const venue = detail?.venue;
-
-    const headerActions = useMemo(
-        () =>
-            venue ? (
-                <div className={styles.headerActions}>
-                    <Select
-                        value={venue.assigned_to ?? ""}
-                        onChange={e => void handleAssign(e.target.value)}
-                        options={assigneeOptions}
-                        disabled={isBusy || team.length === 0}
-                        aria-label="Assegnato a"
-                    />
-                    <Select
-                        value={venue.stage}
-                        onChange={e => void handleStageChange(e.target.value as CrmStage)}
-                        options={STAGE_OPTIONS}
-                        disabled={isBusy}
-                        aria-label="Fase"
-                    />
-                </div>
-            ) : undefined,
-        [venue, assigneeOptions, isBusy, team.length, handleAssign, handleStageChange]
-    );
-
-    const subtitle = useMemo(() => {
-        if (!venue) return undefined;
-        return [
-            venue.city,
-            `Assegnato a ${teamName(venue.assigned_to)}`,
-            `Entrato il ${formatDateTimeIt(venue.created_at)}`
-        ]
-            .filter(Boolean)
-            .join(" · ");
-    }, [venue, teamName]);
-
-    const headerCompact = useMemo<PageHeaderCompactConfig>(
-        () => ({
-            backAction: { label: "Lead", onClick: () => navigate("..") },
-            statusControl: venue
-                ? {
-                      options: STAGE_OPTIONS,
-                      value: venue.stage,
-                      onChange: value => void handleStageChange(value as CrmStage),
-                      label: "Fase",
-                      disabled: isBusy
-                  }
-                : undefined
-        }),
-        [navigate, venue, isBusy, handleStageChange]
-    );
-
-    usePageHeader({
-        title: venue?.name ?? "Lead",
-        subtitle,
-        actions: headerActions,
-        compact: headerCompact
-    });
 
     if (isLoading) return <LoadingState message="Caricamento lead…" />;
 
     if (notFound || !detail) {
         return (
-            <div className={styles.page}>
+            <div className={styles.missing}>
                 <Text variant="body" colorVariant="muted">
                     Questo lead non esiste più.
                 </Text>
                 <div>
-                    <Button variant="secondary" onClick={() => navigate("..")}>
+                    <Button variant="secondary" onClick={() => navigate("/admin/lead")}>
                         Torna ai lead
                     </Button>
                 </div>
@@ -357,211 +262,328 @@ export default function LeadDetailPage() {
         );
     }
 
-    const { contacts, leads, events } = detail;
-    const stopped = detail.venue.stage === "perso" && detail.venue.lost_kind === "stop";
-    const accountLabel = crmAccountLabel(detail.venue);
-    const verifyLead = detail.venue.name_pending ? null : leadToVerify(leads, events);
+    const { venue, contacts, leads, events } = detail;
+    const held = Boolean(venue.agent_hold_at);
+    const lost = venue.stage === "perso";
+    const verifyLead = venue.name_pending ? null : leadToVerify(leads, events);
+    const owner = nameOrNull(venue.assigned_to);
+    const viewLabel = LEAD_VIEWS.find(m => m.view === view)?.label ?? "Da lavorare";
+    const brief = leadBrief({
+        venue,
+        leads,
+        messages: messages.data ?? [],
+        draft,
+        nextStep: nextStep.data ?? null
+    });
 
-    return (
-        <div className={styles.page}>
-            {actionError && <InlineBanner variant="error">{actionError}</InlineBanner>}
-            {detail.venue.stage === "perso" && detail.venue.lost_kind && (
-                <Card
-                    title="Perso"
-                    badge={
-                        <StatusBadge
-                            variant={detail.venue.lost_kind === "stop" ? "danger" : "neutral"}
-                            label={CRM_LOST_KIND_LABEL[detail.venue.lost_kind]}
-                        />
-                    }
-                >
-                    <Text variant="body">{detail.venue.lost_reason}</Text>
-                </Card>
+    const moreMenu = (
+        <Menu
+            align="end"
+            trigger={<IconButton variant="outline" size="sm" icon={<MoreHorizontal size={18} />} aria-label="Altre azioni" disabled={isBusy} />}
+        >
+            <Menu.Item
+                onSelect={() =>
+                    void runAction(
+                        () => setCrmAgentHold(venue.id, !held),
+                        held ? "Ridato all'agente." : "Lo gestisci tu: l'agente non gli scrive più.",
+                        waErrorMessage
+                    )
+                }
+                description={held ? "L'agente torna a scrivergli." : "L'agente non gli scrive più."}
+            >
+                {held ? "Ridallo all'agente" : "Lo prendo io"}
+            </Menu.Item>
+            {canWrite && <Menu.Item onSelect={() => openWhatsapp()}>Apri WhatsApp</Menu.Item>}
+            {contact?.phone_e164 && <Menu.Item href={`tel:${contact.phone_e164}`}>Chiama {contact.phone_e164}</Menu.Item>}
+            {venue.stage_locked_at && (
+                <Menu.Item onSelect={() => void runAction(() => unlockCrmStage(venue.id), "Fase sbloccata: segue di nuovo l'abbonamento.")}>
+                    Sblocca la fase
+                </Menu.Item>
             )}
+            {isPhone && (
+                <>
+                    <Menu.Separator />
+                    <Menu.Label>Sposta in</Menu.Label>
+                    {CRM_STAGES.filter(s => s !== venue.stage && s !== "perso").map(s => (
+                        <Menu.Item key={s} onSelect={() => void handleStageChange(s)}>
+                            {CRM_STAGE_LABEL[s]}
+                        </Menu.Item>
+                    ))}
+                </>
+            )}
+            {!lost && (
+                <>
+                    <Menu.Separator />
+                    <Menu.Item variant="destructive" onSelect={() => setLostOpen(true)}>
+                        Segna come perso
+                    </Menu.Item>
+                </>
+            )}
+        </Menu>
+    );
 
-            {detail.venue.stage_locked_at && (
-                <Card
-                    title="Fase bloccata a mano"
-                    badge={<StatusBadge variant="warning" label={CRM_STAGE_LABEL[detail.venue.stage]} />}
-                    actions={
-                        <Button variant="secondary" size="sm" onClick={() => void handleUnlock()} disabled={isBusy}>
+    const notices = (
+        <>
+            {actionError && <InlineBanner variant="error">{actionError}</InlineBanner>}
+            {lost && venue.lost_kind && (
+                <InlineBanner variant={venue.lost_kind === "stop" ? "error" : "info"}>
+                    Perso, {CRM_LOST_KIND_LABEL[venue.lost_kind].toLowerCase()}: {venue.lost_reason}
+                </InlineBanner>
+            )}
+            {venue.stage_locked_at && (
+                <InlineBanner
+                    variant="warning"
+                    action={
+                        <Button variant="secondary" size="sm" onClick={() => void runAction(() => unlockCrmStage(venue.id), "Fase sbloccata: segue di nuovo l'abbonamento.")} disabled={isBusy}>
                             Sblocca
                         </Button>
                     }
                 >
-                    <Text variant="body">{detail.venue.stage_lock_note}</Text>
-                    <Text variant="caption" colorVariant="muted">
-                        {teamName(detail.venue.stage_locked_by)} · {formatDateTimeIt(detail.venue.stage_locked_at)}.
-                        Il job non sposta la carta; i cambi di abbonamento finiscono nella storia.
-                    </Text>
-                </Card>
+                    Fase bloccata a mano da {teamName(venue.stage_locked_by)}: {venue.stage_lock_note}
+                </InlineBanner>
             )}
+            {venue.name_pending && <VenueNameCard venue={venue} onSaved={reload} />}
+            {verifyLead && <VenueNameCheckCard venue={venue} lead={verifyLead} onChanged={reload} />}
+        </>
+    );
 
-            {detail.venue.name_pending && <VenueNameCard venue={detail.venue} onSaved={load} />}
+    const chat = (
+        <LeadChat
+            venueId={venue.id}
+            held={held}
+            items={items}
+            messagesError={messages.error}
+            draft={draft}
+            draftWait={draft ? waits.get(venue.id) : undefined}
+            now={now}
+            canWrite={canWrite}
+            phone={isPhone}
+            onWrite={text => openWhatsapp(text)}
+            onChanged={reload}
+        />
+    );
 
-            {verifyLead && <VenueNameCheckCard venue={detail.venue} lead={verifyLead} onChanged={load} />}
+    const callSection = (
+        <CallCard
+            flat
+            venueId={venue.id}
+            venueName={venue.name}
+            lost={lost}
+            team={team}
+            currentUserId={userId}
+            teamName={teamName}
+            onChanged={reload}
+            scheduleOpen={isPhone ? undefined : scheduleOpen}
+            onScheduleOpenChange={isPhone ? undefined : setScheduleOpen}
+            onActiveChange={setActiveCall}
+        />
+    );
 
-            <div className={styles.leadFrame}>
-                <div className={styles.leadLayout}>
-                    <LeadQueue currentVenueId={detail.venue.id} refreshKey={detail} />
-                    <div className={styles.leadMain}>
-                        <WhatsappConversationCard venue={detail.venue} teamName={teamName} onChanged={load} />
+    const facts = (
+        <>
+            <NextStepSection
+                venueId={venue.id}
+                step={nextStep.loading && nextStep.data === null ? undefined : nextStep.data}
+                loadError={nextStep.error}
+                team={team}
+                userId={userId}
+                teamName={teamName}
+                now={now}
+                onChanged={reload}
+            />
+            <ContactsSection contacts={contacts} leads={leads} />
+            <RequestsSection leads={leads} />
+            {!isPhone && callSection}
+            <AccountCard
+                flat
+                venueId={venue.id}
+                tenantId={venue.tenant_id}
+                linkSource={venue.link_source}
+                accountLabel={crmAccountLabel(venue)}
+                onChanged={reload}
+            />
+            <NotesSection venueId={venue.id} events={events} teamName={teamName} now={now} onChanged={reload} />
+        </>
+    );
 
-                        <CallCard
-                            venueId={detail.venue.id}
-                            venueName={detail.venue.name}
-                            lost={detail.venue.stage === "perso"}
-                            team={team}
-                            currentUserId={user?.id ?? null}
-                            teamName={teamName}
-                            onChanged={load}
-                        />
-
-                        <Card title="Storia" flush>
-                            <div className={styles.noteComposer}>
-                                <Textarea
-                                    label="Nuova nota"
-                                    rows={2}
-                                    maxLength={4000}
-                                    value={note}
-                                    onChange={e => setNote(e.target.value)}
-                                    disabled={isSavingNote}
-                                />
-                                <div className={styles.noteActions}>
-                                    <Button
-                                        variant="secondary"
-                                        size="sm"
-                                        onClick={() => void handleAddNote()}
-                                        loading={isSavingNote}
-                                        disabled={!note.trim()}
-                                    >
-                                        Aggiungi nota
-                                    </Button>
-                                </div>
-                            </div>
-                            {events.map(event => (
-                                <ListRow
-                                    key={event.id}
-                                    dense
-                                    title={CRM_EVENT_LABEL[event.type]}
-                                    subtitle={describeEvent(event, teamName) || undefined}
-                                    wrapSubtitle
-                                    meta={`${formatDateTimeIt(event.created_at)} · ${
-                                        event.actor_user_id ? teamName(event.actor_user_id) : "Sistema"
-                                    }`}
-                                />
-                            ))}
-                        </Card>
-
-                    </div>
-                    <aside className={styles.leadSide} aria-label="Dati del lead">
-                        <Card title="Contatti" flush>
-                            {/* Colonna stretta: nome e numero interi, i tasti sotto. */}
-                            {contacts.map(contact => (
-                                <div key={contact.id}>
-                                    <ListRow
-                                        title={contact.name}
-                                        subtitle={[contact.phone_e164, contact.email].filter(Boolean).join(" · ")}
-                                        wrapSubtitle
-                                    />
-                                    {contact.phone_e164 && (
-                                        <div className={`${styles.cardPadding} ${styles.contactActions}`}>
-                                            {!stopped && (
-                                                <Button
-                                                    variant="primary"
-                                                    size="sm"
-                                                    onClick={() => handleWhatsapp(contact)}
-                                                >
-                                                    Scrivi su WhatsApp
-                                                </Button>
-                                            )}
-                                            <Button
-                                                variant="secondary"
-                                                size="sm"
-                                                onClick={() => {
-                                                    window.location.href = `tel:${contact.phone_e164}`;
-                                                }}
-                                            >
-                                                Chiama
-                                            </Button>
-                                        </div>
-                                    )}
-                                </div>
-                            ))}
-                        </Card>
-
-                        <Card title={leads.length === 1 ? "Richiesta" : `Richieste (${leads.length})`}>
-                            <div className={styles.leadList}>
-                                {leads.map(lead => {
-                                    const answers = leadAnswerRows(lead);
-                                    return (
-                                        <div key={lead.id} className={styles.leadItem}>
-                                            <Text variant="body" weight={600}>
-                                                {CRM_SOURCE_LABEL[lead.source]} ·{" "}
-                                                {formatDateTimeIt(lead.received_at)}
-                                            </Text>
-                                            {(lead.ad_name || lead.campaign) && (
-                                                <Text variant="body-sm" colorVariant="muted">
-                                                    {[lead.ad_name, lead.campaign].filter(Boolean).join(" · ")}
-                                                </Text>
-                                            )}
-                                            {answers.length > 0 && (
-                                                <dl className={styles.answers}>
-                                                    {answers.map(row => (
-                                                        <div key={row.label} className={styles.answerRow}>
-                                                            <dt>
-                                                                <Text variant="caption" colorVariant="muted">
-                                                                    {row.label}
-                                                                </Text>
-                                                            </dt>
-                                                            <dd>
-                                                                <Text variant="body-sm">{row.value}</Text>
-                                                            </dd>
-                                                        </div>
-                                                    ))}
-                                                </dl>
-                                            )}
-                                            {lead.consent_text && (
-                                                <Text variant="caption" colorVariant="muted">
-                                                    Consenso: {lead.consent_text}
-                                                    {lead.consent_at ? ` (${formatDateTimeIt(lead.consent_at)})` : ""}
-                                                </Text>
-                                            )}
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </Card>
-
-                        <AccountCard
-                            venueId={detail.venue.id}
-                            tenantId={detail.venue.tenant_id}
-                            linkSource={detail.venue.link_source}
-                            accountLabel={accountLabel}
-                            onChanged={load}
-                        />
-
-                    </aside>
-                </div>
-            </div>
-
+    const dialogs = (
+        <>
             <StageLockDialog
                 request={lockRequest}
                 onClose={() => setLockRequest(null)}
                 onMoved={async request => {
-                    await load();
-                    showToast({
-                        message: `Spostato in ${CRM_STAGE_LABEL[request.stage]}, fase bloccata a mano.`,
-                        type: "success"
-                    });
+                    await reload();
+                    showToast({ message: `Spostato in ${CRM_STAGE_LABEL[request.stage]}, fase bloccata a mano.`, type: "success" });
                 }}
             />
-
             <LostStageDialog
-                venueId={lostOpen ? detail.venue.id : null}
+                venueId={lostOpen ? venue.id : null}
                 onClose={() => setLostOpen(false)}
-                onMoved={handleLostMoved}
+                onMoved={async () => {
+                    await reload();
+                    showToast({ message: "Spostato in Perso.", type: "success" });
+                }}
             />
+        </>
+    );
+
+    if (isPhone) {
+        return (
+            <div className={styles.phone}>
+                <header className={styles.phoneHead}>
+                    <Link to={`/admin/lead${viewSuffix}`} className={styles.back} aria-label="Torna ai lead">
+                        <ChevronLeft size={22} aria-hidden="true" />
+                    </Link>
+                    <div className={styles.phoneTitle}>
+                        <Text as="h1" variant="title-sm" weight={700} className={styles.ellipsis}>
+                            {venue.name}
+                        </Text>
+                        <Text as="p" variant="caption" colorVariant="muted" className={styles.ellipsis}>
+                            {[CRM_STAGE_LABEL[venue.stage], owner].filter(Boolean).join(" · ")}
+                        </Text>
+                    </div>
+                    {contact?.phone_e164 && (
+                        <IconButton
+                            variant="outline"
+                            size="sm"
+                            icon={<Phone size={16} />}
+                            aria-label={`Chiama ${contact.phone_e164}`}
+                            onClick={() => {
+                                window.location.href = `tel:${contact.phone_e164}`;
+                            }}
+                        />
+                    )}
+                    {moreMenu}
+                </header>
+                <Tabs<PhoneTab> value={phoneTab} onChange={setPhoneTab} variant="line">
+                    <div className={styles.phoneTabs}>
+                        <Tabs.List aria-label="Scheda del lead">
+                            <Tabs.Tab value="chat">Chat</Tabs.Tab>
+                            <Tabs.Tab value="dati">Dati</Tabs.Tab>
+                            <Tabs.Tab value="telefonata">Telefonata</Tabs.Tab>
+                            <Tabs.Tab value="storia">Storia</Tabs.Tab>
+                        </Tabs.List>
+                    </div>
+                    {phoneTab === "chat" ? (
+                        <div className={styles.phoneChat}>
+                            {(actionError || lost || venue.stage_locked_at || venue.name_pending || verifyLead) && (
+                                <div className={styles.phoneNotices}>{notices}</div>
+                            )}
+                            {chat}
+                        </div>
+                    ) : (
+                        <div className={styles.phoneBody}>
+                            {phoneTab === "dati" && facts}
+                            {phoneTab === "telefonata" && callSection}
+                            {phoneTab === "storia" && <History events={events} teamName={teamName} />}
+                        </div>
+                    )}
+                </Tabs>
+                {dialogs}
+            </div>
+        );
+    }
+
+    return (
+        <div className={styles.frame}>
+            <LeadDetailList
+                currentVenueId={venue.id}
+                view={view}
+                venues={venues.data}
+                waits={waits}
+                next={next}
+                userId={userId}
+                now={now}
+                hrefOf={hrefOf}
+                viewHref={viewHref}
+            />
+
+            <section className={styles.center} aria-labelledby="lead-name">
+                <header className={styles.head}>
+                    <nav className={styles.crumbs} aria-label="Percorso">
+                        <Text as="span" variant="caption" colorVariant="muted">
+                            <Link to="/admin/lead" className={styles.crumbLink}>
+                                ‹ Lead
+                            </Link>
+                            {" / "}
+                            <Link to={`/admin/lead${viewSuffix}`} className={styles.crumbLink}>
+                                {viewLabel}
+                            </Link>
+                            {" / "}
+                            {venue.name}
+                        </Text>
+                    </nav>
+                    <div className={styles.titleRow}>
+                        <Text as="h1" id="lead-name" variant="title-md" weight={700} className={styles.ellipsis}>
+                            {venue.name}
+                        </Text>
+                        <Menu
+                            trigger={
+                                <button type="button" className={styles.stagePill} data-variant={CRM_STAGE_VARIANT[venue.stage]} disabled={isBusy}>
+                                    <Text as="span" variant="caption" weight={600} color="inherit">
+                                        {CRM_STAGE_LABEL[venue.stage]}
+                                    </Text>
+                                    <ChevronDown size={12} aria-hidden="true" />
+                                </button>
+                            }
+                        >
+                            <Menu.Label>Sposta in</Menu.Label>
+                            {CRM_STAGES.filter(s => s !== venue.stage).map(s => (
+                                <Menu.Item key={s} variant={s === "perso" ? "destructive" : "default"} onSelect={() => void handleStageChange(s)}>
+                                    {CRM_STAGE_LABEL[s]}
+                                </Menu.Item>
+                            ))}
+                        </Menu>
+                        <Menu
+                            trigger={
+                                <button type="button" className={styles.ownerButton} disabled={isBusy || team.length === 0}>
+                                    <Text as="span" variant="caption" color="inherit">
+                                        {owner ? `segue ${owner}` : "nessuno lo segue"}
+                                    </Text>
+                                </button>
+                            }
+                        >
+                            <Menu.Label>Lo segue</Menu.Label>
+                            {team.map(m => (
+                                <Menu.Item
+                                    key={m.user_id}
+                                    disabled={m.user_id === venue.assigned_to}
+                                    onSelect={() => void runAction(() => assignCrmVenue(venue.id, m.user_id), `Assegnato a ${m.display_name}.`)}
+                                >
+                                    {m.display_name}
+                                </Menu.Item>
+                            ))}
+                        </Menu>
+                        {held && <StatusBadge variant="warning" label="Lo gestite voi" />}
+                        <span className={styles.titleActions}>
+                            {!lost && (
+                                <Button variant="secondary" size="sm" onClick={() => setScheduleOpen(true)}>
+                                    {activeCall ? "Sposta telefonata" : "Fissa telefonata"}
+                                </Button>
+                            )}
+                            {moreMenu}
+                        </span>
+                    </div>
+                    <div className={styles.brief}>
+                        <Text as="span" variant="caption-xs" weight={700} className={styles.briefLabel}>
+                            In breve
+                        </Text>
+                        <Text as="p" variant="body-sm" className={styles.briefText}>
+                            {brief}
+                        </Text>
+                        <Text as="span" variant="caption" colorVariant="muted" className={styles.briefSource}>
+                            dai dati del lead
+                        </Text>
+                    </div>
+                    {notices}
+                </header>
+                {chat}
+            </section>
+
+            <aside className={styles.side} aria-label="Dati del lead">
+                {facts}
+            </aside>
+            {dialogs}
         </div>
     );
 }

@@ -185,11 +185,9 @@ function SeatLimitOfferBlock({
         );
     }
 
-    const prorata = `${formatCurrency(offer.listPriceCents / 100)} di listino, meno lo sconto volume del ${offer.volumeDiscountPercent} %. ${
-        renewalDateLabel
-            ? `Addebitati subito in proporzione ai giorni che restano fino al ${renewalDateLabel}.`
-            : "Addebitati subito in proporzione ai giorni che restano del periodo."
-    }`;
+    const prorata = renewalDateLabel
+        ? `Addebitati subito in proporzione ai giorni che restano fino al ${renewalDateLabel}.`
+        : "Addebitati subito in proporzione ai giorni che restano del periodo.";
 
     return (
         <OfferBlock

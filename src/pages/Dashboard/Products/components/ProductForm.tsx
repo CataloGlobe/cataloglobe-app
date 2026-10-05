@@ -416,6 +416,7 @@ export function ProductForm({
                     isGenerating={ai.isGenerating}
                     canGenerate={ai.canGenerate}
                     onGenerate={ai.generate}
+                    quota={businessOutlet?.aiUsage}
                 >
                     <Textarea
                         value={description}

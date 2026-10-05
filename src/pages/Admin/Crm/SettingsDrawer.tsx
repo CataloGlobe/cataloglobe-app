@@ -20,6 +20,7 @@ import {
     updateCrmSettings
 } from "@/services/supabase/crm";
 import type { CrmTeamMember } from "@/types/crm";
+import { crmShortcutLabel, setCrmShortcutsOn, useCrmShortcutsOn } from "@/utils/crm/crmShortcuts";
 import { DEFAULT_WHATSAPP_TEMPLATE } from "@shared/crmWhatsapp";
 import styles from "./Crm.module.scss";
 
@@ -35,6 +36,8 @@ import styles from "./Crm.module.scss";
  *
  * Il messaggio WhatsApp lo manda Alex a mano: parla come Alessandro di
  * CataloGlobe, non come Gea (decisione 2026-10-01).
+ *
+ * «Scorciatoie da tastiera» vale solo su questo computer (`crmShortcuts.ts`).
  */
 
 type Props = {
@@ -56,6 +59,7 @@ export function SettingsDrawer({ open, onClose, onChanged }: Props) {
     const [savedTemplate, setSavedTemplate] = useState("");
     const [error, setError] = useState<string | null>(null);
     const [isBusy, setIsBusy] = useState(false);
+    const shortcutsOn = useCrmShortcutsOn();
 
     // resetDrafts solo all'apertura: dopo un'azione (un interruttore,
     // l'assegnatario) i testi in modifica e non salvati restano.
@@ -224,6 +228,13 @@ export function SettingsDrawer({ open, onClose, onChanged }: Props) {
                             </Button>
                         </div>
                     </div>
+
+                    <Switch
+                        label="Scorciatoie da tastiera"
+                        description={`Nella scheda di un lead: ${crmShortcutLabel("j")} e ${crmShortcutLabel("k")} per passare al prossimo, ${crmShortcutLabel("i")} per inviare la bozza, ${crmShortcutLabel("m")} per modificarla. Vale solo su questo computer: spegnile dove detti.`}
+                        checked={shortcutsOn}
+                        onChange={setCrmShortcutsOn}
+                    />
 
                     {team.length > 0 && (
                         <>

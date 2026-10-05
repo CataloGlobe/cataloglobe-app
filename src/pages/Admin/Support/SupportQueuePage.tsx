@@ -1,20 +1,29 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { LifeBuoy } from "lucide-react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { ChevronRight, LifeBuoy } from "lucide-react";
+import { ChipGroupSingle, type ChipOption } from "@/components/ui/Chip/ChipGroup";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { LoadingState } from "@/components/ui/LoadingState/LoadingState";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
-import { Select } from "@/components/ui/Select/Select";
+import Text from "@/components/ui/Text/Text";
 import { usePageHeader } from "@/context/usePageHeader";
-import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { listAllTickets } from "@/services/supabase/support";
 import { formatDateTimeIt } from "@/utils/formatDateTime";
-import type { SupportTicketStatus, V2SupportTicketWithContext } from "@/types/support";
+import { relativeAgo } from "@/utils/crm/crmHome";
 import {
-    SUPPORT_STATUS_LABEL,
-    SUPPORT_STATUS_VARIANT
-} from "@/pages/Dashboard/Support/supportLabels";
+    DEFAULT_SUPPORT_FILTER,
+    SUPPORT_QUEUE_FILTERS,
+    groupSupportQueue,
+    matchesSupportFilter,
+    supportFilterCounts,
+    supportFilterFrom,
+    supportWaitIsLate,
+    waitsForUs,
+    type SupportQueueFilter
+} from "@/utils/supportQueue";
+import type { V2SupportTicketWithContext } from "@/types/support";
+import { SUPPORT_STATUS_LABEL, SUPPORT_STATUS_VARIANT } from "@/pages/Dashboard/Support/supportLabels";
 import styles from "./SupportQueuePage.module.scss";
 
 /**
@@ -26,25 +35,32 @@ import styles from "./SupportQueuePage.module.scss";
  * diverse: "cosa è successo di recente" contro "chi non ha ancora ricevuto
  * risposta".
  *
- * I chiusi sono nascosti di default: sono conversazioni finite, e tenerli in
- * coda diluisce il lavoro da fare. Restano raggiungibili dal filtro.
+ * Si scarica tutto una volta e si filtra qui (ritocco R5): i chip dicono quante
+ * richieste ci sono in ogni vista, e una coda di supporto non ha i volumi per
+ * cui valga la pena filtrare sul server. Le chiuse sono fuori dalla vista di
+ * partenza, «Da gestire», e restano nel loro chip.
  *
- * ── L'evidenza sulle righe in attesa ────────────────────────────────────────
- * `last_message_kind === 'customer'` significa che l'ultima parola è del
- * cliente: quelle righe aspettano una risposta ed è l'informazione più utile
- * della pagina. Lo stato da solo non basta a dirlo — un ticket può essere
+ * ── Chi aspetta chi ─────────────────────────────────────────────────────────
+ * `last_message_kind === 'customer'` su una richiesta non chiusa: l'ultima
+ * parola è del cliente e tocca a voi. Quelle righe stanno nel gruppo
+ * «Aspettano voi», in cima, col pallino; oltre `SUPPORT_LATE_HOURS` l'attesa si
+ * legge in arancione. Lo stato da solo non basta a dirlo — un ticket può essere
  * `in_progress` con l'ultima parola già nostra.
  */
 
-type StatusFilter = SupportTicketStatus | "all" | "open_only";
+/** «da 6 ore», «da ieri»; «adesso» resta com'è. */
+function waitLabel(iso: string, now: Date): string {
+    const ago = relativeAgo(iso, now);
+    return ago === "adesso" ? ago : `da ${ago}`;
+}
 
-const FILTER_OPTIONS = [
-    { value: "open_only", label: "Da gestire (nasconde le chiuse)" },
-    { value: "open", label: "Solo aperte" },
-    { value: "in_progress", label: "Solo in lavorazione" },
-    { value: "closed", label: "Solo chiuse" },
-    { value: "all", label: "Tutte" }
-];
+function lastLine(ticket: V2SupportTicketWithContext): string {
+    const when = formatDateTimeIt(ticket.last_message_at);
+    if (ticket.status === "closed") return `chiusa, ultimo messaggio ${when}`;
+    if (ticket.last_message_kind === "customer") return `ultimo messaggio del cliente, ${when}`;
+    if (ticket.last_message_kind === "platform") return `avete risposto voi, ${when}`;
+    return when;
+}
 
 export default function SupportQueuePage() {
     usePageTitle("Supporto");
@@ -53,82 +69,71 @@ export default function SupportQueuePage() {
     const [tickets, setTickets] = useState<V2SupportTicketWithContext[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [loadError, setLoadError] = useState<string | null>(null);
-    const [filter, setFilter] = useState<StatusFilter>("open_only");
+    // Il filtro sta nell'indirizzo: la richiesta aperta lo tiene e «‹ Supporto»
+    // torna qui con lo stesso.
+    const [searchParams, setSearchParams] = useSearchParams();
+    const filter = supportFilterFrom(searchParams.get("filtro"));
+    const setFilter = useCallback(
+        (next: SupportQueueFilter) =>
+            setSearchParams(
+                prev => {
+                    const params = new URLSearchParams(prev);
+                    if (next === DEFAULT_SUPPORT_FILTER) params.delete("filtro");
+                    else params.set("filtro", next);
+                    return params;
+                },
+                { replace: true }
+            ),
+        [setSearchParams]
+    );
+    // Un orologio per caricamento: le attese restano coerenti fra loro.
+    const [now, setNow] = useState(() => new Date());
 
     const load = useCallback(async () => {
         setIsLoading(true);
         setLoadError(null);
         try {
-            // "open_only" non è un valore di `status`: è l'assenza di 'closed'.
-            // Si scarica tutto e si filtra qui — il filtro server-side accetta
-            // un solo stato, e una coda di supporto non ha i volumi per cui
-            // valga la pena complicare il service.
-            const rows = await listAllTickets(
-                filter === "all" || filter === "open_only" ? undefined : { status: filter }
-            );
-            setTickets(
-                filter === "open_only" ? rows.filter(t => t.status !== "closed") : rows
-            );
+            setTickets(await listAllTickets());
+            setNow(new Date());
         } catch (err) {
             setLoadError(err instanceof Error ? err.message : String(err));
         } finally {
             setIsLoading(false);
         }
-    }, [filter]);
+    }, []);
 
     useEffect(() => {
         void load();
     }, [load]);
 
-    const waitingCount = useMemo(
-        () => tickets.filter(t => t.last_message_kind === "customer").length,
-        [tickets]
+    const counts = useMemo(() => supportFilterCounts(tickets), [tickets]);
+    const groups = useMemo(
+        () => groupSupportQueue(tickets.filter(t => matchesSupportFilter(t, filter)), filter),
+        [tickets, filter]
     );
 
-    // MEMOIZZATO: usePageHeader confronta `actions` per reference, e un nodo
-    // JSX inline scatena un loop di setConfig che blocca l'area /admin.
-    const headerActions = useMemo(
-        () => (
-            <Select
-                value={filter}
-                onChange={e => setFilter(e.target.value as StatusFilter)}
-                options={FILTER_OPTIONS}
-                aria-label="Filtra per stato"
-                containerClassName={styles.toolbarFilter}
-                selectClassName={styles.toolbarFilterSelect}
-            />
-        ),
-        [filter]
+    const chipOptions = useMemo<ChipOption<SupportQueueFilter>[]>(
+        () =>
+            SUPPORT_QUEUE_FILTERS.map(f => ({
+                value: f.value,
+                label: f.label,
+                count: counts[f.value],
+                tone:
+                    (f.value === "aspettano_voi" && counts.aspettano_voi > 0) || (f.value === "non_gestite" && counts.non_gestite > 0)
+                        ? "warning"
+                        : undefined
+            })),
+        [counts]
     );
 
     const subtitle = useMemo(() => {
         if (isLoading) return undefined;
-        if (waitingCount === 0) return "Nessuna richiesta in attesa di risposta.";
-        return waitingCount === 1
-            ? "1 richiesta aspetta una risposta."
-            : `${waitingCount} richieste aspettano una risposta.`;
-    }, [isLoading, waitingCount]);
+        const n = counts.aspettano_voi;
+        if (n === 0) return "Nessuna richiesta aspetta una vostra risposta.";
+        return n === 1 ? "1 richiesta aspetta una vostra risposta." : `${n} richieste aspettano una vostra risposta.`;
+    }, [isLoading, counts.aspettano_voi]);
 
-    // Unico controllo della pagina, e non è un'azione: prende il posto del
-    // picker sezione come su Analitiche e Recensioni. Nessuna primaria: la coda
-    // si guarda, non ci si crea nulla.
-    const headerCompact = useMemo<PageHeaderCompactConfig>(() => ({
-        leadingFilter: {
-            label: "Stato",
-            options: FILTER_OPTIONS,
-            value: filter,
-            // Default della coda, non "nessun filtro": è come si apre la pagina.
-            defaultValue: "open_only",
-            onChange: value => setFilter(value as StatusFilter)
-        }
-    }), [filter]);
-
-    usePageHeader({
-        title: "Supporto",
-        subtitle,
-        actions: headerActions,
-        compact: headerCompact
-    });
+    usePageHeader({ title: "Supporto", subtitle });
 
     if (isLoading) {
         return <LoadingState message="Caricamento coda…" />;
@@ -144,57 +149,90 @@ export default function SupportQueuePage() {
         );
     }
 
-    if (tickets.length === 0) {
-        return (
-            <EmptyState
-                icon={<LifeBuoy size={40} strokeWidth={1.5} />}
-                title="Nessuna richiesta"
-                description={
-                    filter === "open_only"
-                        ? "Nessuna richiesta aperta. Le chiuse restano nel filtro."
-                        : "Nessuna richiesta con questo filtro."
-                }
-            />
-        );
-    }
-
     return (
-        <ul className={styles.list}>
-            {tickets.map(ticket => {
-                const waiting = ticket.last_message_kind === "customer";
-                return (
-                    <li key={ticket.id}>
-                        <button
-                            type="button"
-                            className={styles.row}
-                            data-waiting={waiting || undefined}
-                            onClick={() => navigate(ticket.id)}
-                        >
-                            <span className={styles.rowMain}>
-                                <span className={styles.subject}>{ticket.subject}</span>
-                                <span className={styles.meta}>
-                                    {/* `null` quando l'embed non risolve: non
-                                        distinguibile da "azienda cancellata". */}
-                                    {ticket.tenants?.name ?? "Azienda sconosciuta"}
-                                    {ticket.activities?.name
-                                        ? ` · ${ticket.activities.name}`
-                                        : ""}
-                                    {` · ${formatDateTimeIt(ticket.last_message_at)}`}
-                                </span>
-                            </span>
+        <div className={styles.page}>
+            <ChipGroupSingle options={chipOptions} value={filter} onChange={setFilter} ariaLabel="Filtra le richieste" layout="auto" />
 
-                            {waiting && (
-                                <span className={styles.waitingTag}>In attesa</span>
-                            )}
-
-                            <StatusBadge
-                                variant={SUPPORT_STATUS_VARIANT[ticket.status]}
-                                label={SUPPORT_STATUS_LABEL[ticket.status]}
-                            />
-                        </button>
-                    </li>
-                );
-            })}
-        </ul>
+            {groups.length === 0 ? (
+                <EmptyState
+                    icon={<LifeBuoy size={40} strokeWidth={1.5} />}
+                    title="Nessuna richiesta"
+                    description={
+                        filter === "da_gestire"
+                            ? "Nessuna richiesta aperta. Le chiuse restano nel loro filtro."
+                            : "Nessuna richiesta con questo filtro."
+                    }
+                />
+            ) : (
+                <div className={styles.panel}>
+                    {groups.map(group => (
+                        <section key={group.title} aria-label={group.title}>
+                            <h2 className={styles.groupHead}>
+                                <Text as="span" variant="caption" weight={600} colorVariant="muted">
+                                    {group.title}
+                                </Text>
+                                <Text as="span" variant="caption" colorVariant="muted">
+                                    · {group.tickets.length}
+                                </Text>
+                            </h2>
+                            <ul className={styles.list}>
+                                {group.tickets.map(ticket => {
+                                    const ours = waitsForUs(ticket);
+                                    const late = supportWaitIsLate(ticket, now);
+                                    return (
+                                        <li key={ticket.id}>
+                                            <button
+                                                type="button"
+                                                className={styles.row}
+                                                data-ours={ours || undefined}
+                                                onClick={() =>
+                                                    navigate(filter === DEFAULT_SUPPORT_FILTER ? ticket.id : `${ticket.id}?filtro=${filter}`)
+                                                }
+                                            >
+                                                <span className={styles.flag} aria-hidden="true" />
+                                                <span className={styles.main}>
+                                                    <Text as="span" variant="body-sm" weight={600} className={styles.ellipsis}>
+                                                        {ticket.subject}
+                                                    </Text>
+                                                    <Text as="span" variant="caption" colorVariant="muted" className={styles.ellipsis}>
+                                                        {lastLine(ticket)}
+                                                    </Text>
+                                                </span>
+                                                <span className={styles.who}>
+                                                    {/* `null` quando l'embed non risolve: non
+                                                        distinguibile da "azienda cancellata". */}
+                                                    <Text as="span" variant="body-sm" className={styles.ellipsis}>
+                                                        {ticket.tenants?.name ?? "Azienda sconosciuta"}
+                                                    </Text>
+                                                    <Text as="span" variant="caption" colorVariant="muted" className={styles.ellipsis}>
+                                                        {ticket.activities?.name ?? "tutta l'azienda"}
+                                                    </Text>
+                                                </span>
+                                                <Text
+                                                    as="span"
+                                                    variant="body-sm"
+                                                    weight={late ? 600 : undefined}
+                                                    colorVariant={late ? "warning" : ours ? "default" : "muted"}
+                                                    className={styles.wait}
+                                                >
+                                                    {ticket.status === "closed" ? "chiusa" : waitLabel(ticket.last_message_at, now)}
+                                                </Text>
+                                                <span className={styles.badge}>
+                                                    <StatusBadge
+                                                        variant={SUPPORT_STATUS_VARIANT[ticket.status]}
+                                                        label={SUPPORT_STATUS_LABEL[ticket.status]}
+                                                    />
+                                                </span>
+                                                <ChevronRight size={16} className={styles.chevron} aria-hidden="true" />
+                                            </button>
+                                        </li>
+                                    );
+                                })}
+                            </ul>
+                        </section>
+                    ))}
+                </div>
+            )}
+        </div>
     );
 }

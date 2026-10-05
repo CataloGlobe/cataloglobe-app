@@ -1,0 +1,386 @@
+// Agenda (canvas T8c, versione finale del 2026-10-05).
+// Solo token di _theme.scss; la tipografia la porta il componente Text.
+
+.page {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-16);
+}
+
+/* ===== Vista giorno (R3): la giornata, a destra «Com'è andata?» e domani ===== */
+.dayLayout {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-16);
+    max-width: 1100px;
+
+    @media (min-width: 1200px) {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 320px;
+        align-items: start;
+    }
+}
+
+.dayMain {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-16);
+    min-width: 0;
+}
+
+// Stretta: sopra la giornata, come prima. Larga: la colonna a destra.
+.dayAside {
+    order: -1;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-12);
+    min-width: 0;
+
+    &:empty {
+        display: none;
+    }
+
+    @media (min-width: 1200px) {
+        order: 0;
+    }
+}
+
+/* ===== Vista settimana (R4): sette colonne ===== */
+.grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-surface);
+    overflow: hidden;
+}
+
+.gridDay {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 360px;
+    border-right: 1px solid var(--border);
+
+    &:last-child {
+        border-right: 0;
+    }
+
+    &[data-today] {
+        background: var(--brand-primary-soft);
+    }
+}
+
+.gridHead {
+    all: unset;
+    box-sizing: border-box;
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-6);
+    padding: var(--space-10) var(--space-12);
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    cursor: pointer;
+
+    &:hover {
+        background: var(--hover-bg);
+    }
+
+    &:focus-visible {
+        box-shadow: var(--shadow-focus);
+    }
+
+    [data-today] > & {
+        color: var(--brand-primary);
+    }
+}
+
+.gridFree {
+    // Il giorno libero è un riquadro vuoto che riempie la colonna: la
+    // settimana si legge anche senza niente in programma.
+    flex: 1;
+    margin: var(--space-8) var(--space-6);
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: var(--space-8);
+    border: 1px dashed var(--color-gray-300);
+    border-radius: var(--radius-control);
+}
+
+.gridList {
+    list-style: none;
+    margin: 0;
+    padding: var(--space-8) var(--space-6);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+}
+
+.gridItem {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-6) var(--space-8);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--color-border-strong);
+    border-radius: var(--radius-control);
+    min-width: 0;
+    overflow-wrap: anywhere;
+
+    &[data-kind="telefonata"] {
+        border-left-color: var(--brand-primary);
+    }
+
+    &[data-kind="programma"] {
+        background: var(--bg);
+    }
+
+    &[data-past] {
+        opacity: 0.6;
+    }
+}
+
+.gridLink {
+    color: var(--text);
+    text-decoration: none;
+
+    &:hover {
+        text-decoration: underline;
+    }
+}
+
+/* ===== Settimana ===== */
+.week {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+}
+
+.weekHead {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--space-4);
+}
+
+.weekMonth {
+    margin-right: auto;
+}
+
+.weekDays {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: var(--space-4);
+}
+
+.weekDay {
+    all: unset;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-8) 0 var(--space-6);
+    border-radius: var(--radius-control);
+    cursor: pointer;
+
+    &:hover {
+        background: var(--hover-bg);
+    }
+
+    &:focus-visible {
+        box-shadow: var(--shadow-focus);
+    }
+
+    // Il giorno scelto: il riquadro scuro, testo chiaro.
+    &[data-selected="true"] {
+        background: var(--text);
+    }
+}
+
+.weekName {
+    color: var(--text-muted);
+
+    [data-today] > & {
+        color: var(--brand-primary);
+    }
+
+    [data-selected="true"] > & {
+        color: var(--bg);
+    }
+}
+
+.weekNumber {
+    color: var(--text);
+
+    [data-selected="true"] > & {
+        color: var(--bg);
+    }
+}
+
+.weekDot {
+    width: 5px;
+    height: 5px;
+    border-radius: var(--radius-pill);
+
+    &[data-on] {
+        background: var(--brand-primary);
+    }
+
+    [data-selected="true"] > &[data-on] {
+        background: var(--bg);
+    }
+}
+
+/* ===== Giornata ===== */
+.dayList {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+}
+
+.item {
+    display: grid;
+    grid-template-columns: 64px minmax(0, 1fr);
+    align-items: start;
+
+    @media (max-width: 767px) {
+        grid-template-columns: 52px minmax(0, 1fr);
+    }
+    gap: var(--space-12);
+    padding: var(--space-12) var(--space-16);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--color-border-strong);
+    border-radius: var(--radius-surface);
+    color: var(--text);
+
+    // Parte da solo: si legge spento.
+    &[data-kind="programma"] {
+        background: var(--bg);
+        color: var(--text-muted);
+    }
+
+    // Telefonata: il filo brand.
+    &[data-kind="telefonata"] {
+        border-left-color: var(--brand-primary);
+    }
+
+    &[data-kind="telefonata"][data-past] {
+        border-left-color: var(--color-border-strong);
+        color: var(--text-muted);
+    }
+}
+
+.itemTime {
+    white-space: nowrap;
+
+    [data-kind="programma"] > & {
+        color: var(--text-muted);
+    }
+}
+
+.itemBody {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.itemVenue {
+    color: inherit;
+    text-decoration: none;
+
+    &:hover {
+        text-decoration: underline;
+    }
+}
+
+.itemActions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-8);
+    margin-top: var(--space-8);
+}
+
+.nowLine {
+    display: flex;
+    align-items: center;
+    gap: var(--space-8);
+    color: var(--text-danger);
+}
+
+.nowRule {
+    flex: 1;
+    height: 2px;
+    background: var(--text-danger);
+}
+
+.tomorrow {
+    padding: 0 var(--space-4);
+}
+
+.empty {
+    padding: var(--space-16);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-surface);
+}
+
+// Settimana vuota: la frase sta sopra la griglia, che resta.
+.weekEmpty {
+    margin: 0;
+}
+
+// Giorno vuoto: le ore come riquadri vuoti, perché la pagina abbia la forma
+// della giornata anche quando non c'è niente.
+.emptyDay {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-12);
+}
+
+.emptyDayMessage {
+    margin: 0;
+}
+
+.emptyDayHours {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+}
+
+.emptyDayHour {
+    display: grid;
+    grid-template-columns: 64px minmax(0, 1fr);
+    align-items: center;
+    gap: var(--space-12);
+
+    @media (max-width: 767px) {
+        grid-template-columns: 52px minmax(0, 1fr);
+    }
+}
+
+.emptyDayHour[data-new-window] {
+    margin-top: var(--space-12);
+}
+
+.emptyDayTime {
+    font-variant-numeric: tabular-nums;
+}
+
+.emptyDaySlot {
+    height: 40px;
+    border: 1px dashed var(--color-gray-300);
+    border-radius: var(--radius-control);
+    background: var(--surface);
+}

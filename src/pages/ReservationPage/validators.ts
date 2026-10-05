@@ -1,6 +1,7 @@
 import type { TFunction } from "i18next";
 import { todayIsoDate } from "@/utils/dateLocal";
 import type { FormFields } from "./types";
+import { ALLERGIES_MAX_LENGTH } from "./allergiesConsent";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -87,6 +88,10 @@ export function validateField(
     }
     if (name === "notes") {
         if (v.length > 500) return t("reservation.val_notes_max");
+        return null;
+    }
+    if (name === "allergies") {
+        if (v.length > ALLERGIES_MAX_LENGTH) return t("reservation.val_allergies_max");
         return null;
     }
     return null;

@@ -49,6 +49,7 @@ const CrmLeadsPage = lazy(() => import("./pages/Admin/Crm/LeadsPage"));
 const CrmLeadDetailPage = lazy(() => import("./pages/Admin/Crm/LeadDetailPage"));
 const CrmAgentsPage = lazy(() => import("./pages/Admin/Crm/AgentsPage"));
 const CrmHomePage = lazy(() => import("./pages/Admin/Crm/HomePage"));
+const CrmMorePage = lazy(() => import("./pages/Admin/Crm/MorePage"));
 const CrmCostsPage = lazy(() => import("./pages/Admin/Costs/CostsPage"));
 const CrmAgendaPage = lazy(() => import("./pages/Admin/Crm/AgendaPage"));
 
@@ -427,6 +428,7 @@ export default function App() {
                 <Route path="agenda" element={<CrmAgendaPage />} />
                 <Route path="agenti" element={<CrmAgentsPage />} />
                 <Route path="costi" element={<CrmCostsPage />} />
+                <Route path="altro" element={<CrmMorePage />} />
             </Route>
 
             {/* Galleria UI — solo sviluppo (vedi DevUiPage sopra) */}

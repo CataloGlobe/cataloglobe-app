@@ -14,6 +14,7 @@ import { buildReservationIcsAttachment } from "../_shared/reservationIcs.ts";
 import { isReservationTimeBookable } from "../_shared/openingHours.ts";
 import { signReservationToken } from "../_shared/reservationToken.ts";
 import { normalizePhoneToE164 } from "../_shared/phoneNormalize.ts";
+import { parseAllergies } from "../_shared/reservationAllergies.ts";
 import { normalizeCustomerLanguageInput } from "../_shared/emailLang.ts";
 import {
     buildReservationConfirmedEmail,
@@ -248,6 +249,14 @@ serve(async (req: Request) => {
             }
             notes = trimmed.length > 0 ? trimmed : null;
         }
+
+        // Allergie: campo dedicato, accettato solo con la versione del
+        // consenso esplicito (dato sulla salute). Testo senza consenso → 400.
+        const parsedAllergies = parseAllergies(body);
+        if (!parsedAllergies.ok) {
+            return errorResponse(parsedAllergies.code, 400, parsedAllergies.details);
+        }
+        const allergies = parsedAllergies.value;
 
         // Lingua in cui il cliente stava leggendo la pagina pubblica.
         //
@@ -508,6 +517,35 @@ serve(async (req: Request) => {
             );
         }
 
+        // ── Allergie con consenso (best-effort, come il telefono) ──────────
+        // Stesso schema: la RPC resta intatta, UPDATE mirato subito dopo. Un
+        // errore qui non fa fallire la prenotazione; le allergie arrivano
+        // comunque al locale nell'email di avviso. I log non contengono mai
+        // il testo.
+        if (allergies) {
+            try {
+                const { error: allergiesUpdateError } = await supabase
+                    .from("reservations")
+                    .update({
+                        allergies: allergies.allergies,
+                        allergies_consent_at: new Date().toISOString(),
+                        allergies_consent_version: allergies.consentVersion
+                    })
+                    .eq("id", reservationId);
+                if (allergiesUpdateError) {
+                    console.error(
+                        `[submit-reservation] allergies update failed (reservation_id=${reservationId}):`,
+                        allergiesUpdateError.message
+                    );
+                }
+            } catch (allergiesErr) {
+                console.error(
+                    `[submit-reservation] allergies update threw (reservation_id=${reservationId}):`,
+                    allergiesErr instanceof Error ? allergiesErr.message : "unknown error"
+                );
+            }
+        }
+
         // ── Lingua del cliente (best-effort) ─────────────────────────────
         // Stesso schema del telefono canonico e per la stessa ragione:
         // `place_online_reservation` possiede l'INSERT e resta intatta, quindi
@@ -653,6 +691,7 @@ serve(async (req: Request) => {
                     customerEmail,
                     customerPhone,
                     notes,
+                    allergies: allergies?.allergies ?? null,
                     // Deep link to the tenant's reservations dashboard. null
                     // when APP_URL is unset → alert still goes out,
                     // just without the link.

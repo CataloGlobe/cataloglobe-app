@@ -374,6 +374,22 @@ describe("reservation email builders (_shared)", () => {
             expect(email.html).not.toContain("<b>urgente</b>");
             expect(email.html).toContain("&lt;b&gt;urgente&lt;/b&gt;");
         });
+
+        it("mostra le allergie solo se presenti, escapate", () => {
+            const withAllergies = buildReservationVenueAlertEmail({
+                ...BASE,
+                customerEmail: "mario@example.com",
+                customerPhone: "+39 333 1234567",
+                notes: null,
+                allergies: "arachidi <e> glutine",
+                dashboardUrl: null,
+                variant: "request"
+            });
+            expect(withAllergies.html).toContain("<strong>Allergie:</strong> arachidi &lt;e&gt; glutine");
+            expect(withAllergies.text).toContain("Allergie: arachidi <e> glutine");
+            expect(venue(null).html).not.toContain("Allergie:");
+            expect(venue(null).text).not.toContain("Allergie:");
+        });
     });
 
     describe("link di disdetta al cliente", () => {
