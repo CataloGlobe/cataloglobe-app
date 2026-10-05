@@ -273,7 +273,7 @@
         "section_aria": "Contenuti in evidenza",
         "dot_aria": "Contenuto {{index}} di {{count}}",
         "preview_close_aria": "Chiudi",
-        "see_all": "Vedi tutti →",
+        "see_all": "Vedi tutti",
         "see_all_label_one": "contenuto in evidenza",
         "see_all_label_other": "contenuti in evidenza",
         "see_all_aria": "Vedi tutti i contenuti in evidenza ({{count}})"
