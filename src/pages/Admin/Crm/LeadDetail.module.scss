@@ -519,6 +519,8 @@
   border-left: 1px solid var(--border);
   background: var(--surface);
   overflow-y: auto;
+  /* Spazio sotto l'ultima scheda per il pulsante di Gea (GeaPanel). */
+  padding-bottom: calc(var(--space-48) + var(--space-24));
 }
 
 .fact {

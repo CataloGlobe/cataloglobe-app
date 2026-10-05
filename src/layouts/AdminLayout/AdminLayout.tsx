@@ -4,6 +4,7 @@ import { listAllTickets } from "@/services/supabase/support";
 import type { AdminOutletContext } from "./outletContext";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { geaPageOf } from "@/utils/crm/gea";
 import { BreadcrumbProvider } from "@/context/BreadcrumbProvider";
 import { PageHeaderProvider } from "@/context/PageHeaderProvider";
 import AdminSidebar from "./AdminSidebar";
@@ -11,6 +12,7 @@ import { CrmBottomBar } from "./CrmBottomBar";
 import { CrmNavBrand } from "./CrmNavBrand";
 import { CrmPageHeader } from "./CrmPageHeader";
 import { CrmSearchDialog } from "./CrmSearchDialog";
+import { GeaPanel } from "./GeaPanel";
 import { useCrmNavData } from "./useCrmNavData";
 import styles from "../shared/layoutShell.module.scss";
 import adminStyles from "./AdminLayout.module.scss";
@@ -49,8 +51,7 @@ export default function AdminLayout() {
     const [pagesCollapsed, setPagesCollapsed] = useState<boolean | null>(null);
     const [detailCollapsed, setDetailCollapsed] = useState(true);
     const sidebarCollapsed = isLeadDetail ? detailCollapsed : (pagesCollapsed ?? isNarrow);
-    const toggleCollapse = () =>
-        isLeadDetail ? setDetailCollapsed(v => !v) : setPagesCollapsed(() => !sidebarCollapsed);
+    const toggleCollapse = () => (isLeadDetail ? setDetailCollapsed(v => !v) : setPagesCollapsed(() => !sidebarCollapsed));
 
     const nav = useCrmNavData(pathname);
     const [searchOpen, setSearchOpen] = useState(false);
@@ -70,6 +71,13 @@ export default function AdminLayout() {
         contentRef.current?.scrollTo(0, 0);
     }, [pathname]);
 
+    // Gea (canvas V9): solo nelle pagine del CRM; al telefono non dentro la
+    // conversazione di un lead, dove in basso c'è la bozza.
+    const geaPage = useMemo(() => geaPageOf(pathname), [pathname]);
+    const showGea = geaPage !== null && !(isMobile && isLeadChat);
+    const [geaOpen, setGeaOpen] = useState(false);
+    const openGea = useCallback(() => setGeaOpen(true), []);
+    const closeGea = useCallback(() => setGeaOpen(false), []);
 
     // ── Pallino "richieste in attesa" ──────────────────────────────────────
     // Fonte UNICA, montata qui come il gemello lato cliente in `MainLayout`:
@@ -99,9 +107,7 @@ export default function AdminLayout() {
         void listAllTickets()
             .then(rows => {
                 if (!cancelled) {
-                    setSupportPending(
-                        rows.some(t => t.last_message_kind === "customer" && t.status !== "closed")
-                    );
+                    setSupportPending(rows.some(t => t.last_message_kind === "customer" && t.status !== "closed"));
                 }
             })
             .catch(() => {
@@ -114,11 +120,7 @@ export default function AdminLayout() {
 
     // Memoizzato per la stessa ragione: un oggetto nuovo a ogni render farebbe
     // rirenderizzare ogni consumer di `useAdminOutletContext`.
-    const outletContext = useMemo<AdminOutletContext>(
-        () => ({ refreshSupportPending }),
-        [refreshSupportPending]
-    );
-
+    const outletContext = useMemo<AdminOutletContext>(() => ({ refreshSupportPending }), [refreshSupportPending]);
 
     return (
         <div className={styles.appLayout}>
@@ -136,9 +138,7 @@ export default function AdminLayout() {
                                     supportPending={supportPending}
                                     home={nav.home}
                                     lead={nav.lead}
-                                    headerSlot={
-                                        <CrmNavBrand collapsed={sidebarCollapsed} onSearch={() => setSearchOpen(true)} />
-                                    }
+                                    headerSlot={<CrmNavBrand collapsed={sidebarCollapsed} onSearch={() => setSearchOpen(true)} />}
                                 />
                             </div>
                         )}
@@ -155,6 +155,7 @@ export default function AdminLayout() {
                     </div>
                     {showBottomBar && <CrmBottomBar home={nav.home} lead={nav.lead} />}
                     <CrmSearchDialog isOpen={searchOpen} onClose={closeSearch} venues={nav.venues} />
+                    {showGea && <GeaPanel open={geaOpen} page={geaPage} raised={showBottomBar} onOpen={openGea} onClose={closeGea} />}
                 </PageHeaderProvider>
             </BreadcrumbProvider>
         </div>

@@ -1,0 +1,169 @@
+// Gea dal computer (canvas V9). Solo token di _theme.scss; la tipografia la
+// porta il componente Text.
+
+.mark {
+    display: inline-grid;
+    place-items: center;
+    flex: none;
+    width: 24px;
+    height: 24px;
+    border-radius: var(--radius-pill);
+    background: var(--brand-primary);
+    color: var(--on-brand);
+    font-weight: 700;
+}
+
+/* ===== Pulsante ===== */
+.launcher {
+    all: unset;
+    box-sizing: border-box;
+    position: fixed;
+    right: var(--space-24);
+    bottom: var(--space-24);
+    z-index: var(--z-float);
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-8);
+    padding: var(--space-6) var(--space-16) var(--space-6) var(--space-6);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-pill);
+    background: var(--surface);
+    color: var(--text);
+    box-shadow: var(--shadow-float);
+    cursor: pointer;
+
+    &:hover {
+        background: var(--hover-bg);
+    }
+
+    &:focus-visible {
+        box-shadow: var(--shadow-focus);
+    }
+
+    // Al telefono sta sopra la barra in basso (56) e alla zona sicura.
+    &[data-raised] {
+        right: var(--space-16);
+        bottom: calc(56px + var(--space-16) + env(safe-area-inset-bottom, 0px));
+    }
+}
+
+/* ===== Pannello ===== */
+.panel {
+    position: fixed;
+    inset: 0 0 0 auto;
+    z-index: var(--z-overlay);
+    display: flex;
+    flex-direction: column;
+    width: 380px;
+    max-width: 100%;
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    box-shadow: var(--shadow-drawer);
+
+    @media (max-width: 767px) {
+        width: 100%;
+        border-left: 0;
+    }
+}
+
+.head {
+    display: flex;
+    align-items: center;
+    gap: var(--space-8);
+    padding: var(--space-12) var(--space-16);
+    border-bottom: 1px solid var(--border);
+
+    h2 {
+        margin: 0;
+    }
+}
+
+.caption {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.log {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-12);
+    padding: var(--space-16);
+}
+
+.intro {
+    margin: 0;
+}
+
+.bubble {
+    max-width: 85%;
+    padding: var(--space-10) var(--space-12);
+    border-radius: var(--radius-surface);
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+
+    p {
+        margin: 0;
+    }
+
+    &[data-from="me"] {
+        align-self: flex-end;
+        background: var(--brand-primary);
+        color: var(--on-brand);
+    }
+
+    &[data-from="gea"] {
+        align-self: flex-start;
+        background: var(--hover-bg);
+        color: var(--text);
+    }
+
+    &[data-failed] {
+        color: var(--text-danger);
+    }
+}
+
+.suggestions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-8);
+    padding: 0 var(--space-16) var(--space-12);
+}
+
+.suggestion {
+    all: unset;
+    box-sizing: border-box;
+    padding: var(--space-6) var(--space-12);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-pill);
+    background: var(--surface);
+    color: var(--text);
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+        background: var(--hover-bg);
+    }
+
+    &:focus-visible {
+        box-shadow: var(--shadow-focus);
+    }
+
+    &:disabled {
+        color: var(--text-muted);
+        cursor: default;
+    }
+}
+
+.form {
+    padding: var(--space-12) var(--space-16) calc(var(--space-12) + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid var(--border);
+}
+
+.field {
+    width: 100%;
+}

@@ -10,6 +10,7 @@
 //                     che non è /start né una risposta a una bozza:
 //                     ingresso unico → capire → strumento o comando → risposta.
 //   handleGeaConfirm  «Sì, fallo» / «No» su un comando del gruppo 2.
+//   think             il giro di una domanda, usato anche da crm-gea-web.
 //
 // Gea non scrive mai ai lead: i comandi usano solo le funzioni del CRM che
 // cambiano fase, assegnazione, note e pausa, con la persona come attore.
@@ -49,7 +50,7 @@ import {
     type GeaTurn
 } from "./crmGea.ts";
 
-interface Outcome {
+export interface Outcome {
     status: "answered" | "pending" | "refused" | "failed";
     intent?: string;
     tool?: string;
@@ -183,7 +184,8 @@ async function runCommand(supabase, botToken: string, command, actor, team, appU
 // -----------------------------------------------------------------------------
 // Il giro di un messaggio
 // -----------------------------------------------------------------------------
-async function think(supabase, botToken, text: string, actor, team, appUrl, now: Date, history: GeaTurn[]): Promise<Outcome> {
+// Esportata per crm-gea-web: stesso giro, la risposta torna al pannello di /admin.
+export async function think(supabase, botToken, text: string, actor, team, appUrl, now: Date, history: GeaTurn[]): Promise<Outcome> {
     if (text.length > GEA_MAX_INPUT) return { status: "answered", reply: GEA_TEXT.tooLong, costUsd: 0 };
 
     const request = buildUnderstandRequest({
