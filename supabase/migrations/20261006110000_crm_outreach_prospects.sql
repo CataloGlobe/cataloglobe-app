@@ -59,12 +59,13 @@ CREATE TABLE IF NOT EXISTS public.crm_outreach_prospects (
     excluded_reason      text        CHECK (excluded_reason IN (
                                          'catena_grande', 'gia_lead', 'gia_cliente', 'lista_stop', 'non_valida', 'a_mano'
                                      )),
-    -- Il locale nella pipeline, quando risponde.
+    -- Il locale nella pipeline, quando risponde. Niente vincolo con
+    -- 'convertito': dopo la pulizia dei 12 mesi il locale non c'è più e il
+    -- contatto resta convertito senza locale (un CHECK bloccherebbe la DELETE).
     venue_id             uuid        REFERENCES public.crm_venues(id) ON DELETE SET NULL,
 
     CONSTRAINT crm_outreach_prospects_reachable CHECK (email IS NOT NULL OR phone_e164 IS NOT NULL OR instagram IS NOT NULL),
-    CONSTRAINT crm_outreach_prospects_excluded_consistent CHECK ((status = 'escluso') = (excluded_reason IS NOT NULL)),
-    CONSTRAINT crm_outreach_prospects_converted_consistent CHECK (status <> 'convertito' OR venue_id IS NOT NULL)
+    CONSTRAINT crm_outreach_prospects_excluded_consistent CHECK ((status = 'escluso') = (excluded_reason IS NOT NULL))
 );
 
 -- Doppioni: la stessa mail o lo stesso telefono è lo stesso contatto.
