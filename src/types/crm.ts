@@ -522,3 +522,57 @@ export interface CrmAgentDraftRow {
     final_text: string | null;
     decided_at: string | null;
 }
+
+/** Riga di `crm_post_sale_accounts()` (20261006090100): segnali d'uso di un cliente. */
+export interface CrmPostSaleAccountRow {
+    venue_id: string;
+    tenant_id: string;
+    tenant_created_at: string;
+    plan: string | null;
+    paid_seats: number | null;
+    activities_total: number;
+    activities_published: number;
+    products_count: number;
+    has_live_menu: boolean;
+    live_menu_since: string | null;
+}
+
+/** Riga di `crm_post_sale_actions` (20261006090000): cosa ne ha fatto il team. */
+export interface CrmPostSaleActionRow {
+    venue_id: string;
+    kind: "abbandono" | "prova_in_scadenza" | "crescita" | "passaparola";
+    alerted_at: string | null;
+    done_at: string | null;
+    done_by: string | null;
+    snoozed_until: string | null;
+}
+
+/** Categorie della libreria delle obiezioni (CHECK in 20261006100000). */
+export type CrmObjectionCategory =
+    | "prezzo"
+    | "ha_gia_soluzione"
+    | "non_serve"
+    | "tempo"
+    | "decide_altri"
+    | "non_ora"
+    | "diffidenza"
+    | "altro";
+
+/** Riga di `crm_objections`: un'obiezione sentita da un locale. */
+export interface CrmObjection {
+    id: string;
+    venue_id: string;
+    category: CrmObjectionCategory;
+    note: string | null;
+    source: "perso" | "scheda";
+    created_by: string | null;
+    created_at: string;
+}
+
+/** Riga di `crm_objection_answers`: la risposta che funziona per una categoria. */
+export interface CrmObjectionAnswer {
+    category: CrmObjectionCategory;
+    answer: string;
+    updated_by: string | null;
+    updated_at: string;
+}

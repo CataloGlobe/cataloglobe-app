@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import { IDLE_REVEAL_MS } from "../src/components/PublicCollectionView/hooks/bottomBarVisibility";
+import { IDLE_REVEAL_MS, TRANSITION_LOCK_MS } from "../src/components/PublicCollectionView/hooks/bottomBarVisibility";
 import { CATEGORIES, SLUG, stubPublicPage } from "./publicPageStub";
 
 /**
@@ -109,7 +109,8 @@ for (const variant of ["senza ordinazione", "ordinazione, carrello vuoto"] as co
             await expect(sheet).toBeHidden();
             await expectBarShown(page);
             // Il rilascio del body-lock non falsa la posizione: si riparte da lì.
-            await scrollTo(page, (await page.evaluate(() => window.scrollY)) + 120);
+            // Dopo la ricomparsa servono ~80px giù, oltre il passo di riferimento.
+            await scrollTo(page, (await page.evaluate(() => window.scrollY)) + 200);
             await expectBarHidden(page);
         });
 
@@ -285,6 +286,65 @@ test.describe("animazione di uscita e entrata", () => {
             }
         });
     }
+});
+
+test.describe("contro il blink", () => {
+    for (const reducedMotion of ["no-preference", "reduce"] as const) {
+        test(`ricomparsa: visibility visible dal primo frame — ${reducedMotion}`, async ({ page }) => {
+            await page.emulateMedia({ reducedMotion });
+            await openPage(page, true);
+            await scrollTo(page, 900);
+            await expectBarHidden(page);
+            await page.waitForTimeout(500);
+            const frames = await recordFrames(page);
+            await scrollTo(page, 880, 4);
+            await expectBarShown(page);
+            await page.waitForTimeout(500);
+
+            const show = (await frames()).filter(f => f.tag === "show");
+            // Primo campione, nel frame stesso del cambio: già visibile ma
+            // ancora trasparente, cioè l'animazione parte (non compare a fine corsa).
+            expect(show[0]?.vis).toBe("visible");
+            expect(show[0]?.op).toBeLessThan(0.5);
+            expect(show.every(f => f.vis === "visible")).toBe(true);
+        });
+    }
+
+    test(`isteresi: nessun hide entro ${TRANSITION_LOCK_MS}ms da una ricomparsa`, async ({ page }) => {
+        await openPage(page, true);
+        await scrollTo(page, 900);
+        await expectBarHidden(page);
+        await page.waitForTimeout(500);
+        // Tutto nella pagina: su di 4px a frame fino alla ricomparsa, poi subito
+        // giù di 30px a frame (ben oltre gli 80px). Si guarda data-hidden a ogni
+        // frame fino a 300ms dalla ricomparsa, poi a riposo.
+        const seen = await page.evaluate(async lockMs => {
+            const el = document.querySelector('[class*="barWrap"]') as HTMLElement;
+            const hidden = () => el.hasAttribute("data-hidden");
+            const frame = () => new Promise(r => requestAnimationFrame(() => r(null)));
+            let y = window.scrollY;
+            while (hidden()) {
+                y -= 4;
+                window.scrollTo(0, y);
+                await frame();
+            }
+            const shownAt = performance.now();
+            let hiddenWithinLock = false;
+            for (let i = 0; i < 8; i++) {
+                y += 30;
+                window.scrollTo(0, y);
+                await frame();
+            }
+            while (performance.now() - shownAt < lockMs - 40) {
+                if (hidden()) hiddenWithinLock = true;
+                await frame();
+            }
+            await new Promise(r => setTimeout(r, 300));
+            return { hiddenWithinLock, hiddenAfter: hidden() };
+        }, TRANSITION_LOCK_MS);
+        // Entro l'isteresi resta; finita, il cambio in sospeso si applica da solo.
+        expect(seen).toEqual({ hiddenWithinLock: false, hiddenAfter: true });
+    });
 });
 
 test.describe("ricomparsa da fermo", () => {

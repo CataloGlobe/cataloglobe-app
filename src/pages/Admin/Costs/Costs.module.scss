@@ -550,3 +550,81 @@
         padding: 0 var(--space-12);
     }
 }
+
+// Riga veloce in cima alle spese (D38): i campi in fila, sotto i suggerimenti.
+.quickBox {
+    @extend .box;
+    container-type: inline-size;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+    padding: var(--space-12) var(--space-16);
+}
+
+.quickRow {
+    display: grid;
+    grid-template-columns: minmax(180px, 2fr) minmax(110px, 1fr) minmax(130px, 1fr) minmax(140px, 1fr) auto;
+    gap: var(--space-12);
+    align-items: start;
+
+    @container (max-width: 860px) {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+.quickName {
+    min-width: 0;
+
+    @container (max-width: 860px) {
+        grid-column: 1 / -1;
+    }
+}
+
+.quickAmount,
+.quickFrequency,
+.quickDate {
+    min-width: 0;
+}
+
+// I bottoni stanno sulla riga dei campi, non su quella delle etichette.
+.quickActions {
+    display: flex;
+    gap: var(--space-8);
+    padding-top: var(--space-24);
+
+    @container (max-width: 860px) {
+        grid-column: 1 / -1;
+        padding-top: 0;
+    }
+}
+
+.quickSuggestions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-8);
+}
+
+.quickSuggestion {
+    font: inherit;
+    padding: var(--space-4) var(--space-12);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-pill);
+    background: var(--brand-primary-soft);
+    color: var(--on-brand-soft);
+    cursor: pointer;
+
+    &:focus-visible {
+        outline: 2px solid var(--brand-primary);
+        outline-offset: 2px;
+    }
+}
+
+.quickError {
+    color: var(--text-danger);
+}
+
+// La riga che dice cosa succede: «90 € al mese, 1.080 € l'anno».
+.formSummary {
+    margin: 0;
+}

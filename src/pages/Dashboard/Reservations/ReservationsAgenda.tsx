@@ -303,7 +303,9 @@ export default function ReservationsAgenda({
                         <ChannelMark source={r.source} variant="plain" /> {r.customer_name}
                     </>
                 }
-                subtitle={r.notes ? `${people} · ${r.notes}` : people}
+                subtitle={[people, r.notes, r.allergies ? `Allergie: ${r.allergies}` : null]
+                    .filter(Boolean)
+                    .join(" · ")}
                 meta={
                     <>
                         <GuestConfirmedMark guestConfirmedAt={r.guest_confirmed_at} />

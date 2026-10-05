@@ -22,6 +22,9 @@ describe("classifyLeadText", () => {
         "Non contattatemi più per favore",
         "Per favore cancellatemi",
         "smettetela di scrivermi",
+        "smettete di mandarmi messaggi",
+        "smettila di contattarmi, grazie",
+        "Smettetela di mandarmi!",
         "basta messaggi",
         "non voglio essere contattato",
         "Lasciatemi in pace!"
@@ -63,6 +66,9 @@ describe("classifyLeadText", () => {
     it.each([
         "Basta mandarmi il link e lo guardo",
         "Toglimi un dubbio: quanto costa?",
+        "Smettete di mandare vocali, scrivetemi",
+        "smettila di mandarmi audio lunghi",
+        "smettete di scrivere in maiuscolo",
         "Cancellami la prenotazione delle 20, grazie",
         "Non voglio ricevere chiamate, scrivetemi qui",
         "Non scrivetemi ora, più tardi sì",

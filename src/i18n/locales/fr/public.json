@@ -271,12 +271,16 @@
     "indicator_aria": "Indicateur de contenu en vedette",
     "section_aria": "Contenu en vedette",
     "dot_aria": "{{index}} contenu de {{count}}",
-    "preview_close_aria": "Fermer"
+    "preview_close_aria": "Fermer",
+    "see_all": "Tout voir →",
+    "see_all_label_one": "contenu en vedette",
+    "see_all_label_other": "contenus en vedette",
+    "see_all_aria": "Voir tous les contenus en vedette ({{count}})"
   },
   "events": {
     "list_aria": "En vedette",
     "empty": "Il n'y a pas d'événements ou de promotions en cours pour le moment.",
-    "back": "← Retour à la liste",
+    "back_aria": "Retour à la liste",
     "close_aria": "Fermer",
     "close_label": "Fermer"
   },
@@ -459,7 +463,7 @@
     "err_submit": "Une erreur s'est produite. Réessayez dans un instant.",
     "submitting": "Envoi en cours…",
     "submit": "Envoyer la demande",
-    "consent": "En envoyant la demande, vous acceptez le traitement des données pour gérer la réservation. <privacy>Confidentialité</privacy>",
+    "consent": "Vos données servent uniquement à gérer la réservation. <privacy>Confidentialité</privacy>",
     "when": "Quand",
     "date": "Date",
     "time": "Heure",
@@ -474,6 +478,10 @@
     "special_requests": "Demandes particulières",
     "optional": "(facultatif)",
     "notes_placeholder": "Besoins particuliers, occasions spéciales…",
+    "allergies_label": "Allergies et intolérances",
+    "allergies_consent": "J'accepte le traitement des données sur mes allergies, utilisées par l'établissement uniquement pour préparer le service.",
+    "allergies_placeholder": "Ex. arachides, gluten, lactose",
+    "val_allergies_max": "300 caractères maximum.",
     "people": "Personnes",
     "exact_number": "Indiquez le nombre exact",
     "party_count_one": "{{count}} personne",

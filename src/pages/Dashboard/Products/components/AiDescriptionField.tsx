@@ -3,6 +3,8 @@ import { Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
 import type { AiDescriptionState } from "../hooks/useAiDescription";
+import type { AiUsageCycle } from "@/types/aiUsage";
+import { aiQuotaHint } from "@/utils/aiUsage";
 import styles from "./AiDescriptionField.module.scss";
 
 export interface AiDescriptionFieldProps {
@@ -12,6 +14,17 @@ export interface AiDescriptionFieldProps {
     isGenerating: boolean;
     canGenerate: boolean;
     onGenerate: () => void;
+    /**
+     * Stato quota AI del tenant (outlet di MainLayout). Quasi esaurita → una
+     * riga; esaurita o senza abbonamento → bottone spento e la data di ripartenza.
+     */
+    quota?: AiUsageCycle | null;
+    /**
+     * Senza `products.write` (sola lettura): niente «Genera con AI» né i
+     * suggerimenti legati alla generazione. Il campo resta, disabilitato dal
+     * fieldset della pagina.
+     */
+    readOnly?: boolean;
     /** The description field itself (a controlled <Textarea>), owned by the caller. */
     children: React.ReactNode;
 }
@@ -28,8 +41,11 @@ export function AiDescriptionField({
     isGenerating,
     canGenerate,
     onGenerate,
+    quota,
+    readOnly = false,
     children
 }: AiDescriptionFieldProps) {
+    const quotaHint = aiQuotaHint(quota);
     // name is filled whenever we can generate, or while a generation is in flight
     // (generation cannot start with an empty name).
     const nameFilled = canGenerate || isGenerating;
@@ -40,23 +56,30 @@ export function AiDescriptionField({
                 <Text variant="body-sm" weight={600}>
                     {label}
                 </Text>
-                <Button
-                    variant="outline"
-                    size="sm"
-                    leftIcon={<Sparkles size={14} />}
-                    loading={isGenerating}
-                    disabled={!canGenerate}
-                    onClick={onGenerate}
-                >
-                    {isGenerating
-                        ? "Generazione…"
-                        : aiState !== "none"
-                            ? "Rigenera"
-                            : "Genera con AI"}
-                </Button>
+                {!readOnly && (
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        leftIcon={<Sparkles size={14} />}
+                        loading={isGenerating}
+                        disabled={!canGenerate || quotaHint?.blocked === true}
+                        onClick={onGenerate}
+                    >
+                        {isGenerating
+                            ? "Generazione…"
+                            : aiState !== "none"
+                                ? "Rigenera"
+                                : "Genera con AI"}
+                    </Button>
+                )}
             </div>
             {children}
-            {!nameFilled && (
+            {!readOnly && quotaHint && !isGenerating && (
+                <Text variant="body-sm" colorVariant="muted">
+                    {quotaHint.message}
+                </Text>
+            )}
+            {!readOnly && !nameFilled && (
                 <Text variant="body-sm" colorVariant="muted">
                     Inserisci il nome del prodotto per abilitare la generazione AI.
                 </Text>

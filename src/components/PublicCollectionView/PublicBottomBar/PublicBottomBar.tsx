@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { motion, useReducedMotion } from "framer-motion";
-import { BookOpenText, MessageCircle, Pin, ReceiptText, Utensils } from "lucide-react";
+import { BookOpenText, MessageCircle, ReceiptText, Utensils } from "lucide-react";
 import type { HubTab } from "@/types/collectionStyle";
 import { PUBLIC_MOBILE_QUERY } from "../publicBreakpoints";
 import styles from "./PublicBottomBar.module.scss";
@@ -12,9 +12,9 @@ import styles from "./PublicBottomBar.module.scss";
  * public via split CSS-driven. Sostituisce i tab header (HUB_TABS) + le azioni desktop.
  *
  * - 2 tab (menu/storia) con pill attiva che scorre (offsetLeft/width misurati).
- * - Eventi/recensioni NON sono più tab: sono trigger icona che aprono le
- *   PublicSheet dedicate (stato locale in CollectionView), stesso slot visivo
- *   dei tab ma senza indicatore/attivazione.
+ * - Recensioni NON è un tab: trigger icona che apre la PublicSheet dedicata
+ *   (stato locale in CollectionView), stesso slot visivo dei tab ma senza
+ *   indicatore/attivazione. «In evidenza» non ha voce: si apre dai caroselli.
  * - Slot carrello separato da divider (non è un tab attivo).
  * - Sempre a dimensione piena. Nascondi/mostra tutto o niente: lo decide
  *   `useBottomBarAutoHide` nel parent (prop `hidden`), qui nessun listener di scroll.
@@ -33,16 +33,12 @@ const TABS: TabDef[] = [
 type Props = {
     activeTab: HubTab;
     onTabChange: (tab: HubTab) => void;
-    /** Mostra il trigger "eventi". Default true (retrocompatibile). Sincronizzato con PublicCollectionHeader. */
-    showEventsTab?: boolean;
     /** Mostra la tab "storia". Default false (gated su has_story dal catalogo). Sincronizzato con PublicCollectionHeader. */
     showStoryTab?: boolean;
     selectionCount: number;
     /** Mostra lo slot carrello. Allineato a `!shouldHideOrderingEntry` del parent. */
     cartVisible: boolean;
     onOpenCart: () => void;
-    /** Apre la sheet "eventi". Undefined ⇒ trigger non renderizzato. */
-    onOpenEvents?: () => void;
     /** Apre la sheet "recensioni". Undefined ⇒ trigger non renderizzato. */
     onOpenReviews?: () => void;
     /** Pallino sul trigger recensioni — stessa condizione del valutaFab (`valutaVisible`). */
@@ -61,12 +57,10 @@ type Props = {
 export default function PublicBottomBar({
     activeTab,
     onTabChange,
-    showEventsTab = true,
     showStoryTab = false,
     selectionCount,
     cartVisible,
     onOpenCart,
-    onOpenEvents,
     onOpenReviews,
     reviewDot,
     onReviewDotDismiss,
@@ -228,18 +222,8 @@ export default function PublicBottomBar({
                     </button>
                 ))}
 
-                {/* Trigger eventi/recensioni: aprono le sheet dedicate, non sono tab
+                {/* Trigger recensioni: apre la sheet dedicata, non è un tab
                     (nessun indicatore/pill, stessa dimensione visiva di .tab). */}
-                {onOpenEvents && showEventsTab && (
-                    <button
-                        type="button"
-                        className={styles.tab}
-                        aria-label={t("hub.events")}
-                        onClick={onOpenEvents}
-                    >
-                        <Pin size={19} strokeWidth={1.9} />
-                    </button>
-                )}
                 {onOpenReviews && (
                     <button
                         type="button"

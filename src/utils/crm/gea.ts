@@ -9,6 +9,7 @@ export type GeaWebPage = { kind: "lead"; venueId: string } | { kind: "page"; nam
 const PAGES: Record<string, string> = {
     "/admin": "Home",
     "/admin/lead": "Lead",
+    "/admin/clienti": "Clienti",
     "/admin/agenda": "Agenda",
     "/admin/agenti": "Agenti",
     "/admin/costi": "Costi",

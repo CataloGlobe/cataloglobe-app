@@ -285,7 +285,7 @@ export default function ActivityAnagraficaRoute() {
                         <div className={styles.reviewsRow}>
                             <ListRow
                                 title="Recensioni Google"
-                                subtitle={activity.google_review_url ? "Il link alle recensioni compare nella pagina pubblica" : "Collega la scheda Google Places per mostrare le recensioni"}
+                                subtitle={activity.google_review_url ? "Chi lascia 4 o 5 stelle viene invitato a recensirvi anche su Google" : "Aggiungi il link della scheda Google per invitare i clienti soddisfatti a recensirvi lì"}
                                 meta={
                                     activity.google_review_url ? (
                                         <StatusBadge variant="success" label="Collegato" />

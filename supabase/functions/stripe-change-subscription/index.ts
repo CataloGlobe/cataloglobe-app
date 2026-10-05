@@ -25,6 +25,7 @@ import {
 } from "../_shared/subscriptionEmails.ts";
 import { buildIdempotencyKey } from "../_shared/idempotency.ts";
 import { retrievePriceTotalCents } from "../_shared/priceTotal.ts";
+import { isUsableListTotal, previewTotalOrNull } from "../_shared/scheduledChangeAmount.ts";
 import { classifyChange } from "../_shared/classifyChange.ts";
 import {
     ALLOWED_INTERVALS,
@@ -1298,7 +1299,10 @@ serve(async req => {
 
             // ---- PREVIEW ----
             if (action === "preview-scheduled-change") {
-                let nextAmount = await priceTotalFromPrice(stripe, newPriceId, newSeats);
+                // Oggi 0 € è il caso voluto (sedi dalla fase futura); il
+                // rinnovo a 0 € senza motivo no: vedi _shared/scheduledChangeAmount.ts.
+                const listTotal = await priceTotalFromPrice(stripe, newPriceId, newSeats);
+                let nextAmount: number | null = isUsableListTotal(listTotal, newSeats) ? listTotal : null;
                 if (nextAmount == null) {
                     try {
                         const nextPreview = await stripe.invoices.createPreview({
@@ -1309,10 +1313,14 @@ serve(async req => {
                                 proration_behavior: "none"
                             }
                         });
-                        nextAmount = nextPreview.total ?? 0;
+                        nextAmount = previewTotalOrNull(nextPreview.total);
                     } catch (err) {
                         const message = err instanceof Error ? err.message : String(err);
                         console.error(`stripe-change-subscription: scheduled-change preview failed: ${message}`);
+                        return json(req, 502, { error: "preview_failed" });
+                    }
+                    if (nextAmount == null) {
+                        console.error("stripe-change-subscription: scheduled-change preview without total");
                         return json(req, 502, { error: "preview_failed" });
                     }
                 }
@@ -1515,7 +1523,8 @@ serve(async req => {
                     }
 
                     // Al rinnovo: totale ricorrente del target pending (es. Base) a newSeats.
-                    let nextAmountB2 = await priceTotalFromPrice(stripe, b2FuturePrice, newSeats);
+                    const listTotalB2 = await priceTotalFromPrice(stripe, b2FuturePrice, newSeats);
+                    let nextAmountB2: number | null = isUsableListTotal(listTotalB2, newSeats) ? listTotalB2 : null;
                     if (nextAmountB2 == null) {
                         try {
                             const nextPreview = await stripe.invoices.createPreview({
@@ -1526,10 +1535,14 @@ serve(async req => {
                                     proration_behavior: "none"
                                 }
                             });
-                            nextAmountB2 = nextPreview.total ?? 0;
+                            nextAmountB2 = previewTotalOrNull(nextPreview.total);
                         } catch (err) {
                             const message = err instanceof Error ? err.message : String(err);
                             console.error(`stripe-change-subscription: B2 preview next amount failed: ${message}`);
+                            return json(req, 502, { error: "preview_failed" });
+                        }
+                        if (nextAmountB2 == null) {
+                            console.error("stripe-change-subscription: B2 preview next amount without total");
                             return json(req, 502, { error: "preview_failed" });
                         }
                     }
@@ -1563,7 +1576,7 @@ serve(async req => {
                 // Totale pieno al target dal Price (indipendente da schedule attivi);
                 // fallback a createPreview solo se il totale del Price non è calcolabile.
                 const fromPrice = await priceTotalFromPrice(stripe, newPriceId, newSeats);
-                if (fromPrice != null) {
+                if (isUsableListTotal(fromPrice, newSeats)) {
                     nextAmount = fromPrice;
                 } else {
                     try {
@@ -1572,7 +1585,12 @@ serve(async req => {
                             subscription: tenant.stripe_subscription_id,
                             subscription_details: { items: newItems, proration_behavior: "none" }
                         });
-                        nextAmount = nextPreview.total ?? 0;
+                        const nextTotal = previewTotalOrNull(nextPreview.total);
+                        if (nextTotal == null) {
+                            console.error("stripe-change-subscription: next preview without total");
+                            return json(req, 502, { error: "preview_failed" });
+                        }
+                        nextAmount = nextTotal;
                     } catch (err) {
                         const message = err instanceof Error ? err.message : String(err);
                         console.error(`stripe-change-subscription: next preview failed: ${message}`);
@@ -1586,7 +1604,7 @@ serve(async req => {
                 // dal Price (stesso pattern di B2 e preview-scheduled-change), fallback
                 // a createPreview solo se il totale del Price non è calcolabile.
                 const fromPrice = await priceTotalFromPrice(stripe, newPriceId, newSeats);
-                if (fromPrice != null) {
+                if (isUsableListTotal(fromPrice, newSeats)) {
                     nextAmount = fromPrice;
                 } else {
                     try {
@@ -1595,7 +1613,12 @@ serve(async req => {
                             subscription: tenant.stripe_subscription_id,
                             subscription_details: { items: newItems, proration_behavior: "none" }
                         });
-                        nextAmount = nextPreview.total ?? 0;
+                        const nextTotal = previewTotalOrNull(nextPreview.total);
+                        if (nextTotal == null) {
+                            console.error("stripe-change-subscription: next preview without total");
+                            return json(req, 502, { error: "preview_failed" });
+                        }
+                        nextAmount = nextTotal;
                     } catch (err) {
                         const message = err instanceof Error ? err.message : String(err);
                         console.error(`stripe-change-subscription: next preview failed: ${message}`);
@@ -1610,7 +1633,12 @@ serve(async req => {
                         subscription: tenant.stripe_subscription_id,
                         subscription_details: { items: newItems, proration_behavior: "none" }
                     });
-                    nextAmount = nextPreview.total ?? 0;
+                    const nextTotal = previewTotalOrNull(nextPreview.total);
+                    if (nextTotal == null) {
+                        console.error("stripe-change-subscription: next preview without total");
+                        return json(req, 502, { error: "preview_failed" });
+                    }
+                    nextAmount = nextTotal;
                 } catch (err) {
                     const message = err instanceof Error ? err.message : String(err);
                     console.error(`stripe-change-subscription: next preview failed: ${message}`);

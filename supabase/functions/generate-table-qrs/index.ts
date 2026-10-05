@@ -8,9 +8,10 @@
 // APP_URL comes from Edge env (same var as send-tenant-invite, single
 // source of truth for frontend URL). Set explicitly on each Supabase
 // project: staging project → APP_URL = https://staging.cataloglobe.com,
-// prod project → APP_URL = https://cataloglobe.com. Fallback hardcoded
-// preserva backward compat se la var fosse assente (improbabile, ma
-// safety net).
+// prod project → APP_URL = https://cataloglobe.com. Nessun fallback: un QR
+// stampato con l'host sbagliato (es. staging → produzione) è un oggetto
+// fisico da ristampare. Se APP_URL manca o non è valida la funzione risponde
+// 500 APP_URL_NOT_CONFIGURED e non genera nulla (letta via getPublicSiteUrl).
 //
 // Unlike every other Phase 2 endpoint, the success response is binary
 // (Content-Type: application/pdf). Error responses remain JSON.
@@ -33,6 +34,7 @@ import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-
 import { PDFDocument, StandardFonts, rgb } from "https://esm.sh/pdf-lib@1.17.1?target=deno";
 import QRCode from "https://esm.sh/qrcode@1.5.3?target=deno";
 import { checkRateLimit, RateLimitExceededError } from "../_shared/rateLimit.ts";
+import { getPublicSiteUrl } from "../_shared/publicSiteUrl.ts";
 
 // ============================================================
 // Constants
@@ -41,10 +43,6 @@ import { checkRateLimit, RateLimitExceededError } from "../_shared/rateLimit.ts"
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-
-const APP_URL =
-    Deno.env.get("APP_URL")?.replace(/\/+$/, "") ??
-    "https://cataloglobe.com";
 
 const RATE_LIMIT_PER_USER_PER_ACTIVITY_PER_MIN = 10;
 
@@ -263,7 +261,8 @@ async function _generateQrPng(url: string): Promise<Uint8Array> {
 
 async function _generatePdf(
     tables: TableRow[],
-    _activitySlug: string
+    _activitySlug: string,
+    appUrl: string
 ): Promise<Uint8Array> {
     const pdfDoc = await PDFDocument.create();
     const font = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
@@ -288,7 +287,7 @@ async function _generatePdf(
             const qrX = cellOriginX + (CELL_WIDTH - QR_SIZE) / 2;
             const qrY = cellOriginY + CELL_HEIGHT - QR_SIZE - LABEL_GAP;
 
-            const qrUrl = `${APP_URL}/t/${table.qr_token}`;
+            const qrUrl = `${appUrl}/t/${table.qr_token}`;
             const qrPng = await _generateQrPng(qrUrl);
             const embedded = await pdfDoc.embedPng(qrPng);
 
@@ -457,8 +456,18 @@ serve(async (req: Request) => {
             throw e;
         }
 
+        // ── Base URL dei QR (fail-closed: mai un host di ripiego) ──
+        const appUrl = getPublicSiteUrl();
+        if (!appUrl) {
+            console.error("[generate-table-qrs] APP_URL mancante o non valida: QR non generati");
+            return jsonResponse(500, {
+                code: "APP_URL_NOT_CONFIGURED",
+                message: "Configurazione mancante: impossibile generare i QR dei tavoli."
+            });
+        }
+
         // ── Generate PDF ──
-        const pdfBytes = await _generatePdf(tables, activity.slug);
+        const pdfBytes = await _generatePdf(tables, activity.slug, appUrl);
         const pagesCount = Math.ceil(tables.length / QRS_PER_PAGE);
 
         console.log("[generate-table-qrs] table_qrs_generated", {

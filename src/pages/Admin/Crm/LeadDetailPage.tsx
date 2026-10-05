@@ -42,6 +42,8 @@ import { whatsappUrl } from "@shared/crmWhatsapp";
 import { AccountCard } from "./AccountCard";
 import { CallCard } from "./CallCard";
 import { LostStageDialog } from "./LostStageDialog";
+import { ObjectionsCard } from "./ObjectionsCard";
+import { ReferredByCard } from "./ReferredByCard";
 import { StageLockDialog, type StageLockRequest } from "./StageLockDialog";
 import { VenueNameCard } from "./VenueNameCard";
 import { VenueNameCheckCard } from "./VenueNameCheckCard";
@@ -402,6 +404,8 @@ export default function LeadDetailPage() {
                 accountLabel={crmAccountLabel(venue)}
                 onChanged={reload}
             />
+            <ObjectionsCard venueId={venue.id} now={now} reloadKey={key} />
+            <ReferredByCard venueId={venue.id} referredBy={venue.referred_by} onChanged={reload} />
             <NotesSection venueId={venue.id} events={events} teamName={teamName} now={now} onChanged={reload} />
         </>
     );

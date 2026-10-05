@@ -412,3 +412,45 @@ export async function updateTicketStatus(
     if (!data) throw new Error("SUPPORT_NOT_ALLOWED");
     return data as V2SupportTicket;
 }
+
+/** La scheda del cliente accanto alla richiesta (lato piattaforma, D39). */
+export interface SupportTenantProfile {
+    name: string;
+    plan: string | null;
+    subscriptionStatus: string | null;
+    createdAt: string;
+    trialUntil: string | null;
+    activities: { id: string; name: string; status: string }[];
+}
+
+/**
+ * Solo per il platform admin: legge l'azienda e le sue sedi via le policy
+ * «Platform admins can read tenants/activities». Per chiunque altro le RLS
+ * non restituiscono righe e la funzione lancia PGRST116.
+ */
+export async function getSupportTenantProfile(tenantId: string): Promise<SupportTenantProfile> {
+    const [tenantRes, activitiesRes] = await Promise.all([
+        supabase
+            .from("tenants")
+            .select("name, plan, subscription_status, created_at, trial_until")
+            .eq("id", tenantId)
+            .maybeSingle(),
+        supabase.from("activities").select("id, name, status").eq("tenant_id", tenantId).order("name", { ascending: true })
+    ]);
+    if (tenantRes.error) throw tenantRes.error;
+    if (activitiesRes.error) throw activitiesRes.error;
+    if (!tenantRes.data) {
+        const notFound = new Error("Azienda non trovata");
+        (notFound as unknown as { code: string }).code = "PGRST116";
+        throw notFound;
+    }
+    const t = tenantRes.data as { name: string; plan: string | null; subscription_status: string | null; created_at: string; trial_until: string | null };
+    return {
+        name: t.name,
+        plan: t.plan,
+        subscriptionStatus: t.subscription_status,
+        createdAt: t.created_at,
+        trialUntil: t.trial_until,
+        activities: (activitiesRes.data ?? []) as { id: string; name: string; status: string }[]
+    };
+}

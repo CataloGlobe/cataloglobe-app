@@ -34,6 +34,12 @@ interface LogoProps {
     /** Dimensioni intrinseche per riservare lo spazio prima del caricamento (CLS); la misura resta al CSS. */
     width?: number;
     height?: number;
+    /**
+     * Sorgente già pronta, al posto del file scelto da variante e colore. Serve
+     * a passare lo stesso SVG come data URI (import `?inline`) dove il logo è
+     * l'LCP della pagina: nessuna richiesta di rete (wordmark dell'hero della landing).
+     */
+    src?: string;
 }
 
 const ASSETS: Record<LogoVariant, { flat: string; gradient: string; monoDark: string; monoWhite: string }> = {
@@ -53,12 +59,13 @@ const ASSETS: Record<LogoVariant, { flat: string; gradient: string; monoDark: st
     }
 };
 
-export function Logo({ variant, color = "auto", size, className, alt = "CataloGlobe", width, height }: LogoProps) {
+export function Logo({ variant, color = "auto", size, className, alt = "CataloGlobe", width, height, src: srcOverride }: LogoProps) {
     const { theme } = useTheme();
     const set = ASSETS[variant];
 
     const src =
-        color === "flat"
+        srcOverride ??
+        (color === "flat"
             ? set.flat
             : color === "gradient"
               ? set.gradient
@@ -68,7 +75,7 @@ export function Logo({ variant, color = "auto", size, className, alt = "CataloGl
                   ? set.monoDark
                   : theme === "dark"
                     ? set.monoWhite
-                    : set.monoDark;
+                    : set.monoDark);
 
     return (
         <img

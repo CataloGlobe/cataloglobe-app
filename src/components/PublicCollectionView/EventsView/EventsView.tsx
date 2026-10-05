@@ -16,34 +16,18 @@ type EventsViewProps = {
     /** Mostra il pulsante CTA nella card overview. Default true (comportamento storico). */
     showCta?: boolean;
     /** Contenuto aperto nel dettaglio (null = elenco). Controllato dal parent:
-     *  la CTA del dettaglio sta nel footer della PublicSheet, che è del parent. */
+     *  freccia indietro (header) e CTA (footer) stanno nella PublicSheet del parent. */
     selectedFeatured: V2FeaturedContent | null;
     onSelectFeatured: (block: V2FeaturedContent | null) => void;
 };
 
 export default function EventsView({ featuredContents, layout = "card", showSubtitle = true, showTitle = true, showCta = true, selectedFeatured, onSelectFeatured }: EventsViewProps) {
     const { t } = useTranslation("public");
-    // Dettaglio in-place: niente seconda PublicSheet impilata sopra "Eventi &
-    // Promo" (era il bug — doppio backdrop/handle). Stesso pattern di
-    // ReviewsView "← Cambia voto": swap di contenuto dentro la stessa sheet.
-
+    // Dettaglio in-place: niente seconda PublicSheet impilata sopra l'elenco.
+    // La freccia indietro sta nell'header della sheet (CollectionView), la CTA
+    // nel suo footer: qui solo il corpo.
     if (selectedFeatured) {
-        return (
-            <div className={styles.root}>
-                <div className={styles.detailView}>
-                    <button
-                        type="button"
-                        className={styles.backLink}
-                        onClick={() => onSelectFeatured(null)}
-                    >
-                        {t("events.back")}
-                    </button>
-                    <div className={styles.detailContent}>
-                        <FeaturedContentDetail block={selectedFeatured} />
-                    </div>
-                </div>
-            </div>
-        );
+        return <FeaturedContentDetail block={selectedFeatured} />;
     }
 
     if (featuredContents.length === 0) {

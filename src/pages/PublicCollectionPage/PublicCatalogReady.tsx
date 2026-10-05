@@ -6,7 +6,6 @@ import CollectionView, {
     type CollectionViewSectionGroup,
     type CollectionViewSectionItem
 } from "@/components/PublicCollectionView/CollectionView/CollectionView";
-import FeaturedBlock from "@/components/PublicCollectionView/FeaturedBlock/FeaturedBlock";
 import StaleDataBanner from "@/components/StaleDataBanner/StaleDataBanner";
 import LanguageFallbackBanner from "@/components/PublicCollectionView/LanguageFallbackBanner/LanguageFallbackBanner";
 import PublicThemeScope from "@/features/public/components/PublicThemeScope";
@@ -498,20 +497,9 @@ export default function PublicCatalogReady({
                 emptyState={emptyState}
                 activeTab={activeTab}
                 onTabChange={onTabChange}
-                featuredContents={allFeaturedContents}
                 hasStory={hasStory}
-                featuredBeforeCatalogSlot={
-                    resolved.featured?.before_catalog &&
-                    resolved.featured.before_catalog.length > 0 ? (
-                        <FeaturedBlock blocks={resolved.featured.before_catalog} activityId={business.id} slot="before_catalog" layout={tokens.appearance.featuredStyle} showSubtitle={tokens.appearance.showFeaturedSubtitle ?? true} showTitle={tokens.appearance.showFeaturedTitle ?? true} showCta={tokens.appearance.showFeaturedCta ?? true} />
-                    ) : null
-                }
-                featuredAfterCatalogSlot={
-                    resolved.featured?.after_catalog &&
-                    resolved.featured.after_catalog.length > 0 ? (
-                        <FeaturedBlock blocks={resolved.featured.after_catalog} activityId={business.id} slot="after_catalog" layout={tokens.appearance.featuredStyle} showSubtitle={tokens.appearance.showFeaturedSubtitle ?? true} showTitle={tokens.appearance.showFeaturedTitle ?? true} showCta={tokens.appearance.showFeaturedCta ?? true} />
-                    ) : null
-                }
+                featuredBeforeCatalog={resolved.featured?.before_catalog}
+                featuredAfterCatalog={resolved.featured?.after_catalog}
                 reviewsProps={{
                     googleReviewUrl: business.google_review_url,
                     activityId: business.id,

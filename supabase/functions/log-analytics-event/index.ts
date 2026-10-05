@@ -25,6 +25,8 @@ const VALID_EVENT_TYPES = new Set([
     "selection_remove",
     "selection_sheet_open",
     "featured_click",
+    "featured_cta_click",
+    "featured_see_all_click",
     "social_click",
     "search_performed",
     "tab_switch",

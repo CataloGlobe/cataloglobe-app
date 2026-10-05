@@ -47,10 +47,10 @@ export async function uploadAvatar(
 ): Promise<string> {
     const maxSizeMb = 10;
     const maxSizeBytes = maxSizeMb * 1024 * 1024;
-    const allowedTypes = ["image/png", "image/jpeg", "image/webp"];
+    const allowedTypes = ["image/png", "image/jpeg", "image/webp", "image/avif"];
 
     if (!allowedTypes.includes(file.type)) {
-        throw new Error("Formato avatar non supportato. Usa PNG, JPG o WEBP.");
+        throw new Error("Formato avatar non supportato. Usa PNG, JPG, WEBP o AVIF.");
     }
 
     if (file.size > maxSizeBytes) {

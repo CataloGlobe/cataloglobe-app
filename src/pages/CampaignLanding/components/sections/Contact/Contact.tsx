@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from "react";
 import { Check } from "lucide-react";
 import { COMPANY } from "@/config/company";
 import { validateLead, type LeadField, type LeadFieldError, type LeadInterest } from "@/utils/leadValidation";
@@ -69,6 +69,21 @@ function ContactForm() {
     useEffect(() => {
         if (status === "success") doneTitle.current?.focus();
     }, [status]);
+
+    // Il form è nell'HTML prerenderizzato prima del JS: quello che il
+    // visitatore scrive prima dell'idratazione sta nel DOM ma non nello stato,
+    // e al primo render React lo cancellerebbe. Lo si riprende una volta,
+    // all'idratazione, prima di qualsiasi altro render. Renderizzata dal client
+    // (createRoot) DOM e stato coincidono e non cambia nulla.
+    useLayoutEffect(() => {
+        const el = form.current;
+        if (!el) return;
+        const input = (name: string) => el.elements.namedItem(name) as HTMLInputElement | null;
+        const fromDom = { ...EMPTY };
+        for (const f of FIELDS) fromDom[f.key] = input(f.inputName)?.value ?? "";
+        if (FIELDS.some((f) => fromDom[f.key] !== "")) setValues(fromDom);
+        if (input("privacy")?.checked) setConsent(true);
+    }, []);
 
     // Dopo il primo errore un campo si riconvalida mentre lo si corregge.
     const revalidate = (nextValues: Values, nextConsent: boolean) => {

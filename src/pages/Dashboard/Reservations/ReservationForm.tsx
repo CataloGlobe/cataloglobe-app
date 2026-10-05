@@ -700,6 +700,16 @@ export function ReservationForm({
                 rows={3}
             />
 
+            {/* Allergie dal modulo pubblico, con consenso del cliente: si
+                leggono e basta, il back office non le scrive. */}
+            {entityData?.allergies && (
+                <InlineBanner variant="warning">
+                    <Text as="p" variant="body-sm">
+                        <strong>Allergie:</strong> {entityData.allergies}
+                    </Text>
+                </InlineBanner>
+            )}
+
             {/* Avvisi non bloccanti: `status`, non `alert` — informano mentre
                 si scrive, non interrompono a ogni cambio. */}
             {overCapacityWarning && <InlineBanner variant="warning">{overCapacityWarning}</InlineBanner>}

@@ -157,7 +157,6 @@ export async function syncAppointmentGoogle(supabase, id: string, team, appUrl: 
                     venueName: info.venueName,
                     city: info.city,
                     contactName: info.contactName,
-                    phone: info.phone,
                     callerName: info.callerName,
                     startsAt: row.starts_at,
                     endsAt: row.ends_at,

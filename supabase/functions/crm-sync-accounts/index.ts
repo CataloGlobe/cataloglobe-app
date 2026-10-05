@@ -19,11 +19,17 @@
 //         attore NULL = sistema;
 //   3. email del proprietario o nome dell'azienda uguali a quelli di un locale
 //      non collegato → proposta in crm_account_suggestions (mai automatica).
-// Regole in _shared/crmAccountSync.ts (puro, testato).
+//   4. post-vendita (migration 20261006090000): per i locali collegati i gesti
+//      da fare (menù non online, prova in scadenza, crescita, passaparola,
+//      _shared/crmPostSale.ts) vanno su Telegram una volta per gesto, nei
+//      feriali dalle 10 alle 18, al massimo POST_SALE_ALERTS_PER_RUN per giro.
+//      Passo a parte: se fallisce (o la migration manca) i passi 1-3 restano.
+// Regole in _shared/crmAccountSync.ts e _shared/crmPostSale.ts (puri, testati).
 //
 // AUTENTICAZIONE fail-CLOSED: X-Job-Secret = CRM_JOB_SECRET.
 // Env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, CRM_JOB_SECRET,
-// STRIPE_SECRET_KEY (facoltativa: senza, il tipo di prova resta da sapere).
+// STRIPE_SECRET_KEY (facoltativa: senza, il tipo di prova resta da sapere),
+// TELEGRAM_BOT_TOKEN e APP_URL (facoltativi: avvisi del post-vendita).
 // =============================================================================
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -36,6 +42,16 @@ import {
     pickTenant,
     trialKindFromMetadata
 } from "../_shared/crmAccountSync.ts";
+import {
+    POST_SALE_LABEL,
+    isPostSaleAlertTime,
+    needsPostSaleAlert,
+    postSaleReason,
+    postSaleSignals
+} from "../_shared/crmPostSale.ts";
+import { sendToTeam } from "../_shared/crmTeamAlert.ts";
+import { escapeHtml } from "../_shared/crmTelegram.ts";
+import { getPublicSiteUrl } from "../_shared/publicSiteUrl.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -230,6 +246,72 @@ async function sync(supabase) {
     return stats;
 }
 
+const POST_SALE_ALERTS_PER_RUN = 5;
+
+async function postSaleAlerts(supabase, now: Date) {
+    const stats = { post_sale_alerts: 0 };
+    if (!isPostSaleAlertTime(now)) return stats;
+
+    const { data: accounts, error } = await supabase.rpc("crm_post_sale_accounts");
+    if (error) throw error;
+    if (!accounts?.length) return stats;
+
+    const [venuesRes, actionsRes] = await Promise.all([
+        supabase.from("crm_venues").select("id, name, assigned_to, account_state, trial_ends_at").not("tenant_id", "is", null),
+        supabase.from("crm_post_sale_actions").select("venue_id, kind, alerted_at, done_at, snoozed_until")
+    ]);
+    if (venuesRes.error) throw venuesRes.error;
+    if (actionsRes.error) throw actionsRes.error;
+
+    const venueById = new Map(venuesRes.data.map(v => [v.id, v]));
+    const actionByKey = new Map(
+        actionsRes.data.map(a => [
+            `${a.venue_id}:${a.kind}`,
+            { kind: a.kind, alertedAt: a.alerted_at, doneAt: a.done_at, snoozedUntil: a.snoozed_until }
+        ])
+    );
+    const appUrl = getPublicSiteUrl();
+
+    for (const row of accounts) {
+        const venue = venueById.get(row.venue_id);
+        if (!venue) continue;
+        const signals = postSaleSignals(
+            {
+                accountState: venue.account_state,
+                trialEndsAt: venue.trial_ends_at,
+                tenantCreatedAt: row.tenant_created_at,
+                plan: row.plan,
+                activitiesTotal: row.activities_total,
+                hasLiveMenu: row.has_live_menu,
+                liveMenuSince: row.live_menu_since
+            },
+            now
+        );
+        for (const signal of signals) {
+            if (stats.post_sale_alerts >= POST_SALE_ALERTS_PER_RUN) return stats;
+            if (!needsPostSaleAlert(actionByKey.get(`${venue.id}:${signal.kind}`), now)) continue;
+            const lines = [
+                `<b>Clienti · ${escapeHtml(POST_SALE_LABEL[signal.kind])}</b>`,
+                escapeHtml(venue.name),
+                escapeHtml(postSaleReason(signal))
+            ];
+            if (appUrl) lines.push(`<a href="${appUrl}/admin/clienti">Apri Clienti nel CRM</a>`);
+            const delivered = await sendToTeam(supabase, lines.join("\n"), {
+                preferUserIds: [venue.assigned_to],
+                logTag: "crm-sync-accounts post-vendita"
+            });
+            if (delivered === 0) continue;
+            const { error: upsertError } = await supabase.from("crm_post_sale_actions").upsert(
+                { venue_id: venue.id, kind: signal.kind, alerted_at: now.toISOString(), updated_at: now.toISOString() },
+                { onConflict: "venue_id,kind" }
+            );
+            if (upsertError) throw upsertError;
+            stats.post_sale_alerts += 1;
+        }
+    }
+    return stats;
+}
+
 Deno.serve(async (req: Request) => {
     if (req.method !== "POST") return json(405, { error: "method_not_allowed" });
 
@@ -245,6 +327,12 @@ Deno.serve(async (req: Request) => {
     const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } });
     try {
         const stats = await sync(supabase);
+        try {
+            Object.assign(stats, await postSaleAlerts(supabase, new Date()));
+        } catch (err) {
+            const e = err as { code?: unknown; message?: unknown };
+            console.error("crm-sync-accounts: post-vendita", e?.code ?? "", e?.message ?? String(err));
+        }
         console.log(JSON.stringify({ event: "crm_sync_accounts", ...stats }));
         return json(200, stats);
     } catch (err) {

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { ChevronRight, LifeBuoy } from "lucide-react";
 import { ChipGroupSingle, type ChipOption } from "@/components/ui/Chip/ChipGroup";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
@@ -12,10 +12,12 @@ import { listAllTickets } from "@/services/supabase/support";
 import { formatDateTimeIt } from "@/utils/formatDateTime";
 import { relativeAgo } from "@/utils/crm/crmHome";
 import {
+    DEFAULT_SUPPORT_FILTER,
     SUPPORT_QUEUE_FILTERS,
     groupSupportQueue,
     matchesSupportFilter,
     supportFilterCounts,
+    supportFilterFrom,
     supportWaitIsLate,
     waitsForUs,
     type SupportQueueFilter
@@ -67,7 +69,23 @@ export default function SupportQueuePage() {
     const [tickets, setTickets] = useState<V2SupportTicketWithContext[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [loadError, setLoadError] = useState<string | null>(null);
-    const [filter, setFilter] = useState<SupportQueueFilter>("da_gestire");
+    // Il filtro sta nell'indirizzo: la richiesta aperta lo tiene e «‹ Supporto»
+    // torna qui con lo stesso.
+    const [searchParams, setSearchParams] = useSearchParams();
+    const filter = supportFilterFrom(searchParams.get("filtro"));
+    const setFilter = useCallback(
+        (next: SupportQueueFilter) =>
+            setSearchParams(
+                prev => {
+                    const params = new URLSearchParams(prev);
+                    if (next === DEFAULT_SUPPORT_FILTER) params.delete("filtro");
+                    else params.set("filtro", next);
+                    return params;
+                },
+                { replace: true }
+            ),
+        [setSearchParams]
+    );
     // Un orologio per caricamento: le attese restano coerenti fra loro.
     const [now, setNow] = useState(() => new Date());
 
@@ -100,7 +118,10 @@ export default function SupportQueuePage() {
                 value: f.value,
                 label: f.label,
                 count: counts[f.value],
-                tone: f.value === "aspettano_voi" && counts.aspettano_voi > 0 ? "warning" : undefined
+                tone:
+                    (f.value === "aspettano_voi" && counts.aspettano_voi > 0) || (f.value === "non_gestite" && counts.non_gestite > 0)
+                        ? "warning"
+                        : undefined
             })),
         [counts]
     );
@@ -164,7 +185,9 @@ export default function SupportQueuePage() {
                                                 type="button"
                                                 className={styles.row}
                                                 data-ours={ours || undefined}
-                                                onClick={() => navigate(ticket.id)}
+                                                onClick={() =>
+                                                    navigate(filter === DEFAULT_SUPPORT_FILTER ? ticket.id : `${ticket.id}?filtro=${filter}`)
+                                                }
                                             >
                                                 <span className={styles.flag} aria-hidden="true" />
                                                 <span className={styles.main}>

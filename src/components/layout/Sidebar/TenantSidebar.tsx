@@ -27,11 +27,6 @@ export interface SidebarSignalProps {
      * interrogare il DB da sé.
      */
     supportUnread?: boolean;
-    /**
-     * Recensioni in attesa nel perimetro della voce Recensioni (§34.9/1,
-     * §51.10): l'azienda fuori, la sede dentro. 0 a chi non ha `reviews.moderate`.
-     */
-    reviewsPendingCount?: number;
 }
 
 export interface TenantSidebarProps extends SidebarSignalProps {
@@ -63,8 +58,7 @@ export default function TenantSidebar({
     loading = false,
     translationPendingCount = 0,
     importInProgress = false,
-    supportUnread = false,
-    reviewsPendingCount = 0
+    supportUnread = false
 }: TenantSidebarProps) {
     const { businessId = "" } = useParams<{ businessId: string }>();
     const { t } = useTranslation("admin");
@@ -74,8 +68,7 @@ export default function TenantSidebar({
     const { groups, footer } = navSidebarGroups(NAV_MODELS[context], {
         businessId,
         activityId: context === "unica" ? activityId : null,
-        catalogLabel,
-        reviewsPendingCount
+        catalogLabel
     });
     const options = {
         permissions,

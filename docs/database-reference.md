@@ -14,7 +14,7 @@ Riferimento schema. Per regole binding (RLS, naming, migration discipline) vedi 
 - `catalogs`, `catalog_categories`, `catalog_category_products` — catalogo
 - `products`, `product_variants`, `product_option_groups`, `product_option_values`
 - `styles`, `style_versions` — stili con versioni immutabili
-- `reviews` — recensioni (rebuild `20260413085957`). Nessuna lettura anon (`20260930120000`); i membri non inseriscono e aggiornano solo `status` (`20260930120100`–`120300`, privilegi di colonna): le recensioni nascono solo dalla Edge `submit-review` (service role)
+- `reviews` — recensioni (rebuild `20260413085957`). Nessuna lettura anon (`20260930120000`); i membri non inseriscono (`20260930120100`–`120200`) né aggiornano, anon senza privilegi (`20261005210000`, R1: feedback privato, `status` inutilizzato): le recensioni nascono solo dalla Edge `submit-review` (service role)
 - `notifications` — notifiche estese (`20260410140000`)
 - Stripe billing su `tenants`: colonne `stripe_customer_id`, `stripe_subscription_id`, `subscription_status`, `paid_seats`, `trial_until` (`20260411100000`, `20260413100000`). Le tabelle `stripe_subscriptions` e `stripe_customers` NON esistono — i dati Stripe vivono come colonne su `tenants`.
 
@@ -27,6 +27,7 @@ Riferimento schema. Per regole binding (RLS, naming, migration discipline) vedi 
 - `schedule_targets` — NO `tenant_id` ma RLS attivo: 4 policy con sub-select su schedules.tenant_id (audit aprile 2026)
 - `product_attribute_definitions.tenant_id` — NULLABLE (attributi piattaforma usano NULL)
 - `schedule_featured_contents.slot` — constraint CHECK a 2 valori: `before_catalog`, `after_catalog` (migration `20260414190000`, hero rimosso)
+- `translation_jobs.status` — CHECK `IN ('pending','processing','done','failed')` (no `"error"`; `translation_jobs_status_check`, migration `20260503190000`)
 - `schedules.start_at` / `schedules.end_at` — giorno di Roma: 00:00 e 23:59:59 Europe/Rome → UTC (`ruleDateToIso` in `ruleDetailForm.ts`), mai il fuso del browser
 - `activity_hours.closes_next_day` — BOOLEAN DEFAULT false. Se `closes_at < opens_at`, il form imposta il flag automaticamente. Overlap detection usa `closes_at_minutes + 1440` per slot notturni. Stesso pattern per `activity_closures` (JSONB slots, `closes_next_day` è campo del JSON — nessun campo DB aggiuntivo).
 - View utenti vs RPC: `user_tenants_view` è SECURITY INVOKER e delega a `get_user_tenants()`. Per dati membri/inviti usare le RPC `get_tenant_members(uuid)` e `get_my_pending_invites()` (entrambe SECURITY DEFINER, accesso filtrato internamente). Le view legacy `tenant_members_view` e `my_pending_invites_view` sono state droppate nelle migration `20260427100000_security_advisor_fixes.sql` + `20260427110000_drop_orphan_member_views.sql`.
