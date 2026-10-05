@@ -389,6 +389,9 @@ export interface SubmitReservationInput {
     customer_email: string;
     customer_phone: string;
     notes?: string;
+    /** Solo con la casella del consenso spuntata; l'Edge rifiuta allergie senza versione. */
+    allergies?: string;
+    allergies_consent_version?: string;
     /**
      * Lingua corrente della pagina pubblica (`i18n.language`) al momento del
      * submit. L'Edge la valida di forma e la persiste su
