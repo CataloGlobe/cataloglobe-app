@@ -77,6 +77,8 @@ Più un product **non listato** da `GET /v1/products` ma recuperato per id: `pro
 
 Gli id product coincidono tra sandbox e live (stesso id `prod_Ueg…` in entrambi gli ambienti).
 
+> **Nota 2026-10-05**: i Price graduated qui sotto sono superati. Lo sconto dalla seconda sede è stato tolto, i Price nuovi sono `per_unit` e `plans.volume_discount_*` non esiste più (migrazione `20261005190000`). Le tabelle restano come fotografia dell'audit.
+
 **F6 — Prices sandbox** (`GET /v1/prices?expand[]=data.tiers`, 7 risultati)
 
 | id | nickname | lookup_key | active | currency | interval | billing_scheme | tiers_mode | tax_behavior | tiers (up_to / unit_amount / flat_amount) |

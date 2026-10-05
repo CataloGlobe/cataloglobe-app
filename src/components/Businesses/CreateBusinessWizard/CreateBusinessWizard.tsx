@@ -12,7 +12,7 @@ import { confirmCheckoutSession, createCheckoutSession } from "@/services/supaba
 import { listPublicPlans } from "@/services/supabase/plans";
 import { listPlanPrices } from "@/services/supabase/planPrices";
 import { compressImage, COMPRESS_PROFILES } from "@/utils/compressImage";
-import { calculateGraduatedFromPlan } from "@/utils/pricing";
+import { calculateSeatsPricing, EMPTY_SEATS_PRICING } from "@/utils/pricing";
 import { availableIntervals, coerceInterval, priceCentsFor } from "@/utils/planPricing";
 
 import { TENANT_KEY as STORAGE_KEY } from "@/constants/storageKeys";
@@ -269,16 +269,9 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
 
     const breakdown = useMemo(() => {
         if (!selectedPlan || unitPriceCents === null) {
-            return { lines: [], subtotal: 0, fullPrice: 0, discountedPrice: 0 };
+            return EMPTY_SEATS_PRICING;
         }
-        return calculateGraduatedFromPlan(
-            {
-                unit_price_cents: unitPriceCents,
-                volume_discount_threshold: selectedPlan.volume_discount_threshold,
-                volume_discount_percent: selectedPlan.volume_discount_percent
-            },
-            seats
-        );
+        return calculateSeatsPricing({ unit_price_cents: unitPriceCents }, seats);
     }, [selectedPlan, unitPriceCents, seats]);
 
     const unitPriceCentsByPlan = useMemo(() => {
@@ -291,7 +284,6 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
     }, [plans, planPrices, billingInterval]);
 
     const maxSelfServiceSeats = selectedPlan?.max_self_service_seats ?? 5;
-    const discountPercent = selectedPlan?.volume_discount_percent ?? 10;
     const overLimit = seats > maxSelfServiceSeats;
 
     const canProceedFromStep1 = name.trim().length >= 2;
@@ -653,7 +645,6 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
                         onSeatsChange={handleSeatsChange}
                         breakdown={breakdown}
                         maxSeats={maxSelfServiceSeats}
-                        discountPercent={discountPercent}
                         overLimit={overLimit}
                         disabled={submitting}
                     />
@@ -701,7 +692,6 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
                         billingInterval={billingInterval}
                         breakdown={breakdown}
                         total={breakdown.subtotal}
-                        discountPercent={discountPercent}
                         isFirstSubscription={isFirstSubscription}
                         promotionCode={promotionCode}
                         onPromotionCodeChange={value => {

@@ -436,7 +436,7 @@ export const PRICING = {
     ],
     notIncluded: "Non incluso nel Base:",
     printer: { label: "Stampante per la cucina:", text: " opzionale, si acquista a parte." },
-    footnote: "Un prezzo per ogni locale, nessun costo aggiuntivo. Dal secondo locale, −10% su ognuno."
+    footnote: "Un prezzo per ogni locale, nessun costo aggiuntivo."
 };
 
 // ── 9 · Come si parte ───────────────────────────────────────────────────────

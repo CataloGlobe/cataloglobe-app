@@ -36,7 +36,7 @@ import { COMPANY } from "@/config/company";
 import { formatPendingChangeLabel } from "./pendingChangeLabel";
 import { SUBSCRIPTION_UNAVAILABLE_MESSAGE, buildSubscriptionSupportMailto } from "./supportMailto";
 import { listPlanPrices } from "@/services/supabase/planPrices";
-import { calculateGraduatedFromPlan, nextSeatOffer } from "@/utils/pricing";
+import { calculateSeatsPricing, EMPTY_SEATS_PRICING, nextSeatOffer } from "@/utils/pricing";
 import { DEFAULT_BILLING_INTERVAL, INTERVAL_ADJECTIVE, intervalUnit, priceCentsFor } from "@/utils/planPricing";
 import { canDoOnTenant } from "@/lib/permissions";
 import { usePermissions } from "@/context/PermissionsContext";
@@ -411,15 +411,14 @@ export default function SubscriptionPage() {
     const paidSeats = selectedTenant?.paid_seats ?? 0;
 
     const currentPricing = useMemo(() => {
-        if (!currentPlan) return { lines: [], subtotal: 0, fullPrice: 0, discountedPrice: 0 };
+        if (!currentPlan) return EMPTY_SEATS_PRICING;
         const unitPriceCents = priceCentsFor(planPrices, currentPlan.code, billingInterval);
-        return calculateGraduatedFromPlan({ ...currentPlan, unit_price_cents: unitPriceCents }, paidSeats);
+        return calculateSeatsPricing({ unit_price_cents: unitPriceCents }, paidSeats);
     }, [currentPlan, paidSeats, planPrices, billingInterval]);
 
     // --- Derivati del flusso di cambio (sicuri anche prima del load) ---
     const draftPlanObj = plans.find(p => p.code === draftPlan) ?? null;
     const draftMaxSeats = draftPlanObj?.max_self_service_seats ?? 5;
-    const draftDiscount = draftPlanObj?.volume_discount_percent ?? 10;
     const minSeats = Math.max(1, activityCount);
     const selfServiceCap = currentPlan?.max_self_service_seats ?? 5;
     const selfServiceEligible = activityCount <= selfServiceCap;
@@ -437,9 +436,9 @@ export default function SubscriptionPage() {
     }, [plans, planPrices, billingInterval]);
 
     const draftBreakdown = useMemo(() => {
-        if (!draftPlanObj) return { lines: [], subtotal: 0, fullPrice: 0, discountedPrice: 0 };
+        if (!draftPlanObj) return EMPTY_SEATS_PRICING;
         const unitPriceCents = priceCentsFor(planPrices, draftPlanObj.code, billingInterval);
-        return calculateGraduatedFromPlan({ ...draftPlanObj, unit_price_cents: unitPriceCents }, draftSeats);
+        return calculateSeatsPricing({ unit_price_cents: unitPriceCents }, draftSeats);
     }, [draftPlanObj, draftSeats, planPrices, billingInterval]);
 
     if (loading || !selectedTenant || permissionsLoading) {
@@ -1044,14 +1043,11 @@ export default function SubscriptionPage() {
         status === "trialing" && trialDaysLeft !== null
             ? ` (${trialDaysLeft} giorn${trialDaysLeft === 1 ? "o" : "i"})`
             : "";
-    // Importo scomposto (§37.7): «5 × € 59 · sconto volume −10%».
-    const volumeDiscounted = currentPricing.lines.some(l => l.discounted);
+    // Importo scomposto (§37.7): «5 × € 59».
     const amountLabel =
         displaySeats === 1
-            ? `1 sede a ${formatEuro(currentPricing.fullPrice)}`
-            : `${displaySeats} × ${formatEuro(currentPricing.fullPrice)}${
-                  volumeDiscounted && currentPlan ? ` · sconto volume −${currentPlan.volume_discount_percent}%` : ""
-              }`;
+            ? `1 sede a ${formatEuro(currentPricing.unitPrice)}`
+            : `${displaySeats} × ${formatEuro(currentPricing.unitPrice)}`;
     const allSeatsUsed = activityCount >= displaySeats && displaySeats > 0;
     // Stato non leggibile: importo e rinnovo non si inventano, resta la sola
     // cifra che viene dal DB.
@@ -1281,10 +1277,9 @@ export default function SubscriptionPage() {
                                     {formatCents(seatOffer.extraPriceCents)} {periodWord} in più
                                 </Text>
                                 <Text as="p" variant="caption" colorVariant="muted">
-                                    {formatCents(seatOffer.listPriceCents)} con lo sconto volume del {seatOffer.volumeDiscountPercent}%,{" "}
                                     {status === "trialing"
-                                        ? `senza addebito fino al ${formatDate(selectedTenant.trial_until)}.`
-                                        : `addebitati subito in proporzione ai giorni che restano fino al ${formatDate(periodEndDate)}.`}
+                                        ? `Senza addebito fino al ${formatDate(selectedTenant.trial_until)}.`
+                                        : `Addebitati subito in proporzione ai giorni che restano fino al ${formatDate(periodEndDate)}.`}
                                 </Text>
                                 {canManageBilling && (
                                     <div className={styles.nextSeatAction}>
@@ -1467,7 +1462,6 @@ export default function SubscriptionPage() {
                                 seats={draftSeats}
                                 onSeatsChange={setDraftSeats}
                                 breakdown={draftBreakdown}
-                                discountPercent={draftDiscount}
                                 overLimit={false}
                                 maxSeats={draftMaxSeats}
                                 minSeats={minSeats}

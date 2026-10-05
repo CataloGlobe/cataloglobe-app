@@ -24,6 +24,7 @@ import {
     combinedChangePartialFailureEmail
 } from "../_shared/subscriptionEmails.ts";
 import { buildIdempotencyKey } from "../_shared/idempotency.ts";
+import { retrievePriceTotalCents } from "../_shared/priceTotal.ts";
 import { classifyChange } from "../_shared/classifyChange.ts";
 import {
     ALLOWED_INTERVALS,
@@ -277,56 +278,13 @@ async function lookupPlanCodeByPriceId(
     return match?.planCode ?? null;
 }
 
-/**
- * Totale ricorrente PIENO (in centesimi) per un Price graduato a `quantity`
- * sedi, calcolato dai tiers del Price. Indipendente da qualsiasi schedule
- * attivo sulla subscription. Ritorna `null` su Price non graduated-tiered.
- */
-async function graduatedTotalFromPrice(
+/** Totale ricorrente pieno di un Price a `quantity` sedi (vedi _shared/priceTotal.ts). */
+function priceTotalFromPrice(
     stripe: Stripe,
     priceId: string,
     quantity: number
 ): Promise<number | null> {
-    try {
-        const price = await stripe.prices.retrieve(priceId, { expand: ["tiers"] });
-        if (
-            price.billing_scheme !== "tiered" ||
-            price.tiers_mode !== "graduated" ||
-            !Array.isArray(price.tiers)
-        ) {
-            console.warn(
-                `graduatedTotalFromPrice: price ${priceId} non graduated-tiered (scheme=${price.billing_scheme}, mode=${price.tiers_mode}) — fallback`
-            );
-            return null;
-        }
-        const tiers = [...price.tiers].sort((a, b) => {
-            const au = a.up_to ?? Number.POSITIVE_INFINITY;
-            const bu = b.up_to ?? Number.POSITIVE_INFINITY;
-            return au - bu;
-        });
-        let remaining = quantity;
-        let lower = 0;
-        let total = 0;
-        for (const tier of tiers) {
-            if (remaining <= 0) break;
-            const upTo = tier.up_to ?? Number.POSITIVE_INFINITY;
-            const capacity = upTo - lower;
-            const units = Math.min(remaining, capacity);
-            if (units <= 0) continue;
-            total += (tier.flat_amount ?? 0) + (tier.unit_amount ?? 0) * units;
-            remaining -= units;
-            lower = upTo;
-        }
-        if (remaining > 0) {
-            console.warn(`graduatedTotalFromPrice: quantity ${quantity} oltre i tiers di ${priceId} — fallback`);
-            return null;
-        }
-        return total;
-    } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        console.error(`graduatedTotalFromPrice: retrieve fallito per ${priceId}: ${message}`);
-        return null;
-    }
+    return retrievePriceTotalCents(stripe, priceId, quantity, "priceTotalFromPrice");
 }
 
 // ---------------------------------------------------------------------------
@@ -443,9 +401,9 @@ async function handleIntervalUp(ctx: IntervalChangeContext): Promise<Response> {
 
     const newItems = [{ id: itemId, price: newPriceId, quantity: currentSeats }];
 
-    // Full recurring total of the target (yearly) Price from its tiers: the
+    // Full recurring total of the target (yearly) Price (per_unit or legacy tiers): the
     // figure the customer will pay at every renewal, independent of proration.
-    const yearlyTotalCents = await graduatedTotalFromPrice(stripe, newPriceId, currentSeats);
+    const yearlyTotalCents = await priceTotalFromPrice(stripe, newPriceId, currentSeats);
     if (yearlyTotalCents == null) {
         console.error(`stripe-change-subscription: interval-up yearly total unavailable for ${newPriceId}`);
         return json(req, 502, { error: "preview_failed" });
@@ -728,8 +686,8 @@ async function handleIntervalDown(ctx: IntervalChangeContext): Promise<Response>
         return json(req, 422, { error: "INTERVAL_CHANGE_BLOCKED", details: { reason: blocked.reason } });
     }
 
-    // Full recurring total of the target (monthly) Price from its tiers.
-    const monthlyTotalCents = await graduatedTotalFromPrice(stripe, newPriceId, currentSeats);
+    // Full recurring total of the target (monthly) Price (per_unit or legacy tiers).
+    const monthlyTotalCents = await priceTotalFromPrice(stripe, newPriceId, currentSeats);
     if (monthlyTotalCents == null) {
         console.error(`stripe-change-subscription: interval-down monthly total unavailable for ${newPriceId}`);
         return json(req, 502, { error: "preview_failed" });
@@ -1340,7 +1298,7 @@ serve(async req => {
 
             // ---- PREVIEW ----
             if (action === "preview-scheduled-change") {
-                let nextAmount = await graduatedTotalFromPrice(stripe, newPriceId, newSeats);
+                let nextAmount = await priceTotalFromPrice(stripe, newPriceId, newSeats);
                 if (nextAmount == null) {
                     try {
                         const nextPreview = await stripe.invoices.createPreview({
@@ -1557,7 +1515,7 @@ serve(async req => {
                     }
 
                     // Al rinnovo: totale ricorrente del target pending (es. Base) a newSeats.
-                    let nextAmountB2 = await graduatedTotalFromPrice(stripe, b2FuturePrice, newSeats);
+                    let nextAmountB2 = await priceTotalFromPrice(stripe, b2FuturePrice, newSeats);
                     if (nextAmountB2 == null) {
                         try {
                             const nextPreview = await stripe.invoices.createPreview({
@@ -1602,11 +1560,11 @@ serve(async req => {
 
             let nextAmount = 0;
             if (classification === "upgrade") {
-                // Pieno graduato al target dai tiers (indipendente da schedule attivi);
-                // fallback a createPreview solo se il Price non è graduated-tiered.
-                const tiered = await graduatedTotalFromPrice(stripe, newPriceId, newSeats);
-                if (tiered != null) {
-                    nextAmount = tiered;
+                // Totale pieno al target dal Price (indipendente da schedule attivi);
+                // fallback a createPreview solo se il totale del Price non è calcolabile.
+                const fromPrice = await priceTotalFromPrice(stripe, newPriceId, newSeats);
+                if (fromPrice != null) {
+                    nextAmount = fromPrice;
                 } else {
                     try {
                         const nextPreview = await stripe.invoices.createPreview({
@@ -1625,11 +1583,11 @@ serve(async req => {
                 // Downgrade con schedule già pendente: createPreview su una sub
                 // schedule-managed non riflette l'override items richiesto — resta
                 // ancorato alla fase target dello schedule ESISTENTE. Calcolo diretto
-                // dai tiers (stesso pattern di B2 e preview-scheduled-change), fallback
-                // a createPreview solo se il Price non è graduated-tiered.
-                const tiered = await graduatedTotalFromPrice(stripe, newPriceId, newSeats);
-                if (tiered != null) {
-                    nextAmount = tiered;
+                // dal Price (stesso pattern di B2 e preview-scheduled-change), fallback
+                // a createPreview solo se il totale del Price non è calcolabile.
+                const fromPrice = await priceTotalFromPrice(stripe, newPriceId, newSeats);
+                if (fromPrice != null) {
+                    nextAmount = fromPrice;
                 } else {
                     try {
                         const nextPreview = await stripe.invoices.createPreview({
@@ -2295,7 +2253,7 @@ serve(async req => {
             // Email best-effort (importo addebitato oggi dall'invoice reale).
             try {
                 const to = await getRecipient();
-                const monthlyTotalCents = await graduatedTotalFromPrice(stripe, newPriceId, newSeats);
+                const monthlyTotalCents = await priceTotalFromPrice(stripe, newPriceId, newSeats);
                 if (to && monthlyTotalCents != null) {
                     const inv = updated?.latest_invoice;
                     const amountPaidTodayCents = inv && typeof inv !== "string" ? inv.amount_paid ?? null : null;
