@@ -787,8 +787,9 @@ export function TableDetailDrawer({
                                             ? formatAbsolute(o.delivered_at)
                                             : formatAbsolute(o.submitted_at);
                                     const { variant, label } = orderStatusBadge(o.status);
-                                    // Storna solo su delivered; disabilitato a netto≤0.
-                                    const canStorna = canManageTable && o.status === "delivered";
+                                    // Storna solo su delivered; disabilitato a netto≤0. Stesso
+                                    // permesso della edge rectify-order (orders.manage).
+                                    const canStorna = canManageOrders && o.status === "delivered";
                                     const stornaDisabled = unit.netto <= 0;
                                     return (
                                         <Fragment key={o.id}>
