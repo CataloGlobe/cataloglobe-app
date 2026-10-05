@@ -5,6 +5,7 @@
  */
 
 import type { CrmBillingInterval, CrmExpenseCategory, CrmExpenseKind } from "@shared/crmExpenses";
+import type { CrmAiRole } from "@shared/crmAi";
 
 export type { CrmBillingInterval, CrmExpenseCategory, CrmExpenseKind };
 
@@ -294,6 +295,23 @@ export interface CrmMessage {
     status_reason: string | null;
     sent_at: string | null;
     appointment_id: string | null;
+}
+
+/** Un messaggio in coda con il nome del locale (pagina Agenti, «In arrivo»). */
+export interface CrmQueuedMessage {
+    id: string;
+    created_at: string;
+    send_after: string | null;
+    venue_id: string;
+    venue_name: string;
+    purpose: CrmMessagePurpose | null;
+    body: string | null;
+}
+
+/** Una chiamata a Claude, solo ruolo e costo (spesa per agente). */
+export interface CrmAiUsageCost {
+    role: CrmAiRole;
+    cost_usd: number;
 }
 
 export type CrmWaState = "unknown" | "ok" | "needs_relink" | "warning";

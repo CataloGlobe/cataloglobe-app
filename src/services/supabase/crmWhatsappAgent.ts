@@ -7,7 +7,7 @@
  * `crm-wa-worker`; da qui si può solo annullare un messaggio in coda.
  */
 import { supabase } from "@/services/supabase/client";
-import type { CrmMessage, CrmWaChannel, CrmWaSettings } from "@/types/crm";
+import type { CrmMessage, CrmQueuedMessage, CrmWaChannel, CrmWaSettings } from "@/types/crm";
 
 const MESSAGE_SELECT =
     "id, created_at, venue_id, contact_id, lead_id, direction, author, kind, body, purpose, status, status_reason, sent_at, appointment_id";
@@ -88,6 +88,36 @@ export async function countCrmQueuedMessages(): Promise<number> {
         .from("crm_messages")
         .select("id", { count: "exact", head: true })
         .eq("status", "queued");
+    if (error) throw error;
+    return count ?? 0;
+}
+
+type QueuedRow = Omit<CrmQueuedMessage, "venue_name"> & { crm_venues: { name: string } | null };
+
+/** I messaggi in coda con il locale, dal primo che parte (pagina Agenti, «In arrivo»). */
+export async function listCrmQueuedMessages(limit = 50): Promise<CrmQueuedMessage[]> {
+    const { data, error } = await supabase
+        .from("crm_messages")
+        .select("id, created_at, send_after, venue_id, purpose, body, crm_venues(name)")
+        .eq("status", "queued")
+        .order("send_after", { ascending: true, nullsFirst: true })
+        .order("created_at", { ascending: true })
+        .limit(limit);
+    if (error) throw error;
+    return ((data ?? []) as unknown as QueuedRow[]).map(({ crm_venues, ...row }) => ({
+        ...row,
+        venue_name: crm_venues?.name ?? "Locale"
+    }));
+}
+
+/** Primi messaggi partiti da `sinceIso` (il tetto è 30 al giorno, giorno di Roma). */
+export async function countCrmFirstMessagesSince(sinceIso: string): Promise<number> {
+    const { count, error } = await supabase
+        .from("crm_messages")
+        .select("id", { count: "exact", head: true })
+        .eq("purpose", "first_message")
+        .eq("status", "sent")
+        .gte("sent_at", sinceIso);
     if (error) throw error;
     return count ?? 0;
 }

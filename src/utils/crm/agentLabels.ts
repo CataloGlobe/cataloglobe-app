@@ -9,7 +9,7 @@ import type {
     CrmBrakeSource,
     CrmDecisionActor
 } from "@/types/crm";
-import { CLAUDE_PRICES } from "@shared/crmAi";
+import { CLAUDE_PRICES, type CrmAiRole } from "@shared/crmAi";
 
 export const CRM_BRAKE_SOURCE_LABEL: Record<CrmBrakeSource, string> = {
     setup: "avvio",
@@ -207,3 +207,11 @@ export function describeTrust(t: {
     const auto = t.total_auto ? `, ${t.total_auto} partite da sole` : "";
     return `${state ? `${state} · ` : ""}${row} senza modifiche · in tutto ${t.total_approved} approvate, ${t.total_edited} corrette, ${t.total_discarded} scartate${auto}`;
 }
+
+/** La colonna del modello di ogni ruolo AI in `crm_settings`. */
+export const MODEL_FIELD: Record<CrmAiRole, "ai_model_conversation" | "ai_model_reviewer" | "ai_model_sensitive" | "ai_model_gea"> = {
+    conversation: "ai_model_conversation",
+    reviewer: "ai_model_reviewer",
+    sensitive: "ai_model_sensitive",
+    gea: "ai_model_gea"
+};

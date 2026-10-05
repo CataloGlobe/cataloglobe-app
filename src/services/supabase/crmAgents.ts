@@ -13,6 +13,7 @@ import type {
     CrmAgentSettings,
     CrmAiRole,
     CrmAiSpend,
+    CrmAiUsageCost,
     CrmBrandRules
 } from "@/types/crm";
 
@@ -119,4 +120,18 @@ export async function checkCrmAgent(role: CrmAiRole): Promise<CrmAgentCheckResul
     const { data, error } = await supabase.functions.invoke("crm-agent-check", { body: { role } });
     if (error) throw error;
     return data as CrmAgentCheckResult;
+}
+
+/** Ruolo e costo delle chiamate a Claude da `since` (spesa di oggi per agente). */
+export async function listCrmAiUsageSince(since: string): Promise<CrmAiUsageCost[]> {
+    const { data, error } = await supabase
+        .from("crm_ai_usage")
+        .select("role, cost_usd")
+        .gte("created_at", since)
+        .limit(5000);
+    if (error) throw error;
+    return ((data ?? []) as { role: CrmAiUsageCost["role"]; cost_usd: number | string }[]).map(r => ({
+        role: r.role,
+        cost_usd: Number(r.cost_usd)
+    }));
 }
