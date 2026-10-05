@@ -12,6 +12,8 @@ import Text from "@/components/ui/Text/Text";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { ToolbarSearch } from "@/components/ui/ToolbarSearch/ToolbarSearch";
 import { useAuth } from "@/context/useAuth";
+import { listCrmObjectionsSince } from "@/services/supabase/crmObjections";
+import { ferdinandoAdRows, ferdinandoReportText, objectionSummary } from "@/utils/crm/objections";
 import { useToast } from "@/context/Toast/ToastContext";
 import { usePageHeader } from "@/context/usePageHeader";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
@@ -52,6 +54,9 @@ import { LostStageDialog } from "./LostStageDialog";
 import { StageLockDialog, type StageLockRequest } from "./StageLockDialog";
 import { PipelineBoard } from "./PipelineBoard";
 import { LeadSummaryView, LeadTrack, LeadViewsNav } from "./components/LeadParts";
+import { FerdinandoReportDrawer } from "./FerdinandoReportDrawer";
+import { ObjectionAnswersDrawer } from "./ObjectionAnswersDrawer";
+import { ObjectionsSummaryCard } from "./ObjectionsSummaryCard";
 import { LeadPhoneList } from "./components/LeadPhoneList";
 import { useCrmLoad } from "./hooks/useCrmLoad";
 import { useUndoableActions } from "./hooks/useUndoableActions";
@@ -179,6 +184,32 @@ export default function LeadsPage() {
         [venues, fase, view, ctx]
     );
     const summary = useMemo(() => leadSummary({ venues, appointments, period, now }), [venues, appointments, period, now]);
+
+    // Obiezioni del Riepilogo (F2-5): si leggono solo in quella vista, 90 giorni
+    // come il periodo più lungo; il filtro del periodo lo fa objectionSummary.
+    const isSummary = view === "riepilogo";
+    const [objectionsTick, setObjectionsTick] = useState(0);
+    const objectionsLoad = useCrmLoad(
+        () => (isSummary ? listCrmObjectionsSince(new Date(Date.now() - 90 * DAY_MS).toISOString()) : Promise.resolve([])),
+        `${reloadKey}:${isSummary}:${objectionsTick}`
+    );
+    const objectionRows = useMemo(() => objectionSummary(objectionsLoad.data ?? [], period, now), [objectionsLoad.data, period, now]);
+    const ferdinandoText = useMemo(
+        () => ferdinandoReportText({ rows: ferdinandoAdRows({ venues, appointments, period, now }), objections: objectionRows, period }),
+        [venues, appointments, period, now, objectionRows]
+    );
+    const [isAnswersOpen, setIsAnswersOpen] = useState(false);
+    const [isReportOpen, setIsReportOpen] = useState(false);
+    const objectionsCard = (
+        <ObjectionsSummaryCard
+            rows={objectionRows}
+            loading={objectionsLoad.loading}
+            error={objectionsLoad.error}
+            onRetry={() => setObjectionsTick(t => t + 1)}
+            onAnswers={() => setIsAnswersOpen(true)}
+            onReport={() => setIsReportOpen(true)}
+        />
+    );
 
     const [actionError, setActionError] = useState<string | null>(null);
     const [lostVenueId, setLostVenueId] = useState<string | null>(null);
@@ -507,6 +538,8 @@ export default function LeadsPage() {
             />
             <ImportMetaCsvDrawer open={isImportOpen} onClose={() => setIsImportOpen(false)} onImported={async () => reload()} />
             <SettingsDrawer open={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} onChanged={reload} />
+            <ObjectionAnswersDrawer open={isAnswersOpen} onClose={() => setIsAnswersOpen(false)} userId={userId} />
+            <FerdinandoReportDrawer open={isReportOpen} onClose={() => setIsReportOpen(false)} text={ferdinandoText} />
         </>
     );
 
@@ -549,6 +582,7 @@ export default function LeadsPage() {
                     <>
                         <SegmentedControl value={period} onChange={setPeriod} options={SUMMARY_PERIODS} size="sm" />
                         <LeadSummaryView summary={summary} onStage={openStage} />
+                        {objectionsCard}
                     </>
                 ) : venuesLoad.loading && !venuesLoad.data ? (
                     <Text as="p" variant="body-sm" colorVariant="muted">
@@ -629,7 +663,10 @@ export default function LeadsPage() {
             {actionBanner}
             {faseFilter}
             {view === "riepilogo" ? (
-                <LeadSummaryView summary={summary} onStage={openStage} />
+                <>
+                    <LeadSummaryView summary={summary} onStage={openStage} />
+                    {objectionsCard}
+                </>
             ) : shape === "colonne" ? (
                 <PipelineBoard
                     venues={onBoard}
