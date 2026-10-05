@@ -38,9 +38,10 @@ export default function AdminLayout() {
 
     const isMobile = useMediaQuery("(max-width: 767px)");
     const isNarrow = useMediaQuery("(max-width: 1023px)");
-    // Due preferenze: le pagine normali (aperta, chiusa tra 768 e 1023) e la
-    // scheda del lead (chiusa: elenco, chat e dati hanno bisogno di spazio).
-    const isLeadDetail = /^\/admin\/lead\/[^/]+/.test(pathname);
+    // Due preferenze: le pagine normali (aperta, chiusa tra 768 e 1023) e i
+    // lead (chiusa: la colonna delle viste, le nove colonne, elenco, chat e
+    // dati della scheda hanno bisogno di spazio; canvas V4 e V5).
+    const isLeadDetail = /^\/admin\/lead(\/|$)/.test(pathname);
     const [pagesCollapsed, setPagesCollapsed] = useState<boolean | null>(null);
     const [detailCollapsed, setDetailCollapsed] = useState(true);
     const sidebarCollapsed = isLeadDetail ? detailCollapsed : (pagesCollapsed ?? isNarrow);

@@ -7,15 +7,6 @@
   gap: var(--space-16);
 }
 
-// Elenco dei lead: catena flex vincolata come TeamPage. Senza un'altezza
-// limitata il probe del DataTable cresce col contenuto, la tabella prende
-// come tetto la propria altezza della prima misura e non si allunga più
-// (una riga visibile su tre dopo un import).
-.listPage {
-  flex: 1 1 auto;
-  min-height: 0;
-}
-
 .headerActions {
   display: flex;
   align-items: center;
@@ -140,104 +131,6 @@
   padding: var(--space-8) var(--space-24) var(--space-12);
 }
 
-// Pipeline: 10 colonne affiancate, scorrimento orizzontale dentro la pagina
-// (mai della pagina intera, anche a 375 px).
-.board {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(220px, 1fr);
-  gap: var(--space-12);
-  overflow-x: auto;
-  padding-bottom: var(--space-8);
-  max-width: 100%;
-}
-
-.column {
-  display: flex;
-  flex-direction: column;
-  min-height: 240px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-surface);
-  background: var(--hover-bg);
-
-  &[data-over] {
-    border-color: var(--brand-primary);
-  }
-}
-
-.columnHeader {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  padding: var(--space-12) var(--space-12) var(--space-8);
-}
-
-.columnBody {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-8);
-  padding: 0 var(--space-8) var(--space-8);
-}
-
-.boardCard {
-  width: 100%;
-  padding: var(--space-10) var(--space-12);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-control);
-  background: var(--card-bg);
-  text-align: left;
-  cursor: grab;
-  touch-action: none;
-
-  &:hover {
-    border-color: var(--brand-primary);
-  }
-
-  &[data-level="arancio"] {
-    box-shadow: inset 3px 0 0 var(--color-warning-500);
-  }
-
-  &[data-level="rosso"] {
-    box-shadow: inset 3px 0 0 var(--danger);
-  }
-
-  /* Col filo colorato l'anello del focus si aggiunge, non sparisce. */
-  &[data-level="arancio"]:focus-visible {
-    box-shadow: inset 3px 0 0 var(--color-warning-500), var(--shadow-focus);
-  }
-
-  &[data-level="rosso"]:focus-visible {
-    box-shadow: inset 3px 0 0 var(--danger), var(--shadow-focus);
-  }
-
-  &[data-dragging] {
-    opacity: 0.4;
-  }
-}
-
-.boardCardBody {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  min-width: 0;
-  padding: var(--space-10) var(--space-12);
-  border-radius: var(--radius-control);
-  background: var(--card-bg);
-  box-shadow: var(--shadow-float);
-
-  .boardCard & {
-    padding: 0;
-    box-shadow: none;
-  }
-}
-
-.boardCardBadges {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-4);
-  min-width: 0;
-}
-
 // Testo lungo scritto a mano (regole del brand): gli a capo restano.
 .preWrap {
   white-space: pre-wrap;
@@ -337,35 +230,6 @@
   }
 }
 
-/* Home del CRM: numeri in riga, riquadri a coppie allineati, ingrandibili. */
-.homeFigures {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--space-12);
-
-  @media (max-width: 767px) {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-.homeGrid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  align-items: stretch;
-  gap: var(--space-16);
-
-  &[data-expanded] {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  @media (max-width: 1023px) {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-.homeTile {
-  height: 100%;
-}
 
 /* Il colore dell'attesa sta solo nel filo a sinistra e nel tempo. */
 .waitRowOrange {

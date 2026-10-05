@@ -1,138 +1,174 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { UserPlus } from "lucide-react";
+import { Columns3, List, Plus, Search, Settings, UserPlus } from "lucide-react";
+import { Avatar } from "@/components/ui/Avatar/Avatar";
 import { Button } from "@/components/ui/Button/Button";
+import { IconButton } from "@/components/ui/Button/IconButton";
 import { ChipGroupSingle, type ChipOption } from "@/components/ui/Chip/ChipGroup";
-import {
-    DataTable,
-    DATA_TABLE_CLASSES,
-    type ColumnDefinition
-} from "@/components/ui/DataTable/DataTable";
+import { DataTable, DATA_TABLE_CLASSES, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
-import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
+import Text from "@/components/ui/Text/Text";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
+import { ToolbarSearch } from "@/components/ui/ToolbarSearch/ToolbarSearch";
 import { useAuth } from "@/context/useAuth";
 import { useToast } from "@/context/Toast/ToastContext";
 import { usePageHeader } from "@/context/usePageHeader";
-import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { usePageTitle } from "@/hooks/usePageTitle";
-import {
-    getCrmSettings,
-    listCrmTeamMembers,
-    listCrmVenues,
-    logCrmWhatsappOpened,
-    moveCrmStage
-} from "@/services/supabase/crm";
-import { crmSenderName, crmWhatsappLink } from "@/utils/crm/whatsapp";
-import { formatDateTimeIt } from "@/utils/formatDateTime";
-import {
-    CRM_SOURCE_LABEL,
-    CRM_STAGE_LABEL,
-    CRM_STAGE_VARIANT,
-    crmErrorMessage
-} from "@/utils/crm/stages";
-import { needsStageLock } from "@/utils/crm/accountLabels";
-import { venueWaits } from "@/utils/crm/crmHome";
+import { getCrmSettings, listCrmTeamMembers, listCrmVenues, logCrmWhatsappOpened, moveCrmStage } from "@/services/supabase/crm";
+import { listCrmAppointmentsCreatedSince } from "@/services/supabase/crmAgenda";
 import { listCrmAgentDraftsOpenOrSince } from "@/services/supabase/crmAgentTrial";
+import { CRM_STAGES, type CrmStage, type CrmVenueListItem } from "@/types/crm";
+import { needsStageLock } from "@/utils/crm/accountLabels";
 import { romeTodayStart } from "@/utils/crm/agentsOverview";
-import type { CrmAgentDraftRow } from "@/types/crm";
-import { CRM_STAGES, type CrmStage, type CrmTeamMember, type CrmVenueListItem } from "@/types/crm";
+import { venueWaits } from "@/utils/crm/crmHome";
+import {
+    boardVenues,
+    cardMeta,
+    contactLine,
+    LEAD_VIEWS,
+    leadSummary,
+    matchesView,
+    nextAppointments,
+    parseLeadView,
+    searchLeads,
+    SUMMARY_PERIODS,
+    viewCounts,
+    type LeadView,
+    type SummaryPeriod
+} from "@/utils/crm/leadViews";
+import { CRM_SOURCE_LABEL, CRM_STAGE_LABEL, crmErrorMessage } from "@/utils/crm/stages";
+import { crmSenderName, crmWhatsappLink } from "@/utils/crm/whatsapp";
 import { AddLeadDrawer } from "./AddLeadDrawer";
 import { ImportMetaCsvDrawer } from "./ImportMetaCsvDrawer";
 import { SettingsDrawer } from "./SettingsDrawer";
 import { LostStageDialog } from "./LostStageDialog";
 import { StageLockDialog, type StageLockRequest } from "./StageLockDialog";
 import { PipelineBoard } from "./PipelineBoard";
-import styles from "./Crm.module.scss";
+import { LeadSummaryView, LeadTrack, LeadViewsNav } from "./components/LeadParts";
+import { LeadPhoneList } from "./components/LeadPhoneList";
+import { useCrmLoad } from "./hooks/useCrmLoad";
+import styles from "./Leads.module.scss";
 
 /**
- * Elenco dei lead del CRM: un locale per riga, l'ultimo toccato in cima.
+ * I lead del CRM (canvas V4, R4a, R4b, T8a; versione finale del 2026-10-05).
  *
- * Due viste in `?vista=`: elenco (default) e pipeline a 10 colonne. Nell'elenco
- * il filtro di default è «Da lavorare»: tutto tranne Cliente pagante e Perso,
- * cioè le carte su cui c'è ancora qualcosa da fare.
+ * A sinistra le viste con i conteggi (sotto 1024 diventano chip), in cima il
+ * Riepilogo del giro. Ogni vista si guarda a Colonne (nove fasi, si
+ * trascinano le carte) o a Elenco (il binario delle fasi e l'ultimo
+ * contatto). Nell'indirizzo: `?vista=`, `?forma=colonne`, `?fase=` (da una
+ * fase del Riepilogo), `?periodo=` del Riepilogo.
+ *
+ * Ogni lettura sta da sola: se mancano le bozze o gli appuntamenti la pagina
+ * resta in piedi, solo senza colori o senza «Telefonata oggi».
  */
 
-type View = "elenco" | "pipeline";
+const DAY_MS = 24 * 60 * 60 * 1000;
+type Shape = "colonne" | "elenco";
 
-const VIEW_OPTIONS: { value: View; label: string }[] = [
-    { value: "elenco", label: "Elenco" },
-    { value: "pipeline", label: "Pipeline" }
+const SHAPE_OPTIONS: { value: Shape; label: string; icon: React.ReactNode }[] = [
+    { value: "colonne", label: "Colonne", icon: <Columns3 size={14} aria-hidden="true" /> },
+    { value: "elenco", label: "Elenco", icon: <List size={14} aria-hidden="true" /> }
 ];
 
-type StageFilter = CrmStage | "open" | "all";
-
-const CLOSED_STAGES: CrmStage[] = ["cliente_pagante", "perso"];
-
-function matchesFilter(venue: CrmVenueListItem, filter: StageFilter): boolean {
-    if (filter === "all") return true;
-    if (filter === "open") return !CLOSED_STAGES.includes(venue.stage);
-    return venue.stage === filter;
-}
+const VIEW_LABEL = Object.fromEntries(LEAD_VIEWS.map(m => [m.view, m.label])) as Record<LeadView, string>;
 
 export default function LeadsPage() {
     usePageTitle("Lead");
+    // La testata la disegna la pagina: con la colonna delle viste il titolo sta lì.
+    usePageHeader({});
     const navigate = useNavigate();
     const { showToast } = useToast();
-    const [searchParams, setSearchParams] = useSearchParams();
-    const view: View = searchParams.get("vista") === "pipeline" ? "pipeline" : "elenco";
-    const setView = useCallback(
-        (next: View) =>
-            setSearchParams(next === "elenco" ? {} : { vista: next }, {
-                replace: true
-            }),
-        [setSearchParams]
+    const { user } = useAuth();
+    const userId = user?.id ?? null;
+    const isPhone = useMediaQuery("(max-width: 767px)");
+    const isNarrow = useMediaQuery("(max-width: 1023px)");
+
+    const [params, setParams] = useSearchParams();
+    const view = parseLeadView(params.get("vista"));
+    const rawFase = params.get("fase");
+    const fase = rawFase && (CRM_STAGES as readonly string[]).includes(rawFase) ? (rawFase as CrmStage) : null;
+    // La vecchia `?vista=pipeline` apre le colonne. Persi non ha colonne.
+    const wantsBoard = params.get("forma") === "colonne" || params.get("vista") === "pipeline";
+    const shape: Shape = wantsBoard && view !== "persi" && fase !== "perso" && !isPhone ? "colonne" : "elenco";
+    const rawPeriod = params.get("periodo");
+    const period: SummaryPeriod = rawPeriod === "7" || rawPeriod === "90" ? rawPeriod : "30";
+
+    const patchParams = useCallback(
+        (patch: Record<string, string | null>) => {
+            const next = new URLSearchParams(params);
+            if (next.get("vista") === "pipeline") {
+                next.delete("vista");
+                next.set("forma", "colonne");
+            }
+            for (const [key, value] of Object.entries(patch)) {
+                if (value === null) next.delete(key);
+                else next.set(key, value);
+            }
+            return next;
+        },
+        [params]
     );
+    const hrefOf = useCallback(
+        (v: LeadView) => `?${patchParams({ vista: v === "da-lavorare" ? null : v, fase: null }).toString()}`,
+        [patchParams]
+    );
+    const setView = (v: LeadView) => setParams(patchParams({ vista: v === "da-lavorare" ? null : v, fase: null }), { replace: true });
+    const setShape = (s: Shape) => setParams(patchParams({ forma: s === "colonne" ? "colonne" : null }), { replace: true });
+    const setPeriod = (p: SummaryPeriod) => setParams(patchParams({ periodo: p === "30" ? null : p }), { replace: true });
+    const openStage = (stage: CrmStage) => setParams(patchParams({ vista: "tutti", fase: stage, forma: null }));
+
+    const [reloadKey, setReloadKey] = useState(0);
+    const [now, setNow] = useState(() => new Date());
+    const reload = useCallback(() => {
+        setNow(new Date());
+        setReloadKey(k => k + 1);
+    }, []);
+
+    const venuesLoad = useCrmLoad(() => listCrmVenues(), reloadKey);
+    const draftsLoad = useCrmLoad(() => listCrmAgentDraftsOpenOrSince(romeTodayStart(new Date())), reloadKey);
+    const teamLoad = useCrmLoad(() => listCrmTeamMembers(), reloadKey);
+    const settingsLoad = useCrmLoad(() => getCrmSettings(), reloadKey);
+    const appointmentsLoad = useCrmLoad(
+        () => listCrmAppointmentsCreatedSince(new Date(Date.now() - 90 * DAY_MS).toISOString()),
+        reloadKey
+    );
+
+    const venues = useMemo(() => venuesLoad.data ?? [], [venuesLoad.data]);
+    const appointments = useMemo(() => appointmentsLoad.data ?? [], [appointmentsLoad.data]);
+    const team = useMemo(() => teamLoad.data ?? [], [teamLoad.data]);
+    const ctx = useMemo(() => ({ userId, now }), [userId, now]);
+
+    const waits = useMemo(() => venueWaits({ drafts: draftsLoad.data ?? [], venues, now }), [draftsLoad.data, venues, now]);
+    const next = useMemo(() => nextAppointments(appointments, now), [appointments, now]);
+    const counts = useMemo(() => (venuesLoad.data ? viewCounts(venues, ctx) : null), [venuesLoad.data, venues, ctx]);
+    const nameOf = useMemo(() => {
+        const names = new Map(team.map(m => [m.user_id, m.display_name]));
+        return (id: string | null) => (id ? (names.get(id) ?? null) : null);
+    }, [team]);
+
+    const [query, setQuery] = useState("");
+    const [phoneSearch, setPhoneSearch] = useState(false);
+    const listed = useMemo(() => {
+        const base = fase ? venues.filter(v => v.stage === fase) : venues.filter(v => matchesView(v, view, ctx));
+        return searchLeads(base, query);
+    }, [venues, fase, view, ctx, query]);
+    const onBoard = useMemo(
+        () => (fase ? venues.filter(v => v.stage === fase) : boardVenues(venues, view, ctx)),
+        [venues, fase, view, ctx]
+    );
+    const summary = useMemo(
+        () => leadSummary({ venues, appointments, period, now }),
+        [venues, appointments, period, now]
+    );
+
+    const [actionError, setActionError] = useState<string | null>(null);
     const [lostVenueId, setLostVenueId] = useState<string | null>(null);
     const [lockRequest, setLockRequest] = useState<StageLockRequest | null>(null);
-
-    const [venues, setVenues] = useState<CrmVenueListItem[]>([]);
-    const { user } = useAuth();
-    const [team, setTeam] = useState<CrmTeamMember[]>([]);
-    const [drafts, setDrafts] = useState<CrmAgentDraftRow[]>([]);
-    const [now, setNow] = useState(() => new Date());
-    const [whatsappTemplate, setWhatsappTemplate] = useState<string | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
-    const [pageError, setPageError] = useState<string | null>(null);
-    const [filter, setFilter] = useState<StageFilter>("open");
     const [isAddOpen, setIsAddOpen] = useState(false);
     const [isImportOpen, setIsImportOpen] = useState(false);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-
-    const load = useCallback(async () => {
-        setPageError(null);
-        try {
-            const [rows, members, settings, pending] = await Promise.all([
-                listCrmVenues(),
-                listCrmTeamMembers(),
-                // Il testo di WhatsApp non deve far cadere la pagina.
-                getCrmSettings().catch(() => null),
-                // Nemmeno le bozze: senza, la lista resta senza colori.
-                listCrmAgentDraftsOpenOrSince(romeTodayStart(new Date())).catch(() => [])
-            ]);
-            setVenues(rows);
-            setTeam(members);
-            setDrafts(pending);
-            setNow(new Date());
-            setWhatsappTemplate(settings?.whatsapp_template ?? null);
-        } catch (err) {
-            setPageError(
-                `Non è stato possibile caricare i lead: ${err instanceof Error ? err.message : String(err)}`
-            );
-        } finally {
-            setIsLoading(false);
-        }
-    }, []);
-
-    useEffect(() => {
-        void load();
-    }, [load]);
-
-    const teamName = useMemo(() => {
-        const names = new Map(team.map(m => [m.user_id, m.display_name]));
-        return (userId: string | null) => (userId ? (names.get(userId) ?? "—") : "Nessuno");
-    }, [team]);
 
     const handleWhatsapp = useCallback(
         (venue: CrmVenueListItem) => {
@@ -140,20 +176,20 @@ export default function LeadsPage() {
             if (!contact?.phone_e164) return;
             // Prima la finestra (gesto dell'utente), poi la registrazione.
             window.open(
-                crmWhatsappLink(contact.phone_e164, whatsappTemplate, {
+                crmWhatsappLink(contact.phone_e164, settingsLoad.data?.whatsapp_template ?? null, {
                     contactName: contact.name,
                     venueName: venue.name_pending ? null : venue.name,
-                    senderName: crmSenderName(team, user?.id)
+                    senderName: crmSenderName(team, userId ?? undefined)
                 }),
                 "_blank",
                 "noopener"
             );
-            setPageError(null);
+            setActionError(null);
             void logCrmWhatsappOpened(venue.id, venue.crm_leads[0]?.id ?? null)
-                .then(() => load())
-                .catch(err => setPageError(crmErrorMessage(err)));
+                .then(() => reload())
+                .catch(err => setActionError(crmErrorMessage(err)));
         },
-        [whatsappTemplate, team, user, load]
+        [settingsLoad.data, team, userId, reload]
     );
 
     const handleMove = useCallback(
@@ -166,132 +202,73 @@ export default function LeadsPage() {
                 setLockRequest({ venueId: venue.id, venueName: venue.name, stage });
                 return;
             }
-            setPageError(null);
+            setActionError(null);
             try {
                 // Fase attesa = quella che si vede: se un altro l'ha appena
                 // spostata (o il sistema), non si sovrascrive.
                 const moved = await moveCrmStage(venue.id, stage, undefined, venue.stage);
-                await load();
+                reload();
                 if (!moved) {
-                    setPageError(`${venue.name} era già stata spostata: ecco dove si trova ora.`);
+                    setActionError(`${venue.name} era già stata spostata: ecco dove si trova ora.`);
                     return;
                 }
-                showToast({
-                    message: `${venue.name}: ${CRM_STAGE_LABEL[stage]}.`,
-                    type: "success"
-                });
+                showToast({ message: `${venue.name}: ${CRM_STAGE_LABEL[stage]}.`, type: "success" });
             } catch (err) {
-                setPageError(crmErrorMessage(err));
+                setActionError(crmErrorMessage(err));
             }
         },
-        [load, showToast]
+        [reload, showToast]
     );
-
-    const filterOptions = useMemo<ChipOption<StageFilter>[]>(() => {
-        const count = (f: StageFilter) => venues.filter(v => matchesFilter(v, f)).length;
-        return [
-            { value: "open", label: "Da lavorare", count: count("open") },
-            ...CRM_STAGES.map(stage => ({
-                value: stage,
-                label: CRM_STAGE_LABEL[stage],
-                count: count(stage),
-                disabled: count(stage) === 0
-            })),
-            { value: "all", label: "Tutti", count: venues.length }
-        ];
-    }, [venues]);
-
-    const visible = useMemo(() => venues.filter(v => matchesFilter(v, filter)), [venues, filter]);
-
-    const waits = useMemo(() => venueWaits({ drafts, venues, now }), [drafts, venues, now]);
 
     const columns = useMemo<ColumnDefinition<CrmVenueListItem>[]>(
         () => [
             {
                 id: "venue",
                 header: "Locale",
-                cell: (_v, row) => (
-                    <div className={DATA_TABLE_CLASSES.cellTwoLine}>
-                        <span>{row.name}</span>
-                        <span>
-                            {[
-                                row.name_pending ? "Locale da completare" : null,
-                                row.name_to_verify ? "Locale da verificare" : null,
-                                row.city
-                            ].filter(Boolean).join(" · ")}
-                        </span>
-                    </div>
-                )
-            },
-            {
-                id: "contact",
-                header: "Contatto",
-                hideOnPhone: true,
-                cell: (_v, row) => {
-                    const contact = row.crm_contacts[0];
-                    return (
-                        <div className={DATA_TABLE_CLASSES.cellTwoLine}>
-                            <span>{contact?.name ?? "—"}</span>
-                            <span>{contact?.phone_e164 ?? ""}</span>
-                        </div>
-                    );
-                }
-            },
-            {
-                id: "stage",
-                header: "Fase",
-                cell: (_v, row) => (
-                    <StatusBadge
-                        variant={CRM_STAGE_VARIANT[row.stage]}
-                        label={CRM_STAGE_LABEL[row.stage]}
-                    />
-                )
-            },
-            {
-                id: "wait",
-                header: "Aspetta",
-                cell: (_v, row) => {
-                    const w = waits.get(row.id);
-                    if (!w) return "—";
-                    return (
-                        <span className={styles.waitTime} data-level={w.level}>
-                            {w.wait}
-                            <span className="visually-hidden">, {w.text}</span>
-                        </span>
-                    );
-                }
-            },
-            {
-                id: "source",
-                header: "Fonte",
-                hideOnPhone: true,
                 cell: (_v, row) => {
                     const lead = row.crm_leads[0];
-                    if (!lead) return "—";
                     return (
                         <div className={DATA_TABLE_CLASSES.cellTwoLine}>
+                            <span>{row.name}</span>
                             <span>
-                                {CRM_SOURCE_LABEL[lead.source]}
-                                {row.crm_leads.length > 1
-                                    ? ` · ${row.crm_leads.length} richieste`
-                                    : ""}
+                                {[
+                                    row.name_pending ? "Locale da completare" : null,
+                                    row.name_to_verify ? "Locale da verificare" : null,
+                                    row.city,
+                                    lead ? CRM_SOURCE_LABEL[lead.source] : null
+                                ]
+                                    .filter(Boolean)
+                                    .join(" · ")}
                             </span>
-                            <span>{lead.ad_name ?? ""}</span>
                         </div>
                     );
                 }
             },
+            { id: "stage", header: "Fase", accessor: row => CRM_STAGE_LABEL[row.stage] },
+            { id: "track", header: "Percorso", hideOnPhone: true, cell: (_v, row) => <LeadTrack stage={row.stage} /> },
             {
-                id: "assigned",
-                header: "Assegnato",
-                hideOnPhone: true,
-                accessor: row => teamName(row.assigned_to)
+                id: "contact",
+                header: "Ultimo contatto",
+                cell: (_v, row) => {
+                    const line = contactLine({ venue: row, wait: waits.get(row.id), next: next.get(row.id), now });
+                    return <span className={line.warn ? styles.contactWarn : undefined}>{line.text}</span>;
+                }
             },
             {
-                id: "activity",
-                header: "Ultima attività",
+                id: "owner",
+                header: "Chi",
+                width: "64px",
                 hideOnPhone: true,
-                accessor: row => formatDateTimeIt(row.last_activity_at)
+                cell: (_v, row) => {
+                    const owner = nameOf(row.assigned_to);
+                    return owner ? (
+                        <Avatar name={owner} size="sm" />
+                    ) : (
+                        <span className={styles.nobody} aria-label="Nessuno">
+                            —
+                        </span>
+                    );
+                }
             },
             {
                 id: "actions",
@@ -304,9 +281,7 @@ export default function LeadsPage() {
                             {
                                 label: "Scrivi su WhatsApp",
                                 onClick: () => handleWhatsapp(row),
-                                hidden:
-                                    !row.crm_contacts[0]?.phone_e164 ||
-                                    (row.stage === "perso" && row.lost_kind === "stop")
+                                hidden: !row.crm_contacts[0]?.phone_e164 || (row.stage === "perso" && row.lost_kind === "stop")
                             },
                             { label: "Apri", onClick: () => navigate(row.id) }
                         ]}
@@ -314,164 +289,239 @@ export default function LeadsPage() {
                 )
             }
         ],
-        [teamName, handleWhatsapp, navigate, waits]
+        [waits, next, now, nameOf, handleWhatsapp, navigate]
     );
 
-    const newCount = useMemo(() => venues.filter(v => v.stage === "nuovo").length, [venues]);
+    const chipOptions = useMemo<ChipOption<LeadView>[]>(() => {
+        const views = LEAD_VIEWS.map(m => ({ value: m.view, label: m.short, count: counts?.[m.view] }));
+        const recap = { value: "riepilogo" as LeadView, label: "Riepilogo" };
+        return isPhone ? [...views, recap] : [recap, ...views];
+    }, [counts, isPhone]);
 
-    const subtitle = useMemo(() => {
-        if (isLoading) return undefined;
-        if (newCount === 0) return "Nessun lead in Nuovo.";
-        return newCount === 1 ? "1 lead in Nuovo." : `${newCount} lead in Nuovo.`;
-    }, [isLoading, newCount]);
+    const meta = useCallback(
+        (venue: CrmVenueListItem) => cardMeta({ venue, wait: waits.get(venue.id), next: next.get(venue.id), now }),
+        [waits, next, now]
+    );
 
-    // MEMOIZZATO: usePageHeader confronta `actions` per reference.
-    const headerActions = useMemo(
-        () => (
-            <div className={styles.headerActions}>
-                <Button variant="secondary" onClick={() => setIsSettingsOpen(true)}>
-                    Impostazioni
+    const loadError = venuesLoad.error && (
+        <InlineBanner
+            variant="error"
+            action={
+                <Button variant="secondary" size="sm" onClick={reload}>
+                    Riprova
                 </Button>
-                <Button variant="secondary" onClick={() => setIsImportOpen(true)}>
-                    Importa CSV Meta
+            }
+        >
+            {venuesLoad.error === "Non si è caricato. Riprova tra poco." ? "I lead non si sono caricati. Riprova tra poco." : venuesLoad.error}
+        </InlineBanner>
+    );
+    const actionBanner = actionError && (
+        <InlineBanner
+            variant="error"
+            action={
+                <Button variant="secondary" size="sm" onClick={() => setActionError(null)}>
+                    Chiudi
                 </Button>
-                <Button variant="primary" onClick={() => setIsAddOpen(true)}>
-                    Aggiungi lead
-                </Button>
-            </div>
-        ),
-        []
+            }
+        >
+            {actionError}
+        </InlineBanner>
+    );
+    const faseFilter = fase && (
+        <div className={styles.stageFilter}>
+            <Text as="span" variant="body-sm">
+                Fermi in <strong>{CRM_STAGE_LABEL[fase]}</strong>
+            </Text>
+            <Button variant="ghost" size="sm" onClick={() => setParams(patchParams({ fase: null }), { replace: true })}>
+                Togli il filtro
+            </Button>
+        </div>
+    );
+    const emptyState = {
+        title: venues.length === 0 ? "Ancora nessun lead" : query ? "Nessun lead con questa ricerca" : "Nessun lead in questa vista",
+        description:
+            venues.length === 0
+                ? "I lead della landing arrivano qui da soli entro un minuto. Quelli delle chat WhatsApp si aggiungono a mano."
+                : undefined,
+        icon: <UserPlus size={32} strokeWidth={1.5} />
+    };
+    const table = (
+        <DataTable
+            data={listed}
+            columns={columns}
+            isLoading={venuesLoad.loading && !venuesLoad.data}
+            onRowClick={row => navigate(row.id)}
+            ariaLabel="Lead"
+            isFiltered={view !== "tutti" || Boolean(query) || Boolean(fase)}
+            onClearFilters={() => {
+                setQuery("");
+                setView("tutti");
+            }}
+            emptyState={emptyState}
+        />
     );
 
-    const headerCompact = useMemo<PageHeaderCompactConfig>(
-        () => ({
-            primaryAction: {
-                label: "Aggiungi lead",
-                onClick: () => setIsAddOpen(true)
-            },
-            secondaryActions: [
-                { label: "Importa CSV Meta", onClick: () => setIsImportOpen(true) },
-                { label: "Impostazioni", onClick: () => setIsSettingsOpen(true) }
-            ]
-        }),
-        []
-    );
-
-    const headerLeading = useMemo(
-        () => <SegmentedControl value={view} onChange={setView} options={VIEW_OPTIONS} size="sm" />,
-        [view, setView]
-    );
-
-    usePageHeader({
-        title: "Lead",
-        subtitle,
-        leading: headerLeading,
-        actions: headerActions,
-        compact: headerCompact
-    });
-
-    const handleCreated = useCallback(
-        (venueId: string) => {
-            setIsAddOpen(false);
-            navigate(venueId);
-        },
-        [navigate]
-    );
-
-    const handleImported = useCallback(async () => {
-        await load();
-    }, [load]);
-
-    return (
-        <div className={view === "elenco" ? `${styles.page} ${styles.listPage}` : styles.page}>
-            {pageError && (
-                <InlineBanner
-                    variant="error"
-                    action={
-                        <Button variant="secondary" size="sm" onClick={() => void load()}>
-                            Riprova
-                        </Button>
-                    }
-                >
-                    {pageError}
-                </InlineBanner>
-            )}
-            {view === "pipeline" ? (
-                <PipelineBoard
-                    venues={venues}
-                    waits={waits}
-                    teamName={teamName}
-                    onMove={(venue, stage) => void handleMove(venue, stage)}
-                    onOpen={id => navigate(id)}
-                />
-            ) : (
-                <>
-                    <ChipGroupSingle
-                        options={filterOptions}
-                        value={filter}
-                        onChange={setFilter}
-                        ariaLabel="Filtra per fase"
-                    />
-
-                    <DataTable
-                        data={visible}
-                        columns={columns}
-                        isLoading={isLoading}
-                        onRowClick={row => navigate(row.id)}
-                        ariaLabel="Lead"
-                        isFiltered={filter !== "all"}
-                        onClearFilters={() => setFilter("all")}
-                        emptyState={{
-                            title:
-                                venues.length === 0
-                                    ? "Ancora nessun lead"
-                                    : "Nessun lead con questo filtro",
-                            description:
-                                venues.length === 0
-                                    ? "I lead della landing arrivano qui da soli entro un minuto. Quelli delle chat WhatsApp si aggiungono a mano."
-                                    : undefined,
-                            icon: <UserPlus size={32} strokeWidth={1.5} />
-                        }}
-                    />
-                </>
-            )}
-
+    const overlays = (
+        <>
             <LostStageDialog
                 venueId={lostVenueId}
                 onClose={() => setLostVenueId(null)}
                 onMoved={async () => {
-                    await load();
+                    reload();
                     showToast({ message: "Spostato in Perso.", type: "success" });
                 }}
             />
-
             <StageLockDialog
                 request={lockRequest}
                 onClose={() => setLockRequest(null)}
                 onMoved={async request => {
-                    await load();
+                    reload();
                     showToast({
                         message: `${request.venueName}: ${CRM_STAGE_LABEL[request.stage]}, fase bloccata a mano.`,
                         type: "success"
                     });
                 }}
             />
-
             <AddLeadDrawer
                 open={isAddOpen}
                 onClose={() => setIsAddOpen(false)}
-                onCreated={handleCreated}
+                onCreated={venueId => {
+                    setIsAddOpen(false);
+                    navigate(venueId);
+                }}
             />
-            <ImportMetaCsvDrawer
-                open={isImportOpen}
-                onClose={() => setIsImportOpen(false)}
-                onImported={handleImported}
-            />
-            <SettingsDrawer
-                open={isSettingsOpen}
-                onClose={() => setIsSettingsOpen(false)}
-                onChanged={() => void load()}
-            />
+            <ImportMetaCsvDrawer open={isImportOpen} onClose={() => setIsImportOpen(false)} onImported={async () => reload()} />
+            <SettingsDrawer open={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} onChanged={reload} />
+        </>
+    );
+
+    // ── Telefono (T8a) ──────────────────────────────────────────────────
+    if (isPhone) {
+        return (
+            <div className={styles.main}>
+                <header className={styles.phoneHead}>
+                    <Text as="h1" variant="title-md" weight={700}>
+                        Lead
+                    </Text>
+                    <span className={styles.phoneHeadActions}>
+                        {view !== "riepilogo" && (
+                            <IconButton
+                                icon={<Search size={16} />}
+                                aria-label={phoneSearch ? "Chiudi la ricerca" : "Cerca un locale o un numero"}
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => {
+                                    setPhoneSearch(v => !v);
+                                    setQuery("");
+                                }}
+                            />
+                        )}
+                        <Button variant="secondary" size="sm" leftIcon={<Plus size={14} />} onClick={() => setIsAddOpen(true)}>
+                            Nuovo
+                        </Button>
+                    </span>
+                </header>
+                {phoneSearch && view !== "riepilogo" && (
+                    <ToolbarSearch value={query} onChange={setQuery} placeholder="Cerca un locale o un numero" />
+                )}
+                <div className={styles.phoneChips}>
+                    <ChipGroupSingle options={chipOptions} value={view} onChange={setView} ariaLabel="Viste dei lead" layout="auto" />
+                </div>
+                {loadError}
+                {actionBanner}
+                {faseFilter}
+                {view === "riepilogo" ? (
+                    <>
+                        <SegmentedControl value={period} onChange={setPeriod} options={SUMMARY_PERIODS} size="sm" />
+                        <LeadSummaryView summary={summary} onStage={openStage} />
+                    </>
+                ) : venuesLoad.loading && !venuesLoad.data ? (
+                    <Text as="p" variant="body-sm" colorVariant="muted">
+                        Carico…
+                    </Text>
+                ) : listed.length === 0 ? (
+                    <Text as="p" variant="body-sm" colorVariant="muted">
+                        {emptyState.title}.
+                    </Text>
+                ) : (
+                    <LeadPhoneList venues={listed} waits={waits} next={next} nameOf={nameOf} now={now} />
+                )}
+                {overlays}
+            </div>
+        );
+    }
+
+    // ── Computer e tablet (V4, R4a, R4b) ────────────────────────────────
+    const heading =
+        view === "riepilogo" ? "Riepilogo" : isNarrow ? "Lead" : fase ? `Fase: ${CRM_STAGE_LABEL[fase]}` : VIEW_LABEL[view];
+    const headingCount =
+        view === "riepilogo" ? null : isNarrow ? venues.length : fase ? listed.length : query ? listed.length : (counts?.[view] ?? 0);
+
+    const content = (
+        <section className={styles.main} aria-labelledby="lead-heading">
+            <header className={styles.head}>
+                <Text as={isNarrow ? "h1" : "h2"} id="lead-heading" variant="title-md" weight={700} className={styles.headTitle}>
+                    {heading}
+                    {headingCount !== null && venuesLoad.data && (
+                        <Text as="span" variant="title-md" className={styles.headCount}>
+                            · {headingCount}
+                        </Text>
+                    )}
+                </Text>
+                <div className={styles.headActions}>
+                    {view === "riepilogo" ? (
+                        <SegmentedControl value={period} onChange={setPeriod} options={SUMMARY_PERIODS} size="sm" />
+                    ) : (
+                        <>
+                            {view !== "persi" && fase !== "perso" && (
+                                <SegmentedControl value={shape} onChange={setShape} options={SHAPE_OPTIONS} size="sm" />
+                            )}
+                            {shape === "elenco" && (
+                                <ToolbarSearch value={query} onChange={setQuery} placeholder="Cerca un locale o un numero" />
+                            )}
+                            <Button variant="secondary" size="sm" onClick={() => setIsImportOpen(true)}>
+                                Importa CSV Meta
+                            </Button>
+                            <Button variant="primary" size="sm" onClick={() => setIsAddOpen(true)}>
+                                Aggiungi lead
+                            </Button>
+                            <IconButton
+                                icon={<Settings size={16} />}
+                                aria-label="Impostazioni dei lead"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setIsSettingsOpen(true)}
+                            />
+                        </>
+                    )}
+                </div>
+            </header>
+            {isNarrow && <ChipGroupSingle options={chipOptions} value={view} onChange={setView} ariaLabel="Viste dei lead" layout="auto" />}
+            {loadError}
+            {actionBanner}
+            {faseFilter}
+            {view === "riepilogo" ? (
+                <LeadSummaryView summary={summary} onStage={openStage} />
+            ) : shape === "colonne" ? (
+                <PipelineBoard
+                    venues={onBoard}
+                    meta={meta}
+                    teamName={nameOf}
+                    onMove={(venue, stage) => void handleMove(venue, stage)}
+                    onOpen={id => navigate(id)}
+                />
+            ) : (
+                table
+            )}
+            {overlays}
+        </section>
+    );
+
+    if (isNarrow) return <div className={styles.layoutSingle}>{content}</div>;
+    return (
+        <div className={styles.layout}>
+            <LeadViewsNav view={view} counts={counts} hrefOf={hrefOf} />
+            {content}
         </div>
     );
 }
