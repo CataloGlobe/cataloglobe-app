@@ -1542,7 +1542,7 @@ export default function CollectionView({
     // nasconderla di nuovo serve più scroll del solito.
     const prevSelectionCountRef = useRef(selectionCount);
     useEffect(() => {
-        if (selectionCount > prevSelectionCountRef.current) revealBottomBar(true);
+        if (selectionCount > prevSelectionCountRef.current) revealBottomBar();
         prevSelectionCountRef.current = selectionCount;
     }, [selectionCount, revealBottomBar]);
 
