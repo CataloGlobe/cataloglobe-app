@@ -1,11 +1,9 @@
-import { ChevronRight } from "lucide-react";
 import { ProgressBar } from "@/components/ui/ProgressBar/ProgressBar";
 import Text from "@/components/ui/Text/Text";
 import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
-import { CRM_MESSAGE_STEPS } from "@shared/crmGuide";
 import { formatUsd, spendShare } from "@shared/crmAi";
 import type { CrmAiSpend } from "@/types/crm";
-import type { DraftMix, GiroToday } from "@/utils/crm/agentsOverview";
+import type { DraftMix } from "@/utils/crm/agentsOverview";
 import type { ChannelHealth } from "@/utils/crm/waLabels";
 import styles from "../Agents.module.scss";
 
@@ -86,74 +84,6 @@ export function AgentsStatusLine({
                     </Text>
                 )}
             </span>
-        </section>
-    );
-}
-
-const STEP_COUNT: Record<number, (g: GiroToday) => string> = {
-    1: () => "dai lead",
-    2: g => (g.written === 1 ? "1 bozza" : `${g.written} bozze`),
-    3: g => `${g.reviewed} ${g.reviewed === 1 ? "riletta" : "rilette"}, ${g.stopped} ${g.stopped === 1 ? "fermata" : "fermate"}`,
-    4: g => (g.waiting === 0 ? "niente in attesa" : `${g.waiting} ${g.waiting === 1 ? "aspetta" : "aspettano"} · ${g.oldestWait}`),
-    5: g => (g.sent === 1 ? "1 inviato" : `${g.sent} inviati`)
-};
-
-/**
- * Il giro di un messaggio, oggi (U2): cinque passi in fila; cliccandone uno
- * nella tabella si accende chi lo fa. Il passo 4 prende il filo del colore
- * dell'attesa più vecchia.
- */
-export function GiroStrip({
-    giro,
-    selected,
-    onSelect
-}: {
-    giro: GiroToday | null;
-    selected: number | null;
-    onSelect: (step: number | null) => void;
-}) {
-    return (
-        <section className={styles.giroBox} aria-labelledby="agenti-giro">
-            <div className={styles.giroHead}>
-                <Text as="h2" id="agenti-giro" variant="body-sm" weight={700}>
-                    Il giro di un messaggio, oggi
-                </Text>
-                <Text as="span" variant="caption" colorVariant="muted">
-                    clicca un passo: si accende chi lo fa
-                </Text>
-            </div>
-            <ol className={styles.giroSteps}>
-                {CRM_MESSAGE_STEPS.map((step, index) => (
-                    <li key={step.step} className={styles.giroItem}>
-                        <button
-                            type="button"
-                            className={styles.giroButton}
-                            data-selected={selected === step.step}
-                            data-level={step.step === 4 && giro && giro.waiting > 0 ? giro.oldestLevel : undefined}
-                            aria-pressed={selected === step.step}
-                            onClick={() => onSelect(selected === step.step ? null : step.step)}
-                        >
-                            <span className={styles.giroNumber} aria-hidden="true">
-                                {step.step}
-                            </span>
-                            <span className={styles.giroText}>
-                                <Text as="span" variant="body" weight={700}>
-                                    {step.title}
-                                </Text>
-                                <Text as="span" variant="caption" className={styles.giroCount}>
-                                    {giro ? STEP_COUNT[step.step](giro) : "—"}
-                                </Text>
-                            </span>
-                        </button>
-                        {index < CRM_MESSAGE_STEPS.length - 1 && <ChevronRight size={14} className={styles.giroArrow} aria-hidden="true" />}
-                    </li>
-                ))}
-            </ol>
-            {selected === 4 && (
-                <Text variant="caption" colorVariant="muted">
-                    Il passo 4 siete voi: le bozze in attesa si decidono nella scheda del lead o su Telegram.
-                </Text>
-            )}
         </section>
     );
 }

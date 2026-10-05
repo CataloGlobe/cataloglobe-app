@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/Textarea/Textarea";
 import { useToast } from "@/context/Toast/ToastContext";
 import { usePageHeader } from "@/context/usePageHeader";
 import { usePageTitle } from "@/hooks/usePageTitle";
-import { listCrmTeamMembers } from "@/services/supabase/crm";
+import { listCrmTeamMembers, listCrmVenues } from "@/services/supabase/crm";
 import {
     checkCrmAgent,
     getCrmAgentSettings,
@@ -20,6 +20,7 @@ import {
     updateCrmAgentSettings
 } from "@/services/supabase/crmAgents";
 import {
+    decideCrmDraft,
     getCrmAgentTrialSettings,
     listCrmAgentDraftsOpenOrSince,
     listCrmAgentTrust,
@@ -31,11 +32,13 @@ import {
     countCrmQueuedMessages,
     getCrmWaChannel,
     getCrmWaSettings,
+    listCrmMessagesSince,
     listCrmQueuedMessages
 } from "@/services/supabase/crmWhatsappAgent";
 import type { CrmAgentTrialSettings, CrmAiRole, CrmQueuedMessage, CrmWaSettings } from "@/types/crm";
 import { agentCheckMessage, crmAgentErrorMessage, MODEL_FIELD, modelLabel } from "@/utils/crm/agentLabels";
 import { agentRows, costPerMessage, giroToday, romeTodayStart, spendByRole, type AgentRow } from "@/utils/crm/agentsOverview";
+import { arrivedToday, giroItems, type GiroItem, type GiroStepNumber } from "@/utils/crm/giroSteps";
 import { crmErrorMessage } from "@/utils/crm/stages";
 import { channelHealth } from "@/utils/crm/waLabels";
 import { CRM_AI_ROLE_LABEL } from "@shared/crmAi";
@@ -43,7 +46,8 @@ import { BrandRulesDrawer, type BrandRulesDrawerState } from "./BrandRulesDrawer
 import { AgentPanel } from "./components/AgentPanel";
 import { AgentsActivity } from "./components/AgentsActivity";
 import { BrandRulesListDrawer, SpendCapsDrawer } from "./components/AgentsDrawers";
-import { AgentsStatusLine, GiroStrip, SpendCard } from "./components/AgentsParts";
+import { GiroStrip } from "./components/AgentsGiro";
+import { AgentsStatusLine, SpendCard } from "./components/AgentsParts";
 import { AgentsTable } from "./components/AgentsTable";
 import { TileState } from "./components/TileState";
 import { useCrmLoad } from "./hooks/useCrmLoad";
@@ -86,8 +90,11 @@ export default function AgentsPage() {
         tick
     );
     const queued = useCrmLoad(() => listCrmQueuedMessages(), tick);
+    // Il giro passo per passo: i messaggi di oggi e i nomi dei locali.
+    const giroSources = useCrmLoad(() => Promise.all([listCrmMessagesSince(since), listCrmVenues()]), tick);
 
-    const [selectedStep, setSelectedStep] = useState<number | null>(null);
+    // Finché non si sceglie, il giro si apre sul passo 4 se qualcosa aspetta.
+    const [pickedStep, setPickedStep] = useState<GiroStepNumber | null | undefined>(undefined);
     const [openAgent, setOpenAgent] = useState<AgentRow["id"] | null>(null);
     const [busy, setBusy] = useState<string | null>(null);
     const [actionError, setActionError] = useState<string | null>(null);
@@ -112,10 +119,29 @@ export default function AgentsPage() {
         [trial.data, giro, now]
     );
     const byRole = useMemo(() => (usage.data ? spendByRole(usage.data) : null), [usage.data]);
+    const selectedStep: GiroStepNumber | null = pickedStep !== undefined ? pickedStep : giro && giro.waiting > 0 ? 4 : null;
     const highlighted = useMemo(
         () => (selectedStep === null ? [] : rows.filter(r => r.step === selectedStep).map(r => r.id)),
         [rows, selectedStep]
     );
+    const venueName = useMemo(() => {
+        const names = new Map((giroSources.data?.[1] ?? []).map(v => [v.id, v.name]));
+        return (venueId: string) => names.get(venueId) ?? "Un locale";
+    }, [giroSources.data]);
+    const stepItems = useMemo(
+        () =>
+            selectedStep === null || !trial.data
+                ? []
+                : giroItems(selectedStep, {
+                      messages: giroSources.data?.[0] ?? [],
+                      drafts: trial.data[2],
+                      decisions: trial.data[3],
+                      venueName,
+                      now
+                  }),
+        [selectedStep, trial.data, giroSources.data, venueName, now]
+    );
+    const needsMessages = selectedStep === 1 || selectedStep === 5;
 
     const brakeOn = settings.data?.brake_on ?? null;
     // `?pausa=1` (dal Cerca): la stessa conferma di «Metti in pausa tutto», se non è già in pausa.
@@ -232,6 +258,12 @@ export default function AgentsPage() {
         }
     }
 
+    function handleSend(item: GiroItem) {
+        if (!item.draftId) return;
+        const draftId = item.draftId;
+        void run(draftId, () => decideCrmDraft(draftId, "send"), `Messaggio a ${item.venueName} in partenza.`);
+    }
+
     const health = wa.data ? channelHealth(wa.data[0], now) : null;
 
     return (
@@ -249,7 +281,16 @@ export default function AgentsPage() {
                 onWhatsapp={() => wa.data && setWaSettings(wa.data[1])}
             />
 
-            <GiroStrip giro={giro} selected={selectedStep} onSelect={setSelectedStep} />
+            <GiroStrip
+                giro={giro}
+                arrived={giroSources.data ? arrivedToday(giroSources.data[0], now) : null}
+                selected={selectedStep}
+                items={stepItems}
+                itemsError={needsMessages && giroSources.error !== null && !giroSources.data}
+                sending={busy}
+                onSelect={setPickedStep}
+                onSend={handleSend}
+            />
 
             <section className={styles.tableBox} aria-label="Agenti">
                 <TileState loading={trial.loading && !trial.data} error={trial.error} onRetry={reload}>

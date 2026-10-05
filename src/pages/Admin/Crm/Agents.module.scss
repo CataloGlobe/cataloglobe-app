@@ -77,13 +77,13 @@
   }
 }
 
-/* ===== Il giro di un messaggio ===== */
+/* ===== Il giro di un messaggio (M1) ===== */
 .giroBox {
   @extend .box;
   display: flex;
   flex-direction: column;
   gap: var(--space-12);
-  padding: var(--space-12) var(--space-16);
+  padding: var(--space-12) var(--space-16) var(--space-16);
 }
 
 .giroHead {
@@ -103,40 +103,40 @@
   padding: 0;
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: var(--space-4);
+  gap: var(--space-8);
 
-  // Al telefono i passi scorrono in orizzontale dentro il riquadro.
+  // Al telefono le tessere scorrono in orizzontale dentro il riquadro.
   @media (max-width: 767px) {
-    grid-template-columns: repeat(5, minmax(150px, 1fr));
+    grid-template-columns: repeat(5, minmax(140px, 1fr));
     overflow-x: auto;
     scroll-snap-type: x mandatory;
     margin: 0 calc(-1 * var(--space-16));
-    padding: 0 var(--space-16);
+    padding: 0 var(--space-16) var(--space-2);
   }
 }
 
 .giroItem {
   scroll-snap-align: start;
   display: flex;
-  align-items: center;
-  gap: var(--space-4);
   min-width: 0;
 }
 
-.giroButton {
+.giroTile {
   all: unset;
   box-sizing: border-box;
-  flex: 1 1 auto;
+  flex: 1;
   min-width: 0;
   display: flex;
-  align-items: center;
-  gap: var(--space-8);
-  padding: var(--space-8);
-  border-radius: var(--radius-control);
-  border-left: 3px solid transparent;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-10) var(--space-12);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-surface);
+  background: var(--surface);
   cursor: pointer;
 
   &:hover {
+    border-color: var(--brand-primary-soft);
     background: var(--hover-bg);
   }
 
@@ -145,23 +145,37 @@
   }
 
   &[data-selected="true"] {
+    border-color: var(--brand-primary);
     background: var(--brand-primary-soft);
     color: var(--on-brand-soft);
   }
 
+  // Il passo 4 prende il colore dell'attesa più vecchia.
   &[data-level="arancio"] {
-    border-left-color: var(--text-warning);
+    box-shadow: inset 0 -3px 0 var(--text-warning);
   }
 
   &[data-level="rosso"] {
-    border-left-color: var(--text-danger);
+    box-shadow: inset 0 -3px 0 var(--text-danger);
+  }
+}
+
+.giroTileHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  min-width: 0;
+  color: var(--text-muted);
+
+  [data-selected="true"] & {
+    color: inherit;
   }
 }
 
 .giroNumber {
   flex: none;
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   border-radius: var(--radius-pill);
   display: inline-flex;
   align-items: center;
@@ -176,11 +190,14 @@
   }
 }
 
-.giroText {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  overflow: hidden;
+.giroValue {
+  [data-level="arancio"] & {
+    color: var(--text-warning);
+  }
+
+  [data-level="rosso"] & {
+    color: var(--text-danger);
+  }
 }
 
 .giroCount {
@@ -192,21 +209,168 @@
   [data-selected="true"] & {
     color: inherit;
   }
+}
 
-  [data-level="arancio"] & {
-    color: var(--text-warning);
-    font-weight: 600;
-  }
+.giroDetailWrap {
+  overflow: hidden;
+}
 
-  [data-level="rosso"] & {
-    color: var(--text-danger);
-    font-weight: 600;
+// Sempre la stessa altezza minima: cambiare passo non fa saltare la pagina.
+.giroDetail {
+  display: grid;
+  grid-template-columns: minmax(200px, 280px) minmax(0, 1fr);
+  min-height: 236px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-surface);
+  overflow: hidden;
+
+  @media (max-width: 767px) {
+    grid-template-columns: minmax(0, 1fr);
+    min-height: 0;
   }
 }
 
-.giroArrow {
-  flex: none;
+.giroWhy {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  padding: var(--space-12) var(--space-16);
+  border-right: 1px solid var(--border);
+  background: var(--bg);
+
+  h3 {
+    margin: 0;
+  }
+
+  @media (max-width: 767px) {
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+}
+
+.giroWho {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-6);
+
+  li {
+    padding: var(--space-2) var(--space-10);
+    border-radius: var(--radius-pill);
+    background: var(--brand-primary-soft);
+    color: var(--on-brand-soft);
+  }
+}
+
+.giroList {
+  min-width: 0;
+
+  ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+}
+
+.giroEmpty {
+  padding: var(--space-16);
+}
+
+@keyframes giroPop {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.giroRow {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-12);
+  min-height: 52px;
+  padding: var(--space-8) var(--space-16);
+  border-top: 1px solid var(--border);
+  animation: giroPop 0.3s cubic-bezier(0.2, 0.9, 0.25, 1.15) both;
+
+  &:first-child {
+    border-top: 0;
+  }
+
+  @for $i from 2 through 5 {
+    &:nth-child(#{$i}) {
+      animation-delay: #{($i - 1) * 0.04}s;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+
+  @media (max-width: 767px) {
+    grid-template-columns: 44px minmax(0, 1fr);
+
+    .giroActs {
+      grid-column: 2;
+    }
+  }
+}
+
+.giroWhen {
+  white-space: nowrap;
+}
+
+.giroWhat {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.giroExcerpt {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.giroActs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-6);
+}
+
+.giroTag {
+  padding: var(--space-2) var(--space-8);
+  border-radius: var(--radius-pill);
+  background: var(--hover-bg);
   color: var(--text-muted);
+  white-space: nowrap;
+
+  &[data-tone="success"] {
+    background: var(--success-100);
+    color: var(--success-800);
+  }
+
+  &[data-tone="warning"] {
+    background: var(--warning-100);
+    color: var(--warning-800);
+  }
+
+  &[data-tone="danger"] {
+    background: var(--danger-100);
+    color: var(--danger-800);
+  }
+
+  &[data-tone="brand"] {
+    background: var(--brand-primary-soft);
+    color: var(--on-brand-soft);
+  }
 }
 
 /* ===== Tabella ===== */
@@ -296,6 +460,11 @@ tr[data-on] .stepCell {
 .table .panelRow > td {
   padding: 0;
   white-space: normal;
+}
+
+// «Come funziona» scende invece di comparire di colpo.
+.panelOpen {
+  overflow: hidden;
 }
 
 .hidePhone {

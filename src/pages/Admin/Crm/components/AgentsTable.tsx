@@ -1,4 +1,5 @@
 import { Fragment, type ReactNode } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ChevronDown } from "lucide-react";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import Text from "@/components/ui/Text/Text";
@@ -29,6 +30,7 @@ export function AgentsTable({
     onToggle: (id: AgentRow["id"]) => void;
     renderPanel: (row: AgentRow) => ReactNode;
 }) {
+    const reduceMotion = useReducedMotion();
     return (
         <table className={styles.table}>
             <thead>
@@ -126,13 +128,23 @@ export function AgentsTable({
                                     </button>
                                 </td>
                             </tr>
-                            {open && (
-                                <tr className={styles.panelRow}>
-                                    <td colSpan={7} id={`agente-pannello-${r.id}`}>
-                                        {renderPanel(r)}
-                                    </td>
-                                </tr>
-                            )}
+                            <AnimatePresence initial={false}>
+                                {open && (
+                                    <tr key="pannello" className={styles.panelRow}>
+                                        <td colSpan={7} id={`agente-pannello-${r.id}`}>
+                                            <motion.div
+                                                className={styles.panelOpen}
+                                                initial={reduceMotion ? { opacity: 0 } : { opacity: 0, height: 0 }}
+                                                animate={reduceMotion ? { opacity: 1 } : { opacity: 1, height: "auto" }}
+                                                exit={reduceMotion ? { opacity: 0 } : { opacity: 0, height: 0 }}
+                                                transition={{ duration: reduceMotion ? 0 : 0.3, ease: [0.2, 0.9, 0.25, 1] }}
+                                            >
+                                                {renderPanel(r)}
+                                            </motion.div>
+                                        </td>
+                                    </tr>
+                                )}
+                            </AnimatePresence>
                         </Fragment>
                     );
                 })}
