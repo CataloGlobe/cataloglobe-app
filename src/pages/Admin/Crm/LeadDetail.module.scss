@@ -1,0 +1,756 @@
+// Scheda del lead (canvas V5 e T8b, versione finale del 2026-10-05).
+// Solo token di _theme.scss; la tipografia la porta il componente Text.
+
+/* ===== Scrivania (V5): elenco | conversazione | dati ===== */
+// Le tre colonne stanno attaccate alla barra del CRM: escono dal padding del
+// contenuto (24) e scendono per tutta l'altezza; ognuna scorre da sola.
+.frame {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr) 280px;
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: calc(-1 * var(--space-24));
+  background: var(--surface);
+}
+
+.missing {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+}
+
+.ellipsis {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.preWrap {
+  white-space: pre-wrap;
+}
+
+.breakAll {
+  overflow-wrap: anywhere;
+}
+
+/* ===== Elenco a sinistra ===== */
+.list {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.listHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-12);
+  border-bottom: 1px solid var(--border);
+}
+
+.viewPicker {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-height: 30px;
+  padding: 0 var(--space-8);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+
+  &:hover {
+    background: var(--hover-bg);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-focus);
+  }
+}
+
+.listCount {
+  font-variant-numeric: tabular-nums;
+}
+
+.keys {
+  display: inline-flex;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+
+.keys kbd,
+.draftActions kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-inner);
+  background: var(--surface);
+  color: var(--text-muted);
+  font: inherit;
+  font-weight: 600;
+}
+
+.draftActions kbd {
+  margin-left: var(--space-6);
+}
+
+// Sul primario il tasto prende il colore del bottone.
+.draftActions .kbdOnBrand {
+  border-color: currentColor;
+  background: transparent;
+  color: inherit;
+}
+
+.listEmpty {
+  padding: var(--space-16) var(--space-12);
+}
+
+.listRows {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.listRow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-10) var(--space-12);
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  text-decoration: none;
+
+  &:hover {
+    background: var(--hover-bg);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: inset var(--shadow-focus);
+  }
+
+  &[data-level="rosso"] {
+    box-shadow: inset 3px 0 0 var(--danger);
+  }
+
+  &[data-level="arancio"] {
+    box-shadow: inset 3px 0 0 var(--warning-500);
+  }
+
+  &[aria-current="page"] {
+    background: var(--brand-primary-soft);
+  }
+}
+
+.listRowTop {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-8);
+  min-width: 0;
+}
+
+.listWhen {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+
+  &[data-level="rosso"] {
+    color: var(--text-danger);
+  }
+
+  &[data-level="arancio"] {
+    color: var(--text-warning);
+  }
+}
+
+/* ===== Centro: testata e conversazione ===== */
+.center {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--bg);
+}
+
+.head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-10);
+  padding: var(--space-12) var(--space-20) var(--space-12);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.crumbs {
+  min-width: 0;
+}
+
+.crumbLink {
+  color: inherit;
+  text-decoration: none;
+
+  &:hover {
+    color: var(--text);
+    text-decoration: underline;
+  }
+
+  &:focus-visible {
+    outline: none;
+    border-radius: var(--radius-inner);
+    box-shadow: var(--shadow-focus);
+  }
+}
+
+.titleRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-8) var(--space-12);
+  min-width: 0;
+}
+
+.stagePill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-height: 24px;
+  padding: 0 var(--space-10);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--brand-primary-soft);
+  color: var(--on-brand-soft);
+  cursor: pointer;
+
+  &[data-variant="success"] {
+    background: var(--success-50);
+    color: var(--text-success);
+  }
+
+  &[data-variant="danger"] {
+    background: var(--danger-50);
+    color: var(--text-danger);
+  }
+
+  &:hover {
+    background: var(--brand-primary-soft-hover);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-focus);
+  }
+}
+
+.ownerButton {
+  padding: var(--space-2) var(--space-4);
+  border: 0;
+  border-radius: var(--radius-inner);
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+
+  &:hover {
+    color: var(--text);
+    background: var(--hover-bg);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-focus);
+  }
+}
+
+.titleActions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+  margin-left: auto;
+}
+
+.brief {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-12);
+  padding: var(--space-8) var(--space-12);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--bg);
+}
+
+.briefLabel {
+  flex-shrink: 0;
+  padding: var(--space-2) var(--space-6);
+  border-radius: var(--radius-inner);
+  background: var(--brand-primary-soft);
+  color: var(--on-brand-soft);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.briefText {
+  flex: 1 1 auto;
+  margin: 0;
+  min-width: 0;
+}
+
+.briefSource {
+  flex-shrink: 0;
+  align-self: center;
+}
+
+/* ===== Conversazione ===== */
+.chat {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.thread {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: var(--space-16) var(--space-20);
+  overflow-y: auto;
+}
+
+.threadNote {
+  margin: auto;
+}
+
+.threadEvent {
+  align-self: center;
+  max-width: 80%;
+  margin: var(--space-4) 0;
+  text-align: center;
+}
+
+.bubbleRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+
+  &[data-out] {
+    flex-direction: row-reverse;
+  }
+}
+
+.bubble {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-width: min(75%, 560px);
+  padding: var(--space-8) var(--space-12);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-surface);
+  background: var(--surface);
+  color: var(--text);
+
+  &[data-out] {
+    border-color: var(--brand-primary);
+    background: var(--brand-primary);
+    color: var(--on-brand);
+  }
+
+  // In coda, annullato o non partito: il colore pieno resta ai messaggi partiti.
+  &[data-out][data-status="queued"],
+  &[data-out][data-status="sending"] {
+    border-style: dashed;
+    background: var(--brand-primary-soft);
+    color: var(--on-brand-soft);
+  }
+
+  &[data-out][data-status="cancelled"],
+  &[data-out][data-status="failed"] {
+    border-color: var(--border);
+    background: var(--hover-bg);
+    color: var(--text-muted);
+  }
+
+  &[data-out][data-status="failed"] {
+    border-color: var(--danger);
+  }
+}
+
+.bubbleText {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.bubbleMeta {
+  opacity: 0.75;
+}
+
+/* ===== Bozza in fondo ===== */
+.composer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding: 0 var(--space-20) var(--space-16);
+}
+
+.draft {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding: var(--space-12) var(--space-12) var(--space-12) var(--space-16);
+  border: 1px solid var(--brand-primary);
+  border-radius: var(--radius-surface);
+  background: var(--surface);
+  box-shadow: inset 4px 0 0 var(--brand-primary);
+
+  &[data-level="arancio"] {
+    box-shadow: inset 4px 0 0 var(--warning-500);
+  }
+
+  &[data-level="rosso"] {
+    box-shadow: inset 4px 0 0 var(--danger);
+  }
+}
+
+.draftHead {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+  margin: 0;
+}
+
+.draftTitle {
+  color: var(--brand-primary);
+}
+
+.draftWait {
+  color: var(--text-muted);
+
+  &[data-level="arancio"] {
+    color: var(--text-warning);
+  }
+
+  &[data-level="rosso"] {
+    color: var(--text-danger);
+  }
+}
+
+.draftText {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.draftActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+}
+
+.quickReplies {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-6);
+  padding-top: var(--space-10);
+  border-top: 1px solid var(--border);
+}
+
+.quickLabel {
+  padding: var(--space-2) var(--space-6);
+  border-radius: var(--radius-inner);
+  background: var(--brand-primary-soft);
+  color: var(--on-brand-soft);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.quickReply {
+  min-height: 26px;
+  padding: 0 var(--space-10);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    border-color: var(--brand-primary);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-focus);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+}
+
+.writeBox {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+.writeInput {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* ===== Colonna dei dati ===== */
+.side {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-left: 1px solid var(--border);
+  background: var(--surface);
+  overflow-y: auto;
+}
+
+.fact {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  padding: var(--space-12) var(--space-12) var(--space-16);
+  border-bottom: 1px solid var(--border);
+
+  &:last-child {
+    border-bottom: 0;
+  }
+
+  p {
+    margin: 0;
+  }
+}
+
+.factHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  min-height: 22px;
+}
+
+.factTitle {
+  margin: 0;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.factActions {
+  display: inline-flex;
+  gap: var(--space-6);
+  margin-left: auto;
+}
+
+.factButtons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-6);
+  margin-top: var(--space-4);
+}
+
+.stepForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.facts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  margin: 0;
+
+  dd {
+    margin: 0;
+    min-width: 0;
+  }
+}
+
+.factGroup {
+  display: contents;
+}
+
+.factRow {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  gap: var(--space-8);
+}
+
+.phoneNumber {
+  color: inherit;
+  text-decoration: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.linkButton {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--brand-primary);
+  cursor: pointer;
+  font: inherit;
+
+  &:hover {
+    text-decoration: underline;
+  }
+
+  &:focus-visible {
+    outline: none;
+    border-radius: var(--radius-inner);
+    box-shadow: var(--shadow-focus);
+  }
+}
+
+.request {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+
+  & + & {
+    margin-top: var(--space-8);
+  }
+}
+
+.note {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+// «+ nota veloce» tratteggiato (V5): si scrive e si salva con Invio.
+.quickNote input {
+  border-style: dashed;
+}
+
+.history {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* ===== Telefono (T8b) ===== */
+// Scheda a tutta altezza: esce dal padding del contenuto (16), la chat scorre
+// e la bozza resta in fondo.
+.phone {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: calc(-1 * var(--space-16));
+  background: var(--bg);
+}
+
+.phoneHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-12) var(--space-16) var(--space-8) var(--space-8);
+  background: var(--surface);
+}
+
+.back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--tap-target, 44px);
+  height: var(--tap-target, 44px);
+  flex-shrink: 0;
+  border-radius: var(--radius-control);
+  color: var(--brand-primary);
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-focus);
+  }
+}
+
+.phoneTitle {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+
+  h1,
+  p {
+    margin: 0;
+  }
+}
+
+.phoneTabs {
+  padding: 0 var(--space-16);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.phoneChat {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+
+  .thread {
+    padding: var(--space-12) var(--space-16);
+  }
+
+  .composer {
+    padding: var(--space-8) var(--space-16) var(--space-12);
+  }
+
+  // Al telefono il colore dell'attesa è la cornice intera (T8b).
+  .draft {
+    box-shadow: none;
+
+    &[data-level="arancio"] {
+      border-color: var(--warning-500);
+    }
+
+    &[data-level="rosso"] {
+      border-color: var(--danger);
+    }
+  }
+
+  .draftActions > :first-child {
+    flex: 1 1 auto;
+  }
+}
+
+.phoneNotices {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding: var(--space-12) var(--space-16) 0;
+}
+
+.phoneBody {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  background: var(--surface);
+}
+
+/* Fra 768 e 1199: niente elenco a sinistra, la conversazione ha bisogno di spazio. */
+@media (max-width: 1199px) {
+  .frame {
+    grid-template-columns: minmax(0, 1fr) 280px;
+  }
+
+  .list {
+    display: none;
+  }
+}

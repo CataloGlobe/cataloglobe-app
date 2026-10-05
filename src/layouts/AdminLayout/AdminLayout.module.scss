@@ -29,7 +29,7 @@
 // Al telefono la barra in basso copre 56 px (più l'area sicura): il contenuto
 // scorre fin sopra di lei.
 @media (max-width: 767px) {
-  .content {
+  .content[data-bottom-bar] {
     padding-bottom: calc(56px + var(--space-24) + env(safe-area-inset-bottom, 0px));
   }
 }

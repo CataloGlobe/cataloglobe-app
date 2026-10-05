@@ -26,6 +26,7 @@ import {
     isActiveAppointment
 } from "@/utils/crm/agenda";
 import { CallScheduleDrawer } from "./CallScheduleDrawer";
+import { FactSection } from "./components/FactSection";
 import styles from "./Crm.module.scss";
 
 type Props = {
@@ -38,6 +39,13 @@ type Props = {
     teamName: (userId: string | null) => string;
     /** Dopo un cambio: la scheda ricarica fase e storia. */
     onChanged: () => Promise<void> | void;
+    /** Sezione piatta della colonna a destra (V5) invece della card. */
+    flat?: boolean;
+    /** Il drawer «Fissa» aperto da fuori (tasto «Fissa telefonata» della testata). */
+    scheduleOpen?: boolean;
+    onScheduleOpenChange?: (open: boolean) => void;
+    /** La telefonata attiva, per la testata della scheda. */
+    onActiveChange?: (active: CrmAppointment | null) => void;
 };
 
 const OUTCOMES: CrmCallOutcome[] = ["done", "no_show", "postponed"];
@@ -47,12 +55,26 @@ const OUTCOMES: CrmCallOutcome[] = ["done", "no_show", "postponed"];
  * cosa parte al lead e l'evento su Google; Fissa, Sposta, Annulla; «Confermo»
  * per chi deve chiamare; l'esito dopo l'orario.
  */
-export function CallCard({ venueId, venueName, lost, team, currentUserId, teamName, onChanged }: Props) {
+export function CallCard({
+    venueId,
+    venueName,
+    lost,
+    team,
+    currentUserId,
+    teamName,
+    onChanged,
+    flat,
+    scheduleOpen,
+    onScheduleOpenChange,
+    onActiveChange
+}: Props) {
     const { showToast } = useToast();
     const [appointments, setAppointments] = useState<CrmAppointment[] | null>(null);
     const [settings, setSettings] = useState<CrmAgendaSettings | null>(null);
     const [loadError, setLoadError] = useState<string | null>(null);
-    const [drawerOpen, setDrawerOpen] = useState(false);
+    const [ownDrawerOpen, setOwnDrawerOpen] = useState(false);
+    const drawerOpen = scheduleOpen ?? ownDrawerOpen;
+    const setDrawerOpen = onScheduleOpenChange ?? setOwnDrawerOpen;
     const [cancelOpen, setCancelOpen] = useState(false);
     const [cancelReason, setCancelReason] = useState("");
     const [busyAction, setBusyAction] = useState<string | null>(null);
@@ -66,10 +88,13 @@ export function CallCard({ venueId, venueName, lost, team, currentUserId, teamNa
             ]);
             setAppointments(rows);
             setSettings(agenda);
+            onActiveChange?.(rows.find(isActiveAppointment) ?? null);
             setLoadError(null);
         } catch {
             setLoadError("Non riesco a leggere le telefonate.");
         }
+        // `onActiveChange` è della pagina: conta solo il locale.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [venueId]);
 
     useEffect(() => {
@@ -113,14 +138,15 @@ export function CallCard({ venueId, venueName, lost, team, currentUserId, teamNa
                 Annulla
             </Button>
         </div>
-    ) : !lost && appointments !== null ? (
+    ) : !lost && appointments !== null && !onScheduleOpenChange ? (
         <Button variant="primary" size="sm" onClick={() => setDrawerOpen(true)}>
             Fissa la telefonata
         </Button>
     ) : undefined;
 
+    const Box = flat ? FactSection : Card;
     return (
-        <Card
+        <Box
             title="Telefonata"
             badge={
                 active ? (
@@ -274,6 +300,6 @@ export function CallCard({ venueId, venueName, lost, team, currentUserId, teamNa
                     onChange={e => setCancelReason(e.target.value)}
                 />
             </ConfirmDialog>
-        </Card>
+        </Box>
     );
 }

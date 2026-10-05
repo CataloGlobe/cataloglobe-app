@@ -59,49 +59,6 @@
   overflow-y: auto;
 }
 
-.leadList {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-16);
-}
-
-.leadItem {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-
-  & + & {
-    padding-top: var(--space-16);
-    border-top: 1px solid var(--border);
-  }
-}
-
-.answers {
-  margin: var(--space-4) 0 0;
-  display: grid;
-  gap: var(--space-6);
-}
-
-.answerRow {
-  display: grid;
-  grid-template-columns: minmax(120px, 30%) 1fr;
-  gap: var(--space-12);
-
-  dt,
-  dd {
-    margin: 0;
-    min-width: 0;
-    overflow-wrap: anywhere;
-  }
-}
-
-.noteComposer {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-8);
-  padding: 0 var(--space-24) var(--space-12);
-}
-
 .noteActions {
   display: flex;
   justify-content: flex-end;
@@ -231,79 +188,10 @@
 }
 
 
-/* Il colore dell'attesa sta solo nel filo a sinistra e nel tempo. */
-.waitRowOrange {
-  box-shadow: inset 3px 0 0 var(--color-warning-500);
-}
-
-.waitRowRed {
-  box-shadow: inset 3px 0 0 var(--danger);
-}
-
-.waitTime {
-  font-variant-numeric: tabular-nums;
-
-  &[data-level="arancio"] {
-    color: var(--text-warning);
-    font-weight: 600;
-  }
-
-  &[data-level="rosso"] {
-    color: var(--text-danger);
-    font-weight: 600;
-  }
-}
-
-/* Scheda del lead: Da lavorare | conversazione | dati. */
-/* La scheda misura il proprio spazio, non la finestra: la barra laterale ne
-   toglie 232 e a 1280 le tre colonne non ci stanno. */
 .agentTodayPhone {
   @media (min-width: 768px) {
     display: none;
   }
-}
-
-.leadFrame {
-  container: lead / inline-size;
-}
-
-.leadLayout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--space-16);
-  align-items: start;
-
-  @container lead (min-width: 760px) {
-    grid-template-columns: minmax(0, 1fr) 320px;
-  }
-
-  @container lead (min-width: 1120px) {
-    grid-template-columns: 260px minmax(0, 1fr) 320px;
-  }
-}
-
-.leadQueue {
-  display: none;
-
-  @container lead (min-width: 1120px) {
-    display: block;
-    position: sticky;
-    top: var(--space-16);
-  }
-}
-
-.contactActions {
-  flex-direction: row;
-  flex-wrap: wrap;
-  padding-top: 0;
-}
-
-.leadMain,
-.leadSide {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-16);
-  min-width: 0;
 }
 
 /* Agenda: l'ora a sinistra, come nella Home. */
@@ -313,4 +201,22 @@
   align-items: flex-start;
   min-width: 48px;
   font-variant-numeric: tabular-nums;
+}
+
+/* Account dentro la colonna dei dati della scheda (V5): senza rientro, il campo sopra il bottone. */
+.flatBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.flatField {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-8);
+
+  > :first-child {
+    align-self: stretch;
+  }
 }

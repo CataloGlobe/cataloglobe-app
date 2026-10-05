@@ -65,6 +65,17 @@ export type CrmTrialKind = "carta" | "codice";
 /** `suppressed`: telefono che ha chiesto lo stop, nessuna scrittura. */
 export type CrmIngestOutcome = "created" | "returned" | "duplicate" | "suppressed";
 
+/** Il prossimo passo di un locale (`crm_next_steps`, scheda del lead). */
+export interface CrmNextStep {
+    venue_id: string;
+    step: string;
+    /** AAAA-MM-GG; null = senza scadenza. */
+    due_on: string | null;
+    owner_user_id: string | null;
+    set_by: string;
+    set_at: string;
+}
+
 export interface CrmTeamMember {
     user_id: string;
     display_name: string;

@@ -42,6 +42,10 @@ export default function AdminLayout() {
     // lead (chiusa: la colonna delle viste, le nove colonne, elenco, chat e
     // dati della scheda hanno bisogno di spazio; canvas V4 e V5).
     const isLeadDetail = /^\/admin\/lead(\/|$)/.test(pathname);
+    // Dentro la conversazione di un lead (T8b) la barra in basso lascia il
+    // posto alla bozza e a «Scrivi tu»: si torna indietro con la freccia.
+    const isLeadChat = /^\/admin\/lead\/[^/]+/.test(pathname);
+    const showBottomBar = isMobile && !isLeadChat;
     const [pagesCollapsed, setPagesCollapsed] = useState<boolean | null>(null);
     const [detailCollapsed, setDetailCollapsed] = useState(true);
     const sidebarCollapsed = isLeadDetail ? detailCollapsed : (pagesCollapsed ?? isNarrow);
@@ -139,13 +143,17 @@ export default function AdminLayout() {
                             </div>
                         )}
                         <main className={`${styles.main} ${adminStyles.main}`}>
-                            <div ref={contentRef} className={`${styles.content} ${adminStyles.content}`}>
+                            <div
+                                ref={contentRef}
+                                className={`${styles.content} ${adminStyles.content}`}
+                                data-bottom-bar={showBottomBar || undefined}
+                            >
                                 <CrmPageHeader />
                                 <Outlet context={outletContext} />
                             </div>
                         </main>
                     </div>
-                    {isMobile && <CrmBottomBar home={nav.home} lead={nav.lead} />}
+                    {showBottomBar && <CrmBottomBar home={nav.home} lead={nav.lead} />}
                     <CrmSearchDialog isOpen={searchOpen} onClose={closeSearch} venues={nav.venues} />
                 </PageHeaderProvider>
             </BreadcrumbProvider>
