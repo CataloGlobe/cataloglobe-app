@@ -17,6 +17,7 @@ import {
     type CrmLinkableTenant
 } from "@/services/supabase/crm";
 import { crmErrorMessage } from "@/utils/crm/stages";
+import { FactSection } from "./components/FactSection";
 import styles from "./Crm.module.scss";
 
 /**
@@ -48,9 +49,11 @@ type Props = {
     /** «Prova con carta · scade il …», «Registrato, prova non partita» (dal job). */
     accountLabel?: CrmAccountLabel | null;
     onChanged: () => Promise<void> | void;
+    /** Sezione piatta della colonna a destra (V5) invece della card. */
+    flat?: boolean;
 };
 
-export function AccountCard({ venueId, tenantId, linkSource, accountLabel, onChanged }: Props) {
+export function AccountCard({ venueId, tenantId, linkSource, accountLabel, onChanged, flat }: Props) {
     const [tenants, setTenants] = useState<CrmLinkableTenant[]>([]);
     const [suggestions, setSuggestions] = useState<CrmAccountSuggestion[]>([]);
     const [manualTenant, setManualTenant] = useState("");
@@ -93,9 +96,10 @@ export function AccountCard({ venueId, tenantId, linkSource, accountLabel, onCha
     const linked = tenantId ? tenantById.get(tenantId) : null;
     const status = accountLabel ?? (linked ? STATUS_LABEL[linked.subscription_status] : null);
 
+    const Box = flat ? FactSection : Card;
     return (
-        <Card
-            title="Account CataloGlobe"
+        <Box
+            title="Account"
             badge={
                 tenantId ? (
                     <StatusBadge
@@ -107,7 +111,7 @@ export function AccountCard({ venueId, tenantId, linkSource, accountLabel, onCha
             flush
         >
             {error && (
-                <div className={styles.cardPadding}>
+                <div className={flat ? styles.flatBody : styles.cardPadding}>
                     <InlineBanner variant="error">{error}</InlineBanner>
                 </div>
             )}
@@ -165,12 +169,12 @@ export function AccountCard({ venueId, tenantId, linkSource, accountLabel, onCha
                             }
                         />
                     ))}
-                    <div className={styles.cardPadding}>
+                    <div className={flat ? styles.flatBody : styles.cardPadding}>
                         <Text variant="body-sm" colorVariant="muted">
                             Nessun account collegato. Se si registra con lo stesso telefono si collega
                             da solo.
                         </Text>
-                        <div className={styles.inlineField}>
+                        <div className={flat ? styles.flatField : styles.inlineField}>
                             <Select
                                 label="Collega a mano"
                                 value={manualTenant}
@@ -192,6 +196,6 @@ export function AccountCard({ venueId, tenantId, linkSource, accountLabel, onCha
                     </div>
                 </>
             )}
-        </Card>
+        </Box>
     );
 }

@@ -1,0 +1,535 @@
+// Agenti (canvas U2, versione finale del 2026-10-05).
+// Solo token di _theme.scss; la tipografia la porta il componente Text.
+// Colori dell'attesa come nel resto del CRM: solo il filo e il testo.
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+}
+
+.box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-surface);
+}
+
+/* ===== Riga di stato ===== */
+.statusLine {
+  @extend .box;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-8) var(--space-20);
+  padding: var(--space-12) var(--space-16);
+}
+
+.statusItem {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+  min-width: 0;
+}
+
+.statusButton {
+  all: unset;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+  color: var(--text);
+  border-radius: var(--radius-control);
+  cursor: pointer;
+
+  &:hover {
+    text-decoration: underline;
+  }
+
+  &:focus-visible {
+    box-shadow: var(--shadow-focus);
+  }
+}
+
+.statusSpend {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-8);
+  margin-left: auto;
+}
+
+.dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--text-muted);
+
+  &[data-tone="success"] {
+    background: var(--text-success);
+  }
+
+  &[data-tone="warning"] {
+    background: var(--text-warning);
+  }
+
+  &[data-tone="danger"] {
+    background: var(--text-danger);
+  }
+}
+
+/* ===== Il giro di un messaggio ===== */
+.giroBox {
+  @extend .box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  padding: var(--space-12) var(--space-16);
+}
+
+.giroHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-4) var(--space-12);
+
+  h2 {
+    margin: 0;
+  }
+}
+
+.giroSteps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--space-4);
+
+  // Al telefono i passi scorrono in orizzontale dentro il riquadro.
+  @media (max-width: 767px) {
+    grid-template-columns: repeat(5, minmax(150px, 1fr));
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    margin: 0 calc(-1 * var(--space-16));
+    padding: 0 var(--space-16);
+  }
+}
+
+.giroItem {
+  scroll-snap-align: start;
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.giroButton {
+  all: unset;
+  box-sizing: border-box;
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-8);
+  border-radius: var(--radius-control);
+  border-left: 3px solid transparent;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--hover-bg);
+  }
+
+  &:focus-visible {
+    box-shadow: var(--shadow-focus);
+  }
+
+  &[data-selected="true"] {
+    background: var(--brand-primary-soft);
+    color: var(--on-brand-soft);
+  }
+
+  &[data-level="arancio"] {
+    border-left-color: var(--text-warning);
+  }
+
+  &[data-level="rosso"] {
+    border-left-color: var(--text-danger);
+  }
+}
+
+.giroNumber {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-pill);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--hover-bg);
+  color: var(--text-muted);
+  font-weight: 600;
+
+  [data-selected="true"] & {
+    background: var(--brand-primary);
+    color: var(--on-brand);
+  }
+}
+
+.giroText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.giroCount {
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  [data-selected="true"] & {
+    color: inherit;
+  }
+
+  [data-level="arancio"] & {
+    color: var(--text-warning);
+    font-weight: 600;
+  }
+
+  [data-level="rosso"] & {
+    color: var(--text-danger);
+    font-weight: 600;
+  }
+}
+
+.giroArrow {
+  flex: none;
+  color: var(--text-muted);
+}
+
+/* ===== Tabella ===== */
+.tableBox {
+  @extend .box;
+  overflow: hidden;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+
+  th,
+  td {
+    padding: var(--space-8) var(--space-12);
+    text-align: left;
+    vertical-align: middle;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+
+  thead th {
+    padding-top: var(--space-10);
+    padding-bottom: var(--space-10);
+  }
+
+  tbody th {
+    font-weight: inherit;
+  }
+
+  th:first-child,
+  td:first-child {
+    padding-left: var(--space-16);
+  }
+
+  th:last-child,
+  td:last-child {
+    padding-right: var(--space-16);
+  }
+
+  tbody tr:last-child > * {
+    border-bottom: 0;
+  }
+
+  // Il passo scelto nel giro: la riga resta accesa, col filo brand a sinistra.
+  tbody tr[data-on] > * {
+    background: var(--brand-primary-soft);
+  }
+
+  tbody tr[data-on] > :first-child {
+    box-shadow: inset 3px 0 0 var(--brand-primary);
+  }
+}
+
+.stepCell[data-out] {
+  color: var(--text-muted);
+}
+
+tr[data-on] .stepCell {
+  color: var(--brand-primary);
+  font-weight: 600;
+}
+
+.guideCell {
+  text-align: right;
+  width: 1%;
+}
+
+// Al telefono resta la freccia; il nome accessibile tiene «Come funziona».
+.guideLabel {
+  @media (max-width: 767px) {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+}
+
+.table tbody th {
+  @media (max-width: 767px) {
+    white-space: normal;
+  }
+}
+
+.table .panelRow > td {
+  padding: 0;
+  white-space: normal;
+}
+
+.hidePhone {
+  @media (max-width: 767px) {
+    display: none;
+  }
+}
+
+.showPhone {
+  display: none;
+
+  @media (max-width: 767px) {
+    display: block;
+  }
+}
+
+.linkButton,
+.guideToggle {
+  all: unset;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  color: var(--brand-primary);
+  cursor: pointer;
+  white-space: nowrap;
+  border-radius: var(--radius-control);
+
+  &:hover {
+    text-decoration: underline;
+  }
+
+  &:focus-visible {
+    box-shadow: var(--shadow-focus);
+  }
+
+  &:disabled {
+    color: var(--text-muted);
+    cursor: default;
+    text-decoration: none;
+  }
+
+  svg[data-open="true"] {
+    transform: rotate(180deg);
+  }
+}
+
+.mix {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+.mixBar {
+  width: 110px;
+  height: 6px;
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+}
+
+.mixTrack {
+  fill: var(--hover-bg);
+}
+
+.mixApproved {
+  fill: var(--text-success);
+}
+
+.mixEdited {
+  fill: var(--text-warning);
+}
+
+.mixDiscarded {
+  fill: var(--text-muted);
+}
+
+/* ===== «Come funziona» di un agente ===== */
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  padding: var(--space-16);
+  background: var(--bg);
+}
+
+.panelHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-12);
+
+  h3 {
+    margin: 0;
+  }
+}
+
+.panelText {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  max-width: 72ch;
+}
+
+.panelControls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  max-width: 560px;
+}
+
+.panelModel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: var(--space-12);
+  max-width: 560px;
+
+  @media (max-width: 767px) {
+    grid-template-columns: 1fr;
+    justify-items: start;
+  }
+}
+
+/* ===== In basso: spesa e schede ===== */
+.bottom {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  gap: var(--space-16);
+  align-items: start;
+
+  @media (max-width: 1023px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.spendBox {
+  @extend .box;
+}
+
+.boxHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-12);
+  min-height: 44px;
+  padding: var(--space-4) var(--space-16);
+
+  h2 {
+    margin: 0;
+  }
+}
+
+.spendRows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  padding: 0 var(--space-16) var(--space-12);
+}
+
+.spendRow {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-12);
+}
+
+.spendFoot {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-8);
+  padding: var(--space-12) var(--space-16);
+  border-top: 1px solid var(--border);
+}
+
+.activity {
+  @extend .box;
+  padding: 0 var(--space-16) var(--space-8);
+  min-width: 0;
+}
+
+.activityRows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.activityRow {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-12);
+  min-height: 36px;
+  padding: var(--space-4) 0;
+
+  & + & {
+    border-top: 1px solid var(--border);
+  }
+}
+
+.activityWhen {
+  white-space: nowrap;
+}
+
+.activityText {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.activityLink {
+  color: var(--brand-primary);
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.activityEmpty {
+  padding: var(--space-8) 0;
+}
+
+/* ===== Drawer ===== */
+.drawerForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+}
+
+.rulesHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+.preWrap {
+  white-space: pre-wrap;
+}

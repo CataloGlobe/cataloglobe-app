@@ -181,6 +181,7 @@ $dash-margin: 14px;
     outline: none;
     box-shadow: var(--shadow-focus);
   }
+
 }
 
 // Nel pannello mobile la riga resta a 40: è un bersaglio touch.
@@ -271,6 +272,19 @@ $dash-margin: 14px;
 
 .badge {
   flex-shrink: 0;
+  display: inline-flex;
+  border-radius: var(--radius-pill);
+}
+
+/* Anello del colore della cosa più urgente (solo chi passa `badgeRing`). */
+.badge[data-ring="warning"],
+.miniBadge[data-ring="warning"] {
+  box-shadow: 0 0 0 2px var(--warning-500);
+}
+
+.badge[data-ring="danger"],
+.miniBadge[data-ring="danger"] {
+  box-shadow: 0 0 0 2px var(--danger);
 }
 
 .sidebar[data-collapsed="true"] .trailing,
@@ -382,4 +396,16 @@ $dash-margin: 14px;
     outline: none;
     box-shadow: var(--shadow-focus);
   }
+
+  /* Con la scritta (solo chi passa `collapseLabel`) prende tutta la riga. */
+  &[data-labelled="true"] {
+    width: 100%;
+  }
+}
+
+.toggleLabel {
+  margin-inline-start: $icon-gap;
+  white-space: nowrap;
+  overflow: hidden;
+  color: inherit;
 }

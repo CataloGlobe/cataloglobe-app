@@ -4,11 +4,16 @@ import { listAllTickets } from "@/services/supabase/support";
 import type { AdminOutletContext } from "./outletContext";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { geaPageOf } from "@/utils/crm/gea";
 import { BreadcrumbProvider } from "@/context/BreadcrumbProvider";
 import { PageHeaderProvider } from "@/context/PageHeaderProvider";
-import { AppHeaderAdmin } from "@/components/layout/AppHeader/AppHeaderAdmin";
-import { PageHeaderSlot } from "@/components/layout/PageHeaderSlot";
 import AdminSidebar from "./AdminSidebar";
+import { CrmBottomBar } from "./CrmBottomBar";
+import { CrmNavBrand } from "./CrmNavBrand";
+import { CrmPageHeader } from "./CrmPageHeader";
+import { CrmSearch } from "./CrmSearch";
+import { GeaPanel } from "./GeaPanel";
+import { useCrmNavData } from "./useCrmNavData";
 import styles from "../shared/layoutShell.module.scss";
 import adminStyles from "./AdminLayout.module.scss";
 
@@ -22,6 +27,11 @@ import adminStyles from "./AdminLayout.module.scss";
  * (`platform_admins` / `is_platform_admin()`), cross-tenant e senza tenant
  * selezionato. Il guscio (shell SCSS, sidebar) resta condiviso: la divergenza
  * è solo header e navigazione.
+ *
+ * Grafica del CRM (canvas, versione finale del 2026-10-05): niente testata in
+ * alto, la barra indaco porta marchio, Cerca (C4, ⌘K) e contatori; il titolo sta
+ * nella pagina. Sulla scheda di un lead la barra parte chiusa. Al telefono la
+ * barra in basso (Home · Lead · Agenda · Altro) prende il posto del menu.
  */
 export default function AdminLayout() {
     usePageTitle("Area admin");
@@ -29,16 +39,46 @@ export default function AdminLayout() {
     const { pathname } = useLocation();
 
     const isMobile = useMediaQuery("(max-width: 767px)");
-    const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-    const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+    const isNarrow = useMediaQuery("(max-width: 1023px)");
+    // Due preferenze: le pagine normali (aperta, chiusa tra 768 e 1023) e i
+    // lead (chiusa: la colonna delle viste, le nove colonne, elenco, chat e
+    // dati della scheda hanno bisogno di spazio; canvas V4 e V5).
+    const isLeadDetail = /^\/admin\/lead(\/|$)/.test(pathname);
+    // Dentro la conversazione di un lead (T8b) la barra in basso lascia il
+    // posto alla bozza e a «Scrivi tu»: si torna indietro con la freccia.
+    const isLeadChat = /^\/admin\/lead\/[^/]+/.test(pathname);
+    const showBottomBar = isMobile && !isLeadChat;
+    const [pagesCollapsed, setPagesCollapsed] = useState<boolean | null>(null);
+    const [detailCollapsed, setDetailCollapsed] = useState(true);
+    const sidebarCollapsed = isLeadDetail ? detailCollapsed : (pagesCollapsed ?? isNarrow);
+    const toggleCollapse = () => (isLeadDetail ? setDetailCollapsed(v => !v) : setPagesCollapsed(() => !sidebarCollapsed));
 
+    const nav = useCrmNavData(pathname);
     useEffect(() => {
         contentRef.current?.scrollTo(0, 0);
     }, [pathname]);
 
+    // Gea (canvas V9): solo nelle pagine del CRM; al telefono non dentro la
+    // conversazione di un lead, dove in basso c'è la bozza.
+    const geaPage = useMemo(() => geaPageOf(pathname), [pathname]);
+    const showGea = geaPage !== null && !(isMobile && isLeadChat);
+    const [geaOpen, setGeaOpen] = useState(false);
+    // «Chiedi a Gea» dal Cerca: Gea si apre e la domanda parte da sola.
+    const [geaQuestion, setGeaQuestion] = useState<string | null>(null);
+    const openGea = useCallback(() => setGeaOpen(true), []);
+    const closeGea = useCallback(() => setGeaOpen(false), []);
+    const askGea = useCallback((question: string) => {
+        setGeaQuestion(question);
+        setGeaOpen(true);
+    }, []);
+    const clearGeaQuestion = useCallback(() => setGeaQuestion(null), []);
+    // Uscendo dalle pagine di Gea, niente resta in sospeso: una domanda
+    // lasciata qui partirebbe da sola alla prima pagina del CRM.
     useEffect(() => {
-        if (isMobile) setMobileSidebarOpen(false);
-    }, [isMobile]);
+        if (showGea) return;
+        setGeaOpen(false);
+        setGeaQuestion(null);
+    }, [showGea]);
 
     // ── Pallino "richieste in attesa" ──────────────────────────────────────
     // Fonte UNICA, montata qui come il gemello lato cliente in `MainLayout`:
@@ -68,9 +108,7 @@ export default function AdminLayout() {
         void listAllTickets()
             .then(rows => {
                 if (!cancelled) {
-                    setSupportPending(
-                        rows.some(t => t.last_message_kind === "customer" && t.status !== "closed")
-                    );
+                    setSupportPending(rows.some(t => t.last_message_kind === "customer" && t.status !== "closed"));
                 }
             })
             .catch(() => {
@@ -83,49 +121,66 @@ export default function AdminLayout() {
 
     // Memoizzato per la stessa ragione: un oggetto nuovo a ogni render farebbe
     // rirenderizzare ogni consumer di `useAdminOutletContext`.
-    const outletContext = useMemo<AdminOutletContext>(
-        () => ({ refreshSupportPending }),
-        [refreshSupportPending]
-    );
-
-    useEffect(() => {
-        if (mobileSidebarOpen) {
-            document.body.style.overflow = "hidden";
-        } else {
-            document.body.style.overflow = "";
-        }
-        return () => {
-            document.body.style.overflow = "";
-        };
-    }, [mobileSidebarOpen]);
+    const outletContext = useMemo<AdminOutletContext>(() => ({ refreshSupportPending }), [refreshSupportPending]);
 
     return (
         <div className={styles.appLayout}>
             <BreadcrumbProvider>
                 <PageHeaderProvider>
-                    <header className={styles.globalHeader}>
-                        <AppHeaderAdmin
-                            onOpenMobileSidebar={isMobile ? () => setMobileSidebarOpen(true) : undefined}
-                        />
-                    </header>
                     <div className={styles.body}>
-                        <div className={adminStyles.crmNav}>
-                            <AdminSidebar
-                                isMobile={isMobile}
-                                mobileOpen={mobileSidebarOpen}
-                                collapsed={!isMobile && sidebarCollapsed}
-                                onRequestClose={() => setMobileSidebarOpen(false)}
-                                onToggleCollapse={() => setSidebarCollapsed(v => !v)}
-                                supportPending={supportPending}
-                            />
-                        </div>
-                        <main className={styles.main}>
-                            <PageHeaderSlot scrollContainerRef={contentRef} />
-                            <div ref={contentRef} className={styles.content}>
+                        {!isMobile && (
+                            <div className={adminStyles.crmNav}>
+                                <AdminSidebar
+                                    isMobile={false}
+                                    mobileOpen={false}
+                                    collapsed={sidebarCollapsed}
+                                    onRequestClose={() => undefined}
+                                    onToggleCollapse={toggleCollapse}
+                                    supportPending={supportPending}
+                                    home={nav.home}
+                                    lead={nav.lead}
+                                    headerSlot={
+                                        <CrmNavBrand
+                                            collapsed={sidebarCollapsed}
+                                            search={
+                                                <CrmSearch
+                                                    collapsed={sidebarCollapsed}
+                                                    venues={nav.venues}
+                                                    waits={nav.waits}
+                                                    homeCount={nav.home.count}
+                                                    onAskGea={showGea ? askGea : undefined}
+                                                />
+                                            }
+                                        />
+                                    }
+                                />
+                            </div>
+                        )}
+                        <main className={`${styles.main} ${adminStyles.main}`}>
+                            <div
+                                ref={contentRef}
+                                className={`${styles.content} ${adminStyles.content}`}
+                                data-bottom-bar={showBottomBar || undefined}
+                                data-gea={(showGea && !isLeadChat) || undefined}
+                            >
+                                <CrmPageHeader />
                                 <Outlet context={outletContext} />
                             </div>
                         </main>
                     </div>
+                    {showBottomBar && <CrmBottomBar home={nav.home} lead={nav.lead} />}
+                    {showGea && (
+                        <GeaPanel
+                            open={geaOpen}
+                            page={geaPage}
+                            raised={showBottomBar}
+                            phone={isMobile}
+                            question={geaQuestion}
+                            onQuestionTaken={clearGeaQuestion}
+                            onOpen={openGea}
+                            onClose={closeGea}
+                        />
+                    )}
                 </PageHeaderProvider>
             </BreadcrumbProvider>
         </div>

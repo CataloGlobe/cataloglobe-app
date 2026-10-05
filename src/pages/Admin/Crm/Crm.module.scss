@@ -7,15 +7,6 @@
   gap: var(--space-16);
 }
 
-// Elenco dei lead: catena flex vincolata come TeamPage. Senza un'altezza
-// limitata il probe del DataTable cresce col contenuto, la tabella prende
-// come tetto la propria altezza della prima misura e non si allunga più
-// (una riga visibile su tre dopo un import).
-.listPage {
-  flex: 1 1 auto;
-  min-height: 0;
-}
-
 .headerActions {
   display: flex;
   align-items: center;
@@ -68,49 +59,6 @@
   overflow-y: auto;
 }
 
-.leadList {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-16);
-}
-
-.leadItem {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-
-  & + & {
-    padding-top: var(--space-16);
-    border-top: 1px solid var(--border);
-  }
-}
-
-.answers {
-  margin: var(--space-4) 0 0;
-  display: grid;
-  gap: var(--space-6);
-}
-
-.answerRow {
-  display: grid;
-  grid-template-columns: minmax(120px, 30%) 1fr;
-  gap: var(--space-12);
-
-  dt,
-  dd {
-    margin: 0;
-    min-width: 0;
-    overflow-wrap: anywhere;
-  }
-}
-
-.noteComposer {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-8);
-  padding: 0 var(--space-24) var(--space-12);
-}
-
 .noteActions {
   display: flex;
   justify-content: flex-end;
@@ -140,104 +88,6 @@
   padding: var(--space-8) var(--space-24) var(--space-12);
 }
 
-// Pipeline: 10 colonne affiancate, scorrimento orizzontale dentro la pagina
-// (mai della pagina intera, anche a 375 px).
-.board {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(220px, 1fr);
-  gap: var(--space-12);
-  overflow-x: auto;
-  padding-bottom: var(--space-8);
-  max-width: 100%;
-}
-
-.column {
-  display: flex;
-  flex-direction: column;
-  min-height: 240px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-surface);
-  background: var(--hover-bg);
-
-  &[data-over] {
-    border-color: var(--brand-primary);
-  }
-}
-
-.columnHeader {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  padding: var(--space-12) var(--space-12) var(--space-8);
-}
-
-.columnBody {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-8);
-  padding: 0 var(--space-8) var(--space-8);
-}
-
-.boardCard {
-  width: 100%;
-  padding: var(--space-10) var(--space-12);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-control);
-  background: var(--card-bg);
-  text-align: left;
-  cursor: grab;
-  touch-action: none;
-
-  &:hover {
-    border-color: var(--brand-primary);
-  }
-
-  &[data-level="arancio"] {
-    box-shadow: inset 3px 0 0 var(--color-warning-500);
-  }
-
-  &[data-level="rosso"] {
-    box-shadow: inset 3px 0 0 var(--danger);
-  }
-
-  /* Col filo colorato l'anello del focus si aggiunge, non sparisce. */
-  &[data-level="arancio"]:focus-visible {
-    box-shadow: inset 3px 0 0 var(--color-warning-500), var(--shadow-focus);
-  }
-
-  &[data-level="rosso"]:focus-visible {
-    box-shadow: inset 3px 0 0 var(--danger), var(--shadow-focus);
-  }
-
-  &[data-dragging] {
-    opacity: 0.4;
-  }
-}
-
-.boardCardBody {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  min-width: 0;
-  padding: var(--space-10) var(--space-12);
-  border-radius: var(--radius-control);
-  background: var(--card-bg);
-  box-shadow: var(--shadow-float);
-
-  .boardCard & {
-    padding: 0;
-    box-shadow: none;
-  }
-}
-
-.boardCardBadges {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-4);
-  min-width: 0;
-}
-
 // Testo lungo scritto a mano (regole del brand): gli a capo restano.
 .preWrap {
   white-space: pre-wrap;
@@ -251,197 +101,6 @@
   gap: var(--space-12);
 }
 
-// Il giro di un messaggio (pagina Agenti): cinque passi cliccabili in fila.
-// Colori dell'attesa come nel resto del CRM: solo il filo e il testo, mai il
-// fondo pieno (grafica decisa il 2026-10-05).
-.giro {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: var(--space-8);
-
-  @media (max-width: 767px) {
-    grid-template-columns: 1fr;
-  }
-}
-
-.giroStep {
-  all: unset;
-  box-sizing: border-box;
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: var(--space-8);
-  padding: var(--space-8) var(--space-12);
-  border-radius: var(--radius-control);
-  cursor: pointer;
-
-  &:hover {
-    background: var(--hover-bg);
-  }
-
-  &:focus-visible {
-    box-shadow: var(--shadow-focus);
-  }
-
-  &[data-selected="true"] {
-    background: var(--brand-primary-soft);
-  }
-
-  &[data-level="arancio"] {
-    box-shadow: inset 3px 0 0 var(--color-warning-500);
-  }
-
-  &[data-level="rosso"] {
-    box-shadow: inset 3px 0 0 var(--danger);
-  }
-
-  & > span:last-child {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-  }
-}
-
-.giroNumber {
-  flex: none;
-  width: 22px;
-  height: 22px;
-  border-radius: var(--radius-pill);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--hover-bg);
-  color: var(--text-muted);
-  font-weight: 600;
-
-  [data-selected="true"] & {
-    background: var(--brand-primary);
-    color: var(--on-brand);
-  }
-}
-
-.giroCount {
-  color: var(--text-muted);
-
-  [data-level="arancio"] & {
-    color: var(--text-warning);
-    font-weight: 600;
-  }
-
-  [data-level="rosso"] & {
-    color: var(--text-danger);
-    font-weight: 600;
-  }
-}
-
-/* Home del CRM: numeri in riga, riquadri a coppie allineati, ingrandibili. */
-.homeFigures {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--space-12);
-
-  @media (max-width: 767px) {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-.homeGrid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  align-items: stretch;
-  gap: var(--space-16);
-
-  &[data-expanded] {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  @media (max-width: 1023px) {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-.homeTile {
-  height: 100%;
-}
-
-/* Il colore dell'attesa sta solo nel filo a sinistra e nel tempo. */
-.waitRowOrange {
-  box-shadow: inset 3px 0 0 var(--color-warning-500);
-}
-
-.waitRowRed {
-  box-shadow: inset 3px 0 0 var(--danger);
-}
-
-.waitTime {
-  font-variant-numeric: tabular-nums;
-
-  &[data-level="arancio"] {
-    color: var(--text-warning);
-    font-weight: 600;
-  }
-
-  &[data-level="rosso"] {
-    color: var(--text-danger);
-    font-weight: 600;
-  }
-}
-
-/* Scheda del lead: Da lavorare | conversazione | dati. */
-/* La scheda misura il proprio spazio, non la finestra: la barra laterale ne
-   toglie 232 e a 1280 le tre colonne non ci stanno. */
-.agentTodayPhone {
-  @media (min-width: 768px) {
-    display: none;
-  }
-}
-
-.leadFrame {
-  container: lead / inline-size;
-}
-
-.leadLayout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--space-16);
-  align-items: start;
-
-  @container lead (min-width: 760px) {
-    grid-template-columns: minmax(0, 1fr) 320px;
-  }
-
-  @container lead (min-width: 1120px) {
-    grid-template-columns: 260px minmax(0, 1fr) 320px;
-  }
-}
-
-.leadQueue {
-  display: none;
-
-  @container lead (min-width: 1120px) {
-    display: block;
-    position: sticky;
-    top: var(--space-16);
-  }
-}
-
-.contactActions {
-  flex-direction: row;
-  flex-wrap: wrap;
-  padding-top: 0;
-}
-
-.leadMain,
-.leadSide {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-16);
-  min-width: 0;
-}
-
 /* Agenda: l'ora a sinistra, come nella Home. */
 .agendaTime {
   display: flex;
@@ -449,4 +108,63 @@
   align-items: flex-start;
   min-width: 48px;
   font-variant-numeric: tabular-nums;
+}
+
+/* Account dentro la colonna dei dati della scheda (V5): senza rientro, il campo sopra il bottone. */
+.flatBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.flatField {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-8);
+
+  > :first-child {
+    align-self: stretch;
+  }
+}
+
+/* ===== Altro al telefono (T8d) ===== */
+.moreDot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--text-muted);
+
+  &[data-tone="success"] {
+    background: var(--text-success);
+  }
+
+  &[data-tone="danger"] {
+    background: var(--text-danger);
+  }
+}
+
+.moreGiro {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-12) var(--space-24) var(--space-16);
+  border-top: 1px solid var(--border);
+}
+
+.moreGiroLine {
+  color: var(--text);
+  text-decoration: none;
+}
+
+.moreGiroWaiting[data-on] {
+  color: var(--text-danger);
+  font-weight: 700;
+}
+
+.moreTrailing {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
 }
