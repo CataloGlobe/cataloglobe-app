@@ -136,9 +136,10 @@ export async function getFieldTranslationStatus(
             (tr.status === "manual" || tr.status === "overridden") &&
             tr.source_hash !== sourceHash
     ).length;
-    const errorCount = jobs.filter(j => j.status === "error").length;
-    const pendingCount = jobs.filter(j => j.status === "pending").length;
-    const lastErrorJob = jobs.find(j => j.status === "error" && j.last_error);
+    // Stati del DB (translation_jobs_status_check): pending · processing · done · failed.
+    const errorCount = jobs.filter(j => j.status === "failed").length;
+    const pendingCount = jobs.filter(j => j.status === "pending" || j.status === "processing").length;
+    const lastErrorJob = jobs.find(j => j.status === "failed" && j.last_error);
 
     return {
         field,
@@ -153,7 +154,7 @@ export async function getFieldTranslationStatus(
 }
 
 /**
- * Retry job error → pending. Reset attempts/last_error.
+ * Retry job failed → pending. Reset attempts/last_error.
  * Se languageCode omesso, retry tutte le lingue in errore per (entity, field).
  */
 export async function retryFailedTranslation(
@@ -170,7 +171,7 @@ export async function retryFailedTranslation(
         .eq("entity_type", entityType)
         .eq("entity_id", entityId)
         .eq("field", field)
-        .eq("status", "error");
+        .eq("status", "failed");
 
     if (languageCode) {
         query = query.eq("target_language_code", languageCode);
