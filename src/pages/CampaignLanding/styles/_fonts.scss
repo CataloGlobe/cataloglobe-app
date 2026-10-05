@@ -1,9 +1,9 @@
-// Font della landing di campagna, self-hosted in public/fonts/ come Inter.
+// Font della landing di campagna sopra la piega, self-hosted in public/fonts/.
 // Unico punto di caricamento: incluso solo da Frame.module.scss, quindi entra
-// nel CSS della landing e mai nel bundle admin. Vite risolve gli @import e
-// copia le @font-face nel CSS emesso, che il prerender mette inline
-// nell'HTML (scripts/prerender-landing.mjs): nessuna richiesta di CSS.
-// Inter serve solo al titolo del banner cookie (font dei titoli globali): le
-// sue @font-face non scaricano niente finché il banner non compare.
+// nel CSS della landing e mai nel bundle admin. Vite risolve l'@import e copia
+// le @font-face nel CSS emesso, che il prerender mette inline nell'HTML
+// (scripts/prerender-landing.mjs): nessuna richiesta di CSS.
+// Caveat (note scritte a mano) e Inter (domande delle FAQ) servono solo sotto
+// la piega: li carica lateFonts.ts dopo l'evento load, così non tolgono banda
+// all'hero. Qui non vanno.
 @import url("/fonts/app-campaign.css");
-@import url("/fonts/app-inter.css");
