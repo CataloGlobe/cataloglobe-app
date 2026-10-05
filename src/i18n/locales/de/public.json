@@ -272,7 +272,7 @@
         "section_aria": "Ausgewählter Inhalt",
         "dot_aria": "{{index}} Inhalt von {{count}}",
         "preview_close_aria": "Schließen Sie",
-        "see_all": "Alle ansehen →",
+        "see_all": "Alle ansehen",
         "see_all_label_one": "hervorgehobener Inhalt",
         "see_all_label_other": "hervorgehobene Inhalte",
         "see_all_aria": "Alle hervorgehobenen Inhalte ansehen ({{count}})"

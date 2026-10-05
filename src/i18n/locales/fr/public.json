@@ -272,7 +272,7 @@
     "section_aria": "Contenu en vedette",
     "dot_aria": "{{index}} contenu de {{count}}",
     "preview_close_aria": "Fermer",
-    "see_all": "Tout voir →",
+    "see_all": "Tout voir",
     "see_all_label_one": "contenu en vedette",
     "see_all_label_other": "contenus en vedette",
     "see_all_aria": "Voir tous les contenus en vedette ({{count}})"
