@@ -6,9 +6,12 @@ import { usePageTitle } from "@/hooks/usePageTitle";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { BreadcrumbProvider } from "@/context/BreadcrumbProvider";
 import { PageHeaderProvider } from "@/context/PageHeaderProvider";
-import { AppHeaderAdmin } from "@/components/layout/AppHeader/AppHeaderAdmin";
-import { PageHeaderSlot } from "@/components/layout/PageHeaderSlot";
 import AdminSidebar from "./AdminSidebar";
+import { CrmBottomBar } from "./CrmBottomBar";
+import { CrmNavBrand } from "./CrmNavBrand";
+import { CrmPageHeader } from "./CrmPageHeader";
+import { CrmSearchDialog } from "./CrmSearchDialog";
+import { useCrmNavData } from "./useCrmNavData";
 import styles from "../shared/layoutShell.module.scss";
 import adminStyles from "./AdminLayout.module.scss";
 
@@ -22,6 +25,11 @@ import adminStyles from "./AdminLayout.module.scss";
  * (`platform_admins` / `is_platform_admin()`), cross-tenant e senza tenant
  * selezionato. Il guscio (shell SCSS, sidebar) resta condiviso: la divergenza
  * è solo header e navigazione.
+ *
+ * Grafica del CRM (canvas, versione finale del 2026-10-05): niente testata in
+ * alto, la barra indaco porta marchio, Cerca ⌘K e contatori; il titolo sta
+ * nella pagina. Sulla scheda di un lead la barra parte chiusa. Al telefono la
+ * barra in basso (Home · Lead · Agenda · Altro) prende il posto del menu.
  */
 export default function AdminLayout() {
     usePageTitle("Area admin");
@@ -29,16 +37,34 @@ export default function AdminLayout() {
     const { pathname } = useLocation();
 
     const isMobile = useMediaQuery("(max-width: 767px)");
-    const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-    const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+    const isNarrow = useMediaQuery("(max-width: 1023px)");
+    // Due preferenze: le pagine normali (aperta, chiusa tra 768 e 1023) e la
+    // scheda del lead (chiusa: elenco, chat e dati hanno bisogno di spazio).
+    const isLeadDetail = /^\/admin\/lead\/[^/]+/.test(pathname);
+    const [pagesCollapsed, setPagesCollapsed] = useState<boolean | null>(null);
+    const [detailCollapsed, setDetailCollapsed] = useState(true);
+    const sidebarCollapsed = isLeadDetail ? detailCollapsed : (pagesCollapsed ?? isNarrow);
+    const toggleCollapse = () =>
+        isLeadDetail ? setDetailCollapsed(v => !v) : setPagesCollapsed(() => !sidebarCollapsed);
+
+    const nav = useCrmNavData(pathname);
+    const [searchOpen, setSearchOpen] = useState(false);
+    const closeSearch = useCallback(() => setSearchOpen(false), []);
+    useEffect(() => {
+        const onKey = (e: KeyboardEvent) => {
+            if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+                e.preventDefault();
+                setSearchOpen(v => !v);
+            }
+        };
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+    }, []);
 
     useEffect(() => {
         contentRef.current?.scrollTo(0, 0);
     }, [pathname]);
 
-    useEffect(() => {
-        if (isMobile) setMobileSidebarOpen(false);
-    }, [isMobile]);
 
     // ── Pallino "richieste in attesa" ──────────────────────────────────────
     // Fonte UNICA, montata qui come il gemello lato cliente in `MainLayout`:
@@ -88,44 +114,38 @@ export default function AdminLayout() {
         [refreshSupportPending]
     );
 
-    useEffect(() => {
-        if (mobileSidebarOpen) {
-            document.body.style.overflow = "hidden";
-        } else {
-            document.body.style.overflow = "";
-        }
-        return () => {
-            document.body.style.overflow = "";
-        };
-    }, [mobileSidebarOpen]);
 
     return (
         <div className={styles.appLayout}>
             <BreadcrumbProvider>
                 <PageHeaderProvider>
-                    <header className={styles.globalHeader}>
-                        <AppHeaderAdmin
-                            onOpenMobileSidebar={isMobile ? () => setMobileSidebarOpen(true) : undefined}
-                        />
-                    </header>
                     <div className={styles.body}>
-                        <div className={adminStyles.crmNav}>
-                            <AdminSidebar
-                                isMobile={isMobile}
-                                mobileOpen={mobileSidebarOpen}
-                                collapsed={!isMobile && sidebarCollapsed}
-                                onRequestClose={() => setMobileSidebarOpen(false)}
-                                onToggleCollapse={() => setSidebarCollapsed(v => !v)}
-                                supportPending={supportPending}
-                            />
-                        </div>
-                        <main className={styles.main}>
-                            <PageHeaderSlot scrollContainerRef={contentRef} />
-                            <div ref={contentRef} className={styles.content}>
+                        {!isMobile && (
+                            <div className={adminStyles.crmNav}>
+                                <AdminSidebar
+                                    isMobile={false}
+                                    mobileOpen={false}
+                                    collapsed={sidebarCollapsed}
+                                    onRequestClose={() => undefined}
+                                    onToggleCollapse={toggleCollapse}
+                                    supportPending={supportPending}
+                                    home={nav.home}
+                                    lead={nav.lead}
+                                    headerSlot={
+                                        <CrmNavBrand collapsed={sidebarCollapsed} onSearch={() => setSearchOpen(true)} />
+                                    }
+                                />
+                            </div>
+                        )}
+                        <main className={`${styles.main} ${adminStyles.main}`}>
+                            <div ref={contentRef} className={`${styles.content} ${adminStyles.content}`}>
+                                <CrmPageHeader />
                                 <Outlet context={outletContext} />
                             </div>
                         </main>
                     </div>
+                    {isMobile && <CrmBottomBar home={nav.home} lead={nav.lead} />}
+                    <CrmSearchDialog isOpen={searchOpen} onClose={closeSearch} venues={nav.venues} />
                 </PageHeaderProvider>
             </BreadcrumbProvider>
         </div>

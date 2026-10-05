@@ -1,0 +1,236 @@
+// La cornice del CRM in /admin (canvas, versione finale del 2026-10-05).
+// Dentro la barra valgono i token ridefiniti da `.crmNav` (AdminLayout.module.scss).
+
+/* ===== Marchio e Cerca ⌘K, in cima alla barra ===== */
+.brand {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.brandMark {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  height: 36px;
+  padding-inline: 7px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.brandName {
+  color: var(--text);
+}
+
+.brandTag {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.brandSearch {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  width: 100%;
+  height: 36px;
+  padding-inline: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--hover-bg);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background var(--timing-motion-fast) var(--easing-state);
+
+  &:hover {
+    background: var(--brand-primary-soft);
+    color: var(--text);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-focus);
+  }
+}
+
+.brand[data-collapsed="true"] .brandSearch {
+  width: 40px;
+  justify-content: center;
+  padding: 0;
+}
+
+.brandSearchText {
+  flex: 1;
+  text-align: start;
+  color: inherit;
+}
+
+.kbd {
+  font: inherit;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-inner);
+  color: inherit;
+}
+
+/* ===== Testata della pagina ===== */
+.pageHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-12) var(--space-16);
+  margin-bottom: var(--space-16);
+}
+
+.pageLeading {
+  flex-basis: 100%;
+}
+
+.pageHeading {
+  flex: 1 1 240px;
+  min-width: 0;
+}
+
+.pageTitle {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.pageSubtitle {
+  margin: var(--space-4) 0 0;
+}
+
+.pageActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+/* ===== Cerca ⌘K ===== */
+.search {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.searchField {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: 0 var(--space-12);
+  height: 44px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--text-muted);
+
+  &:focus-within {
+    border-color: var(--brand-primary);
+    box-shadow: var(--shadow-focus);
+  }
+}
+
+.searchInput {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  outline: none;
+}
+
+.searchResults {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.searchResult {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-8) var(--space-12);
+  border-radius: var(--radius-control);
+  cursor: pointer;
+
+  &[aria-selected="true"] {
+    background: var(--brand-primary-soft);
+  }
+}
+
+.searchEmpty {
+  padding: var(--space-8) var(--space-12);
+}
+
+/* ===== Barra in basso, al telefono ===== */
+.bottomBar {
+  position: fixed;
+  inset: auto 0 0;
+  z-index: var(--z-nav);
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  /* Chiara come il contenuto (canvas U8, T8): la barra indaco resta al computer. */
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+}
+
+.bottomItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  height: 56px;
+  color: var(--text-muted);
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: none;
+    color: var(--text);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--brand-primary);
+    outline-offset: -2px;
+  }
+}
+
+.bottomItemActive {
+  color: var(--on-brand-soft);
+  font-weight: 600;
+}
+
+.bottomIcon {
+  position: relative;
+  display: inline-flex;
+}
+
+.bottomBadge {
+  position: absolute;
+  top: -6px;
+  left: 12px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-pill);
+  background: var(--brand-primary);
+  color: var(--on-brand);
+  font: inherit;
+  font-weight: 700;
+  line-height: 1;
+
+  &[data-ring="warning"] {
+    box-shadow: 0 0 0 2px var(--warning-500);
+  }
+
+  &[data-ring="danger"] {
+    box-shadow: 0 0 0 2px var(--danger);
+  }
+}

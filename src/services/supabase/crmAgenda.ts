@@ -51,6 +51,22 @@ export async function listCrmAppointments(fromIso: string, toIso: string): Promi
     }));
 }
 
+/** Telefonate fissate dal momento dato (Home: «Da stamattina», obiettivo della settimana). */
+export async function listCrmAppointmentsCreatedSince(sinceIso: string): Promise<CrmAppointmentWithVenue[]> {
+    const { data, error } = await supabase
+        .from("crm_appointments")
+        .select(`${APPOINTMENT_SELECT}, crm_venues(name, city)`)
+        .gte("created_at", sinceIso)
+        .order("created_at", { ascending: true })
+        .limit(500);
+    if (error) throw error;
+    return ((data ?? []) as unknown as AppointmentWithVenueRow[]).map(({ crm_venues, ...row }) => ({
+        ...row,
+        venue_name: crm_venues?.name ?? "Locale",
+        venue_city: crm_venues?.city ?? null
+    }));
+}
+
 /** Confermate e già finite senza esito: «Com'è andata?» ancora da dire. */
 export async function listCrmCallsWithoutOutcome(nowIso: string): Promise<CrmAppointmentWithVenue[]> {
     const { data, error } = await supabase

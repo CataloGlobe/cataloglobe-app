@@ -24,6 +24,18 @@ export async function listCrmMessages(venueId: string, limit = 100): Promise<Crm
     return ((data ?? []) as CrmMessage[]).reverse();
 }
 
+/** I messaggi di tutti i locali dal momento dato, dal più recente (Home: «Da stamattina», «Caldi adesso»). */
+export async function listCrmMessagesSince(sinceIso: string, limit = 1000): Promise<CrmMessage[]> {
+    const { data, error } = await supabase
+        .from("crm_messages")
+        .select(MESSAGE_SELECT)
+        .gte("created_at", sinceIso)
+        .order("created_at", { ascending: false })
+        .limit(limit);
+    if (error) throw error;
+    return (data ?? []) as CrmMessage[];
+}
+
 /** «La prendo io» (true) o «Ridalla all'agente» (false); false se era già così. */
 export async function setCrmAgentHold(venueId: string, hold: boolean): Promise<boolean> {
     const { data, error } = await supabase.rpc("crm_set_agent_hold", { p_venue_id: venueId, p_hold: hold });

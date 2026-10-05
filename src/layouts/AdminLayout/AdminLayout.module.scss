@@ -18,4 +18,26 @@
   /* Sul fondo indaco l'anello e il grigio del tasto apri/chiudi non si vedrebbero. */
   --shadow-focus: var(--crm-nav-focus);
   --gray-600: var(--crm-nav-text);
+
+  /* Contatori pieni (U7): il numero resta indaco, l'anello dice l'urgenza. */
+  [data-tone="brand"] > * {
+    --badge-bg: var(--brand-primary);
+    --badge-color: var(--on-brand);
+  }
+}
+
+// Al telefono la barra in basso copre 56 px (più l'area sicura): il contenuto
+// scorre fin sopra di lei.
+@media (max-width: 767px) {
+  .content {
+    padding-bottom: calc(56px + var(--space-24) + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+.main {
+  background: var(--bg);
+}
+
+.content {
+  background: var(--bg);
 }

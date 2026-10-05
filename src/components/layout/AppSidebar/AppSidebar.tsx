@@ -51,6 +51,8 @@ export interface AppSidebarNavItem {
     /** Contatore a destra (`Badge neutral`; `badgeTone="brand"` se sono cose da fare). */
     badge?: number | string;
     badgeTone?: "neutral" | "brand";
+    /** Anello attorno al contatore, del colore della cosa più urgente (CRM in /admin). */
+    badgeRing?: "warning" | "danger";
     /** Un lavoro in corso su questa voce: spinner 14 ambra, visibile anche collassata. */
     loading?: boolean;
     /** Testo accessibile dello spinner. */
@@ -87,6 +89,8 @@ export interface AppSidebarProps {
      * tutti i contesti. Stanno nella stessa `nav` delle altre voci.
      */
     footerItems?: AppSidebarNavItem[];
+    /** Scritta accanto al tasto apri/chiudi quando la barra è aperta (CRM in /admin: «Chiudi la barra»). */
+    collapseLabel?: string;
 }
 
 /** Il contatore come si legge: oltre 99 diventa «99+». */
@@ -113,6 +117,7 @@ function NavItemBody({ link }: { link: AppSidebarNavItem }) {
                                 weight={600}
                                 className={styles.miniBadge}
                                 data-tone={link.badgeTone ?? "neutral"}
+                                data-ring={link.badgeRing}
                             >
                                 {badgeText(link.badge)}
                             </Text>
@@ -146,9 +151,9 @@ function NavItemBody({ link }: { link: AppSidebarNavItem }) {
                         />
                     )}
                     {link.badge !== undefined && (
-                        <Badge variant={link.badgeTone ?? "neutral"} className={styles.badge}>
-                            {badgeText(link.badge)}
-                        </Badge>
+                        <span className={styles.badge} data-ring={link.badgeRing} data-tone={link.badgeTone ?? "neutral"}>
+                            <Badge variant={link.badgeTone ?? "neutral"}>{badgeText(link.badge)}</Badge>
+                        </span>
                     )}
                     {link.showDot && (
                         <span className={styles.navDot} title={link.dotLabel} aria-label={link.dotLabel} />
@@ -168,7 +173,8 @@ export function AppSidebar({
     onToggleCollapse,
     headerSlot,
     footerSlot,
-    footerItems = []
+    footerItems = [],
+    collapseLabel
 }: AppSidebarProps) {
     const collapsedDesktop = !isMobile && collapsed;
     const { pathname } = useLocation();
@@ -290,6 +296,7 @@ export function AppSidebar({
                                 <button
                                     type="button"
                                     className={styles.collapseToggle}
+                                    data-labelled={collapseLabel && !collapsed ? "true" : undefined}
                                     onClick={onToggleCollapse}
                                     aria-label={collapsed ? "Espandi menù laterale" : "Comprimi menù laterale"}
                                     title={collapsed ? "Espandi" : "Comprimi"}
@@ -299,6 +306,11 @@ export function AppSidebar({
                                             {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
                                         </span>
                                     </span>
+                                    {collapseLabel && !collapsed && (
+                                        <Text as="span" variant="body-sm" className={styles.toggleLabel}>
+                                            {collapseLabel}
+                                        </Text>
+                                    )}
                                 </button>
                             )}
                         </div>

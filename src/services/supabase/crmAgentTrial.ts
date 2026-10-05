@@ -60,3 +60,19 @@ export async function listCrmAgentDrafts(limit = 20): Promise<CrmAgentDraftRow[]
         venue_name: crm_venues?.name ?? "Locale"
     }));
 }
+
+export type CrmAdminDraftDecision = "send" | "edit" | "discard";
+
+/**
+ * «Inviala così», «Modifica» (col testo nuovo) o «Scarta» da /admin
+ * (migration 20261005150000). Ritorna l'esito scritto dalla funzione.
+ */
+export async function decideCrmDraft(draftId: string, decision: CrmAdminDraftDecision, text?: string): Promise<string> {
+    const { data, error } = await supabase.rpc("crm_admin_decide_draft", {
+        p_draft_id: draftId,
+        p_decision: decision,
+        p_text: text ?? null
+    });
+    if (error) throw error;
+    return String(data ?? "");
+}
