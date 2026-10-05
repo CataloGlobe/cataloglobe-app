@@ -84,6 +84,26 @@ $dash-margin: 14px;
   overflow-x: hidden;
   overflow-y: auto;
   padding: var(--space-8) $container-x;
+
+  // C2: la sfumatura è una maschera, così segue il fondo della sidebar in
+  // chiaro e in scuro senza un colore proprio.
+  --fade-top: 0px;
+  --fade-bottom: 0px;
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    black var(--fade-top),
+    black calc(100% - var(--fade-bottom)),
+    transparent 100%
+  );
+
+  &[data-fade-top] {
+    --fade-top: 24px;
+  }
+
+  &[data-fade-bottom] {
+    --fade-bottom: 24px;
+  }
 }
 
 // Il piede: Assistenza e il pulsante apri/chiudi, fuori dallo scroll.

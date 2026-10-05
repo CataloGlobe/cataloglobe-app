@@ -698,7 +698,7 @@ export default function OverviewPage() {
                 leading={<PauseCircle size={20} className={styles.suspendedIcon} aria-hidden="true" />}
                 title={location.name}
                 subtitle={reason}
-                meta={<StatusBadge variant="danger" label="Sospesa" />}
+                meta={<StatusBadge variant="neutral" label="Sospesa" />}
                 trailing={
                     <Button variant="secondary" size="sm" onClick={() => navigate(`${b}/locations/${location.id}/pubblicazione`)}>
                         Apri sede

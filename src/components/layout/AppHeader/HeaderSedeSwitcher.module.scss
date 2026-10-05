@@ -23,7 +23,9 @@
   white-space: nowrap;
   transition: background var(--timing-motion-fast) var(--easing-state);
 
-  &:hover {
+  &:hover,
+  &[data-state="open"],
+  &[aria-expanded="true"] {
     background: var(--hover-bg);
   }
 

@@ -157,13 +157,13 @@
   align-items: center;
   gap: 8px;
   padding: 4px 8px 4px 4px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--surface);
+  border-radius: var(--radius-control);
+  // C1: come il selettore della sede, a riposo nessun bordo né sfondo; al
+  // passaggio e a menu aperto lo stesso sfondo leggero.
+  border: none;
+  background: transparent;
   cursor: pointer;
-  transition:
-    background 0.1s,
-    border-color 0.1s;
+  transition: background var(--timing-motion-fast) var(--easing-state);
   min-width: 0;
   overflow: hidden;
 
@@ -174,9 +174,10 @@
     gap: 6px;
   }
 
-  &:hover {
+  &:hover,
+  &[data-state="open"],
+  &[aria-expanded="true"] {
     background: var(--hover-bg);
-    border-color: var(--gray-300);
   }
 
   &:focus-visible {

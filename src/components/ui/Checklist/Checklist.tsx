@@ -88,7 +88,7 @@ export function Checklist({ title = "Le basi", items, doneTitle = "Le basi ci so
                 item.done ? undefined : item.to ? (
                     <ChecklistLinkAction to={item.to} label={item.actionLabel ?? "Fai ora"} />
                 ) : item.onAction ? (
-                    <Button variant="primary" size="sm" onClick={item.onAction}>
+                    <Button variant="secondary" size="sm" onClick={item.onAction}>
                         {item.actionLabel ?? "Fai ora"}
                     </Button>
                 ) : undefined
@@ -146,7 +146,7 @@ function ChecklistLinkAction({ to, label }: { to: string; label: string }) {
     const handleClick = useLinkClickHandler<HTMLAnchorElement>(to);
 
     return (
-        <Button as="a" variant="primary" size="sm" href={href} onClick={handleClick}>
+        <Button as="a" variant="secondary" size="sm" href={href} onClick={handleClick}>
             {label}
         </Button>
     );
