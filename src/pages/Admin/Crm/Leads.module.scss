@@ -158,6 +158,28 @@
   font-weight: 600;
 }
 
+.stageCell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+
+  > span:first-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  // Nove tacche in una colonna da 168: più corte di quelle della scheda.
+  .track {
+    gap: 3px;
+  }
+
+  .tick {
+    width: 8px;
+  }
+}
+
 .nobody {
   color: var(--text-muted);
 }

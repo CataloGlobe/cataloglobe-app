@@ -4,7 +4,8 @@
  * dell'ultimo contatto e il Riepilogo del giro. Puro: legge ciò che la
  * pagina ha già caricato.
  */
-import type { CrmAppointmentWithVenue, CrmLeadSource, CrmStage, CrmVenueListItem } from "@/types/crm";
+import type { CrmAppointmentWithVenue, CrmLeadSource, CrmNextStep, CrmStage, CrmVenueListItem } from "@/types/crm";
+import { nextStepDue, nextStepOverdue } from "@/utils/crm/leadDetail";
 import { CRM_STAGES } from "@/types/crm";
 import type { VenueWait } from "@/utils/crm/crmHome";
 import { relativeAgo } from "@/utils/crm/crmHome";
@@ -237,6 +238,58 @@ export function contactLine(input: {
         return { text: `${when}, ${why}`, warn: true };
     }
     return { text: when, warn: false };
+}
+
+/** Una cella su due righe: il fatto e il suo dettaglio. */
+export interface LeadCellLine {
+    text: string;
+    sub: string | null;
+    warn: boolean;
+}
+
+/**
+ * La colonna «Prossimo passo» dell'elenco (R2): cosa c'è da fare, senza aprire
+ * la scheda. In ordine: una risposta che aspetta voi, il passo scritto nella
+ * scheda, la telefonata o la demo fissata, la prova in corso, il lead fermo.
+ */
+export function nextStepLine(input: {
+    venue: CrmVenueListItem;
+    wait: VenueWait | undefined;
+    step: CrmNextStep | undefined;
+    next: CrmAppointmentWithVenue | undefined;
+    now: Date;
+}): LeadCellLine {
+    const { venue, wait, step, next, now } = input;
+    if (wait) {
+        const what = wait.text.replace(/^è nuovo e /, "").replace(/:.*$/, "");
+        return { text: capitalize(what), sub: `da ${wait.wait}`, warn: wait.level !== "normale" };
+    }
+    if (step) {
+        return { text: step.step, sub: step.due_on ? nextStepDue(step.due_on, now) : null, warn: nextStepOverdue(step, now) };
+    }
+    if (next) {
+        return { text: venue.stage === "demo_fissata" ? "Demo" : "Telefonata", sub: dayAndTime(next.starts_at, now), warn: false };
+    }
+    const trial = trialDay(venue, now);
+    if (trial) return { text: "Prova in corso", sub: `giorno ${trial.day} di ${trial.total}`, warn: false };
+    if (venue.stage === "perso") return { text: "Niente", sub: venue.lost_reason, warn: false };
+    if (isStale(venue, now)) {
+        const text =
+            venue.stage === "telefonata_fatta" || venue.stage === "demo_fatta"
+                ? "Aggiornare la fase"
+                : venue.stage === "contattato"
+                  ? "Ricontattare"
+                  : "Riprendere";
+        return { text, sub: "nessun passo fissato", warn: true };
+    }
+    return { text: "—", sub: null, warn: false };
+}
+
+/** La colonna «Ultimo contatto» (R2): solo quando, il resto sta in «Prossimo passo». */
+export function lastContactLine(venue: CrmVenueListItem, now: Date): LeadCellLine {
+    if (venue.stage === "cliente_pagante") return { text: `Cliente da ${relativeAgo(venue.stage_changed_at, now)}`, sub: null, warn: false };
+    const ago = capitalize(relativeAgo(venue.last_activity_at, now));
+    return { text: ago === "Adesso" || ago === "Ieri" ? ago : `${ago} fa`, sub: null, warn: isStale(venue, now) };
 }
 
 /** Il primo appuntamento ancora da fare di ogni locale. */
