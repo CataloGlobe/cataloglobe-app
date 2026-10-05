@@ -11,7 +11,8 @@
 // Poi public.crm_purge_agent_decisions (20261002210100): righe del diario degli
 // agenti senza locale né lead, stessa soglia. Poi public.crm_purge_messages
 // (20261002220100): messaggi WhatsApp più vecchi della soglia, anche nei
-// locali che restano.
+// locali che restano. Poi public.crm_purge_gea_inbox (20261006130000): messaggi
+// a Gea e sue risposte, stessa soglia.
 //
 // AUTENTICAZIONE fail-CLOSED: X-Job-Secret = CRM_JOB_SECRET.
 // DRY-RUN DI DEFAULT: senza `{"dry_run": false}` nel body conta e basta.
@@ -78,15 +79,23 @@ Deno.serve(async (req: Request) => {
         });
         if (chatError) throw chatError;
         const messages = typeof chat === "number" ? chat : 0;
+        // Messaggi a Gea e sue risposte: possono citare testo dei lead.
+        const { data: gea, error: geaError } = await supabase.rpc("crm_purge_gea_inbox", {
+            p_cutoff: cutoff,
+            p_dry_run: dryRun
+        });
+        if (geaError) throw geaError;
+        const geaMessages = typeof gea === "number" ? gea : 0;
         const result = dryRun
             ? {
                   dry_run: true,
                   cutoff,
                   would_delete: count,
                   would_delete_decisions: decisions,
-                  would_delete_messages: messages
+                  would_delete_messages: messages,
+                  would_delete_gea_messages: geaMessages
               }
-            : { dry_run: false, cutoff, deleted: count, deleted_decisions: decisions, deleted_messages: messages };
+            : { dry_run: false, cutoff, deleted: count, deleted_decisions: decisions, deleted_messages: messages, deleted_gea_messages: geaMessages };
         console.log(JSON.stringify({ event: "crm_purge", ...result }));
         return json(200, result);
     } catch (err) {
