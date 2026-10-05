@@ -165,6 +165,8 @@ Con:
 **Default proposto**: **skip ora**. `applied_promo_code text` su `tenants` basta per tracking minimale (last applied). Se serve analytics multi-utilizzo, aggiungere dopo.
 
 ### Q6 — Volume discount: come Stripe lo applica
+> **Superata il 2026-10-05**: lo sconto dalla seconda sede è stato tolto (deciso da Alex e Lorenzo, call del 2026-10-03). Ogni sede paga il prezzo pieno, Price Stripe `per_unit`, colonne `plans.volume_discount_*` eliminate (migrazione `20261005170000`).
+
 10% dalla 2° sede in poi. Tre approcci:
 - **Tier pricing su Stripe Price**: 1 unit = €39, 2+ units = €35.10. Stripe gestisce auto.
 - **Stripe Coupon dinamico**: ogni subscription update calcola e applica coupon `seats - 1` × 10%.

@@ -14,8 +14,6 @@ export interface Plan {
     features_json: Record<string, unknown>;
     sort_order: number;
     is_public: boolean;
-    volume_discount_threshold: number;
-    volume_discount_percent: number;
     max_self_service_seats: number;
 }
 
