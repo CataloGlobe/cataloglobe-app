@@ -3,11 +3,13 @@ import { PUBLIC_MOBILE_QUERY } from "../publicBreakpoints";
 import {
     IDLE_REVEAL_MS,
     initialBarState,
+    lockRemaining,
     PROGRAMMATIC_IGNORE_MS,
     PROGRAMMATIC_MAX_EXTRA_MS,
     resyncScroll,
     revealBar,
     stepScroll,
+    VIEWPORT_RESIZE_IGNORE_MS,
 } from "./bottomBarVisibility";
 import { hasOpenSheet, subscribeSheetClose } from "./openSheets";
 
@@ -24,8 +26,8 @@ type Options = {
 
 export type BottomBarAutoHide = {
     hidden: boolean;
-    /** Riporta in vista. `afterCart`: per nasconderla servono ~80px di scroll giù. */
-    reveal: (afterCart?: boolean) => void;
+    /** Riporta in vista; per nasconderla di nuovo servono ~80px di scroll giù. */
+    reveal: () => void;
     /** Da chiamare PRIMA di uno scroll programmatico: per ~900ms lo scroll non conta
      *  (fino a `scrollend` se lo smooth scroll dura di più, vedi PROGRAMMATIC_MAX_EXTRA_MS). */
     ignoreProgrammaticScroll: () => void;
@@ -36,8 +38,10 @@ export type BottomBarAutoHide = {
  * `bottomBarVisibility.ts`. Listener passive + rAF; stato congelato a sheet
  * aperta (stessa fonte dell'header: prop `frozen` + `hasOpenSheet()`), con
  * re-baseline al primo scroll utile dopo il freeze (il body-lock falsa lo
- * scroll). Da fermo, nascosta e senza sheet, ricompare dopo IDLE_REVEAL_MS. Pagina pubblica: solo sotto PUBLIC_MOBILE_QUERY, sopra la barra
- * non c'è e non si nasconde mai. Preview: scroll del device frame.
+ * scroll). Da fermo, nascosta e senza sheet, ricompare dopo IDLE_REVEAL_MS.
+ * Pubblica: scroll indotti dal resize della toolbar (visualViewport) ignorati.
+ * Pagina pubblica: solo sotto PUBLIC_MOBILE_QUERY, sopra la barra non c'è e
+ * non si nasconde mai. Preview: scroll del device frame.
  */
 export function useBottomBarAutoHide({
     mounted,
@@ -50,6 +54,7 @@ export function useBottomBarAutoHide({
     const needsResyncRef = useRef(true);
     const ignoreUntilRef = useRef(0);
     const awaitScrollEndUntilRef = useRef(0);
+    const viewportIgnoreUntilRef = useRef(0);
     const frozenRef = useRef(frozen);
     frozenRef.current = frozen;
 
@@ -72,14 +77,11 @@ export function useBottomBarAutoHide({
         setHidden(prev => (prev === next ? prev : next));
     }, []);
 
-    const reveal = useCallback(
-        (afterCart = false) => {
-            stateRef.current = revealBar(stateRef.current, afterCart);
-            needsResyncRef.current = true;
-            commitHidden(false);
-        },
-        [commitHidden]
-    );
+    const reveal = useCallback(() => {
+        stateRef.current = revealBar(stateRef.current, performance.now());
+        needsResyncRef.current = true;
+        commitHidden(false);
+    }, [commitHidden]);
 
     const ignoreProgrammaticScroll = useCallback(() => {
         const now = performance.now();
@@ -99,24 +101,56 @@ export function useBottomBarAutoHide({
         const target: HTMLElement | Window = preview && scrollContainerEl ? scrollContainerEl : window;
         let rafId: number | null = null;
         let idleTimer: ReturnType<typeof setTimeout> | null = null;
+        let lockTimer: ReturnType<typeof setTimeout> | null = null;
 
         const isFrozen = () => frozenRef.current || hasOpenSheet();
+        const isIgnoring = (now: number) =>
+            now < ignoreUntilRef.current ||
+            now < awaitScrollEndUntilRef.current ||
+            now < viewportIgnoreUntilRef.current;
 
         const clearIdle = () => {
             if (idleTimer !== null) clearTimeout(idleTimer);
             idleTimer = null;
         };
         // Ricomparsa da fermo: armato dopo uno scroll dell'utente che lascia la
-        // barra nascosta. Allo scadere ricontrolla sheet e scroll programmatico.
-        const armIdle = () => {
+        // barra nascosta. Allo scadere ricontrolla sheet e scroll programmatico,
+        // e che la posizione non sia cambiata dall'armo: se lo scroll è ancora
+        // in corso (inerzia iOS con eventi diradati) riparte da capo.
+        const armIdle = (fromY: number) => {
             clearIdle();
             idleTimer = setTimeout(() => {
                 idleTimer = null;
-                const now = performance.now();
                 if (!stateRef.current.hidden || isFrozen()) return;
-                if (now < ignoreUntilRef.current || now < awaitScrollEndUntilRef.current) return;
+                if (isIgnoring(performance.now())) return;
+                const { y } = readScroll();
+                if (Math.abs(y - fromY) > 1) {
+                    armIdle(y);
+                    return;
+                }
                 reveal();
             }, IDLE_REVEAL_MS);
+        };
+
+        // Fine isteresi: un cambio rimasto in sospeso (es. si è fermato in cima
+        // subito dopo essersi nascosta) si applica senza aspettare un altro scroll.
+        const scheduleLockRecheck = () => {
+            if (lockTimer !== null) clearTimeout(lockTimer);
+            const wait = lockRemaining(stateRef.current, performance.now());
+            if (wait <= 0) {
+                lockTimer = null;
+                return;
+            }
+            lockTimer = setTimeout(() => {
+                lockTimer = null;
+                if (isFrozen() || needsResyncRef.current) return;
+                const now = performance.now();
+                if (isIgnoring(now)) return;
+                const { y, maxY } = readScroll();
+                stateRef.current = stepScroll(stateRef.current, y, maxY, now);
+                commitHidden(stateRef.current.hidden);
+                if (stateRef.current.hidden) armIdle(y);
+            }, wait + 16);
         };
 
         // Stessa lettura di PublicCollectionHeader.readScroll: col body in lock
@@ -153,7 +187,7 @@ export function useBottomBarAutoHide({
                 }
                 const { y, maxY } = readScroll();
                 const now = performance.now();
-                if (now < ignoreUntilRef.current || now < awaitScrollEndUntilRef.current) {
+                if (isIgnoring(now)) {
                     stateRef.current = resyncScroll(stateRef.current, y);
                     return;
                 }
@@ -162,9 +196,10 @@ export function useBottomBarAutoHide({
                     stateRef.current = resyncScroll(stateRef.current, y);
                     return;
                 }
-                stateRef.current = stepScroll(stateRef.current, y, maxY);
+                stateRef.current = stepScroll(stateRef.current, y, maxY, now);
                 commitHidden(stateRef.current.hidden);
-                if (stateRef.current.hidden) armIdle();
+                scheduleLockRecheck();
+                if (stateRef.current.hidden) armIdle(y);
             });
         };
 
@@ -172,6 +207,16 @@ export function useBottomBarAutoHide({
         // scroll lungo. La finestra base dei 900ms resta comunque.
         const handleScrollEnd = () => {
             awaitScrollEndUntilRef.current = 0;
+        };
+
+        // Toolbar del browser che entra/esce: cambia visualViewport.height e lo
+        // scroll che ne segue non è dell'utente (iOS Safari e Chrome).
+        const viewport = preview ? null : window.visualViewport;
+        let lastViewportHeight = viewport?.height ?? 0;
+        const handleViewportResize = () => {
+            if (!viewport || viewport.height === lastViewportHeight) return;
+            lastViewportHeight = viewport.height;
+            viewportIgnoreUntilRef.current = performance.now() + VIEWPORT_RESIZE_IGNORE_MS;
         };
 
         const handleVisibility = () => {
@@ -183,13 +228,16 @@ export function useBottomBarAutoHide({
         target.addEventListener("scroll", handleScroll, { passive: true });
         target.addEventListener("scrollend", handleScrollEnd, { passive: true });
         document.addEventListener("visibilitychange", handleVisibility);
+        viewport?.addEventListener("resize", handleViewportResize);
         const unsubscribeSheetClose = subscribeSheetClose(() => reveal());
         return () => {
             target.removeEventListener("scroll", handleScroll);
             target.removeEventListener("scrollend", handleScrollEnd);
             document.removeEventListener("visibilitychange", handleVisibility);
+            viewport?.removeEventListener("resize", handleViewportResize);
             unsubscribeSheetClose();
             clearIdle();
+            if (lockTimer !== null) clearTimeout(lockTimer);
             if (rafId !== null) cancelAnimationFrame(rafId);
         };
     }, [active, preview, scrollContainerEl, reveal, commitHidden]);
