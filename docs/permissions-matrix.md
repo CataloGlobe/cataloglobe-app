@@ -181,7 +181,7 @@ mutazione gatati con helper espliciti.
 | stories | /stories/* | stories.read | stories.write (any-activity*) |
 | styles | /styles/* | styles.read | styles.write |
 | analytics | /analytics (totale delle sedi leggibili) · /locations/:id/analitiche | analytics.read (any-activity · sulla sede) | — (read-only) |
-| reviews | /reviews (totale) · /locations/:id/recensioni | reviews.read (any-activity · sulla sede) | reviews.moderate (solo `status`: privilegio di colonna, mig `20260930120300`); reviews.delete (tenant-wide) |
+| reviews | /reviews (totale) · /locations/:id/recensioni | reviews.read (any-activity · sulla sede) | nessuna scrittura (R1, mig `20261005210000`: `reviews.moderate` inutilizzato); reviews.delete (tenant-wide) |
 | locations | /locations (con una sede → la sua Scheda), /:id | activity.read | activities.create/delete (tenant; «Aggiungi una sede» anche dal selettore dell'header), activity.manage/activity_hours.write (per sede dall'URL), activity_groups.write |
 | languages | /languages | catalogs.read (proxy) | translations.write (FE+BE) |
 | reservations | /locations/:id/prenotazioni (`/reservations` → ultima sede) | reservations.read (any-activity*) + `table_reservation` | reservations.manage (activity) |

@@ -16,8 +16,8 @@ type Props = {
 
 /**
  * Recensioni (ex «Review Guard»): la media come numero eroe, la distribuzione
- * a una serie sola (§34.10), i rimandi a Google come conteggio. Le recensioni
- * in attesa col rimando alla coda arrivano col lotto della moderazione (A1).
+ * a una serie sola (§34.10), i rimandi a Google come conteggio. Conta tutti i
+ * voti lasciati (eventi `review_submitted`): sono feedback privato, senza stato.
  */
 export default function ReviewsSection({ data, isLoading }: Props) {
     const navigate = useNavigate();

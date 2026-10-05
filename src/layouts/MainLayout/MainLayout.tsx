@@ -24,9 +24,6 @@ import { useAiUsage } from "@/hooks/useAiUsage";
 import { useCheckoutReturnSync } from "@/hooks/useCheckoutReturnSync";
 import { AiMenuImportDrawer } from "@/pages/Dashboard/Catalogs/AiMenuImport/AiMenuImportDrawer";
 import { hasUnreadReply, listMyTickets } from "@/services/supabase/support";
-import { countPendingReviews } from "@/services/supabase/reviews";
-import { usePermissions } from "@/context/usePermissions";
-import { canDoOnActivity, canDoOnAnyActivity, isTenantWide } from "@/lib/permissions";
 import { useSedeScope } from "@/hooks/useSedeScope";
 import { rememberLastSede } from "@/hooks/sedeScopeStore";
 import { resolveNavContext } from "@/utils/navModel";
@@ -222,51 +219,6 @@ export default function MainLayout() {
         };
     }, [tenantId, supportRefreshKey]);
 
-    // ── Badge "recensioni in attesa" sulla voce Recensioni ─────────────────
-    // Stessa forma del pallino di supporto: un fetch al mount, nessun
-    // polling, ricalcolo su richiesta della pagina dopo una moderazione. Solo
-    // a chi può moderare (§34.9/1): per chi legge e basta non è una cosa da
-    // fare. Owner e admin contano tutte le sedi, gli altri le loro. Un errore
-    // spegne il badge: meglio nessun numero che uno inventato.
-    const { permissions } = usePermissions();
-    // Il perimetro segue la voce (§51.10): dentro la sede le sue, fuori
-    // tutte quelle che chi guarda modera.
-    const reviewSedeId = navContext === "sede" ? pathActivityId : null;
-    const canModerateReviews =
-        permissions != null &&
-        (reviewSedeId
-            ? canDoOnActivity(permissions, "reviews.moderate", reviewSedeId)
-            : canDoOnAnyActivity(permissions, "reviews.moderate"));
-    const reviewScopeKey =
-        permissions == null
-            ? ""
-            : reviewSedeId
-              ? reviewSedeId
-              : isTenantWide(permissions)
-                ? "*"
-                : permissions.activityIds.join(",");
-    const [reviewsPendingCount, setReviewsPendingCount] = useState(0);
-    const [reviewsRefreshKey, setReviewsRefreshKey] = useState(0);
-    const refreshReviewsPending = useCallback(() => setReviewsRefreshKey(k => k + 1), []);
-    useEffect(() => {
-        if (!tenantId || !canModerateReviews) {
-            setReviewsPendingCount(0);
-            return;
-        }
-        let cancelled = false;
-        const scope = reviewScopeKey === "*" ? null : reviewScopeKey.split(",").filter(Boolean);
-        void countPendingReviews(tenantId, scope)
-            .then(count => {
-                if (!cancelled) setReviewsPendingCount(count);
-            })
-            .catch(() => {
-                if (!cancelled) setReviewsPendingCount(0);
-            });
-        return () => {
-            cancelled = true;
-        };
-    }, [tenantId, canModerateReviews, reviewScopeKey, reviewsRefreshKey]);
-
     const outletContext = useMemo<BusinessOutletContext>(
         () => ({
             translationCoverage,
@@ -276,8 +228,7 @@ export default function MainLayout() {
             importStatus: aiImport.status,
             aiUsage: aiUsage.usage,
             refreshAiUsage: aiUsage.refresh,
-            refreshSupportUnread,
-            refreshReviewsPending
+            refreshSupportUnread
         }),
         [
             translationCoverage,
@@ -287,8 +238,7 @@ export default function MainLayout() {
             aiImport.status,
             aiUsage.usage,
             aiUsage.refresh,
-            refreshSupportUnread,
-            refreshReviewsPending
+            refreshSupportUnread
         ]
     );
 
@@ -354,7 +304,6 @@ export default function MainLayout() {
                                     translationPendingCount={translationPendingCount}
                                     importInProgress={importInProgress}
                                     supportUnread={supportUnread}
-                                    reviewsPendingCount={reviewsPendingCount}
                                 />
                             ) : (
                                 <TenantSidebar
@@ -369,7 +318,6 @@ export default function MainLayout() {
                                     translationPendingCount={translationPendingCount}
                                     importInProgress={importInProgress}
                                     supportUnread={supportUnread}
-                                    reviewsPendingCount={reviewsPendingCount}
                                 />
                             )}
 

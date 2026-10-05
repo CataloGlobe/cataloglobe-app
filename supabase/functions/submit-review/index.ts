@@ -178,8 +178,8 @@ serve(async (req: Request) => {
         }
 
         // ── Insert review ───────────────────────────────────────────
-        // status: "pending" — le review vengono approvate manualmente.
-        // La RLS anon filtra già status = 'approved' per la pagina pubblica.
+        // Feedback privato per il locale (R1): nessuna moderazione, nessuna
+        // lettura pubblica. `status` resta al default storico e non si usa.
         const { error: insertError } = await supabase.from("reviews").insert({
             tenant_id: activity.tenant_id,
             activity_id: activityId,
