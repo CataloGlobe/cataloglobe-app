@@ -5,6 +5,7 @@ import {
     agendaWeek,
     agendaWeekItems,
     dayBounds,
+    emptyDaySlots,
     nowLineIndex,
     parseAgendaView,
     tomorrowLine,
@@ -198,5 +199,25 @@ describe("vista giorno o settimana (R3/R4)", () => {
         });
         expect(week.map(d => d.key)).toEqual(["2026-10-05", "2026-10-06", "2026-10-07", "2026-10-08", "2026-10-09", "2026-10-10", "2026-10-11"]);
         expect(week.map(d => d.items.length)).toEqual([1, 0, 1, 0, 0, 0, 0]);
+    });
+});
+
+describe("righe del giorno vuoto dalle fasce delle telefonate", () => {
+    const windows = [
+        { days: [1, 2, 3, 4, 5], start: "09:00", end: "11:00" },
+        { days: [1, 2, 3, 4, 5], start: "17:30", end: "18:30" }
+    ];
+
+    it("un lunedì: le due fasce, la seconda staccata", () => {
+        expect(emptyDaySlots("2026-10-05", windows)).toEqual([
+            { label: "09:00", newWindow: false },
+            { label: "10:00", newWindow: false },
+            { label: "17:30", newWindow: true },
+            { label: "18:00", newWindow: false }
+        ]);
+    });
+
+    it("la domenica non ha fasce: nessuna riga", () => {
+        expect(emptyDaySlots("2026-10-11", windows)).toEqual([]);
     });
 });

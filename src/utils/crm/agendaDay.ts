@@ -229,3 +229,47 @@ export function agendaWeekItems(
         return { key, items: agendaDayItems({ ...rest, dayStart: start, dayEnd: end }) };
     });
 }
+
+export interface EmptyDaySlot {
+    /** «09:00», «17:30». */
+    label: string;
+    /** Prima riga di una fascia che non è la prima: un po' d'aria sopra. */
+    newWindow: boolean;
+}
+
+function minutesOfTime(hhmm: string): number {
+    const [h, m] = hhmm.split(":").map(Number);
+    return h * 60 + m;
+}
+
+function labelOfMinutes(total: number): string {
+    return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+}
+
+/**
+ * Le righe del giorno vuoto (scelta di Alex del 2026-10-05): le fasce delle
+ * telefonate di quel giorno della settimana, dall'inizio di ogni fascia e poi
+ * a ore piene finché la fascia non finisce. Un giorno senza fasce non ha righe.
+ * `days` delle fasce: 1 = lunedì … 7 = domenica, come nelle Impostazioni.
+ */
+export function emptyDaySlots(key: string, windows: { days: number[]; start: string; end: string }[]): EmptyDaySlot[] {
+    const { year, month, day } = parseKey(key);
+    const weekday = ((new Date(Date.UTC(year, month - 1, day)).getUTCDay() + 6) % 7) + 1;
+    const ranges = windows
+        .filter(w => w.days.includes(weekday))
+        .map(w => ({ from: minutesOfTime(w.start), to: minutesOfTime(w.end) }))
+        .filter(r => r.to > r.from)
+        .sort((a, b) => a.from - b.from);
+    const slots: EmptyDaySlot[] = [];
+    const seen = new Set<number>();
+    ranges.forEach((r, i) => {
+        let first = true;
+        for (let m = r.from; m < r.to; m = (Math.floor(m / 60) + 1) * 60) {
+            if (seen.has(m)) continue;
+            seen.add(m);
+            slots.push({ label: labelOfMinutes(m), newWindow: first && i > 0 });
+            first = false;
+        }
+    });
+    return slots;
+}

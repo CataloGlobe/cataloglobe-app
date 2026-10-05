@@ -4,7 +4,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import { IconButton } from "@/components/ui/Button/IconButton";
 import Text from "@/components/ui/Text/Text";
-import type { AgendaItem, AgendaWeekColumn, AgendaWeekDay } from "@/utils/crm/agendaDay";
+import type { AgendaItem, AgendaWeekColumn, AgendaWeekDay, EmptyDaySlot } from "@/utils/crm/agendaDay";
 import { formatCallTime } from "@shared/crmCallSlots";
 import styles from "../Agenda.module.scss";
 
@@ -235,30 +235,39 @@ export function AgendaWeekGrid({
     );
 }
 
-/** Le ore del giorno vuoto: la forma della giornata anche quando non c'è niente. */
-const EMPTY_DAY_HOURS = ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00"];
-
 /**
- * Il giorno senza niente in programma: la frase in testa e sotto le ore come
- * riquadri vuoti, così la pagina non resta bianca e si vede dove andrebbero
- * le telefonate.
+ * Il giorno senza niente in programma: la frase in testa e sotto le fasce delle
+ * telefonate come riquadri vuoti, così la pagina non resta bianca e si vede
+ * dove andrebbero le telefonate. Un giorno senza fasce lo dice.
  */
-export function AgendaEmptyDay({ message, loading = false }: { message: string; loading?: boolean }) {
+export function AgendaEmptyDay({
+    message,
+    slots,
+    loading = false
+}: {
+    message: string;
+    /** `null` finché le Impostazioni non sono caricate. */
+    slots: EmptyDaySlot[] | null;
+    loading?: boolean;
+}) {
+    const noWindows = slots !== null && slots.length === 0;
     return (
         <div className={styles.emptyDay} aria-busy={loading || undefined}>
             <Text as="p" variant="body-sm" colorVariant="muted" className={styles.emptyDayMessage}>
-                {loading ? "Carico…" : message}
+                {loading ? "Carico…" : noWindows ? "Niente in programma, e in questo giorno non ci sono fasce per le telefonate." : message}
             </Text>
-            <ol className={styles.emptyDayHours} aria-hidden="true">
-                {EMPTY_DAY_HOURS.map(hour => (
-                    <li key={hour} className={styles.emptyDayHour}>
-                        <Text as="span" variant="caption" colorVariant="muted" className={styles.emptyDayTime}>
-                            {hour}
-                        </Text>
-                        <span className={styles.emptyDaySlot} />
-                    </li>
-                ))}
-            </ol>
+            {slots && slots.length > 0 && (
+                <ol className={styles.emptyDayHours} aria-hidden="true">
+                    {slots.map(slot => (
+                        <li key={slot.label} className={styles.emptyDayHour} data-new-window={slot.newWindow || undefined}>
+                            <Text as="span" variant="caption" colorVariant="muted" className={styles.emptyDayTime}>
+                                {slot.label}
+                            </Text>
+                            <span className={styles.emptyDaySlot} />
+                        </li>
+                    ))}
+                </ol>
+            )}
         </div>
     );
 }

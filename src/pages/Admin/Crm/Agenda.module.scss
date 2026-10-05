@@ -370,6 +370,10 @@
     }
 }
 
+.emptyDayHour[data-new-window] {
+    margin-top: var(--space-12);
+}
+
 .emptyDayTime {
     font-variant-numeric: tabular-nums;
 }

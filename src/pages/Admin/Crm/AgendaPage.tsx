@@ -22,6 +22,7 @@ import {
     agendaWeek,
     agendaWeekItems,
     dayBounds,
+    emptyDaySlots,
     nowLineIndex,
     parseAgendaView,
     shiftDayKey,
@@ -300,6 +301,7 @@ export default function AgendaPage() {
                         ) : dayLoading || items.length === 0 ? (
                             <AgendaEmptyDay
                                 loading={dayLoading}
+                                slots={settings.data ? emptyDaySlots(selected, settings.data.call_windows) : null}
                                 message={
                                     selected < today
                                         ? "In questo giorno non è partito niente e non c'erano telefonate."
