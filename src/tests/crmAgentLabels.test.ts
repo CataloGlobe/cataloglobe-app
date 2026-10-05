@@ -96,6 +96,18 @@ describe("riattivazione (F1-6)", () => {
     });
 });
 
+describe("uscita dalla prova (F1-7)", () => {
+    it("stato del tipo", async () => {
+        const { describeTrust } = await import("@/utils/crm/agentLabels");
+        expect(describeTrust({ approved_in_row: 2, total_approved: 2, total_edited: 0, total_discarded: 0, required_in_row: 5, autonomous: false })).toContain(
+            "in prova (ne servono 5 di fila e 3 giorni)"
+        );
+        expect(describeTrust({ approved_in_row: 6, total_approved: 6, total_edited: 0, total_discarded: 0, required_in_row: 5, autonomous: true, total_auto: 4 })).toMatch(
+            /^fuori dalla prova · .*4 partite da sole$/
+        );
+    });
+});
+
 describe("draftStatusLabel", () => {
     it("«Gestita» dice quale esito, dal motivo", () => {
         expect(draftStatusLabel("handled", "È uno stop.")).toBe("Stop");
@@ -105,12 +117,14 @@ describe("draftStatusLabel", () => {
         expect(draftStatusLabel("sent", "È uno stop.")).toBe("Inviata così");
         expect(draftStatusLabel("handled", "Messo in Perso.")).toBe("Messo in Perso");
         expect(draftStatusLabel("discarded", null, "lost_proposal")).toBe("Resta aperto");
+        expect(draftStatusLabel("sent", "Inviata in autonomia.")).toBe("Partita da sola");
+        expect(draftStatusLabel("sent", "Era sbagliata.")).toBe("Partita da sola, era sbagliata");
     });
 });
 
 describe("azioni del Diario dell'agente in prova", () => {
     it("in italiano, mai il codice", () => {
-        for (const a of ["lead_stop", "draft_created", "draft_sent", "draft_edited", "draft_discard", "draft_handle", "draft_stop", "draft_objection", "draft_other", "call_from_agent", "draft_lost", "reactivation_lost"]) {
+        for (const a of ["lead_stop", "draft_created", "draft_sent", "draft_edited", "draft_discard", "draft_handle", "draft_stop", "draft_objection", "draft_other", "call_from_agent", "draft_lost", "draft_auto_sent", "draft_wrong", "reactivation_lost", "autonomy_on", "autonomy_off", "replies_on", "replies_off", "followups_on", "followups_off"]) {
             expect(decisionActionLabel(a)).not.toBe(a.replace(/_/g, " "));
         }
     });

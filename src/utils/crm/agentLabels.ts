@@ -49,7 +49,15 @@ const ACTION_LABEL: Record<string, string> = {
     draft_other: "Proposti altri orari",
     call_from_agent: "Telefonata fissata da una bozza",
     draft_lost: "Messo in Perso",
-    reactivation_lost: "Di nuovo in Perso: nessuna risposta alla riattivazione"
+    draft_auto_sent: "Partita da sola",
+    draft_wrong: "Segnata come sbagliata",
+    reactivation_lost: "Di nuovo in Perso: nessuna risposta alla riattivazione",
+    autonomy_on: "Autonomia accesa",
+    autonomy_off: "Autonomia spenta",
+    replies_on: "Risposte dell'agente accese",
+    replies_off: "Risposte dell'agente spente",
+    followups_on: "Solleciti dell'agente accesi",
+    followups_off: "Solleciti dell'agente spenti"
 };
 
 /** Azioni nuove (dalle PR dopo) senza etichetta: il codice, leggibile. */
@@ -161,14 +169,35 @@ const HANDLED_STATUS_BY_REASON: Record<string, string> = {
     "Messo in Perso.": "Messo in Perso"
 };
 
+/** Partite senza approvazione (fuori dalla prova): mai «Inviata così». ⚠️ SYNC con crm_agent_auto_send / «Era sbagliata». */
+const SENT_STATUS_BY_REASON: Record<string, string> = {
+    "Inviata in autonomia.": "Partita da sola",
+    "Era sbagliata.": "Partita da sola, era sbagliata"
+};
+
 export function draftStatusLabel(status: CrmAgentDraftStatus, reason: string | null, kind?: CrmAgentDraftKind): string {
     if (status === "discarded" && kind === "lost_proposal") return "Resta aperto";
+    if (status === "sent" && reason && SENT_STATUS_BY_REASON[reason]) return SENT_STATUS_BY_REASON[reason];
     if (status === "handled" && reason && HANDLED_STATUS_BY_REASON[reason]) return HANDLED_STATUS_BY_REASON[reason];
     return CRM_AGENT_DRAFT_STATUS_LABEL[status];
 }
 
 /** «4 approvate di fila senza modifiche · in tutto …». */
-export function describeTrust(t: { approved_in_row: number; total_approved: number; total_edited: number; total_discarded: number }): string {
+export function describeTrust(t: {
+    approved_in_row: number;
+    total_approved: number;
+    total_edited: number;
+    total_discarded: number;
+    required_in_row?: number;
+    autonomous?: boolean;
+    total_auto?: number;
+}): string {
     const row = t.approved_in_row === 1 ? "1 approvata di fila" : `${t.approved_in_row} approvate di fila`;
-    return `${row} senza modifiche · in tutto ${t.total_approved} approvate, ${t.total_edited} corrette, ${t.total_discarded} scartate`;
+    const state = t.autonomous
+        ? "fuori dalla prova"
+        : t.required_in_row
+          ? `in prova (ne servono ${t.required_in_row} di fila e 3 giorni)`
+          : null;
+    const auto = t.total_auto ? `, ${t.total_auto} partite da sole` : "";
+    return `${state ? `${state} · ` : ""}${row} senza modifiche · in tutto ${t.total_approved} approvate, ${t.total_edited} corrette, ${t.total_discarded} scartate${auto}`;
 }

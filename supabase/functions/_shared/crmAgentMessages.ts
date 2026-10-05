@@ -266,3 +266,57 @@ export function cleanEditText(raw: string | null | undefined): string | null {
     if (!text || text.length > 1000) return null;
     return text;
 }
+
+/**
+ * Partita da sola (tipo fuori dalla prova, F1-7): si legge e, se non andava
+ * bene, il tipo torna in prova. `whatsappUrl` è per destinatario (crm-wa).
+ */
+export function buildAutoSentMessage(
+    info: AgentDraftInfo,
+    appUrl: string | null,
+    whatsappUrl: string | null = null
+): TelegramMessage {
+    const followUp = info.kind === "follow_up";
+    const what = followUp ? "i solleciti tornano" : "le risposte tornano";
+    const to = info.contactName ? `a ${escapeHtml(info.contactName)}` : "al lead";
+    const compose = (messages: AgentDraftInfo["lastMessages"]): string => {
+        const lines = [followUp ? `🤖 Sollecito partito da solo a ${who(info)}` : `🤖 Risposta partita da sola a ${who(info)}`];
+        const collapsed = messages.length > INLINE_MESSAGES;
+        if (messages.length && !collapsed) lines.push("", ...chatLines(messages));
+        if (info.proposedText) lines.push("", "<b>Messaggio</b>:", `<i>${escapeHtml(info.proposedText)}</i>`);
+        if (collapsed) {
+            lines.push("", `💬 La chat, ultimi ${messages.length} messaggi (tocca per aprirla):`);
+            lines.push(`<blockquote expandable>${chatLines(messages).join("\n")}</blockquote>`);
+        }
+        lines.push(
+            "",
+            `Se non andava bene, tocca il tasto: ${what} in prova e ti chiedo l'ok finché non ne approvi 3 di fila. ` +
+                `Se non è ancora partito lo fermo; se è già partito, scrivi tu ${to}.`
+        );
+        return lines.join("\n");
+    };
+    let messages = info.lastMessages;
+    let text = compose(messages);
+    while (text.length > MAX_MESSAGE_LENGTH && messages.length) {
+        messages = messages.slice(1);
+        text = compose(messages);
+    }
+    const rows: InlineButton[][] = [
+        [{ text: "Non andava bene, torna in prova", callback_data: encodeDraftDecision(info.draftId, "wrong") }]
+    ];
+    if (whatsappUrl) rows.push([{ text: "Apri la chat su WhatsApp", url: whatsappUrl }]);
+    if (appUrl) rows.push([{ text: "Apri la scheda", url: `${appUrl}/admin/lead/${info.venueId}` }]);
+    return { text, reply_markup: { inline_keyboard: rows } };
+}
+
+/** Un tipo è uscito dalla prova. */
+export function buildTrustReadyText(kind: "reply" | "follow_up", inRow: number, autonomyOn: boolean): string {
+    const g =
+        kind === "reply"
+            ? { what: "risposte", fix: "correggerle", them: "le", one: "una", alone: "da sole" }
+            : { what: "solleciti", fix: "correggerli", them: "li", one: "uno", alone: "da soli" };
+    const done = `✅ Avete approvato ${inRow} ${g.what} di fila senza ${g.fix}`;
+    return autonomyOn
+        ? `${done}: da ora l'agente ${g.them} manda da solo e vi avvisa dopo. Se ${g.one} non va bene, tocca «Non andava bene, torna in prova».`
+        : `${done}: possono partire ${g.alone}. L'invio automatico è spento: si accende da /admin, pagina Agenti.`;
+}

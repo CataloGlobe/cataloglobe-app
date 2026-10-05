@@ -322,3 +322,13 @@ export function parseReviewReply(raw: string): { ok: true } | { ok: false; probl
         : [];
     return { ok: false, problems: problems.length ? problems.slice(0, 5) : ["Bocciata senza motivo."] };
 }
+
+// Un testo che propone giorni od orari («alle 15», «15:30», «domani»,
+// «giovedì»): con l'autonomia accesa resta comunque da approvare.
+const CALL_TIME_RE =
+    /\b(?:alle\s+\d{1,2}|\d{1,2}[:.]\d{2}|domani|dopodomani|stasera|stamattina|oggi pomeriggio|luned[iì]|marted[iì]|mercoled[iì]|gioved[iì]|venerd[iì]|sabato|domenica)(?![\p{L}\d])/iu;
+
+export function mentionsCallTime(text: string | null | undefined): boolean {
+    return CALL_TIME_RE.test(text ?? "");
+}
+

@@ -86,6 +86,29 @@ describe("F1-6", () => {
     });
 });
 
+describe("F1-7", () => {
+    it("partita da sola: «Non andava bene, torna in prova» e chat WhatsApp", async () => {
+        const { buildAutoSentMessage, buildTrustReadyText } = await import("./crmAgentMessages");
+        const m = buildAutoSentMessage(base, null);
+        expect(m.text).toContain("🤖 Risposta partita da sola a");
+        expect(m.text).toContain("le risposte tornano in prova e ti chiedo l'ok finché non ne approvi 3 di fila");
+        const data = m.reply_markup.inline_keyboard.flat().map(b => (b.callback_data ? parseCallbackData(b.callback_data) : null));
+        expect(data).toEqual([{ action: "draft", draftId: D, decision: "wrong" }]);
+        expect(m.reply_markup.inline_keyboard[0][0].text).toBe("Non andava bene, torna in prova");
+        const w = buildAutoSentMessage({ ...base, kind: "follow_up" }, "https://app.x", "https://wa.x/1");
+        expect(w.text).toContain("Sollecito partito da solo a");
+        expect(w.reply_markup.inline_keyboard.map(r => r[0].text)).toEqual([
+            "Non andava bene, torna in prova",
+            "Apri la chat su WhatsApp",
+            "Apri la scheda"
+        ]);
+        expect(buildTrustReadyText("reply", 5, false)).toContain("L'invio automatico è spento: si accende da /admin, pagina Agenti.");
+        expect(buildTrustReadyText("follow_up", 3, true)).toBe(
+            "✅ Avete approvato 3 solleciti di fila senza correggerli: da ora l'agente li manda da solo e vi avvisa dopo. Se uno non va bene, tocca «Non andava bene, torna in prova»."
+        );
+    });
+});
+
 describe("testi", () => {
     it("bozza: titolo, chat e proposta, testo protetto", () => {
         const m = buildDraftMessage(base, "https://app.x");

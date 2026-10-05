@@ -27,6 +27,7 @@ import { CRM_STAGE_LABEL } from "./crmLabels.ts";
 import { CRM_TECHNICAL_ANSWER_KEYS, escapeHtml } from "./crmTelegram.ts";
 import {
     FOLLOW_UP_MAX,
+    mentionsCallTime,
     buildDraftRequest,
     buildReviewRequest,
     classifyLeadMessages,
@@ -36,15 +37,18 @@ import {
     parseReviewReply
 } from "./crmAgentRules.ts";
 import {
+    buildAutoSentMessage,
     buildDraftClosedText,
     buildDraftMessage,
     buildRemindersText,
+    buildTrustReadyText,
     reactivationReason,
     remindersDue
 } from "./crmAgentMessages.ts";
 import { loadAgendaBusy } from "./crmAgendaJob.ts";
 import { formatCallDay, formatCallTime, parseCallWindows, suggestCallSlots } from "./crmCallSlots.ts";
 import { fillWhatsappTemplate } from "./crmWhatsapp.ts";
+import { whatsappLinkFor } from "./crmLeadMessage.ts";
 
 const LOG = "crm-agent";
 /** Solleciti di una bozza non toccata, in minuti dall'avviso. ⚠️ SYNC con crm_agent_has_work (SQL). */
@@ -131,11 +135,15 @@ export async function closeDraftMessages(supabase, botToken, draftId, status, ac
     }
 }
 
-async function notifyDraft(supabase, botToken, team, draft, appUrl) {
+async function notifyDraft(supabase, botToken, team, draft, appUrl, autoSent = false) {
     const info = await draftInfo(supabase, draft);
-    const message = buildDraftMessage(info, appUrl);
+    const draftMessage = autoSent ? null : buildDraftMessage(info, appUrl);
     let sent = 0;
     for (const member of team.filter(m => m.telegram_chat_id)) {
+        // Partita da sola: col link alla chat WhatsApp, firmato per chi lo apre.
+        const message =
+            draftMessage ??
+            buildAutoSentMessage(info, appUrl, draft.lead_id ? await whatsappLinkFor(draft.lead_id, member.user_id) : null);
         const r = await telegramCall(botToken, "sendMessage", {
             chat_id: member.telegram_chat_id,
             text: message.text,
@@ -340,7 +348,7 @@ async function draftWithClaude(supabase, ctx, venueId) {
     };
 }
 
-async function insertDraft(supabase, base, fields) {
+async function insertDraft(supabase, base, fields, options: { allowAuto?: boolean } = {}) {
     const { data, error } = await supabase
         .from("crm_agent_drafts")
         .insert({ ...base, ...fields })
@@ -360,6 +368,11 @@ async function insertDraft(supabase, base, fields) {
             cost_usd: fields.cost_usd ?? 0
         });
     }
+    if ((data.kind === "reply" || data.kind === "follow_up") && options.allowAuto !== false) {
+        const { data: auto, error: autoError } = await supabase.rpc("crm_agent_auto_send", { p_draft_id: data.id });
+        if (autoError) console.error(`${LOG}: invio autonomo`, autoError.code, autoError.message);
+        if (auto === true) data.auto_sent = true;
+    }
     await logDecision(supabase, {
         actor: "agent",
         action: "draft_created",
@@ -377,9 +390,33 @@ async function insertDraft(supabase, base, fields) {
 // Il giro
 // -----------------------------------------------------------------------------
 export async function processAgent(supabase, team, botToken, appUrl, now = new Date()) {
-    const stats = { expired: 0, notified: 0, reminders: 0, stops: 0, drafts: 0, reactivations_lost: 0, skipped: 0, stopped_by: null };
+    const stats = { expired: 0, notified: 0, reminders: 0, stops: 0, drafts: 0, auto_sent: 0, reactivations_lost: 0, skipped: 0, stopped_by: null };
     const nowIso = now.toISOString();
     const night = isAgentNight(now);
+
+    // F1-7: i 3 giorni di prova passano anche senza approvazioni nuove.
+    await supabase.rpc("crm_agent_trust_refresh");
+    if (botToken) {
+        const { data: ready } = await supabase
+            .from("crm_agent_trust")
+            .select("kind, approved_in_row")
+            .eq("autonomous", true)
+            .is("eligible_notified_at", null);
+        if (ready?.length) {
+            const { data: s } = await supabase.from("crm_settings").select("agent_autonomy_on").eq("id", true).maybeSingle();
+            for (const t of ready) {
+                const { data: claimed } = await supabase
+                    .from("crm_agent_trust")
+                    .update({ eligible_notified_at: nowIso })
+                    .eq("kind", t.kind)
+                    .is("eligible_notified_at", null)
+                    .select("kind");
+                if (claimed?.length) {
+                    await sendToTeam(supabase, buildTrustReadyText(t.kind, t.approved_in_row, Boolean(s?.agent_autonomy_on)), { logTag: LOG });
+                }
+            }
+        }
+    }
 
     // 1. Scadute: il lead ha scritto di nuovo dopo la bozza.
     const { data: pending } = await supabase.from("crm_agent_drafts").select("*").eq("status", "pending");
@@ -617,6 +654,9 @@ export async function processAgent(supabase, team, botToken, appUrl, now = new D
             trigger_message_id: c.r_last_in_id ?? null
         };
 
+        // Resta da approvare anche con l'autonomia: dubbio di stop già visto
+        // come obiezione, orari chiesti da una persona, orari nel testo.
+        let holdForPerson = false;
         if (c.r_kind === "reply") {
             const lastOut = c.r_last_out_at ? new Date(c.r_last_out_at).getTime() : 0;
             const unanswered = chat.filter(m => m.direction === "in" && new Date(m.created_at).getTime() > lastOut);
@@ -647,6 +687,7 @@ export async function processAgent(supabase, team, botToken, appUrl, now = new D
                 if (await insertDraft(supabase, base, { kind: "stop_check", reason: "Potrebbe essere uno stop." })) stats.drafts += 1;
                 continue;
             }
+            if (signals.stop === "uncertain") holdForPerson = true;
             if (signals.callNow) {
                 if (await insertDraft(supabase, base, { kind: "ask", reason: "Chiede di essere chiamato subito: non si conferma un orario." }))
                     stats.drafts += 1;
@@ -706,7 +747,15 @@ export async function processAgent(supabase, team, botToken, appUrl, now = new D
             cost_usd: result.cost,
             follow_up_number: kind === "follow_up" ? c.r_follow_ups + 1 : null
         };
-        if (await insertDraft(supabase, base, fields)) stats.drafts += 1;
+        const allowAuto =
+            !holdForPerson && !ctx.extraInstruction && !fields.proposed_starts_at && !mentionsCallTime(fields.proposed_text);
+        const saved = await insertDraft(supabase, base, fields, { allowAuto });
+        if (saved) stats.drafts += 1;
+        if (saved?.auto_sent) {
+            stats.auto_sent += 1;
+            await supabase.from("crm_agent_drafts").update({ notified_at: nowIso }).eq("id", saved.id);
+            if (botToken) await notifyDraft(supabase, botToken, team, saved, appUrl, true);
+        }
     }
 
     // Le bozze appena nate partono subito su Telegram.

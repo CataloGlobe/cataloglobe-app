@@ -9,7 +9,7 @@ import type { CrmAgentDraftRow, CrmAgentTrialSettings, CrmAgentTrust } from "@/t
 export async function getCrmAgentTrialSettings(): Promise<CrmAgentTrialSettings> {
     const { data, error } = await supabase
         .from("crm_settings")
-        .select("agent_replies_on, agent_followups_on, agent_reactivation_message, agent_reactivation_days")
+        .select("agent_replies_on, agent_followups_on, agent_reactivation_message, agent_reactivation_days, agent_autonomy_on")
         .eq("id", true)
         .single();
     if (error) throw error;

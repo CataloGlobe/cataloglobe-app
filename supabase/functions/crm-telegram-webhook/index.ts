@@ -442,6 +442,32 @@ async function handleDraft(supabase, parsed, actor, answer, query) {
         await answer("Questa bozza non c'è più.");
         return;
     }
+    if (parsed.decision === "wrong") {
+        const { data: status, error } = await supabase.rpc("crm_agent_decide_draft", {
+            p_draft_id: draft.id,
+            p_decision: "wrong",
+            p_actor_user_id: actor.user_id
+        });
+        if (error) {
+            await answer(DRAFT_ERRORS[error.code] ?? "Non è andata a buon fine.");
+            return;
+        }
+        if (status && query.message?.chat?.id && query.message?.message_id) {
+            await telegramCall(BOT_TOKEN, "editMessageReplyMarkup", {
+                chat_id: query.message.chat.id,
+                message_id: query.message.message_id,
+                reply_markup: { inline_keyboard: [] }
+            });
+        }
+        await answer(
+            status === "wrong_stopped"
+                ? "Fermato prima dell'invio. Torna in prova finché non ne approvi 3 di fila."
+                : status
+                  ? "Torna in prova finché non ne approvi 3 di fila. Il messaggio era già partito: scrivi tu al lead."
+                  : "Già fatto."
+        );
+        return;
+    }
     if (draft.status !== "pending") {
         await answer("Già decisa.");
         await closeDraftMessages(supabase, BOT_TOKEN, draft.id, draft.status, null);
