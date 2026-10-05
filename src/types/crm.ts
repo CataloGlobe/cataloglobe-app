@@ -546,3 +546,33 @@ export interface CrmPostSaleActionRow {
     done_by: string | null;
     snoozed_until: string | null;
 }
+
+/** Categorie della libreria delle obiezioni (CHECK in 20261006100000). */
+export type CrmObjectionCategory =
+    | "prezzo"
+    | "ha_gia_soluzione"
+    | "non_serve"
+    | "tempo"
+    | "decide_altri"
+    | "non_ora"
+    | "diffidenza"
+    | "altro";
+
+/** Riga di `crm_objections`: un'obiezione sentita da un locale. */
+export interface CrmObjection {
+    id: string;
+    venue_id: string;
+    category: CrmObjectionCategory;
+    note: string | null;
+    source: "perso" | "scheda";
+    created_by: string | null;
+    created_at: string;
+}
+
+/** Riga di `crm_objection_answers`: la risposta che funziona per una categoria. */
+export interface CrmObjectionAnswer {
+    category: CrmObjectionCategory;
+    answer: string;
+    updated_by: string | null;
+    updated_at: string;
+}
