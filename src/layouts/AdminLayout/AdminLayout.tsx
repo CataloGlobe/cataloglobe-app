@@ -10,6 +10,7 @@ import { AppHeaderAdmin } from "@/components/layout/AppHeader/AppHeaderAdmin";
 import { PageHeaderSlot } from "@/components/layout/PageHeaderSlot";
 import AdminSidebar from "./AdminSidebar";
 import styles from "../shared/layoutShell.module.scss";
+import adminStyles from "./AdminLayout.module.scss";
 
 /**
  * Layout dell'area admin di piattaforma (`/admin/*`).
@@ -108,14 +109,16 @@ export default function AdminLayout() {
                         />
                     </header>
                     <div className={styles.body}>
-                        <AdminSidebar
-                            isMobile={isMobile}
-                            mobileOpen={mobileSidebarOpen}
-                            collapsed={!isMobile && sidebarCollapsed}
-                            onRequestClose={() => setMobileSidebarOpen(false)}
-                            onToggleCollapse={() => setSidebarCollapsed(v => !v)}
-                            supportPending={supportPending}
-                        />
+                        <div className={adminStyles.crmNav}>
+                            <AdminSidebar
+                                isMobile={isMobile}
+                                mobileOpen={mobileSidebarOpen}
+                                collapsed={!isMobile && sidebarCollapsed}
+                                onRequestClose={() => setMobileSidebarOpen(false)}
+                                onToggleCollapse={() => setSidebarCollapsed(v => !v)}
+                                supportPending={supportPending}
+                            />
+                        </div>
                         <main className={styles.main}>
                             <PageHeaderSlot scrollContainerRef={contentRef} />
                             <div ref={contentRef} className={styles.content}>

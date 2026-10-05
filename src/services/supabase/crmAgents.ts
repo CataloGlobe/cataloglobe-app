@@ -66,6 +66,18 @@ export async function getCrmAiSpend(): Promise<CrmAiSpend> {
     };
 }
 
+/** Il diario da `since` in poi, per contare la giornata senza tagli. */
+export async function listCrmAgentDecisionsSince(since: string): Promise<CrmAgentDecision[]> {
+    const { data, error } = await supabase
+        .from("crm_agent_decisions")
+        .select("id, created_at, actor, actor_user_id, action, reason, venue_id, lead_id, review_outcome, decided_by, decided_at, payload")
+        .gte("created_at", since)
+        .order("created_at", { ascending: false })
+        .limit(2000);
+    if (error) throw error;
+    return (data ?? []) as CrmAgentDecision[];
+}
+
 export async function listCrmAgentDecisions(limit = 50): Promise<CrmAgentDecision[]> {
     const { data, error } = await supabase
         .from("crm_agent_decisions")

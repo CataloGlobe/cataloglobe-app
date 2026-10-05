@@ -15,6 +15,7 @@ import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import Text from "@/components/ui/Text/Text";
 import { crmAccountLabel } from "@/utils/crm/accountLabels";
 import { CRM_SOURCE_LABEL, CRM_STAGE_LABEL } from "@/utils/crm/stages";
+import type { VenueWait } from "@/utils/crm/crmHome";
 import { CRM_STAGES, type CrmStage, type CrmVenueListItem } from "@/types/crm";
 import styles from "./Crm.module.scss";
 
@@ -30,12 +31,14 @@ import styles from "./Crm.module.scss";
 
 type Props = {
     venues: CrmVenueListItem[];
+    /** L'attesa di ogni locale (`venueWaits`): filo e tempo colorati sulla carta. */
+    waits: Map<string, VenueWait>;
     teamName: (userId: string | null) => string;
     onMove: (venue: CrmVenueListItem, stage: CrmStage) => void;
     onOpen: (venueId: string) => void;
 };
 
-export function PipelineBoard({ venues, teamName, onMove, onOpen }: Props) {
+export function PipelineBoard({ venues, waits, teamName, onMove, onOpen }: Props) {
     const [dragging, setDragging] = useState<CrmVenueListItem | null>(null);
     const sensors = useSensors(
         // 6 px prima di iniziare il trascinamento: sotto è un clic.
@@ -67,26 +70,28 @@ export function PipelineBoard({ venues, teamName, onMove, onOpen }: Props) {
                         key={stage}
                         stage={stage}
                         venues={venues.filter(v => v.stage === stage)}
+                        waits={waits}
                         teamName={teamName}
                         onOpen={onOpen}
                     />
                 ))}
             </div>
             <DragOverlay>
-                {dragging ? <CardBody venue={dragging} teamName={teamName} /> : null}
+                {dragging ? <CardBody venue={dragging} wait={waits.get(dragging.id)} teamName={teamName} /> : null}
             </DragOverlay>
         </DndContext>
     );
 }
 
 type ColumnProps = {
+    waits: Map<string, VenueWait>;
     stage: CrmStage;
     venues: CrmVenueListItem[];
     teamName: (userId: string | null) => string;
     onOpen: (venueId: string) => void;
 };
 
-export function Column({ stage, venues, teamName, onOpen }: ColumnProps) {
+export function Column({ stage, venues, waits, teamName, onOpen }: ColumnProps) {
     const { setNodeRef, isOver } = useDroppable({ id: stage });
     return (
         <section
@@ -106,7 +111,7 @@ export function Column({ stage, venues, teamName, onOpen }: ColumnProps) {
             </header>
             <div className={styles.columnBody}>
                 {venues.map(venue => (
-                    <DraggableCard key={venue.id} venue={venue} teamName={teamName} onOpen={onOpen} />
+                    <DraggableCard key={venue.id} venue={venue} wait={waits.get(venue.id)} teamName={teamName} onOpen={onOpen} />
                 ))}
             </div>
         </section>
@@ -115,11 +120,12 @@ export function Column({ stage, venues, teamName, onOpen }: ColumnProps) {
 
 type CardProps = {
     venue: CrmVenueListItem;
+    wait?: VenueWait;
     teamName: (userId: string | null) => string;
     onOpen: (venueId: string) => void;
 };
 
-export function DraggableCard({ venue, teamName, onOpen }: CardProps) {
+export function DraggableCard({ venue, wait, teamName, onOpen }: CardProps) {
     const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: venue.id });
     return (
         <button
@@ -127,20 +133,23 @@ export function DraggableCard({ venue, teamName, onOpen }: CardProps) {
             type="button"
             className={styles.boardCard}
             data-dragging={isDragging || undefined}
+            data-level={wait?.level}
             onClick={() => onOpen(venue.id)}
             {...attributes}
             {...listeners}
         >
-            <CardBody venue={venue} teamName={teamName} />
+            <CardBody venue={venue} wait={wait} teamName={teamName} />
         </button>
     );
 }
 
 export function CardBody({
     venue,
+    wait,
     teamName
 }: {
     venue: CrmVenueListItem;
+    wait?: VenueWait;
     teamName: (userId: string | null) => string;
 }) {
     const contact = venue.crm_contacts[0];
@@ -160,6 +169,14 @@ export function CardBody({
                     .filter(Boolean)
                     .join(" · ")}
             </Text>
+            {wait && (
+                <Text as="span" variant="caption">
+                    <span className={styles.waitTime} data-level={wait.level}>
+                        {wait.wait}
+                    </span>{" "}
+                    · {wait.text}
+                </Text>
+            )}
             {(account || venue.stage_locked_at || venue.name_pending || venue.name_to_verify) && (
                 <span className={styles.boardCardBadges}>
                     {venue.name_pending && <StatusBadge variant="warning" label="Locale da completare" />}

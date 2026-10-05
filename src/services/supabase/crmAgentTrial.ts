@@ -29,6 +29,24 @@ export async function listCrmAgentTrust(): Promise<CrmAgentTrust[]> {
 
 type DraftRow = Omit<CrmAgentDraftRow, "venue_name"> & { crm_venues: { name: string } | null };
 
+/**
+ * Tutte le bozze in attesa (anche le più vecchie, che sono le più urgenti) e
+ * quelle nate o decise da `since` in poi, dalla più recente.
+ */
+export async function listCrmAgentDraftsOpenOrSince(since: string): Promise<CrmAgentDraftRow[]> {
+    const { data, error } = await supabase
+        .from("crm_agent_drafts")
+        .select("id, created_at, venue_id, kind, status, reason, proposed_text, final_text, decided_at, crm_venues(name)")
+        .or(`status.eq.pending,created_at.gte.${since},decided_at.gte.${since}`)
+        .order("created_at", { ascending: false })
+        .limit(1000);
+    if (error) throw error;
+    return ((data ?? []) as unknown as DraftRow[]).map(({ crm_venues, ...row }) => ({
+        ...row,
+        venue_name: crm_venues?.name ?? "Locale"
+    }));
+}
+
 /** Bozze aperte e le ultime decise, dalla più recente. */
 export async function listCrmAgentDrafts(limit = 20): Promise<CrmAgentDraftRow[]> {
     const { data, error } = await supabase

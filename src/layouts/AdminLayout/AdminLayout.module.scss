@@ -1,0 +1,21 @@
+// Identità del CRM (grafica decisa il 2026-10-05, barra «7A2»): la sidebar
+// condivisa (AppSidebar) legge solo token, quindi basta ridefinirli qui.
+// `display: contents` non crea un box: il wrapper non tocca il layout del
+// guscio, ma le custom property passano alla sidebar per ereditarietà.
+// Vale solo in /admin; l'area dei clienti non monta questo modulo.
+.crmNav {
+  display: contents;
+
+  --surface: var(--crm-nav-bg);
+  --border: var(--crm-nav-border);
+  --text: var(--crm-nav-text-strong);
+  --text-muted: var(--crm-nav-text);
+  --hover-bg: var(--crm-nav-hover);
+  --brand-primary-soft: var(--crm-nav-active);
+  --brand-primary-soft-hover: var(--crm-nav-active-hover);
+  --on-brand-soft: var(--crm-nav-text-strong);
+  --gray-400: var(--crm-nav-disabled);
+  /* Sul fondo indaco l'anello e il grigio del tasto apri/chiudi non si vedrebbero. */
+  --shadow-focus: var(--crm-nav-focus);
+  --gray-600: var(--crm-nav-text);
+}
