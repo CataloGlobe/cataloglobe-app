@@ -2,7 +2,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import Stripe from "https://esm.sh/stripe@17?target=deno";
-import { stripeClientOptions } from "../_shared/stripe-helpers.ts";
+import { deleteStripeCustomer, stripeClientOptions } from "../_shared/stripe-helpers.ts";
 import {
     buildReuseCustomerUpdate,
     buildStripeCustomerProfile,
@@ -12,6 +12,7 @@ import {
 } from "../_shared/stripeCustomerProfile.ts";
 import { lookupStripePriceId, type BillingInterval } from "../_shared/planPrices.ts";
 import { isValidPartitaIva } from "../_shared/fiscalValidators.ts";
+import { claimStripeCustomer } from "../_shared/stripeCustomerClaim.ts";
 import {
     DEFAULT_TRIAL_PERIOD_DAYS,
     resolvePromoTrialDays,
@@ -366,17 +367,49 @@ serve(async req => {
                 );
                 return json(req, 502, { error: "stripe_customer_create_failed" });
             }
-            stripeCustomerId = customer.id;
+            // Salvataggio condizionato: con due checkout in parallelo lo
+            // scrive solo il primo, l'altro usa quel customer e cancella il
+            // suo (vedi _shared/stripeCustomerClaim.ts).
+            const claim = await claimStripeCustomer(customer.id, {
+                saveIfEmpty: async id => {
+                    const { data, error } = await supabaseAdmin
+                        .from("tenants")
+                        .update({ stripe_customer_id: id })
+                        .eq("id", tenantId)
+                        .is("stripe_customer_id", null)
+                        .select("id");
+                    return { saved: (data ?? []).length > 0, error: error ? error.message : null };
+                },
+                readCurrent: async () => {
+                    const { data, error } = await supabaseAdmin
+                        .from("tenants")
+                        .select("stripe_customer_id")
+                        .eq("id", tenantId)
+                        .maybeSingle();
+                    return {
+                        customerId: (data?.stripe_customer_id as string | null | undefined) ?? null,
+                        error: error ? error.message : null
+                    };
+                },
+                deleteCustomer: async id => {
+                    // Helper idempotente con log; un errore non blocca il checkout.
+                    await deleteStripeCustomer(stripe, id, {
+                        tenant_id: tenantId,
+                        reason: "parallel_checkout_duplicate"
+                    });
+                }
+            });
 
-            const { error: updateErr } = await supabaseAdmin
-                .from("tenants")
-                .update({ stripe_customer_id: stripeCustomerId })
-                .eq("id", tenantId);
-
-            if (updateErr) {
-                console.error("stripe-checkout: Failed to save stripe_customer_id:", updateErr);
+            if (claim.kind === "db_error") {
+                console.error("stripe-checkout: Failed to save stripe_customer_id:", claim.message);
                 return json(req, 500, { error: "db_update_failed" });
             }
+            if (claim.lostRace) {
+                console.warn(
+                    `stripe-checkout: parallel checkout for tenant ${tenantId}, reusing the customer saved first`
+                );
+            }
+            stripeCustomerId = claim.customerId;
         } else {
             // Reuse path: refresh profile on the existing customer. Best-effort —
             // a failed update must not block checkout (we still have the data our side).
