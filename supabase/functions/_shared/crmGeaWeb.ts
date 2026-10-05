@@ -57,13 +57,28 @@ export function parseGeaWebRequest(body: unknown): GeaWebRequest | { invalid: st
 }
 
 /**
+ * Il nome del locale arriva dai lead (moduli, import): una riga sola, corta,
+ * senza caratteri di controllo né virgolette che chiudano la frase.
+ */
+function cleanVenueName(name: string | null): string {
+    if (!name) return "";
+    // eslint-disable-next-line no-control-regex
+    return name
+        .replace(/[\u0000-\u001f\u007f«»<>"]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, 80);
+}
+
+/**
  * La pagina aperta entra nella domanda come una frase in fondo: così «questo
  * locale» o «lui» si capiscono come se la persona l'avesse scritto.
  */
 export function withPageHint(text: string, page: GeaWebPage | null, venueName: string | null): string {
     if (!page) return text;
     if (page.kind === "lead") {
-        return venueName ? `${text}\n\n(Sto guardando la scheda del locale «${venueName.replace(/[«»<>]/g, "")}».)` : text;
+        const name = cleanVenueName(venueName);
+        return name ? `${text}\n\n(Sto guardando la scheda del locale «${name}».)` : text;
     }
     return `${text}\n\n(Sto guardando la pagina ${page.name} del CRM.)`;
 }

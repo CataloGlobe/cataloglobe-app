@@ -25,7 +25,7 @@ import { needsStageLock } from "@/utils/crm/accountLabels";
 import { romeTodayStart } from "@/utils/crm/agentsOverview";
 import { shiftDayKey } from "@/utils/crm/agendaDay";
 import { venueWaits } from "@/utils/crm/crmHome";
-import { openDraftByVenue, snoozeStepText, snoozedVenueIds, SWIPE_UNDO_MS, type LeadSwipe } from "@/utils/crm/leadSwipe";
+import { openDraftByVenue, snoozeDueOn, snoozeStepText, snoozedVenueIds, SWIPE_UNDO_MS, type LeadSwipe } from "@/utils/crm/leadSwipe";
 import { romeDayKey } from "@shared/crmCallSlots";
 import {
     boardVenues,
@@ -216,8 +216,8 @@ export default function LeadsPage() {
                         venue.id,
                         {
                             step: snoozeStepText(existing),
-                            dueOn: shiftDayKey(romeDayKey(new Date()), 1),
-                            ownerUserId: userId,
+                            dueOn: snoozeDueOn(existing, shiftDayKey(romeDayKey(new Date()), 1)),
+                            ownerUserId: existing ? existing.owner_user_id : userId,
                             snoozed: true
                         },
                         userId

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CrmAgentDraftRow, CrmNextStep } from "@/types/crm";
-import { openDraftByVenue, snoozeStepText, snoozedVenueIds, swipeOutcome, swipeThreshold } from "@/utils/crm/leadSwipe";
+import { openDraftByVenue, snoozeDueOn, snoozeStepText, snoozedVenueIds, swipeOutcome, swipeThreshold } from "@/utils/crm/leadSwipe";
 
 const draft = (id: string, venue: string, status: string, at: string) =>
     ({ id, venue_id: venue, status, created_at: at }) as unknown as CrmAgentDraftRow;
@@ -36,5 +36,8 @@ describe("gesti della lista lead", () => {
         expect(snoozeStepText(step("v1", null, "  "))).toBe("Riprendere il lead");
         expect(snoozeStepText(step("v1", null, "Mandare il menù"))).toBe("Mandare il menù");
         expect(snoozeStepText(undefined)).toBe("Riprendere il lead");
+        expect(snoozeDueOn(undefined, "2026-10-06")).toBe("2026-10-06");
+        expect(snoozeDueOn(step("v1", "2026-10-09"), "2026-10-06")).toBe("2026-10-09");
+        expect(snoozeDueOn(step("v1", "2026-10-05"), "2026-10-06")).toBe("2026-10-06");
     });
 });

@@ -43,13 +43,14 @@ export function geaPageCaption(page: GeaWebPage | null): string {
 
 /**
  * L'errore della chiamata in una frase: la funzione non ancora rilasciata
- * (404, o nessuna risposta) dice che Gea qui non è attiva; fuori dal team, chi
+ * (404) dice che Gea qui non è attiva; fuori dal team, chi
  * può usarla; il resto «riprova».
  */
 export function geaErrorMessage(err: unknown): string {
     const e = (err ?? {}) as { name?: string; context?: { status?: number } };
     const status = e.context?.status;
-    if (status === 404 || e.name === "FunctionsFetchError" || e.name === "FunctionsRelayError") {
+    // Solo il 404: una rete lenta o un tempo scaduto non vogliono dire «non rilasciata».
+    if (status === 404) {
         return "Gea sul computer non è ancora attiva: manca il rilascio della sua funzione. Su Telegram risponde già.";
     }
     if (status === 403) return "Gea risponde solo alle persone del team del CRM.";

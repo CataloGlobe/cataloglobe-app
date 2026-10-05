@@ -28,6 +28,8 @@ export function useUndoableActions(delayMs: number) {
         (id: string, run: () => Promise<void>) => {
             if (pending.current.has(id)) return;
             const timer = setTimeout(() => {
+                // Partito: uscendo dalla pagina non va rifatto.
+                pending.current.delete(id);
                 void run().finally(() => release(id));
             }, delayMs);
             pending.current.set(id, { timer, run });

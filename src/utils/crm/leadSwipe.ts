@@ -40,6 +40,15 @@ export function snoozedVenueIds(steps: CrmNextStep[], todayKey: string): Set<str
     return new Set(steps.filter(s => s.snoozed && s.due_on !== null && s.due_on > todayKey).map(s => s.venue_id));
 }
 
+/**
+ * La scadenza del rimando: domani, o quella del passo se è più in là. Così il
+ * gesto non anticipa la scadenza scelta da un altro; il passo resta di chi
+ * lo aveva.
+ */
+export function snoozeDueOn(existing: CrmNextStep | undefined, tomorrowKey: string): string {
+    return existing?.due_on && existing.due_on > tomorrowKey ? existing.due_on : tomorrowKey;
+}
+
 /** Il passo scritto dal gesto: quello che c'era, o «Riprendere il lead». */
 export function snoozeStepText(existing: CrmNextStep | undefined): string {
     return existing?.step.trim() || "Riprendere il lead";

@@ -24,7 +24,7 @@ describe("Gea dal computer: errori", () => {
     it("dice se la funzione non c'è ancora, se manchi nel team, o di riprovare", async () => {
         const { geaErrorMessage } = await import("@/utils/crm/gea");
         expect(geaErrorMessage({ name: "FunctionsHttpError", context: { status: 404 } })).toContain("non è ancora attiva");
-        expect(geaErrorMessage({ name: "FunctionsFetchError" })).toContain("non è ancora attiva");
+        expect(geaErrorMessage({ name: "FunctionsFetchError" })).toBe("Gea non ha risposto. Riprova tra poco.");
         expect(geaErrorMessage({ name: "FunctionsHttpError", context: { status: 403 } })).toContain("team");
         expect(geaErrorMessage(new Error("x"))).toBe("Gea non ha risposto. Riprova tra poco.");
     });
