@@ -4,7 +4,7 @@
  * giorni. Puro: legge bozze, diario, fiducia e chiamate a Claude già caricati.
  */
 import type { CrmAgentDecision, CrmAgentDraftKind, CrmAgentDraftRow, CrmAgentTrust, CrmAiRole, CrmAiUsageCost } from "@/types/crm";
-import { formatUsd } from "@shared/crmAi";
+import { formatAiCost } from "@shared/crmAi";
 import { romeParts, romeWallClock } from "@shared/crmCallSlots";
 import { isRomeToday, mixOf, type AgentRow } from "./agentsOverview";
 import type { GiroTone } from "./giroSteps";
@@ -41,7 +41,7 @@ export interface AgentDetailData {
     week: AgentSpendDay[];
     /** La spesa del ruolo AI nel mese; null se l'agente non usa Claude. */
     monthUsd: number | null;
-    /** «0,05 $ a bozza oggi»; null se oggi non c'è niente da dividere. */
+    /** «0,05 € a bozza oggi»; null se oggi non c'è niente da dividere. */
     perUnit: string | null;
     /** Il conto AI è diviso con altri agenti. */
     sharedNote: string | null;
@@ -64,7 +64,8 @@ export const AGENT_DRAFT_KINDS: Record<AgentRow["id"], CrmAgentDraftKind[]> = {
     riattivazione: ["reactivation"],
     decisioni_sensibili: ["stop_check", "lost_proposal"],
     revisore: [],
-    gea: []
+    gea: [],
+    sentinella: []
 };
 
 const SHARED_AGENTS: AgentRow["id"][] = ["conversazione", "solleciti", "riattivazione"];
@@ -214,7 +215,7 @@ export function agentDetail(row: AgentRow, src: AgentDetailSources): AgentDetail
                 { label: "Rilette oggi", value: String(reviewed.length) },
                 { label: "Fermate", value: String(stopped) },
                 { label: "Passate", value: String(reviewed.length - stopped) },
-                { label: "Spesa oggi", value: formatUsd(spendToday) }
+                { label: "Spesa oggi", value: formatAiCost(spendToday) }
             ],
             current: [],
             done: reviewed.map(d => {
@@ -230,7 +231,7 @@ export function agentDetail(row: AgentRow, src: AgentDetailSources): AgentDetail
             }),
             week,
             monthUsd,
-            perUnit: reviewed.length > 0 ? `${formatUsd(roleToday / reviewed.length)} a rilettura oggi` : null,
+            perUnit: reviewed.length > 0 ? `${formatAiCost(roleToday / reviewed.length)} a rilettura oggi` : null,
             sharedNote
         };
     }
@@ -240,9 +241,9 @@ export function agentDetail(row: AgentRow, src: AgentDetailSources): AgentDetail
         return {
             kpis: [
                 { label: "Azioni oggi", value: String(actions.length) },
-                { label: "Spesa oggi", value: formatUsd(spendToday) },
-                { label: "Spesa del mese", value: formatUsd(monthUsd ?? 0) },
-                { label: "Ultimi 7 giorni", value: formatUsd(week.reduce((sum, d) => sum + d.usd, 0)) }
+                { label: "Spesa oggi", value: formatAiCost(spendToday) },
+                { label: "Spesa del mese", value: formatAiCost(monthUsd ?? 0) },
+                { label: "Ultimi 7 giorni", value: formatAiCost(week.reduce((sum, d) => sum + d.usd, 0)) }
             ],
             current: [],
             done: actions.map(d => ({
@@ -270,13 +271,13 @@ export function agentDetail(row: AgentRow, src: AgentDetailSources): AgentDetail
                 ? { label: "Inviate così", value: percent(mix?.approved) }
                 : { label: "Partite oggi", value: String(mineToday.filter(d => d.status === "sent" || d.status === "edited").length) },
             { label: "Aspettano voi", value: String(mine.filter(d => d.status === "pending").length) },
-            { label: "Spesa oggi", value: row.role ? formatUsd(spendToday) : "—" }
+            { label: "Spesa oggi", value: row.role ? formatAiCost(spendToday) : "—" }
         ],
         current,
         done,
         week,
         monthUsd,
-        perUnit: mineToday.length > 0 && spendToday > 0 ? `${formatUsd(spendToday / mineToday.length)} a bozza oggi` : null,
+        perUnit: mineToday.length > 0 && spendToday > 0 ? `${formatAiCost(spendToday / mineToday.length)} a bozza oggi` : null,
         sharedNote
     };
 }

@@ -22,6 +22,7 @@
 
 import { CRM_STAGE_LABEL } from "./crmLabels.ts";
 import { formatCallDay, formatCallTime, romeParts, romeWallClock } from "./crmCallSlots.ts";
+import { formatAiCost } from "./crmAi.ts";
 import { guideForGea } from "./crmGuide.ts";
 
 export const GEA_MAX_INPUT = 2000;
@@ -547,7 +548,7 @@ export function buildTodayText(t: GeaToday, now: Date): string {
     }
     if (t.brake_on) parts.push("Agenti in pausa.");
     const spend = Number(t.ai_spend_today_usd) || 0;
-    parts.push(`Spesa AI di oggi: ${spend.toFixed(2).replace(".", ",")} $.`);
+    parts.push(`Spesa AI di oggi: ${formatAiCost(spend)}.`);
     return parts.join("\n\n");
 }
 

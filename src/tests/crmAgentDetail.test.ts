@@ -128,13 +128,13 @@ describe("agentDetail", () => {
             venueName,
             now: NOW
         });
-        expect(d.kpis.map(k => k.value)).toEqual(["2", "—", "1", "0,20 $"]);
+        expect(d.kpis.map(k => k.value)).toEqual(["2", "—", "1", "0,17 €"]);
         expect(d.current).toHaveLength(1);
         expect(d.current[0].tag).toBe("Aspetta voi");
         expect(d.done).toHaveLength(1);
         expect(d.done[0]).toMatchObject({ when: "10:40", tag: "Partita" });
         expect(d.sharedNote).toContain("Solleciti e Riattivazione");
-        expect(d.perUnit).toBe("0,10 $ a bozza oggi");
+        expect(d.perUnit).toBe("0,09 € a bozza oggi");
     });
 
     it("solleciti senza bozze oggi: spesa zero", () => {
@@ -146,7 +146,7 @@ describe("agentDetail", () => {
             venueName,
             now: NOW
         });
-        expect(d.kpis[3].value).toBe("0,00 $");
+        expect(d.kpis[3].value).toBe("0,00 €");
         expect(d.perUnit).toBeNull();
     });
 
@@ -163,12 +163,12 @@ describe("agentDetail", () => {
             venueName,
             now: NOW
         });
-        expect(d.kpis.map(k => k.value)).toEqual(["2", "1", "1", "0,04 $"]);
+        expect(d.kpis.map(k => k.value)).toEqual(["2", "1", "1", "0,03 €"]);
         expect(d.done.find(i => i.tag === "Fermata")).toMatchObject({
             text: "Fermata la bozza per Bar Luna",
             sub: "prometteva uno sconto"
         });
-        expect(d.perUnit).toBe("0,02 $ a rilettura oggi");
+        expect(d.perUnit).toBe("0,02 € a rilettura oggi");
         expect(d.sharedNote).toBeNull();
     });
 
@@ -181,7 +181,7 @@ describe("agentDetail", () => {
             venueName,
             now: NOW
         });
-        expect(d.kpis.map(k => k.value)).toEqual(["1", "0,12 $", "1,12 $", "1,12 $"]);
+        expect(d.kpis.map(k => k.value)).toEqual(["1", "0,10 €", "0,96 €", "0,96 €"]);
         expect(d.done[0]).toMatchObject({ text: "Agenti riattivati", tag: "Fatto" });
     });
 });

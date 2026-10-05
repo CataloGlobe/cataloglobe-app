@@ -5,7 +5,7 @@ import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import Text from "@/components/ui/Text/Text";
 import type { CrmAiRole } from "@/types/crm";
 import type { AgentRow } from "@/utils/crm/agentsOverview";
-import { formatUsd } from "@shared/crmAi";
+import { formatAiCost } from "@shared/crmAi";
 import { MixBar } from "./AgentsParts";
 import styles from "../Agents.module.scss";
 
@@ -112,34 +112,42 @@ export function AgentsTable({
                                 </td>
                                 <td className={styles.hidePhone}>
                                     <Text as="span" variant="body-sm" colorVariant={r.spendShared ? "muted" : undefined}>
-                                        {r.spendShared || !r.role || !spend ? "—" : formatUsd(spend[r.role])}
+                                        {r.spendShared || !r.role || !spend ? "—" : formatAiCost(spend[r.role])}
                                     </Text>
                                 </td>
                                 <td className={styles.guideCell}>
-                                    <button
-                                        type="button"
-                                        className={styles.guideToggle}
-                                        aria-label={`Come funziona: ${r.name}`}
-                                        aria-expanded={open}
-                                        aria-controls={`agente-pannello-${r.id}`}
-                                        onClick={() => onToggle(r.id)}
-                                    >
-                                        <Text as="span" variant="body-sm" color="inherit" className={styles.guideLabel}>
-                                            Come funziona
+                                    {r.id === "sentinella" ? (
+                                        <Text as="span" variant="caption" colorVariant="muted" className={styles.hidePhone}>
+                                            Si accende quando lo decidete
                                         </Text>
-                                        <ChevronDown size={14} aria-hidden="true" data-open={open} />
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className={styles.openAgent}
-                                        aria-label={`Apri la pagina di ${r.name}`}
-                                        onClick={() => onOpen(r.id)}
-                                    >
-                                        <Text as="span" variant="body-sm" weight={600} color="inherit">
-                                            Apri
-                                        </Text>
-                                        <ChevronRight size={14} aria-hidden="true" />
-                                    </button>
+                                    ) : (
+                                        <>
+                                            <button
+                                                type="button"
+                                                className={styles.guideToggle}
+                                                aria-label={`Come funziona: ${r.name}`}
+                                                aria-expanded={open}
+                                                aria-controls={`agente-pannello-${r.id}`}
+                                                onClick={() => onToggle(r.id)}
+                                            >
+                                                <Text as="span" variant="body-sm" color="inherit" className={styles.guideLabel}>
+                                                    Come funziona
+                                                </Text>
+                                                <ChevronDown size={14} aria-hidden="true" data-open={open} />
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className={styles.openAgent}
+                                                aria-label={`Apri la pagina di ${r.name}`}
+                                                onClick={() => onOpen(r.id)}
+                                            >
+                                                <Text as="span" variant="body-sm" weight={600} color="inherit">
+                                                    Apri
+                                                </Text>
+                                                <ChevronRight size={14} aria-hidden="true" />
+                                            </button>
+                                        </>
+                                    )}
                                 </td>
                             </tr>
                             <AnimatePresence initial={false}>

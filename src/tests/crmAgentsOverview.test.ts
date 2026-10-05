@@ -129,9 +129,9 @@ describe("agentRows", () => {
 });
 
 describe("righe, spesa e coda", () => {
-    it("sei agenti nell'ordine del canvas, la spesa condivisa segnata", () => {
+    it("sette agenti, Sentinella in arrivo, nell'ordine del canvas, la spesa condivisa segnata", () => {
         const rows = agentRows({ settings: SETTINGS, trust: TRUST, drafts: [], giro: giroToday([], [], NOW), now: NOW });
-        expect(rows.map(r => r.id)).toEqual(["conversazione", "solleciti", "decisioni_sensibili", "revisore", "riattivazione", "gea"]);
+        expect(rows.map(r => r.id)).toEqual(["conversazione", "solleciti", "decisioni_sensibili", "revisore", "riattivazione", "gea", "sentinella"]);
         expect(rows.filter(r => r.spendShared).map(r => r.id)).toEqual(["solleciti", "riattivazione"]);
         expect(rows.find(r => r.id === "riattivazione")!.step).toBeNull();
     });

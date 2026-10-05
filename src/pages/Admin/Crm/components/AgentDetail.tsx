@@ -5,7 +5,7 @@ import { Tabs } from "@/components/ui/Tabs/Tabs";
 import Text from "@/components/ui/Text/Text";
 import type { AgentActivityItem, AgentDetailData } from "@/utils/crm/agentDetail";
 import type { AgentRow } from "@/utils/crm/agentsOverview";
-import { formatUsd } from "@shared/crmAi";
+import { formatAiCost } from "@shared/crmAi";
 import styles from "../Agents.module.scss";
 
 const MONTH = new Intl.DateTimeFormat("it-IT", { timeZone: "Europe/Rome", month: "long" });
@@ -129,7 +129,7 @@ export function AgentDetail({
                             Spesa, ultimi 7 giorni
                         </Text>
                         <Text as="span" variant="body-sm" weight={600}>
-                            {row.role ? formatUsd(weekTotal) : "—"}
+                            {row.role ? formatAiCost(weekTotal) : "—"}
                         </Text>
                     </div>
                     {row.role ? (
@@ -147,13 +147,13 @@ export function AgentDetail({
                                         <Text as="span" variant="caption" colorVariant="muted">
                                             {d.label}
                                         </Text>
-                                        <span className="visually-hidden">{formatUsd(d.usd)}</span>
+                                        <span className="visually-hidden">{formatAiCost(d.usd)}</span>
                                     </li>
                                 ))}
                             </ol>
                             <div className={styles.spendFoot}>
                                 <Text as="span" variant="body-sm">
-                                    {data?.monthUsd != null ? `${formatUsd(data.monthUsd)} a ${month}` : "…"}
+                                    {data?.monthUsd != null ? `${formatAiCost(data.monthUsd)} a ${month}` : "…"}
                                     {data?.perUnit ? ` · ${data.perUnit}` : ""}
                                 </Text>
                             </div>

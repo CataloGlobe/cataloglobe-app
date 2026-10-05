@@ -1,7 +1,7 @@
 import { BarList } from "@/components/ui/BarList/BarList";
 import Text from "@/components/ui/Text/Text";
 import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
-import { CRM_AI_ROLE_LABEL, formatUsd, spendShare } from "@shared/crmAi";
+import { CRM_AI_ROLE_LABEL, formatAiCost, spendShare } from "@shared/crmAi";
 import type { CrmAiRole, CrmAiSpend } from "@/types/crm";
 import type { DraftMix } from "@/utils/crm/agentsOverview";
 import type { ChannelHealth } from "@/utils/crm/waLabels";
@@ -76,11 +76,11 @@ export function AgentsStatusLine({
                     Spesa oggi
                 </Text>
                 <Text as="span" variant="body-sm" weight={700}>
-                    {spend ? formatUsd(spend.dayUsd) : "—"}
+                    {spend ? formatAiCost(spend.dayUsd) : "—"}
                 </Text>
                 {spend && (
                     <Text as="span" variant="body-sm" colorVariant="muted">
-                        di {formatUsd(spend.dayCap)}
+                        di {formatAiCost(spend.dayCap)}
                     </Text>
                 )}
             </span>
@@ -168,7 +168,7 @@ export function SpendCard({
                             id: r.role,
                             label: CRM_AI_ROLE_LABEL[r.role],
                             value: r.usd,
-                            valueLabel: formatUsd(r.usd)
+                            valueLabel: formatAiCost(r.usd)
                         }))}
                     />
                 )}
@@ -183,15 +183,15 @@ export function SpendCard({
                     <Text as="span" variant="body-sm" colorVariant="muted">
                         Totale{" "}
                         <Text as="span" variant="body-sm" weight={700} color="inherit" className={styles.spendStrong}>
-                            {formatUsd(spend.monthUsd)} di {formatUsd(spend.monthCap)}
+                            {formatAiCost(spend.monthUsd)} di {formatAiCost(spend.monthCap)}
                         </Text>{" "}
                         · oggi{" "}
                         <Text as="span" variant="body-sm" weight={700} color="inherit" className={styles.spendStrong}>
-                            {formatUsd(spend.dayUsd)} di {formatUsd(spend.dayCap)}
+                            {formatAiCost(spend.dayUsd)} di {formatAiCost(spend.dayCap)}
                         </Text>{" "}
                         · a messaggio{" "}
                         <Text as="span" variant="body-sm" weight={700} color="inherit" className={styles.spendStrong}>
-                            {perMessage === null ? "—" : `${perMessage.toFixed(3).replace(".", ",")} $`}
+                            {perMessage === null ? "—" : formatAiCost(perMessage, 3)}
                         </Text>
                     </Text>
                 </div>
