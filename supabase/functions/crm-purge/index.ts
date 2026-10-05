@@ -11,7 +11,7 @@
 // Poi public.crm_purge_agent_decisions (20261002210100): righe del diario degli
 // agenti senza locale né lead, stessa soglia. Poi public.crm_purge_messages
 // (20261002220100): messaggi WhatsApp più vecchi della soglia, anche nei
-// locali che restano. Poi public.crm_purge_gea_inbox (20261006080000): messaggi
+// locali che restano. Poi public.crm_purge_gea_inbox (20261006130000): messaggi
 // a Gea e sue risposte, stessa soglia.
 //
 // AUTENTICAZIONE fail-CLOSED: X-Job-Secret = CRM_JOB_SECRET.

@@ -1,5 +1,5 @@
 -- =============================================================================
--- Grant della funzione nuova di 20261006080000 (file a parte: CREATE FUNCTION
+-- Grant della funzione nuova di 20261006130000 (file a parte: CREATE FUNCTION
 -- e REVOKE nello stesso file fanno fallire db push, docs/patterns/storage-sql.md).
 --   crm_purge_gea_inbox
 --       solo service_role: la chiama l'edge crm-purge
