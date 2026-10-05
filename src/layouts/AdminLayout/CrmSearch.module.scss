@@ -1,0 +1,330 @@
+// Cerca del CRM (canvas C4, 2026-10-05). Il campo vive nella barra indaco
+// (token ridefiniti da `.crmNav`), il riquadro nel body coi token normali.
+
+.anchor {
+  display: block;
+}
+
+/* ===== Campo nella barra ===== */
+.field {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  height: 36px;
+  padding: 0 var(--space-10);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--hover-bg);
+  color: var(--text-muted);
+  cursor: text;
+
+  input {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: var(--text-muted);
+    font: inherit;
+
+    &::placeholder {
+      color: var(--text-muted);
+    }
+  }
+
+  &[data-open] {
+    border-color: var(--crm-nav-field-border);
+    background: var(--crm-nav-field-bg);
+    box-shadow: var(--crm-nav-field-ring);
+    color: var(--brand-primary);
+
+    input {
+      color: var(--crm-nav-field-text);
+    }
+  }
+}
+
+.kbd {
+  font: inherit;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-inner);
+  color: inherit;
+}
+
+.iconTrigger {
+  all: unset;
+  box-sizing: border-box;
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 36px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--hover-bg);
+  color: var(--text-muted);
+  cursor: pointer;
+
+  &:hover {
+    background: var(--brand-primary-soft);
+    color: var(--text);
+  }
+
+  &:focus-visible {
+    box-shadow: var(--shadow-focus);
+  }
+}
+
+/* ===== Riquadro accanto al campo ===== */
+.drop {
+  position: fixed;
+  z-index: var(--z-overlay);
+  display: flex;
+  flex-direction: column;
+  width: min(540px, calc(100vw - 260px));
+  max-height: calc(100vh - 32px);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--surface);
+  box-shadow: var(--shadow-overlay);
+  transform-origin: 0 24px;
+
+  // La freccina che lo lega al campo.
+  &::before {
+    content: "";
+    position: absolute;
+    left: -7px;
+    top: 18px;
+    width: 12px;
+    height: 12px;
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    transform: rotate(45deg);
+  }
+}
+
+.innerField {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  margin: var(--space-12) 14px 0;
+  height: 40px;
+  padding: 0 var(--space-12);
+  border: 1px solid var(--brand-primary);
+  border-radius: var(--radius-control);
+  box-shadow: var(--shadow-focus);
+  color: var(--brand-primary);
+
+  input {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: var(--text);
+    font: inherit;
+  }
+}
+
+.scopes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-6);
+  padding: var(--space-12) 14px var(--space-2);
+}
+
+.scope {
+  all: unset;
+  box-sizing: border-box;
+  padding: 3px var(--space-10);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+
+  &:hover {
+    background: var(--hover-bg);
+  }
+
+  &:focus-visible {
+    box-shadow: var(--shadow-focus);
+  }
+
+  &[aria-pressed="true"] {
+    border-color: var(--crm-nav-bg);
+    background: var(--crm-nav-bg);
+    color: var(--crm-nav-text-strong);
+  }
+}
+
+.list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-2) var(--space-6) var(--space-6);
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+}
+
+.caption {
+  padding: var(--space-10) var(--space-8) var(--space-4);
+  letter-spacing: 0.04em;
+}
+
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.res {
+  display: flex;
+  align-items: center;
+  gap: var(--space-10);
+  min-height: 42px;
+  padding: 7px var(--space-12);
+  border-radius: var(--radius-control);
+  cursor: pointer;
+  // Le righe entrano una dopo l'altra, come le bolle di Gea.
+  animation: pop 0.32s cubic-bezier(0.2, 0.9, 0.25, 1.15) both;
+
+  @for $i from 2 through 6 {
+    &:nth-of-type(#{$i}) {
+      animation-delay: #{($i - 1) * 0.04}s;
+    }
+  }
+
+  &:hover {
+    background: var(--hover-bg);
+  }
+
+  &[aria-selected="true"] {
+    background: var(--brand-primary-soft);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
+.leadName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pill {
+  flex: none;
+  padding: 1px var(--space-8);
+  border-radius: var(--radius-pill);
+  white-space: nowrap;
+
+  &[data-tone="conv"] {
+    background: var(--brand-primary-soft);
+    color: var(--on-brand-soft);
+  }
+
+  &[data-tone="new"] {
+    background: var(--color-warning-100);
+    color: var(--color-warning-800);
+  }
+
+  &[data-tone="gray"] {
+    background: var(--hover-bg);
+    color: var(--text-muted);
+  }
+}
+
+.wait {
+  flex: none;
+  color: var(--text-muted);
+  white-space: nowrap;
+
+  &[data-level="arancio"] {
+    color: var(--text-warning);
+    font-weight: 600;
+  }
+
+  &[data-level="rosso"] {
+    color: var(--text-danger);
+    font-weight: 600;
+  }
+}
+
+// Chiama, Scrivi, Apri: sulla riga scelta o sotto il mouse.
+.acts {
+  display: none;
+  gap: var(--space-6);
+
+  .res:hover &,
+  .res[aria-selected="true"] & {
+    display: flex;
+  }
+}
+
+.ico {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  background: var(--hover-bg);
+  color: var(--brand-primary);
+}
+
+.gav {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-pill);
+  background: var(--brand-primary);
+  color: var(--on-brand);
+  font-weight: 700;
+}
+
+.grow {
+  flex: 1;
+  min-width: 0;
+}
+
+.empty {
+  margin: 0;
+  padding: var(--space-12) var(--space-8);
+}
+
+.foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding: 9px 14px;
+  border-top: 1px solid var(--border);
+  border-radius: 0 0 18px 18px;
+  background: var(--bg);
+
+  kbd {
+    font: inherit;
+    padding: 0 var(--space-4);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-inner);
+    background: var(--surface);
+  }
+}
+
+.footEnd {
+  margin-left: auto;
+}

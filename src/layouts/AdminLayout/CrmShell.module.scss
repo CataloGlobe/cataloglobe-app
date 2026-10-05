@@ -28,51 +28,6 @@
   font-weight: 500;
 }
 
-.brandSearch {
-  display: flex;
-  align-items: center;
-  gap: var(--space-8);
-  width: 100%;
-  height: 36px;
-  padding-inline: 10px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-control);
-  background: var(--hover-bg);
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: background var(--timing-motion-fast) var(--easing-state);
-
-  &:hover {
-    background: var(--brand-primary-soft);
-    color: var(--text);
-  }
-
-  &:focus-visible {
-    outline: none;
-    box-shadow: var(--shadow-focus);
-  }
-}
-
-.brand[data-collapsed="true"] .brandSearch {
-  width: 40px;
-  justify-content: center;
-  padding: 0;
-}
-
-.brandSearchText {
-  flex: 1;
-  text-align: start;
-  color: inherit;
-}
-
-.kbd {
-  font: inherit;
-  padding: 0 var(--space-4);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-inner);
-  color: inherit;
-}
-
 /* ===== Testata della pagina ===== */
 .pageHeader {
   display: flex;
@@ -105,64 +60,6 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-8);
-}
-
-/* ===== Cerca ⌘K ===== */
-.search {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-8);
-}
-
-.searchField {
-  display: flex;
-  align-items: center;
-  gap: var(--space-8);
-  padding: 0 var(--space-12);
-  height: 44px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-control);
-  background: var(--surface);
-  color: var(--text-muted);
-
-  &:focus-within {
-    border-color: var(--brand-primary);
-    box-shadow: var(--shadow-focus);
-  }
-}
-
-.searchInput {
-  flex: 1;
-  min-width: 0;
-  border: none;
-  background: transparent;
-  color: var(--text);
-  font: inherit;
-  outline: none;
-}
-
-.searchResults {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.searchResult {
-  display: flex;
-  flex-direction: column;
-  padding: var(--space-8) var(--space-12);
-  border-radius: var(--radius-control);
-  cursor: pointer;
-
-  &[aria-selected="true"] {
-    background: var(--brand-primary-soft);
-  }
-}
-
-.searchEmpty {
-  padding: var(--space-8) var(--space-12);
 }
 
 /* ===== Barra in basso, al telefono ===== */

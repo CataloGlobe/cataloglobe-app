@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Columns3, List, Plus, Search, Settings, UserPlus } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar/Avatar";
@@ -181,7 +181,19 @@ export default function LeadsPage() {
     const [actionError, setActionError] = useState<string | null>(null);
     const [lostVenueId, setLostVenueId] = useState<string | null>(null);
     const [lockRequest, setLockRequest] = useState<StageLockRequest | null>(null);
-    const [isAddOpen, setIsAddOpen] = useState(false);
+    // `?aggiungi=1` (dal Cerca): il drawer si apre e il parametro se ne va.
+    const [isAddOpen, setIsAddOpen] = useState(() => params.get("aggiungi") === "1");
+    useEffect(() => {
+        if (params.get("aggiungi") !== "1") return;
+        setIsAddOpen(true);
+        setParams(
+            p => {
+                p.delete("aggiungi");
+                return p;
+            },
+            { replace: true }
+        );
+    }, [params, setParams]);
     const [isImportOpen, setIsImportOpen] = useState(false);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 

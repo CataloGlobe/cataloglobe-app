@@ -3,10 +3,12 @@ import { listCrmVenues } from "@/services/supabase/crm";
 import { listCrmAgentDraftsOpenOrSince } from "@/services/supabase/crmAgentTrial";
 import type { CrmAgentDraftRow, CrmVenueListItem } from "@/types/crm";
 import { romeTodayStart } from "@/utils/crm/agentsOverview";
-import { navSignals, type NavSignal } from "@/utils/crm/crmHome";
+import { navSignals, venueWaits, type NavSignal, type VenueWait } from "@/utils/crm/crmHome";
 
 export interface CrmNavData {
     venues: CrmVenueListItem[];
+    /** Cosa aspetta voi su ogni locale (Cerca: «Aspettano risposta» e l'attesa a destra). */
+    waits: Map<string, VenueWait>;
     home: NavSignal;
     lead: NavSignal;
 }
@@ -45,7 +47,8 @@ export function useCrmNavData(pathname: string): CrmNavData {
     }, [pathname]);
 
     return useMemo(() => {
-        if (venues.length === 0 && drafts.length === 0) return { venues, home: EMPTY, lead: EMPTY };
-        return { venues, ...navSignals({ drafts, venues, now: new Date() }) };
+        if (venues.length === 0 && drafts.length === 0) return { venues, waits: new Map(), home: EMPTY, lead: EMPTY };
+        const now = new Date();
+        return { venues, waits: venueWaits({ drafts, venues, now }), ...navSignals({ drafts, venues, now }) };
     }, [venues, drafts]);
 }

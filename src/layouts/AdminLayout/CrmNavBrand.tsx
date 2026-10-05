@@ -1,29 +1,16 @@
-import { Search } from "lucide-react";
+import type { ReactNode } from "react";
 import { Logo } from "@/components/ui/Logo/Logo";
-import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
 import Text from "@/components/ui/Text/Text";
 import styles from "./CrmShell.module.scss";
 
 interface CrmNavBrandProps {
     collapsed: boolean;
-    onSearch: () => void;
+    /** Il Cerca (CrmSearch): campo con la barra aperta, icona con la barra chiusa. */
+    search: ReactNode;
 }
 
-/** In cima alla barra (7A2): il marchio del CRM e Cerca ⌘K. Chiusa, solo le icone. */
-export function CrmNavBrand({ collapsed, onSearch }: CrmNavBrandProps) {
-    const searchButton = (
-        <button type="button" className={styles.brandSearch} onClick={onSearch} aria-label="Cerca nel CRM (⌘K)">
-            <Search size={16} aria-hidden="true" />
-            {!collapsed && (
-                <>
-                    <Text as="span" variant="body-sm" className={styles.brandSearchText}>
-                        Cerca
-                    </Text>
-                    <kbd className={styles.kbd}>⌘K</kbd>
-                </>
-            )}
-        </button>
-    );
+/** In cima alla barra (7A2): il marchio del CRM e il Cerca. Chiusa, solo le icone. */
+export function CrmNavBrand({ collapsed, search }: CrmNavBrandProps) {
     return (
         <div className={styles.brand} data-collapsed={collapsed}>
             <div className={styles.brandMark}>
@@ -34,13 +21,7 @@ export function CrmNavBrand({ collapsed, onSearch }: CrmNavBrandProps) {
                     </Text>
                 )}
             </div>
-            {collapsed ? (
-                <Tooltip content="Cerca (⌘K)" side="right" sideOffset={12}>
-                    <span>{searchButton}</span>
-                </Tooltip>
-            ) : (
-                searchButton
-            )}
+            {search}
         </div>
     );
 }

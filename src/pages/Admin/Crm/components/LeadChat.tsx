@@ -181,6 +181,20 @@ export function LeadChat({
 
     const editTooLong = editing !== null && editing.length > DRAFT_MAX;
     const writeBox = canWrite && (phone || !draft);
+    // `?scrivi=1` (dal Cerca, ⌘ Invio): il cursore in «Scrivi tu», se c'è.
+    const writeRef = useRef<HTMLInputElement>(null);
+    const wantsWrite = params.get("scrivi") === "1";
+    useEffect(() => {
+        if (!wantsWrite) return;
+        writeRef.current?.focus();
+        setParams(
+            p => {
+                p.delete("scrivi");
+                return p;
+            },
+            { replace: true }
+        );
+    }, [wantsWrite, setParams]);
     const size = phone ? "md" : "sm";
 
     return (
@@ -318,6 +332,7 @@ export function LeadChat({
                         }}
                     >
                         <TextInput
+                            ref={writeRef}
                             aria-label="Scrivi tu, si apre WhatsApp"
                             placeholder="Scrivi tu"
                             value={writeText}

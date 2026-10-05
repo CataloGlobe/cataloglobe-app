@@ -1,4 +1,5 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/Button/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
@@ -117,6 +118,20 @@ export default function AgentsPage() {
     );
 
     const brakeOn = settings.data?.brake_on ?? null;
+    // `?pausa=1` (dal Cerca): la stessa conferma di «Metti in pausa tutto», se non è già in pausa.
+    const [params, setParams] = useSearchParams();
+    const wantsPause = params.get("pausa") === "1";
+    useEffect(() => {
+        if (!wantsPause || brakeOn === null) return;
+        if (!brakeOn) setBrakeDialog("stop");
+        setParams(
+            p => {
+                p.delete("pausa");
+                return p;
+            },
+            { replace: true }
+        );
+    }, [wantsPause, brakeOn, setParams]);
     const headerActions = useMemo(
         () => (
             <>

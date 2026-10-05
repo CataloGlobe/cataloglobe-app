@@ -11,7 +11,7 @@ import AdminSidebar from "./AdminSidebar";
 import { CrmBottomBar } from "./CrmBottomBar";
 import { CrmNavBrand } from "./CrmNavBrand";
 import { CrmPageHeader } from "./CrmPageHeader";
-import { CrmSearchDialog } from "./CrmSearchDialog";
+import { CrmSearch } from "./CrmSearch";
 import { GeaPanel } from "./GeaPanel";
 import { useCrmNavData } from "./useCrmNavData";
 import styles from "../shared/layoutShell.module.scss";
@@ -29,7 +29,7 @@ import adminStyles from "./AdminLayout.module.scss";
  * è solo header e navigazione.
  *
  * Grafica del CRM (canvas, versione finale del 2026-10-05): niente testata in
- * alto, la barra indaco porta marchio, Cerca ⌘K e contatori; il titolo sta
+ * alto, la barra indaco porta marchio, Cerca (C4, ⌘K) e contatori; il titolo sta
  * nella pagina. Sulla scheda di un lead la barra parte chiusa. Al telefono la
  * barra in basso (Home · Lead · Agenda · Altro) prende il posto del menu.
  */
@@ -54,19 +54,6 @@ export default function AdminLayout() {
     const toggleCollapse = () => (isLeadDetail ? setDetailCollapsed(v => !v) : setPagesCollapsed(() => !sidebarCollapsed));
 
     const nav = useCrmNavData(pathname);
-    const [searchOpen, setSearchOpen] = useState(false);
-    const closeSearch = useCallback(() => setSearchOpen(false), []);
-    useEffect(() => {
-        const onKey = (e: KeyboardEvent) => {
-            if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
-                e.preventDefault();
-                setSearchOpen(v => !v);
-            }
-        };
-        window.addEventListener("keydown", onKey);
-        return () => window.removeEventListener("keydown", onKey);
-    }, []);
-
     useEffect(() => {
         contentRef.current?.scrollTo(0, 0);
     }, [pathname]);
@@ -76,8 +63,15 @@ export default function AdminLayout() {
     const geaPage = useMemo(() => geaPageOf(pathname), [pathname]);
     const showGea = geaPage !== null && !(isMobile && isLeadChat);
     const [geaOpen, setGeaOpen] = useState(false);
+    // «Chiedi a Gea» dal Cerca: Gea si apre e la domanda parte da sola.
+    const [geaQuestion, setGeaQuestion] = useState<string | null>(null);
     const openGea = useCallback(() => setGeaOpen(true), []);
     const closeGea = useCallback(() => setGeaOpen(false), []);
+    const askGea = useCallback((question: string) => {
+        setGeaQuestion(question);
+        setGeaOpen(true);
+    }, []);
+    const clearGeaQuestion = useCallback(() => setGeaQuestion(null), []);
 
     // ── Pallino "richieste in attesa" ──────────────────────────────────────
     // Fonte UNICA, montata qui come il gemello lato cliente in `MainLayout`:
@@ -138,7 +132,20 @@ export default function AdminLayout() {
                                     supportPending={supportPending}
                                     home={nav.home}
                                     lead={nav.lead}
-                                    headerSlot={<CrmNavBrand collapsed={sidebarCollapsed} onSearch={() => setSearchOpen(true)} />}
+                                    headerSlot={
+                                        <CrmNavBrand
+                                            collapsed={sidebarCollapsed}
+                                            search={
+                                                <CrmSearch
+                                                    collapsed={sidebarCollapsed}
+                                                    venues={nav.venues}
+                                                    waits={nav.waits}
+                                                    homeCount={nav.home.count}
+                                                    onAskGea={askGea}
+                                                />
+                                            }
+                                        />
+                                    }
                                 />
                             </div>
                         )}
@@ -155,8 +162,18 @@ export default function AdminLayout() {
                         </main>
                     </div>
                     {showBottomBar && <CrmBottomBar home={nav.home} lead={nav.lead} />}
-                    <CrmSearchDialog isOpen={searchOpen} onClose={closeSearch} venues={nav.venues} />
-                    {showGea && <GeaPanel open={geaOpen} page={geaPage} raised={showBottomBar} onOpen={openGea} onClose={closeGea} />}
+                    {showGea && (
+                        <GeaPanel
+                            open={geaOpen}
+                            page={geaPage}
+                            raised={showBottomBar}
+                            phone={isMobile}
+                            question={geaQuestion}
+                            onQuestionTaken={clearGeaQuestion}
+                            onOpen={openGea}
+                            onClose={closeGea}
+                        />
+                    )}
                 </PageHeaderProvider>
             </BreadcrumbProvider>
         </div>
