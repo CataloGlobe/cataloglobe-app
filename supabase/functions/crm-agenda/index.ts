@@ -21,9 +21,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getPublicSiteUrl } from "../_shared/publicSiteUrl.ts";
 import { loadTeam } from "../_shared/crmLeadMessage.ts";
-import { processAgenda } from "../_shared/crmAgendaJob.ts";
-import { getAccessToken, listEvents, parseCalendarEvents, parseServiceAccount } from "../_shared/crmGoogleCalendar.ts";
-import { romeWallClock } from "../_shared/crmCallSlots.ts";
+import { loadAgendaBusy, processAgenda } from "../_shared/crmAgendaJob.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -41,52 +39,6 @@ function json(status: number, body: Record<string, unknown>): Response {
         status,
         headers: { ...corsHeaders, "Content-Type": "application/json" }
     });
-}
-
-function romeDayStart(day: string): string {
-    const [y, m, d] = day.split("-").map(Number);
-    return romeWallClock(y, m, d, 0, 0).toISOString();
-}
-
-async function busy(supabase, team, from: Date, to: Date) {
-    const { data: rows, error } = await supabase
-        .from("crm_appointments")
-        .select("id, starts_at, ends_at, caller_user_id, crm_venues(name)")
-        .in("status", ["proposed", "confirmed"])
-        .lt("starts_at", to.toISOString())
-        .gt("ends_at", from.toISOString());
-    if (error) throw error;
-    const crm = (rows ?? []).map(r => {
-        const caller = team.find(m => m.user_id === r.caller_user_id)?.display_name;
-        return {
-            start: new Date(r.starts_at).toISOString(),
-            end: new Date(r.ends_at).toISOString(),
-            label: `Telefonata: ${r.crm_venues?.name ?? "locale"}${caller ? ` (chiama ${caller})` : ""}`,
-            appointment_id: r.id,
-            caller_user_id: r.caller_user_id
-        };
-    });
-
-    const { data: settings } = await supabase.from("crm_settings").select("google_calendar_id").eq("id", true).maybeSingle();
-    const calendarId = settings?.google_calendar_id?.trim() || null;
-    const account = parseServiceAccount(Deno.env.get("GOOGLE_SERVICE_ACCOUNT_JSON"));
-    if (!calendarId) return { google: "off", google_error: null, busy: crm };
-    if (!account) {
-        return { google: "error", google_error: "Chiave dell'account di servizio Google mancante.", busy: crm };
-    }
-    try {
-        const token = await getAccessToken(account);
-        const items = await listEvents(token, calendarId, from.toISOString(), to.toISOString());
-        // Gli eventi creati dal CRM ci sono già come telefonate: non si contano due volte.
-        const known = new Set(crm.map(c => c.appointment_id));
-        const google = parseCalendarEvents(items, romeDayStart)
-            .filter(e => !e.appointmentId || !known.has(e.appointmentId))
-            .map(e => ({ start: e.start, end: e.end, label: e.label, appointment_id: e.appointmentId, caller_user_id: null }));
-        return { google: "ok", google_error: null, busy: [...crm, ...google] };
-    } catch (err) {
-        console.error("crm-agenda: Google", (err as Error)?.message);
-        return { google: "error", google_error: "Calendario Google non raggiungibile.", busy: crm };
-    }
 }
 
 Deno.serve(async (req: Request) => {
@@ -118,7 +70,7 @@ Deno.serve(async (req: Request) => {
             if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime()) || to <= from || to.getTime() - from.getTime() > MAX_RANGE_MS) {
                 return json(400, { error: "invalid_range" });
             }
-            return json(200, await busy(supabase, team, from, to));
+            return json(200, await loadAgendaBusy(supabase, team, from, to));
         }
         if (body?.action === "run") {
             const stats = await processAgenda(supabase, team, BOT_TOKEN, getPublicSiteUrl());

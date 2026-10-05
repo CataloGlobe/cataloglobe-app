@@ -83,13 +83,20 @@ describe("parole", () => {
 
     it("messaggi al lead", () => {
         const a = { starts_at: "2026-10-08T15:45:00.000Z", time_set_at: "2026-10-05T08:00:00.000Z", status: "confirmed" as const, reminder_queued_at: null };
-        const on = { call_confirm_message: "x", call_reminder_message: "y" };
+        const on = { call_confirm_message: "x", call_reminder_message: "y", call_soon_message: null };
         expect(describeLeadMessages(a, on)).toBe("Conferma al lead su WhatsApp. Promemoria mercoledì 7 alle 18:00.");
         expect(describeLeadMessages({ ...a, time_set_at: "2026-10-07T17:00:00.000Z" }, on)).toContain("Niente promemoria");
-        expect(describeLeadMessages(a, { call_confirm_message: null, call_reminder_message: null })).toBe(
+        expect(describeLeadMessages(a, { call_confirm_message: null, call_reminder_message: null, call_soon_message: null })).toBe(
             "Conferma spenta (testo non impostato). Promemoria spento (testo non impostato)."
         );
         expect(describeLeadMessages({ ...a, status: "proposed" }, on)).toContain("chi chiama dice sì");
+        const soon = { ...on, call_soon_message: "z" };
+        expect(describeLeadMessages(a, soon)).toBe(
+            "Conferma al lead su WhatsApp. Promemoria mercoledì 7 alle 18:00. Un altro promemoria un'ora prima."
+        );
+        expect(describeLeadMessages({ ...a, time_set_at: "2026-10-08T14:00:00.000Z" }, soon)).toContain(
+            "Niente promemoria un'ora prima"
+        );
     });
 
     it("errori per codice", () => {

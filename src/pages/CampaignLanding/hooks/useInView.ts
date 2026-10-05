@@ -13,14 +13,19 @@ export const ENTRY_ROOT_MARGIN = "0px 0px -12% 0px";
  * `rootMargin`. Con un margine, un blocco in fondo alla pagina che non può
  * salire abbastanza entra comunque quando la pagina è scrollata fino in fondo
  * e lui è a schermo.
- * Senza IntersectionObserver (browser vecchi) è `true` subito.
+ * Senza IntersectionObserver (browser vecchi) diventa `true` al montaggio.
+ * Lo stato iniziale è sempre `false`: è quello dell'HTML prerenderizzato.
  */
 export function useInView(ref: RefObject<Element | null>, threshold = 0.15, rootMargin?: string): boolean {
-    const [inView, setInView] = useState(() => typeof IntersectionObserver === "undefined");
+    const [inView, setInView] = useState(false);
 
     useEffect(() => {
         const el = ref.current;
         if (!el || inView) return;
+        if (typeof IntersectionObserver === "undefined") {
+            setInView(true);
+            return;
+        }
         const io = new IntersectionObserver(
             (entries) => {
                 // Il primo avviso arriva anche sotto soglia: conta il rapporto

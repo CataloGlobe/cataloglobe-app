@@ -10,10 +10,12 @@ import { useEffect, useRef, useState, type RefObject } from "react";
  * al rientro ripartono da capo. Uno scroll piccolo non lo fa scattare.
  *
  * Senza IntersectionObserver (browser vecchi) conta solo la scheda.
+ * Gli stati iniziali sono fissi (fuori schermo, scheda in primo piano): sono
+ * quelli dell'HTML prerenderizzato, il browser li corregge al montaggio.
  */
 export function useVisible(ref: RefObject<Element | null>, threshold = 0.15, onExit?: () => void): boolean {
-    const [onScreen, setOnScreen] = useState(() => typeof IntersectionObserver === "undefined");
-    const [pageShown, setPageShown] = useState(() => typeof document === "undefined" || !document.hidden);
+    const [onScreen, setOnScreen] = useState(false);
+    const [pageShown, setPageShown] = useState(true);
     const exit = useRef(onExit);
 
     useEffect(() => {
@@ -22,7 +24,11 @@ export function useVisible(ref: RefObject<Element | null>, threshold = 0.15, onE
 
     useEffect(() => {
         const el = ref.current;
-        if (!el || typeof IntersectionObserver === "undefined") return;
+        if (!el) return;
+        if (typeof IntersectionObserver === "undefined") {
+            setOnScreen(true);
+            return;
+        }
         let seen = false;
         const io = new IntersectionObserver(
             (entries) => {
@@ -44,6 +50,7 @@ export function useVisible(ref: RefObject<Element | null>, threshold = 0.15, onE
 
     useEffect(() => {
         const onChange = () => setPageShown(!document.hidden);
+        onChange();
         document.addEventListener("visibilitychange", onChange);
         return () => document.removeEventListener("visibilitychange", onChange);
     }, []);

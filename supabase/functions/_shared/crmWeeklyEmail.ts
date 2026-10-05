@@ -1,7 +1,7 @@
 // Riepilogo del CRM via email, ogni lunedì (F1-9): testo puro.
 //
 // Zero import: lo usano crm-notify (job «weekly») e i test. I numeri vengono
-// da crm_summary (migration 20261004020000), gli stessi di /admin/riepilogo.
+// da crm_summary (migration 20261004020000), letti solo da questa mail (in /admin il Riepilogo è una vista di Lead).
 
 export interface WeeklySummaryNumbers {
     leads_in: number;

@@ -401,7 +401,7 @@ async function processWeekly(supabase, team, appUrl, now) {
         current,
         previous,
         weekLabel: week.label,
-        summaryUrl: appUrl ? `${appUrl}/admin/riepilogo` : null
+        summaryUrl: appUrl ? `${appUrl}/admin/lead?vista=riepilogo` : null
     });
     // Si contano solo gli invii riusciti. Nessuno riuscito: la settimana torna
     // libera e il giro dopo del cron (fino alle 10 di Roma) riprova; all'ultimo
@@ -422,7 +422,7 @@ async function processWeekly(supabase, team, appUrl, now) {
     if (sent === 0) {
         await supabase.from("crm_settings").update({ summary_mail_week: null }).eq("id", true);
         if (romeHour(now) >= 10 && now.getUTCMinutes() >= 40) {
-            await sendToTeam(supabase, "La mail del lunedì col riepilogo non è partita. Il riepilogo è in /admin/riepilogo.", {
+            await sendToTeam(supabase, "La mail del lunedì col riepilogo non è partita. Il riepilogo è in /admin/lead?vista=riepilogo.", {
                 logTag: "crm-notify weekly"
             });
         }

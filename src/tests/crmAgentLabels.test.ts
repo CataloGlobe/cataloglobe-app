@@ -4,6 +4,7 @@ import {
     CRM_MODEL_OPTIONS,
     crmAgentErrorMessage,
     decisionActionLabel,
+    draftStatusLabel,
     formatUsdInput,
     modelLabel,
     parseUsdCap
@@ -72,5 +73,59 @@ describe("messaggi", () => {
             "Il tetto di oggi non può superare quello del mese."
         );
         expect(crmAgentErrorMessage(null)).toBe("Qualcosa non ha funzionato. Riprova.");
+    });
+});
+
+describe("agente in prova (F1-3)", () => {
+    it("fiducia in una riga", async () => {
+        const { describeTrust } = await import("@/utils/crm/agentLabels");
+        expect(describeTrust({ approved_in_row: 1, total_approved: 3, total_edited: 1, total_discarded: 0 })).toBe(
+            "1 approvata di fila senza modifiche · in tutto 3 approvate, 1 corrette, 0 scartate"
+        );
+        expect(describeTrust({ approved_in_row: 4, total_approved: 4, total_edited: 0, total_discarded: 0 })).toContain("4 approvate di fila");
+    });
+});
+
+describe("riattivazione (F1-6)", () => {
+    it("segnaposti ammessi", async () => {
+        const { reactivationTextError } = await import("@/utils/crm/agentLabels");
+        expect(reactivationTextError("")).toBeNull();
+        expect(reactivationTextError("Ciao {nome}, sono {mittente} di CataloGlobe: {locale} come va?")).toBeNull();
+        expect(reactivationTextError("Ciao {giorno}")).toBe("Segnaposto sconosciuto: {giorno}.");
+        expect(reactivationTextError("x".repeat(1001))).toBe("Al massimo 1000 caratteri.");
+    });
+});
+
+describe("uscita dalla prova (F1-7)", () => {
+    it("stato del tipo", async () => {
+        const { describeTrust } = await import("@/utils/crm/agentLabels");
+        expect(describeTrust({ approved_in_row: 2, total_approved: 2, total_edited: 0, total_discarded: 0, required_in_row: 5, autonomous: false })).toContain(
+            "in prova (ne servono 5 di fila e 3 giorni)"
+        );
+        expect(describeTrust({ approved_in_row: 6, total_approved: 6, total_edited: 0, total_discarded: 0, required_in_row: 5, autonomous: true, total_auto: 4 })).toMatch(
+            /^fuori dalla prova · .*4 partite da sole$/
+        );
+    });
+});
+
+describe("draftStatusLabel", () => {
+    it("«Gestita» dice quale esito, dal motivo", () => {
+        expect(draftStatusLabel("handled", "È uno stop.")).toBe("Stop");
+        expect(draftStatusLabel("handled", "Obiezione, non stop.")).toBe("«Non adesso»");
+        expect(draftStatusLabel("handled", "Proponi altri orari.")).toBe("Altri orari");
+        expect(draftStatusLabel("handled", null)).toBe("Gestita da una persona");
+        expect(draftStatusLabel("sent", "È uno stop.")).toBe("Inviata così");
+        expect(draftStatusLabel("handled", "Messo in Perso.")).toBe("Messo in Perso");
+        expect(draftStatusLabel("discarded", null, "lost_proposal")).toBe("Resta aperto");
+        expect(draftStatusLabel("sent", "Inviata in autonomia.")).toBe("Partita da sola");
+        expect(draftStatusLabel("sent", "Era sbagliata.")).toBe("Partita da sola, era sbagliata");
+    });
+});
+
+describe("azioni del Diario dell'agente in prova", () => {
+    it("in italiano, mai il codice", () => {
+        for (const a of ["lead_stop", "draft_created", "draft_sent", "draft_edited", "draft_discard", "draft_handle", "draft_stop", "draft_objection", "draft_other", "call_from_agent", "draft_lost", "draft_auto_sent", "draft_wrong", "reactivation_lost", "autonomy_on", "autonomy_off", "replies_on", "replies_off", "followups_on", "followups_off", "gea_note", "gea_move_stage", "gea_assign", "gea_pause", "gea_resume", "gea_refused"]) {
+            expect(decisionActionLabel(a)).not.toBe(a.replace(/_/g, " "));
+        }
     });
 });

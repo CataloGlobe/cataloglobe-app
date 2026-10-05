@@ -14,28 +14,41 @@ import {
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import Text from "@/components/ui/Text/Text";
 import { crmAccountLabel } from "@/utils/crm/accountLabels";
-import { CRM_SOURCE_LABEL, CRM_STAGE_LABEL } from "@/utils/crm/stages";
-import { CRM_STAGES, type CrmStage, type CrmVenueListItem } from "@/types/crm";
-import styles from "./Crm.module.scss";
+import { CRM_STAGE_LABEL } from "@/utils/crm/stages";
+import type { ContactLine } from "@/utils/crm/leadViews";
+import { initials, PIPELINE_STAGES } from "@/utils/crm/leadViews";
+import type { CrmStage, CrmVenueListItem } from "@/types/crm";
+import styles from "./Leads.module.scss";
 
 /**
- * Pipeline a 10 colonne (wiki: pipeline-crm). Si trascina una carta in
- * un'altra colonna; Perso apre il dialogo del motivo (lo gestisce la pagina
- * con `onMove`). Clic sulla carta = scheda del locale. Da tastiera: Tab sulla
- * carta, spazio per prenderla, frecce, spazio per lasciarla.
+ * Le colonne dei lead (canvas R4a): nove fasi da Nuovo a Pagante, Perso è un
+ * filtro. Carte corte (nome, città con l'attesa o l'appuntamento, chi lo
+ * segue); il bordo arancio vuol dire «fermo da troppo». Dopo cinque carte
+ * «+ altri N» apre la colonna.
  *
- * Nessuno stile inline: la carta trascinata resta ferma (attenuata) e si
- * muove la sua copia nel DragOverlay, che dnd-kit posiziona da sé.
+ * Si trascina una carta in un'altra colonna (la pagina decide con `onMove`:
+ * fase bloccata, conferma). Clic sulla carta = scheda del locale. Da
+ * tastiera: Tab sulla carta, spazio per prenderla, frecce, spazio per lasciarla.
+ * Nessuno stile inline: si muove la copia nel DragOverlay.
  */
 
-type Props = {
+const COLUMN_LIMIT = 5;
+
+/** «Pagante» nella testata della colonna: «Cliente pagante» non ci sta. */
+const COLUMN_LABEL: Partial<Record<CrmStage, string>> = { cliente_pagante: "Pagante" };
+
+type CardInfo = {
+    meta: (venue: CrmVenueListItem) => ContactLine;
+    teamName: (userId: string | null) => string | null;
+};
+
+type Props = CardInfo & {
     venues: CrmVenueListItem[];
-    teamName: (userId: string | null) => string;
     onMove: (venue: CrmVenueListItem, stage: CrmStage) => void;
     onOpen: (venueId: string) => void;
 };
 
-export function PipelineBoard({ venues, teamName, onMove, onOpen }: Props) {
+export function PipelineBoard({ venues, meta, teamName, onMove, onOpen }: Props) {
     const [dragging, setDragging] = useState<CrmVenueListItem | null>(null);
     const sensors = useSensors(
         // 6 px prima di iniziare il trascinamento: sotto è un clic.
@@ -55,117 +68,124 @@ export function PipelineBoard({ venues, teamName, onMove, onOpen }: Props) {
     }
 
     return (
-        <DndContext
-            sensors={sensors}
-            onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
-            onDragCancel={() => setDragging(null)}
-        >
-            <div className={styles.board} role="list" aria-label="Pipeline">
-                {CRM_STAGES.map(stage => (
+        <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragCancel={() => setDragging(null)}>
+            <div className={styles.board} role="list" aria-label="Colonne dei lead">
+                {PIPELINE_STAGES.map(stage => (
                     <Column
                         key={stage}
                         stage={stage}
                         venues={venues.filter(v => v.stage === stage)}
+                        meta={meta}
                         teamName={teamName}
                         onOpen={onOpen}
                     />
                 ))}
             </div>
             <DragOverlay>
-                {dragging ? <CardBody venue={dragging} teamName={teamName} /> : null}
+                {dragging ? (
+                    <div className={styles.overlay}>
+                        <CardBody venue={dragging} meta={meta} teamName={teamName} />
+                    </div>
+                ) : null}
             </DragOverlay>
         </DndContext>
     );
 }
 
-type ColumnProps = {
-    stage: CrmStage;
-    venues: CrmVenueListItem[];
-    teamName: (userId: string | null) => string;
-    onOpen: (venueId: string) => void;
-};
-
-export function Column({ stage, venues, teamName, onOpen }: ColumnProps) {
+export function Column({
+    stage,
+    venues,
+    meta,
+    teamName,
+    onOpen
+}: CardInfo & { stage: CrmStage; venues: CrmVenueListItem[]; onOpen: (venueId: string) => void }) {
     const { setNodeRef, isOver } = useDroppable({ id: stage });
+    const [open, setOpen] = useState(false);
+    const shown = open ? venues : venues.slice(0, COLUMN_LIMIT);
+    const hidden = venues.length - shown.length;
+    const label = COLUMN_LABEL[stage] ?? CRM_STAGE_LABEL[stage];
     return (
         <section
             ref={setNodeRef}
             className={styles.column}
             data-over={isOver || undefined}
+            data-stage={stage}
             role="listitem"
             aria-label={`${CRM_STAGE_LABEL[stage]}, ${venues.length}`}
         >
             <header className={styles.columnHeader}>
-                <Text variant="body-sm" weight={600}>
-                    {CRM_STAGE_LABEL[stage]}
+                <Text as="span" variant="caption" weight={600}>
+                    {label}
                 </Text>
-                <Text variant="caption" colorVariant="muted">
+                <Text as="span" variant="caption" className={styles.columnCount}>
                     {venues.length}
                 </Text>
             </header>
             <div className={styles.columnBody}>
-                {venues.map(venue => (
-                    <DraggableCard key={venue.id} venue={venue} teamName={teamName} onOpen={onOpen} />
+                {shown.map(venue => (
+                    <DraggableCard key={venue.id} venue={venue} meta={meta} teamName={teamName} onOpen={onOpen} />
                 ))}
             </div>
+            {hidden > 0 && (
+                <button type="button" className={styles.more} onClick={() => setOpen(true)}>
+                    <Text as="span" variant="caption" color="inherit">
+                        + altri {hidden}
+                    </Text>
+                </button>
+            )}
         </section>
     );
 }
 
-type CardProps = {
-    venue: CrmVenueListItem;
-    teamName: (userId: string | null) => string;
-    onOpen: (venueId: string) => void;
-};
-
-export function DraggableCard({ venue, teamName, onOpen }: CardProps) {
+export function DraggableCard({
+    venue,
+    meta,
+    teamName,
+    onOpen
+}: CardInfo & { venue: CrmVenueListItem; onOpen: (venueId: string) => void }) {
     const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: venue.id });
+    const line = meta(venue);
     return (
         <button
             ref={setNodeRef}
             type="button"
-            className={styles.boardCard}
+            className={styles.card}
             data-dragging={isDragging || undefined}
+            data-warn={line.warn || undefined}
             onClick={() => onOpen(venue.id)}
             {...attributes}
             {...listeners}
         >
-            <CardBody venue={venue} teamName={teamName} />
+            <CardBody venue={venue} meta={meta} teamName={teamName} />
         </button>
     );
 }
 
-export function CardBody({
-    venue,
-    teamName
-}: {
-    venue: CrmVenueListItem;
-    teamName: (userId: string | null) => string;
-}) {
-    const contact = venue.crm_contacts[0];
-    const lead = venue.crm_leads[0];
+export function CardBody({ venue, meta, teamName }: CardInfo & { venue: CrmVenueListItem }) {
+    const line = meta(venue);
+    const owner = teamName(venue.assigned_to);
     const account = crmAccountLabel(venue);
     return (
-        <span className={styles.boardCardBody}>
-            <Text as="span" variant="body-sm" weight={600}>
+        <span className={styles.cardBody}>
+            <Text as="span" variant="body-sm" weight={600} className={styles.cardName}>
                 {venue.name}
             </Text>
-            <Text as="span" variant="caption" colorVariant="muted">
-                {/* Locale da completare: il titolo è già il nome della persona. */}
-                {[venue.name_pending ? null : contact?.name, venue.city].filter(Boolean).join(" · ")}
-            </Text>
-            <Text as="span" variant="caption" colorVariant="muted">
-                {[lead ? CRM_SOURCE_LABEL[lead.source] : null, teamName(venue.assigned_to)]
-                    .filter(Boolean)
-                    .join(" · ")}
-            </Text>
+            <span className={styles.cardMeta}>
+                <Text as="span" variant="caption" color="inherit">
+                    {[venue.city, line.text].filter(Boolean).join(" · ")}
+                </Text>
+                {owner && (
+                    <Text as="span" variant="caption-xs" weight={700} className={styles.ownerDot} aria-label={`Lo segue ${owner}`}>
+                        {initials(owner)}
+                    </Text>
+                )}
+            </span>
             {(account || venue.stage_locked_at || venue.name_pending || venue.name_to_verify) && (
-                <span className={styles.boardCardBadges}>
-                    {venue.name_pending && <StatusBadge variant="warning" label="Locale da completare" />}
-                    {venue.name_to_verify && <StatusBadge variant="warning" label="Locale da verificare" />}
+                <span className={styles.cardBadges}>
+                    {venue.name_pending && <StatusBadge variant="warning" label="Da completare" />}
+                    {venue.name_to_verify && <StatusBadge variant="warning" label="Da verificare" />}
                     {account && <StatusBadge variant={account.variant} label={account.label} />}
-                    {venue.stage_locked_at && <StatusBadge variant="warning" label="Fase bloccata a mano" />}
+                    {venue.stage_locked_at && <StatusBadge variant="warning" label="Bloccata a mano" />}
                 </span>
             )}
         </span>

@@ -13,6 +13,7 @@ import type {
     CrmAgentSettings,
     CrmAiRole,
     CrmAiSpend,
+    CrmAiUsageCost,
     CrmBrandRules
 } from "@/types/crm";
 
@@ -66,6 +67,18 @@ export async function getCrmAiSpend(): Promise<CrmAiSpend> {
     };
 }
 
+/** Il diario da `since` in poi, per contare la giornata senza tagli. */
+export async function listCrmAgentDecisionsSince(since: string): Promise<CrmAgentDecision[]> {
+    const { data, error } = await supabase
+        .from("crm_agent_decisions")
+        .select("id, created_at, actor, actor_user_id, action, reason, venue_id, lead_id, review_outcome, decided_by, decided_at, payload")
+        .gte("created_at", since)
+        .order("created_at", { ascending: false })
+        .limit(2000);
+    if (error) throw error;
+    return (data ?? []) as CrmAgentDecision[];
+}
+
 export async function listCrmAgentDecisions(limit = 50): Promise<CrmAgentDecision[]> {
     const { data, error } = await supabase
         .from("crm_agent_decisions")
@@ -107,4 +120,18 @@ export async function checkCrmAgent(role: CrmAiRole): Promise<CrmAgentCheckResul
     const { data, error } = await supabase.functions.invoke("crm-agent-check", { body: { role } });
     if (error) throw error;
     return data as CrmAgentCheckResult;
+}
+
+/** Ruolo e costo delle chiamate a Claude da `since` (spesa di oggi per agente). */
+export async function listCrmAiUsageSince(since: string): Promise<CrmAiUsageCost[]> {
+    const { data, error } = await supabase
+        .from("crm_ai_usage")
+        .select("role, cost_usd")
+        .gte("created_at", since)
+        .limit(5000);
+    if (error) throw error;
+    return ((data ?? []) as { role: CrmAiUsageCost["role"]; cost_usd: number | string }[]).map(r => ({
+        role: r.role,
+        cost_usd: Number(r.cost_usd)
+    }));
 }

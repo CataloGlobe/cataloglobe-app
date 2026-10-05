@@ -48,9 +48,10 @@ const SupportTicketAdminPage = lazy(
 const CrmLeadsPage = lazy(() => import("./pages/Admin/Crm/LeadsPage"));
 const CrmLeadDetailPage = lazy(() => import("./pages/Admin/Crm/LeadDetailPage"));
 const CrmAgentsPage = lazy(() => import("./pages/Admin/Crm/AgentsPage"));
+const CrmHomePage = lazy(() => import("./pages/Admin/Crm/HomePage"));
+const CrmMorePage = lazy(() => import("./pages/Admin/Crm/MorePage"));
 const CrmCostsPage = lazy(() => import("./pages/Admin/Costs/CostsPage"));
 const CrmAgendaPage = lazy(() => import("./pages/Admin/Crm/AgendaPage"));
-const CrmSummaryPage = lazy(() => import("./pages/Admin/Crm/SummaryPage"));
 
 // Workspace — lazy (solo utenti autenticati)
 const WorkspacePage = lazy(() => import("./pages/Workspace/WorkspacePage"));
@@ -104,8 +105,9 @@ const ActivityCosaVedonoRoute = lazy(() => import("./pages/Operativita/Attivita/
 const SubscriptionPage = lazy(() => import("./pages/Business/SubscriptionPage"));
 
 // Landing di campagna su / (variante form) e /b (variante signup, noindex).
-// In produzione / e /b sono serviti da landing.html con il suo entry
-// (src/entry-landing.tsx, vercel.json): queste route restano per il dev server
+// In produzione / e /b sono serviti da dist/index.html e dist/b.html,
+// prerenderizzati al build e idratati da src/entry-landing.tsx
+// (scripts/prerender-landing.mjs, vercel.json): queste route restano per il dev server
 // e come rete di sicurezza. /landing-dev e /landing-dev/b fanno 301 in
 // vercel.json; qui restano come redirect per la navigazione interna. Chunk e
 // font partono al caricamento del modulo, prima che React monti la route.
@@ -413,7 +415,7 @@ export default function App() {
                     </AdminRoute>
                 }
             >
-                <Route index element={<Navigate to="status-incidents" replace />} />
+                <Route index element={<CrmHomePage />} />
                 <Route path="status-incidents" element={<StatusIncidentsAdminPage />} />
                 <Route path="supporto">
                     <Route index element={<SupportQueuePage />} />
@@ -426,7 +428,7 @@ export default function App() {
                 <Route path="agenda" element={<CrmAgendaPage />} />
                 <Route path="agenti" element={<CrmAgentsPage />} />
                 <Route path="costi" element={<CrmCostsPage />} />
-                <Route path="riepilogo" element={<CrmSummaryPage />} />
+                <Route path="altro" element={<CrmMorePage />} />
             </Route>
 
             {/* Galleria UI — solo sviluppo (vedi DevUiPage sopra) */}

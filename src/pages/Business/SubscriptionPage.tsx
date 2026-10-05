@@ -185,6 +185,29 @@ const INTERVAL_ACTION_LABEL: Record<BillingInterval, string> = {
     month: "Torna al mensile"
 };
 
+/**
+ * Codici d'errore di stripe-checkout (attaccati come `name` da
+ * `createCheckoutSession`) → messaggio UI. Un codice sconosciuto ricade sul
+ * messaggio generico. `invalid_vat_number`: gate fiscale server-side; qui il
+ * profilo è di norma già valido, ma la P.IVA può essere stata modificata dopo.
+ */
+const CHECKOUT_ERROR_MESSAGES: Record<string, string> = {
+    subscription_check_failed:
+        "Non siamo riusciti a verificare lo stato del tuo abbonamento. Non ti è stato addebitato nulla: riprova tra qualche istante.",
+    invalid_vat_number:
+        "La Partita IVA dell'azienda non è valida. Correggila nei dati di fatturazione e riprova.",
+    missing_einvoice_recipient:
+        "Con la Partita IVA serve un recapito per la fattura elettronica: aggiungi il Codice Destinatario SDI o la PEC nei dati di fatturazione.",
+    fiscal_profile_unavailable:
+        "Non siamo riusciti a leggere i dati di fatturazione. Non ti è stato addebitato nulla: riprova tra qualche istante.",
+    seats_over_self_service:
+        "La tua azienda ha più sedi di quante se ne possano attivare online. Contatta l'assistenza per riattivare l'abbonamento.",
+    seats_below_activities:
+        "L'abbonamento deve coprire tutte le sedi della tua azienda. Ricarica la pagina e riprova.",
+    activity_count_unavailable:
+        "Non siamo riusciti a verificare le sedi della tua azienda. Non ti è stato addebitato nulla: riprova tra qualche istante."
+};
+
 /** Traduce i codici d'errore dell'edge di cambio abbonamento in messaggi UI. */
 function mapChangeError(err: unknown, activityCount: number, cap: number): string {
     const name = err instanceof Error ? err.name : "";
@@ -526,7 +549,9 @@ export default function SubscriptionPage() {
                 tenantId: selectedTenant.id,
                 planCode: selectedTenant.plan,
                 billingInterval,
-                quantity: paidSeats > 0 ? paidSeats : 1,
+                // The edge refuses a quantity below the existing activities
+                // (`seats_below_activities`): re-activation covers all of them.
+                quantity: Math.max(1, paidSeats, activityCount),
                 successUrl: `${window.location.origin}/business/${selectedTenant.id}/settings/abbonamento?session=success`,
                 cancelUrl: `${window.location.origin}/business/${selectedTenant.id}/settings/abbonamento?session=cancel`
             });
@@ -557,31 +582,11 @@ export default function SubscriptionPage() {
                     message: "Il tuo abbonamento è già attivo. Se hai appena completato il pagamento, attendi qualche secondo e ricarica la pagina.",
                     type: "warning"
                 });
-            } else if (code === "subscription_check_failed") {
-                showToast({
-                    message: "Non siamo riusciti a verificare lo stato del tuo abbonamento. Non ti è stato addebitato nulla: riprova tra qualche istante.",
-                    type: "error"
-                });
-            } else if (code === "invalid_vat_number") {
-                // Gate fiscale server-side di stripe-checkout. Qui il profilo è di
-                // norma già valido (impostato alla creazione), ma la P.IVA può
-                // essere stata modificata dopo: messaggio esplicito, non generico.
-                showToast({
-                    message: "La Partita IVA dell'azienda non è valida. Correggila nei dati di fatturazione e riprova.",
-                    type: "error"
-                });
-            } else if (code === "missing_einvoice_recipient") {
-                showToast({
-                    message: "Con la Partita IVA serve un recapito per la fattura elettronica: aggiungi il Codice Destinatario SDI o la PEC nei dati di fatturazione.",
-                    type: "error"
-                });
-            } else if (code === "fiscal_profile_unavailable") {
-                showToast({
-                    message: "Non siamo riusciti a leggere i dati di fatturazione. Non ti è stato addebitato nulla: riprova tra qualche istante.",
-                    type: "error"
-                });
             } else {
-                showToast({ message: "Errore nell'avvio del checkout. Riprova.", type: "error" });
+                showToast({
+                    message: CHECKOUT_ERROR_MESSAGES[code] ?? "Errore nell'avvio del checkout. Riprova.",
+                    type: "error"
+                });
             }
         } finally {
             setCheckoutLoading(false);
@@ -1114,6 +1119,8 @@ export default function SubscriptionPage() {
             size="sm"
             onClick={handleCheckout}
             loading={checkoutLoading}
+            // quantity covers the activities: no checkout before they are counted.
+            disabled={activityCountLoaded === null}
             leftIcon={<CreditCard size={14} />}
         >
             {label}

@@ -21,6 +21,7 @@ node_modules
 dist
 dist-ssr
 dist-server
+dist-landing-server
 *.local
 
 # Supabase CLI temp files
@@ -45,6 +46,7 @@ tsconfig.tsbuildinfo
 .agents/
 .claude/*
 !.claude/commands/
+!.claude/settings.json
 skills-lock.json
 
 # Tool artifacts

@@ -17,7 +17,7 @@ import type {
 
 const APPOINTMENT_SELECT =
     "id, created_at, venue_id, lead_id, contact_id, starts_at, ends_at, time_set_at, caller_user_id, created_by, " +
-    "status, status_reason, note, google_sync, google_error, reminder_queued_at, brief_sent_at, outcome_at, outcome_by";
+    "status, status_reason, note, google_sync, google_error, reminder_queued_at, soon_queued_for, brief_sent_at, outcome_at, outcome_by";
 
 const AGENDA_TIMEOUT_MS = 15_000;
 
@@ -43,6 +43,22 @@ export async function listCrmAppointments(fromIso: string, toIso: string): Promi
         .lt("starts_at", toIso)
         .gt("ends_at", fromIso)
         .order("starts_at", { ascending: true });
+    if (error) throw error;
+    return ((data ?? []) as unknown as AppointmentWithVenueRow[]).map(({ crm_venues, ...row }) => ({
+        ...row,
+        venue_name: crm_venues?.name ?? "Locale",
+        venue_city: crm_venues?.city ?? null
+    }));
+}
+
+/** Telefonate fissate dal momento dato (Home: «Da stamattina», obiettivo della settimana). */
+export async function listCrmAppointmentsCreatedSince(sinceIso: string): Promise<CrmAppointmentWithVenue[]> {
+    const { data, error } = await supabase
+        .from("crm_appointments")
+        .select(`${APPOINTMENT_SELECT}, crm_venues(name, city)`)
+        .gte("created_at", sinceIso)
+        .order("created_at", { ascending: true })
+        .limit(500);
     if (error) throw error;
     return ((data ?? []) as unknown as AppointmentWithVenueRow[]).map(({ crm_venues, ...row }) => ({
         ...row,
@@ -145,7 +161,7 @@ export async function runCrmAgenda(): Promise<void> {
 }
 
 const SETTINGS_SELECT =
-    "call_windows, call_duration_minutes, call_min_notice_minutes, google_calendar_id, call_confirm_message, call_reminder_message";
+    "call_windows, call_duration_minutes, call_min_notice_minutes, google_calendar_id, call_confirm_message, call_reminder_message, call_soon_message";
 
 export async function getCrmAgendaSettings(): Promise<CrmAgendaSettings> {
     const { data, error } = await supabase.from("crm_settings").select(SETTINGS_SELECT).eq("id", true).single();

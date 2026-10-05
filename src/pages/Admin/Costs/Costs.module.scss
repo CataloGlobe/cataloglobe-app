@@ -2,34 +2,82 @@
 // la porta il componente Text.
 
 .page {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-16);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-16);
 }
 
-// Cifre in fila: al più tre per riga, a capo quando non ci stanno (come
-// Analitiche).
-.statGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(max(220px, calc((100% - 2 * var(--space-16)) / 3)), 1fr));
-  gap: var(--space-16);
+// I tre totali in una riga sola, divisi da un filo (come i numeri della Home
+// e la riga di stato di Agenti). Al telefono restano in fila, più piccoli.
+.figures {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-surface);
+    overflow: hidden;
+
+    > * + * {
+        border-left: 1px solid var(--border);
+    }
+
+    // Errore o caricamento: una riga sola su tutta la larghezza.
+    > [role="status"],
+    > [aria-busy] {
+        grid-column: 1 / -1;
+    }
+}
+
+.figure {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-12) var(--space-16);
+    min-width: 0;
+
+    @media (max-width: 767px) {
+        padding: var(--space-10) var(--space-12);
+    }
+}
+
+.figureValue {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+// Rinnovi e mesi affiancati; uno sotto l'altro sotto i 1024.
+.bottom {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: var(--space-16);
+    align-items: start;
+
+    @media (max-width: 1023px) {
+        grid-template-columns: 1fr;
+    }
+}
+
+.listBody {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-12);
 }
 
 .form {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-16);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-16);
 }
 
 // Due campi affiancati, uno sotto l'altro quando non ci stanno.
 .fieldRow {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: var(--space-12);
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: var(--space-12);
 }
 
 .headerActions {
-  display: flex;
-  align-items: center;
-  gap: var(--space-8);
+    display: flex;
+    align-items: center;
+    gap: var(--space-8);
 }

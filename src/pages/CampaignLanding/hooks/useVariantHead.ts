@@ -6,8 +6,10 @@ const CANONICAL = "https://cataloglobe.com/";
 
 /**
  * Head della variante signup (`/b`): canonical su `/` e `noindex`, perché è
- * la stessa pagina con un'altra CTA (A/B test). Solo a runtime: `/b` è servita
- * da `index.html` come `/`. All'uscita dalla pagina si rimette com'era.
+ * la stessa pagina con un'altra CTA (A/B test). In produzione li porta già
+ * `dist/b.html` (scripts/prerender-landing.mjs): qui non si duplica niente,
+ * si aggiunge solo ciò che manca (dev, dove `/b` è una route dell'app) e
+ * all'uscita si toglie solo ciò che si è aggiunto.
  */
 export function useVariantHead(variante: Variante) {
     useEffect(() => {
@@ -17,14 +19,17 @@ export function useVariantHead(variante: Variante) {
         const previousCanonical = canonical?.getAttribute("href") ?? null;
         canonical?.setAttribute("href", CANONICAL);
 
-        const robots = document.createElement("meta");
-        robots.name = "robots";
-        robots.content = "noindex";
-        document.head.appendChild(robots);
+        let added: HTMLMetaElement | null = null;
+        if (!document.head.querySelector('meta[name="robots"]')) {
+            added = document.createElement("meta");
+            added.name = "robots";
+            added.content = "noindex";
+            document.head.appendChild(added);
+        }
 
         return () => {
             if (canonical && previousCanonical !== null) canonical.setAttribute("href", previousCanonical);
-            robots.remove();
+            added?.remove();
         };
     }, [variante]);
 }

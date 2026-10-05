@@ -22,7 +22,7 @@ describe("mail settimanale", () => {
             },
             previous: { ...empty, leads_in: 4, stages: { telefonata_fatta: 2 } },
             weekLabel: "dal 28 settembre al 4 ottobre",
-            summaryUrl: "https://app.x/admin/riepilogo"
+            summaryUrl: "https://app.x/admin/lead?vista=riepilogo"
         });
         expect(mail.subject).toBe("CRM, la settimana dal 28 settembre al 4 ottobre: 7 lead, 2 telefonate fatte");
         expect(mail.text).toContain("Lead entrati: 7 (+3)");
@@ -30,7 +30,7 @@ describe("mail settimanale", () => {
         expect(mail.text).toContain("Persi: 3 (2 per obiezione, 1 stop)");
         expect(mail.text).toContain("Primo contatto, mediana: 5 minuti");
         expect(mail.text).toContain("Fonti: Modulo Meta 5, Landing 2");
-        expect(mail.html).toContain('<a href="https://app.x/admin/riepilogo">');
+        expect(mail.html).toContain('<a href="https://app.x/admin/lead?vista=riepilogo">');
         expect(mail.text).not.toMatch(/—/);
     });
 

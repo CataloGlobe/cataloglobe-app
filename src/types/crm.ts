@@ -5,6 +5,7 @@
  */
 
 import type { CrmBillingInterval, CrmExpenseCategory, CrmExpenseKind } from "@shared/crmExpenses";
+import type { CrmAiRole } from "@shared/crmAi";
 
 export type { CrmBillingInterval, CrmExpenseCategory, CrmExpenseKind };
 
@@ -64,6 +65,19 @@ export type CrmTrialKind = "carta" | "codice";
 
 /** `suppressed`: telefono che ha chiesto lo stop, nessuna scrittura. */
 export type CrmIngestOutcome = "created" | "returned" | "duplicate" | "suppressed";
+
+/** Il prossimo passo di un locale (`crm_next_steps`, scheda del lead). */
+export interface CrmNextStep {
+    venue_id: string;
+    step: string;
+    /** AAAA-MM-GG; null = senza scadenza. */
+    due_on: string | null;
+    owner_user_id: string | null;
+    set_by: string;
+    set_at: string;
+    /** Scritto dal gesto «rimanda a domani» (migration 20261005150400). */
+    snoozed: boolean;
+}
 
 export interface CrmTeamMember {
     user_id: string;
@@ -265,7 +279,7 @@ export type CrmAgentCheckResult =
 export type CrmMessageDirection = "in" | "out";
 export type CrmMessageAuthor = "lead" | "agent" | "person";
 export type CrmMessageKind = "text" | "voice" | "image" | "video" | "document" | "sticker" | "other";
-export type CrmMessagePurpose = "first_message" | "reply" | "follow_up" | "call_confirm" | "call_reminder";
+export type CrmMessagePurpose = "first_message" | "reply" | "follow_up" | "call_confirm" | "call_reminder" | "call_soon";
 export type CrmMessageStatus = "queued" | "sending" | "sent" | "failed" | "cancelled";
 
 export interface CrmMessage {
@@ -283,6 +297,23 @@ export interface CrmMessage {
     status_reason: string | null;
     sent_at: string | null;
     appointment_id: string | null;
+}
+
+/** Un messaggio in coda con il nome del locale (pagina Agenti, «In arrivo»). */
+export interface CrmQueuedMessage {
+    id: string;
+    created_at: string;
+    send_after: string | null;
+    venue_id: string;
+    venue_name: string;
+    purpose: CrmMessagePurpose | null;
+    body: string | null;
+}
+
+/** Una chiamata a Claude, solo ruolo e costo (spesa per agente). */
+export interface CrmAiUsageCost {
+    role: CrmAiRole;
+    cost_usd: number;
 }
 
 export type CrmWaState = "unknown" | "ok" | "needs_relink" | "warning";
@@ -378,6 +409,8 @@ export interface CrmAppointment {
     google_sync: CrmGoogleSync;
     google_error: string | null;
     reminder_queued_at: string | null;
+    /** L'orario per cui è partito il promemoria di un'ora prima (spostata, ne parte un altro). */
+    soon_queued_for: string | null;
     brief_sent_at: string | null;
     outcome_at: string | null;
     outcome_by: string | null;
@@ -402,6 +435,7 @@ export interface CrmAgendaSettings {
     google_calendar_id: string | null;
     call_confirm_message: string | null;
     call_reminder_message: string | null;
+    call_soon_message: string | null;
 }
 
 /** Un impegno per gli orari liberi: telefonata del CRM o evento del calendario Google. */
@@ -420,16 +454,50 @@ export interface CrmAgendaBusyResult {
 }
 
 // -----------------------------------------------------------------------------
-// Riepilogo del giro (F1-9, migration 20261004020000)
+// Agente WhatsApp in prova (F1-3, migration 20261004010000)
 // -----------------------------------------------------------------------------
-export interface CrmSummary {
-    leads_in: number;
-    leads_by_source: Partial<Record<CrmLeadSource, number>>;
-    new_venues: number;
-    returned: number;
-    contacted: number;
-    stages: Partial<Record<CrmStage, number>>;
-    lost: Partial<Record<CrmLostKind, number>>;
-    first_contact_minutes_median: number | null;
-    pipeline: Partial<Record<CrmStage, number>>;
+export type CrmAgentDraftKind =
+    | "reply"
+    | "follow_up"
+    | "bot_question"
+    | "ask"
+    | "schedule"
+    | "stop_check"
+    | "lost_proposal"
+    | "reactivation";
+export type CrmAgentDraftStatus = "pending" | "sent" | "edited" | "discarded" | "expired" | "scheduled" | "handled";
+
+export interface CrmAgentTrialSettings {
+    agent_replies_on: boolean;
+    agent_followups_on: boolean;
+    /** NULL = riattivazione spenta (F1-6). */
+    agent_reactivation_message: string | null;
+    agent_reactivation_days: number;
+    /** F1-7: i tipi fuori dalla prova partono senza approvazione. Spenta di default. */
+    agent_autonomy_on: boolean;
+}
+
+export interface CrmAgentTrust {
+    kind: "reply" | "follow_up";
+    approved_in_row: number;
+    since: string | null;
+    total_approved: number;
+    total_edited: number;
+    total_discarded: number;
+    required_in_row: number;
+    autonomous: boolean;
+    total_auto: number;
+}
+
+export interface CrmAgentDraftRow {
+    id: string;
+    created_at: string;
+    venue_id: string;
+    venue_name: string;
+    kind: CrmAgentDraftKind;
+    status: CrmAgentDraftStatus;
+    reason: string | null;
+    proposed_text: string | null;
+    final_text: string | null;
+    decided_at: string | null;
 }

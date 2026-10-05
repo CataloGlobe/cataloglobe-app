@@ -1,0 +1,385 @@
+// Gea (canvas G4 al computer, G3 al telefono; decise da Alex il 2026-10-05).
+// Solo token di _theme.scss; la tipografia la porta il componente Text.
+
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes dot {
+  0%,
+  80%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.5;
+  }
+  40% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+
+/* ===== Avatar con il pallino verde ===== */
+.av {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-pill);
+  background: var(--brand-primary);
+  color: var(--on-brand);
+  font-weight: 700;
+
+  i {
+    position: absolute;
+    right: -1px;
+    bottom: -1px;
+    width: 10px;
+    height: 10px;
+    border-radius: var(--radius-pill);
+    background: var(--success-500);
+    border: 2px solid var(--crm-nav-bg);
+  }
+}
+
+/* ===== Pulsante ===== */
+.launcher {
+  all: unset;
+  box-sizing: border-box;
+  position: fixed;
+  right: var(--space-24);
+  bottom: var(--space-24);
+  z-index: var(--z-float);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+  height: 48px;
+  padding: 0 18px 0 var(--space-8);
+  border-radius: var(--radius-pill);
+  // Scuro come la barra del CRM.
+  background: var(--crm-nav-bg);
+  color: var(--crm-nav-text-strong);
+  box-shadow: var(--shadow-overlay);
+  cursor: pointer;
+  transform-origin: bottom right;
+  transition:
+    transform 0.22s var(--easing-state),
+    opacity 0.18s var(--easing-state);
+
+  &:hover {
+    background: var(--crm-nav-hover);
+  }
+
+  &:focus-visible {
+    box-shadow: var(--shadow-focus);
+  }
+
+  // Aperta la chat, il pulsante si ritira dentro di lei.
+  &[data-hidden] {
+    transform: scale(0.6);
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  // Al telefono sta sopra la barra in basso (56) e alla zona sicura.
+  &[data-raised] {
+    right: var(--space-16);
+    bottom: calc(56px + var(--space-16) + env(safe-area-inset-bottom, 0px));
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+/* ===== Scheda (computer) ===== */
+.card {
+  position: fixed;
+  right: var(--space-24);
+  bottom: var(--space-24);
+  z-index: var(--z-overlay);
+  display: flex;
+  flex-direction: column;
+  width: 390px;
+  max-width: calc(100vw - 2 * var(--space-24));
+  overflow: hidden;
+  border-radius: 22px;
+  background: var(--surface);
+  box-shadow: var(--shadow-overlay);
+  transform-origin: bottom right;
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  gap: var(--space-10);
+  padding: var(--space-16) var(--space-16) 14px;
+  background: var(--crm-nav-bg);
+  color: var(--crm-nav-text-strong);
+
+  h2 {
+    margin: 0;
+  }
+}
+
+.titles {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.topCaption {
+  color: var(--crm-nav-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tipWrap {
+  display: inline-flex;
+}
+
+.round {
+  all: unset;
+  box-sizing: border-box;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-pill);
+  background: var(--crm-nav-active);
+  color: var(--crm-nav-text-strong);
+  cursor: pointer;
+
+  &:hover {
+    background: var(--crm-nav-active-hover);
+  }
+
+  &:focus-visible {
+    box-shadow: var(--crm-nav-focus);
+  }
+
+  svg {
+    transition: transform 0.3s var(--easing-state);
+  }
+
+  // Allungata: la freccia guarda in giù, per ridurla.
+  &[data-up] svg {
+    transform: rotate(180deg);
+  }
+}
+
+/* ===== Foglio (telefono) ===== */
+.sheet {
+  position: fixed;
+  inset: auto 0 0;
+  z-index: var(--z-overlay);
+  display: flex;
+  flex-direction: column;
+  border-radius: 24px 24px 0 0;
+  background: var(--surface);
+  box-shadow: var(--shadow-overlay);
+}
+
+.handle {
+  all: unset;
+  display: flex;
+  justify-content: center;
+  padding: var(--space-8) 0 var(--space-4);
+  cursor: pointer;
+
+  span {
+    width: 40px;
+    height: 5px;
+    border-radius: var(--radius-pill);
+    background: var(--border);
+  }
+
+  &:focus-visible span {
+    box-shadow: var(--shadow-focus);
+  }
+}
+
+.sheetHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-10);
+  padding: var(--space-4) var(--space-16) var(--space-12);
+  border-bottom: 1px solid var(--border);
+
+  h2 {
+    margin: 0;
+  }
+
+  .av i {
+    border-color: var(--surface);
+  }
+}
+
+/* ===== Conversazione ===== */
+.log {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-10);
+  padding: var(--space-16);
+  background: var(--bg);
+}
+
+.bubble {
+  max-width: 86%;
+  padding: 9px 13px;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  animation: pop 0.32s cubic-bezier(0.2, 0.9, 0.25, 1.15) both;
+
+  p {
+    margin: 0;
+    line-height: 1.45;
+  }
+
+  &[data-from="gea"] {
+    align-self: flex-start;
+    border: 1px solid var(--border);
+    border-radius: 18px 18px 18px 6px;
+    background: var(--surface);
+    color: var(--text);
+  }
+
+  &[data-from="me"] {
+    align-self: flex-end;
+    border-radius: 18px 18px 6px 18px;
+    background: var(--brand-primary);
+    color: var(--on-brand);
+    transform-origin: bottom right;
+  }
+
+  &[data-failed] {
+    color: var(--text-danger);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
+// Gea che scrive: tre puntini che saltano.
+.typing {
+  display: flex;
+  gap: var(--space-4);
+  padding: var(--space-12) 14px;
+
+  span {
+    width: 7px;
+    height: 7px;
+    border-radius: var(--radius-pill);
+    background: var(--brand-primary);
+    opacity: 0.5;
+    animation: dot 1s infinite ease-in-out;
+  }
+
+  span:nth-child(2) {
+    animation-delay: 0.15s;
+  }
+
+  span:nth-child(3) {
+    animation-delay: 0.3s;
+  }
+}
+
+.suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-6);
+  padding: 0 var(--space-16) var(--space-10);
+  background: var(--bg);
+}
+
+.suggestion {
+  all: unset;
+  box-sizing: border-box;
+  padding: var(--space-6) 11px;
+  border: 1px solid var(--brand-primary-soft-hover);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--on-brand-soft);
+  cursor: pointer;
+  animation: pop 0.3s 0.15s both;
+
+  &:hover:not(:disabled) {
+    background: var(--brand-primary-soft);
+  }
+
+  &:focus-visible {
+    box-shadow: var(--shadow-focus);
+  }
+
+  &:disabled {
+    color: var(--text-muted);
+    cursor: default;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
+.form {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-10) var(--space-12) calc(var(--space-12) + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--border);
+}
+
+.input {
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-10) 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  outline: 0;
+
+  &:focus-visible {
+    border-color: var(--brand-primary);
+    box-shadow: var(--shadow-focus);
+  }
+}
+
+.send {
+  all: unset;
+  box-sizing: border-box;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-pill);
+  background: var(--brand-primary);
+  color: var(--on-brand);
+  cursor: pointer;
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+
+  &:focus-visible {
+    box-shadow: var(--shadow-focus);
+  }
+}
