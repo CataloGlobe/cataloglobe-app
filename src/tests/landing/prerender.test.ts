@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { buildLandingDocument, LANDING_ROOT_MARKER, prerenderedVariante } from "@/pages/CampaignLanding/prerender";
+import { buildLandingDocument, inlineStylesheets, LANDING_ROOT_MARKER, prerenderedVariante } from "@/pages/CampaignLanding/prerender";
 
 const template = readFileSync(path.resolve(__dirname, "../../../landing.html"), "utf8");
 const count = (html: string, needle: string) => html.split(needle).length - 1;
@@ -42,5 +42,27 @@ describe("prerenderedVariante", () => {
         expect(prerenderedVariante(el("signup"))).toBe("signup");
         expect(prerenderedVariante(el())).toBeNull();
         expect(prerenderedVariante(el("altro"))).toBeNull();
+    });
+});
+
+describe("inlineStylesheets", () => {
+    const head = '<head><link rel="preload" href="/f.woff2" as="font" /><link rel="stylesheet" crossorigin href="/assets/landing-X.css"><link rel="canonical" href="/" /></head>';
+
+    it("mette il CSS al posto del link, nello stesso punto dell'head", () => {
+        const out = inlineStylesheets(head, (href) => (href === "/assets/landing-X.css" ? '@charset "UTF-8";a{color:red}' : ""));
+        expect(out).toBe('<head><link rel="preload" href="/f.woff2" as="font" /><style data-href="/assets/landing-X.css">a{color:red}</style><link rel="canonical" href="/" /></head>');
+    });
+
+    it("non interpreta i pattern di sostituzione nel CSS", () => {
+        expect(inlineStylesheets(head, () => "a::after{content:\"$&\"}")).toContain('a::after{content:"$&"}');
+    });
+
+    it("si ferma senza fogli di stile o con </style> nel CSS", () => {
+        expect(() => inlineStylesheets("<head></head>", () => "")).toThrow(/nessun foglio/);
+        expect(() => inlineStylesheets(head, () => "a{}</style>")).toThrow(/<\/style>/);
+    });
+
+    it("landing.html non ha fogli di stile: li aggiunge Vite al build", () => {
+        expect(template).not.toContain('rel="stylesheet"');
     });
 });
