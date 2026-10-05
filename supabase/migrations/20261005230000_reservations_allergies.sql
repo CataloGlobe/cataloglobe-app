@@ -21,6 +21,9 @@ ALTER TABLE public.reservations
     ADD COLUMN IF NOT EXISTS allergies text,
     ADD COLUMN IF NOT EXISTS allergies_consent_at timestamptz,
     ADD COLUMN IF NOT EXISTS allergies_consent_version text,
+    -- DROP IF EXISTS + ADD nello stesso ALTER: la migrazione si può rieseguire.
+    DROP CONSTRAINT IF EXISTS reservations_allergies_consent_check,
+    DROP CONSTRAINT IF EXISTS reservations_allergies_length_check,
     ADD CONSTRAINT reservations_allergies_consent_check CHECK (
         allergies IS NULL
         OR (allergies_consent_at IS NOT NULL AND allergies_consent_version IS NOT NULL)

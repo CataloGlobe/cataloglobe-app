@@ -74,10 +74,11 @@ export default function NotesSection({
                     <input
                         type="checkbox"
                         className={styles.consentCheckbox}
+                        aria-controls="allergies"
                         checked={allergiesConsent}
                         onChange={e => onAllergiesConsentChange(e.target.checked)}
                     />
-                    <span>{t("reservation.allergies_consent")}</span>
+                    <span id="allergies-consent">{t("reservation.allergies_consent")}</span>
                 </label>
                 <textarea
                     id="allergies"
@@ -89,7 +90,7 @@ export default function NotesSection({
                     onChange={e => onChange("allergies", e.target.value)}
                     onBlur={() => onBlur("allergies")}
                     aria-invalid={allergiesError ? "true" : undefined}
-                    aria-describedby={allergiesError ? "err-allergies" : undefined}
+                    aria-describedby={allergiesError ? "allergies-consent err-allergies" : "allergies-consent"}
                     placeholder={t("reservation.allergies_placeholder")}
                 />
                 {allergiesError && (
