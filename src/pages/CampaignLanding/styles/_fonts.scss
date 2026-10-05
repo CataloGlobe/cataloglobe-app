@@ -1,5 +1,9 @@
 // Font della landing di campagna, self-hosted in public/fonts/ come Inter.
 // Unico punto di caricamento: incluso solo da Frame.module.scss, quindi entra
-// nel CSS del chunk lazy della landing e mai nel bundle admin. Niente preload
-// in index.html: lo pagherebbe ogni pagina dell'app.
+// nel CSS della landing e mai nel bundle admin. Vite risolve gli @import e
+// copia le @font-face nel CSS emesso, che il prerender mette inline
+// nell'HTML (scripts/prerender-landing.mjs): nessuna richiesta di CSS.
+// Inter serve solo al titolo del banner cookie (font dei titoli globali): le
+// sue @font-face non scaricano niente finché il banner non compare.
 @import url("/fonts/app-campaign.css");
+@import url("/fonts/app-inter.css");

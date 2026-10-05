@@ -3,7 +3,8 @@
 // posto di dist/index.html, che Vercel serve su / dal filesystem prima dei
 // rewrite, e diventa dist/b.html per /b (rewrite in vercel.json). La shell
 // dell'app diventa dist/app.html: la servono le rewrite di vercel.json (route
-// app e il resto) e la legge api/ssr-render come fallback SPA.
+// app e il resto) e la legge api/ssr-render come fallback SPA. Il CSS della
+// landing finisce inline in un <style>.
 import { existsSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -19,8 +20,9 @@ for (const file of [APP_SHELL, TEMPLATE, SERVER]) {
     }
 }
 
-const { renderLanding } = await import(pathToFileURL(resolve(SERVER)).href);
-const template = readFileSync(TEMPLATE, "utf8");
+const { renderLanding, inlineStylesheets } = await import(pathToFileURL(resolve(SERVER)).href);
+// Il CSS della landing va inline nell'HTML: niente richieste che bloccano il primo paint.
+const template = inlineStylesheets(readFileSync(TEMPLATE, "utf8"), (href) => readFileSync(`dist${href}`, "utf8"));
 const form = renderLanding(template, "form");
 const signup = renderLanding(template, "signup");
 

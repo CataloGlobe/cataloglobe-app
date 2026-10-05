@@ -26,13 +26,6 @@ if (redirect) {
 } else {
     capturePromoFromUrl(new URLSearchParams(window.location.search));
 
-    // Inter serve solo al titolo del banner cookie (font dei titoli globali):
-    // il foglio si aggancia qui, così non blocca il primo render.
-    const inter = document.createElement("link");
-    inter.rel = "stylesheet";
-    inter.href = "/fonts/app-inter.css";
-    document.head.appendChild(inter);
-
     const root = document.getElementById("root")!;
     const prerendered = prerenderedVariante(root);
     const variante = prerendered ?? (window.location.pathname.replace(/\/+$/, "") === "/b" ? "signup" : "form");
