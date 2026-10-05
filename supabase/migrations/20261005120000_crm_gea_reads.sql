@@ -46,9 +46,10 @@ AS $$
         'city', v.city,
         'stage', v.stage,
         'messages', (
-            SELECT coalesce(jsonb_agg(x ORDER BY x.at), '[]'::jsonb) FROM (
+            -- Dal più recente: se il prompt taglia, si perde la parte più vecchia.
+            SELECT coalesce(jsonb_agg(x ORDER BY x.at DESC), '[]'::jsonb) FROM (
                 SELECT msg.created_at AS at, msg.direction, msg.author, msg.kind,
-                       left(public.crm_gea_mask(msg.body), 600) AS text, msg.status
+                       left(public.crm_gea_mask(msg.body), 300) AS text, msg.status
                 FROM public.crm_messages msg
                 WHERE msg.venue_id = v.id
                 ORDER BY msg.created_at DESC LIMIT 20
