@@ -1431,7 +1431,9 @@
   border-radius: 8px;
   font-size: 14px;
   font-weight: 500;
-  z-index: 200;
+  /* Sopra PublicSheet (900) e LanguageSelector (950): con il carrello aperto
+     l'errore (es. ORDERING_CLOSED) deve restare visibile. */
+  z-index: 960;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   max-width: calc(100vw - 32px);
   animation: submitFeedbackSlideUp 0.25s ease-out;
