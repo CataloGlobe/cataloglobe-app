@@ -112,7 +112,12 @@ async function brandRules(supabase): Promise<string | null> {
 // -----------------------------------------------------------------------------
 // Comandi
 // -----------------------------------------------------------------------------
-async function runCommand(supabase, botToken: string, command, actor, team, appUrl): Promise<{ reply: string; tool: string }> {
+/** Da dove arriva il comando: la pausa degli agenti lo registra come fonte. */
+type GeaChannel = "telegram" | "admin";
+
+async function runCommand(
+    supabase, botToken: string, command, actor, team, appUrl, channel: GeaChannel = "telegram"
+): Promise<{ reply: string; tool: string }> {
     const tool = command.name;
     let venue = null;
     if ("venue" in command) {
@@ -167,7 +172,7 @@ async function runCommand(supabase, botToken: string, command, actor, team, appU
         const changed = await rpc(supabase, "crm_set_brake", {
             p_on: on,
             p_reason: on ? `Gea, chiesto da ${actor.display_name}: ${command.reason}` : null,
-            p_source: "telegram",
+            p_source: channel,
             p_actor_user_id: actor.user_id
         });
         if (!changed) return { reply: commandNoopText(command), tool };
@@ -185,7 +190,9 @@ async function runCommand(supabase, botToken: string, command, actor, team, appU
 // Il giro di un messaggio
 // -----------------------------------------------------------------------------
 // Esportata per crm-gea-web: stesso giro, la risposta torna al pannello di /admin.
-export async function think(supabase, botToken, text: string, actor, team, appUrl, now: Date, history: GeaTurn[]): Promise<Outcome> {
+export async function think(
+    supabase, botToken, text: string, actor, team, appUrl, now: Date, history: GeaTurn[], channel: GeaChannel = "telegram"
+): Promise<Outcome> {
     if (text.length > GEA_MAX_INPUT) return { status: "answered", reply: GEA_TEXT.tooLong, costUsd: 0 };
 
     const request = buildUnderstandRequest({
@@ -261,7 +268,7 @@ export async function think(supabase, botToken, text: string, actor, team, appUr
                     };
                 }
             }
-            const done = await runCommand(supabase, botToken, understood.command, actor, team, appUrl);
+            const done = await runCommand(supabase, botToken, understood.command, actor, team, appUrl, channel);
             return { status: "answered", intent: "command", tool: done.tool, reply: done.reply, costUsd: cost };
         }
     }

@@ -95,7 +95,9 @@ Deno.serve(async (req: Request) => {
             team,
             getPublicSiteUrl(),
             now,
-            parsed.history
+            parsed.history,
+            // Una pausa chiesta dal pannello è una pausa da /admin.
+            "admin"
         );
         if (out.error) console.warn("crm-gea-web:", out.status, out.error);
         return json(200, { status: out.status, reply: webReply(out), cost_usd: out.costUsd });

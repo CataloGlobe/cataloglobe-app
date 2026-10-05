@@ -277,11 +277,13 @@ $dash-margin: 14px;
 }
 
 /* Anello del colore della cosa più urgente (solo chi passa `badgeRing`). */
-[data-ring="warning"] {
+.badge[data-ring="warning"],
+.miniBadge[data-ring="warning"] {
   box-shadow: 0 0 0 2px var(--warning-500);
 }
 
-[data-ring="danger"] {
+.badge[data-ring="danger"],
+.miniBadge[data-ring="danger"] {
   box-shadow: 0 0 0 2px var(--danger);
 }
 
