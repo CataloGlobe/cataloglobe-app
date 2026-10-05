@@ -52,6 +52,7 @@ const CrmHomePage = lazy(() => import("./pages/Admin/Crm/HomePage"));
 const CrmMorePage = lazy(() => import("./pages/Admin/Crm/MorePage"));
 const CrmCostsPage = lazy(() => import("./pages/Admin/Costs/CostsPage"));
 const CrmAgendaPage = lazy(() => import("./pages/Admin/Crm/AgendaPage"));
+const CrmClientsPage = lazy(() => import("./pages/Admin/Crm/ClientsPage"));
 
 // Workspace — lazy (solo utenti autenticati)
 const WorkspacePage = lazy(() => import("./pages/Workspace/WorkspacePage"));
@@ -426,6 +427,7 @@ export default function App() {
                     <Route path=":venueId" element={<CrmLeadDetailPage />} />
                 </Route>
                 <Route path="agenda" element={<CrmAgendaPage />} />
+                <Route path="clienti" element={<CrmClientsPage />} />
                 <Route path="agenti" element={<CrmAgentsPage />} />
                 <Route path="costi" element={<CrmCostsPage />} />
                 <Route path="altro" element={<CrmMorePage />} />

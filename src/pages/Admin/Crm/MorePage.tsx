@@ -132,6 +132,7 @@ export default function MorePage() {
 
             <Card flush>
                 <ListRow title="Riepilogo" trailing={chevron} to="/admin/lead?vista=riepilogo" />
+                <ListRow title="Clienti" trailing={chevron} to="/admin/clienti" />
                 <ListRow title="Costi" trailing={chevron} to="/admin/costi" />
                 <ListRow
                     title="Supporto"

@@ -522,3 +522,27 @@ export interface CrmAgentDraftRow {
     final_text: string | null;
     decided_at: string | null;
 }
+
+/** Riga di `crm_post_sale_accounts()` (20261006090100): segnali d'uso di un cliente. */
+export interface CrmPostSaleAccountRow {
+    venue_id: string;
+    tenant_id: string;
+    tenant_created_at: string;
+    plan: string | null;
+    paid_seats: number | null;
+    activities_total: number;
+    activities_published: number;
+    products_count: number;
+    has_live_menu: boolean;
+    live_menu_since: string | null;
+}
+
+/** Riga di `crm_post_sale_actions` (20261006090000): cosa ne ha fatto il team. */
+export interface CrmPostSaleActionRow {
+    venue_id: string;
+    kind: "abbandono" | "prova_in_scadenza" | "crescita" | "passaparola";
+    alerted_at: string | null;
+    done_at: string | null;
+    done_by: string | null;
+    snoozed_until: string | null;
+}

@@ -1,4 +1,4 @@
-import { ArrowLeft, Activity, Bot, CalendarClock, House, LifeBuoy, UserPlus, Wallet } from "lucide-react";
+import { ArrowLeft, Activity, Bot, CalendarClock, HeartHandshake, House, LifeBuoy, UserPlus, Wallet } from "lucide-react";
 import type { ReactNode } from "react";
 import {
     AppSidebar,
@@ -30,6 +30,7 @@ function buildGroups(supportPending: boolean, home?: NavSignal, lead?: NavSignal
             items: [
                 { to: "/admin", label: "Home", icon: <House size={18} />, end: true, ...signalProps(home) },
                 { to: "/admin/lead", label: "Lead", icon: <UserPlus size={18} />, ...signalProps(lead) },
+                { to: "/admin/clienti", label: "Clienti", icon: <HeartHandshake size={18} /> },
                 { to: "/admin/agenda", label: "Agenda", icon: <CalendarClock size={18} /> },
                 { to: "/admin/agenti", label: "Agenti", icon: <Bot size={18} /> },
                 { to: "/admin/costi", label: "Costi", icon: <Wallet size={18} /> }
