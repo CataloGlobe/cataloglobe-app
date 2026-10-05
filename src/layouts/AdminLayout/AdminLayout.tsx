@@ -147,7 +147,7 @@ export default function AdminLayout() {
                                 ref={contentRef}
                                 className={`${styles.content} ${adminStyles.content}`}
                                 data-bottom-bar={showBottomBar || undefined}
-                                data-gea={showGea || undefined}
+                                data-gea={(showGea && !isLeadChat) || undefined}
                             >
                                 <CrmPageHeader />
                                 <Outlet context={outletContext} />

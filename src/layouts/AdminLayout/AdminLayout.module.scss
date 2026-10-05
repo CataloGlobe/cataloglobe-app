@@ -26,6 +26,12 @@
   }
 }
 
+// Il pulsante di Gea (GeaPanel, 40 px) sta in basso a destra: il contenuto
+// scorre fin sopra di lui. La scheda di un lead ha colonne sue e lo gestisce lì.
+.content[data-gea] {
+  padding-bottom: calc(40px + var(--space-48));
+}
+
 // Al telefono la barra in basso copre 56 px (più l'area sicura): il contenuto
 // scorre fin sopra di lei, e sopra il pulsante di Gea (GeaPanel, 40 px).
 @media (max-width: 767px) {
