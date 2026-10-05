@@ -45,7 +45,7 @@ test.describe("Testata — sottotitolo", () => {
         await stubRecensioni(page);
         await openBusinessPage(page, "reviews", "Recensioni");
         await expect(
-            page.getByText("Quello che i clienti scrivono dopo essere stati da voi.", { exact: true })
+            page.getByText("Quello che i clienti scrivono dopo essere stati da voi. Lo leggete solo voi: non compare sulla pagina pubblica.", { exact: true })
         ).toBeVisible({ timeout: 15_000 });
     });
 
@@ -61,7 +61,7 @@ test.describe("Testata — sottotitolo", () => {
         await stubRecensioni(page);
         await openBusinessPage(page, "reviews", "Recensioni");
         await page.setViewportSize({ width: 375, height: 800 });
-        const subtitle = page.getByText("Quello che i clienti scrivono dopo essere stati da voi.", { exact: true });
+        const subtitle = page.getByText("Quello che i clienti scrivono dopo essere stati da voi. Lo leggete solo voi: non compare sulla pagina pubblica.", { exact: true });
         await expect(subtitle).toBeVisible({ timeout: 15_000 });
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     });
@@ -93,7 +93,8 @@ test.describe("Testata — due righe prima della barra compatta", () => {
         );
     });
 
-    for (const width of [1024, 1280]) {
+    // Senza i filtri di stato la testata è più corta: a 1280 sta già su una riga (R1).
+    for (const width of [1024]) {
         test(`Recensioni a ${width}: stelle sotto le azioni`, async ({ page }) => {
             await stubRecensioni(page);
             await openBusinessPage(page, "reviews", "Recensioni");
@@ -105,16 +106,18 @@ test.describe("Testata — due righe prima della barra compatta", () => {
         });
     }
 
-    test("Recensioni a 1440: una riga sola", async ({ page }) => {
-        await stubRecensioni(page);
-        await openBusinessPage(page, "reviews", "Recensioni");
-        await page.setViewportSize({ width: 1440, height: 900 });
-        const stars = page.getByRole("radio", { name: "Tutte" }).first();
-        const search = page.getByPlaceholder("Cerca commenti...");
-        await expect(stars).toBeVisible();
-        await expect(search).toBeVisible();
-        const a = (await stars.boundingBox())!;
-        const b = (await search.boundingBox())!;
-        expect(Math.abs(a.y + a.height / 2 - (b.y + b.height / 2))).toBeLessThan(4);
-    });
+    for (const width of [1280, 1440]) {
+        test(`Recensioni a ${width}: una riga sola`, async ({ page }) => {
+            await stubRecensioni(page);
+            await openBusinessPage(page, "reviews", "Recensioni");
+            await page.setViewportSize({ width, height: 900 });
+            const stars = page.getByRole("radio", { name: "Tutte" }).first();
+            const search = page.getByPlaceholder("Cerca commenti...");
+            await expect(stars).toBeVisible();
+            await expect(search).toBeVisible();
+            const a = (await stars.boundingBox())!;
+            const b = (await search.boundingBox())!;
+            expect(Math.abs(a.y + a.height / 2 - (b.y + b.height / 2))).toBeLessThan(4);
+        });
+    }
 });

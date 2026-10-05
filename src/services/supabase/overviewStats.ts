@@ -134,7 +134,7 @@ export type TenantCapabilities = {
     featured: { active: boolean; total: number; published: number };
     ordering: { active: boolean; locations: number; tables: number; ordersToday: number };
     reservations: { active: boolean; locations: number; pending: number };
-    reviews: { active: boolean; total: number; pending: number };
+    reviews: { active: boolean; total: number };
     stories: { active: boolean; published: number };
     team: { active: boolean; members: number };
 };
@@ -175,7 +175,6 @@ export async function getTenantCapabilities(tenantId: string): Promise<TenantCap
         reservationLocations,
         reservationsPending,
         reviewsTotal,
-        reviewsPending,
         storiesPublished,
         members
     ] = await Promise.all([
@@ -189,7 +188,6 @@ export async function getTenantCapabilities(tenantId: string): Promise<TenantCap
         countRows(() => t("activities").eq("status", "active").eq("enable_reservations", true)),
         countRows(() => t("reservations").eq("status", "pending")),
         countRows(() => t("reviews")),
-        countRows(() => t("reviews").eq("status", "pending")),
         countRows(() => t("stories").eq("status", "published")),
         // Membri accettati, più il proprietario che non ha riga (CLAUDE.md).
         countRows(() => t("tenant_memberships").eq("status", "active")).then(n => n + 1)
@@ -200,7 +198,7 @@ export async function getTenantCapabilities(tenantId: string): Promise<TenantCap
         featured: { active: featuredPublished > 0, total: featuredTotal, published: featuredPublished },
         ordering: { active: orderingLocations > 0, locations: orderingLocations, tables, ordersToday: orders },
         reservations: { active: reservationLocations > 0, locations: reservationLocations, pending: reservationsPending },
-        reviews: { active: reviewsTotal > 0, total: reviewsTotal, pending: reviewsPending },
+        reviews: { active: reviewsTotal > 0, total: reviewsTotal },
         stories: { active: storiesPublished > 0, published: storiesPublished },
         team: { active: members > 1, members }
     };

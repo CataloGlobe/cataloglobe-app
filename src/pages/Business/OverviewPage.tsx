@@ -546,9 +546,8 @@ export default function OverviewPage() {
                   `${b}/reviews`,
                   c.reviews.active ? "active" : "todo",
                   c.reviews.active
-                      // «in attesa», non «senza risposta»: le risposte non esistono, la
-                      // coda di Recensioni chiede di pubblicarle o tenerle nascoste.
-                      ? `${plural(c.reviews.total, "ricevuta", "ricevute")} · ${c.reviews.pending} in attesa`
+                      // Feedback privato (R1): niente coda, solo quante ne sono arrivate.
+                      ? plural(c.reviews.total, "ricevuta", "ricevute")
                       : "La pagina pubblica può chiedere una recensione a fine pasto."
               ),
               capability(

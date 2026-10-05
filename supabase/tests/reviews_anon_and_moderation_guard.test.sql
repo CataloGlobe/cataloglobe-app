@@ -5,17 +5,18 @@
 -- esistono o non sono dati di test.
 -- =============================================================================
 --
--- Test — reviews: anon non legge, chi modera cambia solo lo stato
+-- Test — reviews: feedback privato, anon fuori, nessuno cambia una recensione
 --
 -- Verifica:
---   - anon non legge nessuna recensione, nemmeno le approvate (e quindi né
---     request_ip né session_id) (migration 20260930120000)
+--   - anon non ha nessun privilegio sulla tabella: legge e scrive → 42501
+--     (20260930120000, poi REVOKE ALL di 20261005210000)
 --   - nessun membro inserisce recensioni, owner compreso (20260930120100,
 --     20260930120200); il service role della Edge submit-review sì
---   - chi ha reviews.moderate cambia status e nient'altro: rating e comment
---     rifiutati con 42501 a staff, manager e owner (20260930120200/120300)
---   - invariati: viewer non cambia lo stato (0 righe, RLS), staff non
---     cancella (0 righe), owner cancella
+--   - nessun membro aggiorna una recensione, stato compreso: 42501 a viewer,
+--     staff, manager e owner (20261005210000 toglie policy UPDATE e GRANT
+--     UPDATE (status) di 20260930120300)
+--   - invariati: chi ha reviews.read legge, staff non cancella (0 righe),
+--     owner cancella
 --
 -- Helper nello schema reviews_guard_test, creato in testa e droppato in
 -- coda: non pg_temp, che nello SQL Editor di Studio non sopravviveva fra uno
@@ -24,7 +25,7 @@
 -- Pattern: setup via postgres role (bypass RLS), poi anon o authenticated.
 -- Una transazione sola per tutto il file, ogni test fra SAVEPOINT t<N> e
 -- ROLLBACK TO SAVEPOINT t<N>: schema e helper restano vivi per tutto il giro.
--- Prima delle migration falliscono 1, 2, 4, 5 e 6. La recensione di test è
+-- Prima di 20261005210000 falliscono 1, 2, 7 e 8. La recensione di test è
 -- inserita dentro ogni savepoint: nessuna riga reale viene toccata.
 --
 -- Transazione: il file apre la sua (BEGIN) e chiude con ROLLBACK, così non
@@ -36,7 +37,7 @@
 --
 -- Prerequisiti:
 --   - seed_permissions_test_data.sql già eseguito
---   - almeno una recensione approvata di McDonald's (16 al 30/09/2026)
+--   - almeno una recensione di McDonald's (16 al 30/09/2026)
 --
 -- Esecuzione: Studio SQL Editor di staging (ruolo postgres), il file intero.
 -- Attesi 10 `NOTICE … OK`; un `Test N FAIL` interrompe il file.
@@ -110,7 +111,7 @@ GRANT USAGE ON SCHEMA reviews_guard_test TO service_role;
 GRANT EXECUTE ON FUNCTION reviews_guard_test.seed_review() TO service_role;
 
 -- -----------------------------------------------------------------------------
--- TEST 1 — anon non legge le recensioni approvate
+-- TEST 1 — anon non legge la tabella (42501, nessun privilegio)
 -- -----------------------------------------------------------------------------
 SAVEPOINT t1;
 DO $$
@@ -120,42 +121,53 @@ BEGIN
   SET LOCAL role postgres;
   IF NOT EXISTS (
     SELECT 1 FROM public.reviews
-    WHERE tenant_id = '5b37c952-1add-4196-aab3-9775d98a9c32' AND status = 'approved'
+    WHERE tenant_id = '5b37c952-1add-4196-aab3-9775d98a9c32'
   ) THEN
-    RAISE EXCEPTION 'Test 1 FAIL: prerequisito — nessuna recensione approvata di McDonald''s';
+    RAISE EXCEPTION 'Test 1 FAIL: prerequisito — nessuna recensione di McDonald''s';
   END IF;
 
   PERFORM reviews_guard_test.as_anon();
-  SELECT count(*) INTO v_count FROM public.reviews;
+  BEGIN
+    SELECT count(*) INTO v_count FROM public.reviews;
+    RAISE EXCEPTION 'Test 1 FAIL: anon legge la tabella (% righe)', v_count;
+  EXCEPTION WHEN insufficient_privilege THEN
+    NULL;
+  END;
   SET LOCAL role postgres;
-  IF v_count <> 0 THEN
-    RAISE EXCEPTION 'Test 1 FAIL: anon legge % recensioni', v_count;
-  END IF;
-  RAISE NOTICE 'Test 1 OK: anon non legge recensioni, nemmeno le approvate';
+  RAISE NOTICE 'Test 1 OK: anon non legge le recensioni (42501)';
 END$$;
 ROLLBACK TO SAVEPOINT t1;
 
 -- -----------------------------------------------------------------------------
--- TEST 2 — anon non legge request_ip di una recensione appena approvata
+-- TEST 2 — anon non inserisce né aggiorna (42501)
 -- -----------------------------------------------------------------------------
 SAVEPOINT t2;
 DO $$
-DECLARE
-  v_ip text;
 BEGIN
   SET LOCAL role postgres;
   PERFORM reviews_guard_test.seed_review();
-  UPDATE public.reviews SET status = 'approved'
-  WHERE id = '00000000-0000-0000-0000-00000000ae01';
 
   PERFORM reviews_guard_test.as_anon();
-  SELECT request_ip INTO v_ip FROM public.reviews
-  WHERE id = '00000000-0000-0000-0000-00000000ae01';
+  BEGIN
+    INSERT INTO public.reviews (tenant_id, activity_id, rating, rating_category, comment)
+    VALUES ('5b37c952-1add-4196-aab3-9775d98a9c32', '347aae51-8df1-4a15-b7f6-40862bf94005',
+            5, 'positive', 'Finta anon');
+    RAISE EXCEPTION 'Test 2 FAIL: anon ha inserito';
+  EXCEPTION WHEN insufficient_privilege THEN
+    NULL;
+  END;
+  BEGIN
+    UPDATE public.reviews SET status = 'approved'
+    WHERE id = '00000000-0000-0000-0000-00000000ae01';
+    RAISE EXCEPTION 'Test 2 FAIL: anon ha aggiornato lo stato';
+  EXCEPTION WHEN insufficient_privilege THEN
+    NULL;
+  END;
   SET LOCAL role postgres;
-  IF v_ip IS NOT NULL THEN
-    RAISE EXCEPTION 'Test 2 FAIL: anon legge request_ip (%)', v_ip;
+  IF (reviews_guard_test.review()).status <> 'pending' THEN
+    RAISE EXCEPTION 'Test 2 FAIL: stato cambiato';
   END IF;
-  RAISE NOTICE 'Test 2 OK: request_ip della recensione pubblicata non leggibile da anon';
+  RAISE NOTICE 'Test 2 OK: anon non inserisce né aggiorna (42501)';
 END$$;
 ROLLBACK TO SAVEPOINT t2;
 
@@ -276,60 +288,68 @@ BEGIN
   IF (reviews_guard_test.review()).status <> 'pending' THEN
     RAISE EXCEPTION 'Test 6 FAIL: stato cambiato (%)', (reviews_guard_test.review()).status;
   END IF;
-  RAISE NOTICE 'Test 6 OK: UPDATE misto rifiutato per intero (42501)';
+  RAISE NOTICE 'Test 6 OK: UPDATE di stato e commento rifiutato (42501)';
 END$$;
 ROLLBACK TO SAVEPOINT t6;
 
 -- -----------------------------------------------------------------------------
--- TEST 7 — Staff pubblica, poi nasconde (solo status)
+-- TEST 7 — Nessuno cambia lo stato: staff, manager, owner → 42501
 -- -----------------------------------------------------------------------------
 SAVEPOINT t7;
 DO $$
 DECLARE
-  v_count integer;
+  v_user record;
 BEGIN
   SET LOCAL role postgres;
   PERFORM reviews_guard_test.seed_review();
 
-  PERFORM reviews_guard_test.as_user('9c6580e5-80bc-4fe8-9141-0d299be38f2f');
-  UPDATE public.reviews SET status = 'approved'
-  WHERE id = '00000000-0000-0000-0000-00000000ae01'
-    AND tenant_id = '5b37c952-1add-4196-aab3-9775d98a9c32';
-  GET DIAGNOSTICS v_count = ROW_COUNT;
-  IF v_count <> 1 THEN
-    RAISE EXCEPTION 'Test 7 FAIL: pubblica ha toccato % righe', v_count;
-  END IF;
-  UPDATE public.reviews SET status = 'hidden'
-  WHERE id = '00000000-0000-0000-0000-00000000ae01'
-    AND tenant_id = '5b37c952-1add-4196-aab3-9775d98a9c32';
-  SET LOCAL role postgres;
-  IF (reviews_guard_test.review()).status <> 'hidden' THEN
+  FOR v_user IN
+    SELECT * FROM (VALUES
+      ('staff',   '9c6580e5-80bc-4fe8-9141-0d299be38f2f'::uuid),
+      ('manager', '16595820-3e80-4ce2-aded-f4c5f01ab92d'::uuid),
+      ('owner',   '9603ef2a-9f9d-4ebc-8d05-3b2600e36e49'::uuid)
+    ) AS t(label, id)
+  LOOP
+    PERFORM reviews_guard_test.as_user(v_user.id);
+    BEGIN
+      UPDATE public.reviews SET status = 'approved'
+      WHERE id = '00000000-0000-0000-0000-00000000ae01';
+      RAISE EXCEPTION 'Test 7 FAIL: % ha cambiato lo stato', v_user.label;
+    EXCEPTION WHEN insufficient_privilege THEN
+      NULL;
+    END;
+    SET LOCAL role postgres;
+  END LOOP;
+
+  IF (reviews_guard_test.review()).status <> 'pending' THEN
     RAISE EXCEPTION 'Test 7 FAIL: stato finale %', (reviews_guard_test.review()).status;
   END IF;
-  RAISE NOTICE 'Test 7 OK: staff pubblica e nasconde';
+  RAISE NOTICE 'Test 7 OK: staff, manager e owner non cambiano lo stato (42501)';
 END$$;
 ROLLBACK TO SAVEPOINT t7;
 
 -- -----------------------------------------------------------------------------
--- TEST 8 — Viewer non cambia lo stato (0 righe, RLS: niente reviews.moderate)
+-- TEST 8 — Viewer non cambia lo stato (42501)
 -- -----------------------------------------------------------------------------
 SAVEPOINT t8;
 DO $$
-DECLARE
-  v_count integer;
 BEGIN
   SET LOCAL role postgres;
   PERFORM reviews_guard_test.seed_review();
 
   PERFORM reviews_guard_test.as_user('d01359aa-d980-4030-bc5c-c5e84dfe3d0c');
-  UPDATE public.reviews SET status = 'approved'
-  WHERE id = '00000000-0000-0000-0000-00000000ae01';
-  GET DIAGNOSTICS v_count = ROW_COUNT;
-  SET LOCAL role postgres;
-  IF v_count <> 0 OR (reviews_guard_test.review()).status <> 'pending' THEN
+  BEGIN
+    UPDATE public.reviews SET status = 'approved'
+    WHERE id = '00000000-0000-0000-0000-00000000ae01';
     RAISE EXCEPTION 'Test 8 FAIL: il viewer ha cambiato lo stato';
+  EXCEPTION WHEN insufficient_privilege THEN
+    NULL;
+  END;
+  SET LOCAL role postgres;
+  IF (reviews_guard_test.review()).status <> 'pending' THEN
+    RAISE EXCEPTION 'Test 8 FAIL: stato cambiato';
   END IF;
-  RAISE NOTICE 'Test 8 OK: viewer non modera (0 righe)';
+  RAISE NOTICE 'Test 8 OK: viewer non cambia lo stato (42501)';
 END$$;
 ROLLBACK TO SAVEPOINT t8;
 

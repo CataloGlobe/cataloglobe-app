@@ -64,11 +64,3 @@
     white-space: normal;
     overflow-wrap: anywhere;
 }
-
-/* Coda: «Tieni nascosta» · «Pubblica» accanto, a capo sul telefono. */
-.queueActions {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-    gap: var(--space-8);
-}

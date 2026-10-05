@@ -41,8 +41,7 @@ export default function SedeSidebar({
     onToggleCollapse,
     translationPendingCount = 0,
     importInProgress = false,
-    supportUnread = false,
-    reviewsPendingCount = 0
+    supportUnread = false
 }: SedeSidebarProps) {
     const { businessId = "", activityId = "" } = useParams<{ businessId: string; activityId: string }>();
     const { t } = useTranslation("admin");
@@ -52,8 +51,7 @@ export default function SedeSidebar({
     const { groups, footer } = navSidebarGroups(NAV_MODELS.sede, {
         businessId,
         activityId,
-        catalogLabel,
-        reviewsPendingCount
+        catalogLabel
     });
     const options = {
         permissions,

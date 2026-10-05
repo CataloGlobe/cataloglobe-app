@@ -17,10 +17,11 @@ import { appearanceTables, freezeClock, sediOf } from "./appearanceStub";
  * | «Tiramisù da provare e2e» | 5 | Porto | 01/08 |
  * | «Freddo e2e» | 1 | Centro | 05/07 |
  *
- * Tutte pubblicate. Con `moderation` (lotto `ds-5-moderazione`) se ne
- * aggiungono tre che il pubblico non ha mai visto:
+ * Tutte `approved`. Con `legacyStatuses` se ne aggiungono tre con gli stati
+ * della vecchia moderazione: dal feedback privato (R1) la pagina non li legge
+ * più, e le tratta come tutte le altre.
  *
- * | Recensione | Voto | Sede | Quando | Stato |
+ * | Recensione | Voto | Sede | Quando | Stato (ignorato) |
  * |---|---|---|---|---|
  * | «Cameriere scortese e2e: …» (lungo, > 200 caratteri) | 2 | Porto | 16/09 (7 giorni fa) | in attesa |
  * | «Carbonara perfetta e2e» | 5 | Centro | 21/09 | in attesa |
@@ -84,10 +85,10 @@ export function makeTables(): Tables {
 export type { WriteCall, WriteHandler } from "./restStub";
 export type RecensioniStub = RestStub & { tables: Tables };
 
-/** Le tre recensioni della moderazione: due in attesa, una nascosta. */
-export function moderationReviews(): Row[] {
+/** Tre recensioni con gli stati della vecchia moderazione: due in attesa, una nascosta. */
+export function legacyStatusReviews(): Row[] {
     return [
-        // Lungo di proposito (≥ 200 caratteri): in coda deve andare a capo a tutta
+        // Lungo di proposito (≥ 200 caratteri): deve andare a capo a tutta
         // larghezza anche a 375, non in una colonna accanto al voto (giro visivo del 30/09).
         review(
             REVIEW.scortese,
@@ -105,11 +106,11 @@ export function moderationReviews(): Row[] {
 
 export async function stubRecensioni(
     page: Page,
-    options: { empty?: boolean; moderation?: boolean } = {}
+    options: { empty?: boolean; legacyStatuses?: boolean } = {}
 ): Promise<RecensioniStub> {
     const tables = makeTables();
     if (options.empty) tables.reviews = [];
-    if (options.moderation) tables.reviews = [...tables.reviews, ...moderationReviews()];
+    if (options.legacyStatuses) tables.reviews = [...tables.reviews, ...legacyStatusReviews()];
     const stub = await stubRest(page, {
         tables,
         enrich: (table, rows) =>

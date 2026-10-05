@@ -53,7 +53,7 @@ export type NavKey =
     | "support";
 
 /** I segnali di oggi (§51.15): li calcola il layout, la voce dice quale le spetta. */
-export type NavSignal = "translations" | "import" | "supportUnread" | "reviewsPending";
+export type NavSignal = "translations" | "import" | "supportUnread";
 
 type HasFeature = (feature: PlanFeature) => boolean;
 
@@ -251,8 +251,7 @@ const REVIEWS: NavEntry = {
     label: ROUTE_LABELS.reviews,
     level: "azienda",
     segment: "reviews",
-    gate: { on: "anyActivity", permission: "reviews.read" },
-    signal: "reviewsPending"
+    gate: { on: "anyActivity", permission: "reviews.read" }
 };
 
 const ANALITICHE: NavEntry = {
@@ -268,8 +267,7 @@ const RECENSIONI: NavEntry = {
     label: ROUTE_LABELS.reviews,
     level: "sede",
     segment: "recensioni",
-    gate: { on: "activity", permission: "reviews.read" },
-    signal: "reviewsPending"
+    gate: { on: "activity", permission: "reviews.read" }
 };
 
 // La rubrica è di tutta l'azienda (§6, §51.11). Il gate di piano resta

@@ -59,12 +59,10 @@ export interface NavSidebarOptions {
     /** La sede delle voci di sede: quella del path, o l'unica leggibile. */
     activityId: string | null;
     catalogLabel: string;
-    /** Recensioni in attesa nel perimetro della voce (azienda o sede). */
-    reviewsPendingCount?: number;
 }
 
 function toItem(entry: NavEntry, options: NavSidebarOptions): SidebarNavItem {
-    const { businessId, activityId, catalogLabel, reviewsPendingCount = 0 } = options;
+    const { businessId, activityId, catalogLabel } = options;
     const base = `/business/${businessId}/locations/${activityId ?? ""}`;
     return {
         to: entryPath(entry, businessId, activityId),
@@ -76,8 +74,7 @@ function toItem(entry: NavEntry, options: NavSidebarOptions): SidebarNavItem {
         matchPrefixes: entry.level === "sede" ? entry.matchSegments?.map(s => `${base}/${s}`) : undefined,
         showTranslationBadge: entry.signal === "translations",
         showImportBadge: entry.signal === "import",
-        showUnreadDot: entry.signal === "supportUnread",
-        count: entry.signal === "reviewsPending" ? reviewsPendingCount : undefined
+        showUnreadDot: entry.signal === "supportUnread"
     };
 }
 

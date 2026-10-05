@@ -1,14 +1,13 @@
 import { useParams } from "react-router-dom";
-import { useEffect, useId, useState, useMemo, useCallback, type ReactNode } from "react";
+import { useEffect, useState, useMemo, useCallback, type ReactNode } from "react";
 import { useTenantId } from "@/context/useTenantId";
 import { useToast } from "@/context/Toast/ToastContext";
-import { listReviews, deleteReview, updateReviewStatus } from "@/services/supabase/reviews";
+import { listReviews, deleteReview } from "@/services/supabase/reviews";
 import { useSedeScope } from "@/hooks/useSedeScope";
 import type { Review } from "@/types/database";
 import { usePermissions } from "@/context/usePermissions";
 import { canDoOnActivity, canDoOnAnyActivity } from "@/lib/permissions";
 import { PageGate } from "@/components/PageGate/PageGate";
-import { useBusinessOutletContext } from "@/layouts/MainLayout/outletContext";
 import { ArrowUpDown, CalendarRange, MessageSquare, Star } from "lucide-react";
 
 import { usePageHeader } from "@/context/usePageHeader";
@@ -19,29 +18,14 @@ import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedCont
 import { DateInput } from "@/components/ui/Input/DateInput";
 import { Button } from "@/components/ui/Button/Button";
 import { BarList } from "@/components/ui/BarList/BarList";
-import { ChipGroupSingle } from "@/components/ui/Chip/ChipGroup";
 import { Card } from "@/components/ui/Card/Card";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
-import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import { ListRow } from "@/components/ui/ListRow/ListRow";
 import { Rating } from "@/components/ui/Rating/Rating";
-import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
-import { TableRowActions, type TableRowAction } from "@/components/ui/TableRowActions/TableRowActions";
+import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import Text from "@/components/ui/Text/Text";
 import { formatRelativeTime } from "@/utils/relativeTime";
-import {
-    ACTION_STATUS,
-    QUEUE_EXPLANATION,
-    REVIEW_STATUS_META,
-    STATUS_CHANGE_TOAST,
-    queueTitle,
-    rowActions,
-    splitByStatus,
-    waitingDays,
-    type ListFilter,
-    type ModerationAction
-} from "./reviewModeration";
 
 import styles from "./Reviews.module.scss";
 
@@ -83,7 +67,6 @@ const SORT_OPTIONS = [
 export default function Reviews() {
     const tenantId = useTenantId();
     const { showToast } = useToast();
-    const refreshReviewsPending = useBusinessOutletContext()?.refreshReviewsPending;
 
     /* ── Due livelli (§51.10) ───────────────────────── */
     // Dentro la sede (`/locations/:activityId/recensioni`) la sede è nel path;
@@ -99,11 +82,9 @@ export default function Reviews() {
         (selectedActivity
             ? canDoOnActivity(permissions, "reviews.read", selectedActivity)
             : canDoOnAnyActivity(permissions, "reviews.read"));
+    // Eliminare resta di owner e admin (`reviews.delete`, per sede).
     const canDelete = (review: Review) =>
         permissions ? canDoOnActivity(permissions, "reviews.delete", review.activity_id) : false;
-    // Pubblica · Tieni nascosta · Nascondi: reversibili, per sede (§34.9/2).
-    const canModerate = (review: Review) =>
-        permissions ? canDoOnActivity(permissions, "reviews.moderate", review.activity_id) : false;
 
     /* ── State ──────────────────────────────────────── */
     const [reviews, setReviews] = useState<Review[]>([]);
@@ -117,14 +98,6 @@ export default function Reviews() {
     const [customTo, setCustomTo] = useState("");
     const [sortBy, setSortBy] = useState<SortOption>("newest");
     const [searchQuery, setSearchQuery] = useState("");
-    const [listFilter, setListFilter] = useState<ListFilter>("all");
-
-    // Le recensioni col cambio di stato in volo: i loro bottoni aspettano.
-    const [updatingIds, setUpdatingIds] = useState<ReadonlySet<string>>(new Set());
-    // L'ultimo cambio di stato fallito: in pagina, sopra la coda, finché il
-    // gesto successivo non lo sostituisce (regola 10, niente toast d'errore).
-    const [actionError, setActionError] = useState<string | null>(null);
-    const queueTitleId = useId();
 
     // La recensione da eliminare: il DELETE è secco e l'ha scritta un
     // cliente, quindi passa da un ConfirmDialog (regola delle azioni
@@ -170,28 +143,25 @@ export default function Reviews() {
         return map;
     }, [readableActivities]);
 
-    /* ── Coda (in attesa) ed elenco (le altre) ─────── */
-    // La coda non segue i filtri della testata: è quello che resta da fare.
-    const { pending: pendingReviews, others: moderatedReviews } = useMemo(() => splitByStatus(reviews), [reviews]);
-
     /* ── Period filtering (base for stats) ──────────── */
+    // Feedback privato (R1): nessuna coda né stato, conta ogni recensione.
     const periodFilteredReviews = useMemo(() => {
         const now = Date.now();
 
         if (filterPeriod === "7d") {
             const t = now - 7 * 86_400_000;
-            return moderatedReviews.filter((r) => new Date(r.created_at).getTime() >= t);
+            return reviews.filter((r) => new Date(r.created_at).getTime() >= t);
         }
         if (filterPeriod === "30d") {
             const t = now - 30 * 86_400_000;
-            return moderatedReviews.filter((r) => new Date(r.created_at).getTime() >= t);
+            return reviews.filter((r) => new Date(r.created_at).getTime() >= t);
         }
         if (filterPeriod === "90d") {
             const t = now - 90 * 86_400_000;
-            return moderatedReviews.filter((r) => new Date(r.created_at).getTime() >= t);
+            return reviews.filter((r) => new Date(r.created_at).getTime() >= t);
         }
         if (filterPeriod === "custom") {
-            return moderatedReviews.filter((r) => {
+            return reviews.filter((r) => {
                 const ts = new Date(r.created_at).getTime();
                 if (customFrom && ts < new Date(customFrom).getTime()) return false;
                 if (customTo && ts > new Date(customTo).getTime() + 86_400_000 - 1)
@@ -199,53 +169,32 @@ export default function Reviews() {
                 return true;
             });
         }
-        return moderatedReviews;
-    }, [moderatedReviews, filterPeriod, customFrom, customTo]);
+        return reviews;
+    }, [reviews, filterPeriod, customFrom, customTo]);
 
-    // Il riepilogo conta solo le pubblicate (R2, mockup «Riepilogo dei voti pubblicati»).
-    const publishedInPeriod = useMemo(
-        () => periodFilteredReviews.filter(r => r.status === "approved"),
-        [periodFilteredReviews]
-    );
-
-    /* ── Stats ──────────────────────────────────────── */
+    /* ── Stats: su tutti i voti del periodo ─────────── */
     const average = useMemo(() => {
-        const total = publishedInPeriod.length;
+        const total = periodFilteredReviews.length;
         if (total === 0) return null;
-        const sum = publishedInPeriod.reduce((s, r) => s + r.rating, 0);
+        const sum = periodFilteredReviews.reduce((s, r) => s + r.rating, 0);
         return Math.round((sum / total) * 10) / 10;
-    }, [publishedInPeriod]);
+    }, [periodFilteredReviews]);
 
     // Distribuzione 5→1 a una serie sola (§34.9/4, §34.10): la lunghezza fa
     // il lavoro, tinta unica, il livello di stelle è l'etichetta.
     const distributionItems = useMemo(() => {
         const dist: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
-        for (const r of publishedInPeriod) dist[r.rating] = (dist[r.rating] ?? 0) + 1;
+        for (const r of periodFilteredReviews) dist[r.rating] = (dist[r.rating] ?? 0) + 1;
         return ([5, 4, 3, 2, 1] as const).map(star => ({
             id: String(star),
             label: <Rating value={star} showValue={false} />,
             value: dist[star]
         }));
-    }, [publishedInPeriod]);
-
-    /* ── Filtro di stato dell'elenco, coi conteggi ─── */
-    const hiddenCount = useMemo(() => periodFilteredReviews.filter(r => r.status === "hidden").length, [periodFilteredReviews]);
-    const listFilterOptions = useMemo(
-        () => [
-            { value: "all" as const, label: "Tutte", count: periodFilteredReviews.length },
-            { value: "approved" as const, label: "Pubblicate", count: publishedInPeriod.length, disabled: publishedInPeriod.length === 0 },
-            { value: "hidden" as const, label: "Nascoste", count: hiddenCount, disabled: hiddenCount === 0 }
-        ],
-        [periodFilteredReviews.length, publishedInPeriod.length, hiddenCount]
-    );
+    }, [periodFilteredReviews]);
 
     /* ── Final filtered + sorted reviews ────────────── */
     const displayedReviews = useMemo(() => {
         let result = [...periodFilteredReviews];
-
-        if (listFilter !== "all") {
-            result = result.filter((r) => r.status === listFilter);
-        }
 
         if (filterRating !== "all") {
             const rating = Number(filterRating);
@@ -275,12 +224,10 @@ export default function Reviews() {
         });
 
         return result;
-    }, [periodFilteredReviews, listFilter, filterRating, searchQuery, sortBy]);
+    }, [periodFilteredReviews, filterRating, searchQuery, sortBy]);
 
-    const isFiltered =
-        filterRating !== "all" || searchQuery.trim() !== "" || filterPeriod !== "all" || listFilter !== "all";
+    const isFiltered = filterRating !== "all" || searchQuery.trim() !== "" || filterPeriod !== "all";
     const clearFilters = useCallback(() => {
-        setListFilter("all");
         setFilterRating("all");
         setSearchQuery("");
         setFilterPeriod("all");
@@ -382,37 +329,13 @@ export default function Reviews() {
     }), [filterRating, filterPeriod, sortBy, searchQuery]);
 
     usePageHeader({
-        subtitle: "Quello che i clienti scrivono dopo essere stati da voi.",
+        subtitle: "Quello che i clienti scrivono dopo essere stati da voi. Lo leggete solo voi: non compare sulla pagina pubblica.",
         leading,
         actions: headerActions,
         compact: headerCompact,
     });
 
     /* ── Handlers ───────────────────────────────────── */
-    // Pubblica · Tieni nascosta · Nascondi: reversibili, niente conferma. Un
-    // errore lo dice il banner in cima: la recensione resta dov'era.
-    async function handleStatusChange(review: Review, action: Exclude<ModerationAction, "delete">) {
-        if (!tenantId) return;
-        const status = ACTION_STATUS[action];
-        setUpdatingIds(prev => new Set(prev).add(review.id));
-        setActionError(null);
-        try {
-            await updateReviewStatus(review.id, tenantId, status);
-            setReviews(prev => prev.map(r => (r.id === review.id ? { ...r, status } : r)));
-            showToast({ message: STATUS_CHANGE_TOAST[status].success, type: "success" });
-            refreshReviewsPending?.();
-        } catch (error) {
-            console.error("Cambio di stato della recensione:", error);
-            setActionError(STATUS_CHANGE_TOAST[status].error);
-        } finally {
-            setUpdatingIds(prev => {
-                const next = new Set(prev);
-                next.delete(review.id);
-                return next;
-            });
-        }
-    }
-
     const requestDelete = (review: Review) => {
         setDeleteError(null);
         setPendingDelete(review);
@@ -458,68 +381,8 @@ export default function Reviews() {
         <PageGate readPermission="reviews.read" activityId={selectedActivity || null}>
             {({ canEdit }) => (
                 <div className={styles.page}>
-                    {actionError && <InlineBanner variant="error">{actionError}</InlineBanner>}
-
-                    {/* ── Coda di moderazione (§34.9/1): in cima, finché ce n'è ── */}
-                    {!loading && !loadError && pendingReviews.length > 0 && (
-                        <div role="region" aria-labelledby={queueTitleId}>
-                            <Card
-                                title={queueTitle(pendingReviews.length, waitingDays(pendingReviews[0].created_at, Date.now()))}
-                                titleId={queueTitleId}
-                                subtitle={QUEUE_EXPLANATION}
-                                flush
-                            >
-                                {pendingReviews.map(review => {
-                                    const actions = rowActions(review.status, {
-                                        canModerate: canModerate(review),
-                                        canDelete: canDelete(review)
-                                    });
-                                    const busy = updatingIds.has(review.id);
-                                    return (
-                                        <ListRow
-                                            key={review.id}
-                                            title={reviewTitle(review)}
-                                            wrapSubtitle
-                                            subtitle={reviewSubtitle(review)}
-                                            // Niente metaInline: sul telefono il voto scende
-                                            // sotto il commento, che resta a tutta larghezza
-                                            // (con un commento lungo, accanto al voto andava a
-                                            // capo in una colonna di 187 px su 341).
-                                            meta={<Rating value={review.rating} />}
-                                            trailingWrap
-                                            trailing={
-                                                actions.length > 0 ? (
-                                                    <div className={styles.queueActions}>
-                                                        <Button
-                                                            variant="outline"
-                                                            size="sm"
-                                                            disabled={!canEdit || busy}
-                                                            title={!canEdit ? "L'abbonamento non è attivo." : undefined}
-                                                            onClick={() => void handleStatusChange(review, "hide")}
-                                                        >
-                                                            Tieni nascosta
-                                                        </Button>
-                                                        <Button
-                                                            variant="primary"
-                                                            size="sm"
-                                                            disabled={!canEdit || busy}
-                                                            title={!canEdit ? "L'abbonamento non è attivo." : undefined}
-                                                            onClick={() => void handleStatusChange(review, "publish")}
-                                                        >
-                                                            Pubblica
-                                                        </Button>
-                                                    </div>
-                                                ) : undefined
-                                            }
-                                        />
-                                    );
-                                })}
-                            </Card>
-                        </div>
-                    )}
-
-                    {/* ── Riepilogo: numero eroe + distribuzione, sulle pubblicate ─── */}
-                    <Card title="Riepilogo dei voti pubblicati">
+                    {/* ── Riepilogo: numero eroe + distribuzione, su tutti i voti ─── */}
+                    <Card title="Riepilogo dei voti">
                         <div className={styles.summary}>
                             {loading ? (
                                 <BarList className={styles.summaryFull} items={[]} loading />
@@ -530,11 +393,11 @@ export default function Reviews() {
                                             <Rating
                                                 value={average}
                                                 size="hero"
-                                                countLabel={`${publishedInPeriod.length} ${publishedInPeriod.length === 1 ? "recensione pubblicata" : "recensioni pubblicate"}`}
+                                                countLabel={`${periodFilteredReviews.length} ${periodFilteredReviews.length === 1 ? "recensione" : "recensioni"}`}
                                             />
                                         ) : (
                                             <Text variant="body-sm" colorVariant="muted">
-                                                Nessun voto pubblicato nel periodo.
+                                                Nessun voto nel periodo.
                                             </Text>
                                         )}
                                     </div>
@@ -596,20 +459,8 @@ export default function Reviews() {
                                 </Button>
                             }
                         />
-                    ) : moderatedReviews.length === 0 && pendingReviews.length > 0 ? null /* tutto nella coda */ : (
-                        <>
-                        {periodFilteredReviews.length > 0 && (
-                            <ChipGroupSingle<ListFilter>
-                                ariaLabel="Stato delle recensioni"
-                                layout="auto"
-                                shape="pill"
-                                value={listFilter}
-                                onChange={setListFilter}
-                                options={listFilterOptions}
-                            />
-                        )}
-                        {displayedReviews.length === 0 ? (
-                            isFiltered && moderatedReviews.length > 0 ? (
+                    ) : displayedReviews.length === 0 ? (
+                            isFiltered && reviews.length > 0 ? (
                                 <EmptyState variant="filtered" title="Nessuna recensione trovata" onClearFilters={clearFilters} />
                             ) : (
                                 <EmptyState
@@ -621,55 +472,34 @@ export default function Reviews() {
                             )
                         ) : (
                             <Card flush>
-                                {displayedReviews.map((review) => {
-                                    const actions = rowActions(review.status, {
-                                        canModerate: canModerate(review),
-                                        canDelete: canDelete(review)
-                                    });
-                                    const busy = updatingIds.has(review.id);
-                                    const menu: TableRowAction[] = actions.map(action =>
-                                        action === "delete"
-                                            ? {
-                                                  label: "Elimina",
-                                                  variant: "destructive",
-                                                  separator: true,
-                                                  disabled: !canEdit,
-                                                  description: !canEdit ? "L'abbonamento non è attivo." : undefined,
-                                                  onClick: () => requestDelete(review)
-                                              }
-                                            : {
-                                                  label: action === "publish" ? "Pubblica" : "Nascondi",
-                                                  disabled: !canEdit || busy,
-                                                  description: !canEdit ? "L'abbonamento non è attivo." : undefined,
-                                                  onClick: () => void handleStatusChange(review, action)
-                                              }
-                                    );
-                                    const meta = REVIEW_STATUS_META[review.status];
-                                    return (
+                                {displayedReviews.map((review) => (
                                         <ListRow
                                             key={review.id}
                                             title={reviewTitle(review)}
                                             wrapSubtitle
                                             subtitle={reviewSubtitle(review)}
-                                            // Voto e stato nel meta: sul telefono scendono sotto il
+                                            // Voto nel meta: sul telefono scende sotto il
                                             // commento, che resta largo quanto la riga.
-                                            meta={
-                                                <>
-                                                    <Rating value={review.rating} />
-                                                    <StatusBadge variant={meta.variant} label={meta.label} />
-                                                </>
-                                            }
+                                            meta={<Rating value={review.rating} />}
                                             trailing={
-                                                menu.length > 0 ? (
-                                                    <TableRowActions ariaLabel="Azioni recensione" actions={menu} />
+                                                canDelete(review) ? (
+                                                    <TableRowActions
+                                                        ariaLabel="Azioni recensione"
+                                                        actions={[
+                                                            {
+                                                                label: "Elimina",
+                                                                variant: "destructive",
+                                                                disabled: !canEdit,
+                                                                description: !canEdit ? "L'abbonamento non è attivo." : undefined,
+                                                                onClick: () => requestDelete(review)
+                                                            }
+                                                        ]}
+                                                    />
                                                 ) : undefined
                                             }
                                         />
-                                    );
-                                })}
+                                ))}
                             </Card>
-                        )}
-                        </>
                     )}
 
                     {/* ── Piede ────────────────────────────────── */}
