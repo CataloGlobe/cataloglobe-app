@@ -8,6 +8,7 @@ import {
     escapeHtml,
     isEscalationDue,
     parseCallbackData,
+    encodeGeaConfirm,
     pickOutboxRecipients,
     returnedAdvice,
     romeWindowMinutesBetween,
@@ -78,6 +79,9 @@ describe("uuid corti", () => {
         });
         expect(parseCallbackData(`g:${uuidToShort(VENUE)}`)).toEqual({ action: "choose", venueId: VENUE });
         expect(parseCallbackData(`x:${uuidToShort(VENUE)}`)).toEqual({ action: "cancel", venueId: VENUE });
+        expect(parseCallbackData(encodeGeaConfirm(VENUE, true))).toEqual({ action: "gea_confirm", inboxId: VENUE, accept: true });
+        expect(parseCallbackData(encodeGeaConfirm(VENUE, false))).toEqual({ action: "gea_confirm", inboxId: VENUE, accept: false });
+        expect(encodeGeaConfirm(VENUE, true).length).toBeLessThanOrEqual(64);
     });
 });
 

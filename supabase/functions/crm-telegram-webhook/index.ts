@@ -30,6 +30,10 @@
 //     «Lo correggo io» manda una risposta forzata, e il testo scritto in
 //     risposta a quel messaggio va in coda al posto della bozza. Decisa una
 //     bozza, i messaggi di tutti perdono i tasti e dicono chi ha deciso.
+//   * Gea 1 (F1-8): ogni altro messaggio in chat privata da una persona del
+//     team va a Gea (_shared/crmGeaJob.ts), in sottofondo con
+//     EdgeRuntime.waitUntil: Telegram riceve 200 subito. «Sì, fallo» / «No»
+//     sui comandi del gruppo 2 → crm_gea_confirm (solo chi l'ha chiesto).
 // Chi tocca è riconosciuto dal suo id Telegram, che in chat privata coincide
 // col chat_id salvato al collegamento. Chi non è nel team non può fare nulla.
 //
@@ -37,7 +41,8 @@
 // ripetere l'update all'infinito.
 //
 // Env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, TELEGRAM_BOT_TOKEN,
-// TELEGRAM_WEBHOOK_SECRET, APP_URL (facoltativo).
+// TELEGRAM_WEBHOOK_SECRET, CRM_ANTHROPIC_API_KEY (Gea; senza, Gea risponde
+// che il collegamento con Claude non va), APP_URL (facoltativo).
 // =============================================================================
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -63,6 +68,7 @@ import {
 import { sendToTeam } from "../_shared/crmTeamAlert.ts";
 import { closeDraftMessages } from "../_shared/crmAgentJob.ts";
 import { buildEditPromptText, cleanEditText } from "../_shared/crmAgentMessages.ts";
+import { handleGeaConfirm, handleGeaMessage } from "../_shared/crmGeaJob.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -521,10 +527,11 @@ async function handleDraft(supabase, parsed, actor, answer, query) {
 }
 
 /** Testo scritto in risposta a «Lo correggo io». */
-async function handleEditReply(supabase, message) {
+/** true se il messaggio era la correzione di una bozza (gestito qui). */
+async function handleEditReply(supabase, message): Promise<boolean> {
     const chatId = message.chat?.id;
     const replyTo = message.reply_to_message?.message_id;
-    if (!chatId || !replyTo) return;
+    if (!chatId || !replyTo) return false;
     const { data: prompt } = await supabase
         .from("crm_agent_draft_messages")
         .select("draft_id")
@@ -532,14 +539,14 @@ async function handleEditReply(supabase, message) {
         .eq("message_id", replyTo)
         .eq("role", "edit_prompt")
         .maybeSingle();
-    if (!prompt) return;
+    if (!prompt) return false;
     const team = await loadTeam(supabase);
     const actor = team.find(m => m.telegram_chat_id === message.from?.id);
-    if (!actor) return;
+    if (!actor) return true;
     const text = cleanEditText(message.text);
     if (!text) {
         await reply(chatId, "Il testo deve avere da 1 a 1000 caratteri. Rispondi di nuovo al messaggio.");
-        return;
+        return true;
     }
     const { data: status, error } = await supabase.rpc("crm_agent_decide_draft", {
         p_draft_id: prompt.draft_id,
@@ -550,14 +557,29 @@ async function handleEditReply(supabase, message) {
     if (error) {
         console.error("crm-telegram-webhook: correzione", error.code, error.message);
         await reply(chatId, DRAFT_ERRORS[error.code] ?? "Non è andata a buon fine. Riprova dalla scheda.");
-        return;
+        return true;
     }
     if (!status) {
         await reply(chatId, "La bozza era già stata decisa: il tuo testo non è partito.");
-        return;
+        return true;
     }
     await closeDraftMessages(supabase, BOT_TOKEN, prompt.draft_id, status, actor.display_name);
     await reply(chatId, "Messaggio preso: parte appena il Mac con WhatsApp è pronto (di notte parte la mattina).");
+    return true;
+}
+
+/** Gea risponde solo in chat privata e solo a chi è nel team del CRM. */
+async function handleGea(supabase, message, appUrl) {
+    if (message.chat?.type !== "private") return;
+    const team = await loadTeam(supabase);
+    const actor = team.find(m => m.telegram_chat_id === message.from?.id);
+    if (!actor) return;
+    const work = handleGeaMessage(supabase, BOT_TOKEN, message, actor, team, appUrl).catch(err =>
+        console.error("crm-telegram-webhook: Gea", err?.message ?? String(err))
+    );
+    // In sottofondo: Telegram riceve 200 subito, Gea può metterci qualche secondo.
+    if (typeof EdgeRuntime !== "undefined" && EdgeRuntime?.waitUntil) EdgeRuntime.waitUntil(work);
+    else await work;
 }
 
 async function handleCallback(supabase, query, appUrl) {
@@ -598,6 +620,11 @@ async function handleCallback(supabase, query, appUrl) {
 
     if (parsed.action === "draft") {
         await handleDraft(supabase, parsed, actor, answer, query);
+        return;
+    }
+
+    if (parsed.action === "gea_confirm") {
+        await handleGeaConfirm(supabase, BOT_TOKEN, parsed, actor, team, query, answer, appUrl);
         return;
     }
 
@@ -664,8 +691,12 @@ Deno.serve(async (req: Request) => {
             await handleCallback(supabase, update.callback_query, getPublicSiteUrl());
         } else if (typeof update.message?.text === "string" && update.message.text.startsWith("/start")) {
             await handleStart(supabase, update.message);
-        } else if (typeof update.message?.text === "string" && update.message.reply_to_message) {
-            await handleEditReply(supabase, update.message);
+        } else if (update.message) {
+            const handled =
+                typeof update.message.text === "string" && update.message.reply_to_message
+                    ? await handleEditReply(supabase, update.message)
+                    : false;
+            if (!handled) await handleGea(supabase, update.message, getPublicSiteUrl());
         }
     } catch (err) {
         const e = err as { code?: unknown; message?: unknown };

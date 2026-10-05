@@ -57,7 +57,13 @@ const ACTION_LABEL: Record<string, string> = {
     replies_on: "Risposte dell'agente accese",
     replies_off: "Risposte dell'agente spente",
     followups_on: "Solleciti dell'agente accesi",
-    followups_off: "Solleciti dell'agente spenti"
+    followups_off: "Solleciti dell'agente spenti",
+    gea_note: "Nota da Gea",
+    gea_move_stage: "Fase cambiata da Gea",
+    gea_assign: "Lead girato da Gea",
+    gea_pause: "Agenti in pausa da Gea",
+    gea_resume: "Agenti ripresi da Gea",
+    gea_refused: "Richiesta rifiutata da Gea"
 };
 
 /** Azioni nuove (dalle PR dopo) senza etichetta: il codice, leggibile. */
