@@ -97,7 +97,7 @@ export function intervalUpgradeEmail(opts: {
     amountPaidTodayCents: number | null;
     /** Sum of the proration lines (negative cents = credit for the unused month). */
     prorationCreditCents: number;
-    /** Full recurring yearly total from the Price tiers. */
+    /** Full recurring yearly total from the Price (per_unit or legacy tiers). */
     yearlyTotalCents: number;
     /** New renewal date (today + 1 year), or trial end while trialing. */
     renewalDateIso: string | null;
@@ -156,7 +156,7 @@ ${getEmailFooterText()}`;
 export function intervalDowngradeEmail(opts: {
     plan: string;
     seats: number;
-    /** Full recurring monthly total from the Price tiers. */
+    /** Full recurring monthly total from the Price (per_unit or legacy tiers). */
     monthlyTotalCents: number;
     /** End of the current period (active) or trial end (trialing). */
     effectiveDateIso: string | null;

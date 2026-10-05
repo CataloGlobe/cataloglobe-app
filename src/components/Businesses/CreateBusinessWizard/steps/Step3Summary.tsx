@@ -1,16 +1,15 @@
 import Text from "@/components/ui/Text/Text";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import type { BillingInterval, Plan } from "@/types/plan";
-import type { GraduatedBreakdown } from "@/utils/pricing";
+import type { SeatsPricing } from "@/utils/pricing";
 import styles from "../CreateBusinessWizard.module.scss";
 
 interface Step3SummaryProps {
     name: string;
     plan: Plan;
     billingInterval: BillingInterval;
-    breakdown: GraduatedBreakdown;
+    breakdown: SeatsPricing;
     total: number;
-    discountPercent: number;
     promotionCode: string;
     onPromotionCodeChange: (value: string) => void;
     showPromoInput: boolean;
@@ -33,7 +32,6 @@ export function Step3Summary({
     billingInterval,
     breakdown,
     total,
-    discountPercent,
     promotionCode,
     onPromotionCodeChange,
     showPromoInput,
@@ -65,19 +63,12 @@ export function Step3Summary({
                     </div>
 
                     <div className={styles.summaryLines}>
-                        {breakdown.lines.map(line => (
-                            <div key={line.seat} className={styles.breakdownRow}>
-                                <span className={styles.breakdownLabel}>
-                                    {line.seat === 1 ? "1ª sede" : `${line.seat}ª sede`}
-                                    {line.discounted && (
-                                        <span className={styles.breakdownDiscountChip}>
-                                            −{discountPercent}%
-                                        </span>
-                                    )}
-                                </span>
-                                <span>{formatEuro(line.unitPrice)}</span>
-                            </div>
-                        ))}
+                        <div className={styles.breakdownRow}>
+                            <span className={styles.breakdownLabel}>
+                                {breakdown.seats} {breakdown.seats === 1 ? "sede" : "sedi"} × {formatEuro(breakdown.unitPrice)}
+                            </span>
+                            <span>{formatEuro(breakdown.subtotal)}</span>
+                        </div>
                     </div>
 
                     <div className={styles.summaryTotals}>

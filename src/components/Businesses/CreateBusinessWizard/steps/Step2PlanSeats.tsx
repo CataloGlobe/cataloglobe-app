@@ -1,7 +1,7 @@
 import Text from "@/components/ui/Text/Text";
 import { PlanSeatsSelector } from "@/components/ui/PlanSeatsSelector/PlanSeatsSelector";
 import type { BillingInterval, Plan, PlanCode, PlanPrice } from "@/types/plan";
-import type { GraduatedBreakdown } from "@/utils/pricing";
+import type { SeatsPricing } from "@/utils/pricing";
 import styles from "../CreateBusinessWizard.module.scss";
 
 interface Step2PlanSeatsProps {
@@ -15,9 +15,8 @@ interface Step2PlanSeatsProps {
     planPrices: PlanPrice[];
     seats: number;
     onSeatsChange: (value: number) => void;
-    breakdown: GraduatedBreakdown;
+    breakdown: SeatsPricing;
     maxSeats: number;
-    discountPercent: number;
     overLimit: boolean;
     disabled: boolean;
 }
@@ -35,7 +34,6 @@ export function Step2PlanSeats({
     onSeatsChange,
     breakdown,
     maxSeats,
-    discountPercent,
     overLimit,
     disabled
 }: Step2PlanSeatsProps) {
@@ -60,7 +58,6 @@ export function Step2PlanSeats({
                 seats={seats}
                 onSeatsChange={onSeatsChange}
                 breakdown={breakdown}
-                discountPercent={discountPercent}
                 overLimit={overLimit}
                 maxSeats={maxSeats}
                 minSeats={1}

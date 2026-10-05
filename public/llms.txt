@@ -17,7 +17,7 @@ CataloGlobe è un servizio italiano per ristoranti, bar e locali. Il cliente inq
 
 ## Prezzi
 
-Un prezzo per ogni locale, senza costi aggiuntivi. Dal secondo locale, −10% su ognuno.
+Un prezzo per ogni locale, senza costi aggiuntivi.
 
 - Base: 39 € al mese, oppure 390 € all'anno
 - Pro: 59 € al mese, oppure 590 € all'anno
