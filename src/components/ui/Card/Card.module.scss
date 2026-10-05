@@ -65,6 +65,7 @@
 .titleRow {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: var(--space-8);
 }
 
@@ -76,6 +77,39 @@
 .badge {
   display: inline-flex;
   align-items: center;
+}
+
+// Selettore del modo accanto al titolo; al telefono sotto, a tutta larghezza.
+.modeSelector {
+  display: inline-flex;
+  margin-left: var(--space-8);
+
+  @media (max-width: 767px) {
+    flex-basis: 100%;
+    margin-left: 0;
+
+    > * {
+      width: 100%;
+    }
+  }
+}
+
+// Sezione vuota: una riga di testo, niente stato vuoto centrato e alto.
+.empty {
+  padding-block: var(--space-16);
+}
+
+// Card a riga singola: la testata è tutta la card, senza divisore; sotto 768
+// il bottone va sotto il testo (lo fa già il wrap della testata).
+.row .header {
+  border-bottom: none;
+  padding-block: var(--space-20);
+}
+
+@media (max-width: 767px) {
+  .row .actions {
+    flex-basis: 100%;
+  }
 }
 
 .actions {
