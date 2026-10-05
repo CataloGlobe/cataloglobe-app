@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "ask": [
+      "Bash(supabase db push:*)",
+      "Bash(supabase link:*)",
+      "Bash(supabase functions deploy:*)",
+      "Bash(supabase migration repair:*)",
+      "Bash(npx supabase db push:*)",
+      "Bash(npx supabase link:*)",
+      "Bash(npx supabase functions deploy:*)",
+      "Bash(npx supabase migration repair:*)"
+    ]
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -cn '{systemMessage: \"Fine sessione — CLAUDE.md aggiornato? Controlla: epic/pattern/tabella/RPC/edge function/gotcha nuovi non ancora documentati. Se sì, proponi il diff prima di chiudere.\"}'"
+          }
+        ]
+      }
+    ]
+  }
+}
