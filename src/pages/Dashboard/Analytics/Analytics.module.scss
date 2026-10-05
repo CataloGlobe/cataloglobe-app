@@ -32,23 +32,21 @@
   }
 }
 
-// Cifre in fila: al più tre per riga (scheda StatCard), a capo quando non
-// ci stanno.
+// Numeri chiave in una riga di card uguali (fino a 4) in cima alla sezione;
+// al telefono due per riga, e un numero dispari non lascia una card da sola.
 .statGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(max(220px, calc((100% - 2 * var(--space-16)) / 3)), 1fr));
-  gap: var(--space-16);
-}
-
-// Quattro cifre: due per riga, mai tre più una orfana (Ordini al tavolo).
-// Sul telefono una colonna, come `.grid`.
-.statGridPairs {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
   gap: var(--space-16);
 
   @media (max-width: 767px) {
-    grid-template-columns: minmax(0, 1fr);
+    grid-auto-flow: row;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+
+    > :last-child:nth-child(odd) {
+      grid-column: span 2;
+    }
   }
 }
 

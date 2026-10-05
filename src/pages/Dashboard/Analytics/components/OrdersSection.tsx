@@ -95,7 +95,7 @@ export default function OrdersSection({
                 Ordini al tavolo
             </Text>
 
-            <div className={styles.statGridPairs}>
+            <div className={styles.statGrid}>
                 <StatCard label="Ordini" value={nf.format(o?.orders_count ?? 0)} delta={deltaOf(o?.orders_count ?? 0, previous?.orders_count)} />
                 <StatCard label="Ricavi" value={formatPrice(o?.revenue ?? 0)} delta={deltaOf(o?.revenue ?? 0, previous?.revenue)} />
                 <StatCard
