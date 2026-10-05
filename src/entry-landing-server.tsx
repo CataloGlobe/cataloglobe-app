@@ -2,6 +2,8 @@ import React from "react";
 import { renderToString } from "react-dom/server";
 import LandingPage from "@pages/CampaignLanding/LandingPage";
 import { buildLandingDocument } from "@pages/CampaignLanding/prerender";
+
+export { inlineStylesheets } from "@pages/CampaignLanding/prerender";
 import type { Variante } from "@pages/CampaignLanding/variant";
 
 /**

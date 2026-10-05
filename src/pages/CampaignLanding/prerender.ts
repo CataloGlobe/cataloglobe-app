@@ -37,3 +37,24 @@ export function prerenderedVariante(root: HTMLElement): Variante | null {
     const value = root.dataset.landingPrerender;
     return value === "form" || value === "signup" ? value : null;
 }
+
+/** Il foglio di stile della landing come lo scrive Vite in `landing.html`. */
+const STYLESHEET_LINK = /<link rel="stylesheet" crossorigin href="(\/assets\/[^"]+\.css)">/g;
+
+/**
+ * Sostituisce i `<link rel="stylesheet">` di Vite con il loro CSS in un
+ * `<style>`, nello stesso punto dell'head (stessa cascata): il primo paint
+ * non aspetta nessuna richiesta di CSS. `readCss` riceve l'href (`/assets/…`).
+ */
+export function inlineStylesheets(html: string, readCss: (href: string) => string): string {
+    let count = 0;
+    const out = html.replace(STYLESHEET_LINK, (_, href: string) => {
+        count++;
+        // @charset in un <style> non vale niente: il documento è già UTF-8.
+        const css = readCss(href).replace(/^@charset "UTF-8";/, "");
+        if (/<\/style/i.test(css)) throw new Error(`[prerender-landing] ${href} contiene </style>`);
+        return `<style data-href="${href}">${css}</style>`;
+    });
+    if (count === 0) throw new Error("[prerender-landing] nessun foglio di stile da mettere inline");
+    return out;
+}
