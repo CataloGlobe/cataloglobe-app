@@ -4,7 +4,6 @@ import CollectionView, {
   type CollectionViewSectionGroup,
 } from "@/components/PublicCollectionView/CollectionView/CollectionView";
 import type { SelectionItem } from "@/components/PublicCollectionView/OrderingSheet/OrderingSheet";
-import FeaturedBlock from "@/components/PublicCollectionView/FeaturedBlock/FeaturedBlock";
 import PublicThemeScope from "@/features/public/components/PublicThemeScope";
 import DeviceFrame from "@/components/ui/DeviceFrame/DeviceFrame";
 import { DEFAULT_COLLECTION_STYLE } from "@/types/collectionStyle";
@@ -177,6 +176,31 @@ const MOCK_FEATURED: V2FeaturedContent[] = [
     layout_style: null,
     pricing_mode: "none",
     content_type: "announcement",
+    bundle_price: null,
+    show_original_total: false,
+    products: [],
+    created_at: "",
+    updated_at: "",
+  },
+  {
+    id: "f5",
+    internal_name: "serata-degustazione",
+    title: "Serata Degustazione",
+    subtitle: "Giovedì alle 20:30",
+    description: null,
+    media_id: null,
+    media_focal_x: 0.5,
+    media_focal_y: 0.5,
+    media_zoom: 1,
+    media_fill_mode: "blur",
+    media_fill_color: null,
+    media_aspect_ratio: null,
+    cta_text: "Prenota",
+    cta_url: "#",
+    status: "published",
+    layout_style: null,
+    pricing_mode: "none",
+    content_type: "event",
     bundle_price: null,
     show_original_total: false,
     products: [],
@@ -486,6 +510,9 @@ export const StylePreview = ({
     showCatalogName: model.header.showCatalogName,
     showAddress: model.header.showAddress,
     featuredStyle: model.appearance.featuredStyle,
+    showFeaturedSubtitle: model.appearance.showFeaturedSubtitle ?? true,
+    showFeaturedTitle: model.appearance.showFeaturedTitle ?? true,
+    showFeaturedCta: model.appearance.showFeaturedCta ?? true,
     cardTreatment: model.appearance.cardTreatment,
     iconStyle: model.appearance.iconStyle ?? "plain",
     appearanceRadius: borderRadiusToPx(model.appearance.borderRadius),
@@ -518,16 +545,9 @@ export const StylePreview = ({
             activityAddress="Via Example, 1 - Città"
             openingHours={MOCK_OPENING_HOURS}
             upcomingClosures={MOCK_UPCOMING_CLOSURES}
-            featuredBeforeCatalogSlot={
-              <FeaturedBlock
-                blocks={MOCK_FEATURED}
-                layout={model.appearance.featuredStyle}
-                showSubtitle={model.appearance.showFeaturedSubtitle ?? true}
-                showTitle={model.appearance.showFeaturedTitle ?? true}
-                showCta={model.appearance.showFeaturedCta ?? true}
-                interactive={false}
-              />
-            }
+            // 5 contenuti (> FEATURED_CAROUSEL_LIMIT): l'anteprima mostra
+            // anche la card «Vedi tutti». Inerte in preview (mode="preview").
+            featuredBeforeCatalog={MOCK_FEATURED}
           />
         </DeviceFrame>
       </PublicThemeScope>

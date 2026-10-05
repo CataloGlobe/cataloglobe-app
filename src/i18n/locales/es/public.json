@@ -271,12 +271,16 @@
         "indicator_aria": "Indicador de contenido destacado",
         "section_aria": "Contenido destacado",
         "dot_aria": "{{index}} contenido de {{count}}",
-        "preview_close_aria": "Cerrar"
+        "preview_close_aria": "Cerrar",
+        "see_all": "Ver todos →",
+        "see_all_label_one": "contenido destacado",
+        "see_all_label_other": "contenidos destacados",
+        "see_all_aria": "Ver todos los contenidos destacados ({{count}})"
     },
     "events": {
         "list_aria": "Destacado",
         "empty": "No hay eventos ni promociones activos en este momento.",
-        "back": "← Volver a la lista",
+        "back_aria": "Volver a la lista",
         "close_aria": "Cerrar",
         "close_label": "Cerrar"
     },

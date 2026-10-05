@@ -90,6 +90,70 @@
 }
 
 
+/* ══════════════════════════════════════════════════════════════════════════
+   CARD «VEDI TUTTI» — ultima del carosello oltre FEATURED_CAROUSEL_LIMIT
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* Altezza: quella delle card vicine (il track è flex, align-items stretch).
+   Larghezza: più stretta di .cardCarousel, è un rimando e non un contenuto. */
+.seeAllItem {
+  flex: 0 0 auto;
+  display: flex;
+  width: min(160px, 44%);
+  scroll-snap-align: end;
+
+  @container collection (min-width: 700px) {
+    width: 200px;
+  }
+}
+
+.seeAll {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--pub-space-1, 4px);
+  padding: var(--pub-space-4, 16px) var(--pub-space-3, 12px);
+  border: 1px dashed var(--pub-surface-border);
+  border-radius: var(--pub-radius, 12px);
+  background: var(--pub-surface);
+  color: var(--pub-surface-text);
+  font: inherit;
+  font-family: var(--pub-font-family, inherit);
+  text-align: center;
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: 2px solid var(--pub-accent, var(--pub-primary));
+    outline-offset: 2px;
+  }
+
+  &:active {
+    transform: scale(var(--pub-press-scale, 0.98));
+  }
+}
+
+.seeAllCount {
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--pub-surface-text);
+}
+
+.seeAllLabel {
+  font-size: 0.8125rem;
+  line-height: 1.3;
+  color: var(--pub-surface-text-muted);
+}
+
+.seeAllAction {
+  margin-top: var(--pub-space-2, 8px);
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--pub-accent, var(--pub-primary));
+}
+
 /* La base .cardCarousel (clamp 340–440px) dimensiona le card a ogni
    breakpoint; ~3 visibili a piena larghezza desktop, il resto scrollando. */
 

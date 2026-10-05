@@ -2,7 +2,7 @@ import { type KeyboardEvent } from "react";
 import { useTranslation } from "react-i18next";
 import type { V2FeaturedContent } from "@/types/resolvedCollections";
 import { FramedMedia } from "@components/ui/FramedMedia";
-import type { MediaFraming } from "@components/ui/ImageReframeEditor/types";
+import { toFeaturedFraming } from "@/components/PublicCollectionView/FeaturedBlock/featuredFraming";
 import styles from "./FeaturedCard.module.scss";
 
 export type FeaturedCardProps = {
@@ -23,17 +23,6 @@ export type FeaturedCardProps = {
     /** false in StyleEditor preview: card e CTA restano visive ma inerti (niente click/modale/navigazione). Default true. */
     interactive?: boolean;
 };
-
-/** Adatta lo snake_case di V2FeaturedContent alla forma canonica MediaFraming. */
-function toFraming(b: V2FeaturedContent): MediaFraming {
-    return {
-        focalX: b.media_focal_x ?? 0.5,
-        focalY: b.media_focal_y ?? 0.5,
-        zoom: b.media_zoom ?? 1,
-        fillMode: b.media_fill_mode ?? "blur",
-        fillColor: b.media_fill_color ?? null
-    };
-}
 
 function formatPrice(price: number): string {
     return new Intl.NumberFormat("it-IT", {
@@ -83,7 +72,7 @@ export default function FeaturedCard({ block, onClick, onCtaClick, className, va
                     {hasImage ? (
                         <FramedMedia
                             source={block.media_id!}
-                            framing={toFraming(block)}
+                            framing={toFeaturedFraming(block)}
                             aspectRatio={block.media_aspect_ratio}
                             alt={block.title}
                             eager={eager}
@@ -139,7 +128,7 @@ export default function FeaturedCard({ block, onClick, onCtaClick, className, va
                 {hasImage && (
                     <FramedMedia
                         source={block.media_id!}
-                        framing={toFraming(block)}
+                        framing={toFeaturedFraming(block)}
                         aspectRatio={block.media_aspect_ratio}
                         alt=""
                         ariaHidden
@@ -200,7 +189,7 @@ export default function FeaturedCard({ block, onClick, onCtaClick, className, va
                 {hasImage ? (
                     <FramedMedia
                         source={block.media_id!}
-                        framing={toFraming(block)}
+                        framing={toFeaturedFraming(block)}
                         aspectRatio={block.media_aspect_ratio}
                         alt={block.title}
                         eager={eager}
