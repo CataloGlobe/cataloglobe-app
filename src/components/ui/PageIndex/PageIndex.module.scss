@@ -1,4 +1,5 @@
-// Scheda PageIndex: colonna 200, sticky, voce 32 con padding 6 12, corrente
+// Scheda PageIndex: colonna 200 (non fissa: l'unico punto fisso è la barra
+// della pagina, correzioni UI 2026-10), voce 32 con padding 6 12, corrente
 // in brand-primary con la barra a sinistra; sotto 1024 la colonna non c'è.
 .layout {
   display: grid;
@@ -12,9 +13,6 @@
 }
 
 .aside {
-  position: sticky;
-  top: var(--space-24);
-
   @media (max-width: 1023px) {
     display: none;
   }
