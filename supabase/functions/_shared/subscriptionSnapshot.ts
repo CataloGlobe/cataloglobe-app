@@ -2,6 +2,7 @@
 import type Stripe from "https://esm.sh/stripe@17?target=deno";
 import type { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { mapStripeStatus } from "./subscriptionStatusSync.ts";
+import { priceTotalCents, retrievePriceTotalCents } from "./priceTotal.ts";
 import {
     ALLOWED_PLAN_CODES,
     intervalFromSubscription,
@@ -115,10 +116,7 @@ export function getSubscriptionCurrentPeriodStart(subscription: Stripe.Subscript
  * comped 100%-off deve risultare al valore pieno, non a 0 — serve alla quota
  * AI di FASE 4). NON usare mai invoice.amount_due (è post-coupon).
  *
- * I Price CataloGlobe sono graduated-tiered (billing_scheme=tiered): l'item
- * della subscription NON porta i tiers, serve un prices.retrieve con expand.
- * Stessa aritmetica di graduatedTotalFromPrice in stripe-change-subscription
- * (duplicazione consapevole: quell'edge non espone helper condivisi).
+ * Calcolo in priceTotal.ts (per_unit e vecchi Price graduated-tiered).
  * Ritorna null su errore/shape inattesa: il caller NON scrive la colonna in
  * quel caso (mai azzerare un valore buono per un blip API).
  */
@@ -131,50 +129,10 @@ export async function computePlanMonthlyValueCents(
     const quantity = item.quantity ?? 1;
 
     // Price flat per-unit: nessun fetch necessario.
-    if (item.price.billing_scheme === "per_unit" && item.price.unit_amount != null) {
-        return item.price.unit_amount * quantity;
+    if (item.price.billing_scheme === "per_unit") {
+        return priceTotalCents(item.price, quantity);
     }
-
-    try {
-        const price = await stripe.prices.retrieve(item.price.id, { expand: ["tiers"] });
-        if (
-            price.billing_scheme !== "tiered" ||
-            price.tiers_mode !== "graduated" ||
-            !Array.isArray(price.tiers)
-        ) {
-            console.warn(
-                `[subscriptionSnapshot] price ${item.price.id} non graduated-tiered (scheme=${price.billing_scheme}, mode=${price.tiers_mode}) — plan_monthly_value_cents skipped`
-            );
-            return null;
-        }
-        const tiers = [...price.tiers].sort((a, b) => {
-            const au = a.up_to ?? Number.POSITIVE_INFINITY;
-            const bu = b.up_to ?? Number.POSITIVE_INFINITY;
-            return au - bu;
-        });
-        let remaining = quantity;
-        let lower = 0;
-        let total = 0;
-        for (const tier of tiers) {
-            if (remaining <= 0) break;
-            const upTo = tier.up_to ?? Number.POSITIVE_INFINITY;
-            const capacity = upTo - lower;
-            const units = Math.min(remaining, capacity);
-            if (units <= 0) continue;
-            total += (tier.flat_amount ?? 0) + (tier.unit_amount ?? 0) * units;
-            remaining -= units;
-            lower = upTo;
-        }
-        if (remaining > 0) {
-            console.warn(`[subscriptionSnapshot] quantity ${quantity} oltre i tiers di ${item.price.id} — plan_monthly_value_cents skipped`);
-            return null;
-        }
-        return total;
-    } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        console.error(`[subscriptionSnapshot] prices.retrieve fallito per ${item.price.id}: ${message}`);
-        return null;
-    }
+    return retrievePriceTotalCents(stripe, item.price.id, quantity, "[subscriptionSnapshot]");
 }
 
 export interface BuildSubscriptionLinkUpdatesParams {

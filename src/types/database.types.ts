@@ -2091,8 +2091,6 @@ export type Database = {
           sort_order: number
           stripe_price_id: string | null
           updated_at: string
-          volume_discount_percent: number
-          volume_discount_threshold: number
         }
         Insert: {
           ai_quota_nanos_usd_per_seat?: number | null
@@ -2110,8 +2108,6 @@ export type Database = {
           sort_order?: number
           stripe_price_id?: string | null
           updated_at?: string
-          volume_discount_percent?: number
-          volume_discount_threshold?: number
         }
         Update: {
           ai_quota_nanos_usd_per_seat?: number | null
@@ -2129,8 +2125,6 @@ export type Database = {
           sort_order?: number
           stripe_price_id?: string | null
           updated_at?: string
-          volume_discount_percent?: number
-          volume_discount_threshold?: number
         }
         Relationships: []
       }

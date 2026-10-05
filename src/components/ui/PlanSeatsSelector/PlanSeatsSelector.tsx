@@ -6,7 +6,7 @@ import { Mail } from "lucide-react";
 import { COMPANY } from "@/config/company";
 import { BillingIntervalSwitch } from "@/components/ui/BillingIntervalSwitch/BillingIntervalSwitch";
 import type { BillingInterval, Plan, PlanCode, PlanPrice } from "@/types/plan";
-import type { GraduatedBreakdown } from "@/utils/pricing";
+import type { SeatsPricing } from "@/utils/pricing";
 import { INTERVAL_PERIOD_NOUN, annualPitchNoteFor, formatEuroWholeCents, monthByMonthEquivalentCents } from "@/utils/planPricing";
 import { DEFAULT_PLAN_FEATURES, DEFAULT_PLAN_BADGES } from "./planDefaults";
 import styles from "./PlanSeatsSelector.module.scss";
@@ -63,8 +63,7 @@ export interface PlanSeatsSelectorProps {
     planPrices?: PlanPrice[];
     seats: number;
     onSeatsChange: (value: number) => void;
-    breakdown: GraduatedBreakdown;
-    discountPercent: number;
+    breakdown: SeatsPricing;
     /** Vero quando `seats` supera il cap self-service: mostra il box "contattaci". */
     overLimit: boolean;
     /** Cap self-service (mostrato nel testo del box over-limit). */
@@ -92,7 +91,6 @@ export function PlanSeatsSelector({
     seats,
     onSeatsChange,
     breakdown,
-    discountPercent,
     overLimit,
     maxSeats,
     minSeats = 1,
@@ -170,7 +168,7 @@ export function PlanSeatsSelector({
                 <div className={styles.seatsHeader}>
                     <Text variant="body" weight={600}>Numero di sedi</Text>
                     <span className={styles.seatsHint}>
-                        Sconto del {discountPercent}% dalla seconda sede in poi.
+                        Ogni sede costa quanto la prima.
                     </span>
                 </div>
 
@@ -189,19 +187,11 @@ export function PlanSeatsSelector({
 
                 {!overLimit && (
                     <div className={styles.breakdownBox}>
-                        {breakdown.lines.map(line => (
-                            <div key={line.seat} className={styles.breakdownRow}>
-                                <span className={styles.breakdownLabel}>
-                                    {line.seat === 1 ? "1ª sede" : `${line.seat}ª sede`}
-                                    {line.discounted && (
-                                        <span className={styles.breakdownDiscountChip}>
-                                            −{discountPercent}%
-                                        </span>
-                                    )}
-                                </span>
-                                <span>{formatEuro(line.unitPrice)}</span>
-                            </div>
-                        ))}
+                        <div className={styles.breakdownRow}>
+                            <span className={styles.breakdownLabel}>
+                                {breakdown.seats} {breakdown.seats === 1 ? "sede" : "sedi"} × {formatEuro(breakdown.unitPrice)}
+                            </span>
+                        </div>
                         <div className={styles.breakdownTotalRow}>
                             <span>{INTERVAL_TOTAL_LABEL[billingInterval]}</span>
                             <span>{formatEuro(breakdown.subtotal)}</span>
