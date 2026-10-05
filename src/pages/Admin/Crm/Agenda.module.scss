@@ -5,7 +5,150 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-16);
-    max-width: 720px;
+}
+
+/* ===== Vista giorno (R3): la giornata, a destra «Com'è andata?» e domani ===== */
+.dayLayout {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-16);
+    max-width: 1100px;
+
+    @media (min-width: 1200px) {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 320px;
+        align-items: start;
+    }
+}
+
+.dayMain {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-16);
+    min-width: 0;
+}
+
+// Stretta: sopra la giornata, come prima. Larga: la colonna a destra.
+.dayAside {
+    order: -1;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-12);
+    min-width: 0;
+
+    &:empty {
+        display: none;
+    }
+
+    @media (min-width: 1200px) {
+        order: 0;
+    }
+}
+
+/* ===== Vista settimana (R4): sette colonne ===== */
+.grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-surface);
+    overflow: hidden;
+}
+
+.gridDay {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 360px;
+    border-right: 1px solid var(--border);
+
+    &:last-child {
+        border-right: 0;
+    }
+
+    &[data-today] {
+        background: var(--brand-primary-soft);
+    }
+}
+
+.gridHead {
+    all: unset;
+    box-sizing: border-box;
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-6);
+    padding: var(--space-10) var(--space-12);
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    cursor: pointer;
+
+    &:hover {
+        background: var(--hover-bg);
+    }
+
+    &:focus-visible {
+        box-shadow: var(--shadow-focus);
+    }
+
+    [data-today] > & {
+        color: var(--brand-primary);
+    }
+}
+
+.gridFree {
+    // Il giorno libero è un riquadro vuoto che riempie la colonna: la
+    // settimana si legge anche senza niente in programma.
+    flex: 1;
+    margin: var(--space-8) var(--space-6);
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: var(--space-8);
+    border: 1px dashed var(--color-gray-300);
+    border-radius: var(--radius-control);
+}
+
+.gridList {
+    list-style: none;
+    margin: 0;
+    padding: var(--space-8) var(--space-6);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+}
+
+.gridItem {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-6) var(--space-8);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--color-border-strong);
+    border-radius: var(--radius-control);
+    min-width: 0;
+    overflow-wrap: anywhere;
+
+    &[data-kind="telefonata"] {
+        border-left-color: var(--brand-primary);
+    }
+
+    &[data-kind="programma"] {
+        background: var(--bg);
+    }
+
+    &[data-past] {
+        opacity: 0.6;
+    }
+}
+
+.gridLink {
+    color: var(--text);
+    text-decoration: none;
+
+    &:hover {
+        text-decoration: underline;
+    }
 }
 
 /* ===== Settimana ===== */
@@ -188,4 +331,56 @@
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius-surface);
+}
+
+// Settimana vuota: la frase sta sopra la griglia, che resta.
+.weekEmpty {
+    margin: 0;
+}
+
+// Giorno vuoto: le ore come riquadri vuoti, perché la pagina abbia la forma
+// della giornata anche quando non c'è niente.
+.emptyDay {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-12);
+}
+
+.emptyDayMessage {
+    margin: 0;
+}
+
+.emptyDayHours {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+}
+
+.emptyDayHour {
+    display: grid;
+    grid-template-columns: 64px minmax(0, 1fr);
+    align-items: center;
+    gap: var(--space-12);
+
+    @media (max-width: 767px) {
+        grid-template-columns: 52px minmax(0, 1fr);
+    }
+}
+
+.emptyDayHour[data-new-window] {
+    margin-top: var(--space-12);
+}
+
+.emptyDayTime {
+    font-variant-numeric: tabular-nums;
+}
+
+.emptyDaySlot {
+    height: 40px;
+    border: 1px dashed var(--color-gray-300);
+    border-radius: var(--radius-control);
+    background: var(--surface);
 }

@@ -1,6 +1,17 @@
 import { describe, expect, it } from "vitest";
 import type { CrmAppointmentWithVenue, CrmMessage, CrmQueuedMessage, CrmVenueListItem } from "@/types/crm";
-import { agendaDayItems, agendaWeek, dayBounds, nowLineIndex, tomorrowLine, weekMonthLabel, weekStartKey } from "@/utils/crm/agendaDay";
+import {
+    agendaDayItems,
+    agendaWeek,
+    agendaWeekItems,
+    dayBounds,
+    emptyDaySlots,
+    nowLineIndex,
+    parseAgendaView,
+    tomorrowLine,
+    weekMonthLabel,
+    weekStartKey
+} from "@/utils/crm/agendaDay";
 
 // Lunedì 5 ottobre 2026, 15:40 di Roma
 const NOW = new Date("2026-10-05T13:40:00Z");
@@ -165,5 +176,48 @@ describe("agenda: domani", () => {
                 "2026-10-06"
             )
         ).toBe("Domani: 2 telefonate, la prima con Bar Luna alle 09:30.");
+    });
+});
+
+describe("vista giorno o settimana (R3/R4)", () => {
+    it("al telefono sempre il giorno, poi ?vista=, poi l'ultima scelta, poi la settimana", () => {
+        expect(parseAgendaView("settimana", "settimana", true)).toBe("giorno");
+        expect(parseAgendaView("giorno", "settimana", false)).toBe("giorno");
+        expect(parseAgendaView(null, "giorno", false)).toBe("giorno");
+        expect(parseAgendaView("boh", null, false)).toBe("settimana");
+    });
+
+    it("ogni telefonata nel suo giorno della settimana", () => {
+        const week = agendaWeekItems({
+            weekStart: "2026-10-05",
+            now: NOW,
+            venues: [],
+            sent: [],
+            queued: [],
+            appointments: [call({ id: "lun" }), call({ id: "mer", starts_at: "2026-10-07T08:00:00Z" }), call({ id: "x", status: "cancelled" })],
+            nameOf: () => null
+        });
+        expect(week.map(d => d.key)).toEqual(["2026-10-05", "2026-10-06", "2026-10-07", "2026-10-08", "2026-10-09", "2026-10-10", "2026-10-11"]);
+        expect(week.map(d => d.items.length)).toEqual([1, 0, 1, 0, 0, 0, 0]);
+    });
+});
+
+describe("righe del giorno vuoto dalle fasce delle telefonate", () => {
+    const windows = [
+        { days: [1, 2, 3, 4, 5], start: "09:00", end: "11:00" },
+        { days: [1, 2, 3, 4, 5], start: "17:30", end: "18:30" }
+    ];
+
+    it("un lunedì: le due fasce, la seconda staccata", () => {
+        expect(emptyDaySlots("2026-10-05", windows)).toEqual([
+            { label: "09:00", newWindow: false },
+            { label: "10:00", newWindow: false },
+            { label: "17:30", newWindow: true },
+            { label: "18:00", newWindow: false }
+        ]);
+    });
+
+    it("la domenica non ha fasce: nessuna riga", () => {
+        expect(emptyDaySlots("2026-10-11", windows)).toEqual([]);
     });
 });

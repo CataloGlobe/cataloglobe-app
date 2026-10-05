@@ -30,11 +30,12 @@ import { romeDayKey } from "@shared/crmCallSlots";
 import {
     boardVenues,
     cardMeta,
-    contactLine,
+    lastContactLine,
     LEAD_VIEWS,
     leadSummary,
     matchesView,
     nextAppointments,
+    nextStepLine,
     parseLeadView,
     searchLeads,
     SUMMARY_PERIODS,
@@ -157,6 +158,7 @@ export default function LeadsPage() {
     // Rimandati a domani (gesto verso sinistra): il prossimo passo scade dopo
     // oggi. Senza la tabella dei passi (migrazione non applicata) nessuno lo è.
     const stepsLoad = useCrmLoad(() => listCrmNextSteps(), reloadKey);
+    const stepByVenue = useMemo(() => new Map((stepsLoad.data ?? []).map(st => [st.venue_id, st])), [stepsLoad.data]);
     const [snoozedHere, setSnoozedHere] = useState<ReadonlySet<string>>(() => new Set());
     const todayKey = romeDayKey(now);
     const snoozed = useMemo(() => {
@@ -310,6 +312,7 @@ export default function LeadsPage() {
             {
                 id: "venue",
                 header: "Locale",
+                width: "minmax(0, 1.2fr)",
                 cell: (_v, row) => {
                     const lead = row.crm_leads[0];
                     return (
@@ -329,20 +332,45 @@ export default function LeadsPage() {
                     );
                 }
             },
-            { id: "stage", header: "Fase", accessor: row => CRM_STAGE_LABEL[row.stage] },
-            { id: "track", header: "Percorso", hideOnPhone: true, cell: (_v, row) => <LeadTrack stage={row.stage} /> },
+            {
+                // La fase con il percorso sotto (R2): una colonna in meno.
+                id: "stage",
+                header: "Fase",
+                width: "168px",
+                cell: (_v, row) => (
+                    <span className={styles.stageCell}>
+                        <span>{CRM_STAGE_LABEL[row.stage]}</span>
+                        <LeadTrack stage={row.stage} />
+                    </span>
+                )
+            },
+            {
+                id: "next",
+                header: "Prossimo passo",
+                cell: (_v, row) => {
+                    const line = nextStepLine({ venue: row, wait: waits.get(row.id), step: stepByVenue.get(row.id), next: next.get(row.id), now });
+                    return (
+                        <div className={DATA_TABLE_CLASSES.cellTwoLine}>
+                            <span className={line.warn ? styles.contactWarn : undefined}>{line.text}</span>
+                            {line.sub && <span>{line.sub}</span>}
+                        </div>
+                    );
+                }
+            },
             {
                 id: "contact",
                 header: "Ultimo contatto",
+                width: "180px",
+                hideOnPhone: true,
                 cell: (_v, row) => {
-                    const line = contactLine({ venue: row, wait: waits.get(row.id), next: next.get(row.id), now });
+                    const line = lastContactLine(row, now);
                     return <span className={line.warn ? styles.contactWarn : undefined}>{line.text}</span>;
                 }
             },
             {
                 id: "owner",
                 header: "Chi",
-                width: "64px",
+                width: "48px",
                 hideOnPhone: true,
                 cell: (_v, row) => {
                     const owner = nameOf(row.assigned_to);
@@ -374,7 +402,7 @@ export default function LeadsPage() {
                 )
             }
         ],
-        [waits, next, now, nameOf, handleWhatsapp, navigate]
+        [waits, next, stepByVenue, now, nameOf, handleWhatsapp, navigate]
     );
 
     const chipOptions = useMemo<ChipOption<LeadView>[]>(() => {

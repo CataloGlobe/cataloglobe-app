@@ -425,37 +425,91 @@
   }
 }
 
-.stepCell[data-out] {
-  color: var(--text-muted);
-}
-
-tr[data-on] .stepCell {
-  color: var(--brand-primary);
-  font-weight: 600;
-}
-
 .guideCell {
   text-align: right;
   width: 1%;
   white-space: nowrap;
 }
 
-// «Apri ›» (A2): il bottone morbido accanto a «Come funziona».
-.openAgent {
+.table tbody th {
+  @media (max-width: 767px) {
+    white-space: normal;
+  }
+}
+
+// R1 variante A: Agente prende lo spazio che avanza, le altre colonne stanno
+// strette sul loro contenuto.
+.table tbody th,
+.table thead th:first-child {
+  width: 100%;
+}
+
+.numCol {
+  text-align: right;
+}
+
+.table th.numCol,
+.table td.numCol {
+  text-align: right;
+}
+
+// Il nome è il bottone vero (tastiera e lettori); la riga intera apre col mouse.
+.agentName {
   all: unset;
   box-sizing: border-box;
+  color: var(--brand-primary);
+  cursor: pointer;
+  border-radius: var(--radius-inner);
+
+  &:focus-visible {
+    box-shadow: var(--shadow-focus);
+  }
+}
+
+.agentSub {
+  display: block;
+}
+
+.table tbody tr[data-opens] {
+  cursor: pointer;
+}
+
+.table tbody tr[data-opens]:hover > * {
+  background: var(--hover-bg);
+}
+
+.table tbody tr[data-opens]:hover > :first-child {
+  box-shadow: inset 3px 0 0 var(--brand-primary);
+}
+
+.table tbody tr[data-opens]:hover .agentName {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.rowActions {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
-  margin-left: var(--space-12);
-  padding: var(--space-4) var(--space-8);
-  border: 1px solid var(--brand-primary-soft);
-  border-radius: var(--radius-control);
-  background: var(--brand-primary-soft);
-  color: var(--on-brand-soft);
+  gap: var(--space-8);
+}
+
+// La «i»: piccola e grigia, è solo la spiegazione.
+.infoToggle {
+  all: unset;
+  box-sizing: border-box;
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  color: var(--text-muted);
   cursor: pointer;
 
-  &:hover {
+  &:hover,
+  &[data-open] {
+    color: var(--brand-primary);
     border-color: var(--brand-primary);
   }
 
@@ -464,21 +518,32 @@ tr[data-on] .stepCell {
   }
 }
 
-// Al telefono resta la freccia; il nome accessibile tiene «Come funziona».
-.guideLabel {
-  @media (max-width: 767px) {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip: rect(0 0 0 0);
-    white-space: nowrap;
-  }
+// «Apri ›»: solo la freccia a riposo, la parola compare quando la riga si accende.
+.openHint {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-6) var(--space-2) var(--space-8);
+  border-radius: var(--radius-control);
+  color: var(--text-muted);
 }
 
-.table tbody th {
-  @media (max-width: 767px) {
-    white-space: normal;
+.openHintLabel {
+  opacity: 0;
+}
+
+.table tbody tr[data-opens]:hover .openHint {
+  background: var(--brand-primary-soft);
+  color: var(--on-brand-soft);
+}
+
+.table tbody tr[data-opens]:hover .openHintLabel {
+  opacity: 1;
+}
+
+@media (max-width: 767px) {
+  .openHintLabel {
+    display: none;
   }
 }
 
@@ -498,16 +563,7 @@ tr[data-on] .stepCell {
   }
 }
 
-.showPhone {
-  display: none;
-
-  @media (max-width: 767px) {
-    display: block;
-  }
-}
-
-.linkButton,
-.guideToggle {
+.linkButton {
   all: unset;
   box-sizing: border-box;
   display: inline-flex;
@@ -532,9 +588,6 @@ tr[data-on] .stepCell {
     text-decoration: none;
   }
 
-  svg[data-open="true"] {
-    transform: rotate(180deg);
-  }
 }
 
 .mix {
