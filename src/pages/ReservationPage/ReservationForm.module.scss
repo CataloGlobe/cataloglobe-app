@@ -257,6 +257,29 @@
     font-variant-numeric: tabular-nums;
 }
 
+.consentRow {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 13px;
+    line-height: 1.4;
+    color: var(--pub-text-muted);
+    cursor: pointer;
+}
+
+.consentCheckbox {
+    flex: none;
+    width: 18px;
+    height: 18px;
+    margin: 1px 0 0;
+    accent-color: var(--pub-text);
+}
+
+.textarea:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
 /* ── Party-size pills ────────────────────────────────────────────────── */
 
 .party {
