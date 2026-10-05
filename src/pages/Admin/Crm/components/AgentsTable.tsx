@@ -1,6 +1,6 @@
 import { Fragment, type ReactNode } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronRight, Info } from "lucide-react";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import Text from "@/components/ui/Text/Text";
 import type { CrmAiRole } from "@/types/crm";
@@ -10,11 +10,13 @@ import { MixBar } from "./AgentsParts";
 import styles from "../Agents.module.scss";
 
 /**
- * La tabella degli agenti (U2): sei righe fisse, dense, senza pagine. Il passo
- * scelto nel giro accende le sue righe finché non se ne sceglie un altro (la
- * tabella del design system ha solo il lampo che svanisce). «Come funziona ▾»
- * apre il pannello dell'agente subito sotto la sua riga, «Apri ›» la sua
- * pagina (A2).
+ * La tabella degli agenti (U2, ritocco R1 variante A): righe fisse, dense,
+ * senza pagine. Il passo scelto nel giro accende le sue righe finché non se ne
+ * sceglie un altro (la tabella del design system ha solo il lampo che svanisce).
+ * Un gesto per riga: la riga (e il nome, che è il bottone vero) apre la pagina
+ * dell'agente (A2), e al passaggio si accende «Apri ›». La «i», piccola e
+ * grigia, apre «Come funziona» sotto la riga senza uscire. Il passo e il
+ * lavoro di oggi stanno sotto il nome: una colonna in meno.
  */
 export function AgentsTable({
     rows,
@@ -43,11 +45,6 @@ export function AgentsTable({
                             Agente
                         </Text>
                     </th>
-                    <th scope="col" className={styles.hidePhone}>
-                        <Text as="span" variant="caption" colorVariant="muted" weight={600}>
-                            Passo
-                        </Text>
-                    </th>
                     <th scope="col">
                         <Text as="span" variant="caption" colorVariant="muted" weight={600}>
                             Stato
@@ -55,21 +52,16 @@ export function AgentsTable({
                     </th>
                     <th scope="col" className={styles.hidePhone}>
                         <Text as="span" variant="caption" colorVariant="muted" weight={600}>
-                            Oggi
-                        </Text>
-                    </th>
-                    <th scope="col" className={styles.hidePhone}>
-                        <Text as="span" variant="caption" colorVariant="muted" weight={600}>
                             Inviate così
                         </Text>
                     </th>
-                    <th scope="col" className={styles.hidePhone}>
+                    <th scope="col" className={`${styles.hidePhone} ${styles.numCol}`}>
                         <Text as="span" variant="caption" colorVariant="muted" weight={600}>
                             Spesa oggi
                         </Text>
                     </th>
                     <th scope="col">
-                        <span className="visually-hidden">Come funziona</span>
+                        <span className="visually-hidden">Azioni</span>
                     </th>
                 </tr>
             </thead>
@@ -77,29 +69,41 @@ export function AgentsTable({
                 {rows.map(r => {
                     const on = highlighted.includes(r.id);
                     const open = openId === r.id;
+                    const canOpen = r.id !== "sentinella";
                     return (
                         <Fragment key={r.id}>
-                            <tr data-on={on || undefined} aria-current={on ? "step" : undefined}>
+                            <tr
+                                data-on={on || undefined}
+                                data-opens={canOpen || undefined}
+                                aria-current={on ? "step" : undefined}
+                                onClick={canOpen ? () => onOpen(r.id) : undefined}
+                            >
                                 <th scope="row">
-                                    <Text as="span" variant="body-sm" weight={700}>
-                                        {r.name}
-                                    </Text>
-                                    <Text as="span" variant="caption" colorVariant="muted" className={styles.showPhone}>
-                                        {r.today}
+                                    {canOpen ? (
+                                        <button
+                                            type="button"
+                                            className={styles.agentName}
+                                            aria-label={`Apri la pagina di ${r.name}`}
+                                            onClick={e => {
+                                                e.stopPropagation();
+                                                onOpen(r.id);
+                                            }}
+                                        >
+                                            <Text as="span" variant="body-sm" weight={700} color="inherit">
+                                                {r.name}
+                                            </Text>
+                                        </button>
+                                    ) : (
+                                        <Text as="span" variant="body-sm" weight={700}>
+                                            {r.name}
+                                        </Text>
+                                    )}
+                                    <Text as="span" variant="caption" colorVariant="muted" className={styles.agentSub}>
+                                        {r.id === "sentinella" ? "Sicurezza e bug di CataloGlobe" : `${r.step === null ? "Fuori dal giro" : `Passo ${r.step}`} · ${r.today}`}
                                     </Text>
                                 </th>
-                                <td className={`${styles.hidePhone} ${styles.stepCell}`} data-out={r.step === null || undefined}>
-                                    <Text as="span" variant="body-sm" color="inherit">
-                                        {r.step ?? "fuori"}
-                                    </Text>
-                                </td>
                                 <td>
                                     <StatusBadge variant={r.tone} label={r.status} />
-                                </td>
-                                <td className={styles.hidePhone}>
-                                    <Text as="span" variant="body-sm">
-                                        {r.today}
-                                    </Text>
                                 </td>
                                 <td className={styles.hidePhone}>
                                     {r.id === "conversazione" || r.id === "solleciti" ? (
@@ -110,7 +114,7 @@ export function AgentsTable({
                                         </Text>
                                     )}
                                 </td>
-                                <td className={styles.hidePhone}>
+                                <td className={`${styles.hidePhone} ${styles.numCol}`}>
                                     <Text as="span" variant="body-sm" colorVariant={r.spendShared ? "muted" : undefined}>
                                         {r.spendShared || !r.role || !spend ? "—" : formatAiCost(spend[r.role])}
                                     </Text>
@@ -121,39 +125,35 @@ export function AgentsTable({
                                             Si accende quando lo decidete
                                         </Text>
                                     ) : (
-                                        <>
+                                        <span className={styles.rowActions}>
                                             <button
                                                 type="button"
-                                                className={styles.guideToggle}
+                                                className={styles.infoToggle}
                                                 aria-label={`Come funziona: ${r.name}`}
                                                 aria-expanded={open}
                                                 aria-controls={`agente-pannello-${r.id}`}
-                                                onClick={() => onToggle(r.id)}
+                                                data-open={open || undefined}
+                                                onClick={e => {
+                                                    e.stopPropagation();
+                                                    onToggle(r.id);
+                                                }}
                                             >
-                                                <Text as="span" variant="body-sm" color="inherit" className={styles.guideLabel}>
-                                                    Come funziona
-                                                </Text>
-                                                <ChevronDown size={14} aria-hidden="true" data-open={open} />
+                                                <Info size={14} aria-hidden="true" />
                                             </button>
-                                            <button
-                                                type="button"
-                                                className={styles.openAgent}
-                                                aria-label={`Apri la pagina di ${r.name}`}
-                                                onClick={() => onOpen(r.id)}
-                                            >
-                                                <Text as="span" variant="body-sm" weight={600} color="inherit">
+                                            <span className={styles.openHint} aria-hidden="true">
+                                                <Text as="span" variant="body-sm" weight={600} color="inherit" className={styles.openHintLabel}>
                                                     Apri
                                                 </Text>
-                                                <ChevronRight size={14} aria-hidden="true" />
-                                            </button>
-                                        </>
+                                                <ChevronRight size={16} />
+                                            </span>
+                                        </span>
                                     )}
                                 </td>
                             </tr>
                             <AnimatePresence initial={false}>
                                 {open && (
                                     <tr key="pannello" className={styles.panelRow}>
-                                        <td colSpan={7} id={`agente-pannello-${r.id}`}>
+                                        <td colSpan={5} id={`agente-pannello-${r.id}`}>
                                             <motion.div
                                                 className={styles.panelOpen}
                                                 initial={reduceMotion ? { opacity: 0 } : { opacity: 0, height: 0 }}
