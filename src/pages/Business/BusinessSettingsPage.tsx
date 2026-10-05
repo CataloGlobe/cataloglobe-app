@@ -20,7 +20,8 @@ import { Card } from "@/components/ui/Card/Card";
 import { FormGrid } from "@/components/ui/FormGrid";
 import { FormField } from "@/components/ui/FormField/FormField";
 import Skeleton from "@/components/ui/Skeleton/Skeleton";
-import { UnsavedChangesBar } from "@/components/ui/UnsavedChangesBar/UnsavedChangesBar";
+import { HeaderSaveAction, DiscardChangesConfirmDialog } from "@/components/ui/HeaderSaveAction/HeaderSaveAction";
+import { buildSaveActionCompactConfig } from "@/components/ui/HeaderSaveAction/headerSaveActionCompact";
 import { useUnsavedChangesGuard } from "@/components/ui/UnsavedChangesBar/useUnsavedChangesGuard";
 import { DeleteTenantDialog } from "@/components/Businesses/DeleteTenantDialog";
 import { BillingDetailsForm } from "./components/BillingDetailsForm";
@@ -46,7 +47,7 @@ import styles from "./BusinessSettingsPage.module.scss";
 
 /**
  * Il draft della pagina (§37.4 p. 5, regola B §11): nome e dati di
- * fatturazione insieme, una sola `UnsavedChangesBar`, una sola guardia.
+ * fatturazione insieme, un solo salvataggio nella barra della pagina, una sola guardia.
  * `billing` è null finché il profilo fiscale non è arrivato (o è fallito):
  * in quel caso si salva solo il nome.
  */
@@ -192,11 +193,50 @@ export default function BusinessSettingsPage() {
         }
     };
 
+    // Una modifica per campo: il nome e ogni campo della fatturazione.
+    const changeCount =
+        draft && saved
+            ? (draft.name.trim() !== saved.name ? 1 : 0) +
+              (draft.billing
+                  ? (Object.keys(draft.billing) as (keyof BillingDraft)[]).filter(
+                        key => JSON.stringify(draft.billing?.[key]) !== JSON.stringify(saved.billing?.[key])
+                    ).length
+                  : 0)
+            : 0;
+
+    // Il salvataggio sta nella barra della pagina, a destra (MD1): niente barra
+    // fluttuante. Solo per chi può modificare, quando il draft è pronto.
+    const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
+    const showSave = canManageTenant && draft !== null;
     const settingsTabs = useSettingsTabs();
     usePageHeader({
         title: "Impostazioni",
         leading: settingsTabs.leading,
-        compact: settingsTabs.leading ? settingsTabs.compact : undefined
+        actions: showSave ? (
+            <HeaderSaveAction
+                isDirty={isDirty}
+                isSaving={saving}
+                onSave={handleSave}
+                onDiscard={handleCancel}
+                saveDisabled={!canSave}
+                changeCount={changeCount}
+            />
+        ) : undefined,
+        compact:
+            settingsTabs.leading || showSave
+                ? {
+                      ...(settingsTabs.leading ? settingsTabs.compact : {}),
+                      ...(showSave
+                          ? buildSaveActionCompactConfig({
+                                isDirty,
+                                isSaving: saving,
+                                onSave: handleSave,
+                                onRequestDiscard: () => setConfirmDiscardOpen(true),
+                                saveDisabled: !canSave
+                            })
+                          : {})
+                  }
+                : undefined
     });
 
     // Riceve dal wrapper l'immagine GIÀ ritagliata (baked, quadrata): carica quel
@@ -374,15 +414,11 @@ export default function BusinessSettingsPage() {
                 onConfirm={handleDeleteConfirm}
             />
 
-            {isDirty && (
-                <UnsavedChangesBar
-                    isSaving={saving}
-                    onCancel={handleCancel}
-                    onSave={handleSave}
-                    saveDisabled={!canSave}
-                    saveLabel="Salva"
-                />
-            )}
+            <DiscardChangesConfirmDialog
+                isOpen={confirmDiscardOpen}
+                onClose={() => setConfirmDiscardOpen(false)}
+                onDiscard={handleCancel}
+            />
         </div>
     );
 }

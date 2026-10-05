@@ -4,6 +4,7 @@ import { Check } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import styles from "./HeaderSaveAction.module.scss";
+import { SAVES_INSTANTLY_NOTE, formatChangeCount } from "./saveActionText";
 
 /**
  * Conferma per lo scarto delle modifiche. Estratta perché la stessa domanda va
@@ -48,7 +49,18 @@ interface HeaderSaveActionProps {
      * pagina, non è una navigazione. Omesso → nessun bottone Annulla.
      */
     onDiscard?: () => void;
+    /** Salva spento (es. campo non valido): il bottone resta a vista. */
+    saveDisabled?: boolean;
+    /** Quante modifiche ci sono: «N modifiche» prima di Annulla. Omesso → nessun conteggio. */
+    changeCount?: number;
+    /**
+     * La tab aperta salva a ogni modifica: accanto a «Salvato» lo dice
+     * («· in questa tab ogni modifica si salva subito»), al posto di una frase
+     * sopra il contenuto.
+     */
+    savesInstantly?: boolean;
 }
+
 
 /**
  * Azione Salva (+ Annulla opzionale) iniettata nell'header di pagina via
@@ -58,7 +70,15 @@ interface HeaderSaveActionProps {
  * ridondante. Il dialog di conferma per Annulla vive qui: unico punto,
  * garantisce lo stesso comportamento su tutte le pagine che passano `onDiscard`.
  */
-export function HeaderSaveAction({ isDirty, isSaving, onSave, onDiscard }: HeaderSaveActionProps) {
+export function HeaderSaveAction({
+    isDirty,
+    isSaving,
+    onSave,
+    onDiscard,
+    saveDisabled = false,
+    changeCount,
+    savesInstantly = false
+}: HeaderSaveActionProps) {
     const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
 
     if (!isDirty && !isSaving) {
@@ -66,12 +86,22 @@ export function HeaderSaveAction({ isDirty, isSaving, onSave, onDiscard }: Heade
             <span className={styles.savedPill} role="status">
                 <Check size={15} strokeWidth={2.5} aria-hidden="true" />
                 <Text as="span" variant="body-sm" weight={500}>Salvato</Text>
+                {savesInstantly && (
+                    <Text as="span" variant="body-sm" colorVariant="muted" className={styles.note}>
+                        · {SAVES_INSTANTLY_NOTE}
+                    </Text>
+                )}
             </span>
         );
     }
 
     return (
         <div className={styles.dirtyGroup}>
+            {changeCount != null && changeCount > 0 && (
+                <Text as="span" variant="body-sm" colorVariant="muted" className={styles.count}>
+                    {formatChangeCount(changeCount)}
+                </Text>
+            )}
             {onDiscard && (
                 <Button
                     variant="ghost"
@@ -82,7 +112,7 @@ export function HeaderSaveAction({ isDirty, isSaving, onSave, onDiscard }: Heade
                     Annulla
                 </Button>
             )}
-            <Button variant="primary" size="sm" loading={isSaving} onClick={onSave}>
+            <Button variant="primary" size="sm" loading={isSaving} disabled={saveDisabled} onClick={onSave}>
                 Salva
             </Button>
 

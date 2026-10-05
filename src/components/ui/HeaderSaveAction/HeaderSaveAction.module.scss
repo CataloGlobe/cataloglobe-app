@@ -16,3 +16,14 @@
     color: var(--color-green-500);
   }
 }
+
+// «· in questa tab ogni modifica si salva subito»: peso normale, va a capo
+// prima di allargare la barra.
+.note {
+  font-weight: 400;
+  white-space: normal;
+}
+
+.count {
+  white-space: nowrap;
+}

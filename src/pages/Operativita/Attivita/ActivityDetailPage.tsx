@@ -6,7 +6,8 @@ import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import Skeleton from "@/components/ui/Skeleton/Skeleton";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
-import { UnsavedChangesBar } from "@/components/ui/UnsavedChangesBar/UnsavedChangesBar";
+import { HeaderSaveAction, DiscardChangesConfirmDialog } from "@/components/ui/HeaderSaveAction/HeaderSaveAction";
+import { buildSaveActionCompactConfig } from "@/components/ui/HeaderSaveAction/headerSaveActionCompact";
 import { useUnsavedChangesGuard } from "@/components/ui/UnsavedChangesBar/useUnsavedChangesGuard";
 import { usePageHeader } from "@/context/usePageHeader";
 import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
@@ -175,11 +176,33 @@ const ActivityDetailPage: React.FC = () => {
             : "Pubblicata"
         : null;
 
+    // Il salvataggio del draft sta nella barra della pagina, a destra (MD1):
+    // niente barra fluttuante. Solo per chi può modificare la sede.
+    const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
+    const showSave = Boolean(canManage && activity);
+    const saveDraft = draft.save;
+    const handleSave = useCallback(() => {
+        void saveDraft();
+    }, [saveDraft]);
+
     const actions = useMemo(() => (
-        statusLabel ? (
-            <StatusBadge variant={activity?.status === "inactive" ? "neutral" : "success"} label={statusLabel} />
+        statusLabel || showSave ? (
+            <>
+                {statusLabel && (
+                    <StatusBadge variant={activity?.status === "inactive" ? "neutral" : "success"} label={statusLabel} />
+                )}
+                {showSave && (
+                    <HeaderSaveAction
+                        isDirty={draft.isDirty}
+                        isSaving={draft.isSaving}
+                        onSave={handleSave}
+                        onDiscard={draft.discard}
+                        changeCount={draft.dirtyCount}
+                    />
+                )}
+            </>
         ) : null
-    ), [statusLabel, activity?.status]);
+    ), [statusLabel, activity?.status, showSave, draft.isDirty, draft.isSaving, draft.discard, draft.dirtyCount, handleSave]);
 
     // In compatto il picker dice dove sei anche su una sezione che non è una
     // tab: la voce compare solo mentre ci sei.
@@ -190,8 +213,21 @@ const ActivityDetailPage: React.FC = () => {
         ],
         activeSection: section,
         onSectionChange: value => goToSection(value as ActivitySection),
-        statusIndicator: statusLabel ? { label: statusLabel } : undefined
-    }), [section, goToSection, statusLabel]);
+        statusIndicator: statusLabel ? { label: statusLabel } : undefined,
+        ...(showSave
+            ? buildSaveActionCompactConfig({
+                  isDirty: draft.isDirty,
+                  isSaving: draft.isSaving,
+                  onSave: handleSave,
+                  onRequestDiscard: () => setConfirmDiscardOpen(true)
+              })
+            : {}),
+        // Lo stato della sede resta a vista anche col draft pulito: il
+        // «Salvato» della barra compatta non lo sostituisce.
+        ...(showSave && !draft.isDirty && !draft.isSaving && statusLabel
+            ? { statusIndicator: { label: statusLabel } }
+            : {})
+    }), [section, goToSection, statusLabel, showSave, draft.isDirty, draft.isSaving, handleSave]);
 
     usePageHeader({
         leading,
@@ -266,21 +302,14 @@ const ActivityDetailPage: React.FC = () => {
     return (
         <div className={styles.container} data-active-tab={section}>
             <div className={styles.contentWrapper}>
+                {draft.isDirty && draft.error && <InlineBanner variant="error">{draft.error}</InlineBanner>}
                 <Outlet context={context} />
             </div>
-            {draft.isDirty && (
-                <>
-                    {draft.error && <InlineBanner variant="error">{draft.error}</InlineBanner>}
-                    <UnsavedChangesBar
-                        isSaving={draft.isSaving}
-                        onCancel={draft.discard}
-                        onSave={() => {
-                            void draft.save();
-                        }}
-                        label={draft.dirtyCount === 1 ? "1 modifica non salvata" : `${draft.dirtyCount} modifiche non salvate`}
-                    />
-                </>
-            )}
+            <DiscardChangesConfirmDialog
+                isOpen={confirmDiscardOpen}
+                onClose={() => setConfirmDiscardOpen(false)}
+                onDiscard={draft.discard}
+            />
         </div>
     );
 };
