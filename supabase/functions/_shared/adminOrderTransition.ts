@@ -26,6 +26,7 @@
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { checkRateLimit, RateLimitExceededError } from "./rateLimit.ts";
 import { enqueueAndDispatchPrintJobs } from "./printJobs.ts";
+import { hasActivityPermission, isMemberOfTenant } from "./membershipCheck.ts";
 
 // ============================================================
 // Constants
@@ -213,34 +214,6 @@ async function _validateUserJwt(
     return { kind: "ok", userId: data.user.id, supabaseUser };
 }
 
-// TODO FIX-3: _isMemberOfTenant is duplicated here and in
-// submit-order-admin, close-table, toggle-product-availability,
-// generate-table-qrs. Extract to _shared/membershipCheck.ts and add a
-// companion _hasPermission(client, perm, activityId?) helper that wraps
-// has_permission RPC. All 5 copies use get_my_tenant_ids() correctly.
-async function _isMemberOfTenant(
-    supabaseUser: SupabaseClient,
-    tenantId: string
-): Promise<{ kind: "ok"; member: boolean } | { kind: "db_error"; message: string }> {
-    const { data, error } = await supabaseUser.rpc("get_my_tenant_ids");
-    if (error) {
-        return { kind: "db_error", message: error.message };
-    }
-    // RPC returns SETOF uuid → supabase-js delivers an array of { get_my_tenant_ids: uuid }
-    // or an array of strings depending on the version. Normalize both shapes.
-    const ids: string[] = [];
-    if (Array.isArray(data)) {
-        for (const row of data) {
-            if (typeof row === "string") ids.push(row);
-            else if (row && typeof row === "object" && "get_my_tenant_ids" in row) {
-                const v = (row as { get_my_tenant_ids: unknown }).get_my_tenant_ids;
-                if (typeof v === "string") ids.push(v);
-            }
-        }
-    }
-    return { kind: "ok", member: ids.includes(tenantId) };
-}
-
 async function _fetchOrder(
     supabase: SupabaseClient,
     orderId: string
@@ -415,7 +388,7 @@ export async function performAdminOrderTransition(
         const order = fetched.row;
 
         // ── Membership check (user must belong to order's tenant) ──
-        const membership = await _isMemberOfTenant(supabaseUser, order.tenant_id);
+        const membership = await isMemberOfTenant(supabaseUser, order.tenant_id);
         if (membership.kind === "db_error") {
             console.error(
                 `[${config.function_name}] tenant membership read error:`,
@@ -427,6 +400,25 @@ export async function performAdminOrderTransition(
             });
         }
         if (!membership.member) {
+            return jsonResponse(403, {
+                code: "FORBIDDEN",
+                message: "Operazione non autorizzata su questo ordine."
+            });
+        }
+
+        // ── Permission check (CG-04): orders.manage SULLA sede dell'ordine ──
+        // L'appartenenza al tenant non basta: un viewer, o lo staff della
+        // sede A sugli ordini della sede B, non deve poter cambiare stato.
+        // Prima dei controlli di stato e versione, così a chi non ha il
+        // permesso non arriva nemmeno `current_version`. Stesso schema di
+        // cancel-order-item, submit-order-admin e rectify-order.
+        const canManage = await hasActivityPermission(
+            supabaseUser,
+            "orders.manage",
+            order.activity_id,
+            config.function_name
+        );
+        if (!canManage) {
             return jsonResponse(403, {
                 code: "FORBIDDEN",
                 message: "Operazione non autorizzata su questo ordine."
