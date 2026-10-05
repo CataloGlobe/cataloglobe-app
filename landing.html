@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <!-- Landing di campagna (/ e /b). ⚠️ SYNC con index.html: stesso head, tranne preconnect a Supabase e app-inter.css
-         (le @font-face di Inter stanno nel CSS della landing, inline al build), più il preload dei font dell'hero. Lo verifica src/tests/landing/landingHtml.test.ts.
+         (Inter e Caveat li carica dopo l'evento load src/pages/CampaignLanding/lateFonts.ts), più il preload dei font dell'hero. Lo verifica src/tests/landing/landingHtml.test.ts.
          Al build diventa dist/index.html (/) e dist/b.html (/b), con la pagina già renderizzata al posto di landing-ssr;
          il CSS emesso da Vite va inline in un <style>; la shell dell'app diventa dist/app.html (scripts/prerender-landing.mjs). -->
     <link rel="icon" type="image/svg+xml" href="/favicon/cataloglobe_icon_flat_primary.svg" />
