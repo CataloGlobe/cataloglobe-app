@@ -11,6 +11,7 @@ import styles from "../SupportTicketAdminPage.module.scss";
 const SUBSCRIPTION_LABEL: Record<string, { label: string; variant: StatusBadgeVariant }> = {
     trialing: { label: "In prova", variant: "warning" },
     active: { label: "Attivo", variant: "success" },
+    past_due: { label: "Pagamento in ritardo", variant: "warning" },
     suspended: { label: "Senza abbonamento", variant: "neutral" },
     canceled: { label: "Disdetto", variant: "danger" }
 };
