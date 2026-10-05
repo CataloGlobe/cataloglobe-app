@@ -3,7 +3,8 @@
 //
 // Punteggio di partenza con pochi segnali; i pesi sono una proposta da
 // aggiornare su chi diventa cliente. Catene: un punto in più, mai in cima da
-// sole; le grandi fuori dall'invio automatico (soglia proposta, D18.5).
+// sole; quelle da 3 sedi in su fuori dall'invio automatico (deciso da Alex il
+// 2026-10-05: gavetta prima delle catene).
 
 export type OutreachEmailCheck = "da_verificare" | "valida" | "rischiosa" | "non_valida";
 
@@ -21,8 +22,12 @@ export interface OutreachProspectSignals {
     locations_count: number | null;
 }
 
-/** Proposta (D18.5): da 5 sedi in su niente invio automatico per i primi 3 mesi. */
-export const OUTREACH_LARGE_CHAIN_MIN_LOCATIONS = 5;
+/**
+ * All'inizio solo locali con una o due sedi: da 3 in su niente invio
+ * automatico. Si alza a mano quando Alex ha fatto 10-15 lead in chiamata,
+ * non dopo un tempo fisso (deciso da Alex il 2026-10-05).
+ */
+export const OUTREACH_LARGE_CHAIN_MIN_LOCATIONS = 3;
 
 /** Stessa normalizzazione di crm_email_fingerprint e del trigger di guardia. */
 export function normalizeOutreachEmail(email: string | null | undefined): string | null {
@@ -42,7 +47,7 @@ const clamp = (n: number) => Math.max(0, Math.min(100, Math.round(n)));
  * - recensioni (locale vivo): da 10 +5, da 50 +10, da 200 +15;
  * - voto: da 4,0 +5, da 4,3 +10;
  * - senza menù online +10 (è quello che offriamo); con menù online 0;
- * - piccola catena (2-4 sedi) +10, mai da sola in cima;
+ * - più sedi sotto la soglia delle catene grandi +10, mai da solo in cima;
  * - sito +5;
  * - mail valida +10, rischiosa -15; non valida = 0, non si contatta.
  */

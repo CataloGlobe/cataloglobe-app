@@ -44,7 +44,7 @@ describe("outreachStartScore", () => {
     });
 
     it("la piccola catena prende un punto in più, ma da sola non arriva in cima", () => {
-        const chain = outreachStartScore({ ...base, locations_count: 3 });
+        const chain = outreachStartScore({ ...base, locations_count: 2 });
         expect(chain).toBe(50);
         expect(chain).toBeLessThan(outreachStartScore({ ...base, reviews_count: 60, rating: 4.4 }));
         expect(outreachStartScore({ ...base, locations_count: 8 })).toBe(40);
@@ -82,10 +82,11 @@ describe("outreachExclusion", () => {
         expect(outreachExclusion(base, { ...free, alreadyLead: true })).toBe("gia_lead");
     });
 
-    it("catena grande da 5 sedi in su", () => {
-        expect(isLargeChain(4)).toBe(false);
-        expect(isLargeChain(5)).toBe(true);
-        expect(outreachExclusion({ ...base, locations_count: 5 }, free)).toBe("catena_grande");
+    it("catena grande da 3 sedi in su: all'inizio solo una o due sedi", () => {
+        expect(isLargeChain(2)).toBe(false);
+        expect(isLargeChain(3)).toBe(true);
+        expect(outreachExclusion({ ...base, locations_count: 2 }, free)).toBeNull();
+        expect(outreachExclusion({ ...base, locations_count: 3 }, free)).toBe("catena_grande");
     });
 
     it("senza recapiti validi non si contatta", () => {
