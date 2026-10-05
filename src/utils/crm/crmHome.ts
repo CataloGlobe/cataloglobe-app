@@ -373,7 +373,7 @@ export interface TimelineEvent {
     tone: TimelineTone;
 }
 
-const PURPOSE_SENT: Record<NonNullable<CrmMessage["purpose"]>, string> = {
+export const PURPOSE_SENT: Record<NonNullable<CrmMessage["purpose"]>, string> = {
     first_message: "Primo messaggio partito a",
     reply: "Risposta partita a",
     follow_up: "Sollecito partito a",
@@ -382,7 +382,7 @@ const PURPOSE_SENT: Record<NonNullable<CrmMessage["purpose"]>, string> = {
     call_soon: "Promemoria a"
 };
 
-const PURPOSE_QUEUED: Record<NonNullable<CrmMessage["purpose"]>, string> = {
+export const PURPOSE_QUEUED: Record<NonNullable<CrmMessage["purpose"]>, string> = {
     first_message: "Primo messaggio per",
     reply: "Risposta per",
     follow_up: "Sollecito per",

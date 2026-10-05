@@ -130,11 +130,14 @@ export default function LeadDetailPage() {
         void loadDetail();
     }, [loadDetail]);
 
-    // Cambiando lead si riparte dalla chat.
+    // Cambiando lead si riparte dalla chat; «Sposta» dall'Agenda arriva con
+    // ?telefonata=sposta e apre la telefonata (al telefono la sua scheda).
+    const moveCall = params.get("telefonata") === "sposta";
     useEffect(() => {
-        setPhoneTab("chat");
+        setPhoneTab(moveCall ? "telefonata" : "chat");
+        setScheduleOpen(moveCall);
         setActiveCall(null);
-    }, [venueId]);
+    }, [venueId, moveCall]);
 
     const reload = useCallback(async () => {
         await loadDetail();
