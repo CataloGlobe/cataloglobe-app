@@ -554,3 +554,54 @@
     padding-bottom: var(--space-4);
   }
 }
+
+/* ===== Gesti al telefono (U8b) ===== */
+.swipe {
+  position: relative;
+  overflow: hidden;
+  touch-action: pan-y;
+}
+
+.swipeBack {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  background: var(--hover-bg);
+
+  [data-dir="send"] > & {
+    background: var(--brand-primary);
+  }
+}
+
+.swipeSend,
+.swipeSnooze {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding: 0 var(--space-16);
+}
+
+.swipeSend {
+  color: var(--on-brand);
+}
+
+.swipeSnooze {
+  margin-left: auto;
+  color: var(--text);
+}
+
+.swipeFront {
+  position: relative;
+  transform: translateX(var(--swipe-x, 0));
+  transition: transform var(--timing-motion-fast);
+
+  [data-dragging] > & {
+    transition: none;
+  }
+}
+
+.swipeHint {
+  padding: var(--space-12) 0 0;
+}

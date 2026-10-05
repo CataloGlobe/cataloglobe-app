@@ -75,6 +75,8 @@ export interface CrmNextStep {
     owner_user_id: string | null;
     set_by: string;
     set_at: string;
+    /** Scritto dal gesto «rimanda a domani» (migration 20261005150400). */
+    snoozed: boolean;
 }
 
 export interface CrmTeamMember {

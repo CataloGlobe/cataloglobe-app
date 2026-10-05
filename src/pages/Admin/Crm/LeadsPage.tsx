@@ -18,11 +18,15 @@ import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { getCrmSettings, listCrmTeamMembers, listCrmVenues, logCrmWhatsappOpened, moveCrmStage } from "@/services/supabase/crm";
 import { listCrmAppointmentsCreatedSince } from "@/services/supabase/crmAgenda";
-import { listCrmAgentDraftsOpenOrSince } from "@/services/supabase/crmAgentTrial";
+import { decideCrmDraft, listCrmAgentDraftsOpenOrSince } from "@/services/supabase/crmAgentTrial";
+import { listCrmNextSteps, setCrmNextStep } from "@/services/supabase/crmNextSteps";
 import { CRM_STAGES, type CrmStage, type CrmVenueListItem } from "@/types/crm";
 import { needsStageLock } from "@/utils/crm/accountLabels";
 import { romeTodayStart } from "@/utils/crm/agentsOverview";
+import { shiftDayKey } from "@/utils/crm/agendaDay";
 import { venueWaits } from "@/utils/crm/crmHome";
+import { openDraftByVenue, snoozeStepText, snoozedVenueIds, SWIPE_UNDO_MS, type LeadSwipe } from "@/utils/crm/leadSwipe";
+import { romeDayKey } from "@shared/crmCallSlots";
 import {
     boardVenues,
     cardMeta,
@@ -49,6 +53,7 @@ import { PipelineBoard } from "./PipelineBoard";
 import { LeadSummaryView, LeadTrack, LeadViewsNav } from "./components/LeadParts";
 import { LeadPhoneList } from "./components/LeadPhoneList";
 import { useCrmLoad } from "./hooks/useCrmLoad";
+import { useUndoableActions } from "./hooks/useUndoableActions";
 import styles from "./Leads.module.scss";
 
 /**
@@ -130,23 +135,36 @@ export default function LeadsPage() {
     const draftsLoad = useCrmLoad(() => listCrmAgentDraftsOpenOrSince(romeTodayStart(new Date())), reloadKey);
     const teamLoad = useCrmLoad(() => listCrmTeamMembers(), reloadKey);
     const settingsLoad = useCrmLoad(() => getCrmSettings(), reloadKey);
-    const appointmentsLoad = useCrmLoad(
-        () => listCrmAppointmentsCreatedSince(new Date(Date.now() - 90 * DAY_MS).toISOString()),
-        reloadKey
-    );
+    const appointmentsLoad = useCrmLoad(() => listCrmAppointmentsCreatedSince(new Date(Date.now() - 90 * DAY_MS).toISOString()), reloadKey);
 
     const venues = useMemo(() => venuesLoad.data ?? [], [venuesLoad.data]);
     const appointments = useMemo(() => appointmentsLoad.data ?? [], [appointmentsLoad.data]);
     const team = useMemo(() => teamLoad.data ?? [], [teamLoad.data]);
     const ctx = useMemo(() => ({ userId, now }), [userId, now]);
 
-    const waits = useMemo(() => venueWaits({ drafts: draftsLoad.data ?? [], venues, now }), [draftsLoad.data, venues, now]);
+    // Le bozze inviate con un gesto escono subito, prima di rileggere.
+    const [sentDrafts, setSentDrafts] = useState<ReadonlySet<string>>(() => new Set());
+    const drafts = useMemo(() => (draftsLoad.data ?? []).filter(d => !sentDrafts.has(d.id)), [draftsLoad.data, sentDrafts]);
+    const openDrafts = useMemo(() => openDraftByVenue(drafts), [drafts]);
+    const waits = useMemo(() => venueWaits({ drafts, venues, now }), [drafts, venues, now]);
     const next = useMemo(() => nextAppointments(appointments, now), [appointments, now]);
     const counts = useMemo(() => (venuesLoad.data ? viewCounts(venues, ctx) : null), [venuesLoad.data, venues, ctx]);
     const nameOf = useMemo(() => {
         const names = new Map(team.map(m => [m.user_id, m.display_name]));
         return (id: string | null) => (id ? (names.get(id) ?? null) : null);
     }, [team]);
+
+    // Rimandati a domani (gesto verso sinistra): il prossimo passo scade dopo
+    // oggi. Senza la tabella dei passi (migrazione non applicata) nessuno lo è.
+    const stepsLoad = useCrmLoad(() => listCrmNextSteps(), reloadKey);
+    const [snoozedHere, setSnoozedHere] = useState<ReadonlySet<string>>(() => new Set());
+    const todayKey = romeDayKey(now);
+    const snoozed = useMemo(() => {
+        const ids = snoozedVenueIds(stepsLoad.data ?? [], todayKey);
+        for (const id of snoozedHere) ids.add(id);
+        return ids;
+    }, [stepsLoad.data, todayKey, snoozedHere]);
+    const { waiting: undoWaiting, schedule: scheduleSwipe, undo: undoSwipe } = useUndoableActions(SWIPE_UNDO_MS);
 
     const [query, setQuery] = useState("");
     const [phoneSearch, setPhoneSearch] = useState(false);
@@ -158,10 +176,7 @@ export default function LeadsPage() {
         () => (fase ? venues.filter(v => v.stage === fase) : boardVenues(venues, view, ctx)),
         [venues, fase, view, ctx]
     );
-    const summary = useMemo(
-        () => leadSummary({ venues, appointments, period, now }),
-        [venues, appointments, period, now]
-    );
+    const summary = useMemo(() => leadSummary({ venues, appointments, period, now }), [venues, appointments, period, now]);
 
     const [actionError, setActionError] = useState<string | null>(null);
     const [lostVenueId, setLostVenueId] = useState<string | null>(null);
@@ -169,6 +184,64 @@ export default function LeadsPage() {
     const [isAddOpen, setIsAddOpen] = useState(false);
     const [isImportOpen, setIsImportOpen] = useState(false);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+    const handleSwipe = useCallback(
+        (venue: CrmVenueListItem, swipe: LeadSwipe) => {
+            const add = (set: ReadonlySet<string>, id: string) => new Set(set).add(id);
+            if (swipe === "send") {
+                const draftId = openDrafts.get(venue.id);
+                if (!draftId) return;
+                scheduleSwipe(venue.id, async () => {
+                    try {
+                        await decideCrmDraft(draftId, "send");
+                        setSentDrafts(s => add(s, draftId));
+                    } catch (err) {
+                        setActionError(crmErrorMessage(err));
+                    }
+                });
+                showToast({
+                    message: `Messaggio a ${venue.name}: parte tra 5 secondi.`,
+                    type: "info",
+                    duration: SWIPE_UNDO_MS,
+                    actionLabel: "Annulla",
+                    onAction: () => undoSwipe(venue.id)
+                });
+                return;
+            }
+            if (!userId) return;
+            const existing = stepsLoad.data?.find(st => st.venue_id === venue.id);
+            scheduleSwipe(venue.id, async () => {
+                try {
+                    await setCrmNextStep(
+                        venue.id,
+                        {
+                            step: snoozeStepText(existing),
+                            dueOn: shiftDayKey(romeDayKey(new Date()), 1),
+                            ownerUserId: userId,
+                            snoozed: true
+                        },
+                        userId
+                    );
+                    setSnoozedHere(s => add(s, venue.id));
+                } catch (err) {
+                    setActionError(crmErrorMessage(err));
+                }
+            });
+            showToast({
+                message: `${venue.name} torna domani.`,
+                type: "info",
+                duration: SWIPE_UNDO_MS,
+                actionLabel: "Annulla",
+                onAction: () => undoSwipe(venue.id)
+            });
+        },
+        [scheduleSwipe, undoSwipe, openDrafts, showToast, userId, stepsLoad.data]
+    );
+    const phoneListed = useMemo(() => {
+        const visible = listed.filter(v => !undoWaiting.has(v.id));
+        return view === "da-lavorare" && !fase ? visible.filter(v => !snoozed.has(v.id)) : visible;
+    }, [listed, undoWaiting, view, fase, snoozed]);
+    const snoozedListed = view === "da-lavorare" && !fase ? listed.filter(v => snoozed.has(v.id)).length : 0;
 
     const handleWhatsapp = useCallback(
         (venue: CrmVenueListItem) => {
@@ -312,7 +385,9 @@ export default function LeadsPage() {
                 </Button>
             }
         >
-            {venuesLoad.error === "Non si è caricato. Riprova tra poco." ? "I lead non si sono caricati. Riprova tra poco." : venuesLoad.error}
+            {venuesLoad.error === "Non si è caricato. Riprova tra poco."
+                ? "I lead non si sono caricati. Riprova tra poco."
+                : venuesLoad.error}
         </InlineBanner>
     );
     const actionBanner = actionError && (
@@ -439,12 +514,26 @@ export default function LeadsPage() {
                     <Text as="p" variant="body-sm" colorVariant="muted">
                         Carico…
                     </Text>
-                ) : listed.length === 0 ? (
+                ) : phoneListed.length === 0 && undoWaiting.size === 0 ? (
                     <Text as="p" variant="body-sm" colorVariant="muted">
-                        {emptyState.title}.
+                        {snoozedListed > 0 ? "Per oggi niente: il resto torna domani." : `${emptyState.title}.`}
                     </Text>
                 ) : (
-                    <LeadPhoneList venues={listed} waits={waits} next={next} nameOf={nameOf} now={now} />
+                    <>
+                        <LeadPhoneList
+                            venues={phoneListed}
+                            waits={waits}
+                            next={next}
+                            nameOf={nameOf}
+                            now={now}
+                            drafts={openDrafts}
+                            onSwipe={handleSwipe}
+                        />
+                        <Text as="p" variant="caption" colorVariant="muted" className={styles.swipeHint}>
+                            Verso destra: invia la bozza. Verso sinistra: rimanda a domani. Sempre con «Annulla» per 5 secondi.
+                            {snoozedListed > 0 && ` ${snoozedListed === 1 ? "1 rimandato" : `${snoozedListed} rimandati`} a domani.`}
+                        </Text>
+                    </>
                 )}
                 {overlays}
             </div>
@@ -452,8 +541,7 @@ export default function LeadsPage() {
     }
 
     // ── Computer e tablet (V4, R4a, R4b) ────────────────────────────────
-    const heading =
-        view === "riepilogo" ? "Riepilogo" : isNarrow ? "Lead" : fase ? `Fase: ${CRM_STAGE_LABEL[fase]}` : VIEW_LABEL[view];
+    const heading = view === "riepilogo" ? "Riepilogo" : isNarrow ? "Lead" : fase ? `Fase: ${CRM_STAGE_LABEL[fase]}` : VIEW_LABEL[view];
     const headingCount =
         view === "riepilogo" ? null : isNarrow ? venues.length : fase ? listed.length : query ? listed.length : (counts?.[view] ?? 0);
 
