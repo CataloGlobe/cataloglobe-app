@@ -360,7 +360,7 @@ export default function LeadsPage() {
             {
                 id: "contact",
                 header: "Ultimo contatto",
-                width: "132px",
+                width: "180px",
                 hideOnPhone: true,
                 cell: (_v, row) => {
                     const line = lastContactLine(row, now);
