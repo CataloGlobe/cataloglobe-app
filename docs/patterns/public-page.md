@@ -42,10 +42,12 @@
 - Container padre ha `data-card-layout` + `data-product-style`; selettori CSS condizionali usano questi attributi.
 - In Compatto·Grid `border-bottom` agisce come separatore: `row-gap: 0` + `:nth-last-child(-n+N)` rimuove border dall'ultima riga visiva (N = colonne correnti). NON usare `:last-child` per separatori in CSS Grid multi-colonna.
 
-**Hub tabs** (`HubTab = "menu" | "events" | "reviews"`):
+**Hub tabs** (`HubTab = "menu" | "reviews" | "storia"`):
 - `menu` — catalogo prodotti + featured blocks
-- `events` — eventi/promo (da sviluppare)
 - `reviews` — recensioni via `submit-review` edge function
+- `storia` — storie del locale
+
+I contenuti in evidenza non sono una tab: hanno la loro sheet (vedi sotto). Gli eventi futuri sono la fase 2 «Prossimamente».
 
 **Slot FeaturedBlock** (solo 2, hero rimosso, migration `20260414190000`):
 - `before_catalog` / `after_catalog` — array `featuredBeforeCatalog` / `featuredAfterCatalog` su `CollectionView`, che rende i caroselli in testa e in coda a `.container`.
