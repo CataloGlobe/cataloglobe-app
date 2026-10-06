@@ -456,6 +456,8 @@ test.describe("Stili — permessi (P1)", () => {
     });
 
     test("senza styles.read: il blocco, e nessuna lettura degli stili", async ({ page }) => {
+        // Senza il permesso la voce «Stili» non è nella sidebar: si entra dalla Panoramica.
+        await openBusinessPage(page, "overview", "Panoramica");
         const reads: string[] = [];
         page.on("request", r => {
             if (/\/rest\/v1\/styles\?/.test(r.url())) reads.push(r.url());

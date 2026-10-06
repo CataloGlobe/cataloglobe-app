@@ -453,14 +453,14 @@ test.describe("In evidenza — prodotti del contenuto", () => {
         await openProductsTab(page);
         await expect(main(page).getByText("Big Arch e2e")).toBeVisible();
         await expect(main(page).getByText("Patatine medie e2e")).toBeVisible();
-        await expect(main(page).getByRole("textbox").first()).toHaveValue("la scelta più richiesta");
+        await expect(productsSection(page).getByRole("textbox").first()).toHaveValue("la scelta più richiesta");
     });
 
     test("la nota di un prodotto si salva", async ({ page }) => {
         stub.onWrite("featured_content_products.PATCH", () => null);
         await openContent(page, FEATURED.coppia);
         await openProductsTab(page);
-        const note = main(page).getByRole("textbox").nth(1);
+        const note = productsSection(page).getByRole("textbox").nth(1);
         await note.fill("solo la versione classica");
         await note.press("Tab");
         await saveIfDraft(page);
@@ -519,15 +519,18 @@ test.describe("In evidenza — permessi e conferme (P1)", () => {
         await openProductsTab(page);
         await expect(main(page).getByText("Big Arch e2e")).toBeVisible();
         await expect(main(page).getByRole("button", { name: "Trascina per riordinare" })).toHaveCount(0);
-        await expect(main(page).getByRole("textbox").first()).toBeDisabled();
-        const kebab = main(page).getByRole("button", { name: /^Azioni/ });
-        if ((await kebab.count()) > 0) {
+        await expect(productsSection(page).getByRole("textbox").first()).toBeDisabled();
+        const kebab = productsSection(page).getByRole("button", { name: /^Azioni/ });
+        // Il menu della riga può essere spento del tutto: allora «Togli» non si raggiunge.
+        if ((await kebab.count()) > 0 && (await kebab.first().isEnabled())) {
             await kebab.first().click();
             await expect(page.getByRole("menuitem", { name: /^(Rimuovi prodotto|Togli)/ })).toHaveCount(0);
         }
     });
 
     test("senza featured.read: il blocco, e nessuna lettura dei contenuti", async ({ page }) => {
+        // Senza il permesso la voce «In evidenza» non è nella sidebar: si entra dalla Panoramica.
+        await openBusinessPage(page, "overview", "Panoramica");
         const reads: string[] = [];
         page.on("request", r => {
             if (/\/rest\/v1\/featured_contents\?/.test(r.url())) reads.push(r.url());
