@@ -50,13 +50,20 @@ test.describe("Impostazioni", () => {
         await expect(page.getByRole("combobox", { name: "Tipologia intestatario" })).toBeVisible();
     });
 
-    test("logo: il campo c'è", async ({ page }) => {
-        await expect(page.getByRole("main").getByText(/^Logo/).first()).toBeVisible();
+    test("IM2: l'azienda a righe, il logo è una riga «Quadrato», nessuna card Logo", async ({ page }) => {
+        const rows = page.getByRole("main").locator("[data-setting-row]");
+        for (const label of ["Nome", "Settore", "Logo"]) {
+            await expect(rows.filter({ hasText: new RegExp(`^${label}`) }).first()).toBeVisible();
+        }
+        const logo = rows.filter({ hasText: /^Logo/ }).first();
+        await expect(logo).toContainText("Quadrato. Compare nel workspace");
+        await expect(logo.getByText("1:1", { exact: true })).toHaveCount(0);
+        await expect(page.getByRole("main").getByText("Scelto alla creazione. Per cambiarlo scrivi al supporto.")).toBeVisible();
     });
 
-    test("zona distruttiva: un amministratore vede il bottone spento", async ({ page }) => {
-        await expect(page.getByText("Solo il proprietario può eliminare l'azienda.")).toBeVisible();
-        await expect(page.getByRole("button", { name: /^Elimina/ })).toBeDisabled();
+    test("zona distruttiva: a un amministratore la frase, nessun bottone spento", async ({ page }) => {
+        await expect(page.getByText("Solo il proprietario può eliminarla. Per andartene, chiedi di essere rimosso dal Team.")).toBeVisible();
+        await expect(page.getByRole("main").getByRole("button", { name: /^Elimina/ })).toHaveCount(0);
     });
 
     test("dialogo di eliminazione: si apre e si chiude senza confermare", async ({ page }) => {

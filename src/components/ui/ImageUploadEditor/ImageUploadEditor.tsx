@@ -107,6 +107,8 @@ export interface ImageUploadEditorProps {
      * aprono l'editor con `controlRef`.
      */
     hideHeader?: boolean;
+    /** Senza il chip del rapporto («1:1»): lo dice già la descrizione di chi lo usa. */
+    hideRatio?: boolean;
     /** Per aprire l'editor da fuori (`controlRef.current?.open()`). */
     controlRef?: Ref<ImageUploadEditorControl>;
     /** Titolo del `SystemDrawer` di editing (variant `field`). */
@@ -187,6 +189,7 @@ export function ImageUploadEditor({
     variant = "field",
     fieldLabel,
     hideHeader = false,
+    hideRatio = false,
     controlRef,
     drawerTitle,
     drawerWidth = DEFAULT_DRAWER_WIDTH,
@@ -463,7 +466,7 @@ export function ImageUploadEditor({
                             {fieldLabel}
                         </Text>
                     )}
-                    {ratioLabel && <span className={styles.ratioChip}>{ratioLabel}</span>}
+                    {ratioLabel && !hideRatio && <span className={styles.ratioChip}>{ratioLabel}</span>}
                 </div>
 
                 {hasImage && !confirmingRemove && (

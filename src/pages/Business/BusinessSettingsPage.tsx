@@ -17,8 +17,7 @@ import {
 } from "@/components/ui/ImageUploadEditor";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { Card } from "@/components/ui/Card/Card";
-import { FormGrid } from "@/components/ui/FormGrid";
-import { FormField } from "@/components/ui/FormField/FormField";
+import { SettingRow } from "@/components/ui/SettingRow";
 import Skeleton from "@/components/ui/Skeleton/Skeleton";
 import { HeaderSaveAction, DiscardChangesConfirmDialog } from "@/components/ui/HeaderSaveAction/HeaderSaveAction";
 import { buildSaveActionCompactConfig } from "@/components/ui/HeaderSaveAction/headerSaveActionCompact";
@@ -326,37 +325,60 @@ export default function BusinessSettingsPage() {
 
     return (
         <div className={styles.page}>
-            <Card title="Azienda">
-                <FormGrid cols={2}>
-                    <TextInput
-                        label="Nome dell'azienda"
-                        value={draft.name}
-                        onChange={e => patchDraft({ name: e.target.value })}
-                        required
-                        error={nameValid ? undefined : "Il nome è obbligatorio."}
-                        disabled={saving}
-                    />
-                    {/* «Settore» in sola lettura (§37.4 p. 2): la scheda FormField
-                        prevede lo stato «testo senza bordo», il valore è un Text. */}
-                    <FormField label="Settore" helperText="Scelto alla creazione. Per cambiarlo scrivi al supporto.">
-                        {({ inputId, describedById }) => (
-                            <Text
-                                as="p"
-                                id={inputId}
-                                variant="body"
-                                aria-describedby={describedById}
-                                className={styles.readOnlyValue}
-                            >
-                                {SUBTYPE_LABELS[selectedTenant.business_subtype ?? DEFAULT_SUBTYPE]}
-                            </Text>
-                        )}
-                    </FormField>
-                </FormGrid>
+            {/* T16 IM2: l'azienda a righe di impostazione; il logo è una riga
+                qui, non più una card a parte. */}
+            <Card title="Azienda" flush>
+                <SettingRow
+                    label="Nome"
+                    htmlFor="tenant-name"
+                    control={
+                        <TextInput
+                            id="tenant-name"
+                            value={draft.name}
+                            onChange={e => patchDraft({ name: e.target.value })}
+                            required
+                            error={nameValid ? undefined : "Il nome è obbligatorio."}
+                            disabled={saving}
+                        />
+                    }
+                />
+                <SettingRow
+                    label="Settore"
+                    description="Scelto alla creazione. Per cambiarlo scrivi al supporto."
+                    control={
+                        <Text as="p" variant="body" className={styles.readOnlyValue}>
+                            {SUBTYPE_LABELS[selectedTenant.business_subtype ?? DEFAULT_SUBTYPE]}
+                        </Text>
+                    }
+                />
+                <SettingRow
+                    label="Logo"
+                    description="Quadrato. Compare nel workspace, nelle pagine pubbliche e sui PDF del menù."
+                    control={
+                        <ImageUploadEditor
+                            aspectRatio={IMAGE_UPLOAD_PRESETS.logo.aspectRatio}
+                            backgroundFillModes={IMAGE_UPLOAD_PRESETS.logo.backgroundFillModes}
+                            maxSizeMB={IMAGE_UPLOAD_PRESETS.logo.maxSizeMB}
+                            compressLongEdge={IMAGE_UPLOAD_PRESETS.logo.compressLongEdge}
+                            bake={{ size: 512, format: "image/webp", quality: 0.9, fileName: "logo.webp" }}
+                            drawerTitle={IMAGE_UPLOAD_PRESETS.logo.drawerTitle}
+                            requiresConfirm={IMAGE_UPLOAD_PRESETS.logo.requiresConfirm}
+                            initialSource={selectedTenant.logo_url ? getTenantLogoPublicUrl(selectedTenant.logo_url) : null}
+                            initialAspectRatio={1}
+                            onConfirm={handleLogoConfirm}
+                            onRemove={handleRemoveLogo}
+                            removing={isSavingLogo}
+                            hideRatio
+                            className={styles.logoEditor}
+                        />
+                    }
+                />
             </Card>
 
             <Card
                 title="Dati di fatturazione"
                 subtitle="Intestano le fatture dell'abbonamento. Con la Partita IVA serve un recapito e-fattura: Codice Destinatario SDI o PEC."
+                flush={billingStatus === "ready" && draft.billing !== null}
             >
                 {billingStatus === "error" ? (
                     <InlineBanner
@@ -379,43 +401,30 @@ export default function BusinessSettingsPage() {
                 )}
             </Card>
 
-            <Card title="Logo" subtitle="Compare nel workspace, nelle pagine pubbliche e sui PDF del menù.">
-                <ImageUploadEditor
-                    aspectRatio={IMAGE_UPLOAD_PRESETS.logo.aspectRatio}
-                    backgroundFillModes={IMAGE_UPLOAD_PRESETS.logo.backgroundFillModes}
-                    maxSizeMB={IMAGE_UPLOAD_PRESETS.logo.maxSizeMB}
-                    compressLongEdge={IMAGE_UPLOAD_PRESETS.logo.compressLongEdge}
-                    bake={{ size: 512, format: "image/webp", quality: 0.9, fileName: "logo.webp" }}
-                    fieldLabel={IMAGE_UPLOAD_PRESETS.logo.fieldLabel}
-                    drawerTitle={IMAGE_UPLOAD_PRESETS.logo.drawerTitle}
-                    requiresConfirm={IMAGE_UPLOAD_PRESETS.logo.requiresConfirm}
-                    initialSource={selectedTenant.logo_url ? getTenantLogoPublicUrl(selectedTenant.logo_url) : null}
-                    initialAspectRatio={1}
-                    onConfirm={handleLogoConfirm}
-                    onRemove={handleRemoveLogo}
-                    removing={isSavingLogo}
+            {/* T16 IM2: una riga sola, titolo rosso. A chi non è proprietario
+                niente bottone spento: la frase dice cosa fare. */}
+            <Card variant="danger" flush>
+                <SettingRow
+                    label={<span className={styles.dangerTitle}>Elimina l&apos;azienda</span>}
+                    description={
+                        <>
+                            Con l&apos;azienda spariscono {describeActivities(activityCount)}, i cataloghi, i prodotti,
+                            gli ordini, le prenotazioni e le recensioni; le pagine pubbliche vanno offline subito. Hai
+                            30 giorni per ripristinarla dal Workspace, poi l&apos;eliminazione è definitiva.
+                        </>
+                    }
+                    control={
+                        canDeleteTenant ? (
+                            <Button variant="danger" onClick={() => setDeleteDialogOpen(true)}>
+                                Elimina l&apos;azienda
+                            </Button>
+                        ) : (
+                            <Text as="p" variant="body-sm" colorVariant="muted" className={styles.dangerNote}>
+                                Solo il proprietario può eliminarla. Per andartene, chiedi di essere rimosso dal Team.
+                            </Text>
+                        )
+                    }
                 />
-            </Card>
-
-            <Card variant="danger" title="Elimina l'azienda">
-                <div className={styles.dangerBody}>
-                    <Text as="p" variant="body-sm" colorVariant="muted">
-                        Con l&apos;azienda spariscono {describeActivities(activityCount)}, i cataloghi, i prodotti,
-                        gli ordini, le prenotazioni e le recensioni; le pagine pubbliche vanno offline subito. Hai 30
-                        giorni per ripristinarla dal Workspace, poi l&apos;eliminazione è definitiva.
-                    </Text>
-                    {!canDeleteTenant && (
-                        <InlineBanner variant="info">
-                            Solo il proprietario può eliminare l&apos;azienda. Se vuoi solo andartene, chiedi di essere
-                            rimosso dal Team.
-                        </InlineBanner>
-                    )}
-                    <div className={styles.dangerAction}>
-                        <Button variant="danger" onClick={() => setDeleteDialogOpen(true)} disabled={!canDeleteTenant}>
-                            Elimina l&apos;azienda
-                        </Button>
-                    </div>
-                </div>
             </Card>
 
             <DeleteTenantDialog
