@@ -13,6 +13,8 @@ Contenuto del rilascio, base audit del 2026-10-06:
 - 113 migration nuove, di cui 4 già in prod (batch 1), quindi **109 da applicare**;
 - **43 edge function** da distribuire, di cui 11 nuove (CRM) e 32 cambiate.
 
+**Esito (2026-10-06).** Rilasciato con #278. Le migration applicate sono state **98**, non 109: tra l'audit e il rilascio la produzione aveva già ricevuto le altre. Il dry-run è stato confrontato con l'elenco delle versioni di staging assenti dalla produzione (`supabase_migrations.schema_migrations`), non con il conteggio qui sopra. Edge: 43 distribuite. Il passo 1 si è fatto da una cartella dedicata al rilascio (`cg-release`, poi tolta), non da `cataloglobe-ds`.
+
 ---
 
 ## 0. Prima di partire

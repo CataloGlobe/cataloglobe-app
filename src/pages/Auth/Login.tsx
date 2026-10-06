@@ -21,6 +21,29 @@ function isRateLimitError(message: string): boolean {
     return m.includes("too many") || m.includes("rate limit") || m.includes("too_many_requests");
 }
 
+// Supabase Auth risponde in inglese: mai mostrare il messaggio grezzo.
+function getReadableLoginError(err: unknown): string {
+    const code =
+        err && typeof err === "object" && "code" in err && typeof err.code === "string"
+            ? err.code
+            : "";
+    const message = err instanceof Error ? err.message.toLowerCase() : "";
+
+    if (code === "invalid_credentials" || message.includes("invalid login credentials")) {
+        return "Email o password non corretti.";
+    }
+    if (code === "email_not_confirmed" || message.includes("email not confirmed")) {
+        return "Devi ancora confermare l’email: apri il link che ti abbiamo inviato.";
+    }
+    if (code === "user_not_found") {
+        return "Email o password non corretti.";
+    }
+    if (message.includes("failed to fetch") || message.includes("network")) {
+        return "Connessione assente o instabile. Controlla la rete e riprova.";
+    }
+    return "Non è stato possibile accedere. Riprova.";
+}
+
 export default function Login() {
     usePageTitle("Accedi");
     const [email, setEmail] = useState("");
@@ -90,14 +113,13 @@ export default function Login() {
 
             navigate("/verify-otp", { state: { from } });
         } catch (err) {
-            const message =
-                err instanceof Error ? err.message : "Errore sconosciuto durante il login.";
+            const message = err instanceof Error ? err.message : "";
             if (message.toLowerCase().includes("banned")) {
                 setIsBanned(true);
             } else if (isRateLimitError(message)) {
                 setRateLimited(true);
             } else {
-                setError(message);
+                setError(getReadableLoginError(err));
             }
         } finally {
             setLoading(false);

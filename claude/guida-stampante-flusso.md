@@ -87,10 +87,10 @@ nome stampante `Cucina`. Non mettere testo italiano dentro il pannello Sunmi, ch
   di pagina. `loading="lazy"` solo in "Vedi tutti i passaggi".
 - Vista "Vedi tutti i passaggi": premessa senza numero, passi 1–10, poi
   "Se qualcosa non funziona".
-- Callout sull'acquisto (stampanti solo dal nostro link) **non** sta nella guida:
-  vive in `PrintersSection.tsx` (`.purchaseNote`), visibile solo con `canManage` e
-  lista stampanti non vuota — a lista vuota l'empty state ha già "Compra una
-  stampante".
+- L'acquisto (stampanti solo dal nostro link) **non** sta nella guida: l'URL vive
+  in `PRINTER_PURCHASE_URL` (`src/config/printers.ts`) ed è usato dal bottone
+  "Compra una stampante" in `PrintersSection.tsx`, nell'empty state a lista vuota,
+  visibile solo con `canManage`.
 
 ## Copy — regole fissate
 
