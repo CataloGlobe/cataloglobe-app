@@ -39,8 +39,18 @@ export function StatusBand({ refreshKey }: { refreshKey: number }) {
 
     useEffect(() => {
         void load();
-        const id = window.setInterval(() => void load(), 60_000);
-        return () => window.clearInterval(id);
+        // Scheda nascosta: niente richieste; tornando visibile si rilegge subito.
+        const id = window.setInterval(() => {
+            if (!document.hidden) void load();
+        }, 60_000);
+        const onVisible = () => {
+            if (!document.hidden) void load();
+        };
+        document.addEventListener("visibilitychange", onVisible);
+        return () => {
+            window.clearInterval(id);
+            document.removeEventListener("visibilitychange", onVisible);
+        };
     }, [load, refreshKey]);
 
     const overall = overview ? deriveOverallStatus(overview.latest) : "unknown";

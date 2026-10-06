@@ -5,6 +5,7 @@ import {
     deleteEvent,
     getAccessToken,
     insertEvent,
+    listEvents,
     parseCalendarEvents,
     parseServiceAccount,
     signServiceJwt
@@ -160,5 +161,22 @@ describe("chiamate", () => {
         await expect(
             deleteEvent("t", "c", "e", (async () => jsonResponse(403, { error: { message: "no" } })) as unknown as typeof fetch)
         ).rejects.toThrow("Google Calendar 403: no");
+    });
+});
+
+describe("listEvents", () => {
+    it("segue le pagine oltre i 250 eventi", async () => {
+        const urls: string[] = [];
+        const fetchFn = (async (url: string) => {
+            urls.push(url);
+            const second = url.includes("pageToken=p2");
+            return new Response(
+                JSON.stringify(second ? { items: [{ id: "b" }] } : { items: [{ id: "a" }], nextPageToken: "p2" }),
+                { status: 200 }
+            );
+        }) as unknown as typeof fetch;
+        const items = await listEvents("t", "cal", "2026-10-06T00:00:00Z", "2026-10-07T00:00:00Z", fetchFn);
+        expect(items).toEqual([{ id: "a" }, { id: "b" }]);
+        expect(urls).toHaveLength(2);
     });
 });

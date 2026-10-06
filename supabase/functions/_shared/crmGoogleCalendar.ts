@@ -252,13 +252,23 @@ export async function listEvents(
     timeMax: string,
     fetchFn: FetchFn = fetch
 ): Promise<unknown[]> {
-    const params = new URLSearchParams({
-        timeMin,
-        timeMax,
-        singleEvents: "true",
-        orderBy: "startTime",
-        maxResults: "250"
-    });
-    const json = await call(token, "GET", `${cal(calendarId)}/events?${params.toString()}`, undefined, fetchFn);
-    return Array.isArray(json?.items) ? (json?.items as unknown[]) : [];
+    // Si seguono le pagine: oltre 250 eventi gli orari dopo risulterebbero
+    // liberi. Tetto di 10 pagine per non girare all'infinito.
+    const items: unknown[] = [];
+    let pageToken: string | null = null;
+    for (let page = 0; page < 10; page++) {
+        const params = new URLSearchParams({
+            timeMin,
+            timeMax,
+            singleEvents: "true",
+            orderBy: "startTime",
+            maxResults: "250"
+        });
+        if (pageToken) params.set("pageToken", pageToken);
+        const json = await call(token, "GET", `${cal(calendarId)}/events?${params.toString()}`, undefined, fetchFn);
+        if (Array.isArray(json?.items)) items.push(...(json.items as unknown[]));
+        pageToken = typeof json?.nextPageToken === "string" && json.nextPageToken ? json.nextPageToken : null;
+        if (!pageToken) break;
+    }
+    return items;
 }

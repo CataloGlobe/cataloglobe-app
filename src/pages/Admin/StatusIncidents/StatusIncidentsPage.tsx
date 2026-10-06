@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import { usePageTitle } from "@/hooks/usePageTitle";
@@ -129,18 +129,22 @@ export default function StatusIncidentsPage() {
     // Cambia dopo ogni scrittura: la banda dello stato si rilegge subito.
     const [bandKey, setBandKey] = useState(0);
 
+    // Due ricaricamenti ravvicinati (Risolvi, poi Pubblica): vince l'ultimo chiesto.
+    const loadSeq = useRef(0);
     const load = useCallback(async () => {
+        const seq = ++loadSeq.current;
         try {
             setLoading(true);
             setLoadError(null);
             const list = await listAllIncidents();
+            if (seq !== loadSeq.current) return;
             setIncidents(list);
             setOpenIds(prev => prev ?? new Set(list.filter(i => !i.resolved_at).map(i => i.id)));
             setBandKey(k => k + 1);
         } catch (err) {
-            setLoadError(crmErrorMessage(err));
+            if (seq === loadSeq.current) setLoadError(crmErrorMessage(err));
         } finally {
-            setLoading(false);
+            if (seq === loadSeq.current) setLoading(false);
         }
     }, []);
 
