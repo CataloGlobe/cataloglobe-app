@@ -338,7 +338,7 @@ test.describe("In evidenza — dettaglio", () => {
             timeout: 15_000
         });
         await expect(page.getByRole("tab")).toHaveText(["Contenuto", "Utilizzo"]);
-        await expect(main(page).getByText("Tipo: Annuncio")).toBeVisible();
+        await expect(main(page).getByRole("group", { name: "Tipo" })).toContainText("Annuncio · senza prodotti");
         await expect(productsSection(page)).toHaveCount(0);
         // «Prezzi: nessun prezzo» non c'è più (EV7).
         await expect(main(page).getByText("nessun prezzo")).toHaveCount(0);

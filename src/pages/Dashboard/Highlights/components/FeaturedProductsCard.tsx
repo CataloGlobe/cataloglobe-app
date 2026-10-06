@@ -134,7 +134,7 @@ export function FeaturedProductsCard({
                                 {row.name}
                             </Text>
                         </span>
-                        {showPrice && row.priceLabel && (
+                        {isPhone && showPrice && row.priceLabel && (
                             <Text variant="caption" colorVariant="muted">
                                 {row.priceLabel}
                             </Text>
@@ -143,6 +143,23 @@ export function FeaturedProductsCard({
                     </div>
                 )
             },
+            // Il prezzo ha la sua colonna, allineata a destra; al telefono resta sotto il nome.
+            ...(showPrice
+                ? [
+                      {
+                          id: "price",
+                          header: "Prezzo",
+                          width: "96px",
+                          align: "right" as const,
+                          hideOnPhone: true,
+                          cell: (_v: unknown, row: FeaturedProductDraftRow) => (
+                              <Text variant="body-sm" className={styles.price}>
+                                  {row.priceLabel ?? ""}
+                              </Text>
+                          )
+                      }
+                  ]
+                : []),
             {
                 id: "note",
                 header: "Nota",

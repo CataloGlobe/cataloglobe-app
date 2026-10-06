@@ -17,7 +17,7 @@ import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
-import { Megaphone } from "lucide-react";
+import { Megaphone, CalendarDays, Tag, Package, type LucideIcon } from "lucide-react";
 import { useToast } from "@/context/Toast/ToastContext";
 import ProductPickerList from "./ProductPickerList";
 import { FeaturedProductsCard } from "./components/FeaturedProductsCard";
@@ -60,6 +60,14 @@ import styles from "./FeaturedContentDetailPage.module.scss";
 
 // EV8: Contenuto · Utilizzo. I prodotti stanno nel contenuto, sotto i testi.
 type FeaturedDetailTab = "content" | "usage";
+
+/** L'icona di ogni tipo, nella riga in cima (EV5). */
+const TYPE_ICON: Record<FeaturedContentType, LucideIcon> = {
+    announcement: Megaphone,
+    event: CalendarDays,
+    promo: Tag,
+    bundle: Package
+};
 
 export default function FeaturedContentDetailPage() {
     const { featuredId } = useParams<{ featuredId: string }>();
@@ -382,19 +390,34 @@ export default function FeaturedContentDetailPage() {
 
     const renderContent = () => (
         <>
-            {/* EV5: il tipo è una riga in cima; «Cambia tipo» riapre le quattro schede. */}
+            {/* EV5: il tipo è una riga in cima (icona, «Promo · con prodotti», la frase); «Cambia tipo» riapre le quattro schede. */}
             <Card flush>
-                <SettingRow
-                    label={`Tipo: ${CONTENT_TYPE_LABEL[typeChoice.type]}`}
-                    description={`${CONTENT_TYPE_SENTENCE[typeChoice.type]} ${productsLabel(typeChoice.type).replace(/^./, c => c.toUpperCase())}.`}
-                    control={
-                        readOnly ? undefined : (
-                            <Button variant="secondary" size="sm" onClick={openTypeDialog}>
-                                Cambia tipo
-                            </Button>
-                        )
-                    }
-                />
+                <div className={styles.typeRow} role="group" aria-label="Tipo">
+                    <span className={styles.typeIcon} aria-hidden="true">
+                        {(() => {
+                            const Icon = TYPE_ICON[typeChoice.type];
+                            return <Icon size={18} />;
+                        })()}
+                    </span>
+                    <div className={styles.typeText}>
+                        <Text variant="body-sm">
+                            <Text as="span" variant="body-sm" weight={600}>
+                                {CONTENT_TYPE_LABEL[typeChoice.type]}
+                            </Text>
+                            <Text as="span" variant="body-sm" colorVariant="muted">
+                                {` · ${productsLabel(typeChoice.type)}`}
+                            </Text>
+                        </Text>
+                        <Text variant="caption" colorVariant="muted">
+                            {CONTENT_TYPE_SENTENCE[typeChoice.type]}
+                        </Text>
+                    </div>
+                    {!readOnly && (
+                        <Button variant="secondary" size="sm" onClick={openTypeDialog}>
+                            Cambia tipo
+                        </Button>
+                    )}
+                </div>
             </Card>
 
             <Card title="Cosa leggono i clienti">
@@ -418,12 +441,6 @@ export default function FeaturedContentDetailPage() {
                             rows={3}
                             value={text.description}
                             onChange={e => draft.setField("description", e.target.value)}
-                        />
-                        <TextInput
-                            label="Nome interno"
-                            helperText="Serve a te per ritrovarlo: i clienti non lo vedono. Vuoto = il titolo."
-                            value={text.internalName}
-                            onChange={e => draft.setField("internalName", e.target.value)}
                         />
                         <div className={styles.twoFields}>
                             <TextInput
@@ -495,6 +512,16 @@ export default function FeaturedContentDetailPage() {
                     options={productOptions}
                 />
             )}
+
+            {/* Il nome interno non lo leggono i clienti: sta in fondo, fuori da «Cosa leggono i clienti». */}
+            <Card>
+                <TextInput
+                    label="Nome interno"
+                    helperText="Lo vedi solo tu, per ritrovarlo. Se è vuoto si usa il titolo."
+                    value={text.internalName}
+                    onChange={e => draft.setField("internalName", e.target.value)}
+                />
+            </Card>
         </>
     );
 
