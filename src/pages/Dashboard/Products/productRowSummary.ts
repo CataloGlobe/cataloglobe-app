@@ -54,12 +54,12 @@ export function describeMenus(
     ownCount: number,
     labels: MenuLabels,
     parentCount?: number | null
-): { text: string; none: boolean } {
+): { text: string; none: boolean; count: number } {
     const count = ownCount > 0 ? ownCount : (parentCount ?? 0);
     const one = labels.catalogLabel.toLowerCase();
     const many = labels.catalogLabelPlural.toLowerCase();
-    if (count === 0) return { text: `in nessun ${one}`, none: true };
-    return { text: `in ${count} ${count === 1 ? one : many}`, none: false };
+    if (count === 0) return { text: `in nessun ${one}`, none: true, count };
+    return { text: `in ${count} ${count === 1 ? one : many}`, none: false, count };
 }
 
 /** «3 formati» quando i formati sono più di uno; un formato solo è un prezzo. */

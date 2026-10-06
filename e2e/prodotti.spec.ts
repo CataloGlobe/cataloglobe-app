@@ -154,14 +154,21 @@ test.describe("Prodotti — elenco", () => {
         await expect(main(page).getByText("Variante").first()).toBeVisible();
     });
 
-    test("riga: prezzo e menù nella riga muta, formati e difetti a parole", async ({ page }) => {
+    test("riga: colonne Prodotto, Prezzo e Menù, formati e difetti a parole", async ({ page }) => {
         await openList(page);
         const row = (name: string) => product(page, name).locator("xpath=ancestor::*[@role='row'][1]");
-        await expect(row("Hamburger")).toContainText("2,90 € · in 2 menù");
-        await expect(row("Patatine")).toContainText("da 2,50 € · in 2 menù");
+        // PR2: prezzo e numero di menù nelle loro colonne, a destra.
+        const cells = (name: string) => row(name).getByRole("cell");
+        for (const header of ["Prodotto", "Prezzo", "Menù"]) {
+            await expect(main(page).getByRole("columnheader", { name: header })).toBeVisible();
+        }
+        await expect(cells("Hamburger").filter({ hasText: /^2,90 €$/ })).toHaveCount(1);
+        await expect(cells("Hamburger").filter({ hasText: /^2$/ })).toHaveCount(1);
+        await expect(cells("Patatine").filter({ hasText: /^da 2,50 €$/ })).toHaveCount(1);
         await expect(row("Patatine")).toContainText("3 formati");
-        await expect(row("Muffin al cioccolato")).toContainText("2,20 € · in nessun menù");
-        await expect(row("Insalatona")).toContainText("senza prezzo · in nessun menù");
+        await expect(cells("Muffin al cioccolato").filter({ hasText: /^2,20 €$/ })).toHaveCount(1);
+        await expect(cells("Muffin al cioccolato").filter({ hasText: /^nessuno$/ })).toHaveCount(1);
+        await expect(cells("Insalatona").filter({ hasText: /^senza prezzo$/ })).toHaveCount(1);
         // La descrizione non sta nella riga: è nella Scheda.
         await expect(main(page).getByText("Carne 100% bovino", { exact: false })).toHaveCount(0);
 
@@ -169,7 +176,8 @@ test.describe("Prodotti — elenco", () => {
         await search(page, "Coca");
         await main(page).getByRole("button", { name: "Mostra varianti di Coca-Cola" }).click();
         await expect(main(page).getByRole("button", { name: "Nascondi varianti di Coca-Cola" })).toHaveAttribute("aria-expanded", "true");
-        await expect(row("Coca-Cola Zero")).toContainText("2,50 € (ereditato) · in 1 menù");
+        await expect(cells("Coca-Cola Zero").filter({ hasText: /^2,50 € \(ereditato\)$/ })).toHaveCount(1);
+        await expect(cells("Coca-Cola Zero").filter({ hasText: /^1$/ })).toHaveCount(1);
     });
 
     test("vista predefinita: lista", async ({ page }) => {
@@ -659,7 +667,7 @@ test.describe("Prodotti — dettaglio", () => {
         await expect(main(page).getByText(/ogni modifica si salva subito/)).toBeVisible({ timeout: 15_000 });
         await expect(main(page).getByRole("radio", { name: "Prezzo per formato" })).toHaveAttribute("aria-checked", "true");
         await expect(main(page).getByText("2,50 €", { exact: true })).toBeVisible();
-        await expect(main(page).getByText("Nel menù si legge da 2,50 €.")).toBeVisible();
+        await expect(main(page).getByText("Nel menù si legge «da 2,50 €»")).toBeVisible();
 
         await actionsOf(main(page).getByText("Grandi", { exact: true })).click();
         await page.getByRole("menuitem", { name: "Elimina" }).click();

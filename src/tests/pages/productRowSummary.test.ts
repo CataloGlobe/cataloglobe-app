@@ -51,14 +51,14 @@ describe("describeMenus", () => {
     const catalog = { catalogLabel: "Catalogo", catalogLabelPlural: "Cataloghi" };
 
     it("singolare, plurale e nessuno dal verticale", () => {
-        expect(describeMenus(2, menu)).toEqual({ text: "in 2 menù", none: false });
-        expect(describeMenus(1, catalog)).toEqual({ text: "in 1 catalogo", none: false });
-        expect(describeMenus(3, catalog)).toEqual({ text: "in 3 cataloghi", none: false });
-        expect(describeMenus(0, menu)).toEqual({ text: "in nessun menù", none: true });
+        expect(describeMenus(2, menu)).toEqual({ text: "in 2 menù", none: false, count: 2 });
+        expect(describeMenus(1, catalog)).toEqual({ text: "in 1 catalogo", none: false, count: 1 });
+        expect(describeMenus(3, catalog)).toEqual({ text: "in 3 cataloghi", none: false, count: 3 });
+        expect(describeMenus(0, menu)).toEqual({ text: "in nessun menù", none: true, count: 0 });
     });
 
     it("la variante senza collegamenti vale quanto il padre", () => {
-        expect(describeMenus(0, menu, 2)).toEqual({ text: "in 2 menù", none: false });
+        expect(describeMenus(0, menu, 2)).toEqual({ text: "in 2 menù", none: false, count: 2 });
     });
 });
 

@@ -461,7 +461,7 @@ export function TranslationsTab({
                                         </span>
                                     )}
                                     <span className={styles.langName}>
-                                        {baseMeta?.name_native ?? baseLanguage.toUpperCase()} ·{" "}
+                                        {baseMeta?.name_it ?? baseLanguage.toUpperCase()} ·{" "}
                                         {t("translations_tab.source_suffix")}
                                     </span>
                                 </div>
@@ -579,7 +579,7 @@ export function TranslationsTab({
                                         <TranslationRow
                                             key={code}
                                             flag={lang.flag_emoji}
-                                            name={lang.name_native}
+                                            name={lang.name_it || lang.name_native}
                                             badge={badge}
                                             preview={translation?.translated_text ?? ""}
                                             previewEmptyLabel={t(
@@ -705,7 +705,7 @@ export function TranslationsTab({
                                         <TranslationRow
                                             key={code}
                                             flag={lang.flag_emoji}
-                                            name={lang.name_native}
+                                            name={lang.name_it || lang.name_native}
                                             badge={badge}
                                             preview={formatted.replace(/\n/g, " · ")}
                                             previewEmptyLabel={t(
@@ -716,7 +716,7 @@ export function TranslationsTab({
                                         >
                                             <div className={styles.noteReference}>
                                                 <span className={styles.noteRefLabel}>
-                                                    {baseMeta?.name_native ??
+                                                    {baseMeta?.name_it ??
                                                         baseLanguage.toUpperCase()}
                                                 </span>
                                                 <Text
@@ -730,7 +730,7 @@ export function TranslationsTab({
                                             </div>
                                             <div className={styles.noteReference}>
                                                 <span className={styles.noteRefLabel}>
-                                                    {lang.name_native}
+                                                    {lang.name_it || lang.name_native}
                                                 </span>
                                                 {formatted ? (
                                                     <Text
