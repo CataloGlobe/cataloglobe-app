@@ -1,170 +1,119 @@
+// T17 WS4, WS6: Account. Colonna 720, una card sola; sotto 640 profilo
+// centrato, «Modifica profilo» a tutta larghezza, righe alte 56.
+
 .page {
-  background: #f8fafc;
   min-height: 100%;
 }
 
 .container {
-  max-width: 980px;
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 2rem;
+  gap: var(--space-16);
 }
 
-.cards {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-6, 6px);
+  align-self: flex-start;
+  color: var(--text-muted);
+  text-decoration: none;
+
+  &:hover {
+    color: var(--text);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-focus);
+    border-radius: var(--radius-control, 8px);
+  }
 }
 
 .card {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
+  overflow: hidden;
 }
 
-.profileRow {
+/* ── Profilo in testa ──────────────────────────────────── */
+
+.profile {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 1.5rem;
-  flex-wrap: wrap;
+  gap: var(--space-16);
+  padding: var(--space-24);
+  border-bottom: 1px solid var(--border);
 }
 
-.profileInfo {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
+.avatarField {
+  flex: 0 0 auto;
+  width: 120px;
 }
 
 .profileMeta {
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
+  gap: var(--space-2, 2px);
+  min-width: 0;
+  flex: 1;
 }
 
-.avatar {
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  object-fit: cover;
-  border: 1px solid var(--border, #e5e7eb);
-  background: #ffffff;
+.profileName {
+  margin: 0;
 }
 
-.avatarPlaceholder {
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  background: #6366f1;
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-  color: #fff;
-  font-size: 18px;
-  font-weight: 700;
-  user-select: none;
+.profileAction {
+  flex: 0 0 auto;
 }
 
-.preferencesGrid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
-}
+/* ── Drawer e modale ───────────────────────────────────── */
 
-.accountGrid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
-}
-
-.accountField {
+.drawerHeader,
+.modalHeader {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: var(--space-4);
 }
 
-.accountActions {
+.drawerForm,
+.modalForm {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 0.5rem;
-  margin-top: 0.5rem;
-}
-
-.logoutRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: wrap;
-  padding-top: 1rem;
-}
-
-.drawerHeader {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.drawerForm {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
+  gap: var(--space-16);
 }
 
 .drawerFooter {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 0.75rem;
-}
-
-.removeAvatarBtn {
-  display: inline-flex;
-  align-items: center;
-  font-size: 12px;
-  font-weight: 500;
-  color: #ef4444;
-  background: none;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-  font-family: inherit;
-  text-align: left;
-
-  &:hover:not(:disabled) {
-    color: #dc2626;
-    text-decoration: underline;
-  }
-
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-}
-
-.modalHeader {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.modalForm {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
+  gap: var(--space-12);
 }
 
 .modalFeedback {
-  margin-top: 0.25rem;
+  margin-top: var(--space-4);
 }
 
-@media (max-width: 768px) {
-  .preferencesGrid {
-    grid-template-columns: 1fr;
+/* ── Responsive (WS6) ──────────────────────────────────── */
+
+@media (max-width: 639px) {
+  .profile {
+    flex-direction: column;
+    text-align: center;
+    padding: var(--space-24) var(--space-16);
   }
 
-  .accountGrid {
-    grid-template-columns: 1fr;
+  .profileMeta {
+    align-items: center;
+  }
+
+  .profileAction {
+    width: 100%;
+  }
+
+  // Righe tappabili: almeno 56 di altezza.
+  .card :global([data-setting-row]) {
+    min-height: 56px;
   }
 }

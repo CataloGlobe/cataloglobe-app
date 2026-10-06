@@ -6,8 +6,8 @@ import { openBusinessPage } from "./business";
  * amministratore. Copre le feature che sopravvivono alla riscrittura
  * (registro feature, §Impostazioni passo 2): titolo; il nome dell'azienda
  * già compilato e il settore in sola lettura; i dati di fatturazione con la
- * tipologia intestatario; il logo; la zona distruttiva, che per un amministratore ha
- * il bottone spento e il banner sul proprietario; il dialogo di conferma,
+ * tipologia intestatario; il logo come riga; la zona distruttiva, che per un
+ * amministratore ha la frase sul proprietario al posto del bottone (T16); il dialogo di conferma,
  * che si apre e si chiude senza confermare (visto da un proprietario
  * simulato: la risposta di `get_my_permissions` è riscritta in pagina, la
  * Edge Function `delete-tenant` è bloccata per sicurezza).
