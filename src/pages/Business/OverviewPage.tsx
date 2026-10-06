@@ -654,9 +654,11 @@ export default function OverviewPage() {
                     {activeCatalogDisplayName(catalogFetch.byActivity[activityId])}
                 </Text>
                 {canDoOnActivity(permissions, "scheduling.read", activityId) && (
-                    <Link className={styles.why} to={`${b}/locations/${activityId}/cosa-vedono`}>
-                        Perché
-                    </Link>
+                    <Text as="span" variant="body-sm">
+                        <Link className={styles.why} to={`${b}/locations/${activityId}/cosa-vedono`}>
+                            Perché
+                        </Link>
+                    </Text>
                 )}
             </span>
         );

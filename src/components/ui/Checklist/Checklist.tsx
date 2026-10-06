@@ -115,16 +115,16 @@ export function Checklist({ title = "Le basi", items, doneTitle = "Le basi ci so
                     </Text>
                     <span className={styles.doneNames}>
                         {items.map(item => (
-                            <span key={item.id} className={styles.doneName}>
+                            <Text as="span" variant="body-sm" key={item.id} className={styles.doneName}>
                                 <Check size={14} aria-hidden="true" />
                                 {item.shortTitle ?? item.title}
-                            </span>
+                            </Text>
                         ))}
                     </span>
-                    <span className={styles.doneToggle}>
+                    <Text as="span" variant="body-sm" weight={600} className={styles.doneToggle}>
                         {expanded ? "Nascondi" : "Mostra"}
                         <ChevronDown className={`${styles.chevron} ${expanded ? styles.chevronOpen : ""}`} aria-hidden="true" />
-                    </span>
+                    </Text>
                 </button>
                 <div id={panelId} hidden={!expanded}>
                     <Card flush bodyClassName={styles.body}>
