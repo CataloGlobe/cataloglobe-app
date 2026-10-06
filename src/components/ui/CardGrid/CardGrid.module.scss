@@ -85,6 +85,11 @@
   }
 }
 
+// Area media ad altezza fissa (`mediaHeight`): niente 16:10.
+.fixedMedia::before {
+  display: none;
+}
+
 .mediaInner {
   position: absolute;
   inset: 0;

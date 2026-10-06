@@ -138,18 +138,19 @@ test.beforeEach(async ({ page }) => {
 });
 
 test.describe("Stili — elenco", () => {
-    test("griglia: stili, di sistema in cima, uso nelle regole", async ({ page }) => {
+    test("griglia: stili, prima gli attivi adesso e poi per nome, uso nelle regole", async ({ page }) => {
         await openList(page);
         await expect(page).toHaveTitle(/^Stili — .+ \| CataloGlobe$/);
         await expect(styleName(page, "Stile base e2e")).toBeVisible();
         await expect(styleName(page, "Sera e2e")).toBeVisible();
         await expect(styleName(page, "Notte e2e")).toBeVisible();
         await expect(main(page).getByText("Usato in 1 regola").first()).toBeVisible();
-        await expect(main(page).getByText("Non utilizzato").first()).toBeVisible();
+        await expect(main(page).getByText("In nessuna regola").first()).toBeVisible();
         await expect(page.getByRole("button", { name: "Crea stile" }).first()).toBeVisible();
-        // Il sistema prima degli altri.
+        // ST2: prima gli attivi adesso (Estate), poi per nome.
+        await expect(itemOf(page, "Estate e2e")).toContainText("Attivo adesso");
         const order = await main(page).getByText(/^(Stile base|Estate|Sera|Notte) e2e$/).allTextContents();
-        expect(order[0]).toBe("Stile base e2e");
+        expect(order).toEqual(["Estate e2e", "Notte e2e", "Sera e2e", "Stile base e2e"]);
     });
 
     test("lista: versione e uso, la riga apre l'editor", async ({ page }) => {
@@ -265,7 +266,8 @@ test.describe("Stili — elenco ricomposto (P2)", () => {
     test("la card è un link allo stile; di sistema lo dice a parole", async ({ page }) => {
         await openList(page, "grid");
         await expect(main(page).getByRole("link", { name: "Estate e2e" })).toHaveAttribute("href", new RegExp(`/styles/${STYLE.estate}$`));
-        await expect(main(page).getByText("Di sistema")).toBeVisible();
+        // ST3: testo davanti all'uso, non più una pillola.
+        await expect(main(page).getByText(/^Di sistema · /)).toBeVisible();
     });
 
     test("chi non scrive: il «⋯» apre, non modifica", async ({ page }) => {
@@ -472,12 +474,12 @@ function itemOf(page: Page, name: string): Locator {
 }
 
 test.describe("Stili — dove vestono (§50.13)", () => {
-    test("griglia: lo stato vivo, non il conteggio delle righe", async ({ page }) => {
+    test("griglia: la pillola solo per «Attivo adesso», l'uso nella riga di testo (ST3)", async ({ page }) => {
         await openList(page);
         await expect(itemOf(page, "Estate e2e")).toContainText("Attivo adesso");
-        await expect(itemOf(page, "Stile base e2e")).toContainText("Programmato");
-        await expect(itemOf(page, "Autunno e2e")).toContainText("Nessuna regola attiva");
-        await expect(itemOf(page, "Sera e2e")).toContainText("Non utilizzato");
+        for (const name of ["Stile base e2e", "Autunno e2e", "Sera e2e"]) {
+            await expect(itemOf(page, name)).not.toContainText(/Attivo adesso|Programmato|Nessuna regola attiva|Non utilizzato/);
+        }
         // Il numero resta, sotto.
         await expect(itemOf(page, "Autunno e2e")).toContainText("Usato in 1 regola");
     });
@@ -487,7 +489,7 @@ test.describe("Stili — dove vestono (§50.13)", () => {
         const table = main(page).getByRole("table", { name: "Stili" });
         await expect(table.getByRole("columnheader", { name: "Utilizzo" })).toBeVisible();
         await expect(table.getByRole("row", { name: /Estate e2e/ })).toContainText("Attivo adesso");
-        await expect(table.getByRole("row", { name: /Stile base e2e/ })).toContainText("Programmato");
+        await expect(table.getByRole("row", { name: /Stile base e2e/ })).not.toContainText("Programmato");
     });
 
     test("editor: l'avviso nomina le sedi che vedono la modifica subito", async ({ page }) => {

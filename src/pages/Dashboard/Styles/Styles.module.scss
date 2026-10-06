@@ -72,9 +72,6 @@
   // accanto all'anteprima (vedi fondo del file).
   position: relative;
   container: style-editor / inline-size;
-  background-color: var(--color-surface-hover);
-  background-image: radial-gradient(circle, rgba(0, 0, 0, 0.065) 1px, transparent 1px);
-  background-size: 22px 22px;
 }
 
 /* Left column */
@@ -165,14 +162,14 @@
 .propertiesPanel {
   flex-shrink: 0;
   min-height: 0;
-  /* Floating card: staccato dai bordi (pois visibili attorno), bordo 4 lati +
-     radius + shadow. `overflow:hidden` resta (clippa l'inner a width fissa
-     durante l'animazione width di framer; il radius clippa gli angoli). */
+  /* Card staccata dai bordi: bordo e ombra della `Card`. `overflow:hidden`
+     resta (clippa l'inner a width fissa durante l'animazione width di framer;
+     il radius clippa gli angoli). */
   margin: 12px;
   background: var(--card-bg);
   border: 1px solid var(--border);
   border-radius: 12px;
-  box-shadow: 0 8px 30px rgba(15, 23, 42, 0.10);
+  box-shadow: var(--shadow-rest);
   overflow: hidden;
 }
 

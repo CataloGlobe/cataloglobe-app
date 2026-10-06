@@ -53,6 +53,8 @@ export interface CardGridSkeletonShape {
     square?: boolean;
     /** Altezza fissa, come `height` delle card. */
     height?: number;
+    /** Area media alta così, come `mediaHeight` delle card. */
+    mediaHeight?: number;
 }
 
 export function CardGrid({
@@ -84,13 +86,13 @@ export function CardGrid({
 
 // Ogni barra sta dentro un Text della stessa variante della riga vera:
 // la riga è alta come il testo che arriva, e la card Skeleton come la card.
-function CardGridSkeleton({ media = true, footer = false, badge = false, square = false, height }: CardGridSkeletonShape) {
+function CardGridSkeleton({ media = true, footer = false, badge = false, square = false, height, mediaHeight }: CardGridSkeletonShape) {
     const classes = [styles.item, square ? styles.squareMedia : "", height ? styles.fixedHeight : ""].filter(Boolean).join(" ");
     return (
         <div className={classes} style={height ? { height } : undefined} role="listitem" aria-hidden="true">
             <div className={styles.surface}>
                 {media && (
-                    <div className={styles.media}>
+                    <div className={`${styles.media}${mediaHeight ? ` ${styles.fixedMedia}` : ""}`} style={mediaHeight ? { height: mediaHeight } : undefined}>
                         <Skeleton className={styles.mediaSkeleton} radius="0" />
                     </div>
                 )}
@@ -132,6 +134,8 @@ export interface CardGridItemProps {
     height?: number;
     /** Area media quadrata (foto dei prodotti) invece del 16:10. */
     squareMedia?: boolean;
+    /** Area media alta così (es. 140 per gli Stili) invece del 16:10. */
+    mediaHeight?: number;
     title: ReactNode;
     /** Una riga muta, con ellissi. */
     subtitle?: ReactNode;
@@ -162,6 +166,7 @@ export function CardGridItem({
     media,
     height,
     squareMedia = false,
+    mediaHeight,
     title,
     subtitle,
     badge,
@@ -194,7 +199,7 @@ export function CardGridItem({
             {/* Senza immagine né media niente area 16:10: la card è un dato
                 (un tavolo della sala), non una cosa che si riconosce a vista. */}
             {mediaNode && (
-                <div className={styles.media}>
+                <div className={`${styles.media}${mediaHeight ? ` ${styles.fixedMedia}` : ""}`} style={mediaHeight ? { height: mediaHeight } : undefined}>
                     <div className={styles.mediaInner}>{mediaNode}</div>
                 </div>
             )}
