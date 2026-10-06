@@ -128,6 +128,9 @@ interface DataTableProps<T> {
      * (es. il badge della `Card`): elenchi raggruppati in più tabelle.
      */
     showFooter?: boolean;
+    /** Cosa si conta nel piede, singolare e plurale («sede», «sedi»).
+     *  Omesso → «elemento», «elementi». */
+    itemNoun?: { one: string; many: string };
 
     /** Righe con animazione highlight transitorio (~2s fade amber). */
     highlightedRowIds?: string[];
@@ -288,6 +291,7 @@ export function DataTable<T>({
     onClearFilters,
     maxHeight: maxHeightProp,
     pageSize,
+    itemNoun,
     pageSizeOptions = DEFAULT_PAGE_SIZE_OPTIONS,
     onRowClick,
     selectable = false,
@@ -627,8 +631,8 @@ export function DataTable<T>({
         const countLabel = showRange
             ? `${startRow}–${endRow} di ${data.length}`
             : data.length === 1
-                ? "1 elemento"
-                : `${data.length} elementi`;
+                ? `1 ${itemNoun?.one ?? "elemento"}`
+                : `${data.length} ${itemNoun?.many ?? "elementi"}`;
 
         return (
             <div className={styles.footerInner}>

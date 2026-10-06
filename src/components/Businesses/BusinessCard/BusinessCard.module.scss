@@ -1,52 +1,51 @@
-// Card sede: la struttura è di CardGridItem; qui solo il layout della riga
-// «Menu attivo ora» nel footer e il segnaposto senza copertina.
+// Card sede: la struttura è di CardGridItem; qui lo stato nel corpo, il
+// piede ad altezza fissa e il segnaposto senza copertina.
 .placeholder {
   display: inline-flex;
   color: var(--text-muted);
 }
 
-.footer {
+// S1: stato e avviso degli override nella stessa riga del corpo.
+.status {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-8);
-}
-
-.footerMain {
-  display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-8);
-  min-height: 26px;
+  gap: var(--space-4) var(--space-8);
 }
 
-.footerIcon {
+.overrides {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  flex: 0 0 auto;
-  width: 26px;
-  height: 26px;
-  border-radius: var(--radius-pill);
-  background: var(--hover-bg);
-  color: var(--text-muted);
+  gap: var(--space-4);
+  color: var(--warning-700);
+}
+
+.overridesText {
+  color: inherit;
+}
+
+// S1: piede di 68 px in ogni card (44 qui + il padding 12 + 12 del piede di
+// CardGrid), così le righe della griglia restano allineate qualunque cosa
+// dica il piede.
+.footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  height: 44px;
 }
 
 .footerText {
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   gap: var(--space-2);
   flex: 1 1 auto;
   min-width: 0;
 }
 
 .footerValue {
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.footerWarning {
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-  color: var(--warning-500);
 }
