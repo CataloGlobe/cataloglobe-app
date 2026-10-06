@@ -120,3 +120,18 @@
   left: var(--space-8);
   display: flex;
 }
+
+// Card dei prodotti (PR1, D5): almeno 176 px, così nome e «prezzo · in N
+// menù» non si tagliano; 6 colonne a 1280 con la sidebar aperta. Al telefono
+// sempre 2. Doppia classe: vince sulle colonne fisse di CardGrid.
+.productGrid.productGrid {
+  grid-template-columns: repeat(auto-fill, minmax(176px, 1fr));
+
+  @include phone {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.price {
+  white-space: nowrap;
+}

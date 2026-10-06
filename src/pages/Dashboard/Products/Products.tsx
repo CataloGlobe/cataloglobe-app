@@ -67,8 +67,6 @@ type ProductTableRow = {
     isExpanded: boolean;
 };
 
-/** Card compatte (PR1): 6 colonne a 1280 con la sidebar aperta, 2 al telefono. */
-const PRODUCT_CARD_MIN_WIDTH = 152;
 
 const EMPTY_PRODUCT_METADATA: ProductListMetadata = {
     formatsCount: 0,
@@ -625,9 +623,10 @@ export default function Products() {
         {
             id: "price",
             header: "Prezzo",
-            width: "104px",
+            // «da 3,00 €» su una riga: 120 e niente a capo.
+            width: "120px",
             align: "right",
-            cell: (_value, row) => summaryOf(row.product, row.parent).price
+            cell: (_value, row) => <span className={styles.price}>{summaryOf(row.product, row.parent).price}</span>
         },
         {
             id: "menus",
@@ -719,7 +718,7 @@ export default function Products() {
                                 loading={isLoading}
                                 skeletonShape={{ media: true, square: true }}
                                 aria-label={verticalConfig.productLabelPlural}
-                                minColumnWidth={PRODUCT_CARD_MIN_WIDTH}
+                                className={styles.productGrid}
                             >
                                 {filteredProducts.flatMap(product =>
                                     [product, ...(product.variants ?? [])].map(item => {
