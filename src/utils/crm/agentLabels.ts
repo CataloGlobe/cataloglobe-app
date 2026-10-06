@@ -10,6 +10,7 @@ import type {
     CrmDecisionActor
 } from "@/types/crm";
 import { CLAUDE_PRICES, formatAiCost, USD_TO_EUR, usdToEur, type CrmAiRole } from "@shared/crmAi";
+import { parseEuroToCents } from "@shared/crmExpenses";
 
 export const CRM_BRAKE_SOURCE_LABEL: Record<CrmBrakeSource, string> = {
     setup: "avvio",
@@ -121,10 +122,11 @@ export const CAP_MAX_EUR = Math.floor(10_000 * USD_TO_EUR);
 
 /** Tetto scritto a mano in euro («12,50», «100 €»): numero positivo con al massimo due decimali, o null. */
 export function parseEurCap(text: string): number | null {
-    const clean = text.trim().replace(/\s|€/g, "").replace(",", ".");
-    if (!/^\d+(\.\d{1,2})?$/.test(clean)) return null;
-    const value = Number(clean);
-    return value > 0 && value <= CAP_MAX_EUR ? value : null;
+    // Stessa lettura degli importi dei Costi: «1.200» e «1.234,56» valgono.
+    const cents = parseEuroToCents(text);
+    if (cents === null) return null;
+    const value = cents / 100;
+    return value <= CAP_MAX_EUR ? value : null;
 }
 
 /** Un tetto del database (dollari) come lo scrive una persona, in euro: «12,50». */

@@ -142,6 +142,7 @@ describe("binario e ricerca", () => {
         expect(initials("Alex Delia")).toBe("AD");
         expect(initials("Lorenzo")).toBe("LO");
         expect(initials(null)).toBe("");
+        expect(initials("😀 Bar")).toBe("😀B");
     });
 });
 
@@ -294,6 +295,8 @@ describe("riepilogo", () => {
     it("durate", () => {
         expect(formatDuration(18)).toBe("18 min");
         expect(formatDuration(180)).toBe("3 ore");
+        expect(formatDuration(Number.NaN)).toBe("—");
+        expect(formatDuration(-5)).toBe("—");
         expect(formatDuration(60 * 48)).toBe("2 giorni");
     });
 });

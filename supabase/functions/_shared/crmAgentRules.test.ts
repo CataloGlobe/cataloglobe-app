@@ -99,6 +99,42 @@ describe("classifyLeadText", () => {
         expect(classifyLeadText(text).stop).toBe("explicit");
     });
 
+    it.each([
+        "stop, grazie",
+        "Stop 🙏",
+        "ＳＴＯＰ",
+        "S\u200BTOP",
+        "non scriverci più",
+        "non voglio essere ricontattato",
+        "Non vogliamo più ricevere messaggi",
+        "remove me",
+        "non vi voglio più sentire"
+    ])("stop esplicito (caccia ai bug): %s", text => {
+        expect(classifyLeadText(text).stop).toBe("explicit");
+    });
+
+    it.each(["basta", "ok basta", "no basta così", "fermatevi", "lasciami stare", "vi ho già detto di no", "non scrivetemi più dopo le 20"])(
+        "dubbio, decide una persona: %s",
+        text => {
+            expect(classifyLeadText(text).stop).toBe("uncertain");
+        }
+    );
+
+    it("«non smettete di scrivermi» vuole i messaggi", () => {
+        expect(classifyLeadText("non smettete di scrivermi").stop).toBeNull();
+    });
+
+    it("«basta messaggi vocali» chiede un'altra forma, non uno stop", () => {
+        expect(classifyLeadText("basta messaggi vocali, scrivimi").stop).not.toBe("explicit");
+    });
+
+    it("«chiamami adesso» solo quando lo chiede davvero", () => {
+        expect(classifyLeadText("non sono libero adesso").callNow).toBe(false);
+        expect(classifyLeadText("chiamami tra un'ora").callNow).toBe(false);
+        expect(classifyLeadText("non mi chiamate adesso").callNow).toBe(false);
+        expect(classifyLeadText("Sono libera ora, chiamami").callNow).toBe(true);
+    });
+
     it("più messaggi: vince il più forte", () => {
         expect(classifyLeadMessages(["non mi interessa", "anzi cancellatemi"]).stop).toBe("explicit");
         expect(classifyLeadMessages(["ciao", "sei un bot?"]).botQuestion).toBe(true);
