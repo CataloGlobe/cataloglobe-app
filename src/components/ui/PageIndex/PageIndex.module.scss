@@ -91,3 +91,17 @@
   text-align: right;
 }
 
+
+// Stato della sezione (A1): ✓ compilata, occhio barrato se nascosta ai clienti.
+.done,
+.hidden {
+  flex: 0 0 auto;
+}
+
+.done {
+  color: var(--text-success);
+}
+
+.hidden {
+  color: var(--warning-700);
+}

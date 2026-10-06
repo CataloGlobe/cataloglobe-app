@@ -1,18 +1,23 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { ChevronDown, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import { Card } from "@/components/ui/Card/Card";
 import { ListRow } from "@/components/ui/ListRow/ListRow";
-import { StatusStrip } from "@/components/ui/StatusStrip/StatusStrip";
+import { Menu } from "@/components/ui/Menu/Menu";
+import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import Text from "@/components/ui/Text/Text";
 import { QrCode, type QrCodeHandle, type QrCodeImageSettings } from "@/components/ui/QrCode/QrCode";
 import { DeleteActivityDialog } from "@/components/Businesses/DeleteActivityDialog/DeleteActivityDialog";
 import { ExportCatalogDrawer } from "../tabs/ExportCatalogDrawer";
+import { ActivitySlugDrawer } from "../tabs/info/ActivitySlugDrawer";
 import { SuspendActivityDialog } from "../components/SuspendActivityDialog";
 import { ActivityQrDrawer, QR_DEFAULT_BG, QR_DEFAULT_FG } from "../components/ActivityQrDrawer";
 import { useActivityDetail } from "../ActivityDetailContext";
 import { updateActivity } from "@/services/supabase/activities";
 import { getTenantLogoPublicUrl } from "@/services/supabase/tenants";
+import { getActivitySlugAliases } from "@/services/supabase/activitySlugAliases";
+import type { ActivitySlugAlias } from "@/types/activity";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useTenant } from "@/context/useTenant";
 import { buildPublicUrl } from "@/utils/publicUrl";
@@ -22,8 +27,9 @@ import styles from "./ActivityPubblicazioneRoute.module.scss";
 
 /**
  * Pubblicazione (§31.1): come si raggiunge questo locale, e se è
- * raggiungibile. Indirizzo, QR, menù in PDF, stato, eliminazione. Le azioni
- * sono immediate (§31.4); i colori del QR stanno nel draft di pagina.
+ * raggiungibile. Indirizzo e QR in una card sola (U1), poi menù in PDF,
+ * stato ed eliminazione a riga singola (U3). Le azioni sono immediate
+ * (§31.4); i colori del QR stanno nel draft di pagina.
  */
 export default function ActivityPubblicazioneRoute() {
     const { activity, tenantId, businessId, reload, canManage, canDelete, draft } = useActivityDetail();
@@ -61,6 +67,20 @@ export default function ActivityPubblicazioneRoute() {
             showToast({ message: "Impossibile copiare l'URL.", type: "error" });
         }
     }, [publicUrl, showToast]);
+
+    // ── Indirizzi precedenti (cambio indirizzo, operazione a sé) ────────────
+    const [isSlugOpen, setIsSlugOpen] = useState(false);
+    const [aliases, setAliases] = useState<ActivitySlugAlias[]>([]);
+    const loadAliases = useCallback(async () => {
+        try {
+            setAliases(await getActivitySlugAliases(activity.id, tenantId));
+        } catch {
+            // Non critico: la riga dice «nessuno».
+        }
+    }, [activity.id, tenantId]);
+    useEffect(() => {
+        void loadAliases();
+    }, [loadAliases]);
 
     // ── PDF ─────────────────────────────────────────────────────────────────
     const [isExportOpen, setIsExportOpen] = useState(false);
@@ -118,37 +138,45 @@ export default function ActivityPubblicazioneRoute() {
 
     return (
         <div className={styles.page}>
-            <Card title="Indirizzo pubblico" flush>
+            <Card
+                title="Indirizzo e QR"
+                subtitle="Da stampare sul tavolo, sulla vetrina, sul volantino"
+                actions={
+                    canManage ? (
+                        <Button variant="secondary" size="sm" onClick={() => setIsSlugOpen(true)}>
+                            Cambia indirizzo
+                        </Button>
+                    ) : undefined
+                }
+                flush
+            >
                 <ListRow
-                    title="URL"
+                    title="Indirizzo attuale"
                     subtitle={publicUrl}
                     trailing={
                         <div className={styles.rowActions}>
                             <Button variant="secondary" size="sm" onClick={() => void handleCopyLink()}>
                                 Copia
                             </Button>
-                            <Button as="a" variant="ghost" size="sm" href={publicUrl} target="_blank" rel="noopener noreferrer">
-                                Apri in una nuova scheda
+                            <Button
+                                as="a"
+                                variant="ghost"
+                                size="sm"
+                                href={publicUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                rightIcon={<ExternalLink size={14} strokeWidth={1.75} aria-hidden />}
+                            >
+                                Apri
                             </Button>
                         </div>
                     }
                 />
-            </Card>
-
-            <Card
-                title="QR code"
-                subtitle="Da stampare sul tavolo, sulla vetrina, sul volantino"
-                actions={
-                    <>
-                        <Button variant="ghost" size="sm" onClick={() => void qrRef.current?.downloadPng()}>
-                            Scarica PNG
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={() => qrRef.current?.downloadSvg()}>
-                            Scarica SVG
-                        </Button>
-                    </>
-                }
-            >
+                <ListRow
+                    title="Indirizzi precedenti"
+                    subtitle={aliases.length === 0 ? "Nessuno" : `${aliases.length} · i vecchi link continuano a funzionare`}
+                    onClick={() => setIsSlugOpen(true)}
+                />
                 <div className={styles.qrRow}>
                     <QrCode
                         ref={qrRef}
@@ -168,96 +196,127 @@ export default function ActivityPubblicazioneRoute() {
                                 ? "Chi lo inquadra apre la pagina pubblica di questa sede."
                                 : "La sede è sospesa: chi lo inquadra legge il motivo, non il menù."}
                         </Text>
-                        <div>
+                        {/* U5: il resolver segue gli indirizzi precedenti
+                            (activity_slug_aliases), finché non si rimuovono. */}
+                        <Text variant="caption" colorVariant="muted">
+                            Se cambi indirizzo, il QR già stampato continua a funzionare, finché non rimuovi il vecchio
+                            indirizzo dagli indirizzi precedenti.
+                        </Text>
+                        <div className={styles.rowActions}>
                             <Button variant="secondary" size="sm" onClick={() => setIsQrDrawerOpen(true)}>
                                 Personalizza
                             </Button>
+                            <Menu
+                                trigger={
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        rightIcon={<ChevronDown size={14} strokeWidth={1.75} aria-hidden />}
+                                    >
+                                        Scarica
+                                    </Button>
+                                }
+                            >
+                                <Menu.Item
+                                    description="Per la stampa e i documenti"
+                                    onSelect={() => void qrRef.current?.downloadPng()}
+                                >
+                                    PNG
+                                </Menu.Item>
+                                <Menu.Item
+                                    description="Per la tipografia: resta nitido a ogni misura"
+                                    onSelect={() => qrRef.current?.downloadSvg()}
+                                >
+                                    SVG
+                                </Menu.Item>
+                            </Menu>
                         </div>
                     </div>
                 </div>
             </Card>
 
             <Card
+                layout="row"
                 title="Menù in PDF"
-                subtitle="Una versione stampabile del menù attivo"
+                subtitle="Scegli menù, stile e cosa includere"
                 actions={
                     <Button variant="secondary" size="sm" onClick={() => setIsExportOpen(true)}>
-                        Esporta
+                        Crea il PDF
                     </Button>
                 }
-            >
-                <Text variant="body-sm" colorVariant="muted">
-                    Scegli menù, stile e cosa includere: l'export apre un pannello a sé perché è una cosa che si
-                    produce, non una che si configura.
-                </Text>
-            </Card>
+            />
 
-            <Card title="Stato">
-                <StatusStrip
-                    tone={isActive ? "success" : "neutral"}
-                    badge={isActive ? "Pubblicata" : "Sospesa"}
-                    title={
-                        isActive
-                            ? "Chiunque abbia il link o il QR vede il menù"
-                            : `Sospesa · ${activity.inactive_reason ? formatInactiveReason(activity.inactive_reason) : "senza motivo"}`
-                    }
-                    description={
-                        isActive
-                            ? "Sospendere chiede il motivo: manutenzione, chiusura temporanea, non disponibile."
-                            : "La pagina pubblica mostra il motivo al posto del menù finché non riprendi."
-                    }
-                    action={
-                        canManage ? (
-                            isActive ? (
+            {/* U3: lo stato è la pillola accanto al titolo, senza riquadro. */}
+            <Card
+                layout="row"
+                title="Stato"
+                badge={<StatusBadge variant={isActive ? "success" : "neutral"} label={isActive ? "Pubblicata" : "Sospesa"} />}
+                subtitle={
+                    isActive
+                        ? "Chiunque abbia il link o il QR vede il menù. Sospendere chiede il motivo: manutenzione, chiusura temporanea, non disponibile."
+                        : `Motivo: ${activity.inactive_reason ? formatInactiveReason(activity.inactive_reason) : "nessuno"}. La pagina pubblica lo mostra al posto del menù finché non riprendi.`
+                }
+                actions={
+                    canManage ? (
+                        isActive ? (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                    setSuspendMode("suspend");
+                                    setIsSuspendOpen(true);
+                                }}
+                            >
+                                Sospendi la pubblicazione
+                            </Button>
+                        ) : (
+                            <>
                                 <Button
-                                    variant="outline"
+                                    variant="secondary"
                                     size="sm"
                                     onClick={() => {
-                                        setSuspendMode("suspend");
+                                        setSuspendMode("edit-reason");
                                         setIsSuspendOpen(true);
                                     }}
                                 >
-                                    Sospendi la pubblicazione
+                                    Modifica il motivo
                                 </Button>
-                            ) : (
-                                <div className={styles.rowActions}>
-                                    <Button
-                                        variant="secondary"
-                                        size="sm"
-                                        onClick={() => {
-                                            setSuspendMode("edit-reason");
-                                            setIsSuspendOpen(true);
-                                        }}
-                                    >
-                                        Modifica il motivo
-                                    </Button>
-                                    <Button variant="primary" size="sm" onClick={() => void handleResume()} loading={isResuming}>
-                                        Riprendi la pubblicazione
-                                    </Button>
-                                </div>
-                            )
-                        ) : undefined
-                    }
-                />
-            </Card>
+                                <Button variant="primary" size="sm" onClick={() => void handleResume()} loading={isResuming}>
+                                    Riprendi la pubblicazione
+                                </Button>
+                            </>
+                        )
+                    ) : undefined
+                }
+            />
 
             {canDelete && (
-                <Card variant="danger" title="Elimina il locale">
-                    <div className={styles.dangerBody}>
-                        <Text variant="body-sm" colorVariant="muted">
-                            Elimina la sede e tutto ciò che le appartiene: tavoli, QR, prenotazioni, storico ordini,
-                            stampanti collegate. Irreversibile. L'indirizzo web si libera e i link in giro smettono di
-                            funzionare.
-                        </Text>
-                        <div>
-                            <Button variant="danger" onClick={() => setIsDeleteOpen(true)}>
-                                Elimina questa sede
-                            </Button>
-                        </div>
-                    </div>
-                </Card>
+                <Card
+                    layout="row"
+                    variant="danger"
+                    title="Elimina la sede"
+                    subtitle="Con tavoli, QR, prenotazioni, storico ordini e stampanti collegate. Irreversibile: l'indirizzo web si libera e i link in giro smettono di funzionare."
+                    actions={
+                        <Button variant="danger" size="sm" onClick={() => setIsDeleteOpen(true)}>
+                            Elimina questa sede
+                        </Button>
+                    }
+                />
             )}
 
+            <ActivitySlugDrawer
+                open={isSlugOpen}
+                onClose={() => setIsSlugOpen(false)}
+                activity={activity}
+                tenantId={tenantId}
+                aliases={aliases}
+                onSuccess={() => {
+                    void reload();
+                    void loadAliases();
+                }}
+                onAliasRemoved={loadAliases}
+                canEdit={canManage}
+            />
             <ActivityQrDrawer
                 open={isQrDrawerOpen}
                 onClose={() => setIsQrDrawerOpen(false)}

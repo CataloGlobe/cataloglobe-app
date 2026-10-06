@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { NavLink, useLocation } from "react-router-dom";
+import { Link, NavLink, useLocation } from "react-router-dom";
 import { motion, useReducedMotion } from "framer-motion";
 import { Lock, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
 import Text from "@/components/ui/Text/Text";
@@ -236,17 +236,30 @@ export function AppSidebar({
                       </span>,
                       link.disabledHint ?? "In arrivo"
                   )
-                : withTooltip(
+                : link.matchPrefixes?.some(p => pathname.startsWith(p))
+                  ? withTooltip(
+                        link,
+                        // Una voce che copre più pagine (Scheda: Orari, Sala…) è
+                        // la pagina corrente anche per chi legge lo schermo:
+                        // `NavLink` dà `aria-current` solo sul suo `to`.
+                        <Link
+                            to={link.to}
+                            aria-current="page"
+                            className={[styles.link, link.locked ? styles.locked : "", styles.active].join(" ")}
+                            onClick={() => {
+                                if (isMobile) onRequestClose();
+                            }}
+                        >
+                            <NavItemBody link={link} />
+                        </Link>
+                    )
+                  : withTooltip(
                       link,
                       <NavLink
                           to={link.to}
                           end={link.end}
                           className={({ isActive }) =>
-                              [
-                                  styles.link,
-                                  link.locked ? styles.locked : "",
-                                  isActive || link.matchPrefixes?.some(p => pathname.startsWith(p)) ? styles.active : ""
-                              ].join(" ")
+                              [styles.link, link.locked ? styles.locked : "", isActive ? styles.active : ""].join(" ")
                           }
                           onClick={() => {
                               if (isMobile) onRequestClose();

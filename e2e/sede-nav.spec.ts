@@ -217,13 +217,14 @@ test.describe("Atterraggio per ruolo", () => {
         }
     }
 
-    // Servizio è la prima voce e ha sempre un modo senza lucchetto (Gestisci
-    // la sala): ci si atterra con ogni piano. Il modo lo prova servizio.spec.
+    // Con Pro si atterra su Servizio. Con Base Servizio è tutto sotto
+    // lucchetto (Gestisci la sala è passata nella Scheda come Sala,
+    // correzioni UI T5): si atterra sulla Sala. Il modo lo prova servizio.spec.
     const CASI = [
         { role: "staff", plan: "pro", segment: "servizio" },
         { role: "viewer", plan: "pro", segment: "servizio" },
-        { role: "staff", plan: "base", segment: "servizio" },
-        { role: "viewer", plan: "base", segment: "servizio" }
+        { role: "staff", plan: "base", segment: "sala" },
+        { role: "viewer", plan: "base", segment: "sala" }
     ] as const;
 
     for (const { role, plan, segment } of CASI) {

@@ -63,7 +63,7 @@ test.describe("Scheda della sede", () => {
         await openFirstLocation(page);
         const main = page.getByRole("main");
 
-        await expect(main.getByText("Indirizzo web", { exact: true }).first()).toBeVisible({ timeout: 15_000 });
+        await expect(main.getByText("Identità", { exact: true }).first()).toBeVisible({ timeout: 15_000 });
 
         await page.getByRole("tab", { name: TAB.orari }).click();
         await expect(main.getByText(/^(Orari di apertura|Settimana)$/).first()).toBeVisible({ timeout: 15_000 });
@@ -78,12 +78,14 @@ test.describe("Scheda della sede", () => {
         await expect(page).toHaveURL(/\/sala$/);
 
         await page.getByRole("tab", { name: TAB.pubblicazione }).click();
-        await expect(main.getByText(/^QR [Cc]ode/).first()).toBeVisible({ timeout: 15_000 });
+        await expect(main.getByText("Indirizzo e QR", { exact: true })).toBeVisible({ timeout: 15_000 });
     });
 
     test("indirizzo web: il drawer si apre e si chiude senza salvare", async ({ page }) => {
         await openFirstLocation(page);
         const main = page.getByRole("main");
+        // L'indirizzo web sta in Pubblicazione, con il QR (correzioni UI U1).
+        await page.getByRole("tab", { name: TAB.pubblicazione }).click();
         await main.getByRole("button", { name: /^(Modifica indirizzo web|Cambia indirizzo)/ }).first().click();
         const dialog = page.getByRole("dialog");
         await expect(dialog.getByRole("textbox", { name: /Indirizzo web/ })).toBeVisible();
