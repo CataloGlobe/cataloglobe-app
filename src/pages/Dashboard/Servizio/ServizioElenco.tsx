@@ -15,7 +15,6 @@ import {
 import type { SeatingWithState } from "@/types/seating";
 import { formatTableLabels } from "@/components/ui/TableAssignmentBadge/formatTableLabels";
 import ReservationsService from "@/pages/Dashboard/Reservations/ReservationsService";
-import ReservationsTodayStrip from "@/pages/Dashboard/Reservations/ReservationsTodayStrip";
 import ReservationDrawers from "@/pages/Dashboard/Reservations/ReservationDrawers";
 import SeatingDetailDrawer from "@/pages/Dashboard/Reservations/SeatingDetailDrawer";
 import WalkinCreateDrawer from "@/pages/Dashboard/Reservations/WalkinCreateDrawer";
@@ -37,7 +36,14 @@ import styles from "./Servizio.module.scss";
  * Il modo lo apre solo chi legge prenotazioni e tavolate su questa sede, col
  * piano che le comprende (`servizioModes.ts`).
  */
-export default function ServizioElenco({ activityId }: { activityId: string }) {
+type ServizioElencoProps = {
+    activityId: string;
+    /** Il drawer «Senza prenotazione»: il bottone sta nella testata (T14 SV1). */
+    walkinOpen: boolean;
+    onWalkinClose: () => void;
+};
+
+export default function ServizioElenco({ activityId, walkinOpen, onWalkinClose }: ServizioElencoProps) {
     const { showToast } = useToast();
     const { permissions } = usePermissions();
 
@@ -103,7 +109,6 @@ export default function ServizioElenco({ activityId }: { activityId: string }) {
     // ── La tavolata: drawer proprio (walk-in) e apertura senza prenotazione ──
     // La tavolata selezionata si legge DAL board, non da uno snapshot: così
     // il drawer segue il realtime (un collega la sposta, il drawer lo vede).
-    const [isWalkinOpen, setIsWalkinOpen] = useState(false);
     const [isSeatingDrawerOpen, setIsSeatingDrawerOpen] = useState(false);
     const [selectedSeatingId, setSelectedSeatingId] = useState<string | null>(null);
     const selectedSeating = useMemo(
@@ -238,7 +243,6 @@ export default function ServizioElenco({ activityId }: { activityId: string }) {
     return (
         <>
             <div className={styles.elenco}>
-                <ReservationsTodayStrip items={serviceReservations} />
                 <ReservationsService
                     board={serviceBoard}
                     canRead={canReadService}
@@ -246,7 +250,6 @@ export default function ServizioElenco({ activityId }: { activityId: string }) {
                     tableViews={desk.tableViews}
                     onOpenDetail={desk.handleOpenDetail}
                     onOpenSeating={handleOpenSeating}
-                    onOpenWalkin={serviceCanManage ? () => setIsWalkinOpen(true) : undefined}
                 />
             </div>
 
@@ -264,8 +267,8 @@ export default function ServizioElenco({ activityId }: { activityId: string }) {
             />
 
             <WalkinCreateDrawer
-                open={isWalkinOpen}
-                onClose={() => setIsWalkinOpen(false)}
+                open={walkinOpen}
+                onClose={onWalkinClose}
                 tables={serviceTables}
                 occupiedBy={serviceTableOccupancy}
                 onSubmit={handleOpenWalkin}

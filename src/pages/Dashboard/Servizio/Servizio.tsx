@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { Lock, Store } from "lucide-react";
+import { Lock, Plus, Store } from "lucide-react";
 
 import { Button } from "@/components/ui/Button/Button";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
@@ -8,10 +8,11 @@ import Skeleton from "@/components/ui/Skeleton/Skeleton";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
 import { TablesLiveView } from "@/components/Tables/TablesLiveView/TablesLiveView";
 import ServizioElenco from "./ServizioElenco";
+import ServizioTodayRow from "./ServizioTodayRow";
 import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { usePageHeader } from "@/context/usePageHeader";
 import { usePermissions } from "@/context/usePermissions";
-import { isOwnerOrAdmin } from "@/lib/permissions";
+import { canDoOnActivity, isOwnerOrAdmin } from "@/lib/permissions";
 import { usePlanFeatures } from "@/lib/planFeatures";
 import { getActivityById } from "@/services/supabase/activities";
 import type { V2Activity } from "@/types/activity";
@@ -45,6 +46,11 @@ export default function Servizio() {
     const { hasFeature } = usePlanFeatures();
 
     const [activity, setActivity] = useState<V2Activity | null>(null);
+    // «+ Senza prenotazione» sta nella testata (T14 SV1); il drawer resta
+    // dell'Elenco, che ha i tavoli e la sala.
+    const [isWalkinOpen, setIsWalkinOpen] = useState(false);
+    const canReadReservations = permissions ? canDoOnActivity(permissions, "reservations.read", activityId) : false;
+    const canWalkin = permissions ? canDoOnActivity(permissions, "seatings.manage", activityId) : false;
     const [loading, setLoading] = useState(true);
 
     // `getActivityById` non lancia: una lettura fallita è `null`, e la pagina
@@ -136,7 +142,28 @@ export default function Servizio() {
         [modes, mode, changeMode]
     );
 
-    const headerConfig = useMemo(() => (leading ? { leading, compact } : null), [leading, compact]);
+    const showWalkin = mode === "elenco" && canWalkin;
+    const actions = useMemo(
+        () =>
+            showWalkin ? (
+                <Button variant="primary" leftIcon={<Plus size={16} />} onClick={() => setIsWalkinOpen(true)}>
+                    Senza prenotazione
+                </Button>
+            ) : undefined,
+        [showWalkin]
+    );
+    const compactWithWalkin = useMemo<PageHeaderCompactConfig | undefined>(
+        () =>
+            compact && showWalkin
+                ? { ...compact, primaryAction: { label: "Senza prenotazione", onClick: () => setIsWalkinOpen(true) } }
+                : compact,
+        [compact, showWalkin]
+    );
+
+    const headerConfig = useMemo(
+        () => (leading ? { leading, actions, compact: compactWithWalkin } : null),
+        [leading, actions, compactWithWalkin]
+    );
     usePageHeader(headerConfig);
 
     // «Gestisci la sala» è la tab Sala della Scheda (correzioni UI SV3): i
@@ -203,7 +230,20 @@ export default function Servizio() {
 
     return (
         <div className={styles.container} data-mode={mode}>
-            {mode === "elenco" && <ServizioElenco activityId={activity.id} />}
+            {canReadReservations && (
+                <ServizioTodayRow
+                    tenantId={businessId}
+                    activityId={activity.id}
+                    requestsHref={`/business/${businessId}/locations/${activity.id}/prenotazioni`}
+                />
+            )}
+            {mode === "elenco" && (
+                <ServizioElenco
+                    activityId={activity.id}
+                    walkinOpen={isWalkinOpen}
+                    onWalkinClose={() => setIsWalkinOpen(false)}
+                />
+            )}
             {mode === "mappa" && <TablesLiveView tenantId={businessId} activityId={activity.id} />}
         </div>
     );

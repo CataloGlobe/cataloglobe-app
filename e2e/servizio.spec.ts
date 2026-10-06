@@ -273,9 +273,27 @@ test.describe("Elenco (lotto B-b)", () => {
         await expect(m.getByText("Sara Conti").first()).toBeVisible();
         await expect(m.getByText("Elena Riva").first()).toBeVisible();
         await expect(m.getByText("Ospite di Varedo")).toHaveCount(0);
-        await expect(m.getByRole("button", { name: "Senza prenotazione" })).toBeVisible();
-        // Lo stato di oggi resta in testa, come nella scheda di Prenotazioni.
-        await expect(m.getByRole("status", { name: /arrivo|prenotazione oggi/ })).toContainText("Oggi");
+        // T14 SV1: «+ Senza prenotazione» nella testata, sulla riga dei modi.
+        const walkin = m.getByRole("button", { name: "Senza prenotazione" });
+        await expect(walkin).toBeVisible();
+        const walkinBox = await walkin.boundingBox();
+        const elencoBox = await modo(page, "Elenco").boundingBox();
+        expect(Math.abs(walkinBox!.y + walkinBox!.height / 2 - (elencoBox!.y + elencoBox!.height / 2))).toBeLessThan(16);
+        // La riga «Oggi», una sola, in testa.
+        const oggi = m.getByRole("status", { name: "Oggi" });
+        await expect(oggi).toBeVisible();
+        expect((await oggi.boundingBox())!.height).toBeLessThan(64);
+        await expect(oggi).toContainText(/prenotazion/);
+    });
+
+    test("SV1: la riga «Oggi» è la stessa nella Mappa, senza «Senza prenotazione»", async ({ page }) => {
+        const base = await sedePath(page);
+        await page.goto(`${base}/servizio?modo=mappa`);
+        const m = main(page);
+        await expect(m.getByRole("status", { name: "Oggi" })).toBeVisible({ timeout: 15_000 });
+        await expect(m.getByRole("button", { name: "Senza prenotazione" })).toHaveCount(0);
+        const richieste = m.getByRole("link", { name: /richiest[ae] da gestire/ });
+        if ((await richieste.count()) > 0) await expect(richieste).toHaveAttribute("href", /\/prenotazioni$/);
     });
 
     test("cablaggio: dall'Elenco la prenotazione al tavolo apre il suo dettaglio, e «Annulla apertura» spedisce undo_seating", async ({ page }) => {
