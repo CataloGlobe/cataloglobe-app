@@ -1,5 +1,5 @@
 import { useParams } from "react-router-dom";
-import { useEffect, useState, useMemo, useCallback, type ReactNode } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { useTenantId } from "@/context/useTenantId";
 import { useToast } from "@/context/Toast/ToastContext";
 import { listReviews, deleteReview } from "@/services/supabase/reviews";
@@ -14,7 +14,6 @@ import { usePageHeader } from "@/context/usePageHeader";
 import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { Select } from "@/components/ui/Select/Select";
 import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
-import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { DateInput } from "@/components/ui/Input/DateInput";
 import { Button } from "@/components/ui/Button/Button";
 import { BarList } from "@/components/ui/BarList/BarList";
@@ -34,16 +33,14 @@ import styles from "./Reviews.module.scss";
 type PeriodFilter = "all" | "7d" | "30d" | "90d" | "custom";
 type SortOption = "newest" | "oldest" | "ratingAsc" | "ratingDesc";
 
-// Filtro stelle via SegmentedControl: stella accanto al numero, "Tutte"
-// senza icona. `value` come stringa per coerenza con lo stato `filterRating`.
-const STAR_ICON = <Star size={12} fill="currentColor" />;
-const RATING_OPTIONS: { value: string; label: string; icon?: ReactNode }[] = [
-    { value: "all", label: "Tutte" },
-    { value: "5", label: "5", icon: STAR_ICON },
-    { value: "4", label: "4", icon: STAR_ICON },
-    { value: "3", label: "3", icon: STAR_ICON },
-    { value: "2", label: "2", icon: STAR_ICON },
-    { value: "1", label: "1", icon: STAR_ICON },
+// RC4: le stelle in una tendina nella barra, a destra con gli altri filtri.
+const RATING_SELECT_OPTIONS = [
+    { value: "all", label: "Tutte le stelle" },
+    { value: "5", label: "5 stelle" },
+    { value: "4", label: "4 stelle" },
+    { value: "3", label: "3 stelle" },
+    { value: "2", label: "2 stelle" },
+    { value: "1", label: "1 stella" }
 ];
 
 const PERIOD_OPTIONS = [
@@ -235,14 +232,21 @@ export default function Reviews() {
         setCustomTo("");
     }, []);
 
-    // ── Header band: leading (filtro stelle) + actions (search + periodo + sort) ──
-    const leading = useMemo(() => (
-        <SegmentedControl<string>
-            value={filterRating}
-            onChange={setFilterRating}
-            options={RATING_OPTIONS}
-        />
-    ), [filterRating]);
+    // ── Barra (RC4): a sinistra il conteggio del periodo, a destra ricerca ·
+    // stelle · periodo · ordine.
+    const countLabel = loading
+        ? ""
+        : displayedReviews.length === periodFilteredReviews.length
+          ? `${periodFilteredReviews.length} ${periodFilteredReviews.length === 1 ? "recensione" : "recensioni"}`
+          : `${displayedReviews.length} di ${periodFilteredReviews.length} recensioni`;
+    const leading = useMemo(
+        () => (
+            <Text as="span" variant="body-sm" weight={600} className={styles.count} aria-live="polite">
+                {countLabel}
+            </Text>
+        ),
+        [countLabel]
+    );
 
     const headerActions = useMemo(() => (
         <>
@@ -250,6 +254,13 @@ export default function Reviews() {
                 value={searchQuery}
                 onChange={setSearchQuery}
                 placeholder="Cerca commenti..."
+            />
+            <Select
+                aria-label="Filtra per stelle"
+                value={filterRating}
+                onChange={(e) => setFilterRating(e.target.value)}
+                options={RATING_SELECT_OPTIONS}
+                containerClassName={styles.toolbarRating}
             />
             <Select
                 aria-label="Filtra per periodo"
@@ -273,7 +284,7 @@ export default function Reviews() {
                 containerClassName={styles.toolbarSort}
             />
         </>
-    ), [searchQuery, filterPeriod, sortBy]);
+    ), [searchQuery, filterRating, filterPeriod, sortBy]);
 
     // Nessun selettore di sede: il livello lo dice l'indirizzo (§51.10).
     // In compatto la valutazione prende il posto del picker sezione (la pagina
@@ -381,7 +392,11 @@ export default function Reviews() {
             {({ canEdit }) => (
                 <div className={styles.page}>
                     {/* ── Riepilogo: numero eroe + distribuzione, su tutti i voti ─── */}
-                    <Card title="Riepilogo dei voti">
+                    {/* RC5: la frase di R1 è il sottotitolo del riepilogo. */}
+                    <Card
+                        title="Riepilogo dei voti"
+                        subtitle="Feedback privati dei clienti: li vedi solo tu e il tuo team, non compaiono sulla pagina pubblica. Chi dà 4 o 5 stelle viene invitato a recensirvi su Google."
+                    >
                         <div className={styles.summary}>
                             {loading ? (
                                 <BarList className={styles.summaryFull} items={[]} loading />
@@ -470,18 +485,21 @@ export default function Reviews() {
                                 />
                             )
                         ) : (
+                            // RC6: stelle e data in una colonna fissa a sinistra, il
+                            // commento a tutta larghezza, «Elimina» nel menu ⋯.
                             <Card flush>
-                                {displayedReviews.map((review) => (
-                                        <ListRow
-                                            key={review.id}
-                                            title={reviewTitle(review)}
-                                            wrapSubtitle
-                                            subtitle={reviewSubtitle(review)}
-                                            // Voto nel meta: sul telefono scende sotto il
-                                            // commento, che resta largo quanto la riga.
-                                            meta={<Rating value={review.rating} />}
-                                            trailing={
-                                                canDelete(review) ? (
+                                <ul className={styles.list} aria-label="Recensioni">
+                                    {displayedReviews.map((review) => (
+                                        <li key={review.id} className={styles.row}>
+                                            <div className={styles.rowMeta}>
+                                                <Rating value={review.rating} />
+                                                <Text as="span" variant="caption" colorVariant="muted">
+                                                    {reviewSubtitle(review)}
+                                                </Text>
+                                            </div>
+                                            <div className={styles.rowComment}>{reviewTitle(review)}</div>
+                                            {canDelete(review) && (
+                                                <div className={styles.rowActions}>
                                                     <TableRowActions
                                                         ariaLabel="Azioni recensione"
                                                         actions={[
@@ -494,19 +512,12 @@ export default function Reviews() {
                                                             }
                                                         ]}
                                                     />
-                                                ) : undefined
-                                            }
-                                        />
-                                ))}
+                                                </div>
+                                            )}
+                                        </li>
+                                    ))}
+                                </ul>
                             </Card>
-                    )}
-
-                    {/* ── Piede ────────────────────────────────── */}
-                    {!loading && !loadError && displayedReviews.length > 0 && (
-                        <Text variant="caption" colorVariant="muted" align="center">
-                            {displayedReviews.length} di {periodFilteredReviews.length}{" "}
-                            recensioni
-                        </Text>
                     )}
 
                     <ConfirmDialog
