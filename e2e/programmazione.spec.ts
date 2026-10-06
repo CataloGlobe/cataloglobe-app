@@ -591,7 +591,7 @@ test.describe("Programmazione — settimana, simulatore, guida", () => {
             if (request.url().includes("/rest/v1/")) reads.push(request.url());
         });
         await drawer.getByRole("combobox", { name: /Sede/ }).selectOption({ label: "Centro e2e" });
-        await drawer.getByLabel("Ora").fill("19:00");
+        await drawer.getByLabel("Ora", { exact: true }).fill("19:00");
         await expect(drawer.getByRole("list", { name: "Cosa vede Centro e2e" })).toBeVisible();
         expect(reads).toEqual([]);
     });
@@ -715,8 +715,8 @@ test.describe("Programmazione — fuori dal fuso di Roma", () => {
     test("il simulatore parte dall'ora di Roma e l'andamento dalla sua mezzanotte", async ({ page }) => {
         await openList(page);
         const drawer = await openSimulator(page);
-        await expect(drawer.getByLabel("Giorno")).toHaveValue("2026-09-23");
-        await expect(drawer.getByLabel("Ora")).toHaveValue("01:00");
+        await expect(drawer.getByLabel("Giorno", { exact: true })).toHaveValue("2026-09-23");
+        await expect(drawer.getByLabel("Ora", { exact: true })).toHaveValue("01:00");
         await drawer.getByRole("combobox", { name: /Sede/ }).selectOption({ label: "Centro e2e" });
         await drawer.getByRole("button", { name: "Mostra Andamento della giornata" }).click();
         // Mercoledì a Centro il pranzo vale dalle 11 alle 15 di Roma.
@@ -1386,7 +1386,7 @@ test.describe("Programmazione — card «Adesso» e matrice", () => {
     test("un'altra ora sposta la matrice del simulatore, non la card né l'elenco", async ({ page }) => {
         await openList(page);
         const drawer = await openMatrix(page);
-        await drawer.getByLabel("Ora").fill("19:00");
+        await drawer.getByLabel("Ora", { exact: true }).fill("19:00");
         await expect(seatRow(drawer, "Porto e2e")).toContainText(RULE_NAME.aperitivo);
         await expect(seatRow(drawer, "Centro e2e")).not.toContainText(RULE_NAME.pranzo);
         await drawer.getByRole("button", { name: "Chiudi" }).last().click();
