@@ -1,5 +1,5 @@
-// T17 WS1, WS6: il Workspace è una porta. Colonna centrata 960 (640 tra 640
-// e 1024, unica sotto 640), saluto su fondo indigo leggero.
+// T17 WS1, WS6: il Workspace è una porta. Colonna centrata 880 (640 tra 640
+// e 1024, unica sotto 640), saluto senza fondo.
 
 .page {
   min-height: 100%;
@@ -7,7 +7,7 @@
 
 .container {
   width: 100%;
-  max-width: 960px;
+  max-width: 880px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
@@ -18,20 +18,21 @@
 
 .hello {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
   gap: var(--space-16);
-  padding: var(--space-32) var(--space-24);
-  border-radius: var(--radius-surface, 12px);
-  background: linear-gradient(
-    120deg,
-    var(--brand-primary-soft) 0%,
-    color-mix(in srgb, var(--brand-primary-soft) 40%, var(--surface)) 100%
-  );
+  padding-top: var(--space-16);
 }
 
-.helloTitle {
+.helloText {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.helloTitle,
+.helloSubtitle {
   margin: 0;
 }
 
@@ -56,6 +57,10 @@
 
 .grid-compact {
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.newBelow {
+  display: none;
 }
 
 .empty {
@@ -107,15 +112,17 @@
 }
 
 .deletedToggle {
-  display: flex;
-  align-items: center;
-  gap: var(--space-8);
-  align-self: flex-start;
-  padding: var(--space-4) 0;
+  padding: 0;
   background: none;
   border: none;
-  color: var(--text);
+  color: var(--brand-primary);
+  font: inherit;
+  font-weight: 600;
   cursor: pointer;
+
+  &:hover {
+    text-decoration: underline;
+  }
 
   &:focus-visible {
     outline: none;
@@ -133,16 +140,28 @@
   list-style: none;
 }
 
-// Una riga tratteggiata per attività: c'è ancora, ma non è in uso.
+// Una riga chiara per attività: c'è ancora, ma non è in uso.
 .deletedRow {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
   gap: var(--space-12);
   padding: var(--space-12) var(--space-16);
-  border: 1px dashed var(--border);
-  border-radius: var(--radius-surface, 12px);
+  background: color-mix(in srgb, var(--surface) 60%, transparent);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.deletedAvatar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text-muted);
+  font-weight: 600;
 }
 
 .deletedRowInProgress {
@@ -152,6 +171,7 @@
 
 .deletedInfo {
   display: flex;
+  flex: 1;
   flex-direction: column;
   gap: var(--space-2, 2px);
   min-width: 0;
@@ -159,7 +179,8 @@
 
 .deletedActions {
   display: flex;
-  gap: var(--space-8);
+  align-items: center;
+  gap: var(--space-4);
 }
 
 /* ── Responsive (WS6) ──────────────────────────────────── */
@@ -175,8 +196,16 @@
 }
 
 @media (max-width: 639px) {
-  .hello {
-    padding: var(--space-24) var(--space-16);
+  .helloActionWide {
+    display: none;
+  }
+
+  .newBelow {
+    display: inline-flex;
+  }
+
+  .deletedSince {
+    display: none;
   }
 
   .helloTitle {

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Plus } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { supabase } from "@/services/supabase/client";
 import { useAuth } from "@/context/useAuth";
 import { getProfile } from "@/services/supabase/profile";
@@ -23,6 +23,7 @@ import {
 import type { DeletedTenant } from "@/services/supabase/tenants";
 import type { V2Tenant } from "@/types/tenant";
 import { Button } from "@/components/ui/Button/Button";
+import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { listMyPendingInvites } from "@/services/supabase/team";
 import { useToast } from "@/context/Toast/ToastContext";
 import styles from "./WorkspacePage.module.scss";
@@ -57,7 +58,7 @@ function firstByTenant(rows: LocationRow[] | null, key: "cover_image" | "city"):
 const PURGE_AFTER_DAYS = 30;
 
 function formatDay(date: Date): string {
-    return date.toLocaleDateString("it-IT", { day: "numeric", month: "long" });
+    return date.toLocaleDateString("it-IT", { day: "numeric", month: "short" }).replace(".", "");
 }
 
 export default function WorkspacePage() {
@@ -361,14 +362,22 @@ export default function WorkspacePage() {
                 «+ Nuova attività» accanto. */}
             <div className={styles.container}>
                 <div className={styles.hello}>
-                    <Text as="h1" variant="display" className={styles.helloTitle}>
-                        {firstName ? `${greeting(new Date())}, ${firstName}` : greeting(new Date())}
-                    </Text>
+                    <div className={styles.helloText}>
+                        <Text as="h1" variant="title-lg" weight={700} className={styles.helloTitle}>
+                            {firstName ? `${greeting(new Date())}, ${firstName}` : greeting(new Date())}
+                        </Text>
+                        {tenants.length > 0 && (
+                            <Text as="p" variant="body-sm" colorVariant="muted" className={styles.helloSubtitle}>
+                                {tenants.length === 1 ? "Ecco la tua attività." : `Hai ${tenants.length} attività.`}
+                            </Text>
+                        )}
+                    </div>
                     <Button
                         variant="secondary"
+                        size="sm"
                         leftIcon={<Plus size={16} aria-hidden />}
                         onClick={() => setDrawerOpen(true)}
-                        className={styles.helloAction}
+                        className={`${styles.helloAction} ${cardSize === "hero" ? styles.helloActionWide : ""}`}
                     >
                         Nuova attività
                     </Button>
@@ -442,24 +451,35 @@ export default function WorkspacePage() {
                     </div>
                 )}
 
+                {/* Al telefono, con un'attività sola, «Nuova attività» scende sotto la card. */}
+                {cardSize === "hero" && tenants.length > 0 && (
+                    <Button
+                        variant="secondary"
+                        fullWidth
+                        leftIcon={<Plus size={16} aria-hidden />}
+                        onClick={() => setDrawerOpen(true)}
+                        className={styles.newBelow}
+                    >
+                        Nuova attività
+                    </Button>
+                )}
+
                 {deletedTenants.length > 0 && (
                     <section className={styles.deletedSection} aria-label="In eliminazione">
                         {deletedCollapsible ? (
-                            <button
-                                type="button"
-                                className={styles.deletedToggle}
-                                aria-expanded={deletedOpen}
-                                onClick={() => setDeletedSectionOpen(o => !o)}
-                            >
-                                <Text as="span" variant="body-sm" weight={600}>
-                                    {deletedTenants.length} in eliminazione
-                                </Text>
-                                <Text as="span" variant="body-sm" colorVariant="muted">
+                            <Text as="p" variant="body-sm" colorVariant="muted" className={styles.deletedTitle}>
+                                {`${deletedTenants.length} attività in eliminazione · `}
+                                <button
+                                    type="button"
+                                    className={styles.deletedToggle}
+                                    aria-expanded={deletedOpen}
+                                    onClick={() => setDeletedSectionOpen(o => !o)}
+                                >
                                     {deletedOpen ? "Nascondi" : "Mostra"}
-                                </Text>
-                            </button>
+                                </button>
+                            </Text>
                         ) : (
-                            <Text as="h2" variant="body-sm" weight={600} className={styles.deletedTitle}>
+                            <Text as="h2" variant="caption" weight={600} colorVariant="muted" className={styles.deletedTitle}>
                                 In eliminazione
                             </Text>
                         )}
@@ -481,19 +501,24 @@ export default function WorkspacePage() {
                                                 key={row.id}
                                                 className={`${styles.deletedRow} ${isRestoring || isPurging ? styles.deletedRowInProgress : ""}`}
                                             >
+                                                <span className={styles.deletedAvatar} aria-hidden="true">
+                                                    {row.name.charAt(0).toUpperCase()}
+                                                </span>
                                                 <div className={styles.deletedInfo}>
-                                                    <Text as="span" variant="body" weight={600}>
+                                                    <Text as="span" variant="body-sm" weight={600}>
                                                         {row.name}
                                                     </Text>
                                                     <Text
                                                         as="span"
-                                                        variant="body-sm"
+                                                        variant="caption"
                                                         colorVariant={daysLeft <= 3 ? "error" : "muted"}
                                                     >
-                                                        {`Eliminata il ${formatDay(new Date(row.deleted_at))} · `}
+                                                        <span className={styles.deletedSince}>
+                                                            {`Eliminata il ${formatDay(new Date(row.deleted_at))} · `}
+                                                        </span>
                                                         {daysLeft === 0
                                                             ? "cancellazione definitiva in corso"
-                                                            : `cancellata definitivamente il ${formatDay(purgeDateOf(row.deleted_at))}`}
+                                                            : `si cancella definitivamente il ${formatDay(purgeDateOf(row.deleted_at))}`}
                                                     </Text>
                                                 </div>
                                                 <div className={styles.deletedActions}>
@@ -507,14 +532,16 @@ export default function WorkspacePage() {
                                                             Ripristina
                                                         </Button>
                                                     )}
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        onClick={() => setPurgeTarget({ id: row.id, name: row.name })}
-                                                        disabled={isPurging}
-                                                    >
-                                                        Elimina ora
-                                                    </Button>
+                                                    <TableRowActions
+                                                        actions={[
+                                                            {
+                                                                label: "Elimina definitivamente",
+                                                                icon: Trash2,
+                                                                variant: "destructive",
+                                                                onClick: () => setPurgeTarget({ id: row.id, name: row.name })
+                                                            }
+                                                        ]}
+                                                    />
                                                 </div>
                                             </li>
                                         );

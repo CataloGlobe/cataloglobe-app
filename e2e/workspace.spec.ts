@@ -30,7 +30,7 @@ test.describe("Workspace", () => {
         for (const label of [/^sed[ei]$/, /^menù$/, /^prodott[oi]$/]) {
             await expect(card.getByText(label)).toBeVisible();
         }
-        await expect(card.getByText(/^(Attivo|In prova|Pagamento in ritardo|Disdetto|Sospeso|Da attivare)$/)).toBeVisible();
+        await expect(card.getByText(/^((Base|Pro) · )?(Attivo|In prova|Pagamento in ritardo|Disdetto|Sospeso|Da attivare)$/)).toBeVisible();
     });
 
     test("WS3: niente sidebar né voce Abbonamento; l'avatar porta ad Account", async ({ page }) => {
