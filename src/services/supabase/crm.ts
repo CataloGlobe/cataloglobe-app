@@ -133,14 +133,17 @@ export async function moveCrmStage(
     venueId: string,
     stage: CrmStage,
     lost?: { kind: CrmLostKind; reason: string },
-    expectedStage?: CrmStage
+    expectedStage?: CrmStage,
+    options?: { confirmStop?: boolean }
 ): Promise<boolean> {
     const { data, error } = await supabase.rpc("crm_move_stage", {
         p_venue_id: venueId,
         p_stage: stage,
         p_lost_kind: lost?.kind ?? null,
         p_lost_reason: lost?.reason ?? null,
-        p_expected_stage: expectedStage ?? null
+        p_expected_stage: expectedStage ?? null,
+        // Solo dal dialogo di conferma: uscire da Perso (stop) senza è rifiutato.
+        p_confirm_stop: options?.confirmStop ?? false
     });
     if (error) throw error;
     return data === true;
