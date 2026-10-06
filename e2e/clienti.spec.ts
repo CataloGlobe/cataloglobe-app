@@ -62,7 +62,7 @@ test.describe("Clienti — elenco", () => {
         expect(order).toEqual(["Giulia Rossi e2e", "Marco Bianchi e2e", "Sara Verdi e2e"]);
         await expect(main(page).getByText("abituale", { exact: true })).toBeVisible();
         await expect(main(page).getByText("+1", { exact: true })).toBeVisible();
-        await expect(main(page).getByText("+393334445566")).toBeVisible();
+        await expect(main(page).getByText("+39 333 444 5566")).toBeVisible();
         // Le assenze si vedono solo dove ci sono.
         await expect(main(page).getByText("2 assenze", { exact: true })).toBeVisible();
         await expect(main(page).getByText(/0 assenze/)).toHaveCount(0);
@@ -98,7 +98,7 @@ test.describe("Clienti — elenco", () => {
         await openList(page);
         await expect(guestName(page, "Giulia Rossi e2e")).toBeVisible({ timeout: 15_000 });
         const d = await openGuest(page, "Giulia Rossi e2e");
-        await expect(d.getByRole("link", { name: "+393331112233" })).toHaveAttribute("href", "tel:+393331112233");
+        await expect(d.getByRole("link", { name: "+39 333 111 2233" })).toHaveAttribute("href", "tel:+393331112233");
         await expect(d.getByRole("link", { name: "giulia@example.com" })).toBeVisible();
         await expect(d.getByText("Cliente dal")).toBeVisible();
         await expect(d.getByText("novembre 2025")).toBeVisible();
