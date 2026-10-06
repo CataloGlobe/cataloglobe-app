@@ -1,0 +1,84 @@
+name: Security
+
+# Sentinella, passo 1 (inbox/sentinella-piano.md del brain, punto 7.1):
+# controlli di sicurezza su ogni PR, senza AI e senza accesso a staging.
+# All'inizio solo segnalazioni: ogni job ha continue-on-error, il risultato
+# si legge nel riepilogo del run. Diventano bloccanti quando i falsi allarmi
+# sono stati tolti e Lorenzo lo decide.
+# Versioni fissate: le action per commit, le immagini e i pacchetti per versione.
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  gitleaks:
+    name: Segreti nei commit della PR (gitleaks)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      # Solo i commit della PR: la storia vecchia si guarda una volta a mano.
+      - name: gitleaks
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          docker run --rm -v "$PWD:/repo" -w /repo ghcr.io/gitleaks/gitleaks:v8.30.1 \
+            git --no-banner --redact --exit-code 1 \
+            --log-opts="$BASE_SHA..$HEAD_SHA" /repo
+
+  osv-scanner:
+    name: Librerie con vulnerabilità note (osv-scanner)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+        with:
+          persist-credentials: false
+      # Legge i lockfile (package-lock.json); nessuna installazione.
+      - name: osv-scanner
+        run: |
+          docker run --rm -v "$PWD:/src" -w /src ghcr.io/google/osv-scanner:v2.6.0 \
+            scan source --recursive /src
+
+  semgrep:
+    name: Analisi del codice (Semgrep)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    container:
+      image: semgrep/semgrep:1.179.0
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      # Solo le scoperte nuove della PR rispetto alla base: il codice vecchio
+      # non riempie il rapporto. Regole pubbliche, niente account, niente metriche.
+      - name: semgrep
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          semgrep scan --config p/default --config p/typescript --config p/react \
+            --metrics=off --baseline-commit "$BASE_SHA" --error
+
+  zizmor:
+    name: Sicurezza dei workflow (zizmor)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+        with:
+          persist-credentials: false
+      # Offline: niente token, solo i controlli che non chiamano GitHub.
+      - name: zizmor
+        run: pipx run zizmor==1.30.1 --offline .github/workflows
