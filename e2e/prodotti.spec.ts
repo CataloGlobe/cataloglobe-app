@@ -693,7 +693,7 @@ test.describe("Prodotti — dettaglio", () => {
         await expect(page.getByRole("tab", { name: "Prezzi & Opzioni" })).toHaveAttribute("aria-selected", "true", { timeout: 15_000 });
     });
 
-    test("utilizzo: menù con la categoria, regole, sedi; «Apri il menù»", async ({ page }) => {
+    test("utilizzo: menù con la categoria, regole, sedi; la riga intera apre il menù sulla categoria", async ({ page }) => {
         await openProduct(page, PRODUCT.hamburger, "usage");
         await expect(main(page).getByText("Carta e2e").first()).toBeVisible({ timeout: 15_000 });
         await expect(main(page).getByText("Pranzo e2e").first()).toBeVisible();
@@ -702,8 +702,10 @@ test.describe("Prodotti — dettaglio", () => {
         await expect(main(page).getByText("Regole che lo toccano")).toBeVisible();
         await expect(main(page).getByText("Sedi", { exact: true })).toBeVisible();
         await expect(main(page).getByText("Riepilogo utilizzo")).toHaveCount(0);
-        await main(page).getByRole("button", { name: "Apri il menù" }).first().click();
-        await expect(page).toHaveURL(/\/catalogs\/[0-9a-f-]+\?highlightProduct=/);
+        // PU1: niente bottone, la riga è il collegamento.
+        await expect(main(page).getByRole("button", { name: "Apri il menù" })).toHaveCount(0);
+        await main(page).getByRole("link", { name: /Carta e2e/ }).first().click();
+        await expect(page).toHaveURL(/\/catalogs\/[0-9a-f-]+\?categoryId=[0-9a-f-]+&highlightProduct=/);
     });
 
     test("prodotto inesistente", async ({ page }) => {
