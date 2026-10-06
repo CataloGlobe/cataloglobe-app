@@ -706,6 +706,9 @@ export default function AnalyticsPage() {
                             <SampleBand
                                 visits={overviewStats?.total_views ?? 0}
                                 previousVisits={previousOverviewStats?.total_views ?? null}
+                                eventsPerVisit={overviewStats?.avg_events_per_session ?? 0}
+                                selections={funnelData.length > 0 ? funnelData[funnelData.length - 1].session_count : 0}
+                                selectionPct={funnelData.length > 0 ? funnelData[funnelData.length - 1].percentage : 0}
                                 periodPhrase={periodPhrase[period]}
                                 previousPeriodLabel={getPreviousPeriodLabel(period)}
                                 sedeCount={scopedActivities.length}

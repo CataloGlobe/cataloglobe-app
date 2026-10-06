@@ -119,6 +119,16 @@ test.describe("Analitiche — campione e ordine (§36)", () => {
         await expect(main(page).getByText(/^6%$/)).toBeVisible();
     });
 
+    test("AN2: «Pagina pubblica» con Visite, Eventi per visita e Visite con un'aggiunta in una riga", async ({ page }) => {
+        stub = await stubAnalitiche(page);
+        await openPage(page);
+        const band = page.getByRole("region", { name: "Pagina pubblica" });
+        await expect(band.getByText(/Una visita è un'apertura della pagina/)).toBeVisible();
+        const labels = ["Visite", "Eventi per visita", "Visite con un'aggiunta alla selezione"];
+        const ys = await Promise.all(labels.map(async l => (await band.getByText(l, { exact: true }).boundingBox())!.y));
+        expect(Math.max(...ys) - Math.min(...ys)).toBeLessThan(8);
+    });
+
     test("sotto le 100 visite: conteggi, niente percentuali, e lo dice", async ({ page }) => {
         stub = await stubAnalitiche(page, { sample: "small" });
         await openBusinessPage(page, "analytics", "Analitiche");
@@ -132,8 +142,8 @@ test.describe("Analitiche — campione e ordine (§36)", () => {
     test("ordine fisso: cosa cercano prima degli ordini, la sezione vuota in fondo", async ({ page }) => {
         stub = await stubAnalitiche(page);
         await openPage(page);
-        const titles = await main(page).getByText(/^(Cosa cercano|Cosa guardano|Recensioni|Ordini al tavolo|Senza dati nel periodo)$/).allTextContents();
-        expect(titles).toEqual(["Cosa cercano", "Cosa guardano", "Recensioni", "Ordini al tavolo", "Senza dati nel periodo"]);
+        const titles = await main(page).getByText(/^(Pagina pubblica|Cosa cercano|Cosa guardano|Recensioni|Ordini al tavolo|Senza dati nel periodo)$/).allTextContents();
+        expect(titles).toEqual(["Pagina pubblica", "Cosa cercano", "Cosa guardano", "Recensioni", "Ordini al tavolo", "Senza dati nel periodo"]);
         await expect(main(page).getByText(/Prenotazioni — nessuna prenotazione in 30 giorni/)).toBeVisible();
         await expect(main(page).getByRole("button", { name: "Apri Prenotazioni" })).toBeVisible();
     });
