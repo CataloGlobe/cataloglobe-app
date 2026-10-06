@@ -29,6 +29,7 @@ import { sendToTeam } from "./crmTeamAlert.ts";
 import {
     buildClaudeRequest,
     claudeCostUsd,
+    timeoutUsageEstimate,
     CRM_AI_PRICE_VERSION,
     isPricedModel,
     parseClaudeResponse,
@@ -141,6 +142,7 @@ export async function callCrmClaude(supabase, call: CrmClaudeCall): Promise<CrmC
     }
     if (!isPricedModel(model)) return { ok: false, reason: "unpriced_model", model };
 
+    const requestBody = JSON.stringify(buildClaudeRequest({ ...call, model }));
     let res: Response;
     let body: unknown;
     try {
@@ -151,12 +153,16 @@ export async function callCrmClaude(supabase, call: CrmClaudeCall): Promise<CrmC
                 "x-api-key": apiKey,
                 "anthropic-version": API_VERSION
             },
-            body: JSON.stringify(buildClaudeRequest({ ...call, model })),
+            body: requestBody,
             signal: AbortSignal.timeout(call.timeoutMs ?? DEFAULT_TIMEOUT_MS)
         });
         body = await res.json().catch(() => ({}));
     } catch (err) {
-        await record(supabase, call, model, { ok: false, usage: ZERO, costUsd: 0, requestId: null });
+        // Timeout: la risposta può essere stata fatturata, si conta una stima per eccesso.
+        const timedOut = err instanceof Error && err.name === "TimeoutError";
+        const usage = timedOut ? timeoutUsageEstimate(requestBody, call.maxTokens) : ZERO;
+        const costUsd = timedOut ? claudeCostUsd(model, usage) ?? 0 : 0;
+        await record(supabase, call, model, { ok: false, usage, costUsd, requestId: null });
         return { ok: false, reason: "api_error", model, detail: err instanceof Error ? err.name : "network_error" };
     }
 

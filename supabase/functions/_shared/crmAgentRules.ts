@@ -204,9 +204,19 @@ function clip(text: string, max = MAX_TEXT): string {
     return text.length > max ? `${text.slice(0, max - 1)}…` : text;
 }
 
-/** Il testo del lead non deve poter chiudere il blocco dei dati. */
-function sanitizeData(text: string): string {
-    return clip(text.replace(/<\/?(chat|scheda|orari)[^>]*>/gi, "").split(String.fromCharCode(0)).join(""));
+const DATA_TAG = /<\/?\s*(chat|scheda|orari|ultimo_del_lead|bozza)[^>]*>/gi;
+
+/**
+ * Il testo del lead non deve poter chiudere il blocco dei dati. Si ripete
+ * finché il testo cambia: «<</chat>/chat>» senza il ciclo lascerebbe «</chat>».
+ */
+export function sanitizeData(text: string): string {
+    let out = text.split(String.fromCharCode(0)).join("");
+    for (let prev = ""; prev !== out; ) {
+        prev = out;
+        out = out.replace(DATA_TAG, "");
+    }
+    return clip(out);
 }
 
 const OUTPUT_RULES = `Rispondi SOLO con un oggetto JSON, senza altro testo, in una di queste forme:

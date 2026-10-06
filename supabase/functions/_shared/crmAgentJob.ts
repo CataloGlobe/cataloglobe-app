@@ -685,6 +685,9 @@ export async function processAgent(supabase, team, botToken, appUrl, now = new D
                 continue;
             }
             if (night) {
+                // Solo il controllo dello stop, niente Claude: non toglie il
+                // posto ai candidati che seguono.
+                worked -= 1;
                 stats.skipped += 1;
                 continue;
             }
