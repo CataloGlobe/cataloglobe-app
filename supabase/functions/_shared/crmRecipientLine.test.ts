@@ -4,7 +4,7 @@ import { keepRecipientLine, recipientLine, withRecipientLine } from "./crmRecipi
 const team = [
     { user_id: "a", display_name: "Alex" },
     { user_id: "l", display_name: "Lorenzo" },
-    { user_id: "f", display_name: "Ferdinando" },
+    { user_id: "m", display_name: "Mario" },
     { user_id: "x", display_name: null }
 ];
 
@@ -17,7 +17,7 @@ describe("recipientLine", () => {
     it("nomina gli altri destinatari", () => {
         expect(recipientLine(team, ["a", "l"], "a")).toBe("👥 Per te e Lorenzo");
         expect(recipientLine(team, ["a", "l"], "l")).toBe("👥 Per te e Alex");
-        expect(recipientLine(team, ["a", "l", "f"], "a")).toBe("👥 Per te, Lorenzo e Ferdinando");
+        expect(recipientLine(team, ["a", "l", "m"], "a")).toBe("👥 Per te, Lorenzo e Mario");
     });
 
     it("chi non ha un nome diventa «un altro del team»", () => {
