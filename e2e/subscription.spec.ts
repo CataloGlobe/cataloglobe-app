@@ -25,8 +25,12 @@ test.describe("Abbonamento", () => {
         await expect(page).toHaveTitle(/^Abbonamento — .+ \| CataloGlobe$/);
     });
 
-    test("amministratore: il banner dice che solo il proprietario disdice", async ({ page }) => {
-        await expect(page.getByRole("main").getByText(/^Solo il proprietario può/)).toBeVisible();
+    test("IM4: amministratore, niente riquadro; la riga del Portale dice che solo il proprietario disdice", async ({ page }) => {
+        const main = page.getByRole("main");
+        await expect(main.getByText(/^Solo il proprietario può/)).toHaveCount(0);
+        await expect(
+            main.getByText("Metodo di pagamento, fatture e ricevute su Stripe. Solo il proprietario può disdire l'abbonamento.")
+        ).toBeVisible();
     });
 
     test("piano, sedi pagate e stato", async ({ page }) => {

@@ -17,7 +17,7 @@ import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import { getActivities } from "@/services/supabase/activities";
 import { Button } from "@/components/ui/Button/Button";
 import { Select } from "@/components/ui/Select/Select";
-import { Tabs } from "@/components/ui/Tabs/Tabs";
+import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
 import { DataTable, ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { TableRowActions, TableRowAction } from "@/components/ui/TableRowActions/TableRowActions";
@@ -170,86 +170,34 @@ export default function TeamPage() {
         if (!loading && pendingCount === 0 && activeTab === "invites") setActiveTab("members");
     }, [loading, pendingCount, activeTab]);
 
-    // ── Membri · Inviti: nel corpo, sopra la tabella. In testata stanno le
-    // tab di Impostazioni (§51.12); azioni (ricerca, filtro, CTA) restano lì.
-    const teamTabs = useMemo(() => (
-        <Tabs<TeamTab>
-            value={activeTab}
-            onChange={handleTabChange}
-            variant="line"
-        >
-            <Tabs.List>
-                <Tabs.Tab value="members">Membri</Tabs.Tab>
-                {/* A zero resta elencata ma spenta (§42.2): una tab che sparisce
-                    fa sembrare che la funzione non esista. */}
-                <Tabs.Tab
-                    value="invites"
-                    badge={pendingCount}
-                    disabled={pendingCount === 0}
-                    disabledTooltip="Nessun invito in attesa"
-                >
-                    Inviti in attesa
-                </Tabs.Tab>
-            </Tabs.List>
-        </Tabs>
-    ), [activeTab, handleTabChange, pendingCount]);
-
-    // Opzioni condivise fra il `Select` della toolbar comoda e l'overlay
-    // filtro di quella compatta: un elenco solo, nessun rischio di divergenza.
+    // Opzioni condivise fra il `Select` della barra e l'overlay filtro della
+    // testata compatta: un elenco solo, nessun rischio di divergenza.
     const roleFilterOptions = useMemo(() => [
         { value: "", label: "Tutti i ruoli" },
         ...ROLE_ORDER.map(role => ({ value: role, label: ROLE_LABEL[role] }))
     ], []);
 
+    // T16 IM1: in testata, a destra delle tab di Impostazioni, solo l'azione
+    // della tab. Ricerca e ruoli passano nella barra sopra la tabella (IM3).
     const headerActions = useMemo(() => (
-        <>
-            <ToolbarSearch
-                value={search}
-                onChange={setSearch}
-                placeholder="Cerca per email"
-            />
-            <Select
-                aria-label="Filtra per ruolo"
-                value={roleFilter}
-                onChange={e => setRoleFilter(e.target.value)}
-                containerClassName={styles.toolbarFilter}
-                selectClassName={styles.toolbarFilterSelect}
-                options={roleFilterOptions}
-            />
-            {canInvite && (
-                <Button
-                    variant="primary"
-                    onClick={() => setInviteDrawerOpen(true)}
-                    className={styles.toolbarCta}
-                >
-                    Invita membro
-                </Button>
-            )}
-        </>
-    ), [search, roleFilter, canInvite, roleFilterOptions]);
+        canInvite ? (
+            <Button
+                variant="primary"
+                onClick={() => setInviteDrawerOpen(true)}
+                className={styles.toolbarCta}
+            >
+                Invita membro
+            </Button>
+        ) : undefined
+    ), [canInvite]);
 
     const settingsTabs = useSettingsTabs();
     const headerCompact = useMemo<PageHeaderCompactConfig>(() => ({
         ...settingsTabs.compact,
-        search: {
-            value: search,
-            onChange: setSearch,
-            placeholder: "Cerca per email"
-        },
-        filterControls: [
-            {
-                label: "Ruolo",
-                options: roleFilterOptions,
-                value: roleFilter,
-                // "" = "Tutti i ruoli": è il valore a riposo, quindi nessun pallino.
-                defaultValue: "",
-                onChange: setRoleFilter
-            }
-        ],
         primaryAction: canInvite
             ? { label: "Invita membro", onClick: () => setInviteDrawerOpen(true) }
             : undefined
-    }), [settingsTabs.compact, search, roleFilter, roleFilterOptions, canInvite]);
+    }), [settingsTabs.compact, canInvite]);
 
     usePageHeader({
         leading: settingsTabs.leading,
@@ -650,10 +598,42 @@ export default function TeamPage() {
         </InlineBanner>
     );
 
+    const seatsSentence = "I posti pagati contano le sedi, non le persone: invitare non costa.";
     const seatsNote = (
         <Text as="p" variant="caption" colorVariant="muted">
-            I posti pagati contano le sedi, non le persone: invitare non costa.
+            {seatsSentence}
         </Text>
+    );
+
+    // T16 IM3: Membri · Inviti come segmenti con il conteggio, a sinistra;
+    // ricerca e ruoli a destra. A zero «Inviti in attesa» resta elencato ma
+    // spento (§42.2).
+    const teamToolbar = (
+        <div className={styles.toolbar}>
+            <SegmentedControl<TeamTab>
+                value={activeTab}
+                onChange={handleTabChange}
+                options={[
+                    { value: "members", label: `Membri · ${activeCount}` },
+                    {
+                        value: "invites",
+                        label: `Inviti in attesa · ${pendingCount}`,
+                        disabled: pendingCount === 0
+                    }
+                ]}
+            />
+            <div className={styles.toolbarRight}>
+                <ToolbarSearch value={search} onChange={setSearch} placeholder="Cerca per email" />
+                <Select
+                    aria-label="Filtra per ruolo"
+                    value={roleFilter}
+                    onChange={e => setRoleFilter(e.target.value)}
+                    containerClassName={styles.toolbarFilter}
+                    selectClassName={styles.toolbarFilterSelect}
+                    options={roleFilterOptions}
+                />
+            </div>
+        </div>
     );
 
     const denied = !permissionsLoading && permissions != null && !canReadTeam;
@@ -673,7 +653,7 @@ export default function TeamPage() {
                 ) : loadError ? (
                     loadErrorBanner
                 ) : null}
-                {!denied && !loadError && <div className={styles.subTabs}>{teamTabs}</div>}
+                {!denied && !loadError && !onlyMe && teamToolbar}
                 {denied || loadError ? null : activeTab === "members" && onlyMe && me ? (
                     <>
                         <Card flush bodyClassName={styles.rows}>
@@ -753,8 +733,8 @@ export default function TeamPage() {
                         onSelectedRowsChange={setSelectedMemberIds}
                         onBulkDelete={handleBulkRemoveMembers}
                         bulkActionLabel="Rimuovi dal team"
+                        footerNote={seatsSentence}
                     />
-                    {seatsNote}
                     </div>
                 ) : (
                     <DataTable<TenantMemberRow>

@@ -526,10 +526,10 @@ test.describe("Impostazioni con tab (§51.12)", () => {
         await page.getByRole("tab", { name: "Team" }).click();
         await expect(page).toHaveURL(`${root}/settings/team`);
         const main = page.getByRole("main");
-        await expect(main.getByRole("tab", { name: "Membri" })).toBeVisible({ timeout: 15_000 });
-        await expect(main.getByRole("tab", { name: /^Inviti in attesa/ })).toBeVisible();
+        await expect(main.getByRole("radio", { name: /^Membri/ })).toBeVisible({ timeout: 15_000 });
+        await expect(main.getByRole("radio", { name: /^Inviti in attesa/ })).toBeVisible();
         // In cima al corpo, sopra la tabella: non si prendono l'altezza della pagina.
-        const membri = (await main.getByRole("tab", { name: "Membri" }).boundingBox())!;
+        const membri = (await main.getByRole("radio", { name: /^Membri/ }).boundingBox())!;
         const table = (await main.getByRole("table").first().boundingBox())!;
         expect(membri.y).toBeLessThan(table.y);
         expect(table.y - (membri.y + membri.height)).toBeLessThan(80);

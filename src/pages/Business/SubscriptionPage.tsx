@@ -1238,13 +1238,6 @@ export default function SubscriptionPage() {
 
     return (
         <div className={styles.page}>
-            {canManageBilling && !canCancelBilling && (
-                <InlineBanner variant="info">
-                    Solo il proprietario può disdire l&apos;abbonamento. Tu puoi cambiare piano, sedi e metodo di
-                    pagamento.
-                </InlineBanner>
-            )}
-
             {stripReady ? (
                 <StatusStrip
                     tone={strip.tone}
@@ -1356,7 +1349,12 @@ export default function SubscriptionPage() {
                         <ListRow
                             leading={<ExternalLink size={20} aria-hidden />}
                             title="Portale di fatturazione"
-                            subtitle="Metodo di pagamento, fatture e ricevute su Stripe."
+                            // T16 IM4: la frase del riquadro di prima sta qui, dove si gestisce.
+                            subtitle={
+                                canManageBilling && !canCancelBilling
+                                    ? "Metodo di pagamento, fatture e ricevute su Stripe. Solo il proprietario può disdire l'abbonamento."
+                                    : "Metodo di pagamento, fatture e ricevute su Stripe."
+                            }
                             onClick={() => void handlePortal()}
                             trailing={portalLoading ? <Loader size="sm" /> : <ChevronRight size={16} aria-hidden />}
                         />

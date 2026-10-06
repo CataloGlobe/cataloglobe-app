@@ -21,12 +21,29 @@ test.describe("Team", () => {
         await expect(page).toHaveTitle(/^Team — .+ \| CataloGlobe$/);
     });
 
-    test("tab Membri · Inviti, ricerca, filtro ruolo, invito", async ({ page }) => {
-        await expect(page.getByRole("tab", { name: "Membri" })).toHaveAttribute("aria-selected", "true");
-        await expect(page.getByRole("tab", { name: /^Inviti in attesa/ })).toBeVisible();
-        await expect(page.getByRole("textbox", { name: /Cerca per email/ })).toBeVisible();
-        await expect(page.getByRole("combobox", { name: "Filtra per ruolo" })).toBeVisible();
+    test("IM3: Membri · Inviti come segmenti con il conteggio, ricerca e ruoli a destra; in testata solo «Invita membro»", async ({ page }) => {
+        const main = page.getByRole("main");
+        const membri = main.getByRole("radio", { name: /^Membri · \d+$/ });
+        await expect(membri).toHaveAttribute("aria-checked", "true");
+        await expect(main.getByRole("radio", { name: /^Inviti in attesa · \d+$/ })).toBeVisible();
+        const search = main.getByRole("textbox", { name: /Cerca per email/ });
+        await expect(search).toBeVisible();
+        await expect(main.getByRole("combobox", { name: "Filtra per ruolo" })).toBeVisible();
+        // Segmenti a sinistra, ricerca a destra, sulla stessa riga.
+        const a = (await membri.boundingBox())!;
+        const b = (await search.boundingBox())!;
+        expect(a.x).toBeLessThan(b.x);
+        expect(Math.abs(a.y + a.height / 2 - (b.y + b.height / 2))).toBeLessThan(6);
         await expect(page.getByRole("button", { name: "Invita membro" })).toBeVisible();
+        await expect(main.getByRole("button", { name: "Invita membro" })).toHaveCount(0);
+    });
+
+    test("IM3: «invitare non costa» nel piede della tabella", async ({ page }) => {
+        const main = page.getByRole("main");
+        await expect(main.getByRole("table").first()).toBeVisible();
+        await expect(
+            main.getByText("I posti pagati contano le sedi, non le persone: invitare non costa.")
+        ).toBeVisible();
     });
 
     test("membri: la mia riga è «Tu», le altre hanno il menu ⋯", async ({ page }) => {

@@ -276,6 +276,13 @@
     container-type: inline-size;
 }
 
+.footerLeft {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--space-4) var(--space-16);
+}
+
 .footerInner {
     display: flex;
     flex-wrap: wrap;

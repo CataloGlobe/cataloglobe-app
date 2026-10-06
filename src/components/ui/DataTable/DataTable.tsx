@@ -128,6 +128,8 @@ interface DataTableProps<T> {
      * (es. il badge della `Card`): elenchi raggruppati in più tabelle.
      */
     showFooter?: boolean;
+    /** Una frase nel piede, dopo il conteggio (es. «invitare non costa»). */
+    footerNote?: ReactNode;
     /** Cosa si conta nel piede, singolare e plurale («sede», «sedi»).
      *  Omesso → «elemento», «elementi». */
     itemNoun?: { one: string; many: string };
@@ -302,6 +304,7 @@ export function DataTable<T>({
     bulkActionLabel,
     showSelectionBar = true,
     showFooter = true,
+    footerNote,
     highlightedRowIds,
     disabledRowIds,
     mutedRowIds,
@@ -636,9 +639,16 @@ export function DataTable<T>({
 
         return (
             <div className={styles.footerInner}>
-                <Text variant="body-sm" colorVariant="muted">
-                    {countLabel}
-                </Text>
+                <div className={styles.footerLeft}>
+                    <Text variant="body-sm" colorVariant="muted">
+                        {countLabel}
+                    </Text>
+                    {footerNote && (
+                        <Text variant="caption" colorVariant="muted">
+                            {footerNote}
+                        </Text>
+                    )}
+                </div>
                 {(showDropdown || showControls) && (
                     <div className={styles.footerRight}>
                         {showDropdown && (
