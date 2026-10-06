@@ -5,7 +5,7 @@ import { usePageTitle } from "@/hooks/usePageTitle";
 import { usePageHeader } from "@/context/usePageHeader";
 import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { formatDateTimeIt } from "@/utils/formatDateTime";
-import { crmErrorMessage } from "@/utils/crm/stages";
+import { adminErrorMessage } from "@/utils/crm/stages";
 import {
     addIncidentUpdate,
     deleteIncident,
@@ -60,7 +60,7 @@ function AddUpdateBlock({
             setNextStatus("");
             onSaved();
         } catch (err) {
-            setError(crmErrorMessage(err));
+            setError(adminErrorMessage(err));
         } finally {
             setSubmitting(false);
         }
@@ -142,7 +142,7 @@ export default function StatusIncidentsPage() {
             setOpenIds(prev => prev ?? new Set(list.filter(i => !i.resolved_at).map(i => i.id)));
             setBandKey(k => k + 1);
         } catch (err) {
-            if (seq === loadSeq.current) setLoadError(crmErrorMessage(err));
+            if (seq === loadSeq.current) setLoadError(adminErrorMessage(err));
         } finally {
             if (seq === loadSeq.current) setLoading(false);
         }
@@ -159,7 +159,7 @@ export default function StatusIncidentsPage() {
             await load();
             return true;
         } catch (err) {
-            setConfirmError(crmErrorMessage(err));
+            setConfirmError(adminErrorMessage(err));
             return false;
         }
     }
@@ -171,7 +171,7 @@ export default function StatusIncidentsPage() {
             await load();
             return true;
         } catch (err) {
-            setConfirmError(crmErrorMessage(err));
+            setConfirmError(adminErrorMessage(err));
             return false;
         }
     }

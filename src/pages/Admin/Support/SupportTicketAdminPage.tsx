@@ -256,7 +256,8 @@ export default function SupportTicketAdminPage() {
         setActionError(null);
         try {
             await postPlatformMessage(ticketId, body);
-            setDraft("");
+            // Passati a un'altra richiesta durante l'invio: la sua bozza resta.
+            if (requestedTicketRef.current === ticketId) setDraft("");
             if (target) {
                 refreshSupportPending?.();
                 navigate(hrefOf(target.id));

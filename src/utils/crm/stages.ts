@@ -56,6 +56,12 @@ export function isMissingOnDatabase(err: unknown): boolean {
 
 export const CRM_NOT_YET_ACTIVE = "Non ancora attivo: manca l'aggiornamento del database.";
 
+/** Per le pagine di /admin fuori dal CRM (Incidenti, Supporto): niente «non ancora attivo». */
+export function adminErrorMessage(err: unknown): string {
+    if (isMissingOnDatabase(err)) return "Non è andata: riprova tra poco. Se si ripete, avvisa Lorenzo.";
+    return crmErrorMessage(err);
+}
+
 /** Messaggio italiano per gli errori delle RPC `crm_*` (RAISE in 20261001120100; VN001 in 20261002155000). */
 export function crmErrorMessage(err: unknown): string {
     // Codici SQLSTATE dedicati prima del testo: il messaggio può cambiare, il codice no.

@@ -27,7 +27,7 @@ function normalize(text: string): string {
     // invisibili e le emoji, così «Stop 🙏» resta uno stop.
     return text
         .normalize("NFKC")
-        .replace(/\u200B|\u200C|\u200D|\u2060|\uFEFF|\uFE0F/g, "")
+        .replace(/\u00AD|\u200B|\u200C|\u200D|\u2060|\uFEFF|\uFE0F/g, "")
         .replace(/\p{Extended_Pictographic}/gu, " ")
         .toLowerCase()
         .normalize("NFD")
@@ -42,11 +42,11 @@ const EXPLICIT_STOP: RegExp[] = [
     // Seconda persona e «più» vicino, o il messaggio intero: «non chiamatemi
     // prima delle 10» e «non scrivetemi ora, più tardi sì» non sono stop (sono
     // nei casi incerti, decide una persona).
-    /\b(non|nn) (mi |ci )?(scrivete|scrivetemi|scriveteci|contattatemi|contattateci|contattate|cercatemi|scrivermi|scriverci|contattarmi|contattarci)( \S+){0,3} piu\b(?! (tardi|avanti|in la|spesso|presto|dopo|prima|alle|di sera|la sera|di notte|la notte|di mattina|la mattina|nel weekend|il weekend))/,
+    /\b(non|nn) (mi |ci )?(scrivete|scrivetemi|scriveteci|contattatemi|contattateci|contattate|cercatemi|scrivermi|scriverci|contattarmi|contattarci|scrivere|contattare|cercare)( \S+){0,3} piu\b(?! (tardi|avanti|in la|spesso|presto|dopo|prima|alle|di sera|la sera|di notte|la notte|di mattina|la mattina|nel weekend|il weekend))/,
     /^\s*(non|nn) (mi |ci )?(scrivete|scrivetemi|scriveteci|contattatemi|contattateci|disturbatemi|cercatemi)\s*(piu)?\s*[.!]*\s*$/,
     /\b(non|nn) (voglio|vogliamo) (piu )?(essere (ri)?(contattat|cercat|disturbat)|ricevere (piu |altri )?(messaggi|comunicazioni|notifiche|offerte)|messaggi)/,
     /\b(non|nn) (vi|ti) (voglio|vogliamo) piu sentire\b/,
-    /\bremove me\b/,
+    /(?<!\b(don'?t|do not) )\bremove me\b/,
     // «toglimi un dubbio», «cancellami la prenotazione»: solo con la lista o il numero.
     /\b(cancellami|cancellatemi|toglietemi|toglimi|rimuovetemi|rimuovimi) (dalla |dalle |dai |dal |da )?(vostr\w* )?(lista|liste|contatti|rubrica|mailing|elenc\w*|numer\w*)\b/,
     /\b(cancellami|cancellatemi|toglietemi|toglimi|rimuovetemi|rimuovimi)\s*[.!]*\s*$/,
@@ -75,10 +75,12 @@ function asksOtherChannel(t: string): boolean {
 }
 
 const UNCERTAIN_STOP: RegExp[] = [
-    /\b(non|nn) (mi |ci )?(scrivete|scrivetemi|scriveteci|scrivermi|scriverci|contatt\w*|ricontatt\w*|chiamate\w*|chiamatemi|chiamarmi|disturb\w*|cercatemi)\b/,
+    /\b(non|nn) (mi |ci )?(scrivete|scrivetemi|scriveteci|scrivermi|scriverci|scrivere|cercare|contatt\w*|ricontatt\w*|chiamate\w*|chiamatemi|chiamarmi|disturb\w*|cercatemi)\b/,
     /\b(non|nn) (voglio|vogliamo) (piu )?(essere )?(ri)?(contattat|ricevere|messaggi)/,
     /^\s*(ok |no )?basta( cosi)?\s*[,.!]*\s*(grazie)?\s*[.!]*\s*$/,
     /\bfermatevi\b/,
+    // «non smettete di scrivermi» può essere ironico («ma non smettete mai?!»): decide una persona.
+    /\b(non|nn) (smettete\w*|smetti\w*|smettila) (di )?(scriv|contatt|cercar|disturbar|mandar)\w*/,
     /\b(lasciatemi|lasciami|lasciateci) stare\b/,
     /\bgia detto (di )?no\b/,
     /\b(cancellami|cancellatemi|toglietemi|toglimi|rimuovetemi|rimuovimi)\b/,

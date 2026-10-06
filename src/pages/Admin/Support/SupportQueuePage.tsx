@@ -25,7 +25,7 @@ import {
 import type { V2SupportTicketWithContext } from "@/types/support";
 import { SUPPORT_STATUS_LABEL, SUPPORT_STATUS_VARIANT } from "@/pages/Dashboard/Support/supportLabels";
 import styles from "./SupportQueuePage.module.scss";
-import { crmErrorMessage } from "@/utils/crm/stages";
+import { adminErrorMessage } from "@/utils/crm/stages";
 
 /**
  * Coda di supporto della piattaforma: i ticket di TUTTI i tenant.
@@ -97,7 +97,7 @@ export default function SupportQueuePage() {
             setTickets(await listAllTickets());
             setNow(new Date());
         } catch (err) {
-            setLoadError(crmErrorMessage(err));
+            setLoadError(adminErrorMessage(err));
         } finally {
             setIsLoading(false);
         }
