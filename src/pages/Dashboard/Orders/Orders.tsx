@@ -127,7 +127,7 @@ function OrdersBoard() {
     const { businessId } = useParams<{ businessId: string }>();
     const printersHref =
         businessId && selectedActivityId
-            ? `/business/${businessId}/locations/${selectedActivityId}/ordini-prenotazioni#ordini`
+            ? `/business/${businessId}/locations/${selectedActivityId}/ordini-al-tavolo`
             : undefined;
 
     // Table detail + close drawer (tab "Tavoli"): ora interni a

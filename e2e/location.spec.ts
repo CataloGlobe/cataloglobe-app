@@ -18,7 +18,11 @@ import { openBusinessPage } from "./business";
 const TAB = {
     anagrafica: /^(Profilo|Anagrafica)$/,
     orari: /^Orari$/,
-    ordini: /^(Ordinazioni|Canali|Ordini e prenotazioni)$/,
+    // Correzioni UI O1 e SV3: «Ordini e prenotazioni» è diventata due tab, e
+    // la Sala è uscita da Servizio. Col piano Base il nome porta il lucchetto.
+    ordini: /^Ordini al tavolo/,
+    prenotazioni: /^Prenotazioni/,
+    sala: /^Sala$/,
     pubblicazione: /^(Impostazioni|Pubblicazione)$/
 };
 
@@ -55,7 +59,7 @@ test.describe("Scheda della sede", () => {
         await expect(page.getByRole("tab", { name: TAB.anagrafica })).toHaveAttribute("aria-selected", "true");
     });
 
-    test("le quattro sezioni mostrano il loro contenuto", async ({ page }) => {
+    test("le sei sezioni mostrano il loro contenuto", async ({ page }) => {
         await openFirstLocation(page);
         const main = page.getByRole("main");
 
@@ -66,6 +70,12 @@ test.describe("Scheda della sede", () => {
 
         await page.getByRole("tab", { name: TAB.ordini }).click();
         await expect(main.getByText(/^(Ordinazioni dal tavolo|Ordini al tavolo)$/).first()).toBeVisible({ timeout: 15_000 });
+
+        await page.getByRole("tab", { name: TAB.prenotazioni }).click();
+        await expect(main.getByText("Richieste dal modulo pubblico", { exact: true })).toBeVisible({ timeout: 15_000 });
+
+        await page.getByRole("tab", { name: TAB.sala }).click();
+        await expect(page).toHaveURL(/\/sala$/);
 
         await page.getByRole("tab", { name: TAB.pubblicazione }).click();
         await expect(main.getByText(/^QR [Cc]ode/).first()).toBeVisible({ timeout: 15_000 });
@@ -111,7 +121,7 @@ test.describe("Scheda della sede", () => {
 
     test("i vecchi ?tab= portano alla sezione giusta", async ({ page }) => {
         await openFirstLocation(page);
-        const base = page.url().replace(/[?#].*$/, "").replace(/\/(anagrafica|orari|ordini-prenotazioni|canali|pubblicazione)$/, "");
+        const base = page.url().replace(/[?#].*$/, "").replace(/\/(anagrafica|orari|ordini-al-tavolo|prenotazioni-online|sala|ordini-prenotazioni|canali|pubblicazione)$/, "");
         await page.goto(`${base}?tab=info`);
         await expect(page.getByRole("tab", { name: TAB.anagrafica })).toHaveAttribute("aria-selected", "true", { timeout: 15_000 });
         await expect(page).toHaveURL(/(tab=profile|\/anagrafica)/);
@@ -120,27 +130,34 @@ test.describe("Scheda della sede", () => {
         await expect(page).toHaveURL(/(tab=settings|\/pubblicazione)/);
     });
 
-    test("i vecchi ?tab=sala e ?tab=tables portano a Servizio, in Gestisci la sala", async ({ page }) => {
-        // Lotto B-a: la Sala non è più una pagina della sede, è un modo di Servizio.
+    test("i vecchi ?tab=sala e ?tab=tables portano alla Sala della Scheda", async ({ page }) => {
+        // Correzioni UI SV3: «Gestisci la sala» esce da Servizio e torna una
+        // tab della sede; anche `servizio?modo=gestisci` porta qui.
         await openFirstLocation(page);
-        const base = page.url().replace(/[?#].*$/, "").replace(/\/(anagrafica|orari|ordini-prenotazioni|canali|pubblicazione)$/, "");
+        const base = page.url().replace(/[?#].*$/, "").replace(/\/(anagrafica|orari|ordini-al-tavolo|prenotazioni-online|sala|ordini-prenotazioni|canali|pubblicazione)$/, "");
         for (const tab of ["sala", "tables"]) {
             await page.goto(`${base}?tab=${tab}`);
-            await expect(page).toHaveURL(/\/servizio\?modo=gestisci$/, { timeout: 15_000 });
+            await expect(page).toHaveURL(/\/sala$/, { timeout: 15_000 });
+            await expect(page.getByRole("tab", { name: TAB.sala })).toHaveAttribute("aria-selected", "true");
         }
+        await page.goto(`${base}/servizio?modo=gestisci`);
+        await expect(page).toHaveURL(/\/sala$/, { timeout: 15_000 });
     });
 
-    test("il vecchio indirizzo /canali porta a Ordini e prenotazioni, ancora compresa", async ({ page }) => {
+    test("i vecchi /canali e /ordini-prenotazioni aprono Ordini al tavolo, o Prenotazioni con l'ancora", async ({ page }) => {
         await openFirstLocation(page);
-        const base = page.url().replace(/[?#].*$/, "").replace(/\/(anagrafica|orari|ordini-prenotazioni|canali|pubblicazione)$/, "");
+        const base = page.url().replace(/[?#].*$/, "").replace(/\/(anagrafica|orari|ordini-al-tavolo|prenotazioni-online|sala|ordini-prenotazioni|canali|pubblicazione)$/, "");
         await page.goto(`${base}/canali#prenotazioni`);
+        await expect(page.getByRole("tab", { name: TAB.prenotazioni })).toHaveAttribute("aria-selected", "true", { timeout: 15_000 });
+        await expect(page).toHaveURL(/\/prenotazioni-online$/);
+        await page.goto(`${base}/ordini-prenotazioni`);
         await expect(page.getByRole("tab", { name: TAB.ordini })).toHaveAttribute("aria-selected", "true", { timeout: 15_000 });
-        await expect(page).toHaveURL(/\/ordini-prenotazioni#prenotazioni$/);
+        await expect(page).toHaveURL(/\/ordini-al-tavolo$/);
     });
 
     test("un segmento sconosciuto sotto la sede apre l'Anagrafica, non «Pagina non trovata»", async ({ page }) => {
         await openFirstLocation(page);
-        const base = page.url().replace(/[?#].*$/, "").replace(/\/(anagrafica|orari|ordini-prenotazioni|canali|pubblicazione)$/, "");
+        const base = page.url().replace(/[?#].*$/, "").replace(/\/(anagrafica|orari|ordini-al-tavolo|prenotazioni-online|sala|ordini-prenotazioni|canali|pubblicazione)$/, "");
         await page.goto(`${base}/ordini`);
         await expect(page.getByRole("tab", { name: TAB.anagrafica })).toHaveAttribute("aria-selected", "true", { timeout: 15_000 });
         await expect(page).toHaveURL(/\/anagrafica$/);

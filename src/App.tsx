@@ -97,6 +97,8 @@ const ActivityAnagraficaRoute = lazy(() => import("./pages/Operativita/Attivita/
 const ActivityOrariRoute = lazy(() => import("./pages/Operativita/Attivita/routes/ActivityOrariRoute"));
 const ActivityOrdiniPrenotazioniRoute = lazy(() => import("./pages/Operativita/Attivita/routes/ActivityOrdiniPrenotazioniRoute"));
 const ActivitySectionRedirect = lazy(() => import("./pages/Operativita/Attivita/routes/ActivitySectionRedirect"));
+const ActivitySalaRoute = lazy(() => import("./pages/Operativita/Attivita/routes/ActivitySalaRoute"));
+const OrdiniPrenotazioniRedirect = lazy(() => import("./pages/Operativita/Attivita/routes/OrdiniPrenotazioniRedirect"));
 const SedeRedirect = lazy(() => import("./components/layout/SedeRedirect/SedeRedirect"));
 const BusinessHomeRedirect = lazy(() => import("./components/layout/LandingRedirect/BusinessHomeRedirect"));
 const SedeHomeRedirect = lazy(() => import("./components/layout/LandingRedirect/SedeHomeRedirect"));
@@ -293,8 +295,6 @@ export default function App() {
                         fuori dal parent della scheda, di cui non devono
                         ereditare testata e draft. */}
                     <Route path="servizio" element={<Servizio />} />
-                    {/* La Sala è il modo «Gestisci la sala» di Servizio (lotto B-a). */}
-                    <Route path="sala" element={<Navigate to="../servizio?modo=gestisci" relative="path" replace />} />
                     <Route path="comande" element={<Orders />} />
                     <Route path="storico" element={<OrdersHistory />} />
                     <Route path="prenotazioni" element={<Reservations />} />
@@ -309,8 +309,14 @@ export default function App() {
                     <Route element={<ActivityDetailPage />}>
                         <Route path="anagrafica" element={<ActivityAnagraficaRoute />} />
                         <Route path="orari" element={<ActivityOrariRoute />} />
-                        <Route path="ordini-prenotazioni" element={<ActivityOrdiniPrenotazioniRoute />} />
-                        <Route path="canali" element={<ActivitySectionRedirect to="ordini-prenotazioni" keepHash />} />
+                        {/* Correzioni UI T5: una cosa per tab (O1) e la Sala dalla
+                            Scheda (SV3, era il modo «Gestisci la sala» di Servizio). */}
+                        <Route path="ordini-al-tavolo" element={<ActivityOrdiniPrenotazioniRoute part="ordini" />} />
+                        <Route path="prenotazioni-online" element={<ActivityOrdiniPrenotazioniRoute part="prenotazioni" />} />
+                        <Route path="sala" element={<ActivitySalaRoute />} />
+                        {/* La vecchia tab unica: l'ancora dice quale delle due. */}
+                        <Route path="ordini-prenotazioni" element={<OrdiniPrenotazioniRedirect />} />
+                        <Route path="canali" element={<OrdiniPrenotazioniRedirect />} />
                         <Route path="pubblicazione" element={<ActivityPubblicazioneRoute />} />
                         {/* Un segmento sconosciuto sotto la sede apre l'Anagrafica:
                             un link vecchio o storto resta dentro la scheda invece di

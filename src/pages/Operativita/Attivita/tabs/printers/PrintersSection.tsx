@@ -190,7 +190,7 @@ export const PrintersSection: React.FC<PrintersSectionProps> = ({
   return (
     <Card
       title="Stampanti"
-      subtitle="Lo stato è hardware, non configurazione"
+      subtitle="Le stampanti collegate a questa sede"
       actions={actions}
       flush={!isLoading && items.length > 0}
     >

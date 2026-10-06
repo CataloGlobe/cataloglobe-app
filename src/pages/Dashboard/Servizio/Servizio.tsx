@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Lock, Store } from "lucide-react";
 
 import { Button } from "@/components/ui/Button/Button";
@@ -7,12 +7,11 @@ import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import Skeleton from "@/components/ui/Skeleton/Skeleton";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
 import { TablesLiveView } from "@/components/Tables/TablesLiveView/TablesLiveView";
-import { TablesManagement } from "@/components/Tables/TablesManagement/TablesManagement";
-import { TablesEmptyState } from "@/components/Tables/TablesManagement/TablesEmptyState";
 import ServizioElenco from "./ServizioElenco";
 import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { usePageHeader } from "@/context/usePageHeader";
 import { usePermissions } from "@/context/usePermissions";
+import { isOwnerOrAdmin } from "@/lib/permissions";
 import { usePlanFeatures } from "@/lib/planFeatures";
 import { getActivityById } from "@/services/supabase/activities";
 import type { V2Activity } from "@/types/activity";
@@ -23,8 +22,9 @@ import styles from "./Servizio.module.scss";
 const LOCKED_HINT = "Disponibile con il piano Pro";
 
 /**
- * Servizio (§18.2, lotti B-a e B-b): la sala di una sede, in tre modi —
- * Elenco, Mappa, Gestisci la sala. Il modo
+ * Servizio (§18.2, lotti B-a e B-b): la sala di una sede, in due modi —
+ * Elenco e Mappa. «Gestisci la sala» è la tab Sala della Scheda
+ * (correzioni UI SV3). Il modo
  * sta in `?modo=`; senza, il primo che si può usare (`servizioModes.ts`).
  * Un modo col lucchetto si vede spento e non si apre: `?modo=` che lo chiede
  * passa al primo usabile. Fuori dal parent della Scheda: legge la sede da sé,
@@ -34,7 +34,7 @@ const LOCKED_HINT = "Disponibile con il piano Pro";
  * modo lasciato (Elenco: prenotazioni e tavolate; Mappa:
  * `useTablesLiveRealtime`) si chiudono, e si riaprono tornandoci.
  *
- * `/sala` e i vecchi `?tab=sala|tables` portano qui, in Gestisci la sala;
+ * `?modo=gestisci` porta alla tab Sala della Scheda;
  * `comande?tab=tavoli` alla Mappa; `prenotazioni?tab=service` all'Elenco.
  */
 export default function Servizio() {
@@ -139,6 +139,12 @@ export default function Servizio() {
     const headerConfig = useMemo(() => (leading ? { leading, compact } : null), [leading, compact]);
     usePageHeader(headerConfig);
 
+    // «Gestisci la sala» è la tab Sala della Scheda (correzioni UI SV3): i
+    // vecchi `?modo=gestisci` portano lì.
+    if (requested === "gestisci") {
+        return <Navigate to="../sala" relative="path" replace />;
+    }
+
     if ((loading && !activity) || !permissions) {
         return (
             <div className={styles.loading} aria-busy="true" aria-label="Caricamento sede">
@@ -160,6 +166,31 @@ export default function Servizio() {
         );
     }
 
+    // Modi visibili ma tutti col lucchetto (piano Base): non è un permesso
+    // che manca, è il piano. Prima non capitava: «Gestisci la sala» non
+    // aveva lucchetto, e dalle correzioni UI (SV3) è la tab Sala della Scheda.
+    if (!mode && modes.length > 0) {
+        const billingCapable = isOwnerOrAdmin(permissions);
+        return (
+            <EmptyState
+                icon={<Lock size={40} strokeWidth={1.5} />}
+                title="Servizio è una funzione del piano Pro"
+                description={
+                    billingCapable
+                        ? "L'Elenco delle prenotazioni del giorno e la Mappa dei tavoli con i conti aperti. I tavoli si gestiscono nella tab Sala della sede."
+                        : "Chiedi al proprietario di passare a Pro. I tavoli si gestiscono nella tab Sala della sede."
+                }
+                action={
+                    billingCapable ? (
+                        <Button variant="primary" onClick={() => navigate(`/business/${businessId}/settings/abbonamento`)}>
+                            Passa a Pro
+                        </Button>
+                    ) : undefined
+                }
+            />
+        );
+    }
+
     if (!mode) {
         return (
             <EmptyState
@@ -170,28 +201,10 @@ export default function Servizio() {
         );
     }
 
-    const scheda = `/business/${businessId}/locations/${activity.id}/ordini-prenotazioni`;
-
     return (
         <div className={styles.container} data-mode={mode}>
             {mode === "elenco" && <ServizioElenco activityId={activity.id} />}
             {mode === "mappa" && <TablesLiveView tenantId={businessId} activityId={activity.id} />}
-            {mode === "gestisci" &&
-                // I tavoli servono a due canali: ordini al tavolo e prenotazioni.
-                // Basta uno dei due acceso per mapparli.
-                (activity.ordering_enabled || activity.enable_reservations ? (
-                    <TablesManagement
-                        tenantId={businessId}
-                        activityId={activity.id}
-                        orderingEnabled={activity.ordering_enabled}
-                        reservationsEnabled={activity.enable_reservations}
-                    />
-                ) : (
-                    <TablesEmptyState
-                        onGoToOrdering={() => navigate(`${scheda}#ordini`)}
-                        onGoToReservations={() => navigate(`${scheda}#prenotazioni`)}
-                    />
-                ))}
         </div>
     );
 }

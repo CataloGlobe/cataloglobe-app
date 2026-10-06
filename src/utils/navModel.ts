@@ -5,9 +5,9 @@ import {
     isOwnerOrAdmin,
     type UserPermissions
 } from "@/lib/permissions";
-import type { PlanFeature } from "@/lib/planFeatures";
+import { passesPlanGate, type PlanFeature, type PlanGate } from "@/lib/planFeatures";
 import { ROUTE_LABELS } from "@/components/layout/AppHeader/navbarBreadcrumbRoutes";
-import { SERVIZIO_READ_PERMISSIONS, resolveServizioMode } from "@/utils/servizioModes";
+import { canSeeServizio, resolveServizioMode } from "@/utils/servizioModes";
 
 /**
  * Il modello della navigazione (§51). Puro: niente router, niente React,
@@ -65,7 +65,9 @@ type HasFeature = (feature: PlanFeature) => boolean;
 export type NavGate =
     | { on: "tenant"; permission: string }
     | { on: "anyActivity"; permission: string }
-    | { on: "activity"; permission: string | readonly string[] };
+    | { on: "activity"; permission: string | readonly string[] }
+    /** Una regola che non è un solo permesso (Servizio: i permessi di un modo). */
+    | { on: "activityCheck"; check: (permissions: UserPermissions, activityId: string) => boolean };
 
 export interface NavEntry {
     key: NavKey;
@@ -78,7 +80,7 @@ export interface NavEntry {
     /** Senza gate la voce si vede sempre. */
     gate?: NavGate;
     /** Gate di piano: la voce resta visibile col lucchetto, ma non ci si atterra. */
-    requiresFeature?: PlanFeature;
+    requiresFeature?: PlanGate;
     /**
      * Per una voce a più modi (Servizio): si atterra solo se almeno un modo
      * si può usare. Vedere la voce non basta.
@@ -124,7 +126,7 @@ const SCHEDA: NavEntry = {
     level: "sede",
     segment: "anagrafica",
     gate: { on: "activity", permission: "activity.read" },
-    matchSegments: ["orari", "ordini-prenotazioni", "pubblicazione"]
+    matchSegments: ["orari", "ordini-al-tavolo", "prenotazioni-online", "sala", "pubblicazione"]
 };
 
 // «Cosa vedono i clienti» (§19, M7): legge chi legge la sede; scrive chi ha
@@ -204,7 +206,9 @@ const SERVIZIO: NavEntry = {
     label: "Servizio",
     level: "sede",
     segment: "servizio",
-    gate: { on: "activity", permission: SERVIZIO_READ_PERMISSIONS },
+    gate: { on: "activityCheck", check: canSeeServizio },
+    // Col piano Base tutti i suoi modi hanno il lucchetto (la Sala è nella Scheda, SV3).
+    requiresFeature: ["table_reservation", "table_ordering"],
     usable: (permissions, hasFeature, activityId) =>
         resolveServizioMode(null, permissions, hasFeature, activityId) !== null
 };
@@ -364,6 +368,7 @@ export function canSeeNavEntry(entry: NavEntry, permissions: UserPermissions, ac
     if (gate.on === "tenant") return canDoOnTenant(permissions, gate.permission);
     if (gate.on === "anyActivity") return canDoOnAnyActivity(permissions, gate.permission);
     if (!activityId) return false;
+    if (gate.on === "activityCheck") return gate.check(permissions, activityId);
     const list = typeof gate.permission === "string" ? [gate.permission] : gate.permission;
     return list.some(p => canDoOnActivity(permissions, p, activityId));
 }
@@ -377,7 +382,7 @@ export function isNavEntryUsable(
 ): boolean {
     return (
         canSeeNavEntry(entry, permissions, activityId) &&
-        (!entry.requiresFeature || hasFeature(entry.requiresFeature)) &&
+        passesPlanGate(entry.requiresFeature, hasFeature) &&
         (!entry.usable || entry.usable(permissions, hasFeature, activityId))
     );
 }
@@ -403,14 +408,17 @@ export function isConfigurator(permissions: UserPermissions): boolean {
 
 /**
  * Entrando in una sede. Chi la gestisce parte dalla Scheda; staff e viewer
- * dalla prima voce di Operatività che possono usare. Nessuna: la Scheda.
+ * dalla prima voce di Operatività che possono usare. Nessuna: la Sala se
+ * leggono i tavoli (era il modo «Gestisci la sala» di Servizio, dove
+ * atterravano col piano Base; correzioni UI SV3), altrimenti la Scheda.
  */
 export function sedeLandingSegment(permissions: UserPermissions, hasFeature: HasFeature, activityId: string): string {
     if (isOwnerOrAdmin(permissions) || canDoOnActivity(permissions, "activity.manage", activityId)) {
         return SEDE_FALLBACK_SEGMENT;
     }
     const first = OPERATIVITA.entries.find(e => isNavEntryUsable(e, permissions, hasFeature, activityId));
-    return first?.segment ?? SEDE_FALLBACK_SEGMENT;
+    if (first) return first.segment;
+    return canDoOnActivity(permissions, "tables.read", activityId) ? "sala" : SEDE_FALLBACK_SEGMENT;
 }
 
 /**

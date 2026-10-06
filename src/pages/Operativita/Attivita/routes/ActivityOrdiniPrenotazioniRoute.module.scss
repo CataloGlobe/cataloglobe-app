@@ -35,13 +35,6 @@
   gap: var(--space-4);
 }
 
-.locked {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-4);
-  color: var(--text-muted);
-}
-
 .emails {
   display: flex;
   flex-direction: column;

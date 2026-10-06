@@ -56,3 +56,14 @@ export function usePlanFeatures(): {
     const hasPlanFeature = useCallback((feature: PlanFeature) => hasFeature(plan, feature), [plan]);
     return { plan, hasFeature: hasPlanFeature };
 }
+
+/**
+ * Un gate di piano che si apre con una funzione **o** con un'altra (Servizio:
+ * l'Elenco chiede le prenotazioni, la Mappa gli ordini al tavolo).
+ */
+export type PlanGate = PlanFeature | readonly PlanFeature[];
+
+export function passesPlanGate(gate: PlanGate | undefined, hasFeature: (feature: PlanFeature) => boolean): boolean {
+    if (!gate) return true;
+    return typeof gate === "string" ? hasFeature(gate) : gate.some(hasFeature);
+}

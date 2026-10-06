@@ -19,9 +19,15 @@
   cursor: pointer;
 }
 
+// Spenti il cerchio e il nome, non la descrizione: può portare il link che
+// dice come accendere l'opzione, e deve restare leggibile (4,5:1).
 .disabled {
-  opacity: 0.6;
   cursor: not-allowed;
+
+  .circle,
+  .label {
+    opacity: 0.6;
+  }
 }
 
 .input {
@@ -92,4 +98,9 @@
     border-color: var(--brand-primary);
     background: var(--brand-primary-soft);
   }
+}
+
+// Il nome dell'opzione: classe solo per lo stato spento.
+.label {
+  display: block;
 }

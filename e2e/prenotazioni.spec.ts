@@ -368,8 +368,8 @@ test.describe("Prenotazioni", () => {
         const sede = page.url().replace(/\?.*$/, "");
         const base = sede.replace(/\/locations\/.*$/, "");
 
-        // «Ordini e prenotazioni» della scheda: il rimando resta nella sede.
-        await page.goto(sede.replace(/\/prenotazioni$/, "/ordini-prenotazioni"));
+        // La tab Prenotazioni della scheda: il rimando resta nella sede.
+        await page.goto(sede.replace(/\/prenotazioni$/, "/prenotazioni-online"));
         await main(page).getByRole("link", { name: "Prenotazioni", exact: true }).click();
         await expect(page).toHaveURL(sede, { timeout: 15_000 });
 
