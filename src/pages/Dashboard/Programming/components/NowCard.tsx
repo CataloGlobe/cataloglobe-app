@@ -1,4 +1,7 @@
+import { Clock, History } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
+import Text from "@/components/ui/Text/Text";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { Card } from "@/components/ui/Card/Card";
 import { Select, type SelectOption } from "@/components/ui/Select/Select";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
@@ -30,28 +33,51 @@ type NowCardProps = {
  * simulatore. Uguale in tutte le tab; evidenzia lo strato della tab aperta.
  */
 export function NowCard({ time, row, layers, catalogLabel, highlight, seatOptions, onSeatChange, onSimulate, subscriptionInactive }: NowCardProps) {
+    const isPhone = useMediaQuery("(max-width: 767px)");
+    const simulate = (
+        <Button
+            variant="secondary"
+            size="sm"
+            leftIcon={<History size={16} aria-hidden />}
+            className={styles.simulate}
+            onClick={onSimulate}
+        >
+            Simula un altro momento
+        </Button>
+    );
+
+    // Testata compatta come nel mockup (PG1): orologio, «Adesso, 17:30», la
+    // sede accanto, «Simula» a destra; al telefono la sede va a tutta
+    // larghezza e «Simula» in fondo.
     return (
-        <Card
-            title={`Adesso, ${time}`}
-            subtitle={subscriptionInactive ? "Abbonamento non attivo: nessuna sede mostra il menù." : undefined}
-            badge={row.suspended ? <StatusBadge variant="neutral" label="Sospesa" /> : undefined}
-            actions={
-                <div className={styles.actions}>
-                    {seatOptions.length > 1 && (
+        <Card className={styles.card}>
+            <div className={styles.head}>
+                <span className={styles.title}>
+                    <Clock size={18} aria-hidden className={styles.clock} />
+                    <Text as="h2" variant="title-sm">
+                        Adesso, {time}
+                    </Text>
+                    {row.suspended && <StatusBadge variant="neutral" label="Sospesa" />}
+                </span>
+                {seatOptions.length > 1 && (
+                    <div className={styles.seat}>
                         <Select
                             aria-label="Sede della card Adesso"
                             value={row.activityId}
                             onChange={e => onSeatChange(e.target.value)}
                             options={seatOptions}
                         />
-                    )}
-                    <Button variant="secondary" size="sm" className={styles.simulate} onClick={onSimulate}>
-                        Simula un altro momento
-                    </Button>
-                </div>
-            }
-        >
+                    </div>
+                )}
+                {!isPhone && <div className={styles.simulateEnd}>{simulate}</div>}
+            </div>
+            {subscriptionInactive && (
+                <Text variant="caption" colorVariant="muted" className={styles.note}>
+                    Abbonamento non attivo: nessuna sede mostra il menù.
+                </Text>
+            )}
             <LayerSteps row={row} layers={layers} catalogLabel={catalogLabel} highlight={highlight} />
+            {isPhone && <div className={styles.simulateBelow}>{simulate}</div>}
         </Card>
     );
 }

@@ -44,10 +44,15 @@ export function LayerSteps({ row, layers, catalogLabel, highlight = null, narrow
                             className={`${styles.step}${active ? ` ${styles.active}` : ""}${manual ? ` ${styles.manual}` : ""}`}
                             aria-current={active ? "step" : undefined}
                         >
-                            <Text as="span" variant="caption" weight={600} colorVariant={active ? "primary" : "muted"}>
-                                {layers.indexOf(layer) + 1} · {layer.id === "manual" ? layer.header : ruleTypeLabel(layer.id, catalogLabel)}
+                            <Text as="span" variant="caption" weight={600} colorVariant={active ? "primary" : "muted"} className={styles.head}>
+                                <span className={styles.num}>{layers.indexOf(layer) + 1}</span>
+                                {/* Il «·» resta nel testo (lettori di schermo, ricerca), non si vede. */}
+                                <span className={styles.sep}> · </span>
+                                <span className={styles.label}>
+                                    {layer.id === "manual" ? layer.header : ruleTypeLabel(layer.id, catalogLabel)}
+                                </span>
                             </Text>
-                            {layer.render(row)}
+                            <div className={styles.body}>{layer.render(row)}</div>
                         </li>
                     );
                 })}

@@ -1300,7 +1300,9 @@ test.describe("Programmazione — card «Adesso» e matrice", () => {
     function nowCard(page: Page): Locator {
         return main(page)
             .locator("section")
-            .filter({ has: page.getByRole("heading", { name: /^Adesso, / }) });
+            .filter({ has: page.getByRole("heading", { name: /^Adesso, / }) })
+            // La pagina stessa è una section che contiene la card: si prende la più interna.
+            .last();
     }
 
     /** I passaggi della card per la sede scelta. */

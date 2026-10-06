@@ -1,17 +1,52 @@
 @use "@styles/mixins" as *;
 
-// La card «Adesso» (PG1): testata con sede e «Simula»; i passaggi sono
-// LayerSteps.
+// La card «Adesso» (PG1), come nel mockup: testata compatta in una riga
+// (orologio, ora, sede, «Simula» a destra); i passaggi sono LayerSteps.
 
-.actions {
+.card {
+  display: block;
+}
+
+.head {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  gap: var(--space-8) var(--space-12);
+  margin-bottom: var(--space-16);
+}
+
+.title {
+  display: inline-flex;
+  align-items: center;
   gap: var(--space-8);
+  min-width: 0;
+}
+
+.clock {
+  flex: 0 0 auto;
+  color: var(--brand-primary);
+}
+
+.seat {
+  min-width: 200px;
 
   @include phone {
-    width: 100%;
+    flex-basis: 100%;
+    min-width: 0;
   }
+}
+
+.simulateEnd {
+  margin-left: auto;
+}
+
+.note {
+  display: block;
+  margin: calc(-1 * var(--space-8)) 0 var(--space-12);
+}
+
+.simulateBelow {
+  margin-top: var(--space-12);
 }
 
 .simulate {
