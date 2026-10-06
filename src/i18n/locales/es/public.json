@@ -271,7 +271,6 @@
         "indicator_aria": "Indicador de contenido destacado",
         "section_aria": "Contenido destacado",
         "dot_aria": "{{index}} contenido de {{count}}",
-        "preview_close_aria": "Cerrar",
         "see_all": "Ver todos",
         "see_all_label_one": "contenido destacado",
         "see_all_label_other": "contenidos destacados",
