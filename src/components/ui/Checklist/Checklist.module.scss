@@ -24,7 +24,8 @@
   color: var(--success-500);
 }
 
-// Lo stato done (P4): una riga sola senza card, fondo success-50, i nomi
+// Lo stato done (P4): una riga sola senza card, fondo success-50 e bordo
+// success-200, i nomi
 // spuntati in testo success-800, «Mostra» a destra. Tutta la riga è il bottone.
 .done {
   display: flex;
@@ -39,9 +40,9 @@
   gap: var(--space-8) var(--space-12);
   width: 100%;
   margin: 0;
-  padding: var(--space-12) var(--space-16);
-  border: 0;
-  border-radius: var(--radius-control);
+  padding: var(--space-10, 10px) var(--space-16);
+  border: 1px solid var(--success-200);
+  border-radius: var(--radius-surface, 12px);
   background: var(--success-50);
   color: var(--success-800);
   font: inherit;
