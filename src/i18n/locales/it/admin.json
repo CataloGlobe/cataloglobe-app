@@ -16,7 +16,8 @@
             "all_done": "tutto aggiornato",
             "badge_queued": "In corso",
             "badge_errors": "Da risolvere",
-            "badge_done": "Aggiornate"
+            "badge_done": "Aggiornate",
+            "auto_note": "i contenuti esistenti vengono tradotti in pochi minuti"
         },
         "review": {
             "title": "Da rivedere",
