@@ -1,5 +1,4 @@
 import { Card } from "@/components/ui/Card/Card";
-import { Badge } from "@/components/ui/Badge/Badge";
 import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
 import Skeleton from "@/components/ui/Skeleton/Skeleton";
@@ -7,7 +6,7 @@ import type { TenantStorySettings } from "@/services/supabase/tenants";
 import styles from "./StoryBrandCard.module.scss";
 
 type StoryBrandCardProps = {
-    /** Il cappello salvato; null mentre carica. */
+    /** L'introduzione salvata; null mentre carica. */
     saved: TenantStorySettings | null;
     loadError: boolean;
     onRetry: () => void;
@@ -16,7 +15,8 @@ type StoryBrandCardProps = {
 };
 
 /**
- * Il cappello delle Storie (§34.8/1, §50.11/4): l'intestazione della lista,
+ * L'introduzione delle Storie (già «il cappello», correzioni UI SR2;
+ * §34.8/1, §50.11/4): l'intestazione della lista,
  * mostrata com'è pubblicamente, sopra l'elenco. Non è una collezione sorella:
  * si modifica dal suo drawer e scrive subito.
  */
@@ -26,11 +26,10 @@ export function StoryBrandCard({ saved, loadError, onRetry, onEdit }: StoryBrand
 
     return (
         <Card
-            title="Il cappello"
-            badge={<Badge variant="neutral">Su tutte le sedi</Badge>}
-            subtitle="È la prima cosa che il cliente legge, sopra l'elenco delle storie."
+            title="Introduzione"
+            subtitle="Il testo che i clienti leggono prima delle storie. Vale per tutte le sedi."
             actions={
-                onEdit && saved ? (
+                onEdit && saved && !isEmpty ? (
                     <Button variant="secondary" size="sm" onClick={onEdit}>
                         Modifica
                     </Button>
@@ -40,7 +39,7 @@ export function StoryBrandCard({ saved, loadError, onRetry, onEdit }: StoryBrand
             {loadError ? (
                 <div className={styles.row}>
                     <Text variant="body-sm" colorVariant="muted">
-                        Non è stato possibile caricare il cappello.
+                        Non è stato possibile caricare l'introduzione.
                     </Text>
                     <Button variant="secondary" size="sm" onClick={onRetry}>
                         Riprova
@@ -49,10 +48,19 @@ export function StoryBrandCard({ saved, loadError, onRetry, onEdit }: StoryBrand
             ) : !saved ? (
                 <Skeleton height="72px" />
             ) : isEmpty ? (
-                <Text variant="body-sm" colorVariant="muted">
-                    Nessun cappello: sopra le storie i clienti non leggono niente.
-                </Text>
+                <div className={styles.row}>
+                    <Text variant="body-sm" colorVariant="muted">
+                        Nessuna introduzione
+                    </Text>
+                    {onEdit && (
+                        <Button variant="secondary" size="sm" onClick={onEdit}>
+                            Aggiungi
+                        </Button>
+                    )}
+                </div>
             ) : (
+                // Foto 16:9 da 224 a sinistra, testo al centro, sito a destra;
+                // al telefono la foto va sopra.
                 <div className={styles.preview}>
                     {saved.story_cover && (
                         <img className={styles.cover} src={saved.story_cover} alt="" loading="lazy" />
@@ -68,12 +76,12 @@ export function StoryBrandCard({ saved, loadError, onRetry, onEdit }: StoryBrand
                                 {saved.story_intro}
                             </Text>
                         )}
-                        {saved.website && (
-                            <Text variant="caption" colorVariant="muted">
-                                {saved.website.replace(/^https?:\/\//, "")}
-                            </Text>
-                        )}
                     </div>
+                    {saved.website && (
+                        <Text variant="caption" colorVariant="muted" className={styles.website}>
+                            {saved.website.replace(/^https?:\/\//, "")}
+                        </Text>
+                    )}
                 </div>
             )}
         </Card>

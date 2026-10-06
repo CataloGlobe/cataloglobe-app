@@ -520,21 +520,17 @@ export default function StoryDetailPage() {
                         activities={activities}
                         status={status}
                         disabled={!canWrite}
+                        productControl={
+                            <StoryProductPicker
+                                tenantId={tenantId}
+                                value={productId}
+                                onChange={setProductId}
+                                options={productOptions}
+                                fallbackName={productId === story.product_id ? story.product?.name : null}
+                                disabled={!canWrite}
+                            />
+                        }
                     />
-
-                    <Card
-                        title="Prodotto collegato"
-                        subtitle="Se lo colleghi, la storia compare anche nella scheda di quel prodotto nel menù."
-                    >
-                        <StoryProductPicker
-                            tenantId={tenantId}
-                            value={productId}
-                            onChange={setProductId}
-                            options={productOptions}
-                            fallbackName={productId === story.product_id ? story.product?.name : null}
-                            disabled={!canWrite}
-                        />
-                    </Card>
 
                     <Card
                         title="Il racconto"

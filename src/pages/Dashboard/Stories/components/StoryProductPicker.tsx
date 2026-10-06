@@ -1,8 +1,9 @@
 import { formatPrice } from "@/utils/formatCurrency";
 import Text from "@/components/ui/Text/Text";
 import { useMemo, useState } from "react";
-import { Package } from "lucide-react";
+import { Package, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
+import { IconButton } from "@/components/ui/Button/IconButton";
 import Skeleton from "@/components/ui/Skeleton/Skeleton";
 import type { ProductPickerItem } from "@/services/supabase/products";
 import { StoryProductPickerDrawer } from "./StoryProductPickerDrawer";
@@ -40,36 +41,42 @@ export function StoryProductPicker({ tenantId, value, onChange, options, fallbac
     const selected = useMemo(() => options.items?.find(p => p.id === value) ?? null, [options.items, value]);
     const loading = value !== null && options.items === null && !options.failed;
 
+    // SD2: il prodotto è un chip con × per scollegare, «Cambia» accanto; la
+    // riga sotto dice il prezzo, o perché non lo si trova.
     const row = (name: string, caption: string | null, imageUrl: string | null) => (
-        <div className={styles.selectedRow} role="status" aria-label="Prodotto collegato">
-            {imageUrl ? (
-                <img src={imageUrl} alt="" className={styles.thumb} />
-            ) : (
-                <div className={styles.thumbPlaceholder}>
-                    <Package size={16} strokeWidth={2} aria-hidden="true" />
-                </div>
-            )}
-            <div className={styles.meta}>
-                <Text as="span" variant="body-sm" weight={600} className={styles.name}>{name}</Text>
-                {caption && (
-                    <Text as="span" variant="caption" colorVariant="muted">{caption}</Text>
-                )}
-            </div>
-            {!disabled && (
-                <div className={styles.rowActions}>
-                    <Button
-                        type="button"
-                        variant="secondary"
-                        size="sm"
-                        className={styles.changeBtn}
-                        onClick={() => setDrawerOpen(true)}
-                    >
+        <div className={styles.selected}>
+            <div className={styles.line}>
+                <span className={styles.chip} role="status" aria-label="Prodotto collegato">
+                    {imageUrl ? (
+                        <img src={imageUrl} alt="" className={styles.thumb} />
+                    ) : (
+                        <span className={styles.thumbPlaceholder}>
+                            <Package size={14} strokeWidth={2} aria-hidden="true" />
+                        </span>
+                    )}
+                    <Text as="span" variant="body-sm" weight={600} className={styles.name}>
+                        {name}
+                    </Text>
+                    {!disabled && (
+                        <IconButton
+                            icon={<X size={14} />}
+                            aria-label={`Scollega ${name}`}
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => onChange(null)}
+                        />
+                    )}
+                </span>
+                {!disabled && (
+                    <Button type="button" variant="secondary" size="sm" onClick={() => setDrawerOpen(true)}>
                         Cambia
                     </Button>
-                    <Button type="button" variant="ghost" size="sm" onClick={() => onChange(null)}>
-                        Rimuovi
-                    </Button>
-                </div>
+                )}
+            </div>
+            {caption && (
+                <Text as="span" variant="caption" colorVariant="muted">
+                    {caption}
+                </Text>
             )}
         </div>
     );
@@ -80,7 +87,7 @@ export function StoryProductPicker({ tenantId, value, onChange, options, fallbac
                 type="button"
                 variant="secondary"
                 size="sm"
-                leftIcon={<Package size={15} strokeWidth={2} />}
+                leftIcon={<Plus size={15} strokeWidth={2} />}
                 onClick={() => setDrawerOpen(true)}
                 disabled={disabled}
             >

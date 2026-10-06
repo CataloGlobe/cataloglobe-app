@@ -95,17 +95,17 @@ export default function StoryCreateDrawer({ open, onClose, tenantId }: StoryCrea
             >
                 <form id={FORM_ID} onSubmit={handleSave} className={styles.form}>
                     <TextInput
+                        label="Occhiello"
+                        value={eyebrow}
+                        onChange={e => setEyebrow(e.target.value)}
+                        placeholder="Es: Dietro le quinte"
+                    />
+                    <TextInput
                         label="Titolo"
                         required
                         value={title}
                         onChange={e => setTitle(e.target.value)}
                         placeholder="Es: La storia della nostra pasta fresca"
-                    />
-                    <TextInput
-                        label="Occhiello"
-                        value={eyebrow}
-                        onChange={e => setEyebrow(e.target.value)}
-                        placeholder="Es: Dietro le quinte"
                     />
                 </form>
             </DrawerLayout>
