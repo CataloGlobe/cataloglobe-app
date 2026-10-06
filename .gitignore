@@ -21,6 +21,7 @@ node_modules
 dist
 dist-ssr
 dist-server
+dist-landing-server
 *.local
 
 # Supabase CLI temp files

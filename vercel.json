@@ -19,7 +19,7 @@
   "rewrites": [
     {
       "source": "/b",
-      "destination": "/index.html"
+      "destination": "/b.html"
     },
     {
       "source": "/:route(login|verify-otp|sign-up|check-email|email-confirmed|forgot-password|reset-password|workspace|select-business|onboarding|business|dashboard|invite|legal|status|admin)",

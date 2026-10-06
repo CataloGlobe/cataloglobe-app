@@ -11,6 +11,8 @@ import { E2E_STORAGE_STATE } from "./e2e/env";
  */
 export default defineConfig({
     testDir: "./e2e",
+    // Girano sulla build, con playwright.landing.config.ts.
+    testIgnore: "landing-build/**",
     globalSetup: "./e2e/global-setup.ts",
     fullyParallel: true,
     // Due, non il default (metà dei core): ogni test avvia l'app contro il

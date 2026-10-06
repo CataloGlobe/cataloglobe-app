@@ -3,13 +3,16 @@
 // ordine tiene uguale la cascata a parità di specificità.
 import "@styles/global.scss";
 import React from "react";
-import ReactDOM from "react-dom/client";
+import { createRoot, hydrateRoot } from "react-dom/client";
 import LandingPage from "@pages/CampaignLanding/LandingPage";
 import { authRedirectTarget } from "@pages/CampaignLanding/authRedirect";
+import { prerenderedVariante } from "@pages/CampaignLanding/prerender";
 import { capturePromoFromUrl } from "@/utils/promoCode";
 
 // Entry della landing di campagna (/ e /b), separata da main.tsx: niente
 // router, auth, notifiche, i18n né client Supabase nel caricamento iniziale.
+// L'HTML arriva già renderizzato (entry-landing-server.tsx al build): qui si
+// idrata, con la variante scritta sul #root dal prerender.
 // Degli effetti globali di App restano i due che toccano la landing:
 // - un link email di Supabase atterrato su / va nell'app (authRedirect.ts);
 // - il codice promo in query (PromoCaptureRoot) si salva all'arrivo.
@@ -23,18 +26,16 @@ if (redirect) {
 } else {
     capturePromoFromUrl(new URLSearchParams(window.location.search));
 
-    // Inter serve solo al titolo del banner cookie (font dei titoli globali):
-    // il foglio si aggancia qui, così non blocca il primo render.
-    const inter = document.createElement("link");
-    inter.rel = "stylesheet";
-    inter.href = "/fonts/app-inter.css";
-    document.head.appendChild(inter);
-
-    const variante = window.location.pathname.replace(/\/+$/, "") === "/b" ? "signup" : "form";
-
-    ReactDOM.createRoot(document.getElementById("root")!).render(
+    const root = document.getElementById("root")!;
+    const prerendered = prerenderedVariante(root);
+    const variante = prerendered ?? (window.location.pathname.replace(/\/+$/, "") === "/b" ? "signup" : "form");
+    const page = (
         <React.StrictMode>
             <LandingPage variante={variante} />
         </React.StrictMode>
     );
+
+    // Senza prerender (landing.html servito dal dev server) si monta da zero.
+    if (prerendered) hydrateRoot(root, page);
+    else createRoot(root).render(page);
 }
