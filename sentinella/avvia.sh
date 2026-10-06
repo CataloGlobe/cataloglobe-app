@@ -83,10 +83,18 @@ if [[ -z "$DA" ]]; then
   # Primo giro, o commit dell'ultimo giro sparito: le ultime 24 ore.
   DA="$(git -C "$ROOT" rev-list -1 --first-parent --before='1 day ago' origin/staging)"
 fi
+if [[ -z "$DA" ]]; then
+  # Storia più giovane di un giorno: dal primo commit.
+  DA="$(git -C "$ROOT" rev-list --max-parents=0 origin/staging | tail -1)"
+fi
 INTERVALLO="${DA}..${HEAD_SHA}"
 # Si contano le entrate in staging (merge delle PR e commit diretti), non i
 # singoli commit dei rami: il giro legge una PR alla volta.
 N_COMMIT="$(git -C "$ROOT" rev-list --count --first-parent "$INTERVALLO")"
+if (( N_COMMIT == 0 )); then
+  echo "Sentinella: niente di nuovo in staging dall'ultimo giro, nessun giro."
+  exit 0
+fi
 MAX_ENTRATE=40
 if (( N_COMMIT > MAX_ENTRATE )); then
   DA="$(git -C "$ROOT" rev-list --first-parent --skip="$MAX_ENTRATE" -1 origin/staging)"
@@ -140,13 +148,25 @@ AGENTI="$(node -e '
 ALLOWED=(
   "Read" "Grep" "Glob" "Agent"
   "Bash(git log:*)" "Bash(git show:*)" "Bash(git diff:*)" "Bash(git rev-list:*)"
-  "Bash(curl -sS -I -A 'CataloGlobe-Sentinella' https://staging.cataloglobe.com/:*)"
+  # Le sei richieste di sentinella-intestazioni, scritte intere: niente `:*`,
+  # che lascerebbe aggiungere altri argomenti (un secondo host, -o, -d).
   "Bash(curl -sS -I -A 'CataloGlobe-Sentinella' http://staging.cataloglobe.com/)"
+  "Bash(curl -sS -I -A 'CataloGlobe-Sentinella' https://staging.cataloglobe.com/)"
+  "Bash(curl -sS -I -A 'CataloGlobe-Sentinella' https://staging.cataloglobe.com/login)"
+  "Bash(curl -sS -I -A 'CataloGlobe-Sentinella' https://staging.cataloglobe.com/status)"
+  "Bash(curl -sS -I -A 'CataloGlobe-Sentinella' https://staging.cataloglobe.com/.env)"
+  "Bash(curl -sS -I -A 'CataloGlobe-Sentinella' https://staging.cataloglobe.com/.git/config)"
   "Bash(sleep:*)"
-  "Write(${RAPPORTI}/**)" "Edit(${RAPPORTI}/**)"
+  # Percorso assoluto: nelle regole serve `//` davanti, un `/` solo vale
+  # rispetto alla cartella del progetto.
+  "Write(/${RAPPORTI}/**)" "Edit(/${RAPPORTI}/**)"
+  # L'interruttore si può leggere anche a giro iniziato.
+  "Read(~/.cache/sentinella/**)"
 )
 DISALLOWED=(
   "WebFetch" "WebSearch" "NotebookEdit"
+  # git in lettura, ma `--output` scrive su un file qualsiasi.
+  "Bash(git log*--output*)" "Bash(git show*--output*)" "Bash(git diff*--output*)"
   "Bash(git push:*)" "Bash(git commit:*)" "Bash(git checkout:*)" "Bash(git reset:*)"
   "Bash(npm:*)" "Bash(npx:*)" "Bash(supabase:*)" "Bash(gh pr create:*)" "Bash(gh pr merge:*)"
 )
@@ -182,5 +202,10 @@ fi
 cd "$ROOT"
 "${CMD[@]}"
 
-# Il giro è finito (la sessione è stata chiusa): il prossimo parte da qui.
-echo "$HEAD_SHA" > "$STATE_DIR/ultimo-giro"
+# Il prossimo giro parte da qui solo se questo ha scritto il rapporto: una
+# sessione chiusa prima del rapporto rilegge le stesse entrate.
+if [[ -f "$RAPPORTI/$OGGI.md" ]]; then
+  echo "$HEAD_SHA" > "$STATE_DIR/ultimo-giro"
+else
+  echo "Sentinella: rapporto $RAPPORTI/$OGGI.md non trovato, il prossimo giro rilegge le stesse entrate."
+fi

@@ -15,10 +15,11 @@ Si apre una sessione di Claude Code **interattiva**, con il giro già chiesto: A
 `SENTINELLA_DRY_RUN=1 bash sentinella/avvia.sh` stampa il comando senza lanciarlo.
 
 ## Cosa fa lo script prima di partire
-- Si ferma se esiste il file `~/.cache/sentinella/STOP` (l'interruttore: lo può creare chiunque).
-- Prende il lock degli e2e (`~/.cache/cataloglobe-e2e.lock`, lo stesso di `scripts/e2e.sh`): mai insieme a una run e2e.
+- Si ferma se esiste il file `~/.cache/sentinella/STOP` (l'interruttore: lo può creare chiunque). Il giro lo rilegge prima di ogni sottoagente: creato a giro iniziato, il giro scrive il rapporto con ciò che ha e si ferma.
+- Prende il lock degli e2e (`~/.cache/cataloglobe-e2e.lock`, lo stesso di `scripts/e2e.sh`): mai insieme a una run e2e. Il lock ha la stessa debolezza di quello di `e2e.sh`: se due processi trovano insieme un lock abbandonato, entrambi possono toglierlo e ripartire. Con un lancio a mano alla volta non succede; va sistemato in entrambi gli script insieme.
 - `git fetch` di `origin/staging`, in sola lettura sul repo.
-- Calcola da quando guardare: dall'ultimo giro (`~/.cache/sentinella/ultimo-giro`), al primo giro le ultime 24 ore; al massimo 40 entrate in staging (merge delle PR e commit diretti) per giro.
+- Calcola da quando guardare: dall'ultimo giro (`~/.cache/sentinella/ultimo-giro`), al primo giro le ultime 24 ore; al massimo 40 entrate in staging (merge delle PR e commit diretti) per giro. Senza entrate nuove non parte.
+- L'ultimo giro si segna solo se il rapporto del giorno è stato scritto: una sessione chiusa prima rilegge le stesse entrate.
 - Lancia Claude Code con un profilo dedicato: nessun connettore MCP (`--strict-mcp-config` con `mcp-vuoto.json`), strumenti in elenco, i sottoagenti di `agenti/`.
 
 ## Cosa guarda
