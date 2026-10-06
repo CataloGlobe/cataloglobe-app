@@ -13,6 +13,20 @@
   gap: 10px;
 }
 
+// Sul telefono azienda e sede devono stare in riga con la sede intera
+// (§51.8): spazi più stretti.
+@media (max-width: 767px) {
+  .appHeader {
+    padding: 0 12px;
+    gap: 6px;
+  }
+
+  .left,
+  .right {
+    gap: 6px;
+  }
+}
+
 .left {
   flex: 1;
   min-width: 0;
@@ -20,16 +34,25 @@
 
 .separator {
   font-size: 18px;
-  color: #e5e7eb;
+  color: var(--border);
   font-weight: 300;
   user-select: none;
   margin: 0 -2px;
 }
 
+// Solo da 768 in su: logo e il suo separatore (§51.8).
+.wideOnly {
+  display: contents;
+
+  @media (max-width: 767px) {
+    display: none;
+  }
+}
+
 .greeting {
   font-size: 13px;
   font-weight: 600;
-  color: #0f172a;
+  color: var(--text);
   white-space: nowrap;
 
   @media (max-width: 767px) {
@@ -44,7 +67,7 @@
   height: 36px;
   border: none;
   background: transparent;
-  color: #475569;
+  color: var(--text-muted);
   border-radius: 8px;
   cursor: pointer;
   align-items: center;
@@ -53,7 +76,7 @@
   flex-shrink: 0;
 
   &:hover {
-    background: #f8fafc;
+    background: var(--hover-bg);
   }
 
   &:focus-visible {
@@ -96,7 +119,7 @@
   transition: background 0.1s;
 
   &:hover {
-    background: #f8fafc;
+    background: var(--hover-bg);
   }
 
   &:focus-visible {
@@ -116,6 +139,17 @@
 .tenantWrapper {
   position: relative;
   display: inline-flex;
+  min-width: 0;
+
+  // Sul telefono prende solo lo spazio che la sede lascia (base 0, cresce
+  // fino al proprio contenuto) e si ferma al cerchio: 24 + 4 + 4 di padding
+  // + 2 di bordo. Un fattore di shrink alto non basta: la sede cederebbe
+  // comunque una frazione di pixel, e i puntini compaiono già con quella.
+  @media (max-width: 767px) {
+    flex: 1 1 0;
+    min-width: 34px;
+    max-width: max-content;
+  }
 }
 
 .tenantButton {
@@ -123,18 +157,27 @@
   align-items: center;
   gap: 8px;
   padding: 4px 8px 4px 4px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--surface);
+  border-radius: var(--radius-control);
+  // C1: come il selettore della sede, a riposo nessun bordo né sfondo; al
+  // passaggio e a menu aperto lo stesso sfondo leggero.
+  border: none;
+  background: transparent;
   cursor: pointer;
-  transition:
-    background 0.1s,
-    border-color 0.1s;
+  transition: background var(--timing-motion-fast) var(--easing-state);
   min-width: 0;
+  overflow: hidden;
 
-  &:hover {
+  // Sul telefono l'azienda cede spazio alla sede (§51.8): il nome si
+  // accorcia fino a sparire, il cerchio con le iniziali resta e apre il menu.
+  @media (max-width: 767px) {
+    padding: 4px;
+    gap: 6px;
+  }
+
+  &:hover,
+  &[data-state="open"],
+  &[aria-expanded="true"] {
     background: var(--hover-bg);
-    border-color: var(--gray-300);
   }
 
   &:focus-visible {
@@ -143,6 +186,8 @@
   }
 }
 
+// L'azienda si accorcia con i puntini (§51.8): oltre ~170, e sul telefono
+// fino al solo cerchio, prima che si accorci la sede.
 .tenantName {
   font-size: 13px;
   font-weight: 600;
@@ -150,12 +195,17 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 180px;
+  max-width: 170px;
+  min-width: 0;
 }
 
 .tenantChevron {
   color: var(--text-muted);
   flex-shrink: 0;
+
+  @media (max-width: 767px) {
+    display: none;
+  }
 }
 
 /* ===== Tenant dropdown (inline, custom) ===== */
@@ -164,6 +214,14 @@
   top: calc(100% + 6px);
   left: 0;
   min-width: 240px;
+
+  // Sul telefono resta nello schermo: parte a 54 (12 di padding + 36 del
+  // pulsante menu + 6) e lascia 12 a destra.
+  @media (max-width: 767px) {
+    min-width: min(240px, calc(100vw - 66px));
+    max-width: calc(100vw - 66px);
+  }
+
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -242,7 +300,7 @@
   border-radius: 8px;
   border: none;
   background: transparent;
-  color: #64748b;
+  color: var(--text-muted);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -252,8 +310,8 @@
     color 0.1s;
 
   &:hover {
-    background: #f8fafc;
-    color: #0f172a;
+    background: var(--hover-bg);
+    color: var(--text);
   }
 
   &:focus-visible {

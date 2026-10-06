@@ -45,3 +45,33 @@
   justify-content: space-between;
   gap: var(--space-12);
 }
+
+// EV7: le opzioni del tipo come righe a filo della card, sopra l'elenco.
+// Le SettingRow portano il loro padding (24): qui si annulla quello del body.
+.options {
+  margin: calc(-1 * var(--space-24)) calc(-1 * var(--space-24)) var(--space-16);
+  border-bottom: 1px solid var(--border);
+}
+
+// Miniatura 36 e nome sulla stessa riga, come la tabella dei Prodotti.
+.productLine {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  min-width: 0;
+}
+
+.thumb {
+  position: relative;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  overflow: hidden;
+  border-radius: var(--radius-inner);
+  background: var(--hover-bg);
+}
+
+.price {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}

@@ -25,7 +25,7 @@ export interface ToolbarSearchProps {
     allowClear?: boolean;
     /**
      * `min`: la larghezza più stretta ammessa (200), per le testate che
-     * scalano prima della barra compatta (`PageHeaderConfig.condensed`).
+     * scalano prima della barra compatta (`PageHeaderConfig.narrowerActions`).
      * Resta una larghezza fissa: la misura della banda deve restare vera.
      */
     width?: "default" | "min";

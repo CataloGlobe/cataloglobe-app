@@ -7,7 +7,7 @@ import { useTenantId } from "@/context/useTenantId";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
-import { usePermissions } from "@/context/PermissionsContext";
+import { usePermissions } from "@/context/usePermissions";
 import { canDoOnTenant } from "@/lib/permissions";
 import { PageGate } from "@/components/PageGate/PageGate";
 import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
@@ -15,6 +15,7 @@ import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedCont
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
+import { AiSparkles } from "@/components/ui/Button/AiSparkles";
 import { IconBook2 } from "@tabler/icons-react";
 import { Sparkles, Eye, LayoutGrid, List as ListIcon } from "lucide-react";
 import { Loader } from "@/components/ui/Loader/Loader";
@@ -28,8 +29,6 @@ import {
 } from "@/services/supabase/catalogs";
 import { CardGrid, CardGridItem } from "@/components/ui/CardGrid/CardGrid";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
-import { Badge } from "@/components/ui/Badge/Badge";
-import { StyleSwatch } from "@/components/ui/StyleSwatch/StyleSwatch";
 import { listStyleSwatches, type V2Style } from "@/services/supabase/styles";
 import { useRuleAppearance } from "@/hooks/useRuleAppearance";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
@@ -40,13 +39,17 @@ import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { CatalogDeleteDialog } from "./CatalogDeleteDialog";
 import { CatalogForm } from "./components/CatalogForm";
+import { CatalogSheet } from "./components/CatalogSheet";
 import { isPostgrestFKError } from "@/utils/supabaseErrors";
 import styles from "./Catalogs.module.scss";
 
 const FORM_ID = "catalog-form";
 
 /** Dove è attivo un menù (§23.2, §50.13): la riga e il suo stile. */
-type CatalogUsage = { label: string; tone: SummaryTone; style: V2Style | null; moreStyles: number };
+type CatalogUsage = { label: string; tone: SummaryTone; style: V2Style | null; moreStyles: number; liveNow: boolean };
+
+/** L'altezza della card dei Menù (M2): foglio disegnato, nome, numeri, stato. */
+const CARD_HEIGHT = 236;
 
 export default function Catalogs() {
     const currentTenantId = useTenantId();
@@ -188,7 +191,7 @@ export default function Catalogs() {
             />
             {canWriteCatalog && (
                 <Button
-                    variant="outline"
+                    variant="secondary"
                     onClick={handleOpenAiImport}
                     disabled={!canEdit}
                     leftIcon={
@@ -196,7 +199,7 @@ export default function Catalogs() {
                             ? <Loader size="sm" className={styles.importSpinner} />
                             : importStatus === "review"
                                 ? <Eye size={16} />
-                                : <Sparkles size={16} />
+                                : <AiSparkles size={16} />
                     }
                     className={styles.toolbarCta}
                 >
@@ -265,7 +268,6 @@ export default function Catalogs() {
 
     usePageHeader({
         title: verticalConfig.catalogLabel,
-        subtitle: `Le ${categoryPluralLower} e i ${productPluralLower} di ogni ${catalogLower}: quello che i clienti vedono.`,
         actions: headerActions,
         compact: headerCompact,
     });
@@ -361,32 +363,25 @@ export default function Catalogs() {
             map.set(catalog.id, {
                 ...describeCatalogSummary(a),
                 style: styleIds.length > 0 ? styleById.get(styleIds[0])! : null,
-                moreStyles: Math.max(0, styleIds.length - 1)
+                moreStyles: Math.max(0, styleIds.length - 1),
+                liveNow: a.summary === "liveNow"
             });
         }
         return map;
     }, [appearance.index, catalogs, styleById]);
 
+    /** Solo lo stato, nella card e nell'elenco: il campione dello stile vive in Stili. */
     const usageBadge = (catalogId: string) => {
         const usage = usageById.get(catalogId);
-        if (!usage) return undefined;
-        // Più stili sullo stesso menù (§50.13/1): il campione è il primo, il resto si conta.
-        return (
-            <span className={styles.badges}>
-                <StatusBadge variant={usage.tone} label={usage.label} />
-                {usage.moreStyles > 0 && (
-                    <Badge variant="neutral">{`+${usage.moreStyles} ${usage.moreStyles === 1 ? "stile" : "stili"}`}</Badge>
-                )}
-            </span>
-        );
+        return usage ? <StatusBadge variant={usage.tone} label={usage.label} /> : undefined;
     };
-    const swatchOf = (catalogId: string, compact: boolean) => {
-        const usage = usageById.get(catalogId);
-        if (!usage?.style) return undefined;
-        const more = usage.moreStyles > 0 ? ` (+${usage.moreStyles} ${usage.moreStyles === 1 ? "stile" : "stili"})` : "";
-        return <StyleSwatch style={usage.style} compact={compact} label={`Stile ${usage.style.name}${more}`} />;
-    };
-
+    const cardBadge = usageBadge;
+    // Le card: prima quelli attivi adesso, poi per nome (M2).
+    const cardCatalogs = [...filteredCatalogs].sort(
+        (a, b) =>
+            Number(usageById.get(b.id)?.liveNow ?? false) - Number(usageById.get(a.id)?.liveNow ?? false) ||
+            a.name.localeCompare(b.name, "it")
+    );
     /** «· 1 vuota»: le categorie che i clienti non vedono (#238). */
     const emptyText = (catalogId: string) => {
         const n = statsMap[catalogId]?.emptyCategoryCount ?? 0;
@@ -448,12 +443,9 @@ export default function Catalogs() {
                         {usageBadge(catalog.id)}
                     </span>
                 ) : (
-                    <span className={styles.nameCell}>
-                        {swatchOf(catalog.id, true)}
-                        <Text variant="body-sm" weight={600}>
-                            {catalog.name}
-                        </Text>
-                    </span>
+                    <Text variant="body-sm" weight={600}>
+                        {catalog.name}
+                    </Text>
                 )
         },
         {
@@ -557,17 +549,18 @@ export default function Catalogs() {
             <CardGrid
                 loading={isLoading}
                 skeletonCount={3}
-                skeletonShape={{ media: true, badge: true }}
+                skeletonShape={{ media: true, badge: true, height: CARD_HEIGHT }}
                 aria-label={verticalConfig.catalogLabelPlural}
             >
-                {filteredCatalogs.map(catalog => (
+                {cardCatalogs.map(catalog => (
                     <CardGridItem
                         key={catalog.id}
                         to={`/business/${currentTenantId}/catalogs/${catalog.id}`}
-                        media={swatchOf(catalog.id, false)}
+                        height={CARD_HEIGHT}
+                        media={<CatalogSheet categories={statsMap[catalog.id]?.previewCategories ?? []} />}
                         title={catalog.name}
                         subtitle={`${categoriesText(catalog.id)} · ${productsText(catalog.id)}${emptyText(catalog.id)}`}
-                        badge={usageBadge(catalog.id)}
+                        badge={cardBadge(catalog.id)}
                         actions={canWriteCatalog ? rowActions(catalog) : undefined}
                     />
                 ))}

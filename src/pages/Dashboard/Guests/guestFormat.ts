@@ -6,6 +6,17 @@
 // riga di dati è il tipo di incoerenza che fa dubitare del dato, non del
 // formato).
 
+import { parsePhoneNumberFromString } from "libphonenumber-js";
+
+/**
+ * «+39 333 000 0051»: il telefono a gruppi, solo per leggerlo (T15). Il dato
+ * resta E.164; un valore che non si interpreta si mostra com'è.
+ */
+export function formatPhoneForDisplay(e164: string | null | undefined): string {
+    if (!e164) return "";
+    return parsePhoneNumberFromString(e164)?.formatInternational() ?? e164;
+}
+
 /** "12 mar 2026", oppure "—" quando non c'è nessuna visita visibile. */
 export function formatVisitDate(isoDate: string | null): string {
     if (!isoDate) return "—";

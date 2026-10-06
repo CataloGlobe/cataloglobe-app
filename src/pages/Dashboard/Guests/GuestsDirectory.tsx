@@ -33,7 +33,7 @@ import {
     formatVisitCount,
     visibilityFootnote
 } from "@/utils/guestVisibilityCopy";
-import { formatVisitDate } from "./guestFormat";
+import { formatPhoneForDisplay, formatVisitDate } from "./guestFormat";
 import styles from "./Guests.module.scss";
 
 interface Props {
@@ -111,7 +111,7 @@ export default function GuestsDirectory({
                                     {tags.length > 1 && <Badge variant="outline">+{tags.length - 1}</Badge>}
                                 </span>
                             }
-                            subtitle={g.phone_e164}
+                            subtitle={formatPhoneForDisplay(g.phone_e164)}
                             meta={
                                 <span className={styles.rowMeta}>
                                     {g.visible_no_shows > 0 && (

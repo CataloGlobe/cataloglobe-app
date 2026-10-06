@@ -1,18 +1,23 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import { Card } from "@/components/ui/Card/Card";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import { FormGrid, FORM_GRID_CLASSES } from "@/components/ui/FormGrid/FormGrid";
-import { ImageUploadEditor, IMAGE_UPLOAD_PRESETS, type ImageUploadEditorResult } from "@/components/ui/ImageUploadEditor";
+import {
+    ImageUploadEditor,
+    IMAGE_UPLOAD_PRESETS,
+    type ImageUploadEditorControl,
+    type ImageUploadEditorResult
+} from "@/components/ui/ImageUploadEditor";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { ListRow } from "@/components/ui/ListRow/ListRow";
-import { PageIndex, PageIndexLayout } from "@/components/ui/PageIndex/PageIndex";
+import { PageIndex, PageIndexLayout, type PageIndexSection } from "@/components/ui/PageIndex/PageIndex";
 import { usePageIndexActive } from "@/components/ui/PageIndex/usePageIndexActive";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import { Switch } from "@/components/ui/Switch/Switch";
 import Text from "@/components/ui/Text/Text";
 import { Textarea } from "@/components/ui/Textarea/Textarea";
-import { ActivitySlugDrawer } from "../tabs/info/ActivitySlugDrawer";
 import { ActivityGoogleReviewsDrawer } from "../tabs/contacts/ActivityGoogleReviewsDrawer";
 import { PaymentMethodsSection } from "../tabs/hours-services/PaymentMethodsSection";
 import { ServicesSection } from "../tabs/hours-services/ServicesSection";
@@ -21,10 +26,7 @@ import { PAYMENT_METHODS, SERVICES } from "../tabs/hours-services/activityChoice
 import { feesToState, buildFeesPayload, type FeesState } from "../tabs/hours-services/feesState";
 import { useActivityDetail } from "../ActivityDetailContext";
 import { uploadActivityCover, removeActivityCover } from "@/services/supabase/activities";
-import { getActivitySlugAliases } from "@/services/supabase/activitySlugAliases";
 import { useToast } from "@/context/Toast/ToastContext";
-import { buildPublicUrl } from "@/utils/publicUrl";
-import type { ActivitySlugAlias } from "@/types/activity";
 import styles from "./ActivityAnagraficaRoute.module.scss";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -38,15 +40,16 @@ function urlProblem(value: string): string | null {
     }
 }
 
-const SECTION_IDS = ["identita", "indirizzo-web", "copertina", "contatti", "social", "pagamenti", "servizi", "tariffe"] as const;
+// L'Indirizzo web è passato in Pubblicazione, con il QR (correzioni UI U1).
+const SECTION_IDS = ["identita", "copertina", "contatti", "social", "pagamenti", "servizi", "tariffe"] as const;
 
 type TextField = "name" | "address" | "street_number" | "postal_code" | "city" | "province" | "description" | "email_public" | "phone" | "website" | "instagram" | "facebook" | "whatsapp";
 type FlagField = "email_public_visible" | "phone_public" | "website_public" | "instagram_public" | "facebook_public" | "whatsapp_public" | "payment_methods_public" | "services_public" | "fees_public";
 
 /**
- * Anagrafica (§31.1): chi è questo locale. Otto sezioni sotto un PageIndex,
- * tutto nel draft di pagina (§31.4) salvo la copertina, l'indirizzo web e
- * le recensioni Google, che sono azioni. I nove flag «visibile ai clienti»
+ * Anagrafica (§31.1): chi è questo locale. Sette sezioni sotto un PageIndex
+ * che dice lo stato di ognuna (A1), tutto nel draft di pagina (§31.4) salvo
+ * la copertina e le recensioni Google, che sono azioni. I nove flag «visibile ai clienti»
  * sono controlli veri, nel draft (§31.2).
  */
 export default function ActivityAnagraficaRoute() {
@@ -82,6 +85,7 @@ export default function ActivityAnagraficaRoute() {
     // ── Copertina (azione immediata) ────────────────────────────────────────
     const [isCoverRemoving, setIsCoverRemoving] = useState(false);
     const [isCoverRemoveOpen, setIsCoverRemoveOpen] = useState(false);
+    const coverEditor = useRef<ImageUploadEditorControl>(null);
     const handleCoverConfirm = async ({ file }: ImageUploadEditorResult) => {
         if (!file) return;
         try {
@@ -105,29 +109,6 @@ export default function ActivityAnagraficaRoute() {
             return false;
         } finally {
             setIsCoverRemoving(false);
-        }
-    };
-
-    // ── Indirizzo web (operazione a sé) ─────────────────────────────────────
-    const [isSlugOpen, setIsSlugOpen] = useState(false);
-    const [aliases, setAliases] = useState<ActivitySlugAlias[]>([]);
-    const loadAliases = useCallback(async () => {
-        try {
-            setAliases(await getActivitySlugAliases(activity.id, tenantId));
-        } catch {
-            // Non critico: la riga dice «nessuno».
-        }
-    }, [activity.id, tenantId]);
-    useEffect(() => {
-        void loadAliases();
-    }, [loadAliases]);
-    const publicUrl = buildPublicUrl(activity.slug);
-    const handleCopyUrl = async () => {
-        try {
-            await navigator.clipboard.writeText(publicUrl);
-            showToast({ message: "URL copiato.", type: "success" });
-        } catch {
-            showToast({ message: "Impossibile copiare l'URL.", type: "error" });
         }
     };
 
@@ -163,15 +144,42 @@ export default function ActivityAnagraficaRoute() {
     // Il riepilogo nell'indice esiste solo dove manca qualcosa: una lista
     // piena non ha niente da dire, e «7 campi» non cambia mai.
     const partial = (chosen: number, total: number) => (chosen < total ? `${chosen} su ${total}` : undefined);
-    const sections = [
-        { id: "identita", label: "Identità" },
-        { id: "indirizzo-web", label: "Indirizzo web" },
-        { id: "copertina", label: "Copertina" },
-        { id: "contatti", label: "Contatti" },
-        { id: "social", label: "Social" },
-        { id: "pagamenti", label: "Pagamenti", summary: partial((d.payment_methods ?? []).length, PAYMENT_METHODS.length) },
-        { id: "servizi", label: "Servizi", summary: partial((d.services ?? []).length, SERVICES.length) },
-        { id: "tariffe", label: "Tariffe", summary: partial(selectedFees, 5) }
+    const filled = (field: TextField) => text(field).trim() !== "";
+    // Lo stato di una sezione con valori e interruttori «visibile ai
+    // clienti» (A1): occhio barrato se qualcosa è compilato ma nascosto, ✓
+    // se è tutto compilato, altrimenti il conteggio.
+    const contactsSection = (id: string, label: string, pairs: ReadonlyArray<readonly [TextField, FlagField]>): PageIndexSection => {
+        const count = pairs.filter(([field]) => filled(field)).length;
+        const hidden = pairs.some(([field, flagField]) => filled(field) && !flag(flagField));
+        return {
+            id,
+            label,
+            summary: hidden ? undefined : partial(count, pairs.length),
+            status: hidden ? "hidden" : count === pairs.length ? "done" : undefined
+        };
+    };
+    const listSection = (id: string, label: string, chosen: number, total: number, flagField: FlagField): PageIndexSection => ({
+        id,
+        label,
+        summary: chosen > 0 && !flag(flagField) ? undefined : partial(chosen, total),
+        status: chosen > 0 && !flag(flagField) ? "hidden" : undefined
+    });
+    const sections: PageIndexSection[] = [
+        { id: "identita", label: "Identità", status: filled("name") && filled("address") && filled("city") ? "done" : undefined },
+        { id: "copertina", label: "Copertina", status: activity.cover_image ? "done" : undefined },
+        contactsSection("contatti", "Contatti", [
+            ["email_public", "email_public_visible"],
+            ["phone", "phone_public"],
+            ["website", "website_public"]
+        ]),
+        contactsSection("social", "Social", [
+            ["instagram", "instagram_public"],
+            ["facebook", "facebook_public"],
+            ["whatsapp", "whatsapp_public"]
+        ]),
+        listSection("pagamenti", "Pagamenti", (d.payment_methods ?? []).length, PAYMENT_METHODS.length, "payment_methods_public"),
+        listSection("servizi", "Servizi", (d.services ?? []).length, SERVICES.length, "services_public"),
+        listSection("tariffe", "Tariffe", selectedFees, 5, "fees_public")
     ];
 
     return (
@@ -187,7 +195,6 @@ export default function ActivityAnagraficaRoute() {
                                 onChange={e => setText("name")(e.target.value)}
                                 disabled={!canManage}
                                 containerClassName={FORM_GRID_CLASSES.span}
-                                helperText="Obbligatorio."
                             />
                             <TextInput
                                 label="Via"
@@ -213,43 +220,36 @@ export default function ActivityAnagraficaRoute() {
                     </Card>
                 </section>
 
-                <section id="indirizzo-web" className={styles.section}>
+                <section id="copertina" className={styles.section}>
+                    {/* A2: con la foto, «Cambia foto» e Rimuovi nella testata; senza,
+                        nessuna azione e il corpo è l'area di caricamento. */}
                     <Card
-                        title="Indirizzo web"
-                        subtitle="L'unico dato della sede che è unico in tutta la piattaforma"
+                        title="Copertina"
+                        subtitle="Una foto 16:9 in cima alla pagina pubblica"
                         actions={
-                            canManage ? (
-                                <Button variant="secondary" size="sm" onClick={() => setIsSlugOpen(true)}>
-                                    Cambia indirizzo
-                                </Button>
+                            canManage && activity.cover_image ? (
+                                <>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => coverEditor.current?.open()}
+                                        disabled={isCoverRemoving}
+                                    >
+                                        Cambia foto
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        aria-label="Rimuovi la copertina"
+                                        onClick={() => setIsCoverRemoveOpen(true)}
+                                        disabled={isCoverRemoving}
+                                    >
+                                        <Trash2 size={16} strokeWidth={1.75} aria-hidden />
+                                    </Button>
+                                </>
                             ) : undefined
                         }
-                        flush
                     >
-                        <ListRow
-                            title="Indirizzo attuale"
-                            subtitle={publicUrl}
-                            trailing={
-                                <div className={styles.rowActions}>
-                                    <Button variant="ghost" size="sm" onClick={() => void handleCopyUrl()}>
-                                        Copia
-                                    </Button>
-                                    <Button as="a" variant="ghost" size="sm" href={publicUrl} target="_blank" rel="noopener noreferrer">
-                                        Apri
-                                    </Button>
-                                </div>
-                            }
-                        />
-                        <ListRow
-                            title="Indirizzi precedenti"
-                            subtitle={aliases.length === 0 ? "Nessuno" : `${aliases.length} · i vecchi link continuano a funzionare`}
-                            onClick={() => setIsSlugOpen(true)}
-                        />
-                    </Card>
-                </section>
-
-                <section id="copertina" className={styles.section}>
-                    <Card title="Copertina" subtitle="Una foto 16:9 in cima alla pagina pubblica">
                         {canManage ? (
                             <ImageUploadEditor
                                 aspectRatio={IMAGE_UPLOAD_PRESETS.coverSede.aspectRatio}
@@ -257,12 +257,12 @@ export default function ActivityAnagraficaRoute() {
                                 maxSizeMB={IMAGE_UPLOAD_PRESETS.coverSede.maxSizeMB}
                                 compressLongEdge={IMAGE_UPLOAD_PRESETS.coverSede.compressLongEdge}
                                 bake={{ size: 1280, format: "image/webp", quality: 0.85, fileName: "cover.webp" }}
-                                fieldLabel={IMAGE_UPLOAD_PRESETS.coverSede.fieldLabel}
+                                hideHeader
+                                controlRef={coverEditor}
                                 drawerTitle={IMAGE_UPLOAD_PRESETS.coverSede.drawerTitle}
                                 requiresConfirm={IMAGE_UPLOAD_PRESETS.coverSede.requiresConfirm}
                                 initialSource={activity.cover_image ?? null}
                                 onConfirm={handleCoverConfirm}
-                                onRemove={() => setIsCoverRemoveOpen(true)}
                                 removing={isCoverRemoving}
                             />
                         ) : activity.cover_image ? (
@@ -285,7 +285,7 @@ export default function ActivityAnagraficaRoute() {
                         <div className={styles.reviewsRow}>
                             <ListRow
                                 title="Recensioni Google"
-                                subtitle={activity.google_review_url ? "Il link alle recensioni compare nella pagina pubblica" : "Collega la scheda Google Places per mostrare le recensioni"}
+                                subtitle={activity.google_review_url ? "Chi lascia 4 o 5 stelle viene invitato a recensirvi anche su Google" : "Aggiungi il link della scheda Google per invitare i clienti soddisfatti a recensirvi lì"}
                                 meta={
                                     activity.google_review_url ? (
                                         <StatusBadge variant="success" label="Collegato" />
@@ -342,19 +342,6 @@ export default function ActivityAnagraficaRoute() {
                 </section>
             </div>
 
-            <ActivitySlugDrawer
-                open={isSlugOpen}
-                onClose={() => setIsSlugOpen(false)}
-                activity={activity}
-                tenantId={tenantId}
-                aliases={aliases}
-                onSuccess={() => {
-                    void reload();
-                    void loadAliases();
-                }}
-                onAliasRemoved={loadAliases}
-                canEdit={canManage}
-            />
             <ActivityGoogleReviewsDrawer
                 open={isReviewsOpen}
                 onClose={() => setIsReviewsOpen(false)}

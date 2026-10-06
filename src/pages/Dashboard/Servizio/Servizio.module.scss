@@ -1,0 +1,73 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+}
+
+// Gestisci la sala è una tabella: la catena flex vincolata porta l'altezza
+// di `MainLayout .content` fino al probe del DataTable. Gli altri modi sono
+// griglie a scorrimento di pagina e restano ad altezza libera.
+.container[data-mode="gestisci"] {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+// L'Elenco: la banda di oggi sopra le tre sezioni della sala.
+.elenco {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+}
+
+.loading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+}
+
+.lockedTab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+// La riga «Oggi» (T14 SV1): una riga sola, comune a Elenco e Mappa.
+.todayRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  min-height: 44px;
+  padding: var(--space-8) var(--space-16);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-surface);
+  background: var(--surface);
+}
+
+.todayFacts {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.todayRequests {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--space-4);
+  color: var(--color-warning-700);
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+
+  &:hover {
+    text-decoration: underline;
+  }
+
+  &:focus-visible {
+    outline: none;
+    border-radius: var(--radius-inner);
+    box-shadow: var(--shadow-focus);
+  }
+}

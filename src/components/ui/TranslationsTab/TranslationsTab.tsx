@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -13,7 +14,8 @@ import { SectionCard } from "@/components/ui/SectionCard/SectionCard";
 import Text from "@/components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useBusinessOutletContext } from "@/layouts/MainLayout/outletContext";
-import { Languages, Pencil, Sparkles } from "lucide-react";
+import { Languages, Pencil } from "lucide-react";
+import { AiSparkles } from "@/components/ui/Button/AiSparkles";
 import {
     listTranslationsForEntity,
     getActiveTenantLanguages,
@@ -66,6 +68,11 @@ interface TranslationsTabProps {
     sectionDescription: string;
     placeholderItalian?: string;
     flush?: boolean;
+    /**
+     * Senza card esterna (bordo e sfondo): titolo e descrizione restano,
+     * per chi la mette già dentro una card (Menù, correzioni UI MD5).
+     */
+    bare?: boolean;
     /** Etichetta del segmento primario (es. "Descrizione" / "Nome"). */
     primaryLabel?: string;
     /** Campo secondario read-only (note prodotto). */
@@ -123,6 +130,7 @@ export function TranslationsTab({
     sectionDescription,
     placeholderItalian,
     flush = false,
+    bare = false,
     primaryLabel,
     secondaryField,
     onSourceUpdated
@@ -420,10 +428,11 @@ export function TranslationsTab({
     }
 
     const primarySegment = primaryLabel ?? sectionLabel;
+    const Wrapper = bare ? BareSection : SectionCard;
 
     return (
         <div className={gridClass}>
-            <SectionCard title={sectionLabel} subtitle={sectionDescription}>
+            <Wrapper title={sectionLabel} subtitle={sectionDescription}>
                 {secondaryField && (
                     <div className={styles.segmentRow}>
                         <SegmentedControl<ViewMode>
@@ -452,7 +461,7 @@ export function TranslationsTab({
                                         </span>
                                     )}
                                     <span className={styles.langName}>
-                                        {baseMeta?.name_native ?? baseLanguage.toUpperCase()} ·{" "}
+                                        {baseMeta?.name_it ?? baseLanguage.toUpperCase()} ·{" "}
                                         {t("translations_tab.source_suffix")}
                                     </span>
                                 </div>
@@ -570,7 +579,7 @@ export function TranslationsTab({
                                         <TranslationRow
                                             key={code}
                                             flag={lang.flag_emoji}
-                                            name={lang.name_native}
+                                            name={lang.name_it || lang.name_native}
                                             badge={badge}
                                             preview={translation?.translated_text ?? ""}
                                             previewEmptyLabel={t(
@@ -623,7 +632,7 @@ export function TranslationsTab({
                                                                 disabled={isSaving}
                                                             >
                                                                 <span className={styles.btnIconLabel}>
-                                                                    <Sparkles size={14} />
+                                                                    <AiSparkles size={14} />
                                                                     {t(
                                                                         "translations_tab.revert_auto"
                                                                     )}
@@ -696,7 +705,7 @@ export function TranslationsTab({
                                         <TranslationRow
                                             key={code}
                                             flag={lang.flag_emoji}
-                                            name={lang.name_native}
+                                            name={lang.name_it || lang.name_native}
                                             badge={badge}
                                             preview={formatted.replace(/\n/g, " · ")}
                                             previewEmptyLabel={t(
@@ -707,7 +716,7 @@ export function TranslationsTab({
                                         >
                                             <div className={styles.noteReference}>
                                                 <span className={styles.noteRefLabel}>
-                                                    {baseMeta?.name_native ??
+                                                    {baseMeta?.name_it ??
                                                         baseLanguage.toUpperCase()}
                                                 </span>
                                                 <Text
@@ -721,7 +730,7 @@ export function TranslationsTab({
                                             </div>
                                             <div className={styles.noteReference}>
                                                 <span className={styles.noteRefLabel}>
-                                                    {lang.name_native}
+                                                    {lang.name_it || lang.name_native}
                                                 </span>
                                                 {formatted ? (
                                                     <Text
@@ -747,7 +756,7 @@ export function TranslationsTab({
                         </>
                     )
                 )}
-            </SectionCard>
+            </Wrapper>
 
             <ConfirmDialog
                 isOpen={revertConfirmFor !== null}
@@ -759,5 +768,24 @@ export function TranslationsTab({
                 confirmVariant="danger"
             />
         </div>
+    );
+}
+
+/** La sezione senza card (`bare`): stessa testata, niente bordo né sfondo. */
+function BareSection({ title, subtitle, children }: { title?: string; subtitle?: string; children?: ReactNode }) {
+    return (
+        <section className={styles.bare}>
+            <div className={styles.bareHeader}>
+                <Text as="h3" variant="title-sm" weight={600}>
+                    {title}
+                </Text>
+                {subtitle && (
+                    <Text variant="caption" colorVariant="muted">
+                        {subtitle}
+                    </Text>
+                )}
+            </div>
+            {children}
+        </section>
     );
 }

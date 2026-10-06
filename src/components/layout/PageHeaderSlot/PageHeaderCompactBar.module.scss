@@ -1,10 +1,19 @@
 .bar {
+  // Al telefono i bottoni della barra sono alti 44 (bersaglio touch, PS1).
+  --bar-control: var(--control-height, 38px);
+
   display: flex;
   align-items: center;
   gap: 4px;
   width: 100%;
   min-width: 0;
   padding: 10px 0;
+
+  @media (max-width: 767px) {
+    --bar-control: var(--tap-target);
+
+    padding: 6px 0;
+  }
 }
 
 // Occupa lo spazio libero al centro: il gruppo icone + CTA resta ancorato a
@@ -24,7 +33,7 @@
   gap: 4px;
   min-width: 0;
 
-  height: var(--control-height, 38px);
+  height: var(--bar-control);
   padding: 0 8px 0 0;
   gap: 6px;
 
@@ -101,7 +110,7 @@
   gap: 6px;
   min-width: 0;
 
-  height: var(--control-height, 38px);
+  height: var(--bar-control);
   padding: 0 8px 0 0;
 
   background: transparent;
@@ -125,8 +134,8 @@
   justify-content: center;
 
   // Bersaglio touch pieno: l'icona è 18px ma l'area cliccabile no.
-  width: var(--control-height, 38px);
-  height: var(--control-height, 38px);
+  width: var(--bar-control);
+  height: var(--bar-control);
 
   background: transparent;
   border: none;
@@ -331,7 +340,7 @@
 .primary {
   flex-shrink: 0;
   box-sizing: border-box;
-  height: var(--control-height, 38px);
+  height: var(--bar-control);
 }
 
 /* ── Overlay ricerca ───────────────────────────────────────── */
@@ -345,6 +354,6 @@
 
 .searchInput {
   box-sizing: border-box;
-  height: var(--control-height, 38px);
+  height: var(--bar-control);
   line-height: 1;
 }

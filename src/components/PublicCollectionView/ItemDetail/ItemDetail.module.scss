@@ -33,7 +33,7 @@
     white-space: nowrap;
 }
 
-/* ── Close button (stesso stile di FeaturedPreviewModal) ─────────────────── */
+/* ── Close button ─────────────────── */
 
 .closeBtn {
     /* Mobile: nascosto — l'utente chiude con drag, tap overlay o swipe */
@@ -61,7 +61,7 @@
         outline-offset: 2px;
     }
 
-    @media (min-width: 640px) {
+    @media (min-width: 641px) {
         display: inline-flex;
     }
 }
@@ -648,8 +648,9 @@
 
 .addToSelectionBar {
     flex-shrink: 0;
+    /* Niente safe-area qui: la aggiunge già `.panel` di PublicSheet
+       (padding-bottom: env(safe-area-inset-bottom)), sotto questa barra. */
     padding: 12px 16px;
-    padding-bottom: max(12px, env(safe-area-inset-bottom, 12px));
     border-top: 1px solid var(--pub-surface-border);
     background: var(--pub-surface, #fff);
 }

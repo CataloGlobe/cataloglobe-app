@@ -54,6 +54,8 @@ export type FormFields = {
     customer_email: string;
     customer_phone: string;
     notes: string;
+    /** Compilabile solo con la casella del consenso spuntata. */
+    allergies: string;
 };
 
 export type FieldErrors = Partial<Record<keyof FormFields, string>>;
@@ -67,5 +69,6 @@ export const EMPTY_FORM: FormFields = {
     customer_name: "",
     customer_email: "",
     customer_phone: "",
-    notes: ""
+    notes: "",
+    allergies: ""
 };

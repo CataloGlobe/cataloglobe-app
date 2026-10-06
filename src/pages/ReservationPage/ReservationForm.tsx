@@ -13,6 +13,7 @@ import type { OpeningHoursEntry, UpcomingClosure } from "./availability";
 import WhenSection from "./WhenSection";
 import WhoSection from "./WhoSection";
 import NotesSection from "./NotesSection";
+import { ALLERGIES_CONSENT_VERSION, ALLERGIES_ENABLED } from "./allergiesConsent";
 import styles from "./ReservationForm.module.scss";
 
 type SubmitErrorCode =
@@ -48,6 +49,9 @@ export default function ReservationForm({
     // lang-aware è `/:slug/:lang/prenota`, quella base non ha il segmento.
     const { lang } = useParams<{ lang?: string }>();
     const [form, setForm] = useState<FormFields>(EMPTY_FORM);
+    // Consenso esplicito per le allergie (dato sulla salute): casella non
+    // spuntata all'inizio; senza spunta il campo è spento e non si invia.
+    const [allergiesConsent, setAllergiesConsent] = useState(false);
     const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
     const [submitError, setSubmitError] = useState<string | null>(null);
     // Rifiuto server-side sull'orario appena inviato. `kind` distingue i due
@@ -168,7 +172,13 @@ export default function ReservationForm({
                     // poi le email partono da un cron o da un'azione
                     // dell'admin, dove nessun browser è più in ascolto.
                     language: i18n.language,
-                    ...(form.notes.trim() ? { notes: form.notes.trim() } : {})
+                    ...(form.notes.trim() ? { notes: form.notes.trim() } : {}),
+                    ...(ALLERGIES_ENABLED && allergiesConsent && form.allergies.trim()
+                        ? {
+                              allergies: form.allergies.trim(),
+                              allergies_consent_version: ALLERGIES_CONSENT_VERSION
+                          }
+                        : {})
                 });
                 onSuccess(form, result.status);
                 setPhase("success");
@@ -209,7 +219,7 @@ export default function ReservationForm({
                 setPhase("form");
             }
         },
-        [form, slug, hours, closures, onSuccess, onResolveErrorCode, t]
+        [form, allergiesConsent, slug, hours, closures, onSuccess, onResolveErrorCode, t]
     );
 
     const isSubmitting = phase === "submitting";
@@ -252,6 +262,14 @@ export default function ReservationForm({
             <NotesSection
                 value={form.notes}
                 error={effectiveErrors.notes}
+                allergies={form.allergies}
+                allergiesError={effectiveErrors.allergies}
+                allergiesConsent={allergiesConsent}
+                onAllergiesConsentChange={checked => {
+                    setAllergiesConsent(checked);
+                    // Tolta la spunta, il testo non deve restare in pagina.
+                    if (!checked) handleChange("allergies", "");
+                }}
                 onChange={handleChange}
                 onBlur={handleBlur}
             />

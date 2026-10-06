@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/TableRowActions/TableRowActions";
 
 import { useToast } from "@/context/Toast/ToastContext";
-import { usePermissions } from "@/context/PermissionsContext";
+import { usePermissions } from "@/context/usePermissions";
 import { canDoOnActivity } from "@/lib/permissions";
 import { closeTable } from "@/services/supabase/customerSessions";
 import { updateTable } from "@/services/supabase/tables";
@@ -28,6 +28,7 @@ import { deriveTableStatus } from "@/utils/tableState";
 
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { useTablesLiveRealtime } from "./useTablesLiveRealtime";
+import { TableSketch, type TableSketchState } from "./TableSketch";
 import styles from "./TablesLiveView.module.scss";
 
 export interface TablesLiveViewProps {
@@ -60,11 +61,30 @@ function formatEur(n: number): string {
 
 type TableStatus = "free" | "occupied" | "maintenance";
 
+// T14 SV2: l'ambra resta per i segnali da gestire (conto, cameriere);
+// il fuori servizio è neutro, e il disegno del tavolo è tratteggiato.
 const STATUS_VARIANTS: Record<TableStatus, StatusBadgeVariant> = {
     free: "neutral",
     occupied: "success",
-    maintenance: "warning"
+    maintenance: "neutral"
 };
+
+/**
+ * Oltre questo, una sessione aperta è di un servizio precedente (mai chiusa):
+ * «da 390 h 53 min» non dice niente, «Aperta da un servizio precedente» sì.
+ */
+const PREVIOUS_SERVICE_MS = 12 * 60 * 60 * 1000;
+
+function isFromPreviousService(openedAt: string | null | undefined): boolean {
+    if (!openedAt) return false;
+    return Date.now() - new Date(openedAt).getTime() >= PREVIOUS_SERVICE_MS;
+}
+
+function sketchStateOf(status: TableStatus, openedAt: string | null | undefined): TableSketchState {
+    if (status === "maintenance") return "maintenance";
+    if (status === "free") return "free";
+    return isFromPreviousService(openedAt) ? "previous" : "open";
+}
 
 /** Le comande in Nuove: aspettano qualcuno, quindi stanno sulla tessera come Badge. */
 function countSubmitted(orders: V2TableWithState["active_orders"]): number {
@@ -364,14 +384,14 @@ export function TablesLiveView({
                 <EmptyState
                     icon={<Grid2X2 />}
                     title="Nessun tavolo configurato"
-                    description="Configura i tavoli dalla scheda Sala della sede."
+                    description="I tavoli si creano in Gestisci la sala."
                     action={
                         businessId ? (
                             <Button
                                 variant="secondary"
                                 onClick={() => navigate(`/business/${businessId}/locations/${activityId}/sala`)}
                             >
-                                Vai alla Sala
+                                Vai a Gestisci la sala
                             </Button>
                         ) : undefined
                     }
@@ -383,7 +403,7 @@ export function TablesLiveView({
                     onClearFilters={() => setStatusFilter("all")}
                 />
             ) : isLoading && items.length === 0 ? (
-                <CardGrid loading skeletonCount={3} aria-label="Tavoli" />
+                <CardGrid loading skeletonCount={3} skeletonShape={{ media: true, mediaHeight: 120 }} aria-label="Tavoli" />
             ) : (
                 <div className={styles.zonesList}>
                     {groups.map((group, gi) => (
@@ -426,11 +446,14 @@ export function TablesLiveView({
                                         }
                                     ];
 
+                                    const sketchState = sketchStateOf(status, t.session_opened_at);
                                     const subtitle = [
                                         t.seats != null ? `${t.seats} ${t.seats === 1 ? "posto" : "posti"}` : null,
-                                        status === "occupied" && t.session_opened_at
-                                            ? `da ${formatElapsedLabel(t.session_opened_at)}`
-                                            : null
+                                        sketchState === "previous"
+                                            ? "Aperta da un servizio precedente"
+                                            : status === "occupied" && t.session_opened_at
+                                              ? `da ${formatElapsedLabel(t.session_opened_at)}`
+                                              : null
                                     ]
                                         .filter(Boolean)
                                         .join(" · ");
@@ -440,9 +463,14 @@ export function TablesLiveView({
                                             key={t.id}
                                             title={t.label}
                                             subtitle={subtitle || undefined}
+                                            media={<TableSketch seats={t.seats ?? null} state={sketchState} />}
+                                            mediaHeight={120}
                                             badge={
                                                 <span className={styles.badges}>
-                                                    <StatusBadge variant={STATUS_VARIANTS[status]} label={statusLabel} />
+                                                    <StatusBadge
+                                                        variant={sketchState === "previous" ? "neutral" : STATUS_VARIANTS[status]}
+                                                        label={statusLabel}
+                                                    />
                                                     {submitted > 0 && (
                                                         <Badge variant="brand">
                                                             {submitted} {submitted === 1 ? "nuova" : "nuove"}

@@ -21,8 +21,8 @@ import { useAttributeValuesDraft } from "./hooks/useAttributeValuesDraft";
 import {
     HeaderSaveAction,
     DiscardChangesConfirmDialog
-} from "@/pages/Dashboard/Stories/components/HeaderSaveAction";
-import { buildSaveActionCompactConfig } from "@/pages/Dashboard/Stories/components/headerSaveActionCompact";
+} from "@/components/ui/HeaderSaveAction/HeaderSaveAction";
+import { buildSaveActionCompactConfig } from "@/components/ui/HeaderSaveAction/headerSaveActionCompact";
 import { useUnsavedChangesGuard } from "@/components/ui/UnsavedChangesBar/useUnsavedChangesGuard";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import Skeleton from "@/components/ui/Skeleton/Skeleton";
@@ -35,7 +35,7 @@ import { TranslationsTab } from "@/components/ui/TranslationsTab/TranslationsTab
 import { ProductCreateEditDrawer } from "./ProductCreateEditDrawer";
 import { PageGate } from "@/components/PageGate/PageGate";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
-import { usePermissions } from "@/context/PermissionsContext";
+import { usePermissions } from "@/context/usePermissions";
 import { canDoOnTenant } from "@/lib/permissions";
 import styles from "./ProductPage.module.scss";
 
@@ -83,7 +83,7 @@ export default function ProductPage() {
         ],
         [product, verticalConfig]
     );
-    const { visibleTabs, initialTab } = useFilteredProductTabs<ProductPageTab>(
+    const { visibleTabs, initialTab, ready: tabsReady } = useFilteredProductTabs<ProductPageTab>(
         allTabs,
         "scheda",
         // Legacy redirects:
@@ -102,6 +102,11 @@ export default function ProductPage() {
     );
     const [, setSearchParams] = useSearchParams();
     const [activeTab, setActiveTab] = useState<ProductPageTab>(initialTab);
+    // A freddo il verticale arriva dopo il primo render: un `?tab` sotto gate
+    // (es. `attributes`) si apre quando l'azienda c'è.
+    useEffect(() => {
+        if (tabsReady) setActiveTab(initialTab);
+    }, [tabsReady, initialTab]);
 
     // Tab change: sincronizza ?tab= con lo stato (replace per non polluire history).
     // Il `useFilteredProductTabs` continua a gestire la legacy map al mount iniziale.
@@ -272,9 +277,12 @@ export default function ProductPage() {
                     isSaving={isSavingAll}
                     onSave={handleSaveAll}
                     onDiscard={handleDiscardAll}
+                    // Prezzi & Opzioni e Traduzioni salvano a ogni modifica:
+                    // lo dice la barra (PO1, T1), non una frase in pagina.
+                    savesInstantly={activeTab === "prezzi-opzioni" || activeTab === "translations"}
                 />
             ) : undefined,
-        [canWrite, isDirty, isSavingAll, handleSaveAll, handleDiscardAll]
+        [canWrite, isDirty, isSavingAll, handleSaveAll, handleDiscardAll, activeTab]
     );
 
     // Il salva è di pagina, non di tab: vale su tutte le sezioni, esattamente
@@ -357,6 +365,7 @@ export default function ProductPage() {
                         handleTabChange(tab as ProductPageTab)
                     }
                     draft={schedaDraft}
+                    canWrite={canWrite}
                 />
             )}
             {activeTab === "prezzi-opzioni" && (

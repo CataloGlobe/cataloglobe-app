@@ -1,11 +1,12 @@
 // ============================================================
 // useSedeScope — storage primitive + pure resolver.
 //
-// Lo stato "sede attiva" della navbar è condiviso tra tutte le
-// pagine sede-scoped (orders, reservations, tables, analytics,
-// reviews). Persistenza: `sessionStorage` con chiave namespaced
-// per tenant. Sync intra-tab: subscriber set module-level (no
-// Context/Provider, evita prop-drilling e re-render cascata).
+// Navigazione v2 (§51): la sede la dice l'indirizzo (le pagine di
+// sede) o il filtro della pagina (Programmazione, `?sede=`). Lo
+// scope "di navbar" in sessionStorage non c'è più. Resta la sola
+// ultima sede usata (localStorage), scritta entrando in una sede
+// (`rememberLastSede`) e letta da `/orders` e `/reservations`
+// (`SedeRedirect`). Sync intra-tab: subscriber set module-level.
 //
 // File splittato dalla parte React per consentire test unitari
 // in environment `node` (vitest.config.ts → environment: "node")
@@ -17,27 +18,6 @@
 export const SCOPE_ALL = "__all__" as const;
 
 export type SedeScopeValue = string | typeof SCOPE_ALL;
-
-/** Pagine sede-scoped che consumano l'hook. Contratto stabile per gating
- *  futuro; il sottoinsieme effettivamente migrato in navbar è in
- *  `SEDE_NAVBAR_ROUTES` (navbarBreadcrumbRoutes), che include anche
- *  `scheduling` benché qui non sia presente (preservato per evitare
- *  breakage del contratto storico). */
-export const SEDE_SCOPED_ROUTES = [
-    "orders",
-    "reservations",
-    "tables",
-    "analytics",
-    "reviews"
-] as const;
-
-export type SedeScopedRoute = (typeof SEDE_SCOPED_ROUTES)[number];
-
-const STORAGE_PREFIX = "cataloglobe:sedeScope:";
-
-function storageKey(tenantId: string): string {
-    return `${STORAGE_PREFIX}${tenantId}`;
-}
 
 const listeners = new Set<() => void>();
 
@@ -54,48 +34,10 @@ function notify(): void {
     for (const l of listeners) l();
 }
 
-/** Legge il valore salvato per il tenant, o `null` se assente.
- *  Side-effect free, no notify. */
-export function readSedeScope(tenantId: string): SedeScopeValue | null {
-    if (typeof window === "undefined") return null;
-    try {
-        const raw = window.sessionStorage.getItem(storageKey(tenantId));
-        if (!raw) return null;
-        return raw as SedeScopeValue;
-    } catch {
-        return null;
-    }
-}
-
-/** Scrive il valore e notifica tutti i subscriber. Sessione
- *  ignorata se sessionStorage non disponibile (SSR / privacy). */
-export function writeSedeScope(tenantId: string, value: SedeScopeValue): void {
-    if (typeof window !== "undefined") {
-        try {
-            window.sessionStorage.setItem(storageKey(tenantId), value);
-        } catch {
-            /* best effort */
-        }
-    }
-    notify();
-}
-
-/** Rimuove l'entry e notifica. Utile per test/cleanup. */
-export function clearSedeScope(tenantId: string): void {
-    if (typeof window !== "undefined") {
-        try {
-            window.sessionStorage.removeItem(storageKey(tenantId));
-        } catch {
-            /* best effort */
-        }
-    }
-    notify();
-}
-
 // ----------------------------------------------------------------------------
 // Single-site mode — storage localStorage (cross-session) + resolver dedicato.
-// Riusa lo STESSO pub/sub di sopra: un consumer single-site reagisce a write
-// (locali o session) sullo stesso store globale tramite getSnapshot.
+// Un consumer single-site reagisce alle write sullo store globale tramite
+// getSnapshot.
 // La key NON è tenant-scoped per backward-compat col valore esistente del
 // combobox Ordini (`cataloglobe:orders:lastActivityId`).
 // ----------------------------------------------------------------------------
@@ -123,6 +65,16 @@ export function writeSedeScopeLocal(value: string): void {
         }
     }
     notify();
+}
+
+/**
+ * L'ultima sede usata è quella in cui si è entrati (§51.9): la scrive il
+ * layout quando l'indirizzo è di una sede leggibile. Scrive e notifica solo
+ * se cambia, così chi ascolta non si ridisegna a ogni navigazione.
+ */
+export function rememberLastSede(activityId: string): void {
+    if (readSedeScopeLocal() === activityId) return;
+    writeSedeScopeLocal(activityId);
 }
 
 /** Rimuove l'entry localStorage e notifica. Utile per test/cleanup. */

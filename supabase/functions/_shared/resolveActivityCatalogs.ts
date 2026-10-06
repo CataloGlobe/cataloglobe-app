@@ -73,8 +73,7 @@ export type ResolvedVariant = {
     image_framing?: ResolvedMediaFraming;
     image_aspect_ratio?: number;
     description?: string;
-    // deno-lint-ignore no-explicit-any
-    attributes?: any[];
+    attributes?: unknown[];
     allergens?: ResolvedAllergen[];
     characteristics?: ResolvedCharacteristic[];
     ingredients?: ResolvedIngredient[];
@@ -112,8 +111,7 @@ export type ResolvedProduct = {
     to_price?: number;
     is_visible: boolean;
     is_disabled?: boolean;
-    // deno-lint-ignore no-explicit-any
-    attributes?: any[];
+    attributes?: unknown[];
     allergens?: ResolvedAllergen[];
     characteristics?: ResolvedCharacteristic[];
     ingredients?: ResolvedIngredient[];
@@ -154,8 +152,7 @@ export type ResolvedCatalog = {
 export type ResolvedStyle = {
     id: string;
     name: string;
-    // deno-lint-ignore no-explicit-any
-    config?: any;
+    config?: unknown;
 };
 
 export type V2FeaturedContent = {
@@ -294,8 +291,7 @@ type RawAttributeValueRow = {
     value_text: string | null;
     value_number: number | null;
     value_boolean: boolean | null;
-    // deno-lint-ignore no-explicit-any
-    value_json: any | null;
+    value_json: unknown;
     definition: RawAttributeDefRow | null;
 };
 
@@ -499,8 +495,7 @@ export function normalizeCatalog(
                 }
             }
 
-            // deno-lint-ignore no-explicit-any
-            const mapAttributes = (rows: any) =>
+            const mapAttributes = (rows: RawAttributeValueRow | RawAttributeValueRow[] | null | undefined) =>
                 normalizeMany(rows)
                     .map((a: RawAttributeValueRow) => {
                         const def = normalizeOne(a.definition);
@@ -520,10 +515,7 @@ export function normalizeCatalog(
                                 : null
                         };
                     })
-                    .filter(
-                        // deno-lint-ignore no-explicit-any
-                        (a: any) => a.definition?.show_in_public_channels !== false
-                    );
+                    .filter(a => a.definition?.show_in_public_channels !== false);
 
             const mapAllergens = (rows: RawAllergenRow[] | RawAllergenRow | null): ResolvedAllergen[] =>
                 normalizeMany(rows)
@@ -672,8 +664,7 @@ export function normalizeCatalog(
                             : allVariants;
 
                     const optionGroupsRaw = normalizeMany<RawOptionGroupRow>(
-                        // deno-lint-ignore no-explicit-any
-                        (p as any).option_groups
+                        (p as { option_groups?: RawOptionGroupRow | RawOptionGroupRow[] | null }).option_groups
                     );
                     const resolvedOptionGroups: ResolvedOptionGroup[] = optionGroupsRaw.map(og => ({
                         id: og.id,
@@ -1651,7 +1642,6 @@ export async function resolveActivityCatalogs(
         includeLayoutStyle: true
     });
     const layoutCatalogId = ruleResolution.layout.catalogId;
-    const layoutScheduleId = ruleResolution.layout.scheduleId;
     const styleData = ruleResolution.layout.styleData as ResolvedStyle | undefined;
 
     function computeFromPrice(

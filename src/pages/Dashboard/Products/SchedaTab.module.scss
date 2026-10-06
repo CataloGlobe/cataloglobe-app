@@ -1,3 +1,5 @@
+@use "@/styles/mixins" as *;
+
 // Tab «Scheda» (lotto Prodotti P6): una colonna di Card, nell'ordine del
 // mockup. Solo layout: tipografia e colori da Text, Card, Chip.
 
@@ -6,6 +8,31 @@
   flex-direction: column;
   gap: var(--space-24);
   min-width: 0;
+}
+
+// PS4: testi e immagine affiancati; sotto 1024 l'immagine scende sotto.
+.infoGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: var(--space-24);
+  align-items: start;
+
+  @include below-sidebar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.media {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  min-width: 0;
+}
+
+.mediaActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
 }
 
 .fields {
@@ -19,13 +46,6 @@
   flex-direction: column;
   gap: var(--space-8);
   min-width: 0;
-}
-
-.translationRow {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-8);
 }
 
 .chips {

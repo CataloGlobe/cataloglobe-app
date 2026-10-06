@@ -13,13 +13,14 @@ import { Menu } from "@/components/ui/Menu";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { ToolbarSearch } from "@/components/ui/ToolbarSearch/ToolbarSearch";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
+import { Select } from "@/components/ui/Select/Select";
 import { SplitButton, type SplitButtonAction } from "@/components/ui/SplitButton";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import Text from "@/components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useTenantId } from "@/context/useTenantId";
-import { useSedeScope, SCOPE_ALL } from "@/hooks/useSedeScope";
-import { usePermissions } from "@/context/PermissionsContext";
+import { useSedeScope } from "@/hooks/useSedeScope";
+import { usePermissions } from "@/context/usePermissions";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 import { canDoOnActivity, canDoOnAnyActivity } from "@/lib/permissions";
 import { listActivityIdsByGroup } from "@/services/supabase/activity-groups";
@@ -38,10 +39,9 @@ import {
 import { createFeaturedRuleDraft } from "@/services/supabase/featuredScheduling";
 import { countManualOverridesByActivity } from "@/services/supabase/activeCatalog";
 import { toRomeDateTime } from "@/services/supabase/schedulingNow";
-import { romeDayOf, romeInstantAt } from "@/utils/romeInstant";
-import { buildScheduleMatrix, describeBand } from "@/utils/scheduleMatrix";
-import { MomentBand, MOMENT_MAX_MINUTES, MOMENT_STEP_MINUTES } from "./components/MomentBand";
-import { SeatMatrix } from "./components/SeatMatrix";
+import { buildScheduleMatrix } from "@/utils/scheduleMatrix";
+import { NowCard } from "./components/NowCard";
+import { matrixLayers } from "./components/matrixLayers";
 import { RuleTable } from "./components/RuleTable";
 import { computeRuleInsights, toCompetitionRule } from "@/utils/ruleInsights";
 import { compareCandidates } from "@shared/scheduleCompetition";
@@ -68,10 +68,11 @@ function ruleTypeOptions(catalogLabel: string, products: string): RuleTypeOption
     // restringono. L'atterraggio resta «Menù e stile» (passo 2, deviazione 7).
     return [
         { value: "all", label: "Tutte", description: "Tutte le regole, di ogni tipo." },
+        // PG3: nell'ordine in cui si applicano, come i passaggi della card «Adesso».
         { value: "layout", label: ruleTypeLabel("layout", catalogLabel), description: `Decidono quale ${menu} e quale stile mostrare` },
-        { value: "featured", label: ruleTypeLabel("featured", catalogLabel), description: "Programmano quando mostrare contenuti in evidenza" },
+        { value: "visibility", label: ruleTypeLabel("visibility", catalogLabel), description: `Nascondono alcuni ${products}, o li segnano come non disponibili` },
         { value: "price", label: ruleTypeLabel("price", catalogLabel), description: `Cambiano il prezzo di alcuni ${products}` },
-        { value: "visibility", label: ruleTypeLabel("visibility", catalogLabel), description: `Nascondono alcuni ${products}, o li segnano come non disponibili` }
+        { value: "featured", label: ruleTypeLabel("featured", catalogLabel), description: "Programmano quando mostrare contenuti in evidenza" }
     ];
 }
 
@@ -144,7 +145,7 @@ export default function Programming() {
     // Il nome della sede nella matrice: la sua pagina «Cosa vedono i clienti»
     // (oggi «Disponibilità», §20.3).
     const seatHref = useCallback(
-        (activityId: string) => `/business/${currentTenantId}/locations/${activityId}/disponibilita`,
+        (activityId: string) => `/business/${currentTenantId}/locations/${activityId}/cosa-vedono`,
         [currentTenantId]
     );
     const sedeScope = useSedeScope();
@@ -177,8 +178,44 @@ export default function Programming() {
 
     const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
     const [searchTerm, setSearchTerm] = useState("");
-    // Filtro sede deriva da useSedeScope (navbar). SCOPE_ALL → nessun filtro.
-    const filterActivityId = sedeScope.value === SCOPE_ALL ? null : sedeScope.value;
+    // Il filtro sede sta nella pagina (§51.11) ed è `?sede=<id>`: lo scrive il
+    // selettore qui sotto, ci arriva «Vai a Programmazione» da una pagina
+    // della sede. Una sede che chi guarda non legge si ignora; finché
+    // l'elenco non c'è vale quella dell'indirizzo.
+    const sedeFromUrl = searchParams.get("sede");
+    const { isLoaded: sedeScopeLoaded } = sedeScope;
+    // Le sedi del filtro: quelle di cui chi guarda legge la Programmazione.
+    // Una sede senza `scheduling.read` chiuderebbe la pagina nel gate, e il
+    // filtro con lei.
+    const readableSedi = useMemo(
+        () =>
+            permissions
+                ? sedeScope.readableActivities.filter(a => canDoOnActivity(permissions, "scheduling.read", a.id))
+                : [],
+        [permissions, sedeScope.readableActivities]
+    );
+    const filterActivityId = !sedeFromUrl
+        ? null
+        : !sedeScopeLoaded || readableSedi.some(a => a.id === sedeFromUrl)
+          ? sedeFromUrl
+          : null;
+    const setFilterActivityId = useCallback(
+        (next: string | null) =>
+            setSearchParams(
+                prev => {
+                    const params = new URLSearchParams(prev);
+                    if (next) params.set("sede", next);
+                    else params.delete("sede");
+                    return params;
+                },
+                { replace: true }
+            ),
+        [setSearchParams]
+    );
+    const sedeFilterOptions = useMemo(
+        () => [{ value: "", label: "Tutte le sedi" }, ...readableSedi.map(a => ({ value: a.id, label: a.name }))],
+        [readableSedi]
+    );
     const canWrite = permissions ? canDoOnAnyActivity(permissions, "scheduling.write") : false;
     // Stessa regola di PageGate: sulla sede del filtro, se c'è.
     const canRead = permissions
@@ -206,9 +243,13 @@ export default function Programming() {
     /* Un solo link "Come funziona" è montato per volta (sopra la lista, oppure
        in uno dei due empty state): un ref solo basta per restituirgli il focus. */
     const helpTriggerRef = useRef<HTMLButtonElement | null>(null);
+    // «Come funziona» del simulatore (PG2): il focus torna lì.
+    const simulatorHelpRef = useRef<HTMLButtonElement | null>(null);
+    const [helpFromSimulator, setHelpFromSimulator] = useState(false);
     const [returnHelpFocus, setReturnHelpFocus] = useState(true);
 
     const openHelpModal = useCallback(() => {
+        setHelpFromSimulator(false);
         setReturnHelpFocus(true);
         setIsHelpModalOpen(true);
     }, []);
@@ -268,23 +309,23 @@ export default function Programming() {
         void loadInitialData();
     }, [loadInitialData]);
 
-    // Sede e ricerca: i conteggi del filtro per tipo si leggono da qui.
+    // La sede scelta nella navbar: vale per l'elenco e per la Settimana.
+    const seatRules = useMemo(() => {
+        if (!filterActivityId) return rules;
+        return rules.filter(rule => {
+            if (rule.applyToAll) return true;
+            if (rule.activityIds.includes(filterActivityId)) return true;
+            return rule.groupIds.some(gId =>
+                (activityIdsByGroupId[gId] ?? []).includes(filterActivityId)
+            );
+        });
+    }, [activityIdsByGroupId, filterActivityId, rules]);
+
+    // Sede e ricerca: i conteggi del filtro per tipo si leggono da qui. La
+    // ricerca resta all'elenco: in Settimana non si vede, e non la filtra.
     const searchedRules = useMemo(() => {
         const query = searchTerm.trim().toLowerCase();
-        let result = rules;
-
-        // 1. Filter by selected activity
-        if (filterActivityId) {
-            result = result.filter(rule => {
-                if (rule.applyToAll) return true;
-                if (rule.activityIds.includes(filterActivityId)) return true;
-                return rule.groupIds.some(gId =>
-                    (activityIdsByGroupId[gId] ?? []).includes(filterActivityId)
-                );
-            });
-        }
-
-        // 2. Filter by search term
+        const result = seatRules;
         if (!query) return result;
 
         return result.filter(rule => {
@@ -313,7 +354,7 @@ export default function Programming() {
                 .toLowerCase()
                 .includes(query);
         });
-    }, [activityById, activityIdsByGroupId, catalogById, catalogLabel, filterActivityId, rules, searchTerm, styleById]);
+    }, [activityById, catalogById, catalogLabel, seatRules, searchTerm, styleById]);
 
     const filteredRules = useMemo(
         () => (ruleTypeFilter === "all" ? searchedRules : searchedRules.filter(rule => rule.rule_type === ruleTypeFilter)),
@@ -356,22 +397,12 @@ export default function Programming() {
         [activities, activityIdsByGroupId, catalogLabel, currentTime, filterActivityId, groupNameById, rules]
     );
 
-    // Il cursore della banda (§50.7): null = adesso. Muove banda e matrice,
-    // non l'elenco, che resta ad adesso.
-    const [cursorMinutes, setCursorMinutes] = useState<number | null>(null);
+    // La card «Adesso» (PG1): sempre l'ora di adesso; un altro momento si
+    // vede nel simulatore.
     const nowRome = useMemo(() => toRomeDateTime(currentTime), [currentTime]);
-    const momentInstant = useMemo(
-        () =>
-            cursorMinutes === null
-                ? nowRome
-                : romeInstantAt(romeDayOf(currentTime), Math.min(cursorMinutes, MOMENT_MAX_MINUTES - 1)),
-        [cursorMinutes, currentTime, nowRome]
-    );
-    const nowSliderMinutes =
-        Math.floor((nowRome.hour * 60 + nowRome.minute) / MOMENT_STEP_MINUTES) * MOMENT_STEP_MINUTES;
 
-    // Sedi × strati nell'istante del cursore: la stessa resolveCompetition di
-    // «Sovrascritta da», sulle regole già caricate.
+    // Sedi × strati adesso: la stessa resolveCompetition di «Sovrascritta
+    // da», sulle regole già caricate.
     const scheduleMatrix = useMemo(
         () =>
             buildScheduleMatrix({
@@ -380,16 +411,27 @@ export default function Programming() {
                 activityIdsByGroupId,
                 manualCounts,
                 filterActivityId,
-                instant: momentInstant,
+                instant: nowRome,
                 subscriptionInactive
             }),
-        [activities, activityIdsByGroupId, filterActivityId, manualCounts, momentInstant, rules, subscriptionInactive]
+        [activities, activityIdsByGroupId, filterActivityId, manualCounts, nowRome, rules, subscriptionInactive]
     );
     const matrixCatalogName = useCallback((catalogId: string) => catalogById.get(catalogId)?.name, [catalogById]);
-    const bandText = useMemo(() => describeBand(scheduleMatrix, matrixCatalogName), [matrixCatalogName, scheduleMatrix]);
+    const nowLayers = useMemo(
+        () => matrixLayers({ atNow: true, catalogLabel, catalogName: matrixCatalogName, ruleHref }),
+        [catalogLabel, matrixCatalogName, ruleHref]
+    );
+    const [nowSeatId, setNowSeatId] = useState<string | null>(null);
+    const nowRow = scheduleMatrix.rows.find(row => row.activityId === nowSeatId) ?? scheduleMatrix.rows[0];
+    const nowSeatOptions = useMemo(
+        () => scheduleMatrix.rows.map(row => ({ value: row.activityId, label: row.name })),
+        [scheduleMatrix.rows]
+    );
     const pad = (n: number) => String(n).padStart(2, "0");
-    const momentLabel = `Oggi alle ${pad(momentInstant.hour)}:${pad(momentInstant.minute)}`;
+    const nowTime = `${pad(nowRome.hour)}:${pad(nowRome.minute)}`;
     const showMoment = viewMode === "list" && !isLoading && !loadFailed && rules.length > 0 && scheduleMatrix.rows.length > 0;
+    // Il simulatore si apre sulla sede della card.
+    const [simulatorSeatId, setSimulatorSeatId] = useState<string | null>(null);
 
     const { activeRules, scheduledRules, draftRules, expiredRules, disabledRules } = useMemo(() => {
         const active: LayoutRule[] = [];
@@ -639,18 +681,11 @@ export default function Programming() {
         }
     }, [currentTenantId, catalogLabel, ruleTypeFilter, navigate, showToast]);
 
-    // Azioni della banda in ordine di lettura: la primaria è l'ultima ("Nuova
-    // regola"), "Simula regole" resta raggiungibile dal caret. Sulla tab "Tutte"
-    // la primaria non ha un tipo implicito da creare → apre lei stessa il menu
-    // dei quattro tipi, come faceva prima del passaggio a SplitButton.
+    // «Nuova regola» da sola (PG4): il simulatore si apre dalla card «Adesso».
+    // Sulla tab "Tutte" non ha un tipo implicito da creare → apre lei stessa il
+    // menu dei quattro tipi, nell'ordine delle tab.
     const headerSplitActions = useMemo<SplitButtonAction[]>(() => {
-        const actions: SplitButtonAction[] = [
-            {
-                label: "Simula regole",
-                onClick: () => setIsSimulatorDrawerOpen(true),
-                disabled: !currentTenantId
-            }
-        ];
+        const actions: SplitButtonAction[] = [];
 
         if (!canWrite) return actions;
 
@@ -664,9 +699,9 @@ export default function Programming() {
                       disabled,
                       items: [
                           { label: ruleTypeLabel("layout", catalogLabel), onClick: () => void handleCreateRule("layout") },
-                          { label: "In evidenza", onClick: () => void handleCreateRule("featured") },
+                          { label: "Disponibilità", onClick: () => void handleCreateRule("visibility") },
                           { label: "Prezzi", onClick: () => void handleCreateRule("price") },
-                          { label: "Disponibilità", onClick: () => void handleCreateRule("visibility") }
+                          { label: "In evidenza", onClick: () => void handleCreateRule("featured") }
                       ]
                   }
                 : { label, disabled, onClick: () => void handleCreateRule() }
@@ -716,8 +751,8 @@ export default function Programming() {
     ), [viewMode, searchTerm, headerSplitActions, isCreating]);
 
     const headerActions = useMemo(() => renderHeaderActions(0), [renderHeaderActions]);
-    const headerCondensed = useMemo(
-        () => ({ actions: [renderHeaderActions(1), renderHeaderActions(2)], stack: true }),
+    const headerNarrowerActions = useMemo(
+        () => [renderHeaderActions(1), renderHeaderActions(2)],
         [renderHeaderActions]
     );
 
@@ -763,7 +798,7 @@ export default function Programming() {
     usePageHeader({
         leading: headerLeading,
         actions: headerActions,
-        condensed: headerCondensed,
+        narrowerActions: headerNarrowerActions,
         compact: headerCompact,
     });
 
@@ -819,48 +854,34 @@ export default function Programming() {
         <PageGate readPermission="scheduling.read" activityId={filterActivityId}>
             {() => (
         <section className={styles.programming}>
-            {showMoment && (
-                <MomentBand
-                    timeLabel={momentLabel}
-                    headline={bandText.headline}
-                    manual={bandText.manual}
-                    hint={
-                        scheduleMatrix.rows.length > 1
-                            ? "Sposta l'ora per vedere la matrice in un altro momento della giornata. Vale per tutte le sedi insieme."
-                            : "Sposta l'ora per vedere la matrice in un altro momento della giornata."
-                    }
-                    minutes={cursorMinutes ?? nowSliderMinutes}
-                    onMinutesChange={setCursorMinutes}
-                    atNow={cursorMinutes === null}
-                    onBackToNow={() => setCursorMinutes(null)}
-                />
+            {/* Il filtro sede della pagina (§51.11): matrice, elenco e
+                Settimana. Con una sede sola non c'è niente da filtrare. */}
+            {readableSedi.length > 1 && (
+                <div className={styles.sedeFilter}>
+                    <Select
+                        aria-label="Sede"
+                        value={filterActivityId ?? ""}
+                        onChange={e => setFilterActivityId(e.target.value || null)}
+                        options={sedeFilterOptions}
+                    />
+                </div>
             )}
-            {showMoment && (
-                <SeatMatrix
-                    rows={scheduleMatrix.rows}
-                    atNow={cursorMinutes === null}
+            {showMoment && nowRow && (
+                <NowCard
+                    time={nowTime}
+                    row={nowRow}
+                    layers={nowLayers}
                     catalogLabel={catalogLabel}
-                    catalogName={matrixCatalogName}
-                    ruleHref={ruleHref}
-                    seatHref={seatHref}
+                    highlight={ruleTypeFilter === "all" ? null : ruleTypeFilter}
+                    seatOptions={nowSeatOptions}
+                    onSeatChange={setNowSeatId}
+                    subscriptionInactive={subscriptionInactive}
+                    onSimulate={() => {
+                        setSimulatorSeatId(nowRow.activityId);
+                        setIsSimulatorDrawerOpen(true);
+                    }}
                 />
             )}
-            <div className={styles.listHead}>
-                {/* La frase del tipo ha senso sopra un elenco, non sopra un
-                    vuoto (che porta già il proprio testo). */}
-                {(isLoading || filteredRules.length > 0) && (
-                    <div className={styles.tabDescription}>
-                        <Text variant="body-sm" colorVariant="muted">
-                            {typeOptions.find(o => o.value === ruleTypeFilter)?.description}
-                        </Text>
-                        <HowItWorksButton
-                            ref={helpTriggerRef}
-                            ruleType={ruleTypeFilter}
-                            onClick={openHelpModal}
-                        />
-                    </div>
-                )}
-            </div>
 
             {viewMode === "list" ? (
                 loadFailed ? (
@@ -875,7 +896,7 @@ export default function Programming() {
                         Non riusciamo a caricare le regole.
                     </InlineBanner>
                 ) : isLoading ? (
-                    <RuleTable {...tableProps} rules={[]} isLoading />
+                    <RuleTable {...tableProps} ariaLabel="Le regole" rules={[]} isLoading />
                 ) : filteredRules.length === 0 ? (
                     (searchTerm || filterActivityId) ? (
                         <EmptyState
@@ -974,14 +995,14 @@ export default function Programming() {
                                             />
                                         )}
                                     </div>
-                                    {group.open && <RuleTable {...tableProps} rules={group.rules} />}
+                                    {group.open && <RuleTable {...tableProps} ariaLabel={group.title} rules={group.rules} />}
                                 </section>
                             ))}
                     </div>
                 )
             ) : (
                 <CalendarView
-                    rules={rules}
+                    rules={seatRules}
                     ruleTypeFilter={ruleTypeFilter}
                     onRuleClick={rule => navigate(ruleHref(rule))}
                 />
@@ -996,18 +1017,27 @@ export default function Programming() {
             <RuleSimulatorDrawer
                 open={isSimulatorDrawerOpen}
                 onClose={() => setIsSimulatorDrawerOpen(false)}
-                tenantId={currentTenantId!}
                 rules={rules}
                 activities={activities}
                 activityIdsByGroupId={activityIdsByGroupId}
                 catalogById={catalogById}
                 subscriptionInactive={subscriptionInactive}
                 ruleHref={ruleHref}
+                seatHref={seatHref}
+                manualCounts={manualCounts}
+                initialActivityId={simulatorSeatId}
+                helpRuleType={ruleTypeFilter}
+                helpRef={simulatorHelpRef}
+                onHowItWorks={() => {
+                    setHelpFromSimulator(true);
+                    setReturnHelpFocus(true);
+                    setIsHelpModalOpen(true);
+                }}
             />
             <RuleTypeHelpModal
                 isOpen={isHelpModalOpen}
                 ruleType={ruleTypeFilter}
-                triggerRef={helpTriggerRef}
+                triggerRef={helpFromSimulator ? simulatorHelpRef : helpTriggerRef}
                 returnFocusOnClose={returnHelpFocus}
                 onClose={() => setIsHelpModalOpen(false)}
                 onSimulate={() => {

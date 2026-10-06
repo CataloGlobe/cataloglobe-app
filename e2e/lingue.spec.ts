@@ -51,6 +51,8 @@ test.describe("Lingue", () => {
     test("riepilogo, lingua base e stato di ogni lingua", async ({ page }) => {
         await openPage(page);
         await expect(main(page).getByText("3 lingue attive")).toBeVisible();
+        // T13: la frase della testata ora sta nel riepilogo.
+        await expect(main(page).getByText(/· i contenuti esistenti vengono tradotti in pochi minuti$/)).toBeVisible();
         await expect(main(page).getByText("50 elementi traducibili")).toBeVisible();
         await expect(main(page).getByText("alcune da risolvere")).toBeVisible();
         await expect(main(page).getByText("Lingua base")).toBeVisible();

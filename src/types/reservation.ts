@@ -63,6 +63,15 @@ export interface V2Reservation {
     customer_phone_digits?: string;
     notes: string | null;
     /**
+     * Allergie scritte dal cliente nel modulo pubblico, solo con consenso
+     * esplicito (migration 20261005230000). Sola lettura in back office:
+     * azzerate dalla purge insieme alle note. Opzionali finché la migration
+     * non è applicata ovunque.
+     */
+    allergies?: string | null;
+    allergies_consent_at?: string | null;
+    allergies_consent_version?: string | null;
+    /**
      * Profilo ospite agganciato dal trigger `reservations_link_guest`
      * (migration 20260902120002). NULL quando `customer_phone_e164` è NULL:
      * un numero che non sappiamo canonicalizzare non è un'identità, e la

@@ -3,33 +3,49 @@
 // con container-type → nessun containing block imprevisto per il fixed).
 // z-index 100: fascia libera 31–149 — sopra header sticky (30) e FAB (55/60),
 // SOTTO PublicBottomBar (150), toast/SearchOverlay (200), PublicSheet (900).
-// Nessun transform/transition/will-change: i layer backdrop-filter devono
-// restare statici sul compositor.
+// Nessun transform/will-change: i layer backdrop-filter devono restare
+// statici sul compositor. Unica transizione: opacity, quando si nasconde
+// insieme alla barra (tutto o niente, data-hidden).
 
-$scrim-height: 120px;
-
-// Clearance inferiore per i contenitori scrollabili pubblici che stanno SOTTO lo
-// scrim: 120px (altezza dello scrim, $scrim-height) + 16px di respiro = 136px.
-// La safe-area resta a parte e va SOMMATA dal consumer:
-//   padding-bottom: calc(var(--pub-scrim-clearance) + env(safe-area-inset-bottom, 0px))
-// (mai `max()`: su iPhone con home indicator la safe-area va aggiunta, non confrontata).
-// Definito su :root — stesso selettore di `--pub-bottombar-clearance` in
-// PublicBottomBar.module.scss — perché footer e Storie sono SIBLING dello scrim,
-// non discendenti: su `.root` non erediterebbero e var() cadrebbe sul fallback.
-// Distinto da `--pub-bottombar-clearance` (86px = ingombro reale della pill):
-// concetti diversi, devono poter divergere. Se $scrim-height cambia, aggiorna qui.
-:global(:root) {
-  --pub-scrim-clearance: #{$scrim-height + 16px};
-}
+// Altezza = `--pub-bottom-clearance` (definita su `.page`, CollectionView
+// .module.scss): distanza dal fondo + altezza misurata della barra + gap. Così
+// lo scrim finisce esattamente dove a riposo finisce il contenuto (stessa
+// variabile del padding-bottom di footer / Storie / empty state).
 
 .root {
   position: fixed;
   left: 0;
   right: 0;
   bottom: 0;
-  height: calc(#{$scrim-height} + env(safe-area-inset-bottom, 0px));
+  height: var(--pub-bottom-clearance);
   z-index: 100;
   pointer-events: none;
+  // Stessi tempi della barra (PublicBottomBar.module.scss .barWrap): entrata
+  // 280ms, uscita 220ms ease-in, reduced motion 150ms.
+  visibility: visible;
+  transition:
+    opacity 280ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    visibility 0s linear 0s;
+
+  &[data-hidden] {
+    opacity: 0;
+    visibility: hidden;
+    transition:
+      opacity 220ms ease-in,
+      visibility 0s linear 220ms;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition:
+      opacity 150ms ease,
+      visibility 0s linear 0s;
+
+    &[data-hidden] {
+      transition:
+        opacity 150ms ease,
+        visibility 0s linear 150ms;
+    }
+  }
 
   // CSS-driven split (stesso pattern di PublicBottomBar .barWrap): montato
   // sempre in public, visibile solo ≤640px. Esclusa la preview ([data-preview]):
@@ -45,11 +61,11 @@ $scrim-height: 120px;
    `.deviceScreen` è lo scroll container: position:fixed si ancorerebbe alla
    finestra dell'editor, non al frame → sticky bottom (come .barWrap[data-preview]).
    Il margin-top negativo pari all'altezza evita che l'overlay aggiunga flow in
-   fondo alla preview. In preview la safe-area vale 0 → 120px netti. */
+   fondo alla preview. */
 .root[data-preview] {
   position: sticky;
   bottom: 0;
-  margin-top: calc(-1 * #{$scrim-height} - env(safe-area-inset-bottom, 0px));
+  margin-top: calc(-1 * var(--pub-bottom-clearance));
 }
 
 /* ── Strato A — scrim gradiente ─────────────────────────────────────────────

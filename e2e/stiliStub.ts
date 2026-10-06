@@ -16,7 +16,7 @@ import { appearanceTables, enrichAppearance, freezeClock, sediOf } from "./appea
  * |---|---|---|---|---|
  * | Pranzo e2e | Estate | tutte | sempre | Attivo adesso (Centro, Porto) |
  * | Sera Porto e2e | Stile base | Porto | 18–21 | Programmato |
- * | Autunno spenta e2e | Autunno | tutte | spenta | Solo su regole ferme |
+ * | Autunno spenta e2e | Autunno | tutte | spenta | Nessuna regola attiva |
  *
  * Sera e Notte non vestono niente.
  */

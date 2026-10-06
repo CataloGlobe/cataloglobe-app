@@ -154,6 +154,7 @@ export function PairingProductPicker({
 
                 <div className={styles.pickerTableWrap}>
                     <DataTable<ProductPickerItem>
+                        ariaLabel="Prodotti da abbinare"
                         data={filtered}
                         allRowIds={products.map(p => p.id)}
                         columns={columns}

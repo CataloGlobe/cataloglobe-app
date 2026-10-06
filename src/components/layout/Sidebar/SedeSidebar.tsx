@@ -1,91 +1,29 @@
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, CalendarCheck, ClipboardList, Eye, LayoutGrid, Store } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { ArrowLeft } from "lucide-react";
 import Text from "@/components/ui/Text/Text";
-import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
-import { usePermissions } from "@/context/PermissionsContext";
-import { canDoOnActivity } from "@/lib/permissions";
+import { usePermissions } from "@/context/usePermissions";
 import { usePlanFeatures } from "@/lib/planFeatures";
-import { useActivitiesCount, useActivitySummary } from "@/hooks/useActivitySummary";
+import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import { AppSidebar } from "@/components/layout/AppSidebar/AppSidebar";
-import { buildSidebarGroups, type SidebarNavGroup } from "./sidebarItems";
+import { NAV_MODELS } from "@/utils/navModel";
+import { buildSidebarGroups } from "./sidebarItems";
+import { navSidebarGroups } from "./navSidebarGroups";
+import type { SidebarSignalProps } from "./TenantSidebar";
 import styles from "./SedeSidebar.module.scss";
 
 /**
- * SedeSidebar — il costruttore delle voci del contesto **sede** (§46.1).
- * Entrando in un locale la sidebar diventa la sua: cinque voci, e sopra
- * l'intestazione che dice dove sei e come si esce.
+ * SedeSidebar — il costruttore delle voci **dentro una sede**, quando chi
+ * guarda ne legge più di una (§51.4): il locale, Operatività, Andamento
+ * della sede. In testa solo «← Tutte le sedi»: nome e stato della sede
+ * stanno nell'header (§51.7).
  *
  * I permessi si chiedono **su questa sede** (`canDoOnActivity`): dentro il
  * contesto la domanda è «posso qui», non «posso da qualche parte».
- *
- * Comande e Prenotazioni sono le pagine d'azienda montate sulle rotte della
- * sede: prendono la sede dal path (`useActivityScope`), quindi la voce porta
- * sempre su questa sede e non su quella che il selettore ricordava.
  */
 
-function buildGroups(businessId: string, activityId: string): SidebarNavGroup[] {
-    const s = `/business/${businessId}/locations/${activityId}`;
-    return [
-        {
-            title: "Servizio",
-            items: [
-                {
-                    to: `${s}/comande`,
-                    label: "Comande",
-                    icon: <ClipboardList size={18} />,
-                    permission: perms => canDoOnActivity(perms, "orders.read", activityId),
-                    requiresFeature: "table_ordering"
-                },
-                {
-                    to: `${s}/prenotazioni`,
-                    label: "Prenotazioni",
-                    icon: <CalendarCheck size={18} />,
-                    permission: perms => canDoOnActivity(perms, "reservations.read", activityId),
-                    requiresFeature: "table_reservation"
-                },
-                {
-                    to: `${s}/sala`,
-                    label: "Sala",
-                    icon: <LayoutGrid size={18} />,
-                    permission: perms => canDoOnActivity(perms, "tables.read", activityId)
-                }
-            ]
-        },
-        {
-            title: "Clienti",
-            items: [
-                {
-                    // Diventerà «Cosa vedono i clienti» con la §19: il nome
-                    // nuovo prometterebbe una pagina che non c'è ancora.
-                    to: `${s}/disponibilita`,
-                    label: "Disponibilità",
-                    icon: <Eye size={18} />,
-                    // Chi legge la sede la vede in sola lettura; scrive chi ha
-                    // `activity.manage`, lo stesso permesso delle RLS (D2, §50.14).
-                    // `product_availability.write` resta al gate degli ordini.
-                    permission: perms => canDoOnActivity(perms, "activity.read", activityId)
-                }
-            ]
-        },
-        {
-            title: "Il locale",
-            items: [
-                {
-                    to: `${s}/anagrafica`,
-                    label: "Scheda",
-                    icon: <Store size={18} />,
-                    // Una voce, quattro pagine: resta accesa anche su Orari,
-                    // Ordini e prenotazioni, Pubblicazione.
-                    matchPrefixes: [`${s}/orari`, `${s}/ordini-prenotazioni`, `${s}/pubblicazione`],
-                    permission: perms => canDoOnActivity(perms, "activity.read", activityId)
-                }
-            ]
-        }
-    ];
-}
-
-export interface SedeSidebarProps {
+export interface SedeSidebarProps extends SidebarSignalProps {
     isMobile: boolean;
     mobileOpen: boolean;
     collapsed: boolean;
@@ -93,64 +31,64 @@ export interface SedeSidebarProps {
     onToggleCollapse: () => void;
 }
 
+const BACK_LABEL = "Tutte le sedi";
+
 export default function SedeSidebar({
     isMobile,
     mobileOpen,
     collapsed,
     onRequestClose,
-    onToggleCollapse
+    onToggleCollapse,
+    translationPendingCount = 0,
+    importInProgress = false,
+    supportUnread = false
 }: SedeSidebarProps) {
     const { businessId = "", activityId = "" } = useParams<{ businessId: string; activityId: string }>();
+    const { t } = useTranslation("admin");
+    const { catalogLabel } = useVerticalConfig();
     const { permissions } = usePermissions();
     const { hasFeature } = usePlanFeatures();
-    const summary = useActivitySummary(activityId);
-    const activitiesCount = useActivitiesCount();
+    const { groups, footer } = navSidebarGroups(NAV_MODELS.sede, {
+        businessId,
+        activityId,
+        catalogLabel
+    });
+    const options = {
+        permissions,
+        hasFeature,
+        signals: {
+            translationPendingCount,
+            translationLabel: t("sidebar.translations_in_progress"),
+            importInProgress,
+            supportUnread
+        }
+    };
 
-    const groups = buildSidebarGroups(buildGroups(businessId, activityId), { permissions, hasFeature });
-
-    // Con una sede sola non esiste un «tutte»: si torna all'azienda.
-    const single = activitiesCount === 1;
-    const backLabel = single ? "Azienda" : "Tutte le sedi";
-    const backTo = single ? `/business/${businessId}/overview` : `/business/${businessId}/locations`;
+    const backTo = `/business/${businessId}/locations`;
     const collapsedDesktop = !isMobile && collapsed;
 
+    // Stessa riga aperta e chiusa: chiusa resta la freccia, il nome passa al
+    // tooltip (§51.15).
     const back = (
         <Link to={backTo} className={styles.back} onClick={() => isMobile && onRequestClose()}>
-            <ArrowLeft size={16} aria-hidden="true" />
-            <Text as="span" variant="caption">
-                {backLabel}
+            <ArrowLeft size={18} aria-hidden="true" />
+            <Text as="span" variant="body-sm" className={styles.backLabel}>
+                {BACK_LABEL}
             </Text>
         </Link>
     );
-
     const header = collapsedDesktop ? (
-        <div className={styles.headerCollapsed}>
-            <Tooltip content={summary ? `${backLabel} · ${summary.name}` : backLabel} side="right" sideOffset={28}>
-                <Link to={backTo} className={styles.back} aria-label={backLabel}>
-                    <ArrowLeft size={16} aria-hidden="true" />
-                </Link>
-            </Tooltip>
-        </div>
-    ) : (
-        <div className={styles.header}>
+        <Tooltip content={BACK_LABEL} side="right" sideOffset={12}>
             {back}
-            {summary && (
-                <>
-                    <Text as="span" variant="body-sm" weight={600} className={styles.name}>
-                        {summary.name}
-                    </Text>
-                    <StatusBadge
-                        variant={summary.status === "inactive" ? "neutral" : "success"}
-                        label={summary.status === "inactive" ? "Sospesa" : "Pubblicata"}
-                    />
-                </>
-            )}
-        </div>
+        </Tooltip>
+    ) : (
+        back
     );
 
     return (
         <AppSidebar
-            groups={groups}
+            groups={buildSidebarGroups(groups, options)}
+            footerItems={buildSidebarGroups(footer, options).flatMap(g => g.items)}
             isMobile={isMobile}
             mobileOpen={mobileOpen}
             collapsed={collapsed}

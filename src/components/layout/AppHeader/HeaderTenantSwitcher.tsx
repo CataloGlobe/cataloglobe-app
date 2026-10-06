@@ -39,7 +39,8 @@ export function HeaderTenantSwitcher() {
         setOpen(false);
         if (id !== selectedTenantId) {
             selectTenant(id);
-            navigate(`/business/${id}/overview`);
+            // Si entra dall'indice dell'azienda (D1): sede o Panoramica.
+            navigate(`/business/${id}`);
         }
     };
 
@@ -53,7 +54,7 @@ export function HeaderTenantSwitcher() {
             <button
                 type="button"
                 className={styles.tenantButton}
-                aria-label={`Cambia tenant. Selezionato: ${selectedTenant.name}`}
+                aria-label={`Azienda: ${selectedTenant.name}`}
                 aria-expanded={open}
                 aria-haspopup="menu"
                 onClick={() => setOpen(v => !v)}
@@ -65,7 +66,7 @@ export function HeaderTenantSwitcher() {
 
             {open && (
                 <div className={styles.tenantList} role="menu">
-                    <div className={styles.tenantListHeader}>I tuoi tenant</div>
+                    <div className={styles.tenantListHeader}>Le tue aziende</div>
                     {tenants.map(t => {
                         const isSelected = t.id === selectedTenantId;
                         return (

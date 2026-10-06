@@ -108,3 +108,45 @@ export async function runWithRetry<T>(
 
     return { ok: false, error: lastErr, attempts, budgetExhausted };
 }
+
+/**
+ * L'errore di `getUser` dice davvero «nessuna sessione»: nessuna sessione in
+ * locale (`AuthSessionMissingError`) o sessione rifiutata dal server (401 /
+ * 403: revocata, utente eliminato). Timeout, rete e 5xx non dicono niente
+ * sulla sessione: il server non ha risposto.
+ */
+export function isDefinitiveNoSession(err: unknown): boolean {
+    const e = err as { name?: string; status?: number };
+    if (e?.name === "AuthSessionMissingError") return true;
+    return e?.status === 401 || e?.status === 403;
+}
+
+export type BootstrapUser<U> = {
+    user: U | null;
+    /** `local`: il server non ha risposto, vale la sessione salvata. */
+    source: "server" | "local" | "none";
+    error?: unknown;
+};
+
+/**
+ * Utente all'avvio: `fetchUser` (il server) con retry e budget; se il server
+ * non risponde senza aver detto «nessuna sessione», resta l'utente della
+ * sessione locale valida (`readLocalUser`). Un'auth lenta non è un logout.
+ */
+export async function resolveBootstrapUser<U>(
+    fetchUser: () => Promise<U | null>,
+    readLocalUser: () => Promise<U | null>,
+    opts: RetryOptions
+): Promise<BootstrapUser<U>> {
+    const res = await runWithRetry(fetchUser, opts);
+    if (res.ok) return { user: res.value, source: res.value ? "server" : "none" };
+    if (isDefinitiveNoSession(res.error)) return { user: null, source: "none", error: res.error };
+
+    let local: U | null = null;
+    try {
+        local = await readLocalUser();
+    } catch {
+        local = null;
+    }
+    return { user: local, source: local ? "local" : "none", error: res.error };
+}

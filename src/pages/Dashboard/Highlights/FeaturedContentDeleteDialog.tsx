@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
-import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
+import { useCallback, useEffect, useState } from "react";
+import { ConfirmDialogShell } from "@/components/ui/ConfirmDialog/ConfirmDialogShell";
+import { Button } from "@/components/ui/Button/Button";
 import { useToast } from "@/context/Toast/ToastContext";
 import {
     deleteFeaturedContent,
@@ -30,7 +31,12 @@ function impactSentence(impact: FeaturedContentDeleteImpact | null): string {
     return `${where}${drafts}Non si torna indietro.`;
 }
 
-/** Elimina un contenuto in evidenza: ConfirmDialog con l'impatto (§50.11, come Prodotti). */
+/**
+ * Elimina un contenuto in evidenza: conferma con l'impatto (§50.11, come
+ * Prodotti). Fail-closed: se il conteggio non arriva il dialogo lo dice,
+ * «Elimina» resta spento e «Riprova» rilegge; mai una conferma che tace le
+ * regole da cui il contenuto sparirebbe.
+ */
 export default function FeaturedContentDeleteDialog({
     open,
     onClose,
@@ -40,27 +46,33 @@ export default function FeaturedContentDeleteDialog({
 }: FeaturedContentDeleteDialogProps) {
     const { showToast } = useToast();
     const [impact, setImpact] = useState<FeaturedContentDeleteImpact | null>(null);
+    const [impactFailed, setImpactFailed] = useState(false);
+    const [attempt, setAttempt] = useState(0);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     useEffect(() => {
         if (!open || !featured) return;
         setImpact(null);
+        setImpactFailed(false);
         let cancelled = false;
         countFeaturedContentDeleteImpact(featured.id, tenantId)
             .then(result => {
                 if (!cancelled) setImpact(result);
             })
             .catch(err => {
-                // Senza impatto la conferma resta possibile: dice solo che non si torna indietro.
                 console.warn("[FeaturedContentDeleteDialog] impact fetch failed:", err);
-                if (!cancelled) setImpact({ rules: 0, products: 0 });
+                if (!cancelled) setImpactFailed(true);
             });
         return () => {
             cancelled = true;
         };
-    }, [open, featured, tenantId]);
+    }, [open, featured, tenantId, attempt]);
 
-    const handleDelete = async (): Promise<boolean> => {
-        if (!featured) return false;
+    const retry = useCallback(() => setAttempt(n => n + 1), []);
+
+    const handleDelete = async (): Promise<void> => {
+        if (!featured || impactFailed) return;
+        setIsDeleting(true);
         try {
             const result = await deleteFeaturedContent(featured.id, tenantId);
             const moved = result.schedules_disabled;
@@ -73,22 +85,43 @@ export default function FeaturedContentDeleteDialog({
             });
             await onSuccess();
             onClose();
-            return true;
         } catch (error) {
             console.error("Errore nell'eliminazione del contenuto in evidenza:", error);
             showToast({ message: "Impossibile eliminare il contenuto.", type: "error" });
-            return false;
+        } finally {
+            setIsDeleting(false);
         }
     };
 
     return (
-        <ConfirmDialog
+        <ConfirmDialogShell
             isOpen={open && featured !== null}
             onClose={onClose}
-            onConfirm={handleDelete}
+            locked={isDeleting}
             title={`Eliminare «${featured?.internal_name ?? ""}»?`}
-            message={impactSentence(impact)}
-            confirmLabel="Elimina contenuto"
+            message={impactFailed ? undefined : impactSentence(impact)}
+            error={impactFailed ? "Non riesco a controllare dove è usato: senza saperlo non lo elimino." : null}
+            footer={
+                <>
+                    <Button variant="secondary" size="sm" onClick={onClose} disabled={isDeleting} data-autofocus>
+                        Annulla
+                    </Button>
+                    {impactFailed && (
+                        <Button variant="secondary" size="sm" onClick={retry}>
+                            Riprova
+                        </Button>
+                    )}
+                    <Button
+                        variant="danger"
+                        size="sm"
+                        onClick={() => void handleDelete()}
+                        loading={isDeleting}
+                        disabled={impactFailed}
+                    >
+                        Elimina contenuto
+                    </Button>
+                </>
+            }
         />
     );
 }

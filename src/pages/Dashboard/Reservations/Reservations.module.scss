@@ -44,20 +44,61 @@
   padding: var(--space-12) var(--space-16) 0;
 }
 
-.inboxStaleHeader {
-  padding: var(--space-12) var(--space-16) var(--space-4);
+// T14 PN2: la riga chiusa delle scadute, tutta cliccabile.
+.inboxStaleToggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  width: 100%;
+  padding: var(--space-12) var(--space-16);
+  border: 0;
   border-top: 1px solid var(--border);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--hover-bg);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-focus);
+  }
 }
 
-/* Etichetta di gruppo dentro una lista («Scadute · 1»). */
-.sectionLabel {
-  margin: 0;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+.inboxStaleHint {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
-.sectionHint {
-  margin: 0;
+.inboxStaleMore {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  color: var(--brand-primary);
+
+  svg {
+    transition: transform 0.15s ease;
+  }
+
+  .chevronOpen {
+    transform: rotate(180deg);
+  }
+}
+
+// «Conferma»: secondario indigo chiaro, accanto a «Rifiuta».
+.rowActions .confirmAction {
+  background: var(--brand-primary-soft);
+  border-color: transparent;
+  color: var(--brand-primary);
+
+  &:hover:not(:disabled) {
+    background: var(--brand-primary-soft);
+    border-color: var(--brand-primary);
+  }
 }
 
 .rowActions {
@@ -116,11 +157,17 @@
 
 /* Barra dell'Agenda: la settimana (‹ intervallo › [Oggi]) a destra, il
    filtro delle annullate in coda. Bottoni e interruttore sono di sistema. */
+.agendaNav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  flex-wrap: wrap;
+}
+
 .weekNav {
   display: inline-flex;
   align-items: center;
   gap: var(--space-4);
-  margin-left: auto;
 }
 
 .weekNavLabel {

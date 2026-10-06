@@ -13,6 +13,7 @@ import { TextInput } from "@/components/ui/Input/TextInput";
 import Text from "@/components/ui/Text/Text";
 import { CheckboxInput } from "@/components/ui/Input/CheckboxInput";
 import { AuthLayout } from "@/layouts/AuthLayout/AuthLayout";
+import { COMPANY } from "@/config/company";
 import styles from "./Auth.module.scss";
 
 function isRateLimitError(message: string): boolean {
@@ -32,6 +33,7 @@ export default function Login() {
     const [isRecovering, setIsRecovering] = useState(false);
     const [recoveryError, setRecoveryError] = useState<string | null>(null);
     const [recoverySuccess, setRecoverySuccess] = useState(false);
+    const [recoveryPartial, setRecoveryPartial] = useState(false);
     const [recoveryOtpSent, setRecoveryOtpSent] = useState(false);
     const [recoveryCode, setRecoveryCode] = useState("");
 
@@ -75,6 +77,7 @@ export default function Login() {
         setIsBanned(false);
         setRecoveryError(null);
         setRecoverySuccess(false);
+        setRecoveryPartial(false);
         setLoading(true);
 
         try {
@@ -131,6 +134,12 @@ export default function Login() {
                 setRecoveryError(
                     "Il periodo di recupero è scaduto. L\u2019account è stato eliminato definitivamente."
                 );
+                setRecoveryOtpSent(false);
+            } else if (message === "partial_success") {
+                // Account già riattivato: il recupero non si può ripetere,
+                // e il codice è consumato. Si chiude il flusso e si avvisa.
+                setRecoveryPartial(true);
+                setIsBanned(false);
                 setRecoveryOtpSent(false);
             } else {
                 setRecoveryError("Codice non valido o scaduto. Riprova.");
@@ -256,6 +265,16 @@ export default function Login() {
                         Account ripristinato con successo. Puoi effettuare di nuovo
                         l&apos;accesso.
                     </Text>
+                )}
+
+                {recoveryPartial && (
+                    <InlineBanner variant="warning">
+                        Il tuo account è di nuovo attivo, ma non siamo riusciti a sbloccare le tue
+                        aziende. Scrivi subito a{" "}
+                        <a href={`mailto:${COMPANY.contact.support}`}>{COMPANY.contact.support}</a>:
+                        senza un nostro intervento vengono eliminate 30 giorni dopo la richiesta
+                        di eliminazione.
+                    </InlineBanner>
                 )}
 
                 {rateLimited && (

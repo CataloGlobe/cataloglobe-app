@@ -16,19 +16,23 @@ type Props = {
 
 /**
  * Recensioni (ex «Review Guard»): la media come numero eroe, la distribuzione
- * a una serie sola (§34.10), i rimandi a Google come conteggio. Le recensioni
- * in attesa col rimando alla coda arrivano col lotto della moderazione (A1).
+ * a una serie sola (§34.10), i rimandi a Google come conteggio. Conta tutti i
+ * voti lasciati (eventi `review_submitted`): sono feedback privato, senza stato.
  */
 export default function ReviewsSection({ data, isLoading }: Props) {
     const navigate = useNavigate();
-    const { businessId } = useParams<{ businessId: string }>();
+    const { businessId, activityId } = useParams<{ businessId: string; activityId?: string }>();
+    // Dentro la sede, le recensioni della sede (§51.10).
+    const reviewsPath = activityId
+        ? `/business/${businessId}/locations/${activityId}/recensioni`
+        : `/business/${businessId}/reviews`;
     const total = data?.total ?? 0;
 
     return (
         <Card
             title="Recensioni"
             actions={
-                <Button variant="ghost" size="sm" onClick={() => navigate(`/business/${businessId}/reviews`)}>
+                <Button variant="ghost" size="sm" onClick={() => navigate(reviewsPath)}>
                     Vai alle recensioni
                 </Button>
             }

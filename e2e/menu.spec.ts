@@ -331,7 +331,7 @@ test.describe("Menù — dettaglio", () => {
         for (let i = 1; i < boxes.length; i++) {
             expect(Math.round(boxes[i].y - (boxes[i - 1].y + boxes[i - 1].height))).toBe(4);
         }
-        const plus = main(page).getByRole("button", { name: "Nuova categoria" });
+        const plus = main(page).getByRole("button", { name: "Aggiungi categoria" });
         await expect(plus).toHaveCount(1);
         expect((await plus.boundingBox())!.y).toBeLessThan(boxes[0].y);
         expect(Math.abs((await plus.boundingBox())!.y - (await main(page).getByText("Categorie", { exact: true }).first().boundingBox())!.y)).toBeLessThan(12);
@@ -545,7 +545,7 @@ test.describe("Menù — dettaglio", () => {
     test("crea una categoria principale: POST con livello e genitore", async ({ page }) => {
         stub.onWrite("catalog_categories.POST", ({ body }) => ({ id: "e2e0c000-0000-4000-a000-000000000999", created_at: new Date().toISOString(), ...(body as object[])[0] }));
         await openCarta(page);
-        await main(page).getByRole("button", { name: "Nuova categoria" }).first().click();
+        await main(page).getByRole("button", { name: "Aggiungi categoria" }).first().click();
         await dialog(page).getByRole("textbox", { name: /Nome/ }).fill("Contorni");
         await dialog(page).getByRole("button", { name: /^(Salva|Crea)$/ }).click();
         await expect.poll(() => write(stub, "catalog_categories.POST")).toBeTruthy();
@@ -559,7 +559,7 @@ test.describe("Menù — dettaglio", () => {
         await selectCategory(page, "Antipasti");
         await renameCategory(page, "Stuzzichini");
 
-        await expect(main(page).getByRole("button", { name: "Nuova categoria" })).toBeDisabled();
+        await expect(main(page).getByRole("button", { name: "Aggiungi categoria" })).toBeDisabled();
         await expect(main(page).getByText("Con modifiche da salvare si rinomina e si riordina soltanto.")).toBeVisible();
         await main(page).getByRole("button", { name: /^Azioni della/ }).click();
         for (const item of [/^Sposta in/, /^Crea sotto-categoria/, /^Elimina/]) {
@@ -629,7 +629,7 @@ test.describe("Menù — dettaglio", () => {
         await stub.revoked;
         await selectCategory(page, "Antipasti");
         await expect(main(page).getByText("Olive ascolane", { exact: true })).toBeVisible();
-        await expect(main(page).getByRole("button", { name: "Nuova categoria" })).toHaveCount(0);
+        await expect(main(page).getByRole("button", { name: "Aggiungi categoria" })).toHaveCount(0);
         await expect(main(page).getByRole("button", { name: /^Azioni della/ })).toHaveCount(0);
         await expect(main(page).getByRole("button", { name: /Aggiungi prodott/ })).toHaveCount(0);
         await expect(main(page).getByRole("button", { name: /^Riordina/ })).toHaveCount(0);
@@ -692,53 +692,68 @@ test.describe("Menù — dove è attivo (§50.13)", () => {
         await expect(table.getByRole("row", { name: /Carta e2e/ })).toContainText("Attivo adesso in Centro e2e");
         await expect(table.getByRole("row", { name: /Pranzo e2e/ })).toContainText("Su 1 sede, non adesso");
         await expect(table.getByRole("row", { name: /Vuoto e2e/ })).toContainText("Non assegnato a nessuna sede");
-        // Lo swatch dello stile accanto al nome, dove una regola viva lo porta.
-        await expect(table.getByRole("row", { name: /Carta e2e/ }).getByRole("img", { name: "Stile Estate e2e" })).toBeVisible();
+        // Il campione dello stile vive solo in Stili: nell'elenco niente.
+        await expect(table.getByRole("row", { name: /Carta e2e/ }).getByRole("img", { name: /^Stile / })).toHaveCount(0);
     });
 
-    test("griglia: stato, categorie vuote e swatch dello stile sulla card", async ({ page }) => {
+    test("griglia: stato e categorie vuote sulla card, senza campione dello stile", async ({ page }) => {
         await openList(page);
         await page.getByRole("radio", { name: "Vista griglia" }).click();
         const carta = cardOf(page, "Carta e2e");
         await expect(carta).toContainText("Attivo adesso in Centro e2e");
         // Dessert non ha prodotti: il cliente non la vede, l'elenco lo dice.
         await expect(carta).toContainText(/7 categorie · 22 prodotti · 1 vuota/);
-        await expect(carta.getByRole("img", { name: "Stile Estate e2e" })).toBeVisible();
+        // M2: sulla card niente campione dello stile.
+        await expect(carta.getByRole("img", { name: /^Stile / })).toHaveCount(0);
         await expect(carta).not.toContainText("Creato il");
-        // Pranzo: la sua regola è viva, la sede è sospesa. Lo stile è quello della regola.
+        // Pranzo: la sua regola è viva, la sede è sospesa.
         await expect(cardOf(page, "Pranzo e2e")).toContainText("Su 1 sede, non adesso");
-        await expect(cardOf(page, "Pranzo e2e").getByRole("img", { name: "Stile Base e2e" })).toBeVisible();
         await expect(cardOf(page, "Vuoto e2e")).toContainText("Non assegnato a nessuna sede");
-        await expect(cardOf(page, "Vuoto e2e").getByRole("img", { name: /^Stile / })).toHaveCount(0);
+        // Ordine (M2): prima quelli attivi adesso, poi per nome.
+        const names = await main(page).getByRole("list", { name: "Menù" }).getByRole("listitem").evaluateAll(items =>
+            items.map(i => i.querySelector("a")?.textContent ?? "")
+        );
+        expect(names.findIndex(n => n.includes("Carta e2e"))).toBe(0);
     });
 
-    test("griglia: in onda con due stili, il campione è il primo e «+1 stile» lo dice", async ({ page }) => {
+    test("in onda con due stili: card ed elenco dicono solo lo stato", async ({ page }) => {
         await page.unrouteAll({ behavior: "ignoreErrors" });
         stub = await stubMenu(page, { twoStyles: true });
         await openList(page);
         await page.getByRole("radio", { name: "Vista griglia" }).click();
         const carta = cardOf(page, "Carta e2e");
         await expect(carta).toContainText("Attivo adesso in 2 sedi");
-        await expect(carta).toContainText("+1 stile");
-        await expect(carta.getByRole("img", { name: "Stile Estate e2e (+1 stile)" })).toBeVisible();
+        await expect(carta).not.toContainText("+1 stile");
+        await page.getByRole("radio", { name: "Vista lista" }).click();
+        const row = main(page).getByRole("row").filter({ hasText: "Carta e2e" });
+        await expect(row).toContainText("Attivo adesso in 2 sedi");
+        await expect(row).not.toContainText("+1 stile");
+        await expect(row.getByRole("img", { name: /^Stile / })).toHaveCount(0);
     });
 
-    test("dettaglio: la banda nomina ogni sede e perché non è in onda", async ({ page }) => {
+    test("dettaglio: la barra dice dove è attivo, il pannello nomina ogni sede e perché", async ({ page }) => {
         await openCarta(page);
-        await expect(main(page).getByText("Attivo adesso in Centro e2e")).toBeVisible();
-        const seats = main(page).getByRole("list", { name: "Dove è attivo" });
-        await expect(seats.getByRole("listitem")).toHaveCount(2);
-        await expect(seats.getByRole("listitem").filter({ hasText: "Centro e2e" })).toContainText("Pranzo Centro e2e");
-        await expect(seats.getByRole("listitem").filter({ hasText: "Porto e2e" })).toContainText("non in finestra adesso");
-        await expect(main(page).getByText("Quello che cambi qui lo vedono subito.")).toBeVisible();
+        const pill = page.getByRole("button", { name: "Dove è attivo: Attivo adesso in Centro e2e" });
+        await expect(pill).toBeVisible();
+        await expect(page.getByText("Le modifiche salvate vanno subito online")).toBeVisible();
+        // La card sopra l'albero non c'è più (MD2).
+        await expect(main(page).getByRole("list", { name: "Dove è attivo" })).toHaveCount(0);
+        await pill.click();
+        const seats = page.getByRole("menu").getByRole("menuitem");
+        await expect(seats).toHaveCount(2);
+        await expect(seats.filter({ hasText: "Centro e2e" })).toContainText("Pranzo Centro e2e");
+        await expect(seats.filter({ hasText: "Porto e2e" })).toContainText("non in finestra adesso");
+        // Si chiude con Esc.
+        await page.keyboard.press("Escape");
+        await expect(page.getByRole("menu")).toHaveCount(0);
     });
 
     test("dettaglio: un menù senza regole si lavora senza che nessuno veda", async ({ page }) => {
         await openList(page);
         await main(page).getByText("Vuoto e2e").click();
         await expect(page).toHaveURL(new RegExp(`/catalogs/${MENU.vuoto}`));
-        await expect(main(page).getByText("Non assegnato a nessuna sede")).toBeVisible({ timeout: 15_000 });
-        await expect(main(page).getByText(/Puoi lavorarci senza che nessuno veda niente/)).toBeVisible();
+        await expect(page.getByText("Non assegnato a nessuna sede")).toBeVisible({ timeout: 15_000 });
+        await expect(page.getByText("Nessun cliente lo vede adesso")).toBeVisible();
     });
 
     test("dettaglio: sulla riga del prodotto, in quanti menù sta", async ({ page }) => {

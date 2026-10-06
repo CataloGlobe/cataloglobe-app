@@ -7,15 +7,28 @@ import {
     syncStripeCustomerOwner
 } from "../_shared/stripe-helpers.ts";
 
-const corsHeaders = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Content-Type": "application/json"
-};
+// Stessa allowlist di stripe-checkout.
+const ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "https://staging.cataloglobe.com",
+    "https://cataloglobe.com",
+    "https://www.cataloglobe.com",
+];
 
-function json(status: number, body: Record<string, unknown>) {
-    return new Response(JSON.stringify(body), { status, headers: corsHeaders });
+function corsHeaders(req: Request): Record<string, string> {
+    const origin = req.headers.get("origin") ?? "";
+    const allowed = ALLOWED_ORIGINS.includes(origin) ? origin : "";
+    return {
+        "Access-Control-Allow-Origin": allowed,
+        "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Vary": "Origin",
+        "Content-Type": "application/json"
+    };
+}
+
+function json(req: Request, status: number, body: Record<string, unknown>) {
+    return new Response(JSON.stringify(body), { status, headers: corsHeaders(req) });
 }
 
 interface TenantAction {
@@ -38,8 +51,8 @@ const EXPOSED_RPC_ERRORS = new Set([
 ]);
 
 serve(async (req: Request) => {
-    if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
-    if (req.method !== "POST") return json(405, { error: "method_not_allowed" });
+    if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders(req) });
+    if (req.method !== "POST") return json(req, 405, { error: "method_not_allowed" });
 
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
     const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY");
@@ -49,7 +62,7 @@ serve(async (req: Request) => {
         console.error(
             JSON.stringify({ event: "delete_account_error", reason: "server_misconfigured" })
         );
-        return json(500, { error: "server_misconfigured" });
+        return json(req, 500, { error: "server_misconfigured" });
     }
 
     // -------------------------------------------------------------------------
@@ -57,7 +70,7 @@ serve(async (req: Request) => {
     // -------------------------------------------------------------------------
     const authHeader = req.headers.get("Authorization");
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-        return json(401, { error: "unauthorized" });
+        return json(req, 401, { error: "unauthorized" });
     }
 
     // supabaseUser uses the caller's JWT — RPC will run as auth.uid() = userId
@@ -76,7 +89,7 @@ serve(async (req: Request) => {
                 detail: authError?.message ?? "no user id"
             })
         );
-        return json(401, { error: "unauthorized" });
+        return json(req, 401, { error: "unauthorized" });
     }
 
     // -------------------------------------------------------------------------
@@ -86,11 +99,11 @@ serve(async (req: Request) => {
     try {
         payload = await req.json();
     } catch {
-        return json(400, { error: "invalid_json" });
+        return json(req, 400, { error: "invalid_json" });
     }
 
     if (!Array.isArray(payload?.actions)) {
-        return json(400, {
+        return json(req, 400, {
             error: "invalid_payload",
             message: "actions must be an array"
         });
@@ -218,7 +231,7 @@ serve(async (req: Request) => {
             })
         );
 
-        return json(400, { error: errorCode });
+        return json(req, 400, { error: errorCode });
     }
 
     console.log(JSON.stringify({ event: "delete_account_sql_success", user_id: userId }));
@@ -351,7 +364,7 @@ serve(async (req: Request) => {
                 error_message: markError.message
             })
         );
-        return json(500, {
+        return json(req, 500, {
             error: "mark_account_deleted_failed"
         });
     }
@@ -395,10 +408,10 @@ serve(async (req: Request) => {
             );
         }
 
-        return json(503, { error: "auth_step_failed" });
+        return json(req, 503, { error: "auth_step_failed" });
     }
 
     console.log(JSON.stringify({ event: "delete_account_success", user_id: userId }));
 
-    return json(200, { success: true });
+    return json(req, 200, { success: true });
 });

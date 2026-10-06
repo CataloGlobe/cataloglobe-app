@@ -16,7 +16,8 @@
             "all_done": "all up to date",
             "badge_queued": "In progress",
             "badge_errors": "To fix",
-            "badge_done": "Up to date"
+            "badge_done": "Up to date",
+            "auto_note": "existing content is translated in a few minutes"
         },
         "review": {
             "title": "To review",

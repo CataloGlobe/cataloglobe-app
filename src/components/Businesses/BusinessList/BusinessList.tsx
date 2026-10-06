@@ -14,12 +14,13 @@ import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions
 import { formatOverrideSummary } from "@/services/supabase/activeCatalog";
 import {
     ACTIVE_CATALOG_ERROR_LABEL,
-    ACTIVE_CATALOG_NONE_SHORT_LABEL,
     activeCatalogDisplayName,
     deriveActiveCatalogState
 } from "@/utils/activeCatalogStatus";
 import Skeleton from "@/components/ui/Skeleton/Skeleton";
 import { buildPublicUrl } from "@/utils/publicUrl";
+import { formatInactiveReason } from "@/utils/activityStatus";
+import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import { useNavigate, useParams } from "react-router-dom";
 
 export const BusinessList: React.FC<BusinessListProps> = ({
@@ -39,6 +40,7 @@ export const BusinessList: React.FC<BusinessListProps> = ({
     const navigate = useNavigate();
     const { businessId } = useParams<{ businessId: string }>();
     const { showToast } = useToast();
+    const { catalogLabel } = useVerticalConfig();
 
     const columns = useMemo<ColumnDefinition<BusinessWithCapabilities>[]>(
         () => [
@@ -54,6 +56,14 @@ export const BusinessList: React.FC<BusinessListProps> = ({
                                 <span>{business.name}</span>
                                 <span>{business.slug}</span>
                             </div>
+                            {/* S3: sotto 768 la colonna Stato sparisce, lo stato sta qui. */}
+                            <span className={styles.phoneOnly}>
+                                {business.status === "inactive" ? (
+                                    <StatusBadge variant="neutral" label="Sospesa" />
+                                ) : (
+                                    <StatusBadge variant="success" label="Pubblicata" />
+                                )}
+                            </span>
                             {/* Un link nella cella: la riga non lo intercetta. */}
                             {pending > 0 && (
                                 <PendingReservationsLink
@@ -81,21 +91,40 @@ export const BusinessList: React.FC<BusinessListProps> = ({
             {
                 id: "status",
                 header: "Stato",
-                width: "100px",
+                // S3: larga quanto la pillola «Pubblicata» più il padding (a 120 si
+                // troncava), il motivo della sospensione sotto.
+                width: "152px",
                 hideOnPhone: true,
-                align: "center",
                 cell: (_, business) =>
                     business.status === "inactive" ? (
-                        <StatusBadge variant="neutral" label="Sospesa" />
+                        <div className={styles.statusCell}>
+                            <StatusBadge variant="neutral" label="Sospesa" />
+                            {business.inactive_reason && (
+                                <Text as="span" variant="caption" colorVariant="muted">
+                                    {formatInactiveReason(business.inactive_reason)}
+                                </Text>
+                            )}
+                        </div>
                     ) : (
                         <StatusBadge variant="success" label="Pubblicata" />
                     )
             },
             {
                 id: "catalog",
-                header: "Menu attivo ora",
+                header: `${catalogLabel} adesso`,
                 width: "1.5fr",
                 cell: (_, business) => {
+                    // S2: sospesa → la pagina pubblica non si vede; senza menù →
+                    // l'avviso ambra di Panoramica.
+                    if (business.status === "inactive") {
+                        return (
+                            <div className={styles.catalogCell}>
+                                <Text variant="body-sm">Non visibile ai clienti</Text>
+                                <Text as="span" variant="caption" colorVariant="muted">Pagina pubblica</Text>
+                            </div>
+                        );
+                    }
+
                     const activeCatalog = activeCatalogsMap?.[business.id];
                     const state = deriveActiveCatalogState(catalogsStatus, activeCatalog);
 
@@ -106,12 +135,14 @@ export const BusinessList: React.FC<BusinessListProps> = ({
                         return <Skeleton height="14px" width="60%" radius="var(--radius-inner)" />;
                     }
 
+                    if (state === "none") {
+                        return <StatusBadge variant="warning" label={`Nessun ${catalogLabel.toLowerCase()} attivo`} />;
+                    }
+
                     if (state !== "resolved" || !activeCatalog) {
                         return (
                             <Text variant="body-sm" colorVariant="muted">
-                                {state === "none"
-                                    ? ACTIVE_CATALOG_NONE_SHORT_LABEL
-                                    : ACTIVE_CATALOG_ERROR_LABEL}
+                                {ACTIVE_CATALOG_ERROR_LABEL}
                             </Text>
                         );
                     }
@@ -126,8 +157,8 @@ export const BusinessList: React.FC<BusinessListProps> = ({
                             <Text variant="body-sm">{activeCatalogDisplayName(activeCatalog)}</Text>
                             {overrideSummary && (
                                 <span className={styles.catalogWarning}>
-                                    <AlertTriangle size={12} strokeWidth={2} aria-hidden="true" />
-                                    <Text as="span" variant="caption" colorVariant="muted">
+                                    <AlertTriangle size={14} strokeWidth={2} aria-hidden="true" />
+                                    <Text as="span" variant="caption" className={styles.catalogWarningText}>
                                         {overrideSummary}
                                     </Text>
                                 </span>
@@ -142,17 +173,9 @@ export const BusinessList: React.FC<BusinessListProps> = ({
                 width: "110px",
                 hideOnPhone: true,
                 align: "right",
+                // S2: su ogni riga. Porta a «Cosa vedono i clienti» della sede,
+                // che serve in ogni stato, anche senza menù o sospesa.
                 cell: (_, business) => {
-                    // Anche a stato ignoto: il drawer riceve solo `activityId`
-                    // e risolve il catalogo per conto suo, quindi negare
-                    // l'accesso su una risoluzione fallita toglierebbe
-                    // un'azione che funziona. Nascosta invece a `loading` e
-                    // `none`, dove non c'è nulla su cui operare.
-                    const activeCatalog = activeCatalogsMap?.[business.id];
-                    const state = deriveActiveCatalogState(catalogsStatus, activeCatalog);
-                    if (state !== "resolved" && state !== "error") {
-                        return null;
-                    }
                     return (
                         <Button
                             variant="secondary"
@@ -179,7 +202,7 @@ export const BusinessList: React.FC<BusinessListProps> = ({
                         <TableRowActions
                             actions={[
                                 {
-                                    label: "Apri dettaglio",
+                                    label: "Apri sede",
                                     icon: FileText,
                                     onClick: () =>
                                         navigate(`/business/${businessId}/locations/${business.id}`)
@@ -216,7 +239,7 @@ export const BusinessList: React.FC<BusinessListProps> = ({
                 }
             }
         ],
-        [activeCatalogsMap, catalogsStatus, onManageAvailability, onEdit, onDelete, navigate, businessId, showToast, pendingReservationsMap]
+        [activeCatalogsMap, catalogsStatus, onManageAvailability, onEdit, onDelete, navigate, businessId, showToast, pendingReservationsMap, catalogLabel]
     );
 
     if (!isLoading && businesses.length === 0) {
@@ -254,7 +277,9 @@ export const BusinessList: React.FC<BusinessListProps> = ({
         // presa esplicitamente — solo delete di riga (kebab → Elimina).
         return (
             <DataTable
+                ariaLabel="Sedi"
                 data={businesses}
+                itemNoun={{ one: "sede", many: "sedi" }}
                 columns={columns}
                 isLoading={isLoading}
                 onRowClick={business => navigate(`/business/${businessId}/locations/${business.id}`)}

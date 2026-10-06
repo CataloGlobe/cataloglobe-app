@@ -109,6 +109,9 @@ const ANONYMIZATION_PATCH = {
     customer_phone: ANONYMIZED_PLACEHOLDER,
     customer_phone_e164: null,
     notes: null,
+    // Dato sulla salute: va via con le note. Ora e versione del consenso
+    // restano come traccia che il consenso c'era.
+    allergies: null,
     customer_language: null
 };
 

@@ -134,8 +134,9 @@
 }
 
 /* ── Desktop: panel shape override ──────────────────────────────────────── */
+/* ⚠️ SYNC con PUBLIC_MOBILE_MAX_WIDTH (publicBreakpoints.ts): desktop da 641px. */
 
-@media (min-width: 640px) {
+@media (min-width: 641px) {
   .panel {
     width: 480px;
     max-width: calc(100vw - 48px);

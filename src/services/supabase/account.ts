@@ -69,6 +69,8 @@ export async function requestAccountRecovery(email: string): Promise<void> {
  *     only revealed here, after the OTP has already proven email possession
  *   - "invalid_or_expired" if the code is wrong/expired/or recovery isn't
  *     actually possible (see anti-enumeration note above)
+ *   - "partial_success" if the account was restored but owned tenants are
+ *     still locked (207): the recovery cannot be retried, support must step in
  *   - A generic Error for all other failures
  */
 export async function confirmAccountRecovery(email: string, code: string): Promise<void> {
@@ -86,7 +88,13 @@ export async function confirmAccountRecovery(email: string, code: string): Promi
         throw new Error("Impossibile recuperare l'account. Riprova.");
     }
 
-    if (data?.success === false) {
+    // 207 partial_success arriva come 2xx senza `error`: account sbloccato,
+    // aziende ancora bloccate. Solo `success: true` vale come recupero riuscito.
+    if (data?.error === "partial_success") {
+        throw new Error("partial_success");
+    }
+
+    if (data?.success !== true) {
         throw new Error(data?.error === "invalid_or_expired" ? "invalid_or_expired" : "Impossibile recuperare l'account. Riprova.");
     }
 }

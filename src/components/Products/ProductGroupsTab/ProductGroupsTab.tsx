@@ -154,7 +154,10 @@ export default function ProductGroupsTab({
     };
 
     const bulk = useBulkDelete({
-        deleteOne: id => deleteProductGroup(id),
+        deleteOne: id => {
+            if (!tenantId) throw new Error("Tenant mancante");
+            return deleteProductGroup(id, tenantId);
+        },
         onDone: loadData,
         nouns: { one: "gruppo", many: "gruppi", deletedOne: "eliminato", deletedMany: "eliminati" }
     });

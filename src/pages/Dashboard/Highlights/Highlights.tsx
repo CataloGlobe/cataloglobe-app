@@ -7,9 +7,8 @@ import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { CardGrid, CardGridItem } from "@/components/ui/CardGrid/CardGrid";
-import { Badge } from "@/components/ui/Badge/Badge";
 import { FramedMedia } from "@/components/ui/FramedMedia";
-import { Pencil, Trash2, Pin, LayoutGrid, List as ListIcon, Image as ImageIcon } from "lucide-react";
+import { Pencil, Trash2, LayoutGrid, List as ListIcon, Megaphone } from "lucide-react";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { useToast } from "@/context/Toast/ToastContext";
 import {
@@ -22,7 +21,9 @@ import { CONTENT_TYPE_LABEL } from "./featuredContentTypes";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import { ChipGroupSingle } from "@/components/ui/Chip/ChipGroup";
 import { useRuleAppearance } from "@/hooks/useRuleAppearance";
-import { appearanceOf, describeFeaturedLine, isShownByNoLiveRule, type Appearance } from "@/utils/ruleAppearance";
+import { appearanceOf, isShownByNoLiveRule, type Appearance } from "@/utils/ruleAppearance";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { ProductPhotoPlaceholder } from "../Products/components/ProductPhotoPlaceholder";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import { useBulkDelete } from "@/hooks/useBulkDelete";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
@@ -33,7 +34,7 @@ import styles from "./Highlights.module.scss";
 import { useNavigate } from "react-router-dom";
 import { useTenantId } from "@/context/useTenantId";
 import { useEnsureActive } from "@/hooks/useEnsureActive";
-import { usePermissions } from "@/context/PermissionsContext";
+import { usePermissions } from "@/context/usePermissions";
 import { canDoOnAnyActivity } from "@/lib/permissions";
 import { PageGate } from "@/components/PageGate/PageGate";
 
@@ -45,6 +46,14 @@ function readsLine(item: FeaturedContentWithProducts): string {
     if (item.pricing_mode === "none") return reads;
     const n = item.products_count || 0;
     return `${reads} · ${n === 1 ? "1 prodotto" : `${n} prodotti`}`;
+}
+
+/** EV3: «Evento · in 2 regole»; il tipo è testo, l'uso conta le regole che lo nominano. */
+function usageLine(item: FeaturedContentWithProducts, appearance: Appearance | undefined): string {
+    const type = CONTENT_TYPE_LABEL[item.content_type ?? "announcement"];
+    if (!appearance) return type;
+    const n = appearance.rules.length;
+    return `${type} · ${n === 0 ? "in nessuna regola" : n === 1 ? "in 1 regola" : `in ${n} regole`}`;
 }
 
 // Lista di default (mockup, come Prodotti); la scelta salvata vince.
@@ -145,13 +154,6 @@ export default function Highlights() {
         primaryAction: canWrite ? { label: "Crea contenuto", onClick: handleCreate, disabled: !canEdit } : undefined
     }), [searchQuery, viewMode, handleViewChange, canWrite, handleCreate, canEdit]);
 
-    usePageHeader({
-        title: "In evidenza",
-        subtitle: "Blocchi sopra o sotto il menù. Dove e quando lo decide la regola.",
-        actions: headerActions,
-        compact: headerCompact
-    });
-
     const contentUrl = (item: FeaturedContentWithProducts) => `/business/${tenantId}/featured/${item.id}`;
 
     // Eliminazione multipla con conferma (§50.11, come Prodotti): il conteggio
@@ -192,20 +194,48 @@ export default function Highlights() {
         () => [...appearanceById.values()].filter(isShownByNoLiveRule).length,
         [appearanceById]
     );
-    const activityName = useCallback(
-        (id: string) => ruleAppearance.activities.find(activity => activity.id === id)?.name,
-        [ruleAppearance.activities]
+    // EV1: i filtri a sinistra nella testata (al telefono nel corpo: la barra
+    // compatta non mostra `leading`); ricerca, vista e «Crea» a destra.
+    const isPhone = useMediaQuery("(max-width: 767px)");
+    const filterChips = useMemo(
+        () =>
+            !loadError && contents.length > 0 && ruleAppearance.index ? (
+                <ChipGroupSingle<"all" | "unseen">
+                    ariaLabel="Filtra i contenuti"
+                    layout="auto"
+                    shape="pill"
+                    options={[
+                        { value: "all", label: "Tutti", count: contents.length },
+                        { value: "unseen", label: "In nessuna regola", count: unseenCount, disabled: unseenCount === 0 && ruleFilter !== "unseen" }
+                    ]}
+                    value={ruleFilter}
+                    onChange={setRuleFilter}
+                />
+            ) : null,
+        [contents.length, loadError, ruleAppearance.index, ruleFilter, unseenCount]
     );
+
+    usePageHeader({
+        title: "In evidenza",
+        leading: isPhone ? undefined : filterChips,
+        actions: headerActions,
+        compact: headerCompact
+    });
+
 
     const filteredContents = useMemo(() => {
         const q = searchQuery.trim().toLowerCase();
-        return contents.filter(item => {
-            if (ruleFilter === "unseen") {
-                const appearance = appearanceById.get(item.id);
-                if (!appearance || !isShownByNoLiveRule(appearance)) return false;
-            }
-            return item.title.toLowerCase().includes(q) || item.internal_name.toLowerCase().includes(q);
-        });
+        const live = (item: FeaturedContentWithProducts) => appearanceById.get(item.id)?.summary === "liveNow";
+        // EV2: prima gli attivi adesso, poi l'ordine di sempre (i più recenti).
+        return contents
+            .filter(item => {
+                if (ruleFilter === "unseen") {
+                    const appearance = appearanceById.get(item.id);
+                    if (!appearance || !isShownByNoLiveRule(appearance)) return false;
+                }
+                return item.title.toLowerCase().includes(q) || item.internal_name.toLowerCase().includes(q);
+            })
+            .sort((a, b) => Number(live(b)) - Number(live(a)));
     }, [contents, searchQuery, ruleFilter, appearanceById]);
     const allContentIds = useMemo(() => contents.map(c => c.id), [contents]);
     const hasSearch = searchQuery.trim().length > 0 || ruleFilter !== "all";
@@ -214,27 +244,16 @@ export default function Highlights() {
         setRuleFilter("all");
     };
 
-    /** «sopra il menù · tutte le sedi · sempre», o chi non lo vede (§28.1–2). */
-    const placementLines = (item: FeaturedContentWithProducts) => {
+    /** EV3: tipo e uso in testo, la pillola solo per «Attivo adesso». */
+    const usageRow = (item: FeaturedContentWithProducts) => {
         const appearance = appearanceById.get(item.id);
-        if (!appearance) return null;
-        const line = describeFeaturedLine(appearance, activityName);
         return (
-            <>
-                {line.placement && (
-                    <span className={styles.nameLine}>
-                        <Text variant="caption" colorVariant="muted">
-                            {line.more > 0 ? `${line.placement} · +${line.more} ${line.more === 1 ? "regola" : "regole"}` : line.placement}
-                        </Text>
-                        {line.stopped && <StatusBadge variant="neutral" label={line.stopped} />}
-                    </span>
-                )}
-                {line.warning && (
-                    <Text variant="caption" colorVariant="warning">
-                        {line.warning}
-                    </Text>
-                )}
-            </>
+            <span className={styles.usageRow}>
+                <Text variant="caption" colorVariant="muted" className={styles.ellipsis}>
+                    {usageLine(item, appearance)}
+                </Text>
+                {appearance?.summary === "liveNow" && <StatusBadge variant="success" label="Attivo adesso" />}
+            </span>
         );
     };
 
@@ -263,16 +282,13 @@ export default function Highlights() {
             width: "1fr",
             cell: (_value, item) => (
                 <div className={styles.cellTwoLine}>
-                    <span className={styles.nameLine}>
-                        <Text variant="body-sm" weight={600} className={styles.ellipsis}>
-                            {item.internal_name}
-                        </Text>
-                        <Badge variant="neutral">{CONTENT_TYPE_LABEL[item.content_type ?? "announcement"]}</Badge>
-                    </span>
+                    <Text variant="body-sm" weight={600} className={styles.ellipsis}>
+                        {item.internal_name}
+                    </Text>
                     <Text variant="caption" colorVariant="muted" className={styles.ellipsis}>
                         {readsLine(item)}
                     </Text>
-                    {placementLines(item)}
+                    {usageRow(item)}
                 </div>
             )
         },
@@ -289,7 +305,7 @@ export default function Highlights() {
         if (loadError) {
             return (
                 <EmptyState
-                    icon={<Pin />}
+                    icon={<Megaphone />}
                     title="Non è stato possibile caricare i contenuti"
                     description="Controlla la connessione e riprova."
                     action={
@@ -303,7 +319,7 @@ export default function Highlights() {
         if (!loading && contents.length === 0) {
             return (
                 <EmptyState
-                    icon={<Pin />}
+                    icon={<Megaphone />}
                     title="Metti in risalto quello che vuoi far notare"
                     description="Promozioni, piatti consigliati, eventi: compaiono sopra o sotto il menù, e puoi programmarli per periodi specifici."
                     action={
@@ -338,7 +354,7 @@ export default function Highlights() {
             return <EmptyState variant="filtered" title="Nessun risultato" onClearFilters={clearFilters} />;
         }
         return (
-            <CardGrid loading={loading} skeletonShape={{ media: true }} aria-label="Contenuti in evidenza">
+            <CardGrid loading={loading} skeletonShape={{ media: true, footer: true }} minColumnWidth={260} aria-label="Contenuti in evidenza">
                 {filteredContents.map(item => (
                     <CardGridItem
                         key={item.id}
@@ -353,15 +369,12 @@ export default function Highlights() {
                                     alt={item.title}
                                 />
                             ) : (
-                                <div className={styles.mediaPlaceholder} aria-hidden="true">
-                                    <ImageIcon size={24} strokeWidth={1.5} />
-                                </div>
+                                <ProductPhotoPlaceholder label="Nessuna immagine" />
                             )
                         }
-                        title={item.internal_name}
-                        subtitle={readsLine(item)}
-                        badge={<Badge variant="neutral">{CONTENT_TYPE_LABEL[item.content_type ?? "announcement"]}</Badge>}
-                        footer={<div className={styles.cellTwoLine}>{placementLines(item)}</div>}
+                        title={<span className={styles.ellipsisBlock}>{item.internal_name}</span>}
+                        subtitle={<span className={styles.ellipsisBlock}>{readsLine(item)}</span>}
+                        footer={usageRow(item)}
                         actions={rowActions(item)}
                     />
                 ))}
@@ -378,19 +391,7 @@ export default function Highlights() {
             {() => (
                 <>
                     <div className={styles.wrapper} data-view-mode={viewMode}>
-                        {!loadError && contents.length > 0 && ruleAppearance.index && (
-                            <ChipGroupSingle<"all" | "unseen">
-                                ariaLabel="Filtra i contenuti"
-                                layout="auto"
-                                shape="pill"
-                                options={[
-                                    { value: "all", label: "Tutti", count: contents.length },
-                                    { value: "unseen", label: "Nessuna regola li mostra", count: unseenCount, tone: "warning", disabled: unseenCount === 0 }
-                                ]}
-                                value={ruleFilter}
-                                onChange={setRuleFilter}
-                            />
-                        )}
+                        {isPhone && filterChips}
                         {renderContent()}
                     </div>
 

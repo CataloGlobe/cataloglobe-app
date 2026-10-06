@@ -53,8 +53,9 @@ const ROW: ToolbarLayout = { mode: "row", step: 0 };
  *
  * `actions` sono le larghezze naturali delle versioni delle azioni, dalla più
  * comoda alla più stretta. Si prende la prima che sta in riga con `leading`;
- * se nessuna ci sta e la pagina accetta due righe (`stack`), la prima che sta
- * da sola sopra le tab; altrimenti la barra compatta.
+ * se nessuna ci sta e le due righe sono ammesse (`stack`: da 768 in su), la
+ * prima che sta da sola sopra le tab, se anche le tab stanno da sole;
+ * altrimenti la barra compatta.
  */
 export function chooseToolbarLayout({
     available,
@@ -102,8 +103,8 @@ export function chooseToolbarLayout({
  * layout non tornerebbe mai a riga singola allargando la finestra.
  *
  * `actionsRefs` sono le versioni delle azioni da misurare: di solito una, lo
- * slot stesso. Con più versioni (`PageHeaderConfig.condensed`) sono copie
- * nascoste, così la misura non dipende da quale versione è a vista.
+ * slot stesso. Con più versioni (`PageHeaderConfig.narrowerActions`) sono
+ * copie nascoste, così la misura non dipende da quale versione è a vista.
  */
 export function useCompactToolbar(
     containerRef: RefObject<HTMLElement | null>,

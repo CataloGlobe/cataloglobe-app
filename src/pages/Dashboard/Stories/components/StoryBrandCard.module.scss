@@ -1,3 +1,5 @@
+@use "@styles/mixins" as *;
+
 .row {
   display: flex;
   flex-wrap: wrap;
@@ -6,25 +8,36 @@
   gap: var(--space-12);
 }
 
-// Il cappello com'è pubblicamente: la foto a sinistra, il testo accanto; a
-// capo sotto i 480 px della card.
+// SR2: la foto 16:9 da 224 a sinistra, titolo e testo (tre righe) al
+// centro, il sito a destra (~210). Al telefono la foto va sopra.
 .preview {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: var(--space-16);
+  display: grid;
+  grid-template-columns: 224px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--space-16) var(--space-24);
+
+  &:not(:has(.cover)) {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  @include phone {
+    grid-template-columns: minmax(0, 1fr);
+
+    &:not(:has(.cover)) {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
 }
 
 .cover {
-  flex: 0 0 160px;
-  aspect-ratio: 16 / 10;
+  width: 100%;
+  aspect-ratio: 16 / 9;
   object-fit: cover;
   border-radius: var(--radius-inner);
   border: 1px solid var(--border);
 }
 
 .text {
-  flex: 1 1 240px;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -36,4 +49,15 @@
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+.website {
+  max-width: 210px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  @include phone {
+    max-width: none;
+  }
 }

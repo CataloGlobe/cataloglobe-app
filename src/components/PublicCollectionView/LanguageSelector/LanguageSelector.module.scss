@@ -150,7 +150,7 @@
 
 /* ── SHEET (renderAs="sheet") ───────────────────────────────
    Stesso pattern header di CharacteristicsSheet/AllergensSheet:
-   titolo a sx + closeBtn a dx (nascosto <640px, chiusura via swipe). */
+   titolo a sx + closeBtn a dx (nascosto ≤640px, chiusura via swipe). */
 .sheetHeader {
   display: flex;
   align-items: center;
@@ -198,7 +198,7 @@
     outline-offset: 2px;
   }
 
-  @media (min-width: 640px) {
+  @media (min-width: 641px) {
     display: inline-flex;
   }
 }

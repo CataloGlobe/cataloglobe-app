@@ -158,8 +158,8 @@ describe("ruleAppearance — dove e quando appare un menù, uno stile, un conten
         expect(a.summary).toBe("stoppedOnly");
         expect(seat(a, "garbagnate")?.reason).toBe("disabled");
         expect(appearanceOf(index([expired]), { kind: "catalog", id: "carta" }).seats[0].reason).toBe("expired");
-        expect(describeCatalogSummary(a)).toEqual({ label: "Solo su regole ferme", tone: "neutral" });
-        expect(describeStyleSummary(a)).toEqual({ label: "Solo su regole ferme", tone: "neutral" });
+        expect(describeCatalogSummary(a)).toEqual({ label: "Nessuna regola attiva", tone: "neutral" });
+        expect(describeStyleSummary(a)).toEqual({ label: "Nessuna regola attiva", tone: "neutral" });
     });
 
     it("(8) nessuna regola lo nomina: non assegnato", () => {

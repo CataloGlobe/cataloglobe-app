@@ -148,7 +148,7 @@ export async function stubEvidenza(page: Page): Promise<EvidenzaStub> {
             }
             if (table === "featured_content_products" && select.includes("products")) {
                 return rows
-                    .map(row => ({ ...row, products: productEmbed(row.product_id), product: productEmbed(row.product_id) }))
+                    .map((row): Row => ({ ...row, products: productEmbed(row.product_id), product: productEmbed(row.product_id) }))
                     .sort((a, b) => Number(a.sort_order) - Number(b.sort_order));
             }
             if (table === "products" && select.includes("option_groups")) {

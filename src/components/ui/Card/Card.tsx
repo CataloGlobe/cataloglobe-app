@@ -14,6 +14,18 @@ import styles from "./Card.module.scss";
  * sotto la testata, con la baseline di 1 px da bordo a bordo; il body sotto
  * è il pannello della tab attiva.
  *
+ * Regole delle sezioni (correzioni UI, ottobre 2026):
+ * - `modeSelector`: il selettore che cambia il modo della sezione (es.
+ *   «Prezzo unico / Prezzo per formato») sta a destra nell'intestazione; al
+ *   telefono va sotto titolo e sottotitolo a tutta larghezza.
+ * - `empty`: la sezione vuota è una riga di testo, sempre uguale (titolo,
+ *   «Aggiungi» secondario in `actions`, la frase qui). Mai uno stato vuoto
+ *   centrato e alto, mai l'azione ripetuta nel corpo.
+ * - `layout="row"`: card a riga singola per una sezione con una sola azione:
+ *   titolo e frase a sinistra, bottone a destra; sotto 768 px il bottone va
+ *   sotto il testo. Niente body.
+ * - Niente riquadri informativi nel body: la spiegazione va in `subtitle`.
+ *
  * Compatibilità con la vecchia `Card` (title, noHoverLift, className):
  * `title` diventa l'header con titolo; `noHoverLift` è accettato e ignorato
  * (il lift non esiste più per nessuno); `className` va sul contenitore.
@@ -39,6 +51,15 @@ export interface CardProps {
      * `IconButton` resta accanto al titolo anche nelle card strette.
      */
     actions?: ReactNode;
+    /** Selettore del modo della sezione (`SegmentedControl`), accanto al titolo. */
+    modeSelector?: ReactNode;
+    /**
+     * Sezione vuota: la frase sostituisce il body, in una riga di testo muto.
+     * Se è valorizzato, `children` non si rende.
+     */
+    empty?: ReactNode;
+    /** `row`: card a riga singola (titolo e frase a sinistra, `actions` a destra). */
+    layout?: "default" | "row";
     /** Una `Tabs variant="line"` con la sua `Tabs.List`, sotto la testata. */
     tabs?: ReactNode;
     /** `danger`: cornice rossa e titolo danger per le zone distruttive, body neutro. */
@@ -51,7 +72,7 @@ export interface CardProps {
     bodyClassName?: string;
     /** @deprecated Il lift al hover non esiste più: la prop è ignorata. Si rimuove nel lotto 6. */
     noHoverLift?: boolean;
-    children: ReactNode;
+    children?: ReactNode;
 }
 
 const warned = new Set<string>();
@@ -68,6 +89,9 @@ export function Card({
     subtitle,
     actions,
     tabs,
+    modeSelector,
+    empty,
+    layout = "default",
     variant = "default",
     flush = false,
     className,
@@ -78,8 +102,9 @@ export function Card({
     if (noHoverLift !== undefined) {
         warnDeprecated("noHoverLift", "prop `noHoverLift` deprecata: la card non ha più lift al hover, la prop è ignorata");
     }
-    const hasHeader = Boolean(title || badge || subtitle || actions);
-    const rootClasses = [styles.card, variant === "danger" ? styles.danger : "", className]
+    const isRow = layout === "row";
+    const hasHeader = Boolean(title || badge || subtitle || actions || modeSelector);
+    const rootClasses = [styles.card, variant === "danger" ? styles.danger : "", isRow ? styles.row : "", className]
         .filter(Boolean)
         .join(" ");
     const bodyClasses = [styles.body, flush ? styles.flush : "", bodyClassName].filter(Boolean).join(" ");
@@ -105,11 +130,21 @@ export function Card({
                             </Text>
                         )}
                     </div>
+                    {modeSelector && <div className={styles.modeSelector}>{modeSelector}</div>}
                     {actions && <div className={styles.actions}>{actions}</div>}
                 </header>
             )}
-            {tabs && <div className={styles.tabs}>{tabs}</div>}
-            <div className={bodyClasses}>{children}</div>
+            {!isRow && tabs && <div className={styles.tabs}>{tabs}</div>}
+            {!isRow &&
+                (empty ? (
+                    <div className={[styles.body, styles.empty].join(" ")}>
+                        <Text as="p" variant="body-sm" colorVariant="muted">
+                            {empty}
+                        </Text>
+                    </div>
+                ) : (
+                    children !== undefined && <div className={bodyClasses}>{children}</div>
+                ))}
         </section>
     );
 }

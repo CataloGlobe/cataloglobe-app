@@ -21,6 +21,11 @@ type StyleVersionsPopoverProps = {
     anchorEl: HTMLElement | null;
     /** Chi non può scrivere guarda le versioni ma non ne ripristina una. */
     readOnly?: boolean;
+    /**
+     * Bozza con modifiche non salvate: il ripristino la sovrascriverebbe.
+     * «Ripristina» resta a vista, spento, e dice perché.
+     */
+    hasUnsavedChanges?: boolean;
 };
 
 export function StyleVersionsPopover({
@@ -33,7 +38,8 @@ export function StyleVersionsPopover({
     onRollback,
     onClose,
     anchorEl,
-    readOnly = false
+    readOnly = false,
+    hasUnsavedChanges = false
 }: StyleVersionsPopoverProps) {
     const ref = useRef<HTMLDivElement>(null);
     const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null);
@@ -147,11 +153,17 @@ export function StyleVersionsPopover({
                         variant="secondary"
                         size="sm"
                         loading={isRollingBack}
+                        disabled={hasUnsavedChanges}
                         onClick={onRollback}
                         className={popoverStyles.rollbackBtn}
                     >
                         Ripristina questa versione
                     </Button>
+                    {hasUnsavedChanges && (
+                        <Text as="p" variant="caption" colorVariant="muted">
+                            Salva o annulla le modifiche prima di ripristinare una versione.
+                        </Text>
+                    )}
                 </div>
             )}
         </div>,

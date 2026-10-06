@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTenantId } from "@/context/useTenantId";
 import type { V2Activity } from "@/types/activity";
-import { getActivitiesCached, readActivitiesCache } from "./activitiesCache";
+import { getActivitiesCached, readActivitiesCache, subscribeActivitiesCache } from "./activitiesCache";
 
 export interface ActivitySummary {
     id: string;
@@ -11,8 +11,8 @@ export interface ActivitySummary {
 }
 
 /**
- * Nome e stato di una sede, per chi deve solo **dire dove sei**: la sidebar
- * del contesto e la pill della navbar, montate su ogni pagina della sede.
+ * Nome e stato di una sede, per chi deve solo **dire dove sei**: il
+ * selettore di sede nell'header (§51.7), montato su ogni pagina.
  *
  * Passa dalla cache per tenant che già alimenta lo scope (`activitiesCache`):
  * una lettura sola per azienda, condivisa, e lo snapshot sincrono evita il
@@ -49,6 +49,14 @@ export function useActivitySummary(activityId: string | undefined): ActivitySumm
         };
     }, [tenantId, activityId]);
 
+    // Nome o stato cambiati altrove (Scheda, Pubblicazione): si rilegge.
+    useEffect(() => {
+        if (!tenantId || !activityId) return;
+        return subscribeActivitiesCache(changed => {
+            if (changed === tenantId) setSummary(pick(tenantId, activityId));
+        });
+    }, [tenantId, activityId]);
+
     return summary;
 }
 
@@ -62,34 +70,4 @@ function pick(tenantId: string | null | undefined, activityId: string | undefine
         status: row.status,
         inactiveReason: row.inactive_reason ?? null
     };
-}
-
-/**
- * Quante sedi ha l'azienda: serve solo a decidere come si esce dal contesto
- * («Tutte le sedi» o «Azienda»). `null` finché la cache non è popolata — chi
- * chiama sceglie il default prudente.
- */
-export function useActivitiesCount(): number | null {
-    const tenantId = useTenantId();
-    const [count, setCount] = useState<number | null>(() => readActivitiesCache(tenantId ?? "")?.length ?? null);
-
-    useEffect(() => {
-        if (!tenantId) {
-            setCount(null);
-            return;
-        }
-        let cancelled = false;
-        getActivitiesCached(tenantId)
-            .then(rows => {
-                if (!cancelled) setCount(rows.length);
-            })
-            .catch(() => {
-                if (!cancelled) setCount(null);
-            });
-        return () => {
-            cancelled = true;
-        };
-    }, [tenantId]);
-
-    return count;
 }

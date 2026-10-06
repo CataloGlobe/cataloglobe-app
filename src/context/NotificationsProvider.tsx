@@ -1,6 +1,7 @@
-import { createContext, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { useAuth } from "./useAuth";
+import { NotificationsContext } from "./NotificationsContext";
 import type { Notification } from "@/services/supabase/notifications";
 import {
     deleteNotification as svcDelete,
@@ -12,16 +13,6 @@ import {
     unsubscribeFromNotifications,
 } from "@/services/supabase/notifications";
 
-export interface NotificationsContextType {
-    notifications: Notification[];
-    unreadCount: number;
-    loading: boolean;
-    markAsRead: (notificationId: string) => Promise<void>;
-    markAllAsRead: () => Promise<void>;
-    deleteNotification: (notificationId: string) => Promise<void>;
-    refetch: () => Promise<void>;
-}
-
 // Cap in-memory size of the notifications array. Matches the initial
 // fetch limit in getNotifications(userId). Without this, the realtime
 // onNew handler prepends indefinitely → long sessions accumulate state +
@@ -29,8 +20,6 @@ export interface NotificationsContextType {
 // via refetch() or a future pagination API; unreadCount is unaffected
 // (it's a server-side count head, independent of in-memory state).
 const MAX_IN_MEMORY = 50;
-
-export const NotificationsContext = createContext<NotificationsContextType | null>(null);
 
 export function NotificationsProvider({ children }: { children: ReactNode }) {
     const { user } = useAuth();

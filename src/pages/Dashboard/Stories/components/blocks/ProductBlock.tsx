@@ -1,14 +1,13 @@
-import { useEffect, useState } from "react";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
-import { getProduct } from "@/services/supabase/products";
 import type { StoryProductBlock } from "@/services/supabase/stories";
-import { StoryProductPicker } from "../StoryProductPicker";
+import { StoryProductPicker, type StoryProductOptions } from "../StoryProductPicker";
 import styles from "./ProductBlock.module.scss";
 
 interface ProductBlockProps {
     block: StoryProductBlock;
     onChange: (next: StoryProductBlock) => void;
     tenantId: string | null;
+    productOptions: StoryProductOptions;
     disabled?: boolean;
 }
 
@@ -17,35 +16,16 @@ interface ProductBlockProps {
  * snapshot, ripescati al render). Riusa `StoryProductPicker` per la selezione
  * (mini-card foto/nome/prezzo + Cambia/Rimuovi già implementate lì).
  *
- * In più: lettura diretta `getProduct` per rilevare un id dangling
- * (`body_blocks` è JSONB senza FK — a differenza di `stories.product_id` un
- * prodotto cancellato non azzera il blocco). Contesto back office → lettura
- * diretta è corretta qui (a differenza del pubblico, che riusa il catalogo
- * già risolto in CollectionView per non duplicare la logica di visibilità).
- * Quando l'id è dangling, `StoryProductPicker` degrada da solo allo stato
- * "Collega un prodotto" (il prodotto non è nella sua lista) — il banner sotto
- * spiega perché.
+ * Id dangling: `body_blocks` è JSONB senza FK, quindi un prodotto cancellato
+ * non azzera il blocco. Lo si riconosce dall'elenco dei prodotti base che la
+ * pagina legge una volta sola: caricato e senza quell'id = non più nel
+ * catalogo. Il picker lo dice nella riga, il banner sotto spiega perché.
  */
-export function ProductBlock({ block, onChange, tenantId, disabled }: ProductBlockProps) {
-    const [dangling, setDangling] = useState(false);
-
-    useEffect(() => {
-        if (!block.productId || !tenantId) {
-            setDangling(false);
-            return;
-        }
-        let cancelled = false;
-        getProduct(block.productId, tenantId)
-            .then(() => {
-                if (!cancelled) setDangling(false);
-            })
-            .catch(() => {
-                if (!cancelled) setDangling(true);
-            });
-        return () => {
-            cancelled = true;
-        };
-    }, [block.productId, tenantId]);
+export function ProductBlock({ block, onChange, tenantId, productOptions, disabled }: ProductBlockProps) {
+    const dangling =
+        block.productId !== null &&
+        productOptions.items !== null &&
+        !productOptions.items.some(p => p.id === block.productId);
 
     return (
         <div className={styles.root}>
@@ -59,6 +39,7 @@ export function ProductBlock({ block, onChange, tenantId, disabled }: ProductBlo
                 tenantId={tenantId}
                 value={block.productId}
                 onChange={productId => onChange({ ...block, productId })}
+                options={productOptions}
                 disabled={disabled}
             />
         </div>

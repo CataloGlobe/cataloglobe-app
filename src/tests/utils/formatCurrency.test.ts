@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { formatCurrency, formatDecimal } from "@/utils/formatCurrency";
+import { formatCurrency, formatDecimal, formatPrice } from "@/utils/formatCurrency";
 
 // Convenzione italiana: virgola decimale, punto per le migliaia, simbolo
 // ANTEPOSTO con spazio ("€ 22,00") — la posizione del simbolo replica quella
@@ -42,5 +42,12 @@ describe("formatCurrency", () => {
 
     it("accetta un simbolo di valuta custom", () => {
         expect(formatCurrency(10, "$")).toBe("$ 10,00");
+    });
+});
+
+describe("formatPrice", () => {
+    it("simbolo dopo il numero, come si scrive in italiano", () => {
+        expect(formatPrice(2.9)).toBe("2,90 €");
+        expect(formatPrice(1234.5)).toBe("1.234,50 €");
     });
 });

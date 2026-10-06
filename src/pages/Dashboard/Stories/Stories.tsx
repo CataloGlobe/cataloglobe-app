@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { DataTableDragHandle, SortableDataTableRow } from "@/components/ui/DataTable/SortableDataTableRow";
-import { Pencil, Trash2, BookOpenText } from "lucide-react";
+import { Pencil, Trash2, ScrollText } from "lucide-react";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import { useToast } from "@/context/Toast/ToastContext";
@@ -26,7 +26,7 @@ import styles from "./Stories.module.scss";
 
 import { useTenantId } from "@/context/useTenantId";
 import { useEnsureActive } from "@/hooks/useEnsureActive";
-import { usePermissions } from "@/context/PermissionsContext";
+import { usePermissions } from "@/context/usePermissions";
 import { canDoOnAnyActivity } from "@/lib/permissions";
 import { PageGate } from "@/components/PageGate/PageGate";
 
@@ -135,7 +135,6 @@ export default function Stories() {
 
     usePageHeader({
         title: "Storie",
-        subtitle: "I racconti che i clienti trovano nella pagina pubblica delle sedi.",
         actions,
         compact: headerCompact
     });
@@ -300,7 +299,7 @@ export default function Stories() {
         if (loadError) {
             return (
                 <EmptyState
-                    icon={<BookOpenText />}
+                    icon={<ScrollText />}
                     title="Non è stato possibile caricare le storie"
                     description="Controlla la connessione e riprova."
                     action={
@@ -314,7 +313,7 @@ export default function Stories() {
         if (!loading && stories.length === 0) {
             return (
                 <EmptyState
-                    icon={<BookOpenText />}
+                    icon={<ScrollText />}
                     title="Non hai ancora creato storie"
                     description="Le storie compaiono nella sezione approfondimenti del tuo catalogo pubblico."
                     action={

@@ -389,6 +389,9 @@ export interface SubmitReservationInput {
     customer_email: string;
     customer_phone: string;
     notes?: string;
+    /** Solo con la casella del consenso spuntata; l'Edge rifiuta allergie senza versione. */
+    allergies?: string;
+    allergies_consent_version?: string;
     /**
      * Lingua corrente della pagina pubblica (`i18n.language`) al momento del
      * submit. L'Edge la valida di forma e la persiste su
@@ -969,7 +972,6 @@ export async function setReservationTables(
 export async function resetReservationTablesToSystem(
     reservationId: string,
     // Firma uniforme del service; tenant e sede vengono dalla riga lato server.
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     _tenantId: string
 ): Promise<ReservationTableAssignmentOutcome[]> {
     const { data, error } = await supabase.rpc("reset_reservation_tables_to_system", {
@@ -991,7 +993,6 @@ export async function reassignActivityTables(
     activityId: string,
     date: string,
     // Firma uniforme del service; il gate è sulla sede lato server.
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     _tenantId: string
 ): Promise<ReassignActivityTablesSummary> {
     const { data, error } = await supabase.rpc("reassign_activity_tables", {

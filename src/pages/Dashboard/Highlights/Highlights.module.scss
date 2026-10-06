@@ -21,14 +21,6 @@
   min-width: 0;
 }
 
-.nameLine {
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-8);
-  min-width: 0;
-}
-
 .ellipsis {
   min-width: 0;
   overflow: hidden;
@@ -36,15 +28,22 @@
   white-space: nowrap;
 }
 
-// Card senza immagine: il segnaposto tiene la griglia allineata.
-.mediaPlaceholder {
+// Nome e testo della card su una riga, coi puntini (EV2).
+.ellipsisBlock {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// «Evento · in 2 regole» e, se c'è, «Attivo adesso» (EV3).
+.usageRow {
   display: flex;
   align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 100%;
-  background: var(--hover-bg);
-  color: var(--text-muted);
+  justify-content: space-between;
+  gap: var(--space-8);
+  min-width: 0;
 }
 
 .form {

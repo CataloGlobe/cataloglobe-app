@@ -19,6 +19,7 @@ import { Menu } from "@components/ui/Menu";
 import { SearchInput } from "@components/ui/Input/SearchInput";
 import { useOwnedSearchValue } from "@components/ui/ToolbarSearch/ownedSearchValue";
 import { SegmentedControl } from "@components/ui/SegmentedControl/SegmentedControl";
+import { Tooltip } from "@components/ui/Tooltip/Tooltip";
 import type {
     PageHeaderAction,
     PageHeaderCompactConfig,
@@ -313,16 +314,16 @@ export function PageHeaderCompactBar({ config }: PageHeaderCompactBarProps) {
             )}
 
             {persistentIcons?.map(item => (
-                <button
-                    key={item.label}
-                    type="button"
-                    className={styles.iconButton}
-                    onClick={item.onClick}
-                    aria-label={item.label}
-                    title={item.label}
-                >
-                    {item.icon}
-                </button>
+                <Tooltip key={item.label} content={item.label}>
+                    <button
+                        type="button"
+                        className={styles.iconButton}
+                        onClick={item.onClick}
+                        aria-label={item.label}
+                    >
+                        {item.icon}
+                    </button>
+                </Tooltip>
             ))}
 
             {secondaryActions && secondaryActions.length > 0 && (

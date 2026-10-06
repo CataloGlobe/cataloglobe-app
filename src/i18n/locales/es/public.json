@@ -271,12 +271,15 @@
         "indicator_aria": "Indicador de contenido destacado",
         "section_aria": "Contenido destacado",
         "dot_aria": "{{index}} contenido de {{count}}",
-        "preview_close_aria": "Cerrar"
+        "see_all": "Ver todos",
+        "see_all_label_one": "contenido destacado",
+        "see_all_label_other": "contenidos destacados",
+        "see_all_aria": "Ver todos los contenidos destacados ({{count}})"
     },
     "events": {
         "list_aria": "Destacado",
         "empty": "No hay eventos ni promociones activos en este momento.",
-        "back": "← Volver a la lista",
+        "back_aria": "Volver a la lista",
         "close_aria": "Cerrar",
         "close_label": "Cerrar"
     },
@@ -459,7 +462,7 @@
         "err_submit": "Se ha producido un error. Inténtalo de nuevo en un momento.",
         "submitting": "Enviando…",
         "submit": "Enviar solicitud",
-        "consent": "Al enviar la solicitud aceptas el tratamiento de datos para gestionar la reserva. <privacy>Privacidad</privacy>",
+        "consent": "Tus datos se usan solo para gestionar la reserva. <privacy>Privacidad</privacy>",
         "when": "Cuándo",
         "date": "Fecha",
         "time": "Hora",
@@ -474,6 +477,10 @@
         "special_requests": "Peticiones especiales",
         "optional": "(opcional)",
         "notes_placeholder": "Necesidades especiales, ocasiones especiales…",
+        "allergies_label": "Alergias e intolerancias",
+        "allergies_consent": "Acepto el tratamiento de los datos sobre mis alergias, que el local usa solo para preparar el servicio.",
+        "allergies_placeholder": "Ej. cacahuetes, gluten, lactosa",
+        "val_allergies_max": "Máximo 300 caracteres.",
         "people": "Personas",
         "exact_number": "Indica el número exacto",
         "party_count_one": "{{count}} persona",

@@ -193,6 +193,7 @@ export default function PairingsSection({
                         strategy={verticalListSortingStrategy}
                     >
                         <DataTable<PairingDraftItem>
+                            ariaLabel="Abbinamenti"
                             data={value}
                             columns={columns}
                             getRowId={row => row.pairedProductId}

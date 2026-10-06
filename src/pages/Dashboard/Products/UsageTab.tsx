@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
+import { ChevronRight } from "lucide-react";
 import {
     type ProductCategoryAssignment,
     getProductCategoryAssignments
@@ -47,7 +48,6 @@ interface UsageTabProps {
  */
 export function UsageTab({ productId, tenantId, usageData, usageLoading }: UsageTabProps) {
     const { businessId } = useParams<{ businessId: string }>();
-    const navigate = useNavigate();
     const verticalConfig = useVerticalConfig();
     const menuLower = verticalConfig.catalogLabel.toLowerCase();
     const productLower = verticalConfig.productLabel.toLowerCase();
@@ -110,6 +110,7 @@ export function UsageTab({ productId, tenantId, usageData, usageLoading }: Usage
     const loadingUsage = usageLoading || loadingAssignments;
     const count = (n: number) => (n > 0 ? <Badge variant="secondary">{n}</Badge> : undefined);
     const loadingRow = <ListRow loading />;
+    const arrow = <ChevronRight size={16} className={styles.arrow} aria-hidden />;
 
     return (
         <div className={styles.grid}>
@@ -121,23 +122,15 @@ export function UsageTab({ productId, tenantId, usageData, usageLoading }: Usage
                         Il {productLower} non è in nessun {menuLower}.
                     </Text>
                 ) : (
-                    <div role="list">
+                    <div role="list" className={styles.rows}>
                         {categoryAssignments.map(a => (
                             <div role="listitem" key={`${a.catalog.id}-${a.category.id}`}>
+                                {/* PU1: la riga intera apre il menù sulla sua categoria. */}
                                 <ListRow
                                     title={a.catalog.name}
                                     subtitle={`${verticalConfig.categoryLabel} «${a.category.name}»`}
-                                    trailing={
-                                        <Button
-                                            variant="secondary"
-                                            size="sm"
-                                            onClick={() =>
-                                                navigate(`/business/${businessId}/catalogs/${a.catalog.id}?highlightProduct=${productId}`)
-                                            }
-                                        >
-                                            Apri il {menuLower}
-                                        </Button>
-                                    }
+                                    to={`/business/${businessId}/catalogs/${a.catalog.id}?categoryId=${a.category.id}&highlightProduct=${productId}`}
+                                    trailing={arrow}
                                 />
                             </div>
                         ))}
@@ -153,10 +146,10 @@ export function UsageTab({ productId, tenantId, usageData, usageLoading }: Usage
                         Nessuna regola di programmazione nomina questo {productLower}.
                     </Text>
                 ) : (
-                    <div role="list">
+                    <div role="list" className={styles.rows}>
                         {data.schedules.map(schedule => (
                             <div role="listitem" key={schedule.id}>
-                                <ListRow title={schedule.name} to={`/business/${businessId}/scheduling/${schedule.id}`} />
+                                <ListRow title={schedule.name} to={`/business/${businessId}/scheduling/${schedule.id}`} trailing={arrow} />
                             </div>
                         ))}
                     </div>
@@ -171,10 +164,15 @@ export function UsageTab({ productId, tenantId, usageData, usageLoading }: Usage
                         Nessuna regola lo porta oggi in una sede.
                     </Text>
                 ) : (
-                    <div role="list">
+                    <div role="list" className={styles.rows}>
                         {data.activities.map(activity => (
                             <div role="listitem" key={activity.id}>
-                                <ListRow title={activity.name} to={`/business/${businessId}/locations/${activity.id}`} />
+                                {/* Dove il prodotto si vede, sede per sede: la sua riga in «Cosa vedono i clienti». */}
+                                <ListRow
+                                    title={activity.name}
+                                    to={`/business/${businessId}/locations/${activity.id}/cosa-vedono`}
+                                    trailing={arrow}
+                                />
                             </div>
                         ))}
                     </div>

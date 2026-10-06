@@ -1,5 +1,6 @@
 export { ImageUploadEditor } from "./ImageUploadEditor";
 export type {
+    ImageUploadEditorControl,
     ImageUploadEditorProps,
     ImageUploadEditorResult
 } from "./ImageUploadEditor";

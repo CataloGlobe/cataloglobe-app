@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
+import { ChipGroupSingle, type ChipOption } from "@/components/ui/Chip/ChipGroup";
+import Text from "@/components/ui/Text/Text";
 import { LoadingState } from "@/components/ui/LoadingState/LoadingState";
 import { Select } from "@/components/ui/Select/Select";
 import { Textarea } from "@/components/ui/Textarea/Textarea";
@@ -12,10 +14,12 @@ import {
 import { useAdminOutletContext } from "@/layouts/AdminLayout/outletContext";
 import { usePageHeader } from "@/context/usePageHeader";
 import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { usePollingRefresh } from "@/hooks/usePollingRefresh";
 import {
     getTicket,
+    listAllTickets,
     listMessages,
     postPlatformMessage,
     updateTicketStatus
@@ -26,7 +30,19 @@ import type {
     V2SupportMessage,
     V2SupportTicketWithContext
 } from "@/types/support";
+import {
+    SUPPORT_QUEUE_FILTERS,
+    SUPPORT_READY_REPLIES,
+    DEFAULT_SUPPORT_FILTER,
+    nextWaitingTicket,
+    orderSupportQueue,
+    supportFilterCounts,
+    supportFilterFrom,
+    type SupportQueueFilter
+} from "@/utils/supportQueue";
 import { SUPPORT_STATUS_LABEL } from "@/pages/Dashboard/Support/supportLabels";
+import { SupportCustomerCard } from "./components/SupportCustomerCard";
+import { SupportQueueColumn } from "./components/SupportQueueColumn";
 import styles from "./SupportTicketAdminPage.module.scss";
 
 const STATUS_OPTIONS = (
@@ -83,11 +99,21 @@ function sameTicketView(
  * su un'azione annullabile è attrito senza contropartita. Un gruppo di bottoni
  * avrebbe occupato la stessa riga dell'header per un'azione che si usa una
  * volta per conversazione.
+ *
+ * ── Tre colonne da 768 in su (D39, Proposta 2 scelta da Alex il 2026-10-05) ──
+ * In alto «‹ Supporto» e i filtri coi numeri (`?filtro=`, lo stesso
+ * dell'elenco); sotto le richieste del filtro, la conversazione con le
+ * risposte pronte, la scheda del cliente. «Invia e passa alla prossima» apre
+ * la prossima che aspetta voi dentro il filtro. Sul telefono resta una
+ * colonna sola con la testata del guscio.
  */
 
 export default function SupportTicketAdminPage() {
     const { ticketId = "" } = useParams<{ ticketId: string }>();
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    const filter = supportFilterFrom(searchParams.get("filtro"));
+    const isPhone = useMediaQuery("(max-width: 767px)");
     usePageTitle("Supporto");
     // Optional-chained: il context esiste solo dentro l'Outlet di AdminLayout.
     // Stessa forma di `refreshSupportUnread` nel dettaglio lato cliente.
@@ -101,6 +127,27 @@ export default function SupportTicketAdminPage() {
     const [isSending, setIsSending] = useState(false);
     const [isChangingStatus, setIsChangingStatus] = useState(false);
     const [actionError, setActionError] = useState<string | null>(null);
+    const [queue, setQueue] = useState<V2SupportTicketWithContext[]>([]);
+    const [now, setNow] = useState(() => new Date());
+
+    const filterSuffix = filter === DEFAULT_SUPPORT_FILTER ? "" : `?filtro=${filter}`;
+    const hrefOf = useCallback((id: string) => `/admin/supporto/${id}${filterSuffix}`, [filterSuffix]);
+    const backHref = `/admin/supporto${filterSuffix}`;
+
+    // L'elenco a sinistra e i numeri dei filtri: si ricarica dopo ogni
+    // risposta o cambio stato, non a ogni poll.
+    const loadQueue = useCallback(async () => {
+        try {
+            setQueue(await listAllTickets());
+            setNow(new Date());
+        } catch {
+            // Senza elenco la richiesta si legge e si risponde lo stesso.
+        }
+    }, []);
+
+    useEffect(() => {
+        if (!isPhone) void loadQueue();
+    }, [isPhone, loadQueue]);
 
     /**
      * `silent` = ricarica di background (poll o ritorno in focus). Un errore di
@@ -174,6 +221,7 @@ export default function SupportTicketAdminPage() {
                 // deriva un trigger BEFORE UPDATE, quindi il valore vero lo
                 // conosce solo il database.
                 await loadThread({ silent: true });
+                void loadQueue();
                 // Chiudere o riaprire una richiesta la toglie o la rimette
                 // nella coda di chi aspetta: il pallino in sidebar va rivalutato.
                 refreshSupportPending?.();
@@ -183,17 +231,27 @@ export default function SupportTicketAdminPage() {
                 setIsChangingStatus(false);
             }
         },
-        [ticket, ticketId, loadThread, refreshSupportPending]
+        [ticket, ticketId, loadThread, loadQueue, refreshSupportPending]
     );
 
-    const handleSend = useCallback(async () => {
+    const ordered = useMemo(() => orderSupportQueue(queue, filter), [queue, filter]);
+    const nextTicket = useMemo(() => nextWaitingTicket(ordered, ticketId), [ordered, ticketId]);
+
+    const handleSend = useCallback(async (goNext = false) => {
         const body = draft.trim();
         if (!body || isSending) return;
+        // La prossima si sceglie prima di inviare: dopo, questa non aspetta più.
+        const target = goNext ? nextTicket : null;
         setIsSending(true);
         setActionError(null);
         try {
             await postPlatformMessage(ticketId, body);
             setDraft("");
+            if (target) {
+                refreshSupportPending?.();
+                navigate(hrefOf(target.id));
+                return;
+            }
             // Ricarica: il trigger aggiorna `last_message_kind` e
             // `last_message_at` sul ticket, che l'header e la coda leggono.
             await loadThread({ silent: true });
@@ -201,12 +259,13 @@ export default function SupportTicketAdminPage() {
             // richiesta non aspetta più, e il pallino in sidebar si spegne se
             // era l'ultima.
             refreshSupportPending?.();
+            void loadQueue();
         } catch {
             setActionError("Non è stato possibile inviare il messaggio.");
         } finally {
             setIsSending(false);
         }
-    }, [draft, isSending, ticketId, loadThread, refreshSupportPending]);
+    }, [draft, isSending, ticketId, loadThread, loadQueue, refreshSupportPending, nextTicket, navigate, hrefOf]);
 
     // MEMOIZZATI. `usePageHeader` confronta `actions` e `leading` per
     // reference: un nodo JSX inline scatena un loop di setConfig che blocca
@@ -222,13 +281,13 @@ export default function SupportTicketAdminPage() {
             // CreateBusinessWizard.
             <Button
                 variant="ghost"
-                onClick={() => navigate("..")}
+                onClick={() => navigate(backHref)}
                 leftIcon={<ArrowLeft size={16} />}
             >
                 Supporto
             </Button>
         ),
-        [navigate]
+        [navigate, backHref]
     );
 
     const headerActions = useMemo(
@@ -262,7 +321,7 @@ export default function SupportTicketAdminPage() {
     // in un posto solo. Lo stato del ticket è invece una mutazione dell'entità,
     // quindi sta sempre a vista come Bozza/Pubblicata delle storie.
     const headerCompact = useMemo<PageHeaderCompactConfig>(() => ({
-        backAction: { label: "Supporto", onClick: () => navigate("..") },
+        backAction: { label: "Supporto", onClick: () => navigate(backHref) },
         statusControl: ticket
             ? {
                   options: STATUS_OPTIONS,
@@ -272,15 +331,33 @@ export default function SupportTicketAdminPage() {
                   disabled: isChangingStatus
               }
             : undefined
-    }), [navigate, ticket, isChangingStatus, handleStatusChange]);
+    }), [navigate, backHref, ticket, isChangingStatus, handleStatusChange]);
 
-    usePageHeader({
-        title: ticket?.subject ?? "Richiesta",
-        subtitle,
-        leading,
-        actions: headerActions,
-        compact: headerCompact
-    });
+    // Da 768 in su la testata la disegna la pagina, come nella scheda del lead.
+    usePageHeader(
+        isPhone
+            ? { title: ticket?.subject ?? "Richiesta", subtitle, leading, actions: headerActions, compact: headerCompact }
+            : {}
+    );
+
+    const counts = useMemo(() => supportFilterCounts(queue), [queue]);
+    const chipOptions = useMemo<ChipOption<SupportQueueFilter>[]>(
+        () =>
+            SUPPORT_QUEUE_FILTERS.map(f => ({
+                value: f.value,
+                label: f.label,
+                count: counts[f.value],
+                tone:
+                    (f.value === "aspettano_voi" && counts.aspettano_voi > 0) || (f.value === "non_gestite" && counts.non_gestite > 0)
+                        ? "warning"
+                        : undefined
+            })),
+        [counts]
+    );
+    const others = useMemo(
+        () => (ticket ? queue.filter(t => t.tenant_id === ticket.tenant_id && t.id !== ticket.id) : []),
+        [queue, ticket]
+    );
 
     if (isLoading) {
         return <LoadingState message="Caricamento richiesta…" />;
@@ -290,40 +367,114 @@ export default function SupportTicketAdminPage() {
         return (
             <div className={styles.page}>
                 <p className={styles.notFound}>Questa richiesta non esiste.</p>
-                <Button variant="secondary" onClick={() => navigate("..")}>
+                <Button variant="secondary" onClick={() => navigate(backHref)}>
                     Torna alla coda
                 </Button>
             </div>
         );
     }
 
-    return (
-        <div className={styles.page}>
-            {/* viewerSide="platform": da qui le risposte del supporto stanno
-                a destra. Nessun `currentUserId`: gli autori customer sono tutti
-                "Cliente", quindi un "· tu" non distinguerebbe nulla. */}
-            <SupportThread messages={threadMessages} viewerSide="platform" />
-
-            <div className={styles.composer}>
-                <Textarea
-                    label="Rispondi come CataloGlobe"
-                    value={draft}
-                    onChange={e => setDraft(e.target.value)}
-                    placeholder="Scrivi la risposta…"
-                    rows={4}
+    const readyReplies = (
+        <div className={styles.ready} role="group" aria-label="Risposte pronte">
+            {SUPPORT_READY_REPLIES.map(r => (
+                <button
+                    key={r.label}
+                    type="button"
+                    className={styles.readyChip}
                     disabled={isSending}
-                />
-                {actionError && <p className={styles.error}>{actionError}</p>}
-                <div className={styles.composerActions}>
-                    <Button
-                        variant="primary"
-                        onClick={handleSend}
-                        loading={isSending}
-                        disabled={!draft.trim()}
-                    >
+                    onClick={() => setDraft(prev => (prev.trim() ? `${prev.trimEnd()}\n\n${r.text}` : r.text))}
+                >
+                    <Text as="span" variant="caption" weight={500}>
+                        {r.label}
+                    </Text>
+                </button>
+            ))}
+        </div>
+    );
+
+    const composer = (
+        <div className={styles.composer}>
+            {!isPhone && readyReplies}
+            <Textarea
+                label="Rispondi come CataloGlobe"
+                value={draft}
+                onChange={e => setDraft(e.target.value)}
+                placeholder="Scrivi la risposta…"
+                rows={4}
+                disabled={isSending}
+            />
+            {actionError && <p className={styles.error}>{actionError}</p>}
+            <div className={styles.composerActions}>
+                {!isPhone && nextTicket ? (
+                    <>
+                        <Button variant="secondary" onClick={() => void handleSend()} loading={isSending} disabled={!draft.trim()}>
+                            Invia
+                        </Button>
+                        <Button variant="primary" onClick={() => void handleSend(true)} loading={isSending} disabled={!draft.trim()}>
+                            Invia e passa alla prossima
+                        </Button>
+                    </>
+                ) : (
+                    <Button variant="primary" onClick={() => void handleSend()} loading={isSending} disabled={!draft.trim()}>
                         Invia risposta
                     </Button>
-                </div>
+                )}
+            </div>
+        </div>
+    );
+
+    // viewerSide="platform": da qui le risposte del supporto stanno a destra.
+    // Nessun `currentUserId`: gli autori customer sono tutti "Cliente", quindi
+    // un "· tu" non distinguerebbe nulla.
+    const thread = <SupportThread messages={threadMessages} viewerSide="platform" />;
+
+    if (isPhone) {
+        return (
+            <div className={styles.page}>
+                {thread}
+                {composer}
+            </div>
+        );
+    }
+
+    return (
+        <div className={styles.desk}>
+            <div className={styles.toolbar}>
+                <Link to={backHref} className={styles.backLink}>
+                    <Text as="span" variant="body-sm" weight={600} color="inherit">
+                        ‹ Supporto
+                    </Text>
+                </Link>
+                <ChipGroupSingle
+                    options={chipOptions}
+                    value={filter}
+                    onChange={next => navigate(next === DEFAULT_SUPPORT_FILTER ? `/admin/supporto/${ticketId}` : `/admin/supporto/${ticketId}?filtro=${next}`, { replace: true })}
+                    ariaLabel="Filtra le richieste"
+                    layout="auto"
+                />
+            </div>
+            <div className={styles.frame}>
+                <SupportQueueColumn tickets={queue} filter={filter} currentId={ticketId} now={now} hrefOf={hrefOf} />
+
+                <section className={styles.center} aria-labelledby="ticket-subject">
+                    <header className={styles.head}>
+                        <div className={styles.titleRow}>
+                            <Text as="h1" id="ticket-subject" variant="title-md" weight={700} className={styles.ellipsis}>
+                                {ticket.subject}
+                            </Text>
+                            <span className={styles.titleActions}>{headerActions}</span>
+                        </div>
+                        <Text as="p" variant="caption" colorVariant="muted">
+                            {subtitle}
+                        </Text>
+                    </header>
+                    <div className={styles.conversation}>
+                        {thread}
+                        {composer}
+                    </div>
+                </section>
+
+                <SupportCustomerCard ticket={ticket} others={others} hrefOf={hrefOf} />
             </div>
         </div>
     );

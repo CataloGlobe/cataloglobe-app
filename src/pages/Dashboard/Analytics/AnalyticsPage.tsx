@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
-import { BarChart3, Download } from "lucide-react";
+import { useParams, useSearchParams } from "react-router-dom";
+import { Download, ChartColumn } from "lucide-react";
 import { useTenantId } from "@/context/useTenantId";
-import { usePermissions } from "@/context/PermissionsContext";
+import { usePermissions } from "@/context/usePermissions";
 import { canDoOnActivity, canDoOnAnyActivity } from "@/lib/permissions";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
-import { useSedeScope, SCOPE_ALL } from "@/hooks/useSedeScope";
+import { useSedeScope } from "@/hooks/useSedeScope";
 import {
     getPageViewsTrend,
     getTopViewedProducts,
@@ -82,10 +82,12 @@ export default function AnalyticsPage() {
     const { permissions } = usePermissions();
 
     // ── Filtri ───────────────────────────────────────────────────────────
-    // Sede attiva: dalla navbar via useSedeScope. SCOPE_ALL → "tutte le sedi"
-    // (passare `undefined` come activityId ai service analytics).
-    const { value: scopeValue, readableActivities } = useSedeScope();
-    const selectedActivityId = scopeValue === SCOPE_ALL ? "all" : scopeValue;
+    // Due livelli (§51.10): dentro la sede (`/locations/:activityId/analitiche`)
+    // la sede è nel path; fuori è il totale delle sedi leggibili ("all" →
+    // `undefined` ai service analytics). Nessun selettore.
+    const { activityId: routeActivityId } = useParams<{ activityId?: string }>();
+    const { readableActivities } = useSedeScope();
+    const selectedActivityId = routeActivityId ?? "all";
     // Gate di lettura prima di ogni fetch (#590): lo stesso che rende `PageGate`.
     const canRead =
         permissions != null &&
@@ -600,7 +602,7 @@ export default function AnalyticsPage() {
         period
     ]);
 
-    // Selettore sede vive nella navbar (SedeScopeSelect). Nella banda:
+    // Nessun selettore di sede: il livello lo dice l'indirizzo (§51.10). Nella banda:
     // periodo a sinistra (leading), Esporta a destra (actions).
     const periodOptions = useMemo<{ value: PeriodKey; label: string }[]>(() => [
         { value: "today", label: "Oggi" },
@@ -654,7 +656,15 @@ export default function AnalyticsPage() {
 
     // Periodo ed «Esporta Excel» solo a chi legge: sulla pagina bloccata la
     // testata resta vuota (#591).
-    usePageHeader(canRead ? { leading, actions: headerActions, compact: headerCompact } : null);
+    usePageHeader(
+        canRead
+            ? {
+                  leading,
+                  actions: headerActions,
+                  compact: headerCompact
+              }
+            : null
+    );
 
     const periodPhrase: Record<PeriodKey, string> = {
         today: "Oggi",
@@ -678,7 +688,7 @@ export default function AnalyticsPage() {
                     {loadError ? (
                         <EmptyState
                             variant="page"
-                            icon={<BarChart3 />}
+                            icon={<ChartColumn />}
                             title="Non è stato possibile caricare le analitiche"
                             description="Controlla la connessione e riprova."
                             action={
@@ -696,6 +706,9 @@ export default function AnalyticsPage() {
                             <SampleBand
                                 visits={overviewStats?.total_views ?? 0}
                                 previousVisits={previousOverviewStats?.total_views ?? null}
+                                eventsPerVisit={overviewStats?.avg_events_per_session ?? 0}
+                                selections={funnelData.length > 0 ? funnelData[funnelData.length - 1].session_count : 0}
+                                selectionPct={funnelData.length > 0 ? funnelData[funnelData.length - 1].percentage : 0}
                                 periodPhrase={periodPhrase[period]}
                                 previousPeriodLabel={getPreviousPeriodLabel(period)}
                                 sedeCount={scopedActivities.length}

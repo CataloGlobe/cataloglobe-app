@@ -26,9 +26,9 @@ function comments(page: Page): Promise<string[]> {
     return main(page).getByText(/^(Pizza ottima|Servizio lento|Tiramisù da provare|Freddo) e2e/).allTextContents();
 }
 
-/** La riga di una recensione: il più vicino antenato che ha il suo `data-list-row`. */
+/** La riga di una recensione nell'elenco «Recensioni» (RC6). */
 function rowOf(page: Page, comment: string): Locator {
-    return main(page).locator("[data-list-row]").filter({ hasText: comment });
+    return main(page).getByRole("list", { name: "Recensioni" }).getByRole("listitem").filter({ hasText: comment });
 }
 
 /**
@@ -38,11 +38,6 @@ function rowOf(page: Page, comment: string): Locator {
 async function press(button: Locator): Promise<void> {
     await expect(button).toBeVisible();
     await button.click();
-}
-
-/** La coda di moderazione: la sezione col nome «… in attesa …». */
-function queue(page: Page): Locator {
-    return main(page).getByRole("region", { name: /in attesa/ });
 }
 
 /**
@@ -106,8 +101,27 @@ test.describe("Recensioni", () => {
 
     test("filtro per stelle", async ({ page }) => {
         await openPage(page);
-        await chooseFilter(page, page.getByRole("radio", { name: /^1$/ }), "Valutazione", /^1 stella$/);
+        await chooseFilter(page, page.getByRole("combobox", { name: "Filtra per stelle" }), "Valutazione", /^1 stella$/, "1");
         expect(await comments(page)).toEqual(["Freddo e2e"]);
+        // RC4: il conteggio a sinistra nella barra segue il filtro.
+        await expect(main(page).getByText("1 di 5 recensioni", { exact: true })).toBeVisible();
+    });
+
+    test("RC4: barra con il conteggio a sinistra, ricerca · stelle · periodo · ordine a destra", async ({ page }) => {
+        await openPage(page);
+        const count = main(page).getByText("5 recensioni", { exact: true });
+        await expect(count).toBeVisible();
+        const boxes = await Promise.all([
+            count.boundingBox(),
+            page.getByPlaceholder(/^Cerca/).first().boundingBox(),
+            page.getByRole("combobox", { name: "Filtra per stelle" }).boundingBox(),
+            page.getByRole("combobox", { name: "Filtra per periodo" }).boundingBox(),
+            page.getByRole("combobox", { name: "Ordina recensioni" }).boundingBox()
+        ]);
+        const xs = boxes.map(b => b!.x);
+        expect([...xs].sort((a, b) => a - b)).toEqual(xs);
+        // Nessuna frase sotto la testata: sta nel riepilogo.
+        await expect(main(page).getByRole("radio")).toHaveCount(0);
     });
 
     test("ricerca nei commenti", async ({ page }) => {
@@ -165,148 +179,93 @@ test.describe("Recensioni — vuoto ed errore", () => {
 });
 
 /**
- * La coda di moderazione (lotto `ds-5-moderazione`, §34.9/1, R1 della §50.14).
- * Scritti sulla pagina di oggi: quello che la pagina non fa ancora è
- * `test.fail`, tolto al passo che lo porta.
+ * Feedback privato (R1): niente coda né stati. Le righe con gli stati della
+ * vecchia moderazione (in attesa, nascosta) stanno nell'elenco come le altre,
+ * il riepilogo le conta tutte, Elimina è su ogni riga con `reviews.delete`.
+ * Nessuna PATCH: una write non registrata risponde 500 e farebbe fallire.
  */
-test.describe("Recensioni — moderazione", () => {
+test.describe("Recensioni — feedback privato", () => {
     test.beforeEach(async ({ page }) => {
-        stub = await stubRecensioni(page, { moderation: true });
+        stub = await stubRecensioni(page, { legacyStatuses: true });
     });
 
-    test("la coda in cima: quante, da quanto, cosa vuol dire", async ({ page }) => {
+    test("nessuna coda, nessun comando di moderazione, nessuno stato", async ({ page }) => {
         await openPage(page);
-        await expect(queue(page)).toContainText("2 recensioni in attesa");
-        await expect(queue(page)).toContainText("da 7 giorni");
-        await expect(queue(page)).toContainText("Le recensioni arrivano sempre in attesa");
-        // La più vecchia in cima: si modera nell'ordine in cui sono arrivate.
-        await expect(queue(page).locator("[data-list-row]").first()).toContainText("Cameriere scortese e2e");
+        await expect(main(page).getByText("Carbonara perfetta e2e")).toBeVisible();
+        await expect(main(page).getByText(/in attesa/i)).toHaveCount(0);
+        await expect(main(page).getByRole("button", { name: /^(Pubblica|Tieni nascosta)$/ })).toHaveCount(0);
+        await expect(main(page).getByRole("radio", { name: /^(Pubblicate|Nascoste)/ })).toHaveCount(0);
+        await expect(main(page).getByText(/^(Pubblicata|Nascosta)$/)).toHaveCount(0);
     });
 
-    test("il riepilogo conta solo le pubblicate", async ({ page }) => {
+    test("il riepilogo conta tutti i voti", async ({ page }) => {
         await openPage(page);
-        // Le cinque pubblicate: (5 + 2 + 4 + 5 + 1) / 5 = 3,4. Con le tre nuove sarebbe 3,1 su 8.
-        await expect(main(page).getByText(/^3[.,]4$/).first()).toBeVisible();
-        await expect(main(page).getByText(/5 recensioni pubblicate/).first()).toBeVisible();
+        // (5 + 2 + 4 + 5 + 1 + 2 + 5 + 1) / 8 = 3,125 → 3,1
+        await expect(main(page).getByText(/^3[.,]1$/).first()).toBeVisible();
+        await expect(main(page).getByRole("img", { name: "3,1 su 5 · 8 recensioni" })).toBeVisible();
+        await expect(main(page).getByText("Riepilogo dei voti", { exact: true })).toBeVisible();
+        // RC5: la frase del feedback privato è il sottotitolo del riepilogo.
+        await expect(main(page).getByText(/^Feedback privati dei clienti: li vedi solo tu e il tuo team/)).toBeVisible();
     });
 
-    test("«Pubblica» scrive solo lo stato e la sposta fra le pubblicate", async ({ page }) => {
-        stub.onWrite("reviews.PATCH", () => [{ id: REVIEW.carbonara }]);
+    test("RC6: stelle e data in colonna a sinistra, commento a tutta larghezza", async ({ page }) => {
         await openPage(page);
-        await press(rowOf(page, "Carbonara perfetta e2e").getByRole("button", { name: "Pubblica" }));
-        await expect(page.getByText("Recensione pubblicata")).toBeVisible();
-        const write = stub.writes.find(w => w.key === "reviews.PATCH");
-        expect(write?.body).toEqual({ status: "approved" });
-        expect(write?.params.get("id")).toBe(`eq.${REVIEW.carbonara}`);
-        expect(write?.params.get("tenant_id")).toMatch(/^eq\./);
-        await expect(queue(page)).toContainText("1 recensione in attesa");
-        await expect(rowOf(page, "Carbonara perfetta e2e").getByText("Pubblicata")).toBeVisible();
+        const row = rowOf(page, "Cameriere scortese e2e");
+        const [ratingBox, commentBox] = await Promise.all([
+            row.getByRole("img").first().boundingBox(),
+            row.getByText(/^Cameriere scortese e2e/).boundingBox()
+        ]);
+        expect(ratingBox!.x + ratingBox!.width).toBeLessThan(commentBox!.x);
+        expect(Math.abs(ratingBox!.y - commentBox!.y)).toBeLessThan(12);
     });
 
-    test("«Tieni nascosta» scrive solo lo stato", async ({ page }) => {
-        stub.onWrite("reviews.PATCH", () => [{ id: REVIEW.scortese }]);
+    test("le righe ex in attesa e nascoste sono nell'elenco", async ({ page }) => {
         await openPage(page);
-        await press(rowOf(page, "Cameriere scortese e2e").getByRole("button", { name: "Tieni nascosta" }));
-        await expect(page.getByText("Recensione nascosta")).toBeVisible();
-        expect(stub.writes.find(w => w.key === "reviews.PATCH")?.body).toEqual({ status: "hidden" });
-        await expect(rowOf(page, "Cameriere scortese e2e").getByText("Nascosta")).toBeVisible();
+        await expect(rowOf(page, "Cameriere scortese e2e")).toHaveCount(1);
+        await expect(rowOf(page, "Prova spam e2e")).toHaveCount(1);
     });
 
-    test("se il server non cambia niente lo dice, e la coda resta com'era", async ({ page }) => {
-        // 0 righe: permesso tolto nel frattempo, o recensione già eliminata.
-        stub.onWrite("reviews.PATCH", () => []);
-        await openPage(page);
-        await press(rowOf(page, "Carbonara perfetta e2e").getByRole("button", { name: "Pubblica" }));
-        await expect(page.getByText(/Non è stato possibile pubblicare/)).toBeVisible();
-        await expect(queue(page)).toContainText("2 recensioni in attesa");
-    });
-
-    test("stato in riga e filtro «Nascoste»", async ({ page }) => {
-        await openPage(page);
-        await expect(rowOf(page, "Pizza ottima e2e, torneremo.").getByText("Pubblicata")).toBeVisible();
-        await press(page.getByRole("radio", { name: /^Nascoste/ }));
-        await expect(rowOf(page, "Prova spam e2e").getByText("Nascosta")).toBeVisible();
-        await expect(main(page).getByText("Pizza ottima e2e, torneremo.")).toHaveCount(0);
-    });
-
-    test("Elimina solo sulle nascoste", async ({ page }) => {
+    test("Elimina su ogni riga, con conferma", async ({ page }) => {
+        stub.onWrite("reviews.DELETE", () => [{ id: REVIEW.pizza }]);
         await openPage(page);
         await press(rowOf(page, "Pizza ottima e2e, torneremo.").getByRole("button", { name: /^Azioni/ }));
-        await expect(page.getByRole("menuitem", { name: "Nascondi" })).toBeVisible();
-        await expect(page.getByRole("menuitem", { name: "Elimina" })).toHaveCount(0);
-    });
-
-    // Sostituisce «eliminare chiede conferma, poi toglie la riga», che eliminava
-    // una pubblicata: con la coda Elimina resta solo sulle nascoste (R3, mockup).
-    test("eliminare una nascosta chiede conferma, poi toglie la riga", async ({ page }) => {
-        stub.onWrite("reviews.DELETE", () => [{ id: REVIEW.spam }]);
-        await openPage(page);
-        await rowOf(page, "Prova spam e2e").getByRole("button", { name: /^Azioni/ }).click();
+        await expect(page.getByRole("menuitem")).toHaveText(["Elimina"]);
         await page.getByRole("menuitem", { name: "Elimina" }).click();
         expect(stub.writes.filter(w => w.key === "reviews.DELETE")).toHaveLength(0);
         await page.getByRole("button", { name: "Elimina", exact: true }).last().click();
         await expect(page.getByText("Recensione eliminata")).toBeVisible();
-        await expect(main(page).getByText("Prova spam e2e")).toHaveCount(0);
-        expect(stub.writes.find(w => w.key === "reviews.DELETE")?.params.get("id")).toBe(`eq.${REVIEW.spam}`);
+        await expect(main(page).getByText("Pizza ottima e2e, torneremo.")).toHaveCount(0);
+        expect(stub.writes.find(w => w.key === "reviews.DELETE")?.params.get("id")).toBe(`eq.${REVIEW.pizza}`);
     });
 
-    // Era «senza reviews.delete: niente elimina» nel blocco sopra, che contava
-    // il «⋯»: con la coda il menu porta anche Pubblica e Nascondi, e con le
-    // sole pubblicate Elimina non c'era comunque. Qui su una nascosta.
-    test("senza reviews.delete: la nascosta si ripubblica, non si elimina", async ({ page }) => {
+    test("senza reviews.delete: nessun menu di riga", async ({ page }) => {
         await stub.revoke("reviews.delete");
         await openPage(page);
         await stub.revoked;
-        await press(rowOf(page, "Prova spam e2e").getByRole("button", { name: /^Azioni/ }));
-        await expect(page.getByRole("menuitem", { name: "Pubblica" })).toBeVisible();
-        await expect(page.getByRole("menuitem", { name: "Elimina" })).toHaveCount(0);
+        await expect(main(page).getByRole("button", { name: /^Azioni/ })).toHaveCount(0);
     });
 
-    test("la voce di sidebar conta le recensioni in attesa", async ({ page }) => {
+    test("la voce di sidebar non ha badge", async ({ page }) => {
         await openPage(page);
         const link = page.getByRole("navigation", { name: "Menu principale" }).getByRole("link", { name: /^Recensioni/ });
-        await expect(link).toContainText("2");
+        await expect(link).toHaveText(/^Recensioni$/);
     });
 
-    test("senza reviews.moderate: la coda si legge, nessun comando né badge", async ({ page }) => {
-        await stub.revoke("reviews.moderate");
-        await openPage(page);
-        await stub.revoked;
-        await expect(queue(page)).toContainText("2 recensioni in attesa");
-        await expect(main(page).getByRole("button", { name: /^(Pubblica|Tieni nascosta)$/ })).toHaveCount(0);
-        await expect(rowOf(page, "Pizza ottima e2e, torneremo.").getByRole("button", { name: /^Azioni/ })).toHaveCount(0);
-        // Elimina resta di reviews.delete, che qui c'è: sulla nascosta il menu ha solo quella.
-        await press(rowOf(page, "Prova spam e2e").getByRole("button", { name: /^Azioni/ }));
-        await expect(page.getByRole("menuitem")).toHaveText(["Elimina"]);
-        await page.keyboard.press("Escape");
-        const link = page.getByRole("navigation", { name: "Menu principale" }).getByRole("link", { name: /^Recensioni/ });
-        await expect(link).not.toContainText("2");
-    });
-
-    test("a 375 nessuno scroll orizzontale, coda compresa", async ({ page }) => {
+    test("a 375 il commento lungo prende tutta la riga, stelle e data sopra, nessuno scroll orizzontale", async ({ page }) => {
         await openPage(page);
         await page.setViewportSize({ width: 375, height: 800 });
-        await expect(main(page).getByText("Carbonara perfetta e2e")).toBeVisible();
-        await noSideScroll(page);
-    });
-
-    test("a 375 il commento lungo in coda prende tutta la riga, voto e bottoni sotto", async ({ page }) => {
-        await openPage(page);
-        await page.setViewportSize({ width: 375, height: 800 });
-        const row = queue(page).locator("[data-list-row]").filter({ hasText: "Cameriere scortese e2e" });
+        const row = rowOf(page, "Cameriere scortese e2e");
         const comment = row.getByText(/^Cameriere scortese e2e/);
         await expect(comment).toBeVisible();
-        const [rowBox, commentBox, ratingBox, buttonBox] = await Promise.all([
+        await noSideScroll(page);
+        const [rowBox, commentBox, ratingBox] = await Promise.all([
             row.boundingBox(),
             comment.boundingBox(),
-            row.getByRole("img").first().boundingBox(),
-            row.getByRole("button", { name: "Pubblica" }).boundingBox()
+            row.getByRole("img").first().boundingBox()
         ]);
-        if (!rowBox || !commentBox || !ratingBox || !buttonBox) throw new Error("riga della coda non misurabile");
-        // Tutta la larghezza meno i rientri della riga (24 per lato in una Card flush).
-        expect(commentBox.width).toBeGreaterThanOrEqual(rowBox.width - 2 * 24 - 2);
-        // Voto e bottoni sotto il commento, non accanto.
-        expect(ratingBox.y).toBeGreaterThanOrEqual(commentBox.y + commentBox.height);
-        expect(buttonBox.y).toBeGreaterThanOrEqual(commentBox.y + commentBox.height);
+        if (!rowBox || !commentBox || !ratingBox) throw new Error("riga non misurabile");
+        // Tutta la larghezza meno i rientri della riga e lo spazio del menu «⋯».
+        expect(commentBox.width).toBeGreaterThanOrEqual(rowBox.width - 2 * 24 - 48);
+        expect(ratingBox.y + ratingBox.height).toBeLessThanOrEqual(commentBox.y);
     });
 });

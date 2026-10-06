@@ -65,6 +65,7 @@ import {
     deriveComandaPrintStates,
     type ComandaPrintState
 } from "./comandaPrintState";
+import { realtimeTopic } from "@/utils/realtimeTopic";
 
 const ACTIVE_STATUSES: OrderStatus[] = ["submitted", "acknowledged", "ready"];
 
@@ -373,7 +374,7 @@ export function useActiveOrdersRealtime(
         }
 
         channel = supabase
-            .channel(`active-orders-${activityId}-${Date.now()}`)
+            .channel(realtimeTopic(`active-orders-${activityId}`))
             .on(
                 "postgres_changes",
                 {

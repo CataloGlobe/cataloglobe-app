@@ -2,6 +2,8 @@ import { useTranslation } from "react-i18next";
 import { ImageIcon } from "lucide-react";
 import type { V2FeaturedContent } from "@/types/resolvedCollections";
 import Text from "@/components/ui/Text/Text";
+import { FramedMedia } from "@components/ui/FramedMedia";
+import { toFeaturedFraming } from "./featuredFraming";
 import { resolveFeaturedDisplayPrice } from "@utils/resolveFeaturedDisplayPrice";
 import styles from "./FeaturedPreviewModal.module.scss";
 
@@ -18,10 +20,32 @@ type Props = {
 };
 
 /**
- * Corpo del dettaglio contenuto in evidenza — estratto da `FeaturedPreviewModal`
- * per essere riusabile sia come sheet standalone (carosello inline nel menu,
- * via `FeaturedPreviewModal`) sia in-place dentro `EventsView` (sheet "Eventi &
- * Promo", nessuna seconda `PublicSheet` impilata). Stesso rendering, stessi dati.
+ * Pulsante d'azione del contenuto in evidenza, da passare allo slot
+ * `footerContent` di PublicSheet: sta fuori dall'area che scorre, sempre
+ * visibile, e si muove col pannello (nessuna animazione propria).
+ * Null se il contenuto non ha CTA.
+ */
+export function FeaturedCtaFooter({ block }: Props) {
+    if (!block.cta_text || !block.cta_url) return null;
+    return (
+        <div className={styles.ctaFooter}>
+            <a
+                href={block.cta_url}
+                className={styles.ctaBtn}
+                target="_blank"
+                rel="noopener noreferrer"
+            >
+                {block.cta_text}
+            </a>
+        </div>
+    );
+}
+
+/**
+ * Corpo del dettaglio contenuto in evidenza, reso in-place dentro `EventsView`
+ * (l'unica sheet «In evidenza» di CollectionView: elenco e dettaglio nella
+ * stessa sheet, mai una seconda `PublicSheet` impilata).
+ * La CTA non sta qui: è `FeaturedCtaFooter`, nel footer della sheet.
  */
 export function FeaturedContentDetail({ block }: Props) {
     const { t } = useTranslation("public");
@@ -51,13 +75,17 @@ export function FeaturedContentDetail({ block }: Props) {
     return (
         <div className={styles.body}>
             {/* Immagine */}
+            {/* Stesso framing della card (FramedMedia), riquadro 16:9 come l'editor. */}
             {block.media_id && (
-                <img
-                    src={block.media_id}
-                    alt={block.title}
-                    className={styles.image}
-                    loading="lazy"
-                />
+                <div className={styles.image}>
+                    <FramedMedia
+                        source={block.media_id}
+                        framing={toFeaturedFraming(block)}
+                        aspectRatio={block.media_aspect_ratio}
+                        alt={block.title}
+                        eager
+                    />
+                </div>
             )}
 
             <div className={styles.content}>
@@ -181,17 +209,6 @@ export function FeaturedContentDetail({ block }: Props) {
                         </div>
                     )}
 
-                {/* CTA */}
-                {block.cta_text && block.cta_url && (
-                    <a
-                        href={block.cta_url}
-                        className={styles.ctaBtn}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                    >
-                        {block.cta_text}
-                    </a>
-                )}
             </div>
         </div>
     );

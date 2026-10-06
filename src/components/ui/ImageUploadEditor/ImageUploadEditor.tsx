@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useImperativeHandle, useRef, useState, type Ref } from "react";
 import { Pencil, Trash2, X, Check, RefreshCw, ImagePlus } from "lucide-react";
 import { SystemDrawer } from "@components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@components/layout/SystemDrawer/DrawerLayout";
@@ -22,8 +22,8 @@ import { deriveCompressProfile, resolveShowFillPanel } from "./imageUploadPreset
 import { bakeFramedImage, type BakeOptions } from "./bakeFraming";
 import styles from "./ImageUploadEditor.module.scss";
 
-/** Formati sempre accettati dal wrapper — include WEBP ovunque. */
-const DEFAULT_ACCEPTED_FORMATS = ["image/png", "image/jpeg", "image/webp"];
+/** Formati sempre accettati dal wrapper — include WEBP e AVIF ovunque (ricodificati da compressImage). */
+const DEFAULT_ACCEPTED_FORMATS = ["image/png", "image/jpeg", "image/webp", "image/avif"];
 const DEFAULT_MAX_SIZE_MB = 10; // limite REALE (compressImage), non i 5MB cosmetici.
 const DEFAULT_FILL_MODES: MediaFillMode[] = ["blur", "dominant", "color", "none"];
 const DEFAULT_DRAWER_WIDTH = 420; // sm
@@ -57,6 +57,10 @@ export interface ImageUploadEditorResult {
      * ritagliato); altrimenti il ratio naturale del sorgente. Null se ignoto.
      */
     aspectRatio: number | null;
+}
+
+export interface ImageUploadEditorControl {
+    open: () => void;
 }
 
 export interface ImageUploadEditorProps {
@@ -97,6 +101,16 @@ export interface ImageUploadEditorProps {
     variant?: "field" | "embedded";
     /** Etichetta del campo mostrata nell'header (variant `field`). */
     fieldLabel?: string;
+    /**
+     * Senza l'header del campo (etichetta, Modifica/Rimuovi): le azioni le
+     * mette l'host, per esempio nella testata della Card che lo contiene, e
+     * aprono l'editor con `controlRef`.
+     */
+    hideHeader?: boolean;
+    /** Senza il chip del rapporto («1:1»): lo dice già la descrizione di chi lo usa. */
+    hideRatio?: boolean;
+    /** Per aprire l'editor da fuori (`controlRef.current?.open()`). */
+    controlRef?: Ref<ImageUploadEditorControl>;
     /** Titolo del `SystemDrawer` di editing (variant `field`). */
     drawerTitle?: string;
     /** Larghezza del drawer di editing. Default 420 (sm). */
@@ -174,6 +188,9 @@ export function ImageUploadEditor({
     bake,
     variant = "field",
     fieldLabel,
+    hideHeader = false,
+    hideRatio = false,
+    controlRef,
     drawerTitle,
     drawerWidth = DEFAULT_DRAWER_WIDTH,
     requiresConfirm = false,
@@ -235,7 +252,7 @@ export function ImageUploadEditor({
         async (file: File) => {
             setError(null);
             if (!acceptedFormats.includes(file.type)) {
-                setError("Formato non supportato. Usa PNG, JPG o WEBP.");
+                setError("Formato non supportato. Usa PNG, JPG, WEBP o AVIF.");
                 return;
             }
             try {
@@ -280,6 +297,8 @@ export function ImageUploadEditor({
     }, [hasImage, initialSource, initialAspectRatio, initialFraming, resetEditState]);
 
     // Drop diretto sul campo vuoto: apre il drawer e carica subito il file.
+    useImperativeHandle(controlRef, () => ({ open: openDrawer }), [openDrawer]);
+
     const openDrawerWithFile = useCallback(
         (file: File) => {
             setDrawerOpen(true);
@@ -439,6 +458,7 @@ export function ImageUploadEditor({
     // --- Variant field: header a 2 icone + anteprima + drawer di editing ----
     return (
         <div className={`${styles.field} ${className ?? ""}`}>
+            {!hideHeader && (
             <div className={styles.fieldHeader}>
                 <div className={styles.fieldLabelWrap}>
                     {fieldLabel && (
@@ -446,7 +466,7 @@ export function ImageUploadEditor({
                             {fieldLabel}
                         </Text>
                     )}
-                    {ratioLabel && <span className={styles.ratioChip}>{ratioLabel}</span>}
+                    {ratioLabel && !hideRatio && <span className={styles.ratioChip}>{ratioLabel}</span>}
                 </div>
 
                 {hasImage && !confirmingRemove && (
@@ -502,6 +522,8 @@ export function ImageUploadEditor({
                     </div>
                 )}
             </div>
+
+            )}
 
             <div className={styles.fieldBody}>
                 <div

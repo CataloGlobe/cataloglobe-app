@@ -1,0 +1,630 @@
+// Sezione costi del CRM in /admin. Solo token di _theme.scss; la tipografia
+// la porta il componente Text.
+
+.page {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-16);
+}
+
+// I tre totali in una riga sola, divisi da un filo (come i numeri della Home
+// e la riga di stato di Agenti). Al telefono restano in fila, più piccoli.
+.figures {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-surface);
+    overflow: hidden;
+
+    > * + * {
+        border-left: 1px solid var(--border);
+    }
+
+    // Errore o caricamento: una riga sola su tutta la larghezza.
+    > [role="status"],
+    > [aria-busy] {
+        grid-column: 1 / -1;
+    }
+}
+
+.figure {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-12) var(--space-16);
+    min-width: 0;
+
+    @media (max-width: 767px) {
+        padding: var(--space-10) var(--space-12);
+    }
+}
+
+.figureValue {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-16);
+}
+
+// Due campi affiancati, uno sotto l'altro quando non ci stanno.
+.fieldRow {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: var(--space-12);
+}
+
+.headerActions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-8);
+}
+
+.box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-surface);
+}
+
+.ellipsis {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+// «Pagata da»: il campo e sotto i nomi pronti.
+.payerField {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+}
+
+/* ===== Chi ha pagato · In arrivo ===== */
+// Due colonne uguali; una sotto l'altra sotto i 1024.
+.duo {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: var(--space-16);
+    align-items: stretch;
+
+    @media (max-width: 1023px) {
+        grid-template-columns: 1fr;
+    }
+}
+
+.payers {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-12);
+}
+
+.payerStatus {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-8);
+    padding: var(--space-10) var(--space-12);
+    border-radius: var(--radius-control);
+    background: var(--brand-primary-soft);
+    color: var(--on-brand-soft);
+
+    &[data-even] {
+        background: var(--hover-bg);
+        color: var(--text);
+    }
+}
+
+.moves {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    padding-top: var(--space-8);
+    border-top: 1px solid var(--border);
+
+    ul {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+    }
+}
+
+.move {
+    display: grid;
+    grid-template-columns: 76px minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: var(--space-10);
+    min-height: 36px;
+}
+
+.moveWhen {
+    white-space: nowrap;
+}
+
+.moveText {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tipWrap {
+    display: inline-flex;
+}
+
+.iconBtn {
+    all: unset;
+    box-sizing: border-box;
+    display: inline-grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-control);
+    color: var(--text-muted);
+    cursor: pointer;
+
+    &:hover {
+        background: var(--hover-bg);
+        color: var(--text-danger);
+    }
+
+    &:focus-visible {
+        box-shadow: var(--shadow-focus);
+    }
+}
+
+/* ===== Le spese a schede ===== */
+.tabsBox {
+    @extend .box;
+    padding: 0 var(--space-16) var(--space-16);
+    min-width: 0;
+}
+
+@keyframes tileIn {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+.tiles {
+    list-style: none;
+    margin: 0;
+    padding: var(--space-8) 0 0;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-12);
+
+    @media (max-width: 1199px) {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    @media (max-width: 767px) {
+        grid-template-columns: 1fr;
+    }
+}
+
+.tile {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-10);
+    padding: var(--space-12) var(--space-12) var(--space-12) var(--space-16);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-surface);
+    background: var(--surface);
+    min-width: 0;
+    animation: tileIn 0.28s cubic-bezier(0.2, 0.9, 0.25, 1) both;
+
+    @for $i from 2 through 9 {
+        &:nth-child(#{$i}) {
+            animation-delay: #{($i - 1) * 0.03}s;
+        }
+    }
+
+    &[data-ended] {
+        opacity: 0.6;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        animation: none;
+    }
+}
+
+.tileHead {
+    display: flex;
+    align-items: center;
+    gap: var(--space-10);
+    min-width: 0;
+}
+
+.mark {
+    display: inline-grid;
+    place-items: center;
+    flex: none;
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-control);
+    background: var(--brand-primary-soft);
+    color: var(--on-brand-soft);
+    font-weight: 700;
+}
+
+.tileOpen {
+    all: unset;
+    box-sizing: border-box;
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    cursor: pointer;
+    border-radius: var(--radius-inner);
+
+    &:hover span:first-child {
+        text-decoration: underline;
+    }
+
+    &:focus-visible {
+        box-shadow: var(--shadow-focus);
+    }
+}
+
+.monthBlocks {
+    display: flex;
+    flex-direction: column;
+    padding-top: var(--space-8);
+}
+
+.monthBlock {
+    display: grid;
+    grid-template-columns: 140px minmax(0, 1fr);
+    gap: var(--space-16);
+    padding: var(--space-12) 0;
+    border-top: 1px solid var(--border);
+
+    &:first-child {
+        border-top: 0;
+    }
+
+    @media (max-width: 767px) {
+        grid-template-columns: 1fr;
+        gap: var(--space-4);
+    }
+}
+
+.monthName {
+    display: flex;
+    flex-direction: column;
+    padding-top: var(--space-6);
+}
+
+.oneOffRows {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.oneOffRow {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+}
+
+.oneOffOpen {
+    all: unset;
+    box-sizing: border-box;
+    flex: 1;
+    min-width: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto 90px;
+    align-items: center;
+    gap: var(--space-12);
+    min-height: 36px;
+    padding: 0 var(--space-8);
+    border-radius: var(--radius-control);
+    cursor: pointer;
+
+    > :last-child {
+        text-align: right;
+    }
+
+    &:hover {
+        background: var(--hover-bg);
+    }
+
+    &:focus-visible {
+        box-shadow: var(--shadow-focus);
+    }
+
+    @media (max-width: 767px) {
+        grid-template-columns: minmax(0, 1fr) auto;
+
+        .oneOffMeta {
+            display: none;
+        }
+    }
+}
+
+.oneOffMeta {
+    white-space: nowrap;
+}
+
+.monthsPanel {
+    padding-top: var(--space-8);
+}
+
+/* ===== Calendario ===== */
+.calendar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 300px;
+    gap: var(--space-16);
+    align-items: start;
+
+    @media (max-width: 1099px) {
+        grid-template-columns: 1fr;
+    }
+}
+
+.calMain {
+    @extend .box;
+    padding: var(--space-8) var(--space-12) var(--space-12);
+    min-width: 0;
+}
+
+.calNav {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-4);
+    padding: var(--space-4) var(--space-4) var(--space-8);
+}
+
+.calMonth {
+    min-width: 140px;
+    text-align: center;
+}
+
+.calTotal {
+    margin-left: var(--space-8);
+}
+
+.calLegend {
+    display: inline-flex;
+    gap: var(--space-12);
+    margin-left: auto;
+    color: var(--text-muted);
+
+    span {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--space-6);
+
+        &::before {
+            content: "";
+            width: 10px;
+            height: 10px;
+            border-radius: var(--radius-inner);
+            background: var(--hover-bg);
+            border: 1px solid var(--border);
+        }
+
+        &[data-kind="subscription"]::before {
+            background: var(--brand-primary-soft);
+            border-color: transparent;
+        }
+    }
+}
+
+.calGrid {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-control);
+    overflow: hidden;
+}
+
+.calWeek {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+
+    & + & {
+        border-top: 1px solid var(--border);
+    }
+}
+
+.calWeekday {
+    padding: var(--space-6) var(--space-8);
+    background: var(--bg);
+}
+
+.calDay {
+    all: unset;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-2);
+    min-width: 0;
+    min-height: 92px;
+    padding: var(--space-6);
+    cursor: pointer;
+    color: var(--text);
+
+    & + & {
+        border-left: 1px solid var(--border);
+    }
+
+    &:hover {
+        background: var(--hover-bg);
+    }
+
+    &:focus-visible {
+        box-shadow: inset var(--shadow-focus);
+    }
+
+    &[data-out] {
+        color: var(--text-muted);
+        background: var(--bg);
+    }
+
+    &[aria-pressed="true"] {
+        background: var(--brand-primary-soft);
+    }
+
+    &[data-today] .calNum {
+        background: var(--brand-primary);
+        color: var(--on-brand);
+    }
+}
+
+.calDayHead {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    min-width: 0;
+}
+
+.calNum {
+    align-self: flex-start;
+    min-width: 22px;
+    padding: 1px var(--space-4);
+    border-radius: var(--radius-pill);
+    text-align: center;
+}
+
+.calChip {
+    display: block;
+    padding: 1px var(--space-6);
+    border-radius: var(--radius-inner);
+    background: var(--hover-bg);
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+
+    &[data-kind="subscription"] {
+        background: var(--brand-primary-soft);
+        color: var(--on-brand-soft);
+    }
+
+    // Addebito che deve ancora arrivare: bordo tratteggiato, stesso colore.
+    &[data-future] {
+        background: transparent;
+        border: 1px dashed var(--border);
+    }
+}
+
+.calSide {
+    @extend .box;
+    padding: var(--space-12) var(--space-8);
+    min-width: 0;
+}
+
+.calSideHead {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-8);
+    padding: 0 var(--space-8) var(--space-8);
+}
+
+.calSideEmpty {
+    padding: var(--space-4) var(--space-8);
+}
+
+.calPhoneDay {
+    display: flex;
+    flex-direction: column;
+    padding: var(--space-8) var(--space-4) 0;
+
+    h3 {
+        padding: 0 var(--space-12);
+    }
+}
+
+// Riga veloce in cima alle spese (D38): i campi in fila, sotto i suggerimenti.
+.quickBox {
+    @extend .box;
+    container-type: inline-size;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+    padding: var(--space-12) var(--space-16);
+}
+
+.quickRow {
+    display: grid;
+    grid-template-columns: minmax(180px, 2fr) minmax(110px, 1fr) minmax(130px, 1fr) minmax(140px, 1fr) auto;
+    gap: var(--space-12);
+    align-items: start;
+
+    @container (max-width: 860px) {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+.quickName {
+    min-width: 0;
+
+    @container (max-width: 860px) {
+        grid-column: 1 / -1;
+    }
+}
+
+.quickAmount,
+.quickFrequency,
+.quickDate {
+    min-width: 0;
+}
+
+// I bottoni stanno sulla riga dei campi, non su quella delle etichette.
+.quickActions {
+    display: flex;
+    gap: var(--space-8);
+    padding-top: var(--space-24);
+
+    @container (max-width: 860px) {
+        grid-column: 1 / -1;
+        padding-top: 0;
+    }
+}
+
+.quickSuggestions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-8);
+}
+
+.quickSuggestion {
+    font: inherit;
+    padding: var(--space-4) var(--space-12);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-pill);
+    background: var(--brand-primary-soft);
+    color: var(--on-brand-soft);
+    cursor: pointer;
+
+    &:focus-visible {
+        outline: 2px solid var(--brand-primary);
+        outline-offset: 2px;
+    }
+}
+
+.quickError {
+    color: var(--text-danger);
+}
+
+// La riga che dice cosa succede: «90 € al mese, 1.080 € l'anno».
+.formSummary {
+    margin: 0;
+}

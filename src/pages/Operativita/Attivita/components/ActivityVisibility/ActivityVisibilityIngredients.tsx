@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { IconEye, IconEyeOff, IconClockExclamation, IconLeaf } from "@tabler/icons-react";
+import { IconLeaf } from "@tabler/icons-react";
 import Text from "@/components/ui/Text/Text";
 import { Badge } from "@/components/ui/Badge/Badge";
 import { Button } from "@/components/ui/Button/Button";
@@ -10,9 +10,7 @@ import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import { ListRow } from "@/components/ui/ListRow/ListRow";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
-import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
-import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useEnsureActive } from "@/hooks/useEnsureActive";
 import {
@@ -32,12 +30,13 @@ import {
     bulkConfirmCopy,
     bulkSuccessMessage,
     filterIngredientRows,
-    ingredientStateSummary,
+    mixedSummary,
     productWord,
     type IngredientFilterValue,
     type IngredientVisibilityRow,
     type ProductIngredientPair
 } from "./ingredientVisibility";
+import { EXPLAINED_OPTIONS, EXPLAINED_OPTIONS_SHORT, VISIBILITY_OPTIONS } from "./visibilityOptions";
 import styles from "./ActivityVisibilityIngredients.module.scss";
 
 const PREVIEW_LIMIT = 3;
@@ -47,16 +46,6 @@ const PREVIEW_LIMIT = 3;
  * (mai tra le opzioni) per righe miste/vuote → nessun segmento attivo.
  */
 type RowSegmentValue = ProductVisibilityState | "mixed";
-
-const BULK_OPTIONS: {
-    value: ProductVisibilityState;
-    label: string;
-    icon: React.ReactNode;
-}[] = [
-    { value: "visible", label: "Rendi tutti visibili", icon: <IconEye size={16} /> },
-    { value: "hidden", label: "Nascondi tutti", icon: <IconEyeOff size={16} /> },
-    { value: "unavailable", label: "Segna tutti non disponibili", icon: <IconClockExclamation size={16} /> }
-];
 
 function segmentValueOf(row: IngredientVisibilityRow): RowSegmentValue {
     switch (row.aggregate) {
@@ -89,11 +78,22 @@ type ActivityVisibilityIngredientsProps = {
     onCountChange?: (count: number) => void;
     /** Sola lettura: le azioni in blocco sono spente (fieldset). */
     readOnly?: boolean;
+    /**
+     * Con la spiegazione la prima voce è «Come dice la regola», come in
+     * Prodotti: togliere la modifica a mano (V4).
+     */
+    explained?: boolean;
+    /** Tabella stretta: una colonna sola, il controllo sotto il nome. */
+    compact?: boolean;
+    /** Sotto 768: «Regola» a vista al posto di «Come dice la regola». */
+    shortLabels?: boolean;
 };
 
 /**
  * L'ingrediente come selettore dei prodotti che lo usano (§19bis.5): non ha
  * uno stato suo, cambia insieme i prodotti coinvolti, dopo una conferma.
+ * Stessa tabella e stesso controllo di Prodotti (V4): Ingrediente ·
+ * Disponibilità; con prodotti in stati diversi nessuna voce è scelta.
  */
 export const ActivityVisibilityIngredients: React.FC<ActivityVisibilityIngredientsProps> = ({
     activityId,
@@ -102,7 +102,10 @@ export const ActivityVisibilityIngredients: React.FC<ActivityVisibilityIngredien
     overrides,
     onBulkApplied,
     onCountChange,
-    readOnly = false
+    readOnly = false,
+    explained = false,
+    compact = false,
+    shortLabels = false
 }) => {
     const { showToast } = useToast();
     const { ensureActive } = useEnsureActive();
@@ -163,7 +166,6 @@ export const ActivityVisibilityIngredients: React.FC<ActivityVisibilityIngredien
 
     const withHiddenCount = useMemo(() => rows.filter(r => r.counts.hidden > 0).length, [rows]);
     const withUnavailableCount = useMemo(() => rows.filter(r => r.counts.unavailable > 0).length, [rows]);
-    const mixedCount = useMemo(() => rows.filter(r => r.aggregate === "mixed").length, [rows]);
 
     const disabledRowIds = useMemo(
         () => rows.filter(r => r.productIds.length === 0).map(r => r.ingredient_id),
@@ -209,83 +211,80 @@ export const ActivityVisibilityIngredients: React.FC<ActivityVisibilityIngredien
     };
 
     const columns = useMemo<ColumnDefinition<IngredientVisibilityRow>[]>(() => {
-        const summaryBadge = (row: IngredientVisibilityRow) => {
-            const summary = ingredientStateSummary(row);
-            const badge = <StatusBadge variant={summary.tone} label={summary.label} />;
-            return summary.detail ? <Tooltip content={summary.detail}>{badge}</Tooltip> : badge;
+        const options = explained ? (shortLabels ? EXPLAINED_OPTIONS_SHORT : EXPLAINED_OPTIONS) : VISIBILITY_OPTIONS;
+        const name = (row: IngredientVisibilityRow) => {
+            const mixed = row.aggregate === "mixed" ? mixedSummary(row.counts) : null;
+            return (
+                <div className={`${DATA_TABLE_CLASSES.cellTwoLine} ${DATA_TABLE_CLASSES.cellTwoLineWrap}`}>
+                    <span className={styles.nameRow}>
+                        <span>
+                            <span>{row.name}</span>
+                            {row.productIds.length > 0 && (
+                                <span className={styles.usage}>
+                                    {" "}
+                                    · in {row.productIds.length} {productWord(row.productIds.length)}
+                                </span>
+                            )}
+                        </span>
+                        {row.hasOverride && <Badge variant="outline">a mano</Badge>}
+                    </span>
+                    {row.productIds.length === 0 ? (
+                        <span>Nessun prodotto in questo catalogo</span>
+                    ) : (
+                        mixed && <span className={styles.mixed}>{mixed}</span>
+                    )}
+                </div>
+            );
         };
+        const control = (row: IngredientVisibilityRow) =>
+            row.productIds.length === 0 ? null : (
+                <fieldset className={styles.readOnlyScope} disabled={readOnly}>
+                    <SegmentedControl<RowSegmentValue>
+                        // Remount al cambio di aggregato: con value fuori
+                        // opzioni (misto) l'indicatore non si riposiziona.
+                        key={row.aggregate}
+                        value={segmentValueOf(row)}
+                        onChange={next => {
+                            if (next !== "mixed") handleSegmentChange(row, next);
+                        }}
+                        size="sm"
+                        options={options}
+                    />
+                </fieldset>
+            );
+        if (compact) {
+            return [
+                {
+                    id: "ingredient",
+                    header: "Ingrediente",
+                    width: "minmax(0, 1fr)",
+                    cell: (_, row) => (
+                        <div className={styles.compactCell}>
+                            {name(row)}
+                            {control(row)}
+                        </div>
+                    )
+                }
+            ];
+        }
         return [
             {
                 id: "ingredient",
                 header: "Ingrediente",
                 width: "minmax(0, 2fr)",
-                cell: (_, row) => {
-                    const summary = ingredientStateSummary(row);
-                    return (
-                        <div className={`${DATA_TABLE_CLASSES.cellTwoLine} ${DATA_TABLE_CLASSES.cellTwoLineWrap}`}>
-                            <span className={styles.nameRow}>
-                                <span>{row.name}</span>
-                                {row.hasOverride && <Badge variant="outline">a mano</Badge>}
-                            </span>
-                            {row.productIds.length === 0 ? (
-                                <span>Nessun prodotto in questo catalogo</span>
-                            ) : (
-                                // Sul telefono Prodotti e Stato non hanno colonna:
-                                // il riassunto scende qui.
-                                <span className={styles.phoneOnly}>
-                                    {row.productIds.length} {productWord(row.productIds.length)} ·{" "}
-                                    {summary.label.toLowerCase()}
-                                </span>
-                            )}
-                        </div>
-                    );
-                }
+                cell: (_, row) => name(row)
             },
             {
-                id: "products",
-                header: "Prodotti",
-                width: "90px",
+                id: "visibility",
+                header: "Disponibilità",
+                // Come la colonna di Prodotti: il tri-stato scritto più i 24 + 24
+                // della cella; «Come dice la regola» ne chiede 80 in più.
+                width: explained ? "424px" : "344px",
                 align: "right",
-                hideOnPhone: true,
-                cell: (_, row) => (
-                    <Text variant="body-sm" weight={500}>
-                        {row.productIds.length}
-                    </Text>
-                )
-            },
-            {
-                id: "state",
-                header: "Stato",
-                width: "minmax(170px, 1fr)",
-                hideOnPhone: true,
-                cell: (_, row) => summaryBadge(row)
-            },
-            {
-                id: "action",
-                header: "Azione",
-                // Tre icone da 40 più il padding della cella: sotto, a 375 la
-                // terza si tagliava.
-                width: "176px",
-                align: "right",
-                cell: (_, row) => (
-                    <fieldset className={styles.readOnlyScope} disabled={readOnly}>
-                        <SegmentedControl<RowSegmentValue>
-                            // Remount al cambio di aggregato: con value fuori
-                            // opzioni (misto) l'indicatore non si riposiziona.
-                            key={row.aggregate}
-                            value={segmentValueOf(row)}
-                            onChange={next => {
-                                if (next !== "mixed") handleSegmentChange(row, next);
-                            }}
-                            size="sm"
-                            iconsOnly
-                            options={BULK_OPTIONS}
-                        />
-                    </fieldset>
-                )
+                cell: (_, row) => control(row)
             }
         ];
-    }, [readOnly, handleSegmentChange]);
+    }, [readOnly, handleSegmentChange, explained, compact, shortLabels]);
 
     if (isLoading) {
         return <DataTable<IngredientVisibilityRow> ariaLabel="Ingredienti" data={[]} columns={columns} isLoading />;
@@ -325,14 +324,6 @@ export const ActivityVisibilityIngredients: React.FC<ActivityVisibilityIngredien
             ? bulkConfirmCopy(pending.target, pending.row.name, confirmData.total, confirmData.overwrittenCount)
             : null;
 
-    const countText = [
-        `${ingredients.length} ingredient${ingredients.length === 1 ? "e" : "i"}`,
-        withHiddenCount > 0 ? `${withHiddenCount} con prodotti nascosti` : null,
-        mixedCount > 0 ? `${mixedCount} mist${mixedCount === 1 ? "o" : "i"}` : null
-    ]
-        .filter(Boolean)
-        .join(" · ");
-
     return (
         <div className={styles.container}>
             <div className={styles.toolbar}>
@@ -348,10 +339,6 @@ export const ActivityVisibilityIngredients: React.FC<ActivityVisibilityIngredien
                     <ToolbarSearch value={search} onChange={setSearch} placeholder="Cerca ingrediente…" />
                 </div>
             </div>
-
-            <Text variant="caption" colorVariant="muted">
-                {countText}
-            </Text>
 
             <div className={styles.tableWrapper}>
                 <DataTable<IngredientVisibilityRow>

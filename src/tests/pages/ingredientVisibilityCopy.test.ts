@@ -4,13 +4,13 @@ import {
     buildIngredientVisibilityRows,
     bulkConfirmCopy,
     bulkSuccessMessage,
-    ingredientStateSummary,
+    mixedSummary,
     type CatalogProductLike
 } from "@/pages/Operativita/Attivita/components/ActivityVisibility/ingredientVisibility";
 
 /**
  * Le parole della vista Ingredienti, uscite dal componente (lotto coda,
- * Disponibilità): stato d'insieme, conferma e toast dell'azione in blocco.
+ * Disponibilità): il misto a parole, conferma e toast dell'azione in blocco.
  */
 
 function product(id: string, state: CatalogProductLike["visibility_state"]): CatalogProductLike {
@@ -23,17 +23,15 @@ function rowFor(states: CatalogProductLike["visibility_state"][]) {
     return buildIngredientVisibilityRows([{ id: "ing", name: "Pane" }], pairs, products, new Set())[0];
 }
 
-describe("ingredientStateSummary", () => {
-    it("uniforme: una parola e il tono", () => {
-        expect(ingredientStateSummary(rowFor(["visible", "visible"]))).toEqual({ tone: "success", label: "Tutti visibili", detail: null });
-        expect(ingredientStateSummary(rowFor(["hidden"]))).toMatchObject({ tone: "neutral", label: "Tutti nascosti" });
-        expect(ingredientStateSummary(rowFor(["unavailable"]))).toMatchObject({ tone: "warning", label: "Tutti non disponibili" });
-    });
-
-    it("misto: «Misto» e il dettaglio numerico a parte", () => {
-        const summary = ingredientStateSummary(rowFor(["visible", "hidden", "unavailable"]));
-        expect(summary.label).toBe("Misto");
-        expect(summary.detail).toBe("1 visibili · 1 nascosti · 1 non disponibili");
+describe("mixedSummary", () => {
+    it("misto: quanti non seguono la regola, su quanti (V4)", () => {
+        expect(mixedSummary(rowFor(["visible", "hidden", "visible"]).counts)).toBe("misto: 1 nascosto su 3");
+        expect(mixedSummary(rowFor(["visible", "hidden", "unavailable"]).counts)).toBe(
+            "misto: 1 nascosto e 1 non disponibile su 3"
+        );
+        expect(mixedSummary(rowFor(["hidden", "hidden", "unavailable", "unavailable"]).counts)).toBe(
+            "misto: 2 nascosti e 2 non disponibili su 4"
+        );
     });
 });
 

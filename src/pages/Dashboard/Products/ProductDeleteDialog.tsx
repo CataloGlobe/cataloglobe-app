@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
-import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
+import { useCallback, useEffect, useState } from "react";
+import { ConfirmDialogShell } from "@/components/ui/ConfirmDialog/ConfirmDialogShell";
+import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
@@ -24,12 +25,17 @@ type ImpactItem = { count: number; singular: string; plural: string };
  * Elimina un prodotto o una variante (lotto Prodotti P4): `ConfirmDialog` con
  * l'impatto — dove è usato e, per un prodotto base, le varianti che se ne
  * vanno con lui. Era un drawer di conferma: le conferme irreversibili stanno
- * su `ConfirmDialog` (CLAUDE.md M17).
+ * su `ConfirmDialog` (CLAUDE.md M17). Fail-closed come In evidenza (E1,
+ * §50.17): se il conteggio non arriva il dialogo lo dice, «Elimina» resta
+ * spento e «Riprova» rilegge; mai una conferma che tace dove è usato.
  */
 export function ProductDeleteDialog({ open, onClose, productData, onSuccess }: Props) {
     const { showToast } = useToast();
     const verticalConfig = useVerticalConfig();
     const [impact, setImpact] = useState<ProductDeleteImpact | null>(null);
+    const [impactFailed, setImpactFailed] = useState(false);
+    const [attempt, setAttempt] = useState(0);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     const isVariant = !!productData?.parent_product_id;
     const variantsCount = productData?.variants?.length ?? 0;
@@ -39,19 +45,22 @@ export function ProductDeleteDialog({ open, onClose, productData, onSuccess }: P
     useEffect(() => {
         if (!open || !productData) return;
         setImpact(null);
+        setImpactFailed(false);
         let cancelled = false;
         countProductDeleteImpact(productData.id, productData.tenant_id)
             .then(result => {
                 if (!cancelled) setImpact(result);
             })
             .catch(err => {
-                // Fail-open come prima: il bug è nel mucchio 2 del registro, PR a parte.
                 console.warn("[ProductDeleteDialog] impact fetch failed:", err);
+                if (!cancelled) setImpactFailed(true);
             });
         return () => {
             cancelled = true;
         };
-    }, [open, productData]);
+    }, [open, productData, attempt]);
+
+    const retry = useCallback(() => setAttempt(n => n + 1), []);
 
     const impactItems: ImpactItem[] = impact
         ? [
@@ -68,38 +77,68 @@ export function ProductDeleteDialog({ open, onClose, productData, onSuccess }: P
         .map(item => `${item.count} ${item.count === 1 ? item.singular : item.plural}`)
         .join(", ");
 
-    const handleConfirm = async (): Promise<boolean> => {
-        if (!productData) return false;
+    const handleConfirm = async (): Promise<void> => {
+        if (!productData || impactFailed) return;
+        setIsDeleting(true);
         try {
             await deleteProduct(productData.id, productData.tenant_id);
-            const withVariants = variantsCount > 0 ? " e le sue varianti" : "";
+            const withVariants =
+                variantsCount === 1 ? " e la sua variante" : variantsCount > 1 ? " e le sue varianti" : "";
             showToast({
                 message: `«${productData.name}»${withVariants} ${variantsCount > 0 ? "eliminati" : isVariant ? "eliminata" : "eliminato"}.${impactText ? ` Tolto da ${impactText}.` : ""}`,
                 type: "success"
             });
             onSuccess();
-            return true;
+            onClose();
         } catch (error) {
             console.error("Eliminazione prodotto:", error);
             showToast({ message: `Non è stato possibile eliminare ${article} ${noun}.`, type: "error" });
-            return false;
+        } finally {
+            setIsDeleting(false);
         }
     };
 
     if (!productData) return null;
 
     return (
-        <ConfirmDialog
+        <ConfirmDialogShell
             isOpen={open}
             onClose={onClose}
-            onConfirm={handleConfirm}
+            locked={isDeleting}
             title={`Eliminare «${productData.name}»?`}
             message={
-                variantsCount > 0
-                    ? `Se ne vanno anche le sue ${variantsCount} ${variantsCount === 1 ? "variante" : "varianti"}, e non si torna indietro.`
-                    : "Non si torna indietro."
+                variantsCount === 1
+                    ? "Se ne va anche la sua variante, e non si torna indietro."
+                    : variantsCount > 1
+                      ? `Se ne vanno anche le sue ${variantsCount} varianti, e non si torna indietro.`
+                      : "Non si torna indietro."
             }
-            confirmLabel={variantsCount > 0 ? "Elimina tutto" : "Elimina"}
+            error={
+                impactFailed
+                    ? `Non riesco a controllare dove è usat${isVariant ? "a" : "o"}: senza saperlo non ${isVariant ? "la" : "lo"} elimino.`
+                    : null
+            }
+            footer={
+                <>
+                    <Button variant="secondary" size="sm" onClick={onClose} disabled={isDeleting} data-autofocus>
+                        Annulla
+                    </Button>
+                    {impactFailed && (
+                        <Button variant="secondary" size="sm" onClick={retry}>
+                            Riprova
+                        </Button>
+                    )}
+                    <Button
+                        variant="danger"
+                        size="sm"
+                        onClick={() => void handleConfirm()}
+                        loading={isDeleting}
+                        disabled={impactFailed}
+                    >
+                        {variantsCount > 0 ? "Elimina tutto" : "Elimina"}
+                    </Button>
+                </>
+            }
         >
             {impactItems.length > 0 && (
                 <div className={styles.impact}>
@@ -120,6 +159,6 @@ export function ProductDeleteDialog({ open, onClose, productData, onSuccess }: P
                     </Text>
                 </div>
             )}
-        </ConfirmDialog>
+        </ConfirmDialogShell>
     );
 }

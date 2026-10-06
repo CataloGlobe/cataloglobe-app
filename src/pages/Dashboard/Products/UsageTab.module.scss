@@ -16,3 +16,14 @@
   flex-wrap: wrap;
   gap: var(--space-8);
 }
+
+// PU1: righe staccate da un separatore (i listitem avvolgono le ListRow, quindi
+// il loro «& + &» non scatta) e la freccia a destra.
+.rows > * + * {
+  border-top: 1px solid var(--border);
+}
+
+.arrow {
+  flex-shrink: 0;
+  color: var(--text-muted);
+}

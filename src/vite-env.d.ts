@@ -10,6 +10,9 @@ interface ImportMetaEnv {
     // sui piani Supabase senza transformations. Prefisso VITE_ → esposto al
     // bundle client; stessa var letta lato SSR via process.env.
     readonly VITE_IMAGE_TRANSFORM?: string;
+    // Allergie nel modulo pubblico di prenotazione: "true" → campo e consenso
+    // visibili; assente/altro → OFF. Gemello edge: RESERVATION_ALLERGIES_ENABLED.
+    readonly VITE_RESERVATION_ALLERGIES?: string;
     // aggiungi qui eventuali altre variabili
 }
 

@@ -24,25 +24,29 @@ import { useAiUsage } from "@/hooks/useAiUsage";
 import { useCheckoutReturnSync } from "@/hooks/useCheckoutReturnSync";
 import { AiMenuImportDrawer } from "@/pages/Dashboard/Catalogs/AiMenuImport/AiMenuImportDrawer";
 import { hasUnreadReply, listMyTickets } from "@/services/supabase/support";
-import { countPendingReviews } from "@/services/supabase/reviews";
-import { usePermissions } from "@/context/PermissionsContext";
-import { canDoOnAnyActivity, isTenantWide } from "@/lib/permissions";
+import { useSedeScope } from "@/hooks/useSedeScope";
+import { rememberLastSede } from "@/hooks/sedeScopeStore";
+import { resolveNavContext } from "@/utils/navModel";
 import type { BusinessOutletContext } from "./outletContext";
 
 import styles from "./MainLayout.module.scss";
 
 const SIDEBAR_COLLAPSED_KEY = "cg:sidebar-collapsed";
 
-/** Le pagine che vivono dentro una sede: le sei della scheda più le due
- *  operative, che sono pagine d'azienda montate sul contesto. */
+/** Le pagine che vivono dentro una sede: quelle della scheda più le
+ *  operative, montate sul contesto. */
 const SEDE_PAGE_LABELS: Record<string, string | undefined> = {
     ...ACTIVITY_SECTION_LABELS,
+    servizio: "Servizio",
     comande: "Comande",
-    prenotazioni: "Prenotazioni"
+    storico: "Storico",
+    prenotazioni: "Prenotazioni",
+    analitiche: "Analitiche",
+    recensioni: "Recensioni"
 };
 
 /** `/business/:businessId/locations/:activityId[/...]` — dentro una sede. */
-const SEDE_CONTEXT_PATH = /^\/business\/[^/]+\/locations\/[^/]+/;
+const SEDE_CONTEXT_PATH = /^\/business\/[^/]+\/locations\/([^/]+)/;
 
 /**
  * Titolo di pagina per il <title> del browser. `resolvePageTitle` è
@@ -69,6 +73,9 @@ function resolvePageTitle(businessId: string, pathname: string, catalogLabel: st
         const label = SEDE_PAGE_LABELS[third];
         return label ? `Sede · ${label}` : 'Dettaglio sede';
     }
+    // Le tab di Impostazioni (§51.12) tengono il nome della pagina di prima.
+    if (first === 'settings' && second === 'team') return businessRouteLabel('team');
+    if (first === 'settings' && second === 'abbonamento') return businessRouteLabel('subscription');
     if (second && first === 'scheduling') return 'Dettaglio regola';
     if (second && first === 'featured') return 'Dettaglio in evidenza';
     if (second && first === 'styles') return 'Editor stile';
@@ -86,15 +93,27 @@ export default function MainLayout() {
     const { selectedTenant, loading } = useTenant();
     const { businessId } = useParams<{ businessId: string }>();
     const { pathname } = useLocation();
-    // Return from Stripe (re-subscribe lands on /subscription?checkout_session=):
+    // Return from Stripe (re-subscribe lands on /settings/abbonamento?checkout_session=):
     // link the tenant before the "no subscription" gate below can bounce it.
     const checkoutSync = useCheckoutReturnSync();
 
     const { catalogLabel } = useVerticalConfig();
     const pageName = businessId ? resolvePageTitle(businessId, pathname, catalogLabel) : undefined;
-    // Dentro una sede la sidebar è la sua (§46.1): il contesto è il path, non
-    // uno stato. `/locations` senza id resta azienda — è la porta, non la casa.
-    const inSedeContext = SEDE_CONTEXT_PATH.test(pathname);
+    // Il contesto della sidebar (§51.2): dalle sedi che chi guarda legge e dal
+    // path. Una sede: sidebar unica, ovunque. Più sedi: dentro una sede la
+    // sidebar è la sua; `/locations` senza id resta azienda.
+    const pathActivityId = SEDE_CONTEXT_PATH.exec(pathname)?.[1] ?? null;
+    const { readableActivities, isLoaded: sediLoaded } = useSedeScope();
+    const navContext = resolveNavContext(sediLoaded ? readableActivities.length : null, pathActivityId !== null);
+    const soleActivityId = readableActivities.length === 1 ? readableActivities[0].id : null;
+    // Entrare in una sede la fa diventare l'ultima usata (§51.9): `/orders` e
+    // `/reservations` ci tornano. Solo una sede leggibile: un id sbagliato
+    // nell'indirizzo non si ricorda.
+    const rememberedSedeId =
+        pathActivityId && readableActivities.some(a => a.id === pathActivityId) ? pathActivityId : null;
+    useEffect(() => {
+        if (rememberedSedeId) rememberLastSede(rememberedSedeId);
+    }, [rememberedSedeId]);
     const tenantName = selectedTenant?.name;
     usePageTitle(pageName && tenantName ? `${pageName} — ${tenantName}` : pageName);
 
@@ -200,38 +219,6 @@ export default function MainLayout() {
         };
     }, [tenantId, supportRefreshKey]);
 
-    // ── Badge "recensioni in attesa" sulla voce Recensioni ─────────────────
-    // Stessa forma del pallino di supporto: un fetch al mount, nessun
-    // polling, ricalcolo su richiesta della pagina dopo una moderazione. Solo
-    // a chi può moderare (§34.9/1): per chi legge e basta non è una cosa da
-    // fare. Owner e admin contano tutte le sedi, gli altri le loro. Un errore
-    // spegne il badge: meglio nessun numero che uno inventato.
-    const { permissions } = usePermissions();
-    const canModerateReviews = permissions != null && canDoOnAnyActivity(permissions, "reviews.moderate");
-    const reviewScopeKey =
-        permissions == null ? "" : isTenantWide(permissions) ? "*" : permissions.activityIds.join(",");
-    const [reviewsPendingCount, setReviewsPendingCount] = useState(0);
-    const [reviewsRefreshKey, setReviewsRefreshKey] = useState(0);
-    const refreshReviewsPending = useCallback(() => setReviewsRefreshKey(k => k + 1), []);
-    useEffect(() => {
-        if (!tenantId || !canModerateReviews) {
-            setReviewsPendingCount(0);
-            return;
-        }
-        let cancelled = false;
-        const scope = reviewScopeKey === "*" ? null : reviewScopeKey.split(",").filter(Boolean);
-        void countPendingReviews(tenantId, scope)
-            .then(count => {
-                if (!cancelled) setReviewsPendingCount(count);
-            })
-            .catch(() => {
-                if (!cancelled) setReviewsPendingCount(0);
-            });
-        return () => {
-            cancelled = true;
-        };
-    }, [tenantId, canModerateReviews, reviewScopeKey, reviewsRefreshKey]);
-
     const outletContext = useMemo<BusinessOutletContext>(
         () => ({
             translationCoverage,
@@ -241,8 +228,7 @@ export default function MainLayout() {
             importStatus: aiImport.status,
             aiUsage: aiUsage.usage,
             refreshAiUsage: aiUsage.refresh,
-            refreshSupportUnread,
-            refreshReviewsPending
+            refreshSupportUnread
         }),
         [
             translationCoverage,
@@ -252,8 +238,7 @@ export default function MainLayout() {
             aiImport.status,
             aiUsage.usage,
             aiUsage.refresh,
-            refreshSupportUnread,
-            refreshReviewsPending
+            refreshSupportUnread
         ]
     );
 
@@ -281,16 +266,18 @@ export default function MainLayout() {
     // A canceled tenant KEEPS its stripe_subscription_id — the
     // `customer.subscription.deleted` webhook only flips subscription_status — so
     // it falls through the workspace-resume branch above and reaches this one.
-    // Allow-list /subscription itself to avoid a redirect loop AND so the
+    // Allow-list Abbonamento itself (and the old /subscription, which redirects
+    // there keeping the query) to avoid a redirect loop AND so the
     // post-reactivation success return is never trapped even while the webhook
     // hasn't yet synced the status back to 'active'.
     if (
         !loading &&
         selectedTenant &&
         selectedTenant.subscription_status === "canceled" &&
+        !pathname.endsWith("/settings/abbonamento") &&
         !pathname.endsWith("/subscription")
     ) {
-        return <Navigate to={`/business/${selectedTenant.id}/subscription`} replace />;
+        return <Navigate to={`/business/${selectedTenant.id}/settings/abbonamento`} replace />;
     }
 
     return (
@@ -307,16 +294,8 @@ export default function MainLayout() {
                         </header>
 
                         <div className={styles.body}>
-                            {inSedeContext ? (
+                            {sediLoaded && navContext === "sede" ? (
                                 <SedeSidebar
-                                    isMobile={isMobile}
-                                    mobileOpen={mobileSidebarOpen}
-                                    collapsed={!isMobile && sidebarCollapsed}
-                                    onRequestClose={() => setMobileSidebarOpen(false)}
-                                    onToggleCollapse={() => setSidebarCollapsed(v => !v)}
-                                />
-                            ) : (
-                                <TenantSidebar
                                     isMobile={isMobile}
                                     mobileOpen={mobileSidebarOpen}
                                     collapsed={!isMobile && sidebarCollapsed}
@@ -325,7 +304,20 @@ export default function MainLayout() {
                                     translationPendingCount={translationPendingCount}
                                     importInProgress={importInProgress}
                                     supportUnread={supportUnread}
-                                    reviewsPendingCount={reviewsPendingCount}
+                                />
+                            ) : (
+                                <TenantSidebar
+                                    isMobile={isMobile}
+                                    mobileOpen={mobileSidebarOpen}
+                                    collapsed={!isMobile && sidebarCollapsed}
+                                    onRequestClose={() => setMobileSidebarOpen(false)}
+                                    onToggleCollapse={() => setSidebarCollapsed(v => !v)}
+                                    context={navContext === "unica" ? "unica" : "azienda"}
+                                    activityId={soleActivityId}
+                                    loading={!sediLoaded}
+                                    translationPendingCount={translationPendingCount}
+                                    importInProgress={importInProgress}
+                                    supportUnread={supportUnread}
                                 />
                             )}
 

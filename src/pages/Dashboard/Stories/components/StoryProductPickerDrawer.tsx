@@ -136,6 +136,7 @@ export function StoryProductPickerDrawer({ open, onClose, tenantId, onSelect }: 
 
                     <div className={styles.pickerTableWrap}>
                         <DataTable<ProductPickerItemWithCategory>
+                            ariaLabel="Prodotti da collegare"
                             data={filtered}
                             allRowIds={products.map(p => p.id)}
                             columns={columns}

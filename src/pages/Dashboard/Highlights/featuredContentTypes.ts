@@ -22,15 +22,20 @@ export const PRICING_OF_TYPE: Record<FeaturedContentType, FeaturedContentPricing
     bundle: "bundle"
 };
 
-/** «Prezzi: …» sotto il tipo, a parole. */
-export const PRICING_LABEL: Record<FeaturedContentPricingMode, string> = {
-    none: "nessun prezzo",
-    per_item: "per prodotto",
-    bundle: "prezzo unico del bundle"
-};
-
 export function typeHasProducts(type: FeaturedContentType): boolean {
     return PRICING_OF_TYPE[type] !== "none";
+}
+
+/** La frase vera di ogni tipo (EV4): cosa vede il cliente. */
+export const CONTENT_TYPE_SENTENCE: Record<FeaturedContentType, string> = {
+    announcement: "Una novità o un avviso: un piatto nuovo, una chiusura, un orario diverso.",
+    event: "Come l'annuncio, con l'etichetta «Evento»: una serata, un concerto, una degustazione.",
+    promo: "Alcuni prodotti, ciascuno col suo prezzo e una nota.",
+    bundle: "Più prodotti a un prezzo unico, scritto anche sulla card, col totale barrato."
+};
+
+export function productsLabel(type: FeaturedContentType): string {
+    return typeHasProducts(type) ? "con prodotti" : "senza prodotti";
 }
 
 export type TypeChoice = {

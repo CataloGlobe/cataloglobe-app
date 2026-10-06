@@ -15,6 +15,7 @@
 //     pro:  { table_reservation: true, table_ordering: true }
 // ============================================================
 
+import { useCallback } from "react";
 import { useTenant } from "@/context/useTenant";
 import type { PlanCode } from "@/types/plan";
 
@@ -41,6 +42,10 @@ export function hasFeature(plan: PlanCode | null | undefined, feature: PlanFeatu
  * and exposes a curried `hasFeature(feature)` plus the raw `plan`
  * value. No new context provider — reuses `useTenant()` so it can
  * only be called from components mounted under `TenantProvider`.
+ *
+ * `hasFeature` is stable while the plan does not change: it can sit in the
+ * deps of `useMemo`/`useCallback` (e.g. a `usePageHeader` config) without
+ * rebuilding on every render.
  */
 export function usePlanFeatures(): {
     plan: PlanCode | null;
@@ -48,8 +53,17 @@ export function usePlanFeatures(): {
 } {
     const { selectedTenant } = useTenant();
     const plan = (selectedTenant?.plan ?? null) as PlanCode | null;
-    return {
-        plan,
-        hasFeature: (feature: PlanFeature) => hasFeature(plan, feature)
-    };
+    const hasPlanFeature = useCallback((feature: PlanFeature) => hasFeature(plan, feature), [plan]);
+    return { plan, hasFeature: hasPlanFeature };
+}
+
+/**
+ * Un gate di piano che si apre con una funzione **o** con un'altra (Servizio:
+ * l'Elenco chiede le prenotazioni, la Mappa gli ordini al tavolo).
+ */
+export type PlanGate = PlanFeature | readonly PlanFeature[];
+
+export function passesPlanGate(gate: PlanGate | undefined, hasFeature: (feature: PlanFeature) => boolean): boolean {
+    if (!gate) return true;
+    return typeof gate === "string" ? hasFeature(gate) : gate.some(hasFeature);
 }

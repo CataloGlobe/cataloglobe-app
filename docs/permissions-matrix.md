@@ -10,7 +10,7 @@ Scope: route business `/business/:businessId/*`. Workspace escluso (modello
 > **Stato.** Backend coerente (owner grant-based, risoluzione canonica su tutti
 > i percorsi, tre assi ortogonali). **Enforcement FE completo**: ogni pagina
 > business gata le sue azioni via PageGate + helper di permesso. Il catalogo
-> (41 permessi) non è stato ridisegnato — solo cablato. Restano due permessi
+> (50 permessi) non è stato ridisegnato — solo cablato. Restano due permessi
 > morti da pulire (§ 10).
 
 ---
@@ -72,7 +72,7 @@ Bonifica sicurezza: error detail/stack rimossi dai 5xx in tutte le edge function
 
 ## 3. Modello ruoli
 
-5 built-in. `owner` **grant-based** (40/40 confermato, helper coerenti):
+5 built-in. `owner` **grant-based** (50/50 su staging, 01/10/2026, helper coerenti):
 cortocircuito via `owner_user_id` → legge `role_permissions WHERE role='owner'`.
 
 | Ruolo | Origine | Scope |
@@ -91,12 +91,12 @@ verbi specifici per operazioni singolari/alto rischio · plurale+tenant
 
 ---
 
-## 5. Catalogo: 41 permessi
+## 5. Catalogo: 50 permessi
 
-40 esistenti + `translations.write` (mig. 120000). Scope/categoria invariati da v2 § 5. Modifiche:
+25 `tenant` + 25 `activity` (staging, `public.permissions`, 01/10/2026). Scope/categoria invariati da v2 § 5. Modifiche:
 - **`stories.read` / `stories.write`** (activity, enforced any-activity come `featured.*`) — esistevano in DB (mig. 20260707125900) ma mancavano da questa matrice; aggiunti il 27/09/2026 (lotto Stili · Storie · In evidenza).
-- **Deriva nota, da riconciliare** (staging 27/09/2026: 50 permessi): mancano da qui anche `guests.read/manage`, `seatings.read/manage`, `support.read/write`. (`reviews.respond` → `reviews.moderate` + `reviews.delete`: riconciliato il 30/09/2026.)
-- **`translations.write`** (tenant, content) — NUOVO. Azioni `/languages`. Read via proxy `catalogs.read`.
+- **Riconciliati con staging il 01/10/2026**: `guests.read/manage` e `seatings.read/manage` (activity, epic Prenotazioni), `support.read/write` (tenant, Assistenza). `reviews.respond` → `reviews.moderate` + `reviews.delete` (mig. 20260918134400), applicati: `moderate` scrive solo `status` (privilegio di colonna, mig. 20260930120300), `delete` solo owner/admin.
+- **`translations.write`** (tenant, content) — solo owner/admin. Azioni `/languages`. Read via proxy `catalogs.read`.
 - **`activity_groups.write`** — esisteva già (mig. 130000 resa no-op con ON CONFLICT).
 - **Morti** (cleanup, § 10): `notifications.receive`, `tenant.transfer_ownership`.
 - `canEditSchedule`/`ScheduleShape` (helper FE orfani) — RIMOSSI in A3.
@@ -155,6 +155,12 @@ verbi specifici per operazioni singolari/alto rischio · plurale+tenant
 | tenant.manage | T | T | | | |
 | tenant.delete | T | | | | |
 | tenant.transfer_ownership | T | | | | |
+| guests.read | T | T | A | | |
+| guests.manage | T | T | A | | |
+| seatings.read | T | T | A | A | A |
+| seatings.manage | T | T | A | A | |
+| support.read | T | T | T | T | |
+| support.write | T | T | T | T | |
 
 ---
 
@@ -167,22 +173,33 @@ mutazione gatati con helper espliciti.
 |---|---|---|---|
 | catalogs | /catalogs, /:id | catalogs.read | catalogs.write |
 | products | /products, /:id | products.read | products.write, attributes.write |
-| orders | /orders | orders.read + `table_ordering` | orders.manage (activity) |
-| tables | /tables (+ tab) | tables.read | tables.manage (activity) |
-| scheduling | /scheduling/* | scheduling.read | scheduling.write (any-activity*) |
+| orders | /locations/:id/comande (`/orders` → ultima sede) | orders.read + `table_ordering` | orders.manage (activity) |
+| storico ordini | /locations/:id/storico | orders.read + `table_ordering` | Ripristina: orders.manage (activity) |
+| servizio | /locations/:id/servizio | voce: tables.read **o** seatings.read (activity); per modo, vedi sotto | per modo, vedi sotto |
+| scheduling | /scheduling/* (filtro sede in pagina: `?sede=`) | scheduling.read; con `?sede=` sulla sede | scheduling.write (any-activity*) |
 | featured | /featured/* | featured.read | featured.write (any-activity*); crea/modifica prodotto dal contenuto: products.write |
 | stories | /stories/* | stories.read | stories.write (any-activity*) |
 | styles | /styles/* | styles.read | styles.write |
-| analytics | /analytics | analytics.read | — (read-only) |
-| reviews | /reviews | reviews.read | reviews.moderate (solo `status`: privilegio di colonna, mig `20260930120300`); reviews.delete (tenant-wide) |
-| locations | /locations, /:id | activity.read | activities.create/delete (tenant), activity.manage/activity_hours.write (per sede dall'URL), activity_groups.write |
+| analytics | /analytics (totale delle sedi leggibili) · /locations/:id/analitiche | analytics.read (any-activity · sulla sede) | — (read-only) |
+| reviews | /reviews (totale) · /locations/:id/recensioni | reviews.read (any-activity · sulla sede) | nessuna scrittura (R1, mig `20261005210000`: `reviews.moderate` inutilizzato); reviews.delete (tenant-wide) |
+| locations | /locations (con una sede → la sua Scheda), /:id | activity.read | activities.create/delete (tenant; «Aggiungi una sede» anche dal selettore dell'header), activity.manage/activity_hours.write (per sede dall'URL), activity_groups.write |
 | languages | /languages | catalogs.read (proxy) | translations.write (FE+BE) |
-| reservations | /reservations | reservations.read + `table_reservation` | reservations.manage |
-| team | /team | team.read | team.invite/manage_roles/remove |
-| billing | /subscription | billing.read | billing.manage/cancel |
-| settings | /settings | tenant.read | tenant.manage/delete |
+| reservations | /locations/:id/prenotazioni (`/reservations` → ultima sede) | reservations.read (any-activity*) + `table_reservation` | reservations.manage (activity) |
+| team | /settings/team (`/team` reindirizza); tab mostrata con team.read | team.read | team.invite/manage_roles/remove |
+| billing | /settings/abbonamento (`/subscription` reindirizza); tab mostrata con billing.read | billing.read | billing.manage/cancel |
+| settings | /settings (tab Azienda) | tenant.read | tenant.manage/delete |
 
-\* gate any-activity perché l'entità non è per-sede (vedi § 9).
+\* gate any-activity perché l'entità non è per-sede (vedi § 9). Prenotazioni fa eccezione: la pagina è di sede ma il gate di lettura è ancora any-activity (`Reservations.tsx`, apertura §50.22/2).
+
+**Servizio, per modo** (`src/utils/servizioModes.ts`, lotti B-a e B-b): ogni modo chiede i suoi permessi **su questa sede**; senza il piano il modo ha il lucchetto, senza i permessi non si mostra.
+
+| modo | lettura | piano | mutazioni |
+|---|---|---|---|
+| Elenco (predefinito) | reservations.read + seatings.read | `table_reservation` | walk-in, tavoli e coperti della tavolata, Annulla apertura, Servizio concluso: seatings.manage; gesti della prenotazione: reservations.manage |
+| Mappa | tables.read + orders.read | `table_ordering` | Fuori servizio, Chiudi tavolo, conto e cameriere gestiti, Storna: tables.manage; Conferma: orders.manage |
+| Gestisci la sala | tables.read | — | tables.manage |
+
+Capienza e durata media non stanno più in Sala: sono nella Scheda «Ordini e prenotazioni», sotto activity.manage.
 
 ---
 

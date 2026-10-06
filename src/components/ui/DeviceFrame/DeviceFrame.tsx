@@ -32,6 +32,13 @@ type DeviceFrameChildrenProps = DeviceFrameBaseProps & {
     children: ReactNode;
     /** Riceve l'elemento .deviceScreen (scroll container interno) al mount/unmount. */
     screenRef?: (el: HTMLDivElement | null) => void;
+    /**
+     * `"contain"`: il frame scala per stare nell'host in larghezza E in
+     * altezza, anche il mobile (Style Editor, canvas ad altezza vincolata).
+     * Solo per host la cui altezza non dipende dal frame: altrimenti la scala
+     * rimpicciolisce l'host e si rincorre. Default: solo larghezza, mobile a 1.
+     */
+    fit?: "contain";
     iframeSrc?: never;
     iframeTitle?: never;
 };
@@ -45,6 +52,7 @@ type DeviceFrameIframeProps = DeviceFrameBaseProps & {
     iframeTitle: string;
     children?: never;
     screenRef?: never;
+    fit?: never;
 };
 
 type DeviceFrameProps = DeviceFrameChildrenProps | DeviceFrameIframeProps;
@@ -61,8 +69,8 @@ type DeviceFrameProps = DeviceFrameChildrenProps | DeviceFrameIframeProps;
  *    (header, bottom-bar, PublicSheet, …) si comporta come su un dispositivo
  *    reale di quel formato senza alcuno scoping manuale.
  *
- * "mobile" resta a scala 1 (375px, sempre più stretto del contenitore reale
- * nei contesti d'uso attuali). "tablet"/"desktop" scalano via transform:scale
+ * "mobile" resta a scala 1 (375px), salvo `fit="contain"` (Style Editor:
+ * scala anche lui, su larghezza e altezza del canvas). "tablet"/"desktop" scalano via transform:scale
  * per adattarsi a contenitori più stretti delle loro dimensioni logiche,
  * preservando le misure reali sia per le container query (vedi
  * CollectionView.module.scss `@container collection`) sia per la window
@@ -83,11 +91,15 @@ export default function DeviceFrame({
     iframeSrc,
     iframeTitle,
     children,
+    fit,
 }: DeviceFrameProps) {
     const [hostEl, setHostEl] = useState<HTMLDivElement | null>(null);
     const [scale, setScale] = useState(1);
     const { width, height } = FRAME_DIMENSIONS[format];
-    const scales = format !== "mobile";
+    // `contain` vale solo per i figli: il ramo iframe (pagina pubblica) resta
+    // com'era, mobile a scala 1 e gli altri adattati sulla sola larghezza.
+    const contain = !iframeSrc && fit === "contain";
+    const scales = contain || format !== "mobile";
     // Solo la modalità iframe ha il bezel: lo Style Editor (children) resta
     // con il bordo sottile originale, sono due contesti visivi distinti.
     const bezel = iframeSrc ? BEZEL_WIDTH[format] : 0;
@@ -99,16 +111,22 @@ export default function DeviceFrame({
             setScale(1);
             return;
         }
-        const compute = (w: number) => Math.min(1, w / outerWidth);
+        const compute = (w: number, h: number) =>
+            contain ? Math.min(1, w / outerWidth, h / outerHeight) : Math.min(1, w / outerWidth);
         // Compute synchronously on first observation to avoid a flash at scale 1
-        setScale(compute(hostEl.getBoundingClientRect().width));
+        const rect = hostEl.getBoundingClientRect();
+        setScale(compute(rect.width, rect.height));
 
         const ro = new ResizeObserver(entries => {
-            setScale(compute(entries[0]?.contentRect.width ?? 0));
+            const box = entries[0]?.contentRect;
+            setScale(compute(box?.width ?? 0, box?.height ?? 0));
         });
         ro.observe(hostEl);
         return () => ro.disconnect();
-    }, [hostEl, outerWidth, scales]);
+    }, [hostEl, outerWidth, outerHeight, scales, contain]);
+
+    // Il mobile non ha transform a scala 1: vedi la nota sul containing block.
+    const transformed = scales && (format !== "mobile" || scale < 1);
 
     const frameClassName = [
         styles.deviceFrame,
@@ -145,7 +163,7 @@ export default function DeviceFrame({
                     // Nessun transform quando non si scala: uno `scale(1)` inutile
                     // creerebbe un containing block per i discendenti position:fixed,
                     // cambiando il comportamento del ramo children (Style Editor).
-                    style={scales ? { transform: `scale(${scale})`, transformOrigin: "top left" } : undefined}
+                    style={transformed ? { transform: `scale(${scale})`, transformOrigin: "top left" } : undefined}
                 >
                     {screen}
                 </div>

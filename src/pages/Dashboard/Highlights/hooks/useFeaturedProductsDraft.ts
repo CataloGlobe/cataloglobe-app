@@ -1,3 +1,4 @@
+import type { MediaFraming } from "@/services/supabase/featuredContents";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { arrayMove } from "@dnd-kit/sortable";
 import {
@@ -8,7 +9,7 @@ import {
     type FeaturedContentProductRow,
     type FeaturedPickerProduct
 } from "@/services/supabase/featuredContents";
-import { formatCurrency } from "@/utils/formatCurrency";
+import { formatPrice } from "@/utils/formatCurrency";
 
 /** Una riga della bozza: collegata (`id`) o da collegare al Salva (`id` null). */
 export type FeaturedProductDraftRow = {
@@ -19,6 +20,9 @@ export type FeaturedProductDraftRow = {
     name: string;
     priceLabel: string | null;
     note: string;
+    /** Miniatura (EV7); null per i prodotti appena aggiunti dal picker. */
+    imageUrl: string | null;
+    imageFraming: MediaFraming | null;
 };
 
 type PriceSource = Pick<FeaturedPickerProduct, "base_price" | "option_groups">;
@@ -26,10 +30,10 @@ type PriceSource = Pick<FeaturedPickerProduct, "base_price" | "option_groups">;
 /** «€ 7,90», «da € 3,20» per chi ha formati, null senza prezzo. */
 export function priceLabelOf(product: PriceSource | null): string | null {
     if (!product) return null;
-    if (product.base_price != null) return formatCurrency(product.base_price);
+    if (product.base_price != null) return formatPrice(product.base_price);
     const primary = (product.option_groups ?? []).find(g => g.group_kind === "PRIMARY_PRICE");
     const prices = (primary?.values ?? []).map(v => v.absolute_price).filter((p): p is number => p != null);
-    return prices.length > 0 ? `da ${formatCurrency(Math.min(...prices))}` : null;
+    return prices.length > 0 ? `da ${formatPrice(Math.min(...prices))}` : null;
 }
 
 function fromSaved(row: FeaturedContentProductRow): FeaturedProductDraftRow {
@@ -39,7 +43,9 @@ function fromSaved(row: FeaturedContentProductRow): FeaturedProductDraftRow {
         productId: row.product_id,
         name: row.products?.name ?? "Prodotto non trovato",
         priceLabel: priceLabelOf(row.products),
-        note: row.note ?? ""
+        note: row.note ?? "",
+        imageUrl: row.products?.image_url ?? null,
+        imageFraming: row.products?.image_framing ?? null
     };
 }
 
@@ -128,7 +134,9 @@ export function useFeaturedProductsDraft(featuredId: string | undefined, tenantI
                         productId: id,
                         name: product?.name ?? "Prodotto",
                         priceLabel: priceLabelOf(product),
-                        note: ""
+                        note: "",
+                        imageUrl: null,
+                        imageFraming: null
                     };
                 });
             return [...kept, ...added];

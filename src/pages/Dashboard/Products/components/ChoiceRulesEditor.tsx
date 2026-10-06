@@ -1,3 +1,4 @@
+import type { FormEvent } from "react";
 import { Button } from "@/components/ui/Button/Button";
 import { NumberInput } from "@/components/ui/Input/NumberInput";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
@@ -9,19 +10,23 @@ type Props = {
     mode: MaxSelectableMode;
     onModeChange: (mode: MaxSelectableMode) => void;
     n: string;
-    onNChange: (n: string) => void;
+    /** `badInput`: testo che il browser non legge come numero, con `n` = "". */
+    onNChange: (n: string, badInput: boolean) => void;
     required: boolean;
     onRequiredChange: (required: boolean) => void;
     expanded: boolean;
     onExpand: () => void;
     disabled?: boolean;
+    /** Errore su «Fino a quante?» (N = 1, 0, non intero o non numerico). */
+    error?: string | null;
 };
 
 /**
  * Regole di scelta di un gruppo Configurazioni — progressive disclosure: una
  * riga di riepilogo e «Modifica le regole», poi due scelte su
  * `SegmentedControl` (erano pillole rifatte a mano, lotto Prodotti P7).
- * «Fino a quante?» compare solo quando il cliente può sceglierne più d'una.
+ * «Fino a quante?» compare solo quando il cliente può sceglierne più d'una;
+ * vuoto vuol dire senza limite.
  */
 export function ChoiceRulesEditor({
     mode,
@@ -32,8 +37,13 @@ export function ChoiceRulesEditor({
     onRequiredChange,
     expanded,
     onExpand,
-    disabled
+    disabled,
+    error
 }: Props) {
+    // Anche su onInput: da "" a «tre» il valore resta "" e React non chiama
+    // onChange, ma badInput cambia.
+    const reportN = (e: FormEvent<HTMLInputElement>) =>
+        onNChange(e.currentTarget.value, e.currentTarget.validity.badInput);
     if (!expanded) {
         return (
             <div className={styles.rulesCollapsed}>
@@ -65,10 +75,13 @@ export function ChoiceRulesEditor({
                     {mode === "many" && (
                         <NumberInput
                             aria-label="Fino a quante?"
-                            placeholder="Fino a quante?"
+                            placeholder="Senza limite"
                             min="2"
+                            step="1"
                             value={n}
-                            onChange={e => onNChange(e.target.value)}
+                            onChange={reportN}
+                            onInput={reportN}
+                            error={error ?? undefined}
                             containerClassName={styles.quantityN}
                         />
                     )}

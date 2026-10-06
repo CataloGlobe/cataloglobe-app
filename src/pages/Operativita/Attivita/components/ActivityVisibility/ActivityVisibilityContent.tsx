@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { IconListDetails } from "@tabler/icons-react";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
@@ -10,23 +10,27 @@ import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedCont
 import { Tabs } from "@/components/ui/Tabs/Tabs";
 import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
 import { ActivityVisibilityIngredients } from "./ActivityVisibilityIngredients";
+import { EXPLAINED_OPTIONS, EXPLAINED_OPTIONS_SHORT, VISIBILITY_OPTIONS } from "./visibilityOptions";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useTenantId } from "@/context/useTenantId";
 import {
     getActivityProductOverrides,
     getRenderableCatalogForActivity,
     updateActivityProductVisibility,
     type ActivityProductOverride,
+    type CatalogExplanationData,
     type ProductVisibilityState,
     type RenderableCatalog,
     type RenderableProduct
 } from "@/services/supabase/activeCatalog";
+import type { CustomerState } from "@/utils/catalogExplanation";
 import { getDisplayPrice } from "@/utils/priceDisplay";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useEnsureActive } from "@/hooks/useEnsureActive";
-import { useMediaQuery } from "@/hooks/useMediaQuery";
 import styles from "./ActivityVisibilityContent.module.scss";
 
-type FilterValue = "all" | "visible" | "hidden" | "unavailable";
+/** `manual` = le righe con una modifica a mano: il contenuto dello strato 4 (§19.4). */
+type FilterValue = "all" | "visible" | "hidden" | "unavailable" | "manual";
 
 /** Le due viste della pagina: tabella prodotti o tabella ingredienti. */
 type VisibilityView = "products" | "ingredients";
@@ -38,48 +42,148 @@ type VisibilityView = "products" | "ingredients";
 const VIEW_PARAM = "vista";
 const INGREDIENTS_PARAM_VALUE = "ingredienti";
 
-// I tre stati con l'etichetta scritta (§19.4, D3): tre icone senza legenda
-// visibile non si leggevano, e i filtri sopra erano già a parole.
-const VISIBILITY_OPTIONS: { value: ProductVisibilityState; label: string }[] = [
-    { value: "visible", label: "Visibile" },
-    { value: "hidden", label: "Nascosto" },
-    { value: "unavailable", label: "Non disponibile" }
-];
-
-export type VisibilityContentMeta = {
-    catalogId: string | null;
-    catalogName: string | null;
+/**
+ * La spiegazione che la rotta ha letto (§50.20), solo con
+ * `canExplainActivityCatalog`. Senza, la pagina legge da sé le sole
+ * modifiche a mano, come prima della milestone 7.
+ */
+export type VisibilityExplanationSource = {
+    data: CatalogExplanationData | null;
+    loading: boolean;
+    error: boolean;
+    reload: (silent?: boolean) => Promise<void>;
 };
 
 type ActivityVisibilityContentProps = {
     activityId: string;
-    onMetaChange?: (meta: VisibilityContentMeta) => void;
+    explanation?: VisibilityExplanationSource;
     /** Sola lettura: il tri-stato e le azioni in blocco sono spenti (fieldset). */
     readOnly?: boolean;
 };
 
-function plural(n: number, one: string, many: string): string {
-    return n === 1 ? one : many;
+/**
+ * Sotto questa larghezza della pagina l'elenco va a una colonna: prodotto
+ * (~200) + prezzo + tri-stato. Con la spiegazione prezzo 160 e tri-stato 424.
+ */
+const TABLE_MIN_WIDTH = { plain: 640, explained: 840 } as const;
+
+/** Una riga dell'elenco, da qualunque delle due letture venga. */
+type VisibilityRow = {
+    productId: string;
+    name: string;
+    categoryName: string | null;
+    price: string;
+    /** Il listino barrato, quando la regola prezzi lo mostra al cliente. */
+    originalPrice: string | null;
+    /** «Prezzo dalla regola «X»». */
+    priceNote: string | null;
+    /** Il valore del tri-stato: la modifica a mano (`visible` = nessuna). */
+    control: ProductVisibilityState;
+    /** Lo stato su cui contano filtri e conteggi: per il cliente, se lo sappiamo. */
+    state: CustomerState;
+    /** Ha una modifica a mano, qualunque. */
+    manual: boolean;
+    note: string | null;
+};
+
+function rowsFromRenderable(
+    products: RenderableProduct[],
+    overrides: Record<string, ActivityProductOverride>
+): VisibilityRow[] {
+    return products.map(p => ({
+        productId: p.product_id,
+        name: p.name,
+        categoryName: p.category_name ?? null,
+        price: getDisplayPrice({ base_price: p.final_price, from_price: p.from_price }).label,
+        originalPrice: null,
+        priceNote: null,
+        control: p.visibility_state,
+        state: p.visibility_state,
+        manual: overrides[p.product_id]?.visible_override != null,
+        note: null
+    }));
 }
 
+function rowsFromExplanation(data: CatalogExplanationData): VisibilityRow[] {
+    return (data.explanation?.products ?? []).map(p => ({
+        productId: p.productId,
+        name: p.name,
+        categoryName: p.categoryName,
+        price: p.price ?? "—",
+        originalPrice: p.originalPrice,
+        priceNote: p.priceNote,
+        control: p.manual === "hidden" || p.manual === "unavailable" ? p.manual : "visible",
+        state: p.state,
+        manual: p.manual !== null,
+        note: p.note
+    }));
+}
+
+/** La vista Ingredienti lavora sulle modifiche a mano, come le scrive il service. */
+function renderableFromExplanation(data: CatalogExplanationData): {
+    products: RenderableProduct[];
+    overrides: Record<string, ActivityProductOverride>;
+} {
+    const products: RenderableProduct[] = [];
+    const overrides: Record<string, ActivityProductOverride> = {};
+    for (const p of data.explanation?.products ?? []) {
+        const control: ProductVisibilityState = p.manual === "hidden" || p.manual === "unavailable" ? p.manual : "visible";
+        products.push({
+            product_id: p.productId,
+            name: p.name,
+            category_name: p.categoryName,
+            final_price: null,
+            from_price: null,
+            visibility_state: control,
+            is_visible: control !== "hidden"
+        });
+        if (p.manual !== null) {
+            overrides[p.productId] = {
+                visible_override: p.manual === "visible",
+                price_override: null,
+                mode: p.manual === "unavailable" ? "disable" : p.manual === "hidden" ? "hide" : null
+            };
+        }
+    }
+    return { products, overrides };
+}
+
+
 /**
- * Disponibilità della sede: le modifiche a mano (strato 4 del resolver) sui
- * prodotti del menù attivo, per prodotto o per ingrediente. La pagina «Cosa
- * vedono i clienti» (§19: esito, catena, provenienza) è la milestone 7.
+ * L'elenco di «Cosa vedono i clienti»: i prodotti del menù attivo con le
+ * modifiche a mano (strato 4 del resolver), per prodotto o per ingrediente.
+ * Con la spiegazione (§50.20) filtri e conteggi seguono lo stato per il
+ * cliente e ogni riga dice chi l'ha deciso; senza, le sole modifiche a mano.
  */
 export const ActivityVisibilityContent: React.FC<ActivityVisibilityContentProps> = ({
     activityId,
-    onMetaChange,
+    explanation,
     readOnly = false
 }) => {
+    const explained = explanation !== undefined;
     const tenantId = useTenantId();
-    const navigate = useNavigate();
     const { showToast } = useToast();
     const { ensureActive } = useEnsureActive();
     const [searchParams, setSearchParams] = useSearchParams();
-    // Sul telefono una colonna sola (regola DataTable): prezzo e tri-stato
-    // scendono sotto il nome. Colonne scelte qui, non duplicate in CSS.
-    const isPhone = useMediaQuery("(max-width: 767px)");
+    // Una colonna sola quando le tre non ci stanno (regola DataTable): prezzo
+    // e tri-stato scendono sotto il nome. Si misura lo spazio della pagina,
+    // non la finestra, come la Settimana e la matrice: con la spiegazione il
+    // tri-stato e il prezzo sono più larghi e la soglia sale.
+    // Sotto 768 la pagina scorre intera (ActivityDetailPage.module.scss): la
+    // tabella non ha un'altezza da riempire, quindi una pagina da 10 righe
+    // invece del calcolo «Auto», che senza altezza ne darebbe zero.
+    const pageScrolls = useMediaQuery("(max-width: 767px)");
+    const [box, setBox] = useState<HTMLDivElement | null>(null);
+    const [isPhone, setIsPhone] = useState(false);
+    useLayoutEffect(() => {
+        if (!box) return;
+        const min = explained ? TABLE_MIN_WIDTH.explained : TABLE_MIN_WIDTH.plain;
+        const measure = () => setIsPhone(box.clientWidth < min);
+        measure();
+        const observer = new ResizeObserver(measure);
+        observer.observe(box);
+        return () => observer.disconnect();
+    }, [box, explained]);
 
     const [isLoading, setIsLoading] = useState(true);
     const [loadError, setLoadError] = useState(false);
@@ -113,13 +217,8 @@ export const ActivityVisibilityContent: React.FC<ActivityVisibilityContentProps>
         [setSearchParams]
     );
 
-    const onMetaChangeRef = useRef(onMetaChange);
-    useEffect(() => {
-        onMetaChangeRef.current = onMetaChange;
-    }, [onMetaChange]);
-
     const loadData = useCallback(async () => {
-        if (!tenantId) return;
+        if (!tenantId || explained) return;
         setIsLoading(true);
         setLoadError(false);
         try {
@@ -129,10 +228,6 @@ export const ActivityVisibilityContent: React.FC<ActivityVisibilityContentProps>
             ]);
             setCatalog(cat);
             setOverrides(ovs);
-            onMetaChangeRef.current?.({
-                catalogId: cat.catalogId,
-                catalogName: cat.catalogName
-            });
         } catch (e) {
             // Un errore non è «Nessun catalogo attivo»: la pagina lo dice, con «Riprova».
             console.error("Error loading visibility data:", e);
@@ -140,23 +235,30 @@ export const ActivityVisibilityContent: React.FC<ActivityVisibilityContentProps>
         } finally {
             setIsLoading(false);
         }
-    }, [activityId, tenantId]);
+    }, [activityId, tenantId, explained]);
 
     useEffect(() => {
         loadData();
     }, [loadData]);
 
+    const reloadExplanation = explanation?.reload;
+
     // Reload silenzioso (niente skeleton): usato dopo il singolo cambio stato
-    // e dopo le azioni in blocco della vista Ingredienti.
+    // e dopo le azioni in blocco della vista Ingredienti. Con la spiegazione
+    // rilegge la rotta: banda ed elenco vengono dalla stessa lettura.
     const refreshData = useCallback(async () => {
         if (!tenantId) return;
+        if (reloadExplanation) {
+            await reloadExplanation(true);
+            return;
+        }
         const [cat, ovs] = await Promise.all([
             getRenderableCatalogForActivity(activityId, tenantId),
             getActivityProductOverrides(activityId)
         ]);
         setCatalog(cat);
         setOverrides(ovs);
-    }, [activityId, tenantId]);
+    }, [activityId, tenantId, reloadExplanation]);
 
     const handleSetState = useCallback(
         async (productId: string, state: ProductVisibilityState) => {
@@ -175,29 +277,44 @@ export const ActivityVisibilityContent: React.FC<ActivityVisibilityContentProps>
         [tenantId, readOnly, ensureActive, activityId, refreshData, showToast]
     );
 
-    const products = useMemo(() => catalog?.products ?? [], [catalog]);
+    const explanationData = explanation?.data ?? null;
+    const rows = useMemo<VisibilityRow[]>(
+        () => (explained ? (explanationData ? rowsFromExplanation(explanationData) : []) : rowsFromRenderable(catalog?.products ?? [], overrides)),
+        [explained, explanationData, catalog, overrides]
+    );
+    // La vista Ingredienti e le sue conferme leggono le modifiche a mano.
+    const ingredientSource = useMemo(
+        () =>
+            explained
+                ? explanationData
+                    ? renderableFromExplanation(explanationData)
+                    : { products: [], overrides: {} }
+                : { products: catalog?.products ?? [], overrides },
+        [explained, explanationData, catalog, overrides]
+    );
 
     const counts = useMemo(
         () => ({
-            all: products.length,
-            visible: products.filter(p => p.visibility_state === "visible").length,
-            hidden: products.filter(p => p.visibility_state === "hidden").length,
-            unavailable: products.filter(p => p.visibility_state === "unavailable").length
+            all: rows.length,
+            visible: rows.filter(p => p.state === "visible").length,
+            hidden: rows.filter(p => p.state === "hidden").length,
+            unavailable: rows.filter(p => p.state === "unavailable").length,
+            manual: rows.filter(p => p.manual).length
         }),
-        [products]
+        [rows]
     );
 
     const filtered = useMemo(() => {
         const term = search.trim().toLowerCase();
-        return products.filter(p => {
-            // Filtri mutuamente esclusivi via visibility_state (unavailable NON è "visibile").
-            if (filter !== "all" && p.visibility_state !== filter) return false;
+        return rows.filter(p => {
+            // Filtri mutuamente esclusivi sullo stato (unavailable NON è "visibile").
+            if (filter === "manual" ? !p.manual : filter !== "all" && p.state !== filter) return false;
             if (!term) return true;
             const inName = p.name.toLowerCase().includes(term);
-            const inCategory = p.category_name?.toLowerCase().includes(term) ?? false;
+            const inCategory = p.categoryName?.toLowerCase().includes(term) ?? false;
             return inName || inCategory;
         });
-    }, [products, search, filter]);
+    }, [rows, search, filter]);
 
     // Conteggi a vista, e a zero il filtro resta nella fila, spento.
     const filterOptions = useMemo<ChipOption<FilterValue>[]>(
@@ -205,23 +322,43 @@ export const ActivityVisibilityContent: React.FC<ActivityVisibilityContentProps>
             { value: "all", label: "Tutti", count: counts.all },
             { value: "visible", label: "Visibili", count: counts.visible, disabled: counts.visible === 0 },
             { value: "hidden", label: "Nascosti", count: counts.hidden, disabled: counts.hidden === 0 },
-            { value: "unavailable", label: "Non disponibili", count: counts.unavailable, disabled: counts.unavailable === 0 }
+            { value: "unavailable", label: "Non disponibili", count: counts.unavailable, disabled: counts.unavailable === 0 },
+            // Il conteggio delle modifiche a mano sta qui, non in un badge sulla voce (§50.20, D5).
+            { value: "manual", label: "Modificati a mano", count: counts.manual, disabled: counts.manual === 0 }
         ],
         [counts]
     );
 
-    const columns = useMemo<ColumnDefinition<RenderableProduct>[]>(() => {
-        const priceOf = (product: RenderableProduct) =>
-            getDisplayPrice({ base_price: product.final_price, from_price: product.from_price }).label;
-        const control = (product: RenderableProduct) => (
+    const columns = useMemo<ColumnDefinition<VisibilityRow>[]>(() => {
+        // La provenienza (§19.4): sotto il nome, chi ha deciso lo stato.
+        const note = (product: VisibilityRow) =>
+            [product.note, product.priceNote].filter(Boolean).map(line => (
+                <Text key={line} as="span" variant="caption" colorVariant="muted" className={styles.note}>
+                    {line}
+                </Text>
+            ));
+        // Il prezzo che vede il cliente; il listino barrato se la regola lo mostra.
+        const price = (product: VisibilityRow) => (
+            <>
+                {product.originalPrice && (
+                    <>
+                        <s className={styles.listPrice}>
+                            {product.originalPrice}
+                        </s>{" "}
+                    </>
+                )}
+                {product.price}
+            </>
+        );
+        const control = (product: VisibilityRow) => (
             // Sola lettura come Prodotti: fieldset disabled, ma solo sul
             // controllo, così ricerca e filtri restano.
             <fieldset className={styles.readOnlyScope} disabled={readOnly}>
                 <SegmentedControl<ProductVisibilityState>
-                    value={product.visibility_state}
-                    onChange={next => handleSetState(product.product_id, next)}
+                    value={product.control}
+                    onChange={next => handleSetState(product.productId, next)}
                     size="sm"
-                    options={VISIBILITY_OPTIONS}
+                    options={explained ? (pageScrolls ? EXPLAINED_OPTIONS_SHORT : EXPLAINED_OPTIONS) : VISIBILITY_OPTIONS}
                 />
             </fieldset>
         );
@@ -236,8 +373,10 @@ export const ActivityVisibilityContent: React.FC<ActivityVisibilityContentProps>
                             <div className={`${DATA_TABLE_CLASSES.cellTwoLine} ${DATA_TABLE_CLASSES.cellTwoLineWrap}`}>
                                 <span>{product.name}</span>
                                 <span>
-                                    {[product.category_name, priceOf(product)].filter(Boolean).join(" · ")}
+                                    {product.categoryName ? `${product.categoryName} · ` : ""}
+                                    {price(product)}
                                 </span>
+                                {note(product)}
                             </div>
                             {control(product)}
                         </div>
@@ -251,20 +390,25 @@ export const ActivityVisibilityContent: React.FC<ActivityVisibilityContentProps>
                 header: "Prodotto",
                 width: "minmax(0, 2fr)",
                 cell: (_, product) => (
+                    // V3: la categoria accanto al nome, la provenienza sotto.
                     <div className={DATA_TABLE_CLASSES.cellTwoLine}>
-                        <span>{product.name}</span>
-                        <span>{product.category_name}</span>
+                        <span>
+                            <span>{product.name}</span>
+                            {product.categoryName && <span className={styles.category}> · {product.categoryName}</span>}
+                        </span>
+                        {note(product)}
                     </div>
                 )
             },
             {
                 id: "price",
                 header: "Prezzo",
-                width: "100px",
+                // Con il listino barrato accanto: due prezzi «da» non stanno in 100.
+                width: "160px",
                 align: "right",
                 cell: (_, product) => (
                     <Text variant="body-sm" weight={500}>
-                        {priceOf(product)}
+                        {price(product)}
                     </Text>
                 )
             },
@@ -273,18 +417,23 @@ export const ActivityVisibilityContent: React.FC<ActivityVisibilityContentProps>
                 header: "Disponibilità",
                 // Il tri-stato `sm` scritto è largo 280: con i 24 + 24 della
                 // cella, 300 lo troncava e «Non disponibile» scorreva dentro.
-                width: "344px",
+                // «Come dice la regola» al posto di «Visibile» ne chiede 80 in più.
+                width: explained ? "424px" : "344px",
                 align: "right",
                 cell: (_, product) => control(product)
             }
         ];
-    }, [isPhone, readOnly, handleSetState]);
+    }, [isPhone, readOnly, handleSetState, explained, pageScrolls]);
 
-    if (isLoading) {
-        return <DataTable<RenderableProduct> ariaLabel="Prodotti del menù" data={[]} columns={columns} isLoading />;
+    const showLoading = explained ? explanation.loading : isLoading;
+    const showError = explained ? explanation.error : loadError;
+    const retry = () => void (explained ? explanation.reload() : loadData());
+
+    if (showLoading) {
+        return <DataTable<VisibilityRow> ariaLabel="Prodotti del menù" data={[]} columns={columns} isLoading />;
     }
 
-    if (loadError) {
+    if (showError) {
         return (
             <EmptyState
                 variant="page"
@@ -292,7 +441,7 @@ export const ActivityVisibilityContent: React.FC<ActivityVisibilityContentProps>
                 title="Non è stato possibile caricare la disponibilità"
                 description="Controlla la connessione e riprova."
                 action={
-                    <Button variant="secondary" onClick={() => void loadData()}>
+                    <Button variant="secondary" onClick={retry}>
                         Riprova
                     </Button>
                 }
@@ -300,23 +449,33 @@ export const ActivityVisibilityContent: React.FC<ActivityVisibilityContentProps>
         );
     }
 
-    if (!catalog || !catalog.catalogId) {
+    // Con la spiegazione il perché lo dice la banda («Cosa manca»): qui solo il vuoto.
+    if (explained && !explanationData?.catalogId) {
         return (
             <EmptyState
-                variant="page"
+                variant="inline"
                 icon={<IconListDetails />}
-                title="Nessun catalogo attivo"
-                description="La disponibilità si gestisce quando una regola di programmazione assegna un menù a questa sede."
-                action={
-                    <Button variant="secondary" onClick={() => navigate(`/business/${tenantId}/scheduling`)}>
-                        Vai a Programmazione
-                    </Button>
-                }
+                title="Nessun menù attivo"
+                description="Quando una regola assegna un menù a questa sede, qui trovi i suoi prodotti."
             />
         );
     }
 
-    if (catalog.products.length === 0) {
+    // Senza la spiegazione le regole si leggono con le RLS di chi guarda
+    // (`canExplainActivityCatalog`): un menù che non risulta non vuol dire che
+    // i clienti non ne vedono uno. La rotta aggiunge «Per vedere perché…».
+    if (!explained && (!catalog || !catalog.catalogId)) {
+        return (
+            <EmptyState
+                variant="inline"
+                icon={<IconListDetails />}
+                title="Il menù di questa sede non è visibile con il tuo accesso"
+                description="I clienti potrebbero vederne uno: le regole che lo scelgono non si leggono col tuo ruolo."
+            />
+        );
+    }
+
+    if (rows.length === 0) {
         return (
             <EmptyState
                 variant="inline"
@@ -327,24 +486,14 @@ export const ActivityVisibilityContent: React.FC<ActivityVisibilityContentProps>
         );
     }
 
-    const countText = [
-        `${counts.all} ${plural(counts.all, "prodotto totale", "prodotti totali")}`,
-        `${counts.hidden} ${plural(counts.hidden, "nascosto", "nascosti")}`,
-        counts.unavailable > 0
-            ? `${counts.unavailable} ${plural(counts.unavailable, "non disponibile", "non disponibili")}`
-            : null
-    ]
-        .filter(Boolean)
-        .join(" · ");
-
     const isFiltered = filter !== "all" || search.trim() !== "";
 
     return (
-        <div className={styles.container}>
+        <div ref={setBox} className={styles.container}>
             <div className={styles.viewTabs}>
                 <Tabs<VisibilityView> value={view} onChange={setView} variant="primary">
                     <Tabs.List>
-                        <Tabs.Tab value="products" badge={catalog.products.length}>
+                        <Tabs.Tab value="products" badge={rows.length}>
                             Prodotti
                         </Tabs.Tab>
                         <Tabs.Tab value="ingredients" badge={ingredientCount ?? undefined}>
@@ -369,16 +518,13 @@ export const ActivityVisibilityContent: React.FC<ActivityVisibilityContentProps>
                     </div>
                 </div>
 
-                <Text variant="caption" colorVariant="muted">
-                    {countText}
-                </Text>
-
                 <div className={styles.tableWrapper}>
-                    <DataTable<RenderableProduct>
+                    <DataTable<VisibilityRow>
                         ariaLabel="Prodotti del menù"
                         data={filtered}
                         columns={columns}
-                        getRowId={p => p.product_id}
+                        getRowId={p => p.productId}
+                        pageSize={pageScrolls ? 10 : undefined}
                         disabledRowIds={savingId ? [savingId] : []}
                         isFiltered={isFiltered}
                         onClearFilters={() => {
@@ -395,11 +541,14 @@ export const ActivityVisibilityContent: React.FC<ActivityVisibilityContentProps>
                     <ActivityVisibilityIngredients
                         activityId={activityId}
                         tenantId={tenantId}
-                        products={catalog.products}
-                        overrides={overrides}
+                        products={ingredientSource.products}
+                        overrides={ingredientSource.overrides}
                         onBulkApplied={refreshData}
                         onCountChange={setIngredientCount}
                         readOnly={readOnly}
+                        explained={explained}
+                        compact={isPhone}
+                        shortLabels={pageScrolls}
                     />
                 </div>
             )}

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, type ComponentProps, type ReactNode } from "react";
+import { useMemo, type ComponentProps, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import CollectionView, {
@@ -6,15 +6,13 @@ import CollectionView, {
     type CollectionViewSectionGroup,
     type CollectionViewSectionItem
 } from "@/components/PublicCollectionView/CollectionView/CollectionView";
-import FeaturedBlock from "@/components/PublicCollectionView/FeaturedBlock/FeaturedBlock";
 import StaleDataBanner from "@/components/StaleDataBanner/StaleDataBanner";
 import LanguageFallbackBanner from "@/components/PublicCollectionView/LanguageFallbackBanner/LanguageFallbackBanner";
 import PublicThemeScope from "@/features/public/components/PublicThemeScope";
+import { usePublicDocumentChrome } from "@/components/PublicCollectionView/hooks/usePublicDocumentChrome";
 import { LanguageProvider } from "@context/Language/LanguageProvider";
-import {
-    CustomerSessionProvider,
-    useCustomerSession
-} from "@/context/CustomerSession/CustomerSessionContext";
+import { CustomerSessionProvider } from "@/context/CustomerSession/CustomerSessionContext";
+import { useCustomerSession } from "@/context/CustomerSession/useCustomerSession";
 import { parseTokens } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
 import { DEFAULT_COLLECTION_STYLE } from "@/types/collectionStyle";
 import type { HubTab } from "@/types/collectionStyle";
@@ -313,10 +311,6 @@ export type PublicCatalogReadyProps = {
     onRetry: () => void;
     activeTab: HubTab;
     onTabChange: (tab: HubTab) => void;
-    /** Reset della tab attiva senza analytics (setter raw). Invocato quando la
-     *  tab "events" e' attiva ma non ci sono piu featured da mostrare. Opzionale:
-     *  l'SSR monta con activeTab="menu" fisso → il fallback non scatta mai. */
-    onTabAutoReset?: () => void;
     /** Banner page-level dentro il contentWrapper (es. banner simulazione). */
     bannerSlot?: ReactNode;
     /** Overlay page-level dopo il contentWrapper (es. toast cambio lingua). */
@@ -330,7 +324,6 @@ export default function PublicCatalogReady({
     onRetry,
     activeTab,
     onTabChange,
-    onTabAutoReset,
     bannerSlot,
     children
 }: PublicCatalogReadyProps) {
@@ -363,6 +356,9 @@ export default function PublicCatalogReady({
 
     // Derive CollectionStyle from stored tokens so runtime matches preview
     const tokens = parseTokens(resolved.style?.config ?? null);
+    // html/body + theme-color con lo sfondo dello stile (non il --bg admin):
+    // è il colore che Safari dipinge dietro barre e rimbalzo dello scroll.
+    usePublicDocumentChrome(tokens.colors.pageBackground, true);
     const navStyle = tokens.navigation.style; // "filled" | "outline" | "tabs" | "minimal" | "tinted"
     const cardTemplate: "no-image" | "left" | "right" =
         tokens.card.image.mode === "hide"
@@ -411,20 +407,6 @@ export default function PublicCatalogReady({
                   })
               }
             : undefined;
-
-    const allFeaturedContents = [
-        ...(resolved.featured?.before_catalog ?? []),
-        ...(resolved.featured?.after_catalog ?? [])
-    ];
-
-    // Fallback: se la tab "events" e' attiva ma non ci sono piu featured da
-    // mostrare (mount diretto o svuotamento da refetch/scheduling mid-sessione),
-    // riporta la tab a "menu" via setter raw (niente analytics tab_switch).
-    useEffect(() => {
-        if (activeTab === "events" && allFeaturedContents.length === 0) {
-            onTabAutoReset?.();
-        }
-    }, [activeTab, allFeaturedContents.length, onTabAutoReset]);
 
     const isRefetchingNow = data.isRefetching ?? false;
 
@@ -496,20 +478,9 @@ export default function PublicCatalogReady({
                 emptyState={emptyState}
                 activeTab={activeTab}
                 onTabChange={onTabChange}
-                featuredContents={allFeaturedContents}
                 hasStory={hasStory}
-                featuredBeforeCatalogSlot={
-                    resolved.featured?.before_catalog &&
-                    resolved.featured.before_catalog.length > 0 ? (
-                        <FeaturedBlock blocks={resolved.featured.before_catalog} activityId={business.id} slot="before_catalog" layout={tokens.appearance.featuredStyle} showSubtitle={tokens.appearance.showFeaturedSubtitle ?? true} showTitle={tokens.appearance.showFeaturedTitle ?? true} showCta={tokens.appearance.showFeaturedCta ?? true} />
-                    ) : null
-                }
-                featuredAfterCatalogSlot={
-                    resolved.featured?.after_catalog &&
-                    resolved.featured.after_catalog.length > 0 ? (
-                        <FeaturedBlock blocks={resolved.featured.after_catalog} activityId={business.id} slot="after_catalog" layout={tokens.appearance.featuredStyle} showSubtitle={tokens.appearance.showFeaturedSubtitle ?? true} showTitle={tokens.appearance.showFeaturedTitle ?? true} showCta={tokens.appearance.showFeaturedCta ?? true} />
-                    ) : null
-                }
+                featuredBeforeCatalog={resolved.featured?.before_catalog}
+                featuredAfterCatalog={resolved.featured?.after_catalog}
                 reviewsProps={{
                     googleReviewUrl: business.google_review_url,
                     activityId: business.id,

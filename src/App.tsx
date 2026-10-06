@@ -14,6 +14,7 @@ import { AdminRoute } from "./components/Routes/AdminRoute";
 import { TenantProvider } from "@context/TenantProvider";
 import { PermissionsProvider } from "@context/PermissionsContext";
 import { DashboardRedirect } from "./components/Routes/DashboardRedirect";
+import { BusinessPathRedirect } from "./components/Routes/BusinessPathRedirect";
 import { AppLoader } from "@/components/ui/AppLoader/AppLoader";
 import { publicRoutes } from "@/routes/publicRoutes";
 
@@ -44,10 +45,17 @@ const SupportQueuePage = lazy(() => import("./pages/Admin/Support/SupportQueuePa
 const SupportTicketAdminPage = lazy(
     () => import("./pages/Admin/Support/SupportTicketAdminPage")
 );
+const CrmLeadsPage = lazy(() => import("./pages/Admin/Crm/LeadsPage"));
+const CrmLeadDetailPage = lazy(() => import("./pages/Admin/Crm/LeadDetailPage"));
+const CrmAgentsPage = lazy(() => import("./pages/Admin/Crm/AgentsPage"));
+const CrmHomePage = lazy(() => import("./pages/Admin/Crm/HomePage"));
+const CrmMorePage = lazy(() => import("./pages/Admin/Crm/MorePage"));
+const CrmCostsPage = lazy(() => import("./pages/Admin/Costs/CostsPage"));
+const CrmAgendaPage = lazy(() => import("./pages/Admin/Crm/AgendaPage"));
+const CrmClientsPage = lazy(() => import("./pages/Admin/Crm/ClientsPage"));
 
 // Workspace — lazy (solo utenti autenticati)
 const WorkspacePage = lazy(() => import("./pages/Workspace/WorkspacePage"));
-const BillingPage = lazy(() => import("./pages/Workspace/BillingPage"));
 const WorkspaceSettingsPage = lazy(() => import("./pages/Workspace/WorkspaceSettingsPage"));
 
 // Onboarding — lazy
@@ -60,6 +68,8 @@ const SetupWizardPage = lazy(() => import("./pages/Setup/SetupWizardPage"));
 const Overview = lazy(() => import("@/pages/Business/OverviewPage"));
 const Businesses = lazy(() => import("./pages/Dashboard/Businesses/Businesses"));
 const Orders = lazy(() => import("./pages/Dashboard/Orders/Orders"));
+const OrdersHistory = lazy(() => import("./pages/Dashboard/Orders/OrdersHistory"));
+const Servizio = lazy(() => import("./pages/Dashboard/Servizio/Servizio"));
 const Reservations = lazy(() => import("./pages/Dashboard/Reservations/Reservations"));
 const Guests = lazy(() => import("./pages/Dashboard/Guests/Guests"));
 const Catalogs = lazy(() => import("./pages/Dashboard/Catalogs/Catalogs"));
@@ -86,10 +96,14 @@ const ActivityAnagraficaRoute = lazy(() => import("./pages/Operativita/Attivita/
 const ActivityOrariRoute = lazy(() => import("./pages/Operativita/Attivita/routes/ActivityOrariRoute"));
 const ActivityOrdiniPrenotazioniRoute = lazy(() => import("./pages/Operativita/Attivita/routes/ActivityOrdiniPrenotazioniRoute"));
 const ActivitySectionRedirect = lazy(() => import("./pages/Operativita/Attivita/routes/ActivitySectionRedirect"));
-const SedeRedirect = lazy(() => import("./components/layout/SedeRedirect/SedeRedirect"));
-const ActivityPubblicazioneRoute = lazy(() => import("./pages/Operativita/Attivita/routes/ActivityPubblicazioneRoute"));
 const ActivitySalaRoute = lazy(() => import("./pages/Operativita/Attivita/routes/ActivitySalaRoute"));
-const ActivityDisponibilitaRoute = lazy(() => import("./pages/Operativita/Attivita/routes/ActivityDisponibilitaRoute"));
+const OrdiniPrenotazioniRedirect = lazy(() => import("./pages/Operativita/Attivita/routes/OrdiniPrenotazioniRedirect"));
+const SedeRedirect = lazy(() => import("./components/layout/SedeRedirect/SedeRedirect"));
+const BusinessHomeRedirect = lazy(() => import("./components/layout/LandingRedirect/BusinessHomeRedirect"));
+const SedeHomeRedirect = lazy(() => import("./components/layout/LandingRedirect/SedeHomeRedirect"));
+const SingleSedeRoute = lazy(() => import("./components/layout/LandingRedirect/SingleSedeRoute"));
+const ActivityPubblicazioneRoute = lazy(() => import("./pages/Operativita/Attivita/routes/ActivityPubblicazioneRoute"));
+const ActivityCosaVedonoRoute = lazy(() => import("./pages/Operativita/Attivita/routes/ActivityCosaVedonoRoute"));
 const SubscriptionPage = lazy(() => import("./pages/Business/SubscriptionPage"));
 
 // Landing di campagna su / (variante form) e /b (variante signup, noindex).
@@ -212,8 +226,11 @@ export default function App() {
                 }
             >
                 <Route index element={<WorkspacePage />} />
-                <Route path="billing" element={<BillingPage />} />
-                <Route path="settings" element={<WorkspaceSettingsPage />} />
+                {/* T17 WS2-WS3: l'abbonamento sta nella card dell'attività, le
+                    impostazioni sono «Account». I vecchi indirizzi reindirizzano. */}
+                <Route path="account" element={<WorkspaceSettingsPage />} />
+                <Route path="billing" element={<Navigate to="/workspace" replace />} />
+                <Route path="settings" element={<Navigate to="/workspace/account" replace />} />
             </Route>
 
             {/* Onboarding (no tenant required) */}
@@ -255,33 +272,59 @@ export default function App() {
                     </ProtectedRoute>
                 }
             >
-                {/* Default: redirect /business/:id → /business/:id/overview */}
-                <Route index element={<Navigate to="overview" replace />} />
+                {/* L'ingresso nell'azienda (§51.6): chi configura la
+                    Panoramica, staff e viewer la loro sede o Sedi. */}
+                <Route index element={<BusinessHomeRedirect />} />
 
                 <Route path="overview" element={<Overview />} />
 
-                <Route path="locations" element={<Businesses />} />
-                {/* Comande e prenotazioni della sede: le pagine operative
-                    montate dentro il contesto, con la sede presa dal path
-                    (§46.1). Fuori dal parent della scheda: non sono sue
-                    pagine, e non devono ereditarne testata e draft. */}
-                <Route path="locations/:activityId/comande" element={<Orders />} />
-                <Route path="locations/:activityId/prenotazioni" element={<Reservations />} />
-                {/* La scheda della sede: quattro pagine (§31) più Sala e
-                    Disponibilità; i vecchi `?tab=` li reindirizza il parent. */}
-                <Route path="locations/:activityId" element={<ActivityDetailPage />}>
-                    <Route index element={<Navigate to="anagrafica" replace />} />
-                    <Route path="anagrafica" element={<ActivityAnagraficaRoute />} />
-                    <Route path="orari" element={<ActivityOrariRoute />} />
-                    <Route path="ordini-prenotazioni" element={<ActivityOrdiniPrenotazioniRoute />} />
-                    <Route path="canali" element={<ActivitySectionRedirect to="ordini-prenotazioni" keepHash />} />
-                    <Route path="pubblicazione" element={<ActivityPubblicazioneRoute />} />
-                    <Route path="sala" element={<ActivitySalaRoute />} />
-                    <Route path="disponibilita" element={<ActivityDisponibilitaRoute />} />
-                    {/* Un segmento sconosciuto sotto la sede apre l'Anagrafica:
-                        un link vecchio o storto resta dentro la scheda invece di
-                        finire sulla pagina "non trovata" di tutto il sito. */}
-                    <Route path="*" element={<ActivitySectionRedirect to="anagrafica" />} />
+                {/* Con una sede sola non c'è la pagina Sedi (§51.3). */}
+                <Route
+                    path="locations"
+                    element={
+                        <SingleSedeRoute segment="anagrafica">
+                            <Businesses />
+                        </SingleSedeRoute>
+                    }
+                />
+                <Route path="locations/:activityId">
+                    {/* Entrando nella sede (§51.6): la Scheda per chi la
+                        gestisce, Operatività per gli altri; i vecchi `?tab=`
+                        portano alla loro sezione. */}
+                    <Route index element={<SedeHomeRedirect />} />
+                    {/* Le voci della sede che non sono la scheda: montate
+                        dentro il contesto, con la sede presa dal path (§46.1),
+                        fuori dal parent della scheda, di cui non devono
+                        ereditare testata e draft. */}
+                    <Route path="servizio" element={<Servizio />} />
+                    <Route path="comande" element={<Orders />} />
+                    <Route path="storico" element={<OrdersHistory />} />
+                    <Route path="prenotazioni" element={<Reservations />} />
+                    <Route path="cosa-vedono" element={<ActivityCosaVedonoRoute />} />
+                    {/* Andamento della sede (§51.10): stesse pagine d'azienda,
+                        la sede dal path. */}
+                    <Route path="analitiche" element={<AnalyticsPage />} />
+                    <Route path="recensioni" element={<Reviews />} />
+                    {/* Il vecchio nome (Disponibilità, §50.14): link e preferiti restano buoni. */}
+                    <Route path="disponibilita" element={<ActivitySectionRedirect to="cosa-vedono" keepHash keepSearch />} />
+                    {/* La scheda della sede: quattro pagine (§31). */}
+                    <Route element={<ActivityDetailPage />}>
+                        <Route path="anagrafica" element={<ActivityAnagraficaRoute />} />
+                        <Route path="orari" element={<ActivityOrariRoute />} />
+                        {/* Correzioni UI T5: una cosa per tab (O1) e la Sala dalla
+                            Scheda (SV3, era il modo «Gestisci la sala» di Servizio). */}
+                        <Route path="ordini-al-tavolo" element={<ActivityOrdiniPrenotazioniRoute part="ordini" />} />
+                        <Route path="prenotazioni-online" element={<ActivityOrdiniPrenotazioniRoute part="prenotazioni" />} />
+                        <Route path="sala" element={<ActivitySalaRoute />} />
+                        {/* La vecchia tab unica: l'ancora dice quale delle due. */}
+                        <Route path="ordini-prenotazioni" element={<OrdiniPrenotazioniRedirect />} />
+                        <Route path="canali" element={<OrdiniPrenotazioniRedirect />} />
+                        <Route path="pubblicazione" element={<ActivityPubblicazioneRoute />} />
+                        {/* Un segmento sconosciuto sotto la sede apre l'Anagrafica:
+                            un link vecchio o storto resta dentro la scheda invece di
+                            finire sulla pagina "non trovata" di tutto il sito. */}
+                        <Route path="*" element={<ActivitySectionRedirect to="anagrafica" />} />
+                    </Route>
                 </Route>
 
                 {/* Le comande sono di una sede: il vecchio indirizzo d'azienda
@@ -324,12 +367,32 @@ export default function App() {
                     <Route path=":ticketId" element={<SupportTicketPage />} />
                 </Route>
 
-                <Route path="reviews" element={<Reviews />} />
-                <Route path="analytics" element={<AnalyticsPage />} />
+                {/* Il totale delle sedi leggibili; con una sede la rotta di sede (§51.14). */}
+                <Route
+                    path="reviews"
+                    element={
+                        <SingleSedeRoute segment="recensioni">
+                            <Reviews />
+                        </SingleSedeRoute>
+                    }
+                />
+                <Route
+                    path="analytics"
+                    element={
+                        <SingleSedeRoute segment="analitiche">
+                            <AnalyticsPage />
+                        </SingleSedeRoute>
+                    }
+                />
 
-                <Route path="team" element={<BusinessTeamPage />} />
-                <Route path="subscription" element={<SubscriptionPage />} />
+                {/* Impostazioni: Azienda · Team · Abbonamento (§51.12). I
+                    vecchi indirizzi portano alle tab, con query e ancora
+                    (ritorni da Stripe, link nelle email). */}
                 <Route path="settings" element={<BusinessSettingsPage />} />
+                <Route path="settings/team" element={<BusinessTeamPage />} />
+                <Route path="settings/abbonamento" element={<SubscriptionPage />} />
+                <Route path="team" element={<BusinessPathRedirect to="settings/team" />} />
+                <Route path="subscription" element={<BusinessPathRedirect to="settings/abbonamento" />} />
             </Route>
 
             {/* Legacy backward-compatibility redirects */}
@@ -361,12 +424,21 @@ export default function App() {
                     </AdminRoute>
                 }
             >
-                <Route index element={<Navigate to="status-incidents" replace />} />
+                <Route index element={<CrmHomePage />} />
                 <Route path="status-incidents" element={<StatusIncidentsAdminPage />} />
                 <Route path="supporto">
                     <Route index element={<SupportQueuePage />} />
                     <Route path=":ticketId" element={<SupportTicketAdminPage />} />
                 </Route>
+                <Route path="lead">
+                    <Route index element={<CrmLeadsPage />} />
+                    <Route path=":venueId" element={<CrmLeadDetailPage />} />
+                </Route>
+                <Route path="agenda" element={<CrmAgendaPage />} />
+                <Route path="clienti" element={<CrmClientsPage />} />
+                <Route path="agenti" element={<CrmAgentsPage />} />
+                <Route path="costi" element={<CrmCostsPage />} />
+                <Route path="altro" element={<CrmMorePage />} />
             </Route>
 
             {/* Galleria UI — solo sviluppo (vedi DevUiPage sopra) */}

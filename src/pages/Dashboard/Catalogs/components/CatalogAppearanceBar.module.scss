@@ -1,0 +1,58 @@
+@use "@/styles/mixins" as *;
+
+// Il contesto a sinistra nella barra del dettaglio (MD2): pillola, nomi,
+// freccia; accanto la conseguenza del salvataggio.
+.bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  min-width: 0;
+}
+
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+  min-width: 0;
+  min-height: var(--space-32);
+  padding: var(--space-4) var(--space-8) var(--space-4) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+
+  &:hover {
+    background: var(--bg);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-focus);
+  }
+
+  &[data-state="open"] .chevron {
+    transform: rotate(180deg);
+  }
+}
+
+.names {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chevron {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  transition: transform var(--timing-motion-base) var(--easing-surface);
+}
+
+.consequence {
+  white-space: nowrap;
+
+  @include phone {
+    display: none;
+  }
+}

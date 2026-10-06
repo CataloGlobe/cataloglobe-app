@@ -947,6 +947,15 @@ function friendlyErrorMessage(code: string): string {
             return "Con la Partita IVA serve un recapito per la fattura elettronica: aggiungi il Codice Destinatario SDI o la PEC nei dati di fatturazione.";
         case "fiscal_profile_unavailable":
             return "Non siamo riusciti a leggere i dati di fatturazione. Non ti è stato addebitato nulla: riprova tra qualche istante.";
+        // Seat gate of stripe-checkout (CG-03): the subscription must cover the
+        // activities the tenant already has. The wizard creates none before
+        // payment, so these only show on a resumed tenant or a direct call.
+        case "seats_below_activities":
+            return "L'abbonamento deve coprire tutte le sedi dell'azienda: aumenta il numero di sedi e riprova.";
+        case "seats_over_self_service":
+            return "L'azienda ha più sedi di quante se ne possano attivare online. Contatta l'assistenza.";
+        case "activity_count_unavailable":
+            return "Non siamo riusciti a verificare le sedi dell'azienda. Non ti è stato addebitato nulla: riprova tra qualche istante.";
         default:
             return "Errore durante la creazione dell'attività. Riprova.";
     }
