@@ -5,6 +5,8 @@ import styles from "./ProductPhotoPlaceholder.module.scss";
 type ProductPhotoPlaceholderProps = {
     /** Miniatura della tabella (36): solo l'icona, senza scritta. */
     small?: boolean;
+    /** La scritta sotto l'icona: «Nessuna immagine» per i contenuti in evidenza. */
+    label?: string;
 };
 
 /**
@@ -12,13 +14,13 @@ type ProductPhotoPlaceholderProps = {
  * foto» su `hover-bg`. Mai iniziali colorate. Stessa regola nella card e
  * nella miniatura della tabella.
  */
-export function ProductPhotoPlaceholder({ small = false }: ProductPhotoPlaceholderProps) {
+export function ProductPhotoPlaceholder({ small = false, label = "Nessuna foto" }: ProductPhotoPlaceholderProps) {
     return (
         <span className={`${styles.placeholder}${small ? ` ${styles.small}` : ""}`} aria-hidden>
             <ImageIcon size={small ? 16 : 32} strokeWidth={1.5} />
             {!small && (
                 <Text as="span" variant="caption" className={styles.label}>
-                    Nessuna foto
+                    {label}
                 </Text>
             )}
         </span>

@@ -547,22 +547,40 @@ function rowOf(page: Page, name: string): Locator {
 }
 
 test.describe("In evidenza — dove e quando compare (§50.13)", () => {
-    test("elenco: la riga dice dove e quando, o che nessuno lo vede", async ({ page }) => {
+    test("elenco: tipo e uso in testo, la sola pillola è «Attivo adesso» (EV3)", async ({ page }) => {
         await openList(page);
-        await expect(rowOf(page, "Menu di coppia e2e")).toContainText("sopra il menù · tutte le sedi · sempre");
+        const coppia = rowOf(page, "Menu di coppia e2e");
+        await expect(coppia).toContainText("Bundle · in 1 regola");
+        await expect(coppia.getByText("Attivo adesso", { exact: true })).toBeVisible();
+        // La regola spenta conta nell'uso, ma il contenuto non è attivo adesso.
         const aperitivo = rowOf(page, "Aperitivo giovedì e2e");
-        await expect(aperitivo).toContainText("sotto il menù · Centro e2e · Gio · 17:00–20:00");
-        await expect(aperitivo).toContainText("regola spenta");
-        await expect(aperitivo).toContainText("nessuna regola viva lo mostra: nessun cliente lo vede");
-        await expect(rowOf(page, "Chiusura ferragosto e2e")).toContainText("nessuna regola lo mostra: nessun cliente lo vede");
+        await expect(aperitivo).toContainText("· in 1 regola");
+        await expect(aperitivo).not.toContainText("Attivo adesso");
+        await expect(rowOf(page, "Chiusura ferragosto e2e")).toContainText("Annuncio · in nessuna regola");
+        // Dove e quando sta nella tab Utilizzo del contenuto, non nell'elenco.
+        await expect(coppia).not.toContainText("sopra il menù");
     });
 
-    test("elenco: il chip «Nessuna regola li mostra» conta le regole vive", async ({ page }) => {
+    test("elenco: prima gli attivi adesso (EV2)", async ({ page }) => {
+        await openList(page);
+        await expect(contentName(page, "Menu di coppia e2e")).toBeVisible();
+        const names = await main(page).getByRole("row").allInnerTexts();
+        const first = names.findIndex(text => text.includes("Attivo adesso"));
+        const firstIdle = names.findIndex(text => text.includes("regol") && !text.includes("Attivo adesso"));
+        expect(first).toBeGreaterThanOrEqual(0);
+        expect(first).toBeLessThan(firstIdle);
+    });
+
+    test("elenco: il filtro «In nessuna regola» sta nella testata e conta le regole vive (EV1)", async ({ page }) => {
         await openList(page);
         const chips = main(page).getByRole("radiogroup", { name: "Filtra i contenuti" });
         await expect(chips.getByRole("radio", { name: /Tutti\s*4/ })).toBeChecked();
         // L'aperitivo ha una regola, spenta: conta. Collegato non vuol dire attivo (§28.2).
-        await chips.getByRole("radio", { name: /Nessuna regola li mostra\s*3/ }).click();
+        // Nella testata, sulla riga di «Crea contenuto».
+        const chipsBox = await chips.boundingBox();
+        const createBox = await main(page).getByRole("button", { name: "Crea contenuto" }).boundingBox();
+        expect(Math.abs(chipsBox!.y + chipsBox!.height / 2 - (createBox!.y + createBox!.height / 2))).toBeLessThan(12);
+        await chips.getByRole("radio", { name: /In nessuna regola\s*3/ }).click();
         await expect(contentName(page, "Aperitivo giovedì e2e")).toBeVisible();
         await expect(contentName(page, "Concerto e2e")).toBeVisible();
         await expect(contentName(page, "Menu di coppia e2e")).toHaveCount(0);
