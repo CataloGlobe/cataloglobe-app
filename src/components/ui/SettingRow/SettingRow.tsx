@@ -21,11 +21,18 @@ export interface SettingRowProps {
     /** `id` del controllo, per legare il nome come `<label>`. */
     htmlFor?: string;
     control: ReactNode;
+    /**
+     * `end` (predefinito): il controllo sta a destra, largo quanto serve.
+     * `fill`: il controllo occupa tutta la colonna, allineato a sinistra
+     * (scelte a scheda, campi, testi d'aiuto sotto): le scelte di righe
+     * vicine hanno così la stessa larghezza.
+     */
+    controlLayout?: "end" | "fill";
     /** Campi che dipendono dal controllo: sotto la riga. */
     children?: ReactNode;
 }
 
-export function SettingRow({ label, description, htmlFor, control, children }: SettingRowProps) {
+export function SettingRow({ label, description, htmlFor, control, controlLayout = "end", children }: SettingRowProps) {
     return (
         <div className={styles.row} data-setting-row>
             <div className={styles.main}>
@@ -45,7 +52,7 @@ export function SettingRow({ label, description, htmlFor, control, children }: S
                         </Text>
                     )}
                 </div>
-                <div className={styles.control}>{control}</div>
+                <div className={`${styles.control} ${controlLayout === "fill" ? styles.controlFill : ""}`}>{control}</div>
             </div>
             {children && <div className={styles.dependent}>{children}</div>}
         </div>

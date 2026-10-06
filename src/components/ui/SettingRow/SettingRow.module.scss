@@ -37,6 +37,13 @@
   }
 }
 
+// `fill`: il controllo prende tutta la colonna, allineato a sinistra.
+.controlFill {
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: stretch;
+}
+
 // I campi dipendenti stanno sotto la riga, allineati alla colonna del
 // controllo; sotto 768 a tutta larghezza.
 .dependent {

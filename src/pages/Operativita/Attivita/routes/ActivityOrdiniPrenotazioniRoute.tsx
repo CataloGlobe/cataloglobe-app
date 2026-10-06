@@ -429,11 +429,13 @@ export default function ActivityOrdiniPrenotazioniRoute({ part }: ActivityOrdini
 
                 {activity.enable_reservations && (
                     <>
-                        <Card title="Avvisi e promemoria" flush>
+                        <Card title="Avvisi e promemoria" subtitle="Chi viene avvisato e cosa ricevono i clienti" flush>
                             <SettingRow
                                 label="Promemoria il giorno prima"
-                                description="Alle 18:00 del giorno prima: email con il tasto per confermare la presenza e il link per disdire."
+                                description="Email ai clienti alle 18:00 del giorno prima"
+                                controlLayout="fill"
                                 control={
+                                    <div className={styles.switchLine}>
                                     <Switch
                                         ariaLabel="Promemoria il giorno prima"
                                         checked={activity.reservation_reminder_enabled}
@@ -446,13 +448,19 @@ export default function ActivityOrdiniPrenotazioniRoute({ part }: ActivityOrdini
                                         }
                                         disabled={!canManage}
                                     />
+                                        <Text variant="body-sm" colorVariant="muted">
+                                            Con il tasto per confermare la presenza e il link per disdire.
+                                        </Text>
+                                    </div>
                                 }
                             />
                             <SettingRow
                                 label="Email per gli avvisi"
                                 htmlFor="reservation-alert-emails"
-                                description={`Chi riceve l'avviso di una nuova richiesta. Se resta vuota avvisiamo ${fallbackRecipient}.`}
+                                description="Chi riceve l'avviso di una nuova richiesta"
+                                controlLayout="fill"
                                 control={
+                                    <div className={styles.fieldWithHelp}>
                                     <div className={styles.emails}>
                                         <MultiEmailInput
                                             id="reservation-alert-emails"
@@ -486,16 +494,17 @@ export default function ActivityOrdiniPrenotazioniRoute({ part }: ActivityOrdini
                                             </Menu>
                                         )}
                                     </div>
+                                        <Text variant="caption" colorVariant="muted">
+                                            Se resta vuota avvisiamo {fallbackRecipient}.
+                                        </Text>
+                                    </div>
                                 }
                             />
                             <SettingRow
-                                label="Email per le richieste sui dati personali"
+                                label="Email per i dati personali"
                                 htmlFor="reservation-privacy-email"
-                                description={
-                                    privacyEmail.trim() === ""
-                                        ? `Pubblicata nell'informativa privacy. Se resta vuota pubblichiamo ${ownerEmail ?? "l'email del titolare dell'account"}.`
-                                        : "Pubblicata nell'informativa privacy: è l'indirizzo per chi chiede quali dati hai su di lui."
-                                }
+                                description="Compare nell'informativa privacy"
+                                controlLayout="fill"
                                 control={
                                     <TextInput
                                         id="reservation-privacy-email"
@@ -509,6 +518,11 @@ export default function ActivityOrdiniPrenotazioniRoute({ part }: ActivityOrdini
                                             )
                                         }
                                         disabled={!canManage}
+                                        helperText={
+                                            privacyEmail.trim() === ""
+                                                ? `Se resta vuota pubblichiamo ${ownerEmail ?? "l'email del titolare dell'account"}.`
+                                                : "Per chi chiede quali dati hai su di lui."
+                                        }
                                     />
                                 }
                             />
@@ -562,10 +576,11 @@ export default function ActivityOrdiniPrenotazioniRoute({ part }: ActivityOrdini
                             </Card>
                         </div>
 
-                        <Card title="Regole di accettazione" subtitle="Cinque regole, un solo salvataggio" flush>
+                        <Card title="Regole di accettazione" subtitle="Valgono per le prenotazioni online. A mano puoi sempre inserirne una." flush>
                             <SettingRow
                                 label="Quando è pieno"
-                                description="Cosa succede quando un orario ha già raggiunto la capienza."
+                                description="Cosa succede oltre la capienza"
+                                controlLayout="fill"
                                 control={
                                     <RadioGroup
                                         ariaLabel="Quando è pieno"
@@ -577,20 +592,21 @@ export default function ActivityOrdiniPrenotazioniRoute({ part }: ActivityOrdini
                                             {
                                                 value: "hard",
                                                 label: "Blocca nuove prenotazioni online",
-                                                description: "Il modulo rifiuta gli orari saturi. A mano puoi comunque inserirle."
+                                                description: "Il modulo non propone gli orari pieni."
                                             },
                                             {
                                                 value: "soft",
                                                 label: "Accetta come richiesta da approvare",
-                                                description: "Le richieste oltre la capienza arrivano comunque, in attesa."
+                                                description: "Arrivano comunque, in attesa del tuo sì."
                                             }
                                         ]}
                                     />
                                 }
                             />
                             <SettingRow
-                                label="Modalità di conferma"
-                                description="Chi dice sì a una richiesta online: tu, o il sistema entro la capienza."
+                                label="Conferma"
+                                description="Chi dice sì a una richiesta"
+                                controlLayout="fill"
                                 control={
                                     <div className={styles.stack}>
                                         <RadioGroup
@@ -602,12 +618,12 @@ export default function ActivityOrdiniPrenotazioniRoute({ part }: ActivityOrdini
                                             options={[
                                                 {
                                                     value: "manuale",
-                                                    label: "Conferma manuale",
+                                                    label: "Manuale",
                                                     description: "Ogni richiesta aspetta il tuo sì in Prenotazioni."
                                                 },
                                                 {
                                                     value: "auto",
-                                                    label: "Conferma automatica entro capienza",
+                                                    label: "Automatica entro la capienza",
                                                     description: autoDisabled ? (
                                                         <>
                                                             Serve la capienza della sala.{" "}
@@ -619,11 +635,11 @@ export default function ActivityOrdiniPrenotazioniRoute({ part }: ActivityOrdini
                                                                 }}
                                                                 className={styles.link}
                                                             >
-                                                                Imposta la capienza
+                                                                Impostala
                                                             </a>
                                                         </>
                                                     ) : (
-                                                        "Le prenotazioni online entro la capienza vengono confermate subito."
+                                                        "Confermate subito finché c'è posto."
                                                     ),
                                                     disabled: autoDisabled
                                                 }
@@ -640,8 +656,11 @@ export default function ActivityOrdiniPrenotazioniRoute({ part }: ActivityOrdini
                             />
                             <SettingRow
                                 label="Ampiezza della fascia"
-                                description="È il passo degli orari proposti: con 30 minuti il cliente vede 20:00, 20:30, 21:00."
+                                description="Ogni quanto il modulo propone un orario"
+                                controlLayout="fill"
                                 control={
+                                    <div className={styles.fieldWithHelp}>
+                                    <div className={styles.startAligned}>
                                     <SegmentedControl<number>
                                         value={d.reservation_pacing_slot_minutes ?? 15}
                                         onChange={v => draft.set("reservation_pacing_slot_minutes", v)}
@@ -651,16 +670,23 @@ export default function ActivityOrdiniPrenotazioniRoute({ part }: ActivityOrdini
                                             { value: 60, label: "60 min" }
                                         ]}
                                     />
+                                    </div>
+                                        <Text variant="caption" colorVariant="muted">
+                                            Con 30 min il cliente vede 20:00, 20:30, 21:00.
+                                        </Text>
+                                    </div>
                                 }
                             />
                             <SettingRow
                                 label="Quanti ne arrivano insieme"
-                                description="Non quante persone stanno in sala: quante ne accetti per fascia. Vuoto = nessun limite; con entrambi vale il più restrittivo. Solo online."
+                                description="Arrivi per fascia, non la capienza. Vuoto: nessun limite."
+                                controlLayout="fill"
                                 control={
+                                    <div className={styles.fieldWithHelp}>
                                     <FormGrid cols={2}>
                                         <NumberInput
                                             label="Persone per fascia"
-                                            placeholder="nessun limite"
+                                            placeholder="Nessun limite"
                                             min={1}
                                             value={numberText("reservation_pacing_max_covers")}
                                             onChange={e => setNumber("reservation_pacing_max_covers", e.target.value, true)}
@@ -668,18 +694,23 @@ export default function ActivityOrdiniPrenotazioniRoute({ part }: ActivityOrdini
                                         />
                                         <NumberInput
                                             label="Tavoli per fascia"
-                                            placeholder="nessun limite"
+                                            placeholder="Nessun limite"
                                             min={1}
                                             value={numberText("reservation_pacing_max_bookings")}
                                             onChange={e => setNumber("reservation_pacing_max_bookings", e.target.value, true)}
                                             disabled={!canManage}
                                         />
                                     </FormGrid>
+                                        <Text variant="caption" colorVariant="muted">
+                                            Se compili entrambi vale il più restrittivo.
+                                        </Text>
+                                    </div>
                                 }
                             />
                             <SettingRow
                                 label="Quanto tempo prima"
-                                description="Vale solo online: a mano una prenotazione si inserisce per qualsiasi data e ora."
+                                description="Il margine minimo e quanto in là si può prenotare"
+                                controlLayout="fill"
                                 control={
                                     <div className={styles.stack}>
                                         <FormGrid cols={2}>
@@ -690,16 +721,16 @@ export default function ActivityOrdiniPrenotazioniRoute({ part }: ActivityOrdini
                                                 value={numberText("reservation_min_notice_minutes")}
                                                 onChange={e => setNumber("reservation_min_notice_minutes", e.target.value, false)}
                                                 disabled={!canManage}
-                                                helperText="Con 120, alle 18:00 spariscono gli orari fino alle 20:00. Zero: nessun preavviso."
+                                                helperText="Con 120, alle 18:00 spariscono gli orari fino alle 20:00."
                                             />
                                             <NumberInput
-                                                label="Orizzonte (giorni)"
+                                                label="Fino a quanti giorni avanti"
                                                 min={HORIZON_DAYS_MIN}
                                                 max={HORIZON_DAYS_MAX}
                                                 value={numberText("reservation_horizon_days")}
                                                 onChange={e => setNumber("reservation_horizon_days", e.target.value, false)}
                                                 disabled={!canManage}
-                                                helperText="Quanti giorni in avanti, oggi compreso: con 90 l'ultimo è fra 89 giorni."
+                                                helperText="Con 90, l'ultimo giorno prenotabile è fra 89 giorni."
                                             />
                                         </FormGrid>
                                         {showNoticeHorizonWarning && (
