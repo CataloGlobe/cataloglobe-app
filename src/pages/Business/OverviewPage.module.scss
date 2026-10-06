@@ -7,8 +7,17 @@
 }
 
 // Righe ListRow che si toccano dentro Card flush (il body ha gap 12).
-.rows {
+// Le liste in una Card flush: nessuno spazio sopra la prima riga e sotto
+// l'ultima, così il fondo dell'hover tocca i bordi come i divisori.
+.rows.rows {
   gap: 0;
+  padding-block: 0;
+}
+
+// Le righe della vetrina hanno il QR da 40: un po' d'aria sopra e sotto,
+// uguale per tutte, perché non tocchi i divisori.
+.showcaseRows [data-list-row] {
+  padding-block: var(--space-8);
 }
 
 // Fra la procedura guidata e la checklist: un testo, non un componente

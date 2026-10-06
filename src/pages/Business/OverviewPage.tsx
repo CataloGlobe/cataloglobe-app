@@ -927,7 +927,7 @@ export default function OverviewPage() {
                     title={showcaseTitle}
                     subtitle={showcaseSubtitle}
                     flush={!single}
-                    bodyClassName={single ? undefined : styles.rows}
+                    bodyClassName={single ? undefined : `${styles.rows} ${styles.showcaseRows}`}
                     actions={
                         hiddenLocationsCount > 0 ? (
                             <Button variant="ghost" size="sm" onClick={() => navigate(`${b}/locations`)}>
