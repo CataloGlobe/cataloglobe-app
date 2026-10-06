@@ -50,11 +50,11 @@ export function NowCard({ time, row, layers, catalogLabel, highlight, seatOption
     // sede accanto, «Simula» a destra; al telefono la sede va a tutta
     // larghezza e «Simula» in fondo.
     return (
-        <Card className={styles.card}>
+        <Card className={styles.card} bodyClassName={styles.cardBody}>
             <div className={styles.head}>
                 <span className={styles.title}>
-                    <Clock size={18} aria-hidden className={styles.clock} />
-                    <Text as="h2" variant="title-sm">
+                    <Clock size={16} aria-hidden className={styles.clock} />
+                    <Text as="h2" variant="body" weight={600}>
                         Adesso, {time}
                     </Text>
                     {row.suspended && <StatusBadge variant="neutral" label="Sospesa" />}
@@ -76,8 +76,10 @@ export function NowCard({ time, row, layers, catalogLabel, highlight, seatOption
                     Abbonamento non attivo: nessuna sede mostra il menù.
                 </Text>
             )}
-            <LayerSteps row={row} layers={layers} catalogLabel={catalogLabel} highlight={highlight} />
-            {isPhone && <div className={styles.simulateBelow}>{simulate}</div>}
+            <div className={styles.steps}>
+                <LayerSteps row={row} layers={layers} catalogLabel={catalogLabel} highlight={highlight} />
+                {isPhone && <div className={styles.simulateBelow}>{simulate}</div>}
+            </div>
         </Card>
     );
 }
