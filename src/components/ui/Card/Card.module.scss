@@ -34,6 +34,14 @@
 // Il bottone può essere avvolto (il trigger di un Tooltip): conta che
 // `.actions` abbia un figlio solo, IconButton o suo contenitore. (Un `:has`
 // dentro un altro `:has` non è valido: due selettori semplici.)
+// Al telefono anche un solo bottone con testo («+ Nuovo») resta a destra
+// del titolo: il titolo va a capo, il bottone no.
+@media (max-width: 767px) {
+  .header:has(> .actions > :only-child):not(:has(> .modeSelector)) .headerText {
+    flex-basis: 0;
+  }
+}
+
 .header:has(> .actions > [data-icon-only]:only-child) .headerText,
 .header:has(> .actions > :only-child > [data-icon-only]:only-child) .headerText {
   flex-basis: 0;
@@ -80,16 +88,22 @@
 }
 
 // Selettore del modo accanto al titolo; al telefono sotto, a tutta larghezza.
+// A destra nell'intestazione, come le azioni; al telefono sotto il
+// sottotitolo, a tutta larghezza.
 .modeSelector {
   display: inline-flex;
-  margin-left: var(--space-8);
+  flex: 0 0 auto;
 
   @media (max-width: 767px) {
     flex-basis: 100%;
-    margin-left: 0;
 
     > * {
       width: 100%;
+    }
+
+    // I segmenti si dividono la larghezza in parti uguali.
+    > * > button {
+      flex: 1 1 0;
     }
   }
 }

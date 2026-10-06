@@ -16,8 +16,8 @@ import styles from "./Card.module.scss";
  *
  * Regole delle sezioni (correzioni UI, ottobre 2026):
  * - `modeSelector`: il selettore che cambia il modo della sezione (es.
- *   «Prezzo unico / Prezzo per formato») sta accanto al titolo; al telefono
- *   va sotto il titolo a tutta larghezza.
+ *   «Prezzo unico / Prezzo per formato») sta a destra nell'intestazione; al
+ *   telefono va sotto titolo e sottotitolo a tutta larghezza.
  * - `empty`: la sezione vuota è una riga di testo, sempre uguale (titolo,
  *   «Aggiungi» secondario in `actions`, la frase qui). Mai uno stato vuoto
  *   centrato e alto, mai l'azione ripetuta nel corpo.
@@ -114,7 +114,7 @@ export function Card({
             {hasHeader && (
                 <header className={styles.header}>
                     <div className={styles.headerText}>
-                        {(title || badge || modeSelector) && (
+                        {(title || badge) && (
                             <span className={styles.titleRow}>
                                 {title && (
                                     <Text as="span" id={titleId} variant="title-sm" weight={600} className={styles.title}>
@@ -122,7 +122,6 @@ export function Card({
                                     </Text>
                                 )}
                                 {badge && <span className={styles.badge}>{badge}</span>}
-                                {modeSelector && <span className={styles.modeSelector}>{modeSelector}</span>}
                             </span>
                         )}
                         {subtitle && (
@@ -131,6 +130,7 @@ export function Card({
                             </Text>
                         )}
                     </div>
+                    {modeSelector && <div className={styles.modeSelector}>{modeSelector}</div>}
                     {actions && <div className={styles.actions}>{actions}</div>}
                 </header>
             )}

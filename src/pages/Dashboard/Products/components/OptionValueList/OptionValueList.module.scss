@@ -98,3 +98,16 @@
     flex-basis: 100%;
     margin-top: 2px;
 }
+
+// Al telefono la riga per aggiungere va su due righe: il nome sopra a tutta
+// larghezza, prezzo e «Aggiungi» sotto.
+@media (max-width: 767px) {
+    .editRow .nameField {
+        flex-basis: 100%;
+    }
+
+    .editRow .priceField {
+        flex: 1 1 0;
+        min-width: 0;
+    }
+}

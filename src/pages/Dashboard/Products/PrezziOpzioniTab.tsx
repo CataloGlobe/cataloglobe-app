@@ -647,7 +647,7 @@ export default function PrezziOpzioniTab({
                             }}
                             options={[
                                 { value: "unico", label: "Prezzo unico" },
-                                { value: "formato", label: "Prezzo per formato" }
+                                { value: "formato", label: isPhone ? "Per formato" : "Prezzo per formato" }
                             ]}
                         />
                     )
@@ -699,8 +699,8 @@ export default function PrezziOpzioniTab({
                                     values={primaryPriceGroup?.values ?? []}
                                     priceMode="absolute"
                                     emptyTitle="Nessun formato"
-                                    namePlaceholder="Nome (es. Bottiglia)"
-                                    pricePlaceholder="Prezzo"
+                                    namePlaceholder="Nuovo formato (es. Bottiglia)"
+                                    pricePlaceholder="0,00"
                                     initialAddPrice={
                                         justSwitchedToFormato && pendingFormatPrice !== null
                                             ? pendingFormatPrice
@@ -805,7 +805,7 @@ export default function PrezziOpzioniTab({
                             type="button"
                             variant="secondary"
                             size="sm"
-                            leftIcon={isPhone ? <Plus size={16} /> : undefined}
+                            leftIcon={<Plus size={16} />}
                             aria-label={isPhone ? "Nuovo gruppo" : undefined}
                             onClick={handleOpenCreateGroup}
                         >
@@ -1016,7 +1016,7 @@ export default function PrezziOpzioniTab({
                             type="button"
                             variant="secondary"
                             size="sm"
-                            leftIcon={isPhone ? <Plus size={16} /> : undefined}
+                            leftIcon={<Plus size={16} />}
                             aria-label={isPhone ? "Aggiungi variante" : undefined}
                             onClick={onOpenVariantDrawer}
                         >
