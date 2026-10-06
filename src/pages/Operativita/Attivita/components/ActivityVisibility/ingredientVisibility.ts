@@ -217,35 +217,20 @@ export function buildBulkConfirmData(
 
 // ── Copy della vista Ingredienti (puro, fuori dal componente) ───────────────
 
-export type IngredientStateTone = "success" | "neutral" | "warning" | "info";
-
 /**
- * Lo stato d'insieme dei prodotti di un ingrediente, a parole: l'etichetta
- * della colonna Stato (StatusBadge) e il dettaglio del misto (tooltip).
+ * Il misto a parole, per la riga sotto il nome (V4): quanti prodotti non
+ * seguono la regola o non sono visibili, su quanti. «1 nascosto su 3»,
+ * «1 nascosto e 1 non disponibile su 3».
  */
-export function ingredientStateSummary(row: IngredientVisibilityRow): {
-    tone: IngredientStateTone;
-    label: string;
-    detail: string | null;
-} {
-    const { counts } = row;
-    switch (row.aggregate) {
-        case "all_visible":
-            return { tone: "success", label: "Tutti visibili", detail: null };
-        case "all_hidden":
-            return { tone: "neutral", label: "Tutti nascosti", detail: null };
-        case "all_unavailable":
-            return { tone: "warning", label: "Tutti non disponibili", detail: null };
-        case "mixed":
-            // Il dettaglio numerico sta nel tooltip: la parola di riga resta corta.
-            return {
-                tone: "info",
-                label: "Misto",
-                detail: `${counts.visible} visibili · ${counts.hidden} nascosti · ${counts.unavailable} non disponibili`
-            };
-        default:
-            return { tone: "neutral", label: "—", detail: null };
-    }
+export function mixedSummary(counts: IngredientVisibilityCounts): string {
+    const total = counts.visible + counts.hidden + counts.unavailable;
+    const parts = [
+        counts.hidden > 0 ? `${counts.hidden} ${counts.hidden === 1 ? "nascosto" : "nascosti"}` : null,
+        counts.unavailable > 0
+            ? `${counts.unavailable} ${counts.unavailable === 1 ? "non disponibile" : "non disponibili"}`
+            : null
+    ].filter(Boolean);
+    return `misto: ${parts.join(" e ")} su ${total}`;
 }
 
 export function productWord(count: number): string {

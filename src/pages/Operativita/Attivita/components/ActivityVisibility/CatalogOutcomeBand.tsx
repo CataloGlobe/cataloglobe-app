@@ -11,8 +11,6 @@ import styles from "./CatalogOutcomeBand.module.scss";
 type CatalogOutcomeBandProps = {
     at: RomeDateTime;
     outcome: Outcome;
-    /** «1 visibile · 1 nascosto · 1 non disponibile», solo se mostrano un menù. */
-    counts: string | null;
     /** Riga 1 della catena (§19.3): il menù che vince e la sua regola. */
     menu: { catalogName: string; rule: RuleRef | null; ruleHref: string | null } | null;
     /** La pagina pubblica della sede: quello che vede davvero il cliente. */
@@ -25,9 +23,11 @@ const pad = (n: number) => String(n).padStart(2, "0");
 
 /**
  * La banda dell'esito di «Cosa vedono i clienti» (§19.2): cosa trova adesso
- * chi inquadra il QR della sede. Statica, senza cursore (§50.20, D3).
+ * chi inquadra il QR della sede. Statica, senza cursore (§50.20, D3). Due
+ * righe (correzioni UI V1): l'esito con l'ora, poi la regola che lo decide.
+ * Il nome della sede è già nella testata, i conteggi nella tabella sotto.
  */
-export function CatalogOutcomeBand({ at, outcome, counts, menu, publicUrl, fixes }: CatalogOutcomeBandProps) {
+export function CatalogOutcomeBand({ at, outcome, menu, publicUrl, fixes }: CatalogOutcomeBandProps) {
     const warning = outcome.kind !== "showing";
     const missingId = useId();
     return (
@@ -50,32 +50,32 @@ export function CatalogOutcomeBand({ at, outcome, counts, menu, publicUrl, fixes
                 className={`${styles.band}${warning ? ` ${styles.warning}` : ""}`}
             >
                 <div className={styles.body}>
-                    <Text as="p" variant="caption" colorVariant="muted" className={styles.eyebrow}>
-                        {`Adesso, alle ${pad(at.hour)}:${pad(at.minute)}`}
+                    <Text as="p" variant="body">
+                        {`Adesso, alle ${pad(at.hour)}:${pad(at.minute)}, `}
+                        {outcome.kind === "showing" && menu ? (
+                            <>
+                                vedono <strong>{menu.catalogName}</strong>
+                            </>
+                        ) : (
+                            outcome.verdict
+                        )}
                     </Text>
-                    <Text as="h2" variant="title-sm" weight={600}>
-                        {outcome.headline}
-                    </Text>
-                    {counts && (
-                        <Text as="p" variant="body-sm" colorVariant="muted">
-                            {counts}
-                        </Text>
-                    )}
-                    {menu && (
+                    {menu?.rule && (
                         <p className={styles.chainRow}>
-                            <Text as="span" variant="body-sm">
-                                Menù <strong>{menu.catalogName}</strong>
-                                {menu.rule && (
-                                    <>
-                                        {" "}
-                                        · regola <strong>{menu.rule.name}</strong>
-                                    </>
-                                )}
+                            <Text as="span" variant="body-sm" colorVariant="muted">
+                                Per la regola {menu.rule.name}
                             </Text>
                             {menu.ruleHref && (
-                                <Link to={menu.ruleHref} className={styles.link}>
-                                    Vedi la regola
-                                </Link>
+                                <>
+                                    <Text as="span" variant="body-sm" colorVariant="muted" aria-hidden>
+                                        ·
+                                    </Text>
+                                    <Text as="span" variant="body-sm">
+                                        <Link to={menu.ruleHref} className={styles.link}>
+                                            Vedi la regola
+                                        </Link>
+                                    </Text>
+                                </>
                             )}
                         </p>
                     )}

@@ -40,13 +40,23 @@
   gap: var(--space-8);
 }
 
-// Sul telefono il riassunto «N prodotti · stato» sale sotto il nome.
-.phoneOnly {
-  display: none;
+// «· in 3 prodotti» accanto al nome, in tono muto (V4).
+.usage {
+  color: var(--text-muted);
+  font-weight: 400;
+}
 
-  @media (max-width: 767px) {
-    display: inline;
-  }
+// Il misto sotto il nome: «misto: 1 nascosto su 3» (V4).
+.mixed {
+  color: var(--warning-700);
+}
+
+// Tabella stretta: il controllo sotto il nome, come in Prodotti.
+.compactCell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  min-width: 0;
 }
 
 .confirmBody {

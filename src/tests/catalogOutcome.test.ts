@@ -16,7 +16,12 @@ const base = {
 
 describe("describeOutcome", () => {
     it("il menù che vedono", () => {
-        expect(describeOutcome(base)).toEqual({ kind: "showing", headline: "I clienti di Centro vedono Pranzo", missing: [] });
+        expect(describeOutcome(base)).toEqual({
+            kind: "showing",
+            headline: "I clienti di Centro vedono Pranzo",
+            verdict: "vedono Pranzo",
+            missing: []
+        });
     });
 
     it("la sede sospesa viene prima di tutto, come nell'Edge", () => {
@@ -48,6 +53,7 @@ describe("describeOutcome", () => {
         expect(describeOutcome({ ...base, renderable: false })).toEqual({
             kind: "empty",
             headline: "I clienti di Centro non vedono prodotti: Pranzo è vuoto adesso",
+            verdict: "non vedono prodotti: Pranzo è vuoto adesso",
             missing: ["products"]
         });
     });

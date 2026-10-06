@@ -12,7 +12,7 @@ import { usePermissions } from "@/context/usePermissions";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 import { canDoOnActivity, canExplainActivityCatalog } from "@/lib/permissions";
 import { useCatalogExplanation } from "@/hooks/useCatalogExplanation";
-import { describeCounts, describeOutcome } from "@/utils/catalogExplanation";
+import { describeOutcome } from "@/utils/catalogExplanation";
 import { buildPublicUrl } from "@/utils/publicUrl";
 import { ActivityVisibilityContent } from "../components/ActivityVisibility/ActivityVisibilityContent";
 import { CatalogOutcomeBand } from "../components/ActivityVisibility/CatalogOutcomeBand";
@@ -112,7 +112,6 @@ export function CosaVedonoContent({ activity, tenantId }: { activity: V2Activity
                 <CatalogOutcomeBand
                     at={explanation.data.at}
                     outcome={outcome}
-                    counts={outcome.kind === "showing" && explanation.data.explanation ? describeCounts(explanation.data.explanation.counts) : null}
                     menu={
                         explanation.data.catalogName
                             ? {

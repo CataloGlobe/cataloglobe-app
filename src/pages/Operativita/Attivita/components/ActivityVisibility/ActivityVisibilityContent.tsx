@@ -10,6 +10,7 @@ import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedCont
 import { Tabs } from "@/components/ui/Tabs/Tabs";
 import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
 import { ActivityVisibilityIngredients } from "./ActivityVisibilityIngredients";
+import { EXPLAINED_OPTIONS, EXPLAINED_OPTIONS_SHORT, VISIBILITY_OPTIONS } from "./visibilityOptions";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useTenantId } from "@/context/useTenantId";
 import {
@@ -40,29 +41,6 @@ type VisibilityView = "products" | "ingredients";
  */
 const VIEW_PARAM = "vista";
 const INGREDIENTS_PARAM_VALUE = "ingredienti";
-
-// I tre stati con l'etichetta scritta (§19.4, D3): tre icone senza legenda
-// visibile non si leggevano, e i filtri sopra erano già a parole.
-const VISIBILITY_OPTIONS: { value: ProductVisibilityState; label: string }[] = [
-    { value: "visible", label: "Visibile" },
-    { value: "hidden", label: "Nascosto" },
-    { value: "unavailable", label: "Non disponibile" }
-];
-
-// Con la spiegazione la prima voce dice cosa fa davvero (§19.4): toglie la
-// modifica a mano e torna a quello che dicono le regole, che può essere
-// «nascosto». Chiamarla «Visibile» sarebbe falso; la riga dice dove porta.
-const EXPLAINED_OPTIONS: { value: ProductVisibilityState; label: string }[] = [
-    { value: "visible", label: "Come dice la regola" },
-    { value: "hidden", label: "Nascosto" },
-    { value: "unavailable", label: "Non disponibile" }
-];
-
-// Sotto 768 «Come dice la regola» non sta nella riga con le altre due (§50.20):
-// a vista «Regola», il nome intero resta il nome accessibile.
-const EXPLAINED_OPTIONS_SHORT = EXPLAINED_OPTIONS.map(option =>
-    option.value === "visible" ? { ...option, label: "Regola", ariaLabel: option.label } : option
-);
 
 /**
  * La spiegazione che la rotta ha letto (§50.20), solo con
@@ -170,9 +148,6 @@ function renderableFromExplanation(data: CatalogExplanationData): {
     return { products, overrides };
 }
 
-function plural(n: number, one: string, many: string): string {
-    return n === 1 ? one : many;
-}
 
 /**
  * L'elenco di «Cosa vedono i clienti»: i prodotti del menù attivo con le
@@ -415,9 +390,12 @@ export const ActivityVisibilityContent: React.FC<ActivityVisibilityContentProps>
                 header: "Prodotto",
                 width: "minmax(0, 2fr)",
                 cell: (_, product) => (
+                    // V3: la categoria accanto al nome, la provenienza sotto.
                     <div className={DATA_TABLE_CLASSES.cellTwoLine}>
-                        <span>{product.name}</span>
-                        <span>{product.categoryName}</span>
+                        <span>
+                            {product.name}
+                            {product.categoryName && <span className={styles.category}> · {product.categoryName}</span>}
+                        </span>
                         {note(product)}
                     </div>
                 )
@@ -508,16 +486,6 @@ export const ActivityVisibilityContent: React.FC<ActivityVisibilityContentProps>
         );
     }
 
-    const countText = [
-        `${counts.all} ${plural(counts.all, "prodotto totale", "prodotti totali")}`,
-        `${counts.hidden} ${plural(counts.hidden, "nascosto", "nascosti")}`,
-        counts.unavailable > 0
-            ? `${counts.unavailable} ${plural(counts.unavailable, "non disponibile", "non disponibili")}`
-            : null
-    ]
-        .filter(Boolean)
-        .join(" · ");
-
     const isFiltered = filter !== "all" || search.trim() !== "";
 
     return (
@@ -550,10 +518,6 @@ export const ActivityVisibilityContent: React.FC<ActivityVisibilityContentProps>
                     </div>
                 </div>
 
-                <Text variant="caption" colorVariant="muted">
-                    {countText}
-                </Text>
-
                 <div className={styles.tableWrapper}>
                     <DataTable<VisibilityRow>
                         ariaLabel="Prodotti del menù"
@@ -582,6 +546,9 @@ export const ActivityVisibilityContent: React.FC<ActivityVisibilityContentProps>
                         onBulkApplied={refreshData}
                         onCountChange={setIngredientCount}
                         readOnly={readOnly}
+                        explained={explained}
+                        compact={isPhone}
+                        shortLabels={pageScrolls}
                     />
                 </div>
             )}
