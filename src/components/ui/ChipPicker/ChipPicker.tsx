@@ -171,6 +171,7 @@ export function ChipPicker({
                                                     containerClassName={styles.check}
                                                 />
                                             )}
+                                            {option.badge}
                                         </li>
                                     );
                                 })}

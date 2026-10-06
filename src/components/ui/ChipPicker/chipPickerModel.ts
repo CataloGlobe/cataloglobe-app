@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { filterActivityOptions } from "@/components/ui/ActivityMultiSelect/activityFilter";
 
 /** Oltre quante scelte i chip si fermano e compare «+N altri». */
@@ -11,6 +12,8 @@ export interface ChipPickerOption {
     meta?: string;
     /** Miniatura nel pannello (prodotti). */
     thumbnailUrl?: string | null;
+    /** Una pillola a destra nel pannello (sedi: «Sospesa»). */
+    badge?: ReactNode;
 }
 
 /** I chip da mostrare in pagina: le prime 8 scelte, nell'ordine dell'elenco, e quante restano. */

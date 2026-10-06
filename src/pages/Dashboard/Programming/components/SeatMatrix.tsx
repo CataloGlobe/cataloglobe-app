@@ -1,18 +1,12 @@
-import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Card } from "@/components/ui/Card/Card";
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import Text from "@/components/ui/Text/Text";
 import type { LayoutRule, RuleType } from "@/services/supabase/layoutScheduling";
-import {
-    describeDiagnosis,
-    describeManual,
-    describeWinner,
-    type MatrixCell,
-    type MatrixRow
-} from "@/utils/scheduleMatrix";
-import { MatrixCellLines as CellLines } from "./MatrixCellLines";
+import type { MatrixRow } from "@/utils/scheduleMatrix";
+import { matrixLayers } from "./matrixLayers";
 import styles from "./SeatMatrix.module.scss";
 
 type SeatMatrixProps = {
@@ -31,13 +25,6 @@ type SeatMatrixProps = {
  * con la sidebar aperta ce n'è meno che a 1023 con la sidebar chiusa.
  */
 const MATRIX_TABLE_MIN_WIDTH = 880;
-
-/** Le colonne degli strati, nell'ordine in cui si applicano (§20.6). */
-const LAYER_COLUMNS: ReadonlyArray<{ type: RuleType; header: string }> = [
-    { type: "visibility", header: "Disponibilità" },
-    { type: "price", header: "Prezzi" },
-    { type: "featured", header: "In evidenza" }
-];
 
 /**
  * «Cosa vede ogni sede» (§20.3): una riga per sede, una colonna per strato,
@@ -58,40 +45,7 @@ export function SeatMatrix({ rows, atNow, catalogLabel, catalogName, ruleHref, s
         observer.observe(box);
         return () => observer.disconnect();
     }, []);
-    const renderLayer = (cell: MatrixCell<LayoutRule>): ReactNode => {
-        if (cell.kind === "empty") {
-            return <CellLines primary={null} secondary={describeDiagnosis(cell.diagnosis, atNow)} warn={cell.diagnosis.kind === "draft"} />;
-        }
-        const catalogId = cell.rule.layout?.catalog_id;
-        const { primary, secondary } = describeWinner(cell.rule, catalogId ? catalogName(catalogId) : undefined);
-        // Il link porta alla regola: nel menù è la riga sotto, altrove il nome sopra.
-        const menuWithCatalog = cell.rule.rule_type === "layout" && secondary !== null;
-        const link = (
-            <Link to={ruleHref(cell.rule)} className={styles.link}>
-                {menuWithCatalog ? secondary : primary}
-            </Link>
-        );
-        return menuWithCatalog ? <CellLines primary={primary} secondary={link} /> : <CellLines primary={link} secondary={secondary} />;
-    };
-
-    // Gli strati, nell'ordine in cui si applicano: colonne della tabella e
-    // voci del blocco sul telefono.
-    const layers: ReadonlyArray<{ id: string; header: string; render: (row: MatrixRow<LayoutRule>) => ReactNode }> = [
-        { id: "layout", header: catalogLabel, render: row => renderLayer(row.cells.layout) },
-        ...LAYER_COLUMNS.map(({ type, header }) => ({
-            id: type,
-            header,
-            render: (row: MatrixRow<LayoutRule>) => renderLayer(row.cells[type])
-        })),
-        {
-            id: "manual",
-            header: "A mano",
-            render: row => {
-                const { primary, secondary } = describeManual(row.manualCount);
-                return <CellLines primary={primary} secondary={secondary} warn={primary !== null} />;
-            }
-        }
-    ];
+    const layers = matrixLayers({ atNow, catalogLabel, catalogName, ruleHref });
 
     const seatCell = (row: MatrixRow<LayoutRule>) => (
         <div className={styles.cell}>

@@ -1,0 +1,21 @@
+@use "@styles/mixins" as *;
+
+// La card «Adesso» (PG1): testata con sede e «Simula»; i passaggi sono
+// LayerSteps.
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-8);
+
+  @include phone {
+    width: 100%;
+  }
+}
+
+.simulate {
+  @include phone {
+    width: 100%;
+  }
+}
