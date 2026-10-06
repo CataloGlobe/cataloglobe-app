@@ -3,9 +3,10 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { Plus } from "lucide-react";
 import { supabase } from "@/services/supabase/client";
 import { useAuth } from "@/context/useAuth";
-import { usePageHeader } from "@/context/usePageHeader";
+import { getProfile } from "@/services/supabase/profile";
+import { greeting } from "@/utils/crm/crmHome";
 import Text from "@/components/ui/Text/Text";
-import BusinessCard from "@/components/Businesses/BusinessCard";
+import BusinessCard, { type BusinessCardSize } from "@/components/Businesses/BusinessCard";
 import { CreateBusinessDrawer } from "@/components/Businesses/CreateBusinessDrawer";
 import { CreateBusinessWizard } from "@/components/Businesses/CreateBusinessWizard/CreateBusinessWizard";
 import { InviteModal, PendingInviteData } from "@/components/Businesses/InviteModal";
@@ -37,6 +38,28 @@ function countByTenant(rows: { tenant_id: string }[] | null): Record<string, num
     return counts;
 }
 
+interface LocationRow {
+    tenant_id: string;
+    cover_image: string | null;
+    city: string | null;
+}
+
+/** Per attività: la prima copertina e la prima città fra le sedi (in ordine di creazione). */
+function firstByTenant(rows: LocationRow[] | null, key: "cover_image" | "city"): Record<string, string> {
+    const out: Record<string, string> = {};
+    for (const row of rows ?? []) {
+        const value = row[key];
+        if (value && !out[row.tenant_id]) out[row.tenant_id] = value;
+    }
+    return out;
+}
+
+const PURGE_AFTER_DAYS = 30;
+
+function formatDay(date: Date): string {
+    return date.toLocaleDateString("it-IT", { day: "numeric", month: "long" });
+}
+
 export default function WorkspacePage() {
     const { user } = useAuth();
     const navigate = useNavigate();
@@ -49,6 +72,9 @@ export default function WorkspacePage() {
     const [locationCounts, setLocationCounts] = useState<Record<string, number>>({});
     const [productCounts, setProductCounts] = useState<Record<string, number>>({});
     const [catalogCounts, setCatalogCounts] = useState<Record<string, number>>({});
+    const [covers, setCovers] = useState<Record<string, string>>({});
+    const [cities, setCities] = useState<Record<string, string>>({});
+    const [firstName, setFirstName] = useState<string | null>(null);
     const [drawerOpen, setDrawerOpen] = useState(false);
     const [editTarget, setEditTarget] = useState<{ id: string; name: string; logo_url?: string | null; business_subtype?: BusinessSubtype | null } | null>(null);
     const [pendingInvites, setPendingInvites] = useState<PendingInviteData[]>([]);
@@ -62,9 +88,17 @@ export default function WorkspacePage() {
     const [restoringId, setRestoringId] = useState<string | null>(null);
     const shownNotificationIdsRef = useRef<Set<string>>(new Set());
 
-    usePageHeader({
-        title: "Le tue attività",
-    });
+    // T17 WS1: niente barra di pagina; il saluto col nome sta in pagina.
+    useEffect(() => {
+        if (!user?.id) return;
+        const load = () =>
+            getProfile(user.id)
+                .then(p => setFirstName(p?.first_name ?? null))
+                .catch(() => {});
+        load();
+        window.addEventListener("profile:updated", load);
+        return () => window.removeEventListener("profile:updated", load);
+    }, [user?.id]);
 
     useEffect(() => {
         if (!user) return;
@@ -148,11 +182,19 @@ export default function WorkspacePage() {
         const ids = tenants.map(t => t.id);
 
         Promise.all([
-            supabase.from("activities").select("tenant_id").in("tenant_id", ids),
+            // Copertina e città vengono dalle sedi: `activities.cover_image` e
+            // `city` esistono già, nessun dato nuovo (T17).
+            supabase
+                .from("activities")
+                .select("tenant_id, cover_image, city")
+                .in("tenant_id", ids)
+                .order("created_at", { ascending: true }),
             supabase.from("products").select("tenant_id").in("tenant_id", ids),
             supabase.from("catalogs").select("tenant_id").in("tenant_id", ids)
         ]).then(([loc, prod, cat]) => {
             setLocationCounts(countByTenant(loc.data));
+            setCovers(firstByTenant(loc.data as LocationRow[] | null, "cover_image"));
+            setCities(firstByTenant(loc.data as LocationRow[] | null, "city"));
             setProductCounts(countByTenant(prod.data));
             setCatalogCounts(countByTenant(cat.data));
         });
@@ -210,10 +252,6 @@ export default function WorkspacePage() {
         setSearchParams({ resume: id });
     };
 
-    const handleCheckout = (id: string) => {
-        setSearchParams({ resume: id });
-    };
-
     // resumeTenant must carry the fiscal/address columns, which user_tenants_view
     // does NOT expose. We hydrate them from the tenants table so the billing step
     // can be skipped (data present) or pre-filled (data partial) correctly.
@@ -251,11 +289,14 @@ export default function WorkspacePage() {
         setSearchParams(next, { replace: true });
     };
 
-    const getDaysLeft = (deletedAt: string): number => {
+    const purgeDateOf = (deletedAt: string): Date => {
         const purgeDate = new Date(deletedAt);
-        purgeDate.setDate(purgeDate.getDate() + 30);
-        return Math.max(0, Math.ceil((purgeDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
+        purgeDate.setDate(purgeDate.getDate() + PURGE_AFTER_DAYS);
+        return purgeDate;
     };
+
+    const getDaysLeft = (deletedAt: string): number =>
+        Math.max(0, Math.ceil((purgeDateOf(deletedAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
 
     const handleRestore = async (tenantId: string) => {
         setRestoringId(tenantId);
@@ -308,9 +349,31 @@ export default function WorkspacePage() {
         return null;
     }
 
+    // 1 attività: card grande; 2: affiancate; da 3: griglia compatta (WS1).
+    const cardSize: BusinessCardSize = tenants.length === 1 ? "hero" : tenants.length === 2 ? "pair" : "compact";
+    // Con molte attività (o molte eliminate) la sezione parte chiusa.
+    const deletedCollapsible = tenants.length >= 3 || deletedTenants.length > 2;
+    const deletedOpen = !deletedCollapsible || deletedSectionOpen;
+
     return (
         <div className={styles.page}>
+            {/* T17 WS1: colonna centrata, saluto grande su fondo indigo leggero,
+                «+ Nuova attività» accanto. */}
             <div className={styles.container}>
+                <div className={styles.hello}>
+                    <Text as="h1" variant="display" className={styles.helloTitle}>
+                        {firstName ? `${greeting(new Date())}, ${firstName}` : greeting(new Date())}
+                    </Text>
+                    <Button
+                        variant="secondary"
+                        leftIcon={<Plus size={16} aria-hidden />}
+                        onClick={() => setDrawerOpen(true)}
+                        className={styles.helloAction}
+                    >
+                        Nuova attività
+                    </Button>
+                </div>
+
                 {pendingInvites.length > 0 && (
                     <div className={styles.pendingSection}>
                         <Text variant="body" weight={600}>
@@ -344,51 +407,65 @@ export default function WorkspacePage() {
                     </div>
                 )}
 
-                <div className={styles.grid}>
-                    {tenants.map(tenant => (
-                        <BusinessCard
-                            key={tenant.id}
-                            tenant={tenant}
-                            locationCount={locationCounts[tenant.id] ?? 0}
-                            productCount={productCounts[tenant.id] ?? 0}
-                            catalogCount={catalogCounts[tenant.id] ?? 0}
-                            onSelect={handleSelect}
-                            onEdit={handleEditRequest}
-                            onOpenSettings={id => navigate(`/business/${id}/settings`)}
-                            onLeave={handleLeaveRequest}
-                            onActivate={handleActivate}
-                            onCheckout={handleCheckout}
-                            onDelete={handleDeleteRequest}
-                        />
-                    ))}
-
-                    <button className={styles.createCard} onClick={() => setDrawerOpen(true)}>
-                        <div className={styles.createIconWrapper}>
-                            <Plus size={24} />
-                        </div>
-                        <Text variant="body" weight={600}>
-                            Crea attività
+                {tenants.length === 0 ? (
+                    <div className={styles.empty}>
+                        <Text variant="body" colorVariant="muted">
+                            Non hai ancora un&apos;attività. Creane una per iniziare.
                         </Text>
-                        <span className={styles.createSubtitle}>Aggiungi una nuova attività</span>
-                    </button>
-                </div>
+                        <Button variant="primary" leftIcon={<Plus size={16} aria-hidden />} onClick={() => setDrawerOpen(true)}>
+                            Nuova attività
+                        </Button>
+                    </div>
+                ) : (
+                    <div className={`${styles.grid} ${styles[`grid-${cardSize}`]}`}>
+                        {tenants.map(tenant => (
+                            <BusinessCard
+                                key={tenant.id}
+                                tenant={tenant}
+                                size={cardSize}
+                                stats={{
+                                    locations: locationCounts[tenant.id] ?? 0,
+                                    catalogs: catalogCounts[tenant.id] ?? 0,
+                                    products: productCounts[tenant.id] ?? 0
+                                }}
+                                coverUrl={covers[tenant.id] ?? null}
+                                city={cities[tenant.id] ?? null}
+                                onSelect={handleSelect}
+                                onEdit={handleEditRequest}
+                                onOpenSettings={id => navigate(`/business/${id}/settings`)}
+                                onOpenSubscription={id => navigate(`/business/${id}/settings/abbonamento`)}
+                                onLeave={handleLeaveRequest}
+                                onActivate={handleActivate}
+                                onDelete={handleDeleteRequest}
+                            />
+                        ))}
+                    </div>
+                )}
 
                 {deletedTenants.length > 0 && (
-                    <div className={styles.deletedSection}>
-                        <div className={styles.deletedSectionHeader}>
-                            <span className={styles.deletedSectionLabel}>
-                                {`Attività in eliminazione (${deletedTenants.length})`}
-                            </span>
+                    <section className={styles.deletedSection} aria-label="In eliminazione">
+                        {deletedCollapsible ? (
                             <button
+                                type="button"
                                 className={styles.deletedToggle}
+                                aria-expanded={deletedOpen}
                                 onClick={() => setDeletedSectionOpen(o => !o)}
                             >
-                                {deletedSectionOpen ? "Nascondi" : "Mostra"}
+                                <Text as="span" variant="body-sm" weight={600}>
+                                    {deletedTenants.length} in eliminazione
+                                </Text>
+                                <Text as="span" variant="body-sm" colorVariant="muted">
+                                    {deletedOpen ? "Nascondi" : "Mostra"}
+                                </Text>
                             </button>
-                        </div>
+                        ) : (
+                            <Text as="h2" variant="body-sm" weight={600} className={styles.deletedTitle}>
+                                In eliminazione
+                            </Text>
+                        )}
 
-                        {deletedSectionOpen && (
-                            <div className={styles.deletedCardsWrapper}>
+                        {deletedOpen && (
+                            <ul className={styles.deletedList}>
                                 {[...deletedTenants]
                                     .sort(
                                         (a, b) =>
@@ -397,67 +474,54 @@ export default function WorkspacePage() {
                                     )
                                     .map(row => {
                                         const daysLeft = getDaysLeft(row.deleted_at);
-                                        const isUrgent = daysLeft <= 3;
-                                        const initial = row.name.charAt(0).toUpperCase();
                                         const isRestoring = restoringId === row.id;
                                         const isPurging = actionInProgressId === row.id;
                                         return (
-                                            <div
+                                            <li
                                                 key={row.id}
-                                                className={`${styles.deletedCard} ${isRestoring || isPurging ? styles.deletedCardInProgress : ""}`}
+                                                className={`${styles.deletedRow} ${isRestoring || isPurging ? styles.deletedRowInProgress : ""}`}
                                             >
-                                                <div className={styles.deletedCardAvatar}>
-                                                    {initial}
-                                                </div>
-                                                <div className={styles.deletedCardInfo}>
-                                                    <span className={styles.deletedCardName}>
+                                                <div className={styles.deletedInfo}>
+                                                    <Text as="span" variant="body" weight={600}>
                                                         {row.name}
-                                                    </span>
-                                                    <span
-                                                        className={
-                                                            isUrgent
-                                                                ? styles.deletedCardCountdownUrgent
-                                                                : styles.deletedCardCountdown
-                                                        }
+                                                    </Text>
+                                                    <Text
+                                                        as="span"
+                                                        variant="body-sm"
+                                                        colorVariant={daysLeft <= 3 ? "error" : "muted"}
                                                     >
-                                                        {isUrgent
-                                                            ? daysLeft === 0
-                                                                ? "Scaduta"
-                                                                : `Eliminazione tra ${daysLeft} giorn${daysLeft === 1 ? "o" : "i"}`
-                                                            : `Eliminazione in ${daysLeft} giorn${daysLeft === 1 ? "o" : "i"}`}
-                                                    </span>
+                                                        {`Eliminata il ${formatDay(new Date(row.deleted_at))} · `}
+                                                        {daysLeft === 0
+                                                            ? "cancellazione definitiva in corso"
+                                                            : `cancellata definitivamente il ${formatDay(purgeDateOf(row.deleted_at))}`}
+                                                    </Text>
                                                 </div>
-                                                <div className={styles.deletedCardActions}>
+                                                <div className={styles.deletedActions}>
                                                     {daysLeft > 0 && (
-                                                        <button
-                                                            className={styles.restoreBtn}
+                                                        <Button
+                                                            variant="secondary"
+                                                            size="sm"
                                                             onClick={() => handleRestore(row.id)}
-                                                            disabled={isRestoring}
+                                                            loading={isRestoring}
                                                         >
-                                                            {isRestoring
-                                                                ? "Ripristino..."
-                                                                : "Ripristina"}
-                                                        </button>
+                                                            Ripristina
+                                                        </Button>
                                                     )}
-                                                    <button
-                                                        className={styles.purgeBtn}
-                                                        onClick={() =>
-                                                            setPurgeTarget({
-                                                                id: row.id,
-                                                                name: row.name
-                                                            })
-                                                        }
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => setPurgeTarget({ id: row.id, name: row.name })}
                                                         disabled={isPurging}
                                                     >
-                                                        Elimina
-                                                    </button>
+                                                        Elimina ora
+                                                    </Button>
                                                 </div>
-                                            </div>
+                                            </li>
                                         );
                                     })}
-                            </div>
+                            </ul>
                         )}
-                    </div>
+                    </section>
                 )}
             </div>
 

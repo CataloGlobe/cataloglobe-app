@@ -13,7 +13,7 @@ import styles from "./AppSidebar.module.scss";
  * AppSidebar — l'unica navigazione (scheda «AppSidebar»): una sidebar sola,
  * che riceve tutto e non sa niente. I gruppi li costruiscono i costruttori
  * (TenantSidebar e SedeSidebar con i permessi, AdminSidebar,
- * WorkspaceSidebar): aggiungere una sezione = aggiungere una voce a `groups`.
+ * ex WorkspaceSidebar): aggiungere una sezione = aggiungere una voce a `groups`.
  *
  * `headerSlot` è l'intestazione del contesto, sopra le voci e fuori dallo
  * scroll: dentro una sede porta «← Tutte le sedi». Resta vuoto altrove.

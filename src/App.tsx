@@ -56,7 +56,6 @@ const CrmClientsPage = lazy(() => import("./pages/Admin/Crm/ClientsPage"));
 
 // Workspace — lazy (solo utenti autenticati)
 const WorkspacePage = lazy(() => import("./pages/Workspace/WorkspacePage"));
-const BillingPage = lazy(() => import("./pages/Workspace/BillingPage"));
 const WorkspaceSettingsPage = lazy(() => import("./pages/Workspace/WorkspaceSettingsPage"));
 
 // Onboarding — lazy
@@ -227,8 +226,11 @@ export default function App() {
                 }
             >
                 <Route index element={<WorkspacePage />} />
-                <Route path="billing" element={<BillingPage />} />
-                <Route path="settings" element={<WorkspaceSettingsPage />} />
+                {/* T17 WS2-WS3: l'abbonamento sta nella card dell'attività, le
+                    impostazioni sono «Account». I vecchi indirizzi reindirizzano. */}
+                <Route path="account" element={<WorkspaceSettingsPage />} />
+                <Route path="billing" element={<Navigate to="/workspace" replace />} />
+                <Route path="settings" element={<Navigate to="/workspace/account" replace />} />
             </Route>
 
             {/* Onboarding (no tenant required) */}

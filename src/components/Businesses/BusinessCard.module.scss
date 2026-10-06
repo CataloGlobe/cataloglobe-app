@@ -1,155 +1,244 @@
+// T17 WS1-WS2, WS6: la card di un'attività nel Workspace. Tre misure (hero,
+// pair, compact); la copertina è la foto della prima sede, o una sfumatura.
+
 .card {
-  background: var(--card-bg, #fff);
-  border: 1px solid var(--border, #e5e7eb);
-  border-radius: 14px;
-  padding: 20px;
+  position: relative;
   display: flex;
   flex-direction: column;
-  cursor: pointer;
-  transition: box-shadow 0.2s ease, transform 0.15s ease, border-color 0.2s ease;
+  min-width: 0;
+  overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-surface, 12px);
+}
 
-  &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.08);
-    border-color: #818cf8;
-  }
+/* ── Copertina ─────────────────────────────────────────── */
 
-  &:focus-visible {
-    outline: 2px solid #6366f1;
-    outline-offset: 2px;
+.cover {
+  position: relative;
+  height: 220px;
+  background: var(--bg);
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
   }
 }
 
-/* ===== Header: avatar + meta block ===== */
-.header {
+.coverFallback {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    135deg,
+    var(--brand-primary-soft) 0%,
+    color-mix(in srgb, var(--brand-primary) 22%, var(--surface)) 100%
+  );
+}
+
+.pair .cover {
+  height: 140px;
+}
+
+// Il ⋯ sta sopra la copertina, su un fondo che si legge anche sulla foto.
+.menu {
+  position: absolute;
+  top: var(--space-12);
+  right: var(--space-12);
+  z-index: 1;
+  border-radius: var(--radius-control, 8px);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+}
+
+.compact .menu {
+  top: var(--space-8);
+  right: var(--space-8);
+}
+
+/* ── Corpo ─────────────────────────────────────────────── */
+
+.body {
   display: flex;
-  align-items: flex-start;
-  gap: 12px;
+  flex-direction: column;
+  gap: var(--space-16);
+  padding: var(--space-24);
   flex: 1;
 }
 
-.avatar {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  font-weight: 700;
-  font-size: 16px;
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-  /* bg and color provided via inline style for per-business tint */
+.compact .body {
+  gap: var(--space-12);
+  padding: var(--space-16);
 }
 
-.avatarImg {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
+.identity {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-16);
+  min-width: 0;
+}
+
+.compact .identity {
+  align-items: center;
+  gap: var(--space-12);
+  padding-right: var(--space-32);
+}
+
+// Il logo si sovrappone alla copertina.
+.logo {
+  flex: 0 0 auto;
+  width: 96px;
+  height: 96px;
+  border-radius: var(--radius-surface, 12px);
+  border: 3px solid var(--surface);
+  background: var(--surface);
   object-fit: cover;
-  flex-shrink: 0;
+  box-sizing: border-box;
+  margin-top: -64px;
+  box-shadow: var(--shadow-sm, none);
 }
 
-.meta {
-  flex: 1;
-  min-width: 0;
-}
-
-/* ===== Name row (name + three-dot menu) ===== */
-.nameRow {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 8px;
-  min-width: 0;
-}
-
-.name {
-  font-size: 14px;
-  font-weight: 500;
-  color: #0f172a;
-  word-break: break-word;
-  overflow-wrap: break-word;
-  line-height: 1.4;
-  flex: 1;
-  min-width: 0;
-}
-
-/* ===== Tags row: type pill + role text ===== */
-.tagsRow {
+.logoInitial {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-top: 6px;
-  flex-wrap: wrap;
+  justify-content: center;
+  background: var(--brand-primary-soft);
+  color: var(--brand-primary);
+  font-weight: 700;
 }
 
-.typePill {
-  background: #f1f5f9;
-  color: #475569;
-  font-size: 11px;
-  font-weight: 500;
-  border-radius: 4px;
-  padding: 1px 8px;
-  line-height: 1.6;
+.pair .logo {
+  width: 64px;
+  height: 64px;
+  margin-top: -44px;
+}
+
+.compact .logo {
+  width: 48px;
+  height: 48px;
+  margin-top: 0;
+  border-width: 1px;
+  border-color: var(--border);
+  box-shadow: none;
+}
+
+.titles {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 2px);
+  min-width: 0;
+  flex: 1;
+}
+
+.name,
+.meta {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.activatePill {
-  background: #fef3c7;
-  color: #92400e;
-  font-size: 11px;
-  font-weight: 500;
-  border-radius: 4px;
-  padding: 1px 8px;
-  line-height: 1.6;
-  white-space: nowrap;
+.enterInline {
+  flex: 0 0 auto;
 }
 
-.roleText {
-  font-size: 11px;
-  color: #94a3b8;
-  font-weight: 400;
+/* ── Numeri ────────────────────────────────────────────── */
+
+.numbers {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-12);
+  margin: 0;
 }
 
-/* ===== Inactive (no subscription) ===== */
-.cardInactive {
-  opacity: 0.7;
-  border-style: dashed;
+.number {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: var(--space-2, 2px);
+  padding: var(--space-12);
+  border-radius: var(--radius-control, 8px);
+  background: var(--bg);
 
-  &:hover {
-    opacity: 1;
+  dt,
+  dd {
+    margin: 0;
   }
 }
 
-/* ===== Actions: three-dot menu ===== */
-.actions {
-  flex-shrink: 0;
-  margin-top: -4px; // optical alignment
+.compact .number {
+  padding: var(--space-8);
 }
 
-/* ===== Footer: quick stats ===== */
-.footer {
+/* ── Abbonamento ───────────────────────────────────────── */
+
+.subscription {
   display: flex;
-  align-items: center;
   flex-wrap: wrap;
-  gap: 14px;
-  padding-top: 14px;
-  margin-top: 14px;
-  border-top: 1px solid #f1f5f9;
+  align-items: center;
+  gap: var(--space-8) var(--space-12);
+  padding-top: var(--space-16);
+  border-top: 1px solid var(--border);
 }
 
-.stat {
+.subscriptionText {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.subscriptionLink {
+  margin-left: auto;
+}
+
+.enterRow {
   display: flex;
-  align-items: baseline;
-  gap: 4px;
+  justify-content: flex-end;
 }
 
-.statNum {
-  font-size: 12px;
-  font-weight: 500;
-  color: #0f172a;
+.compact .enterRow {
+  margin-top: auto;
 }
 
-.statLabel {
-  font-size: 11px;
-  color: #94a3b8;
+/* ── Responsive (WS6) ──────────────────────────────────── */
+
+// Tra 640 e 1024 i numeri vanno due per riga.
+@media (max-width: 1023px) {
+  .hero .numbers {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 639px) {
+  .hero .cover {
+    height: 140px;
+  }
+
+  .hero .logo {
+    width: 64px;
+    height: 64px;
+    margin-top: -44px;
+  }
+
+  .hero .body {
+    padding: var(--space-16);
+  }
+
+  // «Entra» a tutta larghezza, alto 48.
+  .hero .enterRow .enter {
+    width: 100%;
+    min-height: 48px;
+  }
+
+  .pair .cover {
+    height: 84px;
+  }
+
+  .pair .logo {
+    width: 48px;
+    height: 48px;
+    margin-top: -32px;
+  }
+
+  .pair .body {
+    padding: var(--space-16);
+  }
 }

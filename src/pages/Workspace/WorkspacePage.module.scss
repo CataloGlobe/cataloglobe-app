@@ -1,267 +1,194 @@
+// T17 WS1, WS6: il Workspace è una porta. Colonna centrata 960 (640 tra 640
+// e 1024, unica sotto 640), saluto su fondo indigo leggero.
+
 .page {
   min-height: 100%;
 }
 
 .container {
   width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-24);
 }
 
-/* ===== Business grid ===== */
+/* ── Saluto ────────────────────────────────────────────── */
+
+.hello {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-16);
+  padding: var(--space-32) var(--space-24);
+  border-radius: var(--radius-surface, 12px);
+  background: linear-gradient(
+    120deg,
+    var(--brand-primary-soft) 0%,
+    color-mix(in srgb, var(--brand-primary-soft) 40%, var(--surface)) 100%
+  );
+}
+
+.helloTitle {
+  margin: 0;
+}
+
+.helloAction {
+  flex: 0 0 auto;
+}
+
+/* ── Attività ──────────────────────────────────────────── */
+
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 16px;
+  gap: var(--space-16);
 }
 
-/* ===== Pending invitations ===== */
+.grid-hero {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.grid-pair {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.grid-compact {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-16);
+  padding: var(--space-48, 48px) var(--space-24);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-surface, 12px);
+  text-align: center;
+}
+
+/* ── Inviti in attesa ──────────────────────────────────── */
+
 .pendingSection {
-  margin-bottom: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
 }
 
 .pendingList {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  margin-top: 12px;
+  gap: var(--space-8);
 }
 
 .pendingCard {
-  background: #fff;
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  padding: 14px 20px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: var(--space-16);
+  padding: var(--space-12) var(--space-16);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-surface, 12px);
 }
 
-/* ===== Deleted tenants section ===== */
+/* ── In eliminazione ───────────────────────────────────── */
+
 .deletedSection {
-  margin-top: 40px;
-  padding-top: 32px;
-  border-top: 1px solid #e5e7eb;
-}
-
-.deletedSectionHeader {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  flex-direction: column;
+  gap: var(--space-12);
 }
 
-.deletedSectionLabel {
-  font-size: 12px;
-  color: #94a3b8;
-  font-weight: 400;
+.deletedTitle {
+  margin: 0;
 }
 
 .deletedToggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  align-self: flex-start;
+  padding: var(--space-4) 0;
   background: none;
   border: none;
+  color: var(--text);
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-focus);
+    border-radius: var(--radius-control, 8px);
+  }
+}
+
+.deletedList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  margin: 0;
   padding: 0;
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 500;
-  color: #6366f1;
-  font-family: inherit;
-
-  &:hover {
-    text-decoration: underline;
-  }
-
-  &:focus-visible {
-    outline: 2px solid #6366f1;
-    outline-offset: 2px;
-    border-radius: 2px;
-  }
+  list-style: none;
 }
 
-.deletedCardsWrapper {
-  margin-top: 12px;
-  background: #f8fafc;
-  border: 1px solid #e5e7eb;
-  border-radius: 10px;
-  overflow: hidden;
-}
-
-.deletedCard {
+// Una riga tratteggiata per attività: c'è ancora, ma non è in uso.
+.deletedRow {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
-  transition: opacity 0.2s ease;
-
-  & + & {
-    border-top: 1px solid #f1f5f9;
-  }
+  justify-content: space-between;
+  gap: var(--space-12);
+  padding: var(--space-12) var(--space-16);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-surface, 12px);
 }
 
-.deletedCardInProgress {
-  opacity: 0.5;
+.deletedRowInProgress {
+  opacity: 0.6;
   pointer-events: none;
 }
 
-.deletedCardAvatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: #fee2e2;
-  color: #dc2626;
-  font-size: 13px;
-  font-weight: 700;
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-}
-
-.deletedCardInfo {
-  flex: 1;
+.deletedInfo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 2px);
   min-width: 0;
+}
+
+.deletedActions {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  gap: var(--space-8);
 }
 
-.deletedCardName {
-  font-size: 13px;
-  font-weight: 500;
-  color: #0f172a;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
+/* ── Responsive (WS6) ──────────────────────────────────── */
 
-.deletedCardCountdown {
-  font-size: 11px;
-  color: #94a3b8;
-}
-
-.deletedCardCountdownUrgent {
-  font-size: 11px;
-  font-weight: 600;
-  color: #dc2626;
-}
-
-.deletedCardActions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
-.restoreBtn {
-  background: none;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  padding: 4px 12px;
-  font-size: 12px;
-  font-weight: 500;
-  color: #475569;
-  cursor: pointer;
-  font-family: inherit;
-  transition: border-color 0.15s ease, color 0.15s ease;
-
-  &:hover:not(:disabled) {
-    border-color: #6366f1;
-    color: #6366f1;
+@media (max-width: 1023px) {
+  .container {
+    max-width: 640px;
   }
 
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+  .grid-compact {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
-.purgeBtn {
-  background: none;
-  border: none;
-  padding: 4px 8px;
-  font-size: 12px;
-  font-weight: 500;
-  color: #94a3b8;
-  cursor: pointer;
-  font-family: inherit;
-
-  &:hover:not(:disabled) {
-    color: #ef4444;
+@media (max-width: 639px) {
+  .hello {
+    padding: var(--space-24) var(--space-16);
   }
 
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-}
-
-/* legacy classes kept for purge/leave dialogs */
-.purgeNormal {
-  font-size: 12px;
-  color: #64748b;
-}
-
-.purgeUrgent {
-  font-size: 12px;
-  font-weight: 600;
-  color: #c2410c;
-}
-
-.rowInProgress {
-  opacity: 0.5;
-  pointer-events: none;
-}
-
-/* ===== Create business card ===== */
-.createCard {
-  border: 1px dashed #e2e8f0;
-  border-radius: 14px;
-  padding: 20px;
-  min-height: 140px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  cursor: pointer;
-  background: #f8fafc;
-  transition: box-shadow 0.2s ease, transform 0.15s ease, border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
-  color: #64748b;
-  font-family: inherit;
-  width: 100%;
-  text-align: center;
-
-  &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.08);
-    border-color: #818cf8;
-    background: #fff;
-    color: #6366f1;
-
-    .createIconWrapper {
-      background: rgba(99, 102, 241, 0.08);
-      color: #6366f1;
-    }
+  .helloTitle {
+    font-size: 26px;
   }
 
-  &:focus-visible {
-    outline: 2px solid #6366f1;
-    outline-offset: 2px;
+  .grid-pair,
+  .grid-compact {
+    grid-template-columns: minmax(0, 1fr);
   }
-}
 
-.createIconWrapper {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  background: #f1f5f9;
-  display: grid;
-  place-items: center;
-  transition: background 0.2s ease, color 0.2s ease;
-  margin-bottom: 8px;
-  color: inherit;
-}
-
-.createSubtitle {
-  font-size: 12px;
-  color: #94a3b8;
-  margin-top: 2px;
+  .pendingCard {
+    flex-wrap: wrap;
+  }
 }
