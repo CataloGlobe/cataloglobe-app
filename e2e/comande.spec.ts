@@ -176,6 +176,10 @@ test.describe("Comande", () => {
         await openComande(page);
         const filtro = page.getByRole("main").getByRole("combobox", { name: "Filtra per tavolo" });
         await expect(filtro).toBeVisible();
+        // T14: sta nella testata, sulla riga di «Aggiorna», non sopra la board.
+        const filtroBox = await filtro.boundingBox();
+        const aggiorna = await page.getByRole("main").getByRole("button", { name: "Aggiorna" }).first().boundingBox();
+        expect(Math.abs(filtroBox!.y + filtroBox!.height / 2 - (aggiorna!.y + aggiorna!.height / 2))).toBeLessThan(12);
 
         // Un tavolo diverso da quello della fixture: la sua card sparisce.
         const altri = (await filtro.getByRole("option").allInnerTexts()).filter(
