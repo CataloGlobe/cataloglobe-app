@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
@@ -155,6 +155,10 @@ export default function SupportTicketAdminPage() {
      * connessione ad aver fatto un buco, non il ticket a essere sparito. Solo
      * il caricamento iniziale può concludere che non è accessibile.
      */
+    const requestedTicketRef = useRef(ticketId);
+    useEffect(() => {
+        requestedTicketRef.current = ticketId;
+    }, [ticketId]);
     const loadThread = useCallback(
         async ({ silent = false }: { silent?: boolean } = {}) => {
             if (!ticketId) return;
@@ -163,6 +167,8 @@ export default function SupportTicketAdminPage() {
                     getTicket(ticketId),
                     listMessages(ticketId)
                 ]);
+                // La risposta di una richiesta lasciata non tocca quella aperta.
+                if (requestedTicketRef.current !== ticketId) return;
                 // Aggiornamenti condizionali: se il poll non porta nulla di
                 // nuovo si restituisce lo stesso riferimento e React salta il
                 // render, così la conversazione non si ridisegna ogni 15
@@ -170,9 +176,10 @@ export default function SupportTicketAdminPage() {
                 setMessages(prev => (sameMessageList(prev, messageRows) ? prev : messageRows));
                 setTicket(prev => (sameTicketView(prev, ticketRow) ? prev : ticketRow));
             } catch {
+                if (requestedTicketRef.current !== ticketId) return;
                 if (!silent) setNotFound(true);
             } finally {
-                if (!silent) setIsLoading(false);
+                if (!silent && requestedTicketRef.current === ticketId) setIsLoading(false);
             }
         },
         [ticketId]
@@ -181,6 +188,9 @@ export default function SupportTicketAdminPage() {
     useEffect(() => {
         setIsLoading(true);
         setNotFound(false);
+        // La risposta scritta per una richiesta non passa alla successiva.
+        setDraft("");
+        setActionError(null);
         void loadThread();
     }, [loadThread]);
 

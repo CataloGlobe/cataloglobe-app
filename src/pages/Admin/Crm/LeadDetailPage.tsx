@@ -104,6 +104,12 @@ export default function LeadDetailPage() {
     // Un errore di rete dopo un'azione non deve far sparire la scheda già
     // aperta: «non trovato» solo se la scheda non è mai arrivata.
     const loadedVenueRef = useRef<string | null>(null);
+    // Passando in fretta da un lead all'altro, la risposta del lead lasciato
+    // non deve finire sulla scheda di quello aperto.
+    const requestedVenueRef = useRef(venueId);
+    useEffect(() => {
+        requestedVenueRef.current = venueId;
+    }, [venueId]);
     const loadDetail = useCallback(async () => {
         try {
             const [data, members, settings] = await Promise.all([
@@ -112,19 +118,21 @@ export default function LeadDetailPage() {
                 // Il testo di WhatsApp non deve far cadere la pagina.
                 getCrmSettings().catch(() => null)
             ]);
+            if (requestedVenueRef.current !== venueId) return;
             setDetail(data);
             setTeam(members);
             setWhatsappTemplate(settings?.whatsapp_template ?? null);
             setNotFound(false);
             loadedVenueRef.current = venueId;
         } catch {
+            if (requestedVenueRef.current !== venueId) return;
             if (loadedVenueRef.current === venueId) {
                 setActionError("Non riesco ad aggiornare la scheda. Ricarica la pagina.");
             } else {
                 setNotFound(true);
             }
         } finally {
-            setIsLoading(false);
+            if (requestedVenueRef.current === venueId) setIsLoading(false);
         }
     }, [venueId]);
 
@@ -247,7 +255,10 @@ export default function LeadDetailPage() {
             .catch(err => setActionError(crmErrorMessage(err)));
     }
 
-    if (isLoading) return <LoadingState message="Caricamento lead…" />;
+    // Finché arriva il lead nuovo non si mostra la scheda del precedente.
+    if (isLoading || (detail && detail.venue.id !== venueId && !notFound)) {
+        return <LoadingState message="Caricamento lead…" />;
+    }
 
     if (notFound || !detail) {
         return (
@@ -350,7 +361,7 @@ export default function LeadDetailPage() {
     );
 
     const chat = (
-        <LeadChat
+        <LeadChat key={venue.id}
             venueId={venue.id}
             held={held}
             items={items}
@@ -366,7 +377,7 @@ export default function LeadDetailPage() {
     );
 
     const callSection = (
-        <CallCard
+        <CallCard key={venue.id}
             flat
             venueId={venue.id}
             venueName={venue.name}
@@ -383,7 +394,7 @@ export default function LeadDetailPage() {
 
     const facts = (
         <>
-            <NextStepSection
+            <NextStepSection key={venue.id}
                 venueId={venue.id}
                 step={nextStep.loading && nextStep.data === null ? undefined : nextStep.data}
                 loadError={nextStep.error}
@@ -396,7 +407,7 @@ export default function LeadDetailPage() {
             <ContactsSection contacts={contacts} leads={leads} />
             <RequestsSection leads={leads} />
             {!isPhone && callSection}
-            <AccountCard
+            <AccountCard key={venue.id}
                 flat
                 venueId={venue.id}
                 tenantId={venue.tenant_id}
@@ -404,9 +415,9 @@ export default function LeadDetailPage() {
                 accountLabel={crmAccountLabel(venue)}
                 onChanged={reload}
             />
-            <ObjectionsCard venueId={venue.id} now={now} reloadKey={key} />
-            <ReferredByCard venueId={venue.id} referredBy={venue.referred_by} onChanged={reload} />
-            <NotesSection venueId={venue.id} events={events} teamName={teamName} now={now} onChanged={reload} />
+            <ObjectionsCard key={venue.id} venueId={venue.id} now={now} reloadKey={key} />
+            <ReferredByCard key={venue.id} venueId={venue.id} referredBy={venue.referred_by} onChanged={reload} />
+            <NotesSection key={venue.id} venueId={venue.id} events={events} teamName={teamName} now={now} onChanged={reload} />
         </>
     );
 

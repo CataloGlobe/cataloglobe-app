@@ -5,6 +5,7 @@ import { usePageTitle } from "@/hooks/usePageTitle";
 import { usePageHeader } from "@/context/usePageHeader";
 import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { formatDateTimeIt } from "@/utils/formatDateTime";
+import { crmErrorMessage } from "@/utils/crm/stages";
 import {
     addIncidentUpdate,
     deleteIncident,
@@ -59,7 +60,7 @@ function AddUpdateBlock({
             setNextStatus("");
             onSaved();
         } catch (err) {
-            setError(err instanceof Error ? err.message : String(err));
+            setError(crmErrorMessage(err));
         } finally {
             setSubmitting(false);
         }
@@ -121,6 +122,8 @@ export default function StatusIncidentsPage() {
 
     const [pendingResolveId, setPendingResolveId] = useState<string | null>(null);
     const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+    // L'errore resta nel dialogo, non in un alert del browser.
+    const [confirmError, setConfirmError] = useState<string | null>(null);
     // Schede aperte (D40, b2): all'inizio quelle in corso, le risolte chiuse.
     const [openIds, setOpenIds] = useState<Set<string> | null>(null);
     // Cambia dopo ogni scrittura: la banda dello stato si rilegge subito.
@@ -135,7 +138,7 @@ export default function StatusIncidentsPage() {
             setOpenIds(prev => prev ?? new Set(list.filter(i => !i.resolved_at).map(i => i.id)));
             setBandKey(k => k + 1);
         } catch (err) {
-            setLoadError(err instanceof Error ? err.message : String(err));
+            setLoadError(crmErrorMessage(err));
         } finally {
             setLoading(false);
         }
@@ -152,7 +155,7 @@ export default function StatusIncidentsPage() {
             await load();
             return true;
         } catch (err) {
-            window.alert(`Errore: ${err instanceof Error ? err.message : String(err)}`);
+            setConfirmError(crmErrorMessage(err));
             return false;
         }
     }
@@ -164,7 +167,7 @@ export default function StatusIncidentsPage() {
             await load();
             return true;
         } catch (err) {
-            window.alert(`Errore: ${err instanceof Error ? err.message : String(err)}`);
+            setConfirmError(crmErrorMessage(err));
             return false;
         }
     }
@@ -344,8 +347,12 @@ export default function StatusIncidentsPage() {
 
             <ConfirmDialog
                 isOpen={pendingResolveId !== null}
-                onClose={() => setPendingResolveId(null)}
+                onClose={() => {
+                    setPendingResolveId(null);
+                    setConfirmError(null);
+                }}
                 onConfirm={confirmResolve}
+                error={confirmError}
                 title="Marcare come risolto"
                 message="Confermi di marcare questo incidente come risolto?"
                 confirmLabel="Risolvi"
@@ -354,8 +361,12 @@ export default function StatusIncidentsPage() {
 
             <ConfirmDialog
                 isOpen={pendingDeleteId !== null}
-                onClose={() => setPendingDeleteId(null)}
+                onClose={() => {
+                    setPendingDeleteId(null);
+                    setConfirmError(null);
+                }}
                 onConfirm={confirmDelete}
+                error={confirmError}
                 title="Elimina incidente"
                 message="Eliminare definitivamente questo incidente? L'azione non può essere annullata."
                 confirmLabel="Elimina"

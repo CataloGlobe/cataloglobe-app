@@ -86,10 +86,16 @@ export default function HomePage() {
     const userId = user?.id ?? null;
     const isPhone = useMediaQuery("(max-width: 767px)");
 
-    const [now] = useState(() => new Date());
-    const [since] = useState(() => firstVisitToday(now));
+    const [now, setNow] = useState(() => new Date());
+    const [since, setSince] = useState(() => firstVisitToday(now));
     const [reloadKey, setReloadKey] = useState(0);
-    const reload = useCallback(() => setReloadKey(k => k + 1), []);
+    // Ricaricando si rilegge anche l'ora: la Home aperta da ieri passa a oggi.
+    const reload = useCallback(() => {
+        const at = new Date();
+        setNow(at);
+        setSince(firstVisitToday(at));
+        setReloadKey(k => k + 1);
+    }, []);
     const [expanded, setExpanded] = useState<Tile | null>(null);
     const [isAddOpen, setIsAddOpen] = useState(false);
     const [busy, setBusy] = useState<string | null>(null);
