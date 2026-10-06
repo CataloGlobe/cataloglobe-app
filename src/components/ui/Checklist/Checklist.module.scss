@@ -24,40 +24,56 @@
   color: var(--success-500);
 }
 
-// Lo stato done: una riga verde apribile con i nomi come Chip spuntati.
-// Il bottone è solo icona + titolo + chevron: i Chip sono bottoni loro,
-// non possono stare dentro un altro bottone.
+// Lo stato done (P4): una riga sola senza card, fondo success-50, i nomi
+// spuntati in testo success-800, «Mostra» a destra. Tutta la riga è il bottone.
+.done {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+}
+
 .doneRow {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-8) var(--space-12);
-  margin: 0 var(--space-8);
+  width: 100%;
+  margin: 0;
   padding: var(--space-12) var(--space-16);
-  border: 1px solid var(--success-200);
+  border: 0;
   border-radius: var(--radius-control);
   background: var(--success-50);
   color: var(--success-800);
-}
-
-.doneToggle {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-12);
-  margin: 0;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: inherit;
   font: inherit;
   text-align: left;
   cursor: pointer;
-  border-radius: var(--radius-inner);
 
   &:focus-visible {
     outline: none;
     box-shadow: var(--shadow-focus);
   }
+}
+
+.doneNames {
+  flex: 1 1 auto;
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-4) var(--space-12);
+  min-width: 0;
+}
+
+.doneName {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.doneToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin-left: auto;
+  font-weight: 600;
 }
 
 .doneIcon {
@@ -74,12 +90,6 @@
 
 .doneTitle {
   color: inherit;
-}
-
-.doneChips {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: var(--space-6);
 }
 
 .chevron {

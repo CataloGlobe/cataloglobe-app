@@ -379,10 +379,10 @@ test.describe("Prenotazioni", () => {
         await page.getByRole("menuitem", { name: "Prenotazioni", exact: true }).click();
         await expect(page).toHaveURL(sede, { timeout: 15_000 });
 
-        // Nello stesso menu, «Ordini» porta alle comande della stessa sede.
+        // Nello stesso menu, «Comande» (P5, correzioni UI) porta alle comande della stessa sede.
         await page.goto(`${base}/overview`);
         await main(page).getByRole("button", { name: /^Azioni per .*Garbagnate/ }).click();
-        await page.getByRole("menuitem", { name: "Ordini", exact: true }).click();
+        await page.getByRole("menuitem", { name: "Comande", exact: true }).click();
         await expect(page).toHaveURL(sede.replace(/\/prenotazioni$/, "/comande"), { timeout: 15_000 });
     });
 

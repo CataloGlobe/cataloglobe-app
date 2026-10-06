@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
     ClipboardList,
     Copy,
@@ -32,6 +32,7 @@ import {
 } from "@/services/supabase/overviewStats";
 import { getActivities } from "@/services/supabase/activities";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import type { V2Activity } from "@/types/activity";
 import { formatInactiveReason } from "@/utils/activityStatus";
 import { getActiveCatalogForActivities, type ActiveCatalogMeta } from "@/services/supabase/activeCatalog";
@@ -115,6 +116,8 @@ export default function OverviewPage() {
     const navigate = useNavigate();
     const { permissions } = usePermissions();
     const { showToast } = useToast();
+    // P1: QR della sede unica a 128, 96 al telefono (sotto 768, come `phone`).
+    const isPhone = useMediaQuery("(max-width: 767px)");
 
     // Uscita dal percorso guidato: `SetupWizardPage` lascia la distinzione nello
     // stato della navigazione. Letti come primitive, non come oggetto: l'intera
@@ -350,16 +353,17 @@ export default function OverviewPage() {
     }, [tenantId, canSeeSetup, setupIsComplete, locationsRetry]);
 
     const activeCount = locations?.active.length ?? 0;
-    // Sottotitolo solo per i ruoli scoped: la RLS non dice quante sedi ha
-    // l'azienda in tutto, quindi il testo dice cosa si vede, non cosa manca.
-    const scopedSubtitle =
+    // Frase solo per i ruoli scoped: la RLS non dice quante sedi ha l'azienda
+    // in tutto, quindi il testo dice cosa si vede, non cosa manca. Sta in
+    // pagina sopra la vetrina, non sotto la testata (M1, D4).
+    const scopedNote =
         isScoped && locationsStatus === "ready"
             ? activeCount === 1
                 ? "1 sede nel tuo ruolo · le altre non si vedono"
                 : `${activeCount} sedi nel tuo ruolo · le altre non si vedono`
             : undefined;
 
-    usePageHeader({ title: "Panoramica", subtitle: scopedSubtitle });
+    usePageHeader({ title: "Panoramica" });
 
     if (tenantLoading || !selectedTenant || permissions == null) {
         // La forma della pagina che arriva: la vetrina (due righe) e le basi.
@@ -477,7 +481,7 @@ export default function OverviewPage() {
         label: string,
         to: string,
         state: "active" | "todo" | "soon",
-        detail: string
+        detail: ReactNode
     ) => (
         <ListRow
             key={key}
@@ -522,7 +526,8 @@ export default function OverviewPage() {
               capability(
                   "orders",
                   <ClipboardList size={20} />,
-                  businessRouteLabel("orders"),
+                  // P5: qui e nel ⋯ della vetrina si chiamano «Comande».
+                  "Comande",
                   `${b}/orders`,
                   c.ordering.active ? "active" : "todo",
                   c.ordering.active
@@ -536,7 +541,15 @@ export default function OverviewPage() {
                   `${b}/reservations`,
                   c.reservations.active ? "active" : "todo",
                   c.reservations.active
-                      ? `attive su ${plural(c.reservations.locations, "sede", "sedi")} · ${c.reservations.pending} in attesa`
+                      ? (
+                            <>
+                                {`attive su ${plural(c.reservations.locations, "sede", "sedi")} · `}
+                                {/* P5: ciò che aspetta una risposta si vede. */}
+                                <span className={c.reservations.pending > 0 ? styles.pending : undefined}>
+                                    {c.reservations.pending} in attesa
+                                </span>
+                            </>
+                        )
                       : "Prenotazioni online dalla pagina pubblica, con promemoria."
               ),
               capability(
@@ -575,8 +588,11 @@ export default function OverviewPage() {
                   <Languages size={20} />,
                   businessRouteLabel("languages"),
                   `${b}/languages`,
-                  "soon",
-                  "Per questo il selettore di lingua non fa ancora niente."
+                  // P7: calcolato, non più «In arrivo» fisso.
+                  c.languages.active ? "active" : "todo",
+                  c.languages.active
+                      ? plural(c.languages.extra, "lingua oltre l'italiano", "lingue oltre l'italiano")
+                      : "La pagina pubblica anche in altre lingue, tradotta per te."
               )
           ]
         : null;
@@ -609,24 +625,41 @@ export default function OverviewPage() {
     const menuStateFor = (activityId: string): ActiveCatalogState =>
         deriveActiveCatalogState(catalogFetch.status, catalogFetch.byActivity[activityId]);
 
-    /** Stato del menù: puntino + parola, mai il colore da solo. `error` non è
-     *  `none`: il badge lo dichiara invece di dire «spento». `loading` non è
-     *  uno stato del badge: è uno skeleton a pillola. */
-    const menuBadge = (activityId: string) => {
+    /** P2: il nome del menù non è uno stato. Puntino a quattro stati +
+     *  «Sta mostrando» + nome in testo; la pillola resta solo per il problema
+     *  («Nessun menù attivo», con Risolvi). `error` non è `none`: lo dice
+     *  invece di dire «spento». P3: «Perché» porta a «Cosa vedono i clienti»
+     *  della sede, solo a chi legge la programmazione. */
+    const menuStatus = (activityId: string) => {
         const state = menuStateFor(activityId);
         if (state === "loading") {
-            return <Skeleton height="22px" width={MENU_SKELETON_WIDTH} radius="var(--radius-pill)" />;
+            return <Skeleton height="20px" width={MENU_SKELETON_WIDTH} />;
         }
-        if (state === "resolved") {
+        if (state === "none") {
+            return <StatusBadge variant="warning" label={`Nessun ${catalogLower} attivo`} />;
+        }
+        if (state === "error") {
             return (
-                <StatusBadge
-                    variant="success"
-                    label={activeCatalogDisplayName(catalogFetch.byActivity[activityId])}
-                />
+                <span className={styles.menuNow}>
+                    <span className={`${styles.menuDot} ${styles.menuDotError}`} aria-hidden="true" />
+                    <Text as="span" variant="body-sm" colorVariant="muted">Stato non disponibile</Text>
+                </span>
             );
         }
-        if (state === "error") return <StatusBadge variant="danger" label="Stato non disponibile" />;
-        return <StatusBadge variant="warning" label={`Nessun ${catalogLower} attivo`} />;
+        return (
+            <span className={styles.menuNow}>
+                <span className={`${styles.menuDot} ${styles.menuDotOn}`} aria-hidden="true" />
+                <Text as="span" variant="body-sm" colorVariant="muted">Sta mostrando</Text>
+                <Text as="span" variant="body-sm" weight={600} className={styles.menuName}>
+                    {activeCatalogDisplayName(catalogFetch.byActivity[activityId])}
+                </Text>
+                {canDoOnActivity(permissions, "scheduling.read", activityId) && (
+                    <Link className={styles.why} to={`${b}/locations/${activityId}/cosa-vedono`}>
+                        Perché
+                    </Link>
+                )}
+            </span>
+        );
     };
 
     /** «Risolvi» accompagna solo la vetrina accesa senza menù: il guasto
@@ -643,7 +676,7 @@ export default function OverviewPage() {
      *  qui. Nomi = voci di sidebar. */
     const operationalLinks = (activityId: string): TableRowAction[] => [
         {
-            label: businessRouteLabel("orders"),
+            label: "Comande",
             separator: true,
             hidden: !canDoOnActivity(permissions, "orders.read", activityId),
             // Le comande di QUESTA sede: `/orders` porterebbe all'ultima usata.
@@ -752,32 +785,65 @@ export default function OverviewPage() {
     } else if (single) {
         // Una sede sola (5 aziende su 8): scheda con QR grande e azioni
         // esplicite — nasconderne tre dietro tre puntini non risparmia niente.
+        // P1: la stessa riga del multisede, più grande. QR 128 (96 al
+        // telefono), nome · URL · menù; a destra Apri · Copia link · Scarica
+        // QR, poi ⋯ con i collegamenti operativi della sede.
         showcaseBody = (
             <>
                 <div className={styles.single}>
                     <QrCode
                         ref={setQrRef(single.id)}
                         value={single.publicUrl}
-                        size="lg"
+                        size={isPhone ? 96 : 128}
                         level="H"
-                        label={single.name}
                         fileName={`${single.slug}-qr`}
-                        showActions
-                        onCopyLink={() => void handleCopyPublicUrl(single.publicUrl)}
-                        openHref={single.publicUrl}
+                        className={styles.singleQr}
                     />
                     <div className={styles.singleInfo}>
-                        <Text variant="title-sm" weight={600}>
+                        <Text variant="title-sm" weight={600} className={styles.singleName}>
                             {publicLink(single, styles.name, single.name)}
                         </Text>
                         {publicLink(single, styles.url, single.publicUrl)}
-                        <div className={styles.status}>
-                            {menuBadge(single.id)}
-                            {resolveButton(single.id)}
-                        </div>
-                        <div className={styles.singleActions}>
-                            <TableRowActions actions={operationalLinks(single.id)} ariaLabel={`Azioni per ${single.name}`} />
-                        </div>
+                    </div>
+                    <div className={styles.singleMenu}>
+                        {menuStatus(single.id)}
+                        {resolveButton(single.id)}
+                    </div>
+                    <div className={styles.singleActions}>
+                        <Button
+                            as="a"
+                            href={single.publicUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            variant="secondary"
+                            size="sm"
+                            leftIcon={<ExternalLink size={16} />}
+                        >
+                            Apri
+                        </Button>
+                        <Button
+                            variant="secondary"
+                            size="sm"
+                            leftIcon={<Copy size={16} />}
+                            onClick={() => void handleCopyPublicUrl(single.publicUrl)}
+                        >
+                            Copia link
+                        </Button>
+                        <Button
+                            variant="secondary"
+                            size="sm"
+                            leftIcon={<Download size={16} />}
+                            onClick={() => void qrRefs.current[single.id]?.downloadPng()}
+                        >
+                            Scarica QR
+                        </Button>
+                        <TableRowActions
+                            actions={[
+                                { label: "Scarica QR (SVG)", icon: Download, onClick: () => qrRefs.current[single.id]?.downloadSvg() },
+                                ...operationalLinks(single.id)
+                            ]}
+                            ariaLabel={`Azioni per ${single.name}`}
+                        />
                     </div>
                 </div>
                 {suspendedRows}
@@ -800,7 +866,7 @@ export default function OverviewPage() {
                         }
                         title={publicLink(location, styles.name, location.name)}
                         subtitle={publicLink(location, styles.url, location.publicUrl)}
-                        meta={menuBadge(location.id)}
+                        meta={menuStatus(location.id)}
                         trailing={
                             <>
                                 {resolveButton(location.id)}
@@ -849,6 +915,11 @@ export default function OverviewPage() {
             )}
 
             {/* ===== B — La vetrina adesso ===== */}
+            {scopedNote && (
+                <Text as="p" variant="body-sm" colorVariant="muted">
+                    {scopedNote}
+                </Text>
+            )}
             {showcaseWanted && (
                 <Card
                     title={showcaseTitle}
