@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { useEffect, useMemo, useState, type Ref } from "react";
+import { ChevronDown } from "lucide-react";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { Button } from "@/components/ui/Button/Button";
@@ -7,25 +7,25 @@ import { IconButton } from "@/components/ui/Button/IconButton";
 import { Card } from "@/components/ui/Card/Card";
 import { Badge } from "@/components/ui/Badge/Badge";
 import { ListRow } from "@/components/ui/ListRow/ListRow";
-import { FormGrid } from "@/components/ui/FormGrid/FormGrid";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { Select } from "@/components/ui/Select/Select";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
 import Text from "@/components/ui/Text/Text";
-import { supabase } from "@/services/supabase/client";
-import { resolveRulesForActivity, type ResolveRulesForActivityResult } from "@/services/supabase/scheduleResolver";
 import type { LayoutRule, LayoutRuleOption, RuleType } from "@/services/supabase/layoutScheduling";
 import { formatInactiveReason } from "@/utils/activityStatus";
 import { parseRomeDateTimeLocal, romeDateTimeLocalValue, romeInstantAt } from "@/utils/romeInstant";
+import { buildScheduleMatrix } from "@/utils/scheduleMatrix";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
-import { ruleTypeLabel } from "../ruleTypeLabel";
 import { buildDailyTimeline } from "../simulatorTimeline";
+import { LayerSteps } from "./LayerSteps";
+import { HowItWorksButton } from "./RuleTypeHelpModal";
+import { matrixLayers } from "./matrixLayers";
+import { SeatMatrix } from "./SeatMatrix";
 import styles from "./RuleSimulatorDrawer.module.scss";
 
 const DAILY_TIMELINE_STEP_MINUTES = 30;
-const SIM_ERROR = "Non riusciamo a simulare questo momento.";
 const INVALID_DATE = "Data e ora non valide.";
 
 function getSpecificityLabel(value: number | null) {
@@ -46,7 +46,6 @@ function formatMinutesToHourLabel(totalMinutes: number): string {
 export interface RuleSimulatorDrawerProps {
     open: boolean;
     onClose: () => void;
-    tenantId: string;
     rules: LayoutRule[];
     activities: LayoutRuleOption[];
     /** Membri dei gruppi di sedi: l'andamento gioca la competizione in memoria. */
@@ -55,27 +54,42 @@ export interface RuleSimulatorDrawerProps {
     /** Abbonamento non attivo: la pagina pubblica non mostra il catalogo. */
     subscriptionInactive: boolean;
     ruleHref: (rule: { id: string; rule_type: RuleType }) => string;
+    seatHref: (activityId: string) => string;
+    /** Le modifiche a mano per sede: l'ultimo passaggio. */
+    manualCounts: Record<string, number> | null;
+    /** La sede con cui si apre (quella della card «Adesso»); null = tutte. */
+    initialActivityId: string | null;
+    /** «Come funziona» della tab aperta (PG2: non più in fondo all'elenco). */
+    helpRuleType: RuleType | "all";
+    helpRef: Ref<HTMLButtonElement>;
+    onHowItWorks: () => void;
 }
 
 /**
- * «Simula regole» (§20.3, passo 2 P6): una sede e un momento, e per ogni tipo
- * la regola che vince. Il calcolo è quello della pagina pubblica
- * (`resolveRulesForActivity`), invariato; qui cambiano taglia e pelle. Gli
- * errori sono uno stato del drawer, non un toast.
+ * Il simulatore (correzioni UI PG4): sede, giorno e ora; per una sede i
+ * passaggi numerati con esito e regola, come la card «Adesso»; con «Tutte le
+ * sedi» la matrice. Il calcolo è `buildScheduleMatrix` sulle regole della
+ * pagina, la stessa competizione della pagina pubblica (il test del contratto
+ * 13 lo tiene allineato al resolver): nessuna richiesta, e mostra le
+ * modifiche a mano.
  */
 export function RuleSimulatorDrawer({
     open,
     onClose,
-    tenantId,
     rules,
     activities,
     activityIdsByGroupId,
     catalogById,
     subscriptionInactive,
-    ruleHref
+    ruleHref,
+    seatHref,
+    manualCounts,
+    initialActivityId,
+    helpRuleType,
+    helpRef,
+    onHowItWorks
 }: RuleSimulatorDrawerProps) {
-    const { catalogLabel, productLabel, productLabelPlural } = useVerticalConfig();
-    const [product, products] = [productLabel.toLowerCase(), productLabelPlural.toLowerCase()];
+    const { catalogLabel } = useVerticalConfig();
 
     const [simActivityId, setSimActivityId] = useState("");
     // Stato sede selezionata: mirror di resolve-public-catalog
@@ -85,49 +99,35 @@ export function RuleSimulatorDrawer({
     // Il momento si legge e si scrive all'ora di Roma, come lo gioca il
     // resolver: il fuso del browser non sposta né il campo né il calcolo.
     const [simDateTime, setSimDateTime] = useState(() => romeDateTimeLocalValue(new Date()));
-    const [simResult, setSimResult] = useState<ResolveRulesForActivityResult | null>(null);
-    const [isSimLoading, setIsSimLoading] = useState(false);
-    const [simError, setSimError] = useState<string | null>(null);
     const [timelineOpen, setTimelineOpen] = useState(false);
+    const [simDay, simTime] = simDateTime.split("T");
 
-    // Una sede sola: è già scelta.
+    // Si apre sulla sede della card «Adesso»; con una sede sola è già scelta.
     useEffect(() => {
-        if (activities.length === 1 && !simActivityId) setSimActivityId(activities[0].id);
-    }, [activities, simActivityId]);
+        if (!open) return;
+        setSimActivityId(activities.length === 1 ? activities[0].id : (initialActivityId ?? ""));
+    }, [activities, initialActivityId, open]);
 
     const ruleById = useMemo(() => new Map(rules.map(r => [r.id, r])), [rules]);
 
-    const runSimulation = useCallback(async () => {
-        if (!simActivityId || !simDateTime) {
-            setSimResult(null);
-            setSimError(null);
-            return;
-        }
-        const selected = parseRomeDateTimeLocal(simDateTime);
-        if (!selected) {
-            setSimResult(null);
-            setSimError(INVALID_DATE);
-            return;
-        }
-        try {
-            setIsSimLoading(true);
-            setSimError(null);
-            const result = await resolveRulesForActivity({
-                supabase,
-                activityId: simActivityId,
-                tenantId,
-                now: selected,
-                includeLayoutStyle: true
-            });
-            setSimResult(result);
-        } catch (error) {
-            console.error("Errore simulazione regole:", error);
-            setSimResult(null);
-            setSimError(SIM_ERROR);
-        } finally {
-            setIsSimLoading(false);
-        }
-    }, [simActivityId, simDateTime, tenantId]);
+    const selected = useMemo(() => parseRomeDateTimeLocal(simDateTime), [simDateTime]);
+    const matrix = useMemo(
+        () =>
+            open && selected
+                ? buildScheduleMatrix({
+                      rules,
+                      activities,
+                      activityIdsByGroupId,
+                      manualCounts,
+                      filterActivityId: simActivityId || null,
+                      instant: selected,
+                      subscriptionInactive
+                  })
+                : null,
+        [activities, activityIdsByGroupId, manualCounts, open, rules, selected, simActivityId, subscriptionInactive]
+    );
+    const catalogName = (catalogId: string) => catalogById.get(catalogId)?.name;
+    const layers = matrixLayers({ atNow: false, catalogLabel, catalogName, ruleHref });
 
     // L'andamento: 48 mezz'ore della sede, con la competizione della pagina
     // pubblica giocata in memoria sulle regole della pagina (nessuna
@@ -166,16 +166,6 @@ export function RuleSimulatorDrawer({
             block.featuredScheduleId !== null
     );
 
-    useEffect(() => {
-        if (!open) return;
-        if (!simActivityId || !simDateTime) return;
-        void runSimulation();
-    }, [open, simActivityId, simDateTime, runSimulation]);
-
-    const retry = () => {
-        void runSimulation();
-    };
-
     // L'anteprima apre la pagina pubblica: negli stessi casi in cui
     // resolve-public-catalog non serve il catalogo il link sarebbe
     // fuorviante. La simulazione resta calcolata.
@@ -186,14 +176,12 @@ export function RuleSimulatorDrawer({
           : null;
     const activitySlug = simActivity?.slug;
     const previewButton =
-        simResult && activitySlug && simDateTime ? (
+        simActivity && activitySlug && selected ? (
             <Button
                 variant="primary"
                 disabled={previewBlockedReason !== null}
                 onClick={() => {
-                    const at = parseRomeDateTimeLocal(simDateTime);
-                    if (!at) return;
-                    const url = `/${activitySlug}?simulate=${new Date(at.epoch).toISOString()}`;
+                    const url = `/${activitySlug}?simulate=${new Date(selected.epoch).toISOString()}`;
                     window.open(url, "_blank");
                 }}
             >
@@ -201,81 +189,28 @@ export function RuleSimulatorDrawer({
             </Button>
         ) : null;
 
-    /** Una riga per tipo: la regola che vince (o nessuna), apribile. */
-    const layerRow = (type: RuleType, ruleId: string | null | undefined, meta: string | null) => {
-        const rule = ruleId ? ruleById.get(ruleId) : undefined;
-        const title = type === "featured" ? "In evidenza" : ruleTypeLabel(type, catalogLabel);
-        const common = {
-            title,
-            subtitle: rule?.name ?? ruleId ?? "Nessuna regola",
-            meta: meta ? <Text as="span" variant="caption" colorVariant="muted">{meta}</Text> : undefined,
-            muted: !ruleId
-        };
-        return rule ? (
-            <ListRow key={type} {...common} to={ruleHref(rule)} trailing={<ChevronRight size={16} aria-hidden="true" />} />
-        ) : (
-            <ListRow key={type} {...common} />
-        );
-    };
-
     const renderResult = () => {
-        if (!simActivityId || !simDateTime) {
+        if (!selected || !matrix) {
+            return <InlineBanner variant="error">{INVALID_DATE}</InlineBanner>;
+        }
+        if (!simActivityId) {
             return (
-                <Text variant="body-sm" colorVariant="muted">
-                    Scegli sede e momento.
-                </Text>
+                <SeatMatrix
+                    rows={matrix.rows}
+                    atNow={false}
+                    catalogLabel={catalogLabel}
+                    catalogName={catalogName}
+                    ruleHref={ruleHref}
+                    seatHref={seatHref}
+                />
             );
         }
-        if (simError) {
-            return (
-                <InlineBanner
-                    variant="error"
-                    action={
-                        simError === SIM_ERROR ? (
-                            <Button variant="secondary" size="sm" onClick={retry}>
-                                Riprova
-                            </Button>
-                        ) : undefined
-                    }
-                >
-                    {simError}
-                </InlineBanner>
-            );
-        }
-        if (isSimLoading || !simResult) {
-            return (
-                <Card flush>
-                    {[0, 1, 2, 3].map(i => (
-                        <ListRow key={i} loading />
-                    ))}
-                </Card>
-            );
-        }
-
-        const featuredRule = simResult.featuredRule?.scheduleId ? ruleById.get(simResult.featuredRule.scheduleId) : undefined;
-        const priceRule = simResult.priceRuleId ? ruleById.get(simResult.priceRuleId) : undefined;
-        const visRule = simResult.visibilityRule?.scheduleId ? ruleById.get(simResult.visibilityRule.scheduleId) : undefined;
-        const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
-        const catalogName = simResult.layout.catalogId
-            ? (catalogById.get(simResult.layout.catalogId)?.name ?? simResult.layout.catalogId)
-            : null;
+        const row = matrix.rows[0];
+        if (!row) return null;
 
         return (
             <>
-                <Card flush>
-                    {layerRow("layout", simResult.layout.scheduleId, catalogName ? `${catalogLabel}: ${catalogName}` : null)}
-                    {layerRow(
-                        "featured",
-                        simResult.featuredRule?.scheduleId,
-                        featuredRule ? count(featuredRule.featured_contents.length, "contenuto", "contenuti") : null
-                    )}
-                    {layerRow("price", simResult.priceRuleId, priceRule ? count(priceRule.price_overrides.length, product, products) : null)}
-                    {layerRow(
-                        "visibility",
-                        simResult.visibilityRule?.scheduleId,
-                        visRule ? count(visRule.visibility_overrides.length, product, products) : null
-                    )}
-                </Card>
+                <LayerSteps row={row} layers={layers} catalogLabel={catalogLabel} narrow />
 
                 <Card
                     flush
@@ -337,16 +272,19 @@ export function RuleSimulatorDrawer({
     };
 
     return (
-        <SystemDrawer open={open} onClose={onClose} size="md" aria-labelledby="simulate-rules-title">
+        <SystemDrawer open={open} onClose={onClose} size="lg" aria-labelledby="simulate-rules-title">
             <DrawerLayout
                 header={
                     <div className={styles.header}>
                         <Text as="h3" variant="title-sm" id="simulate-rules-title">
-                            Simula regole
+                            Simula un altro momento
                         </Text>
                         <Text variant="body-sm" colorVariant="muted">
-                            Scegli una sede e un momento: vedi cosa decide ogni regola.
+                            Scegli sede, giorno e ora: vedi cosa vede il cliente, passaggio per passaggio.
                         </Text>
+                        <div>
+                            <HowItWorksButton ref={helpRef} ruleType={helpRuleType} onClick={onHowItWorks} />
+                        </div>
                     </div>
                 }
                 footer={
@@ -370,17 +308,30 @@ export function RuleSimulatorDrawer({
                 }
             >
                 <div className={styles.body}>
-                    <FormGrid>
-                        <Select label="Sede" value={simActivityId} onChange={event => setSimActivityId(event.target.value)} required>
-                            <option value="" disabled>
-                                Seleziona una sede
-                            </option>
+                    <div className={styles.fields}>
+                        <Select label="Sede" value={simActivityId} onChange={event => setSimActivityId(event.target.value)}>
+                            {activities.length > 1 && <option value="">Tutte le sedi</option>}
                             {activities.map(activity => (
                                 <option key={activity.id} value={activity.id}>
                                     {activity.name}
                                 </option>
                             ))}
                         </Select>
+
+                        <TextInput
+                            label="Giorno"
+                            type="date"
+                            value={simDay ?? ""}
+                            onChange={event => setSimDateTime(`${event.target.value}T${simTime ?? ""}`)}
+                            required
+                        />
+                        <TextInput
+                            label="Ora"
+                            type="time"
+                            value={simTime ?? ""}
+                            onChange={event => setSimDateTime(`${simDay ?? ""}T${event.target.value}`)}
+                            required
+                        />
 
                         {simActivity && (
                             <div className={styles.statusRow}>
@@ -408,15 +359,7 @@ export function RuleSimulatorDrawer({
                                 La simulazione e l'anteprima restano disponibili.
                             </InlineBanner>
                         )}
-
-                        <TextInput
-                            label="Data e ora"
-                            type="datetime-local"
-                            value={simDateTime}
-                            onChange={event => setSimDateTime(event.target.value)}
-                            required
-                        />
-                    </FormGrid>
+                    </div>
 
                     {renderResult()}
                 </div>

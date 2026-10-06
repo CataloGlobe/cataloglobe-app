@@ -1,5 +1,7 @@
 export { Button } from "./Button/Button";
 export { Card } from "./Card/Card";
+export { SettingRow } from "./SettingRow/SettingRow";
+export { ChipPicker } from "./ChipPicker/ChipPicker";
 export { FormGrid, FormSection, FORM_GRID_CLASSES } from "./FormGrid/FormGrid";
 export { ListRow } from "./ListRow/ListRow";
 export { CardGrid, CardGridItem } from "./CardGrid/CardGrid";

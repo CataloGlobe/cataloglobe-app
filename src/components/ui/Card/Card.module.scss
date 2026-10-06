@@ -34,6 +34,14 @@
 // Il bottone può essere avvolto (il trigger di un Tooltip): conta che
 // `.actions` abbia un figlio solo, IconButton o suo contenitore. (Un `:has`
 // dentro un altro `:has` non è valido: due selettori semplici.)
+// Al telefono anche un solo bottone con testo («+ Nuovo») resta a destra
+// del titolo: il titolo va a capo, il bottone no.
+@media (max-width: 767px) {
+  .header:has(> .actions > :only-child):not(:has(> .modeSelector)) .headerText {
+    flex-basis: 0;
+  }
+}
+
 .header:has(> .actions > [data-icon-only]:only-child) .headerText,
 .header:has(> .actions > :only-child > [data-icon-only]:only-child) .headerText {
   flex-basis: 0;
@@ -65,6 +73,7 @@
 .titleRow {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: var(--space-8);
 }
 
@@ -76,6 +85,45 @@
 .badge {
   display: inline-flex;
   align-items: center;
+}
+
+// Selettore del modo accanto al titolo; al telefono sotto, a tutta larghezza.
+// A destra nell'intestazione, come le azioni; al telefono sotto il
+// sottotitolo, a tutta larghezza.
+.modeSelector {
+  display: inline-flex;
+  flex: 0 0 auto;
+
+  @media (max-width: 767px) {
+    flex-basis: 100%;
+
+    > * {
+      width: 100%;
+    }
+
+    // I segmenti si dividono la larghezza in parti uguali.
+    > * > button {
+      flex: 1 1 0;
+    }
+  }
+}
+
+// Sezione vuota: una riga di testo, niente stato vuoto centrato e alto.
+.empty {
+  padding-block: var(--space-16);
+}
+
+// Card a riga singola: la testata è tutta la card, senza divisore; sotto 768
+// il bottone va sotto il testo (lo fa già il wrap della testata).
+.row .header {
+  border-bottom: none;
+  padding-block: var(--space-20);
+}
+
+@media (max-width: 767px) {
+  .row .actions {
+    flex-basis: 100%;
+  }
 }
 
 .actions {

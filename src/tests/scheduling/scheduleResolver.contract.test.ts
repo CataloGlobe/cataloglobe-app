@@ -3,6 +3,8 @@ import { resolveRulesForActivity as resolveWebRules } from "@/services/supabase/
 import { resolveRulesForActivity as resolveEdgeRules } from "@shared/scheduleResolver";
 import { resolveCompetition, type CompetitionRule } from "@shared/scheduleCompetition";
 import { toRomeDateTime, type RomeDateTime } from "@/services/supabase/schedulingNow";
+import type { LayoutRule } from "@/services/supabase/layoutScheduling";
+import { buildScheduleMatrix } from "@/utils/scheduleMatrix";
 
 type TableRows = Record<string, Array<Record<string, unknown>>>;
 type UiRuleType = "layout" | "price" | "visibility" | "featured";
@@ -407,6 +409,49 @@ describe("Scheduling consistency contract", () => {
             }
         }
     });
+
+    it("13. matrix: the Programmazione matrix and simulator pick what the resolver picks, for every fixture", async () => {
+        const instants = [
+            "2026-03-26T12:00:00.000Z",
+            "2026-03-26T19:00:00.000Z",
+            "2026-03-29T01:30:00.000Z",
+            "2026-10-25T00:30:00.000Z"
+        ].map(iso => toRomeDateTime(new Date(iso)));
+        const activityIds = ["activity-1", "activity-2", "activity-99"];
+
+        for (const [name, tables] of Object.entries(BRIDGE_FIXTURES)) {
+            const activityIdsByGroupId: Record<string, string[]> = {};
+            for (const row of tables.activity_group_members ?? []) {
+                const groupId = String(row.group_id);
+                activityIdsByGroupId[groupId] = [...(activityIdsByGroupId[groupId] ?? []), String(row.activity_id)];
+            }
+            for (const now of instants) {
+                const matrix = buildScheduleMatrix({
+                    rules: layoutRulesFromTables(tables),
+                    activities: activityIds.map(id => ({ id, name: id, status: "active" as const })),
+                    activityIdsByGroupId,
+                    manualCounts: null,
+                    filterActivityId: null,
+                    instant: now,
+                    subscriptionInactive: false
+                });
+                for (const activityId of activityIds) {
+                    const { web } = await resolveIds({ tables, activityId, now });
+                    const row = matrix.rows.find(r => r.activityId === activityId)!;
+                    const winnerId = (type: UiRuleType) => {
+                        const cell = row.cells[type];
+                        return cell.kind === "winner" ? cell.rule.id : null;
+                    };
+                    const label = `${name} · ${activityId} · ${now.day}/${now.month + 1} ${now.hour}:${now.minute}`;
+
+                    expect(winnerId("layout"), label).toBe(web.layout.scheduleId);
+                    expect(winnerId("price"), label).toBe(web.priceRuleId);
+                    expect(winnerId("visibility"), label).toBe(web.visibilityRule?.scheduleId ?? null);
+                    expect(winnerId("featured"), label).toBe(web.featuredRule?.scheduleId ?? null);
+                }
+            }
+        }
+    });
 });
 
 /* ─── Fixtures of the numbered cases (also fed to the bridge, case 12) ─── */
@@ -584,4 +629,21 @@ function competitionRulesFromTables(tables: TableRows): CompetitionRule[] {
                         : undefined
             };
         });
+}
+
+/** The same fixtures as the page loads them: `LayoutRule`, the matrix input. */
+function layoutRulesFromTables(tables: TableRows): LayoutRule[] {
+    const layouts = tables.schedule_layout ?? [];
+    return competitionRulesFromTables(tables).map(rule => {
+        const layout = layouts.find(l => l.schedule_id === rule.id);
+        return {
+            ...rule,
+            tenant_id: TEST_TENANT_ID,
+            name: rule.id,
+            layout: layout ? { catalog_id: (layout.catalog_id as string | null) ?? null, style_id: "style-1" } : null,
+            price_overrides: [],
+            visibility_overrides: [],
+            featured_contents: []
+        } as unknown as LayoutRule;
+    });
 }

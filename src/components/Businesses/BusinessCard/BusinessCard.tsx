@@ -1,6 +1,6 @@
 import React from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Building2, Clock, AlertTriangle, FileText, ExternalLink, Link as LinkIcon, Edit, Trash2 } from "lucide-react";
+import { Building2, AlertTriangle, FileText, ExternalLink, Link as LinkIcon, Edit, Trash2 } from "lucide-react";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
 import { CardGridItem } from "@/components/ui/CardGrid/CardGrid";
@@ -12,10 +12,10 @@ import { formatInactiveReason } from "@/utils/activityStatus";
 import { formatOverrideSummary } from "@/services/supabase/activeCatalog";
 import {
     ACTIVE_CATALOG_ERROR_LABEL,
-    ACTIVE_CATALOG_NONE_SHORT_LABEL,
     activeCatalogDisplayName,
     deriveActiveCatalogState
 } from "@/utils/activeCatalogStatus";
+import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import { buildPublicUrl } from "@/utils/publicUrl";
 import type { BusinessCardProps } from "@/types/Businesses";
 import { PendingReservationsLink } from "../PendingReservationsLink/PendingReservationsLink";
@@ -38,74 +38,86 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
     const navigate = useNavigate();
     const { businessId } = useParams<{ businessId: string }>();
     const { showToast } = useToast();
+    const { catalogLabel } = useVerticalConfig();
     const publicUrl = buildPublicUrl(business.slug);
     const catalogState = deriveActiveCatalogState(catalogsStatus, activeCatalog);
     const detailPath = `/business/${businessId}/locations/${business.id}`;
     const suspended = business.status === "inactive";
 
-    const badge = suspended ? (
-        <StatusBadge
-            variant="neutral"
-            label={business.inactive_reason ? `Sospesa · ${formatInactiveReason(business.inactive_reason)}` : "Sospesa"}
-        />
-    ) : (
-        <StatusBadge variant="success" label="Pubblicata" />
-    );
-
     // Un solo blocco per i quattro stati del menù attivo: cambia il testo,
     // non la struttura, così la card non salta quando il dato arriva.
     const overrideSummary =
-        catalogState === "resolved" && activeCatalog
+        !suspended && catalogState === "resolved" && activeCatalog
             ? formatOverrideSummary(activeCatalog.hiddenCount, activeCatalog.unavailableCount)
             : null;
 
+    // S1: l'avviso «N nascosti, N non disponibili» sta nel corpo, accanto
+    // allo stato, in warning-700 con l'icona.
+    const badge = (
+        <div className={styles.status}>
+            {suspended ? (
+                <StatusBadge
+                    variant="neutral"
+                    label={business.inactive_reason ? `Sospesa · ${formatInactiveReason(business.inactive_reason)}` : "Sospesa"}
+                />
+            ) : (
+                <StatusBadge variant="success" label="Pubblicata" />
+            )}
+            {overrideSummary && (
+                <span className={styles.overrides}>
+                    <AlertTriangle size={14} strokeWidth={2} aria-hidden="true" />
+                    <Text as="span" variant="caption" className={styles.overridesText}>
+                        {overrideSummary}
+                    </Text>
+                </span>
+            )}
+        </div>
+    );
+
+    // S2: sospesa → la pagina pubblica non si vede, non «menù attivo»; senza
+    // menù → l'avviso ambra di Panoramica. «Gestisci» su ogni card.
+    const menuValue = suspended ? (
+        <Text as="span" variant="caption" weight={600} className={styles.footerValue}>
+            Non visibile ai clienti
+        </Text>
+    ) : catalogState === "loading" ? (
+        <Skeleton height="13px" width="118px" radius="var(--radius-inner)" />
+    ) : catalogState === "resolved" ? (
+        <Text as="span" variant="caption" weight={600} className={styles.footerValue}>
+            {activeCatalogDisplayName(activeCatalog)}
+        </Text>
+    ) : catalogState === "none" ? (
+        <StatusBadge variant="warning" label={`Nessun ${catalogLabel.toLowerCase()} attivo`} />
+    ) : (
+        <Text as="span" variant="caption" colorVariant="muted" className={styles.footerValue}>
+            {ACTIVE_CATALOG_ERROR_LABEL}
+        </Text>
+    );
+
+    // S1: piede ad altezza fissa, uguale in ogni card.
     const footer = (
         <div className={styles.footer}>
+            <div className={styles.footerText}>
+                <Text as="span" variant="caption" colorVariant="muted">
+                    {suspended ? "Pagina pubblica" : `${catalogLabel} adesso`}
+                </Text>
+                {menuValue}
+            </div>
             {/* Fuori dal link della card (un link non ne contiene un altro):
-                porta alla coda di questa sede. */}
+                porta alla coda di questa sede. Sulla stessa riga, così il
+                piede resta alto 68 px. */}
             {pendingReservations > 0 && (
                 <PendingReservationsLink count={pendingReservations} to={`${detailPath}/prenotazioni`} />
             )}
-            <div className={styles.footerMain}>
-                <span className={styles.footerIcon} aria-hidden="true">
-                    <Clock size={14} strokeWidth={2} />
-                </span>
-                <div className={styles.footerText}>
-                    <Text as="span" variant="caption" colorVariant="muted">
-                        Menu attivo ora
-                    </Text>
-                    {catalogState === "loading" ? (
-                        <Skeleton height="13px" width="118px" radius="var(--radius-inner)" />
-                    ) : catalogState === "resolved" ? (
-                        <Text as="span" variant="caption" weight={600} className={styles.footerValue}>
-                            {activeCatalogDisplayName(activeCatalog)}
-                        </Text>
-                    ) : (
-                        <Text as="span" variant="caption" colorVariant="muted" className={styles.footerValue}>
-                            {catalogState === "error" ? ACTIVE_CATALOG_ERROR_LABEL : ACTIVE_CATALOG_NONE_SHORT_LABEL}
-                        </Text>
-                    )}
-                </div>
-                {/* Anche a stato ignoto: il drawer risolve il catalogo da sé.
-                    Nascosto a loading e none, dove non c'è nulla su cui operare. */}
-                {(catalogState === "resolved" || catalogState === "error") && (
-                    <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => onManageAvailability?.(business.id, business.name)}
-                    >
-                        Gestisci
-                    </Button>
-                )}
-            </div>
-            {overrideSummary && (
-                <div className={styles.footerWarning}>
-                    <AlertTriangle size={12} strokeWidth={2} aria-hidden="true" />
-                    <Text as="span" variant="caption" colorVariant="muted">
-                        {overrideSummary}
-                    </Text>
-                </div>
-            )}
+            {/* «Gestisci» porta a «Cosa vedono i clienti» della sede: serve in
+                ogni stato, anche senza menù o sospesa (S2). */}
+            <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => onManageAvailability?.(business.id, business.name)}
+            >
+                Gestisci
+            </Button>
         </div>
     );
 

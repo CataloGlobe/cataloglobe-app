@@ -3,7 +3,6 @@ import {
     Armchair,
     History,
     Lock,
-    Plus,
     ReceiptText,
     TriangleAlert
 } from "lucide-react";
@@ -33,7 +32,6 @@ import {
 } from "./serviceBoard";
 import { formatCovers, formatOpenFor, seatingDrawerFor, walkinTitle } from "./seatingDrawer";
 import { formatPendingOrdersRow } from "./seatingClose";
-import { Button } from "@/components/ui/Button/Button";
 import styles from "./Reservations.module.scss";
 
 // ── La schermata di servizio ──────────────────────────────────────────────
@@ -84,8 +82,6 @@ interface Props {
     onOpenDetail: (r: V2Reservation) => void;
     /** Apre il drawer della tavolata (walk-in). */
     onOpenSeating: (s: SeatingWithState) => void;
-    /** "+ Senza prenotazione". Assente = nessun bottone (niente permesso). */
-    onOpenWalkin?: () => void;
 }
 
 const TIME_FORMATTER = new Intl.DateTimeFormat("it-IT", {
@@ -108,8 +104,7 @@ export default function ReservationsService({
     reservationsById,
     tableViews,
     onOpenDetail,
-    onOpenSeating,
-    onOpenWalkin
+    onOpenSeating
 }: Props) {
     // "da 45 min" deve restare vero anche se non succede niente: un tick al
     // minuto, senza refetch. I dati cambiano via realtime, l'orologio da qui.
@@ -270,19 +265,10 @@ export default function ReservationsService({
     return (
         <div className={styles.serviceBoard}>
             {/* ── In sala adesso ──────────────────────────────────── */}
-            {/* «Senza prenotazione» qui, nella sezione: la testata di Servizio
-                tiene i modi (lotto B-b), «+ Nuova prenotazione» sta in
-                Prenotazioni ed è un'altra cosa. */}
+            {/* «+ Senza prenotazione» sta nella testata di Servizio (T14 SV1). */}
             <Card
                 title="In sala adesso"
                 badge={board.inRoom.length > 0 ? <Badge>{board.inRoom.length}</Badge> : undefined}
-                actions={
-                    onOpenWalkin ? (
-                        <Button variant="secondary" size="sm" leftIcon={<Plus size={14} />} onClick={onOpenWalkin}>
-                            Senza prenotazione
-                        </Button>
-                    ) : undefined
-                }
                 flush={board.inRoom.length > 0}
             >
                 {board.inRoom.length === 0 ? (

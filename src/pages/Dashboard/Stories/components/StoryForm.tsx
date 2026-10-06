@@ -1,7 +1,13 @@
+import { useRef } from "react";
+import { Trash2 } from "lucide-react";
 import { TextInput } from "@/components/ui/Input/TextInput";
+import { Button } from "@/components/ui/Button/Button";
+import { IconButton } from "@/components/ui/Button/IconButton";
+import Text from "@/components/ui/Text/Text";
 import {
     ImageUploadEditor,
     IMAGE_UPLOAD_PRESETS,
+    type ImageUploadEditorControl,
     type ImageUploadEditorResult
 } from "@/components/ui/ImageUploadEditor";
 import styles from "../Stories.module.scss";
@@ -46,31 +52,41 @@ export function StoryForm({
     onCoverRemove,
     canWrite
 }: StoryFormProps) {
+    const coverEditor = useRef<ImageUploadEditorControl>(null);
     const handleCoverConfirm = ({ file }: ImageUploadEditorResult) => {
         if (file) onCoverFileChange(file);
     };
 
+    // SD1: occhiello e titolo a sinistra, copertina da 300 a destra con
+    // «Modifica» e cestino sotto (come la Scheda del prodotto); sotto 1024
+    // la copertina scende sotto i testi.
     return (
-        <div className={styles.fieldStack}>
-            <TextInput
-                label="Occhiello"
-                value={eyebrow}
-                onChange={e => onEyebrowChange(e.target.value)}
-                placeholder="Es: Dietro le quinte"
-                disabled={!canWrite}
-            />
-            <TextInput
-                label="Titolo"
-                required
-                value={title}
-                onChange={e => onTitleChange(e.target.value)}
-                placeholder="Es: La storia della nostra pasta fresca"
-                disabled={!canWrite}
-            />
-
+        <div className={styles.infoGrid}>
             <div className={styles.fieldStack}>
+                <TextInput
+                    label="Occhiello"
+                    value={eyebrow}
+                    onChange={e => onEyebrowChange(e.target.value)}
+                    placeholder="Es: Dietro le quinte"
+                    disabled={!canWrite}
+                />
+                <TextInput
+                    label="Titolo"
+                    required
+                    value={title}
+                    onChange={e => onTitleChange(e.target.value)}
+                    placeholder="Es: La storia della nostra pasta fresca"
+                    disabled={!canWrite}
+                />
+            </div>
+            <div className={styles.coverColumn}>
+                <Text as="span" variant="body-sm" weight={600}>
+                    Copertina
+                </Text>
                 {canWrite ? (
                     <ImageUploadEditor
+                        hideHeader
+                        controlRef={coverEditor}
                         aspectRatio={IMAGE_UPLOAD_PRESETS.storyCover.aspectRatio}
                         backgroundFillModes={IMAGE_UPLOAD_PRESETS.storyCover.backgroundFillModes}
                         maxSizeMB={IMAGE_UPLOAD_PRESETS.storyCover.maxSizeMB}
@@ -91,6 +107,20 @@ export function StoryForm({
                             className={styles.coverReadonlyPreview}
                         />
                     )
+                )}
+                {canWrite && coverUrl && (
+                    <div className={styles.coverActions}>
+                        <Button variant="secondary" size="sm" onClick={() => coverEditor.current?.open()}>
+                            Modifica
+                        </Button>
+                        <IconButton
+                            icon={<Trash2 size={16} />}
+                            aria-label="Rimuovi copertina"
+                            variant="secondary"
+                            size="sm"
+                            onClick={onCoverRemove}
+                        />
+                    </div>
                 )}
             </div>
         </div>

@@ -16,6 +16,11 @@ import { stubReservations, type ReservationsStub } from "./reservationsStub";
  * sala dell'Elenco sono finte (`reservationsStub.ts`), come in
  * `prenotazioni.spec.ts`.
  *
+ * Correzioni UI SV3: «Gestisci la sala» esce da Servizio e diventa la tab
+ * Sala della Scheda della sede. Servizio resta con Elenco e Mappa, tutti e
+ * due del piano Pro: col piano Base la voce ha il lucchetto, e staff e
+ * viewer entrando nella sede atterrano nella Sala.
+ *
  * Scritto **prima** della pagina, in `test.fail`; ogni caso è passato a
  * `test` col commit che lo rende vero.
  *
@@ -65,7 +70,7 @@ async function openVoce(page: Page, voce: string): Promise<string> {
     return base;
 }
 
-function modo(page: Page, name: "Elenco" | "Mappa" | "Gestisci la sala") {
+function modo(page: Page, name: "Elenco" | "Mappa" | "Gestisci la sala" | "Sala") {
     return page.getByRole("tab", { name: new RegExp(`^${name}`) });
 }
 
@@ -102,7 +107,7 @@ test.describe("Servizio", () => {
     test("la Mappa, aperta per nome: i filtri e i tavoli per zona", async ({ page }) => {
         await openMappa(page);
         await expect(page).toHaveURL(/\/servizio\?modo=mappa$/, { timeout: 15_000 });
-        await expect(modo(page, "Gestisci la sala")).toBeVisible();
+        await expect(modo(page, "Gestisci la sala")).toHaveCount(0);
         await expect(nav(page).getByRole("link", { name: "Servizio", exact: true })).toHaveAttribute("aria-current", "page");
 
         const filtri = main(page).getByRole("radiogroup");
@@ -149,6 +154,19 @@ test.describe("Servizio", () => {
         await expect(aperto).toBeVisible();
     });
 
+    test("SV2: ogni tessera disegna il suo tavolo, colorato dallo stato; niente «da 390 h»", async ({ page }) => {
+        await openMappa(page);
+        const zona = main(page).getByRole("list", { name: "Senza zona" });
+        await expect(zona.getByRole("listitem")).toHaveCount(2, { timeout: 15_000 });
+        // Un disegno per tessera.
+        await expect(zona.locator("[data-state]")).toHaveCount(2);
+        // Il tavolo aperto è verde, o grigio se la sessione è di un servizio precedente.
+        const aperto = zona.getByRole("listitem").filter({ hasText: TAVOLO });
+        await expect(aperto.locator("[data-state]")).toHaveAttribute("data-state", /^(open|previous)$/);
+        // Oltre 12 ore è «Aperta da un servizio precedente», mai «da 390 h».
+        await expect(main(page).getByText(/da \d{3,} h/)).toHaveCount(0);
+    });
+
     test("la Mappa è una griglia per zona: 3, 2, 1 colonne", async ({ page }) => {
         await openMappa(page);
         const zona = main(page).getByRole("list", { name: "Senza zona" });
@@ -162,11 +180,10 @@ test.describe("Servizio", () => {
         await expect.poll(async () => new Set(await lefts()).size).toBe(1);
     });
 
-    test("Gestisci la sala: i tavoli, le zone, il nuovo tavolo; la capienza non c'è più", async ({ page }) => {
-        await openVoce(page, "Servizio");
-        await modo(page, "Gestisci la sala").click();
-        await expect(page).toHaveURL(/\/servizio\?modo=gestisci$/, { timeout: 15_000 });
-        await expect(modo(page, "Gestisci la sala")).toHaveAttribute("aria-selected", "true");
+    test("la Sala della Scheda: i tavoli, le zone, il nuovo tavolo; la capienza non c'è più", async ({ page }) => {
+        const base = await sedePath(page);
+        await page.goto(`${base}/sala`);
+        await expect(modo(page, "Sala")).toHaveAttribute("aria-selected", "true", { timeout: 15_000 });
 
         await expect(main(page).getByRole("table", { name: "Tavoli" })).toBeVisible({ timeout: 15_000 });
         await expect(main(page).getByText(TAVOLO, { exact: true }).first()).toBeVisible();
@@ -174,14 +191,8 @@ test.describe("Servizio", () => {
         await main(page).getByRole("button", { name: "Altre azioni" }).click();
         await expect(page.getByRole("menuitem", { name: "Zone e accostamenti" })).toBeVisible();
         await page.keyboard.press("Escape");
-        // Capienza e durata stanno nella Scheda (D3).
+        // Capienza e durata stanno nella tab Prenotazioni (D3).
         await expect(main(page).getByText("Capienza della sala")).toHaveCount(0);
-
-        // E si torna alla Mappa.
-        await expect(modo(page, "Mappa")).toBeVisible();
-        await modo(page, "Mappa").click();
-        await expect(page).toHaveURL(/\/servizio\?modo=mappa$/);
-        await expect(tessera(page)).toBeVisible({ timeout: 15_000 });
     });
 
     test("a 768 e 375 la Mappa non scorre di lato e i due modi restano a vista", async ({ page }) => {
@@ -196,28 +207,25 @@ test.describe("Servizio", () => {
         // Due tab corte stanno nella riga anche a 375: la testata le tiene
         // (useCompactToolbar misura, non guarda la larghezza della finestra).
         await expect(modo(page, "Mappa")).toBeVisible();
-        await expect(modo(page, "Gestisci la sala")).toBeVisible();
+        await expect(modo(page, "Elenco")).toBeVisible();
     });
 });
 
 test.describe("Servizio: piano e ruolo", () => {
-    test("col piano base la Mappa ha il lucchetto e si atterra in Gestisci la sala", async ({ page }) => {
+    test("col piano base Servizio è del piano Pro: il pannello, e la voce col lucchetto", async ({ page }) => {
         const base = await sedePath(page);
         await asBasePlan(page);
         await page.goto(`${base}/servizio`);
-        await expect(modo(page, "Gestisci la sala")).toHaveAttribute("aria-selected", "true", { timeout: 15_000 });
-        await expect(modo(page, "Mappa")).toHaveAttribute("aria-disabled", "true");
-        await expect(modo(page, "Mappa").locator(LUCCHETTO)).toHaveCount(1);
-        await expect(main(page).getByRole("table", { name: "Tavoli" })).toBeVisible({ timeout: 15_000 });
-        // La voce non ha il lucchetto: un modo si usa sempre.
-        await expect(nav(page).getByRole("link", { name: "Servizio", exact: true }).locator(LUCCHETTO)).toHaveCount(0);
+        await expect(main(page).getByText("Servizio è una funzione del piano Pro")).toBeVisible({ timeout: 15_000 });
+        await expect(main(page).getByRole("button", { name: "Passa a Pro" })).toBeVisible();
+        await expect(nav(page).getByRole("link", { name: /^Servizio/ }).locator(LUCCHETTO)).toHaveCount(1);
     });
 
-    test("col piano base ?modo=mappa porta in Gestisci la sala", async ({ page }) => {
-                const base = await sedePath(page);
+    test("col piano base ?modo=mappa non apre la Mappa", async ({ page }) => {
+        const base = await sedePath(page);
         await asBasePlan(page);
         await page.goto(`${base}/servizio?modo=mappa`);
-        await expect(modo(page, "Gestisci la sala")).toHaveAttribute("aria-selected", "true", { timeout: 15_000 });
+        await expect(main(page).getByText("Servizio è una funzione del piano Pro")).toBeVisible({ timeout: 15_000 });
         await expect(tessera(page)).toHaveCount(0);
     });
 
@@ -232,22 +240,23 @@ test.describe("Servizio: piano e ruolo", () => {
         await expect(drawer.getByRole("button", { name: "Conferma" })).toHaveCount(0);
         await page.keyboard.press("Escape");
 
-        await modo(page, "Gestisci la sala").click();
+        await page.goto(`${base}/sala`);
         await expect(main(page).getByRole("table", { name: "Tavoli" })).toBeVisible({ timeout: 15_000 });
         await expect(main(page).getByRole("button", { name: "Nuovo tavolo" })).toHaveCount(0);
     });
 
     // Col piano Pro si atterra sull'Elenco: i casi stanno in «Elenco (lotto B-b)».
-    for (const { role, plan, modoAtteso } of [
-        { role: "staff", plan: "base", modoAtteso: "Gestisci la sala" },
-        { role: "viewer", plan: "base", modoAtteso: "Gestisci la sala" }
+    // Col piano Base si atterrava in «Gestisci la sala»: ora è la Sala (SV3).
+    for (const { role, plan } of [
+        { role: "staff", plan: "base" },
+        { role: "viewer", plan: "base" }
     ] as const) {
-        test(`${role}, piano ${plan}: entrando nella sede si arriva a Servizio, in ${modoAtteso}`, async ({ page }) => {
+        test(`${role}, piano ${plan}: entrando nella sede si arriva alla Sala della Scheda`, async ({ page }) => {
             const base = await sedePath(page);
             await asRole(page, role, base.split("/").pop()!, plan);
             await page.goto(base);
-            await expect(page).toHaveURL(/\/servizio$/, { timeout: 15_000 });
-            await expect(modo(page, modoAtteso)).toHaveAttribute("aria-selected", "true", { timeout: 15_000 });
+            await expect(page).toHaveURL(/\/sala$/, { timeout: 15_000 });
+            await expect(modo(page, "Sala")).toHaveAttribute("aria-selected", "true", { timeout: 15_000 });
             await expect(main(page).getByText(/Non hai accesso|richiede il piano Pro/)).toHaveCount(0);
         });
     }
@@ -264,7 +273,7 @@ test.describe("Elenco (lotto B-b)", () => {
         await expect(page).toHaveURL(/\/servizio$/, { timeout: 15_000 });
         await expect(modo(page, "Elenco")).toHaveAttribute("aria-selected", "true", { timeout: 15_000 });
         await expect(modo(page, "Mappa")).toBeVisible();
-        await expect(modo(page, "Gestisci la sala")).toBeVisible();
+        await expect(modo(page, "Gestisci la sala")).toHaveCount(0);
     });
 
     test("l'Elenco: in sala adesso, in arrivo, «Senza prenotazione»", async ({ page }) => {
@@ -277,9 +286,27 @@ test.describe("Elenco (lotto B-b)", () => {
         await expect(m.getByText("Sara Conti").first()).toBeVisible();
         await expect(m.getByText("Elena Riva").first()).toBeVisible();
         await expect(m.getByText("Ospite di Varedo")).toHaveCount(0);
-        await expect(m.getByRole("button", { name: "Senza prenotazione" })).toBeVisible();
-        // Lo stato di oggi resta in testa, come nella scheda di Prenotazioni.
-        await expect(m.getByRole("status", { name: /arrivo|prenotazione oggi/ })).toContainText("Oggi");
+        // T14 SV1: «+ Senza prenotazione» nella testata, sulla riga dei modi.
+        const walkin = m.getByRole("button", { name: "Senza prenotazione" });
+        await expect(walkin).toBeVisible();
+        const walkinBox = await walkin.boundingBox();
+        const elencoBox = await modo(page, "Elenco").boundingBox();
+        expect(Math.abs(walkinBox!.y + walkinBox!.height / 2 - (elencoBox!.y + elencoBox!.height / 2))).toBeLessThan(16);
+        // La riga «Oggi», una sola, in testa.
+        const oggi = m.getByRole("status", { name: "Oggi" });
+        await expect(oggi).toBeVisible();
+        expect((await oggi.boundingBox())!.height).toBeLessThan(64);
+        await expect(oggi).toContainText(/prenotazion/);
+    });
+
+    test("SV1: la riga «Oggi» è la stessa nella Mappa, senza «Senza prenotazione»", async ({ page }) => {
+        const base = await sedePath(page);
+        await page.goto(`${base}/servizio?modo=mappa`);
+        const m = main(page);
+        await expect(m.getByRole("status", { name: "Oggi" })).toBeVisible({ timeout: 15_000 });
+        await expect(m.getByRole("button", { name: "Senza prenotazione" })).toHaveCount(0);
+        const richieste = m.getByRole("link", { name: /richiest[ae] da gestire/ });
+        if ((await richieste.count()) > 0) await expect(richieste).toHaveAttribute("href", /\/prenotazioni$/);
     });
 
     test("cablaggio: dall'Elenco la prenotazione al tavolo apre il suo dettaglio, e «Annulla apertura» spedisce undo_seating", async ({ page }) => {
@@ -314,13 +341,12 @@ test.describe("Elenco (lotto B-b)", () => {
         await expect(main(page).getByRole("button", { name: "Senza prenotazione" })).toHaveCount(0);
     });
 
-    test("col piano base l'Elenco ha il lucchetto", async ({ page }) => {
+    test("col piano base l'Elenco non si apre: il pannello del piano Pro", async ({ page }) => {
         const base = await sedePath(page);
         await asBasePlan(page);
         await page.goto(`${base}/servizio?modo=elenco`);
-        await expect(modo(page, "Elenco")).toHaveAttribute("aria-disabled", "true", { timeout: 15_000 });
-        await expect(modo(page, "Elenco").locator(LUCCHETTO)).toHaveCount(1);
-        await expect(modo(page, "Gestisci la sala")).toHaveAttribute("aria-selected", "true");
+        await expect(main(page).getByText("Servizio è una funzione del piano Pro")).toBeVisible({ timeout: 15_000 });
+        await expect(main(page).getByText(/in sala adesso/i)).toHaveCount(0);
     });
 
     for (const role of ["manager", "staff", "viewer"] as const) {
@@ -407,11 +433,11 @@ test.describe("Storico", () => {
 });
 
 test.describe("Indirizzi vecchi", () => {
-    test("/sala porta a Servizio, in Gestisci la sala", async ({ page }) => {
-                const base = await sedePath(page);
-        await page.goto(`${base}/sala`);
-        await expect(page).toHaveURL(/\/servizio\?modo=gestisci$/, { timeout: 15_000 });
-        await expect(modo(page, "Gestisci la sala")).toHaveAttribute("aria-selected", "true");
+    test("servizio?modo=gestisci porta alla Sala della Scheda (SV3)", async ({ page }) => {
+        const base = await sedePath(page);
+        await page.goto(`${base}/servizio?modo=gestisci`);
+        await expect(page).toHaveURL(/\/sala$/, { timeout: 15_000 });
+        await expect(modo(page, "Sala")).toHaveAttribute("aria-selected", "true");
     });
 
     test("comande?tab=tavoli porta alla Mappa", async ({ page }) => {
@@ -437,7 +463,7 @@ test.describe("Indirizzi vecchi", () => {
 });
 
 test.describe("Capienza nella Scheda", () => {
-    test("capienza e durata stanno in Ordini e prenotazioni, nella bozza della Scheda", async ({ page }) => {
+    test("capienza e durata stanno nella tab Prenotazioni, nella bozza della Scheda", async ({ page }) => {
                 const base = await sedePath(page);
         // Le prenotazioni della sede di test risultano attive: i campi stanno
         // nella sezione Prenotazioni, che senza non mostra le regole.
@@ -453,15 +479,18 @@ test.describe("Capienza nella Scheda", () => {
                   : body;
             await route.fulfill({ response, json });
         });
-        await page.goto(`${base}/ordini-prenotazioni#prenotazioni`);
+        await page.goto(`${base}/prenotazioni-online`);
         const capienza = main(page).getByRole("spinbutton", { name: /^Capienza \(coperti\)/ });
         await expect(capienza).toBeVisible({ timeout: 15_000 });
         await expect(main(page).getByRole("spinbutton", { name: /^Durata media tavolo \(minuti\)/ })).toBeVisible();
 
         // Entra nella bozza unica della Scheda: un Salva solo, che qui si annulla.
+        // Correzioni UI T1: il salvataggio sta nella barra della pagina, e il
+        // suo Annulla chiede conferma come nelle altre pagine.
         await capienza.fill("37");
         await expect(page.getByRole("button", { name: "Salva" })).toBeVisible();
         await page.getByRole("button", { name: "Annulla" }).click();
+        await page.getByRole("alertdialog").getByRole("button", { name: "Scarta" }).click();
         await expect(page.getByRole("button", { name: "Salva" })).toHaveCount(0);
     });
 });

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
-import { BarChart3, Download } from "lucide-react";
+import { Download, ChartColumn } from "lucide-react";
 import { useTenantId } from "@/context/useTenantId";
 import { usePermissions } from "@/context/usePermissions";
 import { canDoOnActivity, canDoOnAnyActivity } from "@/lib/permissions";
@@ -659,7 +659,6 @@ export default function AnalyticsPage() {
     usePageHeader(
         canRead
             ? {
-                  subtitle: "Cosa fanno i clienti sulla pagina pubblica.",
                   leading,
                   actions: headerActions,
                   compact: headerCompact
@@ -689,7 +688,7 @@ export default function AnalyticsPage() {
                     {loadError ? (
                         <EmptyState
                             variant="page"
-                            icon={<BarChart3 />}
+                            icon={<ChartColumn />}
                             title="Non è stato possibile caricare le analitiche"
                             description="Controlla la connessione e riprova."
                             action={
@@ -707,6 +706,9 @@ export default function AnalyticsPage() {
                             <SampleBand
                                 visits={overviewStats?.total_views ?? 0}
                                 previousVisits={previousOverviewStats?.total_views ?? null}
+                                eventsPerVisit={overviewStats?.avg_events_per_session ?? 0}
+                                selections={funnelData.length > 0 ? funnelData[funnelData.length - 1].session_count : 0}
+                                selectionPct={funnelData.length > 0 ? funnelData[funnelData.length - 1].percentage : 0}
                                 periodPhrase={periodPhrase[period]}
                                 previousPeriodLabel={getPreviousPeriodLabel(period)}
                                 sedeCount={scopedActivities.length}

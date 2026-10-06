@@ -1,7 +1,9 @@
+import type { ReactNode } from "react";
 import { Card } from "@/components/ui/Card/Card";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
-import { Select } from "@/components/ui/Select/Select";
-import Text from "@/components/ui/Text/Text";
+import { SettingRow } from "@/components/ui/SettingRow";
+import { ChipPicker } from "@/components/ui/ChipPicker";
+import { Badge } from "@/components/ui/Badge/Badge";
 import type { StoryStatus } from "@/services/supabase/stories";
 import type { AppearanceActivity } from "@/utils/ruleAppearance";
 import styles from "../Stories.module.scss";
@@ -9,25 +11,36 @@ import styles from "../Stories.module.scss";
 type Scope = "tenant" | "activity";
 
 const SCOPE_OPTIONS: { value: Scope; label: string }[] = [
-    { value: "tenant", label: "Tutta l'azienda" },
+    { value: "tenant", label: "Tutte le sedi" },
     { value: "activity", label: "Una sede" }
 ];
 
 type StoryPlacementCardProps = {
-    /** null = tutta l'azienda. */
+    /** null = tutte le sedi. */
     activityId: string | null;
     onChange: (activityId: string | null) => void;
     activities: readonly AppearanceActivity[];
     status: StoryStatus;
     disabled: boolean;
+    /** La riga «Scheda di un prodotto»: il chip del prodotto e «Cambia». */
+    productControl: ReactNode;
 };
 
 /**
- * «Dove appare» (§34.7, §50.13): la storia è dell'azienda, su ogni sede, o di
- * una sede sola — «la storia del nostro forno» è di Garbagnate. Nella bozza
- * della pagina, come il resto; la frase sotto dice dove finisce.
+ * «Dove si vede» (correzioni UI SD2; §34.7, §50.13): una card a righe. La
+ * pagina pubblica è di tutte le sedi o di una sola («la storia del nostro
+ * forno» è di Garbagnate), scelta in un pannello a scelta singola; la scheda
+ * di un prodotto è il prodotto collegato. Il modello dati non cambia: una
+ * sede, un prodotto. Tutto nella bozza della pagina.
  */
-export function StoryPlacementCard({ activityId, onChange, activities, status, disabled }: StoryPlacementCardProps) {
+export function StoryPlacementCard({
+    activityId,
+    onChange,
+    activities,
+    status,
+    disabled,
+    productControl
+}: StoryPlacementCardProps) {
     const scope: Scope = activityId ? "activity" : "tenant";
     const seat = activities.find(activity => activity.id === activityId);
     const where = activityId
@@ -42,30 +55,45 @@ export function StoryPlacementCard({ activityId, onChange, activities, status, d
     };
 
     return (
-        <Card title="Dove appare" subtitle="Una storia dell'azienda compare su ogni sede; una di una sede, solo nella sua pagina.">
-            <div className={styles.placement}>
-                <SegmentedControl<Scope>
-                    value={scope}
-                    onChange={handleScope}
-                    options={SCOPE_OPTIONS}
-                    size="sm"
-                />
-                {scope === "activity" && (
-                    <Select
-                        label="Sede"
-                        value={activityId ?? ""}
-                        disabled={disabled}
-                        onChange={event => onChange(event.target.value || null)}
-                        options={activities.map(activity => ({
-                            value: activity.id,
-                            label: activity.status === "active" ? activity.name : `${activity.name} (sospesa)`
-                        }))}
-                    />
-                )}
-                <Text variant="body-sm" colorVariant="muted">
-                    {sentence}
-                </Text>
-            </div>
+        <Card title="Dove si vede" flush>
+            <SettingRow
+                label="Pagina pubblica"
+                description={sentence}
+                control={
+                    <div className={styles.placement}>
+                        <SegmentedControl<Scope>
+                            value={scope}
+                            onChange={handleScope}
+                            options={SCOPE_OPTIONS}
+                            size="sm"
+                        />
+                        {scope === "activity" && (
+                            <ChipPicker
+                                single
+                                options={activities.map(activity => ({
+                                    id: activity.id,
+                                    name: activity.name,
+                                    badge: activity.status === "active" ? undefined : <Badge variant="neutral">Sospesa</Badge>
+                                }))}
+                                value={activityId ? [activityId] : []}
+                                onChange={ids => {
+                                    if (ids[0]) onChange(ids[0]);
+                                }}
+                                editLabel="Modifica"
+                                title="Sede"
+                                emptyText="Nessuna sede scelta."
+                                searchPlaceholder="Cerca una sede"
+                                disabled={disabled}
+                            />
+                        )}
+                    </div>
+                }
+            />
+            <SettingRow
+                label="Scheda di un prodotto"
+                description="Collegata a un prodotto, la storia compare anche nella sua scheda del menù."
+                control={productControl}
+            />
         </Card>
     );
 }

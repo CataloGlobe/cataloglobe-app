@@ -1,12 +1,13 @@
 import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { Navigate, Outlet, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { Store } from "lucide-react";
+import { Lock, Store } from "lucide-react";
 import { Button } from "@/components/ui";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import Skeleton from "@/components/ui/Skeleton/Skeleton";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
-import { UnsavedChangesBar } from "@/components/ui/UnsavedChangesBar/UnsavedChangesBar";
+import { HeaderSaveAction, DiscardChangesConfirmDialog } from "@/components/ui/HeaderSaveAction/HeaderSaveAction";
+import { buildSaveActionCompactConfig } from "@/components/ui/HeaderSaveAction/headerSaveActionCompact";
 import { useUnsavedChangesGuard } from "@/components/ui/UnsavedChangesBar/useUnsavedChangesGuard";
 import { usePageHeader } from "@/context/usePageHeader";
 import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
@@ -19,6 +20,7 @@ import type { V2ActivityHours } from "@/types/activity-hours";
 import { useToast } from "@/context/Toast/ToastContext";
 import { usePermissions } from "@/context/usePermissions";
 import { canDoOnActivity, canDoOnTenant } from "@/lib/permissions";
+import { usePlanFeatures } from "@/lib/planFeatures";
 import { formatInactiveReason } from "@/utils/activityStatus";
 import { legacyTabTarget } from "@/utils/navLanding";
 import {
@@ -35,8 +37,8 @@ const isSection = (v: string): v is ActivitySection =>
     (ACTIVITY_SECTIONS as readonly string[]).includes(v);
 
 /**
- * Il locale in quattro pagine (§31): Anagrafica · Orari · Ordini e
- * prenotazioni · Pubblicazione. Questo
+ * Il locale in sei pagine (§31, correzioni UI T5): Anagrafica · Orari ·
+ * Ordini al tavolo · Prenotazioni · Sala · Pubblicazione. Questo
  * parent legge la sede, gli orari e la ragione sociale una volta, tiene il
  * draft unico con la sua barra e la guardia all'uscita, e dà tutto alle
  * rotte figlie via `Outlet` (`useActivityDetail`).
@@ -48,6 +50,7 @@ const ActivityDetailPage: React.FC = () => {
     const [searchParams] = useSearchParams();
     const { showToast } = useToast();
     const { permissions } = usePermissions();
+    const { hasFeature } = usePlanFeatures();
 
     const basePath = `/business/${businessId}/locations/${activityId}`;
     const lastSegment = pathname.slice(basePath.length).split("/").filter(Boolean)[0] ?? "";
@@ -157,15 +160,39 @@ const ActivityDetailPage: React.FC = () => {
     // Testata: le quattro pagine come tab che navigano, lo stato della sede
     // nelle azioni (su quattro pagine non è più a un click, come nel
     // prototipo §31).
+    // La Sala la vede chi legge i tavoli della sede (SV3, come il modo
+    // «Gestisci la sala» di Servizio). Ordini al tavolo e Prenotazioni col
+    // piano Base restano tab, col lucchetto: dentro c'è il pannello Pro (O2).
+    const canReadTables = Boolean(activityId && permissions && canDoOnActivity(permissions, "tables.read", activityId));
+    const pages = useMemo(
+        () => ACTIVITY_PAGES.filter(value => value !== "sala" || canReadTables),
+        [canReadTables]
+    );
+    const isPlanLocked = useCallback(
+        (value: ActivitySection) =>
+            (value === "ordini-al-tavolo" && !hasFeature("table_ordering")) ||
+            (value === "prenotazioni-online" && !hasFeature("table_reservation")),
+        [hasFeature]
+    );
+
     const leading = useMemo(() => (
         <Tabs<ActivitySection> value={section} onChange={next => goToSection(next)} variant="line">
             <Tabs.List>
-                {ACTIVITY_PAGES.map(value => (
-                    <Tabs.Tab key={value} value={value}>{ACTIVITY_SECTION_LABELS[value]}</Tabs.Tab>
+                {pages.map(value => (
+                    <Tabs.Tab key={value} value={value}>
+                        {isPlanLocked(value) ? (
+                            <span className={styles.lockedTab}>
+                                {ACTIVITY_SECTION_LABELS[value]}
+                                <Lock size={14} strokeWidth={1.75} role="img" aria-label="Funzione del piano Pro" />
+                            </span>
+                        ) : (
+                            ACTIVITY_SECTION_LABELS[value]
+                        )}
+                    </Tabs.Tab>
                 ))}
             </Tabs.List>
         </Tabs>
-    ), [section, goToSection]);
+    ), [section, goToSection, pages, isPlanLocked]);
 
     const statusLabel = activity
         ? activity.status === "inactive"
@@ -175,23 +202,62 @@ const ActivityDetailPage: React.FC = () => {
             : "Pubblicata"
         : null;
 
+    // Il salvataggio del draft sta nella barra della pagina, a destra (MD1):
+    // niente barra fluttuante. Solo per chi può modificare la sede.
+    const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
+    const showSave = Boolean(canManage && activity);
+    const saveDraft = draft.save;
+    const handleSave = useCallback(() => {
+        void saveDraft();
+    }, [saveDraft]);
+
     const actions = useMemo(() => (
-        statusLabel ? (
-            <StatusBadge variant={activity?.status === "inactive" ? "neutral" : "success"} label={statusLabel} />
+        statusLabel || showSave ? (
+            <>
+                {statusLabel && (
+                    <StatusBadge variant={activity?.status === "inactive" ? "neutral" : "success"} label={statusLabel} />
+                )}
+                {showSave && (
+                    <HeaderSaveAction
+                        isDirty={draft.isDirty}
+                        isSaving={draft.isSaving}
+                        onSave={handleSave}
+                        onDiscard={draft.discard}
+                        changeCount={draft.dirtyCount}
+                    />
+                )}
+            </>
         ) : null
-    ), [statusLabel, activity?.status]);
+    ), [statusLabel, activity?.status, showSave, draft.isDirty, draft.isSaving, draft.discard, draft.dirtyCount, handleSave]);
 
     // In compatto il picker dice dove sei anche su una sezione che non è una
     // tab: la voce compare solo mentre ci sei.
     const headerCompact = useMemo<PageHeaderCompactConfig>(() => ({
         sections: [
-            ...ACTIVITY_PAGES.map(value => ({ value, label: ACTIVITY_SECTION_LABELS[value] })),
-            ...(ACTIVITY_PAGES.includes(section) ? [] : [{ value: section, label: ACTIVITY_SECTION_LABELS[section] }])
+            ...pages.map(value => ({
+                value,
+                label: ACTIVITY_SECTION_LABELS[value],
+                description: isPlanLocked(value) ? "Con il piano Pro" : undefined
+            })),
+            ...(pages.includes(section) ? [] : [{ value: section, label: ACTIVITY_SECTION_LABELS[section] }])
         ],
         activeSection: section,
         onSectionChange: value => goToSection(value as ActivitySection),
-        statusIndicator: statusLabel ? { label: statusLabel } : undefined
-    }), [section, goToSection, statusLabel]);
+        statusIndicator: statusLabel ? { label: statusLabel } : undefined,
+        ...(showSave
+            ? buildSaveActionCompactConfig({
+                  isDirty: draft.isDirty,
+                  isSaving: draft.isSaving,
+                  onSave: handleSave,
+                  onRequestDiscard: () => setConfirmDiscardOpen(true)
+              })
+            : {}),
+        // Lo stato della sede resta a vista anche col draft pulito: il
+        // «Salvato» della barra compatta non lo sostituisce.
+        ...(showSave && !draft.isDirty && !draft.isSaving && statusLabel
+            ? { statusIndicator: { label: statusLabel } }
+            : {})
+    }), [section, goToSection, pages, isPlanLocked, statusLabel, showSave, draft.isDirty, draft.isSaving, handleSave]);
 
     usePageHeader({
         leading,
@@ -266,21 +332,14 @@ const ActivityDetailPage: React.FC = () => {
     return (
         <div className={styles.container} data-active-tab={section}>
             <div className={styles.contentWrapper}>
+                {draft.isDirty && draft.error && <InlineBanner variant="error">{draft.error}</InlineBanner>}
                 <Outlet context={context} />
             </div>
-            {draft.isDirty && (
-                <>
-                    {draft.error && <InlineBanner variant="error">{draft.error}</InlineBanner>}
-                    <UnsavedChangesBar
-                        isSaving={draft.isSaving}
-                        onCancel={draft.discard}
-                        onSave={() => {
-                            void draft.save();
-                        }}
-                        label={draft.dirtyCount === 1 ? "1 modifica non salvata" : `${draft.dirtyCount} modifiche non salvate`}
-                    />
-                </>
-            )}
+            <DiscardChangesConfirmDialog
+                isOpen={confirmDiscardOpen}
+                onClose={() => setConfirmDiscardOpen(false)}
+                onDiscard={draft.discard}
+            />
         </div>
     );
 };

@@ -67,7 +67,6 @@ export default function SettingsLanguages() {
 
     usePageHeader({
         title: t("languages.title"),
-        subtitle: t("languages.description"),
     });
 
     const loadData = useCallback(async () => {
@@ -225,13 +224,14 @@ export default function SettingsLanguages() {
                             tone={STRIP_TONE[summary.state]}
                             badge={t(`languages.summary.badge_${summary.state}`)}
                             title={`${t("languages.summary.active_count", { count: summary.activeTargetCount })} · ${t("languages.summary.translatable", { count: summary.unitTotal })}`}
-                            description={
+                            // T13: la frase che stava sotto la testata, qui in coda.
+                            description={`${
                                 summary.state === "queued"
                                     ? t("languages.summary.queued", { count: summary.totalPending })
                                     : summary.state === "errors"
                                       ? t("languages.summary.has_errors")
                                       : t("languages.summary.all_done")
-                            }
+                            } · ${t("languages.summary.auto_note")}`}
                         />
                         <Card flush>
                             {orderedLangs.map(lang => {

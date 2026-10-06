@@ -81,6 +81,11 @@ function saveButton(page: Page): Locator {
     return page.getByRole("button", { name: "Salva", exact: true }).first();
 }
 
+/** La riga «Pagina pubblica» della card «Dove si vede» (SD2). */
+function publicPageRow(page: Page): Locator {
+    return main(page).locator("[data-setting-row]").filter({ hasText: "Pagina pubblica" });
+}
+
 let stub: StorieStub;
 
 test.beforeEach(async ({ page }) => {
@@ -115,6 +120,9 @@ test.describe("Storie — elenco", () => {
         await openList(page);
         await page.getByRole("button", { name: "Crea storia" }).first().click();
         const drawer = dialog(page);
+        // Prima l'occhiello, poi il titolo, come nella pagina.
+        await expect(drawer.getByRole("textbox")).toHaveCount(2);
+        await expect(drawer.getByRole("textbox").first()).toHaveAccessibleName(/^Occhiello/);
         await drawer.getByRole("textbox", { name: /^Titolo/ }).fill("Le materie prime e2e");
         await drawer.getByRole("textbox", { name: /^Occhiello/ }).fill("Il grano");
         await drawer.getByRole("button", { name: /^Crea/ }).click();
@@ -180,13 +188,22 @@ test.describe("Storie — elenco", () => {
 });
 
 test.describe("Storie — elenco ricomposto (P5)", () => {
-    test("il cappello in cima, com'è pubblicamente; l'ordine è detto", async ({ page }) => {
+    test("l'introduzione in cima, com'è pubblicamente; l'ordine è detto (SR2)", async ({ page }) => {
         await openList(page);
         await expect(page.getByRole("tab", { name: "Storia del brand" })).toHaveCount(0);
-        await expect(main(page).getByText("Il cappello", { exact: true })).toBeVisible();
+        await expect(main(page).getByText("Introduzione", { exact: true })).toBeVisible();
+        await expect(main(page).getByText("Il testo che i clienti leggono prima delle storie. Vale per tutte le sedi.")).toBeVisible();
         await expect(main(page).getByText("La nostra storia e2e")).toBeVisible();
         await expect(main(page).getByText("Tre generazioni dietro lo stesso bancone.")).toBeVisible();
         await expect(main(page).getByText(/Trascina per cambiare l'ordine/)).toBeVisible();
+    });
+
+    test("introduzione vuota: «Nessuna introduzione» e «Aggiungi» apre il pannello (SR2)", async ({ page }) => {
+        Object.assign(stub.brand, { story_cover: null, story_title: null, story_intro: null, website: null });
+        await openList(page);
+        await expect(main(page).getByText("Nessuna introduzione", { exact: true })).toBeVisible({ timeout: 15_000 });
+        await main(page).getByRole("button", { name: "Aggiungi", exact: true }).click();
+        await expect(dialog(page).getByText("Introduzione", { exact: true })).toBeVisible();
     });
 
     test("cappello: Annulla scarta senza scrivere", async ({ page }) => {
@@ -212,7 +229,7 @@ test.describe("Storie — elenco ricomposto (P5)", () => {
         );
         await openBusinessPage(page, "stories", "Storie");
         await expect(main(page).getByText("Non è stato possibile caricare le storie")).toBeVisible({ timeout: 15_000 });
-        await expect(main(page).getByText("Non è stato possibile caricare il cappello.")).toBeVisible();
+        await expect(main(page).getByText("Non è stato possibile caricare l'introduzione.")).toBeVisible();
         fail = false;
         for (const retry of await main(page).getByRole("button", { name: "Riprova" }).all()) await retry.click();
         await expect(storyTitle(page, "Il nostro forno e2e")).toBeVisible();
@@ -256,7 +273,7 @@ test.describe("Storie — editor", () => {
         stub.onWrite("stories.PATCH", () => stub.tables.stories.find(s => s.id === STORY.brigata) ?? null);
         await openStory(page, STORY.brigata);
         await expect(main(page).getByText("Pane di segale e2e")).toBeVisible({ timeout: 15_000 });
-        await main(page).getByRole("button", { name: /^(Rimuovi|Scollega|Togli)/ }).first().click();
+        await main(page).getByRole("button", { name: /^Scollega/ }).click();
         await saveButton(page).click();
         await expect.poll(() => write(stub, "stories.PATCH")?.body).toMatchObject({ product_id: null });
     });
@@ -375,7 +392,7 @@ test.describe("Storie — dove appaiono (§50.13)", () => {
         await expect(storyTitle(page, "La brigata e2e")).toHaveCount(0);
     });
 
-    test("editor: «Dove appare» sceglie la sede, in bozza, e il Salva la scrive", async ({ page }) => {
+    test("editor: «Dove si vede» sceglie la sede da un pannello, in bozza, e il Salva la scrive (SD2)", async ({ page }) => {
         stub.onWrite("stories.PATCH", call => {
             const row = stub.tables.stories.find(s => `eq.${s.id}` === call.params.get("id"));
             if (row) Object.assign(row, call.body as Row);
@@ -385,7 +402,10 @@ test.describe("Storie — dove appaiono (§50.13)", () => {
         await expect(titleField(page)).toHaveValue("Il nostro forno e2e", { timeout: 15_000 });
         await expect(main(page).getByText("Compare su tutte le sedi pubblicate.")).toBeVisible();
         await main(page).getByRole("radio", { name: "Una sede" }).click();
-        await main(page).getByRole("combobox", { name: "Sede" }).selectOption({ label: "Porto e2e" });
+        await publicPageRow(page).getByRole("button", { name: "Modifica", exact: true }).click();
+        const panel = dialog(page);
+        await panel.getByRole("radio", { name: "Porto e2e" }).check();
+        await panel.getByRole("button", { name: "Applica" }).click();
         await expect(main(page).getByText("Compare solo nella pagina di Porto e2e.")).toBeVisible();
         await saveButton(page).click();
         await expect.poll(() => write(stub, "stories.PATCH")?.body).toMatchObject({ activity_id: SEDE.porto });
@@ -395,7 +415,17 @@ test.describe("Storie — dove appaiono (§50.13)", () => {
         await openStory(page, STORY.brigata);
         await expect(titleField(page)).toHaveValue("La brigata e2e", { timeout: 15_000 });
         await expect(main(page).getByRole("radio", { name: "Una sede" })).toBeChecked();
-        await expect(main(page).getByRole("combobox", { name: "Sede" })).toHaveValue(SEDE.centro);
+        await expect(publicPageRow(page)).toContainText("Centro e2e");
+        await expect(main(page).getByText("Compare solo nella pagina di Centro e2e.")).toBeVisible();
+    });
+
+    test("editor: «Dove si vede» ha le due righe, il prodotto come chip con × e «Cambia» (SD2)", async ({ page }) => {
+        await openStory(page, STORY.forno);
+        await expect(titleField(page)).toHaveValue("Il nostro forno e2e", { timeout: 15_000 });
+        await expect(main(page).getByText("Dove si vede", { exact: true })).toBeVisible();
+        await expect(publicPageRow(page)).toBeVisible();
+        const productRow = main(page).locator("[data-setting-row]").filter({ hasText: "Scheda di un prodotto" });
+        await expect(productRow).toBeVisible();
     });
 });
 

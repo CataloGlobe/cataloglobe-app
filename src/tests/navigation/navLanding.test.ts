@@ -7,13 +7,14 @@ import { legacyTabTarget } from "@/utils/navLanding";
 describe("legacyTabTarget — i vecchi ?tab= della scheda", () => {
     it("porta alla rotta e all'ancora", () => {
         expect(legacyTabTarget("hours")).toEqual({ segment: "orari" });
-        expect(legacyTabTarget("reservations")).toEqual({ segment: "ordini-prenotazioni", hash: "prenotazioni" });
+        expect(legacyTabTarget("ordering")).toEqual({ segment: "ordini-al-tavolo" });
+        expect(legacyTabTarget("reservations")).toEqual({ segment: "prenotazioni-online" });
         expect(legacyTabTarget("availability")).toEqual({ segment: "cosa-vedono" });
     });
 
-    it("la Sala è il modo Gestisci la sala di Servizio", () => {
-        expect(legacyTabTarget("sala")).toEqual({ segment: "servizio", search: "modo=gestisci" });
-        expect(legacyTabTarget("tables")).toEqual({ segment: "servizio", search: "modo=gestisci" });
+    it("la Sala è una tab della Scheda (correzioni UI SV3)", () => {
+        expect(legacyTabTarget("sala")).toEqual({ segment: "sala" });
+        expect(legacyTabTarget("tables")).toEqual({ segment: "sala" });
     });
 
     it("la sala del momento è l'Elenco di Servizio", () => {

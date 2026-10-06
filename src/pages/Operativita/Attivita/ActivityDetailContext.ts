@@ -6,16 +6,35 @@ import type { ActivityDraft } from "./useActivityDraft";
 /** Le pagine della sede con un'etichetta (titolo del browser, picker in
  *  compatto). «Cosa vedono i clienti» sta fuori dalla Scheda, ma il titolo lo
  *  prende da qui. */
-export const ACTIVITY_SECTIONS = ["anagrafica", "orari", "ordini-prenotazioni", "pubblicazione", "cosa-vedono"] as const;
+export const ACTIVITY_SECTIONS = [
+    "anagrafica",
+    "orari",
+    "ordini-al-tavolo",
+    "prenotazioni-online",
+    "sala",
+    "pubblicazione",
+    "cosa-vedono"
+] as const;
 export type ActivitySection = (typeof ACTIVITY_SECTIONS)[number];
 
 /** Le quattro pagine del locale (§31.1): sono le tab della testata. */
-export const ACTIVITY_PAGES: readonly ActivitySection[] = ["anagrafica", "orari", "ordini-prenotazioni", "pubblicazione"];
+// Correzioni UI T5: una cosa per tab. «Ordini e prenotazioni» diventa due
+// tab (O1) e la Sala esce da Servizio (SV3).
+export const ACTIVITY_PAGES: readonly ActivitySection[] = [
+    "anagrafica",
+    "orari",
+    "ordini-al-tavolo",
+    "prenotazioni-online",
+    "sala",
+    "pubblicazione"
+];
 
 export const ACTIVITY_SECTION_LABELS: Record<ActivitySection, string> = {
     anagrafica: "Anagrafica",
     orari: "Orari",
-    "ordini-prenotazioni": "Ordini e prenotazioni",
+    "ordini-al-tavolo": "Ordini al tavolo",
+    "prenotazioni-online": "Prenotazioni",
+    sala: "Sala",
     pubblicazione: "Pubblicazione",
     "cosa-vedono": "Cosa vedono i clienti"
 };
@@ -39,7 +58,7 @@ export interface ActivityDetailOutletContext {
     canManageHours: boolean;
     canDelete: boolean;
     draft: ActivityDraft;
-    /** Va a un'altra sezione della stessa sede (`ordini-prenotazioni#ordini`
+    /** Va a un'altra sezione della stessa sede (`prenotazioni-online#capienza`
      *  compreso). */
     goToSection: (section: ActivitySection, hash?: string) => void;
 }

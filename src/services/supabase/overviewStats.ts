@@ -126,8 +126,8 @@ export async function getTenantSetupStatus(tenantId: string): Promise<TenantSetu
  * porta i numeri che il dettaglio mostra; `active` è derivato qui, una
  * volta, così la pagina non ripete il criterio.
  *
- * Traduzioni non è qui: è «In arrivo» per definizione (§25.10), nessuna
- * query.
+ * Lingue (P7, correzioni UI): attiva se c'è almeno una lingua oltre
+ * l'italiano fra quelle accese del tenant.
  */
 export type TenantCapabilities = {
     styles: { active: boolean; total: number; inUse: number };
@@ -137,6 +137,7 @@ export type TenantCapabilities = {
     reviews: { active: boolean; total: number };
     stories: { active: boolean; published: number };
     team: { active: boolean; members: number };
+    languages: { active: boolean; extra: number };
 };
 
 async function countRows(
@@ -148,8 +149,8 @@ async function countRows(
 }
 
 /**
- * Tredici count in parallelo più la RPC del giorno operativo (che precede il
- * count degli ordini): 14 chiamate, tutte `head: true`, nessuna riga
+ * Quattordici count in parallelo più la RPC del giorno operativo (che precede il
+ * count degli ordini): 15 chiamate, tutte `head: true`, nessuna riga
  * scaricata. Misurato su staging (McDonald's, 4 sedi, 21/09/2026): ~200–260 ms
  * a connessione calda, 1,3 s la prima volta; le 5 count della checklist
  * costano 184 ms. Stesso ordine di grandezza, non una seconda pagina.
@@ -176,7 +177,8 @@ export async function getTenantCapabilities(tenantId: string): Promise<TenantCap
         reservationsPending,
         reviewsTotal,
         storiesPublished,
-        members
+        members,
+        extraLanguages
     ] = await Promise.all([
         countRows(() => t("styles").eq("is_system", false)),
         countRows(() => t("schedule_layout")),
@@ -190,7 +192,8 @@ export async function getTenantCapabilities(tenantId: string): Promise<TenantCap
         countRows(() => t("reviews")),
         countRows(() => t("stories").eq("status", "published")),
         // Membri accettati, più il proprietario che non ha riga (CLAUDE.md).
-        countRows(() => t("tenant_memberships").eq("status", "active")).then(n => n + 1)
+        countRows(() => t("tenant_memberships").eq("status", "active")).then(n => n + 1),
+        countRows(() => t("tenant_languages").eq("is_active", true).neq("language_code", "it"))
     ]);
 
     return {
@@ -200,6 +203,7 @@ export async function getTenantCapabilities(tenantId: string): Promise<TenantCap
         reservations: { active: reservationLocations > 0, locations: reservationLocations, pending: reservationsPending },
         reviews: { active: reviewsTotal > 0, total: reviewsTotal },
         stories: { active: storiesPublished > 0, published: storiesPublished },
-        team: { active: members > 1, members }
+        team: { active: members > 1, members },
+        languages: { active: extraLanguages > 0, extra: extraLanguages }
     };
 }

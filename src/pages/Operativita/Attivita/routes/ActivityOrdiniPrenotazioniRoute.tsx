@@ -1,21 +1,21 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Lock } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import { Card } from "@/components/ui/Card/Card";
 import { Checklist, type ChecklistItem } from "@/components/ui/Checklist/Checklist";
-import { FormGrid, FormSection } from "@/components/ui/FormGrid/FormGrid";
-import { FormField } from "@/components/ui/FormField/FormField";
+import { FormGrid } from "@/components/ui/FormGrid/FormGrid";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import { Menu } from "@/components/ui/Menu";
 import { MultiEmailInput } from "@/components/ui/MultiEmailInput/MultiEmailInput";
 import { NumberInput } from "@/components/ui/Input/NumberInput";
 import { RadioGroup } from "@/components/ui/RadioGroup/RadioGroup";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
+import { SettingRow } from "@/components/ui/SettingRow/SettingRow";
 import { Switch } from "@/components/ui/Switch/Switch";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import Text from "@/components/ui/Text/Text";
 import { PrintersSection } from "../tabs/printers/PrintersSection";
+import { ProLockedPanel } from "./ProLockedPanel";
 import {
     HORIZON_DAYS_MAX,
     HORIZON_DAYS_MIN,
@@ -46,17 +46,23 @@ type NumericRuleField =
     | "reservation_min_notice_minutes"
     | "reservation_horizon_days";
 
+interface ActivityOrdiniPrenotazioniRouteProps {
+    /** Quale delle due tab (correzioni UI O1): una cosa per tab. */
+    part: "ordini" | "prenotazioni";
+}
+
 /**
- * Ordini e prenotazioni (§31.1): cosa può fare un cliente da questo locale,
- * e con che regole. Si chiamava «Canali»: il nome nominava il contenitore,
- * non le due cose dentro. Ordini al tavolo e prenotazioni restano due sezioni distinte, con
- * le ancore `#ordini` e `#prenotazioni`. Gli interruttori e le email degli
+ * Ordini al tavolo e Prenotazioni (§31.1): cosa può fare un cliente da
+ * questo locale, e con che regole. Erano una tab sola, «Ordini e
+ * prenotazioni» (prima ancora «Canali»); dalle correzioni UI (O1) sono due
+ * tab, `ordini-al-tavolo` e `prenotazioni-online`, con lo stesso codice.
+ * Col piano Base ognuna mostra un solo pannello Pro (O2). Gli interruttori e le email degli
  * avvisi salvano subito (§31.4); l'email privacy, la capienza della sala e
  * le cinque regole di accettazione stanno nel draft di pagina (§31.2).
  * Capienza e durata erano nella Sala: sono regole di prenotazione, e chi le
  * scrive è chi ha `activity.manage` (lotto B-a, D3).
  */
-export default function ActivityOrdiniPrenotazioniRoute() {
+export default function ActivityOrdiniPrenotazioniRoute({ part }: ActivityOrdiniPrenotazioniRouteProps) {
     const { activity, tenantId, reload, canManage, hours, isHoursLoading, legalName, draft, goToSection } =
         useActivityDetail();
     const { hash } = useLocation();
@@ -131,7 +137,7 @@ export default function ActivityOrdiniPrenotazioniRoute() {
     const [teamMembers, setTeamMembers] = useState<TenantMemberRow[]>([]);
     const [ownerEmail, setOwnerEmail] = useState<string | null>(null);
     useEffect(() => {
-        if (!canReadTeam || !activity.enable_reservations) return;
+        if (part !== "prenotazioni" || !canReadTeam || !activity.enable_reservations) return;
         let cancelled = false;
         listTenantMembers(tenantId)
             .then(rows => {
@@ -145,7 +151,7 @@ export default function ActivityOrdiniPrenotazioniRoute() {
         return () => {
             cancelled = true;
         };
-    }, [canReadTeam, activity.enable_reservations, tenantId]);
+    }, [part, canReadTeam, activity.enable_reservations, tenantId]);
 
     const takenEmails = new Set(reservationEmails.map(e => e.toLowerCase()));
     const pickableMembers = teamMembers.filter(m => m.email && !takenEmails.has(m.email.toLowerCase()));
@@ -175,7 +181,8 @@ export default function ActivityOrdiniPrenotazioniRoute() {
     const privacyEmail = d.reservation_privacy_contact_email ?? "";
 
     useEffect(() => {
-        return draft.registerValidator("ordini-prenotazioni", () => {
+        if (part !== "prenotazioni") return;
+        return draft.registerValidator("prenotazioni-online", () => {
             const email = (d.reservation_privacy_contact_email ?? "").trim();
             if (email !== "" && !EMAIL_RE.test(email)) {
                 return "Email per le richieste sui dati personali: inserisci un indirizzo valido.";
@@ -213,7 +220,7 @@ export default function ActivityOrdiniPrenotazioniRoute() {
             }
             return null;
         });
-    }, [draft, d, hasCapacity]);
+    }, [part, draft, d, hasCapacity]);
 
     const showNoticeHorizonWarning = noticeExceedsHorizon(d.reservation_min_notice_minutes, d.reservation_horizon_days);
 
@@ -221,7 +228,7 @@ export default function ActivityOrdiniPrenotazioniRoute() {
     // dei posti mappati. Informativa, mai bloccante. Solo con prenotazioni.
     const [tables, setTables] = useState<V2Table[]>([]);
     useEffect(() => {
-        if (!activity.enable_reservations) return;
+        if (part !== "prenotazioni" || !activity.enable_reservations) return;
         let cancelled = false;
         listTables(tenantId, activity.id)
             .then(rows => {
@@ -233,7 +240,7 @@ export default function ActivityOrdiniPrenotazioniRoute() {
         return () => {
             cancelled = true;
         };
-    }, [activity.enable_reservations, activity.id, tenantId]);
+    }, [part, activity.enable_reservations, activity.id, tenantId]);
 
     const seats = useMemo(
         () => ({
@@ -301,67 +308,87 @@ export default function ActivityOrdiniPrenotazioniRoute() {
         }
     ];
 
-    const lockedCaption = (
-        <span className={styles.locked}>
-            <Lock size={14} strokeWidth={1.75} aria-hidden />
-            <Text as="span" variant="caption" colorVariant="muted">
-                Disponibile con il piano Pro
-            </Text>
-        </span>
-    );
+
+    // ── Ordini al tavolo ────────────────────────────────────────────────────
+    if (part === "ordini") {
+        if (isOrderingLocked) {
+            return (
+                <ProLockedPanel
+                    tenantId={tenantId}
+                    title="Ordini al tavolo"
+                    description="Il cliente inquadra il QR del tavolo, sceglie dal menù e invia l'ordine: la comanda arriva in tempo reale e, con una stampante collegata, si stampa da sola."
+                />
+            );
+        }
+        return (
+            <div className={styles.page}>
+                <section id="ordini" aria-label="Ordini al tavolo" className={styles.section}>
+                    {activity.status !== "active" && (
+                        <Checklist title="Prima degli ordini" items={orderingChecklist} doneTitle="La sede è pubblicata" />
+                    )}
+                    <Card title="Ordini al tavolo" subtitle="Il cliente ordina inquadrando il QR del tavolo">
+                        <div className={styles.stack}>
+                            <Switch
+                                label={activity.ordering_enabled ? "Attivi" : "Sospesi"}
+                                checked={activity.ordering_enabled}
+                                onChange={handleOrderingToggle}
+                                disabled={!canManage}
+                                description={
+                                    activity.ordering_enabled
+                                        ? "Ogni tavolo ha il suo QR."
+                                        : "Il menù resta leggibile, «Invia ordine» no."
+                                }
+                            />
+                            {/* A canale spento la card diceva solo «Sospesi»: qui sotto
+                                c'è cosa succede accendendolo, e dove vivono le cose. */}
+                            <ul className={styles.points}>
+                                <li>
+                                    <Text as="span" variant="caption" colorVariant="muted">
+                                        I tavoli e i loro QR stanno nella tab{" "}
+                                        <Link to="../sala" relative="path" className={styles.link}>
+                                            Sala
+                                        </Link>
+                                        .
+                                    </Text>
+                                </li>
+                                <li>
+                                    <Text as="span" variant="caption" colorVariant="muted">
+                                        Le comande arrivano in tempo reale in{" "}
+                                        <Link to={`/business/${tenantId}/orders`} className={styles.link}>
+                                            Comande
+                                        </Link>
+                                        .
+                                    </Text>
+                                </li>
+                                <li>
+                                    <Text as="span" variant="caption" colorVariant="muted">
+                                        Con una stampante collegata si stampano da sole.
+                                    </Text>
+                                </li>
+                            </ul>
+                        </div>
+                    </Card>
+                    {activity.ordering_enabled && <PrintersSection tenantId={tenantId} activityId={activity.id} />}
+                </section>
+            </div>
+        );
+    }
+
+    // ── Prenotazioni ────────────────────────────────────────────────────────
+    if (isReservationsLocked) {
+        return (
+            <ProLockedPanel
+                tenantId={tenantId}
+                title="Prenotazioni"
+                description="Il modulo sulla pagina pubblica raccoglie le richieste di prenotazione del tavolo: le confermi da qui, a mano o in automatico entro la capienza, e il cliente riceve il promemoria il giorno prima."
+            />
+        );
+    }
+
+    const fallbackRecipient = ownerEmail ?? "il proprietario dell'azienda";
 
     return (
         <div className={styles.page}>
-            <section id="ordini" aria-label="Ordini al tavolo" className={styles.section}>
-                {activity.status !== "active" && (
-                    <Checklist title="Prima degli ordini" items={orderingChecklist} doneTitle="La sede è pubblicata" />
-                )}
-                <Card title="Ordini al tavolo" subtitle="Il cliente ordina inquadrando il QR del tavolo">
-                    <div className={styles.stack}>
-                        <Switch
-                            label={activity.ordering_enabled ? "Attivi" : "Sospesi"}
-                            checked={activity.ordering_enabled}
-                            onChange={handleOrderingToggle}
-                            disabled={isOrderingLocked || !canManage}
-                            description={
-                                activity.ordering_enabled
-                                    ? "Ogni tavolo ha il suo QR."
-                                    : "Il menù resta leggibile, «Invia ordine» no."
-                            }
-                        />
-                        {isOrderingLocked && lockedCaption}
-                        {/* A canale spento la card diceva solo «Sospesi»: qui sotto
-                            c'è cosa succede accendendolo, e dove vivono le cose. */}
-                        <ul className={styles.points}>
-                            <li>
-                                <Text as="span" variant="caption" colorVariant="muted">
-                                    I tavoli e i loro QR stanno in{" "}
-                                    <Link to="../servizio?modo=gestisci" relative="path" className={styles.link}>
-                                        Gestisci la sala
-                                    </Link>
-                                    .
-                                </Text>
-                            </li>
-                            <li>
-                                <Text as="span" variant="caption" colorVariant="muted">
-                                    Le comande arrivano in tempo reale in{" "}
-                                    <Link to={`/business/${tenantId}/orders`} className={styles.link}>
-                                        Comande
-                                    </Link>
-                                    .
-                                </Text>
-                            </li>
-                            <li>
-                                <Text as="span" variant="caption" colorVariant="muted">
-                                    Con una stampante collegata si stampano da sole.
-                                </Text>
-                            </li>
-                        </ul>
-                    </div>
-                </Card>
-                {activity.ordering_enabled && <PrintersSection tenantId={tenantId} activityId={activity.id} />}
-            </section>
-
             <section id="prenotazioni" aria-label="Prenotazioni" className={styles.section}>
                 {activity.enable_reservations && (
                     <Checklist
@@ -383,14 +410,13 @@ export default function ActivityOrdiniPrenotazioniRoute() {
                                     "Impossibile aggiornare le prenotazioni."
                                 )
                             }
-                            disabled={isReservationsLocked || !canManage}
+                            disabled={!canManage}
                             description={
                                 activity.enable_reservations
                                     ? "Il modulo è sulla pagina pubblica della sede."
                                     : "Il modulo non compare sulla pagina pubblica."
                             }
                         />
-                        {isReservationsLocked && lockedCaption}
                         <Text variant="caption" colorVariant="muted">
                             Le richieste che arrivano si gestiscono in{" "}
                             <Link to={`/business/${tenantId}/locations/${activity.id}/prenotazioni`} className={styles.link}>
@@ -403,88 +429,103 @@ export default function ActivityOrdiniPrenotazioniRoute() {
 
                 {activity.enable_reservations && (
                     <>
-                        <Card title="Avvisi e promemoria">
-                            <FormGrid cols={1}>
-                                <Switch
-                                    label="Promemoria il giorno prima"
-                                    checked={activity.reservation_reminder_enabled}
-                                    onChange={checked =>
-                                        void setImmediate(
-                                            { reservation_reminder_enabled: checked },
-                                            checked ? "Promemoria attivato." : "Promemoria disattivato.",
-                                            "Impossibile aggiornare il promemoria."
-                                        )
-                                    }
-                                    disabled={!canManage}
-                                    description="Alle 18:00 del giorno prima: email con il tasto per confermare la presenza e il link per disdire."
-                                />
-                                <FormField
-                                    label="Email per gli avvisi"
-                                    helperText={
-                                        reservationEmails.length === 0
-                                            ? ownerEmail
-                                                ? `Chi riceve l'avviso di una nuova richiesta. Vuoto: ${ownerEmail}.`
-                                                : "Chi riceve l'avviso di una nuova richiesta. Vuoto: il proprietario dell'azienda."
-                                            : "Chi riceve l'avviso di una nuova richiesta."
-                                    }
-                                >
-                                    {({ inputId }) => (
-                                        <div className={styles.emails}>
-                                            <MultiEmailInput
-                                                id={inputId}
-                                                value={reservationEmails}
-                                                onChange={handleEmailsChange}
-                                                placeholder="email@esempio.it"
-                                                disabled={isUpdatingEmails || !canManage}
-                                            />
-                                            {canReadTeam && pickableMembers.length > 0 && canManage && (
-                                                <Menu
-                                                    trigger={
-                                                        <Button variant="secondary" size="sm" disabled={isUpdatingEmails}>
-                                                            Aggiungi dal team
-                                                        </Button>
-                                                    }
-                                                    align="end"
-                                                >
-                                                    {pickableMembers.map(m => (
-                                                        <Menu.Item
-                                                            key={m.membership_id}
-                                                            onSelect={() =>
-                                                                void handleEmailsChange([
-                                                                    ...reservationEmails,
-                                                                    m.email.trim().toLowerCase()
-                                                                ])
-                                                            }
-                                                        >
-                                                            {m.email}
-                                                        </Menu.Item>
-                                                    ))}
-                                                </Menu>
-                                            )}
-                                        </div>
-                                    )}
-                                </FormField>
-                                <TextInput
-                                    type="email"
-                                    label="Email per le richieste sui dati personali"
-                                    placeholder="privacy@esempio.it"
-                                    value={privacyEmail}
-                                    onChange={e =>
-                                        draft.set(
-                                            "reservation_privacy_contact_email",
-                                            e.target.value.trim() === "" ? null : e.target.value
-                                        )
-                                    }
-                                    disabled={!canManage}
-                                    helperText={
-                                        privacyEmail.trim() === ""
-                                            ? ownerEmail
-                                                ? `Pubblicata nell'informativa privacy. Vuota: ${ownerEmail}.`
-                                                : "Pubblicata nell'informativa privacy. Vuota: l'email del titolare dell'account."
-                                            : "Pubblicata nell'informativa privacy: è l'indirizzo per chi chiede quali dati hai su di lui."
-                                    }
-                                />
-                            </FormGrid>
+                        <Card title="Avvisi e promemoria" subtitle="Chi viene avvisato e cosa ricevono i clienti" flush>
+                            <SettingRow
+                                label="Promemoria il giorno prima"
+                                description="Email ai clienti alle 18:00 del giorno prima"
+                                controlLayout="fill"
+                                control={
+                                    <div className={styles.switchLine}>
+                                    <Switch
+                                        ariaLabel="Promemoria il giorno prima"
+                                        checked={activity.reservation_reminder_enabled}
+                                        onChange={checked =>
+                                            void setImmediate(
+                                                { reservation_reminder_enabled: checked },
+                                                checked ? "Promemoria attivato." : "Promemoria disattivato.",
+                                                "Impossibile aggiornare il promemoria."
+                                            )
+                                        }
+                                        disabled={!canManage}
+                                    />
+                                        <Text variant="body-sm" colorVariant="muted">
+                                            Con il tasto per confermare la presenza e il link per disdire.
+                                        </Text>
+                                    </div>
+                                }
+                            />
+                            <SettingRow
+                                label="Email per gli avvisi"
+                                htmlFor="reservation-alert-emails"
+                                description="Chi riceve l'avviso di una nuova richiesta"
+                                controlLayout="fill"
+                                control={
+                                    <div className={styles.fieldWithHelp}>
+                                    <div className={styles.emails}>
+                                        <MultiEmailInput
+                                            id="reservation-alert-emails"
+                                            value={reservationEmails}
+                                            onChange={handleEmailsChange}
+                                            placeholder="email@esempio.it"
+                                            disabled={isUpdatingEmails || !canManage}
+                                        />
+                                        {canReadTeam && pickableMembers.length > 0 && canManage && (
+                                            <Menu
+                                                trigger={
+                                                    <Button variant="secondary" size="sm" disabled={isUpdatingEmails}>
+                                                        Scegli dal team
+                                                    </Button>
+                                                }
+                                                align="end"
+                                            >
+                                                {pickableMembers.map(m => (
+                                                    <Menu.Item
+                                                        key={m.membership_id}
+                                                        onSelect={() =>
+                                                            void handleEmailsChange([
+                                                                ...reservationEmails,
+                                                                m.email.trim().toLowerCase()
+                                                            ])
+                                                        }
+                                                    >
+                                                        {m.email}
+                                                    </Menu.Item>
+                                                ))}
+                                            </Menu>
+                                        )}
+                                    </div>
+                                        <Text variant="caption" colorVariant="muted">
+                                            Se resta vuota avvisiamo {fallbackRecipient}.
+                                        </Text>
+                                    </div>
+                                }
+                            />
+                            <SettingRow
+                                label="Email per i dati personali"
+                                htmlFor="reservation-privacy-email"
+                                description="Compare nell'informativa privacy"
+                                controlLayout="fill"
+                                control={
+                                    <TextInput
+                                        id="reservation-privacy-email"
+                                        type="email"
+                                        placeholder="privacy@esempio.it"
+                                        value={privacyEmail}
+                                        onChange={e =>
+                                            draft.set(
+                                                "reservation_privacy_contact_email",
+                                                e.target.value.trim() === "" ? null : e.target.value
+                                            )
+                                        }
+                                        disabled={!canManage}
+                                        helperText={
+                                            privacyEmail.trim() === ""
+                                                ? `Se resta vuota pubblichiamo ${ownerEmail ?? "l'email del titolare dell'account"}.`
+                                                : "Per chi chiede quali dati hai su di lui."
+                                        }
+                                    />
+                                }
+                            />
                         </Card>
 
                         <div id="capienza" className={styles.anchor}>
@@ -535,141 +576,172 @@ export default function ActivityOrdiniPrenotazioniRoute() {
                             </Card>
                         </div>
 
-                        <Card title="Regole di accettazione" subtitle="Cinque regole, un solo salvataggio">
-                            <FormGrid cols={1}>
-                                <RadioGroup
-                                    label="Quando è pieno"
-                                    variant="card"
-                                    value={d.reservation_overbooking_form ?? "hard"}
-                                    onChange={v => draft.set("reservation_overbooking_form", v as "hard" | "soft")}
-                                    disabled={!canManage}
-                                    options={[
-                                        {
-                                            value: "hard",
-                                            label: "Blocca nuove prenotazioni online",
-                                            description: "Il modulo rifiuta gli orari saturi. A mano puoi comunque inserirle."
-                                        },
-                                        {
-                                            value: "soft",
-                                            label: "Accetta come richiesta da approvare",
-                                            description: "Le richieste oltre la capienza arrivano comunque, in attesa."
-                                        }
-                                    ]}
-                                />
-                                <RadioGroup
-                                    label="Modalità di conferma"
-                                    variant="card"
-                                    value={d.reservation_confirmation_mode ?? "manuale"}
-                                    onChange={v => draft.set("reservation_confirmation_mode", v as "manuale" | "auto")}
-                                    disabled={!canManage}
-                                    options={[
-                                        {
-                                            value: "manuale",
-                                            label: "Conferma manuale",
-                                            description: "Ogni richiesta aspetta il tuo sì in Prenotazioni."
-                                        },
-                                        {
-                                            value: "auto",
-                                            label: "Conferma automatica entro capienza",
-                                            description: autoDisabled
-                                                ? "Serve la capienza della sala: senza, non c'è un «entro capienza»."
-                                                : "Le prenotazioni online entro la capienza vengono confermate subito.",
-                                            disabled: autoDisabled,
-                                            disabledReason: "Imposta la capienza della sala."
-                                        }
-                                    ]}
-                                />
-                                {autoDisabled && (
-                                    <Text variant="caption" colorVariant="muted">
-                                        <a href="#capienza" onClick={e => {
-                                            e.preventDefault();
-                                            scrollToCapacity();
-                                        }} className={styles.link}>
-                                            Imposta la capienza della sala
-                                        </a>{" "}
-                                        per abilitare la conferma automatica.
-                                    </Text>
-                                )}
-                                {d.reservation_confirmation_mode === "auto" && !autoDisabled && (
-                                    <InlineBanner variant="warning">
-                                        Il calcolo vale solo se in CataloGlobe ci sono tutte le prenotazioni, telefoniche e
-                                        walk-in compresi: se ne mancano, i clienti possono confermare oltre i posti.
-                                    </InlineBanner>
-                                )}
-
-                                <FormField
-                                    label="Ampiezza della fascia"
-                                    helperText="È il passo degli orari proposti: con 30 minuti il cliente vede 20:00, 20:30, 21:00."
-                                >
-                                    {() => (
-                                        <SegmentedControl<number>
-                                            value={d.reservation_pacing_slot_minutes ?? 15}
-                                            onChange={v => draft.set("reservation_pacing_slot_minutes", v)}
+                        <Card title="Regole di accettazione" subtitle="Valgono per le prenotazioni online. A mano puoi sempre inserirne una." flush>
+                            <SettingRow
+                                label="Quando è pieno"
+                                description="Cosa succede oltre la capienza"
+                                controlLayout="fill"
+                                control={
+                                    <RadioGroup
+                                        ariaLabel="Quando è pieno"
+                                        variant="card"
+                                        value={d.reservation_overbooking_form ?? "hard"}
+                                        onChange={v => draft.set("reservation_overbooking_form", v as "hard" | "soft")}
+                                        disabled={!canManage}
+                                        options={[
+                                            {
+                                                value: "hard",
+                                                label: "Blocca nuove prenotazioni online",
+                                                description: "Il modulo non propone gli orari pieni."
+                                            },
+                                            {
+                                                value: "soft",
+                                                label: "Accetta come richiesta da approvare",
+                                                description: "Arrivano comunque, in attesa del tuo sì."
+                                            }
+                                        ]}
+                                    />
+                                }
+                            />
+                            <SettingRow
+                                label="Conferma"
+                                description="Chi dice sì a una richiesta"
+                                controlLayout="fill"
+                                control={
+                                    <div className={styles.stack}>
+                                        <RadioGroup
+                                            ariaLabel="Modalità di conferma"
+                                            variant="card"
+                                            value={d.reservation_confirmation_mode ?? "manuale"}
+                                            onChange={v => draft.set("reservation_confirmation_mode", v as "manuale" | "auto")}
+                                            disabled={!canManage}
                                             options={[
-                                                { value: 15, label: "15 min" },
-                                                { value: 30, label: "30 min" },
-                                                { value: 60, label: "60 min" }
+                                                {
+                                                    value: "manuale",
+                                                    label: "Manuale",
+                                                    description: "Ogni richiesta aspetta il tuo sì in Prenotazioni."
+                                                },
+                                                {
+                                                    value: "auto",
+                                                    label: "Automatica entro la capienza",
+                                                    description: autoDisabled ? (
+                                                        <>
+                                                            Serve la capienza della sala.{" "}
+                                                            <a
+                                                                href="#capienza"
+                                                                onClick={e => {
+                                                                    e.preventDefault();
+                                                                    scrollToCapacity();
+                                                                }}
+                                                                className={styles.link}
+                                                            >
+                                                                Impostala
+                                                            </a>
+                                                        </>
+                                                    ) : (
+                                                        "Confermate subito finché c'è posto."
+                                                    ),
+                                                    disabled: autoDisabled
+                                                }
                                             ]}
                                         />
-                                    )}
-                                </FormField>
-
-                                <FormSection
-                                    title="Quanti ne arrivano insieme"
-                                    description="Non quante persone stanno in sala: quante ne accetti per fascia. Vuoto = nessun limite; con entrambi vale il più restrittivo. Solo online."
-                                >
-                                <FormGrid cols={2}>
-                                    <NumberInput
-                                        label="Persone per fascia"
-                                        placeholder="nessun limite"
-                                        min={1}
-                                        value={numberText("reservation_pacing_max_covers")}
-                                        onChange={e => setNumber("reservation_pacing_max_covers", e.target.value, true)}
-                                        disabled={!canManage}
+                                        {d.reservation_confirmation_mode === "auto" && !autoDisabled && (
+                                            <InlineBanner variant="warning">
+                                                Il calcolo vale solo se in CataloGlobe ci sono tutte le prenotazioni, telefoniche e
+                                                walk-in compresi: se ne mancano, i clienti possono confermare oltre i posti.
+                                            </InlineBanner>
+                                        )}
+                                    </div>
+                                }
+                            />
+                            <SettingRow
+                                label="Ampiezza della fascia"
+                                description="Ogni quanto il modulo propone un orario"
+                                controlLayout="fill"
+                                control={
+                                    <div className={styles.fieldWithHelp}>
+                                    <div className={styles.startAligned}>
+                                    <SegmentedControl<number>
+                                        value={d.reservation_pacing_slot_minutes ?? 15}
+                                        onChange={v => draft.set("reservation_pacing_slot_minutes", v)}
+                                        options={[
+                                            { value: 15, label: "15 min" },
+                                            { value: 30, label: "30 min" },
+                                            { value: 60, label: "60 min" }
+                                        ]}
                                     />
-                                    <NumberInput
-                                        label="Tavoli per fascia"
-                                        placeholder="nessun limite"
-                                        min={1}
-                                        value={numberText("reservation_pacing_max_bookings")}
-                                        onChange={e => setNumber("reservation_pacing_max_bookings", e.target.value, true)}
-                                        disabled={!canManage}
-                                    />
-                                </FormGrid>
-                                </FormSection>
-
-                                <FormSection
-                                    title="Quanto tempo prima"
-                                    description="Vale solo online: a mano una prenotazione si inserisce per qualsiasi data e ora."
-                                >
-                                <FormGrid cols={2}>
-                                    <NumberInput
-                                        label="Preavviso minimo (minuti)"
-                                        min={0}
-                                        max={MIN_NOTICE_MINUTES_MAX}
-                                        value={numberText("reservation_min_notice_minutes")}
-                                        onChange={e => setNumber("reservation_min_notice_minutes", e.target.value, false)}
-                                        disabled={!canManage}
-                                        helperText="Con 120, alle 18:00 spariscono gli orari fino alle 20:00. Zero: nessun preavviso."
-                                    />
-                                    <NumberInput
-                                        label="Orizzonte (giorni)"
-                                        min={HORIZON_DAYS_MIN}
-                                        max={HORIZON_DAYS_MAX}
-                                        value={numberText("reservation_horizon_days")}
-                                        onChange={e => setNumber("reservation_horizon_days", e.target.value, false)}
-                                        disabled={!canManage}
-                                        helperText="Quanti giorni in avanti, oggi compreso: con 90 l'ultimo è fra 89 giorni."
-                                    />
-                                </FormGrid>
-                                </FormSection>
-                                {showNoticeHorizonWarning && (
-                                    <InlineBanner variant="warning">
-                                        Con questo preavviso nessun orario rientra nell'orizzonte: online non si prenota
-                                        nulla. Si può salvare lo stesso.
-                                    </InlineBanner>
-                                )}
-                            </FormGrid>
+                                    </div>
+                                        <Text variant="caption" colorVariant="muted">
+                                            Con 30 min il cliente vede 20:00, 20:30, 21:00.
+                                        </Text>
+                                    </div>
+                                }
+                            />
+                            <SettingRow
+                                label="Quanti ne arrivano insieme"
+                                description="Arrivi per fascia, non la capienza. Vuoto: nessun limite."
+                                controlLayout="fill"
+                                control={
+                                    <div className={styles.fieldWithHelp}>
+                                    <FormGrid cols={2}>
+                                        <NumberInput
+                                            label="Persone per fascia"
+                                            placeholder="Nessun limite"
+                                            min={1}
+                                            value={numberText("reservation_pacing_max_covers")}
+                                            onChange={e => setNumber("reservation_pacing_max_covers", e.target.value, true)}
+                                            disabled={!canManage}
+                                        />
+                                        <NumberInput
+                                            label="Tavoli per fascia"
+                                            placeholder="Nessun limite"
+                                            min={1}
+                                            value={numberText("reservation_pacing_max_bookings")}
+                                            onChange={e => setNumber("reservation_pacing_max_bookings", e.target.value, true)}
+                                            disabled={!canManage}
+                                        />
+                                    </FormGrid>
+                                        <Text variant="caption" colorVariant="muted">
+                                            Se compili entrambi vale il più restrittivo.
+                                        </Text>
+                                    </div>
+                                }
+                            />
+                            <SettingRow
+                                label="Quanto tempo prima"
+                                description="Il margine minimo e quanto in là si può prenotare"
+                                controlLayout="fill"
+                                control={
+                                    <div className={styles.stack}>
+                                        <FormGrid cols={2}>
+                                            <NumberInput
+                                                label="Preavviso minimo (minuti)"
+                                                min={0}
+                                                max={MIN_NOTICE_MINUTES_MAX}
+                                                value={numberText("reservation_min_notice_minutes")}
+                                                onChange={e => setNumber("reservation_min_notice_minutes", e.target.value, false)}
+                                                disabled={!canManage}
+                                                helperText="Con 120, alle 18:00 spariscono gli orari fino alle 20:00."
+                                            />
+                                            <NumberInput
+                                                label="Fino a quanti giorni avanti"
+                                                min={HORIZON_DAYS_MIN}
+                                                max={HORIZON_DAYS_MAX}
+                                                value={numberText("reservation_horizon_days")}
+                                                onChange={e => setNumber("reservation_horizon_days", e.target.value, false)}
+                                                disabled={!canManage}
+                                                helperText="Con 90, l'ultimo giorno prenotabile è fra 89 giorni."
+                                            />
+                                        </FormGrid>
+                                        {showNoticeHorizonWarning && (
+                                            <InlineBanner variant="warning">
+                                                Con questo preavviso nessun orario rientra nell'orizzonte: online non si prenota
+                                                nulla. Si può salvare lo stesso.
+                                            </InlineBanner>
+                                        )}
+                                    </div>
+                                }
+                            />
                         </Card>
                     </>
                 )}

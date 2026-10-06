@@ -19,12 +19,14 @@ export function buildSaveActionCompactConfig({
     isDirty,
     isSaving,
     onSave,
-    onRequestDiscard
+    onRequestDiscard,
+    saveDisabled = false
 }: {
     isDirty: boolean;
     isSaving: boolean;
     onSave: () => void;
     onRequestDiscard?: () => void;
+    saveDisabled?: boolean;
 }): Pick<PageHeaderCompactConfig, "primaryAction" | "secondaryActions" | "statusIndicator" | "loading"> {
     if (!isDirty && !isSaving) {
         return {
@@ -36,7 +38,7 @@ export function buildSaveActionCompactConfig({
     }
 
     return {
-        primaryAction: { label: "Salva", onClick: onSave },
+        primaryAction: { label: "Salva", onClick: onSave, disabled: saveDisabled },
         secondaryActions: onRequestDiscard
             ? [{ label: "Annulla", onClick: onRequestDiscard, disabled: isSaving }]
             : undefined,

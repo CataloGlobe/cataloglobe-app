@@ -14,20 +14,6 @@
     }
 }
 
-.subSection {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-
-    padding-top: 8px;
-    border-top: 1px solid var(--border);
-}
-
-.hint {
-    font-size: 13px;
-    color: var(--text-muted);
-}
-
 .addressGrid {
     display: grid;
     grid-template-columns: 1fr 1fr;

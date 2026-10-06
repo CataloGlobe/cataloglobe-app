@@ -30,18 +30,7 @@
 // Il filtro per tavolo è un `Select` di sistema: qui solo la larghezza.
 // Sotto 1024 va a tutta larghezza, sopra il selettore di stato.
 .tableFilter {
-  width: 240px;
-
-  @include below-sidebar {
-    width: 100%;
-  }
-}
-
-.filtersRow {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  flex-wrap: wrap;
+  width: 200px;
 }
 
 // Suono spento: l'IconButton resta, l'icona arretra.

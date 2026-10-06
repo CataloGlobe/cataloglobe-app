@@ -239,6 +239,11 @@ export type MissingStep = "seat" | "subscription" | "rule" | "products";
 export type Outcome = {
     kind: OutcomeKind;
     headline: string;
+    /**
+     * Il titolo senza «I clienti di <sede>»: «vedono Pranzo», «non vedono il
+     * menù: la sede è sospesa». La banda della pagina lo apre con l'ora.
+     */
+    verdict: string;
     /** «Cosa manca»: i passi che mancano, nell'ordine in cui l'Edge li controlla. */
     missing: MissingStep[];
 };
@@ -263,19 +268,16 @@ export function describeOutcome(input: OutcomeInput): Outcome {
     else if (!renderable) missing.push("products");
 
     const who = `I clienti di ${seatName}`;
-    if (!seatPublished) return { kind: "suspended", headline: `${who} non vedono il menù: la sede è sospesa`, missing };
-    if (!subscriptionServing) {
-        return { kind: "subscription", headline: `${who} non vedono il menù: l'abbonamento non è attivo`, missing };
-    }
+    const outcome = (kind: OutcomeKind, verdict: string): Outcome => ({ kind, headline: `${who} ${verdict}`, verdict, missing });
+    if (!seatPublished) return outcome("suspended", "non vedono il menù: la sede è sospesa");
+    if (!subscriptionServing) return outcome("subscription", "non vedono il menù: l'abbonamento non è attivo");
     if (!catalogName) {
         return hasCatalogRule
-            ? { kind: "noneNow", headline: `${who} non vedono nessun menù: nessuna regola menù vale adesso`, missing }
-            : { kind: "noRule", headline: `${who} non vedono nessun menù: nessuna regola gliene assegna uno`, missing };
+            ? outcome("noneNow", "non vedono nessun menù: nessuna regola menù vale adesso")
+            : outcome("noRule", "non vedono nessun menù: nessuna regola gliene assegna uno");
     }
-    if (!renderable) {
-        return { kind: "empty", headline: `${who} non vedono prodotti: ${catalogName} è vuoto adesso`, missing };
-    }
-    return { kind: "showing", headline: `${who} vedono ${catalogName}`, missing };
+    if (!renderable) return outcome("empty", `non vedono prodotti: ${catalogName} è vuoto adesso`);
+    return outcome("showing", `vedono ${catalogName}`);
 }
 
 function plural(n: number, one: string, many: string): string {

@@ -3,16 +3,16 @@
 // Assistenza e apri/chiudi. Aperta 232, chiusa 64:
 // **le righe restano alla stessa altezza e l'icona allo stesso posto**, si
 // anima solo la larghezza e il testo viene tagliato. La geometria fa sì che
-// l'icona (18) cada al centro dei 64 senza cambiare un padding:
-// 11 (contenitore) + 12 (riga) = 23 = (64 − 18) / 2.
+// l'icona (20, Allegato B delle correzioni UI) cada al centro dei 64 senza
+// cambiare un padding: 11 (contenitore) + 11 (riga) = 22 = (64 − 20) / 2.
 // Solo token: nel tema scuro segue --surface.
 
 /* ===== Geometria ===== */
 $container-x: 11px;
-$row-x: 12px;
+$row-x: 11px;
 $row-height: 36px;
 $row-height-touch: 40px;
-$icon-size: 18px;
+$icon-size: 20px;
 $icon-gap: 12px;
 $title-slot: 36px;
 $title-pad-bottom: 6px;
@@ -84,6 +84,26 @@ $dash-margin: 14px;
   overflow-x: hidden;
   overflow-y: auto;
   padding: var(--space-8) $container-x;
+
+  // C2: la sfumatura è una maschera, così segue il fondo della sidebar in
+  // chiaro e in scuro senza un colore proprio.
+  --fade-top: 0px;
+  --fade-bottom: 0px;
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    black var(--fade-top),
+    black calc(100% - var(--fade-bottom)),
+    transparent 100%
+  );
+
+  &[data-fade-top] {
+    --fade-top: 24px;
+  }
+
+  &[data-fade-bottom] {
+    --fade-bottom: 24px;
+  }
 }
 
 // Il piede: Assistenza e il pulsante apri/chiudi, fuori dallo scroll.

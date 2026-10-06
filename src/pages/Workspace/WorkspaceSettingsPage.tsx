@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { usePageHeader } from "@/context/usePageHeader";
+import { Link } from "react-router-dom";
+import { ArrowLeft, ChevronRight } from "lucide-react";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { Card } from "@/components/ui/Card/Card";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
@@ -56,10 +58,8 @@ export default function WorkspaceSettingsPage() {
     const [passwordSuccess, setPasswordSuccess] = useState(false);
     const [passwordLoading, setPasswordLoading] = useState(false);
 
-    usePageHeader({
-        title: "Impostazioni",
-        subtitle: "Gestisci il profilo e le preferenze del tuo workspace.",
-    });
+    // T17 WS4: «Account», senza barra di pagina; in cima il ritorno alle attività.
+    usePageTitle("Account");
 
     useEffect(() => {
         if (!user) return;
@@ -100,6 +100,15 @@ export default function WorkspaceSettingsPage() {
     ]);
 
     const displayEmail = user?.email || "—";
+
+    const initials =
+        displayName === "—"
+            ? displayEmail.charAt(0).toUpperCase()
+            : displayName
+                  .split(/\s+/)
+                  .slice(0, 2)
+                  .map(w => w.charAt(0).toUpperCase())
+                  .join("");
 
     const avatarUrl = useMemo(() => {
         if (profile?.avatar_url) {
@@ -251,130 +260,111 @@ export default function WorkspaceSettingsPage() {
         }
     };
 
+    const accountRows: Array<{
+        label: string;
+        description: string;
+        action: string;
+        onClick: () => void;
+        disabled?: boolean;
+        danger?: boolean;
+    }> = [
+        {
+            label: "Password",
+            description: "Serve per accedere insieme all'email.",
+            action: "Cambia password",
+            onClick: () => {
+                resetPasswordState();
+                setShowPasswordModal(true);
+            }
+        },
+        {
+            label: "Esci",
+            description: "Chiude la sessione su questo dispositivo.",
+            action: "Esci",
+            onClick: () => setShowLogoutModal(true),
+            disabled: loggingOut
+        },
+        {
+            label: "Elimina account",
+            description: "Viene eliminato dopo 30 giorni; fino ad allora puoi recuperarlo accedendo di nuovo.",
+            action: "Elimina account",
+            onClick: () => setIsDeleteAccountDrawerOpen(true),
+            danger: true
+        }
+    ];
+
     return (
         <div className={styles.page}>
+            {/* T17 WS4: colonna 720, una card: profilo in testa, righe
+                Password ed Esci, in fondo «Elimina account». */}
             <div className={styles.container}>
-                <div className={styles.cards}>
-                    <Card title="Profilo" className={styles.card}>
-                        <ImageUploadEditor
-                            aspectRatio={IMAGE_UPLOAD_PRESETS.avatar.aspectRatio}
-                            backgroundFillModes={IMAGE_UPLOAD_PRESETS.avatar.backgroundFillModes}
-                            maxSizeMB={IMAGE_UPLOAD_PRESETS.avatar.maxSizeMB}
-                            compressLongEdge={IMAGE_UPLOAD_PRESETS.avatar.compressLongEdge}
-                            bake={{ size: 512, format: "image/webp", quality: 0.9, fileName: "avatar.webp" }}
-                            fieldLabel={IMAGE_UPLOAD_PRESETS.avatar.fieldLabel}
-                            drawerTitle={IMAGE_UPLOAD_PRESETS.avatar.drawerTitle}
-                            requiresConfirm={IMAGE_UPLOAD_PRESETS.avatar.requiresConfirm}
-                            initialSource={avatarUrl}
-                            initialAspectRatio={1}
-                            onConfirm={handleAvatarConfirm}
-                            onRemove={handleRemoveAvatar}
-                            removing={removingAvatar}
-                        />
+                <Link to="/workspace" className={styles.back}>
+                    <ArrowLeft size={14} aria-hidden />
+                    <Text as="span" variant="body-sm" colorVariant="primary">
+                        Le tue attività
+                    </Text>
+                </Link>
 
-                        <div className={styles.profileRow}>
-                            <div className={styles.profileMeta}>
-                                <Text variant="body" weight={600}>
-                                    {displayName}
-                                </Text>
-                                <Text variant="caption" colorVariant="muted">
-                                    {displayEmail}
-                                </Text>
-                            </div>
+                <Text as="h1" variant="title-lg" weight={700} className={styles.title}>
+                    Account
+                </Text>
 
-                            <Button
-                                variant="secondary"
-                                onClick={() => setDrawerOpen(true)}
-                                disabled={loadingProfile}
-                            >
-                                Modifica profilo
-                            </Button>
-                        </div>
-                    </Card>
-
-                    {/* TODO: Implementare Tema e Lingua */}
-                    {/* <Card title="Preferenze" className={styles.card}>
-                        <div className={styles.preferencesGrid}>
-                            <Select
-                                label="Tema"
-                                value={theme}
-                                onChange={e => setTheme(e.target.value as "light" | "dark")}
-                                options={[
-                                    { value: "light", label: "Chiaro" },
-                                    { value: "dark", label: "Scuro" }
-                                ]}
-                            />
-
-                            <Select
-                                label="Lingua"
-                                value={language}
-                                onChange={e => setLanguage(e.target.value)}
-                                options={[
-                                    { value: "it", label: "Italiano" },
-                                    { value: "en", label: "English" }
-                                ]}
-                            />
-                        </div>
-                    </Card> */}
-
-                    <Card title="Account e sicurezza" className={styles.card}>
-                        <div className={styles.accountGrid}>
-                            <div className={styles.accountField}>
-                                <Text variant="caption" colorVariant="muted">
-                                    Email
-                                </Text>
-                                <Text variant="body-sm">{displayEmail}</Text>
-                            </div>
-
-                            <div className={styles.accountField}>
-                                <Text variant="caption" colorVariant="muted">
-                                    Password
-                                </Text>
-                                <Text variant="body-sm">••••••••</Text>
-                            </div>
-
-                            <div className={styles.accountActions}>
-                                <Button
-                                    variant="secondary"
-                                    onClick={() => {
-                                        resetPasswordState();
-                                        setShowPasswordModal(true);
-                                    }}
-                                >
-                                    Cambia password
-                                </Button>
-                            </div>
-                        </div>
-
-                        <div className={styles.logoutRow}>
-                            <Text variant="body-sm" colorVariant="muted">
-                                Chiudi la sessione attiva del tuo workspace.
+                <Card flush className={styles.card}>
+                    <div className={styles.profile}>
+                        <span className={styles.avatar} aria-hidden="true">
+                            {avatarUrl ? <img src={avatarUrl} alt="" /> : initials}
+                        </span>
+                        <div className={styles.profileMeta}>
+                            <Text as="h2" variant="title-sm" weight={700} className={styles.profileName}>
+                                {displayName}
                             </Text>
-                            <Button
-                                variant="danger"
-                                onClick={() => setShowLogoutModal(true)}
-                                disabled={loggingOut}
-                            >
-                                Logout
-                            </Button>
-                        </div>
-                    </Card>
-
-                    <Card title="Eliminazione account" className={styles.card}>
-                        <div className={styles.logoutRow}>
                             <Text variant="body-sm" colorVariant="muted">
-                                Questa azione è irreversibile. Il tuo account verrà eliminato
-                                definitivamente dopo 30 giorni.
+                                {displayEmail}
                             </Text>
-                            <Button
-                                variant="danger"
-                                onClick={() => setIsDeleteAccountDrawerOpen(true)}
-                            >
-                                Elimina account
-                            </Button>
                         </div>
-                    </Card>
-                </div>
+                        <Button
+                            variant="secondary"
+                            onClick={() => setDrawerOpen(true)}
+                            disabled={loadingProfile}
+                            className={styles.profileAction}
+                        >
+                            Modifica profilo
+                        </Button>
+                    </div>
+
+                    {accountRows.map(row => (
+                        <div key={row.label} className={styles.row}>
+                            {/* Da 640 in su: nome, descrizione e bottone a destra. */}
+                            <div className={styles.rowText}>
+                                <Text variant="body-sm" weight={600} className={row.danger ? styles.danger : undefined}>
+                                    {row.label}
+                                </Text>
+                                <Text variant="caption" colorVariant="muted">
+                                    {row.description}
+                                </Text>
+                            </div>
+                            <Button
+                                variant={row.danger ? "outline-danger" : "secondary"}
+                                size="sm"
+                                onClick={row.onClick}
+                                disabled={row.disabled}
+                                className={styles.rowButton}
+                            >
+                                {row.action}
+                            </Button>
+                            {/* Sotto 640: tutta la riga è il bottone, alta 56, con la freccia. */}
+                            <button
+                                type="button"
+                                className={`${styles.rowTap} ${row.danger ? styles.danger : ""}`}
+                                onClick={row.onClick}
+                                disabled={row.disabled}
+                            >
+                                <span>{row.action}</span>
+                                <ChevronRight size={16} aria-hidden />
+                            </button>
+                        </div>
+                    ))}
+                </Card>
             </div>
 
             <DeleteAccountDrawer
@@ -411,6 +401,23 @@ export default function WorkspaceSettingsPage() {
                     }
                 >
                     <div className={styles.drawerForm}>
+                        <div className={styles.avatarField}>
+                                <ImageUploadEditor
+                                    aspectRatio={IMAGE_UPLOAD_PRESETS.avatar.aspectRatio}
+                                    backgroundFillModes={IMAGE_UPLOAD_PRESETS.avatar.backgroundFillModes}
+                                    maxSizeMB={IMAGE_UPLOAD_PRESETS.avatar.maxSizeMB}
+                                    compressLongEdge={IMAGE_UPLOAD_PRESETS.avatar.compressLongEdge}
+                                    bake={{ size: 512, format: "image/webp", quality: 0.9, fileName: "avatar.webp" }}
+                                    fieldLabel={IMAGE_UPLOAD_PRESETS.avatar.fieldLabel}
+                                    drawerTitle={IMAGE_UPLOAD_PRESETS.avatar.drawerTitle}
+                                    requiresConfirm={IMAGE_UPLOAD_PRESETS.avatar.requiresConfirm}
+                                    initialSource={avatarUrl}
+                                    initialAspectRatio={1}
+                                    onConfirm={handleAvatarConfirm}
+                                    onRemove={handleRemoveAvatar}
+                                    removing={removingAvatar}
+                                />
+                        </div>
                         <form
                             id="workspace-profile-form"
                             onSubmit={handleSaveProfile}

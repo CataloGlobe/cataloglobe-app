@@ -62,20 +62,26 @@ test.describe("Prenotazioni", () => {
     test("si apre sull'Agenda, con la coda da gestire in cima e lo stato di oggi", async ({ page }) => {
         await openPrenotazioni(page);
 
-        // Una vista sola (lotto B-b): niente schede. Il contatore delle
-        // richieste resta sulla card «Da gestire» e nella banda di oggi.
+        // Una vista sola (lotto B-b): niente schede.
         await expect(page.getByRole("tab")).toHaveCount(0);
-        await expect(page.getByRole("button", { name: "Nuova prenotazione" }).first()).toBeVisible();
+        const nuova = page.getByRole("button", { name: "Nuova prenotazione" }).first();
+        await expect(nuova).toBeVisible();
 
-        // La coda è una card in cima all'Agenda.
-        // (La prima occorrenza è il titolo della card: sotto, le righe in agenda
-        // hanno lo stato «Da gestire».)
-        await expect(main(page).getByText("Da gestire", { exact: true }).first()).toBeVisible();
-        // Lo stato di oggi: 4 prenotazioni accettate, ~15 coperti, 3 da gestire.
-        const oggi = main(page).getByRole("status", { name: /arrivo|prenotazione oggi/ });
-        await expect(oggi).toContainText("Oggi");
-        await expect(oggi).toContainText("da gestire");
-        await expect(oggi).toContainText("~15");
+        // T14 PN1: Giorni/Settimana e la settimana nella testata, sulla riga
+        // di «Nuova prenotazione».
+        const giorni = main(page).getByRole("radio", { name: "Giorni" });
+        const nav = main(page).getByRole("group", { name: "Naviga settimana" });
+        await expect(giorni).toBeChecked();
+        await expect(nav).toBeVisible();
+        const navBox = await nav.boundingBox();
+        const nuovaBox = await nuova.boundingBox();
+        expect(Math.abs(navBox!.y + navBox!.height / 2 - (nuovaBox!.y + nuovaBox!.height / 2))).toBeLessThan(12);
+
+        // T14 PN2: niente riquadro «Oggi»; la sua frase è l'intestazione della
+        // card delle richieste: 4 prenotazioni accettate, ~15 coperti.
+        await expect(main(page).getByRole("status", { name: /arrivo|prenotazione oggi/ })).toHaveCount(0);
+        await expect(main(page).getByText("Richieste da gestire", { exact: true })).toBeVisible();
+        await expect(main(page).getByText(/^Oggi 4 prenotazioni · ~15 coperti/)).toBeVisible();
     });
 
     test("Prenotazioni non ha più la scheda Servizio: la sala è l'Elenco di Servizio (lotto B-b)", async ({ page }) => {
@@ -83,7 +89,7 @@ test.describe("Prenotazioni", () => {
         await expect(page.getByRole("tab", { name: "Servizio", exact: true })).toHaveCount(0, { timeout: 5_000 });
         await expect(main(page).getByText(/in sala adesso/i)).toHaveCount(0);
         // L'Agenda resta, con la coda in cima e la creazione.
-        await expect(main(page).getByText("Da gestire", { exact: true }).first()).toBeVisible();
+        await expect(main(page).getByText("Richieste da gestire", { exact: true })).toBeVisible();
         await expect(page.getByRole("button", { name: "Nuova prenotazione" }).first()).toBeVisible();
     });
 
@@ -103,8 +109,12 @@ test.describe("Prenotazioni", () => {
         await expect(m.getByText("Compleanno, se possibile tavolo tranquillo").first()).toBeVisible();
         await expect(m.getByRole("button", { name: /Marco Rossi/ }).first()).toBeVisible();
 
-        // La scaduta sta sotto la sua intestazione, e si può solo rifiutare.
-        await expect(m.getByText(/^Scadute/i)).toBeVisible();
+        // T14 PN2: la scaduta sta dietro una riga chiusa, e si può solo rifiutare.
+        const scadute = m.getByRole("button", { name: /^1 scaduta.*Mostra/ });
+        await expect(scadute).toHaveAttribute("aria-expanded", "false");
+        await expect(m.getByRole("button", { name: /Luca Verdi/ })).toHaveCount(0);
+        await scadute.click();
+        await expect(scadute).toHaveAttribute("aria-expanded", "true");
         const luca = m.getByRole("button", { name: /Luca Verdi/ }).first();
         await expect(luca.getByRole("button", { name: "Rifiuta", exact: true })).toBeVisible();
         await expect(luca.getByRole("button", { name: "Conferma", exact: true })).toHaveCount(0);
@@ -218,6 +228,18 @@ test.describe("Prenotazioni", () => {
         await m.getByRole("radio", { name: "Settimana" }).click();
         await expect(m.getByRole("button", { name: /^Sara Conti 20:30/ })).toBeVisible();
         await expect(m.getByRole("group", { name: "Naviga settimana" })).toBeVisible();
+    });
+
+    test("PN3: «Include le prenotazioni online» sta solo nello stato vuoto dell'Agenda", async ({ page }) => {
+        await openPrenotazioni(page);
+        const m = main(page);
+        await expect(m.getByText("Sara Conti").first()).toBeVisible();
+        await expect(m.getByText(/Include le prenotazioni online/)).toHaveCount(0);
+
+        // Una settimana lontana, senza prenotazioni.
+        for (let i = 0; i < 12; i++) await m.getByRole("button", { name: "Settimana successiva" }).click();
+        await expect(m.getByText("Nessuna prenotazione in questa settimana")).toBeVisible();
+        await expect(m.getByText(/Include le prenotazioni online/)).toBeVisible();
     });
 
     test("ricerca per nome", async ({ page }) => {
@@ -368,8 +390,8 @@ test.describe("Prenotazioni", () => {
         const sede = page.url().replace(/\?.*$/, "");
         const base = sede.replace(/\/locations\/.*$/, "");
 
-        // «Ordini e prenotazioni» della scheda: il rimando resta nella sede.
-        await page.goto(sede.replace(/\/prenotazioni$/, "/ordini-prenotazioni"));
+        // La tab Prenotazioni della scheda: il rimando resta nella sede.
+        await page.goto(sede.replace(/\/prenotazioni$/, "/prenotazioni-online"));
         await main(page).getByRole("link", { name: "Prenotazioni", exact: true }).click();
         await expect(page).toHaveURL(sede, { timeout: 15_000 });
 
@@ -379,10 +401,10 @@ test.describe("Prenotazioni", () => {
         await page.getByRole("menuitem", { name: "Prenotazioni", exact: true }).click();
         await expect(page).toHaveURL(sede, { timeout: 15_000 });
 
-        // Nello stesso menu, «Ordini» porta alle comande della stessa sede.
+        // Nello stesso menu, «Comande» (P5, correzioni UI) porta alle comande della stessa sede.
         await page.goto(`${base}/overview`);
         await main(page).getByRole("button", { name: /^Azioni per .*Garbagnate/ }).click();
-        await page.getByRole("menuitem", { name: "Ordini", exact: true }).click();
+        await page.getByRole("menuitem", { name: "Comande", exact: true }).click();
         await expect(page).toHaveURL(sede.replace(/\/prenotazioni$/, "/comande"), { timeout: 15_000 });
     });
 

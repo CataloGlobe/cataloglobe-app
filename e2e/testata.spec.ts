@@ -8,8 +8,8 @@ import { stubStili } from "./stiliStub";
 /**
  * La testata di pagina (`PageHeaderSlot`), lotto 6 «cleanup DS».
  *
- * - **Sottotitolo**: `usePageHeader({ subtitle })` si vede, sopra la banda.
- *   Prima lo slot lo ignorava (§50.14, dev. 4).
+ * - **Sottotitolo**: le pagine dell'azienda non lo passano più (M1); lo slot
+ *   lo disegna ancora per le pagine admin.
  * - **Una sola testata**: quando tab e azioni non stanno in riga, ogni pagina
  *   con tab passa a due righe (azioni sopra, tab sotto) prima della barra
  *   compatta, da 768 in su; sotto 768 sempre la barra compatta. Prima lo faceva solo Programmazione (`condensed.stack`).
@@ -32,38 +32,29 @@ async function stacked(leading: Locator, action: Locator): Promise<void> {
         .toBeGreaterThanOrEqual(0);
 }
 
-test.describe("Testata — sottotitolo", () => {
-    test("Analitiche: il sottotitolo del mockup", async ({ page }) => {
+// M1 (correzioni UI, ottobre 2026): niente frase sotto la testata. Le pagine
+// dell'azienda non passano più il `subtitle`; la spiegazione sta negli stati vuoti.
+test.describe("Testata — niente sottotitolo (M1)", () => {
+    test("Analitiche: nessuna frase sotto la testata", async ({ page }) => {
         await stubAnalitiche(page);
         await openBusinessPage(page, "analytics", "Analitiche");
-        await expect(page.getByText("Cosa fanno i clienti sulla pagina pubblica.", { exact: true })).toBeVisible({
-            timeout: 15_000
-        });
+        await expect(page.getByText("Cosa fanno i clienti sulla pagina pubblica.", { exact: true })).toHaveCount(0);
     });
 
-    test("Recensioni: il sottotitolo del mockup", async ({ page }) => {
+    test("Recensioni: nessuna frase sotto la testata", async ({ page }) => {
         await stubRecensioni(page);
         await openBusinessPage(page, "reviews", "Recensioni");
         await expect(
             page.getByText("Quello che i clienti scrivono dopo essere stati da voi. Lo leggete solo voi: non compare sulla pagina pubblica.", { exact: true })
-        ).toBeVisible({ timeout: 15_000 });
+        ).toHaveCount(0);
     });
 
-    test("Stili: il sottotitolo che la pagina passava già", async ({ page }) => {
+    test("Stili: nessuna frase sotto la testata", async ({ page }) => {
         await stubStili(page);
         await openBusinessPage(page, "styles", "Stili");
         await expect(
             page.getByText("Personalizza l'aspetto visivo e i colori del tuo catalogo.", { exact: true })
-        ).toBeVisible({ timeout: 15_000 });
-    });
-
-    test("a 375 il sottotitolo va a capo, senza scroll di lato", async ({ page }) => {
-        await stubRecensioni(page);
-        await openBusinessPage(page, "reviews", "Recensioni");
-        await page.setViewportSize({ width: 375, height: 800 });
-        const subtitle = page.getByText("Quello che i clienti scrivono dopo essere stati da voi. Lo leggete solo voi: non compare sulla pagina pubblica.", { exact: true });
-        await expect(subtitle).toBeVisible({ timeout: 15_000 });
-        expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+        ).toHaveCount(0);
     });
 });
 
@@ -84,34 +75,28 @@ test.describe("Testata — due righe prima della barra compatta", () => {
         await expect(page.getByRole("tab", { name: /^Gruppi/ })).toBeHidden();
     });
 
-    test("Team a 1024: tab sotto le azioni", async ({ page }) => {
+    // T16 IM1: in testata restano le tab di Impostazioni e «Invita membro»:
+    // a 1024 stanno su una riga.
+    test("Team a 1024: tab e «Invita membro» su una riga", async ({ page }) => {
         await openBusinessPage(page, "team", "Team");
         await page.setViewportSize({ width: 1024, height: 900 });
-        await stacked(
-            page.getByRole("tab", { name: "Membri" }),
-            page.getByRole("button", { name: "Invita membro" }).first()
-        );
+        const tab = page.getByRole("tab", { name: "Team", exact: true });
+        const cta = page.getByRole("button", { name: "Invita membro" }).first();
+        await expect(tab).toBeVisible();
+        await expect(cta).toBeVisible();
+        const a = (await tab.boundingBox())!;
+        const b = (await cta.boundingBox())!;
+        expect(Math.abs(a.y + a.height / 2 - (b.y + b.height / 2))).toBeLessThan(12);
     });
 
-    // Senza i filtri di stato la testata è più corta: a 1280 sta già su una riga (R1).
-    for (const width of [1024]) {
-        test(`Recensioni a ${width}: stelle sotto le azioni`, async ({ page }) => {
-            await stubRecensioni(page);
-            await openBusinessPage(page, "reviews", "Recensioni");
-            await page.setViewportSize({ width, height: 900 });
-            await stacked(
-                page.getByRole("radio", { name: "Tutte" }).first(),
-                page.getByPlaceholder("Cerca commenti...")
-            );
-        });
-    }
-
+    // T15: le stelle sono un Select «Filtra per stelle» nelle azioni, il
+    // conteggio è il leading. A 1280 e 1440 tutto su una riga.
     for (const width of [1280, 1440]) {
         test(`Recensioni a ${width}: una riga sola`, async ({ page }) => {
             await stubRecensioni(page);
             await openBusinessPage(page, "reviews", "Recensioni");
             await page.setViewportSize({ width, height: 900 });
-            const stars = page.getByRole("radio", { name: "Tutte" }).first();
+            const stars = page.getByRole("combobox", { name: "Filtra per stelle" }).first();
             const search = page.getByPlaceholder("Cerca commenti...");
             await expect(stars).toBeVisible();
             await expect(search).toBeVisible();

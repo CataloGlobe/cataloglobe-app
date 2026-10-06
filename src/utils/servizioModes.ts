@@ -14,7 +14,7 @@ import type { PlanFeature } from "@/lib/planFeatures";
  *
  * L'Elenco (le tavolate, lotto B-b) è il primo: col piano Pro si atterra lì.
  */
-export type ServizioMode = "elenco" | "mappa" | "gestisci";
+export type ServizioMode = "elenco" | "mappa";
 
 export interface ServizioModeEntry {
     mode: ServizioMode;
@@ -36,14 +36,20 @@ export const SERVIZIO_MODES: readonly ServizioModeEntry[] = [
     },
     // La sala per zona, col pannello del conto: era Comande → Tavoli. Legge
     // tavoli e ordini; senza ordini al tavolo nel piano ha il lucchetto.
-    { mode: "mappa", label: "Mappa", permissions: ["tables.read", "orders.read"], requiresFeature: "table_ordering" },
-    // La configurazione della sala: libera da ogni piano, i tavoli servono
-    // anche a chi non ordina né prenota online.
-    { mode: "gestisci", label: "Gestisci la sala", permissions: ["tables.read"] }
+    { mode: "mappa", label: "Mappa", permissions: ["tables.read", "orders.read"], requiresFeature: "table_ordering" }
+    // La configurazione della sala («Gestisci la sala») è la tab Sala della
+    // Scheda della sede (correzioni UI SV3): `?modo=gestisci` porta lì.
 ];
 
-/** Chi vede la voce Servizio: chi legge i tavoli o le tavolate della sede (D1). */
-export const SERVIZIO_READ_PERMISSIONS: readonly string[] = ["tables.read", "seatings.read"];
+/**
+ * Chi vede la voce Servizio: chi ha i permessi di almeno un modo, anche se il
+ * piano lo chiude col lucchetto. Prima bastava leggere tavoli o tavolate (D1),
+ * perché «Gestisci la sala» chiedeva solo `tables.read`; uscita la Sala
+ * (SV3), chi legge solo i tavoli li trova nella tab Sala della Scheda.
+ */
+export function canSeeServizio(permissions: UserPermissions, activityId: string): boolean {
+    return SERVIZIO_MODES.some(entry => entry.permissions.every(p => canDoOnActivity(permissions, p, activityId)));
+}
 
 export type ModeAccess = "usable" | "locked" | "hidden";
 

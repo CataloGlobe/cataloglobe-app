@@ -26,9 +26,9 @@ function comments(page: Page): Promise<string[]> {
     return main(page).getByText(/^(Pizza ottima|Servizio lento|Tiramisù da provare|Freddo) e2e/).allTextContents();
 }
 
-/** La riga di una recensione: il più vicino antenato che ha il suo `data-list-row`. */
+/** La riga di una recensione nell'elenco «Recensioni» (RC6). */
 function rowOf(page: Page, comment: string): Locator {
-    return main(page).locator("[data-list-row]").filter({ hasText: comment });
+    return main(page).getByRole("list", { name: "Recensioni" }).getByRole("listitem").filter({ hasText: comment });
 }
 
 /**
@@ -101,8 +101,27 @@ test.describe("Recensioni", () => {
 
     test("filtro per stelle", async ({ page }) => {
         await openPage(page);
-        await chooseFilter(page, page.getByRole("radio", { name: /^1$/ }), "Valutazione", /^1 stella$/);
+        await chooseFilter(page, page.getByRole("combobox", { name: "Filtra per stelle" }), "Valutazione", /^1 stella$/, "1");
         expect(await comments(page)).toEqual(["Freddo e2e"]);
+        // RC4: il conteggio a sinistra nella barra segue il filtro.
+        await expect(main(page).getByText("1 di 5 recensioni", { exact: true })).toBeVisible();
+    });
+
+    test("RC4: barra con il conteggio a sinistra, ricerca · stelle · periodo · ordine a destra", async ({ page }) => {
+        await openPage(page);
+        const count = main(page).getByText("5 recensioni", { exact: true });
+        await expect(count).toBeVisible();
+        const boxes = await Promise.all([
+            count.boundingBox(),
+            page.getByPlaceholder(/^Cerca/).first().boundingBox(),
+            page.getByRole("combobox", { name: "Filtra per stelle" }).boundingBox(),
+            page.getByRole("combobox", { name: "Filtra per periodo" }).boundingBox(),
+            page.getByRole("combobox", { name: "Ordina recensioni" }).boundingBox()
+        ]);
+        const xs = boxes.map(b => b!.x);
+        expect([...xs].sort((a, b) => a - b)).toEqual(xs);
+        // Nessuna frase sotto la testata: sta nel riepilogo.
+        await expect(main(page).getByRole("radio")).toHaveCount(0);
     });
 
     test("ricerca nei commenti", async ({ page }) => {
@@ -185,6 +204,19 @@ test.describe("Recensioni — feedback privato", () => {
         await expect(main(page).getByText(/^3[.,]1$/).first()).toBeVisible();
         await expect(main(page).getByRole("img", { name: "3,1 su 5 · 8 recensioni" })).toBeVisible();
         await expect(main(page).getByText("Riepilogo dei voti", { exact: true })).toBeVisible();
+        // RC5: la frase del feedback privato è il sottotitolo del riepilogo.
+        await expect(main(page).getByText(/^Feedback privati dei clienti: li vedi solo tu e il tuo team/)).toBeVisible();
+    });
+
+    test("RC6: stelle e data in colonna a sinistra, commento a tutta larghezza", async ({ page }) => {
+        await openPage(page);
+        const row = rowOf(page, "Cameriere scortese e2e");
+        const [ratingBox, commentBox] = await Promise.all([
+            row.getByRole("img").first().boundingBox(),
+            row.getByText(/^Cameriere scortese e2e/).boundingBox()
+        ]);
+        expect(ratingBox!.x + ratingBox!.width).toBeLessThan(commentBox!.x);
+        expect(Math.abs(ratingBox!.y - commentBox!.y)).toBeLessThan(12);
     });
 
     test("le righe ex in attesa e nascoste sono nell'elenco", async ({ page }) => {
@@ -219,7 +251,7 @@ test.describe("Recensioni — feedback privato", () => {
         await expect(link).toHaveText(/^Recensioni$/);
     });
 
-    test("a 375 il commento lungo prende tutta la riga, voto sotto, nessuno scroll orizzontale", async ({ page }) => {
+    test("a 375 il commento lungo prende tutta la riga, stelle e data sopra, nessuno scroll orizzontale", async ({ page }) => {
         await openPage(page);
         await page.setViewportSize({ width: 375, height: 800 });
         const row = rowOf(page, "Cameriere scortese e2e");
@@ -234,6 +266,6 @@ test.describe("Recensioni — feedback privato", () => {
         if (!rowBox || !commentBox || !ratingBox) throw new Error("riga non misurabile");
         // Tutta la larghezza meno i rientri della riga e lo spazio del menu «⋯».
         expect(commentBox.width).toBeGreaterThanOrEqual(rowBox.width - 2 * 24 - 48);
-        expect(ratingBox.y).toBeGreaterThanOrEqual(commentBox.y + commentBox.height);
+        expect(ratingBox.y + ratingBox.height).toBeLessThanOrEqual(commentBox.y);
     });
 });

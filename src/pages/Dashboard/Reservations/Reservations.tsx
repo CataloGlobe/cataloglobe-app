@@ -17,6 +17,7 @@ import { Select } from "@/components/ui/Select/Select";
 import type { SelectOption } from "@/components/ui/Select/Select";
 import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
 import { useActivityScope } from "@/hooks/useActivityScope";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { todayIsoDate } from "@/utils/dateLocal";
 import { reassignActivityTables, searchReservations, type ReservationSearchPage } from "@/services/supabase/reservations";
 import { parseSearchQuery } from "@/utils/reservationSearch";
@@ -24,7 +25,9 @@ import type { V2Reservation } from "@/types/reservation";
 import ReservationsInbox from "./ReservationsInbox";
 import ReservationsAgenda from "./ReservationsAgenda";
 import ReservationsSearchResults from "./ReservationsSearchResults";
-import ReservationsTodayStrip from "./ReservationsTodayStrip";
+import AgendaNav, { type AgendaViewMode } from "./AgendaNav";
+import { agendaRangeLabel } from "./agendaRange";
+import { summarizeToday, todaySentence } from "./todaySummary";
 import ReservationDrawers from "./ReservationDrawers";
 import { agendaWeekRange, type DateRange } from "./loadWindow";
 import { useReservationDesk } from "./hooks/useReservationDesk";
@@ -99,6 +102,10 @@ export function ReservationsAgendaPage() {
     // settimana dell'Agenda; oggi e i giorni aperti nei drawer li aggiunge il
     // banco (`useReservationDesk`).
     const [weekOffset, setWeekOffset] = useState(0);
+    const [agendaMode, setAgendaMode] = useState<AgendaViewMode>("days");
+    // La testata compatta del telefono non porta il `leading`: lì Giorni/
+    // Settimana e la settimana restano sopra l'Agenda.
+    const isPhone = useMediaQuery("(max-width: 767px)");
     const today = todayIsoDate();
     const baseRanges = useMemo<DateRange[]>(() => [agendaWeekRange(today, weekOffset)], [today, weekOffset]);
 
@@ -156,6 +163,23 @@ export function ReservationsAgendaPage() {
     }, [effectiveReservations, readableActivityIds, scope, channelFilter]);
 
     const pendingInScope = useMemo(() => scopedReservations.filter(r => r.status === "pending"), [scopedReservations]);
+    const todayLine = useMemo(() => todaySentence(summarizeToday(scopedReservations)), [scopedReservations]);
+
+    // T14 PN1: a sinistra Giorni/Settimana e le date, a destra ricerca,
+    // canali e «Nuova prenotazione». In ricerca la settimana non conta.
+    const pageLeading = useMemo(
+        () =>
+            isPhone || isSearchActive ? undefined : (
+                <AgendaNav
+                    mode={agendaMode}
+                    onModeChange={setAgendaMode}
+                    weekOffset={weekOffset}
+                    onWeekOffsetChange={setWeekOffset}
+                    rangeLabel={agendaRangeLabel(today, weekOffset)}
+                />
+            ),
+        [isPhone, isSearchActive, agendaMode, weekOffset, today]
+    );
 
     // ── Ricerca: la query ─────────────────────────────────────────────
     // Debounce sul testo; una risposta arrivata dopo una digitazione più
@@ -224,8 +248,8 @@ export function ReservationsAgendaPage() {
     );
 
     const headerConfig = useMemo(
-        () => (isLocked ? null : { actions: pageActions, compact: headerCompact }),
-        [isLocked, pageActions, headerCompact]
+        () => (isLocked ? null : { leading: pageLeading, actions: pageActions, compact: headerCompact }),
+        [isLocked, pageLeading, pageActions, headerCompact]
     );
     usePageHeader(headerConfig);
 
@@ -356,12 +380,6 @@ export function ReservationsAgendaPage() {
     return (
         <>
             <div className={styles.page}>
-                {/* ── Oggi ─────────────────────────────────────────────────
-                    In testa e sopra la ricerca. Sempre: con zero richieste è
-                    lei a dire che non c'è niente da gestire (la coda, vuota,
-                    non si mostra). */}
-                <ReservationsTodayStrip items={scopedReservations} />
-
                 {/* Niente stato vuoto di pagina: la memoria contiene solo la
                     finestra mostrata, e una settimana vuota non è «nessuna
                     prenotazione». L'Agenda ha il suo vuoto, con la sua
@@ -376,10 +394,13 @@ export function ReservationsAgendaPage() {
                 ) : (
                     <>
                         {/* §14: le richieste in cima all'agenda, indipendenti
-                            dalla settimana scelta. Senza richieste la card non c'è. */}
+                            dalla settimana scelta. Senza richieste la card non c'è.
+                            T14 PN2: «Oggi» è la frase della sua intestazione; il
+                            numero conta tutte le pending, scadute comprese. */}
                         {pendingInScope.length > 0 && (
                             <Card
-                                title="Da gestire"
+                                title="Richieste da gestire"
+                                subtitle={todayLine}
                                 badge={<Badge variant="brand">{pendingInScope.length}</Badge>}
                                 flush
                             >
@@ -401,6 +422,9 @@ export function ReservationsAgendaPage() {
                             canManage={scope !== null && canManageActivity(scope)}
                             onReassignDay={handleReassignDay}
                             onOpenDetail={desk.handleOpenDetail}
+                            mode={agendaMode}
+                            onModeChange={setAgendaMode}
+                            navInHeader={!isPhone}
                         />
                     </>
                 )}

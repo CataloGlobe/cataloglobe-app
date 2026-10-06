@@ -11,12 +11,6 @@
   scroll-margin-top: var(--space-24);
 }
 
-.rowActions {
-  display: flex;
-  gap: var(--space-8);
-  flex-wrap: wrap;
-}
-
 // Campo + interruttore «visibile ai clienti» sulla stessa riga.
 .contact {
   display: flex;

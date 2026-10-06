@@ -148,6 +148,9 @@ export interface FeaturedContentProductRow {
         id: string;
         name: string;
         base_price: number | null;
+        /** La miniatura nella sezione Prodotti (EV7). */
+        image_url?: string | null;
+        image_framing?: MediaFraming | null;
         option_groups: Array<{
             group_kind: string;
             values: Array<{ absolute_price: number | null }>;
@@ -481,7 +484,7 @@ export async function listFeaturedContentProducts(
             product_id,
             sort_order,
             note,
-            products (id, name, base_price, option_groups:product_option_groups(group_kind, values:product_option_values(absolute_price)))
+            products (id, name, base_price, image_url, image_framing, option_groups:product_option_groups(group_kind, values:product_option_values(absolute_price)))
         `
         )
         .eq("featured_content_id", featuredId)

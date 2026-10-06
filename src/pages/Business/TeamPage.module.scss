@@ -15,8 +15,31 @@
 // Membri · Inviti nel corpo (§51.12): ad altezza naturale. La variante
 // `line` di Tabs riempie l'altezza del genitore (pensata per la testata) e
 // nella colonna flex della pagina schiaccerebbe la tabella.
-.subTabs {
+// T16 IM3: segmenti a sinistra, ricerca e ruoli a destra; sotto 768 vanno
+// a capo, la ricerca prende la riga.
+.toolbar {
   flex: 0 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-12);
+}
+
+.toolbarRight {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  min-width: 0;
+
+  @media (max-width: 767px) {
+    flex: 1 1 100%;
+
+    > :first-child {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+  }
 }
 
 .emailCell {

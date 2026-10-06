@@ -1,24 +1,24 @@
 import type { ReactNode } from "react";
 import {
-    Archive,
-    BarChart3,
-    BookOpen,
-    BookOpenText,
     BookUser,
-    Calendar,
-    CalendarCheck,
+    CalendarClock,
+    CalendarDays,
+    ChartColumn,
+    ChefHat,
     ClipboardList,
+    ConciergeBell,
     Eye,
     History,
     LayoutDashboard,
-    LayoutGrid,
     Languages,
     LifeBuoy,
-    MessageSquare,
+    Megaphone,
     Palette,
-    Pin,
+    ScrollText,
     Settings,
-    Store
+    Star,
+    Store,
+    Utensils
 } from "lucide-react";
 import { canSeeNavEntry, entryPath, type NavEntry, type NavKey, type NavModel } from "@/utils/navModel";
 import type { SidebarNavGroup, SidebarNavItem } from "./sidebarItems";
@@ -29,29 +29,33 @@ import type { SidebarNavGroup, SidebarNavItem } from "./sidebarItems";
  * modello; il filtro per permessi e piano in `buildSidebarGroups`.
  */
 
+// Allegato B delle correzioni UI: un'icona per concetto, Lucide a 20 px; lo
+// stesso oggetto ha la stessa icona ovunque (Sedi = `Store`, come il selettore
+// della sede; Menù, Storie e Recensioni come la barra della pagina pubblica).
+// `Sparkles` resta all'AI.
 const ICONS: Record<NavKey, ReactNode> = {
-    overview: <LayoutDashboard size={18} />,
-    locations: <Store size={18} />,
-    anagrafica: <Store size={18} />,
-    "cosa-vedono": <Eye size={18} />,
-    catalogs: <BookOpen size={18} />,
-    products: <Archive size={18} />,
-    scheduling: <Calendar size={18} />,
-    styles: <Palette size={18} />,
-    featured: <Pin size={18} />,
-    stories: <BookOpenText size={18} />,
-    languages: <Languages size={18} />,
-    servizio: <LayoutGrid size={18} />,
-    prenotazioni: <CalendarCheck size={18} />,
-    comande: <ClipboardList size={18} />,
-    storico: <History size={18} />,
-    analytics: <BarChart3 size={18} />,
-    reviews: <MessageSquare size={18} />,
-    analitiche: <BarChart3 size={18} />,
-    recensioni: <MessageSquare size={18} />,
-    guests: <BookUser size={18} />,
-    settings: <Settings size={18} />,
-    support: <LifeBuoy size={18} />
+    overview: <LayoutDashboard size={20} />,
+    locations: <Store size={20} />,
+    anagrafica: <Store size={20} />,
+    "cosa-vedono": <Eye size={20} />,
+    catalogs: <Utensils size={20} />,
+    products: <ChefHat size={20} />,
+    scheduling: <CalendarClock size={20} />,
+    styles: <Palette size={20} />,
+    featured: <Megaphone size={20} />,
+    stories: <ScrollText size={20} />,
+    languages: <Languages size={20} />,
+    servizio: <ConciergeBell size={20} />,
+    prenotazioni: <CalendarDays size={20} />,
+    comande: <ClipboardList size={20} />,
+    storico: <History size={20} />,
+    analytics: <ChartColumn size={20} />,
+    reviews: <Star size={20} />,
+    analitiche: <ChartColumn size={20} />,
+    recensioni: <Star size={20} />,
+    guests: <BookUser size={20} />,
+    settings: <Settings size={20} />,
+    support: <LifeBuoy size={20} />
 };
 
 export interface NavSidebarOptions {

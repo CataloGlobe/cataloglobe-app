@@ -5,7 +5,7 @@ import { Button } from "@/components/ui";
 import Text from "@/components/ui/Text/Text";
 import { OfferBlock } from "@/components/ui/OfferBlock";
 import { COMPANY } from "@/config/company";
-import { formatCurrency } from "@/utils/formatCurrency";
+import { formatPrice } from "@/utils/formatCurrency";
 import type { NextSeatOffer } from "@/utils/pricing";
 import type { BillingInterval } from "@/types/plan";
 import { BusinessCreateCard } from "../BusinessCreateCard/BusinessCreateCard";
@@ -193,7 +193,7 @@ function SeatLimitOfferBlock({
         <OfferBlock
             variant="upgrade"
             title={title}
-            price={`+ ${formatCurrency(offer.extraPriceCents / 100)} ${PER_INTERVAL[interval]}`}
+            price={`+ ${formatPrice(offer.extraPriceCents / 100)} ${PER_INTERVAL[interval]}`}
             prorata={prorata}
             description="Poi torni qui e la crei."
             actionLabel="Aggiungi una sede al piano"

@@ -1,0 +1,176 @@
+@use "@styles/mixins" as *;
+
+.fieldset {
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.legend {
+  display: block;
+  margin-bottom: var(--space-12);
+  padding: 0;
+}
+
+// Due per riga; una sola al telefono.
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-12);
+
+  @include phone {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  padding: var(--space-12);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-surface);
+  background: var(--surface);
+  cursor: pointer;
+
+  &:hover {
+    background: var(--hover-bg);
+  }
+
+  &[data-checked] {
+    border-color: var(--brand-primary);
+    box-shadow: 0 0 0 1px var(--brand-primary);
+  }
+
+  &:has(.radio:focus-visible) {
+    box-shadow: var(--shadow-focus);
+  }
+
+  @include phone {
+    flex-direction: row;
+    align-items: flex-start;
+  }
+}
+
+// Il radio vero resta per tastiera e lettori di schermo, sopra la scheda.
+.radio {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  margin: 0;
+  cursor: pointer;
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.products {
+  color: var(--brand-primary);
+}
+
+// ── Disegno ────────────────────────────────────────────────
+.sketch {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  height: 96px;
+  padding: var(--space-12);
+  overflow: hidden;
+  border-radius: var(--radius-inner);
+  background: var(--brand-primary-soft);
+
+  @include phone {
+    flex: 0 0 88px;
+    height: 88px;
+    padding: var(--space-8);
+  }
+}
+
+.title,
+.line,
+.tag,
+.price,
+.struck {
+  display: block;
+  flex-shrink: 0;
+  border-radius: var(--radius-pill);
+}
+
+.title {
+  width: 60%;
+  height: 8px;
+  background: var(--brand-primary);
+}
+
+.line {
+  width: 80%;
+  height: 6px;
+  background: var(--border);
+}
+
+.short {
+  width: 50%;
+}
+
+.tag {
+  width: 32%;
+  height: 8px;
+  background: var(--color-warning-700);
+}
+
+.image {
+  flex: 1 1 auto;
+  min-height: 12px;
+  border-radius: var(--radius-inner);
+  background: var(--surface);
+}
+
+.product {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+
+  .line {
+    flex: 1 1 auto;
+    width: auto;
+  }
+}
+
+.thumb {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  border-radius: var(--radius-inner);
+  background: var(--surface);
+}
+
+.price {
+  width: 18%;
+  height: 6px;
+  background: var(--brand-primary);
+}
+
+.bundlePrice {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--space-6);
+  margin-top: auto;
+
+  .price {
+    width: 24%;
+    height: 8px;
+  }
+}
+
+.struck {
+  width: 18%;
+  height: 2px;
+  background: var(--text-muted);
+}

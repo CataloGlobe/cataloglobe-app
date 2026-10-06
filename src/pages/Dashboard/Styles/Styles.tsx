@@ -7,7 +7,6 @@ import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { CardGrid, CardGridItem } from "@/components/ui/CardGrid/CardGrid";
-import { Badge } from "@/components/ui/Badge/Badge";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
 import { IconPalette } from "@tabler/icons-react";
@@ -26,7 +25,7 @@ import { StyleSwatch } from "@/components/ui/StyleSwatch/StyleSwatch";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import { useRuleAppearance } from "@/hooks/useRuleAppearance";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
-import { appearanceOf, describeStyleSummary } from "@/utils/ruleAppearance";
+import { appearanceOf } from "@/utils/ruleAppearance";
 import { StyleDeleteDrawer } from "./StyleDeleteDrawer";
 import { StyleCreateDrawer } from "./StyleCreateDrawer";
 
@@ -40,6 +39,12 @@ function usageLabel(style: V2Style): string {
     const count = style.usage_count || 0;
     if (count === 0) return "In nessuna regola";
     return `Usato in ${count} ${count === 1 ? "regola" : "regole"}`;
+}
+
+/** ST3: «Di sistema» è testo, davanti all'uso: «Di sistema · in nessuna regola». */
+function usageLine(style: V2Style): string {
+    const usage = usageLabel(style);
+    return style.is_system ? `Di sistema · ${usage.charAt(0).toLowerCase()}${usage.slice(1)}` : usage;
 }
 
 function readViewMode(): "list" | "grid" {
@@ -106,15 +111,23 @@ export default function Styles() {
         loadData();
     }, [loadData]);
 
+    // ST3: la pillola dice solo «Attivo adesso»; il resto lo dice la riga dell'uso.
+    const isLiveNow = useCallback(
+        (style: V2Style) =>
+            appearance.index !== null && appearanceOf(appearance.index, { kind: "style", id: style.id }).summary === "liveNow",
+        [appearance.index]
+    );
+
+    // ST2: prima gli stili attivi adesso, poi per nome.
     const filteredStyles = useMemo(() => {
         const normalizedQuery = searchQuery.trim().toLowerCase();
         return allStyles
             .filter(style => !normalizedQuery || style.name.toLowerCase().includes(normalizedQuery))
             .sort((a, b) => {
-                if (a.is_system !== b.is_system) return a.is_system ? -1 : 1;
-                return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+                const live = Number(isLiveNow(b)) - Number(isLiveNow(a));
+                return live !== 0 ? live : a.name.localeCompare(b.name, "it");
             });
-    }, [allStyles, searchQuery]);
+    }, [allStyles, isLiveNow, searchQuery]);
     const hasSearch = searchQuery.trim().length > 0;
 
     const handleCreateClick = useCallback(() => {
@@ -156,7 +169,6 @@ export default function Styles() {
 
     usePageHeader({
         title: "Stili",
-        subtitle: "Personalizza l'aspetto visivo e i colori del tuo catalogo.",
         actions: headerActions,
         compact: headerCompact
     });
@@ -211,12 +223,8 @@ export default function Styles() {
     );
 
     const usageBadge = useCallback(
-        (style: V2Style) => {
-            if (!appearance.index) return undefined;
-            const summary = describeStyleSummary(appearanceOf(appearance.index, { kind: "style", id: style.id }));
-            return <StatusBadge variant={summary.tone} label={summary.label} />;
-        },
-        [appearance.index]
+        (style: V2Style) => (isLiveNow(style) ? <StatusBadge variant="success" label="Attivo adesso" /> : undefined),
+        [isLiveNow]
     );
 
     const columns = useMemo<ColumnDefinition<V2Style>[]>(
@@ -236,15 +244,11 @@ export default function Styles() {
                     <div className={styles.cellTwoLine}>
                         <span className={styles.nameLine}>
                             <Text variant="body-sm" weight={600}>{style.name}</Text>
-                            {style.is_system && <Badge variant="neutral">Di sistema</Badge>}
                         </span>
-                        {isPhone ? (
-                            usageBadge(style)
-                        ) : (
-                            <Text variant="caption" colorVariant="muted">
-                                Versione {style.current_version?.version || "0"} · {usageLabel(style)}
-                            </Text>
-                        )}
+                        <Text variant="caption" colorVariant="muted">
+                            {isPhone ? usageLine(style) : `Versione ${style.current_version?.version || "0"} · ${usageLine(style)}`}
+                        </Text>
+                        {isPhone && usageBadge(style)}
                     </div>
                 )
             },
@@ -318,21 +322,17 @@ export default function Styles() {
         }
 
         return (
-            <CardGrid loading={isLoading} skeletonShape={{ media: true, badge: true }} aria-label="Stili">
+            <CardGrid loading={isLoading} skeletonShape={{ media: true, mediaHeight: 140 }} minColumnWidth={260} aria-label="Stili">
                 {filteredStyles.map(style => (
                     <CardGridItem
                         key={style.id}
                         to={styleUrl(style)}
                         aria-label={style.name}
                         media={<StyleSwatch style={style} />}
+                        mediaHeight={140}
                         title={style.name}
-                        subtitle={usageLabel(style)}
-                        badge={
-                            <>
-                                {usageBadge(style)}
-                                {style.is_system && <Badge variant="neutral">Di sistema</Badge>}
-                            </>
-                        }
+                        subtitle={usageLine(style)}
+                        badge={usageBadge(style)}
                         actions={renderRowActions(style)}
                     />
                 ))}

@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { motion, useReducedMotion } from "framer-motion";
-import { BookOpenText, MessageCircle, ReceiptText, Utensils } from "lucide-react";
+import { ReceiptText, ScrollText, Star, Utensils } from "lucide-react";
 import type { HubTab } from "@/types/collectionStyle";
 import { PUBLIC_MOBILE_QUERY } from "../publicBreakpoints";
 import styles from "./PublicBottomBar.module.scss";
@@ -27,7 +27,7 @@ type TabDef = { id: HubTab; icon: ReactNode; labelKey: string };
 // ⚠️ Visibilità tab "storia" sincronizzata con PublicCollectionHeader.tsx (stesso filtro)
 const TABS: TabDef[] = [
     { id: "menu", icon: <Utensils size={19} strokeWidth={1.9} />, labelKey: "hub.menu" },
-    { id: "storia", icon: <BookOpenText size={19} strokeWidth={1.9} />, labelKey: "hub.storia" },
+    { id: "storia", icon: <ScrollText size={19} strokeWidth={1.9} />, labelKey: "hub.storia" },
 ];
 
 type Props = {
@@ -236,7 +236,7 @@ export default function PublicBottomBar({
                             animate={reviewIconAnimate}
                             transition={reviewIconTransition}
                         >
-                            <MessageCircle size={19} strokeWidth={1.9} />
+                            <Star size={19} strokeWidth={1.9} />
                         </motion.span>
                     </button>
                 )}

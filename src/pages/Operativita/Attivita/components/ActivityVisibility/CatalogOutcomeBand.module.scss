@@ -12,12 +12,7 @@
 .body {
   display: flex;
   flex-direction: column;
-  gap: var(--space-8);
-}
-
-.eyebrow {
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  gap: var(--space-4);
   font-variant-numeric: tabular-nums;
 }
 
@@ -25,16 +20,20 @@
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  column-gap: var(--space-12);
+  column-gap: var(--space-8);
   row-gap: var(--space-4);
   margin: 0;
 }
 
+// Link normale (V1): colore del brand, sottolineato solo al passaggio.
 .link {
   color: var(--brand-primary);
-  font-weight: 600;
-  text-decoration: underline;
-  text-underline-offset: 2px;
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
 }
 
 .missing {

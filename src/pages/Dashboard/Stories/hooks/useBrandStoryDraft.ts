@@ -177,7 +177,7 @@ export function useBrandStoryDraft(tenantId: string | null, active: boolean): Br
 
             setSaved(next);
             syncFromSaved(next);
-            showToast({ message: "Cappello aggiornato.", type: "success" });
+            showToast({ message: "Introduzione aggiornata.", type: "success" });
             return true;
         } catch (err) {
             console.error("Errore salvataggio del cappello:", err);

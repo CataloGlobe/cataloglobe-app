@@ -5,7 +5,7 @@ type Props = {
     price: PriceText;
     /** `getProductIssues`: il prezzo manca davvero (non basta `price.kind`). */
     missingPrice: boolean;
-    menus: { text: string; none: boolean };
+    menus: { text: string; none: boolean; count: number };
 };
 
 /**
@@ -34,5 +34,38 @@ export function ProductRowMeta({ price, missingPrice, menus }: Props) {
                 menus.text
             )}
         </span>
+    );
+}
+
+/** La colonna Prezzo della tabella (PR2): «da 3,00 €», o «senza prezzo» in ambra. */
+export function ProductPriceCell({ price, missingPrice }: Pick<Props, "price" | "missingPrice">) {
+    if (missingPrice || price.kind === "none") {
+        return (
+            <Text as="span" variant="caption" colorVariant="warning">
+                senza prezzo
+            </Text>
+        );
+    }
+    return (
+        <span>
+            {price.text}
+            {price.inherited && (
+                <Text as="span" variant="caption" colorVariant="muted">
+                    {" "}
+                    (ereditato)
+                </Text>
+            )}
+        </span>
+    );
+}
+
+/** La colonna Menù della tabella (PR2): quanti, o «nessuno» in ambra. */
+export function ProductMenusCell({ menus }: Pick<Props, "menus">) {
+    return menus.none ? (
+        <Text as="span" variant="caption" colorVariant="warning">
+            nessuno
+        </Text>
+    ) : (
+        <span>{menus.count}</span>
     );
 }

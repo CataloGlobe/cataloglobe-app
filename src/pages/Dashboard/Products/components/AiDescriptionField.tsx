@@ -1,6 +1,6 @@
 import React from "react";
-import { Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
+import { AiSparkles } from "@/components/ui/Button/AiSparkles";
 import Text from "@/components/ui/Text/Text";
 import type { AiDescriptionState } from "../hooks/useAiDescription";
 import type { AiUsageCycle } from "@/types/aiUsage";
@@ -58,9 +58,9 @@ export function AiDescriptionField({
                 </Text>
                 {!readOnly && (
                     <Button
-                        variant="outline"
+                        variant="secondary"
                         size="sm"
-                        leftIcon={<Sparkles size={14} />}
+                        leftIcon={<AiSparkles size={14} />}
                         loading={isGenerating}
                         disabled={!canGenerate || quotaHint?.blocked === true}
                         onClick={onGenerate}

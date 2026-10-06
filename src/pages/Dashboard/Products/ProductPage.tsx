@@ -277,9 +277,12 @@ export default function ProductPage() {
                     isSaving={isSavingAll}
                     onSave={handleSaveAll}
                     onDiscard={handleDiscardAll}
+                    // Prezzi & Opzioni e Traduzioni salvano a ogni modifica:
+                    // lo dice la barra (PO1, T1), non una frase in pagina.
+                    savesInstantly={activeTab === "prezzi-opzioni" || activeTab === "translations"}
                 />
             ) : undefined,
-        [canWrite, isDirty, isSavingAll, handleSaveAll, handleDiscardAll]
+        [canWrite, isDirty, isSavingAll, handleSaveAll, handleDiscardAll, activeTab]
     );
 
     // Il salva è di pagina, non di tab: vale su tutte le sezioni, esattamente

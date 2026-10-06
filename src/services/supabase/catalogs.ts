@@ -42,7 +42,11 @@ export type CatalogStats = {
     productCount: number;
     /** Categorie che i clienti non vedono: senza prodotti, né propri né sotto (#238). */
     emptyCategoryCount: number;
+    /** Le prime categorie di primo livello, nell'ordine del menù (al massimo 3): il foglio della card. */
+    previewCategories: string[];
 };
+
+const PREVIEW_CATEGORIES = 3;
 
 // ==========================================
 // CATALOGS
@@ -108,7 +112,7 @@ export async function getCatalogStatsMap(
     const [catResult, prodResult] = await Promise.all([
         supabase
             .from("catalog_categories")
-            .select("catalog_id, id, parent_category_id")
+            .select("catalog_id, id, parent_category_id, name, sort_order")
             .eq("tenant_id", tenantId)
             .in("catalog_id", catalogIds),
         supabase
@@ -122,7 +126,7 @@ export async function getCatalogStatsMap(
     const categoriesByCatalog: Record<string, Array<{ id: string; parent_category_id: string | null }>> = {};
     const linkedByCatalog: Record<string, string[]> = {};
     catalogIds.forEach(id => {
-        stats[id] = { categoryCount: 0, productCount: 0, emptyCategoryCount: 0 };
+        stats[id] = { categoryCount: 0, productCount: 0, emptyCategoryCount: 0, previewCategories: [] };
         categoriesByCatalog[id] = [];
         linkedByCatalog[id] = [];
     });
@@ -137,8 +141,17 @@ export async function getCatalogStatsMap(
         stats[row.catalog_id].productCount++;
         linkedByCatalog[row.catalog_id].push(row.category_id);
     });
+    const rootsByCatalog: Record<string, Array<{ name: string; sort_order: number }>> = {};
+    (catResult.data ?? []).forEach(row => {
+        if (!stats[row.catalog_id] || row.parent_category_id) return;
+        (rootsByCatalog[row.catalog_id] ??= []).push({ name: row.name, sort_order: row.sort_order ?? 0 });
+    });
     catalogIds.forEach(id => {
         stats[id].emptyCategoryCount = countEmptyCategories(categoriesByCatalog[id], linkedByCatalog[id]);
+        stats[id].previewCategories = (rootsByCatalog[id] ?? [])
+            .sort((a, b) => a.sort_order - b.sort_order)
+            .slice(0, PREVIEW_CATEGORIES)
+            .map(category => category.name);
     });
 
     return stats;

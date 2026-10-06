@@ -1,5 +1,5 @@
-import type { ReactNode } from "react";
-import { NavLink, useLocation } from "react-router-dom";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { Link, NavLink, useLocation } from "react-router-dom";
 import { motion, useReducedMotion } from "framer-motion";
 import { Lock, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
 import Text from "@/components/ui/Text/Text";
@@ -13,7 +13,7 @@ import styles from "./AppSidebar.module.scss";
  * AppSidebar — l'unica navigazione (scheda «AppSidebar»): una sidebar sola,
  * che riceve tutto e non sa niente. I gruppi li costruiscono i costruttori
  * (TenantSidebar e SedeSidebar con i permessi, AdminSidebar,
- * WorkspaceSidebar): aggiungere una sezione = aggiungere una voce a `groups`.
+ * ex WorkspaceSidebar): aggiungere una sezione = aggiungere una voce a `groups`.
  *
  * `headerSlot` è l'intestazione del contesto, sopra le voci e fuori dallo
  * scroll: dentro una sede porta «← Tutte le sedi». Resta vuoto altrove.
@@ -181,6 +181,31 @@ export function AppSidebar({
 
     const reduceMotion = useReducedMotion();
 
+    // C2: con più voci dell'altezza una sfumatura dice che c'è altro (in basso,
+    // e in alto dopo lo scorrimento); la voce attiva viene portata in vista.
+    const scrollRef = useRef<HTMLDivElement>(null);
+    const [fade, setFade] = useState({ top: false, bottom: false });
+    const updateFade = useCallback(() => {
+        const el = scrollRef.current;
+        if (!el) return;
+        const top = el.scrollTop > 1;
+        const bottom = el.scrollTop + el.clientHeight < el.scrollHeight - 1;
+        setFade(prev => (prev.top === top && prev.bottom === bottom ? prev : { top, bottom }));
+    }, []);
+    useEffect(() => {
+        const el = scrollRef.current;
+        if (!el) return;
+        updateFade();
+        const observer = new ResizeObserver(updateFade);
+        observer.observe(el);
+        return () => observer.disconnect();
+    }, [updateFade]);
+    useEffect(() => {
+        const active = scrollRef.current?.querySelector<HTMLElement>(`.${styles.active}`);
+        active?.scrollIntoView?.({ block: "nearest" });
+        updateFade();
+    }, [pathname, updateFade]);
+
     /**
      * Chiusa, il nome della voce passa al tooltip, sulla riga intera (mouse e
      * focus: `onFocus` di React risale dal link). Il trigger è un contenitore:
@@ -211,17 +236,30 @@ export function AppSidebar({
                       </span>,
                       link.disabledHint ?? "In arrivo"
                   )
-                : withTooltip(
+                : link.matchPrefixes?.some(p => pathname.startsWith(p))
+                  ? withTooltip(
+                        link,
+                        // Una voce che copre più pagine (Scheda: Orari, Sala…) è
+                        // la pagina corrente anche per chi legge lo schermo:
+                        // `NavLink` dà `aria-current` solo sul suo `to`.
+                        <Link
+                            to={link.to}
+                            aria-current="page"
+                            className={[styles.link, link.locked ? styles.locked : "", styles.active].join(" ")}
+                            onClick={() => {
+                                if (isMobile) onRequestClose();
+                            }}
+                        >
+                            <NavItemBody link={link} />
+                        </Link>
+                    )
+                  : withTooltip(
                       link,
                       <NavLink
                           to={link.to}
                           end={link.end}
                           className={({ isActive }) =>
-                              [
-                                  styles.link,
-                                  link.locked ? styles.locked : "",
-                                  isActive || link.matchPrefixes?.some(p => pathname.startsWith(p)) ? styles.active : ""
-                              ].join(" ")
+                              [styles.link, link.locked ? styles.locked : "", isActive ? styles.active : ""].join(" ")
                           }
                           onClick={() => {
                               if (isMobile) onRequestClose();
@@ -279,7 +317,13 @@ export function AppSidebar({
                 )}
 
                 <nav className={styles.nav} aria-label="Menu principale">
-                    <div className={styles.sidebarScroll}>
+                    <div
+                        ref={scrollRef}
+                        className={styles.sidebarScroll}
+                        data-fade-top={fade.top || undefined}
+                        data-fade-bottom={fade.bottom || undefined}
+                        onScroll={updateFade}
+                    >
                         {/* Fra i gruppi solo i titoli (aperta) e i loro trattini (chiusa), §51.15. */}
                         {groups.map((group, i) => (
                             <div key={i} className={styles.group} role="group" aria-label={group.title}>

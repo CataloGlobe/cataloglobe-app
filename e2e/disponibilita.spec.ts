@@ -92,7 +92,8 @@ test.describe("Disponibilità — prodotti", () => {
         await expect(main(page).getByRole("link", { name: "Vedi la regola" })).toHaveAttribute("href", new RegExp(`/scheduling/${RULE_ID}$`));
         await expect(main(page).getByText("Panini").first()).toBeVisible();
         await expect(main(page).getByText(/7[.,]50/)).toBeVisible();
-        await expect(main(page).getByText(/3 prodotti totali · 1 nascosto · 1 non disponibile/)).toBeVisible();
+        // V2: la riga dei conteggi non c'è più, li dicono i filtri.
+        await expect(main(page).getByText(/prodotti totali/)).toHaveCount(0);
         await expect(productRow(page, "Crispy e2e").getByRole("radio", { name: "Nascosto" })).toBeChecked();
         await expect(productRow(page, "Coca e2e").getByRole("radio", { name: "Non disponibile" })).toBeChecked();
         await expect(productRow(page, "Big e2e").getByRole("radio", { name: /^(Visibile|Come dice la regola)$/ })).toBeChecked();
@@ -179,7 +180,8 @@ test.describe("Disponibilità — ingredienti", () => {
         await expect(main(page).getByText("Pane e2e", { exact: true })).toBeVisible();
         await expect(main(page).getByText("Nessun prodotto in questo catalogo").first()).toBeVisible();
         const pane = main(page).getByText("Pane e2e", { exact: true }).locator("xpath=ancestor::*[@role='row' or contains(@class,'row')][.//*[@role='radio']][1]");
-        await pane.getByRole("radio", { name: "Nascondi tutti" }).click();
+        // V4: lo stesso controllo a parole di Prodotti.
+        await pane.getByRole("radio", { name: "Nascosto", exact: true }).click();
         const dialog = page.getByRole("alertdialog").or(page.getByRole("dialog")).last();
         await expect(dialog).toBeVisible();
         expect(writes(stub, "activity_product_overrides.POST")).toHaveLength(0);
@@ -215,12 +217,14 @@ test.describe("Disponibilità — vuoto ed errore", () => {
  * che li ha resi veri.
  */
 test.describe("Cosa vedono i clienti — esito e provenienza", () => {
-    test("la banda dice menù, regola e conteggi di adesso", async ({ page }) => {
+    test("la banda dice il menù di adesso e la regola", async ({ page }) => {
+        // V1: due righe, senza il nome della sede e senza conteggi.
         const { name } = await openDisponibilita(page);
         await expect(band(page)).toBeVisible({ timeout: 15_000 });
-        await expect(band(page)).toContainText(`I clienti di ${name} vedono Menù e2e`);
-        await expect(band(page)).toContainText("1 visibile · 1 nascosto · 1 non disponibile");
-        await expect(band(page)).toContainText("Adesso, alle 12:00");
+        await expect(band(page)).toContainText("Adesso, alle 12:00, vedono Menù e2e");
+        await expect(band(page)).toContainText("Per la regola Pranzo e2e");
+        await expect(band(page)).not.toContainText(`I clienti di ${name}`);
+        await expect(band(page)).not.toContainText("1 visibile ·");
         await expect(band(page).getByRole("link", { name: "Vedi la regola" }).first()).toHaveAttribute("href", new RegExp(`/scheduling/${RULE_ID}$`));
         await expect(band(page).getByRole("link", { name: "Apri pagina pubblica" })).toBeVisible();
         await expect(main(page).getByText(/Stai modificando solo/)).toHaveCount(0);
@@ -228,8 +232,7 @@ test.describe("Cosa vedono i clienti — esito e provenienza", () => {
 
     test("su ogni riga chi ha deciso lo stato: la regola o la mano", async ({ page }) => {
         await openDisponibilita(page, { rules: true });
-        await expect(band(page)).toContainText("0 visibili · 2 nascosti · 1 non disponibile", { timeout: 15_000 });
-        await expect(rowText(page, "Big e2e")).toContainText("Non disponibile per la regola «Sera e2e»");
+        await expect(rowText(page, "Big e2e")).toContainText("Non disponibile per la regola «Sera e2e»", { timeout: 15_000 });
         await expect(rowText(page, "Crispy e2e")).toContainText("Nascosto a mano");
         await expect(rowText(page, "Coca e2e")).toContainText("Nascosto dalla regola «Sera e2e» · la modifica a mano non lo rimette");
     });
@@ -338,8 +341,8 @@ test.describe("Cosa vedono i clienti — chi vede la spiegazione", () => {
     });
 
     test("manager della sede: vede la banda", async ({ page }) => {
-        const { name } = await openDisponibilita(page, { role: "manager" });
-        await expect(band(page)).toContainText(`I clienti di ${name} vedono Menù e2e`, { timeout: 15_000 });
+        await openDisponibilita(page, { role: "manager" });
+        await expect(band(page)).toContainText("vedono Menù e2e", { timeout: 15_000 });
         await expect(main(page).getByText("Per vedere perché, serve l'accesso a Programmazione.")).toHaveCount(0);
     });
 });

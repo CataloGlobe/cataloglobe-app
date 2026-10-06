@@ -17,7 +17,7 @@ import { PageGate } from "@/components/PageGate/PageGate";
 import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
 import { ChipGroupSingle } from "@/components/ui/Chip/ChipGroup";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
-import { DataTable, DATA_TABLE_CLASSES, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
+import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { CardGrid, CardGridItem } from "@/components/ui/CardGrid";
 import { FramedMedia } from "@components/ui/FramedMedia";
 import { Badge } from "@/components/ui/Badge/Badge";
@@ -25,9 +25,10 @@ import { Button } from "@/components/ui/Button/Button";
 import type { PageHeaderAction, PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { IconChevronDown, IconChevronRight } from "@tabler/icons-react";
 import { Package, LayoutGrid, List as ListIcon } from "lucide-react";
+import { ProductPhotoPlaceholder } from "./components/ProductPhotoPlaceholder";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { Link } from "react-router-dom";
-import { ProductRowMeta } from "./components/ProductRowMeta";
+import { ProductRowMeta, ProductPriceCell, ProductMenusCell } from "./components/ProductRowMeta";
 import { PRODUCT_IMAGE_DEFAULT_FRAMING } from "./components/productImageFraming";
 import { describeFormats, describeMenus, describePrice } from "./productRowSummary";
 import styles from "./Products.module.scss";
@@ -65,6 +66,7 @@ type ProductTableRow = {
     visibleVariants: V2Product[];
     isExpanded: boolean;
 };
+
 
 const EMPTY_PRODUCT_METADATA: ProductListMetadata = {
     formatsCount: 0,
@@ -532,14 +534,12 @@ export default function Products() {
         const meta = productMetadata[product.id] ?? EMPTY_PRODUCT_METADATA;
         const parentMeta = parent ? (productMetadata[parent.id] ?? EMPTY_PRODUCT_METADATA) : null;
         const issues = getProductIssues(factsFor(product), parent ? factsFor(parent) : null);
+        const price = describePrice(product, meta, parent, parentMeta);
+        const menus = describeMenus(meta.catalogsCount, menuLabels, parentMeta?.catalogsCount);
         return {
-            meta: (
-                <ProductRowMeta
-                    price={describePrice(product, meta, parent, parentMeta)}
-                    missingPrice={issues.missingPrice}
-                    menus={describeMenus(meta.catalogsCount, menuLabels, parentMeta?.catalogsCount)}
-                />
-            ),
+            meta: <ProductRowMeta price={price} missingPrice={issues.missingPrice} menus={menus} />,
+            price: <ProductPriceCell price={price} missingPrice={issues.missingPrice} />,
+            menus: <ProductMenusCell menus={menus} />,
             formats: describeFormats(meta)
         };
     };
@@ -576,7 +576,7 @@ export default function Products() {
     const columns: ColumnDefinition<ProductTableRow>[] = [
         {
             id: "name",
-            header: "Nome",
+            header: verticalConfig.productLabel,
             width: "1fr",
             accessor: row => row.product.name,
             cell: (_value, row) => {
@@ -596,19 +596,46 @@ export default function Products() {
                         ) : anyVariants ? (
                             <span className={styles.expanderSpacer} aria-hidden />
                         ) : null}
-                        <div className={`${DATA_TABLE_CLASSES.cellTwoLine} ${DATA_TABLE_CLASSES.cellTwoLineWrap}`}>
-                            <div className={styles.productNameRow}>
-                                <Link to={productUrl(row.product.id)} className={styles.productLink}>
-                                    {row.product.name}
-                                </Link>
-                                {row.kind === "variant" && <Badge variant="secondary">Variante</Badge>}
-                                {summary.formats && <Badge variant="secondary">{summary.formats}</Badge>}
-                            </div>
-                            {summary.meta}
+                        {/* PR2: miniatura 36, stessa regola della card (mai iniziali). */}
+                        <span className={styles.thumb}>
+                            {row.product.image_url ? (
+                                <FramedMedia
+                                    source={row.product.image_url}
+                                    framing={row.product.image_framing ?? PRODUCT_IMAGE_DEFAULT_FRAMING}
+                                    aspectRatio={null}
+                                    alt=""
+                                />
+                            ) : (
+                                <ProductPhotoPlaceholder small />
+                            )}
+                        </span>
+                        <div className={styles.productNameRow}>
+                            <Link to={productUrl(row.product.id)} className={styles.productLink}>
+                                {row.product.name}
+                            </Link>
+                            {row.kind === "variant" && <Badge variant="secondary">Variante</Badge>}
+                            {summary.formats && <Badge variant="secondary">{summary.formats}</Badge>}
                         </div>
                     </div>
                 );
             }
+        },
+        {
+            id: "price",
+            header: "Prezzo",
+            // «da 3,00 €» su una riga: 120 e niente a capo.
+            width: "120px",
+            align: "right",
+            cell: (_value, row) => <span className={styles.price}>{summaryOf(row.product, row.parent).price}</span>
+        },
+        {
+            id: "menus",
+            header: verticalConfig.catalogLabel,
+            width: "96px",
+            align: "right",
+            // Al telefono il nome ha bisogno dello spazio: resta il prezzo.
+            hideOnPhone: true,
+            cell: (_value, row) => summaryOf(row.product, row.parent).menus
         },
         ...(canWriteProduct
             ? [
@@ -689,39 +716,43 @@ export default function Products() {
                         ) : (
                             <CardGrid
                                 loading={isLoading}
-                                skeletonShape={{ media: true }}
+                                skeletonShape={{ media: true, square: true }}
                                 aria-label={verticalConfig.productLabelPlural}
+                                className={styles.productGrid}
                             >
                                 {filteredProducts.flatMap(product =>
                                     [product, ...(product.variants ?? [])].map(item => {
                                         const parent = item === product ? undefined : product;
                                         const summary = summaryOf(item, parent);
+                                        // «Variante» o «N formati» come etichetta sulla foto (PR1).
+                                        const tag = parent ? "Variante" : summary.formats;
                                         return (
                                             <CardGridItem
                                                 key={item.id}
                                                 to={productUrl(item.id)}
                                                 aria-label={item.name}
+                                                squareMedia
                                                 media={
-                                                    item.image_url ? (
-                                                        <FramedMedia
-                                                            source={item.image_url}
-                                                            framing={item.image_framing ?? PRODUCT_IMAGE_DEFAULT_FRAMING}
-                                                            aspectRatio={null}
-                                                            alt={item.name}
-                                                        />
-                                                    ) : (
-                                                        <div className={styles.mediaPlaceholder} aria-hidden>
-                                                            <Package size={28} strokeWidth={1.5} />
-                                                        </div>
-                                                    )
+                                                    <>
+                                                        {item.image_url ? (
+                                                            <FramedMedia
+                                                                source={item.image_url}
+                                                                framing={item.image_framing ?? PRODUCT_IMAGE_DEFAULT_FRAMING}
+                                                                aspectRatio={null}
+                                                                alt={item.name}
+                                                            />
+                                                        ) : (
+                                                            <ProductPhotoPlaceholder />
+                                                        )}
+                                                        {tag && (
+                                                            <span className={styles.mediaTag}>
+                                                                <Badge variant="secondary">{tag}</Badge>
+                                                            </span>
+                                                        )}
+                                                    </>
                                                 }
                                                 title={item.name}
                                                 subtitle={summary.meta}
-                                                badge={
-                                                    parent || summary.formats ? (
-                                                        <Badge variant="secondary">{parent ? "Variante" : summary.formats}</Badge>
-                                                    ) : undefined
-                                                }
                                                 actions={canWriteProduct ? rowActions(item, parent ? "variant" : "base") : undefined}
                                             />
                                         );

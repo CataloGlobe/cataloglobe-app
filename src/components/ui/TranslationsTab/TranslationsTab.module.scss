@@ -11,6 +11,19 @@
   padding: 0;
 }
 
+// Sezione senza card (`bare`, MD5): solo il ritmo verticale.
+.bare {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+}
+
+.bareHeader {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
 // ── Segmented Descrizione / Note ────────────────────────────────────
 .segmentRow {
   display: flex;

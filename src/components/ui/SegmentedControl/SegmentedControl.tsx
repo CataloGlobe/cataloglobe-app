@@ -10,6 +10,8 @@ interface SegmentedOption<T extends string | number> {
     /** Nome accessibile quando `label` è una forma corta del nome intero. */
     ariaLabel?: string;
     icon?: React.ReactNode;
+    /** Elencato ma spento (es. «Inviti in attesa» a zero): non si sceglie. */
+    disabled?: boolean;
 }
 
 interface SegmentedControlProps<T extends string | number> {
@@ -87,6 +89,7 @@ export function SegmentedControl<T extends string | number>({
                         type="button"
                         role="radio"
                         aria-checked={isActive}
+                        disabled={opt.disabled}
                         // In iconsOnly mode il testo non è renderizzato → senza
                         // aria-label il pulsante avrebbe nome accessibile vuoto.
                         // L'etichetta a vista la dà il Tooltip, non il `title`.

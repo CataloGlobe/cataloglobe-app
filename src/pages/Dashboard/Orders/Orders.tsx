@@ -127,7 +127,7 @@ function OrdersBoard() {
     const { businessId } = useParams<{ businessId: string }>();
     const printersHref =
         businessId && selectedActivityId
-            ? `/business/${businessId}/locations/${selectedActivityId}/ordini-prenotazioni#ordini`
+            ? `/business/${businessId}/locations/${selectedActivityId}/ordini-al-tavolo`
             : undefined;
 
     // Table detail + close drawer (tab "Tavoli"): ora interni a
@@ -255,9 +255,39 @@ function OrdersBoard() {
         [canCreateOrder, canEdit, selectedActivityId, refreshAll, isLoadingOrders, soundEnabled, toggleSound]
     );
 
-    // Stessa toolbar a dati per lo stato compatto. Nessuna `search`: il filtro
-    // per tavolo è un select in-page, non vive nella banda.
+    // T14: «Tutti i tavoli» sale nella testata, a sinistra (prima stava nel
+    // corpo, sopra la board).
+    const tableOptions = useMemo(
+        () => [{ value: "all", label: "Tutti i tavoli" }, ...tables.map(t => ({ value: t.id, label: t.label }))],
+        [tables]
+    );
+    const headerLeading = useMemo(
+        () =>
+            tables.length > 0 ? (
+                <Select
+                    aria-label="Filtra per tavolo"
+                    containerClassName={styles.tableFilter}
+                    value={tableFilter}
+                    onChange={e => setTableFilter(e.target.value)}
+                    options={tableOptions}
+                />
+            ) : undefined,
+        [tables.length, tableFilter, tableOptions]
+    );
+
+    // Stessa toolbar a dati per lo stato compatto; il filtro per tavolo
+    // prende il posto a sinistra.
     const headerCompact = useMemo<PageHeaderCompactConfig>(() => ({
+        leadingFilter:
+            tables.length > 0
+                ? {
+                      label: "Tavolo",
+                      options: tableOptions,
+                      value: tableFilter,
+                      defaultValue: "all",
+                      onChange: setTableFilter
+                  }
+                : undefined,
         // Il suono resta a vista: in sala si alza o si abbassa al volo, e il suo
         // stato acceso/spento va letto senza aprire nulla.
         persistentIcons: [
@@ -278,6 +308,9 @@ function OrdersBoard() {
             ? { label: "Crea ordine", onClick: () => setIsCreateOrderOpen(true), disabled: !canEdit }
             : undefined
     }), [
+        tables.length,
+        tableOptions,
+        tableFilter,
         soundEnabled,
         toggleSound,
         refreshAll,
@@ -298,8 +331,8 @@ function OrdersBoard() {
     const headerConfig = useMemo(
         () => isLocked
             ? null
-            : { actions: headerActions, compact: headerCompact },
-        [isLocked, headerActions, headerCompact]
+            : { leading: headerLeading, actions: headerActions, compact: headerCompact },
+        [isLocked, headerLeading, headerActions, headerCompact]
     );
     usePageHeader(headerConfig);
 
@@ -664,21 +697,6 @@ function OrdersBoard() {
                     Nessuna stampante collegata a questa sede: le comande non
                     vengono stampate in automatico.
                 </InlineBanner>
-            )}
-
-            {tables.length > 0 && (
-                <div className={styles.filtersRow}>
-                    <Select
-                        aria-label="Filtra per tavolo"
-                        containerClassName={styles.tableFilter}
-                        value={tableFilter}
-                        onChange={e => setTableFilter(e.target.value)}
-                        options={[
-                            { value: "all", label: "Tutti i tavoli" },
-                            ...tables.map(t => ({ value: t.id, label: t.label }))
-                        ]}
-                    />
-                </div>
             )}
 
             <OrdersKanban

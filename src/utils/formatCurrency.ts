@@ -45,3 +45,12 @@ export function formatDecimal(value: number): string {
 export function formatCurrency(value: number, currencySymbol = "€"): string {
     return `${currencySymbol} ${formatDecimal(value)}`;
 }
+
+/**
+ * Prezzo nel back office, formato italiano col simbolo dopo: `2.9` → `"2,90 €"`
+ * (correzioni UI, Allegato A). Il PDF del menù resta su `formatCurrency`
+ * ("€ 2,90"), che è la sua convenzione.
+ */
+export function formatPrice(value: number): string {
+    return `${formatDecimal(value)} €`;
+}

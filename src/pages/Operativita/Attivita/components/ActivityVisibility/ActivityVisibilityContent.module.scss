@@ -61,6 +61,12 @@
   overflow: hidden;
 }
 
+// La categoria accanto al nome (V3), in tono muto.
+.category {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
 .productCell {
   display: flex;
   flex-direction: column;

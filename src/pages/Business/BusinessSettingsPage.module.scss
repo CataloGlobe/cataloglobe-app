@@ -19,17 +19,17 @@
   margin: 0;
 }
 
-.dangerBody {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-16);
-
-  > p {
-    margin: 0;
-  }
+// T16 IM2: il titolo della riga in rosso, la frase al posto del bottone.
+.dangerTitle {
+  color: var(--text-danger);
 }
 
-.dangerAction {
-  display: flex;
-  justify-content: flex-end;
+.dangerNote {
+  margin: 0;
+  max-width: 320px;
+}
+
+// Il logo nella riga: la miniatura, non a tutta larghezza.
+.logoEditor {
+  max-width: 240px;
 }

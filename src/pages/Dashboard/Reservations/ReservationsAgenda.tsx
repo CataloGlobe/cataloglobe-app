@@ -1,10 +1,8 @@
 import { useMemo, useState } from "react";
-import { CalendarRange, ChevronLeft, ChevronRight, RefreshCw, TriangleAlert } from "lucide-react";
+import { CalendarRange, RefreshCw, TriangleAlert } from "lucide-react";
 import { EmptyState } from "@components/ui/EmptyState/EmptyState";
 import { addDays, todayIsoDate } from "@/utils/dateLocal";
-import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { Button } from "@/components/ui/Button/Button";
-import { IconButton } from "@/components/ui/Button/IconButton";
 import { Switch } from "@/components/ui/Switch/Switch";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import { OCCUPYING_STATUSES } from "@/utils/reservationTableConflicts";
@@ -20,6 +18,8 @@ import {
 import { formatTableLabels } from "@/components/ui/TableAssignmentBadge/formatTableLabels";
 import type { V2Reservation } from "@/types/reservation";
 import { agendaWeekRange } from "./loadWindow";
+import { formatRangeLabel, parseLocalDate } from "./agendaRange";
+import AgendaNav, { type AgendaViewMode } from "./AgendaNav";
 import ChannelMark from "./ChannelMark";
 import GuestConfirmedMark from "./GuestConfirmedMark";
 import { coversFor } from "./agendaCovers";
@@ -51,9 +51,16 @@ interface Props {
     onReassignDay?: (date: string) => Promise<boolean>;
     /** Click any row → open detail drawer. */
     onOpenDetail: (r: V2Reservation) => void;
+    /** Giorni o Settimana: vive nel parent, la scelta sta nella testata (T14). */
+    mode: AgendaViewMode;
+    onModeChange: (next: AgendaViewMode) => void;
+    /**
+     * True quando Giorni/Settimana e la settimana stanno nella testata della
+     * pagina; al telefono la testata compatta non li ha e restano qui.
+     */
+    navInHeader?: boolean;
 }
 
-type ViewMode = "days" | "week";
 
 // `no_show` NON sta qui, di proposito. `declined` e `cancelled` sono decisioni
 // prese PRIMA del servizio: una volta prese non interessa più vederle. Un
@@ -75,11 +82,6 @@ function isoDateOf(d: Date): string {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-function parseLocalDate(iso: string): Date {
-    const [y, m, d] = iso.split("-").map(n => parseInt(n, 10));
-    return new Date(y, (m ?? 1) - 1, d ?? 1);
-}
-
 function formatDayHeader(isoDate: string): string {
     const today = todayIsoDate();
     if (isoDate === today) return "Oggi";
@@ -91,30 +93,6 @@ function formatDayHeader(isoDate: string): string {
         day: "numeric",
         month: "long"
     }).format(parseLocalDate(isoDate));
-}
-
-/** Short range label tuned for a compact toolbar.
- *  Same month → "1–7 giu". Cross-month same year → "30 giu – 6 lug".
- *  Cross-year → "29 dic 2026 – 4 gen 2027". */
-function formatRangeLabel(start: Date, end: Date): string {
-    const sameMonth =
-        start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear();
-    const sameYear = start.getFullYear() === end.getFullYear();
-    if (sameMonth) {
-        const monthShort = new Intl.DateTimeFormat("it-IT", { month: "short" }).format(end);
-        return `${start.getDate()}–${end.getDate()} ${monthShort}`;
-    }
-    if (sameYear) {
-        const sMonth = new Intl.DateTimeFormat("it-IT", { month: "short" }).format(start);
-        const eMonth = new Intl.DateTimeFormat("it-IT", { month: "short" }).format(end);
-        return `${start.getDate()} ${sMonth} – ${end.getDate()} ${eMonth}`;
-    }
-    const fmt = new Intl.DateTimeFormat("it-IT", {
-        day: "numeric",
-        month: "short",
-        year: "numeric"
-    });
-    return `${fmt.format(start)} – ${fmt.format(end)}`;
 }
 
 /**
@@ -138,9 +116,11 @@ export default function ReservationsAgenda({
     tableViews,
     canManage = false,
     onReassignDay,
-    onOpenDetail
+    onOpenDetail,
+    mode,
+    onModeChange,
+    navInHeader = false
 }: Props) {
-    const [mode, setMode] = useState<ViewMode>("days");
     // Giorno in attesa di conferma per "Riorganizza i tavoli".
     const [reassignDate, setReassignDate] = useState<string | null>(null);
     const [showTerminal, setShowTerminal] = useState(false);
@@ -219,59 +199,30 @@ export default function ReservationsAgenda({
     // Giorni/Settimana, la settimana con ‹ › (e «Oggi» quando si è altrove),
     // e il filtro delle annullate: esplicito, col numero di quelle nascoste.
     const terminalCount = rangeItems.filter(r => TERMINAL.has(r.status)).length;
-    const renderHeader = () => (
-        <div className={styles.agendaHeader}>
-            <SegmentedControl<ViewMode>
-                value={mode}
-                onChange={setMode}
-                options={[
-                    { value: "days", label: "Giorni" },
-                    { value: "week", label: "Settimana" }
-                ]}
-            />
-
-            {terminalCount > 0 && (
-                <Switch
-                    size="sm"
-                    checked={showTerminal}
-                    onChange={setShowTerminal}
-                    ariaLabel="Mostra annullate e rifiutate"
-                    description={`Annullate · ${terminalCount}`}
-                    containerClassName={styles.agendaTerminalFilter}
-                />
-            )}
-
-            <div className={styles.weekNav} role="group" aria-label="Naviga settimana">
-                <IconButton
-                    icon={<ChevronLeft size={16} strokeWidth={2} />}
-                    aria-label="Settimana precedente"
-                    size="sm"
-                    onClick={() => onWeekOffsetChange(weekOffset - 1)}
-                />
-                <Text as="span" variant="body-sm" weight={600} className={styles.weekNavLabel} aria-live="polite">
-                    {rangeLabel}
-                </Text>
-                <IconButton
-                    icon={<ChevronRight size={16} strokeWidth={2} />}
-                    aria-label="Settimana successiva"
-                    size="sm"
-                    onClick={() => onWeekOffsetChange(weekOffset + 1)}
-                />
-                {weekOffset !== 0 && (
-                    <Button variant="outline" size="sm" onClick={() => onWeekOffsetChange(0)}>
-                        Oggi
-                    </Button>
+    const renderHeader = () =>
+        navInHeader && terminalCount === 0 ? null : (
+            <div className={styles.agendaHeader}>
+                {!navInHeader && (
+                    <AgendaNav
+                        mode={mode}
+                        onModeChange={onModeChange}
+                        weekOffset={weekOffset}
+                        onWeekOffsetChange={onWeekOffsetChange}
+                        rangeLabel={rangeLabel}
+                    />
+                )}
+                {terminalCount > 0 && (
+                    <Switch
+                        size="sm"
+                        checked={showTerminal}
+                        onChange={setShowTerminal}
+                        ariaLabel="Mostra annullate e rifiutate"
+                        description={`Annullate · ${terminalCount}`}
+                        containerClassName={styles.agendaTerminalFilter}
+                    />
                 )}
             </div>
-        </div>
-    );
-
-    const disclaimer = (
-        <Text as="p" variant="caption" colorVariant="muted">
-            Include le prenotazioni online e quelle inserite a mano. Le prenotazioni prese altrove e
-            non registrate qui non compaiono.
-        </Text>
-    );
+        );
 
     // ── Days view row ───────────────────────────────────────────────────────
     // ListRow dense (48): l'agenda è un elenco lungo che si legge a colpo
@@ -334,10 +285,10 @@ export default function ReservationsAgenda({
                             variant="inline"
                             icon={<CalendarRange size={40} strokeWidth={1.5} />}
                             title="Nessuna prenotazione in questa settimana"
-                            description="Passa a un'altra settimana con le frecce, o torna a oggi."
+                            // T14 PN3: la frase che stava in fondo alla pagina.
+                            description="Include le prenotazioni online e quelle inserite a mano. Passa a un'altra settimana con le frecce, o torna a oggi."
                         />
                     </Card>
-                    {disclaimer}
                 </div>
             );
         }
@@ -386,7 +337,6 @@ export default function ReservationsAgenda({
                         </Card>
                     );
                 })}
-                {disclaimer}
 
                 {/* Conferma sempre, anche per un giorno futuro: la RPC cancella e
                     rifà le proposte, e i numeri qui sotto dicono in anticipo cosa
@@ -501,7 +451,6 @@ export default function ReservationsAgenda({
                 </div>
             </div>
 
-            {disclaimer}
         </div>
     );
 }

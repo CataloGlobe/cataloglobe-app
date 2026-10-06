@@ -85,6 +85,11 @@
   }
 }
 
+// Area media ad altezza fissa (`mediaHeight`): niente 16:10.
+.fixedMedia::before {
+  display: none;
+}
+
 .mediaInner {
   position: absolute;
   inset: 0;
@@ -113,6 +118,31 @@
   height: 100%;
   object-fit: cover;
   display: block;
+}
+
+// Tessera ad altezza fissa (`height`): la media si prende lo spazio che
+// avanza, il testo resta intero e lo stato scende in fondo.
+.fixedHeight {
+  .surface {
+    min-height: 0;
+  }
+
+  .media {
+    flex: 1 1 auto;
+    min-height: 0;
+
+    &::before {
+      padding-top: 0;
+    }
+  }
+
+  .badge {
+    margin-top: auto;
+  }
+}
+
+.squareMedia .media::before {
+  padding-top: 100%;
 }
 
 .suspended .media {

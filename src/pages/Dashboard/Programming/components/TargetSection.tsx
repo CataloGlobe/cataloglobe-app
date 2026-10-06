@@ -1,7 +1,7 @@
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { RadioGroup } from "@/components/ui/RadioGroup/RadioGroup";
-import { ActivityMultiSelect } from "@/components/ui/ActivityMultiSelect/ActivityMultiSelect";
-import { ChipGroupMultiple } from "@/components/ui/Chip/ChipGroup";
+import { ChipPicker } from "@/components/ui/ChipPicker";
+import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import Text from "@/components/ui/Text/Text";
 import { LayoutRuleOption } from "@/services/supabase/layoutScheduling";
 import styles from "../ProgrammingRuleDetail.module.scss";
@@ -15,8 +15,6 @@ interface TargetSectionProps {
     groupIds: string[];
     tenantActivities: LayoutRuleOption[];
     tenantGroups: LayoutRuleOption[];
-    /** L'azienda: `ActivityMultiSelect` la chiede, le sedi arrivano già da `tenantActivities`. */
-    tenantId: string;
     onFormChange: (
         updates: Partial<{
             name: string;
@@ -39,7 +37,6 @@ export function TargetSection({
     groupIds,
     tenantActivities,
     tenantGroups,
-    tenantId,
     onFormChange,
     nameError,
     onNameBlur
@@ -56,7 +53,7 @@ export function TargetSection({
 
     const modeOptions = [
         { value: "all", label: "Tutte le sedi", description: "Anche quelle che aggiungerai." },
-        { value: "activities", label: "Alcune sedi", description: "Scegli le sedi una per una." },
+        { value: "activities", label: "Sedi specifiche", description: "Scegli le sedi una per una." },
         { value: "groups", label: "Gruppi di sedi", description: "Vale per le sedi del gruppo, anche se il gruppo cambia." }
     ];
 
@@ -84,27 +81,33 @@ export function TargetSection({
                 options={modeOptions}
             />
 
+            {/* RG1: le scelte come chip, la scelta in un pannello (pattern T1). */}
             {targetMode === "activities" && (
-                <ActivityMultiSelect
-                    tenantId={tenantId}
-                    activities={tenantActivities}
-                    callerScopedActivityIds={[]}
-                    callerIsTenantWide
-                    required={false}
+                <ChipPicker
+                    options={tenantActivities.map(activity => ({
+                        id: activity.id,
+                        name: activity.name,
+                        badge: activity.status === "inactive" ? <StatusBadge variant="neutral" label="Sospesa" /> : undefined
+                    }))}
                     value={activityIds}
                     onChange={ids => onFormChange({ activityIds: ids })}
+                    editLabel="Modifica sedi"
+                    title="Sedi"
+                    emptyText="Nessuna sede scelta."
+                    searchPlaceholder="Cerca una sede"
                 />
             )}
 
             {targetMode === "groups" &&
                 (tenantGroups.length > 0 ? (
-                    <ChipGroupMultiple
-                        label="Gruppi di sedi"
-                        ariaLabel="Gruppi di sedi"
-                        options={tenantGroups.map(group => ({ value: group.id, label: group.name }))}
+                    <ChipPicker
+                        options={tenantGroups.map(group => ({ id: group.id, name: group.name }))}
                         value={groupIds}
-                        onChange={ids => onFormChange({ groupIds: [...ids] })}
-                        layout="auto"
+                        onChange={ids => onFormChange({ groupIds: ids })}
+                        editLabel="Modifica gruppi"
+                        title="Gruppi di sedi"
+                        emptyText="Nessun gruppo scelto."
+                        searchPlaceholder="Cerca un gruppo"
                     />
                 ) : (
                     <Text variant="body-sm" colorVariant="muted">
