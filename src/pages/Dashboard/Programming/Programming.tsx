@@ -875,6 +875,7 @@ export default function Programming() {
                     highlight={ruleTypeFilter === "all" ? null : ruleTypeFilter}
                     seatOptions={nowSeatOptions}
                     onSeatChange={setNowSeatId}
+                    subscriptionInactive={subscriptionInactive}
                     onSimulate={() => {
                         setSimulatorSeatId(nowRow.activityId);
                         setIsSimulatorDrawerOpen(true);

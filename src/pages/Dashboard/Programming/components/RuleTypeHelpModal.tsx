@@ -427,7 +427,7 @@ type Props = {
     isOpen: boolean;
     ruleType: HelpRuleKey;
     onClose: () => void;
-    /** Apre il simulatore già presente nella pagina. Assente: niente «Simula regole». */
+    /** Apre il simulatore già presente nella pagina. Assente: niente «Simula un altro momento». */
     onSimulate?: () => void;
     /** Link che ha aperto la modale: ci torna il focus alla chiusura. */
     triggerRef?: RefObject<HTMLButtonElement | null>;
@@ -528,7 +528,7 @@ export function RuleTypeHelpModal({
                 </Button>
                 {onSimulate && (
                     <Button variant="primary" size="sm" onClick={onSimulate}>
-                        Simula regole
+                        Simula un altro momento
                     </Button>
                 )}
             </ModalLayoutFooter>

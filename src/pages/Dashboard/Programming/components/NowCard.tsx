@@ -20,6 +20,8 @@ type NowCardProps = {
     seatOptions: SelectOption[];
     onSeatChange: (activityId: string) => void;
     onSimulate: () => void;
+    /** Abbonamento non attivo: le regole vincono, ma il cliente non vede il menù. */
+    subscriptionInactive: boolean;
 };
 
 /**
@@ -27,10 +29,11 @@ type NowCardProps = {
  * fissa: per una sede i cinque passaggi in fila, con esito e regola, come nel
  * simulatore. Uguale in tutte le tab; evidenzia lo strato della tab aperta.
  */
-export function NowCard({ time, row, layers, catalogLabel, highlight, seatOptions, onSeatChange, onSimulate }: NowCardProps) {
+export function NowCard({ time, row, layers, catalogLabel, highlight, seatOptions, onSeatChange, onSimulate, subscriptionInactive }: NowCardProps) {
     return (
         <Card
             title={`Adesso, ${time}`}
+            subtitle={subscriptionInactive ? "Abbonamento non attivo: nessuna sede mostra il menù." : undefined}
             badge={row.suspended ? <StatusBadge variant="neutral" label="Sospesa" /> : undefined}
             actions={
                 <div className={styles.actions}>
