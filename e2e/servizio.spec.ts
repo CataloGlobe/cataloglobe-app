@@ -154,6 +154,19 @@ test.describe("Servizio", () => {
         await expect(aperto).toBeVisible();
     });
 
+    test("SV2: ogni tessera disegna il suo tavolo, colorato dallo stato; niente «da 390 h»", async ({ page }) => {
+        await openMappa(page);
+        const zona = main(page).getByRole("list", { name: "Senza zona" });
+        await expect(zona.getByRole("listitem")).toHaveCount(2, { timeout: 15_000 });
+        // Un disegno per tessera.
+        await expect(zona.locator("[data-state]")).toHaveCount(2);
+        // Il tavolo aperto è verde, o grigio se la sessione è di un servizio precedente.
+        const aperto = zona.getByRole("listitem").filter({ hasText: TAVOLO });
+        await expect(aperto.locator("[data-state]")).toHaveAttribute("data-state", /^(open|previous)$/);
+        // Oltre 12 ore è «Aperta da un servizio precedente», mai «da 390 h».
+        await expect(main(page).getByText(/da \d{3,} h/)).toHaveCount(0);
+    });
+
     test("la Mappa è una griglia per zona: 3, 2, 1 colonne", async ({ page }) => {
         await openMappa(page);
         const zona = main(page).getByRole("list", { name: "Senza zona" });
