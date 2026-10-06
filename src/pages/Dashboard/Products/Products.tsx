@@ -634,6 +634,8 @@ export default function Products() {
             header: verticalConfig.catalogLabel,
             width: "96px",
             align: "right",
+            // Al telefono il nome ha bisogno dello spazio: resta il prezzo.
+            hideOnPhone: true,
             cell: (_value, row) => summaryOf(row.product, row.parent).menus
         },
         ...(canWriteProduct
