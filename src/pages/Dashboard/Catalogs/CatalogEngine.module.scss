@@ -1,37 +1,38 @@
 // Il dettaglio sono due card affiancate: le categorie e la categoria scelta
-// (passo 2 P3). La catena flex resta vincolata fino alla DataTable, così la
-// paginazione automatica misura lo spazio vero e l'albero scorre da sé.
+// (passo 2 P3). La pagina scorre e la tabella con lei, 25 righe come ogni
+// tabella (T1); la colonna delle categorie resta ferma (correzioni UI MD3):
+// è sticky, alta al massimo quanto la finestra sotto le due barre, e il suo
+// albero scorre da sé.
 .engine {
-  height: 100%;
-  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: var(--space-24);
 }
 
 .layout {
-  flex: 1 1 auto;
-  min-height: 0;
   display: grid;
   grid-template-columns: 280px minmax(0, 1fr);
   gap: var(--space-24);
+  align-items: start;
 }
 
-.treeCard,
-.categoryCard {
+.treeCard {
+  position: sticky;
+  top: 0;
+  // Barra globale 56 + barra della pagina 56 + i 24 + 24 del contenuto.
+  max-height: calc(100dvh - 160px);
   min-height: 0;
   overflow: hidden;
+}
+
+.categoryCard {
+  min-width: 0;
 }
 
 .treeBody {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
-}
-
-.categoryBody {
-  flex: 1 1 auto;
-  min-height: 0;
 }
 
 // ── Albero delle categorie ──────────────────────────────────────────────
@@ -309,15 +310,12 @@
 .tableCard {
   display: flex;
   flex-direction: column;
-  flex: 1 1 auto;
-  min-height: 0;
 }
 
+// Le traduzioni scorrono con la pagina (MD5): nessuna altezza imposta.
 .translationsWrap {
   display: flex;
   flex-direction: column;
-  flex: 1;
-  min-height: 0;
 }
 
 // ── Riga del prodotto (passo 2 P6) ─────────────────────────────────────
@@ -470,6 +468,11 @@
   .treeCard,
   .categoryCard {
     overflow: visible;
+  }
+
+  .treeCard {
+    position: static;
+    max-height: none;
   }
 
   .treeBody,

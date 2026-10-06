@@ -476,7 +476,7 @@ test.describe("Stili — dove vestono (§50.13)", () => {
         await openList(page);
         await expect(itemOf(page, "Estate e2e")).toContainText("Attivo adesso");
         await expect(itemOf(page, "Stile base e2e")).toContainText("Programmato");
-        await expect(itemOf(page, "Autunno e2e")).toContainText("Solo su regole ferme");
+        await expect(itemOf(page, "Autunno e2e")).toContainText("Nessuna regola attiva");
         await expect(itemOf(page, "Sera e2e")).toContainText("Non utilizzato");
         // Il numero resta, sotto.
         await expect(itemOf(page, "Autunno e2e")).toContainText("Usato in 1 regola");

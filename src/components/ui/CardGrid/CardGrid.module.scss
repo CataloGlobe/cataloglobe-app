@@ -115,6 +115,27 @@
   display: block;
 }
 
+// Tessera ad altezza fissa (`height`): la media si prende lo spazio che
+// avanza, il testo resta intero e lo stato scende in fondo.
+.fixedHeight {
+  .surface {
+    min-height: 0;
+  }
+
+  .media {
+    flex: 1 1 auto;
+    min-height: 0;
+
+    &::before {
+      padding-top: 0;
+    }
+  }
+
+  .badge {
+    margin-top: auto;
+  }
+}
+
 .suspended .media {
   opacity: 0.5;
   filter: grayscale(1);

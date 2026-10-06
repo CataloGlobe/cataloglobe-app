@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -67,6 +68,11 @@ interface TranslationsTabProps {
     sectionDescription: string;
     placeholderItalian?: string;
     flush?: boolean;
+    /**
+     * Senza card esterna (bordo e sfondo): titolo e descrizione restano,
+     * per chi la mette già dentro una card (Menù, correzioni UI MD5).
+     */
+    bare?: boolean;
     /** Etichetta del segmento primario (es. "Descrizione" / "Nome"). */
     primaryLabel?: string;
     /** Campo secondario read-only (note prodotto). */
@@ -124,6 +130,7 @@ export function TranslationsTab({
     sectionDescription,
     placeholderItalian,
     flush = false,
+    bare = false,
     primaryLabel,
     secondaryField,
     onSourceUpdated
@@ -421,10 +428,11 @@ export function TranslationsTab({
     }
 
     const primarySegment = primaryLabel ?? sectionLabel;
+    const Wrapper = bare ? BareSection : SectionCard;
 
     return (
         <div className={gridClass}>
-            <SectionCard title={sectionLabel} subtitle={sectionDescription}>
+            <Wrapper title={sectionLabel} subtitle={sectionDescription}>
                 {secondaryField && (
                     <div className={styles.segmentRow}>
                         <SegmentedControl<ViewMode>
@@ -748,7 +756,7 @@ export function TranslationsTab({
                         </>
                     )
                 )}
-            </SectionCard>
+            </Wrapper>
 
             <ConfirmDialog
                 isOpen={revertConfirmFor !== null}
@@ -760,5 +768,24 @@ export function TranslationsTab({
                 confirmVariant="danger"
             />
         </div>
+    );
+}
+
+/** La sezione senza card (`bare`): stessa testata, niente bordo né sfondo. */
+function BareSection({ title, subtitle, children }: { title?: string; subtitle?: string; children?: ReactNode }) {
+    return (
+        <section className={styles.bare}>
+            <div className={styles.bareHeader}>
+                <Text as="h3" variant="title-sm" weight={600}>
+                    {title}
+                </Text>
+                {subtitle && (
+                    <Text variant="caption" colorVariant="muted">
+                        {subtitle}
+                    </Text>
+                )}
+            </div>
+            {children}
+        </section>
     );
 }

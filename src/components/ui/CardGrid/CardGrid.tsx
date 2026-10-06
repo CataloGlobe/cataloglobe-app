@@ -105,6 +105,11 @@ export interface CardGridItemProps {
     imageAlt?: string;
     /** Contenuto libero dell'area media (16:10). Vince su `image`. */
     media?: ReactNode;
+    /**
+     * Tessera ad altezza fissa (es. 236 per i Menù): l'area media prende ciò
+     * che avanza sopra il testo invece del 16:10, e lo stato va in fondo.
+     */
+    height?: number;
     title: ReactNode;
     /** Una riga muta, con ellissi. */
     subtitle?: ReactNode;
@@ -133,6 +138,7 @@ export function CardGridItem({
     image,
     imageAlt = "",
     media,
+    height,
     title,
     subtitle,
     badge,
@@ -151,6 +157,7 @@ export function CardGridItem({
         interactive ? styles.interactive : "",
         selected ? styles.selected : "",
         suspended ? styles.suspended : "",
+        height ? styles.fixedHeight : "",
         className ?? ""
     ]
         .join(" ")
@@ -192,7 +199,7 @@ export function CardGridItem({
 
     if (to) {
         return (
-            <div className={classes} role="listitem">
+            <div className={classes} role="listitem" style={height ? { height } : undefined}>
                 <Link to={to} className={styles.surface} aria-current={selected || undefined} aria-label={ariaLabel}>
                     {body}
                 </Link>
@@ -211,7 +218,7 @@ export function CardGridItem({
             }
         };
         return (
-            <div className={classes} role="listitem">
+            <div className={classes} role="listitem" style={height ? { height } : undefined}>
                 <div
                     role="button"
                     tabIndex={0}

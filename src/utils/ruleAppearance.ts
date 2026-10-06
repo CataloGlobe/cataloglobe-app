@@ -83,6 +83,8 @@ export type AppearanceRuleEntry = {
  * - `liveNow`: in onda adesso in almeno una sede;
  * - `assigned`: una regola viva lo porta, ma adesso non è in onda da nessuna parte;
  * - `stoppedOnly`: lo nominano solo regole ferme (spente, bozze, scadute);
+ *   a vista «Nessuna regola attiva», neutro (correzioni UI M3): «ferme»
+ *   non si capiva, e per il cliente è come se non fosse assegnato;
  * - `unassigned`: nessuna regola lo nomina.
  */
 export type AppearanceSummary = "liveNow" | "assigned" | "stoppedOnly" | "unassigned";
@@ -341,7 +343,7 @@ export function describeCatalogSummary(appearance: Appearance): { label: string;
             return { label: n === 1 ? "Su 1 sede, non adesso" : `Su ${n} sedi, nessuna adesso`, tone: "warning" };
         }
         case "stoppedOnly":
-            return { label: "Solo su regole ferme", tone: "neutral" };
+            return { label: "Nessuna regola attiva", tone: "neutral" };
         default:
             return { label: "Non assegnato a nessuna sede", tone: "neutral" };
     }
@@ -355,7 +357,7 @@ export function describeStyleSummary(appearance: Appearance): { label: string; t
         case "assigned":
             return { label: "Programmato", tone: "warning" };
         case "stoppedOnly":
-            return { label: "Solo su regole ferme", tone: "neutral" };
+            return { label: "Nessuna regola attiva", tone: "neutral" };
         default:
             return { label: "Non utilizzato", tone: "neutral" };
     }

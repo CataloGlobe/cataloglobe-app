@@ -331,7 +331,7 @@ test.describe("Menù — dettaglio", () => {
         for (let i = 1; i < boxes.length; i++) {
             expect(Math.round(boxes[i].y - (boxes[i - 1].y + boxes[i - 1].height))).toBe(4);
         }
-        const plus = main(page).getByRole("button", { name: "Nuova categoria" });
+        const plus = main(page).getByRole("button", { name: "Aggiungi categoria" });
         await expect(plus).toHaveCount(1);
         expect((await plus.boundingBox())!.y).toBeLessThan(boxes[0].y);
         expect(Math.abs((await plus.boundingBox())!.y - (await main(page).getByText("Categorie", { exact: true }).first().boundingBox())!.y)).toBeLessThan(12);
@@ -545,7 +545,7 @@ test.describe("Menù — dettaglio", () => {
     test("crea una categoria principale: POST con livello e genitore", async ({ page }) => {
         stub.onWrite("catalog_categories.POST", ({ body }) => ({ id: "e2e0c000-0000-4000-a000-000000000999", created_at: new Date().toISOString(), ...(body as object[])[0] }));
         await openCarta(page);
-        await main(page).getByRole("button", { name: "Nuova categoria" }).first().click();
+        await main(page).getByRole("button", { name: "Aggiungi categoria" }).first().click();
         await dialog(page).getByRole("textbox", { name: /Nome/ }).fill("Contorni");
         await dialog(page).getByRole("button", { name: /^(Salva|Crea)$/ }).click();
         await expect.poll(() => write(stub, "catalog_categories.POST")).toBeTruthy();
@@ -559,7 +559,7 @@ test.describe("Menù — dettaglio", () => {
         await selectCategory(page, "Antipasti");
         await renameCategory(page, "Stuzzichini");
 
-        await expect(main(page).getByRole("button", { name: "Nuova categoria" })).toBeDisabled();
+        await expect(main(page).getByRole("button", { name: "Aggiungi categoria" })).toBeDisabled();
         await expect(main(page).getByText("Con modifiche da salvare si rinomina e si riordina soltanto.")).toBeVisible();
         await main(page).getByRole("button", { name: /^Azioni della/ }).click();
         for (const item of [/^Sposta in/, /^Crea sotto-categoria/, /^Elimina/]) {
@@ -629,7 +629,7 @@ test.describe("Menù — dettaglio", () => {
         await stub.revoked;
         await selectCategory(page, "Antipasti");
         await expect(main(page).getByText("Olive ascolane", { exact: true })).toBeVisible();
-        await expect(main(page).getByRole("button", { name: "Nuova categoria" })).toHaveCount(0);
+        await expect(main(page).getByRole("button", { name: "Aggiungi categoria" })).toHaveCount(0);
         await expect(main(page).getByRole("button", { name: /^Azioni della/ })).toHaveCount(0);
         await expect(main(page).getByRole("button", { name: /Aggiungi prodott/ })).toHaveCount(0);
         await expect(main(page).getByRole("button", { name: /^Riordina/ })).toHaveCount(0);
@@ -723,22 +723,29 @@ test.describe("Menù — dove è attivo (§50.13)", () => {
         await expect(carta.getByRole("img", { name: "Stile Estate e2e (+1 stile)" })).toBeVisible();
     });
 
-    test("dettaglio: la banda nomina ogni sede e perché non è in onda", async ({ page }) => {
+    test("dettaglio: la barra dice dove è attivo, il pannello nomina ogni sede e perché", async ({ page }) => {
         await openCarta(page);
-        await expect(main(page).getByText("Attivo adesso in Centro e2e")).toBeVisible();
-        const seats = main(page).getByRole("list", { name: "Dove è attivo" });
-        await expect(seats.getByRole("listitem")).toHaveCount(2);
-        await expect(seats.getByRole("listitem").filter({ hasText: "Centro e2e" })).toContainText("Pranzo Centro e2e");
-        await expect(seats.getByRole("listitem").filter({ hasText: "Porto e2e" })).toContainText("non in finestra adesso");
-        await expect(main(page).getByText("Quello che cambi qui lo vedono subito.")).toBeVisible();
+        const pill = page.getByRole("button", { name: "Dove è attivo: Attivo adesso in Centro e2e" });
+        await expect(pill).toBeVisible();
+        await expect(page.getByText("Le modifiche salvate vanno subito online")).toBeVisible();
+        // La card sopra l'albero non c'è più (MD2).
+        await expect(main(page).getByRole("list", { name: "Dove è attivo" })).toHaveCount(0);
+        await pill.click();
+        const seats = page.getByRole("menu").getByRole("menuitem");
+        await expect(seats).toHaveCount(2);
+        await expect(seats.filter({ hasText: "Centro e2e" })).toContainText("Pranzo Centro e2e");
+        await expect(seats.filter({ hasText: "Porto e2e" })).toContainText("non in finestra adesso");
+        // Si chiude con Esc.
+        await page.keyboard.press("Escape");
+        await expect(page.getByRole("menu")).toHaveCount(0);
     });
 
     test("dettaglio: un menù senza regole si lavora senza che nessuno veda", async ({ page }) => {
         await openList(page);
         await main(page).getByText("Vuoto e2e").click();
         await expect(page).toHaveURL(new RegExp(`/catalogs/${MENU.vuoto}`));
-        await expect(main(page).getByText("Non assegnato a nessuna sede")).toBeVisible({ timeout: 15_000 });
-        await expect(main(page).getByText(/Puoi lavorarci senza che nessuno veda niente/)).toBeVisible();
+        await expect(page.getByText("Non assegnato a nessuna sede")).toBeVisible({ timeout: 15_000 });
+        await expect(page.getByText("Nessun cliente lo vede adesso")).toBeVisible();
     });
 
     test("dettaglio: sulla riga del prodotto, in quanti menù sta", async ({ page }) => {

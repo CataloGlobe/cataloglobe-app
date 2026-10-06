@@ -41,13 +41,17 @@ import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { CatalogDeleteDialog } from "./CatalogDeleteDialog";
 import { CatalogForm } from "./components/CatalogForm";
+import { CatalogSheet } from "./components/CatalogSheet";
 import { isPostgrestFKError } from "@/utils/supabaseErrors";
 import styles from "./Catalogs.module.scss";
 
 const FORM_ID = "catalog-form";
 
 /** Dove è attivo un menù (§23.2, §50.13): la riga e il suo stile. */
-type CatalogUsage = { label: string; tone: SummaryTone; style: V2Style | null; moreStyles: number };
+type CatalogUsage = { label: string; tone: SummaryTone; style: V2Style | null; moreStyles: number; liveNow: boolean };
+
+/** L'altezza della card dei Menù (M2): foglio disegnato, nome, numeri, stato. */
+const CARD_HEIGHT = 236;
 
 export default function Catalogs() {
     const currentTenantId = useTenantId();
@@ -361,7 +365,8 @@ export default function Catalogs() {
             map.set(catalog.id, {
                 ...describeCatalogSummary(a),
                 style: styleIds.length > 0 ? styleById.get(styleIds[0])! : null,
-                moreStyles: Math.max(0, styleIds.length - 1)
+                moreStyles: Math.max(0, styleIds.length - 1),
+                liveNow: a.summary === "liveNow"
             });
         }
         return map;
@@ -380,6 +385,17 @@ export default function Catalogs() {
             </span>
         );
     };
+    /** Sulla card solo lo stato, in fondo (M2): lo stile lo dice l'elenco. */
+    const cardBadge = (catalogId: string) => {
+        const usage = usageById.get(catalogId);
+        return usage ? <StatusBadge variant={usage.tone} label={usage.label} /> : undefined;
+    };
+    // Le card: prima quelli attivi adesso, poi per nome (M2).
+    const cardCatalogs = [...filteredCatalogs].sort(
+        (a, b) =>
+            Number(usageById.get(b.id)?.liveNow ?? false) - Number(usageById.get(a.id)?.liveNow ?? false) ||
+            a.name.localeCompare(b.name, "it")
+    );
     const swatchOf = (catalogId: string, compact: boolean) => {
         const usage = usageById.get(catalogId);
         if (!usage?.style) return undefined;
@@ -560,14 +576,15 @@ export default function Catalogs() {
                 skeletonShape={{ media: true, badge: true }}
                 aria-label={verticalConfig.catalogLabelPlural}
             >
-                {filteredCatalogs.map(catalog => (
+                {cardCatalogs.map(catalog => (
                     <CardGridItem
                         key={catalog.id}
                         to={`/business/${currentTenantId}/catalogs/${catalog.id}`}
-                        media={swatchOf(catalog.id, false)}
+                        height={CARD_HEIGHT}
+                        media={<CatalogSheet categories={statsMap[catalog.id]?.previewCategories ?? []} />}
                         title={catalog.name}
                         subtitle={`${categoriesText(catalog.id)} · ${productsText(catalog.id)}${emptyText(catalog.id)}`}
-                        badge={usageBadge(catalog.id)}
+                        badge={cardBadge(catalog.id)}
                         actions={canWriteCatalog ? rowActions(catalog) : undefined}
                     />
                 ))}

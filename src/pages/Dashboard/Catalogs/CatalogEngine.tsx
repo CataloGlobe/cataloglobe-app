@@ -35,7 +35,6 @@ import {
 } from "@dnd-kit/sortable";
 import { IconChevronDown, IconChevronRight, IconArrowLeft, IconPlus } from "@tabler/icons-react";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
-import { IconButton } from "@/components/ui/Button/IconButton";
 import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { TextInput } from "@/components/ui/Input/TextInput";
@@ -79,7 +78,7 @@ import { TranslationsTab } from "@/components/ui/TranslationsTab/TranslationsTab
 import { ProductForm } from "@/pages/Dashboard/Products/components/ProductForm";
 import { useRuleAppearance } from "@/hooks/useRuleAppearance";
 import { appearanceOf } from "@/utils/ruleAppearance";
-import { CatalogAppearanceCard } from "./components/CatalogAppearanceCard";
+import { CatalogAppearanceBar } from "./components/CatalogAppearanceBar";
 import styles from "./CatalogEngine.module.scss";
 
 type CreateIntent = "associate" | "configure";
@@ -1445,8 +1444,27 @@ export default function CatalogEngine() {
         [canWrite, isDirty, isSavingChanges, saveCatalogChanges]
     );
 
+    const catalogAppearance = useMemo(
+        () =>
+            ruleAppearance.index && catalogId
+                ? appearanceOf(ruleAppearance.index, { kind: "catalog", id: catalogId })
+                : null,
+        [ruleAppearance.index, catalogId]
+    );
+
+    // Il contesto a sinistra nella barra (MD1/MD2): dove è attivo, e cosa
+    // succede a ciò che si salva. Le azioni di salvataggio a destra.
+    const headerLeading = useMemo(
+        () =>
+            catalogAppearance ? (
+                <CatalogAppearanceBar appearance={catalogAppearance} businessId={currentTenantId ?? ""} />
+            ) : undefined,
+        [catalogAppearance, currentTenantId]
+    );
+
     usePageHeader({
         title: catalog?.name || catalogLabel,
+        leading: headerLeading,
         actions: headerActions,
         compact: headerCompact
     });
@@ -1787,6 +1805,7 @@ export default function CatalogEngine() {
                     <div className={styles.translationsWrap}>
                         <TranslationsTab
                             flush
+                            bare
                             entityType="category"
                             entityId={selectedCategory.id}
                             tenantId={currentTenantId ?? ""}
@@ -1819,21 +1838,24 @@ export default function CatalogEngine() {
         productPlural: productLabelPlural.toLowerCase()
     };
 
-    // Il «+» della testata: il nome è nel tooltip e nell'etichetta accessibile.
-    // Spento con la bozza aperta, e il tooltip dice perché: un bottone spento
-    // non riceve il puntatore, quindi il trigger è lo span che lo avvolge.
-    const newRootCategoryLabel = `Nuova ${categoryLower}`;
+    // «+ Nuova» della testata, secondario (MD4): il primario della pagina è
+    // «Aggiungi prodotti». Spento con la bozza aperta, e il tooltip dice
+    // perché: un bottone spento non riceve il puntatore, quindi il trigger è
+    // lo span che lo avvolge.
+    const newRootCategoryLabel = `Aggiungi ${categoryLower}`;
     const newRootCategoryButton = (
         <Tooltip content={structureLockReason ?? newRootCategoryLabel}>
             <span className={styles.tooltipTrigger}>
-                <IconButton
-                    variant="primary"
+                <Button
+                    variant="secondary"
                     size="sm"
-                    icon={<IconPlus size={16} />}
+                    leftIcon={<IconPlus size={16} />}
                     aria-label={newRootCategoryLabel}
                     disabled={Boolean(structureLockReason)}
                     onClick={openCreateRootCategoryDrawer}
-                />
+                >
+                    Nuova
+                </Button>
             </span>
         </Tooltip>
     );
@@ -1871,8 +1893,6 @@ export default function CatalogEngine() {
     // Sotto 768: una vista alla volta. Con una categoria scelta, il ritorno
     // all'albero sta sopra la sua card.
     const phoneCategoryView = isPhone && selectedCategory !== null;
-    const catalogAppearance =
-        ruleAppearance.index && catalogId ? appearanceOf(ruleAppearance.index, { kind: "catalog", id: catalogId }) : null;
     const backToTree = (
         <Button
             variant="ghost"
@@ -1916,10 +1936,6 @@ export default function CatalogEngine() {
                 </div>
             ) : (
                 <>
-                {/* Sul telefono, dentro una categoria, la banda lascia il posto ai prodotti. */}
-                {catalogAppearance && !phoneCategoryView && (
-                    <CatalogAppearanceCard appearance={catalogAppearance} businessId={currentTenantId ?? ""} />
-                )}
                 <div className={styles.layout}>
                     {isPhone ? (
                         phoneCategoryView ? (
