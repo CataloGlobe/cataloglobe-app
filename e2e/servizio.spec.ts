@@ -459,9 +459,12 @@ test.describe("Capienza nella Scheda", () => {
         await expect(main(page).getByRole("spinbutton", { name: /^Durata media tavolo \(minuti\)/ })).toBeVisible();
 
         // Entra nella bozza unica della Scheda: un Salva solo, che qui si annulla.
+        // Correzioni UI T1: il salvataggio sta nella barra della pagina, e il
+        // suo Annulla chiede conferma come nelle altre pagine.
         await capienza.fill("37");
         await expect(page.getByRole("button", { name: "Salva" })).toBeVisible();
         await page.getByRole("button", { name: "Annulla" }).click();
+        await page.getByRole("alertdialog").getByRole("button", { name: "Scarta" }).click();
         await expect(page.getByRole("button", { name: "Salva" })).toHaveCount(0);
     });
 });
