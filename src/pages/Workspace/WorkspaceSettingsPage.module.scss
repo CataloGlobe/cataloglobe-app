@@ -19,11 +19,11 @@
   align-items: center;
   gap: var(--space-6, 6px);
   align-self: flex-start;
-  color: var(--text-muted);
+  color: var(--brand-primary);
   text-decoration: none;
 
   &:hover {
-    color: var(--text);
+    text-decoration: underline;
   }
 
   &:focus-visible {
@@ -39,17 +39,36 @@
 
 /* ── Profilo in testa ──────────────────────────────────── */
 
+.title {
+  margin: 0;
+}
+
 .profile {
   display: flex;
   align-items: center;
   gap: var(--space-16);
-  padding: var(--space-24);
+  padding: var(--space-20, 20px) var(--space-24);
   border-bottom: 1px solid var(--border);
 }
 
-.avatarField {
+.avatar {
   flex: 0 0 auto;
-  width: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  overflow: hidden;
+  border-radius: 50%;
+  background: var(--brand-primary-soft);
+  color: var(--brand-primary);
+  font-weight: 700;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
 }
 
 .profileMeta {
@@ -66,6 +85,44 @@
 
 .profileAction {
   flex: 0 0 auto;
+}
+
+/* ── Righe ─────────────────────────────────────────────── */
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-16);
+  padding: var(--space-12) var(--space-24);
+
+  & + & {
+    border-top: 1px solid var(--border);
+  }
+}
+
+.rowText {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 2px);
+  min-width: 0;
+}
+
+.rowButton {
+  flex: 0 0 auto;
+}
+
+.danger {
+  color: var(--text-danger);
+}
+
+// Variante telefono: nascosta da 640 in su.
+.rowTap {
+  display: none;
+}
+
+.avatarField {
+  width: 120px;
 }
 
 /* ── Drawer e modale ───────────────────────────────────── */
@@ -101,7 +158,12 @@
   .profile {
     flex-direction: column;
     text-align: center;
-    padding: var(--space-24) var(--space-16);
+    padding: var(--space-24) var(--space-16) var(--space-16);
+  }
+
+  .avatar {
+    width: 64px;
+    height: 64px;
   }
 
   .profileMeta {
@@ -112,8 +174,41 @@
     width: 100%;
   }
 
-  // Righe tappabili: almeno 56 di altezza.
-  .card :global([data-setting-row]) {
+  // Righe tappabili alte 56: tutta la riga apre il pannello o la conferma.
+  .row {
+    padding: 0;
+  }
+
+  .rowText,
+  .rowButton {
+    display: none;
+  }
+
+  .rowTap {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
     min-height: 56px;
+    padding: 0 var(--space-16);
+    background: none;
+    border: none;
+    font: inherit;
+    color: var(--text);
+    text-align: left;
+    cursor: pointer;
+
+    &.danger {
+      color: var(--text-danger);
+    }
+
+    svg {
+      color: var(--text-muted);
+    }
+
+    &:focus-visible {
+      outline: none;
+      box-shadow: inset var(--shadow-focus);
+    }
   }
 }
