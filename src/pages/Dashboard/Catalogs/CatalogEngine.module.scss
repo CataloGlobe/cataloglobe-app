@@ -16,6 +16,12 @@
   align-items: start;
 }
 
+// «Nuova» resta accanto al titolo: la colonna è stretta (280) e la base di
+// 200 del titolo della Card manderebbe il bottone a capo.
+.treeCard > header > div:first-child {
+  flex-basis: 0;
+}
+
 .treeCard {
   position: sticky;
   top: 0;

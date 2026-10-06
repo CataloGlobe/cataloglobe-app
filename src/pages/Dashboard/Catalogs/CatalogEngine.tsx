@@ -1936,6 +1936,9 @@ export default function CatalogEngine() {
                 </div>
             ) : (
                 <>
+                {/* Al telefono la barra compatta non mostra `leading`: la
+                    pillola sta in testa al contenuto, sull'albero. */}
+                {isPhone && !phoneCategoryView && headerLeading}
                 <div className={styles.layout}>
                     {isPhone ? (
                         phoneCategoryView ? (

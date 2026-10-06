@@ -703,24 +703,31 @@ test.describe("Menù — dove è attivo (§50.13)", () => {
         await expect(carta).toContainText("Attivo adesso in Centro e2e");
         // Dessert non ha prodotti: il cliente non la vede, l'elenco lo dice.
         await expect(carta).toContainText(/7 categorie · 22 prodotti · 1 vuota/);
-        await expect(carta.getByRole("img", { name: "Stile Estate e2e" })).toBeVisible();
+        // M2: sulla card niente campione dello stile (resta nell'elenco).
+        await expect(carta.getByRole("img", { name: /^Stile / })).toHaveCount(0);
         await expect(carta).not.toContainText("Creato il");
-        // Pranzo: la sua regola è viva, la sede è sospesa. Lo stile è quello della regola.
+        // Pranzo: la sua regola è viva, la sede è sospesa.
         await expect(cardOf(page, "Pranzo e2e")).toContainText("Su 1 sede, non adesso");
-        await expect(cardOf(page, "Pranzo e2e").getByRole("img", { name: "Stile Base e2e" })).toBeVisible();
         await expect(cardOf(page, "Vuoto e2e")).toContainText("Non assegnato a nessuna sede");
-        await expect(cardOf(page, "Vuoto e2e").getByRole("img", { name: /^Stile / })).toHaveCount(0);
+        // Ordine (M2): prima quelli attivi adesso, poi per nome.
+        const names = await main(page).getByRole("list", { name: "Menù" }).getByRole("listitem").evaluateAll(items =>
+            items.map(i => i.querySelector("a")?.textContent ?? "")
+        );
+        expect(names.findIndex(n => n.includes("Carta e2e"))).toBe(0);
     });
 
-    test("griglia: in onda con due stili, il campione è il primo e «+1 stile» lo dice", async ({ page }) => {
+    test("in onda con due stili: la card dice solo lo stato, l'elenco il campione e «+1 stile»", async ({ page }) => {
         await page.unrouteAll({ behavior: "ignoreErrors" });
         stub = await stubMenu(page, { twoStyles: true });
         await openList(page);
         await page.getByRole("radio", { name: "Vista griglia" }).click();
         const carta = cardOf(page, "Carta e2e");
         await expect(carta).toContainText("Attivo adesso in 2 sedi");
-        await expect(carta).toContainText("+1 stile");
-        await expect(carta.getByRole("img", { name: "Stile Estate e2e (+1 stile)" })).toBeVisible();
+        await expect(carta).not.toContainText("+1 stile");
+        await page.getByRole("radio", { name: "Vista lista" }).click();
+        const row = main(page).getByRole("row").filter({ hasText: "Carta e2e" });
+        await expect(row).toContainText("+1 stile");
+        await expect(row.getByRole("img", { name: "Stile Estate e2e (+1 stile)" })).toBeVisible();
     });
 
     test("dettaglio: la barra dice dove è attivo, il pannello nomina ogni sede e perché", async ({ page }) => {

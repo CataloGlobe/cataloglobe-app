@@ -37,6 +37,11 @@ export interface CardGridProps {
     className?: string;
     children?: ReactNode;
     "aria-label"?: string;
+    /**
+     * Colonne automatiche larghe almeno così (es. 152 per i Prodotti: 6 a
+     * 1280, 2 al telefono) invece di 3 → 2 → 1.
+     */
+    minColumnWidth?: number;
 }
 
 export interface CardGridSkeletonShape {
@@ -44,6 +49,10 @@ export interface CardGridSkeletonShape {
     footer?: boolean;
     /** La riga del `badge` (StatusBadge, 22 px): per le card che lo portano sempre. */
     badge?: boolean;
+    /** Area media quadrata, come `squareMedia` delle card. */
+    square?: boolean;
+    /** Altezza fissa, come `height` delle card. */
+    height?: number;
 }
 
 export function CardGrid({
@@ -52,10 +61,20 @@ export function CardGrid({
     skeletonShape,
     className,
     children,
-    "aria-label": ariaLabel
+    "aria-label": ariaLabel,
+    minColumnWidth
 }: CardGridProps) {
+    const style = minColumnWidth
+        ? { gridTemplateColumns: `repeat(auto-fill, minmax(${minColumnWidth}px, 1fr))` }
+        : undefined;
     return (
-        <div className={`${styles.grid} ${className ?? ""}`.trim()} role="list" aria-label={ariaLabel} aria-busy={loading || undefined}>
+        <div
+            className={`${styles.grid} ${className ?? ""}`.trim()}
+            style={style}
+            role="list"
+            aria-label={ariaLabel}
+            aria-busy={loading || undefined}
+        >
             {loading
                 ? Array.from({ length: skeletonCount }, (_, i) => <CardGridSkeleton key={i} {...skeletonShape} />)
                 : children}
@@ -65,9 +84,10 @@ export function CardGrid({
 
 // Ogni barra sta dentro un Text della stessa variante della riga vera:
 // la riga è alta come il testo che arriva, e la card Skeleton come la card.
-function CardGridSkeleton({ media = true, footer = false, badge = false }: CardGridSkeletonShape) {
+function CardGridSkeleton({ media = true, footer = false, badge = false, square = false, height }: CardGridSkeletonShape) {
+    const classes = [styles.item, square ? styles.squareMedia : "", height ? styles.fixedHeight : ""].filter(Boolean).join(" ");
     return (
-        <div className={styles.item} role="listitem" aria-hidden="true">
+        <div className={classes} style={height ? { height } : undefined} role="listitem" aria-hidden="true">
             <div className={styles.surface}>
                 {media && (
                     <div className={styles.media}>
@@ -110,6 +130,8 @@ export interface CardGridItemProps {
      * che avanza sopra il testo invece del 16:10, e lo stato va in fondo.
      */
     height?: number;
+    /** Area media quadrata (foto dei prodotti) invece del 16:10. */
+    squareMedia?: boolean;
     title: ReactNode;
     /** Una riga muta, con ellissi. */
     subtitle?: ReactNode;
@@ -139,6 +161,7 @@ export function CardGridItem({
     imageAlt = "",
     media,
     height,
+    squareMedia = false,
     title,
     subtitle,
     badge,
@@ -158,6 +181,7 @@ export function CardGridItem({
         selected ? styles.selected : "",
         suspended ? styles.suspended : "",
         height ? styles.fixedHeight : "",
+        squareMedia ? styles.squareMedia : "",
         className ?? ""
     ]
         .join(" ")

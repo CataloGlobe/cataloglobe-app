@@ -136,6 +136,10 @@
   }
 }
 
+.squareMedia .media::before {
+  padding-top: 100%;
+}
+
 .suspended .media {
   opacity: 0.5;
   filter: grayscale(1);

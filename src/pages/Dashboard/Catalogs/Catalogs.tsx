@@ -573,7 +573,7 @@ export default function Catalogs() {
             <CardGrid
                 loading={isLoading}
                 skeletonCount={3}
-                skeletonShape={{ media: true, badge: true }}
+                skeletonShape={{ media: true, badge: true, height: CARD_HEIGHT }}
                 aria-label={verticalConfig.catalogLabelPlural}
             >
                 {cardCatalogs.map(catalog => (
