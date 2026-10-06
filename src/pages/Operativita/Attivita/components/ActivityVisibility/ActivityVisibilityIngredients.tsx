@@ -218,7 +218,7 @@ export const ActivityVisibilityIngredients: React.FC<ActivityVisibilityIngredien
                 <div className={`${DATA_TABLE_CLASSES.cellTwoLine} ${DATA_TABLE_CLASSES.cellTwoLineWrap}`}>
                     <span className={styles.nameRow}>
                         <span>
-                            {row.name}
+                            <span>{row.name}</span>
                             {row.productIds.length > 0 && (
                                 <span className={styles.usage}>
                                     {" "}

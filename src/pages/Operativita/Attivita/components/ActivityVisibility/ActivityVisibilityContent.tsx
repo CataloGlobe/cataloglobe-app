@@ -393,7 +393,7 @@ export const ActivityVisibilityContent: React.FC<ActivityVisibilityContentProps>
                     // V3: la categoria accanto al nome, la provenienza sotto.
                     <div className={DATA_TABLE_CLASSES.cellTwoLine}>
                         <span>
-                            {product.name}
+                            <span>{product.name}</span>
                             {product.categoryName && <span className={styles.category}> · {product.categoryName}</span>}
                         </span>
                         {note(product)}
