@@ -94,8 +94,8 @@
   justify-content: flex-start;
   padding: 16px 24px;
   position: relative;
-  background-color: var(--color-surface-hover);
-  background-image: none;
+  // Niente fondo proprio: l'anteprima sta sul fondo della pagina, così non
+  // si confonde con lo sfondo (o il motivo) dello stile.
 }
 
 /* Zona fissa toggle anteprima Mobile/Desktop, subito sotto l'header strip. */
