@@ -13,7 +13,7 @@ import type { OpeningHoursEntry, UpcomingClosure } from "./availability";
 import WhenSection from "./WhenSection";
 import WhoSection from "./WhoSection";
 import NotesSection from "./NotesSection";
-import { ALLERGIES_CONSENT_VERSION } from "./allergiesConsent";
+import { ALLERGIES_CONSENT_VERSION, ALLERGIES_ENABLED } from "./allergiesConsent";
 import styles from "./ReservationForm.module.scss";
 
 type SubmitErrorCode =
@@ -173,7 +173,7 @@ export default function ReservationForm({
                     // dell'admin, dove nessun browser è più in ascolto.
                     language: i18n.language,
                     ...(form.notes.trim() ? { notes: form.notes.trim() } : {}),
-                    ...(allergiesConsent && form.allergies.trim()
+                    ...(ALLERGIES_ENABLED && allergiesConsent && form.allergies.trim()
                         ? {
                               allergies: form.allergies.trim(),
                               allergies_consent_version: ALLERGIES_CONSENT_VERSION

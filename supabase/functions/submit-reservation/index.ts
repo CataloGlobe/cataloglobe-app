@@ -252,7 +252,13 @@ serve(async (req: Request) => {
 
         // Allergie: campo dedicato, accettato solo con la versione del
         // consenso esplicito (dato sulla salute). Testo senza consenso → 400.
-        const parsedAllergies = parseAllergies(body);
+        // Spente di default: senza RESERVATION_ALLERGIES_ENABLED="true" il
+        // campo si ignora (niente 400, niente salvataggio). Gemello FE:
+        // VITE_RESERVATION_ALLERGIES in ReservationPage/allergiesConsent.ts.
+        const allergiesEnabled = Deno.env.get("RESERVATION_ALLERGIES_ENABLED") === "true";
+        const parsedAllergies = allergiesEnabled
+            ? parseAllergies(body)
+            : { ok: true as const, value: null };
         if (!parsedAllergies.ok) {
             return errorResponse(parsedAllergies.code, 400, parsedAllergies.details);
         }
