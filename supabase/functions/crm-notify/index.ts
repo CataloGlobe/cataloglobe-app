@@ -72,6 +72,7 @@ import { processAgenda } from "../_shared/crmAgendaJob.ts";
 import { buildWeeklyEmail, lastWeekBounds } from "../_shared/crmWeeklyEmail.ts";
 import { sendEmailWithResult } from "../_shared/sendEmail.ts";
 import { sendToTeam } from "../_shared/crmTeamAlert.ts";
+import { recipientLine, withRecipientLine } from "../_shared/crmRecipientLine.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -95,7 +96,7 @@ const CLAIM_STALE_MS = 5 * 60_000;
  * L'invio si prenota prima con la riga in `crm_telegram_messages` (message_id
  * nullo): due giri accavallati non mandano lo stesso messaggio due volte.
  */
-async function sendTo(supabase, lead, member, data, team, kind): Promise<boolean> {
+async function sendTo(supabase, lead, member, data, team, kind, recipientIds: string[]): Promise<boolean> {
     const { data: claim, error: claimError } = await supabase
         .from("crm_telegram_messages")
         .insert({
@@ -126,7 +127,12 @@ async function sendTo(supabase, lead, member, data, team, kind): Promise<boolean
         return false;
     }
 
-    const message = buildLeadMessage(data, member.user_id, team, await whatsappLinkFor(lead.id, member.user_id));
+    const message = withRecipientLine(
+        buildLeadMessage(data, member.user_id, team, await whatsappLinkFor(lead.id, member.user_id)),
+        team,
+        recipientIds,
+        member.user_id
+    );
     const result = await telegramCall(BOT_TOKEN, "sendMessage", {
         chat_id: member.telegram_chat_id,
         text: message.text,
@@ -197,7 +203,7 @@ async function processOutbox(supabase, team, appUrl, now: Date) {
 
         let allSent = true;
         for (const member of recipients) {
-            const sent = await sendTo(supabase, lead, member, data, team, kind);
+            const sent = await sendTo(supabase, lead, member, data, team, kind, recipients.map(m => m.user_id));
             allSent = allSent && sent;
         }
 
@@ -240,7 +246,7 @@ async function processEscalations(supabase, team, appUrl, now: Date) {
 
         let allSent = true;
         for (const member of recipients) {
-            const sent = await sendTo(supabase, lead, member, data, team, "escalation");
+            const sent = await sendTo(supabase, lead, member, data, team, "escalation", recipients.map(m => m.user_id));
             allSent = allSent && sent;
         }
         if (!allSent) continue;
@@ -268,6 +274,7 @@ async function processImportRuns(supabase, team, appUrl, now: Date) {
     if (error) throw error;
 
     const linked = team.filter(m => m.telegram_chat_id !== null);
+    const linkedIds = linked.map(m => m.user_id);
 
     for (const run of runs ?? []) {
         // Prenotazione: un solo giro manda il riepilogo.
@@ -294,7 +301,7 @@ async function processImportRuns(supabase, team, appUrl, now: Date) {
         for (const member of linked) {
             const result = await telegramCall(BOT_TOKEN, "sendMessage", {
                 chat_id: member.telegram_chat_id,
-                text: message.text,
+                text: recipientLine(team, linkedIds, member.user_id) + "\n\n" + message.text,
                 parse_mode: "HTML",
                 disable_web_page_preview: true,
                 reply_markup: message.reply_markup
@@ -326,6 +333,7 @@ async function processRenewals(supabase, team, appUrl, now) {
     const stats = { renewal_reminders: 0 };
     const linked = team.filter(m => m.telegram_chat_id != null);
     if (linked.length === 0) return stats;
+    const linkedIds = linked.map(m => m.user_id);
 
     const today = romeToday(now);
     const { data: due, error } = await supabase.rpc("crm_expense_renewals_due", { p_today: today });
@@ -356,7 +364,7 @@ async function processRenewals(supabase, team, appUrl, now) {
         for (const member of linked) {
             const result = await telegramCall(BOT_TOKEN, "sendMessage", {
                 chat_id: member.telegram_chat_id,
-                text: message.text,
+                text: recipientLine(team, linkedIds, member.user_id) + "\n\n" + message.text,
                 parse_mode: "HTML",
                 disable_web_page_preview: true,
                 reply_markup: message.reply_markup

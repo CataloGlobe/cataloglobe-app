@@ -49,6 +49,7 @@ import {
     patchEvent
 } from "./crmGoogleCalendar.ts";
 import { BRIEF_MINUTES_BEFORE, OUTCOME_MINUTES_AFTER, romeWallClock } from "./crmCallSlots.ts";
+import { withRecipientLine } from "./crmRecipientLine.ts";
 
 const LOG = "crm-agenda";
 const CLAIM_MINUTES = 2;
@@ -233,9 +234,10 @@ export async function sendToCaller(botToken: string, team, callerId: string, mes
     const targets = caller ? [caller] : team.filter(m => m.telegram_chat_id);
     const name = teamName(team, callerId) ?? "chi chiama";
     const text = caller ? message.text : `Per ${name} (non ha collegato Telegram):\n${message.text}`;
+    const targetIds = targets.map(m => m.user_id);
     let sent = 0;
     for (const m of targets) {
-        const r = await sendTo(botToken, m.telegram_chat_id, { ...message, text });
+        const r = await sendTo(botToken, m.telegram_chat_id, withRecipientLine({ ...message, text }, team, targetIds, m.user_id));
         if (r.ok) sent += 1;
         else console.warn(`${LOG}: invio non riuscito`, m.user_id, r.description);
     }

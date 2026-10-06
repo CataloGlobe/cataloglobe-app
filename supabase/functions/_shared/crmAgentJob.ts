@@ -23,6 +23,7 @@
 import { telegramCall } from "./telegramApi.ts";
 import { callCrmClaude } from "./crmClaude.ts";
 import { sendToTeam } from "./crmTeamAlert.ts";
+import { recipientLine, withRecipientLine } from "./crmRecipientLine.ts";
 import { CRM_STAGE_LABEL } from "./crmLabels.ts";
 import { CRM_TECHNICAL_ANSWER_KEYS, escapeHtml } from "./crmTelegram.ts";
 import {
@@ -119,16 +120,20 @@ export async function closeDraftMessages(supabase, botToken, draftId, status, ac
     if (!draft) return;
     const info = await draftInfo(supabase, draft);
     const text = buildDraftClosedText(info, status, actorName);
-    const { data: sent } = await supabase
-        .from("crm_agent_draft_messages")
-        .select("chat_id, message_id")
-        .eq("draft_id", draftId)
-        .eq("role", "draft");
+    const [{ data: sent }, { data: team }] = await Promise.all([
+        supabase
+            .from("crm_agent_draft_messages")
+            .select("user_id, chat_id, message_id")
+            .eq("draft_id", draftId)
+            .eq("role", "draft"),
+        supabase.from("crm_team_members").select("user_id, display_name")
+    ]);
+    const recipientIds = (sent ?? []).map(m => m.user_id);
     for (const m of sent ?? []) {
         await telegramCall(botToken, "editMessageText", {
             chat_id: m.chat_id,
             message_id: m.message_id,
-            text,
+            text: `${recipientLine(team ?? [], recipientIds, m.user_id)}\n\n${text}`,
             parse_mode: "HTML",
             disable_web_page_preview: true
         });
@@ -138,12 +143,18 @@ export async function closeDraftMessages(supabase, botToken, draftId, status, ac
 async function notifyDraft(supabase, botToken, team, draft, appUrl, autoSent = false) {
     const info = await draftInfo(supabase, draft);
     const draftMessage = autoSent ? null : buildDraftMessage(info, appUrl);
+    const linked = team.filter(m => m.telegram_chat_id);
+    const linkedIds = linked.map(m => m.user_id);
     let sent = 0;
-    for (const member of team.filter(m => m.telegram_chat_id)) {
+    for (const member of linked) {
         // Partita da sola: col link alla chat WhatsApp, firmato per chi lo apre.
-        const message =
+        const message = withRecipientLine(
             draftMessage ??
-            buildAutoSentMessage(info, appUrl, draft.lead_id ? await whatsappLinkFor(draft.lead_id, member.user_id) : null);
+                buildAutoSentMessage(info, appUrl, draft.lead_id ? await whatsappLinkFor(draft.lead_id, member.user_id) : null),
+            team,
+            linkedIds,
+            member.user_id
+        );
         const r = await telegramCall(botToken, "sendMessage", {
             chat_id: member.telegram_chat_id,
             text: message.text,

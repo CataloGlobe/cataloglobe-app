@@ -17,6 +17,7 @@ import {
     type TelegramMessage
 } from "./crmTelegram.ts";
 import { telegramCall, isNotModified } from "./telegramApi.ts";
+import { withRecipientLine } from "./crmRecipientLine.ts";
 import { signWaLink } from "./crmWhatsapp.ts";
 
 /**
@@ -131,6 +132,13 @@ export async function refreshVenueMessages(
     ]);
     if (error) throw error;
 
+    // Chi ha ricevuto lo stesso avviso: serve alla riga del destinatario.
+    const recipientsByKey = new Map<string, string[]>();
+    for (const row of rows ?? []) {
+        const key = `${row.lead_id}:${row.kind}`;
+        recipientsByKey.set(key, [...(recipientsByKey.get(key) ?? []), row.user_id]);
+    }
+
     const cache = new Map<string, CrmLeadMessageData | null>();
     for (const row of rows ?? []) {
         const key = `${row.lead_id}:${row.kind}`;
@@ -139,11 +147,11 @@ export async function refreshVenueMessages(
         }
         const data = cache.get(key);
         if (!data) continue;
-        const message: TelegramMessage = buildLeadMessage(
-            data,
-            row.user_id,
+        const message: TelegramMessage = withRecipientLine(
+            buildLeadMessage(data, row.user_id, team, await whatsappLinkFor(row.lead_id, row.user_id)),
             team,
-            await whatsappLinkFor(row.lead_id, row.user_id)
+            recipientsByKey.get(key) ?? [row.user_id],
+            row.user_id
         );
         const result = await telegramCall(token, "editMessageText", {
             chat_id: row.chat_id,
