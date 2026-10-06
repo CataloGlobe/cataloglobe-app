@@ -625,7 +625,7 @@ export default function Products() {
         {
             id: "price",
             header: "Prezzo",
-            width: "128px",
+            width: "104px",
             align: "right",
             cell: (_value, row) => summaryOf(row.product, row.parent).price
         },

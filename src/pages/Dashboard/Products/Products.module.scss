@@ -45,12 +45,21 @@
   height: 36px;
   overflow: hidden;
   border-radius: var(--radius-inner);
+  // Finché la foto non arriva (o non arriva mai) il riquadro si vede.
+  background: var(--hover-bg);
+
+  // A 375 il nome non ci starebbe: la miniatura resta nella vista a card.
+  @include phone {
+    display: none;
+  }
 }
 
 .productNameRow {
   display: flex;
+  // Stretta, l'etichetta dei formati scende sotto il nome invece di schiacciarlo.
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-8);
+  gap: var(--space-4) var(--space-8);
   min-width: 0;
 }
 
