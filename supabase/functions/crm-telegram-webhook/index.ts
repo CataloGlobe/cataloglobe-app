@@ -66,6 +66,7 @@ import {
     buildOtherTimeProposedText
 } from "../_shared/crmAgendaMessages.ts";
 import { sendToTeam } from "../_shared/crmTeamAlert.ts";
+import { keepRecipientLine } from "../_shared/crmRecipientLine.ts";
 import { closeDraftMessages } from "../_shared/crmAgentJob.ts";
 import { buildEditPromptText, cleanEditText } from "../_shared/crmAgentMessages.ts";
 import { handleGeaConfirm, handleGeaMessage } from "../_shared/crmGeaJob.ts";
@@ -183,7 +184,7 @@ async function handleVenueName(supabase, parsed, actor, answer, appUrl) {
     await answer(`Ok, su ${known} resta l'etichetta «Locale da verificare».`);
 }
 
-/** Toglie i pulsanti e scrive l'esito al posto del messaggio. */
+/** Toglie i pulsanti e scrive l'esito al posto del messaggio (la riga del destinatario resta). */
 async function closeMessage(query, text: string) {
     const chatId = query.message?.chat?.id;
     const messageId = query.message?.message_id;
@@ -191,7 +192,7 @@ async function closeMessage(query, text: string) {
     await telegramCall(BOT_TOKEN, "editMessageText", {
         chat_id: chatId,
         message_id: messageId,
-        text,
+        text: keepRecipientLine(query.message?.text, text),
         parse_mode: "HTML",
         disable_web_page_preview: true
     });
@@ -216,7 +217,7 @@ async function replaceMessage(query, message) {
     await telegramCall(BOT_TOKEN, "editMessageText", {
         chat_id: chatId,
         message_id: messageId,
-        text: message.text,
+        text: keepRecipientLine(query.message?.text, message.text),
         parse_mode: "HTML",
         disable_web_page_preview: true,
         reply_markup: message.reply_markup
