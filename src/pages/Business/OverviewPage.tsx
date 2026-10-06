@@ -1,20 +1,20 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
-    BookOpenText,
-    CalendarCheck,
     ClipboardList,
     Copy,
     Download,
     ExternalLink,
     Image as ImageIcon,
     Languages,
-    MessageSquare,
     Wand2,
     Palette,
     PauseCircle,
-    Pin,
-    Users
+    Users,
+    Megaphone,
+    CalendarDays,
+    Star,
+    ScrollText
 } from "lucide-react";
 import { useTenant } from "@/context/useTenant";
 import { useTenantId } from "@/context/useTenantId";
@@ -511,7 +511,7 @@ export default function OverviewPage() {
               ),
               capability(
                   "featured",
-                  <Pin size={20} />,
+                  <Megaphone size={20} />,
                   businessRouteLabel("featured"),
                   `${b}/featured`,
                   c.featured.active ? "active" : "todo",
@@ -531,7 +531,7 @@ export default function OverviewPage() {
               ),
               capability(
                   "reservations",
-                  <CalendarCheck size={20} />,
+                  <CalendarDays size={20} />,
                   businessRouteLabel("reservations"),
                   `${b}/reservations`,
                   c.reservations.active ? "active" : "todo",
@@ -541,7 +541,7 @@ export default function OverviewPage() {
               ),
               capability(
                   "reviews",
-                  <MessageSquare size={20} />,
+                  <Star size={20} />,
                   businessRouteLabel("reviews"),
                   `${b}/reviews`,
                   c.reviews.active ? "active" : "todo",
@@ -552,7 +552,7 @@ export default function OverviewPage() {
               ),
               capability(
                   "stories",
-                  <BookOpenText size={20} />,
+                  <ScrollText size={20} />,
                   businessRouteLabel("stories"),
                   `${b}/stories`,
                   c.stories.active ? "active" : "todo",

@@ -27,7 +27,7 @@ import { PageGate } from "@/components/PageGate/PageGate";
 import { Card } from "@/components/ui/Card/Card";
 import Skeleton from "@/components/ui/Skeleton/Skeleton";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
-import { BookOpenText } from "lucide-react";
+import { ScrollText } from "lucide-react";
 import { StoryForm } from "./components/StoryForm";
 import { StoryBlockEditor } from "./components/StoryBlockEditor";
 import { createBlock } from "./components/createBlock";
@@ -450,7 +450,7 @@ export default function StoryDetailPage() {
         return (
             <EmptyState
                 variant="page"
-                icon={<BookOpenText />}
+                icon={<ScrollText />}
                 title="Non è stato possibile caricare la storia"
                 description="Controlla la connessione e riprova."
                 action={
@@ -472,7 +472,7 @@ export default function StoryDetailPage() {
         return (
             <EmptyState
                 variant="page"
-                icon={<BookOpenText />}
+                icon={<ScrollText />}
                 title="Storia non trovata"
                 description="La storia che cerchi non esiste o è stata eliminata."
                 action={

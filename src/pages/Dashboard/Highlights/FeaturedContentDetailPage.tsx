@@ -17,7 +17,7 @@ import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
-import { Pin } from "lucide-react";
+import { Megaphone } from "lucide-react";
 import { useToast } from "@/context/Toast/ToastContext";
 import ProductPickerList from "./ProductPickerList";
 import { FeaturedProductsCard } from "./components/FeaturedProductsCard";
@@ -297,7 +297,7 @@ export default function FeaturedContentDetailPage() {
         return (
             <EmptyState
                 variant="page"
-                icon={<Pin />}
+                icon={<Megaphone />}
                 title="Non è stato possibile caricare il contenuto"
                 description="Controlla la connessione e riprova."
                 action={
@@ -313,7 +313,7 @@ export default function FeaturedContentDetailPage() {
         return (
             <EmptyState
                 variant="page"
-                icon={<Pin />}
+                icon={<Megaphone />}
                 title="Contenuto non trovato"
                 description="Il contenuto che cerchi non esiste o è stato eliminato."
                 action={

@@ -8,7 +8,7 @@ import type { Review } from "@/types/database";
 import { usePermissions } from "@/context/usePermissions";
 import { canDoOnActivity, canDoOnAnyActivity } from "@/lib/permissions";
 import { PageGate } from "@/components/PageGate/PageGate";
-import { ArrowUpDown, CalendarRange, MessageSquare, Star } from "lucide-react";
+import { ArrowUpDown, CalendarRange, Star } from "lucide-react";
 
 import { usePageHeader } from "@/context/usePageHeader";
 import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
@@ -449,7 +449,7 @@ export default function Reviews() {
                     ) : loadError ? (
                         <EmptyState
                             variant="page"
-                            icon={<MessageSquare />}
+                            icon={<Star />}
                             title="Non è stato possibile caricare le recensioni"
                             description="Controlla la connessione e riprova."
                             action={
@@ -464,7 +464,7 @@ export default function Reviews() {
                             ) : (
                                 <EmptyState
                                     variant="inline"
-                                    icon={<MessageSquare />}
+                                    icon={<Star />}
                                     title="Nessuna recensione"
                                     description="Le recensioni arrivano dal modulo sulla pagina pubblica delle sedi."
                                 />

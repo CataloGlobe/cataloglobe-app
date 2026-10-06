@@ -9,7 +9,7 @@ import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/Data
 import { CardGrid, CardGridItem } from "@/components/ui/CardGrid/CardGrid";
 import { Badge } from "@/components/ui/Badge/Badge";
 import { FramedMedia } from "@/components/ui/FramedMedia";
-import { Pencil, Trash2, Pin, LayoutGrid, List as ListIcon, Image as ImageIcon } from "lucide-react";
+import { Pencil, Trash2, LayoutGrid, List as ListIcon, Image as ImageIcon, Megaphone } from "lucide-react";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { useToast } from "@/context/Toast/ToastContext";
 import {
@@ -288,7 +288,7 @@ export default function Highlights() {
         if (loadError) {
             return (
                 <EmptyState
-                    icon={<Pin />}
+                    icon={<Megaphone />}
                     title="Non è stato possibile caricare i contenuti"
                     description="Controlla la connessione e riprova."
                     action={
@@ -302,7 +302,7 @@ export default function Highlights() {
         if (!loading && contents.length === 0) {
             return (
                 <EmptyState
-                    icon={<Pin />}
+                    icon={<Megaphone />}
                     title="Metti in risalto quello che vuoi far notare"
                     description="Promozioni, piatti consigliati, eventi: compaiono sopra o sotto il menù, e puoi programmarli per periodi specifici."
                     action={
