@@ -73,7 +73,7 @@ export type ResolvedVariant = {
     image_framing?: ResolvedMediaFraming;
     image_aspect_ratio?: number;
     description?: string;
-    attributes?: any[];
+    attributes?: unknown[];
     allergens?: ResolvedAllergen[];
     characteristics?: ResolvedCharacteristic[];
     ingredients?: ResolvedIngredient[];
@@ -113,7 +113,7 @@ export type ResolvedProduct = {
     to_price?: number;
     is_visible: boolean;
     is_disabled?: boolean;
-    attributes?: any[];
+    attributes?: unknown[];
     allergens?: ResolvedAllergen[];
     characteristics?: ResolvedCharacteristic[];
     ingredients?: ResolvedIngredient[];
@@ -157,7 +157,7 @@ export type ResolvedCatalog = {
 export type ResolvedStyle = {
     id: string;
     name: string;
-    config?: any;
+    config?: unknown;
 };
 
 export type ResolvedCollections = {
@@ -294,7 +294,7 @@ type RawAttributeValueRow = {
     value_text: string | null;
     value_number: number | null;
     value_boolean: boolean | null;
-    value_json: any | null;
+    value_json: unknown;
     definition: RawAttributeDefRow | null;
 };
 
@@ -488,7 +488,7 @@ export function normalizeCatalog(
                 }
             }
 
-            const mapAttributes = (rows: any) =>
+            const mapAttributes = (rows: RawAttributeValueRow | RawAttributeValueRow[] | null | undefined) =>
                 normalizeMany(rows)
                     .map((a: RawAttributeValueRow) => {
                         const def = normalizeOne(a.definition);
@@ -669,7 +669,7 @@ export function normalizeCatalog(
                             : allVariants;
 
                     const optionGroupsRaw = normalizeMany<RawOptionGroupRow>(
-                        (p as any).option_groups
+                        (p as { option_groups?: RawOptionGroupRow | RawOptionGroupRow[] | null }).option_groups
                     );
                     const resolvedOptionGroups: ResolvedOptionGroup[] = optionGroupsRaw.map(og => ({
                         id: og.id,
@@ -1735,7 +1735,6 @@ export async function resolveActivityCatalogs(
         includeLayoutStyle: true
     });
     const layoutCatalogId = ruleResolution.layout.catalogId;
-    const layoutScheduleId = ruleResolution.layout.scheduleId;
     const styleData = ruleResolution.layout.styleData as ResolvedStyle | undefined;
 
     function computeFromPrice(

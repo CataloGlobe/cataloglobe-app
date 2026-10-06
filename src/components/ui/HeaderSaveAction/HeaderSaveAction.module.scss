@@ -1,0 +1,29 @@
+.dirtyGroup {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.savedPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+
+  svg {
+    color: var(--color-green-500);
+  }
+}
+
+// «· in questa tab ogni modifica si salva subito»: peso normale, va a capo
+// prima di allargare la barra.
+.note {
+  font-weight: 400;
+  white-space: normal;
+}
+
+.count {
+  white-space: nowrap;
+}

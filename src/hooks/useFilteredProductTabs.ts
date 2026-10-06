@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
+import { useTenant } from "@/context/useTenant";
 import type { VerticalConfig } from "@/constants/verticalTypes";
 
 /**
@@ -30,6 +31,11 @@ export type ProductTabDef<TValue extends string> = {
  * Components own the `activeTab` state for in-page switches; this helper
  * only governs the initial mount + URL deep-link resolution.
  *
+ * `ready` is false until the tenant (and so its vertical) has arrived: on a
+ * cold load the vertical falls back to the default one, where a gated tab
+ * may be hidden. Until then the URL is left alone, and the pages take
+ * `initialTab` again once `ready` turns true (§50.10/2).
+ *
  * Used by both ProductPage (detail) and Products (list) so deep-linked URLs
  * (`?tab=attributes`) resolve sanely after `customAttributes` flips to false
  * in food_beverage.
@@ -38,8 +44,9 @@ export function useFilteredProductTabs<TValue extends string>(
     allTabs: ProductTabDef<TValue>[],
     fallbackTab: TValue,
     legacyMap?: Partial<Record<string, TValue>>
-): { visibleTabs: ProductTabDef<TValue>[]; initialTab: TValue } {
+): { visibleTabs: ProductTabDef<TValue>[]; initialTab: TValue; ready: boolean } {
     const verticalConfig = useVerticalConfig();
+    const ready = useTenant().selectedTenant !== null;
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
     const location = useLocation();
@@ -63,7 +70,7 @@ export function useFilteredProductTabs<TValue extends string>(
         : fallbackTab;
 
     useEffect(() => {
-        if (queryTab === null) return;
+        if (!ready || queryTab === null) return;
         if (directMatch) return;
         const params = new URLSearchParams(searchParams);
         if (legacyMatch && legacyTarget) {
@@ -77,7 +84,7 @@ export function useFilteredProductTabs<TValue extends string>(
         // location synchronously, useSearchParams emits a fresh ref, and
         // including it here would cause a redirect loop.
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [queryTab, directMatch, legacyMatch, legacyTarget, navigate, location.pathname]);
+    }, [ready, queryTab, directMatch, legacyMatch, legacyTarget, navigate, location.pathname]);
 
-    return { visibleTabs, initialTab };
+    return { visibleTabs, initialTab, ready };
 }

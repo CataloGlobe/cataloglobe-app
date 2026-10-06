@@ -79,6 +79,14 @@ function nameField(page: Page): Locator {
     return main(page).getByRole("textbox", { name: /^Nome stile/ });
 }
 
+/**
+ * Cambia un token (Arrotondamento → Morbido): una modifica che il pubblico
+ * vede. Il solo nome non crea una versione né chiede l'avviso (S3).
+ */
+async function touchToken(page: Page): Promise<void> {
+    await main(page).getByRole("radio", { name: "Morbido", exact: true }).click();
+}
+
 /** Salva dell'editor: in fondo al pannello oggi, in testata domani. */
 function saveButton(page: Page): Locator {
     return page.getByRole("button", { name: "Salva", exact: true }).first();
@@ -130,18 +138,19 @@ test.beforeEach(async ({ page }) => {
 });
 
 test.describe("Stili — elenco", () => {
-    test("griglia: stili, di sistema in cima, uso nelle regole", async ({ page }) => {
+    test("griglia: stili, prima gli attivi adesso e poi per nome, uso nelle regole", async ({ page }) => {
         await openList(page);
         await expect(page).toHaveTitle(/^Stili — .+ \| CataloGlobe$/);
         await expect(styleName(page, "Stile base e2e")).toBeVisible();
         await expect(styleName(page, "Sera e2e")).toBeVisible();
         await expect(styleName(page, "Notte e2e")).toBeVisible();
         await expect(main(page).getByText("Usato in 1 regola").first()).toBeVisible();
-        await expect(main(page).getByText("Non utilizzato").first()).toBeVisible();
+        await expect(main(page).getByText("In nessuna regola").first()).toBeVisible();
         await expect(page.getByRole("button", { name: "Crea stile" }).first()).toBeVisible();
-        // Il sistema prima degli altri.
+        // ST2: prima gli attivi adesso (Estate), poi per nome.
+        await expect(itemOf(page, "Estate e2e")).toContainText("Attivo adesso");
         const order = await main(page).getByText(/^(Stile base|Estate|Sera|Notte) e2e$/).allTextContents();
-        expect(order[0]).toBe("Stile base e2e");
+        expect(order).toEqual(["Estate e2e", "Notte e2e", "Sera e2e", "Stile base e2e"]);
     });
 
     test("lista: versione e uso, la riga apre l'editor", async ({ page }) => {
@@ -257,7 +266,8 @@ test.describe("Stili — elenco ricomposto (P2)", () => {
     test("la card è un link allo stile; di sistema lo dice a parole", async ({ page }) => {
         await openList(page, "grid");
         await expect(main(page).getByRole("link", { name: "Estate e2e" })).toHaveAttribute("href", new RegExp(`/styles/${STYLE.estate}$`));
-        await expect(main(page).getByText("Di sistema")).toBeVisible();
+        // ST3: testo davanti all'uso, non più una pillola.
+        await expect(main(page).getByText(/^Di sistema · /)).toBeVisible();
     });
 
     test("chi non scrive: il «⋯» apre, non modifica", async ({ page }) => {
@@ -286,6 +296,7 @@ test.describe("Stili — editor", () => {
         await openStyle(page, STYLE.estate);
         await expect(nameField(page)).toHaveValue("Estate e2e", { timeout: 15_000 });
         await nameField(page).fill("Estate 2026 e2e");
+        await touchToken(page);
         await saveButton(page).click();
         const confirm = page.getByRole("alertdialog");
         await expect(confirm).toContainText("Stile in uso");
@@ -327,6 +338,8 @@ test.describe("Stili — editor", () => {
         await expect(page.getByRole("button", { name: /^v1\b/ })).toBeVisible();
         await page.getByRole("button", { name: /^v2\b/ }).click();
         await page.getByRole("button", { name: /^Ripristina/ }).click();
+        // Estate è in uso: il ripristino passa dall'avviso, come il Salva (S2).
+        await page.getByRole("alertdialog").getByRole("button", { name: "Ripristina comunque" }).click();
         await expect.poll(() => write(stub, "style_versions.POST")?.body).toMatchObject({
             style_id: STYLE.estate,
             version: 4,
@@ -382,6 +395,7 @@ test.describe("Stili — editor ricomposto (P3)", () => {
         await openStyle(page, STYLE.estate);
         await expect(nameField(page)).toHaveValue("Estate e2e", { timeout: 15_000 });
         await nameField(page).fill("Estate bis e2e");
+        await touchToken(page);
         await saveButton(page).click();
         const confirm = page.getByRole("alertdialog");
         await expect(confirm).toContainText("Versioni");
@@ -442,6 +456,8 @@ test.describe("Stili — permessi (P1)", () => {
     });
 
     test("senza styles.read: il blocco, e nessuna lettura degli stili", async ({ page }) => {
+        // Senza il permesso la voce «Stili» non è nella sidebar: si entra dalla Panoramica.
+        await openBusinessPage(page, "overview", "Panoramica");
         const reads: string[] = [];
         page.on("request", r => {
             if (/\/rest\/v1\/styles\?/.test(r.url())) reads.push(r.url());
@@ -460,12 +476,12 @@ function itemOf(page: Page, name: string): Locator {
 }
 
 test.describe("Stili — dove vestono (§50.13)", () => {
-    test("griglia: lo stato vivo, non il conteggio delle righe", async ({ page }) => {
+    test("griglia: la pillola solo per «Attivo adesso», l'uso nella riga di testo (ST3)", async ({ page }) => {
         await openList(page);
         await expect(itemOf(page, "Estate e2e")).toContainText("Attivo adesso");
-        await expect(itemOf(page, "Stile base e2e")).toContainText("Programmato");
-        await expect(itemOf(page, "Autunno e2e")).toContainText("Solo su regole ferme");
-        await expect(itemOf(page, "Sera e2e")).toContainText("Non utilizzato");
+        for (const name of ["Stile base e2e", "Autunno e2e", "Sera e2e"]) {
+            await expect(itemOf(page, name)).not.toContainText(/Attivo adesso|Programmato|Nessuna regola attiva|Non utilizzato/);
+        }
         // Il numero resta, sotto.
         await expect(itemOf(page, "Autunno e2e")).toContainText("Usato in 1 regola");
     });
@@ -475,13 +491,14 @@ test.describe("Stili — dove vestono (§50.13)", () => {
         const table = main(page).getByRole("table", { name: "Stili" });
         await expect(table.getByRole("columnheader", { name: "Utilizzo" })).toBeVisible();
         await expect(table.getByRole("row", { name: /Estate e2e/ })).toContainText("Attivo adesso");
-        await expect(table.getByRole("row", { name: /Stile base e2e/ })).toContainText("Programmato");
+        await expect(table.getByRole("row", { name: /Stile base e2e/ })).not.toContainText("Programmato");
     });
 
     test("editor: l'avviso nomina le sedi che vedono la modifica subito", async ({ page }) => {
         await openStyle(page, STYLE.estate);
         await expect(nameField(page)).toHaveValue("Estate e2e", { timeout: 15_000 });
         await nameField(page).fill("Estate bis e2e");
+        await touchToken(page);
         await saveButton(page).click();
         const confirm = page.getByRole("alertdialog");
         await expect(confirm).toContainText("Centro e2e e Porto e2e");
@@ -507,6 +524,7 @@ test.describe("Stili — dove vestono (§50.13)", () => {
         await openStyle(page, STYLE.sera);
         await expect(nameField(page)).toHaveValue("Sera e2e", { timeout: 15_000 });
         await nameField(page).fill("Sera bis e2e");
+        await touchToken(page);
         await saveButton(page).click();
         const confirm = page.getByRole("alertdialog");
         await expect(confirm).toContainText("Nessuna sede lo mostra adesso");
@@ -527,4 +545,156 @@ test.describe("Stili — larghezze", () => {
             await noSideScroll(page);
         });
     }
+});
+
+/**
+ * Lotto bug A (censimento del 01/10/2026): ogni caso nasce in `test.fail` e
+ * passa a `test` col commit che lo corregge.
+ */
+test.describe("Stili — lotto bug A", () => {
+    test("S1: se la rilettura dopo il Salva fallisce, il salvataggio resta riuscito", async ({ page }) => {
+        wireStyleWrites(stub);
+        await page.route(/\/rest\/v1\/styles\?/, route =>
+            route.request().method() === "GET" && write(stub, "styles.PATCH")
+                ? route.fulfill({ status: 500, json: { message: "e2e" } })
+                : route.fallback()
+        );
+        await openStyle(page, STYLE.sera);
+        await expect(nameField(page)).toHaveValue("Sera e2e", { timeout: 15_000 });
+        await touchToken(page);
+        await saveButton(page).click();
+        await expect(page.getByText(/^Stile aggiornato/)).toBeVisible();
+        await expect(page.getByRole("status").filter({ hasText: /^Salvato$/ }).first()).toBeVisible();
+        // L'errore arriverebbe dopo il successo, con la rilettura.
+        await page.waitForTimeout(1_000);
+        // Conteggio secco: `toHaveCount(0)` aspetterebbe che il toast se ne vada.
+        expect(await page.getByText("Impossibile salvare lo stile.").count()).toBe(0);
+    });
+
+    test("S1: dopo il Salva, senza ricaricare, versione e data sono quelle scritte", async ({ page }) => {
+        wireStyleWrites(stub);
+        await openStyle(page, STYLE.sera);
+        await expect(nameField(page)).toHaveValue("Sera e2e", { timeout: 15_000 });
+        await expect(page.getByRole("button", { name: /Versione 1/ }).first()).toContainText("Aggiornata 19/03/2026");
+        await touchToken(page);
+        await saveButton(page).click();
+        await expect(page.getByRole("status").filter({ hasText: /^Salvato$/ }).first()).toBeVisible();
+        // Pannello: versione nuova e data della scrittura (orologio fermo al 23/09).
+        const control = page.getByRole("button", { name: /Versione 2/ }).first();
+        await expect(control).toContainText("Aggiornata 23/09/2026");
+        await control.click();
+        const current = page.getByRole("button", { name: /^v2\b/ });
+        await expect(current).toBeVisible();
+        await expect(current).toContainText("attiva");
+        await expect(page.getByRole("button", { name: /^v1\b/ })).not.toContainText("attiva");
+        // Nessuna seconda lettura dello stile dopo la scrittura.
+        expect(writes(stub, "styles.PATCH")).toHaveLength(1);
+    });
+
+    test("S3: cambiare solo il nome non crea una versione", async ({ page }) => {
+        wireStyleWrites(stub);
+        await openStyle(page, STYLE.sera);
+        await expect(nameField(page)).toHaveValue("Sera e2e", { timeout: 15_000 });
+        await nameField(page).fill("Sera tardi e2e");
+        await saveButton(page).click();
+        await expect.poll(() => write(stub, "styles.PATCH")?.body).toMatchObject({ name: "Sera tardi e2e" });
+        expect(writes(stub, "style_versions.POST")).toHaveLength(0);
+    });
+
+    test("S3: il solo nome di uno stile in uso si salva senza avviso", async ({ page }) => {
+        wireStyleWrites(stub);
+        await openStyle(page, STYLE.estate);
+        await expect(nameField(page)).toHaveValue("Estate e2e", { timeout: 15_000 });
+        await nameField(page).fill("Estate 2026 e2e");
+        await saveButton(page).click();
+        await expect.poll(() => write(stub, "styles.PATCH")?.body, { timeout: 5_000 }).toMatchObject({ name: "Estate 2026 e2e" });
+        await expect(page.getByRole("alertdialog")).toHaveCount(0);
+    });
+
+    test("S2: con modifiche non salvate «Ripristina» è spento", async ({ page }) => {
+        await openStyle(page, STYLE.estate);
+        await expect(nameField(page)).toHaveValue("Estate e2e", { timeout: 15_000 });
+        await touchToken(page);
+        await page.getByRole("button", { name: /Versione 3/ }).first().click();
+        await page.getByRole("button", { name: /^v2\b/ }).click();
+        await expect(page.getByRole("button", { name: /^Ripristina/ })).toBeDisabled();
+        await expect(page.getByText(/Salva o annulla le modifiche/)).toBeVisible();
+    });
+
+    test("S2: ripristinare uno stile in uso passa dall'avviso «Stile in uso»", async ({ page }) => {
+        wireStyleWrites(stub);
+        await openStyle(page, STYLE.estate);
+        await expect(nameField(page)).toHaveValue("Estate e2e", { timeout: 15_000 });
+        await page.getByRole("button", { name: /Versione 3/ }).first().click();
+        await page.getByRole("button", { name: /^v2\b/ }).click();
+        await page.getByRole("button", { name: /^Ripristina/ }).click();
+        const confirm = page.getByRole("alertdialog");
+        await expect(confirm).toContainText("Stile in uso");
+        await expect(confirm).toContainText("Centro e2e e Porto e2e");
+        expect(writes(stub, "style_versions.POST")).toHaveLength(0);
+        await confirm.getByRole("button", { name: /comunque$/ }).click();
+        await expect.poll(() => write(stub, "style_versions.POST")?.body).toMatchObject({
+            style_id: STYLE.estate,
+            config: { colors: { primary: "#ef4444" } }
+        });
+    });
+
+    test("S4: elenco letto prima che una regola lo usasse: si apre il sostitutivo, non la conferma", async ({ page }) => {
+        await openList(page);
+        // Un'altra sessione mette Notte su una regola dopo la lettura dell'elenco.
+        const id = "e2e5e000-0000-4000-a000-000000000104";
+        stub.tables.schedules.push({ ...stub.tables.schedules.find(r => r.id === RULE.autunno)!, id, name: "Notte nuova e2e", enabled: true });
+        stub.tables.schedule_layout.push({ id: `layout-${id}`, tenant_id: stub.tables.styles[0].tenant_id, schedule_id: id, catalog_id: null, style_id: STYLE.notte });
+        await actionsOf(styleName(page, "Notte e2e")).click();
+        await page.getByRole("menuitem", { name: "Elimina" }).click();
+        const drawer = dialog(page);
+        await expect(drawer.getByRole("combobox", { name: /Sostitu/ })).toBeVisible();
+        await expect(drawer).toContainText("Notte nuova e2e");
+    });
+
+    for (const size of [
+        { width: 768, height: 900 },
+        { width: 1280, height: 600 }
+    ]) {
+        test(`S7: a ${size.width}×${size.height} l'anteprima mobile sta nel suo spazio`, async ({ page }) => {
+            await page.setViewportSize(size);
+            await openStyle(page, STYLE.sera);
+            await expect(nameField(page)).toBeVisible({ timeout: 15_000 });
+            const frame = page.locator(".preview-mobile");
+            await expect(frame).toBeVisible();
+            await page.waitForTimeout(600);
+            const fits = await frame.evaluate(el => {
+                const host = el.parentElement!.parentElement!.getBoundingClientRect();
+                const box = el.getBoundingClientRect();
+                return box.left >= host.left - 1 && box.right <= host.right + 1 && box.top >= host.top - 1 && box.bottom <= host.bottom + 1;
+            });
+            expect(fits).toBe(true);
+        });
+    }
+
+    test("S8: l'avviso «Stile in uso» resta aperto se la finestra si stringe", async ({ page }) => {
+        await page.setViewportSize({ width: 1280, height: 900 });
+        await openStyle(page, STYLE.estate);
+        await expect(nameField(page)).toHaveValue("Estate e2e", { timeout: 15_000 });
+        await touchToken(page);
+        await saveButton(page).click();
+        const confirm = page.getByRole("alertdialog");
+        await expect(confirm).toContainText("Stile in uso");
+        await page.setViewportSize({ width: 700, height: 900 });
+        await page.waitForTimeout(500);
+        await expect(confirm).toContainText("Stile in uso");
+    });
+
+    test("S8: «Scartare le modifiche?» resta aperto se la finestra si stringe", async ({ page }) => {
+        await page.setViewportSize({ width: 1280, height: 900 });
+        await openStyle(page, STYLE.sera);
+        await expect(nameField(page)).toHaveValue("Sera e2e", { timeout: 15_000 });
+        await nameField(page).fill("Sera bis e2e");
+        await page.getByRole("button", { name: "Annulla", exact: true }).first().click();
+        const confirm = page.getByRole("alertdialog");
+        await expect(confirm).toContainText("Scartare le modifiche");
+        await page.setViewportSize({ width: 700, height: 900 });
+        await page.waitForTimeout(500);
+        await expect(confirm).toContainText("Scartare le modifiche");
+    });
 });

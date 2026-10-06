@@ -40,10 +40,10 @@ export function StoryBrandDrawer({ open, onClose, brand }: StoryBrandDrawerProps
                 header={
                     <div className={styles.header}>
                         <Text variant="title-sm" weight={600}>
-                            Il cappello
+                            Introduzione
                         </Text>
                         <Text variant="body-sm" colorVariant="muted">
-                            È la prima cosa che il cliente legge, sopra l'elenco delle storie. Vale per tutte le sedi.
+                            Il testo che i clienti leggono prima delle storie. Vale per tutte le sedi.
                         </Text>
                     </div>
                 }
@@ -73,7 +73,7 @@ export function StoryBrandDrawer({ open, onClose, brand }: StoryBrandDrawerProps
                         onFileChange={brand.onCoverFileChange}
                         onRemove={brand.onCoverRemove}
                         thumbShape="wide"
-                        accept="image/png,image/jpeg,image/webp"
+                        accept="image/png,image/jpeg,image/webp,image/avif"
                         maxSizeMb={5}
                     />
                     <TextInput label="Titolo" value={brand.title} onChange={e => brand.onTitleChange(e.target.value)} />

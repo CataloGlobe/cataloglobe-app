@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import type { UserPermissions } from "@/lib/permissions";
-import type { PlanFeature } from "@/lib/planFeatures";
+import { passesPlanGate, type PlanFeature, type PlanGate } from "@/lib/planFeatures";
 import type { AppSidebarNavGroup, AppSidebarNavItem } from "@/components/layout/AppSidebar/AppSidebar";
 
 /**
@@ -23,7 +23,7 @@ export interface SidebarNavItem {
      * «Pro» — è la pagina a dire il resto. Diverso da `permission`, che
      * nasconde.
      */
-    requiresFeature?: PlanFeature;
+    requiresFeature?: PlanGate;
     /** Voce annunciata e non ancora navigabile: attenuata, con il perché nel tooltip. */
     disabled?: boolean;
     disabledHint?: string;
@@ -100,7 +100,7 @@ export function buildSidebarGroups(
                         disabled: item.disabled,
                         disabledHint: item.disabledHint,
                         matchPrefixes: item.matchPrefixes,
-                        locked: !!item.requiresFeature && !hasFeature(item.requiresFeature),
+                        locked: !passesPlanGate(item.requiresFeature, hasFeature),
                         loading: showTranslation || showImport,
                         loadingLabel: showTranslation
                             ? translationLabel

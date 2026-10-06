@@ -245,6 +245,7 @@ export default function ReservationPage() {
             languages={brand.languages}
             currentLang={currentLang}
             variant="solid"
+            renderAs="sheet"
             onSelect={(code) => {
                 const url = code === brand.baseLanguage
                     ? `/${slug}/prenota`

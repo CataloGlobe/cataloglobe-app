@@ -1,31 +1,124 @@
 /* La pagina vive dentro `AdminLayout`: sfondo, altezza e padding esterno sono
-   del layout. Qui resta solo la misura di lettura della colonna. */
+   del layout. A tutta larghezza (D40): l'incidente aperto mette accanto
+   l'aggiornamento e l'anteprima per i clienti. */
 .main {
     flex: 1;
     width: 100%;
-    max-width: 1080px;
-    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-16);
 }
 
-.toolbar {
+/* Banda dello stato (D40, b2): una riga che si apre sul posto. */
+.band {
+    --band-color: var(--text-muted);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--band-color);
+    border-radius: var(--radius-surface);
+    background: var(--card-bg);
+    padding: var(--space-8) var(--space-12) var(--space-8) var(--space-16);
+
+    &[data-overall="operational"] { --band-color: var(--success-500); }
+    &[data-overall="partial"] { --band-color: var(--warning-500); }
+    &[data-overall="outage"] { --band-color: var(--text-danger); }
+}
+
+.bandRow {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-    margin-bottom: 1.5rem;
+    gap: var(--space-12);
+    flex-wrap: wrap;
 }
 
-.heading {
-    font-size: 1.5rem;
-    font-weight: 700;
+.bandDot,
+.bandServiceDot {
+    flex: none;
+    width: 10px;
+    height: 10px;
+    border-radius: var(--radius-pill);
+    background: var(--band-color);
 }
 
-.subheading {
-    font-size: 0.875rem;
-    color: var(--text);
-    opacity: 0.65;
-    margin-top: 0.25rem;
+.bandServiceDot {
+    width: 8px;
+    height: 8px;
+    background: var(--service-color, var(--text-muted));
 }
+
+.bandTitle {
+    margin-right: auto;
+}
+
+.bandServices {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-12);
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.bandService {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-4);
+
+    &[data-status="up"] { --service-color: var(--success-500); }
+    &[data-status="degraded"] { --service-color: var(--warning-500); }
+    &[data-status="down"] { --service-color: var(--text-danger); }
+}
+
+.bandBody {
+    border-top: 1px solid var(--border);
+    margin-top: var(--space-8);
+    padding-top: var(--space-12);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+}
+
+.bandGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: var(--space-24);
+}
+
+.bandHeading {
+    margin: 0 0 var(--space-8);
+
+    &:not(:first-child) {
+        margin-top: var(--space-16);
+    }
+}
+
+.bandList {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+}
+
+.bandListRow {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: var(--space-12);
+}
+
+.bandIncident {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.chevronOpen {
+    transform: rotate(180deg);
+}
+
+
+
 
 .list {
     display: flex;
@@ -36,18 +129,106 @@
 .card {
     background: var(--card-bg);
     border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 1.25rem 1.5rem;
+    border-radius: var(--radius-surface);
+    overflow: hidden;
 }
 
-.cardHeader {
+/* Testa dell'incidente: tutta la riga apre e chiude. */
+.cardToggle {
+    all: unset;
+    box-sizing: border-box;
+    width: 100%;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--space-16);
+    padding: var(--space-16) var(--space-24);
+    cursor: pointer;
+
+    &:hover { background: var(--hover-bg); }
+    &:focus-visible { box-shadow: var(--shadow-focus); }
+}
+
+.cardToggleMain {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    min-width: 0;
+
+    .meta { margin-bottom: 0; }
+}
+
+.lastUpdate {
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.cardChevron {
+    align-self: center;
+    color: var(--text-muted);
+}
+
+.cardBody {
+    border-top: 1px solid var(--border);
+    padding: var(--space-16) var(--space-24) var(--space-24);
+}
+
+/* Aggiornamento a sinistra, anteprima per i clienti a destra. */
+.updateArea {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: var(--space-24);
+    margin-top: var(--space-16);
+
+    .addUpdateBlock {
+        border-top: 0;
+        padding-top: 0;
+        margin-top: 0;
+    }
+}
+
+.statusSelect {
+    width: auto;
+    flex: 1;
+}
+
+.preview {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+}
+
+.previewLabel {
+    font-weight: 500;
+    color: var(--text-muted);
+}
+
+.previewCard {
+    border: 1px dashed var(--border);
+    border-radius: var(--radius-control);
+    background: var(--bg);
+    padding: var(--space-12) var(--space-16);
+
+    .updateItem[data-draft] {
+        color: var(--brand-primary);
+        opacity: 1;
+    }
+}
+
+.previewHead {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 1rem;
-    flex-wrap: wrap;
-    margin-bottom: 0.5rem;
+    gap: var(--space-8);
+    margin-bottom: var(--space-4);
 }
+
+.previewTitle {
+    font-weight: 600;
+}
+
 
 .cardTitle {
     font-size: 1.05rem;
@@ -88,22 +269,7 @@
     margin-bottom: 0.75rem;
 }
 
-.services {
-    display: flex;
-    gap: 0.4rem;
-    flex-wrap: wrap;
-    margin-bottom: 0.75rem;
-}
 
-.servicePill {
-    background: var(--bg);
-    border: 1px solid var(--border);
-    color: var(--text);
-    opacity: 0.85;
-    padding: 0.15rem 0.55rem;
-    border-radius: 999px;
-    font-size: 0.7rem;
-}
 
 .description {
     font-size: 0.875rem;
@@ -111,6 +277,7 @@
     opacity: 0.85;
     line-height: 1.5;
     margin-bottom: 1rem;
+    white-space: pre-line;
 }
 
 .actions {

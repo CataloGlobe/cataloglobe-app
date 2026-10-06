@@ -1,0 +1,62 @@
+// Lo Storico è una pagina a tabella: la catena flex vincolata (template
+// Prodotti/Cataloghi) porta l'altezza di `MainLayout .content` fino al
+// `.autoSizeProbe` del DataTable, così l'auto-pagesize misura lo spazio vero.
+.container {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.historySection {
+  // Anello intermedio della catena flex Storico: toolbar (auto) + DataTable
+  // (flex:1 interno). min-height:0 rompe il default min-height:auto così il
+  // probe del DataTable misura l'altezza bounded ereditata da .container.
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+// Toolbar Storico: navigatore giorno (sinistra) + filtro segmenti (destra).
+.historyToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.dayNav {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+// Il campo data è un DateInput di sistema: qui solo la larghezza, che non
+// deve saltare passando da un giorno all'altro.
+.dayField {
+  width: 168px;
+}
+
+// ── Blocco comanda rettificata: padre (riga nativa) + sotto-righe storno ──
+// Reso dal rowWrapper. Un SOLO separatore in fondo al blocco (= separatore
+// nativo tra comande). La riga padre interna NON ha border-bottom (nessuna
+// linea tra padre e storno). Token bordo identico a `.row` del DataTable.
+.rectifiedBlock {
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border, #e2e8f0);
+
+  // riga padre nativa (primo figlio): rimuove la sua linea inferiore
+  > :first-child {
+    border-bottom: none;
+  }
+
+  // ultimo blocco della lista: niente separatore finale (come l'ultima riga)
+  &:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+}

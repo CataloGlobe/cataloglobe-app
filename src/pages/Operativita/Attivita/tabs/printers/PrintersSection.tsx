@@ -8,7 +8,7 @@ import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { useToast } from "@/context/Toast/ToastContext";
-import { usePermissions } from "@/context/PermissionsContext";
+import { usePermissions } from "@/context/usePermissions";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 import { canDoOnActivity } from "@/lib/permissions";
 import { PRINTER_PURCHASE_URL } from "@/config/printers";
@@ -190,7 +190,7 @@ export const PrintersSection: React.FC<PrintersSectionProps> = ({
   return (
     <Card
       title="Stampanti"
-      subtitle="Lo stato è hardware, non configurazione"
+      subtitle="Le stampanti collegate a questa sede"
       actions={actions}
       flush={!isLoading && items.length > 0}
     >

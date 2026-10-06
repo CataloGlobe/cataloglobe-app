@@ -21,20 +21,21 @@ import {
 } from "@/services/supabase/upload";
 import { compressImage, COMPRESS_PROFILES } from "@/utils/compressImage";
 import { useTenantId } from "@/context/useTenantId";
-import { usePermissions } from "@/context/PermissionsContext";
+import { usePermissions } from "@/context/usePermissions";
 import { canDoOnAnyActivity } from "@/lib/permissions";
 import { PageGate } from "@/components/PageGate/PageGate";
 import { Card } from "@/components/ui/Card/Card";
 import Skeleton from "@/components/ui/Skeleton/Skeleton";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
-import { BookOpenText } from "lucide-react";
+import { ScrollText } from "lucide-react";
 import { StoryForm } from "./components/StoryForm";
 import { StoryBlockEditor } from "./components/StoryBlockEditor";
 import { createBlock } from "./components/createBlock";
-import { HeaderSaveAction, DiscardChangesConfirmDialog } from "./components/HeaderSaveAction";
-import { buildSaveActionCompactConfig } from "./components/headerSaveActionCompact";
+import { HeaderSaveAction, DiscardChangesConfirmDialog } from "@/components/ui/HeaderSaveAction/HeaderSaveAction";
+import { buildSaveActionCompactConfig } from "@/components/ui/HeaderSaveAction/headerSaveActionCompact";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
-import { StoryProductPicker } from "./components/StoryProductPicker";
+import { StoryProductPicker, type StoryProductOptions } from "./components/StoryProductPicker";
+import { listBaseProductsForPicker } from "@/services/supabase/products";
 import { StoryPlacementCard } from "./components/StoryPlacementCard";
 import { getActivities } from "@/services/supabase/activities";
 import type { AppearanceActivity } from "@/utils/ruleAppearance";
@@ -49,6 +50,27 @@ const STATUS_OPTIONS: { value: StoryStatus; label: string }[] = [
     { value: "draft", label: "Bozza" },
     { value: "published", label: "Pubblicata" }
 ];
+
+/**
+ * Il primo blocco che non si può salvare, detto per numero. Un blocco immagine
+ * senza file si pubblicherebbe come un'immagine rotta; uno con un file
+ * pendente ma senza `mediaAspectRatio` salverebbe un framing orfano (guard
+ * trappola-featured: ImageBlock lo scrive sempre alla selezione, se manca la
+ * lettura del ratio è fallita).
+ */
+function blockProblem(blocks: StoryBlock[], pendingImages: Record<string, File>): string | null {
+    for (const [index, block] of blocks.entries()) {
+        if (block.type !== "image") continue;
+        const pending = block.id in pendingImages;
+        if (!pending && !block.url) {
+            return `Il blocco ${index + 1} è un'immagine senza file: caricala o togli il blocco.`;
+        }
+        if (pending && block.mediaAspectRatio == null) {
+            return "Un'immagine non ha proporzioni valide. Ricaricala e riprova.";
+        }
+    }
+    return null;
+}
 
 export default function StoryDetailPage() {
     const { storyId } = useParams<{ storyId: string }>();
@@ -82,6 +104,8 @@ export default function StoryDetailPage() {
     // Dove appare (§34.7): null = tutta l'azienda.
     const [activityId, setActivityId] = useState<string | null>(null);
     const [activities, setActivities] = useState<AppearanceActivity[]>([]);
+    // I prodotti base, una lettura sola per il picker in pagina e i blocchi Prodotto.
+    const [productOptions, setProductOptions] = useState<StoryProductOptions>({ items: null, failed: false });
     const [blocks, setBlocks] = useState<StoryBlock[]>([]);
     const [pendingCoverFile, setPendingCoverFile] = useState<File | null>(null);
     const [coverPreview, setCoverPreview] = useState<string | null>(null);
@@ -116,6 +140,23 @@ export default function StoryDetailPage() {
         getActivities(tenantId)
             .then(list => setActivities(list.map(a => ({ id: a.id, name: a.name, status: a.status }))))
             .catch(error => console.warn("[StoryDetailPage] sedi non caricate:", error));
+    }, [tenantId, canRead]);
+
+    useEffect(() => {
+        if (!tenantId || !canRead) return;
+        let cancelled = false;
+        setProductOptions({ items: null, failed: false });
+        listBaseProductsForPicker(tenantId)
+            .then(items => {
+                if (!cancelled) setProductOptions({ items, failed: false });
+            })
+            .catch(error => {
+                console.warn("[StoryDetailPage] prodotti non caricati:", error);
+                if (!cancelled) setProductOptions({ items: null, failed: true });
+            });
+        return () => {
+            cancelled = true;
+        };
     }, [tenantId, canRead]);
 
     useEffect(() => {
@@ -204,27 +245,16 @@ export default function StoryDetailPage() {
         if (!story || !tenantId || isSaving) return false;
 
         const trimmedTitle = title.trim();
-        if (!trimmedTitle) {
-            showToast({ message: "Il titolo della storia è obbligatorio.", type: "error" });
+        const problem = trimmedTitle ? blockProblem(blocks, pendingBlockImages) : "Il titolo della storia è obbligatorio.";
+        if (problem) {
+            showToast({ message: problem, type: "error" });
             return false;
         }
 
-        // Guard trappola-featured: mai persistere un blocco immagine con un file
-        // pendente ma senza mediaAspectRatio. ImageBlock lo scrive sempre alla
-        // selezione; se manca, la lettura del ratio è fallita → abortisci invece
-        // di salvare un framing orfano che il render ignorerebbe (path cover).
-        for (const blockId of Object.keys(pendingBlockImages)) {
-            const b = blocks.find(x => x.id === blockId);
-            if (b?.type === "image" && b.mediaAspectRatio == null) {
-                showToast({
-                    message: "Un'immagine non ha proporzioni valide. Ricaricala e riprova.",
-                    type: "error"
-                });
-                return false;
-            }
-        }
-
         setIsSaving(true);
+        // I file caricati in questo Salva: se la scrittura fallisce si tolgono,
+        // la storia continua a usare i suoi.
+        const uploaded: Array<{ id: string; url: string }> = [];
         try {
             let coverMedia = story.cover_media;
             if (pendingCoverFile) {
@@ -233,6 +263,7 @@ export default function StoryDetailPage() {
                     story.id,
                     await compressImage(pendingCoverFile, COMPRESS_PROFILES.cover)
                 );
+                uploaded.push({ id: story.id, url: coverMedia });
             } else if (coverRemoved) {
                 coverMedia = null;
             }
@@ -248,6 +279,7 @@ export default function StoryDetailPage() {
                     // (4:5). La copertina sopra resta sul profilo `cover` (landscape).
                     await compressImage(file, COMPRESS_PROFILES.story)
                 );
+                uploaded.push({ id: `${story.id}/${blockId}`, url });
                 nextBlocks = nextBlocks.map(b => (b.id === blockId ? { ...b, url } : b));
             }
 
@@ -296,6 +328,11 @@ export default function StoryDetailPage() {
             return true;
         } catch (error) {
             console.error("Errore salvataggio storia:", error);
+            for (const file of uploaded) {
+                deleteStoryImageBestEffort(tenantId, file.id, file.url).catch(err =>
+                    console.warn("[storage] story upload rollback failed:", err)
+                );
+            }
             const message =
                 error instanceof Error && error.message ? error.message : "Impossibile salvare la storia.";
             showToast({ message, type: "error" });
@@ -413,7 +450,7 @@ export default function StoryDetailPage() {
         return (
             <EmptyState
                 variant="page"
-                icon={<BookOpenText />}
+                icon={<ScrollText />}
                 title="Non è stato possibile caricare la storia"
                 description="Controlla la connessione e riprova."
                 action={
@@ -435,7 +472,7 @@ export default function StoryDetailPage() {
         return (
             <EmptyState
                 variant="page"
-                icon={<BookOpenText />}
+                icon={<ScrollText />}
                 title="Storia non trovata"
                 description="La storia che cerchi non esiste o è stata eliminata."
                 action={
@@ -458,7 +495,9 @@ export default function StoryDetailPage() {
                                 : "Sola lettura: per modificare le storie serve un ruolo da manager in su."}
                         </InlineBanner>
                     )}
-                    <fieldset className={styles.readOnlyScope} disabled={!canWrite}>
+                    {/* Spento anche durante il Salva: la rilettura che lo chiude
+                        riallinea la bozza e perderebbe quello che si scrive nel mentre. */}
+                    <fieldset className={styles.readOnlyScope} disabled={!canWrite || isSaving}>
                     <Card
                         title="Informazioni"
                         subtitle="Titolo e copertina sono quello che il cliente vede nell'elenco."
@@ -481,19 +520,17 @@ export default function StoryDetailPage() {
                         activities={activities}
                         status={status}
                         disabled={!canWrite}
+                        productControl={
+                            <StoryProductPicker
+                                tenantId={tenantId}
+                                value={productId}
+                                onChange={setProductId}
+                                options={productOptions}
+                                fallbackName={productId === story.product_id ? story.product?.name : null}
+                                disabled={!canWrite}
+                            />
+                        }
                     />
-
-                    <Card
-                        title="Prodotto collegato"
-                        subtitle="Se lo colleghi, la storia compare anche nella scheda di quel prodotto nel menù."
-                    >
-                        <StoryProductPicker
-                            tenantId={tenantId}
-                            value={productId}
-                            onChange={setProductId}
-                            disabled={!canWrite}
-                        />
-                    </Card>
 
                     <Card
                         title="Il racconto"
@@ -511,6 +548,7 @@ export default function StoryDetailPage() {
                             pendingImages={pendingBlockImages}
                             onPendingImageChange={handleBlockImageChange}
                             tenantId={tenantId}
+                            productOptions={productOptions}
                             disabled={!canWrite}
                             focusBlockId={focusBlockId}
                             onFocusHandled={handleFocusHandled}

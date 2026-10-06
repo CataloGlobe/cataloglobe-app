@@ -1,97 +1,132 @@
-// Filtro della banda header: larghezza fissa come negli altri toolbar-select
-// (TeamPage, Recensioni). Senza, il select si comprime con la viewport e la sua
-// larghezza naturale non dice più nulla — `useCompactToolbar` la misura per
-// decidere se la banda entra nella riga, e la pagina non passerebbe mai alla
-// barra compatta.
-.toolbarFilter {
-    width: 220px;
-    flex: 0 0 auto;
+// Coda di supporto della piattaforma (ritocco R5). Solo token di _theme.scss.
+
+.page {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-12);
 }
 
-.toolbarFilterSelect {
-    box-sizing: border-box;
-    height: var(--control-height, 38px);
-    line-height: 1;
+.panel {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-surface);
+    background: var(--card-bg);
+    overflow: hidden;
 }
 
-// Coda di supporto della piattaforma. Solo token di _theme.scss.
+.groupHead {
+    margin: 0;
+    display: flex;
+    gap: var(--space-6);
+    padding: var(--space-10) var(--space-16) var(--space-6);
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+}
 
 .list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+    list-style: none;
+    margin: 0;
+    padding: 0;
 }
 
 // `button` e non `div[onClick]`: la riga è interattiva e deve essere
 // raggiungibile da tastiera e annunciata come tale.
 .row {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 14px 16px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--card-bg);
-  text-align: left;
-  cursor: pointer;
+    width: 100%;
+    display: grid;
+    grid-template-columns: 8px minmax(0, 1fr) minmax(0, 220px) 112px 128px 16px;
+    grid-template-areas: "flag main who wait badge chev";
+    align-items: center;
+    column-gap: var(--space-16);
+    padding: var(--space-12) var(--space-16);
+    border: 0;
+    border-bottom: 1px solid var(--border);
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
 
-  &:hover {
-    background: var(--hover-bg);
-  }
+    &:hover {
+        background: var(--hover-bg);
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--brand-primary);
+        outline-offset: -2px;
+    }
 }
 
-// Riga in attesa di risposta (ultimo messaggio del cliente).
-//
-// L'evidenza è portata dalla pill "In attesa" più il peso dell'oggetto, non da
-// un fondo colorato né da un bordo laterale d'accento. Due ragioni: su una
-// coda dove la maggioranza delle righe è in attesa, una colorazione diffusa
-// diventa rumore uniforme e smette di segnalare; e il peso tipografico è lo
-// stesso segnale già usato per il non letto nella lista cliente, quindi non
-// introduce un secondo vocabolario visivo per la stessa idea.
-.row[data-waiting] .subject {
-  font-weight: 600;
+li:last-child > .row {
+    border-bottom: 0;
 }
 
-.rowMain {
-  flex: 1 1 auto;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+// Il pallino è il segnale di «tocca a voi»; l'etichetta del gruppo lo dice a
+// parole, così il colore non è l'unico portatore dell'informazione.
+.flag {
+    grid-area: flag;
+    width: 8px;
+    height: 8px;
+    border-radius: var(--radius-pill);
 }
 
-.subject {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.row[data-ours] .flag {
+    background: var(--color-warning-500);
 }
 
-.meta {
-  font-size: 12px;
-  color: var(--text);
-  opacity: 0.6;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.main,
+.who {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
 }
 
-// Etichetta testuale accanto al badge di stato: l'evidenza non è affidata al
-// solo bordo colorato, che da solo escluderebbe chi non distingue i colori.
-.waitingTag {
-  flex: 0 0 auto;
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1;
-  padding: 4px 8px;
-  border-radius: 999px;
-  color: var(--brand-primary);
-  background: var(--brand-primary-soft);
-  white-space: nowrap;
+.main {
+    grid-area: main;
+}
+
+.who {
+    grid-area: who;
+}
+
+.ellipsis {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.wait {
+    grid-area: wait;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.badge {
+    grid-area: badge;
+    justify-self: start;
+}
+
+.chevron {
+    grid-area: chev;
+    color: var(--text-muted);
+}
+
+// Sotto 900 px le colonne non stanno più: chi e da quanto scendono sotto
+// l'oggetto, lo stato resta a destra.
+@media (max-width: 899px) {
+    .row {
+        grid-template-columns: 8px minmax(0, 1fr) auto;
+        grid-template-areas:
+            "flag main badge"
+            ". who wait";
+        row-gap: var(--space-6);
+    }
+
+    .chevron {
+        display: none;
+    }
+
+    .wait {
+        justify-self: end;
+    }
 }

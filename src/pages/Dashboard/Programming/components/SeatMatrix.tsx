@@ -1,19 +1,12 @@
-import type { ReactNode } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Card } from "@/components/ui/Card/Card";
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import Text from "@/components/ui/Text/Text";
-import { useMediaQuery } from "@/hooks/useMediaQuery";
 import type { LayoutRule, RuleType } from "@/services/supabase/layoutScheduling";
-import {
-    describeDiagnosis,
-    describeManual,
-    describeWinner,
-    type MatrixCell,
-    type MatrixRow
-} from "@/utils/scheduleMatrix";
-import { MatrixCellLines as CellLines } from "./MatrixCellLines";
+import type { MatrixRow } from "@/utils/scheduleMatrix";
+import { matrixLayers } from "./matrixLayers";
 import styles from "./SeatMatrix.module.scss";
 
 type SeatMatrixProps = {
@@ -26,12 +19,12 @@ type SeatMatrixProps = {
     seatHref: (activityId: string) => string;
 };
 
-/** Le colonne degli strati, nell'ordine in cui si applicano (§20.6). */
-const LAYER_COLUMNS: ReadonlyArray<{ type: RuleType; header: string }> = [
-    { type: "visibility", header: "Disponibilità" },
-    { type: "price", header: "Prezzi" },
-    { type: "featured", header: "In evidenza" }
-];
+/**
+ * Sotto questa larghezza del contenuto sei colonne non stanno (circa 145 px
+ * l'una): un blocco per sede. Si misura lo spazio, non la finestra: a 1024
+ * con la sidebar aperta ce n'è meno che a 1023 con la sidebar chiusa.
+ */
+const MATRIX_TABLE_MIN_WIDTH = 880;
 
 /**
  * «Cosa vede ogni sede» (§20.3): una riga per sede, una colonna per strato,
@@ -39,43 +32,20 @@ const LAYER_COLUMNS: ReadonlyArray<{ type: RuleType; header: string }> = [
  * sospesa resta leggibile, spenta.
  */
 export function SeatMatrix({ rows, atNow, catalogLabel, catalogName, ruleHref, seatHref }: SeatMatrixProps) {
-    // Sotto 768 una tabella a sei colonne non sta: un blocco per sede, gli
-    // strati su due colonne (mockup telefono).
-    const isPhone = useMediaQuery("(max-width: 767px)");
-    const renderLayer = (cell: MatrixCell<LayoutRule>): ReactNode => {
-        if (cell.kind === "empty") {
-            return <CellLines primary={null} secondary={describeDiagnosis(cell.diagnosis, atNow)} warn={cell.diagnosis.kind === "draft"} />;
-        }
-        const catalogId = cell.rule.layout?.catalog_id;
-        const { primary, secondary } = describeWinner(cell.rule, catalogId ? catalogName(catalogId) : undefined);
-        // Il link porta alla regola: nel menù è la riga sotto, altrove il nome sopra.
-        const menuWithCatalog = cell.rule.rule_type === "layout" && secondary !== null;
-        const link = (
-            <Link to={ruleHref(cell.rule)} className={styles.link}>
-                {menuWithCatalog ? secondary : primary}
-            </Link>
-        );
-        return menuWithCatalog ? <CellLines primary={primary} secondary={link} /> : <CellLines primary={link} secondary={secondary} />;
-    };
-
-    // Gli strati, nell'ordine in cui si applicano: colonne della tabella e
-    // voci del blocco sul telefono.
-    const layers: ReadonlyArray<{ id: string; header: string; render: (row: MatrixRow<LayoutRule>) => ReactNode }> = [
-        { id: "layout", header: catalogLabel, render: row => renderLayer(row.cells.layout) },
-        ...LAYER_COLUMNS.map(({ type, header }) => ({
-            id: type,
-            header,
-            render: (row: MatrixRow<LayoutRule>) => renderLayer(row.cells[type])
-        })),
-        {
-            id: "manual",
-            header: "A mano",
-            render: row => {
-                const { primary, secondary } = describeManual(row.manualCount);
-                return <CellLines primary={primary} secondary={secondary} warn={primary !== null} />;
-            }
-        }
-    ];
+    // Quando sei colonne non stanno, un blocco per sede con gli strati su due
+    // colonne (mockup telefono).
+    const boxRef = useRef<HTMLDivElement>(null);
+    const [asBlocks, setAsBlocks] = useState(false);
+    useLayoutEffect(() => {
+        const box = boxRef.current;
+        if (!box) return;
+        const measure = () => setAsBlocks(box.clientWidth < MATRIX_TABLE_MIN_WIDTH);
+        measure();
+        const observer = new ResizeObserver(measure);
+        observer.observe(box);
+        return () => observer.disconnect();
+    }, []);
+    const layers = matrixLayers({ atNow, catalogLabel, catalogName, ruleHref });
 
     const seatCell = (row: MatrixRow<LayoutRule>) => (
         <div className={styles.cell}>
@@ -92,46 +62,48 @@ export function SeatMatrix({ rows, atNow, catalogLabel, catalogName, ruleHref, s
     ];
 
     return (
-        <Card title="Cosa vede ogni sede" subtitle={isPhone ? "un blocco per sede, uno spazio per strato" : "una riga per sede, una colonna per strato"} flush>
-            {isPhone ? (
-                <ul className={styles.blocks} aria-label="Cosa vede ogni sede">
-                    {rows.map(row => (
-                        <li key={row.activityId} className={`${styles.block}${row.suspended ? ` ${styles.blockMuted}` : ""}`}>
-                            {seatCell(row)}
-                            <dl className={styles.layers}>
-                                {layers.map(layer => (
-                                    <div key={layer.id} className={styles.layer}>
-                                        <Text as="dt" variant="caption-xs" colorVariant="muted" className={styles.layerLabel}>
-                                            {layer.header}
-                                        </Text>
-                                        <dd className={styles.layerValue}>{layer.render(row)}</dd>
-                                    </div>
-                                ))}
-                            </dl>
-                        </li>
-                    ))}
-                </ul>
-            ) : (
-                <DataTable<MatrixRow<LayoutRule>>
-                    ariaLabel="Cosa vede ogni sede"
-                    data={rows}
-                    columns={columns}
-                    getRowId={row => row.activityId}
-                    mutedRowIds={rows.filter(row => row.suspended).map(row => row.activityId)}
-                    pageSize={Math.max(rows.length, 1)}
-                    pageSizeOptions={[Math.max(rows.length, 1)]}
-                    showFooter={false}
-                    maxHeight="none"
-                />
-            )}
-            {/* L'ordine in cui si applicano gli strati (§20.6). */}
-            <Text variant="body-sm" className={styles.note}>
-                <strong>Le colonne non sono elenchi paralleli: sono i passaggi in fila.</strong> Il sistema sceglie il{" "}
-                {catalogLabel.toLowerCase()}, poi applica la disponibilità programmata, poi i prezzi, e infine le modifiche a mano
-                della sede — l'ultima colonna, che vince su tutte le altre. Dentro una colonna le regole competono fra loro; fra
-                colonne no, si sommano in quest'ordine. <strong>«A mano» non è una regola</strong>: è quello che qualcuno ha
-                cambiato dal locale, e nessuna regola lo sovrascrive.
-            </Text>
-        </Card>
+        <div ref={boxRef}>
+            <Card title="Cosa vede ogni sede" subtitle={asBlocks ? "un blocco per sede, uno spazio per strato" : "una riga per sede, una colonna per strato"} flush>
+                {asBlocks ? (
+                    <ul className={styles.blocks} aria-label="Cosa vede ogni sede">
+                        {rows.map(row => (
+                            <li key={row.activityId} className={`${styles.block}${row.suspended ? ` ${styles.blockMuted}` : ""}`}>
+                                {seatCell(row)}
+                                <dl className={styles.layers}>
+                                    {layers.map(layer => (
+                                        <div key={layer.id} className={styles.layer}>
+                                            <Text as="dt" variant="caption-xs" colorVariant="muted" className={styles.layerLabel}>
+                                                {layer.header}
+                                            </Text>
+                                            <dd className={styles.layerValue}>{layer.render(row)}</dd>
+                                        </div>
+                                    ))}
+                                </dl>
+                            </li>
+                        ))}
+                    </ul>
+                ) : (
+                    <DataTable<MatrixRow<LayoutRule>>
+                        ariaLabel="Cosa vede ogni sede"
+                        data={rows}
+                        columns={columns}
+                        getRowId={row => row.activityId}
+                        mutedRowIds={rows.filter(row => row.suspended).map(row => row.activityId)}
+                        pageSize={Math.max(rows.length, 1)}
+                        pageSizeOptions={[Math.max(rows.length, 1)]}
+                        showFooter={false}
+                        maxHeight="none"
+                    />
+                )}
+                {/* L'ordine in cui si applicano gli strati (§20.6). */}
+                <Text variant="body-sm" className={styles.note}>
+                    <strong>Le colonne non sono elenchi paralleli: sono i passaggi in fila.</strong> Il sistema sceglie il{" "}
+                    {catalogLabel.toLowerCase()}, poi applica la disponibilità programmata, poi i prezzi, e infine le modifiche a mano
+                    della sede — l'ultima colonna, che vince su tutte le altre. Dentro una colonna le regole competono fra loro; fra
+                    colonne no, si sommano in quest'ordine. <strong>«A mano» non è una regola</strong>: è quello che qualcuno ha
+                    cambiato dal locale, e nessuna regola lo sovrascrive.
+                </Text>
+            </Card>
+        </div>
     );
 }

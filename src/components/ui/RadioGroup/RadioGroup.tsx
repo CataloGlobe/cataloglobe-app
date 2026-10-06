@@ -22,7 +22,8 @@ import styles from "./RadioGroup.module.scss";
 export interface RadioOption {
     value: string;
     label: string;
-    description?: string;
+    /** Una riga sotto il nome; può portare un link (es. «Imposta la capienza»). */
+    description?: React.ReactNode;
     /** Disabilita questa singola opzione (opt-in). Il group-level `disabled` ha priorità. */
     disabled?: boolean;
     /** Perché è disabilitata: va nel Tooltip sull'opzione («Un manager non può invitare admin»). */
@@ -32,6 +33,8 @@ export interface RadioOption {
 export interface RadioGroupProps {
     id?: string;
     label?: string;
+    /** Nome del gruppo quando il nome visibile sta fuori (una `SettingRow`). */
+    ariaLabel?: string;
     tooltip?: React.ReactNode;
     helperText?: string;
     error?: string;
@@ -51,6 +54,7 @@ export interface RadioGroupProps {
 export const RadioGroup: React.FC<RadioGroupProps> = ({
     id,
     label,
+    ariaLabel,
     tooltip,
     helperText,
     error,
@@ -79,7 +83,7 @@ export const RadioGroup: React.FC<RadioGroupProps> = ({
                     role="radiogroup"
                     // La label di FormField punta a `inputId` con `htmlFor`, ma un
                     // div non è etichettabile: il gruppo prende il nome da qui.
-                    aria-label={label}
+                    aria-label={label ?? ariaLabel}
                     aria-invalid={hasError || undefined}
                     aria-describedby={describedById}
                 >
@@ -109,7 +113,7 @@ export const RadioGroup: React.FC<RadioGroupProps> = ({
                                 <span className={styles.circle} />
 
                                 <span className={styles.text}>
-                                    <Text as="span" variant="body-sm" weight={500}>
+                                    <Text as="span" variant="body-sm" weight={500} className={styles.label}>
                                         {opt.label}
                                     </Text>
                                     {opt.description && (

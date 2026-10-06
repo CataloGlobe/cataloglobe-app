@@ -2,10 +2,34 @@
 
 export type MaxSelectableMode = "one" | "many";
 
-export function parseMaxSelectable(mode: MaxSelectableMode, n: string): number | null {
-    if (mode === "one") return 1;
-    const parsed = parseInt(n, 10);
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+/**
+ * `max_selectable` dal form. `null` = senza limite (è lo stato più comune in
+ * staging, e resta valido): «più d'una» con N vuoto. N = 1, 0, non intero o
+ * non numerico è un errore, mai un limite deciso in silenzio (r.8).
+ */
+export type ParsedMaxSelectable = { ok: true; value: number | null } | { ok: false; error: string };
+
+export const MAX_SELECTABLE_ERROR = "Scrivi un numero da 2 in su, o lascia vuoto per nessun limite.";
+
+/**
+ * `badInput`: il campo numerico ha del testo che il browser non legge come
+ * numero («2,5», «tre»). Il suo `value` è allora "", come un campo vuoto: senza
+ * questo segnale diventerebbe «senza limite».
+ */
+export function parseMaxSelectable(mode: MaxSelectableMode, n: string, badInput = false): ParsedMaxSelectable {
+    if (mode === "one") return { ok: true, value: 1 };
+    if (badInput) return { ok: false, error: MAX_SELECTABLE_ERROR };
+    const trimmed = n.trim();
+    if (trimmed === "") return { ok: true, value: null };
+    if (!/^\d+$/.test(trimmed) || Number(trimmed) < 2) return { ok: false, error: MAX_SELECTABLE_ERROR };
+    return { ok: true, value: Number(trimmed) };
+}
+
+/** Il controllo per un gruppo che esiste: `null` si apre «più d'una, senza limite». */
+export function choiceRulesFromMax(max: number | null): { mode: MaxSelectableMode; n: string } {
+    if (max === null) return { mode: "many", n: "" };
+    if (max > 1) return { mode: "many", n: String(max) };
+    return { mode: "one", n: "2" };
 }
 
 /** Frase collassata di riepilogo delle regole di scelta — deve restare
@@ -13,8 +37,13 @@ export function parseMaxSelectable(mode: MaxSelectableMode, n: string): number |
  * (in modifica di un gruppo esistente i default possono non essere quelli
  * di fabbrica "una sola/facoltativo"). */
 export function describeChoiceRules(mode: MaxSelectableMode, n: string, required: boolean): string {
-    const parsedN = parseMaxSelectable(mode, n);
-    const countPart = mode === "one" ? "una sola opzione" : `fino a ${parsedN ?? "più"} opzioni`;
+    const parsed = parseMaxSelectable(mode, n);
+    const countPart =
+        mode === "one"
+            ? "una sola opzione"
+            : parsed.ok && parsed.value === null
+              ? "più opzioni, senza limite"
+              : `fino a ${parsed.ok ? parsed.value : "più"} opzioni`;
     const requiredPart = required ? "e deve sceglierla per ordinare" : "e può anche non sceglierla";
     return `Il cliente sceglie ${countPart}, ${requiredPart}.`;
 }

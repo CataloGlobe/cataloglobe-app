@@ -27,6 +27,23 @@
   background-repeat: repeat;
   color: var(--pub-text);
   font-family: var(--pub-font-family, sans-serif);
+
+  /* Spazio in fondo per la bottom bar flottante — FONTE UNICA.
+     `--pub-bottombar-bottom`: distanza della barra dal fondo, almeno 34px e
+     comunque 6px sopra la safe-area (home indicator).
+     `--pub-bottombar-h`: altezza reale di `.barWrap`, scritta inline su
+     questo elemento dal ResizeObserver di PublicBottomBar.tsx; fallback 54px
+     (pill a riposo) finché non è misurata o se la barra non c'è.
+     `--pub-bottom-clearance`: distanza dal fondo + barra + gap, stessa
+     formula della barra. Non cambia quando la barra si nasconde (niente
+     salti del contenuto). La usano scrim (altezza), footer, Storie, empty
+     state (padding-bottom). Definita qui e non su :root: var() si risolve
+     sull'elemento che dichiara la proprietà, e la misura vive su `.page`. */
+  --pub-bottombar-bottom: max(34px, calc(env(safe-area-inset-bottom, 0px) + 6px));
+  --pub-bottombar-gap: 48px;
+  --pub-bottom-clearance: calc(
+    var(--pub-bottombar-bottom) + var(--pub-bottombar-h, 54px) + var(--pub-bottombar-gap)
+  );
 }
 
 .maintenanceBanner {
@@ -666,6 +683,16 @@
   }
 }
 
+/* Preview mobile: la bottom bar è sticky dentro il device frame e, nascosta,
+   trasla in basso. Un transform conta nell'area scorrevole dello scroll
+   container: senza clip la pagina si allunga della traslazione e la «fine
+   pagina» (che fa ricomparire la barra) non si raggiunge mai. Al pubblico la
+   barra è position:fixed e non conta. `clip` non crea scroll container: lo
+   sticky di header e nav resta intatto. */
+.page[data-preview-device="mobile"] {
+  overflow-y: clip;
+}
+
 .productRowImageRight {
   flex-direction: row-reverse;
   /* Il bottone "+" vive dentro .titleRow (rowBody) → non è più un flex item
@@ -1052,15 +1079,15 @@
 
   /* Senza footer (non montato in emptyState) questo è l'ultimo contenuto in
      flusso: sotto PublicBottomScrim (≤640px) serve la stessa clearance del
-     footer, token `--pub-scrim-clearance` + safe-area sommata. Doppio gating
+     footer, `--pub-bottom-clearance` (safe-area inclusa). Doppio gating
      @media + `.preview-mobile` come il footer (Style Editor non passa dalla
      @media: il viewport è quello dell'editor). */
   @media (max-width: 640px) {
-    padding-bottom: calc(var(--pub-scrim-clearance) + env(safe-area-inset-bottom, 0px));
+    padding-bottom: var(--pub-bottom-clearance);
   }
 
   :global(.preview-mobile) & {
-    padding-bottom: calc(var(--pub-scrim-clearance) + env(safe-area-inset-bottom, 0px));
+    padding-bottom: var(--pub-bottom-clearance);
   }
 }
 
@@ -1270,8 +1297,43 @@
   flex-shrink: 0;
 }
 
+/* Titolo «In evidenza»: occupa lo spazio tra freccia indietro e chiudi. */
+.eventsSheetTitle {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Freccia indietro (dettaglio aperto dall'elenco): torna all'elenco nella
+   stessa sheet. Rientra di 6px così il chevron sta sul filo del padding. */
+.eventsBackBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  margin-left: -6px;
+  margin-right: -4px;
+  padding: 0;
+  border: none;
+  border-radius: var(--pub-btn-radius, 6px);
+  background: transparent;
+  color: var(--pub-surface-text);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+
+  &:hover {
+    background: color-mix(in srgb, var(--pub-text, #000) 8%, transparent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--pub-accent, var(--pub-primary));
+    outline-offset: 2px;
+  }
+}
+
 /* Bottone chiudi testuale, stesso pattern di CategoriesSheet/AllergensSheet
-   .closeBtn: nascosto <640px (chiusura via swipe/tap-fuori su mobile),
+   .closeBtn: nascosto ≤640px (chiusura via swipe/tap-fuori su mobile),
    visibile da desktop in su dove l'unica via era il click sul backdrop. */
 .eventsCloseBtn {
   display: none;
@@ -1294,7 +1356,7 @@
     background: color-mix(in srgb, var(--pub-text, #000) 14%, transparent);
   }
 
-  @media (min-width: 640px) {
+  @media (min-width: 641px) {
     display: inline-flex;
   }
 }
@@ -1306,6 +1368,12 @@
    rispetto ai lati). Scoped alla sola sheet eventi: Info resta invariata. */
 .eventsListContent.infoSheetContent {
   padding-top: 1.5rem;
+}
+
+/* Dettaglio: FeaturedContentDetail porta il proprio padding (immagine 20px,
+   testo 16px 20px 32px), come il dettaglio standalone: niente padding qui. */
+.eventsDetailContent.infoSheetContent {
+  padding: 0;
 }
 
 .infoSection {
@@ -1404,7 +1472,9 @@
   border-radius: 8px;
   font-size: 14px;
   font-weight: 500;
-  z-index: 200;
+  /* Sopra PublicSheet (900) e LanguageSelector (950): con il carrello aperto
+     l'errore (es. ORDERING_CLOSED) deve restare visibile. */
+  z-index: 960;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   max-width: calc(100vw - 32px);
   animation: submitFeedbackSlideUp 0.25s ease-out;
@@ -1416,7 +1486,7 @@
    è nascosta → il toast resta all'ancora 16px standard. */
 .submitFeedbackAboveBar {
   @media (max-width: 640px) {
-    bottom: calc(16px + 58px + 12px + env(safe-area-inset-bottom, 0px));
+    bottom: calc(var(--pub-bottombar-bottom) + var(--pub-bottombar-h, 54px) + 12px);
   }
 }
 

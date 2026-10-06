@@ -4,7 +4,6 @@ import { Check, ChevronDown, Circle, CircleCheck } from "lucide-react";
 import Text from "@/components/ui/Text/Text";
 import { Card } from "@/components/ui/Card/Card";
 import { ListRow } from "@/components/ui/ListRow/ListRow";
-import { Chip } from "@/components/ui/Chip/Chip";
 import { Button } from "@/components/ui/Button/Button";
 import { ProgressBar } from "@/components/ui/ProgressBar/ProgressBar";
 import styles from "./Checklist.module.scss";
@@ -16,7 +15,7 @@ import styles from "./Checklist.module.scss";
  *
  * Anatomia: intestazione «n di 4» con barra · righe (ListRow variante
  * checklist: spunta · titolo · una riga · «Fai ora» sulle aperte, muted sulle
- * fatte) · stato `done`: una riga verde «Le basi ci sono» con i nomi come Chip
+ * fatte) · stato `done`: una riga verde «Le basi ci sono» con i nomi spuntati
  * spuntati, apribile. Vive in una Card flush (la rende lei).
  *
  * Non per i prerequisiti di un'azione (→ PrerequisitesRow), non per lo stato
@@ -88,7 +87,7 @@ export function Checklist({ title = "Le basi", items, doneTitle = "Le basi ci so
                 item.done ? undefined : item.to ? (
                     <ChecklistLinkAction to={item.to} label={item.actionLabel ?? "Fai ora"} />
                 ) : item.onAction ? (
-                    <Button variant="primary" size="sm" onClick={item.onAction}>
+                    <Button variant="secondary" size="sm" onClick={item.onAction}>
                         {item.actionLabel ?? "Fai ora"}
                     </Button>
                 ) : undefined
@@ -97,34 +96,42 @@ export function Checklist({ title = "Le basi", items, doneTitle = "Le basi ci so
     ));
 
     if (allDone) {
+        // P4 (correzioni UI): una riga sola senza card, fondo success-50, i nomi
+        // spuntati in testo e «Mostra» a destra; tutta la riga apre la checklist.
         return (
-            <Card flush className={className} bodyClassName={styles.body}>
-                <div className={styles.doneRow}>
-                    <button
-                        type="button"
-                        className={styles.doneToggle}
-                        onClick={() => setExpanded(e => !e)}
-                        aria-expanded={expanded}
-                        aria-controls={panelId}
-                    >
-                        <span className={styles.doneIcon} aria-hidden="true">
-                            <Check size={14} strokeWidth={2.5} />
-                        </span>
-                        <Text as="span" variant="body-sm" weight={500} className={styles.doneTitle}>
-                            {doneTitle}
-                        </Text>
-                        <ChevronDown className={`${styles.chevron} ${expanded ? styles.chevronOpen : ""}`} aria-hidden="true" />
-                    </button>
-                    <div className={styles.doneChips}>
+            <div className={[styles.done, className].filter(Boolean).join(" ")}>
+                <button
+                    type="button"
+                    className={styles.doneRow}
+                    onClick={() => setExpanded(e => !e)}
+                    aria-expanded={expanded}
+                    aria-controls={panelId}
+                >
+                    <span className={styles.doneIcon} aria-hidden="true">
+                        <Check size={14} strokeWidth={2.5} />
+                    </span>
+                    <Text as="span" variant="body-sm" weight={600} className={styles.doneTitle}>
+                        {doneTitle}
+                    </Text>
+                    <span className={styles.doneNames}>
                         {items.map(item => (
-                            <Chip key={item.id} label={item.shortTitle ?? item.title} selected />
+                            <Text as="span" variant="body-sm" key={item.id} className={styles.doneName}>
+                                <Check size={14} aria-hidden="true" />
+                                {item.shortTitle ?? item.title}
+                            </Text>
                         ))}
-                    </div>
-                </div>
+                    </span>
+                    <Text as="span" variant="body-sm" weight={600} className={styles.doneToggle}>
+                        {expanded ? "Nascondi" : "Mostra"}
+                        <ChevronDown className={`${styles.chevron} ${expanded ? styles.chevronOpen : ""}`} aria-hidden="true" />
+                    </Text>
+                </button>
                 <div id={panelId} hidden={!expanded}>
-                    {rows}
+                    <Card flush bodyClassName={styles.body}>
+                        {rows}
+                    </Card>
                 </div>
-            </Card>
+            </div>
         );
     }
 
@@ -146,7 +153,7 @@ function ChecklistLinkAction({ to, label }: { to: string; label: string }) {
     const handleClick = useLinkClickHandler<HTMLAnchorElement>(to);
 
     return (
-        <Button as="a" variant="primary" size="sm" href={href} onClick={handleClick}>
+        <Button as="a" variant="secondary" size="sm" href={href} onClick={handleClick}>
             {label}
         </Button>
     );

@@ -53,8 +53,8 @@ export function Step1Info({
 
                 <FileInput
                     label="Logo (opzionale)"
-                    accept="image/png,image/jpeg,image/webp"
-                    helperText="PNG, JPG o WEBP — max 5MB."
+                    accept="image/png,image/jpeg,image/webp,image/avif"
+                    helperText="PNG, JPG, WEBP o AVIF — max 5MB."
                     maxSizeMb={5}
                     value={logoFile}
                     onChange={onLogoChange}

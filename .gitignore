@@ -44,7 +44,9 @@ tsconfig.tsbuildinfo
 # Agent
 .agent/
 .agents/
-.claude/
+.claude/*
+!.claude/commands/
+!.claude/settings.json
 skills-lock.json
 
 # Tool artifacts

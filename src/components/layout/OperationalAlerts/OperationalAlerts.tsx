@@ -16,12 +16,11 @@
  *     business).
  *   - Rileva la transizione assente/NULL → valorizzato (o timestamp nuovo) su
  *     `waiter_called_at` / `bill_requested_at` e, a meno che NON sia in primo
- *     piano la tab "Tavoli" di /orders (l'unica che mostra già le pill),
- *     dispatcha:
- *       • toast qualificato ("{label} · …") con azione "Vai";
+ *     piano la vista dei tavoli della stessa sede (l'unica che mostra già le
+ *     pill), dispatcha:
+ *       • toast qualificato ("{label} · …") con azione "Vai" verso quella sede;
  *       • suono via `useNotificationChime` (debounce 3s interno).
- *     Sulla tab "Tavoli" → no-op (la pill in-page basta). In Comande/Storico
- *     e fuori da /orders → alert pieno.
+ *     Dove e quando tacere: `utils/operationalAlertRoutes.ts`.
  *
  * NON scrive in `notifications` (eventi transitori: niente storico, niente
  * intasamento del centro notifiche navbar).
@@ -42,7 +41,9 @@ import {
     type SessionRequestState
 } from "@/services/supabase/customerSessions";
 import { getTable } from "@/services/supabase/tables";
+import { alertTarget, isAlertViewOpen, type AlertView } from "@/utils/operationalAlertRoutes";
 import type { V2Order } from "@/types/orders";
+import { realtimeTopic } from "@/utils/realtimeTopic";
 
 type RequestKind = "waiter" | "bill";
 
@@ -62,6 +63,7 @@ interface KnownState {
 /** Subset delle colonne di `customer_sessions` che leggiamo dal payload realtime. */
 interface SessionRow {
     id: string;
+    activity_id: string | null;
     current_table_id: string | null;
     waiter_called_at: string | null;
     bill_requested_at: string | null;
@@ -80,9 +82,9 @@ export function OperationalAlerts(): null {
     // navigazione o re-render).
     const pathnameRef = useRef(pathname);
     pathnameRef.current = pathname;
-    // Query string corrente: la tab attiva di /orders è sincronizzata qui da
-    // Orders.tsx come `?tab=`. Letta via ref per lo stesso motivo di pathname
-    // (no stale closure nell'handler realtime).
+    // Query string corrente: la vista attiva della pagina (`?tab=`). Letta via
+    // ref per lo stesso motivo di pathname (no stale closure nell'handler
+    // realtime).
     const searchRef = useRef(search);
     searchRef.current = search;
     const businessIdRef = useRef(businessId);
@@ -107,19 +109,21 @@ export function OperationalAlerts(): null {
         let orderCount = 0;
         let orderTimer: number | null = null;
         const orderSeen = new Set<string>(); // dedup per-id nella finestra
+        // Le sedi degli ordini della finestra: il toast porta all'ultima, e
+        // tace sulla board solo se gli ordini sono tutti di quella sede.
+        const orderActivities = new Set<string>();
+        let lastOrderActivity: string | null = null;
 
-        function dispatchAlert(kind: RequestKind, tableId: string | null): void {
+        /** La vista che mostra già l'avviso è davanti, sulla stessa sede. */
+        function isViewOpen(activityId: string | null, view: AlertView): boolean {
             const bid = businessIdRef.current;
-            const path = pathnameRef.current;
+            return !!bid && isAlertViewOpen(pathnameRef.current, searchRef.current, bid, activityId, view);
+        }
 
-            // Context-aware: sopprimi SOLO quando è in primo piano la vista che
-            // mostra già le pill, cioè la tab "Tavoli" di /orders. In Comande/
-            // Storico e fuori da /orders l'alert passa.
-            // Default tab senza `?tab=` = "comande" (vedi Orders.tsx), quindi
-            // l'assenza del param NON sopprime.
-            const onOrders = !!bid && path.startsWith(`/business/${bid}/orders`);
-            const tab = new URLSearchParams(searchRef.current).get("tab") ?? "comande";
-            if (onOrders && tab === "tavoli") return;
+        function dispatchAlert(kind: RequestKind, tableId: string | null, activityId: string | null): void {
+            const bid = businessIdRef.current;
+            // Sui tavoli di quella sede la pill in pagina basta.
+            if (isViewOpen(activityId, "tables")) return;
 
             void (async () => {
                 let label: string | null = null;
@@ -146,7 +150,7 @@ export function OperationalAlerts(): null {
                     type: kind === "waiter" ? "warning" : "info",
                     actionLabel: "Vai",
                     onAction: () => {
-                        if (bid) navigateRef.current(`/business/${bid}/orders?tab=tavoli`);
+                        if (bid) navigateRef.current(alertTarget(bid, activityId, "tables"));
                     }
                 });
                 triggerChimeRef.current();
@@ -167,17 +171,18 @@ export function OperationalAlerts(): null {
 
             // Notifica solo su transizione → valorizzato / timestamp nuovo.
             if (newWaiter && newWaiter !== prevWaiter) {
-                dispatchAlert("waiter", row.current_table_id);
+                dispatchAlert("waiter", row.current_table_id, row.activity_id ?? null);
             }
             if (newBill && newBill !== prevBill) {
-                dispatchAlert("bill", row.current_table_id);
+                dispatchAlert("bill", row.current_table_id, row.activity_id ?? null);
             }
         }
 
         // Flush della finestra ordini. ⚠️ Asimmetria VOLUTA (≠ waiter/bill):
         //   - SUONO sempre (anche sulla tab Comande): gli ordini non si perdono.
-        //   - TOAST solo se NON sei sulla tab Comande di /orders (lì il kanban
-        //     già li mostra). Default tab = "comande" → param assente sopprime.
+        //   - TOAST solo se NON hai davanti la board della sede di quegli
+        //     ordini (lì il kanban già li mostra). Con ordini da più sedi nella
+        //     stessa finestra il toast porta all'ultima.
         // Condizioni valutate QUI, al flush, leggendo i ref freschi — NON
         // catturate all'arrivo del primo ordine.
         function flushOrders(): void {
@@ -191,11 +196,12 @@ export function OperationalAlerts(): null {
             triggerChimeRef.current("order");
 
             const bid = businessIdRef.current;
-            const path = pathnameRef.current;
-            const onOrders = !!bid && path.startsWith(`/business/${bid}/orders`);
-            const tab = new URLSearchParams(searchRef.current).get("tab") ?? "comande";
-            // Toast soppresso solo sulla tab Comande (indicatore già presente).
-            if (onOrders && tab === "comande") return;
+            const activityId = lastOrderActivity;
+            const singleSede = orderActivities.size === 1;
+            orderActivities.clear();
+            lastOrderActivity = null;
+            // Toast soppresso solo sulla board della sede (indicatore già presente).
+            if (singleSede && isViewOpen(activityId, "orders")) return;
 
             const message = count === 1 ? "Nuovo ordine" : `${count} nuovi ordini`;
             showToastRef.current({
@@ -203,7 +209,7 @@ export function OperationalAlerts(): null {
                 type: "info",
                 actionLabel: "Vai",
                 onAction: () => {
-                    if (bid) navigateRef.current(`/business/${bid}/orders?tab=comande`);
+                    if (bid) navigateRef.current(alertTarget(bid, activityId, "orders"));
                 }
             });
         }
@@ -215,6 +221,10 @@ export function OperationalAlerts(): null {
             if (orderSeen.has(row.id)) return; // dedup per-id nella finestra
             orderSeen.add(row.id);
             orderCount += 1;
+            if (row.activity_id) {
+                orderActivities.add(row.activity_id);
+                lastOrderActivity = row.activity_id;
+            }
             // Primo ordine della finestra → avvia il timer trailing.
             if (orderTimer === null) {
                 orderTimer = window.setTimeout(flushOrders, ORDER_AGGREGATE_MS);
@@ -243,7 +253,7 @@ export function OperationalAlerts(): null {
             if (cancelled) return;
 
             channel = supabase
-                .channel(`operational-alerts-${tenantId}-${Date.now()}`)
+                .channel(realtimeTopic(`operational-alerts-${tenantId}`))
                 .on(
                     "postgres_changes",
                     {

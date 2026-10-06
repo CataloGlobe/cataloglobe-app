@@ -4,7 +4,7 @@ import { CalendarClock, Copy, MoreHorizontal, Trash2 } from "lucide-react";
 import { useBreadcrumbItems } from "@/context/useBreadcrumbItems";
 import { usePageHeader } from "@/context/usePageHeader";
 import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
-import { usePermissions } from "@/context/PermissionsContext";
+import { usePermissions } from "@/context/usePermissions";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import { canDoOnAnyActivity } from "@/lib/permissions";
@@ -24,8 +24,8 @@ import { useUnsavedChangesGuard } from "@/components/ui/UnsavedChangesBar/useUns
 import {
     DiscardChangesConfirmDialog,
     HeaderSaveAction
-} from "@/pages/Dashboard/Stories/components/HeaderSaveAction";
-import { buildSaveActionCompactConfig } from "@/pages/Dashboard/Stories/components/headerSaveActionCompact";
+} from "@/components/ui/HeaderSaveAction/HeaderSaveAction";
+import { buildSaveActionCompactConfig } from "@/components/ui/HeaderSaveAction/headerSaveActionCompact";
 import { getToggleGuardResult } from "@utils/ruleToggleGuards";
 import { ruleTypeLabel } from "./ruleTypeLabel";
 import { useRuleDetail } from "./useRuleDetail";
@@ -60,9 +60,19 @@ export default function RuleDetailPage() {
     const { catalogLabel, productLabel, productLabelPlural } = useVerticalConfig();
     const labels = useMemo(() => ({ productLabel, productLabelPlural }), [productLabel, productLabelPlural]);
     const { permissions } = usePermissions();
-    const { canEdit } = useSubscriptionGuard();
+    const { canEdit, status: subscriptionStatus } = useSubscriptionGuard();
     const canWrite = permissions ? canDoOnAnyActivity(permissions, "scheduling.write") : false;
     const canRead = permissions ? canDoOnAnyActivity(permissions, "scheduling.read") : false;
+    // Una sola vista in sola lettura, come Prodotti e Stili: senza permesso o
+    // con l'abbonamento fermo il form è in un `fieldset disabled`. Finché
+    // permessi e azienda caricano, niente banner.
+    const readOnlyReason =
+        permissions && !canWrite
+            ? "Sola lettura: per modificare le regole serve il ruolo di amministratore o di manager della sede."
+            : subscriptionStatus !== null && !canEdit
+              ? "Sola lettura: l'abbonamento non è attivo."
+              : null;
+    const readOnly = readOnlyReason !== null;
 
     const detail = useRuleDetail({ ruleId, tenantId: businessId, canRead, catalogLabel, labels });
     const { status, rule, form, isDirty, options } = detail;
@@ -74,7 +84,8 @@ export default function RuleDetailPage() {
     // Dove andare quando la bozza è pulita (salvata o eliminata).
     const [leaveTo, setLeaveTo] = useState<string | null>(null);
 
-    useUnsavedChangesGuard(isDirty);
+    // Chi non può salvare non ha modifiche da perdere: niente trappola all'uscita.
+    useUnsavedChangesGuard(isDirty && !readOnly);
 
     useEffect(() => {
         if (!leaveTo || isDirty) return;
@@ -323,6 +334,8 @@ export default function RuleDetailPage() {
             // `noValidate`: le regole sono `validateRuleForm`, coi messaggi sui
             // campi. Senza, Invio fermerebbe il form sul fumetto del browser
             // («Value must be…», in inglese) per il `min` della data di fine.
+            <fieldset className={styles.readOnlyScope} disabled={readOnly}>
+            {readOnlyReason && <InlineBanner variant="info">{readOnlyReason}</InlineBanner>}
             <form
                 id={FORM_ID}
                 noValidate
@@ -340,7 +353,6 @@ export default function RuleDetailPage() {
                         groupIds={form.groupIds}
                         tenantActivities={options.activities}
                         tenantGroups={options.groups}
-                        tenantId={businessId ?? ""}
                         onFormChange={detail.updateForm}
                         nameError={detail.errors.name}
                         onNameBlur={() => detail.touch("name")}
@@ -350,6 +362,7 @@ export default function RuleDetailPage() {
                             featuredContents={form.featuredContents}
                             tenantFeaturedContents={options.featuredContents}
                             onFormChange={detail.updateForm}
+                            readOnly={readOnly}
                         />
                     ) : (
                         <AssociatedContentSection
@@ -372,8 +385,10 @@ export default function RuleDetailPage() {
                 <div className={styles.formColumnRight}>
                     <SchedulingSection
                         alwaysActive={form.alwaysActive}
+                        periodEnabled={form.periodEnabled}
                         startAt={form.startAt}
                         endAt={form.endAt}
+                        timeEnabled={form.timeEnabled}
                         daysEnabled={form.daysEnabled}
                         daysOfWeek={form.daysOfWeek}
                         timeFrom={form.timeFrom}
@@ -384,6 +399,7 @@ export default function RuleDetailPage() {
                     />
                 </div>
             </form>
+            </fieldset>
         );
     };
 

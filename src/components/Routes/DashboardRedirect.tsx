@@ -8,7 +8,7 @@ import { TENANT_KEY as STORAGE_KEY } from "@/constants/storageKeys";
  * If no tenant is stored, falls back to /workspace.
  *
  * Mapping:
- *   /dashboard                    → /business/:id/overview
+ *   /dashboard                    → /business/:id (sede o Panoramica)
  *   /dashboard/attivita/*         → /business/:id/locations/*
  *   /dashboard/programmazione/*   → /business/:id/scheduling/*
  *   /dashboard/cataloghi/*        → /business/:id/catalogs/*
@@ -43,9 +43,9 @@ export function DashboardRedirect() {
     // Strip the /dashboard prefix
     const raw = location.pathname.replace(/^\/dashboard\/?/, "");
 
-    // /dashboard → /business/:id/overview
+    // /dashboard → /business/:id (l'indice decide: sede o Panoramica, D1)
     if (!raw) {
-        return <Navigate to={`/business/${storedId}/overview`} replace />;
+        return <Navigate to={`/business/${storedId}`} replace />;
     }
 
     const [first, ...rest] = raw.split("/");

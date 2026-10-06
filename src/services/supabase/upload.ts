@@ -138,23 +138,29 @@ export async function deleteFeaturedContentImageBestEffort(
     if (error) throw error;
 }
 
-/** Mirrors uploadFeaturedContentImage. Shared by story cover + tenant "cappello" cover. */
+/**
+ * Immagini delle storie: copertina, blocchi immagine, copertina del cappello.
+ * Un percorso nuovo a ogni upload, mai `upsert` sul file pubblicato: l'upload
+ * avviene prima della scrittura della storia, e se quella fallisce il
+ * pubblico deve continuare a vedere l'immagine di prima. Il file vecchio lo
+ * toglie il chiamante dopo la scrittura riuscita, quello nuovo dopo una fallita.
+ */
 export async function uploadStoryImage(
     tenantId: string,
     storyId: string,
     file: File
 ): Promise<string> {
     const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
-    const filePath = `${tenantId}/${storyId}.${ext}`;
+    const filePath = `${tenantId}/${storyId}-${crypto.randomUUID()}.${ext}`;
 
     const { error } = await supabase.storage
         .from("stories")
-        .upload(filePath, file, { upsert: true, contentType: file.type });
+        .upload(filePath, file, { contentType: file.type });
 
     if (error) throw new Error("Upload immagine fallito");
 
     const { data } = supabase.storage.from("stories").getPublicUrl(filePath);
-    return appendCacheBuster(data.publicUrl);
+    return data.publicUrl;
 }
 
 const STORY_IMAGE_EXTS = ["jpg", "jpeg", "png", "webp"] as const;

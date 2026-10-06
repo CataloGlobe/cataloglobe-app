@@ -15,7 +15,8 @@
  * 6. altrimenti → programmata, cioè «non ancora»
  *
  * isActiveNow resta responsabilità del chiamante: è la finestra temporale
- * della regola stessa (vedi isRuleCurrentlyActive in ruleHelpers.ts).
+ * della regola stessa, all'ora di Roma (isTimeRuleActiveNow in
+ * scheduleCompetition.ts).
  */
 
 export type ScheduleStatus = "draft" | "active" | "scheduled" | "expired" | "disabled";

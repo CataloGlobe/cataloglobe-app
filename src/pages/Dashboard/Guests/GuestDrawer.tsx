@@ -50,6 +50,7 @@ import type {
 import { statusMetaLoose } from "@/utils/reservationStatusMeta";
 import { formatCustomerSince, visibilityFootnote } from "@/utils/guestVisibilityCopy";
 import styles from "./Guests.module.scss";
+import { formatPhoneForDisplay } from "./guestFormat";
 
 /** Etichette proposte. Restano suggerimenti: il campo libero resta il vero
  *  strumento, queste servono solo a evitare dieci grafie di "abituale".
@@ -309,7 +310,7 @@ export default function GuestDrawer({
                     <Card title="Contatti" flush>
                         <ListRow
                             leading={<Phone size={16} aria-hidden />}
-                            title={<a href={`tel:${guest.phone_e164}`}>{guest.phone_e164}</a>}
+                            title={<a href={`tel:${guest.phone_e164}`}>{formatPhoneForDisplay(guest.phone_e164)}</a>}
                         />
                         {guest.email && (
                             <ListRow

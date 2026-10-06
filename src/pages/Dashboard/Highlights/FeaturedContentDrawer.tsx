@@ -6,10 +6,9 @@ import Text from "@/components/ui/Text/Text";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useNavigate } from "react-router-dom";
-import {
-    createFeaturedContent,
-    type FeaturedContentPricingMode
-} from "@/services/supabase/featuredContents";
+import { createFeaturedContent, type FeaturedContentType } from "@/services/supabase/featuredContents";
+import { PRICING_OF_TYPE } from "./featuredContentTypes";
+import { FeaturedTypeCards } from "./components/FeaturedTypeCards";
 import { useTenantId } from "@/context/useTenantId";
 import styles from "./Highlights.module.scss";
 
@@ -29,11 +28,14 @@ export default function FeaturedContentDrawer({ open, onClose, onSuccess }: Draw
 
     const [internalName, setInternalName] = useState("");
     const [title, setTitle] = useState("");
+    // EV4: il tipo si sceglie qui, con le quattro schede.
+    const [type, setType] = useState<FeaturedContentType>("announcement");
 
     useEffect(() => {
         if (!open) return;
         setInternalName("");
         setTitle("");
+        setType("announcement");
         setSubmitting(false);
     }, [open]);
 
@@ -51,8 +53,8 @@ export default function FeaturedContentDrawer({ open, onClose, onSuccess }: Draw
             const created = await createFeaturedContent(tenantId, {
                 internal_name: internalName.trim() || title.trim(),
                 title: title.trim(),
-                pricing_mode: "none" as FeaturedContentPricingMode,
-                content_type: "announcement",
+                pricing_mode: PRICING_OF_TYPE[type],
+                content_type: type,
                 bundle_price: null,
                 status: "published",
                 show_original_total: false
@@ -76,7 +78,7 @@ export default function FeaturedContentDrawer({ open, onClose, onSuccess }: Draw
     };
 
     return (
-        <SystemDrawer open={open} onClose={handleRequestClose} size="sm">
+        <SystemDrawer open={open} onClose={handleRequestClose} size="md">
             <DrawerLayout
                 header={
                     <Text variant="title-sm" weight={600}>
@@ -103,6 +105,7 @@ export default function FeaturedContentDrawer({ open, onClose, onSuccess }: Draw
                     }}
                 >
                     <fieldset className={styles.fieldset} disabled={submitting}>
+                        <FeaturedTypeCards value={type} onChange={setType} />
                         <TextInput
                             label="Titolo"
                             required
@@ -118,9 +121,11 @@ export default function FeaturedContentDrawer({ open, onClose, onSuccess }: Draw
                             onChange={e => setInternalName(e.target.value)}
                             placeholder="Es: RistoPromo - Sede Roma"
                         />
-                        <Text variant="caption" colorVariant="muted">
-                            Nasce come annuncio: il tipo si sceglie nella sua pagina.
-                        </Text>
+                        {type === "bundle" && (
+                            <Text variant="caption" colorVariant="muted">
+                                Il prezzo del bundle e i prodotti li metti nella sua pagina.
+                            </Text>
+                        )}
                     </fieldset>
                 </form>
             </DrawerLayout>

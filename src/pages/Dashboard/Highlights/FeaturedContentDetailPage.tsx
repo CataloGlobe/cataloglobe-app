@@ -6,18 +6,18 @@ import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
 import { Card } from "@/components/ui/Card/Card";
-import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { Textarea } from "@/components/ui/Textarea/Textarea";
 import { Switch } from "@/components/ui/Switch/Switch";
+import { SettingRow } from "@/components/ui/SettingRow";
 import { ImageUploadEditor } from "@/components/ui/ImageUploadEditor";
 import Skeleton from "@/components/ui/Skeleton/Skeleton";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
-import { Pin } from "lucide-react";
+import { Megaphone, CalendarDays, Tag, Package, type LucideIcon } from "lucide-react";
 import { useToast } from "@/context/Toast/ToastContext";
 import ProductPickerList from "./ProductPickerList";
 import { FeaturedProductsCard } from "./components/FeaturedProductsCard";
@@ -37,28 +37,37 @@ import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 import { useRuleAppearance } from "@/hooks/useRuleAppearance";
 import { appearanceOf } from "@/utils/ruleAppearance";
 import { FeaturedPlacementCard } from "./components/FeaturedPlacementCard";
-import { usePermissions } from "@/context/PermissionsContext";
+import { usePermissions } from "@/context/usePermissions";
 import { canDoOnAnyActivity, canDoOnTenant } from "@/lib/permissions";
 import { PageGate } from "@/components/PageGate/PageGate";
 import { useUnsavedChangesGuard } from "@/components/ui/UnsavedChangesBar/useUnsavedChangesGuard";
 import {
     HeaderSaveAction,
     DiscardChangesConfirmDialog
-} from "@/pages/Dashboard/Stories/components/HeaderSaveAction";
-import { buildSaveActionCompactConfig } from "@/pages/Dashboard/Stories/components/headerSaveActionCompact";
+} from "@/components/ui/HeaderSaveAction/HeaderSaveAction";
+import { buildSaveActionCompactConfig } from "@/components/ui/HeaderSaveAction/headerSaveActionCompact";
 import {
     CONTENT_TYPE_LABEL,
-    CONTENT_TYPE_ORDER,
-    PRICING_LABEL,
+    CONTENT_TYPE_SENTENCE,
     PRICING_OF_TYPE,
+    productsLabel,
     typeHasProducts
 } from "./featuredContentTypes";
+import { FeaturedTypeCards } from "./components/FeaturedTypeCards";
 import { useFeaturedDraft } from "./hooks/useFeaturedDraft";
-import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useFeaturedProductsDraft } from "./hooks/useFeaturedProductsDraft";
 import styles from "./FeaturedContentDetailPage.module.scss";
 
-type FeaturedDetailTab = "info" | "products";
+// EV8: Contenuto · Utilizzo. I prodotti stanno nel contenuto, sotto i testi.
+type FeaturedDetailTab = "content" | "usage";
+
+/** L'icona di ogni tipo, nella riga in cima (EV5). */
+const TYPE_ICON: Record<FeaturedContentType, LucideIcon> = {
+    announcement: Megaphone,
+    event: CalendarDays,
+    promo: Tag,
+    bundle: Package
+};
 
 export default function FeaturedContentDetailPage() {
     const { featuredId } = useParams<{ featuredId: string }>();
@@ -79,8 +88,6 @@ export default function FeaturedContentDetailPage() {
     // manager non ha anche quando può collegare prodotti al contenuto.
     const canWriteProducts = permissions != null && canDoOnTenant(permissions, "products.write");
     const readOnly = !canWrite || !canEdit;
-    // Sul telefono i quattro tipi stanno nella card solo in taglia `sm`.
-    const isPhone = useMediaQuery("(max-width: 767px)");
 
     const [content, setContent] = useState<FeaturedContentWithProducts | null>(null);
     const [loading, setLoading] = useState(true);
@@ -88,9 +95,12 @@ export default function FeaturedContentDetailPage() {
     const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
 
     const [searchParams, setSearchParams] = useSearchParams();
+    // `?tab=products` dei link vecchi apre il contenuto, dove ora stanno i prodotti.
     const [activeTab, setActiveTab] = useState<FeaturedDetailTab>(() =>
-        searchParams.get("tab") === "products" ? "products" : "info"
+        searchParams.get("tab") === "usage" ? "usage" : "content"
     );
+    const [typeDialogOpen, setTypeDialogOpen] = useState(false);
+    const [pendingType, setPendingType] = useState<FeaturedContentType>("announcement");
 
     const handleTabChange = useCallback((next: FeaturedDetailTab) => {
         setActiveTab(next);
@@ -137,9 +147,14 @@ export default function FeaturedContentDetailPage() {
     }, []);
 
     const draft = useFeaturedDraft(content, tenantId ?? null, handleSaved);
-    // I prodotti collegati entrano nella stessa bozza (§50.11/2): si caricano
-    // alla prima apertura della tab.
-    const products = useFeaturedProductsDraft(featuredId, tenantId ?? null, activeTab === "products");
+    // La tab Prodotti non c'è più (EV7): i prodotti si caricano quando il tipo
+    // ne prevede, cioè quando la loro sezione si vede.
+    const draftTypeForLoad: FeaturedContentType = draft.typeChoice?.type ?? content?.content_type ?? "announcement";
+    const products = useFeaturedProductsDraft(
+        featuredId,
+        tenantId ?? null,
+        content != null && typeHasProducts(draftTypeForLoad)
+    );
 
     // Le azioni di testata dipendono da questi, non dagli oggetti delle bozze
     // (nuovi a ogni render: rifarebbero la testata a ogni render, e i menu
@@ -170,23 +185,10 @@ export default function FeaturedContentDetailPage() {
 
     useUnsavedChangesGuard(isDirty && !readOnly);
 
-    // La tab Prodotti segue il tipo della bozza: sparisce appena scegli
+    // La sezione Prodotti segue il tipo della bozza: sparisce appena scegli
     // Annuncio o Evento, torna se annulli (§28.4).
-    const draftType: FeaturedContentType = draft.typeChoice?.type ?? content?.content_type ?? "announcement";
+    const draftType = draftTypeForLoad;
     const productsEnabled = content != null && typeHasProducts(draftType);
-    const savedHasProducts = content != null && typeHasProducts(content.content_type ?? "announcement");
-
-    useEffect(() => {
-        // Solo a contenuto caricato: prima il tipo non si conosce (e un link a
-        // freddo con ?tab=products cadeva sempre su Info).
-        if (content && !productsEnabled && activeTab === "products") {
-            setActiveTab("info");
-            setSearchParams(prev => {
-                prev.delete("tab");
-                return prev;
-            }, { replace: true });
-        }
-    }, [content, productsEnabled, activeTab, setSearchParams]);
 
     const closeProductPicker = () => {
         setIsProductPickerOpen(false);
@@ -242,11 +244,11 @@ export default function FeaturedContentDetailPage() {
     const leading = useMemo(() => (
         <Tabs<FeaturedDetailTab> value={activeTab} onChange={handleTabChange} variant="line">
             <Tabs.List>
-                <Tabs.Tab value="info">Info</Tabs.Tab>
-                {productsEnabled && <Tabs.Tab value="products">Prodotti</Tabs.Tab>}
+                <Tabs.Tab value="content">Contenuto</Tabs.Tab>
+                <Tabs.Tab value="usage">Utilizzo</Tabs.Tab>
             </Tabs.List>
         </Tabs>
-    ), [activeTab, handleTabChange, productsEnabled]);
+    ), [activeTab, handleTabChange]);
 
     const actions = useMemo(() => {
         if (readOnly || !content) return undefined;
@@ -262,8 +264,8 @@ export default function FeaturedContentDetailPage() {
 
     const headerCompact = useMemo<PageHeaderCompactConfig>(() => ({
         sections: [
-            { value: "info", label: "Info" },
-            ...(productsEnabled ? [{ value: "products", label: "Prodotti" }] : [])
+            { value: "content", label: "Contenuto" },
+            { value: "usage", label: "Utilizzo" }
         ],
         activeSection: activeTab,
         onSectionChange: value => handleTabChange(value as FeaturedDetailTab),
@@ -275,7 +277,7 @@ export default function FeaturedContentDetailPage() {
                   onRequestDiscard: () => setConfirmDiscardOpen(true)
               })
             : {})
-    }), [activeTab, handleTabChange, productsEnabled, readOnly, content, isDirty, isSaving, saveDraft]);
+    }), [activeTab, handleTabChange, readOnly, content, isDirty, isSaving, saveDraft]);
 
     usePageHeader({ leading, actions, compact: headerCompact });
 
@@ -284,10 +286,10 @@ export default function FeaturedContentDetailPage() {
     }
 
     if (loading) {
-        // Stessa sagoma della tab Info: Tipo e Cosa leggono i clienti.
+        // Stessa sagoma della tab Contenuto: la riga del tipo e i testi.
         return (
             <div className={styles.wrapper} aria-busy="true" aria-label="Caricamento">
-                <Skeleton height="200px" />
+                <Skeleton height="88px" />
                 <Skeleton height="480px" />
             </div>
         );
@@ -297,7 +299,7 @@ export default function FeaturedContentDetailPage() {
         return (
             <EmptyState
                 variant="page"
-                icon={<Pin />}
+                icon={<Megaphone />}
                 title="Non è stato possibile caricare il contenuto"
                 description="Controlla la connessione e riprova."
                 action={
@@ -313,7 +315,7 @@ export default function FeaturedContentDetailPage() {
         return (
             <EmptyState
                 variant="page"
-                icon={<Pin />}
+                icon={<Megaphone />}
                 title="Contenuto non trovato"
                 description="Il contenuto che cerchi non esiste o è stato eliminato."
                 action={
@@ -327,33 +329,27 @@ export default function FeaturedContentDetailPage() {
 
     const { text, typeChoice, image } = draft;
     const pricing = PRICING_OF_TYPE[typeChoice.type];
+    // «Cambia tipo» avvisa se i prodotti già collegati usciranno.
+    const pendingDropsProducts = products.rows.length > 0 && typeHasProducts(typeChoice.type) && !typeHasProducts(pendingType);
 
-    const renderInfo = () => (
+    const openTypeDialog = () => {
+        setPendingType(typeChoice.type);
+        setTypeDialogOpen(true);
+    };
+
+    /** EV7: le opzioni che erano nella card Tipo, come righe sopra i prodotti. */
+    const productOptions = (
         <>
-            <Card title="Tipo" subtitle="Decide se il contenuto ha prodotti.">
-                <div className={styles.stack}>
-                    <SegmentedControl<FeaturedContentType>
-                        size={isPhone ? "sm" : "md"}
-                        value={typeChoice.type}
-                        onChange={draft.setType}
-                        options={CONTENT_TYPE_ORDER.map(value => ({ value, label: CONTENT_TYPE_LABEL[value] }))}
-                    />
-                    {savedHasProducts && !typeHasProducts(typeChoice.type) && (
-                        <InlineBanner variant="warning">
-                            Cambiando tipo sparisce la sezione Prodotti. Le note già scritte sui prodotti non si
-                            perdono: tornano se rimetti un tipo che li prevede.
-                        </InlineBanner>
-                    )}
-                    <div className={styles.pricing}>
-                        <Text variant="caption" colorVariant="muted">
-                            Prezzi
-                        </Text>
-                        <Text variant="body-sm">{PRICING_LABEL[pricing]}</Text>
-                    </div>
-                    {typeChoice.type === "bundle" && (
-                        <>
+            {typeChoice.type === "bundle" && (
+                <>
+                    <SettingRow
+                        label="Prezzo del bundle"
+                        htmlFor="featured-bundle-price"
+                        description="Il prezzo unico, scritto anche sulla card."
+                        control={
                             <TextInput
-                                label="Prezzo del bundle (€)"
+                                id="featured-bundle-price"
+                                aria-label="Prezzo del bundle (€)"
                                 type="number"
                                 min="0.01"
                                 step="0.01"
@@ -363,106 +359,169 @@ export default function FeaturedContentDetailPage() {
                                 error={draft.errors.price}
                                 placeholder="Es: 25.00"
                             />
+                        }
+                    />
+                    <SettingRow
+                        label="Totale originale barrato"
+                        description="La somma dei prezzi singoli, barrata accanto al prezzo del bundle."
+                        control={
                             <Switch
-                                label="Mostra il totale originale barrato"
-                                description="La somma dei prezzi singoli, barrata accanto al prezzo del bundle."
+                                ariaLabel="Mostra il totale originale barrato"
                                 checked={typeChoice.showOriginalTotal}
                                 onChange={checked => draft.patchType({ showOriginalTotal: checked })}
                             />
-                        </>
-                    )}
-                    {pricing !== "none" && (
-                        <Switch
-                            label="Mostra le immagini dei prodotti"
-                            checked={typeChoice.showImages}
-                            onChange={checked => draft.patchType({ showImages: checked })}
-                        />
+                        }
+                    />
+                </>
+            )}
+            <SettingRow
+                label="Immagini dei prodotti"
+                description="La foto di ogni prodotto accanto al suo nome."
+                control={
+                    <Switch
+                        ariaLabel="Mostra le immagini dei prodotti"
+                        checked={typeChoice.showImages}
+                        onChange={checked => draft.patchType({ showImages: checked })}
+                    />
+                }
+            />
+        </>
+    );
+
+    const renderContent = () => (
+        <>
+            {/* EV5: il tipo è una riga in cima (icona, «Promo · con prodotti», la frase); «Cambia tipo» riapre le quattro schede. */}
+            <Card flush>
+                <div className={styles.typeRow} role="group" aria-label="Tipo">
+                    <span className={styles.typeIcon} aria-hidden="true">
+                        {(() => {
+                            const Icon = TYPE_ICON[typeChoice.type];
+                            return <Icon size={18} />;
+                        })()}
+                    </span>
+                    <div className={styles.typeText}>
+                        <Text variant="body-sm">
+                            <Text as="span" variant="body-sm" weight={600}>
+                                {CONTENT_TYPE_LABEL[typeChoice.type]}
+                            </Text>
+                            <Text as="span" variant="body-sm" colorVariant="muted">
+                                {` · ${productsLabel(typeChoice.type)}`}
+                            </Text>
+                        </Text>
+                        <Text variant="caption" colorVariant="muted">
+                            {CONTENT_TYPE_SENTENCE[typeChoice.type]}
+                        </Text>
+                    </div>
+                    {!readOnly && (
+                        <Button variant="secondary" size="sm" onClick={openTypeDialog}>
+                            Cambia tipo
+                        </Button>
                     )}
                 </div>
             </Card>
 
             <Card title="Cosa leggono i clienti">
-                <div className={styles.stack}>
-                    <TextInput
-                        label="Titolo"
-                        required
-                        value={text.title}
-                        onChange={e => draft.setField("title", e.target.value)}
-                        error={draft.errors.title}
-                    />
-                    <TextInput
-                        label="Sottotitolo"
-                        value={text.subtitle}
-                        onChange={e => draft.setField("subtitle", e.target.value)}
-                    />
-                    <Textarea
-                        label="Descrizione"
-                        rows={3}
-                        value={text.description}
-                        onChange={e => draft.setField("description", e.target.value)}
-                    />
-                    <TextInput
-                        label="Nome interno"
-                        helperText="Serve a te per ritrovarlo: i clienti non lo vedono. Vuoto = il titolo."
-                        value={text.internalName}
-                        onChange={e => draft.setField("internalName", e.target.value)}
-                    />
-                    <ImageUploadEditor
-                        aspectRatio={16 / 9}
-                        backgroundFillModes={["blur", "dominant", "color", "none"]}
-                        compress={COMPRESS_PROFILES.featured}
-                        fieldLabel="Immagine"
-                        drawerTitle="Inquadra immagine"
-                        requiresConfirm={false}
-                        initialSource={draft.imageSource}
-                        initialFraming={image.framing}
-                        initialAspectRatio={image.file ? image.aspectRatio : content.media_aspect_ratio}
-                        onConfirm={({ file, framing, aspectRatio }) => {
-                            draft.setImage(prev =>
-                                prev
-                                    ? {
-                                          ...prev,
-                                          framing,
-                                          ...(file ? { file, aspectRatio, removed: false } : {})
-                                      }
-                                    : prev
-                            );
-                        }}
-                        onRemove={() =>
-                            draft.setImage(prev =>
-                                prev ? { ...prev, file: null, aspectRatio: null, removed: Boolean(content.media_id), framing: columnsToFraming({}) } : prev
-                            )
-                        }
-                    />
-                    {image.removed && (
-                        <Text variant="caption" colorVariant="muted">
-                            L'immagine si toglie al salvataggio: il blocco compare senza foto.
-                        </Text>
-                    )}
-                    <div className={styles.twoFields}>
+                {/* EV6: testi a sinistra, immagine a destra (come la Scheda del prodotto, PS4). */}
+                <div className={styles.infoGrid}>
+                    <div className={styles.stack}>
                         <TextInput
-                            label="Testo del bottone"
-                            value={text.ctaText}
-                            onChange={e => draft.setField("ctaText", e.target.value)}
-                            placeholder="Es: Scopri di più"
+                            label="Titolo"
+                            required
+                            value={text.title}
+                            onChange={e => draft.setField("title", e.target.value)}
+                            error={draft.errors.title}
                         />
                         <TextInput
-                            label="Link del bottone"
-                            value={text.ctaUrl}
-                            onChange={e => draft.setField("ctaUrl", e.target.value)}
-                            placeholder="https://..."
-                            error={draft.errors.url}
+                            label="Sottotitolo"
+                            value={text.subtitle}
+                            onChange={e => draft.setField("subtitle", e.target.value)}
                         />
+                        <Textarea
+                            label="Descrizione"
+                            rows={3}
+                            value={text.description}
+                            onChange={e => draft.setField("description", e.target.value)}
+                        />
+                        <div className={styles.twoFields}>
+                            <TextInput
+                                label="Testo del bottone"
+                                value={text.ctaText}
+                                onChange={e => draft.setField("ctaText", e.target.value)}
+                                placeholder="Es: Scopri di più"
+                            />
+                            <TextInput
+                                label="Link del bottone"
+                                value={text.ctaUrl}
+                                onChange={e => draft.setField("ctaUrl", e.target.value)}
+                                placeholder="https://..."
+                                error={draft.errors.url}
+                            />
+                        </div>
+                    </div>
+                    <div className={styles.media}>
+                        <ImageUploadEditor
+                            aspectRatio={16 / 9}
+                            backgroundFillModes={["blur", "dominant", "color", "none"]}
+                            compress={COMPRESS_PROFILES.featured}
+                            fieldLabel="Immagine"
+                            drawerTitle="Inquadra immagine"
+                            requiresConfirm={false}
+                            initialSource={draft.imageSource}
+                            initialFraming={image.framing}
+                            initialAspectRatio={image.file ? image.aspectRatio : content.media_aspect_ratio}
+                            onConfirm={({ file, framing, aspectRatio }) => {
+                                draft.setImage(prev =>
+                                    prev
+                                        ? {
+                                              ...prev,
+                                              framing,
+                                              ...(file ? { file, aspectRatio, removed: false } : {})
+                                          }
+                                        : prev
+                                );
+                            }}
+                            onRemove={() =>
+                                draft.setImage(prev =>
+                                    prev ? { ...prev, file: null, aspectRatio: null, removed: Boolean(content.media_id), framing: columnsToFraming({}) } : prev
+                                )
+                            }
+                        />
+                        {image.removed && (
+                            <Text variant="caption" colorVariant="muted">
+                                L'immagine si toglie al salvataggio: il blocco compare senza foto.
+                            </Text>
+                        )}
                     </div>
                 </div>
             </Card>
-            {featuredAppearance && (
-                <FeaturedPlacementCard
-                    appearance={featuredAppearance}
-                    activityName={activityName}
-                    businessId={tenantId ?? ""}
+
+            {productsEnabled && (
+                <FeaturedProductsCard
+                    rows={products.rows}
+                    loading={!products.loaded && !products.loadError}
+                    loadError={products.loadError}
+                    onRetry={() => void products.reload()}
+                    dirtyNoteKeys={products.dirtyNoteKeys}
+                    showPrice={pricing === "per_item" || (pricing === "bundle" && typeChoice.showOriginalTotal)}
+                    readOnly={readOnly}
+                    onAdd={openProductPicker}
+                    onMove={products.move}
+                    onNoteChange={products.setNote}
+                    onRemove={products.remove}
+                    productUrl={productId => `/business/${tenantId}/products/${productId}`}
+                    options={productOptions}
                 />
             )}
+
+            {/* Il nome interno non lo leggono i clienti: sta in fondo, fuori da «Cosa leggono i clienti». */}
+            <Card>
+                <TextInput
+                    label="Nome interno"
+                    helperText="Lo vedi solo tu, per ritrovarlo. Se è vuoto si usa il titolo."
+                    value={text.internalName}
+                    onChange={e => draft.setField("internalName", e.target.value)}
+                />
+            </Card>
         </>
     );
 
@@ -478,31 +537,59 @@ export default function FeaturedContentDetailPage() {
                 </InlineBanner>
             )}
 
-            {activeTab === "info" && (
+            {activeTab === "content" && (
                 <fieldset className={styles.readOnlyScope} disabled={readOnly}>
-                    {renderInfo()}
+                    {renderContent()}
                 </fieldset>
             )}
 
-            {activeTab === "products" && productsEnabled && (
-                <FeaturedProductsCard
-                    rows={products.rows}
-                    loading={!products.loaded && !products.loadError}
-                    loadError={products.loadError}
-                    onRetry={() => void products.reload()}
-                    dirtyNoteKeys={products.dirtyNoteKeys}
-                    showPrice={
-                        PRICING_OF_TYPE[draftType] === "per_item" ||
-                        (PRICING_OF_TYPE[draftType] === "bundle" && typeChoice.showOriginalTotal)
-                    }
-                    readOnly={readOnly}
-                    onAdd={openProductPicker}
-                    onMove={products.move}
-                    onNoteChange={products.setNote}
-                    onRemove={products.remove}
-                    productUrl={productId => `/business/${tenantId}/products/${productId}`}
+            {/* EV8: la tab Utilizzo, come nel prodotto: una riga per regola. */}
+            {activeTab === "usage" && featuredAppearance && (
+                <FeaturedPlacementCard
+                    appearance={featuredAppearance}
+                    activityName={activityName}
+                    businessId={tenantId ?? ""}
                 />
             )}
+
+            <SystemDrawer open={typeDialogOpen} onClose={() => setTypeDialogOpen(false)} size="md">
+                <DrawerLayout
+                    header={
+                        <Text variant="title-sm" weight={600}>
+                            Cambia tipo
+                        </Text>
+                    }
+                    footer={
+                        <>
+                            <Button variant="secondary" onClick={() => setTypeDialogOpen(false)}>
+                                Annulla
+                            </Button>
+                            <Button
+                                variant="primary"
+                                onClick={() => {
+                                    draft.setType(pendingType);
+                                    setTypeDialogOpen(false);
+                                }}
+                            >
+                                Applica
+                            </Button>
+                        </>
+                    }
+                >
+                    <div className={styles.stack}>
+                        <FeaturedTypeCards value={pendingType} onChange={setPendingType} />
+                        {pendingDropsProducts && (
+                            <InlineBanner variant="warning">
+                                Cambiando tipo sparisce la sezione Prodotti. Le note già scritte sui prodotti non si
+                                perdono: tornano se rimetti un tipo che li prevede.
+                            </InlineBanner>
+                        )}
+                        <Text variant="caption" colorVariant="muted">
+                            Il cambio si salva col Salva della pagina.
+                        </Text>
+                    </div>
+                </DrawerLayout>
+            </SystemDrawer>
 
             <DiscardChangesConfirmDialog
                 isOpen={confirmDiscardOpen}
@@ -567,7 +654,6 @@ export default function FeaturedContentDetailPage() {
                         <ProductForm
                             formId="product-form-featured"
                             mode="create_base"
-                            productData={null}
                             parentProduct={null}
                             tenantId={tenantId ?? null}
                             onSuccess={handleNewProductCreated}

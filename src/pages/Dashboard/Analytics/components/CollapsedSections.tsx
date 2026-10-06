@@ -25,10 +25,19 @@ type Props = {
  */
 export default function CollapsedSections({ ordersEmpty, reservationsEmpty, orderingOn, reservationsOn, sedeCount, periodPhrase }: Props) {
     const navigate = useNavigate();
-    const { businessId } = useParams<{ businessId: string }>();
+    const { businessId, activityId } = useParams<{ businessId: string; activityId?: string }>();
     if (!ordersEmpty && !reservationsEmpty) return null;
 
-    const onOf = (on: number) => (on === sedeCount ? `su tutte le ${sedeCount} sedi` : `su ${on} ${on === 1 ? "sede" : "sedi"} su ${sedeCount}`);
+    // Dentro la sede (§51.10) le uscite portano alla sede, non all'azienda.
+    const reservationsPath = activityId
+        ? `/business/${businessId}/locations/${activityId}/prenotazioni`
+        : `/business/${businessId}/reservations`;
+    const onOf = (on: number) =>
+        sedeCount === 1
+            ? "su questa sede"
+            : on === sedeCount
+              ? `su tutte le ${sedeCount} sedi`
+              : `su ${on} ${on === 1 ? "sede" : "sedi"} su ${sedeCount}`;
 
     return (
         <div className={styles.section}>
@@ -59,7 +68,7 @@ export default function CollapsedSections({ ordersEmpty, reservationsEmpty, orde
                         }
                         wrapSubtitle
                         trailing={
-                            <Button variant="secondary" size="sm" onClick={() => navigate(`/business/${businessId}/reservations`)}>
+                            <Button variant="secondary" size="sm" onClick={() => navigate(reservationsPath)}>
                                 Apri Prenotazioni
                             </Button>
                         }

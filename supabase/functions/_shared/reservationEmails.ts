@@ -589,6 +589,8 @@ export interface ReservationVenueAlertEmailArgs {
     reservationTime: string;
     partySize: number;
     notes: string | null;
+    /** Allergie dal campo dedicato (con consenso). Assente o null = nessuna riga. */
+    allergies?: string | null;
     /**
      * Absolute URL of the reservations dashboard for this tenant, or null
      * when unconfigured. When null the dashboard sentence renders as plain
@@ -613,6 +615,7 @@ export function buildReservationVenueAlertEmail(
         reservationTime,
         partySize,
         notes,
+        allergies = null,
         dashboardUrl,
         variant
     } = args;
@@ -626,6 +629,7 @@ export function buildReservationVenueAlertEmail(
     const dateIt = formatDateIt(reservationDate);
     const timeIt = formatTimeIt(reservationTime);
     const eNotes = notes ? escapeHtml(notes) : null;
+    const eAllergies = allergies ? escapeHtml(allergies) : null;
     const reason = reservationVenueAlertReason(activityName);
     // Come per le email al cliente: la riga finisce dentro il markup, quindi
     // la versione HTML porta il nome della sede escapato.
@@ -662,6 +666,9 @@ export function buildReservationVenueAlertEmail(
                 renderDetailRow("Persone", String(partySize)),
                 eNotes
                     ? `<p style="margin:8px 0 0;font-size:15px;color:#111827"><strong>Note:</strong> ${eNotes}</p>`
+                    : "",
+                eAllergies
+                    ? `<p style="margin:8px 0 0;font-size:15px;color:#111827"><strong>Allergie:</strong> ${eAllergies}</p>`
                     : ""
             ])
         ],
@@ -669,6 +676,7 @@ export function buildReservationVenueAlertEmail(
     );
 
     const notesBlockText = notes ? `Note: ${notes}\n` : "";
+    const allergiesBlockText = allergies ? `Allergie: ${allergies}\n` : "";
     const text =
         `${copy.textLead(activityName)}\n` +
         dashboardSentenceText +
@@ -682,6 +690,7 @@ export function buildReservationVenueAlertEmail(
         `Ora: ${timeIt}\n` +
         `Persone: ${partySize}\n` +
         notesBlockText +
+        allergiesBlockText +
         `\n${getEmailFooterText(reason)}`;
 
     return { subject, html, text };

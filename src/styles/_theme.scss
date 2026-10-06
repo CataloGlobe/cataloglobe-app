@@ -1,4 +1,6 @@
 :root {
+  // Controlli nativi (caselle, data, barre di scorrimento) nel tema chiaro.
+  color-scheme: light;
   --bg: #f8fafc;
   --text: #0f172a;
   --card-bg: #ffffff;
@@ -48,6 +50,11 @@
   --color-green-500: #10b981;
   --color-green-800: #065f46;
   --color-green-900: #14532d;
+
+  // Violet palette: il colore di tipo di In evidenza (--rule-featured), il
+  // 500 in chiaro e il 400 in scuro.
+  --color-violet-400: #a78bfa;
+  --color-violet-500: #8b5cf6;
 
   // === FASE 2 gap-closing (2026-09-13) ===
   // Layer di compatibilità: chiude i var() referenziati nel perimetro admin
@@ -139,9 +146,10 @@
   --surface: var(--card-bg);
   --on-brand: #ffffff;
   // Testo e icona su un fondo --brand-primary-soft (voce attiva della
-  // sidebar, Badge brand, tab attiva): in chiaro è --brand-primary, in scuro
-  // sale a indigo-300 perché --brand-primary misura 3,7:1 sul soft.
-  --on-brand-soft: var(--brand-primary);
+  // sidebar, Badge brand, tab attiva). In chiaro indigo-600: --brand-primary
+  // (#6366f1) faceva 3,95:1 sul soft, #4f46e5 fa 5,56:1. In scuro sale a
+  // indigo-300 perché --brand-primary misura 3,7:1 sul soft.
+  --on-brand-soft: #4f46e5;
   --gray-300: var(--color-gray-300);
   --gray-400: var(--color-gray-400);
   --gray-500: var(--color-gray-500);
@@ -171,9 +179,26 @@
 
   // --- Tipi di regola (Programmazione, Settimana e segni di tipo) ---
   // Quattro colori di categoria, uno per tipo. Tre sono alias di token che
-  // esistono; In evidenza ha il suo violetto (lotto ds-5-programmazione, P5).
+  // esistono; In evidenza ha il suo violetto (lotto ds-5-programmazione, P5),
+  // alias della palette come gli altri.
   --rule-layout: var(--brand-primary);
-  --rule-featured: #8b5cf6; // violet-500
+  --rule-featured: var(--color-violet-500);
+  // Barra del CRM in /admin (grafica decisa il 2026-10-05, «7A2»): indaco
+  // profondo, uguale nei due temi. Li legge solo AdminLayout.module.scss.
+  --crm-nav-bg: #1b1a3d;
+  --crm-nav-border: #2c2a5e;
+  --crm-nav-hover: #23214d;
+  --crm-nav-active: #312e6b;
+  --crm-nav-active-hover: #3a3680;
+  --crm-nav-text: #c3c1ea;
+  --crm-nav-text-strong: #ffffff;
+  --crm-nav-disabled: #6e6aa8;
+  --crm-nav-focus: 0 0 0 3px rgba(195, 193, 234, 0.7);
+  // Il campo Cerca aperto nella barra (C4): chiaro, con l'anello lilla.
+  --crm-nav-field-bg: #ffffff;
+  --crm-nav-field-text: #15171c;
+  --crm-nav-field-border: #8f89f5;
+  --crm-nav-field-ring: 0 0 0 3px rgba(143, 137, 245, 0.35);
   --rule-price: var(--success-500);
   --rule-visibility: var(--warning-500);
 
@@ -233,8 +258,12 @@
 }
 
 [data-theme="dark"] {
+  // Caselle, selettori di data e barre di scorrimento native in scuro:
+  // senza, le caselle restavano bianche su --surface.
+  color-scheme: dark;
+
   // In scuro il violetto sale di un gradino, come l'accento (#818cf8).
-  --rule-featured: #a78bfa; // violet-400
+  --rule-featured: var(--color-violet-400);
 
   --bg: #0f172a;
   --text: #f9fafb;
@@ -285,8 +314,10 @@
   --color-green-900: #14532d;
 
   // FASE 2 gap-closing: --text-muted più chiaro su sfondo scuro (#6b7280
-  // del root scende sotto 3:1 su --bg dark).
-  --text-muted: #94a3b8;
+  // del root scende sotto 3:1 su --bg dark). #a3b0c2 e non slate-400
+  // (#94a3b8): sulle bande --hover-bg (intestazione di DataTable) quello
+  // faceva 4,04:1, questo 4,71:1.
+  --text-muted: #a3b0c2;
   --text-success: #34d399; // 9:1 su --bg dark
   --text-danger: #f87171; // red-400
   --text-warning: #fbbf24; // amber-400

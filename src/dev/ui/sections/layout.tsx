@@ -76,7 +76,7 @@ function AppSidebarSection() {
 }
 
 /** Dichiara la header band come farebbe una pagina dentro MainLayout. */
-function PageHeaderConfigurator() {
+function PageHeaderConfigurator({ subtitle }: { subtitle?: string }) {
     const [view, setView] = useState<"grid" | "list">("grid");
     const leading = useMemo(
         () => (
@@ -103,20 +103,30 @@ function PageHeaderConfigurator() {
         ),
         []
     );
-    usePageHeader({ leading, actions });
+    usePageHeader({ subtitle, leading, actions });
     return null;
 }
 
 function PageHeaderSlotSection() {
     return (
-        <State label="header band: leading + actions" column>
-            <div className={styles.box}>
-                <PageHeaderProvider>
-                    <PageHeaderSlot />
-                    <PageHeaderConfigurator />
-                </PageHeaderProvider>
-            </div>
-        </State>
+        <>
+            <State label="header band: riga → azioni più strette → due righe (da 768) → barra compatta; stringi la finestra" column>
+                <div className={styles.box}>
+                    <PageHeaderProvider>
+                        <PageHeaderSlot />
+                        <PageHeaderConfigurator />
+                    </PageHeaderProvider>
+                </div>
+            </State>
+            <State label="con sottotitolo: una riga muta sopra la banda" column>
+                <div className={styles.box}>
+                    <PageHeaderProvider>
+                        <PageHeaderSlot />
+                        <PageHeaderConfigurator subtitle="Le sedi dell'azienda: dove si trovano e cosa mostrano." />
+                    </PageHeaderProvider>
+                </div>
+            </State>
+        </>
     );
 }
 

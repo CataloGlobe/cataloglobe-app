@@ -93,7 +93,9 @@ export async function listStories(tenantId: string): Promise<StoryWithProduct[]>
         .from("stories")
         .select("*, product:product_id (id, name)")
         .eq("tenant_id", tenantId)
-        .order("sort_order", { ascending: true });
+        // A pari `sort_order` (storie nuove: 0) decide la data, come in `resolve-public-story`.
+        .order("sort_order", { ascending: true })
+        .order("created_at", { ascending: true });
 
     if (error) throw error;
     return (data ?? []) as unknown as StoryWithProduct[];

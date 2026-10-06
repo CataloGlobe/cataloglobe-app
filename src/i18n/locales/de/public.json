@@ -271,12 +271,15 @@
         "indicator_aria": "Indikator für herausgehobene Inhalte",
         "section_aria": "Ausgewählter Inhalt",
         "dot_aria": "{{index}} Inhalt von {{count}}",
-        "preview_close_aria": "Schließen Sie"
+        "see_all": "Alle ansehen",
+        "see_all_label_one": "hervorgehobener Inhalt",
+        "see_all_label_other": "hervorgehobene Inhalte",
+        "see_all_aria": "Alle hervorgehobenen Inhalte ansehen ({{count}})"
     },
     "events": {
         "list_aria": "Hervorgehoben",
         "empty": "Zurzeit keine aktiven Veranstaltungen oder Aktionen.",
-        "back": "← Zurück zur Liste",
+        "back_aria": "Zurück zur Liste",
         "close_aria": "Schließen",
         "close_label": "Schließen"
     },
@@ -459,7 +462,7 @@
         "err_submit": "Ein Fehler ist aufgetreten. Bitte versuchen Sie es gleich erneut.",
         "submitting": "Wird gesendet…",
         "submit": "Anfrage senden",
-        "consent": "Mit dem Senden der Anfrage akzeptieren Sie die Datenverarbeitung zur Verwaltung der Reservierung. <privacy>Datenschutz</privacy>",
+        "consent": "Ihre Angaben werden nur zur Verwaltung der Reservierung verwendet. <privacy>Datenschutz</privacy>",
         "when": "Wann",
         "date": "Datum",
         "time": "Uhrzeit",
@@ -474,6 +477,10 @@
         "special_requests": "Besondere Wünsche",
         "optional": "(optional)",
         "notes_placeholder": "Besondere Bedürfnisse, besondere Anlässe…",
+        "allergies_label": "Allergien und Unverträglichkeiten",
+        "allergies_consent": "Ich willige in die Verarbeitung meiner Allergiedaten ein, die das Lokal nur zur Vorbereitung des Service verwendet.",
+        "allergies_placeholder": "Z. B. Erdnüsse, Gluten, Laktose",
+        "val_allergies_max": "Maximal 300 Zeichen.",
         "people": "Personen",
         "exact_number": "Geben Sie die genaue Anzahl an",
         "party_count_one": "{{count}} Person",

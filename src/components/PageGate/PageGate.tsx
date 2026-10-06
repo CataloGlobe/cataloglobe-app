@@ -2,7 +2,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Lock } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { Button } from "@/components/ui/Button/Button";
-import { usePermissions } from "@/context/PermissionsContext";
+import { usePermissions } from "@/context/usePermissions";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 import { usePlanFeatures } from "@/lib/planFeatures";
 import {
@@ -81,7 +81,7 @@ export function PageGate({ feature, readPermission, activityId, scope, children 
                             <Button
                                 variant="primary"
                                 onClick={() =>
-                                    navigate(`/business/${businessId}/subscription`)
+                                    navigate(`/business/${businessId}/settings/abbonamento`)
                                 }
                             >
                                 Passa a Pro

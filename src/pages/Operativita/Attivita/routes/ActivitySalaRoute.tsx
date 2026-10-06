@@ -1,39 +1,49 @@
-import { PageGate } from "@/components/PageGate/PageGate";
+import { Lock } from "lucide-react";
+import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { TablesManagement } from "@/components/Tables/TablesManagement/TablesManagement";
 import { TablesEmptyState } from "@/components/Tables/TablesManagement/TablesEmptyState";
+import { usePermissions } from "@/context/usePermissions";
+import { canDoOnActivity } from "@/lib/permissions";
 import { useActivityDetail } from "../ActivityDetailContext";
 
 /**
- * Sala: tavoli, zone e capienza. Rotta senza tab (§29.3): ci si arriva dai
- * rimandi di Ordini e prenotazioni. Si riorganizzerà in Servizio quando esisterà (§18).
+ * Sala (correzioni UI SV3): tavoli, zone, accostamenti e QR della sede. Era
+ * il modo «Gestisci la sala» di Servizio; ora è una tab della Scheda, con
+ * gli stessi permessi: la vede chi ha `tables.read` sulla sede, modifica chi
+ * ha `tables.manage` e un abbonamento attivo (lo decide `TablesManagement`).
+ * `/sala` e i vecchi `?modo=gestisci` portano qui.
  */
 export default function ActivitySalaRoute() {
-    const { activity, tenantId, reload, canManage, goToSection } = useActivityDetail();
+    const { activity, tenantId, goToSection } = useActivityDetail();
+    const { permissions } = usePermissions();
+
+    if (permissions && !canDoOnActivity(permissions, "tables.read", activity.id)) {
+        return (
+            <EmptyState
+                icon={<Lock size={40} strokeWidth={1.5} />}
+                title="Non hai accesso a questa sezione"
+                description="Contatta il proprietario o un amministratore per ottenere l'accesso."
+            />
+        );
+    }
+
+    // I tavoli servono a due canali: ordini al tavolo e prenotazioni. Basta
+    // uno dei due acceso per mapparli.
+    if (!activity.ordering_enabled && !activity.enable_reservations) {
+        return (
+            <TablesEmptyState
+                onGoToOrdering={() => goToSection("ordini-al-tavolo")}
+                onGoToReservations={() => goToSection("prenotazioni-online")}
+            />
+        );
+    }
+
     return (
-        <PageGate readPermission="tables.read" activityId={activity.id}>
-            {() => (
-                // I tavoli servono a due domini: ordinazioni QR e prenotazioni.
-                // Basta uno dei due abilitati per poterli mappare.
-                // `orderingEnabled` resta il gate delle sole azioni QR.
-                activity.ordering_enabled || activity.enable_reservations ? (
-                    <TablesManagement
-                        tenantId={tenantId}
-                        activityId={activity.id}
-                        orderingEnabled={activity.ordering_enabled}
-                        reservationsEnabled={activity.enable_reservations}
-                        reservationCapacity={activity.reservation_capacity}
-                        reservationDurationMinutes={activity.reservation_duration_minutes}
-                        reservationConfirmationMode={activity.reservation_confirmation_mode}
-                        onActivityChanged={reload}
-                        canManageActivity={canManage}
-                    />
-                ) : (
-                    <TablesEmptyState
-                        onGoToOrdering={() => goToSection("ordini-prenotazioni", "ordini")}
-                        onGoToReservations={() => goToSection("ordini-prenotazioni", "prenotazioni")}
-                    />
-                )
-            )}
-        </PageGate>
+        <TablesManagement
+            tenantId={tenantId}
+            activityId={activity.id}
+            orderingEnabled={activity.ordering_enabled}
+            reservationsEnabled={activity.enable_reservations}
+        />
     );
 }

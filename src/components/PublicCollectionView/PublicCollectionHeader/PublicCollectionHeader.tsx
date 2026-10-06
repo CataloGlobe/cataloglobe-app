@@ -1,15 +1,16 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { motion, useReducedMotion } from "framer-motion";
-import { BookOpenText, ImageIcon, MessageCircle, MoreHorizontal, Pin, ReceiptText, Search, Utensils } from "lucide-react";
+import { BookOpenText, ImageIcon, MessageCircle, MoreHorizontal, ReceiptText, Search, Utensils } from "lucide-react";
 import type { HubTab } from "@/types/collectionStyle";
-import { hasOpenSheet } from "../hooks/useScrollCollapse";
+import { hasOpenSheet } from "../hooks/openSheets";
 import { buildCoverImageSet } from "@/utils/imageTransform";
 import LanguageSelector from "@components/PublicCollectionView/LanguageSelector/LanguageSelector";
 import styles from "./PublicCollectionHeader.module.scss";
 
-// Eventi/Recensioni non sono più tab (vedi trigger icona onOpenEvents/onOpenReviews
-// più sotto, PublicSheet dedicate in CollectionView) — "menu" resta l'unica vista
+// Recensioni non è un tab (trigger icona onOpenReviews più sotto, PublicSheet
+// dedicata in CollectionView); «In evidenza» non ha pulsante, si apre dai
+// caroselli in pagina — "menu" resta l'unica vista
 // primaria, "storia" resta un tab (contenuto full-page, non un modale).
 // ⚠️ Visibilità tab "storia" sincronizzata con PublicBottomBar.tsx (stesso filtro)
 const HUB_TABS: { id: HubTab; icon: ReactNode; labelKey: string }[] = [
@@ -85,9 +86,6 @@ export type PublicCollectionHeaderProps = {
     onOpenMore?: () => void;
     /** Mostra le hub tabs (menu/storia). Default true (comportamento storico). */
     showHubTabs?: boolean;
-    /** Mostra il trigger "eventi" (apre la sheet). Default true (retrocompatibile).
-     *  Stessa logica di PublicBottomBar: false quando non ci sono featured da mostrare. */
-    showEventsTab?: boolean;
     /** Mostra la tab "storia". Default false (gated su has_story dal catalogo).
      *  Filtrata via stessa logica di PublicBottomBar. */
     showStoryTab?: boolean;
@@ -104,8 +102,6 @@ export type PublicCollectionHeaderProps = {
     orderVisible?: boolean;
     /** Apre il drawer ordine. Undefined ⇒ bottone non renderizzato. */
     onOpenOrder?: () => void;
-    /** Apre la sheet "eventi". Undefined ⇒ bottone non renderizzato (fuori preview). */
-    onOpenEvents?: () => void;
     /** Apre la sheet "recensioni". Undefined ⇒ bottone non renderizzato (fuori preview). */
     onOpenReviews?: () => void;
     /** Dot promemoria recensione sul trigger "Dicci la tua" (riusa valutaVisible). */
@@ -117,8 +113,8 @@ export type PublicCollectionHeaderProps = {
     /** Congela il tracking scroll (lerp header) mentre una sheet è aperta: gli
      *  scroll event indotti dal body-lock/unlock di PublicSheet vengono ignorati
      *  esplicitamente invece di affidarsi solo al defensive read di body.style.top
-     *  (che resta come rete di sicurezza). Stesso pattern dual-source del freeze
-     *  in useScrollCollapse: prop dal parent + contatore modulo hasOpenSheet(). */
+     *  (che resta come rete di sicurezza). Freeze dual-source, come la bottom bar
+     *  (useBottomBarAutoHide): prop dal parent + contatore modulo hasOpenSheet(). */
     frozen?: boolean;
 };
 
@@ -143,14 +139,12 @@ export default function PublicCollectionHeader({
     allergensCount = 0,
     onOpenMore,
     showHubTabs = true,
-    showEventsTab = true,
     showStoryTab = false,
     showLanguageSelector = true,
     actionSlot,
     selectionCount = 0,
     orderVisible = false,
     onOpenOrder,
-    onOpenEvents,
     onOpenReviews,
     reviewDot = false,
     previewDevice,
@@ -158,8 +152,8 @@ export default function PublicCollectionHeader({
 }: PublicCollectionHeaderProps) {
     const { t } = useTranslation("public");
     const prefersReducedMotion = useReducedMotion();
-    // Aggiornato sincronicamente ad ogni render (stesso pattern di freezeRef in
-    // useScrollCollapse): già true prima degli scroll event post-apertura sheet,
+    // Aggiornato sincronicamente ad ogni render: già true prima degli scroll
+    // event post-apertura sheet,
     // senza ri-attaccare il listener.
     const frozenRef = useRef(frozen);
     frozenRef.current = frozen;
@@ -458,39 +452,26 @@ export default function PublicCollectionHeader({
                             </button>
                         )}
 
-                        {/* Trigger eventi/recensioni: aprono le sheet dedicate (non più tab).
-                            Nascosti ≤640px via @media (stesso split di .headerActions/.chips):
-                            la bottom-bar mobile porta gli stessi trigger. */}
-                        {((onOpenEvents && showEventsTab) || onOpenReviews || mode === "preview") && (
+                        {/* Trigger recensioni: apre la sheet dedicata (non un tab).
+                            Nascosto ≤640px via @media (stesso split di .headerActions/.chips):
+                            la bottom-bar mobile porta lo stesso trigger. */}
+                        {(onOpenReviews || mode === "preview") && (
                             <div className={styles.hubTriggers}>
-                                {((onOpenEvents && showEventsTab) || mode === "preview") && (
-                                    <button
-                                        type="button"
-                                        className={styles.iconBtn}
-                                        onClick={onOpenEvents}
-                                        aria-label={t("hub.events")}
-                                        tabIndex={mode === "preview" ? -1 : undefined}
+                                <button
+                                    type="button"
+                                    className={styles.iconBtn}
+                                    onClick={onOpenReviews}
+                                    aria-label={t("hub.reviews")}
+                                    tabIndex={mode === "preview" ? -1 : undefined}
+                                >
+                                    <motion.span
+                                        className={styles.iconBtnIcon}
+                                        animate={reviewIconAnimate}
+                                        transition={reviewIconTransition}
                                     >
-                                        <Pin size={15} strokeWidth={2} />
-                                    </button>
-                                )}
-                                {(onOpenReviews || mode === "preview") && (
-                                    <button
-                                        type="button"
-                                        className={styles.iconBtn}
-                                        onClick={onOpenReviews}
-                                        aria-label={t("hub.reviews")}
-                                        tabIndex={mode === "preview" ? -1 : undefined}
-                                    >
-                                        <motion.span
-                                            className={styles.iconBtnIcon}
-                                            animate={reviewIconAnimate}
-                                            transition={reviewIconTransition}
-                                        >
-                                            <MessageCircle size={15} strokeWidth={2} />
-                                        </motion.span>
-                                    </button>
-                                )}
+                                        <MessageCircle size={15} strokeWidth={2} />
+                                    </motion.span>
+                                </button>
                             </div>
                         )}
 

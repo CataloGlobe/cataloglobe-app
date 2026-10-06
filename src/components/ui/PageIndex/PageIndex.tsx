@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Check, EyeOff } from "lucide-react";
 import Text from "@/components/ui/Text/Text";
 import styles from "./PageIndex.module.scss";
 
@@ -13,6 +14,12 @@ export interface PageIndexSection {
      *  cambia mai («7 campi») e un valore che si legge già nella sezione
      *  (lo slug) sono rumore: si omettono. */
     summary?: string;
+    /**
+     * Lo stato della sezione (correzioni UI A1): `done`, ✓ verde, per una
+     * sezione compilata; `hidden`, occhio barrato, per una compilata ma con
+     * «Visibile ai clienti» spento. Senza, niente icona.
+     */
+    status?: "done" | "hidden";
 }
 
 export interface PageIndexProps {
@@ -65,6 +72,18 @@ export function PageIndex({ sections, activeId, onSelect, "aria-label": ariaLabe
                                     <Text as="span" variant="caption" colorVariant="muted" className={styles.summary}>
                                         {section.summary}
                                     </Text>
+                                )}
+                                {section.status === "done" && (
+                                    <Check size={16} strokeWidth={2} className={styles.done} role="img" aria-label="Compilata" />
+                                )}
+                                {section.status === "hidden" && (
+                                    <EyeOff
+                                        size={16}
+                                        strokeWidth={1.75}
+                                        className={styles.hidden}
+                                        role="img"
+                                        aria-label="Non visibile ai clienti"
+                                    />
                                 )}
                             </a>
                         </li>

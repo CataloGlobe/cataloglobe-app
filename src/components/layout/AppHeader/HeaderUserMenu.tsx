@@ -91,8 +91,8 @@ export function HeaderUserMenu() {
                 <div className={styles.userEmail}>{email}</div>
             </Menu.Label>
             <Menu.Separator />
-            <Menu.Item icon={User} onSelect={() => navigate("/workspace/settings")}>
-                Il mio account
+            <Menu.Item icon={User} onSelect={() => navigate("/workspace/account")}>
+                Account
             </Menu.Item>
             {showAdminEntry && (
                 <Menu.Item icon={Shield} onSelect={() => navigate("/admin")}>

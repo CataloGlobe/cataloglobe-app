@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import { MessageSquare } from "lucide-react";
+import { useMemo, useState } from "react";
+import { ChevronDown, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import Text from "@/components/ui/Text/Text";
@@ -62,6 +62,8 @@ export default function ReservationsInbox({
     onAction
 }: Props) {
     const today = todayIsoDate();
+    // T14 PN2: le scadute stanno dietro una riga chiusa; si aprono a richiesta.
+    const [staleOpen, setStaleOpen] = useState(false);
 
     const { live, stale } = useMemo(() => {
         const liveItems: V2Reservation[] = [];
@@ -120,9 +122,15 @@ export default function ReservationsInbox({
                                 {r.notes}
                             </>
                         )}
+                        {r.allergies && (
+                            <>
+                                <br />
+                                <strong>Allergie:</strong> {r.allergies}
+                            </>
+                        )}
                     </>
                 }
-                wrapSubtitle={Boolean(r.notes)}
+                wrapSubtitle={Boolean(r.notes || r.allergies)}
                 meta={tableView ? <TableAssignmentBadge view={tableView} /> : undefined}
                 trailing={
                     canManage ? (
@@ -131,7 +139,12 @@ export default function ReservationsInbox({
                                 Rifiuta
                             </Button>
                             {!isStale && (
-                                <Button variant="primary" size="sm" onClick={() => onAction(r, "confirm")}>
+                                <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    className={styles.confirmAction}
+                                    onClick={() => onAction(r, "confirm")}
+                                >
                                     Conferma
                                 </Button>
                             )}
@@ -148,15 +161,29 @@ export default function ReservationsInbox({
             {live.map(r => renderRow(r, false))}
             {stale.length > 0 && (
                 <>
-                    <div className={styles.inboxStaleHeader}>
-                        <Text as="h3" variant="caption-xs" weight={600} className={styles.sectionLabel}>
-                            Scadute · {stale.length}
+                    <button
+                        type="button"
+                        className={styles.inboxStaleToggle}
+                        aria-expanded={staleOpen}
+                        onClick={() => setStaleOpen(open => !open)}
+                    >
+                        <Text as="span" variant="body-sm" weight={600}>
+                            {stale.length} {stale.length === 1 ? "scaduta" : "scadute"}
                         </Text>
-                        <Text as="p" variant="caption" colorVariant="muted" className={styles.sectionHint}>
-                            Richieste per date già passate, mai gestite.
+                        <Text as="span" variant="caption" colorVariant="muted" className={styles.inboxStaleHint}>
+                            richieste per date già passate, mai gestite
                         </Text>
-                    </div>
-                    {stale.map(r => renderRow(r, true))}
+                        <Text as="span" variant="caption" weight={600} className={styles.inboxStaleMore}>
+                            {staleOpen ? "Nascondi" : "Mostra"}
+                            <ChevronDown
+                                size={14}
+                                strokeWidth={2}
+                                aria-hidden
+                                className={staleOpen ? styles.chevronOpen : undefined}
+                            />
+                        </Text>
+                    </button>
+                    {staleOpen && stale.map(r => renderRow(r, true))}
                 </>
             )}
         </>

@@ -1,0 +1,67 @@
+// Banda dell'esito (§19.2): stesso fondo della banda di Programmazione, in
+// ambra quando i clienti non vedono il menù.
+
+.band {
+  background: linear-gradient(180deg, var(--brand-primary-soft), transparent), var(--surface);
+}
+
+.warning {
+  background: linear-gradient(180deg, var(--warning-50), transparent), var(--surface);
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  font-variant-numeric: tabular-nums;
+}
+
+.chainRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: var(--space-8);
+  row-gap: var(--space-4);
+  margin: 0;
+}
+
+// Link normale (V1): colore del brand, sottolineato solo al passaggio.
+.link {
+  color: var(--brand-primary);
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+}
+
+.missing {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding-top: var(--space-8);
+  border-top: 1px solid var(--border);
+}
+
+.missingList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.missingItem {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: var(--space-8);
+  row-gap: var(--space-4);
+}
+
+.missingIcon {
+  flex: none;
+  color: var(--text-warning);
+}

@@ -11,6 +11,7 @@ import type {
 } from "@/types/productCharacteristic";
 import { useToast } from "@/context/Toast/ToastContext";
 import styles from "./CharacteristicsSection.module.scss";
+import { CATEGORY_ORDER, CATEGORY_LABELS } from "./characteristicCategories";
 
 interface CharacteristicsSectionProps {
     /** Tenant vertical (`food_beverage` | `retail` | `hotel` | `generic` | legacy aliases). */
@@ -21,30 +22,6 @@ interface CharacteristicsSectionProps {
     onChange: (next: string[]) => void;
     disabled?: boolean;
 }
-
-/**
- * Fixed display order for the 6 categories. Diet first as it carries the
- * primary dietary claims; spicy follows because mutex semantics differ;
- * origin/preparation/warning are descriptive metadata; status closes the
- * list as the most operational layer (chef pick, new, out_of_stock).
- */
-export const CATEGORY_ORDER: ProductCharacteristicCategory[] = [
-    "diet",
-    "spicy",
-    "origin",
-    "preparation",
-    "warning",
-    "status"
-];
-
-export const CATEGORY_LABELS: Record<ProductCharacteristicCategory, string> = {
-    diet: "Dieta",
-    spicy: "Piccantezza",
-    origin: "Origine e qualità",
-    preparation: "Preparazione",
-    warning: "Avvertenze",
-    status: "Stato"
-};
 
 type LoadState =
     | { status: "loading" }

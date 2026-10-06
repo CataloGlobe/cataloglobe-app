@@ -1,0 +1,25 @@
+@use "@styles/mixins" as *;
+
+// Anello della catena bounded: banda dell'esito sopra, la tabella cresce e
+// scorre dentro. La pagina è figlia diretta del contenuto del layout.
+.layout {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+}
+
+// Sul telefono la banda dell'esito prende quasi tutto lo schermo, e una
+// tabella che scorre dentro resterebbe senza righe: la pagina scorre intera.
+@include phone {
+  .layout {
+    flex: none;
+  }
+}
+
+.loading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+}

@@ -14,30 +14,30 @@ const meta = (m: Partial<ProductListMetadata> = {}): ProductListMetadata => ({
 
 describe("describePrice", () => {
     it("prezzo unico", () => {
-        expect(describePrice({ base_price: 2.9 }, meta())).toEqual({ kind: "price", text: "€ 2,90", inherited: false });
+        expect(describePrice({ base_price: 2.9 }, meta())).toEqual({ kind: "price", text: "2,90 €", inherited: false });
     });
 
     it("più formati: «da» il minimo, anche con base_price presente", () => {
         expect(describePrice({ base_price: 9 }, meta({ pricedFormatsCount: 3, fromPrice: 2.5, formatsCount: 3 }))).toEqual({
             kind: "price",
-            text: "da € 2,50",
+            text: "da 2,50 €",
             inherited: false
         });
     });
 
     it("un formato solo è un prezzo", () => {
-        expect(describePrice({ base_price: null }, meta({ pricedFormatsCount: 1, fromPrice: 3 }))).toMatchObject({ text: "€ 3,00" });
+        expect(describePrice({ base_price: null }, meta({ pricedFormatsCount: 1, fromPrice: 3 }))).toMatchObject({ text: "3,00 €" });
     });
 
     it("variante senza prezzo proprio: eredita dal padre", () => {
         expect(describePrice({ base_price: null }, meta(), { base_price: 2.5 }, meta())).toEqual({
             kind: "price",
-            text: "€ 2,50",
+            text: "2,50 €",
             inherited: true
         });
         expect(
             describePrice({ base_price: null }, meta(), { base_price: null }, meta({ pricedFormatsCount: 2, fromPrice: 1 }))
-        ).toMatchObject({ text: "da € 1,00", inherited: true });
+        ).toMatchObject({ text: "da 1,00 €", inherited: true });
     });
 
     it("nessun prezzo", () => {
@@ -51,14 +51,14 @@ describe("describeMenus", () => {
     const catalog = { catalogLabel: "Catalogo", catalogLabelPlural: "Cataloghi" };
 
     it("singolare, plurale e nessuno dal verticale", () => {
-        expect(describeMenus(2, menu)).toEqual({ text: "in 2 menù", none: false });
-        expect(describeMenus(1, catalog)).toEqual({ text: "in 1 catalogo", none: false });
-        expect(describeMenus(3, catalog)).toEqual({ text: "in 3 cataloghi", none: false });
-        expect(describeMenus(0, menu)).toEqual({ text: "in nessun menù", none: true });
+        expect(describeMenus(2, menu)).toEqual({ text: "in 2 menù", none: false, count: 2 });
+        expect(describeMenus(1, catalog)).toEqual({ text: "in 1 catalogo", none: false, count: 1 });
+        expect(describeMenus(3, catalog)).toEqual({ text: "in 3 cataloghi", none: false, count: 3 });
+        expect(describeMenus(0, menu)).toEqual({ text: "in nessun menù", none: true, count: 0 });
     });
 
     it("la variante senza collegamenti vale quanto il padre", () => {
-        expect(describeMenus(0, menu, 2)).toEqual({ text: "in 2 menù", none: false });
+        expect(describeMenus(0, menu, 2)).toEqual({ text: "in 2 menù", none: false, count: 2 });
     });
 });
 

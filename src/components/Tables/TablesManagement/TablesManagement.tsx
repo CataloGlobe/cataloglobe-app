@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Grid2X2, Layers, MoreHorizontal, Plus, QrCode, RotateCw } from "lucide-react";
 import { Menu } from "@/components/ui/Menu";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
@@ -13,16 +13,9 @@ import { IconButton } from "@/components/ui/Button/IconButton";
 import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
 import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
 import Text from "@/components/ui/Text/Text";
-import { NumberInput } from "@/components/ui/Input/NumberInput";
-import { FormGrid } from "@/components/ui/FormGrid/FormGrid";
-import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
-import { UnsavedChangesBar } from "@/components/ui/UnsavedChangesBar/UnsavedChangesBar";
-import { useUnsavedChangesGuard } from "@/components/ui/UnsavedChangesBar/useUnsavedChangesGuard";
-import { Card } from "@/components/ui/Card/Card";
-import { updateActivity } from "@/services/supabase/activities";
 
 import { useToast } from "@/context/Toast/ToastContext";
-import { usePermissions } from "@/context/PermissionsContext";
+import { usePermissions } from "@/context/usePermissions";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 import { canDoOnActivity } from "@/lib/permissions";
 
@@ -55,31 +48,13 @@ export interface TablesManagementProps {
      *  (capienza min/max, gruppo di accostamento, priorita', prenotabile
      *  online): a chi non prenota non servono e non vengono mostrati. */
     reservationsEnabled: boolean;
-    /** Capienza operativa (coperti) e durata media tavolo: colonne della riga
-     *  sede caricata dalla pagina. Sala le scrive, Prenotazioni le legge. */
-    reservationCapacity?: number | null;
-    reservationDurationMinutes?: number | null;
-    /** Modalità di conferma corrente: con "auto" la capienza non si può
-     *  togliere (CHECK `activities_auto_requires_capacity`), e va detto qui
-     *  prima del round-trip, non scoperto da un errore DB. */
-    reservationConfirmationMode?: "manuale" | "auto";
-    /** Ricarica la riga sede dopo il salvataggio di capienza/durata, così
-     *  Prenotazioni vede il valore nuovo senza reload. */
-    onActivityChanged?: () => Promise<void>;
-    /** `activity.manage`: senza, capienza e durata si leggono ma non si salvano. */
-    canManageActivity?: boolean;
 }
 
 export function TablesManagement({
     tenantId,
     activityId,
     orderingEnabled,
-    reservationsEnabled,
-    reservationCapacity = null,
-    reservationDurationMinutes = null,
-    reservationConfirmationMode = "manuale",
-    onActivityChanged,
-    canManageActivity = true
+    reservationsEnabled
 }: TablesManagementProps) {
     const { showToast } = useToast();
     const { permissions } = usePermissions();
@@ -149,120 +124,6 @@ export function TablesManagement({
     useEffect(() => {
         void loadData();
     }, [loadData]);
-
-    // ── Capienza della sala (draft + UnsavedChangesBar) ─────────────────────
-    // Capienza OPERATIVA: la digita il ristoratore, può essere più bassa dei
-    // posti fisici (la cucina non regge la sala piena). Non viene derivata
-    // dai tavoli né corretta d'ufficio: la somma dei posti mappati è un
-    // controllo di realtà, informativo, mai bloccante.
-    // Scrive SOLO `reservation_capacity` + `reservation_duration_minutes`:
-    // le altre regole di prenotazione hanno il loro draft in Prenotazioni.
-    type CapacityDraft = { capacity: string; durationMinutes: string };
-    const savedCapacity: CapacityDraft = useMemo(() => ({
-        capacity: reservationCapacity == null ? "" : String(reservationCapacity),
-        durationMinutes: String(reservationDurationMinutes ?? 120)
-    }), [reservationCapacity, reservationDurationMinutes]);
-    const [capacityDraft, setCapacityDraft] = useState<CapacityDraft>(savedCapacity);
-    const [isSavingCapacity, setIsSavingCapacity] = useState(false);
-    const lastSavedCapacityRef = useRef<CapacityDraft>(savedCapacity);
-
-    // Re-sync sul reload della riga sede preservando il draft sporco.
-    useEffect(() => {
-        const prevSaved = lastSavedCapacityRef.current;
-        if (
-            savedCapacity.capacity === prevSaved.capacity &&
-            savedCapacity.durationMinutes === prevSaved.durationMinutes
-        ) {
-            return;
-        }
-        setCapacityDraft(prev =>
-            prev.capacity === prevSaved.capacity &&
-            prev.durationMinutes === prevSaved.durationMinutes
-                ? savedCapacity
-                : prev
-        );
-        lastSavedCapacityRef.current = savedCapacity;
-    }, [savedCapacity]);
-
-    const isCapacityDirty =
-        capacityDraft.capacity !== savedCapacity.capacity ||
-        capacityDraft.durationMinutes !== savedCapacity.durationMinutes;
-    useUnsavedChangesGuard(isCapacityDirty);
-
-    // Somma dei posti mappati, dai tavoli già in memoria (stessa lista della
-    // tabella qui sotto): nessuna lettura in più.
-    const seatsSummary = useMemo(() => ({
-        totalSeats: items.reduce((sum, t) => sum + (t.seats ?? 0), 0),
-        tablesCount: items.length,
-        tablesWithoutSeats: items.filter(t => t.seats == null).length
-    }), [items]);
-
-    // Divergenza rilevante: oltre il 20% della capienza dichiarata e almeno 4
-    // coperti di scarto. Sotto quella soglia il rumore supererebbe il segnale.
-    const capacityMismatch = useMemo(() => {
-        if (seatsSummary.tablesCount === 0) return null;
-        const declared = Number(capacityDraft.capacity.trim());
-        if (!Number.isFinite(declared) || declared <= 0) return null;
-        const delta = seatsSummary.totalSeats - declared;
-        const isRelevant = Math.abs(delta) >= 4 && Math.abs(delta) >= declared * 0.2;
-        return isRelevant ? { delta, declared } : null;
-    }, [seatsSummary, capacityDraft.capacity]);
-
-    const saveCapacity = useCallback(async () => {
-        // Validazione locale (i CHECK a schema la rispecchiano). Capienza
-        // vuota → NULL (nessun limite). Durata in 15..600.
-        const trimmedCapacity = capacityDraft.capacity.trim();
-        let capacityValue: number | null = null;
-        if (trimmedCapacity.length > 0) {
-            const parsed = parseInt(trimmedCapacity, 10);
-            if (!Number.isFinite(parsed) || parsed <= 0) {
-                showToast({
-                    message: "La capienza deve essere un numero maggiore di zero.",
-                    type: "error"
-                });
-                return;
-            }
-            capacityValue = parsed;
-        }
-        const durationParsed = parseInt(capacityDraft.durationMinutes.trim(), 10);
-        if (!Number.isFinite(durationParsed) || durationParsed < 15 || durationParsed > 600) {
-            showToast({
-                message: "La durata deve essere compresa tra 15 e 600 minuti.",
-                type: "error"
-            });
-            return;
-        }
-        // Speculare alla regola in Prenotazioni ("auto richiede capienza"):
-        // la capienza non si toglie finché la conferma automatica è attiva.
-        if (capacityValue === null && reservationConfirmationMode === "auto") {
-            showToast({
-                message:
-                    "Le prenotazioni sono in conferma automatica, che richiede una capienza. Passa a conferma manuale in Prenotazioni prima di toglierla.",
-                type: "error"
-            });
-            return;
-        }
-        setIsSavingCapacity(true);
-        try {
-            await updateActivity(activityId, tenantId, {
-                reservation_capacity: capacityValue,
-                reservation_duration_minutes: durationParsed
-            });
-            await onActivityChanged?.();
-            showToast({ message: "Capienza salvata.", type: "success" });
-        } catch {
-            showToast({
-                message: "Impossibile salvare la capienza della sala.",
-                type: "error"
-            });
-        } finally {
-            setIsSavingCapacity(false);
-        }
-    }, [activityId, tenantId, capacityDraft, reservationConfirmationMode, onActivityChanged, showToast]);
-
-    const cancelCapacity = useCallback(() => {
-        setCapacityDraft(savedCapacity);
-    }, [savedCapacity]);
 
     // Il bulk chiede conferma: i tavoli si ricreano, i QR stampati no.
     const [pendingBulkIds, setPendingBulkIds] = useState<string[]>([]);
@@ -664,66 +525,6 @@ export function TablesManagement({
 
     return (
         <section className={styles.container}>
-            {/* Capienza accanto ai tavoli: il confronto con i posti mappati si
-                legge invece di doverlo raccontare. Solo con prenotazioni:
-                alle ordinazioni QR la capienza non serve. */}
-            {reservationsEnabled && (
-                <Card
-                    title="Capienza della sala"
-                    subtitle="Coperti accettabili dalle prenotazioni online e durata media di un tavolo"
-                    className={styles.capacityCard}
-                >
-                    <div className={styles.capacityBody}>
-                        <FormGrid cols={2}>
-                            <NumberInput
-                                label="Capienza (coperti)"
-                                placeholder="Es. 40"
-                                min={1}
-                                value={capacityDraft.capacity}
-                                onChange={e => setCapacityDraft(d => ({ ...d, capacity: e.target.value }))}
-                                disabled={isSavingCapacity || !canManageActivity}
-                                helperText={
-                                    capacityDraft.capacity.trim() === ""
-                                        ? "Senza capienza le prenotazioni online non hanno limiti e la conferma automatica non è disponibile."
-                                        : seatsSummary.tablesCount > 0
-                                            ? `Posti mappati sui tavoli: ${seatsSummary.totalSeats} su ${seatsSummary.tablesCount} ${seatsSummary.tablesCount === 1 ? "tavolo" : "tavoli"}.${
-                                                  seatsSummary.tablesWithoutSeats > 0
-                                                      ? ` ${seatsSummary.tablesWithoutSeats} ${seatsSummary.tablesWithoutSeats === 1 ? "tavolo non dichiara" : "tavoli non dichiarano"} i posti: la somma è parziale.`
-                                                      : ""
-                                              }`
-                                            : undefined
-                                }
-                            />
-                            <NumberInput
-                                label="Durata media tavolo (minuti)"
-                                placeholder="120"
-                                min={15}
-                                max={600}
-                                value={capacityDraft.durationMinutes}
-                                onChange={e => setCapacityDraft(d => ({ ...d, durationMinutes: e.target.value }))}
-                                disabled={isSavingCapacity || !canManageActivity}
-                                helperText="Quanto resta occupato un tavolo, di solito. Default 120."
-                            />
-                        </FormGrid>
-                        {capacityMismatch && (
-                            <InlineBanner variant="warning">
-                                {capacityMismatch.delta < 0
-                                    ? `I tavoli reggono ${seatsSummary.totalSeats} posti, meno della capienza impostata: alcune prenotazioni accettate potrebbero restare senza tavolo.`
-                                    : `Il modulo online si ferma a ${capacityMismatch.declared} coperti anche se i tavoli ne reggono ${seatsSummary.totalSeats}. Se è voluto — per esempio la cucina non regge la sala piena — va bene così.`}
-                            </InlineBanner>
-                        )}
-                        {isCapacityDirty && (
-                            <UnsavedChangesBar
-                                isSaving={isSavingCapacity}
-                                onCancel={cancelCapacity}
-                                onSave={() => {
-                                    void saveCapacity();
-                                }}
-                            />
-                        )}
-                    </div>
-                </Card>
-            )}
             <div className={styles.content}>
                 {/* Toolbar di sezione: cluster DX (search + altro + CTA). */}
                 <div className={styles.toolbar}>
@@ -801,6 +602,7 @@ export function TablesManagement({
                     />
                 ) : (
                     <DataTable<V2TableWithState>
+                        ariaLabel="Tavoli"
                         data={filteredItems}
                         allRowIds={allItemIds}
                         columns={columns}

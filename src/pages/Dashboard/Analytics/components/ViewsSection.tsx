@@ -1,6 +1,5 @@
 import { BarList } from "@/components/ui/BarList/BarList";
 import { Card } from "@/components/ui/Card/Card";
-import { StatCard } from "@/components/ui/StatCard/StatCard";
 import Text from "@/components/ui/Text/Text";
 import { TrendChart } from "@/components/ui/TrendChart/TrendChart";
 import type {
@@ -68,8 +67,6 @@ export default function ViewsSection({
     const visits = stats?.total_views ?? 0;
     const small = isBelowSample(visits);
     const openings = topViewed.reduce((sum, p) => sum + p.count, 0);
-    const selections = funnel.length > 0 ? funnel[funnel.length - 1].session_count : 0;
-    const selectionPct = funnel.length > 0 ? funnel[funnel.length - 1].percentage : 0;
     const withPct = (count: number, pct: number) => (small ? nf.format(count) : `${nf.format(count)} · ${nf.format(pct)}%`);
 
     return (
@@ -101,20 +98,6 @@ export default function ViewsSection({
                     </div>
                 </div>
             </Card>
-
-            <div className={styles.statGrid}>
-                <StatCard
-                    label="Eventi per visita"
-                    value={nf.format(stats?.avg_events_per_session ?? 0)}
-                    loading={isLoading}
-                />
-                <StatCard
-                    label="Visite con un'aggiunta alla selezione"
-                    value={small ? nf.format(selections) : `${nf.format(selectionPct)}%`}
-                    sample={small ? { count: selections, total: visits } : undefined}
-                    loading={isLoading}
-                />
-            </div>
 
             <div className={styles.grid}>
                 <Card title="Dalla visita alla selezione">

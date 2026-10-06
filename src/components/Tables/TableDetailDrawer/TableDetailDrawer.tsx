@@ -53,7 +53,7 @@ import type {
     RectifyOrderItem
 } from "@/types/orders";
 
-import { usePermissions } from "@/context/PermissionsContext";
+import { usePermissions } from "@/context/usePermissions";
 import { canDoOnActivity } from "@/lib/permissions";
 
 import { deriveTableStatus, type TableStatus } from "@/utils/tableState";
@@ -281,6 +281,12 @@ export function TableDetailDrawer({
         !!permissions &&
         canDoOnActivity(permissions, "tables.manage", activityId);
     const hasClosePermission = canManageTable && !!onRequestClose;
+    // «Conferma» è una transizione dell'ordine: lo stesso permesso della board
+    // di Comande, non quello del tavolo.
+    const canManageOrders =
+        !!activityId &&
+        !!permissions &&
+        canDoOnActivity(permissions, "orders.manage", activityId);
 
     const loadDetail = useCallback(async () => {
         if (!tenantId || !activityId || !tableId) return;
@@ -739,7 +745,7 @@ export function TableDetailDrawer({
                                                         </>
                                                     }
                                                     trailing={
-                                                        isPending ? (
+                                                        isPending && canManageOrders ? (
                                                             <Button
                                                                 variant="primary"
                                                                 size="sm"
@@ -781,8 +787,9 @@ export function TableDetailDrawer({
                                             ? formatAbsolute(o.delivered_at)
                                             : formatAbsolute(o.submitted_at);
                                     const { variant, label } = orderStatusBadge(o.status);
-                                    // Storna solo su delivered; disabilitato a netto≤0.
-                                    const canStorna = canManageTable && o.status === "delivered";
+                                    // Storna solo su delivered; disabilitato a netto≤0. Stesso
+                                    // permesso della edge rectify-order (orders.manage).
+                                    const canStorna = canManageOrders && o.status === "delivered";
                                     const stornaDisabled = unit.netto <= 0;
                                     return (
                                         <Fragment key={o.id}>

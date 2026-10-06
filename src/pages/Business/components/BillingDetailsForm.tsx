@@ -1,4 +1,4 @@
-import Text from "@/components/ui/Text/Text";
+import { SettingRow } from "@/components/ui/SettingRow";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { Select, type SelectOption } from "@/components/ui/Select/Select";
 import { isValidPartitaIva, isValidCodiceFiscale } from "@/utils/fiscalValidators";
@@ -54,181 +54,192 @@ export function BillingDetailsForm({ value, onChange, disabled = false }: Billin
             : undefined);
 
     return (
-        <div className={styles.formStack}>
-            <Select
-                label="Tipologia intestatario"
-                value={value.entityType}
-                onChange={e => onChange({ entityType: e.target.value as BillingDraft["entityType"] })}
-                options={ENTITY_OPTIONS}
-                disabled={disabled}
-                required
-            />
-
-            {isProfessionista && (
-                <div className={styles.fieldRow}>
-                    <TextInput
-                        label="Nome"
-                        value={value.firstName}
-                        onChange={e => onChange({ firstName: e.target.value })}
-                        placeholder="es. Mario"
-                        disabled={disabled}
-                        required
-                        error={billingLengthError(value.firstName, BILLING_FIELD_MAX.firstName)}
-                    />
-                    <TextInput
-                        label="Cognome"
-                        value={value.lastName}
-                        onChange={e => onChange({ lastName: e.target.value })}
-                        placeholder="es. Rossi"
-                        disabled={disabled}
-                        required
-                        error={billingLengthError(value.lastName, BILLING_FIELD_MAX.lastName)}
-                    />
-                </div>
-            )}
-
-            {(isSocieta || isAssociazione) && (
-                <TextInput
-                    label={isAssociazione ? "Denominazione" : "Ragione sociale"}
-                    value={value.legalName}
-                    onChange={e => onChange({ legalName: e.target.value })}
-                    placeholder="es. Trattoria Da Mario S.r.l."
-                    disabled={disabled}
-                    required
-                    error={billingLengthError(value.legalName, BILLING_FIELD_MAX.legalName)}
-                />
-            )}
-
-            {isProfessionista && (
-                <TextInput
-                    label="Nome ditta (opzionale)"
-                    value={value.legalName}
-                    onChange={e => onChange({ legalName: e.target.value })}
-                    placeholder="es. Studio Rossi"
-                    disabled={disabled}
-                    error={billingLengthError(value.legalName, BILLING_FIELD_MAX.legalName)}
-                />
-            )}
-
-            {value.entityType !== "" && (
-                <TextInput
-                    label={isAssociazione ? "Partita IVA (opzionale)" : "Partita IVA"}
-                    value={value.vatNumber}
-                    onChange={e => onChange({ vatNumber: e.target.value })}
-                    placeholder="11 cifre"
-                    disabled={disabled}
-                    required={!isAssociazione}
-                    error={vatError}
-                    inputMode="numeric"
-                />
-            )}
-
-            {value.entityType !== "" && (
-                <TextInput
-                    label={isSocieta ? "Codice fiscale (opzionale)" : "Codice fiscale"}
-                    value={value.fiscalCode}
-                    onChange={e => onChange({ fiscalCode: e.target.value })}
-                    placeholder={isProfessionista ? "16 caratteri" : "11 cifre"}
-                    disabled={disabled}
-                    required={!isSocieta}
-                    error={fiscalError}
-                />
-            )}
-
-            {value.entityType !== "" && (
-                <div className={styles.subSection}>
-                    <Text variant="body-sm" weight={600}>Sede legale</Text>
-                    <div className={styles.addressGrid}>
-                        <TextInput
-                            label="Indirizzo (via)"
-                            value={value.address}
-                            onChange={e => onChange({ address: e.target.value })}
-                            placeholder="es. Via Roma"
-                            disabled={disabled}
-                            required
-                            containerClassName={styles.addressFull}
-                            error={billingLengthError(value.address, BILLING_FIELD_MAX.address)}
-                        />
-                        <TextInput
-                            label="Civico (opzionale)"
-                            value={value.streetNumber}
-                            onChange={e => onChange({ streetNumber: e.target.value })}
-                            placeholder="es. 12"
-                            disabled={disabled}
-                            error={billingLengthError(value.streetNumber, BILLING_FIELD_MAX.streetNumber)}
-                        />
-                        <TextInput
-                            label="CAP"
-                            value={value.postalCode}
-                            onChange={e => onChange({ postalCode: e.target.value })}
-                            placeholder="es. 20121"
-                            disabled={disabled}
-                            required
-                            inputMode="numeric"
-                            error={
-                                value.postalCode.trim().length > 0 && !isValidCapIT(value.postalCode)
-                                    ? "Inserisci un CAP valido (5 cifre)"
-                                    : undefined
-                            }
-                        />
-                        <TextInput
-                            label="Comune"
-                            value={value.city}
-                            onChange={e => onChange({ city: e.target.value })}
-                            placeholder="es. Milano"
-                            disabled={disabled}
-                            required
-                            containerClassName={styles.addressFull}
-                            error={billingLengthError(value.city, BILLING_FIELD_MAX.city)}
-                        />
-                        <TextInput
-                            label="Provincia"
-                            value={value.province}
-                            onChange={e => onChange({ province: e.target.value })}
-                            placeholder="es. MI"
-                            disabled={disabled}
-                            required
-                            error={
-                                value.province.trim().length > 0 && !isValidProvinciaIT(value.province)
-                                    ? "Inserisci una sigla provincia valida (es. MI)"
-                                    : undefined
-                            }
-                        />
-                    </div>
-                </div>
-            )}
-
-            {value.entityType !== "" && (
-                <div className={styles.subSection}>
-                    <Text variant="body-sm" weight={600}>
-                        {recipientRequired ? "Recapito fattura" : "Recapito fattura (opzionale)"}
-                    </Text>
-                    <span className={styles.hint}>
-                        {recipientRequired
-                            ? "Con la Partita IVA è obbligatorio: inserisci il Codice Destinatario SDI oppure la PEC per la fatturazione elettronica."
-                            : "Inserisci il Codice Destinatario SDI oppure la PEC per la fatturazione elettronica."}
-                    </span>
+        // T16 IM2: i dati di fatturazione a righe di impostazione, nella card
+        // `flush` della pagina.
+        <>
+            <SettingRow
+                label="Intestatario"
+                description="Chi compare sulle fatture dell'abbonamento."
+                control={
                     <div className={styles.formStack}>
-                        <TextInput
-                            label="Codice Destinatario SDI"
-                            value={value.codiceDestinatario}
-                            onChange={e => onChange({ codiceDestinatario: e.target.value })}
-                            placeholder="7 caratteri"
+                        <Select
+                            label="Tipologia intestatario"
+                            value={value.entityType}
+                            onChange={e => onChange({ entityType: e.target.value as BillingDraft["entityType"] })}
+                            options={ENTITY_OPTIONS}
                             disabled={disabled}
-                            error={codiceDestinatarioError}
+                            required
                         />
-                        <TextInput
-                            label="PEC"
-                            type="email"
-                            value={value.pec}
-                            onChange={e => onChange({ pec: e.target.value })}
-                            placeholder="es. nome@pec.it"
-                            disabled={disabled}
-                            error={billingLengthError(value.pec, BILLING_FIELD_MAX.pec)}
-                        />
+
+                        {isProfessionista && (
+                            <div className={styles.fieldRow}>
+                                <TextInput
+                                    label="Nome"
+                                    value={value.firstName}
+                                    onChange={e => onChange({ firstName: e.target.value })}
+                                    placeholder="es. Mario"
+                                    disabled={disabled}
+                                    required
+                                    error={billingLengthError(value.firstName, BILLING_FIELD_MAX.firstName)}
+                                />
+                                <TextInput
+                                    label="Cognome"
+                                    value={value.lastName}
+                                    onChange={e => onChange({ lastName: e.target.value })}
+                                    placeholder="es. Rossi"
+                                    disabled={disabled}
+                                    required
+                                    error={billingLengthError(value.lastName, BILLING_FIELD_MAX.lastName)}
+                                />
+                            </div>
+                        )}
+
+                        {(isSocieta || isAssociazione) && (
+                            <TextInput
+                                label={isAssociazione ? "Denominazione" : "Ragione sociale"}
+                                value={value.legalName}
+                                onChange={e => onChange({ legalName: e.target.value })}
+                                placeholder="es. Trattoria Da Mario S.r.l."
+                                disabled={disabled}
+                                required
+                                error={billingLengthError(value.legalName, BILLING_FIELD_MAX.legalName)}
+                            />
+                        )}
+
+                        {isProfessionista && (
+                            <TextInput
+                                label="Nome ditta (opzionale)"
+                                value={value.legalName}
+                                onChange={e => onChange({ legalName: e.target.value })}
+                                placeholder="es. Studio Rossi"
+                                disabled={disabled}
+                                error={billingLengthError(value.legalName, BILLING_FIELD_MAX.legalName)}
+                            />
+                        )}
                     </div>
-                </div>
+                }
+            />
+            {value.entityType !== "" && (
+                <>
+                    <SettingRow
+                        label="Dati fiscali"
+                        control={
+                            <div className={styles.formStack}>
+                                <TextInput
+                                    label={isAssociazione ? "Partita IVA (opzionale)" : "Partita IVA"}
+                                    value={value.vatNumber}
+                                    onChange={e => onChange({ vatNumber: e.target.value })}
+                                    placeholder="11 cifre"
+                                    disabled={disabled}
+                                    required={!isAssociazione}
+                                    error={vatError}
+                                    inputMode="numeric"
+                                />
+                                <TextInput
+                                    label={isSocieta ? "Codice fiscale (opzionale)" : "Codice fiscale"}
+                                    value={value.fiscalCode}
+                                    onChange={e => onChange({ fiscalCode: e.target.value })}
+                                    placeholder={isProfessionista ? "16 caratteri" : "11 cifre"}
+                                    disabled={disabled}
+                                    required={!isSocieta}
+                                    error={fiscalError}
+                                />
+                            </div>
+                        }
+                    />
+                    <SettingRow
+                        label="Sede legale"
+                        control={
+                            <div className={styles.addressGrid}>
+                                <TextInput
+                                    label="Indirizzo (via)"
+                                    value={value.address}
+                                    onChange={e => onChange({ address: e.target.value })}
+                                    placeholder="es. Via Roma"
+                                    disabled={disabled}
+                                    required
+                                    containerClassName={styles.addressFull}
+                                    error={billingLengthError(value.address, BILLING_FIELD_MAX.address)}
+                                />
+                                <TextInput
+                                    label="Civico (opzionale)"
+                                    value={value.streetNumber}
+                                    onChange={e => onChange({ streetNumber: e.target.value })}
+                                    placeholder="es. 12"
+                                    disabled={disabled}
+                                    error={billingLengthError(value.streetNumber, BILLING_FIELD_MAX.streetNumber)}
+                                />
+                                <TextInput
+                                    label="CAP"
+                                    value={value.postalCode}
+                                    onChange={e => onChange({ postalCode: e.target.value })}
+                                    placeholder="es. 20121"
+                                    disabled={disabled}
+                                    required
+                                    inputMode="numeric"
+                                    error={
+                                        value.postalCode.trim().length > 0 && !isValidCapIT(value.postalCode)
+                                            ? "Inserisci un CAP valido (5 cifre)"
+                                            : undefined
+                                    }
+                                />
+                                <TextInput
+                                    label="Comune"
+                                    value={value.city}
+                                    onChange={e => onChange({ city: e.target.value })}
+                                    placeholder="es. Milano"
+                                    disabled={disabled}
+                                    required
+                                    containerClassName={styles.addressFull}
+                                    error={billingLengthError(value.city, BILLING_FIELD_MAX.city)}
+                                />
+                                <TextInput
+                                    label="Provincia"
+                                    value={value.province}
+                                    onChange={e => onChange({ province: e.target.value })}
+                                    placeholder="es. MI"
+                                    disabled={disabled}
+                                    required
+                                    error={
+                                        value.province.trim().length > 0 && !isValidProvinciaIT(value.province)
+                                            ? "Inserisci una sigla provincia valida (es. MI)"
+                                            : undefined
+                                    }
+                                />
+                            </div>
+                        }
+                    />
+                    <SettingRow
+                        label={recipientRequired ? "Recapito fattura" : "Recapito fattura (opzionale)"}
+                        description={
+                            recipientRequired
+                                ? "Con la Partita IVA è obbligatorio: inserisci il Codice Destinatario SDI oppure la PEC per la fatturazione elettronica."
+                                : "Inserisci il Codice Destinatario SDI oppure la PEC per la fatturazione elettronica."
+                        }
+                        control={
+                            <div className={styles.formStack}>
+                                <TextInput
+                                    label="Codice Destinatario SDI"
+                                    value={value.codiceDestinatario}
+                                    onChange={e => onChange({ codiceDestinatario: e.target.value })}
+                                    placeholder="7 caratteri"
+                                    disabled={disabled}
+                                    error={codiceDestinatarioError}
+                                />
+                                <TextInput
+                                    label="PEC"
+                                    type="email"
+                                    value={value.pec}
+                                    onChange={e => onChange({ pec: e.target.value })}
+                                    placeholder="es. nome@pec.it"
+                                    disabled={disabled}
+                                    error={billingLengthError(value.pec, BILLING_FIELD_MAX.pec)}
+                                />
+                            </div>
+                        }
+                    />
+                </>
             )}
-        </div>
+        </>
     );
 }

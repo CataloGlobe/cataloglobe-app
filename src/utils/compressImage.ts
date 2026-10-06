@@ -1,5 +1,11 @@
 import { IMAGE_MIME_TYPES } from "@pages/Dashboard/Catalogs/AiMenuImport/aiImportFormats";
 
+/**
+ * Formati che il browser decodifica e che qui si ricodificano (webp/jpeg/png):
+ * AVIF entra, ma non arriva mai così nei bucket. L'import AI ha la sua lista.
+ */
+export const COMPRESSIBLE_MIME_TYPES = [...IMAGE_MIME_TYPES, "image/avif"];
+
 const COMPRESS_TIMEOUT_MS = 15_000;
 const MAX_INPUT_SIZE = 10 * 1024 * 1024;
 
@@ -67,9 +73,9 @@ function compressCore(
             "HEIC"
         );
     }
-    if (!IMAGE_MIME_TYPES.includes(file.type)) {
+    if (!COMPRESSIBLE_MIME_TYPES.includes(file.type)) {
         throw new CompressionError(
-            "Formato file non supportato. Usa JPEG, PNG o WEBP.",
+            "Formato file non supportato. Usa JPEG, PNG, WEBP o AVIF.",
             "INVALID_MIME"
         );
     }

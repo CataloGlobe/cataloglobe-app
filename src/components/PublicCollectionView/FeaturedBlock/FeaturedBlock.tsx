@@ -1,19 +1,24 @@
-import { lazy, Suspense, useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import styles from "./FeaturedBlock.module.scss";
 import type { V2FeaturedContent } from "@/types/resolvedCollections";
 import FeaturedCard from "@/components/PublicCollectionView/FeaturedCard/FeaturedCard";
 import { trackEvent } from "@/services/analytics/publicAnalytics";
 
-// Lazy-loaded: si apre solo al click su un contenuto in evidenza
-const FeaturedPreviewModal = lazy(() =>
-    import("./FeaturedPreviewModal").then(m => ({ default: m.FeaturedPreviewModal }))
-);
+/** Card per slot oltre le quali il carosello si chiude con «Vedi tutti». */
+export const FEATURED_CAROUSEL_LIMIT = 4;
 
 type Props = {
     blocks: V2FeaturedContent[];
     activityId?: string;
-    slot?: string;
+    slot?: "before_catalog" | "after_catalog";
+    /** Contenuti di oggi in tutti e due gli slot (deduplicati): è il numero
+     *  della card «Vedi tutti», lo stesso dell'elenco nella sheet. */
+    totalCount: number;
+    /** Tap su una card: apre la sheet «In evidenza» sul dettaglio. */
+    onOpenDetail: (block: V2FeaturedContent) => void;
+    /** Tap su «Vedi tutti»: apre la sheet «In evidenza» sull'elenco. */
+    onOpenAll: () => void;
     layout?: "card" | "highlight" | "compact";
     /** Mostra il subtitle nella card overview. Default true (comportamento storico). */
     showSubtitle?: boolean;
@@ -98,11 +103,39 @@ function scrollToSnap(el: HTMLElement, idx: number, totalCount: number) {
    MAIN COMPONENT
    ══════════════════════════════════════════════════════════════════════════ */
 
-export default function FeaturedBlock({ blocks, activityId, slot, layout = "card", showSubtitle = true, showTitle = true, showCta = true, interactive = true }: Props) {
+/* ══════════════════════════════════════════════════════════════════════════
+   CARD «VEDI TUTTI» — chiude il carosello oltre FEATURED_CAROUSEL_LIMIT
+   ══════════════════════════════════════════════════════════════════════════ */
+
+function SeeAllCard({ count, onClick, interactive }: { count: number; onClick: () => void; interactive: boolean }) {
+    const { t } = useTranslation("public");
+    // listitem attorno al bottone: il track è role="list", un <button> non
+    // può esserne figlio diretto.
+    return (
+        <div role="listitem" className={styles.seeAllItem}>
+            <button
+                type="button"
+                className={styles.seeAll}
+                onClick={interactive ? onClick : undefined}
+                tabIndex={interactive ? undefined : -1}
+                aria-label={t("featured.see_all_aria", { count })}
+            >
+                <span className={styles.seeAllCount} aria-hidden="true">{count}</span>
+                <span className={styles.seeAllLabel} aria-hidden="true">{t("featured.see_all_label", { count })}</span>
+                <span className={styles.seeAllAction} aria-hidden="true">{t("featured.see_all")}</span>
+            </button>
+        </div>
+    );
+}
+
+export default function FeaturedBlock({ blocks, activityId, slot, totalCount, onOpenDetail, onOpenAll, layout = "card", showSubtitle = true, showTitle = true, showCta = true, interactive = true }: Props) {
     const { t } = useTranslation("public");
     // Slot above-the-fold: immagini caricate eager con priorità alta
     const isAboveFold = slot === "before_catalog";
-    const [previewBlock, setPreviewBlock] = useState<V2FeaturedContent | null>(null);
+    const hasSeeAll = blocks.length > FEATURED_CAROUSEL_LIMIT;
+    const visibleBlocks = hasSeeAll ? blocks.slice(0, FEATURED_CAROUSEL_LIMIT) : blocks;
+    // I puntini contano anche la card finale: è un elemento del carosello.
+    const itemCount = visibleBlocks.length + (hasSeeAll ? 1 : 0);
     const trackRef = useRef<HTMLDivElement>(null);
     const [activeIndex, setActiveIndex] = useState(0);
     const [needsScroll, setNeedsScroll] = useState(false);
@@ -115,7 +148,7 @@ export default function FeaturedBlock({ blocks, activityId, slot, layout = "card
         const ro = new ResizeObserver(check);
         ro.observe(el);
         return () => ro.disconnect();
-    }, [blocks.length]);
+    }, [itemCount]);
 
     const handleScroll = useCallback(() => {
         const el = trackRef.current;
@@ -146,7 +179,7 @@ export default function FeaturedBlock({ blocks, activityId, slot, layout = "card
     if (!blocks || blocks.length === 0) return null;
 
     const handleCardClick = (block: V2FeaturedContent) => {
-        setPreviewBlock(block);
+        onOpenDetail(block);
         if (activityId) {
             trackEvent(activityId, "featured_click", {
                 featured_id: block.id,
@@ -166,16 +199,25 @@ export default function FeaturedBlock({ blocks, activityId, slot, layout = "card
         }
     };
 
+    const handleSeeAllClick = () => {
+        onOpenAll();
+        if (activityId) {
+            trackEvent(activityId, "featured_see_all_click", {
+                slot,
+                count: totalCount
+            });
+        }
+    };
+
     const handleDotClick = (idx: number) => {
         const el = trackRef.current;
         if (!el) return;
-        scrollToSnap(el, idx, blocks.length);
+        scrollToSnap(el, idx, itemCount);
     };
 
     /* ── 1 contenuto → Card singola full-width ────────────────────────── */
     if (blocks.length === 1) {
         return (
-            <>
             <div className={styles.wrapper}>
                 <FeaturedCard
                     block={blocks[0]}
@@ -184,20 +226,12 @@ export default function FeaturedBlock({ blocks, activityId, slot, layout = "card
                     className={styles.cardSingle}
                     variant={layout}
                     showSubtitle={showSubtitle}
+                    showTitle={showTitle}
+                    showCta={showCta}
                     eager={isAboveFold}
                     interactive={interactive}
                 />
             </div>
-            {!!previewBlock && (
-                <Suspense fallback={null}>
-                    <FeaturedPreviewModal
-                        block={previewBlock}
-                        isOpen={!!previewBlock}
-                        onClose={() => setPreviewBlock(null)}
-                    />
-                </Suspense>
-            )}
-            </>
         );
     }
 
@@ -207,7 +241,6 @@ export default function FeaturedBlock({ blocks, activityId, slot, layout = "card
     const trackClass = [styles.track, styles.trackCarouselAlways].join(" ");
 
     return (
-        <>
         <div className={styles.wrapper}>
             <div
                 className={trackClass}
@@ -215,7 +248,7 @@ export default function FeaturedBlock({ blocks, activityId, slot, layout = "card
                 role="list"
                 aria-label={t("featured.section_aria")}
             >
-                {blocks.map((block) => (
+                {visibleBlocks.map((block) => (
                     <FeaturedCard
                         key={block.id}
                         block={block}
@@ -230,26 +263,18 @@ export default function FeaturedBlock({ blocks, activityId, slot, layout = "card
                         interactive={interactive}
                     />
                 ))}
+                {hasSeeAll && (
+                    <SeeAllCard count={totalCount} onClick={handleSeeAllClick} interactive={interactive} />
+                )}
             </div>
 
-            {needsScroll && blocks.length > 1 && (
+            {needsScroll && (
                 <FeaturedDots
-                    count={blocks.length}
+                    count={itemCount}
                     activeIndex={activeIndex}
                     onDotClick={handleDotClick}
                 />
             )}
         </div>
-
-        {!!previewBlock && (
-            <Suspense fallback={null}>
-                <FeaturedPreviewModal
-                    block={previewBlock}
-                    isOpen={!!previewBlock}
-                    onClose={() => setPreviewBlock(null)}
-                />
-            </Suspense>
-        )}
-        </>
     );
 }

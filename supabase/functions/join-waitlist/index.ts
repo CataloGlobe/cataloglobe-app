@@ -65,7 +65,7 @@ serve(async (req: Request) => {
 
         let activityType: string | null = null;
         if (body.activity_type !== undefined && body.activity_type !== null) {
-            if (typeof body.activity_type !== "string" || !VALID_ACTIVITY_TYPES.includes(body.activity_type as any)) {
+            if (typeof body.activity_type !== "string" || !(VALID_ACTIVITY_TYPES as readonly string[]).includes(body.activity_type)) {
                 return jsonResponse({ success: false, error: "invalid_activity_type" }, 400);
             }
             activityType = body.activity_type;

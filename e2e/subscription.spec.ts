@@ -2,7 +2,8 @@ import { expect, test } from "@playwright/test";
 import { openBusinessPage } from "./business";
 
 /**
- * Abbonamento (`/business/:businessId/subscription`), visto da un
+ * Abbonamento (`/business/:businessId/settings/abbonamento`, tab di
+ * Impostazioni dal §51.12), visto da un
  * amministratore (billing.read + billing.manage, non billing.cancel) su
  * un'azienda attiva, Pro, 5 sedi pagate. Copre le feature che sopravvivono
  * alla riscrittura (registro feature, §Abbonamento passo 2): titolo; il
@@ -14,15 +15,22 @@ import { openBusinessPage } from "./business";
  */
 test.describe("Abbonamento", () => {
     test.beforeEach(async ({ page }) => {
-        await openBusinessPage(page, "subscription", "Abbonamento");
+        // Abbonamento è una tab di Impostazioni (§51.12): non è più una voce di sidebar.
+        await openBusinessPage(page, "settings", "Impostazioni");
+        await page.getByRole("tab", { name: "Abbonamento", exact: true }).click();
+        await page.waitForURL(/\/settings\/abbonamento$/);
     });
 
     test("titolo di pagina", async ({ page }) => {
         await expect(page).toHaveTitle(/^Abbonamento — .+ \| CataloGlobe$/);
     });
 
-    test("amministratore: il banner dice che solo il proprietario disdice", async ({ page }) => {
-        await expect(page.getByRole("main").getByText(/^Solo il proprietario può/)).toBeVisible();
+    test("IM4: amministratore, niente riquadro; la riga del Portale dice che solo il proprietario disdice", async ({ page }) => {
+        const main = page.getByRole("main");
+        await expect(main.getByText(/^Solo il proprietario può/)).toHaveCount(0);
+        await expect(
+            main.getByText("Metodo di pagamento, fatture e ricevute su Stripe. Solo il proprietario può disdire l'abbonamento.")
+        ).toBeVisible();
     });
 
     test("piano, sedi pagate e stato", async ({ page }) => {

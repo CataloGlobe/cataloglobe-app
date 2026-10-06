@@ -135,6 +135,7 @@ export default function ProductPickerList({
 
             <div className={styles.tableWrap}>
                 <DataTable<ProductRow>
+                    ariaLabel="Prodotti da collegare"
                     data={filteredProducts}
                     allRowIds={products.map(p => p.id)}
                     columns={columns}

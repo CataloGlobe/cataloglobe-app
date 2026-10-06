@@ -40,10 +40,12 @@ export type WriteCall = { key: string; params: URLSearchParams; body: unknown };
 
 /** Risposta d'errore di una scrittura: un gestore la ritorna per simulare il server che rifiuta. */
 export class StubError {
-    constructor(
-        readonly status: number,
-        readonly json: unknown = { code: "E2E", message: "rifiutata dall'e2e" }
-    ) {}
+    readonly status: number;
+    readonly json: unknown;
+    constructor(status: number, json: unknown = { code: "E2E", message: "rifiutata dall'e2e" }) {
+        this.status = status;
+        this.json = json;
+    }
 }
 export type WriteHandler = (call: WriteCall) => unknown;
 

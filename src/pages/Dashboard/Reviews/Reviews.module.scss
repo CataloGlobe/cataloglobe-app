@@ -19,6 +19,16 @@
     flex: 0 0 auto;
 }
 
+.toolbarRating {
+    width: 150px;
+    flex: 0 0 auto;
+}
+
+/* RC4: il conteggio del periodo, a sinistra nella barra. */
+.count {
+    white-space: nowrap;
+}
+
 /* Numero eroe a sinistra, distribuzione a destra; in colonna sotto 768. */
 .summary {
     display: grid;
@@ -58,17 +68,63 @@
     font-style: italic;
 }
 
-/* Il titolo di ListRow tronca su una riga; il commento no. */
 .comment {
     display: block;
     white-space: normal;
     overflow-wrap: anywhere;
 }
 
-/* Coda: «Tieni nascosta» · «Pubblica» accanto, a capo sul telefono. */
-.queueActions {
+/* RC6: una riga per recensione. Stelle e data in colonna fissa a sinistra,
+   commento a tutta larghezza, ⋯ a destra; al telefono stelle e data sopra. */
+.list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.row {
+    display: grid;
+    grid-template-columns: 168px minmax(0, 1fr) auto;
+    gap: var(--space-16);
+    align-items: start;
+    padding: var(--space-12) var(--space-16);
+
+    & + & {
+        border-top: 1px solid var(--border);
+    }
+
+    @media (max-width: 767px) {
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: var(--space-6) var(--space-12);
+    }
+}
+
+.rowMeta {
     display: flex;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-    gap: var(--space-8);
+    flex-direction: column;
+    gap: var(--space-4);
+    min-width: 0;
+
+    @media (max-width: 767px) {
+        flex-direction: row;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: var(--space-8);
+    }
+}
+
+.rowComment {
+    min-width: 0;
+
+    @media (max-width: 767px) {
+        grid-column: 1 / -1;
+        grid-row: 2;
+    }
+}
+
+.rowActions {
+    @media (max-width: 767px) {
+        grid-column: 2;
+        grid-row: 1;
+    }
 }

@@ -39,7 +39,7 @@ import { listPlanPrices } from "@/services/supabase/planPrices";
 import { calculateSeatsPricing, EMPTY_SEATS_PRICING, nextSeatOffer } from "@/utils/pricing";
 import { DEFAULT_BILLING_INTERVAL, INTERVAL_ADJECTIVE, intervalUnit, priceCentsFor } from "@/utils/planPricing";
 import { canDoOnTenant } from "@/lib/permissions";
-import { usePermissions } from "@/context/PermissionsContext";
+import { usePermissions } from "@/context/usePermissions";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { StatusStrip, type StatusStripTone } from "@/components/ui/StatusStrip/StatusStrip";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
@@ -53,6 +53,7 @@ import { AiUsageSection } from "@/pages/Business/components/AiUsageSection";
 import { useBusinessOutletContext } from "@/layouts/MainLayout/outletContext";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
+import { useSettingsTabs } from "./useSettingsTabs";
 import { usePageHeader } from "@/context/usePageHeader";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
@@ -182,6 +183,29 @@ const PENDING_INTERVAL_MESSAGE: Record<BillingInterval, string> = {
 const INTERVAL_ACTION_LABEL: Record<BillingInterval, string> = {
     year: "Passa all'annuale",
     month: "Torna al mensile"
+};
+
+/**
+ * Codici d'errore di stripe-checkout (attaccati come `name` da
+ * `createCheckoutSession`) → messaggio UI. Un codice sconosciuto ricade sul
+ * messaggio generico. `invalid_vat_number`: gate fiscale server-side; qui il
+ * profilo è di norma già valido, ma la P.IVA può essere stata modificata dopo.
+ */
+const CHECKOUT_ERROR_MESSAGES: Record<string, string> = {
+    subscription_check_failed:
+        "Non siamo riusciti a verificare lo stato del tuo abbonamento. Non ti è stato addebitato nulla: riprova tra qualche istante.",
+    invalid_vat_number:
+        "La Partita IVA dell'azienda non è valida. Correggila nei dati di fatturazione e riprova.",
+    missing_einvoice_recipient:
+        "Con la Partita IVA serve un recapito per la fattura elettronica: aggiungi il Codice Destinatario SDI o la PEC nei dati di fatturazione.",
+    fiscal_profile_unavailable:
+        "Non siamo riusciti a leggere i dati di fatturazione. Non ti è stato addebitato nulla: riprova tra qualche istante.",
+    seats_over_self_service:
+        "La tua azienda ha più sedi di quante se ne possano attivare online. Contatta l'assistenza per riattivare l'abbonamento.",
+    seats_below_activities:
+        "L'abbonamento deve coprire tutte le sedi della tua azienda. Ricarica la pagina e riprova.",
+    activity_count_unavailable:
+        "Non siamo riusciti a verificare le sedi della tua azienda. Non ti è stato addebitato nulla: riprova tra qualche istante."
 };
 
 /** Traduce i codici d'errore dell'edge di cambio abbonamento in messaggi UI. */
@@ -403,9 +427,11 @@ export default function SubscriptionPage() {
         reloadSubState();
     }, [selectedTenant?.id, canManageBilling, reloadSubState]);
 
+    const settingsTabs = useSettingsTabs();
     usePageHeader({
         title: "Abbonamento",
-        subtitle: !canReadBilling ? undefined : "Piano, sedi pagate, credito AI e pagamento."
+        leading: settingsTabs.leading,
+        compact: settingsTabs.leading ? settingsTabs.compact : undefined
     });
 
     const paidSeats = selectedTenant?.paid_seats ?? 0;
@@ -521,9 +547,11 @@ export default function SubscriptionPage() {
                 tenantId: selectedTenant.id,
                 planCode: selectedTenant.plan,
                 billingInterval,
-                quantity: paidSeats > 0 ? paidSeats : 1,
-                successUrl: `${window.location.origin}/business/${selectedTenant.id}/subscription?session=success`,
-                cancelUrl: `${window.location.origin}/business/${selectedTenant.id}/subscription?session=cancel`
+                // The edge refuses a quantity below the existing activities
+                // (`seats_below_activities`): re-activation covers all of them.
+                quantity: Math.max(1, paidSeats, activityCount),
+                successUrl: `${window.location.origin}/business/${selectedTenant.id}/settings/abbonamento?session=success`,
+                cancelUrl: `${window.location.origin}/business/${selectedTenant.id}/settings/abbonamento?session=cancel`
             });
             window.location.href = url;
         } catch (err) {
@@ -552,31 +580,11 @@ export default function SubscriptionPage() {
                     message: "Il tuo abbonamento è già attivo. Se hai appena completato il pagamento, attendi qualche secondo e ricarica la pagina.",
                     type: "warning"
                 });
-            } else if (code === "subscription_check_failed") {
-                showToast({
-                    message: "Non siamo riusciti a verificare lo stato del tuo abbonamento. Non ti è stato addebitato nulla: riprova tra qualche istante.",
-                    type: "error"
-                });
-            } else if (code === "invalid_vat_number") {
-                // Gate fiscale server-side di stripe-checkout. Qui il profilo è di
-                // norma già valido (impostato alla creazione), ma la P.IVA può
-                // essere stata modificata dopo: messaggio esplicito, non generico.
-                showToast({
-                    message: "La Partita IVA dell'azienda non è valida. Correggila nei dati di fatturazione e riprova.",
-                    type: "error"
-                });
-            } else if (code === "missing_einvoice_recipient") {
-                showToast({
-                    message: "Con la Partita IVA serve un recapito per la fattura elettronica: aggiungi il Codice Destinatario SDI o la PEC nei dati di fatturazione.",
-                    type: "error"
-                });
-            } else if (code === "fiscal_profile_unavailable") {
-                showToast({
-                    message: "Non siamo riusciti a leggere i dati di fatturazione. Non ti è stato addebitato nulla: riprova tra qualche istante.",
-                    type: "error"
-                });
             } else {
-                showToast({ message: "Errore nell'avvio del checkout. Riprova.", type: "error" });
+                showToast({
+                    message: CHECKOUT_ERROR_MESSAGES[code] ?? "Errore nell'avvio del checkout. Riprova.",
+                    type: "error"
+                });
             }
         } finally {
             setCheckoutLoading(false);
@@ -588,7 +596,7 @@ export default function SubscriptionPage() {
         try {
             const url = await createPortalSession(
                 selectedTenant.id,
-                `${window.location.origin}/business/${selectedTenant.id}/subscription`,
+                `${window.location.origin}/business/${selectedTenant.id}/settings/abbonamento`,
                 flow
             );
             window.location.href = url;
@@ -1035,7 +1043,12 @@ export default function SubscriptionPage() {
     const previewTrialFirstInvoice = preview?.trialFirstInvoiceCents ?? null;
 
     // --- La mappa stato → strip (§37.5, passo 2 del registro) ---------------
-    const seatsWord = displaySeats === 1 ? "sede pagata" : "sedi pagate";
+    // In prova le sedi non sono ancora pagate: sono incluse nella prova.
+    const isTrialing = status === "trialing";
+    const seatsWord = isTrialing
+        ? displaySeats === 1 ? "sede inclusa" : "sedi incluse"
+        : displaySeats === 1 ? "sede pagata" : "sedi pagate";
+    const seatsPlural = isTrialing ? "sedi incluse" : "sedi pagate";
     const stripTitle = `${displayPlanName} · ${displaySeats} ${seatsWord}${isFounder ? " · Founder" : ""}`;
     const renewalLabel = status === "trialing" ? "Fine prova" : "Prossimo rinnovo";
     const renewalValue = status === "trialing" ? formatDate(selectedTenant.trial_until) : formatDate(periodEndDate);
@@ -1052,7 +1065,7 @@ export default function SubscriptionPage() {
     // Stato non leggibile: importo e rinnovo non si inventano, resta la sola
     // cifra che viene dal DB.
     const stripFigures = [
-        { value: `${activityCount} di ${displaySeats}`, label: allSeatsUsed ? "sedi pagate · tutte usate" : "sedi pagate" },
+        { value: `${activityCount} di ${displaySeats}`, label: allSeatsUsed ? `${seatsPlural} · tutte usate` : seatsPlural },
         ...(subUnavailable
             ? []
             : [
@@ -1101,6 +1114,8 @@ export default function SubscriptionPage() {
             size="sm"
             onClick={handleCheckout}
             loading={checkoutLoading}
+            // quantity covers the activities: no checkout before they are counted.
+            disabled={activityCountLoaded === null}
             leftIcon={<CreditCard size={14} />}
         >
             {label}
@@ -1223,13 +1238,6 @@ export default function SubscriptionPage() {
 
     return (
         <div className={styles.page}>
-            {canManageBilling && !canCancelBilling && (
-                <InlineBanner variant="info">
-                    Solo il proprietario può disdire l&apos;abbonamento. Tu puoi cambiare piano, sedi pagate e metodo di
-                    pagamento.
-                </InlineBanner>
-            )}
-
             {stripReady ? (
                 <StatusStrip
                     tone={strip.tone}
@@ -1259,7 +1267,9 @@ export default function SubscriptionPage() {
                         {seatOffer.kind === "free" ? (
                             <>
                                 <Text as="p" variant="body-sm">
-                                    Hai ancora {seatOffer.freeSeats} {seatOffer.freeSeats === 1 ? "sede pagata libera" : "sedi pagate libere"}: aprirne una non costa niente.
+                                    Hai ancora {seatOffer.freeSeats} {seatOffer.freeSeats === 1
+                                        ? isTrialing ? "sede inclusa libera" : "sede pagata libera"
+                                        : isTrialing ? "sedi incluse libere" : "sedi pagate libere"}: aprirne una non costa niente.
                                 </Text>
                                 <div className={styles.nextSeatAction}>
                                     <Button variant="secondary" size="sm" onClick={() => navigate(`/business/${selectedTenant.id}/locations`)}>
@@ -1339,7 +1349,12 @@ export default function SubscriptionPage() {
                         <ListRow
                             leading={<ExternalLink size={20} aria-hidden />}
                             title="Portale di fatturazione"
-                            subtitle="Metodo di pagamento, fatture e ricevute su Stripe."
+                            // T16 IM4: la frase del riquadro di prima sta qui, dove si gestisce.
+                            subtitle={
+                                canManageBilling && !canCancelBilling
+                                    ? "Metodo di pagamento, fatture e ricevute su Stripe. Solo il proprietario può disdire l'abbonamento."
+                                    : "Metodo di pagamento, fatture e ricevute su Stripe."
+                            }
                             onClick={() => void handlePortal()}
                             trailing={portalLoading ? <Loader size="sm" /> : <ChevronRight size={16} aria-hidden />}
                         />

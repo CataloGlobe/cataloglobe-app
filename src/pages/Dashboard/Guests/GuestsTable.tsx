@@ -15,7 +15,7 @@ import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import Text from "@/components/ui/Text/Text";
 import type { ReservationGuestSummary } from "@/types/reservationGuest";
 import { visibilityFootnote } from "@/utils/guestVisibilityCopy";
-import { formatVisitDate } from "./guestFormat";
+import { formatPhoneForDisplay, formatVisitDate } from "./guestFormat";
 import styles from "./Guests.module.scss";
 
 interface Props {
@@ -67,7 +67,7 @@ export default function GuestsTable({
             accessor: row => row.phone_e164,
             cell: (_v, row) => (
                 <Text as="span" variant="body-sm" colorVariant="muted">
-                    {row.phone_e164}
+                    {formatPhoneForDisplay(row.phone_e164)}
                 </Text>
             ),
             width: "minmax(140px, 1fr)"

@@ -39,7 +39,8 @@ test.describe("Sedi", () => {
         expect(await cards.count()).toBeGreaterThan(1);
         const first = cards.first();
         await expect(first.getByText(/^(Pubblicata|Sospesa)/)).toBeVisible();
-        await expect(first.getByText("Menu attivo ora")).toBeVisible();
+        // S2 (correzioni UI): «Menù adesso», o «Pagina pubblica» per una sede sospesa.
+        await expect(first.getByText(/^(Menù adesso|Pagina pubblica)$/)).toBeVisible();
         await expect(first.getByRole("button", { name: "Azioni sede" })).toBeVisible();
     });
 
@@ -66,13 +67,35 @@ test.describe("Sedi", () => {
         await expect(page.getByRole("main").getByText("Da gestire", { exact: true }).first()).toBeVisible({ timeout: 15_000 });
     });
 
+    test("se il conteggio delle modifiche a mano fallisce la card lo dice, e il menù resta", async ({ page }) => {
+        // Solo la lettura dei conteggi (`activity_id,mode`): il resolver del
+        // menù legge la stessa tabella con altre colonne e deve riuscire.
+        await page.route(/\/rest\/v1\/activity_product_overrides\?/, route => {
+            const params = new URL(route.request().url()).searchParams;
+            return params.get("select") === "activity_id,mode"
+                ? route.fulfill({ status: 500, json: { code: "E2E", message: "giù" } })
+                : route.fallback();
+        });
+        await page.reload();
+        await page.getByRole("radio", { name: "Vista griglia" }).click();
+        const main = page.getByRole("main");
+        const card = main.getByRole("listitem").filter({ hasText: "Modifiche a mano non caricate" }).first();
+        await expect(card).toBeVisible({ timeout: 15_000 });
+        // Il menù attivo è un'altra domanda: resta risolto.
+        await expect(card.getByText("Stato menù non disponibile")).toHaveCount(0);
+        await page.getByRole("radio", { name: "Vista lista" }).click();
+        await expect(main.getByText("Modifiche a mano non caricate").first()).toBeVisible();
+        await page.getByRole("radio", { name: "Vista griglia" }).click();
+    });
+
     test("lista: le colonne della tabella", async ({ page }) => {
         await page.getByRole("radio", { name: "Vista lista" }).click();
         const main = page.getByRole("main");
-        for (const header of ["Indirizzo", "Stato", "Menu attivo ora"]) {
+        for (const header of ["Indirizzo", "Stato", "Menù adesso"]) {
             await expect(main.getByText(header, { exact: true }).first()).toBeVisible({ timeout: 15_000 });
         }
-        await expect(main.getByText(/^(Pubblicata|Sospesa)$/).first()).toBeVisible();
+        // S3: lo stato c'è anche nella cella Sede, nascosto sopra 768.
+        await expect(main.getByText(/^(Pubblicata|Sospesa)$/).locator("visible=true").first()).toBeVisible();
         // La preferenza torna alla griglia, così gli altri test partono uguali.
         await page.getByRole("radio", { name: "Vista griglia" }).click();
     });

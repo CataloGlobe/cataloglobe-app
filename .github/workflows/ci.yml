@@ -31,5 +31,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
       # Nessuna dipendenza: lo script usa solo node:fs e node:path.
       - run: npm run ds:budget:check
+      # e2e/ non sta in nessun tsconfig del build (tsc -b): un errore di tipo
+      # in un test non ferma Vercel, lo ferma questo passo.
+      - run: npm ci
+      - run: npm run typecheck:e2e

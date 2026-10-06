@@ -271,12 +271,15 @@
         "indicator_aria": "Featured content indicator",
         "section_aria": "Featured content",
         "dot_aria": "Item {{index}} of {{count}}",
-        "preview_close_aria": "Close"
+        "see_all": "See all",
+        "see_all_label_one": "featured item",
+        "see_all_label_other": "featured items",
+        "see_all_aria": "See all featured content ({{count}})"
     },
     "events": {
         "list_aria": "Featured",
         "empty": "No events or promotions active right now.",
-        "back": "← Back to list",
+        "back_aria": "Back to the list",
         "close_aria": "Close",
         "close_label": "Close"
     },
@@ -459,7 +462,7 @@
         "err_submit": "Something went wrong. Please try again in a moment.",
         "submitting": "Sending…",
         "submit": "Send request",
-        "consent": "By sending the request you accept the processing of your data to manage the reservation. <privacy>Privacy</privacy>",
+        "consent": "Your details are used only to manage the reservation. <privacy>Privacy</privacy>",
         "when": "When",
         "date": "Date",
         "time": "Time",
@@ -474,6 +477,10 @@
         "special_requests": "Special requests",
         "optional": "(optional)",
         "notes_placeholder": "Special needs, special occasions…",
+        "allergies_label": "Allergies and intolerances",
+        "allergies_consent": "I consent to the processing of my allergy information, used by the venue only to prepare the service.",
+        "allergies_placeholder": "E.g. peanuts, gluten, lactose",
+        "val_allergies_max": "Maximum 300 characters.",
         "people": "People",
         "exact_number": "Enter the exact number",
         "party_count_one": "{{count}} person",

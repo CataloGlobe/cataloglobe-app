@@ -19,6 +19,20 @@ import type { V2Activity } from "@/types/activity";
 
 const cache = new Map<string, V2Activity[]>();
 const inflight = new Map<string, Promise<V2Activity[]>>();
+const listeners = new Set<(tenantId: string) => void>();
+
+/**
+ * Avvisa chi tiene l'elenco in stato (sidebar, header, scope) che quello
+ * del tenant è cambiato: dopo `refreshActivitiesCache` rileggono la cache.
+ * Senza, una sede creata dall'header non cambierebbe il contesto (§51.2)
+ * finché non si ricarica la pagina.
+ */
+export function subscribeActivitiesCache(listener: (tenantId: string) => void): () => void {
+    listeners.add(listener);
+    return () => {
+        listeners.delete(listener);
+    };
+}
 
 /** Ritorna le activities del tenant, riusando la cache module-level.
  *  Dedup fetch concorrenti via inflight Map. */
@@ -59,5 +73,23 @@ export function invalidateActivitiesCache(tenantId?: string): void {
     } else {
         cache.clear();
         inflight.clear();
+    }
+}
+
+/**
+ * Rilegge l'elenco del tenant e avvisa i sottoscrittori: da chiamare dopo
+ * una creazione, un'eliminazione, un cambio di nome o di stato di una sede.
+ * Non rifiuta mai: il gesto che la chiama è già riuscito. Un errore lascia la
+ * cache vuota (la prossima lettura riprova) e avvisa lo stesso: chi legge
+ * torna a chiedere.
+ */
+export async function refreshActivitiesCache(tenantId: string): Promise<void> {
+    invalidateActivitiesCache(tenantId);
+    try {
+        await getActivitiesCached(tenantId);
+    } catch (error) {
+        console.error("[activitiesCache] refresh failed:", error);
+    } finally {
+        for (const listener of listeners) listener(tenantId);
     }
 }

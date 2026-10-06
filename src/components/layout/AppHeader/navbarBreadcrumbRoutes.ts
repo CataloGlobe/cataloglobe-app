@@ -25,21 +25,9 @@ export type BusinessRouteKey =
     | "support"
     | "stories";
 
-/** Route business su cui il SedeScopeSelect deve apparire nella navbar.
- *  Distinto dal concettuale `SEDE_SCOPED_ROUTES` (sedeScopeStore): qui
- *  c'è il sottoinsieme ATTUALMENTE migrato che consuma `useSedeScope`.
- *  Estendere man mano che si migrano altre pagine. */
-export const SEDE_NAVBAR_ROUTES = new Set<BusinessRouteKey>([
-    "reviews",
-    "analytics",
-    "scheduling",
-    "reservations",
-    "orders"
-]);
-
 /** Route che usano la modalità "sede singola" del primitivo sede-scope
- *  (mai SCOPE_ALL, persistenza localStorage). Sottoinsieme di
- *  `SEDE_NAVBAR_ROUTES` per le route con scope-all disabilitato. */
+ *  (mai SCOPE_ALL, persistenza localStorage): i due reindirizzamenti verso
+ *  la sede, che ricordano l'ultima usata (`SedeRedirect`). */
 export const SEDE_SINGLE_SITE_ROUTES = new Set<BusinessRouteKey>([
     "orders",
     // §48.1: `/reservations` porta alla sede, come `/orders`.

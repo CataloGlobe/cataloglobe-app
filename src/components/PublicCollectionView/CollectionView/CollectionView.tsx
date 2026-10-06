@@ -1,10 +1,9 @@
-import { lazy, memo, Suspense, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, memo, Suspense, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence } from "framer-motion";
-import type { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { LanguageContext } from "@/context/Language/LanguageContext";
-import { Facebook, Globe, Instagram, Mail, MapPin, MessageCircle, Phone, Plus, SlidersHorizontal, Utensils, X } from "lucide-react";
+import { ChevronLeft, Facebook, Globe, Instagram, Mail, MapPin, MessageCircle, Phone, Plus, SlidersHorizontal, Utensils, X } from "lucide-react";
 import { IconLink } from "@tabler/icons-react";
 import type {
     ResolvedAllergen,
@@ -28,12 +27,15 @@ import PublicFooter from "../PublicFooter/PublicFooter";
 import { PublicFeeRows } from "../PublicFooter/PublicFees";
 import CollectionSectionNav from "../CollectionSectionNav/CollectionSectionNav";
 import type { CollectionStyle, CompactLayoutStyle, ContentDensity } from "@/types/collectionStyle";
-import { contrastText } from "@/features/public/utils/mapStyleTokensToCssVars";
 import styles from "./CollectionView.module.scss";
 import EventsView from "../EventsView/EventsView";
+import FeaturedBlock from "../FeaturedBlock/FeaturedBlock";
+import { FeaturedCtaFooter } from "../FeaturedBlock/FeaturedContentDetail";
+import { hasFeaturedCta } from "../FeaturedBlock/featuredCta";
 import PublicBottomBar from "../PublicBottomBar/PublicBottomBar";
 import PublicBottomScrim from "../PublicBottomScrim/PublicBottomScrim";
-import { hasOpenSheet } from "../hooks/useScrollCollapse";
+import { hasOpenSheet } from "../hooks/openSheets";
+import { useBottomBarAutoHide } from "../hooks/useBottomBarAutoHide";
 import { hasOrderablePrice } from "../itemPricing";
 import type { SelectionItem, SelectedFormat, SelectedAddon } from "../OrderingSheet/OrderingSheet";
 import type { SubmitOrderOverrides } from "../OrderingSheet/submitOrderOverrides";
@@ -77,9 +79,9 @@ import type { Allergen } from "@/services/supabase/allergens";
 import PublicSheet from "../PublicSheet/PublicSheet";
 import PairingUpsellSheet, { type UpsellPairing } from "../PairingUpsellSheet/PairingUpsellSheet";
 import PublicOpeningHours from "../PublicOpeningHours/PublicOpeningHours";
-import { submitOrder } from "@/services/supabase/orders";
+import { submitOrder, subscribeToSessionOrders } from "@/services/supabase/orders";
 import { subscribeToCustomerSession } from "@/services/supabase/customerSessions";
-import { useOptionalCustomerSession } from "@/context/CustomerSession/CustomerSessionContext";
+import { useOptionalCustomerSession } from "@/context/CustomerSession/useCustomerSession";
 import type { OrderItemRequest, SubmitOrderResult, OrderingStateReason } from "@/types/orders";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { AlertCircle } from "lucide-react";
@@ -706,6 +708,9 @@ export type SocialLinks = {
 // Z_BOTTOM_BAR = 150 vive nello SCSS della barra (PublicBottomBar.module.scss); qui
 // solo per documentazione: sopra toast/search (200) e sheet (900).
 
+/** Default stabile per gli slot featured assenti (dipendenza di useMemo). */
+const EMPTY_FEATURED: V2FeaturedContent[] = [];
+
 type Props = {
     businessName: string;
     businessImage: string | null;
@@ -718,8 +723,10 @@ type Props = {
         title?: string;
         description?: string;
     };
-    featuredBeforeCatalogSlot?: ReactNode;
-    featuredAfterCatalogSlot?: ReactNode;
+    /** Contenuti in evidenza di oggi prima del catalogo (carosello in pagina). */
+    featuredBeforeCatalog?: V2FeaturedContent[];
+    /** Contenuti in evidenza di oggi dopo il catalogo (carosello in pagina). */
+    featuredAfterCatalog?: V2FeaturedContent[];
     /** Tenant logo URL da mostrare nel compact header. */
     tenantLogoUrl?: string | null;
     /** Explicit scroll container. Use when the component lives inside a custom
@@ -741,8 +748,6 @@ type Props = {
     activeTab?: HubTab;
     /** Callback per cambio tab. */
     onTabChange?: (tab: HubTab) => void;
-    /** Tutti i featured contents (before_catalog + after_catalog) per la vista eventi. */
-    featuredContents?: V2FeaturedContent[];
     /** True se il catalogo ha almeno una storia pubblicata risolvibile per la sede
      *  (flag `has_story` da resolve-public-catalog). Gate del tab "storia": nessun
      *  tab vuoto per locali senza storie. Assente nei mock StylePreview → tab
@@ -818,8 +823,8 @@ export default function CollectionView({
     mode,
     contentId = "collection-content",
     emptyState,
-    featuredBeforeCatalogSlot,
-    featuredAfterCatalogSlot,
+    featuredBeforeCatalog = EMPTY_FEATURED,
+    featuredAfterCatalog = EMPTY_FEATURED,
     tenantLogoUrl,
     scrollContainerEl,
     viewportWidthEl,
@@ -829,7 +834,6 @@ export default function CollectionView({
     upcomingClosures,
     activeTab = "menu",
     onTabChange,
-    featuredContents = [],
     hasStory = false,
     reviewsProps,
     activityId,
@@ -1029,22 +1033,43 @@ export default function CollectionView({
     // ── More sheet ──────────────────────────────────────────────────────────
     const [isMoreSheetOpen, setIsMoreSheetOpen] = useState(false);
 
-    // ── Eventi/Recensioni: modali (PublicSheet), non più tab a pagina intera ──
-    // "menu" resta l'unica vista primaria di activeTab; eventi/recensioni si
+    // ── In evidenza / Recensioni: modali (PublicSheet), non tab a pagina intera ──
+    // "menu" resta l'unica vista primaria di activeTab; le sheet si
     // aprono/chiudono in stato locale, indipendente dal tab attivo.
+    // «In evidenza» è UNA sola sheet per la pagina: la apre il carosello (tap su
+    // una card → dettaglio; «Vedi tutti» → elenco), nessun pulsante in barra/header.
     const [isEventsSheetOpen, setIsEventsSheetOpen] = useState(false);
+    // Contenuto aperto nel dettaglio della sheet «In evidenza» (null = elenco).
+    // Qui e non in EventsView: la sua CTA va nel footerContent della sheet.
+    const [selectedEvent, setSelectedEvent] = useState<V2FeaturedContent | null>(null);
+    // true = la sheet è partita dall'elenco («Vedi tutti»): il dettaglio ha la
+    // freccia indietro. Aperta da una card del carosello: solo chiusura.
+    const [eventsFromList, setEventsFromList] = useState(false);
+    const eventsScrollRef = useRef<HTMLDivElement | null>(null);
     const [isReviewsSheetOpen, setIsReviewsSheetOpen] = useState(false);
     // Voto pre-impostato dal widget stelle in footer — undefined = flow normale
     // da "stars" (header/bottombar). Passato a ReviewsView come `initialRating`.
     const [initialReviewRating, setInitialReviewRating] = useState<number | undefined>(undefined);
 
-    const openEventsSheet = useCallback(() => {
-        if (mode === "public" && activityId) {
-            trackEvent(activityId, "tab_switch", { from_tab: activeTab, to_tab: "events" });
-        }
+    // Selezione azzerata/impostata all'apertura, mai alla chiusura: cambierebbe
+    // il contenuto durante l'animazione d'uscita. L'analytics è in FeaturedBlock
+    // (featured_click / featured_see_all_click, con lo slot).
+    const openFeaturedList = useCallback(() => {
+        setSelectedEvent(null);
+        setEventsFromList(true);
         setIsEventsSheetOpen(true);
-    }, [mode, activityId, activeTab]);
+    }, []);
+    const openFeaturedDetail = useCallback((block: V2FeaturedContent) => {
+        setSelectedEvent(block);
+        setEventsFromList(false);
+        setIsEventsSheetOpen(true);
+    }, []);
     const closeEventsSheet = useCallback(() => setIsEventsSheetOpen(false), []);
+    // Elenco ↔ dettaglio: si riparte dall'alto. Stesso contenitore che scorre,
+    // nessun contentKey sulla sheet (attiverebbe la close-interruption).
+    useLayoutEffect(() => {
+        if (eventsScrollRef.current) eventsScrollRef.current.scrollTop = 0;
+    }, [selectedEvent]);
 
     const openReviewsSheet = useCallback((initialRating?: number) => {
         if (mode === "public" && activityId) {
@@ -1298,10 +1323,34 @@ export default function CollectionView({
         [activeTab, orderingEntryHidden]
     );
 
-    // Tab "events" visibile solo se ci sono featured da mostrare adesso (union
-    // before/after, gia filtrata post-scheduling a monte). In preview SEMPRE
-    // visibile: superficie di design, mostra tutte le tab anche senza contenuti.
-    const showEventsTab = mode === "preview" ? true : featuredContents.length > 0;
+    // Contenuti in evidenza di oggi: prima quelli prima del catalogo, poi quelli
+    // dopo (ordine del resolver, già filtrato post-scheduling), un id una volta
+    // sola. È l'elenco della sheet e il numero della card «Vedi tutti».
+    const featuredContents = useMemo(() => {
+        const seen = new Set<string>();
+        return [...featuredBeforeCatalog, ...featuredAfterCatalog].filter(fc => {
+            if (seen.has(fc.id)) return false;
+            seen.add(fc.id);
+            return true;
+        });
+    }, [featuredBeforeCatalog, featuredAfterCatalog]);
+    const renderFeaturedBlock = (slot: "before_catalog" | "after_catalog", blocks: V2FeaturedContent[]) =>
+        blocks.length > 0 ? (
+            <FeaturedBlock
+                blocks={blocks}
+                activityId={mode === "public" ? activityId : undefined}
+                slot={slot}
+                totalCount={featuredContents.length}
+                onOpenDetail={openFeaturedDetail}
+                onOpenAll={openFeaturedList}
+                layout={style.featuredStyle}
+                showSubtitle={style.showFeaturedSubtitle ?? true}
+                showTitle={style.showFeaturedTitle ?? true}
+                showCta={style.showFeaturedCta ?? true}
+                // Style Editor: card e «Vedi tutti» visibili ma inerti.
+                interactive={mode === "public"}
+            />
+        ) : null;
     // Nessuna surface preview per "storia": has_story assente nei mock StylePreview
     // (sub-fase 7 introdurrà l'anteprima) → tab semplicemente nascosto in preview.
     const showStoryTab = hasStory === true;
@@ -1516,6 +1565,47 @@ export default function CollectionView({
         setActiveOrderingTab(selectionCount > 0 ? "cart" : "orders");
         setIsOrderingOpen(true);
     }, [selectionCount]);
+
+    // ── Bottom bar: nascondi/mostra tutto o niente (regole in bottomBarVisibility.ts) ──
+    const isBottomBarMounted = useBottomBar || (mode === "preview" && previewDevice === "mobile");
+    const {
+        hidden: isBottomBarHidden,
+        reveal: revealBottomBar,
+        ignoreProgrammaticScroll,
+    } = useBottomBarAutoHide({
+        mounted: isBottomBarMounted,
+        preview: mode === "preview",
+        scrollContainerEl,
+        frozen: mode === "preview" ? false : (!!selectedItem || isOrderingOpen),
+    });
+
+    // Aggiunta al carrello → la barra ricompare (badge in vista) e per
+    // nasconderla di nuovo serve più scroll del solito.
+    const prevSelectionCountRef = useRef(selectionCount);
+    useEffect(() => {
+        if (selectionCount > prevSelectionCountRef.current) revealBottomBar();
+        prevSelectionCountRef.current = selectionCount;
+    }, [selectionCount, revealBottomBar]);
+
+    // Cambio di stato di un ordine via realtime → la barra ricompare. A sheet
+    // ordini aperta ascolta già l'OrderingSheet (e la barra è coperta): qui
+    // solo a sheet chiusa, un canale per volta. Il primo UPDATE di un ordine
+    // non ancora visto conta come cambio (payload senza `old`).
+    const customerSessionJwt = customerSession?.session?.jwt;
+    useEffect(() => {
+        if (!useBottomBar || !customerSessionJwt || isOrderingOpen) return;
+        const lastStatusById = new Map<string, string>();
+        const channel = subscribeToSessionOrders(customerSessionJwt, {
+            onUpdate: order => {
+                const prev = lastStatusById.get(order.id);
+                lastStatusById.set(order.id, order.status);
+                if (prev !== order.status) revealBottomBar();
+            },
+        });
+        return () => {
+            channel?.unsubscribe();
+        };
+    }, [useBottomBar, customerSessionJwt, isOrderingOpen, revealBottomBar]);
 
     useEffect(() => {
         if (!submitFeedback) return;
@@ -1975,6 +2065,7 @@ export default function CollectionView({
 
         // scrollTo manuale (mirror di scrollToSection) sullo STESSO container del
         // tracking scroll esistente — così lo scroll-end detector riceve eventi.
+        ignoreProgrammaticScroll();
         const container: HTMLElement | Window = containerRef.current ?? window;
         if (container === window) {
             const top = rect.top + window.scrollY - scrollOffset;
@@ -2013,7 +2104,7 @@ export default function CollectionView({
 
         // Rete di sicurezza: l'effetto parte comunque entro ~800ms.
         highlightMaxTimeoutRef.current = setTimeout(fire, 800);
-    }, [applyHighlight, cleanupHighlightDetector, recomputeStickyOffset]);
+    }, [applyHighlight, cleanupHighlightDetector, recomputeStickyOffset, ignoreProgrammaticScroll]);
 
     // Cleanup di timer/listener all'unmount.
     useEffect(() => {
@@ -2113,8 +2204,12 @@ export default function CollectionView({
     // ── Scroll a top al cambio di tab ────────────────────────────────────────
     useEffect(() => {
         if (mode === "preview") {
-            if (scrollContainerEl) scrollContainerEl.scrollTop = 0;
-        } else {
+            if (scrollContainerEl && scrollContainerEl.scrollTop > 0) {
+                ignoreProgrammaticScroll();
+                scrollContainerEl.scrollTop = 0;
+            }
+        } else if (window.scrollY > 0) {
+            ignoreProgrammaticScroll();
             window.scrollTo(0, 0);
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2320,6 +2415,7 @@ export default function CollectionView({
         const container = containerRef.current;
         if (!container) return;
 
+        ignoreProgrammaticScroll();
         if (container === window) {
             const top = el.getBoundingClientRect().top + window.scrollY - scrollOffset;
             window.scrollTo({ top, behavior: "smooth" });
@@ -2341,12 +2437,13 @@ export default function CollectionView({
         // Non scrivere lo scroll mentre il body è in lock iOS (PublicSheet aperto).
         // Caso non raggiungibile dal re-tap (sheet copre la barra), guardia difensiva.
         if (document.body.style.position === "fixed") return;
+        ignoreProgrammaticScroll();
         if (container === window) {
             window.scrollTo({ top: 0, behavior: "smooth" });
         } else {
             (container as HTMLElement).scrollTo({ top: 0, behavior: "smooth" });
         }
-    }, []);
+    }, [ignoreProgrammaticScroll]);
 
     // ── Intercetta il tap hub tab: re-tap su "menu" = apre l'indice categorie
     // (sostituisce lo scroll-to-top diretto, che resta la prima voce della
@@ -2446,6 +2543,7 @@ export default function CollectionView({
             const container = containerRef.current;
             if (!container) return;
 
+            ignoreProgrammaticScroll();
             if (container === window) {
                 const top = el.getBoundingClientRect().top + window.scrollY - scrollOffset;
                 window.scrollTo({ top, behavior: "smooth" });
@@ -2459,7 +2557,7 @@ export default function CollectionView({
                 containerEl.scrollTo({ top, behavior: "smooth" });
             }
         },
-        [sectionGroups, recomputeStickyOffset]
+        [sectionGroups, recomputeStickyOffset, ignoreProgrammaticScroll]
     );
 
     // ── Scroll differito alla chiusura della sheet Categorie ────────────────
@@ -2658,14 +2756,12 @@ export default function CollectionView({
                     // Hub-tabs sempre nel markup header: lo split CSS-driven le
                     // nasconde ≤640px quando la bottom-bar è attiva (public).
                     showHubTabs
-                    showEventsTab={showEventsTab}
                     showStoryTab={showStoryTab}
                     allergensCount={allergenFilterIds.length}
                     onOpenMore={mode === "public" ? () => setIsMoreSheetOpen(true) : undefined}
                     selectionCount={selectionCount}
                     orderVisible={showHeaderActions && !shouldHideOrderingEntry}
                     onOpenOrder={showHeaderActions ? (mode === "preview" ? () => {} : openOrdering) : undefined}
-                    onOpenEvents={mode === "public" ? openEventsSheet : undefined}
                     onOpenReviews={mode === "public" && reviewsProps ? handleOpenReviewsFromTrigger : undefined}
                     reviewDot={showHeaderActions ? valutaVisible : false}
                 />
@@ -2885,7 +2981,7 @@ export default function CollectionView({
                                     data-product-style={style.productStyle ?? "card"}
                                     data-content-density={style.contentDensity ?? "full"}
                                 >
-                                    {featuredBeforeCatalogSlot}
+                                    {renderFeaturedBlock("before_catalog", featuredBeforeCatalog)}
                                     {/* Perché il menù è più corto del solito. Riga nuda,
                                         senza contenitore: è una nota a margine del
                                         catalogo, non un avviso di sistema — il filtro
@@ -3005,7 +3101,7 @@ export default function CollectionView({
                                             })()}
                                         </section>
                                     ))}
-                                    {featuredAfterCatalogSlot}
+                                    {renderFeaturedBlock("after_catalog", featuredAfterCatalog)}
                                 </div>
 
                                 {!!selectedItem && (
@@ -3095,17 +3191,27 @@ export default function CollectionView({
                 </>
             )}
 
-            {/* ── EVENTS SHEET ── Modale (non più tab a pagina intera). Gated su
-                showEventsTab: stessa condizione che prima decideva se il tab era
-                raggiungibile (public: featuredContents non vuoto; preview: sempre). */}
-            {showEventsTab && (
+            {/* ── SHEET «IN EVIDENZA» ── Una sola per la pagina, aperta dai caroselli
+                (card → dettaglio, «Vedi tutti» → elenco). Elenco e dettaglio
+                nella stessa sheet: cambia solo il contenuto, mai contentKey. */}
+            {featuredContents.length > 0 && (
                 <PublicSheet
                     isOpen={isEventsSheetOpen}
                     onClose={closeEventsSheet}
                     ariaLabel={t("hub.events")}
                     headerContent={
                         <div className={styles.eventsSheetHeader}>
-                            <Text as="h2" variant="title-md" weight={700} color="var(--pub-surface-text)">
+                            {selectedEvent && eventsFromList && (
+                                <button
+                                    type="button"
+                                    className={styles.eventsBackBtn}
+                                    onClick={() => setSelectedEvent(null)}
+                                    aria-label={t("events.back_aria")}
+                                >
+                                    <ChevronLeft size={20} strokeWidth={2} aria-hidden="true" />
+                                </button>
+                            )}
+                            <Text as="h2" variant="title-md" weight={700} color="var(--pub-surface-text)" className={styles.eventsSheetTitle}>
                                 {t("hub.events")}
                             </Text>
                             <button
@@ -3118,9 +3224,17 @@ export default function CollectionView({
                             </button>
                         </div>
                     }
+                    footerContent={
+                        selectedEvent && hasFeaturedCta(selectedEvent)
+                            ? <FeaturedCtaFooter block={selectedEvent} />
+                            : undefined
+                    }
                 >
-                    <div className={`${styles.infoSheetContent} ${styles.eventsListContent}`}>
-                        <EventsView featuredContents={featuredContents} layout={style?.featuredStyle} showSubtitle={style?.showFeaturedSubtitle} showTitle={style?.showFeaturedTitle} showCta={style?.showFeaturedCta} />
+                    <div
+                        ref={eventsScrollRef}
+                        className={`${styles.infoSheetContent} ${selectedEvent ? styles.eventsDetailContent : styles.eventsListContent}`}
+                    >
+                        <EventsView featuredContents={featuredContents} layout={style?.featuredStyle} showSubtitle={style?.showFeaturedSubtitle} showTitle={style?.showFeaturedTitle} showCta={style?.showFeaturedCta} selectedFeatured={selectedEvent} onSelectFeatured={setSelectedEvent} />
                     </div>
                 </PublicSheet>
             )}
@@ -3196,16 +3310,14 @@ export default function CollectionView({
             {/* reviewDot riusa `valutaVisible` (stessa eligibilità 4h + scroll≥70% + no review <24h). */}
             {/* Preview mobile: barra montata SOLO per fedeltà di layout, completamente
                 inerte (props no-op, ordering OFF). Runtime (useBottomBar) invariato. */}
-            {(useBottomBar || (mode === "preview" && previewDevice === "mobile")) && (
+            {isBottomBarMounted && (
                 <PublicBottomBar
                     activeTab={mode === "preview" ? "menu" : activeTab}
                     onTabChange={mode === "preview" ? () => {} : handleHubTabTap}
-                    showEventsTab={showEventsTab}
                     showStoryTab={showStoryTab}
                     selectionCount={selectionCount}
                     cartVisible={mode === "preview" ? orderingActive && !shouldHideOrderingEntry : !shouldHideOrderingEntry}
                     onOpenCart={mode === "preview" ? () => {} : openOrdering}
-                    onOpenEvents={mode === "preview" ? () => {} : openEventsSheet}
                     // Wrapper esplicito (non passare openReviewsSheet direttamente): il
                     // bottone bottombar collega onClick={onOpenReviews} senza wrapper, quindi
                     // l'evento DOM del click arriverebbe come primo argomento — ora che
@@ -3216,19 +3328,15 @@ export default function CollectionView({
                         setValutaVisible(false);
                         valutaEligibleRef.current = false;
                     }}
-                    isSheetOpen={mode === "preview" ? false : (!!selectedItem || isOrderingOpen)}
+                    hidden={isBottomBarHidden}
                     preview={mode === "preview"}
-                    // Vetro adattivo: bg pagina chiaro → vetro chiaro, altrimenti scuro.
-                    // contrastText() riusa isLight() (luminanza); "#1a1a1a" ⇒ bg chiaro.
-                    // Parse-fail ⇒ "#ffffff" ⇒ "dark" (preserva il comportamento storico).
-                    surfaceTheme={contrastText(style.backgroundColor) === "#1a1a1a" ? "light" : "dark"}
                 />
             )}
 
             {/* ── SCRIM bordo inferiore — stessa condizione di mount della barra.
                 Sotto la barra (z 100 < 150), sopra il contenuto. Solo CSS. ── */}
-            {(useBottomBar || (mode === "preview" && previewDevice === "mobile")) && (
-                <PublicBottomScrim isPreview={mode === "preview"} />
+            {isBottomBarMounted && (
+                <PublicBottomScrim isPreview={mode === "preview"} hidden={isBottomBarHidden} />
             )}
 
             {submitFeedback && (
@@ -3238,7 +3346,7 @@ export default function CollectionView({
                             ? styles.submitFeedbackSuccess
                             : styles.submitFeedbackError,
                         // Con la bottom bar attiva il toast condivide l'ancora a 16px:
-                        // lo solleviamo sopra la barra (~58px + gap) SOLO ≤640px (dove
+                        // lo solleviamo sopra la barra (altezza misurata + gap) SOLO ≤640px (dove
                         // la barra è visibile) — gating CSS, non inline, per non
                         // sollevarlo su desktop dove la barra è nascosta.
                         useBottomBar ? styles.submitFeedbackAboveBar : "",

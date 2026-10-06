@@ -1,0 +1,629 @@
+// Pagina Lead (canvas V4, R4a, R4b, T8a; versione finale del 2026-10-05).
+// Solo token di _theme.scss; la tipografia la porta il componente Text.
+
+// La colonna delle viste sta attaccata alla barra del CRM: esce dal padding
+// del contenuto (24) e scende per tutta l'altezza.
+.layout {
+  display: grid;
+  grid-template-columns: 210px minmax(0, 1fr);
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: calc(-1 * var(--space-24));
+}
+
+.layoutSingle {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+  min-width: 0;
+  min-height: 0;
+
+  .layout & {
+    padding: var(--space-24);
+    overflow-y: auto;
+  }
+}
+
+/* ===== Colonna delle viste (V4) ===== */
+.views {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-16) var(--space-10);
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+  overflow-y: auto;
+}
+
+.viewsTitle {
+  margin: 0 0 var(--space-8);
+  padding: 0 var(--space-10);
+}
+
+.viewItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+  min-height: 34px;
+  padding: 0 var(--space-10);
+  border-radius: var(--radius-control);
+  color: var(--text);
+  text-decoration: none;
+
+  &:hover {
+    background: var(--hover-bg);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-focus);
+  }
+
+  &[aria-current="page"] {
+    background: var(--brand-primary-soft);
+    color: var(--on-brand-soft);
+    font-weight: 600;
+  }
+}
+
+.viewCount {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.viewsDivider {
+  height: 1px;
+  margin: var(--space-8) var(--space-10);
+  background: var(--border);
+}
+
+.viewsGroup {
+  margin: var(--space-16) 0 var(--space-4);
+  padding: 0 var(--space-10);
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* ===== Testata della vista ===== */
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-12) var(--space-16);
+}
+
+.headTitle {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-6);
+  margin: 0;
+  min-width: 0;
+}
+
+.headCount {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.headActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+.stageFilter {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+/* ===== Elenco (R4b) ===== */
+.track {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.tick {
+  width: 13px;
+  height: 5px;
+  border-radius: var(--radius-pill);
+  background: var(--border);
+
+  &[data-state="done"] {
+    background: var(--brand-primary);
+  }
+
+  &[data-state="here"] {
+    height: 9px;
+    width: 15px;
+    border-radius: var(--radius-inner);
+    background: var(--brand-primary);
+  }
+}
+
+.contactWarn {
+  color: var(--text-warning);
+  font-weight: 600;
+}
+
+.stageCell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+
+  > span:first-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  // Nove tacche in una colonna da 168: più corte di quelle della scheda.
+  .track {
+    gap: 3px;
+  }
+
+  .tick {
+    width: 8px;
+  }
+}
+
+.nobody {
+  color: var(--text-muted);
+}
+
+/* ===== Colonne (R4a) ===== */
+.board {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(136px, 1fr);
+  align-items: start;
+  gap: var(--space-8);
+  overflow-x: auto;
+  padding-bottom: var(--space-8);
+  max-width: 100%;
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  padding: var(--space-10) var(--space-8) var(--space-8);
+  border: 1px solid transparent;
+  border-radius: var(--radius-surface);
+  background: var(--hover-bg);
+
+  &[data-over] {
+    border-color: var(--brand-primary);
+  }
+
+  &[data-stage="cliente_pagante"] {
+    background: var(--success-50);
+  }
+}
+
+.columnHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-6);
+  padding: 0 var(--space-4) var(--space-4);
+}
+
+.columnCount {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.columnBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  min-height: var(--space-24);
+}
+
+.card {
+  width: 100%;
+  min-width: 0;
+  padding: var(--space-8) var(--space-8) var(--space-8) var(--space-10);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--card-bg);
+  color: var(--text);
+  text-align: left;
+  cursor: grab;
+  touch-action: none;
+
+  &:hover {
+    border-color: var(--brand-primary);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-focus);
+  }
+
+  &[data-warn] {
+    box-shadow: inset 3px 0 0 var(--warning-500);
+  }
+
+  &[data-warn]:focus-visible {
+    box-shadow: inset 3px 0 0 var(--warning-500), var(--shadow-focus);
+  }
+
+  &[data-dragging] {
+    opacity: 0.4;
+  }
+}
+
+.cardBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+
+  .overlay & {
+    padding: var(--space-8) var(--space-10);
+    border-radius: var(--radius-control);
+    background: var(--card-bg);
+    box-shadow: var(--shadow-float);
+  }
+}
+
+.cardName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cardMeta {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  min-width: 0;
+  color: var(--text-muted);
+}
+
+.ownerDot {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-pill);
+  background: var(--brand-primary-soft);
+  color: var(--on-brand-soft);
+  letter-spacing: -0.04em;
+}
+
+.cardBadges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin-top: var(--space-2);
+}
+
+.more {
+  align-self: flex-start;
+  padding: var(--space-2) var(--space-4);
+  border: 0;
+  border-radius: var(--radius-inner);
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+
+  &:hover {
+    color: var(--text);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-focus);
+  }
+}
+
+/* ===== Riepilogo (V4) ===== */
+.figures {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-surface);
+  background: var(--surface);
+
+  > div {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-12) var(--space-16);
+  }
+
+  > div + div {
+    border-left: 1px solid var(--border);
+  }
+
+  dd {
+    margin: 0;
+  }
+}
+
+.summaryGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(240px, 1fr);
+  align-items: start;
+  gap: var(--space-12);
+}
+
+.summarySide {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+}
+
+.funnel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.funnelRow {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) minmax(80px, 1.4fr) 40px minmax(110px, 1fr);
+  align-items: center;
+  gap: var(--space-12);
+  width: 100%;
+  min-height: 30px;
+  padding: 0 var(--space-6);
+  border: 0;
+  border-radius: var(--radius-inner);
+  background: none;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--hover-bg);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-focus);
+  }
+
+  &[data-worst] {
+    background: var(--brand-primary-soft);
+  }
+}
+
+.funnelBar {
+  display: block;
+  width: 100%;
+  height: 18px;
+
+  rect {
+    fill: var(--brand-primary-soft-hover);
+  }
+
+  [data-worst] & rect {
+    fill: var(--brand-primary);
+  }
+
+  &[data-stage="cliente_pagante"] rect {
+    fill: var(--success-500);
+  }
+}
+
+.funnelCount {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.funnelNote {
+  color: var(--text-muted);
+
+  [data-worst] & {
+    color: var(--text-warning);
+    font-weight: 600;
+  }
+}
+
+.speed {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  margin: 0;
+
+  > div {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-12);
+  }
+
+  dd {
+    margin: 0;
+  }
+}
+
+/* ===== Telefono (T8a) ===== */
+.phoneHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+}
+
+.phoneHeadActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+.phoneChips {
+  overflow-x: auto;
+  margin-inline: calc(-1 * var(--space-16));
+  padding-inline: var(--space-16);
+  scrollbar-width: none;
+
+  /* Una fila sola che scorre (T8a), non chip a capo. */
+  [role] {
+    flex-wrap: nowrap;
+  }
+}
+
+.phoneList {
+  display: flex;
+  flex-direction: column;
+  margin: 0 calc(-1 * var(--space-16));
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--border);
+}
+
+.phoneRow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-12) var(--space-16);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  text-decoration: none;
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: inset var(--shadow-focus);
+  }
+
+  &[data-level="rosso"] {
+    background: var(--danger-50);
+    box-shadow: inset 3px 0 0 var(--danger);
+  }
+
+  &[data-level="arancio"] {
+    background: var(--warning-50);
+    box-shadow: inset 3px 0 0 var(--warning-500);
+  }
+}
+
+.phoneRowTop {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-8);
+}
+
+.phoneWhen {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+
+  &[data-level="rosso"] {
+    color: var(--text-danger);
+  }
+
+  &[data-level="arancio"] {
+    color: var(--text-warning);
+  }
+}
+
+.phoneBadge {
+  align-self: flex-start;
+}
+
+@media (max-width: 1023px) {
+  .summaryGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 767px) {
+  .figures {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+
+    > div:nth-child(3) {
+      border-left: 0;
+    }
+
+    > div:nth-child(n + 3) {
+      border-top: 1px solid var(--border);
+    }
+  }
+
+  .funnelRow {
+    grid-template-columns: minmax(96px, 1fr) minmax(48px, 1fr) 32px;
+  }
+
+  .funnelNote {
+    grid-column: 1 / -1;
+    padding-bottom: var(--space-4);
+  }
+}
+
+/* ===== Gesti al telefono (U8b) ===== */
+.swipe {
+  position: relative;
+  overflow: hidden;
+  touch-action: pan-y;
+}
+
+.swipeBack {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  background: var(--hover-bg);
+
+  [data-dir="send"] > & {
+    background: var(--brand-primary);
+  }
+}
+
+.swipeSend,
+.swipeSnooze {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding: 0 var(--space-16);
+}
+
+.swipeSend {
+  color: var(--on-brand);
+}
+
+.swipeSnooze {
+  margin-left: auto;
+  color: var(--text);
+}
+
+.swipeFront {
+  position: relative;
+  transform: translateX(var(--swipe-x, 0));
+  transition: transform var(--timing-motion-fast);
+
+  [data-dragging] > & {
+    transition: none;
+  }
+}
+
+.swipeHint {
+  padding: var(--space-12) 0 0;
+}

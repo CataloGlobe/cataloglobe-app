@@ -10,7 +10,7 @@ import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import Skeleton from "@/components/ui/Skeleton/Skeleton";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useTenantId } from "@/context/useTenantId";
-import { deleteStyle, V2Style } from "@/services/supabase/styles";
+import { countStyleUsage, deleteStyle, V2Style } from "@/services/supabase/styles";
 import { listAppearanceSources } from "@/services/supabase/layoutScheduling";
 import { toRomeDateTime } from "@/services/supabase/schedulingNow";
 import { appearanceOf, buildAppearance, type AppearanceRuleEntry } from "@/utils/ruleAppearance";
@@ -41,8 +41,11 @@ export function StyleDeleteDrawer({ open, onClose, styleData, allStyles, onSucce
     // Le regole che lo nominano, con lo stato di Programmazione (§50.13/5).
     const [schedulesUsing, setSchedulesUsing] = useState<AppearanceRuleEntry[] | null>(null);
     const [isLoadingUsage, setIsLoadingUsage] = useState(false);
+    // Il conteggio dell'elenco è una foto: all'apertura si rilegge il vincolo
+    // che `deleteStyle` controlla. Finché non arriva, «Elimina» aspetta.
+    const [usageCount, setUsageCount] = useState<number | null>(null);
 
-    const isUsed = (styleData?.usage_count || 0) > 0;
+    const isUsed = (usageCount ?? styleData?.usage_count ?? 0) > 0;
 
     const replacementOptions = allStyles
         .filter(s => s.id !== styleData?.id)
@@ -62,6 +65,26 @@ export function StyleDeleteDrawer({ open, onClose, styleData, allStyles, onSucce
             setIsLoadingUsage(false);
         }
     }, [styleData, currentTenantId]);
+
+    useEffect(() => {
+        if (!open || !styleData || !currentTenantId) {
+            setUsageCount(null);
+            return;
+        }
+        let cancelled = false;
+        countStyleUsage(styleData.id, currentTenantId)
+            .then(count => {
+                if (!cancelled) setUsageCount(count);
+            })
+            .catch(err => {
+                // Senza conteggio resta la foto dell'elenco: `deleteStyle` ricontrolla.
+                console.warn("[StyleDeleteDrawer] usage count failed:", err);
+                if (!cancelled) setUsageCount(styleData.usage_count ?? 0);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [open, styleData, currentTenantId]);
 
     useEffect(() => {
         if (!open || !styleData) {
@@ -110,6 +133,7 @@ export function StyleDeleteDrawer({ open, onClose, styleData, allStyles, onSucce
                 title={`Eliminare «${styleData.name}»?`}
                 message="Si eliminano anche tutte le sue versioni, e non si torna indietro."
                 confirmLabel="Elimina stile"
+                isLoading={usageCount === null || isDeleting}
             />
         );
     }

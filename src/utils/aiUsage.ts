@@ -86,6 +86,29 @@ export function aiBlockMessage(reason: string | undefined, resetAt: string | nul
     return `Hai esaurito l'AI di questo mese. Riparte il ${formatResetDate(resetAt)}.`;
 }
 
+/**
+ * Riga accanto a «Genera con AI»: lo stato quota detto prima del clic.
+ * `ok` o stato non ancora caricato → null (niente riga). `blocked` e
+ * `not_eligible` spengono il bottone, con lo stesso testo del blocco.
+ */
+export function aiQuotaHint(usage: AiUsageCycle | null | undefined): { blocked: boolean; message: string } | null {
+    if (!usage) return null;
+    if (usage.status === "blocked") {
+        return { blocked: true, message: aiBlockMessage("quota_exhausted", usage.resetAt) };
+    }
+    if (usage.status === "not_eligible") {
+        return { blocked: true, message: aiBlockMessage("not_eligible", usage.resetAt) };
+    }
+    if (usage.status === "warning") {
+        const percent = formatUsagePercent(usage.percent);
+        return {
+            blocked: false,
+            message: percent === "—" ? "AI di questo mese quasi esaurita." : `AI di questo mese quasi esaurita (${percent} usata).`
+        };
+    }
+    return null;
+}
+
 /** true se lo stato deve mostrare la pill nell'header (solo warning/blocked). */
 export function showsUsagePill(status: AiUsageStatus): boolean {
     return status === "warning" || status === "blocked";

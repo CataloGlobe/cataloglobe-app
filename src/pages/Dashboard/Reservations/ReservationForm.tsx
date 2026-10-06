@@ -16,7 +16,7 @@ import {
     findReservationGuestByPhone,
     getReservationGuestNoteForActivity
 } from "@/services/supabase/reservationGuests";
-import { usePermissions } from "@/context/PermissionsContext";
+import { usePermissions } from "@/context/usePermissions";
 import { isTenantWide } from "@/lib/permissions";
 import type { ReservationGuestSummary, V2ReservationGuestNote } from "@/types/reservationGuest";
 import { formatAbsenceCount, formatVisitCount } from "@/utils/guestVisibilityCopy";
@@ -699,6 +699,16 @@ export function ReservationForm({
                 maxLength={500}
                 rows={3}
             />
+
+            {/* Allergie dal modulo pubblico, con consenso del cliente: si
+                leggono e basta, il back office non le scrive. */}
+            {entityData?.allergies && (
+                <InlineBanner variant="warning">
+                    <Text as="p" variant="body-sm">
+                        <strong>Allergie:</strong> {entityData.allergies}
+                    </Text>
+                </InlineBanner>
+            )}
 
             {/* Avvisi non bloccanti: `status`, non `alert` — informano mentre
                 si scrive, non interrompono a ogni cambio. */}

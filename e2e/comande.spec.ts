@@ -21,8 +21,6 @@ import { openBusinessPage } from "./business";
 const SEDE = /Garbagnate/;
 const TAVOLO = "T TEST";
 const COLONNE = ["Nuove", "In lavorazione", "Pronte"] as const;
-/** Un giorno dello storico con una comanda servita (fixture). */
-const GIORNO_STORICO = "2026-09-13";
 /** Gli articoli della comanda della fixture. */
 const ARTICOLI = ["Hamburger", "McToast"] as const;
 
@@ -39,9 +37,9 @@ async function openComande(page: Page): Promise<void> {
     const card = page.getByRole("main").getByRole("listitem").filter({ hasText: SEDE }).first();
     await expect(card).toBeVisible({ timeout: 15_000 });
     await card.getByRole("link").first().click();
-    // L'indice della sede reindirizza all'Anagrafica: cliccare prima che il
+    // L'indice della sede reindirizza alla prima voce: cliccare prima che il
     // redirect sia avvenuto farebbe vincere il redirect sul click.
-    await page.waitForURL(/\/locations\/[0-9a-f-]+\/anagrafica$/);
+    await page.waitForURL(/\/locations\/[0-9a-f-]+\/[a-z-]+$/);
     await nav(page).getByRole("link", { name: "Comande", exact: true }).click();
     await expect(page).toHaveURL(/\/locations\/[0-9a-f-]+\/comande$/, { timeout: 15_000 });
     // La board è pronta quando la card della fixture c'è (il nome del tavolo
@@ -69,16 +67,10 @@ async function openCardMenu(page: Page): Promise<void> {
     await fixtureMenu(page).click();
 }
 
-async function selectMainTab(page: Page, name: "Comande" | "Tavoli" | "Storico"): Promise<void> {
-    await page.getByRole("tab", { name, exact: true }).click();
-    await expect(page).toHaveURL(new RegExp(name === "Comande" ? "/comande(\\?tab=comande)?$" : `tab=${name.toLowerCase()}`));
-}
-
 test.describe("Comande", () => {
     test("si apre dal contesto della sede, con le tre colonne", async ({ page }) => {
         await openComande(page);
 
-        await expect(page.getByRole("tab", { name: "Comande", exact: true })).toHaveAttribute("aria-selected", "true");
         // Le corsie sono regioni col nome dello stato.
         for (const colonna of COLONNE) {
             await expect(page.getByRole("main").getByRole("region", { name: colonna })).toBeVisible();
@@ -101,6 +93,16 @@ test.describe("Comande", () => {
         await expect(page.getByRole("button", { name: "Crea ordine" })).toBeVisible();
         await expect(page.getByRole("button", { name: "Aggiorna" })).toBeVisible();
         await expect(page.getByRole("button", { name: /suoni notifiche/ })).toHaveAttribute("aria-pressed", /true|false/);
+    });
+
+    test("Comande è la board e basta: Tavoli e Storico stanno altrove", async ({ page }) => {
+        // Lotto B-a: i tavoli sono la Mappa di Servizio, lo Storico una voce a sé.
+        await openComande(page);
+        await expect(page.getByRole("tab", { name: /^(Comande|Tavoli|Storico)$/ })).toHaveCount(0);
+        for (const colonna of COLONNE) {
+            await expect(page.getByRole("main").getByRole("region", { name: colonna })).toBeVisible();
+        }
+        await expect(page.getByRole("button", { name: "Crea ordine" })).toBeVisible();
     });
 
     test("il dettaglio della comanda si apre dal menu della card", async ({ page }) => {
@@ -174,6 +176,10 @@ test.describe("Comande", () => {
         await openComande(page);
         const filtro = page.getByRole("main").getByRole("combobox", { name: "Filtra per tavolo" });
         await expect(filtro).toBeVisible();
+        // T14: sta nella testata, sulla riga di «Aggiorna», non sopra la board.
+        const filtroBox = await filtro.boundingBox();
+        const aggiorna = await page.getByRole("main").getByRole("button", { name: "Aggiorna" }).first().boundingBox();
+        expect(Math.abs(filtroBox!.y + filtroBox!.height / 2 - (aggiorna!.y + aggiorna!.height / 2))).toBeLessThan(12);
 
         // Un tavolo diverso da quello della fixture: la sua card sparisce.
         const altri = (await filtro.getByRole("option").allInnerTexts()).filter(
@@ -188,151 +194,6 @@ test.describe("Comande", () => {
 
         await filtro.selectOption({ label: "Tutti i tavoli" });
         await expect(fixtureMenu(page)).toBeVisible();
-    });
-
-    test("la tab Tavoli mostra i tavoli e apre il dettaglio del tavolo", async ({ page }) => {
-        await openComande(page);
-        await selectMainTab(page, "Tavoli");
-
-        const filtri = page.getByRole("main").getByRole("radiogroup");
-        // Dizionario (§18.4 + P2): «Aperti», «Fuori servizio» — mai «Occupati»,
-        // mai «Manutenzione».
-        await expect(filtri.getByRole("radio", { name: "Tutti", exact: true })).toBeVisible({ timeout: 15_000 });
-        for (const f of ["Aperti", "Liberi", "Fuori servizio"]) {
-            await expect(filtri.getByRole("radio", { name: f, exact: true })).toBeVisible();
-        }
-        await expect(page.getByRole("main").getByText(/manutenzione|occupat/i)).toHaveCount(0);
-
-        const tavolo = page.getByRole("main").getByRole("button", { name: new RegExp(`^${TAVOLO}, `) });
-        await expect(tavolo).toBeVisible({ timeout: 15_000 });
-        await tavolo.click();
-
-        const drawer = page.getByRole("dialog");
-        await expect(drawer).toBeVisible();
-        await expect(drawer.getByText(TAVOLO).first()).toBeVisible();
-        await expect(drawer.getByText(/manutenzione|occupat/i)).toHaveCount(0);
-        // La comanda in Nuove è un ordine in corso, confermabile da qui.
-        await expect(drawer.getByText(/^Ordini in corso/)).toBeVisible({ timeout: 15_000 });
-        await expect(drawer.getByRole("button", { name: "Conferma" })).toBeVisible();
-        await expect(drawer.getByText("Nuova", { exact: true })).toBeVisible();
-        await expect(drawer.getByText(/Da prendere|Da confermare|In preparazione/)).toHaveCount(0);
-        await expect(drawer.getByText("Totale in corso", { exact: true })).toBeVisible();
-        await expect(drawer.getByText("Fuori servizio", { exact: true })).toBeVisible();
-        await expect(drawer.getByRole("switch").or(drawer.getByRole("checkbox")).first()).toBeDisabled();
-        await expect(drawer.getByRole("button", { name: /^(Chiudi tavolo|Fatto)$/ })).toBeVisible();
-        await page.keyboard.press("Escape");
-        await expect(drawer).toHaveCount(0);
-    });
-
-    test("i tavoli sono una griglia per zona: 3, 2, 1 colonne", async ({ page }) => {
-        await openComande(page);
-        await selectMainTab(page, "Tavoli");
-        const main = page.getByRole("main");
-
-        // «Senza zona» ha due tavoli: si legge dalla posizione delle tessere.
-        const zona = main.getByRole("list", { name: "Senza zona" });
-        await expect(zona.getByRole("listitem")).toHaveCount(2, { timeout: 15_000 });
-        const tops = () =>
-            zona.getByRole("listitem").evaluateAll(els => els.map(e => Math.round(e.getBoundingClientRect().top)));
-        const lefts = () =>
-            zona.getByRole("listitem").evaluateAll(els => els.map(e => Math.round(e.getBoundingClientRect().left)));
-
-        expect(new Set(await tops()).size).toBe(1); // 1280: in riga
-        await page.setViewportSize({ width: 768, height: 900 });
-        await expect.poll(async () => new Set(await tops()).size).toBe(1); // 768: due per riga
-        await page.setViewportSize({ width: 375, height: 900 });
-        await expect.poll(async () => new Set(await lefts()).size).toBe(1); // 375: una colonna
-    });
-
-    test("il filtro «Aperti» e «Liberi» della vista tavoli", async ({ page }) => {
-        await openComande(page);
-        await selectMainTab(page, "Tavoli");
-        const main = page.getByRole("main");
-        const filtri = main.getByRole("radiogroup");
-
-        // Finché carica, la griglia è una lista «Tavoli» di scheletri (aria-busy):
-        // il filtro si clicca a dati arrivati, non a tempo.
-        await expect(main.getByRole("list", { name: "Tavoli" })).toHaveCount(0, { timeout: 15_000 });
-        await filtri.getByRole("radio", { name: "Aperti", exact: true }).click();
-        const tavolo = main.getByRole("button", { name: new RegExp(`^${TAVOLO}, Aperto`) });
-        await expect(tavolo).toBeVisible();
-        const tessera = main.getByRole("listitem").filter({ hasText: TAVOLO });
-        await expect(tessera).toContainText("5,80 €");
-        // La comanda in Nuove è un Badge sulla tessera, non testo nel footer.
-        await expect(tessera.getByRole("status").filter({ hasText: /^1 nuova$/ })).toBeVisible();
-
-        await filtri.getByRole("radio", { name: "Liberi", exact: true }).click();
-        await expect(tavolo).toBeHidden();
-        await expect(main.getByText("Nessun tavolo per questo filtro")).toBeVisible();
-
-        await filtri.getByRole("radio", { name: "Tutti", exact: true }).click();
-        await expect(tavolo).toBeVisible();
-    });
-
-    test("lo Storico ha i segmenti, il giorno e la tabella", async ({ page }) => {
-        await openComande(page);
-        await selectMainTab(page, "Storico");
-
-        const segmenti = page.getByRole("main").getByRole("radiogroup");
-        for (const s of ["Tutti", "Serviti", "Annullati"]) {
-            await expect(segmenti.getByRole("radio", { name: s, exact: true })).toBeVisible({ timeout: 15_000 });
-        }
-        // Oggi: non si va avanti.
-        await expect(page.getByRole("button", { name: "Giorno successivo" })).toBeDisabled();
-
-        // Un giorno indietro, poi di nuovo oggi: la tabella o il suo vuoto, mai un errore.
-        await page.getByRole("button", { name: "Giorno precedente" }).click();
-        await expect(page.getByRole("button", { name: "Giorno successivo" })).toBeEnabled();
-        await page.getByRole("button", { name: "Giorno successivo" }).click();
-        await expect(page.getByRole("button", { name: "Giorno successivo" })).toBeDisabled();
-
-        await expect(page.getByText("Errore caricamento storico")).toHaveCount(0);
-        await expect(
-            page.getByRole("main").getByRole("columnheader", { name: "Tavolo" })
-                .or(page.getByText("Nessun ordine nello storico di oggi"))
-                .first()
-        ).toBeVisible({ timeout: 15_000 });
-    });
-
-    test("lo Storico a 375: due colonne, le azioni a vista, niente scroll di lato", async ({ page }) => {
-        await openComande(page);
-        await selectMainTab(page, "Storico");
-        // Un giorno con una comanda servita (fixture: 13/09, tavolo T1).
-        const giorno = page.getByLabel("Scegli il giorno dello storico");
-        // Prima il giorno d'apertura deve aver finito di caricare: loadHistory
-        // non scarta le risposte superate, e una risposta di «oggi» in ritardo
-        // sovrascriverebbe il giorno scelto (anomalia a verbale, non del test).
-        await expect(page.getByRole("main").getByText(/^\d+ element[oi]$/)).toBeVisible({ timeout: 15_000 });
-        await giorno.fill(GIORNO_STORICO);
-        const main = page.getByRole("main");
-        await expect(main.getByRole("button", { name: "Azioni per T1" }).first()).toBeVisible({ timeout: 15_000 });
-
-        // 1280: tutte le colonne.
-        for (const col of ["Stato", "Tavolo", "Operatore", "Orario", "Totale"]) {
-            await expect(main.getByText(col, { exact: true }).first()).toBeVisible();
-        }
-        // Lo stato ha lo stesso nome delle altre superfici (orderStatusBadge).
-        await expect(main.getByText("Servita", { exact: true })).toBeVisible();
-        await expect(main.getByText("Servito", { exact: true })).toHaveCount(0);
-
-        await page.setViewportSize({ width: 375, height: 900 });
-        await expect(main.getByText("Operatore", { exact: true })).toHaveCount(0);
-        await expect(main.getByText("Orario", { exact: true })).toHaveCount(0);
-        await expect(main.getByText("Tavolo", { exact: true }).first()).toBeVisible();
-        await expect(main.getByText("Totale", { exact: true }).first()).toBeVisible();
-
-        const azioni = main.getByRole("button", { name: "Azioni per T1" }).first();
-        await expect(azioni).toBeVisible();
-        const box = await azioni.boundingBox();
-        expect(box && box.x + box.width).toBeLessThanOrEqual(375);
-        const overflow = await page.evaluate(
-            () => document.documentElement.scrollWidth - document.documentElement.clientWidth
-        );
-        expect(overflow).toBeLessThanOrEqual(0);
-
-        await azioni.click();
-        await expect(page.getByRole("menuitem", { name: "Vedi dettaglio" })).toBeVisible();
-        await page.keyboard.press("Escape");
     });
 
     test("sopra 1024 tre colonne affiancate, niente selettore di stato", async ({ page }) => {

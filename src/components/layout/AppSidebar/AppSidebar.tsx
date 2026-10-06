@@ -1,6 +1,6 @@
-import { Fragment, type ReactNode } from "react";
-import { NavLink, useLocation } from "react-router-dom";
-import { motion } from "framer-motion";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { Link, NavLink, useLocation } from "react-router-dom";
+import { motion, useReducedMotion } from "framer-motion";
 import { Lock, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
 import Text from "@/components/ui/Text/Text";
 import { Badge } from "@/components/ui/Badge/Badge";
@@ -13,11 +13,16 @@ import styles from "./AppSidebar.module.scss";
  * AppSidebar — l'unica navigazione (scheda «AppSidebar»): una sidebar sola,
  * che riceve tutto e non sa niente. I gruppi li costruiscono i costruttori
  * (TenantSidebar e SedeSidebar con i permessi, AdminSidebar,
- * WorkspaceSidebar): aggiungere una sezione = aggiungere una voce a `groups`.
+ * ex WorkspaceSidebar): aggiungere una sezione = aggiungere una voce a `groups`.
  *
  * `headerSlot` è l'intestazione del contesto, sopra le voci e fuori dallo
- * scroll: dentro una sede porta «← Tutte le sedi», il nome del locale e il
- * suo stato. Resta vuoto nel contesto azienda.
+ * scroll: dentro una sede porta «← Tutte le sedi». Resta vuoto altrove.
+ *
+ * Aperta e chiusa (§51.15): le righe restano esattamente alla stessa
+ * altezza e l'icona allo stesso posto; si anima solo la larghezza e il testo
+ * viene tagliato, non riposizionato. Chiusa, il titolo di gruppo diventa un
+ * trattino nello stesso slot, il nome della voce passa al tooltip e i
+ * segnali a un badge sull'icona.
  *
  * Lo SCSS dello stato collassato usa selettori discendenti
  * (`.sidebar[data-collapsed="true"] .link/.label/.icon`): markup e stile
@@ -46,6 +51,8 @@ export interface AppSidebarNavItem {
     /** Contatore a destra (`Badge neutral`; `badgeTone="brand"` se sono cose da fare). */
     badge?: number | string;
     badgeTone?: "neutral" | "brand";
+    /** Anello attorno al contatore, del colore della cosa più urgente (CRM in /admin). */
+    badgeRing?: "warning" | "danger";
     /** Un lavoro in corso su questa voce: spinner 14 ambra, visibile anche collassata. */
     loading?: boolean;
     /** Testo accessibile dello spinner. */
@@ -77,21 +84,53 @@ export interface AppSidebarProps {
     headerSlot?: ReactNode;
     /** Contenuto opzionale reso in fondo alla nav, sopra il footer di collapse. */
     footerSlot?: ReactNode;
+    /**
+     * Le voci del piede (§51.12: Assistenza), fuori dallo scroll e uguali in
+     * tutti i contesti. Stanno nella stessa `nav` delle altre voci.
+     */
+    footerItems?: AppSidebarNavItem[];
+    /** Scritta accanto al tasto apri/chiudi quando la barra è aperta (CRM in /admin: «Chiudi la barra»). */
+    collapseLabel?: string;
 }
 
-function NavItemBody({ link, collapsedDesktop }: { link: AppSidebarNavItem; collapsedDesktop: boolean }) {
-    const tooltipLabel = link.locked ? `${link.label} · Pro` : link.label;
+/** Il contatore come si legge: oltre 99 diventa «99+». */
+function badgeText(badge: number | string): number | string {
+    return typeof badge === "number" && badge > 99 ? "99+" : badge;
+}
+
+function NavItemBody({ link }: { link: AppSidebarNavItem }) {
+    const hasSignal = link.loading || link.badge !== undefined || link.showDot;
     return (
         <>
-            {collapsedDesktop ? (
-                <Tooltip content={tooltipLabel} side="right" sideOffset={28}>
-                    <span className={styles.icon}>{link.icon}</span>
-                </Tooltip>
-            ) : (
+            <span className={styles.iconWrap}>
                 <span className={styles.icon}>{link.icon}</span>
-            )}
+                {/* Chiusa: il segnale sta sull'icona (il CSS lo mostra solo lì).
+                    Il testo accessibile è quello della coda, qui niente. */}
+                {hasSignal && (
+                    <span className={styles.miniSignal} aria-hidden="true">
+                        {link.loading ? (
+                            <span className={`${styles.spinner} ${styles.miniSpinner}`} />
+                        ) : link.badge !== undefined ? (
+                            <Text
+                                as="span"
+                                variant="caption-xs"
+                                weight={600}
+                                className={styles.miniBadge}
+                                data-tone={link.badgeTone ?? "neutral"}
+                                data-ring={link.badgeRing}
+                            >
+                                {badgeText(link.badge)}
+                            </Text>
+                        ) : (
+                            <span className={styles.navDot} />
+                        )}
+                    </span>
+                )}
+            </span>
 
-            <span className={styles.label}>{link.label}</span>
+            <Text as="span" variant="body-sm" className={styles.label}>
+                {link.label}
+            </Text>
 
             {link.locked && (
                 <Tooltip content="Pro" side="right" sideOffset={8}>
@@ -101,7 +140,7 @@ function NavItemBody({ link, collapsedDesktop }: { link: AppSidebarNavItem; coll
                 </Tooltip>
             )}
 
-            {(link.loading || link.badge !== undefined || link.showDot) && (
+            {hasSignal && (
                 <span className={styles.trailing}>
                     {link.loading && (
                         <span
@@ -112,9 +151,9 @@ function NavItemBody({ link, collapsedDesktop }: { link: AppSidebarNavItem; coll
                         />
                     )}
                     {link.badge !== undefined && (
-                        <Badge variant={link.badgeTone ?? "neutral"} className={styles.badge}>
-                            {typeof link.badge === "number" && link.badge > 99 ? "99+" : link.badge}
-                        </Badge>
+                        <span className={styles.badge} data-ring={link.badgeRing} data-tone={link.badgeTone ?? "neutral"}>
+                            <Badge variant={link.badgeTone ?? "neutral"}>{badgeText(link.badge)}</Badge>
+                        </span>
                     )}
                     {link.showDot && (
                         <span className={styles.navDot} title={link.dotLabel} aria-label={link.dotLabel} />
@@ -133,10 +172,105 @@ export function AppSidebar({
     onRequestClose,
     onToggleCollapse,
     headerSlot,
-    footerSlot
+    footerSlot,
+    footerItems = [],
+    collapseLabel
 }: AppSidebarProps) {
     const collapsedDesktop = !isMobile && collapsed;
     const { pathname } = useLocation();
+
+    const reduceMotion = useReducedMotion();
+
+    // C2: con più voci dell'altezza una sfumatura dice che c'è altro (in basso,
+    // e in alto dopo lo scorrimento); la voce attiva viene portata in vista.
+    const scrollRef = useRef<HTMLDivElement>(null);
+    const [fade, setFade] = useState({ top: false, bottom: false });
+    const updateFade = useCallback(() => {
+        const el = scrollRef.current;
+        if (!el) return;
+        const top = el.scrollTop > 1;
+        const bottom = el.scrollTop + el.clientHeight < el.scrollHeight - 1;
+        setFade(prev => (prev.top === top && prev.bottom === bottom ? prev : { top, bottom }));
+    }, []);
+    useEffect(() => {
+        const el = scrollRef.current;
+        if (!el) return;
+        updateFade();
+        const observer = new ResizeObserver(updateFade);
+        observer.observe(el);
+        return () => observer.disconnect();
+    }, [updateFade]);
+    useEffect(() => {
+        const active = scrollRef.current?.querySelector<HTMLElement>(`.${styles.active}`);
+        active?.scrollIntoView?.({ block: "nearest" });
+        updateFade();
+    }, [pathname, updateFade]);
+
+    /**
+     * Chiusa, il nome della voce passa al tooltip, sulla riga intera (mouse e
+     * focus: `onFocus` di React risale dal link). Il trigger è un contenitore:
+     * lo `Slot` di Radix trasformerebbe in stringa il `className` a funzione
+     * di `NavLink`.
+     */
+    const withTooltip = (link: AppSidebarNavItem, node: ReactNode, content?: ReactNode) =>
+        collapsedDesktop || content ? (
+            <Tooltip content={content ?? (link.locked ? `${link.label} · Pro` : link.label)} side="right" sideOffset={12}>
+                <span className={styles.tipAnchor}>{node}</span>
+            </Tooltip>
+        ) : (
+            node
+        );
+
+    const renderItem = (link: AppSidebarNavItem) => (
+        <li key={link.to}>
+            {link.disabled
+                ? withTooltip(
+                      link,
+                      <span className={`${styles.link} ${styles.disabled}`} aria-disabled="true" tabIndex={0}>
+                          <span className={styles.iconWrap}>
+                              <span className={styles.icon}>{link.icon}</span>
+                          </span>
+                          <Text as="span" variant="body-sm" className={styles.label}>
+                              {link.label}
+                          </Text>
+                      </span>,
+                      link.disabledHint ?? "In arrivo"
+                  )
+                : link.matchPrefixes?.some(p => pathname.startsWith(p))
+                  ? withTooltip(
+                        link,
+                        // Una voce che copre più pagine (Scheda: Orari, Sala…) è
+                        // la pagina corrente anche per chi legge lo schermo:
+                        // `NavLink` dà `aria-current` solo sul suo `to`.
+                        <Link
+                            to={link.to}
+                            aria-current="page"
+                            className={[styles.link, link.locked ? styles.locked : "", styles.active].join(" ")}
+                            onClick={() => {
+                                if (isMobile) onRequestClose();
+                            }}
+                        >
+                            <NavItemBody link={link} />
+                        </Link>
+                    )
+                  : withTooltip(
+                      link,
+                      <NavLink
+                          to={link.to}
+                          end={link.end}
+                          className={({ isActive }) =>
+                              [styles.link, link.locked ? styles.locked : "", isActive ? styles.active : ""].join(" ")
+                          }
+                          onClick={() => {
+                              if (isMobile) onRequestClose();
+                          }}
+                      >
+                          <NavItemBody link={link} />
+                      </NavLink>
+                  )}
+        </li>
+    );
+
     return (
         <>
             {isMobile && mobileOpen && (
@@ -150,17 +284,16 @@ export function AppSidebar({
             <motion.aside
                 className={[styles.sidebar, isMobile ? styles.mobile : styles.desktop].join(" ")}
                 data-collapsed={collapsed}
-                style={{ "--sidebar-collapsed": `${SIDEBAR_COLLAPSED}px` } as React.CSSProperties}
                 initial={false}
                 animate={{
                     width: collapsed ? SIDEBAR_COLLAPSED : SIDEBAR_EXPANDED,
                     x: isMobile && !mobileOpen ? -SIDEBAR_EXPANDED : 0
                 }}
+                // Solo la larghezza, breve e lineare (§51.15); il cassetto
+                // mobile scorre come prima. Movimento ridotto: nessuna transizione.
                 transition={{
-                    type: "spring",
-                    stiffness: 300,
-                    damping: 30,
-                    restDelta: 0.5
+                    width: { duration: reduceMotion ? 0 : 0.2, ease: "easeInOut" },
+                    x: reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 300, damping: 30, restDelta: 0.5 }
                 }}
                 aria-hidden={isMobile && !mobileOpen}
             >
@@ -183,92 +316,50 @@ export function AppSidebar({
                     </nav>
                 )}
 
-                <div className={styles.sidebarScroll}>
-                    <nav className={styles.nav} aria-label="Menu principale">
+                <nav className={styles.nav} aria-label="Menu principale">
+                    <div
+                        ref={scrollRef}
+                        className={styles.sidebarScroll}
+                        data-fade-top={fade.top || undefined}
+                        data-fade-bottom={fade.bottom || undefined}
+                        onScroll={updateFade}
+                    >
+                        {/* Fra i gruppi solo i titoli (aperta) e i loro trattini (chiusa), §51.15. */}
                         {groups.map((group, i) => (
-                            <Fragment key={i}>
-                                {/* Il titolo è il separatore: il divisore resta solo per i gruppi senza titolo. */}
-                                {i > 0 && !group.title && <div className={styles.groupDivider} role="separator" />}
-                                <div className={styles.group} role="group" aria-label={group.title}>
-                                    {group.title && (
-                                        <Text as="span" variant="caption-xs" weight={600} className={styles.groupTitle}>
-                                            {group.title}
-                                        </Text>
-                                    )}
-                                    <ul className={styles.list}>
-                                        {group.items.map(link =>
-                                            link.disabled ? (
-                                                <li key={link.to}>
-                                                    <Tooltip
-                                                        content={link.disabledHint ?? "In arrivo"}
-                                                        side="right"
-                                                        sideOffset={collapsedDesktop ? 28 : 12}
-                                                    >
-                                                        <span
-                                                            className={`${styles.link} ${styles.disabled}`}
-                                                            aria-disabled="true"
-                                                        >
-                                                            <span className={styles.icon}>{link.icon}</span>
-                                                            <span className={styles.label}>{link.label}</span>
-                                                        </span>
-                                                    </Tooltip>
-                                                </li>
-                                            ) : (
-                                                <li key={link.to}>
-                                                    <NavLink
-                                                        to={link.to}
-                                                        end={link.end}
-                                                        className={({ isActive }) =>
-                                                            [
-                                                                styles.link,
-                                                                isActive || link.matchPrefixes?.some(p => pathname.startsWith(p))
-                                                                    ? styles.active
-                                                                    : ""
-                                                            ].join(" ")
-                                                        }
-                                                        onClick={() => {
-                                                            if (isMobile) onRequestClose();
-                                                        }}
-                                                    >
-                                                        <NavItemBody link={link} collapsedDesktop={collapsedDesktop} />
-                                                    </NavLink>
-                                                </li>
-                                            )
-                                        )}
-                                    </ul>
-                                </div>
-                            </Fragment>
+                            <div key={i} className={styles.group} role="group" aria-label={group.title}>
+                                {group.title && <span className={styles.groupTitle}>{group.title}</span>}
+                                <ul className={styles.list}>{group.items.map(renderItem)}</ul>
+                            </div>
                         ))}
                         {footerSlot}
-                    </nav>
-                </div>
-
-                {!isMobile && (
-                    <div className={styles.collapseFooter}>
-                        <button
-                            type="button"
-                            className={styles.collapseToggle}
-                            onClick={onToggleCollapse}
-                            aria-label={
-                                collapsed ? "Espandi menù laterale" : "Comprimi menù laterale"
-                            }
-                            title={collapsed ? "Espandi" : "Comprimi"}
-                        >
-                            <span
-                                className={`${styles.toggleIcon} ${styles.toggleIconExpanded}`}
-                                aria-hidden="true"
-                            >
-                                <PanelLeftClose size={18} />
-                            </span>
-                            <span
-                                className={`${styles.toggleIcon} ${styles.toggleIconCollapsed}`}
-                                aria-hidden="true"
-                            >
-                                <PanelLeftOpen size={18} />
-                            </span>
-                        </button>
                     </div>
-                )}
+                    {(footerItems.length > 0 || !isMobile) && (
+                        <div className={styles.footer}>
+                            {footerItems.length > 0 && <ul className={styles.list}>{footerItems.map(renderItem)}</ul>}
+                            {!isMobile && (
+                                <button
+                                    type="button"
+                                    className={styles.collapseToggle}
+                                    data-labelled={collapseLabel && !collapsed ? "true" : undefined}
+                                    onClick={onToggleCollapse}
+                                    aria-label={collapsed ? "Espandi menù laterale" : "Comprimi menù laterale"}
+                                    title={collapsed ? "Espandi" : "Comprimi"}
+                                >
+                                    <span className={styles.iconWrap} aria-hidden="true">
+                                        <span className={styles.icon}>
+                                            {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+                                        </span>
+                                    </span>
+                                    {collapseLabel && !collapsed && (
+                                        <Text as="span" variant="body-sm" className={styles.toggleLabel}>
+                                            {collapseLabel}
+                                        </Text>
+                                    )}
+                                </button>
+                            )}
+                        </div>
+                    )}
+                </nav>
             </motion.aside>
         </>
     );
