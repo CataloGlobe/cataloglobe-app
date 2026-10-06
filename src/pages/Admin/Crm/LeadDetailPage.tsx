@@ -45,6 +45,7 @@ import { LostStageDialog } from "./LostStageDialog";
 import { ObjectionsCard } from "./ObjectionsCard";
 import { ReferredByCard } from "./ReferredByCard";
 import { StageLockDialog, type StageLockRequest } from "./StageLockDialog";
+import { StopExitDialog, type StopExitRequest } from "./StopExitDialog";
 import { VenueNameCard } from "./VenueNameCard";
 import { VenueNameCheckCard } from "./VenueNameCheckCard";
 import { LeadChat } from "./components/LeadChat";
@@ -91,6 +92,7 @@ export default function LeadDetailPage() {
     const [actionError, setActionError] = useState<string | null>(null);
     const [lostOpen, setLostOpen] = useState(false);
     const [lockRequest, setLockRequest] = useState<StageLockRequest | null>(null);
+    const [stopExit, setStopExit] = useState<StopExitRequest | null>(null);
     const [scheduleOpen, setScheduleOpen] = useState(false);
     const [activeCall, setActiveCall] = useState<CrmAppointment | null>(null);
     const [phoneTab, setPhoneTab] = useState<PhoneTab>("chat");
@@ -190,6 +192,10 @@ export default function LeadDetailPage() {
             if (!detail || stage === detail.venue.stage) return;
             if (stage === "perso") {
                 setLostOpen(true);
+                return;
+            }
+            if (detail.venue.stage === "perso" && detail.venue.lost_kind === "stop") {
+                setStopExit({ venueId: detail.venue.id, venueName: detail.venue.name, stage });
                 return;
             }
             if (needsStageLock(detail.venue.stage, stage, Boolean(detail.venue.stage_locked_at))) {
@@ -412,6 +418,15 @@ export default function LeadDetailPage() {
 
     const dialogs = (
         <>
+            <StopExitDialog
+                request={stopExit}
+                onClose={() => setStopExit(null)}
+                onMoved={request => {
+                    setStopExit(null);
+                    void reload();
+                    showToast({ message: `Spostato in ${CRM_STAGE_LABEL[request.stage]}.`, type: "success" });
+                }}
+            />
             <StageLockDialog
                 request={lockRequest}
                 onClose={() => setLockRequest(null)}

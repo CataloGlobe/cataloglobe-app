@@ -133,14 +133,17 @@ export async function moveCrmStage(
     venueId: string,
     stage: CrmStage,
     lost?: { kind: CrmLostKind; reason: string },
-    expectedStage?: CrmStage
+    expectedStage?: CrmStage,
+    options?: { confirmStop?: boolean }
 ): Promise<boolean> {
     const { data, error } = await supabase.rpc("crm_move_stage", {
         p_venue_id: venueId,
         p_stage: stage,
         p_lost_kind: lost?.kind ?? null,
         p_lost_reason: lost?.reason ?? null,
-        p_expected_stage: expectedStage ?? null
+        p_expected_stage: expectedStage ?? null,
+        // Solo dal dialogo di conferma: uscire da Perso (stop) senza è rifiutato.
+        p_confirm_stop: options?.confirmStop ?? false
     });
     if (error) throw error;
     return data === true;
@@ -241,18 +244,9 @@ export async function startCrmTelegramLink(displayName: string): Promise<string>
     return data as string;
 }
 
-/** Un solo assegnatario di default (indice unico parziale): prima si toglie, poi si mette. */
+/** Un solo assegnatario di default: la RPC toglie il vecchio e mette il nuovo nella stessa transazione. */
 export async function setCrmDefaultAssignee(userId: string): Promise<void> {
-    const { error: clearError } = await supabase
-        .from("crm_team_members")
-        .update({ is_default_assignee: false })
-        .eq("is_default_assignee", true)
-        .neq("user_id", userId);
-    if (clearError) throw clearError;
-    const { error } = await supabase
-        .from("crm_team_members")
-        .update({ is_default_assignee: true })
-        .eq("user_id", userId);
+    const { error } = await supabase.rpc("crm_set_default_assignee", { p_user_id: userId });
     if (error) throw error;
 }
 

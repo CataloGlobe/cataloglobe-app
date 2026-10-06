@@ -52,6 +52,7 @@ import { ImportMetaCsvDrawer } from "./ImportMetaCsvDrawer";
 import { SettingsDrawer } from "./SettingsDrawer";
 import { LostStageDialog } from "./LostStageDialog";
 import { StageLockDialog, type StageLockRequest } from "./StageLockDialog";
+import { StopExitDialog, type StopExitRequest } from "./StopExitDialog";
 import { PipelineBoard } from "./PipelineBoard";
 import { LeadSummaryView, LeadTrack, LeadViewsNav } from "./components/LeadParts";
 import { FerdinandoReportDrawer } from "./FerdinandoReportDrawer";
@@ -214,6 +215,7 @@ export default function LeadsPage() {
     const [actionError, setActionError] = useState<string | null>(null);
     const [lostVenueId, setLostVenueId] = useState<string | null>(null);
     const [lockRequest, setLockRequest] = useState<StageLockRequest | null>(null);
+    const [stopExit, setStopExit] = useState<StopExitRequest | null>(null);
     // `?aggiungi=1` (dal Cerca): il drawer si apre e il parametro se ne va.
     const [isAddOpen, setIsAddOpen] = useState(() => params.get("aggiungi") === "1");
     useEffect(() => {
@@ -314,6 +316,10 @@ export default function LeadsPage() {
         async (venue: CrmVenueListItem, stage: CrmStage) => {
             if (stage === "perso") {
                 setLostVenueId(venue.id);
+                return;
+            }
+            if (venue.stage === "perso" && venue.lost_kind === "stop") {
+                setStopExit({ venueId: venue.id, venueName: venue.name, stage });
                 return;
             }
             if (needsStageLock(venue.stage, stage, Boolean(venue.stage_locked_at))) {
@@ -515,6 +521,15 @@ export default function LeadsPage() {
                 onMoved={async () => {
                     reload();
                     showToast({ message: "Spostato in Perso.", type: "success" });
+                }}
+            />
+            <StopExitDialog
+                request={stopExit}
+                onClose={() => setStopExit(null)}
+                onMoved={request => {
+                    setStopExit(null);
+                    reload();
+                    showToast({ message: `${request.venueName}: ${CRM_STAGE_LABEL[request.stage]}.`, type: "success" });
                 }}
             />
             <StageLockDialog

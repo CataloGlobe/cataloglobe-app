@@ -81,6 +81,7 @@ export function crmErrorMessage(err: unknown): string {
     if (message.includes("invalid_text")) return "Il testo è vuoto o troppo lungo.";
     if (message.includes("stage_changed")) return "La fase del lead è cambiata: riapri la scheda.";
     if (message.includes("decision_not_allowed")) return "Questa bozza non si può più decidere così.";
+    if (message.includes("stop_confirm_required")) return "Ha chiesto di non essere contattato: per spostarlo serve una conferma.";
     if (message.includes("not_allowed")) return "Non hai i permessi per farlo.";
     return "Qualcosa non ha funzionato. Riprova.";
 }
