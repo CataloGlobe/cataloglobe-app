@@ -29,8 +29,6 @@ import {
 } from "@/services/supabase/catalogs";
 import { CardGrid, CardGridItem } from "@/components/ui/CardGrid/CardGrid";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
-import { Badge } from "@/components/ui/Badge/Badge";
-import { StyleSwatch } from "@/components/ui/StyleSwatch/StyleSwatch";
 import { listStyleSwatches, type V2Style } from "@/services/supabase/styles";
 import { useRuleAppearance } from "@/hooks/useRuleAppearance";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
@@ -372,37 +370,18 @@ export default function Catalogs() {
         return map;
     }, [appearance.index, catalogs, styleById]);
 
+    /** Solo lo stato, nella card e nell'elenco: il campione dello stile vive in Stili. */
     const usageBadge = (catalogId: string) => {
-        const usage = usageById.get(catalogId);
-        if (!usage) return undefined;
-        // Più stili sullo stesso menù (§50.13/1): il campione è il primo, il resto si conta.
-        return (
-            <span className={styles.badges}>
-                <StatusBadge variant={usage.tone} label={usage.label} />
-                {usage.moreStyles > 0 && (
-                    <Badge variant="neutral">{`+${usage.moreStyles} ${usage.moreStyles === 1 ? "stile" : "stili"}`}</Badge>
-                )}
-            </span>
-        );
-    };
-    /** Sulla card solo lo stato, in fondo (M2): lo stile lo dice l'elenco. */
-    const cardBadge = (catalogId: string) => {
         const usage = usageById.get(catalogId);
         return usage ? <StatusBadge variant={usage.tone} label={usage.label} /> : undefined;
     };
+    const cardBadge = usageBadge;
     // Le card: prima quelli attivi adesso, poi per nome (M2).
     const cardCatalogs = [...filteredCatalogs].sort(
         (a, b) =>
             Number(usageById.get(b.id)?.liveNow ?? false) - Number(usageById.get(a.id)?.liveNow ?? false) ||
             a.name.localeCompare(b.name, "it")
     );
-    const swatchOf = (catalogId: string, compact: boolean) => {
-        const usage = usageById.get(catalogId);
-        if (!usage?.style) return undefined;
-        const more = usage.moreStyles > 0 ? ` (+${usage.moreStyles} ${usage.moreStyles === 1 ? "stile" : "stili"})` : "";
-        return <StyleSwatch style={usage.style} compact={compact} label={`Stile ${usage.style.name}${more}`} />;
-    };
-
     /** «· 1 vuota»: le categorie che i clienti non vedono (#238). */
     const emptyText = (catalogId: string) => {
         const n = statsMap[catalogId]?.emptyCategoryCount ?? 0;
@@ -464,12 +443,9 @@ export default function Catalogs() {
                         {usageBadge(catalog.id)}
                     </span>
                 ) : (
-                    <span className={styles.nameCell}>
-                        {swatchOf(catalog.id, true)}
-                        <Text variant="body-sm" weight={600}>
-                            {catalog.name}
-                        </Text>
-                    </span>
+                    <Text variant="body-sm" weight={600}>
+                        {catalog.name}
+                    </Text>
                 )
         },
         {

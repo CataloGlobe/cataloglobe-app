@@ -692,18 +692,18 @@ test.describe("Menù — dove è attivo (§50.13)", () => {
         await expect(table.getByRole("row", { name: /Carta e2e/ })).toContainText("Attivo adesso in Centro e2e");
         await expect(table.getByRole("row", { name: /Pranzo e2e/ })).toContainText("Su 1 sede, non adesso");
         await expect(table.getByRole("row", { name: /Vuoto e2e/ })).toContainText("Non assegnato a nessuna sede");
-        // Lo swatch dello stile accanto al nome, dove una regola viva lo porta.
-        await expect(table.getByRole("row", { name: /Carta e2e/ }).getByRole("img", { name: "Stile Estate e2e" })).toBeVisible();
+        // Il campione dello stile vive solo in Stili: nell'elenco niente.
+        await expect(table.getByRole("row", { name: /Carta e2e/ }).getByRole("img", { name: /^Stile / })).toHaveCount(0);
     });
 
-    test("griglia: stato, categorie vuote e swatch dello stile sulla card", async ({ page }) => {
+    test("griglia: stato e categorie vuote sulla card, senza campione dello stile", async ({ page }) => {
         await openList(page);
         await page.getByRole("radio", { name: "Vista griglia" }).click();
         const carta = cardOf(page, "Carta e2e");
         await expect(carta).toContainText("Attivo adesso in Centro e2e");
         // Dessert non ha prodotti: il cliente non la vede, l'elenco lo dice.
         await expect(carta).toContainText(/7 categorie · 22 prodotti · 1 vuota/);
-        // M2: sulla card niente campione dello stile (resta nell'elenco).
+        // M2: sulla card niente campione dello stile.
         await expect(carta.getByRole("img", { name: /^Stile / })).toHaveCount(0);
         await expect(carta).not.toContainText("Creato il");
         // Pranzo: la sua regola è viva, la sede è sospesa.
@@ -716,7 +716,7 @@ test.describe("Menù — dove è attivo (§50.13)", () => {
         expect(names.findIndex(n => n.includes("Carta e2e"))).toBe(0);
     });
 
-    test("in onda con due stili: la card dice solo lo stato, l'elenco il campione e «+1 stile»", async ({ page }) => {
+    test("in onda con due stili: card ed elenco dicono solo lo stato", async ({ page }) => {
         await page.unrouteAll({ behavior: "ignoreErrors" });
         stub = await stubMenu(page, { twoStyles: true });
         await openList(page);
@@ -726,8 +726,9 @@ test.describe("Menù — dove è attivo (§50.13)", () => {
         await expect(carta).not.toContainText("+1 stile");
         await page.getByRole("radio", { name: "Vista lista" }).click();
         const row = main(page).getByRole("row").filter({ hasText: "Carta e2e" });
-        await expect(row).toContainText("+1 stile");
-        await expect(row.getByRole("img", { name: "Stile Estate e2e (+1 stile)" })).toBeVisible();
+        await expect(row).toContainText("Attivo adesso in 2 sedi");
+        await expect(row).not.toContainText("+1 stile");
+        await expect(row.getByRole("img", { name: /^Stile / })).toHaveCount(0);
     });
 
     test("dettaglio: la barra dice dove è attivo, il pannello nomina ogni sede e perché", async ({ page }) => {
