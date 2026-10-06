@@ -2,20 +2,21 @@
 // Righe a flex-wrap: su larghezze ridotte i campi vanno a capo invece di
 // sovrapporsi (bug chiuso: azioni Salva/Annulla in una colonna a width fissa
 // 80px pensata per un solo icon-button, non per due bottoni testuali).
+// PO1: righe con separatore (non riquadri), la riga per aggiungere in fondo.
 .list {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+
+    > * + * {
+        border-top: 1px solid var(--border);
+    }
 }
 
 .row {
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 10px 12px;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 8px;
+    padding: 10px 0;
 }
 
 .row .nameField {
@@ -47,10 +48,7 @@
     flex-wrap: wrap;
     align-items: center;
     gap: 8px;
-    padding: 10px 12px;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 8px;
+    padding: 10px 0;
 }
 
 // Su TextInput/NumberInput il className passato via `containerClassName` va

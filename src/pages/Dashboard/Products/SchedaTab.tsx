@@ -1,13 +1,15 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Button } from "@/components/ui/Button/Button";
 import { TextInput } from "@/components/ui/Input/TextInput";
-import { ImageUploadEditor } from "@/components/ui/ImageUploadEditor";
+import { ImageUploadEditor, type ImageUploadEditorControl } from "@/components/ui/ImageUploadEditor";
+import { IconButton } from "@/components/ui/Button/IconButton";
+import { Trash2 } from "lucide-react";
 import { Textarea } from "@/components/ui/Textarea/Textarea";
 import { Chip } from "@/components/ui/Chip/Chip";
 import { Badge } from "@/components/ui/Badge/Badge";
 import { Card } from "@/components/ui/Card/Card";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
-import { TranslationStatusBadge } from "@/components/ui/TranslationStatusBadge/TranslationStatusBadge";
+import { DescriptionTranslationRow } from "./components/DescriptionTranslationRow";
 import CharacteristicIcon from "@/components/ui/CharacteristicIcon/CharacteristicIcon";
 import AllergenIcon from "@/components/ui/AllergenIcon/AllergenIcon";
 import Text from "@/components/ui/Text/Text";
@@ -65,6 +67,8 @@ export function SchedaTab({ product, productId, tenantId, vertical, onNavigateTo
         onConsumed: businessOutlet?.refreshAiUsage
     });
 
+    const imageEditor = useRef<ImageUploadEditorControl>(null);
+    const hasImage = !image.removeImage && Boolean(image.visibleImageUrl);
     const [isAllergensDrawerOpen, setIsAllergensDrawerOpen] = useState(false);
     const [isIngredientsDrawerOpen, setIsIngredientsDrawerOpen] = useState(false);
     const [isCharacteristicsDrawerOpen, setIsCharacteristicsDrawerOpen] = useState(false);
@@ -87,6 +91,8 @@ export function SchedaTab({ product, productId, tenantId, vertical, onNavigateTo
     return (
         <div className={styles.stack}>
             <Card title="Informazioni">
+                {/* PS4: testi a sinistra, immagine a destra (300); sotto 1024 si impila. */}
+                <div className={styles.infoGrid}>
                 <div className={styles.fields}>
                     <TextInput
                         label="Nome"
@@ -117,35 +123,34 @@ export function SchedaTab({ product, productId, tenantId, vertical, onNavigateTo
                             />
                         </AiDescriptionField>
                         {isBaseProduct && product.description && (
-                            <div className={styles.translationRow}>
-                                <TranslationStatusBadge
-                                    tenantId={tenantId}
-                                    entityType="product"
-                                    entityId={productId}
-                                    field="description"
-                                    // Include la descrizione così il badge
-                                    // rifetcha (stale/pending) dopo un edit IT.
-                                    refreshKey={`${productId}:${product.description ?? ""}`}
-                                />
-                                <Button variant="ghost" size="sm" onClick={() => onNavigateToTab("translations")}>
-                                    Gestisci traduzioni
-                                </Button>
-                            </div>
+                            <DescriptionTranslationRow
+                                tenantId={tenantId}
+                                productId={productId}
+                                // Con la descrizione: dopo un salvataggio la
+                                // riga si ricarica (in corso, da rivedere).
+                                refreshKey={`${productId}:${product.description ?? ""}`}
+                                onOpenTranslations={() => onNavigateToTab("translations")}
+                            />
                         )}
                     </div>
+                </div>
 
                     {/* 4:3 = media geometrica dei tre contenitori pubblici reali
                         (card 1:1 sotto 1024px, card 4:3 sopra, ItemDetail 4:3):
                         dimezza lo scarto peggiore fra quel che si inquadra qui e
                         quel che vede il cliente. Cambiarlo qui NON basta: il
                         riquadro di ItemDetail deve restare lo stesso valore. */}
-                    <div className={styles.field}>
+                    <div className={styles.media}>
+                        <Text as="span" variant="body-sm" weight={600}>
+                            Immagine
+                        </Text>
                         <ImageUploadEditor
                             aspectRatio={4 / 3}
                             backgroundFillModes={["blur", "dominant", "color", "none"]}
                             maxSizeMB={10}
                             compressLongEdge={1280}
-                            fieldLabel="Immagine"
+                            hideHeader
+                            controlRef={imageEditor}
                             drawerTitle="Modifica immagine"
                             requiresConfirm={false}
                             initialSource={image.removeImage ? null : image.visibleImageUrl}
@@ -159,16 +164,33 @@ export function SchedaTab({ product, productId, tenantId, vertical, onNavigateTo
                                     image.setRemoveImage(false);
                                 }
                             }}
-                            onRemove={() => {
-                                image.setRemoveImage(true);
-                                image.setPendingImageFile(null);
-                            }}
                             removing={image.isSaving}
                         />
+                        {hasImage && (
+                            <div className={styles.mediaActions}>
+                                <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    onClick={() => imageEditor.current?.open()}
+                                    disabled={image.isSaving}
+                                >
+                                    Modifica
+                                </Button>
+                                <IconButton
+                                    icon={<Trash2 size={16} />}
+                                    aria-label="Rimuovi immagine"
+                                    variant="secondary"
+                                    size="sm"
+                                    onClick={() => {
+                                        image.setRemoveImage(true);
+                                        image.setPendingImageFile(null);
+                                    }}
+                                    disabled={image.isSaving}
+                                />
+                            </div>
+                        )}
                         <Text variant="body-sm" colorVariant="muted">
-                            {image.removeImage
-                                ? "L'immagine verrà rimossa al salvataggio."
-                                : "L'inquadratura (punto focale) viene riapplicata alle card e al dettaglio."}
+                            {image.removeImage ? "L'immagine verrà rimossa al salvataggio." : "Nelle card in 4:3"}
                         </Text>
                     </div>
                 </div>
@@ -179,6 +201,7 @@ export function SchedaTab({ product, productId, tenantId, vertical, onNavigateTo
                     title={allergenLabel}
                     badge={countBadge(selectedAllergens.length)}
                     actions={editAction(selectedAllergens.length, () => setIsAllergensDrawerOpen(true), allergens.loading)}
+                    empty={!allergens.loading && selectedAllergens.length === 0 ? "Nessun allergene dichiarato." : undefined}
                 >
                     {allergens.loading ? (
                         <Text variant="body-sm" colorVariant="muted">
@@ -207,6 +230,7 @@ export function SchedaTab({ product, productId, tenantId, vertical, onNavigateTo
                     title={ingredientLabel}
                     badge={countBadge(selectedIngredients.length)}
                     actions={editAction(selectedIngredients.length, () => setIsIngredientsDrawerOpen(true), ingredients.loading)}
+                    empty={!ingredients.loading && selectedIngredients.length === 0 ? "Nessun ingrediente." : undefined}
                 >
                     {ingredients.loading ? (
                         <Text variant="body-sm" colorVariant="muted">
@@ -247,6 +271,11 @@ export function SchedaTab({ product, productId, tenantId, vertical, onNavigateTo
                         () => setIsCharacteristicsDrawerOpen(true),
                         characteristics.loading
                     )}
+                    empty={
+                        !characteristics.loading && characteristics.draftIds.length === 0
+                            ? "Nessuna caratteristica."
+                            : undefined
+                    }
                 >
                     {characteristics.loading ? (
                         <Text variant="body-sm" colorVariant="muted">

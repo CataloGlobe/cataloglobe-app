@@ -1,0 +1,38 @@
+// La riga traduzioni sotto la descrizione (PS3): il riepilogo a sinistra,
+// il collegamento alla tab a destra.
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4) var(--space-12);
+}
+
+.summary {
+  min-width: 0;
+}
+
+// Bottone con l'aspetto di un collegamento: «Riprova», «Apri Traduzioni →».
+.link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--brand-primary);
+  font: inherit;
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    text-decoration: underline;
+  }
+
+  &:focus-visible {
+    outline: none;
+    border-radius: var(--radius-inner);
+    box-shadow: var(--shadow-focus);
+  }
+
+  &:disabled {
+    cursor: default;
+    opacity: 0.6;
+  }
+}

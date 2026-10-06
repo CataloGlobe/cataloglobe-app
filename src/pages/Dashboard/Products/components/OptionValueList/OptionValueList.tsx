@@ -299,7 +299,7 @@ export function OptionValueList({
                     <div className={styles.rowActions}>
                         <Button
                             type="button"
-                            variant="primary"
+                            variant="secondary"
                             size="sm"
                             className={styles.controlButton}
                             onClick={saveAdd}
