@@ -1,3 +1,4 @@
+import type { MediaFraming } from "@/services/supabase/featuredContents";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { arrayMove } from "@dnd-kit/sortable";
 import {
@@ -19,6 +20,9 @@ export type FeaturedProductDraftRow = {
     name: string;
     priceLabel: string | null;
     note: string;
+    /** Miniatura (EV7); null per i prodotti appena aggiunti dal picker. */
+    imageUrl: string | null;
+    imageFraming: MediaFraming | null;
 };
 
 type PriceSource = Pick<FeaturedPickerProduct, "base_price" | "option_groups">;
@@ -39,7 +43,9 @@ function fromSaved(row: FeaturedContentProductRow): FeaturedProductDraftRow {
         productId: row.product_id,
         name: row.products?.name ?? "Prodotto non trovato",
         priceLabel: priceLabelOf(row.products),
-        note: row.note ?? ""
+        note: row.note ?? "",
+        imageUrl: row.products?.image_url ?? null,
+        imageFraming: row.products?.image_framing ?? null
     };
 }
 
@@ -128,7 +134,9 @@ export function useFeaturedProductsDraft(featuredId: string | undefined, tenantI
                         productId: id,
                         name: product?.name ?? "Prodotto",
                         priceLabel: priceLabelOf(product),
-                        note: ""
+                        note: "",
+                        imageUrl: null,
+                        imageFraming: null
                     };
                 });
             return [...kept, ...added];

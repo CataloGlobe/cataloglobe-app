@@ -104,9 +104,27 @@ async function saveIfDraft(page: Page): Promise<void> {
     if (await save.isVisible().catch(() => false)) await save.click();
 }
 
+/** I prodotti stanno nel Contenuto, sotto i testi (EV7): la sezione si aspetta, non si apre. */
 async function openProductsTab(page: Page): Promise<void> {
-    const tab = page.getByRole("tab", { name: /^Prodotti/ });
-    await expect(tab).toBeEnabled({ timeout: 15_000 });
+    await expect(productsSection(page)).toBeVisible({ timeout: 15_000 });
+}
+
+function productsSection(page: Page): Locator {
+    return main(page).getByRole("table", { name: "Prodotti del contenuto" });
+}
+
+/** «Cambia tipo» (EV5): le quattro schede in un pannello, poi «Applica». */
+async function changeType(page: Page, label: "Annuncio" | "Evento" | "Promo" | "Bundle"): Promise<void> {
+    await main(page).getByRole("button", { name: "Cambia tipo" }).click();
+    const panel = dialog(page);
+    await panel.getByRole("radio", { name: new RegExp(`^${label}`) }).check();
+    await panel.getByRole("button", { name: "Applica" }).click();
+    await expect(panel).toHaveCount(0);
+}
+
+async function openUsageTab(page: Page): Promise<void> {
+    const tab = page.getByRole("tab", { name: "Utilizzo" });
+    await expect(tab).toBeVisible({ timeout: 15_000 });
     await tab.click();
 }
 
@@ -159,12 +177,20 @@ test.describe("In evidenza — elenco", () => {
         await openList(page);
         await page.getByRole("button", { name: "Crea contenuto" }).first().click();
         const drawer = dialog(page);
+        // EV4: il tipo si sceglie qui, con quattro schede; Annuncio di partenza.
+        const types = drawer.getByRole("group", { name: "Che cosa vuoi mettere in evidenza?" });
+        await expect(types.getByRole("radio")).toHaveCount(4);
+        await expect(types.getByRole("radio", { name: /^Annuncio/ })).toBeChecked();
+        await expect(types.getByText("con prodotti", { exact: true })).toHaveCount(2);
+        await types.getByRole("radio", { name: /^Promo/ }).check();
         await drawer.getByRole("textbox", { name: /^Titolo/ }).fill("Brunch e2e");
         await drawer.getByRole("textbox", { name: /^Nome interno/ }).fill("Brunch domenica e2e");
         await drawer.getByRole("button", { name: /^Crea/ }).click();
         await expect.poll(() => write(stub, "featured_contents.POST")?.body).toMatchObject({
             title: "Brunch e2e",
-            internal_name: "Brunch domenica e2e"
+            internal_name: "Brunch domenica e2e",
+            content_type: "promo",
+            pricing_mode: "per_item"
         });
         await expect(page).toHaveURL(/\/featured\/e2eef000-0000-4000-a000-000000000901(\?.*)?$/);
     });
@@ -270,7 +296,7 @@ test.describe("In evidenza — dettaglio", () => {
         patchFeatured(stub);
         await openContent(page, FEATURED.aperitivo);
         const { scope, commit } = await section(page, "type");
-        await scope.getByText("Bundle", { exact: true }).first().click();
+        await changeType(page, "Bundle");
         await scope.getByRole("spinbutton", { name: /^Prezzo/ }).or(scope.getByRole("textbox", { name: /^Prezzo/ })).first().fill("18");
         await commit();
         await expect.poll(() => write(stub, "featured_contents.PATCH")?.body).toMatchObject({
@@ -283,16 +309,15 @@ test.describe("In evidenza — dettaglio", () => {
     test("tipo: Annuncio toglie i prodotti", async ({ page }) => {
         patchFeatured(stub);
         await openContent(page, FEATURED.coppia);
-        const { scope, commit } = await section(page, "type");
-        await scope.getByText("Annuncio", { exact: true }).first().click();
+        const { commit } = await section(page, "type");
+        await changeType(page, "Annuncio");
         await commit();
         await expect.poll(() => write(stub, "featured_contents.PATCH")?.body).toMatchObject({
             content_type: "announcement",
             pricing_mode: "none",
             bundle_price: null
         });
-        const tab = page.getByRole("tab", { name: /^Prodotti/ });
-        await expect.poll(async () => (await tab.count()) === 0 || (await tab.isDisabled())).toBe(true);
+        await expect(productsSection(page)).toHaveCount(0);
     });
 
     test("bottone: testo e link https", async ({ page }) => {
@@ -307,13 +332,28 @@ test.describe("In evidenza — dettaglio", () => {
         });
     });
 
-    test("un annuncio non ha la tab Prodotti", async ({ page }) => {
+    test("un annuncio non ha la sezione Prodotti; le tab sono Contenuto e Utilizzo (EV8)", async ({ page }) => {
         await openContent(page, FEATURED.chiusura);
         await expect(main(page).getByText(/Siamo chiusi il 15 agosto/).or(main(page).getByRole("textbox", { name: /^Titolo/ })).first()).toBeVisible({
             timeout: 15_000
         });
-        const tab = page.getByRole("tab", { name: /^Prodotti/ });
-        expect((await tab.count()) === 0 || (await tab.isDisabled())).toBe(true);
+        await expect(page.getByRole("tab")).toHaveText(["Contenuto", "Utilizzo"]);
+        await expect(main(page).getByText("Tipo: Annuncio")).toBeVisible();
+        await expect(productsSection(page)).toHaveCount(0);
+        // «Prezzi: nessun prezzo» non c'è più (EV7).
+        await expect(main(page).getByText("nessun prezzo")).toHaveCount(0);
+    });
+
+    test("Promo e Bundle: le opzioni sono righe sopra i prodotti, con la miniatura (EV7)", async ({ page }) => {
+        await openContent(page, FEATURED.coppia);
+        await openProductsTab(page);
+        await expect(main(page).getByRole("switch", { name: "Mostra le immagini dei prodotti" })).toBeVisible();
+        await expect(main(page).getByRole("switch", { name: "Mostra il totale originale barrato" })).toBeVisible();
+        await expect(main(page).getByRole("spinbutton", { name: /^Prezzo del bundle/ })).toBeVisible();
+        // La sezione sta sotto i testi.
+        const title = await main(page).getByRole("textbox", { name: /^Titolo/ }).boundingBox();
+        const table = await productsSection(page).boundingBox();
+        expect(table!.y).toBeGreaterThan(title!.y);
     });
 
     test("contenuto che non esiste", async ({ page }) => {
@@ -340,7 +380,7 @@ test.describe("In evidenza — una pagina, un Salva (P8)", () => {
         await main(page).getByRole("textbox", { name: /^Sottotitolo/ }).fill("Solo il giovedì");
         await main(page).getByRole("textbox", { name: /^Testo del bottone/ }).fill("Prenota");
         await main(page).getByRole("textbox", { name: /^Link del bottone/ }).fill("https://example.com/prenota");
-        await main(page).getByText("Bundle", { exact: true }).click();
+        await changeType(page, "Bundle");
         await main(page).getByRole("spinbutton", { name: /^Prezzo/ }).fill("14");
         await page.getByRole("button", { name: "Salva", exact: true }).click();
         await expect.poll(() => writes(stub, "featured_contents.PATCH").length).toBe(1);
@@ -354,33 +394,36 @@ test.describe("In evidenza — una pagina, un Salva (P8)", () => {
         });
     });
 
-    test("cambiare tipo avvisa, la tab Prodotti segue la bozza e torna con Annulla", async ({ page }) => {
+    test("cambiare tipo avvisa, la sezione Prodotti segue la bozza e torna con Annulla", async ({ page }) => {
         await openContent(page, FEATURED.coppia);
-        await expect(page.getByRole("tab", { name: "Prodotti" })).toBeVisible({ timeout: 15_000 });
-        await main(page).getByText("Annuncio", { exact: true }).click();
-        await expect(main(page).getByText(/sparisce la sezione Prodotti/)).toBeVisible();
-        await expect(page.getByRole("tab", { name: "Prodotti" })).toHaveCount(0);
+        await openProductsTab(page);
+        await main(page).getByRole("button", { name: "Cambia tipo" }).click();
+        const panel = dialog(page);
+        await panel.getByRole("radio", { name: /^Annuncio/ }).check();
+        await expect(panel.getByText(/sparisce la sezione Prodotti/)).toBeVisible();
+        await panel.getByRole("button", { name: "Applica" }).click();
+        await expect(productsSection(page)).toHaveCount(0);
         await page.getByRole("button", { name: "Annulla", exact: true }).first().click();
         await page.getByRole("alertdialog").getByRole("button", { name: "Scarta" }).click();
-        await expect(page.getByRole("tab", { name: "Prodotti" })).toBeVisible();
+        await expect(productsSection(page)).toBeVisible();
         expect(stub.writes.filter(w => !w.key.startsWith("translation"))).toHaveLength(0);
     });
 
     test("il bundle senza prezzo non si salva", async ({ page }) => {
         await openContent(page, FEATURED.aperitivo);
         await expect(main(page).getByRole("textbox", { name: /^Titolo/ })).toBeVisible({ timeout: 15_000 });
-        await main(page).getByText("Bundle", { exact: true }).click();
+        await changeType(page, "Bundle");
         await page.getByRole("button", { name: "Salva", exact: true }).click();
         await expect(main(page).getByText("Inserisci il prezzo del bundle.")).toBeVisible();
         expect(writes(stub, "featured_contents.PATCH")).toHaveLength(0);
     });
 
-    test("?tab=products a freddo apre la tab Prodotti", async ({ page }) => {
+    test("?tab=products dei link vecchi apre il Contenuto, coi prodotti", async ({ page }) => {
         await openContent(page, FEATURED.coppia);
-        await expect(page.getByRole("tab", { name: "Prodotti" })).toBeVisible({ timeout: 15_000 });
+        await expect(page.getByRole("tab", { name: "Contenuto" })).toBeVisible({ timeout: 15_000 });
         await page.goto(page.url().replace(/(\?.*)?$/, "?tab=products"));
         await expect(main(page).getByText("Big Arch e2e")).toBeVisible({ timeout: 15_000 });
-        await expect(page.getByRole("tab", { name: "Prodotti" })).toHaveAttribute("aria-selected", "true");
+        await expect(page.getByRole("tab", { name: "Contenuto" })).toHaveAttribute("aria-selected", "true");
     });
 
     test("uscita con modifiche: la guardia chiede, «Annulla» resta", async ({ page }) => {
@@ -586,8 +629,9 @@ test.describe("In evidenza — dove e quando compare (§50.13)", () => {
         await expect(contentName(page, "Menu di coppia e2e")).toHaveCount(0);
     });
 
-    test("dettaglio: «Dove e quando compare», con la regola da aprire", async ({ page }) => {
+    test("dettaglio: «Dove e quando compare» nella tab Utilizzo, con la regola da aprire", async ({ page }) => {
         await openContent(page, FEATURED.coppia);
+        await openUsageTab(page);
         const rules = main(page).getByRole("list", { name: "Regole che lo mostrano" });
         await expect(rules).toBeVisible({ timeout: 15_000 });
         await expect(rules.getByRole("listitem")).toHaveCount(1);
@@ -598,6 +642,7 @@ test.describe("In evidenza — dove e quando compare (§50.13)", () => {
 
     test("dettaglio: senza regole lo dice, e porta a Programmazione", async ({ page }) => {
         await openContent(page, FEATURED.chiusura);
+        await openUsageTab(page);
         await expect(main(page).getByText("Nessuna regola lo mostra: esiste e nessun cliente lo vede.")).toBeVisible({ timeout: 15_000 });
         await expect(main(page).getByRole("link", { name: "Vai a Programmazione" })).toBeVisible();
     });
@@ -612,7 +657,7 @@ test.describe("In evidenza — larghezze", () => {
             await expect(contentName(page, "Menu di coppia e2e")).toBeVisible({ timeout: 15_000 });
             await noSideScroll(page);
             await openContent(page, FEATURED.coppia);
-            await expect(page.getByRole("tab", { name: /^Prodotti/ })).toBeVisible({ timeout: 15_000 });
+            await openProductsTab(page);
             await noSideScroll(page);
         });
     }

@@ -1,4 +1,7 @@
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
+import { FramedMedia } from "@/components/ui/FramedMedia";
+import { ProductPhotoPlaceholder } from "@/pages/Dashboard/Products/components/ProductPhotoPlaceholder";
+import { PRODUCT_IMAGE_DEFAULT_FRAMING } from "@/pages/Dashboard/Products/components/productImageFraming";
 import { Card } from "@/components/ui/Card/Card";
 import { Badge } from "@/components/ui/Badge/Badge";
 import { Button } from "@/components/ui/Button/Button";
@@ -37,6 +40,8 @@ type FeaturedProductsCardProps = {
     onRemove: (key: string) => void;
     /** Link alla pagina del prodotto (§49.1/3: il prodotto ha una pagina sola). */
     productUrl: (productId: string) => string;
+    /** Le opzioni del tipo (immagini, prezzo del bundle) come righe sopra l'elenco (EV7). */
+    options?: ReactNode;
 };
 
 /**
@@ -56,7 +61,8 @@ export function FeaturedProductsCard({
     onMove,
     onNoteChange,
     onRemove,
-    productUrl
+    productUrl,
+    options
 }: FeaturedProductsCardProps) {
     // Sul telefono la nota va sotto il nome (la colonna Nota esce, `hideOnPhone`).
     const isPhone = useMediaQuery("(max-width: 767px)");
@@ -111,9 +117,23 @@ export function FeaturedProductsCard({
                 width: "1fr",
                 cell: (_v, row) => (
                     <div className={styles.nameCell}>
-                        <Text variant="body-sm" weight={600} className={styles.ellipsis}>
-                            {row.name}
-                        </Text>
+                        <span className={styles.productLine}>
+                            <span className={styles.thumb}>
+                                {row.imageUrl ? (
+                                    <FramedMedia
+                                        source={row.imageUrl}
+                                        framing={row.imageFraming ?? PRODUCT_IMAGE_DEFAULT_FRAMING}
+                                        aspectRatio={null}
+                                        alt=""
+                                    />
+                                ) : (
+                                    <ProductPhotoPlaceholder small />
+                                )}
+                            </span>
+                            <Text variant="body-sm" weight={600} className={styles.ellipsis}>
+                                {row.name}
+                            </Text>
+                        </span>
                         {showPrice && row.priceLabel && (
                             <Text variant="caption" colorVariant="muted">
                                 {row.priceLabel}
@@ -170,6 +190,7 @@ export function FeaturedProductsCard({
                 )
             }
         >
+            {options && <div className={styles.options}>{options}</div>}
             {loadError ? (
                 <div className={styles.errorRow}>
                     <Text variant="body-sm" colorVariant="muted">
