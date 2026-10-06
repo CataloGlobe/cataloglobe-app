@@ -91,8 +91,9 @@ export const BusinessList: React.FC<BusinessListProps> = ({
             {
                 id: "status",
                 header: "Stato",
-                // S3: larga quanto la parola, il motivo della sospensione sotto.
-                width: "120px",
+                // S3: larga quanto la pillola «Pubblicata» più il padding (a 120 si
+                // troncava), il motivo della sospensione sotto.
+                width: "152px",
                 hideOnPhone: true,
                 cell: (_, business) =>
                     business.status === "inactive" ? (
