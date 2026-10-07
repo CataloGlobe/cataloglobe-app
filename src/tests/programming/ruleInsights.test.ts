@@ -90,6 +90,11 @@ describe("computeRuleInsights — «Adesso» e «Sovrascritta da» come il resol
         const everywhere = insightsFor([all, onlyY]);
         expect(everywhere.get("tutte")?.isOverridden).toBe(false);
         expect(everywhere.get("tutte")?.excludedActivityNames).toEqual(["Varedo"]);
+        // La riga ambra (T9b, PG5): in quale sede vince chi.
+        expect(everywhere.get("tutte")?.losingSeats).toEqual([
+            { activityId: "sede-y", activityName: "Varedo", winnerId: "solo-y", winnerName: "solo-y" }
+        ]);
+        expect(everywhere.get("solo-y")?.losingSeats).toBeUndefined();
     });
 
     it("days_of_week vuoto: fuori da «Adesso» (staging aaa845cf)", () => {
