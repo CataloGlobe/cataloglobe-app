@@ -1491,6 +1491,9 @@ test.describe("Programmazione — card «Adesso» e matrice", () => {
         await expect(centro).toContainText("Disponibilità");
         await expect(centro).toContainText(RULE_NAME.stagionali);
         await expect(blocks.getByRole("listitem")).toHaveCount(3);
-        await expect(drawer.getByRole("table", { name: "Cosa vede ogni sede" })).toHaveCount(0);
+        // Sotto 880 px SeatMatrix passa ai blocchi: lo dice il sottotitolo e
+        // nel pannello non resta nessuna tabella.
+        await expect(drawer.getByText("un blocco per sede, uno spazio per strato")).toBeVisible();
+        await expect(drawer.getByRole("table")).toHaveCount(0);
     });
 });
