@@ -44,7 +44,8 @@ const DUPLICATE_BLOCKED = "Salva o annulla le modifiche per duplicarla.";
 /**
  * Il dettaglio di una regola, uno per i quattro tipi (P8, §50.1 d), montato
  * sulle due rotte di sempre: `scheduling/:ruleId` e
- * `scheduling/featured/:ruleId`. Una regola in evidenza aperta dalla prima
+ * `scheduling/featured/:ruleId`, e sulle stesse dentro la sede
+ * (`locations/:activityId/programmazione/...`, T9b). Una regola in evidenza aperta dalla prima
  * passa alla seconda. Due corpi: menù, prezzi e disponibilità
  * (`AssociatedContentSection`) o contenuti in evidenza
  * (`FeaturedContentSection`); «Dove si applica» e «Quando» sono comuni.
@@ -54,7 +55,16 @@ const DUPLICATE_BLOCKED = "Salva o annulla le modifiche per duplicarla.";
  * `HeaderSaveAction`. Uscire con modifiche chiede (§27).
  */
 export default function RuleDetailPage() {
-    const { ruleId, businessId } = useParams<{ ruleId: string; businessId: string }>();
+    const { ruleId, businessId, activityId: routeActivityId } = useParams<{
+        ruleId: string;
+        businessId: string;
+        activityId?: string;
+    }>();
+    // Aperta dalla sede (T9b, PG7): stesso componente, base della sede, così
+    // header e «←» restano sulla sede.
+    const schedulingBase = routeActivityId
+        ? `/business/${businessId}/locations/${routeActivityId}/programmazione`
+        : `/business/${businessId}/scheduling`;
     const navigate = useNavigate();
     const location = useLocation();
     const [searchParams] = useSearchParams();
@@ -149,15 +159,14 @@ export default function RuleDetailPage() {
     // Una regola in evidenza ha la sua rotta; le altre la generica.
     useEffect(() => {
         if (!rule || !businessId) return;
-        const onFeaturedRoute = location.pathname.includes("/scheduling/featured/");
+        const onFeaturedRoute = location.pathname.includes("/featured/");
         if ((rule.rule_type === "featured") !== onFeaturedRoute) {
-            const path = rule.rule_type === "featured" ? `scheduling/featured/${rule.id}` : `scheduling/${rule.id}`;
-            navigate(`/business/${businessId}/${path}${location.search}`, { replace: true });
+            const path = rule.rule_type === "featured" ? `featured/${rule.id}` : rule.id;
+            navigate(`${schedulingBase}/${path}${location.search}`, { replace: true });
         }
-    }, [rule, businessId, location.pathname, location.search, navigate]);
+    }, [rule, businessId, location.pathname, location.search, navigate, schedulingBase]);
 
-    const listUrl = (type: string | null | undefined) =>
-        `/business/${businessId}/scheduling${type ? `?type=${type}` : ""}`;
+    const listUrl = (type: string | null | undefined) => `${schedulingBase}${type ? `?type=${type}` : ""}`;
     const backToList = listUrl(fromType ?? form?.ruleType ?? rule?.rule_type ?? "layout");
     const typeLabel = form ? ruleTypeLabel(form.ruleType, catalogLabel) : null;
     const title = form?.name || (status === "loading" ? "Caricamento regola..." : "Regola");
@@ -193,8 +202,8 @@ export default function RuleDetailPage() {
         if (isDirty || !rule) return;
         const newId = await detail.duplicate();
         if (!newId) return;
-        const path = rule.rule_type === "featured" ? `scheduling/featured/${newId}` : `scheduling/${newId}`;
-        navigate(`/business/${businessId}/${path}?fromType=${fromType ?? rule.rule_type}`);
+        const path = rule.rule_type === "featured" ? `featured/${newId}` : newId;
+        navigate(`${schedulingBase}/${path}?fromType=${fromType ?? rule.rule_type}`);
     };
 
     const remove = async (): Promise<boolean> => {
