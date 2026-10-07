@@ -7,6 +7,7 @@ import {
     ADMIN_ACTIONS,
     RESERVATION_ACTIONS,
     isAdminAction,
+    isConfirmOfExpiredRequest,
     isReservationAction,
     isTransitionAllowed,
     sendsCustomerEmail,
@@ -316,5 +317,42 @@ describe("respond-reservation — il gate email è cablato nell'handler", () => 
     it("il compare-and-set usa .in('status', …) sulla lista attesa", () => {
         expect(source).toContain('.in("status", expectedFrom)');
         expect(source).not.toContain('.eq("status", expectedFrom)');
+    });
+});
+
+// T19: una richiesta il cui giorno è passato (a Roma) non si conferma più:
+// partirebbe una mail «confermata» per una sera già finita. Rifiutarla sì.
+describe("isConfirmOfExpiredRequest", () => {
+    it("blocks confirm when the day is over", () => {
+        expect(isConfirmOfExpiredRequest("confirm", "2026-10-06", "2026-10-07")).toBe(true);
+    });
+
+    it("today and later can still be confirmed", () => {
+        expect(isConfirmOfExpiredRequest("confirm", "2026-10-07", "2026-10-07")).toBe(false);
+        expect(isConfirmOfExpiredRequest("confirm", "2026-10-08", "2026-10-07")).toBe(false);
+    });
+
+    it("decline of an expired request stays allowed", () => {
+        expect(isConfirmOfExpiredRequest("decline", "2026-10-01", "2026-10-07")).toBe(false);
+    });
+});
+
+describe("respond-reservation refuses to confirm an expired request", () => {
+    const SOURCE = readFileSync(
+        resolve(process.cwd(), "supabase/functions/respond-reservation/index.ts"),
+        "utf-8"
+    );
+
+    it("checks the Rome day before writing and answers RESERVATION_EXPIRED", () => {
+        const check = SOURCE.indexOf("isConfirmOfExpiredRequest(");
+        const update = SOURCE.indexOf(".update(");
+        expect(check).toBeGreaterThan(-1);
+        expect(check).toBeLessThan(update);
+        expect(SOURCE).toContain("isoDateInTimeZone(new Date())");
+        expect(SOURCE).toMatch(/errorResponse\(req, "RESERVATION_EXPIRED", 409/);
+    });
+
+    it("the confirm UPDATE is also guarded on the date (no race with an edit)", () => {
+        expect(SOURCE).toMatch(/\.gte\("reservation_date", today\)/);
     });
 });
