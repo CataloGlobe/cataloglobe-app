@@ -38,7 +38,13 @@
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { resolveRulesForActivity } from "./scheduleResolver.ts";
 import { getNowInRome } from "./schedulingNow.ts";
-import { availabilityLookupIds, findUnavailableProductIds } from "./orderAvailability.ts";
+import {
+    availabilityLookupIds,
+    buildOrderableProducts,
+    type CatalogLinkRow,
+    findUnavailableProductIds,
+    parentsWithAllVariants
+} from "./orderAvailability.ts";
 import { enforceOrderCaps } from "./orderCaps.ts";
 
 // ============================================================
@@ -370,7 +376,7 @@ async function _loadCatalogProductIds(
     // must not make its product orderable here.
     const { data, error } = await supabase
         .from("catalog_category_products")
-        .select("product_id, variant_product_id")
+        .select("category_id, product_id, variant_product_id")
         .eq("catalog_id", catalogId)
         .eq("tenant_id", tenantId);
 
@@ -382,16 +388,29 @@ async function _loadCatalogProductIds(
         );
     }
 
-    const ids = new Set<string>();
-    const parentByVariant = new Map<string, string>();
-    for (const row of (data ?? []) as Array<{ product_id: string; variant_product_id: string | null }>) {
-        ids.add(row.product_id);
-        if (row.variant_product_id) {
-            ids.add(row.variant_product_id);
-            parentByVariant.set(row.variant_product_id, row.product_id);
+    const rows = (data ?? []) as CatalogLinkRow[];
+
+    // A parent linked with no chosen variant shows all its variants on the
+    // public page (legacy catalogs): load them so they are orderable too.
+    const openParents = parentsWithAllVariants(rows);
+    let variantRows: Array<{ id: string; parent_product_id: string | null }> = [];
+    if (openParents.length > 0) {
+        const variants = await supabase
+            .from("products")
+            .select("id, parent_product_id")
+            .eq("tenant_id", tenantId)
+            .in("parent_product_id", openParents);
+        if (variants.error) {
+            throw new ValidateOrderItemsError(
+                "INTERNAL_ERROR",
+                "Impossibile leggere il catalogo attivo.",
+                { db_error: variants.error.message }
+            );
         }
+        variantRows = (variants.data ?? []) as typeof variantRows;
     }
-    return { ids, parentByVariant };
+
+    return buildOrderableProducts(rows, variantRows);
 }
 
 async function _checkAvailabilityOverrides(
