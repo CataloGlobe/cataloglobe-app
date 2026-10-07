@@ -41,6 +41,7 @@ const ICONS: Record<NavKey, ReactNode> = {
     catalogs: <Utensils size={20} />,
     products: <ChefHat size={20} />,
     scheduling: <CalendarClock size={20} />,
+    programmazione: <CalendarClock size={20} />,
     styles: <Palette size={20} />,
     featured: <Megaphone size={20} />,
     stories: <ScrollText size={20} />,
