@@ -22,7 +22,7 @@ import { useTenantId } from "@/context/useTenantId";
 import { useSedeScope } from "@/hooks/useSedeScope";
 import { usePermissions } from "@/context/usePermissions";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
-import { canDoOnActivity, canDoOnAnyActivity } from "@/lib/permissions";
+import { canDoOnActivity, canDoOnAnyActivity, canWriteRule, isTenantWide } from "@/lib/permissions";
 import { listActivityIdsByGroup } from "@/services/supabase/activity-groups";
 import { PageGate } from "@/components/PageGate/PageGate";
 import {
@@ -217,6 +217,9 @@ export default function Programming() {
         [readableSedi]
     );
     const canWrite = permissions ? canDoOnAnyActivity(permissions, "scheduling.write") : false;
+    // Crea (e duplica) solo chi gestisce tutte le sedi: per un ruolo di sede
+    // la creazione aspetta la RPC che crea regola e sedi insieme (T9b).
+    const canCreate = canWrite && permissions !== null && permissions !== undefined && isTenantWide(permissions);
     // Stessa regola di PageGate: sulla sede del filtro, se c'è.
     const canRead = permissions
         ? filterActivityId
@@ -376,6 +379,13 @@ export default function Programming() {
         return () => clearInterval(interval);
     }, []);
 
+    // Permesso regola per regola, come `can_write_schedule` (T9b): una regola
+    // che tocca anche sedi altrui resta in sola lettura.
+    const groupMembers = useMemo(() => new Map(Object.entries(activityIdsByGroupId)), [activityIdsByGroupId]);
+    const isRuleWritable = useCallback(
+        (rule: LayoutRule) => (permissions ? canWriteRule(permissions, rule, groupMembers) : false),
+        [groupMembers, permissions]
+    );
     const groupNameById = useMemo(
         () => new Map(activityGroups.map(group => [group.id, group.name])),
         [activityGroups]
@@ -687,7 +697,7 @@ export default function Programming() {
     const headerSplitActions = useMemo<SplitButtonAction[]>(() => {
         const actions: SplitButtonAction[] = [];
 
-        if (!canWrite) return actions;
+        if (!canCreate) return actions;
 
         const label = isCreating ? "Creazione..." : "Nuova regola";
         const disabled = !currentTenantId || isCreating || !canEdit;
@@ -708,7 +718,7 @@ export default function Programming() {
         );
 
         return actions;
-    }, [currentTenantId, canWrite, canEdit, catalogLabel, isCreating, ruleTypeFilter, handleCreateRule]);
+    }, [currentTenantId, canCreate, canEdit, catalogLabel, isCreating, ruleTypeFilter, handleCreateRule]);
 
     // Il filtro per tipo sta nella testata, nello slot delle tab come in
     // Prodotti e Sedi (F5); in compatto diventa il selettore di sezione.
@@ -839,7 +849,8 @@ export default function Programming() {
         onOpen: (rule: LayoutRule) => navigate(ruleHref(rule)),
         updatingIds: updatingRules,
         onToggleEnabled: canWrite ? handleToggleEnabled : undefined,
-        onDuplicate: canWrite ? handleDuplicate : undefined,
+        onDuplicate: canCreate ? handleDuplicate : undefined,
+        canWriteRule: isRuleWritable,
         onDelete: canWrite
             ? (id: string) => {
                   setRuleToDelete(id);
@@ -923,7 +934,7 @@ export default function Programming() {
                                         ruleType={ruleTypeFilter}
                                         onClick={openHelpModal}
                                     />
-                                    {canWrite && (
+                                    {canCreate && (
                                         ruleTypeFilter === "all" ? (
                                             <Menu
                                                 trigger={
