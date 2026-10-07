@@ -299,6 +299,18 @@ serve(async req => {
             promoMetadata = promo.metadata ?? null;
             isTrialNoCardCode = promo.metadata?.[TRIAL_NO_CARD_METADATA_KEY] === "true";
 
+            // A card-free trial code is only good for a tenant's first subscription
+            // (one trial per tenant, see `isFirstSubscription` below). Rejected like
+            // an unknown code: no silent fallback to the card-required checkout.
+            // Checked before the use count, so a returning tenant gets this
+            // answer (not `promo_code_used_up`) and no Stripe Search is spent.
+            if (isTrialNoCardCode && tenantData.stripe_subscription_id) {
+                console.warn(
+                    `stripe-checkout: trial_no_card code ${resolvedPromotionId} refused for tenant ${tenantId} (not first subscription)`
+                );
+                return json(req, 400, { error: "promo_code_invalid" });
+            }
+
             // Expiry and use limit, checked here and not left to Stripe: a
             // card-free code never has its coupon applied, so Stripe never
             // counts it nor refuses it once expired. We count the
@@ -322,16 +334,6 @@ serve(async req => {
                 );
                 return json(req, 400, { error: refusal });
             }
-        }
-
-        // A card-free trial code is only good for a tenant's first subscription
-        // (one trial per tenant, see `isFirstSubscription` below). Rejected like
-        // an unknown code: no silent fallback to the card-required checkout.
-        if (isTrialNoCardCode && tenantData.stripe_subscription_id) {
-            console.warn(
-                `stripe-checkout: trial_no_card code ${resolvedPromotionId} refused for tenant ${tenantId} (not first subscription)`
-            );
-            return json(req, 400, { error: "promo_code_invalid" });
         }
 
         // --- Fiscal profile for Stripe pre-fill (service_role, explicit tenant guard) ---
