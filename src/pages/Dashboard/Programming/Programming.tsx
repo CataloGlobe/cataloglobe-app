@@ -13,7 +13,6 @@ import { Menu } from "@/components/ui/Menu";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { ToolbarSearch } from "@/components/ui/ToolbarSearch/ToolbarSearch";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
-import { Select } from "@/components/ui/Select/Select";
 import { SplitButton, type SplitButtonAction } from "@/components/ui/SplitButton";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import Text from "@/components/ui/Text/Text";
@@ -42,6 +41,8 @@ import { countManualOverridesByActivity } from "@/services/supabase/activeCatalo
 import { toRomeDateTime } from "@/services/supabase/schedulingNow";
 import { buildScheduleMatrix } from "@/utils/scheduleMatrix";
 import { NowCard } from "./components/NowCard";
+import { CompanyNowCard } from "./components/CompanyNowCard";
+import { schedulingPath } from "./schedulingPaths";
 import { matrixLayers } from "./components/matrixLayers";
 import { RuleTable } from "./components/RuleTable";
 import { computeRuleInsights, toCompetitionRule } from "@/utils/ruleInsights";
@@ -147,10 +148,9 @@ export default function Programming() {
             rule.rule_type === "featured" ? `${schedulingBase}/featured/${rule.id}` : `${schedulingBase}/${rule.id}`,
         [schedulingBase]
     );
-    // Il nome della sede nella matrice: la sua pagina «Cosa vedono i clienti»
-    // (oggi «Disponibilità», §20.3).
-    const seatHref = useCallback(
-        (activityId: string) => `/business/${currentTenantId}/locations/${activityId}/cosa-vedono`,
+    // La Programmazione di una sede: dal chip della card e dal pannello (PG5).
+    const seatProgrammingHref = useCallback(
+        (activityId: string) => schedulingPath(currentTenantId ?? "", activityId, false),
         [currentTenantId]
     );
     const sedeScope = useSedeScope();
@@ -183,15 +183,13 @@ export default function Programming() {
 
     const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
     const [searchTerm, setSearchTerm] = useState("");
-    // Il filtro sede sta nella pagina (§51.11) ed è `?sede=<id>`: lo scrive il
-    // selettore qui sotto, ci arriva «Vai a Programmazione» da una pagina
-    // della sede. Una sede che chi guarda non legge si ignora; finché
-    // l'elenco non c'è vale quella dell'indirizzo.
+    // Niente filtro sede nella pagina d'azienda (T9b, PG5; superato §51.11):
+    // la sede si guarda da dentro la sede. Un vecchio link `?sede=<id>` porta
+    // alla Programmazione di quella sede.
     const sedeFromUrl = searchParams.get("sede");
-    const { isLoaded: sedeScopeLoaded } = sedeScope;
-    // Le sedi del filtro: quelle di cui chi guarda legge la Programmazione.
-    // Una sede senza `scheduling.read` chiuderebbe la pagina nel gate, e il
-    // filtro con lei.
+    // Le sedi di cui chi guarda legge la Programmazione: card, pannello e
+    // vecchi link. Una sede senza `scheduling.read` chiuderebbe la pagina nel
+    // gate.
     const readableSedi = useMemo(
         () =>
             permissions
@@ -199,30 +197,16 @@ export default function Programming() {
                 : [],
         [permissions, sedeScope.readableActivities]
     );
-    const filterActivityId = routeActivityId
-        ? routeActivityId
-        : !sedeFromUrl
-        ? null
-        : !sedeScopeLoaded || readableSedi.some(a => a.id === sedeFromUrl)
-          ? sedeFromUrl
-          : null;
-    const setFilterActivityId = useCallback(
-        (next: string | null) =>
-            setSearchParams(
-                prev => {
-                    const params = new URLSearchParams(prev);
-                    if (next) params.set("sede", next);
-                    else params.delete("sede");
-                    return params;
-                },
-                { replace: true }
-            ),
-        [setSearchParams]
-    );
-    const sedeFilterOptions = useMemo(
-        () => [{ value: "", label: "Tutte le sedi" }, ...readableSedi.map(a => ({ value: a.id, label: a.name }))],
-        [readableSedi]
-    );
+    const filterActivityId = routeActivityId ?? null;
+    useEffect(() => {
+        if (routeActivityId || !sedeFromUrl || !readableSedi.some(a => a.id === sedeFromUrl)) return;
+        const params = new URLSearchParams(searchParams);
+        params.delete("sede");
+        const query = params.toString();
+        navigate(`${seatProgrammingHref(sedeFromUrl)}${query ? `?${query}` : ""}`, { replace: true });
+    }, [navigate, readableSedi, routeActivityId, searchParams, seatProgrammingHref, sedeFromUrl]);
+    // Più sedi e nessuna sede nel path: la vista d'azienda (PG5).
+    const companyView = !routeActivityId && readableSedi.length > 1;
     const canWrite = permissions ? canDoOnAnyActivity(permissions, "scheduling.write") : false;
     // Crea (e duplica) solo chi gestisce tutte le sedi: per un ruolo di sede
     // la creazione aspetta la RPC che crea regola e sedi insieme (T9b).
@@ -420,35 +404,44 @@ export default function Programming() {
 
     // Sedi × strati adesso: la stessa resolveCompetition di «Sovrascritta
     // da», sulle regole già caricate.
+    // Solo le sedi di cui chi guarda legge la Programmazione (PG5).
+    const readableSediIds = useMemo(() => new Set(readableSedi.map(a => a.id)), [readableSedi]);
+    const seatActivities = useMemo(
+        () => activities.filter(a => readableSediIds.has(a.id)),
+        [activities, readableSediIds]
+    );
     const scheduleMatrix = useMemo(
         () =>
             buildScheduleMatrix({
                 rules,
-                activities,
+                activities: seatActivities,
                 activityIdsByGroupId,
                 manualCounts,
                 filterActivityId,
                 instant: nowRome,
                 subscriptionInactive
             }),
-        [activities, activityIdsByGroupId, filterActivityId, manualCounts, nowRome, rules, subscriptionInactive]
+        [activityIdsByGroupId, filterActivityId, manualCounts, nowRome, rules, seatActivities, subscriptionInactive]
     );
     const matrixCatalogName = useCallback((catalogId: string) => catalogById.get(catalogId)?.name, [catalogById]);
     const nowLayers = useMemo(
         () => matrixLayers({ atNow: true, catalogLabel, catalogName: matrixCatalogName, ruleHref }),
         [catalogLabel, matrixCatalogName, ruleHref]
     );
-    const [nowSeatId, setNowSeatId] = useState<string | null>(null);
-    const nowRow = scheduleMatrix.rows.find(row => row.activityId === nowSeatId) ?? scheduleMatrix.rows[0];
-    const nowSeatOptions = useMemo(
-        () => scheduleMatrix.rows.map(row => ({ value: row.activityId, label: row.name })),
-        [scheduleMatrix.rows]
-    );
+    // Con una sede sola, o dentro la sede, la matrice ha una riga.
+    const nowRow = scheduleMatrix.rows[0];
     const pad = (n: number) => String(n).padStart(2, "0");
     const nowTime = `${pad(nowRome.hour)}:${pad(nowRome.minute)}`;
     const showMoment = viewMode === "list" && !isLoading && !loadFailed && rules.length > 0 && scheduleMatrix.rows.length > 0;
-    // Il simulatore si apre sulla sede della card.
+    // Il pannello si apre sulla sede della card, già su «Simula»; da «Vedi
+    // tutte» sull'elenco delle sedi, fermo su adesso.
     const [simulatorSeatId, setSimulatorSeatId] = useState<string | null>(null);
+    const [simulatorSimulating, setSimulatorSimulating] = useState(false);
+    // Dentro una sede il pannello conosce solo quella.
+    const simulatorActivities = useMemo(
+        () => (routeActivityId ? seatActivities.filter(a => a.id === routeActivityId) : seatActivities),
+        [routeActivityId, seatActivities]
+    );
 
     const { activeRules, scheduledRules, draftRules, expiredRules, disabledRules } = useMemo(() => {
         const active: LayoutRule[] = [];
@@ -875,30 +868,31 @@ export default function Programming() {
         <PageGate readPermission="scheduling.read" activityId={filterActivityId}>
             {() => (
         <section className={styles.programming}>
-            {/* Il filtro sede della pagina (§51.11): matrice, elenco e
-                Settimana. Con una sede sola non c'è niente da filtrare. */}
-            {!routeActivityId && readableSedi.length > 1 && (
-                <div className={styles.sedeFilter}>
-                    <Select
-                        aria-label="Sede"
-                        value={filterActivityId ?? ""}
-                        onChange={e => setFilterActivityId(e.target.value || null)}
-                        options={sedeFilterOptions}
-                    />
-                </div>
+            {showMoment && companyView && (
+                <CompanyNowCard
+                    time={nowTime}
+                    rows={scheduleMatrix.rows}
+                    catalogLabel={catalogLabel}
+                    subscriptionInactive={subscriptionInactive}
+                    onSeatOpen={activityId => navigate(seatProgrammingHref(activityId))}
+                    onShowAll={() => {
+                        setSimulatorSeatId(null);
+                        setSimulatorSimulating(false);
+                        setIsSimulatorDrawerOpen(true);
+                    }}
+                />
             )}
-            {showMoment && nowRow && (
+            {showMoment && !companyView && nowRow && (
                 <NowCard
                     time={nowTime}
                     row={nowRow}
                     layers={nowLayers}
                     catalogLabel={catalogLabel}
                     highlight={ruleTypeFilter === "all" ? null : ruleTypeFilter}
-                    seatOptions={nowSeatOptions}
-                    onSeatChange={setNowSeatId}
                     subscriptionInactive={subscriptionInactive}
                     onSimulate={() => {
                         setSimulatorSeatId(nowRow.activityId);
+                        setSimulatorSimulating(true);
                         setIsSimulatorDrawerOpen(true);
                     }}
                 />
@@ -1039,14 +1033,15 @@ export default function Programming() {
                 open={isSimulatorDrawerOpen}
                 onClose={() => setIsSimulatorDrawerOpen(false)}
                 rules={rules}
-                activities={activities}
+                activities={simulatorActivities}
                 activityIdsByGroupId={activityIdsByGroupId}
                 catalogById={catalogById}
                 subscriptionInactive={subscriptionInactive}
                 ruleHref={ruleHref}
-                seatHref={seatHref}
+                seatProgrammingHref={seatProgrammingHref}
                 manualCounts={manualCounts}
                 initialActivityId={simulatorSeatId}
+                initialSimulating={simulatorSimulating}
                 helpRuleType={ruleTypeFilter}
                 helpRef={simulatorHelpRef}
                 onHowItWorks={() => {
