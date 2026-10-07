@@ -6,15 +6,20 @@
  * `getMonth`, `getDate`) — NEVER `new Date("YYYY-MM-DD")` which is parsed
  * as UTC and shifts by a day in timezones west of UTC.
  *
- * These primitives are intentionally pure and free of `Intl`: callers in
- * charge of localized formatting wrap them with their own
- * `Intl.DateTimeFormat` setup.
+ * These primitives are intentionally pure and free of `Intl` (except
+ * `todayIsoDate`, which reads the Rome day): callers in charge of localized
+ * formatting wrap them with their own `Intl.DateTimeFormat` setup.
  */
 
-/** Today's date in the browser's local timezone as `YYYY-MM-DD`. */
+import { romeDateString } from "./romeInstant";
+
+/**
+ * Today's date in Rome as `YYYY-MM-DD`: the venue's day, not the device's
+ * (T19). A manager whose phone is on another timezone still sees the
+ * restaurant's «oggi»; the boundary stays midnight.
+ */
 export function todayIsoDate(): string {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    return romeDateString(new Date());
 }
 
 /**
