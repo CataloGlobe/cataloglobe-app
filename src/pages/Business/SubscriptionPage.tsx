@@ -208,6 +208,9 @@ const CHECKOUT_ERROR_MESSAGES: Record<string, string> = {
         "Non siamo riusciti a verificare le sedi della tua azienda. Non ti è stato addebitato nulla: riprova tra qualche istante."
 };
 
+/** Errori che si correggono nei dati di fatturazione: il toast porta lì. */
+const BILLING_DETAILS_ERRORS = new Set(["invalid_vat_number", "missing_einvoice_recipient"]);
+
 /** Traduce i codici d'errore dell'edge di cambio abbonamento in messaggi UI. */
 function mapChangeError(err: unknown, activityCount: number, cap: number): string {
     const name = err instanceof Error ? err.name : "";
@@ -583,7 +586,11 @@ export default function SubscriptionPage() {
             } else {
                 showToast({
                     message: CHECKOUT_ERROR_MESSAGES[code] ?? "Errore nell'avvio del checkout. Riprova.",
-                    type: "error"
+                    type: "error",
+                    ...(BILLING_DETAILS_ERRORS.has(code) && {
+                        actionLabel: "Apri i dati di fatturazione",
+                        onAction: () => navigate(`/business/${selectedTenant.id}/settings`)
+                    })
                 });
             }
         } finally {
