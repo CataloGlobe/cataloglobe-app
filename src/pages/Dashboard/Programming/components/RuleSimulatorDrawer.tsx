@@ -207,6 +207,27 @@ export function RuleSimulatorDrawer({
             </Button>
         ) : null;
 
+    // In testa al pannello, sopra «Simula» e lo stato: da dove si torna e dove si va.
+    const seatRow = simActivityId ? matrix?.rows[0] : undefined;
+    const seatNav = seatRow ? (
+        <div className={styles.seatNav}>
+            {activities.length > 1 && (
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    leftIcon={<ArrowLeft size={16} aria-hidden />}
+                    onClick={() => setSimActivityId("")}
+                >
+                    Tutte le sedi
+                </Button>
+            )}
+            <Link to={seatProgrammingHref(seatRow.activityId)} className={styles.seatProgramming}>
+                Vai alla programmazione di {seatRow.name}
+                <ArrowRight size={16} aria-hidden />
+            </Link>
+        </div>
+    ) : null;
+
     const renderResult = () => {
         if (!selected || !matrix) {
             return <InlineBanner variant="error">{INVALID_DATE}</InlineBanner>;
@@ -244,22 +265,6 @@ export function RuleSimulatorDrawer({
 
         return (
             <>
-                <div className={styles.seatNav}>
-                    {activities.length > 1 && (
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            leftIcon={<ArrowLeft size={16} aria-hidden />}
-                            onClick={() => setSimActivityId("")}
-                        >
-                            Tutte le sedi
-                        </Button>
-                    )}
-                    <Link to={seatProgrammingHref(row.activityId)} className={styles.seatProgramming}>
-                        Vai alla programmazione di {row.name}
-                        <ArrowRight size={16} aria-hidden />
-                    </Link>
-                </div>
                 <LayerSteps row={row} layers={layers} catalogLabel={catalogLabel} narrow />
 
                 <Card
@@ -360,6 +365,7 @@ export function RuleSimulatorDrawer({
                 }
             >
                 <div className={styles.body}>
+                    {seatNav}
                     <div className={styles.fields}>
                         {simulating ? (
                             <>
