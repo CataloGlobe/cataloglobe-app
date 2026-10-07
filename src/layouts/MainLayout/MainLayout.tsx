@@ -43,7 +43,8 @@ const SEDE_PAGE_LABELS: Record<string, string | undefined> = {
     storico: "Storico",
     prenotazioni: "Prenotazioni",
     analitiche: "Analitiche",
-    recensioni: "Recensioni"
+    recensioni: "Recensioni",
+    programmazione: "Programmazione"
 };
 
 /** `/business/:businessId/locations/:activityId[/...]` — dentro una sede. */
