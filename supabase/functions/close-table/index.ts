@@ -43,6 +43,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { checkRateLimit, RateLimitExceededError } from "../_shared/rateLimit.ts";
+import { hasActivityPermission } from "../_shared/membershipCheck.ts";
 
 // ============================================================
 // Constants
@@ -76,6 +77,7 @@ interface CloseTableRequestBody {
 interface TableRow {
     id: string;
     tenant_id: string;
+    activity_id: string;
     deleted_at: string | null;
 }
 
@@ -183,7 +185,7 @@ async function _fetchTable(
 > {
     const { data, error } = await supabase
         .from("tables")
-        .select("id, tenant_id, deleted_at")
+        .select("id, tenant_id, activity_id, deleted_at")
         .eq("id", tableId)
         .maybeSingle();
     if (error) return { kind: "db_error", message: error.message };
@@ -336,6 +338,23 @@ serve(async (req: Request) => {
             });
         }
         if (!membership.member) {
+            return jsonResponse(403, {
+                code: "FORBIDDEN",
+                message: "Operazione non autorizzata su questo tavolo."
+            });
+        }
+
+        // ── Permission check (CG-11): tables.manage SULLA sede del tavolo ──
+        // L'appartenenza al tenant non basta: un viewer, o lo staff della
+        // sede A sui tavoli della sede B, non deve poter chiudere un tavolo
+        // (e consegnare o annullare i suoi ordini aperti).
+        const canManage = await hasActivityPermission(
+            supabaseUser,
+            "tables.manage",
+            tableFetch.row.activity_id,
+            "close-table"
+        );
+        if (!canManage) {
             return jsonResponse(403, {
                 code: "FORBIDDEN",
                 message: "Operazione non autorizzata su questo tavolo."
