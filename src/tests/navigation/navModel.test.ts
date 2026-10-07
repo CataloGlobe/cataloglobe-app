@@ -104,9 +104,9 @@ describe("NAV_MODELS — gruppi e ordine (§51.5)", () => {
         expect(NAV_MODELS.azienda.footer.map(e => e.label)).toEqual(["Impostazioni", "Assistenza"]);
     });
 
-    it("sede: il locale, il lavoro in sala, i risultati della sede", () => {
+    it("sede: il locale con la sua Programmazione, il lavoro in sala, i risultati della sede", () => {
         expect(shape("sede")).toEqual([
-            ["Il locale", ["Scheda", "Cosa vedono i clienti"]],
+            ["Il locale", ["Scheda", "Cosa vedono i clienti", "Programmazione"]],
             ["Operatività", ["Servizio", "Prenotazioni", "Comande", "Storico"]],
             ["Andamento", ["Analitiche", "Recensioni"]]
         ]);
@@ -156,6 +156,7 @@ describe("canSeeNavEntry — i permessi di oggi, sulla sede dentro la sede", () 
         expect(voci("sede", manager([SEDE]), SEDE)).toEqual([
             "Scheda",
             "Cosa vedono i clienti",
+            "Programmazione",
             "Servizio",
             "Prenotazioni",
             "Comande",
@@ -164,6 +165,15 @@ describe("canSeeNavEntry — i permessi di oggi, sulla sede dentro la sede", () 
             "Recensioni",
             "Assistenza"
         ]);
+    });
+
+    it("Programmazione della sede: chi legge le regole della sede, non lo staff (T9b)", () => {
+        expect(voci("sede", viewer(), SEDE)).toContain("Programmazione");
+        expect(voci("sede", staff(), SEDE)).not.toContain("Programmazione");
+        expect(voci("sede", viewer([ALTRA]), SEDE)).not.toContain("Programmazione");
+        const entry = NAV_MODELS.sede.groups.flatMap(g => g.entries).find(e => e.label === "Programmazione")!;
+        expect(entry.level).toBe("sede");
+        expect(entry.segment).toBe("programmazione");
     });
 
     it("owner vede tutto, nei tre contesti", () => {
