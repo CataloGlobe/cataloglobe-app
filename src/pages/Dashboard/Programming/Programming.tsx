@@ -149,11 +149,12 @@ export default function Programming() {
         [schedulingBase]
     );
     // La Programmazione di una sede: dal chip della card e dal pannello (PG5).
-    const seatProgrammingHref = useCallback(
-        (activityId: string) => schedulingPath(currentTenantId ?? "", activityId, false),
-        [currentTenantId]
-    );
     const sedeScope = useSedeScope();
+    // Con una sede sola la Programmazione è quella d'azienda (`schedulingPath`).
+    const seatProgrammingHref = useCallback(
+        (activityId: string) => schedulingPath(currentTenantId ?? "", activityId, sedeScope.isForcedSingleSite),
+        [currentTenantId, sedeScope.isForcedSingleSite]
+    );
     const { permissions } = usePermissions();
     // `canEdit` usa la stessa allowlist (trialing|active|past_due) di
     // VALID_SUBSCRIPTION_STATUSES in resolve-public-catalog: se è false la
