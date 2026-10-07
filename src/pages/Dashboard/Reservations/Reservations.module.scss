@@ -164,6 +164,10 @@
   flex-wrap: wrap;
 }
 
+.agendaNavInline {
+  flex-wrap: nowrap;
+}
+
 .weekNav {
   display: inline-flex;
   align-items: center;

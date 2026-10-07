@@ -117,10 +117,19 @@ export function ReservationsAgendaPage() {
     });
     const { effectiveReservations, handleOpenCreate, canManageActivity, loadData } = desk;
 
-    const pageActions = useMemo(
-        () => (
+    // Due versioni delle azioni: piena e con la ricerca stretta (stesso
+    // placeholder, che è anche il nome accessibile del campo). La banda usa
+    // la prima che sta in riga con Giorni/Settimana e le date (a 1280 con la
+    // sidebar aperta ci sta solo la stretta), poi passa a due righe.
+    const renderPageActions = useCallback(
+        (step: 0 | 1) => (
             <div className={styles.toolbarActions}>
-                <ToolbarSearch value={searchInput} onChange={setSearchInput} placeholder={SEARCH_PLACEHOLDER} />
+                <ToolbarSearch
+                    value={searchInput}
+                    onChange={setSearchInput}
+                    placeholder={SEARCH_PLACEHOLDER}
+                    width={step === 1 ? "min" : "default"}
+                />
                 <Select
                     containerClassName={styles.toolbarChannelSelect}
                     value={channelFilter}
@@ -142,6 +151,8 @@ export function ReservationsAgendaPage() {
         ),
         [canCreate, channelFilter, handleOpenCreate, searchInput]
     );
+    const pageActions = useMemo(() => renderPageActions(0), [renderPageActions]);
+    const pageNarrowerActions = useMemo(() => [renderPageActions(1)], [renderPageActions]);
 
     // ── Sites the caller can READ ─────────────────────────────────────
     // Una regola sola per «quali sedi posso leggere»: quella dello scope
@@ -171,6 +182,7 @@ export function ReservationsAgendaPage() {
         () =>
             isPhone || isSearchActive ? undefined : (
                 <AgendaNav
+                    inline
                     mode={agendaMode}
                     onModeChange={setAgendaMode}
                     weekOffset={weekOffset}
@@ -248,8 +260,11 @@ export function ReservationsAgendaPage() {
     );
 
     const headerConfig = useMemo(
-        () => (isLocked ? null : { leading: pageLeading, actions: pageActions, compact: headerCompact }),
-        [isLocked, pageLeading, pageActions, headerCompact]
+        () =>
+            isLocked
+                ? null
+                : { leading: pageLeading, actions: pageActions, narrowerActions: pageNarrowerActions, compact: headerCompact },
+        [isLocked, pageLeading, pageActions, pageNarrowerActions, headerCompact]
     );
     usePageHeader(headerConfig);
 

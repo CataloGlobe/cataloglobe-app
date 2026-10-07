@@ -153,12 +153,9 @@ async function press(toggle: Locator): Promise<void> {
  * spuntata (un clic la toglierebbe).
  */
 async function checkInPanel(scope: Locator, name: string): Promise<void> {
+    // Spunta nativa accanto al nome (D8): basta spuntarla.
     const box = scope.getByRole("checkbox", { name });
-    if (!(await box.isChecked())) {
-        // Due `label` puntano all'input (il nome e il riquadro): basta il nome.
-        const id = await box.getAttribute("id");
-        await scope.page().locator(`label[for="${id}"]`).first().click();
-    }
+    await box.check();
     await expect(box).toBeChecked();
 }
 

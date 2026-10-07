@@ -29,4 +29,6 @@
   box-sizing: border-box;
   height: var(--control-height);
   line-height: 1;
+  // In larghezza minima un placeholder lungo finisce con «…», non a metà parola.
+  text-overflow: ellipsis;
 }

@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/Button/Button";
 import { Chip } from "@/components/ui/Chip/Chip";
-import { CheckboxInput } from "@/components/ui/Input/CheckboxInput";
 import { ToolbarSearch } from "@/components/ui/ToolbarSearch/ToolbarSearch";
 import Text from "@/components/ui/Text/Text";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
@@ -143,34 +142,27 @@ export function ChipPicker({
                                                     {option.thumbnailUrl && <img src={option.thumbnailUrl} alt="" />}
                                                 </span>
                                             )}
-                                            {single ? (
-                                                <label className={styles.radio}>
-                                                    <input
-                                                        type="radio"
-                                                        name={`chip-picker-${title}`}
-                                                        checked={checked}
-                                                        onChange={() => toggle(option.id)}
-                                                    />
-                                                    <span className={styles.itemText}>
-                                                        <Text as="span" variant="body-sm" weight={500}>
-                                                            {option.name}
-                                                        </Text>
-                                                        {option.meta && (
-                                                            <Text as="span" variant="caption" colorVariant="muted">
-                                                                {option.meta}
-                                                            </Text>
-                                                        )}
-                                                    </span>
-                                                </label>
-                                            ) : (
-                                                <CheckboxInput
-                                                    label={option.name}
-                                                    description={option.meta}
+                                            {/* Spunta o radio accanto al nome, come nelle altre liste a
+                                                spunta (D8): con CheckboxInput il nome finiva sopra il
+                                                quadratino, come etichetta del campo. */}
+                                            <label className={styles.choice}>
+                                                <input
+                                                    type={single ? "radio" : "checkbox"}
+                                                    name={single ? `chip-picker-${title}` : undefined}
                                                     checked={checked}
                                                     onChange={() => toggle(option.id)}
-                                                    containerClassName={styles.check}
                                                 />
-                                            )}
+                                                <span className={styles.itemText}>
+                                                    <Text as="span" variant="body-sm" weight={500}>
+                                                        {option.name}
+                                                    </Text>
+                                                    {option.meta && (
+                                                        <Text as="span" variant="caption" colorVariant="muted">
+                                                            {option.meta}
+                                                        </Text>
+                                                    )}
+                                                </span>
+                                            </label>
                                             {option.badge}
                                         </li>
                                     );
