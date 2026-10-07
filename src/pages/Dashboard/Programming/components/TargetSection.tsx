@@ -64,7 +64,8 @@ export function TargetSection({
     ];
 
     return (
-        <section className={styles.sectionCard}>
+        // `id`: «Modifica sedi» della barra della regola condivisa ci porta qui (PG7).
+        <section id="rule-targets" className={styles.sectionCard}>
             <Text as="h3" variant="title-sm">
                 Dove si applica
             </Text>
