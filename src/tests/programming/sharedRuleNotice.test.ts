@@ -33,6 +33,12 @@ describe("sharedRuleNotice", () => {
         );
     });
 
+    it("una sede che chi guarda non vede conta lo stesso, senza nome", () => {
+        expect(sharedRuleNotice(rule({ activityIds: ["g", "x"] }), "g", sedi, groups)).toBe(
+            "Vale per Garbagnate e anche per un'altra sede: se la cambi, cambia in entrambe."
+        );
+    });
+
     it("tutte le sedi", () => {
         expect(sharedRuleNotice(rule({ applyToAll: true }), "c", sedi, groups)).toBe(
             "Vale per tutte le sedi: se la cambi, cambia anche fuori da Comasina."
