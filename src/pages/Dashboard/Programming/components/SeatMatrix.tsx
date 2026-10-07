@@ -1,5 +1,4 @@
 import { useLayoutEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
 import { Card } from "@/components/ui/Card/Card";
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
@@ -16,7 +15,8 @@ type SeatMatrixProps = {
     catalogLabel: string;
     catalogName: (catalogId: string) => string | undefined;
     ruleHref: (rule: { id: string; rule_type: RuleType }) => string;
-    seatHref: (activityId: string) => string;
+    /** Toccando una sede il pannello mostra i suoi passaggi (PG5). */
+    onSeatSelect: (activityId: string) => void;
 };
 
 /**
@@ -31,7 +31,7 @@ const MATRIX_TABLE_MIN_WIDTH = 880;
  * chi vince nell'ora del cursore e, dove non vince nessuno, perché. La sede
  * sospesa resta leggibile, spenta.
  */
-export function SeatMatrix({ rows, atNow, catalogLabel, catalogName, ruleHref, seatHref }: SeatMatrixProps) {
+export function SeatMatrix({ rows, atNow, catalogLabel, catalogName, ruleHref, onSeatSelect }: SeatMatrixProps) {
     // Quando sei colonne non stanno, un blocco per sede con gli strati su due
     // colonne (mockup telefono).
     const boxRef = useRef<HTMLDivElement>(null);
@@ -49,9 +49,9 @@ export function SeatMatrix({ rows, atNow, catalogLabel, catalogName, ruleHref, s
 
     const seatCell = (row: MatrixRow<LayoutRule>) => (
         <div className={styles.cell}>
-            <Link to={seatHref(row.activityId)} className={styles.seatLink}>
+            <button type="button" className={styles.seatLink} onClick={() => onSeatSelect(row.activityId)}>
                 {row.name}
-            </Link>
+            </button>
             {row.suspended && <StatusBadge variant="neutral" label="Sospesa" />}
         </div>
     );
