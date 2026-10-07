@@ -120,7 +120,11 @@ async function searchFor(page: Page, text: string): Promise<void> {
 
 /** Il simulatore si apre dalla card «Adesso» (PG4): «Simula un altro momento». */
 async function openSimulator(page: Page): Promise<Locator> {
-    await main(page).getByRole("button", { name: "Simula un altro momento" }).click();
+    // Tornando indietro da un dettaglio il simulatore si riapre da solo: si usa quello.
+    const reopened = page.getByRole("dialog").filter({ has: page.getByRole("heading", { name: /Simula/ }) });
+    if ((await reopened.count()) === 0) {
+        await main(page).getByRole("button", { name: "Simula un altro momento" }).click();
+    }
     const drawer = dialog(page);
     await expect(drawer.getByRole("heading", { name: /Simula/ })).toBeVisible();
     return drawer;
@@ -141,6 +145,21 @@ async function press(toggle: Locator): Promise<void> {
     const id = await toggle.getAttribute("id");
     const label = id ? toggle.page().locator(`label[for="${id}"]`) : toggle;
     await label.click();
+}
+
+/**
+ * Spunta una sede nel pannello del ChipPicker (RG1). Il `CheckboxInput` ha
+ * l'input coperto dal suo riquadro: si clicca la label, e solo se non è già
+ * spuntata (un clic la toglierebbe).
+ */
+async function checkInPanel(scope: Locator, name: string): Promise<void> {
+    const box = scope.getByRole("checkbox", { name });
+    if (!(await box.isChecked())) {
+        // Due `label` puntano all'input (il nome e il riquadro): basta il nome.
+        const id = await box.getAttribute("id");
+        await scope.page().locator(`label[for="${id}"]`).first().click();
+    }
+    await expect(box).toBeChecked();
 }
 
 /**
@@ -591,7 +610,7 @@ test.describe("Programmazione — settimana, simulatore, guida", () => {
             if (request.url().includes("/rest/v1/")) reads.push(request.url());
         });
         await drawer.getByRole("combobox", { name: /Sede/ }).selectOption({ label: "Centro e2e" });
-        await drawer.getByLabel("Ora", { exact: true }).fill("19:00");
+        await drawer.getByLabel(/^Ora\b/).fill("19:00");
         await expect(drawer.getByRole("list", { name: "Cosa vede Centro e2e" })).toBeVisible();
         expect(reads).toEqual([]);
     });
@@ -601,8 +620,13 @@ test.describe("Programmazione — settimana, simulatore, guida", () => {
         const guide = await openGuide(page);
         await expect(guide.getByRole("heading", { name: "Come funzionano le regole di menù e stile" })).toBeVisible();
         await expect(guide).not.toContainText(/layout|target/i);
-        await guide.getByRole("button", { name: "Chiudi" }).last().click();
-        await dialog(page).getByRole("button", { name: "Chiudi" }).last().click();
+        // Si chiude la guida e il pannello sotto, uno alla volta e aspettando
+        // che ognuno sparisca: la testata di un pannello ancora aperto (o in
+        // uscita) coprirebbe le tab.
+        for (let open = await page.getByRole("dialog").count(); open > 0; open--) {
+            await dialog(page).getByRole("button", { name: "Chiudi" }).last().click();
+            await expect(page.getByRole("dialog")).toHaveCount(open - 1);
+        }
         await chooseType(page, /Menù e stile/, /In evidenza/);
         const featured = await openGuide(page);
         await expect(featured).toContainText("Sopra il menù");
@@ -715,8 +739,8 @@ test.describe("Programmazione — fuori dal fuso di Roma", () => {
     test("il simulatore parte dall'ora di Roma e l'andamento dalla sua mezzanotte", async ({ page }) => {
         await openList(page);
         const drawer = await openSimulator(page);
-        await expect(drawer.getByLabel("Giorno", { exact: true })).toHaveValue("2026-09-23");
-        await expect(drawer.getByLabel("Ora", { exact: true })).toHaveValue("01:00");
+        await expect(drawer.getByLabel(/^Giorno\b/)).toHaveValue("2026-09-23");
+        await expect(drawer.getByLabel(/^Ora\b/)).toHaveValue("01:00");
         await drawer.getByRole("combobox", { name: /Sede/ }).selectOption({ label: "Centro e2e" });
         await drawer.getByRole("button", { name: "Mostra Andamento della giornata" }).click();
         // Mercoledì a Centro il pranzo vale dalle 11 alle 15 di Roma.
@@ -870,7 +894,8 @@ test.describe("Programmazione — dettaglio", () => {
         await expect(main(page).getByText(/^Sola lettura: per modificare le regole/)).toBeVisible();
         await expect(main(page).getByRole("textbox", { name: /Nome/ })).toBeDisabled();
         await expect(main(page).getByRole("switch", { name: "In certi giorni" })).toBeDisabled();
-        await expect(main(page).getByRole("group", { name: "Sedi disponibili" }).getByRole("checkbox", { name: "Centro e2e" })).toBeDisabled();
+        // Sedi come chip (RG1): in sola lettura il pannello non si apre.
+        await expect(main(page).getByRole("button", { name: "Modifica sedi" })).toBeDisabled();
         await expect(page.getByRole("button", { name: "Salva", exact: true })).toHaveCount(0);
         await page.getByRole("navigation", { name: "Menu principale" }).getByRole("link", { name: "Prodotti" }).click();
         await expect(page).toHaveURL(/\/products/);
@@ -909,7 +934,7 @@ test.describe("Programmazione — dettaglio", () => {
         await expect(sedi.getByRole("checkbox", { name: "Centro e2e" })).toBeChecked();
         // La sede sospesa porta la sua pillola.
         await expect(sedi.getByRole("listitem").filter({ hasText: "Lago e2e" })).toContainText("Sospesa");
-        await sedi.getByRole("checkbox", { name: "Porto e2e" }).check();
+        await checkInPanel(sedi, "Porto e2e");
         await panel.getByRole("button", { name: "Applica" }).click();
         await expect(main(page).getByText("Porto e2e", { exact: true })).toBeVisible();
 
@@ -921,8 +946,8 @@ test.describe("Programmazione — dettaglio", () => {
         await where.getByRole("radio", { name: /Sedi specifiche/ }).check();
         await main(page).getByRole("button", { name: "Modifica sedi" }).click();
         panel = dialog(page);
-        await panel.getByRole("checkbox", { name: "Centro e2e" }).check();
-        await panel.getByRole("checkbox", { name: "Porto e2e" }).check();
+        await checkInPanel(panel, "Centro e2e");
+        await checkInPanel(panel, "Porto e2e");
         await panel.getByRole("button", { name: "Applica" }).click();
 
         await page.getByRole("button", { name: "Salva", exact: true }).first().click();
@@ -1186,10 +1211,7 @@ for (const width of [1024, 1280]) {
         const tabsBox = (await tabs.boundingBox())!;
         const createBox = (await create.boundingBox())!;
         expect(tabsBox.y).toBeGreaterThanOrEqual(createBox.y + createBox.height);
-        const description = main(page).getByText("Tutte le regole, di ogni tipo.");
-        expect(tabsBox.y).toBeLessThan((await description.boundingBox())!.y);
-        const firstLabel = tabs.getByRole("tab").first().getByText("Tutte");
-        expect(Math.round((await firstLabel.boundingBox())!.x)).toBe(Math.round((await description.boundingBox())!.x));
+        // La frase del tipo sotto le tab non c'è più (PG2): resta solo la posizione.
     });
 }
 
@@ -1237,7 +1259,12 @@ test.describe("Programmazione — Elenco e Settimana a sole icone", () => {
         await stubProgrammazione(page);
     });
 
-    test("nella testata stretta il radio a icona ha il tooltip e l'indicatore segue la scelta", async ({ page }) => {
+    // Dopo PG4 («Nuova regola» bottone semplice) le azioni comode stanno in
+    // testata a ogni larghezza da 768 in su, e sotto 768 c'è la barra compatta:
+    // Programmazione non arriva più alla forma a sole icone (provato a 1280,
+    // 1200, 1100, 1060, 1024, 1023, 900, 820, 800, 780, 768). Da riscrivere su
+    // una pagina che ci arriva, o con una testata più carica.
+    test.fixme("nella testata stretta il radio a icona ha il tooltip e l'indicatore segue la scelta", async ({ page }) => {
         await openList(page);
         // A 768 le azioni comode non stanno nemmeno da sole: la testata va su
         // due righe con Elenco/Settimana a sole icone (`narrowerActions`).
@@ -1321,13 +1348,18 @@ test.describe("Programmazione — card «Adesso» e matrice", () => {
         return drawer;
     }
 
-    /** La matrice (sopra 768 di spazio): la tabella «Cosa vede ogni sede». */
+    /**
+     * La matrice «Cosa vede ogni sede». Nel simulatore (pannello da 720) è
+     * sempre a blocchi: sotto 880 di spazio `SeatMatrix` passa da tabella a
+     * elenco, un blocco per sede con gli strati in una `dl`.
+     */
     function matrix(scope: Locator): Locator {
-        return scope.getByRole("table", { name: "Cosa vede ogni sede" });
+        return scope.getByRole("list", { name: "Cosa vede ogni sede" });
     }
 
     function seatRow(scope: Locator, name: string): Locator {
-        return matrix(scope).getByRole("row").filter({ has: scope.getByRole("link", { name, exact: true }) });
+        // `has` vuole un locator senza radice nel drawer: si parte dalla pagina.
+        return matrix(scope).getByRole("listitem").filter({ has: scope.page().getByRole("link", { name, exact: true }) });
     }
 
     test("la card dice l'ora e, per una sede, i cinque passaggi in fila con chi vince", async ({ page }) => {
@@ -1363,11 +1395,12 @@ test.describe("Programmazione — card «Adesso» e matrice", () => {
         expect(await nowCard(page).evaluate(el => getComputedStyle(el.parentElement!).position)).not.toBe("sticky");
     });
 
-    test("la matrice sta nel simulatore con «Tutte le sedi»: una riga per sede, cinque strati, chi vince e perché", async ({ page }) => {
+    test("la matrice sta nel simulatore con «Tutte le sedi»: un blocco per sede, cinque strati, chi vince e perché", async ({ page }) => {
         await openList(page);
         const drawer = await openMatrix(page);
-        for (const name of ["Sede", "Menù", "Disponibilità", "Prezzi", "In evidenza", "A mano"]) {
-            await expect(matrix(drawer).getByRole("columnheader", { name, exact: true })).toBeVisible();
+        // A blocchi gli strati sono i `dt` di ogni sede; la sede è il link in testa.
+        for (const name of ["Menù", "Disponibilità", "Prezzi", "In evidenza", "A mano"]) {
+            await expect(matrix(drawer).locator("dt").filter({ hasText: new RegExp(`^${name}$`, "i") }).first()).toBeVisible();
         }
         const centro = seatRow(drawer, "Centro e2e");
         for (const text of ["Pranzo e2e", RULE_NAME.pranzo, RULE_NAME.stagionali, RULE_NAME.spritz, "1 regola, fuori fascia a quest'ora", "3 modifiche", "hanno l'ultima parola"]) {
@@ -1388,7 +1421,7 @@ test.describe("Programmazione — card «Adesso» e matrice", () => {
     test("un'altra ora sposta la matrice del simulatore, non la card né l'elenco", async ({ page }) => {
         await openList(page);
         const drawer = await openMatrix(page);
-        await drawer.getByLabel("Ora", { exact: true }).fill("19:00");
+        await drawer.getByLabel(/^Ora\b/).fill("19:00");
         await expect(seatRow(drawer, "Porto e2e")).toContainText(RULE_NAME.aperitivo);
         await expect(seatRow(drawer, "Centro e2e")).not.toContainText(RULE_NAME.pranzo);
         await drawer.getByRole("button", { name: "Chiudi" }).last().click();
@@ -1458,6 +1491,9 @@ test.describe("Programmazione — card «Adesso» e matrice", () => {
         await expect(centro).toContainText("Disponibilità");
         await expect(centro).toContainText(RULE_NAME.stagionali);
         await expect(blocks.getByRole("listitem")).toHaveCount(3);
-        await expect(matrix(drawer)).toBeHidden();
+        // Sotto 880 px SeatMatrix passa ai blocchi: lo dice il sottotitolo e
+        // nel pannello non resta nessuna tabella.
+        await expect(drawer.getByText("un blocco per sede, uno spazio per strato")).toBeVisible();
+        await expect(drawer.getByRole("table")).toHaveCount(0);
     });
 });

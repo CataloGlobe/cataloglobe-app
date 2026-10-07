@@ -61,7 +61,9 @@ export function makeReservations(): StubReservation[] {
     return [
         r({ reservation_date: isoDay(0), reservation_time: "19:30:00", customer_name: "Giulia Bianchi", party_size: 4, status: "pending", notes: "Compleanno, se possibile tavolo tranquillo" }),
         r({ reservation_date: isoDay(1), reservation_time: "20:00:00", customer_name: "Marco Rossi", status: "pending" }),
-        r({ reservation_date: isoDay(-2), reservation_time: "21:00:00", customer_name: "Luca Verdi", party_size: 3, status: "pending" }),
+        // -8: scaduta e fuori dalla settimana in qualsiasi giorno (con -2 da mercoledì
+        // a domenica cadeva nella settimana corrente e compariva in agenda).
+        r({ reservation_date: isoDay(-8), reservation_time: "21:00:00", customer_name: "Luca Verdi", party_size: 3, status: "pending" }),
         r({ reservation_date: isoDay(0), reservation_time: "12:30:00", customer_name: "Anna Neri", status: "completed", source: "manual" }),
         r({ reservation_date: isoDay(0), reservation_time: "13:00:00", customer_name: "Paolo Gallo", party_size: 6, status: "seated" }),
         r({ reservation_date: isoDay(0), reservation_time: "20:30:00", customer_name: "Sara Conti", status: "confirmed" }),
