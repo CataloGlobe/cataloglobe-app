@@ -252,7 +252,8 @@ serve(async (req: Request) => {
             subscription,
             stripeCustomerId,
             appliedAtIso: new Date((subscription.created ?? 0) * 1000).toISOString(),
-            sessionPlanCode
+            sessionPlanCode,
+            tenantId
         });
 
         const { error: updateError, count } = await supabaseAdmin
