@@ -117,7 +117,8 @@ export function RuleTable({
                         rule,
                         rule.layout?.catalog_id ? catalogById?.get(rule.layout.catalog_id)?.name : undefined
                     );
-                    const excluded = !insight?.isOverridden ? insight?.excludedActivityNames : undefined;
+                    // Dove perde (ma vince altrove): la riga ambra «A X vince …» (PG5).
+                    const losing = !insight?.isOverridden ? insight?.losingSeats : undefined;
 
                     return (
                         <div className={`${DATA_TABLE_CLASSES.cellTwoLine} ${isPhone ? DATA_TABLE_CLASSES.cellTwoLineWrap : ""}`}>
@@ -166,12 +167,21 @@ export function RuleTable({
                                     Nessuna sede raggiunta: {insight.zeroReachReason}
                                 </Text>
                             )}
-                            {excluded && excluded.length > 0 && (
-                                <Tooltip content={`Qui vince una regola più specifica: ${excluded.join(", ")}`} side="top">
-                                    <Text as="span" variant="caption" colorVariant="muted" tabIndex={0}>
-                                        {excluded.length === 1
-                                            ? "Non vale in 1 sede: c'è una regola più specifica"
-                                            : `Non vale in ${excluded.length} sedi: c'è una regola più specifica`}
+                            {losing && losing.length === 1 && (
+                                <Text as="span" variant="caption" className={styles.losing}>
+                                    A {losing[0].activityName} vince{" "}
+                                    <Link to={ruleHref({ id: losing[0].winnerId, rule_type: rule.rule_type })}>
+                                        «{losing[0].winnerName}»
+                                    </Link>
+                                </Text>
+                            )}
+                            {losing && losing.length > 1 && (
+                                <Tooltip
+                                    content={losing.map(seat => `A ${seat.activityName} vince «${seat.winnerName}»`).join("; ")}
+                                    side="top"
+                                >
+                                    <Text as="span" variant="caption" className={styles.losing} tabIndex={0}>
+                                        In {losing.length} sedi vince un'altra regola
                                     </Text>
                                 </Tooltip>
                             )}
