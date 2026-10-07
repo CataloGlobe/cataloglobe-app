@@ -36,6 +36,7 @@ import { AssociatedContentSection } from "./components/AssociatedContentSection"
 import { FeaturedContentSection } from "./components/FeaturedContentSection";
 import { SchedulingSection } from "./components/SchedulingSection";
 import { HowItWorksButton, RuleTypeHelpModal } from "./components/RuleTypeHelpModal";
+import { sharedRuleNotice } from "./sharedRuleNotice";
 import styles from "./ProgrammingRuleDetail.module.scss";
 
 const FORM_ID = "rule-detail-form";
@@ -109,6 +110,12 @@ export default function RuleDetailPage() {
     const tenantWide = permissions ? isTenantWide(permissions) : false;
     const canWrite =
         permissions && rule ? canWriteRule(permissions, rule, groupMembers ?? undefined) : canWriteAny && tenantWide;
+    // Aperta dalla sede (PG7): se la regola vale anche altrove, lo si dice
+    // prima di cambiarla. Conta la regola salvata, non il form.
+    const sharedNotice =
+        routeActivityId && rule
+            ? sharedRuleNotice(rule, routeActivityId, options.activities, groupMembers ?? new Map())
+            : null;
     // Un ruolo di sede assegna solo le sue sedi e i gruppi tutti suoi (come
     // `update_schedule_targets`); «Tutte le sedi» resta a owner e admin.
     const myActivityIds = permissions?.activityIds;
@@ -398,6 +405,26 @@ export default function RuleDetailPage() {
             // campi. Senza, Invio fermerebbe il form sul fumetto del browser
             // («Value must be…», in inglese) per il `min` della data di fine.
             <fieldset className={styles.readOnlyScope} disabled={readOnly}>
+            {sharedNotice && (
+                <InlineBanner
+                    variant="info"
+                    action={
+                        readOnly ? undefined : (
+                            <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() =>
+                                    document.getElementById("rule-targets")?.scrollIntoView({ behavior: "smooth", block: "start" })
+                                }
+                            >
+                                Modifica sedi
+                            </Button>
+                        )
+                    }
+                >
+                    {sharedNotice}
+                </InlineBanner>
+            )}
             {readOnlyReason && <InlineBanner variant="info">{readOnlyReason}</InlineBanner>}
             <form
                 id={FORM_ID}
