@@ -158,7 +158,10 @@ export function ProductPicker({
                     </div>
                 ) : (
                     productsToRender.map(({ category, product: p }) => {
-                        const isExpanded = expandedProductId === p.id;
+                        // «Non disponibile» dalla sede: resta in elenco ma non si
+                        // apre, submit-order-admin rifiuterebbe l'ordine.
+                        const isUnavailable = p.is_disabled === true;
+                        const isExpanded = !isUnavailable && expandedProductId === p.id;
                         const hasFromPrice = p.from_price != null && p.price == null;
                         const priceLabel = hasFromPrice
                             ? `da ${formatEur(p.from_price as number)}`
@@ -171,10 +174,16 @@ export function ProductPicker({
                                     type="button"
                                     className={styles.productHeader}
                                     aria-expanded={isExpanded}
+                                    disabled={isUnavailable}
                                     onClick={() => onExpand(isExpanded ? null : p.id)}
                                 >
                                     <div className={styles.productMain}>
                                         <span className={styles.productName}>{p.name}</span>
+                                        {isUnavailable && (
+                                            <Text variant="caption" colorVariant="muted">
+                                                Non disponibile
+                                            </Text>
+                                        )}
                                         {isSearching && category && (
                                             <Text variant="caption" colorVariant="muted">
                                                 {category.name}

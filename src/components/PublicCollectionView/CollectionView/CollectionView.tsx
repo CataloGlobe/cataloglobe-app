@@ -257,6 +257,9 @@ function buildVariantItem(
         id: variant.id,
         name: variant.name,
         parentSelected: true,
+        // Una variante segue il padre «Non disponibile»: niente «+» (l'ordine
+        // verrebbe rifiutato da validateOrderItems).
+        ...(parent.is_disabled === true ? { is_disabled: true } : {}),
         price: variant.price ?? null,
         original_price: variant.original_price ?? null,
         from_price: variant.from_price ?? null,
@@ -338,8 +341,10 @@ function ProductRowInner({
     );
     const dp = getDisplayPrice({ fromPrice, toPrice, price, effectivePrice, originalPrice });
     // Prezzo sconosciuto → niente "+": il prodotto resta visibile e
-    // consultabile, ma non aggiungibile (il totale sarebbe falso).
-    const canAdd = orderingEnabled && hasOrderablePrice(item);
+    // consultabile, ma non aggiungibile (il totale sarebbe falso). Lo stesso
+    // per «Non disponibile» (anche ereditato dal padre): l'ordine sarebbe
+    // rifiutato all'invio.
+    const canAdd = orderingEnabled && !isDisabled && item.is_disabled !== true && hasOrderablePrice(item);
 
     const handleRootClick = () => onClick(item);
     const handleAddBtnClick = (e: React.MouseEvent) => {
@@ -558,8 +563,10 @@ function ProductCompactRowInner({
     );
     const dp = getDisplayPrice({ fromPrice, toPrice, price, effectivePrice, originalPrice });
     // Prezzo sconosciuto → niente "+": il prodotto resta visibile e
-    // consultabile, ma non aggiungibile (il totale sarebbe falso).
-    const canAdd = orderingEnabled && hasOrderablePrice(item);
+    // consultabile, ma non aggiungibile (il totale sarebbe falso). Lo stesso
+    // per «Non disponibile» (anche ereditato dal padre): l'ordine sarebbe
+    // rifiutato all'invio.
+    const canAdd = orderingEnabled && !isDisabled && item.is_disabled !== true && hasOrderablePrice(item);
 
     const handleRootClick = () => onClick(item);
     const handleAddBtnClick = (e: React.MouseEvent) => {
@@ -1944,7 +1951,7 @@ export default function CollectionView({
             // Difensivo: il "+" è già nascosto per gli item senza prezzo
             // utilizzabile, ma il callback resta raggiungibile da altre
             // sorgenti — non aggiungere mai a totale falso.
-            if (!hasOrderablePrice(item)) return;
+            if (!hasOrderablePrice(item) || item.is_disabled === true) return;
             handleAddClick(
                 item.id,
                 item.name,
@@ -3120,7 +3127,7 @@ export default function CollectionView({
                                             orderingDisabled={itemDetailOrderingDisabled}
                                             onOpenStory={openStoryFromProduct}
                                             onAddToSelection={
-                                                canOrderInDetail
+                                                canOrderInDetail && selectedItem.is_disabled !== true
                                                     ? (editingSelectionIndex !== null
                                                         ? handleUpdateSelection
                                                         : handleAddFromDetail)
