@@ -117,7 +117,8 @@ export function ReservationsAgendaPage() {
     });
     const { effectiveReservations, handleOpenCreate, canManageActivity, loadData } = desk;
 
-    // Due versioni delle azioni: piena e con la ricerca stretta. La banda usa
+    // Due versioni delle azioni: piena e con la ricerca stretta (stesso
+    // placeholder, che è anche il nome accessibile del campo). La banda usa
     // la prima che sta in riga con Giorni/Settimana e le date (a 1280 con la
     // sidebar aperta ci sta solo la stretta), poi passa a due righe.
     const renderPageActions = useCallback(
@@ -126,7 +127,7 @@ export function ReservationsAgendaPage() {
                 <ToolbarSearch
                     value={searchInput}
                     onChange={setSearchInput}
-                    placeholder={step === 1 ? "Cerca…" : SEARCH_PLACEHOLDER}
+                    placeholder={SEARCH_PLACEHOLDER}
                     width={step === 1 ? "min" : "default"}
                 />
                 <Select

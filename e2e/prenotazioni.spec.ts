@@ -248,7 +248,13 @@ test.describe("Prenotazioni", () => {
 
     test("ricerca per nome", async ({ page }) => {
         await openPrenotazioni(page);
-        await page.getByRole("searchbox").or(page.getByPlaceholder(/Cerca per nome o telefono/)).first().fill("Rossi");
+        // Le versioni delle azioni si misurano su copie nascoste: il campo a vista.
+        await page
+            .getByRole("searchbox")
+            .or(page.getByPlaceholder(/Cerca per nome o telefono/))
+            .filter({ visible: true })
+            .first()
+            .fill("Rossi");
 
         const m = main(page);
         await expect(m.getByText(/^1 prenotazione/)).toBeVisible({ timeout: 10_000 });
@@ -264,14 +270,20 @@ test.describe("Prenotazioni", () => {
         await page.getByRole("dialog").getByRole("button", { name: "Chiudi" }).first().click();
 
         // Nessun risultato: lo dice, e suggerisce come cercare.
-        await page.getByRole("searchbox").or(page.getByPlaceholder(/Cerca per nome o telefono/)).first().fill("Zzyzx");
+        await page.getByRole("searchbox").or(page.getByPlaceholder(/Cerca per nome o telefono/)).filter({ visible: true }).first().fill("Zzyzx");
         await expect(m.getByText("Nessuna prenotazione trovata")).toBeVisible({ timeout: 10_000 });
-        await page.getByRole("searchbox").or(page.getByPlaceholder(/Cerca per nome o telefono/)).first().fill("Rossi");
+        // Le versioni delle azioni si misurano su copie nascoste: il campo a vista.
+        await page
+            .getByRole("searchbox")
+            .or(page.getByPlaceholder(/Cerca per nome o telefono/))
+            .filter({ visible: true })
+            .first()
+            .fill("Rossi");
         await expect(m.getByText(/^1 prenotazione/)).toBeVisible({ timeout: 10_000 });
 
         // Svuotato il campo si torna all'Agenda (lotto B-b: non ci sono più
         // schede da cliccare per uscire dalla ricerca, §48.2/3).
-        await page.getByRole("searchbox").or(page.getByPlaceholder(/Cerca per nome o telefono/)).first().fill("");
+        await page.getByRole("searchbox").or(page.getByPlaceholder(/Cerca per nome o telefono/)).filter({ visible: true }).first().fill("");
         // (L'Agenda ha anche lei righe «1 prenotazione» nei giorni: si guarda la tabella.)
         await expect(m.getByRole("table", { name: "Prenotazioni trovate" })).toHaveCount(0);
         await expect(m.getByText("Giulia Bianchi").first()).toBeVisible();
