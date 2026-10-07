@@ -347,6 +347,8 @@ export const DEMOS = {
     /** Alt dello screenshot nel telefono (`scripts/landing-demo-screenshots.ts`). */
     screenAlt: (name: string) => `Il menù di ${name} sul telefono: la copertina del locale, le categorie e i primi piatti con i prezzi.`,
     qrCaption: "Inquadra il QR e apri il menù sul tuo telefono.",
+    /** Nome accessibile del QR: dice dove porta, perché il codice da solo non si legge. */
+    qrLabel: (name: string, url: string) => `Codice QR che apre il menù «${name}» (${url})`,
     /** Host mostrato sotto il nome nello sheet; base degli indirizzi nel QR. */
     publicHost: "cataloglobe.com",
     publicBaseUrl: "https://cataloglobe.com/",

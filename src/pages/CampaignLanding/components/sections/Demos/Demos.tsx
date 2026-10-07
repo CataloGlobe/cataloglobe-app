@@ -243,7 +243,13 @@ export default function Demos() {
                     </div>
                     <div className={styles.qrCard}>
                         <span className={styles.qr}>
-                            <QRCodeSVG value={`${DEMOS.publicBaseUrl}${venue.slug}`} size={72} fgColor="currentColor" bgColor="transparent" />
+                            <QRCodeSVG
+                                value={`${DEMOS.publicBaseUrl}${venue.slug}`}
+                                size={72}
+                                fgColor="currentColor"
+                                bgColor="transparent"
+                                aria-label={DEMOS.qrLabel(venue.name, `${DEMOS.publicHost}/${venue.slug}`)}
+                            />
                         </span>
                         <span>
                             <span className={styles.qrName}>{venue.name}</span>
