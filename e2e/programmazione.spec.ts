@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { openBusinessPage } from "./business";
+import { nav } from "./nav";
 import { MATRIX_RULE_NAME, MISSING_RULE, RULE, RULE_NAME, SEDE, StubError, TENANT_ID, stubProgrammazione, type ProgrammazioneStub, type WriteCall } from "./programmazioneStub";
 
 /**
@@ -77,14 +78,18 @@ function dialog(page: Page): Locator {
 }
 
 /**
- * `sede`: il filtro sede della pagina, che dalla navigazione v2 (§51.11) è
- * `?sede=` e non più lo scope della navbar in sessionStorage. Le `<option>`
- * di quel filtro portano i nomi delle sedi (« e2e»): si aspetta un testo a
- * vista.
+ * Programmazione d'azienda. Con più sedi niente filtro sede (T9b, PG5): la
+ * sede si guarda da dentro la sede, con `openSeatList`.
  */
-async function openList(page: Page, type = "all", sede?: string): Promise<void> {
+async function openList(page: Page, type = "all"): Promise<void> {
     await openBusinessPage(page, "scheduling", "Programmazione");
-    await page.goto(`${new URL(page.url()).pathname}?type=${type}${sede ? `&sede=${sede}` : ""}`);
+    await page.goto(`${new URL(page.url()).pathname}?type=${type}`);
+    await expect(main(page).getByText(/ e2e$/).filter({ visible: true }).first()).toBeVisible({ timeout: 15_000 });
+}
+
+/** Programmazione dentro una sede (T9b, PG6): `locations/:id/programmazione`. */
+async function openSeatList(page: Page, seatId: string, type = "all"): Promise<void> {
+    await page.goto(`/business/${TENANT_ID}/locations/${seatId}/programmazione?type=${type}`);
     await expect(main(page).getByText(/ e2e$/).filter({ visible: true }).first()).toBeVisible({ timeout: 15_000 });
 }
 
@@ -118,16 +123,38 @@ async function searchFor(page: Page, text: string): Promise<void> {
     await box.fill(text);
 }
 
-/** Il simulatore si apre dalla card «Adesso» (PG4): «Simula un altro momento». */
+/**
+ * Il pannello «Cosa vedono i clienti» (PG4, PG5). In azienda si apre da
+ * «Vedi tutte le N sedi» della card, fermo su adesso; dentro una sede da
+ * «Simula un altro momento», già con Giorno e Ora.
+ */
 async function openSimulator(page: Page): Promise<Locator> {
-    // Tornando indietro da un dettaglio il simulatore si riapre da solo: si usa quello.
-    const reopened = page.getByRole("dialog").filter({ has: page.getByRole("heading", { name: /Simula/ }) });
+    // Tornando indietro da un dettaglio il pannello si riapre da solo: si usa quello.
+    const reopened = page.getByRole("dialog").filter({ has: page.getByRole("heading", { name: "Cosa vedono i clienti" }) });
     if ((await reopened.count()) === 0) {
-        await main(page).getByRole("button", { name: "Simula un altro momento" }).click();
+        await main(page)
+            .getByRole("button", { name: /^Vedi tutte le \d+ sedi$/ })
+            .or(main(page).getByRole("button", { name: "Simula un altro momento" }))
+            .click();
     }
     const drawer = dialog(page);
-    await expect(drawer.getByRole("heading", { name: /Simula/ })).toBeVisible();
+    await expect(drawer.getByRole("heading", { name: "Cosa vedono i clienti" })).toBeVisible();
     return drawer;
+}
+
+/** Nel pannello: i passaggi di una sede (tocco sul nome nell'elenco delle sedi). */
+async function pickPanelSeat(drawer: Locator, name: string): Promise<void> {
+    const back = drawer.getByRole("button", { name: "Tutte le sedi" });
+    if ((await back.count()) > 0) await back.click();
+    await drawer.getByRole("button", { name, exact: true }).click();
+    await expect(drawer.getByRole("list", { name: `Cosa vede ${name}` })).toBeVisible();
+}
+
+/** Nel pannello: Giorno e Ora in testa («Simula un altro momento»). */
+async function simulate(drawer: Locator): Promise<void> {
+    const button = drawer.getByRole("button", { name: "Simula un altro momento" });
+    if ((await button.count()) > 0) await button.click();
+    await expect(drawer.getByLabel(/^Ora\b/)).toBeVisible();
 }
 
 /** «Come funziona» sta nel simulatore (PG2): la guida è l'ultimo dialogo. */
@@ -222,7 +249,8 @@ test.describe("Programmazione — elenco", () => {
         await openList(page);
         await expect(rowOf(rule(page, "promoCosta"))).toContainText(/Sovrascritta/);
         await expect(rowOf(rule(page, "gruppoVuoto"))).toContainText(/Nessuna sede raggiunta/);
-        await expect(rowOf(rule(page, "carta"))).toContainText(/(Escluse|Non vale in) 1 sed/);
+        // La riga ambra (T9b, PG5): in quale sede vince un'altra regola.
+        await expect(rowOf(rule(page, "carta"))).toContainText(`A Centro e2e vince «${RULE_NAME.pranzo}»`);
         await expect(rowOf(rule(page, "bozza"))).toContainText("Bozza");
         await expect(rowOf(rule(page, "pranzo"))).toContainText(/11:00.15:00/);
         // Il verbo del mockup, per tipo (P3-bis).
@@ -392,6 +420,32 @@ test.describe("Programmazione — elenco", () => {
         await expect(page).toHaveURL(new RegExp(`/scheduling/${NEW_ID}`));
     });
 
+    test("cablaggio: «Nuova regola» dalla sede nasce su quella sede e resta nella sede (PG6)", async ({ page }) => {
+        const NEW_ID = "e2e0d000-0000-4000-a000-000000000779";
+        stub.onWrite("schedules.POST", () => ({ id: NEW_ID }));
+        stub.onWrite("schedules.PATCH", () => [{ id: NEW_ID }]);
+        stub.onWrite("rpc.update_schedule_targets", () => null);
+        await openSeatList(page, SEDE.porto, "price");
+        await page.getByRole("button", { name: /^Nuova regola/ }).first().click();
+        await expect.poll(() => writesOf(stub, "rpc.update_schedule_targets").length).toBe(1);
+        const targets = JSON.stringify(writesOf(stub, "rpc.update_schedule_targets")[0].body);
+        expect(targets).toContain(SEDE.porto);
+        expect(targets).not.toContain(SEDE.centro);
+        const scoped = writesOf(stub, "schedules.PATCH").map(w => w.body as Record<string, unknown>);
+        expect(scoped.some(b => b.apply_to_all === false && b.target_id === SEDE.porto)).toBe(true);
+        await expect(page).toHaveURL(new RegExp(`/locations/${SEDE.porto}/programmazione/${NEW_ID}`));
+    });
+
+    test("la regola aperta dalla sede resta nella sede e dice dove altro vale (PG7)", async ({ page }) => {
+        await openSeatList(page, SEDE.centro, "layout");
+        await rule(page, "carta").click();
+        await expect(page).toHaveURL(new RegExp(`/locations/${SEDE.centro}/programmazione/${RULE.carta}`));
+        await expect(main(page).getByText("Vale per tutte le sedi: se la cambi, cambia anche fuori da Centro e2e.")).toBeVisible({
+            timeout: 15_000
+        });
+        await expect(nav(page).getByRole("link", { name: "Programmazione", exact: true })).toBeVisible();
+    });
+
     test("cablaggio: duplica (schedules.POST + copia dei prezzi)", async ({ page }) => {
         const COPY_ID = "e2e0d000-0000-4000-a000-000000000778";
         stub.onWrite("schedules.POST", () => ({ id: COPY_ID }));
@@ -464,8 +518,8 @@ test.describe("Programmazione — settimana, simulatore, guida", () => {
         await expect(main(page).getByText(/28 set|25 set|Giovedì 24/)).toBeVisible();
     });
 
-    test("con la sede scelta nel filtro la Settimana mostra solo le sue regole; la ricerca no", async ({ page }) => {
-        await openList(page, "layout", SEDE.centro);
+    test("dentro la sede la Settimana mostra solo le sue regole; la ricerca no", async ({ page }) => {
+        await openSeatList(page, SEDE.centro, "layout");
         // La ricerca dell'elenco non entra nella Settimana, dove non si vede.
         await searchFor(page, "Carta");
         await openWeek(page);
@@ -551,12 +605,12 @@ test.describe("Programmazione — settimana, simulatore, guida", () => {
     test("il simulatore dice cosa vince in una sede; l'anteprima è spenta per la sede sospesa", async ({ page }) => {
         await openList(page);
         const drawer = await openSimulator(page);
-        await drawer.getByRole("combobox", { name: /Sede/ }).selectOption({ label: "Centro e2e" });
+        await pickPanelSeat(drawer, "Centro e2e");
         await expect(drawer.getByText(RULE_NAME.pranzo).first()).toBeVisible({ timeout: 15_000 });
         await expect(drawer.getByText(RULE_NAME.spritz).first()).toBeVisible();
         await expect(drawer.getByText(RULE_NAME.stagionali).first()).toBeVisible();
         await expect(drawer.getByRole("button", { name: /anteprima/ })).toBeEnabled();
-        await drawer.getByRole("combobox", { name: /Sede/ }).selectOption({ label: "Lago e2e" });
+        await pickPanelSeat(drawer, "Lago e2e");
         await expect(drawer.getByText(/Sede sospesa/)).toBeVisible();
         await expect(drawer.getByRole("button", { name: /anteprima/ })).toBeDisabled();
     });
@@ -566,7 +620,7 @@ test.describe("Programmazione — settimana, simulatore, guida", () => {
         const drawer = await openSimulator(page);
         const box = await drawer.boundingBox();
         expect(Math.round(box?.width ?? 0)).toBe(720);
-        await drawer.getByRole("combobox", { name: /Sede/ }).selectOption({ label: "Centro e2e" });
+        await pickPanelSeat(drawer, "Centro e2e");
         // A Centro vincono menù, prezzi e disponibilità; in evidenza nessuna (le promo sono di Porto).
         const steps = drawer.getByRole("list", { name: "Cosa vede Centro e2e" }).getByRole("listitem");
         await expect(steps).toHaveCount(5);
@@ -578,13 +632,13 @@ test.describe("Programmazione — settimana, simulatore, guida", () => {
         await expect(steps.nth(3).getByRole("link")).toHaveCount(0);
         await steps.nth(0).getByRole("link").click();
         await expect(page).toHaveURL(new RegExp(`/scheduling/${RULE.pranzo}`));
-        await expect(page.getByRole("heading", { name: /Simula/ })).toHaveCount(0);
+        await expect(page.getByRole("heading", { name: "Cosa vedono i clienti" })).toHaveCount(0);
     });
 
     test("il simulatore: l'andamento della giornata si apre dal chevron, una fascia per riga", async ({ page }) => {
         await openList(page);
         const drawer = await openSimulator(page);
-        await drawer.getByRole("combobox", { name: /Sede/ }).selectOption({ label: "Centro e2e" });
+        await pickPanelSeat(drawer, "Centro e2e");
         const toggle = drawer.getByRole("button", { name: "Mostra Andamento della giornata" });
         await expect(toggle).toHaveAttribute("aria-expanded", "false", { timeout: 15_000 });
         // L'andamento si calcola in memoria sulle regole della pagina (mucchio
@@ -606,7 +660,8 @@ test.describe("Programmazione — settimana, simulatore, guida", () => {
         page.on("request", request => {
             if (request.url().includes("/rest/v1/")) reads.push(request.url());
         });
-        await drawer.getByRole("combobox", { name: /Sede/ }).selectOption({ label: "Centro e2e" });
+        await pickPanelSeat(drawer, "Centro e2e");
+        await simulate(drawer);
         await drawer.getByLabel(/^Ora\b/).fill("19:00");
         await expect(drawer.getByRole("list", { name: "Cosa vede Centro e2e" })).toBeVisible();
         expect(reads).toEqual([]);
@@ -709,7 +764,8 @@ test.describe("Programmazione — settimana, simulatore, guida", () => {
         const guide = await openGuide(page);
         await expect(guide.getByRole("heading", { name: /Come funzionano/ })).toBeVisible();
         await guide.getByRole("button", { name: /Simula/ }).click();
-        await expect(dialog(page).getByRole("heading", { name: /Simula/ })).toBeVisible();
+        await expect(dialog(page).getByRole("heading", { name: "Cosa vedono i clienti" })).toBeVisible();
+        await expect(dialog(page).getByLabel(/^Ora\b/)).toBeVisible();
     });
 });
 
@@ -736,9 +792,10 @@ test.describe("Programmazione — fuori dal fuso di Roma", () => {
     test("il simulatore parte dall'ora di Roma e l'andamento dalla sua mezzanotte", async ({ page }) => {
         await openList(page);
         const drawer = await openSimulator(page);
+        await simulate(drawer);
         await expect(drawer.getByLabel(/^Giorno\b/)).toHaveValue("2026-09-23");
         await expect(drawer.getByLabel(/^Ora\b/)).toHaveValue("01:00");
-        await drawer.getByRole("combobox", { name: /Sede/ }).selectOption({ label: "Centro e2e" });
+        await pickPanelSeat(drawer, "Centro e2e");
         await drawer.getByRole("button", { name: "Mostra Andamento della giornata" }).click();
         // Mercoledì a Centro il pranzo vale dalle 11 alle 15 di Roma.
         await expect(drawer.getByText(/^11:00–15:00$/)).toBeVisible({ timeout: 15_000 });
@@ -1334,15 +1391,14 @@ test.describe("Programmazione — card «Adesso» e matrice", () => {
         return nowCard(page).getByRole("list", { name: /^Cosa vede / });
     }
 
-    async function pickCardSeat(page: Page, name: string) {
-        await nowCard(page).getByRole("combobox", { name: "Sede della card Adesso" }).selectOption({ label: name });
+    /** La card d'azienda (PG5): una riga, le sedi da guardare come chip. */
+    function companyCard(page: Page): Locator {
+        return nowCard(page);
     }
 
-    /** Il simulatore dalla card, su «Tutte le sedi»: la matrice (PG4). */
+    /** Il pannello da «Vedi tutte le N sedi»: la matrice (PG5). */
     async function openMatrix(page: Page): Promise<Locator> {
-        const drawer = await openSimulator(page);
-        await drawer.getByRole("combobox", { name: /Sede/ }).selectOption({ label: "Tutte le sedi" });
-        return drawer;
+        return openSimulator(page);
     }
 
     /**
@@ -1356,13 +1412,12 @@ test.describe("Programmazione — card «Adesso» e matrice", () => {
 
     function seatRow(scope: Locator, name: string): Locator {
         // `has` vuole un locator senza radice nel drawer: si parte dalla pagina.
-        return matrix(scope).getByRole("listitem").filter({ has: scope.page().getByRole("link", { name, exact: true }) });
+        return matrix(scope).getByRole("listitem").filter({ has: scope.page().getByRole("button", { name, exact: true }) });
     }
 
-    test("la card dice l'ora e, per una sede, i cinque passaggi in fila con chi vince", async ({ page }) => {
-        await openList(page);
+    test("dentro la sede la card dice l'ora e i cinque passaggi in fila con chi vince", async ({ page }) => {
+        await openSeatList(page, SEDE.centro);
         await expect(nowCard(page).getByRole("heading", { name: "Adesso, 12:00" })).toBeVisible();
-        await pickCardSeat(page, "Centro e2e");
         const items = steps(page).getByRole("listitem");
         await expect(items).toHaveCount(5);
         for (const [index, label] of ["1 · Menù e stile", "2 · Disponibilità", "3 · Prezzi", "4 · In evidenza", "5 · A mano"].entries()) {
@@ -1373,14 +1428,13 @@ test.describe("Programmazione — card «Adesso» e matrice", () => {
         }
         // In «Tutte» nessuno strato è evidenziato.
         await expect(steps(page).locator('[aria-current="step"]')).toHaveCount(0);
-        await pickCardSeat(page, "Lago e2e");
+        await openSeatList(page, SEDE.lago);
         await expect(nowCard(page)).toContainText("Sospesa");
         await expect(steps(page)).toContainText("1 regola scaduta");
     });
 
     test("la tab aperta evidenzia il suo passaggio; la card filtra niente", async ({ page }) => {
-        await openList(page, "price");
-        await pickCardSeat(page, "Centro e2e");
+        await openSeatList(page, SEDE.centro, "price");
         await expect(steps(page).locator('[aria-current="step"]')).toContainText("3 · Prezzi");
         await expect(steps(page)).toContainText(RULE_NAME.pranzo);
     });
@@ -1392,7 +1446,7 @@ test.describe("Programmazione — card «Adesso» e matrice", () => {
         expect(await nowCard(page).evaluate(el => getComputedStyle(el.parentElement!).position)).not.toBe("sticky");
     });
 
-    test("la matrice sta nel simulatore con «Tutte le sedi»: un blocco per sede, cinque strati, chi vince e perché", async ({ page }) => {
+    test("la matrice sta nel pannello «Cosa vedono i clienti»: un blocco per sede, cinque strati, chi vince e perché", async ({ page }) => {
         await openList(page);
         const drawer = await openMatrix(page);
         // A blocchi gli strati sono i `dt` di ogni sede; la sede è il link in testa.
@@ -1400,7 +1454,7 @@ test.describe("Programmazione — card «Adesso» e matrice", () => {
             await expect(matrix(drawer).locator("dt").filter({ hasText: new RegExp(`^${name}$`, "i") }).first()).toBeVisible();
         }
         const centro = seatRow(drawer, "Centro e2e");
-        for (const text of ["Pranzo e2e", RULE_NAME.pranzo, RULE_NAME.stagionali, RULE_NAME.spritz, "1 regola, fuori fascia a quest'ora", "3 modifiche", "hanno l'ultima parola"]) {
+        for (const text of ["Pranzo e2e", RULE_NAME.pranzo, RULE_NAME.stagionali, RULE_NAME.spritz, "1 regola, fuori fascia adesso", "3 modifiche", "hanno l'ultima parola"]) {
             await expect(centro).toContainText(text);
         }
         const porto = seatRow(drawer, "Porto e2e");
@@ -1418,23 +1472,28 @@ test.describe("Programmazione — card «Adesso» e matrice", () => {
     test("un'altra ora sposta la matrice del simulatore, non la card né l'elenco", async ({ page }) => {
         await openList(page);
         const drawer = await openMatrix(page);
+        await simulate(drawer);
         await drawer.getByLabel(/^Ora\b/).fill("19:00");
         await expect(seatRow(drawer, "Porto e2e")).toContainText(RULE_NAME.aperitivo);
         await expect(seatRow(drawer, "Centro e2e")).not.toContainText(RULE_NAME.pranzo);
         await drawer.getByRole("button", { name: "Chiudi" }).last().click();
-        await expect(nowCard(page).getByRole("heading", { name: "Adesso, 12:00" })).toBeVisible();
+        await expect(nowCard(page).getByRole("heading", { name: /^Adesso, 12:00 · / })).toBeVisible();
         await expect(group(page, GROUP.adesso)).toContainText(RULE_NAME.pranzo);
     });
 
-    test("nella matrice il nome della sede porta alla sua pagina, la regola che vince al suo dettaglio", async ({ page }) => {
+    test("nella matrice la sede apre i suoi passaggi e la sua Programmazione, la regola che vince il suo dettaglio", async ({ page }) => {
         await openList(page);
         let drawer = await openMatrix(page);
         await seatRow(drawer, "Porto e2e").getByRole("link", { name: RULE_NAME.promoPorto }).click({ timeout: 10_000 });
         await expect(page).toHaveURL(new RegExp(`/scheduling/featured/${RULE.promoPorto}`));
         await page.goBack();
         drawer = await openMatrix(page);
-        await seatRow(drawer, "Centro e2e").getByRole("link", { name: "Centro e2e", exact: true }).click();
-        await expect(page).toHaveURL(new RegExp(`/locations/${SEDE.centro}/cosa-vedono`));
+        await pickPanelSeat(drawer, "Centro e2e");
+        await drawer.getByRole("button", { name: "Tutte le sedi" }).click();
+        await expect(matrix(drawer)).toBeVisible();
+        await pickPanelSeat(drawer, "Centro e2e");
+        await drawer.getByRole("link", { name: "Vai alla programmazione di Centro e2e" }).click();
+        await expect(page).toHaveURL(new RegExp(`/locations/${SEDE.centro}/programmazione$`));
     });
 
     test("nella Settimana non c'è la card", async ({ page }) => {
@@ -1445,8 +1504,8 @@ test.describe("Programmazione — card «Adesso» e matrice", () => {
         await expect(nowCard(page)).toHaveCount(0);
     });
 
-    test("col filtro sede la card parla di quella sede, senza selettore", async ({ page }) => {
-        await openList(page, "all", SEDE.centro);
+    test("dentro la sede la card parla di quella sede, senza selettore", async ({ page }) => {
+        await openSeatList(page, SEDE.centro);
         await expect(steps(page)).toContainText(RULE_NAME.pranzo);
         await expect(steps(page)).toContainText("3 modifiche");
         await expect(nowCard(page).getByRole("combobox", { name: "Sede della card Adesso" })).toHaveCount(0);
@@ -1464,9 +1523,8 @@ test.describe("Programmazione — card «Adesso» e matrice", () => {
     });
 
     test("sotto 768: nella tab il suo passaggio e «A mano», gli altri dietro «Altri 3 passaggi»; «Simula» a tutta larghezza", async ({ page }) => {
-        await openList(page, "price");
+        await openSeatList(page, SEDE.centro, "price");
         await page.setViewportSize({ width: 375, height: 800 });
-        await pickCardSeat(page, "Centro e2e");
         await expect(steps(page).getByRole("listitem")).toHaveCount(2);
         await expect(steps(page)).toContainText("3 · Prezzi");
         await expect(steps(page)).toContainText("5 · A mano");
@@ -1484,7 +1542,7 @@ test.describe("Programmazione — card «Adesso» e matrice", () => {
         const drawer = await openMatrix(page);
         expect(Math.round((await drawer.boundingBox())?.width ?? 0)).toBe(375);
         const blocks = drawer.getByRole("list", { name: "Cosa vede ogni sede" });
-        const centro = blocks.getByRole("listitem").filter({ has: page.getByRole("link", { name: "Centro e2e", exact: true }) });
+        const centro = blocks.getByRole("listitem").filter({ has: page.getByRole("button", { name: "Centro e2e", exact: true }) });
         await expect(centro).toContainText("Disponibilità");
         await expect(centro).toContainText(RULE_NAME.stagionali);
         await expect(blocks.getByRole("listitem")).toHaveCount(3);
@@ -1492,5 +1550,46 @@ test.describe("Programmazione — card «Adesso» e matrice", () => {
         // nel pannello non resta nessuna tabella.
         await expect(drawer.getByText("un blocco per sede, uno spazio per strato")).toBeVisible();
         await expect(drawer.getByRole("table")).toHaveCount(0);
+    });
+    // T9b, PG5: con più sedi la card d'azienda è una riga sola.
+    test("in azienda la card è una riga: quante sedi vanno, chip ambra per quelle da guardare", async ({ page }) => {
+        await openList(page);
+        // Centro ha 3 modifiche a mano, Lago è sospesa, Porto va.
+        await expect(companyCard(page).getByRole("heading", { name: "Adesso, 12:00 · 1 sede senza problemi" })).toBeVisible();
+        await expect(companyCard(page).getByRole("button", { name: "Apri la programmazione di Centro e2e: modifiche a mano" })).toBeVisible();
+        await expect(companyCard(page).getByRole("button", { name: "Apri la programmazione di Lago e2e: sospesa" })).toBeVisible();
+        await expect(companyCard(page).getByRole("list", { name: /^Cosa vede / })).toHaveCount(0);
+        await expect(companyCard(page).getByRole("combobox")).toHaveCount(0);
+        await companyCard(page).getByRole("button", { name: "Apri la programmazione di Centro e2e: modifiche a mano" }).click();
+        await expect(page).toHaveURL(new RegExp(`/locations/${SEDE.centro}/programmazione$`));
+    });
+
+    test("in azienda nessun filtro sede; un vecchio link ?sede= porta alla sede", async ({ page }) => {
+        await openList(page);
+        await expect(main(page).getByRole("combobox", { name: "Sede" })).toHaveCount(0);
+        await page.goto(`/business/${TENANT_ID}/scheduling?type=price&sede=${SEDE.porto}`);
+        await expect(page).toHaveURL(new RegExp(`/locations/${SEDE.porto}/programmazione\\?type=price$`), { timeout: 15_000 });
+    });
+
+    test("il pannello è fermo su adesso: prima le sedi da guardare, la ricerca, «Torna ad adesso»", async ({ page }) => {
+        await openList(page);
+        const drawer = await openMatrix(page);
+        await expect(drawer.getByLabel(/^Ora\b/)).toHaveCount(0);
+        const names = await matrix(drawer).getByRole("listitem").getByRole("button").allTextContents();
+        expect(names.map(n => n.trim())).toEqual(["Centro e2e", "Lago e2e", "Porto e2e"]);
+        await drawer.getByRole("searchbox", { name: "Cerca una sede" }).fill("port");
+        await expect(matrix(drawer).getByRole("listitem")).toHaveCount(1);
+        await drawer.getByRole("searchbox", { name: "Cerca una sede" }).fill("");
+        await simulate(drawer);
+        await expect(drawer.getByText("Sospensioni e abbonamento sono quelli di oggi.")).toBeVisible();
+        await drawer.getByRole("button", { name: "Torna ad adesso" }).click();
+        await expect(drawer.getByLabel(/^Ora\b/)).toHaveCount(0);
+    });
+
+    test("nell'elenco una riga ambra dice in quale sede vince un'altra regola", async ({ page }) => {
+        await openList(page, "layout");
+        // La carta vale ovunque; a Centro a mezzogiorno vince il pranzo.
+        const carta = main(page).getByRole("row").filter({ hasText: RULE_NAME.carta });
+        await expect(carta.getByText(`A Centro e2e vince «${RULE_NAME.pranzo}»`)).toBeVisible();
     });
 });
