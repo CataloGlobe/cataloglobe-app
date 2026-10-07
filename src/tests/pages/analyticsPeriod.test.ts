@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 
 import {
     calculateDelta,
+    calculatePointDelta,
     DEFAULT_PERIOD,
     isBelowSample,
     parsePeriod,
@@ -49,5 +50,18 @@ describe("soglia e confronto", () => {
         expect(calculateDelta(12, 0)).toBeNull();
         expect(calculateDelta(15, 10)).toBe(50);
         expect(calculateDelta(15, 3, 1)).toBe(400);
+    });
+});
+
+describe("confronto di un tasso, in punti", () => {
+    it("differenza in punti percentuali, senza soglia", () => {
+        // 8% contro 5%: +3 pt, non «+60%»; con pochi ordini conta lo stesso.
+        expect(calculatePointDelta(8, 5, 3)).toBe(3);
+        expect(calculatePointDelta(2.5, 4, 1)).toBeCloseTo(-1.5);
+        expect(calculatePointDelta(0, 0, 12)).toBe(0);
+    });
+
+    it("niente confronto se il periodo prima non ha nessun ordine", () => {
+        expect(calculatePointDelta(10, 0, 0)).toBeNull();
     });
 });
