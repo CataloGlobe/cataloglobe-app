@@ -176,7 +176,7 @@ mutazione gatati con helper espliciti.
 | orders | /locations/:id/comande (`/orders` → ultima sede) | orders.read + `table_ordering` | orders.manage (activity) |
 | storico ordini | /locations/:id/storico | orders.read + `table_ordering` | Ripristina: orders.manage (activity) |
 | servizio | /locations/:id/servizio | voce: tables.read **o** seatings.read (activity); per modo, vedi sotto | per modo, vedi sotto |
-| scheduling | /scheduling/* (filtro sede in pagina: `?sede=`) | scheduling.read; con `?sede=` sulla sede | scheduling.write (any-activity*) |
+| scheduling | /scheduling/* (d'azienda) · /locations/:id/programmazione/* (della sede, T9b) | scheduling.read (any-activity · sulla sede); voce di sede: `{ on: "activity", permission: "scheduling.read" }` | scheduling.write **per regola** (`canWriteRule`, come `can_write_schedule`: owner/admin sempre; ruolo di sede solo se tutte le sedi della regola sono sue, mai «tutte le sedi»; un gruppo conta se ne gestisce una sede, → D13). Crea e duplica: solo owner/admin finché non c'è la RPC di creazione per i ruoli di sede |
 | featured | /featured/* | featured.read | featured.write (any-activity*); crea/modifica prodotto dal contenuto: products.write |
 | stories | /stories/* | stories.read | stories.write (any-activity*) |
 | styles | /styles/* | styles.read | styles.write |
