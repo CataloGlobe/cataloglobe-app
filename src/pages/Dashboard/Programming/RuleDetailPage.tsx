@@ -7,7 +7,9 @@ import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { usePermissions } from "@/context/usePermissions";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
-import { canDoOnAnyActivity } from "@/lib/permissions";
+import { canDoOnAnyActivity, canWriteRule, isTenantWide } from "@/lib/permissions";
+import { listActivityIdsByGroup } from "@/services/supabase/activity-groups";
+import { READ_ONLY_REASON } from "./components/RuleTable";
 import { PageGate } from "@/components/PageGate/PageGate";
 import { Button } from "@/components/ui/Button/Button";
 import { Badge } from "@/components/ui/Badge/Badge";
@@ -61,21 +63,69 @@ export default function RuleDetailPage() {
     const labels = useMemo(() => ({ productLabel, productLabelPlural }), [productLabel, productLabelPlural]);
     const { permissions } = usePermissions();
     const { canEdit, status: subscriptionStatus } = useSubscriptionGuard();
-    const canWrite = permissions ? canDoOnAnyActivity(permissions, "scheduling.write") : false;
+    const canWriteAny = permissions ? canDoOnAnyActivity(permissions, "scheduling.write") : false;
     const canRead = permissions ? canDoOnAnyActivity(permissions, "scheduling.read") : false;
     // Una sola vista in sola lettura, come Prodotti e Stili: senza permesso o
     // con l'abbonamento fermo il form è in un `fieldset disabled`. Finché
     // permessi e azienda caricano, niente banner.
+    const detail = useRuleDetail({ ruleId, tenantId: businessId, canRead, catalogLabel, labels });
+    const { status, rule, form, isDirty, options } = detail;
+
+    // Permesso di questa regola, come `can_write_schedule` (T9b): conta dove
+    // vale la regola salvata, non il form. I gruppi servono con le loro sedi.
+    const [groupMembers, setGroupMembers] = useState<Map<string, string[]> | null>(null);
+    const ruleGroupKey = rule?.groupIds.join(",") ?? "";
+    useEffect(() => {
+        const groupIds = ruleGroupKey ? ruleGroupKey.split(",") : [];
+        const assignable = options.groups.map(group => group.id);
+        const ids = Array.from(new Set([...groupIds, ...assignable]));
+        if (ids.length === 0) {
+            setGroupMembers(new Map());
+            return;
+        }
+        let cancelled = false;
+        listActivityIdsByGroup(ids)
+            .then(byGroup => {
+                if (!cancelled) setGroupMembers(new Map(Object.entries(byGroup)));
+            })
+            .catch(error => {
+                console.error("Errore sedi dei gruppi:", error);
+                if (!cancelled) setGroupMembers(new Map());
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [ruleGroupKey, options.groups]);
+    const tenantWide = permissions ? isTenantWide(permissions) : false;
+    const canWrite =
+        permissions && rule ? canWriteRule(permissions, rule, groupMembers ?? undefined) : canWriteAny && tenantWide;
+    // Un ruolo di sede assegna solo le sue sedi e i gruppi tutti suoi (come
+    // `update_schedule_targets`); «Tutte le sedi» resta a owner e admin.
+    const myActivityIds = permissions?.activityIds;
+    const assignableActivities = useMemo(
+        () => (tenantWide || !myActivityIds ? options.activities : options.activities.filter(a => myActivityIds.includes(a.id))),
+        [myActivityIds, options.activities, tenantWide]
+    );
+    const assignableGroups = useMemo(
+        () =>
+            tenantWide || !myActivityIds
+                ? options.groups
+                : options.groups.filter(group => {
+                      const members = groupMembers?.get(group.id) ?? [];
+                      return members.length > 0 && members.every(id => myActivityIds.includes(id));
+                  }),
+        [groupMembers, myActivityIds, options.groups, tenantWide]
+    );
+
     const readOnlyReason =
-        permissions && !canWrite
+        permissions && !canWriteAny
             ? "Sola lettura: per modificare le regole serve il ruolo di amministratore o di manager della sede."
-            : subscriptionStatus !== null && !canEdit
+            : permissions && rule && !canWrite
+              ? `Sola lettura: ${READ_ONLY_REASON.charAt(0).toLowerCase()}${READ_ONLY_REASON.slice(1)}.`
+              : subscriptionStatus !== null && !canEdit
               ? "Sola lettura: l'abbonamento non è attivo."
               : null;
     const readOnly = readOnlyReason !== null;
-
-    const detail = useRuleDetail({ ruleId, tenantId: businessId, canRead, catalogLabel, labels });
-    const { status, rule, form, isDirty, options } = detail;
 
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [isDiscardOpen, setIsDiscardOpen] = useState(false);
@@ -196,14 +246,16 @@ export default function RuleDetailPage() {
                                 </Button>
                             }
                         >
-                            <Menu.Item
-                                icon={Copy}
-                                onSelect={() => void act.current.duplicate()}
-                                disabled={isDirty}
-                                description={isDirty ? DUPLICATE_BLOCKED : undefined}
-                            >
-                                Duplica
-                            </Menu.Item>
+                            {tenantWide && (
+                                <Menu.Item
+                                    icon={Copy}
+                                    onSelect={() => void act.current.duplicate()}
+                                    disabled={isDirty}
+                                    description={isDirty ? DUPLICATE_BLOCKED : undefined}
+                                >
+                                    Duplica
+                                </Menu.Item>
+                            )}
                             <Menu.Item icon={Trash2} variant="destructive" onSelect={() => setIsDeleteOpen(true)}>
                                 Elimina
                             </Menu.Item>
@@ -220,7 +272,7 @@ export default function RuleDetailPage() {
                 )}
             </div>
         ) : undefined,
-        [form, helpType, canWrite, canEdit, isDirty, isSaving, isDuplicating, toggleReason, toggleDisabled]
+        [form, helpType, canWrite, canEdit, isDirty, isSaving, isDuplicating, tenantWide, toggleReason, toggleDisabled]
     );
 
     // Compatto: lo switch resta a vista (è lo stato della regola), Duplica ed
@@ -252,13 +304,15 @@ export default function RuleDetailPage() {
                       secondaryActions: [
                           { label: "Come funziona", onClick: () => setIsHelpOpen(true) },
                           ...(saveConfig.secondaryActions ?? []),
-                          { label: "Duplica", onClick: () => void act.current.duplicate(), disabled: !canEdit || isDirty || isDuplicating },
+                          ...(tenantWide
+                              ? [{ label: "Duplica", onClick: () => void act.current.duplicate(), disabled: !canEdit || isDirty || isDuplicating }]
+                              : []),
                           { label: "Elimina", onClick: () => setIsDeleteOpen(true), variant: "destructive", separatorBefore: true, disabled: !canEdit }
                       ]
                   };
               })()
             : undefined,
-        [form, canWrite, canEdit, isDirty, isSaving, isDuplicating, toggleDisabled]
+        [form, canWrite, canEdit, isDirty, isSaving, isDuplicating, tenantWide, toggleDisabled]
     );
 
     const titleAddon = useMemo(() => (typeLabel ? <Badge variant="neutral">{typeLabel}</Badge> : undefined), [typeLabel]);
@@ -351,8 +405,9 @@ export default function RuleDetailPage() {
                         targetMode={form.targetMode}
                         activityIds={form.activityIds}
                         groupIds={form.groupIds}
-                        tenantActivities={options.activities}
-                        tenantGroups={options.groups}
+                        tenantActivities={assignableActivities}
+                        tenantGroups={assignableGroups}
+                        allowAllSites={tenantWide}
                         onFormChange={detail.updateForm}
                         nameError={detail.errors.name}
                         onNameBlur={() => detail.touch("name")}
