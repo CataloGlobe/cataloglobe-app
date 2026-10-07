@@ -17,6 +17,8 @@
 --   6. owner crea su due sedi.
 --
 -- Prima della migration la funzione non esiste: falliscono tutti.
+-- Provato su staging il 2026-10-07 con migration e test nella stessa
+-- transazione annullata: 6/6.
 --
 -- Esecuzione: Studio SQL Editor di staging (ruolo postgres), il file intero,
 -- dopo aver applicato la migration. Attesi 6 `NOTICE … OK`; un `Test N FAIL`
@@ -128,22 +130,23 @@ SAVEPOINT t3;
 DO $$
 DECLARE
   v_group uuid;
+  v_garbagnate uuid;
 BEGIN
   SET LOCAL role postgres;
-  -- Un gruppo dell'azienda con almeno una sede fuori da Comasina e Baranzate
-  -- (di solito il gruppo di sistema «Tutte le sedi»).
-  SELECT ag.id INTO v_group
-  FROM public.activity_groups ag
-  WHERE ag.tenant_id = '5b37c952-1add-4196-aab3-9775d98a9c32'
-    AND EXISTS (
-      SELECT 1 FROM public.activity_group_members agm
-      WHERE agm.group_id = ag.id
-        AND agm.activity_id NOT IN ('347aae51-8df1-4a15-b7f6-40862bf94005',
-                                    'e1bdd834-4c3c-4441-8cd9-686ecefe48ae'))
+  -- Su staging nessun gruppo ha sedi fuori da quelle del manager: se ne crea
+  -- uno qui (Comasina + Garbagnate), annullato dal ROLLBACK TO SAVEPOINT.
+  SELECT target_id INTO v_garbagnate FROM public.schedule_targets
+  WHERE schedule_id = '7e51373c-3c0b-4316-8e83-ff8f4334c1a0' AND target_type = 'activity'
   LIMIT 1;
-  IF v_group IS NULL THEN
-    RAISE EXCEPTION 'Test 3 FAIL: prerequisito — nessun gruppo con sedi fuori da quelle del manager';
+  IF v_garbagnate IS NULL THEN
+    RAISE EXCEPTION 'Test 3 FAIL: prerequisito — «Menu Settimanale - Garbagnate» senza sede';
   END IF;
+  INSERT INTO public.activity_groups (tenant_id, name)
+  VALUES ('5b37c952-1add-4196-aab3-9775d98a9c32', 'Test sicurezza Comasina + Garbagnate')
+  RETURNING id INTO v_group;
+  INSERT INTO public.activity_group_members (tenant_id, group_id, activity_id)
+  VALUES ('5b37c952-1add-4196-aab3-9775d98a9c32', v_group, '347aae51-8df1-4a15-b7f6-40862bf94005'),
+         ('5b37c952-1add-4196-aab3-9775d98a9c32', v_group, v_garbagnate);
 
   PERFORM create_schedule_test.as_user('16595820-3e80-4ce2-aded-f4c5f01ab92d');
   BEGIN
