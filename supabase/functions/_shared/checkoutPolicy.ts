@@ -48,3 +48,49 @@ export function resolveReturnUrl(
     if (url.username || url.password) return null;
     return allowedOrigins.includes(url.origin) ? url.href : null;
 }
+
+/** The fields of a Stripe promotion code (and its coupon) that limit its use. */
+export interface PromoCodeLimits {
+    active: boolean;
+    expires_at: number | null;
+    max_redemptions: number | null;
+    times_redeemed: number;
+    coupon?: {
+        valid?: boolean;
+        redeem_by?: number | null;
+        max_redemptions?: number | null;
+        times_redeemed?: number;
+    } | null;
+}
+
+export type PromoCodeRefusal = "promo_code_invalid" | "promo_code_expired" | "promo_code_used_up";
+
+/**
+ * Whether a promotion code can still be used, checked by us before Checkout.
+ *
+ * Stripe enforces `expires_at` and `max_redemptions` only when it applies the
+ * coupon. A card-free trial code never has its coupon applied (it is only a key
+ * to the trial), so Stripe never counts it: `extraRedemptions` is how many
+ * subscriptions we already created with it, added to Stripe's own count.
+ * Times are Unix seconds, as Stripe sends them.
+ */
+export function checkPromoCodeLimits(
+    promo: PromoCodeLimits,
+    nowSeconds: number,
+    extraRedemptions = 0
+): PromoCodeRefusal | null {
+    if (!promo.active || promo.coupon?.valid === false) return "promo_code_invalid";
+
+    const expiries = [promo.expires_at, promo.coupon?.redeem_by].filter(
+        (t): t is number => typeof t === "number"
+    );
+    if (expiries.some(t => t <= nowSeconds)) return "promo_code_expired";
+
+    const used = promo.times_redeemed + extraRedemptions;
+    if (promo.max_redemptions != null && used >= promo.max_redemptions) return "promo_code_used_up";
+    const couponMax = promo.coupon?.max_redemptions;
+    if (couponMax != null && (promo.coupon?.times_redeemed ?? 0) + extraRedemptions >= couponMax) {
+        return "promo_code_used_up";
+    }
+    return null;
+}

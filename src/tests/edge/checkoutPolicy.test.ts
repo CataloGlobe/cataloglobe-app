@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
     DEFAULT_TRIAL_PERIOD_DAYS,
+    checkPromoCodeLimits,
     MAX_TRIAL_PERIOD_DAYS,
     resolvePromoTrialDays,
     resolveReturnUrl
@@ -56,5 +57,40 @@ describe("resolveReturnUrl", () => {
     it("rifiuta un valore mancante", () => {
         expect(resolveReturnUrl(undefined, origins)).toBeNull();
         expect(resolveReturnUrl("", origins)).toBeNull();
+    });
+});
+
+describe("checkPromoCodeLimits", () => {
+    const NOW = 1_800_000_000;
+    const base = { active: true, expires_at: null, max_redemptions: null, times_redeemed: 0, coupon: { valid: true } };
+
+    it("un codice attivo senza limiti passa", () => {
+        expect(checkPromoCodeLimits(base, NOW)).toBeNull();
+        expect(checkPromoCodeLimits({ ...base, coupon: null }, NOW, 5)).toBeNull();
+    });
+
+    it("codice o coupon spenti: non valido", () => {
+        expect(checkPromoCodeLimits({ ...base, active: false }, NOW)).toBe("promo_code_invalid");
+        expect(checkPromoCodeLimits({ ...base, coupon: { valid: false } }, NOW)).toBe("promo_code_invalid");
+    });
+
+    it("scaduto sul codice o sul coupon, anche nel secondo esatto", () => {
+        expect(checkPromoCodeLimits({ ...base, expires_at: NOW - 1 }, NOW)).toBe("promo_code_expired");
+        expect(checkPromoCodeLimits({ ...base, expires_at: NOW }, NOW)).toBe("promo_code_expired");
+        expect(checkPromoCodeLimits({ ...base, coupon: { valid: true, redeem_by: NOW - 60 } }, NOW)).toBe("promo_code_expired");
+        expect(checkPromoCodeLimits({ ...base, expires_at: NOW + 60 }, NOW)).toBeNull();
+    });
+
+    it("limite d'uso del codice, contando anche le prove senza carta", () => {
+        expect(checkPromoCodeLimits({ ...base, max_redemptions: 1, times_redeemed: 1 }, NOW)).toBe("promo_code_used_up");
+        // Codice di prova senza carta: Stripe non lo conta mai, contiamo noi.
+        expect(checkPromoCodeLimits({ ...base, max_redemptions: 1 }, NOW, 1)).toBe("promo_code_used_up");
+        expect(checkPromoCodeLimits({ ...base, max_redemptions: 2 }, NOW, 1)).toBeNull();
+    });
+
+    it("limite d'uso del coupon", () => {
+        const coupon = { valid: true, max_redemptions: 3, times_redeemed: 2 };
+        expect(checkPromoCodeLimits({ ...base, coupon }, NOW)).toBeNull();
+        expect(checkPromoCodeLimits({ ...base, coupon }, NOW, 1)).toBe("promo_code_used_up");
     });
 });
