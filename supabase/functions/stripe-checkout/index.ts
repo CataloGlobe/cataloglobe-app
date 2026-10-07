@@ -14,6 +14,7 @@ import { lookupStripePriceId, type BillingInterval } from "../_shared/planPrices
 import { isValidPartitaIva } from "../_shared/fiscalValidators.ts";
 import { claimStripeCustomer } from "../_shared/stripeCustomerClaim.ts";
 import {
+    checkPromoCodeLimits,
     DEFAULT_TRIAL_PERIOD_DAYS,
     resolvePromoTrialDays,
     resolveReturnUrl,
@@ -62,6 +63,27 @@ const DEFAULT_BILLING_INTERVAL: BillingInterval = "month";
 
 function json(req: Request, status: number, body: Record<string, unknown>) {
     return new Response(JSON.stringify(body), { status, headers: corsHeaders(req) });
+}
+
+/**
+ * Subscriptions created with a promotion code, whatever their status: a code
+ * handed out once stays used even if that subscription was later cancelled.
+ * Stripe Search is eventually consistent (about a minute), which is fine for
+ * codes handed out one by one.
+ */
+async function countSubscriptionsWithPromotion(stripe: Stripe, promotionId: string): Promise<number> {
+    let count = 0;
+    let page: string | undefined;
+    do {
+        const result = await stripe.subscriptions.search({
+            query: `metadata['promotion_code_id']:'${promotionId}'`,
+            limit: 100,
+            ...(page ? { page } : {})
+        });
+        count += result.data.length;
+        page = result.has_more ? result.next_page ?? undefined : undefined;
+    } while (page);
+    return count;
 }
 
 // Query param read by the frontend on the return from Checkout.
@@ -252,33 +274,53 @@ serve(async req => {
         // the code is only a key to the card-free trial, its coupon is never applied.
         let isTrialNoCardCode = false;
         let promoMetadata: Record<string, string> | null = null;
+        let promo: Stripe.PromotionCode | null = null;
         if (promotionCodeInput !== "") {
             try {
                 if (promotionCodeInput.startsWith("promo_")) {
-                    const promo = await stripe.promotionCodes.retrieve(promotionCodeInput);
-                    if (!promo || !promo.active) {
-                        return json(req, 400, { error: "promo_code_invalid" });
-                    }
-                    resolvedPromotionId = promo.id;
-                    promoMetadata = promo.metadata ?? null;
-                    isTrialNoCardCode = promo.metadata?.[TRIAL_NO_CARD_METADATA_KEY] === "true";
+                    promo = await stripe.promotionCodes.retrieve(promotionCodeInput);
                 } else {
                     const list = await stripe.promotionCodes.list({
                         code: promotionCodeInput,
                         active: true,
                         limit: 1
                     });
-                    if (!list.data || list.data.length === 0) {
-                        return json(req, 400, { error: "promo_code_invalid" });
-                    }
-                    resolvedPromotionId = list.data[0].id;
-                    promoMetadata = list.data[0].metadata ?? null;
-                    isTrialNoCardCode = list.data[0].metadata?.[TRIAL_NO_CARD_METADATA_KEY] === "true";
+                    promo = list.data?.[0] ?? null;
                 }
             } catch (err) {
                 const message = err instanceof Error ? err.message : String(err);
                 console.warn(`stripe-checkout: promo code lookup failed: ${message}`);
                 return json(req, 400, { error: "promo_code_invalid" });
+            }
+            if (!promo || !promo.active) {
+                return json(req, 400, { error: "promo_code_invalid" });
+            }
+            resolvedPromotionId = promo.id;
+            promoMetadata = promo.metadata ?? null;
+            isTrialNoCardCode = promo.metadata?.[TRIAL_NO_CARD_METADATA_KEY] === "true";
+
+            // Expiry and use limit, checked here and not left to Stripe: a
+            // card-free code never has its coupon applied, so Stripe never
+            // counts it nor refuses it once expired. We count the
+            // subscriptions created with it (`promotion_code_id` metadata, set
+            // below). If the count cannot be read the code is refused: better a
+            // retry than a code handed out once being used twice.
+            let trialRedemptions = 0;
+            if (isTrialNoCardCode) {
+                try {
+                    trialRedemptions = await countSubscriptionsWithPromotion(stripe, promo.id);
+                } catch (err) {
+                    const message = err instanceof Error ? err.message : String(err);
+                    console.error(`stripe-checkout: cannot count uses of promo ${promo.id}: ${message}`);
+                    return json(req, 503, { error: "promo_code_check_unavailable" });
+                }
+            }
+            const refusal = checkPromoCodeLimits(promo, Math.floor(Date.now() / 1000), trialRedemptions);
+            if (refusal) {
+                console.warn(
+                    `stripe-checkout: promo ${promo.id} refused for tenant ${tenantId} (${refusal}, trial uses ${trialRedemptions})`
+                );
+                return json(req, 400, { error: refusal });
             }
         }
 
