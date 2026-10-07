@@ -2,6 +2,7 @@
 import type Stripe from "https://esm.sh/stripe@17?target=deno";
 import type { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { mapStripeStatus } from "./subscriptionStatusSync.ts";
+import { planSeatRealign } from "./seatRealign.ts";
 import { priceTotalCents, retrievePriceTotalCents } from "./priceTotal.ts";
 import {
     ALLOWED_PLAN_CODES,
@@ -153,6 +154,75 @@ export interface BuildSubscriptionLinkUpdatesParams {
      * subscription metadata has no valid plan_code.
      */
     sessionPlanCode?: string | null;
+    /**
+     * Tenant being linked. When present, the activities are recounted and
+     * the subscription quantity is raised to cover them (see seatRealign.ts).
+     */
+    tenantId?: string;
+}
+
+/**
+ * Posti al collegamento (CG-03, D10): se il tenant ha più sedi della quantity
+ * (aggiunte mentre il checkout era aperto), la quantity sale su Stripe con la
+ * proration standard (la differenza va nella prossima fattura). Oltre il tetto
+ * self-service non si tocca nulla: errore nei log per l'assistenza.
+ *
+ * Mai bloccante: il cliente ha pagato, il collegamento si scrive comunque.
+ * Se il conteggio o l'update falliscono resta la quantity di Stripe, e lo
+ * dice il log. Idempotente: webhook e conferma possono passarci entrambi,
+ * stessa chiave per la stessa quantity.
+ */
+export async function realignSeatsOnLink(params: {
+    admin: ReturnType<typeof createClient>;
+    stripe: Stripe;
+    subscription: Stripe.Subscription;
+    tenantId: string;
+}): Promise<number> {
+    const { admin, stripe, subscription, tenantId } = params;
+    const quantity = getSubscriptionQuantity(subscription);
+
+    const { count, error } = await admin
+        .from("activities")
+        .select("id", { count: "exact", head: true })
+        .eq("tenant_id", tenantId);
+    if (error || count === null) {
+        console.error(
+            `seat-realign: activity count failed for tenant ${tenantId}: ${error?.message ?? "null count"}; keeping quantity ${quantity}`
+        );
+        return quantity;
+    }
+
+    const plan = planSeatRealign(quantity, count);
+    if (plan.action === "none") return quantity;
+    if (plan.action === "over_cap") {
+        console.error(
+            `seat-realign: SEATS_OVER_CAP tenant ${tenantId} has ${plan.activities} activities, subscription ${subscription.id} pays ${quantity}; support must fix it by hand`
+        );
+        return quantity;
+    }
+
+    const item = subscription.items?.data?.[0];
+    if (!item) {
+        console.error(`seat-realign: subscription ${subscription.id} has no items; keeping quantity ${quantity}`);
+        return quantity;
+    }
+    try {
+        await stripe.subscriptions.update(
+            subscription.id,
+            { items: [{ id: item.id, quantity: plan.to }], proration_behavior: "create_prorations" },
+            { idempotencyKey: `seat-realign-${subscription.id}-${plan.to}` }
+        );
+        console.warn(
+            `seat-realign: tenant ${tenantId} subscription ${subscription.id} raised from ${quantity} to ${plan.to} seats (activities added while checkout was open)`
+        );
+        return plan.to;
+    } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error(
+            `seat-realign: raising ${subscription.id} to ${plan.to} failed for tenant ${tenantId}: ${message}; keeping quantity ${quantity}`
+        );
+        return quantity;
+    }
 }
 
 /**
@@ -167,9 +237,11 @@ export interface BuildSubscriptionLinkUpdatesParams {
 export async function buildSubscriptionLinkUpdates(
     params: BuildSubscriptionLinkUpdatesParams
 ): Promise<Record<string, unknown>> {
-    const { admin, stripe, subscription, stripeCustomerId, appliedAtIso, sessionPlanCode } = params;
+    const { admin, stripe, subscription, stripeCustomerId, appliedAtIso, sessionPlanCode, tenantId } = params;
 
-    const paidSeats = getSubscriptionQuantity(subscription);
+    const paidSeats = tenantId
+        ? await realignSeatsOnLink({ admin, stripe, subscription, tenantId })
+        : getSubscriptionQuantity(subscription);
     const subscriptionStatus = mapStripeStatus(subscription.status);
     const trialUntil = toIsoTimestamp(subscription.trial_end);
     const currentPeriodEnd = getSubscriptionCurrentPeriodEnd(subscription);

@@ -333,7 +333,8 @@ serve(async req => {
                         subscription: sub,
                         stripeCustomerId,
                         appliedAtIso,
-                        sessionPlanCode
+                        sessionPlanCode,
+                        tenantId
                     });
                 } catch (err) {
                     console.warn("stripe-webhook: Could not retrieve subscription on checkout:", err.message);
