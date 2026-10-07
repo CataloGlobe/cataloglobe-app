@@ -28,7 +28,7 @@ const ROLE_DISPLAY: Record<string, string> = {
 export default function InvitePage() {
     usePageTitle('Invito');
     const { token } = useParams<{ token: string }>();
-    const { user, loading: authLoading } = useAuth();
+    const { user, loading: authLoading, signOut } = useAuth();
     const navigate = useNavigate();
     const { showToast } = useToast();
 
@@ -37,6 +37,7 @@ export default function InvitePage() {
     const [accepting, setAccepting] = useState(false);
     const [declining, setDeclining] = useState(false);
     const [notFound, setNotFound] = useState(false);
+    const [wrongAccount, setWrongAccount] = useState(false);
 
     useEffect(() => {
         if (authLoading) return;
@@ -91,6 +92,11 @@ export default function InvitePage() {
 
         if (error) {
             console.error("[InvitePage] accept_invite_by_token:", error);
+            if (error.message?.includes("invite email mismatch")) {
+                setWrongAccount(true);
+                setAccepting(false);
+                return;
+            }
             const isExpired = error.message?.includes("invite expired");
             showToast({
                 type: "error",
@@ -119,12 +125,24 @@ export default function InvitePage() {
 
         if (error) {
             console.error("[InvitePage] decline_invite_by_token:", error);
+            if (error.message?.includes("invite email mismatch")) {
+                setWrongAccount(true);
+                return;
+            }
             showToast({ type: "error", message: "Impossibile rifiutare l'invito." });
             return;
         }
 
         showToast({ type: "success", message: "Invito rifiutato." });
         navigate("/workspace", { replace: true });
+    };
+
+    const handleSwitchAccount = async () => {
+        await signOut();
+        navigate("/login", {
+            replace: true,
+            state: { from: { pathname: `/invite/${token}` } }
+        });
     };
 
     // Auth resolving
@@ -165,6 +183,33 @@ export default function InvitePage() {
                     <Button variant="secondary" onClick={() => navigate("/workspace")}>
                         Vai al workspace
                     </Button>
+                </Card>
+            </div>
+        );
+    }
+
+    // CASE 1b — invite addressed to another account (server: invite email mismatch)
+    if (wrongAccount) {
+        return (
+            <div className={styles.page}>
+                <Card className={styles.card}>
+                    <div className={styles.header}>
+                        <Text variant="title-md" weight={700}>
+                            Invito per un altro account
+                        </Text>
+                        <Text variant="body" colorVariant="muted">
+                            Questo invito non è indirizzato a {user?.email ?? "questo account"}. Esci e
+                            accedi con l'email che ha ricevuto l'invito.
+                        </Text>
+                    </div>
+                    <div className={styles.actions}>
+                        <Button variant="primary" fullWidth onClick={handleSwitchAccount}>
+                            Esci e cambia account
+                        </Button>
+                        <Button variant="secondary" fullWidth onClick={() => navigate("/workspace")}>
+                            Vai al workspace
+                        </Button>
+                    </div>
                 </Card>
             </div>
         );
