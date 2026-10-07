@@ -113,8 +113,8 @@ export default function RuleDetailPage() {
     // Aperta dalla sede (PG7): se la regola vale anche altrove, lo si dice
     // prima di cambiarla. Conta la regola salvata, non il form.
     const sharedNotice =
-        routeActivityId && rule
-            ? sharedRuleNotice(rule, routeActivityId, options.activities, groupMembers ?? new Map())
+        routeActivityId && rule && groupMembers
+            ? sharedRuleNotice(rule, routeActivityId, options.activities, groupMembers)
             : null;
     // Un ruolo di sede assegna solo le sue sedi e i gruppi tutti suoi (come
     // `update_schedule_targets`); «Tutte le sedi» resta a owner e admin.

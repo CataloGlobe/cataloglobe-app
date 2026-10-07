@@ -21,6 +21,11 @@ describe("sharedRuleNotice", () => {
         expect(sharedRuleNotice(rule({ activityIds: ["g"] }), "g", sedi, groups)).toBeNull();
     });
 
+    it("una regola che non vale per la sede del path: niente barra", () => {
+        expect(sharedRuleNotice(rule({ activityIds: ["c", "b"] }), "g", sedi, groups)).toBeNull();
+        expect(sharedRuleNotice(rule({ groupIds: ["grp"] }), "m", sedi, groups)).toBeNull();
+    });
+
     it("due sedi: le nomina entrambe", () => {
         expect(sharedRuleNotice(rule({ activityIds: ["g", "c"] }), "g", sedi, groups)).toBe(
             "Vale per Garbagnate e anche per Comasina: se la cambi, cambia in entrambe."

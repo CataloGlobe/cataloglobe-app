@@ -12,7 +12,8 @@ interface RuleReach {
 /**
  * La riga della barra di una regola aperta dalla sede (T9b, PG7): se la
  * regola vale anche per altre sedi, cambiandola cambia anche lì. `null`
- * quando vale solo per questa sede. Conta la regola salvata, non il form.
+ * quando vale solo per questa sede o non vale per questa sede. Conta la
+ * regola salvata, non il form.
  */
 export function sharedRuleNotice(
     rule: RuleReach,
@@ -28,6 +29,9 @@ export function sharedRuleNotice(
     for (const groupId of rule.groupIds) {
         for (const id of groupMembers.get(groupId) ?? []) reached.add(id);
     }
+    // La regola non vale per la sede del path (link scritto a mano): la barra
+    // non ha niente di vero da dire.
+    if (!reached.has(activityId)) return null;
     reached.delete(activityId);
     // Anche le sedi che chi guarda non vede (un manager vede solo le sue):
     // contano, ma senza nome.
