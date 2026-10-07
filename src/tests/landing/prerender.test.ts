@@ -62,8 +62,15 @@ describe("FAQPage JSON-LD", () => {
         expect(pairs).toEqual(FAQ.items.map(({ q, a }) => ({ q, a })));
     });
 
-    it("«Quanto costa?» usa i prezzi di PRICING", () => {
-        const cost = FAQ.items.find((i) => i.q === "Quanto costa?");
+    it("tutte le 12 domande dei tre gruppi, gruppo dopo gruppo", () => {
+        const [ld] = faqBlocks(buildLandingDocument(template, "", "form"));
+        expect(FAQ.groups.map((g) => g.items.length)).toEqual([4, 4, 4]);
+        expect(ld.mainEntity).toHaveLength(12);
+        expect(ld.mainEntity.map((e: { name: string }) => e.name)).toEqual(FAQ.groups.flatMap((g) => g.items.map((i) => i.q)));
+    });
+
+    it("«Quanto costa CataloGlobe?» usa i prezzi di PRICING", () => {
+        const cost = FAQ.items.find((i) => i.q === "Quanto costa CataloGlobe?");
         for (const plan of Object.values(PRICING.plans)) {
             expect(cost?.a).toContain(`${plan.month} al mese o ${plan.year} all’anno`);
         }

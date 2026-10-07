@@ -456,32 +456,62 @@ export const START = {
 
 // ── 10 · FAQ ────────────────────────────────────────────────────────────────
 
+export type FaqGroupIcon = "rocket" | "utensils" | "tag";
+
+/**
+ * Domande della FAQ in tre gruppi, una pill per gruppo. L'ordine qui è anche
+ * quello del JSON-LD `FAQPage` di / (`FAQ.items`, sotto).
+ */
+const FAQ_GROUPS: { id: string; label: string; icon: FaqGroupIcon; items: { q: string; a: string }[] }[] = [
+    {
+        id: "iniziare",
+        label: "Per iniziare",
+        icon: "rocket",
+        items: [
+            { q: "Devo riscrivere tutto il menù a mano?", a: "No. Fai una foto al menù o carichi il PDF che hai: piatti, prezzi e categorie vengono letti in automatico. Tu controlli e pubblichi." },
+            { q: "Serve installare un’app?", a: "No, né a te né ai clienti. Il menù si apre dal QR, nel browser del telefono." },
+            { q: "Che fine fanno i QR che ho già stampato?", a: "Il QR di CataloGlobe non cambia mai: aggiorni il menù, il QR resta quello. Se oggi ne usi uno di un altro servizio, lo sostituisci una volta sola." },
+            { q: "Posso gestire più locali?", a: "Sì, tutti dallo stesso account, con un prezzo per ogni locale." }
+        ]
+    },
+    {
+        id: "menu",
+        label: "Il menù",
+        icon: "utensils",
+        items: [
+            { q: "Il menù cambia da solo tra pranzo, aperitivo e cena?", a: "Sì: programmi i menù per fascia oraria e il QR mostra sempre quello giusto." },
+            { q: "In quali lingue si vede il menù?", a: "In italiano, inglese, francese, tedesco e spagnolo, le lingue che servono di più con i turisti, e altre lingue sono in arrivo. Le descrizioni si traducono da sole quando salvi un piatto, e puoi sempre correggerle a mano. I nomi dei piatti restano in italiano." },
+            { q: "Posso indicare gli allergeni?", a: "Sì: per ogni piatto scegli tra i 14 allergeni previsti dalla normativa europea." },
+            { q: "I clienti devono registrarsi per ordinare dal tavolo?", a: "No. Inquadrano il QR del tavolo e ordinano dal telefono, senza app e senza creare un account." }
+        ]
+    },
+    {
+        id: "prezzi",
+        label: "Prezzi e prova",
+        icon: "tag",
+        items: [
+            { q: "Quanto costa CataloGlobe?", a: `Base ${PRICING.plans.base.month} al mese o ${PRICING.plans.base.year} all’anno, Pro ${PRICING.plans.pro.month} al mese o ${PRICING.plans.pro.year} all’anno, per locale: prezzo finale, nessun costo aggiuntivo. I primi 30 giorni sono gratis.` },
+            { q: "Serve la carta di credito per la prova gratuita?", a: "Sì, per attivare la prova. Per trenta giorni non paghi niente, e se disdici prima non ti viene addebitato nulla." },
+            { q: "Posso passare dal Base al Pro più avanti?", a: "Sì, cambi piano quando vuoi, senza rifare niente: il menù e le impostazioni restano quelli." },
+            { q: "Posso disdire quando voglio?", a: "Disdici quando vuoi, senza penali." }
+        ]
+    }
+];
+
 export const FAQ = {
     note: "chiedi pure",
     title: { lead: "Domande,", accent: "in breve." },
     lede: "Le cose che ci chiedono tutti, prima di provare.",
+    groups: FAQ_GROUPS,
+    /** Pill dei gruppi: nome accessibile della fila. */
+    groupsLabel: "Argomenti delle domande",
     /**
-     * Domande visibili e JSON-LD `FAQPage` di / (`faqPageLdScript` in
-     * `prerender.ts`): un solo elenco, il testo è lo stesso. I prezzi di
-     * «Quanto costa?» vengono da `PRICING`.
+     * Tutte le domande, gruppo dopo gruppo: domande visibili e JSON-LD
+     * `FAQPage` di / (`faqPageLdScript` in `prerender.ts`), un solo elenco, il
+     * testo è lo stesso. I prezzi di «Quanto costa CataloGlobe?» vengono da
+     * `PRICING`.
      */
-    items: [
-        { q: "Devo ribattere tutto il menù?", a: "No. Fai una foto al menù o carichi il PDF che hai: piatti, prezzi e categorie vengono letti in automatico. Tu controlli e pubblichi." },
-        { q: "Serve installare qualcosa?", a: "No, né a te né ai clienti. Il menù si apre dal QR, nel browser del telefono." },
-        { q: "E i QR che ho già stampato?", a: "Il QR di CataloGlobe non cambia mai: aggiorni il menù, il QR resta quello. Se oggi ne usi uno di un altro servizio, lo sostituisci una volta sola." },
-        { q: "Il menù cambia da solo tra pranzo, aperitivo e cena?", a: "Sì: programmi i menù per fascia oraria e il QR mostra sempre quello giusto." },
-        { q: "In quali lingue si vede il menù?", a: "In italiano, inglese, francese, tedesco e spagnolo, le lingue che servono di più con i turisti, e altre lingue sono in arrivo. Le descrizioni si traducono da sole quando salvi un piatto, e puoi sempre correggerle a mano. I nomi dei piatti restano in italiano." },
-        { q: "Posso indicare gli allergeni?", a: "Sì: per ogni piatto scegli tra i 14 allergeni previsti dalla normativa europea." },
-        { q: "I clienti devono registrarsi per ordinare dal tavolo?", a: "No. Inquadrano il QR del tavolo e ordinano dal telefono, senza app e senza creare un account." },
-        { q: "Posso gestire più locali?", a: "Sì, tutti dallo stesso account, con un prezzo per ogni locale." },
-        {
-            q: "Quanto costa?",
-            a: `Base ${PRICING.plans.base.month} al mese o ${PRICING.plans.base.year} all’anno, Pro ${PRICING.plans.pro.month} al mese o ${PRICING.plans.pro.year} all’anno, per locale: prezzo finale, nessun costo aggiuntivo. I primi 30 giorni sono gratis.`
-        },
-        { q: "Serve la carta di credito per provarlo?", a: "Sì, per attivare la prova. Per trenta giorni non paghi niente, e se disdici prima non ti viene addebitato nulla." },
-        { q: "Posso passare dal Base al Pro più avanti?", a: "Sì, cambi piano quando vuoi, senza rifare niente: il menù e le impostazioni restano quelli." },
-        { q: "E se poi non mi serve?", a: "Disdici quando vuoi, senza penali." }
-    ],
+    items: FAQ_GROUPS.flatMap((g) => g.items),
     more: "Hai un’altra domanda? Scrivici, rispondiamo noi.",
     copy: "Copia l’indirizzo email",
     copied: "Copiato"
