@@ -1061,6 +1061,7 @@ export default function Programming() {
                        al link che ha aperto la spiegazione. */
                     setReturnHelpFocus(false);
                     setIsHelpModalOpen(false);
+                    setSimulatorSimulating(true);
                     setIsSimulatorDrawerOpen(true);
                 }}
             />
