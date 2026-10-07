@@ -29,10 +29,13 @@ export function sharedRuleNotice(
         for (const id of groupMembers.get(groupId) ?? []) reached.add(id);
     }
     reached.delete(activityId);
-    const others = seats.filter(seat => reached.has(seat.id));
-    if (others.length === 0) return null;
-    if (others.length === 1) {
-        return `Vale per ${here} e anche per ${others[0].name}: se la cambi, cambia in entrambe.`;
+    // Anche le sedi che chi guarda non vede (un manager vede solo le sue):
+    // contano, ma senza nome.
+    if (reached.size === 0) return null;
+    if (reached.size === 1) {
+        const [otherId] = reached;
+        const other = seats.find(seat => seat.id === otherId)?.name ?? "un'altra sede";
+        return `Vale per ${here} e anche per ${other}: se la cambi, cambia in entrambe.`;
     }
-    return `Vale per ${here} e anche per altre ${others.length} sedi: se la cambi, cambia in tutte.`;
+    return `Vale per ${here} e anche per altre ${reached.size} sedi: se la cambi, cambia in tutte.`;
 }
