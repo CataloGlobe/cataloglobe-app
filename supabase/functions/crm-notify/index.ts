@@ -230,6 +230,9 @@ async function processEscalations(supabase, team, appUrl, now: Date) {
         .is("escalated_at", null)
         .lt("received_at", twoHoursAgo)
         .gt("received_at", weekAgo)
+        // I più vecchi prima: sono quelli già dovuti, i lead della notte
+        // (non ancora dovuti fino alle 9) non tolgono loro il posto.
+        .order("received_at", { ascending: true })
         .limit(BATCH);
     if (error) throw error;
 
@@ -276,6 +279,10 @@ async function processImportRuns(supabase, team, appUrl, now: Date) {
     const linked = team.filter(m => m.telegram_chat_id !== null);
     const linkedIds = linked.map(m => m.user_id);
 
+    // Senza nessuno collegato a Telegram non si prenota: il riepilogo partirà
+    // quando qualcuno si collega, invece di andare perso.
+    if (linked.length === 0) return stats;
+
     for (const run of runs ?? []) {
         // Prenotazione: un solo giro manda il riepilogo.
         const { data: claimed, error: claimError } = await supabase
@@ -285,7 +292,7 @@ async function processImportRuns(supabase, team, appUrl, now: Date) {
             .is("notified_at", null)
             .select("id");
         if (claimError) throw claimError;
-        if (!claimed?.length || linked.length === 0) continue;
+        if (!claimed?.length) continue;
 
         const message = buildImportSummaryMessage({
             importerName: team.find(m => m.user_id === run.created_by)?.display_name ?? null,

@@ -73,8 +73,9 @@ export function AgendaSettingsDrawer({ open, settings, onClose, onSaved }: Props
             setError(parsedWindows.error);
             return;
         }
-        const d = Number(duration);
-        const n = Number(notice);
+        // Un campo vuoto non vale 0: Number("") lo farebbe passare.
+        const d = duration.trim() === "" ? NaN : Number(duration);
+        const n = notice.trim() === "" ? NaN : Number(notice);
         if (!Number.isInteger(d) || d < 5 || d > 120) {
             setError("La durata va da 5 a 120 minuti.");
             return;

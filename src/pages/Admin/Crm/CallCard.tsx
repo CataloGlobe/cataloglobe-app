@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button/Button";
 import { Card } from "@/components/ui/Card/Card";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
@@ -80,18 +80,29 @@ export function CallCard({
     const [busyAction, setBusyAction] = useState<string | null>(null);
     const [actionError, setActionError] = useState<string | null>(null);
 
+    // Passando a un altro lead la scheda si smonta: una risposta lenta del
+    // lead di prima non deve finire sulla pagina del nuovo.
+    const mounted = useRef(true);
+    useEffect(() => {
+        mounted.current = true;
+        return () => {
+            mounted.current = false;
+        };
+    }, []);
+
     const load = useCallback(async () => {
         try {
             const [rows, agenda] = await Promise.all([
                 listCrmVenueAppointments(venueId),
                 getCrmAgendaSettings().catch(() => null)
             ]);
+            if (!mounted.current) return;
             setAppointments(rows);
             setSettings(agenda);
             onActiveChange?.(rows.find(isActiveAppointment) ?? null);
             setLoadError(null);
         } catch {
-            setLoadError("Non riesco a leggere le telefonate.");
+            if (mounted.current) setLoadError("Non riesco a leggere le telefonate.");
         }
         // `onActiveChange` è della pagina: conta solo il locale.
         // eslint-disable-next-line react-hooks/exhaustive-deps

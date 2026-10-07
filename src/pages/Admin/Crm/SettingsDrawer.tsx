@@ -23,6 +23,7 @@ import type { CrmTeamMember } from "@/types/crm";
 import { crmShortcutLabel, setCrmShortcutsOn, useCrmShortcutsOn } from "@/utils/crm/crmShortcuts";
 import { DEFAULT_WHATSAPP_TEMPLATE } from "@shared/crmWhatsapp";
 import styles from "./Crm.module.scss";
+import { crmErrorMessage } from "@/utils/crm/stages";
 
 /**
  * Impostazioni del CRM: chi lavora i lead, come lo avvisa il bot, il testo
@@ -76,7 +77,7 @@ export function SettingsDrawer({ open, onClose, onChanged }: Props) {
             const me = members.find(m => m.user_id === user?.id);
             setDisplayName(prev => prev || me?.display_name || "");
         } catch (err) {
-            setError(err instanceof Error ? err.message : String(err));
+            setError(crmErrorMessage(err));
         }
     }, [user?.id]);
 
@@ -95,7 +96,7 @@ export function SettingsDrawer({ open, onClose, onChanged }: Props) {
             onChanged();
             if (success) showToast({ message: success, type: "success" });
         } catch (err) {
-            setError(err instanceof Error ? err.message : String(err));
+            setError(crmErrorMessage(err));
         } finally {
             setIsBusy(false);
         }
@@ -113,11 +114,14 @@ export function SettingsDrawer({ open, onClose, onChanged }: Props) {
         }
         // La finestra si apre prima della chiamata: aperta dopo un await,
         // Safari la bloccherebbe come popup.
+        // Senza «noopener» (con quello window.open restituisce null): l'opener
+        // si toglie a mano, così la pagina di Telegram non raggiunge l'admin.
         const popup = window.open("about:blank", "_blank");
+        if (popup) popup.opener = null;
         await run(async () => {
             try {
                 const token = await startCrmTelegramLink(name);
-                const url = `https://t.me/${savedBotUsername}?start=${token}`;
+                const url = `https://t.me/${encodeURIComponent(savedBotUsername)}?start=${encodeURIComponent(token)}`;
                 if (popup) popup.location.href = url;
                 else window.location.href = url;
             } catch (err) {

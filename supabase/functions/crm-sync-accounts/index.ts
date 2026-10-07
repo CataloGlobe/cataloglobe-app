@@ -104,7 +104,13 @@ async function fetchTrialKind(subscriptionId: string): Promise<"carta" | "codice
 }
 
 async function sync(supabase) {
-    const stats = { linked: 0, moved: 0, suggested: 0, account_changes: 0 };
+    const stats = { linked: 0, moved: 0, suggested: 0, account_changes: 0, failed: 0 };
+    // Un locale che fallisce si salta: il giro va avanti con gli altri, invece
+    // di fermarsi ogni volta sullo stesso.
+    const skipVenue = (venueId: string, error: { code?: string; message?: string }) => {
+        stats.failed += 1;
+        console.error("crm-sync-accounts: locale saltato", venueId, error.code ?? "", error.message ?? "");
+    };
 
     const [tenants, venues, suggestionRows] = await Promise.all([
         fetchAll(() =>
@@ -173,7 +179,10 @@ async function sync(supabase) {
                     p_tenant_id: tenant.id,
                     p_link_source: "phone_auto"
                 });
-                if (error) throw error;
+                if (error) {
+                    skipVenue(venue.id, error);
+                    continue;
+                }
                 tenantId = tenant.id;
                 stats.linked += 1;
             }
@@ -200,7 +209,10 @@ async function sync(supabase) {
                     p_trial_kind: trialKind,
                     p_trial_ends_at: trialEndsAt
                 });
-                if (error) throw error;
+                if (error) {
+                    skipVenue(venue.id, error);
+                    continue;
+                }
                 if (changed) stats.account_changes += 1;
             }
 
@@ -216,7 +228,10 @@ async function sync(supabase) {
                     p_stage: next,
                     p_expected_stage: venue.stage
                 });
-                if (error) throw error;
+                if (error) {
+                    skipVenue(venue.id, error);
+                    continue;
+                }
                 if (moved) stats.moved += 1;
             }
             continue;
@@ -239,7 +254,10 @@ async function sync(supabase) {
             const { error } = await supabase
                 .from("crm_account_suggestions")
                 .insert({ venue_id: venue.id, tenant_id: suggestedTenantId, reason });
-            if (error && error.code !== "23505") throw error;
+            if (error && error.code !== "23505") {
+                skipVenue(venue.id, error);
+                break;
+            }
             if (!error) stats.suggested += 1;
         }
     }

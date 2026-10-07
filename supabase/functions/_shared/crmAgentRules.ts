@@ -23,7 +23,12 @@ export interface LeadTextSignals {
 }
 
 function normalize(text: string): string {
+    // NFKC: «ＳＴＯＰ» a larghezza piena diventa «stop». Via i caratteri
+    // invisibili e le emoji, così «Stop 🙏» resta uno stop.
     return text
+        .normalize("NFKC")
+        .replace(/\u00AD|\u200B|\u200C|\u200D|\u2060|\uFEFF|\uFE0F/g, "")
+        .replace(/\p{Extended_Pictographic}/gu, " ")
         .toLowerCase()
         .normalize("NFD")
         .replace(/[̀-ͯ]/g, "")
@@ -33,13 +38,15 @@ function normalize(text: string): string {
 }
 
 const EXPLICIT_STOP: RegExp[] = [
-    /^\s*stop\s*[.!]*\s*$/,
+    /^\s*stop\s*[,.!]*\s*((grazie|per favore|please|all)\s*[.!]*\s*)?$/,
     // Seconda persona e «più» vicino, o il messaggio intero: «non chiamatemi
     // prima delle 10» e «non scrivetemi ora, più tardi sì» non sono stop (sono
     // nei casi incerti, decide una persona).
-    /\b(non|nn) (mi |ci )?(scrivete|scrivetemi|scriveteci|contattatemi|contattateci|contattate|cercatemi|scrivermi|contattarmi)( \S+){0,3} piu\b(?! (tardi|avanti|in la|spesso|presto))/,
+    /\b(non|nn) (mi |ci )?(scrivete|scrivetemi|scriveteci|contattatemi|contattateci|contattate|cercatemi|scrivermi|scriverci|contattarmi|contattarci|scrivere|contattare|cercare)( \S+){0,3} piu\b(?! (tardi|avanti|in la|spesso|presto|dopo|prima|alle|di sera|la sera|di notte|la notte|di mattina|la mattina|nel weekend|il weekend))/,
     /^\s*(non|nn) (mi |ci )?(scrivete|scrivetemi|scriveteci|contattatemi|contattateci|disturbatemi|cercatemi)\s*(piu)?\s*[.!]*\s*$/,
-    /\b(non|nn) voglio (piu )?(essere (contattat|cercat|disturbat)|ricevere (piu |altri )?(messaggi|comunicazioni|notifiche|offerte)|messaggi)/,
+    /\b(non|nn) (voglio|vogliamo) (piu )?(essere (ri)?(contattat|cercat|disturbat)|ricevere (piu |altri )?(messaggi|comunicazioni|notifiche|offerte)|messaggi)/,
+    /\b(non|nn) (vi|ti) (voglio|vogliamo) piu sentire\b/,
+    /(?<!\b(don'?t|do not) )\bremove me\b/,
     // «toglimi un dubbio», «cancellami la prenotazione»: solo con la lista o il numero.
     /\b(cancellami|cancellatemi|toglietemi|toglimi|rimuovetemi|rimuovimi) (dalla |dalle |dai |dal |da )?(vostr\w* )?(lista|liste|contatti|rubrica|mailing|elenc\w*|numer\w*)\b/,
     /\b(cancellami|cancellatemi|toglietemi|toglimi|rimuovetemi|rimuovimi)\s*[.!]*\s*$/,
@@ -47,9 +54,9 @@ const EXPLICIT_STOP: RegExp[] = [
     // «basta mandarmi il link» vuol dire il contrario: solo «smettete». E
     // «smettete di mandare vocali» chiede un'altra forma, non di sparire:
     // «mandare» è uno stop solo coi messaggi o da solo in fondo.
-    /\b(smettete\w*|smetti\w*|smettila) (di )?(scriv|contatt|cercar|disturbar)\w*(?! (\S+ )?(vocal\w*|audio|maiuscol\w*))\b/,
-    /\b(smettete\w*|smetti\w*|smettila) (di )?mandar\w*( (dei |degli |i |questi |altri )?(messaggi|mail|email|sms|offerte|notifiche|pubblicita)\b|\s*[.!]*\s*$)/,
-    /\bbasta (con )?(i |questi )?messaggi\b/,
+    /(?<!\b(non|nn) )\b(smettete\w*|smetti\w*|smettila) (di )?(scriv|contatt|cercar|disturbar)\w*(?! (\S+ )?(vocal\w*|audio|maiuscol\w*))\b/,
+    /(?<!\b(non|nn) )\b(smettete\w*|smetti\w*|smettila) (di )?mandar\w*( (dei |degli |i |questi |altri )?(messaggi|mail|email|sms|offerte|notifiche|pubblicita)\b|\s*[.!]*\s*$)/,
+    /\bbasta (con )?(i |questi )?messaggi\b(?! (vocal\w*|audio|lunghi))/,
     /\bunsubscribe\b/,
     /\b(lasciatemi|lasciami) in pace\b/
 ];
@@ -68,8 +75,14 @@ function asksOtherChannel(t: string): boolean {
 }
 
 const UNCERTAIN_STOP: RegExp[] = [
-    /\b(non|nn) (mi |ci )?(scrivete|scrivetemi|scriveteci|scrivermi|contatt\w*|chiamate\w*|chiamatemi|chiamarmi|disturb\w*|cercatemi)\b/,
-    /\b(non|nn) voglio (piu )?(essere )?(contattat|ricevere|messaggi)/,
+    /\b(non|nn) (mi |ci )?(scrivete|scrivetemi|scriveteci|scrivermi|scriverci|scrivere|cercare|contatt\w*|ricontatt\w*|chiamate\w*|chiamatemi|chiamarmi|disturb\w*|cercatemi)\b/,
+    /\b(non|nn) (voglio|vogliamo) (piu )?(essere )?(ri)?(contattat|ricevere|messaggi)/,
+    /^\s*(ok |no )?basta( cosi)?\s*[,.!]*\s*(grazie)?\s*[.!]*\s*$/,
+    /\bfermatevi\b/,
+    // «non smettete di scrivermi» può essere ironico («ma non smettete mai?!»): decide una persona.
+    /\b(non|nn) (smettete\w*|smetti\w*|smettila) (di )?(scriv|contatt|cercar|disturbar|mandar)\w*/,
+    /\b(lasciatemi|lasciami|lasciateci) stare\b/,
+    /\bgia detto (di )?no\b/,
     /\b(cancellami|cancellatemi|toglietemi|toglimi|rimuovetemi|rimuovimi)\b/,
     /\bbasta (di )?(scriv|contatt|mand)\w*/,
     /\bnon (mi |ci )?(interessa|interessano|serve|servono)\b/,
@@ -89,12 +102,16 @@ const BOT_QUESTION: RegExp[] = [
     /\bsei (un )?umano\b/
 ];
 
+// «(?<!')ora»: «tra un'ora» non è adesso.
 const CALL_NOW: RegExp[] = [
-    /\b(chiamami|chiamatemi|mi chiami|mi chiamate|puoi chiamarmi|potete chiamarmi)\b.*\b(ora|adesso|subito|tra poco|appena puoi)\b/,
-    /\b(ora|adesso|subito)\b.*\b(chiamami|chiamatemi|mi chiami|mi chiamate)\b/,
-    /\bsono liber\w* (ora|adesso)\b/,
-    /\b(ora|adesso) sono liber\w*/
+    /\b(chiamami|chiamatemi|mi chiami|mi chiamate|puoi chiamarmi|potete chiamarmi)\b.*(?<!')\b(ora|adesso|subito|tra poco|appena puoi)\b/,
+    /(?<!')\b(ora|adesso|subito)\b.*\b(chiamami|chiamatemi|mi chiami|mi chiamate)\b/,
+    /(?<!\b(non|nn) )\bsono liber\w* (ora|adesso)\b/,
+    /(?<!')\b(ora|adesso) sono liber\w*/
 ];
+
+/** «non mi chiamate adesso» non chiede una chiamata. */
+const CALL_REFUSED = /\b(non|nn) (mi |ci )?(chiam|telefon)\w*/;
 
 export function classifyLeadText(text: string | null | undefined): LeadTextSignals {
     const t = normalize(text ?? "");
@@ -105,7 +122,7 @@ export function classifyLeadText(text: string | null | undefined): LeadTextSigna
     return {
         stop: explicit ? "explicit" : uncertain ? "uncertain" : null,
         botQuestion: BOT_QUESTION.some(r => r.test(t)),
-        callNow: CALL_NOW.some(r => r.test(t))
+        callNow: !CALL_REFUSED.test(t) && CALL_NOW.some(r => r.test(t))
     };
 }
 
@@ -204,9 +221,19 @@ function clip(text: string, max = MAX_TEXT): string {
     return text.length > max ? `${text.slice(0, max - 1)}…` : text;
 }
 
-/** Il testo del lead non deve poter chiudere il blocco dei dati. */
-function sanitizeData(text: string): string {
-    return clip(text.replace(/<\/?(chat|scheda|orari)[^>]*>/gi, "").split(String.fromCharCode(0)).join(""));
+const DATA_TAG = /<\/?\s*(chat|scheda|orari|ultimo_del_lead|bozza)[^>]*>/gi;
+
+/**
+ * Il testo del lead non deve poter chiudere il blocco dei dati. Si ripete
+ * finché il testo cambia: «<</chat>/chat>» senza il ciclo lascerebbe «</chat>».
+ */
+export function sanitizeData(text: string): string {
+    let out = text.split(String.fromCharCode(0)).join("");
+    for (let prev = ""; prev !== out; ) {
+        prev = out;
+        out = out.replace(DATA_TAG, "");
+    }
+    return clip(out);
 }
 
 const OUTPUT_RULES = `Rispondi SOLO con un oggetto JSON, senza altro testo, in una di queste forme:

@@ -277,7 +277,7 @@ export default function AgentsPage() {
             // La prova costa: spesa e diario si aggiornano.
             reload();
         } catch (err) {
-            setActionError(`La prova non è partita: ${err instanceof Error ? err.message : String(err)}`);
+            setActionError(`La prova non è partita. ${crmErrorMessage(err)}`);
         } finally {
             setBusy(null);
         }

@@ -57,6 +57,20 @@ export interface ClaudeUsage {
 }
 
 /** Costo in dollari, arrotondato al milionesimo (numeric(12,6)); null se il modello non ha prezzo. */
+/**
+ * Chiamata andata in timeout: Claude può averla finita e fatturata lo stesso.
+ * Per i tetti si conta per eccesso: un token ogni 3 caratteri della richiesta
+ * e tutta l'uscita permessa.
+ */
+export function timeoutUsageEstimate(requestBody: string, maxTokens: number): ClaudeUsage {
+    return {
+        inputTokens: Math.ceil(requestBody.length / 3),
+        outputTokens: maxTokens,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0
+    };
+}
+
 export function claudeCostUsd(model: string, usage: ClaudeUsage): number | null {
     const price = CLAUDE_PRICES[model];
     if (!price) return null;

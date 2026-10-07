@@ -17,10 +17,13 @@ describe("parseEurCap", () => {
         expect(parseEurCap("100")).toBe(100);
         expect(parseEurCap("12,50")).toBe(12.5);
         expect(parseEurCap(" 12.5 €")).toBe(12.5);
+        expect(parseEurCap("1.200")).toBe(1200);
+        expect(parseEurCap("1.234,56")).toBe(1234.56);
+        expect(parseEurCap("1.000,00")).toBe(1000);
     });
 
     it("rifiuta zero, negativi, testo, tre decimali e oltre il massimo", () => {
-        for (const text of ["0", "-5", "dieci", "1,234", `${CAP_MAX_EUR + 1}`, "", "1.000,00"]) {
+        for (const text of ["0", "-5", "dieci", "1,234", `${CAP_MAX_EUR + 1}`, ""]) {
             expect(parseEurCap(text)).toBeNull();
         }
         expect(parseEurCap(`${CAP_MAX_EUR}`)).toBe(CAP_MAX_EUR);

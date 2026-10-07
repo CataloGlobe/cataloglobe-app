@@ -82,6 +82,19 @@ Deno.serve(async (req: Request) => {
         const phone = lead.crm_contacts?.phone_e164;
         if (!phone) return text(422, "Questo lead non ha un telefono.");
 
+        // Il numero può stare nella lista stop anche con il locale in un'altra
+        // fase (stop chiesto da un altro locale o rientrato dopo): non si scrive.
+        const { data: fingerprint, error: fpError } = await supabase.rpc("crm_phone_fingerprint", {
+            p_phone_e164: phone
+        });
+        if (fpError) throw fpError;
+        const { count: suppressed, error: supError } = await supabase
+            .from("crm_suppressions")
+            .select("phone_fingerprint", { count: "exact", head: true })
+            .eq("phone_fingerprint", fingerprint);
+        if (supError) throw supError;
+        if (suppressed) return text(409, "Ha chiesto di non essere contattato. Non scrivergli.");
+
         // Lo stesso link riaperto (o inoltrato) entro 10 minuti non registra un
         // secondo contatto: il link vale 7 giorni e si può riusare.
         const { count: recent } = await supabase
