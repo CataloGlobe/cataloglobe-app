@@ -207,20 +207,20 @@ export function RuleSimulatorDrawer({
             </Button>
         ) : null;
 
-    // In testa al pannello, sopra «Simula» e lo stato: da dove si torna e dove si va.
-    const seatRow = simActivityId ? matrix?.rows[0] : undefined;
+    // In testa al pannello, sopra «Simula» e lo stato: da dove si torna e dove
+    // si va. Con una sede sola (dentro la sede, o azienda di una sede) non c'è
+    // un elenco a cui tornare e la sua Programmazione è la pagina già aperta.
+    const seatRow = simActivityId && activities.length > 1 ? matrix?.rows[0] : undefined;
     const seatNav = seatRow ? (
         <div className={styles.seatNav}>
-            {activities.length > 1 && (
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    leftIcon={<ArrowLeft size={16} aria-hidden />}
-                    onClick={() => setSimActivityId("")}
-                >
-                    Tutte le sedi
-                </Button>
-            )}
+            <Button
+                variant="ghost"
+                size="sm"
+                leftIcon={<ArrowLeft size={16} aria-hidden />}
+                onClick={() => setSimActivityId("")}
+            >
+                Tutte le sedi
+            </Button>
             <Link to={seatProgrammingHref(seatRow.activityId)} className={styles.seatProgramming}>
                 Vai alla programmazione di {seatRow.name}
                 <ArrowRight size={16} aria-hidden />
