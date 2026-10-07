@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
-import { Copy, Trash2 } from "lucide-react";
+import { Copy, Lock, Trash2 } from "lucide-react";
 import { DataTable, DATA_TABLE_CLASSES, type ColumnDefinition } from "@components/ui/DataTable/DataTable";
 import { TableRowActions } from "@components/ui/TableRowActions/TableRowActions";
 import { Badge } from "@components/ui/Badge/Badge";
@@ -20,6 +20,9 @@ import { describeTarget } from "./ruleTarget";
 import styles from "./RuleTable.module.scss";
 
 export type { RuleInsight };
+
+/** Perché una regola è in sola lettura (T9b): la stessa frase del dettaglio. */
+export const READ_ONLY_REASON = "La modifica chi gestisce tutte le sedi coinvolte";
 
 export interface RuleTableProps {
     rules: LayoutRule[];
@@ -42,6 +45,11 @@ export interface RuleTableProps {
     onDelete?: (ruleId: string) => void;
     selectedIds?: string[];
     onSelectedIdsChange?: (ids: string[]) => void;
+    /**
+     * Regola per regola (`canWriteRule`): chi non può modificarla vede un
+     * lucchetto al posto dello switch e niente azioni. Assente: tutte.
+     */
+    canWriteRule?: (rule: LayoutRule) => boolean;
     /** Righe Skeleton al posto delle regole. */
     isLoading?: boolean;
     /**
@@ -72,6 +80,7 @@ export function RuleTable({
     onDelete,
     selectedIds,
     onSelectedIdsChange,
+    canWriteRule = () => true,
     isLoading = false,
     whereWidth = "180px",
     ariaLabel
@@ -108,7 +117,8 @@ export function RuleTable({
                         rule,
                         rule.layout?.catalog_id ? catalogById?.get(rule.layout.catalog_id)?.name : undefined
                     );
-                    const excluded = !insight?.isOverridden ? insight?.excludedActivityNames : undefined;
+                    // Dove perde (ma vince altrove): la riga ambra «A X vince …» (PG5).
+                    const losing = !insight?.isOverridden ? insight?.losingSeats : undefined;
 
                     return (
                         <div className={`${DATA_TABLE_CLASSES.cellTwoLine} ${isPhone ? DATA_TABLE_CLASSES.cellTwoLineWrap : ""}`}>
@@ -157,12 +167,21 @@ export function RuleTable({
                                     Nessuna sede raggiunta: {insight.zeroReachReason}
                                 </Text>
                             )}
-                            {excluded && excluded.length > 0 && (
-                                <Tooltip content={`Qui vince una regola più specifica: ${excluded.join(", ")}`} side="top">
-                                    <Text as="span" variant="caption" colorVariant="muted" tabIndex={0}>
-                                        {excluded.length === 1
-                                            ? "Non vale in 1 sede: c'è una regola più specifica"
-                                            : `Non vale in ${excluded.length} sedi: c'è una regola più specifica`}
+                            {losing && losing.length === 1 && (
+                                <Text as="span" variant="caption" className={styles.losing}>
+                                    A {losing[0].activityName} vince{" "}
+                                    <Link to={ruleHref({ id: losing[0].winnerId, rule_type: rule.rule_type })}>
+                                        «{losing[0].winnerName}»
+                                    </Link>
+                                </Text>
+                            )}
+                            {losing && losing.length > 1 && (
+                                <Tooltip
+                                    content={losing.map(seat => `A ${seat.activityName} vince «${seat.winnerName}»`).join("; ")}
+                                    side="top"
+                                >
+                                    <Text as="span" variant="caption" className={styles.losing} tabIndex={0}>
+                                        In {losing.length} sedi vince un'altra regola
                                     </Text>
                                 </Tooltip>
                             )}
@@ -198,6 +217,17 @@ export function RuleTable({
                 width: "72px",
                 align: "center",
                 cell: (_, rule) => {
+                    if (!canWriteRule(rule)) {
+                        return (
+                            <span data-row-click-ignore="true" className={styles.toggle}>
+                                <Tooltip content={READ_ONLY_REASON} side="top">
+                                    <span tabIndex={0} aria-label={READ_ONLY_REASON} className={styles.readOnly}>
+                                        <Lock size={16} aria-hidden="true" />
+                                    </span>
+                                </Tooltip>
+                            </span>
+                        );
+                    }
                     const guard = rule.enabled ? null : getToggleGuardResult(rule);
                     const blocked = guard !== null && !guard.canToggle ? guard.reason : null;
                     const toggle = (
@@ -233,7 +263,8 @@ export function RuleTable({
                 header: "",
                 width: "56px",
                 align: "right",
-                cell: (_, rule) => (
+                cell: (_, rule) =>
+                    !canWriteRule(rule) ? null : (
                     <TableRowActions
                         ariaLabel={`Azioni per ${nameOf(rule)}`}
                         actions={[
@@ -248,7 +279,7 @@ export function RuleTable({
         }
 
         return cols;
-    }, [activityById, activityGroups, canWrite, catalogById, catalogLabel, insights, isCompact, isPhone, onDelete, onDuplicate, onToggleEnabled, ruleHref, showTypeBadge, updatingIds, whereWidth]);
+    }, [activityById, activityGroups, canWrite, canWriteRule, catalogById, catalogLabel, insights, isCompact, isPhone, onDelete, onDuplicate, onToggleEnabled, ruleHref, showTypeBadge, updatingIds, whereWidth]);
 
     const ids = useMemo(() => rules.map(r => r.id), [rules]);
 
@@ -262,6 +293,7 @@ export function RuleTable({
             // Sul telefono niente selezione multipla (come in Menù): i 48 px
             // della casella vanno al nome; si elimina dal menù della riga.
             selectable={canWrite && !isPhone && Boolean(onSelectedIdsChange)}
+            isRowSelectable={canWriteRule}
             selectedRowIds={selectedIds?.filter(id => ids.includes(id))}
             onSelectedRowsChange={next => {
                 if (!onSelectedIdsChange || !selectedIds) return;

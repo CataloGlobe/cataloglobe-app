@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Calendar, ChevronDown, List, CalendarDays } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
@@ -13,7 +13,6 @@ import { Menu } from "@/components/ui/Menu";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { ToolbarSearch } from "@/components/ui/ToolbarSearch/ToolbarSearch";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
-import { Select } from "@/components/ui/Select/Select";
 import { SplitButton, type SplitButtonAction } from "@/components/ui/SplitButton";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import Text from "@/components/ui/Text/Text";
@@ -22,7 +21,7 @@ import { useTenantId } from "@/context/useTenantId";
 import { useSedeScope } from "@/hooks/useSedeScope";
 import { usePermissions } from "@/context/usePermissions";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
-import { canDoOnActivity, canDoOnAnyActivity } from "@/lib/permissions";
+import { canDoOnActivity, canDoOnAnyActivity, canWriteRule, isTenantWide } from "@/lib/permissions";
 import { listActivityIdsByGroup } from "@/services/supabase/activity-groups";
 import { PageGate } from "@/components/PageGate/PageGate";
 import {
@@ -37,10 +36,13 @@ import {
     type RuleType
 } from "@/services/supabase/layoutScheduling";
 import { createFeaturedRuleDraft } from "@/services/supabase/featuredScheduling";
+import { scopeRuleToActivity } from "@/services/supabase/scheduleTargets";
 import { countManualOverridesByActivity } from "@/services/supabase/activeCatalog";
 import { toRomeDateTime } from "@/services/supabase/schedulingNow";
 import { buildScheduleMatrix } from "@/utils/scheduleMatrix";
 import { NowCard } from "./components/NowCard";
+import { CompanyNowCard } from "./components/CompanyNowCard";
+import { schedulingPath } from "./schedulingPaths";
 import { matrixLayers } from "./components/matrixLayers";
 import { RuleTable } from "./components/RuleTable";
 import { computeRuleInsights, toCompetitionRule } from "@/utils/ruleInsights";
@@ -128,6 +130,12 @@ export default function Programming() {
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
     const currentTenantId = useTenantId();
+    // Due livelli (T9b, PG6): dentro la sede (`/locations/:activityId/programmazione`)
+    // la sede è nel path e vince su `?sede=`; fuori, le regole dell'azienda.
+    const { activityId: routeActivityId } = useParams<{ activityId?: string }>();
+    const schedulingBase = routeActivityId
+        ? `/business/${currentTenantId}/locations/${routeActivityId}/programmazione`
+        : `/business/${currentTenantId}/scheduling`;
     const { showToast } = useToast();
     const { catalogLabel, productLabel, productLabelPlural } = useVerticalConfig();
     const typeOptions = useMemo(() => ruleTypeOptions(catalogLabel, productLabelPlural.toLowerCase()), [catalogLabel, productLabelPlural]);
@@ -137,18 +145,16 @@ export default function Programming() {
     );
     const ruleHref = useCallback(
         (rule: { id: string; rule_type: RuleType }) =>
-            rule.rule_type === "featured"
-                ? `/business/${currentTenantId}/scheduling/featured/${rule.id}`
-                : `/business/${currentTenantId}/scheduling/${rule.id}`,
-        [currentTenantId]
+            rule.rule_type === "featured" ? `${schedulingBase}/featured/${rule.id}` : `${schedulingBase}/${rule.id}`,
+        [schedulingBase]
     );
-    // Il nome della sede nella matrice: la sua pagina «Cosa vedono i clienti»
-    // (oggi «Disponibilità», §20.3).
-    const seatHref = useCallback(
-        (activityId: string) => `/business/${currentTenantId}/locations/${activityId}/cosa-vedono`,
-        [currentTenantId]
-    );
+    // La Programmazione di una sede: dal chip della card e dal pannello (PG5).
     const sedeScope = useSedeScope();
+    // Con una sede sola la Programmazione è quella d'azienda (`schedulingPath`).
+    const seatProgrammingHref = useCallback(
+        (activityId: string) => schedulingPath(currentTenantId ?? "", activityId, sedeScope.isForcedSingleSite),
+        [currentTenantId, sedeScope.isForcedSingleSite]
+    );
     const { permissions } = usePermissions();
     // `canEdit` usa la stessa allowlist (trialing|active|past_due) di
     // VALID_SUBSCRIPTION_STATUSES in resolve-public-catalog: se è false la
@@ -178,15 +184,13 @@ export default function Programming() {
 
     const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
     const [searchTerm, setSearchTerm] = useState("");
-    // Il filtro sede sta nella pagina (§51.11) ed è `?sede=<id>`: lo scrive il
-    // selettore qui sotto, ci arriva «Vai a Programmazione» da una pagina
-    // della sede. Una sede che chi guarda non legge si ignora; finché
-    // l'elenco non c'è vale quella dell'indirizzo.
+    // Niente filtro sede nella pagina d'azienda (T9b, PG5; superato §51.11):
+    // la sede si guarda da dentro la sede. Un vecchio link `?sede=<id>` porta
+    // alla Programmazione di quella sede.
     const sedeFromUrl = searchParams.get("sede");
-    const { isLoaded: sedeScopeLoaded } = sedeScope;
-    // Le sedi del filtro: quelle di cui chi guarda legge la Programmazione.
-    // Una sede senza `scheduling.read` chiuderebbe la pagina nel gate, e il
-    // filtro con lei.
+    // Le sedi di cui chi guarda legge la Programmazione: card, pannello e
+    // vecchi link. Una sede senza `scheduling.read` chiuderebbe la pagina nel
+    // gate.
     const readableSedi = useMemo(
         () =>
             permissions
@@ -194,29 +198,20 @@ export default function Programming() {
                 : [],
         [permissions, sedeScope.readableActivities]
     );
-    const filterActivityId = !sedeFromUrl
-        ? null
-        : !sedeScopeLoaded || readableSedi.some(a => a.id === sedeFromUrl)
-          ? sedeFromUrl
-          : null;
-    const setFilterActivityId = useCallback(
-        (next: string | null) =>
-            setSearchParams(
-                prev => {
-                    const params = new URLSearchParams(prev);
-                    if (next) params.set("sede", next);
-                    else params.delete("sede");
-                    return params;
-                },
-                { replace: true }
-            ),
-        [setSearchParams]
-    );
-    const sedeFilterOptions = useMemo(
-        () => [{ value: "", label: "Tutte le sedi" }, ...readableSedi.map(a => ({ value: a.id, label: a.name }))],
-        [readableSedi]
-    );
+    const filterActivityId = routeActivityId ?? null;
+    useEffect(() => {
+        if (routeActivityId || !sedeFromUrl || !readableSedi.some(a => a.id === sedeFromUrl)) return;
+        const params = new URLSearchParams(searchParams);
+        params.delete("sede");
+        const query = params.toString();
+        navigate(`${seatProgrammingHref(sedeFromUrl)}${query ? `?${query}` : ""}`, { replace: true });
+    }, [navigate, readableSedi, routeActivityId, searchParams, seatProgrammingHref, sedeFromUrl]);
+    // Più sedi e nessuna sede nel path: la vista d'azienda (PG5).
+    const companyView = !routeActivityId && readableSedi.length > 1;
     const canWrite = permissions ? canDoOnAnyActivity(permissions, "scheduling.write") : false;
+    // Crea (e duplica) solo chi gestisce tutte le sedi: per un ruolo di sede
+    // la creazione aspetta la RPC che crea regola e sedi insieme (T9b).
+    const canCreate = canWrite && permissions !== null && permissions !== undefined && isTenantWide(permissions);
     // Stessa regola di PageGate: sulla sede del filtro, se c'è.
     const canRead = permissions
         ? filterActivityId
@@ -376,6 +371,13 @@ export default function Programming() {
         return () => clearInterval(interval);
     }, []);
 
+    // Permesso regola per regola, come `can_write_schedule` (T9b): una regola
+    // che tocca anche sedi altrui resta in sola lettura.
+    const groupMembers = useMemo(() => new Map(Object.entries(activityIdsByGroupId)), [activityIdsByGroupId]);
+    const isRuleWritable = useCallback(
+        (rule: LayoutRule) => (permissions ? canWriteRule(permissions, rule, groupMembers) : false),
+        [groupMembers, permissions]
+    );
     const groupNameById = useMemo(
         () => new Map(activityGroups.map(group => [group.id, group.name])),
         [activityGroups]
@@ -403,35 +405,44 @@ export default function Programming() {
 
     // Sedi × strati adesso: la stessa resolveCompetition di «Sovrascritta
     // da», sulle regole già caricate.
+    // Solo le sedi di cui chi guarda legge la Programmazione (PG5).
+    const readableSediIds = useMemo(() => new Set(readableSedi.map(a => a.id)), [readableSedi]);
+    const seatActivities = useMemo(
+        () => activities.filter(a => readableSediIds.has(a.id)),
+        [activities, readableSediIds]
+    );
     const scheduleMatrix = useMemo(
         () =>
             buildScheduleMatrix({
                 rules,
-                activities,
+                activities: seatActivities,
                 activityIdsByGroupId,
                 manualCounts,
                 filterActivityId,
                 instant: nowRome,
                 subscriptionInactive
             }),
-        [activities, activityIdsByGroupId, filterActivityId, manualCounts, nowRome, rules, subscriptionInactive]
+        [activityIdsByGroupId, filterActivityId, manualCounts, nowRome, rules, seatActivities, subscriptionInactive]
     );
     const matrixCatalogName = useCallback((catalogId: string) => catalogById.get(catalogId)?.name, [catalogById]);
     const nowLayers = useMemo(
         () => matrixLayers({ atNow: true, catalogLabel, catalogName: matrixCatalogName, ruleHref }),
         [catalogLabel, matrixCatalogName, ruleHref]
     );
-    const [nowSeatId, setNowSeatId] = useState<string | null>(null);
-    const nowRow = scheduleMatrix.rows.find(row => row.activityId === nowSeatId) ?? scheduleMatrix.rows[0];
-    const nowSeatOptions = useMemo(
-        () => scheduleMatrix.rows.map(row => ({ value: row.activityId, label: row.name })),
-        [scheduleMatrix.rows]
-    );
+    // Con una sede sola, o dentro la sede, la matrice ha una riga.
+    const nowRow = scheduleMatrix.rows[0];
     const pad = (n: number) => String(n).padStart(2, "0");
     const nowTime = `${pad(nowRome.hour)}:${pad(nowRome.minute)}`;
     const showMoment = viewMode === "list" && !isLoading && !loadFailed && rules.length > 0 && scheduleMatrix.rows.length > 0;
-    // Il simulatore si apre sulla sede della card.
+    // Il pannello si apre sulla sede della card, già su «Simula»; da «Vedi
+    // tutte» sull'elenco delle sedi, fermo su adesso.
     const [simulatorSeatId, setSimulatorSeatId] = useState<string | null>(null);
+    const [simulatorSimulating, setSimulatorSimulating] = useState(false);
+    // Dentro una sede il pannello conosce solo quella.
+    const simulatorActivities = useMemo(
+        () => (routeActivityId ? seatActivities.filter(a => a.id === routeActivityId) : seatActivities),
+        [routeActivityId, seatActivities]
+    );
 
     const { activeRules, scheduledRules, draftRules, expiredRules, disabledRules } = useMemo(() => {
         const active: LayoutRule[] = [];
@@ -665,21 +676,24 @@ export default function Programming() {
                     tenantId: currentTenantId!,
                     name
                 });
-                navigate(`/business/${currentTenantId}/scheduling/featured/${newRuleId}?fromType=featured`);
+                // Dalla sede la regola nasce con la sede già scelta (PG6).
+                if (routeActivityId) await scopeRuleToActivity(newRuleId, routeActivityId);
+                navigate(`${schedulingBase}/featured/${newRuleId}?fromType=featured`);
             } else {
                 const newRuleId = await createRuleDraft({
                     tenantId: currentTenantId!,
                     ruleType: effectiveType,
                     name
                 });
-                navigate(`/business/${currentTenantId}/scheduling/${newRuleId}?fromType=${effectiveType}`);
+                if (routeActivityId) await scopeRuleToActivity(newRuleId, routeActivityId);
+                navigate(`${schedulingBase}/${newRuleId}?fromType=${effectiveType}`);
             }
         } catch {
             showToast({ message: "Non siamo riusciti a creare la regola.", type: "error" });
         } finally {
             setIsCreating(false);
         }
-    }, [currentTenantId, catalogLabel, ruleTypeFilter, navigate, showToast]);
+    }, [currentTenantId, catalogLabel, ruleTypeFilter, navigate, routeActivityId, schedulingBase, showToast]);
 
     // «Nuova regola» da sola (PG4): il simulatore si apre dalla card «Adesso».
     // Sulla tab "Tutte" non ha un tipo implicito da creare → apre lei stessa il
@@ -687,7 +701,7 @@ export default function Programming() {
     const headerSplitActions = useMemo<SplitButtonAction[]>(() => {
         const actions: SplitButtonAction[] = [];
 
-        if (!canWrite) return actions;
+        if (!canCreate) return actions;
 
         const label = isCreating ? "Creazione..." : "Nuova regola";
         const disabled = !currentTenantId || isCreating || !canEdit;
@@ -708,7 +722,7 @@ export default function Programming() {
         );
 
         return actions;
-    }, [currentTenantId, canWrite, canEdit, catalogLabel, isCreating, ruleTypeFilter, handleCreateRule]);
+    }, [currentTenantId, canCreate, canEdit, catalogLabel, isCreating, ruleTypeFilter, handleCreateRule]);
 
     // Il filtro per tipo sta nella testata, nello slot delle tab come in
     // Prodotti e Sedi (F5); in compatto diventa il selettore di sezione.
@@ -839,7 +853,8 @@ export default function Programming() {
         onOpen: (rule: LayoutRule) => navigate(ruleHref(rule)),
         updatingIds: updatingRules,
         onToggleEnabled: canWrite ? handleToggleEnabled : undefined,
-        onDuplicate: canWrite ? handleDuplicate : undefined,
+        onDuplicate: canCreate ? handleDuplicate : undefined,
+        canWriteRule: isRuleWritable,
         onDelete: canWrite
             ? (id: string) => {
                   setRuleToDelete(id);
@@ -854,30 +869,31 @@ export default function Programming() {
         <PageGate readPermission="scheduling.read" activityId={filterActivityId}>
             {() => (
         <section className={styles.programming}>
-            {/* Il filtro sede della pagina (§51.11): matrice, elenco e
-                Settimana. Con una sede sola non c'è niente da filtrare. */}
-            {readableSedi.length > 1 && (
-                <div className={styles.sedeFilter}>
-                    <Select
-                        aria-label="Sede"
-                        value={filterActivityId ?? ""}
-                        onChange={e => setFilterActivityId(e.target.value || null)}
-                        options={sedeFilterOptions}
-                    />
-                </div>
+            {showMoment && companyView && (
+                <CompanyNowCard
+                    time={nowTime}
+                    rows={scheduleMatrix.rows}
+                    catalogLabel={catalogLabel}
+                    subscriptionInactive={subscriptionInactive}
+                    onSeatOpen={activityId => navigate(seatProgrammingHref(activityId))}
+                    onShowAll={() => {
+                        setSimulatorSeatId(null);
+                        setSimulatorSimulating(false);
+                        setIsSimulatorDrawerOpen(true);
+                    }}
+                />
             )}
-            {showMoment && nowRow && (
+            {showMoment && !companyView && nowRow && (
                 <NowCard
                     time={nowTime}
                     row={nowRow}
                     layers={nowLayers}
                     catalogLabel={catalogLabel}
                     highlight={ruleTypeFilter === "all" ? null : ruleTypeFilter}
-                    seatOptions={nowSeatOptions}
-                    onSeatChange={setNowSeatId}
                     subscriptionInactive={subscriptionInactive}
                     onSimulate={() => {
                         setSimulatorSeatId(nowRow.activityId);
+                        setSimulatorSimulating(true);
                         setIsSimulatorDrawerOpen(true);
                     }}
                 />
@@ -923,7 +939,7 @@ export default function Programming() {
                                         ruleType={ruleTypeFilter}
                                         onClick={openHelpModal}
                                     />
-                                    {canWrite && (
+                                    {canCreate && (
                                         ruleTypeFilter === "all" ? (
                                             <Menu
                                                 trigger={
@@ -1018,14 +1034,15 @@ export default function Programming() {
                 open={isSimulatorDrawerOpen}
                 onClose={() => setIsSimulatorDrawerOpen(false)}
                 rules={rules}
-                activities={activities}
+                activities={simulatorActivities}
                 activityIdsByGroupId={activityIdsByGroupId}
                 catalogById={catalogById}
                 subscriptionInactive={subscriptionInactive}
                 ruleHref={ruleHref}
-                seatHref={seatHref}
+                seatProgrammingHref={seatProgrammingHref}
                 manualCounts={manualCounts}
                 initialActivityId={simulatorSeatId}
+                initialSimulating={simulatorSimulating}
                 helpRuleType={ruleTypeFilter}
                 helpRef={simulatorHelpRef}
                 onHowItWorks={() => {
@@ -1045,6 +1062,7 @@ export default function Programming() {
                        al link che ha aperto la spiegazione. */
                     setReturnHelpFocus(false);
                     setIsHelpModalOpen(false);
+                    setSimulatorSimulating(true);
                     setIsSimulatorDrawerOpen(true);
                 }}
             />

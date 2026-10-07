@@ -64,3 +64,28 @@
 .chevronClosed {
   transform: rotate(-90deg);
 }
+
+// Dentro una sede (PG5): «← Tutte le sedi» a sinistra, il link alla sua
+// Programmazione a destra.
+.seatNav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+}
+
+.seatProgramming {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin-left: auto;
+  color: var(--brand-primary);
+  font-weight: 500;
+  text-decoration: none;
+
+  &:hover,
+  &:focus-visible {
+    text-decoration: underline;
+  }
+}

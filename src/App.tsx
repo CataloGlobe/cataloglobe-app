@@ -305,6 +305,12 @@ export default function App() {
                         la sede dal path. */}
                     <Route path="analitiche" element={<AnalyticsPage />} />
                     <Route path="recensioni" element={<Reviews />} />
+                    {/* Programmazione della sede (T9b, PG6-PG7): le regole
+                        dell'azienda che raggiungono la sede, e il loro
+                        dettaglio, senza uscire dalla sede. */}
+                    <Route path="programmazione" element={<Programming />} />
+                    <Route path="programmazione/:ruleId" element={<RuleDetailPage />} />
+                    <Route path="programmazione/featured/:ruleId" element={<RuleDetailPage />} />
                     {/* Il vecchio nome (Disponibilità, §50.14): link e preferiti restano buoni. */}
                     <Route path="disponibilita" element={<ActivitySectionRedirect to="cosa-vedono" keepHash keepSearch />} />
                     {/* La scheda della sede: quattro pagine (§31). */}

@@ -18,13 +18,17 @@ Riferimento route applicazione. Tutte definite in `src/App.tsx`, tranne le route
                              usabile (SedeHomeRedirect; i vecchi ?tab= vincono)
   locations/:activityId/   servizio (?modo=elenco|mappa|gestisci) | prenotazioni | comande | storico | cosa-vedono
                            analitiche | recensioni (Andamento della sede, §51.10: stesse pagine d'azienda, sede dal path)
+                           programmazione | programmazione/:ruleId | programmazione/featured/:ruleId
+                           (Programmazione della sede, T9b: stesse pagine d'azienda, sede dal path; solo le regole
+                            che raggiungono la sede; «Nuova regola» nasce sulla sede)
                            (sala → servizio?modo=gestisci, disponibilita → cosa-vedono,
                             comande?tab=tavoli → servizio?modo=mappa, comande?tab=storico → storico,
                             prenotazioni?tab=service → servizio?modo=elenco)
                            anagrafica | orari | ordini-prenotazioni | pubblicazione (Scheda, ActivityDetailPage; canali → ordini-prenotazioni)
   orders | reservations    → redirect all'ultima sede usata (SedeRedirect), o a locations
   guests
-  scheduling (?sede=<id> = filtro della pagina, §51.11) | scheduling/:ruleId | scheduling/featured/:ruleId
+  scheduling | scheduling/:ruleId | scheduling/featured/:ruleId
+                             (d'azienda, senza filtro sede; un vecchio ?sede=<id> → locations/<id>/programmazione, T9b)
   catalogs | catalogs/:id
   products | products/:productId
   featured | featured/:featuredId
