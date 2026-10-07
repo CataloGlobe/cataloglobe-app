@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Calendar, ChevronDown, List, CalendarDays } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
@@ -37,6 +37,7 @@ import {
     type RuleType
 } from "@/services/supabase/layoutScheduling";
 import { createFeaturedRuleDraft } from "@/services/supabase/featuredScheduling";
+import { scopeRuleToActivity } from "@/services/supabase/scheduleTargets";
 import { countManualOverridesByActivity } from "@/services/supabase/activeCatalog";
 import { toRomeDateTime } from "@/services/supabase/schedulingNow";
 import { buildScheduleMatrix } from "@/utils/scheduleMatrix";
@@ -128,6 +129,12 @@ export default function Programming() {
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
     const currentTenantId = useTenantId();
+    // Due livelli (T9b, PG6): dentro la sede (`/locations/:activityId/programmazione`)
+    // la sede è nel path e vince su `?sede=`; fuori, le regole dell'azienda.
+    const { activityId: routeActivityId } = useParams<{ activityId?: string }>();
+    const schedulingBase = routeActivityId
+        ? `/business/${currentTenantId}/locations/${routeActivityId}/programmazione`
+        : `/business/${currentTenantId}/scheduling`;
     const { showToast } = useToast();
     const { catalogLabel, productLabel, productLabelPlural } = useVerticalConfig();
     const typeOptions = useMemo(() => ruleTypeOptions(catalogLabel, productLabelPlural.toLowerCase()), [catalogLabel, productLabelPlural]);
@@ -137,10 +144,8 @@ export default function Programming() {
     );
     const ruleHref = useCallback(
         (rule: { id: string; rule_type: RuleType }) =>
-            rule.rule_type === "featured"
-                ? `/business/${currentTenantId}/scheduling/featured/${rule.id}`
-                : `/business/${currentTenantId}/scheduling/${rule.id}`,
-        [currentTenantId]
+            rule.rule_type === "featured" ? `${schedulingBase}/featured/${rule.id}` : `${schedulingBase}/${rule.id}`,
+        [schedulingBase]
     );
     // Il nome della sede nella matrice: la sua pagina «Cosa vedono i clienti»
     // (oggi «Disponibilità», §20.3).
@@ -194,7 +199,9 @@ export default function Programming() {
                 : [],
         [permissions, sedeScope.readableActivities]
     );
-    const filterActivityId = !sedeFromUrl
+    const filterActivityId = routeActivityId
+        ? routeActivityId
+        : !sedeFromUrl
         ? null
         : !sedeScopeLoaded || readableSedi.some(a => a.id === sedeFromUrl)
           ? sedeFromUrl
@@ -675,21 +682,24 @@ export default function Programming() {
                     tenantId: currentTenantId!,
                     name
                 });
-                navigate(`/business/${currentTenantId}/scheduling/featured/${newRuleId}?fromType=featured`);
+                // Dalla sede la regola nasce con la sede già scelta (PG6).
+                if (routeActivityId) await scopeRuleToActivity(newRuleId, routeActivityId);
+                navigate(`${schedulingBase}/featured/${newRuleId}?fromType=featured`);
             } else {
                 const newRuleId = await createRuleDraft({
                     tenantId: currentTenantId!,
                     ruleType: effectiveType,
                     name
                 });
-                navigate(`/business/${currentTenantId}/scheduling/${newRuleId}?fromType=${effectiveType}`);
+                if (routeActivityId) await scopeRuleToActivity(newRuleId, routeActivityId);
+                navigate(`${schedulingBase}/${newRuleId}?fromType=${effectiveType}`);
             }
         } catch {
             showToast({ message: "Non siamo riusciti a creare la regola.", type: "error" });
         } finally {
             setIsCreating(false);
         }
-    }, [currentTenantId, catalogLabel, ruleTypeFilter, navigate, showToast]);
+    }, [currentTenantId, catalogLabel, ruleTypeFilter, navigate, routeActivityId, schedulingBase, showToast]);
 
     // «Nuova regola» da sola (PG4): il simulatore si apre dalla card «Adesso».
     // Sulla tab "Tutte" non ha un tipo implicito da creare → apre lei stessa il
@@ -867,7 +877,7 @@ export default function Programming() {
         <section className={styles.programming}>
             {/* Il filtro sede della pagina (§51.11): matrice, elenco e
                 Settimana. Con una sede sola non c'è niente da filtrare. */}
-            {readableSedi.length > 1 && (
+            {!routeActivityId && readableSedi.length > 1 && (
                 <div className={styles.sedeFilter}>
                     <Select
                         aria-label="Sede"
