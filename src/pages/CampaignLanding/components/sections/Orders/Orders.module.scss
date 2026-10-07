@@ -65,13 +65,11 @@
     margin-top: 2px;
     font-size: 11px;
     font-weight: 500;
-    color: var(--ld-muted);
-    opacity: 0.75;
+    color: var(--ld-tab-sub);
 }
 
 .tabOn .tabSub {
     color: var(--ld-azione);
-    opacity: 1;
 }
 
 // Avanzamento del passo: la linguetta attiva si riempie da sinistra di un velo

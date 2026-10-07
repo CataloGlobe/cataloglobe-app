@@ -52,7 +52,7 @@
 .tagline {
     margin: 8px 0 0;
     font-size: 14px;
-    color: var(--ld-dark-muted);
+    color: var(--ld-dark-quiet);
 }
 
 .columns {
@@ -72,7 +72,7 @@
     margin: 0;
     font-size: 12px;
     font-weight: 600;
-    color: var(--ld-dark-muted);
+    color: var(--ld-dark-quiet);
 }
 
 .link {
@@ -95,7 +95,7 @@
     border-top: 1px solid var(--ld-dark-line);
     font-size: 12px;
     line-height: 1.6;
-    color: var(--ld-dark-legal);
+    color: var(--ld-dark-quiet);
 
     @include desktop {
         margin-top: 32px;
