@@ -18,6 +18,7 @@ import Text from "@/components/ui/Text/Text";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import type { OtpErrorCode, OtpStatus, VerifyOtpResponse } from "@/types/otp";
 import { AuthLayout } from "@/layouts/AuthLayout/AuthLayout";
+import { internalPathOr } from "@/utils/internalPath";
 import styles from "./Auth.module.scss";
 
 const OTP_LENGTH = 6;
@@ -138,17 +139,6 @@ async function classifySendOtpError(error: unknown): Promise<SendOtpFailure> {
     return { family: "error" };
 }
 
-/**
- * Valida che il path sia interno all'app (previene open redirect).
- * Deve iniziare con / ma non con //, e non contenere protocolli.
- */
-function isInternalPath(path: unknown): path is string {
-    if (typeof path !== 'string' || path.length === 0) return false;
-    if (!path.startsWith('/') || path.startsWith('//')) return false;
-    if (/^[a-zA-Z][a-zA-Z0-9+\-.]*:/.test(path)) return false;
-    return true;
-}
-
 // Probe diagnostico: tipo di navigazione corrente del documento.
 // Serve a distinguere bootstrap normale ("navigate") da reload causato
 // da tab-discard/freeze del browser ("reload" / "back_forward").
@@ -168,7 +158,7 @@ export default function VerifyOtp() {
     const navigate = useNavigate();
     const location = useLocation();
     const fromState = (location.state as { from?: string } | null)?.from;
-    const redirectAfterOtp = isInternalPath(fromState) ? fromState : '/dashboard';
+    const redirectAfterOtp = internalPathOr(fromState, '/dashboard');
 
     const [digits, setDigits] = useState<string[]>(Array(OTP_LENGTH).fill(""));
     const [loading, setLoading] = useState(false);
