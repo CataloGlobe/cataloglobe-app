@@ -114,6 +114,8 @@ export function useDeferredCommit({
                         cur && cur !== "unknown"
                             ? `Stato cambiato (ora: ${statusMetaLoose(cur).label}). Aggiorna la lista.`
                             : "Stato cambiato nel frattempo. Aggiorna la lista.";
+                } else if (e.code === "RESERVATION_EXPIRED") {
+                    message = "Richiesta scaduta: il giorno è passato, si può solo rifiutare.";
                 } else if (e.code === "RESERVATION_NOT_FOUND") {
                     message = "Prenotazione non trovata o permessi insufficienti.";
                 } else if (e.code === "UNAUTHORIZED") {
