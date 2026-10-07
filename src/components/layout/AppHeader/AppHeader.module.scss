@@ -80,7 +80,7 @@
   }
 
   &:focus-visible {
-    outline: 2px solid #a5b4fc;
+    outline: 2px solid var(--brand-primary);
     outline-offset: 2px;
   }
 }
@@ -123,7 +123,7 @@
   }
 
   &:focus-visible {
-    outline: 2px solid #a5b4fc;
+    outline: 2px solid var(--brand-primary);
     outline-offset: 2px;
   }
 }
@@ -315,7 +315,7 @@
   }
 
   &:focus-visible {
-    outline: 2px solid #a5b4fc;
+    outline: 2px solid var(--brand-primary);
     outline-offset: 2px;
   }
 }
@@ -327,8 +327,8 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #ef4444;
-  border: 2px solid #ffffff;
+  background: var(--danger);
+  border: 2px solid var(--surface);
 }
 
 .emptyState {
@@ -337,24 +337,24 @@
   align-items: center;
   gap: 6px;
   padding: 28px 32px;
-  color: #64748b;
+  color: var(--text-muted);
   text-align: center;
   min-width: 240px;
 }
 
 .emptyStateIcon {
-  color: #94a3b8;
+  color: var(--text-muted);
 }
 
 .emptyStateText {
   font-size: 13px;
   font-weight: 600;
-  color: #0f172a;
+  color: var(--text);
 }
 
 .emptyStateSub {
   font-size: 12px;
-  color: #94a3b8;
+  color: var(--text-muted);
 }
 
 /* ===== Notifications: numeric badge ===== */
@@ -366,15 +366,15 @@
   height: 16px;
   padding: 0 4px;
   border-radius: 999px;
-  background: #ef4444;
-  color: #ffffff;
+  background: var(--danger);
+  color: var(--color-white);
   font-size: 10px;
   font-weight: 700;
   line-height: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 2px solid #ffffff;
+  border: 2px solid var(--surface);
   font-variant-numeric: tabular-nums;
   pointer-events: none;
 }
@@ -398,7 +398,7 @@
 
 /* Divider between items — only between siblings, not before the first. */
 .notifItemWrap + .notifItemWrap {
-  border-top: 1px solid var(--color-gray-100, #f1f5f9);
+  border-top: 1px solid var(--border);
 }
 
 .notifItem {
@@ -417,16 +417,16 @@
 
   &:hover,
   &:focus-visible {
-    background: var(--color-gray-100, #f1f5f9);
+    background: var(--hover-bg);
   }
 }
 
 .notifItemUnread {
-  background: color-mix(in srgb, #6366f1 6%, transparent);
+  background: color-mix(in srgb, var(--brand-primary) 6%, transparent);
 
   &:hover,
   &:focus-visible {
-    background: color-mix(in srgb, #6366f1 10%, transparent);
+    background: color-mix(in srgb, var(--brand-primary) 10%, transparent);
   }
 }
 
@@ -440,7 +440,7 @@
 .notifItemTitle {
   font-size: 13px;
   font-weight: 600;
-  color: #0f172a;
+  color: var(--text);
   flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
@@ -453,7 +453,7 @@
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #6366f1;
+  background: var(--brand-primary);
 }
 
 .notifItemMessage {
@@ -462,7 +462,7 @@
   -webkit-box-orient: vertical;
   font-size: 12px;
   line-height: 1.45;
-  color: #475569;
+  color: var(--text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   word-break: break-word;
@@ -472,7 +472,7 @@
   display: block;
   font-size: 11px;
   line-height: 1.3;
-  color: #94a3b8;
+  color: var(--text-muted);
   font-variant-numeric: tabular-nums;
   margin-top: 2px;
 }
@@ -497,8 +497,8 @@
   justify-content: space-between;
   gap: 12px;
   padding: 10px 14px;
-  background: var(--color-gray-50, #f8fafc);
-  border-bottom: 1px solid var(--color-gray-100, #f1f5f9);
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
 }
 
 .notifHeaderTitle {
@@ -507,10 +507,10 @@
   gap: 8px;
   font-size: 14px;
   font-weight: 500;
-  color: #0f172a;
+  color: var(--text);
 
   svg {
-    color: #6366f1;
+    color: var(--brand-primary);
     flex-shrink: 0;
   }
 }
@@ -526,12 +526,12 @@
 }
 
 .notifSoundSwitchIconOn {
-  color: #6366f1;
+  color: var(--brand-primary);
   flex-shrink: 0;
 }
 
 .notifSoundSwitchIconOff {
-  color: #94a3b8;
+  color: var(--text-muted);
   flex-shrink: 0;
 }
 
@@ -541,12 +541,12 @@
   width: 34px;
   height: 20px;
   padding: 0;
-  border: 1px solid var(--color-gray-200, #e2e8f0);
+  border: 1px solid var(--border);
   border-radius: 999px;
   background: color-mix(
     in srgb,
-    var(--color-text-muted, #6b7280) 22%,
-    var(--color-surface, #ffffff)
+    var(--text-muted) 22%,
+    var(--surface)
   );
   cursor: pointer;
   outline: none;
@@ -556,13 +556,13 @@
   flex-shrink: 0;
 
   &:focus-visible {
-    box-shadow: 0 0 0 3px color-mix(in srgb, #6366f1 24%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand-primary) 24%, transparent);
   }
 }
 
 .notifSoundSwitchTrackOn {
-  background: #6366f1;
-  border-color: #6366f1;
+  background: var(--brand-primary);
+  border-color: var(--brand-primary);
 }
 
 .notifSoundSwitchKnob {
@@ -572,7 +572,7 @@
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: #ffffff;
+  background: var(--color-white);
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.18);
   transition: transform 0.2s ease;
 }
@@ -588,19 +588,19 @@
   width: 100%;
   padding: 10px 14px;
   border: none;
-  border-top: 1px solid var(--color-gray-100, #f1f5f9);
+  border-top: 1px solid var(--border);
   background: transparent;
   font-family: inherit;
   font-size: 12px;
   font-weight: 600;
-  color: #6366f1;
+  color: var(--brand-primary);
   text-align: center;
   cursor: pointer;
   outline: none;
 
   &:hover,
   &:focus-visible {
-    background: var(--color-gray-100, #f1f5f9);
+    background: var(--hover-bg);
   }
 }
 
@@ -619,11 +619,11 @@
   transition: background 0.1s;
 
   &:hover {
-    background: #f8fafc;
+    background: var(--hover-bg);
   }
 
   &:focus-visible {
-    outline: 2px solid #a5b4fc;
+    outline: 2px solid var(--brand-primary);
     outline-offset: 2px;
   }
 }
@@ -634,14 +634,14 @@
   gap: 2px;
   padding: 6px 10px 10px;
   min-width: 220px;
-  border-bottom: 1px solid #f1f2f4;
+  border-bottom: 1px solid var(--border);
   margin-bottom: 4px;
 }
 
 .userName {
   font-size: 13px;
   font-weight: 600;
-  color: #0f172a;
+  color: var(--text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -649,7 +649,7 @@
 
 .userEmail {
   font-size: 12px;
-  color: #64748b;
+  color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
