@@ -110,11 +110,15 @@ test.describe("Prenotazioni", () => {
         await expect(m.getByRole("button", { name: /Marco Rossi/ }).first()).toBeVisible();
 
         // T14 PN2: la scaduta sta dietro una riga chiusa, e si può solo rifiutare.
-        const scadute = m.getByRole("button", { name: /^1 scaduta.*Mostra/ });
+        // Il nome finisce con «Mostra» o «Nascondi»: il locator non lo fissa,
+        // se no dopo il clic non ritrova più il bottone.
+        const scadute = m.getByRole("button", { name: /^1 scaduta/ });
+        await expect(scadute).toHaveAccessibleName(/Mostra$/);
         await expect(scadute).toHaveAttribute("aria-expanded", "false");
         await expect(m.getByRole("button", { name: /Luca Verdi/ })).toHaveCount(0);
         await scadute.click();
         await expect(scadute).toHaveAttribute("aria-expanded", "true");
+        await expect(scadute).toHaveAccessibleName(/Nascondi$/);
         const luca = m.getByRole("button", { name: /Luca Verdi/ }).first();
         await expect(luca.getByRole("button", { name: "Rifiuta", exact: true })).toBeVisible();
         await expect(luca.getByRole("button", { name: "Conferma", exact: true })).toHaveCount(0);
