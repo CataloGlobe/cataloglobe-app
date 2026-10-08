@@ -136,6 +136,20 @@ export function isTransitionAllowed(
 }
 
 /**
+ * A request whose day is over (the Rome day, `todayIso`) can no longer be
+ * confirmed: the customer would get a «confirmed» email for an evening that
+ * already ended. Declining it stays allowed. Both `YYYY-MM-DD`, compared as
+ * strings (T19).
+ */
+export function isConfirmOfExpiredRequest(
+    action: ReservationAction,
+    reservationDate: string,
+    todayIso: string
+): boolean {
+    return action === "confirm" && reservationDate < todayIso;
+}
+
+/**
  * Whether the customer gets an email for this transition.
  *
  * The no-show pair is silent BY DESIGN, and this is not a detail to relax

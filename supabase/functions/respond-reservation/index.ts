@@ -14,10 +14,12 @@ import {
     buildReservationIcsAttachment
 } from "../_shared/reservationIcs.ts";
 import { signReservationToken } from "../_shared/reservationToken.ts";
+import { isoDateInTimeZone } from "../_shared/romeCalendar.ts";
 import {
     ACTION_EXPECTS,
     ACTION_TO_STATUS,
     isAdminAction,
+    isConfirmOfExpiredRequest,
     isTransitionAllowed,
     sendsCustomerEmail,
     type AdminReservationAction,
@@ -85,6 +87,7 @@ const ERROR_MESSAGES: Record<string, string> = {
     INVALID_ACTION:          "Azione non valida",
     RESERVATION_NOT_FOUND:   "Prenotazione non trovata o permessi insufficienti",
     INVALID_TRANSITION:      "Transizione di stato non valida",
+    RESERVATION_EXPIRED:     "La richiesta è scaduta: si può solo rifiutare",
     SERVER_ERROR:            "Errore durante l'elaborazione della richiesta"
 };
 
@@ -228,7 +231,7 @@ serve(async (req: Request) => {
 
         const { data: current, error: selectErr } = await supabaseUser
             .from("reservations")
-            .select("id, status, activity_id")
+            .select("id, status, activity_id, reservation_date")
             .eq("id", reservationId)
             .maybeSingle();
 
@@ -249,11 +252,29 @@ serve(async (req: Request) => {
             });
         }
 
-        const { data: updated, error: updateErr } = await supabaseUser
+        // T19: a request whose day is over (Rome) is not confirmed any more:
+        // the customer would get a «confirmed» email for a past evening.
+        // Declining stays allowed. The UI hides «Conferma» on these rows;
+        // this is the server-side gate.
+        const today = isoDateInTimeZone(new Date());
+        if (isConfirmOfExpiredRequest(action, current.reservation_date, today)) {
+            return errorResponse(req, "RESERVATION_EXPIRED", 409, {
+                reservation_date: current.reservation_date,
+                action
+            });
+        }
+
+        let updateQuery = supabaseUser
             .from("reservations")
             .update({ status: newStatus })
             .eq("id", reservationId)
-            .in("status", expectedFrom)
+            .in("status", expectedFrom);
+        // Same gate inside the write: an edit of the date between SELECT and
+        // UPDATE can't slip a past day through (0 rows → 409 below).
+        if (action === "confirm") {
+            updateQuery = updateQuery.gte("reservation_date", today);
+        }
+        const { data: updated, error: updateErr } = await updateQuery
             .select(
                 "id, activity_id, customer_email, customer_name, reservation_date, reservation_time, party_size, status, customer_language, ics_sequence"
             )

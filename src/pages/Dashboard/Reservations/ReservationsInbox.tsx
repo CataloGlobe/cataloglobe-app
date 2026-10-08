@@ -5,6 +5,7 @@ import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import Text from "@/components/ui/Text/Text";
 import { ListRow } from "@/components/ui/ListRow/ListRow";
 import { todayIsoDate } from "@/utils/dateLocal";
+import { isExpiredRequest } from "./requestExpiry";
 import { PENDING_QUEUE_LIMIT } from "@/services/supabase/reservations";
 import {
     TableAssignmentBadge,
@@ -69,8 +70,8 @@ export default function ReservationsInbox({
         const liveItems: V2Reservation[] = [];
         const staleItems: V2Reservation[] = [];
         for (const r of pendingItems) {
-            if (r.reservation_date >= today) liveItems.push(r);
-            else staleItems.push(r);
+            if (isExpiredRequest(r, today)) staleItems.push(r);
+            else liveItems.push(r);
         }
         const ascend = (a: V2Reservation, b: V2Reservation) => {
             if (a.reservation_date !== b.reservation_date) {
