@@ -528,6 +528,19 @@ test.describe("Programmazione — ruolo di sede, decide il database", () => {
         await expect(row("pranzo").getByLabel(LOCK)).toHaveCount(0);
     });
 
+    test("elenco: al database solo le regole che da qui sembrano sue", async ({ page }) => {
+        const asked: string[] = [];
+        page.on("request", request => {
+            if (!/\/rest\/v1\/rpc\/can_write_schedule$/.test(new URL(request.url()).pathname)) return;
+            asked.push((request.postDataJSON() as { p_schedule_id: string }).p_schedule_id);
+        });
+        await openSeatList(page, SEDE.centro);
+        await expect(ruleList(page).getByRole("row", { name: new RegExp(`^(Seleziona riga )?${RULE_NAME.stagionali}`) }).getByLabel(LOCK)).toBeVisible();
+        expect(asked).toContain(RULE.pranzo);
+        // «Aperitivo» è solo del Porto: in sola lettura senza chiedere.
+        expect(asked).not.toContain(RULE.aperitivo);
+    });
+
     test("dettaglio: sola lettura se il database dice no, modificabile se dice sì", async ({ page }) => {
         const base = `/business/${TENANT_ID}/locations/${SEDE.centro}/programmazione`;
         await page.goto(`${base}/${RULE.stagionali}`);

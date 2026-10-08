@@ -375,15 +375,19 @@ export default function Programming() {
     // Permesso regola per regola, come `can_write_schedule` (T9b): una regola
     // che tocca anche sedi altrui resta in sola lettura.
     // Un ruolo di sede vede solo le sue sedi di una regola (RLS): la risposta
-    // finale la dà il database, regola per regola.
+    // finale la dà il database, chiesta solo per le regole che da qui
+    // sembrano sue (le altre sono già in sola lettura).
     const groupMembers = useMemo(() => new Map(Object.entries(activityIdsByGroupId)), [activityIdsByGroupId]);
     const askDb = permissions !== null && permissions !== undefined && !isTenantWide(permissions);
-    const ruleIds = useMemo(() => rules.map(rule => rule.id), [rules]);
-    const dbWritable = useDbWritableRules(ruleIds, askDb);
+    const candidateIds = useMemo(
+        () => (permissions ? rules.filter(rule => canWriteRule(permissions, rule, groupMembers)).map(rule => rule.id) : []),
+        [groupMembers, permissions, rules]
+    );
+    const dbWritable = useDbWritableRules(candidateIds, askDb);
     const isRuleWritable = useCallback(
         (rule: LayoutRule) =>
             permissions
-                ? canWriteRule(permissions, rule, groupMembers) && (!askDb || dbWritable?.has(rule.id) === true)
+                ? canWriteRule(permissions, rule, groupMembers) && (!askDb || dbWritable.get(rule.id) === true)
                 : false,
         [askDb, dbWritable, groupMembers, permissions]
     );
