@@ -102,9 +102,10 @@ export type SidebarRow = string | [string, string[]];
 export async function locationPaths(page: Page): Promise<string[]> {
     await openBusinessPage(page, "locations", "Sedi");
     await page.getByRole("radio", { name: "Vista griglia" }).click();
-    const cards = page.getByRole("main").getByRole("listitem");
+    // Solo i link delle card: anche il percorso in cima alla pagina è un elenco.
+    const cards = page.getByRole("main").locator('[role="listitem"] a[href*="/locations/"], li a[href*="/locations/"]');
     await expect(cards.first()).toBeVisible({ timeout: 15_000 });
-    const hrefs = await cards.locator("a").evaluateAll(links =>
+    const hrefs = await cards.evaluateAll(links =>
         links.map(l => (l as HTMLAnchorElement).getAttribute("href") ?? "").filter(h => h.includes("/locations/"))
     );
     return [...new Set(hrefs.map(h => h.replace(/\/locations\/([^/?#]+).*$/, "/locations/$1")))];

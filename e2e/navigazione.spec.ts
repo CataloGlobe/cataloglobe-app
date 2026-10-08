@@ -129,8 +129,8 @@ test.describe("Sidebar (§51.5, sezioni dell'Officina)", () => {
         await asSingleSede(page);
         await page.goto(`${paths[0]}/comande`);
         await expect(menuRows(page).getByRole("link", { name: "Panoramica", exact: true })).toBeVisible({ timeout: 15_000 });
-        // La riga della sezione è accesa, la voce nel pannello è la pagina.
-        await expect(sectionRow(page, OPERATIVITA[0])).toHaveAttribute("aria-current", "true");
+        // La sezione della pagina è aperta e la pagina accesa sotto la riga.
+        await expect(sectionRow(page, OPERATIVITA[0])).toHaveAttribute("aria-expanded", "true");
         await expect(await sidebarLink(page, "Comande")).toHaveAttribute("aria-current", "page");
         await expect(contextNav(page)).toHaveCount(0);
     });
