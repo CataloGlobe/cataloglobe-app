@@ -511,6 +511,16 @@ Flusso unico per Alex, Lorenzo e ogni sessione (deciso da Lorenzo il 2026-10-08;
 - Push del ramo a fine sessione.
 - Rilasci in produzione piccoli e frequenti (3-5 PR provate, circa una volta a settimana): PR `staging` → `main` con runbook corto. Se staging ha lavoro non pronto: ramo di rilascio da `main` con le sole modifiche pronte, poi riportate su `staging`.
 
+### Ramo `officina` (Alex)
+
+Alex fa solo interfaccia e lavora su un ramo lungo, `officina`, contro il database di staging (deciso da Lorenzo il 2026-10-08). Una sessione su `officina` segue questa routine.
+- **Inizio sessione**: `git switch officina && git pull`. Dopo ogni merge su `staging` (o almeno una volta a settimana): `git fetch && git merge origin/staging` e push. Con conflitti ci si ferma: promemoria a Lorenzo nel brain, niente risoluzioni a caso.
+- **Durante**: commit piccoli; tsc, eslint e vitest prima del push; e2e solo `bash scripts/e2e.sh e2e/<spec>.spec.ts`. Prove su tenant di prova (es. «REDESIGN»), mai McDonald's o San Pietro.
+- **Fine sessione**: push di `officina`.
+- **Pezzo pronto**: la PR `officina` → `staging` porta tutto ciò che c'è sul ramo, quindi si apre solo quando tutto `officina` può andare su staging (niente lavoro a metà). Descrizione: cosa cambia e cosa provare. Poi promemoria a Lorenzo. Lorenzo rivede e unisce con **merge commit, mai squash** (con lo squash `officina` resterebbe con commit «già unito» in conflitto a ogni giro); poi `staging` torna in `officina`.
+- **Database**: niente migration, `db push`, deploy di edge, SQL di scrittura, né su staging né in produzione. Se serve una modifica: promemoria a Lorenzo, che la fa con un suo ramo verso `staging`; arrivata su staging, si porta in `officina` col merge sopra.
+- **Mai**: push su `staging` o `main`, merge di PR, `rebase` o force push di `officina`, cartelle in più, rami nuovi senza dirlo a Lorenzo.
+
 ### Commit
 
 - Standard: `commit-commands` (`/commit`, `/commit-push-pr`).
