@@ -1,6 +1,6 @@
 // AppSidebar — §51.15 (riferimento: la sidebar di Supabase Studio). Elenco
-// con titoli di gruppo, i gruppi non si chiudono; nel piede Impostazioni,
-// Assistenza e apri/chiudi. Aperta 232, chiusa 64:
+// con titoli di gruppo, i gruppi non si chiudono; nel piede l'account
+// (Officina) e apri/chiudi. Aperta 232, chiusa 64:
 // **le righe restano alla stessa altezza e l'icona allo stesso posto**, si
 // anima solo la larghezza e il testo viene tagliato. La geometria fa sì che
 // l'icona (20, Allegato B delle correzioni UI) cada al centro dei 64 senza
@@ -111,6 +111,12 @@ $dash-margin: 14px;
   flex-shrink: 0;
   border-top: 1px solid var(--border);
   padding: var(--space-4) $container-x;
+}
+
+// Il pulsante dell'account, sopra apri/chiudi.
+.account {
+  display: flex;
+  padding-block: var(--space-4);
 }
 
 /* ===== Gruppi ===== */

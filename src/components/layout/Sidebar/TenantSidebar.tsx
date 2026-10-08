@@ -4,6 +4,7 @@ import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import { usePermissions } from "@/context/usePermissions";
 import { usePlanFeatures } from "@/lib/planFeatures";
 import { AppSidebar } from "@/components/layout/AppSidebar/AppSidebar";
+import { SidebarAccount } from "@/components/layout/AppSidebar/SidebarAccount";
 import { NAV_MODELS } from "@/utils/navModel";
 import { buildSidebarGroups } from "./sidebarItems";
 import { navSidebarGroups } from "./navSidebarGroups";
@@ -65,7 +66,7 @@ export default function TenantSidebar({
     const { catalogLabel } = useVerticalConfig();
     const { permissions } = usePermissions();
     const { hasFeature } = usePlanFeatures();
-    const { groups, footer } = navSidebarGroups(NAV_MODELS[context], {
+    const { groups, account } = navSidebarGroups(NAV_MODELS[context], {
         businessId,
         activityId: context === "unica" ? activityId : null,
         catalogLabel
@@ -84,7 +85,14 @@ export default function TenantSidebar({
     return (
         <AppSidebar
             groups={loading ? [] : buildSidebarGroups(groups, options)}
-            footerItems={loading ? [] : buildSidebarGroups(footer, options).flatMap(g => g.items)}
+            accountSlot={
+                <SidebarAccount
+                    items={loading ? [] : buildSidebarGroups(account, options).flatMap(g => g.items)}
+                    collapsed={!isMobile && collapsed}
+                    isMobile={isMobile}
+                    onRequestClose={onRequestClose}
+                />
+            }
             isMobile={isMobile}
             mobileOpen={mobileOpen}
             collapsed={collapsed}

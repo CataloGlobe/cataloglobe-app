@@ -18,21 +18,35 @@ import {
  * l'elenco delle sedi in pagina, i ruoli con `asRole`.
  */
 
-const CATALOGO = ["Catalogo", ["Menù", "Prodotti", "Programmazione"]] as const;
-const PAGINA_PUBBLICA = ["Pagina pubblica", ["Stili", "In evidenza", "Storie", "Lingue"]] as const;
-const OPERATIVITA = ["Operatività", ["Servizio", "Prenotazioni", "Comande", "Storico"]] as const;
+// Titoli dell'Officina (sidebar approvata da Alex il 2026-10-08).
+const CATALOGO = ["Menù", ["Menù", "Prodotti", "Programmazione"]] as const;
+const PAGINA_PUBBLICA = ["Vetrina", ["Stili", "In evidenza", "Storie"]] as const;
+const OPERATIVITA = ["Servizio", ["Servizio", "Prenotazioni", "Comande", "Storico"]] as const;
+const ANDAMENTO = "Clienti e numeri";
 const IL_LOCALE = ["Il locale", ["Scheda", "Cosa vedono i clienti"]] as const;
 /** Dentro una sede, con più sedi: anche la sua Programmazione (T9b, PG6). */
 const IL_LOCALE_SEDE = ["Il locale", ["Scheda", "Cosa vedono i clienti", "Programmazione"]] as const;
 
-/** Le voci del piede: quelle della nav fuori da ogni gruppo, in ordine. */
-async function footerLinks(page: Page): Promise<string[]> {
-    await expect(nav(page).getByRole("link").first()).toBeVisible({ timeout: 15_000 });
-    return nav(page)
-        .getByRole("link")
-        .evaluateAll(links =>
-            links.filter(l => !l.closest('[role="group"]')).map(l => (l.textContent ?? "").trim().replace(/\s*\d+\+?$/, ""))
-        );
+/** Il pulsante dell'account in fondo alla sidebar. */
+const accountButton = (page: Page) => page.getByRole("button", { name: /^Account:/ });
+
+/** Le voci del menù dell'account prima del divisore (le pagine dell'azienda). */
+async function accountPages(page: Page): Promise<string[]> {
+    await accountButton(page).click();
+    const menu = page.getByRole("menu");
+    await expect(menu).toBeVisible();
+    const items = await menu.evaluate(el => {
+        const out: string[] = [];
+        for (const child of Array.from(el.children)) {
+            if (child.getAttribute("role") === "separator" && out.length > 0) break;
+            if (child.getAttribute("role") === "menuitem") {
+                out.push((child.textContent ?? "").trim().replace(/\s*\d+\+?$/, ""));
+            }
+        }
+        return out;
+    });
+    await page.keyboard.press("Escape");
+    return items;
 }
 
 test.describe("Sidebar (§51.5)", () => {
@@ -46,25 +60,25 @@ test.describe("Sidebar (§51.5)", () => {
                 [null, ["Panoramica", "Sedi"]],
                 CATALOGO,
                 PAGINA_PUBBLICA,
-                ["Andamento", ["Analitiche", "Recensioni", "Clienti"]]
+                [ANDAMENTO, ["Analitiche", "Recensioni", "Clienti"]]
             ]);
-        // Piede: Impostazioni · Assistenza, poi apri/chiudi; nessun separatore speciale.
-        expect(await footerLinks(page)).toEqual(["Impostazioni", "Assistenza"]);
+        // L'account in fondo: Impostazioni, Team, Abbonamento, Lingue, Assistenza.
+        expect(await accountPages(page)).toEqual(["Impostazioni", "Team", "Abbonamento", "Lingue", "Assistenza"]);
         await expect(nav(page).getByRole("separator")).toHaveCount(0);
-        for (const voce of ["Ordini", "Team", "Abbonamento"]) {
+        for (const voce of ["Ordini", "Team", "Abbonamento", "Lingue", "Impostazioni", "Assistenza"]) {
             await expect(nav(page).getByRole("link", { name: voce, exact: true })).toHaveCount(0);
         }
     });
 
-    test("dentro una sede: «← Tutte le sedi», il locale, Operatività, Andamento della sede", async ({ page }) => {
+    test("dentro una sede: «← Tutte le sedi», il locale, Servizio, Clienti e numeri della sede", async ({ page }) => {
         const paths = await locationPaths(page);
         test.skip(paths.length < 2, "serve più di una sede");
         await page.goto(`${paths[0]}/anagrafica`);
         await expect
             .poll(() => sidebarShape(page), { timeout: 15_000 })
-            .toEqual([IL_LOCALE_SEDE, OPERATIVITA, ["Andamento", ["Analitiche", "Recensioni"]]]);
-        // Il piede della sede: solo Assistenza (§51.5, Impostazioni è d'azienda).
-        expect(await footerLinks(page)).toEqual(["Assistenza"]);
+            .toEqual([IL_LOCALE_SEDE, OPERATIVITA, [ANDAMENTO, ["Analitiche", "Recensioni"]]]);
+        // L'account è dell'azienda: lo stesso menù anche dentro la sede.
+        expect(await accountPages(page)).toEqual(["Impostazioni", "Team", "Abbonamento", "Lingue", "Assistenza"]);
         await expect(nav(page).getByRole("link", { name: "Impostazioni", exact: true })).toHaveCount(0);
         // In testa solo il ritorno: nome e stato della sede stanno nell'header.
         await expect(contextNav(page).getByRole("link")).toHaveText(["Tutte le sedi"]);
@@ -72,7 +86,7 @@ test.describe("Sidebar (§51.5)", () => {
         await expect(page).toHaveURL(/\/locations$/, { timeout: 15_000 });
     });
 
-    test("le voci di Andamento dentro la sede portano alle rotte della sede", async ({ page }) => {
+    test("le voci di Clienti e numeri dentro la sede portano alle rotte della sede", async ({ page }) => {
         const paths = await locationPaths(page);
         test.skip(paths.length < 2, "serve più di una sede");
         await page.goto(`${paths[0]}/anagrafica`);
@@ -99,9 +113,9 @@ test.describe("Sidebar (§51.5)", () => {
                 CATALOGO,
                 PAGINA_PUBBLICA,
                 OPERATIVITA,
-                ["Andamento", ["Analitiche", "Recensioni", "Clienti"]]
+                [ANDAMENTO, ["Analitiche", "Recensioni", "Clienti"]]
             ]);
-        expect(await footerLinks(page)).toEqual(["Impostazioni", "Assistenza"]);
+        expect(await accountPages(page)).toEqual(["Impostazioni", "Team", "Abbonamento", "Lingue", "Assistenza"]);
         await expect(nav(page).getByRole("separator")).toHaveCount(0);
         await expect(nav(page).getByRole("link", { name: "Sedi", exact: true })).toHaveCount(0);
         await expect(contextNav(page)).toHaveCount(0);
@@ -121,13 +135,13 @@ test.describe("Sidebar (§51.5)", () => {
         await expect(contextNav(page)).toHaveCount(0);
     });
 
-    test("staff di una sede: vede Operatività, non Programmazione né Analitiche", async ({ page }) => {
+    test("staff di una sede: vede Servizio, non Programmazione né Analitiche", async ({ page }) => {
         const paths = await locationPaths(page);
         await asRole(page, "staff", activityIdOf(paths[0]), "pro");
         await page.goto(`${paths[0]}/servizio`);
         await expect
             .poll(async () => (await sidebarShape(page)).map(([title]) => title), { timeout: 15_000 })
-            .toContain("Operatività");
+            .toContain(OPERATIVITA[0]);
         const sidebar = nav(page);
         for (const voce of OPERATIVITA[1]) {
             await expect(sidebar.getByRole("link", { name: voce, exact: true })).toBeVisible();
@@ -535,10 +549,6 @@ test.describe("Impostazioni con tab (§51.12)", () => {
         const table = (await main.getByRole("table").first().boundingBox())!;
         expect(membri.y).toBeLessThan(table.y);
         expect(table.y - (membri.y + membri.height)).toBeLessThan(80);
-        await expect(nav(page).getByRole("link", { name: "Impostazioni", exact: true })).toHaveAttribute(
-            "aria-current",
-            "page"
-        );
 
         await page.getByRole("tab", { name: "Abbonamento" }).click();
         await expect(page).toHaveURL(`${root}/settings/abbonamento`);
@@ -565,7 +575,8 @@ test.describe("Impostazioni con tab (§51.12)", () => {
         const paths = await locationPaths(page);
         await asRole(page, "staff", activityIdOf(paths[0]), "pro");
         await page.goto(`${businessRoot(paths[0])}/settings`);
-        await expect(nav(page).getByRole("link", { name: "Impostazioni", exact: true })).toBeVisible({ timeout: 15_000 });
+        await expect(accountButton(page)).toBeVisible({ timeout: 15_000 });
+        expect(await accountPages(page)).toEqual(["Impostazioni", "Lingue", "Assistenza"]);
         await expect(settingsTabs(page)).toHaveCount(0);
     });
 });

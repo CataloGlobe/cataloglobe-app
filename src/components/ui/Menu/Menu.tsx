@@ -4,22 +4,24 @@ import Text from "@/components/ui/Text/Text";
 import styles from "./Menu.module.scss";
 
 type MenuAlign = "start" | "end";
-type MenuSide = "top" | "bottom";
+type MenuSide = "top" | "bottom" | "right";
 
 interface MenuProps {
     trigger: ReactNode;
     children: ReactNode;
     align?: MenuAlign;
     side?: MenuSide;
+    /** Classe in più sul pannello: serve a chi lo apre sopra un overlay (sidebar al telefono). */
+    contentClassName?: string;
 }
 
-export function Menu({ trigger, children, align = "start", side = "bottom" }: MenuProps) {
+export function Menu({ trigger, children, align = "start", side = "bottom", contentClassName }: MenuProps) {
     return (
         <RadixDropdownMenu.Root>
             <RadixDropdownMenu.Trigger asChild>{trigger}</RadixDropdownMenu.Trigger>
             <RadixDropdownMenu.Portal>
                 <RadixDropdownMenu.Content
-                    className={styles.content}
+                    className={contentClassName ? `${styles.content} ${contentClassName}` : styles.content}
                     align={align}
                     side={side}
                     sideOffset={6}
@@ -34,6 +36,8 @@ export function Menu({ trigger, children, align = "start", side = "bottom" }: Me
 interface MenuItemProps {
     children: ReactNode;
     icon?: React.ComponentType<{ size?: number }>;
+    /** Icona già resa (le voci di sidebar portano un elemento, non un componente): portata a 16. */
+    leading?: ReactNode;
     /** `destructive` in --danger (va in fondo, dopo un divisore); `accent` in brand per l'azione che fa avanzare (es. «Pubblica»). */
     variant?: "default" | "destructive" | "accent";
     onSelect?: () => void;
@@ -51,6 +55,8 @@ interface MenuItemProps {
      */
     href?: string;
     target?: string;
+    /** In coda alla voce: un contatore o un pallino (menù dell'account). */
+    trailing?: ReactNode;
 }
 
 function MenuItem({
@@ -61,12 +67,15 @@ function MenuItem({
     disabled,
     description,
     href,
-    target
+    target,
+    trailing,
+    leading
 }: MenuItemProps) {
     const className = `${styles.item}${variant === "destructive" ? ` ${styles.danger}` : variant === "accent" ? ` ${styles.accent}` : ""}${description ? ` ${styles.withDescription}` : ""}`;
     const content = (
         <>
             {Icon && <Icon size={16} />}
+            {!Icon && leading && <span className={styles.itemLeading}>{leading}</span>}
             <span className={styles.itemLabel}>
                 {children}
                 {description && (
@@ -75,6 +84,7 @@ function MenuItem({
                     </Text>
                 )}
             </span>
+            {trailing && <span className={styles.itemTrailing}>{trailing}</span>}
         </>
     );
 

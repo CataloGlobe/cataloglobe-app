@@ -87,6 +87,22 @@
     min-width: 0;
 }
 
+.itemLeading {
+    flex: none;
+    display: inline-flex;
+
+    svg {
+        width: 16px;
+        height: 16px;
+    }
+}
+
+.itemTrailing {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+}
+
 // Voce con sotto-testo: due righe, l'altezza la decide il contenuto.
 .withDescription {
     height: auto;

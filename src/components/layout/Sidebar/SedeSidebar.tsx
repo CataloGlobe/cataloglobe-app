@@ -7,6 +7,7 @@ import { usePermissions } from "@/context/usePermissions";
 import { usePlanFeatures } from "@/lib/planFeatures";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import { AppSidebar } from "@/components/layout/AppSidebar/AppSidebar";
+import { SidebarAccount } from "@/components/layout/AppSidebar/SidebarAccount";
 import { NAV_MODELS } from "@/utils/navModel";
 import { buildSidebarGroups } from "./sidebarItems";
 import { navSidebarGroups } from "./navSidebarGroups";
@@ -48,7 +49,7 @@ export default function SedeSidebar({
     const { catalogLabel } = useVerticalConfig();
     const { permissions } = usePermissions();
     const { hasFeature } = usePlanFeatures();
-    const { groups, footer } = navSidebarGroups(NAV_MODELS.sede, {
+    const { groups, account } = navSidebarGroups(NAV_MODELS.sede, {
         businessId,
         activityId,
         catalogLabel
@@ -88,7 +89,14 @@ export default function SedeSidebar({
     return (
         <AppSidebar
             groups={buildSidebarGroups(groups, options)}
-            footerItems={buildSidebarGroups(footer, options).flatMap(g => g.items)}
+            accountSlot={
+                <SidebarAccount
+                    items={buildSidebarGroups(account, options).flatMap(g => g.items)}
+                    collapsed={collapsedDesktop}
+                    isMobile={isMobile}
+                    onRequestClose={onRequestClose}
+                />
+            }
             isMobile={isMobile}
             mobileOpen={mobileOpen}
             collapsed={collapsed}

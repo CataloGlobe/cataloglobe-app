@@ -89,6 +89,8 @@ export interface AppSidebarProps {
      * tutti i contesti. Stanno nella stessa `nav` delle altre voci.
      */
     footerItems?: AppSidebarNavItem[];
+    /** Il pulsante dell'account (`SidebarAccount`), nel piede sopra apri/chiudi. */
+    accountSlot?: ReactNode;
     /** Scritta accanto al tasto apri/chiudi quando la barra è aperta (CRM in /admin: «Chiudi la barra»). */
     collapseLabel?: string;
 }
@@ -174,6 +176,7 @@ export function AppSidebar({
     headerSlot,
     footerSlot,
     footerItems = [],
+    accountSlot,
     collapseLabel
 }: AppSidebarProps) {
     const collapsedDesktop = !isMobile && collapsed;
@@ -333,9 +336,10 @@ export function AppSidebar({
                         ))}
                         {footerSlot}
                     </div>
-                    {(footerItems.length > 0 || !isMobile) && (
+                    {(footerItems.length > 0 || accountSlot || !isMobile) && (
                         <div className={styles.footer}>
                             {footerItems.length > 0 && <ul className={styles.list}>{footerItems.map(renderItem)}</ul>}
+                            {accountSlot && <div className={styles.account}>{accountSlot}</div>}
                             {!isMobile && (
                                 <button
                                     type="button"

@@ -29,7 +29,15 @@ export async function openBusinessPage(page: Page, path: string, sidebarLabel: s
     // Si aspetta la voce «Panoramica».
     const nav = page.getByRole("navigation", { name: "Menu principale" });
     await expect(nav.getByRole("link", { name: "Panoramica" })).toBeVisible({ timeout: 15_000 });
-    await nav.getByRole("link", { name: sidebarLabel }).click();
+    // Impostazioni, Team, Abbonamento, Lingue e Assistenza stanno nel menù
+    // dell'account in fondo alla sidebar (Officina), non fra le voci.
+    const link = nav.getByRole("link", { name: sidebarLabel });
+    if ((await link.count()) > 0) {
+        await link.click();
+    } else {
+        await page.getByRole("button", { name: /^Account:/ }).click();
+        await page.getByRole("menuitem", { name: sidebarLabel }).click();
+    }
     await page.waitForURL(new RegExp(`/business/[0-9a-f-]+/${path}$`));
 }
 
