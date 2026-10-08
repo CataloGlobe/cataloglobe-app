@@ -9,6 +9,7 @@ import {
 } from "@/services/supabase/account";
 import { Button, InlineBanner } from "@components/ui";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { fromPathOf } from "@/utils/internalPath";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import Text from "@/components/ui/Text/Text";
 import { CheckboxInput } from "@/components/ui/Input/CheckboxInput";
@@ -85,13 +86,10 @@ export default function Login() {
 
     const navigate = useNavigate();
     const location = useLocation();
-    const fromLocation = location.state?.from;
     // Passa from solo se c'è un redirect reale da una route protetta.
     // Se l'utente arriva a /login direttamente (nessuno stato), from = undefined
     // e VerifyOtp userà il fallback /dashboard (che gestisce returning users via TENANT_KEY).
-    const from = fromLocation
-        ? `${fromLocation.pathname}${fromLocation.search ?? ''}`
-        : undefined;
+    const from = fromPathOf(location.state);
 
     async function handleLogin(e: FormEvent<HTMLFormElement>) {
         e.preventDefault();
