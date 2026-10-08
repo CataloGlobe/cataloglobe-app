@@ -32,3 +32,13 @@ export async function openBusinessPage(page: Page, path: string, sidebarLabel: s
     await nav.getByRole("link", { name: sidebarLabel }).click();
     await page.waitForURL(new RegExp(`/business/[0-9a-f-]+/${path}$`));
 }
+
+/**
+ * Come `openBusinessPage`, ma arriva alla pagina dal link diretto: serve
+ * quando la voce non è in sidebar (senza il permesso di lettura `navModel`
+ * la nasconde, e resta da provare il blocco della pagina).
+ */
+export async function openBusinessPageByUrl(page: Page, path: string): Promise<void> {
+    await openBusinessPage(page, "overview", "Panoramica");
+    await page.goto(page.url().replace(/\/business\/([0-9a-f-]+)\/.*$/, `/business/$1/${path}`));
+}
