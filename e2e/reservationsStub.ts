@@ -12,7 +12,16 @@ import type { Page, Route } from "@playwright/test";
  * Le scritture non partono mai: ogni edge function è intercettata. Chi vuole
  * provare un gesto registra un gestore con `onWrite` e controlla il corpo
  * (test di cablaggio); un gesto senza gestore risponde 500.
+ *
+ * Le date delle righe partono da oggi. Con `{ now: NOW }` partono da `NOW` e
+ * l'orologio della pagina si ferma lì (mercoledì 23/09/2026, 12:00 di Roma,
+ * come Programmazione): niente dipendenze dall'ora reale (mezzanotte, cambio
+ * di giornata di servizio alle 05:00). `NOW` sta nel passato: un orologio nel
+ * futuro farebbe sembrare scaduto il token e partire un refresh, che ruota il
+ * refresh token condiviso da tutta la suite.
  */
+
+export const NOW = new Date("2026-09-23T12:00:00+02:00");
 
 export const TENANT_ID = "5b37c952-1add-4196-aab3-9775d98a9c32";
 export const GARBAGNATE_ID = "1f62cac4-2ba9-436b-b075-057203658422";
@@ -32,8 +41,8 @@ export type StubReservation = {
     guest_confirmed_at: string | null;
 };
 
-function isoDay(offset: number): string {
-    const d = new Date();
+function isoDay(offset: number, base: Date): string {
+    const d = new Date(base);
     d.setDate(d.getDate() + offset);
     const y = d.getFullYear();
     const m = String(d.getMonth() + 1).padStart(2, "0");
@@ -48,7 +57,7 @@ function id(): string {
 }
 
 /** Nove righe a Garbagnate (3 da gestire, di cui una scaduta; 6 di oggi o dopo, una annullata) e una a Varedo. */
-export function makeReservations(): StubReservation[] {
+export function makeReservations(base: Date = new Date()): StubReservation[] {
     const r = (o: Partial<StubReservation> & Pick<StubReservation, "reservation_date" | "reservation_time" | "customer_name" | "status">): StubReservation => ({
         id: id(),
         activity_id: GARBAGNATE_ID,
@@ -59,22 +68,22 @@ export function makeReservations(): StubReservation[] {
         ...o
     });
     return [
-        r({ reservation_date: isoDay(0), reservation_time: "19:30:00", customer_name: "Giulia Bianchi", party_size: 4, status: "pending", notes: "Compleanno, se possibile tavolo tranquillo" }),
-        r({ reservation_date: isoDay(1), reservation_time: "20:00:00", customer_name: "Marco Rossi", status: "pending" }),
+        r({ reservation_date: isoDay(0, base), reservation_time: "19:30:00", customer_name: "Giulia Bianchi", party_size: 4, status: "pending", notes: "Compleanno, se possibile tavolo tranquillo" }),
+        r({ reservation_date: isoDay(1, base), reservation_time: "20:00:00", customer_name: "Marco Rossi", status: "pending" }),
         // -8: scaduta e fuori dalla settimana in qualsiasi giorno (con -2 da mercoledì
         // a domenica cadeva nella settimana corrente e compariva in agenda).
-        r({ reservation_date: isoDay(-8), reservation_time: "21:00:00", customer_name: "Luca Verdi", party_size: 3, status: "pending" }),
-        r({ reservation_date: isoDay(0), reservation_time: "12:30:00", customer_name: "Anna Neri", status: "completed", source: "manual" }),
-        r({ reservation_date: isoDay(0), reservation_time: "13:00:00", customer_name: "Paolo Gallo", party_size: 6, status: "seated" }),
-        r({ reservation_date: isoDay(0), reservation_time: "20:30:00", customer_name: "Sara Conti", status: "confirmed" }),
-        r({ reservation_date: isoDay(0), reservation_time: "21:15:00", customer_name: "Elena Riva", party_size: 5, status: "confirmed", source: "manual" }),
-        r({ reservation_date: isoDay(0), reservation_time: "20:00:00", customer_name: "Carla Fumagalli", status: "cancelled" }),
-        r({ reservation_date: isoDay(0), reservation_time: "20:45:00", customer_name: "Ospite di Varedo", status: "pending", activity_id: VAREDO_ID })
+        r({ reservation_date: isoDay(-8, base), reservation_time: "21:00:00", customer_name: "Luca Verdi", party_size: 3, status: "pending" }),
+        r({ reservation_date: isoDay(0, base), reservation_time: "12:30:00", customer_name: "Anna Neri", status: "completed", source: "manual" }),
+        r({ reservation_date: isoDay(0, base), reservation_time: "13:00:00", customer_name: "Paolo Gallo", party_size: 6, status: "seated" }),
+        r({ reservation_date: isoDay(0, base), reservation_time: "20:30:00", customer_name: "Sara Conti", status: "confirmed" }),
+        r({ reservation_date: isoDay(0, base), reservation_time: "21:15:00", customer_name: "Elena Riva", party_size: 5, status: "confirmed", source: "manual" }),
+        r({ reservation_date: isoDay(0, base), reservation_time: "20:00:00", customer_name: "Carla Fumagalli", status: "cancelled" }),
+        r({ reservation_date: isoDay(0, base), reservation_time: "20:45:00", customer_name: "Ospite di Varedo", status: "pending", activity_id: VAREDO_ID })
     ];
 }
 
-function toRow(r: StubReservation) {
-    const now = new Date().toISOString();
+function toRow(r: StubReservation, base: Date) {
+    const now = base.toISOString();
     return {
         ...r,
         tenant_id: TENANT_ID,
@@ -130,8 +139,10 @@ export type ReservationsStub = {
     onWrite: (fn: string, handler: WriteHandler) => void;
 };
 
-export async function stubReservations(page: Page): Promise<ReservationsStub> {
-    const rows = makeReservations();
+export async function stubReservations(page: Page, options: { now?: Date } = {}): Promise<ReservationsStub> {
+    const base = options.now ?? new Date();
+    if (options.now) await page.clock.setFixedTime(options.now);
+    const rows = makeReservations(base);
     const handlers = new Map<string, WriteHandler>();
     const seatingId = "00000000-0000-4000-9000-000000000001";
     const stub: ReservationsStub = { rows, seatingId, writes: [], onWrite: (fn, h) => handlers.set(fn, h) };
@@ -142,7 +153,7 @@ export async function stubReservations(page: Page): Promise<ReservationsStub> {
         if (route.request().method() === "POST") return intercept(route, "reservations.insert");
         if (route.request().method() !== "GET") return route.fulfill({ status: 500, json: { message: "scrittura non prevista dall'e2e" } });
         const params = new URL(route.request().url()).searchParams;
-        await route.fulfill({ json: rows.filter(r => matches(r, params)).map(toRow) });
+        await route.fulfill({ json: rows.filter(r => matches(r, params)).map(r => toRow(r, base)) });
     });
     await page.route("**/rest/v1/reservation_tables?**", route => route.fulfill({ json: [] }));
 
@@ -157,7 +168,7 @@ export async function stubReservations(page: Page): Promise<ReservationsStub> {
                           activity_id: GARBAGNATE_ID,
                           status: "open",
                           party_size: seated.party_size,
-                          opened_at: new Date(Date.now() - 45 * 60_000).toISOString(),
+                          opened_at: new Date(base.getTime() - 45 * 60_000).toISOString(),
                           closed_at: null,
                           closed_reason: null,
                           opened_by_user_id: null,
@@ -194,7 +205,7 @@ export async function stubReservations(page: Page): Promise<ReservationsStub> {
                       activity_id: GARBAGNATE_ID,
                       status: "open",
                       party_size: seated.party_size,
-                      opened_at: new Date(Date.now() - 45 * 60_000).toISOString(),
+                      opened_at: new Date(base.getTime() - 45 * 60_000).toISOString(),
                       closed_at: null,
                       closed_reason: null,
                       opened_by_user_id: null

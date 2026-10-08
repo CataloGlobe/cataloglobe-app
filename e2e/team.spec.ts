@@ -15,6 +15,12 @@ test.describe("Team", () => {
         await openBusinessPage(page, "settings", "Impostazioni");
         await page.getByRole("tab", { name: "Team", exact: true }).click();
         await page.waitForURL(/\/settings\/team$/);
+        // Pagina pronta: i membri vengono dalla RPC vera (`get_tenant_members`),
+        // che sotto carico supera i 5 s. Stesso cancello da 15 s delle altre
+        // pagine: la tabella dei membri c'è e non sta più caricando.
+        const members = page.getByRole("table", { name: "Membri del team" });
+        await expect(members).toBeVisible({ timeout: 15_000 });
+        await expect(members.locator('[role="rowgroup"][aria-busy="true"]')).toHaveCount(0, { timeout: 15_000 });
     });
 
     test("titolo di pagina", async ({ page }) => {
@@ -34,8 +40,14 @@ test.describe("Team", () => {
         const b = (await search.boundingBox())!;
         expect(a.x).toBeLessThan(b.x);
         expect(Math.abs(a.y + a.height / 2 - (b.y + b.height / 2))).toBeLessThan(6);
-        await expect(page.getByRole("button", { name: "Invita membro" })).toBeVisible();
-        await expect(main.getByRole("button", { name: "Invita membro" })).toHaveCount(0);
+        // «Invita membro» una volta sola, sulla riga delle tab di Impostazioni
+        // (dal §51.12 quella testata sta dentro <main>), non nella toolbar.
+        const invite = page.getByRole("button", { name: "Invita membro" });
+        await expect(invite).toHaveCount(1);
+        const c = (await invite.boundingBox())!;
+        const t = (await main.getByRole("tablist").boundingBox())!;
+        expect(Math.abs(c.y + c.height / 2 - (t.y + t.height / 2))).toBeLessThan(12);
+        expect(c.y + c.height).toBeLessThanOrEqual(a.y);
     });
 
     test("IM3: «invitare non costa» nel piede della tabella", async ({ page }) => {

@@ -92,13 +92,13 @@ test.describe("Servizio", () => {
     test("la sidebar della sede ha Servizio e Storico, non più Sala", async ({ page }) => {
         await openVoce(page, "Scheda");
         const sidebar = nav(page);
-        // L'ordine dei gruppi della §19.5 (lotto B-b): Ospiti, Ordini, poi le due fuori gruppo.
-        const voci = ["Servizio", "Prenotazioni", "Comande", "Storico", "Cosa vedono i clienti", "Scheda"];
+        // L'ordine della §51.5: prima il locale (Scheda, Cosa vedono i clienti), poi Operatività.
+        const voci = ["Scheda", "Cosa vedono i clienti", "Servizio", "Prenotazioni", "Comande", "Storico"];
         for (const voce of voci) {
             await expect(sidebar.getByRole("link", { name: voce, exact: true })).toBeVisible();
         }
         await expect(sidebar.getByRole("link", { name: "Sala", exact: true })).toHaveCount(0);
-        // Nell'ordine della sidebar: Servizio è la prima voce.
+        // Nell'ordine della sidebar: Servizio è la prima voce di Operatività.
         const labels = await sidebar.getByRole("link").allTextContents();
         const ordered = labels.map(l => l.trim()).filter(l => voci.includes(l));
         expect(ordered).toEqual(voci);
@@ -159,10 +159,12 @@ test.describe("Servizio", () => {
         const zona = main(page).getByRole("list", { name: "Senza zona" });
         await expect(zona.getByRole("listitem")).toHaveCount(2, { timeout: 15_000 });
         // Un disegno per tessera.
-        await expect(zona.locator("[data-state]")).toHaveCount(2);
+        // Solo il disegno (aria-hidden): anche il menu ⋯ di ogni tessera ha un data-state.
+        await expect(zona.locator('[aria-hidden="true"][data-state]')).toHaveCount(2);
         // Il tavolo aperto è verde, o grigio se la sessione è di un servizio precedente.
-        const aperto = zona.getByRole("listitem").filter({ hasText: TAVOLO });
-        await expect(aperto.locator("[data-state]")).toHaveAttribute("data-state", /^(open|previous)$/);
+        // T TEST può stare in una zona qualsiasi dei dati di staging.
+        const aperto = main(page).getByRole("listitem").filter({ hasText: TAVOLO });
+        await expect(aperto.locator('[aria-hidden="true"][data-state]')).toHaveAttribute("data-state", /^(open|previous)$/);
         // Oltre 12 ore è «Aperta da un servizio precedente», mai «da 390 h».
         await expect(main(page).getByText(/da \d{3,} h/)).toHaveCount(0);
     });
@@ -349,7 +351,15 @@ test.describe("Elenco (lotto B-b)", () => {
         await expect(main(page).getByText(/in sala adesso/i)).toHaveCount(0);
     });
 
-    for (const role of ["manager", "staff", "viewer"] as const) {
+    // Il manager configura la sede: atterra sulla Scheda (§51.6), come owner e admin.
+    test("manager, piano pro: entrando nella sede si arriva alla Scheda", async ({ page }) => {
+        const base = await sedePath(page);
+        await asRole(page, "manager", base.split("/").pop()!, "pro");
+        await page.goto(base);
+        await expect(page).toHaveURL(/\/anagrafica$/, { timeout: 15_000 });
+    });
+
+    for (const role of ["staff", "viewer"] as const) {
         test(`${role}, piano pro: entrando nella sede si arriva a Servizio, nell'Elenco`, async ({ page }) => {
             const base = await sedePath(page);
             await asRole(page, role, base.split("/").pop()!, "pro");
@@ -421,10 +431,11 @@ test.describe("Storico", () => {
     });
 
     test("col piano base lo Storico ha il lucchetto e non è un atterraggio", async ({ page }) => {
-                const base = await sedePath(page);
+        const base = await sedePath(page);
         await asBasePlan(page);
         await page.goto(base);
-        await expect(page).toHaveURL(/\/servizio$/, { timeout: 15_000 });
+        // Owner: si atterra sulla Scheda (§51.6), non sullo Storico chiuso.
+        await expect(page).toHaveURL(/\/anagrafica$/, { timeout: 15_000 });
         // Il lucchetto entra nel nome accessibile della voce: «Storico …».
         await expect(nav(page).getByRole("link", { name: /^Storico/ }).locator(LUCCHETTO)).toHaveCount(1, {
             timeout: 15_000
