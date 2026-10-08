@@ -34,6 +34,8 @@ import {
 import { SeatingCloseQuestionBody, SeatingCloseQuestionFooter } from "./SeatingCloseQuestion";
 import { tableSectionFor, type TableSectionNote } from "./tableSection";
 import { statusMeta } from "@/utils/reservationStatusMeta";
+import { todayIsoDate } from "@/utils/dateLocal";
+import { isExpiredRequest } from "./requestExpiry";
 import {
     canAccept,
     occupiesCapacity,
@@ -453,6 +455,9 @@ export default function ReservationDetailDrawer({
 
     const st = statusMeta(reservation.status);
     const isPast = isInThePast(reservation);
+    // T19: una richiesta del giorno passato si può solo rifiutare; l'edge
+    // rifiuta comunque la conferma (RESERVATION_EXPIRED).
+    const isExpired = isExpiredRequest(reservation, todayIsoDate());
     // Il gesto esiste solo dove ha una destinazione: `tableSection` la nega
     // quando lo stato è terminale, quando manca il permesso giusto per quella
     // tabella, e quando la fonte è la tavolata ma la tavolata non si trova.
@@ -527,12 +532,25 @@ export default function ReservationDetailDrawer({
                             Modifica
                         </Button>
                     )}
-                    <Button variant="outline" onClick={() => handleAction("decline")}>
-                        Rifiuta
-                    </Button>
-                    <Button variant="primary" onClick={() => handleAction("confirm")}>
-                        Conferma
-                    </Button>
+                    {isExpired ? (
+                        <>
+                            <Text as="p" variant="caption-xs" colorVariant="muted" className={styles.drawerFooterHint}>
+                                Richiesta scaduta: il giorno è passato.
+                            </Text>
+                            <Button variant="primary" onClick={() => handleAction("decline")}>
+                                Rifiuta
+                            </Button>
+                        </>
+                    ) : (
+                        <>
+                            <Button variant="outline" onClick={() => handleAction("decline")}>
+                                Rifiuta
+                            </Button>
+                            <Button variant="primary" onClick={() => handleAction("confirm")}>
+                                Conferma
+                            </Button>
+                        </>
+                    )}
                 </>
             ) : reservation.status === "confirmed" ? (
                 <>

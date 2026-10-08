@@ -3,7 +3,6 @@ import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { Card } from "@/components/ui/Card/Card";
-import { Select, type SelectOption } from "@/components/ui/Select/Select";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import type { LayoutRule, RuleType } from "@/services/supabase/layoutScheduling";
 import type { MatrixRow } from "@/utils/scheduleMatrix";
@@ -19,9 +18,6 @@ type NowCardProps = {
     catalogLabel: string;
     /** Lo strato della tab aperta; null in «Tutte». */
     highlight: RuleType | null;
-    /** Le sedi tra cui scegliere; con una sola il selettore non c'è. */
-    seatOptions: SelectOption[];
-    onSeatChange: (activityId: string) => void;
     onSimulate: () => void;
     /** Abbonamento non attivo: le regole vincono, ma il cliente non vede il menù. */
     subscriptionInactive: boolean;
@@ -32,7 +28,7 @@ type NowCardProps = {
  * fissa: per una sede i cinque passaggi in fila, con esito e regola, come nel
  * simulatore. Uguale in tutte le tab; evidenzia lo strato della tab aperta.
  */
-export function NowCard({ time, row, layers, catalogLabel, highlight, seatOptions, onSeatChange, onSimulate, subscriptionInactive }: NowCardProps) {
+export function NowCard({ time, row, layers, catalogLabel, highlight, onSimulate, subscriptionInactive }: NowCardProps) {
     const isPhone = useMediaQuery("(max-width: 767px)");
     const simulate = (
         <Button
@@ -46,9 +42,9 @@ export function NowCard({ time, row, layers, catalogLabel, highlight, seatOption
         </Button>
     );
 
-    // Testata compatta come nel mockup (PG1): orologio, «Adesso, 17:30», la
-    // sede accanto, «Simula» a destra; al telefono la sede va a tutta
-    // larghezza e «Simula» in fondo.
+    // Testata compatta come nel mockup (PG1): orologio, «Adesso, 17:30»,
+    // «Simula» a destra; al telefono «Simula» in fondo. La card è di una sede
+    // sola: con più sedi c'è `CompanyNowCard` (PG5).
     return (
         <Card className={styles.card} bodyClassName={styles.cardBody}>
             <div className={styles.head}>
@@ -59,16 +55,6 @@ export function NowCard({ time, row, layers, catalogLabel, highlight, seatOption
                     </Text>
                     {row.suspended && <StatusBadge variant="neutral" label="Sospesa" />}
                 </span>
-                {seatOptions.length > 1 && (
-                    <div className={styles.seat}>
-                        <Select
-                            aria-label="Sede della card Adesso"
-                            value={row.activityId}
-                            onChange={e => onSeatChange(e.target.value)}
-                            options={seatOptions}
-                        />
-                    </div>
-                )}
                 {!isPhone && <div className={styles.simulateEnd}>{simulate}</div>}
             </div>
             {subscriptionInactive && (

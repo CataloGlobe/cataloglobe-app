@@ -14,6 +14,8 @@ import { canDoOnActivity, canExplainActivityCatalog } from "@/lib/permissions";
 import { useCatalogExplanation } from "@/hooks/useCatalogExplanation";
 import { describeOutcome } from "@/utils/catalogExplanation";
 import { buildPublicUrl } from "@/utils/publicUrl";
+import { useSedeScope } from "@/hooks/useSedeScope";
+import { schedulingPath, schedulingRulePath } from "@/pages/Dashboard/Programming/schedulingPaths";
 import { ActivityVisibilityContent } from "../components/ActivityVisibility/ActivityVisibilityContent";
 import { CatalogOutcomeBand } from "../components/ActivityVisibility/CatalogOutcomeBand";
 import styles from "./ActivityCosaVedonoRoute.module.scss";
@@ -78,6 +80,8 @@ export function CosaVedonoContent({ activity, tenantId }: { activity: V2Activity
     const canRead = permissions != null && canDoOnActivity(permissions, "activity.read", activity.id);
     const hasWritePermission = permissions != null && canDoOnActivity(permissions, "activity.manage", activity.id);
     const canWrite = hasWritePermission && canEdit;
+    // Programmazione della sede con più sedi, d'azienda con una sola (T9b).
+    const { isForcedSingleSite } = useSedeScope();
     // Il solo gate della spiegazione (banda, provenienza, prezzo dalla
     // regola, menù attivo): vedi `canExplainActivityCatalog`.
     const canExplain = permissions != null && canExplainActivityCatalog(permissions, activity.id);
@@ -118,7 +122,10 @@ export function CosaVedonoContent({ activity, tenantId }: { activity: V2Activity
                                   catalogName: explanation.data.catalogName,
                                   rule: explanation.data.layoutRule,
                                   ruleHref: explanation.data.layoutRule
-                                      ? `/business/${tenantId}/scheduling/${explanation.data.layoutRule.id}`
+                                      ? schedulingRulePath(tenantId, activity.id, isForcedSingleSite, {
+                                            id: explanation.data.layoutRule.id,
+                                            rule_type: "layout"
+                                        })
                                       : null
                               }
                             : null
@@ -127,8 +134,8 @@ export function CosaVedonoContent({ activity, tenantId }: { activity: V2Activity
                     fixes={{
                         seat: { label: "Vai a Pubblicazione", href: `/business/${tenantId}/locations/${activity.id}/pubblicazione` },
                         subscription: { label: "Vai ad Abbonamento", href: `/business/${tenantId}/settings/abbonamento` },
-                        // Programmazione si apre già su questa sede (D2 §1).
-                        rule: { label: "Vai a Programmazione", href: `/business/${tenantId}/scheduling?sede=${activity.id}` }
+                        // Programmazione della sede (T9b, PG6; prima `?sede=`, D2 §1).
+                        rule: { label: "Vai a Programmazione", href: schedulingPath(tenantId, activity.id, isForcedSingleSite) }
                     }}
                 />
             )}

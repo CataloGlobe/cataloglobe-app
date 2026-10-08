@@ -1,6 +1,7 @@
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@context/useAuth";
 import { AppLoader } from "../ui/AppLoader/AppLoader";
+import { internalPathOr } from "@/utils/internalPath";
 import type { ReactNode } from "react";
 
 type OtpRouteProps = {
@@ -31,9 +32,11 @@ export const OtpRoute = ({ children }: OtpRouteProps) => {
         return <Navigate to="/login" replace state={{ from: location }} />;
     }
 
-    // OTP già verificato → workspace
+    // OTP già verificato → la pagina da cui si è arrivati al login, se c'è,
+    // altrimenti workspace
     if (otpVerified) {
-        return <Navigate to="/workspace" replace />;
+        const from = (location.state as { from?: unknown } | null)?.from;
+        return <Navigate to={internalPathOr(from, "/workspace")} replace />;
     }
 
     // Utente loggato ma OTP non verificato → ok

@@ -27,6 +27,12 @@
 }
 
 .seatLink {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
   color: var(--brand-primary);
   font-weight: inherit;
   text-decoration: none;

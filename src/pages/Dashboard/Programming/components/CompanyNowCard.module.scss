@@ -1,0 +1,55 @@
+@use "@styles/mixins" as *;
+
+// La card «Adesso» d'azienda (PG5): una riga sola (frase, chip ambra,
+// «Vedi tutte» a destra); al telefono due righe, frase sopra e chip più
+// bottone a tutta larghezza sotto.
+
+.card {
+  display: block;
+}
+
+.cardBody.cardBody {
+  padding: 0;
+  gap: 0;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-8) var(--space-12);
+  padding: var(--space-12) var(--space-16);
+}
+
+.title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+  min-width: 0;
+}
+
+.clock {
+  flex: 0 0 auto;
+  color: var(--brand-primary);
+}
+
+.chips {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+  min-width: 0;
+}
+
+.showAll {
+  margin-left: auto;
+
+  @include phone {
+    margin-left: 0;
+    width: 100%;
+  }
+}
+
+.note {
+  display: block;
+  padding: 0 var(--space-16) var(--space-12);
+}
