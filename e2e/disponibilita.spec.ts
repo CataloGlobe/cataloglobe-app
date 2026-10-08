@@ -89,7 +89,7 @@ test.describe("Disponibilità — prodotti", () => {
         await expect(main(page).getByText("Big e2e", { exact: true })).toBeVisible({ timeout: 15_000 });
         await expect(main(page).getByText("Menù e2e").first()).toBeVisible();
         await expect(main(page).getByText("Pranzo e2e").first()).toBeVisible();
-        // Dalla sede la regola si apre nella Programmazione della sede (d269ebc85).
+        // Con più sedi leggibili la regola si apre nella Programmazione della sede (7cd5a0ba).
         await expect(main(page).getByRole("link", { name: "Vedi la regola" })).toHaveAttribute("href", new RegExp(`/locations/[0-9a-f-]+/programmazione/${RULE_ID}$`));
         await expect(main(page).getByText("Panini").first()).toBeVisible();
         await expect(main(page).getByText(/7[.,]50/)).toBeVisible();
