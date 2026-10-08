@@ -64,6 +64,16 @@ export function calculateDelta(current: number, previous: number, minBase: numbe
     return ((current - previous) / previous) * 100;
 }
 
+/**
+ * Confronto di un tasso (già in %): differenza in punti, «+3 pt», senza la
+ * soglia dei conteggi. Nessun confronto solo se il periodo prima non ha
+ * nessun caso (`previousBase` 0): lì il tasso non esiste.
+ */
+export function calculatePointDelta(current: number, previous: number, previousBase: number): number | null {
+    if (previousBase === 0) return null;
+    return current - previous;
+}
+
 export function getPreviousPeriodLabel(period: PeriodKey): string {
     switch (period) {
         case "today":

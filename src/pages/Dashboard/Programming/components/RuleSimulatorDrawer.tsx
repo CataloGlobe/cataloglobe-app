@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type Ref } from "react";
-import { ChevronDown } from "lucide-react";
+import { Link } from "react-router-dom";
+import { ArrowLeft, ArrowRight, ChevronDown, History } from "lucide-react";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { Button } from "@/components/ui/Button/Button";
@@ -8,7 +9,6 @@ import { Card } from "@/components/ui/Card/Card";
 import { Badge } from "@/components/ui/Badge/Badge";
 import { ListRow } from "@/components/ui/ListRow/ListRow";
 import { TextInput } from "@/components/ui/Input/TextInput";
-import { Select } from "@/components/ui/Select/Select";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
@@ -17,6 +17,7 @@ import type { LayoutRule, LayoutRuleOption, RuleType } from "@/services/supabase
 import { formatInactiveReason } from "@/utils/activityStatus";
 import { parseRomeDateTimeLocal, romeDateTimeLocalValue, romeInstantAt } from "@/utils/romeInstant";
 import { buildScheduleMatrix } from "@/utils/scheduleMatrix";
+import { seatsToWatchFirst } from "@/utils/seatsToWatch";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import { buildDailyTimeline } from "../simulatorTimeline";
 import { LayerSteps } from "./LayerSteps";
@@ -54,11 +55,14 @@ export interface RuleSimulatorDrawerProps {
     /** Abbonamento non attivo: la pagina pubblica non mostra il catalogo. */
     subscriptionInactive: boolean;
     ruleHref: (rule: { id: string; rule_type: RuleType }) => string;
-    seatHref: (activityId: string) => string;
+    /** «Vai alla programmazione di <sede>»: la Programmazione della sede. */
+    seatProgrammingHref: (activityId: string) => string;
     /** Le modifiche a mano per sede: l'ultimo passaggio. */
     manualCounts: Record<string, number> | null;
     /** La sede con cui si apre (quella della card «Adesso»); null = tutte. */
     initialActivityId: string | null;
+    /** Si apre già su «Simula un altro momento» (dalla card di una sede). */
+    initialSimulating: boolean;
     /** «Come funziona» della tab aperta (PG2: non più in fondo all'elenco). */
     helpRuleType: RuleType | "all";
     helpRef: Ref<HTMLButtonElement>;
@@ -66,9 +70,11 @@ export interface RuleSimulatorDrawerProps {
 }
 
 /**
- * Il simulatore (correzioni UI PG4): sede, giorno e ora; per una sede i
- * passaggi numerati con esito e regola, come la card «Adesso»; con «Tutte le
- * sedi» la matrice. Il calcolo è `buildScheduleMatrix` sulle regole della
+ * Il pannello «Cosa vedono i clienti» (correzioni UI PG4, PG5): fermo su
+ * adesso, una riga per sede con i passaggi (prima quelle da guardare) e la
+ * ricerca; toccando una sede i suoi passaggi, con l'andamento della giornata.
+ * «Simula un altro momento» mette Giorno e Ora in testa, senza un secondo
+ * pannello. Il calcolo è `buildScheduleMatrix` sulle regole della
  * pagina, la stessa competizione della pagina pubblica (il test del contratto
  * 13 lo tiene allineato al resolver): nessuna richiesta, e mostra le
  * modifiche a mano.
@@ -82,9 +88,10 @@ export function RuleSimulatorDrawer({
     catalogById,
     subscriptionInactive,
     ruleHref,
-    seatHref,
+    seatProgrammingHref,
     manualCounts,
     initialActivityId,
+    initialSimulating,
     helpRuleType,
     helpRef,
     onHowItWorks
@@ -101,12 +108,23 @@ export function RuleSimulatorDrawer({
     const [simDateTime, setSimDateTime] = useState(() => romeDateTimeLocalValue(new Date()));
     const [timelineOpen, setTimelineOpen] = useState(false);
     const [simDay, simTime] = simDateTime.split("T");
+    // Fermo su adesso finché non si chiede un altro momento.
+    const [simulating, setSimulating] = useState(false);
+    const [seatQuery, setSeatQuery] = useState("");
+    const backToNow = () => {
+        setSimulating(false);
+        setSimDateTime(romeDateTimeLocalValue(new Date()));
+    };
 
     // Si apre sulla sede della card «Adesso»; con una sede sola è già scelta.
+    // Ogni apertura riparte da adesso.
     useEffect(() => {
         if (!open) return;
         setSimActivityId(activities.length === 1 ? activities[0].id : (initialActivityId ?? ""));
-    }, [activities, initialActivityId, open]);
+        setSimulating(initialSimulating);
+        setSimDateTime(romeDateTimeLocalValue(new Date()));
+        setSeatQuery("");
+    }, [activities, initialActivityId, initialSimulating, open]);
 
     const ruleById = useMemo(() => new Map(rules.map(r => [r.id, r])), [rules]);
 
@@ -189,20 +207,57 @@ export function RuleSimulatorDrawer({
             </Button>
         ) : null;
 
+    // In testa al pannello, sopra «Simula» e lo stato: da dove si torna e dove
+    // si va. Con una sede sola (dentro la sede, o azienda di una sede) non c'è
+    // un elenco a cui tornare e la sua Programmazione è la pagina già aperta.
+    const seatRow = simActivityId && activities.length > 1 ? matrix?.rows[0] : undefined;
+    const seatNav = seatRow ? (
+        <div className={styles.seatNav}>
+            <Button
+                variant="ghost"
+                size="sm"
+                leftIcon={<ArrowLeft size={16} aria-hidden />}
+                onClick={() => setSimActivityId("")}
+            >
+                Tutte le sedi
+            </Button>
+            <Link to={seatProgrammingHref(seatRow.activityId)} className={styles.seatProgramming}>
+                Vai alla programmazione di {seatRow.name}
+                <ArrowRight size={16} aria-hidden />
+            </Link>
+        </div>
+    ) : null;
+
     const renderResult = () => {
         if (!selected || !matrix) {
             return <InlineBanner variant="error">{INVALID_DATE}</InlineBanner>;
         }
         if (!simActivityId) {
+            const query = seatQuery.trim().toLowerCase();
+            const rows = seatsToWatchFirst(matrix.rows).filter(row => !query || row.name.toLowerCase().includes(query));
             return (
-                <SeatMatrix
-                    rows={matrix.rows}
-                    atNow={false}
-                    catalogLabel={catalogLabel}
-                    catalogName={catalogName}
-                    ruleHref={ruleHref}
-                    seatHref={seatHref}
-                />
+                <>
+                    <TextInput
+                        label="Cerca una sede"
+                        type="search"
+                        value={seatQuery}
+                        onChange={event => setSeatQuery(event.target.value)}
+                    />
+                    {rows.length === 0 ? (
+                        <Text variant="body-sm" colorVariant="muted">
+                            Nessuna sede con questo nome.
+                        </Text>
+                    ) : (
+                        <SeatMatrix
+                            rows={rows}
+                            atNow={!simulating}
+                            catalogLabel={catalogLabel}
+                            catalogName={catalogName}
+                            ruleHref={ruleHref}
+                            onSeatSelect={setSimActivityId}
+                        />
+                    )}
+                </>
             );
         }
         const row = matrix.rows[0];
@@ -277,10 +332,12 @@ export function RuleSimulatorDrawer({
                 header={
                     <div className={styles.header}>
                         <Text as="h3" variant="title-sm" id="simulate-rules-title">
-                            Simula un altro momento
+                            Cosa vedono i clienti
                         </Text>
                         <Text variant="body-sm" colorVariant="muted">
-                            Scegli sede, giorno e ora: vedi cosa vede il cliente, passaggio per passaggio.
+                            {simulating
+                                ? "Nel giorno e all'ora che scegli, passaggio per passaggio."
+                                : `Adesso, ${simTime ?? ""}, passaggio per passaggio.`}
                         </Text>
                         <div>
                             <HowItWorksButton ref={helpRef} ruleType={helpRuleType} onClick={onHowItWorks} />
@@ -308,30 +365,45 @@ export function RuleSimulatorDrawer({
                 }
             >
                 <div className={styles.body}>
+                    {seatNav}
                     <div className={styles.fields}>
-                        <Select label="Sede" value={simActivityId} onChange={event => setSimActivityId(event.target.value)}>
-                            {activities.length > 1 && <option value="">Tutte le sedi</option>}
-                            {activities.map(activity => (
-                                <option key={activity.id} value={activity.id}>
-                                    {activity.name}
-                                </option>
-                            ))}
-                        </Select>
-
-                        <TextInput
-                            label="Giorno"
-                            type="date"
-                            value={simDay ?? ""}
-                            onChange={event => setSimDateTime(`${event.target.value}T${simTime ?? ""}`)}
-                            required
-                        />
-                        <TextInput
-                            label="Ora"
-                            type="time"
-                            value={simTime ?? ""}
-                            onChange={event => setSimDateTime(`${simDay ?? ""}T${event.target.value}`)}
-                            required
-                        />
+                        {simulating ? (
+                            <>
+                                <TextInput
+                                    label="Giorno"
+                                    type="date"
+                                    value={simDay ?? ""}
+                                    onChange={event => setSimDateTime(`${event.target.value}T${simTime ?? ""}`)}
+                                    required
+                                />
+                                <TextInput
+                                    label="Ora"
+                                    type="time"
+                                    value={simTime ?? ""}
+                                    onChange={event => setSimDateTime(`${simDay ?? ""}T${event.target.value}`)}
+                                    required
+                                />
+                                <div>
+                                    <Button variant="secondary" size="sm" onClick={backToNow}>
+                                        Torna ad adesso
+                                    </Button>
+                                </div>
+                                <Text variant="caption" colorVariant="muted">
+                                    Sospensioni e abbonamento sono quelli di oggi.
+                                </Text>
+                            </>
+                        ) : (
+                            <div>
+                                <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    leftIcon={<History size={16} aria-hidden />}
+                                    onClick={() => setSimulating(true)}
+                                >
+                                    Simula un altro momento
+                                </Button>
+                            </div>
+                        )}
 
                         {simActivity && (
                             <div className={styles.statusRow}>

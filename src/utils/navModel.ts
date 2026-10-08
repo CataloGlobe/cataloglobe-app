@@ -36,6 +36,7 @@ export type NavKey =
     | "catalogs"
     | "products"
     | "scheduling"
+    | "programmazione"
     | "styles"
     | "featured"
     | "stories"
@@ -137,6 +138,17 @@ const COSA_VEDONO: NavEntry = {
     level: "sede",
     segment: "cosa-vedono",
     gate: { on: "activity", permission: "activity.read" }
+};
+
+// Programmazione della sede (T9b, PG6; supera §51.11): le regole che
+// raggiungono questa sede, viste da dentro. Le regole restano dell'azienda;
+// stesso componente, la sede dal path. Staff non ha `scheduling.read`.
+const PROGRAMMAZIONE_SEDE: NavEntry = {
+    key: "programmazione",
+    label: ROUTE_LABELS.scheduling,
+    level: "sede",
+    segment: "programmazione",
+    gate: { on: "activity", permission: "scheduling.read" }
 };
 
 const CATALOGS: NavEntry = {
@@ -331,7 +343,11 @@ export const NAV_MODELS: Record<NavContext, NavModel> = {
         footer: [SETTINGS, SUPPORT]
     },
     sede: {
-        groups: [IL_LOCALE, OPERATIVITA, { title: "Andamento", entries: [ANALITICHE, RECENSIONI] }],
+        groups: [
+            { title: IL_LOCALE.title, entries: [...IL_LOCALE.entries, PROGRAMMAZIONE_SEDE] },
+            OPERATIVITA,
+            { title: "Andamento", entries: [ANALITICHE, RECENSIONI] }
+        ],
         // Impostazioni è dell'azienda: dentro la sede il piede ha solo Assistenza.
         footer: [SUPPORT]
     }

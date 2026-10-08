@@ -34,15 +34,6 @@
   color: var(--brand-primary);
 }
 
-.seat {
-  min-width: 200px;
-
-  @include phone {
-    flex-basis: 100%;
-    min-width: 0;
-  }
-}
-
 .simulateEnd {
   margin-left: auto;
 }

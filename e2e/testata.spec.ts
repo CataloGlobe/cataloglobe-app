@@ -78,7 +78,10 @@ test.describe("Testata — due righe prima della barra compatta", () => {
     // T16 IM1: in testata restano le tab di Impostazioni e «Invita membro»:
     // a 1024 stanno su una riga.
     test("Team a 1024: tab e «Invita membro» su una riga", async ({ page }) => {
-        await openBusinessPage(page, "team", "Team");
+        // Team è una tab di Impostazioni (§51.12): non è più una voce di sidebar.
+        await openBusinessPage(page, "settings", "Impostazioni");
+        await page.getByRole("tab", { name: "Team", exact: true }).click();
+        await page.waitForURL(/\/settings\/team$/);
         await page.setViewportSize({ width: 1024, height: 900 });
         const tab = page.getByRole("tab", { name: "Team", exact: true });
         const cta = page.getByRole("button", { name: "Invita membro" }).first();

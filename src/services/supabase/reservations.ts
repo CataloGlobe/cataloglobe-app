@@ -780,6 +780,8 @@ export interface RespondReservationResult {
  *   RESERVATION_NOT_FOUND   → 404, riga inesistente o non visibile (no read)
  *   INVALID_TRANSITION      → 409, riga in stato sbagliato per l'action
  *                             (details.current_status disponibile)
+ *   RESERVATION_EXPIRED     → 409, conferma di una richiesta il cui giorno
+ *                             (a Roma) è passato; rifiutarla resta possibile
  *   SERVER_ERROR            → 500 / network / fallback
  */
 export async function respondReservation(

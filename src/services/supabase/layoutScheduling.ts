@@ -4,6 +4,15 @@ import type { PriorityLevel } from "@utils/priorityUtils";
 import { revalidatePublicCatalogForTenant } from "@services/publicCatalog/revalidatePublicCatalog";
 import { daysOfWeekForDb } from "@utils/scheduleDays";
 
+// Un UPDATE/DELETE rifiutato dall'RLS non dà errore: PostgREST risponde 200
+// con zero righe. Come deleteReview si chiede indietro l'id e zero righe è un
+// errore, così l'interfaccia non dice «salvato» quando non è cambiato niente.
+function assertRuleRowsTouched(data: unknown[] | null): void {
+    if (!data || data.length === 0) {
+        throw new Error("Modifica non salvata: non hai i permessi su questa regola.");
+    }
+}
+
 async function revalidateAfterScheduleMutation(scheduleId: string): Promise<void> {
     try {
         const { data } = await supabase
@@ -375,17 +384,23 @@ async function updateScheduleWithNameFallback(input: {
     const withNameRes = await supabase
         .from("schedules")
         .update(patchWithName)
-        .eq("id", input.scheduleId);
+        .eq("id", input.scheduleId)
+        .select("id");
 
-    if (!withNameRes.error) return;
+    if (!withNameRes.error) {
+        assertRuleRowsTouched(withNameRes.data);
+        return;
+    }
     if (!isMissingColumnError(withNameRes.error, "name")) throw withNameRes.error;
 
     const withoutNameRes = await supabase
         .from("schedules")
         .update(normalizedPatch)
-        .eq("id", input.scheduleId);
+        .eq("id", input.scheduleId)
+        .select("id");
 
     if (withoutNameRes.error) throw withoutNameRes.error;
+    assertRuleRowsTouched(withoutNameRes.data);
 }
 
 async function updateScheduleVisibilityModeFallback(
@@ -1123,15 +1138,17 @@ export async function updateLayoutRule(input: {
     if (existingLayoutError) throw existingLayoutError;
 
     if (existingLayout?.id) {
-        const { error: layoutUpdateError } = await supabase
+        const { data: layoutUpdated, error: layoutUpdateError } = await supabase
             .from("schedule_layout")
             .update({
                 style_id: input.styleId,
                 catalog_id: input.catalogId
             })
-            .eq("id", existingLayout.id);
+            .eq("id", existingLayout.id)
+            .select("id");
 
         if (layoutUpdateError) throw layoutUpdateError;
+        assertRuleRowsTouched(layoutUpdated);
     } else {
         const { error: layoutInsertError } = await supabase.from("schedule_layout").insert({
             tenant_id: input.tenantId,
@@ -1265,11 +1282,13 @@ export async function updateRule(input: {
         target_id: legacyTargetId
     };
 
-    const { error: scheduleUpdateError } = await supabase
+    const { data: scheduleUpdated, error: scheduleUpdateError } = await supabase
         .from("schedules")
         .update(targetPayload)
-        .eq("id", input.scheduleId);
+        .eq("id", input.scheduleId)
+        .select("id");
     if (scheduleUpdateError) throw scheduleUpdateError;
+    assertRuleRowsTouched(scheduleUpdated);
 
     await updateScheduleWithNameFallback({
         scheduleId: input.scheduleId,
@@ -1310,12 +1329,14 @@ export async function updateRule(input: {
             };
 
             if (existingLayout?.id) {
-                const { error: layoutUpdateError } = await supabase
+                const { data: layoutUpdated, error: layoutUpdateError } = await supabase
                     .from("schedule_layout")
                     .update(layoutPatch)
-                    .eq("id", existingLayout.id);
+                    .eq("id", existingLayout.id)
+                    .select("id");
 
                 if (layoutUpdateError) throw layoutUpdateError;
+                assertRuleRowsTouched(layoutUpdated);
             } else {
                 const { error: layoutInsertError } = await supabase.from("schedule_layout").insert({
                     tenant_id: input.tenantId,
@@ -1391,9 +1412,14 @@ export async function deleteLayoutRule(scheduleId: string): Promise<void> {
         .maybeSingle();
     const tenantId = (existing as { tenant_id?: string } | null)?.tenant_id ?? null;
 
-    const { error } = await supabase.from("schedules").delete().eq("id", scheduleId);
+    const { data: deleted, error } = await supabase
+        .from("schedules")
+        .delete()
+        .eq("id", scheduleId)
+        .select("id");
 
     if (error) throw error;
+    assertRuleRowsTouched(deleted);
 
     if (tenantId) {
         void revalidatePublicCatalogForTenant(tenantId);
@@ -1401,9 +1427,14 @@ export async function deleteLayoutRule(scheduleId: string): Promise<void> {
 }
 
 export async function updateScheduleEnabled(scheduleId: string, enabled: boolean): Promise<void> {
-    const { error } = await supabase.from("schedules").update({ enabled }).eq("id", scheduleId);
+    const { data, error } = await supabase
+        .from("schedules")
+        .update({ enabled })
+        .eq("id", scheduleId)
+        .select("id");
 
     if (error) throw error;
+    assertRuleRowsTouched(data);
 
     await revalidateAfterScheduleMutation(scheduleId);
 }
@@ -1415,16 +1446,18 @@ export async function reorderSchedulesInLevel(
     if (updates.length === 0) return;
 
     for (const u of updates) {
-        const { error } = await supabase
+        const { data, error } = await supabase
             .from("schedules")
             .update({
                 display_order: u.display_order,
                 priority: computePriority(u.priority_level, u.display_order)
             })
             .eq("id", u.id)
-            .eq("tenant_id", tenantId);
+            .eq("tenant_id", tenantId)
+            .select("id");
 
         if (error) throw error;
+        assertRuleRowsTouched(data);
     }
 
     void revalidatePublicCatalogForTenant(tenantId);

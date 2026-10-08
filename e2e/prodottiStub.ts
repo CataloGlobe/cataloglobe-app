@@ -253,7 +253,13 @@ function makeTables(): Tables {
         ],
         // «Carta e2e» è usata da una regola di layout.
         schedule_layout: [{ schedule_id: uuid(701), tenant_id: TENANT_ID, catalog_id: MENU.carta }],
-        schedules: [{ id: uuid(701), tenant_id: TENANT_ID, name: "Menu weekend e2e", target_type: null, target_id: null, enabled: true }],
+        schedules: [
+            { id: uuid(701), tenant_id: TENANT_ID, name: "Menu weekend e2e", rule_type: "layout", target_type: null, target_id: null, apply_to_all: false, enabled: true }
+        ],
+        schedule_targets: [],
+        schedule_featured_contents: [],
+        activities: [],
+        activity_group_members: [],
         featured_content_products: [],
         schedule_price_overrides: [],
         schedule_visibility_overrides: []
@@ -274,6 +280,15 @@ export async function stubProdotti(page: Page, options: { vertical?: string } = 
             }
             if (table === "product_option_groups" && select.includes("values:")) {
                 return rows.map(row => ({ ...row, values: tables.product_option_values.filter(v => v.option_group_id === row.id) }));
+            }
+            // Come PostgREST: la regola porta con sé layout, target e contenuti in evidenza.
+            if (table === "schedules" && select.includes("layout:")) {
+                return rows.map(row => ({
+                    ...row,
+                    layout: tables.schedule_layout.filter(l => l.schedule_id === row.id),
+                    targets: tables.schedule_targets.filter(t => t.schedule_id === row.id),
+                    featured: tables.schedule_featured_contents.filter(f => f.schedule_id === row.id)
+                }));
             }
             if (table === "product_groups" && select.includes("product_group_items")) {
                 return rows.map(row => ({

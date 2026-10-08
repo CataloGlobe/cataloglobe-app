@@ -8,8 +8,9 @@ CataloGlobe è un servizio italiano per ristoranti, bar e locali. Il cliente inq
 
 - Prezzi, piatti ed esauriti modificabili dal telefono, subito visibili ai clienti
 - Menù che cambiano da soli in base all'orario: pranzo, cena, eventi
-- Menù tradotto in più lingue
-- Piatti in evidenza, abbinamenti, allergeni e storie del locale
+- Menù in italiano, inglese, francese, tedesco e spagnolo: le descrizioni si traducono da sole e il locale può correggerle a mano; i nomi dei piatti restano in italiano
+- Allergeni per ogni piatto, tra i 14 previsti dalla normativa europea: glutine, crostacei, uova, pesce, arachidi, soia, latte, frutta a guscio, sedano, senape, sesamo, solfiti, lupini, molluschi
+- Piatti in evidenza, abbinamenti e storie del locale
 - Statistiche su cosa guardano i clienti
 - Menù importato da una foto o da un PDF
 - Più locali e team, ognuno con i suoi permessi
@@ -19,8 +20,8 @@ CataloGlobe è un servizio italiano per ristoranti, bar e locali. Il cliente inq
 
 Un prezzo per ogni locale, senza costi aggiuntivi.
 
-- Base: 39 € al mese, oppure 390 € all'anno
-- Pro: 59 € al mese, oppure 590 € all'anno
+- Base: 39 € al mese, oppure 390 € all'anno, per locale
+- Pro: 59 € al mese, oppure 590 € all'anno, per locale
 
 30 giorni di prova gratuita, poi si disdice quando si vuole, senza penali. La stampante per la cucina è opzionale e si acquista a parte.
 
