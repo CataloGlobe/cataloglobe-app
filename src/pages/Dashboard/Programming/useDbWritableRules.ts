@@ -27,14 +27,18 @@ export function useDbWritableRules(ruleIds: readonly string[], enabled: boolean)
         if (!missingKey) return;
         const asked = missingKey.split(",");
         const current = generation.current;
-        listWritableScheduleIds(asked).then(writable => {
-            if (generation.current !== current) return;
-            setAnswers(prev => {
-                const next = new Map(prev);
-                for (const id of asked) next.set(id, writable.has(id));
-                return next;
+        // Un rifiuto conta come «no» (come gli errori della RPC): nessun id
+        // resta senza risposta, quindi niente dettaglio fermo in attesa.
+        listWritableScheduleIds(asked)
+            .catch(() => new Set<string>())
+            .then(writable => {
+                if (generation.current !== current) return;
+                setAnswers(prev => {
+                    const next = new Map(prev);
+                    for (const id of asked) next.set(id, writable.has(id));
+                    return next;
+                });
             });
-        });
     }, [missingKey]);
     return answers;
 }
