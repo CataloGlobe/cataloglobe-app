@@ -286,14 +286,26 @@ serve(async req => {
                         limit: 1
                     });
                     promo = list.data?.[0] ?? null;
+                    // No active code: look for an inactive one only to say why
+                    // it is refused (Stripe turns a code inactive when it
+                    // expires, see checkPromoCodeLimits). Active first, so an old
+                    // inactive copy never hides a live one.
+                    if (!promo) {
+                        const any = await stripe.promotionCodes.list({ code: promotionCodeInput, limit: 1 });
+                        promo = any.data?.[0] ?? null;
+                    }
                 }
             } catch (err) {
                 const message = err instanceof Error ? err.message : String(err);
                 console.warn(`stripe-checkout: promo code lookup failed: ${message}`);
                 return json(req, 400, { error: "promo_code_invalid" });
             }
-            if (!promo || !promo.active) {
+            if (!promo) {
                 return json(req, 400, { error: "promo_code_invalid" });
+            }
+            if (!promo.active) {
+                const refusal = checkPromoCodeLimits(promo, Math.floor(Date.now() / 1000)) ?? "promo_code_invalid";
+                return json(req, 400, { error: refusal });
             }
             resolvedPromotionId = promo.id;
             promoMetadata = promo.metadata ?? null;
