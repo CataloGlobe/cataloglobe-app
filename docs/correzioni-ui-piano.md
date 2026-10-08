@@ -1,6 +1,6 @@
 # Piano — Correzioni di dettaglio del back office (refactor UI)
 
-Aggiornato: 5 ottobre 2026. Autore delle decisioni: Lorenzo, con Claude (Cowork).
+Aggiornato: 7 ottobre 2026 (aggiunto T9b). Autore delle decisioni: Lorenzo, con Claude (Cowork).
 Da copiare nel repo come `docs/correzioni-ui-piano.md`. Claude Code lavora da questo file.
 
 ---
@@ -73,6 +73,7 @@ T1 (componenti e regole condivise) per primo: quasi tutte le pagine ne dipendono
 | T7 | Menù | T1 |
 | T8 | Prodotti e dentro un prodotto | T1 |
 | T9 | Programmazione | T1 |
+| T9b | Programmazione con più sedi | T9 |
 | T10 | Stili | T1 |
 | T11 | In evidenza | T1 |
 | T12 | Storie | T1 |
@@ -264,6 +265,28 @@ T1 (componenti e regole condivise) per primo: quasi tutte le pagine ne dipendono
 
 ---
 
+### T9b · Programmazione con più sedi: azienda e sede (PG5–PG7, decise il 7/10)
+
+**Obiettivo:** con 2+ sedi un solo modo di scegliere la sede (l'header), le regole gestite nell'azienda, ogni sede vista da dentro.
+
+**Goal:** nessun selettore di sede dentro Programmazione d'azienda; voce Programmazione nella sidebar della sede; il permesso di modifica rispettato regola per regola nell'interfaccia; e2e aggiornati. Con una sede sola nulla cambia. **Playwright obbligatorio** (resolver/simulatore). Fai T9 prima di questo.
+
+**Cosa fare**
+- **PG5 · Azienda:** via il filtro «Tutte le sedi» sotto le tab (`?sede=`, `Programming.tsx:314-322, 863`) e il selettore nella card. La card «Adesso» è una riga sola, alta uguale con qualsiasi numero di sedi: «Adesso · N sedi senza problemi» e, come chip ambra, solo le sedi da guardare (nessun menù attivo, modifiche a mano, sospese; max 2 poi «+N»); il chip porta a Programmazione della sede. Se va tutto bene: «Adesso · tutte le N sedi senza problemi», senza chip. A destra «Vedi tutte le N sedi» apre il pannello unico (il simulatore di PG4, `RuleSimulatorDrawer`) titolato «Cosa vedono i clienti», fermo su adesso:
+  - una riga per sede con i cinque passaggi (`buildScheduleMatrix`, già pronto: `RuleSimulatorDrawer.tsx:113-126, 196-204`), ricerca per sede, prima quelle da guardare;
+  - «Simula un altro momento» non apre un secondo pannello: in testa al pannello compaiono Giorno e Ora e «Torna ad adesso»; la tabella si ricalcola; sotto, la riga «Sospensioni e abbonamento sono quelli di oggi»;
+  - toccando una sede il pannello mostra i suoi cinque passaggi allo stesso momento, con «← Tutte le sedi» e «Vai alla programmazione di <sede> →»;
+  - l'elenco delle sedi è limitato a quelle con `scheduling.read` (oggi mostra tutte le activities).
+  - Telefono: la card su due righe (frase sopra; un chip + «+N» e «Vedi tutte» a tutta larghezza sotto), pannello a schermo intero.
+- «Dove si applica» sempre visibile nell'elenco; se in una sede vince un'altra regola, una riga ambra sotto il nome («A Baranzate vince "Test - Baranzate"»).
+- **PG6 · Sede:** nuova voce `level: "sede"` in `navModel.ts` (`NAV_MODELS.sede`, gruppo Il locale, dopo «Cosa vedono i clienti»), gate `{ on: "activity", permission: "scheduling.read" }` (staff non la vede); rotta di sede in `App.tsx` come Analitiche/Recensioni; `Programming.tsx` prende la sede da `useParams` (come `AnalyticsPage.tsx:88`) con precedenza su `?sede=`, selettore nascosto. Card «Adesso» di una sede (come con una sede sola), elenco delle sole regole che raggiungono la sede, «Nuova regola» con la sede già scelta. Il link in `ActivityCosaVedonoRoute.tsx:131` punta alla rotta di sede. **Supera §51.11**: aggiorna `navigazione.spec.ts:640-672`, `sede-nav.spec.ts:157-167`, `programmazione.spec.ts:81-87`, `navModel.test.ts:108`.
+- **PG7 · Regola aperta dalla sede:** rotta di sede per il dettaglio regola (stesso componente), così header e «←» restano sulla sede. Se la regola vale per altre sedi la barra lo dice: «Vale per Garbagnate e anche per Comasina: se la cambi, cambia in entrambe» con «Modifica sedi».
+- **Permesso per regola (interfaccia):** sostituisci `canWrite = canDoOnAnyActivity` (`Programming.tsx:219`, `RuleDetailPage.tsx:64`) con un controllo per regola che rispecchia `can_write_schedule` (tutti i target tra le sedi scrivibili e non apply_to_all, salvo owner/admin). Chi non può: regola in sola lettura, niente interruttore né Salva, riga «La modifica chi gestisce tutte le sedi coinvolte». Un manager non vede l'opzione «Tutte le sedi» quando crea una regola.
+- Documenti: `docs/routes.md`, `docs/permissions-matrix.md:179`; CLAUDE.md («otto voci») solo come diff proposto.
+- **Fuori da questo task:** i buchi RLS trovati (Allegato D, «Programmazione · permessi») vanno nella PR di sicurezza separata, prima di questo task se possibile.
+
+---
+
 ### T10 · Stili
 
 **Obiettivo:** elenco più denso, editor più pulito.
@@ -384,7 +407,7 @@ T1 (componenti e regole condivise) per primo: quasi tutte le pagine ne dipendono
 
 ### T19 · Lotto bug (PR separate da `origin/staging`)
 
-Ognuno in un ramo e una PR propri, con test prima del fix. Elenco e dettagli nell'Allegato D. Priorità: 1) conteggio «da gestire»; 2) Prenotazioni scadute confermabili (drawer + edge, `/security-review`); 3) «oggi» col fuso di Roma; 4) `getProductUsage` (abilita PU2); 5) variazione del tasso di annullamento in punti; 6) deep link perso al login; 7) e2e «Team a 1024»; 8) pulizia `SelectBusiness.tsx`. Già in PR: #244, #253, #263, #266 (da mergiare). `FeaturedBlock` showTitle/showCta è nel ramo `feat/public-featured-see-all` dell'altra chat: verifica prima di rifarlo.
+Ognuno in un ramo e una PR propri, con test prima del fix. Elenco e dettagli nell'Allegato D. Priorità: 0) Programmazione · permessi (sicurezza); 1) conteggio «da gestire»; 2) Prenotazioni scadute confermabili (drawer + edge, `/security-review`); 3) «oggi» col fuso di Roma; 4) `getProductUsage` (abilita PU2); 5) variazione del tasso di annullamento in punti; 6) deep link perso al login; 7) e2e «Team a 1024»; 8) pulizia `SelectBusiness.tsx`. Già in PR: #244, #253, #263, #266 (da mergiare). `FeaturedBlock` showTitle/showCta è nel ramo `feat/public-featured-see-all` dell'altra chat: verifica prima di rifarlo.
 
 ---
 
@@ -510,4 +533,5 @@ Barra inferiore della pagina pubblica: Menù `Utensils` · Storia `ScrollText` �
 - **Login · deep link perso:** `OtpRoute.tsx:36` manda su `/workspace` ignorando `from`.
 - **e2e «Team a 1024»** (`e2e/testata.spec.ts:87`): cerca «Team» in sidebar, sparita con la nav v2.
 - **Pulizia:** `src/pages/Onboarding/SelectBusiness.tsx` non è importato da nessuna parte.
+- **Programmazione · permessi (sicurezza, priorità alta, PR separata + `/security-review`; conferma prima con una scrittura reale su staging):** (1) `schedule_layout`, `schedule_price_overrides`, `schedule_visibility_overrides` controllano solo `tenant_id IN get_my_tenant_ids()`: anche lo staff può scriverle via REST. (2) INSERT su `schedules` controlla solo `has_permission_any_activity('scheduling.write')`: un manager crea regole apply_to_all che poi non può modificare. (3) `update_schedule_targets` controlla solo i target nuovi: un manager può portare sulla sua sede una regola di altre sedi e poi modificarla. (4) L'UPDATE rifiutato da RLS tocca 0 righe senza errore: il service deve trattarlo come errore (come `deleteReview`). Migration nuove, file prima e conferma di Lorenzo.
 - **Noto, nessun intervento ora:** Recensioni pannello vs Analitiche (righe DB contro eventi client) possono dare numeri diversi.

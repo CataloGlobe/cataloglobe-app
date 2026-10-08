@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { openBusinessPage } from "./business";
-import { stubReservations, type ReservationsStub } from "./reservationsStub";
+import { NOW, stubReservations, type ReservationsStub } from "./reservationsStub";
 
 /**
  * Prenotazioni (lotto `ds-5-prenotazioni`, passo 2 P0). Scritto sulla pagina
@@ -58,6 +58,15 @@ test.beforeEach(async ({ page }) => {
     stub = await stubReservations(page);
 });
 
+/**
+ * Orologio fermo su `NOW` e righe datate da lì, per i test che leggono
+ * «oggi» e «domani»: non dipendono più dall'ora reale. Le rotte registrate
+ * dopo vincono su quelle del `beforeEach`.
+ */
+async function freezeClock(page: Page): Promise<void> {
+    stub = await stubReservations(page, { now: NOW });
+}
+
 test.describe("Prenotazioni", () => {
     test("si apre sull'Agenda, con la coda da gestire in cima e lo stato di oggi", async ({ page }) => {
         await openPrenotazioni(page);
@@ -110,11 +119,15 @@ test.describe("Prenotazioni", () => {
         await expect(m.getByRole("button", { name: /Marco Rossi/ }).first()).toBeVisible();
 
         // T14 PN2: la scaduta sta dietro una riga chiusa, e si può solo rifiutare.
-        const scadute = m.getByRole("button", { name: /^1 scaduta.*Mostra/ });
+        // Il nome finisce con «Mostra» o «Nascondi»: il locator non lo fissa,
+        // se no dopo il clic non ritrova più il bottone.
+        const scadute = m.getByRole("button", { name: /^1 scaduta/ });
+        await expect(scadute).toHaveAccessibleName(/Mostra$/);
         await expect(scadute).toHaveAttribute("aria-expanded", "false");
         await expect(m.getByRole("button", { name: /Luca Verdi/ })).toHaveCount(0);
         await scadute.click();
         await expect(scadute).toHaveAttribute("aria-expanded", "true");
+        await expect(scadute).toHaveAccessibleName(/Nascondi$/);
         const luca = m.getByRole("button", { name: /Luca Verdi/ }).first();
         await expect(luca.getByRole("button", { name: "Rifiuta", exact: true })).toBeVisible();
         await expect(luca.getByRole("button", { name: "Conferma", exact: true })).toHaveCount(0);
@@ -244,7 +257,13 @@ test.describe("Prenotazioni", () => {
 
     test("ricerca per nome", async ({ page }) => {
         await openPrenotazioni(page);
-        await page.getByRole("searchbox").or(page.getByPlaceholder(/Cerca per nome o telefono/)).first().fill("Rossi");
+        // Le versioni delle azioni si misurano su copie nascoste: il campo a vista.
+        await page
+            .getByRole("searchbox")
+            .or(page.getByPlaceholder(/Cerca per nome o telefono/))
+            .filter({ visible: true })
+            .first()
+            .fill("Rossi");
 
         const m = main(page);
         await expect(m.getByText(/^1 prenotazione/)).toBeVisible({ timeout: 10_000 });
@@ -260,14 +279,20 @@ test.describe("Prenotazioni", () => {
         await page.getByRole("dialog").getByRole("button", { name: "Chiudi" }).first().click();
 
         // Nessun risultato: lo dice, e suggerisce come cercare.
-        await page.getByRole("searchbox").or(page.getByPlaceholder(/Cerca per nome o telefono/)).first().fill("Zzyzx");
+        await page.getByRole("searchbox").or(page.getByPlaceholder(/Cerca per nome o telefono/)).filter({ visible: true }).first().fill("Zzyzx");
         await expect(m.getByText("Nessuna prenotazione trovata")).toBeVisible({ timeout: 10_000 });
-        await page.getByRole("searchbox").or(page.getByPlaceholder(/Cerca per nome o telefono/)).first().fill("Rossi");
+        // Le versioni delle azioni si misurano su copie nascoste: il campo a vista.
+        await page
+            .getByRole("searchbox")
+            .or(page.getByPlaceholder(/Cerca per nome o telefono/))
+            .filter({ visible: true })
+            .first()
+            .fill("Rossi");
         await expect(m.getByText(/^1 prenotazione/)).toBeVisible({ timeout: 10_000 });
 
         // Svuotato il campo si torna all'Agenda (lotto B-b: non ci sono più
         // schede da cliccare per uscire dalla ricerca, §48.2/3).
-        await page.getByRole("searchbox").or(page.getByPlaceholder(/Cerca per nome o telefono/)).first().fill("");
+        await page.getByRole("searchbox").or(page.getByPlaceholder(/Cerca per nome o telefono/)).filter({ visible: true }).first().fill("");
         // (L'Agenda ha anche lei righe «1 prenotazione» nei giorni: si guarda la tabella.)
         await expect(m.getByRole("table", { name: "Prenotazioni trovate" })).toHaveCount(0);
         await expect(m.getByText("Giulia Bianchi").first()).toBeVisible();
@@ -329,6 +354,7 @@ test.describe("Prenotazioni", () => {
     });
 
     test("cablaggio: «Crea prenotazione» inserisce nella sede, confermata e a mano", async ({ page }) => {
+        await freezeClock(page);
         stub.onWrite("reservations.insert", body => ({ ...(body as object), id: "00000000-0000-4000-8000-0000000000ff" }));
         await openPrenotazioni(page);
         await page.getByRole("button", { name: "Nuova prenotazione" }).first().click();
@@ -368,6 +394,7 @@ test.describe("Prenotazioni", () => {
     });
 
     test("il filtro canale restringe l'agenda", async ({ page }) => {
+        await freezeClock(page);
         await openPrenotazioni(page);
         const m = main(page);
 

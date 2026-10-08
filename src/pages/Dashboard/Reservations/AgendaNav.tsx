@@ -14,6 +14,9 @@ type AgendaNavProps = {
     onWeekOffsetChange: (next: number) => void;
     /** «1–7 giu»: la settimana mostrata. */
     rangeLabel: string;
+    /** Nella testata: non va a capo, così la banda misura la larghezza vera
+     *  e passa a due righe invece di piegare il gruppo (D7). */
+    inline?: boolean;
 };
 
 /**
@@ -21,9 +24,9 @@ type AgendaNavProps = {
  * Sta a sinistra nella testata delle Prenotazioni (T14 PN1); al telefono
  * la testata compatta non lo porta e l'Agenda lo mostra sopra la lista.
  */
-export default function AgendaNav({ mode, onModeChange, weekOffset, onWeekOffsetChange, rangeLabel }: AgendaNavProps) {
+export default function AgendaNav({ mode, onModeChange, weekOffset, onWeekOffsetChange, rangeLabel, inline = false }: AgendaNavProps) {
     return (
-        <div className={styles.agendaNav}>
+        <div className={`${styles.agendaNav}${inline ? ` ${styles.agendaNavInline}` : ""}`}>
             <SegmentedControl<AgendaViewMode>
                 value={mode}
                 onChange={onModeChange}

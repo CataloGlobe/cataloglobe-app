@@ -562,6 +562,15 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
             if (code === "promo_code_invalid") {
                 setPromoError("Codice promozionale non valido. Verifica e riprova.");
                 setShowPromoInput(true);
+            } else if (code === "promo_code_expired") {
+                setPromoError("Questo codice promozionale è scaduto.");
+                setShowPromoInput(true);
+            } else if (code === "promo_code_used_up") {
+                setPromoError("Questo codice promozionale è già stato usato.");
+                setShowPromoInput(true);
+            } else if (code === "promo_code_check_unavailable") {
+                setPromoError("Non riusciamo a controllare il codice in questo momento. Riprova tra poco.");
+                setShowPromoInput(true);
             } else if (code === "invalid_vat_number" && (!resumeMode || resumeNeedsBilling)) {
                 // Stesso esito dal CHECK, dalla RPC o dal gate di stripe-checkout:
                 // l'errore va sul campo, quindi si torna al passo Fatturazione.

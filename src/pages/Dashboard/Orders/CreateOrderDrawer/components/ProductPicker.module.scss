@@ -78,7 +78,12 @@
     color: inherit;
 }
 
-.productHeader:hover {
+.productHeader:disabled {
+    cursor: not-allowed;
+    color: var(--color-text-muted);
+}
+
+.productHeader:hover:not(:disabled) {
     background-color: var(--brand-primary-soft, rgba(99, 102, 241, 0.06));
 }
 

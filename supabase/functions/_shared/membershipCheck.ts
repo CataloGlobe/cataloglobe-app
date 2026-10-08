@@ -11,9 +11,10 @@
  *   (has_permission). Fail-closed: qualunque errore RPC → false, mai
  *   concedere in dubbio.
  *
- * Nato da FIX-3 / CG-04: le copie locali in submit-order-admin, close-table,
- * toggle-product-availability e generate-table-qrs restano finché quelle
- * funzioni non passano di qui (CG-11).
+ * Nato da FIX-3 / CG-04. CG-11: close-table, toggle-product-availability e
+ * generate-table-qrs usano `hasActivityPermission` da qui; le loro copie
+ * locali dell'appartenenza (e quella di submit-order-admin) restano finché
+ * non passano anche quelle di qui.
  */
 
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";

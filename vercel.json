@@ -1,5 +1,6 @@
 {
   "regions": ["fra1"],
+  "devCommand": "node scripts/vercel-dev-stub.mjs",
   "git": {
     "deploymentEnabled": {
       "**": false,

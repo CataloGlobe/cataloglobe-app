@@ -66,3 +66,28 @@
 .toggle {
     display: inline-flex;
 }
+
+.readOnly {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 24px;
+    min-height: 24px;
+    color: var(--text-muted);
+    border-radius: var(--radius-sm);
+
+    &:focus-visible {
+        outline: none;
+        box-shadow: var(--shadow-focus);
+    }
+}
+
+// «A Baranzate vince …» (PG5): ambra, la regola non vale in quella sede.
+.losing {
+  color: var(--warning-800);
+
+  a {
+    color: inherit;
+    text-decoration: underline;
+  }
+}

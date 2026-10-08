@@ -32,6 +32,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { checkRateLimit, RateLimitExceededError } from "../_shared/rateLimit.ts";
+import { hasActivityPermission } from "../_shared/membershipCheck.ts";
 
 // ============================================================
 // Constants
@@ -336,6 +337,22 @@ serve(async (req: Request) => {
             });
         }
         if (!membership.member) {
+            return jsonResponse(403, {
+                code: "FORBIDDEN",
+                message: "Operazione non autorizzata su questa sede."
+            });
+        }
+
+        // ── Permission check (CG-11): product_availability.write SULLA sede ──
+        // Stesso permesso della RLS di `product_availability_overrides`:
+        // l'upsert qui gira in service_role, quindi è questo l'unico controllo.
+        const canWrite = await hasActivityPermission(
+            supabaseUser,
+            "product_availability.write",
+            body.activity_id,
+            "toggle-product-availability"
+        );
+        if (!canWrite) {
             return jsonResponse(403, {
                 code: "FORBIDDEN",
                 message: "Operazione non autorizzata su questa sede."

@@ -170,3 +170,41 @@ export function canRemoveMember(
     return true;
 }
 
+
+// ----------------------------------------------------------------------------
+// Composite checks — Programmazione
+// ----------------------------------------------------------------------------
+
+interface RuleTargets {
+    applyToAll: boolean;
+    activityIds: string[];
+    groupIds: string[];
+}
+
+/**
+ * True se il caller può modificare la regola. Replica
+ * `public.can_write_schedule`:
+ *  - owner/admin con `scheduling.write`: sempre;
+ *  - ruoli di sede con `scheduling.write`: mai su una regola di tutte le
+ *    sedi, mai su una regola senza sedi; ogni sede tra le proprie e ogni
+ *    gruppo con almeno una sede tra le proprie (come il DB).
+ *
+ * `groupMembers` (gruppo → sedi): un gruppo di cui non si conoscono le sedi
+ * conta come non proprio, così l'interfaccia non promette una modifica che
+ * il DB potrebbe rifiutare.
+ */
+export function canWriteRule(
+    perms: UserPermissions,
+    rule: RuleTargets,
+    groupMembers?: ReadonlyMap<string, readonly string[]>
+): boolean {
+    if (!perms.permissions.has("scheduling.write")) return false;
+    if (isTenantWide(perms)) return true;
+    if (rule.applyToAll) return false;
+    if (rule.activityIds.length === 0 && rule.groupIds.length === 0) return false;
+    const mine = (activityId: string) => perms.activityIds.includes(activityId);
+    return (
+        rule.activityIds.every(mine) &&
+        rule.groupIds.every(groupId => (groupMembers?.get(groupId) ?? []).some(mine))
+    );
+}

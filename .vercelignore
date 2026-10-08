@@ -1,0 +1,9 @@
+# Cartelle generate in locale, già fuori da git.
+# `vercel dev` non legge .gitignore: senza queste righe il suo watcher apre un
+# file descriptor per ogni file, supera il limite di macOS e ogni chiamata
+# /api fallisce con `spawn EBADF` (o `EMFILE`).
+node-compile-cache/
+.git-old/
+.playwright-mcp/
+dist/
+dist-server/

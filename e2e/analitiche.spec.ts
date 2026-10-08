@@ -148,10 +148,13 @@ test.describe("Analitiche — campione e ordine (§36)", () => {
         await expect(main(page).getByRole("button", { name: "Apri Prenotazioni" })).toBeVisible();
     });
 
-    test("il tasso di annullamento: il confronto c'è solo sopra la base minima", async ({ page }) => {
+    // T19: il tasso si confronta in punti e senza la base minima dei conteggi
+    // (lo stub dà lo stesso tasso ai due periodi: «0 pt»).
+    test("il tasso di annullamento: il confronto è in punti, anche con pochi ordini", async ({ page }) => {
         stub = await stubAnalitiche(page);
         await openPage(page);
         await expect(main(page).getByText("1 annullati su 13")).toBeVisible();
+        await expect(main(page).getByText("0 pt", { exact: true })).toBeVisible();
     });
 });
 

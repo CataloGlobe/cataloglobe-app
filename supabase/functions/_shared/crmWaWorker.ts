@@ -145,7 +145,7 @@ export function parseSnapshotBatch(input: unknown): ParseResult<WaSnapshotChat[]
 // Testi Telegram
 // -----------------------------------------------------------------------------
 function escapeHtml(value: string): string {
-    return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
 const KIND_NOTE: Record<WaKind, string | null> = {

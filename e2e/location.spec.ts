@@ -110,8 +110,12 @@ test.describe("Scheda della sede", () => {
         // Il conteggio è finto: le storie legate a una sede, in staging, non ci sono.
         // Risposta vera (intestazioni CORS comprese), col totale riscritto.
         await page.route(/\/rest\/v1\/stories\?.*activity_id=eq\./, async route => {
-            const response = await route.fetch();
-            await route.fulfill({ response, headers: { ...response.headers(), "content-range": "*/2" } });
+            try {
+                const response = await route.fetch();
+                await route.fulfill({ response, headers: { ...response.headers(), "content-range": "*/2" } });
+            } catch {
+                // Pagina chiusa a metà richiesta (fine del test): niente da riscrivere.
+            }
         });
         await openFirstLocation(page);
         await page.getByRole("tab", { name: TAB.pubblicazione }).click();

@@ -17,6 +17,7 @@ import {
     type StatusIncident
 } from "@/services/status/statusPage";
 import styles from "./StatusIncidentsPage.module.scss";
+import { adminErrorMessage } from "@/utils/crm/stages";
 
 const SEVERITY_OPTIONS = [
     { value: "minor", label: "Minore" },
@@ -110,7 +111,7 @@ export function IncidentDrawer({ open, mode, incident, onClose, onSaved }: Incid
             onSaved();
             onClose();
         } catch (err) {
-            setError(err instanceof Error ? err.message : String(err));
+            setError(adminErrorMessage(err));
             setSubmitting(false);
         }
     }

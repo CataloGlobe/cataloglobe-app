@@ -106,19 +106,25 @@ export function trackIndex(stage: CrmStage): number | null {
 
 /** Ricerca su nome del locale, città, persona e numero (senza spazi né +). */
 export function searchLeads(venues: CrmVenueListItem[], query: string): CrmVenueListItem[] {
-    const fold = (s: string) => s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
+    // Spazi compressi: «Caffè  Albert» con due spazi trova lo stesso locale.
+    const fold = (s: string) =>
+        s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase().replace(/\s+/g, " ");
     const q = fold(query.trim());
     if (!q) return venues;
     const digits = q.replace(/[^\d]/g, "");
+    // Tutti i contatti del locale, non solo il primo (come la ricerca globale).
     return venues.filter(v => {
-        const contact = v.crm_contacts[0];
-        if (fold(`${v.name} ${v.city ?? ""} ${contact?.name ?? ""}`).includes(q)) return true;
-        return digits.length >= 3 && (contact?.phone_e164 ?? "").replace(/[^\d]/g, "").includes(digits);
+        const people = v.crm_contacts.map(c => c.name ?? "").join(" ");
+        if (fold(`${v.name} ${v.city ?? ""} ${people}`).includes(q)) return true;
+        return (
+            digits.length >= 3 &&
+            v.crm_contacts.some(c => (c.phone_e164 ?? "").replace(/[^\d]/g, "").includes(digits))
+        );
     });
 }
 
 const WEEKDAY = new Intl.DateTimeFormat("it-IT", { timeZone: "Europe/Rome", weekday: "long" });
-const HOUR = new Intl.DateTimeFormat("it-IT", { timeZone: "Europe/Rome", hour: "numeric", minute: "2-digit" });
+const HOUR = new Intl.DateTimeFormat("it-IT", { timeZone: "Europe/Rome", hour: "2-digit", minute: "2-digit" });
 
 function romeDayNumber(at: Date): number {
     const p = romeParts(at);
@@ -306,7 +312,8 @@ export function nextAppointments(appointments: CrmAppointmentWithVenue[], now: D
 /** Le iniziali per il pallino di chi segue il locale. */
 export function initials(name: string | null): string {
     if (!name) return "";
-    const parts = name.trim().split(/\s+/);
+    // Per caratteri interi, non per unità UTF-16: un'emoji non resta a metà.
+    const parts = name.trim().split(/\s+/).map(p => Array.from(p));
     return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? parts[0]?.[1] ?? "")).toUpperCase();
 }
 
@@ -422,6 +429,7 @@ export function leadSummary(input: {
 
 /** «18 min», «3 ore», «2 giorni»: per le velocità del Riepilogo. */
 export function formatDuration(minutes: number): string {
+    if (!Number.isFinite(minutes) || minutes < 0) return "—";
     if (minutes < 60) return `${Math.max(1, Math.round(minutes))} min`;
     const hours = minutes / 60;
     if (hours < 24) return Math.round(hours) === 1 ? "1 ora" : `${Math.round(hours)} ore`;

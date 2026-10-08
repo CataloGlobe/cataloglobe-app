@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import { openBusinessPage } from "./business";
+import { openBusinessPage, openBusinessPageByUrl } from "./business";
 import { MISSING_STORY, PRODUCT, SEDE, STORY, stubStorie, type StorieStub, type WriteCall } from "./storieStub";
 import { StubError, type Row } from "./restStub";
 
@@ -46,7 +46,8 @@ async function openList(page: Page): Promise<void> {
 }
 
 async function openStory(page: Page, id: string): Promise<void> {
-    if (!/\/business\/[0-9a-f-]+\//.test(page.url())) await openBusinessPage(page, "stories", "Storie");
+    // Dal link diretto: senza stories.read la voce non è in sidebar.
+    if (!/\/business\/[0-9a-f-]+\//.test(page.url())) await openBusinessPageByUrl(page, "stories");
     await page.goto(page.url().replace(/\/business\/([0-9a-f-]+)\/.*$/, `/business/$1/stories/${id}`));
 }
 
@@ -472,17 +473,19 @@ test.describe("Storie — lotto bug A", () => {
         await openStory(page, STORY.brigata);
         await expect(titleField(page)).toHaveValue("La brigata e2e", { timeout: 15_000 });
         await expect(main(page).getByText("Pane di segale e2e")).toBeVisible();
-        await expect(main(page).getByRole("button", { name: "Rimuovi", exact: true })).toBeVisible();
+        // SD2: il prodotto collegato è un chip con × («Scollega …»), non più «Rimuovi».
+        await expect(main(page).getByRole("button", { name: /^Scollega / })).toBeVisible();
         expect(await main(page).getByRole("button", { name: "Collega un prodotto" }).count()).toBe(0);
     });
 
-    test("St2: prodotto collegato che non c'è più: lo dice, con Cambia e Rimuovi", async ({ page }) => {
+    test("St2: prodotto collegato che non c'è più: lo dice, con Cambia e Scollega", async ({ page }) => {
         stub.tables.stories.find(r => r.id === STORY.brigata)!.product_id = "e2e57000-0000-4000-a000-000000000199";
         await openStory(page, STORY.brigata);
         await expect(titleField(page)).toHaveValue("La brigata e2e", { timeout: 15_000 });
         await expect(main(page).getByText("Prodotto non disponibile")).toBeVisible();
         await expect(main(page).getByRole("button", { name: "Cambia", exact: true })).toBeVisible();
-        await expect(main(page).getByRole("button", { name: "Rimuovi", exact: true })).toBeVisible();
+        // SD2: il prodotto collegato è un chip con × («Scollega …»), non più «Rimuovi».
+        await expect(main(page).getByRole("button", { name: /^Scollega / })).toBeVisible();
         expect(await main(page).getByRole("button", { name: "Collega un prodotto" }).count()).toBe(0);
     });
 
@@ -496,8 +499,9 @@ test.describe("Storie — lotto bug A", () => {
         ];
         const reads: string[] = [];
         page.on("request", r => {
-            // Le letture dell'editor; `select=tenant_id` è della testata, non della pagina.
-            if (/\/rest\/v1\/products\?/.test(r.url()) && new URL(r.url()).searchParams.get("select") !== "tenant_id") reads.push(r.url());
+            // Le letture dell'editor (GET); `select=tenant_id` è della testata, i
+            // conteggi HEAD sono della Panoramica da cui si passa per entrare.
+            if (r.method() === "GET" && /\/rest\/v1\/products\?/.test(r.url()) && new URL(r.url()).searchParams.get("select") !== "tenant_id") reads.push(r.url());
         });
         await openStory(page, STORY.forno);
         await expect(titleField(page)).toHaveValue("Il nostro forno e2e", { timeout: 15_000 });

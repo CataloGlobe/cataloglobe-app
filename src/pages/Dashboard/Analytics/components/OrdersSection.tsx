@@ -17,7 +17,7 @@ import type {
 } from "@/services/supabase/analytics";
 import { fillDaily, fillHourly, formatHour } from "../utils/analyticsSeries";
 import { formatDuration } from "../utils/ordersFormat";
-import { calculateDelta, isBelowSample, type DateRange, type PeriodKey } from "../utils/periodComparison";
+import { calculateDelta, calculatePointDelta, isBelowSample, type DateRange, type PeriodKey } from "../utils/periodComparison";
 import styles from "../Analytics.module.scss";
 
 type Props = {
@@ -40,7 +40,7 @@ const nf = new Intl.NumberFormat("it-IT", { maximumFractionDigits: 1 });
 
 /**
  * Ordini al tavolo: transazioni contate. Quattro cifre col confronto (il
- * tasso di annullamento col delta invertito), ordini e incasso in due grafici
+ * tasso di annullamento in punti, col delta invertito), ordini e incasso in due grafici
  * sulla stessa x — non più due assi y sullo stesso grafico (§36.2/3) — i
  * prodotti più ordinati, i tempi, la selezione che diventa ordine, le fasce.
  */
@@ -58,11 +58,23 @@ export default function OrdersSection({
     previousPeriodLabel
 }: Props) {
     const [rankBy, setRankBy] = useState<RankBy>("quantity");
-    const deltaOf = (current: number, prev: number | undefined, invert = false) => {
+    const deltaOf = (current: number, prev: number | undefined) => {
         if (prev == null) return undefined;
         const value = calculateDelta(current, prev);
-        return value == null ? undefined : { value, period: `vs ${previousPeriodLabel}`, invert };
+        return value == null ? undefined : { value, period: `vs ${previousPeriodLabel}` };
     };
+    // Il tasso si confronta in punti, senza soglia: «+60%» su 5% → 8% inganna.
+    const cancellationDelta = (() => {
+        if (previous == null) return undefined;
+        const value = calculatePointDelta(
+            overview?.cancellation_rate ?? 0,
+            previous.cancellation_rate,
+            previous.orders_count + previous.cancelled_count
+        );
+        return value == null
+            ? undefined
+            : { value, period: `vs ${previousPeriodLabel}`, format: "points" as const, invert: true };
+    })();
 
     const columns = useMemo<ColumnDefinition<TopOrderedProduct>[]>(
         () => [
@@ -106,7 +118,7 @@ export default function OrdersSection({
                 <StatCard
                     label="Tasso di annullamento"
                     value={`${nf.format(o?.cancellation_rate ?? 0)}%`}
-                    delta={deltaOf(o?.cancellation_rate ?? 0, previous?.cancellation_rate, true)}
+                    delta={cancellationDelta}
                 >
                     {/* Base esplicita: ordini validi + annullati, così la % non
                         sembra in contraddizione con la cifra «Ordini». */}

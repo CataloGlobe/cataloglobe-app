@@ -145,9 +145,15 @@ describe("dove l'allegato compare, e dove no", () => {
         // cioè il valore già incrementato dal trigger nella stessa
         // transazione. Letto prima, il CANCEL uscirebbe con lo stesso
         // SEQUENCE dell'ultimo PUBLISH e il client potrebbe ignorarlo.
-        expect(RESPOND).toContain('.select("id, status, activity_id")');
+        // T19: la SELECT preliminare porta anche la data (richiesta scaduta),
+        // mai `ics_sequence`; l'UPDATE è costruito in due passi (filtro sulla
+        // data per la conferma) e la sua `.select()` è l'unica che lo legge.
+        expect(RESPOND).toContain('.select("id, status, activity_id, reservation_date")');
         expect(RESPOND).toContain(
-            ".update({ status: newStatus })\n            .eq(\"id\", reservationId)\n            .in(\"status\", expectedFrom)\n            .select(\n                \"id, activity_id, customer_email, customer_name, reservation_date, reservation_time, party_size, status, customer_language, ics_sequence\""
+            ".update({ status: newStatus })\n            .eq(\"id\", reservationId)\n            .in(\"status\", expectedFrom);"
+        );
+        expect(RESPOND).toContain(
+            "await updateQuery\n            .select(\n                \"id, activity_id, customer_email, customer_name, reservation_date, reservation_time, party_size, status, customer_language, ics_sequence\""
         );
         const respondCode = RESPOND.split("\n").filter(l => !l.trim().startsWith("//")).join("\n");
         expect(respondCode.match(/ics_sequence/g) ?? []).toHaveLength(3); // select + 2 icsSequence

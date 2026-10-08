@@ -34,6 +34,7 @@ import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-
 import { PDFDocument, StandardFonts, rgb } from "https://esm.sh/pdf-lib@1.17.1?target=deno";
 import QRCode from "https://esm.sh/qrcode@1.5.3?target=deno";
 import { checkRateLimit, RateLimitExceededError } from "../_shared/rateLimit.ts";
+import { hasActivityPermission } from "../_shared/membershipCheck.ts";
 import { getPublicSiteUrl } from "../_shared/publicSiteUrl.ts";
 
 // ============================================================
@@ -411,6 +412,23 @@ serve(async (req: Request) => {
             });
         }
         if (!membership.member) {
+            return jsonResponse(403, {
+                code: "FORBIDDEN",
+                message: "Operazione non autorizzata su questa sede."
+            });
+        }
+
+        // ── Permission check (CG-11): tables.manage SULLA sede ──
+        // Il PDF contiene i `qr_token` dei tavoli, con cui si ordina al tavolo:
+        // stamparli è gestione dei tavoli, non semplice lettura. Owner, admin,
+        // manager e staff della sede lo hanno; il viewer no.
+        const canManage = await hasActivityPermission(
+            supabaseUser,
+            "tables.manage",
+            body.activity_id,
+            "generate-table-qrs"
+        );
+        if (!canManage) {
             return jsonResponse(403, {
                 code: "FORBIDDEN",
                 message: "Operazione non autorizzata su questa sede."

@@ -26,6 +26,8 @@ interface TargetSectionProps {
     /** Errore del nome (`validateRuleForm`), sotto il campo. */
     nameError?: string;
     onNameBlur?: () => void;
+    /** Falso per i ruoli di sede: «Tutte le sedi» è di owner e admin (T9b). */
+    allowAllSites?: boolean;
 }
 
 // ─── TargetSection ─────────────────────────────────────────────────────────────
@@ -39,7 +41,8 @@ export function TargetSection({
     tenantGroups,
     onFormChange,
     nameError,
-    onNameBlur
+    onNameBlur,
+    allowAllSites = true
 }: TargetSectionProps) {
     const handleModeChange = (newMode: TargetMode) => {
         if (newMode === "all") {
@@ -52,13 +55,17 @@ export function TargetSection({
     };
 
     const modeOptions = [
-        { value: "all", label: "Tutte le sedi", description: "Anche quelle che aggiungerai." },
+        // Una regola già su tutte le sedi la mostra anche a chi non può sceglierla.
+        ...(allowAllSites || targetMode === "all"
+            ? [{ value: "all", label: "Tutte le sedi", description: "Anche quelle che aggiungerai." }]
+            : []),
         { value: "activities", label: "Sedi specifiche", description: "Scegli le sedi una per una." },
         { value: "groups", label: "Gruppi di sedi", description: "Vale per le sedi del gruppo, anche se il gruppo cambia." }
     ];
 
     return (
-        <section className={styles.sectionCard}>
+        // `id`: «Modifica sedi» della barra della regola condivisa ci porta qui (PG7).
+        <section id="rule-targets" className={styles.sectionCard}>
             <Text as="h3" variant="title-sm">
                 Dove si applica
             </Text>

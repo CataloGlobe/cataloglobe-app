@@ -9,6 +9,7 @@ import {
 } from "@/services/supabase/account";
 import { Button, InlineBanner } from "@components/ui";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { fromPathOf } from "@/utils/internalPath";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import Text from "@/components/ui/Text/Text";
 import { CheckboxInput } from "@/components/ui/Input/CheckboxInput";
@@ -19,6 +20,29 @@ import styles from "./Auth.module.scss";
 function isRateLimitError(message: string): boolean {
     const m = message.toLowerCase();
     return m.includes("too many") || m.includes("rate limit") || m.includes("too_many_requests");
+}
+
+// Supabase Auth risponde in inglese: mai mostrare il messaggio grezzo.
+function getReadableLoginError(err: unknown): string {
+    const code =
+        err && typeof err === "object" && "code" in err && typeof err.code === "string"
+            ? err.code
+            : "";
+    const message = err instanceof Error ? err.message.toLowerCase() : "";
+
+    if (code === "invalid_credentials" || message.includes("invalid login credentials")) {
+        return "Email o password non corretti.";
+    }
+    if (code === "email_not_confirmed" || message.includes("email not confirmed")) {
+        return "Devi ancora confermare l’email: apri il link che ti abbiamo inviato.";
+    }
+    if (code === "user_not_found") {
+        return "Email o password non corretti.";
+    }
+    if (message.includes("failed to fetch") || message.includes("network")) {
+        return "Connessione assente o instabile. Controlla la rete e riprova.";
+    }
+    return "Non è stato possibile accedere. Riprova.";
 }
 
 export default function Login() {
@@ -62,13 +86,10 @@ export default function Login() {
 
     const navigate = useNavigate();
     const location = useLocation();
-    const fromLocation = location.state?.from;
     // Passa from solo se c'è un redirect reale da una route protetta.
     // Se l'utente arriva a /login direttamente (nessuno stato), from = undefined
     // e VerifyOtp userà il fallback /dashboard (che gestisce returning users via TENANT_KEY).
-    const from = fromLocation
-        ? `${fromLocation.pathname}${fromLocation.search ?? ''}`
-        : undefined;
+    const from = fromPathOf(location.state);
 
     async function handleLogin(e: FormEvent<HTMLFormElement>) {
         e.preventDefault();
@@ -90,14 +111,13 @@ export default function Login() {
 
             navigate("/verify-otp", { state: { from } });
         } catch (err) {
-            const message =
-                err instanceof Error ? err.message : "Errore sconosciuto durante il login.";
+            const message = err instanceof Error ? err.message : "";
             if (message.toLowerCase().includes("banned")) {
                 setIsBanned(true);
             } else if (isRateLimitError(message)) {
                 setRateLimited(true);
             } else {
-                setError(message);
+                setError(getReadableLoginError(err));
             }
         } finally {
             setLoading(false);

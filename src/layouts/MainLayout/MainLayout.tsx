@@ -30,6 +30,7 @@ import { resolveNavContext } from "@/utils/navModel";
 import type { BusinessOutletContext } from "./outletContext";
 
 import styles from "./MainLayout.module.scss";
+import { isCanceledAllowedPath } from "./canceledAllowedPath";
 
 const SIDEBAR_COLLAPSED_KEY = "cg:sidebar-collapsed";
 
@@ -42,7 +43,8 @@ const SEDE_PAGE_LABELS: Record<string, string | undefined> = {
     storico: "Storico",
     prenotazioni: "Prenotazioni",
     analitiche: "Analitiche",
-    recensioni: "Recensioni"
+    recensioni: "Recensioni",
+    programmazione: "Programmazione"
 };
 
 /** `/business/:businessId/locations/:activityId[/...]` — dentro una sede. */
@@ -266,16 +268,14 @@ export default function MainLayout() {
     // A canceled tenant KEEPS its stripe_subscription_id — the
     // `customer.subscription.deleted` webhook only flips subscription_status — so
     // it falls through the workspace-resume branch above and reaches this one.
-    // Allow-list Abbonamento itself (and the old /subscription, which redirects
-    // there keeping the query) to avoid a redirect loop AND so the
-    // post-reactivation success return is never trapped even while the webhook
-    // hasn't yet synced the status back to 'active'.
+    // Allow-list in `isCanceledAllowedPath`: Abbonamento (no redirect loop, and
+    // the post-reactivation return is never trapped before the webhook syncs),
+    // the old /subscription, and the billing details at /settings.
     if (
         !loading &&
         selectedTenant &&
         selectedTenant.subscription_status === "canceled" &&
-        !pathname.endsWith("/settings/abbonamento") &&
-        !pathname.endsWith("/subscription")
+        !isCanceledAllowedPath(pathname, selectedTenant.id)
     ) {
         return <Navigate to={`/business/${selectedTenant.id}/settings/abbonamento`} replace />;
     }

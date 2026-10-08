@@ -1,124 +1,100 @@
 import { supabase } from "@/services/supabase/client";
+import { listAppearanceSources } from "@/services/supabase/layoutScheduling";
+import { resolveProductUsage, type ProductUsageData, type UsageRule } from "@/utils/productUsage";
 
-export type ProductUsageItem = {
-    id: string;
-    name: string;
-};
-
-export type ProductUsageData = {
-    catalogs: ProductUsageItem[];
-    schedules: ProductUsageItem[];
-    activities: ProductUsageItem[];
-};
+export type { ProductUsageData, ProductUsageItem } from "@/utils/productUsage";
 
 export type ProductCategoryAssignment = {
     catalog: { id: string; name: string };
     category: { id: string; name: string };
 };
 
-type CatalogCategoryProductRow = {
-    catalog_id: string;
-};
+type OverrideScheduleRow = { schedule_id: string };
 
-type CatalogRow = {
+type PriceVisibilityScheduleRow = {
     id: string;
-    name: string;
+    name: string | null;
+    rule_type: "price" | "visibility";
+    apply_to_all: boolean;
+    targets: Array<{ target_type: string; target_id: string }> | null;
 };
 
-type ScheduleLayoutRow = {
-    schedule_id: string;
-};
+/**
+ * Dove si usa un prodotto (tab «Utilizzo»), T19: i menù dell'azienda che lo
+ * contengono, le regole che lo toccano (menù con quei cataloghi, prezzi e
+ * visibilità che lo nominano) e le sedi che raggiungono, dai target veri
+ * (`schedule_targets`, gruppi, «tutte le sedi»). Tutto filtrato per
+ * `tenant_id`, oltre alla RLS. La regola di composizione sta in
+ * `resolveProductUsage`.
+ */
+export async function getProductUsage(productId: string, tenantId: string): Promise<ProductUsageData> {
+    const [catalogItemsRes, priceRes, visibilityRes, sources] = await Promise.all([
+        supabase.from("catalog_category_products").select("catalog_id").eq("product_id", productId),
+        supabase.from("schedule_price_overrides").select("schedule_id").eq("product_id", productId),
+        supabase.from("schedule_visibility_overrides").select("schedule_id").eq("product_id", productId),
+        listAppearanceSources(tenantId)
+    ]);
+    if (catalogItemsRes.error) throw new Error(catalogItemsRes.error.message);
+    if (priceRes.error) throw new Error(priceRes.error.message);
+    if (visibilityRes.error) throw new Error(visibilityRes.error.message);
 
-type ScheduleRow = {
-    id: string;
-    name: string;
-    target_type: string;
-    target_id: string | null;
-};
-
-type ActivityRow = {
-    id: string;
-    name: string;
-};
-
-export async function getProductUsage(
-    productId: string,
-    _tenantId: string
-): Promise<ProductUsageData> {
-    // Step 1: catalog IDs that contain this product
-    const { data: catalogItems, error: ciError } = await supabase
-        .from("catalog_category_products")
-        .select("catalog_id")
-        .eq("product_id", productId);
-    if (ciError) throw new Error(ciError.message);
-
-    const catalogIds = (catalogItems ?? [] as CatalogCategoryProductRow[])
-        .map((r: CatalogCategoryProductRow) => r.catalog_id)
-        .filter(Boolean);
-
-    if (catalogIds.length === 0) {
-        return { catalogs: [], schedules: [], activities: [] };
-    }
-
-    // Step 2: catalog names
-    const { data: catalogsData, error: cError } = await supabase
-        .from("catalogs")
-        .select("id, name")
-        .in("id", catalogIds);
-    if (cError) throw new Error(cError.message);
-    const catalogs = (catalogsData ?? []) as CatalogRow[];
-
-    // Step 3: schedules via schedule_layout
-    const { data: layoutData, error: layoutError } = await supabase
-        .from("schedule_layout")
-        .select("schedule_id")
-        .in("catalog_id", catalogIds);
-    if (layoutError) throw new Error(layoutError.message);
-
-    const scheduleIds = [
+    const catalogIds = [
+        ...new Set(((catalogItemsRes.data ?? []) as Array<{ catalog_id: string }>).map(r => r.catalog_id).filter(Boolean))
+    ];
+    const overrideScheduleIds = [
         ...new Set(
-            (layoutData ?? [] as ScheduleLayoutRow[])
-                .map((r: ScheduleLayoutRow) => r.schedule_id)
+            [...((priceRes.data ?? []) as OverrideScheduleRow[]), ...((visibilityRes.data ?? []) as OverrideScheduleRow[])]
+                .map(r => r.schedule_id)
                 .filter(Boolean)
         )
     ];
 
-    if (scheduleIds.length === 0) {
-        return { catalogs, schedules: [], activities: [] };
-    }
+    const [catalogsRes, overrideSchedulesRes] = await Promise.all([
+        catalogIds.length > 0
+            ? supabase.from("catalogs").select("id, name").eq("tenant_id", tenantId).in("id", catalogIds).order("name")
+            : Promise.resolve({ data: [], error: null }),
+        overrideScheduleIds.length > 0
+            ? supabase
+                  .from("schedules")
+                  .select("id, name, rule_type, apply_to_all, targets:schedule_targets(target_type, target_id)")
+                  .eq("tenant_id", tenantId)
+                  .in("rule_type", ["price", "visibility"])
+                  .in("id", overrideScheduleIds)
+            : Promise.resolve({ data: [], error: null })
+    ]);
+    if (catalogsRes.error) throw new Error(catalogsRes.error.message);
+    if (overrideSchedulesRes.error) throw new Error(overrideSchedulesRes.error.message);
 
-    const { data: schedulesData, error: sError } = await supabase
-        .from("schedules")
-        .select("id, name, target_type, target_id")
-        .in("id", scheduleIds);
-    if (sError) throw new Error(sError.message);
+    const layoutRules: UsageRule[] = sources.rules
+        .filter(rule => rule.rule_type === "layout")
+        .map(rule => ({
+            id: rule.id,
+            name: rule.name,
+            rule_type: rule.rule_type,
+            catalogId: rule.layout?.catalog_id ?? null,
+            applyToAll: rule.applyToAll,
+            activityIds: rule.activityIds,
+            groupIds: rule.groupIds
+        }));
+    const overrideRules: UsageRule[] = ((overrideSchedulesRes.data ?? []) as PriceVisibilityScheduleRow[]).map(row => {
+        const targets = row.apply_to_all ? [] : (row.targets ?? []);
+        return {
+            id: row.id,
+            name: row.name,
+            rule_type: row.rule_type,
+            catalogId: null,
+            applyToAll: row.apply_to_all,
+            activityIds: targets.filter(t => t.target_type === "activity").map(t => t.target_id),
+            groupIds: targets.filter(t => t.target_type === "activity_group").map(t => t.target_id)
+        };
+    });
 
-    const scheduleRows = (schedulesData ?? []) as ScheduleRow[];
-    const schedules: ProductUsageItem[] = scheduleRows.map(s => ({ id: s.id, name: s.name }));
-
-    // Step 4: activities from schedule targets
-    const activityIds = [
-        ...new Set(
-            scheduleRows
-                .filter(s => s.target_type === "activity" && s.target_id !== null)
-                .map(s => s.target_id as string)
-        )
-    ];
-
-    if (activityIds.length === 0) {
-        return { catalogs, schedules, activities: [] };
-    }
-
-    const { data: activitiesData, error: aError } = await supabase
-        .from("activities")
-        .select("id, name")
-        .in("id", activityIds)
-        .order("name", { ascending: true });
-    if (aError) throw new Error(aError.message);
-
-    const activities = (activitiesData ?? []) as ActivityRow[];
-
-    return { catalogs, schedules, activities };
+    return resolveProductUsage({
+        catalogs: (catalogsRes.data ?? []) as Array<{ id: string; name: string }>,
+        rules: [...layoutRules, ...overrideRules],
+        activities: sources.activities.map(a => ({ id: a.id, name: a.name })),
+        activityIdsByGroupId: sources.activityIdsByGroupId
+    });
 }
 
 /**
