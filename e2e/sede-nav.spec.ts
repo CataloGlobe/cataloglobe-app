@@ -22,10 +22,11 @@ import { asSingleSede } from "./nav";
  * Locator per ruolo, mai per tag. Nessuna scrittura.
  */
 
-const SEDE_VOCI = ["Servizio", "Prenotazioni", "Comande", "Storico", "Cosa vedono i clienti", "Scheda"] as const;
+// §51.5: il locale (con Programmazione della sede dal 2026-10-07), poi Operatività.
+const SEDE_VOCI = ["Scheda", "Cosa vedono i clienti", "Programmazione", "Servizio", "Prenotazioni", "Comande", "Storico"] as const;
 
 /** Le voci dell'azienda che dentro una sede NON devono esserci. */
-const VOCI_AZIENDA = ["Panoramica", "Programmazione", "Team", "Abbonamento"] as const;
+const VOCI_AZIENDA = ["Panoramica", "Team", "Abbonamento"] as const;
 
 function nav(page: Page) {
     return page.getByRole("navigation", { name: "Menu principale" });
