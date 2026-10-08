@@ -205,6 +205,12 @@ async function openWeek(page: Page): Promise<void> {
     }).toPass({ timeout: 15_000 });
 }
 
+// Dopo #298 le scritture su schedules e schedule_layout chiedono le righe toccate
+// (`.select("id")`) e 0 righe vuol dire «non autorizzato»: lo stub risponde con la riga.
+function touched(call: WriteCall) {
+    return [{ id: call.params.get("id")?.replace(/^eq\./, "") }];
+}
+
 function writesOf(stub: ProgrammazioneStub, key: string): WriteCall[] {
     return stub.writes.filter(w => w.key === key);
 }
@@ -362,7 +368,7 @@ test.describe("Programmazione — elenco", () => {
         // Fino a P3 il clic su «Elimina» del menù ⋯ risaliva alla riga e apriva
         // il dettaglio (mucchio 2/10): la riga di DataTable ignora i clic dei
         // controlli, e la pagina resta sull'elenco.
-        stub.onWrite("schedules.DELETE", () => null);
+        stub.onWrite("schedules.DELETE", touched);
         await openList(page);
         await actionsOf(rule(page, "aperitivo")).click();
         await page.getByRole("menuitem", { name: "Elimina" }).click();
@@ -376,7 +382,7 @@ test.describe("Programmazione — elenco", () => {
     });
 
     test("cablaggio: eliminazione multipla (schedules.DELETE per ogni regola)", async ({ page }) => {
-        stub.onWrite("schedules.DELETE", () => null);
+        stub.onWrite("schedules.DELETE", touched);
         await openList(page);
         await checkboxOf(rule(page, "aperitivo")).check();
         await checkboxOf(rule(page, "natale")).check();
@@ -396,7 +402,7 @@ test.describe("Programmazione — elenco", () => {
 
     test("eliminazione multipla a metà: il messaggio dice quale regola resta", async ({ page }) => {
         stub.onWrite("schedules.DELETE", call =>
-            call.params.get("id") === `eq.${RULE.natale}` ? new StubError(500) : null
+            call.params.get("id") === `eq.${RULE.natale}` ? new StubError(500) : touched(call)
         );
         await openList(page);
         await checkboxOf(rule(page, "aperitivo")).check();
@@ -973,8 +979,8 @@ test.describe("Programmazione — dettaglio", () => {
     });
 
     test("«Dove si applica»: tre scelte, sedi e gruppi come chip scelti in un pannello (RG1)", async ({ page }) => {
-        stub.onWrite("schedules.PATCH", () => null);
-        stub.onWrite("schedule_layout.PATCH", () => null);
+        stub.onWrite("schedules.PATCH", touched);
+        stub.onWrite("schedule_layout.PATCH", touched);
         stub.onWrite("schedule_layout.POST", () => null);
         stub.onWrite("rpc.update_schedule_targets", () => null);
         await openRule(page, "pranzo");
@@ -1022,7 +1028,7 @@ test.describe("Programmazione — dettaglio", () => {
     });
 
     test("prezzi: una tabella con prezzo e listino barrato, i prodotti dal drawer condiviso", async ({ page }) => {
-        stub.onWrite("schedules.PATCH", () => null);
+        stub.onWrite("schedules.PATCH", touched);
         stub.onWrite("schedule_price_overrides.DELETE", () => null);
         stub.onWrite("schedule_price_overrides.POST", () => null);
         stub.onWrite("rpc.update_schedule_targets", () => null);
@@ -1128,8 +1134,8 @@ test.describe("Programmazione — dettaglio", () => {
     });
 
     test("cablaggio: rinominare e salvare (schedules.PATCH col nome nuovo)", async ({ page }) => {
-        stub.onWrite("schedules.PATCH", () => null);
-        stub.onWrite("schedule_layout.PATCH", () => null);
+        stub.onWrite("schedules.PATCH", touched);
+        stub.onWrite("schedule_layout.PATCH", touched);
         stub.onWrite("schedule_layout.POST", () => null);
         stub.onWrite("rpc.update_schedule_targets", () => null);
         await openRule(page, "aperitivo");
