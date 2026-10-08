@@ -32,6 +32,28 @@
   }
 }
 
+// Il quadrato dell'azienda: 32, come l'avatar dell'account in fondo.
+.mark {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  object-fit: contain;
+  box-sizing: border-box;
+}
+
+.markInitials {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: var(--brand-primary);
+  color: var(--surface);
+  font-weight: 600;
+}
+
 .lines {
   flex: 1;
   min-width: 0;

@@ -22,3 +22,10 @@
     display: none;
   }
 }
+
+// Nella barra bianca sopra la pagina: il percorso è il titolo della pagina.
+.inBar {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}

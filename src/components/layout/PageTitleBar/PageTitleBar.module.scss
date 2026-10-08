@@ -1,0 +1,27 @@
+.bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  flex-shrink: 0;
+  min-height: 57px;
+  padding: 0 var(--space-24);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  box-sizing: border-box;
+
+  @media (max-width: 767px) {
+    padding: 0 var(--space-16);
+  }
+}
+
+.path {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  flex-shrink: 0;
+}

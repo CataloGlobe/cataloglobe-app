@@ -8,6 +8,7 @@ import { AiUsagePill } from "@components/layout/AppHeader/AiUsagePill";
 import { PlaceSwitcher } from "@components/layout/Sidebar/PlaceSwitcher";
 import { OperationalAlerts } from "@components/layout/OperationalAlerts/OperationalAlerts";
 import { PageHeaderSlot } from "@components/layout/PageHeaderSlot";
+import { PageTitleBar } from "@components/layout/PageTitleBar/PageTitleBar";
 import { DrawerProvider } from "@/context/Drawer/DrawerProvider";
 import { BreadcrumbProvider } from "@/context/BreadcrumbProvider";
 import { PageHeaderProvider } from "@/context/PageHeaderProvider";
@@ -300,14 +301,16 @@ export default function MainLayout() {
 
     const collapsedDesktop = !isMobile && sidebarCollapsed;
     const sidebarBrand = {
-        homeTo: selectedTenant ? `/business/${selectedTenant.id}` : null,
-        actions: (
-            <>
-                <AiUsagePill usage={aiUsage.usage} />
-                <HeaderNotifications scope="tenant" tenantId={selectedTenant?.id ?? null} menuSide="right" />
-            </>
-        )
+        homeTo: selectedTenant ? `/business/${selectedTenant.id}` : null
     };
+    // Notifiche in alto a destra della pagina (Lorenzo, 2026-10-09), non più
+    // in cima alla sidebar. Sotto 768 le tiene la testata (`AppHeader`).
+    const titleBarActions = isMobile ? undefined : (
+        <>
+            <AiUsagePill usage={aiUsage.usage} />
+            <HeaderNotifications scope="tenant" tenantId={selectedTenant?.id ?? null} />
+        </>
+    );
     const sidebarSwitcher = <PlaceSwitcher collapsed={collapsedDesktop} />;
 
     return (
@@ -360,6 +363,7 @@ export default function MainLayout() {
                             )}
 
                             <main className={styles.main}>
+                                <PageTitleBar actions={titleBarActions} />
                                 <PageHeaderSlot scrollContainerRef={contentRef} />
                                 <div ref={contentRef} className={styles.content}>
                                     <SubscriptionBanner />

@@ -1,6 +1,5 @@
 import { useNavigate } from "react-router-dom";
 import { ArrowLeftRight, Check, ChevronsUpDown, Plus, Store } from "lucide-react";
-import { Avatar } from "@/components/ui/Avatar";
 import { Menu } from "@/components/ui/Menu/Menu";
 import Text from "@/components/ui/Text/Text";
 import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
@@ -11,7 +10,13 @@ import { useSedeSwitcher } from "@/hooks/useSedeSwitcher";
 import { placeLines } from "@/utils/placeLabel";
 import styles from "./PlaceSwitcher.module.scss";
 
-const TENANT_GRADIENT = "linear-gradient(135deg, #818CF8, #6366F1)";
+/** Iniziali dell'azienda quando manca il logo: due parole, una lettera ciascuna. */
+function tenantInitials(name: string): string {
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return "?";
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
 const ALL_LABEL = "Tutte le sedi";
 
 /** Lo spazio dell'icona per le voci senza spunta: i nomi restano in colonna. */
@@ -60,12 +65,16 @@ export function PlaceSwitcher({ collapsed }: PlaceSwitcherProps) {
             data-collapsed={collapsed || undefined}
             aria-label={`Dove sei: ${full}`}
         >
-            <Avatar
-                name={selectedTenant.name}
-                imageUrl={selectedTenant.logo_url ? getTenantLogoPublicUrl(selectedTenant.logo_url) : undefined}
-                gradient={TENANT_GRADIENT}
-                size="md"
-            />
+            {/* Il logo dell'azienda è un quadrato (impostazioni, workspace): mai
+                tagliato nel cerchio dell'Avatar, mai su un fondo colorato che
+                trasparirebbe dai PNG. Il viola resta alle sole iniziali. */}
+            {selectedTenant.logo_url ? (
+                <img src={getTenantLogoPublicUrl(selectedTenant.logo_url)} alt="" className={styles.mark} />
+            ) : (
+                <Text as="span" variant="caption" weight={600} colorVariant="white" className={`${styles.mark} ${styles.markInitials}`} aria-hidden="true">
+                    {tenantInitials(selectedTenant.name)}
+                </Text>
+            )}
             <span className={styles.lines}>
                 <Text as="span" variant="body-sm" weight={600} className={styles.line}>
                     {lines.title}
