@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { openBusinessPage } from "./business";
 import { asBasePlan, asRole } from "./asRole";
+import { currentVoce, sidebarLink, sidebarVoci } from "./nav";
 import { stubReservations, type ReservationsStub } from "./reservationsStub";
 
 /**
@@ -38,10 +39,6 @@ const TAVOLO = "T TEST";
 const GIORNO_STORICO = "2026-09-13";
 const LUCCHETTO = '[aria-label="Funzione del piano Pro"]';
 
-function nav(page: Page) {
-    return page.getByRole("navigation", { name: "Menu principale" });
-}
-
 function main(page: Page) {
     return page.getByRole("main");
 }
@@ -63,8 +60,8 @@ async function openVoce(page: Page, voce: string): Promise<string> {
     await page.waitForURL(/\/locations\/[0-9a-f-]+\/[a-z-]+/);
     // Si clicca a atterraggio finito (una voce corrente in sidebar): un click
     // durante il redirect dell'indice verrebbe superato dal redirect.
-    await expect(nav(page).locator('a[aria-current="page"]')).toHaveCount(1, { timeout: 10_000 });
-    const link = nav(page).getByRole("link", { name: voce, exact: true });
+    await expect(await currentVoce(page)).toHaveCount(1);
+    const link = await sidebarLink(page, voce);
     await expect(link).toBeVisible({ timeout: 10_000 });
     await link.click();
     return base;
@@ -91,16 +88,13 @@ function tessera(page: Page) {
 test.describe("Servizio", () => {
     test("la sidebar della sede ha Servizio e Storico, non più Sala", async ({ page }) => {
         await openVoce(page, "Scheda");
-        const sidebar = nav(page);
         // L'ordine della §51.5: prima il locale (Scheda, Cosa vedono i clienti), poi Operatività.
         const voci = ["Scheda", "Cosa vedono i clienti", "Servizio", "Prenotazioni", "Comande", "Storico"];
-        for (const voce of voci) {
-            await expect(sidebar.getByRole("link", { name: voce, exact: true })).toBeVisible();
-        }
-        await expect(sidebar.getByRole("link", { name: "Sala", exact: true })).toHaveCount(0);
+        const labels = await sidebarVoci(page);
+        for (const voce of voci) expect(labels).toContain(voce);
+        expect(labels).not.toContain("Sala");
         // Nell'ordine della sidebar: Servizio è la prima voce di Operatività.
-        const labels = await sidebar.getByRole("link").allTextContents();
-        const ordered = labels.map(l => l.trim()).filter(l => voci.includes(l));
+        const ordered = labels.filter(l => voci.includes(l));
         expect(ordered).toEqual(voci);
     });
 
@@ -108,7 +102,7 @@ test.describe("Servizio", () => {
         await openMappa(page);
         await expect(page).toHaveURL(/\/servizio\?modo=mappa$/, { timeout: 15_000 });
         await expect(modo(page, "Gestisci la sala")).toHaveCount(0);
-        await expect(nav(page).getByRole("link", { name: "Servizio", exact: true })).toHaveAttribute("aria-current", "page");
+        await expect(await sidebarLink(page, "Servizio")).toHaveAttribute("aria-current", "page");
 
         const filtri = main(page).getByRole("radiogroup");
         for (const f of ["Tutti", "Aperti", "Liberi", "Fuori servizio"]) {
@@ -220,7 +214,7 @@ test.describe("Servizio: piano e ruolo", () => {
         await page.goto(`${base}/servizio`);
         await expect(main(page).getByText("Servizio è una funzione del piano Pro")).toBeVisible({ timeout: 15_000 });
         await expect(main(page).getByRole("button", { name: "Passa a Pro" })).toBeVisible();
-        await expect(nav(page).getByRole("link", { name: /^Servizio/ }).locator(LUCCHETTO)).toHaveCount(1);
+        await expect((await sidebarLink(page, /^Servizio/)).locator(LUCCHETTO)).toHaveCount(1);
     });
 
     test("col piano base ?modo=mappa non apre la Mappa", async ({ page }) => {
@@ -394,7 +388,7 @@ test.describe("Storico", () => {
     test("è una voce della sede, coi segmenti, il giorno e la tabella", async ({ page }) => {
         await openVoce(page, "Storico");
         await expect(page).toHaveURL(/\/storico$/, { timeout: 15_000 });
-        await expect(nav(page).getByRole("link", { name: "Storico", exact: true })).toHaveAttribute("aria-current", "page");
+        await expect(await sidebarLink(page, "Storico")).toHaveAttribute("aria-current", "page");
         const segmenti = main(page).getByRole("radiogroup");
         for (const s of ["Tutti", "Serviti", "Annullati"]) {
             await expect(segmenti.getByRole("radio", { name: s, exact: true })).toBeVisible({ timeout: 15_000 });
@@ -437,9 +431,7 @@ test.describe("Storico", () => {
         // Owner: si atterra sulla Scheda (§51.6), non sullo Storico chiuso.
         await expect(page).toHaveURL(/\/anagrafica$/, { timeout: 15_000 });
         // Il lucchetto entra nel nome accessibile della voce: «Storico …».
-        await expect(nav(page).getByRole("link", { name: /^Storico/ }).locator(LUCCHETTO)).toHaveCount(1, {
-            timeout: 15_000
-        });
+        await expect((await sidebarLink(page, /^Storico/)).locator(LUCCHETTO)).toHaveCount(1);
     });
 });
 

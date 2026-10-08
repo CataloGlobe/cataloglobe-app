@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { openBusinessPage } from "./business";
+import { sidebarLink } from "./nav";
 
 /**
  * Scheda della sede (`/business/:businessId/locations/:activityId`), vista da
@@ -37,10 +38,7 @@ async function openFirstLocation(page: Page): Promise<void> {
     // la voce «Scheda». Si aspetta l'atterraggio prima del clic, altrimenti
     // il redirect vincerebbe sul clic.
     await page.waitForURL(/\/locations\/[0-9a-f-]+\/[a-z-]+$/);
-    await page
-        .getByRole("navigation", { name: "Menu principale" })
-        .getByRole("link", { name: "Scheda", exact: true })
-        .click();
+    await (await sidebarLink(page, "Scheda")).click();
     await expect(page.getByRole("tab", { name: TAB.anagrafica })).toBeVisible({ timeout: 15_000 });
 }
 

@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { openBusinessPage } from "./business";
+import { sidebarLink } from "./nav";
 import { FEATURED, LINK, MISSING_FEATURED, PRODUCT, RULE, stubEvidenza, type EvidenzaStub, type WriteCall } from "./evidenzaStub";
 import type { Row } from "./restStub";
 
@@ -431,7 +432,7 @@ test.describe("In evidenza — una pagina, un Salva (P8)", () => {
         const title = main(page).getByRole("textbox", { name: /^Titolo/ });
         await expect(title).toHaveValue("Live acustico", { timeout: 15_000 });
         await title.fill("Live acustico bis");
-        await page.getByRole("navigation", { name: "Menu principale" }).getByRole("link", { name: "Menù" }).click();
+        await (await sidebarLink(page, "Menù")).click();
         const guard = page.getByRole("alertdialog");
         await expect(guard).toContainText("Modifiche non salvate");
         await guard.getByRole("button", { name: /^(Annulla|Resta)/ }).click();

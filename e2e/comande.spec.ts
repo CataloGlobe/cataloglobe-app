@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { openBusinessPage } from "./business";
+import { sidebarLink } from "./nav";
 
 /**
  * Comande (lotto `ds-5-comande`, §47.1). Scritto sulla pagina di **oggi**,
@@ -26,10 +27,6 @@ const ARTICOLI = ["Hamburger", "McToast"] as const;
 
 test.describe.configure({ mode: "serial" });
 
-function nav(page: Page) {
-    return page.getByRole("navigation", { name: "Menu principale" });
-}
-
 /** Entra nella sede di test dalla griglia delle Sedi e apre Comande dalla sua sidebar. */
 async function openComande(page: Page): Promise<void> {
     await openBusinessPage(page, "locations", "Sedi");
@@ -40,7 +37,7 @@ async function openComande(page: Page): Promise<void> {
     // L'indice della sede reindirizza alla prima voce: cliccare prima che il
     // redirect sia avvenuto farebbe vincere il redirect sul click.
     await page.waitForURL(/\/locations\/[0-9a-f-]+\/[a-z-]+$/);
-    await nav(page).getByRole("link", { name: "Comande", exact: true }).click();
+    await (await sidebarLink(page, "Comande")).click();
     await expect(page).toHaveURL(/\/locations\/[0-9a-f-]+\/comande$/, { timeout: 15_000 });
     // La board è pronta quando la card della fixture c'è (il nome del tavolo
     // compare anche come `option` del filtro, nascosta: non basta a dirlo).

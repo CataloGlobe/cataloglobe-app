@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { openBusinessPage } from "./business";
+import { sidebarLink } from "./nav";
 import {
     asSeatRole,
     INGREDIENT,
@@ -353,7 +354,7 @@ test.describe("Cosa vedono i clienti — nome e indirizzo", () => {
         await openDisponibilita(page);
         await expect(main(page).getByText("Big e2e", { exact: true })).toBeVisible({ timeout: 15_000 });
         await expect(page).toHaveURL(/\/cosa-vedono$/);
-        await expect(page.getByRole("navigation", { name: "Menu principale" }).getByRole("link", { name: "Cosa vedono i clienti", exact: true })).toBeVisible();
+        await expect(await sidebarLink(page, "Cosa vedono i clienti")).toBeVisible();
     });
 
     test("il vecchio indirizzo rimanda al nuovo, con la vista", async ({ page }) => {

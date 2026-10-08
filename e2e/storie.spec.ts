@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { openBusinessPage, openBusinessPageByUrl } from "./business";
+import { sidebarLink } from "./nav";
 import { MISSING_STORY, PRODUCT, SEDE, STORY, stubStorie, type StorieStub, type WriteCall } from "./storieStub";
 import { StubError, type Row } from "./restStub";
 
@@ -317,7 +318,7 @@ test.describe("Storie — editor ricomposto (P6)", () => {
         await openStory(page, STORY.forno);
         await expect(titleField(page)).toHaveValue("Il nostro forno e2e", { timeout: 15_000 });
         await titleField(page).fill("Il nostro forno bis");
-        await page.getByRole("navigation", { name: "Menu principale" }).getByRole("link", { name: "Menù" }).click();
+        await (await sidebarLink(page, "Menù")).click();
         const guard = page.getByRole("alertdialog");
         await expect(guard).toContainText("Modifiche non salvate");
         await guard.getByRole("button", { name: /^(Annulla|Resta)/ }).click();

@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { openBusinessPage } from "./business";
+import { sidebarLink } from "./nav";
 import { CAT, MENU, MISSING_MENU, PRODUCT, RULE, linkOf, stubMenu, type MenuStub, type WriteCall } from "./menuStub";
 
 /**
@@ -661,7 +662,7 @@ test.describe("Menù — dettaglio", () => {
         await openCarta(page);
         await renameCategory(page, "Stuzzichini");
 
-        await page.getByRole("navigation", { name: "Menu principale" }).getByRole("link", { name: "Prodotti" }).click();
+        await (await sidebarLink(page, "Prodotti")).click();
         const guard = page.getByRole("alertdialog").filter({ hasText: "Modifiche non salvate" });
         await expect(guard).toBeVisible();
         await guard.getByRole("button", { name: "Resta" }).click();
