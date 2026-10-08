@@ -24,8 +24,11 @@ export interface StatCardDelta {
     value: number;
     /** «vs 30 giorni prima», «rispetto a ieri». */
     period: string;
-    /** Come si legge il valore: percentuale (default) o numero assoluto. */
-    format?: "percent" | "number";
+    /**
+     * Come si legge il valore: percentuale (default), numero assoluto o punti
+     * percentuali (la variazione di un tasso, «+3 pt»).
+     */
+    format?: "percent" | "number" | "points";
     /**
      * Salire è male (il tasso di annullamento): la freccia segue il segno, il
      * colore no — su è rosso, giù è verde.
@@ -65,7 +68,9 @@ const nf = new Intl.NumberFormat("it-IT", { maximumFractionDigits: 1 });
 function formatDelta({ value, format = "percent" }: StatCardDelta) {
     const sign = value > 0 ? "+" : value < 0 ? "−" : "";
     const abs = nf.format(Math.abs(value));
-    return format === "percent" ? `${sign}${abs}%` : `${sign}${abs}`;
+    if (format === "percent") return `${sign}${abs}%`;
+    if (format === "points") return `${sign}${abs} pt`;
+    return `${sign}${abs}`;
 }
 
 export function StatCard({ label, value, delta, variant, sample, link, loading = false, children, className }: StatCardProps) {
