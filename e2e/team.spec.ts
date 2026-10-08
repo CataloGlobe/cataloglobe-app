@@ -24,7 +24,7 @@ test.describe("Team", () => {
     });
 
     test("titolo di pagina", async ({ page }) => {
-        await expect(page).toHaveTitle(/^Team — .+ \| CataloGlobe$/);
+        await expect(page).toHaveTitle(/^Team · .+ · CataloGlobe$/);
     });
 
     test("IM3: Membri · Inviti come segmenti con il conteggio, ricerca e ruoli a destra; in testata solo «Invita membro»", async ({ page }) => {

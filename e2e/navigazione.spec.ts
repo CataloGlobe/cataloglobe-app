@@ -552,7 +552,7 @@ test.describe("Impostazioni con tab (§51.12)", () => {
 
         await page.getByRole("tab", { name: "Abbonamento" }).click();
         await expect(page).toHaveURL(`${root}/settings/abbonamento`);
-        await expect(page).toHaveTitle(/^Abbonamento — /);
+        await expect(page).toHaveTitle(/^Abbonamento · /);
     });
 
     test("/team e /subscription portano alle tab, con query e ancora", async ({ page }) => {

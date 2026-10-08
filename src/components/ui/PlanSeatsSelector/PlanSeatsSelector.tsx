@@ -32,7 +32,7 @@ const INTERVAL_TOTAL_LABEL: Record<BillingInterval, string> = { month: "Totale m
 
 /** Costruisce un mailto precompilato per richiesta offerta multi-sede. */
 function buildMultiSeatQuoteMailto(seats: number, planName: string | undefined): string {
-    const subject = "Richiesta offerta multi-sede — CataloGlobe";
+    const subject = "Richiesta offerta multi-sede · CataloGlobe";
     const planPart = planName ? ` sul piano ${planName}` : "";
     const body =
         `Salve, sono interessato a un'offerta dedicata per ${seats} sedi${planPart}. ` +

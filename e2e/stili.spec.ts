@@ -140,7 +140,7 @@ test.beforeEach(async ({ page }) => {
 test.describe("Stili — elenco", () => {
     test("griglia: stili, prima gli attivi adesso e poi per nome, uso nelle regole", async ({ page }) => {
         await openList(page);
-        await expect(page).toHaveTitle(/^Stili — .+ \| CataloGlobe$/);
+        await expect(page).toHaveTitle(/^Stili · .+ · CataloGlobe$/);
         await expect(styleName(page, "Stile base e2e")).toBeVisible();
         await expect(styleName(page, "Sera e2e")).toBeVisible();
         await expect(styleName(page, "Notte e2e")).toBeVisible();

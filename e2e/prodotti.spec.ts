@@ -128,7 +128,7 @@ test.describe("Prodotti — elenco", () => {
 
     test("testata: collezioni, ricerca, vista, crea", async ({ page }) => {
         await openList(page);
-        await expect(page).toHaveTitle(/^Prodotti — .+ \| CataloGlobe$/);
+        await expect(page).toHaveTitle(/^Prodotti · .+ · CataloGlobe$/);
         await expect(collection(page, /^Prodotti$/)).toBeVisible();
         await expect(collection(page, /^Gruppi$/)).toBeVisible();
         await expect(collection(page, /^Ingredienti$/)).toBeVisible();

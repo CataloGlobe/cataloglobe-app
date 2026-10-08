@@ -117,7 +117,7 @@ export default function MainLayout() {
         if (rememberedSedeId) rememberLastSede(rememberedSedeId);
     }, [rememberedSedeId]);
     const tenantName = selectedTenant?.name;
-    usePageTitle(pageName && tenantName ? `${pageName} — ${tenantName}` : pageName);
+    usePageTitle(pageName && tenantName ? `${pageName} · ${tenantName}` : pageName);
 
     const contentRef = useRef<HTMLDivElement>(null);
     const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);

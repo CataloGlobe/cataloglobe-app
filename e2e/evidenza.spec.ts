@@ -145,7 +145,7 @@ test.beforeEach(async ({ page }) => {
 test.describe("In evidenza — elenco", () => {
     test("lista: nome interno, cosa leggono i clienti", async ({ page }) => {
         await openList(page);
-        await expect(page).toHaveTitle(/^In evidenza — .+ \| CataloGlobe$/);
+        await expect(page).toHaveTitle(/^In evidenza · .+ · CataloGlobe$/);
         await expect(contentName(page, "Aperitivo giovedì e2e")).toBeVisible();
         await expect(main(page).getByText(/Tagliere \+ 2 drink/)).toBeVisible();
         await expect(contentName(page, "Concerto e2e")).toBeVisible();

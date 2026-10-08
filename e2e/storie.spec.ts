@@ -96,7 +96,7 @@ test.beforeEach(async ({ page }) => {
 test.describe("Storie — elenco", () => {
     test("storie nell'ordine dei clienti, prodotto collegato, stato", async ({ page }) => {
         await openList(page);
-        await expect(page).toHaveTitle(/^Storie — .+ \| CataloGlobe$/);
+        await expect(page).toHaveTitle(/^Storie · .+ · CataloGlobe$/);
         const order = await main(page).getByText(/^(Il nostro forno|La brigata|Natale) e2e$/).allTextContents();
         expect(order).toEqual(["Il nostro forno e2e", "La brigata e2e", "Natale e2e"]);
         await expect(main(page).getByText("Dal 1987")).toBeVisible();

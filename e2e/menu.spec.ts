@@ -103,7 +103,7 @@ test.beforeEach(async ({ page }) => {
 test.describe("Menù — elenco", () => {
     test("testata e griglia con i conteggi", async ({ page }) => {
         await openList(page);
-        await expect(page).toHaveTitle(/^Menù — .+ \| CataloGlobe$/);
+        await expect(page).toHaveTitle(/^Menù · .+ · CataloGlobe$/);
         await expect(page.getByRole("radio", { name: "Vista griglia" })).toBeVisible();
         await expect(page.getByRole("radio", { name: "Vista lista" })).toBeVisible();
         await expect(page.getByRole("button", { name: "Importa con AI" })).toBeVisible();

@@ -137,7 +137,7 @@ export default function ReservationPrivacyPage() {
     const venueName = state.kind === "ready" ? state.data.venueName : "";
 
     usePageHead({
-        title: venueName ? `${copy.docTitle} — ${venueName}` : copy.docTitle,
+        title: venueName ? `${copy.docTitle} · ${venueName}` : copy.docTitle,
         lang
     });
 

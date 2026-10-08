@@ -18,7 +18,7 @@ test.describe("Sedi", () => {
     });
 
     test("titolo di pagina", async ({ page }) => {
-        await expect(page).toHaveTitle(/^Sedi — .+ \| CataloGlobe$/);
+        await expect(page).toHaveTitle(/^Sedi · .+ · CataloGlobe$/);
     });
 
     test("header: tab Sedi e Gruppi, ricerca, vista, aggiungi", async ({ page }) => {
