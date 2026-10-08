@@ -40,6 +40,7 @@ import {
     type DragEndEvent
 } from "@dnd-kit/core";
 import { arrayMove, SortableContext, verticalListSortingStrategy, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
+import { useCreateOnArrival } from "@/hooks/useCreateOnArrival";
 
 type StoryFilter = "all" | "drafts" | "sede" | "noCover";
 
@@ -105,6 +106,8 @@ export default function Stories() {
         if (!ensureActive()) return;
         setIsCreateOpen(true);
     }, [ensureActive]);
+    // Da «Cosa vuoi creare?» della Panoramica.
+    useCreateOnArrival(handleCreate, permissions ? canWrite : null);
 
     const handleEditBrand = useCallback(() => {
         if (!ensureActive()) return;
