@@ -394,7 +394,7 @@ export default function ReservationsAgenda({
                 data-dimmed={isDimmed(r.status) || undefined}
                 onClick={() => onOpenDetail(r)}
                 aria-label={`${r.customer_name} ${r.reservation_time.slice(0, 5)} · ${badge.label}${conflict ? ` · ${conflict.message}` : ""}`}
-                title={`${badge.label} — ${r.customer_name} · ${r.party_size}${tableTitle}`}
+                title={`${badge.label} · ${r.customer_name} · ${r.party_size}${tableTitle}`}
             >
                 <Text as="span" variant="caption-xs" weight={700} className={styles.weekChipTime}>
                     {r.reservation_time.slice(0, 5)}

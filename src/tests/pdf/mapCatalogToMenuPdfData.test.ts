@@ -69,7 +69,7 @@ function context(): MapCatalogContext {
         },
         activityName: "Sede Test",
         slug: "sede-test",
-        address: "Via Roma, 1 — 20100 Milano",
+        address: "Via Roma, 1 · 20100 Milano",
         closingInfo: EMPTY_CLOSING_INFO,
         generatedAt: "2026-07-22T10:00:00.000Z"
     };
@@ -308,7 +308,7 @@ describe("mapCatalogToMenuPdfData — categorie", () => {
             activityName: "Sede Test",
             catalogName: "Menu Test",
             slug: "sede-test",
-            address: "Via Roma, 1 — 20100 Milano",
+            address: "Via Roma, 1 · 20100 Milano",
             generatedAt: "2026-07-22T10:00:00.000Z",
             closingInfo: EMPTY_CLOSING_INFO
         });
