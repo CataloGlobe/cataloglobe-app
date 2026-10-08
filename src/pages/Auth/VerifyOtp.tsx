@@ -16,27 +16,14 @@ import { useToast } from "@/context/Toast/ToastContext";
 import { Button } from "@/components/ui";
 import Text from "@/components/ui/Text/Text";
 import { TextInput } from "@/components/ui/Input/TextInput";
-import type { OtpErrorCode, OtpStatus, VerifyOtpResponse } from "@/types/otp";
+import type { OtpStatus, VerifyOtpResponse } from "@/types/otp";
+import { readVerifyOtpError } from "@/utils/otpErrors";
 import { AuthLayout } from "@/layouts/AuthLayout/AuthLayout";
 import { internalPathOr } from "@/utils/internalPath";
 import styles from "./Auth.module.scss";
 
 const OTP_LENGTH = 6;
 const RESEND_COOLDOWN = 30;
-
-function mapOtpError(error: unknown): OtpErrorCode {
-    if (!error || typeof error !== "object") return "unknown";
-
-    const message = "message" in error && typeof error.message === "string" ? error.message : "";
-
-    if (message.includes("invalid")) return "invalid_or_expired";
-    if (message.includes("cooldown")) return "cooldown";
-    if (message.includes("locked")) return "locked";
-    if (message.includes("rate")) return "rate_limited";
-    if (message.includes("unauthorized")) return "unauthorized";
-
-    return "unknown";
-}
 
 /**
  * Esito classificato di una chiamata a `send-otp`.
@@ -174,6 +161,9 @@ export default function VerifyOtp() {
 
     const inputsRef = useRef<Array<HTMLInputElement | null>>([]);
     const hasRequestedOtpRef = useRef(false);
+    // Esito dell'ultimo status-otp: c'è già un codice valido (o il blocco)?
+    // Serve all'invio automatico per non bruciare un codice ancora buono.
+    const activeCodeRef = useRef(false);
 
     const { showToast } = useToast();
 
@@ -256,7 +246,18 @@ export default function VerifyOtp() {
             headers: { Authorization: `Bearer ${jwt}` }
         });
 
-        if (error || !status) return;
+        if (error || !status) {
+            // Stato illeggibile: si sblocca comunque la pagina (invio automatico
+            // e «Invia di nuovo»). Se un codice c'è già, send-otp risponde 429
+            // e la pagina mostra l'attesa invece di restare ferma.
+            activeCodeRef.current = false;
+            setResendSeconds(prev => prev ?? 0);
+            return;
+        }
+
+        activeCodeRef.current =
+            status.locked === true ||
+            (typeof status.expires_in === "number" && status.expires_in > 0);
 
         if (typeof status.resend_available_in === "number") {
             setResendSeconds(status.resend_available_in);
@@ -298,6 +299,13 @@ export default function VerifyOtp() {
         // esegui una sola volta
         if (hasRequestedOtpRef.current) return;
         hasRequestedOtpRef.current = true;
+
+        // Un codice ancora valido non si sostituisce: ricaricare la pagina o
+        // aprirla in un'altra scheda non deve invalidare quello già in mail.
+        if (activeCodeRef.current) {
+            setSendOutcome("waiting");
+            return;
+        }
 
         // se non siamo in cooldown, inviamo OTP
         if (resendSeconds === 0) {
@@ -403,17 +411,17 @@ export default function VerifyOtp() {
                 return;
             }
 
-            const { data, error } = await supabase.functions.invoke("verify-otp", {
+            const { error } = await supabase.functions.invoke("verify-otp", {
                 body: { code },
                 headers: { Authorization: `Bearer ${jwt}` }
             });
 
             if (error) {
-                const code = mapOtpError(error);
+                const { code, response: errorResponse } = await readVerifyOtpError(error);
 
                 switch (code) {
                     case "invalid_or_expired": {
-                        const response = data as VerifyOtpResponse;
+                        const response: VerifyOtpResponse = errorResponse ?? {};
                         if (typeof response.max_attempts === "number") {
                             setMaxAttempts(response.max_attempts);
                         }
