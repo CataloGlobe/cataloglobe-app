@@ -301,7 +301,7 @@ export type ProgrammazioneStub = RestStub;
 
 export async function stubProgrammazione(
     page: Page,
-    options: { matrix?: boolean; manySeats?: boolean } = {}
+    options: { matrix?: boolean; manySeats?: boolean; dbWritable?: readonly string[] } = {}
 ): Promise<ProgrammazioneStub> {
     const tables = makeTables(Boolean(options.matrix), Boolean(options.manySeats));
     const stub = await stubRest(page, {
@@ -315,6 +315,12 @@ export async function stubProgrammazione(
             }));
         },
         rpc: {
+            // Il permesso di una regola per i ruoli di sede: il server vero non
+            // conosce le regole finte. Senza `dbWritable` il database dice sì.
+            can_write_schedule: body => {
+                const scheduleId = (body as { p_schedule_id?: string } | null)?.p_schedule_id ?? "";
+                return options.dbWritable ? options.dbWritable.includes(scheduleId) : true;
+            },
             // Legge: senza stub passerebbe al server vero (`get_` → fallback).
             get_schedule_featured_contents: body => {
                 const scheduleId = (body as { p_schedule_id?: string } | null)?.p_schedule_id;

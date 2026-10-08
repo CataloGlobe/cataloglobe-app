@@ -46,3 +46,19 @@ export async function scopeRuleToActivity(scheduleId: string, activityId: string
 
     await updateScheduleTargets(scheduleId, [{ targetType: "activity", targetId: activityId }]);
 }
+
+/**
+ * Le regole che il database lascia modificare al caller
+ * (`can_write_schedule`, una chiamata per regola). Serve ai ruoli di sede: la
+ * RLS di `schedule_targets` mostra loro solo le proprie sedi, quindi una regola
+ * che vale anche per sedi altrui sembra tutta loro. Un errore conta come «no».
+ */
+export async function listWritableScheduleIds(scheduleIds: readonly string[]): Promise<Set<string>> {
+    const results = await Promise.all(
+        scheduleIds.map(async id => {
+            const { data, error } = await supabase.rpc("can_write_schedule", { p_schedule_id: id });
+            return !error && data === true ? id : null;
+        })
+    );
+    return new Set(results.filter((id): id is string => id !== null));
+}

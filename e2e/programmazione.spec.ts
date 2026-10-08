@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
+import { asRole } from "./asRole";
 import { openBusinessPage } from "./business";
 import { nav } from "./nav";
 import { MATRIX_RULE_NAME, MISSING_RULE, RULE, RULE_NAME, SEDE, StubError, TENANT_ID, stubProgrammazione, type ProgrammazioneStub, type WriteCall } from "./programmazioneStub";
@@ -506,6 +507,36 @@ test.describe("Programmazione — permesso di lettura", () => {
             expect(ruleReads).toEqual([]);
         });
     }
+});
+
+// Un ruolo di sede vede solo le sue sedi di una regola (RLS di
+// `schedule_targets`): una regola che vale anche per sedi altrui gli sembra
+// tutta sua. Il permesso lo dà `can_write_schedule`; qui «stagionali» è sulla
+// sola sede del manager per lui, ma il database dice no.
+test.describe("Programmazione — ruolo di sede, decide il database", () => {
+    const LOCK = "La modifica chi gestisce tutte le sedi coinvolte";
+    test.beforeEach(async ({ page }) => {
+        await asRole(page, "manager", SEDE.centro, "pro");
+        await stubProgrammazione(page, { dbWritable: [RULE.pranzo] });
+    });
+
+    test("elenco: la regola rifiutata dal database ha il lucchetto, la sua no", async ({ page }) => {
+        await openSeatList(page, SEDE.centro);
+        // Una riga in sola lettura non ha «Azioni»: la si prende per nome.
+        const row = (key: keyof typeof RULE) => ruleList(page).getByRole("row", { name: new RegExp(`^(Seleziona riga )?${RULE_NAME[key]}`) });
+        await expect(row("stagionali").getByLabel(LOCK)).toBeVisible();
+        await expect(row("pranzo").getByLabel(LOCK)).toHaveCount(0);
+    });
+
+    test("dettaglio: sola lettura se il database dice no, modificabile se dice sì", async ({ page }) => {
+        const base = `/business/${TENANT_ID}/locations/${SEDE.centro}/programmazione`;
+        await page.goto(`${base}/${RULE.stagionali}`);
+        await expect(main(page).getByText(/^Sola lettura: la modifica chi gestisce/)).toBeVisible({ timeout: 15_000 });
+        await expect(main(page).getByRole("textbox", { name: /Nome/ })).toBeDisabled();
+        await page.goto(`${base}/${RULE.pranzo}`);
+        await expect(main(page).getByRole("textbox", { name: /Nome/ })).toBeEnabled({ timeout: 15_000 });
+        await expect(main(page).getByText(/^Sola lettura/)).toHaveCount(0);
+    });
 });
 
 test.describe("Programmazione — settimana, simulatore, guida", () => {
