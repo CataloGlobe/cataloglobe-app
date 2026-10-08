@@ -35,6 +35,112 @@
     }
 }
 
+// ── Pill dei gruppi (tablist) ───────────────────────────────────────────────
+// Sotto 768 icona e numero sopra il nome: le tre pill stanno su una riga a 390.
+.tabs {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    margin-bottom: 12px;
+
+    @include desktop {
+        gap: 8px;
+        margin-bottom: 16px;
+    }
+}
+
+.tab {
+    @include ld-reset-button;
+    @include ld-focus;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 9px 14px 8px;
+    border-radius: 18px;
+    background: var(--ld-white);
+    border: 1px solid var(--ld-line);
+    color: var(--ld-ink);
+    transition:
+        background-color 250ms ease,
+        border-color 250ms ease,
+        color 250ms ease;
+
+    @include desktop {
+        flex-direction: row;
+        gap: 8px;
+        padding: 10px 16px 10px 14px;
+        border-radius: 999px;
+    }
+}
+
+.tabTop {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+
+    @include desktop {
+        display: contents;
+    }
+}
+
+.tabIcon {
+    display: block;
+    flex-shrink: 0;
+    color: var(--ld-azione);
+    transition: color 250ms ease;
+}
+
+.tabLabel {
+    font-size: 14px;
+    line-height: 1.2;
+    font-weight: 600;
+    white-space: nowrap;
+
+    @include desktop {
+        order: 1;
+        font-size: 15px;
+    }
+}
+
+// Numero di domande del gruppo: cifre tabellari, larghezza fissa.
+.tabCount {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: 10px;
+    background: var(--ld-line-2);
+    color: var(--ld-azione);
+    font-size: 12px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    transition:
+        background-color 250ms ease,
+        color 250ms ease;
+
+    @include desktop {
+        order: 2;
+    }
+}
+
+.tabActive {
+    background: var(--ld-azione);
+    border-color: var(--ld-azione);
+    color: var(--ld-white);
+
+    .tabIcon {
+        color: var(--ld-white);
+    }
+
+    .tabCount {
+        background: var(--ld-white);
+        color: var(--ld-azione);
+    }
+}
+
 .list {
     display: flex;
     flex-direction: column;
@@ -44,6 +150,12 @@
     background: var(--ld-line-3);
     border: 1px solid var(--ld-line);
     box-shadow: var(--ld-shadow-card);
+}
+
+// `hidden` sui pannelli inattivi: la classe col display vince sul foglio del
+// browser, quindi va ribadito.
+.list[hidden] {
+    display: none;
 }
 
 .item {
@@ -145,6 +257,9 @@
 }
 
 @include reduced-motion {
+    .tab,
+    .tabIcon,
+    .tabCount,
     .a,
     .plus,
     .plusBar {

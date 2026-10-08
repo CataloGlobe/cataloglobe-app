@@ -9,6 +9,7 @@ import {
     canInviteRole,
     canChangeRoleOf,
     canRemoveMember,
+    canWriteRule,
     type UserPermissions
 } from "@/lib/permissions";
 
@@ -304,3 +305,52 @@ describe("canRemoveMember", () => {
     });
 });
 
+
+// ============================================================
+// canWriteRule — specchio di public.can_write_schedule
+// ============================================================
+
+describe("canWriteRule", () => {
+    const rule = (opts: { applyToAll?: boolean; activityIds?: string[]; groupIds?: string[] }) => ({
+        applyToAll: opts.applyToAll ?? false,
+        activityIds: opts.activityIds ?? [],
+        groupIds: opts.groupIds ?? []
+    });
+    const GROUP = "group-1";
+
+    it("owner e admin: sempre, anche su tutte le sedi o senza sedi", () => {
+        expect(canWriteRule(owner, rule({ applyToAll: true }))).toBe(true);
+        expect(canWriteRule(admin, rule({ activityIds: [ACT_C] }))).toBe(true);
+        expect(canWriteRule(admin, rule({}))).toBe(true);
+    });
+
+    it("manager: regola solo sulle sue sedi", () => {
+        expect(canWriteRule(manager, rule({ activityIds: [ACT_A] }))).toBe(true);
+        expect(canWriteRule(manager, rule({ activityIds: [ACT_A, ACT_B] }))).toBe(true);
+    });
+
+    it("manager: una sede non sua basta a rendere la regola di sola lettura", () => {
+        expect(canWriteRule(manager, rule({ activityIds: [ACT_A, ACT_C] }))).toBe(false);
+    });
+
+    it("manager: mai su una regola di tutte le sedi o senza sedi", () => {
+        expect(canWriteRule(manager, rule({ applyToAll: true }))).toBe(false);
+        expect(canWriteRule(manager, rule({}))).toBe(false);
+    });
+
+    it("manager: gruppo con almeno una sua sede, come il DB", () => {
+        const members = new Map([[GROUP, [ACT_A, ACT_C]]]);
+        expect(canWriteRule(manager, rule({ groupIds: [GROUP] }), members)).toBe(true);
+        const altrui = new Map([[GROUP, [ACT_C]]]);
+        expect(canWriteRule(manager, rule({ groupIds: [GROUP] }), altrui)).toBe(false);
+    });
+
+    it("manager: gruppo di cui non si conoscono le sedi resta in sola lettura", () => {
+        expect(canWriteRule(manager, rule({ groupIds: [GROUP] }))).toBe(false);
+    });
+
+    it("staff e viewer: mai", () => {
+        expect(canWriteRule(staff, rule({ activityIds: [ACT_A] }))).toBe(false);
+        expect(canWriteRule(viewer, rule({ activityIds: [ACT_A] }))).toBe(false);
+    });
+});

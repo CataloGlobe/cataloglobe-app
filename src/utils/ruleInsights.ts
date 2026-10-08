@@ -20,6 +20,8 @@ export type RuleInsight = {
     overriddenById?: string;
     /** Nomi delle sedi dove questa regola è sovrascritta da una più specifica. */
     excludedActivityNames?: string[];
+    /** Le stesse sedi, con chi vince in ciascuna: la riga ambra dell'elenco (PG5). */
+    losingSeats?: Array<{ activityId: string; activityName: string; winnerId: string; winnerName: string }>;
 };
 
 /**
@@ -119,6 +121,7 @@ export function computeRuleInsights<R extends InsightRule>(input: RuleInsightsIn
     const ruleParticipatesNow = new Set<string>();
     const ruleOverriddenBy = new Map<string, R>();
     const ruleExcludedActivityIds = new Map<string, string[]>();
+    const ruleLosingSeats = new Map<string, Array<{ activityId: string; winner: R }>>();
 
     for (const seat of seats) {
         const outcome = resolveCompetition(competitionRules, seat, nowRome);
@@ -135,6 +138,9 @@ export function computeRuleInsights<R extends InsightRule>(input: RuleInsightsIn
                 const excluded = ruleExcludedActivityIds.get(loser.rule.id) ?? [];
                 excluded.push(seat.activityId);
                 ruleExcludedActivityIds.set(loser.rule.id, excluded);
+                const losing = ruleLosingSeats.get(loser.rule.id) ?? [];
+                losing.push({ activityId: seat.activityId, winner: winner.rule.source });
+                ruleLosingSeats.set(loser.rule.id, losing);
             }
         }
     }
@@ -155,7 +161,13 @@ export function computeRuleInsights<R extends InsightRule>(input: RuleInsightsIn
                 : describeZeroReach(rule, { ...reachCtx, groupName: id => groupNameById.get(id) ?? id }),
             overriddenByName: overriddenBy ? ruleName(overriddenBy) : undefined,
             overriddenById: overriddenBy?.id,
-            excludedActivityNames: excludedIds?.map(id => activityById.get(id)?.name ?? id)
+            excludedActivityNames: excludedIds?.map(id => activityById.get(id)?.name ?? id),
+            losingSeats: ruleLosingSeats.get(rule.id)?.map(({ activityId, winner }) => ({
+                activityId,
+                activityName: activityById.get(activityId)?.name ?? activityId,
+                winnerId: winner.id,
+                winnerName: ruleName(winner)
+            }))
         });
     }
 

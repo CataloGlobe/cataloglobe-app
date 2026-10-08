@@ -1,7 +1,8 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { buildLandingDocument, inlineStylesheets, LANDING_ROOT_MARKER, prerenderedVariante } from "@/pages/CampaignLanding/prerender";
+import { FAQ, PRICING } from "@/pages/CampaignLanding/content/landing";
+import { buildLandingDocument, faqPageLdScript, inlineStylesheets, LANDING_ROOT_MARKER, prerenderedVariante } from "@/pages/CampaignLanding/prerender";
 
 const template = readFileSync(path.resolve(__dirname, "../../../landing.html"), "utf8");
 const count = (html: string, needle: string) => html.split(needle).length - 1;
@@ -32,6 +33,53 @@ describe("buildLandingDocument", () => {
 
     it("si ferma se il template non ha il contenitore", () => {
         expect(() => buildLandingDocument('<div id="root"></div>', "", "form")).toThrow(/landing-ssr/);
+    });
+});
+
+describe("FAQPage JSON-LD", () => {
+    const FAQ_LD = /<script type="application\/ld\+json" data-landing-ld>([\s\S]*?)<\/script>/g;
+    const faqBlocks = (html: string) =>
+        [...html.matchAll(FAQ_LD)].map((m) => JSON.parse(m[1])).filter((ld) => ld["@type"] === "FAQPage");
+
+    it("solo su /, una volta, nell'head e marcato data-landing-ld", () => {
+        const form = buildLandingDocument(template, "", "form");
+        const signup = buildLandingDocument(template, "", "signup");
+        expect(faqBlocks(form)).toHaveLength(1);
+        expect(faqBlocks(signup)).toHaveLength(0);
+        expect(count(signup, '"FAQPage"')).toBe(0);
+        const head = form.slice(0, form.indexOf("</head>"));
+        expect(count(head, '"@type": "FAQPage"')).toBe(1);
+    });
+
+    it("domande e risposte coincidono con quelle della sezione FAQ, nello stesso ordine", () => {
+        const [ld] = faqBlocks(buildLandingDocument(template, "", "form"));
+        expect(ld["@context"]).toBe("https://schema.org");
+        const pairs = ld.mainEntity.map((e: { "@type": string; name: string; acceptedAnswer: { "@type": string; text: string } }) => {
+            expect(e["@type"]).toBe("Question");
+            expect(e.acceptedAnswer["@type"]).toBe("Answer");
+            return { q: e.name, a: e.acceptedAnswer.text };
+        });
+        expect(pairs).toEqual(FAQ.items.map(({ q, a }) => ({ q, a })));
+    });
+
+    it("tutte le 12 domande dei tre gruppi, gruppo dopo gruppo", () => {
+        const [ld] = faqBlocks(buildLandingDocument(template, "", "form"));
+        expect(FAQ.groups.map((g) => g.items.length)).toEqual([4, 4, 4]);
+        expect(ld.mainEntity).toHaveLength(12);
+        expect(ld.mainEntity.map((e: { name: string }) => e.name)).toEqual(FAQ.groups.flatMap((g) => g.items.map((i) => i.q)));
+    });
+
+    it("«Quanto costa CataloGlobe?» usa i prezzi di PRICING", () => {
+        const cost = FAQ.items.find((i) => i.q === "Quanto costa CataloGlobe?");
+        for (const plan of Object.values(PRICING.plans)) {
+            expect(cost?.a).toContain(`${plan.month} al mese o ${plan.year} all’anno`);
+        }
+    });
+
+    it("un testo con </script> non chiude il blocco", () => {
+        const script = faqPageLdScript([{ q: "</script><b>x</b>", a: "a < b" }]);
+        expect(count(script, "</script>")).toBe(1);
+        expect(JSON.parse(script.replace(/^<script[^>]*>\n/, "").replace(/\n<\/script>$/, "")).mainEntity[0].name).toBe("</script><b>x</b>");
     });
 });
 
