@@ -89,7 +89,8 @@ test.describe("Disponibilità — prodotti", () => {
         await expect(main(page).getByText("Big e2e", { exact: true })).toBeVisible({ timeout: 15_000 });
         await expect(main(page).getByText("Menù e2e").first()).toBeVisible();
         await expect(main(page).getByText("Pranzo e2e").first()).toBeVisible();
-        await expect(main(page).getByRole("link", { name: "Vedi la regola" })).toHaveAttribute("href", new RegExp(`/scheduling/${RULE_ID}$`));
+        // Dalla sede la regola si apre nella Programmazione della sede (d269ebc85).
+        await expect(main(page).getByRole("link", { name: "Vedi la regola" })).toHaveAttribute("href", new RegExp(`/locations/[0-9a-f-]+/programmazione/${RULE_ID}$`));
         await expect(main(page).getByText("Panini").first()).toBeVisible();
         await expect(main(page).getByText(/7[.,]50/)).toBeVisible();
         // V2: la riga dei conteggi non c'è più, li dicono i filtri.
@@ -225,7 +226,7 @@ test.describe("Cosa vedono i clienti — esito e provenienza", () => {
         await expect(band(page)).toContainText("Per la regola Pranzo e2e");
         await expect(band(page)).not.toContainText(`I clienti di ${name}`);
         await expect(band(page)).not.toContainText("1 visibile ·");
-        await expect(band(page).getByRole("link", { name: "Vedi la regola" }).first()).toHaveAttribute("href", new RegExp(`/scheduling/${RULE_ID}$`));
+        await expect(band(page).getByRole("link", { name: "Vedi la regola" }).first()).toHaveAttribute("href", new RegExp(`/locations/[0-9a-f-]+/programmazione/${RULE_ID}$`));
         await expect(band(page).getByRole("link", { name: "Apri pagina pubblica" })).toBeVisible();
         await expect(main(page).getByText(/Stai modificando solo/)).toHaveCount(0);
     });
