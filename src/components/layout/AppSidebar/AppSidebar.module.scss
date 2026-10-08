@@ -366,6 +366,42 @@ $dash-margin: 14px;
 
 .sectionChevron {
   color: var(--sb-faint);
+  transition: transform var(--timing-motion-fast) var(--easing-state);
+}
+
+// Sidebar aperta: la sezione si apre verso il basso, dentro la sidebar.
+// Aperta, la riga non è più accesa: la pagina accesa è quella sotto.
+.sectionExpanded .sectionChevron {
+  transform: rotate(90deg);
+}
+
+.subList {
+  list-style: none;
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+
+// Le pagine della sezione, rientrate sotto il nome (filo dell'etichetta),
+// più leggere della riga che le contiene. `.link.subLink`: vince su
+// `.link .label` e `.sections .label`, che stanno più sotto o allo stesso peso.
+.link.subLink {
+  padding-inline-start: $row-x + $icon-size + $icon-gap;
+
+  .label {
+    margin-inline-start: 0;
+    font-weight: 400;
+  }
+
+  &.active .label {
+    font-weight: 600;
+  }
+}
+
+.subLock {
+  display: inline-flex;
+  color: var(--sb-faint);
 }
 
 // Nel pannello mobile la riga resta a 40: è un bersaglio touch.

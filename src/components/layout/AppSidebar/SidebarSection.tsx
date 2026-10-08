@@ -29,13 +29,21 @@ interface SidebarSectionProps {
     /** Apre subito (clic, tastiera). */
     onOpenNow: () => void;
     onClose: () => void;
+    /** Sidebar aperta: la sezione si apre verso il basso, dentro la sidebar,
+     *  solo col clic. Chiusa (64) resta il pannello a destra. */
+    inline?: boolean;
+    /** Solo con `inline`: le pagine si vedono sotto la riga. */
+    expanded?: boolean;
+    /** Solo con `inline`: il clic sulla riga apre o chiude. */
+    onToggle?: () => void;
 }
 
 /**
  * Una sezione della sidebar (Officina, solo desktop): una riga con l'icona e
- * il nome; le sue pagine stanno nel pannello a destra, uguale da aperta e da
- * chiusa. La riga non porta a una pagina: il passaggio del mouse e il clic
- * aprono il pannello (Alex); si chiude uscendo, con Esc o toccando fuori. Da
+ * il nome, che non porta a una pagina. Sidebar aperta (`inline`): il clic apre
+ * le pagine sotto la riga, rientrate (Alex, 2026-10-08). Sidebar chiusa: le
+ * pagine stanno nel pannello a destra; il passaggio del mouse e il clic lo
+ * aprono, si chiude uscendo, con Esc o toccando fuori. Da
  * tastiera: Invio, spazio o freccia a destra aprono e portano nel pannello;
  * Esc e freccia a sinistra tornano alla riga.
  */
@@ -48,7 +56,10 @@ export function SidebarSection({
     onHoverStart,
     onHoverEnd,
     onOpenNow,
-    onClose
+    onClose,
+    inline = false,
+    expanded = false,
+    onToggle
 }: SidebarSectionProps) {
     const panelId = useId();
     const rowRef = useRef<HTMLButtonElement>(null);
@@ -121,6 +132,87 @@ export function SidebarSection({
             links[(at - 1 + links.length) % links.length].focus();
         }
     };
+
+    if (inline) {
+        const listId = `${panelId}-list`;
+        return (
+            <li>
+                <button
+                    type="button"
+                    className={[
+                        styles.link,
+                        styles.sectionRow,
+                        current && !expanded ? styles.active : "",
+                        expanded ? styles.sectionExpanded : ""
+                    ].join(" ")}
+                    aria-expanded={expanded}
+                    aria-controls={expanded ? listId : undefined}
+                    aria-current={current && !expanded ? "true" : undefined}
+                    onClick={onToggle}
+                >
+                    <span className={styles.iconWrap}>
+                        <span className={styles.icon}>{icon}</span>
+                    </span>
+                    <Text as="span" variant="body-sm" className={styles.label}>
+                        {title}
+                    </Text>
+                    <span className={styles.trailing}>
+                        {hasSignal && !expanded && <span className={styles.navDot} aria-hidden="true" />}
+                        <ChevronRight size={16} className={styles.sectionChevron} aria-hidden="true" />
+                    </span>
+                </button>
+                {expanded && (
+                    <ul id={listId} className={styles.subList} aria-label={title}>
+                        {items.map(item => {
+                            const active = item === current;
+                            const body = (
+                                <>
+                                    <Text as="span" variant="body-sm" className={styles.label}>
+                                        {item.label}
+                                    </Text>
+                                    <span className={styles.trailing}>
+                                        {item.locked && (
+                                            <span className={styles.subLock} aria-label="Funzione del piano Pro">
+                                                <Lock size={14} strokeWidth={1.5} />
+                                            </span>
+                                        )}
+                                        {item.badge !== undefined ? (
+                                            <Badge variant={item.badgeTone ?? "neutral"}>{item.badge}</Badge>
+                                        ) : (
+                                            (item.showDot || item.loading) && (
+                                                <span
+                                                    className={styles.navDot}
+                                                    role="status"
+                                                    aria-label={item.dotLabel ?? item.loadingLabel ?? "In corso"}
+                                                />
+                                            )
+                                        )}
+                                    </span>
+                                </>
+                            );
+                            return (
+                                <li key={item.to}>
+                                    {item.disabled ? (
+                                        <span className={`${styles.link} ${styles.subLink} ${styles.disabled}`} aria-disabled="true">
+                                            {body}
+                                        </span>
+                                    ) : (
+                                        <Link
+                                            to={item.to}
+                                            className={[styles.link, styles.subLink, active ? styles.active : ""].join(" ")}
+                                            aria-current={active ? "page" : undefined}
+                                        >
+                                            {body}
+                                        </Link>
+                                    )}
+                                </li>
+                            );
+                        })}
+                    </ul>
+                )}
+            </li>
+        );
+    }
 
     const panel = (
         <div

@@ -9,6 +9,7 @@ import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
 import { Logo } from "@/components/ui/Logo/Logo";
 import { SIDEBAR_COLLAPSED, SIDEBAR_EXPANDED } from "@/constants/layout";
 import { SidebarSection } from "./SidebarSection";
+import { isItemActive } from "./isItemActive";
 import styles from "./AppSidebar.module.scss";
 
 /**
@@ -276,16 +277,43 @@ export function AppSidebar({
     );
     const sectionsMode = !isMobile && groups.some(group => group.icon && group.title);
 
+    // Sidebar aperta: le sezioni si aprono verso il basso (Alex). Arrivando su
+    // una pagina si apre la sua sezione; le altre restano come le ha lasciate
+    // chi usa la sidebar, nessuna si richiude da sola.
+    const sectionId = (group: AppSidebarNavGroup, index: number) => `${index}:${group.title ?? ""}`;
+    const currentSectionId = (() => {
+        const index = groups.findIndex(
+            group => group.icon && group.title && group.items.length > 1 && group.items.some(item => isItemActive(item, pathname))
+        );
+        return index === -1 ? null : sectionId(groups[index], index);
+    })();
+    const [expandedSections, setExpandedSections] = useState<ReadonlySet<string>>(
+        () => new Set(currentSectionId ? [currentSectionId] : [])
+    );
+    useEffect(() => {
+        if (!currentSectionId) return;
+        setExpandedSections(prev => (prev.has(currentSectionId) ? prev : new Set(prev).add(currentSectionId)));
+    }, [currentSectionId]);
+    const toggleSection = (id: string) =>
+        setExpandedSections(prev => {
+            const next = new Set(prev);
+            if (!next.delete(id)) next.add(id);
+            return next;
+        });
+
     const renderGroupAsSection = (group: AppSidebarNavGroup, index: number): ReactNode => {
         const title = group.title ?? "";
         if (group.items.length === 1) {
             // Una pagina sola: niente pannello, la riga porta lì col nome della sezione.
             return renderItem({ ...group.items[0], label: title, icon: group.icon });
         }
-        const id = `${index}:${title}`;
+        const id = sectionId(group, index);
         return (
             <SidebarSection
                 key={id}
+                inline={!collapsedDesktop}
+                expanded={expandedSections.has(id)}
+                onToggle={() => toggleSection(id)}
                 title={title}
                 icon={group.icon}
                 items={group.items}

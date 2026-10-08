@@ -155,12 +155,39 @@ test.describe("Sidebar (§51.5, sezioni dell'Officina)", () => {
         expect(await sidebarVoci(page)).not.toContain("Sedi");
     });
 
-    test("la sezione apre il pannello senza cambiare pagina; Esc torna alla riga", async ({ page }) => {
+    test("aperta, la sezione si apre sotto la riga: quella della pagina già aperta, il clic apre e chiude", async ({ page }) => {
+        const paths = await locationPaths(page);
+        await page.goto(`${businessRoot(paths[0])}/products`);
+        const url = page.url();
+        const row = sectionRow(page, CATALOGO[0]);
+        const list = sectionPanel(page, CATALOGO[0]);
+        await expect(row).toBeVisible({ timeout: 15_000 });
+        // Si arriva con la sezione della pagina aperta e la pagina accesa sotto.
+        await expect(row).toHaveAttribute("aria-expanded", "true");
+        await expect(list.locator('a[aria-current="page"]')).toHaveText(/Prodotti/);
+        // Il clic chiude senza cambiare pagina: la riga dice dove sei.
+        await row.click();
+        await expect(list).toHaveCount(0);
+        await expect(row).toHaveAttribute("aria-current", "true");
+        expect(page.url()).toBe(url);
+        // Riaperta, una voce porta alla sua pagina e la sezione resta aperta.
+        await row.click();
+        await list.getByRole("link", { name: "Programmazione", exact: true }).click();
+        await expect(page).toHaveURL(/\/scheduling$/, { timeout: 15_000 });
+        await expect(list).toBeVisible();
+        // Nessun pannello sopra la pagina, da aperta.
+        await expect(page.locator("body > [role='group']")).toHaveCount(0);
+    });
+
+    test("chiusa, la sezione apre il pannello senza cambiare pagina; Esc torna alla riga", async ({ page }) => {
         const paths = await locationPaths(page);
         await page.goto(`${businessRoot(paths[0])}/products`);
         const url = page.url();
         const row = sectionRow(page, CATALOGO[0]);
         await expect(row).toBeVisible({ timeout: 15_000 });
+        const collapse = page.getByRole("button", { name: "Comprimi menù laterale" });
+        if (await collapse.isVisible()) await collapse.click();
+        await expect(page.getByRole("button", { name: "Espandi menù laterale" })).toBeVisible();
         await row.click();
         await expect(sectionPanel(page, CATALOGO[0])).toBeVisible();
         await expect(row).toHaveAttribute("aria-expanded", "true");
@@ -176,6 +203,7 @@ test.describe("Sidebar (§51.5, sezioni dell'Officina)", () => {
         await sectionPanel(page, CATALOGO[0]).getByRole("link", { name: "Programmazione", exact: true }).click();
         await expect(page).toHaveURL(/\/scheduling$/, { timeout: 15_000 });
         await expect(sectionPanel(page, CATALOGO[0])).toHaveCount(0);
+        await page.getByRole("button", { name: "Espandi menù laterale" }).click();
     });
 });
 
@@ -189,6 +217,12 @@ test.describe("Aspetto della sidebar (§51.15)", () => {
         if (await expand.isVisible()) await expand.click();
         await expect(page.getByRole("button", { name: "Comprimi menù laterale" })).toBeVisible();
         await expect.poll(async () => (await aside(page).boundingBox())?.width).toBe(232);
+    }
+
+    /** Sidebar aperta: richiude le sezioni aperte sotto la riga (misure a righe sole). */
+    async function foldSections(page: Page): Promise<void> {
+        const open = menuRows(page).locator(':scope > button[aria-expanded="true"]');
+        while ((await open.count()) > 0) await open.first().click();
     }
 
     /** La y delle righe del menu, dall'alto: aperta e chiusa devono coincidere. */
@@ -209,10 +243,12 @@ test.describe("Aspetto della sidebar (§51.15)", () => {
         await expect(sectionRow(page, OPERATIVITA[0])).toBeVisible({ timeout: 15_000 });
         await ensureOpen(page);
 
+        await foldSections(page);
         const open = await rowTops(page);
         const header = await contextNav(page).boundingBox();
+        // Aperta le voci stanno sotto la riga; chiusa nel pannello: le stesse.
         const vociAperta = await panelVoci(page, OPERATIVITA[0]);
-        await closeSections(page);
+        await foldSections(page);
         await page.getByRole("button", { name: "Comprimi menù laterale" }).click();
         await expect.poll(async () => (await aside(page).boundingBox())?.width).toBe(64);
         const closed = await rowTops(page);
@@ -229,7 +265,7 @@ test.describe("Aspetto della sidebar (§51.15)", () => {
         closed.forEach((y, i) => expect(Math.abs(y - closed[0] - (open[i] - open[0]))).toBeLessThanOrEqual(1));
         expect((await contextNav(page).boundingBox())?.height).toBe(header?.height);
 
-        // Chiusa: al passaggio la sezione apre lo stesso pannello di quando è aperta.
+        // Chiusa: al passaggio la sezione apre il pannello, con le voci di quando è aperta.
         await sectionRow(page, OPERATIVITA[0]).hover();
         await expect(sectionPanel(page, OPERATIVITA[0])).toBeVisible();
         expect(await panelVoci(page, OPERATIVITA[0])).toEqual(vociAperta);
@@ -238,7 +274,7 @@ test.describe("Aspetto della sidebar (§51.15)", () => {
         await expect.poll(async () => (await aside(page).boundingBox())?.width).toBe(232);
     });
 
-    test("righe 36; il pannello a destra della sidebar, almeno 208, come il nome di Panoramica da chiusa", async ({ page }) => {
+    test("righe 36, anche le voci sotto la sezione; chiusa, il pannello a destra, almeno 208, come il nome di Panoramica", async ({ page }) => {
         const paths = await locationPaths(page);
         await page.goto(`${businessRoot(paths[0])}/products`);
         await ensureOpen(page);
@@ -249,15 +285,26 @@ test.describe("Aspetto della sidebar (§51.15)", () => {
         );
         expect(new Set(rows)).toEqual(new Set([36]));
 
-        const panel = (await (await openSection(page, CATALOGO[0])).boundingBox())!;
+        // Aperta: le voci della sezione stanno dentro la sidebar, a 36.
+        const list = await openSection(page, CATALOGO[0]);
         const side = (await aside(page).boundingBox())!;
-        expect(panel.x).toBeGreaterThan(side.x + side.width);
+        const listBox = (await list.boundingBox())!;
+        expect(listBox.x + listBox.width).toBeLessThanOrEqual(side.x + side.width);
+        const sub = await list.getByRole("link").evaluateAll(links =>
+            links.map(l => Math.round(l.getBoundingClientRect().height))
+        );
+        expect(new Set(sub)).toEqual(new Set([36]));
+
+        // Chiusa: il pannello a destra della sidebar.
+        await page.getByRole("button", { name: "Comprimi menù laterale" }).click();
+        await expect.poll(async () => (await aside(page).boundingBox())?.width).toBe(64);
+        const panel = (await (await openSection(page, CATALOGO[0])).boundingBox())!;
+        const closedSide = (await aside(page).boundingBox())!;
+        expect(panel.x).toBeGreaterThan(closedSide.x + closedSide.width);
         expect(panel.width).toBeGreaterThanOrEqual(208);
         await closeSections(page);
 
         // Chiusa, il nome di una voce diretta ha l'aspetto del pannello.
-        await page.getByRole("button", { name: "Comprimi menù laterale" }).click();
-        await expect.poll(async () => (await aside(page).boundingBox())?.width).toBe(64);
         await menuRows(page).getByRole("link", { name: "Panoramica", exact: true }).hover();
         // Il riquadro visibile del tooltip (il `role="tooltip"` di Radix è il testo nascosto).
         await expect(page.getByRole("tooltip")).toContainText("Panoramica");

@@ -44,12 +44,17 @@ export function sectionRow(page: Page, title: string): Locator {
     return menuRows(page).getByRole("button", { name: title, exact: true });
 }
 
-/** Il pannello di una sezione: sta fuori dalla sidebar, in fondo al documento. */
+/**
+ * Le pagine di una sezione: sidebar aperta, l'elenco sotto la riga; chiusa, il
+ * pannello fuori dalla sidebar, in fondo al documento.
+ */
 export function sectionPanel(page: Page, title: string): Locator {
-    return page.locator("body > [role='group']").and(page.getByRole("group", { name: title, exact: true }));
+    return nav(page)
+        .getByRole("list", { name: title, exact: true })
+        .or(page.locator("body > [role='group']").and(page.getByRole("group", { name: title, exact: true })));
 }
 
-/** Apre il pannello di una sezione col clic e lo ritorna. */
+/** Apre una sezione col clic (sotto la riga o nel pannello) e ne ritorna le pagine. */
 export async function openSection(page: Page, title: string): Promise<Locator> {
     const panel = sectionPanel(page, title);
     if (!(await panel.isVisible())) await sectionRow(page, title).click();
@@ -57,7 +62,7 @@ export async function openSection(page: Page, title: string): Promise<Locator> {
     return panel;
 }
 
-/** Chiude il pannello aperto: Esc dalla riga, il mouse lontano dalla sidebar. */
+/** Chiude il pannello aperto (sidebar chiusa): Esc dalla riga, il mouse lontano. Le sezioni aperte sotto la riga restano aperte. */
 export async function closeSections(page: Page): Promise<void> {
     await page.keyboard.press("Escape");
     await page.mouse.move(900, 600);
