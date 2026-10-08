@@ -90,9 +90,18 @@
 }
 
 // Al telefono la sidebar è un pannello sopra l'overlay: il menù le passa sopra.
+// Largo almeno 240 (da aperta un po' più del pulsante, così l'email ci sta),
+// mai meno del pulsante (al telefono la sidebar è più larga).
 .menu {
   z-index: var(--z-toast);
-  min-width: 240px;
+  width: max(var(--radix-dropdown-menu-trigger-width), 240px);
+}
+
+.headLine {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .dot {

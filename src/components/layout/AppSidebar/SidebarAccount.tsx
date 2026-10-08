@@ -2,15 +2,15 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeftRight, ChevronsUpDown, LogOut, Shield, User } from "lucide-react";
 import { useAuth } from "@/context/useAuth";
 import { useTenant } from "@/context/useTenant";
-import { usePermissions } from "@/context/usePermissions";
 import { useSedeScope } from "@/hooks/useSedeScope";
 import { useCurrentUserProfile } from "@/hooks/useCurrentUserProfile";
+import { usePermissions } from "@/context/usePermissions";
+import { ROLE_LABEL } from "@/constants/roles";
 import { Menu } from "@/components/ui/Menu";
 import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge/Badge";
 import Text from "@/components/ui/Text/Text";
 import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
-import { ROLE_LABEL } from "@/constants/roles";
 import type { AppSidebarNavItem } from "./AppSidebar";
 import styles from "./SidebarAccount.module.scss";
 
@@ -44,9 +44,9 @@ export function SidebarAccount({ items, collapsed, isMobile, onRequestClose }: S
     const navigate = useNavigate();
     const { signOut } = useAuth();
     const { selectedTenant } = useTenant();
-    const { permissions } = usePermissions();
     const { readableActivities } = useSedeScope();
     const { fullName, email, avatarUrl, showAdminEntry } = useCurrentUserProfile();
+    const { permissions } = usePermissions();
 
     const go = (to: string) => {
         if (isMobile) onRequestClose();
@@ -54,10 +54,11 @@ export function SidebarAccount({ items, collapsed, isMobile, onRequestClose }: S
     };
 
     const name = fullName ?? email;
+    const role = permissions ? ROLE_LABEL[permissions.role] : null;
+    const who = [fullName, role].filter(Boolean).join(" · ");
     const plan = selectedTenant?.plan ? `Piano ${PLAN_LABEL[selectedTenant.plan] ?? selectedTenant.plan}` : null;
     const sedi = readableActivities.length > 1 ? `${readableActivities.length} sedi` : null;
     const subtitle = [plan, sedi].filter(Boolean).join(" · ") || selectedTenant?.name || "";
-    const role = permissions ? ROLE_LABEL[permissions.role] : null;
     const pending = pendingCount(items);
     const pendingLabel = pending > 0 ? `, ${pending} ${pending === 1 ? "cosa" : "cose"} da vedere` : "";
 
@@ -96,16 +97,20 @@ export function SidebarAccount({ items, collapsed, isMobile, onRequestClose }: S
             side={collapsed ? "right" : "top"}
             align={collapsed ? "end" : "start"}
             contentClassName={styles.menu}
+            density="compact"
         >
+            {/* Testa piccola, come in Claude: chi sei e con che ruolo, poi l'email.
+                Una riga troppo lunga si accorcia e si legge intera al passaggio. */}
             <Menu.Label>
-                <Text as="span" variant="body-sm" weight={600}>
-                    {name}
-                </Text>
-                <Text as="span" variant="caption" colorVariant="muted">
-                    {[email !== name ? email : null, role].filter(Boolean).join(" · ")}
+                {who && (
+                    <Text as="span" variant="caption-xs" weight={500} className={styles.headLine} title={who}>
+                        {who}
+                    </Text>
+                )}
+                <Text as="span" variant="caption-xs" colorVariant="muted" className={styles.headLine} title={email}>
+                    {email}
                 </Text>
             </Menu.Label>
-            <Menu.Separator />
             {items.map(item => (
                 <Menu.Item
                     key={item.to}
@@ -134,6 +139,7 @@ export function SidebarAccount({ items, collapsed, isMobile, onRequestClose }: S
             <Menu.Item icon={ArrowLeftRight} onSelect={() => go("/workspace")}>
                 Cambia azienda
             </Menu.Item>
+            <Menu.Separator />
             <Menu.Item icon={LogOut} onSelect={() => void signOut()}>
                 Esci
             </Menu.Item>

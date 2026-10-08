@@ -13,15 +13,27 @@ interface MenuProps {
     side?: MenuSide;
     /** Classe in più sul pannello: serve a chi lo apre sopra un overlay (sidebar al telefono). */
     contentClassName?: string;
+    /** `compact`: righe 32, icone 14, divisori rientrati (menù dell'account, Officina). */
+    density?: "default" | "compact";
 }
 
-export function Menu({ trigger, children, align = "start", side = "bottom", contentClassName }: MenuProps) {
+export function Menu({
+    trigger,
+    children,
+    align = "start",
+    side = "bottom",
+    contentClassName,
+    density = "default"
+}: MenuProps) {
+    const className = [styles.content, density === "compact" && styles.compact, contentClassName]
+        .filter(Boolean)
+        .join(" ");
     return (
         <RadixDropdownMenu.Root>
             <RadixDropdownMenu.Trigger asChild>{trigger}</RadixDropdownMenu.Trigger>
             <RadixDropdownMenu.Portal>
                 <RadixDropdownMenu.Content
-                    className={contentClassName ? `${styles.content} ${contentClassName}` : styles.content}
+                    className={className}
                     align={align}
                     side={side}
                     sideOffset={6}
