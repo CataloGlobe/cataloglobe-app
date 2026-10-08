@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import { openBusinessPage } from "./business";
+import { openBusinessPage, openBusinessPageByUrl } from "./business";
 import { MISSING_TICKET, TICKET, stubAssistenza, type AssistenzaStub, type WriteCall } from "./assistenzaStub";
 import type { Row } from "./restStub";
 
@@ -29,7 +29,8 @@ async function openList(page: Page): Promise<void> {
 }
 
 async function openTicket(page: Page, id: string): Promise<void> {
-    if (!/\/business\/[0-9a-f-]+\//.test(page.url())) await openBusinessPage(page, "support", "Assistenza");
+    // Dal link diretto: senza support.read la voce non è in sidebar.
+    if (!/\/business\/[0-9a-f-]+\//.test(page.url())) await openBusinessPageByUrl(page, "support");
     await page.goto(page.url().replace(/\/business\/([0-9a-f-]+)\/.*$/, `/business/$1/support/${id}`));
 }
 
@@ -159,8 +160,10 @@ test.describe("Assistenza — elenco", () => {
 
     test("senza lettura: la pagina è bloccata", async ({ page }) => {
         await stub.revoke("support.read");
-        await openList(page);
+        // La voce non è in sidebar: si arriva dal link diretto.
+        await openBusinessPageByUrl(page, "support");
         await stub.revoked;
+        await expect(page.getByRole("navigation", { name: "Menu principale" }).getByRole("link", { name: "Assistenza" })).toHaveCount(0);
         await expect(main(page).getByText("Non hai accesso a questa sezione")).toBeVisible({ timeout: 15_000 });
         await expect(main(page).getByText("Il QR del tavolo 4 e2e")).toHaveCount(0);
     });
