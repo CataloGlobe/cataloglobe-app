@@ -22,6 +22,7 @@ import { useSedeScope } from "@/hooks/useSedeScope";
 import { usePermissions } from "@/context/usePermissions";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 import { canDoOnActivity, canDoOnAnyActivity, canWriteRule, isTenantWide } from "@/lib/permissions";
+import { useDbWritableRules } from "./useDbWritableRules";
 import { listActivityIdsByGroup } from "@/services/supabase/activity-groups";
 import { PageGate } from "@/components/PageGate/PageGate";
 import {
@@ -373,10 +374,18 @@ export default function Programming() {
 
     // Permesso regola per regola, come `can_write_schedule` (T9b): una regola
     // che tocca anche sedi altrui resta in sola lettura.
+    // Un ruolo di sede vede solo le sue sedi di una regola (RLS): la risposta
+    // finale la dà il database, regola per regola.
     const groupMembers = useMemo(() => new Map(Object.entries(activityIdsByGroupId)), [activityIdsByGroupId]);
+    const askDb = permissions !== null && permissions !== undefined && !isTenantWide(permissions);
+    const ruleIds = useMemo(() => rules.map(rule => rule.id), [rules]);
+    const dbWritable = useDbWritableRules(ruleIds, askDb);
     const isRuleWritable = useCallback(
-        (rule: LayoutRule) => (permissions ? canWriteRule(permissions, rule, groupMembers) : false),
-        [groupMembers, permissions]
+        (rule: LayoutRule) =>
+            permissions
+                ? canWriteRule(permissions, rule, groupMembers) && (!askDb || dbWritable?.has(rule.id) === true)
+                : false,
+        [askDb, dbWritable, groupMembers, permissions]
     );
     const groupNameById = useMemo(
         () => new Map(activityGroups.map(group => [group.id, group.name])),

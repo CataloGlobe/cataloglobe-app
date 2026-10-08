@@ -37,6 +37,7 @@ import { FeaturedContentSection } from "./components/FeaturedContentSection";
 import { SchedulingSection } from "./components/SchedulingSection";
 import { HowItWorksButton, RuleTypeHelpModal } from "./components/RuleTypeHelpModal";
 import { sharedRuleNotice } from "./sharedRuleNotice";
+import { useDbWritableRules } from "./useDbWritableRules";
 import styles from "./ProgrammingRuleDetail.module.scss";
 
 const FORM_ID = "rule-detail-form";
@@ -108,8 +109,15 @@ export default function RuleDetailPage() {
         };
     }, [ruleGroupKey, options.groups]);
     const tenantWide = permissions ? isTenantWide(permissions) : false;
+    // Un ruolo di sede vede solo le sue sedi della regola (RLS): decide il
+    // database, che conosce anche quelle altrui.
+    const ruleIdForDb = useMemo(() => (rule ? [rule.id] : []), [rule]);
+    const dbWritable = useDbWritableRules(ruleIdForDb, !!permissions && !tenantWide);
     const canWrite =
-        permissions && rule ? canWriteRule(permissions, rule, groupMembers ?? undefined) : canWriteAny && tenantWide;
+        permissions && rule
+            ? canWriteRule(permissions, rule, groupMembers ?? undefined) && (tenantWide || dbWritable?.has(rule.id) === true)
+            : canWriteAny && tenantWide;
+    const dbPending = !!permissions && !!rule && !tenantWide && dbWritable === null;
     // Aperta dalla sede (PG7): se la regola vale anche altrove, lo si dice
     // prima di cambiarla. Conta la regola salvata, non il form.
     const sharedNotice =
@@ -137,12 +145,13 @@ export default function RuleDetailPage() {
     const readOnlyReason =
         permissions && !canWriteAny
             ? "Sola lettura: per modificare le regole serve il ruolo di amministratore o di manager della sede."
-            : permissions && rule && !canWrite
+            : permissions && rule && !canWrite && !dbPending
               ? `Sola lettura: ${READ_ONLY_REASON.charAt(0).toLowerCase()}${READ_ONLY_REASON.slice(1)}.`
               : subscriptionStatus !== null && !canEdit
               ? "Sola lettura: l'abbonamento non è attivo."
               : null;
-    const readOnly = readOnlyReason !== null;
+    // Finché il database non ha risposto il form resta fermo, senza banner.
+    const readOnly = readOnlyReason !== null || dbPending;
 
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [isDiscardOpen, setIsDiscardOpen] = useState(false);
