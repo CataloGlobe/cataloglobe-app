@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { internalPathOr, isInternalPath } from "../utils/internalPath";
+import { fromPathOf, internalPathOr, isInternalPath } from "../utils/internalPath";
 
 describe("isInternalPath — only paths inside the app (no open redirect)", () => {
     it("accepts app paths, with query and hash", () => {
@@ -40,5 +40,21 @@ describe("internalPathOr — where to land after login", () => {
     it("never sends back to the auth pages", () => {
         expect(internalPathOr("/login", "/workspace")).toBe("/workspace");
         expect(internalPathOr("/verify-otp", "/workspace")).toBe("/workspace");
+    });
+});
+
+describe("fromPathOf — the deep link carried by ProtectedRoute", () => {
+    it("joins pathname and search of state.from", () => {
+        expect(fromPathOf({ from: { pathname: "/business/abc/reservations", search: "?data=2026-10-07" } })).toBe(
+            "/business/abc/reservations?data=2026-10-07"
+        );
+        expect(fromPathOf({ from: { pathname: "/business/abc" } })).toBe("/business/abc");
+    });
+
+    it("is undefined without a Location in state.from", () => {
+        expect(fromPathOf(null)).toBeUndefined();
+        expect(fromPathOf({})).toBeUndefined();
+        expect(fromPathOf({ from: "/business/abc" })).toBeUndefined();
+        expect(fromPathOf({ from: { search: "?x=1" } })).toBeUndefined();
     });
 });

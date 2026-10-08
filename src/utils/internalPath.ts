@@ -22,3 +22,14 @@ export function internalPathOr(path: unknown, fallback: string): string {
     if (AUTH_PATHS.includes(pathname)) return fallback;
     return path;
 }
+
+/**
+ * Il deep link che ProtectedRoute mette in `state.from` (una Location) quando
+ * manda al login, come stringa «pathname + search». Undefined se non c'è.
+ */
+export function fromPathOf(state: unknown): string | undefined {
+    const from = (state as { from?: { pathname?: unknown; search?: unknown } } | null)?.from;
+    if (!from || typeof from !== "object" || typeof from.pathname !== "string") return undefined;
+    const search = typeof from.search === "string" ? from.search : "";
+    return `${from.pathname}${search}`;
+}
