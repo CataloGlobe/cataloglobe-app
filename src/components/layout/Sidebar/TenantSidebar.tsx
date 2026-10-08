@@ -3,7 +3,8 @@ import { useTranslation } from "react-i18next";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import { usePermissions } from "@/context/usePermissions";
 import { usePlanFeatures } from "@/lib/planFeatures";
-import { AppSidebar } from "@/components/layout/AppSidebar/AppSidebar";
+import type { ReactNode } from "react";
+import { AppSidebar, type AppSidebarProps } from "@/components/layout/AppSidebar/AppSidebar";
 import { SidebarAccount } from "@/components/layout/AppSidebar/SidebarAccount";
 import { NAV_MODELS } from "@/utils/navModel";
 import { buildSidebarGroups } from "./sidebarItems";
@@ -46,6 +47,9 @@ export interface TenantSidebarProps extends SidebarSignalProps {
      * cambia sotto gli occhi.
      */
     loading?: boolean;
+    /** Sidebar a tutta altezza (desktop): logo, campanella, dove sei. */
+    brand?: AppSidebarProps["brand"];
+    switcherSlot?: ReactNode;
 }
 
 export default function TenantSidebar({
@@ -59,7 +63,9 @@ export default function TenantSidebar({
     loading = false,
     translationPendingCount = 0,
     importInProgress = false,
-    supportUnread = false
+    supportUnread = false,
+    brand,
+    switcherSlot
 }: TenantSidebarProps) {
     const { businessId = "" } = useParams<{ businessId: string }>();
     const { t } = useTranslation("admin");
@@ -98,6 +104,8 @@ export default function TenantSidebar({
             collapsed={collapsed}
             onRequestClose={onRequestClose}
             onToggleCollapse={onToggleCollapse}
+            brand={brand}
+            switcherSlot={switcherSlot}
         />
     );
 }

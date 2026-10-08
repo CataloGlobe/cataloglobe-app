@@ -6,6 +6,7 @@ import Text from "@/components/ui/Text/Text";
 import { Badge } from "@/components/ui/Badge/Badge";
 import { IconButton } from "@/components/ui/Button/IconButton";
 import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
+import { Logo } from "@/components/ui/Logo/Logo";
 import { SIDEBAR_COLLAPSED, SIDEBAR_EXPANDED } from "@/constants/layout";
 import styles from "./AppSidebar.module.scss";
 
@@ -93,7 +94,18 @@ export interface AppSidebarProps {
     accountSlot?: ReactNode;
     /** Scritta accanto al tasto apri/chiudi quando la barra è aperta (CRM in /admin: «Chiudi la barra»). */
     collapseLabel?: string;
+    /**
+     * Sidebar a tutta altezza (Officina, solo desktop): in cima logo e nome
+     * (link a `homeTo`), le `actions` (la campanella) e apri/chiudi, che lascia
+     * il piede. Sotto, `switcherSlot`: dove sei (azienda e sede).
+     */
+    brand?: { homeTo: string | null; actions?: ReactNode };
+    switcherSlot?: ReactNode;
 }
+
+/** La scorciatoia di apri/chiudi come si scrive sulla tastiera di chi guarda. */
+const TOGGLE_SHORTCUT =
+    typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘B" : "Ctrl+B";
 
 /** Il contatore come si legge: oltre 99 diventa «99+». */
 function badgeText(badge: number | string): number | string {
@@ -177,7 +189,9 @@ export function AppSidebar({
     footerSlot,
     footerItems = [],
     accountSlot,
-    collapseLabel
+    collapseLabel,
+    brand,
+    switcherSlot
 }: AppSidebarProps) {
     const collapsedDesktop = !isMobile && collapsed;
     const { pathname } = useLocation();
@@ -274,6 +288,30 @@ export function AppSidebar({
         </li>
     );
 
+    // Il segno a colori, largo come il quadrato dell'azienda sotto e in colonna
+    // con lui; aperta accanto la scritta. Chiusa il solo segno, e «apri» sta
+    // sotto, sempre a vista: nascosto dietro il logo non lo trovava nessuno.
+    const brandLogo = (
+        <>
+            <Logo variant="icon" color="flat" size={27} alt="" className={styles.brandIcon} />
+            {!collapsed && <Logo variant="wordmark" color="auto" size={15} alt="" className={styles.brandWordmark} />}
+        </>
+    );
+    const toggleLabel = collapsed ? "Apri la barra laterale" : "Chiudi la barra laterale";
+    const toggleButton = (
+        <Tooltip content={`${toggleLabel} · ${TOGGLE_SHORTCUT}`} side={collapsed ? "right" : "bottom"} sideOffset={8}>
+            <button
+                type="button"
+                className={styles.brandToggle}
+                onClick={onToggleCollapse}
+                aria-label={collapsed ? "Espandi menù laterale" : "Comprimi menù laterale"}
+                aria-keyshortcuts="Meta+B Control+B"
+            >
+                {collapsed ? <PanelLeftOpen size={18} aria-hidden="true" /> : <PanelLeftClose size={18} aria-hidden="true" />}
+            </button>
+        </Tooltip>
+    );
+
     return (
         <>
             {isMobile && mobileOpen && (
@@ -311,6 +349,32 @@ export function AppSidebar({
                     </div>
                 )}
 
+                {brand && !isMobile && (
+                    <div className={styles.brandRow} data-collapsed={collapsed || undefined}>
+                        <span className={styles.brandMark}>
+                            {brand.homeTo ? (
+                                // L'ingresso nell'azienda (§51.6): decide `BusinessHomeRedirect`.
+                                <Link to={brand.homeTo} className={styles.brandLink} aria-label="CataloGlobe, vai all'inizio">
+                                    {brandLogo}
+                                </Link>
+                            ) : (
+                                <span className={styles.brandLink}>{brandLogo}</span>
+                            )}
+                        </span>
+                        {brand.actions && !collapsed && <span className={styles.brandActions}>{brand.actions}</span>}
+                        {!collapsed && toggleButton}
+                    </div>
+                )}
+                {/* Chiusa la cima tiene solo il segno, alto come la testata: la campanella scende sotto la linea. */}
+                {brand && !isMobile && collapsed && (
+                    <div className={styles.brandActionsCollapsed}>
+                        {toggleButton}
+                        {brand.actions}
+                    </div>
+                )}
+
+                {switcherSlot && !isMobile && <div className={styles.switcherSlot}>{switcherSlot}</div>}
+
                 {/* Landmark a sé: il rimando che porta fuori dal contesto è
                     navigazione, ma non è una voce del menu. */}
                 {headerSlot && (
@@ -336,11 +400,11 @@ export function AppSidebar({
                         ))}
                         {footerSlot}
                     </div>
-                    {(footerItems.length > 0 || accountSlot || !isMobile) && (
+                    {(footerItems.length > 0 || accountSlot || (!isMobile && !brand)) && (
                         <div className={styles.footer}>
                             {footerItems.length > 0 && <ul className={styles.list}>{footerItems.map(renderItem)}</ul>}
                             {accountSlot && <div className={styles.account}>{accountSlot}</div>}
-                            {!isMobile && (
+                            {!isMobile && !brand && (
                                 <button
                                     type="button"
                                     className={styles.collapseToggle}

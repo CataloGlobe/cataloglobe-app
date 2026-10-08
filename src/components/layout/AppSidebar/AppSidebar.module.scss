@@ -20,9 +20,28 @@ $title-text: 11px;
 $dash-margin: 14px;
 
 .sidebar {
+  // I colori della sidebar in variabili sue, derivate dal fondo. Il fondo è
+  // il viola del chip selezionato al passaggio (--brand-primary-soft-hover,
+  // reso pieno sulla superficie: serve un colore solido per gli anelli dei
+  // contatori). La voce attiva è bianca con ombra, come il chip; i testi
+  // prendono un filo di viola dal fondo (6:1 sul fondo).
+  --sb-bg: color-mix(in srgb, var(--surface), var(--brand-primary) 15%);
+  --sb-text: color-mix(in srgb, var(--gray-600) 88%, var(--brand-primary));
+  // Il passaggio anticipa la voce attiva (bianca): un bianco a metà.
+  --sb-hover: color-mix(in srgb, var(--surface) 55%, var(--sb-bg));
+  --sb-active-bg: var(--surface);
+  --sb-active-bg-hover: var(--surface);
+  --sb-active-shadow: var(--shadow-rest);
+  --sb-active-text: var(--on-brand-soft);
+  --sb-active-icon: currentColor;
+  --sb-strong: var(--text);
+  --sb-faint: var(--gray-400);
+  --sb-icon-hover: var(--gray-600);
+  --sb-line: color-mix(in srgb, var(--sb-bg), var(--brand-primary) 10%);
+
   position: relative;
-  background: var(--surface);
-  border-right: 1px solid var(--border);
+  background: var(--sb-bg);
+  border-right: 1px solid var(--sb-line);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -61,13 +80,121 @@ $dash-margin: 14px;
   justify-content: flex-end;
 }
 
+/* ===== Cima: logo, campanella, apri/chiudi (Officina) ===== */
+// Alta come la testata della pagina (56 + la sua linea), così le due linee
+// stanno sulla stessa riga. Il logo parte dalla colonna
+// delle icone. Chiusa la cima tiene il solo segno (che al passaggio lascia il
+// posto ad apri, come Claude) e la campanella scende sotto la linea.
+.brandRow {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 57px;
+  // 16 = dove comincia il quadrato dell'azienda (11 + 5 del pulsante).
+  padding: 0 $container-x 0 ($container-x + 5px);
+  // La linea prosegue quella sotto la testata della pagina.
+  border-bottom: 1px solid var(--sb-line);
+  margin-bottom: var(--space-8);
+
+  &[data-collapsed] {
+    padding: 0 $container-x;
+  }
+}
+
+.brandMark {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+
+  .brandRow[data-collapsed] & {
+    flex: none;
+    width: $row-x * 2 + $icon-size;
+    height: $row-height;
+    justify-content: center;
+  }
+}
+
+.brandLink {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+  border-radius: var(--radius-control);
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-focus);
+  }
+}
+
+// Le misure stanno in `size` (27 di altezza = 32 di larghezza, come il
+// quadrato dell'azienda: i centri stanno sulla colonna delle icone; la
+// scritta a 15 lascia posto a campanella e pulsante). La classe base di Logo
+// vincerebbe su un'altezza scritta qui.
+.brandIcon,
+.brandWordmark {
+  display: block;
+}
+
+.brandActions {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+}
+
+.brandActionsCollapsed {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: $row-x * 2 + $icon-size;
+  margin: 0 $container-x var(--space-4);
+}
+
+.brandToggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--sb-faint);
+  cursor: pointer;
+  transition:
+    background var(--timing-motion-fast) var(--easing-state),
+    color var(--timing-motion-fast) var(--easing-state);
+
+  &:hover {
+    background: var(--sb-hover);
+    color: var(--sb-icon-hover);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-focus);
+  }
+}
+
+// Dove sei (azienda e sede), sotto la cima.
+.switcherSlot {
+  flex-shrink: 0;
+  display: flex;
+  padding: 0 $container-x var(--space-8);
+}
+
 /* ===== Intestazione del contesto (sede) ===== */
 // Fuori dallo scroll, stessa geometria aperta e chiusa: le voci sotto non
 // si spostano.
 .headerSlot {
   flex-shrink: 0;
   padding: var(--space-8) $container-x;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--sb-line);
 }
 
 /* ===== Nav: scroll delle voci + piede ===== */
@@ -109,7 +236,7 @@ $dash-margin: 14px;
 // Il piede: Assistenza e il pulsante apri/chiudi, fuori dallo scroll.
 .footer {
   flex-shrink: 0;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--sb-line);
   padding: var(--space-4) $container-x;
 }
 
@@ -142,7 +269,7 @@ $dash-margin: 14px;
   letter-spacing: 0.06em;
   line-height: 1;
   text-transform: uppercase;
-  color: var(--text-muted);
+  color: var(--sb-text);
   white-space: nowrap;
   overflow: hidden;
 }
@@ -158,7 +285,7 @@ $dash-margin: 14px;
     // All'altezza del testo che sostituisce.
     bottom: $title-pad-bottom + $title-text * 0.5;
     height: 1px;
-    background: var(--border);
+    background: var(--sb-line);
   }
 }
 
@@ -190,7 +317,7 @@ $dash-margin: 14px;
   padding: 0 $row-x;
   box-sizing: border-box;
   border-radius: var(--radius-control);
-  color: var(--text-muted);
+  color: var(--sb-text);
   text-decoration: none;
   overflow: hidden;
   transition:
@@ -199,8 +326,8 @@ $dash-margin: 14px;
 
   &:hover {
     text-decoration: none;
-    background: var(--hover-bg);
-    color: var(--text);
+    background: var(--sb-hover);
+    color: var(--sb-strong);
   }
 
   &:focus-visible {
@@ -244,12 +371,17 @@ $dash-margin: 14px;
 
 // Voce attiva: fondo accent-soft, testo e icona accent, semibold.
 .active {
-  background: var(--brand-primary-soft);
-  color: var(--on-brand-soft);
+  background: var(--sb-active-bg);
+  box-shadow: var(--sb-active-shadow);
+  color: var(--sb-active-text);
 
   &:hover {
-    background: var(--brand-primary-soft-hover);
-    color: var(--on-brand-soft);
+    background: var(--sb-active-bg-hover);
+    color: var(--sb-active-text);
+  }
+
+  .icon {
+    color: var(--sb-active-icon);
   }
 
   .label {
@@ -259,12 +391,12 @@ $dash-margin: 14px;
 
 /* Voce annunciata ma non navigabile («In arrivo»): attenuata, con tooltip. */
 .disabled {
-  color: var(--gray-400);
+  color: var(--sb-faint);
   cursor: default;
 
   &:hover {
     background: transparent;
-    color: var(--gray-400);
+    color: var(--sb-faint);
   }
 }
 
@@ -340,7 +472,7 @@ $dash-margin: 14px;
   text-align: center;
   background: var(--hover-bg);
   color: var(--text);
-  box-shadow: 0 0 0 2px var(--surface);
+  box-shadow: 0 0 0 2px var(--sb-bg);
 
   &[data-tone="brand"] {
     background: var(--brand-primary);
@@ -407,15 +539,15 @@ $dash-margin: 14px;
   border: none;
   border-radius: var(--radius-control);
   background: transparent;
-  color: var(--gray-400);
+  color: var(--sb-faint);
   cursor: pointer;
   transition:
     background var(--timing-motion-fast) var(--easing-state),
     color var(--timing-motion-fast) var(--easing-state);
 
   &:hover {
-    background: var(--hover-bg);
-    color: var(--gray-600);
+    background: var(--sb-hover);
+    color: var(--sb-icon-hover);
   }
 
   &:focus-visible {
@@ -434,4 +566,9 @@ $dash-margin: 14px;
   white-space: nowrap;
   overflow: hidden;
   color: inherit;
+}
+
+// In scuro il soft-hover del tema è più carico (28%).
+:global(html[data-theme="dark"]) .sidebar {
+  --sb-bg: color-mix(in srgb, var(--surface), var(--brand-primary) 28%);
 }
