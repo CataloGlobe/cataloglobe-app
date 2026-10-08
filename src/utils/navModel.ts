@@ -98,7 +98,12 @@ export interface NavEntry {
     verticalLabel?: boolean;
 }
 
+/** Le sezioni della sidebar (Officina): ognuna ha la sua icona. */
+export type NavGroupKey = "locale" | "menu" | "vetrina" | "servizio" | "clienti";
+
 export interface NavGroup {
+    /** Senza chiave il gruppo non è una sezione: le sue voci stanno sciolte. */
+    key?: NavGroupKey;
     /** `null` = fuori gruppo (§19.5: un gruppo di una voce sola non raggruppa niente). */
     title: string | null;
     entries: NavEntry[];
@@ -337,10 +342,10 @@ const SUPPORT: NavEntry = {
 // Titoli dell'Officina (sidebar approvata da Alex il 2026-10-08): Menù,
 // Vetrina, Servizio, Clienti e numeri; stessi titoli in tutti i contesti.
 
-const IL_LOCALE: NavGroup = { title: "Il locale", entries: [SCHEDA, COSA_VEDONO] };
-const MENU: NavGroup = { title: "Menù", entries: [CATALOGS, PRODUCTS, SCHEDULING] };
-const VETRINA: NavGroup = { title: "Vetrina", entries: [STYLES, FEATURED, STORIES] };
-const IN_SALA: NavGroup = { title: "Servizio", entries: [SERVIZIO, PRENOTAZIONI, COMANDE, STORICO] };
+const IL_LOCALE: NavGroup = { key: "locale", title: "Il locale", entries: [SCHEDA, COSA_VEDONO] };
+const MENU: NavGroup = { key: "menu", title: "Menù", entries: [CATALOGS, PRODUCTS, SCHEDULING] };
+const VETRINA: NavGroup = { key: "vetrina", title: "Vetrina", entries: [STYLES, FEATURED, STORIES] };
+const IN_SALA: NavGroup = { key: "servizio", title: "Servizio", entries: [SERVIZIO, PRENOTAZIONI, COMANDE, STORICO] };
 const CLIENTI_E_NUMERI = "Clienti e numeri";
 
 export const NAV_MODELS: Record<NavContext, NavModel> = {
@@ -351,7 +356,7 @@ export const NAV_MODELS: Record<NavContext, NavModel> = {
             MENU,
             VETRINA,
             IN_SALA,
-            { title: CLIENTI_E_NUMERI, entries: [ANALITICHE, RECENSIONI, GUESTS] }
+            { key: "clienti", title: CLIENTI_E_NUMERI, entries: [ANALITICHE, RECENSIONI, GUESTS] }
         ]
     },
     azienda: {
@@ -359,14 +364,14 @@ export const NAV_MODELS: Record<NavContext, NavModel> = {
             { title: null, entries: [OVERVIEW, LOCATIONS] },
             MENU,
             VETRINA,
-            { title: CLIENTI_E_NUMERI, entries: [ANALYTICS, REVIEWS, GUESTS] }
+            { key: "clienti", title: CLIENTI_E_NUMERI, entries: [ANALYTICS, REVIEWS, GUESTS] }
         ]
     },
     sede: {
         groups: [
-            { title: IL_LOCALE.title, entries: [...IL_LOCALE.entries, PROGRAMMAZIONE_SEDE] },
+            { key: "locale", title: IL_LOCALE.title, entries: [...IL_LOCALE.entries, PROGRAMMAZIONE_SEDE] },
             IN_SALA,
-            { title: CLIENTI_E_NUMERI, entries: [ANALITICHE, RECENSIONI] }
+            { key: "clienti", title: CLIENTI_E_NUMERI, entries: [ANALITICHE, RECENSIONI] }
         ]
     }
 };

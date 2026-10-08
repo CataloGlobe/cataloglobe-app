@@ -7,17 +7,39 @@ type TooltipProps = {
     side?: "top" | "right" | "bottom" | "left";
     align?: "start" | "center" | "end";
     sideOffset?: number;
+    /**
+     * `panel`: il nome di una voce della sidebar chiusa, con l'aspetto del
+     * pannello delle sezioni (fondo chiaro, senza freccia), così le voci
+     * dirette e le sezioni parlano la stessa lingua. Default `dark`.
+     */
+    variant?: "dark" | "panel";
+    /** Ritardo prima di aprire; senza, quello del `TooltipProvider`. */
+    delayDuration?: number;
 };
 
-export function Tooltip({ content, children, side = "top", align = "center", sideOffset = 8 }: TooltipProps) {
+export function Tooltip({
+    content,
+    children,
+    side = "top",
+    align = "center",
+    sideOffset = 8,
+    variant = "dark",
+    delayDuration
+}: TooltipProps) {
+    const panel = variant === "panel";
     return (
-        <RadixTooltip.Root>
+        <RadixTooltip.Root delayDuration={delayDuration}>
             <RadixTooltip.Trigger asChild>{children}</RadixTooltip.Trigger>
 
             <RadixTooltip.Portal>
-                <RadixTooltip.Content side={side} align={align} sideOffset={sideOffset} className={styles.tooltip}>
+                <RadixTooltip.Content
+                    side={side}
+                    align={align}
+                    sideOffset={sideOffset}
+                    className={panel ? `${styles.tooltip} ${styles.panel}` : styles.tooltip}
+                >
                     {content}
-                    <RadixTooltip.Arrow className={styles.arrow} />
+                    {!panel && <RadixTooltip.Arrow className={styles.arrow} />}
                 </RadixTooltip.Content>
             </RadixTooltip.Portal>
         </RadixTooltip.Root>

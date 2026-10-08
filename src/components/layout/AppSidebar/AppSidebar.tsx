@@ -8,6 +8,7 @@ import { IconButton } from "@/components/ui/Button/IconButton";
 import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
 import { Logo } from "@/components/ui/Logo/Logo";
 import { SIDEBAR_COLLAPSED, SIDEBAR_EXPANDED } from "@/constants/layout";
+import { SidebarSection } from "./SidebarSection";
 import styles from "./AppSidebar.module.scss";
 
 /**
@@ -69,6 +70,12 @@ export interface AppSidebarNavItem {
 export interface AppSidebarNavGroup {
     /** Titolo del gruppo (`caption-xs` 600 uppercase muto). Sparisce collassata. */
     title?: string;
+    /**
+     * Con l'icona (e il titolo) il gruppo è una sezione (Officina, desktop):
+     * una riga sola, le sue voci nel pannello a destra (`SidebarSection`).
+     * Con una voce sola la riga porta dritta lì. Al telefono resta un gruppo.
+     */
+    icon?: ReactNode;
     items: AppSidebarNavItem[];
 }
 
@@ -106,6 +113,12 @@ export interface AppSidebarProps {
 /** La scorciatoia di apri/chiudi come si scrive sulla tastiera di chi guarda. */
 const TOGGLE_SHORTCUT =
     typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘B" : "Ctrl+B";
+
+/** Prima di aprire il pannello di una sezione, e prima di chiuderlo. */
+const SECTION_OPEN_DELAY = 60;
+const SECTION_CLOSE_DELAY = 200;
+/** Dalla riga chiusa (42) al bordo della sidebar (11), più lo spazio del pannello (6). */
+const PANEL_LABEL_OFFSET = 17;
 
 /** Il contatore come si legge: oltre 99 diventa «99+». */
 function badgeText(badge: number | string): number | string {
@@ -223,6 +236,69 @@ export function AppSidebar({
         updateFade();
     }, [pathname, updateFade]);
 
+    // Il pannello delle sezioni: uno aperto alla volta. Al passaggio si apre
+    // dopo un attimo (andando verso la pagina non lampeggia); con un pannello
+    // già aperto si passa subito a quello accanto. Uscendo si chiude dopo un
+    // attimo, il tempo di attraversare lo spazio fino al pannello.
+    const [openSection, setOpenSection] = useState<string | null>(null);
+    const openSectionRef = useRef<string | null>(null);
+    const openTimer = useRef<number | undefined>(undefined);
+    const closeTimer = useRef<number | undefined>(undefined);
+    const showSection = useCallback((id: string | null) => {
+        window.clearTimeout(openTimer.current);
+        window.clearTimeout(closeTimer.current);
+        openSectionRef.current = id;
+        setOpenSection(id);
+    }, []);
+    const closeSection = useCallback(() => showSection(null), [showSection]);
+    const hoverSection = (id: string) => {
+        window.clearTimeout(closeTimer.current);
+        window.clearTimeout(openTimer.current);
+        if (openSectionRef.current !== null) {
+            showSection(id);
+            return;
+        }
+        openTimer.current = window.setTimeout(() => showSection(id), SECTION_OPEN_DELAY);
+    };
+    const leaveSection = () => {
+        window.clearTimeout(openTimer.current);
+        closeTimer.current = window.setTimeout(() => showSection(null), SECTION_CLOSE_DELAY);
+    };
+    useEffect(() => {
+        showSection(null);
+    }, [pathname, collapsed, showSection]);
+    useEffect(
+        () => () => {
+            window.clearTimeout(openTimer.current);
+            window.clearTimeout(closeTimer.current);
+        },
+        []
+    );
+    const sectionsMode = !isMobile && groups.some(group => group.icon && group.title);
+
+    const renderGroupAsSection = (group: AppSidebarNavGroup, index: number): ReactNode => {
+        const title = group.title ?? "";
+        if (group.items.length === 1) {
+            // Una pagina sola: niente pannello, la riga porta lì col nome della sezione.
+            return renderItem({ ...group.items[0], label: title, icon: group.icon });
+        }
+        const id = `${index}:${title}`;
+        return (
+            <SidebarSection
+                key={id}
+                title={title}
+                icon={group.icon}
+                items={group.items}
+                pathname={pathname}
+                open={openSection === id}
+                onHoverStart={() => hoverSection(id)}
+                onHoverEnd={leaveSection}
+                onOpenNow={() => showSection(id)}
+                onClose={closeSection}
+            />
+        );
+    };
+
     /**
      * Chiusa, il nome della voce passa al tooltip, sulla riga intera (mouse e
      * focus: `onFocus` di React risale dal link). Il trigger è un contenitore:
@@ -230,7 +306,23 @@ export function AppSidebar({
      * di `NavLink`.
      */
     const withTooltip = (link: AppSidebarNavItem, node: ReactNode, content?: ReactNode) =>
-        collapsedDesktop || content ? (
+        sectionsMode && collapsedDesktop && !content ? (
+            // Con le sezioni il nome della voce diretta ha l'aspetto del loro
+            // pannello, alla stessa distanza dalla sidebar.
+            <Tooltip
+                variant="panel"
+                delayDuration={SECTION_OPEN_DELAY}
+                content={
+                    <Text as="span" variant="body-sm" weight={600}>
+                        {link.locked ? `${link.label} · Pro` : link.label}
+                    </Text>
+                }
+                side="right"
+                sideOffset={PANEL_LABEL_OFFSET}
+            >
+                <span className={styles.tipAnchor}>{node}</span>
+            </Tooltip>
+        ) : collapsedDesktop || content ? (
             <Tooltip content={content ?? (link.locked ? `${link.label} · Pro` : link.label)} side="right" sideOffset={12}>
                 <span className={styles.tipAnchor}>{node}</span>
             </Tooltip>
@@ -391,13 +483,23 @@ export function AppSidebar({
                         data-fade-bottom={fade.bottom || undefined}
                         onScroll={updateFade}
                     >
-                        {/* Fra i gruppi solo i titoli (aperta) e i loro trattini (chiusa), §51.15. */}
-                        {groups.map((group, i) => (
+                        {sectionsMode ? (
+                            <ul className={`${styles.list} ${styles.sections}`}>
+                                {groups.map((group, i) =>
+                                    group.icon && group.title
+                                        ? renderGroupAsSection(group, i)
+                                        : group.items.map(renderItem)
+                                )}
+                            </ul>
+                        ) : (
+                            /* Fra i gruppi solo i titoli (aperta) e i loro trattini (chiusa), §51.15. */
+                            groups.map((group, i) => (
                             <div key={i} className={styles.group} role="group" aria-label={group.title}>
                                 {group.title && <span className={styles.groupTitle}>{group.title}</span>}
                                 <ul className={styles.list}>{group.items.map(renderItem)}</ul>
                             </div>
-                        ))}
+                            ))
+                        )}
                         {footerSlot}
                     </div>
                     {(footerItems.length > 0 || accountSlot || (!isMobile && !brand)) && (

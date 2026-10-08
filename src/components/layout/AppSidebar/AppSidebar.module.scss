@@ -337,6 +337,37 @@ $dash-margin: 14px;
 
 }
 
+/* ===== Sezioni (Officina, desktop) ===== */
+// Le sezioni sono le voci: più aria fra le righe e il nome pieno. Le loro
+// pagine, più leggere, stanno nel pannello a destra (`SidebarFlyout`).
+.sections {
+  gap: var(--space-4);
+
+  .label {
+    font-weight: 600;
+  }
+}
+
+// La riga di una sezione è un pulsante: apre il pannello, non porta a una pagina.
+.sectionRow {
+  width: 100%;
+  border: none;
+  background: transparent;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+// Pannello aperto: la riga resta accesa come al passaggio.
+.sectionOpen:not(.active) {
+  background: var(--sb-hover);
+  color: var(--sb-strong);
+}
+
+.sectionChevron {
+  color: var(--sb-faint);
+}
+
 // Nel pannello mobile la riga resta a 40: è un bersaglio touch.
 .mobile .link {
   height: $row-height-touch;
