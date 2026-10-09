@@ -597,6 +597,26 @@ test.describe("Programmazione — calendario, simulatore, guida", () => {
         await expect(back).toHaveCount(0);
     });
 
+    test("lo switch sta accanto al titolo; il Calendario prende tutta la pagina e resta nell'indirizzo", async ({ page }) => {
+        await openList(page, "layout");
+        const tipi = main(page).getByRole("tablist", { name: "Tipo di regola" });
+        await expect(tipi).toBeVisible();
+        await openCalendar(page);
+        await expect(page).toHaveURL(/[?&]vista=calendario/);
+        await expect(main(page).getByRole("radio", { name: "Calendario", exact: true })).toHaveAttribute("aria-checked", "true");
+        // sotto, solo il calendario: niente tipi, niente «Nuova regola»
+        await expect(tipi).toHaveCount(0);
+        await expect(main(page).getByRole("button", { name: /^Nuova regola/ })).toHaveCount(0);
+        await expect(main(page).getByRole("button", { name: "Aggiungi", exact: true })).toBeVisible();
+        await noHorizontalScroll(page);
+        // ricaricando si resta nel Calendario; «Programmazione» torna all'elenco
+        await page.reload();
+        await expect(main(page).getByRole("radio", { name: "Calendario", exact: true })).toHaveAttribute("aria-checked", "true");
+        await main(page).getByRole("radio", { name: "Programmazione", exact: true }).click();
+        await expect(page).not.toHaveURL(/vista=/);
+        await expect(tipi).toBeVisible();
+    });
+
     test("le sedi: nella colonna quelle scelte, le altre nel pannello; a colonna chiusa un bottone nella barra", async ({ page }) => {
         await openList(page, "layout");
         await openCalendar(page);
@@ -1480,12 +1500,12 @@ test.describe("Programmazione — dettaglio", () => {
     });
 });
 
-// F5: il filtro per tipo sta nella testata, nello slot delle tab. A 1024 e
-// 1280 con la sidebar aperta non sta in riga con le azioni: due righe, azioni
-// sopra e tab sotto, mai la barra compatta. La prima tab è sul filo del
-// contenuto sotto.
+// F5: il filtro per tipo sta nella testata, nello slot delle tab, mai la
+// barra compatta. A 1024 con la sidebar aperta non sta in riga con le azioni:
+// due righe, azioni sopra e tab sotto. A 1280, con lo switch Programmazione |
+// Calendario salito accanto al titolo, sta in riga.
 for (const width of [1024, 1280]) {
-    test(`a ${width} le tab del tipo stanno nella testata, sotto le azioni`, async ({ page }) => {
+    test(`a ${width} le tab del tipo stanno nella testata, ${width === 1024 ? "sotto le azioni" : "in riga con le azioni"}`, async ({ page }) => {
         await stubProgrammazione(page);
         await openList(page);
         await page.setViewportSize({ width, height: 900 });
@@ -1495,7 +1515,8 @@ for (const width of [1024, 1280]) {
         await expect(create).toBeVisible();
         const tabsBox = (await tabs.boundingBox())!;
         const createBox = (await create.boundingBox())!;
-        expect(tabsBox.y).toBeGreaterThanOrEqual(createBox.y + createBox.height);
+        if (width === 1024) expect(tabsBox.y).toBeGreaterThanOrEqual(createBox.y + createBox.height);
+        else expect(tabsBox.y).toBeLessThan(createBox.y + createBox.height);
         // La frase del tipo sotto le tab non c'è più (PG2): resta solo la posizione.
     });
 }
@@ -1572,15 +1593,15 @@ test.describe("Programmazione — Elenco e Calendario a sole icone", () => {
         await expect.poll(indicatorOffset).toBe(0);
     });
 
-    test("nella barra compatta l'icona Elenco/Calendario ha il tooltip", async ({ page }) => {
+    test("a 375 lo switch resta accanto al titolo, a parole, anche con la barra compatta", async ({ page }) => {
         await openList(page);
         await page.setViewportSize({ width: 375, height: 812 });
-        const icon = page.getByRole("button", { name: "Calendario", exact: true }).filter({ visible: true }).first();
-        await expect(icon).not.toHaveAttribute("title");
-        await icon.hover();
-        await expect(page.getByRole("tooltip", { name: "Calendario" })).toBeVisible();
-        await icon.click();
-        await expect(page.getByRole("button", { name: "Programmazione", exact: true }).filter({ visible: true }).first()).toBeVisible();
+        const cal = main(page).getByRole("radio", { name: "Calendario", exact: true });
+        await expect(cal).toBeVisible();
+        await cal.click();
+        await expect(page).toHaveURL(/[?&]vista=calendario/);
+        await expect(cal).toHaveAttribute("aria-checked", "true");
+        await noHorizontalScroll(page);
     });
 });
 

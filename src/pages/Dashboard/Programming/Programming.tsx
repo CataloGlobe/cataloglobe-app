@@ -191,7 +191,21 @@ export default function Programming() {
     const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
     const [updatingRules, setUpdatingRules] = useState<Set<string>>(new Set());
 
-    const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
+    // La vista sta nell'indirizzo (?vista=calendario): lo switch è nella barra del titolo.
+    const viewMode: "list" | "calendar" = searchParams.get("vista") === "calendario" ? "calendar" : "list";
+    const setViewMode = useCallback(
+        (next: "list" | "calendar") =>
+            setSearchParams(
+                prev => {
+                    const params = new URLSearchParams(prev);
+                    if (next === "calendar") params.set("vista", "calendario");
+                    else params.delete("vista");
+                    return params;
+                },
+                { replace: true }
+            ),
+        [setSearchParams]
+    );
     const [searchTerm, setSearchTerm] = useState("");
     // Niente filtro sede nella pagina d'azienda (T9b, PG5; superato §51.11):
     // la sede si guarda da dentro la sede. Un vecchio link `?sede=<id>` porta
@@ -823,18 +837,22 @@ export default function Programming() {
                     width={step === 2 ? "min" : "default"}
                 />
             )}
-            <SegmentedControl<"list" | "calendar">
-                value={viewMode}
-                onChange={setViewMode}
-                iconsOnly={step > 0}
-                options={[
-                    { value: "list", label: "Programmazione", icon: <List size={16} /> },
-                    { value: "calendar", label: "Calendario", icon: <CalendarDays size={16} /> }
-                ]}
-            />
             <SplitButton actions={headerSplitActions} loading={isCreating} />
         </div>
     ), [viewMode, searchTerm, headerSplitActions, isCreating]);
+
+    // Programmazione | Calendario accanto al titolo (Alex): con Calendario
+    // la banda sotto è vuota e la pagina è tutta del calendario.
+    const titleSide = useMemo(() => (
+        <SegmentedControl<"list" | "calendar">
+            value={viewMode}
+            onChange={setViewMode}
+            options={[
+                { value: "list", label: "Programmazione", icon: <List size={16} /> },
+                { value: "calendar", label: "Calendario", icon: <CalendarDays size={16} /> }
+            ]}
+        />
+    ), [viewMode, setViewMode]);
 
     const headerActions = useMemo(() => renderHeaderActions(0), [renderHeaderActions]);
     const headerNarrowerActions = useMemo(
@@ -861,19 +879,6 @@ export default function Programming() {
                   placeholder: "Cerca per nome, tipo, sede o id…"
               }
             : undefined,
-        persistentIcons: [
-            viewMode === "list"
-                ? {
-                      icon: <CalendarDays size={18} />,
-                      label: "Calendario",
-                      onClick: () => setViewMode("calendar")
-                  }
-                : {
-                      icon: <List size={18} />,
-                      label: "Programmazione",
-                      onClick: () => setViewMode("list")
-                  }
-        ],
         // `headerSplitActions` è già in ordine di lettura: le secondarie
         // precedono la primaria, che è l'ultima.
         secondaryActions: headerSplitActions.slice(0, -1),
@@ -881,11 +886,13 @@ export default function Programming() {
         loading: isCreating
     }), [typeOptions, typeCounts, ruleTypeFilter, handleRuleTypeFilterChange, viewMode, searchTerm, headerSplitActions, isCreating]);
 
+    const calendarOnly = viewMode === "calendar";
     usePageHeader({
-        leading: headerLeading,
-        actions: headerActions,
-        narrowerActions: headerNarrowerActions,
-        compact: headerCompact,
+        titleSide,
+        leading: calendarOnly ? undefined : headerLeading,
+        actions: calendarOnly ? undefined : headerActions,
+        narrowerActions: calendarOnly ? undefined : headerNarrowerActions,
+        compact: calendarOnly ? undefined : headerCompact,
     });
 
     const statusGroups: Array<{
