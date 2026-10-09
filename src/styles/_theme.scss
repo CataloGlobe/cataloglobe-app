@@ -10,6 +10,12 @@
   --brand-primary-hover: #4648c6;
   --brand-primary-soft: rgba(99, 102, 241, 0.1);
   --brand-primary-soft-hover: rgba(99, 102, 241, 0.15);
+  // La sidebar e i suoi segnali, come nell'artifact della navigazione
+  // approvato da Alex il 2026-10-09: fondo lilla, pallino arancio per «c'è
+  // qualcosa da vedere», verde per quello che è in corso adesso.
+  --sidebar-bg: #f1f0fe;
+  --signal-attention: #c2410c;
+  --signal-live: #0f8a5f;
   // Rampa slate unica (§44.3): skeleton = border / hover-bg.
   --skeleton-base: #e2e8f0;
   --skeleton-highlight: #f1f5f9;
@@ -293,13 +299,16 @@
   --order-new-soft: rgba(56, 189, 248, 0.16);
   --order-new-ink: var(--color-sky-200);
 
+  // Scuro dell'artifact della navigazione (Alex, 2026-10-09): schede un
+  // gradino sopra il fondo, testo slate-100, linee più quiete. Prima: card
+  // #1e293b, testo #f9fafb, bordo #3b4a63.
   --bg: #0f172a;
-  --text: #f9fafb;
-  --card-bg: #1e293b;
-  // Bordo visibile su entrambi i fondi: #1f2a3a stava a 1,23:1 su --bg e
-  // 1,01:1 su --surface (invisibile sulle card). #3b4a63 = 1,99:1 / 1,63:1,
-  // il primo valore della scala slate con entrambi sopra 1,5:1.
-  --border: #3b4a63;
+  --text: #f1f5f9;
+  --card-bg: #162033;
+  --border: #2c3a52;
+  --sidebar-bg: #1c2440;
+  --signal-attention: #fb923c;
+  --signal-live: #34d399;
   --hover-bg: #334155;
   // Accento indigo in entrambi i temi (§44.7): indigo-400 su slate-900.
   --brand-primary: #818cf8;
