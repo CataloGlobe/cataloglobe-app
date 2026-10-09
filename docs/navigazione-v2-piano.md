@@ -42,7 +42,7 @@ Passando da 1 a 2 sedi entrano nella sede Il locale, Operatività e la parte di 
 
 **Azienda (2+ sedi)**: — Panoramica · Sedi | Catalogo (Menù · Prodotti · Programmazione) | Pagina pubblica (Stili · In evidenza · Storie · Lingue) | Andamento (Analitiche · Recensioni · Clienti) | piede Impostazioni · Assistenza.
 
-**Sede (2+ sedi)**: ← Tutte le sedi | Il locale (Scheda · Cosa vedono i clienti) | Operatività (Servizio · Prenotazioni · Comande · Storico) | Andamento (Analitiche · Recensioni) | piede Assistenza (Impostazioni è dell'azienda, non sta nella sede).
+**Sede (2+ sedi)**: ← Tutte le sedi | Il locale (Scheda · Cosa vedono i clienti) | Operatività (Servizio · Prenotazioni · Comande · Storico) | Andamento (Analitiche · Recensioni) | piede: il menù dell'account, lo stesso dell'azienda (Impostazioni · Team · Abbonamento · Lingue · Assistenza). Impostazioni è dell'azienda ma si apre anche da dentro la sede (deciso il 2026-10-09).
 
 Ordine voluto: prima il locale, poi cosa offre, poi il lavoro in sala, poi i risultati. Operatività non sta in cima perché è del piano Pro.
 «Menù» è l'etichetta di verticale (`catalogLabel`), non una stringa fissa.

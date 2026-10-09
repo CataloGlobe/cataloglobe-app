@@ -24,6 +24,12 @@
     background: var(--sb-hover, var(--hover-bg));
   }
 
+  // Dove sono: la pagina aperta è una voce del menù, acceso come una voce attiva.
+  &[aria-current="page"] {
+    background: var(--sb-active-bg, var(--hover-bg));
+    box-shadow: var(--sb-active-shadow, none);
+  }
+
   &:focus-visible {
     outline: none;
     box-shadow: var(--shadow-focus);
@@ -40,19 +46,16 @@
   flex: none;
 }
 
-// Il numero sull'avatar: cose da vedere nel menù (traduzioni, risposte).
-.count {
+// Il pallino sull'avatar: c'è qualcosa da vedere nel menù (traduzioni,
+// risposte). Il numero sta sulle voci; misura del pallino delle voci.
+.pending {
   position: absolute;
-  top: -5px;
-  right: -7px;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 var(--space-4);
+  top: 0;
+  right: 0;
+  width: 7px;
+  height: 7px;
   border-radius: var(--radius-pill);
-  line-height: 18px;
-  text-align: center;
   background: var(--brand-primary);
-  color: var(--surface);
   box-shadow: 0 0 0 2px var(--sb-bg, var(--surface));
 }
 
@@ -108,6 +111,6 @@
   display: inline-block;
   width: 7px;
   height: 7px;
-  border-radius: 50%;
+  border-radius: var(--radius-pill);
   background: var(--brand-primary);
 }
