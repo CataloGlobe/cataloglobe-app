@@ -37,7 +37,10 @@ import {
 import { CalendarioPanel, type ProductInfo } from "./CalendarioPanel";
 import type { DropItem } from "./calendarWrites";
 import { CalendarioSection, type SectionGroup } from "./CalendarioSection";
-import { SediBottone, type PannelloGruppo } from "@/components/ui/SediPannello/SediPannello";
+import { SediBottone, type PannelloGruppo, type SedeScelta } from "@/components/ui/SediPannello/SediPannello";
+import { useTenantId } from "@/context/useTenantId";
+import { useConfrontoQui, useSediVista } from "@/hooks/useSediVista";
+import { confrontoGiorno, maggioranza, programma, type Diversi, type Programma } from "./calendarConfronto";
 import {
     blankDraft,
     cloneDraft,
@@ -230,7 +233,6 @@ export default function CalendarioView({
     const [pop, setPop] = useState(false);
     const [monOff, setMonOff] = useState(0);
     const multi = sedi.length > 1;
-    const [picked, setPicked] = useState<string[]>(() => sedi.slice(0, 2).map(x => x.id));
     const [open, setOpen] = useState<OpenLane>(() => (sedi[0] ? { kind: "menu", day: dayOfWeek(today), sede: sedi[0].id } : null));
     // la linea toccata apre il pannello piccolo; la colonna del mese si chiude e torna alla chiusura
     const [pick, setPick] = useState<Pick | null>(null);
@@ -275,15 +277,38 @@ export default function CalendarioView({
         return () => document.removeEventListener("keydown", esc);
     }, [pick, pop, panelBefore]);
 
-    // le sedi cambiano (dati caricati, permessi): si tengono quelle che ci sono ancora
-    useEffect(() => {
-        setPicked(prev => {
-            const ok = prev.filter(id => sedi.some(x => x.id === id));
-            return ok.length ? ok : sedi.slice(0, 2).map(x => x.id);
-        });
-    }, [sedi]);
-
-    const shown = multi ? sedi.filter(x => picked.includes(x.id)) : sedi.slice(0, 1);
+    // i gruppi del pannello delle sedi: quelli con almeno una sede che si guarda; quello con tutte
+    // (il gruppo di sistema) è già «Tutte le sedi»
+    const seatGroups = useMemo<PannelloGruppo[]>(
+        () =>
+            [...groupNames]
+                .map(([id, name]) => ({ id, name, sedeIds: sedi.filter(x => groupIdsByActivity[x.id]?.includes(id)).map(x => x.id) }))
+                .filter(g => g.sedeIds.length > 0 && (sedi.length < 2 || g.sedeIds.length < sedi.length)),
+        [groupNames, groupIdsByActivity, sedi]
+    );
+    // cosa si guarda (D150 E, D152): una sede, tutte o un gruppo, e con chi si confronta; lo stato è comune
+    // alle pagine (in alto a destra con la navigazione), senza scelta si guarda la prima sede
+    const vista = useSediVista(useTenantId());
+    useConfrontoQui(multi);
+    const scope = useMemo<SedeScelta>(() => {
+        const v = vista.sede;
+        if (multi && v?.kind === "all") return v;
+        if (multi && v?.kind === "gruppo" && seatGroups.some(g => g.id === v.id)) return v;
+        if (v?.kind === "sede" && sedi.some(x => x.id === v.id)) return v;
+        return { kind: "sede", id: sedi[0]?.id ?? "" };
+    }, [vista.sede, multi, seatGroups, sedi]);
+    const focus = scope.kind === "sede" ? (sedi.find(x => x.id === scope.id) ?? null) : null;
+    const scopeSedi = useMemo(() => {
+        if (scope.kind === "all") return sedi;
+        if (scope.kind === "gruppo") {
+            const ids = seatGroups.find(g => g.id === scope.id)?.sedeIds ?? [];
+            return sedi.filter(x => ids.includes(x.id));
+        }
+        return [];
+    }, [scope, sedi, seatGroups]);
+    const cmp = focus && multi ? sedi.filter(x => x.id !== focus.id && vista.confronta.has(x.id)) : [];
+    // le sedi che si vedono: quella guardata e quelle a confronto, o tutte quelle scelte
+    const shown = focus ? [focus, ...cmp] : scopeSedi;
     const entries = useMemo(() => entriesFromRules(rules, names), [rules, names]);
     const axis = useMemo(() => axisFor(entries), [entries]);
     const seatOf = useCallback((id: string): CalSeat => ({ activityId: id, groupIds: groupIdsByActivity[id] ?? [] }), [groupIdsByActivity]);
@@ -579,22 +604,178 @@ export default function CalendarioView({
         </>
     );
 
-    let body: ReactNode;
-    if (view === "day") body = shown.map(x => rows(x, [dDay], () => <b className={s.gsn}>{x.name}</b>));
-    else
-        body = shown.map(x => (
-            <div key={x.id}>
-                {shown.length > 1 && (
-                    <div className={s.gsh}>
-                        <span className={s.gst}>
-                            <Store size={15} aria-hidden />
-                            {x.name}
+    /* ---------- più sedi (D150 E): una sede, sotto il giorno solo chi è diverso ---------- */
+    const progs = useMemo(() => {
+        const m = new Map<string, Programma[]>();
+        if (multi) for (const x of sedi) m.set(x.id, [0, 1, 2, 3, 4, 5, 6].map(i => programma(entries, seatOf(x.id), week + i, axis)));
+        return m;
+    }, [multi, sedi, entries, week, axis, seatOf]);
+    const progOf = (id: string, i: number) => progs.get(id)?.[i] ?? { pezzi: [], key: "" };
+    const nameOf = (id: string) => sedi.find(x => x.id === id)?.name ?? "una sede";
+    const fewNames = (ids: readonly string[]) => (ids.length <= 3 ? ids.map(nameOf).join(", ") : `${nameOf(ids[0])}, ${nameOf(ids[1])} e altre ${ids.length - 2}`);
+    // in quanti giorni della settimana una sede fa diverso dalla sede guardata
+    const daysDiff = (id: string) => (focus ? [0, 1, 2, 3, 4, 5, 6].filter(i => progOf(id, i).key !== progOf(focus.id, i).key).length : 0);
+    const [openDays, setOpenDays] = useState<ReadonlySet<DayNum>>(() => new Set());
+    const [allDiff, setAllDiff] = useState(false);
+    // toccando una sede diversa si guarda lei: quella di prima entra nel confronto (con tutte o un gruppo, le altre del gruppo)
+    const goSede = (id: string) =>
+        focus ? vista.setSede({ kind: "sede", id }) : vista.setSede({ kind: "sede", id }, { confronta: scopeSedi.map(x => x.id) });
+    const LIMIT = 3;
+    const diffRows = (i: number, diffs: readonly Diversi[], base: Programma) => {
+        const date = week + i, open = openDays.has(date);
+        const out: ReactNode[] = (open ? diffs : diffs.slice(0, LIMIT)).map(g => {
+            const kinds = CAL_KINDS.filter(k => base.pezzi.some(x => x.k === k) || g.prog.pezzi.some(x => x.k === k));
+            const X = (m: number) => ((m - axis.from) / (axis.to - axis.from)) * 100;
+            const at = (a: number, b: number) => ({ left: X(a) + "%", width: X(b) - X(a) + "%" });
+            const inBase = new Set(base.pezzi.map(x => `${x.k}|${x.label}|${x.from}|${x.to}`));
+            const inOther = new Set(g.prog.pezzi.map(x => `${x.k}|${x.label}|${x.from}|${x.to}`));
+            const who = g.ids.length <= 2 ? g.ids.map(nameOf).join(", ") : `${nameOf(g.ids[0])} e altre ${g.ids.length - 1}`;
+            return (
+                <div key={"d:" + date + ":" + g.ids[0]} className={`${s.fday} ${s.fdiff}`}>
+                    <div className={s.fdw}>
+                        <button type="button" className={s.fdn} title={g.ids.map(nameOf).join(", ")} onClick={() => goSede(g.ids[0])}>
+                            {who}
+                        </button>
+                        <span className={s.fdc} title={g.what}>
+                            {g.what}
                         </span>
                     </div>
+                    <div className={s.ftl} style={{ backgroundSize: `calc(100% / ${(axis.to - axis.from) / 60}) 100%` }}>
+                        {kinds.map(k => (
+                            <div key={k} className={s.dlane}>
+                                {base.pezzi
+                                    .filter(x => x.k === k && !inOther.has(`${x.k}|${x.label}|${x.from}|${x.to}`))
+                                    .map(x => (
+                                        <span key={"g" + x.from} className={`${s.dseg} ${s.ghost}`} title={`Qui non c'è ${x.label}`} style={at(x.from, x.to)} />
+                                    ))}
+                                {g.prog.pezzi
+                                    .filter(x => x.k === k)
+                                    .map(x => {
+                                        const same = inBase.has(`${x.k}|${x.label}|${x.from}|${x.to}`);
+                                        return (
+                                            <span
+                                                key={x.from}
+                                                className={`${s.dseg} ${same ? s.faded : s.mark}`}
+                                                title={`${KIND_LABEL[k]} · ${x.label} · ${fH(x)}`}
+                                                style={{ "--c": colorOf(k, x.first), ...at(x.from, x.to) } as CSSProperties}
+                                            />
+                                        );
+                                    })}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+        });
+        if (diffs.length > LIMIT) {
+            const rest = diffs.slice(LIMIT), n = rest.reduce((t, g) => t + g.ids.length, 0);
+            out.push(
+                <div key={"m:" + date} className={s.fmore}>
+                    <button
+                        type="button"
+                        aria-expanded={open}
+                        onClick={() =>
+                            setOpenDays(o => {
+                                const x = new Set(o);
+                                if (x.has(date)) x.delete(date);
+                                else x.add(date);
+                                return x;
+                            })
+                        }
+                    >
+                        {open ? "Mostra meno" : `+ ${rest.length} ${rest.length === 1 ? "altra differenza" : "altre differenze"} (${n} ${n === 1 ? "sede" : "sedi"}) · Mostra`}
+                    </button>
+                </div>
+            );
+        }
+        return out;
+    };
+    const days = view === "day" ? [dDay] : [0, 1, 2, 3, 4, 5, 6];
+    let body: ReactNode;
+    if (focus)
+        body = days.flatMap(i => {
+            const base = progOf(focus.id, i);
+            const r = cmp.length ? confrontoGiorno(base, cmp.map(x => [x.id, progOf(x.id, i)] as const)) : null;
+            const label = (ii: number, d: DayNum) => (
+                <>
+                    {view === "day" ? <b className={s.gsn}>{focus.name}</b> : dayLabel(ii, d)}
+                    {r && (
+                        <span className={s.same} title={`Uguali a ${focus.name} questo giorno: ${r.same} di ${cmp.length}`}>
+                            = {r.same === cmp.length ? "tutte" : r.same}
+                        </span>
+                    )}
+                </>
+            );
+            return [...rows(focus, [i], label), ...(r ? diffRows(i, r.diffs, base) : [])];
+        });
+    else
+        body = days.flatMap(i => {
+            const m = maggioranza(scopeSedi.map(x => [x.id, progOf(x.id, i)] as const));
+            const rep = m && sedi.find(x => x.id === m.baseIds[0]);
+            if (!m || !rep) return [];
+            const label = (ii: number, d: DayNum) => (
+                <>
+                    {view === "week" && dayLabel(ii, d)}
+                    <span className={s.same} title={`Quello che fa la maggior parte delle sedi: ${fewNames(m.baseIds)}`}>
+                        {m.baseIds.length === scopeSedi.length ? `tutte e ${m.baseIds.length}` : `${m.baseIds.length} sedi`}
+                    </span>
+                </>
+            );
+            return [...rows(rep, [i], label), ...diffRows(i, m.diffs, m.base)];
+        });
+
+    // il riepilogo sopra il calendario: chi è uguale tutta la settimana, chi è diverso e quanti giorni
+    const summary = (() => {
+        if (!multi) return null;
+        let same: string[], diff: [string, number][], head: ReactNode;
+        if (focus) {
+            if (!cmp.length) return null;
+            diff = cmp.map(x => [x.id, daysDiff(x.id)] as [string, number]).filter(([, k]) => k > 0);
+            same = cmp.filter(x => !diff.some(([id]) => id === x.id)).map(x => x.id);
+            head = same.length ? (
+                <span>
+                    Uguali a {focus.name} tutta la settimana: <b>{same.length}</b> <span title={same.map(nameOf).join(", ")}>({fewNames(same)})</span>
+                </span>
+            ) : (
+                <span>Nessuna sede uguale a {focus.name} tutta la settimana</span>
+            );
+        } else {
+            const ms = [0, 1, 2, 3, 4, 5, 6].map(i => maggioranza(scopeSedi.map(x => [x.id, progOf(x.id, i)] as const)));
+            const off = (id: string) => ms.filter(m => m && !m.baseIds.includes(id)).length;
+            diff = scopeSedi.map(x => [x.id, off(x.id)] as [string, number]).filter(([, k]) => k > 0);
+            same = scopeSedi.filter(x => !diff.some(([id]) => id === x.id)).map(x => x.id);
+            head = (
+                <span>
+                    Fanno come la maggior parte tutta la settimana: <b>{same.length}</b> di {scopeSedi.length}{" "}
+                    {same.length > 0 && <span title={same.map(nameOf).join(", ")}>({fewNames(same)})</span>}
+                </span>
+            );
+        }
+        diff.sort((a, b) => b[1] - a[1]);
+        const vis = allDiff ? diff : diff.slice(0, 4);
+        return (
+            <div className={s.csum}>
+                <div className={s.cline}>{head}</div>
+                {diff.length > 0 && (
+                    <div className={s.cline}>
+                        <span>
+                            Diverse: <b>{diff.length}</b>
+                        </span>
+                        {vis.map(([id, k]) => (
+                            <button key={id} type="button" className={s.cchip} title={`Guarda ${nameOf(id)}`} onClick={() => goSede(id)}>
+                                {nameOf(id)} · {k} {k === 1 ? "giorno" : "giorni"}
+                            </button>
+                        ))}
+                        {diff.length > 4 && (
+                            <button type="button" className={s.cchip} onClick={() => setAllDiff(a => !a)}>
+                                {allDiff ? "meno" : `+${diff.length - 4} altre`}
+                            </button>
+                        )}
+                    </div>
                 )}
-                {rows(x, [0, 1, 2, 3, 4, 5, 6], dayLabel)}
             </div>
-        ));
+        );
+    })();
 
     const hoursFor = (ax: Axis, st: number) => {
         const out: ReactNode[] = [];
@@ -663,16 +844,6 @@ export default function CalendarioView({
         );
     };
 
-    // i gruppi del pannello delle sedi: quelli con almeno una sede che si guarda
-    const seatGroups = useMemo<PannelloGruppo[]>(
-        () =>
-            [...groupNames]
-                .map(([id, name]) => ({ id, name, sedeIds: sedi.filter(x => groupIdsByActivity[x.id]?.includes(id)).map(x => x.id) }))
-                .filter(g => g.sedeIds.length > 0),
-        [groupNames, groupIdsByActivity, sedi]
-    );
-    const pickSeats = (ids: string[]) => ids.length && setPicked(ids);
-    const togglePicked = (id: string) => setPicked(p => (p.includes(id) ? (p.length > 1 ? p.filter(x => x !== id) : p) : sedi.filter(x => x.id === id || p.includes(x.id)).map(x => x.id)));
 
     /* ---------- la sezione Aggiungi / Modifica completa ---------- */
     const L = useMemo<DraftLookups>(
@@ -764,7 +935,7 @@ export default function CalendarioView({
     }, [draft, entries, pvEntries]);
     const pvAx = useMemo(() => (pvList ? axisFor(pvList) : axis), [pvList, axis]);
     const pvReach = pvEntries.length ? shown.filter(x => reaches(x.id)) : shown;
-    const pvSedi = pvReach.length ? pvReach : pvEntries.length ? sedi.filter(x => reaches(x.id)).slice(0, 1) : shown.slice(0, 1);
+    const pvSedi = (pvReach.length ? pvReach : pvEntries.length ? sedi.filter(x => reaches(x.id)).slice(0, 1) : shown.slice(0, 1)).slice(0, 4);
 
     // cosa cambia nel calendario, nella settimana che si vede
     const effect = (): string[] => {
@@ -1025,26 +1196,6 @@ export default function CalendarioView({
                         <IconButton size="sm" icon={<PanelLeftClose size={16} />} aria-label="Chiudi la colonna del calendario" aria-expanded onClick={() => setPanel(false)} />
                     </div>
                     {miniMonth()}
-                    {multi && (
-                        <div className={s.gsl}>
-                            <h4>
-                                Sedi <span>{picked.length} di {sedi.length}</span>
-                            </h4>
-                            {shown.slice(0, 5).map(x => (
-                                <button key={x.id} type="button" className={s.gsc} role="checkbox" aria-checked onClick={() => togglePicked(x.id)}>
-                                    <span className={s.box}>
-                                        <Check size={12} aria-hidden />
-                                    </span>
-                                    <span className={s.snm}>{x.name}</span>
-                                </button>
-                            ))}
-                            {shown.length > 5 && <span className={s.smore}>+{shown.length - 5} altre</span>}
-                            <SediBottone place="side" className={s.sfull} sedi={sedi} gruppi={seatGroups} value={picked} onChange={pickSeats} min={1}>
-                                Scegli le sedi
-                            </SediBottone>
-                            <p>{view === "day" ? "In Giorno le sedi scelte stanno una sotto l'altra." : "In Settimana le settimane delle sedi scelte stanno una sotto l'altra."}</p>
-                        </div>
-                    )}
                 </aside>
             )}
             <div className={s.gmain}>
@@ -1064,7 +1215,31 @@ export default function CalendarioView({
                             {pop && <div className={s.gpop}>{miniMonth()}</div>}
                         </span>
                         {multi && (
-                            <SediBottone className={s.sbar} sedi={sedi} gruppi={seatGroups} value={picked} onChange={pickSeats} min={1} />
+                            // «Sede» e «Confronta con»: qui finché non stanno in alto a destra (D152), già sullo stato comune
+                            <span className={s.dsedi}>
+                                <span className={s.dlab}>Sede</span>
+                                <SediBottone mode="one" allowAll title="Cosa guardi" sedi={sedi} gruppi={seatGroups} value={scope} onChange={v => vista.setSede(v)} />
+                                {focus && (
+                                    <>
+                                        <span className={s.dlab}>Confronta con</span>
+                                        <SediBottone
+                                            title="Confronta con"
+                                            allLabel="Tutte le altre sedi"
+                                            className={cmp.length ? s.cmpOn : ""}
+                                            sedi={sedi.filter(x => x.id !== focus.id)}
+                                            gruppi={seatGroups}
+                                            value={cmp.map(x => x.id)}
+                                            onChange={ids => vista.setConfronta(ids)}
+                                            tag={id => {
+                                                const k = daysDiff(id);
+                                                return k ? <span className={s.dtag}>diversa · {k} g</span> : null;
+                                            }}
+                                        >
+                                            {!cmp.length ? "Nessuna" : cmp.length === sedi.length - 1 ? `Tutte le altre · ${cmp.length}` : cmp[0].name + (cmp.length > 1 ? ` +${cmp.length - 1}` : "")}
+                                        </SediBottone>
+                                    </>
+                                )}
+                            </span>
                         )}
                     </div>
                     <div className={s.r}>
@@ -1086,6 +1261,7 @@ export default function CalendarioView({
                     </div>
                 </div>
                 {noteNode}
+                {summary}
                 <div className={s.flegend}>
                     <span>
                         <i className={`${s.lg} ${s.on}`} />

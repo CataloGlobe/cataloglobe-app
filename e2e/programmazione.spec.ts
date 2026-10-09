@@ -552,6 +552,13 @@ test.describe("Programmazione — ruolo di sede, decide il database", () => {
     });
 });
 
+// «Sede» nella barra del Calendario: il bottone dice cosa si guarda (D150 E)
+const sedeBtn = (page: Page) => main(page).getByRole("button", { name: /^(Centro|Lago|Porto) e2e$|^Tutte le sedi · \d+$|^Costa e2e · \d+$/, expanded: false }).first();
+async function guarda(page: Page, name: string) {
+    await sedeBtn(page).click();
+    await page.getByRole("dialog", { name: "Cosa guardi" }).getByRole("radio", { name, exact: true }).click();
+}
+
 test.describe("Programmazione — calendario, simulatore, guida", () => {
     let stub: ProgrammazioneStub;
     test.beforeEach(async ({ page }) => {
@@ -562,10 +569,7 @@ test.describe("Programmazione — calendario, simulatore, guida", () => {
         await openList(page, "layout");
         await openCalendar(page);
         await expect(main(page).getByRole("button", { name: "21–27 settembre 2026" })).toBeVisible();
-        // Si guardano le sedi spuntate a sinistra: Centro tra queste.
-        const centro = main(page).getByRole("checkbox", { name: "Centro e2e" });
-        if ((await centro.getAttribute("aria-checked")) !== "true") await centro.click();
-        await expect(centro).toHaveAttribute("aria-checked", "true");
+        await guarda(page, "Centro e2e");
         // A Centro, mercoledì, il pranzo copre la carta dalle 11 alle 15.
         await expect(main(page).getByRole("button", { name: /^Menù · 11:00–15:00\. In onda: «Pranzo e2e»/ }).first()).toBeVisible();
         await main(page).getByRole("button", { name: "Settimana successiva" }).click();
@@ -579,10 +583,7 @@ test.describe("Programmazione — calendario, simulatore, guida", () => {
         await openList(page, "layout");
         await openCalendar(page);
         // una sede sola: la settimana è una colonna di sette giorni
-        const centro = main(page).getByRole("checkbox", { name: "Centro e2e" });
-        if ((await centro.getAttribute("aria-checked")) !== "true") await centro.click();
-        const others = (await main(page).getByRole("checkbox", { checked: true }).allTextContents()).map(x => x.trim()).filter(x => x !== "Centro e2e");
-        for (const name of others) await main(page).getByRole("checkbox", { name, exact: true }).click();
+        await guarda(page, "Centro e2e");
         const days = main(page).locator("[data-day]");
         await expect(days).toHaveCount(7);
         await main(page).getByRole("button", { name: "Oggi", exact: true }).click();
@@ -605,8 +606,7 @@ test.describe("Programmazione — calendario, simulatore, guida", () => {
         await page.setViewportSize({ width: 1470, height: 830 });
         await openList(page, "layout");
         await openCalendar(page);
-        const centro = main(page).getByRole("checkbox", { name: "Centro e2e" });
-        if ((await centro.getAttribute("aria-checked")) !== "true") await centro.click();
+        await guarda(page, "Centro e2e");
         const days = main(page).locator("[data-day]");
         await expect(days.nth(2)).toBeInViewport({ ratio: 0.3 });
         await expect(main(page).getByRole("button", { name: "21–27 settembre 2026" })).toBeInViewport();
@@ -636,35 +636,49 @@ test.describe("Programmazione — calendario, simulatore, guida", () => {
         await expect(tipi).toBeVisible();
     });
 
-    test("le sedi: nella colonna quelle scelte, le altre nel pannello; a colonna chiusa un bottone nella barra", async ({ page }) => {
+    test("più sedi (D150 E): una sede, «Confronta con» mette sotto il giorno solo chi è diverso", async ({ page }) => {
         await openList(page, "layout");
         await openCalendar(page);
-        const col = main(page).getByRole("complementary", { name: "Calendario del mese" });
-        const chosen = col.getByRole("checkbox");
-        await expect(chosen.first()).toBeVisible();
-        expect(await chosen.count()).toBeLessThanOrEqual(5);
-        await col.getByRole("button", { name: "Scegli le sedi" }).click();
-        const pop = page.getByRole("dialog", { name: "Sedi" });
-        await expect(pop).toBeVisible();
-        await pop.getByRole("button", { name: "Solo Porto e2e" }).click();
-        await expect(chosen).toHaveCount(1);
-        await expect(col.getByRole("checkbox", { name: "Porto e2e" })).toHaveAttribute("aria-checked", "true");
-        // l'ultima sede scelta non si toglie: il calendario guarda sempre almeno una sede
-        await pop.getByRole("checkbox", { name: "Porto e2e" }).click();
-        await expect(pop.getByRole("checkbox", { name: "Porto e2e" })).toHaveAttribute("aria-checked", "true");
+        // la colonna non ha più la lista delle sedi: «Sede» e «Confronta con» stanno nella barra
+        await expect(main(page).getByRole("complementary", { name: "Calendario del mese" }).getByRole("checkbox")).toHaveCount(0);
+        await guarda(page, "Porto e2e");
+        await expect(sedeBtn(page)).toHaveText("Porto e2e");
+        await expect(main(page).locator("[data-day]")).toHaveCount(7);
+        // il pannello di «Sede»: radio, «Tutte le sedi» in cima, i gruppi nella loro tab (D151)
+        await sedeBtn(page).click();
+        const cosa = page.getByRole("dialog", { name: "Cosa guardi" });
+        await expect(cosa.getByRole("radio", { name: /^Tutte le sedi/ })).toBeVisible();
+        await cosa.getByRole("tab", { name: /^Gruppi · 1$/ }).click();
+        await expect(cosa.getByRole("radio", { name: /^Costa e2e/ })).toBeVisible();
         await page.keyboard.press("Escape");
-        await expect(pop).toHaveCount(0);
-        await expect(col.getByRole("button", { name: "Scegli le sedi" })).toBeFocused();
-        // a colonna chiusa le sedi stanno in un bottone nella barra
-        await main(page).getByRole("button", { name: "Chiudi la colonna del calendario" }).click();
-        await main(page).getByRole("button", { name: "Porto e2e", exact: true, expanded: false }).click();
-        // una casella sola per tutte: a metà ha il trattino, un clic le prende tutte (D151)
-        const all = pop.getByRole("checkbox", { name: /^Tutte le sedi/ });
-        await expect(all).toHaveAttribute("aria-checked", "mixed");
+        // a confronto tutte le altre: una casella sola, poi il riepilogo e sotto i giorni chi è diverso
+        await main(page).getByRole("button", { name: "Nessuna", exact: true }).click();
+        const conf = page.getByRole("dialog", { name: "Confronta con" });
+        const all = conf.getByRole("checkbox", { name: /^Tutte le altre sedi/ });
+        await expect(all).toHaveAttribute("aria-checked", "false");
         await all.click();
         await expect(all).toHaveAttribute("aria-checked", "true");
-        await expect(main(page).getByRole("button", { name: /^Tutte le sedi · \d+$/ })).toBeVisible();
-        await expect(pop.getByText(/^(\d+) di \1 scelte$/)).toBeVisible();
+        await expect(conf.getByText(/diversa · \d+ g/).first()).toBeVisible();
+        await page.keyboard.press("Escape");
+        await expect(main(page).getByRole("button", { name: /^Tutte le altre · 2$/ })).toBeVisible();
+        await expect(main(page).getByText(/^Diverse:/)).toBeVisible();
+        // a Centro il pranzo del mercoledì: la riga arancione dice cosa cambia
+        await expect(main(page).getByText(/\+ (Menù )?Pranzo e2e 11–15/).first()).toBeVisible();
+        // toccando Centro si guarda Centro, e Porto entra nel confronto
+        await main(page).getByRole("button", { name: "Centro e2e", exact: true }).first().click();
+        await expect(sedeBtn(page)).toHaveText("Centro e2e");
+        await main(page).getByRole("button", { name: /^Tutte le altre · 2$/ }).click();
+        await expect(conf.getByRole("checkbox", { name: "Porto e2e" })).toHaveAttribute("aria-checked", "true");
+        await page.keyboard.press("Escape");
+        // «Tutte le sedi»: la riga del giorno è la maggior parte, «Confronta con» sparisce
+        await sedeBtn(page).click();
+        await cosa.getByRole("radio", { name: /^Tutte le sedi/ }).click();
+        await expect(cosa).toHaveCount(0);
+        await expect(main(page).getByText(/^Fanno come la maggior parte tutta la settimana/)).toBeVisible();
+        await expect(main(page).getByText("Confronta con", { exact: true })).toHaveCount(0);
+        // lo stato resta ricaricando (D152: è comune alle pagine)
+        await page.reload();
+        await expect(main(page).getByRole("button", { name: /^Tutte le sedi · 3$/ })).toBeVisible();
     });
 
     test("dentro la sede il Calendario guarda solo lei; la ricerca no", async ({ page }) => {
