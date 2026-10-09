@@ -44,6 +44,8 @@ const accountButton = (page: Page) => page.getByRole("button", { name: /^Account
 
 /** Le voci del menù dell'account prima del divisore (le pagine dell'azienda). */
 async function accountPages(page: Page): Promise<string[]> {
+    // Finché la sidebar carica il menù dell'account è vuoto: si aspettano le voci.
+    await expect(menuRows(page).first()).toBeVisible({ timeout: 15_000 });
     await accountButton(page).click();
     const menu = page.getByRole("menu");
     await expect(menu).toBeVisible();
