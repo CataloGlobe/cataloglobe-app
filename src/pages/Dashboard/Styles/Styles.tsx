@@ -28,8 +28,6 @@ import { useRuleAppearance } from "@/hooks/useRuleAppearance";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { appearanceOf } from "@/utils/ruleAppearance";
 import { StyleDeleteDrawer } from "./StyleDeleteDrawer";
-import { StyleCreateDrawer } from "./StyleCreateDrawer";
-import { useCreateOnArrival } from "@/hooks/useCreateOnArrival";
 
 const VIEW_MODE_KEY = "cataloglobe-styles-view-mode";
 
@@ -89,7 +87,6 @@ export default function Styles() {
         }
     }, []);
 
-    const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [styleToDelete, setStyleToDelete] = useState<V2Style | null>(null);
 
@@ -132,12 +129,11 @@ export default function Styles() {
     }, [allStyles, isLiveNow, searchQuery]);
     const hasSearch = searchQuery.trim().length > 0;
 
+    // «Crea stile» apre il tunnel di creazione (D124); finito, si atterra sull'editor.
     const handleCreateClick = useCallback(() => {
         if (!ensureActive()) return;
-        setIsCreateOpen(true);
-    }, [ensureActive]);
-    // Da «Cosa vuoi creare?» della Panoramica.
-    useCreateOnArrival(handleCreateClick, permissions ? canWrite : null);
+        navigate(`/business/${currentTenantId}/crea/stile?da=stili`);
+    }, [ensureActive, navigate, currentTenantId]);
 
     const headerActions = useMemo(() => (
         <>
@@ -348,17 +344,6 @@ export default function Styles() {
                     <div className={styles.listContent} data-view-mode={viewMode}>
                         {renderContent()}
                     </div>
-
-                    <StyleCreateDrawer
-                        open={isCreateOpen}
-                        onClose={() => setIsCreateOpen(false)}
-                        tenantId={currentTenantId ?? undefined}
-                        allStyles={allStyles}
-                        onSuccess={newStyleId => {
-                            setIsCreateOpen(false);
-                            navigate(`/business/${currentTenantId}/styles/${newStyleId}`);
-                        }}
-                    />
 
                     <StyleDeleteDrawer
                         open={isDeleteOpen}

@@ -1122,8 +1122,9 @@ export default function Programming() {
                             await dropDraft(draft);
                             await loadRules();
                         },
+                        // «Crea un menù nuovo» apre il tunnel di creazione (D124)
                         onGoNew: kind =>
-                            navigate(`/business/${currentTenantId}/${kind === "menu" ? "catalogs" : kind === "style" ? "styles" : "featured"}`)
+                            navigate(`/business/${currentTenantId}/crea/${kind === "menu" ? "menu" : kind === "style" ? "stile" : "evidenza"}?da=calendario`)
                     }}
                 />
             )}

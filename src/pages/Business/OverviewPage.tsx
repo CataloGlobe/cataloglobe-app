@@ -55,7 +55,6 @@ import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { businessRouteLabel } from "@/components/layout/AppHeader/navbarBreadcrumbRoutes";
 import { buildPublicUrl } from "@/utils/publicUrl";
 import { canSeeServizio } from "@/utils/servizioModes";
-import { CREATE_ON_ARRIVAL } from "@/hooks/useCreateOnArrival";
 import styles from "./OverviewPage.module.scss";
 
 /** Sede attiva raggiungibile dal pubblico. Il menù attivo NON sta qui: arriva
@@ -383,8 +382,8 @@ export default function OverviewPage() {
     const b = `/business/${tenantId}`;
 
     // «Cosa vuoi creare?» (Officina): l'azione principale della pagina. Ogni
-    // scheda porta al suo elenco con la creazione aperta; quando ci sarà il
-    // tunnel di creazione, porterà lì. Solo le cose che chi guarda può creare.
+    // scheda apre il suo tunnel di creazione (D124); finito, si atterra sulla
+    // pagina della cosa nuova. Solo le cose che chi guarda può creare.
     const createOptions = [
         {
             key: "menu",
@@ -392,7 +391,7 @@ export default function OverviewPage() {
             icon: <UtensilsCrossed />,
             title: `Un ${catalogLower}`,
             text: "Sezioni e piatti da mostrare ai clienti",
-            to: `${b}/catalogs`
+            to: `${b}/crea/menu?da=panoramica`
         },
         {
             key: "stile",
@@ -400,7 +399,7 @@ export default function OverviewPage() {
             icon: <Palette />,
             title: "Uno stile",
             text: "Colori e caratteri della pagina",
-            to: `${b}/styles`
+            to: `${b}/crea/stile?da=panoramica`
         },
         {
             key: "evidenza",
@@ -408,7 +407,7 @@ export default function OverviewPage() {
             icon: <Megaphone />,
             title: "In evidenza",
             text: "Un annuncio, un evento, una promo",
-            to: `${b}/featured`
+            to: `${b}/crea/evidenza?da=panoramica`
         },
         {
             key: "storia",
@@ -416,7 +415,7 @@ export default function OverviewPage() {
             icon: <ScrollText />,
             title: "Una storia",
             text: "Racconta il locale con testo e foto",
-            to: `${b}/stories`
+            to: `${b}/crea/storia?da=panoramica`
         }
     ].filter(option => option.show);
 
@@ -931,7 +930,7 @@ export default function OverviewPage() {
                     <ul className={styles.createGrid}>
                         {createOptions.map(option => (
                             <li key={option.key}>
-                                <Link to={option.to} state={CREATE_ON_ARRIVAL} className={styles.createTile}>
+                                <Link to={option.to} className={styles.createTile}>
                                     <span className={styles.createIcon} aria-hidden="true">
                                         {option.icon}
                                     </span>

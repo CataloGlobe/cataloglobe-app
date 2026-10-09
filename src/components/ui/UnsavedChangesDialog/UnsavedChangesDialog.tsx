@@ -20,6 +20,8 @@ type Props = {
     message?: string;
     /** Etichetta del "resta qui". Default «Annulla»; la guardia usa «Resta». */
     cancelLabel?: string;
+    /** Etichetta di `onSaveAndExit`. Default «Salva ed esci»; i tunnel di creazione: «Tieni come bozza ed esci». */
+    saveLabel?: string;
 };
 
 /**
@@ -37,6 +39,7 @@ export function UnsavedChangesDialog({
     title = "Modifiche non salvate",
     message = "Hai modifiche non salvate. Cosa vuoi fare?",
     cancelLabel = "Annulla",
+    saveLabel = "Salva ed esci",
 }: Props) {
     const [saving, setSaving] = useState(false);
 
@@ -68,7 +71,7 @@ export function UnsavedChangesDialog({
                         </Button>
                         {onSaveAndExit && (
                             <Button variant="primary" size="sm" onClick={handleSaveAndExit} loading={saving}>
-                                Salva ed esci
+                                {saveLabel}
                             </Button>
                         )}
                     </div>
