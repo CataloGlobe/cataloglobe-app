@@ -132,6 +132,8 @@ SystemDrawer → DrawerLayout (header/children/footer) → DomainForm (collegato
 - Post-success: `onSuccess()` → reload dati → chiudi drawer → toast.
 - Dimensioni: sm=420px, md=520px (default), lg=720px.
 
+**Dettagli dal vivo** (ordine, prenotazione, tavolata, tavolo, cliente; D131): non sono drawer ma `DetailPane` (`src/components/layout/DetailPane/`), stessa forma (`DetailPane → DrawerLayout`). Si apre accanto all'elenco nell'aside di `MainLayout` (`--detail-pane`), senza velo: la pagina si stringe e resta viva; fra 768 e 1024 copre il contenuto, al telefono è una pagina con «‹ backLabel». L'elemento aperto sta nell'indirizzo con `useDetailParam("ordine")` (indietro chiude, ↑ ↓ con `onPrev`/`onNext` sostituiscono la voce). Con il dettaglio aperto `DataTable` toglie le colonne `hideOnPhone` e `hideWithDetail`; le board larghe si stringono con una container query. Creare e modificare restano `SystemDrawer`, le conferme finestre al centro.
+
 **Eliminazione multipla**: mai subito dalla `BulkBar`. `ConfirmDialog` col conteggio, selezione controllata (annulla la rimette), esito per numero con i rifiuti per vincolo (23503) a parte. Hook condiviso `useBulkDelete` (`src/hooks/`), usato da Prodotti e In evidenza; Menù e Programmazione hanno la stessa forma scritta in pagina. Il guard dell'abbonamento è uno solo: `useEnsureActive` (`src/hooks/`), mai la stringa «Abbonamento non attivo…» copiata in pagina.
 
 **Delete drawer**: 3 pattern (A blocco preventivo / B informativo+cleanup / C swap-then-delete) scelti via FK inbound. Default sicuro = B. Dettaglio + anti-pattern: `docs/patterns/delete-drawer.md`.
