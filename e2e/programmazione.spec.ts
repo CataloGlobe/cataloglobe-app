@@ -2,7 +2,7 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import { asRole } from "./asRole";
 import { openBusinessPage } from "./business";
 import { sidebarLink } from "./nav";
-import { MATRIX_RULE_NAME, MISSING_RULE, RULE, RULE_NAME, SEDE, StubError, TENANT_ID, stubProgrammazione, type ProgrammazioneStub, type WriteCall } from "./programmazioneStub";
+import { MATRIX_RULE_NAME, MISSING_RULE, PRODUCT, RULE, RULE_NAME, SEDE, StubError, TENANT_ID, stubProgrammazione, type ProgrammazioneStub, type WriteCall } from "./programmazioneStub";
 
 /**
  * Programmazione (lotto `ds-5-programmazione`, P0). Scritto sulla pagina di
@@ -552,9 +552,10 @@ test.describe("Programmazione — ruolo di sede, decide il database", () => {
     });
 });
 
-test.describe("Programmazione — settimana, simulatore, guida", () => {
+test.describe("Programmazione — calendario, simulatore, guida", () => {
+    let stub: ProgrammazioneStub;
     test.beforeEach(async ({ page }) => {
-        await stubProgrammazione(page);
+        stub = await stubProgrammazione(page);
     });
 
     test("il Calendario si apre sulla settimana di oggi e si sfoglia", async ({ page }) => {
@@ -587,10 +588,62 @@ test.describe("Programmazione — settimana, simulatore, guida", () => {
         await openCalendar(page);
         // Si apre sul menù di oggi: la carta c'è, ma dalle 11 alle 15 vince il pranzo.
         await expect(main(page).getByRole("button", { name: "Menù", expanded: true })).toHaveCount(1);
-        await expect(main(page).getByRole("img", { name: /^Pranzo e2e · 11:00–15:00\. In onda\. Prende il posto di «Carta e2e»/ })).toBeVisible();
-        await expect(main(page).getByRole("img", { name: /^Carta e2e · 11:00–15:00\. C'è, ma qui non si vede\. Vince «Pranzo e2e», che vale per Centro e2e/ })).toBeVisible();
+        await expect(main(page).getByRole("button", { name: /^Pranzo e2e · 11:00–15:00\. In onda\. Prende il posto di «Carta e2e»/ })).toBeVisible();
+        await expect(main(page).getByRole("button", { name: /^Carta e2e · 11:00–15:00\. C'è, ma qui non si vede\. Vince «Pranzo e2e», che vale per Centro e2e/ })).toBeVisible();
         await main(page).getByRole("button", { name: "Menù", expanded: true }).click();
         await expect(main(page).getByRole("button", { name: "Menù", expanded: true })).toHaveCount(0);
+    });
+
+    test("una linea apre il pannello piccolo: perché, i piatti, «Modifica completa»", async ({ page }) => {
+        await openSeatList(page, SEDE.centro, "all");
+        await openCalendar(page);
+        await main(page).getByRole("button", { name: /^Disponibilità · / }).first().click();
+        await main(page).getByRole("button", { name: /^Stagionali Centro e2e · / }).first().click();
+        const panel = main(page).getByRole("complementary", { name: RULE_NAME.stagionali });
+        await expect(panel).toBeVisible();
+        await expect(panel.getByText("I piatti di questa data")).toBeVisible();
+        await expect(panel.getByText("Non si vede")).toBeVisible();
+        await expect(panel.getByText("Non ordinabile")).toBeVisible();
+        // Col pannello aperto la colonna del mese si chiude, e torna alla chiusura.
+        await expect(main(page).getByRole("complementary", { name: "Calendario del mese" })).toHaveCount(0);
+        await panel.getByRole("button", { name: "Chiudi il pannello" }).click();
+        await expect(main(page).getByRole("complementary", { name: "Calendario del mese" })).toBeVisible();
+        await main(page).getByRole("button", { name: /^Stagionali Centro e2e · / }).first().click();
+        await main(page).getByRole("button", { name: "Modifica completa" }).click();
+        await expect(page).toHaveURL(new RegExp(`/programmazione/${RULE.stagionali}`));
+    });
+
+    test("cablaggio: «Togli» un piatto riscrive la regola senza di lui", async ({ page }) => {
+        stub.onWrite("schedules.PATCH", touched);
+        stub.onWrite("schedule_visibility_overrides.DELETE", () => null);
+        stub.onWrite("schedule_visibility_overrides.POST", () => null);
+        await openSeatList(page, SEDE.centro, "all");
+        await openCalendar(page);
+        await main(page).getByRole("button", { name: /^Disponibilità · / }).first().click();
+        await main(page).getByRole("button", { name: /^Stagionali Centro e2e · / }).first().click();
+        const panel = main(page).getByRole("complementary", { name: RULE_NAME.stagionali });
+        await panel.getByRole("button", { name: "Togli Tiramisù e2e" }).click();
+        await expect(panel.getByText("Togliere Tiramisù e2e?")).toBeVisible();
+        expect(writesOf(stub, "schedule_visibility_overrides.POST")).toHaveLength(0);
+        await panel.getByRole("button", { name: "Togli", exact: true }).click();
+        await expect.poll(() => writesOf(stub, "schedule_visibility_overrides.POST").length).toBe(1);
+        const left = writesOf(stub, "schedule_visibility_overrides.POST")[0].body as Array<Record<string, unknown>>;
+        expect(left.map(r => r.product_id)).toEqual([PRODUCT.birra]);
+        await expect(main(page).getByRole("status")).toHaveText("Tolto dal calendario.");
+    });
+
+    test("cablaggio: «Togli» in fondo al pannello toglie la regola (schedules.DELETE)", async ({ page }) => {
+        stub.onWrite("schedules.DELETE", touched);
+        await openSeatList(page, SEDE.centro, "all");
+        await openCalendar(page);
+        await main(page).getByRole("button", { name: /^Disponibilità · / }).first().click();
+        await main(page).getByRole("button", { name: /^Stagionali Centro e2e · / }).first().click();
+        const panel = main(page).getByRole("complementary", { name: RULE_NAME.stagionali });
+        await panel.getByRole("button", { name: "Togli dal calendario" }).click();
+        await expect(panel.getByText("Togliere dal calendario?")).toBeVisible();
+        await panel.getByRole("button", { name: "Togli", exact: true }).click();
+        await expect.poll(() => writesOf(stub, "schedules.DELETE").length).toBe(1);
+        expect(writesOf(stub, "schedules.DELETE")[0].params.get("id")).toBe(`eq.${RULE.stagionali}`);
     });
 
     test("Giorno mostra un giorno; il mese porta a un altro giorno", async ({ page }) => {

@@ -113,7 +113,7 @@ export const whereOfRule = (rule: LayoutRule): CalWhere => ({
     groupIds: rule.groupIds
 });
 
-const eur = (v: number) => v.toLocaleString("it-IT", { style: "currency", currency: "EUR" });
+export const eur = (v: number) => v.toLocaleString("it-IT", { style: "currency", currency: "EUR" });
 const few = (names: string[]) => names.slice(0, 2).join(", ") + (names.length > 2 ? " +" + (names.length - 2) : "");
 
 /** Le regole in onda (accese, complete) diventano le voci delle corsie. */
@@ -338,3 +338,40 @@ export const shortName = (n: string) => {
     const x = n.replace(/^Menù /i, "");
     return x.charAt(0).toUpperCase() + x.slice(1);
 };
+
+/* ---------- quando, in parole ---------- */
+const DAY_SHORT = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"];
+const MONTH_SHORT = ["gen", "feb", "mar", "apr", "mag", "giu", "lug", "ago", "set", "ott", "nov", "dic"];
+const dayShort = (d: DayNum) => {
+    const p = dayParts(d);
+    return p.day + " " + MONTH_SHORT[p.month];
+};
+
+/** «Lun–Ven», «Sab, Dom», «Lun, Mer–Ven». */
+export function daysText(days?: readonly number[]): string {
+    if (!days || days.length === 7) return "tutti i giorni";
+    const d = [...days].sort((a, b) => a - b), runs: string[] = [];
+    let st = d[0], pv = d[0];
+    for (let i = 1; i <= d.length; i++) {
+        if (d[i] === pv + 1) {
+            pv = d[i];
+            continue;
+        }
+        runs.push(st === pv ? DAY_SHORT[st] : pv === st + 1 ? DAY_SHORT[st] + ", " + DAY_SHORT[pv] : DAY_SHORT[st] + "–" + DAY_SHORT[pv]);
+        st = d[i];
+        pv = d[i];
+    }
+    return runs.join(", ");
+}
+
+/** «10 ott – 12 ott · 19:00–23:30», «Lun–Ven · 11:00–15:00», «Sempre, tutto il giorno». */
+export function durLabel(w: CalWhen): string {
+    const p: string[] = [];
+    if (w.period) p.push(dayShort(w.period.from) + " – " + dayShort(w.period.to));
+    if (w.days && w.days.length < 7) p.push(daysText(w.days));
+    else if (!w.period && (w.days || w.ranges)) p.push("Tutti i giorni");
+    if (w.ranges) p.push(w.ranges.map(([a, b]) => hhmm(a) + "–" + hhmm(b)).join(", "));
+    else if (w.period || w.days) p.push("tutto il giorno");
+    return p.length ? p.join(" · ") : "Sempre, tutto il giorno";
+}
+

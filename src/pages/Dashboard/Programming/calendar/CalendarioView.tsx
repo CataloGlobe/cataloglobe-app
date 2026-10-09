@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as RPointerEvent, type ReactNode } from "react";
-import { Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Columns3, PanelLeft, PanelLeftClose, Square, Store } from "lucide-react";
+import { Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Columns3, PanelLeft, PanelLeftClose, Square, Store, X as XIcon } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import { IconButton } from "@/components/ui/Button/IconButton";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
@@ -34,6 +34,8 @@ import {
     type Line,
     type LineSeg
 } from "./calendarModel";
+import { CalendarioPanel, type ProductInfo } from "./CalendarioPanel";
+import type { DropItem } from "./calendarWrites";
 import s from "./CalendarioView.module.scss";
 
 const DAYS = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"];
@@ -64,7 +66,20 @@ export type CalendarioViewProps = {
     groupNames: ReadonlyMap<string, string>;
     /** Pulsante a destra nella barra (Aggiungi, al passo 3). */
     actions?: ReactNode;
+    /** Listino e categoria dei piatti, per il pannello. */
+    products?: ReadonlyMap<string, ProductInfo>;
+    formatNames?: ReadonlyMap<string, string>;
+    /** Chi può togliere: senza, il pannello è in sola lettura. */
+    isWritable?: (rule: LayoutRule) => boolean;
+    /** «Modifica completa». */
+    onOpenRule?: (rule: LayoutRule) => void;
+    /** «Togli»: una regola intera, o un suo piatto o contenuto. */
+    onDrop?: (rule: LayoutRule, item?: DropItem) => Promise<void>;
 };
+
+type Pick = { kind: CalKind; thing: string; date: DayNum; sede: string; from: number };
+const NO_PRODUCTS: ReadonlyMap<string, ProductInfo> = new Map();
+const NO_FORMATS: ReadonlyMap<string, string> = new Map();
 
 type OpenLane = { kind: CalKind; day: number; sede: string } | null;
 
@@ -134,7 +149,19 @@ function useHourStep(axis: Axis) {
     return { ref, step };
 }
 
-export default function CalendarioView({ rules, names, sedi, groupIdsByActivity, groupNames, actions }: CalendarioViewProps) {
+export default function CalendarioView({
+    rules,
+    names,
+    sedi,
+    groupIdsByActivity,
+    groupNames,
+    actions,
+    products = NO_PRODUCTS,
+    formatNames = NO_FORMATS,
+    isWritable,
+    onOpenRule,
+    onDrop
+}: CalendarioViewProps) {
     const [nowDate, setNowDate] = useState(() => new Date());
     useEffect(() => {
         const t = window.setInterval(() => setNowDate(new Date()), 60_000);
@@ -154,6 +181,34 @@ export default function CalendarioView({ rules, names, sedi, groupIdsByActivity,
     const multi = sedi.length > 1;
     const [picked, setPicked] = useState<string[]>(() => sedi.slice(0, 2).map(x => x.id));
     const [open, setOpen] = useState<OpenLane>(() => (sedi[0] ? { kind: "menu", day: dayOfWeek(today), sede: sedi[0].id } : null));
+    // la linea toccata apre il pannello piccolo; la colonna del mese si chiude e torna alla chiusura
+    const [pick, setPick] = useState<Pick | null>(null);
+    const [panelBefore, setPanelBefore] = useState(true);
+    const [note, setNote] = useState<{ text: string; error?: boolean } | null>(null);
+    const openPick = (p: Pick) => {
+        if (!pick) {
+            setPanelBefore(panel);
+            setPanel(false);
+        }
+        setPick(p);
+        setPop(false);
+        setNote(null);
+    };
+    const closePick = () => {
+        if (pick) setPanel(panelBefore);
+        setPick(null);
+    };
+    useEffect(() => {
+        if (!pick) return;
+        const esc = (ev: KeyboardEvent) => {
+            if (ev.key === "Escape" && !pop) {
+                setPanel(panelBefore);
+                setPick(null);
+            }
+        };
+        document.addEventListener("keydown", esc);
+        return () => document.removeEventListener("keydown", esc);
+    }, [pick, pop, panelBefore]);
 
     // le sedi cambiano (dati caricati, permessi): si tengono quelle che ci sono ancora
     useEffect(() => {
@@ -185,6 +240,20 @@ export default function CalendarioView({ rules, names, sedi, groupIdsByActivity,
             if (w.activityIds.length === 1 && !w.groupIds.length) return "per " + (sedi.find(x => x.id === w.activityIds[0])?.name ?? "una sede");
             if (w.groupIds.length === 1 && !w.activityIds.length) return "per il gruppo «" + (groupNames.get(w.groupIds[0]) ?? "") + "»";
             return "per " + (w.activityIds.length + w.groupIds.length) + " sedi o gruppi";
+        },
+        [sedi, groupNames]
+    );
+
+    // come nel pannello: «Tutte le sedi», «Gruppo «Costa»», «Centro, Porto»
+    const whereLong = useCallback(
+        (e: CalEntry) => {
+            const w = e.where;
+            if (w.all) return "Tutte le sedi";
+            const parts = [
+                ...w.groupIds.map(id => "Gruppo «" + (groupNames.get(id) ?? "") + "»"),
+                ...w.activityIds.map(id => sedi.find(x => x.id === id)?.name ?? "un'altra sede")
+            ];
+            return parts.join(", ");
         },
         [sedi, groupNames]
     );
@@ -296,12 +365,14 @@ export default function CalendarioView({ rules, names, sedi, groupIdsByActivity,
                                             {ln.segs.map(g => {
                                                 const tip = lineTip(ln, g, seat);
                                                 return (
-                                                    <span
+                                                    <button
                                                         key={g.from}
+                                                        type="button"
                                                         className={`${s.fls} ${g.state === "on" ? s.on : s.off}`}
                                                         data-tip={tip}
-                                                        role="img"
                                                         aria-label={aria(tip)}
+                                                        aria-pressed={!!pick && pick.kind === l.k && pick.thing === ln.thing && pick.date === date && pick.sede === sede.id && pick.from === g.from}
+                                                        onClick={() => openPick({ kind: l.k, thing: ln.thing, date, sede: sede.id, from: g.from })}
                                                         style={{ "--c": colorOf(l.k, ln.thing), left: X(g.from) + "%", width: X(g.to) - X(g.from) + "%" } as CSSProperties}
                                                     />
                                                 );
@@ -423,6 +494,52 @@ export default function CalendarioView({ rules, names, sedi, groupIdsByActivity,
 
     const togglePicked = (id: string) => setPicked(p => (p.includes(id) ? (p.length > 1 ? p.filter(x => x !== id) : p) : sedi.filter(x => x.id === id || p.includes(x.id)).map(x => x.id)));
 
+    /* ---------- il pannello della linea toccata ---------- */
+    let pickView: ReactNode = null;
+    if (pick) {
+        const seat = seatOf(pick.sede);
+        const ctx = dayCtx(entries, pick.kind, seat, pick.date);
+        const ln = fLines(ctx, axis).find(l => l.thing === pick.thing);
+        const g = ln?.segs.find(x => x.from <= pick.from && pick.from < x.to);
+        const entry = g?.self ?? entries.find(e => e.kind === pick.kind && e.thing === pick.thing && specFor(e, seat) !== null);
+        if (entry) {
+            const paired = entry.kind === "menu" ? "style" : entry.kind === "style" ? "menu" : null;
+            const pairedName = paired ? (entries.find(x => x.ruleId === entry.ruleId && x.kind === paired)?.thing ?? null) : null;
+            const dp = dayParts(pick.date);
+            pickView = (
+                <CalendarioPanel
+                    key={entry.id + ":" + pick.date + ":" + pick.from}
+                    entry={entry}
+                    line={ln}
+                    seg={g}
+                    seat={seat}
+                    dateText={`${DAYS_L[dayOfWeek(pick.date)].toLowerCase()} ${dp.day} ${MONTHS[dp.month]}`}
+                    sedeName={multi ? (sedi.find(x => x.id === pick.sede)?.name ?? null) : null}
+                    color={colorOf(entry.kind, entry.thing)}
+                    whereFor={whereFor}
+                    whereLong={whereLong}
+                    products={products}
+                    formatNames={formatNames}
+                    pairedName={pairedName}
+                    writable={!!onDrop && (isWritable ? isWritable(entry.rule) : false)}
+                    onClose={closePick}
+                    onFull={() => onOpenRule?.(entry.rule)}
+                    onDrop={async item => {
+                        if (!onDrop) return;
+                        try {
+                            await onDrop(entry.rule, item);
+                            setNote({ text: "Tolto dal calendario." });
+                            const left = entry.kind === "price" ? entry.rule.price_overrides.length : entry.kind === "visibility" ? entry.rule.visibility_overrides.length : 1;
+                            if (!item || entry.kind === "featured" || left <= 1) closePick();
+                        } catch {
+                            setNote({ text: "Non siamo riusciti a toglierlo. Riprova.", error: true });
+                        }
+                    }}
+                />
+            );
+        }
+    }
+
     const label = view === "day" ? dayLong(selDay) : weekLong(week);
     const unit = view === "day" ? "Giorno" : "Settimana";
 
@@ -443,7 +560,7 @@ export default function CalendarioView({ rules, names, sedi, groupIdsByActivity,
     }, [pop]);
 
     return (
-        <div className={`${s.root} ${s.gwrap} ${panel ? "" : s.closed}`} onPointerMove={onPointerMove} onPointerLeave={hide}>
+        <div className={`${s.root} ${s.gwrap} ${panel ? "" : s.closed} ${pickView ? s.ion : ""}`} onPointerMove={onPointerMove} onPointerLeave={hide}>
             {panel && (
                 <aside className={s.gside} aria-label="Calendario del mese">
                     <div className={s.gch}>
@@ -507,6 +624,12 @@ export default function CalendarioView({ rules, names, sedi, groupIdsByActivity,
                         onChange={v => v.length && setPicked(sedi.filter(x => v.includes(x.id)).map(x => x.id))}
                     />
                 )}
+                {note && (
+                    <p className={`${s.itoast} ${note.error ? s.err : ""}`} role="status">
+                        {note.error ? <XIcon size={15} aria-hidden /> : <Check size={15} aria-hidden />}
+                        <span>{note.text}</span>
+                    </p>
+                )}
                 <div className={s.flegend}>
                     <span>
                         <i className={`${s.lg} ${s.on}`} />
@@ -522,7 +645,7 @@ export default function CalendarioView({ rules, names, sedi, groupIdsByActivity,
                     </span>
                 </div>
                 <div className={s.dcal}>
-                    <div className={s.fcal}>
+                    <div className={`${s.fcal} ${pickView ? s.slim : ""}`}>
                         <div className={s.fhead}>
                             <div />
                             <div />
@@ -536,6 +659,7 @@ export default function CalendarioView({ rules, names, sedi, groupIdsByActivity,
                 {!rules.length && <p className={s.dnote}>Non c'è ancora niente in calendario.</p>}
                 <p className={s.dnote}>Ogni {FSLOT} minuti: apri una corsia per vedere una linea per regola.</p>
             </div>
+            {pickView}
             {tipNode}
         </div>
     );

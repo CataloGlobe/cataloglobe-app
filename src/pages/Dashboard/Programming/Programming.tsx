@@ -53,6 +53,9 @@ import { measureTextWidth } from "@/utils/measureText";
 import { HowItWorksButton, RuleTypeHelpModal } from "./components/RuleTypeHelpModal";
 import CalendarioView from "./calendar/CalendarioView";
 import type { CalNames } from "./calendar/calendarModel";
+import type { ProductInfo } from "./calendar/CalendarioPanel";
+import { dropItem, dropRule } from "./calendar/calendarWrites";
+import { listBaseProductsForPickerWithCategory } from "@/services/supabase/products";
 import { RuleSimulatorDrawer } from "./components/RuleSimulatorDrawer";
 import { isLayoutRuleDraft } from "@/utils/scheduleDraft";
 import { deriveScheduleStatus } from "@/utils/scheduleStatus";
@@ -271,6 +274,24 @@ export default function Programming() {
             products: new Map(productOptions.map(c => [c.id, c.name]))
         }),
         [catalogs, featuredOptions, productOptions, stylesOptions]
+    );
+    // il pannello del Calendario mostra listino e categoria dei piatti: si chiedono solo aprendo il Calendario
+    const [calProducts, setCalProducts] = useState<ReadonlyMap<string, ProductInfo> | undefined>(undefined);
+    useEffect(() => {
+        if (viewMode !== "calendar" || calProducts || !currentTenantId) return;
+        let alive = true;
+        listBaseProductsForPickerWithCategory(currentTenantId)
+            .then(list => {
+                if (alive) setCalProducts(new Map(list.map(p => [p.id, { category: p.category_name, listPrice: p.base_price }])));
+            })
+            .catch(error => console.error("Errore listino per il Calendario:", error));
+        return () => {
+            alive = false;
+        };
+    }, [calProducts, currentTenantId, viewMode]);
+    const calFormatNames = useMemo(
+        () => new Map(productOptions.flatMap(p => (p.format_values ?? []).map(v => [v.id, v.name] as const))),
+        [productOptions]
     );
     const calGroupIdsByActivity = useMemo(() => {
         const out: Record<string, string[]> = {};
@@ -1064,6 +1085,14 @@ export default function Programming() {
                     sedi={calSedi}
                     groupIdsByActivity={calGroupIdsByActivity}
                     groupNames={groupNameById}
+                    products={calProducts}
+                    formatNames={calFormatNames}
+                    isWritable={canWrite ? isRuleWritable : undefined}
+                    onOpenRule={rule => navigate(ruleHref(rule))}
+                    onDrop={async (rule, item) => {
+                        await (item ? dropItem(rule, item) : dropRule(rule));
+                        await loadRules();
+                    }}
                 />
             )}
 
