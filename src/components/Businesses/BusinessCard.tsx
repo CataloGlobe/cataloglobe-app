@@ -1,6 +1,7 @@
-import { ArrowRight, ChevronRight, Settings, LogOut, Trash2, Pencil } from "lucide-react";
+import { ArrowRight, ChevronRight, Settings, LogOut } from "lucide-react";
 import { workspaceRoleIsOwner, workspaceRoleIsScoped } from "@/utils/workspaceRole";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
+import { rowAction } from "@/components/ui/TableRowActions/rowAction";
 import type { TableRowAction } from "@/components/ui/TableRowActions/TableRowActions";
 import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
@@ -131,7 +132,7 @@ export default function BusinessCard({
           : seatsText;
 
     const actions: TableRowAction[] = [
-        { label: "Modifica attività", icon: Pencil, onClick: () => onEdit(tenant.id), hidden: !isOwner || !isActivated },
+        rowAction.edit(() => onEdit(tenant.id), { hidden: !isOwner || !isActivated }),
         {
             label: "Impostazioni attività",
             icon: Settings,
@@ -146,14 +147,7 @@ export default function BusinessCard({
             separator: true,
             hidden: isOwner || !isActivated
         },
-        {
-            label: "Elimina attività",
-            icon: Trash2,
-            onClick: () => onDelete(tenant.id),
-            variant: "destructive",
-            separator: true,
-            hidden: !isOwner
-        }
+        rowAction.remove(() => onDelete(tenant.id), { hidden: !isOwner })
     ];
     const hasActions = actions.some(a => !a.hidden);
 

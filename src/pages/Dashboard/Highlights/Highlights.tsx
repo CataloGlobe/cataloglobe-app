@@ -8,8 +8,9 @@ import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedCont
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { CardGrid, CardGridItem } from "@/components/ui/CardGrid/CardGrid";
 import { FramedMedia } from "@/components/ui/FramedMedia";
-import { Pencil, Trash2, LayoutGrid, List as ListIcon, Megaphone } from "lucide-react";
+import { LayoutGrid, List as ListIcon, Megaphone } from "lucide-react";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
+import { rowAction } from "@/components/ui/TableRowActions/rowAction";
 import { useToast } from "@/context/Toast/ToastContext";
 import {
     listFeaturedContents,
@@ -264,16 +265,8 @@ export default function Highlights() {
         <TableRowActions
             ariaLabel={`Azioni contenuto ${item.internal_name}`}
             actions={[
-                { label: canWrite ? "Modifica" : "Apri", icon: Pencil, onClick: () => navigate(contentUrl(item)) },
-                ...(canWrite
-                    ? [{
-                          label: "Elimina",
-                          icon: Trash2,
-                          onClick: () => requestDelete(item),
-                          variant: "destructive" as const,
-                          separator: true
-                      }]
-                    : [])
+                rowAction.edit(() => navigate(contentUrl(item)), { readOnly: !canWrite }),
+                rowAction.remove(() => requestDelete(item), { hidden: !canWrite })
             ]}
         />
     );

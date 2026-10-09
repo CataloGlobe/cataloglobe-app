@@ -7,10 +7,11 @@ import type { BusinessListProps, BusinessWithCapabilities } from "@/types/Busine
 import styles from "./BusinessList.module.scss";
 import { DataTable, DATA_TABLE_CLASSES, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
-import { ExternalLink, Link, FileText, Edit, Trash2, MapPin, AlertTriangle } from "lucide-react";
+import { ExternalLink, Link, FileText, MapPin, AlertTriangle } from "lucide-react";
 import { useToast } from "@/context/Toast/ToastContext";
 import { Button } from "@/components/ui/Button/Button";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
+import { rowAction } from "@/components/ui/TableRowActions/rowAction";
 import { formatOverrideSummary } from "@/services/supabase/activeCatalog";
 import {
     ACTIVE_CATALOG_ERROR_LABEL,
@@ -201,6 +202,7 @@ export const BusinessList: React.FC<BusinessListProps> = ({
                     return (
                         <TableRowActions
                             actions={[
+                                rowAction.edit(() => onEdit(business)),
                                 {
                                     label: "Apri sede",
                                     icon: FileText,
@@ -221,18 +223,7 @@ export const BusinessList: React.FC<BusinessListProps> = ({
                                         showToast({ message: "Link copiato negli appunti.", type: "success" });
                                     }
                                 },
-                                {
-                                    label: "Modifica",
-                                    icon: Edit,
-                                    onClick: () => onEdit(business),
-                                    separator: true
-                                },
-                                ...(onDelete ? [{
-                                    label: "Elimina",
-                                    icon: Trash2,
-                                    onClick: () => onDelete!(business.id),
-                                    variant: "destructive" as const
-                                }] : [])
+                                rowAction.remove(() => onDelete?.(business.id), { hidden: !onDelete })
                             ]}
                         />
                     );

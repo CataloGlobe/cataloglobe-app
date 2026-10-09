@@ -27,6 +27,7 @@ import { IconChevronDown, IconChevronRight } from "@tabler/icons-react";
 import { Package, LayoutGrid, List as ListIcon } from "lucide-react";
 import { ProductPhotoPlaceholder } from "./components/ProductPhotoPlaceholder";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
+import { rowAction } from "@/components/ui/TableRowActions/rowAction";
 import { Link } from "react-router-dom";
 import { ProductRowMeta, ProductPriceCell, ProductMenusCell } from "./components/ProductRowMeta";
 import { PRODUCT_IMAGE_DEFAULT_FRAMING } from "./components/productImageFraming";
@@ -550,22 +551,14 @@ export default function Products() {
         <TableRowActions
             ariaLabel={`Azioni ${product.name}`}
             actions={[
-                { label: "Apri", onClick: () => handleOpen(product) },
+                rowAction.edit(() => handleOpen(product), { readOnly: !canWriteProduct }),
+                rowAction.duplicate(() => handleDuplicate(product)),
                 {
                     label: "Aggiungi variante",
                     onClick: () => handleCreateVariant(product),
                     hidden: kind !== "base"
                 },
-                {
-                    label: "Duplica",
-                    onClick: () => handleDuplicate(product),
-                    separator: true
-                },
-                {
-                    label: kind === "base" ? "Elimina" : "Elimina variante",
-                    onClick: () => handleDelete(product),
-                    variant: "destructive" as const
-                }
+                rowAction.remove(() => handleDelete(product))
             ]}
         />
     );

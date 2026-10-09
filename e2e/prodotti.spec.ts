@@ -265,9 +265,8 @@ test.describe("Prodotti — elenco", () => {
         for (const item of [/^Aggiungi variante$/i, /^Duplica$/, /^Elimina$/]) {
             await expect(page.getByRole("menuitem", { name: item })).toBeVisible();
         }
-        // «Modifica» nel drawer non c'è più (§50.9/5): «Apri» porta alla pagina.
-        await expect(page.getByRole("menuitem", { name: /^Modifica/ })).toHaveCount(0);
-        await page.getByRole("menuitem", { name: "Apri" }).click();
+        // «Modifica» porta alla pagina del prodotto (§50.9/5, regola dei menù «…» D115).
+        await page.getByRole("menuitem", { name: "Modifica", exact: true }).click();
         await expect(page).toHaveURL(new RegExp(`/products/${PRODUCT.cheeseburger}$`));
     });
 

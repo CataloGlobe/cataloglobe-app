@@ -3,6 +3,7 @@ import Text from "@/components/ui/Text/Text";
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { IconFolder } from "@tabler/icons-react";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
+import { rowAction } from "@/components/ui/TableRowActions/rowAction";
 import styles from "./ProductGroupsTab.module.scss";
 
 import {
@@ -211,18 +212,13 @@ export default function ProductGroupsTab({
             cell: (_value: unknown, row: FlatGroup) => (
                 <TableRowActions
                     actions={[
-                        { label: "Modifica", onClick: () => handleEdit(row) },
+                        rowAction.edit(() => handleEdit(row)),
                         {
                             label: "Crea sottogruppo",
                             onClick: () => handleCreateSubgroup(row),
                             hidden: row.parent_group_id !== null
                         },
-                        {
-                            label: "Elimina",
-                            onClick: () => handleDelete(row),
-                            variant: "destructive" as const,
-                            separator: true
-                        }
+                        rowAction.remove(() => handleDelete(row))
                     ]}
                 />
             )

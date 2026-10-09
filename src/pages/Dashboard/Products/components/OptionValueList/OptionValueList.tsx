@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/Button/Button";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { NumberInput } from "@/components/ui/Input/NumberInput";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
+import { rowAction } from "@/components/ui/TableRowActions/rowAction";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import Text from "@/components/ui/Text/Text";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
@@ -256,16 +257,8 @@ export function OptionValueList({
                         <div className={styles.readActions}>
                             <TableRowActions
                                 actions={[
-                                    {
-                                        label: "Modifica",
-                                        onClick: () => startEdit(value)
-                                    },
-                                    {
-                                        label: "Elimina",
-                                        onClick: () => setPendingDelete(value),
-                                        variant: "destructive",
-                                        separator: true
-                                    }
+                                    rowAction.edit(() => startEdit(value)),
+                                    rowAction.remove(() => setPendingDelete(value))
                                 ]}
                             />
                         </div>

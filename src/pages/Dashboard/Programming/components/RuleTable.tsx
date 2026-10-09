@@ -1,8 +1,9 @@
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
-import { Copy, Lock, Trash2 } from "lucide-react";
+import { Lock } from "lucide-react";
 import { DataTable, DATA_TABLE_CLASSES, type ColumnDefinition } from "@components/ui/DataTable/DataTable";
 import { TableRowActions } from "@components/ui/TableRowActions/TableRowActions";
+import { rowAction } from "@components/ui/TableRowActions/rowAction";
 import { Badge } from "@components/ui/Badge/Badge";
 import { StatusBadge } from "@components/ui/StatusBadge/StatusBadge";
 import { Switch } from "@components/ui/Switch/Switch";
@@ -268,10 +269,9 @@ export function RuleTable({
                     <TableRowActions
                         ariaLabel={`Azioni per ${nameOf(rule)}`}
                         actions={[
-                            ...(onDuplicate ? [{ label: "Duplica", icon: Copy, onClick: () => onDuplicate(rule.id) }] : []),
-                            ...(onDelete
-                                ? [{ label: "Elimina", icon: Trash2, variant: "destructive" as const, separator: true, onClick: () => onDelete(rule.id) }]
-                                : [])
+                            rowAction.edit(() => onOpen(rule)),
+                            rowAction.duplicate(() => onDuplicate?.(rule.id), { hidden: !onDuplicate }),
+                            rowAction.remove(() => onDelete?.(rule.id), { hidden: !onDelete })
                         ]}
                     />
                 )
@@ -279,7 +279,7 @@ export function RuleTable({
         }
 
         return cols;
-    }, [activityById, activityGroups, canWrite, canWriteRule, catalogById, catalogLabel, insights, isCompact, isPhone, onDelete, onDuplicate, onToggleEnabled, ruleHref, showTypeBadge, updatingIds, whereWidth]);
+    }, [activityById, activityGroups, canWrite, canWriteRule, catalogById, catalogLabel, insights, isCompact, isPhone, onDelete, onDuplicate, onOpen, onToggleEnabled, ruleHref, showTypeBadge, updatingIds, whereWidth]);
 
     const ids = useMemo(() => rules.map(r => r.id), [rules]);
 

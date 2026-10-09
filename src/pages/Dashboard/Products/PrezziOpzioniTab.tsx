@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/Badge/Badge";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { NumberInput } from "@/components/ui/Input/NumberInput";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
+import { rowAction } from "@/components/ui/TableRowActions/rowAction";
 import { Plus } from "lucide-react";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { DataTable, ColumnDefinition } from "@/components/ui/DataTable/DataTable";
@@ -613,11 +614,7 @@ export default function PrezziOpzioniTab({
                 <TableRowActions
                     ariaLabel={`Azioni ${variant.name}`}
                     actions={[
-                        {
-                            label: "Apri",
-                            onClick: () =>
-                                navigate(`/business/${businessId}/products/${variant.id}`)
-                        }
+                        rowAction.edit(() => navigate(`/business/${businessId}/products/${variant.id}`))
                     ]}
                 />
             )
@@ -959,16 +956,8 @@ export default function PrezziOpzioniTab({
                                             <TableRowActions
                                                 ariaLabel={`Azioni ${group.name}`}
                                                 actions={[
-                                                    {
-                                                        label: "Modifica",
-                                                        onClick: () => handleStartEditGroup(group)
-                                                    },
-                                                    {
-                                                        label: "Elimina",
-                                                        onClick: () => setDeleteGroup(group),
-                                                        variant: "destructive",
-                                                        separator: true
-                                                    }
+                                                    rowAction.edit(() => handleStartEditGroup(group)),
+                                                    rowAction.remove(() => setDeleteGroup(group))
                                                 ]}
                                             />
                                         </div>

@@ -1,11 +1,12 @@
 import React from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Building2, AlertTriangle, FileText, ExternalLink, Link as LinkIcon, Edit, Trash2 } from "lucide-react";
+import { Building2, AlertTriangle, FileText, ExternalLink, Link as LinkIcon } from "lucide-react";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
 import { CardGridItem } from "@/components/ui/CardGrid/CardGrid";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
+import { rowAction } from "@/components/ui/TableRowActions/rowAction";
 import Skeleton from "@/components/ui/Skeleton/Skeleton";
 import { useToast } from "@/context/Toast/ToastContext";
 import { formatInactiveReason } from "@/utils/activityStatus";
@@ -142,6 +143,7 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
                 <TableRowActions
                     ariaLabel="Azioni sede"
                     actions={[
+                        rowAction.edit(() => onEdit(business)),
                         { label: "Apri sede", icon: FileText, onClick: () => navigate(detailPath) },
                         {
                             label: "Apri URL pubblico",
@@ -156,14 +158,7 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
                                 showToast({ message: "Link copiato negli appunti.", type: "success" });
                             }
                         },
-                        { label: "Modifica", icon: Edit, onClick: () => onEdit(business), separator: true },
-                        {
-                            label: "Elimina",
-                            icon: Trash2,
-                            onClick: () => onDelete?.(business.id),
-                            variant: "destructive",
-                            hidden: !onDelete
-                        }
+                        rowAction.remove(() => onDelete?.(business.id), { hidden: !onDelete })
                     ]}
                 />
             }

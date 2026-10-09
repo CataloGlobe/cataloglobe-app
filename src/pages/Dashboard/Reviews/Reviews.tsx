@@ -23,6 +23,7 @@ import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { ListRow } from "@/components/ui/ListRow/ListRow";
 import { Rating } from "@/components/ui/Rating/Rating";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
+import { rowAction } from "@/components/ui/TableRowActions/rowAction";
 import Text from "@/components/ui/Text/Text";
 import { formatRelativeTime } from "@/utils/relativeTime";
 
@@ -503,13 +504,10 @@ export default function Reviews() {
                                                     <TableRowActions
                                                         ariaLabel="Azioni recensione"
                                                         actions={[
-                                                            {
-                                                                label: "Elimina",
-                                                                variant: "destructive",
+                                                            rowAction.remove(() => requestDelete(review), {
                                                                 disabled: !canEdit,
-                                                                description: !canEdit ? "L'abbonamento non è attivo." : undefined,
-                                                                onClick: () => requestDelete(review)
-                                                            }
+                                                                description: !canEdit ? "L'abbonamento non è attivo." : undefined
+                                                            })
                                                         ]}
                                                     />
                                                 </div>

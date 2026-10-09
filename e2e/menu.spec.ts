@@ -166,7 +166,7 @@ test.describe("Menù — elenco", () => {
         await actionsOf(main(page).getByText("Carta e2e")).click();
         await expect(page.getByRole("menuitem", { name: /Aggiungi prodotti con AI/ })).toBeVisible();
         await expect(page.getByRole("menuitem", { name: /^(Modifica nome|Rinomina)$/ })).toBeVisible();
-        await expect(page.getByRole("menuitem", { name: "Elimina menù" })).toBeVisible();
+        await expect(page.getByRole("menuitem", { name: "Elimina", exact: true })).toBeVisible();
     });
 
     test("crea un menù: POST con il nome", async ({ page }) => {
@@ -202,7 +202,7 @@ test.describe("Menù — elenco", () => {
     test("un menù usato da una regola non si elimina", async ({ page }) => {
         await openList(page);
         await actionsOf(main(page).getByText("Pranzo e2e")).click();
-        await page.getByRole("menuitem", { name: "Elimina menù" }).click();
+        await page.getByRole("menuitem", { name: "Elimina", exact: true }).click();
         await expect(dialog(page)).toContainText("Pranzo feriale");
         await expect(dialog(page).getByRole("button", { name: "Elimina" })).toBeDisabled();
         expect(stub.writes.filter(w => w.key === "catalogs.DELETE")).toHaveLength(0);
@@ -212,7 +212,7 @@ test.describe("Menù — elenco", () => {
         stub.onWrite("catalogs.DELETE", () => null);
         await openList(page);
         await actionsOf(main(page).getByText("Vuoto e2e")).click();
-        await page.getByRole("menuitem", { name: "Elimina menù" }).click();
+        await page.getByRole("menuitem", { name: "Elimina", exact: true }).click();
         await dialog(page).getByRole("button", { name: "Elimina" }).click();
         await expect.poll(() => write(stub, "catalogs.DELETE")).toBeTruthy();
         expect(write(stub, "catalogs.DELETE")!.params.get("id")).toBe(`eq.${MENU.vuoto}`);
@@ -775,7 +775,7 @@ test.describe("Menù — dove è attivo (§50.13)", () => {
     test("eliminazione: lo stato delle regole è quello di Programmazione", async ({ page }) => {
         await openList(page);
         await actionsOf(main(page).getByText("Carta e2e")).click();
-        await page.getByRole("menuitem", { name: "Elimina menù" }).click();
+        await page.getByRole("menuitem", { name: "Elimina", exact: true }).click();
         const rules = dialog(page).getByRole("list", { name: "Regole di programmazione collegate" });
         await expect(rules.getByRole("link", { name: /Pranzo Centro e2e/ })).toHaveAttribute("href", new RegExp(`/scheduling/${RULE.pranzoCentro}$`));
         await expect(rules.getByRole("listitem").filter({ hasText: "Pranzo Centro e2e" })).toContainText("Attiva");
