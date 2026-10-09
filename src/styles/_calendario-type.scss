@@ -1,0 +1,27 @@
+@use "sass:map";
+
+// La scala dei caratteri del Calendario della Programmazione (Officina 4):
+// le misure della versione 10 approvata da Alex, una a una, in un posto solo.
+// La pagina non scrive dimensioni di testo: chiede un passo con `type.fs(…)`.
+$calendario-type: (
+  tiny: 10px,
+  hour: 10.5px,
+  kicker: 11px,
+  badge: 11.5px,
+  fine: 12px,
+  note: 12.5px,
+  small: 13px,
+  text: 13.5px,
+  body: 14px,
+  label: 14.5px,
+  strong: 15px,
+  group: 16px,
+  title: 20px
+);
+
+@mixin fs($step) {
+  @if not map.has-key($calendario-type, $step) {
+    @error "Passo «#{$step}» non c'è nella scala del Calendario.";
+  }
+  font-size: map.get($calendario-type, $step);
+}
