@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { Resend } from "npm:resend@4";
 import { COMPANY, getEmailFooterHtml, getEmailFooterText } from "../_shared/company-config.ts";
+import { escapeHtml } from "../_shared/emailFormat.ts";
 
 const APP_URL = Deno.env.get("APP_URL");
 
@@ -56,7 +57,12 @@ serve(async (req: Request) => {
         return json(400, { error: "missing_fields" });
     }
 
-    const inviteUrl = `${APP_URL}/invite/${inviteToken}`;
+    const inviteUrl = `${APP_URL}/invite/${encodeURIComponent(inviteToken)}`;
+    // Nome del tenant ed email di chi invita li scrive l'utente: nell'HTML
+    // passano sempre da escapeHtml (niente link o markup iniettati nella mail).
+    const safeTenantName = escapeHtml(tenantName);
+    const safeInviterEmail = escapeHtml(inviterEmail);
+    const safeInviteUrl = escapeHtml(inviteUrl);
 
     try {
         await resend.emails.send({
@@ -71,15 +77,15 @@ serve(async (req: Request) => {
                     Sei stato invitato su Cataloglobe
                 </h1>
                 <p style="margin:0 0 8px;font-size:15px;color:#374151">
-                    <strong>${inviterEmail}</strong> ti ha invitato a collaborare su
-                    <strong>${tenantName}</strong>.
+                    <strong>${safeInviterEmail}</strong> ti ha invitato a collaborare su
+                    <strong>${safeTenantName}</strong>.
                 </p>
                 <p style="margin:0 0 32px;font-size:15px;color:#374151">
                     Clicca sul pulsante qui sotto per accettare l’invito.
                 </p>
                 <div style="text-align:center;margin:0 0 32px">
                     <a
-                        href="${inviteUrl}"
+                        href="${safeInviteUrl}"
                         style="display:inline-block;padding:14px 28px;font-size:15px;font-weight:600;background:#111827;color:#ffffff;border-radius:8px;text-decoration:none"
                     >
                         Accetta l’invito
@@ -90,7 +96,7 @@ serve(async (req: Request) => {
                 </p>
                 <hr style="margin:24px 0;border:none;border-top:1px solid #e5e7eb" />
                 <p style="margin:0;font-size:12px;color:#9ca3af">
-                    Oppure copia questo link: ${inviteUrl}
+                    Oppure copia questo link: ${safeInviteUrl}
                 </p>
                 ${getEmailFooterHtml()}
             </div>

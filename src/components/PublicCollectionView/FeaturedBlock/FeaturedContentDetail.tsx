@@ -6,6 +6,7 @@ import { FramedMedia } from "@components/ui/FramedMedia";
 import { toFeaturedFraming } from "./featuredFraming";
 import { resolveFeaturedDisplayPrice } from "@utils/resolveFeaturedDisplayPrice";
 import styles from "./FeaturedPreviewModal.module.scss";
+import { safeHttpHref } from "@/utils/sanitizeUrl";
 
 function formatPrice(price: number): string {
     return new Intl.NumberFormat("it-IT", {
@@ -30,7 +31,7 @@ export function FeaturedCtaFooter({ block }: Props) {
     return (
         <div className={styles.ctaFooter}>
             <a
-                href={block.cta_url}
+                href={safeHttpHref(block.cta_url)}
                 className={styles.ctaBtn}
                 target="_blank"
                 rel="noopener noreferrer"

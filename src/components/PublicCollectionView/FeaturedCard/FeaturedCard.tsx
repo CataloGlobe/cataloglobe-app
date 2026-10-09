@@ -4,6 +4,7 @@ import type { V2FeaturedContent } from "@/types/resolvedCollections";
 import { FramedMedia } from "@components/ui/FramedMedia";
 import { toFeaturedFraming } from "@/components/PublicCollectionView/FeaturedBlock/featuredFraming";
 import styles from "./FeaturedCard.module.scss";
+import { safeHttpHref } from "@/utils/sanitizeUrl";
 
 export type FeaturedCardProps = {
     block: V2FeaturedContent;
@@ -93,7 +94,7 @@ export default function FeaturedCard({ block, onClick, onCtaClick, className, va
                     {hasCta && (
                         interactive ? (
                             <a
-                                href={block.cta_url!}
+                                href={safeHttpHref(block.cta_url)}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className={styles.cardCompactCta}
@@ -153,7 +154,7 @@ export default function FeaturedCard({ block, onClick, onCtaClick, className, va
                         <div className={styles.highlightCtaWrapper}>
                             {interactive ? (
                                 <a
-                                    href={block.cta_url!}
+                                    href={safeHttpHref(block.cta_url)}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className={styles.highlightCta}
@@ -213,7 +214,7 @@ export default function FeaturedCard({ block, onClick, onCtaClick, className, va
                     <div className={styles.cardCtaWrapper}>
                         {interactive ? (
                             <a
-                                href={block.cta_url!}
+                                href={safeHttpHref(block.cta_url)}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className={styles.cardCta}

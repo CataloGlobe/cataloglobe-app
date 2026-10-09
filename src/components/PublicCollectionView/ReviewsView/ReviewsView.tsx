@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { trackEvent } from "@/services/analytics/publicAnalytics";
 import StarRating from "../StarRating/StarRating";
 import styles from "./ReviewsView.module.scss";
+import { safeHttpHref } from "@/utils/sanitizeUrl";
 
 /* ── Props ───────────────────────────────────────────── */
 
@@ -377,7 +378,7 @@ export default function ReviewsView({
                             </span>
                         </div>
                         <a
-                            href={googleReviewUrl}
+                            href={safeHttpHref(googleReviewUrl)}
                             target="_blank"
                             rel="noopener noreferrer"
                             className={styles.googleBtn}
