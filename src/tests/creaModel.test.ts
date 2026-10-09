@@ -10,12 +10,12 @@ const ALL = { all: true, activityIds: [], groupIds: [] };
 const OWNER = { owner: true, multi: true };
 
 describe("tunnel di creazione: i passi", () => {
-    it("ogni tipo ha i suoi passi, poi Quando, Dove e Controlla", () => {
-        expect(steps(newTunnel("menu", ALL), OWNER)).toEqual(["tipo", "parti", "sezioni", "quando", "dove", "controlla"]);
-        expect(steps(newTunnel("stile", ALL), OWNER)).toEqual(["serve", "nome", "aspetto", "quando", "dove", "controlla"]);
-        expect(steps(newTunnel("storia", ALL), OWNER)).toEqual(["serve", "racconto", "blocchi", "quando", "dove", "controlla"]);
+    it("ogni tipo ha i suoi passi, poi Dove, Quando e Controlla (D134)", () => {
+        expect(steps(newTunnel("menu", ALL), OWNER)).toEqual(["tipo", "parti", "sezioni", "dove", "quando", "controlla"]);
+        expect(steps(newTunnel("stile", ALL), OWNER)).toEqual(["serve", "nome", "aspetto", "dove", "quando", "controlla"]);
+        expect(steps(newTunnel("storia", ALL), OWNER)).toEqual(["serve", "racconto", "blocchi", "dove", "quando", "controlla"]);
         const ev = newTunnel("evid", ALL);
-        expect(steps(ev, OWNER)).toEqual(["cosa", "contenuto", "quando", "dove", "controlla"]);
+        expect(steps(ev, OWNER)).toEqual(["cosa", "contenuto", "dove", "quando", "controlla"]);
         expect(steps({ ...ev, evType: "promo" }, OWNER)).toContain("piatti");
         expect(steps({ ...ev, evType: "bundle" }, OWNER)).toContain("piatti");
         expect(steps({ ...ev, evType: "evento" }, OWNER)).not.toContain("piatti");

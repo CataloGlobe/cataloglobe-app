@@ -238,7 +238,7 @@ export function steps(t: Tunnel, c: Ctx): StepId[] {
               : t.kind === "evid"
                 ? ["cosa", "contenuto", ...(t.evType === "promo" || t.evType === "bundle" ? (["piatti"] as StepId[]) : [])]
                 : ["serve", "racconto", "blocchi"];
-    const when: StepId[] = c.owner ? ["quando", ...(c.multi ? (["dove"] as StepId[]) : [])] : [];
+    const when: StepId[] = c.owner ? [...(c.multi ? (["dove"] as StepId[]) : []), "quando"] : [];
     return [...content, ...when, "controlla"];
 }
 
