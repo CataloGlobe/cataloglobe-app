@@ -6,14 +6,15 @@
  * richiesta runtime a fonts.googleapis.com/fonts.gstatic.com (GDPR: niente
  * IP del visitatore inviato a Google).
  *
- * Due consumer (fonte unica, NON duplicare):
- *   - `middleware.ts` (edge runtime): injection warm del solo font dello
- *     stile attivo nell'<head> servito.
- *   - `PublicCollectionPage` (runtime): fallback cold single-family quando
- *     il marker `#mw-font` non è presente nel DOM.
+ * Consumer:
+ *   - `usePublicFontInjection` (runtime): fallback single-family quando il
+ *     marker `#mw-font` non è presente nel DOM.
+ *   - `api/_lib/publicFontUrl.ts`: COPIA per l'SSR (ssr-render inietta
+ *     `#mw-font` nell'<head>), da tenere allineata. Il vecchio
+ *     `middleware.ts` che lo importava è stato rimosso in a1315573.
  *
  * VINCOLO: modulo PURO — niente accesso a DOM/Node/process, così resta
- * importabile dall'edge runtime del middleware.
+ * allineabile 1:1 con la copia lato server.
  *
  * Italic: solo `inter` ha italic vero; le altre 8 famiglie usano
  * faux-italic, com'è sempre stato.
