@@ -654,12 +654,19 @@ test.describe("Calendario e Regole: azienda e sede (T9b, D143)", () => {
     test("dentro la sede: Calendario e Regole portano alla Programmazione della sede", async ({ page }) => {
         const paths = await locationPaths(page);
         test.skip(paths.length < 2, "serve più di una sede");
+        const name = await sedeName(page, paths[1]);
         await page.goto(`${paths[1]}/programmazione`);
         const regole = await sidebarLink(page, "Regole");
         await expect(regole).toHaveAttribute("aria-current", "page");
         await expect(regole).toHaveAttribute("href", `${paths[1]}/programmazione`);
         await expect(await sidebarLink(page, "Calendario")).toHaveAttribute("href", `${paths[1]}/programmazione?vista=calendario`);
         await expect(sedeFilter(page)).toHaveCount(0);
+        // Di quale sede sono le regole: «Sede» in alto, senza confronto; «Tutte le sedi» torna alle Regole dell'azienda.
+        await expect(sedeSwitcher(page)).toContainText(name);
+        await expect(confrontaSwitcher(page)).toHaveCount(0);
+        await sedeSwitcher(page).click();
+        await sedePicker(page).getByRole("radio", { name: /^Tutte le sedi/ }).click();
+        await expect(page).toHaveURL(`${businessRoot(paths[0])}/scheduling`, { timeout: 15_000 });
     });
 
     test("da «Cosa vedono i clienti» si va alla Programmazione della sede", async ({ page }) => {

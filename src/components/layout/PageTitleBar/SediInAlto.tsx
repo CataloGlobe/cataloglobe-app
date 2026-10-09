@@ -41,8 +41,11 @@ export function SediInAlto({ groupKey, entryKey }: SediInAltoProps) {
     const part = navPart(groupKey, entryKey);
     // Una sede sola: non c'è niente da scegliere.
     if (!part || !isLoaded || readableActivities.length < 2) return null;
-    if (part.group.key === "calendario") {
-        // Solo la vista Calendario, quando è montata (le Regole hanno i loro filtri).
+    // Le Regole dell'azienda hanno i loro filtri; quelle di una sede dicono
+    // di quale sede sono con «Sede», come le altre pagine di sede.
+    const regoleDiSede = part.entry.key === "scheduling" && SEDE_PATH.test(pathname);
+    if (part.group.key === "calendario" && !regoleDiSede) {
+        // La vista Calendario, quando è montata.
         if (part.entry.key !== "calendario" || !vista.confrontoQui) return null;
         return <SediCalendario sedi={readableActivities.map(a => ({ id: a.id, name: a.name }))} businessId={businessId} />;
     }
