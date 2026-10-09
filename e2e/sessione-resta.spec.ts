@@ -65,4 +65,16 @@ test.describe("La sessione valida non butta fuori", () => {
         // Tornata la rete, il rinnovo riesce e l'app riprende l'utente da sola.
         await expect(page).not.toHaveURL(/\/login/, { timeout: 50_000 });
     });
+
+    test("utente cancellato o token revocato: il server dice «nessuna sessione» e si esce", async ({ page }) => {
+        const now = Math.floor(Date.now() / 1000);
+        await setup(page, session(now + 3600));
+        // Registrata dopo setup: vince sulla risposta 200 di /auth/v1/user.
+        await page.route(/\/auth\/v1\/user/, route =>
+            route.fulfill({ status: 403, json: { code: 403, error_code: "user_not_found", msg: "User from sub claim in JWT does not exist" } })
+        );
+
+        await page.goto("/workspace");
+        await expect(page).toHaveURL(/\/login/, { timeout: 30_000 });
+    });
 });
