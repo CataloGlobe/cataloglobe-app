@@ -35,6 +35,14 @@ function getReadableSignUpError(message: string): string {
   if (normalized.includes("too many")) {
     return "Hai effettuato troppe richieste. Riprova più tardi.";
   }
+  // Il trigger block_disposable_email_signup alza «disposable_email_domain»;
+  // GoTrue di solito lo copre con «Database error saving new user».
+  if (normalized.includes("disposable") || normalized.includes("database error saving new user")) {
+    return "Non possiamo registrare questo indirizzo. Se è un'email temporanea, usane una personale o di lavoro.";
+  }
+  if (normalized.includes("failed to fetch") || normalized.includes("network")) {
+    return "Connessione assente o instabile. Controlla la rete e riprova.";
+  }
   return "Errore durante la registrazione. Riprova.";
 }
 

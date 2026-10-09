@@ -17,17 +17,41 @@ type LocationState = {
     email?: string;
 };
 
+const EMAIL_KEY = "cg.signupEmail";
+
+function readStoredEmail(): string | undefined {
+    try {
+        return sessionStorage.getItem(EMAIL_KEY) ?? undefined;
+    } catch {
+        return undefined;
+    }
+}
+
+function storeEmail(email: string): void {
+    try {
+        sessionStorage.setItem(EMAIL_KEY, email);
+    } catch {
+        // storage non disponibile: resta solo lo stato del router
+    }
+}
+
 export default function CheckEmail() {
     usePageTitle("Controlla Email");
     const location = useLocation();
     const navigate = useNavigate();
     const state = location.state as LocationState | null;
-    const email = state?.email;
+    // L'email arriva nello stato del router dalla registrazione; si tiene anche
+    // in sessionStorage così un ricaricamento non toglie il reinvio (R8).
+    const email = state?.email ?? readStoredEmail();
+    useEffect(() => {
+        if (state?.email) storeEmail(state.email);
+    }, [state?.email]);
 
     const [resendSeconds, setResendSeconds] = useState(RESEND_COOLDOWN);
     const [resendLoading, setResendLoading] = useState(false);
     const [resendDone, setResendDone] = useState(false);
     const [resendRateLimited, setResendRateLimited] = useState(false);
+    const [resendFailed, setResendFailed] = useState(false);
 
     // Countdown dal mount — email appena inviata, attendere prima di reinviare
     useEffect(() => {
@@ -50,6 +74,7 @@ export default function CheckEmail() {
         setResendLoading(true);
         setResendDone(false);
         setResendRateLimited(false);
+        setResendFailed(false);
         try {
             await resendConfirmationEmail(email);
             setResendDone(true);
@@ -58,6 +83,8 @@ export default function CheckEmail() {
             const message = err instanceof Error ? err.message : "";
             if (isRateLimitError(message)) {
                 setResendRateLimited(true);
+            } else {
+                setResendFailed(true);
             }
             setResendSeconds(RESEND_COOLDOWN);
         } finally {
@@ -94,7 +121,9 @@ export default function CheckEmail() {
                                 ? "Email inviata."
                                 : resendRateLimited
                                   ? "Riprova tra qualche minuto."
-                                  : "Non hai ricevuto nulla?"}
+                                  : resendFailed
+                                    ? "Invio non riuscito, riprova."
+                                    : "Non hai ricevuto nulla?"}
                         </Text>
                         <button
                             type="button"

@@ -10,6 +10,8 @@ import {
 import { Button, InlineBanner } from "@components/ui";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { fromPathOf } from "@/utils/internalPath";
+import { savePendingRedirect } from "@/utils/pendingRedirect";
+import { resendConfirmationEmail } from "@/services/supabase/auth";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import Text from "@/components/ui/Text/Text";
 import { CheckboxInput } from "@/components/ui/Input/CheckboxInput";
@@ -58,6 +60,9 @@ export default function Login() {
     const [recoveryError, setRecoveryError] = useState<string | null>(null);
     const [recoverySuccess, setRecoverySuccess] = useState(false);
     const [recoveryPartial, setRecoveryPartial] = useState(false);
+    // Email non confermata: si offre il reinvio del link (R7).
+    const [unconfirmed, setUnconfirmed] = useState(false);
+    const [confirmResend, setConfirmResend] = useState<"idle" | "sending" | "sent" | "failed">("idle");
     const [recoveryOtpSent, setRecoveryOtpSent] = useState(false);
     const [recoveryCode, setRecoveryCode] = useState("");
 
@@ -99,6 +104,8 @@ export default function Login() {
         setRecoveryError(null);
         setRecoverySuccess(false);
         setRecoveryPartial(false);
+        setUnconfirmed(false);
+        setConfirmResend("idle");
         setLoading(true);
 
         try {
@@ -118,6 +125,8 @@ export default function Login() {
                 setRateLimited(true);
             } else {
                 setError(getReadableLoginError(err));
+                const code = err && typeof err === "object" && "code" in err ? (err as { code?: unknown }).code : "";
+                setUnconfirmed(code === "email_not_confirmed" || message.toLowerCase().includes("email not confirmed"));
             }
         } finally {
             setLoading(false);
@@ -306,6 +315,30 @@ export default function Login() {
 
                 {error && <InlineBanner variant="error">{error}</InlineBanner>}
 
+                {unconfirmed && (
+                    <Button
+                        type="button"
+                        variant="secondary"
+                        fullWidth
+                        loading={confirmResend === "sending"}
+                        disabled={confirmResend === "sending" || confirmResend === "sent"}
+                        onClick={async () => {
+                            setConfirmResend("sending");
+                            try {
+                                await resendConfirmationEmail(email.trim());
+                                setConfirmResend("sent");
+                            } catch {
+                                setConfirmResend("failed");
+                            }
+                        }}
+                    >
+                        {confirmResend === "sent" ? "Link inviato: controlla la mail" : "Invia di nuovo il link di conferma"}
+                    </Button>
+                )}
+                {confirmResend === "failed" && (
+                    <InlineBanner variant="error">Non siamo riusciti a inviare il link. Riprova tra poco.</InlineBanner>
+                )}
+
                 <Button
                     type="submit"
                     variant="primary"
@@ -318,7 +351,15 @@ export default function Login() {
                 </form>
 
                 <Text as="p" variant="body-sm" className={styles.hint}>
-                    Non hai un account? <Link to="/sign-up">Registrati</Link>
+                    Non hai un account? <Link
+                        to="/sign-up"
+                        onClick={() => {
+                            // Un invito (o un altro deep link) sopravvive al giro di registrazione (R6).
+                            if (from) savePendingRedirect(from);
+                        }}
+                    >
+                        Registrati
+                    </Link>
                 </Text>
             </div>
         </AuthLayout>
