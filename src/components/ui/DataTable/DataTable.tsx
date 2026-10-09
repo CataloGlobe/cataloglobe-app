@@ -17,6 +17,7 @@ import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { useAutoPageSize } from "./useAutoPageSize";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { useDetailPaneOpen } from "@/components/layout/DetailPane/DetailPaneContext";
 import {
     resolveNumericPageSize,
     withAutoOption,
@@ -36,6 +37,9 @@ export type ColumnDefinition<T> = {
     /** Sotto 768 la colonna sparisce: su telefono restano due colonne più
      *  le azioni (scheda «DataTable»). La colonna azioni non si nasconde mai. */
     hideOnPhone?: boolean;
+    /** Con un dettaglio aperto accanto la tabella si stringe (D131): escono
+     *  queste colonne e quelle `hideOnPhone`. */
+    hideWithDetail?: boolean;
 };
 
 export type DataTableEmptyState = {
@@ -321,15 +325,18 @@ export function DataTable<T>({
     // La colonna azioni è sempre l'ultima, a destra (scheda «DataTable»):
     // se il consumer la dichiara altrove, la tabella la sposta in coda.
     const isPhone = useMediaQuery("(max-width: 767px)");
+    const detailOpen = useDetailPaneOpen();
     const columns = useMemo(() => {
-        // Su telefono le colonne `hideOnPhone` escono; le azioni restano.
-        const visible = isPhone
-            ? columnsProp.filter(c => !c.hideOnPhone || c.id === ACTIONS_COLUMN_ID)
-            : columnsProp;
+        // Su telefono le colonne `hideOnPhone` escono; con il dettaglio
+        // accanto anche le `hideWithDetail`. Le azioni restano.
+        const hidden = (c: ColumnDefinition<T>) =>
+            c.id !== ACTIONS_COLUMN_ID &&
+            (((isPhone || detailOpen) && c.hideOnPhone) || (detailOpen && c.hideWithDetail));
+        const visible = isPhone || detailOpen ? columnsProp.filter(c => !hidden(c)) : columnsProp;
         const idx = visible.findIndex(c => c.id === ACTIONS_COLUMN_ID);
         if (idx < 0 || idx === visible.length - 1) return visible;
         return [...visible.filter((_, i) => i !== idx), visible[idx]];
-    }, [columnsProp, isPhone]);
+    }, [columnsProp, isPhone, detailOpen]);
     const initialSelection: PageSizeSelection = pageSize ?? DEFAULT_PAGE_SIZE;
     const [currentPageSize, setCurrentPageSize] =
         useState<PageSizeSelection>(initialSelection);

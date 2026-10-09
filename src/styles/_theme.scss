@@ -248,6 +248,9 @@
   --drawer-sm: 420px;
   --drawer-md: 520px;
   --drawer-lg: 720px;
+  // Il dettaglio dal vivo accanto all'elenco (Officina, D131): un drawer che
+  // non copre, stretto quanto basta per lasciare la board leggibile.
+  --detail-pane: clamp(380px, 30vw, 460px);
   --tap-target: 44px;
 
   // --- Motion ---

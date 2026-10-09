@@ -26,10 +26,41 @@
 }
 
 .title {
+  flex: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+// Dentro un dettaglio dal vivo (`DetailPane`): ↑ ↓ e la X insieme a destra.
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex: none;
+}
+
+// Al telefono il dettaglio è una pagina: «‹ Comande» torna alla pagina sotto.
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex: none;
+  margin-left: calc(-1 * var(--space-8));
+  padding: var(--space-4) var(--space-8);
+  border: 0;
+  border-radius: var(--radius-control);
+  background: none;
+  color: var(--on-brand-soft);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-focus);
+  }
 }
 
 // Opt-in (prop `headerFlush`): header che termina con un gruppo <Tabs>.

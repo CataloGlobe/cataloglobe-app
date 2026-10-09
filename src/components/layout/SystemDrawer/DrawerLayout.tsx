@@ -1,7 +1,8 @@
 import { ReactNode } from "react";
-import { X } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronUp, X } from "lucide-react";
 import Text from "@/components/ui/Text/Text";
 import { IconButton } from "@/components/ui/Button/IconButton";
+import { useDetailPaneNav } from "@/components/layout/DetailPane/DetailPaneContext";
 import styles from "./DrawerLayout.module.scss";
 
 export interface DrawerLayoutProps {
@@ -46,15 +47,35 @@ export const DrawerLayout = ({
     bodyLayout = "block",
     headerFlush = false
 }: DrawerLayoutProps) => {
+    // Dentro un dettaglio dal vivo (`DetailPane`): le frecce per il precedente
+    // e il successivo, e al telefono «‹ Comande» al posto della X.
+    const pane = useDetailPaneNav();
+    const back = pane?.phone && onClose;
     const headerContent =
         header ??
         (title ? (
             <div className={styles.headerRow}>
+                {back && (
+                    <button type="button" className={styles.back} onClick={onClose}>
+                        <ChevronLeft size={18} aria-hidden="true" />
+                        {pane.backLabel}
+                    </button>
+                )}
                 <Text as="h2" id={titleId} variant="title-sm" weight={600} className={styles.title}>
                     {title}
                 </Text>
-                {onClose && (
-                    <IconButton icon={<X size={18} />} aria-label="Chiudi" variant="ghost" size="sm" onClick={onClose} />
+                {(pane?.onPrev || pane?.onNext || (onClose && !back)) && (
+                    <div className={styles.headerActions}>
+                        {pane?.onPrev && (
+                            <IconButton icon={<ChevronUp size={18} />} aria-label="Precedente" variant="ghost" size="sm" onClick={pane.onPrev} />
+                        )}
+                        {pane?.onNext && (
+                            <IconButton icon={<ChevronDown size={18} />} aria-label="Successivo" variant="ghost" size="sm" onClick={pane.onNext} />
+                        )}
+                        {onClose && !back && (
+                            <IconButton icon={<X size={18} />} aria-label="Chiudi" variant="ghost" size="sm" onClick={onClose} />
+                        )}
+                    </div>
                 )}
             </div>
         ) : null);
