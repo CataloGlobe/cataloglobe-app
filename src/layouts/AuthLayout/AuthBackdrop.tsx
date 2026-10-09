@@ -75,8 +75,8 @@ export function AuthBackdrop() {
                             b = g;
                             seed = w.seed;
                         }
-                        ox += (dx / d) * g * 5;
-                        oy += (dy / d) * g * 5;
+                        ox += (dx / d) * g * 3;
+                        oy += (dy / d) * g * 3;
                     }
                     const px = x + ox;
                     const py = y + oy;
@@ -84,17 +84,17 @@ export function AuthBackdrop() {
                         // Il punto si allarga in un quadratino dagli angoli tondi.
                         const m = Math.min(1, (b - 0.18) / 0.5);
                         const e = m * m * (3 - 2 * m);
-                        const side = 2.2 + e * (STEP * 0.56 - 2.2);
+                        const side = 2.2 + e * (STEP * 0.46 - 2.2);
                         const radius = Math.max(1.5, 1.1 + (1 - e) * (side / 2 - 1.1));
-                        ctx.fillStyle = `rgba(${accentRgb},${(0.1 + e * 0.24).toFixed(3)})`;
+                        ctx.fillStyle = `rgba(${accentRgb},${(0.06 + e * 0.13).toFixed(3)})`;
                         ctx.beginPath();
                         ctx.roundRect(px - side / 2, py - side / 2, side, side, radius);
                         ctx.fill();
                     } else {
-                        const a = Math.min(1, (0.24 + b * 0.5) * strength);
-                        ctx.fillStyle = `rgba(${b > 0.3 ? accentRgb : dotRgb},${a.toFixed(3)})`;
+                        const a = Math.min(1, (0.24 + b * 0.28) * strength);
+                        ctx.fillStyle = `rgba(${b > 0.45 ? accentRgb : dotRgb},${a.toFixed(3)})`;
                         ctx.beginPath();
-                        ctx.arc(px, py, 1.05 + b * 0.6, 0, Math.PI * 2);
+                        ctx.arc(px, py, 1.05 + b * 0.35, 0, Math.PI * 2);
                         ctx.fill();
                     }
                 }
