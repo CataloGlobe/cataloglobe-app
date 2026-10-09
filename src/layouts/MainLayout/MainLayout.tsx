@@ -56,6 +56,13 @@ const SEDE_PAGE_LABELS: Record<string, string | undefined> = {
 /** `/business/:businessId/locations/:activityId[/...]` — dentro una sede. */
 const SEDE_CONTEXT_PATH = /^\/business\/[^/]+\/locations\/([^/]+)/;
 
+const CREA_TITLES: Record<string, string> = {
+    menu: 'Nuovo menù',
+    stile: 'Nuovo stile',
+    evidenza: 'Nuovo contenuto in evidenza',
+    storia: 'Nuova storia',
+};
+
 /**
  * Titolo di pagina per il <title> del browser. `resolvePageTitle` è
  * module-level e non può chiamare `useVerticalConfig()`: `catalogLabel` arriva
@@ -97,6 +104,8 @@ function resolvePageTitle(
     if (second && first === 'scheduling') return 'Dettaglio regola';
     if (second && first === 'featured') return 'Dettaglio in evidenza';
     if (second && first === 'styles') return 'Editor stile';
+    // I tunnel di creazione (D124): il titolo dice cosa si sta creando.
+    if (first === 'crea') return CREA_TITLES[second] ?? 'Crea';
 
     // Una pagina, due parti: «Regole» e, con la vista, «Calendario».
     if (first === 'scheduling') return new URLSearchParams(search).get('vista') === 'calendario' ? 'Calendario' : 'Regole';

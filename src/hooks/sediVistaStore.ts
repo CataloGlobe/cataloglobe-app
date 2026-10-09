@@ -14,6 +14,8 @@
 // la parte React è in `useSediVista.ts`.
 // ============================================================
 
+import type { ReactNode } from "react";
+
 /** Cosa si guarda: tutte le sedi, una sede, un gruppo di sedi. */
 export type SedeVista = { kind: "all" } | { kind: "sede"; id: string } | { kind: "gruppo"; id: string };
 
@@ -30,8 +32,21 @@ const STORAGE_KEY = "cataloglobe:sediVista";
 
 export const EMPTY_SEDI_VISTA: SediVistaState = Object.freeze({ tenantId: null, sede: null, confronta: Object.freeze([]) });
 
+/**
+ * Quello che la pagina che dichiara il confronto passa a «in alto a destra»:
+ * i gruppi di sedi che sa leggere e una nota per ogni sede del confronto
+ * (il Calendario: «diversa · 3 g»).
+ */
+export interface ConfrontoOpts {
+    gruppi?: ReadonlyArray<{ id: string; name: string; sedeIds: readonly string[] }>;
+    tag?: (sedeId: string) => ReactNode;
+}
+
+const NO_OPTS: ConfrontoOpts = Object.freeze({});
+
 let state: SediVistaState = readStorage();
-let confrontoClaims = 0;
+/** Le pagine che dichiarano il confronto, in ordine: vale l'ultima. */
+let confrontoClaims: ConfrontoOpts[] = [];
 const listeners = new Set<() => void>();
 
 function readStorage(): SediVistaState {
@@ -107,20 +122,26 @@ export function setConfrontaVista(tenantId: string, ids: Iterable<string>): void
 }
 
 /** Il confronto vale qui: la sezione aperta lo dichiara finché è montata. */
-export function claimConfronto(): () => void {
-    confrontoClaims += 1;
+export function claimConfronto(opts: ConfrontoOpts = NO_OPTS): () => void {
+    const claim = opts === NO_OPTS ? { ...NO_OPTS } : opts;
+    confrontoClaims = [...confrontoClaims, claim];
     for (const l of listeners) l();
     let released = false;
     return () => {
         if (released) return;
         released = true;
-        confrontoClaims -= 1;
+        confrontoClaims = confrontoClaims.filter(c => c !== claim);
         for (const l of listeners) l();
     };
 }
 
 export function getConfrontoQui(): boolean {
-    return confrontoClaims > 0;
+    return confrontoClaims.length > 0;
+}
+
+/** Gruppi e nota della pagina che ha dichiarato il confronto per ultima. */
+export function getConfrontoOpts(): ConfrontoOpts {
+    return confrontoClaims[confrontoClaims.length - 1] ?? NO_OPTS;
 }
 
 /** Il confronto si vede: sezione che lo permette, una sede sola, almeno un'altra scelta. */
@@ -135,6 +156,6 @@ function unique(ids: string[]): string[] {
 /** Solo per le prove. */
 export function __resetSediVistaForTests(): void {
     state = EMPTY_SEDI_VISTA;
-    confrontoClaims = 0;
+    confrontoClaims = [];
     listeners.clear();
 }

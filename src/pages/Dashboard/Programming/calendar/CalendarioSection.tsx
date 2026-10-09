@@ -19,11 +19,14 @@ import { Button } from "@/components/ui/Button/Button";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import {
     DB_LATER,
+    NEW_MODEL,
     autoName,
     draftLabel,
     invalid,
     isDish,
     missing,
+    waitsForDb,
+    scontriWait,
     pairName,
     priceKey,
     priceKeys,
@@ -32,14 +35,16 @@ import {
     sortPicks,
     whatLines,
     whereText,
+    perText,
     listIt,
     type Draft,
     type DraftLookups,
+    type Impatto,
     type PickProduct,
     type PickThing
 } from "./calendarDraft";
 import { CAL_KINDS, KIND_LABEL, durLabel, eur, type Axis, type CalKind, type CalWhen } from "./calendarModel";
-import { DovePasso, QuandoPasso, Warn } from "./CalendarioPassi";
+import { DoveQuandoPasso, QuandoPasso, ScontriAvviso, Warn } from "./CalendarioPassi";
 import s from "./CalendarioView.module.scss";
 
 export type SectionSede = { id: string; name: string };
@@ -56,7 +61,7 @@ const KDESC: Record<CalKind, string> = {
     menu: "Un menù classico o un multi menù, nei giorni e nelle ore che scegli: prende il posto degli altri.",
     style: "L'aspetto della pagina per un periodo: Natale, l'estate.",
     price: "Uno sconto barrato o un prezzo nuovo, per il tempo che scegli.",
-    visibility: "Piatti che spariscono dal menù o restano spenti, non ordinabili.",
+    visibility: "Piatti nascosti dal menù, o che restano e si leggono «Non disponibile».",
     featured: "Un blocco in cima al menù: una novità, un'offerta, un avviso."
 };
 const KICON: Record<CalKind, ReactNode> = {
@@ -66,14 +71,15 @@ const KICON: Record<CalKind, ReactNode> = {
     visibility: <EyeOff size={17} />,
     featured: <Megaphone size={17} />
 };
+// si crea nel tunnel di creazione (D124), non più nella pagina
 const NEW_THING: Partial<Record<CalKind, [string, string]>> = {
-    menu: ["Crea un menù nuovo", "Menù"],
-    style: ["Crea uno stile nuovo", "Stili"],
-    featured: ["Crea un In evidenza nuovo", "In evidenza"]
+    menu: ["Crea un menù nuovo", "Creare un menù nuovo?"],
+    style: ["Crea uno stile nuovo", "Creare uno stile nuovo?"],
+    featured: ["Crea un In evidenza nuovo", "Creare un contenuto in evidenza nuovo?"]
 };
 
-// prima il dove e poi il quando (D134): mentre si scelgono le ore l'anteprima guarda già le sedi giuste
-const sectionSteps = (multi: boolean) => (multi ? ["Cosa", "Dove", "Quando", "Riepilogo"] : ["Cosa", "Quando", "Riepilogo"]);
+// dove e quando in un passo solo (D145): mentre si scelgono le ore l'anteprima guarda già le sedi giuste
+const sectionSteps = (multi: boolean) => ["Cosa", multi ? "Dove e quando" : "Quando", "Riepilogo"];
 
 export type Leave = { why: "exit" | "root" | "del" | "new"; to?: CalKind };
 
@@ -96,7 +102,7 @@ export type CalendarioSectionProps = {
     kept: Draft | null;
     toast: ReactNode;
     preview: ReactNode;
-    effect: string[];
+    effect: Impatto;
     band: Axis;
     busy: boolean;
     onKind: (k: CalKind) => void;
@@ -168,7 +174,7 @@ export function CalendarioSection(p: CalendarioSectionProps) {
             <h2>{title}</h2>
             {D && (
                 <p className={s.muted}>
-                    {edit ? "Le modifiche si vedono nell'anteprima e vanno in onda quando salvi." : (steps.length === 4 ? "Quattro" : "Tre") + " passi; nell'anteprima vedi già dove va in onda."}
+                    {edit ? "Le modifiche si vedono nell'anteprima e vanno in onda quando salvi." : "Tre passi; nell'anteprima vedi già dove va in onda."}
                 </p>
             )}
         </div>
@@ -206,11 +212,16 @@ export function CalendarioSection(p: CalendarioSectionProps) {
             </div>
         );
 
-    const miss = missing(D, L), bad = invalid(D), last = D.step === steps.length - 1, blocked = miss || bad;
+    const miss = missing(D, L), bad = invalid(D), last = D.step === steps.length - 1;
+    const blocked = miss || bad || waitsForDb(D) || scontriWait(D, p.effect.scontri);
     const body = [
         cosa,
-        ...(L.multi ? [() => <DovePasso draft={D} upd={upd} sedi={p.sedi} groups={p.groups} L={L} bad={bad} />] : []),
-        () => <QuandoPasso draft={D} upd={upd} durs={p.durs(D.kind)} axis={p.band} bad={bad} />,
+        () =>
+            L.multi ? (
+                <DoveQuandoPasso draft={D} upd={upd} sedi={p.sedi} groups={p.groups} L={L} bad={bad} durs={p.durs(D.kind)} axis={p.band} />
+            ) : (
+                <QuandoPasso draft={D} upd={upd} durs={p.durs(D.kind)} axis={p.band} bad={bad} />
+            ),
         riep
     ][D.step]();
     const next = () =>
@@ -230,7 +241,7 @@ export function CalendarioSection(p: CalendarioSectionProps) {
             });
             return;
         }
-        if (!bad) p.onSave();
+        if (!blocked) p.onSave();
     };
 
     return (
@@ -261,7 +272,7 @@ export function CalendarioSection(p: CalendarioSectionProps) {
                         })}
                     </ol>
                     <span className={`${s.hfa} ${s.iacts2}`}>
-                        {last && blocked && <span className={s.muted}>{miss || bad}</span>}
+                        {last && blocked && <span className={s.muted}>{blocked}</span>}
                         <Button size="sm" variant="ghost" onClick={exit}>
                             Annulla
                         </Button>
@@ -420,11 +431,11 @@ export function CalendarioSection(p: CalendarioSectionProps) {
                                 value={d.hide}
                                 onChange={v => upd(dd => void (dd.hide = v))}
                                 options={[
-                                    { value: "hide", label: "Non si vede" },
-                                    { value: "disable", label: "Non ordinabile" }
+                                    { value: "hide", label: "Nascosto" },
+                                    { value: "disable", label: "Non disponibile" }
                                 ]}
                             />
-                            <p className={s.muted}>{d.hide === "hide" ? "Il piatto sparisce dal menù." : "Il piatto resta nel menù, spento: si vede ma non si ordina."}</p>
+                            <p className={s.muted}>{d.hide === "hide" ? "Il piatto sparisce dal menù." : "Il piatto resta nel menù con «Non disponibile»: si vede ma non si ordina."}</p>
                         </div>
                     )}
                     {warn}
@@ -439,12 +450,13 @@ export function CalendarioSection(p: CalendarioSectionProps) {
                     {nw[0]}
                 </Button>
                 <p className={s.muted}>
-                    {d.kind === "menu" ? "Si crea nella pagina Menù, dove scegli se è classico o multi: si esce dal Calendario." : `Si crea nella sua pagina, ${nw[1]}: si esce dal Calendario.`}
+                    {d.kind === "menu" ? "Si crea nel tunnel di creazione, dove scegli se è classico o multi: si esce dal Calendario." : "Si crea nel tunnel di creazione: si esce dal Calendario."}
                 </p>
             </>
         );
+        // con menù e stile separati (D120) l'altro non si sceglie qui: resta quello di sempre
         const pair =
-            d.kind === "menu" || d.kind === "style" ? (
+            (d.kind === "menu" || d.kind === "style") && !NEW_MODEL.splitLayout ? (
                 <div className={s.ifl}>
                     <h4>{d.kind === "menu" ? "Con lo stile" : "Con il menù"}</h4>
                     <select
@@ -535,8 +547,9 @@ export function CalendarioSection(p: CalendarioSectionProps) {
         const d = D!;
         const rows: [string, string, number][] = [
             ["Cosa", listIt(whatLines(d, L)) || "—", 0],
-            ...(L.multi ? ([["Dove", whereText(d.where, L), 1]] as [string, string, number][]) : []),
-            ["Quando", durLabel(d.when), L.multi ? 2 : 1]
+            L.multi
+                ? ["Dove e quando", d.per ? perText(d.per, L) : whereText(d.where, L) + " · " + durLabel(d.when), 1]
+                : ["Quando", durLabel(d.when), 1]
         ];
         const pn = pairName(d, L);
         return (
@@ -546,6 +559,7 @@ export function CalendarioSection(p: CalendarioSectionProps) {
                     <p className={s.isent}>{sentence(d, L)}</p>
                     {miss && <Warn>{miss}: torna a Cosa.</Warn>}
                     {!miss && bad && <Warn>{bad}.</Warn>}
+                    {!miss && <ScontriAvviso kind={d.kind} scontri={p.effect.scontri} multi={L.multi} insieme={!!d.insieme} onInsieme={v => upd(dd => void (dd.insieme = v))} />}
                     <dl className={s.isum}>
                         {rows.map(([t, v, i]) => (
                             <div key={t}>
@@ -570,18 +584,20 @@ export function CalendarioSection(p: CalendarioSectionProps) {
                         }}
                     />
                     <p className={s.muted}>
-                        {d.name ? "Il nome che hai scritto tu." : "Lo mettiamo noi dalle tue scelte e cambia con loro; se lo riscrivi, resta il tuo."} Si legge in Programmazione.
+                        {d.name ? "Il nome che hai scritto tu." : "Lo mettiamo noi dalle tue scelte e cambia con loro; se lo riscrivi, resta il tuo."} Si legge nelle Regole.
                     </p>
                 </div>
                 <div className={s.ifl}>
                     <h4>Cosa cambia nel calendario</h4>
                     <ul className={s.ieff}>
-                        {p.effect.map((x, i) => (
+                        {p.effect.lines.map((x, i) => (
                             <li key={i}>{x}</li>
                         ))}
                         {pn && !miss && (
                             <li>
-                                Insieme va in onda {d.kind === "menu" ? "lo stile" : "il menù"} «{pn}», che oggi sta nella stessa regola.
+                                {NEW_MODEL.splitLayout
+                                    ? `${d.kind === "menu" ? "Lo stile" : "Il menù"} non cambia: resta «${pn}».`
+                                    : `Insieme va in onda ${d.kind === "menu" ? "lo stile" : "il menù"} «${pn}», che oggi sta nella stessa regola.`}
                             </li>
                         )}
                     </ul>
@@ -631,8 +647,8 @@ export function CalendarioSection(p: CalendarioSectionProps) {
                 </>
             );
         } else if (l.why === "new") {
-            t = `Vai a ${NEW_THING[l.to!]![1]} per crearne uno nuovo?`;
-            txt = "Esci dal Calendario. " + nos;
+            t = NEW_THING[l.to!]![1];
+            txt = ok ? "Si apre il tunnel di creazione. " + nos : "Si apre il tunnel di creazione: tieni da parte la bozza, e il suo quando e il suo dove vengono con te.";
             btns = (
                 <>
                     {stay}

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { Calendar, ChevronDown, List, CalendarDays } from "lucide-react";
+import { Calendar, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import { Badge } from "@/components/ui/Badge/Badge";
@@ -12,7 +12,6 @@ import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { Menu } from "@/components/ui/Menu";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { ToolbarSearch } from "@/components/ui/ToolbarSearch/ToolbarSearch";
-import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { SplitButton, type SplitButtonAction } from "@/components/ui/SplitButton";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import Text from "@/components/ui/Text/Text";
@@ -191,7 +190,9 @@ export default function Programming() {
     const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
     const [updatingRules, setUpdatingRules] = useState<Set<string>>(new Set());
 
-    const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
+    // La vista sta nell'indirizzo (?vista=calendario): Calendario e Regole sono
+    // due parti della sezione, tab nella barra del titolo e voci nella sidebar.
+    const viewMode: "list" | "calendar" = searchParams.get("vista") === "calendario" ? "calendar" : "list";
     const [searchTerm, setSearchTerm] = useState("");
     // Niente filtro sede nella pagina d'azienda (T9b, PG5; superato §51.11):
     // la sede si guarda da dentro la sede. Un vecchio link `?sede=<id>` porta
@@ -823,15 +824,6 @@ export default function Programming() {
                     width={step === 2 ? "min" : "default"}
                 />
             )}
-            <SegmentedControl<"list" | "calendar">
-                value={viewMode}
-                onChange={setViewMode}
-                iconsOnly={step > 0}
-                options={[
-                    { value: "list", label: "Programmazione", icon: <List size={16} /> },
-                    { value: "calendar", label: "Calendario", icon: <CalendarDays size={16} /> }
-                ]}
-            />
             <SplitButton actions={headerSplitActions} loading={isCreating} />
         </div>
     ), [viewMode, searchTerm, headerSplitActions, isCreating]);
@@ -861,19 +853,6 @@ export default function Programming() {
                   placeholder: "Cerca per nome, tipo, sede o id…"
               }
             : undefined,
-        persistentIcons: [
-            viewMode === "list"
-                ? {
-                      icon: <CalendarDays size={18} />,
-                      label: "Calendario",
-                      onClick: () => setViewMode("calendar")
-                  }
-                : {
-                      icon: <List size={18} />,
-                      label: "Programmazione",
-                      onClick: () => setViewMode("list")
-                  }
-        ],
         // `headerSplitActions` è già in ordine di lettura: le secondarie
         // precedono la primaria, che è l'ultima.
         secondaryActions: headerSplitActions.slice(0, -1),
@@ -881,11 +860,12 @@ export default function Programming() {
         loading: isCreating
     }), [typeOptions, typeCounts, ruleTypeFilter, handleRuleTypeFilterChange, viewMode, searchTerm, headerSplitActions, isCreating]);
 
+    const calendarOnly = viewMode === "calendar";
     usePageHeader({
-        leading: headerLeading,
-        actions: headerActions,
-        narrowerActions: headerNarrowerActions,
-        compact: headerCompact,
+        leading: calendarOnly ? undefined : headerLeading,
+        actions: calendarOnly ? undefined : headerActions,
+        narrowerActions: calendarOnly ? undefined : headerNarrowerActions,
+        compact: calendarOnly ? undefined : headerCompact,
     });
 
     const statusGroups: Array<{
@@ -1122,8 +1102,9 @@ export default function Programming() {
                             await dropDraft(draft);
                             await loadRules();
                         },
+                        // «Crea un menù nuovo» apre il tunnel di creazione (D124)
                         onGoNew: kind =>
-                            navigate(`/business/${currentTenantId}/${kind === "menu" ? "catalogs" : kind === "style" ? "styles" : "featured"}`)
+                            navigate(`/business/${currentTenantId}/crea/${kind === "menu" ? "menu" : kind === "style" ? "stile" : "evidenza"}?da=calendario`)
                     }}
                 />
             )}

@@ -173,6 +173,12 @@ export interface PageHeaderConfig {
     subtitle?: string;
     /** Addon legacy accanto al titolo — ignorato post-slim. */
     titleAddon?: ReactNode;
+    /**
+     * Accanto al percorso, nella barra del titolo: il commutatore di vista
+     * della pagina (Programmazione | Calendario). Con la banda vuota la
+     * pagina sotto è tutta della vista scelta.
+     */
+    titleSide?: ReactNode;
     /** Slot sinistro: tab controllati, filtri primari, ecc. */
     leading?: ReactNode;
     /** Slot destro: search, filtri secondari, CTA. */

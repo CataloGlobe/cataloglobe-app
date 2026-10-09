@@ -4,6 +4,7 @@ import { NavbarBreadcrumb } from "@components/layout/AppHeader/NavbarBreadcrumb"
 import Text from "@/components/ui/Text/Text";
 import type { AppSidebarNavGroup } from "@/components/layout/AppSidebar/AppSidebar";
 import { currentItem, isItemRoot } from "@/components/layout/AppSidebar/isItemActive";
+import { useReadPageHeader } from "@/context/useReadPageHeader";
 import { SediInAlto } from "./SediInAlto";
 import styles from "./PageTitleBar.module.scss";
 
@@ -20,10 +21,12 @@ interface PageTitleBarProps {
  * 2026-10-09: «tab nella pagina e parti nella sidebar»); dentro un dettaglio
  * il percorso («Prodotti / Margherita»). Le notifiche in alto a destra
  * (Lorenzo). Ricerca e azioni della pagina restano nella banda sotto
- * (`PageHeaderSlot`).
+ * (`PageHeaderSlot`); accanto al titolo solo un commutatore di vista della
+ * pagina, se lo dichiara (`titleSide`).
  */
 export function PageTitleBar({ actions, groups = [] }: PageTitleBarProps) {
     const { pathname, search } = useLocation();
+    const side = useReadPageHeader()?.titleSide;
 
     // La parte aperta, anche dentro un suo dettaglio: le sedi in alto la seguono.
     let open: { groupKey?: string; entryKey?: string } = {};
@@ -37,9 +40,7 @@ export function PageTitleBar({ actions, groups = [] }: PageTitleBarProps) {
 
     let section: { group: AppSidebarNavGroup; current: AppSidebarNavGroup["items"][number] } | null = null;
     for (const group of groups) {
-        // Il Calendario per ora tiene lo switch «Programmazione | Calendario»
-        // della pagina (Alex 2026-10-09, sessione del tunnel): le sue tab dopo.
-        if (group.items.length < 2 || group.key === "calendario") continue;
+        if (group.items.length < 2) continue;
         const current = currentItem(group.items, pathname, search);
         if (current && isItemRoot(current, pathname)) {
             section = { group, current };
@@ -77,6 +78,7 @@ export function PageTitleBar({ actions, groups = [] }: PageTitleBarProps) {
                 ) : (
                     <NavbarBreadcrumb inBar />
                 )}
+                {side && <div className={styles.side}>{side}</div>}
             </div>
             {/* Al telefono le notifiche stanno nella testata: qui restano le sedi. */}
             <div className={styles.actions}>

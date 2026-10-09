@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/services/supabase/layoutScheduling", () => ({
     createRuleDraft: vi.fn(async () => "nuova"),
@@ -16,14 +16,20 @@ import { createFeaturedRuleDraft, updateFeaturedRule } from "@/services/supabase
 import { updateScheduleTargets } from "@/services/supabase/scheduleTargets";
 import {
     blankDraft,
+    DB,
     draftEntry,
+    draftParts,
     dropAside,
     peekAside,
     draftFromEntry,
     invalid,
     isDirty,
     missing,
+    NEW_MODEL,
+    perText,
+    syncPer,
     timeFields,
+    waitsForDb,
     writeAside,
     type DraftLookups
 } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
@@ -212,6 +218,92 @@ describe("salvare la sezione", () => {
     });
 });
 
+describe("le ore diverse per sede (D145)", () => {
+    const LUN_VEN = { days: [0, 1, 2, 3, 4], ranges: [[720, 900]] as [number, number][] };
+    const SEMPRE_PRANZO = { ranges: [[720, 900]] as [number, number][] };
+
+    it("le ore per sede seguono le sedi: chi entra parte da quelle di tutte, con una sede sola spariscono", () => {
+        const per = { a1: LUN_VEN, a2: SEMPRE_PRANZO };
+        expect(syncPer(per, ["a1", "a3"], { days: [5] })).toEqual({ a1: LUN_VEN, a3: { days: [5] } });
+        expect(syncPer(per, ["a1"], LUN_VEN)).toBeNull();
+        expect(syncPer(null, ["a1", "a2"], LUN_VEN)).toBeNull();
+    });
+
+    it("si salva una regola per ogni orario diverso; ore tutte uguali, una sola col dove di prima", () => {
+        const D = blankDraft("menu", ALL, "s1");
+        D.thing = "c2";
+        D.per = { a1: LUN_VEN, a2: SEMPRE_PRANZO };
+        const parts = draftParts(D);
+        expect(parts).toHaveLength(2);
+        expect(parts.map(p => p.where.activityIds)).toEqual([["a1"], ["a2"]]);
+        expect(parts.every(p => p.per === null)).toBe(true);
+        expect(parts[1]).toMatchObject({ mode: "add", rule: null });
+        D.per = { a1: LUN_VEN, a2: structuredClone(LUN_VEN) };
+        expect(draftParts(D)).toEqual([expect.objectContaining({ where: ALL, when: LUN_VEN, per: null })]);
+    });
+
+    it("il riepilogo raccoglie le sedi con le stesse ore", () => {
+        expect(perText({ a1: LUN_VEN, a2: SEMPRE_PRANZO }, L)).toMatch(/^Centro: .+ · Stazione: .+$/);
+        expect(perText({ a1: LUN_VEN, a2: structuredClone(LUN_VEN) }, L)).toMatch(/^Centro e Stazione: /);
+    });
+
+    it("una sede con ore sue: due regole nel Calendario, ognuna con la sua sede", async () => {
+        const D = blankDraft("menu", ALL, "s1");
+        D.thing = "c2";
+        D.per = { a1: LUN_VEN, a2: SEMPRE_PRANZO };
+        await saveDraft(D, L, "t");
+        expect(createRuleDraft).toHaveBeenCalledTimes(2);
+        const calls = vi.mocked(updateRule).mock.calls.map(c => c[0]);
+        expect(calls).toEqual([
+            expect.objectContaining({ applyToAll: false, daysOfWeek: [1, 2, 3, 4, 5], timeFrom: "12:00" }),
+            expect.objectContaining({ applyToAll: false, timeFrom: "12:00", timeTo: "15:00" })
+        ]);
+        expect(vi.mocked(updateScheduleTargets).mock.calls.map(c => c[1])).toEqual([[{ targetType: "activity", targetId: "a1" }], [{ targetType: "activity", targetId: "a2" }]]);
+    });
+});
+
+describe("le novità della versione 10 (D120, D149)", () => {
+    const keep = { ...NEW_MODEL };
+    afterEach(() => {
+        Object.assign(NEW_MODEL, keep);
+        DB.ready = false;
+    });
+
+    it("spente: un menù chiede il suo stile, più fasce e dopo mezzanotte non passano", () => {
+        Object.assign(NEW_MODEL, { multiRange: false, overnight: false, multiMenu: false, splitLayout: false });
+        const D = blankDraft("menu", ALL, null);
+        D.thing = "c2";
+        expect(missing(D, L)).toBe("Scegli lo stile che va col menù");
+        D.when = { ranges: [[720, 900], [1140, 1380]] };
+        expect(invalid(D)).toBe("Più fasce arriva col database nuovo");
+        D.when = { ranges: [[1140, 1500]] };
+        expect(invalid(D)).toBe("Dopo mezzanotte arriva col database nuovo");
+    });
+
+    it("accese: la bozza si fa tutta, il salvataggio aspetta il database nuovo", () => {
+        Object.assign(NEW_MODEL, { multiRange: true, overnight: true, multiMenu: true, splitLayout: true });
+        const D = blankDraft("menu", ALL, null);
+        D.thing = "c2";
+        expect(missing(D, L)).toBe("");
+        expect(waitsForDb(D)).toBe("Un menù senza stile: si salva col database nuovo");
+        D.pair = "s1";
+        expect(waitsForDb(D)).toBe("");
+        D.when = { ranges: [[720, 900], [1140, 1380]] };
+        expect(invalid(D)).toBe("");
+        expect(waitsForDb(D)).toBe("Più fasce in una regola: si salva col database nuovo");
+        D.when = { ranges: [[1140, 1500]] };
+        expect(waitsForDb(D)).toBe("Dopo mezzanotte: si salva col database nuovo");
+        DB.ready = true;
+        expect(waitsForDb(D)).toBe("");
+    });
+
+    it("uno stile da solo aspetta anche lui: oggi la vetrina lo legge solo insieme a un menù", () => {
+        const D = blankDraft("style", ALL, null);
+        D.thing = "s1";
+        expect(waitsForDb(D)).toBe("Uno stile da solo: si salva col database nuovo");
+    });
+});
+
 describe("la bozza messa da parte", () => {
     it("un tunnel ne legge solo cosa, quando e dove; «via» la toglie", () => {
         const store = new Map<string, string>();
@@ -225,7 +317,7 @@ describe("la bozza messa da parte", () => {
         D.thing = "c2";
         D.when = { days: [0, 1, 2, 3, 4], ranges: [[720, 900]] };
         writeAside(D);
-        expect(peekAside()).toEqual({ kind: "menu", when: D.when, where: D.where });
+        expect(peekAside()).toEqual({ kind: "menu", when: D.when, where: D.where, per: null });
         dropAside();
         expect(peekAside()).toBeNull();
         vi.unstubAllGlobals();

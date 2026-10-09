@@ -12,6 +12,8 @@
     --cal-price: #2563eb;
     --cal-visibility: #64748b;
     --cal-shade: rgba(15, 23, 42, 0.08);
+    // chi è diverso dalla sede guardata (D150 E)
+    --cal-diff: #c2410c;
 }
 
 :global([data-theme="dark"]) .root {
@@ -21,6 +23,7 @@
     --cal-price: #60a5fa;
     --cal-visibility: #94a3b8;
     --cal-shade: rgba(0, 0, 0, 0.35);
+    --cal-diff: #fb923c;
 }
 
 /* ---------- impaginazione: colonna del mese a sinistra, calendario a destra ---------- */
@@ -176,319 +179,99 @@
     }
 }
 
-/* ---------- le sedi ---------- */
-.gsl {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    h4 {
-        margin: 0 0 2px;
-        padding-left: 4px;
-        @include type.fs(fine);
-        font-weight: 600;
-        color: var(--text-muted);
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-    }
-    p {
-        margin: 4px 0 0;
-        padding-left: 4px;
-        @include type.fs(badge);
-        color: var(--text-muted);
-    }
-}
-.gsc {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    border: 0;
-    background: none;
-    font: inherit;
-    padding: 4px 6px;
-    border-radius: var(--radius-control);
-    @include type.fs(note);
-    text-align: left;
-    color: var(--text);
-    cursor: pointer;
-    &:hover {
-        background: var(--hover-bg);
-    }
-    &:focus-visible {
-        outline: none;
-        box-shadow: var(--shadow-focus);
-    }
-    .box {
-        width: 15px;
-        height: 15px;
-        border-radius: 4px;
-        border: 1.5px solid var(--text-muted);
-        display: inline-grid;
-        place-items: center;
-        flex: none;
-    }
-    &[aria-checked="true"] .box {
-        background: var(--brand-primary);
-        border-color: var(--brand-primary);
-        color: var(--on-brand);
-    }
-}
-
-/* ---------- la scelta delle sedi (D128 A, D129 3) ---------- */
-.gsl h4 span {
-    margin-left: 4px;
-    font-weight: 500;
-    text-transform: none;
-    letter-spacing: 0;
-}
-.snm {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-.smore {
-    padding: 2px 6px 0 29px;
-    @include type.fs(fine);
-    color: var(--text-muted);
-}
-.sbtn {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    height: 30px;
-    max-width: 240px;
-    padding: 0 10px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-control);
-    background: var(--surface);
-    color: var(--text);
-    font: inherit;
-    @include type.fs(small);
-    font-weight: 500;
-    cursor: pointer;
-    svg {
-        flex: none;
-        color: var(--text-muted);
-    }
-    &:hover {
-        background: var(--hover-bg);
-    }
-    &:focus-visible {
-        outline: none;
-        box-shadow: var(--shadow-focus);
-    }
-    &[aria-expanded="true"] {
-        border-color: var(--brand-primary);
-    }
-}
-.sfull {
-    width: 100%;
-    max-width: none;
-    margin-top: 6px;
-    .snm {
-        flex: 1;
-        text-align: left;
-    }
-}
-// nella barra solo quando la colonna non si vede: chiusa, o nascosta sotto i 900
-.gwrap:not(.closed) .sbar {
-    display: none;
-}
-@media (max-width: 900px) {
-    .gwrap:not(.closed) .sbar {
-        display: inline-flex;
-    }
-}
-.spop {
-    position: fixed;
-    z-index: var(--z-overlay);
-    width: 300px;
-    max-width: calc(100vw - 32px);
-    max-height: min(460px, calc(100vh - 24px));
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    padding: 10px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-surface);
-    box-shadow: var(--shadow-overlay);
-    @include type.fs(small);
-    color: var(--text);
-}
-.sqk {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    button {
-        font: inherit;
-        @include type.fs(fine);
-        padding: 3px 10px;
-        border-radius: var(--radius-pill);
-        border: 1px solid var(--border);
-        background: var(--surface);
-        color: var(--text);
-        cursor: pointer;
-        max-width: 100%;
+/* il passo «Dove e quando» (D145, G1) */
+button.dqsedi {
+    max-width: 100%;
+    height: 34px;
+    @include type.fs(text);
+    > span {
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
-        &:hover {
-            background: var(--hover-bg);
-        }
-        &:focus-visible {
-            outline: none;
-            box-shadow: var(--shadow-focus);
-        }
-        &[aria-pressed="true"] {
-            background: var(--brand-primary-soft);
-            border-color: var(--brand-primary);
-            color: var(--brand-primary);
-        }
     }
 }
-.slst {
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-    min-height: 0;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-}
-.srow {
-    display: flex;
-    align-items: center;
-    border-radius: var(--radius-control);
-    .gsc {
-        flex: 1;
-        min-width: 0;
-        @include type.fs(small);
-        padding: 6px;
-    }
-    &:hover {
-        background: var(--hover-bg);
-        .gsc {
-            background: none;
-        }
-    }
-}
-.sonly {
-    flex: none;
-    border: 0;
-    background: none;
-    font: inherit;
-    @include type.fs(fine);
-    color: var(--brand-primary);
-    padding: 4px 8px;
-    border-radius: var(--radius-control);
-    cursor: pointer;
-    opacity: 0;
-    .srow:hover &,
-    &:focus-visible {
-        opacity: 1;
-    }
-    &:focus-visible {
-        outline: none;
-        box-shadow: var(--shadow-focus);
-    }
-    @media (hover: none) {
-        opacity: 1;
-    }
-}
-.snone {
-    margin: 6px;
-    color: var(--text-muted);
-    @include type.fs(note);
-}
-.sft {
-    border-top: 1px solid var(--border);
-    padding: 8px 4px 0;
-    @include type.fs(fine);
-    color: var(--text-muted);
-}
-
-/* il passo «Dove» (D130 A) */
-.dmodes {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    align-self: stretch;
-}
-.dmode {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    border: 0;
-    background: none;
-    font: inherit;
-    @include type.fs(text);
-    font-weight: 500;
-    color: var(--text);
-    padding: 7px 6px;
-    border-radius: var(--radius-control);
-    text-align: left;
-    cursor: pointer;
-    small {
-        margin-left: auto;
-        @include type.fs(fine);
-        font-weight: 400;
-        color: var(--text-muted);
-        font-variant-numeric: tabular-nums;
-    }
-    &:hover {
-        background: var(--hover-bg);
-    }
-    &:focus-visible {
-        outline: none;
-        box-shadow: var(--shadow-focus);
-    }
-}
-.dradio {
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    border: 1.5px solid var(--text-muted);
-    display: inline-grid;
-    place-items: center;
-    flex: none;
-    .dmode[aria-checked="true"] & {
-        border-color: var(--brand-primary);
-        &::after {
-            content: "";
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: var(--brand-primary);
-        }
-    }
-}
-.dsub {
+.dqrows {
     display: flex;
     flex-direction: column;
     gap: 6px;
-    padding: 2px 0 6px 32px;
-    .chip small {
-        color: var(--text-muted);
-        font-variant-numeric: tabular-nums;
-    }
+    align-self: stretch;
 }
-.sinl {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    margin: 2px 0 4px;
-    padding: 8px;
+.dqrow {
     border: 1px solid var(--border);
     border-radius: var(--radius-surface);
-    background: var(--bg);
-    .slst {
-        max-height: 232px;
+    background: var(--surface);
+    overflow: hidden;
+    &[data-open] {
+        border-color: var(--brand-primary);
     }
 }
-.sqk em {
-    font-style: normal;
-    @include type.fs(fine);
+.dqhd {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    width: 100%;
+    border: 0;
+    background: none;
+    font: inherit;
+    color: var(--text);
+    padding: 10px 12px;
+    text-align: left;
+    cursor: pointer;
+    b {
+        @include type.fs(text);
+        min-width: 90px;
+    }
+    span {
+        flex: 1 1 180px;
+        min-width: 0;
+        @include type.fs(small);
+        color: var(--text-muted);
+    }
+    em {
+        font-style: normal;
+        @include type.fs(small);
+        font-weight: 600;
+        color: var(--brand-primary);
+    }
+    &:hover {
+        background: var(--hover-bg);
+    }
+    &:focus-visible {
+        outline: none;
+        box-shadow: var(--shadow-focus);
+    }
+    .dqrow[data-open] & {
+        background: var(--hover-bg);
+    }
+}
+.dqin {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 12px;
+    border-top: 1px solid var(--border);
+}
+.dqcopy {
+    margin: 0;
+    padding-top: 10px;
+    border-top: 1px dashed var(--border);
+    @include type.fs(small);
     color: var(--text-muted);
+}
+.dqlink {
+    border: 0;
+    background: none;
+    padding: 0;
+    font: inherit;
+    color: var(--brand-primary);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    cursor: pointer;
+    &:focus-visible {
+        outline: none;
+        box-shadow: var(--shadow-focus);
+    }
 }
 
 /* ---------- la barra in alto ---------- */
@@ -1606,6 +1389,25 @@
         margin-left: auto;
     }
 }
+.scontro {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-start;
+    padding: 10px 12px;
+    border-radius: var(--radius-control);
+    border: 1px solid var(--warning-200);
+    background: var(--warning-50);
+    p {
+        margin: 0;
+    }
+    // il <p> ha il suo colore globale, scuro anche nel tema scuro
+    b {
+        font-weight: 600;
+        color: var(--text);
+    }
+}
+
 .hwarn {
     display: flex;
     gap: 8px;
@@ -2002,4 +1804,152 @@
 }
 .ipanel {
     min-width: 0;
+}
+
+/* ---------- più sedi (D150 E): una sede, sotto il giorno solo chi è diverso ---------- */
+// La nota sta nel pannello «Confronta con» in alto a destra, fuori da `.root`:
+// i colori di `--cal-diff` scritti qui.
+.dtag {
+    color: #c2410c;
+    :global([data-theme="dark"]) & {
+        color: #fb923c;
+    }
+}
+.fdl .same {
+    margin-left: auto;
+    @include type.fs(kicker);
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+}
+.csum {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-surface);
+    background: var(--surface);
+    @include type.fs(note);
+}
+.cline {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+}
+.cchip {
+    font: inherit;
+    @include type.fs(fine);
+    padding: 2px 10px;
+    border: 1px solid var(--cal-diff);
+    border-radius: var(--radius-pill);
+    background: color-mix(in srgb, var(--cal-diff) 9%, var(--surface));
+    color: var(--cal-diff);
+    cursor: pointer;
+    &:focus-visible {
+        outline: none;
+        box-shadow: var(--shadow-focus);
+    }
+}
+.fday.fdiff {
+    background: color-mix(in srgb, var(--cal-diff) 7%, var(--surface));
+}
+.fdw {
+    grid-column: 1 / 3;
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 1px;
+    padding: 5px 10px 5px 24px;
+    background: color-mix(in srgb, var(--cal-diff) 7%, var(--surface));
+}
+.fdn {
+    max-width: 100%;
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    @include type.fs(note);
+    font-weight: 600;
+    color: var(--text);
+    text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: pointer;
+    &:hover {
+        text-decoration: underline;
+    }
+    &:focus-visible {
+        outline: none;
+        box-shadow: var(--shadow-focus);
+        border-radius: 4px;
+    }
+}
+.fdc {
+    @include type.fs(kicker);
+    line-height: 1.3;
+    color: var(--cal-diff);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+.fdiff .ftl {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+    padding: 7px 0;
+    background-color: transparent;
+}
+.dlane {
+    position: relative;
+    height: 5px;
+}
+.dseg {
+    position: absolute;
+    top: 0;
+    height: 5px;
+    border-radius: 3px;
+    background: var(--c);
+    &.faded {
+        opacity: 0.22;
+    }
+    &.mark {
+        outline: 2px solid var(--cal-diff);
+        outline-offset: 1px;
+    }
+    &.ghost {
+        top: -1px;
+        height: 7px;
+        background: transparent;
+        border: 1.5px dashed var(--cal-diff);
+    }
+}
+.fmore {
+    border-top: 1px solid var(--border);
+    background: color-mix(in srgb, var(--cal-diff) 7%, var(--surface));
+    button {
+        position: sticky;
+        left: 0;
+        padding: 6px 10px 6px 24px;
+        border: 0;
+        background: none;
+        font: inherit;
+        @include type.fs(fine);
+        color: var(--cal-diff);
+        cursor: pointer;
+        &:focus-visible {
+            outline: none;
+            box-shadow: var(--shadow-focus);
+        }
+    }
+}
+.fmore + .fday {
+    border-top: 1px solid var(--border);
 }

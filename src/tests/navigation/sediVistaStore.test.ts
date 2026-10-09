@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
     __resetSediVistaForTests,
     claimConfronto,
+    getConfrontoOpts,
     getConfrontoQui,
     getSediVista,
     isConfrontoAttivo,
@@ -81,6 +82,21 @@ describe("sediVistaStore", () => {
         release();
         expect(getConfrontoQui()).toBe(false);
         expect(getSediVista(T).confronta).toEqual(["b"]);
+    });
+
+    it("in alto a destra valgono gruppi e nota dell'ultima pagina che dichiara il confronto", () => {
+        expect(getConfrontoOpts()).toEqual({});
+        const gruppi = [{ id: "g1", name: "Milano", sedeIds: ["a", "b"] }];
+        const tag = (id: string) => `diversa · ${id}`;
+        const prima = claimConfronto({ gruppi });
+        const seconda = claimConfronto({ gruppi, tag });
+        expect(getConfrontoOpts().tag).toBe(tag);
+        seconda();
+        expect(getConfrontoOpts().tag).toBeUndefined();
+        expect(getConfrontoOpts().gruppi).toBe(gruppi);
+        prima();
+        expect(getConfrontoQui()).toBe(false);
+        expect(getConfrontoOpts()).toEqual({});
     });
 
     it("avvisa chi ascolta e lo snapshot resta lo stesso oggetto senza scritture", () => {

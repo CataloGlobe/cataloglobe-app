@@ -83,7 +83,7 @@ function dialog(page: Page): Locator {
  * sede si guarda da dentro la sede, con `openSeatList`.
  */
 async function openList(page: Page, type = "all"): Promise<void> {
-    await openBusinessPage(page, "scheduling", "Programmazione");
+    await openBusinessPage(page, "scheduling", "Regole");
     await page.goto(`${new URL(page.url()).pathname}?type=${type}`);
     await expect(main(page).getByText(/ e2e$/).filter({ visible: true }).first()).toBeVisible({ timeout: 15_000 });
 }
@@ -176,18 +176,6 @@ async function press(toggle: Locator): Promise<void> {
 }
 
 /**
- * Spunta una sede nel pannello del ChipPicker (RG1). Il `CheckboxInput` ha
- * l'input coperto dal suo riquadro: si clicca la label, e solo se non è già
- * spuntata (un clic la toglierebbe).
- */
-async function checkInPanel(scope: Locator, name: string): Promise<void> {
-    // Spunta nativa accanto al nome (D8): basta spuntarla.
-    const box = scope.getByRole("checkbox", { name });
-    await box.check();
-    await expect(box).toBeChecked();
-}
-
-/**
  * Passa al Calendario. La testata alterna la forma comoda (segmented) e la
  * compatta (icona) mentre si assesta: si clicca quella a vista. Il clic si
  * ritenta da capo, risolvendo di nuovo il bottone: subito dopo un
@@ -195,15 +183,13 @@ async function checkInPanel(scope: Locator, name: string): Promise<void> {
  * che un attimo dopo la barra compatta nasconde, e aspettarlo fino al timeout.
  */
 async function openCalendar(page: Page): Promise<void> {
-    const name = "Calendario";
-    await expect(async () => {
-        await page
-            .getByRole("radio", { name, exact: true })
-            .or(page.getByRole("button", { name, exact: true }))
-            .filter({ visible: true })
-            .first()
-            .click({ timeout: 2_000 });
-    }).toPass({ timeout: 15_000 });
+    await partiCalendario(page).getByRole("link", { name: "Calendario", exact: true }).click();
+    await expect(page).toHaveURL(/[?&]vista=calendario/);
+}
+
+/** Calendario e Regole: le parti della sezione, tab nella barra del titolo. */
+function partiCalendario(page: Page) {
+    return page.getByRole("navigation", { name: "Parti di Calendario" });
 }
 
 // Dopo #298 le scritture su schedules e schedule_layout chiedono le righe toccate
@@ -350,7 +336,7 @@ test.describe("Programmazione — elenco", () => {
                 ? route.fulfill({ status: 500, json: { code: "E2E", message: "giù" } })
                 : route.fallback()
         );
-        await openBusinessPage(page, "scheduling", "Programmazione");
+        await openBusinessPage(page, "scheduling", "Regole");
         await expect(main(page).getByText("Non riusciamo a caricare le regole.")).toBeVisible({ timeout: 15_000 });
         failing = false;
         await main(page).getByRole("button", { name: "Riprova" }).click();
@@ -450,7 +436,7 @@ test.describe("Programmazione — elenco", () => {
         await expect(main(page).getByText("Vale per tutte le sedi: se la cambi, cambia anche fuori da Centro e2e.")).toBeVisible({
             timeout: 15_000
         });
-        await expect(await sidebarLink(page, "Programmazione")).toBeVisible();
+        await expect(await sidebarLink(page, "Regole")).toBeVisible();
     });
 
     test("cablaggio: duplica (schedules.POST + copia dei prezzi)", async ({ page }) => {
@@ -552,6 +538,15 @@ test.describe("Programmazione — ruolo di sede, decide il database", () => {
     });
 });
 
+// «Sede» nella barra del Calendario: il bottone dice cosa si guarda (D150 E)
+// «Sede» e «Confronta con» in alto a destra, come nelle altre pagine (D152).
+const sedeBtn = (page: Page) => page.getByRole("button", { name: /^Sede\s/ });
+const confrontaBtn = (page: Page) => page.getByRole("button", { name: /^Confronta con/ });
+async function guarda(page: Page, name: string) {
+    await sedeBtn(page).click();
+    await page.getByRole("dialog", { name: "Cosa guardi" }).getByRole("radio", { name, exact: true }).click();
+}
+
 test.describe("Programmazione — calendario, simulatore, guida", () => {
     let stub: ProgrammazioneStub;
     test.beforeEach(async ({ page }) => {
@@ -562,10 +557,7 @@ test.describe("Programmazione — calendario, simulatore, guida", () => {
         await openList(page, "layout");
         await openCalendar(page);
         await expect(main(page).getByRole("button", { name: "21–27 settembre 2026" })).toBeVisible();
-        // Si guardano le sedi spuntate a sinistra: Centro tra queste.
-        const centro = main(page).getByRole("checkbox", { name: "Centro e2e" });
-        if ((await centro.getAttribute("aria-checked")) !== "true") await centro.click();
-        await expect(centro).toHaveAttribute("aria-checked", "true");
+        await guarda(page, "Centro e2e");
         // A Centro, mercoledì, il pranzo copre la carta dalle 11 alle 15.
         await expect(main(page).getByRole("button", { name: /^Menù · 11:00–15:00\. In onda: «Pranzo e2e»/ }).first()).toBeVisible();
         await main(page).getByRole("button", { name: "Settimana successiva" }).click();
@@ -579,10 +571,7 @@ test.describe("Programmazione — calendario, simulatore, guida", () => {
         await openList(page, "layout");
         await openCalendar(page);
         // una sede sola: la settimana è una colonna di sette giorni
-        const centro = main(page).getByRole("checkbox", { name: "Centro e2e" });
-        if ((await centro.getAttribute("aria-checked")) !== "true") await centro.click();
-        const others = (await main(page).getByRole("checkbox", { checked: true }).allTextContents()).map(x => x.trim()).filter(x => x !== "Centro e2e");
-        for (const name of others) await main(page).getByRole("checkbox", { name, exact: true }).click();
+        await guarda(page, "Centro e2e");
         const days = main(page).locator("[data-day]");
         await expect(days).toHaveCount(7);
         await main(page).getByRole("button", { name: "Oggi", exact: true }).click();
@@ -590,6 +579,10 @@ test.describe("Programmazione — calendario, simulatore, guida", () => {
         await expect(days.nth(2)).toBeInViewport({ ratio: 0.3 });
         await main(page).getByRole("button", { name: /^Domenica 27 settembre 2026/ }).first().click();
         await expect(days.nth(6)).toBeInViewport({ ratio: 0.3 });
+        // si scorre il meno possibile: oggi può restare in vista; giù in fondo a mano, oggi esce
+        await days.nth(6).hover();
+        await page.mouse.wheel(0, 3000);
+        await expect(days.nth(2)).not.toBeInViewport();
         const back = main(page).getByRole("button", { name: /^Oggi · mer 23/ });
         await expect(back).toBeVisible();
         await back.click();
@@ -597,31 +590,82 @@ test.describe("Programmazione — calendario, simulatore, guida", () => {
         await expect(back).toHaveCount(0);
     });
 
-    test("le sedi: nella colonna quelle scelte, le altre nel pannello; a colonna chiusa un bottone nella barra", async ({ page }) => {
+    test("a 1470×830 il Calendario si apre senza scorrere: oggi si vede già, la testata e il lunedì restano", async ({ page }) => {
+        await page.setViewportSize({ width: 1470, height: 830 });
         await openList(page, "layout");
         await openCalendar(page);
-        const col = main(page).getByRole("complementary", { name: "Calendario del mese" });
-        const chosen = col.getByRole("checkbox");
-        await expect(chosen.first()).toBeVisible();
-        expect(await chosen.count()).toBeLessThanOrEqual(5);
-        await col.getByRole("button", { name: "Scegli le sedi" }).click();
-        const pop = page.getByRole("dialog", { name: "Sedi" });
-        await expect(pop).toBeVisible();
-        await pop.getByRole("button", { name: "Solo Porto e2e" }).click();
-        await expect(chosen).toHaveCount(1);
-        await expect(col.getByRole("checkbox", { name: "Porto e2e" })).toHaveAttribute("aria-checked", "true");
-        // l'ultima sede scelta non si toglie: il calendario guarda sempre almeno una sede
-        await pop.getByRole("checkbox", { name: "Porto e2e" }).click();
-        await expect(pop.getByRole("checkbox", { name: "Porto e2e" })).toHaveAttribute("aria-checked", "true");
+        await guarda(page, "Centro e2e");
+        const days = main(page).locator("[data-day]");
+        await expect(days.nth(2)).toBeInViewport({ ratio: 0.3 });
+        await expect(main(page).getByRole("button", { name: "21–27 settembre 2026" })).toBeInViewport();
+        await expect(days.first()).toBeInViewport({ ratio: 0.3 });
+        // «Oggi» quando oggi già si vede non fa scorrere: lo illumina e basta
+        await main(page).getByRole("button", { name: "Oggi", exact: true }).click();
+        await expect(main(page).getByRole("button", { name: "21–27 settembre 2026" })).toBeInViewport();
+    });
+
+    test("Calendario e Regole sono parti; il Calendario prende tutta la pagina e resta nell'indirizzo", async ({ page }) => {
+        await openList(page, "layout");
+        const tipi = main(page).getByRole("tablist", { name: "Tipo di regola" });
+        await expect(tipi).toBeVisible();
+        await openCalendar(page);
+        await expect(partiCalendario(page).getByRole("link", { name: "Calendario", exact: true })).toHaveAttribute("aria-current", "page");
+        // sotto, solo il calendario: niente tipi, niente «Nuova regola»
+        await expect(tipi).toHaveCount(0);
+        await expect(main(page).getByRole("button", { name: /^Nuova regola/ })).toHaveCount(0);
+        await expect(main(page).getByRole("button", { name: "Aggiungi", exact: true })).toBeVisible();
+        await noHorizontalScroll(page);
+        // ricaricando si resta nel Calendario; «Regole» torna all'elenco
+        await page.reload();
+        await expect(partiCalendario(page).getByRole("link", { name: "Calendario", exact: true })).toHaveAttribute("aria-current", "page");
+        await partiCalendario(page).getByRole("link", { name: "Regole", exact: true }).click();
+        await expect(page).not.toHaveURL(/vista=/);
+        await expect(tipi).toBeVisible();
+    });
+
+    test("più sedi (D150 E): una sede, «Confronta con» mette sotto il giorno solo chi è diverso", async ({ page }) => {
+        await openList(page, "layout");
+        await openCalendar(page);
+        // la colonna non ha più la lista delle sedi: «Sede» e «Confronta con» stanno in alto a destra
+        await expect(main(page).getByRole("complementary", { name: "Calendario del mese" }).getByRole("checkbox")).toHaveCount(0);
+        await guarda(page, "Porto e2e");
+        await expect(sedeBtn(page)).toContainText("Porto e2e");
+        await expect(main(page).locator("[data-day]")).toHaveCount(7);
+        // il pannello di «Sede»: radio, «Tutte le sedi» in cima, i gruppi nella loro tab (D151)
+        await sedeBtn(page).click();
+        const cosa = page.getByRole("dialog", { name: "Cosa guardi" });
+        await expect(cosa.getByRole("radio", { name: /^Tutte le sedi/ })).toBeVisible();
+        await cosa.getByRole("tab", { name: /^Gruppi · 1$/ }).click();
+        await expect(cosa.getByRole("radio", { name: /^Costa e2e/ })).toBeVisible();
         await page.keyboard.press("Escape");
-        await expect(pop).toHaveCount(0);
-        await expect(col.getByRole("button", { name: "Scegli le sedi" })).toBeFocused();
-        // a colonna chiusa le sedi stanno in un bottone nella barra
-        await main(page).getByRole("button", { name: "Chiudi la colonna del calendario" }).click();
-        await main(page).getByRole("button", { name: "Porto e2e", exact: true, expanded: false }).click();
-        await pop.getByRole("button", { name: "Tutte", exact: true }).click();
-        await expect(main(page).getByRole("button", { name: /^Tutte le sedi · \d+$/ })).toBeVisible();
-        await expect(pop.getByText(/^(\d+) di \1 scelte$/)).toBeVisible();
+        // a confronto tutte le altre: una casella sola, poi il riepilogo e sotto i giorni chi è diverso
+        await confrontaBtn(page).click();
+        const conf = page.getByRole("dialog", { name: "Confronta con" });
+        const all = conf.getByRole("checkbox", { name: /^Tutte le altre sedi/ });
+        await expect(all).toHaveAttribute("aria-checked", "false");
+        await all.click();
+        await expect(all).toHaveAttribute("aria-checked", "true");
+        await expect(conf.getByText(/diversa · \d+ g/).first()).toBeVisible();
+        await page.keyboard.press("Escape");
+        await expect(confrontaBtn(page)).toContainText("Tutte le altre");
+        await expect(main(page).getByText(/^Diverse:/)).toBeVisible();
+        // a Centro il pranzo del mercoledì: la riga arancione dice cosa cambia
+        await expect(main(page).getByText(/\+ (Menù )?Pranzo e2e 11–15/).first()).toBeVisible();
+        // toccando Centro si guarda Centro, e Porto entra nel confronto
+        await main(page).getByRole("button", { name: "Centro e2e", exact: true }).first().click();
+        await expect(sedeBtn(page)).toContainText("Centro e2e");
+        await confrontaBtn(page).click();
+        await expect(conf.getByRole("checkbox", { name: "Porto e2e" })).toHaveAttribute("aria-checked", "true");
+        await page.keyboard.press("Escape");
+        // «Tutte le sedi»: la riga del giorno è la maggior parte, «Confronta con» sparisce
+        await sedeBtn(page).click();
+        await cosa.getByRole("radio", { name: /^Tutte le sedi/ }).click();
+        await expect(cosa).toHaveCount(0);
+        await expect(main(page).getByText(/^Fanno come la maggior parte tutta la settimana/)).toBeVisible();
+        await expect(confrontaBtn(page)).toHaveCount(0);
+        // lo stato resta ricaricando (D152: è comune alle pagine)
+        await page.reload();
+        await expect(sedeBtn(page)).toContainText("Tutte le sedi");
     });
 
     test("dentro la sede il Calendario guarda solo lei; la ricerca no", async ({ page }) => {
@@ -652,8 +696,8 @@ test.describe("Programmazione — calendario, simulatore, guida", () => {
         const panel = main(page).getByRole("complementary", { name: RULE_NAME.stagionali });
         await expect(panel).toBeVisible();
         await expect(panel.getByText("I piatti di questa data")).toBeVisible();
-        await expect(panel.getByText("Non si vede")).toBeVisible();
-        await expect(panel.getByText("Non ordinabile")).toBeVisible();
+        await expect(panel.getByText("Nascosto", { exact: true })).toBeVisible();
+        await expect(panel.getByText("Non disponibile", { exact: true })).toBeVisible();
         // Col pannello aperto la colonna del mese si chiude, e torna alla chiusura.
         await expect(main(page).getByRole("complementary", { name: "Calendario del mese" })).toHaveCount(0);
         await panel.getByRole("button", { name: "Chiudi il pannello" }).click();
@@ -707,6 +751,8 @@ test.describe("Programmazione — calendario, simulatore, guida", () => {
         await main(page).getByRole("button", { name: "Avanti" }).click();
         await expect(main(page).getByText("Scegli un menù").first()).toBeVisible();
         await main(page).getByRole("radio", { name: /Pranzo e2e/ }).click();
+        // menù e stile separati (D120): lo stile non si sceglie col menù
+        await expect(main(page).getByRole("combobox", { name: "Lo stile che va col menù" })).toHaveCount(0);
         await main(page).getByRole("button", { name: "Avanti" }).click();
         await expect(main(page).getByRole("button", { name: "2 Quando" })).toHaveAttribute("aria-current", "step");
         await main(page).getByRole("radio", { name: "Fasce orarie" }).click();
@@ -714,6 +760,7 @@ test.describe("Programmazione — calendario, simulatore, guida", () => {
         await expect(main(page).getByRole("button", { name: /Dove/ })).toHaveCount(0);
         await main(page).getByRole("button", { name: "Avanti" }).click();
         await expect(main(page).getByText("In una frase")).toBeVisible();
+        await expect(main(page).getByText(/^Lo stile non cambia: resta «.+»\.$/)).toBeVisible();
         await expect(main(page).getByRole("button", { name: "1 Cosa, fatto" })).toBeVisible();
         await noHorizontalScroll(page);
         await main(page).getByRole("button", { name: "Aggiungi al calendario" }).click();
@@ -727,7 +774,37 @@ test.describe("Programmazione — calendario, simulatore, guida", () => {
         await expect(main(page).getByRole("status")).toHaveText(/^Aggiunto al calendario: Pranzo e2e/);
     });
 
-    test("cablaggio: il «Dove» viene prima del «Quando», con tre scelte; le sedi scelte stanno nel pannello e vanno nella regola", async ({ page }) => {
+    test("D135: a pari merito con un altro menù l'avviso lo dice, e per ora non si salva", async ({ page }) => {
+        await openSeatList(page, SEDE.centro, "layout");
+        await openCalendar(page);
+        await main(page).getByRole("button", { name: "Aggiungi", exact: true }).click();
+        await main(page).getByRole("button", { name: /^Menù/ }).first().click();
+        await main(page).getByRole("radio", { name: /Carta e2e/ }).click();
+        await main(page).getByRole("button", { name: "Avanti" }).click();
+        // stessi giorni e ore della regola «pranzo» di Centro: pari merito
+        await main(page).getByRole("button", { name: "Lun–Ven", exact: true }).click();
+        await main(page).getByRole("radio", { name: "Fasce orarie" }).click();
+        await main(page).getByRole("button", { name: "Avanti" }).click();
+        await expect(main(page).getByText("In una frase")).toBeVisible();
+        const avviso = main(page).getByRole("group", { name: "Si accavalla con un altro" });
+        await expect(avviso).toContainText("c'è già «Pranzo e2e»");
+        await expect(avviso.getByText("In quelle ore va in onda il tuo; fuori da quelle ore resta tutto com'è.")).toBeVisible();
+        const add = main(page).getByRole("button", { name: "Aggiungi al calendario" });
+        await expect(add).toBeDisabled();
+        await expect(main(page).getByText("Prende il posto di un altro a pari merito: si salva col database nuovo")).toBeVisible();
+        await avviso.getByRole("radio", { name: "Mettili insieme" }).click();
+        await expect(avviso.getByText("In quelle ore ci sono tutti e due: il cliente sceglie.")).toBeVisible();
+        await expect(main(page).getByText("Due menù insieme: si salva col database nuovo")).toBeVisible();
+        // il riepilogo e l'anteprima lo dicono: si aggiunge, non prende il posto
+        await expect(main(page).getByText(/«Carta e2e» si aggiunge agli altri menù/).first()).toBeVisible();
+        await expect(main(page).getByText("Quando si sovrappongono c'è insieme a «Pranzo e2e»: il cliente sceglie.")).toBeVisible();
+        await expect(avviso.getByRole("radio", { name: "Mettili insieme" })).toHaveAttribute("aria-checked", "true");
+        await expect(add).toBeDisabled();
+        await noHorizontalScroll(page);
+        expect(writesOf(stub, "schedules.POST")).toHaveLength(0);
+    });
+
+    test("cablaggio: «Dove e quando» è un passo solo; le sedi col bottone «Sedi», le ore diverse fanno due regole (D145)", async ({ page }) => {
         const NEW_ID = "e2e0d000-0000-4000-a000-000000000782";
         stub.onWrite("schedules.POST", () => ({ id: NEW_ID }));
         stub.onWrite("schedules.PATCH", () => [{ id: NEW_ID }]);
@@ -740,32 +817,45 @@ test.describe("Programmazione — calendario, simulatore, guida", () => {
         await main(page).getByRole("button", { name: /^Menù/ }).first().click();
         await main(page).getByRole("radio", { name: /Pranzo e2e/ }).click();
         await main(page).getByRole("button", { name: "Avanti" }).click();
-        // prima il dove, poi il quando (D134)
-        await expect(main(page).getByRole("button", { name: "2 Dove" })).toHaveAttribute("aria-current", "step");
-        await expect(main(page).getByRole("button", { name: "3 Quando" })).toBeVisible();
-        const dove = main(page).getByRole("radiogroup", { name: "Dove" });
-        await expect(dove.getByRole("radio", { name: /^Tutte le sedi/ })).toBeVisible();
-        const scelte = dove.getByRole("radio", { name: /^Sedi scelte/ });
-        if ((await scelte.getAttribute("aria-checked")) !== "true") await scelte.click();
-        await expect(scelte).toHaveAttribute("aria-checked", "true");
-        await dove.getByRole("button", { name: "Solo Porto e2e" }).click();
-        await expect(dove.getByRole("checkbox", { checked: true })).toHaveCount(1);
-        await expect(scelte).toContainText(/1 di \d+/);
-        await expect(main(page).getByText(/^Porto e2e\. Quello che vale/)).toBeVisible();
+        // dove e quando insieme: tre passi
+        await expect(main(page).getByRole("button", { name: "2 Dove e quando" })).toHaveAttribute("aria-current", "step");
+        await expect(main(page).getByRole("button", { name: "3 Riepilogo" })).toBeVisible();
+        await expect(main(page).getByRole("button", { name: /Quando$/ })).toHaveCount(0);
+        // le sedi col bottone del Calendario
+        const sedi = main(page).getByRole("button", { name: /^Tutte le sedi · \d+, anche le nuove$/ });
+        await sedi.click();
+        const pop = page.getByRole("dialog", { name: "Sedi" });
+        // tutte prese, nelle regole, vuol dire anche quelle che si aggiungeranno (D128, D151)
+        await expect(pop.getByText("Tutte, anche quelle che aggiungerai")).toBeVisible();
+        await expect(pop.getByRole("checkbox", { name: /^Tutte le sedi/ })).toHaveAttribute("aria-checked", "true");
+        await pop.getByRole("button", { name: "Solo Porto e2e" }).click();
+        await expect(pop.getByRole("checkbox", { name: "Porto e2e" })).toHaveAttribute("aria-checked", "true");
+        await expect(pop.getByRole("checkbox", { name: /^Tutte le sedi/ })).toHaveAttribute("aria-checked", "mixed");
+        await expect(pop.getByText("Tutte, anche quelle che aggiungerai")).toHaveCount(0);
+        await expect(main(page).getByText(/^Quello che vale per una sede vince/)).toBeVisible();
+        // una sede sola: niente domanda sulle ore
+        await expect(main(page).getByRole("radio", { name: "No, cambiano" })).toHaveCount(0);
+        await pop.getByRole("checkbox", { name: "Centro e2e" }).click();
+        await page.keyboard.press("Escape");
+        await expect(pop).toHaveCount(0);
+        await expect(main(page).getByRole("heading", { name: /^(Porto e2e e Centro e2e|Centro e2e e Porto e2e) hanno le stesse ore\?$/ })).toBeVisible();
+        await main(page).getByRole("radio", { name: "No, cambiano" }).click();
+        await expect(main(page).getByRole("heading", { name: "Le ore di ogni sede" })).toBeVisible();
+        // Centro con le sue ore, sul posto
+        await main(page).getByRole("button", { name: /^Centro e2e.*Cambia$/ }).click();
+        await main(page).getByRole("radio", { name: "Fasce orarie" }).click();
+        await expect(main(page).getByRole("button", { name: /^Centro e2e.*Chiudi$/ })).toHaveAttribute("aria-expanded", "true");
         await noHorizontalScroll(page);
-        // «Tutte le sedi» e ritorno: Porto è ancora lì
-        await dove.getByRole("radio", { name: /^Tutte le sedi/ }).click();
-        await expect(dove.getByRole("checkbox")).toHaveCount(0);
-        await scelte.click();
-        await expect(dove.getByRole("checkbox", { name: "Porto e2e" })).toHaveAttribute("aria-checked", "true");
         await main(page).getByRole("button", { name: "Avanti" }).click();
-        await expect(main(page).getByRole("button", { name: "3 Quando" })).toHaveAttribute("aria-current", "step");
-        await main(page).getByRole("button", { name: "Avanti" }).click();
+        await expect(main(page).getByRole("button", { name: "3 Riepilogo" })).toHaveAttribute("aria-current", "step");
+        await expect(main(page).getByText(/^(Porto e2e: .+ · Centro e2e|Centro e2e: .+ · Porto e2e): /)).toBeVisible();
         await main(page).getByRole("button", { name: "Aggiungi al calendario" }).click();
-        await expect.poll(() => writesOf(stub, "rpc.update_schedule_targets").length).toBe(1);
-        const targets = JSON.stringify(writesOf(stub, "rpc.update_schedule_targets")[0].body);
-        expect(targets).toContain(SEDE.porto);
-        expect(targets).not.toContain(SEDE.centro);
+        await expect.poll(() => writesOf(stub, "rpc.update_schedule_targets").length).toBe(2);
+        expect(writesOf(stub, "schedules.POST")).toHaveLength(2);
+        const targets = writesOf(stub, "rpc.update_schedule_targets").map(w => JSON.stringify(w.body));
+        // una regola per sede, ognuna con la sua sola
+        expect(targets.filter(b => b.includes(SEDE.porto) && !b.includes(SEDE.centro))).toHaveLength(1);
+        expect(targets.filter(b => b.includes(SEDE.centro) && !b.includes(SEDE.porto))).toHaveLength(1);
     });
 
     test("cablaggio: «Togli» un piatto riscrive la regola senza di lui", async ({ page }) => {
@@ -1051,7 +1141,7 @@ test.describe("Programmazione — dettaglio", () => {
         await page.goto(page.url().replace(/scheduling.*$/, `scheduling/${MISSING_RULE}`));
         await expect(main(page).getByRole("heading", { name: "Regola non trovata" })).toBeVisible({ timeout: 15_000 });
         await expect(main(page).getByText("Forse è stata eliminata.")).toBeVisible();
-        await main(page).getByRole("button", { name: "Torna a Programmazione" }).click();
+        await main(page).getByRole("button", { name: "Torna alle regole" }).click();
         await expect(page).toHaveURL(/\/scheduling(\?|$)/);
     });
 
@@ -1169,8 +1259,8 @@ test.describe("Programmazione — dettaglio", () => {
         await expect(main(page).getByText(/^Sola lettura: per modificare le regole/)).toBeVisible();
         await expect(main(page).getByRole("textbox", { name: /Nome/ })).toBeDisabled();
         await expect(main(page).getByRole("switch", { name: "In certi giorni" })).toBeDisabled();
-        // Sedi come chip (RG1): in sola lettura il pannello non si apre.
-        await expect(main(page).getByRole("button", { name: "Modifica sedi" })).toBeDisabled();
+        // Il pannello delle sedi (D151): in sola lettura non si apre.
+        await expect(main(page).getByRole("group", { name: "Si applica a" }).getByRole("button")).toBeDisabled();
         await expect(page.getByRole("button", { name: "Salva", exact: true })).toHaveCount(0);
         await (await sidebarLink(page, "Prodotti")).click();
         await expect(page).toHaveURL(/\/products/);
@@ -1193,37 +1283,34 @@ test.describe("Programmazione — dettaglio", () => {
         expect(writesOf(stub, "schedules.PATCH")).toHaveLength(0);
     });
 
-    test("«Dove si applica»: tre scelte, sedi e gruppi come chip scelti in un pannello (RG1)", async ({ page }) => {
+    test("«Dove si applica»: il pannello delle sedi, tutte prese = tutte, anche le nuove (D151)", async ({ page }) => {
         stub.onWrite("schedules.PATCH", touched);
         stub.onWrite("schedule_layout.PATCH", touched);
         stub.onWrite("schedule_layout.POST", () => null);
         stub.onWrite("rpc.update_schedule_targets", () => null);
         await openRule(page, "pranzo");
-        const where = main(page).getByRole("radiogroup", { name: "Si applica a" });
-        await expect(where.getByRole("radio")).toHaveCount(3);
-        await expect(where.getByRole("radio", { name: /Sedi specifiche/ })).toBeChecked();
-        await expect(main(page).getByText("Centro e2e", { exact: true })).toBeVisible();
-        await main(page).getByRole("button", { name: "Modifica sedi" }).click();
-        let panel = dialog(page);
-        const sedi = panel.getByRole("list", { name: "Sedi" });
-        await expect(sedi.getByRole("checkbox", { name: "Centro e2e" })).toBeChecked();
-        // La sede sospesa porta la sua pillola.
-        await expect(sedi.getByRole("listitem").filter({ hasText: "Lago e2e" })).toContainText("Sospesa");
-        await checkInPanel(sedi, "Porto e2e");
-        await panel.getByRole("button", { name: "Applica" }).click();
-        await expect(main(page).getByText("Porto e2e", { exact: true })).toBeVisible();
-
-        await where.getByRole("radio", { name: /Gruppi di sedi/ }).check();
-        await main(page).getByRole("button", { name: "Modifica gruppi" }).click();
-        panel = dialog(page);
-        await expect(panel.getByRole("list", { name: "Gruppi di sedi" }).getByRole("checkbox")).not.toHaveCount(0);
-        await panel.getByRole("button", { name: "Annulla" }).click();
-        await where.getByRole("radio", { name: /Sedi specifiche/ }).check();
-        await main(page).getByRole("button", { name: "Modifica sedi" }).click();
-        panel = dialog(page);
-        await checkInPanel(panel, "Centro e2e");
-        await checkInPanel(panel, "Porto e2e");
-        await panel.getByRole("button", { name: "Applica" }).click();
+        const where = main(page).getByRole("group", { name: "Si applica a" });
+        const btn = where.getByRole("button");
+        await expect(btn).toHaveText("Centro e2e");
+        await btn.click();
+        const panel = page.getByRole("dialog", { name: "Sedi" });
+        const sedi = panel.getByRole("group", { name: "Sedi" });
+        await expect(sedi.getByRole("checkbox", { name: "Centro e2e" })).toHaveAttribute("aria-checked", "true");
+        // La sede sospesa porta la sua pillola; con un gruppo ci sono le tab.
+        await expect(sedi.getByRole("checkbox", { name: /^Lago e2e/ })).toContainText("Sospesa");
+        await expect(panel.getByRole("tab", { name: "Gruppi · 1" })).toBeVisible();
+        await sedi.getByRole("checkbox", { name: "Porto e2e" }).click();
+        await expect(btn).toHaveText("Centro e2e +1");
+        await sedi.getByRole("checkbox", { name: /^Tutte le sedi/ }).click();
+        await expect(btn).toHaveText("Tutte le sedi · 3, anche le nuove");
+        await expect(panel).toContainText("Tutte, anche quelle che aggiungerai");
+        await expect(where).toContainText("Vale anche per le sedi che aprirai.");
+        await sedi.getByRole("button", { name: "Solo Centro e2e" }).click();
+        await expect(btn).toHaveText("Centro e2e");
+        await sedi.getByRole("checkbox", { name: "Porto e2e" }).click();
+        await page.keyboard.press("Escape");
+        await expect(panel).toHaveCount(0);
+        await noHorizontalScroll(page);
 
         await page.getByRole("button", { name: "Salva", exact: true }).first().click();
         await expect.poll(() => writesOf(stub, "rpc.update_schedule_targets").length).toBe(1);
@@ -1470,12 +1557,12 @@ test.describe("Programmazione — dettaglio", () => {
     });
 });
 
-// F5: il filtro per tipo sta nella testata, nello slot delle tab. A 1024 e
-// 1280 con la sidebar aperta non sta in riga con le azioni: due righe, azioni
-// sopra e tab sotto, mai la barra compatta. La prima tab è sul filo del
-// contenuto sotto.
+// F5: il filtro per tipo sta nella testata, nello slot delle tab, mai la
+// barra compatta. A 1024 con la sidebar aperta non sta in riga con le azioni:
+// due righe, azioni sopra e tab sotto. A 1280, con lo switch Programmazione |
+// Calendario salito accanto al titolo, sta in riga.
 for (const width of [1024, 1280]) {
-    test(`a ${width} le tab del tipo stanno nella testata, sotto le azioni`, async ({ page }) => {
+    test(`a ${width} le tab del tipo stanno nella testata, ${width === 1024 ? "sotto le azioni" : "in riga con le azioni"}`, async ({ page }) => {
         await stubProgrammazione(page);
         await openList(page);
         await page.setViewportSize({ width, height: 900 });
@@ -1483,9 +1570,12 @@ for (const width of [1024, 1280]) {
         await expect(tabs.getByRole("tab", { name: /^Tutte 12$/ })).toBeVisible();
         const create = main(page).getByRole("button", { name: "Nuova regola" });
         await expect(create).toBeVisible();
-        const tabsBox = (await tabs.boundingBox())!;
-        const createBox = (await create.boundingBox())!;
-        expect(tabsBox.y).toBeGreaterThanOrEqual(createBox.y + createBox.height);
+        // si aspetta che la testata si sistemi: la riga delle azioni si misura dopo il primo disegno
+        const below = async () => {
+            const t = (await tabs.boundingBox())!, c = (await create.boundingBox())!;
+            return t.y >= c.y + c.height;
+        };
+        await expect.poll(below).toBe(width === 1024);
         // La frase del tipo sotto le tab non c'è più (PG2): resta solo la posizione.
     });
 }
@@ -1562,35 +1652,36 @@ test.describe("Programmazione — Elenco e Calendario a sole icone", () => {
         await expect.poll(indicatorOffset).toBe(0);
     });
 
-    test("nella barra compatta l'icona Elenco/Calendario ha il tooltip", async ({ page }) => {
+    test("a 375 le parti restano nella barra del titolo, a parole, anche con la barra compatta", async ({ page }) => {
         await openList(page);
         await page.setViewportSize({ width: 375, height: 812 });
-        const icon = page.getByRole("button", { name: "Calendario", exact: true }).filter({ visible: true }).first();
-        await expect(icon).not.toHaveAttribute("title");
-        await icon.hover();
-        await expect(page.getByRole("tooltip", { name: "Calendario" })).toBeVisible();
-        await icon.click();
-        await expect(page.getByRole("button", { name: "Programmazione", exact: true }).filter({ visible: true }).first()).toBeVisible();
+        const cal = partiCalendario(page).getByRole("link", { name: "Calendario", exact: true });
+        await expect(cal).toBeVisible();
+        await cal.click();
+        await expect(page).toHaveURL(/[?&]vista=calendario/);
+        await expect(cal).toHaveAttribute("aria-current", "page");
+        await noHorizontalScroll(page);
     });
 });
 
-// Il pannello delle sedi (RG1) cerca per nome, senza maiuscole né accenti.
+// Il pannello delle sedi (D151) cerca per nome, senza maiuscole né accenti.
 test("con più di otto sedi «Dove si applica» cerca le sedi per nome", async ({ page }) => {
     await stubProgrammazione(page, { manySeats: true });
     await openRule(page, "pranzo");
-    await main(page).getByRole("button", { name: "Modifica sedi" }).click();
-    const panel = dialog(page);
-    const sedi = panel.getByRole("list", { name: "Sedi" });
-    await expect(sedi.getByRole("checkbox")).toHaveCount(10);
+    await main(page).getByRole("group", { name: "Si applica a" }).getByRole("button").click();
+    const panel = page.getByRole("dialog", { name: "Sedi" });
+    const sedi = panel.getByRole("group", { name: "Sedi" });
+    // dieci sedi e la casella «Tutte le sedi»
+    await expect(sedi.getByRole("checkbox")).toHaveCount(11);
     const search = panel.getByRole("searchbox").or(panel.getByRole("textbox")).first();
     await search.fill("lag");
     await expect(sedi.getByRole("checkbox")).toHaveCount(1);
     await expect(sedi.getByRole("checkbox", { name: "Lago e2e" })).toBeVisible();
     // Senza maiuscole né accenti; la selezione resta quella della regola.
     await search.fill("CENTRÒ");
-    await expect(sedi.getByRole("checkbox", { name: "Centro e2e" })).toBeChecked();
+    await expect(sedi.getByRole("checkbox", { name: "Centro e2e" })).toHaveAttribute("aria-checked", "true");
     await search.fill("nessuna");
-    await expect(panel).toContainText("Nessun risultato per «nessuna».");
+    await expect(panel).toContainText("Niente con «nessuna».");
 });
 
 test.describe("Programmazione — card «Adesso» e matrice", () => {

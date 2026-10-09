@@ -2,7 +2,7 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { usePermissions } from "@/context/usePermissions";
 import { usePlanFeatures } from "@/lib/planFeatures";
 import { useSedeScope } from "@/hooks/useSedeScope";
-import { useSediVista } from "@/hooks/useSediVista";
+import { useConfrontoOpts, useSediVista } from "@/hooks/useSediVista";
 import { SediBottone, type SedeScelta } from "@/components/ui/SediPannello/SediPannello";
 import { entryPath, isNavEntryUsable, navPart, seatOf, switchSedePath } from "@/utils/navModel";
 import styles from "./PageTitleBar.module.scss";
@@ -24,6 +24,10 @@ interface SediInAltoProps {
  * pagina; i gruppi solo dove la pagina li legge (per ora il Calendario).
  * «Confronta con» compare solo se la pagina lo dichiara (`useConfrontoQui`)
  * e si guarda una sede.
+ *
+ * Il Calendario è una pagina sola per tutte le sedi: la scelta non cambia
+ * indirizzo, cambia lo stato comune che la pagina legge, con «Tutte», i
+ * gruppi e la nota per sede che la pagina passa a `useConfrontoQui`.
  */
 export function SediInAlto({ groupKey, entryKey }: SediInAltoProps) {
     const { businessId = "" } = useParams<{ businessId: string }>();
@@ -37,9 +41,11 @@ export function SediInAlto({ groupKey, entryKey }: SediInAltoProps) {
     const part = navPart(groupKey, entryKey);
     // Una sede sola: non c'è niente da scegliere.
     if (!part || !isLoaded || readableActivities.length < 2) return null;
-    // Il Calendario tiene per ora i suoi comandi sopra la settimana (la E, sessione
-    // del tunnel): passano qui quando i due rami si uniscono.
-    if (part.group.key === "calendario") return null;
+    if (part.group.key === "calendario") {
+        // Solo la vista Calendario, quando è montata (le Regole hanno i loro filtri).
+        if (part.entry.key !== "calendario" || !vista.confrontoQui) return null;
+        return <SediCalendario sedi={readableActivities.map(a => ({ id: a.id, name: a.name }))} businessId={businessId} />;
+    }
 
     const { entry } = part;
     const { seat, confronto } = seatOf(part.group, entry);
@@ -99,6 +105,67 @@ export function SediInAlto({ groupKey, entryKey }: SediInAltoProps) {
                     onChange={ids => vista.setConfronta(ids)}
                     allLabel="Tutte le altre sedi"
                     title="Confronta con"
+                    className={`${styles.sedeBtn} ${confrontate.length ? styles.confrontoOn : ""}`}
+                >
+                    <span className={styles.pre}>Confronta con</span>
+                    {confrontate.length === 0
+                        ? "…"
+                        : confrontate.length === altre.length
+                          ? "Tutte le altre"
+                          : confrontate.length === 1
+                            ? confrontate[0].name
+                            : `${confrontate[0].name} +${confrontate.length - 1}`}
+                </SediBottone>
+            )}
+        </div>
+    );
+}
+
+/** «Sede» e «Confronta con» del Calendario: sullo stato comune, senza indirizzo. */
+function SediCalendario({ sedi, businessId }: { sedi: { id: string; name: string }[]; businessId: string }) {
+    const vista = useSediVista(businessId);
+    const { gruppi = [], tag } = useConfrontoOpts();
+    // Senza scelta si guarda la prima sede, come fa la pagina.
+    const v = vista.sede;
+    const value: SedeScelta =
+        v?.kind === "all" ||
+        (v?.kind === "gruppo" && gruppi.some(g => g.id === v.id)) ||
+        (v?.kind === "sede" && sedi.some(a => a.id === v.id))
+            ? v
+            : { kind: "sede", id: sedi[0]?.id ?? "" };
+    const current = value.kind === "sede" ? sedi.find(a => a.id === value.id) : null;
+    const label =
+        value.kind === "all"
+            ? "Tutte le sedi"
+            : value.kind === "gruppo"
+              ? (gruppi.find(g => g.id === value.id)?.name ?? "Gruppo")
+              : (current?.name ?? "");
+    const altre = current ? sedi.filter(a => a.id !== current.id) : [];
+    const confrontate = altre.filter(a => vista.confronta.has(a.id));
+    return (
+        <div className={styles.sedi}>
+            <SediBottone
+                mode="one"
+                sedi={sedi}
+                gruppi={gruppi}
+                value={value}
+                onChange={next => vista.setSede(next)}
+                allowAll
+                title="Cosa guardi"
+                className={styles.sedeBtn}
+            >
+                <span className={styles.pre}>Sede</span>
+                {label}
+            </SediBottone>
+            {current && (
+                <SediBottone
+                    sedi={altre}
+                    gruppi={gruppi}
+                    value={confrontate.map(a => a.id)}
+                    onChange={ids => vista.setConfronta(ids)}
+                    allLabel="Tutte le altre sedi"
+                    title="Confronta con"
+                    tag={tag}
                     className={`${styles.sedeBtn} ${confrontate.length ? styles.confrontoOn : ""}`}
                 >
                     <span className={styles.pre}>Confronta con</span>

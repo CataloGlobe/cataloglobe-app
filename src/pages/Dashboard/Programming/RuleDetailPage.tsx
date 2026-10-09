@@ -190,7 +190,7 @@ export default function RuleDetailPage() {
     const title = form?.name || (status === "loading" ? "Caricamento regola..." : "Regola");
 
     const breadcrumbItems = useMemo(
-        () => [{ label: "Programmazione", to: backToList }, { label: form?.name || (status === "loading" ? "Caricamento..." : "Regola") }],
+        () => [{ label: "Regole", to: backToList }, { label: form?.name || (status === "loading" ? "Caricamento..." : "Regola") }],
         [backToList, form?.name, status]
     );
     useBreadcrumbItems(breadcrumbItems);
@@ -366,7 +366,7 @@ export default function RuleDetailPage() {
                     description="Forse è stata eliminata."
                     action={
                         <Button variant="primary" onClick={() => navigate(backToList)}>
-                            Torna a Programmazione
+                            Torna alle regole
                         </Button>
                     }
                 />
@@ -455,6 +455,7 @@ export default function RuleDetailPage() {
                         groupIds={form.groupIds}
                         tenantActivities={assignableActivities}
                         tenantGroups={assignableGroups}
+                        groupMembers={groupMembers}
                         allowAllSites={tenantWide}
                         onFormChange={detail.updateForm}
                         nameError={detail.errors.name}

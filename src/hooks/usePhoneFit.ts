@@ -34,11 +34,14 @@ export interface PhoneFit {
  *
  * `asideRef` è la colonna (sticky), `boxRef` la scatola attorno al telefono.
  * `hasCard`: la colonna ha la card che può farsi sottile.
+ * `topOffset`: l'altezza che la colonna lascia sopra di sé quando resta
+ * ferma (i tunnel di creazione: la testata con i passi).
  */
 export function usePhoneFit(
     asideRef: RefObject<HTMLElement | null>,
     boxRef: RefObject<HTMLElement | null>,
-    hasCard: boolean
+    hasCard: boolean,
+    topOffset = 0
 ): PhoneFit {
     const [fit, setFit] = useState({ scale: 1, slim: false, w: 300, h: 0 });
 
@@ -51,9 +54,8 @@ export function usePhoneFit(
         if (!C) return;
         const isDoc = C === document.scrollingElement;
         const cs = getComputedStyle(C);
-        const avail = isDoc
-            ? window.innerHeight
-            : C.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+        const avail =
+            (isDoc ? window.innerHeight : C.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom)) - topOffset;
         // Le misure vere del telefono: offsetWidth/Height non sentono la scala.
         const pw = phone.offsetWidth;
         const ph = phone.offsetHeight;
@@ -73,7 +75,7 @@ export function usePhoneFit(
             const next = { scale: s, slim, w: pw, h: ph };
             return prev.scale === s && prev.slim === slim && prev.w === pw && prev.h === ph ? prev : next;
         });
-    }, [asideRef, boxRef, hasCard]);
+    }, [asideRef, boxRef, hasCard, topOffset]);
 
     useLayoutEffect(() => {
         measure();

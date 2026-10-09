@@ -44,7 +44,6 @@ import { CatalogForm } from "./components/CatalogForm";
 import { CatalogSheet } from "./components/CatalogSheet";
 import { isPostgrestFKError } from "@/utils/supabaseErrors";
 import styles from "./Catalogs.module.scss";
-import { useCreateOnArrival } from "@/hooks/useCreateOnArrival";
 
 const FORM_ID = "catalog-form";
 
@@ -146,13 +145,11 @@ export default function Catalogs() {
         }
     }, [importRefreshKey, loadData]);
 
+    // «Crea» apre il tunnel di creazione (D124); il drawer resta per modificare.
     const handleOpenCreate = useCallback(() => {
         if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
-        setEditingCatalog(null);
-        setIsDrawerOpen(true);
-    }, [canEdit, showToast]);
-    // Da «Cosa vuoi creare?» della Panoramica.
-    useCreateOnArrival(handleOpenCreate, permissions != null ? canWriteCatalog : null);
+        navigate(`/business/${currentTenantId}/crea/menu?da=menu`);
+    }, [canEdit, showToast, navigate, currentTenantId]);
 
     const handleViewModeChange = useCallback((next: "list" | "grid") => {
         setViewMode(next);
