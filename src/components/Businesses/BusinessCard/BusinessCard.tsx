@@ -1,6 +1,6 @@
 import React from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Building2, AlertTriangle, FileText, ExternalLink, Link as LinkIcon } from "lucide-react";
+import { Building2, AlertTriangle, Store, ExternalLink, Link as LinkIcon } from "lucide-react";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
 import { CardGridItem } from "@/components/ui/CardGrid/CardGrid";
@@ -144,7 +144,7 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
                     ariaLabel="Azioni sede"
                     actions={[
                         rowAction.edit(() => onEdit(business)),
-                        { label: "Apri sede", icon: FileText, onClick: () => navigate(detailPath) },
+                        { label: "Apri sede", icon: Store, onClick: () => navigate(detailPath) },
                         {
                             label: "Apri URL pubblico",
                             icon: ExternalLink,

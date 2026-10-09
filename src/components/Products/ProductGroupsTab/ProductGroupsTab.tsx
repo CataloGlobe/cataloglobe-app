@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, useMemo } from "react";
 import Text from "@/components/ui/Text/Text";
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { IconFolder } from "@tabler/icons-react";
+import { FolderPlus } from "lucide-react";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { rowAction } from "@/components/ui/TableRowActions/rowAction";
 import styles from "./ProductGroupsTab.module.scss";
@@ -215,6 +216,7 @@ export default function ProductGroupsTab({
                         rowAction.edit(() => handleEdit(row)),
                         {
                             label: "Crea sottogruppo",
+                            icon: FolderPlus,
                             onClick: () => handleCreateSubgroup(row),
                             hidden: row.parent_group_id !== null
                         },

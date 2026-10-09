@@ -17,7 +17,7 @@ import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
 import { AiSparkles } from "@/components/ui/Button/AiSparkles";
 import { IconBook2 } from "@tabler/icons-react";
-import { Sparkles, Eye, LayoutGrid, List as ListIcon } from "lucide-react";
+import { Sparkles, Eye, LayoutGrid, List as ListIcon, TextCursorInput } from "lucide-react";
 import { Loader } from "@/components/ui/Loader/Loader";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { rowAction } from "@/components/ui/TableRowActions/rowAction";
@@ -443,7 +443,7 @@ export default function Catalogs() {
                     onClick: () => handleAddWithAi(catalog)
                 },
                 // Il nome del menù non si cambia nel dettaglio: finché non ci arriva resta qui.
-                { label: "Rinomina", onClick: () => handleOpenEdit(catalog) },
+                { label: "Rinomina", icon: TextCursorInput, onClick: () => handleOpenEdit(catalog) },
                 rowAction.remove(() => handleOpenDelete(catalog))
             ]}
         />

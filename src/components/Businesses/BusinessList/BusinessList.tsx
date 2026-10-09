@@ -7,7 +7,7 @@ import type { BusinessListProps, BusinessWithCapabilities } from "@/types/Busine
 import styles from "./BusinessList.module.scss";
 import { DataTable, DATA_TABLE_CLASSES, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
-import { ExternalLink, Link, FileText, MapPin, AlertTriangle } from "lucide-react";
+import { ExternalLink, Link, Store, MapPin, AlertTriangle } from "lucide-react";
 import { useToast } from "@/context/Toast/ToastContext";
 import { Button } from "@/components/ui/Button/Button";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
@@ -205,7 +205,7 @@ export const BusinessList: React.FC<BusinessListProps> = ({
                                 rowAction.edit(() => onEdit(business)),
                                 {
                                     label: "Apri sede",
-                                    icon: FileText,
+                                    icon: Store,
                                     onClick: () =>
                                         navigate(`/business/${businessId}/locations/${business.id}`)
                                 },

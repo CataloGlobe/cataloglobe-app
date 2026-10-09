@@ -1,3 +1,4 @@
+import { FolderInput, FolderPlus, TextCursorInput } from "lucide-react";
 import type { TableRowAction } from "@/components/ui/TableRowActions/TableRowActions";
 import { rowAction } from "@/components/ui/TableRowActions/rowAction";
 
@@ -33,15 +34,17 @@ export function categoryActions({
 }: CategoryActionsArgs): TableRowAction[] {
     const atMaxLevel = level >= MAX_CATEGORY_LEVEL;
     return [
-        { label: "Rinomina", onClick: onRename },
+        { label: "Rinomina", icon: TextCursorInput, onClick: onRename },
         {
             label: "Sposta in…",
+            icon: FolderInput,
             onClick: onMove,
             disabled: Boolean(structureLockReason),
             description: structureLockReason
         },
         {
             label: `Crea sotto-${categoryLabel}`,
+            icon: FolderPlus,
             onClick: onCreateSub,
             disabled: atMaxLevel || Boolean(structureLockReason),
             description: atMaxLevel ? "Massimo tre livelli." : structureLockReason

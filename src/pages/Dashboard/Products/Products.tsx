@@ -24,7 +24,7 @@ import { Badge } from "@/components/ui/Badge/Badge";
 import { Button } from "@/components/ui/Button/Button";
 import type { PageHeaderAction, PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { IconChevronDown, IconChevronRight } from "@tabler/icons-react";
-import { Package, LayoutGrid, List as ListIcon } from "lucide-react";
+import { Package, LayoutGrid, List as ListIcon, Plus } from "lucide-react";
 import { ProductPhotoPlaceholder } from "./components/ProductPhotoPlaceholder";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { rowAction } from "@/components/ui/TableRowActions/rowAction";
@@ -555,6 +555,7 @@ export default function Products() {
                 rowAction.duplicate(() => handleDuplicate(product)),
                 {
                     label: "Aggiungi variante",
+                    icon: Plus,
                     onClick: () => handleCreateVariant(product),
                     hidden: kind !== "base"
                 },
