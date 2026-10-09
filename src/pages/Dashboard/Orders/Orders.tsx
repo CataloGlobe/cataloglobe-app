@@ -29,7 +29,8 @@ import {
     undeliverToReady,
     uncancelToSubmitted,
     uncancelToAcknowledged,
-    uncancelToReady
+    uncancelToReady,
+    getOrderWithItems
 } from "@/services/supabase/orders";
 import type { CancelOrderItemResult } from "@/services/supabase/orders";
 import type { V2OrderWithItems } from "@/types/orders";
@@ -96,8 +97,9 @@ function OrdersBoard() {
     // nell'indirizzo (`?ordine=`) e si legge dalla board, così cambia con lei.
     const [detailId, openDetail, closeDetail] = useDetailParam("ordine");
     // L'ultima versione vista: se l'ordine esce dalla board (servito o
-    // annullato) il dettaglio resta leggibile, col suo avviso.
-    const lastDetailRef = useRef<V2OrderWithItems | null>(null);
+    // annullato) il dettaglio resta leggibile, col suo avviso. Per un link a
+    // un ordine che sulla board non c'è più, si legge per id.
+    const [lastDetail, setLastDetail] = useState<V2OrderWithItems | null>(null);
 
     // Cancel drawer
     const [isCancelOpen, setIsCancelOpen] = useState(false);
@@ -350,9 +352,27 @@ function OrdersBoard() {
     // L'ordine del dettaglio, dal vivo; e l'ordine della board (Nuove, In
     // lavorazione, Pronte, i più nuovi in cima) per ↑ ↓.
     const liveDetail = detailId ? (activeOrders.find(o => o.id === detailId) ?? null) : null;
-    if (liveDetail) lastDetailRef.current = liveDetail;
-    else if (!detailId) lastDetailRef.current = null;
-    const orderInDetail = liveDetail ?? (lastDetailRef.current?.id === detailId ? lastDetailRef.current : null);
+    // Stato aggiornato durante il render (il modo di React per «ricordare il
+    // precedente»), non un ref: il render resta puro.
+    if (liveDetail && liveDetail !== lastDetail) setLastDetail(liveDetail);
+    else if (!detailId && lastDetail) setLastDetail(null);
+    const orderInDetail = liveDetail ?? (lastDetail?.id === detailId ? lastDetail : null);
+    const missingDetailId = detailId && !orderInDetail ? detailId : null;
+    useEffect(() => {
+        if (!missingDetailId || !tenantId) return;
+        let alive = true;
+        getOrderWithItems(missingDetailId, tenantId)
+            .then(order => {
+                // Solo un ordine di questa sede: il link può essere di un'altra.
+                if (alive && order.activity_id === selectedActivityId) setLastDetail(order);
+            })
+            .catch(() => {
+                /* resta «Ordine non disponibile» */
+            });
+        return () => {
+            alive = false;
+        };
+    }, [missingDetailId, tenantId, selectedActivityId]);
     const boardSequence = useMemo(() => boardOrder(filteredOrders), [filteredOrders]);
     const detailIndex = orderInDetail ? boardSequence.findIndex(o => o.id === orderInDetail.id) : -1;
     const stepDetail = (step: number) => {

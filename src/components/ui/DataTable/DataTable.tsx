@@ -491,6 +491,25 @@ export function DataTable<T>({
         [displayData, hasOverflow, safePage, numericPageSize, getRowId]
     );
 
+    // La riga aperta accanto (↑ ↓ del dettaglio, D131) si vede sempre: se sta
+    // su un'altra pagina ci si va, e poi la si porta in vista.
+    const activePage = useMemo(() => {
+        if (activeRowId == null || !hasOverflow) return null;
+        const index = data.findIndex((row, i) => getRowId(row, i) === activeRowId);
+        return index < 0 ? null : Math.floor(index / numericPageSize) + 1;
+    }, [activeRowId, hasOverflow, data, getRowId, numericPageSize]);
+    // Solo quando cambia la riga aperta: poi le pagine si sfogliano a mano.
+    const [pagedFor, setPagedFor] = useState(activeRowId);
+    if (activeRowId !== pagedFor) {
+        setPagedFor(activeRowId);
+        if (activePage !== null && activePage !== safePage) setCurrentPage(activePage);
+    }
+    useEffect(() => {
+        if (activeRowId == null) return;
+        const row = bodyRef.current?.querySelector<HTMLElement>('[role="row"][aria-current="true"]');
+        row?.scrollIntoView({ block: "nearest" });
+    }, [activeRowId, safePage]);
+
     const highlightSet = useMemo(
         () => new Set(highlightedRowIds ?? []),
         [highlightedRowIds]

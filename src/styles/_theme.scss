@@ -55,6 +55,7 @@
   // il viola è già la card aperta e i pulsanti.
   --color-sky-100: #e0f2fe;
   --color-sky-200: #bae6fd;
+  --color-sky-400: #38bdf8;
   --color-sky-500: #0ea5e9;
   --color-sky-800: #075985;
 
@@ -289,8 +290,8 @@
 
   // Comande nuove in scuro, sul modello dei semantici: fondo alpha della
   // tinta 400, testo tinta 200.
-  --order-new: #38bdf8;
-  --order-new-soft: rgba(56, 189, 248, 0.16);
+  --order-new: var(--color-sky-400);
+  --order-new-soft: color-mix(in srgb, var(--color-sky-400) 16%, transparent);
   --order-new-ink: var(--color-sky-200);
 
   --bg: #0f172a;

@@ -36,9 +36,14 @@ export interface DetailPaneProps {
 const LAYER_ABOVE_SELECTOR =
     '[role="menu"][data-state="open"], [role="listbox"][data-state="open"], [role="alertdialog"][data-state="open"], [role="dialog"][aria-modal="true"]';
 
-/** Chi usa già le frecce per sé: lì ↑ ↓ non cambiano elemento. */
-const ARROW_OWNER_SELECTOR =
-    'input, textarea, select, [contenteditable="true"], [role="radiogroup"], [role="tablist"], [role="listbox"], [role="menu"], [role="grid"], [role="slider"], [role="spinbutton"], [role="combobox"]';
+/** Un livello sopra il pannello, che non sia il pannello stesso (al telefono è modale). */
+function layerAbove(pane: HTMLElement | null): boolean {
+    return Array.from(document.querySelectorAll(LAYER_ABOVE_SELECTOR)).some(el => el !== pane);
+}
+
+/** Dove il fuoco può stare in un pannello modale al telefono. */
+const FOCUSABLE_SELECTOR =
+    'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 export const DetailPane = ({
     open,
@@ -90,12 +95,12 @@ export const DetailPane = ({
     // livelli (vedi `SystemDrawer`).
     useEffect(() => {
         if (!open) return;
-        let layerAbove = false;
+        let blocked = false;
         const readLayers = (e: KeyboardEvent) => {
-            if (e.key === "Escape") layerAbove = document.querySelector(LAYER_ABOVE_SELECTOR) !== null;
+            if (e.key === "Escape") blocked = layerAbove(paneRef.current);
         };
         const handleEsc = (e: KeyboardEvent) => {
-            if (e.key !== "Escape" || layerAbove || e.defaultPrevented) return;
+            if (e.key !== "Escape" || blocked || e.defaultPrevented) return;
             onClose();
         };
         document.addEventListener("keydown", readLayers, { capture: true });
@@ -106,16 +111,18 @@ export const DetailPane = ({
         };
     }, [open, onClose]);
 
-    // ↑ ↓ da tastiera scorrono l'elenco, come le frecce (D141). Non quando il
-    // tasto serve già a chi ha il fuoco: campi, gruppi di scelta, schede,
-    // tendine e menù, o un livello sopra.
+    // ↑ ↓ da tastiera scorrono l'elenco, come le frecce (D141), quando il
+    // fuoco è sul pannello (lo prende aprendosi) o sulle sue frecce. Altrove
+    // i tasti restano quelli di sempre: scorrere l'elenco o il dettaglio,
+    // muoversi in un campo, in una tendina o in un menù.
     useEffect(() => {
         if (!open || (!onPrev && !onNext)) return;
         const handleArrow = (e: KeyboardEvent) => {
             if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
             if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
             const target = e.target as HTMLElement | null;
-            if (target?.closest(ARROW_OWNER_SELECTOR) || document.querySelector(LAYER_ABOVE_SELECTOR)) return;
+            const onPane = target !== null && (target === paneRef.current || target.closest("[data-detail-nav]") !== null);
+            if (!onPane || layerAbove(paneRef.current)) return;
             const go = e.key === "ArrowUp" ? onPrev : onNext;
             if (!go) return;
             e.preventDefault();
@@ -124,6 +131,36 @@ export const DetailPane = ({
         window.addEventListener("keydown", handleArrow);
         return () => window.removeEventListener("keydown", handleArrow);
     }, [open, onPrev, onNext]);
+
+    // Al telefono il pannello è una pagina modale: Tab gira dentro.
+    useEffect(() => {
+        if (!open || !phone) return;
+        const trap = (e: KeyboardEvent) => {
+            const pane = paneRef.current;
+            if (e.key !== "Tab" || !pane || layerAbove(pane)) return;
+            const items = Array.from(pane.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(el => el.offsetParent !== null);
+            if (items.length === 0) {
+                e.preventDefault();
+                pane.focus();
+                return;
+            }
+            const first = items[0];
+            const last = items[items.length - 1];
+            const active = document.activeElement;
+            if (!pane.contains(active)) {
+                e.preventDefault();
+                first.focus();
+            } else if (e.shiftKey && (active === first || active === pane)) {
+                e.preventDefault();
+                last.focus();
+            } else if (!e.shiftKey && active === last) {
+                e.preventDefault();
+                first.focus();
+            }
+        };
+        document.addEventListener("keydown", trap);
+        return () => document.removeEventListener("keydown", trap);
+    }, [open, phone]);
 
     const positionIndex = position?.index;
     const positionTotal = position?.total;

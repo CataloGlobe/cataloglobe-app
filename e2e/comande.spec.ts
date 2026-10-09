@@ -149,6 +149,27 @@ test.describe("Comande", () => {
         await expect(page).not.toHaveURL(/[?&]ordine=/);
     });
 
+    test("al telefono: «Dettagli» si apre da tastiera, il menù sta sopra, Esc chiude", async ({ page }) => {
+        await openComande(page);
+        await page.setViewportSize({ width: 375, height: 812 });
+        const open = fixtureCard(page).getByRole("button", { name: /^Dettagli di / });
+        await open.focus();
+        await page.keyboard.press("Enter");
+
+        const pane = page.getByRole("dialog");
+        await expect(pane.getByText(TAVOLO).first()).toBeVisible();
+        // Il «⋯» del dettaglio apre il suo menù sopra la pagina, non sotto.
+        await pane.getByRole("button", { name: "Altre azioni" }).click();
+        await page.getByRole("menuitem", { name: "Annulla articolo" }).click({ trial: true });
+        await page.keyboard.press("Escape");
+        await expect(page.getByRole("menu")).toHaveCount(0);
+        await expect(pane).toBeVisible();
+
+        await page.keyboard.press("Escape");
+        await expect(pane).toHaveCount(0);
+        await expect(page).not.toHaveURL(/[?&]ordine=/);
+    });
+
     test("annullare una comanda si ripara dal toast", async ({ page }) => {
         // Due chiamate edge (cancel + uncancel) e due toast in fila: coi 4
         // worker della suite i 30 s di default non bastano sempre (misurato).

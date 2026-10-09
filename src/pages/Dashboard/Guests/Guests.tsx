@@ -102,8 +102,9 @@ export default function Guests() {
     // Il cliente aperto sta nell'indirizzo (`?guest=<id>`, D131): è anche il
     // link con cui il dettaglio della prenotazione porta qui.
     const [selectedGuestId, openGuestDetail, closeGuestDetail] = useDetailParam("guest");
-    const [selectedGuest, setSelectedGuest] = useState<ReservationGuestSummary | null>(null);
-    const isDrawerOpen = selectedGuestId !== null && selectedGuest?.id === selectedGuestId;
+    // Fuori dall'elenco (link da una prenotazione, elenco filtrato o troncato)
+    // il profilo si rilegge per id e si tiene qui.
+    const [fetchedGuest, setFetchedGuest] = useState<ReservationGuestSummary | null>(null);
 
     // Gate di piano. Oggi la rubrica si popola solo dalle prenotazioni, quindi
     // il gate è lo stesso: `table_reservation`. Prima era ereditato dalla
@@ -216,18 +217,23 @@ export default function Guests() {
 
     // Il profilo si prende dall'elenco quando c'è; altrimenti (link da una
     // prenotazione, elenco filtrato o troncato) si rilegge per id.
-    useEffect(() => {
-        if (!selectedGuestId || selectedGuest?.id === selectedGuestId) return;
+    // Si legge dall'indirizzo e basta: aprire un altro cliente è cambiare
+    // `?guest=`, così la guardia sulle note non salvate (nel layout) ferma
+    // anche il clic su un'altra riga e l'indietro del browser.
+    const selectedGuest = useMemo(() => {
+        if (!selectedGuestId) return null;
         const inList = guests.find(g => g.id === selectedGuestId);
-        if (inList) {
-            setSelectedGuest(inList);
-            return;
-        }
+        if (inList) return inList;
+        return fetchedGuest?.id === selectedGuestId ? fetchedGuest : null;
+    }, [selectedGuestId, guests, fetchedGuest]);
+
+    useEffect(() => {
+        if (!selectedGuestId || selectedGuest) return;
         if (!tenantId || !canRead || isLocked) return;
         let alive = true;
         getReservationGuest(selectedGuestId, tenantId)
             .then(g => {
-                if (alive) setSelectedGuest(g);
+                if (alive) setFetchedGuest(g);
             })
             .catch(() => {
                 if (alive) {
@@ -236,13 +242,10 @@ export default function Guests() {
                 }
             });
         return () => { alive = false; };
-    }, [selectedGuestId, selectedGuest, guests, tenantId, canRead, isLocked, showToast, closeGuestDetail]);
+    }, [selectedGuestId, selectedGuest, tenantId, canRead, isLocked, showToast, closeGuestDetail]);
 
     const handleOpenGuest = useCallback(
-        (guest: ReservationGuestSummary) => {
-            setSelectedGuest(guest);
-            openGuestDetail(guest.id);
-        },
+        (guest: ReservationGuestSummary) => openGuestDetail(guest.id),
         [openGuestDetail]
     );
 
@@ -333,7 +336,7 @@ export default function Guests() {
 
             {tenantId && selectedGuest && (
                 <GuestDrawer
-                    open={isDrawerOpen}
+                    open
                     onClose={closeGuestDetail}
                     onPrev={guestIndex > 0 ? () => stepGuest(-1) : undefined}
                     onNext={guestIndex >= 0 && guestIndex < guests.length - 1 ? () => stepGuest(1) : undefined}

@@ -72,7 +72,7 @@ export const DrawerLayout = ({
                     </Text>
                 )}
                 {(stepping || (onClose && !back)) && (
-                    <div className={styles.headerActions}>
+                    <div className={styles.headerActions} data-detail-nav={stepping || undefined}>
                         {stepping && (
                             <IconButton
                                 icon={<ChevronUp size={18} />}

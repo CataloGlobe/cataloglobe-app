@@ -199,6 +199,7 @@ export default function OrderDetailDrawer({
                 footer={
                     live && actions ? (
                         <OrderDetailActions
+                            key={order.id}
                             order={order}
                             actions={actions}
                             printLabel={printLabel}
