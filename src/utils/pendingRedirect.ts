@@ -47,6 +47,44 @@ export function clearPendingRedirect(): void {
 export const SIGNUP_EMAIL_KEY = "cg.signupEmail";
 
 /**
+ * Dati della registrazione in corso (mai la password): «Email sbagliata?
+ * Correggila» riporta il modulo compilato, va riscritta solo la password.
+ */
+export const SIGNUP_DRAFT_KEY = "cg.signupDraft";
+
+export type SignupDraft = {
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+};
+
+export function saveSignupDraft(draft: SignupDraft): void {
+    try {
+        sessionStorage.setItem(SIGNUP_DRAFT_KEY, JSON.stringify(draft));
+    } catch {
+        // storage non disponibile: resta solo lo stato del router
+    }
+}
+
+export function readSignupDraft(): SignupDraft | undefined {
+    try {
+        const raw = sessionStorage.getItem(SIGNUP_DRAFT_KEY);
+        if (!raw) return undefined;
+        const d = JSON.parse(raw) as Partial<SignupDraft>;
+        if (typeof d.email !== "string") return undefined;
+        return {
+            firstName: typeof d.firstName === "string" ? d.firstName : "",
+            lastName: typeof d.lastName === "string" ? d.lastName : "",
+            email: d.email,
+            phone: typeof d.phone === "string" ? d.phone : ""
+        };
+    } catch {
+        return undefined;
+    }
+}
+
+/**
  * Uscita chiesta dall'utente: il redirect salvato e l'email della registrazione
  * non devono passare a chi entra dopo sullo stesso browser. Non si chiama
  * dove l'uscita fa parte del giro (EmailConfirmed «Esci e conferma»).
@@ -55,6 +93,7 @@ export function clearSignupLeftovers(): void {
     clearPendingRedirect();
     try {
         sessionStorage.removeItem(SIGNUP_EMAIL_KEY);
+        sessionStorage.removeItem(SIGNUP_DRAFT_KEY);
     } catch {
         // niente da fare
     }
