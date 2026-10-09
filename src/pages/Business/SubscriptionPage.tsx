@@ -553,7 +553,7 @@ export default function SubscriptionPage() {
             if (fiscal && tenantFiscalFieldsTooLong(fiscal)) {
                 showToast({
                     message: FISCAL_FIELDS_TOO_LONG_MESSAGE,
-                    type: "error",
+                    type: "warning",
                     actionLabel: "Apri i dati di fatturazione",
                     onAction: () => navigate(`/business/${selectedTenant.id}/settings`)
                 });
