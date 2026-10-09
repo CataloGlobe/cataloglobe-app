@@ -128,6 +128,24 @@ test.describe("Comande", () => {
         await expect(drawer).toHaveCount(0);
     });
 
+    test("toccando la card il dettaglio si apre accanto, e indietro lo chiude", async ({ page }) => {
+        // D131 «Accanto»: niente velo, la board resta lì e si tocca; il
+        // dettaglio sta nell'indirizzo e ha le azioni della card.
+        await openComande(page);
+        await fixtureCard(page).getByText("Hamburger", { exact: true }).click();
+
+        await expect(page).toHaveURL(/[?&]ordine=/);
+        const pane = page.getByRole("dialog");
+        await expect(pane.getByText(TAVOLO).first()).toBeVisible();
+        await expect(pane.getByRole("button", { name: "Conferma", exact: true })).toBeVisible();
+        await expect(fixtureCard(page)).toHaveAttribute("aria-current", "true");
+        await expect(page.getByRole("button", { name: "Crea ordine" })).toBeVisible();
+
+        await page.goBack();
+        await expect(pane).toHaveCount(0);
+        await expect(page).not.toHaveURL(/[?&]ordine=/);
+    });
+
     test("annullare una comanda si ripara dal toast", async ({ page }) => {
         // Due chiamate edge (cancel + uncancel) e due toast in fila: coi 4
         // worker della suite i 30 s di default non bastano sempre (misurato).

@@ -81,6 +81,8 @@ interface Props {
     printersHref?: string;
     canManage?: boolean;
     canEdit?: boolean;
+    /** Il suo dettaglio è aperto accanto (D131): la card resta segnata. */
+    selected?: boolean;
 }
 
 const CURRENCY_FORMATTER = new Intl.NumberFormat("it-IT", {
@@ -141,7 +143,8 @@ export default function OrderCard({
     onReprint,
     printersHref,
     canManage,
-    canEdit
+    canEdit,
+    selected
 }: Props) {
     const [isProcessing, setIsProcessing] = useState(false);
     const [itemsExpanded, setItemsExpanded] = useState(false);
@@ -201,7 +204,19 @@ export default function OrderCard({
 
     return (
         // Una comanda è un article col nome del tavolo: la board la trova per ruolo.
-        <article className={styles.card} data-status={order.status} aria-labelledby={titleId}>
+        // Toccando la card (fuori dai suoi pulsanti) il dettaglio si apre
+        // accanto (D131); da tastiera c'è «Vedi dettaglio» nel menù.
+        <article
+            className={styles.card}
+            data-status={order.status}
+            data-selected={selected || undefined}
+            aria-labelledby={titleId}
+            aria-current={selected ? "true" : undefined}
+            onClick={e => {
+                if ((e.target as HTMLElement).closest("button, a, input, [role='menu'], [role='menuitem']")) return;
+                onViewDetail(order);
+            }}
+        >
             <Card
                 title={tableLabel}
                 titleId={titleId}

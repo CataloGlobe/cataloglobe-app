@@ -14,6 +14,7 @@ import { useTenantId } from "@/context/useTenantId";
 import { useToast } from "@/context/Toast/ToastContext";
 import { usePermissions } from "@/context/usePermissions";
 import { useActivityScope } from "@/hooks/useActivityScope";
+import { useDetailParam } from "@/hooks/useDetailParam";
 import { canDoOnActivity } from "@/lib/permissions";
 import { todayIsoDate, shiftIsoDate } from "@/utils/dateLocal";
 
@@ -63,8 +64,8 @@ export default function OrdersHistory() {
     const today = useMemo(() => todayIsoDate(), []);
     const [day, setDay] = useState<string>(() => today);
 
-    const [isDetailOpen, setIsDetailOpen] = useState(false);
-    const [orderInDetail, setOrderInDetail] = useState<HistoryRowWithStorni | null>(null);
+    // L'ordine aperto accanto sta nell'indirizzo (`?ordine=<id>`, D131).
+    const [detailId, openDetail, closeDetail] = useDetailParam("ordine");
 
     const { hasPrinters, orderToPrint, printRef, handlePrint } = useOrderPrinting(tenantId, activityId);
 
@@ -140,6 +141,15 @@ export default function OrdersHistory() {
     const rows = useMemo(() => annotateHistory(historyOrders), [historyOrders]);
     const filtered = useMemo(() => filterHistory(rows, filter), [rows, filter]);
 
+    // ↑ ↓ scorrono gli ordini mostrati (gli storni stanno sotto il padre).
+    const detailSequence = useMemo(() => filtered.filter(o => !o.is_rectification), [filtered]);
+    const detailIndex = detailId ? detailSequence.findIndex(o => o.id === detailId) : -1;
+    const orderInDetail = detailIndex >= 0 ? detailSequence[detailIndex] : null;
+    const stepDetail = (by: number) => {
+        const next = detailSequence[detailIndex + by];
+        if (next) openDetail(next.id);
+    };
+
     const isToday = day === today;
     const relativeDayLabel = day === today ? "Oggi" : day === shiftIsoDate(today, -1) ? "Ieri" : null;
     const goPrevDay = useCallback(() => setDay(d => shiftIsoDate(d, -1)), []);
@@ -198,10 +208,7 @@ export default function OrdersHistory() {
     const columns = makeHistoryColumns({
         tables,
         operatorNames,
-        onViewDetail: order => {
-            setOrderInDetail(order);
-            setIsDetailOpen(true);
-        },
+        onViewDetail: order => openDetail(order.id),
         onRestore: handleRestore,
         onPrint: handlePrint,
         hasPrinters: hasPrinters === true,
@@ -272,6 +279,9 @@ export default function OrdersHistory() {
                                 columns={columns}
                                 isLoading={isLoading}
                                 getRowId={o => o.id}
+                                onRowClick={o => {
+                                    if (!o.is_rectification) openDetail(o.id);
+                                }}
                                 rowWrapper={(rowEl, rowData) => {
                                     // Storno orfano: blocco a sé, solo la striscia.
                                     if (rowData.is_rectification) {
@@ -315,17 +325,17 @@ export default function OrdersHistory() {
                     )}
 
                     <OrderDetailDrawer
-                        open={isDetailOpen}
+                        open={orderInDetail !== null}
                         order={orderInDetail}
+                        backLabel="Storico"
+                        onPrev={detailIndex > 0 ? () => stepDetail(-1) : undefined}
+                        onNext={detailIndex >= 0 && detailIndex < detailSequence.length - 1 ? () => stepDetail(1) : undefined}
                         tableLabel={tableOf(orderInDetail)?.label ?? "?"}
                         tableZone={tableOf(orderInDetail)?.zone_name ?? null}
                         operatorNames={operatorNames}
                         hasPrinters={hasPrinters === true}
                         onPrint={handlePrint}
-                        onClose={() => {
-                            setIsDetailOpen(false);
-                            setOrderInDetail(null);
-                        }}
+                        onClose={closeDetail}
                     />
                 </section>
             )}

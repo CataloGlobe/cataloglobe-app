@@ -3,6 +3,16 @@
 .card[data-status="cancelled"] { opacity: 0.75; }
 .card[data-status="delivered"] { opacity: 0.9; }
 
+// Si tocca per aprire il dettaglio accanto (D131); quella aperta resta segnata.
+.card {
+    cursor: pointer;
+    border-radius: var(--radius-surface);
+}
+
+.card[data-selected] {
+    box-shadow: 0 0 0 2px var(--brand-primary);
+}
+
 // Blocchi con padding propri, separati dai divisori: via 8/12 del body flush.
 .body {
     padding: 0;

@@ -56,6 +56,8 @@ interface Props {
     onCancel: (order: V2OrderWithItems) => void;
     onCancelItem: (order: V2OrderWithItems) => void;
     onViewDetail: (order: V2OrderWithItems) => void;
+    /** L'ordine col dettaglio aperto accanto, segnato sulla board. */
+    selectedOrderId?: string | null;
     onUnacknowledge?: (order: V2OrderWithItems) => Promise<void>;
     onUnready?: (order: V2OrderWithItems) => Promise<void>;
     /**
@@ -102,6 +104,7 @@ export default function OrdersKanban({
     onCancel,
     onCancelItem,
     onViewDetail,
+    selectedOrderId,
     onUnacknowledge,
     onUnready,
     pulseSubmittedToken,
@@ -250,6 +253,7 @@ export default function OrdersKanban({
                                                 onCancel={onCancel}
                                                 onCancelItem={onCancelItem}
                                                 onViewDetail={onViewDetail}
+                                                selected={order.id === selectedOrderId}
                                                 onUnacknowledge={onUnacknowledge}
                                                 onUnready={onUnready}
                                                 canManage={canManage}
