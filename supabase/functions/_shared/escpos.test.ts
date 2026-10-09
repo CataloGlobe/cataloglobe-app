@@ -8,6 +8,7 @@ import {
     renderComandaEscPos,
     renderAnnulloEscPos,
     formatComandaDateTime,
+    MIN_COMANDA_LINES,
     type ComandaPayload
 } from "./escpos";
 
@@ -437,5 +438,45 @@ describe("renderAnnulloEscPos", () => {
         expect(annullo).toMatch(/^[0-9a-f]+$/);
         expect(annullo.length % 2).toBe(0);
         expect(annullo).not.toBe(comanda);
+    });
+});
+
+// ============================================================
+// Altezza minima della comanda
+// ============================================================
+
+describe("altezza minima della comanda", () => {
+    it("il builder conta le righe: doppia altezza vale 2, feed vale n", () => {
+        const b = new EscPosBuilder();
+        b.line("a").doubleSize(true).line("B").doubleSize(false).newline().feed(3);
+        expect(b.linesPrinted).toBe(1 + 2 + 1 + 3);
+    });
+
+    it("padToLines aggiunge solo le righe che mancano", () => {
+        const b = new EscPosBuilder();
+        b.line("a").line("b");
+        expect(b.padToLines(5).toHex()).toBe(
+            bytesToHex(new TextEncoder().encode("a")) + "0a" + bytesToHex(new TextEncoder().encode("b")) + "0a" + "1b6403"
+        );
+        expect(b.linesPrinted).toBe(5);
+        const before = b.toHex();
+        b.padToLines(3);
+        expect(b.toHex()).toBe(before);
+    });
+
+    it("comanda da un solo piatto: avanza fino a MIN_COMANDA_LINES, poi feed 4 e taglio", () => {
+        const hex = renderComandaEscPos({ ...BASE_PAYLOAD, items: [BASE_PAYLOAD.items[0]], notes: null });
+        expect(hex.endsWith("1b6404" + "1d5601")).toBe(true);
+        const pad = hex.slice(0, -("1b6404" + "1d5601").length).match(/1b64([0-9a-f]{2})$/);
+        expect(pad).not.toBeNull();
+        expect(parseInt(pad![1], 16)).toBeGreaterThan(0);
+    });
+
+    it("comanda lunga: nessun avanzamento in piu', solo feed 4 e taglio", () => {
+        const many = Array.from({ length: MIN_COMANDA_LINES }, () => BASE_PAYLOAD.items[0]);
+        const hex = renderComandaEscPos({ ...BASE_PAYLOAD, items: many });
+        const tail = hex.slice(0, -("1b6404" + "1d5601").length);
+        // Ultima riga (footer) + ESC a 0 (allineamento a sinistra), nessun ESC d in mezzo.
+        expect(tail.endsWith("0a" + "1b6100")).toBe(true);
     });
 });
