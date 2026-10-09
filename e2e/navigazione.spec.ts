@@ -421,7 +421,7 @@ test.describe("Header: percorso e selettore di sede (§51.7, §51.8)", () => {
         });
         await page.goto(`${paths[0]}/comande`);
         await expect(placeSwitcher(page)).toHaveAccessibleName(/Sospesa/, { timeout: 15_000 });
-        await expect(placeSwitcher(page)).not.toHaveAccessibleName(/Pubblicata/);
+        await expect(placeSwitcher(page)).not.toHaveAccessibleName(/Online|Pubblicata/);
     });
 
     test("1280: niente testata; logo, azienda e sede in cima alla sidebar", async ({ page }) => {

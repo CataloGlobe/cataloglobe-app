@@ -289,7 +289,7 @@ test.describe("Cosa vedono i clienti — stati della sede", () => {
             }
         });
         await expect(band(page)).toContainText("la sede è sospesa", { timeout: 15_000 });
-        await expect(band(page).getByRole("list", { name: "Cosa manca" })).toContainText("Sede pubblicata");
+        await expect(band(page).getByRole("list", { name: "Cosa manca" })).toContainText("Sede online");
     });
 
     test("abbonamento non attivo: lo dice", async ({ page }) => {

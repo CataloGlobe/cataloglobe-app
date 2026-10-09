@@ -206,7 +206,7 @@ export function ActivitySlugForm({
                 {isActive && (
                     <>
                         <InlineBanner variant="warning">
-                            Stai cambiando l&apos;indirizzo pubblico di una sede pubblicata. Il vecchio indirizzo resta
+                            Stai cambiando l&apos;indirizzo pubblico di una sede online. Il vecchio indirizzo resta
                             come redirect automatico e compare qui sotto fra gli indirizzi precedenti, da dove puoi
                             rimuoverlo. I QR già stampati continuano a funzionare, ma conviene aggiornarli.
                         </InlineBanner>

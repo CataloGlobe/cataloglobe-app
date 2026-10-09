@@ -45,7 +45,7 @@ export function StoryPlacementCard({
     const seat = activities.find(activity => activity.id === activityId);
     const where = activityId
         ? `solo nella pagina di ${seat?.name ?? "una sede che non c'è più"}`
-        : "su tutte le sedi pubblicate";
+        : "su tutte le sedi online";
     const sentence = status === "published" ? `Compare ${where}.` : `È una bozza: pubblicata, comparirà ${where}.`;
 
     const handleScope = (next: Scope) => {
