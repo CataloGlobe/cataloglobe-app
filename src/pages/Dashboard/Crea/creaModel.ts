@@ -123,6 +123,8 @@ export type Tunnel = {
     when: CalWhen;
     where: CalWhere;
     from: FromMenu | null;
+    /** Aperto da «Crea un menù nuovo» del Calendario con la bozza messa da parte: quando e dove vengono da lì. */
+    aside: boolean;
 };
 
 let seq = 0;
@@ -166,7 +168,20 @@ export function newTunnel(kind: CreaKind, where: CalWhere, from: FromMenu | null
         qmode: from && (from.when.period || from.when.days || from.when.ranges) ? "momenti" : "sempre",
         when: from ? cloneWhen(from.when) : {},
         where: { all: w.all, activityIds: [...w.activityIds], groupIds: [...w.groupIds] },
-        from
+        from,
+        aside: false
+    };
+}
+
+/** Il tunnel aperto dal Calendario parte dal quando e dal dove della bozza messa da parte. */
+export function withAside(t: Tunnel, a: { when: CalWhen; where: CalWhere }): Tunnel {
+    const some = !!(a.when.period || a.when.days || a.when.ranges);
+    return {
+        ...t,
+        qmode: some ? "momenti" : "sempre",
+        when: some ? cloneWhen(a.when) : {},
+        where: { all: a.where.all, activityIds: [...a.where.activityIds], groupIds: [...a.where.groupIds] },
+        aside: true
     };
 }
 

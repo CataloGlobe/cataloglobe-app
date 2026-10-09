@@ -23,8 +23,8 @@ import type { StoryProductOptions } from "@/pages/Dashboard/Stories/components/S
 import { SettimanaAnteprima } from "@/pages/Dashboard/Programming/calendar/SettimanaAnteprima";
 import type { Draft } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import { axisFor, entriesFromRules, romeToday, type CalNames, type CalWhen } from "@/pages/Dashboard/Programming/calendar/calendarModel";
-import { whenKey } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
-import { KIND, qcardText, blocker, effWhen, firstBlock, isDirty, kindOfSlug, newTunnel, steps, STEP_LABEL, thingName, tunnelTitle, type CreaKind, type FromMenu, type StepId, type Tunnel } from "./creaModel";
+import { dropAside, peekAside, whenKey } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
+import { KIND, qcardText, withAside, blocker, effWhen, firstBlock, isDirty, kindOfSlug, newTunnel, steps, STEP_LABEL, thingName, tunnelTitle, type CreaKind, type FromMenu, type StepId, type Tunnel } from "./creaModel";
 import { CAL_KIND, draftFor, saveTunnel, type Saved } from "./creaSave";
 import { aspectOf, sampleOf, styleTokens, tokensOf, useFonts } from "./creaStyle";
 import { useCreaData, type CreaData } from "./useCreaData";
@@ -103,7 +103,15 @@ function CreaTunnel({ kind }: { kind: CreaKind }) {
     const owner = !!permissions && canDoOnAnyActivity(permissions, "scheduling.write") && isTenantWide(permissions);
 
     const [label, path] = ORIGIN[params.get("da") ?? ""] ?? ORIGIN.panoramica;
-    const crumbs = useMemo(() => [{ label, to: `${b}/${path}` }, { label: KIND[kind].t }], [b, label, path, kind]);
+    // dal Calendario con una bozza tenuta da parte: il suo quando e il suo dove
+    const [aside] = useState(() => {
+        if (params.get("da") !== "calendario" || kind === "storia") return null;
+        const a = peekAside();
+        return a && a.kind === CAL_KIND[kind] ? a : null;
+    });
+    // in alto solo la pagina da cui si è partiti: il percorso intero è nella testa del
+    // tunnel, come «Aggiungi» del Calendario
+    const crumbs = useMemo(() => [{ label }], [label]);
     useBreadcrumbItems(crumbs);
 
     if (failed)
@@ -119,6 +127,7 @@ function CreaTunnel({ kind }: { kind: CreaKind }) {
     return (
         <Tunnelo
             kind={kind}
+            aside={aside}
             data={data}
             tenantId={tenantId}
             owner={owner}
@@ -134,6 +143,7 @@ function CreaTunnel({ kind }: { kind: CreaKind }) {
 
 type TunnelProps = {
     kind: CreaKind;
+    aside: Pick<Draft, "when" | "where"> | null;
     data: CreaData;
     tenantId: string;
     owner: boolean;
@@ -148,10 +158,10 @@ type TunnelProps = {
 /** Il menù appena messo in onda, con «E adesso?» e quello che ci si è aggiunto. */
 type After = { t: Tunnel; saved: Saved; kids: CreaKind[] };
 
-function Tunnelo({ kind, data, tenantId, owner, origin, business, reload, navigate, showToast, b }: TunnelProps) {
+function Tunnelo({ kind, aside, data, tenantId, owner, origin, business, reload, navigate, showToast, b }: TunnelProps) {
     const L = data.L;
     const allWhere = { all: true, activityIds: [], groupIds: [] };
-    const [t, setT] = useState<Tunnel>(() => newTunnel(kind, allWhere));
+    const [t, setT] = useState<Tunnel>(() => (aside ? withAside(newTunnel(kind, allWhere), aside) : newTunnel(kind, allWhere)));
     const [after, setAfter] = useState<After | null>(null);
     /** «E adesso?» aperto (dopo il menù), o un tunnel aperto da lì. */
     const showAfter = !!after && t === after.t;
@@ -169,10 +179,18 @@ function Tunnelo({ kind, data, tenantId, owner, origin, business, reload, naviga
         return n;
     }), []);
 
-    // si naviga solo dopo un render senza la guardia
+    // si naviga un giro dopo il render senza la guardia: l'host nel layout aggiorna il
+    // suo blocker negli effetti del genitore, che girano dopo questi (come RuleDetailPage)
     useUnsavedChangesGuard(!going && !showAfter && isDirty(t));
     useEffect(() => {
-        if (going) navigate(going);
+        if (!going) return;
+        const timer = window.setTimeout(() => {
+            navigate(going);
+            // la pagina d'arrivo si carica a parte e il tunnel resta su un attimo: se intanto
+            // si torna indietro, si deve poter uscire di nuovo
+            setGoing(null);
+        }, 0);
+        return () => window.clearTimeout(timer);
     }, [going, navigate]);
 
     // i prodotti per i blocchi Prodotto della storia (come la pagina della storia)
@@ -269,19 +287,27 @@ function Tunnelo({ kind, data, tenantId, owner, origin, business, reload, naviga
     const phoneT = useMemo(() => (t.kind === "storia" ? { ...t, blocks: t.blocks.map(x => (x.type === "image" && blockUrls[x.id] ? { ...x, url: blockUrls[x.id] } : x)) } : t), [t, blockUrls]);
 
     /* ---------- la testa ferma: misure per la colonna di destra ---------- */
+    // la testa sta ferma sul bordo della colonna che scorre, sopra il suo margine
+    // (`pad`): la colonna di destra si ferma 12px sotto la testa
     const hdrRef = useRef<HTMLDivElement>(null);
-    const [hdrH, setHdrH] = useState(0);
+    const [hdr, setHdr] = useState({ h: 0, pad: 24 });
     useLayoutEffect(() => {
         const el = hdrRef.current;
         if (!el) return;
-        const ro = new ResizeObserver(() => setHdrH(el.offsetHeight));
+        const read = () => {
+            const col = el.parentElement?.parentElement;
+            const pad = col ? parseFloat(getComputedStyle(col).paddingTop) || 0 : 24;
+            setHdr(p => (p.h === el.offsetHeight && p.pad === pad ? p : { h: el.offsetHeight, pad }));
+        };
+        const ro = new ResizeObserver(read);
         ro.observe(el);
-        setHdrH(el.offsetHeight);
+        read();
         return () => ro.disconnect();
     }, []);
     const asideRef = useRef<HTMLElement>(null);
     const boxRef = useRef<HTMLDivElement>(null);
-    const fit = usePhoneFit(asideRef, boxRef, true, hdrH + 24);
+    // usePhoneFit toglie già i due margini della colonna: resta la testa, 12px sopra e 16 sotto
+    const fit = usePhoneFit(asideRef, boxRef, true, Math.max(0, hdr.h + 28 - 2 * hdr.pad));
 
     /* ---------- le azioni ---------- */
     const toTop = () => document.querySelector("main [class*='content']")?.scrollTo({ top: 0 });
@@ -308,6 +334,8 @@ function Tunnelo({ kind, data, tenantId, owner, origin, business, reload, naviga
             const pub = t.kind === "menu" || t.kind === "stile" ? "in onda" : t.kind === "storia" ? "pubblicata" : "pubblicato";
             void reload();
             setLeave(false);
+            // la bozza del Calendario si toglie solo quando va in onda
+            if (t.aside && saved.live) dropAside();
             // il menù in onda apre «E adesso?»
             if (t.kind === "menu" && saved.live) {
                 const done = { ...t, i: st.length - 1, seen: st.length - 1 };
@@ -481,7 +509,7 @@ function Tunnelo({ kind, data, tenantId, owner, origin, business, reload, naviga
     const title = showAfter && after ? `${after.saved.name} è in onda` : tunnelTitle(t);
     const sub = showAfter ? "Vuoi aggiungere qualcosa?" : `${st.length} passi. A destra vedi già com'è.`;
     const isMenuFlow = t.kind === "menu";
-    const rootStyle = { "--stick": `${hdrH + 12}px`, "--ihdr": `${hdrH}px` } as CSSProperties;
+    const rootStyle = { "--stick": `${hdr.h + 12 - hdr.pad}px`, "--ihdr": `${hdr.h - hdr.pad}px` } as CSSProperties;
 
     return (
         <div className={s.root} style={rootStyle}>
@@ -567,6 +595,7 @@ function Tunnelo({ kind, data, tenantId, owner, origin, business, reload, naviga
                 message={`${t.kind === "storia" ? "La storia" : "Quello che hai scritto"} non è ancora salvat${t.kind === "storia" ? "a" : "o"}. Se esci senza salvare, lo perdi.`}
                 cancelLabel="Resta qui"
                 saveLabel="Tieni come bozza ed esci"
+                wide
                 onCancel={() => setLeave(false)}
                 onDiscard={discard}
                 onSaveAndExit={() => finish(false)}

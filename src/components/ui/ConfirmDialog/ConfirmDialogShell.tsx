@@ -21,6 +21,8 @@ export interface ConfirmDialogShellProps {
     error?: string | null;
     /** I bottoni: chi compone mette il non distruttivo a sinistra con `data-autofocus`. */
     footer: ReactNode;
+    /** Pannello da 460 invece di 420: tre bottoni con etichette lunghe (i tunnel di creazione). */
+    wide?: boolean;
 }
 
 /**
@@ -38,6 +40,7 @@ export function ConfirmDialogShell({
     title,
     message,
     children,
+    wide = false,
     error,
     footer
 }: ConfirmDialogShellProps) {
@@ -119,7 +122,7 @@ export function ConfirmDialogShell({
                     <FocusLock autoFocus={false} returnFocus={false}>
                         <motion.div
                             ref={panelRef}
-                            className={styles.panel}
+                            className={wide ? `${styles.panel} ${styles.wide}` : styles.panel}
                             role="alertdialog"
                             // Un drawer sotto (SystemDrawer) lascia Esc alla
                             // conferma solo finché è aperta (vedi l'effetto).

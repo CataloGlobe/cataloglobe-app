@@ -66,10 +66,11 @@ const KICON: Record<CalKind, ReactNode> = {
     visibility: <EyeOff size={17} />,
     featured: <Megaphone size={17} />
 };
+// si crea nel tunnel di creazione (D124), non più nella pagina
 const NEW_THING: Partial<Record<CalKind, [string, string]>> = {
-    menu: ["Crea un menù nuovo", "Menù"],
-    style: ["Crea uno stile nuovo", "Stili"],
-    featured: ["Crea un In evidenza nuovo", "In evidenza"]
+    menu: ["Crea un menù nuovo", "Creare un menù nuovo?"],
+    style: ["Crea uno stile nuovo", "Creare uno stile nuovo?"],
+    featured: ["Crea un In evidenza nuovo", "Creare un contenuto in evidenza nuovo?"]
 };
 
 const sectionSteps = (multi: boolean) => (multi ? ["Cosa", "Quando", "Dove", "Riepilogo"] : ["Cosa", "Quando", "Riepilogo"]);
@@ -438,7 +439,7 @@ export function CalendarioSection(p: CalendarioSectionProps) {
                     {nw[0]}
                 </Button>
                 <p className={s.muted}>
-                    {d.kind === "menu" ? "Si crea nella pagina Menù, dove scegli se è classico o multi: si esce dal Calendario." : `Si crea nella sua pagina, ${nw[1]}: si esce dal Calendario.`}
+                    {d.kind === "menu" ? "Si crea nel tunnel di creazione, dove scegli se è classico o multi: si esce dal Calendario." : "Si crea nel tunnel di creazione: si esce dal Calendario."}
                 </p>
             </>
         );
@@ -630,8 +631,8 @@ export function CalendarioSection(p: CalendarioSectionProps) {
                 </>
             );
         } else if (l.why === "new") {
-            t = `Vai a ${NEW_THING[l.to!]![1]} per crearne uno nuovo?`;
-            txt = "Esci dal Calendario. " + nos;
+            t = NEW_THING[l.to!]![1];
+            txt = ok ? "Si apre il tunnel di creazione. " + nos : "Si apre il tunnel di creazione: tieni da parte la bozza, e il suo quando e il suo dove vengono con te.";
             btns = (
                 <>
                     {stay}

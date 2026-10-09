@@ -31,7 +31,7 @@ import type { StoryBlock } from "@/services/supabase/stories";
 import { MAX_STORY_IMAGES } from "@/services/supabase/stories";
 import type { V2Style } from "@/services/supabase/styles";
 import { StoryBlockEditor } from "@/pages/Dashboard/Stories/components/StoryBlockEditor";
-import { AddBlockMenu } from "@/pages/Dashboard/Stories/components/AddBlockMenu";
+import { BLOCK_TYPE_META, BLOCK_TYPE_ORDER } from "@/pages/Dashboard/Stories/components/blocks/blockTypeMeta";
 import { createBlock } from "@/pages/Dashboard/Stories/components/createBlock";
 import type { StoryProductOptions } from "@/pages/Dashboard/Stories/components/StoryProductPicker";
 import { DovePasso, QuandoPasso, type PassoGruppo, type PassoSede } from "@/pages/Dashboard/Programming/calendar/CalendarioPassi";
@@ -670,23 +670,33 @@ export function StoriaBlocchi({
     return (
         <>
             <Sh title="I blocchi">Il racconto, un pezzo alla volta: è l'editor a blocchi di oggi. Si leggono toccando la storia.</Sh>
+            {/* i blocchi, poi sotto un bottone per tipo (l'editor vuoto ha già il suo «Aggiungi»: qui no) */}
+            {t.blocks.length > 0 && (
+                <StoryBlockEditor
+                    value={t.blocks}
+                    onChange={next => u(x => void (x.blocks = next))}
+                    pendingImages={files}
+                    onPendingImageChange={onFile}
+                    tenantId={tenantId}
+                    productOptions={productOptions}
+                    focusBlockId={focus}
+                    onFocusHandled={() => setFocus(null)}
+                />
+            )}
             <div className={s.blk}>
                 <span className={s.lab}>Aggiungi un blocco</span>
-                <div>
-                    <AddBlockMenu onAdd={add} imageDisabled={images >= MAX_STORY_IMAGES} />
+                <div className={s.chips}>
+                    {BLOCK_TYPE_ORDER.map(type => {
+                        const { label, icon: Icon } = BLOCK_TYPE_META[type];
+                        return (
+                            <button key={type} type="button" className={s.chip} disabled={type === "image" && images >= MAX_STORY_IMAGES} onClick={() => add(type)}>
+                                <Icon size={14} aria-hidden />
+                                {label}
+                            </button>
+                        );
+                    })}
                 </div>
             </div>
-            <StoryBlockEditor
-                value={t.blocks}
-                onChange={next => u(x => void (x.blocks = next))}
-                pendingImages={files}
-                onPendingImageChange={onFile}
-                tenantId={tenantId}
-                productOptions={productOptions}
-                focusBlockId={focus}
-                onFocusHandled={() => setFocus(null)}
-                onAddBlock={add}
-            />
         </>
     );
 }
@@ -705,6 +715,7 @@ export function Quando({ t, u, draft, updDraft, durs, axis }: { t: Tunnel; u: U;
         <>
             <Sh title="Quando">Quando lo vede il cliente. Si cambia quando vuoi dal Calendario.</Sh>
             {t.from && <Inherited>Già compilato dal menù {q(t.from.name)}: puoi cambiarlo.</Inherited>}
+            {t.aside && <Inherited>Dalla bozza che hai tenuto da parte nel Calendario: puoi cambiarlo.</Inherited>}
             <div className={s.opts}>
                 <Opt on={t.qmode === "sempre"} icon={<InfinityIcon size={16} />} title="Sempre" text="Da subito, tutti i giorni, a tutte le ore." onClick={() => u(x => void (x.qmode = "sempre"))} />
                 <Opt
@@ -739,6 +750,7 @@ export function Dove({ t, draft, updDraft, sedi, groups, L }: { t: Tunnel; draft
         <>
             <Sh title="Dove">In quali sedi. Quello che vale per una sede vince su quello che vale per tutte.</Sh>
             {t.from && <Inherited>Le stesse sedi del menù {q(t.from.name)}: puoi cambiarle.</Inherited>}
+            {t.aside && <Inherited>Le sedi della bozza che hai tenuto da parte nel Calendario: puoi cambiarle.</Inherited>}
             <div className={cx(cal.root, s.calwrap)}>
                 <DovePasso draft={draft} upd={updDraft} sedi={sedi} groups={groups} L={L} bad={bad} />
             </div>
