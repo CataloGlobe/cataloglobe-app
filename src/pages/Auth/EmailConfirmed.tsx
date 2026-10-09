@@ -110,10 +110,7 @@ export default function EmailConfirmed() {
             <AuthLayout
                 heading="Verifica in corso…"
                 lead="Attendi qualche secondo, stiamo completando la verifica."
-            >
-                <div className={styles.auth}>
-                </div>
-            </AuthLayout>
+            />
         );
     }
 

@@ -7,7 +7,8 @@ import styles from "./AuthLayout.module.scss";
 type HeroTone = "brand" | "warning";
 
 interface AuthLayoutProps {
-  children: React.ReactNode;
+  /** Senza contenuto (attesa) la scheda non si mostra. */
+  children?: React.ReactNode;
   /** Titolo grande sopra la scheda. Senza, la pagina mette il suo dentro la scheda. */
   heading?: React.ReactNode;
   lead?: React.ReactNode;
@@ -35,7 +36,7 @@ export function AuthLayout({ children, heading, lead, icon, tone = "brand", asid
       <main className={styles.main}>
         <div className={styles.column}>
           {heading && (
-            <div className={`${styles.hero} ${icon ? styles.heroCentered : ""}`}>
+            <div className={`${styles.hero} ${icon ? styles.heroCentered : ""}`} role={children ? undefined : "status"}>
               {icon && (
                 <span className={`${styles.tile} ${tone === "warning" ? styles.tileWarning : ""}`} aria-hidden="true">
                   {icon}
@@ -49,7 +50,7 @@ export function AuthLayout({ children, heading, lead, icon, tone = "brand", asid
               )}
             </div>
           )}
-          <div className={styles.card}>{children}</div>
+          {children && <div className={styles.card}>{children}</div>}
         </div>
       </main>
 
