@@ -17,7 +17,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { AlertCircle } from "lucide-react";
-import { Badge } from "@/components/ui/Badge/Badge";
 import { Button } from "@/components/ui/Button/Button";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import Skeleton from "@/components/ui/Skeleton/Skeleton";
@@ -217,14 +216,13 @@ export default function OrdersKanban({
                                     isPulsing && col.status === "submitted" ? ` ${styles.pulsing}` : ""
                                 }`}
                             >
-                                <Text as="span" variant="body-sm" weight={600}>
+                                <Text as="span" variant="body-sm" weight={600} className={styles.laneTitle}>
+                                    <span className={styles.laneDot} aria-hidden />
                                     {col.title}
                                 </Text>
-                                <Badge
-                                    variant={col.status === "submitted" && colOrders.length > 0 ? "brand" : "outline"}
-                                >
+                                <Text as="span" variant="caption" weight={600} className={styles.laneCount}>
                                     {colOrders.length}
-                                </Badge>
+                                </Text>
                             </header>
                             <div className={styles.columnList}>
                                 {isLoading && colOrders.length === 0 ? (

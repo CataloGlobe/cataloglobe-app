@@ -33,14 +33,60 @@
     min-height: 0;
 }
 
+// Ogni corsia ha il suo colore (D141, «colonna tinta»): fondo tenue, titolo e
+// contatore del colore, e la riga in cima a ogni card (OrderCard). Il
+// pulsante resta viola: è l'azione, non lo stato.
 .column {
+    --lane: var(--order-new);
+    --lane-soft: var(--order-new-soft);
+    --lane-ink: var(--order-new-ink);
+
     display: flex;
     flex-direction: column;
     min-height: 0;
-    background: var(--hover-bg);
-    border: 1px solid var(--border);
+    background: var(--lane-soft);
+    border: 1px solid color-mix(in srgb, var(--lane) 30%, transparent);
     border-radius: var(--radius-surface);
     overflow: hidden; // clippa il corpo che scorre agli angoli
+}
+
+.column[data-status="acknowledged"] {
+    --lane: var(--order-work);
+    --lane-soft: var(--order-work-soft);
+    --lane-ink: var(--order-work-ink);
+}
+
+.column[data-status="ready"] {
+    --lane: var(--order-ready);
+    --lane-soft: var(--order-ready-soft);
+    --lane-ink: var(--order-ready-ink);
+}
+
+// Dentro l'intestazione: vince sul colore di Text.
+.columnHeader .laneTitle {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-8);
+    color: var(--lane-ink);
+}
+
+.laneDot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--lane);
+}
+
+.columnHeader .laneCount {
+    min-width: 24px;
+    padding: 1px var(--space-6);
+    border-radius: var(--radius-control);
+    // Bianco su ambra non si leggeva: fondo chiaro, cifra e bordo della corsia.
+    background: var(--surface);
+    border: 1px solid color-mix(in srgb, var(--lane) 55%, transparent);
+    color: var(--lane-ink);
+    text-align: center;
+    font-variant-numeric: tabular-nums;
 }
 
 .columnHeader {

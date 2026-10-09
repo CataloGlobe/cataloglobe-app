@@ -13,8 +13,8 @@ describe("orderStatusBadge", () => {
         expect(orderStatusBadge("cancelled").label).toBe("Annullata");
     });
 
-    it("usa i toni dei pallini delle colonne", () => {
-        expect(orderStatusBadge("submitted").variant).toBe("neutral");
+    it("usa i colori delle corsie della board (D141)", () => {
+        expect(orderStatusBadge("submitted").variant).toBe("new");
         expect(orderStatusBadge("acknowledged").variant).toBe("warning");
         expect(orderStatusBadge("ready").variant).toBe("success");
     });

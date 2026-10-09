@@ -1,6 +1,7 @@
 import { useId, useState } from "react";
 import { Link } from "react-router-dom";
 import {
+    ChevronRight,
     Ban,
     MoreVertical,
     Eye,
@@ -222,7 +223,14 @@ export default function OrderCard({
                 titleId={titleId}
                 subtitle={[tableZone, formatRelativeTime(order.submitted_at)].filter(Boolean).join(" · ")}
                 badge={attribution}
+                actions={
+                    <Text as="span" variant="caption" weight={500} className={styles.open} aria-hidden data-compact-action="">
+                        Dettagli
+                        <ChevronRight size={14} />
+                    </Text>
+                }
                 flush
+                className={styles.surface}
                 bodyClassName={styles.body}
             >
                 {SHOW_UNVERIFIED_BADGE && order.group_verified_at == null && (

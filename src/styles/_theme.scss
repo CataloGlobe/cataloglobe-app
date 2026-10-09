@@ -51,6 +51,13 @@
   --color-green-800: #065f46;
   --color-green-900: #14532d;
 
+  // Sky palette: il colore delle comande nuove (D141). Azzurro e non viola:
+  // il viola è già la card aperta e i pulsanti.
+  --color-sky-100: #e0f2fe;
+  --color-sky-200: #bae6fd;
+  --color-sky-500: #0ea5e9;
+  --color-sky-800: #075985;
+
   // Violet palette: il colore di tipo di In evidenza (--rule-featured), il
   // 500 in chiaro e il 400 in scuro.
   --color-violet-400: #a78bfa;
@@ -183,6 +190,18 @@
   // alias della palette come gli altri.
   --rule-layout: var(--brand-primary);
   --rule-featured: var(--color-violet-500);
+  // --- Stati della comanda (D141): un colore per corsia della board, lo
+  // stesso nel bollino. Fondo tenue (-soft), segno pieno, testo (-ink).
+  // In lavorazione e Pronte sono alias di warning e success.
+  --order-new: var(--color-sky-500);
+  --order-new-soft: var(--color-sky-100);
+  --order-new-ink: var(--color-sky-800);
+  --order-work: var(--warning-500);
+  --order-work-soft: var(--warning-100);
+  --order-work-ink: var(--warning-800);
+  --order-ready: var(--success-500);
+  --order-ready-soft: var(--success-100);
+  --order-ready-ink: var(--success-800);
   // Barra del CRM in /admin (grafica decisa il 2026-10-05, «7A2»): indaco
   // profondo, uguale nei due temi. Li legge solo AdminLayout.module.scss.
   --crm-nav-bg: #1b1a3d;
@@ -267,6 +286,12 @@
 
   // In scuro il violetto sale di un gradino, come l'accento (#818cf8).
   --rule-featured: var(--color-violet-400);
+
+  // Comande nuove in scuro, sul modello dei semantici: fondo alpha della
+  // tinta 400, testo tinta 200.
+  --order-new: #38bdf8;
+  --order-new-soft: rgba(56, 189, 248, 0.16);
+  --order-new-ink: var(--color-sky-200);
 
   --bg: #0f172a;
   --text: #f9fafb;
