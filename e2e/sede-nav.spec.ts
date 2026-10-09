@@ -41,7 +41,7 @@ function contextNav(page: Page) {
 async function locationPaths(page: Page): Promise<string[]> {
     await openBusinessPage(page, "locations", "Sedi");
     await page.getByRole("radio", { name: "Vista griglia" }).click();
-    const cards = page.getByRole("main").getByRole("listitem");
+    const cards = page.getByRole("main").getByRole("list", { name: "Sedi" }).getByRole("listitem");
     await expect(cards.first()).toBeVisible({ timeout: 15_000 });
     const hrefs = await cards.locator("a").evaluateAll(links =>
         links.map(l => (l as HTMLAnchorElement).getAttribute("href") ?? "").filter(h => h.includes("/locations/"))
@@ -53,7 +53,7 @@ async function locationPaths(page: Page): Promise<string[]> {
 async function openFirstLocation(page: Page): Promise<string> {
     await openBusinessPage(page, "locations", "Sedi");
     await page.getByRole("radio", { name: "Vista griglia" }).click();
-    const firstCard = page.getByRole("main").getByRole("listitem").first();
+    const firstCard = page.getByRole("main").getByRole("list", { name: "Sedi" }).getByRole("listitem").first();
     await expect(firstCard).toBeVisible({ timeout: 15_000 });
     const link = firstCard.getByRole("link").first();
     const name = (await link.innerText()).split("\n")[0].trim();

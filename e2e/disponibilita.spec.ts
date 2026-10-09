@@ -44,7 +44,7 @@ type OpenOptions = DisponibilitaOptions & {
 async function openDisponibilita(page: Page, options: OpenOptions = {}): Promise<{ stub: DisponibilitaStub; name: string; activityId: string }> {
     await openBusinessPage(page, "locations", "Sedi");
     await page.getByRole("radio", { name: "Vista griglia" }).click();
-    const firstCard = main(page).getByRole("listitem").first();
+    const firstCard = main(page).getByRole("list", { name: "Sedi" }).getByRole("listitem").first();
     await expect(firstCard).toBeVisible({ timeout: 15_000 });
     const link = firstCard.getByRole("link").first();
     const name = (await link.innerText()).split("\n")[0].trim();
