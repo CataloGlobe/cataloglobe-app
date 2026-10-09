@@ -1,19 +1,9 @@
-// Pagina del prodotto: la colonna delle tab (lotto Prodotti P10, via le
-// classi rimaste senza uso).
+// Pagina del prodotto (Officina 3, D121): cruscotto e parti a fuoco vivono in
+// `scheda/Prodotto.module.scss`; qui solo la colonna che li tiene col banner.
 
 .container {
   display: flex;
   flex-direction: column;
   gap: var(--space-24);
-}
-
-/* Contenitore delle tab: `disabled` spegne campi e azioni per chi legge. */
-.readOnlyScope {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-24);
   min-inline-size: 0;
-  margin: 0;
-  padding: 0;
-  border: 0;
 }

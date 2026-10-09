@@ -50,6 +50,31 @@
   gap: var(--space-12);
 }
 
+// Nella parte a fuoco: niente riquadro per domanda, una riga fra l'una e l'altra.
+.optionGroupsBare {
+  display: flex;
+  flex-direction: column;
+  > * + * {
+    margin-top: var(--space-16);
+    padding-top: var(--space-16);
+    border-top: 1px solid var(--border);
+  }
+}
+
+.groupBare {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.groupTitle {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  span { font-weight: 400; color: var(--text-muted); }
+}
+
 .createGroupForm,
 .groupCard {
   display: flex;
@@ -127,4 +152,32 @@
 .quantityN {
   flex: 0 0 auto;
   width: 130px;
+}
+
+// Officina 3: dentro la parte a fuoco, senza la Card (il titolo c'è già).
+.bare {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+  min-width: 0;
+}
+
+.bareActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+}
+
+.priceNarrow {
+  max-width: 200px;
+}
+
+// «Un prezzo · Più formati» affiancati, come nella scheda; una sotto l'altra se stretto.
+.modes [role="radiogroup"] {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.bare .priceDisplay {
+  align-items: flex-end;
 }

@@ -6,6 +6,8 @@ export type ProductUsageData = {
     catalogs: ProductUsageItem[];
     schedules: ProductUsageItem[];
     activities: ProductUsageItem[];
+    /** Gli stili delle regole menù che mostrano il prodotto (per l'anteprima del telefono). */
+    styleIds?: string[];
 };
 
 /** Una regola dell'azienda coi suoi target veri (`schedule_targets`). */

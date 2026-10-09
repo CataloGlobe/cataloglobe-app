@@ -35,17 +35,22 @@ function isDark(hex: string): boolean {
     return 0.2126 * r + 0.7152 * g + 0.0722 * b < 128;
 }
 
+export type StylePalette = { background: string; primary: string; accent: string; muted: string };
+
+/** I colori di uno stile come li vede il cliente: sfondo, colore principale, bottoni, testo. */
+export function stylePalette(style: Pick<V2Style, "current_version"> | null): StylePalette {
+    const tokens = style?.current_version?.config ? parseTokens(style.current_version.config) : DEFAULT_STYLE_TOKENS;
+    const background = tokens.colors.pageBackground;
+    return {
+        background,
+        primary: tokens.colors.primary,
+        accent: tokens.colors.accent ?? tokens.colors.primary,
+        muted: isDark(background) ? "#ffffff" : "#0f172a"
+    };
+}
+
 export function StyleSwatch({ style, compact = false, label }: StyleSwatchProps) {
-    const palette = useMemo(() => {
-        const tokens = style.current_version?.config ? parseTokens(style.current_version.config) : DEFAULT_STYLE_TOKENS;
-        const background = tokens.colors.pageBackground;
-        return {
-            background,
-            primary: tokens.colors.primary,
-            accent: tokens.colors.accent ?? tokens.colors.primary,
-            muted: isDark(background) ? "#ffffff" : "#0f172a"
-        };
-    }, [style]);
+    const palette = useMemo(() => stylePalette(style), [style]);
 
     const a11y = label
         ? ({ role: "img", "aria-label": label } as const)
