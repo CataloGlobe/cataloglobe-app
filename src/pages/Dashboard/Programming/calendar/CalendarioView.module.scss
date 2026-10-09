@@ -1401,8 +1401,10 @@ button.dqsedi {
     p {
         margin: 0;
     }
+    // il <p> ha il suo colore globale, scuro anche nel tema scuro
     b {
         font-weight: 600;
+        color: var(--text);
     }
 }
 

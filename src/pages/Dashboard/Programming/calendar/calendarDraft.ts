@@ -371,7 +371,7 @@ export function whatLines(D: Draft, L: DraftLookups): string[] {
     if (D.kind === "visibility") return D.picks.map(id => productName(id, L) + (D.hide === "disable" ? " resta nel menù ma non si ordina" : " non si vede"));
     const n = thingName(D, L);
     if (!n) return [];
-    if (D.kind === "menu") return [`${q(n)} prende il posto degli altri menù`];
+    if (D.kind === "menu") return [D.insieme ? `${q(n)} si aggiunge agli altri menù` : `${q(n)} prende il posto degli altri menù`];
     if (D.kind === "style") return [`la pagina prende lo stile ${q(n)}`];
     return [`${q(n)} va in evidenza`];
 }
@@ -497,7 +497,8 @@ export function draftEntry(D: Draft, L: DraftLookups, now: number): CalEntry | n
         tscore: (w.period ? 4 : 0) + (w.ranges ? 2 : 0) + (w.days ? 1 : 0),
         priority: D.rule?.priority ?? 21,
         created: D.rule ? Date.parse(D.rule.created_at) || now : now,
-        add: !(D.kind === "menu" || D.kind === "style"),
+        // «Mettili insieme» (D135): il menù si aggiunge agli altri invece di prenderne il posto
+        add: !(D.kind === "menu" || D.kind === "style") || (D.kind === "menu" && !!D.insieme),
         rule: D.rule as LayoutRule,
         preview: true
     };

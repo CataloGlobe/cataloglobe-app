@@ -344,7 +344,7 @@ const q = (s: string) => "«" + s + "»";
 
 function what(t: Tunnel): string {
     const n = thingName(t);
-    if (t.kind === "menu") return `${q(n)} prende il posto degli altri menù`;
+    if (t.kind === "menu") return t.insieme ? `${q(n)} si aggiunge agli altri menù` : `${q(n)} prende il posto degli altri menù`;
     if (t.kind === "stile") return `la pagina prende lo stile ${q(n)}`;
     if (t.kind === "evid") return `${q(n)} va in evidenza, ${t.slot === "before" ? "sopra" : "sotto"} il menù`;
     return `la storia ${q(n)} compare sotto il menù`;

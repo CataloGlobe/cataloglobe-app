@@ -808,6 +808,10 @@ test.describe("Programmazione — calendario, simulatore, guida", () => {
         await avviso.getByRole("radio", { name: "Mettili insieme" }).click();
         await expect(avviso.getByText("In quelle ore ci sono tutti e due: il cliente sceglie.")).toBeVisible();
         await expect(main(page).getByText("Due menù insieme: si salva col database nuovo")).toBeVisible();
+        // il riepilogo e l'anteprima lo dicono: si aggiunge, non prende il posto
+        await expect(main(page).getByText(/«Carta e2e» si aggiunge agli altri menù/).first()).toBeVisible();
+        await expect(main(page).getByText("Quando si sovrappongono c'è insieme a «Pranzo e2e»: il cliente sceglie.")).toBeVisible();
+        await expect(avviso.getByRole("radio", { name: "Mettili insieme" })).toHaveAttribute("aria-checked", "true");
         await expect(add).toBeDisabled();
         await noHorizontalScroll(page);
         expect(writesOf(stub, "schedules.POST")).toHaveLength(0);

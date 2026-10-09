@@ -949,6 +949,8 @@ export default function CalendarioView({
         const wk = week === monday ? "Questa settimana" : "Nella settimana del " + mShort(week);
         const groupsOf = new Map<string, string[]>();
         const sc = new Map<string, Scontro>();
+        // con «Mettili insieme» l'anteprima lo aggiunge; chi tocca si guarda come se prendesse il posto
+        const judged = draft.insieme ? pvList.map(e => (e.preview && e.kind === "menu" ? { ...e, add: false } : e)) : pvList;
         for (const x of pvSedi.length ? pvSedi : shown) {
             const seat = seatOf(x.id), cov = new Set<string>(), by = new Set<string>();
             // chi tocca la bozza → i tratti (giorno, da, a), uniti dove si toccano
@@ -966,7 +968,7 @@ export default function CalendarioView({
             for (let i = 0; i < 7; i++) {
                 let on = 0;
                 const d = dayOfWeek(week + i);
-                for (const l of fLines(dayCtx(pvList, draft.kind, seat, week + i), pvAx).filter(l => l.preview))
+                for (const l of fLines(dayCtx(judged, draft.kind, seat, week + i), pvAx).filter(l => l.preview))
                     for (const g of l.segs) {
                         const m = g.to - g.from;
                         if (g.state === "on") {
@@ -994,7 +996,12 @@ export default function CalendarioView({
             else if (!mins) out.push(`${wk} non va mai in onda: lo copre ${listIt([...by].map(q))}.`);
             else {
                 out.push(`${wk} è in onda ${days} ${days === 1 ? "giorno" : "giorni"}, ${hoursText(mins)} in tutto.`);
-                if (cov.size) out.push(`Prende il posto di ${listIt([...cov].map(q))} quando si sovrappongono.`);
+                if (cov.size)
+                    out.push(
+                        draft.insieme
+                            ? `Quando si sovrappongono c'è insieme a ${listIt([...cov].map(q))}: il cliente sceglie.`
+                            : `Prende il posto di ${listIt([...cov].map(q))} quando si sovrappongono.`
+                    );
                 if (by.size) out.push(`Per ${hoursText(off)} non si vede: lo copre ${listIt([...by].map(q))}.`);
             }
             const k = out.join("\n");
