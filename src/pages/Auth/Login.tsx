@@ -14,7 +14,6 @@ import { savePendingRedirect } from "@/utils/pendingRedirect";
 import { resendConfirmationEmail } from "@/services/supabase/auth";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import Text from "@/components/ui/Text/Text";
-import { CheckboxInput } from "@/components/ui/Input/CheckboxInput";
 import { AuthLayout } from "@/layouts/AuthLayout/AuthLayout";
 import { COMPANY } from "@/config/company";
 import styles from "./Auth.module.scss";
@@ -51,7 +50,6 @@ export default function Login() {
     usePageTitle("Accedi");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
-    const [rememberMe, setRememberMe] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [rateLimited, setRateLimited] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -109,7 +107,7 @@ export default function Login() {
         setLoading(true);
 
         try {
-            const { user } = await signIn(email.trim(), password, { rememberMe });
+            const { user } = await signIn(email.trim(), password);
 
             if (!user) {
                 setError("Credenziali non valide.");
@@ -209,13 +207,6 @@ export default function Login() {
                 />
 
                 <div className={styles.formRow}>
-                    <CheckboxInput
-                        label="Ricordami"
-                        description="Ricordami su questo dispositivo"
-                        checked={rememberMe}
-                        onChange={e => setRememberMe(e.target.checked)}
-                    />
-
                     <Text as="p" variant="body-sm">
                         <Link to="/forgot-password" className={styles.forgot}>
                             Password dimenticata?
