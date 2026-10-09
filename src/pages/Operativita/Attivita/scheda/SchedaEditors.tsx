@@ -12,7 +12,6 @@ import {
 } from "@/components/ui/ImageUploadEditor";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
-import { Switch } from "@/components/ui/Switch/Switch";
 import Text from "@/components/ui/Text/Text";
 import { Textarea } from "@/components/ui/Textarea/Textarea";
 import { uploadActivityCover, removeActivityCover } from "@/services/supabase/activities";
@@ -25,6 +24,7 @@ import { feesToState, buildFeesPayload, type FeesState } from "../tabs/hours-ser
 import { useActivityDetail } from "../ActivityDetailContext";
 import { CONTACTS } from "./schedaModel";
 import styles from "./Scheda.module.scss";
+import { VisibilitySwitch } from "./VisibilitySwitch";
 
 type TextField = "name" | "address" | "street_number" | "postal_code" | "city" | "province" | "description";
 
@@ -242,21 +242,6 @@ export function DoveEditor() {
                 onSuccess={reload}
             />
         </div>
-    );
-}
-
-type FlagField = "payment_methods_public" | "services_public" | "fees_public";
-
-function VisibilitySwitch({ field, label }: { field: FlagField; label: string }) {
-    const { canManage, draft } = useActivityDetail();
-    return (
-        <Switch
-            size="sm"
-            label={label}
-            checked={Boolean(draft.draft[field])}
-            onChange={value => draft.set(field, value)}
-            disabled={!canManage}
-        />
     );
 }
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { ChevronRight } from "lucide-react";
 import {
@@ -19,31 +19,7 @@ import {
 } from "@/services/supabase/productGroups";
 import { ProductGroupsEditDrawer } from "./ProductGroupsEditDrawer";
 import styles from "./UsageTab.module.scss";
-
-/**
- * Un blocco della parte «Dove si vede» (Officina 3, artifact «Scheda del
- * prodotto»): un titolino e le righe in un riquadro leggero, perché la card
- * col titolo della parte c'è già intorno.
- */
-function Block({ title, badge, actions, boxed = false, children }: {
-    title: string;
-    badge?: ReactNode;
-    actions?: ReactNode;
-    /** Le righe stanno in un riquadro col bordo. */
-    boxed?: boolean;
-    children: ReactNode;
-}) {
-    return (
-        <section className={styles.block} aria-label={title}>
-            <div className={styles.blockHead}>
-                <h4>{title}</h4>
-                {badge}
-                {actions && <div className={styles.blockActions}>{actions}</div>}
-            </div>
-            {boxed ? <div className={styles.box}>{children}</div> : children}
-        </section>
-    );
-}
+import { UsageBlock } from "./UsageBlock";
 
 interface UsageItem {
     id: string;
@@ -138,7 +114,7 @@ export function UsageTab({ productId, tenantId, usageData, usageLoading }: Usage
 
     return (
         <div className={styles.grid}>
-            <Block title={verticalConfig.catalogLabelPlural} badge={count(categoryAssignments.length)} boxed>
+            <UsageBlock title={verticalConfig.catalogLabelPlural} badge={count(categoryAssignments.length)} boxed>
                 {loadingUsage ? (
                     loadingRow
                 ) : categoryAssignments.length === 0 ? (
@@ -160,9 +136,9 @@ export function UsageTab({ productId, tenantId, usageData, usageLoading }: Usage
                         ))}
                     </div>
                 )}
-            </Block>
+            </UsageBlock>
 
-            <Block title="Regole che lo toccano" badge={count(data.schedules.length)} boxed>
+            <UsageBlock title="Regole che lo toccano" badge={count(data.schedules.length)} boxed>
                 {loadingUsage ? (
                     loadingRow
                 ) : data.schedules.length === 0 ? (
@@ -178,9 +154,9 @@ export function UsageTab({ productId, tenantId, usageData, usageLoading }: Usage
                         ))}
                     </div>
                 )}
-            </Block>
+            </UsageBlock>
 
-            <Block title="Sedi" badge={count(data.activities.length)} boxed>
+            <UsageBlock title="Sedi" badge={count(data.activities.length)} boxed>
                 {loadingUsage ? (
                     loadingRow
                 ) : data.activities.length === 0 ? (
@@ -201,10 +177,10 @@ export function UsageTab({ productId, tenantId, usageData, usageLoading }: Usage
                         ))}
                     </div>
                 )}
-            </Block>
+            </UsageBlock>
 
             {/* ──────────────── Gruppi (§50.9/3, salvataggio immediato) ──────────────── */}
-            <Block
+            <UsageBlock
                 title="Gruppi"
                 badge={assignedGroups.length > 0 ? <Badge variant="secondary">{assignedGroups.length}</Badge> : undefined}
                 actions={
@@ -233,7 +209,7 @@ export function UsageTab({ productId, tenantId, usageData, usageLoading }: Usage
                         ))}
                     </div>
                 )}
-            </Block>
+            </UsageBlock>
 
             <ProductGroupsEditDrawer
                 open={isGroupsDrawerOpen}

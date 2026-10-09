@@ -50,6 +50,8 @@ const hhmm = (m: number) => `${String(Math.floor(m / 60) % 24).padStart(2, "0")}
 export default function ActivitySchedaRoute() {
     const { activity, tenantId, reload, hours, canManage, canManageHours, draft } = useActivityDetail();
     const { showToast } = useToast();
+    /** Un errore della Scheda: un avviso che dice cosa non è riuscito. */
+    const fail = useCallback((message: string) => showToast({ message, type: "error" }), [showToast]);
     const { hasFeature } = usePlanFeatures();
     const [searchParams, setSearchParams] = useSearchParams();
     const rawPart = searchParams.get("parte");
@@ -127,11 +129,11 @@ export default function ActivitySchedaRoute() {
                     : { message: "Le stampanti rispondono.", type: "success" }
             );
         } catch {
-            showToast({ message: "Impossibile leggere lo stato delle stampanti.", type: "error" });
+            fail("Impossibile leggere lo stato delle stampanti.");
         } finally {
             setIsRetrying(false);
         }
-    }, [tenantId, activity.id, printers, showToast]);
+    }, [tenantId, activity.id, printers, showToast, fail]);
 
     const facts = useMemo(
         () => buildFacts({ a: d, hours, closures, now, printers, statuses, reservationsLocked, orderingLocked }),
@@ -171,10 +173,10 @@ export default function ActivitySchedaRoute() {
                 showToast({ message: next ? "Prenotazioni accese." : "Prenotazioni spente.", type: "success" });
                 await reload();
             } catch {
-                showToast({ message: "Impossibile aggiornare le prenotazioni.", type: "error" });
+                fail("Impossibile aggiornare le prenotazioni.");
             }
         },
-        [activity.id, tenantId, reload, showToast]
+        [activity.id, tenantId, reload, showToast, fail]
     );
     const toggleOrdering = useCallback(
         async (next: boolean) => {
@@ -186,10 +188,10 @@ export default function ActivitySchedaRoute() {
                 });
                 await reload();
             } catch {
-                showToast({ message: "Impossibile aggiornare gli ordini dal tavolo.", type: "error" });
+                fail("Impossibile aggiornare gli ordini dal tavolo.");
             }
         },
-        [activity.id, tenantId, reload, showToast]
+        [activity.id, tenantId, reload, showToast, fail]
     );
     const showHours = useCallback(async () => {
         try {
@@ -197,9 +199,9 @@ export default function ActivitySchedaRoute() {
             await reload();
             showToast({ message: "Orari sulla pagina.", type: "success" });
         } catch {
-            showToast({ message: "Impossibile mostrare gli orari.", type: "error" });
+            fail("Impossibile mostrare gli orari.");
         }
-    }, [activity.id, tenantId, reload, showToast]);
+    }, [activity.id, tenantId, reload, showToast, fail]);
 
     const [busy, setBusy] = useState<"close" | "early" | "back" | null>(null);
     const closeToday = useCallback(
@@ -239,12 +241,12 @@ export default function ActivitySchedaRoute() {
                 }
                 await loadClosures();
             } catch {
-                showToast({ message: "Impossibile cambiare gli orari di oggi.", type: "error" });
+                fail("Impossibile cambiare gli orari di oggi.");
             } finally {
                 setBusy(null);
             }
         },
-        [now.iso, hours, closures, tenantId, activity.id, loadClosures, showToast]
+        [now.iso, hours, closures, tenantId, activity.id, loadClosures, showToast, fail]
     );
     const backToUsual = useCallback(async () => {
         if (!facts.closure || !isTodayOnly(facts.closure, now)) return;
@@ -254,11 +256,11 @@ export default function ActivitySchedaRoute() {
             await loadClosures();
             showToast({ message: "Oggi valgono gli orari di sempre.", type: "success" });
         } catch {
-            showToast({ message: "Impossibile tornare agli orari di sempre.", type: "error" });
+            fail("Impossibile tornare agli orari di sempre.");
         } finally {
             setBusy(null);
         }
-    }, [facts.closure, now, tenantId, loadClosures, showToast]);
+    }, [facts.closure, now, tenantId, loadClosures, showToast, fail]);
 
     const solve = useCallback(
         (p: Problem) => {
@@ -274,9 +276,9 @@ export default function ActivitySchedaRoute() {
             await navigator.clipboard.writeText(buildPublicUrl(activity.slug));
             showToast({ message: "Indirizzo copiato.", type: "success" });
         } catch {
-            showToast({ message: "Impossibile copiare l'indirizzo.", type: "error" });
+            fail("Impossibile copiare l'indirizzo.");
         }
-    }, [activity.slug, showToast]);
+    }, [activity.slug, showToast, fail]);
 
     if (part) {
         const editors: Record<SchedaPart, ReactNode> = {

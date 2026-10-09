@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { ChevronRight, Copy, Eye, EyeOff, Link2, MapPin, SlidersHorizontal } from "lucide-react";
+import { Copy, Eye, EyeOff, Link2, MapPin, SlidersHorizontal } from "lucide-react";
 import { PART_ICON, partTitle, type ProdottoPart } from "./prodottoCopy";
 import {
     capitalize,
@@ -11,6 +11,7 @@ import {
     type ProdottoFacts
 } from "./prodottoModel";
 import styles from "./Prodotto.module.scss";
+import { ProdottoTileFoot } from "./ProdottoTileFoot";
 
 export interface TileActions {
     open: (part: ProdottoPart) => void;
@@ -26,21 +27,6 @@ interface ProdottoTileProps {
 }
 
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
-
-function Foot({ icon, text, warn = false }: { icon: ReactNode; text: string; warn?: boolean }) {
-    return (
-        <div className={styles.tf}>
-            <span className={cx(styles.tfText, warn && styles.tfHid)}>
-                {icon}
-                <span>{text}</span>
-            </span>
-            <span className={styles.go}>
-                Cambia
-                <ChevronRight size={14} strokeWidth={1.75} aria-hidden />
-            </span>
-        </div>
-    );
-}
 
 const eye = <Eye size={14} strokeWidth={1.75} aria-hidden />;
 const eyeOff = <EyeOff size={14} strokeWidth={1.75} aria-hidden />;
@@ -63,7 +49,7 @@ export function ProdottoTile({ part, facts: f, actions, wide = false, highlighte
         ans = `Come ${f.parentName}`;
         muted = true;
         det = <span>Li prende da {f.parentName}. Per cambiarli, aprite {f.parentName}.</span>;
-        foot = <Foot icon={<Link2 size={14} strokeWidth={1.75} aria-hidden />} text={`Da ${f.parentName}`} />;
+        foot = <ProdottoTileFoot icon={<Link2 size={14} strokeWidth={1.75} aria-hidden />} text={`Da ${f.parentName}`} />;
     } else {
         switch (part) {
             case "caratteristiche": {
@@ -71,7 +57,7 @@ export function ProdottoTile({ part, facts: f, actions, wide = false, highlighte
                 ans = n ? f.characteristics.join(" · ") : "Nessuna";
                 muted = !n;
                 det = n ? null : <span>Per esempio vegano, piccante, fatto in casa.</span>;
-                foot = <Foot icon={n ? eye : eyeOff} text={n ? "Sotto il nome" : "Non compare"} />;
+                foot = <ProdottoTileFoot icon={n ? eye : eyeOff} text={n ? "Sotto il nome" : "Non compare"} />;
                 break;
             }
             case "allergeni": {
@@ -87,7 +73,7 @@ export function ProdottoTile({ part, facts: f, actions, wide = false, highlighte
                 ) : (
                     <span>Se non ne contiene nessuno, va bene così.</span>
                 );
-                foot = <Foot icon={n ? eye : eyeOff} text={n ? "Sotto la descrizione" : "Non compare"} />;
+                foot = <ProdottoTileFoot icon={n ? eye : eyeOff} text={n ? "Sotto la descrizione" : "Non compare"} />;
                 break;
             }
             case "scelte": {
@@ -116,7 +102,7 @@ export function ProdottoTile({ part, facts: f, actions, wide = false, highlighte
                             ))}
                         </>
                     ) : null;
-                foot = <Foot icon={n ? eye : eyeOff} text={n ? "Prima di «Aggiungi»" : "Non compare"} />;
+                foot = <ProdottoTileFoot icon={n ? eye : eyeOff} text={n ? "Prima di «Aggiungi»" : "Non compare"} />;
                 break;
             }
             case "abbinamenti": {
@@ -124,7 +110,7 @@ export function ProdottoTile({ part, facts: f, actions, wide = false, highlighte
                 ans = n ? f.pairings.join(" · ") : "Nessun consiglio";
                 muted = !n;
                 det = n ? null : <span>Consigliate un {f.labels.product.toLowerCase()} da prendere insieme.</span>;
-                foot = <Foot icon={n ? eye : eyeOff} text={n ? "Prima di «Aggiungi»" : "Non compare"} />;
+                foot = <ProdottoTileFoot icon={n ? eye : eyeOff} text={n ? "Prima di «Aggiungi»" : "Non compare"} />;
                 break;
             }
             case "ingredienti": {
@@ -132,7 +118,7 @@ export function ProdottoTile({ part, facts: f, actions, wide = false, highlighte
                 ans = n ? (n === 1 ? "Un ingrediente" : `${n} ingredienti`) : "Nessuno";
                 muted = !n;
                 det = n ? <span>{f.ingredients.join(", ")}</span> : null;
-                foot = <Foot icon={n ? eye : eyeOff} text={n ? "Più in basso" : "Non compare"} />;
+                foot = <ProdottoTileFoot icon={n ? eye : eyeOff} text={n ? "Più in basso" : "Non compare"} />;
                 break;
             }
             case "note": {
@@ -149,7 +135,7 @@ export function ProdottoTile({ part, facts: f, actions, wide = false, highlighte
                         ))}
                     </>
                 ) : null;
-                foot = <Foot icon={n ? eye : eyeOff} text={n ? "In fondo, sotto «Da sapere»" : "Non compare"} />;
+                foot = <ProdottoTileFoot icon={n ? eye : eyeOff} text={n ? "In fondo, sotto «Da sapere»" : "Non compare"} />;
                 break;
             }
             case "traduzioni": {
@@ -163,7 +149,7 @@ export function ProdottoTile({ part, facts: f, actions, wide = false, highlighte
                     ans = "Solo in italiano";
                     muted = true;
                     det = <span>Nessun'altra lingua attiva per i vostri {f.labels.catalog === "menù" ? "menù" : "cataloghi"}.</span>;
-                    foot = <Foot icon={eye} text="In italiano per tutti" />;
+                    foot = <ProdottoTileFoot icon={eye} text="In italiano per tutti" />;
                     break;
                 }
                 const done = langs.filter(l => l.state === "done");
@@ -184,7 +170,7 @@ export function ProdottoTile({ part, facts: f, actions, wide = false, highlighte
                 det = <span>{["Italiano", ...done.map(l => l.name)].join(" · ")}</span>;
                 const warn = Boolean(f.description.trim()) && missing.length > 0;
                 foot = (
-                    <Foot
+                    <ProdottoTileFoot
                         icon={warn ? eyeOff : eye}
                         text={warn ? "In italiano per chi non lo legge" : "Nella lingua del cliente"}
                         warn={warn}
@@ -213,7 +199,7 @@ export function ProdottoTile({ part, facts: f, actions, wide = false, highlighte
                     </>
                 );
                 foot = (
-                    <Foot
+                    <ProdottoTileFoot
                         icon={hidden ? eyeOff : <MapPin size={14} strokeWidth={1.75} aria-hidden />}
                         text={hidden ? "Nessuno lo vede" : "Nelle sedi aperte"}
                         warn={hidden}
@@ -229,7 +215,7 @@ export function ProdottoTile({ part, facts: f, actions, wide = false, highlighte
                     <span>{n ? "Ognuna ha il suo prezzo e la sua pagina." : "Per esempio una versione doppia o senza zucchero."}</span>
                 );
                 foot = (
-                    <Foot
+                    <ProdottoTileFoot
                         icon={<Copy size={14} strokeWidth={1.75} aria-hidden />}
                         text={`${capitalize(f.labels.productPlural.toLowerCase())} a sé nel ${f.labels.catalog}`}
                     />
@@ -241,7 +227,7 @@ export function ProdottoTile({ part, facts: f, actions, wide = false, highlighte
                 ans = n ? f.attributes.join(" · ") : "Nessun attributo";
                 muted = !n;
                 det = <span>Taglia, colore e gli altri dati del {f.labels.product.toLowerCase()}.</span>;
-                foot = <Foot icon={<SlidersHorizontal size={14} strokeWidth={1.75} aria-hidden />} text="Solo per voi" />;
+                foot = <ProdottoTileFoot icon={<SlidersHorizontal size={14} strokeWidth={1.75} aria-hidden />} text="Solo per voi" />;
                 break;
             }
             default:

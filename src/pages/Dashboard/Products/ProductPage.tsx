@@ -120,6 +120,10 @@ export default function ProductPage() {
 
     const { showToast } = useToast();
 
+    /** Un errore della pagina del prodotto: un avviso che dice cosa non è riuscito. */
+
+    const fail = useCallback((message: string) => showToast({ message, type: "error" }), [showToast]);
+
     // Stabile: `setProduct` è già stabile (useState), ma un'arrow inline qui
     // sarebbe una nuova referenza ad ogni render — instabilità che risale a
     // handleSaveImage/Information/Notes → handleSaveAll → `actions` → loop
@@ -156,11 +160,11 @@ export default function ProductPage() {
             setPrimaryPriceGroup(opts.primaryPriceGroup);
             setAddonGroups(opts.addonGroups);
         } catch {
-            showToast({ message: "Errore caricamento opzioni", type: "error" });
+            fail("Errore caricamento opzioni");
         } finally {
             setOptionsLoading(false);
         }
-    }, [productId, showToast]);
+    }, [productId, fail]);
 
     // Prezzo per formato nella stessa bozza (D103 A): i formati partono col Salva.
     const formatsDraft = useFormatsDraft(productId!, tenantId!, primaryPriceGroup, loadOptions);
@@ -182,15 +186,15 @@ export default function ProductPage() {
         // In «per formato» il prezzo unico resta com'è: si salva solo quello in vista.
         const pricePart = formatsMode === "unico" && priceDirty;
         if (pricePart && priceError) {
-            showToast({ message: `Prezzo: ${priceError}`, type: "error" });
+            fail(`Prezzo: ${priceError}`);
             return;
         }
         if (pricePart && !(await savePrice())) {
-            showToast({ message: "Non è stato possibile salvare: Prezzo", type: "error" });
+            fail("Non è stato possibile salvare: Prezzo");
             return;
         }
         if (formatsDirty && !(await saveFormats())) {
-            showToast({ message: "Non è stato possibile salvare: Formati", type: "error" });
+            fail("Non è stato possibile salvare: Formati");
             return;
         }
         if (formatsMode === "formato") discardPrice();
@@ -198,7 +202,7 @@ export default function ProductPage() {
         let attributesOk = true;
         if (attributesDirty) {
             attributesOk = await saveAttributes();
-            if (!attributesOk) showToast({ message: "Non è stato possibile salvare: Attributi", type: "error" });
+            if (!attributesOk) fail("Non è stato possibile salvare: Attributi");
         }
         if (!schedaDirty && attributesOk) showToast({ message: "Modifiche salvate", type: "success" });
     }, [
@@ -213,7 +217,8 @@ export default function ProductPage() {
         formatsMode,
         formatsDirty,
         saveFormats,
-        showToast
+        showToast,
+        fail
     ]);
     const handleDiscardAll = useCallback(() => {
         discardScheda();

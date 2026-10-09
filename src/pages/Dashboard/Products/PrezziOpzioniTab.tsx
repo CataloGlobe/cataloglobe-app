@@ -12,7 +12,6 @@ import { Plus } from "lucide-react";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { DataTable, ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
-import { Card, type CardProps } from "@/components/ui/Card/Card";
 import { RadioGroup } from "@/components/ui/RadioGroup/RadioGroup";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
@@ -44,6 +43,7 @@ import { resolvePriceMode, shouldConfirmRevertToUnico, type PriceMode } from "./
 import { getDisplayPrice } from "@/utils/priceDisplay";
 import { resolvePriceSummary } from "@/utils/priceSummary";
 import styles from "./PrezziOpzioniTab.module.scss";
+import { PrezziSection } from "./PrezziSection";
 
 function computeFromPrice(
     group: GroupWithValues | null | undefined,
@@ -64,33 +64,6 @@ function formatPricePreview(values: { absolute_price: number | null }[], menuLab
     if (summary.kind === "none" || summary.min === null) return null;
     const price = formatPrice(summary.min);
     return `Nel ${menuLabel} si legge «${summary.kind === "single" ? price : `da ${price}`}»`;
-}
-
-/**
- * Officina 3 (artifact «Scheda del prodotto»): nella parte a fuoco la card
- * col titolo c'è già, quindi qui il contenuto è piatto e il bottone per
- * aggiungere sta in fondo. Fuori dalla pagina del prodotto resta la Card.
- */
-function Section({ bare, actions, empty, children, ...card }: CardProps & { bare: boolean }) {
-    if (!bare) {
-        return (
-            <Card actions={actions} empty={empty} {...card}>
-                {children}
-            </Card>
-        );
-    }
-    return (
-        <div className={styles.bare}>
-            {empty ? (
-                <Text variant="body-sm" colorVariant="muted">
-                    {empty}
-                </Text>
-            ) : (
-                children
-            )}
-            {actions && <div className={styles.bareActions}>{actions}</div>}
-        </div>
-    );
 }
 
 interface PrezziOpzioniTabProps {
@@ -688,7 +661,7 @@ export default function PrezziOpzioniTab({
             {/* PO1: il modo nell'intestazione, accanto al titolo; in «per formato»
                 il sottotitolo dice come si legge nel menù. */}
             {(!only || only === "prezzo") && (
-            <Section
+            <PrezziSection
                 bare={bare}
                 title="Prezzo"
                 subtitle={
@@ -906,12 +879,12 @@ export default function PrezziOpzioniTab({
                     confirmLabel="Usa il prezzo del padre"
                     confirmVariant="primary"
                 />
-            </Section>
+            </PrezziSection>
             )}
 
             {/* ──────────────── Card 2 — Configurazioni ──────────────── */}
             {(!only || only === "scelte") && (
-            <Section
+            <PrezziSection
                 bare={bare}
                 title="Configurazioni"
                 // PO2: la spiegazione è il sottotitolo; «Nuovo gruppo» solo
@@ -1120,12 +1093,12 @@ export default function PrezziOpzioniTab({
                     message="Si eliminano anche le sue scelte. Non si torna indietro."
                     confirmLabel="Elimina"
                 />
-            </Section>
+            </PrezziSection>
             )}
 
             {/* ──────────────── Card 3 — Varianti ──────────────── */}
             {!isVariant && (!only || only === "varianti") && (
-                <Section
+                <PrezziSection
                     bare={bare}
                     title="Varianti"
                     subtitle={`Prezzo e descrizione propri; nel ${menuLower} pubblico sono ${verticalConfig.productLabelPlural.toLowerCase()} a sé.`}
@@ -1155,7 +1128,7 @@ export default function PrezziOpzioniTab({
                             onRowClick={variant => navigate(`/business/${businessId}/products/${variant.id}`)}
                         />
                     )}
-                </Section>
+                </PrezziSection>
             )}
         </div>
     );

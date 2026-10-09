@@ -4,6 +4,8 @@
 // card del prezzo, i bollini degli allergeni e il telefono coi colori dello
 // stile. Quando i due rami si uniscono, le regole comuni vanno in un posto solo.
 
+@use "@styles/scheda-type" as type;
+
 .root {
   --q-sunk: var(--hover-bg);
   --q-faint: var(--gray-400);
@@ -23,7 +25,7 @@
   margin: 0 auto;
   padding-bottom: 40px;
   color: var(--text);
-  font-size: 14px;
+  @include type.fs(body);
   line-height: 1.5;
 
   h2, h3, h4, h5 { margin: 0; text-wrap: balance; }
@@ -40,8 +42,8 @@
 // Il bordo della pagina (fieldset per chi può solo leggere): non disegna niente.
 .scope { display: flex; flex-direction: column; gap: 20px; border: 0; margin: 0; padding: 0; min-width: 0; }
 
-.hint { font-size: 12.5px; color: var(--text-muted); }
-.lab { font-size: 12.5px; font-weight: 500; color: var(--text-muted); }
+.hint { @include type.fs(note); color: var(--text-muted); }
+.lab { @include type.fs(note); font-weight: 500; color: var(--text-muted); }
 
 // ── Il cruscotto: pagina a sinistra, telefono a destra ─────────────────────
 .dash {
@@ -85,15 +87,15 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    font-size: 11px;
+    @include type.fs(kicker);
     letter-spacing: 0.07em;
     text-transform: uppercase;
     font-weight: 600;
     color: var(--q-brand);
   }
-  .cardTitle { font-size: 14px; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cardTitle { @include type.fs(body); font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .cardText {
-    font-size: 12.5px;
+    @include type.fs(note);
     color: var(--text-muted);
     line-height: 1.4;
     display: -webkit-box;
@@ -112,7 +114,7 @@
   .cardTitle { min-width: 0; }
   .cardText { display: none; }
 }
-.styleName { font-size: 12px; color: var(--text-muted); text-align: center; }
+.styleName { @include type.fs(fine); color: var(--text-muted); text-align: center; }
 
 // ── In alto: il piatto e il prezzo ─────────────────────────────────────────
 .hero { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 16px; }
@@ -143,8 +145,8 @@
     width: 100%;
     background: linear-gradient(to top, rgba(15, 23, 42, 0.72), rgba(15, 23, 42, 0));
   }
-  h3 { font-size: 26px; font-weight: 700; letter-spacing: -0.015em; color: #fff; margin: 0; }
-  p { max-width: 60ch; color: rgba(255, 255, 255, 0.88); font-size: 13.5px; }
+  h3 { @include type.fs(name); font-weight: 700; letter-spacing: -0.015em; color: #fff; margin: 0; }
+  p { max-width: 60ch; color: rgba(255, 255, 255, 0.88); @include type.fs(text); }
   .noDesc { opacity: 0.75; }
   .edit {
     position: absolute;
@@ -154,7 +156,7 @@
     color: #0f172a;
     border-radius: var(--radius-pill);
     padding: 5px 11px;
-    font-size: 12.5px;
+    @include type.fs(note);
     font-weight: 500;
     display: inline-flex;
     gap: 6px;
@@ -192,17 +194,17 @@
   &:focus-visible { outline: 2px solid var(--q-brand); outline-offset: 2px; }
 
   .priceLab { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-  .big { font-size: 30px; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .big { @include type.fs(price); font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; line-height: 1.1; }
   .rows {
     display: flex;
     flex-direction: column;
     gap: 4px;
-    font-size: 13px;
+    @include type.fs(small);
     color: var(--text-muted);
     .rowLine { display: flex; justify-content: space-between; gap: 8px; font-variant-numeric: tabular-nums; }
     b { color: var(--text); font-weight: 600; }
   }
-  .go { margin-top: auto; color: var(--q-brand); font-weight: 500; display: inline-flex; align-items: center; gap: 2px; font-size: 12.5px; }
+  .go { margin-top: auto; color: var(--q-brand); font-weight: 500; display: inline-flex; align-items: center; gap: 2px; @include type.fs(note); }
 }
 
 // ── Oggi ───────────────────────────────────────────────────────────────────
@@ -215,8 +217,8 @@
   flex-direction: column;
   gap: 12px;
 
-  .nowLab { font-size: 11.5px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-muted); font-weight: 600; }
-  .say { font-size: 15.5px; line-height: 1.5; text-wrap: pretty; }
+  .nowLab { @include type.fs(badge); letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-muted); font-weight: 600; }
+  .say { @include type.fs(say); line-height: 1.5; text-wrap: pretty; }
   .on { color: var(--q-success); font-weight: 600; }
   .off { color: var(--q-warning); font-weight: 600; }
 }
@@ -228,7 +230,7 @@
   padding: 9px 12px;
   border-radius: var(--radius-control);
   background: var(--q-warning-soft);
-  font-size: 13.5px;
+  @include type.fs(text);
   color: var(--text);
   flex-wrap: wrap;
   > svg { color: var(--q-warning); flex: none; }
@@ -241,8 +243,8 @@
   flex-direction: column;
   gap: 2px;
   margin-bottom: 12px;
-  h3 { font-size: 16px; font-weight: 650; letter-spacing: -0.01em; }
-  .hint { font-size: 13px; }
+  h3 { @include type.fs(group); font-weight: 650; letter-spacing: -0.01em; }
+  .hint { @include type.fs(small); }
 }
 .tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
 @container scheda (max-width: 772px) { .tiles { grid-template-columns: minmax(0, 1fr); } }
@@ -266,10 +268,10 @@
 
   .th { display: flex; align-items: center; gap: 8px; }
   .ico { width: 24px; height: 24px; display: grid; place-items: center; color: var(--text-muted); flex: none; }
-  .thTitle { font-size: 13px; color: var(--text-muted); font-weight: 500; flex: 1; }
-  .ans { font-size: 17px; font-weight: 600; color: var(--text); letter-spacing: -0.01em; line-height: 1.3; }
+  .thTitle { @include type.fs(small); color: var(--text-muted); font-weight: 500; flex: 1; }
+  .ans { @include type.fs(answer); font-weight: 600; color: var(--text); letter-spacing: -0.01em; line-height: 1.3; }
   .ansMuted { color: var(--text-muted); }
-  .det { font-size: 13px; color: var(--text-muted); display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .det { @include type.fs(small); color: var(--text-muted); display: flex; flex-direction: column; gap: 6px; min-width: 0; }
   .detStrong { color: var(--text); font-weight: 500; }
   .tf {
     margin-top: auto;
@@ -278,7 +280,7 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    font-size: 12.5px;
+    @include type.fs(note);
     color: var(--text-muted);
     min-width: 0;
   }
@@ -292,7 +294,7 @@
 .tileStill { cursor: default; &:hover { border-color: var(--border); box-shadow: none; } }
 
 .chg {
-  font-size: 11.5px;
+  @include type.fs(badge);
   font-weight: 600;
   color: var(--q-warning);
   display: inline-flex;
@@ -307,7 +309,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 5px;
-  span { border-radius: 999px; padding: 2px 9px; font-size: 12px; font-weight: 600; background: var(--q-brand); color: var(--on-brand); }
+  span { border-radius: 999px; padding: 2px 9px; @include type.fs(fine); font-weight: 600; background: var(--q-brand); color: var(--on-brand); }
 }
 
 // ── Il telefono ────────────────────────────────────────────────────────────
@@ -328,7 +330,7 @@
   height: 600px;
   display: flex;
   flex-direction: column;
-  font-size: 12px;
+  @include type.fs(fine);
   position: relative;
 }
 .side .screen { height: 540px; }
@@ -347,7 +349,7 @@
   background: var(--st-primary, #6366f1);
   color: #fff;
   font-weight: 700;
-  font-size: 12.5px;
+  @include type.fs(note);
   flex: none;
   white-space: nowrap;
   overflow: hidden;
@@ -367,7 +369,7 @@
   display: flex;
   justify-content: space-between;
   gap: 8px;
-  font-size: 18px;
+  @include type.fs(title);
   font-weight: 700;
   letter-spacing: -0.01em;
   line-height: 1.2;
@@ -378,15 +380,15 @@
   display: flex;
   gap: 5px;
   flex-wrap: wrap;
-  span { background: color-mix(in srgb, var(--st-accent, #6366f1) 14%, transparent); color: var(--st-accent, #6366f1); border-radius: 999px; padding: 2px 8px; font-size: 11px; font-weight: 600; }
+  span { background: color-mix(in srgb, var(--st-accent, #6366f1) 14%, transparent); color: var(--st-accent, #6366f1); border-radius: 999px; padding: 2px 8px; @include type.fs(kicker); font-weight: 600; }
 }
 .pSec { display: flex; flex-direction: column; gap: 6px; border-top: 1px solid color-mix(in srgb, var(--st-text, #0f172a) 10%, transparent); padding-top: 12px; }
-.pH { font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.6; font-weight: 700; }
+.pH { @include type.fs(p-head); letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.6; font-weight: 700; }
 .pChips {
   display: flex;
   flex-wrap: wrap;
   gap: 5px;
-  span { border: 1px solid color-mix(in srgb, var(--st-text, #0f172a) 20%, transparent); border-radius: 999px; padding: 2px 8px; font-size: 11px; }
+  span { border: 1px solid color-mix(in srgb, var(--st-text, #0f172a) 20%, transparent); border-radius: 999px; padding: 2px 8px; @include type.fs(kicker); }
 }
 .pOpt {
   display: flex;
@@ -408,7 +410,7 @@
 .pPair {
   display: flex;
   gap: 8px;
-  span { flex: 1; min-width: 0; border-radius: 10px; background: color-mix(in srgb, var(--st-text, #0f172a) 6%, transparent); padding: 8px; font-weight: 600; font-size: 11.5px; }
+  span { flex: 1; min-width: 0; border-radius: 10px; background: color-mix(in srgb, var(--st-text, #0f172a) 6%, transparent); padding: 8px; font-weight: 600; @include type.fs(badge); }
 }
 .pNote { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; b { font-weight: 600; } }
 .pAdd {
@@ -419,7 +421,7 @@
   padding: 11px;
   text-align: center;
   font-weight: 700;
-  font-size: 12.5px;
+  @include type.fs(note);
   flex: none;
 }
 .pOff {
@@ -435,8 +437,8 @@
   text-align: center;
   padding: 24px;
   z-index: 3;
-  font-size: 12.5px;
-  b { font-size: 15px; }
+  @include type.fs(note);
+  b { @include type.fs(strong); }
 }
 // Passando su una tessera la parte si accende.
 .hl { outline: 2px solid #6366f1 !important; outline-offset: 3px; border-radius: 6px; transition: outline-color 0.15s; }
@@ -475,7 +477,7 @@
     align-items: flex-end;
     padding-inline: 8px;
     padding-bottom: 6px;
-    font-size: 11px;
+    @include type.fs(kicker);
     font-weight: 600;
     letter-spacing: 0.06em;
     text-transform: uppercase;
@@ -491,7 +493,7 @@
     border-radius: var(--radius-control);
     color: var(--text-muted);
     font: inherit;
-    font-size: 13px;
+    @include type.fs(small);
     text-align: left;
     cursor: pointer;
     &:hover { background: var(--surface); color: var(--text); }
@@ -516,12 +518,12 @@
   align-items: center;
   gap: 12px;
   .fico { width: 36px; height: 36px; border-radius: var(--radius-control); background: var(--q-brand-soft); display: grid; place-items: center; color: var(--q-brand); flex: none; }
-  h3 { font-size: 18px; font-weight: 650; flex: 1; }
+  h3 { @include type.fs(title); font-weight: 650; flex: 1; }
 }
-.fwhy { font-size: 13px; color: var(--text-muted); margin-top: -12px; max-width: 62ch; }
+.fwhy { @include type.fs(small); color: var(--text-muted); margin-top: -12px; max-width: 62ch; }
 .split { height: 1px; background: var(--q-line); }
 .ffoot { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
-.savehint { font-size: 12.5px; color: var(--text-muted); display: flex; flex-direction: column; gap: 2px; b { color: var(--text); font-weight: 600; } }
+.savehint { @include type.fs(note); color: var(--text-muted); display: flex; flex-direction: column; gap: 2px; b { color: var(--text); font-weight: 600; } }
 .fside { position: sticky; top: 0; display: flex; flex-direction: column; align-items: center; gap: 10px; }
 
 // Dopo .rail e .fside: prima, il loro `display: flex` li rimetteva a vista.
@@ -544,7 +546,7 @@
   padding: 10px 12px;
   border-radius: var(--radius-control);
   background: var(--q-brand-soft);
-  font-size: 14px;
+  @include type.fs(body);
   > svg { color: var(--q-brand); margin-top: 3px; flex: none; }
 }
 
@@ -559,7 +561,7 @@
 .stack { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
-.contains { font-size: 15px; b { font-weight: 600; } }
+.contains { @include type.fs(strong); b { font-weight: 600; } }
 
 // ── Testata ────────────────────────────────────────────────────────────────
 .headTitle {
@@ -567,13 +569,13 @@
   align-items: center;
   gap: 12px;
   min-width: 0;
-  h2 { color: var(--text); font-size: 18px; font-weight: 650; letter-spacing: -0.005em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0; }
+  h2 { color: var(--text); @include type.fs(title); font-weight: 650; letter-spacing: -0.005em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0; }
 }
 .crumbs {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
+  @include type.fs(small);
   color: var(--text-muted);
   min-width: 0;
   button { border: 0; background: none; padding: 0; color: var(--text-muted); font: inherit; cursor: pointer; &:hover { color: var(--text); } }

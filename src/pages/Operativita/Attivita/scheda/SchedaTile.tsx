@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { ChevronRight, Eye, EyeOff, QrCode, TriangleAlert } from "lucide-react";
+import { Eye, EyeOff, QrCode, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import { Switch } from "@/components/ui/Switch/Switch";
 import { PART_ICON, PART_TITLE, type SchedaPart } from "./schedaCopy";
@@ -17,6 +17,7 @@ import {
 } from "./schedaModel";
 import { SchedaWeek } from "./SchedaWeek";
 import styles from "./Scheda.module.scss";
+import { SchedaTileFoot } from "./SchedaTileFoot";
 
 export interface TileActions {
     canManage: boolean;
@@ -41,21 +42,6 @@ const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).jo
 
 /** Dentro la tessera i controlli fanno la loro cosa, non aprono il fuoco. */
 const stop = (e: React.SyntheticEvent) => e.stopPropagation();
-
-function Foot({ icon, text, warn = false }: { icon: ReactNode; text: string; warn?: boolean }) {
-    return (
-        <div className={styles.tf}>
-            <span className={cx(styles.tfText, warn && styles.tfHid)}>
-                {icon}
-                <span>{text}</span>
-            </span>
-            <span className={styles.go}>
-                Cambia
-                <ChevronRight size={14} strokeWidth={1.75} aria-hidden />
-            </span>
-        </div>
-    );
-}
 
 const eye = <Eye size={14} strokeWidth={1.75} aria-hidden />;
 const eyeOff = <EyeOff size={14} strokeWidth={1.75} aria-hidden />;
@@ -95,9 +81,9 @@ export function SchedaTile({ part, facts, actions, wide = false, highlighted = f
                 </>
             );
             foot = a.hours_public ? (
-                <Foot icon={eye} text="Sulla pagina, con «Aperto» o «Chiuso»" />
+                <SchedaTileFoot icon={eye} text="Sulla pagina, con «Aperto» o «Chiuso»" />
             ) : (
-                <Foot icon={eyeOff} text="Nascosti ai clienti" warn />
+                <SchedaTileFoot icon={eyeOff} text="Nascosti ai clienti" warn />
             );
             break;
         }
@@ -110,7 +96,7 @@ export function SchedaTile({ part, facts, actions, wide = false, highlighted = f
                     <span>{a.google_review_url ? "Collegato a Google" : "Google non collegato"}</span>
                 </>
             );
-            foot = <Foot icon={eye} text={a.google_review_url ? "Sulla pagina e su Google" : "Sulla pagina"} />;
+            foot = <SchedaTileFoot icon={eye} text={a.google_review_url ? "Sulla pagina e su Google" : "Sulla pagina"} />;
             break;
         }
         case "contatti": {
@@ -147,9 +133,9 @@ export function SchedaTile({ part, facts, actions, wide = false, highlighted = f
             );
             foot =
                 f.length > v.length ? (
-                    <Foot icon={eyeOff} text={`${f.length - v.length} solo per voi`} />
+                    <SchedaTileFoot icon={eyeOff} text={`${f.length - v.length} solo per voi`} />
                 ) : (
-                    <Foot icon={eye} text="Tutti sulla pagina" />
+                    <SchedaTileFoot icon={eye} text="Tutti sulla pagina" />
                 );
             break;
         }
@@ -176,9 +162,9 @@ export function SchedaTile({ part, facts, actions, wide = false, highlighted = f
             );
             foot =
                 a.payment_methods_public && a.services_public ? (
-                    <Foot icon={eye} text="In fondo alla pagina" />
+                    <SchedaTileFoot icon={eye} text="In fondo alla pagina" />
                 ) : (
-                    <Foot icon={eyeOff} text="In parte nascosti" warn />
+                    <SchedaTileFoot icon={eyeOff} text="In parte nascosti" warn />
                 );
             break;
         }
@@ -189,7 +175,7 @@ export function SchedaTile({ part, facts, actions, wide = false, highlighted = f
             muted = !f.length;
             const list = empty.map(d => d.label.toLowerCase()).join(", ");
             det = empty.length ? <span>{list.charAt(0).toUpperCase() + list.slice(1)}: non messi.</span> : null;
-            foot = a.fees_public ? <Foot icon={eye} text="Sulla pagina" /> : <Foot icon={eyeOff} text="Nascosto ai clienti" warn />;
+            foot = a.fees_public ? <SchedaTileFoot icon={eye} text="Sulla pagina" /> : <SchedaTileFoot icon={eyeOff} text="Nascosto ai clienti" warn />;
             break;
         }
         case "prenotazioni": {
@@ -197,7 +183,7 @@ export function SchedaTile({ part, facts, actions, wide = false, highlighted = f
                 ans = "Con il piano Pro";
                 muted = true;
                 det = <span>Il bottone «Prenota un tavolo» arriva con il Pro.</span>;
-                foot = <Foot icon={eyeOff} text="Non compare sulla pagina" />;
+                foot = <SchedaTileFoot icon={eyeOff} text="Non compare sulla pagina" />;
                 break;
             }
             const on = a.enable_reservations;
@@ -218,7 +204,7 @@ export function SchedaTile({ part, facts, actions, wide = false, highlighted = f
                     )}
                 </>
             );
-            foot = <Foot icon={on ? eye : eyeOff} text={on ? "Bottone «Prenota un tavolo» sulla pagina" : "Non compare sulla pagina"} />;
+            foot = <SchedaTileFoot icon={on ? eye : eyeOff} text={on ? "Bottone «Prenota un tavolo» sulla pagina" : "Non compare sulla pagina"} />;
             break;
         }
         case "ordini": {
@@ -226,7 +212,7 @@ export function SchedaTile({ part, facts, actions, wide = false, highlighted = f
                 ans = "Con il piano Pro";
                 muted = true;
                 det = <span>Dal QR si guarda il menù, non si ordina.</span>;
-                foot = <Foot icon={<QrCode size={14} strokeWidth={1.75} aria-hidden />} text="QR solo per il menù" />;
+                foot = <SchedaTileFoot icon={<QrCode size={14} strokeWidth={1.75} aria-hidden />} text="QR solo per il menù" />;
                 break;
             }
             const on = a.ordering_enabled;
@@ -261,7 +247,7 @@ export function SchedaTile({ part, facts, actions, wide = false, highlighted = f
                         ))}
                 </>
             );
-            foot = <Foot icon={<QrCode size={14} strokeWidth={1.75} aria-hidden />} text={on ? "Dal QR sul tavolo" : "QR solo per il menù"} />;
+            foot = <SchedaTileFoot icon={<QrCode size={14} strokeWidth={1.75} aria-hidden />} text={on ? "Dal QR sul tavolo" : "QR solo per il menù"} />;
             break;
         }
         default:
