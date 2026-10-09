@@ -139,7 +139,6 @@
     border-radius: 8px;
     font-family: inherit;
     font-size: 14px;
-    @include touch-input-font;
     color: var(--text-primary, #1a1d21);
     background: var(--surface-elevated, #fff);
     resize: vertical;
@@ -155,4 +154,5 @@
         background: var(--surface-muted, #f4f5f7);
         cursor: not-allowed;
     }
+    @include touch-input-font;
 }

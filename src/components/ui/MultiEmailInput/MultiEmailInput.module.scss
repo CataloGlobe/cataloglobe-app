@@ -85,7 +85,6 @@
     min-width: 140px;
     padding: 4px 2px;
     font-size: 14px;
-    @include touch-input-font;
     font-family: inherit;
     color: var(--color-text, #111827);
     background: transparent;
@@ -100,6 +99,7 @@
     &:disabled {
         cursor: not-allowed;
     }
+    @include touch-input-font;
 }
 
 .error {

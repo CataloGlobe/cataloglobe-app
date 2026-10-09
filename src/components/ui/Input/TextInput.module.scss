@@ -21,7 +21,6 @@
   color: var(--text);
 
   font-size: 14px;
-  @include touch-input-font;
   line-height: 1;
   border-radius: var(--radius-control);
   border: 1px solid var(--border);
@@ -54,6 +53,7 @@
   &:read-only:not(:disabled) {
     background: transparent;
   }
+  @include touch-input-font;
 }
 
 /* adornments: icona 16, colore attenuato */

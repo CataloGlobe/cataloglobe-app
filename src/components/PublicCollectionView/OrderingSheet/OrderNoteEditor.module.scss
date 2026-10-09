@@ -111,7 +111,6 @@
     outline: none;
     color: color-mix(in srgb, var(--pub-surface-text) 95%, var(--pub-surface));
     font-size: 13px;
-    @include touch-input-font;
     font-family: inherit;
     line-height: 1.4;
     resize: none;
@@ -122,6 +121,7 @@
     &::placeholder {
         color: color-mix(in srgb, var(--pub-surface-text) 30%, var(--pub-surface));
     }
+    @include touch-input-font;
 }
 
 .footer {

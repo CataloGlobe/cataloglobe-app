@@ -18,7 +18,6 @@
   color: var(--text);
 
   font-size: 14px;
-  @include touch-input-font;
   line-height: 1;
   border-radius: var(--radius-control);
   border: 1px solid var(--border);
@@ -44,6 +43,7 @@
     background: var(--hover-bg);
     cursor: not-allowed;
   }
+  @include touch-input-font;
 }
 
 .caret {
