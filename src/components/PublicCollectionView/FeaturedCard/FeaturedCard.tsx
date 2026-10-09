@@ -53,7 +53,7 @@ export default function FeaturedCard({ block, onClick, onCtaClick, className, va
     const showTitle = highlightControlsActive ? showTitleProp : true;
     const showSubtitle = highlightControlsActive ? showSubtitleProp : true;
     const showCta = highlightControlsActive ? showCtaProp : true;
-    const hasCta = showCta && !!block.cta_text && !!block.cta_url;
+    const hasCta = showCta && !!block.cta_text && !!safeHttpHref(block.cta_url);
     const hasVisibleText = showTitle || (showSubtitle && !!block.subtitle) || hasCta;
     const keyHandler = (e: KeyboardEvent) => {
         if (!interactive) return;

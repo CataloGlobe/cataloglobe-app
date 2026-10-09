@@ -9,18 +9,23 @@ describe("safeHttpHref", () => {
         expect(safeHttpHref("http://example.com")).toBe("http://example.com/");
     });
 
-    it("senza schema aggiunge https", () => {
+    it("senza schema aggiunge https, anche con la porta", () => {
         expect(safeHttpHref("www.example.com")).toBe("https://www.example.com/");
+        expect(safeHttpHref("example.com:8080/menu")).toBe("https://example.com:8080/menu");
+        expect(safeHttpHref("HTTPS://Example.com")).toBe("https://example.com/");
     });
 
     it.each([
         "javascript:alert(1)",
+        "javascript:1",
+        "javascript://%0aalert(1)",
         "JavaScript:alert(document.cookie)",
         "  javascript:alert(1)",
         "data:text/html,<script>alert(1)</script>",
         "vbscript:msgbox(1)",
         "mailto:a@b.it",
-        "ftp://example.com"
+        "ftp://example.com",
+        "tel:+390212345"
     ])("spegne %s", url => {
         expect(safeHttpHref(url)).toBeUndefined();
     });
@@ -47,7 +52,7 @@ describe("link del locale sulla pagina pubblica passano da safeHttpHref", () => 
         for (const field of fields) {
             const raw = new RegExp(`href=\\{${field.replace(/\./g, "\\.")}!?\\}`);
             expect(src).not.toMatch(raw);
-            expect(src).toContain(`href={safeHttpHref(${field})}`);
+            expect(src).toContain(`safeHttpHref(${field})`);
         }
     });
 });
@@ -59,5 +64,18 @@ describe("mail di invito: escape dei dati dell'utente", () => {
         expect(html).not.toMatch(/\$\{(tenantName|inviterEmail|inviteUrl)\}/);
         expect(html).toContain("${safeTenantName}");
         expect(html).toContain("${safeInviterEmail}");
+    });
+});
+
+describe("link non sicuro: l'elemento non si disegna", () => {
+    const base = path.resolve(__dirname, "../components/PublicCollectionView");
+    it.each([
+        ["FeaturedCard/FeaturedCard.tsx", "!!safeHttpHref(block.cta_url)"],
+        ["FeaturedBlock/FeaturedContentDetail.tsx", "!href) return null"],
+        ["ReviewsView/ReviewsView.tsx", "showGoogleCard && safeGoogleReviewUrl &&"],
+        ["StoryView/StoryView.tsx", "{safeHttpHref(cappello.website) && ("],
+        ["CollectionView/CollectionView.tsx", "safeHttpHref(socialLinks.facebook) && ("]
+    ])("%s", (file, guard) => {
+        expect(readFileSync(path.join(base, file), "utf8")).toContain(guard);
     });
 });

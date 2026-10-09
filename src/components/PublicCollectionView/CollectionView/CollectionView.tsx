@@ -2882,7 +2882,7 @@ export default function CollectionView({
                                             <span>{socialLinks.email_public}</span>
                                         </a>
                                     )}
-                                    {socialLinks?.website_public && socialLinks?.website && (
+                                    {socialLinks?.website_public && socialLinks?.website && safeHttpHref(socialLinks.website) && (
                                         <a
                                             href={safeHttpHref(socialLinks.website)}
                                             className={styles.contactRow}
@@ -2904,7 +2904,7 @@ export default function CollectionView({
                                             <span>@{socialLinks.instagram}</span>
                                         </a>
                                     )}
-                                    {socialLinks?.facebook_public && socialLinks?.facebook && (
+                                    {socialLinks?.facebook_public && socialLinks?.facebook && safeHttpHref(socialLinks.facebook) && (
                                         <a
                                             href={safeHttpHref(socialLinks.facebook)}
                                             className={styles.contactRow}

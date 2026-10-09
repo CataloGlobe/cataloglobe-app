@@ -165,11 +165,13 @@ export default function ReviewsView({
     }
 
     /* ── Show Google card with delay ────────────────── */
+    // Solo http/https: un link non valido spegne la card invece di un bottone morto.
+    const safeGoogleReviewUrl = safeHttpHref(googleReviewUrl);
     useEffect(() => {
-        if (phase !== "thanks" || !isHighRating || !googleReviewUrl) return;
+        if (phase !== "thanks" || !isHighRating || !safeGoogleReviewUrl) return;
         const timer = setTimeout(() => setShowGoogleCard(true), 600);
         return () => clearTimeout(timer);
-    }, [phase, isHighRating, googleReviewUrl]);
+    }, [phase, isHighRating, safeGoogleReviewUrl]);
 
     /* ── Already reviewed in last 24h ─────────────────── */
     if (alreadyReviewed) {
@@ -364,7 +366,7 @@ export default function ReviewsView({
                         : t("reviews.thanks_subtitle_low")}
                 </p>
 
-                {showGoogleCard && googleReviewUrl && (
+                {showGoogleCard && safeGoogleReviewUrl && (
                     <div className={styles.googleCard}>
                         <div className={styles.googleIcon}>
                             <GoogleIcon />
@@ -378,7 +380,7 @@ export default function ReviewsView({
                             </span>
                         </div>
                         <a
-                            href={safeHttpHref(googleReviewUrl)}
+                            href={safeGoogleReviewUrl}
                             target="_blank"
                             rel="noopener noreferrer"
                             className={styles.googleBtn}
