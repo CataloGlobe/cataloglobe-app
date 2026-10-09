@@ -60,7 +60,7 @@ export default function Login() {
     const [recoveryPartial, setRecoveryPartial] = useState(false);
     // Email non confermata: si offre il reinvio del link (R7).
     const [unconfirmed, setUnconfirmed] = useState(false);
-    const [confirmResend, setConfirmResend] = useState<"idle" | "sending" | "sent" | "failed">("idle");
+    const [confirmResend, setConfirmResend] = useState<"idle" | "sending" | "failed">("idle");
     const [recoveryOtpSent, setRecoveryOtpSent] = useState(false);
     const [recoveryCode, setRecoveryCode] = useState("");
 
@@ -312,22 +312,24 @@ export default function Login() {
                         variant="secondary"
                         fullWidth
                         loading={confirmResend === "sending"}
-                        disabled={confirmResend === "sending" || confirmResend === "sent"}
+                        disabled={confirmResend === "sending"}
                         onClick={async () => {
                             setConfirmResend("sending");
                             try {
                                 await resendConfirmationEmail(email.trim());
-                                setConfirmResend("sent");
+                                setConfirmResend("idle");
+                                // Mail nuova con codice e link: si va dove si scrive il codice.
+                                navigate("/check-email", { state: { email: email.trim() } });
                             } catch {
                                 setConfirmResend("failed");
                             }
                         }}
                     >
-                        {confirmResend === "sent" ? "Link inviato: controlla la mail" : "Invia di nuovo il link di conferma"}
+                        Mandami il codice di conferma
                     </Button>
                 )}
                 {confirmResend === "failed" && (
-                    <InlineBanner variant="error">Non siamo riusciti a inviare il link. Riprova tra poco.</InlineBanner>
+                    <InlineBanner variant="error">Non siamo riusciti a inviare il codice. Riprova tra poco.</InlineBanner>
                 )}
 
                 <Button

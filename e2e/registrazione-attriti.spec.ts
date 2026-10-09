@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 /**
  * Registrazione e conferma, attriti senza scelte di prodotto (2026-10-09):
  * - R6: l'invito al team sopravvive al giro login → registrazione;
- * - R7: login con email non confermata offre il reinvio del link;
+ * - R7: login con email non confermata manda il codice e porta a scriverlo;
  * - R8: `/check-email` tiene l'email dopo un ricaricamento.
  * Tutto finto: `/auth/v1/*`, nessun account vero.
  */
@@ -34,8 +34,10 @@ test.describe("Registrazione, attriti", () => {
         await page.locator("input[type=email]").fill("nuovo@example.invalid");
         await page.locator("input[type=password]").fill("Password-e2e-1");
         await page.getByRole("button", { name: "Accedi" }).click();
-        await page.getByRole("button", { name: "Invia di nuovo il link di conferma" }).click();
-        await expect(page.getByRole("button", { name: "Link inviato: controlla la mail" })).toBeVisible();
+        await page.getByRole("button", { name: "Mandami il codice di conferma" }).click();
+        // Mail nuova con codice e link: si va dove si scrive il codice.
+        await page.waitForURL(/\/check-email/);
+        await expect(page.getByText("nuovo@example.invalid")).toBeVisible();
         expect(resends).toBe(1);
     });
 
@@ -44,6 +46,6 @@ test.describe("Registrazione, attriti", () => {
         await page.evaluate(() => sessionStorage.setItem("cg.signupEmail", "nuovo@example.invalid"));
         await page.goto("/check-email");
         await expect(page.getByText("nuovo@example.invalid")).toBeVisible({ timeout: 15_000 });
-        await expect(page.getByRole("button", { name: /Invia di nuovo/ })).toBeVisible();
+        await expect(page.getByRole("button", { name: /invia di nuovo/i })).toBeVisible();
     });
 });

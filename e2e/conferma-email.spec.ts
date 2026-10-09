@@ -56,13 +56,23 @@ async function stubVerify(page: Page, reply: { status: number; json: unknown }):
     return () => calls;
 }
 
+/** La conferma ha scritto la verifica OTP (trigger su auth.users): riga presente. */
+async function stubVerified(page: Page, user: { id: string }): Promise<void> {
+    await page.route(/\/auth\/v1\/user/, route => route.fulfill({ status: 200, json: user }));
+    await page.route(/\/rest\/v1\/otp_user_verifications/, route =>
+        route.fulfill({ status: 200, json: [{ user_id: user.id }] })
+    );
+}
+
 test.use({ storageState: { cookies: [], origins: [] } });
 
 test.describe("Conferma email", () => {
-    test("link valido: email confermata, verifica chiamata una volta sola", async ({ page }) => {
-        const calls = await stubVerify(page, { status: 200, json: session("nuovo@example.invalid") });
+    test("link valido: si entra subito, senza login né codice, verifica chiamata una volta sola", async ({ page }) => {
+        const value = session("nuovo@example.invalid");
+        const calls = await stubVerify(page, { status: 200, json: value });
+        await stubVerified(page, value.user);
         await page.goto(LINK);
-        await expect(page.getByRole("heading", { name: "Email confermata" })).toBeVisible({ timeout: 15_000 });
+        await page.waitForURL(/\/dashboard/, { timeout: 15_000 });
         expect(calls()).toBe(1);
     });
 
@@ -86,8 +96,9 @@ test.describe("Conferma email", () => {
         await expect(page.getByText(/vecchio@example\.invalid/)).toBeVisible();
         expect(calls()).toBe(0);
 
+        await stubVerified(page, session("nuovo@example.invalid").user);
         await page.getByRole("button", { name: "Esci e conferma" }).click();
-        await expect(page.getByRole("heading", { name: "Email confermata" })).toBeVisible();
+        await page.waitForURL(/\/dashboard/, { timeout: 15_000 });
         expect(calls()).toBe(1);
     });
 

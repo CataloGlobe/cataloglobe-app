@@ -4,6 +4,9 @@ import { CheckCircle, Info } from "lucide-react";
 import { supabase } from "@/services/supabase/client";
 import { resendConfirmationEmail } from "@/services/supabase/auth";
 import { parseConfirmationLink } from "@/utils/confirmationLink";
+import { useAuth } from "@/context/useAuth";
+import { internalPathOr } from "@/utils/internalPath";
+import { clearPendingRedirect, peekPendingRedirect } from "@/utils/pendingRedirect";
 import { Button } from "@/components/ui";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import Text from "@/components/ui/Text/Text";
@@ -17,6 +20,7 @@ function isRateLimitError(message: string): boolean {
 
 export default function EmailConfirmed() {
     const navigate = useNavigate();
+    const { forceOtpCheck } = useAuth();
     const [status, setStatus] = useState<
         "loading" | "success" | "expired" | "error" | "already" | "otherAccount"
     >("loading");
@@ -51,13 +55,19 @@ export default function EmailConfirmed() {
 
         const { error } = await supabase.auth.verifyOtp({ token_hash: link.tokenHash, type: link.type });
         if (!error) {
+            // Il link apre la sessione e la conferma vale come verifica OTP
+            // (trigger su auth.users): si entra subito, senza login né codice.
             setStatus("success");
+            await forceOtpCheck();
+            const target = internalPathOr(peekPendingRedirect(), "/dashboard");
+            clearPendingRedirect();
+            navigate(target, { replace: true });
             return;
         }
         // GoTrue dà otp_expired sia per il link scaduto sia per quello già usato.
         const code = (error as { code?: string }).code;
         setStatus(code === "otp_expired" ? "expired" : "error");
-    }, []);
+    }, [forceOtpCheck, navigate]);
 
     useEffect(() => {
         // Una volta sola: in sviluppo StrictMode monta due volte, e il secondo
@@ -121,10 +131,10 @@ export default function EmailConfirmed() {
                         Email confermata
                     </Text>
                     <Text as="p" variant="body-sm" colorVariant="muted" className={styles.subtitle}>
-                        Il tuo account è attivo. Ora puoi accedere a CataloGlobe.
+                        Il tuo account è attivo: ti stiamo portando dentro.
                     </Text>
-                    <Button variant="primary" fullWidth onClick={() => navigate("/login")}>
-                        Accedi
+                    <Button variant="primary" fullWidth onClick={() => navigate("/dashboard", { replace: true })}>
+                        Entra
                     </Button>
                 </div>
             </AuthLayout>

@@ -83,6 +83,15 @@ export async function resetPassword(email: string) {
     return data;
 }
 
+// Conferma della registrazione con il codice della mail (lo stesso messaggio
+// porta anche il link). Va a buon fine → sessione aperta, e il trigger su
+// auth.users conta la conferma come verifica OTP per 30 giorni.
+export async function verifySignupCode(email: string, token: string) {
+    const { data, error } = await supabase.auth.verifyOtp({ email, token, type: "signup" });
+    if (error) throw error;
+    return data;
+}
+
 // Reinvia email di conferma signup
 export async function resendConfirmationEmail(email: string) {
     const { error } = await supabase.auth.resend({
