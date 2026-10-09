@@ -5928,6 +5928,15 @@ export type Database = {
         Args: { p_action: string; p_table_id: string; p_tenant_id: string }
         Returns: Json
       }
+      create_schedule_with_targets: {
+        Args: {
+          p_name: string
+          p_rule_type: string
+          p_targets: Json
+          p_tenant_id: string
+        }
+        Returns: string
+      }
       create_support_ticket: {
         Args: {
           p_activity_id: string
