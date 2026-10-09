@@ -24,6 +24,7 @@ import {
     type PublicShellPayload,
     type ViteManifest
 } from "../_lib/publicShell.js";
+import { robotsHeaderValue } from "../_lib/robotsHeader.js";
 
 /**
  * GET /api/ssr-render?slug=<slug>&lang=<lang>?    (stage 4b — ROUTE DI TEST)
@@ -214,6 +215,11 @@ async function fetchPayload(
 
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
     const startedAt = Date.now();
+
+    // Fuori produzione (staging, preview): mai indicizzabile, anche senza la
+    // Deployment Protection. Vale per tutte le risposte, fallback compresi.
+    const robots = robotsHeaderValue(process.env.VERCEL_ENV);
+    if (robots) res.setHeader("X-Robots-Tag", robots);
 
     if (req.method !== "GET") {
         res.setHeader("Allow", "GET");
