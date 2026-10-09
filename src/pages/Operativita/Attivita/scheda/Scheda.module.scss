@@ -257,11 +257,25 @@
   cursor: pointer;
   transition: border-color 0.15s, box-shadow 0.15s;
   &:hover { border-color: var(--q-brand); box-shadow: 0 6px 18px var(--q-shade); }
-  &:focus-visible { outline: 2px solid var(--q-brand); outline-offset: 2px; }
+  // Il fuoco sta sul titolo (il pulsante), l'anello su tutta la tessera.
+  &:has(.thTitle:focus-visible) { outline: 2px solid var(--q-brand); outline-offset: 2px; }
 
   .th { display: flex; align-items: center; gap: 8px; }
   .ico { width: 24px; height: 24px; display: grid; place-items: center; color: var(--text-muted); flex: none; }
-  .thTitle { @include type.fs(small); color: var(--text-muted); font-weight: 500; flex: 1; }
+  .thTitle {
+    @include type.fs(small);
+    color: var(--text-muted);
+    font-weight: 500;
+    flex: 1;
+    padding: 0;
+    border: 0;
+    background: none;
+    text-align: left;
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    &:focus-visible { outline: none; }
+  }
+  .probAction { flex: none; min-width: 0; }
   .chg {
     @include type.fs(badge);
     font-weight: 600;
@@ -542,3 +556,10 @@
 @media (prefers-reduced-motion: reduce) {
   .root * { transition: none !important; }
 }
+
+// Piccoli aiuti di impaginazione, al posto dello stile inline.
+.stackTight { gap: 8px; }
+.inlineActions { display: inline-flex; gap: 6px; }
+.rowEnd { justify-content: flex-end; }
+.contents { display: contents; }
+.pHSpaced { margin-top: 4px; }

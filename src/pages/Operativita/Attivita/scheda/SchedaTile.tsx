@@ -238,7 +238,7 @@ export function SchedaTile({ part, facts, actions, wide = false, highlighted = f
                             <div key={p.id} className={styles.prob}>
                                 <TriangleAlert size={16} strokeWidth={1.75} aria-hidden />
                                 <span>La stampante «{p.label}» non risponde</span>
-                                <span onClick={stop} onKeyDown={stop} style={{ flex: "none", minWidth: 0 }}>
+                                <span onClick={stop} onKeyDown={stop} className={styles.probAction}>
                                     <Button variant="secondary" size="sm" loading={actions.isRetrying} onClick={actions.retryPrinters}>
                                         Riprova
                                     </Button>
@@ -255,25 +255,29 @@ export function SchedaTile({ part, facts, actions, wide = false, highlighted = f
     }
 
     return (
+        // La tessera si tocca tutta col mouse; per tastiera e lettore di schermo
+        // il pulsante è il titolo, e interruttori e «Riprova» restano controlli
+        // a sé (dentro un role=button sparirebbero).
         <div
             className={cx(styles.tile, wide && styles.w2, highlighted && styles.tileHl)}
             data-k={part}
-            role="button"
-            tabIndex={0}
-            aria-label={`${PART_TITLE[part]}: apri`}
             onClick={() => actions.open(part)}
-            onKeyDown={e => {
-                if ((e.key === "Enter" || e.key === " ") && e.target === e.currentTarget) {
-                    e.preventDefault();
-                    actions.open(part);
-                }
-            }}
         >
             <div className={styles.th}>
                 <span className={styles.ico}>
                     <Icon size={16} strokeWidth={1.75} aria-hidden />
                 </span>
-                <b className={styles.thTitle}>{PART_TITLE[part]}</b>
+                <button
+                    type="button"
+                    className={styles.thTitle}
+                    aria-label={`${PART_TITLE[part]}: apri`}
+                    onClick={e => {
+                        e.stopPropagation();
+                        actions.open(part);
+                    }}
+                >
+                    {PART_TITLE[part]}
+                </button>
                 {actions.changed(part) && <span className={styles.chg}>Da salvare</span>}
             </div>
             <div className={cx(styles.ans, muted && styles.ansMuted)}>{ans}</div>
