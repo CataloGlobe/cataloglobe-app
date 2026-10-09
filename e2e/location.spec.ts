@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { openBusinessPage } from "./business";
 import { sidebarLink } from "./nav";
+import { stubRest, type Row } from "./restStub";
 
 /**
  * Scheda della sede (`/business/:businessId/locations/:activityId`), vista da
@@ -227,5 +228,110 @@ test.describe("Scheda della sede", () => {
         await expect(page).toHaveURL(/\/anagrafica$/, { timeout: 15_000 });
         await expect(tile(page, PART.orari)).toBeVisible();
         await expect(page.getByText("Pagina non trovata")).toHaveCount(0);
+    });
+});
+
+/**
+ * Le chiusure di oggi dalla riga «Adesso» (review #336, punto 13). Orari e
+ * chiusure sono finti e nessuna scrittura parte. L'orologio è fermo a venerdì
+ * notte, l'una e un quarto a Roma, e il dispositivo sta a Tokyo (già sabato
+ * mattina): «oggi» è la giornata di servizio di Roma, cioè venerdì 2. Una
+ * notte passata: con l'orologio avanti la sessione scadrebbe.
+ */
+test.describe("Scheda della sede — le chiusure di oggi", () => {
+    test.use({ timezoneId: "Asia/Tokyo" });
+
+    const NOTTE = new Date("2026-10-03T01:15:00+02:00");
+    const VENERDI = "2026-10-02";
+
+    async function openWithClosures(page: Page, initial: Row[]) {
+        await page.clock.setFixedTime(NOTTE);
+        const stub = await stubRest(page, { tables: {} });
+        const closures: Row[] = [...initial];
+        const eq = (url: string, key: string) => new URL(url).searchParams.get(key)?.replace(/^eq\./, "") ?? "";
+        // Venerdì 19–2: all'una e un quarto si è ancora aperti.
+        await page.route(/\/rest\/v1\/activity_hours(\?|$)/, route => {
+            if (route.request().method() !== "GET") return route.fallback();
+            const url = route.request().url();
+            return route.fulfill({
+                json: [
+                    {
+                        id: "h-ven",
+                        tenant_id: eq(url, "tenant_id"),
+                        activity_id: eq(url, "activity_id"),
+                        day_of_week: 4,
+                        slot_index: 0,
+                        opens_at: "19:00",
+                        closes_at: "02:00",
+                        closes_next_day: true,
+                        is_closed: false
+                    }
+                ]
+            });
+        });
+        await page.route(/\/rest\/v1\/activity_closures(\?|$)/, route => {
+            if (route.request().method() !== "GET") return route.fallback();
+            const url = route.request().url();
+            const ids = { tenant_id: eq(url, "tenant_id"), activity_id: eq(url, "activity_id") };
+            return route.fulfill({ json: closures.map(c => ({ ...c, ...ids })) });
+        });
+        stub.onWrite("activity_closures.POST", call => {
+            const row = { id: `c-${closures.length + 1}`, ...(call.body as Row) };
+            closures.push(row);
+            return row;
+        });
+        stub.onWrite("activity_closures.DELETE", call => {
+            const id = call.params.get("id")?.replace(/^eq\./, "");
+            closures.splice(closures.findIndex(c => c.id === id), 1);
+            return null;
+        });
+        stub.onWrite("translations.DELETE", () => null);
+        await openFirstLocation(page);
+        return stub;
+    }
+
+    const closure = (label: string): Row => ({
+        id: "c-0",
+        closure_date: VENERDI,
+        end_date: null,
+        label,
+        is_closed: true,
+        slots: null
+    });
+
+    test("all'una di notte «Chiudi oggi» chiude la sera di venerdì, in ora di Roma", async ({ page }) => {
+        const stub = await openWithClosures(page, []);
+        await expect(page.getByText("Adesso · sabato 1:15")).toBeVisible();
+        await page.getByRole("button", { name: "Chiudi oggi" }).click();
+        await expect(page.getByRole("button", { name: "Torna agli orari di sempre" })).toBeVisible();
+        const posted = stub.writes.filter(w => w.key === "activity_closures.POST");
+        expect(posted).toHaveLength(1);
+        expect(posted[0].body).toMatchObject({ closure_date: VENERDI, label: "Chiuso oggi" });
+    });
+
+    test("«Torna agli orari di sempre» toglie subito la chiusura di «Chiudi oggi»", async ({ page }) => {
+        const stub = await openWithClosures(page, [closure("Chiuso oggi")]);
+        await page.getByRole("button", { name: "Torna agli orari di sempre" }).click();
+        await expect(page.getByRole("button", { name: "Chiudi oggi" })).toBeVisible();
+        await expect(page.getByRole("alertdialog")).toHaveCount(0);
+        expect(stub.writes.filter(w => w.key === "activity_closures.DELETE")).toHaveLength(1);
+    });
+
+    test("una chiusura messa a mano chiede conferma prima di andarsene", async ({ page }) => {
+        const stub = await openWithClosures(page, [closure("Festa del patrono")]);
+        const back = page.getByRole("button", { name: "Torna agli orari di sempre" });
+        await back.click();
+        const dialog = page.getByRole("alertdialog");
+        await expect(dialog).toContainText("Elimina la chiusura «Festa del patrono · 2 ottobre 2026»?");
+        await expect(dialog).toContainText("Il giorno torna agli orari normali.");
+        await dialog.getByRole("button", { name: "Annulla" }).click();
+        await expect(dialog).toHaveCount(0);
+        await expect(back).toBeVisible();
+        expect(stub.writes.filter(w => w.key === "activity_closures.DELETE")).toHaveLength(0);
+
+        await back.click();
+        await dialog.getByRole("button", { name: "Elimina" }).click();
+        await expect(page.getByRole("button", { name: "Chiudi oggi" })).toBeVisible();
+        expect(stub.writes.filter(w => w.key === "activity_closures.DELETE")).toHaveLength(1);
     });
 });

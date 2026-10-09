@@ -267,8 +267,8 @@ export default function ActivityOrdiniPrenotazioniRoute({ part }: ActivityOrdini
     const orderingChecklist: ChecklistItem[] = [
         {
             id: "published",
-            title: "Sede pubblicata",
-            shortTitle: "Pubblicata",
+            title: "Sede online",
+            shortTitle: "Online",
             description:
                 "Finché la sede è sospesa la pagina pubblica non è raggiungibile e il QR del tavolo non porta da nessuna parte.",
             done: activity.status === "active",

@@ -14,7 +14,7 @@ import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
 import Text from "@/components/ui/Text/Text";
 import type { LayoutRule, LayoutRuleOption, RuleType } from "@/services/supabase/layoutScheduling";
-import { formatInactiveReason } from "@/utils/activityStatus";
+import { ACTIVE_LABEL, formatInactiveReason } from "@/utils/activityStatus";
 import { parseRomeDateTimeLocal, romeDateTimeLocalValue, romeInstantAt } from "@/utils/romeInstant";
 import { buildScheduleMatrix } from "@/utils/scheduleMatrix";
 import { seatsToWatchFirst } from "@/utils/seatsToWatch";
@@ -413,7 +413,7 @@ export function RuleSimulatorDrawer({
                                 {simActivityInactive ? (
                                     <StatusBadge variant="neutral" label={formatInactiveReason(simActivity.inactive_reason ?? null)} />
                                 ) : (
-                                    <StatusBadge variant="success" label="Pubblicata" />
+                                    <StatusBadge variant="success" label={ACTIVE_LABEL} />
                                 )}
                             </div>
                         )}

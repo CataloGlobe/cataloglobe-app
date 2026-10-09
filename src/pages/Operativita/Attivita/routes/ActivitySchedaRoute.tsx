@@ -22,6 +22,7 @@ import { SchedaDashboard } from "../scheda/SchedaDashboard";
 import { SchedaFocus } from "../scheda/SchedaFocus";
 import { ContattiEditor, ContoEditor, DoveEditor, LocaleEditor, OffriteEditor } from "../scheda/SchedaEditors";
 import { scrollParent } from "../scheda/useSchedaFollow";
+import { ActivityClosureDeleteDialog } from "../tabs/hours-services/ActivityClosureDeleteDialog";
 import ActivityOrariRoute from "./ActivityOrariRoute";
 import ActivityPubblicazioneRoute from "./ActivityPubblicazioneRoute";
 import ActivityOrdiniPrenotazioniRoute from "./ActivityOrdiniPrenotazioniRoute";
@@ -36,6 +37,11 @@ function urlProblem(value: string): string | null {
         return "Sito web: inserisci un indirizzo valido (es. https://esempio.com).";
     }
 }
+
+/** Le etichette delle chiusure scritte da «Chiudi oggi» e «Chiudi alle 21». */
+const CLOSED_TODAY_LABEL = "Chiuso oggi";
+const EARLY_CLOSE_LABEL = "Chiude alle 21";
+const QUICK_CLOSURE_LABELS = [CLOSED_TODAY_LABEL, EARLY_CLOSE_LABEL];
 
 const hhmm = (m: number) => `${String(Math.floor(m / 60) % 24).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 
@@ -223,7 +229,7 @@ export default function ActivitySchedaRoute() {
                         activity_id: activity.id,
                         closure_date: now.iso,
                         end_date: null,
-                        label: "Chiude alle 21",
+                        label: EARLY_CLOSE_LABEL,
                         is_closed: slots.length === 0,
                         slots: slots.length ? slots : null
                     });
@@ -233,7 +239,7 @@ export default function ActivitySchedaRoute() {
                         activity_id: activity.id,
                         closure_date: now.iso,
                         end_date: null,
-                        label: "Chiuso oggi",
+                        label: CLOSED_TODAY_LABEL,
                         is_closed: true,
                         slots: null
                     });
@@ -248,8 +254,15 @@ export default function ActivitySchedaRoute() {
         },
         [now.iso, hours, closures, tenantId, activity.id, loadClosures, showToast, fail]
     );
+    // Le chiusure nate da «Chiudi oggi» e «Chiudi alle 21» si tolgono subito;
+    // una messa a mano (Natale, un evento) chiede conferma come in Orari.
+    const [confirmBack, setConfirmBack] = useState<V2ActivityClosure | undefined>();
     const backToUsual = useCallback(async () => {
         if (!facts.closure || !isTodayOnly(facts.closure, now)) return;
+        if (!QUICK_CLOSURE_LABELS.includes(facts.closure.label ?? "")) {
+            setConfirmBack(facts.closure);
+            return;
+        }
         setBusy("back");
         try {
             await deleteActivityClosure(facts.closure.id, tenantId);
@@ -336,6 +349,13 @@ export default function ActivitySchedaRoute() {
                     solve,
                     isRetrying
                 }}
+            />
+            <ActivityClosureDeleteDialog
+                open={confirmBack !== undefined}
+                onClose={() => setConfirmBack(undefined)}
+                closure={confirmBack}
+                tenantId={tenantId}
+                onSuccess={loadClosures}
             />
         </>
     );

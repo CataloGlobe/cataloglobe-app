@@ -6,7 +6,7 @@ Componenti in `src/components/ui/` — verificare PRIMA di crearne di nuovi.
 
 - **`FeesSection`** (`src/pages/Operativita/Attivita/tabs/hours-services/FeesSection.tsx`) — sezione tariffe nella card "Configurazione sede" (tab Impostazioni). Usa `FEE_DEFINITIONS` da `src/constants/activityFees.ts` (enum fisso 5 voci). Componente **controlled** (props `value: FeesState` + `onChange`). Input numerico (`type="text"` + `inputMode="decimal"` + regex `^[0-9]*[.,]?[0-9]*$`) + badge unità non editabile. Save esplicito via `UnsavedChangesBar` del parent (vedi `docs/patterns/draft-unsaved-bar.md`). Helper esportati: `feesToState`, `buildFeesPayload`, `feesStateEqual`. `buildFeesPayload` filtra voci con value vuoto o `"0"`.
 
-- **`StatusBadge`** (`src/components/ui/StatusBadge/StatusBadge.tsx`) — badge pill con dot + label, varianti `success` / `neutral`. Usato per stato attività nell'header pagina dettaglio sede ("Pubblicata" / "Sospesa") e nelle card lista sedi (`BusinessCard` + `BusinessList` — mostrato solo quando inactive per ridurre rumore).
+- **`StatusBadge`** (`src/components/ui/StatusBadge/StatusBadge.tsx`) — badge pill con dot + label, varianti `success` / `neutral`. Usato per stato attività nell'header pagina dettaglio sede ("Online" / "Sospesa", `ACTIVE_LABEL`) e nelle card lista sedi (`BusinessCard` + `BusinessList` — mostrato solo quando inactive per ridurre rumore).
 
 - **`UnsavedChangesBar`** (`src/components/ui/UnsavedChangesBar/UnsavedChangesBar.tsx`) — barra "Modifiche non salvate" con dot arancione + label + Annulla/Salva. Riusata in `SchedaTab` (pagina dettaglio prodotto, 6 sezioni dirty-tracked) e in `ConfigAccordionSection`. Pattern draft inline (vedi `docs/patterns/draft-unsaved-bar.md`).
 

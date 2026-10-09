@@ -128,7 +128,7 @@ export const ProdottoPhone = forwardRef<HTMLDivElement, ProdottoPhoneProps>(func
                                 <div className={styles.pH}>Da sapere</div>
                                 <div className={styles.pNote}>
                                     {notes.map((n, i) => (
-                                        <span key={i} style={{ display: "contents" }}>
+                                        <span key={i} className={styles.contents}>
                                             <b>{n.label}</b>
                                             <span>{n.value}</span>
                                         </span>

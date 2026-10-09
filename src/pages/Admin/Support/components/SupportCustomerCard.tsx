@@ -7,6 +7,7 @@ import { formatDateTimeIt } from "@/utils/formatDateTime";
 import type { V2SupportTicketWithContext } from "@/types/support";
 import { SUPPORT_STATUS_LABEL, SUPPORT_STATUS_VARIANT } from "@/pages/Dashboard/Support/supportLabels";
 import styles from "../SupportTicketAdminPage.module.scss";
+import { ACTIVE_LABEL } from "@/utils/activityStatus";
 
 const SUBSCRIPTION_LABEL: Record<string, { label: string; variant: StatusBadgeVariant }> = {
     trialing: { label: "In prova", variant: "warning" },
@@ -118,7 +119,7 @@ export function SupportCustomerCard({
                                     </Text>
                                     <StatusBadge
                                         variant={a.status === "active" ? "success" : "neutral"}
-                                        label={a.status === "active" ? "Pubblicata" : "Sospesa"}
+                                        label={a.status === "active" ? ACTIVE_LABEL : "Sospesa"}
                                     />
                                 </li>
                             ))}
