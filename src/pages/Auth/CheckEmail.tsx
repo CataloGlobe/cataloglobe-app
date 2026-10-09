@@ -1,14 +1,19 @@
-import { useState, useEffect, useCallback, useRef, type FormEvent } from "react";
+import { useState, useEffect, useCallback, useRef, type FormEvent, type ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useAuth } from "@/context/useAuth";
 import { resendConfirmationEmail, verifySignupCode } from "@/services/supabase/auth";
-import { Button, CodeInput, InlineBanner, type CodeInputHandle } from "@/components/ui";
-import Text from "@/components/ui/Text/Text";
+import { Button, CodeInput, type CodeInputHandle } from "@/components/ui";
 import { MailCheck } from "lucide-react";
 import { AuthLayout } from "@/layouts/AuthLayout/AuthLayout";
 import { internalPathOr } from "@/utils/internalPath";
-import { SIGNUP_EMAIL_KEY, clearPendingRedirect, peekPendingRedirect } from "@/utils/pendingRedirect";
+import {
+    SIGNUP_DRAFT_KEY,
+    SIGNUP_EMAIL_KEY,
+    clearPendingRedirect,
+    peekPendingRedirect,
+    readSignupDraft
+} from "@/utils/pendingRedirect";
 import styles from "./Auth.module.scss";
 
 const RESEND_COOLDOWN = 30;
@@ -22,7 +27,7 @@ function isRateLimitError(message: string): boolean {
 function verifyErrorMessage(err: unknown): string {
     const { code, status, message } = (err ?? {}) as { code?: string; status?: number; message?: string };
     if (code === "otp_expired") {
-        return "Codice non corretto o scaduto. Riscrivilo, oppure chiedine uno nuovo.";
+        return "Codice non corretto o scaduto. Riprova.";
     }
     if (status === 429 || code === "over_request_rate_limit" || isRateLimitError(message ?? "")) {
         return "Troppi tentativi. Aspetta qualche minuto e riprova.";
@@ -55,6 +60,7 @@ function storeEmail(email: string): void {
 function forgetEmail(): void {
     try {
         sessionStorage.removeItem(EMAIL_KEY);
+        sessionStorage.removeItem(SIGNUP_DRAFT_KEY);
     } catch {
         // niente da fare
     }
@@ -154,40 +160,57 @@ export default function CheckEmail() {
                 heading="Conferma la tua email"
                 lead="Apri la mail che ti abbiamo mandato e tocca il link: entri subito."
             >
-                <div className={styles.auth}>
-                    <Text as="p" variant="caption" className={styles.hint}>
-                        Hai già confermato? <Link to="/login">Accedi</Link>
-                    </Text>
+                <div className={styles.links}>
+                    <p>
+                        Hai già confermato?{" "}
+                        <Link to="/login" className={styles.textLink}>
+                            Accedi
+                        </Link>
+                    </p>
                 </div>
             </AuthLayout>
         );
     }
 
+    // Una riga sola, sotto le caselle: errore o conferma del reinvio. Lo spazio
+    // è sempre lì, così il messaggio non sposta la scheda mentre la guardi.
+    const codeMessage = verifyError ?? (resendDone ? "Nuovo codice inviato: vale solo l'ultimo." : null);
+
+    // Il link c'è sempre (anche durante l'attesa, spento): cambia solo il
+    // testo intorno, nello stesso carattere delle altre righe.
+    const resendLead = resendRateLimited
+        ? "Troppe richieste."
+        : resendFailed
+          ? "Invio non riuscito."
+          : "Non è arrivata? Guarda nello spam o";
+    const resendLine: ReactNode = (
+        <>
+            {resendLead}{" "}
+            <button
+                type="button"
+                className={styles.textLink}
+                disabled={resendSeconds > 0 || resendLoading}
+                onClick={handleResend}
+            >
+                {resendLoading ? "invio in corso…" : resendFailed || resendRateLimited ? "riprova" : "invia di nuovo"}
+            </button>
+            {resendSeconds > 0 && !resendLoading && <span className={styles.wait}> tra {resendSeconds} s</span>}
+        </>
+    );
+
     return (
         <AuthLayout
             icon={<MailCheck size={28} aria-hidden="true" />}
             heading="Conferma la tua email"
-            lead={<>Ti abbiamo mandato un codice di 6 cifre e un link a <strong>{email}</strong>. Usa quello che ti è più comodo.</>}
+            lead={<>Ti abbiamo mandato un codice a <strong>{email}</strong>.</>}
         >
             <div className={styles.auth}>
-
                 <form
                     onSubmit={(e: FormEvent) => {
                         e.preventDefault();
                         void handleVerify(code);
                     }}
                 >
-                    {verifyError && (
-                        <div id="signup-code-error">
-                            <InlineBanner variant="error">{verifyError}</InlineBanner>
-                        </div>
-                    )}
-                    {resendDone && !verifyError && (
-                        <InlineBanner variant="info">
-                            Nuovo codice inviato. Vale solo l&apos;ultimo che hai ricevuto.
-                        </InlineBanner>
-                    )}
-
                     <CodeInput
                         ref={codeRef}
                         id="signup-code"
@@ -201,52 +224,48 @@ export default function CheckEmail() {
                         onComplete={value => void handleVerify(value)}
                         disabled={verifying}
                         invalid={!!verifyError}
-                        describedBy={verifyError ? "signup-code-error" : undefined}
+                        describedBy={codeMessage ? "signup-code-message" : undefined}
                         autoFocus
                     />
 
-                    <Button
-                        type="submit"
-                        variant="primary"
-                        fullWidth
-                        loading={verifying}
-                        disabled={verifying || code.length !== CODE_LENGTH}
+                    <p
+                        id="signup-code-message"
+                        className={verifyError ? `${styles.codeMessage} ${styles.codeMessageError}` : styles.codeMessage}
+                        role={verifyError ? "alert" : "status"}
                     >
-                        Conferma e continua
-                    </Button>
+                        {codeMessage}
+                    </p>
+
+                    {/* Con 6 cifre il codice parte da solo: il bottone serve solo
+                        mentre controlla, o per riprovare lo stesso codice. */}
+                    {(verifying || code.length === CODE_LENGTH) && (
+                        <Button type="submit" variant="primary" fullWidth loading={verifying} disabled={verifying}>
+                            Conferma e continua
+                        </Button>
+                    )}
                 </form>
 
-                <div className={styles.resendRow} role="status" aria-live="polite">
-                    <Text as="span" variant="caption" colorVariant="muted">
-                        {resendRateLimited
-                            ? "Riprova tra qualche minuto."
-                            : resendFailed
-                              ? "Invio non riuscito, riprova."
-                              : "Non è arrivata? Controlla lo spam, oppure"}
-                    </Text>
-                    <button
-                        type="button"
-                        className={styles.resendLink}
-                        disabled={resendSeconds > 0 || resendLoading}
-                        onClick={handleResend}
-                    >
-                        {resendLoading
-                            ? "Invio..."
-                            : resendSeconds > 0
-                              ? `invia di nuovo tra ${resendSeconds}s`
-                              : "invia di nuovo"}
-                    </button>
+                <div className={styles.links}>
+                    <p role="status" aria-live="polite">
+                        {resendLine}
+                    </p>
+                    <p>
+                        Email sbagliata?{" "}
+                        <button
+                            type="button"
+                            className={styles.textLink}
+                            onClick={() => navigate("/sign-up", { state: { draft: readSignupDraft() ?? { firstName: "", lastName: "", email, phone: "" } } })}
+                        >
+                            Correggila
+                        </button>
+                    </p>
+                    <p>
+                        Hai già un account?{" "}
+                        <Link to="/login" className={styles.textLink}>
+                            Accedi
+                        </Link>
+                    </p>
                 </div>
-
-                <Text as="p" variant="caption" className={styles.hint}>
-                    Email sbagliata?{" "}
-                    <button type="button" className={styles.resendLink} onClick={() => navigate("/sign-up")}>
-                        Correggila
-                    </button>
-                </Text>
-                <Text as="p" variant="caption" className={styles.hint}>
-                    Hai già un account? <Link to="/login">Accedi</Link>
-                </Text>
             </div>
         </AuthLayout>
     );
