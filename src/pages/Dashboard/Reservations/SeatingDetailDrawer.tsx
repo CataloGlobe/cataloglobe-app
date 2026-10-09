@@ -1,6 +1,6 @@
 import { useEffect, useId, useState } from "react";
 import { Armchair, Clock, Users } from "lucide-react";
-import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
+import { DetailPane } from "@/components/layout/DetailPane/DetailPane";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
@@ -52,6 +52,9 @@ import styles from "./Reservations.module.scss";
 interface Props {
     open: boolean;
     onClose: () => void;
+    /** La riga prima e dopo nell'Elenco (↑ ↓), dettaglio accanto (D131). */
+    onPrev?: () => void;
+    onNext?: () => void;
     /** La tavolata, come la vede la sala. `null` = nessuna selezionata. */
     seating: SeatingWithState | null;
     /** Tavoli della sede per "Cambia tavolo". `undefined` = non caricati. */
@@ -74,6 +77,8 @@ interface Props {
 export default function SeatingDetailDrawer({
     open,
     onClose,
+    onPrev,
+    onNext,
     seating,
     tables,
     tableOccupancy,
@@ -128,7 +133,7 @@ export default function SeatingDetailDrawer({
         // cos'è successo. Nessun auto-close: un drawer che si chiude da solo
         // sotto le mani è peggio.
         return (
-            <SystemDrawer open={open} onClose={onClose} size="md" aria-labelledby={titleId} autoFocusFirstInput={false}>
+            <DetailPane open={open} onClose={onClose} aria-labelledby={titleId} backLabel="Servizio" onPrev={onPrev} onNext={onNext}>
                 <DrawerLayout
                     title="Tavolata"
                     titleId={titleId}
@@ -147,7 +152,7 @@ export default function SeatingDetailDrawer({
                         </Text>
                     </div>
                 </DrawerLayout>
-            </SystemDrawer>
+            </DetailPane>
         );
     }
 
@@ -260,7 +265,7 @@ export default function SeatingDetailDrawer({
 
     if (asking && closeFlow.kind === "ask") {
         return (
-            <SystemDrawer open={open} onClose={onClose} size="md" aria-labelledby={titleId} autoFocusFirstInput={false}>
+            <DetailPane open={open} onClose={onClose} aria-labelledby={titleId} backLabel="Servizio" onPrev={onPrev} onNext={onNext}>
                 <DrawerLayout
                     title="Tavolata"
                     titleId={titleId}
@@ -276,12 +281,12 @@ export default function SeatingDetailDrawer({
                 >
                     <SeatingCloseQuestionBody flow={closeFlow} />
                 </DrawerLayout>
-            </SystemDrawer>
+            </DetailPane>
         );
     }
 
     return (
-        <SystemDrawer open={open} onClose={onClose} size="md" aria-labelledby={titleId} autoFocusFirstInput={false}>
+        <DetailPane open={open} onClose={onClose} aria-labelledby={titleId} backLabel="Servizio" onPrev={onPrev} onNext={onNext}>
             <DrawerLayout title="Tavolata" titleId={titleId} onClose={onClose} footer={footer}>
                 <div className={styles.drawerBody}>
                     {/* ── Hero: i tavoli sono il nome ───────────────── */}
@@ -473,6 +478,6 @@ export default function SeatingDetailDrawer({
                     </section>
                 </div>
             </DrawerLayout>
-        </SystemDrawer>
+        </DetailPane>
     );
 }

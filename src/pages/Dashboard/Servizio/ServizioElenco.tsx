@@ -20,6 +20,8 @@ import SeatingDetailDrawer from "@/pages/Dashboard/Reservations/SeatingDetailDra
 import WalkinCreateDrawer from "@/pages/Dashboard/Reservations/WalkinCreateDrawer";
 import type { SeatingCloseAction } from "@/pages/Dashboard/Reservations/seatingClose";
 import { composeServiceBoard, seatingDisplayName } from "@/pages/Dashboard/Reservations/serviceBoard";
+import { serviceSequence } from "@/pages/Dashboard/Reservations/seatingDrawer";
+import { useDetailParam } from "@/hooks/useDetailParam";
 import { useReservationDesk } from "@/pages/Dashboard/Reservations/hooks/useReservationDesk";
 import { useSeatingsRealtime } from "@/pages/Dashboard/Reservations/hooks/useSeatingsRealtime";
 
@@ -42,6 +44,9 @@ type ServizioElencoProps = {
     walkinOpen: boolean;
     onWalkinClose: () => void;
 };
+
+/** La prenotazione e la tavolata si aprono una per volta. */
+const SEATING_SIBLINGS = ["prenotazione"] as const;
 
 export default function ServizioElenco({ activityId, walkinOpen, onWalkinClose }: ServizioElencoProps) {
     const { showToast } = useToast();
@@ -109,8 +114,9 @@ export default function ServizioElenco({ activityId, walkinOpen, onWalkinClose }
     // ── La tavolata: drawer proprio (walk-in) e apertura senza prenotazione ──
     // La tavolata selezionata si legge DAL board, non da uno snapshot: così
     // il drawer segue il realtime (un collega la sposta, il drawer lo vede).
-    const [isSeatingDrawerOpen, setIsSeatingDrawerOpen] = useState(false);
-    const [selectedSeatingId, setSelectedSeatingId] = useState<string | null>(null);
+    // Nell'indirizzo (`?tavolata=`), come la prenotazione: un dettaglio per volta.
+    const [selectedSeatingId, openSeatingDetail, closeSeatingDetail] = useDetailParam("tavolata", SEATING_SIBLINGS);
+    const isSeatingDrawerOpen = selectedSeatingId !== null;
     const selectedSeating = useMemo(
         () => (selectedSeatingId ? (serviceSeatings ?? []).find(s => s.id === selectedSeatingId) ?? null : null),
         [selectedSeatingId, serviceSeatings]
@@ -134,10 +140,24 @@ export default function ServizioElenco({ activityId, walkinOpen, onWalkinClose }
         return out;
     }, [serviceBoard, selectedSeatingId]);
 
-    const handleOpenSeating = useCallback((s: SeatingWithState) => {
-        setSelectedSeatingId(s.id);
-        setIsSeatingDrawerOpen(true);
-    }, []);
+    const handleOpenSeating = useCallback((s: SeatingWithState) => openSeatingDetail(s.id), [openSeatingDetail]);
+
+    // ↑ ↓ nel dettaglio accanto (D131): le righe dell'Elenco nell'ordine in
+    // cui si leggono, prenotazioni e tavolate insieme.
+    const sequence = useMemo(
+        () => serviceSequence(serviceBoard, desk.reservationsById),
+        [serviceBoard, desk.reservationsById]
+    );
+    const openedId = selectedSeatingId ?? desk.selectedReservation?.id ?? null;
+    const stepDetail = (by: 1 | -1) => {
+        if (sequence.length === 0) return;
+        const at = sequence.findIndex(e => (e.kind === "seating" ? e.seating.id : e.reservation.id) === openedId);
+        const from = at === -1 ? (by > 0 ? -1 : 0) : at;
+        const next = sequence[(from + by + sequence.length) % sequence.length];
+        if (next.kind === "seating") openSeatingDetail(next.seating.id);
+        else desk.handleOpenDetail(next.reservation);
+    };
+    const canStep = sequence.length > 1;
 
     // Stessa forma dei gesti del drawer della prenotazione: RPC → ricarica →
     // toast, ritorna true se riuscito. La ricarica passa dal token della
@@ -255,7 +275,9 @@ export default function ServizioElenco({ activityId, walkinOpen, onWalkinClose }
 
             <SeatingDetailDrawer
                 open={isSeatingDrawerOpen}
-                onClose={() => setIsSeatingDrawerOpen(false)}
+                onClose={closeSeatingDetail}
+                onPrev={canStep ? () => stepDetail(-1) : undefined}
+                onNext={canStep ? () => stepDetail(1) : undefined}
                 seating={selectedSeating}
                 tables={serviceTables}
                 tableOccupancy={serviceTableOccupancy}
@@ -274,7 +296,7 @@ export default function ServizioElenco({ activityId, walkinOpen, onWalkinClose }
                 onSubmit={handleOpenWalkin}
             />
 
-            <ReservationDrawers desk={desk} />
+            <ReservationDrawers desk={desk} backLabel="Servizio" onStep={canStep ? stepDetail : undefined} />
         </>
     );
 }

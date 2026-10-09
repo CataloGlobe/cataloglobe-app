@@ -2,13 +2,27 @@ import { useNavigate, useParams } from "react-router-dom";
 import ReservationDetailDrawer from "./ReservationDetailDrawer";
 import ReservationCreateEditDrawer from "./ReservationCreateEditDrawer";
 import type { ReservationDesk } from "./hooks/useReservationDesk";
+import type { V2Reservation } from "@/types/reservation";
 
 /**
- * I due drawer della prenotazione (dettaglio, crea/modifica), legati a un
- * banco (`useReservationDesk`). Li montano Prenotazioni e l'Elenco di
+ * Il dettaglio della prenotazione (accanto all'elenco, D131) e il drawer
+ * crea/modifica, legati a un banco (`useReservationDesk`). Li montano Prenotazioni e l'Elenco di
  * Servizio: gli stessi gesti, gli stessi testi, da tutte e due le pagine.
  */
-export default function ReservationDrawers({ desk }: { desk: ReservationDesk }) {
+interface Props {
+    desk: ReservationDesk;
+    /** La pagina sotto, per il ritorno al telefono: «‹ Prenotazioni». */
+    backLabel: string;
+    /** Le prenotazioni nell'ordine in cui la pagina le mostra, per ↑ ↓ (D131). */
+    sequence?: V2Reservation[];
+    /**
+     * In alternativa a `sequence`: la pagina sposta lei il dettaglio (l'Elenco
+     * di Servizio mescola prenotazioni e tavolate). Assente: niente frecce.
+     */
+    onStep?: (by: 1 | -1) => void;
+}
+
+export default function ReservationDrawers({ desk, backLabel, sequence = [], onStep }: Props) {
     const navigate = useNavigate();
     const { businessId = "" } = useParams<{ businessId: string }>();
     const {
@@ -18,9 +32,21 @@ export default function ReservationDrawers({ desk }: { desk: ReservationDesk }) 
         detailGuest
     } = desk;
 
+    const at = reservation ? sequence.findIndex(r => r.id === reservation.id) : -1;
+    const step = (by: 1 | -1) => {
+        if (onStep) return onStep(by);
+        const from = at === -1 ? (by > 0 ? -1 : 0) : at;
+        const next = sequence[(from + by + sequence.length) % sequence.length];
+        if (next) desk.handleOpenDetail(next);
+    };
+    const canStep = onStep !== undefined || sequence.length > 1;
+
     return (
         <>
             <ReservationDetailDrawer
+                backLabel={backLabel}
+                onPrev={canStep ? () => step(-1) : undefined}
+                onNext={canStep ? () => step(1) : undefined}
                 open={desk.isDrawerOpen}
                 onClose={desk.handleCloseDrawer}
                 reservation={reservation}
@@ -54,8 +80,9 @@ export default function ReservationDrawers({ desk }: { desk: ReservationDesk }) 
                               // La scheda completa vive nella pagina Clienti:
                               // il deep link `?guest=` la apre già aperta, così
                               // il link è condivisibile e la rubrica resta una
-                              // sola implementazione.
-                              desk.handleCloseDrawer();
+                              // sola implementazione. Il dettaglio resta
+                              // nell'indirizzo: «indietro» torna alla
+                              // prenotazione aperta.
                               navigate(`/business/${businessId}/guests?guest=${detailGuest.id}`);
                           }
                         : undefined

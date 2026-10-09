@@ -241,6 +241,20 @@ export function ReservationsAgendaPage() {
     // are owned by MainLayout via context, not by this component's render).
     // Una vista sola, l'Agenda: niente tab né selettore di sezione. Il
     // contatore delle richieste sta sulla card «Da gestire» e nella banda.
+    // Per ↑ ↓ nel dettaglio accanto (D131): i risultati della ricerca, oppure
+    // le richieste in cima e poi la settimana in ordine di giorno e ora.
+    const detailSequence = useMemo<V2Reservation[]>(() => {
+        if (isSearchActive) return searchRows;
+        const rest = scopedReservations
+            .filter(r => r.status !== "pending")
+            .sort((a, b) =>
+                a.reservation_date === b.reservation_date
+                    ? a.reservation_time.localeCompare(b.reservation_time)
+                    : a.reservation_date.localeCompare(b.reservation_date)
+            );
+        return [...pendingInScope, ...rest];
+    }, [isSearchActive, searchRows, scopedReservations, pendingInScope]);
+
     const headerCompact = useMemo<PageHeaderCompactConfig>(
         () => ({
             search: { value: searchInput, onChange: setSearchInput, placeholder: SEARCH_PLACEHOLDER },
@@ -445,7 +459,7 @@ export function ReservationsAgendaPage() {
                 )}
             </div>
 
-            <ReservationDrawers desk={desk} />
+            <ReservationDrawers desk={desk} backLabel="Prenotazioni" sequence={detailSequence} />
         </>
     );
 }

@@ -302,8 +302,12 @@ test.describe("Prenotazioni", () => {
         await main(page).getByText("Sara Conti").first().click();
         const drawer = page.getByRole("dialog", { name: "Prenotazione" });
         await expect(drawer).toBeVisible();
-        // Taglia di sistema `md` (520), non più i 560 scritti a mano.
-        expect(await drawer.evaluate(el => Math.round(el.getBoundingClientRect().width))).toBe(520);
+        // Il dettaglio sta accanto all'elenco (D131): `--detail-pane`,
+        // clamp(380px, 30vw, 460px), e l'elenco resta in vista a sinistra.
+        const box = await drawer.boundingBox();
+        expect(box?.width ?? 0).toBeGreaterThanOrEqual(380);
+        expect(box?.width ?? 0).toBeLessThanOrEqual(460);
+        await expect(main(page).getByText("Giulia Bianchi").first()).toBeVisible();
         await expect(drawer.getByRole("button", { name: "Chiudi" })).toBeVisible();
         await expect(drawer.getByText("Confermata", { exact: true })).toBeVisible();
         await expect(drawer.getByRole("button", { name: "Modifica" })).toBeVisible();

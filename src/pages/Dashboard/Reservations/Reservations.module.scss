@@ -192,6 +192,7 @@
 .weekGridWrap {
   width: 100%;
   overflow-x: auto;
+  container: week / inline-size;
 }
 
 .weekGrid {
@@ -199,6 +200,16 @@
   grid-template-columns: repeat(7, minmax(110px, 1fr));
   gap: var(--space-8);
   min-width: 100%;
+}
+
+/* Stretta (il dettaglio accanto aperto, D131): i sette giorni restano tutti
+   in vista e si stringono, invece di scorrere di lato. Le chip tagliano il
+   nome; l'ora resta intera. */
+@container week (max-width: 819px) {
+  .weekGrid {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: var(--space-4);
+  }
 }
 
 .weekCol {

@@ -11,7 +11,7 @@ import {
     User,
     Users
 } from "lucide-react";
-import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
+import { DetailPane } from "@/components/layout/DetailPane/DetailPane";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
@@ -52,6 +52,11 @@ const DEFAULT_DURATION_MINUTES = 120;
 interface Props {
     open: boolean;
     onClose: () => void;
+    /** La pagina sotto, per il ritorno al telefono (dettaglio accanto, D131). */
+    backLabel: string;
+    /** La prenotazione prima e dopo nella pagina (↑ ↓). */
+    onPrev?: () => void;
+    onNext?: () => void;
     /** Reservation as currently rendered (with optimistic override applied if any). */
     reservation: V2Reservation | null;
     activityName: string | null;
@@ -277,6 +282,9 @@ function tableSectionEmptyHint(note: TableSectionNote | undefined): string {
 export default function ReservationDetailDrawer({
     open,
     onClose,
+    backLabel,
+    onPrev,
+    onNext,
     reservation,
     activityName,
     operatorNames,
@@ -436,7 +444,7 @@ export default function ReservationDetailDrawer({
 
     if (!reservation) {
         return (
-            <SystemDrawer open={open} onClose={onClose} size="md" aria-labelledby={titleId} autoFocusFirstInput={false}>
+            <DetailPane open={open} onClose={onClose} aria-labelledby={titleId} backLabel={backLabel} onPrev={onPrev} onNext={onNext}>
                 <DrawerLayout title="Prenotazione" titleId={titleId} onClose={onClose}>
                     <div className={styles.drawerBody}>
                         <Text variant="body" colorVariant="muted">
@@ -444,7 +452,7 @@ export default function ReservationDetailDrawer({
                         </Text>
                     </div>
                 </DrawerLayout>
-            </SystemDrawer>
+            </DetailPane>
         );
     }
 
@@ -638,7 +646,7 @@ export default function ReservationDetailDrawer({
 
     if (asking && closeFlow.kind === "ask") {
         return (
-            <SystemDrawer open={open} onClose={onClose} size="md" aria-labelledby={titleId} autoFocusFirstInput={false}>
+            <DetailPane open={open} onClose={onClose} aria-labelledby={titleId} backLabel={backLabel} onPrev={onPrev} onNext={onNext}>
                 <DrawerLayout
                     title="Prenotazione"
                     titleId={titleId}
@@ -654,12 +662,12 @@ export default function ReservationDetailDrawer({
                 >
                     <SeatingCloseQuestionBody flow={closeFlow} />
                 </DrawerLayout>
-            </SystemDrawer>
+            </DetailPane>
         );
     }
 
     return (
-        <SystemDrawer open={open} onClose={onClose} size="md" aria-labelledby={titleId} autoFocusFirstInput={false}>
+        <DetailPane open={open} onClose={onClose} aria-labelledby={titleId} backLabel={backLabel} onPrev={onPrev} onNext={onNext}>
             <DrawerLayout title="Prenotazione" titleId={titleId} onClose={onClose} footer={footer}>
                 <div className={styles.drawerBody}>
                     {/* ── Hero: data eroe + meta + sede ─────────────────── */}
@@ -1121,6 +1129,6 @@ export default function ReservationDetailDrawer({
                     )}
                 </div>
             </DrawerLayout>
-        </SystemDrawer>
+        </DetailPane>
     );
 }
