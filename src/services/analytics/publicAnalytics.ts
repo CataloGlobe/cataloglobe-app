@@ -59,6 +59,29 @@ const SESSION = initSession();
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const ENDPOINT = `${SUPABASE_URL}/functions/v1/log-analytics-event`;
 
+// ── Visite non reali ─────────────────────────────────────────────────
+
+/**
+ * Le visite di verifica del ristoratore non sono visite di clienti:
+ * `?simulate=` (programmazione), `?preview=` (formato dispositivo) e la
+ * pagina dentro l'iframe del DeviceFrame, dove anche `device_type` sarebbe
+ * quello del frame simulato. Nessun evento parte da queste visite.
+ */
+export function isSimulatedVisit(search: string, framed: boolean): boolean {
+    if (framed) return true;
+    const params = new URLSearchParams(search);
+    return params.has("simulate") || params.has("preview");
+}
+
+function isCurrentVisitSimulated(): boolean {
+    try {
+        return isSimulatedVisit(window.location.search, window.self !== window.top);
+    } catch {
+        // window.top non leggibile: siamo in un frame di un'altra origine.
+        return true;
+    }
+}
+
 // ── Public API ───────────────────────────────────────────────────────
 
 export function trackEvent(
@@ -67,6 +90,7 @@ export function trackEvent(
     metadata?: Record<string, unknown>
 ): void {
     if (!SESSION) return;
+    if (isCurrentVisitSimulated()) return;
     try {
         const payload = JSON.stringify({
             activity_id: activityId,
