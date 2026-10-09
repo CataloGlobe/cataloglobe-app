@@ -3,7 +3,6 @@ import { ArrowDown, ArrowUp, Calendar, Check, ChevronDown, ChevronLeft, ChevronR
 import { Button } from "@/components/ui/Button/Button";
 import { IconButton } from "@/components/ui/Button/IconButton";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
-import { ChipGroupMultiple } from "@/components/ui/Chip/ChipGroup";
 import type { LayoutRule } from "@/services/supabase/layoutScheduling";
 import { toRomeDateTime } from "@/services/supabase/schedulingNow";
 import {
@@ -38,6 +37,7 @@ import {
 import { CalendarioPanel, type ProductInfo } from "./CalendarioPanel";
 import type { DropItem } from "./calendarWrites";
 import { CalendarioSection, type SectionGroup } from "./CalendarioSection";
+import { SediBottone, type SceltaGruppo } from "./SediScelta";
 import {
     blankDraft,
     cloneDraft,
@@ -660,6 +660,15 @@ export default function CalendarioView({
         );
     };
 
+    // i gruppi del pannello delle sedi: quelli con almeno una sede che si guarda
+    const seatGroups = useMemo<SceltaGruppo[]>(
+        () =>
+            [...groupNames]
+                .map(([id, name]) => ({ id, name, activityIds: sedi.filter(x => groupIdsByActivity[x.id]?.includes(id)).map(x => x.id) }))
+                .filter(g => g.activityIds.length > 0),
+        [groupNames, groupIdsByActivity, sedi]
+    );
+    const pickSeats = (ids: string[]) => ids.length && setPicked(ids);
     const togglePicked = (id: string) => setPicked(p => (p.includes(id) ? (p.length > 1 ? p.filter(x => x !== id) : p) : sedi.filter(x => x.id === id || p.includes(x.id)).map(x => x.id)));
 
     /* ---------- la sezione Aggiungi / Modifica completa ---------- */
@@ -1013,16 +1022,21 @@ export default function CalendarioView({
                     {miniMonth()}
                     {multi && (
                         <div className={s.gsl}>
-                            <h4>Sedi</h4>
-                            {sedi.map(x => {
-                                const on = picked.includes(x.id);
-                                return (
-                                    <button key={x.id} type="button" className={s.gsc} role="checkbox" aria-checked={on} onClick={() => togglePicked(x.id)}>
-                                        <span className={s.box}>{on && <Check size={12} aria-hidden />}</span>
-                                        {x.name}
-                                    </button>
-                                );
-                            })}
+                            <h4>
+                                Sedi <span>{picked.length} di {sedi.length}</span>
+                            </h4>
+                            {shown.slice(0, 5).map(x => (
+                                <button key={x.id} type="button" className={s.gsc} role="checkbox" aria-checked onClick={() => togglePicked(x.id)}>
+                                    <span className={s.box}>
+                                        <Check size={12} aria-hidden />
+                                    </span>
+                                    <span className={s.snm}>{x.name}</span>
+                                </button>
+                            ))}
+                            {shown.length > 5 && <span className={s.smore}>+{shown.length - 5} altre</span>}
+                            <SediBottone place="side" className={s.sfull} sedi={sedi} groups={seatGroups} value={picked} onChange={pickSeats} min={1}>
+                                Scegli le sedi
+                            </SediBottone>
                             <p>{view === "day" ? "In Giorno le sedi scelte stanno una sotto l'altra." : "In Settimana le settimane delle sedi scelte stanno una sotto l'altra."}</p>
                         </div>
                     )}
@@ -1044,6 +1058,9 @@ export default function CalendarioView({
                             </button>
                             {pop && <div className={s.gpop}>{miniMonth()}</div>}
                         </span>
+                        {multi && (
+                            <SediBottone className={s.sbar} sedi={sedi} groups={seatGroups} value={picked} onChange={pickSeats} min={1} />
+                        )}
                     </div>
                     <div className={s.r}>
                         <SegmentedControl
@@ -1063,15 +1080,6 @@ export default function CalendarioView({
                         )}
                     </div>
                 </div>
-                {!panel && multi && (
-                    <ChipGroupMultiple
-                        ariaLabel="Sedi"
-                        label="Sedi"
-                        options={sedi.map(x => ({ value: x.id, label: x.name }))}
-                        value={picked}
-                        onChange={v => v.length && setPicked(sedi.filter(x => v.includes(x.id)).map(x => x.id))}
-                    />
-                )}
                 {noteNode}
                 <div className={s.flegend}>
                     <span>

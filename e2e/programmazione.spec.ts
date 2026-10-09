@@ -597,6 +597,33 @@ test.describe("Programmazione — calendario, simulatore, guida", () => {
         await expect(back).toHaveCount(0);
     });
 
+    test("le sedi: nella colonna quelle scelte, le altre nel pannello; a colonna chiusa un bottone nella barra", async ({ page }) => {
+        await openList(page, "layout");
+        await openCalendar(page);
+        const col = main(page).getByRole("complementary", { name: "Calendario del mese" });
+        const chosen = col.getByRole("checkbox");
+        await expect(chosen.first()).toBeVisible();
+        expect(await chosen.count()).toBeLessThanOrEqual(5);
+        await col.getByRole("button", { name: "Scegli le sedi" }).click();
+        const pop = page.getByRole("dialog", { name: "Sedi" });
+        await expect(pop).toBeVisible();
+        await pop.getByRole("button", { name: "Solo Porto e2e" }).click();
+        await expect(chosen).toHaveCount(1);
+        await expect(col.getByRole("checkbox", { name: "Porto e2e" })).toHaveAttribute("aria-checked", "true");
+        // l'ultima sede scelta non si toglie: il calendario guarda sempre almeno una sede
+        await pop.getByRole("checkbox", { name: "Porto e2e" }).click();
+        await expect(pop.getByRole("checkbox", { name: "Porto e2e" })).toHaveAttribute("aria-checked", "true");
+        await page.keyboard.press("Escape");
+        await expect(pop).toHaveCount(0);
+        await expect(col.getByRole("button", { name: "Scegli le sedi" })).toBeFocused();
+        // a colonna chiusa le sedi stanno in un bottone nella barra
+        await main(page).getByRole("button", { name: "Chiudi la colonna del calendario" }).click();
+        await main(page).getByRole("button", { name: "Porto e2e", exact: true, expanded: false }).click();
+        await pop.getByRole("button", { name: "Tutte", exact: true }).click();
+        await expect(main(page).getByRole("button", { name: /^Tutte le sedi · \d+$/ })).toBeVisible();
+        await expect(pop.getByText(/^(\d+) di \1 scelte$/)).toBeVisible();
+    });
+
     test("dentro la sede il Calendario guarda solo lei; la ricerca no", async ({ page }) => {
         await openSeatList(page, SEDE.centro, "layout");
         // La ricerca dell'elenco non entra nel Calendario, dove non si vede.

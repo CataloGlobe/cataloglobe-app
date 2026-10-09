@@ -231,6 +231,180 @@
     }
 }
 
+/* ---------- la scelta delle sedi (D128 A, D129 3) ---------- */
+.gsl h4 span {
+    margin-left: 4px;
+    font-weight: 500;
+    text-transform: none;
+    letter-spacing: 0;
+}
+.snm {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.smore {
+    padding: 2px 6px 0 29px;
+    font-size: 12px;
+    color: var(--text-muted);
+}
+.sbtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 30px;
+    max-width: 240px;
+    padding: 0 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-control);
+    background: var(--surface);
+    color: var(--text);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    svg {
+        flex: none;
+        color: var(--text-muted);
+    }
+    &:hover {
+        background: var(--hover-bg);
+    }
+    &:focus-visible {
+        outline: none;
+        box-shadow: var(--shadow-focus);
+    }
+    &[aria-expanded="true"] {
+        border-color: var(--brand-primary);
+    }
+}
+.sfull {
+    width: 100%;
+    max-width: none;
+    margin-top: 6px;
+    .snm {
+        flex: 1;
+        text-align: left;
+    }
+}
+// nella barra solo quando la colonna non si vede: chiusa, o nascosta sotto i 900
+.gwrap:not(.closed) .sbar {
+    display: none;
+}
+@media (max-width: 900px) {
+    .gwrap:not(.closed) .sbar {
+        display: inline-flex;
+    }
+}
+.spop {
+    position: fixed;
+    z-index: var(--z-overlay);
+    width: 300px;
+    max-width: calc(100vw - 32px);
+    max-height: min(460px, calc(100vh - 24px));
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-surface);
+    box-shadow: var(--shadow-overlay);
+    font-size: 13px;
+    color: var(--text);
+}
+.sqk {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    button {
+        font: inherit;
+        font-size: 12px;
+        padding: 3px 10px;
+        border-radius: var(--radius-pill);
+        border: 1px solid var(--border);
+        background: var(--surface);
+        color: var(--text);
+        cursor: pointer;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        &:hover {
+            background: var(--hover-bg);
+        }
+        &:focus-visible {
+            outline: none;
+            box-shadow: var(--shadow-focus);
+        }
+        &[aria-pressed="true"] {
+            background: var(--brand-primary-soft);
+            border-color: var(--brand-primary);
+            color: var(--brand-primary);
+        }
+    }
+}
+.slst {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+.srow {
+    display: flex;
+    align-items: center;
+    border-radius: var(--radius-control);
+    .gsc {
+        flex: 1;
+        min-width: 0;
+        font-size: 13px;
+        padding: 6px;
+    }
+    &:hover {
+        background: var(--hover-bg);
+        .gsc {
+            background: none;
+        }
+    }
+}
+.sonly {
+    flex: none;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-size: 12px;
+    color: var(--brand-primary);
+    padding: 4px 8px;
+    border-radius: var(--radius-control);
+    cursor: pointer;
+    opacity: 0;
+    .srow:hover &,
+    &:focus-visible {
+        opacity: 1;
+    }
+    &:focus-visible {
+        outline: none;
+        box-shadow: var(--shadow-focus);
+    }
+    @media (hover: none) {
+        opacity: 1;
+    }
+}
+.snone {
+    margin: 6px;
+    color: var(--text-muted);
+    font-size: 12.5px;
+}
+.sft {
+    border-top: 1px solid var(--border);
+    padding: 8px 4px 0;
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
 /* ---------- la barra in alto ---------- */
 .dbar {
     display: flex;
