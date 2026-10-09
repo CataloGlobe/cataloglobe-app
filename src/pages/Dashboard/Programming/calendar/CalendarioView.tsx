@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as RPointerEvent, type ReactNode } from "react";
-import { Calendar, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Columns3, Layers, PanelLeft, PanelLeftClose, Plus, Square, Store, X as XIcon } from "lucide-react";
+import { ArrowDown, ArrowUp, Calendar, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Columns3, Layers, PanelLeft, PanelLeftClose, Plus, Square, Store, X as XIcon } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import { IconButton } from "@/components/ui/Button/IconButton";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
@@ -334,20 +334,80 @@ export default function CalendarioView({
         } else setWeek(w => w + 7 * dir);
         setMonOff(0);
     };
+    // in Settimana si scende (o si sale) fino al giorno: all'apertura su oggi, poi «Oggi» e il calendarietto
+    const [goTo, setGoTo] = useState<{ d: DayNum; flash: boolean; n: number }>(() => ({ d: today, flash: false, n: 0 }));
+    const jump = (d: DayNum) => setGoTo(g => ({ d, flash: true, n: g.n + 1 }));
+    const calRef = useRef<HTMLDivElement>(null);
+    const wrapRef = useRef<HTMLDivElement>(null);
+    useEffect(() => {
+        const cal = calRef.current, wrap = wrapRef.current;
+        const row = cal?.querySelector<HTMLElement>(`[data-day="${goTo.d}"]`);
+        if (!cal || !wrap || !row) return;
+        const smooth = goTo.n > 0 && !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        const v = viewBox(cal, wrap), dy = row.getBoundingClientRect().top - v.top - 4;
+        if (Math.abs(dy) > 2) v.scroller.scrollBy({ top: dy, behavior: smooth ? "smooth" : "auto" });
+        if (!goTo.flash) return;
+        row.classList.add(s.flash);
+        const t = window.setTimeout(() => row.classList.remove(s.flash), 900);
+        return () => {
+            window.clearTimeout(t);
+            row.classList.remove(s.flash);
+        };
+        // si salta quando cambia il salto: la settimana nuova è già disegnata
+    }, [goTo]);
+    // oggi fuori dallo schermo: il bottone «Oggi» in fondo (o in cima) al calendario
+    const [todayOut, setTodayOut] = useState<{ up: boolean; top: number } | null>(null);
+    useEffect(() => {
+        const cal = calRef.current, wrap = wrapRef.current;
+        if (!cal || !wrap) return;
+        let raf = 0;
+        const check = () => {
+            raf = 0;
+            const rows = [...cal.querySelectorAll<HTMLElement>(`[data-day="${today}"]`)];
+            if (!rows.length) return setTodayOut(null);
+            const v = viewBox(cal, wrap);
+            if (rows.some(r => {
+                const b = r.getBoundingClientRect();
+                return Math.min(b.bottom, v.bottom) - Math.max(b.top, v.top) > 24;
+            }))
+                return setTodayOut(null);
+            const up = rows[0].getBoundingClientRect().bottom <= v.top + 24;
+            const y = Math.round((up ? v.top + 8 : v.bottom - 44) - wrap.getBoundingClientRect().top);
+            setTodayOut(o => (o && o.up === up && o.top === y ? o : { up, top: y }));
+        };
+        const later = () => void (raf ||= requestAnimationFrame(check));
+        check();
+        window.addEventListener("scroll", later, { capture: true, passive: true });
+        window.addEventListener("resize", later);
+        return () => {
+            cancelAnimationFrame(raf);
+            window.removeEventListener("scroll", later, { capture: true });
+            window.removeEventListener("resize", later);
+        };
+    });
     const goToday = () => {
         setWeek(monday);
         setDDay(dayOfWeek(today));
         setMonOff(0);
+        jump(today);
     };
     const goDay = (d: DayNum) => {
         setWeek(d - dayOfWeek(d));
         setDDay(dayOfWeek(d));
         setMonOff(0);
         setPop(false);
+        jump(d);
     };
 
-    // giorni con un'occasione: una regola con un periodo tocca quel giorno in una sede scelta
-    const hasOcc = (d: DayNum) => entries.some(e => e.when.period && okDate(e.when, d) && shown.some(x => specFor(e, seatOf(x.id)) !== null));
+    // le date speciali: una regola con un inizio e una fine tocca quel giorno in una sede scelta
+    // (una regola che parte e non finisce non è un'occasione: cambia il calendario da lì in poi)
+    const specials = (d: DayNum) => [
+        ...new Set(
+            entries
+                .filter(e => e.when.period && Number.isFinite(e.when.period.from) && Number.isFinite(e.when.period.to) && okDate(e.when, d) && shown.some(x => specFor(e, seatOf(x.id)) !== null))
+                .map(e => e.thing)
+        )
+    ];
 
     /* ---------- tooltip ---------- */
     const segTip = (k: CalKind, g: LaneSeg, seat: CalSeat) => {
@@ -380,7 +440,7 @@ export default function CalendarioView({
             // l'ora di adesso: dopo mezzanotte sta in coda alla serata di ieri
             const nowX = isToday && nowMin >= ax.from ? X(nowMin) : date === today - 1 && nowMin + 1440 < ax.to ? X(nowMin + 1440) : null;
             return (
-                <div key={sede.id + ":" + i} className={`${s.fday} ${isToday ? s.today : ""}`}>
+                <div key={sede.id + ":" + i} className={`${s.fday} ${isToday ? s.today : ""}`} data-day={date}>
                     <div className={s.fdl}>{label(i, date)}</div>
                     <div className={s.flabs}>
                         {lanes.map(l => {
@@ -573,10 +633,19 @@ export default function CalendarioView({
                 {weeks.map(w => (
                     <div key={w} className={`${s.mmw} ${view === "week" && w === week ? s.sel : ""}`}>
                         {[0, 1, 2, 3, 4, 5, 6].map(i => {
-                            const d = w + i, dp = dayParts(d), occ = hasOcc(d), isSel = view === "day" && d === selDay;
-                            const cls = [s.mmd, dp.month !== fp.month ? s.out : "", d === today ? s.isToday : "", isSel ? s.sel : "", occ ? s.dot : ""].join(" ");
+                            const d = w + i, dp = dayParts(d), sp = specials(d), isSel = view === "day" && d === selDay;
+                            const cls = [s.mmd, dp.month !== fp.month ? s.out : "", d === today ? s.isToday : "", isSel ? s.sel : "", sp.length ? s.dot : ""].join(" ");
+                            const said = sp.length ? `Date speciali: ${sp.map(q).join(", ")}` : "";
                             return (
-                                <button key={i} type="button" className={cls} aria-label={dayLong(d) + (occ ? ", c'è un'occasione" : "")} aria-current={isSel ? "date" : undefined} onClick={() => goDay(d)}>
+                                <button
+                                    key={i}
+                                    type="button"
+                                    className={cls}
+                                    data-tip={said ? `${dayLong(d)}\n${said}.` : undefined}
+                                    aria-label={dayLong(d) + (said ? ". " + said : "")}
+                                    aria-current={isSel ? "date" : undefined}
+                                    onClick={() => goDay(d)}
+                                >
                                     {dp.day}
                                 </button>
                             );
@@ -585,7 +654,7 @@ export default function CalendarioView({
                 ))}
                 <p className={s.mmk}>
                     <i />
-                    giorni con un'occasione
+                    date speciali
                 </p>
             </div>
         );
@@ -1034,7 +1103,8 @@ export default function CalendarioView({
                         sotto c'è qualcosa che non si vede
                     </span>
                 </div>
-                <div className={s.dcal}>
+                <div className={s.dwrap} ref={wrapRef}>
+                <div className={s.dcal} ref={calRef}>
                     <div className={`${s.fcal} ${pickView ? s.slim : ""}`}>
                         <div className={s.fhead}>
                             <div />
@@ -1046,6 +1116,13 @@ export default function CalendarioView({
                         {body}
                     </div>
                 </div>
+                {todayOut && (
+                    <button type="button" className={s.todayGo} style={{ top: todayOut.top }} onClick={() => jump(today)}>
+                        Oggi · {DAYS[dayOfWeek(today)].toLowerCase()} {dayParts(today).day}
+                        {todayOut.up ? <ArrowUp size={14} aria-hidden /> : <ArrowDown size={14} aria-hidden />}
+                    </button>
+                )}
+                </div>
                 {!rules.length && <p className={s.dnote}>Non c'è ancora niente in calendario.</p>}
                 <p className={s.dnote}>Ogni {FSLOT} minuti: apri una corsia per vedere una linea per regola.</p>
             </div>
@@ -1053,4 +1130,35 @@ export default function CalendarioView({
             {tipNode}
         </div>
     );
+}
+
+/* ---------- la parte del calendario che si vede davvero ---------- */
+// Chi scorre: il calendario stesso (finestre basse) o la pagina. Sopra possono stare
+// testate ferme (sticky o fixed) della pagina: quello che c'è sotto non si vede.
+function scrollerOf(el: HTMLElement): HTMLElement {
+    for (let e: HTMLElement | null = el; e && e !== document.body; e = e.parentElement) {
+        const o = getComputedStyle(e).overflowY;
+        if ((o === "auto" || o === "scroll") && e.scrollHeight > e.clientHeight + 1) return e;
+    }
+    return (document.scrollingElement as HTMLElement | null) ?? document.documentElement;
+}
+function pinned(el: Element | null, inside: Element): boolean {
+    for (let e = el; e && e !== document.body; e = e.parentElement) {
+        if (inside.contains(e)) return false;
+        const p = getComputedStyle(e).position;
+        if (p === "sticky" || p === "fixed") return true;
+    }
+    return false;
+}
+function viewBox(cal: HTMLElement, wrap: HTMLElement) {
+    const scroller = scrollerOf(cal), c = cal.getBoundingClientRect();
+    let top: number;
+    if (scroller === cal) top = c.top + (cal.querySelector<HTMLElement>(`.${s.fhead}`)?.offsetHeight ?? 0);
+    else {
+        const x = c.left + 24;
+        let y = Math.max(0, scroller === document.scrollingElement ? 0 : scroller.getBoundingClientRect().top);
+        while (y < window.innerHeight / 2 && pinned(document.elementFromPoint(x, y), wrap)) y += 4;
+        top = Math.max(c.top, y);
+    }
+    return { scroller, top, bottom: Math.min(c.bottom, window.innerHeight) };
 }
