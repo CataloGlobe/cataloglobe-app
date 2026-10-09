@@ -73,12 +73,25 @@ export function isSimulatedVisit(search: string, framed: boolean): boolean {
     return params.has("simulate") || params.has("preview");
 }
 
+/**
+ * Solo un frame della stessa origine è l'anteprima del DeviceFrame. Un menu
+ * incorporato in un iframe sul sito del locale (altra origine) è una visita
+ * vera: leggere `top.location` lì lancia, e si traccia.
+ */
+function isSameOriginFrame(): boolean {
+    if (window.self === window.top) return false;
+    try {
+        return window.top?.location.origin === window.location.origin;
+    } catch {
+        return false;
+    }
+}
+
 function isCurrentVisitSimulated(): boolean {
     try {
-        return isSimulatedVisit(window.location.search, window.self !== window.top);
+        return isSimulatedVisit(window.location.search, isSameOriginFrame());
     } catch {
-        // window.top non leggibile: siamo in un frame di un'altra origine.
-        return true;
+        return false;
     }
 }
 
