@@ -55,20 +55,34 @@ export function sectionPanel(page: Page, title: string): Locator {
 }
 
 /**
- * Il menu da leggere: dentro una sede si aspetta la sidebar della sede, cioè
- * voci che portano dentro la sede. Appena cambia l'indirizzo c'è ancora quella
- * dell'azienda per un attimo, con sezioni («Menù», «Vetrina») che spariscono
- * sotto il clic. Non si aspetta «← Tutte le sedi»: con una sede sola non c'è.
+ * Il menu da leggere (artifact v4): la stessa sidebar fuori e dentro una sede,
+ * sei sezioni sempre uguali; basta che le righe ci siano.
  */
 async function settledMenu(page: Page): Promise<void> {
     await expect(menuRows(page).first()).toBeVisible({ timeout: 15_000 });
-    const sede = page.url().match(/\/locations\/([0-9a-f-]{36})(?:\/|$)/)?.[1];
-    if (sede) {
-        await expect(nav(page).locator(`a[href*="/locations/${sede}/"]`).first()).toBeAttached({
-            timeout: 15_000
-        });
-    }
 }
+
+/**
+ * In quale sezione sta una parte (`navModel.ts`, NAV_MODELS). Il clic su una
+ * sezione porta alla sua ultima parte: si apre solo quella giusta, così non
+ * si passa da pagine che il test non ha preparato.
+ */
+const SECTION_OF: Record<string, string> = {
+    Cataloghi: "Menù e vetrina",
+    Prodotti: "Menù e vetrina",
+    Stili: "Menù e vetrina",
+    "In evidenza": "Menù e vetrina",
+    Storie: "Menù e vetrina",
+    Calendario: "Calendario",
+    Regole: "Calendario",
+    "In servizio": "Servizio",
+    "Cosa vedono i clienti": "Servizio",
+    Sala: "Servizio",
+    Storico: "Servizio",
+    Andamento: "Clienti e numeri",
+    Recensioni: "Clienti e numeri",
+    Clienti: "Clienti e numeri"
+};
 
 /**
  * Apre una sezione col clic (sotto la riga o nel pannello) e ne ritorna le
@@ -109,12 +123,30 @@ export async function sidebarLink(page: Page, name: string | RegExp): Promise<Lo
     await settledMenu(page);
     const direct = menuRows(page).getByRole("link", { name, exact });
     if ((await direct.count()) > 0) return direct;
+    const known = typeof name === "string" ? SECTION_OF[name] : Object.keys(SECTION_OF).find(k => name.test(k));
+    const section = known && (typeof name === "string" ? known : SECTION_OF[known]);
+    // La sezione si aspetta: subito dopo un cambio pagina la sidebar può non
+    // aver finito di disegnarsi, e contare senza aspettare la salterebbe.
+    if (section && (await sectionRow(page, section).first().waitFor({ timeout: 10_000 }).then(() => true, () => false))) {
+        if ((await direct.count()) > 0) return direct;
+        const link = (await openSection(page, section)).getByRole("link", { name, exact });
+        if ((await link.count()) > 0) return link;
+    }
     for (const title of await sectionTitles(page)) {
         const link = (await openSection(page, title)).getByRole("link", { name, exact });
         if ((await link.count()) > 0) return link;
     }
     await closeSections(page);
     return direct;
+}
+
+/**
+ * Una pagina di «In servizio» (Elenco, Mappa, Prenotazioni, Comande): la
+ * parte dalla sidebar, poi il suo interruttore in testata (artifact v4).
+ */
+export async function openInServizio(page: Page, name: "Elenco" | "Mappa" | "Prenotazioni" | "Comande"): Promise<void> {
+    await (await sidebarLink(page, "In servizio")).click();
+    await page.getByRole("radiogroup", { name: "Parti di In servizio" }).getByRole("radio", { name, exact: true }).click({ timeout: 15_000 });
 }
 
 /** Una riga della sidebar come si legge: una voce diretta o `[sezione, voci del pannello]`. */

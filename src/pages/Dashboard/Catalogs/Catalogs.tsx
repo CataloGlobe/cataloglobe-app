@@ -342,7 +342,7 @@ export default function Catalogs() {
         }
         if (blocked > 0) {
             showToast({
-                message: `${countLabel(blocked)} non ${blocked === 1 ? "eliminato" : "eliminati"}: in uso da regole di programmazione.`,
+                message: `${countLabel(blocked)} non ${blocked === 1 ? "eliminato" : "eliminati"}: in uso da regole del Calendario.`,
                 type: "error"
             });
         }
@@ -524,7 +524,7 @@ export default function Catalogs() {
                 <EmptyState
                     icon={<IconBook2 />}
                     title={`Il ${catalogLower} è quello che i clienti vedono col QR`}
-                    description={`Puoi crearne più di uno (${hints}) e decidere con la programmazione quando mostrarli.`}
+                    description={`Puoi crearne più di uno (${hints}) e decidere col Calendario quando mostrarli.`}
                     action={
                         <Button variant="primary" onClick={handleOpenCreate} disabled={!canEdit}>
                             {`Crea il primo ${catalogLower}`}
@@ -642,7 +642,7 @@ export default function Catalogs() {
                 onClose={handleBulkDeleteCancel}
                 onConfirm={handleBulkDeleteConfirmed}
                 title={`Eliminare ${countLabel(pendingBulkIds?.length ?? 0)}?`}
-                message={`Si eliminano anche le loro ${categoryPluralLower} e i collegamenti ai ${productPluralLower}, e non si torna indietro. I ${productPluralLower} restano. Un ${catalogLower} usato da una regola di programmazione non si elimina.`}
+                message={`Si eliminano anche le loro ${categoryPluralLower} e i collegamenti ai ${productPluralLower}, e non si torna indietro. I ${productPluralLower} restano. Un ${catalogLower} usato da una regola del Calendario non si elimina.`}
                 confirmLabel={`Elimina ${countLabel(pendingBulkIds?.length ?? 0)}`}
             />
 

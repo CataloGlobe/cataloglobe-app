@@ -21,6 +21,8 @@ interface SegmentedControlProps<T extends string | number> {
     iconsOnly?: boolean;
     /** `sm` = variante compatta per contesti densi (es. header di pagina). Default `md`. */
     size?: "md" | "sm";
+    /** Nome del gruppo per chi usa un lettore di schermo. */
+    label?: string;
 }
 
 export function SegmentedControl<T extends string | number>({
@@ -28,7 +30,8 @@ export function SegmentedControl<T extends string | number>({
     onChange,
     options,
     iconsOnly,
-    size = "md"
+    size = "md",
+    label
 }: SegmentedControlProps<T>) {
     const containerRef = useRef<HTMLDivElement>(null);
     const itemRefs = useRef<Record<T, HTMLButtonElement | null>>(
@@ -68,6 +71,7 @@ export function SegmentedControl<T extends string | number>({
                 .filter(Boolean)
                 .join(" ")}
             role="radiogroup"
+            aria-label={label}
         >
             <div
                 className={`${styles.indicator} ${hasInteracted ? styles.animate : ""}`}

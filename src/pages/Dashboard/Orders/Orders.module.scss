@@ -37,3 +37,19 @@
 .soundOff {
   color: var(--text-muted);
 }
+
+// L'interruttore di «In servizio» e il filtro per tavolo, in fila nella testata.
+// La riga non si stringe: la testata ne misura la larghezza naturale
+// (`useCompactToolbar`), e una riga schiacciata misurerebbe meno nella
+// barra compatta che nelle due righe, passando dall'una all'altra senza fine.
+// Quando non ci sta è la testata a cambiare forma, non la riga.
+.leadingRow {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: var(--space-12);
+
+    > * {
+        flex-shrink: 0;
+    }
+}

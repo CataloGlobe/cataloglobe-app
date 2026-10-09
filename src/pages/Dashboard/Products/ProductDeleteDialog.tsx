@@ -70,7 +70,7 @@ export function ProductDeleteDialog({ open, onClose, productData, onSuccess }: P
                   plural: verticalConfig.catalogLabelPlural.toLowerCase()
               },
               { count: impact.featured, singular: "contenuto in evidenza", plural: "contenuti in evidenza" },
-              { count: impact.schedules, singular: "regola di programmazione", plural: "regole di programmazione" }
+              { count: impact.schedules, singular: "regola del Calendario", plural: "regole del Calendario" }
           ].filter(item => item.count > 0)
         : [];
     const impactText = impactItems

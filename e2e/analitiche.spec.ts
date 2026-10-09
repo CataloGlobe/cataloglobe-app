@@ -16,7 +16,7 @@ function main(page: Page) {
 }
 
 async function openPage(page: Page): Promise<void> {
-    await openBusinessPage(page, "analytics", "Analitiche");
+    await openBusinessPage(page, "analytics", "Andamento");
     await expect(main(page).getByText("Focaccia e2e").first()).toBeVisible({ timeout: 15_000 });
 }
 
@@ -131,7 +131,7 @@ test.describe("Analitiche — campione e ordine (§36)", () => {
 
     test("sotto le 100 visite: conteggi, niente percentuali, e lo dice", async ({ page }) => {
         stub = await stubAnalitiche(page, { sample: "small" });
-        await openBusinessPage(page, "analytics", "Analitiche");
+        await openBusinessPage(page, "analytics", "Andamento");
         await expect(main(page).getByText("42", { exact: true }).first()).toBeVisible({ timeout: 15_000 });
         await expect(main(page).getByText(/Sotto le 100 visite nel periodo non compaiono percentuali/)).toBeVisible();
         await expect(main(page).getByText("9 su 42")).toBeVisible();
@@ -162,7 +162,7 @@ test.describe("Analitiche — errore", () => {
     test("errore di caricamento: lo dice e offre «Riprova»", async ({ page }) => {
         stub = await stubAnalitiche(page);
         await page.route(/\/rest\/v1\/rpc\/analytics_overview_stats/, route => route.fulfill({ status: 500, json: { code: "E2E", message: "rotto" } }));
-        await openBusinessPage(page, "analytics", "Analitiche");
+        await openBusinessPage(page, "analytics", "Andamento");
         await expect(main(page).getByRole("button", { name: "Riprova" })).toBeVisible({ timeout: 15_000 });
     });
 });

@@ -86,8 +86,8 @@ describe("resolveNavContext — una o più sedi leggibili (§51.2)", () => {
 const SEZIONI_UGUALI: Array<[string | null, string[]]> = [
     ["Panoramica", ["Panoramica"]],
     ["Menù e vetrina", ["Cataloghi", "Prodotti", "Stili", "In evidenza", "Storie"]],
-    ["Calendario", ["Calendario", "Regole", "Cosa vedono i clienti"]],
-    ["Servizio", ["In servizio", "Sala", "Storico"]],
+    ["Calendario", ["Calendario", "Regole"]],
+    ["Servizio", ["In servizio", "Cosa vedono i clienti", "Sala", "Storico"]],
     ["Clienti e numeri", ["Andamento", "Recensioni", "Clienti"]]
 ];
 
@@ -325,8 +325,8 @@ describe("seatOf: le sedi in alto per la parte aperta (D152)", () => {
             ...NAV_MODELS.azienda.groups[1].entries.map(e => ["crea", e.label, "none", false]),
             ["calendario", "Calendario", "multi", true],
             ["calendario", "Regole", "multi", false],
-            ["calendario", "Cosa vedono i clienti", "one", false],
             ["servizio", "In servizio", "one", false],
+            ["servizio", "Cosa vedono i clienti", "one", false],
             ["servizio", "Sala", "one", false],
             ["servizio", "Storico", "multi", false],
             ["numeri", "Andamento", "multi", true],

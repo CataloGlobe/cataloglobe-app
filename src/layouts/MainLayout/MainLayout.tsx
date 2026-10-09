@@ -43,13 +43,14 @@ const SIDEBAR_COLLAPSED_KEY = "cg:sidebar-collapsed";
  *  operative, montate sul contesto. */
 const SEDE_PAGE_LABELS: Record<string, string | undefined> = {
     ...ACTIVITY_SECTION_LABELS,
-    servizio: "Servizio",
+    servizio: "In servizio",
     comande: "Comande",
     storico: "Storico",
     prenotazioni: "Prenotazioni",
-    analitiche: "Analitiche",
+    analitiche: "Andamento",
     recensioni: "Recensioni",
-    programmazione: "Programmazione"
+    programmazione: "Regole",
+    "cosa-vedono": "Cosa vedono i clienti"
 };
 
 /** `/business/:businessId/locations/:activityId[/...]` — dentro una sede. */
@@ -63,7 +64,13 @@ const SEDE_CONTEXT_PATH = /^\/business\/[^/]+\/locations\/([^/]+)/;
  * route piatte la label passa da `businessRouteLabel` — fonte unica condivisa
  * con breadcrumb e sidebar.
  */
-function resolvePageTitle(businessId: string, pathname: string, catalogLabel: string): string | undefined {
+function resolvePageTitle(
+    businessId: string,
+    pathname: string,
+    search: string,
+    catalogLabel: string,
+    sedeName: (id: string) => string | undefined
+): string | undefined {
     const prefix = `/business/${businessId}/`;
     const rest = pathname.startsWith(prefix) ? pathname.slice(prefix.length) : '';
     const segments = rest.split('/').filter(Boolean);
@@ -77,8 +84,12 @@ function resolvePageTitle(businessId: string, pathname: string, catalogLabel: st
     if (second && first === 'locations') {
         // Le pagine della sede sono rotte: il titolo dice in quale sei,
         // altrimenti le schede del browser si chiamano tutte uguale.
-        const label = SEDE_PAGE_LABELS[third];
-        return label ? `Sede · ${label}` : 'Dettaglio sede';
+        // La parte prima della sede (D143): «In servizio · Garbagnate».
+        const params = new URLSearchParams(search);
+        const label = third === 'servizio' && params.get('modo') === 'sala' ? 'Sala' : SEDE_PAGE_LABELS[third];
+        const name = sedeName(second);
+        if (!label) return name ?? 'Scheda';
+        return name ? `${label} · ${name}` : label;
     }
     // Le tab di Impostazioni (§51.12) tengono il nome della pagina di prima.
     if (first === 'settings' && second === 'team') return businessRouteLabel('team');
@@ -86,6 +97,9 @@ function resolvePageTitle(businessId: string, pathname: string, catalogLabel: st
     if (second && first === 'scheduling') return 'Dettaglio regola';
     if (second && first === 'featured') return 'Dettaglio in evidenza';
     if (second && first === 'styles') return 'Editor stile';
+
+    // Una pagina, due parti: «Regole» e, con la vista, «Calendario».
+    if (first === 'scheduling') return new URLSearchParams(search).get('vista') === 'calendario' ? 'Calendario' : 'Regole';
 
     const { key } = resolveBusinessRoute(pathname, businessId);
     return key ? businessRouteLabel(key, { catalogLabel }) : undefined;
@@ -99,13 +113,12 @@ export default function MainLayout() {
     const isNarrow = useMediaQuery("(max-width: 1023px)");
     const { selectedTenant, loading } = useTenant();
     const { businessId } = useParams<{ businessId: string }>();
-    const { pathname } = useLocation();
+    const { pathname, search } = useLocation();
     // Return from Stripe (re-subscribe lands on /settings/abbonamento?checkout_session=):
     // link the tenant before the "no subscription" gate below can bounce it.
     const checkoutSync = useCheckoutReturnSync();
 
     const { catalogLabel } = useVerticalConfig();
-    const pageName = businessId ? resolvePageTitle(businessId, pathname, catalogLabel) : undefined;
     // Il contesto della sidebar (§51.2): dalle sedi che chi guarda legge e dal
     // path. Una sede: sidebar unica, ovunque. Più sedi: dentro una sede la
     // sidebar è la sua; `/locations` senza id resta azienda.
@@ -124,6 +137,10 @@ export default function MainLayout() {
     useEffect(() => {
         if (rememberedSedeId) rememberLastSede(rememberedSedeId);
     }, [rememberedSedeId]);
+    // Con una sede sola il nome della sede non aggiunge niente all'azienda.
+    const sedeName = (id: string) =>
+        readableActivities.length > 1 ? readableActivities.find(a => a.id === id)?.name : undefined;
+    const pageName = businessId ? resolvePageTitle(businessId, pathname, search, catalogLabel, sedeName) : undefined;
     const tenantName = selectedTenant?.name;
     usePageTitle(pageName && tenantName ? `${pageName} · ${tenantName}` : pageName);
 

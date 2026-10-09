@@ -254,7 +254,25 @@ function makeTables(): Tables {
         // «Carta e2e» è usata da una regola di layout.
         schedule_layout: [{ schedule_id: uuid(701), tenant_id: TENANT_ID, catalog_id: MENU.carta }],
         schedules: [
-            { id: uuid(701), tenant_id: TENANT_ID, name: "Menu weekend e2e", rule_type: "layout", target_type: null, target_id: null, apply_to_all: false, enabled: true }
+            {
+                id: uuid(701),
+                tenant_id: TENANT_ID,
+                name: "Menu weekend e2e",
+                rule_type: "layout",
+                target_type: null,
+                target_id: null,
+                apply_to_all: false,
+                enabled: true,
+                // Le colonne del tempo, come le legge la pagina dei Menù (`listAppearanceSources`).
+                priority: 10,
+                time_mode: "always",
+                days_of_week: null,
+                time_from: null,
+                time_to: null,
+                start_at: null,
+                end_at: null,
+                created_at: "2026-09-01T10:00:00Z"
+            }
         ],
         schedule_targets: [],
         schedule_featured_contents: [],

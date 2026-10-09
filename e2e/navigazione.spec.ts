@@ -785,7 +785,7 @@ test.describe("Programmazione: azienda e sede (T9b, supera §51.11)", () => {
         await page.goto(`${paths[1]}/cosa-vedono`);
         await expect(page.getByRole("main").getByRole("table").first()).toBeVisible({ timeout: 15_000 });
         // Il link compare solo quando c'è qualcosa da sistemare in Programmazione.
-        const link = page.getByRole("main").getByRole("link", { name: "Vai a Programmazione" });
+        const link = page.getByRole("main").getByRole("link", { name: "Vai alle regole" });
         if ((await link.count()) > 0) {
             await expect(link.first()).toHaveAttribute("href", `${paths[1]}/programmazione`);
         }

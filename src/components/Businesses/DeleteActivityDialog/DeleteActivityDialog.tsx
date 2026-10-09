@@ -89,9 +89,9 @@ export function DeleteActivityDialog({
             const disabled = result.affected_schedules_disabled ?? 0;
             const message =
                 disabled === 1
-                    ? "Sede eliminata. 1 regola di Programmazione è passata in bozza perché non raggiunge più nessuna sede."
+                    ? "Sede eliminata. 1 regola del Calendario è passata in bozza perché non raggiunge più nessuna sede."
                     : disabled > 1
-                        ? `Sede eliminata. ${disabled} regole di Programmazione sono passate in bozza perché non raggiungono più nessuna sede.`
+                        ? `Sede eliminata. ${disabled} regole del Calendario sono passate in bozza perché non raggiungono più nessuna sede.`
                         : "Sede eliminata.";
             showToast({ message, type: "success", duration: disabled > 0 ? 4000 : 2500 });
             // Una sede in meno può cambiare la navigazione (§51.2): sidebar e
@@ -125,7 +125,7 @@ export function DeleteActivityDialog({
             onClose={onClose}
             onConfirm={handleConfirm}
             title={`Elimina «${activity?.name ?? ""}»`}
-            message="Non si può annullare. Insieme alla sede vengono eliminati i suoi tavoli, i QR dei tavoli, le prenotazioni, le stampanti collegate e lo storico degli ordini. L'indirizzo web si libera e i link in giro smettono di funzionare."
+            message="Non si può annullare. Insieme alla sede vengono eliminati i suoi tavoli, i QR dei tavoli, le prenotazioni, le stampanti collegate e lo storico delle comande. L'indirizzo web si libera e i link in giro smettono di funzionare."
             confirmText={activity?.name}
             confirmFieldLabel="Scrivi il nome della sede per confermare"
             confirmLabel={isDeleting ? "Eliminazione in corso…" : "Elimina"}
@@ -144,7 +144,7 @@ export function DeleteActivityDialog({
             </Text>
             {isLoadingImpact && (
                 <Text variant="body-sm" colorVariant="muted">
-                    Controllo quali regole di Programmazione la usano…
+                    Controllo quali regole del Calendario la usano…
                 </Text>
             )}
             {!isLoadingImpact && impact && (

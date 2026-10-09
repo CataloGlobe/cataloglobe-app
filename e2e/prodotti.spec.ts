@@ -73,9 +73,9 @@ async function search(page: Page, text: string): Promise<void> {
     await field.fill(text);
 }
 
-/** Tab della collezione in testata (oggi «Gruppi Prodotti», dopo P2 «Gruppi»). */
+/** La collezione in testata: un interruttore (artifact v4, un secondo livello non è una tab). */
 function collection(page: Page, name: RegExp): Locator {
-    return page.getByRole("tab", { name });
+    return page.getByRole("radio", { name });
 }
 
 /** Apre una collezione: la tab, o il selettore di sezione della barra compatta. */
@@ -1136,7 +1136,7 @@ test.describe("Prodotti — lotto bug B", () => {
         test("P2: ?tab=attributes a freddo apre gli Attributi dell'elenco", async ({ page }) => {
             await openList(page);
             await page.goto(`${page.url().split("?")[0]}?tab=attributes`);
-            await expect(collection(page, /^Attributi$/)).toHaveAttribute("aria-selected", "true", { timeout: 15_000 });
+            await expect(collection(page, /^Attributi$/)).toHaveAttribute("aria-checked", "true", { timeout: 15_000 });
             await expect(main(page).getByText("Taglia", { exact: true })).toBeVisible();
         });
 

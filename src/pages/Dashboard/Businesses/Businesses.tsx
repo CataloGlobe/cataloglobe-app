@@ -20,7 +20,6 @@ import { countPendingReservationsByActivity } from "@/services/supabase/reservat
 import { PageGate } from "@/components/PageGate/PageGate";
 
 import { BusinessList } from "@/components/Businesses/BusinessList/BusinessList";
-import { Tabs } from "@/components/ui/Tabs/Tabs";
 import { ActivityGroupsSection } from "@/components/Businesses/ActivityGroupsSection/ActivityGroupsSection";
 
 import { useAddActivityGate } from "@/hooks/useAddActivityGate";
@@ -181,16 +180,17 @@ export default function Businesses() {
   const leading = useMemo(() => {
     if (businesses.length <= 1) return undefined;
     return (
-      <Tabs<ActiveTab>
+      // Un secondo livello è un interruttore, mai altre tab (artifact v4).
+      <SegmentedControl<ActiveTab>
         value={activeTab}
         onChange={handleTabChange}
-        variant="line"
-      >
-        <Tabs.List>
-          <Tabs.Tab value="activities">Sedi</Tabs.Tab>
-          <Tabs.Tab value="groups">Gruppi di sedi</Tabs.Tab>
-        </Tabs.List>
-      </Tabs>
+        size="sm"
+        label="Sedi o gruppi"
+        options={[
+          { value: "activities", label: "Sedi" },
+          { value: "groups", label: "Gruppi di sedi" }
+        ]}
+      />
     );
   }, [activeTab, handleTabChange, businesses.length]);
 

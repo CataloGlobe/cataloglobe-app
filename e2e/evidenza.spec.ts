@@ -648,7 +648,7 @@ test.describe("In evidenza — dove e quando compare (§50.13)", () => {
         await openContent(page, FEATURED.chiusura);
         await openUsageTab(page);
         await expect(main(page).getByText("Nessuna regola lo mostra: esiste e nessun cliente lo vede.")).toBeVisible({ timeout: 15_000 });
-        await expect(main(page).getByRole("link", { name: "Vai a Programmazione" })).toBeVisible();
+        await expect(main(page).getByRole("link", { name: "Vai alle regole" })).toBeVisible();
     });
 });
 

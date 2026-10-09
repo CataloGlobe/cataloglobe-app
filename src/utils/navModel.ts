@@ -284,10 +284,14 @@ const SERVIZIO: NavEntry = {
     // loro, la parte resta accesa).
     matchSegments: ["prenotazioni", "comande"],
     gate: { on: "activityCheck", check: canSeeServizio },
-    // Niente lucchetto sulla voce: la Sala c'è su ogni piano, Elenco e Mappa
-    // hanno il loro dentro la pagina.
-    usable: (permissions, hasFeature, activityId) =>
-        resolveServizioMode(null, permissions, hasFeature, activityId) !== null
+    // La Sala è una parte a sé: «In servizio» è Elenco e Mappa, e senza
+    // prenotazioni né ordini al tavolo nel piano ha il lucchetto; la sezione
+    // si apre sulla Sala.
+    requiresFeature: ["table_reservation", "table_ordering"],
+    usable: (permissions, hasFeature, activityId) => {
+        const mode = resolveServizioMode(null, permissions, hasFeature, activityId);
+        return mode !== null && mode !== "sala";
+    }
 };
 
 // La sala da modificare (tavoli, zone, QR): oggi il modo `sala` di Servizio.
@@ -426,9 +430,11 @@ const CALENDARIO_SEZIONE: NavGroup = {
     key: "calendario",
     title: "Calendario",
     seat: "multi",
-    entries: [CALENDARIO, SCHEDULING, COSA_VEDONO]
+    entries: [CALENDARIO, SCHEDULING]
 };
-const IN_SALA: NavGroup = { key: "servizio", title: "Servizio", seat: "one", entries: [SERVIZIO, SALA, STORICO] };
+// «Cosa vedono i clienti» sta in Servizio (D157, Alex 2026-10-09): un piatto
+// finito si segna durante il turno, senza passare dal Calendario.
+const IN_SALA: NavGroup = { key: "servizio", title: "Servizio", seat: "one", entries: [SERVIZIO, COSA_VEDONO, SALA, STORICO] };
 const NUMERI: NavGroup = {
     key: "numeri",
     title: "Clienti e numeri",
@@ -481,7 +487,7 @@ const SEDE_ENTRIES: readonly NavEntry[] = [
 ];
 
 /** Le pagine del lavoro in sala, nell'ordine in cui si atterra. */
-const OPERATIVE_ENTRIES: readonly NavEntry[] = [SERVIZIO, PRENOTAZIONI, COMANDE, STORICO];
+const OPERATIVE_ENTRIES: readonly NavEntry[] = [SERVIZIO, SALA, PRENOTAZIONI, COMANDE, STORICO];
 
 /** Dove si va quando nessuna voce è usabile: la Scheda dice il perché. */
 export const SEDE_FALLBACK_SEGMENT = SCHEDA.segment;
