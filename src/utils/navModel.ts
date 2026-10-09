@@ -108,6 +108,10 @@ export interface NavEntry {
     /** `NavLink end`: la voce si accende solo sul suo indirizzo esatto. */
     end?: boolean;
     signal?: NavSignal;
+    /** La parte sceglie le sedi diversamente dalla sua sezione (Storico: anche tutte). */
+    seat?: NavSeatKind;
+    /** Qui «Confronta con» vale (D152): Calendario, Andamento. */
+    confronto?: boolean;
     /** La label segue la verticale dell'azienda (`catalogLabel`). */
     verticalLabel?: boolean;
 }
@@ -132,6 +136,16 @@ export interface NavGroup {
     seat: NavSeatKind;
     /** Le parti (al massimo cinque, un livello solo). Una sola: link diretto. */
     entries: NavEntry[];
+}
+
+/**
+ * Le sedi in alto a destra per la parte aperta (D152): il tipo di scelta
+ * della sezione, o quello della parte, e se «Confronta con» vale. In
+ * Servizio una sede sola, ma lo Storico anche tutte (Alex 2026-10-09).
+ */
+export function seatOf(group: NavGroup, entry?: NavEntry | null): { seat: NavSeatKind; confronto: boolean } {
+    const seat = entry?.seat ?? group.seat;
+    return { seat, confronto: seat === "multi" && !!entry?.confronto };
 }
 
 export interface NavModel {
@@ -165,6 +179,7 @@ const SCHEDA: NavEntry = {
 // «Cosa vedono i clienti» (§19, M7): legge chi legge la sede; scrive chi ha
 // `activity.manage`, lo stesso permesso delle RLS (D2, §50.14).
 const COSA_VEDONO: NavEntry = {
+    seat: "one",
     key: "cosa-vedono",
     label: "Cosa vedono i clienti",
     level: "sede",
@@ -204,6 +219,7 @@ const PRODUCTS: NavEntry = {
 // Calendario e Regole: la stessa pagina della Programmazione, la vista dalla
 // query. Dentro una sede la Programmazione della sede.
 const CALENDARIO: NavEntry = {
+    confronto: true,
     key: "calendario",
     label: "Calendario",
     level: "azienda",
@@ -303,6 +319,7 @@ const COMANDE: NavEntry = {
 };
 
 const STORICO: NavEntry = {
+    seat: "multi",
     key: "storico",
     label: "Storico",
     level: "sede",
@@ -314,6 +331,7 @@ const STORICO: NavEntry = {
 // Andamento a due livelli (§51.10): il totale delle sedi leggibili fuori,
 // la sede dentro. Stesso componente, la sede dal path.
 const ANALYTICS: NavEntry = {
+    confronto: true,
     key: "analytics",
     label: "Andamento",
     level: "azienda",
@@ -350,6 +368,7 @@ const RECENSIONI: NavEntry = {
 // La rubrica è di tutta l'azienda (§6, §51.11). Il gate di piano resta
 // `table_reservation` finché le prenotazioni sono l'unica sorgente dei profili.
 const GUESTS: NavEntry = {
+    seat: "none",
     key: "guests",
     label: ROUTE_LABELS.guests,
     level: "azienda",

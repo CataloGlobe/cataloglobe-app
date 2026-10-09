@@ -10,6 +10,7 @@ import {
     isConfigurator,
     navEntryForSedeSegment,
     resolveNavContext,
+    seatOf,
     sedeLandingSegment,
     switchSedePath,
     type NavContext
@@ -311,5 +312,32 @@ describe("navEntryForSedeSegment — la voce accesa per un segmento di sede", ()
         expect(navEntryForSedeSegment("analitiche")?.key).toBe("analitiche");
         expect(navEntryForSedeSegment("recensioni")?.key).toBe("recensioni");
         expect(navEntryForSedeSegment("boh")).toBeNull();
+    });
+});
+
+describe("seatOf: le sedi in alto per la parte aperta (D152)", () => {
+    const parts = (ctx: NavContext) =>
+        NAV_MODELS[ctx].groups.flatMap(g => g.entries.map(e => [g.key, e.label, seatOf(g, e).seat, seatOf(g, e).confronto]));
+
+    it("confronto solo in Calendario e Andamento; Storico anche tutte, Clienti dell'azienda", () => {
+        expect(parts("azienda")).toEqual([
+            ["overview", "Panoramica", "multi", false],
+            ...NAV_MODELS.azienda.groups[1].entries.map(e => ["crea", e.label, "none", false]),
+            ["calendario", "Calendario", "multi", true],
+            ["calendario", "Regole", "multi", false],
+            ["calendario", "Cosa vedono i clienti", "one", false],
+            ["servizio", "In servizio", "one", false],
+            ["servizio", "Sala", "one", false],
+            ["servizio", "Storico", "multi", false],
+            ["numeri", "Andamento", "multi", true],
+            ["numeri", "Recensioni", "multi", false],
+            ["numeri", "Clienti", "none", false],
+            ["sedi", "Sedi", "list", false]
+        ]);
+    });
+
+    it("senza parte vale la sezione, senza confronto", () => {
+        const cal = NAV_MODELS.azienda.groups.find(g => g.key === "calendario")!;
+        expect(seatOf(cal)).toEqual({ seat: "multi", confronto: false });
     });
 });
