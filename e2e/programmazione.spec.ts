@@ -2,7 +2,7 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import { asRole } from "./asRole";
 import { openBusinessPage } from "./business";
 import { sidebarLink } from "./nav";
-import { MATRIX_RULE_NAME, MISSING_RULE, PRODUCT, RULE, RULE_NAME, SEDE, StubError, TENANT_ID, stubProgrammazione, type ProgrammazioneStub, type WriteCall } from "./programmazioneStub";
+import { MATRIX_RULE_NAME, MENU, MISSING_RULE, PRODUCT, RULE, RULE_NAME, SEDE, STYLE, StubError, TENANT_ID, stubProgrammazione, type ProgrammazioneStub, type WriteCall } from "./programmazioneStub";
 
 /**
  * Programmazione (lotto `ds-5-programmazione`, P0). Scritto sulla pagina di
@@ -610,7 +610,71 @@ test.describe("Programmazione — calendario, simulatore, guida", () => {
         await expect(main(page).getByRole("complementary", { name: "Calendario del mese" })).toBeVisible();
         await main(page).getByRole("button", { name: /^Stagionali Centro e2e · / }).first().click();
         await main(page).getByRole("button", { name: "Modifica completa" }).click();
-        await expect(page).toHaveURL(new RegExp(`/programmazione/${RULE.stagionali}`));
+        // la sezione intera dentro il Calendario, non la pagina della regola
+        // come nella v10, la modifica di piatti porta i nomi dei piatti
+        await expect(main(page).getByRole("heading", { name: "Modifica · Birra e2e, Tiramisù e2e" })).toBeVisible();
+        await expect(page).not.toHaveURL(new RegExp(`/programmazione/${RULE.stagionali}`));
+        await expect(main(page).getByRole("complementary", { name: "Anteprima" })).toBeVisible();
+        // uscendo senza salvare si torna al pannello da cui si era partiti, come nella v10
+        await main(page).getByRole("button", { name: "Torna al calendario" }).click();
+        await expect(panel).toBeVisible();
+        await expect(main(page).getByRole("complementary", { name: "Anteprima" })).toHaveCount(0);
+    });
+
+    test("cablaggio: «Modifica completa» riscrive la regola com'è nella sezione", async ({ page }) => {
+        stub.onWrite("schedules.PATCH", touched);
+        stub.onWrite("schedule_visibility_overrides.DELETE", () => null);
+        stub.onWrite("schedule_visibility_overrides.POST", () => null);
+        stub.onWrite("rpc.update_schedule_targets", () => null);
+        await openSeatList(page, SEDE.centro, "all");
+        await openCalendar(page);
+        await main(page).getByRole("button", { name: /^Disponibilità · / }).first().click();
+        await main(page).getByRole("button", { name: /^Stagionali Centro e2e · / }).first().click();
+        await main(page).getByRole("button", { name: "Modifica completa" }).click();
+        await main(page).getByRole("checkbox", { name: "Tiramisù e2e" }).click();
+        expect(writesOf(stub, "schedule_visibility_overrides.POST")).toHaveLength(0);
+        await main(page).getByRole("button", { name: "Salva modifiche" }).click();
+        await expect.poll(() => writesOf(stub, "schedule_visibility_overrides.POST").length).toBe(1);
+        const left = writesOf(stub, "schedule_visibility_overrides.POST")[0].body as Array<Record<string, unknown>>;
+        expect(left.map(r => r.product_id)).toEqual([PRODUCT.birra]);
+        expect(writesOf(stub, "schedules.POST")).toHaveLength(0);
+        await expect(main(page).getByRole("status")).toHaveText("Salvato: Birra e2e.");
+    });
+
+    test("cablaggio: «Aggiungi» dalla sede mette un menù nuovo su quella sede", async ({ page }) => {
+        const NEW_ID = "e2e0d000-0000-4000-a000-000000000781";
+        stub.onWrite("schedules.POST", () => ({ id: NEW_ID }));
+        stub.onWrite("schedules.PATCH", () => [{ id: NEW_ID }]);
+        stub.onWrite("schedule_layout.PATCH", () => [{ id: NEW_ID }]);
+        stub.onWrite("schedule_layout.POST", () => null);
+        stub.onWrite("rpc.update_schedule_targets", () => null);
+        await openSeatList(page, SEDE.centro, "layout");
+        await openCalendar(page);
+        await main(page).getByRole("button", { name: "Aggiungi", exact: true }).click();
+        await expect(main(page).getByRole("heading", { name: "Cosa vuoi mettere in calendario?" })).toBeVisible();
+        await main(page).getByRole("button", { name: /^Menù/ }).first().click();
+        // Avanti non va finché manca il menù
+        await main(page).getByRole("button", { name: "Avanti" }).click();
+        await expect(main(page).getByText("Scegli un menù").first()).toBeVisible();
+        await main(page).getByRole("radio", { name: /Pranzo e2e/ }).click();
+        await main(page).getByRole("button", { name: "Avanti" }).click();
+        await expect(main(page).getByRole("button", { name: "2 Quando" })).toHaveAttribute("aria-current", "step");
+        await main(page).getByRole("radio", { name: "Fasce orarie" }).click();
+        // dentro una sede sola il «Dove» non c'è: tre passi
+        await expect(main(page).getByRole("button", { name: /Dove/ })).toHaveCount(0);
+        await main(page).getByRole("button", { name: "Avanti" }).click();
+        await expect(main(page).getByText("In una frase")).toBeVisible();
+        await expect(main(page).getByRole("button", { name: "1 Cosa, fatto" })).toBeVisible();
+        await noHorizontalScroll(page);
+        await main(page).getByRole("button", { name: "Aggiungi al calendario" }).click();
+        await expect.poll(() => writesOf(stub, "rpc.update_schedule_targets").length).toBe(1);
+        expect(writesOf(stub, "schedules.POST")).toHaveLength(1);
+        const targets = JSON.stringify(writesOf(stub, "rpc.update_schedule_targets")[0].body);
+        expect(targets).toContain(SEDE.centro);
+        expect(targets).not.toContain(SEDE.porto);
+        const layout = [...writesOf(stub, "schedule_layout.PATCH"), ...writesOf(stub, "schedule_layout.POST")].map(w => JSON.stringify(w.body));
+        expect(layout.some(b => b.includes(MENU.pranzo) && b.includes(STYLE.base))).toBe(true);
+        await expect(main(page).getByRole("status")).toHaveText(/^Aggiunto al calendario: Pranzo e2e/);
     });
 
     test("cablaggio: «Togli» un piatto riscrive la regola senza di lui", async ({ page }) => {

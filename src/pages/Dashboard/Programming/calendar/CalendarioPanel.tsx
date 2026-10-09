@@ -27,7 +27,8 @@ export type CalendarioPanelProps = {
     pairedName: string | null;
     writable: boolean;
     onClose: () => void;
-    onFull: () => void;
+    /** La sezione intera; `only` = il piatto toccato, da modificare da solo. */
+    onFull: (only?: string) => void;
     onDrop: (item?: DropItem) => Promise<void>;
 };
 
@@ -188,7 +189,7 @@ export function CalendarioPanel(p: CalendarioPanelProps) {
                                             )}
                                         </span>
                                         <span className={s.iacts}>
-                                            <IconButton size="sm" icon={<Pencil size={14} />} aria-label={`Modifica ${r.name}`} data-tip="Modifica questo piatto" onClick={p.onFull} />
+                                            <IconButton size="sm" icon={<Pencil size={14} />} aria-label={`Modifica ${r.name}`} data-tip="Modifica questo piatto" onClick={() => p.onFull("productId" in r.item ? r.item.productId : undefined)} />
                                             {p.writable && (
                                                 <IconButton size="sm" icon={<X size={14} />} aria-label={`Togli ${r.name}`} data-tip="Togli questo piatto" onClick={() => setConfirm(r.key)} />
                                             )}
@@ -232,7 +233,7 @@ export function CalendarioPanel(p: CalendarioPanelProps) {
                                 Togli
                             </Button>
                         )}
-                        <Button size="sm" variant="primary" rightIcon={<ArrowRight size={16} />} onClick={p.onFull} className={s.hfa}>
+                        <Button size="sm" variant="primary" rightIcon={<ArrowRight size={16} />} onClick={() => p.onFull()} className={s.hfa}>
                             Modifica completa
                         </Button>
                     </>

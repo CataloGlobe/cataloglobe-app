@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as RPointerEvent, type ReactNode } from "react";
-import { Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Columns3, PanelLeft, PanelLeftClose, Square, Store, X as XIcon } from "lucide-react";
+import { Calendar, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Columns3, PanelLeft, PanelLeftClose, Plus, Square, Store, X as XIcon } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import { IconButton } from "@/components/ui/Button/IconButton";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
@@ -29,6 +29,7 @@ import {
     type CalKind,
     type CalNames,
     type CalSeat,
+    type CalWhen,
     type DayNum,
     type LaneSeg,
     type Line,
@@ -36,6 +37,25 @@ import {
 } from "./calendarModel";
 import { CalendarioPanel, type ProductInfo } from "./CalendarioPanel";
 import type { DropItem } from "./calendarWrites";
+import { CalendarioSection, type SectionGroup } from "./CalendarioSection";
+import {
+    blankDraft,
+    cloneDraft,
+    draftEntry,
+    draftFromEntry,
+    draftLabel,
+    hoursText,
+    isDish,
+    listIt,
+    mShort,
+    elides,
+    missing,
+    whenKey,
+    type Draft,
+    type DraftLookups,
+    type PickProduct,
+    type PickThing
+} from "./calendarDraft";
 import s from "./CalendarioView.module.scss";
 
 const DAYS = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"];
@@ -75,7 +95,28 @@ export type CalendarioViewProps = {
     onOpenRule?: (rule: LayoutRule) => void;
     /** «Togli»: una regola intera, o un suo piatto o contenuto. */
     onDrop?: (rule: LayoutRule, item?: DropItem) => Promise<void>;
+    /** La sezione Aggiungi / Modifica completa: senza, «Modifica completa» va al dettaglio della regola. */
+    section?: {
+        pickList: readonly PickProduct[];
+        catalogs: readonly PickThing[];
+        styles: readonly PickThing[];
+        featured: readonly PickThing[];
+        groups: readonly SectionGroup[];
+        /** Dove nasce una cosa nuova: la sede, dentro la sede. */
+        defaultWhere: CalEntry["where"];
+        /** Lo stile di sistema, se non c'è una regola di base. */
+        systemStyleId: string | null;
+        canAdd: boolean;
+        onSave: (draft: Draft, lookups: DraftLookups) => Promise<void>;
+        onDrop: (draft: Draft) => Promise<void>;
+        /** Porta alla pagina dove si crea un menù, uno stile, un In evidenza. */
+        onGoNew: (kind: CalKind) => void;
+    };
 };
+
+type RowOpts = { only?: CalKind; list?: readonly CalEntry[]; ax?: Axis; pv?: string };
+
+const KEPT_KEY = "calendario:da-parte";
 
 type Pick = { kind: CalKind; thing: string; date: DayNum; sede: string; from: number };
 const NO_PRODUCTS: ReadonlyMap<string, ProductInfo> = new Map();
@@ -160,7 +201,8 @@ export default function CalendarioView({
     formatNames = NO_FORMATS,
     isWritable,
     onOpenRule,
-    onDrop
+    onDrop,
+    section
 }: CalendarioViewProps) {
     const [nowDate, setNowDate] = useState(() => new Date());
     useEffect(() => {
@@ -185,6 +227,19 @@ export default function CalendarioView({
     const [pick, setPick] = useState<Pick | null>(null);
     const [panelBefore, setPanelBefore] = useState(true);
     const [note, setNote] = useState<{ text: string; error?: boolean } | null>(null);
+    // la sezione Aggiungi / Modifica completa prende il posto del calendario
+    const [sec, setSec] = useState<{ back: boolean } | null>(null);
+    const [draft, setDraft] = useState<Draft | null>(null);
+    const [kept, setKept] = useState<Draft | null>(null);
+    const [busy, setBusy] = useState(false);
+    const upd = useCallback((fn: (d: Draft) => void) => {
+        setDraft(d => {
+            if (!d) return d;
+            const n = cloneDraft(d);
+            fn(n);
+            return n;
+        });
+    }, []);
     const openPick = (p: Pick) => {
         if (!pick) {
             setPanelBefore(panel);
@@ -260,8 +315,6 @@ export default function CalendarioView({
 
     const { onPointerMove, hide, node: tipNode } = useTip();
     const hours = useHourStep(axis);
-    const X = (m: number) => ((m - axis.from) / (axis.to - axis.from)) * 100;
-    const NH = (axis.to - axis.from) / 60;
 
     const selDay = week + dDay;
     const step = (dir: number) => {
@@ -305,24 +358,33 @@ export default function CalendarioView({
     };
 
     /* ---------- una sede, i suoi giorni ---------- */
-    const rows = (sede: CalSede, days: number[], label: (i: number, d: DayNum) => ReactNode) => {
+    const rows = (sede: CalSede, days: number[], label: (i: number, d: DayNum) => ReactNode, o: RowOpts = {}) => {
         const seat = seatOf(sede.id);
+        const list = o.list ?? entries, ax = o.ax ?? axis;
+        const X = (m: number) => ((m - ax.from) / (ax.to - ax.from)) * 100;
+        const NH = (ax.to - ax.from) / 60;
         return days.map(i => {
             const date = week + i, isToday = date === today;
-            const lanes = CAL_KINDS.map(k => ({ k, ctx: dayCtx(entries, k, seat, date) }))
-                .map(l => ({ ...l, segs: fLane(l.ctx, axis) }))
-                .filter(l => view === "day" || l.segs.length);
+            const lanes = (o.only ? [o.only] : CAL_KINDS).map(k => ({ k, ctx: dayCtx(list, k, seat, date) }))
+                .map(l => ({ ...l, segs: fLane(l.ctx, ax) }))
+                .filter(l => o.only || view === "day" || l.segs.length);
             // l'ora di adesso: dopo mezzanotte sta in coda alla serata di ieri
-            const nowX = isToday && nowMin >= axis.from ? X(nowMin) : date === today - 1 && nowMin + 1440 < axis.to ? X(nowMin + 1440) : null;
+            const nowX = isToday && nowMin >= ax.from ? X(nowMin) : date === today - 1 && nowMin + 1440 < ax.to ? X(nowMin + 1440) : null;
             return (
                 <div key={sede.id + ":" + i} className={`${s.fday} ${isToday ? s.today : ""}`}>
                     <div className={s.fdl}>{label(i, date)}</div>
                     <div className={s.flabs}>
                         {lanes.map(l => {
-                            const isOpen = !!open && open.kind === l.k && (view === "day" || open.day === i) && open.sede === sede.id;
-                            const lines = isOpen ? fLines(l.ctx, axis) : [];
+                            const isOpen = !!o.only || (!!open && open.kind === l.k && (view === "day" || open.day === i) && open.sede === sede.id);
+                            const lines = isOpen ? fLines(l.ctx, ax) : [];
                             return (
                                 <div key={l.k} className={s.fl}>
+                                    {o.only ? (
+                                        <span className={`${s.flab} ${s.open}`} style={{ "--c": KIND_COLOR[l.k] } as CSSProperties}>
+                                            <span className={s.sq} />
+                                            <span className={s.flt}>{KIND_LABEL[l.k]}</span>
+                                        </span>
+                                    ) : (
                                     <button
                                         type="button"
                                         className={`${s.flab} ${isOpen ? s.open : ""}`}
@@ -334,9 +396,11 @@ export default function CalendarioView({
                                         <span className={s.flt}>{KIND_LABEL[l.k]}</span>
                                         {isOpen ? <ChevronUp size={13} aria-hidden /> : <ChevronDown size={13} aria-hidden />}
                                     </button>
+                                    )}
                                     {lines.map(ln => (
                                         <div key={ln.thing} className={`${s.fname} ${ln.preview ? s.pv : ""}`} style={{ "--c": colorOf(l.k, ln.thing) } as CSSProperties}>
                                             <span>{l.k === "menu" ? shortName(ln.thing) : ln.thing}</span>
+                                            {ln.preview && o.pv && <em className={s.pv}>{o.pv}</em>}
                                         </div>
                                     ))}
                                 </div>
@@ -345,7 +409,7 @@ export default function CalendarioView({
                     </div>
                     <div className={s.ftl} style={{ backgroundSize: `calc(100% / ${NH}) 100%` }}>
                         {lanes.map(l => {
-                            const isOpen = !!open && open.kind === l.k && (view === "day" || open.day === i) && open.sede === sede.id;
+                            const isOpen = !!o.only || (!!open && open.kind === l.k && (view === "day" || open.day === i) && open.sede === sede.id);
                             if (!isOpen)
                                 return (
                                     <div key={l.k} className={s.flane}>
@@ -356,7 +420,7 @@ export default function CalendarioView({
                                         )}
                                     </div>
                                 );
-                            const lines = fLines(l.ctx, axis);
+                            const lines = fLines(l.ctx, ax);
                             return (
                                 <div key={l.k} className={`${s.flane} ${s.fopen}`}>
                                     <div className={s.fgap} />
@@ -364,6 +428,15 @@ export default function CalendarioView({
                                         <div key={ln.thing} className={s.fline}>
                                             {ln.segs.map(g => {
                                                 const tip = lineTip(ln, g, seat);
+                                                if (o.only)
+                                                    return (
+                                                        <span
+                                                            key={g.from}
+                                                            className={`${s.fls} ${g.state === "on" ? s.on : s.off} ${g.pv ? s.pv : ""}`}
+                                                            data-tip={tip}
+                                                            style={{ "--c": colorOf(l.k, ln.thing), left: X(g.from) + "%", width: X(g.to) - X(g.from) + "%" } as CSSProperties}
+                                                        />
+                                                    );
                                                 return (
                                                     <button
                                                         key={g.from}
@@ -438,16 +511,20 @@ export default function CalendarioView({
             </div>
         ));
 
-    const hoursHead = [];
-    for (let m = Math.ceil(axis.from / 60) * 60 + 60; m < axis.to; m += 60) {
-        const h = (m - axis.from) / 60;
-        const hidden = hours.step === 1 ? false : hours.step === 2 ? h % 2 !== 0 : (h - 1) % 3 !== 0;
-        hoursHead.push(
-            <span key={m} hidden={hidden} style={{ left: X(m) + "%" }}>
-                {(m / 60) % 24}
-            </span>
-        );
-    }
+    const hoursFor = (ax: Axis, st: number) => {
+        const out: ReactNode[] = [];
+        for (let m = Math.ceil(ax.from / 60) * 60 + 60; m < ax.to; m += 60) {
+            const h = (m - ax.from) / 60;
+            const hidden = st === 1 ? false : st === 2 ? h % 2 !== 0 : (h - 1) % 3 !== 0;
+            out.push(
+                <span key={m} hidden={hidden} style={{ left: ((m - ax.from) / (ax.to - ax.from)) * 100 + "%" }}>
+                    {(m / 60) % 24}
+                </span>
+            );
+        }
+        return out;
+    };
+    const hoursHead = hoursFor(axis, hours.step);
 
     const miniMonth = () => {
         const sp = dayParts(selDay);
@@ -494,6 +571,174 @@ export default function CalendarioView({
 
     const togglePicked = (id: string) => setPicked(p => (p.includes(id) ? (p.length > 1 ? p.filter(x => x !== id) : p) : sedi.filter(x => x.id === id || p.includes(x.id)).map(x => x.id)));
 
+    /* ---------- la sezione Aggiungi / Modifica completa ---------- */
+    const L = useMemo<DraftLookups>(
+        () => ({
+            products: new Map((section?.pickList ?? []).map(x => [x.id, x])),
+            catalogs: names.catalogs,
+            styles: names.styles,
+            featured: names.featured,
+            sedi: new Map(sedi.map(x => [x.id, x.name])),
+            groups: groupNames,
+            multi
+        }),
+        [section?.pickList, names, sedi, groupNames, multi]
+    );
+    // oggi menù e stile vanno in coppia: si parte da quelli della regola di base
+    const base = useMemo(
+        () =>
+            rules.find(r => r.enabled && r.rule_type === "layout" && r.applyToAll && r.time_mode === "always" && !r.start_at && !r.end_at && r.layout?.catalog_id && r.layout?.style_id)
+                ?.layout ?? null,
+        [rules]
+    );
+    const pairFor = (k: CalKind) =>
+        k === "menu" ? (base?.style_id ?? section?.systemStyleId ?? section?.styles[0]?.id ?? null) : k === "style" ? (base?.catalog_id ?? section?.catalogs[0]?.id ?? null) : null;
+    const openAdd = () => {
+        setSec({ back: !!pick });
+        setDraft(null);
+        setNote(null);
+    };
+    const openFull = (e: CalEntry, only?: string) => {
+        setSec({ back: true });
+        setDraft(draftFromEntry(e, L, only ?? null));
+        setNote(null);
+    };
+    const closeSec = (saved: boolean) => {
+        const back = sec?.back;
+        setSec(null);
+        setDraft(null);
+        if (saved || !back) closePick();
+    };
+    // «Tieni da parte» sopravvive all'uscita verso Menù, Stili, In evidenza
+    useEffect(() => {
+        try {
+            const raw = sessionStorage.getItem(KEPT_KEY);
+            if (raw) setKept(JSON.parse(raw) as Draft);
+        } catch {
+            /* niente da riprendere */
+        }
+    }, []);
+    const keep = (d: Draft | null) => {
+        setKept(d);
+        try {
+            if (d) sessionStorage.setItem(KEPT_KEY, JSON.stringify(d));
+            else sessionStorage.removeItem(KEPT_KEY);
+        } catch {
+            /* resta solo finché la pagina è aperta */
+        }
+    };
+    const saveSec = async (then?: CalKind) => {
+        if (!section || !draft) return;
+        setBusy(true);
+        try {
+            await section.onSave(draft, L);
+            const pd = draft.when.period;
+            if (pd && (pd.from > week + 6 || pd.to < week)) {
+                setWeek(pd.from - dayOfWeek(pd.from));
+                setDDay(dayOfWeek(pd.from));
+            }
+            setNote({ text: (draft.mode === "edit" ? "Salvato: " : "Aggiunto al calendario: ") + draftLabel(draft, L) + "." });
+            closeSec(true);
+            if (then) section.onGoNew(then);
+        } catch {
+            setNote({ text: "Non siamo riusciti a salvare. Riprova.", error: true });
+        } finally {
+            setBusy(false);
+        }
+    };
+    const dropSec = async () => {
+        if (!section || !draft) return;
+        setBusy(true);
+        try {
+            await section.onDrop(draft);
+            setNote({ text: "Tolto dal calendario: " + draftLabel(draft, L) + "." });
+            closeSec(true);
+        } catch {
+            setNote({ text: "Non siamo riusciti a toglierlo. Riprova.", error: true });
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    // l'anteprima: il calendario con la bozza dentro
+    const pvEntry = useMemo(() => (draft ? draftEntry(draft, L, nowDate.getTime()) : null), [draft, L, nowDate]);
+    const pvList = useMemo(() => {
+        if (!draft) return null;
+        let list: CalEntry[] = entries;
+        const r = draft.rule;
+        if (r && draft.kind === "featured" && draft.only) list = list.filter(e => e.id !== `${r.id}:featured:${draft.only}`);
+        else if (r && !draft.only) list = list.filter(e => !(e.ruleId === r.id && e.kind === draft.kind));
+        return pvEntry ? [...list, pvEntry] : list;
+    }, [draft, entries, pvEntry]);
+    const pvAx = useMemo(() => (pvList ? axisFor(pvList) : axis), [pvList, axis]);
+    const pvReach = pvEntry ? shown.filter(x => specFor(pvEntry, seatOf(x.id)) !== null) : shown;
+    const pvSedi = pvReach.length ? pvReach : pvEntry ? sedi.filter(x => specFor(pvEntry, seatOf(x.id)) !== null).slice(0, 1) : shown.slice(0, 1);
+
+    // cosa cambia nel calendario, nella settimana che si vede
+    const effect = (): string[] => {
+        if (!draft || !pvList) return [];
+        if (missing(draft, L)) return ["Scegli prima cosa mettere: poi qui vedi dove va in onda."];
+        const wk = week === monday ? "Questa settimana" : "Nella settimana del " + mShort(week);
+        const groupsOf = new Map<string, string[]>();
+        for (const x of pvSedi.length ? pvSedi : shown) {
+            const seat = seatOf(x.id), cov = new Set<string>(), by = new Set<string>();
+            let mins = 0, off = 0, days = 0;
+            for (let i = 0; i < 7; i++) {
+                let on = 0;
+                for (const l of fLines(dayCtx(pvList, draft.kind, seat, week + i), pvAx).filter(l => l.preview))
+                    for (const g of l.segs) {
+                        const m = g.to - g.from;
+                        if (g.state === "on") {
+                            on += m;
+                            g.covers.forEach(c => cov.add(c));
+                        } else {
+                            off += m;
+                            if (g.by) by.add(g.by);
+                        }
+                    }
+                if (on) {
+                    mins += on;
+                    days++;
+                }
+            }
+            const out: string[] = [], pd = draft.when.period;
+            if (!mins && !off)
+                out.push(`${wk} non c'è${pd && pd.from > week + 6 ? ": comincia " + (elides(pd.from) ? "l'" : "il ") + mShort(pd.from) : pd && pd.to < week ? ": è già finito" : ""}.`);
+            else {
+                out.push(`${wk} è in onda ${days} ${days === 1 ? "giorno" : "giorni"}, ${hoursText(mins)} in tutto.`);
+                if (cov.size) out.push(`Prende il posto di ${listIt([...cov].map(q))} quando si sovrappongono.`);
+                if (by.size) out.push(`Per ${hoursText(off)} non si vede: lo copre ${listIt([...by].map(q))}.`);
+            }
+            const k = out.join("\n");
+            groupsOf.set(k, [...(groupsOf.get(k) ?? []), x.name]);
+        }
+        // le sedi con lo stesso risultato stanno insieme
+        return [...groupsOf.entries()].flatMap(([k, ss]) => {
+            const r = k.split("\n");
+            if (multi) r[0] = "A " + listIt(ss) + ": " + r[0].charAt(0).toLowerCase() + r[0].slice(1);
+            return r;
+        });
+    };
+
+    // le durate che ci sono già, prima quelle dello stesso tipo: al massimo sei
+    const durs = (k: CalKind): CalWhen[] => {
+        const m = new Map<string, CalWhen>();
+        for (const e of [...entries.filter(x => x.kind === k), ...entries]) {
+            if (m.size >= 6) break;
+            const key = whenKey(e.when);
+            if (key === "||" || (e.when.period && e.when.period.to < today) || m.has(key)) continue;
+            m.set(key, e.when);
+        }
+        return [...m.values()].sort((a, b) => (a.period ? 1 : 0) - (b.period ? 1 : 0) || (a.period?.from ?? 0) - (b.period?.from ?? 0));
+    };
+    const counts = Object.fromEntries(
+        CAL_KINDS.map(k => {
+            const es = entries.filter(e => e.kind === k && !(e.when.period && e.when.period.to < today));
+            const n = isDish(k) ? es.reduce((t, e) => t + (k === "price" ? new Set(e.rule.price_overrides.map(o => o.product_id)).size : e.rule.visibility_overrides.length), 0) : es.length;
+            return [k, n];
+        })
+    ) as Record<CalKind, number>;
+
     /* ---------- il pannello della linea toccata ---------- */
     let pickView: ReactNode = null;
     if (pick) {
@@ -523,7 +768,7 @@ export default function CalendarioView({
                     pairedName={pairedName}
                     writable={!!onDrop && (isWritable ? isWritable(entry.rule) : false)}
                     onClose={closePick}
-                    onFull={() => onOpenRule?.(entry.rule)}
+                    onFull={only => (section ? openFull(entry, only) : onOpenRule?.(entry.rule))}
                     onDrop={async item => {
                         if (!onDrop) return;
                         try {
@@ -558,6 +803,109 @@ export default function CalendarioView({
             document.removeEventListener("keydown", esc);
         };
     }, [pop]);
+
+    const noteNode = note && (
+        <p className={`${s.itoast} ${note.error ? s.err : ""}`} role="status">
+            {note.error ? <XIcon size={15} aria-hidden /> : <Check size={15} aria-hidden />}
+            <span>{note.text}</span>
+        </p>
+    );
+
+    if (sec && section) {
+        const pd = draft?.when.period;
+        const away = !!pd && (pd.from > week + 6 || pd.to < week);
+        const preview = draft && pvList && (
+            <aside className={s.iprev} aria-label="Anteprima">
+                <div className={s.iph}>
+                    <b>Anteprima · {KIND_LABEL[draft.kind]}</b>
+                    <span className={s.iwk}>
+                        <IconButton size="sm" icon={<ChevronLeft size={14} />} aria-label="Settimana precedente" onClick={() => setWeek(w => w - 7)} />
+                        <span>{weekLong(week)}</span>
+                        <IconButton size="sm" icon={<ChevronRight size={14} />} aria-label="Settimana successiva" onClick={() => setWeek(w => w + 7)} />
+                    </span>
+                </div>
+                {away && pd && (
+                    <button type="button" className={`${s.chip} ${s.iaway}`} onClick={() => setWeek(pd.from - dayOfWeek(pd.from))}>
+                        <Calendar size={13} aria-hidden />
+                        Questa settimana non c'è: vai {elides(pd.from) ? "all'" : "al "}
+                        {mShort(pd.from)}
+                    </button>
+                )}
+                <div className={s.dcal}>
+                    <div className={`${s.fcal} ${s.pcal}`}>
+                        <div className={s.fhead}>
+                            <div />
+                            <div />
+                            <div className={s.fhours}>{hoursFor(pvAx, 2)}</div>
+                        </div>
+                        {pvSedi.map(x => (
+                            <div key={x.id}>
+                                {multi && (
+                                    <div className={s.gsh}>
+                                        <span className={s.gst}>
+                                            <Store size={15} aria-hidden />
+                                            {x.name}
+                                        </span>
+                                    </div>
+                                )}
+                                {rows(x, [0, 1, 2, 3, 4, 5, 6], dayLabel, { only: draft.kind, list: pvList, ax: pvAx, pv: draft.mode === "edit" ? "in modifica" : "nuovo" })}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+                <p className={s.dnote}>
+                    Solo la corsia {KIND_LABEL[draft.kind]}, una linea per regola. Col bordo tratteggiato quello che stai {draft.mode === "edit" ? "modificando" : "aggiungendo"}: non è ancora salvato.
+                    {multi && pvEntry && !pvReach.length && pvSedi[0] ? ` Nessuna delle sedi scelte nel calendario: si vede ${pvSedi[0].name}.` : ""}
+                </p>
+            </aside>
+        );
+        return (
+            <div className={`${s.root} ${s.gwrap} ${s.closed}`} onPointerMove={onPointerMove} onPointerLeave={hide}>
+                <div className={`${s.gmain} ${s.isecw}`}>
+                    <CalendarioSection
+                        D={draft}
+                        upd={upd}
+                        L={L}
+                        pickList={section.pickList}
+                        catalogs={section.catalogs}
+                        styles={section.styles}
+                        featured={section.featured}
+                        sedi={sedi}
+                        groups={section.groups}
+                        colorOf={colorOf}
+                        kindColor={KIND_COLOR}
+                        durs={durs}
+                        counts={counts}
+                        kept={kept}
+                        toast={noteNode}
+                        preview={preview}
+                        effect={draft ? effect() : []}
+                        band={axis}
+                        busy={busy}
+                        onKind={k => setDraft(blankDraft(k, section.defaultWhere, pairFor(k)))}
+                        onRoot={() => setDraft(null)}
+                        onResume={() => {
+                            if (kept) setDraft({ ...kept, tried: false });
+                            keep(null);
+                        }}
+                        onExit={() => closeSec(false)}
+                        onSave={then => void saveSec(then)}
+                        onDrop={() => void dropSec()}
+                        onKeep={to => {
+                            if (draft) keep({ ...draft, tried: false });
+                            closeSec(false);
+                            section.onGoNew(to);
+                        }}
+                        onGoNew={to => {
+                            closeSec(false);
+                            section.onGoNew(to);
+                        }}
+                    />
+                </div>
+                {tipNode}
+            </div>
+        );
+    }
 
     return (
         <div className={`${s.root} ${s.gwrap} ${panel ? "" : s.closed} ${pickView ? s.ion : ""}`} onPointerMove={onPointerMove} onPointerLeave={hide}>
@@ -613,6 +961,11 @@ export default function CalendarioView({
                             ]}
                         />
                         {actions}
+                        {section?.canAdd && (
+                            <Button variant="primary" size="sm" leftIcon={<Plus size={16} />} onClick={openAdd}>
+                                Aggiungi
+                            </Button>
+                        )}
                     </div>
                 </div>
                 {!panel && multi && (
@@ -624,12 +977,7 @@ export default function CalendarioView({
                         onChange={v => v.length && setPicked(sedi.filter(x => v.includes(x.id)).map(x => x.id))}
                     />
                 )}
-                {note && (
-                    <p className={`${s.itoast} ${note.error ? s.err : ""}`} role="status">
-                        {note.error ? <XIcon size={15} aria-hidden /> : <Check size={15} aria-hidden />}
-                        <span>{note.text}</span>
-                    </p>
-                )}
+                {noteNode}
                 <div className={s.flegend}>
                     <span>
                         <i className={`${s.lg} ${s.on}`} />

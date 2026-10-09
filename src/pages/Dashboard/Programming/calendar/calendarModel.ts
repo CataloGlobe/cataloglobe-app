@@ -277,6 +277,8 @@ export type LineSeg = {
     self: CalEntry | null;
     reps: CalEntry[];
     with: string[];
+    /** Qui è in onda la bozza della sezione (l'anteprima). */
+    pv: boolean;
 };
 export type Line = { thing: string; add: boolean; preview: boolean; segs: LineSeg[] };
 
@@ -308,14 +310,16 @@ export function fLines(ctx: DayCtx, axis: Axis): Line[] {
             const state = st.onda.includes(t) ? "on" : self ? "off" : null;
             const by = state === "off" && st.win ? st.win.thing : "";
             const covers = state === "on" && st.win && st.win.thing === t ? st.hidden : [];
-            const key = state + "|" + by + "|" + covers.join(",");
+            const pv = !!state && ctx.cands.some(e => e.preview && e.thing === t && inWin(e.when, ctx.day, m));
+            const key = state + "|" + by + "|" + covers.join(",") + "|" + pv;
             if (cur && cur.key === key) { cur.to = m + FSLOT; continue; }
             flush();
-            cur = { key, state, by, covers, from: m, to: m + FSLOT, win: st.win, self, reps: st.reps, with: st.onda.filter(x => x !== t) };
+            cur = { key, state, by, covers, from: m, to: m + FSLOT, win: st.win, self, reps: st.reps, with: st.onda.filter(x => x !== t), pv };
         }
         flush();
         const es = ctx.cands.filter(e => e.thing === t);
-        return { thing: t, add: es.every(e => e.add), preview: es.some(e => e.preview), segs };
+        // «nuovo» solo se la bozza quel giorno c'è davvero, non perché ha lo stesso nome di un'altra
+        return { thing: t, add: es.every(e => e.add), preview: segs.some(g => g.pv) || es.some(e => e.preview && okDate(e.when, ctx.day)), segs };
     }).filter(l => l.segs.length > 0 || l.preview); // una regola che quel giorno non c'è non fa linea
 }
 

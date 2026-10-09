@@ -55,6 +55,8 @@ import CalendarioView from "./calendar/CalendarioView";
 import type { CalNames } from "./calendar/calendarModel";
 import type { ProductInfo } from "./calendar/CalendarioPanel";
 import { dropItem, dropRule } from "./calendar/calendarWrites";
+import type { PickProduct } from "./calendar/calendarDraft";
+import { dropDraft, saveDraft } from "./calendar/calendarSave";
 import { listBaseProductsForPickerWithCategory } from "@/services/supabase/products";
 import { RuleSimulatorDrawer } from "./components/RuleSimulatorDrawer";
 import { isLayoutRuleDraft } from "@/utils/scheduleDraft";
@@ -277,18 +279,26 @@ export default function Programming() {
     );
     // il pannello del Calendario mostra listino e categoria dei piatti: si chiedono solo aprendo il Calendario
     const [calProducts, setCalProducts] = useState<ReadonlyMap<string, ProductInfo> | undefined>(undefined);
+    const [calPickBase, setCalPickBase] = useState<{ id: string; name: string; category_name: string | null; base_price: number | null }[]>([]);
     useEffect(() => {
         if (viewMode !== "calendar" || calProducts || !currentTenantId) return;
         let alive = true;
         listBaseProductsForPickerWithCategory(currentTenantId)
             .then(list => {
-                if (alive) setCalProducts(new Map(list.map(p => [p.id, { category: p.category_name, listPrice: p.base_price }])));
+                if (!alive) return;
+                setCalProducts(new Map(list.map(p => [p.id, { category: p.category_name, listPrice: p.base_price }])));
+                setCalPickBase(list);
             })
             .catch(error => console.error("Errore listino per il Calendario:", error));
         return () => {
             alive = false;
         };
     }, [calProducts, currentTenantId, viewMode]);
+    // la sezione Aggiungi / Modifica: i piatti da scegliere, con i loro formati
+    const calPickList = useMemo<PickProduct[]>(() => {
+        const formats = new Map(productOptions.map(p => [p.id, p.format_values ?? []]));
+        return calPickBase.map(p => ({ id: p.id, name: p.name, category: p.category_name, listPrice: p.base_price, formats: formats.get(p.id) ?? [] }));
+    }, [calPickBase, productOptions]);
     const calFormatNames = useMemo(
         () => new Map(productOptions.flatMap(p => (p.format_values ?? []).map(v => [v.id, v.name] as const))),
         [productOptions]
@@ -1092,6 +1102,28 @@ export default function Programming() {
                     onDrop={async (rule, item) => {
                         await (item ? dropItem(rule, item) : dropRule(rule));
                         await loadRules();
+                    }}
+                    section={{
+                        pickList: calPickList,
+                        catalogs,
+                        styles: stylesOptions,
+                        featured: featuredOptions,
+                        groups: activityGroups.map(g => ({ id: g.id, name: g.name, activityIds: activityIdsByGroupId[g.id] ?? [] })),
+                        defaultWhere: routeActivityId
+                            ? { all: false, activityIds: [routeActivityId], groupIds: [] }
+                            : { all: true, activityIds: [], groupIds: [] },
+                        systemStyleId: stylesOptions.find(x => x.is_system)?.id ?? null,
+                        canAdd: canCreate,
+                        onSave: async (draft, lookups) => {
+                            await saveDraft(draft, lookups, currentTenantId!);
+                            await loadRules();
+                        },
+                        onDrop: async draft => {
+                            await dropDraft(draft);
+                            await loadRules();
+                        },
+                        onGoNew: kind =>
+                            navigate(`/business/${currentTenantId}/${kind === "menu" ? "catalogs" : kind === "style" ? "styles" : "featured"}`)
                     }}
                 />
             )}
