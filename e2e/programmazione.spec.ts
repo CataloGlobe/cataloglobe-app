@@ -515,9 +515,10 @@ test.describe("Programmazione — permesso di lettura", () => {
 // sola sede del manager per lui, ma il database dice no.
 test.describe("Programmazione — ruolo di sede, decide il database", () => {
     const LOCK = "La modifica chi gestisce tutte le sedi coinvolte";
+    let stub: ProgrammazioneStub;
     test.beforeEach(async ({ page }) => {
         await asRole(page, "manager", SEDE.centro, "pro");
-        await stubProgrammazione(page, { dbWritable: [RULE.pranzo] });
+        stub = await stubProgrammazione(page, { dbWritable: [RULE.pranzo] });
     });
 
     test("elenco: la regola rifiutata dal database ha il lucchetto, la sua no", async ({ page }) => {
@@ -549,6 +550,51 @@ test.describe("Programmazione — ruolo di sede, decide il database", () => {
         await page.goto(`${base}/${RULE.pranzo}`);
         await expect(main(page).getByRole("textbox", { name: /Nome/ })).toBeEnabled({ timeout: 15_000 });
         await expect(main(page).getByText(/^Sola lettura/)).toHaveCount(0);
+    });
+
+    test("cablaggio: «Nuova regola» dalla sede nasce con la RPC, già sulla sede (T9b)", async ({ page }) => {
+        const NEW_ID = "e2e0d000-0000-4000-a000-000000000780";
+        stub.onWrite("rpc.create_schedule_with_targets", () => NEW_ID);
+        await openSeatList(page, SEDE.centro, "price");
+        await page.getByRole("button", { name: /^Nuova regola/ }).first().click();
+        await expect.poll(() => writesOf(stub, "rpc.create_schedule_with_targets").length).toBe(1);
+        const body = writesOf(stub, "rpc.create_schedule_with_targets")[0].body as Record<string, unknown>;
+        expect(body.p_rule_type).toBe("price");
+        expect(body.p_targets).toEqual([{ target_type: "activity", target_id: SEDE.centro }]);
+        // Niente INSERT diretti: lascerebbero una regola senza sedi, non sua.
+        expect(writesOf(stub, "schedules.POST")).toHaveLength(0);
+        await expect(page).toHaveURL(new RegExp(`/locations/${SEDE.centro}/programmazione/${NEW_ID}`));
+    });
+
+    test("«Duplica» resta a chi gestisce tutte le sedi", async ({ page }) => {
+        await openSeatList(page, SEDE.centro);
+        await actionsOf(rule(page, "pranzo")).click();
+        await expect(page.getByRole("menuitem").first()).toBeVisible();
+        await expect(page.getByRole("menuitem", { name: "Duplica" })).toHaveCount(0);
+    });
+});
+
+// Manager di due sedi, dalla pagina d'azienda: la regola nasce sulle sue sedi
+// (poi le restringe nel dettaglio), mai su quelle degli altri.
+test.describe("Programmazione — ruolo di sede con più sedi", () => {
+    let stub: ProgrammazioneStub;
+    test.beforeEach(async ({ page }) => {
+        await asRole(page, "manager", [SEDE.centro, SEDE.porto], "pro");
+        stub = await stubProgrammazione(page, {});
+    });
+
+    test("cablaggio: «Nuova regola» dall'azienda nasce sulle sue sedi (T9b)", async ({ page }) => {
+        const NEW_ID = "e2e0d000-0000-4000-a000-000000000781";
+        stub.onWrite("rpc.create_schedule_with_targets", () => NEW_ID);
+        await openList(page, "layout");
+        await page.getByRole("button", { name: /^Nuova regola/ }).first().click();
+        await expect.poll(() => writesOf(stub, "rpc.create_schedule_with_targets").length).toBe(1);
+        const body = writesOf(stub, "rpc.create_schedule_with_targets")[0].body as Record<string, unknown>;
+        const targets = JSON.stringify(body.p_targets);
+        expect(targets).toContain(SEDE.centro);
+        expect(targets).toContain(SEDE.porto);
+        expect(targets).not.toContain(SEDE.lago);
+        await expect(page).toHaveURL(new RegExp(`/${NEW_ID}`));
     });
 });
 
