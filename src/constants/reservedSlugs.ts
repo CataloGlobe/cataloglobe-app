@@ -1,4 +1,7 @@
-// ⚠️ SYNC con DB: is_reserved_slug() in supabase/migrations/20260416140000_reserved_slugs_update.sql
+// ⚠️ SYNC con DB: is_reserved_slug(), ultima versione in
+// supabase/migrations/20260927120000_is_reserved_slug_app_routes.sql (più i
+// codici lingua di supported_languages, che qui non servono: 2 lettere < 3).
+// Test: src/tests/reservedSlugsSync.test.ts.
 // L'enforcement definitivo è a DB level — questa lista serve solo per feedback UX immediato
 // prima del round-trip. Aggiornare entrambe le fonti in caso di modifiche.
 export const RESERVED_SLUGS = new Set([
@@ -22,6 +25,8 @@ export const RESERVED_SLUGS = new Set([
     "business",
     "invite",
     "dashboard",
+    "status",       // pagina di stato del servizio
+    "landing-dev",  // 301 a / in vercel.json
 
     // legal
     "legal",
