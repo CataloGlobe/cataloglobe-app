@@ -19,6 +19,24 @@
     }
 }
 
+/* Col confronto (D159): il nome della sede sopra la media. */
+.head {
+    display: grid;
+    gap: var(--space-4);
+}
+
+.name {
+    @include type.fs(fine);
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    max-width: 14ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .average {
     margin: 0;
     display: flex;
@@ -78,6 +96,9 @@
     &[data-dim] {
         opacity: 0.3;
     }
+    &[data-static] {
+        cursor: default;
+    }
 }
 
 .legend {
@@ -99,7 +120,8 @@
         color: var(--text);
         font-weight: 600;
     }
-    &:disabled {
+    &:disabled,
+    &[data-static] {
         cursor: default;
     }
     &:focus-visible {

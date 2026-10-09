@@ -24,6 +24,12 @@
 }
 
 /* Il posto del voto mentre carica: stessa altezza, niente salto. */
+/* Il voto di ogni sede a confronto, una riga sotto l'altra (D159). */
+.votes {
+    display: grid;
+    gap: var(--space-8);
+}
+
 .voteLoading {
     height: 76px;
     border-radius: var(--radius-lg);
