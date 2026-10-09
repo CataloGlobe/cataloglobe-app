@@ -455,6 +455,7 @@ export default function RuleDetailPage() {
                         groupIds={form.groupIds}
                         tenantActivities={assignableActivities}
                         tenantGroups={assignableGroups}
+                        groupMembers={groupMembers}
                         allowAllSites={tenantWide}
                         onFormChange={detail.updateForm}
                         nameError={detail.errors.name}

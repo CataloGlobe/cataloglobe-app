@@ -176,18 +176,6 @@ async function press(toggle: Locator): Promise<void> {
 }
 
 /**
- * Spunta una sede nel pannello del ChipPicker (RG1). Il `CheckboxInput` ha
- * l'input coperto dal suo riquadro: si clicca la label, e solo se non è già
- * spuntata (un clic la toglierebbe).
- */
-async function checkInPanel(scope: Locator, name: string): Promise<void> {
-    // Spunta nativa accanto al nome (D8): basta spuntarla.
-    const box = scope.getByRole("checkbox", { name });
-    await box.check();
-    await expect(box).toBeChecked();
-}
-
-/**
  * Passa al Calendario. La testata alterna la forma comoda (segmented) e la
  * compatta (icona) mentre si assesta: si clicca quella a vista. Il clic si
  * ritenta da capo, risolvendo di nuovo il bottone: subito dopo un
@@ -1272,8 +1260,8 @@ test.describe("Programmazione — dettaglio", () => {
         await expect(main(page).getByText(/^Sola lettura: per modificare le regole/)).toBeVisible();
         await expect(main(page).getByRole("textbox", { name: /Nome/ })).toBeDisabled();
         await expect(main(page).getByRole("switch", { name: "In certi giorni" })).toBeDisabled();
-        // Sedi come chip (RG1): in sola lettura il pannello non si apre.
-        await expect(main(page).getByRole("button", { name: "Modifica sedi" })).toBeDisabled();
+        // Il pannello delle sedi (D151): in sola lettura non si apre.
+        await expect(main(page).getByRole("group", { name: "Si applica a" }).getByRole("button")).toBeDisabled();
         await expect(page.getByRole("button", { name: "Salva", exact: true })).toHaveCount(0);
         await (await sidebarLink(page, "Prodotti")).click();
         await expect(page).toHaveURL(/\/products/);
@@ -1296,37 +1284,34 @@ test.describe("Programmazione — dettaglio", () => {
         expect(writesOf(stub, "schedules.PATCH")).toHaveLength(0);
     });
 
-    test("«Dove si applica»: tre scelte, sedi e gruppi come chip scelti in un pannello (RG1)", async ({ page }) => {
+    test("«Dove si applica»: il pannello delle sedi, tutte prese = tutte, anche le nuove (D151)", async ({ page }) => {
         stub.onWrite("schedules.PATCH", touched);
         stub.onWrite("schedule_layout.PATCH", touched);
         stub.onWrite("schedule_layout.POST", () => null);
         stub.onWrite("rpc.update_schedule_targets", () => null);
         await openRule(page, "pranzo");
-        const where = main(page).getByRole("radiogroup", { name: "Si applica a" });
-        await expect(where.getByRole("radio")).toHaveCount(3);
-        await expect(where.getByRole("radio", { name: /Sedi specifiche/ })).toBeChecked();
-        await expect(main(page).getByText("Centro e2e", { exact: true })).toBeVisible();
-        await main(page).getByRole("button", { name: "Modifica sedi" }).click();
-        let panel = dialog(page);
-        const sedi = panel.getByRole("list", { name: "Sedi" });
-        await expect(sedi.getByRole("checkbox", { name: "Centro e2e" })).toBeChecked();
-        // La sede sospesa porta la sua pillola.
-        await expect(sedi.getByRole("listitem").filter({ hasText: "Lago e2e" })).toContainText("Sospesa");
-        await checkInPanel(sedi, "Porto e2e");
-        await panel.getByRole("button", { name: "Applica" }).click();
-        await expect(main(page).getByText("Porto e2e", { exact: true })).toBeVisible();
-
-        await where.getByRole("radio", { name: /Gruppi di sedi/ }).check();
-        await main(page).getByRole("button", { name: "Modifica gruppi" }).click();
-        panel = dialog(page);
-        await expect(panel.getByRole("list", { name: "Gruppi di sedi" }).getByRole("checkbox")).not.toHaveCount(0);
-        await panel.getByRole("button", { name: "Annulla" }).click();
-        await where.getByRole("radio", { name: /Sedi specifiche/ }).check();
-        await main(page).getByRole("button", { name: "Modifica sedi" }).click();
-        panel = dialog(page);
-        await checkInPanel(panel, "Centro e2e");
-        await checkInPanel(panel, "Porto e2e");
-        await panel.getByRole("button", { name: "Applica" }).click();
+        const where = main(page).getByRole("group", { name: "Si applica a" });
+        const btn = where.getByRole("button");
+        await expect(btn).toHaveText("Centro e2e");
+        await btn.click();
+        const panel = page.getByRole("dialog", { name: "Sedi" });
+        const sedi = panel.getByRole("group", { name: "Sedi" });
+        await expect(sedi.getByRole("checkbox", { name: "Centro e2e" })).toHaveAttribute("aria-checked", "true");
+        // La sede sospesa porta la sua pillola; con un gruppo ci sono le tab.
+        await expect(sedi.getByRole("checkbox", { name: /^Lago e2e/ })).toContainText("Sospesa");
+        await expect(panel.getByRole("tab", { name: "Gruppi · 1" })).toBeVisible();
+        await sedi.getByRole("checkbox", { name: "Porto e2e" }).click();
+        await expect(btn).toHaveText("Centro e2e +1");
+        await sedi.getByRole("checkbox", { name: /^Tutte le sedi/ }).click();
+        await expect(btn).toHaveText("Tutte le sedi · 3, anche le nuove");
+        await expect(panel).toContainText("Tutte, anche quelle che aggiungerai");
+        await expect(where).toContainText("Vale anche per le sedi che aprirai.");
+        await sedi.getByRole("button", { name: "Solo Centro e2e" }).click();
+        await expect(btn).toHaveText("Centro e2e");
+        await sedi.getByRole("checkbox", { name: "Porto e2e" }).click();
+        await page.keyboard.press("Escape");
+        await expect(panel).toHaveCount(0);
+        await noHorizontalScroll(page);
 
         await page.getByRole("button", { name: "Salva", exact: true }).first().click();
         await expect.poll(() => writesOf(stub, "rpc.update_schedule_targets").length).toBe(1);
@@ -1680,23 +1665,24 @@ test.describe("Programmazione — Elenco e Calendario a sole icone", () => {
     });
 });
 
-// Il pannello delle sedi (RG1) cerca per nome, senza maiuscole né accenti.
+// Il pannello delle sedi (D151) cerca per nome, senza maiuscole né accenti.
 test("con più di otto sedi «Dove si applica» cerca le sedi per nome", async ({ page }) => {
     await stubProgrammazione(page, { manySeats: true });
     await openRule(page, "pranzo");
-    await main(page).getByRole("button", { name: "Modifica sedi" }).click();
-    const panel = dialog(page);
-    const sedi = panel.getByRole("list", { name: "Sedi" });
-    await expect(sedi.getByRole("checkbox")).toHaveCount(10);
+    await main(page).getByRole("group", { name: "Si applica a" }).getByRole("button").click();
+    const panel = page.getByRole("dialog", { name: "Sedi" });
+    const sedi = panel.getByRole("group", { name: "Sedi" });
+    // dieci sedi e la casella «Tutte le sedi»
+    await expect(sedi.getByRole("checkbox")).toHaveCount(11);
     const search = panel.getByRole("searchbox").or(panel.getByRole("textbox")).first();
     await search.fill("lag");
     await expect(sedi.getByRole("checkbox")).toHaveCount(1);
     await expect(sedi.getByRole("checkbox", { name: "Lago e2e" })).toBeVisible();
     // Senza maiuscole né accenti; la selezione resta quella della regola.
     await search.fill("CENTRÒ");
-    await expect(sedi.getByRole("checkbox", { name: "Centro e2e" })).toBeChecked();
+    await expect(sedi.getByRole("checkbox", { name: "Centro e2e" })).toHaveAttribute("aria-checked", "true");
     await search.fill("nessuna");
-    await expect(panel).toContainText("Nessun risultato per «nessuna».");
+    await expect(panel).toContainText("Niente con «nessuna».");
 });
 
 test.describe("Programmazione — card «Adesso» e matrice", () => {

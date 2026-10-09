@@ -84,6 +84,32 @@
   gap: 0.9rem;
 }
 
+// «Si applica a»: il pannello delle sedi (D151), come il «Dove» del Calendario
+.targetField {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+}
+
+button.targetButton {
+  max-width: 100%;
+  height: 34px;
+  font-size: 14px;
+
+  > span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+}
+
 .sectionGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
