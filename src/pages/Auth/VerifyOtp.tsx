@@ -19,6 +19,7 @@ import { TextInput } from "@/components/ui/Input/TextInput";
 import type { OtpErrorCode, OtpStatus, VerifyOtpResponse } from "@/types/otp";
 import { AuthLayout } from "@/layouts/AuthLayout/AuthLayout";
 import { internalPathOr } from "@/utils/internalPath";
+import { clearPendingRedirect, peekPendingRedirect } from "@/utils/pendingRedirect";
 import styles from "./Auth.module.scss";
 
 const OTP_LENGTH = 6;
@@ -158,7 +159,8 @@ export default function VerifyOtp() {
     const navigate = useNavigate();
     const location = useLocation();
     const fromState = (location.state as { from?: string } | null)?.from;
-    const redirectAfterOtp = internalPathOr(fromState, '/dashboard');
+    // Senza deep link nello stato, quello salvato prima della registrazione (invito).
+    const redirectAfterOtp = internalPathOr(fromState ?? peekPendingRedirect(), '/dashboard');
 
     const [digits, setDigits] = useState<string[]>(Array(OTP_LENGTH).fill(""));
     const [loading, setLoading] = useState(false);
@@ -481,6 +483,7 @@ export default function VerifyOtp() {
             }
 
             await forceOtpCheck();
+            clearPendingRedirect();
             navigate(redirectAfterOtp, { replace: true });
         } finally {
             setLoading(false);
