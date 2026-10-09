@@ -81,16 +81,27 @@ test.describe("Scheda della sede", () => {
             }, where);
         const phoneScroll = () =>
             phone.evaluate(ph => {
-                const scr = Array.from(ph.querySelectorAll<HTMLElement>("*")).find(
-                    e => /auto|scroll/.test(getComputedStyle(e).overflowY) && e.scrollHeight > e.clientHeight
+                const scr = Array.from(ph.querySelectorAll<HTMLElement>("*")).find(e =>
+                    /auto|scroll/.test(getComputedStyle(e).overflowY)
                 );
                 return scr ? { top: scr.scrollTop, max: scr.scrollHeight - scr.clientHeight } : null;
             });
+        // Con poche cose compilate il telefono ci sta tutto e non ha da
+        // scorrere: si allunga come una sede piena, così la prova non dipende dai dati.
+        await phone.evaluate(ph => {
+            const scr = Array.from(ph.querySelectorAll<HTMLElement>("*")).find(e =>
+                /auto|scroll/.test(getComputedStyle(e).overflowY)
+            );
+            const pad = document.createElement("div");
+            pad.style.height = "400px";
+            scr?.appendChild(pad);
+        });
+        expect((await phoneScroll())?.max).toBeGreaterThan(300);
         await scrollTo("bottom");
         await expect
             .poll(async () => {
                 const s = await phoneScroll();
-                return s ? s.max - s.top : -1;
+                return s ? s.max - s.top : Infinity;
             })
             .toBeLessThanOrEqual(1);
         await scrollTo("top");

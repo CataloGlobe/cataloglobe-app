@@ -1,9 +1,10 @@
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { Button } from "@/components/ui/Button/Button";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import { PART_ICON, PART_IMMEDIATE, PART_TITLE, PART_WHY, RAIL_GROUPS, type SchedaPart } from "./schedaCopy";
 import { TONE_LABEL, type SchedaFacts, type Tone } from "./schedaModel";
 import { SchedaPhone } from "./SchedaPhone";
+import { usePhoneFit } from "@/hooks/usePhoneFit";
 import styles from "./Scheda.module.scss";
 
 interface SchedaFocusProps {
@@ -28,6 +29,9 @@ const TONE_BADGE = { ok: "success", warn: "warning", off: "neutral" } as const;
  * il Salva resta in alto, uno solo per tutta la scheda.
  */
 export function SchedaFocus({ part, facts, tone, changed, otherChanges, editor, onPick, onDone }: SchedaFocusProps) {
+    const sideRef = useRef<HTMLElement>(null);
+    const boxRef = useRef<HTMLDivElement>(null);
+    const fit = usePhoneFit(sideRef, boxRef, false);
     const Icon = PART_ICON[part];
     const t = tone(part);
     const isChanged = changed(part);
@@ -45,7 +49,7 @@ export function SchedaFocus({ part, facts, tone, changed, otherChanges, editor, 
 
     return (
         <div className={`${styles.root} ${styles.focusRoot}`}>
-            <div className={styles.focus}>
+            <div className={styles.focus} style={fit.vars}>
                 <nav className={styles.rail} aria-label="Parti della scheda">
                     {RAIL_GROUPS.map(g => (
                         <div key={g.title} style={{ display: "contents" }}>
@@ -100,9 +104,11 @@ export function SchedaFocus({ part, facts, tone, changed, otherChanges, editor, 
                     </div>
                 </div>
 
-                <aside className={styles.fside}>
+                <aside className={styles.fside} ref={sideRef}>
                     <span className={styles.hint}>Come la vede il cliente · tocca una parte</span>
-                    <SchedaPhone facts={facts} onPick={onPick} />
+                    <div className={styles.phoneBox} ref={boxRef} style={fit.boxStyle}>
+                        <SchedaPhone facts={facts} onPick={onPick} />
+                    </div>
                 </aside>
             </div>
         </div>

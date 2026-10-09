@@ -50,7 +50,11 @@ export function useProdottoFollow(
         const viewH = isDoc ? window.innerHeight : C.clientHeight;
         const cMax = C.scrollHeight - viewH;
         const pMax = Math.max(0, scr.scrollHeight - scr.clientHeight);
-        const sTop = scr.getBoundingClientRect().top;
+        const sRect = scr.getBoundingClientRect();
+        const sTop = sRect.top;
+        // Il telefono può essere rimpicciolito (D123): le distanze a schermo
+        // dentro di lui si riportano alla sua misura vera prima di sommarle a scrollTop.
+        const ratio = scr.clientHeight ? sRect.height / scr.clientHeight || 1 : 1;
         const firstTile = (z: ProdottoZone) => root.querySelector<HTMLElement>(`[data-g="${z}"] [data-k]`);
 
         if (!pausedRef.current) {
@@ -72,7 +76,7 @@ export function useProdottoFollow(
                 .find(Boolean);
             if (!t || !pe) continue;
             const sy = Math.min(cMax, t.getBoundingClientRect().top - cTop + C.scrollTop - 24);
-            const py = Math.min(pMax, Math.max(0, pe.getBoundingClientRect().top - sTop + scr.scrollTop - 40));
+            const py = Math.min(pMax, Math.max(0, (pe.getBoundingClientRect().top - sTop) / ratio + scr.scrollTop - 40));
             const last = A[A.length - 1];
             if (sy > last[0] && py >= last[1]) A.push([sy, py]);
         }

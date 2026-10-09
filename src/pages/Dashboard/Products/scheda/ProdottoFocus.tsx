@@ -5,7 +5,10 @@ import { PART_ICON, PART_IMMEDIATE, PART_WHY, RAIL_GROUPS, partTitle, type Prodo
 import type { ProdottoFacts } from "./prodottoModel";
 import { partCaption, rich } from "./prodottoText";
 import { ProdottoPhone } from "./ProdottoPhone";
+import { usePhoneFit } from "@/hooks/usePhoneFit";
 import styles from "./Prodotto.module.scss";
+
+const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
 
 interface ProdottoFocusProps {
     part: ProdottoPart;
@@ -46,6 +49,9 @@ export function ProdottoFocus({
     const isChanged = changed(part);
     const others = changeCount - (isChanged ? 1 : 0);
     const scrRef = useRef<HTMLDivElement>(null);
+    const sideRef = useRef<HTMLElement>(null);
+    const boxRef = useRef<HTMLDivElement>(null);
+    const fit = usePhoneFit(sideRef, boxRef, true);
 
     // Esc torna al cruscotto, se non si sta scrivendo in un drawer.
     useEffect(() => {
@@ -63,14 +69,17 @@ export function ProdottoFocus({
         const scr = scrRef.current;
         if (!scr) return;
         const el = scr.querySelector<HTMLElement>(`[data-part="${part}"]`);
-        const top = el ? scr.scrollTop + el.getBoundingClientRect().top - scr.getBoundingClientRect().top - 50 : 0;
+        // Il telefono può essere rimpicciolito (D123): la distanza a schermo torna alla misura vera.
+        const sRect = scr.getBoundingClientRect();
+        const ratio = scr.clientHeight ? sRect.height / scr.clientHeight || 1 : 1;
+        const top = el ? scr.scrollTop + (el.getBoundingClientRect().top - sRect.top) / ratio - 50 : 0;
         const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
         scr.scrollTo?.({ top: Math.max(0, top), behavior: reduce ? "auto" : "smooth" });
     }, [part, facts]);
 
     return (
         <div className={`${styles.root} ${styles.focusRoot}`}>
-            <div className={styles.focus}>
+            <div className={styles.focus} style={fit.vars}>
                 <nav className={styles.rail} aria-label={`Parti del ${facts.labels.product.toLowerCase()}`}>
                     {RAIL_GROUPS.map(g => {
                         const parts = g.parts.filter(visible);
@@ -126,8 +135,8 @@ export function ProdottoFocus({
                     </div>
                 </div>
 
-                <aside className={styles.fside} aria-label="Così lo vede il cliente">
-                    <div className={styles.card}>
+                <aside className={styles.fside} ref={sideRef} aria-label="Così lo vede il cliente">
+                    <div className={cx(styles.card, fit.slim && styles.cardSlim)}>
                         <span className={styles.cardK}>
                             <Smartphone size={13} strokeWidth={1.75} aria-hidden />
                             Sul telefono
@@ -135,7 +144,9 @@ export function ProdottoFocus({
                         <b className={styles.cardTitle}>{title}</b>
                         <p className={styles.cardText}>{rich(partCaption(part, facts))}</p>
                     </div>
-                    <ProdottoPhone ref={scrRef} facts={facts} highlight={part} />
+                    <div className={styles.phoneBox} ref={boxRef} style={fit.boxStyle}>
+                        <ProdottoPhone ref={scrRef} facts={facts} highlight={part} />
+                    </div>
                 </aside>
             </div>
         </div>

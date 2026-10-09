@@ -8,6 +8,7 @@ import { partCaption, rich } from "./prodottoText";
 import { ProdottoPhone } from "./ProdottoPhone";
 import { ProdottoTile, type TileActions } from "./ProdottoTile";
 import { useProdottoFollow } from "./useProdottoFollow";
+import { usePhoneFit } from "@/hooks/usePhoneFit";
 import styles from "./Prodotto.module.scss";
 
 interface ProdottoDashboardProps {
@@ -35,6 +36,8 @@ export function ProdottoDashboard({ facts: f, tiles, visible, onWriteDescription
     const colRef = useRef<HTMLDivElement>(null);
     const sideRef = useRef<HTMLElement>(null);
     const scrRef = useRef<HTMLDivElement>(null);
+    const boxRef = useRef<HTMLDivElement>(null);
+    const fit = usePhoneFit(sideRef, boxRef, true);
     const [hl, setHl] = useState<ProdottoPart | null>(null);
     const zone = useProdottoFollow(rootRef, scrRef, hl !== null);
 
@@ -133,7 +136,7 @@ export function ProdottoDashboard({ facts: f, tiles, visible, onWriteDescription
 
     return (
         <div className={styles.root} ref={rootRef}>
-            <div className={styles.dash}>
+            <div className={styles.dash} style={fit.vars}>
                 <div className={styles.col} ref={colRef}>
                     <div className={styles.hero}>
                         <button
@@ -233,7 +236,7 @@ export function ProdottoDashboard({ facts: f, tiles, visible, onWriteDescription
                 </div>
 
                 <aside className={styles.side} ref={sideRef} aria-label="Così lo vede il cliente">
-                    <div className={styles.card} aria-live="polite">
+                    <div className={cx(styles.card, fit.slim && styles.cardSlim)} aria-live="polite">
                         <span className={styles.cardK}>
                             <Smartphone size={13} strokeWidth={1.75} aria-hidden />
                             Sul telefono
@@ -241,7 +244,9 @@ export function ProdottoDashboard({ facts: f, tiles, visible, onWriteDescription
                         <b className={styles.cardTitle}>{cardTitle}</b>
                         <p className={styles.cardText}>{rich(cardText)}</p>
                     </div>
-                    <ProdottoPhone ref={scrRef} facts={f} highlight={hl} />
+                    <div className={styles.phoneBox} ref={boxRef} style={fit.boxStyle}>
+                        <ProdottoPhone ref={scrRef} facts={f} highlight={hl} />
+                    </div>
                     {f.styleName && (
                         <span className={styles.styleName}>
                             Stile «{f.styleName}»{f.styleMenu ? `, dal ${f.labels.catalog} ${f.styleMenu}` : ""}

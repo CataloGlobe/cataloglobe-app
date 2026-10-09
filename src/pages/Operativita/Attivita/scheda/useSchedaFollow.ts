@@ -41,7 +41,11 @@ export function useSchedaFollow(
         const cMax = C.scrollHeight - viewH;
         const pMax = Math.max(0, scr.scrollHeight - scr.clientHeight);
         if (cMax <= 0) return;
-        const sTop = scr.getBoundingClientRect().top;
+        const sRect = scr.getBoundingClientRect();
+        const sTop = sRect.top;
+        // Il telefono può essere rimpicciolito (D123): le distanze a schermo
+        // dentro di lui si riportano alla sua misura vera prima di sommarle a scrollTop.
+        const ratio = scr.clientHeight ? sRect.height / scr.clientHeight || 1 : 1;
 
         // La zona per la card «Sul telefono» non dipende da quanto scorre il
         // telefono: anche quando ci sta quasi tutto, la card segue la scheda.
@@ -62,7 +66,7 @@ export function useSchedaFollow(
             const pe = scr.querySelector<HTMLElement>(`[data-part="${k}"]`);
             if (!t || !pe) continue;
             const sy = Math.min(cMax, t.getBoundingClientRect().top - cTop + C.scrollTop - 24);
-            const py = Math.min(pMax, Math.max(0, pe.getBoundingClientRect().top - sTop + scr.scrollTop - 40));
+            const py = Math.min(pMax, Math.max(0, (pe.getBoundingClientRect().top - sTop) / ratio + scr.scrollTop - 40));
             const last = A[A.length - 1];
             if (sy > last[0] && py >= last[1]) A.push([sy, py]);
         }

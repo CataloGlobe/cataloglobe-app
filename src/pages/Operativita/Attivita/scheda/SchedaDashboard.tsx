@@ -17,6 +17,7 @@ import { SchedaNow, type NowActions } from "./SchedaNow";
 import { SchedaPhone } from "./SchedaPhone";
 import { SchedaTile, type TileActions } from "./SchedaTile";
 import { useSchedaFollow } from "./useSchedaFollow";
+import { usePhoneFit } from "@/hooks/usePhoneFit";
 import styles from "./Scheda.module.scss";
 
 interface SchedaDashboardProps {
@@ -45,6 +46,8 @@ export function SchedaDashboard({ facts, tiles, now, onCopyLink }: SchedaDashboa
     const colRef = useRef<HTMLDivElement>(null);
     const sideRef = useRef<HTMLElement>(null);
     const scrRef = useRef<HTMLDivElement>(null);
+    const boxRef = useRef<HTMLDivElement>(null);
+    const fit = usePhoneFit(sideRef, boxRef, true);
     const [hl, setHl] = useState<SchedaPart | null>(null);
     const zone = useSchedaFollow(rootRef, scrRef, hl !== null);
 
@@ -74,7 +77,7 @@ export function SchedaDashboard({ facts, tiles, now, onCopyLink }: SchedaDashboa
 
     return (
         <div className={styles.root} ref={rootRef}>
-            <div className={styles.dash}>
+            <div className={styles.dash} style={fit.vars}>
                 <div className={styles.col} ref={colRef}>
                     <div className={styles.hero}>
                         <button type="button" className={styles.identity} data-k="locale" onClick={() => tiles.open("locale")}>
@@ -148,7 +151,7 @@ export function SchedaDashboard({ facts, tiles, now, onCopyLink }: SchedaDashboa
                 </div>
 
                 <aside className={styles.side} ref={sideRef} aria-label="Sul telefono">
-                    <div className={styles.card} aria-live="polite">
+                    <div className={cx(styles.card, fit.slim && styles.cardSlim)} aria-live="polite">
                         <span className={styles.cardK}>
                             <Smartphone size={13} strokeWidth={1.75} aria-hidden />
                             Sul telefono
@@ -156,7 +159,9 @@ export function SchedaDashboard({ facts, tiles, now, onCopyLink }: SchedaDashboa
                         <b className={styles.cardTitle}>{cardTitle}</b>
                         <p className={styles.cardText}>{rich(cardText)}</p>
                     </div>
-                    <SchedaPhone ref={scrRef} facts={facts} highlight={hl} />
+                    <div className={styles.phoneBox} ref={boxRef} style={fit.boxStyle}>
+                        <SchedaPhone ref={scrRef} facts={facts} highlight={hl} />
+                    </div>
                 </aside>
             </div>
         </div>

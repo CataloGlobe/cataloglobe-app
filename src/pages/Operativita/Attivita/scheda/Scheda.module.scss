@@ -44,7 +44,8 @@
 // ── Il cruscotto: scheda a sinistra, telefono a destra ─────────────────────
 .dash {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 300px;
+  // La colonna del telefono si stringe con lui (D123): --phone-s da usePhoneFit.
+  grid-template-columns: minmax(0, 1fr) calc(300px * var(--phone-s, 1));
   gap: 28px;
   align-items: start;
 }
@@ -64,7 +65,7 @@
 
 // La card fissa sopra il telefono: altezza fissa, non salta mai.
 .card {
-  width: 300px;
+  width: 100%;
   height: 84px;
   flex: none;
   background: var(--q-brand-soft);
@@ -97,6 +98,15 @@
     overflow: hidden;
     b { font-weight: 600; color: var(--text); }
   }
+}
+// Finestra bassa (D123): la card diventa una riga sola e lascia 48 px al telefono.
+.card.cardSlim {
+  height: 36px;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  .cardTitle { min-width: 0; }
+  .cardText { display: none; }
 }
 
 // ── In alto: chi siete e la vostra pagina ──────────────────────────────────
@@ -321,13 +331,19 @@
   overflow: hidden;
   background: #ffffff;
   color: #0f172a;
-  height: clamp(360px, calc(100dvh - 300px), 600px);
+  height: 600px;
   display: flex;
   flex-direction: column;
   font-size: 12px;
   position: relative;
 }
-.side .screen { height: clamp(320px, calc(100dvh - 330px), 540px); }
+.side .screen { height: 540px; }
+// Il telefono non si schiaccia: si rimpicciolisce intero (D123). La scatola
+// occupa la misura rimpicciolita, il telefono dentro scala dall'angolo.
+.phoneBox {
+  flex: none;
+  > * { transform: scale(var(--phone-s, 1)); transform-origin: top left; }
+}
 .scr { overflow: auto; flex: 1; scrollbar-width: none; &::-webkit-scrollbar { display: none; } }
 .pCover { aspect-ratio: 16 / 9; }
 .pBody { padding: 14px 14px 18px; display: flex; flex-direction: column; gap: 12px; }
@@ -396,7 +412,7 @@
 // ── La vista a fuoco ───────────────────────────────────────────────────────
 .focus {
   display: grid;
-  grid-template-columns: 200px minmax(0, 1fr) 300px;
+  grid-template-columns: 200px minmax(0, 1fr) calc(300px * var(--phone-s, 1));
   gap: 24px;
   align-items: start;
 }
