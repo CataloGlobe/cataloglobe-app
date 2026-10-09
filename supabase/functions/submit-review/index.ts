@@ -1,6 +1,21 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+    checkRateLimit,
+    hashIp,
+    RateLimitExceededError
+} from "../_shared/rateLimit.ts";
+import { VALID_SUBSCRIPTION_STATUSES } from "../_shared/checkOrderingState.ts";
+
+// Limiti (stessi numeri di prima, ora atomici: due richieste in parallelo non
+// passano più entrambe). Contatori in `rate_limit_buckets`, chiave con l'IP
+// in hash, mai in chiaro.
+const RATE_LIMIT_IP_PER_DAY = 10;
+const RATE_LIMIT_SESSION_PER_DAY = 1;
+const DAY_SECONDS = 24 * 60 * 60;
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
@@ -31,6 +46,7 @@ const ERROR_MESSAGES: Record<string, string> = {
     RATE_LIMIT_IP:       "Troppe richieste. Riprova più tardi.",
     RATE_LIMIT_SESSION:  "Hai già lasciato una recensione di recente.",
     ACTIVITY_NOT_FOUND:  "Attività non trovata",
+    ACTIVITY_NOT_ACTIVE: "Questo locale al momento non riceve recensioni",
     SERVER_ERROR:        "Errore durante il salvataggio della recensione"
 };
 
@@ -75,11 +91,9 @@ serve(async (req: Request) => {
         return errorResponse("METHOD_NOT_ALLOWED", 405);
     }
 
-    // ── Extract IP (preparatorio per rate limit per IP) ─────────────
-    // NOTA: il rate limit basato su request_ip richiede la colonna
-    // `request_ip TEXT` sulla tabella reviews — migration pendente.
-    // Il codice è predisposto ma il check DB è disabilitato finché
-    // la migration non viene applicata.
+    // ── IP del client ───────────────────────────────────────────
+    // Nel contatore del limite va solo in hash; in `reviews.request_ip`
+    // resta salvato com'era (da decidere se toglierlo).
     const requestIp: string =
         (req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim() ||
         req.headers.get("x-real-ip") ||
@@ -93,8 +107,7 @@ serve(async (req: Request) => {
         if (typeof activityId !== "string" || activityId.trim() === "") {
             return errorResponse("INVALID_PAYLOAD", 400, { field: "activity_id", reason: "required" });
         }
-        // UUID = 36 chars max
-        if (activityId.trim().length > 36) {
+        if (!UUID_RE.test(activityId.trim())) {
             return errorResponse("INVALID_PAYLOAD", 400, { field: "activity_id", reason: "invalid" });
         }
 
@@ -117,8 +130,9 @@ serve(async (req: Request) => {
             if (typeof body.session_id !== "string" || body.session_id.trim() === "") {
                 return errorResponse("INVALID_PAYLOAD", 400, { field: "session_id", reason: "type" });
             }
-            if (body.session_id.trim().length > 100) {
-                return errorResponse("INVALID_PAYLOAD", 400, { field: "session_id", reason: "too_long" });
+            // La colonna è uuid: un valore diverso finirebbe in un 500 all'insert.
+            if (!UUID_RE.test(body.session_id.trim())) {
+                return errorResponse("INVALID_PAYLOAD", 400, { field: "session_id", reason: "invalid" });
             }
             sessionId = body.session_id.trim();
         }
@@ -129,45 +143,43 @@ serve(async (req: Request) => {
             Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
         );
 
-        // ── Rate limiting ───────────────────────────────────────────
-        const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-
-        // Check globale per IP: max 10 review per IP nelle ultime 24h
-        if (requestIp !== "unknown") {
-            const { data: ipReviews, error: ipRlError } = await supabase
-                .from("reviews")
-                .select("id")
-                .eq("request_ip", requestIp)
-                .gte("created_at", twentyFourHoursAgo);
-
-            if (ipRlError) throw ipRlError;
-
-            if (ipReviews && ipReviews.length >= 10) {
+        // ── Rate limiting (atomico, fail-closed) ────────────────────
+        // Un errore del contatore arriva al catch esterno → 500: senza
+        // contatore non si accettano recensioni.
+        try {
+            if (requestIp !== "unknown") {
+                await checkRateLimit(supabase, {
+                    key: `submit-review:ip:${await hashIp(requestIp)}`,
+                    limit: RATE_LIMIT_IP_PER_DAY,
+                    windowSeconds: DAY_SECONDS
+                });
+            }
+        } catch (rlErr) {
+            if (rlErr instanceof RateLimitExceededError) {
                 return errorResponse("RATE_LIMIT_IP", 429);
             }
+            throw rlErr;
         }
 
         if (sessionId) {
-            // Check: stessa session_id + stessa activity nelle ultime 24h
-            const { data: existing, error: rlError } = await supabase
-                .from("reviews")
-                .select("id")
-                .eq("session_id", sessionId)
-                .eq("activity_id", activityId)
-                .gte("created_at", twentyFourHoursAgo)
-                .limit(1);
-
-            if (rlError) throw rlError;
-
-            if (existing && existing.length > 0) {
-                return errorResponse("RATE_LIMIT_SESSION", 429);
+            try {
+                await checkRateLimit(supabase, {
+                    key: `submit-review:session:${activityId}:${sessionId}`,
+                    limit: RATE_LIMIT_SESSION_PER_DAY,
+                    windowSeconds: DAY_SECONDS
+                });
+            } catch (rlErr) {
+                if (rlErr instanceof RateLimitExceededError) {
+                    return errorResponse("RATE_LIMIT_SESSION", 429);
+                }
+                throw rlErr;
             }
         }
 
         // ── Lookup activity → tenant_id ─────────────────────────────
         const { data: activity, error: activityError } = await supabase
             .from("activities")
-            .select("id, tenant_id")
+            .select("id, tenant_id, status")
             .eq("id", activityId)
             .maybeSingle();
 
@@ -175,6 +187,25 @@ serve(async (req: Request) => {
 
         if (!activity) {
             return errorResponse("ACTIVITY_NOT_FOUND", 404);
+        }
+
+        // Solo sedi attive di un'azienda con abbonamento valido, come per
+        // prenotazioni e ordini: prima bastava l'id di una sede qualsiasi.
+        if (activity.status !== "active") {
+            return errorResponse("ACTIVITY_NOT_ACTIVE", 409);
+        }
+        const { data: tenant, error: tenantError } = await supabase
+            .from("tenants")
+            .select("subscription_status, deleted_at")
+            .eq("id", activity.tenant_id)
+            .maybeSingle();
+        if (tenantError) throw tenantError;
+        if (
+            !tenant ||
+            tenant.deleted_at !== null ||
+            !VALID_SUBSCRIPTION_STATUSES.has(tenant.subscription_status)
+        ) {
+            return errorResponse("ACTIVITY_NOT_ACTIVE", 409);
         }
 
         // ── Insert review ───────────────────────────────────────────
