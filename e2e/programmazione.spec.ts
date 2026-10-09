@@ -597,6 +597,33 @@ test.describe("Programmazione — calendario, simulatore, guida", () => {
         await expect(back).toHaveCount(0);
     });
 
+    test("le sedi: nella colonna quelle scelte, le altre nel pannello; a colonna chiusa un bottone nella barra", async ({ page }) => {
+        await openList(page, "layout");
+        await openCalendar(page);
+        const col = main(page).getByRole("complementary", { name: "Calendario del mese" });
+        const chosen = col.getByRole("checkbox");
+        await expect(chosen.first()).toBeVisible();
+        expect(await chosen.count()).toBeLessThanOrEqual(5);
+        await col.getByRole("button", { name: "Scegli le sedi" }).click();
+        const pop = page.getByRole("dialog", { name: "Sedi" });
+        await expect(pop).toBeVisible();
+        await pop.getByRole("button", { name: "Solo Porto e2e" }).click();
+        await expect(chosen).toHaveCount(1);
+        await expect(col.getByRole("checkbox", { name: "Porto e2e" })).toHaveAttribute("aria-checked", "true");
+        // l'ultima sede scelta non si toglie: il calendario guarda sempre almeno una sede
+        await pop.getByRole("checkbox", { name: "Porto e2e" }).click();
+        await expect(pop.getByRole("checkbox", { name: "Porto e2e" })).toHaveAttribute("aria-checked", "true");
+        await page.keyboard.press("Escape");
+        await expect(pop).toHaveCount(0);
+        await expect(col.getByRole("button", { name: "Scegli le sedi" })).toBeFocused();
+        // a colonna chiusa le sedi stanno in un bottone nella barra
+        await main(page).getByRole("button", { name: "Chiudi la colonna del calendario" }).click();
+        await main(page).getByRole("button", { name: "Porto e2e", exact: true, expanded: false }).click();
+        await pop.getByRole("button", { name: "Tutte", exact: true }).click();
+        await expect(main(page).getByRole("button", { name: /^Tutte le sedi · \d+$/ })).toBeVisible();
+        await expect(pop.getByText(/^(\d+) di \1 scelte$/)).toBeVisible();
+    });
+
     test("dentro la sede il Calendario guarda solo lei; la ricerca no", async ({ page }) => {
         await openSeatList(page, SEDE.centro, "layout");
         // La ricerca dell'elenco non entra nel Calendario, dove non si vede.
@@ -698,6 +725,44 @@ test.describe("Programmazione — calendario, simulatore, guida", () => {
         const layout = [...writesOf(stub, "schedule_layout.PATCH"), ...writesOf(stub, "schedule_layout.POST")].map(w => JSON.stringify(w.body));
         expect(layout.some(b => b.includes(MENU.pranzo) && b.includes(STYLE.base))).toBe(true);
         await expect(main(page).getByRole("status")).toHaveText(/^Aggiunto al calendario: Pranzo e2e/);
+    });
+
+    test("cablaggio: nel «Dove» tre scelte; le sedi scelte stanno nel pannello e vanno nella regola", async ({ page }) => {
+        const NEW_ID = "e2e0d000-0000-4000-a000-000000000782";
+        stub.onWrite("schedules.POST", () => ({ id: NEW_ID }));
+        stub.onWrite("schedules.PATCH", () => [{ id: NEW_ID }]);
+        stub.onWrite("schedule_layout.PATCH", () => [{ id: NEW_ID }]);
+        stub.onWrite("schedule_layout.POST", () => null);
+        stub.onWrite("rpc.update_schedule_targets", () => null);
+        await openList(page, "layout");
+        await openCalendar(page);
+        await main(page).getByRole("button", { name: "Aggiungi", exact: true }).click();
+        await main(page).getByRole("button", { name: /^Menù/ }).first().click();
+        await main(page).getByRole("radio", { name: /Pranzo e2e/ }).click();
+        await main(page).getByRole("button", { name: "Avanti" }).click();
+        await main(page).getByRole("button", { name: "Avanti" }).click();
+        await expect(main(page).getByRole("button", { name: "3 Dove" })).toHaveAttribute("aria-current", "step");
+        const dove = main(page).getByRole("radiogroup", { name: "Dove" });
+        await expect(dove.getByRole("radio", { name: /^Tutte le sedi/ })).toBeVisible();
+        const scelte = dove.getByRole("radio", { name: /^Sedi scelte/ });
+        if ((await scelte.getAttribute("aria-checked")) !== "true") await scelte.click();
+        await expect(scelte).toHaveAttribute("aria-checked", "true");
+        await dove.getByRole("button", { name: "Solo Porto e2e" }).click();
+        await expect(dove.getByRole("checkbox", { checked: true })).toHaveCount(1);
+        await expect(scelte).toContainText(/1 di \d+/);
+        await expect(main(page).getByText(/^Porto e2e\. Quello che vale/)).toBeVisible();
+        await noHorizontalScroll(page);
+        // «Tutte le sedi» e ritorno: Porto è ancora lì
+        await dove.getByRole("radio", { name: /^Tutte le sedi/ }).click();
+        await expect(dove.getByRole("checkbox")).toHaveCount(0);
+        await scelte.click();
+        await expect(dove.getByRole("checkbox", { name: "Porto e2e" })).toHaveAttribute("aria-checked", "true");
+        await main(page).getByRole("button", { name: "Avanti" }).click();
+        await main(page).getByRole("button", { name: "Aggiungi al calendario" }).click();
+        await expect.poll(() => writesOf(stub, "rpc.update_schedule_targets").length).toBe(1);
+        const targets = JSON.stringify(writesOf(stub, "rpc.update_schedule_targets")[0].body);
+        expect(targets).toContain(SEDE.porto);
+        expect(targets).not.toContain(SEDE.centro);
     });
 
     test("cablaggio: «Togli» un piatto riscrive la regola senza di lui", async ({ page }) => {

@@ -1,12 +1,13 @@
 // I passi «Quando» e «Dove» della sezione Aggiungi / Modifica completa, da soli:
 // li usano la sezione del Calendario e i tunnel di creazione.
-import { useRef, type PointerEvent as RPointerEvent, type ReactNode } from "react";
-import { Check, Folder, Plus, TriangleAlert, X } from "lucide-react";
+import { useEffect, useId, useRef, useState, type PointerEvent as RPointerEvent, type ReactNode } from "react";
+import { Folder, Plus, TriangleAlert, X } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import { IconButton } from "@/components/ui/Button/IconButton";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { DB_LATER, DB_TODAY, isoDay, normRanges, whenKey, whereText, type Draft, type DraftLookups } from "./calendarDraft";
 import { FSLOT, dayNum, durLabel, hhmm, type Axis, type CalWhen } from "./calendarModel";
+import { SediPannello } from "./SediScelta";
 import s from "./CalendarioView.module.scss";
 
 export type PassoSede = { id: string; name: string };
@@ -190,57 +191,87 @@ export function QuandoPasso({ draft: d, upd, durs, axis, bad }: QuandoPassoProps
 }
 
 /* ---------- Dove ---------- */
+type DoveModo = "all" | "group" | "some";
+
+/**
+ * Il passo «Dove» (D130 A): tre scelte, e sotto «Sedi scelte» il pannello
+ * delle sedi già aperto. Un gruppo scelto come tale vale anche per le sedi
+ * che entreranno; «Prendi le sedi di:» spunta solo quelle di oggi.
+ */
 export function DovePasso({ draft: d, upd, sedi, groups, L, bad }: DovePassoProps) {
     const w = d.where;
-    const set = w.all
-        ? sedi.map(x => x.id)
-        : w.groupIds.length
-          ? [...new Set(w.groupIds.flatMap(g => groups.find(x => x.id === g)?.activityIds ?? []))]
-          : w.activityIds;
+    const hid = useId();
+    const [modo, setModo] = useState<DoveModo>(() => (w.all ? "all" : w.groupIds.length && !w.activityIds.length ? "group" : "some"));
+    // le sedi scelte a mano restano lì se si passa a un'altra scelta e si torna
+    const lastSeats = useRef<string[]>(w.activityIds);
+    const lastGroups = useRef<string[]>(w.groupIds);
+    if (!w.all && w.activityIds.length) lastSeats.current = w.activityIds;
+    if (!w.all && w.groupIds.length) lastGroups.current = w.groupIds;
+    // una bozza che cambia da fuori (ripresa, tenuta da parte) porta con sé la sua scelta
+    const shape: DoveModo = w.all ? "all" : w.activityIds.length ? "some" : w.groupIds.length ? "group" : modo;
+    useEffect(() => setModo(shape), [shape]);
+
+    const pick = (m: DoveModo) => {
+        setModo(m);
+        if (m === "all") return upd(dd => void (dd.where = { all: true, activityIds: [], groupIds: [] }));
+        if (m === "group") {
+            const g = lastGroups.current.length ? lastGroups.current : groups.slice(0, 1).map(x => x.id);
+            return upd(dd => void (dd.where = { all: false, activityIds: [], groupIds: [...g] }));
+        }
+        // dal gruppo si parte dalle sue sedi di oggi, per ritoccarle
+        const fromGroup = w.groupIds.length ? sedi.filter(x => groups.some(g => w.groupIds.includes(g.id) && g.activityIds.includes(x.id))).map(x => x.id) : [];
+        const seats = w.activityIds.length ? w.activityIds : fromGroup.length ? fromGroup : lastSeats.current;
+        upd(dd => void (dd.where = { all: false, activityIds: [...seats], groupIds: [] }));
+    };
+    const toggleGroup = (id: string) =>
+        upd(dd => {
+            const on = dd.where.groupIds.includes(id);
+            dd.where = { all: false, activityIds: [], groupIds: on ? dd.where.groupIds.filter(x => x !== id) : groups.filter(g => g.id === id || dd.where.groupIds.includes(g.id)).map(g => g.id) };
+        });
+    const radio = (m: DoveModo, label: string, count?: string) => (
+        <button type="button" className={s.dmode} role="radio" aria-checked={modo === m} onClick={() => modo !== m && pick(m)}>
+            <span className={s.dradio} aria-hidden />
+            {label}
+            {count && <small>{count}</small>}
+        </button>
+    );
+
     return (
         <div className={s.ifl}>
-            <h4>Dove</h4>
-            <div className={s.chips}>
-                <button type="button" className={s.chip} aria-pressed={w.all} onClick={() => upd(dd => void (dd.where = { all: true, activityIds: [], groupIds: [] }))}>
-                    Tutte le sedi
-                </button>
-                {groups.map(g => (
-                    <button
-                        key={g.id}
-                        type="button"
-                        className={s.chip}
-                        aria-pressed={!w.all && w.groupIds.length === 1 && w.groupIds[0] === g.id && !w.activityIds.length}
-                        onClick={() => upd(dd => void (dd.where = { all: false, activityIds: [], groupIds: [g.id] }))}
-                    >
-                        <Folder size={13} aria-hidden />
-                        {g.name}
-                    </button>
-                ))}
+            <h4 id={hid}>Dove</h4>
+            <div className={s.dmodes} role="radiogroup" aria-labelledby={hid}>
+                {radio("all", "Tutte le sedi", String(sedi.length))}
+                {groups.length > 0 && radio("group", "Un gruppo", String(groups.length))}
+                {modo === "group" && (
+                    <div className={s.dsub}>
+                        <div className={s.chips}>
+                            {groups.map(g => (
+                                <button key={g.id} type="button" className={s.chip} aria-pressed={w.groupIds.includes(g.id)} onClick={() => toggleGroup(g.id)}>
+                                    <Folder size={13} aria-hidden />
+                                    {g.name}
+                                    <small>{g.activityIds.length}</small>
+                                </button>
+                            ))}
+                        </div>
+                        <p className={s.muted}>Vale anche per le sedi che entreranno nel gruppo.</p>
+                    </div>
+                )}
+                {radio("some", "Sedi scelte", modo === "some" ? `${w.activityIds.length} di ${sedi.length}` : undefined)}
+                {modo === "some" && (
+                    <div className={s.sinl}>
+                        <SediPannello
+                            sedi={sedi}
+                            groups={groups}
+                            value={w.activityIds}
+                            take
+                            onChange={ids => upd(dd => void (dd.where = { all: false, activityIds: ids, groupIds: dd.where.groupIds }))}
+                        />
+                    </div>
+                )}
             </div>
-            <div className={s.isedi}>
-                {sedi.map(x => {
-                    const on = set.includes(x.id);
-                    return (
-                        <button
-                            key={x.id}
-                            type="button"
-                            className={s.gsc}
-                            role="checkbox"
-                            aria-checked={on}
-                            onClick={() =>
-                                upd(dd => {
-                                    const next = on ? set.filter(y => y !== x.id) : [...set, x.id];
-                                    dd.where = next.length === sedi.length ? { all: true, activityIds: [], groupIds: [] } : { all: false, activityIds: sedi.map(y => y.id).filter(y => next.includes(y)), groupIds: [] };
-                                })
-                            }
-                        >
-                            <span className={s.box}>{on && <Check size={11} aria-hidden />}</span>
-                            {x.name}
-                        </button>
-                    );
-                })}
-            </div>
-            <p className={s.muted}>{whereText(w, L)}. Quello che vale per una sede vince su quello che vale per tutte.</p>
+            <p className={s.muted}>
+                {!w.all && !w.groupIds.length && w.activityIds.length > 3 ? `${w.activityIds.length} sedi` : whereText(w, L)}. Quello che vale per una sede vince su quello che vale per tutte.
+            </p>
             {bad === "Scegli almeno una sede" && <Warn>{bad}.</Warn>}
         </div>
     );
