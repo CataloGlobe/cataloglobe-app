@@ -152,6 +152,20 @@ serve(async req => {
     // ---------- /Telemetria ----------
 
     // Prendi challenge attiva (se esiste)
+    // Già verificato (verifica non scaduta): nessun codice. Succede quando la
+    // pagina /verify-otp parte prima che il client abbia finito il controllo
+    // (es. login di un utente verificato): prima arrivava una mail inutile.
+    const { data: verification } = await supabaseAdmin
+        .from("otp_user_verifications")
+        .select("user_id")
+        .eq("user_id", user.id)
+        .gt("expires_at", now.toISOString())
+        .maybeSingle();
+    if (verification) {
+        console.log("[OTP_AUDIT]", JSON.stringify({ auth_user_id: user.id, outcome: "already_verified" }));
+        return json(200, { ok: true, already_verified: true });
+    }
+
     const { data: challenge } = await supabaseAdmin
         .from("otp_challenges")
         .select("*")
@@ -278,6 +292,13 @@ serve(async req => {
             .single();
 
         if (insErr) {
+            // Due richieste insieme (due schede): la seconda trova la sfida
+            // appena creata dalla prima (indice univoco). Il codice è partito,
+            // quindi è un'attesa, non un guasto.
+            if (insErr.code === "23505") {
+                await auditSend({ outcome: "cooldown_blocked", cooldownRemainingMs: COOLDOWN_MS });
+                return json(429, { error: "cooldown" });
+            }
             await auditSend({ outcome: "error", sendCountInWindow: sendCount });
             return json(500, { error: "db_error" });
         }
