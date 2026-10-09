@@ -1,130 +1,107 @@
-/* Recensioni: riepilogo in Card, elenco su ListRow. Solo disposizione:
-   stelle, barre e righe sono del sistema (Rating, BarList, ListRow). */
+/* Recensioni A (D154): il periodo e Cerca in una barra, il voto in una
+   riga, i filtri con i conteggi, l'elenco con il commento largo come un
+   testo da leggere. Misure del prototipo «Clienti e numeri». */
+
+@use "@styles/scheda-type" as type;
 
 .page {
     display: flex;
     flex-direction: column;
-    gap: var(--space-20);
+    gap: 14px;
 }
 
-/* Select periodo + ordinamento nella banda: larghezza fissa per
-   leggibilità del cluster. */
-.toolbarPeriod {
-    width: 180px;
-    flex: 0 0 auto;
-}
-
-.toolbarSort {
-    width: 160px;
-    flex: 0 0 auto;
-}
-
-.toolbarRating {
-    width: 150px;
-    flex: 0 0 auto;
-}
-
-/* RC4: il conteggio del periodo, a sinistra nella barra. */
-.count {
-    white-space: nowrap;
-}
-
-/* Numero eroe a sinistra, distribuzione a destra; in colonna sotto 768. */
-.summary {
-    display: grid;
-    // Il voto a contenuto: con un minimo di 160 restava un vuoto fra la
-    // cifra e le barre.
-    grid-template-columns: max-content minmax(0, 1fr);
-    gap: var(--space-32);
+/* ── Periodo a sinistra, Cerca a destra ─────────────── */
+.bar {
+    display: flex;
     align-items: center;
+    gap: var(--space-10);
+    flex-wrap: wrap;
+}
 
-    @media (max-width: 767px) {
-        grid-template-columns: 1fr;
-        gap: var(--space-16);
+.searchButton,
+.search {
+    margin-left: auto;
+}
+
+/* Il posto del voto mentre carica: stessa altezza, niente salto. */
+.voteLoading {
+    height: 76px;
+    border-radius: var(--radius-lg);
+    background: var(--card-bg);
+    box-shadow: var(--shadow-sm);
+}
+
+/* ── Filtri a sinistra, ordine a destra ─────────────── */
+.filters {
+    display: flex;
+    align-items: center;
+    gap: var(--space-6);
+    flex-wrap: wrap;
+}
+
+.sort {
+    margin-left: auto;
+    width: auto;
+}
+
+// L'ordine è una parola grigia con la freccia, non un campo.
+.sortSelect {
+    border-color: transparent;
+    background-color: transparent;
+    color: var(--text-muted);
+    @include type.fs(note);
+    min-height: 0;
+    padding-block: var(--space-4);
+
+    &:hover {
+        color: var(--text);
     }
 }
 
-.average {
-    display: flex;
-}
-
-.distribution {
-    min-width: 0;
-}
-
-// Lo scheletro del caricamento prende tutta la riga, non la colonna del voto.
-.summaryFull {
-    grid-column: 1 / -1;
-}
-
-.dateRange {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-end;
-    gap: var(--space-12);
-}
-
-.noComment {
-    font-style: italic;
-}
-
-.comment {
-    display: block;
-    white-space: normal;
-    overflow-wrap: anywhere;
-}
-
-/* RC6: una riga per recensione. Stelle e data in colonna fissa a sinistra,
-   commento a tutta larghezza, ⋯ a destra; al telefono stelle e data sopra. */
+/* ── Elenco ─────────────────────────────────────────── */
 .list {
+    list-style: none;
     margin: 0;
     padding: 0;
-    list-style: none;
 }
 
 .row {
     display: grid;
-    grid-template-columns: 168px minmax(0, 1fr) auto;
-    gap: var(--space-16);
-    align-items: start;
-    padding: var(--space-12) var(--space-16);
-
-    & + & {
-        border-top: 1px solid var(--border);
-    }
-
-    @media (max-width: 767px) {
-        grid-template-columns: minmax(0, 1fr) auto;
-        gap: var(--space-6) var(--space-12);
-    }
-}
-
-.rowMeta {
-    display: flex;
-    flex-direction: column;
     gap: var(--space-4);
-    min-width: 0;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
 
-    @media (max-width: 767px) {
-        flex-direction: row;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: var(--space-8);
+    &:last-child {
+        border-bottom: 0;
     }
 }
 
-.rowComment {
-    min-width: 0;
-
-    @media (max-width: 767px) {
-        grid-column: 1 / -1;
-        grid-row: 2;
-    }
+.rowTop {
+    display: flex;
+    align-items: center;
+    gap: var(--space-10);
+    flex-wrap: wrap;
+    @include type.fs(note);
+    color: var(--text-muted);
 }
 
 .rowActions {
-    @media (max-width: 767px) {
-        grid-column: 2;
-        grid-row: 1;
-    }
+    margin-left: auto;
+}
+
+.comment {
+    margin: 0;
+    max-width: 70ch;
+    @include type.fs(strong);
+    line-height: 1.5;
+    color: var(--text);
+    overflow-wrap: anywhere;
+    white-space: pre-line;
+}
+
+.noComment {
+    margin: 0;
+    @include type.fs(text);
+    font-style: italic;
+    color: var(--text-muted);
 }

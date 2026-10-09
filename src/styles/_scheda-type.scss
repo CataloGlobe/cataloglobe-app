@@ -3,7 +3,9 @@
 // La scala dei caratteri della Scheda della sede e della pagina del prodotto
 // (Officina 3, prototipo C+++ e D121): le misure del prototipo, uno a uno,
 // in un posto solo, così le due pagine restano uguali. I passi `p-*` sono
-// quelli della pagina in piccolo dentro il telefono.
+// quelli della pagina in piccolo dentro il telefono. Clienti e numeri
+// (D154) usa la stessa scala: `figure` per i numeri delle righe, `vote` per
+// il voto medio.
 $scheda-type: (
   p-tiny: 10px,
   p-head: 10.5px,
@@ -18,10 +20,12 @@ $scheda-type: (
   say: 15.5px,
   group: 16px,
   answer: 17px,
+  figure: 22px,
   title: 18px,
   dish: 19px,
   name: 26px,
-  price: 30px
+  price: 30px,
+  vote: 34px
 );
 
 @mixin fs($step) {

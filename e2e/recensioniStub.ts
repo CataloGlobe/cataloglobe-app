@@ -17,6 +17,9 @@ import { appearanceTables, freezeClock, sediOf } from "./appearanceStub";
  * | «Tiramisù da provare e2e» | 5 | Porto | 01/08 |
  * | «Freddo e2e» | 1 | Centro | 05/07 |
  *
+ * Solo Centro ha il link per le recensioni di Google: le sue 4-5 stelle sono
+ * «Invitata su Google», quelle di Porto no.
+ *
  * Tutte `approved`. Con `legacyStatuses` se ne aggiungono tre con gli stati
  * della vecchia moderazione: dal feedback privato (R1) la pagina non li legge
  * più, e le tratta come tutte le altre.
@@ -78,7 +81,10 @@ export function makeTables(): Tables {
             review(REVIEW.tiramisu, SEDE.porto, 5, "Tiramisù da provare e2e", "2026-08-01T12:00:00.000Z"),
             review(REVIEW.freddo, SEDE.centro, 1, "Freddo e2e", "2026-07-05T12:00:00.000Z")
         ],
-        activities: sedi.activities
+        // Centro ha il link di Google, Porto no (D154: chi è stato invitato).
+        activities: sedi.activities.map(a =>
+            a.id === SEDE.centro ? { ...a, google_review_url: "https://example.com/recensioni-centro" } : a
+        )
     };
 }
 
