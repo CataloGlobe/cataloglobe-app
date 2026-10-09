@@ -455,8 +455,7 @@ export function StoriaBlocchi({
     tenantId,
     files,
     onFile,
-    productOptions,
-    onCap
+    productOptions
 }: {
     t: Tunnel;
     u: U;
@@ -464,12 +463,12 @@ export function StoriaBlocchi({
     files: Record<string, File>;
     onFile: (blockId: string, f: File | null) => void;
     productOptions: StoryProductOptions;
-    onCap: () => void;
 }) {
     const [focus, setFocus] = useState<string | null>(null);
     const images = t.blocks.filter(b => b.type === "image").length;
     const add = (type: StoryBlock["type"]) => {
-        if (type === "image" && images >= MAX_STORY_IMAGES) return onCap();
+        // arrivati al tetto il bottone «Immagine» è già spento
+        if (type === "image" && images >= MAX_STORY_IMAGES) return;
         const b = createBlock(type);
         u(x => void x.blocks.push(b));
         setFocus(b.id);
