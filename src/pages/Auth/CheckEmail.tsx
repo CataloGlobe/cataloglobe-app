@@ -5,6 +5,7 @@ import { useAuth } from "@/context/useAuth";
 import { resendConfirmationEmail, verifySignupCode } from "@/services/supabase/auth";
 import { Button, CodeInput, InlineBanner, type CodeInputHandle } from "@/components/ui";
 import Text from "@/components/ui/Text/Text";
+import { MailCheck } from "lucide-react";
 import { AuthLayout } from "@/layouts/AuthLayout/AuthLayout";
 import { internalPathOr } from "@/utils/internalPath";
 import { SIGNUP_EMAIL_KEY, clearPendingRedirect, peekPendingRedirect } from "@/utils/pendingRedirect";
@@ -148,14 +149,12 @@ export default function CheckEmail() {
         // Pagina aperta senza passare dalla registrazione (o storage svuotato):
         // senza email il codice non si può controllare, resta il link della mail.
         return (
-            <AuthLayout>
+            <AuthLayout
+                icon={<MailCheck size={28} aria-hidden="true" />}
+                heading="Conferma la tua email"
+                lead="Apri la mail che ti abbiamo mandato e tocca il link: entri subito."
+            >
                 <div className={styles.auth}>
-                    <Text as="h1" variant="title-md">
-                        Conferma la tua email
-                    </Text>
-                    <Text as="p" variant="body-sm" colorVariant="muted" className={styles.subtitle}>
-                        Apri la mail che ti abbiamo mandato e tocca il link: entri subito.
-                    </Text>
                     <Text as="p" variant="caption" className={styles.hint}>
                         Hai già confermato? <Link to="/login">Accedi</Link>
                     </Text>
@@ -165,16 +164,12 @@ export default function CheckEmail() {
     }
 
     return (
-        <AuthLayout>
+        <AuthLayout
+            icon={<MailCheck size={28} aria-hidden="true" />}
+            heading="Conferma la tua email"
+            lead={<>Ti abbiamo mandato un codice di 6 cifre e un link a <strong>{email}</strong>. Usa quello che ti è più comodo.</>}
+        >
             <div className={styles.auth}>
-                <Text as="h1" variant="title-md">
-                    Conferma la tua email
-                </Text>
-
-                <Text as="p" variant="body-sm" colorVariant="muted" className={styles.subtitle}>
-                    Ti abbiamo mandato un codice di 6 cifre e un link a <strong>{email}</strong>. Usa quello
-                    che ti è più comodo.
-                </Text>
 
                 <form
                     onSubmit={(e: FormEvent) => {

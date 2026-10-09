@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { CheckCircle, Info } from "lucide-react";
+import { CheckCircle, Clock, Info, Mail, UserRound } from "lucide-react";
 import { supabase } from "@/services/supabase/client";
 import { resendConfirmationEmail } from "@/services/supabase/auth";
 import { parseConfirmationLink } from "@/utils/confirmationLink";
@@ -107,32 +107,21 @@ export default function EmailConfirmed() {
 
     if (status === "loading") {
         return (
-            <AuthLayout>
-                <div className={styles.auth}>
-                    <Text as="h1" variant="title-md">
-                        Verifica in corso…
-                    </Text>
-                    <Text as="p" variant="body-sm" colorVariant="muted" className={styles.subtitle}>
-                        Attendi qualche secondo, stiamo completando la verifica.
-                    </Text>
-                </div>
-            </AuthLayout>
+            <AuthLayout
+                heading="Verifica in corso…"
+                lead="Attendi qualche secondo, stiamo completando la verifica."
+            />
         );
     }
 
     if (status === "success") {
         return (
-            <AuthLayout>
+            <AuthLayout
+                icon={<CheckCircle size={28} aria-hidden="true" />}
+                heading="Email confermata"
+                lead="Il tuo account è attivo: ti stiamo portando dentro."
+            >
                 <div className={styles.auth}>
-                    <div className={styles.statusIcon}>
-                        <CheckCircle size={48} color="var(--brand-primary, #6366f1)" strokeWidth={1.5} />
-                    </div>
-                    <Text as="h1" variant="title-md">
-                        Email confermata
-                    </Text>
-                    <Text as="p" variant="body-sm" colorVariant="muted" className={styles.subtitle}>
-                        Il tuo account è attivo: ti stiamo portando dentro.
-                    </Text>
                     <Button variant="primary" fullWidth onClick={() => navigate("/dashboard", { replace: true })}>
                         Entra
                     </Button>
@@ -143,20 +132,13 @@ export default function EmailConfirmed() {
 
     if (status === "otherAccount") {
         return (
-            <AuthLayout>
+            <AuthLayout
+                icon={<UserRound size={28} aria-hidden="true" />}
+                tone="warning"
+                heading="Sei dentro con un altro account"
+                lead={<>{currentEmail ? `Hai già fatto l'accesso come ${currentEmail}. ` : "Hai già fatto l'accesso con un altro account. "} Per confermare la nuova email esci da questo account.</>}
+            >
                 <div className={styles.auth}>
-                    <div className={styles.statusIcon}>
-                        <Info size={48} color="var(--text-muted, #64748b)" strokeWidth={1.5} />
-                    </div>
-                    <Text as="h1" variant="title-md">
-                        Sei dentro con un altro account
-                    </Text>
-                    <Text as="p" variant="body-sm" colorVariant="muted" className={styles.subtitle}>
-                        {currentEmail
-                            ? `Hai già fatto l'accesso come ${currentEmail}. `
-                            : "Hai già fatto l'accesso con un altro account. "}
-                        Per confermare la nuova email esci da questo account.
-                    </Text>
                     <Button variant="primary" fullWidth onClick={handleSignOutAndConfirm}>
                         Esci e conferma
                     </Button>
@@ -170,17 +152,12 @@ export default function EmailConfirmed() {
 
     if (status === "already") {
         return (
-            <AuthLayout>
+            <AuthLayout
+                icon={<Info size={28} aria-hidden="true" />}
+                heading="Email già verificata"
+                lead="Il tuo account è già attivo."
+            >
                 <div className={styles.auth}>
-                    <div className={styles.statusIcon}>
-                        <Info size={48} color="var(--text-muted, #64748b)" strokeWidth={1.5} />
-                    </div>
-                    <Text as="h1" variant="title-md">
-                        Email già verificata
-                    </Text>
-                    <Text as="p" variant="body-sm" colorVariant="muted" className={styles.subtitle}>
-                        Il tuo account è già attivo.
-                    </Text>
                     <Button variant="primary" fullWidth onClick={() => navigate("/login")}>
                         Accedi
                     </Button>
@@ -191,23 +168,18 @@ export default function EmailConfirmed() {
 
     // status === "expired" | "error"
     return (
-        <AuthLayout>
+        <AuthLayout
+            icon={status === "expired" ? <Clock size={28} aria-hidden="true" /> : <Info size={28} aria-hidden="true" />}
+            tone={status === "expired" ? "warning" : "brand"}
+            heading={status === "expired" ? "Link scaduto o già usato" : "Verifica non riuscita"}
+            lead={status === "expired" ? "Se hai già confermato l'email, puoi accedere. Altrimenti inserisci la tua email per ricevere un nuovo link." : "Il link non è valido. Inserisci la tua email per ricevere un nuovo link di conferma."}
+        >
             <div className={styles.auth}>
-                <div className={styles.statusIcon}>
-                    <Info size={48} color="var(--text-muted, #64748b)" strokeWidth={1.5} />
-                </div>
-                <Text as="h1" variant="title-md">
-                    {status === "expired" ? "Link scaduto o già usato" : "Verifica non riuscita"}
-                </Text>
-                <Text as="p" variant="body-sm" colorVariant="muted" className={styles.subtitle}>
-                    {status === "expired"
-                        ? "Se hai già confermato l'email, puoi accedere. Altrimenti inserisci la tua email per ricevere un nuovo link."
-                        : "Il link non è valido. Inserisci la tua email per ricevere un nuovo link di conferma."}
-                </Text>
 
                 <TextInput
                     label="Email"
                     type="email"
+                    startAdornment={<Mail size={18} aria-hidden="true" />}
                     value={resendEmail}
                     onChange={e => {
                         setResendEmail(e.target.value);

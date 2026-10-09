@@ -6,6 +6,7 @@ import Text from "@/components/ui/Text/Text";
 import { Link } from "react-router-dom";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { AuthLayout } from "@/layouts/AuthLayout/AuthLayout";
+import { Info, KeyRound, Mail, MailCheck } from "lucide-react";
 import styles from "./Auth.module.scss";
 
 export default function ForgotPassword() {
@@ -31,62 +32,49 @@ export default function ForgotPassword() {
     };
 
     return (
-        <AuthLayout>
+        <AuthLayout
+            icon={success ? <MailCheck size={28} aria-hidden="true" /> : <KeyRound size={28} aria-hidden="true" />}
+            heading={success ? "Controlla la posta" : "Password dimenticata?"}
+            lead={
+                success
+                    ? "Se l'indirizzo è associato a un account, ti abbiamo mandato il link per reimpostare la password."
+                    : "Scrivi la tua email: ti mandiamo un link per sceglierne una nuova."
+            }
+        >
             <div className={styles.auth}>
-                <Text as="h1" variant="title-md">
-                    Password dimenticata?
-                </Text>
-
                 {!success ? (
-                    <>
-                        <Text as="p" variant="body-sm" colorVariant="muted" className={styles.subtitle}>
-                            Inserisci la tua email: ti invieremo un link per reimpostare la password.
-                        </Text>
+                    <form onSubmit={handleSubmit} aria-busy={loading}>
+                        <TextInput
+                            label="Email"
+                            type="email"
+                            value={email}
+                            onChange={e => setEmail(e.target.value)}
+                            required
+                            autoComplete="email"
+                            disabled={loading}
+                            startAdornment={<Mail size={18} aria-hidden="true" />}
+                        />
 
-                        <form onSubmit={handleSubmit} aria-busy={loading}>
-                            <TextInput
-                                label="Email"
-                                type="email"
-                                value={email}
-                                onChange={e => setEmail(e.target.value)}
-                                required
-                                autoComplete="email"
-                                disabled={loading}
-                            />
-
-                            <Button
-                                type="submit"
-                                variant="primary"
-                                fullWidth
-                                loading={loading}
-                                disabled={loading}
-                            >
-                                Invia link di recupero
-                            </Button>
-                        </form>
-
-                        <Text as="p" variant="body-sm" className={styles.hint}>
-                            <Link to="/login">Torna alla login</Link>
-                        </Text>
-                    </>
+                        <Button
+                            type="submit"
+                            variant="primary"
+                            fullWidth
+                            loading={loading}
+                            disabled={loading}
+                        >
+                            Invia link di recupero
+                        </Button>
+                    </form>
                 ) : (
-                    <>
-                        <Text as="p" variant="body-sm" colorVariant="muted">
-                            Se l&apos;indirizzo email è associato a un account, ti abbiamo inviato le
-                            istruzioni per reimpostare la password.
-                        </Text>
-
-                        <Text as="p" variant="caption" colorVariant="muted" className={styles.hint}>
-                            Controlla anche la cartella spam o posta indesiderata.
-                        </Text>
-
-                        <div className={styles.actions}>
-                            <Button as="a" href="/login" variant="primary" fullWidth>
-                                Torna alla login
-                            </Button>
-                        </div>
-                    </>
+                    <p className={styles.note}>
+                        <Info size={16} aria-hidden="true" />
+                        Non la trovi? Guarda anche nella cartella spam o posta indesiderata.
+                    </p>
                 )}
+
+                <Text as="p" variant="body-sm" className={styles.hint}>
+                    <Link to="/login">Torna ad accedi</Link>
+                </Text>
             </div>
         </AuthLayout>
     );
