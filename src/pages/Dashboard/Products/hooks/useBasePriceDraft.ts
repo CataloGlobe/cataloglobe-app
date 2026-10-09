@@ -1,9 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { updateProduct, type V2Product } from "@/services/supabase/products";
 
-/** Il campo come lo scrive l'utente: «22,5» o «22.50». */
+/**
+ * Il campo come lo scrive l'utente: «22,5» o «22.50». Si apre coi centesimi
+ * («2.90», non «2.9»), se non cambiano il prezzo (la colonna non ha scala fissa).
+ */
 function toInput(price: number | null): string {
-    return price === null ? "" : String(price);
+    if (price === null) return "";
+    const cents = price.toFixed(2);
+    return Number(cents) === price ? cents : String(price);
 }
 
 function parse(input: string): number | null | "invalid" {

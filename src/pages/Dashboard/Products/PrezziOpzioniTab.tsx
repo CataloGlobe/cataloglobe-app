@@ -12,10 +12,12 @@ import { Plus } from "lucide-react";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { DataTable, ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
-import { Card } from "@/components/ui/Card/Card";
+import { Card, type CardProps } from "@/components/ui/Card/Card";
+import { RadioGroup } from "@/components/ui/RadioGroup/RadioGroup";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { formatPrice } from "@/utils/formatCurrency";
+import { ruleText } from "./scheda/prodottoModel";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import Text from "@/components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
@@ -64,6 +66,33 @@ function formatPricePreview(values: { absolute_price: number | null }[], menuLab
     return `Nel ${menuLabel} si legge «${summary.kind === "single" ? price : `da ${price}`}»`;
 }
 
+/**
+ * Officina 3 (artifact «Scheda del prodotto»): nella parte a fuoco la card
+ * col titolo c'è già, quindi qui il contenuto è piatto e il bottone per
+ * aggiungere sta in fondo. Fuori dalla pagina del prodotto resta la Card.
+ */
+function Section({ bare, actions, empty, children, ...card }: CardProps & { bare: boolean }) {
+    if (!bare) {
+        return (
+            <Card actions={actions} empty={empty} {...card}>
+                {children}
+            </Card>
+        );
+    }
+    return (
+        <div className={styles.bare}>
+            {empty ? (
+                <Text variant="body-sm" colorVariant="muted">
+                    {empty}
+                </Text>
+            ) : (
+                children
+            )}
+            {actions && <div className={styles.bareActions}>{actions}</div>}
+        </div>
+    );
+}
+
 interface PrezziOpzioniTabProps {
     product: V2Product;
     productId: string;
@@ -104,6 +133,7 @@ export default function PrezziOpzioniTab({
     formatsDraft
 }: PrezziOpzioniTabProps) {
     const isPhone = useMediaQuery("(max-width: 767px)");
+    const bare = only !== undefined;
     const { showToast } = useToast();
     const navigate = useNavigate();
     const verticalConfig = useVerticalConfig();
@@ -237,6 +267,14 @@ export default function PrezziOpzioniTab({
         !hasPrimaryGroup &&
         !editingBasePrice &&
         (basePriceDraft ? basePriceDraft.input.trim() === "" : product.base_price === null);
+
+    // «Nel menù si legge «da 2,50 €»», quando i formati hanno un prezzo.
+    const pricePreview =
+        !optionsLoading && !isInheriting && priceMode === "formato"
+            ? formatsDraft
+                ? formatPricePreview(formatsDraft.rows, menuLower)
+                : primaryPriceGroup && formatPricePreview(primaryPriceGroup.values, menuLower)
+            : null;
 
     const loadParent = useCallback(async () => {
         if (!isVariant || !product.parent_product_id) return;
@@ -650,17 +688,14 @@ export default function PrezziOpzioniTab({
             {/* PO1: il modo nell'intestazione, accanto al titolo; in «per formato»
                 il sottotitolo dice come si legge nel menù. */}
             {(!only || only === "prezzo") && (
-            <Card
+            <Section
+                bare={bare}
                 title="Prezzo"
                 subtitle={
-                    (!optionsLoading && !isInheriting && priceMode === "formato"
-                        ? formatsDraft
-                            ? formatPricePreview(formatsDraft.rows, menuLower)
-                            : primaryPriceGroup && formatPricePreview(primaryPriceGroup.values, menuLower)
-                        : null) ?? `Come si legge il prezzo del ${productLower} nel ${menuLower}.`
+                    pricePreview ?? `Come si legge il prezzo del ${productLower} nel ${menuLower}.`
                 }
                 modeSelector={
-                    optionsLoading || isInheriting ? undefined : (
+                    bare || optionsLoading || isInheriting ? undefined : (
                         <SegmentedControl<PriceMode>
                             value={priceMode}
                             onChange={next => {
@@ -676,6 +711,24 @@ export default function PrezziOpzioniTab({
                     )
                 }
             >
+                {bare && !optionsLoading && !isInheriting && (
+                    <RadioGroup
+                        variant="card"
+                        ariaLabel="Come si legge il prezzo"
+                        containerClassName={styles.modes}
+                        value={priceMode}
+                        onChange={value => {
+                            const next = value as PriceMode;
+                            if (revertingToUnico || next === priceMode) return;
+                            if (next === "unico") handleSelectUnico();
+                            else handleSelectFormato();
+                        }}
+                        options={[
+                            { value: "unico", label: "Un prezzo", description: "Lo stesso per tutti." },
+                            { value: "formato", label: "Più formati", description: "Piccola, media, grande: ognuno il suo." }
+                        ]}
+                    />
+                )}
                 {optionsLoading ? (
                     <Text variant="body-sm" colorVariant="muted">
                         Caricamento...
@@ -719,6 +772,8 @@ export default function PrezziOpzioniTab({
                         {priceMode !== "formato" && basePriceDraft ? (
                             <div className={styles.priceDisplay}>
                                 <NumberInput
+                                    label={bare ? "Prezzo" : undefined}
+                                    containerClassName={bare ? styles.priceNarrow : undefined}
                                     aria-label="Prezzo"
                                     value={basePriceDraft.input}
                                     onChange={e => basePriceDraft.setInput(e.target.value)}
@@ -769,6 +824,11 @@ export default function PrezziOpzioniTab({
                                     onUpdate={formatsDraft ? formatsDraft.update : handleUpdateFormatValue}
                                     onDelete={formatsDraft ? formatsDraft.remove : handleDeleteValue}
                                 />
+                                {bare && pricePreview && (
+                                    <Text variant="caption" colorVariant="muted">
+                                        {pricePreview}. Il cliente sceglie il formato prima di «Aggiungi».
+                                    </Text>
+                                )}
                             </div>
                         ) : editingBasePrice ? (
                             <div className={styles.priceEditRow}>
@@ -846,12 +906,13 @@ export default function PrezziOpzioniTab({
                     confirmLabel="Usa il prezzo del padre"
                     confirmVariant="primary"
                 />
-            </Card>
+            </Section>
             )}
 
             {/* ──────────────── Card 2 — Configurazioni ──────────────── */}
             {(!only || only === "scelte") && (
-            <Card
+            <Section
+                bare={bare}
                 title="Configurazioni"
                 // PO2: la spiegazione è il sottotitolo; «Nuovo gruppo» solo
                 // nell'intestazione, mai nel corpo («+ Nuovo» al telefono).
@@ -864,10 +925,10 @@ export default function PrezziOpzioniTab({
                             variant="secondary"
                             size="sm"
                             leftIcon={<Plus size={16} />}
-                            aria-label={isPhone ? "Nuovo gruppo" : undefined}
+                            aria-label={isPhone && !bare ? "Nuovo gruppo" : undefined}
                             onClick={handleOpenCreateGroup}
                         >
-                            {isPhone ? "Nuovo" : "Nuovo gruppo"}
+                            {bare ? "Aggiungi una domanda" : isPhone ? "Nuovo" : "Nuovo gruppo"}
                         </Button>
                     ) : undefined
                 }
@@ -938,12 +999,12 @@ export default function PrezziOpzioniTab({
                         </Text>
                     ) : addonGroups.length === 0 && !isCreatingGroup ? (
                         <Text variant="body-sm" colorVariant="muted">
-                            Nessuna configurazione.
+                            {bare ? "Nessuna domanda: si ordina così com'è." : "Nessuna configurazione."}
                         </Text>
                     ) : addonGroups.length > 0 ? (
-                        <div className={styles.optionGroupsList}>
+                        <div className={bare ? styles.optionGroupsBare : styles.optionGroupsList}>
                             {addonGroups.map(group => (
-                                <div key={group.id} className={styles.groupCard}>
+                                <div key={group.id} className={bare ? styles.groupBare : styles.groupCard}>
                                     {editingGroupId === group.id ? (
                                         <div className={styles.groupEditForm}>
                                             <TextInput
@@ -999,21 +1060,28 @@ export default function PrezziOpzioniTab({
                                         </div>
                                     ) : (
                                         <div className={styles.groupHeader}>
-                                            <div className={styles.groupMeta}>
-                                                <Text variant="body" weight={600}>
-                                                    {group.name}
-                                                </Text>
-                                                <Badge variant="secondary">
-                                                    {group.values.length}{" "}
-                                                    {group.values.length === 1 ? "opzione" : "opzioni"}
-                                                </Badge>
-                                                {group.max_selectable != null && group.max_selectable > 1 && (
-                                                    <Badge variant="secondary">fino a {group.max_selectable}</Badge>
-                                                )}
-                                                {group.is_required && (
-                                                    <Badge variant="secondary">Obbligatorio</Badge>
-                                                )}
-                                            </div>
+                                            {bare ? (
+                                                // Come la scheda: «Cottura · una sola · obbligatoria».
+                                                <h4 className={styles.groupTitle}>
+                                                    {group.name} <span>· {ruleText(group)}</span>
+                                                </h4>
+                                            ) : (
+                                                <div className={styles.groupMeta}>
+                                                    <Text variant="body" weight={600}>
+                                                        {group.name}
+                                                    </Text>
+                                                    <Badge variant="secondary">
+                                                        {group.values.length}{" "}
+                                                        {group.values.length === 1 ? "opzione" : "opzioni"}
+                                                    </Badge>
+                                                    {group.max_selectable != null && group.max_selectable > 1 && (
+                                                        <Badge variant="secondary">fino a {group.max_selectable}</Badge>
+                                                    )}
+                                                    {group.is_required && (
+                                                        <Badge variant="secondary">Obbligatorio</Badge>
+                                                    )}
+                                                </div>
+                                            )}
                                             <TableRowActions
                                                 ariaLabel={`Azioni ${group.name}`}
                                                 actions={[
@@ -1052,12 +1120,13 @@ export default function PrezziOpzioniTab({
                     message="Si eliminano anche le sue scelte. Non si torna indietro."
                     confirmLabel="Elimina"
                 />
-            </Card>
+            </Section>
             )}
 
             {/* ──────────────── Card 3 — Varianti ──────────────── */}
             {!isVariant && (!only || only === "varianti") && (
-                <Card
+                <Section
+                    bare={bare}
                     title="Varianti"
                     subtitle={`Prezzo e descrizione propri; nel ${menuLower} pubblico sono ${verticalConfig.productLabelPlural.toLowerCase()} a sé.`}
                     badge={variants.length > 0 ? <Badge variant="secondary">{variants.length}</Badge> : undefined}
@@ -1068,10 +1137,10 @@ export default function PrezziOpzioniTab({
                             variant="secondary"
                             size="sm"
                             leftIcon={<Plus size={16} />}
-                            aria-label={isPhone ? "Aggiungi variante" : undefined}
+                            aria-label={isPhone && !bare ? "Aggiungi variante" : undefined}
                             onClick={onOpenVariantDrawer}
                         >
-                            {isPhone ? "Nuova" : "Aggiungi variante"}
+                            {bare ? "Crea una variante" : isPhone ? "Nuova" : "Aggiungi variante"}
                         </Button>
                     }
                     flush={variants.length > 0}
@@ -1086,7 +1155,7 @@ export default function PrezziOpzioniTab({
                             onRowClick={variant => navigate(`/business/${businessId}/products/${variant.id}`)}
                         />
                     )}
-                </Card>
+                </Section>
             )}
         </div>
     );

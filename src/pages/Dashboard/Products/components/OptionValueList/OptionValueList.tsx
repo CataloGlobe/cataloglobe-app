@@ -36,6 +36,8 @@ function readPrice(value: V2ProductOptionValue, priceMode: OptionValuePriceMode)
 }
 
 function formatPrice(price: number | null, priceMode: OptionValuePriceMode): string {
+    // Un'aggiunta senza sovrapprezzo è «compresa», come la legge il cliente.
+    if (priceMode === "delta" && !price) return "compreso";
     if (price === null) return "—";
     if (priceMode === "absolute") return formatEuro(price);
     return price >= 0 ? `+ ${formatEuro(price)}` : `− ${formatEuro(Math.abs(price))}`;

@@ -37,3 +37,11 @@
   flex-direction: column;
   gap: var(--space-6);
 }
+
+// Officina 3: dentro la parte a fuoco, senza la Card.
+.bare {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  min-width: 0;
+}
