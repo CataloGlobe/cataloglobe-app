@@ -1,7 +1,7 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { openBusinessPage } from "./business";
 import { sidebarLink } from "./nav";
-import { REVIEW, stubRecensioni, type RecensioniStub } from "./recensioniStub";
+import { REVIEW, SEDE, TENANT_ID, stubRecensioni, type RecensioniStub } from "./recensioniStub";
 
 /**
  * Recensioni (lotto `ds-5-coda`, P0), rifatta come «Recensioni A» (D154): il
@@ -30,8 +30,9 @@ async function choosePeriod(page: Page, label: string): Promise<void> {
     await press(main(page).getByRole("radio", { name: label, exact: true }));
 }
 
-function comments(page: Page): Promise<string[]> {
-    return main(page).getByText(/^(Pizza ottima|Servizio lento|Tiramisù da provare|Freddo) e2e/).allTextContents();
+/** I commenti nell'elenco: si controllano con le attese (`toHaveText`), che aspettano il nuovo render. */
+function comments(page: Page): Locator {
+    return main(page).getByText(/^(Pizza ottima|Servizio lento|Tiramisù da provare|Freddo) e2e/);
 }
 
 /** La riga di una recensione nell'elenco «Recensioni» (RC6). */
@@ -87,18 +88,18 @@ test.describe("Recensioni", () => {
     test("il periodo parte da 30 giorni e sta nell'indirizzo", async ({ page }) => {
         await openPage(page, null);
         await expect(main(page).getByRole("radio", { name: "30 giorni", exact: true })).toHaveAttribute("aria-checked", "true");
-        expect(await comments(page)).toEqual(["Pizza ottima e2e, torneremo.", "Servizio lento e2e, un'ora per il secondo."]);
+        await expect(comments(page)).toHaveText(["Pizza ottima e2e, torneremo.", "Servizio lento e2e, un'ora per il secondo."]);
         await expect(main(page).getByText("3 recensioni", { exact: true })).toBeVisible();
         await choosePeriod(page, "Sempre");
         await expect(page).toHaveURL(/[?&]period=all/);
-        expect(await comments(page)).toHaveLength(4);
+        await expect(comments(page)).toHaveCount(4);
         await page.reload();
         await expect(main(page).getByText("Freddo e2e")).toBeVisible({ timeout: 15_000 });
     });
 
     test("elenco dal più recente, sede e «Nessun commento»", async ({ page }) => {
         await openPage(page);
-        expect(await comments(page)).toEqual([
+        await expect(comments(page)).toHaveText([
             "Pizza ottima e2e, torneremo.",
             "Servizio lento e2e, un'ora per il secondo.",
             "Tiramisù da provare e2e",
@@ -120,9 +121,9 @@ test.describe("Recensioni", () => {
     test("filtro per stelle dalla riga del voto, e si toglie dal suo segno", async ({ page }) => {
         await openPage(page);
         await press(main(page).getByRole("button", { name: "1 stella: 1" }));
-        expect(await comments(page)).toEqual(["Freddo e2e"]);
+        await expect(comments(page)).toHaveText(["Freddo e2e"]);
         await press(main(page).getByRole("button", { name: "Togli il filtro delle stelle" }));
-        expect(await comments(page)).toHaveLength(4);
+        await expect(comments(page)).toHaveCount(4);
     });
 
     test("i filtri dell'elenco, con i conteggi", async ({ page }) => {
@@ -130,23 +131,23 @@ test.describe("Recensioni", () => {
         const low = main(page).getByRole("radio", { name: /^Da leggere: le basse/ });
         await expect(low).toContainText("2");
         await press(low);
-        expect(await comments(page)).toEqual(["Servizio lento e2e, un'ora per il secondo.", "Freddo e2e"]);
+        await expect(comments(page)).toHaveText(["Servizio lento e2e, un'ora per il secondo.", "Freddo e2e"]);
         await press(main(page).getByRole("radio", { name: /^Con un commento/ }));
-        expect(await comments(page)).toHaveLength(4);
+        await expect(comments(page)).toHaveCount(4);
         await expect(main(page).getByText("Nessun commento, solo le stelle.")).toHaveCount(0);
     });
 
     test("ricerca nei commenti", async ({ page }) => {
         await openPage(page);
         await search(page, "tiramisù");
-        expect(await comments(page)).toEqual(["Tiramisù da provare e2e"]);
+        await expect(comments(page)).toHaveText(["Tiramisù da provare e2e"]);
     });
 
     test("periodo: 7 giorni", async ({ page }) => {
         await openPage(page);
         await choosePeriod(page, "7 giorni");
         await expect(main(page).getByText("Freddo e2e")).toHaveCount(0);
-        expect(await comments(page)).toEqual(["Pizza ottima e2e, torneremo.", "Servizio lento e2e, un'ora per il secondo."]);
+        await expect(comments(page)).toHaveText(["Pizza ottima e2e, torneremo.", "Servizio lento e2e, un'ora per il secondo."]);
     });
 
     test("periodo vuoto: lo dice e offre «Vedi da sempre»", async ({ page }) => {
@@ -154,14 +155,14 @@ test.describe("Recensioni", () => {
         await choosePeriod(page, "Oggi");
         await expect(main(page).getByText("Nessuna recensione oggi")).toBeVisible();
         await press(main(page).getByRole("button", { name: "Vedi da sempre" }));
-        expect(await comments(page)).toHaveLength(4);
+        await expect(comments(page)).toHaveCount(4);
     });
 
     test("ordine: dal voto più alto", async ({ page }) => {
         await openPage(page);
         await main(page).getByRole("combobox", { name: "Ordine" }).selectOption("ratingDesc");
-        const list = await comments(page);
-        expect(list[list.length - 1]).toBe("Freddo e2e");
+        await expect(comments(page).last()).toHaveText("Freddo e2e");
+        const list = await comments(page).allTextContents();
         expect(list.slice(0, 2).sort()).toEqual(["Pizza ottima e2e, torneremo.", "Tiramisù da provare e2e"]);
     });
 
@@ -288,5 +289,50 @@ test.describe("Recensioni — feedback privato", () => {
         // Tutta la larghezza meno i rientri della riga.
         expect(commentBox.width).toBeGreaterThanOrEqual(rowBox.width - 2 * 24 - 48);
         expect(ratingBox.y + ratingBox.height).toBeLessThanOrEqual(commentBox.y);
+    });
+});
+
+/**
+ * Il confronto fra sedi (D159): dentro Centro, con Porto in «Confronta con»,
+ * una riga del voto per sede; l'elenco resta di Centro. Lo stato del
+ * confronto è quello di `sediVistaStore` (la barra in alto lo scrive lì).
+ */
+test.describe("Recensioni — confronto fra sedi", () => {
+    test.beforeEach(async ({ page }) => {
+        stub = await stubRecensioni(page);
+        await page.addInitScript(
+            ([tenantId, centro, porto]) =>
+                window.sessionStorage.setItem(
+                    "cataloglobe:sediVista",
+                    JSON.stringify({ tenantId, sede: { kind: "sede", id: centro }, confronta: [porto] })
+                ),
+            [TENANT_ID, SEDE.centro, SEDE.porto]
+        );
+    });
+
+    test("una riga del voto per sede, l'elenco della sede sola", async ({ page }) => {
+        await openBusinessPage(page, "overview", "Panoramica");
+        await page.goto(page.url().replace(/\/overview$/, `/locations/${SEDE.centro}/recensioni`));
+        await expect(main(page).getByText("Pizza ottima e2e, torneremo.")).toBeVisible({ timeout: 15_000 });
+        await choosePeriod(page, "Sempre");
+
+        const group = main(page).getByRole("group", { name: "Il voto delle sedi a confronto" });
+        const centro = group.getByRole("region", { name: "Il voto · Centro e2e" });
+        const porto = group.getByRole("region", { name: "Il voto · Porto e2e" });
+        // Centro: 5, 4, 1 → 3,3; Porto: 2, 5 → 3,5.
+        await expect(centro.getByText(/^3,3$/)).toBeVisible();
+        await expect(centro.getByText("3 recensioni", { exact: true })).toBeVisible();
+        await expect(porto.getByText(/^3,5$/)).toBeVisible();
+        await expect(porto.getByText("2 recensioni", { exact: true })).toBeVisible();
+
+        // Si filtra dalla riga della sede, non da quelle delle altre.
+        await expect(centro.getByRole("button", { name: /^5 stelle/ })).toBeVisible();
+        await expect(porto.getByRole("button")).toHaveCount(0);
+
+        // L'elenco è di Centro: niente recensioni di Porto.
+        await expect(main(page).getByText("Freddo e2e")).toBeVisible();
+        await expect(main(page).getByText(/^Servizio lento e2e/)).toHaveCount(0);
+        await expect(main(page).getByText("Tiramisù da provare e2e")).toHaveCount(0);
+        await noSideScroll(page);
     });
 });
