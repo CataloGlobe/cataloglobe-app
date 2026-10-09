@@ -125,7 +125,12 @@ async function openAttributes(page: Page, open = true): Promise<void> {
 }
 
 /** La tessera di una parte nel cruscotto (D121): un bottone «Titolo: apri». */
+/** La tessera intera; il pulsante è il suo titolo (`tileButton`). */
 function tile(page: Page, title: string): Locator {
+    return main(page).locator("[id^='prodotto-']", { has: page.getByRole("button", { name: `${title}: apri` }) });
+}
+
+function tileButton(page: Page, title: string): Locator {
     return main(page).getByRole("button", { name: `${title}: apri` });
 }
 
@@ -1169,5 +1174,128 @@ test.describe("Prodotti — lotto bug B", () => {
             for (const label of labels) await expect(dialog(page).getByLabel(label)).toHaveCount(0);
             expect(stub.writes).toHaveLength(0);
         });
+    });
+
+    // ── Review della #336 (Lorenzo, 2026-10-09), parti del prodotto ──────
+
+    /** «Più formati» sull'Hamburger, con i formati aggiunti in bozza. */
+    async function addFormats(page: Page, formats: [string, string][]): Promise<void> {
+        await openProduct(page, PRODUCT.hamburger, "prezzi-opzioni");
+        await main(page).getByRole("radio", { name: /^Più formati/ }).click({ timeout: 15_000 });
+        const card = priceCard(page);
+        for (const [name, price] of formats) {
+            await card.getByRole("textbox", { name: "Nome" }).fill(name);
+            await card.getByRole("spinbutton", { name: "Prezzo" }).fill(price);
+            await card.getByRole("button", { name: "Aggiungi" }).click();
+            await expect(card.getByText(name, { exact: true })).toBeVisible();
+        }
+    }
+
+    /** Gruppo e formati scritti finiscono nelle tabelle finte: la ricarica li ritrova. */
+    function storeOptions(failValue?: (name: string) => boolean): void {
+        let n = 0;
+        stub.onWrite("product_option_groups.POST", call => {
+            n += 1;
+            const row = { ...(call.body as object), id: `e2e0d000-0000-4000-a000-00000000098${n}`, sort_order: 0, created_at: "2026-03-17T10:00:00.000Z" };
+            stub.tables.product_option_groups.push(row);
+            return row;
+        });
+        let v = 0;
+        stub.onWrite("product_option_values.POST", call => {
+            const body = call.body as { name: string };
+            if (failValue?.(body.name)) return new StubError(500);
+            v += 1;
+            const row = { ...body, id: `e2e0d000-0000-4000-a000-00000000099${v}`, sort_order: 0, created_at: "2026-03-17T10:00:00.000Z" };
+            stub.tables.product_option_values.push(row);
+            return row;
+        });
+        stub.onWrite("products.PATCH", call => [{ ...stub.tables.products.find(p => p.id === PRODUCT.hamburger), ...(call.body as object) }]);
+    }
+
+    const saveButton = (page: Page) => page.getByRole("button", { name: /^Salva( modifiche)?$/ }).first();
+    const posted = (key: string, name?: string) =>
+        stub.writes.filter(w => w.key === key && (name === undefined || (w.body as { name?: string }).name === name)).length;
+
+    test("#336.1: un Salva interrotto a metà non rifà il gruppo né i formati già creati", async ({ page }) => {
+        let failGrande = true;
+        storeOptions(name => name === "Grande" && failGrande);
+        await addFormats(page, [
+            ["Piccolo", "3"],
+            ["Grande", "4"]
+        ]);
+        await saveButton(page).click();
+        await expect(page.getByText("Non è stato possibile salvare: Formati")).toBeVisible();
+        expect(posted("product_option_groups.POST")).toBe(1);
+
+        failGrande = false;
+        await saveButton(page).click();
+        await expect.poll(() => posted("product_option_values.POST", "Grande")).toBe(2);
+        expect(posted("product_option_groups.POST")).toBe(1);
+        expect(posted("product_option_values.POST", "Piccolo")).toBe(1);
+    });
+
+    test("#336.3: due clic sul Salva scrivono una volta sola", async ({ page }) => {
+        storeOptions();
+        await addFormats(page, [["Piccolo", "3"]]);
+        await saveButton(page).dblclick();
+        await expect.poll(() => posted("product_option_values.POST", "Piccolo")).toBe(1);
+        await expect(saveButton(page)).toHaveCount(0);
+        expect(posted("product_option_groups.POST")).toBe(1);
+        expect(posted("product_option_values.POST", "Piccolo")).toBe(1);
+    });
+
+    test("#336.2: una domanda salvata in «Scelte» non cancella i formati in bozza", async ({ page }) => {
+        storeOptions();
+        await addFormats(page, [["Grande", "4"]]);
+        await rail(page).getByRole("button", { name: /^Cosa sceglie il cliente/ }).click();
+        await main(page).getByRole("button", { name: "Aggiungi una domanda" }).click();
+        await main(page).getByRole("textbox", { name: /Cosa può scegliere il cliente/ }).fill("Salse e2e");
+        await main(page).getByRole("button", { name: /^Crea$/ }).click();
+        await expect.poll(() => posted("product_option_groups.POST")).toBe(1);
+        await rail(page).getByRole("button", { name: /^Prezzo/ }).click();
+        await expect(main(page).getByRole("radio", { name: /^Più formati/ })).toBeChecked();
+        await expect(priceCard(page).getByText("Grande", { exact: true })).toBeVisible();
+        await expect(saveButton(page)).toBeVisible();
+    });
+
+    test("#336.6: il vecchio ?tab=variants apre le Varianti", async ({ page }) => {
+        await openProduct(page, PRODUCT.cocaCola, "variants");
+        await expect(rail(page).getByRole("button", { name: /^Varianti/ })).toHaveAttribute("aria-current", "true", { timeout: 15_000 });
+    });
+
+    test("#336.7: su una variante, «Annulla» dopo «Imposta un prezzo proprio» torna al prezzo del padre", async ({ page }) => {
+        await openProduct(page, PRODUCT.cocaZero, "prezzi-opzioni");
+        await main(page).getByRole("button", { name: "Imposta un prezzo proprio" }).click({ timeout: 15_000 });
+        await main(page).getByRole("spinbutton", { name: "Prezzo" }).fill("2.9");
+        await page.getByRole("button", { name: "Annulla" }).first().click();
+        const discard = page.getByRole("alertdialog");
+        if (await discard.isVisible().catch(() => false)) await discard.getByRole("button", { name: /Annulla le modifiche|Scarta|Esci senza/ }).click();
+        await expect(main(page).getByText(/usa il prezzo del prodotto padre/)).toBeVisible();
+        await expect(main(page).getByRole("spinbutton", { name: "Prezzo" })).toHaveCount(0);
+        await expect(main(page).getByRole("button", { name: "Imposta un prezzo proprio" })).toBeVisible();
+    });
+
+    test("#336.11: Esc nella modifica di un formato annulla la riga, non chiude la parte", async ({ page }) => {
+        await openProduct(page, PRODUCT.patatine, "prezzi-opzioni");
+        await expect(scheda(page).getByText("Grandi", { exact: true })).toBeVisible({ timeout: 15_000 });
+        await actionsOf(scheda(page).getByText("Grandi", { exact: true })).click();
+        await page.getByRole("menuitem", { name: "Modifica" }).click();
+        const name = priceCard(page).getByRole("textbox", { name: "Nome" }).first();
+        await expect(name).toHaveValue("Grandi");
+        await name.press("Escape");
+        await expect(priceCard(page).getByRole("textbox", { name: "Nome" })).not.toHaveValue("Grandi");
+        await expect(main(page).getByRole("button", { name: "Fatto", exact: true })).toBeVisible();
+        await expect(rail(page)).toBeVisible();
+    });
+
+    test("#336.4: la tessera del prodotto ha come pulsante il titolo, non tutta la scatola", async ({ page }) => {
+        await openProduct(page, PRODUCT.hamburger);
+        const open = tileButton(page, "Caratteristiche");
+        await expect(open).toBeVisible({ timeout: 15_000 });
+        expect(await open.evaluate(el => el.tagName)).toBe("BUTTON");
+        await expect(main(page).locator("[role='button'][id^='prodotto-']")).toHaveCount(0);
+        await open.focus();
+        await page.keyboard.press("Enter");
+        await expect(rail(page)).toBeVisible();
     });
 });

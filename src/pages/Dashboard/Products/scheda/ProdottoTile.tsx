@@ -240,22 +240,25 @@ export function ProdottoTile({ part, facts: f, actions, wide = false, highlighte
             className={cx(styles.tile, wide && styles.w2, highlighted && styles.tileHl)}
             data-k={part}
             id={`prodotto-${part}`}
-            role="button"
-            tabIndex={0}
-            aria-label={`${title}: apri`}
+            // La tessera si tocca tutta col mouse; per tastiera e lettore di
+            // schermo il pulsante è il titolo (come nella Scheda della sede).
             onClick={() => actions.open(part)}
-            onKeyDown={e => {
-                if ((e.key === "Enter" || e.key === " ") && e.target === e.currentTarget) {
-                    e.preventDefault();
-                    actions.open(part);
-                }
-            }}
         >
             <div className={styles.th}>
                 <span className={styles.ico}>
                     <Icon size={16} strokeWidth={1.75} aria-hidden />
                 </span>
-                <b className={styles.thTitle}>{title}</b>
+                <button
+                    type="button"
+                    className={styles.thTitle}
+                    aria-label={`${title}: apri`}
+                    onClick={e => {
+                        e.stopPropagation();
+                        actions.open(part);
+                    }}
+                >
+                    {title}
+                </button>
                 {actions.changed(part) && <span className={styles.chg}>Da salvare</span>}
             </div>
             <div className={cx(styles.ans, muted && styles.ansMuted)}>{ans}</div>

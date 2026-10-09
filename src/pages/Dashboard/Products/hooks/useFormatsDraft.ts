@@ -24,6 +24,12 @@ function sameValues(a: V2ProductOptionValue[], b: V2ProductOptionValue[]): boole
  * e i formati si cambiano nel riquadro e partono col «Salva» in alto. Al
  * salvataggio il gruppo «Formato» (PRIMARY_PRICE) nasce col primo formato e
  * si toglie quando non ne resta nessuno: mai un gruppo vuoto.
+ *
+ * Una ricarica delle opzioni (una domanda salvata in «Scelte», «Crea una
+ * variante») non tocca la bozza: si riparte dal salvato solo se non ci sono
+ * modifiche, o subito dopo un Salva. Un Salva interrotto a metà ricarica
+ * comunque e tiene nella bozza gli id dei formati già creati, così il Salva
+ * dopo non rifà né il gruppo né i formati.
  */
 export function useFormatsDraft(
     productId: string,
@@ -38,16 +44,32 @@ export function useFormatsDraft(
     const [rows, setRows] = useState<V2ProductOptionValue[]>(saved);
     const [isSaving, setIsSaving] = useState(false);
     const nextId = useRef(0);
-
-    useEffect(() => {
-        setMode(savedMode);
-        setRows(saved);
-    }, [saved, savedMode]);
+    const savingRef = useRef(false);
 
     const target = useMemo(() => (mode === "formato" ? rows : []), [mode, rows]);
     const isDirty = !sameValues(target, saved);
 
+    // Si riparte dal salvato quando arriva un salvato nuovo e la bozza era
+    // pulita rispetto al salvato di prima, o dopo un Salva riuscito; una
+    // modifica a mano spegne il «dopo».
+    const targetRef = useRef(target);
+    targetRef.current = target;
+    const previousSaved = useRef(saved);
+    const resyncNext = useRef(false);
+    useEffect(() => {
+        const wasDirty = !sameValues(targetRef.current, previousSaved.current);
+        previousSaved.current = saved;
+        if (wasDirty && !resyncNext.current) return;
+        resyncNext.current = false;
+        setMode(savedMode);
+        setRows(saved);
+    }, [saved, savedMode]);
+    const edited = useCallback(() => {
+        resyncNext.current = false;
+    }, []);
+
     const add = useCallback(async (name: string, price: number) => {
+        edited();
         nextId.current += 1;
         const id = `${NEW_PREFIX}${nextId.current}`;
         setRows(prev => [
@@ -62,18 +84,37 @@ export function useFormatsDraft(
                 created_at: ""
             }
         ]);
-    }, []);
+    }, [edited]);
 
-    const update = useCallback(async (id: string, name: string, price: number) => {
-        setRows(prev => prev.map(v => (v.id === id ? { ...v, name, absolute_price: price } : v)));
-    }, []);
+    const update = useCallback(
+        async (id: string, name: string, price: number) => {
+            edited();
+            setRows(prev => prev.map(v => (v.id === id ? { ...v, name, absolute_price: price } : v)));
+        },
+        [edited]
+    );
 
-    const remove = useCallback(async (id: string) => {
-        setRows(prev => prev.filter(v => v.id !== id));
-    }, []);
+    const remove = useCallback(
+        async (id: string) => {
+            edited();
+            setRows(prev => prev.filter(v => v.id !== id));
+        },
+        [edited]
+    );
+
+    const changeMode = useCallback(
+        (next: PriceMode) => {
+            edited();
+            setMode(next);
+        },
+        [edited]
+    );
 
     const save = useCallback(async (): Promise<boolean> => {
         if (!isDirty) return true;
+        // Un secondo Salva mentre il primo corre non rifà nulla.
+        if (savingRef.current) return false;
+        savingRef.current = true;
         setIsSaving(true);
         try {
             if (target.length === 0) {
@@ -98,13 +139,15 @@ export function useFormatsDraft(
                 }
                 for (const v of target) {
                     if (v.id.startsWith(NEW_PREFIX)) {
-                        await createOptionValue({
+                        const created = await createOptionValue({
                             tenant_id: tenantId,
                             option_group_id: groupId,
                             name: v.name,
                             price_modifier: null,
                             absolute_price: v.absolute_price
                         });
+                        // Già nel database: se il Salva si ferma più avanti, non si ricrea.
+                        setRows(prev => prev.map(r => (r.id === v.id ? created : r)));
                         continue;
                     }
                     const before = saved.find(s => s.id === v.id);
@@ -117,21 +160,27 @@ export function useFormatsDraft(
                     }
                 }
             }
+            resyncNext.current = true;
             await onRefresh();
             return true;
         } catch {
+            // Il gruppo o qualche formato può essere già nato: si ricarica
+            // lo stesso, così il Salva dopo li ritrova invece di rifarli.
+            await onRefresh().catch(() => undefined);
             return false;
         } finally {
+            savingRef.current = false;
             setIsSaving(false);
         }
     }, [isDirty, target, group, saved, tenantId, productId, onRefresh]);
 
     const discard = useCallback(() => {
+        resyncNext.current = false;
         setMode(savedMode);
         setRows(saved);
     }, [saved, savedMode]);
 
-    return { mode, setMode, rows, add, update, remove, isDirty, isSaving, save, discard };
+    return { mode, setMode: changeMode, rows, add, update, remove, isDirty, isSaving, save, discard };
 }
 
 export type FormatsDraft = ReturnType<typeof useFormatsDraft>;
