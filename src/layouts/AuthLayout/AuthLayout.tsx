@@ -51,7 +51,9 @@ export function AuthLayout({ children, heading, lead, icon, tone = "brand", asid
       </header>
 
       <main className={styles.main}>
-        <div className={styles.column}>
+        {/* Con l'icona (pagine di stato, codice, password) la scheda è corta:
+            sul telefono non sale fino in fondo, resta al centro. */}
+        <div className={`${styles.column} ${icon ? styles.columnCompact : ""}`}>
           {heading && (
             <div
               className={`${styles.hero} ${icon ? styles.heroCentered : ""}`}

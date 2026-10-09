@@ -72,8 +72,10 @@ export default function ResetPassword() {
             localStorage.removeItem("pendingUserId");
             localStorage.removeItem("pendingUserEmail");
 
-            // Logout forzato (best practice)
-            await supabase.auth.signOut();
+            // Fuori gli altri dispositivi (chi aveva la vecchia password), dentro
+            // questo: il link di recupero ha già aperto la sessione, non serve
+            // ripassare dal login. Il codice OTP lo chiede ProtectedRoute se manca.
+            await supabase.auth.signOut({ scope: "others" });
 
             setSuccess(true);
         } catch (err) {
@@ -96,11 +98,11 @@ export default function ResetPassword() {
             <AuthLayout
                 icon={<CheckCircle size={28} aria-hidden="true" />}
                 heading="Password aggiornata"
-                lead="Ora puoi accedere con la nuova password."
+                lead="Da ora entri con la nuova password."
             >
                 <div className={styles.auth}>
-                    <Button variant="primary" fullWidth onClick={() => navigate("/login")}>
-                        Vai al login
+                    <Button variant="primary" fullWidth onClick={() => navigate("/workspace", { replace: true })}>
+                        Entra
                     </Button>
                 </div>
             </AuthLayout>
@@ -113,11 +115,11 @@ export default function ResetPassword() {
                 icon={<Clock size={28} aria-hidden="true" />}
                 tone="warning"
                 heading="Link scaduto"
-                lead="Il link per reimpostare la password è scaduto o è già stato usato. Richiedine uno nuovo."
+                lead="Questo link non vale più. Chiedine uno nuovo."
             >
                 <div className={styles.auth}>
                     <Button variant="primary" fullWidth onClick={() => navigate("/forgot-password")}>
-                        Richiedi nuovo link
+                        Chiedi un link nuovo
                     </Button>
                 </div>
             </AuthLayout>

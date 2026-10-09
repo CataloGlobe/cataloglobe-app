@@ -172,7 +172,7 @@ export default function EmailConfirmed() {
             icon={status === "expired" ? <Clock size={28} aria-hidden="true" /> : <Info size={28} aria-hidden="true" />}
             tone={status === "expired" ? "warning" : "brand"}
             heading={status === "expired" ? "Link scaduto o già usato" : "Verifica non riuscita"}
-            lead={status === "expired" ? "Se hai già confermato l'email, puoi accedere. Altrimenti inserisci la tua email per ricevere un nuovo link." : "Il link non è valido. Inserisci la tua email per ricevere un nuovo link di conferma."}
+            lead={status === "expired" ? "Hai già confermato? Accedi. Se no, chiedi un link nuovo." : "Il link non è valido. Chiedine uno nuovo."}
         >
             <div className={styles.auth}>
 
