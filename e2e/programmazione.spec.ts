@@ -727,6 +727,44 @@ test.describe("Programmazione — calendario, simulatore, guida", () => {
         await expect(main(page).getByRole("status")).toHaveText(/^Aggiunto al calendario: Pranzo e2e/);
     });
 
+    test("cablaggio: nel «Dove» tre scelte; le sedi scelte stanno nel pannello e vanno nella regola", async ({ page }) => {
+        const NEW_ID = "e2e0d000-0000-4000-a000-000000000782";
+        stub.onWrite("schedules.POST", () => ({ id: NEW_ID }));
+        stub.onWrite("schedules.PATCH", () => [{ id: NEW_ID }]);
+        stub.onWrite("schedule_layout.PATCH", () => [{ id: NEW_ID }]);
+        stub.onWrite("schedule_layout.POST", () => null);
+        stub.onWrite("rpc.update_schedule_targets", () => null);
+        await openList(page, "layout");
+        await openCalendar(page);
+        await main(page).getByRole("button", { name: "Aggiungi", exact: true }).click();
+        await main(page).getByRole("button", { name: /^Menù/ }).first().click();
+        await main(page).getByRole("radio", { name: /Pranzo e2e/ }).click();
+        await main(page).getByRole("button", { name: "Avanti" }).click();
+        await main(page).getByRole("button", { name: "Avanti" }).click();
+        await expect(main(page).getByRole("button", { name: "3 Dove" })).toHaveAttribute("aria-current", "step");
+        const dove = main(page).getByRole("radiogroup", { name: "Dove" });
+        await expect(dove.getByRole("radio", { name: /^Tutte le sedi/ })).toBeVisible();
+        const scelte = dove.getByRole("radio", { name: /^Sedi scelte/ });
+        if ((await scelte.getAttribute("aria-checked")) !== "true") await scelte.click();
+        await expect(scelte).toHaveAttribute("aria-checked", "true");
+        await dove.getByRole("button", { name: "Solo Porto e2e" }).click();
+        await expect(dove.getByRole("checkbox", { checked: true })).toHaveCount(1);
+        await expect(scelte).toContainText(/1 di \d+/);
+        await expect(main(page).getByText(/^Porto e2e\. Quello che vale/)).toBeVisible();
+        await noHorizontalScroll(page);
+        // «Tutte le sedi» e ritorno: Porto è ancora lì
+        await dove.getByRole("radio", { name: /^Tutte le sedi/ }).click();
+        await expect(dove.getByRole("checkbox")).toHaveCount(0);
+        await scelte.click();
+        await expect(dove.getByRole("checkbox", { name: "Porto e2e" })).toHaveAttribute("aria-checked", "true");
+        await main(page).getByRole("button", { name: "Avanti" }).click();
+        await main(page).getByRole("button", { name: "Aggiungi al calendario" }).click();
+        await expect.poll(() => writesOf(stub, "rpc.update_schedule_targets").length).toBe(1);
+        const targets = JSON.stringify(writesOf(stub, "rpc.update_schedule_targets")[0].body);
+        expect(targets).toContain(SEDE.porto);
+        expect(targets).not.toContain(SEDE.centro);
+    });
+
     test("cablaggio: «Togli» un piatto riscrive la regola senza di lui", async ({ page }) => {
         stub.onWrite("schedules.PATCH", touched);
         stub.onWrite("schedule_visibility_overrides.DELETE", () => null);

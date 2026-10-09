@@ -15,6 +15,8 @@ type PannelloProps = {
     onChange: (ids: string[]) => void;
     /** Quante sedi restano scelte almeno: nel calendario una. */
     min?: number;
+    /** I gruppi aggiungono le loro sedi di oggi («Prendi le sedi di:») invece di prendere il loro posto. */
+    take?: boolean;
 };
 
 /** «Trattoria centro +1», «Tutte le sedi · 30». */
@@ -29,7 +31,7 @@ function sediSummary(sedi: readonly SceltaSede[], value: readonly string[]): str
  * Il pannello delle sedi (D128 A, D129 3): ricerca sopra le 8 sedi, «Tutte»,
  * i gruppi, una casella per sede e «solo questa». Con 30 sedi come con 2.
  */
-function SediPannello({ sedi, groups, value, onChange, min = 0 }: PannelloProps) {
+export function SediPannello({ sedi, groups, value, onChange, min = 0, take = false }: PannelloProps) {
     const [query, setQuery] = useState("");
     const big = sedi.length > ACTIVITY_SEARCH_THRESHOLD;
     const list = filterActivityOptions([...sedi], query);
@@ -63,10 +65,17 @@ function SediPannello({ sedi, groups, value, onChange, min = 0 }: PannelloProps)
                             Nessuna
                         </button>
                     )}
+                    {take && groups.length > 0 && <em>Prendi le sedi di:</em>}
                     {groups.map(g => {
                         const ids = order(g.activityIds);
                         return (
-                            <button key={g.id} type="button" aria-pressed={same(ids)} onClick={() => ids.length && onChange(ids)}>
+                            <button
+                                key={g.id}
+                                type="button"
+                                aria-pressed={take ? undefined : same(ids)}
+                                aria-label={take ? `Prendi le sedi di ${g.name}` : undefined}
+                                onClick={() => ids.length && onChange(take ? order([...value, ...ids]) : ids)}
+                            >
                                 {g.name}
                             </button>
                         );
