@@ -231,17 +231,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }, []);
 
     async function handleSignOut() {
-        // Invalidate OTP verification BEFORE signOut: after signOut the JWT is
-        // gone and auth.uid() inside the SECURITY DEFINER RPC would be null.
-        // Best-effort: sign-out must complete even if the RPC call fails.
-        try {
-            await supabase.rpc("delete_my_otp_verification");
-        } catch (err) {
-            console.warn("[AUTH] delete_my_otp_verification failed", err);
-        }
-
+        // Solo questo dispositivo; la verifica OTP resta (deciso da Lorenzo il
+        // 2026-10-09). «Esci da tutti i dispositivi» sta in services/auth.
         otpReqIdRef.current++;
-        await supabase.auth.signOut();
+        await supabase.auth.signOut({ scope: "local" });
         setUser(null);
         setOtpVerified(false);
         setOtpLoading(false);
