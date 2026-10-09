@@ -26,6 +26,39 @@
   flex-shrink: 0;
 }
 
+/* ===== Le sedi in alto a destra (D152) ===== */
+// «Sede» e «Confronta con», pulsanti staccati prima della notifica; ognuno
+// dice cosa sceglie. Il confronto acceso prende il colore delle differenze.
+.sedi {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  min-width: 0;
+  margin-right: var(--space-8);
+}
+
+.sedeBtn {
+  height: 34px;
+  max-width: 320px;
+}
+
+.pre {
+  margin-right: var(--space-6);
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.confrontoOn {
+  border-color: color-mix(in srgb, var(--signal-attention) 45%, transparent);
+  background: color-mix(in srgb, var(--signal-attention) 8%, var(--surface));
+  color: var(--signal-attention);
+
+  .pre {
+    color: inherit;
+    opacity: 0.8;
+  }
+}
+
 /* ===== Sezione e parti (navigazione nuova, artifact v4) ===== */
 // Il nome della sezione e le sue parti come tab a pillola: la scelta è una
 // pillola che galleggia, le altre mute.

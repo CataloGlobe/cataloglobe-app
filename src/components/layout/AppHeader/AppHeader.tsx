@@ -4,7 +4,6 @@ import { HeaderLogo } from "./HeaderLogo";
 import { HeaderTenantSwitcher } from "./HeaderTenantSwitcher";
 import { HeaderNotifications } from "./HeaderNotifications";
 import { NavbarBreadcrumb } from "./NavbarBreadcrumb";
-import { HeaderSedeSwitcher } from "./HeaderSedeSwitcher";
 import { AiUsagePill } from "./AiUsagePill";
 import type { AiUsageCycle } from "@/types/aiUsage";
 import styles from "./AppHeader.module.scss";
@@ -37,7 +36,6 @@ export function AppHeader({ onOpenMobileSidebar, aiUsage = null }: AppHeaderProp
                 </span>
                 <span className={`${styles.separator} ${styles.wideOnly}`} aria-hidden="true">/</span>
                 <HeaderTenantSwitcher />
-                <HeaderSedeSwitcher />
                 <NavbarBreadcrumb />
             </div>
             <div className={styles.right}>

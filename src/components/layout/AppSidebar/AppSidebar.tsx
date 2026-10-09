@@ -115,10 +115,9 @@ export interface AppSidebarProps {
     /**
      * Sidebar a tutta altezza (Officina, solo desktop): in cima logo e nome
      * (link a `homeTo`), le `actions` (la campanella) e apri/chiudi, che lascia
-     * il piede. Sotto, `switcherSlot`: dove sei (azienda e sede).
+     * il piede. Le sedi non stanno qui: in alto a destra nella pagina (D152).
      */
     brand?: { homeTo: string | null; actions?: ReactNode };
-    switcherSlot?: ReactNode;
 }
 
 /** La scorciatoia di apri/chiudi come si scrive sulla tastiera di chi guarda. */
@@ -237,8 +236,7 @@ export function AppSidebar({
     footerItems = [],
     accountSlot,
     collapseLabel,
-    brand,
-    switcherSlot
+    brand
 }: AppSidebarProps) {
     const collapsedDesktop = !isMobile && collapsed;
     const { pathname, search } = useLocation();
@@ -521,8 +519,6 @@ export function AppSidebar({
                         {brand.actions}
                     </div>
                 )}
-
-                {switcherSlot && !isMobile && <div className={styles.switcherSlot}>{switcherSlot}</div>}
 
                 {/* Landmark a sé: il rimando che porta fuori dal contesto è
                     navigazione, ma non è una voce del menu. */}

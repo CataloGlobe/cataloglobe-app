@@ -3,7 +3,7 @@
 //
 // L'ultimo segmento del percorso a cartelle dell'header (§51.8):
 // logo / azienda / sede / **pagina**. Azienda e sede hanno i loro
-// selettori (HeaderTenantSwitcher, HeaderSedeSwitcher); qui resta
+// selettori (HeaderTenantSwitcher; la sede in alto a destra, SediInAlto); qui resta
 // la pagina, e sotto 768 sparisce (è il titolo sotto).
 //
 // Strategia override per i nomi-record nelle detail route:

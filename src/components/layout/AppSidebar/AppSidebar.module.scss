@@ -183,12 +183,6 @@ $sub-height: 34px;
 }
 
 // Dove sei (azienda e sede), sotto la cima.
-.switcherSlot {
-  flex-shrink: 0;
-  display: flex;
-  padding: 0 $container-x var(--space-8);
-}
-
 /* ===== Intestazione del contesto (sede) ===== */
 // Fuori dallo scroll, stessa geometria aperta e chiusa: le voci sotto non
 // si spostano.

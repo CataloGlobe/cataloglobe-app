@@ -4,6 +4,7 @@ import { NavbarBreadcrumb } from "@components/layout/AppHeader/NavbarBreadcrumb"
 import Text from "@/components/ui/Text/Text";
 import type { AppSidebarNavGroup } from "@/components/layout/AppSidebar/AppSidebar";
 import { currentItem, isItemRoot } from "@/components/layout/AppSidebar/isItemActive";
+import { SediInAlto } from "./SediInAlto";
 import styles from "./PageTitleBar.module.scss";
 
 interface PageTitleBarProps {
@@ -23,6 +24,16 @@ interface PageTitleBarProps {
  */
 export function PageTitleBar({ actions, groups = [] }: PageTitleBarProps) {
     const { pathname, search } = useLocation();
+
+    // La parte aperta, anche dentro un suo dettaglio: le sedi in alto la seguono.
+    let open: { groupKey?: string; entryKey?: string } = {};
+    for (const group of groups) {
+        const current = currentItem(group.items, pathname, search);
+        if (current) {
+            open = { groupKey: group.key, entryKey: current.id };
+            break;
+        }
+    }
 
     let section: { group: AppSidebarNavGroup; current: AppSidebarNavGroup["items"][number] } | null = null;
     for (const group of groups) {
@@ -67,7 +78,11 @@ export function PageTitleBar({ actions, groups = [] }: PageTitleBarProps) {
                     <NavbarBreadcrumb inBar />
                 )}
             </div>
-            {actions && <div className={styles.actions}>{actions}</div>}
+            {/* Al telefono le notifiche stanno nella testata: qui restano le sedi. */}
+            <div className={styles.actions}>
+                <SediInAlto {...open} />
+                {actions}
+            </div>
         </div>
     );
 }

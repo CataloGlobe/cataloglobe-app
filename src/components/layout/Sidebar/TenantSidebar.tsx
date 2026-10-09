@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import { AppSidebar, type AppSidebarProps } from "@/components/layout/AppSidebar/AppSidebar";
 import { SidebarAccount } from "@/components/layout/AppSidebar/SidebarAccount";
 import type { CurrentUserProfile } from "@/hooks/useCurrentUserProfile";
@@ -22,7 +21,6 @@ export interface TenantSidebarProps {
     onToggleCollapse: () => void;
     /** Sidebar a tutta altezza (desktop): logo e apri/chiudi. */
     brand?: AppSidebarProps["brand"];
-    switcherSlot?: ReactNode;
 }
 
 export default function TenantSidebar({
@@ -33,8 +31,7 @@ export default function TenantSidebar({
     collapsed,
     onRequestClose,
     onToggleCollapse,
-    brand,
-    switcherSlot
+    brand
 }: TenantSidebarProps) {
     return (
         <AppSidebar
@@ -54,7 +51,6 @@ export default function TenantSidebar({
             onRequestClose={onRequestClose}
             onToggleCollapse={onToggleCollapse}
             brand={brand}
-            switcherSlot={switcherSlot}
         />
     );
 }

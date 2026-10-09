@@ -5,7 +5,6 @@ import { useNavGroups } from "@components/layout/Sidebar/useNavGroups";
 import { AppHeader } from "@components/layout/AppHeader/AppHeader";
 import { HeaderNotifications } from "@components/layout/AppHeader/HeaderNotifications";
 import { AiUsagePill } from "@components/layout/AppHeader/AiUsagePill";
-import { PlaceSwitcher } from "@components/layout/Sidebar/PlaceSwitcher";
 import { OperationalAlerts } from "@components/layout/OperationalAlerts/OperationalAlerts";
 import { PageHeaderSlot } from "@components/layout/PageHeaderSlot";
 import { PageTitleBar } from "@components/layout/PageTitleBar/PageTitleBar";
@@ -331,7 +330,6 @@ export default function MainLayout() {
         return <Navigate to={`/business/${selectedTenant.id}/settings/abbonamento`} replace />;
     }
 
-    const collapsedDesktop = !isMobile && sidebarCollapsed;
     const sidebarBrand = {
         homeTo: selectedTenant ? `/business/${selectedTenant.id}` : null
     };
@@ -343,7 +341,6 @@ export default function MainLayout() {
             <HeaderNotifications scope="tenant" tenantId={selectedTenant?.id ?? null} />
         </>
     );
-    const sidebarSwitcher = <PlaceSwitcher collapsed={collapsedDesktop} />;
 
     return (
         <div className={styles.appLayout}>
@@ -372,7 +369,6 @@ export default function MainLayout() {
                                 onRequestClose={() => setMobileSidebarOpen(false)}
                                 onToggleCollapse={() => setSidebarCollapsed(v => !v)}
                                 brand={sidebarBrand}
-                                switcherSlot={sidebarSwitcher}
                             />
 
                             <main className={styles.main}>

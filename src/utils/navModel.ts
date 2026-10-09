@@ -451,6 +451,17 @@ export const NAV_MODELS: Record<NavContext, NavModel> = {
  * le pagine dell'azienda che non sono lavoro di tutti i giorni. Uguale in
  * tutti i contesti: sono dell'azienda, anche dentro una sede.
  */
+/** La sezione e la parte da chiave (le voci della sidebar portano `id = entry.key`). */
+export function navPart(groupKey: string | undefined, entryKey: string | undefined): { group: NavGroup; entry: NavEntry } | null {
+    if (!groupKey || !entryKey) return null;
+    for (const model of Object.values(NAV_MODELS)) {
+        const group = model.groups.find(g => g.key === groupKey);
+        const entry = group?.entries.find(e => e.key === entryKey);
+        if (group && entry) return { group, entry };
+    }
+    return null;
+}
+
 export const ACCOUNT_ENTRIES: readonly NavEntry[] = [SETTINGS, TEAM, BILLING, LANGUAGES, SUPPORT];
 
 /**
