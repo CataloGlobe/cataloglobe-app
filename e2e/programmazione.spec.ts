@@ -658,7 +658,11 @@ test.describe("Programmazione — calendario, simulatore, guida", () => {
         // a colonna chiusa le sedi stanno in un bottone nella barra
         await main(page).getByRole("button", { name: "Chiudi la colonna del calendario" }).click();
         await main(page).getByRole("button", { name: "Porto e2e", exact: true, expanded: false }).click();
-        await pop.getByRole("button", { name: "Tutte", exact: true }).click();
+        // una casella sola per tutte: a metà ha il trattino, un clic le prende tutte (D151)
+        const all = pop.getByRole("checkbox", { name: /^Tutte le sedi/ });
+        await expect(all).toHaveAttribute("aria-checked", "mixed");
+        await all.click();
+        await expect(all).toHaveAttribute("aria-checked", "true");
         await expect(main(page).getByRole("button", { name: /^Tutte le sedi · \d+$/ })).toBeVisible();
         await expect(pop.getByText(/^(\d+) di \1 scelte$/)).toBeVisible();
     });
@@ -787,10 +791,13 @@ test.describe("Programmazione — calendario, simulatore, guida", () => {
         const sedi = main(page).getByRole("button", { name: /^Tutte le sedi · \d+, anche le nuove$/ });
         await sedi.click();
         const pop = page.getByRole("dialog", { name: "Sedi" });
-        await expect(pop.getByRole("switch", { name: "Anche le sedi che aprirai" })).toBeChecked();
+        // tutte prese, nelle regole, vuol dire anche quelle che si aggiungeranno (D128, D151)
+        await expect(pop.getByText("Tutte, anche quelle che aggiungerai")).toBeVisible();
+        await expect(pop.getByRole("checkbox", { name: /^Tutte le sedi/ })).toHaveAttribute("aria-checked", "true");
         await pop.getByRole("button", { name: "Solo Porto e2e" }).click();
-        await expect(pop.getByRole("checkbox", { checked: true })).toHaveCount(1);
-        await expect(pop.getByRole("switch")).toHaveCount(0);
+        await expect(pop.getByRole("checkbox", { name: "Porto e2e" })).toHaveAttribute("aria-checked", "true");
+        await expect(pop.getByRole("checkbox", { name: /^Tutte le sedi/ })).toHaveAttribute("aria-checked", "mixed");
+        await expect(pop.getByText("Tutte, anche quelle che aggiungerai")).toHaveCount(0);
         await expect(main(page).getByText(/^Quello che vale per una sede vince/)).toBeVisible();
         // una sede sola: niente domanda sulle ore
         await expect(main(page).getByRole("radio", { name: "No, cambiano" })).toHaveCount(0);

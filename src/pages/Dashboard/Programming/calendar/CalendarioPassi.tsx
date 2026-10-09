@@ -1,13 +1,13 @@
 // Il passo «Dove e quando» della sezione Aggiungi / Modifica completa, e il
 // Quando da solo (una sede): li usano la sezione del Calendario e i tunnel di creazione.
-import { useId, useState, type ReactNode } from "react";
+import { useId, useMemo, useState, type ReactNode } from "react";
 import { Plus, TriangleAlert, X } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import { IconButton } from "@/components/ui/Button/IconButton";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { DB_LATER, NEW_MODEL, invalid, isoDay, listIt, normRanges, sediOf, syncPer, whenKey, type Draft, type DraftLookups } from "./calendarDraft";
 import { FSLOT, dayNum, durLabel, hhmm, type Axis, type CalWhen, type CalWhere } from "./calendarModel";
-import { SediBottone } from "./SediScelta";
+import { SediBottone } from "@/components/ui/SediPannello/SediPannello";
 import { Band, TimeSel } from "./CalendarioOrario";
 import s from "./CalendarioView.module.scss";
 
@@ -215,8 +215,13 @@ export function DoveQuandoPasso({ draft: d, upd, sedi, groups, L, bad, durs, axi
             dd.where = next;
             dd.per = syncPer(dd.per, sediOf(next, sedi, groups), dd.when);
         });
-    const pick = (next: string[]) => setWhere({ all: false, activityIds: next, groupIds: [] });
-    const future = { on: w.all, set: (on: boolean) => setWhere(on ? { all: true, activityIds: [], groupIds: [] } : { all: false, activityIds: sedi.map(x => x.id), groupIds: [] }) };
+    // tutte prese = tutte, anche quelle che si aggiungeranno; un gruppo intero = il gruppo, anche chi ci entrerà
+    const pick = (next: string[]) => {
+        if (sedi.length > 1 && next.length === sedi.length) return setWhere({ all: true, activityIds: [], groupIds: [] });
+        const g = groups.find(x => x.activityIds.length > 1 && x.activityIds.length === next.length && x.activityIds.every(id => next.includes(id)));
+        setWhere(g ? { all: false, activityIds: [], groupIds: [g.id] } : { all: false, activityIds: next, groupIds: [] });
+    };
+    const gruppi = useMemo(() => groups.map(g => ({ id: g.id, name: g.name, sedeIds: g.activityIds })), [groups]);
     const split = (on: boolean) => {
         setOpen(null);
         upd(dd => {
@@ -238,7 +243,7 @@ export function DoveQuandoPasso({ draft: d, upd, sedi, groups, L, bad, durs, axi
         <>
             <div className={s.ifl}>
                 <h4 id={hid}>Dove</h4>
-                <SediBottone className={s.dqsedi} sedi={sedi} groups={groups} value={ids} onChange={pick} take future={future}>
+                <SediBottone className={s.dqsedi} sedi={sedi} gruppi={gruppi} value={ids} onChange={pick} future>
                     {label}
                 </SediBottone>
                 <p className={s.muted}>

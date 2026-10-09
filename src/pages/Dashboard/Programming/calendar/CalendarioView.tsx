@@ -37,7 +37,7 @@ import {
 import { CalendarioPanel, type ProductInfo } from "./CalendarioPanel";
 import type { DropItem } from "./calendarWrites";
 import { CalendarioSection, type SectionGroup } from "./CalendarioSection";
-import { SediBottone, type SceltaGruppo } from "./SediScelta";
+import { SediBottone, type PannelloGruppo } from "@/components/ui/SediPannello/SediPannello";
 import {
     blankDraft,
     cloneDraft,
@@ -664,11 +664,11 @@ export default function CalendarioView({
     };
 
     // i gruppi del pannello delle sedi: quelli con almeno una sede che si guarda
-    const seatGroups = useMemo<SceltaGruppo[]>(
+    const seatGroups = useMemo<PannelloGruppo[]>(
         () =>
             [...groupNames]
-                .map(([id, name]) => ({ id, name, activityIds: sedi.filter(x => groupIdsByActivity[x.id]?.includes(id)).map(x => x.id) }))
-                .filter(g => g.activityIds.length > 0),
+                .map(([id, name]) => ({ id, name, sedeIds: sedi.filter(x => groupIdsByActivity[x.id]?.includes(id)).map(x => x.id) }))
+                .filter(g => g.sedeIds.length > 0),
         [groupNames, groupIdsByActivity, sedi]
     );
     const pickSeats = (ids: string[]) => ids.length && setPicked(ids);
@@ -1039,7 +1039,7 @@ export default function CalendarioView({
                                 </button>
                             ))}
                             {shown.length > 5 && <span className={s.smore}>+{shown.length - 5} altre</span>}
-                            <SediBottone place="side" className={s.sfull} sedi={sedi} groups={seatGroups} value={picked} onChange={pickSeats} min={1}>
+                            <SediBottone place="side" className={s.sfull} sedi={sedi} gruppi={seatGroups} value={picked} onChange={pickSeats} min={1}>
                                 Scegli le sedi
                             </SediBottone>
                             <p>{view === "day" ? "In Giorno le sedi scelte stanno una sotto l'altra." : "In Settimana le settimane delle sedi scelte stanno una sotto l'altra."}</p>
@@ -1064,7 +1064,7 @@ export default function CalendarioView({
                             {pop && <div className={s.gpop}>{miniMonth()}</div>}
                         </span>
                         {multi && (
-                            <SediBottone className={s.sbar} sedi={sedi} groups={seatGroups} value={picked} onChange={pickSeats} min={1} />
+                            <SediBottone className={s.sbar} sedi={sedi} gruppi={seatGroups} value={picked} onChange={pickSeats} min={1} />
                         )}
                     </div>
                     <div className={s.r}>
