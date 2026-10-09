@@ -15,7 +15,10 @@
 --    notifications: tutte ON DELETE CASCADE). Per prudenza salta chi ha fatto
 --    almeno un accesso, chi possiede un'azienda (`tenants.owner_user_id` è
 --    RESTRICT) e chi ha una membership: un account mai confermato non può
---    averne, ma se capitasse non deve sparire con i dati di un'azienda.
+--    averne, ma se capitasse non deve sparire con i dati di un'azienda. Salta
+--    anche chi ha un provider diverso da email e chi ha righe nelle altre due
+--    FK RESTRICT (`crm_weekly_goals.set_by`, `crm_next_steps.set_by`): una sola
+--    riga farebbe fallire tutta la DELETE, ogni notte.
 -- 3. pg_cron ogni notte alle 3:40 UTC (gli altri job delle 3 sono a :00, :15,
 --    :17, :29, :45). SQL puro e sincrono: un errore finisce in
 --    `cron.job_run_details`, come `close-stale-seatings` (20260914160500).
@@ -42,7 +45,7 @@ ALTER TABLE public.otp_user_verifications
 
 -- 2. Funzione di pulizia -------------------------------------------------------
 
-CREATE FUNCTION public.purge_unconfirmed_accounts()
+CREATE OR REPLACE FUNCTION public.purge_unconfirmed_accounts()
 RETURNS integer
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -57,7 +60,13 @@ BEGIN
       AND u.last_sign_in_at IS NULL
       AND u.created_at < now() - interval '7 days'
       AND NOT EXISTS (SELECT 1 FROM public.tenants t WHERE t.owner_user_id = u.id)
-      AND NOT EXISTS (SELECT 1 FROM public.tenant_memberships m WHERE m.user_id = u.id);
+      AND NOT EXISTS (SELECT 1 FROM public.tenant_memberships m WHERE m.user_id = u.id)
+      -- Solo registrazioni con email e password: chi entra con un provider esterno
+      -- non passa dalla conferma via codice.
+      AND NOT EXISTS (SELECT 1 FROM auth.identities i WHERE i.user_id = u.id AND i.provider <> 'email')
+      -- FK RESTRICT verso auth.users: una sola riga bloccherebbe l'intera passata.
+      AND NOT EXISTS (SELECT 1 FROM public.crm_weekly_goals g WHERE g.set_by = u.id)
+      AND NOT EXISTS (SELECT 1 FROM public.crm_next_steps n WHERE n.set_by = u.id);
 
     GET DIAGNOSTICS removed = ROW_COUNT;
     RETURN removed;
