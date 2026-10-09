@@ -67,10 +67,13 @@ export function SediInAlto({ groupKey, entryKey }: SediInAltoProps) {
             vista.setSede(next);
             // La stessa parte nella sede nuova; se lì non si può usare, si atterra come entrando.
             const usable = permissions && isNavEntryUsable(entry, permissions, hasFeature, next.id);
+            // Una pagina dentro la parte (Comande in «In servizio») resta quella.
+            const segment = match?.[2] ?? null;
+            const samePage = segment && entry.matchSegments?.includes(segment) ? `/business/${businessId}/locations/${next.id}/${segment}` : null;
             navigate(
                 usable || !permissions
-                    ? entryPath(entry, businessId, next.id)
-                    : switchSedePath(match?.[2] ?? null, businessId, next.id, permissions, hasFeature)
+                    ? (samePage ?? entryPath(entry, businessId, next.id))
+                    : switchSedePath(segment, businessId, next.id, permissions, hasFeature)
             );
             return;
         }

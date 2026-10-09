@@ -13,8 +13,9 @@ export interface SingleSedeRouteProps {
 
 /**
  * Una pagina d'azienda che con una sede leggibile non esiste (§51.3, §51.14):
- * `/locations` porta alla Scheda, `/analytics` e `/reviews` alle rotte di
- * sede corrispondenti, con query e ancora. Con più sedi (o nessuna) la
+ * `/locations` porta alla Scheda, `/analytics`, `/reviews` e `/scheduling`
+ * alle rotte di sede corrispondenti, con query e ancora (Calendario e Regole
+ * puntano già lì: la pagina d'azienda non accenderebbe nessuna parte). Con più sedi (o nessuna) la
  * pagina d'azienda.
  */
 export default function SingleSedeRoute({ segment, children }: SingleSedeRouteProps) {

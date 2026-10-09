@@ -11,19 +11,22 @@ export function nav(page: Page): Locator {
     return page.getByRole("navigation", { name: "Menu principale" });
 }
 
-/** L'intestazione del contesto di sede: «← Tutte le sedi». */
-export function contextNav(page: Page): Locator {
-    return page.getByRole("navigation", { name: "Contesto" });
-}
-
-/** Il selettore di sede nell'header: c'è solo sotto 768 (§51.7). */
+/**
+ * «Sede» in alto a destra, accanto alle notifiche (D152): cosa si guarda.
+ * Non c'è dove non si sceglie (Menù e vetrina, Sedi, una sede sola).
+ */
 export function sedeSwitcher(page: Page): Locator {
-    return page.getByRole("banner").getByRole("button", { name: /^Sede:/ });
+    return page.getByRole("button", { name: /^Sede(?!i)/ });
 }
 
-/** Azienda e sede in cima alla sidebar, sul desktop (Officina): «Dove sei: …». */
-export function placeSwitcher(page: Page): Locator {
-    return page.getByRole("button", { name: /^Dove sei:/ });
+/** «Confronta con», accanto a «Sede» dove il confronto vale (Calendario, Clienti e numeri). */
+export function confrontaSwitcher(page: Page): Locator {
+    return page.getByRole("button", { name: /^Confronta con/ });
+}
+
+/** Il pannello di «Sede»: le sedi come radio, «Tutte le sedi» dove si può. */
+export function sedePicker(page: Page): Locator {
+    return page.getByRole("dialog", { name: "Cosa guardi" });
 }
 
 /** Il logo in cima alla sidebar, sul desktop: porta all'ingresso dell'azienda. */

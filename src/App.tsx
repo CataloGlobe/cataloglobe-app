@@ -340,7 +340,14 @@ export default function App() {
                 <Route path="reservations" element={<SedeRedirect routeKey="reservations" segment="prenotazioni" />} />
                 <Route path="guests" element={<Guests />} />
 
-                <Route path="scheduling" element={<Programming />} />
+                <Route
+                    path="scheduling"
+                    element={
+                        <SingleSedeRoute segment="programmazione">
+                            <Programming />
+                        </SingleSedeRoute>
+                    }
+                />
                 <Route path="scheduling/:ruleId" element={<RuleDetailPage />} />
                 <Route path="scheduling/featured/:ruleId" element={<RuleDetailPage />} />
 
