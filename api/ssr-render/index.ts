@@ -24,6 +24,8 @@ import {
     type PublicShellPayload,
     type ViteManifest
 } from "../_lib/publicShell.js";
+import { robotsHeaderValue } from "../_lib/robotsHeader.js";
+import { statusCanarySlug } from "../_lib/canarySlug.js";
 
 /**
  * GET /api/ssr-render?slug=<slug>&lang=<lang>?    (stage 4b — ROUTE DI TEST)
@@ -213,6 +215,16 @@ async function fetchPayload(
 
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
     const startedAt = Date.now();
+
+    // Fuori produzione (staging, preview): mai indicizzabile, anche senza la
+    // Deployment Protection. Vale per tutte le risposte, fallback compresi.
+    // In produzione, noindex anche sulla sede di test del monitor di stato.
+    const robots = robotsHeaderValue(
+        process.env.VERCEL_ENV,
+        typeof req.query.slug === "string" ? req.query.slug.trim() : undefined,
+        statusCanarySlug()
+    );
+    if (robots) res.setHeader("X-Robots-Tag", robots);
 
     if (req.method !== "GET") {
         res.setHeader("Allow", "GET");
