@@ -96,6 +96,13 @@ export type CalendarioViewProps = {
     /** «Togli»: una regola intera, o un suo piatto o contenuto. */
     onDrop?: (rule: LayoutRule, item?: DropItem) => Promise<void>;
     /** La sezione Aggiungi / Modifica completa: senza, «Modifica completa» va al dettaglio della regola. */
+    /** Solo l'anteprima della settimana con questa bozza dentro (i tunnel di creazione): niente calendario intorno. */
+    anteprima?: {
+        draft: Draft;
+        pickList?: readonly PickProduct[];
+        /** Le righe «Cosa cambia nel calendario», a ogni cambio. */
+        onEffect?: (lines: string[]) => void;
+    };
     section?: {
         pickList: readonly PickProduct[];
         catalogs: readonly PickThing[];
@@ -202,7 +209,8 @@ export default function CalendarioView({
     isWritable,
     onOpenRule,
     onDrop,
-    section
+    section,
+    anteprima
 }: CalendarioViewProps) {
     const [nowDate, setNowDate] = useState(() => new Date());
     useEffect(() => {
@@ -229,7 +237,8 @@ export default function CalendarioView({
     const [note, setNote] = useState<{ text: string; error?: boolean } | null>(null);
     // la sezione Aggiungi / Modifica completa prende il posto del calendario
     const [sec, setSec] = useState<{ back: boolean } | null>(null);
-    const [draft, setDraft] = useState<Draft | null>(null);
+    const [ownDraft, setDraft] = useState<Draft | null>(null);
+    const draft = anteprima ? anteprima.draft : ownDraft;
     const [kept, setKept] = useState<Draft | null>(null);
     const [busy, setBusy] = useState(false);
     const upd = useCallback((fn: (d: Draft) => void) => {
@@ -587,7 +596,7 @@ export default function CalendarioView({
     /* ---------- la sezione Aggiungi / Modifica completa ---------- */
     const L = useMemo<DraftLookups>(
         () => ({
-            products: new Map((section?.pickList ?? []).map(x => [x.id, x])),
+            products: new Map((section?.pickList ?? anteprima?.pickList ?? []).map(x => [x.id, x])),
             catalogs: names.catalogs,
             styles: names.styles,
             featured: names.featured,
@@ -595,7 +604,7 @@ export default function CalendarioView({
             groups: groupNames,
             multi
         }),
-        [section?.pickList, names, sedi, groupNames, multi]
+        [section?.pickList, anteprima?.pickList, names, sedi, groupNames, multi]
     );
     // oggi menù e stile vanno in coppia: si parte da quelli della regola di base
     const base = useMemo(
@@ -824,54 +833,70 @@ export default function CalendarioView({
         </p>
     );
 
-    if (sec && section) {
-        const pd = draft?.when.period;
-        const away = !!pd && (pd.from > week + 6 || pd.to < week);
-        const preview = draft && pvList && (
-            <aside className={s.iprev} aria-label="Anteprima">
-                <div className={s.iph}>
-                    <b>Anteprima · {KIND_LABEL[draft.kind]}</b>
-                    <span className={s.iwk}>
-                        <IconButton size="sm" icon={<ChevronLeft size={14} />} aria-label="Settimana precedente" onClick={() => setWeek(w => w - 7)} />
-                        <span>{weekLong(week)}</span>
-                        <IconButton size="sm" icon={<ChevronRight size={14} />} aria-label="Settimana successiva" onClick={() => setWeek(w => w + 7)} />
-                    </span>
-                </div>
-                {away && pd && (
-                    <button type="button" className={`${s.chip} ${s.iaway}`} onClick={() => setWeek(pd.from - dayOfWeek(pd.from))}>
-                        <Calendar size={13} aria-hidden />
-                        Questa settimana non c'è: vai {elides(pd.from) ? "all'" : "al "}
-                        {mShort(pd.from)}
-                    </button>
-                )}
-                <div className={s.dcal}>
-                    <div className={`${s.fcal} ${s.pcal}`}>
-                        <div className={s.fhead}>
-                            <div />
-                            <div />
-                            <div className={s.fhours}>{hoursFor(pvAx, 2)}</div>
-                        </div>
-                        {pvSedi.map(x => (
-                            <div key={x.id}>
-                                {multi && (
-                                    <div className={s.gsh}>
-                                        <span className={s.gst}>
-                                            <Store size={15} aria-hidden />
-                                            {x.name}
-                                        </span>
-                                    </div>
-                                )}
-                                {rows(x, [0, 1, 2, 3, 4, 5, 6], dayLabel, { only: draft.kind, list: pvList, ax: pvAx, pv: draft.mode === "edit" ? "in modifica" : "nuovo" })}
-                            </div>
-                        ))}
+    const pd = draft?.when.period;
+    const away = !!pd && (pd.from > week + 6 || pd.to < week);
+    const preview = draft && pvList && (
+        <aside className={s.iprev} aria-label="Anteprima">
+            <div className={s.iph}>
+                <b>Anteprima · {KIND_LABEL[draft.kind]}</b>
+                <span className={s.iwk}>
+                    <IconButton size="sm" icon={<ChevronLeft size={14} />} aria-label="Settimana precedente" onClick={() => setWeek(w => w - 7)} />
+                    <span>{weekLong(week)}</span>
+                    <IconButton size="sm" icon={<ChevronRight size={14} />} aria-label="Settimana successiva" onClick={() => setWeek(w => w + 7)} />
+                </span>
+            </div>
+            {away && pd && (
+                <button type="button" className={`${s.chip} ${s.iaway}`} onClick={() => setWeek(pd.from - dayOfWeek(pd.from))}>
+                    <Calendar size={13} aria-hidden />
+                    Questa settimana non c'è: vai {elides(pd.from) ? "all'" : "al "}
+                    {mShort(pd.from)}
+                </button>
+            )}
+            <div className={s.dcal}>
+                <div className={`${s.fcal} ${s.pcal}`}>
+                    <div className={s.fhead}>
+                        <div />
+                        <div />
+                        <div className={s.fhours}>{hoursFor(pvAx, 2)}</div>
                     </div>
+                    {pvSedi.map(x => (
+                        <div key={x.id}>
+                            {multi && (
+                                <div className={s.gsh}>
+                                    <span className={s.gst}>
+                                        <Store size={15} aria-hidden />
+                                        {x.name}
+                                    </span>
+                                </div>
+                            )}
+                            {rows(x, [0, 1, 2, 3, 4, 5, 6], dayLabel, { only: draft.kind, list: pvList, ax: pvAx, pv: draft.mode === "edit" ? "in modifica" : "nuovo" })}
+                        </div>
+                    ))}
                 </div>
-                <p className={s.dnote}>
-                    Solo la corsia {KIND_LABEL[draft.kind]}, una linea per regola. Col bordo tratteggiato quello che stai {draft.mode === "edit" ? "modificando" : "aggiungendo"}: non è ancora salvato.
-                    {multi && pvEntry && !pvReach.length && pvSedi[0] ? ` Nessuna delle sedi scelte nel calendario: si vede ${pvSedi[0].name}.` : ""}
-                </p>
-            </aside>
+            </div>
+            <p className={s.dnote}>
+                Solo la corsia {KIND_LABEL[draft.kind]}, una linea per regola. Col bordo tratteggiato quello che stai {draft.mode === "edit" ? "modificando" : "aggiungendo"}: non è ancora salvato.
+                {multi && pvEntry && !pvReach.length && pvSedi[0] ? ` Nessuna delle sedi scelte nel calendario: si vede ${pvSedi[0].name}.` : ""}
+            </p>
+        </aside>
+    );
+    // i tunnel: solo l'anteprima, con le righe di cosa cambia
+    const effLines = anteprima && draft ? effect() : null;
+    const effKey = effLines ? effLines.join("\n") : "";
+    const onEffect = useRef(anteprima?.onEffect);
+    onEffect.current = anteprima?.onEffect;
+    useEffect(() => {
+        if (anteprima) onEffect.current?.(effKey ? effKey.split("\n") : []);
+    }, [effKey, !!anteprima]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (anteprima)
+        return (
+            <div className={s.root} onPointerMove={onPointerMove} onPointerLeave={hide}>
+                {preview}
+                {tipNode}
+            </div>
         );
+
+    if (sec && section) {
         return (
             <div className={`${s.root} ${s.gwrap} ${s.closed}`} onPointerMove={onPointerMove} onPointerLeave={hide}>
                 <div className={`${s.gmain} ${s.isecw}`}>
