@@ -105,9 +105,11 @@ test.describe("Verifica OTP", () => {
             { status: 400, json: { error: "invalid_or_expired", attempts_left: 3, max_attempts: 5 } }
         );
         // Un solo campo: sei cifre e la verifica parte da sola.
-        await page.locator("#otp-code").fill("123456");
+        // Incollato con spazi e testo intorno, come arriva da una mail: contano le cifre.
+        await page.locator("#otp-code").fill("Codice: 123 456");
         await expect(page.getByText("Codice non valido. Tentativi rimasti: 3.").first()).toBeVisible();
-        // Codice sbagliato: il campo si svuota, si riscrive da capo.
+        // Codice sbagliato: il campo si svuota e torna il focus, si riscrive da capo.
         await expect(page.locator("#otp-code")).toHaveValue("");
+        await expect(page.locator("#otp-code")).toBeFocused();
     });
 });

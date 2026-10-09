@@ -1,5 +1,6 @@
 import { supabase } from "@/services/supabase/client";
 import { CURRENT_CONSENT_VERSIONS } from "@/config/consentVersions";
+import { clearSignupLeftovers } from "@/utils/pendingRedirect";
 
 type SignUpProfile = {
     first_name?: string;
@@ -62,6 +63,7 @@ export async function signOut(options?: { everywhere?: boolean }) {
     if (error) throw error;
     if (typeof window !== "undefined") {
         sessionStorage.removeItem("passwordRecoveryFlow");
+        clearSignupLeftovers();
     }
 }
 

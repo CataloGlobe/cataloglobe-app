@@ -7,7 +7,7 @@ import { Button, CodeInput, InlineBanner, type CodeInputHandle } from "@/compone
 import Text from "@/components/ui/Text/Text";
 import { AuthLayout } from "@/layouts/AuthLayout/AuthLayout";
 import { internalPathOr } from "@/utils/internalPath";
-import { clearPendingRedirect, peekPendingRedirect } from "@/utils/pendingRedirect";
+import { SIGNUP_EMAIL_KEY, clearPendingRedirect, peekPendingRedirect } from "@/utils/pendingRedirect";
 import styles from "./Auth.module.scss";
 
 const RESEND_COOLDOWN = 30;
@@ -33,7 +33,7 @@ type LocationState = {
     email?: string;
 };
 
-const EMAIL_KEY = "cg.signupEmail";
+const EMAIL_KEY = SIGNUP_EMAIL_KEY;
 
 function readStoredEmail(): string | undefined {
     try {

@@ -15,6 +15,9 @@
 -- fanno l'OTP al primo accesso come oggi. Un cambio email non tocca
 -- email_confirmed_at, quindi non passa di qui.
 --
+-- Vale anche per chi conferma l'email da un invito o da un recupero password
+-- di un account mai confermato: anche lì il link è arrivato alla casella.
+--
 -- SECURITY DEFINER: otp_user_verifications non ha policy di scrittura (solo
 -- service_role e le funzioni SECURITY DEFINER). search_path vuoto e nomi
 -- qualificati, come le altre funzioni OTP.
@@ -31,6 +34,11 @@ BEGIN
   ON CONFLICT (user_id) DO UPDATE
     SET verified_at = EXCLUDED.verified_at,
         expires_at = EXCLUDED.expires_at;
+  RETURN NEW;
+EXCEPTION WHEN OTHERS THEN
+  -- La conferma dell'email non deve mai fallire per questa riga: senza,
+  -- l'utente fa l'OTP al primo accesso come prima.
+  RAISE WARNING 'signup_confirm_counts_as_otp: %', SQLERRM;
   RETURN NEW;
 END;
 $$;
