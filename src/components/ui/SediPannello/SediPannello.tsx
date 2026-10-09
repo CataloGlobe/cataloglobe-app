@@ -118,7 +118,7 @@ export function SediPannello(p: SediPannelloProps) {
         rows =
             shown === "sedi" ? (
                 <>
-                    {sedi.length > 2 && !q && (
+                    {sedi.length > 1 && !q && (
                         <div className={s.row} data-master>
                             <button
                                 type="button"
