@@ -1479,7 +1479,7 @@ test.describe("Programmazione — Elenco e Calendario a sole icone", () => {
         await icon.hover();
         await expect(page.getByRole("tooltip", { name: "Calendario" })).toBeVisible();
         await icon.click();
-        await expect(page.getByRole("button", { name: "Elenco", exact: true }).filter({ visible: true }).first()).toBeVisible();
+        await expect(page.getByRole("button", { name: "Programmazione", exact: true }).filter({ visible: true }).first()).toBeVisible();
     });
 });
 

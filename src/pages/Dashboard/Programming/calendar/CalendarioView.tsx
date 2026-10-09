@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as RPointerEvent, type ReactNode } from "react";
-import { Calendar, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Columns3, PanelLeft, PanelLeftClose, Plus, Square, Store, X as XIcon } from "lucide-react";
+import { Calendar, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Columns3, Layers, PanelLeft, PanelLeftClose, Plus, Square, Store, X as XIcon } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import { IconButton } from "@/components/ui/Button/IconButton";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
@@ -460,6 +460,17 @@ export default function CalendarioView({
                 </div>
             );
 
+            // sotto c'è qualcosa che non si vede: l'ovale con gli strati e quanti sono
+            function under(g: LaneSeg) {
+                if (!g.hidden.length) return null;
+                return (
+                    <span className={s.under} aria-hidden="true">
+                        <Layers size={10} strokeWidth={2.2} />
+                        {g.hidden.length}
+                    </span>
+                );
+            }
+
             function seg(k: CalKind, g: LaneSeg) {
                 const tip = segTip(k, g, seat);
                 const pos = { left: `calc(${X(g.from)}% + 1px)`, width: `calc(${X(g.to) - X(g.from)}% - 2px)` };
@@ -469,7 +480,8 @@ export default function CalendarioView({
                     return (
                         <button key={g.from} type="button" className={`${s.fseg} ${s.ev2} ${g.hidden.length ? s.hid : ""}`} data-tip={tip} aria-label={aria(tip)} onClick={openIt}
                             style={{ "--c": KIND_COLOR.featured, ...pos, background: `color-mix(in srgb, var(--c) ${pc}%, var(--surface))` } as CSSProperties}>
-                            {g.onda.length}
+                            <span className={s.ft}>{g.onda.length}</span>
+                            {under(g)}
                         </button>
                     );
                 }
@@ -480,7 +492,8 @@ export default function CalendarioView({
                 return (
                     <button key={g.from} type="button" className={`${s.fseg} ${g.hidden.length ? s.hid : ""}`} data-tip={tip} aria-label={aria(tip)} onClick={openIt}
                         style={{ "--c": cols[0], ...pos, background: bg } as CSSProperties}>
-                        {g.onda.map(n => (k === "menu" ? shortName(n) : n)).join(" + ")}
+                        <span className={s.ft}>{g.onda.map(n => (k === "menu" ? shortName(n) : n)).join(" + ")}</span>
+                        {under(g)}
                     </button>
                 );
             }
@@ -988,7 +1001,11 @@ export default function CalendarioView({
                         c'è, ma lo copre un altro
                     </span>
                     <span>
-                        <i className={`${s.lg} ${s.hid}`} />
+                        <i className={`${s.lg} ${s.hid}`}>
+                            <span className={s.under}>
+                                <Layers size={10} strokeWidth={2.2} aria-hidden />1
+                            </span>
+                        </i>
                         sotto c'è qualcosa che non si vede
                     </span>
                 </div>

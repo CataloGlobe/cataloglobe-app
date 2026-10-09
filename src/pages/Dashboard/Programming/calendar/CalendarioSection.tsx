@@ -783,7 +783,7 @@ export function CalendarioSection(p: CalendarioSectionProps) {
                         }}
                     />
                     <p className={s.muted}>
-                        {d.name ? "Il nome che hai scritto tu." : "Lo mettiamo noi dalle tue scelte e cambia con loro; se lo riscrivi, resta il tuo."} Si legge nell'Elenco.
+                        {d.name ? "Il nome che hai scritto tu." : "Lo mettiamo noi dalle tue scelte e cambia con loro; se lo riscrivi, resta il tuo."} Si legge in Programmazione.
                     </p>
                 </div>
                 <div className={s.ifl}>

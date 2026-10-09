@@ -828,7 +828,7 @@ export default function Programming() {
                 onChange={setViewMode}
                 iconsOnly={step > 0}
                 options={[
-                    { value: "list", label: "Elenco", icon: <List size={16} /> },
+                    { value: "list", label: "Programmazione", icon: <List size={16} /> },
                     { value: "calendar", label: "Calendario", icon: <CalendarDays size={16} /> }
                 ]}
             />
@@ -870,7 +870,7 @@ export default function Programming() {
                   }
                 : {
                       icon: <List size={18} />,
-                      label: "Elenco",
+                      label: "Programmazione",
                       onClick: () => setViewMode("list")
                   }
         ],

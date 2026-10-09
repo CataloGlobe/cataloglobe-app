@@ -311,11 +311,17 @@
     border-top: 2px dashed var(--text-muted);
 }
 .lg.hid {
-    width: 18px;
-    height: 14px;
-    border-radius: 3px;
+    width: auto;
+    min-width: 40px;
+    height: 18px;
+    padding-right: 2px;
+    border-radius: 4px;
     border-left: 3px solid var(--cal-menu);
     background: color-mix(in srgb, var(--cal-menu) 22%, var(--surface));
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    margin-bottom: 3px;
 }
 
 /* ---------- il calendario ---------- */
@@ -543,8 +549,9 @@
     color: var(--text);
     text-align: left;
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    display: flex;
+    align-items: center;
+    container-type: inline-size;
     min-width: 0;
     cursor: pointer;
     &:hover {
@@ -559,15 +566,46 @@
         font-variant-numeric: tabular-nums;
     }
 }
+/* sotto c'è qualcosa che non si vede: tratteggio sotto il blocco, a destra l'ovale con strati e numero */
 .fseg.hid::after,
 .lg.hid::after {
     content: "";
     position: absolute;
+    left: -3px;
     right: 0;
-    top: 0;
-    border-style: solid;
-    border-width: 0 8px 8px 0;
-    border-color: transparent var(--text-muted) transparent transparent;
+    bottom: -3px;
+    border-top: 2px dashed var(--text-muted);
+    pointer-events: none;
+}
+.ft {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.under {
+    flex: none;
+    height: 14px;
+    margin-left: 4px;
+    padding: 0 5px 0 4px;
+    border-radius: 7px;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    background: var(--surface);
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    font-size: 10px;
+    font-weight: 600;
+    font-style: normal;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+}
+/* nei blocchi troppo corti resta solo il tratteggio */
+@container (max-width: 56px) {
+    .fseg .under {
+        display: none;
+    }
 }
 .fnone {
     position: absolute;
