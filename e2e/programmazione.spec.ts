@@ -764,6 +764,8 @@ test.describe("Programmazione — calendario, simulatore, guida", () => {
         await main(page).getByRole("button", { name: "Avanti" }).click();
         await expect(main(page).getByText("Scegli un menù").first()).toBeVisible();
         await main(page).getByRole("radio", { name: /Pranzo e2e/ }).click();
+        // menù e stile separati (D120): lo stile non si sceglie col menù
+        await expect(main(page).getByRole("combobox", { name: "Lo stile che va col menù" })).toHaveCount(0);
         await main(page).getByRole("button", { name: "Avanti" }).click();
         await expect(main(page).getByRole("button", { name: "2 Quando" })).toHaveAttribute("aria-current", "step");
         await main(page).getByRole("radio", { name: "Fasce orarie" }).click();
@@ -771,6 +773,7 @@ test.describe("Programmazione — calendario, simulatore, guida", () => {
         await expect(main(page).getByRole("button", { name: /Dove/ })).toHaveCount(0);
         await main(page).getByRole("button", { name: "Avanti" }).click();
         await expect(main(page).getByText("In una frase")).toBeVisible();
+        await expect(main(page).getByText(/^Lo stile non cambia: resta «.+»\.$/)).toBeVisible();
         await expect(main(page).getByRole("button", { name: "1 Cosa, fatto" })).toBeVisible();
         await noHorizontalScroll(page);
         await main(page).getByRole("button", { name: "Aggiungi al calendario" }).click();

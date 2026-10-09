@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/Button/Button";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import {
     DB_LATER,
+    NEW_MODEL,
     autoName,
     draftLabel,
     invalid,
@@ -451,8 +452,9 @@ export function CalendarioSection(p: CalendarioSectionProps) {
                 </p>
             </>
         );
+        // con menù e stile separati (D120) l'altro non si sceglie qui: resta quello di sempre
         const pair =
-            d.kind === "menu" || d.kind === "style" ? (
+            (d.kind === "menu" || d.kind === "style") && !NEW_MODEL.splitLayout ? (
                 <div className={s.ifl}>
                     <h4>{d.kind === "menu" ? "Con lo stile" : "Con il menù"}</h4>
                     <select
@@ -590,7 +592,9 @@ export function CalendarioSection(p: CalendarioSectionProps) {
                         ))}
                         {pn && !miss && (
                             <li>
-                                Insieme va in onda {d.kind === "menu" ? "lo stile" : "il menù"} «{pn}», che oggi sta nella stessa regola.
+                                {NEW_MODEL.splitLayout
+                                    ? `${d.kind === "menu" ? "Lo stile" : "Il menù"} non cambia: resta «${pn}».`
+                                    : `Insieme va in onda ${d.kind === "menu" ? "lo stile" : "il menù"} «${pn}», che oggi sta nella stessa regola.`}
                             </li>
                         )}
                     </ul>
