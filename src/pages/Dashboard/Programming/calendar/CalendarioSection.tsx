@@ -72,7 +72,8 @@ const NEW_THING: Partial<Record<CalKind, [string, string]>> = {
     featured: ["Crea un In evidenza nuovo", "In evidenza"]
 };
 
-const sectionSteps = (multi: boolean) => (multi ? ["Cosa", "Quando", "Dove", "Riepilogo"] : ["Cosa", "Quando", "Riepilogo"]);
+// prima il dove e poi il quando (D134): mentre si scelgono le ore l'anteprima guarda già le sedi giuste
+const sectionSteps = (multi: boolean) => (multi ? ["Cosa", "Dove", "Quando", "Riepilogo"] : ["Cosa", "Quando", "Riepilogo"]);
 
 export type Leave = { why: "exit" | "root" | "del" | "new"; to?: CalKind };
 
@@ -208,8 +209,8 @@ export function CalendarioSection(p: CalendarioSectionProps) {
     const miss = missing(D, L), bad = invalid(D), last = D.step === steps.length - 1, blocked = miss || bad;
     const body = [
         cosa,
-        () => <QuandoPasso draft={D} upd={upd} durs={p.durs(D.kind)} axis={p.band} bad={bad} />,
         ...(L.multi ? [() => <DovePasso draft={D} upd={upd} sedi={p.sedi} groups={p.groups} L={L} bad={bad} />] : []),
+        () => <QuandoPasso draft={D} upd={upd} durs={p.durs(D.kind)} axis={p.band} bad={bad} />,
         riep
     ][D.step]();
     const next = () =>
@@ -534,8 +535,8 @@ export function CalendarioSection(p: CalendarioSectionProps) {
         const d = D!;
         const rows: [string, string, number][] = [
             ["Cosa", listIt(whatLines(d, L)) || "—", 0],
-            ["Quando", durLabel(d.when), 1],
-            ...(L.multi ? ([["Dove", whereText(d.where, L), 2]] as [string, string, number][]) : [])
+            ...(L.multi ? ([["Dove", whereText(d.where, L), 1]] as [string, string, number][]) : []),
+            ["Quando", durLabel(d.when), L.multi ? 2 : 1]
         ];
         const pn = pairName(d, L);
         return (

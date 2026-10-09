@@ -727,7 +727,7 @@ test.describe("Programmazione — calendario, simulatore, guida", () => {
         await expect(main(page).getByRole("status")).toHaveText(/^Aggiunto al calendario: Pranzo e2e/);
     });
 
-    test("cablaggio: nel «Dove» tre scelte; le sedi scelte stanno nel pannello e vanno nella regola", async ({ page }) => {
+    test("cablaggio: il «Dove» viene prima del «Quando», con tre scelte; le sedi scelte stanno nel pannello e vanno nella regola", async ({ page }) => {
         const NEW_ID = "e2e0d000-0000-4000-a000-000000000782";
         stub.onWrite("schedules.POST", () => ({ id: NEW_ID }));
         stub.onWrite("schedules.PATCH", () => [{ id: NEW_ID }]);
@@ -740,8 +740,9 @@ test.describe("Programmazione — calendario, simulatore, guida", () => {
         await main(page).getByRole("button", { name: /^Menù/ }).first().click();
         await main(page).getByRole("radio", { name: /Pranzo e2e/ }).click();
         await main(page).getByRole("button", { name: "Avanti" }).click();
-        await main(page).getByRole("button", { name: "Avanti" }).click();
-        await expect(main(page).getByRole("button", { name: "3 Dove" })).toHaveAttribute("aria-current", "step");
+        // prima il dove, poi il quando (D134)
+        await expect(main(page).getByRole("button", { name: "2 Dove" })).toHaveAttribute("aria-current", "step");
+        await expect(main(page).getByRole("button", { name: "3 Quando" })).toBeVisible();
         const dove = main(page).getByRole("radiogroup", { name: "Dove" });
         await expect(dove.getByRole("radio", { name: /^Tutte le sedi/ })).toBeVisible();
         const scelte = dove.getByRole("radio", { name: /^Sedi scelte/ });
@@ -757,6 +758,8 @@ test.describe("Programmazione — calendario, simulatore, guida", () => {
         await expect(dove.getByRole("checkbox")).toHaveCount(0);
         await scelte.click();
         await expect(dove.getByRole("checkbox", { name: "Porto e2e" })).toHaveAttribute("aria-checked", "true");
+        await main(page).getByRole("button", { name: "Avanti" }).click();
+        await expect(main(page).getByRole("button", { name: "3 Quando" })).toHaveAttribute("aria-current", "step");
         await main(page).getByRole("button", { name: "Avanti" }).click();
         await main(page).getByRole("button", { name: "Aggiungi al calendario" }).click();
         await expect.poll(() => writesOf(stub, "rpc.update_schedule_targets").length).toBe(1);
