@@ -124,6 +124,29 @@ function createJobStore(supabase: any): JobStore {
             return map;
         },
 
+        async getPreservedJobIds(jobs: PendingJob[]): Promise<DbResult<Set<string>>> {
+            const ids = new Set<string>();
+            if (jobs.length === 0) return { data: ids, error: null };
+            const entityIds = [...new Set(jobs.map(j => j.entity_id))];
+            const { data, error } = await supabase
+                .from("translations")
+                .select("tenant_id, entity_type, entity_id, field, language_code")
+                .in("entity_id", entityIds)
+                .in("status", ["manual", "overridden"]);
+            if (error) return { data: null, error: { message: error.message } };
+            for (const job of jobs) {
+                const hit = (data ?? []).some((t: Record<string, unknown>) =>
+                    t.tenant_id === job.tenant_id &&
+                    t.entity_type === job.entity_type &&
+                    t.entity_id === job.entity_id &&
+                    t.field === job.field &&
+                    t.language_code === job.target_language_code
+                );
+                if (hit) ids.add(job.id);
+            }
+            return { data: ids, error: null };
+        },
+
         async upsertAutoTranslation(
             job: PendingJob,
             translatedText: string,
