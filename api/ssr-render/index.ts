@@ -304,6 +304,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
             return;
         }
 
+        // PUBLIC_ORIGIN: variabile d'ambiente RICHIESTA su Vercel, configurata
+        // solo nel pannello (non sta in nessun file del repo). Valori attesi:
+        // Production `https://cataloglobe.com`, Preview `https://staging.cataloglobe.com`.
+        // Se manca, il fallback su x-forwarded-host fa puntare canonical e og:url
+        // a qualunque hostname serva la pagina (es. *.vercel.app): duplicati
+        // indicizzabili, senza nessun errore visibile.
         const origin =
             process.env.PUBLIC_ORIGIN ??
             (() => {
