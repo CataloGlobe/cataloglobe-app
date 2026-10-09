@@ -193,10 +193,17 @@ export default function VerifyOtp() {
                 return;
             }
 
-            const { error } = await supabase.functions.invoke("send-otp", {
+            const { data: sendData, error } = await supabase.functions.invoke("send-otp", {
                 headers: { Authorization: `Bearer ${jwt}` },
                 body: { navigation_type: getNavigationType() }
             });
+
+            // Già verificato: nessun codice è partito, si entra.
+            if (!error && (sendData as { already_verified?: boolean } | null)?.already_verified) {
+                await forceOtpCheck();
+                navigate(redirectAfterOtp, { replace: true });
+                return;
+            }
 
             if (error) {
                 const failure = await classifySendOtpError(error);
@@ -245,7 +252,7 @@ export default function VerifyOtp() {
             setLoading(false);
             setStatus("idle");
         }
-    }, [navigate, showToast]);
+    }, [navigate, showToast, forceOtpCheck, redirectAfterOtp]);
 
     const loadOtpStatus = useCallback(async () => {
         const { data } = await supabase.auth.getSession();
