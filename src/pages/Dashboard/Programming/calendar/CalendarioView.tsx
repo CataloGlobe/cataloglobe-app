@@ -345,7 +345,9 @@ export default function CalendarioView({
         const row = cal?.querySelector<HTMLElement>(`[data-day="${goTo.d}"]`);
         if (!cal || !wrap || !row) return;
         const smooth = goTo.n > 0 && !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-        const v = viewBox(cal, wrap), dy = row.getBoundingClientRect().top - v.top - 4;
+        // si scorre solo se il giorno non si vede tutto, e il meno possibile: la testata resta finché si può
+        const v = viewBox(cal, wrap), b = row.getBoundingClientRect();
+        const dy = b.top < v.top ? b.top - v.top - 4 : b.bottom > v.bottom ? Math.min(b.bottom - v.bottom + 8, b.top - v.top - 4) : 0;
         if (Math.abs(dy) > 2) v.scroller.scrollBy({ top: dy, behavior: smooth ? "smooth" : "auto" });
         if (!goTo.flash) return;
         row.classList.add(s.flash);

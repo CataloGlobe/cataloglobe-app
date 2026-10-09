@@ -590,11 +590,30 @@ test.describe("Programmazione — calendario, simulatore, guida", () => {
         await expect(days.nth(2)).toBeInViewport({ ratio: 0.3 });
         await main(page).getByRole("button", { name: /^Domenica 27 settembre 2026/ }).first().click();
         await expect(days.nth(6)).toBeInViewport({ ratio: 0.3 });
+        // si scorre il meno possibile: oggi può restare in vista; giù in fondo a mano, oggi esce
+        await days.nth(6).hover();
+        await page.mouse.wheel(0, 3000);
+        await expect(days.nth(2)).not.toBeInViewport();
         const back = main(page).getByRole("button", { name: /^Oggi · mer 23/ });
         await expect(back).toBeVisible();
         await back.click();
         await expect(days.nth(2)).toBeInViewport({ ratio: 0.3 });
         await expect(back).toHaveCount(0);
+    });
+
+    test("a 1470×830 il Calendario si apre senza scorrere: oggi si vede già, la testata e il lunedì restano", async ({ page }) => {
+        await page.setViewportSize({ width: 1470, height: 830 });
+        await openList(page, "layout");
+        await openCalendar(page);
+        const centro = main(page).getByRole("checkbox", { name: "Centro e2e" });
+        if ((await centro.getAttribute("aria-checked")) !== "true") await centro.click();
+        const days = main(page).locator("[data-day]");
+        await expect(days.nth(2)).toBeInViewport({ ratio: 0.3 });
+        await expect(main(page).getByRole("button", { name: "21–27 settembre 2026" })).toBeInViewport();
+        await expect(days.first()).toBeInViewport({ ratio: 0.3 });
+        // «Oggi» quando oggi già si vede non fa scorrere: lo illumina e basta
+        await main(page).getByRole("button", { name: "Oggi", exact: true }).click();
+        await expect(main(page).getByRole("button", { name: "21–27 settembre 2026" })).toBeInViewport();
     });
 
     test("lo switch sta accanto al titolo; il Calendario prende tutta la pagina e resta nell'indirizzo", async ({ page }) => {
@@ -1513,10 +1532,12 @@ for (const width of [1024, 1280]) {
         await expect(tabs.getByRole("tab", { name: /^Tutte 12$/ })).toBeVisible();
         const create = main(page).getByRole("button", { name: "Nuova regola" });
         await expect(create).toBeVisible();
-        const tabsBox = (await tabs.boundingBox())!;
-        const createBox = (await create.boundingBox())!;
-        if (width === 1024) expect(tabsBox.y).toBeGreaterThanOrEqual(createBox.y + createBox.height);
-        else expect(tabsBox.y).toBeLessThan(createBox.y + createBox.height);
+        // si aspetta che la testata si sistemi: la riga delle azioni si misura dopo il primo disegno
+        const below = async () => {
+            const t = (await tabs.boundingBox())!, c = (await create.boundingBox())!;
+            return t.y >= c.y + c.height;
+        };
+        await expect.poll(below).toBe(width === 1024);
         // La frase del tipo sotto le tab non c'è più (PG2): resta solo la posizione.
     });
 }
