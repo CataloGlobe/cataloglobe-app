@@ -55,15 +55,18 @@ export function sectionPanel(page: Page, title: string): Locator {
 }
 
 /**
- * Il menu da leggere: dentro una sede si aspetta la sidebar della sede (col
- * suo «← Tutte le sedi»). Appena cambia l'indirizzo c'è ancora quella
+ * Il menu da leggere: dentro una sede si aspetta la sidebar della sede, cioè
+ * voci che portano dentro la sede. Appena cambia l'indirizzo c'è ancora quella
  * dell'azienda per un attimo, con sezioni («Menù», «Vetrina») che spariscono
- * sotto il clic.
+ * sotto il clic. Non si aspetta «← Tutte le sedi»: con una sede sola non c'è.
  */
 async function settledMenu(page: Page): Promise<void> {
     await expect(menuRows(page).first()).toBeVisible({ timeout: 15_000 });
-    if (/\/locations\/[0-9a-f]{8}-/.test(page.url())) {
-        await expect(contextNav(page)).toBeVisible({ timeout: 15_000 });
+    const sede = page.url().match(/\/locations\/([0-9a-f-]{36})(?:\/|$)/)?.[1];
+    if (sede) {
+        await expect(nav(page).locator(`a[href*="/locations/${sede}/"]`).first()).toBeAttached({
+            timeout: 15_000
+        });
     }
 }
 
