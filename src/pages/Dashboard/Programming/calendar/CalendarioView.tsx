@@ -792,6 +792,7 @@ export default function CalendarioView({
             const out: string[] = [], pd = draft.when.period;
             if (!mins && !off)
                 out.push(`${wk} non c'è${pd && pd.from > week + 6 ? ": comincia " + (elides(pd.from) ? "l'" : "il ") + mShort(pd.from) : pd && pd.to < week ? ": è già finito" : ""}.`);
+            else if (!mins) out.push(`${wk} non va mai in onda: lo copre ${listIt([...by].map(q))}.`);
             else {
                 out.push(`${wk} è in onda ${days} ${days === 1 ? "giorno" : "giorni"}, ${hoursText(mins)} in tutto.`);
                 if (cov.size) out.push(`Prende il posto di ${listIt([...cov].map(q))} quando si sovrappongono.`);
