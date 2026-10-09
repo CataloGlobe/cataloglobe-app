@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { Navigate, Outlet, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { Lock, Store } from "lucide-react";
+import { Store } from "lucide-react";
 import { Button } from "@/components/ui";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import Skeleton from "@/components/ui/Skeleton/Skeleton";
@@ -20,7 +20,6 @@ import type { V2ActivityHours } from "@/types/activity-hours";
 import { useToast } from "@/context/Toast/ToastContext";
 import { usePermissions } from "@/context/usePermissions";
 import { canDoOnActivity, canDoOnTenant } from "@/lib/permissions";
-import { usePlanFeatures } from "@/lib/planFeatures";
 import { formatInactiveReason } from "@/utils/activityStatus";
 import { legacyTabTarget } from "@/utils/navLanding";
 import {
@@ -31,17 +30,19 @@ import {
     type ActivitySection
 } from "./ActivityDetailContext";
 import { useActivityDraft } from "./useActivityDraft";
+import { ActivitySedeMenu } from "./components/ActivitySedeMenu";
 import styles from "./ActivityDetailPage.module.scss";
 
 const isSection = (v: string): v is ActivitySection =>
     (ACTIVITY_SECTIONS as readonly string[]).includes(v);
 
 /**
- * Il locale in sei pagine (§31, correzioni UI T5): Anagrafica · Orari ·
- * Ordini al tavolo · Prenotazioni · Sala · Pubblicazione. Questo
- * parent legge la sede, gli orari e la ragione sociale una volta, tiene il
- * draft unico con la sua barra e la guardia all'uscita, e dà tutto alle
- * rotte figlie via `Outlet` (`useActivityDetail`).
+ * La Scheda della sede in due pagine (Officina 3, prototipo s3): «Il
+ * biglietto da visita» (chi siete, orari, contatti, dove, link e QR) e
+ * «Come lavorate» (cosa offrite, al conto, prenotazioni, ordini al tavolo).
+ * Questo parent legge la sede, gli orari e la ragione sociale una volta,
+ * tiene il draft unico con la sua barra e la guardia all'uscita, e dà tutto
+ * alle rotte figlie via `Outlet` (`useActivityDetail`).
  */
 const ActivityDetailPage: React.FC = () => {
     const { activityId, businessId } = useParams<{ activityId: string; businessId: string }>();
@@ -50,7 +51,6 @@ const ActivityDetailPage: React.FC = () => {
     const [searchParams] = useSearchParams();
     const { showToast } = useToast();
     const { permissions } = usePermissions();
-    const { hasFeature } = usePlanFeatures();
 
     const basePath = `/business/${businessId}/locations/${activityId}`;
     const lastSegment = pathname.slice(basePath.length).split("/").filter(Boolean)[0] ?? "";
@@ -157,42 +157,23 @@ const ActivityDetailPage: React.FC = () => {
     );
     useUnsavedChangesGuard(draft.isDirty);
 
-    // Testata: le quattro pagine come tab che navigano, lo stato della sede
-    // nelle azioni (su quattro pagine non è più a un click, come nel
-    // prototipo §31).
-    // La Sala la vede chi legge i tavoli della sede (SV3, come il modo
-    // «Gestisci la sala» di Servizio). Ordini al tavolo e Prenotazioni col
-    // piano Base restano tab, col lucchetto: dentro c'è il pannello Pro (O2).
-    const canReadTables = Boolean(activityId && permissions && canDoOnActivity(permissions, "tables.read", activityId));
-    const pages = useMemo(
-        () => ACTIVITY_PAGES.filter(value => value !== "sala" || canReadTables),
-        [canReadTables]
-    );
-    const isPlanLocked = useCallback(
-        (value: ActivitySection) =>
-            (value === "ordini-al-tavolo" && !hasFeature("table_ordering")) ||
-            (value === "prenotazioni-online" && !hasFeature("table_reservation")),
-        [hasFeature]
-    );
+    // Testata (Officina 3): le due pagine come tab che navigano; lo stato
+    // della sede e il suo «⋯» (sospendi, elimina) nelle azioni. Ordini al
+    // tavolo e Prenotazioni stanno in «Come lavorate», col pannello Pro
+    // dentro quando il piano non li ha; la Sala passa a Servizio.
+    const pages = ACTIVITY_PAGES;
 
     const leading = useMemo(() => (
         <Tabs<ActivitySection> value={section} onChange={next => goToSection(next)} variant="line">
             <Tabs.List>
                 {pages.map(value => (
                     <Tabs.Tab key={value} value={value}>
-                        {isPlanLocked(value) ? (
-                            <span className={styles.lockedTab}>
-                                {ACTIVITY_SECTION_LABELS[value]}
-                                <Lock size={14} strokeWidth={1.75} role="img" aria-label="Funzione del piano Pro" />
-                            </span>
-                        ) : (
-                            ACTIVITY_SECTION_LABELS[value]
-                        )}
+                        {ACTIVITY_SECTION_LABELS[value]}
                     </Tabs.Tab>
                 ))}
             </Tabs.List>
         </Tabs>
-    ), [section, goToSection, pages, isPlanLocked]);
+    ), [section, goToSection, pages]);
 
     const statusLabel = activity
         ? activity.status === "inactive"
@@ -226,9 +207,19 @@ const ActivityDetailPage: React.FC = () => {
                         changeCount={draft.dirtyCount}
                     />
                 )}
+                {activity && businessId && (
+                    <ActivitySedeMenu
+                        activity={activity}
+                        businessId={businessId}
+                        tenantId={businessId}
+                        reload={fetchData}
+                        canManage={canManage}
+                        canDelete={canDelete}
+                    />
+                )}
             </>
         ) : null
-    ), [statusLabel, activity?.status, showSave, draft.isDirty, draft.isSaving, draft.discard, draft.dirtyCount, handleSave]);
+    ), [statusLabel, activity, businessId, fetchData, canManage, canDelete, showSave, draft.isDirty, draft.isSaving, draft.discard, draft.dirtyCount, handleSave]);
 
     // In compatto il picker dice dove sei anche su una sezione che non è una
     // tab: la voce compare solo mentre ci sei.
@@ -236,8 +227,7 @@ const ActivityDetailPage: React.FC = () => {
         sections: [
             ...pages.map(value => ({
                 value,
-                label: ACTIVITY_SECTION_LABELS[value],
-                description: isPlanLocked(value) ? "Con il piano Pro" : undefined
+                label: ACTIVITY_SECTION_LABELS[value]
             })),
             ...(pages.includes(section) ? [] : [{ value: section, label: ACTIVITY_SECTION_LABELS[section] }])
         ],
@@ -257,7 +247,7 @@ const ActivityDetailPage: React.FC = () => {
         ...(showSave && !draft.isDirty && !draft.isSaving && statusLabel
             ? { statusIndicator: { label: statusLabel } }
             : {})
-    }), [section, goToSection, pages, isPlanLocked, statusLabel, showSave, draft.isDirty, draft.isSaving, handleSave]);
+    }), [section, goToSection, pages, statusLabel, showSave, draft.isDirty, draft.isSaving, handleSave]);
 
     usePageHeader({
         leading,

@@ -32,8 +32,8 @@ export default function ActivitySalaRoute() {
     if (!activity.ordering_enabled && !activity.enable_reservations) {
         return (
             <TablesEmptyState
-                onGoToOrdering={() => goToSection("ordini-al-tavolo")}
-                onGoToReservations={() => goToSection("prenotazioni-online")}
+                onGoToOrdering={() => goToSection("come-lavorate", "ordini")}
+                onGoToReservations={() => goToSection("come-lavorate", "prenotazioni")}
             />
         );
     }

@@ -132,7 +132,7 @@ const SCHEDA: NavEntry = {
     level: "sede",
     segment: "anagrafica",
     gate: { on: "activity", permission: "activity.read" },
-    matchSegments: ["orari", "ordini-al-tavolo", "prenotazioni-online", "sala", "pubblicazione"]
+    matchSegments: ["come-lavorate", "orari", "ordini-al-tavolo", "prenotazioni-online", "sala", "pubblicazione"]
 };
 
 // «Cosa vedono i clienti» (§19, M7): legge chi legge la sede; scrive chi ha

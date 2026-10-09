@@ -1,0 +1,46 @@
+// Solo layout: le superfici sono Card e le sezioni di prima.
+// Come lavorate (prototipo s3): due colonne uguali, una sola sotto 860 di
+// contenuto, con le prenotazioni prima degli ordini.
+.grid {
+  container-type: inline-size;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-24);
+  align-items: start;
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-24);
+  min-width: 0;
+}
+
+@container (max-width: 860px) {
+  .column {
+    grid-column: 1 / -1;
+  }
+}
+
+.section {
+  scroll-margin-top: var(--space-24);
+}
+
+.groups {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-24);
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+}
+
+.groupHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-12);
+}

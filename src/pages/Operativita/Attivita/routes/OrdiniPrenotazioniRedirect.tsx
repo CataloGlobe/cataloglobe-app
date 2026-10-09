@@ -2,7 +2,7 @@ import { Navigate, useLocation } from "react-router-dom";
 
 /**
  * La vecchia tab unica «Ordini e prenotazioni» (e prima «Canali»): dalle
- * correzioni UI (O1) sono due tab. Si apre Ordini al tavolo; l'ancora
+ * correzioni UI (O1) erano due tab, ora due blocchi di «Come lavorate» (Officina 3). Si va agli Ordini al tavolo; l'ancora
  * `#prenotazioni` porta alle Prenotazioni, `#capienza` alla sua card.
  */
 export default function OrdiniPrenotazioniRedirect() {
@@ -11,8 +11,8 @@ export default function OrdiniPrenotazioniRedirect() {
     return (
         <Navigate
             to={{
-                pathname: toReservations ? "../prenotazioni-online" : "../ordini-al-tavolo",
-                hash: hash === "#capienza" ? hash : ""
+                pathname: "../come-lavorate",
+                hash: hash === "#capienza" ? hash : toReservations ? "#prenotazioni" : "#ordini"
             }}
             replace
             relative="path"

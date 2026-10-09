@@ -8,6 +8,7 @@ import type { ActivityDraft } from "./useActivityDraft";
  *  prende da qui. */
 export const ACTIVITY_SECTIONS = [
     "anagrafica",
+    "come-lavorate",
     "orari",
     "ordini-al-tavolo",
     "prenotazioni-online",
@@ -17,20 +18,15 @@ export const ACTIVITY_SECTIONS = [
 ] as const;
 export type ActivitySection = (typeof ACTIVITY_SECTIONS)[number];
 
-/** Le quattro pagine del locale (§31.1): sono le tab della testata. */
-// Correzioni UI T5: una cosa per tab. «Ordini e prenotazioni» diventa due
-// tab (O1) e la Sala esce da Servizio (SV3).
-export const ACTIVITY_PAGES: readonly ActivitySection[] = [
-    "anagrafica",
-    "orari",
-    "ordini-al-tavolo",
-    "prenotazioni-online",
-    "sala",
-    "pubblicazione"
-];
+/** Le due pagine della Scheda (Officina 3, prototipo s3): sono le tab della
+ *  testata. Le vecchie sezioni restano come segmenti che portano qui
+ *  (orari e pubblicazione nel biglietto da visita, ordini e prenotazioni in
+ *  «Come lavorate»); la Sala ha la sua rotta ma passa a Servizio. */
+export const ACTIVITY_PAGES: readonly ActivitySection[] = ["anagrafica", "come-lavorate"];
 
 export const ACTIVITY_SECTION_LABELS: Record<ActivitySection, string> = {
-    anagrafica: "Anagrafica",
+    anagrafica: "Il biglietto da visita",
+    "come-lavorate": "Come lavorate",
     orari: "Orari",
     "ordini-al-tavolo": "Ordini al tavolo",
     "prenotazioni-online": "Prenotazioni",
