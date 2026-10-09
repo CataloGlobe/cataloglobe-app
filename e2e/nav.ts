@@ -54,10 +54,32 @@ export function sectionPanel(page: Page, title: string): Locator {
         .or(page.locator("body > [role='group']").and(page.getByRole("group", { name: title, exact: true })));
 }
 
-/** Apre una sezione col clic (sotto la riga o nel pannello) e ne ritorna le pagine. */
+/**
+ * Il menu da leggere: dentro una sede si aspetta la sidebar della sede, cioè
+ * voci che portano dentro la sede. Appena cambia l'indirizzo c'è ancora quella
+ * dell'azienda per un attimo, con sezioni («Menù», «Vetrina») che spariscono
+ * sotto il clic. Non si aspetta «← Tutte le sedi»: con una sede sola non c'è.
+ */
+async function settledMenu(page: Page): Promise<void> {
+    await expect(menuRows(page).first()).toBeVisible({ timeout: 15_000 });
+    const sede = page.url().match(/\/locations\/([0-9a-f-]{36})(?:\/|$)/)?.[1];
+    if (sede) {
+        await expect(nav(page).locator(`a[href*="/locations/${sede}/"]`).first()).toBeAttached({
+            timeout: 15_000
+        });
+    }
+}
+
+/**
+ * Apre una sezione col clic (sotto la riga o nel pannello) e ne ritorna le
+ * pagine. Si clicca solo una riga chiusa: su una aperta il clic la chiude.
+ */
 export async function openSection(page: Page, title: string): Promise<Locator> {
     const panel = sectionPanel(page, title);
-    if (!(await panel.isVisible())) await sectionRow(page, title).click();
+    const row = sectionRow(page, title);
+    if (!(await panel.isVisible()) && (await row.getAttribute("aria-expanded", { timeout: 10_000 })) !== "true") {
+        await row.click({ timeout: 10_000 });
+    }
     await expect(panel).toBeVisible();
     return panel;
 }
@@ -84,7 +106,7 @@ async function sectionTitles(page: Page): Promise<string[]> {
  */
 export async function sidebarLink(page: Page, name: string | RegExp): Promise<Locator> {
     const exact = typeof name === "string";
-    await expect(menuRows(page).first()).toBeVisible({ timeout: 15_000 });
+    await settledMenu(page);
     const direct = menuRows(page).getByRole("link", { name, exact });
     if ((await direct.count()) > 0) return direct;
     for (const title of await sectionTitles(page)) {
@@ -172,7 +194,7 @@ export async function withLongNames(page: Page, names: { azienda: string; sede?:
  * suo pannello (aperto e richiuso). Senza il contatore in coda (badge «3», «99+»).
  */
 export async function sidebarShape(page: Page): Promise<SidebarRow[]> {
-    await expect(menuRows(page).first()).toBeVisible({ timeout: 15_000 });
+    await settledMenu(page);
     const rows = await menuRows(page).evaluateAll(items =>
         items.map(li => {
             const section = li.querySelector(":scope > button[aria-expanded]");
@@ -203,6 +225,7 @@ export async function sidebarVoci(page: Page): Promise<string[]> {
  * nel suo pannello (la riga della sezione ha `aria-current="true"`).
  */
 export async function currentVoce(page: Page): Promise<Locator> {
+    await settledMenu(page);
     await expect(menuRows(page).locator("[aria-current]")).toHaveCount(1, { timeout: 15_000 });
     const direct = menuRows(page).locator('a[aria-current="page"]');
     if ((await direct.count()) > 0) return direct;

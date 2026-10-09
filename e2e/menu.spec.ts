@@ -831,9 +831,13 @@ for (const viewport of [
                 const b = (await l.boundingBox())!;
                 return b.y + b.height / 2;
             };
-            const y = await middle(pageSize);
             const count = main(page).getByText(/^(\d+ elementi|\d+–\d+ di \d+)$/);
-            expect(Math.abs((await middle(count)) - y)).toBeLessThan(4);
+            // Dopo il cambio di finestra le righe si riavvolgono e il piè scende:
+            // si misura quando si è fermato.
+            await expect
+                .poll(async () => Math.abs((await middle(count)) - (await middle(pageSize))))
+                .toBeLessThan(4);
+            const y = await middle(pageSize);
             expect((await count.boundingBox())!.height).toBeLessThan(28);
             const next = main(page).getByRole("button", { name: "Pagina successiva" });
             if (await next.count()) expect(Math.abs((await middle(next)) - y)).toBeLessThan(4);
