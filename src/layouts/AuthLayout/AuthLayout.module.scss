@@ -1,11 +1,15 @@
 @use "@styles/variables" as *;
 
-// Sfondo delle pagine di accesso: tinta leggera del colore del marchio, una
-// griglia sottile e una luce in alto. Tutto da token: il tema scuro cambia da solo.
+// Sfondo delle pagine di accesso: tinta leggera del colore del marchio, una luce
+// in alto e la tela di punti animata (AuthBackdrop) dietro a tutto. Tutto da
+// token: il tema scuro cambia da solo.
 .wrapper {
-  --auth-grid: color-mix(in srgb, var(--brand-primary) 8%, transparent);
   --auth-glow: color-mix(in srgb, var(--brand-primary) 22%, transparent);
+  // Nel tema chiaro i punti servono più carichi per vedersi.
+  --auth-dot-strength: 1.7;
 
+  position: relative;
+  isolation: isolate;
   display: flex;
   flex-direction: column;
   min-height: 100vh;
@@ -15,15 +19,30 @@
   font-family: $font-stack;
   color: var(--text);
   background-color: color-mix(in srgb, var(--brand-primary) 5%, var(--bg));
-  background-image:
-    radial-gradient(900px 420px at 50% -80px, var(--auth-glow), transparent 70%),
-    linear-gradient(var(--auth-grid) 1px, transparent 1px),
-    linear-gradient(90deg, var(--auth-grid) 1px, transparent 1px);
-  background-size: 100% 100%, 32px 32px, 32px 32px;
+  background-image: radial-gradient(900px 420px at 50% -80px, var(--auth-glow), transparent 70%);
 
   // Controlli più alti e morbidi solo qui: 48px è comodo col pollice.
   --control-height: 48px;
   --radius-control: 12px;
+}
+
+:global([data-theme="dark"]) .wrapper {
+  --auth-dot-strength: 1;
+}
+
+// La tela: ferma dietro a tutto, piena al centro e sfumata verso i bordi.
+// color e border-color sono i due colori che il canvas legge (punti e marchio).
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  color: var(--text-muted);
+  border: 0 solid var(--brand-primary);
+  mask-image: radial-gradient(ellipse 70% 75% at 50% 48%, #000 45%, rgba(0, 0, 0, 0.1) 100%);
+  view-transition-name: auth-bg;
 }
 
 .header {
@@ -125,6 +144,11 @@
   border-radius: 24px;
   box-shadow: 0 12px 32px color-mix(in srgb, var(--brand-primary) 12%, transparent), var(--shadow-rest);
   padding: 1.5rem;
+  view-transition-name: auth-card;
+}
+
+.cardBody {
+  view-transition-name: auth-card-body;
 }
 
 .footer {
@@ -186,5 +210,86 @@
 
   .footer {
     padding: 0.75rem 1rem 1rem;
+  }
+}
+
+// Passaggio animato tra Accedi e Registrati (View Transitions, AuthTabs).
+// La scheda cresce o cala come un vero riquadro (il gruppo prende il suo stile,
+// così gli angoli non si deformano), l'indicatore scorre, il modulo scivola di
+// lato in dissolvenza. Lo sfondo non partecipa: resta vivo sotto.
+:global(html[data-auth-switch="prev"]) {
+  --auth-dir: -1;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  :global {
+    ::view-transition-group(auth-card) {
+      box-sizing: border-box;
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      background: var(--card-bg);
+      box-shadow: 0 12px 32px color-mix(in srgb, var(--brand-primary) 12%, transparent), var(--shadow-rest);
+      animation-duration: 420ms;
+      animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+
+    ::view-transition-old(auth-card),
+    ::view-transition-new(auth-card) {
+      display: none;
+    }
+
+    ::view-transition-group(auth-card-body),
+    ::view-transition-group(auth-tabs),
+    ::view-transition-group(auth-tab-login),
+    ::view-transition-group(auth-tab-signup) {
+      animation-duration: 420ms;
+      animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+
+    ::view-transition-group(auth-tab-pill) {
+      animation-duration: 380ms;
+      animation-timing-function: cubic-bezier(0.3, 1.25, 0.4, 1);
+    }
+
+    ::view-transition-old(auth-card-body) {
+      animation: auth-body-out 180ms ease-in both;
+    }
+
+    ::view-transition-new(auth-card-body) {
+      animation: auth-body-in 320ms cubic-bezier(0.2, 0.8, 0.2, 1) 80ms both;
+    }
+
+    ::view-transition-old(auth-bg) {
+      display: none;
+    }
+
+    ::view-transition-group(auth-bg),
+    ::view-transition-new(auth-bg) {
+      animation: none;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :global {
+    ::view-transition-group(*),
+    ::view-transition-old(*),
+    ::view-transition-new(*) {
+      animation: none !important;
+    }
+  }
+}
+
+@keyframes :global(auth-body-out) {
+  to {
+    opacity: 0;
+    transform: translateX(calc(var(--auth-dir, 1) * -24px));
+  }
+}
+
+@keyframes :global(auth-body-in) {
+  from {
+    opacity: 0;
+    transform: translateX(calc(var(--auth-dir, 1) * 24px));
   }
 }
