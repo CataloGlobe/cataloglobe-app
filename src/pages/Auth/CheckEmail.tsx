@@ -219,7 +219,10 @@ export default function CheckEmail() {
                         value={code}
                         onChange={value => {
                             setCode(value);
-                            if (value) setVerifyError(null);
+                            if (value) {
+                                setVerifyError(null);
+                                setResendDone(false);
+                            }
                         }}
                         onComplete={value => void handleVerify(value)}
                         disabled={verifying}
