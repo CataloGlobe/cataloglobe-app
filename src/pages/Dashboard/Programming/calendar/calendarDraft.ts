@@ -24,16 +24,8 @@ import {
 
 export const isDish = (k: CalKind) => k === "price" || k === "visibility";
 
-// Le novità della versione 10 (D120, «ognuno vale a sé»): menù e stile in
-// regole separate, più fasce, oltre mezzanotte, multi menù. Si vedono su
-// localhost e restano spente in produzione finché il database non le regge
-// (D149); le prove le accendono da sé.
-const ON = import.meta.env.DEV && import.meta.env.MODE !== "test";
-export const NEW_MODEL = { multiRange: ON, overnight: ON, multiMenu: ON, splitLayout: ON };
-/** Il database salva già le novità: diventa true con le migrazioni di Lorenzo. */
-export const DB = { ready: false };
-export const DB_LATER = "arriva col database nuovo";
-export const DB_WAIT = "si salva col database nuovo";
+import { DB, DB_LATER, DB_WAIT, NEW_MODEL } from "./calendarFlags";
+export { DB, DB_LATER, DB_WAIT, NEW_MODEL };
 
 export type PickProduct = {
     id: string;
