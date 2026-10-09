@@ -31,7 +31,8 @@ import type {
 } from "@/services/supabase/billing";
 import { getPlanByCode, listPublicPlans } from "@/services/supabase/plans";
 import { getActivityCount } from "@/services/supabase/activities";
-import { getTenantBillingInterval } from "@/services/supabase/tenants";
+import { getTenantBillingInterval, getTenantFiscalProfile } from "@/services/supabase/tenants";
+import { tenantFiscalFieldsTooLong } from "@/utils/tenantFiscalData";
 import { COMPANY } from "@/config/company";
 import { formatPendingChangeLabel } from "./pendingChangeLabel";
 import { SUBSCRIPTION_UNAVAILABLE_MESSAGE, buildSubscriptionSupportMailto } from "./supportMailto";
@@ -207,6 +208,10 @@ const CHECKOUT_ERROR_MESSAGES: Record<string, string> = {
     activity_count_unavailable:
         "Non siamo riusciti a verificare le sedi della tua azienda. Non ti è stato addebitato nulla: riprova tra qualche istante."
 };
+
+/** Dati fiscali oltre i limiti: il checkout non parte, si correggono prima. */
+const FISCAL_FIELDS_TOO_LONG_MESSAGE =
+    "Prima di riattivare l'abbonamento correggi i dati di fatturazione: alcuni campi sono troppo lunghi per la fattura elettronica.";
 
 /** Errori che si correggono nei dati di fatturazione: il toast porta lì. */
 const BILLING_DETAILS_ERRORS = new Set(["invalid_vat_number", "missing_einvoice_recipient"]);
@@ -536,6 +541,25 @@ export default function SubscriptionPage() {
     const handleCheckout = async () => {
         setCheckoutLoading(true);
         try {
+            // Gate fiscale lato client: campi oltre BILLING_FIELD_MAX finirebbero
+            // tagliati nel customer Stripe e nella fattura elettronica. I dati
+            // mancanti li giudica stripe-checkout (più largo del wizard: non
+            // blocca tenant già abbonati con un profilo vecchio). Se la
+            // lettura fallisce decide comunque l'edge.
+            const fiscal = await getTenantFiscalProfile(selectedTenant.id).catch(err => {
+                console.warn("[SubscriptionPage] fiscal profile read failed, deferring to the edge gate:", err);
+                return null;
+            });
+            if (fiscal && tenantFiscalFieldsTooLong(fiscal)) {
+                showToast({
+                    message: FISCAL_FIELDS_TOO_LONG_MESSAGE,
+                    type: "warning",
+                    actionLabel: "Apri i dati di fatturazione",
+                    onAction: () => navigate(`/business/${selectedTenant.id}/settings`)
+                });
+                return;
+            }
+
             // Re-activation keeps the interval the tenant already has. A NULL
             // interval is a legacy tenant that predates the column and never
             // chose anything (monthly was the only interval that ever existed):
