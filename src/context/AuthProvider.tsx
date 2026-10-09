@@ -168,8 +168,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 if (res.error && !isDefinitiveNoSession(res.error)) console.error("[auth] init getUser failed (user from %s):", res.source, res.error);
 
                 // Se nel frattempo il listener ha già ripreso l'utente (token
-                // rinnovato mentre init aspettava), un esito vuoto non lo toglie.
-                if (!res.user && userRef.current) return;
+                // rinnovato mentre init aspettava), un esito vuoto per rete o
+                // timeout non lo toglie. Un «nessuna sessione» del server sì
+                // (utente cancellato, token revocato): si esce.
+                if (!res.user && userRef.current && res.error && !isDefinitiveNoSession(res.error)) return;
                 setUser(res.user);
 
                 // IMPORTANTISSIMO:
