@@ -748,7 +748,7 @@ export function Dove({ t, draft, updDraft, sedi, groups, L }: { t: Tunnel; draft
     const storiaBad = t.kind === "storia" ? blocker(t, "dove", { owner: true, multi: true }) : "";
     return (
         <>
-            <Sh title="Dove">In quali sedi. Quello che vale per una sede vince su quello che vale per tutte.</Sh>
+            <Sh title="Dove">In quali sedi lo vede il cliente.</Sh>
             {t.from && <Inherited>Le stesse sedi del menù {q(t.from.name)}: puoi cambiarle.</Inherited>}
             {t.aside && <Inherited>Le sedi della bozza che hai tenuto da parte nel Calendario: puoi cambiarle.</Inherited>}
             <div className={cx(cal.root, s.calwrap)}>
