@@ -1,4 +1,4 @@
-// Formattazioni condivise fra l'elenco a righe e la vista tabella.
+// Formattazioni condivise fra l'elenco e la scheda del cliente.
 //
 // File separato dai componenti perché entrambe le viste devono mostrare la
 // stessa data nello stesso formato: due copie divergerebbero alla prima
@@ -17,18 +17,6 @@ export function formatPhoneForDisplay(e164: string | null | undefined): string {
     return parsePhoneNumberFromString(e164)?.formatInternational() ?? e164;
 }
 
-/** "12 mar 2026", oppure "—" quando non c'è nessuna visita visibile. */
-export function formatVisitDate(isoDate: string | null): string {
-    if (!isoDate) return "—";
-    const [y, m, d] = isoDate.split("-").map(n => parseInt(n, 10));
-    if (!y || !m || !d) return "—";
-    return new Intl.DateTimeFormat("it-IT", {
-        day: "numeric",
-        month: "short",
-        year: "numeric"
-    }).format(new Date(y, m - 1, d));
-}
-
 /**
  * Iniziale per il cerchio a sinistra della riga.
  *
@@ -39,4 +27,19 @@ export function formatVisitDate(isoDate: string | null): string {
 export function guestInitial(displayName: string): string {
     const first = displayName.trim().charAt(0);
     return first ? first.toUpperCase() : "?";
+}
+
+/**
+ * «20 set» nell'anno in corso, «12 mar 2025» prima (Clienti A, D154);
+ * "—" quando non c'è nessuna visita visibile.
+ */
+export function formatShortVisitDate(isoDate: string | null, today: Date): string {
+    if (!isoDate) return "—";
+    const [y, m, d] = isoDate.split("-").map(n => parseInt(n, 10));
+    if (!y || !m || !d) return "—";
+    return new Intl.DateTimeFormat("it-IT", {
+        day: "numeric",
+        month: "short",
+        ...(y === today.getFullYear() ? {} : { year: "numeric" })
+    }).format(new Date(y, m - 1, d));
 }

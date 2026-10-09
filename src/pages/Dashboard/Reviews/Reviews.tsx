@@ -1,5 +1,5 @@
 import { useParams } from "react-router-dom";
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { useTenantId } from "@/context/useTenantId";
 import { useToast } from "@/context/Toast/ToastContext";
 import { listReviews, deleteReview } from "@/services/supabase/reviews";
@@ -8,57 +8,45 @@ import type { Review } from "@/types/database";
 import { usePermissions } from "@/context/usePermissions";
 import { canDoOnActivity, canDoOnAnyActivity } from "@/lib/permissions";
 import { PageGate } from "@/components/PageGate/PageGate";
-import { ArrowUpDown, CalendarRange, Star } from "lucide-react";
+import { Search, Star } from "lucide-react";
 
-import { usePageHeader } from "@/context/usePageHeader";
-import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { Select } from "@/components/ui/Select/Select";
 import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
-import { DateInput } from "@/components/ui/Input/DateInput";
 import { Button } from "@/components/ui/Button/Button";
-import { BarList } from "@/components/ui/BarList/BarList";
 import { Card } from "@/components/ui/Card/Card";
+import { Chip } from "@/components/ui/Chip/Chip";
+import { ChipGroupSingle } from "@/components/ui/Chip/ChipGroup";
+import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
+import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { ListRow } from "@/components/ui/ListRow/ListRow";
 import { Rating } from "@/components/ui/Rating/Rating";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { rowAction } from "@/components/ui/TableRowActions/rowAction";
-import Text from "@/components/ui/Text/Text";
 import { formatRelativeTime } from "@/utils/relativeTime";
+import { PERIOD_OPTIONS, usePeriodParam } from "@/hooks/usePeriodParam";
+import { periodToDateRange } from "@/pages/Dashboard/Analytics/utils/periodComparison";
+import { VoteLine } from "./VoteLine";
 
 import styles from "./Reviews.module.scss";
 
 /* ── Types ───────────────────────────────────────────── */
 
-type PeriodFilter = "all" | "7d" | "30d" | "90d" | "custom";
 type SortOption = "newest" | "oldest" | "ratingAsc" | "ratingDesc";
-
-// RC4: le stelle in una tendina nella barra, a destra con gli altri filtri.
-const RATING_SELECT_OPTIONS = [
-    { value: "all", label: "Tutte le stelle" },
-    { value: "5", label: "5 stelle" },
-    { value: "4", label: "4 stelle" },
-    { value: "3", label: "3 stelle" },
-    { value: "2", label: "2 stelle" },
-    { value: "1", label: "1 stella" }
-];
-
-const PERIOD_OPTIONS = [
-    { value: "all", label: "Tutto il periodo" },
-    { value: "7d", label: "Ultimi 7 giorni" },
-    { value: "30d", label: "Ultimi 30 giorni" },
-    { value: "90d", label: "Ultimi 90 giorni" },
-    { value: "custom", label: "Periodo personalizzato" },
-];
+/** I filtri dell'elenco (D154): le basse sono quelle che restano a voi. */
+type ListFilter = "all" | "low" | "text";
 
 // Parole, non frecce: «Voto ↑» non diceva se in cima va il più alto (mockup).
 const SORT_OPTIONS = [
-    { value: "newest", label: "Più recenti" },
-    { value: "oldest", label: "Meno recenti" },
-    { value: "ratingDesc", label: "Voto più alto" },
-    { value: "ratingAsc", label: "Voto più basso" },
+    { value: "newest", label: "Dalle più recenti" },
+    { value: "oldest", label: "Dalle meno recenti" },
+    { value: "ratingDesc", label: "Dal voto più alto" },
+    { value: "ratingAsc", label: "Dal voto più basso" },
 ];
+
+/** Basse: 1-3 stelle. Non vanno mai su Google, il modulo le tiene per voi. */
+const isLow = (r: Review) => r.rating <= 3;
 
 /* ── Component ───────────────────────────────────────── */
 
@@ -90,12 +78,16 @@ export default function Reviews() {
     const [loadError, setLoadError] = useState(false);
     const [reloadKey, setReloadKey] = useState(0);
 
-    const [filterRating, setFilterRating] = useState<string>("all");
-    const [filterPeriod, setFilterPeriod] = useState<PeriodFilter>("all");
-    const [customFrom, setCustomFrom] = useState("");
-    const [customTo, setCustomTo] = useState("");
+    const [period, setPeriod] = usePeriodParam();
+    const [filterStars, setFilterStars] = useState<number | null>(null);
+    const [listFilter, setListFilter] = useState<ListFilter>("all");
     const [sortBy, setSortBy] = useState<SortOption>("newest");
     const [searchQuery, setSearchQuery] = useState("");
+    const [searchOpen, setSearchOpen] = useState(false);
+    const searchRef = useRef<HTMLInputElement>(null);
+    useEffect(() => {
+        if (searchOpen) searchRef.current?.focus();
+    }, [searchOpen]);
 
     // La recensione da eliminare: il DELETE è secco e l'ha scritta un
     // cliente, quindi passa da un ConfirmDialog (regola delle azioni
@@ -140,35 +132,24 @@ export default function Reviews() {
         readableActivities.forEach((a) => map.set(a.id, a.name));
         return map;
     }, [readableActivities]);
+    // Il modulo pubblico invita su Google chi dà 4-5 stelle solo se la sede ha
+    // il link: senza, anche quelle restano a voi.
+    const googleSedi = useMemo(
+        () => new Set(readableActivities.filter(a => a.google_review_url).map(a => a.id)),
+        [readableActivities]
+    );
+    const isInvited = useCallback(
+        (r: Review) => r.rating >= 4 && googleSedi.has(r.activity_id),
+        [googleSedi]
+    );
 
     /* ── Period filtering (base for stats) ──────────── */
     // Feedback privato (R1): nessuna coda né stato, conta ogni recensione.
     const periodFilteredReviews = useMemo(() => {
-        const now = Date.now();
-
-        if (filterPeriod === "7d") {
-            const t = now - 7 * 86_400_000;
-            return reviews.filter((r) => new Date(r.created_at).getTime() >= t);
-        }
-        if (filterPeriod === "30d") {
-            const t = now - 30 * 86_400_000;
-            return reviews.filter((r) => new Date(r.created_at).getTime() >= t);
-        }
-        if (filterPeriod === "90d") {
-            const t = now - 90 * 86_400_000;
-            return reviews.filter((r) => new Date(r.created_at).getTime() >= t);
-        }
-        if (filterPeriod === "custom") {
-            return reviews.filter((r) => {
-                const ts = new Date(r.created_at).getTime();
-                if (customFrom && ts < new Date(customFrom).getTime()) return false;
-                if (customTo && ts > new Date(customTo).getTime() + 86_400_000 - 1)
-                    return false;
-                return true;
-            });
-        }
-        return reviews;
-    }, [reviews, filterPeriod, customFrom, customTo]);
+        if (period === "all") return reviews;
+        const from = periodToDateRange(period).from.getTime();
+        return reviews.filter((r) => new Date(r.created_at).getTime() >= from);
+    }, [reviews, period]);
 
     /* ── Stats: su tutti i voti del periodo ─────────── */
     const average = useMemo(() => {
@@ -178,26 +159,31 @@ export default function Reviews() {
         return Math.round((sum / total) * 10) / 10;
     }, [periodFilteredReviews]);
 
-    // Distribuzione 5→1 a una serie sola (§34.9/4, §34.10): la lunghezza fa
-    // il lavoro, tinta unica, il livello di stelle è l'etichetta.
-    const distributionItems = useMemo(() => {
-        const dist: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
-        for (const r of periodFilteredReviews) dist[r.rating] = (dist[r.rating] ?? 0) + 1;
-        return ([5, 4, 3, 2, 1] as const).map(star => ({
-            id: String(star),
-            label: <Rating value={star} showValue={false} />,
-            value: dist[star]
-        }));
+    const distribution = useMemo(() => {
+        const dist: Record<1 | 2 | 3 | 4 | 5, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+        for (const r of periodFilteredReviews) {
+            if (r.rating >= 1 && r.rating <= 5) dist[r.rating as 1 | 2 | 3 | 4 | 5] += 1;
+        }
+        return dist;
     }, [periodFilteredReviews]);
+
+    const counts = useMemo(
+        () => ({
+            all: periodFilteredReviews.length,
+            low: periodFilteredReviews.filter(isLow).length,
+            text: periodFilteredReviews.filter(r => Boolean(r.comment?.trim())).length,
+            invited: periodFilteredReviews.filter(isInvited).length
+        }),
+        [periodFilteredReviews, isInvited]
+    );
 
     /* ── Final filtered + sorted reviews ────────────── */
     const displayedReviews = useMemo(() => {
         let result = [...periodFilteredReviews];
 
-        if (filterRating !== "all") {
-            const rating = Number(filterRating);
-            result = result.filter((r) => r.rating === rating);
-        }
+        if (filterStars !== null) result = result.filter((r) => r.rating === filterStars);
+        if (listFilter === "low") result = result.filter(isLow);
+        if (listFilter === "text") result = result.filter((r) => Boolean(r.comment?.trim()));
 
         if (searchQuery.trim()) {
             const q = searchQuery.toLowerCase();
@@ -222,129 +208,18 @@ export default function Reviews() {
         });
 
         return result;
-    }, [periodFilteredReviews, filterRating, searchQuery, sortBy]);
+    }, [periodFilteredReviews, filterStars, listFilter, searchQuery, sortBy]);
 
-    const isFiltered = filterRating !== "all" || searchQuery.trim() !== "" || filterPeriod !== "all";
+    const isFiltered = filterStars !== null || listFilter !== "all" || searchQuery.trim() !== "";
     const clearFilters = useCallback(() => {
-        setFilterRating("all");
+        setFilterStars(null);
+        setListFilter("all");
         setSearchQuery("");
-        setFilterPeriod("all");
-        setCustomFrom("");
-        setCustomTo("");
     }, []);
 
-    // ── Barra (RC4): a sinistra il conteggio del periodo, a destra ricerca ·
-    // stelle · periodo · ordine.
-    const countLabel = loading
-        ? ""
-        : displayedReviews.length === periodFilteredReviews.length
-          ? `${periodFilteredReviews.length} ${periodFilteredReviews.length === 1 ? "recensione" : "recensioni"}`
-          : `${displayedReviews.length} di ${periodFilteredReviews.length} recensioni`;
-    const leading = useMemo(
-        () => (
-            <Text as="span" variant="body-sm" weight={600} className={styles.count} aria-live="polite">
-                {countLabel}
-            </Text>
-        ),
-        [countLabel]
-    );
-
-    const headerActions = useMemo(() => (
-        <>
-            <ToolbarSearch
-                value={searchQuery}
-                onChange={setSearchQuery}
-                placeholder="Cerca commenti..."
-            />
-            <Select
-                aria-label="Filtra per stelle"
-                value={filterRating}
-                onChange={(e) => setFilterRating(e.target.value)}
-                options={RATING_SELECT_OPTIONS}
-                containerClassName={styles.toolbarRating}
-            />
-            <Select
-                aria-label="Filtra per periodo"
-                value={filterPeriod}
-                onChange={(e) => {
-                    const val = e.target.value as PeriodFilter;
-                    setFilterPeriod(val);
-                    if (val !== "custom") {
-                        setCustomFrom("");
-                        setCustomTo("");
-                    }
-                }}
-                options={PERIOD_OPTIONS}
-                containerClassName={styles.toolbarPeriod}
-            />
-            <Select
-                aria-label="Ordina recensioni"
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as SortOption)}
-                options={SORT_OPTIONS}
-                containerClassName={styles.toolbarSort}
-            />
-        </>
-    ), [searchQuery, filterRating, filterPeriod, sortBy]);
-
-    // Nessun selettore di sede: il livello lo dice l'indirizzo (§51.10).
-    // In compatto la valutazione prende il posto del picker sezione (la pagina
-    // non ha sezioni); periodo e ordinamento restano icone con overlay e chip,
-    // diverse perché due bottoni identici non direbbero quale filtro aprono.
-    // Qui le opzioni valutazione portano la stella nel testo: in una lista il
-    // solo "5" non si capirebbe.
-    const headerCompact = useMemo<PageHeaderCompactConfig>(() => ({
-        leadingFilter: {
-            label: "Valutazione",
-            options: [
-                { value: "all", label: "Tutte" },
-                { value: "5", label: "5 stelle" },
-                { value: "4", label: "4 stelle" },
-                { value: "3", label: "3 stelle" },
-                { value: "2", label: "2 stelle" },
-                { value: "1", label: "1 stella" }
-            ],
-            value: filterRating,
-            defaultValue: "all",
-            onChange: setFilterRating
-        },
-        filterControls: [
-            {
-                label: "Periodo",
-                icon: <CalendarRange size={18} />,
-                options: PERIOD_OPTIONS,
-                value: filterPeriod,
-                defaultValue: "all",
-                onChange: value => {
-                    const next = value as PeriodFilter;
-                    setFilterPeriod(next);
-                    if (next !== "custom") {
-                        setCustomFrom("");
-                        setCustomTo("");
-                    }
-                }
-            },
-            {
-                label: "Ordinamento",
-                icon: <ArrowUpDown size={18} />,
-                options: SORT_OPTIONS,
-                value: sortBy,
-                defaultValue: "newest",
-                onChange: value => setSortBy(value as SortOption)
-            }
-        ],
-        search: {
-            value: searchQuery,
-            onChange: setSearchQuery,
-            placeholder: "Cerca commenti..."
-        }
-    }), [filterRating, filterPeriod, sortBy, searchQuery]);
-
-    usePageHeader({
-        leading,
-        actions: headerActions,
-        compact: headerCompact,
-    });
+    // «oggi», «negli ultimi 7 giorni»: per il vuoto del periodo.
+    const periodLabel =
+        period === "today" ? "oggi" : `negli ultimi ${PERIOD_OPTIONS.find(o => o.value === period)?.label.toLowerCase() ?? ""}`;
 
     /* ── Handlers ───────────────────────────────────── */
     const requestDelete = (review: Review) => {
@@ -371,85 +246,96 @@ export default function Reviews() {
         }
     }
 
-    /* ── Riga: commento e «quando · sede» ─────────────── */
-    const reviewTitle = (review: Review) =>
-        review.comment ? (
-            // Il commento è il contenuto della riga: va a capo intero, non
-            // si tronca come un nome.
-            <span className={styles.comment}>{review.comment}</span>
-        ) : (
-            <Text as="span" variant="body-sm" colorVariant="muted" className={styles.noComment}>
-                Nessun commento
-            </Text>
-        );
-    const reviewSubtitle = (review: Review) =>
+    /* ── Riga: «quando · sede» sopra il commento ──────── */
+    const reviewMeta = (review: Review) =>
         [formatRelativeTime(review.created_at), !selectedActivity ? activityNameMap.get(review.activity_id) : null]
             .filter(Boolean)
             .join(" · ");
+
+    const listOptions = [
+        { value: "all" as const, label: "Tutte", count: counts.all },
+        { value: "low" as const, label: "Da leggere: le basse", count: counts.low, tone: "warning" as const },
+        { value: "text" as const, label: "Con un commento", count: counts.text }
+    ];
 
     /* ── Render ──────────────────────────────────────── */
     return (
         <PageGate readPermission="reviews.read" activityId={selectedActivity || null}>
             {({ canEdit }) => (
                 <div className={styles.page}>
-                    {/* ── Riepilogo: numero eroe + distribuzione, su tutti i voti ─── */}
-                    {/* RC5: la frase di R1 è il sottotitolo del riepilogo. */}
-                    <Card
-                        title="Riepilogo dei voti"
-                        subtitle="Feedback privati dei clienti: li vedi solo tu e il tuo team, non compaiono sulla pagina pubblica. Chi dà 4 o 5 stelle viene invitato a recensirvi su Google."
-                    >
-                        <div className={styles.summary}>
-                            {loading ? (
-                                <BarList className={styles.summaryFull} items={[]} loading />
-                            ) : (
-                                <>
-                                    <div className={styles.average}>
-                                        {average !== null ? (
-                                            <Rating
-                                                value={average}
-                                                size="hero"
-                                                countLabel={`${periodFilteredReviews.length} ${periodFilteredReviews.length === 1 ? "recensione" : "recensioni"}`}
-                                            />
-                                        ) : (
-                                            <Text variant="body-sm" colorVariant="muted">
-                                                Nessun voto nel periodo.
-                                            </Text>
-                                        )}
-                                    </div>
-                                    <BarList
-                                        className={styles.distribution}
-                                        labelColumn="fit"
-                                        aria-label="Distribuzione dei voti"
-                                        items={distributionItems}
-                                    />
-                                </>
-                            )}
-                        </div>
-                    </Card>
-
-                    {/* ── Periodo personalizzato ──────────────── */}
-                    {filterPeriod === "custom" && (
-                        <div className={styles.dateRange}>
-                            <DateInput
-                                label="Da"
-                                value={customFrom}
-                                onChange={(e) => setCustomFrom(e.target.value)}
-                            />
-                            <DateInput
-                                label="A"
-                                value={customTo}
-                                onChange={(e) => setCustomTo(e.target.value)}
-                            />
+                    {/* ── Periodo a sinistra, Cerca a destra (D154) ─── */}
+                    <div className={styles.bar}>
+                        <SegmentedControl
+                            size="sm"
+                            value={period}
+                            onChange={setPeriod}
+                            options={PERIOD_OPTIONS}
+                        />
+                        {searchOpen || searchQuery ? (
+                            // Si richiude da sola uscendo, se è rimasta vuota.
+                            <div className={styles.search} onBlur={() => setSearchOpen(false)}>
+                                <ToolbarSearch
+                                    ref={searchRef}
+                                    value={searchQuery}
+                                    onChange={setSearchQuery}
+                                    placeholder="Cerca nei commenti"
+                                    width="min"
+                                />
+                            </div>
+                        ) : (
                             <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => {
-                                    setCustomFrom("");
-                                    setCustomTo("");
-                                }}
+                                className={styles.searchButton}
+                                leftIcon={<Search size={15} aria-hidden />}
+                                onClick={() => setSearchOpen(true)}
                             >
-                                Azzera
+                                Cerca
                             </Button>
+                        )}
+                    </div>
+
+                    {/* ── Il voto in una riga ─────────────────── */}
+                    {loading ? (
+                        <div className={styles.voteLoading} aria-busy="true" aria-label="Caricamento del voto" />
+                    ) : (
+                        !loadError && (
+                            <VoteLine
+                                average={average}
+                                total={counts.all}
+                                invited={counts.invited}
+                                distribution={distribution}
+                                stars={filterStars}
+                                onStars={setFilterStars}
+                            />
+                        )
+                    )}
+
+                    {/* ── Filtri e ordine ─────────────────────── */}
+                    {!loading && !loadError && counts.all > 0 && (
+                        <div className={styles.filters}>
+                            <ChipGroupSingle
+                                ariaLabel="Quali recensioni"
+                                value={listFilter}
+                                onChange={setListFilter}
+                                options={listOptions}
+                            />
+                            {filterStars !== null && (
+                                <Chip
+                                    label={`${filterStars} ★`}
+                                    selected
+                                    onRemove={() => setFilterStars(null)}
+                                    removeLabel="Togli il filtro delle stelle"
+                                />
+                            )}
+                            <Select
+                                aria-label="Ordine"
+                                containerClassName={styles.sort}
+                                selectClassName={styles.sortSelect}
+                                value={sortBy}
+                                onChange={(e) => setSortBy(e.target.value as SortOption)}
+                                options={SORT_OPTIONS}
+                            />
                         </div>
                     )}
 
@@ -475,30 +361,44 @@ export default function Reviews() {
                             }
                         />
                     ) : displayedReviews.length === 0 ? (
-                            isFiltered && reviews.length > 0 ? (
-                                <EmptyState variant="filtered" title="Nessuna recensione trovata" onClearFilters={clearFilters} />
-                            ) : (
-                                <EmptyState
-                                    variant="inline"
-                                    icon={<Star />}
-                                    title="Nessuna recensione"
-                                    description="Le recensioni arrivano dal modulo sulla pagina pubblica delle sedi."
-                                />
-                            )
+                        isFiltered && counts.all > 0 ? (
+                            <EmptyState variant="filtered" title="Nessuna recensione con questi filtri" onClearFilters={clearFilters} />
+                        ) : reviews.length > 0 && period !== "all" ? (
+                            // Il periodo è vuoto ma ce ne sono di prima: lo si dice.
+                            <EmptyState
+                                variant="inline"
+                                icon={<Star />}
+                                title={`Nessuna recensione ${periodLabel}`}
+                                description={`Ce ne sono ${reviews.length} in tutto.`}
+                                action={
+                                    <Button variant="secondary" size="sm" onClick={() => setPeriod("all")}>
+                                        Vedi da sempre
+                                    </Button>
+                                }
+                            />
                         ) : (
-                            // RC6: stelle e data in una colonna fissa a sinistra, il
-                            // commento a tutta larghezza, «Elimina» nel menu ⋯.
-                            <Card flush>
-                                <ul className={styles.list} aria-label="Recensioni">
-                                    {displayedReviews.map((review) => (
-                                        <li key={review.id} className={styles.row}>
-                                            <div className={styles.rowMeta}>
-                                                <Rating value={review.rating} />
-                                                <Text as="span" variant="caption" colorVariant="muted">
-                                                    {reviewSubtitle(review)}
-                                                </Text>
-                                            </div>
-                                            <div className={styles.rowComment}>{reviewTitle(review)}</div>
+                            <EmptyState
+                                variant="inline"
+                                icon={<Star />}
+                                title="Nessuna recensione"
+                                description="Le recensioni arrivano dal modulo sulla pagina pubblica delle sedi."
+                            />
+                        )
+                    ) : (
+                        // Stelle, quando e dove sono andate sopra; il commento sotto,
+                        // largo come un testo da leggere.
+                        <Card flush>
+                            <ul className={styles.list} aria-label="Recensioni">
+                                {displayedReviews.map((review) => (
+                                    <li key={review.id} className={styles.row}>
+                                        <div className={styles.rowTop}>
+                                            <Rating value={review.rating} showValue={false} />
+                                            <span>{reviewMeta(review)}</span>
+                                            {isLow(review) ? (
+                                                <StatusBadge variant="warning" label="Solo a voi" />
+                                            ) : isInvited(review) ? (
+                                                <StatusBadge variant="success" label="Invitata su Google" />
+                                            ) : null}
                                             {canDelete(review) && (
                                                 <div className={styles.rowActions}>
                                                     <TableRowActions
@@ -512,10 +412,16 @@ export default function Reviews() {
                                                     />
                                                 </div>
                                             )}
-                                        </li>
-                                    ))}
-                                </ul>
-                            </Card>
+                                        </div>
+                                        {review.comment?.trim() ? (
+                                            <p className={styles.comment}>{review.comment}</p>
+                                        ) : (
+                                            <p className={styles.noComment}>Nessun commento, solo le stelle.</p>
+                                        )}
+                                    </li>
+                                ))}
+                            </ul>
+                        </Card>
                     )}
 
                     <ConfirmDialog

@@ -1,105 +1,611 @@
-// Analitiche: sezioni impilate nell'ordine della §36, griglie di Card. Solo
-// disposizione: cifre, grafici, barre e righe sono del sistema (StatCard,
-// TrendChart, BarList, ListRow, DataTable).
+/* Andamento (D154): B, una riga per cosa con il dettaglio accanto; A, con
+   lo switch, una striscia di numeri e il grafico giorno per giorno. Misure
+   del prototipo «Clienti e numeri». */
 
-.analytics {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-24);
-  padding-bottom: var(--space-32);
+@use "@styles/scheda-type" as type;
+
+%card {
+    background: var(--card-bg);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    min-width: 0;
 }
 
-// «Esporta Excel» all'altezza dei controlli della banda.
-.toolbarCta {
-  box-sizing: border-box;
-  height: var(--control-height, 38px);
+%display {
+    font-family: "Plus Jakarta Sans", var(--font-sans);
 }
 
-.section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-16);
+/* I colori delle sedi a confronto: la prima è quella che si guarda. Anche
+   nel dettaglio, che sta fuori dalla pagina. */
+@mixin sede-colors {
+    --sede-0: var(--brand-primary);
+    --sede-1: var(--color-sky-500);
+    --sede-2: var(--warning-500);
+    --sede-3: var(--success-500);
+    --sede-4: var(--color-violet-400);
 }
 
-// Due colonne da 768 in su, una sotto.
-.grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-16);
-
-  @media (max-width: 767px) {
-    grid-template-columns: minmax(0, 1fr);
-  }
+.andamento {
+    @include sede-colors;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    container-type: inline-size;
 }
 
-// Numeri chiave in una riga di card uguali (fino a 4) in cima alla sezione;
-// al telefono due per riga, e un numero dispari non lascia una card da sola.
-.statGrid {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(0, 1fr);
-  gap: var(--space-16);
+/* ── Periodo a sinistra; vista ed Esporta a destra ─────────────── */
+.bar {
+    display: flex;
+    align-items: center;
+    gap: var(--space-10);
+    flex-wrap: wrap;
+}
 
-  @media (max-width: 767px) {
-    grid-auto-flow: row;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+.barEnd {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: var(--space-8);
+}
 
-    > :last-child:nth-child(odd) {
-      grid-column: span 2;
+.loading {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+/* ── La frase che risponde ─────────────── */
+.answer {
+    @extend %display;
+    margin: 0;
+    @include type.fs(figure);
+    font-weight: 700;
+    line-height: 1.3;
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+
+    small {
+        display: block;
+        margin-top: 4px;
+        font-family: var(--font-sans);
+        @include type.fs(body);
+        font-weight: 500;
+        line-height: 1.5;
+        letter-spacing: 0;
+        color: var(--text-muted);
+        text-wrap: pretty;
     }
-  }
+
+    &[data-loading] {
+        opacity: 0.6;
+    }
 }
 
-.cardStack {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-16);
+.delta {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+
+    &[data-trend="up"] {
+        color: var(--signal-live, var(--text-success));
+    }
+    &[data-trend="down"] {
+        color: var(--signal-attention, var(--text-warning));
+    }
+    &[data-trend="same"] {
+        color: var(--text-muted);
+        font-weight: 500;
+    }
 }
 
-.bandText {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-
-  p {
+/* ── B: una riga per cosa ─────────────── */
+.rows {
+    @extend %card;
+    list-style: none;
     margin: 0;
-  }
+    padding: 0;
+    overflow: hidden;
+
+    > li + li {
+        border-top: 1px solid var(--border);
+    }
 }
 
-// Etichetta di BarList su due righe: la parola e il suo dettaglio.
-.labelStack {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.reviews {
-  display: grid;
-  grid-template-columns: minmax(160px, auto) 1fr;
-  gap: var(--space-32);
-  align-items: center;
-
-  @media (max-width: 767px) {
-    grid-template-columns: minmax(0, 1fr);
-    gap: var(--space-16);
-  }
-}
-
-.reviewsAverage {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-8);
-
-  p {
+.row {
+    display: grid;
+    grid-template-columns: 150px minmax(0, 1fr) 160px 230px 18px;
+    gap: 16px;
+    align-items: center;
+    padding: 14px 18px;
+    width: 100%;
     margin: 0;
-  }
+    border: 0;
+    background: none;
+    font: inherit;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: background-color var(--duration-fast, 0.15s) ease;
+
+    &:hover {
+        background: var(--brand-primary-soft);
+    }
+    &[aria-current="true"] {
+        background: var(--brand-primary-soft);
+        box-shadow: inset 3px 0 0 var(--brand-primary);
+    }
+    &:focus-visible {
+        outline: 2px solid var(--brand-primary);
+        outline-offset: -2px;
+    }
 }
 
-.reviewsDistribution {
-  min-width: 0;
+.rowTitle {
+    @extend %display;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    @include type.fs(body);
+    font-weight: 600;
+    color: var(--text);
+
+    svg {
+        flex: none;
+        color: var(--text-muted);
+    }
 }
 
-.cardNote {
-  margin: 0;
-  padding: var(--space-12) var(--space-24);
+.rowAnswer {
+    min-width: 0;
+    @include type.fs(strong);
+    font-variant-numeric: tabular-nums;
+
+    b {
+        @extend %display;
+        @include type.fs(answer);
+        font-weight: 700;
+    }
+}
+
+.rowSpark {
+    display: flex;
+    min-width: 0;
+}
+
+.rowExtras {
+    display: grid;
+    gap: 1px;
+    @include type.fs(note);
+    color: var(--text-muted);
+    min-width: 0;
+}
+
+.rowChevron {
+    color: var(--text-muted);
+}
+
+.rowLink {
+    color: var(--brand-primary);
+    @include type.fs(small);
+    font-weight: 600;
+    white-space: nowrap;
+    text-decoration: none;
+
+    &:hover {
+        text-decoration: underline;
+    }
+}
+
+.rowEmpty,
+.featured {
+    display: grid;
+    grid-template-columns: 150px minmax(0, 1fr) auto;
+    gap: 16px;
+    align-items: center;
+    padding: 14px 18px;
+    @include type.fs(text);
+    color: var(--text-muted);
+}
+
+.featured {
+    @extend %card;
+}
+
+/* Il confronto in una riga: una barra per sede. */
+.compare {
+    grid-column: 3 / span 2;
+    display: grid;
+    gap: 3px;
+    @include type.fs(note);
+    min-width: 0;
+}
+
+.compareRow {
+    display: grid;
+    grid-template-columns: 96px minmax(0, 1fr) 64px 44px;
+    gap: 8px;
+    align-items: center;
+}
+
+.compareName {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.compareValue,
+.compareDelta {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.track {
+    display: block;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--border);
+    overflow: hidden;
+
+    i {
+        display: block;
+        height: 100%;
+        border-radius: 3px;
+        background: var(--brand-primary);
+    }
+}
+
+/* ── Cosa cercano, e le stelle nel dettaglio ─────────────── */
+.searchList {
+    display: grid;
+    gap: 8px;
+
+    ul {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        gap: 8px;
+    }
+}
+
+.stars {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 6px;
+}
+
+.searchRow {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 120px 44px;
+    gap: 10px;
+    align-items: center;
+    @include type.fs(text);
+
+    &[data-missing] .track i {
+        background: var(--signal-attention, var(--text-warning));
+    }
+}
+
+.searchCount {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.missingTag {
+    display: inline-flex;
+    margin-left: 6px;
+    padding: 1px 8px;
+    border-radius: var(--radius-pill);
+    background: var(--warning-50);
+    color: var(--signal-attention, var(--text-warning));
+    @include type.fs(fine);
+    font-weight: 500;
+}
+
+.note {
+    margin: 0;
+    @include type.fs(note);
+    color: var(--text-muted);
+}
+
+/* ── Il dettaglio accanto (D131) ─────────────── */
+.paneBody {
+    @include sede-colors;
+    display: grid;
+    gap: 14px;
+    align-content: start;
+}
+
+.paneSection {
+    display: grid;
+    gap: 6px;
+}
+
+.kicker {
+    margin: 0;
+    @include type.fs(fine);
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.paneText {
+    margin: 0;
+    @include type.fs(body);
+}
+
+.facts {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    margin: 0;
+
+    div {
+        display: flex;
+        flex-direction: column-reverse;
+    }
+    dt {
+        @include type.fs(note);
+        color: var(--text-muted);
+    }
+    dd {
+        @extend %display;
+        margin: 0;
+        @include type.fs(answer);
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+    }
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+    @include type.fs(text);
+    font-variant-numeric: tabular-nums;
+
+    th {
+        padding: 4px 6px;
+        text-align: right;
+        @include type.fs(fine);
+        font-weight: 600;
+        color: var(--text-muted);
+        border-bottom: 1px solid var(--border);
+    }
+    td {
+        padding: 6px;
+        text-align: right;
+        border-bottom: 1px solid var(--border);
+    }
+    th:first-child,
+    td:first-child {
+        text-align: left;
+    }
+    tr:last-child td {
+        border-bottom: 0;
+    }
+}
+
+.legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 14px;
+    margin: 0;
+    @include type.fs(note);
+    color: var(--text-muted);
+
+    span {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+    i {
+        width: 9px;
+        height: 9px;
+        border-radius: 3px;
+    }
+}
+
+.legendDashed::before {
+    content: "";
+    width: 14px;
+    border-top: 1.5px dashed var(--text-muted);
+}
+
+/* ── A: la striscia, il grafico, le cose piccole ─────────────── */
+.card {
+    @extend %card;
+}
+
+.strip {
+    display: flex;
+    flex-wrap: wrap;
+    border-bottom: 1px solid var(--border);
+}
+
+.stripCell {
+    flex: 1 1 140px;
+    display: grid;
+    gap: 2px;
+    align-content: start;
+    min-width: 0;
+    padding: 12px 16px;
+    margin: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    color: inherit;
+    text-align: left;
+    box-shadow: inset -1px 0 0 var(--border);
+
+    &:last-child {
+        box-shadow: none;
+    }
+}
+
+button.stripCell {
+    cursor: pointer;
+
+    &:hover {
+        background: var(--brand-primary-soft);
+    }
+    &[aria-pressed="true"] {
+        box-shadow:
+            inset 0 -3px 0 var(--brand-primary),
+            inset -1px 0 0 var(--border);
+    }
+    &:focus-visible {
+        outline: 2px solid var(--brand-primary);
+        outline-offset: -2px;
+    }
+}
+
+.stripLabel {
+    @include type.fs(fine);
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.stripValue {
+    @extend %display;
+    @include type.fs(figure);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.stripDelta {
+    @include type.fs(note);
+    color: var(--text-muted);
+}
+
+.stripOther {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    @include type.fs(fine);
+    font-variant-numeric: tabular-nums;
+
+    i {
+        width: 9px;
+        height: 9px;
+        border-radius: 3px;
+    }
+}
+
+.chartBox {
+    display: grid;
+    gap: 6px;
+    padding: 14px 16px 10px;
+}
+
+.boxHead {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+
+    h3 {
+        @extend %display;
+        margin: 0 auto 0 0;
+        @include type.fs(body);
+        font-weight: 600;
+    }
+}
+
+.two {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 14px;
+}
+
+.box {
+    @extend %card;
+    display: grid;
+    gap: 8px;
+    align-content: start;
+    padding: 14px 16px;
+}
+
+.heat {
+    display: grid;
+    gap: 3px;
+    @include type.fs(kicker);
+    color: var(--text-muted);
+}
+
+.heatHour {
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+.heatLabel {
+    align-self: center;
+}
+
+.heatCell {
+    display: block;
+    height: 18px;
+    border-radius: 4px;
+    background: var(--brand-primary);
+}
+
+/* ── Stretto (il dettaglio aperto accanto, o il telefono) ─────────────── */
+@container (max-width: 760px) {
+    .row {
+        grid-template-columns: 130px minmax(0, 1fr) 18px;
+    }
+    .rowSpark,
+    .rowExtras {
+        display: none;
+    }
+    .compare {
+        grid-column: 1 / -1;
+        grid-row: 2;
+    }
+    .rowEmpty,
+    .featured {
+        grid-template-columns: 130px minmax(0, 1fr);
+
+        .rowLink {
+            grid-column: 2;
+        }
+    }
+    .two {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+@container (max-width: 480px) {
+    .row {
+        grid-template-columns: minmax(0, 1fr) 18px;
+    }
+    .rowTitle {
+        grid-column: 1;
+    }
+    .rowAnswer {
+        grid-column: 1;
+        grid-row: 2;
+    }
+    .rowChevron {
+        grid-column: 2;
+        grid-row: 1 / span 2;
+    }
+    .compare {
+        grid-row: 3;
+    }
+    .rowEmpty,
+    .featured {
+        grid-template-columns: minmax(0, 1fr);
+
+        .rowLink {
+            grid-column: 1;
+        }
+    }
+    .barEnd {
+        margin-left: 0;
+    }
 }
