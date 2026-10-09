@@ -78,6 +78,8 @@ export default function ReviewsView({
     const [phase, setPhase] = useState<Phase>(initialRating ? "feedback" : "stars");
     const [selectedStars, setSelectedStars] = useState(initialRating ?? 0);
     const [feedback, setFeedback] = useState("");
+    // Campo trappola: nascosto, lo compila solo un bot (vedi submit-review).
+    const [website, setWebsite] = useState("");
     const [submitError, setSubmitError] = useState<string | null>(null);
     const [showGoogleCard, setShowGoogleCard] = useState(false);
 
@@ -120,6 +122,7 @@ export default function ReviewsView({
                     rating: selectedStars,
                     comment: feedback.trim() || undefined,
                     session_id: sessionId,
+                    website: website || undefined,
                 }),
             });
 
@@ -275,6 +278,16 @@ export default function ReviewsView({
                             rows={4}
                             maxLength={2000}
                             autoFocus
+                        />
+                        <input
+                            className={styles.trap}
+                            type="text"
+                            name="website"
+                            value={website}
+                            onChange={(e) => setWebsite(e.target.value)}
+                            tabIndex={-1}
+                            autoComplete="off"
+                            aria-hidden="true"
                         />
                         <div className={styles.subline}>
                             <p className={styles.caption}>

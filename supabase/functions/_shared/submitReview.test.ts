@@ -14,7 +14,7 @@ const SOURCE = readFileSync(
 describe("limiti atomici", () => {
     it("usa il contatore condiviso, non più le SELECT sulla tabella reviews", () => {
         expect(SOURCE).toContain('from "../_shared/rateLimit.ts"');
-        expect(SOURCE.match(/await checkRateLimit\(/g) ?? []).toHaveLength(2);
+        expect(SOURCE.match(/await checkRateLimit\(/g) ?? []).toHaveLength(3);
         expect(SOURCE).not.toMatch(/\.from\("reviews"\)\s*\.select/);
     });
 
@@ -46,6 +46,35 @@ describe("solo sedi che ricevono recensioni", () => {
         const insert = SOURCE.indexOf('.from("reviews").insert(');
         expect(gate).toBeGreaterThan(-1);
         expect(insert).toBeGreaterThan(gate);
+    });
+});
+
+describe("tetto per sede e campo trappola (D21)", () => {
+    it("al massimo 30 recensioni all'ora per sede", () => {
+        expect(SOURCE).toMatch(/RATE_LIMIT_ACTIVITY_PER_HOUR = 30;/);
+        expect(SOURCE).toContain("submit-review:activity:${activityId}");
+        expect(SOURCE).toContain('errorResponse("RATE_LIMIT_ACTIVITY", 429)');
+    });
+
+    it("il tetto per sede scatta dopo i controlli sulla sede e prima dell'insert", () => {
+        const gate = SOURCE.lastIndexOf('errorResponse("ACTIVITY_NOT_ACTIVE"');
+        const cap = SOURCE.indexOf("submit-review:activity:");
+        const insert = SOURCE.indexOf('.from("reviews").insert(');
+        expect(cap).toBeGreaterThan(gate);
+        expect(insert).toBeGreaterThan(cap);
+    });
+
+    it("con il campo trappola compilato risponde ok senza salvare né contare", () => {
+        const trap = SOURCE.indexOf("body.website");
+        expect(trap).toBeGreaterThan(-1);
+        expect(SOURCE.indexOf("await checkRateLimit(")).toBeGreaterThan(trap);
+        expect(SOURCE.indexOf('.from("reviews").insert(')).toBeGreaterThan(trap);
+    });
+});
+
+describe("IP non salvato (D20)", () => {
+    it("la recensione non salva più l'IP", () => {
+        expect(SOURCE).not.toContain("request_ip:");
     });
 });
 

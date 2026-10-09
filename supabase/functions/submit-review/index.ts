@@ -14,6 +14,10 @@ import { VALID_SUBSCRIPTION_STATUSES } from "../_shared/checkOrderingState.ts";
 const RATE_LIMIT_IP_PER_DAY = 10;
 const RATE_LIMIT_SESSION_PER_DAY = 1;
 const DAY_SECONDS = 24 * 60 * 60;
+// Tetto per sede: ferma chi cambia IP per riempire di recensioni un locale.
+// Un locale pieno ne riceve molte meno (D21).
+const RATE_LIMIT_ACTIVITY_PER_HOUR = 30;
+const HOUR_SECONDS = 60 * 60;
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -45,6 +49,7 @@ const ERROR_MESSAGES: Record<string, string> = {
     INVALID_RATING:      "Il rating deve essere un intero tra 1 e 5",
     RATE_LIMIT_IP:       "Troppe richieste. Riprova più tardi.",
     RATE_LIMIT_SESSION:  "Hai già lasciato una recensione di recente.",
+    RATE_LIMIT_ACTIVITY: "Troppe richieste. Riprova più tardi.",
     ACTIVITY_NOT_FOUND:  "Attività non trovata",
     ACTIVITY_NOT_ACTIVE: "Questo locale al momento non riceve recensioni",
     SERVER_ERROR:        "Errore durante il salvataggio della recensione"
@@ -92,8 +97,8 @@ serve(async (req: Request) => {
     }
 
     // ── IP del client ───────────────────────────────────────────
-    // Nel contatore del limite va solo in hash; in `reviews.request_ip`
-    // resta salvato com'era (da decidere se toglierlo).
+    // Serve solo al contatore del limite, e solo in hash: non si salva più
+    // nella recensione (D20).
     const requestIp: string =
         (req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim() ||
         req.headers.get("x-real-ip") ||
@@ -135,6 +140,14 @@ serve(async (req: Request) => {
                 return errorResponse("INVALID_PAYLOAD", 400, { field: "session_id", reason: "invalid" });
             }
             sessionId = body.session_id.trim();
+        }
+
+        // ── Campo trappola ──────────────────────────────────────────
+        // `website` è nascosto nel modulo: una persona non lo compila, un bot
+        // che riempie tutti i campi sì. Si risponde «ok» senza salvare, così
+        // il bot non capisce di essere stato fermato.
+        if (typeof body.website === "string" && body.website.trim() !== "") {
+            return jsonResponse({ success: true }, 200);
         }
 
         // ── Supabase client (service_role) ──────────────────────────
@@ -208,6 +221,21 @@ serve(async (req: Request) => {
             return errorResponse("ACTIVITY_NOT_ACTIVE", 409);
         }
 
+        // Tetto per sede, dopo i controlli sulla sede: un id inventato non
+        // apre contatori.
+        try {
+            await checkRateLimit(supabase, {
+                key: `submit-review:activity:${activityId}`,
+                limit: RATE_LIMIT_ACTIVITY_PER_HOUR,
+                windowSeconds: HOUR_SECONDS
+            });
+        } catch (rlErr) {
+            if (rlErr instanceof RateLimitExceededError) {
+                return errorResponse("RATE_LIMIT_ACTIVITY", 429);
+            }
+            throw rlErr;
+        }
+
         // ── Insert review ───────────────────────────────────────────
         // Feedback privato per il locale (R1): nessuna moderazione, nessuna
         // lettura pubblica. `status` resta al default storico e non si usa.
@@ -219,8 +247,7 @@ serve(async (req: Request) => {
             comment,
             source: "public_form",
             status: "pending",
-            session_id: sessionId,
-            request_ip: requestIp !== "unknown" ? requestIp : null
+            session_id: sessionId
         });
 
         if (insertError) throw insertError;
