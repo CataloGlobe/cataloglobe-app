@@ -273,7 +273,7 @@ export default function ActivityOrdiniPrenotazioniRoute({ part }: ActivityOrdini
                 "Finché la sede è sospesa la pagina pubblica non è raggiungibile e il QR del tavolo non porta da nessuna parte.",
             done: activity.status === "active",
             actionLabel: "Vai a Pubblicazione",
-            onAction: () => goToSection("anagrafica", "link")
+            onAction: () => goToSection("anagrafica", undefined, "link")
         }
     ];
     const reservationsChecklist: ChecklistItem[] = [
@@ -284,7 +284,7 @@ export default function ActivityOrdiniPrenotazioniRoute({ part }: ActivityOrdini
             description: "Senza orari la pagina pubblica non offre nessuna data: le prenotazioni online non partono.",
             done: hasOpenHours,
             actionLabel: "Vai a Orari",
-            onAction: () => goToSection("anagrafica", "orari")
+            onAction: () => goToSection("anagrafica", undefined, "orari")
         },
         {
             id: "capacity",

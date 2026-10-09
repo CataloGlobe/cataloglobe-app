@@ -8,7 +8,7 @@
  * I vecchi `?tab=` della scheda (sette valori più cinque legacy): portano
  * alla rotta giusta con `replace`, così i link in giro continuano a
  * funzionare (registro Sedi, chiusura 9; §29.2). Un valore sconosciuto apre
- * l'Anagrafica. La Sala è una tab della Scheda (correzioni UI SV3);
+ * la Scheda; con `parte=` la sua parte a fuoco (Officina 3, C+++). La Sala ha la sua rotta;
  * la sala del momento (`service`, era una scheda di Prenotazioni) è il modo
  * Elenco (lotto B-b).
  */
@@ -22,12 +22,12 @@ const LEGACY_TAB_REDIRECT: Record<string, LegacyTabTarget> = {
     profile: { segment: "anagrafica" },
     info: { segment: "anagrafica" },
     media: { segment: "anagrafica" },
-    hours: { segment: "anagrafica", hash: "orari" },
-    ordering: { segment: "come-lavorate", hash: "ordini" },
-    reservations: { segment: "come-lavorate", hash: "prenotazioni" },
-    settings: { segment: "anagrafica", hash: "link" },
-    "hours-services": { segment: "come-lavorate", hash: "offrite" },
-    "access-control": { segment: "anagrafica", hash: "link" },
+    hours: { segment: "anagrafica", search: "parte=orari" },
+    ordering: { segment: "anagrafica", search: "parte=ordini" },
+    reservations: { segment: "anagrafica", search: "parte=prenotazioni" },
+    settings: { segment: "anagrafica", search: "parte=link" },
+    "hours-services": { segment: "anagrafica", search: "parte=offrite" },
+    "access-control": { segment: "anagrafica", search: "parte=link" },
     sala: { segment: "sala" },
     tables: { segment: "sala" },
     service: { segment: "servizio", search: "modo=elenco" },

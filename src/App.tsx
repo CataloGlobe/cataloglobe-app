@@ -92,11 +92,10 @@ const SupportTicketPage = lazy(() => import("./pages/Dashboard/Support/SupportTi
 const Styles = lazy(() => import("./pages/Dashboard/Styles/Styles"));
 const StyleEditorPage = lazy(() => import("./pages/Dashboard/Styles/StyleEditorPage"));
 const ActivityDetailPage = lazy(() => import("./pages/Operativita/Attivita/ActivityDetailPage"));
-const ActivityAnagraficaRoute = lazy(() => import("./pages/Operativita/Attivita/routes/ActivityAnagraficaRoute"));
-const ActivityComeLavorateRoute = lazy(() => import("./pages/Operativita/Attivita/routes/ActivityComeLavorateRoute"));
+const ActivitySchedaRoute = lazy(() => import("./pages/Operativita/Attivita/routes/ActivitySchedaRoute"));
+const SchedaRedirect = lazy(() => import("./pages/Operativita/Attivita/routes/SchedaRedirect"));
 const ActivitySectionRedirect = lazy(() => import("./pages/Operativita/Attivita/routes/ActivitySectionRedirect"));
 const ActivitySalaRoute = lazy(() => import("./pages/Operativita/Attivita/routes/ActivitySalaRoute"));
-const OrdiniPrenotazioniRedirect = lazy(() => import("./pages/Operativita/Attivita/routes/OrdiniPrenotazioniRedirect"));
 const SedeRedirect = lazy(() => import("./components/layout/SedeRedirect/SedeRedirect"));
 const BusinessHomeRedirect = lazy(() => import("./components/layout/LandingRedirect/BusinessHomeRedirect"));
 const SedeHomeRedirect = lazy(() => import("./components/layout/LandingRedirect/SedeHomeRedirect"));
@@ -311,23 +310,24 @@ export default function App() {
                     <Route path="programmazione/featured/:ruleId" element={<RuleDetailPage />} />
                     {/* Il vecchio nome (Disponibilità, §50.14): link e preferiti restano buoni. */}
                     <Route path="disponibilita" element={<ActivitySectionRedirect to="cosa-vedono" keepHash keepSearch />} />
-                    {/* La scheda della sede: due pagine (Officina 3). */}
+                    {/* La scheda della sede (Officina 3, C+++): un cruscotto, e
+                        ogni parte a fuoco con `?parte=`. */}
                     <Route element={<ActivityDetailPage />}>
-                        <Route path="anagrafica" element={<ActivityAnagraficaRoute />} />
-                        <Route path="come-lavorate" element={<ActivityComeLavorateRoute />} />
-                        {/* Le sezioni di prima portano al blocco dove sono finite:
+                        <Route path="anagrafica" element={<ActivitySchedaRoute />} />
+                        {/* Le pagine e le sezioni di prima portano alla loro parte:
                             link e preferiti restano buoni. */}
-                        <Route path="orari" element={<ActivitySectionRedirect to="anagrafica" anchor="orari" keepHash />} />
-                        <Route path="pubblicazione" element={<ActivitySectionRedirect to="anagrafica" anchor="link" />} />
-                        <Route path="ordini-al-tavolo" element={<ActivitySectionRedirect to="come-lavorate" anchor="ordini" keepHash />} />
-                        <Route path="prenotazioni-online" element={<ActivitySectionRedirect to="come-lavorate" anchor="prenotazioni" keepHash />} />
-                        {/* La Sala esce dalle tab (passa a Servizio), ma il suo
-                            indirizzo resta: ci arrivano i rimandi di «Come lavorate». */}
+                        <Route path="come-lavorate" element={<SchedaRedirect />} />
+                        <Route path="orari" element={<SchedaRedirect part="orari" />} />
+                        <Route path="pubblicazione" element={<SchedaRedirect part="link" />} />
+                        <Route path="ordini-al-tavolo" element={<SchedaRedirect part="ordini" />} />
+                        <Route path="prenotazioni-online" element={<SchedaRedirect part="prenotazioni" />} />
+                        {/* La Sala esce dalla scheda (passa a Servizio), ma il suo
+                            indirizzo resta: ci arrivano i rimandi degli ordini. */}
                         <Route path="sala" element={<ActivitySalaRoute />} />
                         {/* La vecchia tab unica: l'ancora dice quale delle due. */}
-                        <Route path="ordini-prenotazioni" element={<OrdiniPrenotazioniRedirect />} />
-                        <Route path="canali" element={<OrdiniPrenotazioniRedirect />} />
-                        {/* Un segmento sconosciuto sotto la sede apre l'Anagrafica:
+                        <Route path="ordini-prenotazioni" element={<SchedaRedirect part="ordini" />} />
+                        <Route path="canali" element={<SchedaRedirect part="ordini" />} />
+                        {/* Un segmento sconosciuto sotto la sede apre la Scheda:
                             un link vecchio o storto resta dentro la scheda invece di
                             finire sulla pagina "non trovata" di tutto il sito. */}
                         <Route path="*" element={<ActivitySectionRedirect to="anagrafica" />} />

@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { Navigate, Outlet, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { Store } from "lucide-react";
+import { ChevronRight, Store } from "lucide-react";
 import { Button } from "@/components/ui";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import Skeleton from "@/components/ui/Skeleton/Skeleton";
@@ -11,7 +11,6 @@ import { buildSaveActionCompactConfig } from "@/components/ui/HeaderSaveAction/h
 import { useUnsavedChangesGuard } from "@/components/ui/UnsavedChangesBar/useUnsavedChangesGuard";
 import { usePageHeader } from "@/context/usePageHeader";
 import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
-import { Tabs } from "@/components/ui/Tabs/Tabs";
 import { getActivityById } from "@/services/supabase/activities";
 import { listActivityHours } from "@/services/supabase/activityHours";
 import { getTenantFiscalProfile } from "@/services/supabase/tenants";
@@ -23,24 +22,23 @@ import { canDoOnActivity, canDoOnTenant } from "@/lib/permissions";
 import { formatInactiveReason } from "@/utils/activityStatus";
 import { legacyTabTarget } from "@/utils/navLanding";
 import {
-    ACTIVITY_PAGES,
-    ACTIVITY_SECTION_LABELS,
     ACTIVITY_SECTIONS,
     type ActivityDetailOutletContext,
     type ActivitySection
 } from "./ActivityDetailContext";
 import { useActivityDraft } from "./useActivityDraft";
 import { ActivitySedeMenu } from "./components/ActivitySedeMenu";
+import { isSchedaPart, PART_TITLE, type SchedaPart } from "./scheda/schedaCopy";
 import styles from "./ActivityDetailPage.module.scss";
+import schedaStyles from "./scheda/Scheda.module.scss";
 
 const isSection = (v: string): v is ActivitySection =>
     (ACTIVITY_SECTIONS as readonly string[]).includes(v);
 
 /**
- * La Scheda della sede in due pagine (Officina 3, prototipo s3): «Il
- * biglietto da visita» (chi siete, orari, contatti, dove, link e QR) e
- * «Come lavorate» (cosa offrite, al conto, prenotazioni, ordini al tavolo).
- * Questo parent legge la sede, gli orari e la ragione sociale una volta,
+ * La Scheda della sede (Officina 3, prototipo C+++ «Scorrono insieme»): un
+ * cruscotto con il telefono accanto, e ogni parte che si apre a fuoco con
+ * `?parte=`. Questo parent legge la sede, gli orari e la ragione sociale una volta,
  * tiene il draft unico con la sua barra e la guardia all'uscita, e dà tutto
  * alle rotte figlie via `Outlet` (`useActivityDetail`).
  */
@@ -57,8 +55,12 @@ const ActivityDetailPage: React.FC = () => {
     const section: ActivitySection = isSection(lastSegment) ? lastSegment : "anagrafica";
 
     const goToSection = useCallback(
-        (next: ActivitySection, hash?: string) => {
-            navigate({ pathname: `${basePath}/${next}`, hash: hash ? `#${hash}` : "" });
+        (next: ActivitySection, hash?: string, part?: SchedaPart) => {
+            navigate({
+                pathname: `${basePath}/${next}`,
+                search: part ? `?parte=${part}` : "",
+                hash: hash ? `#${hash}` : ""
+            });
         },
         [navigate, basePath]
     );
@@ -157,31 +159,43 @@ const ActivityDetailPage: React.FC = () => {
     );
     useUnsavedChangesGuard(draft.isDirty);
 
-    // Testata (Officina 3): le due pagine come tab che navigano; lo stato
-    // della sede e il suo «⋯» (sospendi, elimina) nelle azioni. Ordini al
-    // tavolo e Prenotazioni stanno in «Come lavorate», col pannello Pro
-    // dentro quando il piano non li ha; la Sala passa a Servizio.
-    const pages = ACTIVITY_PAGES;
-
-    const leading = useMemo(() => (
-        <Tabs<ActivitySection> value={section} onChange={next => goToSection(next)} variant="line">
-            <Tabs.List>
-                {pages.map(value => (
-                    <Tabs.Tab key={value} value={value}>
-                        {ACTIVITY_SECTION_LABELS[value]}
-                    </Tabs.Tab>
-                ))}
-            </Tabs.List>
-        </Tabs>
-    ), [section, goToSection, pages]);
+    // Testata (C+++): niente tab. A sinistra il nome della sede col suo
+    // stato; con una parte a fuoco, il percorso «sede › parte» che torna al
+    // cruscotto. Il Salva e il «⋯» (sospendi, elimina) a destra.
+    const rawPart = section === "anagrafica" ? searchParams.get("parte") : null;
+    const part: SchedaPart | null = rawPart && isSchedaPart(rawPart) ? rawPart : null;
+    const closePart = useCallback(() => goToSection("anagrafica"), [goToSection]);
 
     const statusLabel = activity
         ? activity.status === "inactive"
             ? activity.inactive_reason
                 ? `Sospesa · ${formatInactiveReason(activity.inactive_reason)}`
                 : "Sospesa"
-            : "Pubblicata"
+            : "Online"
         : null;
+
+    const leading = useMemo(() => {
+        if (!activity) return null;
+        if (part) {
+            return (
+                <div className={schedaStyles.crumbs}>
+                    <button type="button" onClick={closePart}>
+                        {activity.name}
+                    </button>
+                    <ChevronRight size={14} strokeWidth={1.75} aria-hidden />
+                    <strong>{PART_TITLE[part]}</strong>
+                </div>
+            );
+        }
+        return (
+            <div className={schedaStyles.headTitle}>
+                <h2>{activity.name}</h2>
+                {statusLabel && (
+                    <StatusBadge variant={activity.status === "inactive" ? "neutral" : "success"} label={statusLabel} />
+                )}
+            </div>
+        );
+    }, [activity, part, closePart, statusLabel]);
 
     // Il salvataggio del draft sta nella barra della pagina, a destra (MD1):
     // niente barra fluttuante. Solo per chi può modificare la sede.
@@ -193,11 +207,8 @@ const ActivityDetailPage: React.FC = () => {
     }, [saveDraft]);
 
     const actions = useMemo(() => (
-        statusLabel || showSave ? (
+        activity ? (
             <>
-                {statusLabel && (
-                    <StatusBadge variant={activity?.status === "inactive" ? "neutral" : "success"} label={statusLabel} />
-                )}
                 {showSave && (
                     <HeaderSaveAction
                         isDirty={draft.isDirty}
@@ -219,20 +230,11 @@ const ActivityDetailPage: React.FC = () => {
                 )}
             </>
         ) : null
-    ), [statusLabel, activity, businessId, fetchData, canManage, canDelete, showSave, draft.isDirty, draft.isSaving, draft.discard, draft.dirtyCount, handleSave]);
+    ), [activity, businessId, fetchData, canManage, canDelete, showSave, draft.isDirty, draft.isSaving, draft.discard, draft.dirtyCount, handleSave]);
 
-    // In compatto il picker dice dove sei anche su una sezione che non è una
-    // tab: la voce compare solo mentre ci sei.
+    // In compatto: con una parte a fuoco la freccia torna al cruscotto.
     const headerCompact = useMemo<PageHeaderCompactConfig>(() => ({
-        sections: [
-            ...pages.map(value => ({
-                value,
-                label: ACTIVITY_SECTION_LABELS[value]
-            })),
-            ...(pages.includes(section) ? [] : [{ value: section, label: ACTIVITY_SECTION_LABELS[section] }])
-        ],
-        activeSection: section,
-        onSectionChange: value => goToSection(value as ActivitySection),
+        ...(part ? { backAction: { label: activity?.name ?? "Scheda", onClick: closePart } } : {}),
         statusIndicator: statusLabel ? { label: statusLabel } : undefined,
         ...(showSave
             ? buildSaveActionCompactConfig({
@@ -247,7 +249,7 @@ const ActivityDetailPage: React.FC = () => {
         ...(showSave && !draft.isDirty && !draft.isSaving && statusLabel
             ? { statusIndicator: { label: statusLabel } }
             : {})
-    }), [section, goToSection, pages, statusLabel, showSave, draft.isDirty, draft.isSaving, handleSave]);
+    }), [part, activity?.name, closePart, statusLabel, showSave, draft.isDirty, draft.isSaving, handleSave]);
 
     usePageHeader({
         leading,

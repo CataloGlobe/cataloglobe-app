@@ -2,6 +2,7 @@ import { useOutletContext } from "react-router-dom";
 import type { V2Activity } from "@/types/activity";
 import type { V2ActivityHours } from "@/types/activity-hours";
 import type { ActivityDraft } from "./useActivityDraft";
+import type { SchedaPart } from "./scheda/schedaCopy";
 
 /** Le pagine della sede con un'etichetta (titolo del browser, picker in
  *  compatto). «Cosa vedono i clienti» sta fuori dalla Scheda, ma il titolo lo
@@ -18,15 +19,9 @@ export const ACTIVITY_SECTIONS = [
 ] as const;
 export type ActivitySection = (typeof ACTIVITY_SECTIONS)[number];
 
-/** Le due pagine della Scheda (Officina 3, prototipo s3): sono le tab della
- *  testata. Le vecchie sezioni restano come segmenti che portano qui
- *  (orari e pubblicazione nel biglietto da visita, ordini e prenotazioni in
- *  «Come lavorate»); la Sala ha la sua rotta ma passa a Servizio. */
-export const ACTIVITY_PAGES: readonly ActivitySection[] = ["anagrafica", "come-lavorate"];
-
 export const ACTIVITY_SECTION_LABELS: Record<ActivitySection, string> = {
-    anagrafica: "Il biglietto da visita",
-    "come-lavorate": "Come lavorate",
+    anagrafica: "Scheda",
+    "come-lavorate": "Scheda",
     orari: "Orari",
     "ordini-al-tavolo": "Ordini al tavolo",
     "prenotazioni-online": "Prenotazioni",
@@ -54,9 +49,9 @@ export interface ActivityDetailOutletContext {
     canManageHours: boolean;
     canDelete: boolean;
     draft: ActivityDraft;
-    /** Va a un'altra sezione della stessa sede (`prenotazioni-online#capienza`
-     *  compreso). */
-    goToSection: (section: ActivitySection, hash?: string) => void;
+    /** Va a un'altra sezione della stessa sede; sulla Scheda, `part` apre
+     *  quella parte a fuoco (`?parte=`, Officina 3). */
+    goToSection: (section: ActivitySection, hash?: string, part?: SchedaPart) => void;
 }
 
 export function useActivityDetail(): ActivityDetailOutletContext {
