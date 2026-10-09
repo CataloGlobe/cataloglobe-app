@@ -5,7 +5,7 @@ import { Plus, TriangleAlert, X } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import { IconButton } from "@/components/ui/Button/IconButton";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
-import { DB_LATER, DB_TODAY, invalid, isoDay, listIt, normRanges, sediOf, syncPer, whenKey, type Draft, type DraftLookups } from "./calendarDraft";
+import { DB_LATER, NEW_MODEL, invalid, isoDay, listIt, normRanges, sediOf, syncPer, whenKey, type Draft, type DraftLookups } from "./calendarDraft";
 import { FSLOT, dayNum, durLabel, hhmm, type Axis, type CalWhen, type CalWhere } from "./calendarModel";
 import { SediBottone } from "./SediScelta";
 import { Band, TimeSel } from "./CalendarioOrario";
@@ -148,17 +148,17 @@ export function QuandoPasso({ draft: d, upd, durs, axis, bad }: QuandoPassoProps
                 ))}
                 {w.ranges && w.ranges.length < 4 && (
                     <span className={s.ilaterrow}>
-                        <Button size="sm" variant="ghost" className={s.ilink} leftIcon={<Plus size={16} />} disabled={!DB_TODAY.multiRange} onClick={addRange}>
+                        <Button size="sm" variant="ghost" className={s.ilink} leftIcon={<Plus size={16} />} disabled={!NEW_MODEL.multiRange} onClick={addRange}>
                             Aggiungi una fascia
                         </Button>
-                        {!DB_TODAY.multiRange && <span className={s.muted}>Più fasce {DB_LATER}.</span>}
+                        {!NEW_MODEL.multiRange && <span className={s.muted}>Più fasce {DB_LATER}.</span>}
                     </span>
                 )}
                 <Band w={w} axis={axis} upd={upd} />
                 {w.ranges && (
                     <p className={s.muted}>
                         Trascina le barre per spostare le fasce, a 15 minuti per volta.{" "}
-                        {DB_TODAY.overnight ? "Anche dopo mezzanotte: fino alle 02:00 è la stessa serata." : `Dopo mezzanotte ${DB_LATER}.`}
+                        {NEW_MODEL.overnight ? "Anche dopo mezzanotte: fino alle 02:00 è la stessa serata." : `Dopo mezzanotte ${DB_LATER}.`}
                     </p>
                 )}
                 {bad && bad.startsWith("Una fascia") && <Warn>{bad}.</Warn>}

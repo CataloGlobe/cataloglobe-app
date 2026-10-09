@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/services/supabase/layoutScheduling", () => ({
     createRuleDraft: vi.fn(async () => "nuova"),
@@ -16,6 +16,7 @@ import { createFeaturedRuleDraft, updateFeaturedRule } from "@/services/supabase
 import { updateScheduleTargets } from "@/services/supabase/scheduleTargets";
 import {
     blankDraft,
+    DB,
     draftEntry,
     draftParts,
     dropAside,
@@ -24,9 +25,11 @@ import {
     invalid,
     isDirty,
     missing,
+    NEW_MODEL,
     perText,
     syncPer,
     timeFields,
+    waitsForDb,
     writeAside,
     type DraftLookups
 } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
@@ -256,6 +259,48 @@ describe("le ore diverse per sede (D145)", () => {
             expect.objectContaining({ applyToAll: false, timeFrom: "12:00", timeTo: "15:00" })
         ]);
         expect(vi.mocked(updateScheduleTargets).mock.calls.map(c => c[1])).toEqual([[{ targetType: "activity", targetId: "a1" }], [{ targetType: "activity", targetId: "a2" }]]);
+    });
+});
+
+describe("le novità della versione 10 (D120, D149)", () => {
+    const keep = { ...NEW_MODEL };
+    afterEach(() => {
+        Object.assign(NEW_MODEL, keep);
+        DB.ready = false;
+    });
+
+    it("spente: un menù chiede il suo stile, più fasce e dopo mezzanotte non passano", () => {
+        Object.assign(NEW_MODEL, { multiRange: false, overnight: false, multiMenu: false, splitLayout: false });
+        const D = blankDraft("menu", ALL, null);
+        D.thing = "c2";
+        expect(missing(D, L)).toBe("Scegli lo stile che va col menù");
+        D.when = { ranges: [[720, 900], [1140, 1380]] };
+        expect(invalid(D)).toBe("Più fasce arriva col database nuovo");
+        D.when = { ranges: [[1140, 1500]] };
+        expect(invalid(D)).toBe("Dopo mezzanotte arriva col database nuovo");
+    });
+
+    it("accese: la bozza si fa tutta, il salvataggio aspetta il database nuovo", () => {
+        Object.assign(NEW_MODEL, { multiRange: true, overnight: true, multiMenu: true, splitLayout: true });
+        const D = blankDraft("menu", ALL, null);
+        D.thing = "c2";
+        expect(missing(D, L)).toBe("");
+        expect(waitsForDb(D)).toBe("Un menù senza stile: si salva col database nuovo");
+        D.pair = "s1";
+        expect(waitsForDb(D)).toBe("");
+        D.when = { ranges: [[720, 900], [1140, 1380]] };
+        expect(invalid(D)).toBe("");
+        expect(waitsForDb(D)).toBe("Più fasce in una regola: si salva col database nuovo");
+        D.when = { ranges: [[1140, 1500]] };
+        expect(waitsForDb(D)).toBe("Dopo mezzanotte: si salva col database nuovo");
+        DB.ready = true;
+        expect(waitsForDb(D)).toBe("");
+    });
+
+    it("uno stile da solo aspetta anche lui: oggi la vetrina lo legge solo insieme a un menù", () => {
+        const D = blankDraft("style", ALL, null);
+        D.thing = "s1";
+        expect(waitsForDb(D)).toBe("Uno stile da solo: si salva col database nuovo");
     });
 });
 

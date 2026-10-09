@@ -14,7 +14,7 @@ import type { StoryProductOptions } from "@/pages/Dashboard/Stories/components/S
 import { SettimanaAnteprima } from "@/pages/Dashboard/Programming/calendar/SettimanaAnteprima";
 import type { Draft } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import { axisFor, entriesFromRules, romeToday, type CalNames, type CalWhen } from "@/pages/Dashboard/Programming/calendar/calendarModel";
-import { dropAside, whenKey } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
+import { dropAside, waitsForDb, whenKey } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import { KIND, qcardText, withAside, blocker, effWhen, firstBlock, isDirty, newTunnel, steps, STEP_LABEL, thingName, tunnelTitle, type CreaKind, type FromMenu, type StepId, type Tunnel } from "./creaModel";
 import { CAL_KIND, draftFor, saveTunnel, type Saved } from "./creaSave";
 import { aspectOf, sampleOf, styleTokens, tokensOf, useFonts } from "./creaStyle";
@@ -112,7 +112,7 @@ export function Tunnelo({ kind, aside, data, tenantId, owner, origin, business, 
     const step: StepId = st[i];
     const last = i === st.length - 1;
     const fb = firstBlock(t, c);
-    const why = showAfter ? "" : last ? fb?.why ?? "" : blocker(t, step, c);
+    const stepWhy = showAfter ? "" : last ? fb?.why ?? "" : blocker(t, step, c);
 
     /* ---------- lo stile del telefono ---------- */
     const styleById = useMemo(() => new Map(data.styles.map(x => [x.id, x])), [data.styles]);
@@ -150,6 +150,8 @@ export function Tunnelo({ kind, aside, data, tenantId, owner, origin, business, 
         return n;
     }, [data.names, calKind, name]);
     const draft: Draft | null = calKind ? draftFor(t, calKind, FAKE, pair) : null;
+    // mettere in onda aspetta il database nuovo per le novità che non sa tenere (D149)
+    const why = stepWhy || (last && !showAfter && owner && draft ? waitsForDb(draft) : "");
     const updDraft = (fn: (d: Draft) => void) =>
         u(x => {
             const D = draftFor(x, calKind ?? "featured", FAKE, pair);

@@ -24,9 +24,16 @@ import {
 
 export const isDish = (k: CalKind) => k === "price" || k === "visibility";
 
-/** Quanto il database di oggi regge della versione 10. */
-export const DB_TODAY = { multiRange: false, overnight: false, multiMenu: false, splitLayout: false } as const;
+// Le novità della versione 10 (D120, «ognuno vale a sé»): menù e stile in
+// regole separate, più fasce, oltre mezzanotte, multi menù. Si vedono su
+// localhost e restano spente in produzione finché il database non le regge
+// (D149); le prove le accendono da sé.
+const ON = import.meta.env.DEV && import.meta.env.MODE !== "test";
+export const NEW_MODEL = { multiRange: ON, overnight: ON, multiMenu: ON, splitLayout: ON };
+/** Il database salva già le novità: diventa true con le migrazioni di Lorenzo. */
+export const DB = { ready: false };
 export const DB_LATER = "arriva col database nuovo";
+export const DB_WAIT = "si salva col database nuovo";
 
 export type PickProduct = {
     id: string;
@@ -197,8 +204,8 @@ export function missing(D: Draft, L: DraftLookups): string {
         return "";
     }
     if (!D.thing) return D.kind === "menu" ? "Scegli un menù" : D.kind === "style" ? "Scegli uno stile" : "Scegli un In evidenza";
-    if (D.kind === "menu" && !D.pair) return "Scegli lo stile che va col menù";
-    if (D.kind === "style" && !D.pair) return "Scegli il menù che va con lo stile";
+    if (!NEW_MODEL.splitLayout && D.kind === "menu" && !D.pair) return "Scegli lo stile che va col menù";
+    if (!NEW_MODEL.splitLayout && D.kind === "style" && !D.pair) return "Scegli il menù che va con lo stile";
     if (!D.where.all && !D.where.activityIds.length && !D.where.groupIds.length) return "Scegli almeno una sede";
     return "";
 }
@@ -210,10 +217,25 @@ export function invalid(D: Draft): string {
         if (p && p.to < p.from) return "La fine del periodo viene prima dell'inizio";
         const rs = w.ranges;
         if (rs && rs.some(([a, b]) => b <= a)) return "Una fascia finisce prima di cominciare";
-        if (rs && !DB_TODAY.overnight && rs.some(([, b]) => b > 1440)) return "Dopo mezzanotte " + DB_LATER;
-        if (rs && !DB_TODAY.multiRange && rs.length > 1) return "Più fasce " + DB_LATER;
+        if (rs && !NEW_MODEL.overnight && rs.some(([, b]) => b > 1440)) return "Dopo mezzanotte " + DB_LATER;
+        if (rs && !NEW_MODEL.multiRange && rs.length > 1) return "Più fasce " + DB_LATER;
     }
     if (!D.where.all && !D.where.activityIds.length && !D.where.groupIds.length) return "Scegli almeno una sede";
+    return "";
+}
+
+/**
+ * Le novità che si vedono ma il database di oggi non sa ancora tenere (D149):
+ * la bozza si fa tutta, il salvataggio aspetta. "" se si salva.
+ */
+export function waitsForDb(D: Draft): string {
+    if (DB.ready) return "";
+    for (const w of D.per ? Object.values(D.per) : [D.when]) {
+        const rs = w.ranges ?? [];
+        if (rs.length > 1) return "Più fasce in una regola: " + DB_WAIT;
+        if (rs.some(([, b]) => b > 1440)) return "Dopo mezzanotte: " + DB_WAIT;
+    }
+    if ((D.kind === "menu" || D.kind === "style") && !D.pair) return (D.kind === "menu" ? "Un menù senza stile: " : "Uno stile da solo: ") + DB_WAIT;
     return "";
 }
 

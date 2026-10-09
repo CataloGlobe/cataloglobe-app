@@ -12,7 +12,7 @@
 import type { StoryBlock } from "@/services/supabase/stories";
 import type { FeaturedContentType } from "@/services/supabase/featuredContents";
 import type { FontFamily } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
-import { DB_LATER, DB_TODAY, daysLong, elides, listIt, mShort, perGroups, perText, whereFor, whereText, type Draft, type DraftLookups } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
+import { DB_LATER, NEW_MODEL, daysLong, elides, listIt, mShort, perGroups, perText, whereFor, whereText, type Draft, type DraftLookups } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import { durLabel, hhmm, type CalWhen, type CalWhere } from "@/pages/Dashboard/Programming/calendar/calendarModel";
 
 export type CreaKind = "menu" | "stile" | "evid" | "storia";
@@ -260,8 +260,8 @@ export function whenProblem(w: CalWhen): string {
     if (w.days && !w.days.length) return "Scegli almeno un giorno";
     const rs = w.ranges;
     if (rs && rs.some(([a, b]) => b <= a)) return "Una fascia finisce prima di cominciare";
-    if (rs && !DB_TODAY.overnight && rs.some(([, b]) => b > 1440)) return "Dopo mezzanotte " + DB_LATER;
-    if (rs && !DB_TODAY.multiRange && rs.length > 1) return "Più fasce " + DB_LATER;
+    if (rs && !NEW_MODEL.overnight && rs.some(([, b]) => b > 1440)) return "Dopo mezzanotte " + DB_LATER;
+    if (rs && !NEW_MODEL.multiRange && rs.length > 1) return "Più fasce " + DB_LATER;
     return "";
 }
 

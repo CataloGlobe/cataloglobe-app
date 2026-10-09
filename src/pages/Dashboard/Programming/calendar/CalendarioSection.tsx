@@ -24,6 +24,7 @@ import {
     invalid,
     isDish,
     missing,
+    waitsForDb,
     pairName,
     priceKey,
     priceKeys,
@@ -208,7 +209,8 @@ export function CalendarioSection(p: CalendarioSectionProps) {
             </div>
         );
 
-    const miss = missing(D, L), bad = invalid(D), last = D.step === steps.length - 1, blocked = miss || bad;
+    const miss = missing(D, L), bad = invalid(D), last = D.step === steps.length - 1;
+    const blocked = miss || bad || waitsForDb(D);
     const body = [
         cosa,
         () =>
@@ -236,7 +238,7 @@ export function CalendarioSection(p: CalendarioSectionProps) {
             });
             return;
         }
-        if (!bad) p.onSave();
+        if (!blocked) p.onSave();
     };
 
     return (
@@ -267,7 +269,7 @@ export function CalendarioSection(p: CalendarioSectionProps) {
                         })}
                     </ol>
                     <span className={`${s.hfa} ${s.iacts2}`}>
-                        {last && blocked && <span className={s.muted}>{miss || bad}</span>}
+                        {last && blocked && <span className={s.muted}>{blocked}</span>}
                         <Button size="sm" variant="ghost" onClick={exit}>
                             Annulla
                         </Button>
