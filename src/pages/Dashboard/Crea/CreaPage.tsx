@@ -15,6 +15,7 @@ import { useToast } from "@/context/Toast/ToastContext";
 import { useTenantId } from "@/context/useTenantId";
 import { useTenant } from "@/context/useTenant";
 import { usePermissions } from "@/context/usePermissions";
+import { useEnsureActive } from "@/hooks/useEnsureActive";
 import { useBreadcrumbItems } from "@/context/useBreadcrumbItems";
 import { canDoOnAnyActivity, canDoOnTenant, isTenantWide } from "@/lib/permissions";
 import { usePhoneFit } from "@/hooks/usePhoneFit";
@@ -160,6 +161,7 @@ type After = { t: Tunnel; saved: Saved; kids: CreaKind[] };
 
 function Tunnelo({ kind, aside, data, tenantId, owner, origin, business, reload, navigate, showToast, b }: TunnelProps) {
     const L = data.L;
+    const { ensureActive } = useEnsureActive();
     const allWhere = { all: true, activityIds: [], groupIds: [] };
     const [t, setT] = useState<Tunnel>(() => (aside ? withAside(newTunnel(kind, allWhere), aside) : newTunnel(kind, allWhere)));
     const [after, setAfter] = useState<After | null>(null);
@@ -326,7 +328,8 @@ function Tunnelo({ kind, aside, data, tenantId, owner, origin, business, reload,
     const landing = (k: CreaKind, id: string) => `${b}/${PAGE_OF[k]}/${id}`;
 
     async function finish(live: boolean): Promise<boolean> {
-        if (saving) return false;
+        // con l'abbonamento fermo non si crea niente, come dai bottoni «Crea» delle liste
+        if (saving || !ensureActive()) return false;
         setSaving(true);
         try {
             const saved = await saveTunnel(t, { tenantId, L, live: live && owner, pair, baseTokens, blockFiles });
