@@ -9,15 +9,13 @@ import { useTenantId } from "@/context/useTenantId";
 import { useTenant } from "@/context/useTenant";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
-import {
-    useFilteredProductTabs,
-    type ProductTabDef
-} from "@/hooks/useFilteredProductTabs";
 import { getProduct, V2Product } from "@/services/supabase/products";
 import { getProductOptions, GroupWithValues } from "@/services/supabase/productOptions";
 import { getProductUsage, ProductUsageData } from "@/services/supabase/productUsage";
 import { useSchedaDraft } from "./hooks/useSchedaDraft";
 import { useAttributeValuesDraft } from "./hooks/useAttributeValuesDraft";
+import { useBasePriceDraft } from "./hooks/useBasePriceDraft";
+import { useFormatsDraft } from "./hooks/useFormatsDraft";
 import {
     HeaderSaveAction,
     DiscardChangesConfirmDialog
@@ -26,9 +24,15 @@ import { buildSaveActionCompactConfig } from "@/components/ui/HeaderSaveAction/h
 import { useUnsavedChangesGuard } from "@/components/ui/UnsavedChangesBar/useUnsavedChangesGuard";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import Skeleton from "@/components/ui/Skeleton/Skeleton";
-import { Package } from "lucide-react";
-import SchedaTab from "./SchedaTab";
+import { ArrowLeft, Package } from "lucide-react";
+import Text from "@/components/ui/Text/Text";
 import PrezziOpzioniTab from "./PrezziOpzioniTab";
+import { ProductEssenziale } from "./ProductEssenziale";
+import { ProductDiPiu, type DiPiuView } from "./ProductDiPiu";
+import CharacteristicsSection from "./components/CharacteristicsSection/CharacteristicsSection";
+import PairingsSection from "./components/PairingsSection/PairingsSection";
+import { ProductPhonePreview, type PreviewPart } from "./components/ProductPhonePreview/ProductPhonePreview";
+import { formatPrice } from "@/utils/formatCurrency";
 import { UsageTab } from "./UsageTab";
 import { AttributesTab } from "./AttributesTab";
 import { TranslationsTab } from "@/components/ui/TranslationsTab/TranslationsTab";
@@ -37,6 +41,8 @@ import { PageGate } from "@/components/PageGate/PageGate";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import { usePermissions } from "@/context/usePermissions";
 import { canDoOnTenant } from "@/lib/permissions";
+import { listStyleSwatches, type V2Style } from "@/services/supabase/styles";
+import { stylePalette } from "@/components/ui/StyleSwatch/StyleSwatch";
 import styles from "./ProductPage.module.scss";
 
 export default function ProductPage() {
@@ -57,66 +63,32 @@ export default function ProductPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    type ProductPageTab =
-        | "scheda"
-        | "prezzi-opzioni"
-        | "attributes"
-        | "translations"
-        | "usage";
-    const allTabs = useMemo<ProductTabDef<ProductPageTab>[]>(
-        () => [
-            { value: "scheda", label: "Scheda" },
-            { value: "prezzi-opzioni", label: "Prezzi & Opzioni" },
-            {
-                value: "attributes",
-                label: verticalConfig.copy.productSections.customAttributes,
-                gated: c => c.productSections.customAttributes
-            },
-            {
-                value: "translations",
-                label: "Traduzioni",
-                // Translations live on the base product; variants inherit the
-                // parent's translated description through the resolver.
-                gated: () => product === null || product.parent_product_id === null
-            },
-            { value: "usage", label: "Utilizzo" }
-        ],
-        [product, verticalConfig]
-    );
-    const { visibleTabs, initialTab, ready: tabsReady } = useFilteredProductTabs<ProductPageTab>(
-        allTabs,
-        "scheda",
-        // Legacy redirects:
-        // - ?tab=general / ?tab=characteristics merged into details (Task 1.1)
-        // - ?tab=details renamed to ?tab=scheda (Task 1.5)
-        // - ?tab=pricing / ?tab=config / ?tab=variants merged into
-        //   prezzi-opzioni (Task 2.1)
-        {
-            general: "scheda",
-            characteristics: "scheda",
-            details: "scheda",
-            pricing: "prezzi-opzioni",
-            config: "prezzi-opzioni",
-            variants: "prezzi-opzioni"
+    // Officina 3 (lavoro 4 del prototipo): due tab al posto di cinque. Le
+    // cose lunghe si aprono in grande al centro, al posto della tab (`vista`).
+    const [searchParams, setSearchParams] = useSearchParams();
+    const { tab: activeTab, view: activeView } = useMemo(() => {
+        const read = readTabAndView(searchParams.get("tab"), searchParams.get("vista"));
+        // Gli attributi esistono solo dove il verticale li ha (P2: in F&B no).
+        if (read.view === "attributi" && !verticalConfig.productSections.customAttributes) {
+            return { ...read, view: null };
         }
+        return read;
+    }, [searchParams, verticalConfig.productSections.customAttributes]);
+    const goTo = useCallback(
+        (tab: ProductPageTab, view: ProductView | null = null) => {
+            setSearchParams(
+                prev => {
+                    prev.set("tab", tab);
+                    if (view) prev.set("vista", view);
+                    else prev.delete("vista");
+                    return prev;
+                },
+                { replace: true }
+            );
+        },
+        [setSearchParams]
     );
-    const [, setSearchParams] = useSearchParams();
-    const [activeTab, setActiveTab] = useState<ProductPageTab>(initialTab);
-    // A freddo il verticale arriva dopo il primo render: un `?tab` sotto gate
-    // (es. `attributes`) si apre quando l'azienda c'è.
-    useEffect(() => {
-        if (tabsReady) setActiveTab(initialTab);
-    }, [tabsReady, initialTab]);
-
-    // Tab change: sincronizza ?tab= con lo stato (replace per non polluire history).
-    // Il `useFilteredProductTabs` continua a gestire la legacy map al mount iniziale.
-    const handleTabChange = useCallback((next: ProductPageTab) => {
-        setActiveTab(next);
-        setSearchParams(prev => {
-            prev.set("tab", next);
-            return prev;
-        }, { replace: true });
-    }, [setSearchParams]);
+    const handleTabChange = useCallback((next: ProductPageTab) => goTo(next), [goTo]);
 
     const [optionsLoading, setOptionsLoading] = useState(true);
     const [primaryPriceGroup, setPrimaryPriceGroup] = useState<GroupWithValues | null>(null);
@@ -130,6 +102,18 @@ export default function ProductPage() {
 
     const [usageLoading, setUsageLoading] = useState(true);
     const [usageData, setUsageData] = useState<ProductUsageData | null>(null);
+    // Gli stili dell'azienda, per i colori del telefono (D117 A).
+    const [tenantStyles, setTenantStyles] = useState<V2Style[]>([]);
+    useEffect(() => {
+        if (!tenantId) return;
+        let alive = true;
+        listStyleSwatches(tenantId)
+            .then(list => alive && setTenantStyles(list))
+            .catch(() => undefined);
+        return () => {
+            alive = false;
+        };
+    }, [tenantId]);
 
     const { showToast } = useToast();
 
@@ -159,30 +143,10 @@ export default function ProductPage() {
         enabled: verticalConfig.productSections.customAttributes
     });
 
-    // Un solo Salva/Annulla per la pagina: Scheda + valori degli attributi.
-    const isDirty = schedaDraft.isDirty || attributesDraft.isDirty;
-    const isSavingAll = schedaDraft.isSavingAll || attributesDraft.isSaving;
-    const { handleSaveAll: saveScheda, handleDiscardAll: discardScheda, isDirty: schedaDirty } = schedaDraft;
-    const { save: saveAttributes, discard: discardAttributes, isDirty: attributesDirty } = attributesDraft;
-    const handleSaveAll = useCallback(async () => {
-        if (schedaDirty) await saveScheda();
-        if (attributesDirty) {
-            const ok = await saveAttributes();
-            if (!ok) {
-                showToast({ message: "Non è stato possibile salvare: Attributi", type: "error" });
-            } else if (!schedaDirty) {
-                showToast({ message: "Modifiche salvate", type: "success" });
-            }
-        }
-    }, [schedaDirty, saveScheda, attributesDirty, saveAttributes, showToast]);
-    const handleDiscardAll = useCallback(() => {
-        discardScheda();
-        discardAttributes();
-    }, [discardScheda, discardAttributes]);
+    // Prezzo unico nella stessa bozza (Officina 3, D103 A).
+    const priceDraft = useBasePriceDraft(product, tenantId!, handleProductUpdated);
 
-    // Guardia all'uscita (§27): navigazione interna e refresh, dal registro
-    // condiviso con la scheda sede (`UnsavedChangesGuardHost` nel layout).
-    useUnsavedChangesGuard(isDirty);
+
 
     const loadOptions = useCallback(async () => {
         if (!productId) return;
@@ -197,6 +161,70 @@ export default function ProductPage() {
             setOptionsLoading(false);
         }
     }, [productId, showToast]);
+
+    // Prezzo per formato nella stessa bozza (D103 A): i formati partono col Salva.
+    const formatsDraft = useFormatsDraft(productId!, tenantId!, primaryPriceGroup, loadOptions);
+
+    // Un solo Salva/Annulla per la pagina: Scheda + prezzo + valori degli attributi.
+    // In «per formato» il prezzo unico non si vede e non si salva.
+    const isDirty =
+        schedaDraft.isDirty ||
+        attributesDraft.isDirty ||
+        (formatsDraft.mode === "unico" && priceDraft.isDirty) ||
+        formatsDraft.isDirty;
+    const isSavingAll =
+        schedaDraft.isSavingAll || attributesDraft.isSaving || priceDraft.isSaving || formatsDraft.isSaving;
+    const { handleSaveAll: saveScheda, handleDiscardAll: discardScheda, isDirty: schedaDirty } = schedaDraft;
+    const { save: saveAttributes, discard: discardAttributes, isDirty: attributesDirty } = attributesDraft;
+    const { save: savePrice, discard: discardPrice, isDirty: priceDirty, error: priceError } = priceDraft;
+    const { save: saveFormats, discard: discardFormats, isDirty: formatsDirty, mode: formatsMode } = formatsDraft;
+    const handleSaveAll = useCallback(async () => {
+        // In «per formato» il prezzo unico resta com'è: si salva solo quello in vista.
+        const pricePart = formatsMode === "unico" && priceDirty;
+        if (pricePart && priceError) {
+            showToast({ message: `Prezzo: ${priceError}`, type: "error" });
+            return;
+        }
+        if (pricePart && !(await savePrice())) {
+            showToast({ message: "Non è stato possibile salvare: Prezzo", type: "error" });
+            return;
+        }
+        if (formatsDirty && !(await saveFormats())) {
+            showToast({ message: "Non è stato possibile salvare: Formati", type: "error" });
+            return;
+        }
+        if (formatsMode === "formato") discardPrice();
+        if (schedaDirty) await saveScheda();
+        let attributesOk = true;
+        if (attributesDirty) {
+            attributesOk = await saveAttributes();
+            if (!attributesOk) showToast({ message: "Non è stato possibile salvare: Attributi", type: "error" });
+        }
+        if (!schedaDirty && attributesOk) showToast({ message: "Modifiche salvate", type: "success" });
+    }, [
+        schedaDirty,
+        saveScheda,
+        attributesDirty,
+        saveAttributes,
+        priceDirty,
+        priceError,
+        savePrice,
+        discardPrice,
+        formatsMode,
+        formatsDirty,
+        saveFormats,
+        showToast
+    ]);
+    const handleDiscardAll = useCallback(() => {
+        discardScheda();
+        discardAttributes();
+        discardPrice();
+        discardFormats();
+    }, [discardScheda, discardAttributes, discardPrice, discardFormats]);
+
+    // Guardia all'uscita (§27): navigazione interna e refresh, dal registro
+    // condiviso con la scheda sede (`UnsavedChangesGuardHost` nel layout).
+    useUnsavedChangesGuard(isDirty);
 
     const loadUsage = useCallback(async () => {
         if (!productId || !tenantId) return;
@@ -258,14 +286,14 @@ export default function ProductPage() {
             variant="line"
         >
             <Tabs.List>
-                {visibleTabs.map(tab => (
+                {PRODUCT_TABS.map(tab => (
                     <Tabs.Tab key={tab.value} value={tab.value}>
                         {tab.label}
                     </Tabs.Tab>
                 ))}
             </Tabs.List>
         </Tabs>
-    ), [activeTab, handleTabChange, visibleTabs]);
+    ), [activeTab, handleTabChange]);
 
     // Azione Salva/Annulla di pagina — riflette solo il draft Scheda (unica
     // tab con stato), visibile su tutti i tab come Storie.
@@ -277,19 +305,19 @@ export default function ProductPage() {
                     isSaving={isSavingAll}
                     onSave={handleSaveAll}
                     onDiscard={handleDiscardAll}
-                    // Prezzi & Opzioni e Traduzioni salvano a ogni modifica:
-                    // lo dice la barra (PO1, T1), non una frase in pagina.
-                    savesInstantly={activeTab === "prezzi-opzioni" || activeTab === "translations"}
+                    // Le viste larghe che salvano a ogni modifica (D103):
+                    // lo dice la barra, non una frase in pagina.
+                    savesInstantly={activeView !== null && INSTANT_VIEWS.includes(activeView)}
                 />
             ) : undefined,
-        [canWrite, isDirty, isSavingAll, handleSaveAll, handleDiscardAll, activeTab]
+        [canWrite, isDirty, isSavingAll, handleSaveAll, handleDiscardAll, activeView]
     );
 
     // Il salva è di pagina, non di tab: vale su tutte le sezioni, esattamente
     // come nella toolbar comoda. Le sezioni restano quelle dinamiche del
-    // verticale (`visibleTabs`), il salva ci si affianca senza dipenderne.
+    // pagina, il salva ci si affianca.
     const headerCompact = useMemo<PageHeaderCompactConfig>(() => ({
-        sections: visibleTabs.map(tab => ({ value: tab.value, label: tab.label })),
+        sections: PRODUCT_TABS.map(tab => ({ value: tab.value, label: tab.label })),
         activeSection: activeTab,
         onSectionChange: value => handleTabChange(value as ProductPageTab),
         ...(canWrite
@@ -302,7 +330,6 @@ export default function ProductPage() {
             : {})
     }), [
         canWrite,
-        visibleTabs,
         activeTab,
         handleTabChange,
         isDirty,
@@ -347,6 +374,40 @@ export default function ProductPage() {
         );
     }
 
+    const isBaseProduct = product.parent_product_id === null;
+    const showAttributes = verticalConfig.productSections.customAttributes;
+    // Il prezzo come lo legge il cliente, dalla bozza.
+    const formatValues = formatsDraft.mode === "formato" ? formatsDraft.rows : [];
+    const formatPrices = formatValues.map(v => v.absolute_price).filter((p): p is number => p !== null);
+    const draftPrice = Number(priceDraft.input.trim().replace(",", "."));
+    const previewPrice =
+        formatPrices.length > 0
+            ? `da ${formatPrice(Math.min(...formatPrices))}`
+            : priceDraft.input.trim() !== "" && Number.isFinite(draftPrice)
+              ? formatPrice(draftPrice)
+              : "—";
+    // Lo stile del primo menù che mostra il prodotto; senza, quello di sistema.
+    const previewStyle =
+        tenantStyles.find(st => st.id === usageData?.styleIds?.[0]) ?? tenantStyles.find(st => st.is_system) ?? null;
+    const previewPalette = stylePalette(previewStyle);
+    const handlePreviewGoto = (part: PreviewPart) => {
+        if (part === "scelte") goTo("piu", "scelte");
+        else if (part === "abbinamenti") goTo("piu", "abbinamenti");
+        else goTo("essenziale");
+    };
+
+    const pricesProps = {
+        product,
+        productId: productId!,
+        tenantId: tenantId!,
+        primaryPriceGroup,
+        addonGroups,
+        optionsLoading,
+        onRefreshOptions: loadOptions,
+        onProductUpdated: (updated: V2Product) => setProduct(updated),
+        onOpenVariantDrawer: () => setIsVariantDrawerOpen(true)
+    };
+
     return (
         <div className={styles.container}>
             {!canWrite && permissions != null && (
@@ -354,62 +415,124 @@ export default function ProductPage() {
                     Sola lettura: per modificare {verticalConfig.productLabelPlural.toLowerCase()} serve un ruolo di amministratore.
                 </InlineBanner>
             )}
+            <div className={styles.layout}>
+            <ProductPhonePreview
+                palette={previewPalette}
+                name={schedaDraft.information.draftName}
+                description={schedaDraft.information.draftDescription}
+                priceLabel={previewPrice}
+                imageUrl={schedaDraft.image.removeImage ? null : (schedaDraft.image.visibleImageUrl ?? null)}
+                allergens={schedaDraft.allergens.available
+                    .filter(a => schedaDraft.allergens.draftIds.includes(a.id))
+                    .map(a => a.label_it)}
+                choices={addonGroups
+                    .filter(g => g.values.length > 0)
+                    .map(g => ({
+                        name: g.name,
+                        rule: g.max_selectable === 1 ? "una sola" : g.max_selectable === null ? "quante vuoi" : `fino a ${g.max_selectable}`,
+                        options: g.values.map(v => v.name)
+                    }))}
+                pairings={schedaDraft.pairings.draft.map(p => p.pairedProductName ?? "").filter(Boolean)}
+                onGoto={handlePreviewGoto}
+            />
             <fieldset className={styles.readOnlyScope} disabled={!canWrite}>
-            {activeTab === "scheda" && (
-                <SchedaTab
+            {activeView ? (
+                <section className={styles.view} aria-labelledby="product-view-title">
+                    <div className={styles.viewHead}>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            leftIcon={<ArrowLeft size={16} />}
+                            onClick={() => goTo(activeTab)}
+                        >
+                            {PRODUCT_TABS.find(t => t.value === activeTab)?.label}
+                        </Button>
+                        <Text as="h2" id="product-view-title" variant="title-sm" weight={600} className={styles.viewTitle}>
+                            {viewTitle(activeView, verticalConfig.copy.productSections.customAttributes)}
+                        </Text>
+                        {INSTANT_VIEWS.includes(activeView) && (
+                            <Text as="span" variant="caption" colorVariant="muted">
+                                Si salva a ogni modifica
+                            </Text>
+                        )}
+                        <Button variant="secondary" size="sm" onClick={() => goTo(activeTab)}>
+                            Fatto
+                        </Button>
+                    </div>
+                    {activeView === "traduzioni" && isBaseProduct && (
+                        <TranslationsTab
+                            entityType="product"
+                            entityId={productId!}
+                            tenantId={tenantId!}
+                            sourceText={product.description ?? ""}
+                            fieldKey="description"
+                            sectionLabel="Traduzioni della descrizione"
+                            sectionDescription="Le fa l'AI quando salvi la descrizione. Quella che correggi tu resta tua."
+                            primaryLabel="Descrizione"
+                            secondaryField={notesSecondaryField}
+                            onSourceUpdated={text =>
+                                setProduct(p => (p ? { ...p, description: text || null } : p))
+                            }
+                            flush
+                        />
+                    )}
+                    {activeView === "scelte" && (
+                        <PrezziOpzioniTab {...pricesProps} only="scelte" />
+                    )}
+                    {activeView === "dove" && (
+                        <UsageTab
+                            productId={productId!}
+                            tenantId={tenantId!}
+                            usageData={usageData}
+                            usageLoading={usageLoading}
+                        />
+                    )}
+                    {activeView === "caratteristiche" && (
+                        <CharacteristicsSection
+                            vertical={selectedTenant?.vertical_type}
+                            value={schedaDraft.characteristics.draftIds}
+                            onChange={schedaDraft.characteristics.setDraftIds}
+                        />
+                    )}
+                    {activeView === "abbinamenti" && (
+                        <PairingsSection
+                            tenantId={tenantId!}
+                            currentProductId={productId!}
+                            value={schedaDraft.pairings.draft}
+                            onChange={schedaDraft.pairings.setDraft}
+                            disabled={schedaDraft.pairings.isSaving}
+                        />
+                    )}
+                    {activeView === "attributi" && showAttributes && (
+                        <AttributesTab productId={productId!} tenantId={tenantId!} draft={attributesDraft} />
+                    )}
+                </section>
+            ) : activeTab === "essenziale" ? (
+                <ProductEssenziale
                     product={product}
                     productId={productId!}
                     tenantId={tenantId!}
-                    vertical={selectedTenant?.vertical_type}
-                    onNavigateToTab={tab =>
-                        handleTabChange(tab as ProductPageTab)
-                    }
                     draft={schedaDraft}
                     canWrite={canWrite}
+                    price={<PrezziOpzioniTab {...pricesProps} only="prezzo" basePriceDraft={priceDraft} formatsDraft={formatsDraft} />}
+                    onOpen={view => goTo("essenziale", view)}
                 />
-            )}
-            {activeTab === "prezzi-opzioni" && (
-                <PrezziOpzioniTab
+            ) : (
+                <ProductDiPiu
                     product={product}
-                    productId={productId!}
-                    tenantId={tenantId!}
-                    primaryPriceGroup={primaryPriceGroup}
+                    draft={schedaDraft}
                     addonGroups={addonGroups}
                     optionsLoading={optionsLoading}
-                    onRefreshOptions={loadOptions}
-                    onProductUpdated={updated => setProduct(updated)}
-                    onOpenVariantDrawer={() => setIsVariantDrawerOpen(true)}
-                />
-            )}
-            {activeTab === "attributes" && verticalConfig.productSections.customAttributes && (
-                <AttributesTab productId={productId!} tenantId={tenantId!} draft={attributesDraft} />
-            )}
-            {activeTab === "translations" && product.parent_product_id === null && (
-                <TranslationsTab
-                    entityType="product"
-                    entityId={productId!}
-                    tenantId={tenantId!}
-                    sourceText={product.description ?? ""}
-                    fieldKey="description"
-                    sectionLabel="Traduzioni descrizione"
-                    sectionDescription="Modifica manualmente le traduzioni della descrizione e gestisci le note. Le modifiche manuali non vengono sovrascritte dalla traduzione automatica."
-                    primaryLabel="Descrizione"
-                    secondaryField={notesSecondaryField}
-                    onSourceUpdated={text =>
-                        setProduct(p => (p ? { ...p, description: text || null } : p))
-                    }
-                    flush
-                />
-            )}
-            {activeTab === "usage" && (
-                <UsageTab
-                    productId={productId!}
-                    tenantId={tenantId!}
                     usageData={usageData}
                     usageLoading={usageLoading}
+                    variants={isBaseProduct ? <PrezziOpzioniTab {...pricesProps} only="varianti" /> : null}
+                    showAttributes={showAttributes}
+                    attributesLabel={verticalConfig.copy.productSections.customAttributes}
+                    onOpen={view => goTo("piu", view)}
                 />
             )}
             </fieldset>
+            </div>
 
             <ProductCreateEditDrawer
                 open={isVariantDrawerOpen}
@@ -430,4 +553,58 @@ export default function ProductPage() {
             />
         </div>
     );
+}
+
+type ProductPageTab = "essenziale" | "piu";
+type ProductView = "traduzioni" | DiPiuView;
+
+const PRODUCT_TABS: { value: ProductPageTab; label: string }[] = [
+    { value: "essenziale", label: "L'essenziale" },
+    { value: "piu", label: "Il di più" }
+];
+
+/** Viste che salvano a ogni modifica (D103): il resto va nella bozza col «Salva». */
+const INSTANT_VIEWS: ProductView[] = ["traduzioni", "scelte", "dove"];
+
+const VIEWS: ProductView[] = ["traduzioni", "scelte", "dove", "caratteristiche", "abbinamenti", "attributi"];
+
+/**
+ * `?tab` e `?vista` dall'indirizzo, compresi i nomi di prima (link salvati,
+ * e2e, rimandi da altre pagine): ogni vecchia tab porta dove è finita.
+ */
+function readTabAndView(tab: string | null, view: string | null): { tab: ProductPageTab; view: ProductView | null } {
+    const legacy: Record<string, { tab: ProductPageTab; view: ProductView | null }> = {
+        scheda: { tab: "essenziale", view: null },
+        general: { tab: "essenziale", view: null },
+        details: { tab: "essenziale", view: null },
+        pricing: { tab: "essenziale", view: null },
+        "prezzi-opzioni": { tab: "essenziale", view: null },
+        characteristics: { tab: "piu", view: "caratteristiche" },
+        config: { tab: "piu", view: "scelte" },
+        variants: { tab: "piu", view: null },
+        translations: { tab: "essenziale", view: "traduzioni" },
+        usage: { tab: "piu", view: "dove" },
+        attributes: { tab: "piu", view: "attributi" }
+    };
+    const v = view && (VIEWS as string[]).includes(view) ? (view as ProductView) : null;
+    if (tab === "essenziale" || tab === "piu") return { tab, view: v };
+    if (tab && legacy[tab]) return { tab: legacy[tab].tab, view: v ?? legacy[tab].view };
+    return { tab: "essenziale", view: v };
+}
+
+function viewTitle(view: ProductView, attributesLabel: string): string {
+    switch (view) {
+        case "traduzioni":
+            return "Traduzioni";
+        case "scelte":
+            return "Cosa sceglie il cliente";
+        case "dove":
+            return "Dove si trova";
+        case "caratteristiche":
+            return "Caratteristiche";
+        case "abbinamenti":
+            return "Perfetto con";
+        case "attributi":
+            return attributesLabel;
+    }
 }

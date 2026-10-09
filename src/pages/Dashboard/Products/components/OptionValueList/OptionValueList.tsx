@@ -27,6 +27,8 @@ interface OptionValueListProps {
     initialAddPrice?: number;
     /** Apre subito la riga di aggiunta con focus sul nome (stessa transizione). */
     autoFocusAdd?: boolean;
+    /** Le modifiche vanno nella bozza della pagina (D103 A): togliere non chiede conferma, si annulla con «Annulla». */
+    inDraft?: boolean;
 }
 
 function readPrice(value: V2ProductOptionValue, priceMode: OptionValuePriceMode): number | null {
@@ -70,7 +72,8 @@ export function OptionValueList({
     onUpdate,
     onDelete,
     initialAddPrice,
-    autoFocusAdd = false
+    autoFocusAdd = false,
+    inDraft = false
 }: OptionValueListProps) {
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editName, setEditName] = useState("");
@@ -258,7 +261,7 @@ export function OptionValueList({
                             <TableRowActions
                                 actions={[
                                     rowAction.edit(() => startEdit(value)),
-                                    rowAction.remove(() => setPendingDelete(value))
+                                    rowAction.remove(() => (inDraft ? void onDelete(value.id) : setPendingDelete(value)))
                                 ]}
                             />
                         </div>

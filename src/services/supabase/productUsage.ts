@@ -89,12 +89,25 @@ export async function getProductUsage(productId: string, tenantId: string): Prom
         };
     });
 
-    return resolveProductUsage({
-        catalogs: (catalogsRes.data ?? []) as Array<{ id: string; name: string }>,
-        rules: [...layoutRules, ...overrideRules],
-        activities: sources.activities.map(a => ({ id: a.id, name: a.name })),
-        activityIdsByGroupId: sources.activityIdsByGroupId
-    });
+    const shownIn = new Set(catalogIds);
+    const styleIds = [
+        ...new Set(
+            sources.rules
+                .filter(rule => rule.rule_type === "layout" && rule.layout?.catalog_id && shownIn.has(rule.layout.catalog_id))
+                .map(rule => rule.layout?.style_id)
+                .filter((id): id is string => Boolean(id))
+        )
+    ];
+
+    return {
+        ...resolveProductUsage({
+            catalogs: (catalogsRes.data ?? []) as Array<{ id: string; name: string }>,
+            rules: [...layoutRules, ...overrideRules],
+            activities: sources.activities.map(a => ({ id: a.id, name: a.name })),
+            activityIdsByGroupId: sources.activityIdsByGroupId
+        }),
+        styleIds
+    };
 }
 
 /**

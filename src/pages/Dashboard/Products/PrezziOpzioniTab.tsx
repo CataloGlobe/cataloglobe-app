@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/Button/Button";
 import { Badge } from "@/components/ui/Badge/Badge";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { NumberInput } from "@/components/ui/Input/NumberInput";
+import type { BasePriceDraft } from "./hooks/useBasePriceDraft";
+import type { FormatsDraft } from "./hooks/useFormatsDraft";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { rowAction } from "@/components/ui/TableRowActions/rowAction";
 import { Plus } from "lucide-react";
@@ -55,8 +57,8 @@ function computeFromPrice(
 /** Riga informativa sotto la lista formati — stessa regola del resolver
  * (`resolveActivityCatalogs.ts`): 1 valore prezzato → prezzo secco, 2+ →
  * "da X" sul minimo. */
-function formatPricePreview(group: GroupWithValues, menuLabel: string): string | null {
-    const summary = resolvePriceSummary(group.values.map(v => v.absolute_price));
+function formatPricePreview(values: { absolute_price: number | null }[], menuLabel: string): string | null {
+    const summary = resolvePriceSummary(values.map(v => v.absolute_price));
     if (summary.kind === "none" || summary.min === null) return null;
     const price = formatPrice(summary.min);
     return `Nel ${menuLabel} si legge «${summary.kind === "single" ? price : `da ${price}`}»`;
@@ -72,6 +74,12 @@ interface PrezziOpzioniTabProps {
     onRefreshOptions: () => Promise<void>;
     onProductUpdated: (product: V2Product) => void;
     onOpenVariantDrawer: () => void;
+    /** Officina 3: la pagina del prodotto mostra una card alla volta, nel suo riquadro. */
+    only?: "prezzo" | "scelte" | "varianti";
+    /** Officina 3 (D103 A): il prezzo unico sta nella bozza della pagina, senza un Salva suo. */
+    basePriceDraft?: BasePriceDraft;
+    /** Officina 3 (D103 A): anche il modo e i formati stanno nella bozza. */
+    formatsDraft?: FormatsDraft;
 }
 
 /**
@@ -90,7 +98,10 @@ export default function PrezziOpzioniTab({
     optionsLoading,
     onRefreshOptions,
     onProductUpdated,
-    onOpenVariantDrawer
+    onOpenVariantDrawer,
+    only,
+    basePriceDraft,
+    formatsDraft
 }: PrezziOpzioniTabProps) {
     const isPhone = useMediaQuery("(max-width: 767px)");
     const { showToast } = useToast();
@@ -100,7 +111,7 @@ export default function PrezziOpzioniTab({
     const menuLower = verticalConfig.catalogLabel.toLowerCase();
     const { businessId } = useParams<{ businessId: string }>();
     const isVariant = product.parent_product_id !== null;
-    const hasPrimaryGroup = primaryPriceGroup !== null;
+    const hasPrimaryGroup = formatsDraft ? formatsDraft.mode === "formato" : primaryPriceGroup !== null;
 
     // ── Card Prezzo — modalità "Prezzo unico" ───────────────────────────
     const [editingBasePrice, setEditingBasePrice] = useState(false);
@@ -152,13 +163,14 @@ export default function PrezziOpzioniTab({
     const [justSwitchedToFormato, setJustSwitchedToFormato] = useState(false);
     const [pendingFormatPrice, setPendingFormatPrice] = useState<number | null>(null);
 
-    const priceMode = resolvePriceMode(modeOverride, hasPrimaryGroup);
+    const priceMode = formatsDraft ? formatsDraft.mode : resolvePriceMode(modeOverride, hasPrimaryGroup);
 
     /** Solo UI: nessuna scrittura finché non arriva il primo formato. */
     const handleSelectFormato = () => {
         setPendingFormatPrice(product.base_price);
         setJustSwitchedToFormato(true);
-        setModeOverride("formato");
+        if (formatsDraft) formatsDraft.setMode("formato");
+        else setModeOverride("formato");
     };
 
     const handleConfirmRevertToUnico = async (): Promise<boolean> => {
@@ -188,6 +200,13 @@ export default function PrezziOpzioniTab({
     };
 
     const handleSelectUnico = () => {
+        // In bozza si torna indietro con «Annulla»: niente modale.
+        if (formatsDraft) {
+            formatsDraft.setMode("unico");
+            setJustSwitchedToFormato(false);
+            setPendingFormatPrice(null);
+            return;
+        }
         // Modale solo se ci sono formati da perdere.
         if (shouldConfirmRevertToUnico(primaryPriceGroup)) {
             setConfirmRevertToUnico(true);
@@ -213,7 +232,11 @@ export default function PrezziOpzioniTab({
     const [isLoadingParent, setIsLoadingParent] = useState(false);
     // «Imposta un prezzo proprio» apre il campo: finché si scrive, la variante
     // non è più mostrata come ereditante; «Annulla» la riporta lì.
-    const isInheriting = isVariant && !hasPrimaryGroup && product.base_price === null && !editingBasePrice;
+    const isInheriting =
+        isVariant &&
+        !hasPrimaryGroup &&
+        !editingBasePrice &&
+        (basePriceDraft ? basePriceDraft.input.trim() === "" : product.base_price === null);
 
     const loadParent = useCallback(async () => {
         if (!isVariant || !product.parent_product_id) return;
@@ -626,11 +649,14 @@ export default function PrezziOpzioniTab({
             {/* ──────────────── Card 1 — Prezzo ──────────────── */}
             {/* PO1: il modo nell'intestazione, accanto al titolo; in «per formato»
                 il sottotitolo dice come si legge nel menù. */}
+            {(!only || only === "prezzo") && (
             <Card
                 title="Prezzo"
                 subtitle={
-                    (!optionsLoading && !isInheriting && priceMode === "formato" && primaryPriceGroup
-                        ? formatPricePreview(primaryPriceGroup, menuLower)
+                    (!optionsLoading && !isInheriting && priceMode === "formato"
+                        ? formatsDraft
+                            ? formatPricePreview(formatsDraft.rows, menuLower)
+                            : primaryPriceGroup && formatPricePreview(primaryPriceGroup.values, menuLower)
                         : null) ?? `Come si legge il prezzo del ${productLower} nel ${menuLower}.`
                 }
                 modeSelector={
@@ -690,10 +716,37 @@ export default function PrezziOpzioniTab({
                             </Text>
                         )}
 
-                        {priceMode === "formato" ? (
+                        {priceMode !== "formato" && basePriceDraft ? (
+                            <div className={styles.priceDisplay}>
+                                <NumberInput
+                                    aria-label="Prezzo"
+                                    value={basePriceDraft.input}
+                                    onChange={e => basePriceDraft.setInput(e.target.value)}
+                                    min="0"
+                                    step="0.01"
+                                    endAdornment="€"
+                                    placeholder="0,00"
+                                    error={basePriceDraft.error ?? undefined}
+                                    disabled={basePriceDraft.isSaving}
+                                />
+                                {isVariant && (
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => {
+                                            basePriceDraft.setInput("");
+                                            setEditingBasePrice(false);
+                                        }}
+                                    >
+                                        Usa il prezzo del padre
+                                    </Button>
+                                )}
+                            </div>
+                        ) : priceMode === "formato" ? (
                             <div className={styles.formatMode}>
                                 <OptionValueList
-                                    values={primaryPriceGroup?.values ?? []}
+                                    values={formatsDraft ? formatsDraft.rows : (primaryPriceGroup?.values ?? [])}
+                                    inDraft={formatsDraft !== undefined}
                                     priceMode="absolute"
                                     emptyTitle="Nessun formato"
                                     namePlaceholder="Nuovo formato (es. Bottiglia)"
@@ -704,11 +757,17 @@ export default function PrezziOpzioniTab({
                                             : undefined
                                     }
                                     autoFocusAdd={justSwitchedToFormato}
-                                    onCreate={handleCreateFormatValue}
-                                    onUpdate={(id, name, price) =>
-                                        handleUpdateFormatValue(id, name, price)
+                                    onCreate={
+                                        formatsDraft
+                                            ? async (name, price) => {
+                                                  await formatsDraft.add(name, price);
+                                                  setJustSwitchedToFormato(false);
+                                                  setPendingFormatPrice(null);
+                                              }
+                                            : handleCreateFormatValue
                                     }
-                                    onDelete={handleDeleteValue}
+                                    onUpdate={formatsDraft ? formatsDraft.update : handleUpdateFormatValue}
+                                    onDelete={formatsDraft ? formatsDraft.remove : handleDeleteValue}
                                 />
                             </div>
                         ) : editingBasePrice ? (
@@ -788,8 +847,10 @@ export default function PrezziOpzioniTab({
                     confirmVariant="primary"
                 />
             </Card>
+            )}
 
             {/* ──────────────── Card 2 — Configurazioni ──────────────── */}
+            {(!only || only === "scelte") && (
             <Card
                 title="Configurazioni"
                 // PO2: la spiegazione è il sottotitolo; «Nuovo gruppo» solo
@@ -992,9 +1053,10 @@ export default function PrezziOpzioniTab({
                     confirmLabel="Elimina"
                 />
             </Card>
+            )}
 
             {/* ──────────────── Card 3 — Varianti ──────────────── */}
-            {!isVariant && (
+            {!isVariant && (!only || only === "varianti") && (
                 <Card
                     title="Varianti"
                     subtitle={`Prezzo e descrizione propri; nel ${menuLower} pubblico sono ${verticalConfig.productLabelPlural.toLowerCase()} a sé.`}
