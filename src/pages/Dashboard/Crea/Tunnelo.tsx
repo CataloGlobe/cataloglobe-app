@@ -20,7 +20,7 @@ import { CAL_KIND, draftFor, saveTunnel, type Saved } from "./creaSave";
 import { aspectOf, sampleOf, styleTokens, tokensOf, useFonts } from "./creaStyle";
 import { type CreaData } from "./useCreaData";
 import { CreaPhone } from "./CreaPhone";
-import { Adesso, Controlla, Dove, EvidContenuto, EvidCosa, EvidPiatti, MenuParti, MenuSezioni, MenuTipo, Quando, Serve, StileAspetto, StileNome, StoriaBlocchi, StoriaRacconto, type U } from "./CreaSteps";
+import { Adesso, Controlla, DoveQuando, EvidContenuto, EvidCosa, EvidPiatti, MenuParti, MenuSezioni, MenuTipo, Quando, Serve, StileAspetto, StileNome, StoriaBlocchi, StoriaRacconto, type U } from "./CreaSteps";
 import s from "./Crea.module.scss";
 
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
@@ -157,6 +157,7 @@ export function Tunnelo({ kind, aside, data, tenantId, owner, origin, business, 
             fn(D);
             if (x.qmode === "momenti") x.when = D.when;
             x.where = D.where;
+            x.per = D.per;
         });
     const momentiDraft = draft && t.qmode === "momenti" ? { ...draft, when: t.when } : draft;
     const entries = useMemo(() => entriesFromRules(data.rules, data.names), [data.rules, data.names]);
@@ -290,7 +291,8 @@ export function Tunnelo({ kind, aside, data, tenantId, owner, origin, business, 
             ruleId: after.saved.ruleId,
             productIds: after.saved.productIds ?? [],
             when: effWhen(m),
-            where: m.where
+            where: m.where,
+            per: m.per
         };
         setT(newTunnel(k, m.where, from));
         toTop();
@@ -366,7 +368,7 @@ export function Tunnelo({ kind, aside, data, tenantId, owner, origin, business, 
                 break;
             case "dove": {
                 const D = draft ?? draftFor(t, "featured", FAKE, null);
-                body = <Dove t={t} draft={D} updDraft={updDraft} sedi={data.sedi} groups={data.groups} L={L} />;
+                body = <DoveQuando t={t} u={u} draft={D} updDraft={updDraft} sedi={data.sedi} groups={data.groups} L={L} durs={durs} axis={axis} />;
                 break;
             }
             default:

@@ -727,7 +727,7 @@ test.describe("Programmazione — calendario, simulatore, guida", () => {
         await expect(main(page).getByRole("status")).toHaveText(/^Aggiunto al calendario: Pranzo e2e/);
     });
 
-    test("cablaggio: il «Dove» viene prima del «Quando», con tre scelte; le sedi scelte stanno nel pannello e vanno nella regola", async ({ page }) => {
+    test("cablaggio: «Dove e quando» è un passo solo; le sedi col bottone «Sedi», le ore diverse fanno due regole (D145)", async ({ page }) => {
         const NEW_ID = "e2e0d000-0000-4000-a000-000000000782";
         stub.onWrite("schedules.POST", () => ({ id: NEW_ID }));
         stub.onWrite("schedules.PATCH", () => [{ id: NEW_ID }]);
@@ -740,32 +740,42 @@ test.describe("Programmazione — calendario, simulatore, guida", () => {
         await main(page).getByRole("button", { name: /^Menù/ }).first().click();
         await main(page).getByRole("radio", { name: /Pranzo e2e/ }).click();
         await main(page).getByRole("button", { name: "Avanti" }).click();
-        // prima il dove, poi il quando (D134)
-        await expect(main(page).getByRole("button", { name: "2 Dove" })).toHaveAttribute("aria-current", "step");
-        await expect(main(page).getByRole("button", { name: "3 Quando" })).toBeVisible();
-        const dove = main(page).getByRole("radiogroup", { name: "Dove" });
-        await expect(dove.getByRole("radio", { name: /^Tutte le sedi/ })).toBeVisible();
-        const scelte = dove.getByRole("radio", { name: /^Sedi scelte/ });
-        if ((await scelte.getAttribute("aria-checked")) !== "true") await scelte.click();
-        await expect(scelte).toHaveAttribute("aria-checked", "true");
-        await dove.getByRole("button", { name: "Solo Porto e2e" }).click();
-        await expect(dove.getByRole("checkbox", { checked: true })).toHaveCount(1);
-        await expect(scelte).toContainText(/1 di \d+/);
-        await expect(main(page).getByText(/^Porto e2e\. Quello che vale/)).toBeVisible();
+        // dove e quando insieme: tre passi
+        await expect(main(page).getByRole("button", { name: "2 Dove e quando" })).toHaveAttribute("aria-current", "step");
+        await expect(main(page).getByRole("button", { name: "3 Riepilogo" })).toBeVisible();
+        await expect(main(page).getByRole("button", { name: /Quando$/ })).toHaveCount(0);
+        // le sedi col bottone del Calendario
+        const sedi = main(page).getByRole("button", { name: /^Tutte le sedi · \d+, anche le nuove$/ });
+        await sedi.click();
+        const pop = page.getByRole("dialog", { name: "Sedi" });
+        await expect(pop.getByRole("switch", { name: "Anche le sedi che aprirai" })).toBeChecked();
+        await pop.getByRole("button", { name: "Solo Porto e2e" }).click();
+        await expect(pop.getByRole("checkbox", { checked: true })).toHaveCount(1);
+        await expect(pop.getByRole("switch")).toHaveCount(0);
+        await expect(main(page).getByText(/^Quello che vale per una sede vince/)).toBeVisible();
+        // una sede sola: niente domanda sulle ore
+        await expect(main(page).getByRole("radio", { name: "No, cambiano" })).toHaveCount(0);
+        await pop.getByRole("checkbox", { name: "Centro e2e" }).click();
+        await page.keyboard.press("Escape");
+        await expect(pop).toHaveCount(0);
+        await expect(main(page).getByRole("heading", { name: /^(Porto e2e e Centro e2e|Centro e2e e Porto e2e) hanno le stesse ore\?$/ })).toBeVisible();
+        await main(page).getByRole("radio", { name: "No, cambiano" }).click();
+        await expect(main(page).getByRole("heading", { name: "Le ore di ogni sede" })).toBeVisible();
+        // Centro con le sue ore, sul posto
+        await main(page).getByRole("button", { name: /^Centro e2e.*Cambia$/ }).click();
+        await main(page).getByRole("radio", { name: "Fasce orarie" }).click();
+        await expect(main(page).getByRole("button", { name: /^Centro e2e.*Chiudi$/ })).toHaveAttribute("aria-expanded", "true");
         await noHorizontalScroll(page);
-        // «Tutte le sedi» e ritorno: Porto è ancora lì
-        await dove.getByRole("radio", { name: /^Tutte le sedi/ }).click();
-        await expect(dove.getByRole("checkbox")).toHaveCount(0);
-        await scelte.click();
-        await expect(dove.getByRole("checkbox", { name: "Porto e2e" })).toHaveAttribute("aria-checked", "true");
         await main(page).getByRole("button", { name: "Avanti" }).click();
-        await expect(main(page).getByRole("button", { name: "3 Quando" })).toHaveAttribute("aria-current", "step");
-        await main(page).getByRole("button", { name: "Avanti" }).click();
+        await expect(main(page).getByRole("button", { name: "3 Riepilogo" })).toHaveAttribute("aria-current", "step");
+        await expect(main(page).getByText(/^(Porto e2e: .+ · Centro e2e|Centro e2e: .+ · Porto e2e): /)).toBeVisible();
         await main(page).getByRole("button", { name: "Aggiungi al calendario" }).click();
-        await expect.poll(() => writesOf(stub, "rpc.update_schedule_targets").length).toBe(1);
-        const targets = JSON.stringify(writesOf(stub, "rpc.update_schedule_targets")[0].body);
-        expect(targets).toContain(SEDE.porto);
-        expect(targets).not.toContain(SEDE.centro);
+        await expect.poll(() => writesOf(stub, "rpc.update_schedule_targets").length).toBe(2);
+        expect(writesOf(stub, "schedules.POST")).toHaveLength(2);
+        const targets = writesOf(stub, "rpc.update_schedule_targets").map(w => JSON.stringify(w.body));
+        // una regola per sede, ognuna con la sua sola
+        expect(targets.filter(b => b.includes(SEDE.porto) && !b.includes(SEDE.centro))).toHaveLength(1);
+        expect(targets.filter(b => b.includes(SEDE.centro) && !b.includes(SEDE.porto))).toHaveLength(1);
     });
 
     test("cablaggio: «Togli» un piatto riscrive la regola senza di lui", async ({ page }) => {

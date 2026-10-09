@@ -32,6 +32,7 @@ import {
     sortPicks,
     whatLines,
     whereText,
+    perText,
     listIt,
     type Draft,
     type DraftLookups,
@@ -39,7 +40,7 @@ import {
     type PickThing
 } from "./calendarDraft";
 import { CAL_KINDS, KIND_LABEL, durLabel, eur, type Axis, type CalKind, type CalWhen } from "./calendarModel";
-import { DovePasso, QuandoPasso, Warn } from "./CalendarioPassi";
+import { DoveQuandoPasso, QuandoPasso, Warn } from "./CalendarioPassi";
 import s from "./CalendarioView.module.scss";
 
 export type SectionSede = { id: string; name: string };
@@ -73,8 +74,8 @@ const NEW_THING: Partial<Record<CalKind, [string, string]>> = {
     featured: ["Crea un In evidenza nuovo", "Creare un contenuto in evidenza nuovo?"]
 };
 
-// prima il dove e poi il quando (D134): mentre si scelgono le ore l'anteprima guarda già le sedi giuste
-const sectionSteps = (multi: boolean) => (multi ? ["Cosa", "Dove", "Quando", "Riepilogo"] : ["Cosa", "Quando", "Riepilogo"]);
+// dove e quando in un passo solo (D145): mentre si scelgono le ore l'anteprima guarda già le sedi giuste
+const sectionSteps = (multi: boolean) => ["Cosa", multi ? "Dove e quando" : "Quando", "Riepilogo"];
 
 export type Leave = { why: "exit" | "root" | "del" | "new"; to?: CalKind };
 
@@ -169,7 +170,7 @@ export function CalendarioSection(p: CalendarioSectionProps) {
             <h2>{title}</h2>
             {D && (
                 <p className={s.muted}>
-                    {edit ? "Le modifiche si vedono nell'anteprima e vanno in onda quando salvi." : (steps.length === 4 ? "Quattro" : "Tre") + " passi; nell'anteprima vedi già dove va in onda."}
+                    {edit ? "Le modifiche si vedono nell'anteprima e vanno in onda quando salvi." : "Tre passi; nell'anteprima vedi già dove va in onda."}
                 </p>
             )}
         </div>
@@ -210,8 +211,12 @@ export function CalendarioSection(p: CalendarioSectionProps) {
     const miss = missing(D, L), bad = invalid(D), last = D.step === steps.length - 1, blocked = miss || bad;
     const body = [
         cosa,
-        ...(L.multi ? [() => <DovePasso draft={D} upd={upd} sedi={p.sedi} groups={p.groups} L={L} bad={bad} />] : []),
-        () => <QuandoPasso draft={D} upd={upd} durs={p.durs(D.kind)} axis={p.band} bad={bad} />,
+        () =>
+            L.multi ? (
+                <DoveQuandoPasso draft={D} upd={upd} sedi={p.sedi} groups={p.groups} L={L} bad={bad} durs={p.durs(D.kind)} axis={p.band} />
+            ) : (
+                <QuandoPasso draft={D} upd={upd} durs={p.durs(D.kind)} axis={p.band} bad={bad} />
+            ),
         riep
     ][D.step]();
     const next = () =>
@@ -536,8 +541,9 @@ export function CalendarioSection(p: CalendarioSectionProps) {
         const d = D!;
         const rows: [string, string, number][] = [
             ["Cosa", listIt(whatLines(d, L)) || "—", 0],
-            ...(L.multi ? ([["Dove", whereText(d.where, L), 1]] as [string, string, number][]) : []),
-            ["Quando", durLabel(d.when), L.multi ? 2 : 1]
+            L.multi
+                ? ["Dove e quando", d.per ? perText(d.per, L) : whereText(d.where, L) + " · " + durLabel(d.when), 1]
+                : ["Quando", durLabel(d.when), 1]
         ];
         const pn = pairName(d, L);
         return (

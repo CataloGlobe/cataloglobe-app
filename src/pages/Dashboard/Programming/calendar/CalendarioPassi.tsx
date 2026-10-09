@@ -1,13 +1,13 @@
-// I passi «Quando» e «Dove» della sezione Aggiungi / Modifica completa, da soli:
-// li usano la sezione del Calendario e i tunnel di creazione.
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
-import { Folder, Plus, TriangleAlert, X } from "lucide-react";
+// Il passo «Dove e quando» della sezione Aggiungi / Modifica completa, e il
+// Quando da solo (una sede): li usano la sezione del Calendario e i tunnel di creazione.
+import { useId, useState, type ReactNode } from "react";
+import { Plus, TriangleAlert, X } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import { IconButton } from "@/components/ui/Button/IconButton";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
-import { DB_LATER, DB_TODAY, isoDay, normRanges, whenKey, whereText, type Draft, type DraftLookups } from "./calendarDraft";
-import { FSLOT, dayNum, durLabel, hhmm, type Axis, type CalWhen } from "./calendarModel";
-import { SediPannello } from "./SediScelta";
+import { DB_LATER, DB_TODAY, invalid, isoDay, listIt, normRanges, sediOf, syncPer, whenKey, type Draft, type DraftLookups } from "./calendarDraft";
+import { FSLOT, dayNum, durLabel, hhmm, type Axis, type CalWhen, type CalWhere } from "./calendarModel";
+import { SediBottone } from "./SediScelta";
 import { Band, TimeSel } from "./CalendarioOrario";
 import s from "./CalendarioView.module.scss";
 
@@ -23,15 +23,6 @@ export type QuandoPassoProps = {
     /** Le ore della barra delle fasce. */
     axis: Axis;
     /** Quello che non va (da `invalid`): qui si mostra la parte che tocca il Quando. */
-    bad: string;
-};
-
-export type DovePassoProps = {
-    draft: Draft;
-    upd: Upd;
-    sedi: readonly PassoSede[];
-    groups: readonly PassoGruppo[];
-    L: DraftLookups;
     bad: string;
 };
 
@@ -191,90 +182,135 @@ export function QuandoPasso({ draft: d, upd, durs, axis, bad }: QuandoPassoProps
     }
 }
 
-/* ---------- Dove ---------- */
-type DoveModo = "all" | "group" | "some";
+/* ---------- Dove e quando (D145, G1) ---------- */
+export type DoveQuandoProps = QuandoPassoProps & {
+    sedi: readonly PassoSede[];
+    groups: readonly PassoGruppo[];
+    L: DraftLookups;
+    /** Il Quando con le stesse ore per tutte; senza, `QuandoPasso`. Il tunnel ci mette anche «Sempre». */
+    quando?: ReactNode;
+    /** false: niente «hanno le stesse ore?» (la storia, che oggi ha un orario solo). */
+    split?: boolean;
+};
 
 /**
- * Il passo «Dove» (D130 A): tre scelte, e sotto «Sedi scelte» il pannello
- * delle sedi già aperto. Un gruppo scelto come tale vale anche per le sedi
- * che entreranno; «Prendi le sedi di:» spunta solo quelle di oggi.
+ * Un passo solo: in cima le sedi col bottone «Sedi» del Calendario, sotto le ore.
+ * Con più sedi si chiede se hanno le stesse ore; se no, una riga per sede con
+ * le sue ore, che si apre sul posto col Quando di sempre (F1).
  */
-export function DovePasso({ draft: d, upd, sedi, groups, L, bad }: DovePassoProps) {
-    const w = d.where;
+export function DoveQuandoPasso({ draft: d, upd, sedi, groups, L, bad, durs, axis, quando, split: canSplit = true }: DoveQuandoProps) {
     const hid = useId();
-    const [modo, setModo] = useState<DoveModo>(() => (w.all ? "all" : w.groupIds.length && !w.activityIds.length ? "group" : "some"));
-    // le sedi scelte a mano restano lì se si passa a un'altra scelta e si torna
-    const lastSeats = useRef<string[]>(w.activityIds);
-    const lastGroups = useRef<string[]>(w.groupIds);
-    if (!w.all && w.activityIds.length) lastSeats.current = w.activityIds;
-    if (!w.all && w.groupIds.length) lastGroups.current = w.groupIds;
-    // una bozza che cambia da fuori (ripresa, tenuta da parte) porta con sé la sua scelta
-    const shape: DoveModo = w.all ? "all" : w.activityIds.length ? "some" : w.groupIds.length ? "group" : modo;
-    useEffect(() => setModo(shape), [shape]);
-
-    const pick = (m: DoveModo) => {
-        setModo(m);
-        if (m === "all") return upd(dd => void (dd.where = { all: true, activityIds: [], groupIds: [] }));
-        if (m === "group") {
-            const g = lastGroups.current.length ? lastGroups.current : groups.slice(0, 1).map(x => x.id);
-            return upd(dd => void (dd.where = { all: false, activityIds: [], groupIds: [...g] }));
-        }
-        // dal gruppo si parte dalle sue sedi di oggi, per ritoccarle
-        const fromGroup = w.groupIds.length ? sedi.filter(x => groups.some(g => w.groupIds.includes(g.id) && g.activityIds.includes(x.id))).map(x => x.id) : [];
-        const seats = w.activityIds.length ? w.activityIds : fromGroup.length ? fromGroup : lastSeats.current;
-        upd(dd => void (dd.where = { all: false, activityIds: [...seats], groupIds: [] }));
-    };
-    const toggleGroup = (id: string) =>
+    const [open, setOpen] = useState<string | null>(null);
+    const ids = sediOf(d.where, sedi, groups);
+    const name = (id: string) => sedi.find(x => x.id === id)?.name ?? "sede";
+    const w = d.where;
+    const group = !w.all && !w.activityIds.length && w.groupIds.length ? w.groupIds : null;
+    const label = w.all
+        ? `Tutte le sedi · ${sedi.length}, anche le nuove`
+        : group
+          ? listIt(group.map(g => "«" + (L.groups.get(g) ?? "gruppo") + "»")) + ` · ${ids.length} ${ids.length === 1 ? "sede" : "sedi"}`
+          : undefined;
+    const setWhere = (next: CalWhere) =>
         upd(dd => {
-            const on = dd.where.groupIds.includes(id);
-            dd.where = { all: false, activityIds: [], groupIds: on ? dd.where.groupIds.filter(x => x !== id) : groups.filter(g => g.id === id || dd.where.groupIds.includes(g.id)).map(g => g.id) };
+            dd.where = next;
+            dd.per = syncPer(dd.per, sediOf(next, sedi, groups), dd.when);
         });
-    const radio = (m: DoveModo, label: string, count?: string) => (
-        <button type="button" className={s.dmode} role="radio" aria-checked={modo === m} onClick={() => modo !== m && pick(m)}>
-            <span className={s.dradio} aria-hidden />
-            {label}
-            {count && <small>{count}</small>}
-        </button>
-    );
-
+    const pick = (next: string[]) => setWhere({ all: false, activityIds: next, groupIds: [] });
+    const future = { on: w.all, set: (on: boolean) => setWhere(on ? { all: true, activityIds: [], groupIds: [] } : { all: false, activityIds: sedi.map(x => x.id), groupIds: [] }) };
+    const split = (on: boolean) => {
+        setOpen(null);
+        upd(dd => {
+            dd.per = on ? Object.fromEntries(sediOf(dd.where, sedi, groups).map(id => [id, structuredClone(dd.when)])) : null;
+        });
+    };
+    // il Quando di una sede: la stessa bozza, col suo quando al posto di quello di tutte
+    const updPer =
+        (id: string): Upd =>
+        fn =>
+            upd(dd => {
+                if (!dd.per?.[id]) return;
+                const one = { ...dd, when: dd.per[id] };
+                fn(one);
+                dd.per[id] = one.when;
+            });
+    const who = ids.length > 3 ? `Le ${ids.length} sedi` : listIt(ids.map(name));
     return (
-        <div className={s.ifl}>
-            <h4 id={hid}>Dove</h4>
-            <div className={s.dmodes} role="radiogroup" aria-labelledby={hid}>
-                {radio("all", "Tutte le sedi", String(sedi.length))}
-                {groups.length > 0 && radio("group", "Un gruppo", String(groups.length))}
-                {modo === "group" && (
-                    <div className={s.dsub}>
-                        <div className={s.chips}>
-                            {groups.map(g => (
-                                <button key={g.id} type="button" className={s.chip} aria-pressed={w.groupIds.includes(g.id)} onClick={() => toggleGroup(g.id)}>
-                                    <Folder size={13} aria-hidden />
-                                    {g.name}
-                                    <small>{g.activityIds.length}</small>
-                                </button>
-                            ))}
-                        </div>
-                        <p className={s.muted}>Vale anche per le sedi che entreranno nel gruppo.</p>
-                    </div>
-                )}
-                {radio("some", "Sedi scelte", modo === "some" ? `${w.activityIds.length} di ${sedi.length}` : undefined)}
-                {modo === "some" && (
-                    <div className={s.sinl}>
-                        <SediPannello
-                            sedi={sedi}
-                            groups={groups}
-                            value={w.activityIds}
-                            take
-                            onChange={ids => upd(dd => void (dd.where = { all: false, activityIds: ids, groupIds: dd.where.groupIds }))}
-                        />
-                    </div>
-                )}
+        <>
+            <div className={s.ifl}>
+                <h4 id={hid}>Dove</h4>
+                <SediBottone className={s.dqsedi} sedi={sedi} groups={groups} value={ids} onChange={pick} take future={future}>
+                    {label}
+                </SediBottone>
+                <p className={s.muted}>
+                    {w.all
+                        ? "Vale anche per le sedi che aprirai."
+                        : group
+                          ? "Vale anche per le sedi che entreranno nel gruppo. Se cambi le sedi qui, valgono quelle scelte."
+                          : "Quello che vale per una sede vince su quello che vale per tutte."}
+                </p>
+                {bad === "Scegli almeno una sede" && <Warn>{bad}.</Warn>}
             </div>
-            <p className={s.muted}>
-                {!w.all && !w.groupIds.length && w.activityIds.length > 3 ? `${w.activityIds.length} sedi` : whereText(w, L)}. Quello che vale per una sede vince su quello che vale per tutte.
-            </p>
-            {bad === "Scegli almeno una sede" && <Warn>{bad}.</Warn>}
-        </div>
+            {canSplit && ids.length > 1 && (
+                <div className={s.ifl}>
+                    <h4>{who} hanno le stesse ore?</h4>
+                    <SegmentedControl
+                        size="sm"
+                        value={d.per ? "no" : "si"}
+                        onChange={v => split(v === "no")}
+                        options={[
+                            { value: "si", label: "Sì, le stesse" },
+                            { value: "no", label: "No, cambiano" }
+                        ]}
+                    />
+                </div>
+            )}
+            {!d.per ? (
+                quando ?? <QuandoPasso draft={d} upd={upd} durs={durs} axis={axis} bad={bad} />
+            ) : (
+                <div className={s.ifl}>
+                    <h4>Le ore di ogni sede</h4>
+                    <p className={s.muted}>{open ? "Le ore di " + name(open) + ": cambiano solo lì." : "Ogni sede parte dalle ore scelte per tutte. Apri quella da cambiare."}</p>
+                    <div className={s.dqrows}>
+                        {Object.entries(d.per).map(([id, pw]) => (
+                            <div key={id} className={s.dqrow} data-open={open === id || undefined}>
+                                <button type="button" className={s.dqhd} aria-expanded={open === id} onClick={() => setOpen(o => (o === id ? null : id))}>
+                                    <b>{name(id)}</b>
+                                    <span>{durLabel(pw)}</span>
+                                    <em>{open === id ? "Chiudi" : "Cambia"}</em>
+                                </button>
+                                {open === id && (
+                                    <div className={s.dqin}>
+                                        <QuandoPasso draft={{ ...d, when: pw }} upd={updPer(id)} durs={durs} axis={axis} bad={invalid({ ...d, per: null, when: pw })} />
+                                        <p className={s.dqcopy}>
+                                            Uguale a:{" "}
+                                            {Object.keys(d.per!)
+                                                .filter(x => x !== id)
+                                                .map((x, k) => (
+                                                    <span key={x}>
+                                                        {k > 0 && " · "}
+                                                        <button
+                                                            type="button"
+                                                            className={s.dqlink}
+                                                            onClick={() =>
+                                                                upd(dd => {
+                                                                    if (dd.per?.[x]) dd.per[id] = structuredClone(dd.per[x]);
+                                                                })
+                                                            }
+                                                        >
+                                                            {name(x)}
+                                                        </button>
+                                                    </span>
+                                                ))}
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                    {bad && bad !== "Scegli almeno una sede" && <Warn>{bad}.</Warn>}
+                </div>
+            )}
+        </>
     );
 }
 

@@ -17,12 +17,15 @@ import { updateScheduleTargets } from "@/services/supabase/scheduleTargets";
 import {
     blankDraft,
     draftEntry,
+    draftParts,
     dropAside,
     peekAside,
     draftFromEntry,
     invalid,
     isDirty,
     missing,
+    perText,
+    syncPer,
     timeFields,
     writeAside,
     type DraftLookups
@@ -212,6 +215,50 @@ describe("salvare la sezione", () => {
     });
 });
 
+describe("le ore diverse per sede (D145)", () => {
+    const LUN_VEN = { days: [0, 1, 2, 3, 4], ranges: [[720, 900]] as [number, number][] };
+    const SEMPRE_PRANZO = { ranges: [[720, 900]] as [number, number][] };
+
+    it("le ore per sede seguono le sedi: chi entra parte da quelle di tutte, con una sede sola spariscono", () => {
+        const per = { a1: LUN_VEN, a2: SEMPRE_PRANZO };
+        expect(syncPer(per, ["a1", "a3"], { days: [5] })).toEqual({ a1: LUN_VEN, a3: { days: [5] } });
+        expect(syncPer(per, ["a1"], LUN_VEN)).toBeNull();
+        expect(syncPer(null, ["a1", "a2"], LUN_VEN)).toBeNull();
+    });
+
+    it("si salva una regola per ogni orario diverso; ore tutte uguali, una sola col dove di prima", () => {
+        const D = blankDraft("menu", ALL, "s1");
+        D.thing = "c2";
+        D.per = { a1: LUN_VEN, a2: SEMPRE_PRANZO };
+        const parts = draftParts(D);
+        expect(parts).toHaveLength(2);
+        expect(parts.map(p => p.where.activityIds)).toEqual([["a1"], ["a2"]]);
+        expect(parts.every(p => p.per === null)).toBe(true);
+        expect(parts[1]).toMatchObject({ mode: "add", rule: null });
+        D.per = { a1: LUN_VEN, a2: structuredClone(LUN_VEN) };
+        expect(draftParts(D)).toEqual([expect.objectContaining({ where: ALL, when: LUN_VEN, per: null })]);
+    });
+
+    it("il riepilogo raccoglie le sedi con le stesse ore", () => {
+        expect(perText({ a1: LUN_VEN, a2: SEMPRE_PRANZO }, L)).toMatch(/^Centro: .+ · Stazione: .+$/);
+        expect(perText({ a1: LUN_VEN, a2: structuredClone(LUN_VEN) }, L)).toMatch(/^Centro e Stazione: /);
+    });
+
+    it("una sede con ore sue: due regole nel Calendario, ognuna con la sua sede", async () => {
+        const D = blankDraft("menu", ALL, "s1");
+        D.thing = "c2";
+        D.per = { a1: LUN_VEN, a2: SEMPRE_PRANZO };
+        await saveDraft(D, L, "t");
+        expect(createRuleDraft).toHaveBeenCalledTimes(2);
+        const calls = vi.mocked(updateRule).mock.calls.map(c => c[0]);
+        expect(calls).toEqual([
+            expect.objectContaining({ applyToAll: false, daysOfWeek: [1, 2, 3, 4, 5], timeFrom: "12:00" }),
+            expect.objectContaining({ applyToAll: false, timeFrom: "12:00", timeTo: "15:00" })
+        ]);
+        expect(vi.mocked(updateScheduleTargets).mock.calls.map(c => c[1])).toEqual([[{ targetType: "activity", targetId: "a1" }], [{ targetType: "activity", targetId: "a2" }]]);
+    });
+});
+
 describe("la bozza messa da parte", () => {
     it("un tunnel ne legge solo cosa, quando e dove; «via» la toglie", () => {
         const store = new Map<string, string>();
@@ -225,7 +272,7 @@ describe("la bozza messa da parte", () => {
         D.thing = "c2";
         D.when = { days: [0, 1, 2, 3, 4], ranges: [[720, 900]] };
         writeAside(D);
-        expect(peekAside()).toEqual({ kind: "menu", when: D.when, where: D.where });
+        expect(peekAside()).toEqual({ kind: "menu", when: D.when, where: D.where, per: null });
         dropAside();
         expect(peekAside()).toBeNull();
         vi.unstubAllGlobals();

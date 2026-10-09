@@ -117,7 +117,7 @@ test.describe("Tunnel di creazione — menù", () => {
     test("i passi: Avanti si accende quando il passo è fatto, i fatti si riaprono", async ({ page }) => {
         await open(page, "menu");
         const steps = rail(page);
-        await expect(steps.getByRole("button")).toHaveText(["1Che menù è", "2Da dove parti", "3Sezioni e piatti", "4Dove", "5Quando", "6Controlla", "E adesso?"]);
+        await expect(steps.getByRole("button")).toHaveText(["1Che menù è", "2Da dove parti", "3Sezioni e piatti", "4Dove e quando", "5Controlla", "E adesso?"]);
         await expect(button(page, "Avanti")).toBeDisabled();
         await expect(main(page).getByText("Scegli che menù è")).toBeVisible();
         // il multi menù arriva col database nuovo
@@ -154,12 +154,13 @@ test.describe("Tunnel di creazione — menù", () => {
         await open(page, "menu");
         await walkMenu(page, "Pranzo veloce");
         await next(page);
-        // Dove prima di Quando (D134), il passo del Calendario (D130): «Sedi scelte» parte vuoto, poi solo Porto
-        await main(page).getByRole("radio", { name: /^Sedi scelte/ }).click();
-        await expect(main(page).getByText("Scegli almeno una sede").first()).toBeVisible();
-        await main(page).getByRole("button", { name: "Solo Porto e2e" }).click();
-        await next(page);
-        // Quando: prima la domanda, poi il modulo del Calendario
+        // Dove e quando, un passo solo (D145): le sedi col bottone del Calendario, poi solo Porto
+        await expect(main(page).getByRole("heading", { name: "Dove e quando" })).toBeVisible();
+        await main(page).getByRole("button", { name: /^Tutte le sedi · \d+, anche le nuove$/ }).click();
+        await page.getByRole("dialog", { name: "Sedi" }).getByRole("button", { name: "Solo Porto e2e" }).click();
+        await page.keyboard.press("Escape");
+        await expect(main(page).getByRole("button", { name: "Porto e2e", exact: true })).toBeVisible();
+        // sotto, il quando: prima la domanda, poi il modulo del Calendario
         await expect(button(page, /^Sempre/)).toHaveAttribute("aria-pressed", "true");
         await button(page, /^Solo in certi momenti/).click();
         await expect(main(page).getByText("Anteprima · Menù")).toBeVisible();
@@ -192,7 +193,6 @@ test.describe("Tunnel di creazione — menù", () => {
         await open(page, "menu");
         await walkMenu(page, "Pranzo veloce");
         await next(page);
-        await next(page);
         await button(page, /^Solo in certi momenti/).click();
         await next(page);
         await button(page, "Metti in onda").click();
@@ -202,7 +202,6 @@ test.describe("Tunnel di creazione — menù", () => {
         await main(page).getByLabel("Nome dello stile").fill("Pranzo");
         await next(page);
         await button(page, "Blu").click();
-        await next(page);
         await next(page);
         await expect(button(page, /^Solo in certi momenti/)).toHaveAttribute("aria-pressed", "true");
         await expect(main(page).getByText("Già compilato dal menù «Pranzo veloce»: puoi cambiarlo.")).toBeVisible();
@@ -267,10 +266,11 @@ test.describe("Tunnel di creazione — menù", () => {
         await expect(main(page).getByRole("navigation", { name: "Percorso" }).getByRole("button", { name: "Calendario" })).toBeVisible();
         await walkMenu(page);
         await next(page);
-        await expect(main(page).getByRole("radio", { name: /^Sedi scelte/ })).toBeChecked();
-        await expect(main(page).getByRole("checkbox", { name: "Porto e2e" })).toBeChecked();
-        await expect(main(page).getByRole("checkbox", { name: "Centro e2e" })).not.toBeChecked();
-        await next(page);
+        await main(page).getByRole("button", { name: "Porto e2e", exact: true }).click();
+        const pop = page.getByRole("dialog", { name: "Sedi" });
+        await expect(pop.getByRole("checkbox", { name: "Porto e2e" })).toBeChecked();
+        await expect(pop.getByRole("checkbox", { name: "Centro e2e" })).not.toBeChecked();
+        await page.keyboard.press("Escape");
         await expect(button(page, /^Solo in certi momenti/)).toHaveAttribute("aria-pressed", "true");
         await expect(main(page).getByText("Dalla bozza che hai tenuto da parte nel Calendario: puoi cambiarlo.")).toBeVisible();
         // uscire senza salvare lascia la bozza dov'è
@@ -326,7 +326,6 @@ test.describe("Tunnel di creazione — stile, in evidenza, storia", () => {
         await main(page).getByRole("checkbox", { name: /Margherita e2e/ }).click();
         await next(page);
         await next(page);
-        await next(page);
         await button(page, "Pubblica").click();
         await expect(page).toHaveURL(new RegExp(`/featured/${ID.featured}$`), { timeout: 15_000 });
         expect(bodyOf(stub, "featured_contents.POST")).toMatchObject({ title: "Pizza del giorno", status: "published", content_type: "promo" });
@@ -347,7 +346,8 @@ test.describe("Tunnel di creazione — stile, in evidenza, storia", () => {
         await button(page, "Testo").click();
         await main(page).getByRole("textbox", { name: "Scrivi un paragrafo..." }).fill("Lo accendiamo alle sei.");
         await next(page);
-        await next(page);
+        // la storia ha un orario solo: niente «hanno le stesse ore?»
+        await expect(main(page).getByRole("radio", { name: "No, cambiano" })).toHaveCount(0);
         await next(page);
         await button(page, "Pubblica").click();
         await expect(page).toHaveURL(new RegExp(`/stories/${ID.story}$`), { timeout: 15_000 });

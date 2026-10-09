@@ -10,18 +10,18 @@ const ALL = { all: true, activityIds: [], groupIds: [] };
 const OWNER = { owner: true, multi: true };
 
 describe("tunnel di creazione: i passi", () => {
-    it("ogni tipo ha i suoi passi, poi Dove, Quando e Controlla (D134)", () => {
-        expect(steps(newTunnel("menu", ALL), OWNER)).toEqual(["tipo", "parti", "sezioni", "dove", "quando", "controlla"]);
-        expect(steps(newTunnel("stile", ALL), OWNER)).toEqual(["serve", "nome", "aspetto", "dove", "quando", "controlla"]);
-        expect(steps(newTunnel("storia", ALL), OWNER)).toEqual(["serve", "racconto", "blocchi", "dove", "quando", "controlla"]);
+    it("ogni tipo ha i suoi passi, poi «Dove e quando» e Controlla (D134, D145)", () => {
+        expect(steps(newTunnel("menu", ALL), OWNER)).toEqual(["tipo", "parti", "sezioni", "dove", "controlla"]);
+        expect(steps(newTunnel("stile", ALL), OWNER)).toEqual(["serve", "nome", "aspetto", "dove", "controlla"]);
+        expect(steps(newTunnel("storia", ALL), OWNER)).toEqual(["serve", "racconto", "blocchi", "dove", "controlla"]);
         const ev = newTunnel("evid", ALL);
-        expect(steps(ev, OWNER)).toEqual(["cosa", "contenuto", "dove", "quando", "controlla"]);
+        expect(steps(ev, OWNER)).toEqual(["cosa", "contenuto", "dove", "controlla"]);
         expect(steps({ ...ev, evType: "promo" }, OWNER)).toContain("piatti");
         expect(steps({ ...ev, evType: "bundle" }, OWNER)).toContain("piatti");
         expect(steps({ ...ev, evType: "evento" }, OWNER)).not.toContain("piatti");
     });
 
-    it("chi non gestisce il Calendario non ha Quando né Dove; con una sede sola niente Dove", () => {
+    it("chi non gestisce il Calendario non ha Dove e quando; con una sede sola solo il Quando", () => {
         expect(steps(newTunnel("menu", ALL), { owner: false, multi: true })).toEqual(["tipo", "parti", "sezioni", "controlla"]);
         expect(steps(newTunnel("menu", ALL), { owner: true, multi: false })).toEqual(["tipo", "parti", "sezioni", "quando", "controlla"]);
     });
@@ -99,9 +99,17 @@ describe("tunnel di creazione: la bozza tenuta da parte nel Calendario", () => {
     });
 
     it("lo stile aperto da «E adesso?» parte dal quando e dal dove del menù", () => {
-        const from: FromMenu = { name: "Pranzo", catalogId: "m", ruleId: "r", productIds: [], when: { days: [0, 1, 2, 3, 4] }, where: { all: false, activityIds: ["porto"], groupIds: [] } };
+        const from: FromMenu = { name: "Pranzo", catalogId: "m", ruleId: "r", productIds: [], when: { days: [0, 1, 2, 3, 4] }, where: { all: false, activityIds: ["porto"], groupIds: [] }, per: null };
         const t = newTunnel("stile", ALL, from);
-        expect(t).toMatchObject({ qmode: "momenti", when: { days: [0, 1, 2, 3, 4] }, where: { activityIds: ["porto"] }, aside: false });
+        expect(t).toMatchObject({ qmode: "momenti", when: { days: [0, 1, 2, 3, 4] }, where: { activityIds: ["porto"] }, aside: false, per: null });
+    });
+
+    it("le ore diverse per sede del menù passano allo stile, copiate", () => {
+        const per = { porto: { days: [0, 1, 2, 3, 4] }, lido: { days: [5, 6] } };
+        const from: FromMenu = { name: "Pranzo", catalogId: "m", ruleId: "r", productIds: [], when: { days: [0, 1, 2, 3, 4] }, where: { all: false, activityIds: ["porto", "lido"], groupIds: [] }, per };
+        const t = newTunnel("stile", ALL, from);
+        expect(t.per).toEqual(per);
+        expect(t.per).not.toBe(per);
     });
 });
 

@@ -19,12 +19,12 @@ import { createStory, updateStory } from "@/services/supabase/stories";
 import { uploadFeaturedContentImage, uploadStoryImage } from "@/services/supabase/upload";
 import { compressImage, COMPRESS_PROFILES } from "@/utils/compressImage";
 import { ruleDateToIso } from "@/utils/ruleDetailForm";
-import { autoName, blankDraft, timeFields, type Draft, type DraftLookups } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
+import { autoName, blankDraft, draftParts, timeFields, type Draft, type DraftLookups } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import { saveDraft } from "@/pages/Dashboard/Programming/calendar/calendarSave";
 import { whenOfRule, whereOfRule, type CalKind, type CalWhere } from "@/pages/Dashboard/Programming/calendar/calendarModel";
 import { deriveTypeFields } from "@/pages/Dashboard/Highlights/featuredContentTypes";
 import type { StyleTokenModel } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
-import { EV, cloneWhen, effWhen, thingName, type Tunnel } from "./creaModel";
+import { EV, clonePer, cloneWhen, effWhen, thingName, type Tunnel } from "./creaModel";
 import { styleConfig } from "./creaStyle";
 
 export const CAL_KIND: Record<"menu" | "stile" | "evid", CalKind> = { menu: "menu", stile: "style", evid: "featured" };
@@ -50,6 +50,7 @@ export function draftFor(t: Tunnel, kind: CalKind, thing: string, pair: string |
     const D = blankDraft(kind, t.where, pair);
     D.thing = thing;
     D.when = cloneWhen(effWhen(t));
+    D.per = clonePer(t.per);
     return D;
 }
 
@@ -114,7 +115,8 @@ async function saveStile(t: Tunnel, c: SaveCtx): Promise<Saved> {
 /** Quando e dove sono rimasti quelli del menù da cui si è partiti. */
 export function sameAsFrom(t: Tunnel): boolean {
     const f = t.from;
-    if (!f) return false;
+    // con le ore per sede le regole sono più d'una: lo stile fa le sue
+    if (!f || t.per || f.per) return false;
     const key = (w: object) => JSON.stringify(w);
     const wk = (w: CalWhere) => key([w.all, [...w.activityIds].sort(), [...w.groupIds].sort()]);
     return key(cloneWhen(effWhen(t))) === key(cloneWhen(f.when)) && wk(t.where) === wk(f.where);
@@ -168,31 +170,35 @@ async function saveEvid(t: Tunnel, c: SaveCtx): Promise<Saved> {
     }
     if (!c.live) return { id, name, live: false, ruleId: null };
 
-    // la regola: quella del Calendario, ma col posto scelto nel tunnel (sopra o sotto il menù)
-    const D = draftFor(t, "featured", id, null);
-    const ruleName = autoName(D, withThing(c.L, "featured", id, name));
-    const ruleId = await createFeaturedRuleDraft({ tenantId: c.tenantId, name: ruleName });
-    const tf = timeFields(D.when), w = D.where;
-    await updateFeaturedRule({
-        id: ruleId,
-        tenantId: c.tenantId,
-        name: ruleName,
-        enabled: true,
-        startAt: ruleDateToIso(tf.startDay, "start"),
-        endAt: ruleDateToIso(tf.endDay, "end"),
-        timeFrom: tf.timeFrom,
-        timeTo: tf.timeTo,
-        daysOfWeek: tf.daysOfWeek,
-        alwaysActive: tf.alwaysActive,
-        targetMode: w.all ? "all" : w.activityIds.length ? "activities" : "groups",
-        activityIds: w.all ? [] : w.activityIds,
-        groupIds: w.all ? [] : w.groupIds,
-        featuredContents: [{ featured_content_id: id, slot: t.slot === "after" ? "after_catalog" : "before_catalog", sort_order: 0 }]
-    });
-    // come in calendarSave: la RPC rifiuta «tutte» e l'elenco vuoto
-    if (!w.all && w.activityIds.length) await updateScheduleTargets(ruleId, w.activityIds.map(targetId => ({ targetType: "activity" as const, targetId })));
-    else if (!w.all && w.groupIds.length) await updateScheduleTargets(ruleId, w.groupIds.map(targetId => ({ targetType: "activity_group" as const, targetId })));
-    return { id, name, live: true, ruleId };
+    // la regola: quella del Calendario, ma col posto scelto nel tunnel (sopra o sotto il menù);
+    // con le ore diverse per sede, una per ogni orario (D145)
+    let first: string | null = null;
+    for (const D of draftParts(draftFor(t, "featured", id, null))) {
+        const ruleName = autoName(D, withThing(c.L, "featured", id, name));
+        const ruleId = await createFeaturedRuleDraft({ tenantId: c.tenantId, name: ruleName });
+        const tf = timeFields(D.when), w = D.where;
+        await updateFeaturedRule({
+            id: ruleId,
+            tenantId: c.tenantId,
+            name: ruleName,
+            enabled: true,
+            startAt: ruleDateToIso(tf.startDay, "start"),
+            endAt: ruleDateToIso(tf.endDay, "end"),
+            timeFrom: tf.timeFrom,
+            timeTo: tf.timeTo,
+            daysOfWeek: tf.daysOfWeek,
+            alwaysActive: tf.alwaysActive,
+            targetMode: w.all ? "all" : w.activityIds.length ? "activities" : "groups",
+            activityIds: w.all ? [] : w.activityIds,
+            groupIds: w.all ? [] : w.groupIds,
+            featuredContents: [{ featured_content_id: id, slot: t.slot === "after" ? "after_catalog" : "before_catalog", sort_order: 0 }]
+        });
+        // come in calendarSave: la RPC rifiuta «tutte» e l'elenco vuoto
+        if (!w.all && w.activityIds.length) await updateScheduleTargets(ruleId, w.activityIds.map(targetId => ({ targetType: "activity" as const, targetId })));
+        else if (!w.all && w.groupIds.length) await updateScheduleTargets(ruleId, w.groupIds.map(targetId => ({ targetType: "activity_group" as const, targetId })));
+        first ??= ruleId;
+    }
+    return { id, name, live: true, ruleId: first };
 }
 
 /* ---------- la storia ---------- */

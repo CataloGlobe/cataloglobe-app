@@ -62,6 +62,12 @@ export type Draft = {
     pair: string | null;
     when: CalWhen;
     where: CalWhere;
+    /**
+     * Le ore per sede, quando le sedi scelte non hanno le stesse ore (D145, F1):
+     * id della sede → il suo quando. null = le stesse ore per tutte (`when`).
+     * Salvando, una regola per ogni orario diverso (`draftParts`).
+     */
+    per: Record<string, CalWhen> | null;
     /** Il nome scritto da chi modifica; null = quello che mettiamo noi. */
     name: string | null;
     orig: string;
@@ -91,8 +97,9 @@ const cloneWhere = (w: CalWhere): CalWhere => ({ all: w.all, activityIds: [...w.
 export const whenKey = (w: CalWhen) =>
     [w.period ? w.period.from + ">" + w.period.to : "", w.days ? w.days.join("") : "", w.ranges ? w.ranges.map(r => r.join("-")).join(",") : ""].join("|");
 export const whereKey = (w: CalWhere) => (w.all ? "all" : "a:" + [...w.activityIds].sort().join(",") + "|g:" + [...w.groupIds].sort().join(","));
+const perKey = (per: Draft["per"]) => (per ? Object.entries(per).map(([id, w]) => id + "=" + whenKey(w)).join(";") : "");
 export const snap = (D: Draft) =>
-    JSON.stringify([D.kind, D.picks, D.prices, D.strike, D.hide, D.thing, D.pair, whenKey(D.when), whereKey(D.where), D.name]);
+    JSON.stringify([D.kind, D.picks, D.prices, D.strike, D.hide, D.thing, D.pair, whenKey(D.when), whereKey(D.where), perKey(D.per), D.name]);
 export const isDirty = (D: Draft | null) => !!D && !!D.kind && snap(D) !== D.orig;
 
 export function blankDraft(kind: CalKind, where: CalWhere, pair: string | null): Draft {
@@ -112,6 +119,7 @@ export function blankDraft(kind: CalKind, where: CalWhere, pair: string | null):
         pair: kind === "menu" || kind === "style" ? pair : null,
         when: {},
         where: cloneWhere(where),
+        per: null,
         name: null,
         orig: "",
         before: null
@@ -142,6 +150,7 @@ export function draftFromEntry(e: CalEntry, L: DraftLookups, only: string | null
         pair: null,
         when: cloneWhen(whenOfRule(r)),
         where: cloneWhere(whereOfRule(r)),
+        per: null,
         name: r.name?.trim() || null,
         orig: "",
         before: null
@@ -196,14 +205,76 @@ export function missing(D: Draft, L: DraftLookups): string {
 
 /** Gli errori che il database di oggi non lascerebbe passare. */
 export function invalid(D: Draft): string {
-    const p = D.when.period;
-    if (p && p.to < p.from) return "La fine del periodo viene prima dell'inizio";
-    const rs = D.when.ranges;
-    if (rs && rs.some(([a, b]) => b <= a)) return "Una fascia finisce prima di cominciare";
-    if (rs && !DB_TODAY.overnight && rs.some(([, b]) => b > 1440)) return "Dopo mezzanotte " + DB_LATER;
-    if (rs && !DB_TODAY.multiRange && rs.length > 1) return "Più fasce " + DB_LATER;
+    for (const w of D.per ? Object.values(D.per) : [D.when]) {
+        const p = w.period;
+        if (p && p.to < p.from) return "La fine del periodo viene prima dell'inizio";
+        const rs = w.ranges;
+        if (rs && rs.some(([a, b]) => b <= a)) return "Una fascia finisce prima di cominciare";
+        if (rs && !DB_TODAY.overnight && rs.some(([, b]) => b > 1440)) return "Dopo mezzanotte " + DB_LATER;
+        if (rs && !DB_TODAY.multiRange && rs.length > 1) return "Più fasce " + DB_LATER;
+    }
     if (!D.where.all && !D.where.activityIds.length && !D.where.groupIds.length) return "Scegli almeno una sede";
     return "";
+}
+
+/* ---------- le ore per sede (D145) ---------- */
+
+type SedeGruppi = readonly { id: string; activityIds: readonly string[] }[];
+
+/** Le sedi di oggi dentro un «dove», nell'ordine dell'elenco. */
+export function sediOf(w: CalWhere, sedi: readonly { id: string }[], groups: SedeGruppi): string[] {
+    if (w.all) return sedi.map(x => x.id);
+    const ids = new Set([...w.activityIds, ...groups.filter(g => w.groupIds.includes(g.id)).flatMap(g => g.activityIds)]);
+    return sedi.filter(x => ids.has(x.id)).map(x => x.id);
+}
+
+/**
+ * Le ore per sede rimesse in pari con le sedi scelte: chi resta tiene le sue,
+ * chi entra parte da `base`; con una sede sola non servono più.
+ */
+export function syncPer(per: Draft["per"], ids: readonly string[], base: CalWhen): Draft["per"] {
+    if (!per || ids.length < 2) return null;
+    return Object.fromEntries(ids.map(id => [id, per[id] ? cloneWhen(per[id]) : cloneWhen(base)]));
+}
+
+/** Le sedi raccolte per orario uguale, nell'ordine in cui compaiono. */
+export function perGroups(per: NonNullable<Draft["per"]>): { when: CalWhen; ids: string[] }[] {
+    const m = new Map<string, { when: CalWhen; ids: string[] }>();
+    for (const [id, w] of Object.entries(per)) {
+        const k = whenKey(w);
+        const g = m.get(k);
+        if (g) g.ids.push(id);
+        else m.set(k, { when: w, ids: [id] });
+    }
+    return [...m.values()];
+}
+
+/**
+ * La bozza come va salvata: una per ogni orario diverso, ognuna con le sue sedi.
+ * La prima tiene la regola di partenza (in modifica), le altre sono nuove.
+ * Se le ore per sede sono tutte uguali, una sola col «dove» di prima.
+ */
+export function draftParts(D: Draft): Draft[] {
+    if (!D.per) return [D];
+    const gs = perGroups(D.per);
+    if (gs.length < 2) return [{ ...D, per: null, when: cloneWhen(gs[0]?.when ?? D.when) }];
+    return gs.map((g, i) => ({
+        ...D,
+        per: null,
+        when: cloneWhen(g.when),
+        where: { all: false, activityIds: [...g.ids], groupIds: [] },
+        ...(i ? { mode: "add" as const, rule: null, only: null } : {})
+    }));
+}
+
+/** Il quando che conta per spostare la settimana: quello di tutte, o della prima sede. */
+export const mainWhen = (D: Draft): CalWhen => (D.per ? Object.values(D.per)[0] ?? D.when : D.when);
+
+/** «Porto e Centro: Lun–Ven 12–15 · Lido: Sempre» */
+export function perText(per: NonNullable<Draft["per"]>, L: DraftLookups): string {
+    return perGroups(per)
+        .map(g => listIt(g.ids.map(a => L.sedi.get(a) ?? "sede")) + ": " + durLabel(g.when))
+        .join(" · ");
 }
 
 /* ---------- le frasi ---------- */
@@ -264,6 +335,12 @@ export function whereFor(w: CalWhere, L: DraftLookups): string {
 }
 
 export function sentence(D: Draft, L: DraftLookups): string {
+    const what = (listIt(whatLines(D, L)) || "…") + ".";
+    if (D.per) return draftParts(D).map(P => whenWhere(P, L)).join("; ") + ": " + what;
+    return whenWhere(D, L) + ": " + what;
+}
+
+function whenWhere(D: Draft, L: DraftLookups): string {
     const w = D.when;
     const p = [
         w.period
@@ -275,7 +352,7 @@ export function sentence(D: Draft, L: DraftLookups): string {
     if (w.days) p.push(daysLong(w.days));
     if (w.ranges) p.push(listIt(w.ranges.map(([a, b]) => "dalle " + hhmm(a) + " alle " + hhmm(b))));
     if (L.multi) p.push(whereFor(D.where, L));
-    return p.join(", ") + ": " + (listIt(whatLines(D, L)) || "…") + ".";
+    return p.join(", ");
 }
 
 /** Il nome breve di quello che si modifica: i primi due piatti, o la cosa scelta. */
@@ -287,7 +364,7 @@ export function draftLabel(D: Draft, L: DraftLookups): string {
     return thingName(D, L) ?? "da scegliere";
 }
 
-export const autoName = (D: Draft, L: DraftLookups) => (isDish(D.kind) ? KIND_LABEL[D.kind] : thingName(D, L) ?? KIND_LABEL[D.kind]) + " · " + durLabel(D.when);
+export const autoName = (D: Draft, L: DraftLookups) => (isDish(D.kind) ? KIND_LABEL[D.kind] : thingName(D, L) ?? KIND_LABEL[D.kind]) + " · " + (D.per ? "ore diverse per sede" : durLabel(D.when));
 
 export const hoursText = (m: number) => {
     const h = Math.floor(m / 60), mm = m % 60;
@@ -332,7 +409,22 @@ export function timeFields(w: CalWhen) {
 
 /* ---------- l'anteprima: la bozza come voce del calendario ---------- */
 
-export const cloneDraft = (D: Draft): Draft => ({ ...D, picks: [...D.picks], prices: { ...D.prices }, when: cloneWhen(D.when), where: cloneWhere(D.where) });
+export const cloneDraft = (D: Draft): Draft => ({
+    ...D,
+    picks: [...D.picks],
+    prices: { ...D.prices },
+    when: cloneWhen(D.when),
+    where: cloneWhere(D.where),
+    per: D.per ? Object.fromEntries(Object.entries(D.per).map(([id, w]) => [id, cloneWhen(w)])) : null
+});
+
+/** Le voci dell'anteprima: una per ogni orario diverso, come verranno salvate. */
+export function draftEntries(D: Draft, L: DraftLookups, now: number): CalEntry[] {
+    return draftParts(D).flatMap((P, i) => {
+        const e = draftEntry(P, L, now);
+        return e ? [i ? { ...e, id: e.id + ":" + i } : e] : [];
+    });
+}
 
 /** La voce col bordo tratteggiato nel calendario; null finché non c'è niente da far vedere. */
 export function draftEntry(D: Draft, L: DraftLookups, now: number): CalEntry | null {
@@ -380,9 +472,9 @@ export function writeAside(d: Draft | null): void {
 }
 
 /** Solo cosa, quando e dove della bozza messa da parte. */
-export function peekAside(): Pick<Draft, "kind" | "when" | "where"> | null {
+export function peekAside(): Pick<Draft, "kind" | "when" | "where" | "per"> | null {
     const d = readAside();
-    return d && d.kind ? { kind: d.kind, when: d.when, where: d.where } : null;
+    return d && d.kind ? { kind: d.kind, when: d.when, where: d.where, per: d.per ?? null } : null;
 }
 
 export const dropAside = () => writeAside(null);

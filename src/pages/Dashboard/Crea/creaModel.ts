@@ -12,7 +12,7 @@
 import type { StoryBlock } from "@/services/supabase/stories";
 import type { FeaturedContentType } from "@/services/supabase/featuredContents";
 import type { FontFamily } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
-import { DB_LATER, DB_TODAY, daysLong, elides, listIt, mShort, whereFor, whereText, type DraftLookups } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
+import { DB_LATER, DB_TODAY, daysLong, elides, listIt, mShort, perGroups, perText, whereFor, whereText, type Draft, type DraftLookups } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import { durLabel, hhmm, type CalWhen, type CalWhere } from "@/pages/Dashboard/Programming/calendar/calendarModel";
 
 export type CreaKind = "menu" | "stile" | "evid" | "storia";
@@ -78,6 +78,8 @@ export type FromMenu = {
     productIds: string[];
     when: CalWhen;
     where: CalWhere;
+    /** Le ore per sede del menù, se le sedi non avevano le stesse ore (D145). */
+    per: Draft["per"];
 };
 
 export type Tunnel = {
@@ -122,6 +124,8 @@ export type Tunnel = {
     qmode: "sempre" | "momenti";
     when: CalWhen;
     where: CalWhere;
+    /** Le ore per sede, quando le sedi non hanno le stesse ore (D145, F1); null = le stesse. */
+    per: Draft["per"];
     from: FromMenu | null;
     /** Aperto da «Crea un menù nuovo» del Calendario con la bozza messa da parte: quando e dove vengono da lì. */
     aside: boolean;
@@ -168,22 +172,26 @@ export function newTunnel(kind: CreaKind, where: CalWhere, from: FromMenu | null
         qmode: from && (from.when.period || from.when.days || from.when.ranges) ? "momenti" : "sempre",
         when: from ? cloneWhen(from.when) : {},
         where: { all: w.all, activityIds: [...w.activityIds], groupIds: [...w.groupIds] },
+        per: clonePer(from?.per ?? null),
         from,
         aside: false
     };
 }
 
 /** Il tunnel aperto dal Calendario parte dal quando e dal dove della bozza messa da parte. */
-export function withAside(t: Tunnel, a: { when: CalWhen; where: CalWhere }): Tunnel {
+export function withAside(t: Tunnel, a: { when: CalWhen; where: CalWhere; per?: Draft["per"] }): Tunnel {
     const some = !!(a.when.period || a.when.days || a.when.ranges);
     return {
         ...t,
         qmode: some ? "momenti" : "sempre",
         when: some ? cloneWhen(a.when) : {},
         where: { all: a.where.all, activityIds: [...a.where.activityIds], groupIds: [...a.where.groupIds] },
+        per: clonePer(a.per ?? null),
         aside: true
     };
 }
+
+export const clonePer = (per: Draft["per"]): Draft["per"] => (per ? Object.fromEntries(Object.entries(per).map(([id, w]) => [id, cloneWhen(w)])) : null);
 
 export const cloneWhen = (w: CalWhen): CalWhen => ({
     ...(w.period ? { period: { ...w.period } } : {}),
@@ -222,11 +230,11 @@ export const STEP_LABEL: Record<StepId, string> = {
     racconto: "Il racconto",
     blocchi: "I blocchi",
     quando: "Quando",
-    dove: "Dove",
+    dove: "Dove e quando",
     controlla: "Controlla"
 };
 
-/** Chi crea e dove: `owner` gestisce il Calendario (Quando e Dove), `multi` ha più sedi. */
+/** Chi crea e dove: `owner` gestisce il Calendario (Dove e quando), `multi` ha più sedi. */
 export type Ctx = { owner: boolean; multi: boolean };
 
 export function steps(t: Tunnel, c: Ctx): StepId[] {
@@ -238,7 +246,8 @@ export function steps(t: Tunnel, c: Ctx): StepId[] {
               : t.kind === "evid"
                 ? ["cosa", "contenuto", ...(t.evType === "promo" || t.evType === "bundle" ? (["piatti"] as StepId[]) : [])]
                 : ["serve", "racconto", "blocchi"];
-    const when: StepId[] = c.owner ? [...(c.multi ? (["dove"] as StepId[]) : []), "quando"] : [];
+    // con più sedi un passo solo, «Dove e quando» (D145); con una, il Quando
+    const when: StepId[] = c.owner ? [c.multi ? "dove" : "quando"] : [];
     return [...content, ...when, "controlla"];
 }
 
@@ -292,6 +301,10 @@ export function blocker(t: Tunnel, step: StepId, c: Ctx): string {
             if (!t.where.all && !t.where.activityIds.length && !t.where.groupIds.length) return "Scegli almeno una sede";
             if (t.kind === "storia" && !STORIA_WHEN && !t.where.all && (t.where.groupIds.length || t.where.activityIds.length > 1))
                 return "Una storia in più sedi " + DB_LATER;
+            for (const w of t.per ? Object.values(t.per) : [effWhen(t)]) {
+                const why = whenProblem(w);
+                if (why) return why;
+            }
             return "";
         default:
             return "";
@@ -337,7 +350,11 @@ function what(t: Tunnel): string {
 
 /** «In una frase»: quando, dove e cosa succede. */
 export function sentence(t: Tunnel, L: DraftLookups): string {
-    const w = effWhen(t);
+    if (t.per) return perGroups(t.per).map(g => whenWords(g.when) + ", " + whereFor({ all: false, activityIds: g.ids, groupIds: [] }, L)).join("; ") + ": " + what(t) + ".";
+    return whenWords(effWhen(t)) + (L.multi ? ", " + whereFor(t.where, L) : "") + ": " + what(t) + ".";
+}
+
+function whenWords(w: CalWhen): string {
     const p = [
         w.period
             ? (elides(w.period.from) ? "Dall'" : "Dal ") + mShort(w.period.from) + (elides(w.period.to) ? " all'" : " al ") + mShort(w.period.to)
@@ -347,8 +364,7 @@ export function sentence(t: Tunnel, L: DraftLookups): string {
     ];
     if (w.days) p.push(daysLong(w.days));
     if (w.ranges) p.push(listIt(w.ranges.map(([a, b]) => "dalle " + hhmm(a) + " alle " + hhmm(b))));
-    if (L.multi) p.push(whereFor(t.where, L));
-    return p.join(", ") + ": " + what(t) + ".";
+    return p.join(", ");
 }
 
 const eur = (v: number) => v.toFixed(2).replace(".", ",") + " €";
@@ -400,7 +416,7 @@ export function stepSummary(t: Tunnel, s: StepId, L: DraftLookups, styleName: (i
         case "quando":
             return durLabel(effWhen(t));
         case "dove":
-            return whereText(t.where, L);
+            return t.per ? perText(t.per, L) : whereText(t.where, L) + " · " + durLabel(effWhen(t));
         default:
             return "";
     }
@@ -446,6 +462,7 @@ export function qcardText(t: Tunnel, step: StepId, L: DraftLookups, baseName: st
         case "controlla":
             return ["Così lo vede il cliente", "Dal momento in cui va in onda."];
         default:
+            if (t.per) return ["Ore diverse per sede", perText(t.per, L)];
             return [durLabel(effWhen(t)), L.multi ? whereText(t.where, L) : "Si cambia quando vuoi dal Calendario."];
     }
 }

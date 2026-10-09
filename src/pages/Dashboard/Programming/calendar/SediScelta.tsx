@@ -2,6 +2,7 @@ import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties
 import { createPortal } from "react-dom";
 import { Check, ChevronDown, Store } from "lucide-react";
 import { SearchInput } from "@/components/ui/Input/SearchInput";
+import { Switch } from "@/components/ui/Switch/Switch";
 import { ACTIVITY_SEARCH_THRESHOLD, filterActivityOptions } from "@/components/ui/ActivityMultiSelect/activityFilter";
 import s from "./CalendarioView.module.scss";
 
@@ -17,6 +18,8 @@ type PannelloProps = {
     min?: number;
     /** I gruppi aggiungono le loro sedi di oggi («Prendi le sedi di:») invece di prendere il loro posto. */
     take?: boolean;
+    /** Con tutte le sedi scelte: «Anche le sedi che aprirai» (la regola vale per tutte, anche le nuove). */
+    future?: { on: boolean; set: (on: boolean) => void };
 };
 
 /** «Trattoria centro +1», «Tutte le sedi · 30». */
@@ -31,7 +34,7 @@ function sediSummary(sedi: readonly SceltaSede[], value: readonly string[]): str
  * Il pannello delle sedi (D128 A, D129 3): ricerca sopra le 8 sedi, «Tutte»,
  * i gruppi, una casella per sede e «solo questa». Con 30 sedi come con 2.
  */
-export function SediPannello({ sedi, groups, value, onChange, min = 0, take = false }: PannelloProps) {
+export function SediPannello({ sedi, groups, value, onChange, min = 0, take = false, future }: PannelloProps) {
     const [query, setQuery] = useState("");
     const big = sedi.length > ACTIVITY_SEARCH_THRESHOLD;
     const list = filterActivityOptions([...sedi], query);
@@ -103,6 +106,9 @@ export function SediPannello({ sedi, groups, value, onChange, min = 0, take = fa
             </div>
             <div className={s.sft}>
                 {value.length} di {sedi.length} scelte
+                {future && sedi.length > 1 && value.length === sedi.length && (
+                    <Switch size="sm" label="Anche le sedi che aprirai" checked={future.on} onChange={future.set} containerClassName={s.sfut} />
+                )}
             </div>
         </>
     );

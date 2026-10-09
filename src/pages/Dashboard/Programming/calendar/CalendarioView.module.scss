@@ -407,33 +407,63 @@
     color: var(--text-muted);
 }
 
-/* il passo «Dove» (D130 A) */
-.dmodes {
+/* il passo «Dove e quando» (D145, G1) */
+.dqsedi {
+    max-width: 100%;
+    height: 34px;
+    @include type.fs(text);
+    .snm {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+}
+.sfut {
+    margin-top: 8px;
+}
+.dqrows {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 6px;
     align-self: stretch;
 }
-.dmode {
+.dqrow {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-surface);
+    background: var(--surface);
+    overflow: hidden;
+    &[data-open] {
+        border-color: var(--brand-primary);
+    }
+}
+.dqhd {
     display: flex;
-    align-items: center;
-    gap: 10px;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    width: 100%;
     border: 0;
     background: none;
     font: inherit;
-    @include type.fs(text);
-    font-weight: 500;
     color: var(--text);
-    padding: 7px 6px;
-    border-radius: var(--radius-control);
+    padding: 10px 12px;
     text-align: left;
     cursor: pointer;
-    small {
-        margin-left: auto;
-        @include type.fs(fine);
-        font-weight: 400;
+    b {
+        @include type.fs(text);
+        min-width: 90px;
+    }
+    span {
+        flex: 1 1 180px;
+        min-width: 0;
+        @include type.fs(small);
         color: var(--text-muted);
-        font-variant-numeric: tabular-nums;
+    }
+    em {
+        font-style: normal;
+        @include type.fs(small);
+        font-weight: 600;
+        color: var(--brand-primary);
     }
     &:hover {
         background: var(--hover-bg);
@@ -442,47 +472,36 @@
         outline: none;
         box-shadow: var(--shadow-focus);
     }
-}
-.dradio {
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    border: 1.5px solid var(--text-muted);
-    display: inline-grid;
-    place-items: center;
-    flex: none;
-    .dmode[aria-checked="true"] & {
-        border-color: var(--brand-primary);
-        &::after {
-            content: "";
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: var(--brand-primary);
-        }
+    .dqrow[data-open] & {
+        background: var(--hover-bg);
     }
 }
-.dsub {
+.dqin {
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    padding: 2px 0 6px 32px;
-    .chip small {
-        color: var(--text-muted);
-        font-variant-numeric: tabular-nums;
-    }
+    gap: 14px;
+    padding: 12px;
+    border-top: 1px solid var(--border);
 }
-.sinl {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    margin: 2px 0 4px;
-    padding: 8px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-surface);
-    background: var(--bg);
-    .slst {
-        max-height: 232px;
+.dqcopy {
+    margin: 0;
+    padding-top: 10px;
+    border-top: 1px dashed var(--border);
+    @include type.fs(small);
+    color: var(--text-muted);
+}
+.dqlink {
+    border: 0;
+    background: none;
+    padding: 0;
+    font: inherit;
+    color: var(--brand-primary);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    cursor: pointer;
+    &:focus-visible {
+        outline: none;
+        box-shadow: var(--shadow-focus);
     }
 }
 .sqk em {

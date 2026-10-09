@@ -41,7 +41,8 @@ import { SediBottone, type SceltaGruppo } from "./SediScelta";
 import {
     blankDraft,
     cloneDraft,
-    draftEntry,
+    draftEntries,
+    mainWhen,
     draftFromEntry,
     draftLabel,
     hoursText,
@@ -720,7 +721,7 @@ export default function CalendarioView({
         setBusy(true);
         try {
             await section.onSave(draft, L);
-            const pd = draft.when.period;
+            const pd = mainWhen(draft).period;
             if (pd && (pd.from > week + 6 || pd.to < week)) {
                 setWeek(pd.from - dayOfWeek(pd.from));
                 setDDay(dayOfWeek(pd.from));
@@ -749,18 +750,19 @@ export default function CalendarioView({
     };
 
     // l'anteprima: il calendario con la bozza dentro
-    const pvEntry = useMemo(() => (draft ? draftEntry(draft, L, nowDate.getTime()) : null), [draft, L, nowDate]);
+    const pvEntries = useMemo(() => (draft ? draftEntries(draft, L, nowDate.getTime()) : []), [draft, L, nowDate]);
+    const reaches = (id: string) => pvEntries.some(e => specFor(e, seatOf(id)) !== null);
     const pvList = useMemo(() => {
         if (!draft) return null;
         let list: CalEntry[] = entries;
         const r = draft.rule;
         if (r && draft.kind === "featured" && draft.only) list = list.filter(e => e.id !== `${r.id}:featured:${draft.only}`);
         else if (r && !draft.only) list = list.filter(e => !(e.ruleId === r.id && e.kind === draft.kind));
-        return pvEntry ? [...list, pvEntry] : list;
-    }, [draft, entries, pvEntry]);
+        return [...list, ...pvEntries];
+    }, [draft, entries, pvEntries]);
     const pvAx = useMemo(() => (pvList ? axisFor(pvList) : axis), [pvList, axis]);
-    const pvReach = pvEntry ? shown.filter(x => specFor(pvEntry, seatOf(x.id)) !== null) : shown;
-    const pvSedi = pvReach.length ? pvReach : pvEntry ? sedi.filter(x => specFor(pvEntry, seatOf(x.id)) !== null).slice(0, 1) : shown.slice(0, 1);
+    const pvReach = pvEntries.length ? shown.filter(x => reaches(x.id)) : shown;
+    const pvSedi = pvReach.length ? pvReach : pvEntries.length ? sedi.filter(x => reaches(x.id)).slice(0, 1) : shown.slice(0, 1);
 
     // cosa cambia nel calendario, nella settimana che si vede
     const effect = (): string[] => {
@@ -789,7 +791,7 @@ export default function CalendarioView({
                     days++;
                 }
             }
-            const out: string[] = [], pd = draft.when.period;
+            const out: string[] = [], pd = mainWhen(draft).period;
             if (!mins && !off)
                 out.push(`${wk} non c'è${pd && pd.from > week + 6 ? ": comincia " + (elides(pd.from) ? "l'" : "il ") + mShort(pd.from) : pd && pd.to < week ? ": è già finito" : ""}.`);
             else if (!mins) out.push(`${wk} non va mai in onda: lo copre ${listIt([...by].map(q))}.`);
@@ -900,7 +902,7 @@ export default function CalendarioView({
         </p>
     );
 
-    const pd = draft?.when.period;
+    const pd = draft ? mainWhen(draft).period : undefined;
     const away = !!pd && (pd.from > week + 6 || pd.to < week);
     const preview = draft && pvList && (
         <aside className={s.iprev} aria-label="Anteprima">
@@ -943,7 +945,7 @@ export default function CalendarioView({
             </div>
             <p className={s.dnote}>
                 Solo la corsia {KIND_LABEL[draft.kind]}, una linea per regola. Col bordo tratteggiato quello che stai {draft.mode === "edit" ? "modificando" : "aggiungendo"}: non è ancora salvato.
-                {multi && pvEntry && !pvReach.length && pvSedi[0] ? ` Nessuna delle sedi scelte nel calendario: si vede ${pvSedi[0].name}.` : ""}
+                {multi && pvEntries.length > 0 && !pvReach.length && pvSedi[0] ? ` Nessuna delle sedi scelte nel calendario: si vede ${pvSedi[0].name}.` : ""}
             </p>
         </aside>
     );

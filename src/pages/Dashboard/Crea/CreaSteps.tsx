@@ -1,5 +1,5 @@
 // I corpi dei passi dei tunnel, uno a uno dall'artifact (`bodyOf`). Il Quando
-// e il Dove sono quelli del Calendario (`QuandoPasso`, `DovePasso`); i blocchi
+// e il Dove sono quelli del Calendario (`QuandoPasso`, `DoveQuandoPasso`); i blocchi
 // della storia sono l'editor a blocchi di oggi.
 import { useId, useMemo, useState, type ReactNode } from "react";
 import { CalendarClock, CalendarHeart, Check, Copy, Infinity as InfinityIcon, Layers, Link2, Lock, Megaphone, Package, Palette, Plus, ScanText, ScrollText, Tag, Trash2, TriangleAlert, Upload, UtensilsCrossed, X } from "lucide-react";
@@ -12,7 +12,7 @@ import { StoryBlockEditor } from "@/pages/Dashboard/Stories/components/StoryBloc
 import { BLOCK_TYPE_META, BLOCK_TYPE_ORDER } from "@/pages/Dashboard/Stories/components/blocks/blockTypeMeta";
 import { createBlock } from "@/pages/Dashboard/Stories/components/createBlock";
 import type { StoryProductOptions } from "@/pages/Dashboard/Stories/components/StoryProductPicker";
-import { DovePasso, QuandoPasso, type PassoGruppo, type PassoSede } from "@/pages/Dashboard/Programming/calendar/CalendarioPassi";
+import { DoveQuandoPasso, QuandoPasso, type PassoGruppo, type PassoSede } from "@/pages/Dashboard/Programming/calendar/CalendarioPassi";
 import { DB_LATER, invalid, type Draft, type DraftLookups, type PickProduct } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import type { Axis, CalWhen } from "@/pages/Dashboard/Programming/calendar/calendarModel";
 import cal from "@/pages/Dashboard/Programming/calendar/CalendarioView.module.scss";
@@ -516,13 +516,13 @@ const KIND_TXT: Record<Tunnel["kind"], string> = {
     storia: "Le storie si aggiungono: più storie stanno insieme."
 };
 
-export function Quando({ t, u, draft, updDraft, durs, axis }: { t: Tunnel; u: U; draft: Draft | null; updDraft: (fn: (d: Draft) => void) => void; durs: readonly CalWhen[]; axis: Axis }) {
+type Upd = (fn: (d: Draft) => void) => void;
+
+/** Il Quando, con una sede sola; `bare` è solo «Sempre o in certi momenti», dentro «Dove e quando». */
+export function Quando({ t, u, draft, updDraft, durs, axis, bare }: { t: Tunnel; u: U; draft: Draft | null; updDraft: Upd; durs: readonly CalWhen[]; axis: Axis; bare?: boolean }) {
     const storia = t.kind === "storia";
-    return (
+    const choice = (
         <>
-            <Sh title="Quando">Quando lo vede il cliente. Si cambia quando vuoi dal Calendario.</Sh>
-            {t.from && <Inherited>Già compilato dal menù {q(t.from.name)}: puoi cambiarlo.</Inherited>}
-            {t.aside && <Inherited>Dalla bozza che hai tenuto da parte nel Calendario: puoi cambiarlo.</Inherited>}
             <div className={s.opts}>
                 <Opt on={t.qmode === "sempre"} icon={<InfinityIcon size={16} />} title="Sempre" text="Da subito, tutti i giorni, a tutte le ore." onClick={() => u(x => void (x.qmode = "sempre"))} />
                 <Opt
@@ -540,30 +540,57 @@ export function Quando({ t, u, draft, updDraft, durs, axis }: { t: Tunnel; u: U;
                     }
                 />
             </div>
-            {t.qmode === "momenti" && draft && (
-                <div className={cx(cal.root, s.calwrap)}>
+            {t.qmode === "momenti" &&
+                draft &&
+                // dentro «Dove e quando» la cornice del Calendario c'è già
+                (bare ? (
                     <QuandoPasso draft={draft} upd={updDraft} durs={durs} axis={axis} bad={invalid(draft)} />
-                </div>
-            )}
+                ) : (
+                    <div className={cx(cal.root, s.calwrap)}>
+                        <QuandoPasso draft={draft} upd={updDraft} durs={durs} axis={axis} bad={invalid(draft)} />
+                    </div>
+                ))}
+        </>
+    );
+    if (bare) return choice;
+    return (
+        <>
+            <Sh title="Quando">Quando lo vede il cliente. Si cambia quando vuoi dal Calendario.</Sh>
+            {t.from && <Inherited>Già compilato dal menù {q(t.from.name)}: puoi cambiarlo.</Inherited>}
+            {t.aside && <Inherited>Dalla bozza che hai tenuto da parte nel Calendario: puoi cambiarlo.</Inherited>}
+            {choice}
             <p className={s.hint}>{KIND_TXT[t.kind]}</p>
         </>
     );
 }
 
-export function Dove({ t, draft, updDraft, sedi, groups, L }: { t: Tunnel; draft: Draft; updDraft: (fn: (d: Draft) => void) => void; sedi: readonly PassoSede[]; groups: readonly PassoGruppo[]; L: DraftLookups }) {
-    const bad = invalid(draft);
-    const storiaBad = t.kind === "storia" ? blocker(t, "dove", { owner: true, multi: true }) : "";
+/** Dove e quando, con più sedi (D145): il passo del Calendario, col «Sempre» del tunnel dentro. */
+export function DoveQuando(p: { t: Tunnel; u: U; draft: Draft; updDraft: Upd; sedi: readonly PassoSede[]; groups: readonly PassoGruppo[]; L: DraftLookups; durs: readonly CalWhen[]; axis: Axis }) {
+    const { t, draft } = p;
+    const storia = t.kind === "storia";
+    const storiaBad = storia ? blocker(t, "dove", { owner: true, multi: true }) : "";
     return (
         <>
-            <Sh title="Dove">In quali sedi lo vede il cliente.</Sh>
-            {t.from && <Inherited>Le stesse sedi del menù {q(t.from.name)}: puoi cambiarle.</Inherited>}
-            {t.aside && <Inherited>Le sedi della bozza che hai tenuto da parte nel Calendario: puoi cambiarle.</Inherited>}
+            <Sh title="Dove e quando">In quali sedi e quando lo vede il cliente. Si cambia quando vuoi dal Calendario.</Sh>
+            {t.from && <Inherited>Già compilato dal menù {q(t.from.name)}: puoi cambiarlo.</Inherited>}
+            {t.aside && <Inherited>Dalla bozza che hai tenuto da parte nel Calendario: puoi cambiarlo.</Inherited>}
             <div className={cx(cal.root, s.calwrap)}>
-                <DovePasso draft={draft} upd={updDraft} sedi={sedi} groups={groups} L={L} bad={bad} />
+                <DoveQuandoPasso
+                    draft={draft}
+                    upd={p.updDraft}
+                    sedi={p.sedi}
+                    groups={p.groups}
+                    L={p.L}
+                    bad={invalid(draft)}
+                    durs={p.durs}
+                    axis={p.axis}
+                    split={!storia}
+                    quando={<Quando bare t={t} u={p.u} draft={draft} updDraft={p.updDraft} durs={p.durs} axis={p.axis} />}
+                />
             </div>
-            {t.kind === "storia" && (
-                <p className={s.hint}>{storiaBad ? <Warnish>{storiaBad}.</Warnish> : `Oggi una storia va in tutte le sedi o in una sola; per alcune sedi ${DB_LATER}.`}</p>
-            )}
+            <p className={s.hint}>
+                {storia ? storiaBad ? <Warnish>{storiaBad}.</Warnish> : `Oggi una storia va in tutte le sedi o in una sola; per alcune sedi ${DB_LATER}.` : KIND_TXT[t.kind]}
+            </p>
         </>
     );
 }
