@@ -16,6 +16,9 @@ type OtpCheckReason = "bootstrap" | "refresh" | "force";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
+    // Utente corrente letto dal listener di auth (che non vede lo state).
+    const userRef = useRef<User | null>(null);
+    userRef.current = user;
     const [loading, setLoading] = useState(true);
 
     const [otpVerified, setOtpVerified] = useState(false);
@@ -164,6 +167,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 // «Nessuna sessione» (pagina di login) è un esito, non un errore.
                 if (res.error && !isDefinitiveNoSession(res.error)) console.error("[auth] init getUser failed (user from %s):", res.source, res.error);
 
+                // Se nel frattempo il listener ha già ripreso l'utente (token
+                // rinnovato mentre init aspettava), un esito vuoto per rete o
+                // timeout non lo toglie. Un «nessuna sessione» del server sì
+                // (utente cancellato, token revocato): si esce.
+                if (!res.user && userRef.current && res.error && !isDefinitiveNoSession(res.error)) return;
                 setUser(res.user);
 
                 // IMPORTANTISSIMO:
@@ -202,6 +210,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
 
             if (event === "INITIAL_SESSION" || event === "TOKEN_REFRESHED") {
+                // Avvio con token scaduto e rete lenta: init può finire senza
+                // utente (e la pagina va al login) mentre auth-js rinnova il
+                // token poco dopo. Se qui l'utente manca, si riprende.
+                if (session?.user && !userRef.current) {
+                    setUser(session.user);
+                    void checkOtpForUser("bootstrap");
+                }
                 return;
             }
 
