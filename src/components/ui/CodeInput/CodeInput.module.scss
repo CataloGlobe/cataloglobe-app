@@ -1,0 +1,118 @@
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text);
+}
+
+// Un solo input vero sopra le caselle: si scrive, si cancella e si incolla
+// come in un campo normale, e il telefono propone il codice dalla mail
+// (autocomplete one-time-code). Le caselle sono solo il disegno.
+.field {
+  position: relative;
+}
+
+.boxes {
+  display: grid;
+  grid-template-columns: repeat(var(--code-length, 6), minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.box {
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--card-bg);
+  color: var(--text);
+  font-size: 1.5rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.active {
+  border-color: var(--brand-primary);
+  box-shadow: var(--shadow-focus);
+}
+
+.invalid .box {
+  border-color: var(--danger);
+}
+
+.disabled .box {
+  background: var(--color-bg-subtle);
+  color: var(--text-muted);
+}
+
+.input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  border: 0;
+  // 16px: sotto, Safari su iPhone fa zoom sulla pagina quando il campo prende il focus.
+  font-size: 16px;
+  caret-color: transparent;
+  cursor: text;
+
+  &:disabled {
+    cursor: not-allowed;
+  }
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.action {
+  min-height: 36px;
+  padding: 0 0.75rem;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--brand-primary-soft);
+  color: var(--brand-primary-hover);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    background: var(--brand-primary-soft-hover);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-focus);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.secondary {
+  background: var(--color-bg-subtle);
+  color: var(--text-muted);
+
+  &:hover:not(:disabled) {
+    background: var(--hover-bg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .box {
+    transition: none;
+  }
+}

@@ -1,5 +1,6 @@
 import { supabase } from "@/services/supabase/client";
 import { CURRENT_CONSENT_VERSIONS } from "@/config/consentVersions";
+import { clearSignupLeftovers } from "@/utils/pendingRedirect";
 
 type SignUpProfile = {
     first_name?: string;
@@ -62,6 +63,7 @@ export async function signOut(options?: { everywhere?: boolean }) {
     if (error) throw error;
     if (typeof window !== "undefined") {
         sessionStorage.removeItem("passwordRecoveryFlow");
+        clearSignupLeftovers();
     }
 }
 
@@ -79,6 +81,15 @@ export async function resetPassword(email: string) {
     const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: redirectUrl
     });
+    if (error) throw error;
+    return data;
+}
+
+// Conferma della registrazione con il codice della mail (lo stesso messaggio
+// porta anche il link). Va a buon fine → sessione aperta, e il trigger su
+// auth.users conta la conferma come verifica OTP per 30 giorni.
+export async function verifySignupCode(email: string, token: string) {
+    const { data, error } = await supabase.auth.verifyOtp({ email, token, type: "signup" });
     if (error) throw error;
     return data;
 }

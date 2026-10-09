@@ -104,9 +104,12 @@ test.describe("Verifica OTP", () => {
             { status: 200, json: { ...NO_CODE, attempts_used: 0, attempts_left: 5, max_attempts: 5, expires_in: 480 } },
             { status: 400, json: { error: "invalid_or_expired", attempts_left: 3, max_attempts: 5 } }
         );
-        const inputs = page.locator("input[inputmode=numeric]");
-        for (let i = 0; i < 6; i++) await inputs.nth(i).fill(String(i + 1));
-        await page.getByRole("button", { name: "Verifica" }).click();
+        // Un solo campo: sei cifre e la verifica parte da sola.
+        // Incollato con spazi e testo intorno, come arriva da una mail: contano le cifre.
+        await page.locator("#otp-code").fill("Codice: 123 456");
         await expect(page.getByText("Codice non valido. Tentativi rimasti: 3.").first()).toBeVisible();
+        // Codice sbagliato: il campo si svuota e torna il focus, si riscrive da capo.
+        await expect(page.locator("#otp-code")).toHaveValue("");
+        await expect(page.locator("#otp-code")).toBeFocused();
     });
 });

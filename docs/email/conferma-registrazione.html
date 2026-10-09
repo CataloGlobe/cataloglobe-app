@@ -1,0 +1,27 @@
+<!--
+  Modello «Confirm signup» del pannello Supabase (Authentication → Emails).
+  Non è letto dal codice: si copia a mano nel pannello, prima su staging.
+  Oggetto: Il tuo codice CataloGlobe: {{ .Token }}
+
+  {{ .Token }}: il codice di 6 cifre che si scrive in /check-email.
+  Il link porta a /email-confirmed con token_hash e type, il formato che
+  src/utils/confirmationLink.ts legge già (va bene anche il link di oggi con
+  confirmation_url). Codice e link sono la stessa conferma: vale il primo usato.
+-->
+<div style="margin:0;padding:24px 16px;background:#f8fafc;font-family:Inter,Helvetica,Arial,sans-serif;color:#0f172a;">
+  <div style="max-width:480px;margin:0 auto;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:32px 24px;">
+    <h1 style="margin:0 0 8px;font-size:22px;line-height:30px;font-weight:700;">Conferma la tua email</h1>
+    <p style="margin:0 0 24px;font-size:15px;line-height:22px;color:#475569;">
+      Scrivi questo codice nella pagina di CataloGlobe che hai aperto, oppure tocca il bottone qui sotto. Con l'uno o con l'altro entri subito.
+    </p>
+    <p style="margin:0 0 24px;padding:16px;background:#f1f5f9;border-radius:8px;text-align:center;font-size:32px;line-height:40px;font-weight:700;letter-spacing:8px;font-variant-numeric:tabular-nums;">
+      {{ .Token }}
+    </p>
+    <p style="margin:0 0 24px;text-align:center;">
+      <a href="{{ .SiteURL }}/email-confirmed?token_hash={{ .TokenHash }}&amp;type=signup" style="display:inline-block;padding:12px 24px;background:#6366f1;color:#ffffff;border-radius:8px;font-size:15px;font-weight:600;text-decoration:none;">Conferma ed entra</a>
+    </p>
+    <p style="margin:0;font-size:13px;line-height:20px;color:#64748b;">
+      Se non hai creato tu un account su CataloGlobe, ignora questa email.
+    </p>
+  </div>
+</div>

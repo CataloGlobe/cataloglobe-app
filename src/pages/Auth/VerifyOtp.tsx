@@ -2,8 +2,6 @@ import {
     useState,
     useEffect,
     useRef,
-    type KeyboardEvent,
-    type ClipboardEvent,
     type FormEvent,
     useCallback
 } from "react";
@@ -13,9 +11,8 @@ import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "@/services/supabase/client";
 import { useAuth } from "@/context/useAuth";
 import { useToast } from "@/context/Toast/ToastContext";
-import { Button } from "@/components/ui";
+import { Button, CodeInput, type CodeInputHandle } from "@/components/ui";
 import Text from "@/components/ui/Text/Text";
-import { TextInput } from "@/components/ui/Input/TextInput";
 import type { OtpStatus, VerifyOtpResponse } from "@/types/otp";
 import { readVerifyOtpError } from "@/utils/otpErrors";
 import { AuthLayout } from "@/layouts/AuthLayout/AuthLayout";
@@ -149,7 +146,7 @@ export default function VerifyOtp() {
     // Senza deep link nello stato, quello salvato prima della registrazione (invito).
     const redirectAfterOtp = internalPathOr(fromState ?? peekPendingRedirect(), '/dashboard');
 
-    const [digits, setDigits] = useState<string[]>(Array(OTP_LENGTH).fill(""));
+    const [otpCode, setOtpCode] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [info, setInfo] = useState<string | null>(null);
@@ -161,7 +158,7 @@ export default function VerifyOtp() {
     const [locked, setLocked] = useState(false);
     const [userEmail, setUserEmail] = useState<string | null>(null);
 
-    const inputsRef = useRef<Array<HTMLInputElement | null>>([]);
+    const codeRef = useRef<CodeInputHandle>(null);
     const hasRequestedOtpRef = useRef(false);
     // Esito dell'ultimo status-otp: c'è già un codice valido (o il blocco)?
     // Serve all'invio automatico per non bruciare un codice ancora buono.
@@ -342,55 +339,8 @@ export default function VerifyOtp() {
      * AUTOFOCUS
      * ------------------------------------------------------------------ */
     useEffect(() => {
-        inputsRef.current[0]?.focus();
+        codeRef.current?.focus();
     }, []);
-
-    /* ------------------------------------------------------------------
-     * INPUT HANDLING
-     * ------------------------------------------------------------------ */
-    const handleChangeDigit = (index: number, value: string) => {
-        if (!/^\d?$/.test(value)) return;
-
-        const next = [...digits];
-        next[index] = value;
-        setDigits(next);
-
-        if (value && index < OTP_LENGTH - 1) {
-            inputsRef.current[index + 1]?.focus();
-        }
-
-        if (next.join("").length === OTP_LENGTH) {
-            void handleVerify(next.join(""));
-        }
-    };
-
-    const handleKeyDown = (index: number, e: KeyboardEvent<HTMLInputElement>) => {
-        if (e.key === "Backspace") {
-            if (digits[index]) {
-                const next = [...digits];
-                next[index] = "";
-                setDigits(next);
-                return;
-            }
-            if (index > 0) inputsRef.current[index - 1]?.focus();
-        }
-    };
-
-    const handlePaste = (e: ClipboardEvent<HTMLInputElement>) => {
-        e.preventDefault();
-        const paste = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, OTP_LENGTH);
-        if (!paste) return;
-
-        const next = Array(OTP_LENGTH).fill("");
-        for (let i = 0; i < paste.length; i++) next[i] = paste[i];
-
-        setDigits(next);
-        inputsRef.current[Math.min(paste.length, OTP_LENGTH) - 1]?.focus();
-
-        if (paste.length === OTP_LENGTH) {
-            void handleVerify(paste);
-        }
-    };
 
     /* ------------------------------------------------------------------
      * VERIFICA OTP
@@ -398,7 +348,7 @@ export default function VerifyOtp() {
     async function handleVerify(codeOverride?: string) {
         if (loading) return;
 
-        const code = codeOverride ?? digits.join("");
+        const code = codeOverride ?? otpCode;
         if (code.length !== OTP_LENGTH) return;
 
         try {
@@ -455,6 +405,9 @@ export default function VerifyOtp() {
                         });
 
                         setError(message);
+                        // Codice sbagliato: si riparte da capo, senza dover correggere cifra per cifra.
+                        setOtpCode("");
+                        codeRef.current?.focus();
                         break;
                     }
 
@@ -523,12 +476,12 @@ export default function VerifyOtp() {
         // Invio chiesto a mano: il codice di prima non conta più come «attivo».
         activeCodeRef.current = false;
 
-        setDigits(Array(OTP_LENGTH).fill(""));
+        setOtpCode("");
         setInfo(null);
         setError(null);
         setAttemptsLeft(null);
 
-        inputsRef.current[0]?.focus();
+        codeRef.current?.focus();
 
         await sendOtp();
         await loadOtpStatus();
@@ -551,27 +504,20 @@ export default function VerifyOtp() {
                         void handleVerify();
                     }}
                 >
-                    <span className={styles.otpLabel}>Codice a 6 cifre</span>
-                    <div className={styles.otpInputs}>
-                        {digits.map((digit, index) => (
-                            <TextInput
-                                key={index}
-                                ref={el => {
-                                    inputsRef.current[index] = el;
-                                }}
-                                className={styles.otpInput}
-                                inputMode="numeric"
-                                maxLength={1}
-                                value={digit}
-                                disabled={loading}
-                                onChange={e => handleChangeDigit(index, e.target.value)}
-                                onKeyDown={e => handleKeyDown(index, e)}
-                                onPaste={index === 0 ? handlePaste : undefined}
-                            />
-                        ))}
-                    </div>
+                    <CodeInput
+                        ref={codeRef}
+                        id="otp-code"
+                        label="Codice a 6 cifre"
+                        length={OTP_LENGTH}
+                        value={otpCode}
+                        onChange={setOtpCode}
+                        onComplete={code => void handleVerify(code)}
+                        disabled={loading}
+                        invalid={!!error}
+                        describedBy={error ? "otp-feedback" : undefined}
+                    />
                     {error && (
-                        <Text variant="caption" colorVariant="error" className={styles.feedback}>
+                        <Text id="otp-feedback" variant="caption" colorVariant="error" className={styles.feedback}>
                             {error}
                         </Text>
                     )}

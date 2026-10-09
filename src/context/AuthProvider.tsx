@@ -3,6 +3,7 @@ import { supabase } from "@services/supabase/client";
 import { AuthContext } from "./AuthContextBase";
 import { isDefinitiveNoSession, resolveBootstrapUser, runWithRetry, withTimeout } from "./authRetry";
 import type { User } from "@supabase/supabase-js";
+import { clearSignupLeftovers } from "@/utils/pendingRedirect";
 
 // Budget e timeout. Single source of truth — i 4s singolo-shot pre-fix
 // facevano scattare lo schermo bloccante al primo blip Wi-Fi.
@@ -237,6 +238,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // 2026-10-09). «Esci da tutti i dispositivi» sta in services/auth.
         otpReqIdRef.current++;
         await supabase.auth.signOut({ scope: "local" });
+        clearSignupLeftovers();
         setUser(null);
         setOtpVerified(false);
         setOtpLoading(false);
