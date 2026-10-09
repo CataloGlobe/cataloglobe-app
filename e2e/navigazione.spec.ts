@@ -333,9 +333,9 @@ test.describe("Aspetto della sidebar (§51.15)", () => {
 test.describe("Header: percorso e selettore di sede (§51.7, §51.8)", () => {
     const banner = (page: Page) => page.getByRole("banner");
 
-    /** Il nome della sede dalla sua pagina: la Scheda lo ha nel campo «Nome del locale». */
+    /** Il nome della sede dalla sua pagina: la parte «locale» della Scheda lo ha nel campo «Nome del locale». */
     async function sedeName(page: Page, path: string): Promise<string> {
-        await page.goto(`${path}/anagrafica`);
+        await page.goto(`${path}/anagrafica?parte=locale`);
         const field = page.getByRole("textbox", { name: /Nome del locale/ });
         await expect(field).not.toHaveValue("", { timeout: 15_000 });
         return field.inputValue();
@@ -600,8 +600,8 @@ test.describe("Atterraggio (§51.6) e indirizzi (§51.14)", () => {
             [paths[1], "orders", "comande"],
             [paths[0], "reservations", "prenotazioni"]
         ] as const) {
-            await page.goto(`${sede}/anagrafica`);
-            // Dentro la sede, a sede caricata: la Scheda ha il nome del locale.
+            await page.goto(`${sede}/anagrafica?parte=locale`);
+            // Dentro la sede, a sede caricata: la parte «locale» della Scheda ha il nome.
             await expect(page.getByRole("textbox", { name: /Nome del locale/ })).not.toHaveValue("", { timeout: 15_000 });
             await expect(placeSwitcher(page)).not.toHaveAccessibleName(/Tutte le sedi/);
             await page.goto(`${root}/${legacy}`);
