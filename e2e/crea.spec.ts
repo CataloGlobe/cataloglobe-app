@@ -159,9 +159,10 @@ test.describe("Tunnel di creazione — menù", () => {
         await button(page, /^Solo in certi momenti/).click();
         await expect(main(page).getByText("Anteprima · Menù")).toBeVisible();
         await next(page);
-        // Dove: solo Porto
-        await main(page).getByRole("checkbox", { name: "Centro e2e" }).click();
-        await main(page).getByRole("checkbox", { name: "Lago e2e" }).click();
+        // Dove (il passo del Calendario, D130): «Sedi scelte» parte vuoto, poi solo Porto
+        await main(page).getByRole("radio", { name: /^Sedi scelte/ }).click();
+        await expect(main(page).getByText("Scegli almeno una sede").first()).toBeVisible();
+        await main(page).getByRole("button", { name: "Solo Porto e2e" }).click();
         await next(page);
         await expect(main(page).getByRole("heading", { name: "Controlla" })).toBeVisible();
         await expect(main(page).getByText(/dal lunedì al venerdì, dalle 12:00 alle 15:00/)).toBeVisible();
@@ -269,6 +270,7 @@ test.describe("Tunnel di creazione — menù", () => {
         await expect(button(page, /^Solo in certi momenti/)).toHaveAttribute("aria-pressed", "true");
         await expect(main(page).getByText("Dalla bozza che hai tenuto da parte nel Calendario: puoi cambiarlo.")).toBeVisible();
         await next(page);
+        await expect(main(page).getByRole("radio", { name: /^Sedi scelte/ })).toBeChecked();
         await expect(main(page).getByRole("checkbox", { name: "Porto e2e" })).toBeChecked();
         await expect(main(page).getByRole("checkbox", { name: "Centro e2e" })).not.toBeChecked();
         // uscire senza salvare lascia la bozza dov'è
