@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { Logo } from "@/components/ui/Logo/Logo";
 import Text from "@/components/ui/Text/Text";
 import { COMPANY } from "@/config/company";
+import { useTheme } from "@/context/Theme/useTheme";
 import { AuthBackdrop } from "./AuthBackdrop";
 import { calmAuthBackdrop, pulseAuthBackdrop } from "./backdropWaves";
 import styles from "./AuthLayout.module.scss";
@@ -40,12 +41,14 @@ function pulseOnBackground(e: React.PointerEvent) {
  * sopra e una scheda al centro (mockup approvati da Lorenzo il 2026-10-09).
  */
 export function AuthLayout({ children, heading, lead, icon, tone = "brand", aside }: AuthLayoutProps) {
+  // Logo nel viola del marchio; nel tema scuro resta bianco, il viola pieno lì si legge poco.
+  const { theme } = useTheme();
   return (
     <div className={styles.wrapper} onPointerDown={pulseOnBackground}>
       <AuthBackdrop />
       <header className={styles.header}>
         <Link to="/" className={styles.logoLink} aria-label="CataloGlobe home">
-          <Logo variant="lockup-horizontal" color="auto" size={32} className={styles.logoImg} />
+          <Logo variant="lockup-horizontal" color={theme === "dark" ? "mono-white" : "flat"} size={32} className={styles.logoImg} />
         </Link>
         {aside && <div className={styles.aside}>{aside}</div>}
       </header>
@@ -53,10 +56,10 @@ export function AuthLayout({ children, heading, lead, icon, tone = "brand", asid
       <main className={styles.main}>
         {/* Con l'icona (pagine di stato, codice, password) la scheda è corta:
             sul telefono non sale fino in fondo, resta al centro. */}
-        <div className={`${styles.column} ${icon ? styles.columnCompact : ""}`}>
+        <div className={styles.column}>
           {heading && (
             <div
-              className={`${styles.hero} ${icon ? styles.heroCentered : ""}`}
+              className={styles.hero}
               role={children ? undefined : "status"}
               data-auth-hero
             >
