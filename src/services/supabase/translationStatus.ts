@@ -129,7 +129,7 @@ export async function getFieldTranslationStatus(
             .eq("field", field)
             .eq("source_hash", sourceHash),
         // Tutte le translations del campo (qualunque source_hash): serve per
-        // distinguere fresh (= corrente) da stale (= manual indietro).
+        // distinguere fresh (= corrente) da stale (= rimasta indietro).
         supabase
             .from("translations")
             .select("language_code, status, source_hash")
@@ -145,13 +145,22 @@ export async function getFieldTranslationStatus(
     const jobs = jobsRes.data ?? [];
     const translations = translationsRes.data ?? [];
 
-    const doneCount = translations.filter(tr => tr.source_hash === sourceHash).length;
-    const staleCount = translations.filter(
-        tr =>
-            (tr.status === "manual" || tr.status === "overridden") &&
-            tr.source_hash !== sourceHash
-    ).length;
     // Stati del DB (translation_jobs_status_check): pending · processing · done · failed.
+    const hasOpenJob = (code: string) =>
+        jobs.some(
+            j =>
+                j.target_language_code === code &&
+                (j.status === "pending" || j.status === "processing" || j.status === "failed")
+        );
+    // Indietro rispetto al sorgente: manuale/sovrascritta (non la rifà il
+    // worker), oppure automatica senza job aperto (enqueue perso). Stesso
+    // criterio della tab Traduzioni e di get_stale_translations.
+    const isStale = (tr: { language_code: string; status: string; source_hash: string | null }) =>
+        tr.source_hash !== sourceHash &&
+        (tr.status === "manual" || tr.status === "overridden" || !hasOpenJob(tr.language_code));
+
+    const doneCount = translations.filter(tr => tr.source_hash === sourceHash).length;
+    const staleCount = translations.filter(isStale).length;
     const errorCount = jobs.filter(j => j.status === "failed").length;
     const pendingCount = jobs.filter(j => j.status === "pending" || j.status === "processing").length;
     const lastErrorJob = jobs.find(j => j.status === "failed" && j.last_error);
@@ -164,7 +173,7 @@ export async function getFieldTranslationStatus(
         if (job?.status === "pending" || job?.status === "processing") return { code, state: "pending" };
         const tr = translations.find(t => t.language_code === code);
         if (tr?.source_hash === sourceHash) return { code, state: "done" };
-        if (tr && (tr.status === "manual" || tr.status === "overridden")) return { code, state: "stale" };
+        if (tr && isStale(tr)) return { code, state: "stale" };
         return { code, state: "missing" };
     });
 
