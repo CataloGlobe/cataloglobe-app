@@ -81,6 +81,7 @@ import PairingUpsellSheet, { type UpsellPairing } from "../PairingUpsellSheet/Pa
 import PublicOpeningHours from "../PublicOpeningHours/PublicOpeningHours";
 import { submitOrder, subscribeToSessionOrders } from "@/services/supabase/orders";
 import { subscribeToCustomerSession } from "@/services/supabase/customerSessions";
+import { createCustomerSessionRealtimeHandlers } from "./customerSessionRealtime";
 import { useOptionalCustomerSession } from "@/context/CustomerSession/useCustomerSession";
 import type { OrderItemRequest, SubmitOrderResult, OrderingStateReason } from "@/types/orders";
 import type { RealtimeChannel } from "@supabase/supabase-js";
@@ -1535,33 +1536,15 @@ export default function CollectionView({
         if (!jwt) return;
 
         let channel: RealtimeChannel | null = null;
-        channel = subscribeToCustomerSession(jwt, {
-            onUpdate: updatedSession => {
-                setBillRequestedAt(updatedSession.bill_requested_at ?? null);
-                setWaiterCalledAt(updatedSession.waiter_called_at ?? null);
-                const expiresAt = updatedSession.expires_at;
-                if (expiresAt && new Date(expiresAt).getTime() <= Date.now()) {
-                    // Idempotente: setta solo se nessun maintenance gia attivo.
-                    setDiscoveredMaintenance(prev => prev ?? {
-                        reason: "table_closed",
-                        message: t("ordering.err_service_ended")
-                    });
-                }
-            },
-            onError: err => {
-                // Channel-error/timeout è TRANSITORIO (blip di rete, riconnessione
-                // WS): NON è un segnale autoritativo di invalidità sessione. Gestione
-                // non-distruttiva — mai toccare sessionStorage né lo stato sessione,
-                // altrimenti un blip slogga il cliente a metà ordine (carrello /
-                // ordinazione / chiama-cameriere spariscono). L'invalidazione resta
-                // riservata ai path autoritativi: onUpdate con expires_at <= now
-                // (maintenance "table_closed") e il 401 SESSION_EXPIRED al submit.
-                console.warn(
-                    "[CollectionView] customer_sessions realtime channel error (transient, session preserved):",
-                    err.message
-                );
-            }
-        });
+        channel = subscribeToCustomerSession(
+            jwt,
+            createCustomerSessionRealtimeHandlers({
+                setBillRequestedAt,
+                setWaiterCalledAt,
+                setDiscoveredMaintenance,
+                serviceEndedMessage: () => t("ordering.err_service_ended")
+            })
+        );
 
         return () => {
             channel?.unsubscribe();
