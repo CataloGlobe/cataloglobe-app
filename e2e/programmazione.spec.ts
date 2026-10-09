@@ -1,7 +1,7 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { asRole } from "./asRole";
 import { openBusinessPage } from "./business";
-import { sidebarLink } from "./nav";
+import { sectionRow, sidebarLink } from "./nav";
 import { MATRIX_RULE_NAME, MENU, MISSING_RULE, PRODUCT, RULE, RULE_NAME, SEDE, STYLE, StubError, TENANT_ID, stubProgrammazione, type ProgrammazioneStub, type WriteCall } from "./programmazioneStub";
 
 /**
@@ -540,7 +540,7 @@ test.describe("Programmazione — ruolo di sede, decide il database", () => {
 
 // «Sede» nella barra del Calendario: il bottone dice cosa si guarda (D150 E)
 // «Sede» e «Confronta con» in alto a destra, come nelle altre pagine (D152).
-const sedeBtn = (page: Page) => page.getByRole("button", { name: /^Sede\s/ });
+const sedeBtn = (page: Page) => page.getByRole("button", { name: /^Sede(?!i)/ });
 const confrontaBtn = (page: Page) => page.getByRole("button", { name: /^Confronta con/ });
 async function guarda(page: Page, name: string) {
     await sedeBtn(page).click();
@@ -1241,15 +1241,17 @@ test.describe("Programmazione — dettaglio", () => {
     test("uscire con modifiche non salvate chiede: «Resta» resta, «Esci senza salvare» esce", async ({ page }) => {
         await openRule(page, "aperitivo");
         await main(page).getByRole("textbox", { name: /Nome/ }).fill("Aperitivo lungo e2e");
-        await (await sidebarLink(page, "Prodotti")).click();
+        // Il clic su una sezione porta alla sua ultima parte: già lì si chiede.
+        const altrove = sectionRow(page, "Menù e vetrina");
+        await altrove.click();
         const guard = dialog(page);
         await expect(guard.getByText(/modifiche non salvate/i).first()).toBeVisible();
         await guard.getByRole("button", { name: "Resta" }).click();
         await expect(page).toHaveURL(new RegExp(`/scheduling/${RULE.aperitivo}`));
         await expect(main(page).getByRole("textbox", { name: /Nome/ })).toHaveValue("Aperitivo lungo e2e");
-        await (await sidebarLink(page, "Prodotti")).click();
+        await altrove.click();
         await dialog(page).getByRole("button", { name: "Esci senza salvare" }).click();
-        await expect(page).toHaveURL(/\/products/);
+        await expect(page).not.toHaveURL(/\/scheduling/);
     });
 
     test("senza scrittura il dettaglio è in sola lettura e uscire non chiede niente", async ({ page }) => {

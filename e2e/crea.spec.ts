@@ -241,9 +241,9 @@ test.describe("Tunnel di creazione — menù", () => {
 
     test("dal Calendario: «Crea un menù nuovo» tiene da parte la bozza e apre il tunnel", async ({ page }) => {
         await openBusinessPageByUrl(page, "scheduling?type=layout");
-        await expect(async () => {
-            await main(page).getByRole("radio", { name: "Calendario", exact: true }).or(main(page).getByRole("button", { name: "Calendario", exact: true })).filter({ visible: true }).first().click({ timeout: 2_000 });
-        }).toPass({ timeout: 15_000 });
+        // Calendario e Regole sono le parti della sezione: tab nella barra del titolo.
+        await page.getByRole("navigation", { name: "Parti di Calendario" }).getByRole("link", { name: "Calendario", exact: true }).click();
+        await expect(page).toHaveURL(/[?&]vista=calendario/);
         await main(page).getByRole("button", { name: "Aggiungi", exact: true }).click();
         await main(page).getByRole("button", { name: /^Menù/ }).first().click();
         await expect(main(page).getByText("Si crea nel tunnel di creazione, dove scegli se è classico o multi: si esce dal Calendario.")).toBeVisible();
