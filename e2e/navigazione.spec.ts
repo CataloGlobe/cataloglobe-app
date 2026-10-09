@@ -71,6 +71,8 @@ test.describe("Sidebar (§51.5, sezioni dell'Officina)", () => {
         await expect
             .poll(() => sidebarShape(page), { timeout: 15_000 })
             .toEqual(["Panoramica", "Sedi", CATALOGO, PAGINA_PUBBLICA, [ANDAMENTO, ["Analitiche", "Recensioni", "Clienti"]]]);
+        // Su Prodotti il pulsante dell'account non è «dove sono».
+        await expect(accountButton(page)).not.toHaveAttribute("aria-current", "page");
         // L'account in fondo: Impostazioni, Team, Abbonamento, Lingue, Assistenza.
         expect(await accountPages(page)).toEqual(["Impostazioni", "Team", "Abbonamento", "Lingue", "Assistenza"]);
         await expect(nav(page).getByRole("separator")).toHaveCount(0);
@@ -627,9 +629,12 @@ test.describe("Impostazioni con tab (§51.12)", () => {
         await page.goto(`${root}/settings`);
         await expect(settingsTabs(page)).toHaveText(["Azienda", "Team", "Abbonamento"], { timeout: 15_000 });
         await expect(page.getByRole("tab", { name: "Azienda" })).toHaveAttribute("aria-selected", "true");
+        // Dove sono: Impostazioni è una voce del menù dell'account, il pulsante resta acceso.
+        await expect(accountButton(page)).toHaveAttribute("aria-current", "page");
 
         await page.getByRole("tab", { name: "Team" }).click();
         await expect(page).toHaveURL(`${root}/settings/team`);
+        await expect(accountButton(page)).toHaveAttribute("aria-current", "page");
         const main = page.getByRole("main");
         await expect(main.getByRole("radio", { name: /^Membri/ })).toBeVisible({ timeout: 15_000 });
         await expect(main.getByRole("radio", { name: /^Inviti in attesa/ })).toBeVisible();

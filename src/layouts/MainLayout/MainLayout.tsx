@@ -32,6 +32,7 @@ import { useSedeScope } from "@/hooks/useSedeScope";
 import { rememberLastSede } from "@/hooks/sedeScopeStore";
 import { resolveNavContext } from "@/utils/navModel";
 import type { BusinessOutletContext } from "./outletContext";
+import { useCurrentUserProfile } from "@/hooks/useCurrentUserProfile";
 
 import styles from "./MainLayout.module.scss";
 import { isCanceledAllowedPath } from "./canceledAllowedPath";
@@ -110,6 +111,9 @@ export default function MainLayout() {
     // sidebar è la sua; `/locations` senza id resta azienda.
     const pathActivityId = SEDE_CONTEXT_PATH.exec(pathname)?.[1] ?? null;
     const { readableActivities, isLoaded: sediLoaded } = useSedeScope();
+    // Una volta qui, non nel pulsante dell'account: quello si rimonta fra la
+    // sidebar della sede e quella dell'azienda, e il nome tornerebbe l'email.
+    const profile = useCurrentUserProfile();
     const navContext = resolveNavContext(sediLoaded ? readableActivities.length : null, pathActivityId !== null);
     const soleActivityId = readableActivities.length === 1 ? readableActivities[0].id : null;
     // Entrare in una sede la fa diventare l'ultima usata (§51.9): `/orders` e
@@ -343,6 +347,7 @@ export default function MainLayout() {
                                     translationPendingCount={translationPendingCount}
                                     importInProgress={importInProgress}
                                     supportUnread={supportUnread}
+                                    profile={profile}
                                 />
                             ) : (
                                 <TenantSidebar
@@ -359,6 +364,7 @@ export default function MainLayout() {
                                     translationPendingCount={translationPendingCount}
                                     importInProgress={importInProgress}
                                     supportUnread={supportUnread}
+                                    profile={profile}
                                 />
                             )}
 

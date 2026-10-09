@@ -6,6 +6,7 @@ import { usePlanFeatures } from "@/lib/planFeatures";
 import type { ReactNode } from "react";
 import { AppSidebar, type AppSidebarProps } from "@/components/layout/AppSidebar/AppSidebar";
 import { SidebarAccount } from "@/components/layout/AppSidebar/SidebarAccount";
+import type { CurrentUserProfile } from "@/hooks/useCurrentUserProfile";
 import { NAV_MODELS } from "@/utils/navModel";
 import { buildSidebarGroups } from "./sidebarItems";
 import { navSidebarGroups } from "./navSidebarGroups";
@@ -19,6 +20,8 @@ import { navSidebarGroups } from "./navSidebarGroups";
  */
 
 export interface SidebarSignalProps {
+    /** Chi è collegato, per il pulsante dell'account (fonte unica: MainLayout). */
+    profile: CurrentUserProfile;
     /** Pending traduzioni tenant-wide (fonte unica: MainLayout). 0 = nessun badge. */
     translationPendingCount?: number;
     /** Import AI in volo (analyzing|creating). Accende lo spinner sul catalogo. */
@@ -64,19 +67,23 @@ export default function TenantSidebar({
     translationPendingCount = 0,
     importInProgress = false,
     supportUnread = false,
+    profile,
     brand,
     switcherSlot
 }: TenantSidebarProps) {
     const { businessId = "" } = useParams<{ businessId: string }>();
     const { t } = useTranslation("admin");
     const { catalogLabel } = useVerticalConfig();
-    const { permissions } = usePermissions();
+    const { permissions, loading: permissionsLoading } = usePermissions();
     const { hasFeature } = usePlanFeatures();
     const { groups, account } = navSidebarGroups(NAV_MODELS[context], {
         businessId,
         activityId: context === "unica" ? activityId : null,
         catalogLabel
     });
+    // Anche finché i permessi non arrivano: senza, si vedrebbe tutto (lo
+    // staff per un attimo avrebbe Team e Abbonamento).
+    const waiting = loading || (permissionsLoading && !permissions);
     const options = {
         permissions,
         hasFeature,
@@ -90,10 +97,11 @@ export default function TenantSidebar({
 
     return (
         <AppSidebar
-            groups={loading ? [] : buildSidebarGroups(groups, options)}
+            groups={waiting ? [] : buildSidebarGroups(groups, options)}
             accountSlot={
                 <SidebarAccount
-                    items={loading ? [] : buildSidebarGroups(account, options).flatMap(g => g.items)}
+                    items={waiting ? [] : buildSidebarGroups(account, options).flatMap(g => g.items)}
+                    profile={profile}
                     collapsed={!isMobile && collapsed}
                     isMobile={isMobile}
                     onRequestClose={onRequestClose}
