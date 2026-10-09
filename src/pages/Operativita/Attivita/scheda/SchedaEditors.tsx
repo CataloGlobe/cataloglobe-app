@@ -73,11 +73,11 @@ export function LocaleEditor() {
 
     return (
         <div className={styles.stack}>
-            <div className={styles.stack} style={{ gap: 8 }}>
+            <div className={`${styles.stack} ${styles.stackTight}`}>
                 <div className={styles.rowBetween}>
                     <span className={styles.lab}>Foto in cima alla pagina</span>
                     {canManage && activity.cover_image && (
-                        <span style={{ display: "inline-flex", gap: 6 }}>
+                        <span className={styles.inlineActions}>
                             <Button variant="ghost" size="sm" onClick={() => coverEditor.current?.open()} disabled={isCoverRemoving}>
                                 Cambia la foto
                             </Button>
@@ -273,7 +273,7 @@ export function ContoEditor() {
     const fees: FeesState = useMemo(() => feesToState(d.fees), [d.fees]);
     return (
         <div className={styles.stack}>
-            <div className={styles.rowBetween} style={{ justifyContent: "flex-end" }}>
+            <div className={`${styles.rowBetween} ${styles.rowEnd}`}>
                 <VisibilitySwitch field="fees_public" label="Mostrale ai clienti" />
             </div>
             <FeesSection value={fees} onChange={next => draft.set("fees", buildFeesPayload(next))} disabled={!canManage} />

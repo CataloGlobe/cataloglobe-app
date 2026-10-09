@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Lock, Plus, Store } from "lucide-react";
 
 import { Button } from "@/components/ui/Button/Button";
@@ -22,6 +22,8 @@ import { ServizioSala } from "./ServizioSala";
 import styles from "./Servizio.module.scss";
 
 const LOCKED_HINT = "Disponibile con il piano Pro";
+/** I dettagli dal vivo dei modi (D131): `?tavolo=` della Mappa, `?prenotazione=` e `?tavolata=` dell'Elenco. */
+const DETAIL_PARAMS = ["tavolo", "prenotazione", "tavolata"] as const;
 
 /**
  * Servizio (§18.2, lotti B-a e B-b): la sala di una sede, in tre modi —
@@ -79,17 +81,24 @@ export default function Servizio() {
         [permissions, hasFeature, activityId]
     );
 
+    // Cambiando modo il dettaglio aperto si chiude: tavolo, prenotazione e
+    // tavolata sono di un modo solo, e tornando indietro non si riaprono da soli.
+    // Stesso modo (l'indirizzo che si corregge): lo stato della voce resta,
+    // col segno di un dettaglio aperto da qui (`useDetailParam`).
+    const location = useLocation();
     const changeMode = useCallback(
         (next: ServizioMode) => {
+            const same = searchParams.get("modo") === next;
             setSearchParams(
                 prev => {
+                    if (!same) for (const key of DETAIL_PARAMS) prev.delete(key);
                     prev.set("modo", next);
                     return prev;
                 },
-                { replace: true }
+                { replace: true, state: same ? location.state : null }
             );
         },
-        [setSearchParams]
+        [searchParams, location.state, setSearchParams]
     );
 
     // Un `?modo=` che non si può usare (col lucchetto, sconosciuto) diventa

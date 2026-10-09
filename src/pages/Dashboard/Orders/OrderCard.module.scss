@@ -30,8 +30,23 @@
     display: inline-flex;
     align-items: center;
     gap: var(--space-2);
+    padding: 0;
+    border: 0;
+    background: none;
     color: var(--text-muted);
     white-space: nowrap;
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+
+    // Il colore lo decide il pulsante (grigio, viola al passaggio).
+    > span {
+        color: inherit;
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--brand-primary);
+        outline-offset: 2px;
+    }
 }
 
 @media (hover: hover) {

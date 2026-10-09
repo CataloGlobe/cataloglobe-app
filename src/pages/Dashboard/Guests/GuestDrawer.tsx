@@ -33,7 +33,7 @@ import Text from "@/components/ui/Text/Text";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { Textarea } from "@/components/ui/Textarea/Textarea";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
-import { UnsavedChangesDialog } from "@/components/ui/UnsavedChangesDialog/UnsavedChangesDialog";
+import { useUnsavedChangesGuard } from "@/components/ui/UnsavedChangesBar/useUnsavedChangesGuard";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useEnsureActive } from "@/hooks/useEnsureActive";
 import {
@@ -146,9 +146,6 @@ export default function GuestDrawer({
     const [addingTagFor, setAddingTagFor] = useState<string | null>(null);
     const [newTag, setNewTag] = useState("");
     const [isSaving, setIsSaving] = useState(false);
-    // Dove si andava quando la guardia ha chiesto conferma: chiudere, o passare
-    // al cliente prima o dopo con le frecce.
-    const [pendingExit, setPendingExit] = useState<(() => void) | null>(null);
     const titleId = useId();
 
     const guestId = guest.id;
@@ -168,7 +165,6 @@ export default function GuestDrawer({
     useEffect(() => {
         setNewTag("");
         setAddingTagFor(null);
-        setPendingExit(null);
         if (!open) return;
         let alive = true;
         setNotesLoading(true);
@@ -280,14 +276,11 @@ export default function GuestDrawer({
         }
     }, [guest, tenantId, activities, draftFor, saved, ensureActive, loadNotes, onSaved, showToast]);
 
-    // Guardia di uscita (§27, come la nuova prenotazione): chiudere o passare a
-    // un altro cliente con note o etichette non salvate chiede prima di
-    // buttarle (C3).
-    const guardedStep = (go: () => void) => {
-        if (isDirty && !isSaving) setPendingExit(() => go);
-        else go();
-    };
-    const requestClose = () => guardedStep(onClose);
+    // Guardia di uscita (§27, C3): note o etichette non salvate. Il cliente è
+    // nell'indirizzo, quindi chiudere, le frecce, il clic su un'altra riga e
+    // l'indietro del browser cambiano tutti `?guest=`: li ferma la guardia
+    // del layout, una sola.
+    useUnsavedChangesGuard(open && isDirty && !isSaving, { search: true });
 
     const footer = (
         <>
@@ -300,7 +293,7 @@ export default function GuestDrawer({
                     Non hai i permessi per modificare note ed etichette di questo cliente.
                 </Text>
             )}
-            <Button variant="secondary" onClick={requestClose}>Chiudi</Button>
+            <Button variant="secondary" onClick={onClose}>Chiudi</Button>
             {canManageAny && (
                 <Button
                     variant="primary"
@@ -317,14 +310,14 @@ export default function GuestDrawer({
     return (
         <DetailPane
             open={open}
-            onClose={requestClose}
+            onClose={onClose}
             aria-labelledby={titleId}
             backLabel="Clienti"
-            onPrev={onPrev && (() => guardedStep(onPrev))}
-            onNext={onNext && (() => guardedStep(onNext))}
+            onPrev={onPrev}
+            onNext={onNext}
             position={position}
         >
-            <DrawerLayout title={guest.display_name} titleId={titleId} onClose={requestClose} footer={footer}>
+            <DrawerLayout title={guest.display_name} titleId={titleId} onClose={onClose} footer={footer}>
                 <div className={styles.drawerBody}>
                     {/* ── Contatti ──────────────────────────────────────── */}
                     <Card title="Contatti" flush>
@@ -552,18 +545,6 @@ export default function GuestDrawer({
                     </Card>
                 </div>
             </DrawerLayout>
-            <UnsavedChangesDialog
-                isOpen={pendingExit !== null}
-                title="Uscire senza salvare?"
-                message="Note ed etichette non sono state salvate: quello che hai scritto andrà perso."
-                cancelLabel="Resta"
-                onCancel={() => setPendingExit(null)}
-                onDiscard={() => {
-                    const go = pendingExit;
-                    setPendingExit(null);
-                    go?.();
-                }}
-            />
         </DetailPane>
     );
 }

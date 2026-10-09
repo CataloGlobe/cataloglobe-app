@@ -36,7 +36,9 @@
   position: fixed;
   inset: 0;
   height: 100dvh;
-  z-index: var(--z-overlay);
+  // Sotto i menù e le tendine che apre (portali a --z-float, aggiunti dopo)
+  // e sotto drawer e conferme (--z-overlay): sopra testata e navigazione.
+  z-index: var(--z-float);
 }
 
 @keyframes paneIn {

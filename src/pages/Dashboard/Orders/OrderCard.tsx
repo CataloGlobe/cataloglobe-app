@@ -206,7 +206,7 @@ export default function OrderCard({
     return (
         // Una comanda è un article col nome del tavolo: la board la trova per ruolo.
         // Toccando la card (fuori dai suoi pulsanti) il dettaglio si apre
-        // accanto (D131); da tastiera c'è «Vedi dettaglio» nel menù.
+        // accanto (D131); da tastiera c'è il pulsante «Dettagli ›».
         <article
             className={styles.card}
             data-status={order.status}
@@ -224,10 +224,18 @@ export default function OrderCard({
                 subtitle={[tableZone, formatRelativeTime(order.submitted_at)].filter(Boolean).join(" · ")}
                 badge={attribution}
                 actions={
-                    <Text as="span" variant="caption" weight={500} className={styles.open} aria-hidden data-compact-action="">
-                        Dettagli
-                        <ChevronRight size={14} />
-                    </Text>
+                    <button
+                        type="button"
+                        className={styles.open}
+                        onClick={() => onViewDetail(order)}
+                        aria-label={`Dettagli di ${tableLabel}`}
+                        data-compact-action=""
+                    >
+                        <Text as="span" variant="caption" weight={500}>
+                            Dettagli
+                        </Text>
+                        <ChevronRight size={14} aria-hidden />
+                    </button>
                 }
                 flush
                 className={styles.surface}

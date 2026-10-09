@@ -152,12 +152,37 @@ test.describe("Clienti — elenco", () => {
         const d = await openGuest(page, "Giulia Rossi e2e");
         await d.getByRole("textbox", { name: /Lago e2e/ }).fill("Una bozza e2e");
         await d.getByRole("button", { name: "Chiudi", exact: true }).first().click();
-        await expect(page.getByText("Uscire senza salvare?")).toBeVisible();
+        await expect(page.getByRole("heading", { name: "Modifiche non salvate" })).toBeVisible();
         await page.getByRole("button", { name: "Resta" }).click();
         await expect(d.getByRole("textbox", { name: /Lago e2e/ })).toHaveValue("Una bozza e2e");
+        // Esc vale quando la domanda di prima è sparita del tutto.
+        await expect(page.getByRole("alertdialog")).toHaveCount(0);
         await page.keyboard.press("Escape");
         await page.getByRole("button", { name: "Esci senza salvare" }).click();
         await expect(page.getByRole("dialog")).toHaveCount(0);
+        expect(stub.writes.filter(w => w.key.startsWith("reservation_guest_notes"))).toHaveLength(0);
+    });
+
+    test("con una nota non salvata anche un'altra riga e l'indietro chiedono prima (D131)", async ({ page }) => {
+        await openList(page);
+        await expect(guestName(page, "Giulia Rossi e2e")).toBeVisible({ timeout: 15_000 });
+        const d = await openGuest(page, "Giulia Rossi e2e");
+        await d.getByRole("textbox", { name: /Lago e2e/ }).fill("Una bozza e2e");
+
+        // Un'altra riga dell'elenco: si resta su Giulia con la bozza.
+        await guestName(page, "Marco Bianchi e2e").click();
+        await expect(page.getByRole("heading", { name: "Modifiche non salvate" })).toBeVisible();
+        await page.getByRole("button", { name: "Resta" }).click();
+        await expect(d.getByRole("textbox", { name: /Lago e2e/ })).toHaveValue("Una bozza e2e");
+        expect(new URL(page.url()).searchParams.get("guest")).toBe(GUEST.rossi);
+        await expect(page.getByRole("alertdialog")).toHaveCount(0);
+
+        // L'indietro del browser: stessa domanda, poi si esce davvero.
+        await page.goBack();
+        await expect(page.getByRole("heading", { name: "Modifiche non salvate" })).toBeVisible();
+        await page.getByRole("button", { name: "Esci senza salvare" }).click();
+        await expect(page.getByRole("dialog")).toHaveCount(0);
+        expect(new URL(page.url()).searchParams.get("guest")).toBeNull();
         expect(stub.writes.filter(w => w.key.startsWith("reservation_guest_notes"))).toHaveLength(0);
     });
 

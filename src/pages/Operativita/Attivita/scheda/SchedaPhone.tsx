@@ -118,7 +118,7 @@ export const SchedaPhone = forwardRef<HTMLDivElement, SchedaPhoneProps>(function
                                 <span className={styles.pH}>Orari</span>
                                 <div className={styles.pHours}>
                                     {groups.map(g => (
-                                        <span key={g.days} style={{ display: "contents" }}>
+                                        <span key={g.days} className={styles.contents}>
                                             <span className={g.today ? styles.pTd : undefined}>{g.days}</span>
                                             <span className={g.today ? styles.pTd : undefined}>{g.text}</span>
                                         </span>
@@ -144,7 +144,7 @@ export const SchedaPhone = forwardRef<HTMLDivElement, SchedaPhoneProps>(function
                                 )}
                                 {serv.length > 0 && (
                                     <>
-                                        <span className={styles.pH} style={pay.length ? { marginTop: 4 } : undefined}>
+                                        <span className={cx(styles.pH, pay.length > 0 && styles.pHSpaced)}>
                                             Servizi
                                         </span>
                                         <div className={styles.pChips}>
@@ -161,7 +161,7 @@ export const SchedaPhone = forwardRef<HTMLDivElement, SchedaPhoneProps>(function
                                 <span className={styles.pH}>Al conto</span>
                                 <div className={styles.pFees}>
                                     {fees.map(({ def, value }) => (
-                                        <span key={def.key} style={{ display: "contents" }}>
+                                        <span key={def.key} className={styles.contents}>
                                             <span>{def.label}</span>
                                             <span>{feeValue(def, value)}</span>
                                         </span>

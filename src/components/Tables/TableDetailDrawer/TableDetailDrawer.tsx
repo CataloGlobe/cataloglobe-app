@@ -300,8 +300,17 @@ export function TableDetailDrawer({
         !!permissions &&
         canDoOnActivity(permissions, "orders.manage", activityId);
 
+    // Con ↑ ↓ veloci le letture si accavallano: vale solo l'ultima, così il
+    // tavolo B non mostra mai gli ordini di A.
+    const loadSeq = useRef(0);
+    const shownTable = useRef(tableId);
+    useEffect(() => {
+        shownTable.current = open ? tableId : null;
+    }, [open, tableId]);
     const loadDetail = useCallback(async (silent = false) => {
         if (!tenantId || !activityId || !tableId) return;
+        const seq = ++loadSeq.current;
+        const current = () => seq === loadSeq.current;
         if (!silent) setIsLoading(true);
         setError(null);
         try {
@@ -316,11 +325,11 @@ export function TableDetailDrawer({
                 includeItems: false,
                 limit: 50
             });
-            setData({ table, sessions, openGroup, orders });
+            if (current()) setData({ table, sessions, openGroup, orders });
         } catch (err) {
-            setError(err instanceof Error ? err.message : "Errore caricamento dettaglio");
+            if (current()) setError(err instanceof Error ? err.message : "Errore caricamento dettaglio");
         } finally {
-            setIsLoading(false);
+            if (current()) setIsLoading(false);
         }
     }, [tenantId, activityId, tableId]);
 
@@ -420,6 +429,7 @@ export function TableDetailDrawer({
 
     async function handleOpenStorna(order: V2OrderWithItems): Promise<void> {
         if (!tenantId) return;
+        const forTable = tableId;
         setStornaLoadingOrderId(order.id);
         try {
             const full = await getOrderWithItems(order.id, tenantId);
@@ -436,6 +446,8 @@ export function TableDetailDrawer({
                     type: "warning"
                 });
             }
+            // Nel frattempo si è passati a un altro tavolo: lo storno non si apre lì.
+            if (shownTable.current !== forTable) return;
             setStornaOrder(full);
             setStornaResiduals(residuals);
             setStornaState({ estimate: 0, canConfirm: false });
@@ -480,18 +492,20 @@ export function TableDetailDrawer({
         }
     }
 
+    // Chiuso o passato a un altro tavolo: si riparte da capo, niente dati,
+    // storno o conferme del tavolo di prima.
     useEffect(() => {
-        if (!open || !tableId) {
-            setData(null);
-            setError(null);
-            setShowAllRecent(false);
-            setView("conto");
-            setStornaOrder(null);
-            setStornaResiduals(null);
-            setStornaState({ estimate: 0, canConfirm: false });
-            return;
-        }
-        void loadDetail();
+        loadSeq.current++;
+        setData(null);
+        setError(null);
+        setShowAllRecent(false);
+        setConfirmingOrderId(null);
+        setView("conto");
+        setStornaOrder(null);
+        setStornaResiduals(null);
+        setStornaLoadingOrderId(null);
+        setStornaState({ estimate: 0, canConfirm: false });
+        if (open && tableId) void loadDetail();
     }, [open, tableId, loadDetail]);
 
     // La Mappa è cambiata per questo tavolo (un ordine, il conto, il

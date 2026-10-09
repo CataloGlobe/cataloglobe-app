@@ -129,8 +129,8 @@ test.describe("Scheda della sede", () => {
     test("le parti delle prenotazioni e degli ordini mostrano il loro contenuto", async ({ page }) => {
         await openFirstLocation(page);
         const main = page.getByRole("main");
-        // Al centro della tessera c'è l'interruttore: si apre dal titolo.
-        await tile(page, PART.ordini).click({ position: { x: 24, y: 24 } });
+        // Al centro della tessera c'è l'interruttore: si apre dal titolo (il pulsante).
+        await tile(page, PART.ordini).click();
         await expect(main.getByText(/^(Ordinazioni dal tavolo|Ordini al tavolo|Ordini dal tavolo)$/).first()).toBeVisible({ timeout: 15_000 });
         await rail(page).getByRole("button", { name: PART.prenotazioni }).click();
         await expect(main.getByText("Richieste dal modulo pubblico", { exact: true })).toBeVisible({ timeout: 15_000 });

@@ -56,6 +56,9 @@ export default function OrdersHistory() {
     const [operatorNames, setOperatorNames] = useState<Map<string, string>>(() => new Map());
     const [historyOrders, setHistoryOrders] = useState<V2OrderWithItems[]>([]);
     const [isLoading, setIsLoading] = useState(false);
+    // Il giorno dell'ultima lettura andata a buon fine: finché non coincide
+    // con quello scelto, l'elenco non dice ancora cosa c'è.
+    const [loadedDay, setLoadedDay] = useState<string | null>(null);
     const [error, setError] = useState<Error | null>(null);
     const [filter, setFilter] = useState<HistoryFilter>("all");
     // Giorno operativo mostrato (data civile Europe/Rome). La finestra
@@ -84,7 +87,10 @@ export default function OrdersHistory() {
         try {
             const { dayStart, dayEnd } = await getOperativeDayBounds(day);
             const data = await listOrdersHistory(tenantId, activityId, dayStart, dayEnd);
-            if (request === requestRef.current) setHistoryOrders(data);
+            if (request === requestRef.current) {
+                setHistoryOrders(data);
+                setLoadedDay(day);
+            }
         } catch (err) {
             if (request === requestRef.current) {
                 setError(err instanceof Error ? err : new Error("Errore caricamento storico"));
@@ -145,6 +151,22 @@ export default function OrdersHistory() {
     const detailSequence = useMemo(() => filtered.filter(o => !o.is_rectification), [filtered]);
     const detailIndex = detailId ? detailSequence.findIndex(o => o.id === detailId) : -1;
     const orderInDetail = detailIndex >= 0 ? detailSequence[detailIndex] : null;
+
+    // L'ordine aperto non è più fra quelli mostrati (altro filtro, altro
+    // giorno, link vecchio): il dettaglio si chiude, e `?ordine=` con lui,
+    // così non ricompare da solo quando il filtro torna.
+    const closedStale = useRef<string | null>(null);
+    useEffect(() => {
+        if (!detailId || orderInDetail) {
+            closedStale.current = null;
+            return;
+        }
+        if (isLoading || loadedDay !== day) return;
+        // Una volta sola per id: chiudere può essere un «indietro».
+        if (closedStale.current === detailId) return;
+        closedStale.current = detailId;
+        closeDetail();
+    }, [detailId, orderInDetail, isLoading, loadedDay, day, closeDetail]);
     const stepDetail = (by: number) => {
         const next = detailSequence[detailIndex + by];
         if (next) openDetail(next.id);

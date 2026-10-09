@@ -30,6 +30,7 @@ import { agendaRangeLabel } from "./agendaRange";
 import { summarizeToday, todaySentence } from "./todaySummary";
 import ReservationDrawers from "./ReservationDrawers";
 import { agendaWeekRange, type DateRange } from "./loadWindow";
+import { agendaVisible } from "./agendaVisible";
 import { useReservationDesk } from "./hooks/useReservationDesk";
 import styles from "./Reservations.module.scss";
 
@@ -103,6 +104,7 @@ export function ReservationsAgendaPage() {
     // banco (`useReservationDesk`).
     const [weekOffset, setWeekOffset] = useState(0);
     const [agendaMode, setAgendaMode] = useState<AgendaViewMode>("days");
+    const [showTerminal, setShowTerminal] = useState(false);
     // La testata compatta del telefono non porta il `leading`: lì Giorni/
     // Settimana e la settimana restano sopra l'Agenda.
     const isPhone = useMediaQuery("(max-width: 767px)");
@@ -242,18 +244,13 @@ export function ReservationsAgendaPage() {
     // Una vista sola, l'Agenda: niente tab né selettore di sezione. Il
     // contatore delle richieste sta sulla card «Da gestire» e nella banda.
     // Per ↑ ↓ nel dettaglio accanto (D131): i risultati della ricerca, oppure
-    // le richieste in cima e poi la settimana in ordine di giorno e ora.
+    // le richieste in cima e poi le righe che l'Agenda mostra, nel suo ordine
+    // (settimana a vista, annullate e rifiutate solo se il filtro le mostra).
     const detailSequence = useMemo<V2Reservation[]>(() => {
         if (isSearchActive) return searchRows;
-        const rest = scopedReservations
-            .filter(r => r.status !== "pending")
-            .sort((a, b) =>
-                a.reservation_date === b.reservation_date
-                    ? a.reservation_time.localeCompare(b.reservation_time)
-                    : a.reservation_date.localeCompare(b.reservation_date)
-            );
+        const rest = agendaVisible(scopedReservations, baseRanges[0], showTerminal).filter(r => r.status !== "pending");
         return [...pendingInScope, ...rest];
-    }, [isSearchActive, searchRows, scopedReservations, pendingInScope]);
+    }, [isSearchActive, searchRows, scopedReservations, baseRanges, showTerminal, pendingInScope]);
 
     const headerCompact = useMemo<PageHeaderCompactConfig>(
         () => ({
@@ -455,6 +452,8 @@ export function ReservationsAgendaPage() {
                             mode={agendaMode}
                             onModeChange={setAgendaMode}
                             navInHeader={!isPhone}
+                            showTerminal={showTerminal}
+                            onShowTerminalChange={setShowTerminal}
                         />
                     </>
                 )}
