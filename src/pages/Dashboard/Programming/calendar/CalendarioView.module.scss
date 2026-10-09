@@ -1,6 +1,8 @@
 // Calendario dell'Officina: una riga per giorno, una corsia per tipo, le ore di lato.
 // Stesse misure della versione 10 approvata da Alex (2026-10-09).
 
+@use "@styles/calendario-type" as type;
+
 .root {
     color: var(--text);
     // un colore per tipo, uguale a quello delle corsie
@@ -53,7 +55,7 @@
     padding: 0 2px 0 4px;
     min-height: 28px;
     b {
-        font-size: 13.5px;
+        @include type.fs(text);
         font-weight: 600;
     }
 }
@@ -80,7 +82,7 @@
     margin-bottom: 2px;
     padding-left: 4px;
     b {
-        font-size: 12.5px;
+        @include type.fs(note);
         font-weight: 600;
     }
     span {
@@ -100,7 +102,7 @@
 }
 .mmwd span {
     text-align: center;
-    font-size: 10.5px;
+    @include type.fs(hour);
     color: var(--text-muted);
     font-weight: 600;
     padding: 2px 0;
@@ -110,7 +112,7 @@
     border: 0;
     background: none;
     font: inherit;
-    font-size: 12px;
+    @include type.fs(fine);
     border-radius: 6px;
     position: relative;
     font-variant-numeric: tabular-nums;
@@ -160,7 +162,7 @@
     background: var(--on-brand);
 }
 .mmk {
-    font-size: 11px;
+    @include type.fs(kicker);
     color: var(--text-muted);
     display: flex;
     align-items: center;
@@ -182,7 +184,7 @@
     h4 {
         margin: 0 0 2px;
         padding-left: 4px;
-        font-size: 12px;
+        @include type.fs(fine);
         font-weight: 600;
         color: var(--text-muted);
         text-transform: uppercase;
@@ -191,7 +193,7 @@
     p {
         margin: 4px 0 0;
         padding-left: 4px;
-        font-size: 11.5px;
+        @include type.fs(badge);
         color: var(--text-muted);
     }
 }
@@ -204,7 +206,7 @@
     font: inherit;
     padding: 4px 6px;
     border-radius: var(--radius-control);
-    font-size: 12.5px;
+    @include type.fs(note);
     text-align: left;
     color: var(--text);
     cursor: pointer;
@@ -246,7 +248,7 @@
 }
 .smore {
     padding: 2px 6px 0 29px;
-    font-size: 12px;
+    @include type.fs(fine);
     color: var(--text-muted);
 }
 .sbtn {
@@ -261,7 +263,7 @@
     background: var(--surface);
     color: var(--text);
     font: inherit;
-    font-size: 13px;
+    @include type.fs(small);
     font-weight: 500;
     cursor: pointer;
     svg {
@@ -311,7 +313,7 @@
     border: 1px solid var(--border);
     border-radius: var(--radius-surface);
     box-shadow: var(--shadow-overlay);
-    font-size: 13px;
+    @include type.fs(small);
     color: var(--text);
 }
 .sqk {
@@ -320,7 +322,7 @@
     gap: 6px;
     button {
         font: inherit;
-        font-size: 12px;
+        @include type.fs(fine);
         padding: 3px 10px;
         border-radius: var(--radius-pill);
         border: 1px solid var(--border);
@@ -360,7 +362,7 @@
     .gsc {
         flex: 1;
         min-width: 0;
-        font-size: 13px;
+        @include type.fs(small);
         padding: 6px;
     }
     &:hover {
@@ -375,7 +377,7 @@
     border: 0;
     background: none;
     font: inherit;
-    font-size: 12px;
+    @include type.fs(fine);
     color: var(--brand-primary);
     padding: 4px 8px;
     border-radius: var(--radius-control);
@@ -396,12 +398,12 @@
 .snone {
     margin: 6px;
     color: var(--text-muted);
-    font-size: 12.5px;
+    @include type.fs(note);
 }
 .sft {
     border-top: 1px solid var(--border);
     padding: 8px 4px 0;
-    font-size: 12px;
+    @include type.fs(fine);
     color: var(--text-muted);
 }
 
@@ -419,7 +421,7 @@
     border: 0;
     background: none;
     font: inherit;
-    font-size: 13.5px;
+    @include type.fs(text);
     font-weight: 500;
     color: var(--text);
     padding: 7px 6px;
@@ -428,7 +430,7 @@
     cursor: pointer;
     small {
         margin-left: auto;
-        font-size: 12px;
+        @include type.fs(fine);
         font-weight: 400;
         color: var(--text-muted);
         font-variant-numeric: tabular-nums;
@@ -485,7 +487,7 @@
 }
 .sqk em {
     font-style: normal;
-    font-size: 12px;
+    @include type.fs(fine);
     color: var(--text-muted);
 }
 
@@ -515,7 +517,7 @@
     background: none;
     font: inherit;
     font-weight: 600;
-    font-size: 15px;
+    @include type.fs(strong);
     color: var(--text);
     padding: 4px 8px;
     border-radius: var(--radius-control);
@@ -549,7 +551,7 @@
     display: flex;
     flex-wrap: wrap;
     gap: 6px 18px;
-    font-size: 12.5px;
+    @include type.fs(note);
     align-items: center;
     color: var(--text);
 }
@@ -615,7 +617,7 @@
     background: var(--brand-primary);
     color: var(--on-brand);
     font: inherit;
-    font-size: 12.5px;
+    @include type.fs(note);
     font-weight: 600;
     box-shadow: var(--shadow-overlay);
     cursor: pointer;
@@ -646,7 +648,7 @@
         position: absolute;
         bottom: 6px;
         transform: translateX(-50%);
-        font-size: 11px;
+        @include type.fs(kicker);
         color: var(--text-muted);
         font-variant-numeric: tabular-nums;
     }
@@ -681,7 +683,7 @@
     align-items: baseline;
     white-space: nowrap;
     span {
-        font-size: 12px;
+        @include type.fs(fine);
         color: var(--text-muted);
     }
     b {
@@ -699,7 +701,7 @@
 }
 .gsn {
     font-weight: 600;
-    font-size: 13px;
+    @include type.fs(small);
     white-space: normal;
     line-height: 1.25;
 }
@@ -709,7 +711,7 @@
     gap: 8px;
     padding: 8px 10px;
     font-weight: 600;
-    font-size: 13px;
+    @include type.fs(small);
     border-top: 1px solid var(--border);
     background: color-mix(in srgb, var(--bg) 70%, var(--surface));
     svg {
@@ -757,7 +759,7 @@
     align-items: center;
     gap: 6px;
     padding: 0 6px;
-    font-size: 11.5px;
+    @include type.fs(badge);
     font-weight: 500;
     color: var(--text-muted);
     text-align: left;
@@ -797,7 +799,7 @@
     align-items: center;
     gap: 6px;
     padding: 0 6px 0 20px;
-    font-size: 11.5px;
+    @include type.fs(badge);
     white-space: nowrap;
     overflow: hidden;
     color: var(--text);
@@ -839,7 +841,7 @@
     border-radius: 5px;
     padding: 0 6px;
     font: inherit;
-    font-size: 11px;
+    @include type.fs(kicker);
     font-weight: 500;
     color: var(--text);
     text-align: left;
@@ -890,7 +892,7 @@
     background: var(--surface);
     color: var(--text-muted);
     border: 1px solid var(--border);
-    font-size: 10px;
+    @include type.fs(tiny);
     font-weight: 600;
     font-style: normal;
     line-height: 1;
@@ -906,7 +908,7 @@
     position: absolute;
     left: 8px;
     top: 3px;
-    font-size: 11px;
+    @include type.fs(kicker);
     color: var(--text-muted);
 }
 .fls {
@@ -948,7 +950,7 @@
 
 .dnote {
     margin: 0;
-    font-size: 12.5px;
+    @include type.fs(note);
     color: var(--text-muted);
     max-width: 110ch;
 }
@@ -963,7 +965,7 @@
     border: 1px solid color-mix(in srgb, var(--brand-primary) 40%, transparent);
     border-radius: var(--radius-control);
     padding: 8px 11px;
-    font-size: 12.5px;
+    @include type.fs(note);
     line-height: 1.45;
     pointer-events: none;
     box-shadow: 0 8px 24px var(--cal-shade), 0 1px 2px var(--cal-shade);
@@ -1071,7 +1073,7 @@
     min-height: 48px;
     b {
         flex: 1;
-        font-size: 14px;
+        @include type.fs(body);
         font-weight: 600;
         min-width: 0;
         overflow: hidden;
@@ -1086,7 +1088,7 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    font-size: 12px;
+    @include type.fs(fine);
     font-weight: 600;
     padding: 2px 8px;
     border-radius: var(--radius-pill);
@@ -1109,14 +1111,14 @@
     display: flex;
     flex-direction: column;
     gap: 10px;
-    font-size: 13px;
+    @include type.fs(small);
     line-height: 1.45;
     p {
         margin: 0;
     }
     h4 {
         margin: 6px 0 0;
-        font-size: 12px;
+        @include type.fs(fine);
         font-weight: 600;
         color: var(--text-muted);
         text-transform: uppercase;
@@ -1138,7 +1140,7 @@
     justify-content: space-between;
     gap: 8px;
     flex-wrap: wrap;
-    font-size: 13px;
+    @include type.fs(small);
 }
 .hfa {
     display: flex;
@@ -1163,7 +1165,7 @@
     gap: 6px;
     padding: 5px 4px 5px 10px;
     min-height: 44px;
-    font-size: 13px;
+    @include type.fs(small);
 }
 .irow + .irow {
     border-top: 1px solid var(--border);
@@ -1188,7 +1190,7 @@
     }
 }
 .hsub {
-    font-size: 11.5px;
+    @include type.fs(badge);
     color: var(--text-muted);
 }
 .heff {
@@ -1201,7 +1203,7 @@
 .hpr {
     s {
         color: var(--text-muted);
-        font-size: 12px;
+        @include type.fs(fine);
     }
     b {
         font-weight: 600;
@@ -1212,7 +1214,7 @@
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    font-size: 11.5px;
+    @include type.fs(badge);
     font-weight: 600;
     padding: 1px 8px;
     border-radius: var(--radius-pill);
@@ -1232,7 +1234,7 @@
     display: flex;
     gap: 8px;
     align-items: center;
-    font-size: 12.5px;
+    @include type.fs(note);
     padding: 8px 10px;
     border-radius: var(--radius-control);
     margin: 0;
@@ -1261,7 +1263,7 @@
     padding: 0;
 }
 .isec .muted {
-    font-size: 12.5px;
+    @include type.fs(note);
 }
 .isec {
     display: flex;
@@ -1294,7 +1296,7 @@
     display: flex;
     align-items: center;
     gap: 2px;
-    font-size: 13px;
+    @include type.fs(small);
     color: var(--text-muted);
     flex-wrap: wrap;
     min-width: 0;
@@ -1316,7 +1318,7 @@
     gap: 4px;
     h2 {
         margin: 0;
-        font-size: 20px;
+        @include type.fs(title);
         font-weight: 600;
         color: var(--text);
     }
@@ -1359,7 +1361,7 @@
         padding: 4px 10px 4px 4px;
         border-radius: var(--radius-pill);
         font: inherit;
-        font-size: 13px;
+        @include type.fs(small);
         font-weight: 500;
         color: var(--text-muted);
         cursor: pointer;
@@ -1398,7 +1400,7 @@
     display: inline-grid;
     place-items: center;
     border: 1.5px solid var(--border);
-    font-size: 12px;
+    @include type.fs(fine);
     font-weight: 600;
     font-variant-numeric: tabular-nums;
 }
@@ -1427,7 +1429,7 @@
     align-items: flex-start;
     h4 {
         margin: 0;
-        font-size: 12px;
+        @include type.fs(fine);
         font-weight: 600;
         color: var(--text-muted);
         text-transform: uppercase;
@@ -1435,7 +1437,7 @@
     }
     p {
         margin: 0;
-        font-size: 12.5px;
+        @include type.fs(note);
     }
     > .hlist,
     > .wide,
@@ -1480,7 +1482,7 @@
     gap: 8px;
     flex-wrap: wrap;
     b {
-        font-size: 13.5px;
+        @include type.fs(text);
         font-weight: 600;
     }
 }
@@ -1488,7 +1490,7 @@
     display: inline-flex;
     align-items: center;
     gap: 2px;
-    font-size: 12.5px;
+    @include type.fs(note);
     font-weight: 500;
 }
 .iaway {
@@ -1500,7 +1502,7 @@
 }
 .fname em {
     font-style: normal;
-    font-size: 10.5px;
+    @include type.fs(hour);
     font-weight: 600;
     flex: none;
     margin-left: auto;
@@ -1521,7 +1523,7 @@
     border-radius: var(--radius-pill);
     padding: 4px 11px;
     font: inherit;
-    font-size: 12.5px;
+    @include type.fs(note);
     color: var(--text);
     display: inline-flex;
     align-items: center;
@@ -1559,7 +1561,7 @@
     border-radius: var(--radius-surface);
     padding: 14px;
     font: inherit;
-    font-size: 13px;
+    @include type.fs(small);
     color: var(--text);
     cursor: pointer;
     &:hover {
@@ -1571,7 +1573,7 @@
         outline-offset: 1px;
     }
     b {
-        font-size: 14.5px;
+        @include type.fs(label);
         font-weight: 600;
     }
     .badge {
@@ -1591,7 +1593,7 @@
     display: flex;
     gap: 8px;
     align-items: center;
-    font-size: 12.5px;
+    @include type.fs(note);
     padding: 8px 10px;
     border-radius: var(--radius-control);
     margin: 0;
@@ -1608,7 +1610,7 @@
     display: flex;
     gap: 8px;
     align-items: flex-start;
-    font-size: 12.5px;
+    @include type.fs(note);
     padding: 8px 10px;
     border-radius: var(--radius-control);
     margin: 0;
@@ -1637,7 +1639,7 @@
     border-radius: var(--radius-control);
     padding: 9px 12px;
     font: inherit;
-    font-size: 13.5px;
+    @include type.fs(text);
     text-align: left;
     color: var(--text);
     cursor: pointer;
@@ -1697,7 +1699,7 @@
 
 .hin {
     font: inherit;
-    font-size: 13px;
+    @include type.fs(small);
     color: var(--text);
     background: var(--surface);
     border: 1px solid var(--border);
@@ -1725,7 +1727,7 @@
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    font-size: 13px;
+    @include type.fs(small);
     font-weight: 500;
     color: var(--text);
 }
@@ -1744,7 +1746,7 @@
     padding: 8px 10px;
     border-radius: var(--radius-control);
     background: var(--bg);
-    font-size: 14px;
+    @include type.fs(body);
     s {
         color: var(--text-muted);
     }
@@ -1761,7 +1763,7 @@
     background: var(--surface);
 }
 .hcat {
-    font-size: 11px;
+    @include type.fs(kicker);
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.05em;
@@ -1776,7 +1778,7 @@
     gap: 6px;
     padding: 4px 6px;
     min-height: 44px;
-    font-size: 13px;
+    @include type.fs(small);
     border-top: 1px solid var(--border);
     &.sel {
         background: var(--brand-primary-soft);
@@ -1886,7 +1888,7 @@
     span {
         position: absolute;
         transform: translateX(-50%);
-        font-size: 10.5px;
+        @include type.fs(hour);
         color: var(--text-muted);
         font-variant-numeric: tabular-nums;
     }
@@ -1904,7 +1906,7 @@
     align-self: stretch;
 }
 .isent {
-    font-size: 15px;
+    @include type.fs(strong);
     line-height: 1.5;
     padding: 12px 14px;
     border-radius: var(--radius-control);
@@ -1923,7 +1925,7 @@
         gap: 8px;
         align-items: baseline;
         padding: 6px 6px 6px 12px;
-        font-size: 13px;
+        @include type.fs(small);
     }
     > div + div {
         border-top: 1px solid var(--border);
@@ -1940,7 +1942,7 @@
 .ieff {
     margin: 0;
     padding-left: 18px;
-    font-size: 13.5px;
+    @include type.fs(text);
     display: flex;
     flex-direction: column;
     gap: 4px;
@@ -1972,12 +1974,12 @@
     color: var(--text);
     h3 {
         margin: 0;
-        font-size: 16px;
+        @include type.fs(group);
         font-weight: 600;
     }
     p {
         margin: 0;
-        font-size: 13.5px;
+        @include type.fs(text);
     }
 }
 .idf {
