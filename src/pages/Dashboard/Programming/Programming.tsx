@@ -841,14 +841,14 @@ export default function Programming() {
         </div>
     ), [viewMode, searchTerm, headerSplitActions, isCreating]);
 
-    // Programmazione | Calendario accanto al titolo (Alex): con Calendario
+    // Regole | Calendario accanto al titolo (Alex, nomi D143): con Calendario
     // la banda sotto è vuota e la pagina è tutta del calendario.
     const titleSide = useMemo(() => (
         <SegmentedControl<"list" | "calendar">
             value={viewMode}
             onChange={setViewMode}
             options={[
-                { value: "list", label: "Programmazione", icon: <List size={16} /> },
+                { value: "list", label: "Regole", icon: <List size={16} /> },
                 { value: "calendar", label: "Calendario", icon: <CalendarDays size={16} /> }
             ]}
         />

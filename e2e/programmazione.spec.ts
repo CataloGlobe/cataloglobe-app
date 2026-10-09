@@ -631,7 +631,7 @@ test.describe("Programmazione — calendario, simulatore, guida", () => {
         // ricaricando si resta nel Calendario; «Programmazione» torna all'elenco
         await page.reload();
         await expect(main(page).getByRole("radio", { name: "Calendario", exact: true })).toHaveAttribute("aria-checked", "true");
-        await main(page).getByRole("radio", { name: "Programmazione", exact: true }).click();
+        await main(page).getByRole("radio", { name: "Regole", exact: true }).click();
         await expect(page).not.toHaveURL(/vista=/);
         await expect(tipi).toBeVisible();
     });
@@ -1121,7 +1121,7 @@ test.describe("Programmazione — dettaglio", () => {
         await page.goto(page.url().replace(/scheduling.*$/, `scheduling/${MISSING_RULE}`));
         await expect(main(page).getByRole("heading", { name: "Regola non trovata" })).toBeVisible({ timeout: 15_000 });
         await expect(main(page).getByText("Forse è stata eliminata.")).toBeVisible();
-        await main(page).getByRole("button", { name: "Torna a Programmazione" }).click();
+        await main(page).getByRole("button", { name: "Torna alle regole" }).click();
         await expect(page).toHaveURL(/\/scheduling(\?|$)/);
     });
 
