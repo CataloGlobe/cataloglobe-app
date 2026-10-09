@@ -188,18 +188,18 @@ async function checkInPanel(scope: Locator, name: string): Promise<void> {
 }
 
 /**
- * Passa alla Settimana. La testata alterna la forma comoda (segmented) e la
+ * Passa al Calendario. La testata alterna la forma comoda (segmented) e la
  * compatta (icona) mentre si assesta: si clicca quella a vista. Il clic si
  * ritenta da capo, risolvendo di nuovo il bottone: subito dopo un
  * `setViewportSize` il locator poteva agganciare il radio della riga comoda,
  * che un attimo dopo la barra compatta nasconde, e aspettarlo fino al timeout.
  */
-async function openWeek(page: Page): Promise<void> {
-    const name = /Vista calendario|Settimana/;
+async function openCalendar(page: Page): Promise<void> {
+    const name = "Calendario";
     await expect(async () => {
         await page
-            .getByRole("radio", { name })
-            .or(page.getByRole("button", { name }))
+            .getByRole("radio", { name, exact: true })
+            .or(page.getByRole("button", { name, exact: true }))
             .filter({ visible: true })
             .first()
             .click({ timeout: 2_000 });
@@ -557,99 +557,63 @@ test.describe("Programmazione — settimana, simulatore, guida", () => {
         await stubProgrammazione(page);
     });
 
-    test("la Settimana si apre sulla settimana di oggi e si sfoglia", async ({ page }) => {
+    test("il Calendario si apre sulla settimana di oggi e si sfoglia", async ({ page }) => {
         await openList(page, "layout");
-        await openWeek(page);
-        await expect(main(page).getByText(/21 set/)).toBeVisible();
-        // Una scheda per regola accesa, con la sua finestra (P1 del 2-bis):
-        // la competizione, che vive per sede, non si risolve qui (mucchio 2/3).
-        await expect(main(page).getByRole("button", { name: new RegExp(`${RULE_NAME.pranzo}.*11:00`) }).first()).toBeVisible();
-        await main(page).getByRole("button", { name: /(Settimana|Giorno) successiv/ }).click();
-        await expect(main(page).getByText(/28 set|25 set|Giovedì 24/)).toBeVisible();
+        await openCalendar(page);
+        await expect(main(page).getByRole("button", { name: "21–27 settembre 2026" })).toBeVisible();
+        // Si guardano le sedi spuntate a sinistra: Centro tra queste.
+        const centro = main(page).getByRole("checkbox", { name: "Centro e2e" });
+        if ((await centro.getAttribute("aria-checked")) !== "true") await centro.click();
+        await expect(centro).toHaveAttribute("aria-checked", "true");
+        // A Centro, mercoledì, il pranzo copre la carta dalle 11 alle 15.
+        await expect(main(page).getByRole("button", { name: /^Menù · 11:00–15:00\. In onda: «Pranzo e2e»/ }).first()).toBeVisible();
+        await main(page).getByRole("button", { name: "Settimana successiva" }).click();
+        await expect(main(page).getByRole("button", { name: "28 settembre – 4 ottobre 2026" })).toBeVisible();
+        await main(page).getByRole("button", { name: "Oggi" }).click();
+        await expect(main(page).getByRole("button", { name: "21–27 settembre 2026" })).toBeVisible();
     });
 
-    test("dentro la sede la Settimana mostra solo le sue regole; la ricerca no", async ({ page }) => {
+    test("dentro la sede il Calendario guarda solo lei; la ricerca no", async ({ page }) => {
         await openSeatList(page, SEDE.centro, "layout");
-        // La ricerca dell'elenco non entra nella Settimana, dove non si vede.
+        // La ricerca dell'elenco non entra nel Calendario, dove non si vede.
         await searchFor(page, "Carta");
-        await openWeek(page);
-        const card = (key: keyof typeof RULE) => main(page).getByRole("button", { name: new RegExp(RULE_NAME[key]) });
-        await expect(card("pranzo").first()).toBeVisible();
-        await expect(card("carta").first()).toBeVisible();
-        // L'aperitivo è di Porto.
-        await expect(card("aperitivo")).toHaveCount(0);
+        await openCalendar(page);
+        await expect(main(page).getByRole("button", { name: /^Menù · 11:00–15:00\. In onda: «Pranzo e2e»/ }).first()).toBeVisible();
+        await expect(main(page).getByRole("checkbox", { name: "Porto e2e" })).toHaveCount(0);
     });
 
-    test("sotto 768 la Settimana mostra un giorno alla volta", async ({ page }) => {
+    test("la corsia aperta dà una linea per menù, con il perché", async ({ page }) => {
+        await openSeatList(page, SEDE.centro, "layout");
+        await openCalendar(page);
+        // Si apre sul menù di oggi: la carta c'è, ma dalle 11 alle 15 vince il pranzo.
+        await expect(main(page).getByRole("button", { name: "Menù", expanded: true })).toHaveCount(1);
+        await expect(main(page).getByRole("img", { name: /^Pranzo e2e · 11:00–15:00\. In onda\. Prende il posto di «Carta e2e»/ })).toBeVisible();
+        await expect(main(page).getByRole("img", { name: /^Carta e2e · 11:00–15:00\. C'è, ma qui non si vede\. Vince «Pranzo e2e», che vale per Centro e2e/ })).toBeVisible();
+        await main(page).getByRole("button", { name: "Menù", expanded: true }).click();
+        await expect(main(page).getByRole("button", { name: "Menù", expanded: true })).toHaveCount(0);
+    });
+
+    test("Giorno mostra un giorno; il mese porta a un altro giorno", async ({ page }) => {
+        await openSeatList(page, SEDE.centro, "layout");
+        await openCalendar(page);
+        await main(page).getByRole("radio", { name: "Giorno" }).click();
+        await expect(main(page).getByRole("button", { name: "Mercoledì 23 settembre 2026", expanded: false })).toBeVisible();
+        await main(page).getByRole("button", { name: "Giorno successivo" }).click();
+        await expect(main(page).getByRole("button", { name: "Giovedì 24 settembre 2026", expanded: false })).toBeVisible();
+        await main(page).getByRole("complementary", { name: "Calendario del mese" }).getByRole("button", { name: "Domenica 27 settembre 2026" }).click();
+        await expect(main(page).getByRole("button", { name: "Domenica 27 settembre 2026", expanded: false })).toBeVisible();
+        // Domenica il pranzo di Centro (lun–ven) non c'è.
+        await expect(main(page).getByRole("button", { name: /In onda: «Pranzo e2e»/ })).toHaveCount(0);
+        await main(page).getByRole("button", { name: "Oggi" }).click();
+        await expect(main(page).getByRole("button", { name: "Mercoledì 23 settembre 2026", expanded: false })).toBeVisible();
+    });
+
+    test("sotto 768 il Calendario scorre di lato dentro la sua scheda, non la pagina", async ({ page }) => {
         await openList(page, "layout");
         await page.setViewportSize({ width: 375, height: 812 });
-        await openWeek(page);
-        await expect(main(page).getByText("Mercoledì 23 settembre")).toBeVisible();
-        const days = main(page).getByRole("radiogroup", { name: "Giorno" });
-        await expect(days.getByRole("radio")).toHaveCount(7);
-        await expect(days.getByRole("radio", { name: /Mer 23/ })).toBeChecked();
-        await expect(main(page).getByRole("button", { name: new RegExp(`${RULE_NAME.pranzo}.*11:00`) })).toHaveCount(1);
-        await main(page).getByRole("button", { name: "Giorno successivo" }).click();
-        await expect(main(page).getByText("Giovedì 24 settembre")).toBeVisible();
-        await days.getByRole("radio", { name: /Dom 27/ }).click();
-        await expect(main(page).getByText("Domenica 27 settembre")).toBeVisible();
-        // Domenica il pranzo di Centro (lun–ven) non c'è.
-        await expect(main(page).getByRole("button", { name: new RegExp(RULE_NAME.pranzo) })).toHaveCount(0);
-        await main(page).getByRole("button", { name: "Giorno successivo" }).click();
-        await expect(main(page).getByText("Lunedì 28 settembre")).toBeVisible();
-        await main(page).getByRole("button", { name: "Oggi" }).click();
-        await expect(main(page).getByText("Mercoledì 23 settembre")).toBeVisible();
+        await openCalendar(page);
+        await expect(main(page).getByRole("button", { name: "21–27 settembre 2026" })).toBeVisible();
         await noHorizontalScroll(page);
-    });
-
-    test("a 1280 la Settimana mostra sette giorni", async ({ page }) => {
-        await openList(page, "layout");
-        await openWeek(page);
-        for (const day of ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"]) {
-            await expect(main(page).getByText(day, { exact: true })).toBeVisible();
-        }
-        await expect(main(page).getByRole("radiogroup", { name: "Giorno" })).toHaveCount(0);
-    });
-
-    // Si misura lo spazio della Settimana, non la finestra (lotto bug C, Pr14):
-    // a 900 sette colonne sarebbero da ~100 px.
-    test("a 900 la Settimana non ci sta in sette colonne: un giorno alla volta", async ({ page }) => {
-        await openList(page, "layout");
-        await page.setViewportSize({ width: 900, height: 900 });
-        await openWeek(page);
-        await expect(main(page).getByRole("radiogroup", { name: "Giorno" })).toBeVisible();
-        await expect(main(page).getByText("Mercoledì 23 settembre")).toBeVisible();
-        await main(page).getByRole("button", { name: "Giorno successivo" }).click();
-        await expect(main(page).getByText("Giovedì 24 settembre")).toBeVisible();
-        await noHorizontalScroll(page);
-    });
-
-    test("le schede dicono il tipo nel nome; l'orario si legge anche sotto il puntatore", async ({ page }) => {
-        await openList(page, "all");
-        await openWeek(page);
-        // Il tipo, che in chiaro dice solo il bordo (sotto 3:1), sta nel nome del bottone.
-        const card = main(page).getByRole("button", { name: `${RULE_NAME.pranzo}, Menù e stile, 11:00–15:00` }).first();
-        await expect(card).toBeVisible();
-        await expect(main(page).getByRole("button", { name: new RegExp(`^${RULE_NAME.spritz}, Prezzi, `) }).first()).toBeVisible();
-        await card.hover();
-        const ratio = await card.evaluate(el => {
-            const caption = Array.from(el.querySelectorAll("span")).find(s => s.textContent === "11:00–15:00")!;
-            // `color-mix` si legge come `color(srgb r g b)` in 0–1, il resto come `rgb()`.
-            const rgb = (c: string) => {
-                const values = (c.match(/[\d.]+/g) ?? []).slice(0, 3).map(Number);
-                return c.startsWith("color(srgb") ? values.map(v => v * 255) : values;
-            };
-            const lum = ([r, g, b]: number[]) => {
-                const ch = (v: number) => {
-                    const x = v / 255;
-                    return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4;
-                };
-                return 0.2126 * ch(r) + 0.7152 * ch(g) + 0.0722 * ch(b);
-            };
-            const [a, b] = [lum(rgb(getComputedStyle(caption).color)), lum(rgb(getComputedStyle(el).backgroundColor))].sort((x, y) => y - x);
-            return (a + 0.05) / (b + 0.05);
-        });
-        expect(ratio).toBeGreaterThanOrEqual(4.5);
     });
 
     test("il simulatore dice cosa vince in una sede; l'anteprima è spenta per la sede sospesa", async ({ page }) => {
@@ -820,7 +784,7 @@ test.describe("Programmazione — settimana, simulatore, guida", () => {
 });
 
 // Il browser a Los Angeles, Roma all'01:00 di mercoledì 23/09 (a LA è martedì
-// 22 alle 16): Settimana, simulatore e date del dettaglio contano all'ora di
+// 22 alle 16): Calendario, simulatore e date del dettaglio contano all'ora di
 // Roma, come il resolver (lotto bug C, Pr3 e Pr12). Il resto dello spec forza
 // Europe/Rome e non vedrebbe la differenza.
 test.describe("Programmazione — fuori dal fuso di Roma", () => {
@@ -831,12 +795,11 @@ test.describe("Programmazione — fuori dal fuso di Roma", () => {
         await page.clock.setFixedTime(new Date("2026-09-23T01:00:00+02:00"));
     });
 
-    test("la Settimana si apre su mercoledì 23, il giorno di Roma", async ({ page }) => {
+    test("il Calendario si apre su mercoledì 23, il giorno di Roma", async ({ page }) => {
         await openList(page, "layout");
-        await page.setViewportSize({ width: 375, height: 812 });
-        await openWeek(page);
-        await expect(main(page).getByText("Mercoledì 23 settembre")).toBeVisible();
-        await expect(main(page).getByRole("radiogroup", { name: "Giorno" }).getByRole("radio", { name: /Mer 23/ })).toBeChecked();
+        await openCalendar(page);
+        await main(page).getByRole("radio", { name: "Giorno" }).click();
+        await expect(main(page).getByRole("button", { name: "Mercoledì 23 settembre 2026", expanded: false })).toBeVisible();
     });
 
     test("il simulatore parte dall'ora di Roma e l'andamento dalla sua mezzanotte", async ({ page }) => {
@@ -1340,12 +1303,12 @@ for (const width of [375, 768, 1280]) {
             });
         }
 
-        test("elenco, settimana e dettaglio senza scroll di lato", async ({ page }) => {
+        test("elenco, calendario e dettaglio senza scroll di lato", async ({ page }) => {
             await openList(page);
             await page.setViewportSize({ width, height: 900 });
             await noHorizontalScroll(page);
-            await openWeek(page);
-            await expect(main(page).getByText(/set/).first()).toBeVisible();
+            await openCalendar(page);
+            await expect(main(page).getByRole("button", { name: /settembre 2026$/, expanded: false })).toBeVisible();
             await noHorizontalScroll(page);
             await page.goto(page.url().replace(/scheduling.*$/, `scheduling/${RULE.spritz}`));
             await expect(main(page).locator("form").first()).toBeVisible({ timeout: 15_000 });
@@ -1358,7 +1321,7 @@ for (const width of [375, 768, 1280]) {
 // prima della banda in `test.fail`, passati a `test` col commit che li rende veri.
 // Le icone senza testo (SegmentedControl `iconsOnly`, icone fisse della barra
 // compatta) dicono il nome col Tooltip di sistema, non col `title` del browser.
-test.describe("Programmazione — Elenco e Settimana a sole icone", () => {
+test.describe("Programmazione — Elenco e Calendario a sole icone", () => {
     test.beforeEach(async ({ page }) => {
         await stubProgrammazione(page);
     });
@@ -1371,13 +1334,13 @@ test.describe("Programmazione — Elenco e Settimana a sole icone", () => {
     test.fixme("nella testata stretta il radio a icona ha il tooltip e l'indicatore segue la scelta", async ({ page }) => {
         await openList(page);
         // A 768 le azioni comode non stanno nemmeno da sole: la testata va su
-        // due righe con Elenco/Settimana a sole icone (`narrowerActions`).
+        // due righe con Elenco/Calendario a sole icone (`narrowerActions`).
         await page.setViewportSize({ width: 768, height: 900 });
-        const week = page.getByRole("radio", { name: "Settimana" });
+        const week = page.getByRole("radio", { name: "Calendario" });
         await expect(week).toHaveText("");
         await expect(week).not.toHaveAttribute("title");
         await week.hover();
-        await expect(page.getByRole("tooltip", { name: "Settimana" })).toBeVisible();
+        await expect(page.getByRole("tooltip", { name: "Calendario" })).toBeVisible();
         await week.click();
         await expect(week).toHaveAttribute("aria-checked", "true");
         // L'indicatore misura il bottone dal suo ref: sotto il Tooltip deve
@@ -1391,13 +1354,13 @@ test.describe("Programmazione — Elenco e Settimana a sole icone", () => {
         await expect.poll(indicatorOffset).toBe(0);
     });
 
-    test("nella barra compatta l'icona Elenco/Settimana ha il tooltip", async ({ page }) => {
+    test("nella barra compatta l'icona Elenco/Calendario ha il tooltip", async ({ page }) => {
         await openList(page);
         await page.setViewportSize({ width: 375, height: 812 });
-        const icon = page.getByRole("button", { name: "Settimana", exact: true }).filter({ visible: true }).first();
+        const icon = page.getByRole("button", { name: "Calendario", exact: true }).filter({ visible: true }).first();
         await expect(icon).not.toHaveAttribute("title");
         await icon.hover();
-        await expect(page.getByRole("tooltip", { name: "Settimana" })).toBeVisible();
+        await expect(page.getByRole("tooltip", { name: "Calendario" })).toBeVisible();
         await icon.click();
         await expect(page.getByRole("button", { name: "Elenco", exact: true }).filter({ visible: true }).first()).toBeVisible();
     });
@@ -1546,11 +1509,11 @@ test.describe("Programmazione — card «Adesso» e matrice", () => {
         await expect(page).toHaveURL(new RegExp(`/locations/${SEDE.centro}/programmazione$`));
     });
 
-    test("nella Settimana non c'è la card", async ({ page }) => {
+    test("nel Calendario non c'è la card", async ({ page }) => {
         await openList(page);
         await expect(nowCard(page)).toBeVisible();
-        await openWeek(page);
-        await expect(main(page).getByText(/set/).first()).toBeVisible();
+        await openCalendar(page);
+        await expect(main(page).getByRole("button", { name: /settembre 2026$/, expanded: false })).toBeVisible();
         await expect(nowCard(page)).toHaveCount(0);
     });
 
