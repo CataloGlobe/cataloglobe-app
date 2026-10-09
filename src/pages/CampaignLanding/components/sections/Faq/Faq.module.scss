@@ -52,12 +52,15 @@
 .tab {
     @include ld-reset-button;
     @include ld-focus;
+    // Telefono: una riga sola, solo il nome, alta 44 px (prima icona e numero
+    // sopra il nome, 60 px: «selettore tozzo» della chiamata del 2026-10-07).
     display: flex;
-    flex-direction: column;
     align-items: center;
-    gap: 4px;
-    padding: 9px 14px 8px;
-    border-radius: 18px;
+    justify-content: center;
+    gap: 8px;
+    min-height: 44px;
+    padding: 0 14px;
+    border-radius: 999px;
     background: var(--ld-white);
     border: 1px solid var(--ld-line);
     color: var(--ld-ink);
@@ -67,17 +70,15 @@
         color 250ms ease;
 
     @include desktop {
-        flex-direction: row;
-        gap: 8px;
+        min-height: 0;
         padding: 10px 16px 10px 14px;
-        border-radius: 999px;
     }
 }
 
 .tabTop {
-    display: flex;
-    align-items: center;
-    gap: 6px;
+    // Icona e numero solo su desktop: al telefono tre schede con icona, nome
+    // e numero non stanno in una riga.
+    display: none;
 
     @include desktop {
         display: contents;
