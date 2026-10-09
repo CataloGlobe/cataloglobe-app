@@ -75,13 +75,18 @@ async function filterBy(page: Page, label: RegExp): Promise<void> {
     await main(page).getByRole("radio", { name: label }).or(main(page).getByRole("button", { name: label })).first().click();
 }
 
+// In poll: subito dopo un cambio di finestra la pagina si sta ancora
+// sistemando; uno scroll di lato vero resta e la prova fallisce lo stesso.
 async function noSideScroll(page: Page): Promise<void> {
-    const overflow = await page.evaluate(() => {
-        const de = document.documentElement;
-        const scrollers = [de, ...Array.from(document.querySelectorAll<HTMLElement>("main"))];
-        return Math.max(...scrollers.map(el => el.scrollWidth - el.clientWidth));
-    });
-    expect(overflow).toBeLessThanOrEqual(0);
+    await expect
+        .poll(() =>
+            page.evaluate(() => {
+                const de = document.documentElement;
+                const scrollers = [de, ...Array.from(document.querySelectorAll<HTMLElement>("main"))];
+                return Math.max(...scrollers.map(el => el.scrollWidth - el.clientWidth));
+            })
+        )
+        .toBeLessThanOrEqual(0);
 }
 
 test.describe("Disponibilità — prodotti", () => {
