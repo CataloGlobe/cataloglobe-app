@@ -99,11 +99,29 @@
 }
 
 .hero {
+  position: relative;
+  isolation: isolate;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
   text-align: center;
   align-items: center;
+
+  // Velo del colore di fondo dietro titolo e sottotitolo: i punti animati
+  // passano sotto senza togliere leggibilità al testo grigio.
+  &::before {
+    content: "";
+    position: absolute;
+    inset: -0.75rem -1.5rem;
+    z-index: -1;
+    border-radius: 32px;
+    background: radial-gradient(
+      closest-side,
+      color-mix(in srgb, var(--brand-primary) 5%, var(--bg)) 70%,
+      transparent
+    );
+    pointer-events: none;
+  }
 }
 
 .heading {
@@ -206,6 +224,16 @@
   .card {
     flex: 1;
     padding: 1.25rem;
+  }
+
+  .columnCompact {
+    flex: none;
+    margin: auto 0;
+    padding-bottom: 1.5rem;
+
+    .card {
+      flex: none;
+    }
   }
 
   .footer {
