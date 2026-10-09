@@ -1,8 +1,9 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { CheckCircle, Info } from "lucide-react";
 import { supabase } from "@/services/supabase/client";
 import { resendConfirmationEmail } from "@/services/supabase/auth";
+import { parseConfirmationLink } from "@/utils/confirmationLink";
 import { Button } from "@/components/ui";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import Text from "@/components/ui/Text/Text";
@@ -16,72 +17,69 @@ function isRateLimitError(message: string): boolean {
 
 export default function EmailConfirmed() {
     const navigate = useNavigate();
-    const [status, setStatus] = useState<"loading" | "success" | "error" | "already">("loading");
+    const [status, setStatus] = useState<
+        "loading" | "success" | "expired" | "error" | "already" | "otherAccount"
+    >("loading");
+    // Account già dentro quando si apre il link di un altro (stato "otherAccount").
+    const [currentEmail, setCurrentEmail] = useState<string | null>(null);
+    const startedRef = useRef(false);
 
-    // Resend state — usato solo nello stato "error"
+    // Resend state — usato solo negli stati di errore
     const [resendEmail, setResendEmail] = useState("");
     const [resendLoading, setResendLoading] = useState(false);
     const [resendDone, setResendDone] = useState(false);
     const [resendRateLimited, setResendRateLimited] = useState(false);
+    const [resendFailed, setResendFailed] = useState(false);
+
+    const verifyLink = useCallback(async () => {
+        const link = parseConfirmationLink(window.location.search);
+        const { data: sessionData } = await supabase.auth.getSession();
+        const session = sessionData.session;
+
+        // Prima il link, poi la sessione: «già verificata» solo se il link
+        // manca. Con un link e un altro account dentro, il link non si consuma
+        // finché non si esce, altrimenti si cambierebbe account senza dirlo.
+        if (!link) {
+            setStatus(session ? "already" : "error");
+            return;
+        }
+        if (session) {
+            setCurrentEmail(session.user.email ?? null);
+            setStatus("otherAccount");
+            return;
+        }
+
+        const { error } = await supabase.auth.verifyOtp({ token_hash: link.tokenHash, type: link.type });
+        if (!error) {
+            setStatus("success");
+            return;
+        }
+        // GoTrue dà otp_expired sia per il link scaduto sia per quello già usato.
+        const code = (error as { code?: string }).code;
+        setStatus(code === "otp_expired" ? "expired" : "error");
+    }, []);
 
     useEffect(() => {
-        const verify = async () => {
-            const { data: sessionData } = await supabase.auth.getSession();
-            if (sessionData.session) {
-                setStatus("already");
-                return;
-            }
+        // Una volta sola: in sviluppo StrictMode monta due volte, e il secondo
+        // verifyOtp troverebbe il link già consumato.
+        if (startedRef.current) return;
+        startedRef.current = true;
+        verifyLink().catch(() => setStatus("error"));
+    }, [verifyLink]);
 
-            const params = new URLSearchParams(window.location.search);
-            const confirmationUrl = params.get("confirmation_url");
-
-            if (!confirmationUrl) {
-                setStatus("error");
-                return;
-            }
-
-            try {
-                const decoded = decodeURIComponent(confirmationUrl);
-                const url = new URL(decoded);
-
-                // Supabase può usare token o token_hash
-                const tokenHash =
-                    url.searchParams.get("token_hash") || url.searchParams.get("token");
-
-                const type = url.searchParams.get("type") as
-                    | "signup"
-                    | "magiclink"
-                    | "recovery"
-                    | null;
-
-                if (!tokenHash || !type) {
-                    setStatus("error");
-                    return;
-                }
-
-                const { error } = await supabase.auth.verifyOtp({
-                    token_hash: tokenHash,
-                    type
-                });
-
-                if (error) {
-                    setStatus("error");
-                } else {
-                    setStatus("success");
-                }
-            } catch {
-                setStatus("error");
-            }
-        };
-
-        verify();
-    }, []);
+    const handleSignOutAndConfirm = useCallback(async () => {
+        setStatus("loading");
+        // Solo questo dispositivo: le altre sessioni dell'account restano.
+        await supabase.auth.signOut({ scope: "local" });
+        await verifyLink().catch(() => setStatus("error"));
+    }, [verifyLink]);
 
     const handleResend = useCallback(async () => {
         if (!resendEmail.trim() || resendLoading) return;
         setResendLoading(true);
         setResendDone(false);
         setResendRateLimited(false);
+        setResendFailed(false);
         try {
             await resendConfirmationEmail(resendEmail.trim());
             setResendDone(true);
@@ -89,6 +87,8 @@ export default function EmailConfirmed() {
             const message = err instanceof Error ? err.message : "";
             if (isRateLimitError(message)) {
                 setResendRateLimited(true);
+            } else {
+                setResendFailed(true);
             }
         } finally {
             setResendLoading(false);
@@ -131,6 +131,33 @@ export default function EmailConfirmed() {
         );
     }
 
+    if (status === "otherAccount") {
+        return (
+            <AuthLayout>
+                <div className={styles.auth}>
+                    <div className={styles.statusIcon}>
+                        <Info size={48} color="var(--text-muted, #64748b)" strokeWidth={1.5} />
+                    </div>
+                    <Text as="h1" variant="title-md">
+                        Sei dentro con un altro account
+                    </Text>
+                    <Text as="p" variant="body-sm" colorVariant="muted" className={styles.subtitle}>
+                        {currentEmail
+                            ? `Hai già fatto l'accesso come ${currentEmail}. `
+                            : "Hai già fatto l'accesso con un altro account. "}
+                        Per confermare la nuova email esci da questo account.
+                    </Text>
+                    <Button variant="primary" fullWidth onClick={handleSignOutAndConfirm}>
+                        Esci e conferma
+                    </Button>
+                    <Button variant="secondary" fullWidth onClick={() => navigate("/workspace")}>
+                        Resta in questo account
+                    </Button>
+                </div>
+            </AuthLayout>
+        );
+    }
+
     if (status === "already") {
         return (
             <AuthLayout>
@@ -152,7 +179,7 @@ export default function EmailConfirmed() {
         );
     }
 
-    // status === "error"
+    // status === "expired" | "error"
     return (
         <AuthLayout>
             <div className={styles.auth}>
@@ -160,11 +187,12 @@ export default function EmailConfirmed() {
                     <Info size={48} color="var(--text-muted, #64748b)" strokeWidth={1.5} />
                 </div>
                 <Text as="h1" variant="title-md">
-                    Verifica non riuscita
+                    {status === "expired" ? "Link scaduto o già usato" : "Verifica non riuscita"}
                 </Text>
                 <Text as="p" variant="body-sm" colorVariant="muted" className={styles.subtitle}>
-                    Il link potrebbe essere scaduto o già utilizzato. Inserisci la tua email per
-                    ricevere un nuovo link di conferma.
+                    {status === "expired"
+                        ? "Se hai già confermato l'email, puoi accedere. Altrimenti inserisci la tua email per ricevere un nuovo link."
+                        : "Il link non è valido. Inserisci la tua email per ricevere un nuovo link di conferma."}
                 </Text>
 
                 <TextInput
@@ -175,6 +203,7 @@ export default function EmailConfirmed() {
                         setResendEmail(e.target.value);
                         setResendDone(false);
                         setResendRateLimited(false);
+                        setResendFailed(false);
                     }}
                     autoComplete="email"
                     disabled={resendLoading}
@@ -183,6 +212,12 @@ export default function EmailConfirmed() {
                 {resendDone && (
                     <Text as="p" colorVariant="success" variant="caption" className={styles.feedback}>
                         Email inviata. Controlla la tua casella.
+                    </Text>
+                )}
+
+                {resendFailed && (
+                    <Text as="p" colorVariant="error" variant="caption" className={styles.feedback}>
+                        Non siamo riusciti a inviare l'email. Riprova tra poco.
                     </Text>
                 )}
 
@@ -201,6 +236,12 @@ export default function EmailConfirmed() {
                 >
                     Invia nuova email
                 </Button>
+
+                {status === "expired" && (
+                    <Button variant="secondary" fullWidth onClick={() => navigate("/login")}>
+                        Accedi
+                    </Button>
+                )}
             </div>
         </AuthLayout>
     );
