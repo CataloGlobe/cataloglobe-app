@@ -42,9 +42,8 @@ import {
  * comportamento identico a oggi per quei casi.
  */
 
-// ⚠️ SYNC con middleware.ts (righe 49-86): stessa validazione slug.
-//    NB: `middleware.ts` non esiste più nel repo (restano solo artefatti
-//    compilati in .vercel/output/). Riferimento storico da bonificare.
+// Validazione slug: unica implementazione (il vecchio middleware.ts che la
+// duplicava è stato rimosso in a1315573).
 //
 // ⚠️ SYNC RESERVED_SEGMENTS ↔ vercel.json: la lista qui sotto è duplicata
 //    nel negative-lookahead delle DUE regole `headers` di vercel.json che
