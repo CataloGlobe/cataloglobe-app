@@ -61,3 +61,24 @@ export function tenantHasFiscalData(t: TenantFiscalProfile): boolean {
             return false;
     }
 }
+
+/**
+ * Campi fiscali valorizzati ma oltre `BILLING_FIELD_MAX`. Gate di
+ * SubscriptionPage prima di riattivare: blocca solo i valori che finirebbero
+ * tagliati nel customer Stripe e nella fattura elettronica. I dati mancanti li
+ * giudica il gate di stripe-checkout, che è più largo di `tenantHasFiscalData`:
+ * un tenant già abbonato con un profilo vecchio non va bloccato qui.
+ */
+export function tenantFiscalFieldsTooLong(t: TenantFiscalProfile): boolean {
+    const over = (v: string | null | undefined, max: number) => (v?.trim().length ?? 0) > max;
+    return (
+        over(t.legal_name, BILLING_FIELD_MAX.legalName) ||
+        over(t.first_name, BILLING_FIELD_MAX.firstName) ||
+        over(t.last_name, BILLING_FIELD_MAX.lastName) ||
+        over(t.codice_destinatario, BILLING_FIELD_MAX.codiceDestinatario) ||
+        over(t.pec, BILLING_FIELD_MAX.pec) ||
+        over(t.address, BILLING_FIELD_MAX.address) ||
+        over(t.street_number, BILLING_FIELD_MAX.streetNumber) ||
+        over(t.city, BILLING_FIELD_MAX.city)
+    );
+}

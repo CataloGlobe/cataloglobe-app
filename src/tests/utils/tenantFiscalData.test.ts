@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "fs";
 import path from "path";
-import { tenantHasFiscalData } from "@/utils/tenantFiscalData";
+import { tenantFiscalFieldsTooLong, tenantHasFiscalData } from "@/utils/tenantFiscalData";
 import { BILLING_FIELD_MAX } from "@/components/Businesses/CreateBusinessWizard/steps/billingLimits";
 import type { TenantFiscalProfile } from "@/services/supabase/tenants";
 
@@ -79,15 +79,42 @@ describe("tenantHasFiscalData", () => {
     });
 });
 
+describe("tenantFiscalFieldsTooLong", () => {
+    it("profilo valido: no", () => {
+        expect(tenantFiscalFieldsTooLong(societa)).toBe(false);
+    });
+
+    it("profilo vecchio incompleto ma entro i limiti: no (decide l'edge)", () => {
+        expect(
+            tenantFiscalFieldsTooLong({ ...societa, legal_entity_type: null, address: null, province: null, codice_destinatario: null })
+        ).toBe(false);
+    });
+
+    it.each([
+        ["legal_name", BILLING_FIELD_MAX.legalName],
+        ["first_name", BILLING_FIELD_MAX.firstName],
+        ["last_name", BILLING_FIELD_MAX.lastName],
+        ["codice_destinatario", BILLING_FIELD_MAX.codiceDestinatario],
+        ["pec", BILLING_FIELD_MAX.pec],
+        ["address", BILLING_FIELD_MAX.address],
+        ["street_number", BILLING_FIELD_MAX.streetNumber],
+        ["city", BILLING_FIELD_MAX.city]
+    ] as const)("%s oltre il limite: sì", (field, max) => {
+        expect(tenantFiscalFieldsTooLong({ ...societa, [field]: "x".repeat(max + 1) })).toBe(true);
+        expect(tenantFiscalFieldsTooLong({ ...societa, [field]: "x".repeat(max) })).toBe(false);
+    });
+});
+
 describe("gate fiscale prima del checkout", () => {
     const read = (rel: string) => readFileSync(path.resolve(__dirname, "../..", rel), "utf8");
 
-    it("SubscriptionPage controlla i dati fiscali prima di createCheckoutSession", () => {
+    it("SubscriptionPage controlla le lunghezze prima di createCheckoutSession, senza il gate stretto del wizard", () => {
         const src = read("pages/Business/SubscriptionPage.tsx");
         const handler = src.slice(src.indexOf("const handleCheckout = async"));
-        const gate = handler.indexOf("tenantHasFiscalData(fiscal)");
+        const gate = handler.indexOf("tenantFiscalFieldsTooLong(fiscal)");
         expect(gate).toBeGreaterThan(-1);
         expect(gate).toBeLessThan(handler.indexOf("createCheckoutSession("));
+        expect(src).not.toContain("tenantHasFiscalData");
     });
 
     it("il wizard usa la stessa regola", () => {
