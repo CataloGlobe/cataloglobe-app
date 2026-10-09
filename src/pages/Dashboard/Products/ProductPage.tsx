@@ -38,7 +38,7 @@ import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import { usePermissions } from "@/context/usePermissions";
 import { canDoOnTenant } from "@/lib/permissions";
 import { listStyleSwatches, type V2Style } from "@/services/supabase/styles";
-import { stylePalette } from "@/components/ui/StyleSwatch/StyleSwatch";
+import { stylePalette } from "@/components/ui/StyleSwatch/stylePalette";
 import { PRODOTTO_PARTS, isProdottoPart, partTitle, type ProdottoPart } from "./scheda/prodottoCopy";
 import { DESCRIPTION_FIELD_ID, inheritedPart, ruleText, type ProdottoFacts } from "./scheda/prodottoModel";
 import { ProdottoDashboard } from "./scheda/ProdottoDashboard";

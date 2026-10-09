@@ -1,4 +1,4 @@
-import type { StylePalette } from "@/components/ui/StyleSwatch/StyleSwatch";
+import type { StylePalette } from "@/components/ui/StyleSwatch/stylePalette";
 import type { GroupWithValues } from "@/services/supabase/productOptions";
 import type { FieldLanguageState } from "@/services/supabase/translationStatus";
 import { INHERITED, type ProdottoPart } from "./prodottoCopy";
