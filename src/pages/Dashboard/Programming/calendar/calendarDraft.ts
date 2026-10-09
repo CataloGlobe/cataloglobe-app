@@ -69,6 +69,8 @@ export type Draft = {
     per: Record<string, CalWhen> | null;
     /** Il nome scritto da chi modifica; null = quello che mettiamo noi. */
     name: string | null;
+    /** Un menù che si accavalla con un altro: true = «Mettili insieme», altrimenti prende il suo posto (D135). */
+    insieme?: boolean;
     orig: string;
     before: string | null;
 };
@@ -98,7 +100,7 @@ export const whenKey = (w: CalWhen) =>
 export const whereKey = (w: CalWhere) => (w.all ? "all" : "a:" + [...w.activityIds].sort().join(",") + "|g:" + [...w.groupIds].sort().join(","));
 const perKey = (per: Draft["per"]) => (per ? Object.entries(per).map(([id, w]) => id + "=" + whenKey(w)).join(";") : "");
 export const snap = (D: Draft) =>
-    JSON.stringify([D.kind, D.picks, D.prices, D.strike, D.hide, D.thing, D.pair, whenKey(D.when), whereKey(D.where), perKey(D.per), D.name]);
+    JSON.stringify([D.kind, D.picks, D.prices, D.strike, D.hide, D.thing, D.pair, whenKey(D.when), whereKey(D.where), perKey(D.per), D.name, !!D.insieme]);
 export const isDirty = (D: Draft | null) => !!D && !!D.kind && snap(D) !== D.orig;
 
 export function blankDraft(kind: CalKind, where: CalWhere, pair: string | null): Draft {
@@ -228,6 +230,45 @@ export function waitsForDb(D: Draft): string {
         if (rs.some(([, b]) => b > 1440)) return "Dopo mezzanotte: " + DB_WAIT;
     }
     if ((D.kind === "menu" || D.kind === "style") && !D.pair) return (D.kind === "menu" ? "Un menù senza stile: " : "Uno stile da solo: ") + DB_WAIT;
+    return "";
+}
+
+/* ---------- due menù alla stessa ora (D135) ---------- */
+
+/**
+ * Dove la bozza tocca un altro menù (o stile) alle stesse ore, per sede.
+ * `vince`: la bozza prende il suo posto; `pari`: solo perché è l'ultima messa
+ * (con `vince` false: resta l'altro perché c'era prima, il Calendario di oggi).
+ */
+export type Scontro = { sedi: string[]; con: string; quando: string; vince: boolean; pari: boolean };
+/** «Cosa cambia nel calendario» e gli scontri, nella settimana che si vede. */
+export type Impatto = { lines: string[]; scontri: Scontro[] };
+export const NO_IMPATTO: Impatto = { lines: [], scontri: [] };
+
+const ore = (m: number) => hhmm(m).replace(/:00$/, "").replace(/^0(\d)/, "$1");
+
+/** «dal lunedì al venerdì dalle 12 alle 14»: i tratti di una settimana, giorno (0 = lunedì) → [da, a]. */
+export function quandoScontro(tratti: readonly (readonly [number, number, number])[]): string {
+    const by = new Map<string, number[]>();
+    for (const [d, a, b] of tratti) {
+        const k = a + "-" + b;
+        if (!by.get(k)?.includes(d)) by.set(k, [...(by.get(k) ?? []), d]);
+    }
+    return listIt(
+        [...by.entries()]
+            .sort((x, y) => Math.min(...x[1]) - Math.min(...y[1]))
+            .map(([k, ds]) => {
+                const [a, b] = k.split("-").map(Number);
+                return `${ds.length === 7 ? "tutti i giorni" : daysLong(ds)} dalle ${ore(a)} alle ${ore(b)}`;
+            })
+    );
+}
+
+/** Cosa aspetta il database nuovo per gli scontri (D135, D149); "" se si salva. */
+export function scontriWait(D: Draft, sc: readonly Scontro[]): string {
+    if (DB.ready || !sc.some(x => x.vince)) return "";
+    if (D.kind === "menu" && D.insieme) return "Due menù insieme: " + DB_WAIT;
+    if (NEW_MODEL.newestWins && sc.some(x => x.vince && x.pari)) return "Prende il posto di un altro a pari merito: " + DB_WAIT;
     return "";
 }
 

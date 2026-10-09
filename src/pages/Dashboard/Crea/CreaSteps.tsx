@@ -12,8 +12,8 @@ import { StoryBlockEditor } from "@/pages/Dashboard/Stories/components/StoryBloc
 import { BLOCK_TYPE_META, BLOCK_TYPE_ORDER } from "@/pages/Dashboard/Stories/components/blocks/blockTypeMeta";
 import { createBlock } from "@/pages/Dashboard/Stories/components/createBlock";
 import type { StoryProductOptions } from "@/pages/Dashboard/Stories/components/StoryProductPicker";
-import { DoveQuandoPasso, QuandoPasso, type PassoGruppo, type PassoSede } from "@/pages/Dashboard/Programming/calendar/CalendarioPassi";
-import { DB_LATER, invalid, type Draft, type DraftLookups, type PickProduct } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
+import { DoveQuandoPasso, QuandoPasso, ScontriAvviso, type PassoGruppo, type PassoSede } from "@/pages/Dashboard/Programming/calendar/CalendarioPassi";
+import { DB_LATER, invalid, type Draft, type DraftLookups, type Impatto, type PickProduct } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import type { Axis, CalWhen } from "@/pages/Dashboard/Programming/calendar/calendarModel";
 import cal from "@/pages/Dashboard/Programming/calendar/CalendarioView.module.scss";
 import { CARDS, COLORS, EV, FONTS, FONT_QUICK, KIND, STEP_LABEL, STORIA_WHEN, blocker, bundleTotal, euro, firstBlock, priceText, key, sentence, stepSummary, steps, type CardKey, type Ctx, type EvType, type Tunnel } from "./creaModel";
@@ -596,7 +596,23 @@ export function DoveQuando(p: { t: Tunnel; u: U; draft: Draft; updDraft: Upd; se
 }
 
 /* ---------- Controlla ---------- */
-export function Controlla({ t, c, L, effect, styleName, onGo }: { t: Tunnel; c: Ctx; L: DraftLookups; effect: string[]; styleName: (id: string) => string; onGo: (i: number) => void }) {
+export function Controlla({
+    t,
+    c,
+    L,
+    effect,
+    styleName,
+    onGo,
+    onInsieme
+}: {
+    t: Tunnel;
+    c: Ctx;
+    L: DraftLookups;
+    effect: Impatto;
+    styleName: (id: string) => string;
+    onGo: (i: number) => void;
+    onInsieme: (v: boolean) => void;
+}) {
     const all = steps(t, c);
     const st = all.filter(x => x !== "controlla" && x !== "serve");
     const fb = firstBlock(t, c);
@@ -607,6 +623,9 @@ export function Controlla({ t, c, L, effect, styleName, onGo }: { t: Tunnel; c: 
                 <div className={s.blk}>
                     <h4>In una frase</h4>
                     <p className={s.isent}>{sentence(t, L)}</p>
+                    {(t.kind === "menu" || t.kind === "stile") && (
+                        <ScontriAvviso kind={t.kind === "menu" ? "menu" : "style"} scontri={effect.scontri} multi={L.multi} insieme={!!t.insieme} onInsieme={onInsieme} />
+                    )}
                 </div>
             ) : (
                 <div className={cx(s.callout, s.info)}>
@@ -632,7 +651,7 @@ export function Controlla({ t, c, L, effect, styleName, onGo }: { t: Tunnel; c: 
                 <div className={s.blk}>
                     <h4>Cosa cambia nel calendario</h4>
                     <ul className={s.ieff}>
-                        {effect.map((x, i) => (
+                        {effect.lines.map((x, i) => (
                             <li key={i}>{x}</li>
                         ))}
                     </ul>

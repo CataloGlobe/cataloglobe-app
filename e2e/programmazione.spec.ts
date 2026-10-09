@@ -787,6 +787,32 @@ test.describe("Programmazione — calendario, simulatore, guida", () => {
         await expect(main(page).getByRole("status")).toHaveText(/^Aggiunto al calendario: Pranzo e2e/);
     });
 
+    test("D135: a pari merito con un altro menù l'avviso lo dice, e per ora non si salva", async ({ page }) => {
+        await openSeatList(page, SEDE.centro, "layout");
+        await openCalendar(page);
+        await main(page).getByRole("button", { name: "Aggiungi", exact: true }).click();
+        await main(page).getByRole("button", { name: /^Menù/ }).first().click();
+        await main(page).getByRole("radio", { name: /Carta e2e/ }).click();
+        await main(page).getByRole("button", { name: "Avanti" }).click();
+        // stessi giorni e ore della regola «pranzo» di Centro: pari merito
+        await main(page).getByRole("button", { name: "Lun–Ven", exact: true }).click();
+        await main(page).getByRole("radio", { name: "Fasce orarie" }).click();
+        await main(page).getByRole("button", { name: "Avanti" }).click();
+        await expect(main(page).getByText("In una frase")).toBeVisible();
+        const avviso = main(page).getByRole("group", { name: "Si accavalla con un altro" });
+        await expect(avviso).toContainText("c'è già «Pranzo e2e»");
+        await expect(avviso.getByText("In quelle ore va in onda il tuo; fuori da quelle ore resta tutto com'è.")).toBeVisible();
+        const add = main(page).getByRole("button", { name: "Aggiungi al calendario" });
+        await expect(add).toBeDisabled();
+        await expect(main(page).getByText("Prende il posto di un altro a pari merito: si salva col database nuovo")).toBeVisible();
+        await avviso.getByRole("radio", { name: "Mettili insieme" }).click();
+        await expect(avviso.getByText("In quelle ore ci sono tutti e due: il cliente sceglie.")).toBeVisible();
+        await expect(main(page).getByText("Due menù insieme: si salva col database nuovo")).toBeVisible();
+        await expect(add).toBeDisabled();
+        await noHorizontalScroll(page);
+        expect(writesOf(stub, "schedules.POST")).toHaveLength(0);
+    });
+
     test("cablaggio: «Dove e quando» è un passo solo; le sedi col bottone «Sedi», le ore diverse fanno due regole (D145)", async ({ page }) => {
         const NEW_ID = "e2e0d000-0000-4000-a000-000000000782";
         stub.onWrite("schedules.POST", () => ({ id: NEW_ID }));

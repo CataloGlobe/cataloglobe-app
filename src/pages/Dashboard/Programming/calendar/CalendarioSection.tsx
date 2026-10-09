@@ -26,6 +26,7 @@ import {
     isDish,
     missing,
     waitsForDb,
+    scontriWait,
     pairName,
     priceKey,
     priceKeys,
@@ -38,11 +39,12 @@ import {
     listIt,
     type Draft,
     type DraftLookups,
+    type Impatto,
     type PickProduct,
     type PickThing
 } from "./calendarDraft";
 import { CAL_KINDS, KIND_LABEL, durLabel, eur, type Axis, type CalKind, type CalWhen } from "./calendarModel";
-import { DoveQuandoPasso, QuandoPasso, Warn } from "./CalendarioPassi";
+import { DoveQuandoPasso, QuandoPasso, ScontriAvviso, Warn } from "./CalendarioPassi";
 import s from "./CalendarioView.module.scss";
 
 export type SectionSede = { id: string; name: string };
@@ -100,7 +102,7 @@ export type CalendarioSectionProps = {
     kept: Draft | null;
     toast: ReactNode;
     preview: ReactNode;
-    effect: string[];
+    effect: Impatto;
     band: Axis;
     busy: boolean;
     onKind: (k: CalKind) => void;
@@ -211,7 +213,7 @@ export function CalendarioSection(p: CalendarioSectionProps) {
         );
 
     const miss = missing(D, L), bad = invalid(D), last = D.step === steps.length - 1;
-    const blocked = miss || bad || waitsForDb(D);
+    const blocked = miss || bad || waitsForDb(D) || scontriWait(D, p.effect.scontri);
     const body = [
         cosa,
         () =>
@@ -557,6 +559,7 @@ export function CalendarioSection(p: CalendarioSectionProps) {
                     <p className={s.isent}>{sentence(d, L)}</p>
                     {miss && <Warn>{miss}: torna a Cosa.</Warn>}
                     {!miss && bad && <Warn>{bad}.</Warn>}
+                    {!miss && <ScontriAvviso kind={d.kind} scontri={p.effect.scontri} multi={L.multi} insieme={!!d.insieme} onInsieme={v => upd(dd => void (dd.insieme = v))} />}
                     <dl className={s.isum}>
                         {rows.map(([t, v, i]) => (
                             <div key={t}>
@@ -587,7 +590,7 @@ export function CalendarioSection(p: CalendarioSectionProps) {
                 <div className={s.ifl}>
                     <h4>Cosa cambia nel calendario</h4>
                     <ul className={s.ieff}>
-                        {p.effect.map((x, i) => (
+                        {p.effect.lines.map((x, i) => (
                             <li key={i}>{x}</li>
                         ))}
                         {pn && !miss && (

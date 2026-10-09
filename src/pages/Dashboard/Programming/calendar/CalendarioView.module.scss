@@ -1389,6 +1389,23 @@ button.dqsedi {
         margin-left: auto;
     }
 }
+.scontro {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-start;
+    padding: 10px 12px;
+    border-radius: var(--radius-control);
+    border: 1px solid var(--warning-200);
+    background: var(--warning-50);
+    p {
+        margin: 0;
+    }
+    b {
+        font-weight: 600;
+    }
+}
+
 .hwarn {
     display: flex;
     gap: 8px;

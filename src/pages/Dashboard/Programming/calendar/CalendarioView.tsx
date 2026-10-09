@@ -22,6 +22,7 @@ import {
     romeToday,
     shortName,
     specFor,
+    tie,
     why,
     type Axis,
     type CalEntry,
@@ -55,7 +56,11 @@ import {
     elides,
     missing,
     whenKey,
+    NO_IMPATTO,
+    quandoScontro,
     type Draft,
+    type Impatto,
+    type Scontro,
     type DraftLookups,
     type PickProduct,
     type PickThing,
@@ -107,7 +112,7 @@ export type CalendarioViewProps = {
         draft: Draft;
         pickList?: readonly PickProduct[];
         /** Le righe «Cosa cambia nel calendario», a ogni cambio. */
-        onEffect?: (lines: string[]) => void;
+        onEffect?: (imp: Impatto) => void;
     };
     section?: {
         pickList: readonly PickProduct[];
@@ -937,26 +942,45 @@ export default function CalendarioView({
     const pvReach = pvEntries.length ? shown.filter(x => reaches(x.id)) : shown;
     const pvSedi = (pvReach.length ? pvReach : pvEntries.length ? sedi.filter(x => reaches(x.id)).slice(0, 1) : shown.slice(0, 1)).slice(0, 4);
 
-    // cosa cambia nel calendario, nella settimana che si vede
-    const effect = (): string[] => {
-        if (!draft || !pvList) return [];
-        if (missing(draft, L)) return ["Scegli prima cosa mettere: poi qui vedi dove va in onda."];
+    // cosa cambia nel calendario, nella settimana che si vede; e dove si accavalla con un altro (D135)
+    const effect = (): Impatto => {
+        if (!draft || !pvList) return NO_IMPATTO;
+        if (missing(draft, L)) return { lines: ["Scegli prima cosa mettere: poi qui vedi dove va in onda."], scontri: [] };
         const wk = week === monday ? "Questa settimana" : "Nella settimana del " + mShort(week);
         const groupsOf = new Map<string, string[]>();
+        const sc = new Map<string, Scontro>();
         for (const x of pvSedi.length ? pvSedi : shown) {
             const seat = seatOf(x.id), cov = new Set<string>(), by = new Set<string>();
+            // chi tocca la bozza → i tratti (giorno, da, a), uniti dove si toccano
+            const tocchi = new Map<string, { vince: boolean; pari: boolean; tratti: [number, number, number][] }>();
+            const tocca = (con: string, vince: boolean, pari: boolean, d: number, a: number, b: number) => {
+                const k = con + "|" + vince;
+                const t = tocchi.get(k) ?? { vince, pari: true, tratti: [] };
+                t.pari &&= pari;
+                const last = t.tratti[t.tratti.length - 1];
+                if (last && last[0] === d && last[2] === a) last[2] = b;
+                else t.tratti.push([d, a, b]);
+                tocchi.set(k, t);
+            };
             let mins = 0, off = 0, days = 0;
             for (let i = 0; i < 7; i++) {
                 let on = 0;
+                const d = dayOfWeek(week + i);
                 for (const l of fLines(dayCtx(pvList, draft.kind, seat, week + i), pvAx).filter(l => l.preview))
                     for (const g of l.segs) {
                         const m = g.to - g.from;
                         if (g.state === "on") {
                             on += m;
-                            g.covers.forEach(c => cov.add(c));
+                            g.covers.forEach(c => {
+                                cov.add(c);
+                                const lo = g.reps.find(e => e.thing === c);
+                                if (g.win && lo) tocca(c, true, tie(g.win, lo, seat), d, g.from, g.to);
+                            });
                         } else {
                             off += m;
                             if (g.by) by.add(g.by);
+                            // resta l'altro solo perché c'era prima: lo dice l'avviso
+                            if (g.win && g.self && tie(g.win, g.self, seat)) tocca(g.by, false, true, d, g.from, g.to);
                         }
                     }
                 if (on) {
@@ -975,13 +999,20 @@ export default function CalendarioView({
             }
             const k = out.join("\n");
             groupsOf.set(k, [...(groupsOf.get(k) ?? []), x.name]);
+            for (const [key, t] of tocchi) {
+                const quando = quandoScontro(t.tratti), con = key.slice(0, key.lastIndexOf("|"));
+                const sk = [con, t.vince, t.pari, quando].join("|"), prev = sc.get(sk);
+                if (prev) prev.sedi.push(x.name);
+                else sc.set(sk, { sedi: [x.name], con, quando, vince: t.vince, pari: t.pari });
+            }
         }
         // le sedi con lo stesso risultato stanno insieme
-        return [...groupsOf.entries()].flatMap(([k, ss]) => {
+        const lines = [...groupsOf.entries()].flatMap(([k, ss]) => {
             const r = k.split("\n");
             if (multi) r[0] = "A " + listIt(ss) + ": " + r[0].charAt(0).toLowerCase() + r[0].slice(1);
             return r;
         });
+        return { lines, scontri: [...sc.values()] };
     };
 
     // le durate che ci sono già, prima quelle dello stesso tipo: al massimo sei
@@ -1123,12 +1154,11 @@ export default function CalendarioView({
         </aside>
     );
     // i tunnel: solo l'anteprima, con le righe di cosa cambia
-    const effLines = anteprima && draft ? effect() : null;
-    const effKey = effLines ? effLines.join("\n") : "";
+    const effKey = anteprima && draft ? JSON.stringify(effect()) : "";
     const onEffect = useRef(anteprima?.onEffect);
     onEffect.current = anteprima?.onEffect;
     useEffect(() => {
-        if (anteprima) onEffect.current?.(effKey ? effKey.split("\n") : []);
+        if (anteprima) onEffect.current?.(effKey ? (JSON.parse(effKey) as Impatto) : NO_IMPATTO);
     }, [effKey, !!anteprima]); // eslint-disable-line react-hooks/exhaustive-deps
     if (anteprima)
         return (
@@ -1159,7 +1189,7 @@ export default function CalendarioView({
                         kept={kept}
                         toast={noteNode}
                         preview={preview}
-                        effect={draft ? effect() : []}
+                        effect={draft ? effect() : NO_IMPATTO}
                         band={axis}
                         busy={busy}
                         onKind={k => setDraft(blankDraft(k, section.defaultWhere, pairFor(k)))}

@@ -51,6 +51,7 @@ export function draftFor(t: Tunnel, kind: CalKind, thing: string, pair: string |
     D.thing = thing;
     D.when = cloneWhen(effWhen(t));
     D.per = clonePer(t.per);
+    D.insieme = kind === "menu" && !!t.insieme;
     return D;
 }
 

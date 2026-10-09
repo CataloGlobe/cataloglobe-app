@@ -88,6 +88,8 @@ export type Tunnel = {
     seen: number;
     // il menù
     menuType: "classico" | "multi" | null;
+    /** Si accavalla con un altro menù: true = «Mettili insieme» (D135). */
+    insieme?: boolean;
     name: string;
     source: "zero" | "foto";
     /** Il menù creato dall'import con l'AI: si salva lui, non uno nuovo. */

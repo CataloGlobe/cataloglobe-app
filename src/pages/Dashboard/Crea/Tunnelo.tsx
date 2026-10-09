@@ -12,9 +12,9 @@ import { usePhoneFit } from "@/hooks/usePhoneFit";
 import { listBaseProductsForPicker } from "@/services/supabase/products";
 import type { StoryProductOptions } from "@/pages/Dashboard/Stories/components/StoryProductPicker";
 import { SettimanaAnteprima } from "@/pages/Dashboard/Programming/calendar/SettimanaAnteprima";
-import type { Draft } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
+import type { Draft, Impatto } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import { axisFor, entriesFromRules, romeToday, type CalNames, type CalWhen } from "@/pages/Dashboard/Programming/calendar/calendarModel";
-import { dropAside, waitsForDb, whenKey } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
+import { NO_IMPATTO, dropAside, scontriWait, waitsForDb, whenKey } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import { KIND, qcardText, withAside, blocker, effWhen, firstBlock, isDirty, newTunnel, steps, STEP_LABEL, thingName, tunnelTitle, type CreaKind, type FromMenu, type StepId, type Tunnel } from "./creaModel";
 import { CAL_KIND, draftFor, saveTunnel, type Saved } from "./creaSave";
 import { aspectOf, sampleOf, styleTokens, tokensOf, useFonts } from "./creaStyle";
@@ -70,7 +70,7 @@ export function Tunnelo({ kind, aside, data, tenantId, owner, origin, business, 
     const [saving, setSaving] = useState(false);
     const [leave, setLeave] = useState(false);
     const [going, setGoing] = useState<string | null>(null);
-    const [effect, setEffect] = useState<string[]>([]);
+    const [effect, setEffect] = useState<Impatto>(NO_IMPATTO);
     const [blockFiles, setBlockFiles] = useState<Record<string, File>>({});
     const [productOptions, setProductOptions] = useState<StoryProductOptions>({ items: null, failed: false });
 
@@ -151,7 +151,7 @@ export function Tunnelo({ kind, aside, data, tenantId, owner, origin, business, 
     }, [data.names, calKind, name]);
     const draft: Draft | null = calKind ? draftFor(t, calKind, FAKE, pair) : null;
     // mettere in onda aspetta il database nuovo per le novità che non sa tenere (D149)
-    const why = stepWhy || (last && !showAfter && owner && draft ? waitsForDb(draft) : "");
+    const why = stepWhy || (last && !showAfter && owner && draft ? waitsForDb(draft) || scontriWait(draft, effect.scontri) : "");
     const updDraft = (fn: (d: Draft) => void) =>
         u(x => {
             const D = draftFor(x, calKind ?? "featured", FAKE, pair);
@@ -374,7 +374,7 @@ export function Tunnelo({ kind, aside, data, tenantId, owner, origin, business, 
                 break;
             }
             default:
-                body = <Controlla t={t} c={c} L={L} effect={effect} styleName={styleName} onGo={n => go(n)} />;
+                body = <Controlla t={t} c={c} L={L} effect={effect} styleName={styleName} onGo={n => go(n)} onInsieme={v => u(x => void (x.insieme = v))} />;
         }
 
     /* ---------- a destra ---------- */

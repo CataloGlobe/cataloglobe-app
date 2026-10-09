@@ -5,8 +5,8 @@ import { Plus, TriangleAlert, X } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import { IconButton } from "@/components/ui/Button/IconButton";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
-import { DB_LATER, NEW_MODEL, invalid, isoDay, listIt, normRanges, sediOf, syncPer, whenKey, type Draft, type DraftLookups } from "./calendarDraft";
-import { FSLOT, dayNum, durLabel, hhmm, type Axis, type CalWhen, type CalWhere } from "./calendarModel";
+import { DB_LATER, NEW_MODEL, invalid, isoDay, listIt, normRanges, sediOf, syncPer, whenKey, type Draft, type DraftLookups, type Scontro } from "./calendarDraft";
+import { FSLOT, dayNum, durLabel, hhmm, q, type Axis, type CalKind, type CalWhen, type CalWhere } from "./calendarModel";
 import { SediBottone } from "@/components/ui/SediPannello/SediPannello";
 import { Band, TimeSel } from "./CalendarioOrario";
 import s from "./CalendarioView.module.scss";
@@ -323,6 +323,44 @@ const todayNum = () => {
     const r = new Date();
     return dayNum(r.getFullYear(), r.getMonth(), r.getDate());
 };
+
+/**
+ * Quando la bozza si accavalla con un altro menù o stile (D135): lo dice prima
+ * di salvare. Il menù sceglie fra «Prende il suo posto» e «Mettili insieme».
+ */
+export function ScontriAvviso({ kind, scontri, multi, insieme, onInsieme }: { kind: CalKind; scontri: readonly Scontro[]; multi: boolean; insieme: boolean; onInsieme: (v: boolean) => void }) {
+    if (!scontri.length || (kind !== "menu" && kind !== "style")) return null;
+    const vinte = scontri.filter(x => x.vince);
+    const frase = (x: Scontro) => {
+        const t = multi ? `A ${listIt(x.sedi)}, ${x.quando}, c'è già ${q(x.con)}` : `${x.quando.charAt(0).toUpperCase()}${x.quando.slice(1)} c'è già ${q(x.con)}`;
+        return x.vince ? t + "." : `${t}: resta quello, perché c'era prima. Lì il tuo non si vede.`;
+    };
+    const scelta = kind === "menu" && NEW_MODEL.multiMenu && vinte.length > 0;
+    return (
+        <div className={s.scontro} role="group" aria-label="Si accavalla con un altro">
+            {scontri.map((x, i) => (
+                <p key={i}>
+                    <b>{frase(x)}</b>
+                </p>
+            ))}
+            {scelta && (
+                <SegmentedControl<"posto" | "insieme">
+                    value={insieme ? "insieme" : "posto"}
+                    onChange={v => onInsieme(v === "insieme")}
+                    options={[
+                        { value: "posto", label: "Prende il suo posto" },
+                        { value: "insieme", label: "Mettili insieme" }
+                    ]}
+                />
+            )}
+            {vinte.length > 0 && (
+                <p className={s.muted}>
+                    {scelta && insieme ? "In quelle ore ci sono tutti e due: il cliente sceglie." : "In quelle ore va in onda il tuo; fuori da quelle ore resta tutto com'è."}
+                </p>
+            )}
+        </div>
+    );
+}
 
 export function Warn({ children }: { children: ReactNode }) {
     return (
