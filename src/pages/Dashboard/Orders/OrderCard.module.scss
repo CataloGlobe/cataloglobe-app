@@ -9,8 +9,11 @@
     border-radius: var(--radius-surface);
 }
 
+// Il segno sta dentro la card (outline sopra il bordo): un anello fuori
+// veniva tagliato dalla colonna che scorre, in cima e in fondo.
 .card[data-selected] {
-    box-shadow: 0 0 0 2px var(--brand-primary);
+    outline: 2px solid var(--brand-primary);
+    outline-offset: -2px;
 }
 
 // Blocchi con padding propri, separati dai divisori: via 8/12 del body flush.
