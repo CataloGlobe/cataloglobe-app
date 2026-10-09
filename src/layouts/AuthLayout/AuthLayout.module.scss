@@ -180,7 +180,7 @@
   }
 }
 
-// Telefono: logo e titolo a sinistra, la scheda sale fino in fondo.
+// Telefono: margini più stretti, titolo centrato come sul computer.
 @media (max-width: 599px) {
   .header {
     padding: 1rem 1rem 0.5rem;
@@ -190,21 +190,15 @@
     padding: 0.75rem 0.75rem 0;
   }
 
+  // La scheda finisce dove finisce il contenuto: lo sfondo resta visibile sotto.
   .column {
-    margin: 0;
+    margin: auto 0;
+    padding-bottom: 1.5rem;
     gap: 1.25rem;
-    flex: 1;
   }
 
   .hero {
     padding: 0.5rem 0.5rem 0;
-    text-align: left;
-    align-items: flex-start;
-  }
-
-  .heroCentered {
-    text-align: center;
-    align-items: center;
   }
 
   .heading {
@@ -212,18 +206,7 @@
   }
 
   .card {
-    flex: 1;
     padding: 1.25rem;
-  }
-
-  .columnCompact {
-    flex: none;
-    margin: auto 0;
-    padding-bottom: 1.5rem;
-
-    .card {
-      flex: none;
-    }
   }
 
   .footer {
