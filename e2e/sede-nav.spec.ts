@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { openBusinessPage } from "./business";
 import { asRole } from "./asRole";
-import { asSingleSede, currentVoce, sidebarLink, sidebarVoci } from "./nav";
+import { asSingleSede, currentVoce, menuRows, openInServizio, sedeSwitcher, sidebarLink, sidebarVoci } from "./nav";
 
 /**
  * Il contesto di sede (lotto `ds-5-sede-nav`, §46.1): entrando in un locale la
@@ -17,24 +17,18 @@ import { asSingleSede, currentVoce, sidebarLink, sidebarVoci } from "./nav";
  * sala») ed è la prima voce, quella su cui si atterra; lo Storico è una voce.
  * Lotto B-b: sei voci a gruppi (§19.5), Ospiti e Ordini; le ultime due fuori.
  * Navigazione v2 (§51): gruppi e voci dei tre contesti stanno in
- * `navigazione.spec.ts`; il nome della sede è nell'header.
+ * `navigazione.spec.ts`. Artifact v4 (D143, D152): la sidebar è la stessa
+ * fuori e dentro una sede; la sede si legge e si cambia con «Sede» in alto
+ * a destra, si torna all'elenco da «Sedi».
  *
  * Locator per ruolo, mai per tag. Nessuna scrittura.
  */
 
-// §51.5: il locale (con Programmazione della sede dal 2026-10-07), poi Operatività.
-const SEDE_VOCI = ["Scheda", "Cosa vedono i clienti", "Programmazione", "Servizio", "Prenotazioni", "Comande", "Storico"] as const;
-
-/** Le voci dell'azienda che dentro una sede NON devono esserci. */
-const VOCI_AZIENDA = ["Panoramica", "Team", "Abbonamento"] as const;
+// Le parti che dentro una sede portano alle sue rotte (artifact v4).
+const SEDE_VOCI = ["Calendario", "Regole", "In servizio", "Cosa vedono i clienti", "Sala", "Storico", "Andamento", "Recensioni"] as const;
 
 function nav(page: Page) {
     return page.getByRole("navigation", { name: "Menu principale" });
-}
-
-/** L'intestazione del contesto: dove sei, e come si esce. */
-function contextNav(page: Page) {
-    return page.getByRole("navigation", { name: "Contesto" });
 }
 
 /** Gli indirizzi delle sedi della griglia, nell'ordine in cui compaiono. */
@@ -63,12 +57,13 @@ async function openFirstLocation(page: Page): Promise<string> {
 }
 
 test.describe("Contesto di sede", () => {
-    test("entrando in una sede la sidebar diventa quella della sede", async ({ page }) => {
-        await openFirstLocation(page);
-        // Le voci stanno nei pannelli delle sezioni (Officina): si leggono aprendoli.
-        await expect.poll(() => sidebarVoci(page), { timeout: 15_000 }).toEqual(expect.arrayContaining([...SEDE_VOCI]));
-        const voci = await sidebarVoci(page);
-        for (const voce of VOCI_AZIENDA) expect(voci).not.toContain(voce);
+    test("entrando in una sede la sidebar resta la stessa", async ({ page }) => {
+        const paths = await locationPaths(page);
+        const fuori = await sidebarVoci(page);
+        await page.goto(`${paths[0]}/anagrafica`);
+        // Le voci stanno nelle sezioni: si leggono aprendole.
+        await expect.poll(() => sidebarVoci(page), { timeout: 15_000 }).toEqual(fuori);
+        expect(fuori).toEqual(expect.arrayContaining([...SEDE_VOCI]));
     });
 
     test("tutte le voci sono navigabili", async ({ page }) => {
@@ -78,15 +73,15 @@ test.describe("Contesto di sede", () => {
         await expect(nav(page).locator('[aria-disabled="true"]')).toHaveCount(0);
     });
 
-    test("Comande e Prenotazioni sono rotte della sede", async ({ page }) => {
+    test("Comande e Prenotazioni sono rotte della sede, dentro «In servizio»", async ({ page }) => {
         await openFirstLocation(page);
 
-        await (await sidebarLink(page, "Comande")).click();
-        await expect(page).toHaveURL(/\/comande$/, { timeout: 15_000 });
+        await openInServizio(page, "Comande");
+        await expect(page).toHaveURL(/\/locations\/[0-9a-f-]+\/comande$/, { timeout: 15_000 });
         await expect(page.getByRole("main")).toBeVisible();
 
-        await (await sidebarLink(page, "Prenotazioni")).click();
-        await expect(page).toHaveURL(/\/prenotazioni$/, { timeout: 15_000 });
+        await openInServizio(page, "Prenotazioni");
+        await expect(page).toHaveURL(/\/locations\/[0-9a-f-]+\/prenotazioni$/, { timeout: 15_000 });
         await expect(page.getByRole("main")).toBeVisible();
     });
 
@@ -99,24 +94,24 @@ test.describe("Contesto di sede", () => {
         await expect(page).toHaveURL(/\/locations\/[0-9a-f-]+\/comande$|\/locations$/, { timeout: 15_000 });
     });
 
-    test("«Tutte le sedi» riporta all'elenco", async ({ page }) => {
+    test("«Sedi» riporta all'elenco", async ({ page }) => {
         await openFirstLocation(page);
-        await contextNav(page).getByRole("link", { name: /^(Tutte le sedi|Azienda)$/ }).click();
-        await expect(page).toHaveURL(/\/(locations|overview)$/, { timeout: 15_000 });
+        await menuRows(page).getByRole("link", { name: "Sedi", exact: true }).click();
+        await expect(page).toHaveURL(/\/locations$/, { timeout: 15_000 });
         await expect(nav(page).getByRole("link", { name: "Panoramica", exact: true })).toBeVisible();
     });
 
     test("le voci senza piano portano alle rotte della sede", async ({ page }) => {
         await openFirstLocation(page);
 
-        await (await sidebarLink(page, "Servizio")).click();
-        await expect(page).toHaveURL(/\/servizio$/, { timeout: 15_000 });
+        await (await sidebarLink(page, "In servizio")).click();
+        await expect(page).toHaveURL(/\/locations\/[0-9a-f-]+\/servizio(\?|$)/, { timeout: 15_000 });
 
         await (await sidebarLink(page, "Cosa vedono i clienti")).click();
-        await expect(page).toHaveURL(/\/cosa-vedono$/, { timeout: 15_000 });
+        await expect(page).toHaveURL(/\/locations\/[0-9a-f-]+\/cosa-vedono$/, { timeout: 15_000 });
 
-        await (await sidebarLink(page, "Scheda")).click();
-        await expect(page).toHaveURL(/\/anagrafica$/, { timeout: 15_000 });
+        await (await sidebarLink(page, "Regole")).click();
+        await expect(page).toHaveURL(/\/locations\/[0-9a-f-]+\/programmazione$/, { timeout: 15_000 });
     });
 
     // §51.6: chi configura entra nella sede dalla Scheda (era: la prima voce
@@ -153,16 +148,18 @@ test.describe("Contesto di sede", () => {
         await expect(page.getByRole("main").getByRole("combobox", { name: "Sede" })).toHaveCount(0);
     });
 
-    test("a 375 il contesto vive nel cassetto, e la sede si legge nella navbar", async ({ page }) => {
-        // Si entra da desktop: a 375 la sidebar è un cassetto chiuso e
-        // l'helper di navigazione non vedrebbe le voci dell'azienda.
-        await openFirstLocation(page);
+    test("a 375 la sede si legge in alto, il menu sta nel cassetto", async ({ page }) => {
+        const paths = await locationPaths(page);
+        test.skip(paths.length < 2, "con una sede sola non c'è niente da scegliere");
+        const name = await openFirstLocation(page);
         await page.setViewportSize({ width: 375, height: 800 });
+        await page.goto(page.url().replace(/\/locations\/([^/]+).*$/, "/locations/$1/servizio"));
+        await expect(sedeSwitcher(page)).toContainText(name, { timeout: 15_000 });
 
         await page.getByRole("button", { name: "Apri menù di navigazione" }).click();
         const sidebar = nav(page);
-        await expect(sidebar.getByRole("link", { name: "Scheda", exact: true })).toBeVisible({ timeout: 15_000 });
-        await expect(contextNav(page).getByRole("link", { name: /^(Tutte le sedi|Azienda)$/ })).toBeVisible();
+        await expect(sidebar.getByRole("link", { name: "In servizio", exact: true })).toBeVisible({ timeout: 15_000 });
+        await expect(sidebar.getByRole("link", { name: "Sedi", exact: true })).toBeVisible();
     });
 });
 
@@ -204,17 +201,17 @@ test.describe("Atterraggio per ruolo", () => {
         }
     }
 
-    // Si atterra su Servizio: con Pro nell'Elenco, con Base nella Sala (il
-    // modo senza lucchetto, Officina 3). Il modo lo prova servizio.spec.
+    // Si atterra su Servizio: con Pro in «In servizio», con Base nella Sala
+    // (la parte senza lucchetto). Il modo lo prova servizio.spec.
     const CASI = [
-        { role: "staff", plan: "pro", segment: "servizio" },
-        { role: "viewer", plan: "pro", segment: "servizio" },
-        { role: "staff", plan: "base", segment: "servizio" },
-        { role: "viewer", plan: "base", segment: "servizio" }
+        { role: "staff", plan: "pro", segment: "servizio", parte: "In servizio" },
+        { role: "viewer", plan: "pro", segment: "servizio", parte: "In servizio" },
+        { role: "staff", plan: "base", segment: "servizio\\?modo=sala", parte: "Sala" },
+        { role: "viewer", plan: "base", segment: "servizio\\?modo=sala", parte: "Sala" }
     ] as const;
 
-    for (const { role, plan, segment } of CASI) {
-        test(`${role}, piano ${plan}: entrando nella sede si arriva a ${segment}`, async ({ page }) => {
+    for (const { role, plan, segment, parte } of CASI) {
+        test(`${role}, piano ${plan}: entrando nella sede si arriva a ${parte}`, async ({ page }) => {
             const paths = await locationPaths(page);
             const id = paths[0].split("/").pop()!;
             await asRole(page, role, id, plan);
@@ -229,8 +226,8 @@ test.describe("Atterraggio per ruolo", () => {
             await page.goto(paths[0].replace(/\/locations\/.*$/, ""));
             await expect(page).toHaveURL(new RegExp(`/locations/${id}/`), { timeout: 15_000 });
             await expectUsableLanding(page, segment);
-            // Una sede sola: sidebar unica, nessun contesto da cui uscire (§51.3).
-            await expect(contextNav(page)).toHaveCount(0);
+            // Una sede sola: «Il locale» al posto di Sedi (§51.3).
+            await expect(menuRows(page).getByRole("link", { name: "Il locale", exact: true })).toBeVisible();
         });
     }
 });
