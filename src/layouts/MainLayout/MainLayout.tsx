@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, Outlet, useLocation, useParams } from "react-router-dom";
 import TenantSidebar from "@components/layout/Sidebar/TenantSidebar";
-import SedeSidebar from "@components/layout/Sidebar/SedeSidebar";
+import { useNavGroups } from "@components/layout/Sidebar/useNavGroups";
 import { AppHeader } from "@components/layout/AppHeader/AppHeader";
 import { HeaderNotifications } from "@components/layout/AppHeader/HeaderNotifications";
 import { AiUsagePill } from "@components/layout/AppHeader/AiUsagePill";
@@ -29,7 +29,7 @@ import { useCheckoutReturnSync } from "@/hooks/useCheckoutReturnSync";
 import { AiMenuImportDrawer } from "@/pages/Dashboard/Catalogs/AiMenuImport/AiMenuImportDrawer";
 import { hasUnreadReply, listMyTickets } from "@/services/supabase/support";
 import { useSedeScope } from "@/hooks/useSedeScope";
-import { rememberLastSede } from "@/hooks/sedeScopeStore";
+import { readSedeScopeLocal, rememberLastSede } from "@/hooks/sedeScopeStore";
 import { resolveNavContext } from "@/utils/navModel";
 import type { BusinessOutletContext } from "./outletContext";
 import { useCurrentUserProfile } from "@/hooks/useCurrentUserProfile";
@@ -256,6 +256,22 @@ export default function MainLayout() {
         };
     }, [tenantId, supportRefreshKey]);
 
+    // Le sei sezioni (artifact v4, Alex 2026-10-09), una volta per la sidebar
+    // e per le tab della pagina. La sede in vista è quella del path o l'unica;
+    // le parti di sede senza una sede in vista vanno nell'ultima usata, o nella prima.
+    const viewedActivityId = rememberedSedeId ?? soleActivityId;
+    const lastSede = readSedeScopeLocal();
+    const defaultActivityId =
+        viewedActivityId ??
+        (lastSede && readableActivities.some(a => a.id === lastSede) ? lastSede : (readableActivities[0]?.id ?? null));
+    const nav = useNavGroups({
+        context: navContext,
+        activityId: viewedActivityId,
+        defaultActivityId,
+        loading: !sediLoaded,
+        signals: { translationPendingCount, importInProgress, supportUnread }
+    });
+
     const outletContext = useMemo<BusinessOutletContext>(
         () => ({
             translationCoverage,
@@ -347,41 +363,20 @@ export default function MainLayout() {
                         )}
 
                         <div className={styles.body}>
-                            {sediLoaded && navContext === "sede" ? (
-                                <SedeSidebar
-                                    isMobile={isMobile}
-                                    mobileOpen={mobileSidebarOpen}
-                                    collapsed={!isMobile && sidebarCollapsed}
-                                    onRequestClose={() => setMobileSidebarOpen(false)}
-                                    onToggleCollapse={() => setSidebarCollapsed(v => !v)}
-                                    brand={sidebarBrand}
-                                    switcherSlot={sidebarSwitcher}
-                                    translationPendingCount={translationPendingCount}
-                                    importInProgress={importInProgress}
-                                    supportUnread={supportUnread}
-                                    profile={profile}
-                                />
-                            ) : (
-                                <TenantSidebar
-                                    isMobile={isMobile}
-                                    mobileOpen={mobileSidebarOpen}
-                                    collapsed={!isMobile && sidebarCollapsed}
-                                    onRequestClose={() => setMobileSidebarOpen(false)}
-                                    onToggleCollapse={() => setSidebarCollapsed(v => !v)}
-                                    brand={sidebarBrand}
-                                    switcherSlot={sidebarSwitcher}
-                                    context={navContext === "unica" ? "unica" : "azienda"}
-                                    activityId={soleActivityId}
-                                    loading={!sediLoaded}
-                                    translationPendingCount={translationPendingCount}
-                                    importInProgress={importInProgress}
-                                    supportUnread={supportUnread}
-                                    profile={profile}
-                                />
-                            )}
+                            <TenantSidebar
+                                nav={nav}
+                                profile={profile}
+                                isMobile={isMobile}
+                                mobileOpen={mobileSidebarOpen}
+                                collapsed={!isMobile && sidebarCollapsed}
+                                onRequestClose={() => setMobileSidebarOpen(false)}
+                                onToggleCollapse={() => setSidebarCollapsed(v => !v)}
+                                brand={sidebarBrand}
+                                switcherSlot={sidebarSwitcher}
+                            />
 
                             <main className={styles.main}>
-                                <PageTitleBar actions={titleBarActions} />
+                                <PageTitleBar actions={titleBarActions} groups={nav.groups} />
                                 {/* Il dettaglio dal vivo si apre nell'aside, accanto al
                                     contenuto (D131): la pagina si stringe, non si copre. */}
                                 <div className={styles.split}>

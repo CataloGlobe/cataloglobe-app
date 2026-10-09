@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { Link, NavLink, useLocation } from "react-router-dom";
+import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { motion, useReducedMotion } from "framer-motion";
 import { Lock, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
 import Text from "@/components/ui/Text/Text";
@@ -9,7 +9,7 @@ import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
 import { Logo } from "@/components/ui/Logo/Logo";
 import { SIDEBAR_COLLAPSED, SIDEBAR_EXPANDED } from "@/constants/layout";
 import { SidebarSection } from "./SidebarSection";
-import { isItemActive } from "./isItemActive";
+import { currentItem } from "./isItemActive";
 import styles from "./AppSidebar.module.scss";
 
 /**
@@ -34,7 +34,15 @@ import styles from "./AppSidebar.module.scss";
  */
 
 export interface AppSidebarNavItem {
+    /** La parte, per ricordare l'ultima usata della sezione. */
+    id?: string;
     to: string;
+    /** La query della parte: accesa solo se l'indirizzo la porta (vedi `isItemActive`). */
+    search?: string;
+    /** Lo stato della parte, a destra («3 · 1 non in onda»). */
+    state?: string;
+    /** Il pallino dello stato: c'è da vedere (arancio) o è in corso (verde). */
+    stateTone?: "attention" | "live";
     label: string;
     icon: ReactNode;
     end?: boolean;
@@ -69,6 +77,8 @@ export interface AppSidebarNavItem {
 }
 
 export interface AppSidebarNavGroup {
+    /** La sezione, per ricordare la sua ultima parte. */
+    key?: string;
     /** Titolo del gruppo (`caption-xs` 600 uppercase muto). Sparisce collassata. */
     title?: string;
     /**
@@ -120,6 +130,29 @@ const SECTION_OPEN_DELAY = 60;
 const SECTION_CLOSE_DELAY = 200;
 /** Dalla riga chiusa (42) al bordo della sidebar (11), più lo spazio del pannello (6). */
 const PANEL_LABEL_OFFSET = 17;
+
+/** L'ultima parte usata di ogni sezione: ci si riparte cliccando la sezione. */
+const LAST_PART_KEY = "nav:ultima-parte";
+
+function readLastParts(): Record<string, string> {
+    try {
+        const raw = window.localStorage.getItem(LAST_PART_KEY);
+        const parsed: unknown = raw ? JSON.parse(raw) : null;
+        return parsed && typeof parsed === "object" ? (parsed as Record<string, string>) : {};
+    } catch {
+        return {};
+    }
+}
+
+function rememberLastPart(section: string, part: string): void {
+    const all = readLastParts();
+    if (all[section] === part) return;
+    try {
+        window.localStorage.setItem(LAST_PART_KEY, JSON.stringify({ ...all, [section]: part }));
+    } catch {
+        // Storage chiuso: si riparte dalla prima parte.
+    }
+}
 
 /** Il contatore come si legge: oltre 99 diventa «99+». */
 function badgeText(badge: number | string): number | string {
@@ -208,7 +241,8 @@ export function AppSidebar({
     switcherSlot
 }: AppSidebarProps) {
     const collapsedDesktop = !isMobile && collapsed;
-    const { pathname } = useLocation();
+    const { pathname, search } = useLocation();
+    const navigate = useNavigate();
 
     const reduceMotion = useReducedMotion();
 
@@ -277,29 +311,23 @@ export function AppSidebar({
     );
     const sectionsMode = !isMobile && groups.some(group => group.icon && group.title);
 
-    // Sidebar aperta: le sezioni si aprono verso il basso (Alex). Arrivando su
-    // una pagina si apre la sua sezione; le altre restano come le ha lasciate
-    // chi usa la sidebar, nessuna si richiude da sola.
-    const sectionId = (group: AppSidebarNavGroup, index: number) => `${index}:${group.title ?? ""}`;
-    const currentSectionId = (() => {
-        const index = groups.findIndex(
-            group => group.icon && group.title && group.items.length > 1 && group.items.some(item => isItemActive(item, pathname))
-        );
-        return index === -1 ? null : sectionId(groups[index], index);
-    })();
-    const [expandedSections, setExpandedSections] = useState<ReadonlySet<string>>(
-        () => new Set(currentSectionId ? [currentSectionId] : [])
+    // Sidebar aperta: si apre solo la sezione in cui sei, con le sue parti
+    // (artifact v4, Alex 2026-10-09); le altre restano chiuse, col pallino se
+    // c'è qualcosa da vedere. Il clic su una sezione porta alla sua ultima parte.
+    const sectionId = (group: AppSidebarNavGroup, index: number) => group.key ?? `${index}:${group.title ?? ""}`;
+    const currentIndex = groups.findIndex(
+        group => group.icon && group.title && group.items.length > 1 && currentItem(group.items, pathname, search)
     );
+    const currentSectionId = currentIndex === -1 ? null : sectionId(groups[currentIndex], currentIndex);
+    const currentPart = currentIndex === -1 ? null : currentItem(groups[currentIndex].items, pathname, search);
     useEffect(() => {
-        if (!currentSectionId) return;
-        setExpandedSections(prev => (prev.has(currentSectionId) ? prev : new Set(prev).add(currentSectionId)));
-    }, [currentSectionId]);
-    const toggleSection = (id: string) =>
-        setExpandedSections(prev => {
-            const next = new Set(prev);
-            if (!next.delete(id)) next.add(id);
-            return next;
-        });
+        if (currentSectionId && currentPart?.id) rememberLastPart(currentSectionId, currentPart.id);
+    }, [currentSectionId, currentPart?.id]);
+    const goToSection = (group: AppSidebarNavGroup, id: string) => {
+        const last = readLastParts()[id];
+        const target = group.items.find(item => item.id === last && !item.disabled) ?? group.items.find(item => !item.disabled);
+        if (target) navigate(target.to);
+    };
 
     const renderGroupAsSection = (group: AppSidebarNavGroup, index: number): ReactNode => {
         const title = group.title ?? "";
@@ -312,12 +340,13 @@ export function AppSidebar({
             <SidebarSection
                 key={id}
                 inline={!collapsedDesktop}
-                expanded={expandedSections.has(id)}
-                onToggle={() => toggleSection(id)}
+                expanded={id === currentSectionId}
+                onToggle={() => goToSection(group, id)}
                 title={title}
                 icon={group.icon}
                 items={group.items}
                 pathname={pathname}
+                search={search}
                 open={openSection === id}
                 onHoverStart={() => hoverSection(id)}
                 onHoverEnd={leaveSection}
@@ -373,7 +402,7 @@ export function AppSidebar({
                       </span>,
                       link.disabledHint ?? "In arrivo"
                   )
-                : link.matchPrefixes?.some(p => pathname.startsWith(p))
+                : link.matchPrefixes?.some(p => pathname === p || pathname.startsWith(`${p}/`))
                   ? withTooltip(
                         link,
                         // Una voce che copre più pagine (Scheda: Orari, Sala…) è
@@ -523,8 +552,15 @@ export function AppSidebar({
                             /* Fra i gruppi solo i titoli (aperta) e i loro trattini (chiusa), §51.15. */
                             groups.map((group, i) => (
                             <div key={i} className={styles.group} role="group" aria-label={group.title}>
-                                {group.title && <span className={styles.groupTitle}>{group.title}</span>}
-                                <ul className={styles.list}>{group.items.map(renderItem)}</ul>
+                                {/* Una sezione di una parte sola (Panoramica, Sedi) è la sua voce: niente titolo. */}
+                                {group.title && !(group.icon && group.items.length === 1) && (
+                                    <span className={styles.groupTitle}>{group.title}</span>
+                                )}
+                                <ul className={styles.list}>
+                                    {group.icon && group.items.length === 1
+                                        ? renderItem({ ...group.items[0], label: group.title ?? group.items[0].label, icon: group.icon })
+                                        : group.items.map(renderItem)}
+                                </ul>
                             </div>
                             ))
                         )}

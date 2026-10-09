@@ -1,24 +1,71 @@
 import type { ReactNode } from "react";
+import { Link, useLocation } from "react-router-dom";
 import { NavbarBreadcrumb } from "@components/layout/AppHeader/NavbarBreadcrumb";
+import Text from "@/components/ui/Text/Text";
+import type { AppSidebarNavGroup } from "@/components/layout/AppSidebar/AppSidebar";
+import { currentItem, isItemRoot } from "@/components/layout/AppSidebar/isItemActive";
 import styles from "./PageTitleBar.module.scss";
 
 interface PageTitleBarProps {
     /** A destra: consumo AI e notifiche (solo desktop). */
     actions?: ReactNode;
+    /** Le sezioni della sidebar: sulla pagina di una parte, le sorelle come tab. */
+    groups?: AppSidebarNavGroup[];
 }
 
 /**
- * Barra bianca in cima a ogni pagina (Officina, Alex): il percorso della
- * pagina («Prodotti / Margherita»), quello che prima chiudeva la testata a
- * cartelle. Azienda e sede stanno nella sidebar; le notifiche in alto a destra
- * (Lorenzo). Tab, ricerca e azioni della pagina restano nella banda sotto
+ * Barra bianca in cima a ogni pagina (Officina, Alex): sulla pagina di una
+ * parte il nome della sezione e le sue parti come tab (artifact v4, Alex
+ * 2026-10-09: «tab nella pagina e parti nella sidebar»); dentro un dettaglio
+ * il percorso («Prodotti / Margherita»). Le notifiche in alto a destra
+ * (Lorenzo). Ricerca e azioni della pagina restano nella banda sotto
  * (`PageHeaderSlot`).
  */
-export function PageTitleBar({ actions }: PageTitleBarProps) {
+export function PageTitleBar({ actions, groups = [] }: PageTitleBarProps) {
+    const { pathname, search } = useLocation();
+
+    let section: { group: AppSidebarNavGroup; current: AppSidebarNavGroup["items"][number] } | null = null;
+    for (const group of groups) {
+        // Il Calendario per ora tiene lo switch «Programmazione | Calendario»
+        // della pagina (Alex 2026-10-09, sessione del tunnel): le sue tab dopo.
+        if (group.items.length < 2 || group.key === "calendario") continue;
+        const current = currentItem(group.items, pathname, search);
+        if (current && isItemRoot(current, pathname)) {
+            section = { group, current };
+            break;
+        }
+    }
+
     return (
         <div className={styles.bar}>
             <div className={styles.path}>
-                <NavbarBreadcrumb inBar />
+                {section ? (
+                    <div className={styles.section}>
+                        <Text as="span" variant="body" weight={600} className={styles.sectionTitle}>
+                            {section.group.title}
+                        </Text>
+                        <nav className={styles.tabs} aria-label={`Parti di ${section.group.title}`}>
+                            {section.group.items.map(item => {
+                                const selected = item === section.current;
+                                const signal = item.stateTone === "attention" || item.showDot || item.loading || item.badge !== undefined;
+                                return item.disabled ? null : (
+                                    <Link
+                                        key={item.to}
+                                        to={item.to}
+                                        className={`${styles.tab} ${selected ? styles.tabSelected : ""}`}
+                                        aria-current={selected ? "page" : undefined}
+                                    >
+                                        {signal && <span className={styles.tabDot} aria-hidden="true" />}
+                                        {item.label}
+                                        {item.state && <span className={styles.tabState}>{item.state}</span>}
+                                    </Link>
+                                );
+                            })}
+                        </nav>
+                    </div>
+                ) : (
+                    <NavbarBreadcrumb inBar />
+                )}
             </div>
             {actions && <div className={styles.actions}>{actions}</div>}
         </div>
