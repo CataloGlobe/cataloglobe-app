@@ -106,22 +106,6 @@
   gap: 0.5rem;
   text-align: center;
   align-items: center;
-
-  // Velo del colore di fondo dietro titolo e sottotitolo: i punti animati
-  // passano sotto senza togliere leggibilità al testo grigio.
-  &::before {
-    content: "";
-    position: absolute;
-    inset: -0.75rem -1.5rem;
-    z-index: -1;
-    border-radius: 32px;
-    background: radial-gradient(
-      closest-side,
-      color-mix(in srgb, var(--brand-primary) 5%, var(--bg)) 70%,
-      transparent
-    );
-    pointer-events: none;
-  }
 }
 
 .heading {
@@ -135,6 +119,12 @@
 
 .lead {
   margin: 0;
+}
+
+// I punti animati passano anche sotto il testo: il sottotitolo è un grigio più
+// carico del muted, a metà con il colore del testo, per leggersi sopra la tela.
+.hero .lead {
+  color: color-mix(in srgb, var(--text) 45%, var(--text-muted));
 }
 
 .tile {
