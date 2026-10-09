@@ -62,6 +62,41 @@ test.describe("Scheda della sede", () => {
         await expect(page.getByRole("main").getByText("La vostra pagina", { exact: true })).toBeVisible();
     });
 
+    test("scorrendo la scheda scorre anche il telefono, fino in fondo", async ({ page }) => {
+        // La misura dell'Air: sotto 1050 di scheda il telefono non c'è.
+        await page.setViewportSize({ width: 1470, height: 830 });
+        await openFirstLocation(page);
+        // Aperta dall'indirizzo, come dopo un ricarica: la scheda arriva dopo i dati.
+        await page.reload();
+        await expect(tile(page, PART.orari)).toBeVisible({ timeout: 15_000 });
+        const phone = page.getByLabel("Come la vede il cliente");
+        await expect(phone).toBeVisible();
+        // Il contenitore che scorre è il primo antenato della scheda con overflow.
+        const scrollTo = (where: "top" | "bottom") =>
+            tile(page, PART.orari).evaluate((el, where) => {
+                let p = el.parentElement;
+                while (p && !/auto|scroll/.test(getComputedStyle(p).overflowY)) p = p.parentElement;
+                const c = (p ?? document.scrollingElement) as HTMLElement;
+                c.scrollTop = where === "top" ? 0 : c.scrollHeight;
+            }, where);
+        const phoneScroll = () =>
+            phone.evaluate(ph => {
+                const scr = Array.from(ph.querySelectorAll<HTMLElement>("*")).find(
+                    e => /auto|scroll/.test(getComputedStyle(e).overflowY) && e.scrollHeight > e.clientHeight
+                );
+                return scr ? { top: scr.scrollTop, max: scr.scrollHeight - scr.clientHeight } : null;
+            });
+        await scrollTo("bottom");
+        await expect
+            .poll(async () => {
+                const s = await phoneScroll();
+                return s ? s.max - s.top : -1;
+            })
+            .toBeLessThanOrEqual(1);
+        await scrollTo("top");
+        await expect.poll(async () => (await phoneScroll())?.top).toBe(0);
+    });
+
     test("una tessera apre la sua parte a fuoco, e il percorso torna al cruscotto", async ({ page }) => {
         await openFirstLocation(page);
         await tile(page, PART.contatti).click();

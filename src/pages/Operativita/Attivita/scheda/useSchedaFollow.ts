@@ -79,16 +79,23 @@ export function useSchedaFollow(
         scr.scrollTop = Math.round(target);
     }, [rootRef, scrRef]);
 
+    // In cattura sul documento, come il prototipo: il contenitore che scorre
+    // si cerca a ogni scroll, perché al montaggio la scheda può non esserci
+    // ancora (dati in caricamento) e un listener fissato allora resterebbe
+    // sulla finestra, che non scorre.
     useEffect(() => {
-        const C = scrollParent(rootRef.current);
-        const target: HTMLElement | Window | null = C === document.scrollingElement ? window : C;
-        if (!target) return;
-        const onScroll = () => follow();
-        target.addEventListener("scroll", onScroll, { passive: true });
-        window.addEventListener("resize", onScroll);
+        const onScroll = (e: Event) => {
+            const C = scrollParent(rootRef.current);
+            if (!C) return;
+            const from = e.target === document ? document.scrollingElement : e.target;
+            if (from === C) follow();
+        };
+        const onResize = () => follow();
+        document.addEventListener("scroll", onScroll, { passive: true, capture: true });
+        window.addEventListener("resize", onResize);
         return () => {
-            target.removeEventListener("scroll", onScroll);
-            window.removeEventListener("resize", onScroll);
+            document.removeEventListener("scroll", onScroll, { capture: true });
+            window.removeEventListener("resize", onResize);
         };
     }, [follow, rootRef]);
 
