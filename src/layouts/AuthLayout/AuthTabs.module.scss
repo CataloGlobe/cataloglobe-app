@@ -1,4 +1,7 @@
+// I nomi view-transition-name servono al passaggio animato tra Accedi e Registrati.
 .tabs {
+  position: relative;
+  view-transition-name: auth-tabs;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   padding: 4px;
@@ -7,7 +10,25 @@
   border: 1px solid var(--border);
 }
 
+// L'indicatore bianco sotto la scheda attiva: un elemento solo, così scorre.
+.pill {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 4px;
+  width: calc(50% - 4px);
+  border-radius: 9px;
+  background: var(--card-bg);
+  box-shadow: var(--shadow-sm);
+  view-transition-name: auth-tab-pill;
+}
+
+.pillRight {
+  transform: translateX(100%);
+}
+
 .tab {
+  position: relative;
   min-height: 40px;
   display: flex;
   align-items: center;
@@ -28,9 +49,15 @@
   }
 }
 
+.tabLogin {
+  view-transition-name: auth-tab-login;
+}
+
+.tabSignup {
+  view-transition-name: auth-tab-signup;
+}
+
 .active {
-  background: var(--card-bg);
   color: var(--text);
   font-weight: 600;
-  box-shadow: var(--shadow-sm);
 }

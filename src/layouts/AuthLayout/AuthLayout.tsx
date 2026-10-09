@@ -2,6 +2,8 @@ import { Link } from "react-router-dom";
 import { Logo } from "@/components/ui/Logo/Logo";
 import Text from "@/components/ui/Text/Text";
 import { COMPANY } from "@/config/company";
+import { AuthBackdrop } from "./AuthBackdrop";
+import { calmAuthBackdrop, pulseAuthBackdrop } from "./backdropWaves";
 import styles from "./AuthLayout.module.scss";
 
 type HeroTone = "brand" | "warning";
@@ -19,13 +21,28 @@ interface AuthLayoutProps {
   aside?: React.ReactNode;
 }
 
+/** Chi usa la scheda (scrive, incolla, clicca) calma lo sfondo; le schede Accedi | Registrati no. */
+function calmUnlessTabs(e: React.SyntheticEvent) {
+  if ((e.target as Element).closest("[data-auth-tabs]")) return;
+  calmAuthBackdrop();
+}
+
+/** Un clic sullo sfondo vuoto fa partire un'onda da lì. */
+function pulseOnBackground(e: React.PointerEvent) {
+  if (!e.isPrimary || e.button !== 0) return;
+  const target = e.target as Element;
+  if (target.closest("a, button, input, select, textarea, label, [data-auth-card], [data-auth-hero]")) return;
+  pulseAuthBackdrop(e.clientX, e.clientY);
+}
+
 /**
- * Le pagine di accesso: sfondo a griglia sul colore del marchio, titolo sopra
- * e una scheda al centro (mockup approvati da Lorenzo il 2026-10-09).
+ * Le pagine di accesso: tela di punti animata sul colore del marchio, titolo
+ * sopra e una scheda al centro (mockup approvati da Lorenzo il 2026-10-09).
  */
 export function AuthLayout({ children, heading, lead, icon, tone = "brand", aside }: AuthLayoutProps) {
   return (
-    <div className={styles.wrapper}>
+    <div className={styles.wrapper} onPointerDown={pulseOnBackground}>
+      <AuthBackdrop />
       <header className={styles.header}>
         <Link to="/" className={styles.logoLink} aria-label="CataloGlobe home">
           <Logo variant="lockup-horizontal" color="auto" size={32} className={styles.logoImg} />
@@ -36,7 +53,11 @@ export function AuthLayout({ children, heading, lead, icon, tone = "brand", asid
       <main className={styles.main}>
         <div className={styles.column}>
           {heading && (
-            <div className={`${styles.hero} ${icon ? styles.heroCentered : ""}`} role={children ? undefined : "status"}>
+            <div
+              className={`${styles.hero} ${icon ? styles.heroCentered : ""}`}
+              role={children ? undefined : "status"}
+              data-auth-hero
+            >
               {icon && (
                 <span className={`${styles.tile} ${tone === "warning" ? styles.tileWarning : ""}`} aria-hidden="true">
                   {icon}
@@ -50,7 +71,17 @@ export function AuthLayout({ children, heading, lead, icon, tone = "brand", asid
               )}
             </div>
           )}
-          {children && <div className={styles.card}>{children}</div>}
+          {children && (
+            <div
+              className={styles.card}
+              data-auth-card
+              onKeyDown={calmUnlessTabs}
+              onPaste={calmUnlessTabs}
+              onPointerDown={calmUnlessTabs}
+            >
+              <div className={styles.cardBody}>{children}</div>
+            </div>
+          )}
         </div>
       </main>
 
