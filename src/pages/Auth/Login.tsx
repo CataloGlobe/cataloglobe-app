@@ -16,7 +16,7 @@ import { TextInput } from "@/components/ui/Input/TextInput";
 import Text from "@/components/ui/Text/Text";
 import { AuthLayout } from "@/layouts/AuthLayout/AuthLayout";
 import { AuthTabs } from "@/layouts/AuthLayout/AuthTabs";
-import { Mail } from "lucide-react";
+import { Mail, ShieldCheck } from "lucide-react";
 import { PasswordField } from "./PasswordField";
 import { COMPANY } from "@/config/company";
 import styles from "./Auth.module.scss";
@@ -348,6 +348,10 @@ export default function Login() {
                 </Button>
                 </form>
 
+                <p className={styles.note}>
+                    <ShieldCheck size={16} aria-hidden="true" />
+                    Per sicurezza, una volta al mese ti chiediamo anche un codice via email.
+                </p>
             </div>
         </AuthLayout>
     );
