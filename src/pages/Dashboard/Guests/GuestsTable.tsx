@@ -28,6 +28,8 @@ interface Props {
     isSearching: boolean;
     onClearSearch: () => void;
     onOpenGuest: (guest: ReservationGuestSummary) => void;
+    /** Il cliente aperto nel dettaglio accanto: la sua riga resta segnata. */
+    selectedGuestId?: string | null;
     tenantWide: boolean;
 }
 
@@ -39,6 +41,7 @@ export default function GuestsTable({
     isSearching,
     onClearSearch,
     onOpenGuest,
+    selectedGuestId,
     tenantWide
 }: Props) {
     const footnote = visibilityFootnote(tenantWide);
@@ -133,6 +136,7 @@ export default function GuestsTable({
                 ariaLabel="Clienti"
                 isLoading={isLoading && !hasLoadedOnce}
                 onRowClick={onOpenGuest}
+                activeRowId={selectedGuestId}
                 isFiltered={isSearching}
                 onClearFilters={onClearSearch}
                 emptyState={{

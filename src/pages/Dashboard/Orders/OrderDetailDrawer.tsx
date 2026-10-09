@@ -63,6 +63,8 @@ interface Props {
     /** Il precedente e il successivo dell'elenco sotto (↑ ↓). */
     onPrev?: () => void;
     onNext?: () => void;
+    /** «2 di 5» fra le frecce (D141). */
+    position?: { index: number; total: number };
     /** La pagina sotto, per il ritorno al telefono. Default «Comande». */
     backLabel?: string;
 }
@@ -125,6 +127,7 @@ export default function OrderDetailDrawer({
     leftBoard,
     onPrev,
     onNext,
+    position,
     backLabel = "Comande"
 }: Props) {
     const printRef = useRef<HTMLDivElement>(null);
@@ -144,7 +147,7 @@ export default function OrderDetailDrawer({
 
     if (!order) {
         return (
-            <DetailPane open={open} onClose={onClose} aria-labelledby={titleId} backLabel={backLabel} onPrev={onPrev} onNext={onNext}>
+            <DetailPane open={open} onClose={onClose} aria-labelledby={titleId} backLabel={backLabel} onPrev={onPrev} onNext={onNext} position={position}>
                 <DrawerLayout
                     title="Dettaglio ordine"
                     titleId={titleId}
@@ -188,7 +191,7 @@ export default function OrderDetailDrawer({
               : null;
 
     return (
-        <DetailPane open={open} onClose={onClose} aria-labelledby={titleId} backLabel={backLabel} onPrev={onPrev} onNext={onNext}>
+        <DetailPane open={open} onClose={onClose} aria-labelledby={titleId} backLabel={backLabel} onPrev={onPrev} onNext={onNext} position={position}>
             <DrawerLayout
                 title="Dettaglio ordine"
                 titleId={titleId}

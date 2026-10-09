@@ -32,6 +32,8 @@ export function useDetailPaneOpen(): boolean {
 export interface DetailPaneNav {
     onPrev?: () => void;
     onNext?: () => void;
+    /** Dove si è nell'elenco: «2 di 5» fra le frecce (D141). `index` parte da 0. */
+    position?: { index: number; total: number };
     /** Al telefono il pannello è una pagina: in alto «‹ backLabel». */
     phone: boolean;
     backLabel: string;

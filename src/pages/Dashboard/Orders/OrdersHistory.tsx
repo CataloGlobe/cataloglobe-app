@@ -279,6 +279,7 @@ export default function OrdersHistory() {
                                 columns={columns}
                                 isLoading={isLoading}
                                 getRowId={o => o.id}
+                                activeRowId={detailId}
                                 onRowClick={o => {
                                     if (!o.is_rectification) openDetail(o.id);
                                 }}
@@ -330,6 +331,7 @@ export default function OrdersHistory() {
                         backLabel="Storico"
                         onPrev={detailIndex > 0 ? () => stepDetail(-1) : undefined}
                         onNext={detailIndex >= 0 && detailIndex < detailSequence.length - 1 ? () => stepDetail(1) : undefined}
+                        position={detailIndex >= 0 ? { index: detailIndex, total: detailSequence.length } : undefined}
                         tableLabel={tableOf(orderInDetail)?.label ?? "?"}
                         tableZone={tableOf(orderInDetail)?.zone_name ?? null}
                         operatorNames={operatorNames}

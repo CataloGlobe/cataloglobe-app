@@ -768,6 +768,7 @@ function OrdersBoard() {
                 leftBoard={!liveDetail && orderInDetail !== null}
                 onPrev={boardSequence.length > 1 ? () => stepDetail(-1) : undefined}
                 onNext={boardSequence.length > 1 ? () => stepDetail(1) : undefined}
+                position={detailIndex >= 0 ? { index: detailIndex, total: boardSequence.length } : undefined}
                 actions={{
                     onAcknowledge: handleAcknowledge,
                     onMarkReady: handleMarkReady,

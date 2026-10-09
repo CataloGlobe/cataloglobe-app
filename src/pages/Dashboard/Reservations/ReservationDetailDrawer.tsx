@@ -57,6 +57,8 @@ interface Props {
     /** La prenotazione prima e dopo nella pagina (↑ ↓). */
     onPrev?: () => void;
     onNext?: () => void;
+    /** «2 di 5» fra le frecce (D141). */
+    position?: { index: number; total: number };
     /** Reservation as currently rendered (with optimistic override applied if any). */
     reservation: V2Reservation | null;
     activityName: string | null;
@@ -285,6 +287,7 @@ export default function ReservationDetailDrawer({
     backLabel,
     onPrev,
     onNext,
+    position,
     reservation,
     activityName,
     operatorNames,
@@ -444,7 +447,7 @@ export default function ReservationDetailDrawer({
 
     if (!reservation) {
         return (
-            <DetailPane open={open} onClose={onClose} aria-labelledby={titleId} backLabel={backLabel} onPrev={onPrev} onNext={onNext}>
+            <DetailPane open={open} onClose={onClose} aria-labelledby={titleId} backLabel={backLabel} onPrev={onPrev} onNext={onNext} position={position}>
                 <DrawerLayout title="Prenotazione" titleId={titleId} onClose={onClose}>
                     <div className={styles.drawerBody}>
                         <Text variant="body" colorVariant="muted">
@@ -646,7 +649,7 @@ export default function ReservationDetailDrawer({
 
     if (asking && closeFlow.kind === "ask") {
         return (
-            <DetailPane open={open} onClose={onClose} aria-labelledby={titleId} backLabel={backLabel} onPrev={onPrev} onNext={onNext}>
+            <DetailPane open={open} onClose={onClose} aria-labelledby={titleId} backLabel={backLabel} onPrev={onPrev} onNext={onNext} position={position}>
                 <DrawerLayout
                     title="Prenotazione"
                     titleId={titleId}
@@ -667,7 +670,7 @@ export default function ReservationDetailDrawer({
     }
 
     return (
-        <DetailPane open={open} onClose={onClose} aria-labelledby={titleId} backLabel={backLabel} onPrev={onPrev} onNext={onNext}>
+        <DetailPane open={open} onClose={onClose} aria-labelledby={titleId} backLabel={backLabel} onPrev={onPrev} onNext={onNext} position={position}>
             <DrawerLayout title="Prenotazione" titleId={titleId} onClose={onClose} footer={footer}>
                 <div className={styles.drawerBody}>
                     {/* ── Hero: data eroe + meta + sede ─────────────────── */}

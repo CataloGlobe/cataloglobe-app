@@ -51,6 +51,8 @@ interface Props {
     onReassignDay?: (date: string) => Promise<boolean>;
     /** Click any row → open detail drawer. */
     onOpenDetail: (r: V2Reservation) => void;
+    /** La prenotazione aperta accanto: riga e chip restano segnate (D141). */
+    selectedId?: string | null;
     /** Giorni o Settimana: vive nel parent, la scelta sta nella testata (T14). */
     mode: AgendaViewMode;
     onModeChange: (next: AgendaViewMode) => void;
@@ -117,6 +119,7 @@ export default function ReservationsAgenda({
     canManage = false,
     onReassignDay,
     onOpenDetail,
+    selectedId,
     mode,
     onModeChange,
     navInHeader = false
@@ -237,6 +240,7 @@ export default function ReservationsAgenda({
                 key={r.id}
                 dense
                 onClick={() => onOpenDetail(r)}
+                selected={r.id === selectedId}
                 muted={isDimmed(r.status)}
                 leading={
                     <Text
@@ -392,6 +396,8 @@ export default function ReservationsAgenda({
                 className={styles.weekChip}
                 data-tone={badge.variant}
                 data-dimmed={isDimmed(r.status) || undefined}
+                data-selected={r.id === selectedId || undefined}
+                aria-current={r.id === selectedId ? "true" : undefined}
                 onClick={() => onOpenDetail(r)}
                 aria-label={`${r.customer_name} ${r.reservation_time.slice(0, 5)} · ${badge.label}${conflict ? ` · ${conflict.message}` : ""}`}
                 title={`${badge.label} · ${r.customer_name} · ${r.party_size}${tableTitle}`}

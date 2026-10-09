@@ -28,11 +28,17 @@ export interface DetailPaneProps {
     /** Le frecce ↑ ↓ dell'intestazione: il precedente e il successivo dell'elenco. */
     onPrev?: () => void;
     onNext?: () => void;
+    /** «2 di 5» fra le frecce; senza, le frecce restano sole. */
+    position?: { index: number; total: number };
 }
 
 /** Livelli che stanno sopra e hanno il loro Esc (come `SystemDrawer`), più un drawer modale. */
 const LAYER_ABOVE_SELECTOR =
     '[role="menu"][data-state="open"], [role="listbox"][data-state="open"], [role="alertdialog"][data-state="open"], [role="dialog"][aria-modal="true"]';
+
+/** Chi usa già le frecce per sé: lì ↑ ↓ non cambiano elemento. */
+const ARROW_OWNER_SELECTOR =
+    'input, textarea, select, [contenteditable="true"], [role="radiogroup"], [role="tablist"], [role="listbox"], [role="menu"], [role="grid"], [role="slider"], [role="spinbutton"], [role="combobox"]';
 
 export const DetailPane = ({
     open,
@@ -41,7 +47,8 @@ export const DetailPane = ({
     "aria-labelledby": ariaLabelledBy,
     backLabel,
     onPrev,
-    onNext
+    onNext,
+    position
 }: DetailPaneProps) => {
     const { slot, register } = useContext(DetailPaneHostContext);
     const phone = useMediaQuery("(max-width: 767px)");
@@ -99,9 +106,39 @@ export const DetailPane = ({
         };
     }, [open, onClose]);
 
+    // ↑ ↓ da tastiera scorrono l'elenco, come le frecce (D141). Non quando il
+    // tasto serve già a chi ha il fuoco: campi, gruppi di scelta, schede,
+    // tendine e menù, o un livello sopra.
+    useEffect(() => {
+        if (!open || (!onPrev && !onNext)) return;
+        const handleArrow = (e: KeyboardEvent) => {
+            if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+            if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+            const target = e.target as HTMLElement | null;
+            if (target?.closest(ARROW_OWNER_SELECTOR) || document.querySelector(LAYER_ABOVE_SELECTOR)) return;
+            const go = e.key === "ArrowUp" ? onPrev : onNext;
+            if (!go) return;
+            e.preventDefault();
+            go();
+        };
+        window.addEventListener("keydown", handleArrow);
+        return () => window.removeEventListener("keydown", handleArrow);
+    }, [open, onPrev, onNext]);
+
+    const positionIndex = position?.index;
+    const positionTotal = position?.total;
     const nav = useMemo<DetailPaneNav>(
-        () => ({ onPrev, onNext, phone, backLabel }),
-        [onPrev, onNext, phone, backLabel]
+        () => ({
+            onPrev,
+            onNext,
+            position:
+                positionIndex !== undefined && positionTotal !== undefined && positionIndex >= 0
+                    ? { index: positionIndex, total: positionTotal }
+                    : undefined,
+            phone,
+            backLabel
+        }),
+        [onPrev, onNext, positionIndex, positionTotal, phone, backLabel]
     );
 
     if (!open) return null;

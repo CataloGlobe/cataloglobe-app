@@ -149,9 +149,11 @@ export default function ServizioElenco({ activityId, walkinOpen, onWalkinClose }
         [serviceBoard, desk.reservationsById]
     );
     const openedId = selectedSeatingId ?? desk.selectedReservation?.id ?? null;
+    const openedAt = sequence.findIndex(e => (e.kind === "seating" ? e.seating.id : e.reservation.id) === openedId);
+    const position = openedAt >= 0 ? { index: openedAt, total: sequence.length } : undefined;
     const stepDetail = (by: 1 | -1) => {
         if (sequence.length === 0) return;
-        const at = sequence.findIndex(e => (e.kind === "seating" ? e.seating.id : e.reservation.id) === openedId);
+        const at = openedAt;
         const from = at === -1 ? (by > 0 ? -1 : 0) : at;
         const next = sequence[(from + by + sequence.length) % sequence.length];
         if (next.kind === "seating") openSeatingDetail(next.seating.id);
@@ -278,6 +280,7 @@ export default function ServizioElenco({ activityId, walkinOpen, onWalkinClose }
                 onClose={closeSeatingDetail}
                 onPrev={canStep ? () => stepDetail(-1) : undefined}
                 onNext={canStep ? () => stepDetail(1) : undefined}
+                position={position}
                 seating={selectedSeating}
                 tables={serviceTables}
                 tableOccupancy={serviceTableOccupancy}
@@ -296,7 +299,7 @@ export default function ServizioElenco({ activityId, walkinOpen, onWalkinClose }
                 onSubmit={handleOpenWalkin}
             />
 
-            <ReservationDrawers desk={desk} backLabel="Servizio" onStep={canStep ? stepDetail : undefined} />
+            <ReservationDrawers desk={desk} backLabel="Servizio" onStep={canStep ? stepDetail : undefined} position={position} />
         </>
     );
 }

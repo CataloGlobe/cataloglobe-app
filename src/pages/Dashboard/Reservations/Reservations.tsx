@@ -451,6 +451,7 @@ export function ReservationsAgendaPage() {
                             canManage={scope !== null && canManageActivity(scope)}
                             onReassignDay={handleReassignDay}
                             onOpenDetail={desk.handleOpenDetail}
+                            selectedId={desk.selectedReservation?.id ?? null}
                             mode={agendaMode}
                             onModeChange={setAgendaMode}
                             navInHeader={!isPhone}

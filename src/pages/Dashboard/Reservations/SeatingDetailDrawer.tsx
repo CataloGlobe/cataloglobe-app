@@ -55,6 +55,8 @@ interface Props {
     /** La riga prima e dopo nell'Elenco (↑ ↓), dettaglio accanto (D131). */
     onPrev?: () => void;
     onNext?: () => void;
+    /** «2 di 5» fra le frecce (D141). */
+    position?: { index: number; total: number };
     /** La tavolata, come la vede la sala. `null` = nessuna selezionata. */
     seating: SeatingWithState | null;
     /** Tavoli della sede per "Cambia tavolo". `undefined` = non caricati. */
@@ -79,6 +81,7 @@ export default function SeatingDetailDrawer({
     onClose,
     onPrev,
     onNext,
+    position,
     seating,
     tables,
     tableOccupancy,
@@ -133,7 +136,7 @@ export default function SeatingDetailDrawer({
         // cos'è successo. Nessun auto-close: un drawer che si chiude da solo
         // sotto le mani è peggio.
         return (
-            <DetailPane open={open} onClose={onClose} aria-labelledby={titleId} backLabel="Servizio" onPrev={onPrev} onNext={onNext}>
+            <DetailPane open={open} onClose={onClose} aria-labelledby={titleId} backLabel="Servizio" onPrev={onPrev} onNext={onNext} position={position}>
                 <DrawerLayout
                     title="Tavolata"
                     titleId={titleId}
@@ -265,7 +268,7 @@ export default function SeatingDetailDrawer({
 
     if (asking && closeFlow.kind === "ask") {
         return (
-            <DetailPane open={open} onClose={onClose} aria-labelledby={titleId} backLabel="Servizio" onPrev={onPrev} onNext={onNext}>
+            <DetailPane open={open} onClose={onClose} aria-labelledby={titleId} backLabel="Servizio" onPrev={onPrev} onNext={onNext} position={position}>
                 <DrawerLayout
                     title="Tavolata"
                     titleId={titleId}
@@ -286,7 +289,7 @@ export default function SeatingDetailDrawer({
     }
 
     return (
-        <DetailPane open={open} onClose={onClose} aria-labelledby={titleId} backLabel="Servizio" onPrev={onPrev} onNext={onNext}>
+        <DetailPane open={open} onClose={onClose} aria-labelledby={titleId} backLabel="Servizio" onPrev={onPrev} onNext={onNext} position={position}>
             <DrawerLayout title="Tavolata" titleId={titleId} onClose={onClose} footer={footer}>
                 <div className={styles.drawerBody}>
                     {/* ── Hero: i tavoli sono il nome ───────────────── */}

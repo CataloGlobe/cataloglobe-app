@@ -326,8 +326,9 @@ export function TablesLiveView({
     // Per ↑ ↓: i tavoli nell'ordine della Mappa (zona dopo zona).
     const mapSequence = useMemo(() => groups.flatMap(g => g.tables), [groups]);
     const detailRow = detailTableId ? items.find(t => t.id === detailTableId) : undefined;
+    const detailAt = mapSequence.findIndex(t => t.id === detailTableId);
     const stepDetail = (step: number) => {
-        const at = mapSequence.findIndex(t => t.id === detailTableId);
+        const at = detailAt;
         const from = at === -1 ? (step > 0 ? -1 : 0) : at;
         const next = mapSequence[(from + step + mapSequence.length) % mapSequence.length];
         if (next) openDetail(next.id);
@@ -493,6 +494,7 @@ export function TablesLiveView({
                 onClose={closeDetail}
                 onPrev={mapSequence.length > 1 ? () => stepDetail(-1) : undefined}
                 onNext={mapSequence.length > 1 ? () => stepDetail(1) : undefined}
+                position={detailAt >= 0 ? { index: detailAt, total: mapSequence.length } : undefined}
                 liveKey={detailRow ? JSON.stringify(detailRow) : undefined}
                 onRequestClose={handleRequestClose}
                 onMaintenanceChanged={() => void refetch()}

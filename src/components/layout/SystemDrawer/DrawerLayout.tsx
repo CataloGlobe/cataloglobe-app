@@ -51,6 +51,9 @@ export const DrawerLayout = ({
     // e il successivo, e al telefono «‹ Comande» al posto della X.
     const pane = useDetailPaneNav();
     const back = pane?.phone && onClose;
+    // Le frecce restano ferme ai capi dell'elenco (spente), così «2 di 5» non
+    // salta di posto; senza posizione compaiono solo quelle che servono.
+    const stepping = Boolean(pane?.onPrev || pane?.onNext || (pane?.position && pane.position.total > 1));
     const headerContent =
         header ??
         (title ? (
@@ -61,16 +64,41 @@ export const DrawerLayout = ({
                         {pane.backLabel}
                     </button>
                 )}
-                <Text as="h2" id={titleId} variant="title-sm" weight={600} className={styles.title}>
-                    {title}
-                </Text>
-                {(pane?.onPrev || pane?.onNext || (onClose && !back)) && (
+                {back ? (
+                    <span className={styles.title} />
+                ) : (
+                    <Text as="h2" id={titleId} variant="title-sm" weight={600} className={styles.title}>
+                        {title}
+                    </Text>
+                )}
+                {(stepping || (onClose && !back)) && (
                     <div className={styles.headerActions}>
-                        {pane?.onPrev && (
-                            <IconButton icon={<ChevronUp size={18} />} aria-label="Precedente" variant="ghost" size="sm" onClick={pane.onPrev} />
+                        {stepping && (
+                            <IconButton
+                                icon={<ChevronUp size={18} />}
+                                aria-label="Precedente"
+                                title="Precedente (tasto ↑)"
+                                variant="ghost"
+                                size="sm"
+                                onClick={pane?.onPrev}
+                                disabled={!pane?.onPrev}
+                            />
                         )}
-                        {pane?.onNext && (
-                            <IconButton icon={<ChevronDown size={18} />} aria-label="Successivo" variant="ghost" size="sm" onClick={pane.onNext} />
+                        {pane?.position && (
+                            <Text as="span" variant="caption" colorVariant="muted" className={styles.position}>
+                                {pane.position.index + 1} di {pane.position.total}
+                            </Text>
+                        )}
+                        {stepping && (
+                            <IconButton
+                                icon={<ChevronDown size={18} />}
+                                aria-label="Successivo"
+                                title="Successivo (tasto ↓)"
+                                variant="ghost"
+                                size="sm"
+                                onClick={pane?.onNext}
+                                disabled={!pane?.onNext}
+                            />
                         )}
                         {onClose && !back && (
                             <IconButton icon={<X size={18} />} aria-label="Chiudi" variant="ghost" size="sm" onClick={onClose} />
@@ -85,6 +113,13 @@ export const DrawerLayout = ({
             {headerContent && (
                 <div className={styles.header} data-header-flush={headerFlush || undefined}>
                     {headerContent}
+                    {/* Al telefono il titolo scende sotto «‹ Comande» e le frecce:
+                        accanto non ci stava (D141). */}
+                    {back && title && (
+                        <Text as="h2" id={titleId} variant="title-sm" weight={600} className={styles.phoneTitle}>
+                            {title}
+                        </Text>
+                    )}
                 </div>
             )}
             <div className={styles.body} data-body-layout={bodyLayout}>{children}</div>

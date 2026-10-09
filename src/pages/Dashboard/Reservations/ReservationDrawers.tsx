@@ -20,9 +20,11 @@ interface Props {
      * di Servizio mescola prenotazioni e tavolate). Assente: niente frecce.
      */
     onStep?: (by: 1 | -1) => void;
+    /** Con `onStep`: dove si è nell'elenco della pagina («2 di 5»). */
+    position?: { index: number; total: number };
 }
 
-export default function ReservationDrawers({ desk, backLabel, sequence = [], onStep }: Props) {
+export default function ReservationDrawers({ desk, backLabel, sequence = [], onStep, position }: Props) {
     const navigate = useNavigate();
     const { businessId = "" } = useParams<{ businessId: string }>();
     const {
@@ -47,6 +49,7 @@ export default function ReservationDrawers({ desk, backLabel, sequence = [], onS
                 backLabel={backLabel}
                 onPrev={canStep ? () => step(-1) : undefined}
                 onNext={canStep ? () => step(1) : undefined}
+                position={onStep ? position : at >= 0 ? { index: at, total: sequence.length } : undefined}
                 open={desk.isDrawerOpen}
                 onClose={desk.handleCloseDrawer}
                 reservation={reservation}

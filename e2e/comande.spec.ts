@@ -140,6 +140,9 @@ test.describe("Comande", () => {
         await expect(pane.getByRole("button", { name: "Conferma", exact: true })).toBeVisible();
         await expect(fixtureCard(page)).toHaveAttribute("aria-current", "true");
         await expect(page.getByRole("button", { name: "Crea ordine" })).toBeVisible();
+        // D141: «Dettagli ›» sulla card e «1 di N» fra le frecce.
+        await expect(fixtureCard(page).getByText("Dettagli", { exact: true })).toBeVisible();
+        await expect(pane.getByText(/^\d+ di \d+$/)).toBeVisible();
 
         await page.goBack();
         await expect(pane).toHaveCount(0);

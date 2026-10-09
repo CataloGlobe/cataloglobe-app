@@ -430,6 +430,13 @@
     }
 }
 
+// ── Riga aperta nel dettaglio accanto (D131): il bordo viola della card ─────
+// aperta delle Comande, dentro la riga.
+
+.rowActive {
+    box-shadow: inset 0 0 0 2px var(--brand-primary);
+}
+
 // ── Riga evidenziata (appena creata): success-50 che si spegne in 2 s ───────
 
 .rowHighlighted {

@@ -305,6 +305,7 @@ export default function Guests() {
                         isSearching={isSearching}
                         onClearSearch={clearSearch}
                         onOpenGuest={handleOpenGuest}
+                        selectedGuestId={selectedGuestId}
                         tenantWide={tenantWide}
                     />
                 ) : (
@@ -336,6 +337,7 @@ export default function Guests() {
                     onClose={closeGuestDetail}
                     onPrev={guestIndex > 0 ? () => stepGuest(-1) : undefined}
                     onNext={guestIndex >= 0 && guestIndex < guests.length - 1 ? () => stepGuest(1) : undefined}
+                    position={guestIndex >= 0 ? { index: guestIndex, total: guests.length } : undefined}
                     guest={selectedGuest}
                     tenantId={tenantId}
                     activities={noteActivities}

@@ -140,6 +140,8 @@ interface DataTableProps<T> {
 
     /** Righe con animazione highlight transitorio (~2s fade amber). */
     highlightedRowIds?: string[];
+    /** La riga aperta nel dettaglio accanto (D131): resta segnata col bordo viola. */
+    activeRowId?: string | null;
     /** Righe visivamente attenuate e non interattive (es. in salvataggio, sola lettura). */
     disabledRowIds?: string[];
     /**
@@ -195,6 +197,7 @@ interface DataTableRowProps<T> {
     isSelected?: boolean;
     onSelect?: (id: string, checked: boolean) => void;
     isHighlighted?: boolean;
+    isActive?: boolean;
     isDisabled?: boolean;
     isMuted?: boolean;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -213,6 +216,7 @@ function DataTableRow<T>({
     isSelected,
     onSelect,
     isHighlighted,
+    isActive,
     isDisabled,
     isMuted,
     dragHandleProps
@@ -222,6 +226,7 @@ function DataTableRow<T>({
         onRowClick && !isDisabled ? styles.rowClickable : "",
         isSelected ? styles.rowSelected : "",
         isHighlighted ? styles.rowHighlighted : "",
+        isActive ? styles.rowActive : "",
         isDisabled ? styles.rowDisabled : "",
         isMuted ? styles.rowMuted : ""
     ]
@@ -233,6 +238,7 @@ function DataTableRow<T>({
             className={classes}
             style={gridStyle}
             role="row"
+            aria-current={isActive ? "true" : undefined}
             onClick={event => {
                 if (!onRowClick || isDisabled) return;
                 const target = event.target as HTMLElement | null;
@@ -310,6 +316,7 @@ export function DataTable<T>({
     showFooter = true,
     footerNote,
     highlightedRowIds,
+    activeRowId,
     disabledRowIds,
     mutedRowIds,
     ariaLabel,
@@ -615,6 +622,7 @@ export function DataTable<T>({
                     isSelected={selectedSet.has(rowId)}
                     onSelect={handleSelectRow}
                     isHighlighted={highlightSet.has(rowId)}
+                    isActive={activeRowId != null && activeRowId === rowId}
                     isDisabled={disabledSet.has(rowId)}
                     isMuted={mutedSet.has(rowId)}
                 />

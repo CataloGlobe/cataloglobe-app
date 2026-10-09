@@ -84,6 +84,8 @@ interface Props {
     /** Le frecce ↑ ↓: il cliente prima e dopo nell'elenco mostrato. */
     onPrev?: () => void;
     onNext?: () => void;
+    /** «2 di 5» fra le frecce (D141). */
+    position?: { index: number; total: number };
 }
 
 const EMPTY_DRAFT: ReservationGuestNoteInput = { notes: "", tags: [] };
@@ -121,7 +123,8 @@ export default function GuestDrawer({
     tenantWide,
     onSaved,
     onPrev,
-    onNext
+    onNext,
+    position
 }: Props) {
     const { showToast } = useToast();
     const { ensureActive } = useEnsureActive();
@@ -319,6 +322,7 @@ export default function GuestDrawer({
             backLabel="Clienti"
             onPrev={onPrev && (() => guardedStep(onPrev))}
             onNext={onNext && (() => guardedStep(onNext))}
+            position={position}
         >
             <DrawerLayout title={guest.display_name} titleId={titleId} onClose={requestClose} footer={footer}>
                 <div className={styles.drawerBody}>

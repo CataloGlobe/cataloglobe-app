@@ -34,6 +34,17 @@
 }
 
 // Dentro un dettaglio dal vivo (`DetailPane`): ↑ ↓ e la X insieme a destra.
+.position {
+  padding-inline: var(--space-4);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.phoneTitle {
+  margin-top: var(--space-8);
+  overflow-wrap: anywhere;
+}
+
 .headerActions {
   display: flex;
   align-items: center;

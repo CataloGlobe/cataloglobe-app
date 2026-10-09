@@ -77,6 +77,8 @@ interface Props {
     /** Il precedente e il successivo della Mappa (↑ ↓), dettaglio accanto (D131). */
     onPrev?: () => void;
     onNext?: () => void;
+    /** «2 di 5» fra le frecce (D141). */
+    position?: { index: number; total: number };
     /**
      * Cambia quando la riga del tavolo sulla Mappa cambia (realtime): il
      * dettaglio si ricarica in silenzio e resta dal vivo con la Mappa.
@@ -250,6 +252,7 @@ export function TableDetailDrawer({
     onClose,
     onPrev,
     onNext,
+    position,
     liveKey,
     onRequestClose,
     onMaintenanceChanged,
@@ -597,7 +600,7 @@ export function TableDetailDrawer({
     );
 
     return (
-        <DetailPane open={open} onClose={onClose} aria-labelledby={titleId} backLabel="Servizio" onPrev={onPrev} onNext={onNext}>
+        <DetailPane open={open} onClose={onClose} aria-labelledby={titleId} backLabel="Servizio" onPrev={onPrev} onNext={onNext} position={position}>
             <DrawerLayout
                 title={
                     view === "storna"
