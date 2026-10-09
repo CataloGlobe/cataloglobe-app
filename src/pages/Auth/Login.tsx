@@ -15,6 +15,9 @@ import { resendConfirmationEmail } from "@/services/supabase/auth";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import Text from "@/components/ui/Text/Text";
 import { AuthLayout } from "@/layouts/AuthLayout/AuthLayout";
+import { AuthTabs } from "@/layouts/AuthLayout/AuthTabs";
+import { Mail, ShieldCheck } from "lucide-react";
+import { PasswordField } from "./PasswordField";
 import { COMPANY } from "@/config/company";
 import styles from "./Auth.module.scss";
 
@@ -177,15 +180,15 @@ export default function Login() {
     }
 
     return (
-        <AuthLayout>
+        <AuthLayout heading="Bentornato." lead="Accedi per gestire menù, sedi e ordini.">
             <div className={styles.auth}>
-                <Text as="h1" variant="title-md">
-                    Ciao, bentornato
-                </Text>
-
-                <Text as="p" variant="body-sm" colorVariant="muted" className={styles.subtitle}>
-                    Accedi per gestire i tuoi cataloghi.
-                </Text>
+                <AuthTabs
+                    active="login"
+                    onSignupClick={() => {
+                        // Un invito (o un altro deep link) sopravvive al giro di registrazione (R6).
+                        if (from) savePendingRedirect(from);
+                    }}
+                />
 
                 <form onSubmit={handleLogin} aria-busy={loading}>
                 <TextInput
@@ -195,18 +198,18 @@ export default function Login() {
                     onChange={e => setEmail(e.target.value)}
                     required
                     autoComplete="email"
+                    startAdornment={<Mail size={18} aria-hidden="true" />}
                 />
 
-                <TextInput
+                <PasswordField
                     label="Password"
-                    type="password"
                     value={password}
                     onChange={e => setPassword(e.target.value)}
                     required
                     autoComplete="current-password"
                 />
 
-                <div className={styles.formRow}>
+                <div className={styles.forgotRow}>
                     <Text as="p" variant="body-sm">
                         <Link to="/forgot-password" className={styles.forgot}>
                             Password dimenticata?
@@ -343,17 +346,10 @@ export default function Login() {
                 </Button>
                 </form>
 
-                <Text as="p" variant="body-sm" className={styles.hint}>
-                    Non hai un account? <Link
-                        to="/sign-up"
-                        onClick={() => {
-                            // Un invito (o un altro deep link) sopravvive al giro di registrazione (R6).
-                            if (from) savePendingRedirect(from);
-                        }}
-                    >
-                        Registrati
-                    </Link>
-                </Text>
+                <p className={styles.note}>
+                    <ShieldCheck size={16} aria-hidden="true" />
+                    Per sicurezza, una volta al mese ti chiediamo anche un codice via email.
+                </p>
             </div>
         </AuthLayout>
     );

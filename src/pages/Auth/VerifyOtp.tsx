@@ -13,6 +13,7 @@ import { useAuth } from "@/context/useAuth";
 import { useToast } from "@/context/Toast/ToastContext";
 import { Button, CodeInput, type CodeInputHandle } from "@/components/ui";
 import Text from "@/components/ui/Text/Text";
+import { ShieldCheck } from "lucide-react";
 import type { OtpStatus, VerifyOtpResponse } from "@/types/otp";
 import { readVerifyOtpError } from "@/utils/otpErrors";
 import { AuthLayout } from "@/layouts/AuthLayout/AuthLayout";
@@ -490,14 +491,12 @@ export default function VerifyOtp() {
     /* ------------------------------------------------------------------ */
 
     return (
-        <AuthLayout>
+        <AuthLayout
+            icon={<ShieldCheck size={28} aria-hidden="true" />}
+            heading="Inserisci il codice"
+            lead={buildSendStatusCopy(sendOutcome, userEmail)}
+        >
             <div className={styles.auth}>
-                <Text as="h1" variant="title-md">
-                    Inserisci il codice
-                </Text>
-                <Text as="p" variant="body-sm" colorVariant="muted" className={styles.subtitle}>
-                    {buildSendStatusCopy(sendOutcome, userEmail)}
-                </Text>
                 <form
                     onSubmit={(e: FormEvent) => {
                         e.preventDefault();

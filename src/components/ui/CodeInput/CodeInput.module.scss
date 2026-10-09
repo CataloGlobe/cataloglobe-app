@@ -48,7 +48,7 @@
 }
 
 .disabled .box {
-  background: var(--color-bg-subtle);
+  background: var(--bg);
   color: var(--text-muted);
 }
 
@@ -103,7 +103,7 @@
 }
 
 .secondary {
-  background: var(--color-bg-subtle);
+  background: var(--bg);
   color: var(--text-muted);
 
   &:hover:not(:disabled) {

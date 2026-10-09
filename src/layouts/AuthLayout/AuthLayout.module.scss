@@ -1,22 +1,43 @@
 @use "@styles/variables" as *;
 
+// Sfondo delle pagine di accesso: tinta leggera del colore del marchio, una
+// griglia sottile e una luce in alto. Tutto da token: il tema scuro cambia da solo.
 .wrapper {
+  --auth-grid: color-mix(in srgb, var(--brand-primary) 8%, transparent);
+  --auth-glow: color-mix(in srgb, var(--brand-primary) 22%, transparent);
+
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  min-height: 100dvh;
   // Forza Inter per h1-h6 nelle pagine auth,
   // che altrimenti cadono nel fallback --pub-font-family = "Outfit"
   font-family: $font-stack;
+  color: var(--text);
+  background-color: color-mix(in srgb, var(--brand-primary) 5%, var(--bg));
+  background-image:
+    radial-gradient(900px 420px at 50% -80px, var(--auth-glow), transparent 70%),
+    linear-gradient(var(--auth-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--auth-grid) 1px, transparent 1px);
+  background-size: 100% 100%, 32px 32px, 32px 32px;
+
+  // Controlli più alti e morbidi solo qui: 48px è comodo col pollice.
+  --control-height: 48px;
+  --radius-control: 12px;
 }
 
 .header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: 44px;
   padding: 1.25rem 2rem;
 }
 
 .logoLink {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
   text-decoration: none;
 }
 
@@ -25,12 +46,85 @@
   width: auto;
 }
 
+.aside a,
+.aside button {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 0.875rem;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--card-bg) 70%, transparent);
+  color: var(--brand-primary-hover);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+
 .main {
   flex: 1;
   display: flex;
+  justify-content: center;
+  padding: 1.5rem 1rem 2rem;
+}
+
+.column {
+  width: 100%;
+  max-width: 440px;
+  margin: auto 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.hero {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  text-align: center;
+  align-items: center;
+}
+
+.heading {
+  margin: 0;
+  color: var(--text);
+  font-size: 2.25rem;
+  line-height: 1.15;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.lead {
+  margin: 0;
+}
+
+.tile {
+  width: 64px;
+  height: 64px;
+  margin-bottom: 0.5rem;
+  border-radius: 20px;
+  background: var(--card-bg);
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--brand-primary) 20%, transparent);
+  color: var(--brand-primary-hover);
+  display: flex;
   align-items: center;
   justify-content: center;
-  padding: 2rem 1rem;
+}
+
+.tileWarning {
+  background: var(--color-warning-100);
+  color: var(--color-warning-800);
+  box-shadow: none;
+}
+
+.card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  box-shadow: 0 12px 32px color-mix(in srgb, var(--brand-primary) 12%, transparent), var(--shadow-rest);
+  padding: 1.5rem;
 }
 
 .footer {
@@ -39,22 +133,58 @@
   align-items: center;
   justify-content: center;
   flex-wrap: wrap;
-  gap: 0.375rem 0.75rem;
-  font-size: 0.75rem;
-  color: var(--text-muted, #64748b);
-}
-
-.footerSep {
-  color: var(--border, #e2e8f0);
-  user-select: none;
+  gap: 0.375rem 1rem;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
 }
 
 .footerLink {
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted);
   text-decoration: none;
 
-  &:hover {
+  &:is(a):hover {
     text-decoration: underline;
-    color: var(--text, #0f172a);
+    color: var(--text);
+  }
+}
+
+// Telefono: logo e titolo a sinistra, la scheda sale fino in fondo.
+@media (max-width: 599px) {
+  .header {
+    padding: 1rem 1rem 0.5rem;
+  }
+
+  .main {
+    padding: 0.75rem 0.75rem 0;
+  }
+
+  .column {
+    margin: 0;
+    gap: 1.25rem;
+    flex: 1;
+  }
+
+  .hero {
+    padding: 0.5rem 0.5rem 0;
+    text-align: left;
+    align-items: flex-start;
+  }
+
+  .heroCentered {
+    text-align: center;
+    align-items: center;
+  }
+
+  .heading {
+    font-size: 1.875rem;
+  }
+
+  .card {
+    flex: 1;
+    padding: 1.25rem;
+  }
+
+  .footer {
+    padding: 0.75rem 1rem 1rem;
   }
 }
