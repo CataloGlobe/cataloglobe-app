@@ -3,39 +3,12 @@ import type { DraftLookups } from "@/pages/Dashboard/Programming/calendar/calend
 import { EV, bundlePrice, bundleTotal, euro, type StepId, type Tunnel } from "./creaModel";
 import { phoneVars } from "./creaStyle";
 import s from "./Crea.module.scss";
+import { DishRow, MenuSample, type SampleSection } from "./MenuSample";
 
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
 
-export type SampleSection = { name: string; dishes: { name: string; price: number | null }[] };
 
 const price = (p: number | null) => (p == null ? "" : euro(p));
-
-function DishRow({ name, p, tk }: { name: string; p: number | null; tk: StyleTokenModel }) {
-    const card = tk.card.productStyle === "card", photo = card && tk.card.image.mode === "show";
-    return (
-        <div className={cx(s.pDish, card && photo && s.card, !card && s.compact)}>
-            {photo && <span className={s.ph} />}
-            <span className={s.dn}>{name}</span>
-            <span className={s.pr}>{price(p)}</span>
-        </div>
-    );
-}
-
-function MenuSample({ sample, tk, hl }: { sample: SampleSection[]; tk: StyleTokenModel; hl?: boolean }) {
-    if (!sample.length) return <div className={s.pEmpty}>I piatti del menù</div>;
-    return (
-        <div className={cx(s.pSec, hl && s.hl)}>
-            {sample.map(sec => (
-                <div key={sec.name} className={s.pSec}>
-                    <div className={s.pH}>{sec.name}</div>
-                    {sec.dishes.map(d => (
-                        <DishRow key={d.name} name={d.name} p={d.price} tk={tk} />
-                    ))}
-                </div>
-            ))}
-        </div>
-    );
-}
 
 type PhoneProps = {
     t: Tunnel;

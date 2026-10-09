@@ -2,29 +2,7 @@
 // e il Dove sono quelli del Calendario (`QuandoPasso`, `DovePasso`); i blocchi
 // della storia sono l'editor a blocchi di oggi.
 import { useId, useMemo, useState, type ReactNode } from "react";
-import {
-    CalendarClock,
-    CalendarHeart,
-    Check,
-    Copy,
-    ImagePlus,
-    Infinity as InfinityIcon,
-    Layers,
-    Link2,
-    Lock,
-    Megaphone,
-    Package,
-    Palette,
-    Plus,
-    ScanText,
-    ScrollText,
-    Tag,
-    Trash2,
-    TriangleAlert,
-    Upload,
-    UtensilsCrossed,
-    X
-} from "lucide-react";
+import { CalendarClock, CalendarHeart, Check, Copy, Infinity as InfinityIcon, Layers, Link2, Lock, Megaphone, Package, Palette, Plus, ScanText, ScrollText, Tag, Trash2, TriangleAlert, Upload, UtensilsCrossed, X } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import { IconButton } from "@/components/ui/Button/IconButton";
 import type { StoryBlock } from "@/services/supabase/stories";
@@ -38,83 +16,15 @@ import { DovePasso, QuandoPasso, type PassoGruppo, type PassoSede } from "@/page
 import { DB_LATER, invalid, type Draft, type DraftLookups, type PickProduct } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import type { Axis, CalWhen } from "@/pages/Dashboard/Programming/calendar/calendarModel";
 import cal from "@/pages/Dashboard/Programming/calendar/CalendarioView.module.scss";
-import {
-    CARDS,
-    COLORS,
-    EV,
-    FONTS,
-    FONT_QUICK,
-    KIND,
-    STEP_LABEL,
-    STORIA_WHEN,
-    blocker,
-    bundleTotal,
-    euro,
-    firstBlock,
-    key,
-    sentence,
-    stepSummary,
-    steps,
-    type CardKey,
-    type Ctx,
-    type EvType,
-    type Tunnel
-} from "./creaModel";
+import { CARDS, COLORS, EV, FONTS, FONT_QUICK, KIND, STEP_LABEL, STORIA_WHEN, blocker, bundleTotal, euro, firstBlock, priceText, key, sentence, stepSummary, steps, type CardKey, type Ctx, type EvType, type Tunnel } from "./creaModel";
 import s from "./Crea.module.scss";
+import { Box, Chip, Field, Opt, Sh, Toggle, Warnish } from "./CreaUi";
+import { DishAdder } from "./DishAdder";
+import { ImagePick } from "./ImagePick";
 
 export type U = (fn: (t: Tunnel) => void) => void;
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
 const q = (x: string) => "«" + x + "»";
-
-function Sh({ title, children }: { title: string; children?: ReactNode }) {
-    return (
-        <div className={s.sh}>
-            <h3>{title}</h3>
-            {children && <p>{children}</p>}
-        </div>
-    );
-}
-
-function Opt({ on, icon, title, text, onClick, disabled, later, done }: { on?: boolean; icon: ReactNode; title: string; text: string; onClick?: () => void; disabled?: boolean; later?: string; done?: boolean }) {
-    return (
-        <button type="button" className={cx(s.opt, done && s.done)} aria-pressed={on === undefined ? undefined : on} disabled={disabled} onClick={onClick}>
-            <span className={s.oi}>{icon}</span>
-            <b>{title}</b>
-            <span>{text}</span>
-            {later && <span className={s.later}>{later}</span>}
-        </button>
-    );
-}
-
-function Chip({ on, onClick, children, style, disabled }: { on: boolean; onClick: () => void; children: ReactNode; style?: React.CSSProperties; disabled?: boolean }) {
-    return (
-        <button type="button" className={s.chip} aria-pressed={on} onClick={onClick} style={style} disabled={disabled}>
-            {children}
-        </button>
-    );
-}
-
-function Field({ label, children, id }: { label: string; children: ReactNode; id: string }) {
-    return (
-        <div className={cx(s.f, s.blk)}>
-            <label htmlFor={id}>{label}</label>
-            {children}
-        </div>
-    );
-}
-
-function Box({ on }: { on: boolean }) {
-    return <span className={s.box}>{on && <Check size={11} aria-hidden />}</span>;
-}
-
-function Toggle({ on, onClick, children }: { on: boolean; onClick: () => void; children: ReactNode }) {
-    return (
-        <button type="button" className={s.toggle} role="switch" aria-checked={on} onClick={onClick}>
-            <span className={s.t} />
-            {children}
-        </button>
-    );
-}
 
 export function Inherited({ children }: { children: ReactNode }) {
     return (
@@ -125,11 +35,6 @@ export function Inherited({ children }: { children: ReactNode }) {
     );
 }
 
-const priceText = (p: number | null) => (p == null ? "—" : euro(p));
-const parsePrice = (x: string) => {
-    const n = parseFloat(x.replace(",", "."));
-    return Number.isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : null;
-};
 
 /* ---------- il menù ---------- */
 export function MenuTipo({ t, u }: { t: Tunnel; u: U }) {
@@ -181,76 +86,6 @@ export function MenuParti({ t, u, onImport, importing }: { t: Tunnel; u: U; onIm
                 </>
             )}
         </>
-    );
-}
-
-function DishAdder({ pick, onAdd, taken }: { pick: readonly PickProduct[]; onAdd: (d: { productId: string | null; name: string; price: number | null }) => void; taken: ReadonlySet<string> }) {
-    const [name, setName] = useState("");
-    const [price, setPrice] = useState("");
-    const [open, setOpen] = useState(false);
-    const [sel, setSel] = useState(0);
-    const nameId = useId();
-    const sugg = useMemo(() => {
-        const n = name.trim().toLowerCase();
-        if (!n) return [];
-        return pick.filter(p => !taken.has(p.id) && p.name.toLowerCase().includes(n)).slice(0, 8);
-    }, [name, pick, taken]);
-    const add = (p?: PickProduct) => {
-        const n = name.trim();
-        const exact = p ?? pick.find(x => !taken.has(x.id) && x.name.trim().toLowerCase() === n.toLowerCase());
-        if (exact) onAdd({ productId: exact.id, name: exact.name, price: parsePrice(price) ?? exact.listPrice });
-        else if (n) onAdd({ productId: null, name: n, price: parsePrice(price) });
-        else return;
-        setName("");
-        setPrice("");
-        setOpen(false);
-        setSel(0);
-    };
-    return (
-        <div className={s.addrow}>
-            <input
-                className={cx(s.in, s.sm)}
-                id={nameId}
-                placeholder="Nome del piatto"
-                autoComplete="off"
-                aria-label="Nome del piatto"
-                role="combobox"
-                aria-expanded={open && sugg.length > 0}
-                value={name}
-                onChange={e => {
-                    setName(e.target.value);
-                    setOpen(true);
-                    setSel(0);
-                }}
-                onBlur={() => setTimeout(() => setOpen(false), 120)}
-                onKeyDown={e => {
-                    if (e.key === "ArrowDown" && sugg.length) {
-                        e.preventDefault();
-                        setSel(i => Math.min(sugg.length - 1, i + 1));
-                    } else if (e.key === "ArrowUp" && sugg.length) {
-                        e.preventDefault();
-                        setSel(i => Math.max(0, i - 1));
-                    } else if (e.key === "Enter") {
-                        e.preventDefault();
-                        add(open && sugg.length ? sugg[sel] : undefined);
-                    } else if (e.key === "Escape") setOpen(false);
-                }}
-            />
-            <input className={cx(s.in, s.sm, s.num)} placeholder="Prezzo" inputMode="decimal" aria-label="Prezzo" value={price} onChange={e => setPrice(e.target.value)} onKeyDown={e => e.key === "Enter" && (e.preventDefault(), add())} />
-            <Button variant="secondary" size="sm" leftIcon={<Plus size={14} />} onClick={() => add()}>
-                Aggiungi
-            </Button>
-            {open && sugg.length > 0 && (
-                <div className={s.sugg} role="listbox" aria-label="Prodotti che avete">
-                    {sugg.map((p, i) => (
-                        <button key={p.id} type="button" role="option" aria-selected={i === sel} onMouseDown={e => e.preventDefault()} onClick={() => add(p)}>
-                            <span>{p.name}</span>
-                            <span>{priceText(p.listPrice)}</span>
-                        </button>
-                    ))}
-                </div>
-            )}
-        </div>
     );
 }
 
@@ -494,34 +329,6 @@ export function EvidContenuto({ t, u, owner, imageUrl }: { t: Tunnel; u: U; owne
     );
 }
 
-function ImagePick({ url, id, onPick, label = "Aggiungi una foto" }: { url: string | null; id: string; onPick: (f: File | null) => void; label?: string }) {
-    return (
-        <div className={s.pic}>
-            {url && <img src={url} alt="" />}
-            <label htmlFor={id} className={s.picBtn}>
-                <ImagePlus size={14} aria-hidden />
-                {url ? "Cambia la foto" : label}
-            </label>
-            <input
-                id={id}
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                className={s.vh}
-                onChange={e => {
-                    const f = e.target.files?.[0] ?? null;
-                    if (f) onPick(f);
-                    e.target.value = "";
-                }}
-            />
-            {url && (
-                <Button variant="ghost" size="sm" onClick={() => onPick(null)}>
-                    Togli
-                </Button>
-            )}
-        </div>
-    );
-}
-
 export function EvidPiatti({ t, u, pick, L }: { t: Tunnel; u: U; pick: readonly PickProduct[]; L: DraftLookups }) {
     const promo = t.evType === "promo";
     const bid = useId();
@@ -758,15 +565,6 @@ export function Dove({ t, draft, updDraft, sedi, groups, L }: { t: Tunnel; draft
                 <p className={s.hint}>{storiaBad ? <Warnish>{storiaBad}.</Warnish> : `Oggi una storia va in tutte le sedi o in una sola; per alcune sedi ${DB_LATER}.`}</p>
             )}
         </>
-    );
-}
-
-function Warnish({ children }: { children: ReactNode }) {
-    return (
-        <span className={s.warnish}>
-            <TriangleAlert size={14} aria-hidden />
-            {children}
-        </span>
     );
 }
 

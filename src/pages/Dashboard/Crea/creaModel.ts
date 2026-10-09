@@ -413,6 +413,9 @@ export function bundleTotal(t: Tunnel, L: DraftLookups): number {
 export const bundlePrice = (t: Tunnel) => price(t.bundle);
 export { eur as euro };
 
+/** Il prezzo di un piatto nel tunnel, o una lineetta se non c'è. */
+export const priceText = (p: number | null) => (p == null ? "—" : eur(p));
+
 /* ---------- la card sopra il telefono ---------- */
 
 /** La card fissa sopra il telefono: cosa si guarda, in due righe. */
