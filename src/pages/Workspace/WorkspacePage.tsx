@@ -76,6 +76,9 @@ export default function WorkspacePage() {
     const [covers, setCovers] = useState<Record<string, string>>({});
     const [cities, setCities] = useState<Record<string, string>>({});
     const [firstName, setFirstName] = useState<string | null>(null);
+    // Il saluto esce tutto insieme: la pagina aspetta anche il nome, così
+    // non si vede «Buonasera» e poi «, Mario» un attimo dopo.
+    const [profileReady, setProfileReady] = useState(false);
     const [drawerOpen, setDrawerOpen] = useState(false);
     const [editTarget, setEditTarget] = useState<{ id: string; name: string; logo_url?: string | null; business_subtype?: BusinessSubtype | null } | null>(null);
     const [pendingInvites, setPendingInvites] = useState<PendingInviteData[]>([]);
@@ -95,7 +98,8 @@ export default function WorkspacePage() {
         const load = () =>
             getProfile(user.id)
                 .then(p => setFirstName(p?.first_name ?? null))
-                .catch(() => {});
+                .catch(() => {})
+                .finally(() => setProfileReady(true));
         load();
         window.addEventListener("profile:updated", load);
         return () => window.removeEventListener("profile:updated", load);
@@ -346,7 +350,7 @@ export default function WorkspacePage() {
         }
     };
 
-    if (loading) {
+    if (loading || !profileReady) {
         return null;
     }
 

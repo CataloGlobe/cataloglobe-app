@@ -4,6 +4,7 @@ import { AuthContext } from "./AuthContextBase";
 import { isDefinitiveNoSession, resolveBootstrapUser, runWithRetry, withTimeout } from "./authRetry";
 import type { User } from "@supabase/supabase-js";
 import { clearSignupLeftovers } from "@/utils/pendingRedirect";
+import { forgetLastTenant } from "@/utils/lastTenant";
 
 // Budget e timeout. Single source of truth — i 4s singolo-shot pre-fix
 // facevano scattare lo schermo bloccante al primo blip Wi-Fi.
@@ -202,6 +203,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             if (event === "SIGNED_OUT") {
                 // Invalida eventuale retry in-flight.
                 otpReqIdRef.current++;
+                forgetLastTenant();
                 setUser(null);
                 setOtpVerified(false);
                 setOtpLoading(false);
@@ -239,6 +241,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         otpReqIdRef.current++;
         await supabase.auth.signOut({ scope: "local" });
         clearSignupLeftovers();
+        forgetLastTenant();
         setUser(null);
         setOtpVerified(false);
         setOtpLoading(false);

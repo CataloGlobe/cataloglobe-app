@@ -1,6 +1,6 @@
 import { useState, useEffect, type FormEvent } from "react";
 import { usePageTitle } from "@/hooks/usePageTitle";
-import { hasValidOtpVerification, signIn } from "@services/supabase/auth";
+import { signIn } from "@services/supabase/auth";
 import {
     requestAccountRecovery,
     confirmAccountRecovery,
@@ -117,11 +117,9 @@ export default function Login() {
                 return;
             }
 
-            // Codice già verificato negli ultimi 30 giorni: entra GuestRoute,
-            // appena AuthProvider lo sa, senza passare dalla pagina del codice.
-            if (await hasValidOtpVerification(user.id)) return;
-
-            navigate("/verify-otp", { state: { from } });
+            // Da qui decide GuestRoute con l'unico controllo del codice (quello di
+            // AuthProvider dopo SIGNED_IN): codice valido → dentro, altrimenti
+            // /verify-otp con lo stesso `from`.
         } catch (err) {
             const message = err instanceof Error ? err.message : "";
             if (message.toLowerCase().includes("banned")) {

@@ -25,7 +25,7 @@ export const GuestRoute = ({ children }: GuestRouteProps) => {
 
     // Verifica OTP in corso
     if (user && otpLoading && !otpRefreshing) {
-        return <AppLoader intent="otp" />;
+        return <AppLoader intent="auth" />;
     }
 
     // Subito dopo il login la verifica parte come "refresh" e otpVerified è
@@ -33,7 +33,7 @@ export const GuestRoute = ({ children }: GuestRouteProps) => {
     // al workspace (chi ha già l'OTP valido vedeva la pagina del codice
     // lampeggiare). Si aspetta l'esito, poi si decide.
     if (user && otpRefreshing && !otpVerified) {
-        return <AppLoader intent="otp" />;
+        return <AppLoader intent="auth" />;
     }
 
     if (user) {
