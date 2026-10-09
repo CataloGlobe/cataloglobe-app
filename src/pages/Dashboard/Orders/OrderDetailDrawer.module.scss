@@ -31,3 +31,16 @@
 .eventCancelled {
     color: var(--text-danger);
 }
+
+// Le azioni della card nel piede del dettaglio accanto (D131): il «⋯» a
+// sinistra, stampa e azione principale a destra.
+.actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-8);
+    width: 100%;
+}
+
+.actionsGap {
+    flex: 1;
+}

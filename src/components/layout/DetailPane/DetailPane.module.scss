@@ -1,0 +1,53 @@
+// DetailPane — il dettaglio dal vivo accanto all'elenco (Officina, D131).
+// Nella colonna di MainLayout (`data-place="slot"`) riempie l'aside; senza
+// layout si appoggia fisso a destra; al telefono è una pagina intera.
+// Solo token.
+@use "@styles/mixins" as *;
+
+.pane {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  background-color: var(--surface);
+  outline: none;
+
+  @media (prefers-reduced-motion: no-preference) {
+    animation: paneIn 160ms var(--easing-surface);
+  }
+}
+
+.pane[data-place="slot"] {
+  flex: 1;
+}
+
+.pane[data-place="fixed"] {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: var(--detail-pane);
+  border-left: 1px solid var(--border);
+  box-shadow: var(--shadow-drawer);
+  z-index: var(--z-float);
+}
+
+.pane[data-place="phone"] {
+  position: fixed;
+  inset: 0;
+  height: 100dvh;
+  // Sotto i menù e le tendine che apre (portali a --z-float, aggiunti dopo)
+  // e sotto drawer e conferme (--z-overlay): sopra testata e navigazione.
+  z-index: var(--z-float);
+}
+
+@keyframes paneIn {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}

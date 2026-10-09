@@ -23,6 +23,7 @@ import AgendaNav, { type AgendaViewMode } from "./AgendaNav";
 import ChannelMark from "./ChannelMark";
 import GuestConfirmedMark from "./GuestConfirmedMark";
 import { coversFor } from "./agendaCovers";
+import { AGENDA_TERMINAL as TERMINAL } from "./agendaVisible";
 import styles from "./Reservations.module.scss";
 
 interface Props {
@@ -51,6 +52,8 @@ interface Props {
     onReassignDay?: (date: string) => Promise<boolean>;
     /** Click any row → open detail drawer. */
     onOpenDetail: (r: V2Reservation) => void;
+    /** La prenotazione aperta accanto: riga e chip restano segnate (D141). */
+    selectedId?: string | null;
     /** Giorni o Settimana: vive nel parent, la scelta sta nella testata (T14). */
     mode: AgendaViewMode;
     onModeChange: (next: AgendaViewMode) => void;
@@ -59,22 +62,15 @@ interface Props {
      * pagina; al telefono la testata compatta non li ha e restano qui.
      */
     navInHeader?: boolean;
+    /**
+     * «Mostra annullate e rifiutate»: vive nel parent, perché le frecce del
+     * dettaglio devono contare le stesse righe che si vedono (`agendaVisible`).
+     */
+    showTerminal: boolean;
+    onShowTerminalChange: (next: boolean) => void;
 }
 
 
-// `no_show` NON sta qui, di proposito. `declined` e `cancelled` sono decisioni
-// prese PRIMA del servizio: una volta prese non interessa più vederle. Un
-// no-show è invece un fatto accaduto DURANTE quel servizio e fa parte di
-// com'è andata la serata, quindi resta visibile nella vista del giorno —
-// distinto dal badge "Non presentato". Vale anche per la correzione: annullare
-// una marcatura sbagliata non deve stare dietro il toggle "mostra terminali".
-//
-// `completed` non ci sta per lo stesso motivo di `no_show`, e non per
-// distrazione: una tavolata servita È com'è andata la serata, ed è proprio il
-// dato che l'host guarda per capire quanto ha girato la sala. Nasconderla
-// svuoterebbe la vista del giorno mano a mano che il servizio procede, fino a
-// mostrare solo ciò che non è ancora successo. `seated`, ovviamente, resta.
-const TERMINAL = new Set<V2Reservation["status"]>(["declined", "cancelled"]);
 
 // ── Date helpers (local to this view; shared primitives in @utils/dateLocal)
 
@@ -117,13 +113,15 @@ export default function ReservationsAgenda({
     canManage = false,
     onReassignDay,
     onOpenDetail,
+    selectedId,
     mode,
     onModeChange,
-    navInHeader = false
+    navInHeader = false,
+    showTerminal,
+    onShowTerminalChange
 }: Props) {
     // Giorno in attesa di conferma per "Riorganizza i tavoli".
     const [reassignDate, setReassignDate] = useState<string | null>(null);
-    const [showTerminal, setShowTerminal] = useState(false);
     const today = todayIsoDate();
 
     // ── Range derivation ────────────────────────────────────────────────────
@@ -215,7 +213,7 @@ export default function ReservationsAgenda({
                     <Switch
                         size="sm"
                         checked={showTerminal}
-                        onChange={setShowTerminal}
+                        onChange={onShowTerminalChange}
                         ariaLabel="Mostra annullate e rifiutate"
                         description={`Annullate · ${terminalCount}`}
                         containerClassName={styles.agendaTerminalFilter}
@@ -237,6 +235,7 @@ export default function ReservationsAgenda({
                 key={r.id}
                 dense
                 onClick={() => onOpenDetail(r)}
+                selected={r.id === selectedId}
                 muted={isDimmed(r.status)}
                 leading={
                     <Text
@@ -392,6 +391,8 @@ export default function ReservationsAgenda({
                 className={styles.weekChip}
                 data-tone={badge.variant}
                 data-dimmed={isDimmed(r.status) || undefined}
+                data-selected={r.id === selectedId || undefined}
+                aria-current={r.id === selectedId ? "true" : undefined}
                 onClick={() => onOpenDetail(r)}
                 aria-label={`${r.customer_name} ${r.reservation_time.slice(0, 5)} · ${badge.label}${conflict ? ` · ${conflict.message}` : ""}`}
                 title={`${badge.label} · ${r.customer_name} · ${r.party_size}${tableTitle}`}

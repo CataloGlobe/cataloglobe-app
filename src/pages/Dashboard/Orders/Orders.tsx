@@ -29,7 +29,8 @@ import {
     undeliverToReady,
     uncancelToSubmitted,
     uncancelToAcknowledged,
-    uncancelToReady
+    uncancelToReady,
+    getOrderWithItems
 } from "@/services/supabase/orders";
 import type { CancelOrderItemResult } from "@/services/supabase/orders";
 import type { V2OrderWithItems } from "@/types/orders";
@@ -39,6 +40,7 @@ import { getTenantMemberNames } from "@/services/supabase/team";
 import type { V2Table } from "@/types/orders";
 
 import OrderDetailDrawer from "./OrderDetailDrawer";
+import { boardOrder } from "./boardOrder";
 import PrintReceipt from "./PrintReceipt";
 import OrderCancelDrawer from "./OrderCancelDrawer";
 import OrderCancelItemDrawer from "./OrderCancelItemDrawer";
@@ -52,6 +54,7 @@ import { useNotificationChime } from "@/hooks/useNotificationChime";
 import { usePermissions } from "@/context/usePermissions";
 import { canDoOnActivity } from "@/lib/permissions";
 
+import { useDetailParam } from "@/hooks/useDetailParam";
 import styles from "./Orders.module.scss";
 
 /**
@@ -90,9 +93,13 @@ function OrdersBoard() {
     // Filtri: solo dropdown tavolo.
     const [tableFilter, setTableFilter] = useState<string>("all");
 
-    // Detail drawer
-    const [isDetailOpen, setIsDetailOpen] = useState(false);
-    const [orderInDetail, setOrderInDetail] = useState<V2OrderWithItems | null>(null);
+    // Dettaglio dal vivo accanto alla board (D131): l'ordine aperto sta
+    // nell'indirizzo (`?ordine=`) e si legge dalla board, così cambia con lei.
+    const [detailId, openDetail, closeDetail] = useDetailParam("ordine");
+    // L'ultima versione vista: se l'ordine esce dalla board (servito o
+    // annullato) il dettaglio resta leggibile, col suo avviso. Per un link a
+    // un ordine che sulla board non c'è più, si legge per id.
+    const [lastDetail, setLastDetail] = useState<V2OrderWithItems | null>(null);
 
     // Cancel drawer
     const [isCancelOpen, setIsCancelOpen] = useState(false);
@@ -342,6 +349,39 @@ function OrdersBoard() {
         return activeOrders.filter(o => o.table_id === tableFilter);
     }, [activeOrders, tableFilter]);
 
+    // L'ordine del dettaglio, dal vivo; e l'ordine della board (Nuove, In
+    // lavorazione, Pronte, i più nuovi in cima) per ↑ ↓.
+    const liveDetail = detailId ? (activeOrders.find(o => o.id === detailId) ?? null) : null;
+    // Stato aggiornato durante il render (il modo di React per «ricordare il
+    // precedente»), non un ref: il render resta puro.
+    if (liveDetail && liveDetail !== lastDetail) setLastDetail(liveDetail);
+    else if (!detailId && lastDetail) setLastDetail(null);
+    const orderInDetail = liveDetail ?? (lastDetail?.id === detailId ? lastDetail : null);
+    const missingDetailId = detailId && !orderInDetail ? detailId : null;
+    useEffect(() => {
+        if (!missingDetailId || !tenantId) return;
+        let alive = true;
+        getOrderWithItems(missingDetailId, tenantId)
+            .then(order => {
+                // Solo un ordine di questa sede: il link può essere di un'altra.
+                if (alive && order.activity_id === selectedActivityId) setLastDetail(order);
+            })
+            .catch(() => {
+                /* resta «Ordine non disponibile» */
+            });
+        return () => {
+            alive = false;
+        };
+    }, [missingDetailId, tenantId, selectedActivityId]);
+    const boardSequence = useMemo(() => boardOrder(filteredOrders), [filteredOrders]);
+    const detailIndex = orderInDetail ? boardSequence.findIndex(o => o.id === orderInDetail.id) : -1;
+    const stepDetail = (step: number) => {
+        if (boardSequence.length === 0) return;
+        const from = detailIndex === -1 ? (step > 0 ? -1 : 0) : detailIndex;
+        const next = boardSequence[(from + step + boardSequence.length) % boardSequence.length];
+        if (next) openDetail(next.id);
+    };
+
     function labelFor(order: V2OrderWithItems): string {
         const t = tables.find(tt => tt.id === order.table_id);
         return t ? t.label : `#${order.id.slice(0, 6)}`;
@@ -513,8 +553,7 @@ function OrdersBoard() {
     }
 
     function handleViewDetail(order: V2OrderWithItems) {
-        setOrderInDetail(order);
-        setIsDetailOpen(true);
+        openDetail(order.id);
     }
 
     function handleCancelOpen(order: V2OrderWithItems) {
@@ -715,6 +754,7 @@ function OrdersBoard() {
                 onCancel={handleCancelOpen}
                 onCancelItem={handleCancelItemOpen}
                 onViewDetail={handleViewDetail}
+                selectedOrderId={detailId}
                 onUnacknowledge={handleUnacknowledge}
                 onUnready={handleUnready}
                 pulseSubmittedToken={pulseToken}
@@ -733,7 +773,7 @@ function OrdersBoard() {
             )}
 
             <OrderDetailDrawer
-                open={isDetailOpen}
+                open={detailId !== null}
                 order={orderInDetail}
                 tableLabel={
                     tables.find(t => t.id === orderInDetail?.table_id)?.label ?? "?"
@@ -744,9 +784,21 @@ function OrdersBoard() {
                 operatorNames={operatorNames}
                 hasPrinters={hasPrinters === true}
                 onPrint={handlePrint}
-                onClose={() => {
-                    setIsDetailOpen(false);
-                    setOrderInDetail(null);
+                onClose={closeDetail}
+                leftBoard={!liveDetail && orderInDetail !== null}
+                onPrev={boardSequence.length > 1 ? () => stepDetail(-1) : undefined}
+                onNext={boardSequence.length > 1 ? () => stepDetail(1) : undefined}
+                position={detailIndex >= 0 ? { index: detailIndex, total: boardSequence.length } : undefined}
+                actions={{
+                    onAcknowledge: handleAcknowledge,
+                    onMarkReady: handleMarkReady,
+                    onDeliver: handleDeliver,
+                    onCancel: handleCancelOpen,
+                    onCancelItem: handleCancelItemOpen,
+                    onUnacknowledge: handleUnacknowledge,
+                    onUnready: handleUnready,
+                    canManage,
+                    canEdit
                 }}
             />
 

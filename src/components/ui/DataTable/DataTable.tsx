@@ -17,6 +17,7 @@ import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { useAutoPageSize } from "./useAutoPageSize";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { useDetailPaneOpen } from "@/components/layout/DetailPane/DetailPaneContext";
 import {
     resolveNumericPageSize,
     withAutoOption,
@@ -36,6 +37,9 @@ export type ColumnDefinition<T> = {
     /** Sotto 768 la colonna sparisce: su telefono restano due colonne più
      *  le azioni (scheda «DataTable»). La colonna azioni non si nasconde mai. */
     hideOnPhone?: boolean;
+    /** Con un dettaglio aperto accanto la tabella si stringe (D131): escono
+     *  queste colonne e quelle `hideOnPhone`. */
+    hideWithDetail?: boolean;
 };
 
 export type DataTableEmptyState = {
@@ -136,6 +140,8 @@ interface DataTableProps<T> {
 
     /** Righe con animazione highlight transitorio (~2s fade amber). */
     highlightedRowIds?: string[];
+    /** La riga aperta nel dettaglio accanto (D131): resta segnata col bordo viola. */
+    activeRowId?: string | null;
     /** Righe visivamente attenuate e non interattive (es. in salvataggio, sola lettura). */
     disabledRowIds?: string[];
     /**
@@ -191,6 +197,7 @@ interface DataTableRowProps<T> {
     isSelected?: boolean;
     onSelect?: (id: string, checked: boolean) => void;
     isHighlighted?: boolean;
+    isActive?: boolean;
     isDisabled?: boolean;
     isMuted?: boolean;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -209,6 +216,7 @@ function DataTableRow<T>({
     isSelected,
     onSelect,
     isHighlighted,
+    isActive,
     isDisabled,
     isMuted,
     dragHandleProps
@@ -218,6 +226,7 @@ function DataTableRow<T>({
         onRowClick && !isDisabled ? styles.rowClickable : "",
         isSelected ? styles.rowSelected : "",
         isHighlighted ? styles.rowHighlighted : "",
+        isActive ? styles.rowActive : "",
         isDisabled ? styles.rowDisabled : "",
         isMuted ? styles.rowMuted : ""
     ]
@@ -229,6 +238,7 @@ function DataTableRow<T>({
             className={classes}
             style={gridStyle}
             role="row"
+            aria-current={isActive ? "true" : undefined}
             onClick={event => {
                 if (!onRowClick || isDisabled) return;
                 const target = event.target as HTMLElement | null;
@@ -306,6 +316,7 @@ export function DataTable<T>({
     showFooter = true,
     footerNote,
     highlightedRowIds,
+    activeRowId,
     disabledRowIds,
     mutedRowIds,
     ariaLabel,
@@ -321,15 +332,18 @@ export function DataTable<T>({
     // La colonna azioni è sempre l'ultima, a destra (scheda «DataTable»):
     // se il consumer la dichiara altrove, la tabella la sposta in coda.
     const isPhone = useMediaQuery("(max-width: 767px)");
+    const detailOpen = useDetailPaneOpen();
     const columns = useMemo(() => {
-        // Su telefono le colonne `hideOnPhone` escono; le azioni restano.
-        const visible = isPhone
-            ? columnsProp.filter(c => !c.hideOnPhone || c.id === ACTIONS_COLUMN_ID)
-            : columnsProp;
+        // Su telefono le colonne `hideOnPhone` escono; con il dettaglio
+        // accanto anche le `hideWithDetail`. Le azioni restano.
+        const hidden = (c: ColumnDefinition<T>) =>
+            c.id !== ACTIONS_COLUMN_ID &&
+            (((isPhone || detailOpen) && c.hideOnPhone) || (detailOpen && c.hideWithDetail));
+        const visible = isPhone || detailOpen ? columnsProp.filter(c => !hidden(c)) : columnsProp;
         const idx = visible.findIndex(c => c.id === ACTIONS_COLUMN_ID);
         if (idx < 0 || idx === visible.length - 1) return visible;
         return [...visible.filter((_, i) => i !== idx), visible[idx]];
-    }, [columnsProp, isPhone]);
+    }, [columnsProp, isPhone, detailOpen]);
     const initialSelection: PageSizeSelection = pageSize ?? DEFAULT_PAGE_SIZE;
     const [currentPageSize, setCurrentPageSize] =
         useState<PageSizeSelection>(initialSelection);
@@ -477,6 +491,25 @@ export function DataTable<T>({
         [displayData, hasOverflow, safePage, numericPageSize, getRowId]
     );
 
+    // La riga aperta accanto (↑ ↓ del dettaglio, D131) si vede sempre: se sta
+    // su un'altra pagina ci si va, e poi la si porta in vista.
+    const activePage = useMemo(() => {
+        if (activeRowId == null || !hasOverflow) return null;
+        const index = data.findIndex((row, i) => getRowId(row, i) === activeRowId);
+        return index < 0 ? null : Math.floor(index / numericPageSize) + 1;
+    }, [activeRowId, hasOverflow, data, getRowId, numericPageSize]);
+    // Solo quando cambia la riga aperta: poi le pagine si sfogliano a mano.
+    const [pagedFor, setPagedFor] = useState(activeRowId);
+    if (activeRowId !== pagedFor) {
+        setPagedFor(activeRowId);
+        if (activePage !== null && activePage !== safePage) setCurrentPage(activePage);
+    }
+    useEffect(() => {
+        if (activeRowId == null) return;
+        const row = bodyRef.current?.querySelector<HTMLElement>('[role="row"][aria-current="true"]');
+        row?.scrollIntoView({ block: "nearest" });
+    }, [activeRowId, safePage]);
+
     const highlightSet = useMemo(
         () => new Set(highlightedRowIds ?? []),
         [highlightedRowIds]
@@ -608,6 +641,7 @@ export function DataTable<T>({
                     isSelected={selectedSet.has(rowId)}
                     onSelect={handleSelectRow}
                     isHighlighted={highlightSet.has(rowId)}
+                    isActive={activeRowId != null && activeRowId === rowId}
                     isDisabled={disabledSet.has(rowId)}
                     isMuted={mutedSet.has(rowId)}
                 />

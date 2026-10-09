@@ -1,6 +1,6 @@
 import { useId, useRef } from "react";
 import { Check, Printer, RotateCcw, X } from "lucide-react";
-import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
+import { DetailPane } from "@/components/layout/DetailPane/DetailPane";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
@@ -11,6 +11,7 @@ import { ListRow } from "@/components/ui/ListRow/ListRow";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import type { V2OrderWithItems } from "@/types/orders";
 import PrintReceipt from "./PrintReceipt";
+import { OrderDetailActions, type OrderLiveActions } from "./OrderDetailActions";
 import { orderStatusBadge } from "./orderStatusBadge";
 import styles from "./OrderDetailDrawer.module.scss";
 
@@ -52,6 +53,20 @@ interface Props {
      */
     onPrint?: (order: V2OrderWithItems) => void;
     onClose: () => void;
+    /**
+     * Dalla board: le azioni della card anche qui (D131). Assenti (Storico)
+     * il dettaglio si legge e si stampa soltanto.
+     */
+    actions?: OrderLiveActions;
+    /** L'ordine è uscito dalla board (servito o annullato) mentre era aperto. */
+    leftBoard?: boolean;
+    /** Il precedente e il successivo dell'elenco sotto (↑ ↓). */
+    onPrev?: () => void;
+    onNext?: () => void;
+    /** «2 di 5» fra le frecce (D141). */
+    position?: { index: number; total: number };
+    /** La pagina sotto, per il ritorno al telefono. Default «Comande». */
+    backLabel?: string;
 }
 
 const CURRENCY_FORMATTER = new Intl.NumberFormat("it-IT", {
@@ -107,7 +122,13 @@ export default function OrderDetailDrawer({
     operatorNames,
     hasPrinters,
     onPrint,
-    onClose
+    onClose,
+    actions,
+    leftBoard,
+    onPrev,
+    onNext,
+    position,
+    backLabel = "Comande"
 }: Props) {
     const printRef = useRef<HTMLDivElement>(null);
     const titleId = useId();
@@ -126,7 +147,7 @@ export default function OrderDetailDrawer({
 
     if (!order) {
         return (
-            <SystemDrawer open={open} onClose={onClose} size="md" aria-labelledby={titleId} autoFocusFirstInput={false}>
+            <DetailPane open={open} onClose={onClose} aria-labelledby={titleId} backLabel={backLabel} onPrev={onPrev} onNext={onNext} position={position}>
                 <DrawerLayout
                     title="Dettaglio ordine"
                     titleId={titleId}
@@ -139,12 +160,18 @@ export default function OrderDetailDrawer({
                 >
                     <Text colorVariant="muted">Ordine non disponibile</Text>
                 </DrawerLayout>
-            </SystemDrawer>
+            </DetailPane>
         );
     }
 
     const { variant: stVariant, label: stLabel } = orderStatusBadge(order.status);
-    const canPrint = order.status !== "cancelled";
+    const printLabel = order.status === "cancelled" ? null : hasPrinters ? "Ristampa comanda" : "Stampa";
+    // Le azioni della card solo finché l'ordine è sulla board e chi guarda lo gestisce.
+    const live =
+        actions &&
+        !leftBoard &&
+        actions.canManage !== false &&
+        (order.status === "submitted" || order.status === "acknowledged" || order.status === "ready");
 
     // Padre rettificato (NON l'ordine-che-È-storno, gestito dal banner più sotto).
     const isRectifiedParent = !order.is_rectification && !!order.rectified;
@@ -164,26 +191,36 @@ export default function OrderDetailDrawer({
               : null;
 
     return (
-        <SystemDrawer open={open} onClose={onClose} size="md" aria-labelledby={titleId} autoFocusFirstInput={false}>
+        <DetailPane open={open} onClose={onClose} aria-labelledby={titleId} backLabel={backLabel} onPrev={onPrev} onNext={onNext} position={position}>
             <DrawerLayout
                 title="Dettaglio ordine"
                 titleId={titleId}
                 onClose={onClose}
                 footer={
-                    <>
-                        <Button variant="secondary" onClick={onClose}>
-                            Chiudi
-                        </Button>
-                        {canPrint && (
-                            <Button
-                                variant="primary"
-                                leftIcon={<Printer size={14} />}
-                                onClick={handlePrint}
-                            >
-                                {hasPrinters ? "Ristampa comanda" : "Stampa"}
+                    live && actions ? (
+                        <OrderDetailActions
+                            key={order.id}
+                            order={order}
+                            actions={actions}
+                            printLabel={printLabel}
+                            onPrint={handlePrint}
+                        />
+                    ) : (
+                        <>
+                            <Button variant="secondary" onClick={onClose}>
+                                Chiudi
                             </Button>
-                        )}
-                    </>
+                            {printLabel && (
+                                <Button
+                                    variant="primary"
+                                    leftIcon={<Printer size={14} />}
+                                    onClick={handlePrint}
+                                >
+                                    {printLabel}
+                                </Button>
+                            )}
+                        </>
+                    )
                 }
             >
                 <div className={styles.content}>
@@ -205,6 +242,12 @@ export default function OrderDetailDrawer({
                             {author ? ` · ${author}` : ""}
                         </Text>
                     </div>
+
+                    {leftBoard && (
+                        <InlineBanner variant="info">
+                            Non è più sulla board: è stato servito o annullato.
+                        </InlineBanner>
+                    )}
 
                     {order.is_rectification && (
                         <InlineBanner variant="info" icon={<RotateCcw size={16} aria-hidden />}>
@@ -316,6 +359,6 @@ export default function OrderDetailDrawer({
                     operatorNames={operatorNames}
                 />
             </DrawerLayout>
-        </SystemDrawer>
+        </DetailPane>
     );
 }

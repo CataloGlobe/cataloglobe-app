@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Eye, Grid2X2, LogOut, Wrench } from "lucide-react";
 
@@ -21,7 +21,7 @@ import { updateTable } from "@/services/supabase/tables";
 import type { V2TableWithState } from "@/types/orders";
 
 import { TableDetailDrawer } from "@/components/Tables/TableDetailDrawer/TableDetailDrawer";
-import { SYSTEM_DRAWER_MOTION_MS } from "@/components/layout/SystemDrawer/drawerSize";
+import { useDetailParam } from "@/hooks/useDetailParam";
 import TableCloseDrawer from "@/pages/Dashboard/Tables/TableCloseDrawer";
 
 import { deriveTableStatus } from "@/utils/tableState";
@@ -142,9 +142,9 @@ export function TablesLiveView({
     // dispatcher globale `OperationalAlerts` (MainLayout): suona a prescindere
     // dalla pagina. Qui restano solo le pill in-page come indicatore.
 
-    // ─── Detail drawer (click su card) ─────────────────────────────────
-    const [detailTableId, setDetailTableId] = useState<string | null>(null);
-    const [isDetailOpen, setIsDetailOpen] = useState(false);
+    // ─── Dettaglio accanto (click su card, D131) ───────────────────────
+    // Il tavolo aperto sta nell'indirizzo (`?tavolo=`): «indietro» lo chiude.
+    const [detailTableId, openDetail, closeDetail] = useDetailParam("tavolo");
 
     // ─── Close drawer (apertura via "Chiudi tavolo" dal detail) ────────
     const [tableToClose, setTableToClose] = useState<V2TableWithState | null>(
@@ -153,44 +153,12 @@ export function TablesLiveView({
     const [isCloseOpen, setIsCloseOpen] = useState(false);
     const [processingClose, setProcessingClose] = useState(false);
 
-    // Cleanup pendente del timer di transizione detail→close: serve a
-    // evitare race su unmount o se l'utente chiude il drawer prima del
-    // setTimeout.
-    const transitionTimerRef = useRef<number | null>(null);
-    useEffect(() => {
-        return () => {
-            if (transitionTimerRef.current !== null) {
-                window.clearTimeout(transitionTimerRef.current);
-                transitionTimerRef.current = null;
-            }
-        };
-    }, []);
+    const handleTableClick = useCallback((tableId: string) => openDetail(tableId), [openDetail]);
 
-    const handleTableClick = useCallback((tableId: string) => {
-        // Guard race transizione drawer: se l'utente clicca una card
-        // mentre c'e' una transizione detail->close pendente (timer
-        // armato da un precedente "Chiudi tavolo"), annulla la
-        // transizione. Altrimenti il timer aprirebbe il close drawer
-        // della card precedente SOPRA il detail della card appena
-        // cliccata -> stacking accidentale che il design sequenziale
-        // evita. Niente flag/state extra: il transitionTimerRef esistente
-        // e' fonte di verita' del "pending".
-        if (transitionTimerRef.current !== null) {
-            window.clearTimeout(transitionTimerRef.current);
-            transitionTimerRef.current = null;
-            setTableToClose(null);
-        }
-        setDetailTableId(tableId);
-        setIsDetailOpen(true);
-    }, []);
-
-    // Detail richiede di aprire il close drawer: sequenza no-stack.
-    // 1. lookup riga V2TableWithState in items[] (zero I/O extra).
-    //    Guard: se non trovata (tavolo rimosso da realtime tra click e
-    //    callback) → toast soft + non aprire il close.
-    // 2. chiudi detail.
-    // 3. attendi SYSTEM_DRAWER_MOTION_MS (la durata che SystemDrawer esporta
-    //    per la sua uscita) e poi apri close.
+    // «Chiudi tavolo», dalla card o dal dettaglio: il drawer di chiusura si
+    // apre sopra, il dettaglio accanto resta (non copre più niente).
+    // Lookup della riga V2TableWithState in items[] (zero I/O extra); se non
+    // c'è più (tavolo rimosso da realtime) → toast soft, niente drawer.
     const handleRequestClose = useCallback(
         (tableId: string) => {
             const found = items.find(t => t.id === tableId);
@@ -202,14 +170,7 @@ export function TablesLiveView({
                 return;
             }
             setTableToClose(found);
-            setIsDetailOpen(false);
-            if (transitionTimerRef.current !== null) {
-                window.clearTimeout(transitionTimerRef.current);
-            }
-            transitionTimerRef.current = window.setTimeout(() => {
-                transitionTimerRef.current = null;
-                setIsCloseOpen(true);
-            }, SYSTEM_DRAWER_MOTION_MS);
+            setIsCloseOpen(true);
         },
         [items, showToast]
     );
@@ -362,6 +323,17 @@ export function TablesLiveView({
         return ordered;
     }, [filtered]);
 
+    // Per ↑ ↓: i tavoli nell'ordine della Mappa (zona dopo zona).
+    const mapSequence = useMemo(() => groups.flatMap(g => g.tables), [groups]);
+    const detailRow = detailTableId ? items.find(t => t.id === detailTableId) : undefined;
+    const detailAt = mapSequence.findIndex(t => t.id === detailTableId);
+    const stepDetail = (step: number) => {
+        const at = detailAt;
+        const from = at === -1 ? (step > 0 ? -1 : 0) : at;
+        const next = mapSequence[(from + step + mapSequence.length) % mapSequence.length];
+        if (next) openDetail(next.id);
+    };
+
     return (
         <div className={styles.wrapper}>
             <div className={styles.summaryRow}>
@@ -498,6 +470,7 @@ export function TablesLiveView({
                                                 ) : undefined
                                             }
                                             onClick={() => handleTableClick(t.id)}
+                                            selected={t.id === detailTableId}
                                             aria-label={`${t.label}, ${statusLabel}`}
                                         />
                                     );
@@ -509,7 +482,7 @@ export function TablesLiveView({
             )}
 
             <TableDetailDrawer
-                open={isDetailOpen}
+                open={detailTableId !== null}
                 tenantId={tenantId}
                 activityId={activityId}
                 tableId={detailTableId}
@@ -518,10 +491,11 @@ export function TablesLiveView({
                         ? (items.find(t => t.id === detailTableId)?.current_total ?? null)
                         : null
                 }
-                onClose={() => {
-                    setIsDetailOpen(false);
-                    setDetailTableId(null);
-                }}
+                onClose={closeDetail}
+                onPrev={mapSequence.length > 1 ? () => stepDetail(-1) : undefined}
+                onNext={mapSequence.length > 1 ? () => stepDetail(1) : undefined}
+                position={detailAt >= 0 ? { index: detailAt, total: mapSequence.length } : undefined}
+                liveKey={detailRow ? JSON.stringify(detailRow) : undefined}
                 onRequestClose={handleRequestClose}
                 onMaintenanceChanged={() => void refetch()}
                 onBillCleared={() => void refetch()}

@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useBlocker } from "react-router-dom";
 import { UnsavedChangesDialog } from "@/components/ui/UnsavedChangesDialog/UnsavedChangesDialog";
-import { useHasUnsavedChanges } from "./useUnsavedChangesGuard";
+import { useHasUnsavedChanges, useUnsavedChangesWatchSearch } from "./useUnsavedChangesGuard";
 
 /**
  * Host unico della guardia (vedi `useUnsavedChangesGuard`). Va montato una
@@ -11,10 +11,13 @@ import { useHasUnsavedChanges } from "./useUnsavedChangesGuard";
  */
 export function UnsavedChangesGuardHost() {
     const hasUnsavedChanges = useHasUnsavedChanges();
+    const watchSearch = useUnsavedChangesWatchSearch();
 
     const blocker = useBlocker(
         ({ currentLocation, nextLocation }) =>
-            hasUnsavedChanges && currentLocation.pathname !== nextLocation.pathname
+            hasUnsavedChanges &&
+            (currentLocation.pathname !== nextLocation.pathname ||
+                (watchSearch && currentLocation.search !== nextLocation.search))
     );
 
     useEffect(() => {

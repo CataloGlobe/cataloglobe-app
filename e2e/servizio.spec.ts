@@ -132,6 +132,22 @@ test.describe("Servizio", () => {
         await expect(drawer).toHaveCount(0);
     });
 
+    test("cambiando modo il tavolo aperto si chiude e non si riapre tornando", async ({ page }) => {
+        await openMappa(page);
+        await expect(tessera(page)).toBeVisible({ timeout: 15_000 });
+        await tessera(page).click();
+        await expect(page.getByRole("dialog")).toBeVisible();
+        await expect(page).toHaveURL(/[?&]tavolo=/);
+
+        await modo(page, "Elenco").click();
+        await expect(modo(page, "Elenco")).toHaveAttribute("aria-selected", "true");
+        await expect(page).not.toHaveURL(/[?&]tavolo=/);
+        await modo(page, "Mappa").click();
+        await expect(tessera(page)).toBeVisible({ timeout: 15_000 });
+        await expect(page.getByRole("dialog")).toHaveCount(0);
+        await expect(page).not.toHaveURL(/[?&]tavolo=/);
+    });
+
     test("la Mappa: «Aperti» e «Liberi» filtrano le tessere", async ({ page }) => {
         await openMappa(page);
         const filtri = main(page).getByRole("radiogroup");

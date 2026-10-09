@@ -3,6 +3,76 @@
 .card[data-status="cancelled"] { opacity: 0.75; }
 .card[data-status="delivered"] { opacity: 0.9; }
 
+// Si tocca per aprire il dettaglio accanto (D131); quella aperta resta segnata.
+// Che si tocca lo dicono «Dettagli ›» in alto e la card che si alza al
+// passaggio (D141, 2C con A).
+.card {
+    cursor: pointer;
+    border-radius: var(--radius-surface);
+
+    @media (prefers-reduced-motion: no-preference) {
+        transition: transform var(--timing-motion-fast) var(--easing-state);
+    }
+}
+
+// La riga in cima ha il colore della corsia (`--lane` da OrdersKanban).
+.surface {
+    border-top: 3px solid var(--lane, var(--border));
+
+    @media (prefers-reduced-motion: no-preference) {
+        transition:
+            box-shadow var(--timing-motion-fast) var(--easing-state),
+            border-color var(--timing-motion-fast) var(--easing-state);
+    }
+}
+
+.surface .open {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--text-muted);
+    white-space: nowrap;
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+
+    // Il colore lo decide il pulsante (grigio, viola al passaggio).
+    > span {
+        color: inherit;
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--brand-primary);
+        outline-offset: 2px;
+    }
+}
+
+@media (hover: hover) {
+    .card:hover {
+        transform: translateY(-1px);
+    }
+
+    .card:hover .surface {
+        box-shadow: var(--shadow-float);
+        border-left-color: color-mix(in srgb, var(--brand-primary) 45%, var(--border));
+        border-right-color: color-mix(in srgb, var(--brand-primary) 45%, var(--border));
+        border-bottom-color: color-mix(in srgb, var(--brand-primary) 45%, var(--border));
+    }
+
+    .card:hover .surface .open {
+        color: var(--on-brand-soft);
+    }
+}
+
+// Il segno sta dentro la card (outline sopra il bordo): un anello fuori
+// veniva tagliato dalla colonna che scorre, in cima e in fondo.
+.card[data-selected] {
+    outline: 2px solid var(--brand-primary);
+    outline-offset: -2px;
+}
+
 // Blocchi con padding propri, separati dai divisori: via 8/12 del body flush.
 .body {
     padding: 0;

@@ -55,6 +55,7 @@ import {
     type ReservationRealtimeEvent
 } from "../loadWindow";
 import { useReservationsRealtime } from "./useReservationsRealtime";
+import { useDetailParam } from "@/hooks/useDetailParam";
 
 /**
  * Il banco delle prenotazioni di una sede (lotto B-b): i dati, il realtime,
@@ -152,6 +153,9 @@ export interface ReservationDeskOptions {
     onSalaChanged?: () => void;
 }
 
+/** L'Elenco di Servizio apre anche le tavolate: un dettaglio per volta. */
+const DETAIL_SIBLINGS = ["tavolata"] as const;
+
 export function useReservationDesk({
     activityId,
     enabled,
@@ -210,8 +214,10 @@ export function useReservationDesk({
     // riga. Un aggiornamento con dati in mano non deve cambiare il layout.
     const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
 
-    const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-    const [selectedId, setSelectedId] = useState<string | null>(null);
+    // La prenotazione aperta accanto (D131) sta nell'indirizzo
+    // (`?prenotazione=`): link da mandare, «indietro» che la chiude.
+    const [selectedId, openSelected, closeSelected] = useDetailParam("prenotazione", DETAIL_SIBLINGS);
+    const isDrawerOpen = selectedId !== null;
 
     // La data che il form crea/modifica sta guardando (`null` a form chiuso).
     const [formDate, setFormDate] = useState<string | null>(null);
@@ -510,19 +516,15 @@ export function useReservationDesk({
         [schedule, cancel, showToast]
     );
 
-    const handleOpenDetail = useCallback((r: V2Reservation) => {
-        setSelectedId(r.id);
-        setIsDrawerOpen(true);
-    }, []);
+    const handleOpenDetail = useCallback((r: V2Reservation) => openSelected(r.id), [openSelected]);
 
-    const handleCloseDrawer = useCallback(() => {
-        setIsDrawerOpen(false);
-    }, []);
+    const handleCloseDrawer = closeSelected;
 
+    // «Modifica» apre il drawer sopra: il dettaglio accanto resta, e quando
+    // si salva cambia con la riga.
     const handleOpenEdit = useCallback((r: V2Reservation) => {
         setEditingReservation(r);
         setCreateEditMode("edit");
-        setIsDrawerOpen(false);
         setIsCreateEditOpen(true);
     }, []);
 
