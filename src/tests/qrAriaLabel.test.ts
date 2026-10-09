@@ -7,7 +7,8 @@ import { readFileSync } from "node:fs";
  * senza nome; ogni uso deve passare un `aria-label`.
  */
 describe("ogni QRCodeSVG ha un aria-label", () => {
-    const files = execSync("git grep -l '<QRCodeSVG' -- src", { encoding: "utf8" })
+    // Fuori src/tests: questo file contiene la stringa cercata.
+    const files = execSync("git grep -l '<QRCodeSVG' -- src ':!src/tests'", { encoding: "utf8" })
         .trim()
         .split("\n")
         .filter(Boolean);
