@@ -510,6 +510,8 @@ export default function VerifyOtp() {
         }
 
         hasRequestedOtpRef.current = false;
+        // Invio chiesto a mano: il codice di prima non conta più come «attivo».
+        activeCodeRef.current = false;
 
         setDigits(Array(OTP_LENGTH).fill(""));
         setInfo(null);
