@@ -345,7 +345,7 @@ export default function ActivityOrdiniPrenotazioniRoute({ part }: ActivityOrdini
                                 <li>
                                     <Text as="span" variant="caption" colorVariant="muted">
                                         I tavoli e i loro QR stanno nella tab{" "}
-                                        <Link to="../sala" relative="path" className={styles.link}>
+                                        <Link to={{ pathname: "../servizio", search: "?modo=sala" }} relative="path" className={styles.link}>
                                             Sala
                                         </Link>
                                         .

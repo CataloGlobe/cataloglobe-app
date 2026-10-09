@@ -26,6 +26,9 @@
 
   h2, h3, h4, h5 { margin: 0; text-wrap: balance; }
   p { margin: 0; }
+  // I titoli e i paragrafi globali hanno un colore fisso (chiaro): qui
+  // seguono il tema. Peso di una classe, così le classi dopo vincono.
+  :where(h2, h3, h4, h5, p) { color: inherit; }
 }
 
 :global([data-theme="dark"]) .root {
@@ -125,7 +128,7 @@
     width: 100%;
     background: linear-gradient(to top, rgba(15, 23, 42, 0.72), rgba(15, 23, 42, 0));
   }
-  h3 { font-size: 26px; font-weight: 700; letter-spacing: -0.015em; }
+  h3 { font-size: 26px; font-weight: 700; letter-spacing: -0.015em; color: #fff; margin: 0; }
   p { max-width: 60ch; color: rgba(255, 255, 255, 0.88); font-size: 13.5px; }
   .edit {
     position: absolute;
@@ -412,11 +415,14 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
+  > div:first-child .gt { padding-top: 0; }
   .gt {
-    height: 26px;
+    min-height: 26px;
+    padding-top: 12px;
     display: flex;
     align-items: flex-end;
-    padding: 0 8px 6px;
+    padding-inline: 8px;
+    padding-bottom: 6px;
     font-size: 11px;
     font-weight: 600;
     letter-spacing: 0.06em;
@@ -492,7 +498,7 @@
 }
 
 // ── Testata ────────────────────────────────────────────────────────────────
-.headTitle { display: flex; align-items: center; gap: 12px; min-width: 0; h2 { font-size: 18px; font-weight: 650; letter-spacing: -0.005em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0; } }
+.headTitle { display: flex; align-items: center; gap: 12px; min-width: 0; h2 { color: var(--text); font-size: 18px; font-weight: 650; letter-spacing: -0.005em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0; } }
 .crumbs {
   display: flex;
   align-items: center;

@@ -95,7 +95,6 @@ const ActivityDetailPage = lazy(() => import("./pages/Operativita/Attivita/Activ
 const ActivitySchedaRoute = lazy(() => import("./pages/Operativita/Attivita/routes/ActivitySchedaRoute"));
 const SchedaRedirect = lazy(() => import("./pages/Operativita/Attivita/routes/SchedaRedirect"));
 const ActivitySectionRedirect = lazy(() => import("./pages/Operativita/Attivita/routes/ActivitySectionRedirect"));
-const ActivitySalaRoute = lazy(() => import("./pages/Operativita/Attivita/routes/ActivitySalaRoute"));
 const SedeRedirect = lazy(() => import("./components/layout/SedeRedirect/SedeRedirect"));
 const BusinessHomeRedirect = lazy(() => import("./components/layout/LandingRedirect/BusinessHomeRedirect"));
 const SedeHomeRedirect = lazy(() => import("./components/layout/LandingRedirect/SedeHomeRedirect"));
@@ -321,9 +320,9 @@ export default function App() {
                         <Route path="pubblicazione" element={<SchedaRedirect part="link" />} />
                         <Route path="ordini-al-tavolo" element={<SchedaRedirect part="ordini" />} />
                         <Route path="prenotazioni-online" element={<SchedaRedirect part="prenotazioni" />} />
-                        {/* La Sala esce dalla scheda (passa a Servizio), ma il suo
-                            indirizzo resta: ci arrivano i rimandi degli ordini. */}
-                        <Route path="sala" element={<ActivitySalaRoute />} />
+                        {/* La Sala è un modo di Servizio (Officina 3): il vecchio
+                            indirizzo resta buono. */}
+                        <Route path="sala" element={<Navigate to={{ pathname: "../servizio", search: "?modo=sala" }} relative="path" replace />} />
                         {/* La vecchia tab unica: l'ancora dice quale delle due. */}
                         <Route path="ordini-prenotazioni" element={<SchedaRedirect part="ordini" />} />
                         <Route path="canali" element={<SchedaRedirect part="ordini" />} />

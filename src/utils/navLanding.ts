@@ -28,8 +28,8 @@ const LEGACY_TAB_REDIRECT: Record<string, LegacyTabTarget> = {
     settings: { segment: "anagrafica", search: "parte=link" },
     "hours-services": { segment: "anagrafica", search: "parte=offrite" },
     "access-control": { segment: "anagrafica", search: "parte=link" },
-    sala: { segment: "sala" },
-    tables: { segment: "sala" },
+    sala: { segment: "servizio", search: "modo=sala" },
+    tables: { segment: "servizio", search: "modo=sala" },
     service: { segment: "servizio", search: "modo=elenco" },
     availability: { segment: "cosa-vedono" }
 };

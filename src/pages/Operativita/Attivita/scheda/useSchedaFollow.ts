@@ -39,9 +39,22 @@ export function useSchedaFollow(
         const cTop = isDoc ? 0 : C.getBoundingClientRect().top;
         const viewH = isDoc ? window.innerHeight : C.clientHeight;
         const cMax = C.scrollHeight - viewH;
-        const pMax = scr.scrollHeight - scr.clientHeight;
-        if (cMax <= 0 || pMax <= 0) return;
+        const pMax = Math.max(0, scr.scrollHeight - scr.clientHeight);
+        if (cMax <= 0) return;
         const sTop = scr.getBoundingClientRect().top;
+
+        // La zona per la card «Sul telefono» non dipende da quanto scorre il
+        // telefono: anche quando ci sta quasi tutto, la card segue la scheda.
+        if (!pausedRef.current) {
+            let z: SchedaZone = "locale";
+            for (const k of FOLLOW_ANCHORS) {
+                const t = root.querySelector<HTMLElement>(`[data-k="${k}"]`);
+                if (t && t.getBoundingClientRect().top - cTop < viewH * 0.45) z = k as SchedaZone;
+            }
+            if (C.scrollTop >= cMax - 2) z = "dove";
+            setZone(prev => (prev === z ? prev : z));
+        }
+        if (pMax <= 0) return;
 
         const A: [number, number][] = [[0, 0]];
         for (const k of FOLLOW_ANCHORS) {
@@ -63,15 +76,6 @@ export function useSchedaFollow(
         const [d1, p1] = A[i + 1];
         const target = p0 + (p1 - p0) * Math.min(1, Math.max(0, (y - d0) / (d1 - d0 || 1)));
 
-        if (!pausedRef.current) {
-            let z: SchedaZone = "locale";
-            for (const k of FOLLOW_ANCHORS) {
-                const t = root.querySelector<HTMLElement>(`[data-k="${k}"]`);
-                if (t && t.getBoundingClientRect().top - cTop < viewH * 0.45) z = k as SchedaZone;
-            }
-            if (C.scrollTop >= cMax - 2) z = "dove";
-            setZone(prev => (prev === z ? prev : z));
-        }
         scr.scrollTop = Math.round(target);
     }, [rootRef, scrRef]);
 

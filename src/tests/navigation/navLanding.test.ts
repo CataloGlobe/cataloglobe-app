@@ -13,9 +13,9 @@ describe("legacyTabTarget — i vecchi ?tab= della scheda", () => {
         expect(legacyTabTarget("availability")).toEqual({ segment: "cosa-vedono" });
     });
 
-    it("la Sala è una tab della Scheda (correzioni UI SV3)", () => {
-        expect(legacyTabTarget("sala")).toEqual({ segment: "sala" });
-        expect(legacyTabTarget("tables")).toEqual({ segment: "sala" });
+    it("la Sala è un modo di Servizio (Officina 3)", () => {
+        expect(legacyTabTarget("sala")).toEqual({ segment: "servizio", search: "modo=sala" });
+        expect(legacyTabTarget("tables")).toEqual({ segment: "servizio", search: "modo=sala" });
     });
 
     it("la sala del momento è l'Elenco di Servizio", () => {

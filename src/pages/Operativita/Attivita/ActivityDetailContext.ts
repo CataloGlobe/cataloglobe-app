@@ -13,7 +13,6 @@ export const ACTIVITY_SECTIONS = [
     "orari",
     "ordini-al-tavolo",
     "prenotazioni-online",
-    "sala",
     "pubblicazione",
     "cosa-vedono"
 ] as const;
@@ -25,7 +24,6 @@ export const ACTIVITY_SECTION_LABELS: Record<ActivitySection, string> = {
     orari: "Orari",
     "ordini-al-tavolo": "Ordini al tavolo",
     "prenotazioni-online": "Prenotazioni",
-    sala: "Sala",
     pubblicazione: "Pubblicazione",
     "cosa-vedono": "Cosa vedono i clienti"
 };

@@ -389,7 +389,7 @@ export function TablesLiveView({
                         businessId ? (
                             <Button
                                 variant="secondary"
-                                onClick={() => navigate(`/business/${businessId}/locations/${activityId}/sala`)}
+                                onClick={() => navigate(`/business/${businessId}/locations/${activityId}/servizio?modo=sala`)}
                             >
                                 Vai a Gestisci la sala
                             </Button>

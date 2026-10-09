@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Lock, Plus, Store } from "lucide-react";
 
 import { Button } from "@/components/ui/Button/Button";
@@ -16,16 +16,17 @@ import { canDoOnActivity, isOwnerOrAdmin } from "@/lib/permissions";
 import { usePlanFeatures } from "@/lib/planFeatures";
 import { getActivityById } from "@/services/supabase/activities";
 import type { V2Activity } from "@/types/activity";
-import { SERVIZIO_MODES, modeAccess, resolveServizioMode, type ServizioMode } from "@/utils/servizioModes";
+import { SERVIZIO_MODES, modeAccess, normalizeServizioMode, resolveServizioMode, type ServizioMode } from "@/utils/servizioModes";
+import { ServizioSala } from "./ServizioSala";
 
 import styles from "./Servizio.module.scss";
 
 const LOCKED_HINT = "Disponibile con il piano Pro";
 
 /**
- * Servizio (§18.2, lotti B-a e B-b): la sala di una sede, in due modi —
- * Elenco e Mappa. «Gestisci la sala» è la tab Sala della Scheda
- * (correzioni UI SV3). Il modo
+ * Servizio (§18.2, lotti B-a e B-b): la sala di una sede, in tre modi —
+ * Elenco, Mappa e Sala (i tavoli da configurare: era la tab Sala della
+ * Scheda, con la Scheda C+++ torna qui). Il modo
  * sta in `?modo=`; senza, il primo che si può usare (`servizioModes.ts`).
  * Un modo col lucchetto si vede spento e non si apre: `?modo=` che lo chiede
  * passa al primo usabile. Fuori dal parent della Scheda: legge la sede da sé,
@@ -35,7 +36,7 @@ const LOCKED_HINT = "Disponibile con il piano Pro";
  * modo lasciato (Elenco: prenotazioni e tavolate; Mappa:
  * `useTablesLiveRealtime`) si chiudono, e si riaprono tornandoci.
  *
- * `?modo=gestisci` porta alla tab Sala della Scheda;
+ * `?modo=gestisci` e `/sala` portano alla Sala;
  * `comande?tab=tavoli` alla Mappa; `prenotazioni?tab=service` all'Elenco.
  */
 export default function Servizio() {
@@ -65,7 +66,7 @@ export default function Servizio() {
         void load();
     }, [load]);
 
-    const requested = searchParams.get("modo");
+    const requested = normalizeServizioMode(searchParams.get("modo"));
     const mode = permissions ? resolveServizioMode(requested, permissions, hasFeature, activityId) : null;
 
     const modes = useMemo(
@@ -93,9 +94,10 @@ export default function Servizio() {
 
     // Un `?modo=` che non si può usare (col lucchetto, sconosciuto) diventa
     // quello mostrato: l'indirizzo dice dove si è.
+    const rawMode = searchParams.get("modo");
     useEffect(() => {
-        if (requested && mode && requested !== mode) changeMode(mode);
-    }, [requested, mode, changeMode]);
+        if (rawMode && mode && rawMode !== mode) changeMode(mode);
+    }, [rawMode, mode, changeMode]);
 
     const leading = useMemo(
         () =>
@@ -166,12 +168,6 @@ export default function Servizio() {
     );
     usePageHeader(headerConfig);
 
-    // «Gestisci la sala» è la tab Sala della Scheda (correzioni UI SV3): i
-    // vecchi `?modo=gestisci` portano lì.
-    if (requested === "gestisci") {
-        return <Navigate to="../sala" relative="path" replace />;
-    }
-
     if ((loading && !activity) || !permissions) {
         return (
             <div className={styles.loading} aria-busy="true" aria-label="Caricamento sede">
@@ -193,9 +189,8 @@ export default function Servizio() {
         );
     }
 
-    // Modi visibili ma tutti col lucchetto (piano Base): non è un permesso
-    // che manca, è il piano. Prima non capitava: «Gestisci la sala» non
-    // aveva lucchetto, e dalle correzioni UI (SV3) è la tab Sala della Scheda.
+    // Modi visibili ma tutti col lucchetto (piano Base, senza i tavoli e
+    // quindi senza la Sala): non è un permesso che manca, è il piano.
     if (!mode && modes.length > 0) {
         const billingCapable = isOwnerOrAdmin(permissions);
         return (
@@ -204,8 +199,8 @@ export default function Servizio() {
                 title="Servizio è una funzione del piano Pro"
                 description={
                     billingCapable
-                        ? "L'Elenco delle prenotazioni del giorno e la Mappa dei tavoli con i conti aperti. I tavoli si gestiscono nella tab Sala della sede."
-                        : "Chiedi al proprietario di passare a Pro. I tavoli si gestiscono nella tab Sala della sede."
+                        ? "L'Elenco delle prenotazioni del giorno e la Mappa dei tavoli con i conti aperti."
+                        : "Chiedi al proprietario di passare a Pro."
                 }
                 action={
                     billingCapable ? (
@@ -230,7 +225,7 @@ export default function Servizio() {
 
     return (
         <div className={styles.container} data-mode={mode}>
-            {canReadReservations && (
+            {canReadReservations && mode !== "sala" && (
                 <ServizioTodayRow
                     tenantId={businessId}
                     activityId={activity.id}
@@ -245,6 +240,7 @@ export default function Servizio() {
                 />
             )}
             {mode === "mappa" && <TablesLiveView tenantId={businessId} activityId={activity.id} />}
+            {mode === "sala" && <ServizioSala tenantId={businessId} activity={activity} />}
         </div>
     );
 }
