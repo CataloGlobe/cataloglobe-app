@@ -1,3 +1,4 @@
+@use "@styles/mixins" as *;
 .content {
     display: flex;
     flex-direction: column;
@@ -138,6 +139,7 @@
     border-radius: 8px;
     font-family: inherit;
     font-size: 14px;
+    @include touch-input-font;
     color: var(--text-primary, #1a1d21);
     background: var(--surface-elevated, #fff);
     resize: vertical;

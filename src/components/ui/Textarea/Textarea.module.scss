@@ -1,3 +1,4 @@
+@use "@styles/mixins" as *;
 // Textarea — scheda «FormField»: min 88, padding 8 12, resize verticale.
 // Solo token.
 
@@ -9,6 +10,7 @@
 
   font-family: inherit;
   font-size: 14px;
+  @include touch-input-font;
   line-height: 1.5;
 
   border-radius: var(--radius-control);

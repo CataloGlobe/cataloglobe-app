@@ -1,3 +1,4 @@
+@use "@styles/mixins" as *;
 .wrapper {
     display: flex;
     flex-direction: column;
@@ -17,6 +18,7 @@
     color: var(--text, #0f172a);
     font: inherit;
     font-size: 0.95rem;
+    @include touch-input-font;
     line-height: 1;
     cursor: pointer;
     transition: border-color 0.2s ease, box-shadow 0.2s ease;

@@ -1,3 +1,4 @@
+@use "@styles/mixins" as *;
 // Token da `src/styles/_theme.scss`. NB: il gemello ZoneSelectField usa nomi
 // di variabili inesistenti (--color-border, --color-surface, --color-primary…)
 // e vive sui fallback hardcoded, quindi resta chiaro anche in tema scuro.
@@ -17,6 +18,7 @@
     min-height: var(--control-height);
     padding: 9px 12px;
     font-size: 0.875rem;
+    @include touch-input-font;
     border-radius: 8px;
     border: 1px solid var(--border);
     background-color: var(--card-bg);

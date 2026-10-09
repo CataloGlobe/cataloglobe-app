@@ -1,3 +1,4 @@
+@use "@styles/mixins" as *;
 .wrapper {
     display: flex;
     flex-direction: column;
@@ -36,6 +37,7 @@
     background: var(--surface);
     color: var(--text);
     font-size: 0.95rem;
+    @include touch-input-font;
     border-radius: 8px;
     border: 1.5px solid var(--border);
     transition: border-color 0.2s ease, box-shadow 0.2s ease;

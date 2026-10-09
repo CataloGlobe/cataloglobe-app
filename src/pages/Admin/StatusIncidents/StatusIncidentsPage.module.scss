@@ -1,3 +1,4 @@
+@use "@styles/mixins" as *;
 /* La pagina vive dentro `AdminLayout`: sfondo, altezza e padding esterno sono
    del layout. A tutta larghezza (D40): l'incidente aperto mette accanto
    l'aggiornamento e l'anteprima per i clienti. */
@@ -409,6 +410,7 @@
     width: 100%;
     padding: 0.55rem 0.75rem;
     font-size: 0.9rem;
+    @include touch-input-font;
     background: var(--bg);
     color: var(--text);
     border: 1px solid var(--border);

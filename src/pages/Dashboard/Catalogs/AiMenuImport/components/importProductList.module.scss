@@ -1,3 +1,4 @@
+@use "@styles/mixins" as *;
 /* ═══════════════════════════════════════════════════════════
    Import AI — lista prodotti condivisa (stile canonico)
    Full-bleed: padding orizzontale interno = 24px (token drawer).
@@ -104,6 +105,7 @@
   border: 1px solid #e2e8f0;
   border-radius: 10px;
   font-size: 13px;
+  @include touch-input-font;
   font-weight: 500;
   color: var(--text, #0f172a);
   background-color: #fff;

@@ -1,3 +1,4 @@
+@use "@styles/mixins" as *;
 /* =============================================================================
    MultiEmailInput — chip-style multi-value email input.
    Theming follows the surrounding form fields (border / focus accent) so it
@@ -84,6 +85,7 @@
     min-width: 140px;
     padding: 4px 2px;
     font-size: 14px;
+    @include touch-input-font;
     font-family: inherit;
     color: var(--color-text, #111827);
     background: transparent;

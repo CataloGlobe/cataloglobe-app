@@ -1,3 +1,4 @@
+@use "@styles/mixins" as *;
 /* ═══════════════════════════════════════════════════════════
    AI Menu Import — Wizard UI
    ═══════════════════════════════════════════════════════════ */
@@ -654,6 +655,7 @@
   border: 1px solid #e2e8f0;
   border-radius: 10px;
   font-size: 13px;
+  @include touch-input-font;
   font-weight: 500;
   color: var(--text, #0f172a);
   background-color: #fff;

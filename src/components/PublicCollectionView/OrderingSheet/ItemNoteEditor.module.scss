@@ -1,3 +1,4 @@
+@use "@styles/mixins" as *;
 /* ─────────────────────────────────────────────────────────
    ItemNoteEditor — 3-state cart-line note: hidden / editing / saved
 ──────────────────────────────────────────────────────────── */
@@ -94,6 +95,7 @@
     outline: none;
     color: color-mix(in srgb, var(--pub-surface-text) 95%, var(--pub-surface));
     font-size: 13px;
+    @include touch-input-font;
     font-family: inherit;
     line-height: 1.4;
     resize: none;

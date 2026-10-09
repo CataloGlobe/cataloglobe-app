@@ -1,3 +1,4 @@
+@use "@styles/mixins" as *;
 /* ─────────────────────────────────────────────────────────
    OrderNoteEditor — 3-state order-level note: hidden / editing / saved
    Visually divided from the cart list above via top border.
@@ -110,6 +111,7 @@
     outline: none;
     color: color-mix(in srgb, var(--pub-surface-text) 95%, var(--pub-surface));
     font-size: 13px;
+    @include touch-input-font;
     font-family: inherit;
     line-height: 1.4;
     resize: none;
