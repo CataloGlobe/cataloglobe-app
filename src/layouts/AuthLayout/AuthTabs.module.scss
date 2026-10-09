@@ -39,8 +39,11 @@
   font-weight: 500;
   text-decoration: none;
 
+  // Le tab sono link (cambiano pagina) ma si comportano da interruttore:
+  // niente sottolineatura del link globale al passaggio del mouse.
   &:hover {
     color: var(--text);
+    text-decoration: none;
   }
 
   &:focus-visible {
