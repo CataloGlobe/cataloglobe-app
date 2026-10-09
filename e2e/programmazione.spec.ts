@@ -574,6 +574,29 @@ test.describe("Programmazione — calendario, simulatore, guida", () => {
         await expect(main(page).getByRole("button", { name: "21–27 settembre 2026" })).toBeVisible();
     });
 
+    test("si apre su oggi; il calendarietto porta al giorno; «Oggi» riporta su oggi quando non si vede", async ({ page }) => {
+        await page.setViewportSize({ width: 1440, height: 520 });
+        await openList(page, "layout");
+        await openCalendar(page);
+        // una sede sola: la settimana è una colonna di sette giorni
+        const centro = main(page).getByRole("checkbox", { name: "Centro e2e" });
+        if ((await centro.getAttribute("aria-checked")) !== "true") await centro.click();
+        const others = (await main(page).getByRole("checkbox", { checked: true }).allTextContents()).map(x => x.trim()).filter(x => x !== "Centro e2e");
+        for (const name of others) await main(page).getByRole("checkbox", { name, exact: true }).click();
+        const days = main(page).locator("[data-day]");
+        await expect(days).toHaveCount(7);
+        await main(page).getByRole("button", { name: "Oggi", exact: true }).click();
+        // oggi è mercoledì 23: la terza riga
+        await expect(days.nth(2)).toBeInViewport({ ratio: 0.3 });
+        await main(page).getByRole("button", { name: /^Domenica 27 settembre 2026/ }).first().click();
+        await expect(days.nth(6)).toBeInViewport({ ratio: 0.3 });
+        const back = main(page).getByRole("button", { name: /^Oggi · mer 23/ });
+        await expect(back).toBeVisible();
+        await back.click();
+        await expect(days.nth(2)).toBeInViewport({ ratio: 0.3 });
+        await expect(back).toHaveCount(0);
+    });
+
     test("dentro la sede il Calendario guarda solo lei; la ricerca no", async ({ page }) => {
         await openSeatList(page, SEDE.centro, "layout");
         // La ricerca dell'elenco non entra nel Calendario, dove non si vede.

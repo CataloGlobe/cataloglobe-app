@@ -17,11 +17,14 @@ import { updateScheduleTargets } from "@/services/supabase/scheduleTargets";
 import {
     blankDraft,
     draftEntry,
+    dropAside,
+    peekAside,
     draftFromEntry,
     invalid,
     isDirty,
     missing,
     timeFields,
+    writeAside,
     type DraftLookups
 } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import { dayNum, entriesFromRules } from "@/pages/Dashboard/Programming/calendar/calendarModel";
@@ -206,5 +209,25 @@ describe("salvare la sezione", () => {
             { featured_content_id: "f1", slot: "before_catalog", sort_order: 0 },
             { featured_content_id: "f3", slot: "before_catalog", sort_order: 1 }
         ]);
+    });
+});
+
+describe("la bozza messa da parte", () => {
+    it("un tunnel ne legge solo cosa, quando e dove; «via» la toglie", () => {
+        const store = new Map<string, string>();
+        vi.stubGlobal("sessionStorage", {
+            getItem: (k: string) => store.get(k) ?? null,
+            setItem: (k: string, v: string) => void store.set(k, v),
+            removeItem: (k: string) => void store.delete(k)
+        });
+        expect(peekAside()).toBeNull();
+        const D = blankDraft("menu", { all: false, activityIds: ["a1"], groupIds: [] }, "s1");
+        D.thing = "c2";
+        D.when = { days: [0, 1, 2, 3, 4], ranges: [[720, 900]] };
+        writeAside(D);
+        expect(peekAside()).toEqual({ kind: "menu", when: D.when, where: D.where });
+        dropAside();
+        expect(peekAside()).toBeNull();
+        vi.unstubAllGlobals();
     });
 });

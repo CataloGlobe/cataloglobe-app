@@ -355,3 +355,34 @@ export function draftEntry(D: Draft, L: DraftLookups, now: number): CalEntry | n
         preview: true
     };
 }
+
+/* ---------- la bozza messa da parte ---------- */
+// «Tieni da parte» la conserva per la scheda aperta (sessionStorage) mentre si va a creare
+// un menù, uno stile, un In evidenza: il Calendario la ripropone, un tunnel ne riprende il Quando e il Dove.
+const ASIDE_KEY = "calendario:da-parte";
+
+export function readAside(): Draft | null {
+    try {
+        const raw = sessionStorage.getItem(ASIDE_KEY);
+        return raw ? (JSON.parse(raw) as Draft) : null;
+    } catch {
+        return null;
+    }
+}
+
+export function writeAside(d: Draft | null): void {
+    try {
+        if (d) sessionStorage.setItem(ASIDE_KEY, JSON.stringify(d));
+        else sessionStorage.removeItem(ASIDE_KEY);
+    } catch {
+        /* resta solo finché la pagina è aperta */
+    }
+}
+
+/** Solo cosa, quando e dove della bozza messa da parte. */
+export function peekAside(): Pick<Draft, "kind" | "when" | "where"> | null {
+    const d = readAside();
+    return d && d.kind ? { kind: d.kind, when: d.when, where: d.where } : null;
+}
+
+export const dropAside = () => writeAside(null);
