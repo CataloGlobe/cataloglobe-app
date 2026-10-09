@@ -54,7 +54,9 @@ import {
     type Draft,
     type DraftLookups,
     type PickProduct,
-    type PickThing
+    type PickThing,
+    readAside,
+    writeAside
 } from "./calendarDraft";
 import s from "./CalendarioView.module.scss";
 
@@ -122,8 +124,6 @@ export type CalendarioViewProps = {
 };
 
 type RowOpts = { only?: CalKind; list?: readonly CalEntry[]; ax?: Axis; pv?: string };
-
-const KEPT_KEY = "calendario:da-parte";
 
 type Pick = { kind: CalKind; thing: string; date: DayNum; sede: string; from: number };
 const NO_PRODUCTS: ReadonlyMap<string, ProductInfo> = new Map();
@@ -701,22 +701,10 @@ export default function CalendarioView({
         if (saved || !back) closePick();
     };
     // «Tieni da parte» sopravvive all'uscita verso Menù, Stili, In evidenza
-    useEffect(() => {
-        try {
-            const raw = sessionStorage.getItem(KEPT_KEY);
-            if (raw) setKept(JSON.parse(raw) as Draft);
-        } catch {
-            /* niente da riprendere */
-        }
-    }, []);
+    useEffect(() => setKept(readAside()), []);
     const keep = (d: Draft | null) => {
         setKept(d);
-        try {
-            if (d) sessionStorage.setItem(KEPT_KEY, JSON.stringify(d));
-            else sessionStorage.removeItem(KEPT_KEY);
-        } catch {
-            /* resta solo finché la pagina è aperta */
-        }
+        writeAside(d);
     };
     const saveSec = async (then?: CalKind) => {
         if (!section || !draft) return;
