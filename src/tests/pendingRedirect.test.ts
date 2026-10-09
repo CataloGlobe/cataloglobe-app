@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { savePendingRedirect, peekPendingRedirect, clearPendingRedirect } from "@/utils/pendingRedirect";
+import { savePendingRedirect, peekPendingRedirect, clearPendingRedirect, clearSignupLeftovers, SIGNUP_EMAIL_KEY } from "@/utils/pendingRedirect";
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -35,5 +35,18 @@ describe("pendingRedirect", () => {
         savePendingRedirect("/invite/abc");
         clearPendingRedirect();
         expect(peekPendingRedirect()).toBeUndefined();
+    });
+
+    it("all'uscita dell'utente spariscono redirect ed email della registrazione", () => {
+        const session = new Map<string, string>([[SIGNUP_EMAIL_KEY, "a@b.it"]]);
+        vi.stubGlobal("sessionStorage", {
+            getItem: (k: string) => session.get(k) ?? null,
+            setItem: (k: string, v: string) => void session.set(k, v),
+            removeItem: (k: string) => void session.delete(k)
+        });
+        savePendingRedirect("/invite/abc");
+        clearSignupLeftovers();
+        expect(peekPendingRedirect()).toBeUndefined();
+        expect(session.has(SIGNUP_EMAIL_KEY)).toBe(false);
     });
 });

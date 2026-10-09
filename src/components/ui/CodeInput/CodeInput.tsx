@@ -1,4 +1,4 @@
-import { forwardRef, useImperativeHandle, useRef, useState, type CSSProperties } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState, type CSSProperties } from "react";
 import { sanitizeCode } from "./sanitizeCode";
 import styles from "./CodeInput.module.scss";
 
@@ -37,7 +37,23 @@ export const CodeInput = forwardRef<CodeInputHandle, CodeInputProps>(function Co
     const inputRef = useRef<HTMLInputElement>(null);
     const [focused, setFocused] = useState(false);
 
-    useImperativeHandle(ref, () => ({ focus: () => inputRef.current?.focus() }), []);
+    // Un campo disabilitato non prende il focus: dopo un codice sbagliato la
+    // pagina chiede il focus mentre la verifica è ancora in corso. La richiesta
+    // resta in attesa e si applica quando il campo torna attivo.
+    const pendingFocusRef = useRef(false);
+    useImperativeHandle(ref, () => ({
+        focus: () => {
+            const input = inputRef.current;
+            if (input && !input.disabled) input.focus();
+            else pendingFocusRef.current = true;
+        }
+    }), []);
+    useEffect(() => {
+        if (!disabled && pendingFocusRef.current) {
+            pendingFocusRef.current = false;
+            inputRef.current?.focus();
+        }
+    }, [disabled]);
 
     const apply = (raw: string) => {
         const code = sanitizeCode(raw, length);
@@ -86,7 +102,6 @@ export const CodeInput = forwardRef<CodeInputHandle, CodeInputProps>(function Co
                     inputMode="numeric"
                     autoComplete="one-time-code"
                     pattern="[0-9]*"
-                    maxLength={length}
                     value={value}
                     disabled={disabled}
                     autoFocus={autoFocus}

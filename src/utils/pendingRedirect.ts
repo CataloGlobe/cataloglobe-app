@@ -42,3 +42,20 @@ export function clearPendingRedirect(): void {
         // niente da fare
     }
 }
+
+/** Email della registrazione in corso, tenuta da /check-email per la scheda. */
+export const SIGNUP_EMAIL_KEY = "cg.signupEmail";
+
+/**
+ * Uscita chiesta dall'utente: il redirect salvato e l'email della registrazione
+ * non devono passare a chi entra dopo sullo stesso browser. Non si chiama
+ * dove l'uscita fa parte del giro (EmailConfirmed «Esci e conferma»).
+ */
+export function clearSignupLeftovers(): void {
+    clearPendingRedirect();
+    try {
+        sessionStorage.removeItem(SIGNUP_EMAIL_KEY);
+    } catch {
+        // niente da fare
+    }
+}
