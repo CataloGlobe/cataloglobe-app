@@ -86,6 +86,7 @@ import { useOptionalCustomerSession } from "@/context/CustomerSession/useCustome
 import type { OrderItemRequest, SubmitOrderResult, OrderingStateReason } from "@/types/orders";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { AlertCircle } from "lucide-react";
+import { safeHttpHref } from "@/utils/sanitizeUrl";
 const importOrderConfirmationSheet = () => import("../OrderConfirmationSheet/OrderConfirmationSheet");
 const OrderConfirmationSheet = lazy(importOrderConfirmationSheet);
 
@@ -2864,9 +2865,9 @@ export default function CollectionView({
                                             <span>{socialLinks.email_public}</span>
                                         </a>
                                     )}
-                                    {socialLinks?.website_public && socialLinks?.website && (
+                                    {socialLinks?.website_public && socialLinks?.website && safeHttpHref(socialLinks.website) && (
                                         <a
-                                            href={socialLinks.website}
+                                            href={safeHttpHref(socialLinks.website)}
                                             className={styles.contactRow}
                                             target="_blank"
                                             rel="noopener noreferrer"
@@ -2886,9 +2887,9 @@ export default function CollectionView({
                                             <span>@{socialLinks.instagram}</span>
                                         </a>
                                     )}
-                                    {socialLinks?.facebook_public && socialLinks?.facebook && (
+                                    {socialLinks?.facebook_public && socialLinks?.facebook && safeHttpHref(socialLinks.facebook) && (
                                         <a
-                                            href={socialLinks.facebook}
+                                            href={safeHttpHref(socialLinks.facebook)}
                                             className={styles.contactRow}
                                             target="_blank"
                                             rel="noopener noreferrer"

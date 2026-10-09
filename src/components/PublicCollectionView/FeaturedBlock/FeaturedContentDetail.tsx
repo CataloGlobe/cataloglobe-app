@@ -7,6 +7,7 @@ import { toFeaturedFraming } from "./featuredFraming";
 import { resolveFeaturedDisplayPrice } from "@utils/resolveFeaturedDisplayPrice";
 import { featuredBundleOriginalTotal } from "@utils/featuredBundleOriginalTotal";
 import styles from "./FeaturedPreviewModal.module.scss";
+import { safeHttpHref } from "@/utils/sanitizeUrl";
 
 function formatPrice(price: number): string {
     return new Intl.NumberFormat("it-IT", {
@@ -27,11 +28,12 @@ type Props = {
  * Null se il contenuto non ha CTA.
  */
 export function FeaturedCtaFooter({ block }: Props) {
-    if (!block.cta_text || !block.cta_url) return null;
+    const href = safeHttpHref(block.cta_url);
+    if (!block.cta_text || !href) return null;
     return (
         <div className={styles.ctaFooter}>
             <a
-                href={block.cta_url}
+                href={href}
                 className={styles.ctaBtn}
                 target="_blank"
                 rel="noopener noreferrer"

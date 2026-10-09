@@ -10,6 +10,7 @@ import StoryReader from "./StoryReader";
 import StoryLoadError from "./StoryLoadError";
 import type { CollectionViewSectionItem } from "@/components/PublicCollectionView/CollectionView/CollectionView";
 import styles from "./StoryView.module.scss";
+import { safeHttpHref } from "@/utils/sanitizeUrl";
 
 type StoryViewProps = {
     slug: string;
@@ -93,9 +94,9 @@ export default function StoryView({ slug, selectedStoryId, onSelectStory, onOpen
                                 )}
                                 {cappello.title && <h2 className={styles.cappelloTitle}>{cappello.title}</h2>}
                                 {cappello.intro && <p className={styles.cappelloIntro}>{cappello.intro}</p>}
-                                {cappello.website && (
+                                {safeHttpHref(cappello.website) && (
                                     <a
-                                        href={cappello.website}
+                                        href={safeHttpHref(cappello.website)}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         className={styles.cappelloWebsite}
