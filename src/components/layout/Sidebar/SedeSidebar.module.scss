@@ -9,13 +9,13 @@
   height: 36px;
   padding: 0 var(--space-12);
   border-radius: var(--radius-control);
-  color: var(--text-muted);
+  color: var(--sb-text, var(--text-muted));
   text-decoration: none;
   overflow: hidden;
 
   &:hover {
-    background: var(--hover-bg);
-    color: var(--text);
+    background: var(--sb-hover, var(--hover-bg));
+    color: var(--sb-strong, var(--text));
     text-decoration: none;
   }
 

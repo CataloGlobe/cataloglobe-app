@@ -14,14 +14,14 @@
   border: none;
   border-radius: var(--radius-control);
   background: transparent;
-  color: var(--text);
+  color: var(--sb-strong, var(--text));
   text-align: start;
   cursor: pointer;
   transition: background var(--timing-motion-fast) var(--easing-state);
 
   &:hover,
   &[data-state="open"] {
-    background: var(--hover-bg);
+    background: var(--sb-hover, var(--hover-bg));
   }
 
   &:focus-visible {
@@ -53,7 +53,7 @@
   text-align: center;
   background: var(--brand-primary);
   color: var(--surface);
-  box-shadow: 0 0 0 2px var(--surface);
+  box-shadow: 0 0 0 2px var(--sb-bg, var(--surface));
 }
 
 .who {
@@ -78,7 +78,7 @@
 
 .chevron {
   flex: none;
-  color: var(--text-muted);
+  color: var(--sb-text, var(--text-muted));
 
   .trigger[data-collapsed] & {
     display: none;

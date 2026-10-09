@@ -1,0 +1,103 @@
+// Il pannello di una sezione (Officina): a destra della sidebar, fuori da
+// lei (portale), in posizione fissa accanto alla riga. Le coordinate le
+// scrive `SidebarSection` in `--fly-top` / `--fly-left`.
+// Niente titolo: la sezione la dice la riga accesa accanto.
+
+.panel {
+  --sb-flyout-border: color-mix(in srgb, var(--surface), var(--brand-primary) 35%);
+  position: fixed;
+  top: var(--fly-top, 0);
+  left: var(--fly-left, 0);
+  z-index: var(--z-float);
+  min-width: 208px;
+  max-width: 280px;
+  padding: var(--space-4);
+  background: var(--surface);
+  // Il bordino viola (Alex): lilla del brand, più deciso del fondo della
+  // sidebar, così il pannello si lega alla sidebar da cui esce.
+  border: 1px solid var(--sb-flyout-border);
+  border-radius: var(--radius-surface);
+  box-shadow: var(--shadow-float);
+  animation: flyIn var(--timing-motion-fast) var(--easing-state);
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
+// Entra scivolando un poco da sinistra, dalla riga che l'ha aperto.
+@keyframes flyIn {
+  from {
+    opacity: 0;
+    transform: translateX(-4px);
+  }
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  height: 36px;
+  padding: 0 var(--space-10);
+  border-radius: var(--radius-control);
+  color: var(--text-muted);
+  text-decoration: none;
+  transition:
+    background var(--timing-motion-fast) var(--easing-state),
+    color var(--timing-motion-fast) var(--easing-state);
+
+  &:hover {
+    background: var(--hover-bg);
+    color: var(--text);
+    text-decoration: none;
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-focus);
+  }
+}
+
+.active,
+.active:hover {
+  background: var(--brand-primary-soft);
+  color: var(--on-brand-soft);
+}
+
+.disabled,
+.disabled:hover {
+  background: transparent;
+  color: var(--text-muted);
+  opacity: 0.55;
+  cursor: default;
+}
+
+.label {
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: inherit;
+}
+
+.lock {
+  display: inline-flex;
+  opacity: 0.55;
+}
+
+.dot {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--brand-primary);
+}

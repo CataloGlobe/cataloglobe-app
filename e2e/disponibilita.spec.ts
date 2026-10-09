@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { openBusinessPage } from "./business";
+import { sidebarLink } from "./nav";
 import {
     asSeatRole,
     INGREDIENT,
@@ -43,7 +44,7 @@ type OpenOptions = DisponibilitaOptions & {
 async function openDisponibilita(page: Page, options: OpenOptions = {}): Promise<{ stub: DisponibilitaStub; name: string; activityId: string }> {
     await openBusinessPage(page, "locations", "Sedi");
     await page.getByRole("radio", { name: "Vista griglia" }).click();
-    const firstCard = main(page).getByRole("listitem").first();
+    const firstCard = main(page).getByRole("list", { name: "Sedi" }).getByRole("listitem").first();
     await expect(firstCard).toBeVisible({ timeout: 15_000 });
     const link = firstCard.getByRole("link").first();
     const name = (await link.innerText()).split("\n")[0].trim();
@@ -74,13 +75,18 @@ async function filterBy(page: Page, label: RegExp): Promise<void> {
     await main(page).getByRole("radio", { name: label }).or(main(page).getByRole("button", { name: label })).first().click();
 }
 
+// In poll: subito dopo un cambio di finestra la pagina si sta ancora
+// sistemando; uno scroll di lato vero resta e la prova fallisce lo stesso.
 async function noSideScroll(page: Page): Promise<void> {
-    const overflow = await page.evaluate(() => {
-        const de = document.documentElement;
-        const scrollers = [de, ...Array.from(document.querySelectorAll<HTMLElement>("main"))];
-        return Math.max(...scrollers.map(el => el.scrollWidth - el.clientWidth));
-    });
-    expect(overflow).toBeLessThanOrEqual(0);
+    await expect
+        .poll(() =>
+            page.evaluate(() => {
+                const de = document.documentElement;
+                const scrollers = [de, ...Array.from(document.querySelectorAll<HTMLElement>("main"))];
+                return Math.max(...scrollers.map(el => el.scrollWidth - el.clientWidth));
+            })
+        )
+        .toBeLessThanOrEqual(0);
 }
 
 test.describe("Disponibilità — prodotti", () => {
@@ -353,7 +359,7 @@ test.describe("Cosa vedono i clienti — nome e indirizzo", () => {
         await openDisponibilita(page);
         await expect(main(page).getByText("Big e2e", { exact: true })).toBeVisible({ timeout: 15_000 });
         await expect(page).toHaveURL(/\/cosa-vedono$/);
-        await expect(page.getByRole("navigation", { name: "Menu principale" }).getByRole("link", { name: "Cosa vedono i clienti", exact: true })).toBeVisible();
+        await expect(await sidebarLink(page, "Cosa vedono i clienti")).toBeVisible();
     });
 
     test("il vecchio indirizzo rimanda al nuovo, con la vista", async ({ page }) => {

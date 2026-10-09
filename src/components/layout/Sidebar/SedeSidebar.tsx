@@ -6,7 +6,8 @@ import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
 import { usePermissions } from "@/context/usePermissions";
 import { usePlanFeatures } from "@/lib/planFeatures";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
-import { AppSidebar } from "@/components/layout/AppSidebar/AppSidebar";
+import type { ReactNode } from "react";
+import { AppSidebar, type AppSidebarProps } from "@/components/layout/AppSidebar/AppSidebar";
 import { SidebarAccount } from "@/components/layout/AppSidebar/SidebarAccount";
 import { NAV_MODELS } from "@/utils/navModel";
 import { buildSidebarGroups } from "./sidebarItems";
@@ -30,6 +31,9 @@ export interface SedeSidebarProps extends SidebarSignalProps {
     collapsed: boolean;
     onRequestClose: () => void;
     onToggleCollapse: () => void;
+    /** Sidebar a tutta altezza (desktop): logo, campanella, dove sei. */
+    brand?: AppSidebarProps["brand"];
+    switcherSlot?: ReactNode;
 }
 
 const BACK_LABEL = "Tutte le sedi";
@@ -42,7 +46,9 @@ export default function SedeSidebar({
     onToggleCollapse,
     translationPendingCount = 0,
     importInProgress = false,
-    supportUnread = false
+    supportUnread = false,
+    brand,
+    switcherSlot
 }: SedeSidebarProps) {
     const { businessId = "", activityId = "" } = useParams<{ businessId: string; activityId: string }>();
     const { t } = useTranslation("admin");
@@ -102,6 +108,8 @@ export default function SedeSidebar({
             collapsed={collapsed}
             onRequestClose={onRequestClose}
             onToggleCollapse={onToggleCollapse}
+            brand={brand}
+            switcherSlot={switcherSlot}
             headerSlot={header}
         />
     );

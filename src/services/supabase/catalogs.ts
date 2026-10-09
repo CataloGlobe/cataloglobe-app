@@ -103,6 +103,99 @@ export async function deleteCatalog(catalogId: string, tenantId: string): Promis
     void revalidatePublicCatalogForTenant(tenantId);
 }
 
+/**
+ * Copia un menù: categorie (albero e ordine) e collegamenti ai prodotti, mai i
+ * prodotti stessi. Le regole di Programmazione non si copiano: la copia nasce
+ * senza sedi. Un insert per livello (la policy «parent same tenant» deve
+ * vedere il padre già scritto). Se un passo fallisce la copia si toglie tutta
+ * (CASCADE dal menù) e l'errore risale.
+ */
+export async function duplicateCatalog(
+    catalogId: string,
+    tenantId: string,
+    name: string
+): Promise<V2Catalog> {
+    const { data: original, error: readError } = await supabase
+        .from("catalogs")
+        .select("description, catalog_type, kind, style")
+        .eq("id", catalogId)
+        .eq("tenant_id", tenantId)
+        .single();
+    if (readError) throw readError;
+
+    const [categories, links] = await Promise.all([
+        listCategories(tenantId, catalogId),
+        listCategoryProducts(tenantId, catalogId)
+    ]);
+
+    const idMap = new Map(categories.map(c => [c.id, crypto.randomUUID()]));
+    const hashes = new Map<string, string | null>();
+    for (const category of categories) hashes.set(category.id, await computeFieldHash(category.name));
+
+    const { data: copy, error: insertError } = await supabase
+        .from("catalogs")
+        .insert([{ tenant_id: tenantId, name, ...original }])
+        .select()
+        .single();
+    if (insertError) throw insertError;
+
+    try {
+        for (const level of [1, 2, 3] as const) {
+            const rows = categories
+                .filter(c => c.level === level)
+                .map(c => ({
+                    id: idMap.get(c.id),
+                    tenant_id: tenantId,
+                    catalog_id: copy.id,
+                    parent_category_id: c.parent_category_id ? (idMap.get(c.parent_category_id) ?? null) : null,
+                    name: c.name,
+                    level: c.level,
+                    sort_order: c.sort_order,
+                    name_hash: hashes.get(c.id) ?? null
+                }));
+            if (rows.length === 0) continue;
+            const { error } = await supabase.from("catalog_categories").insert(rows);
+            if (error) throw error;
+        }
+
+        const linkRows = links
+            .filter(link => idMap.has(link.category_id))
+            .map(link => ({
+                tenant_id: tenantId,
+                catalog_id: copy.id,
+                category_id: idMap.get(link.category_id),
+                product_id: link.product_id,
+                variant_product_id: link.variant_product_id,
+                sort_order: link.sort_order
+            }));
+        if (linkRows.length > 0) {
+            const { error } = await supabase.from("catalog_category_products").insert(linkRows);
+            if (error) throw error;
+        }
+    } catch (error) {
+        await supabase.from("catalogs").delete().eq("id", copy.id).eq("tenant_id", tenantId);
+        throw error;
+    }
+
+    // Nomi delle categorie da tradurre, come per una categoria nuova.
+    for (const category of categories) {
+        const hash = hashes.get(category.id) ?? null;
+        const newId = idMap.get(category.id);
+        if (hash === null || !newId) continue;
+        await enqueueWithSilentError({
+            tenantId,
+            entityType: "category",
+            entityId: newId,
+            field: "name",
+            newSourceText: category.name,
+            newSourceHash: hash
+        });
+    }
+
+    void revalidatePublicCatalogForTenant(tenantId);
+    return copy;
+}
+
 export async function getCatalogStatsMap(
     tenantId: string,
     catalogIds: string[]

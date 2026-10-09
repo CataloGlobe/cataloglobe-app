@@ -3,12 +3,21 @@ import { asRole } from "./asRole";
 import {
     activityIdOf,
     asSingleSede,
+    brandLink,
     businessRoot,
+    closeSections,
     contextNav,
     locationPaths,
+    menuRows,
     nav,
+    openSection,
+    placeSwitcher,
+    sectionPanel,
+    sectionRow,
     sedeSwitcher,
+    sidebarLink,
     sidebarShape,
+    sidebarVoci,
     withLongNames
 } from "./nav";
 
@@ -17,6 +26,9 @@ import {
  * Locator per ruolo, nessuna scrittura; una sede sola si ottiene riducendo
  * l'elenco delle sedi in pagina, i ruoli con `asRole`.
  */
+
+/** Un nome di sede dentro una RegExp. */
+const escapeRe = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 // Titoli dell'Officina (sidebar approvata da Alex il 2026-10-08).
 const CATALOGO = ["Menù", ["Menù", "Prodotti", "Programmazione"]] as const;
@@ -32,6 +44,8 @@ const accountButton = (page: Page) => page.getByRole("button", { name: /^Account
 
 /** Le voci del menù dell'account prima del divisore (le pagine dell'azienda). */
 async function accountPages(page: Page): Promise<string[]> {
+    // Finché la sidebar carica il menù dell'account è vuoto: si aspettano le voci.
+    await expect(menuRows(page).first()).toBeVisible({ timeout: 15_000 });
     await accountButton(page).click();
     const menu = page.getByRole("menu");
     await expect(menu).toBeVisible();
@@ -49,24 +63,20 @@ async function accountPages(page: Page): Promise<string[]> {
     return items;
 }
 
-test.describe("Sidebar (§51.5)", () => {
-    test("azienda con più sedi: Sedi sotto Panoramica, niente Ordini, Prenotazioni, Team, Abbonamento", async ({ page }) => {
+test.describe("Sidebar (§51.5, sezioni dell'Officina)", () => {
+    test("azienda con più sedi: Panoramica e Sedi dirette, poi le sezioni; account in fondo", async ({ page }) => {
         const paths = await locationPaths(page);
         test.skip(paths.length < 2, "serve più di una sede");
         await page.goto(`${businessRoot(paths[0])}/products`);
         await expect
             .poll(() => sidebarShape(page), { timeout: 15_000 })
-            .toEqual([
-                [null, ["Panoramica", "Sedi"]],
-                CATALOGO,
-                PAGINA_PUBBLICA,
-                [ANDAMENTO, ["Analitiche", "Recensioni", "Clienti"]]
-            ]);
+            .toEqual(["Panoramica", "Sedi", CATALOGO, PAGINA_PUBBLICA, [ANDAMENTO, ["Analitiche", "Recensioni", "Clienti"]]]);
         // L'account in fondo: Impostazioni, Team, Abbonamento, Lingue, Assistenza.
         expect(await accountPages(page)).toEqual(["Impostazioni", "Team", "Abbonamento", "Lingue", "Assistenza"]);
         await expect(nav(page).getByRole("separator")).toHaveCount(0);
+        const voci = await sidebarVoci(page);
         for (const voce of ["Ordini", "Team", "Abbonamento", "Lingue", "Impostazioni", "Assistenza"]) {
-            await expect(nav(page).getByRole("link", { name: voce, exact: true })).toHaveCount(0);
+            expect(voci).not.toContain(voce);
         }
     });
 
@@ -79,8 +89,8 @@ test.describe("Sidebar (§51.5)", () => {
             .toEqual([IL_LOCALE_SEDE, OPERATIVITA, [ANDAMENTO, ["Analitiche", "Recensioni"]]]);
         // L'account è dell'azienda: lo stesso menù anche dentro la sede.
         expect(await accountPages(page)).toEqual(["Impostazioni", "Team", "Abbonamento", "Lingue", "Assistenza"]);
-        await expect(nav(page).getByRole("link", { name: "Impostazioni", exact: true })).toHaveCount(0);
-        // In testa solo il ritorno: nome e stato della sede stanno nell'header.
+        expect(await sidebarVoci(page)).not.toContain("Impostazioni");
+        // In testa solo il ritorno: nome e stato della sede stanno in «Dove sei».
         await expect(contextNav(page).getByRole("link")).toHaveText(["Tutte le sedi"]);
         await contextNav(page).getByRole("link", { name: "Tutte le sedi" }).click();
         await expect(page).toHaveURL(/\/locations$/, { timeout: 15_000 });
@@ -90,15 +100,8 @@ test.describe("Sidebar (§51.5)", () => {
         const paths = await locationPaths(page);
         test.skip(paths.length < 2, "serve più di una sede");
         await page.goto(`${paths[0]}/anagrafica`);
-        await expect(nav(page).getByRole("link", { name: "Analitiche", exact: true })).toHaveAttribute(
-            "href",
-            `${paths[0]}/analitiche`,
-            { timeout: 15_000 }
-        );
-        await expect(nav(page).getByRole("link", { name: "Recensioni", exact: true })).toHaveAttribute(
-            "href",
-            `${paths[0]}/recensioni`
-        );
+        await expect(await sidebarLink(page, "Analitiche")).toHaveAttribute("href", `${paths[0]}/analitiche`);
+        await expect(await sidebarLink(page, "Recensioni")).toHaveAttribute("href", `${paths[0]}/recensioni`);
     });
 
     test("una sede: sidebar unica, niente voce Sedi, niente contesto", async ({ page }) => {
@@ -108,7 +111,7 @@ test.describe("Sidebar (§51.5)", () => {
         await expect
             .poll(() => sidebarShape(page), { timeout: 15_000 })
             .toEqual([
-                [null, ["Panoramica"]],
+                "Panoramica",
                 IL_LOCALE,
                 CATALOGO,
                 PAGINA_PUBBLICA,
@@ -117,21 +120,20 @@ test.describe("Sidebar (§51.5)", () => {
             ]);
         expect(await accountPages(page)).toEqual(["Impostazioni", "Team", "Abbonamento", "Lingue", "Assistenza"]);
         await expect(nav(page).getByRole("separator")).toHaveCount(0);
-        await expect(nav(page).getByRole("link", { name: "Sedi", exact: true })).toHaveCount(0);
+        expect(await sidebarVoci(page)).not.toContain("Sedi");
         await expect(contextNav(page)).toHaveCount(0);
         // Le voci di sede portano alla sola sede, anche da una pagina d'azienda.
-        await expect(nav(page).getByRole("link", { name: "Scheda", exact: true })).toHaveAttribute(
-            "href",
-            `${paths[0]}/anagrafica`
-        );
+        await expect(await sidebarLink(page, "Scheda")).toHaveAttribute("href", `${paths[0]}/anagrafica`);
     });
 
     test("una sede: dentro la sede la sidebar resta quella unica", async ({ page }) => {
         const paths = await locationPaths(page);
         await asSingleSede(page);
         await page.goto(`${paths[0]}/comande`);
-        await expect(nav(page).getByRole("link", { name: "Panoramica", exact: true })).toBeVisible({ timeout: 15_000 });
-        await expect(nav(page).getByRole("link", { name: "Comande", exact: true })).toHaveAttribute("aria-current", "page");
+        await expect(menuRows(page).getByRole("link", { name: "Panoramica", exact: true })).toBeVisible({ timeout: 15_000 });
+        // La sezione della pagina è aperta e la pagina accesa sotto la riga.
+        await expect(sectionRow(page, OPERATIVITA[0])).toHaveAttribute("aria-expanded", "true");
+        await expect(await sidebarLink(page, "Comande")).toHaveAttribute("aria-current", "page");
         await expect(contextNav(page)).toHaveCount(0);
     });
 
@@ -139,16 +141,10 @@ test.describe("Sidebar (§51.5)", () => {
         const paths = await locationPaths(page);
         await asRole(page, "staff", activityIdOf(paths[0]), "pro");
         await page.goto(`${paths[0]}/servizio`);
-        await expect
-            .poll(async () => (await sidebarShape(page)).map(([title]) => title), { timeout: 15_000 })
-            .toContain(OPERATIVITA[0]);
-        const sidebar = nav(page);
-        for (const voce of OPERATIVITA[1]) {
-            await expect(sidebar.getByRole("link", { name: voce, exact: true })).toBeVisible();
-        }
-        for (const voce of ["Programmazione", "Analitiche", "Sedi"]) {
-            await expect(sidebar.getByRole("link", { name: voce, exact: true })).toHaveCount(0);
-        }
+        await expect(sectionRow(page, OPERATIVITA[0])).toBeVisible({ timeout: 15_000 });
+        const voci = await sidebarVoci(page);
+        for (const voce of OPERATIVITA[1]) expect(voci).toContain(voce);
+        for (const voce of ["Programmazione", "Analitiche", "Sedi"]) expect(voci).not.toContain(voce);
     });
 
     test("manager di una sede su più: sidebar unica, con Programmazione", async ({ page }) => {
@@ -156,12 +152,60 @@ test.describe("Sidebar (§51.5)", () => {
         test.skip(paths.length < 2, "serve più di una sede");
         await asRole(page, "manager", activityIdOf(paths[0]), "pro");
         await page.goto(`${businessRoot(paths[0])}/scheduling`);
-        await expect(nav(page).getByRole("link", { name: "Programmazione", exact: true })).toBeVisible({ timeout: 15_000 });
-        await expect(nav(page).getByRole("link", { name: "Scheda", exact: true })).toHaveAttribute(
-            "href",
-            `${paths[0]}/anagrafica`
-        );
-        await expect(nav(page).getByRole("link", { name: "Sedi", exact: true })).toHaveCount(0);
+        await expect(await sidebarLink(page, "Programmazione")).toBeVisible();
+        await expect(await sidebarLink(page, "Scheda")).toHaveAttribute("href", `${paths[0]}/anagrafica`);
+        expect(await sidebarVoci(page)).not.toContain("Sedi");
+    });
+
+    test("aperta, la sezione si apre sotto la riga: quella della pagina già aperta, il clic apre e chiude", async ({ page }) => {
+        const paths = await locationPaths(page);
+        await page.goto(`${businessRoot(paths[0])}/products`);
+        const url = page.url();
+        const row = sectionRow(page, CATALOGO[0]);
+        const list = sectionPanel(page, CATALOGO[0]);
+        await expect(row).toBeVisible({ timeout: 15_000 });
+        // Si arriva con la sezione della pagina aperta e la pagina accesa sotto.
+        await expect(row).toHaveAttribute("aria-expanded", "true");
+        await expect(list.locator('a[aria-current="page"]')).toHaveText(/Prodotti/);
+        // Il clic chiude senza cambiare pagina: la riga dice dove sei.
+        await row.click();
+        await expect(list).toHaveCount(0);
+        await expect(row).toHaveAttribute("aria-current", "true");
+        expect(page.url()).toBe(url);
+        // Riaperta, una voce porta alla sua pagina e la sezione resta aperta.
+        await row.click();
+        await list.getByRole("link", { name: "Programmazione", exact: true }).click();
+        await expect(page).toHaveURL(/\/scheduling$/, { timeout: 15_000 });
+        await expect(list).toBeVisible();
+        // Nessun pannello sopra la pagina, da aperta.
+        await expect(page.locator("body > [role='group']")).toHaveCount(0);
+    });
+
+    test("chiusa, la sezione apre il pannello senza cambiare pagina; Esc torna alla riga", async ({ page }) => {
+        const paths = await locationPaths(page);
+        await page.goto(`${businessRoot(paths[0])}/products`);
+        const url = page.url();
+        const row = sectionRow(page, CATALOGO[0]);
+        await expect(row).toBeVisible({ timeout: 15_000 });
+        const collapse = page.getByRole("button", { name: "Comprimi menù laterale" });
+        if (await collapse.isVisible()) await collapse.click();
+        await expect(page.getByRole("button", { name: "Espandi menù laterale" })).toBeVisible();
+        await row.click();
+        await expect(sectionPanel(page, CATALOGO[0])).toBeVisible();
+        await expect(row).toHaveAttribute("aria-expanded", "true");
+        expect(page.url()).toBe(url);
+        // Da tastiera: Esc chiude e il fuoco resta sulla riga.
+        await page.keyboard.press("Escape");
+        await expect(sectionPanel(page, CATALOGO[0])).toHaveCount(0);
+        await expect(row).toBeFocused();
+        // Invio riapre e porta sulla prima voce del pannello.
+        await page.keyboard.press("Enter");
+        await expect(sectionPanel(page, CATALOGO[0]).getByRole("link").first()).toBeFocused();
+        // Una voce del pannello porta alla sua pagina e chiude il pannello.
+        await sectionPanel(page, CATALOGO[0]).getByRole("link", { name: "Programmazione", exact: true }).click();
+        await expect(page).toHaveURL(/\/scheduling$/, { timeout: 15_000 });
+        await expect(sectionPanel(page, CATALOGO[0])).toHaveCount(0);
+        await page.getByRole("button", { name: "Espandi menù laterale" }).click();
     });
 });
 
@@ -177,65 +221,98 @@ test.describe("Aspetto della sidebar (§51.15)", () => {
         await expect.poll(async () => (await aside(page).boundingBox())?.width).toBe(232);
     }
 
-    /** La y delle voci, dall'alto: aperta e chiusa devono coincidere. */
-    async function linkTops(page: Page): Promise<number[]> {
-        return nav(page)
-            .getByRole("link")
-            .evaluateAll(links => links.map(l => Math.round(l.getBoundingClientRect().top)));
+    /** Sidebar aperta: richiude le sezioni aperte sotto la riga (misure a righe sole). */
+    async function foldSections(page: Page): Promise<void> {
+        const open = menuRows(page).locator(':scope > button[aria-expanded="true"]');
+        while ((await open.count()) > 0) await open.first().click();
     }
 
-    test("aperta 232, chiusa 64: le voci restano alla stessa altezza", async ({ page }) => {
+    /** La y delle righe del menu, dall'alto: aperta e chiusa devono coincidere. */
+    async function rowTops(page: Page): Promise<number[]> {
+        return menuRows(page).evaluateAll(rows =>
+            rows.map(r => Math.round((r.querySelector("a, button") ?? r).getBoundingClientRect().top))
+        );
+    }
+
+    /** Le voci del pannello di una sezione, come si leggono. */
+    const panelVoci = async (page: Page, title: string) =>
+        (await (await openSection(page, title)).getByRole("link").allTextContents()).map(t => t.trim());
+
+    test("aperta 232, chiusa 64: righe alla stessa altezza, pannello uguale", async ({ page }) => {
         const paths = await locationPaths(page);
         test.skip(paths.length < 2, "serve più di una sede");
         await page.goto(`${paths[0]}/anagrafica`);
-        await expect(nav(page).getByRole("link", { name: "Scheda", exact: true })).toBeVisible({ timeout: 15_000 });
+        await expect(sectionRow(page, OPERATIVITA[0])).toBeVisible({ timeout: 15_000 });
         await ensureOpen(page);
 
-        const open = await linkTops(page);
+        await foldSections(page);
+        const open = await rowTops(page);
         const header = await contextNav(page).boundingBox();
+        // Aperta le voci stanno sotto la riga; chiusa nel pannello: le stesse.
+        const vociAperta = await panelVoci(page, OPERATIVITA[0]);
+        await foldSections(page);
         await page.getByRole("button", { name: "Comprimi menù laterale" }).click();
         await expect.poll(async () => (await aside(page).boundingBox())?.width).toBe(64);
-        const closed = await linkTops(page);
+        const closed = await rowTops(page);
 
         // Chiusa la riga sta nei 64 meno i margini (64 − bordo − 2 × 11): il
         // testo è tagliato, non a vista.
-        const widths = await nav(page)
-            .getByRole("link")
-            .evaluateAll(links => links.map(l => Math.round(l.getBoundingClientRect().width)));
+        const widths = await menuRows(page).evaluateAll(rows =>
+            rows.map(r => Math.round((r.querySelector("a, button") ?? r).getBoundingClientRect().width))
+        );
         for (const w of widths) expect(w).toBeLessThanOrEqual(42);
+        // Chiusa il pulsante «apri» sta sotto il logo e il menu scende tutto
+        // insieme: le righe restano alla stessa distanza fra loro.
         expect(closed.length).toBe(open.length);
-        closed.forEach((y, i) => expect(Math.abs(y - open[i])).toBeLessThanOrEqual(1));
+        closed.forEach((y, i) => expect(Math.abs(y - closed[0] - (open[i] - open[0]))).toBeLessThanOrEqual(1));
         expect((await contextNav(page).boundingBox())?.height).toBe(header?.height);
 
-        // Chiusa: il nome della voce nel tooltip, al passaggio e al focus.
-        await nav(page).getByRole("link", { name: "Comande", exact: true }).hover();
-        await expect(page.getByRole("tooltip")).toContainText("Comande");
+        // Chiusa: al passaggio la sezione apre il pannello, con le voci di quando è aperta.
+        await sectionRow(page, OPERATIVITA[0]).hover();
+        await expect(sectionPanel(page, OPERATIVITA[0])).toBeVisible();
+        expect(await panelVoci(page, OPERATIVITA[0])).toEqual(vociAperta);
+        await closeSections(page);
         await page.getByRole("button", { name: "Espandi menù laterale" }).click();
         await expect.poll(async () => (await aside(page).boundingBox())?.width).toBe(232);
     });
 
-    test("righe 36, titoli in uno slot di 36 col testo in basso: più spazio sopra che sotto", async ({ page }) => {
+    test("righe 36, anche le voci sotto la sezione; chiusa, il pannello a destra, almeno 208, come il nome di Panoramica", async ({ page }) => {
         const paths = await locationPaths(page);
         await page.goto(`${businessRoot(paths[0])}/products`);
         await ensureOpen(page);
-        // Finché le sedi caricano la sidebar non ha voci: si misura dopo.
-        await expect(nav(page).getByRole("link", { name: "Prodotti", exact: true })).toBeVisible({ timeout: 15_000 });
-        const rows = await nav(page)
-            .getByRole("link")
-            .evaluateAll(links => links.map(l => Math.round(l.getBoundingClientRect().height)));
+        // Finché le sedi caricano la sidebar non ha righe: si misura dopo.
+        await expect(sectionRow(page, CATALOGO[0])).toBeVisible({ timeout: 15_000 });
+        const rows = await menuRows(page).evaluateAll(items =>
+            items.map(r => Math.round((r.querySelector("a, button") ?? r).getBoundingClientRect().height))
+        );
         expect(new Set(rows)).toEqual(new Set([36]));
-        const group = nav(page).getByRole("group", { name: "Catalogo" });
-        const title = group.getByText("Catalogo", { exact: true });
-        expect(Math.round((await title.boundingBox())!.height)).toBe(36);
-        // Il testo del titolo sta più vicino alle sue voci che a quelle sopra.
-        const gaps = await title.evaluate(el => {
-            const range = document.createRange();
-            range.selectNodeContents(el);
-            const text = range.getBoundingClientRect();
-            const slot = el.getBoundingClientRect();
-            return { above: text.top - slot.top, below: slot.bottom - text.bottom };
-        });
-        expect(gaps.above).toBeGreaterThan(gaps.below * 2);
+
+        // Aperta: le voci della sezione stanno dentro la sidebar, a 36.
+        const list = await openSection(page, CATALOGO[0]);
+        const side = (await aside(page).boundingBox())!;
+        const listBox = (await list.boundingBox())!;
+        expect(listBox.x + listBox.width).toBeLessThanOrEqual(side.x + side.width);
+        const sub = await list.getByRole("link").evaluateAll(links =>
+            links.map(l => Math.round(l.getBoundingClientRect().height))
+        );
+        expect(new Set(sub)).toEqual(new Set([36]));
+
+        // Chiusa: il pannello a destra della sidebar.
+        await page.getByRole("button", { name: "Comprimi menù laterale" }).click();
+        await expect.poll(async () => (await aside(page).boundingBox())?.width).toBe(64);
+        const panel = (await (await openSection(page, CATALOGO[0])).boundingBox())!;
+        const closedSide = (await aside(page).boundingBox())!;
+        expect(panel.x).toBeGreaterThan(closedSide.x + closedSide.width);
+        expect(panel.width).toBeGreaterThanOrEqual(208);
+        await closeSections(page);
+
+        // Chiusa, il nome di una voce diretta ha l'aspetto del pannello.
+        await menuRows(page).getByRole("link", { name: "Panoramica", exact: true }).hover();
+        // Il riquadro visibile del tooltip (il `role="tooltip"` di Radix è il testo nascosto).
+        await expect(page.getByRole("tooltip")).toContainText("Panoramica");
+        const label = (await page.locator("[data-radix-popper-content-wrapper]").last().boundingBox())!;
+        expect(label.width).toBeGreaterThanOrEqual(208);
+        await page.getByRole("button", { name: "Espandi menù laterale" }).click();
     });
 
     test("fra 768 e 1023 parte chiusa, sotto 768 è un pannello dal pulsante menu", async ({ page }) => {
@@ -264,16 +341,18 @@ test.describe("Header: percorso e selettore di sede (§51.7, §51.8)", () => {
         return field.inputValue();
     }
 
+    // Sul desktop azienda e sede stanno in cima alla sidebar, «Dove sei»
+    // (Officina): la testata resta solo sotto 768 (casi a 375 più sotto).
     test("una sede: il nome della sede, il menu con «Aggiungi una sede» che apre la creazione", async ({ page }) => {
         const paths = await locationPaths(page);
         const name = await sedeName(page, paths[0]);
         await asSingleSede(page);
         await page.goto(`${businessRoot(paths[0])}/products`);
-        await expect(sedeSwitcher(page)).toContainText(name, { timeout: 15_000 });
-        await sedeSwitcher(page).click();
+        await expect(placeSwitcher(page)).toBeVisible({ timeout: 15_000 });
+        await placeSwitcher(page).click();
         const menu = page.getByRole("menu");
-        await expect(menu.getByRole("menuitem", { name: new RegExp(name) })).toBeVisible();
-        await expect(menu.getByRole("menuitem", { name: "Tutte le sedi" })).toHaveCount(0);
+        await expect(menu.getByRole("menuitem", { name: new RegExp(escapeRe(name)) })).toBeVisible();
+        await expect(menu.getByRole("menuitem", { name: "Tutte le sedi", exact: true })).toHaveCount(0);
         await menu.getByRole("menuitem", { name: "Aggiungi una sede" }).click();
         await expect(page.getByRole("dialog").getByText(/Nuova sede|Aggiungi una sede al piano/).first()).toBeVisible();
     });
@@ -283,14 +362,15 @@ test.describe("Header: percorso e selettore di sede (§51.7, §51.8)", () => {
         test.skip(paths.length < 2, "serve più di una sede");
         const name = await sedeName(page, paths[1]);
         await page.goto(`${businessRoot(paths[0])}/products`);
-        await expect(sedeSwitcher(page)).toContainText("Tutte le sedi", { timeout: 15_000 });
-        await sedeSwitcher(page).click();
+        await expect(placeSwitcher(page)).toHaveAccessibleName(/Tutte le sedi/, { timeout: 15_000 });
+        await placeSwitcher(page).click();
         const menu = page.getByRole("menu");
         await expect(menu.getByRole("menuitem", { name: "Aggiungi una sede" })).toBeVisible();
-        await expect(menu.getByRole("menuitem", { name: "Tutte le sedi" })).toBeVisible();
-        await menu.getByRole("menuitem", { name: new RegExp(`^${name}`) }).click();
+        await expect(menu.getByRole("menuitem", { name: "Tutte le sedi", exact: true })).toBeVisible();
+        await menu.getByRole("menuitem", { name: new RegExp(`^${escapeRe(name)}`) }).click();
         await expect(page).toHaveURL(new RegExp(`${paths[1]}/[a-z-]+$`), { timeout: 15_000 });
-        await expect(sedeSwitcher(page)).toContainText(name);
+        // «Dove sei» non ripete l'azienda nel nome della sede (`placeLines`).
+        await expect(placeSwitcher(page)).not.toHaveAccessibleName(/Tutte le sedi/);
     });
 
     test("dentro una sede: cambiare sede resta su Comande", async ({ page }) => {
@@ -298,20 +378,24 @@ test.describe("Header: percorso e selettore di sede (§51.7, §51.8)", () => {
         test.skip(paths.length < 2, "serve più di una sede");
         const name = await sedeName(page, paths[1]);
         await page.goto(`${paths[0]}/comande`);
-        await sedeSwitcher(page).click();
-        await page.getByRole("menu").getByRole("menuitem", { name: new RegExp(`^${name}`) }).click();
+        await expect(placeSwitcher(page)).not.toHaveAccessibleName(/Tutte le sedi/, { timeout: 15_000 });
+        const before = (await placeSwitcher(page).getAttribute("aria-label")) ?? "";
+        await placeSwitcher(page).click();
+        await page.getByRole("menu").getByRole("menuitem", { name: new RegExp(`^${escapeRe(name)}`) }).click();
         await expect(page).toHaveURL(`${paths[1]}/comande`, { timeout: 15_000 });
-        await expect(sedeSwitcher(page)).toContainText(name);
+        await expect(placeSwitcher(page)).not.toHaveAccessibleName(before);
     });
 
-    test("manager di una sede: il menu ha la sola sede, senza «Aggiungi»", async ({ page }) => {
+    test("manager di una sede: nel menu la sola sede, senza «Aggiungi» né «Tutte le sedi»", async ({ page }) => {
         const paths = await locationPaths(page);
+        const name = await sedeName(page, paths[0]);
         await asRole(page, "manager", activityIdOf(paths[0]), "pro");
         await page.goto(`${paths[0]}/anagrafica`);
-        await sedeSwitcher(page).click();
+        await placeSwitcher(page).click();
         const menu = page.getByRole("menu");
-        await expect(menu.getByRole("menuitem")).toHaveCount(1);
+        await expect(menu.getByRole("menuitem", { name: new RegExp(`^${escapeRe(name)}`) })).toHaveCount(1);
         await expect(menu.getByRole("menuitem", { name: "Aggiungi una sede" })).toHaveCount(0);
+        await expect(menu.getByRole("menuitem", { name: "Tutte le sedi", exact: true })).toHaveCount(0);
     });
 
     test("una sede sospesa: «Sospesa» accanto al nome", async ({ page }) => {
@@ -334,17 +418,23 @@ test.describe("Header: percorso e selettore di sede (§51.7, §51.8)", () => {
             }
         });
         await page.goto(`${paths[0]}/comande`);
-        await expect(sedeSwitcher(page)).toContainText("Sospesa", { timeout: 15_000 });
-        await expect(banner(page).getByText("Pubblicata")).toHaveCount(0);
+        await expect(placeSwitcher(page)).toHaveAccessibleName(/Sospesa/, { timeout: 15_000 });
+        await expect(placeSwitcher(page)).not.toHaveAccessibleName(/Pubblicata/);
     });
 
-    test("1280: logo / azienda / sede / pagina", async ({ page }) => {
+    test("1280: niente testata; logo, azienda e sede in cima alla sidebar", async ({ page }) => {
         const paths = await locationPaths(page);
         test.skip(paths.length < 2, "serve più di una sede");
         await page.goto(`${paths[0]}/comande`);
-        await expect(sedeSwitcher(page)).toBeVisible({ timeout: 15_000 });
-        await expect(banner(page).getByRole("link", { name: /CataloGlobe/ })).toBeVisible();
-        await expect(banner(page).getByText("Comande", { exact: true })).toBeVisible();
+        await expect(placeSwitcher(page)).toBeVisible({ timeout: 15_000 });
+        await expect(banner(page)).toHaveCount(0);
+        await expect(brandLink(page)).toBeVisible();
+        // Il logo sopra «Dove sei», «Dove sei» sopra il menu.
+        const logo = (await brandLink(page).boundingBox())!;
+        const dove = (await placeSwitcher(page).boundingBox())!;
+        const menu = (await nav(page).boundingBox())!;
+        expect(logo.y + logo.height).toBeLessThanOrEqual(dove.y);
+        expect(dove.y + dove.height).toBeLessThanOrEqual(menu.y);
     });
 
     test("375: azienda e sede, niente logo né pagina", async ({ page }) => {
@@ -444,12 +534,12 @@ test.describe("Header: percorso e selettore di sede (§51.7, §51.8)", () => {
         expect(menu.x + menu.width).toBeLessThanOrEqual(375);
     });
 
-    test("nessun selettore di scope «Sede attiva» nell'header", async ({ page }) => {
+    test("nessun selettore di scope «Sede attiva»", async ({ page }) => {
         const paths = await locationPaths(page);
         for (const p of ["analytics", "reviews", "scheduling"]) {
             await page.goto(`${businessRoot(paths[0])}/${p}`);
-            await expect(sedeSwitcher(page)).toBeVisible({ timeout: 15_000 });
-            await expect(banner(page).getByRole("button", { name: "Sede attiva" })).toHaveCount(0);
+            await expect(placeSwitcher(page)).toBeVisible({ timeout: 15_000 });
+            await expect(page.getByRole("button", { name: "Sede attiva" })).toHaveCount(0);
         }
     });
 });
@@ -511,7 +601,9 @@ test.describe("Atterraggio (§51.6) e indirizzi (§51.14)", () => {
             [paths[0], "reservations", "prenotazioni"]
         ] as const) {
             await page.goto(`${sede}/anagrafica`);
-            await expect(sedeSwitcher(page)).toBeVisible({ timeout: 15_000 });
+            // Dentro la sede, a sede caricata: la Scheda ha il nome del locale.
+            await expect(page.getByRole("textbox", { name: /Nome del locale/ })).not.toHaveValue("", { timeout: 15_000 });
+            await expect(placeSwitcher(page)).not.toHaveAccessibleName(/Tutte le sedi/);
             await page.goto(`${root}/${legacy}`);
             await expect(page).toHaveURL(new RegExp(`${sede}/${segment}`), { timeout: 15_000 });
         }
@@ -520,10 +612,7 @@ test.describe("Atterraggio (§51.6) e indirizzi (§51.14)", () => {
     test("il logo porta all'ingresso dell'azienda", async ({ page }) => {
         const paths = await locationPaths(page);
         await page.goto(`${businessRoot(paths[0])}/products`);
-        await expect(page.getByRole("banner").getByRole("link", { name: /CataloGlobe/ })).toHaveAttribute(
-            "href",
-            businessRoot(paths[0])
-        );
+        await expect(brandLink(page)).toHaveAttribute("href", businessRoot(paths[0]), { timeout: 15_000 });
     });
 });
 
@@ -609,7 +698,7 @@ test.describe("Andamento a due livelli (§51.10)", () => {
         const analytics = overviewActivity(page);
         await page.goto(`${paths[1]}/analitiche`);
         expect(await analytics).toBe(id);
-        await expect(nav(page).getByRole("link", { name: "Analitiche", exact: true })).toHaveAttribute("aria-current", "page");
+        await expect(await sidebarLink(page, "Analitiche")).toHaveAttribute("aria-current", "page");
 
         const reviews = reviewsActivities(page);
         await page.goto(`${paths[1]}/recensioni`);
@@ -646,8 +735,13 @@ test.describe("Andamento a due livelli (§51.10)", () => {
         test.skip(paths.length < 2, "serve più di una sede");
         await asRole(page, "staff", [activityIdOf(paths[0]), activityIdOf(paths[1])], "pro");
         await page.goto(`${paths[1]}/servizio`);
-        await expect(nav(page).getByRole("link", { name: "Recensioni", exact: true })).toBeVisible({ timeout: 15_000 });
-        await expect(nav(page).getByRole("link", { name: "Analitiche", exact: true })).toHaveCount(0);
+        // Una pagina sola nella sezione: la riga porta lì col nome della sezione.
+        await expect(menuRows(page).getByRole("link", { name: ANDAMENTO, exact: true })).toHaveAttribute(
+            "href",
+            `${paths[1]}/recensioni`,
+            { timeout: 15_000 }
+        );
+        expect(await sidebarVoci(page)).not.toContain("Analitiche");
     });
 });
 
@@ -660,9 +754,7 @@ test.describe("Programmazione: azienda e sede (T9b, supera §51.11)", () => {
         const root = businessRoot(paths[0]);
         const id = activityIdOf(paths[1]);
         await page.goto(`${root}/scheduling`);
-        await expect(nav(page).getByRole("link", { name: "Programmazione", exact: true })).toHaveAttribute("aria-current", "page", {
-            timeout: 15_000
-        });
+        await expect(await sidebarLink(page, "Programmazione")).toHaveAttribute("aria-current", "page");
         await expect(sedeFilter(page)).toHaveCount(0);
         await page.goto(`${root}/scheduling?sede=${id}`);
         await expect(page).toHaveURL(`${paths[1]}/programmazione`, { timeout: 15_000 });
@@ -672,14 +764,14 @@ test.describe("Programmazione: azienda e sede (T9b, supera §51.11)", () => {
         const paths = await locationPaths(page);
         test.skip(paths.length < 2, "serve più di una sede");
         await page.goto(`${paths[1]}/programmazione`);
-        const item = nav(page).getByRole("link", { name: "Programmazione", exact: true });
-        await expect(item).toHaveAttribute("aria-current", "page", { timeout: 15_000 });
+        const item = await sidebarLink(page, "Programmazione");
+        await expect(item).toHaveAttribute("aria-current", "page");
         await expect(item).toHaveAttribute("href", `${paths[1]}/programmazione`);
-        const labels = (await nav(page).getByRole("link").allTextContents()).map(text => text.trim());
+        const labels = await sidebarVoci(page);
         expect(labels.indexOf("Programmazione")).toBe(labels.indexOf("Cosa vedono i clienti") + 1);
         await expect(sedeFilter(page)).toHaveCount(0);
         // Dentro la sede la sidebar è quella della sede.
-        await expect(nav(page).getByRole("link", { name: "Sedi", exact: true })).toHaveCount(0);
+        expect(labels).not.toContain("Sedi");
     });
 
     test("da «Cosa vedono i clienti» si va alla Programmazione della sede", async ({ page }) => {
@@ -698,11 +790,7 @@ test.describe("Programmazione: azienda e sede (T9b, supera §51.11)", () => {
         const paths = await locationPaths(page);
         await asSingleSede(page);
         await page.goto(`${businessRoot(paths[0])}/scheduling`);
-        await expect(nav(page).getByRole("link", { name: "Programmazione", exact: true })).toHaveAttribute(
-            "aria-current",
-            "page",
-            { timeout: 15_000 }
-        );
+        await expect(await sidebarLink(page, "Programmazione")).toHaveAttribute("aria-current", "page");
         await expect(sedeFilter(page)).toHaveCount(0);
     });
 });

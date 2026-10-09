@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { openBusinessPage } from "./business";
+import { sidebarLink } from "./nav";
 
 test.describe("Panoramica", () => {
     test.beforeEach(async ({ page }) => {
@@ -19,8 +20,9 @@ test.describe("Panoramica", () => {
         const link = nav.getByRole("link", { name: "Panoramica" });
         await expect(link).toBeVisible();
         await expect(link).toHaveAttribute("aria-current", "page");
+        // Sedi è diretta, Prodotti e Programmazione nel pannello di Menù.
         for (const label of ["Sedi", "Prodotti", "Programmazione"]) {
-            await expect(nav.getByRole("link", { name: label })).toBeVisible();
+            await expect(await sidebarLink(page, label)).toBeVisible();
         }
     });
 

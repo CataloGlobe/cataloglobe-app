@@ -29,7 +29,13 @@ import styles from "./NavbarBreadcrumb.module.scss";
 /** `/business/:businessId/locations/:activityId/:segment` — una pagina di sede. */
 const SEDE_PAGE_PATH = /^\/business\/[^/]+\/locations\/[^/]+\/([^/]+)/;
 
-export function NavbarBreadcrumb() {
+interface NavbarBreadcrumbProps {
+    /** Nella barra bianca sopra la pagina (Officina): niente «/» davanti
+     *  (azienda e sede stanno nella sidebar) e visibile anche sotto 768. */
+    inBar?: boolean;
+}
+
+export function NavbarBreadcrumb({ inBar = false }: NavbarBreadcrumbProps) {
     const { pathname } = useLocation();
     const { businessId } = useParams<{ businessId: string }>();
     const { items: registeredItems } = useBreadcrumb();
@@ -67,10 +73,12 @@ export function NavbarBreadcrumb() {
     if (items.length === 0) return null;
 
     return (
-        <div className={styles.row}>
-            <span className={styles.separator} aria-hidden="true">
-                /
-            </span>
+        <div className={inBar ? styles.inBar : styles.row}>
+            {!inBar && (
+                <span className={styles.separator} aria-hidden="true">
+                    /
+                </span>
+            )}
             <Breadcrumb items={items} />
         </div>
     );

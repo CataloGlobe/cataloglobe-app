@@ -1,7 +1,7 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { asRole } from "./asRole";
 import { openBusinessPage } from "./business";
-import { nav } from "./nav";
+import { sidebarLink } from "./nav";
 import { MATRIX_RULE_NAME, MISSING_RULE, RULE, RULE_NAME, SEDE, StubError, TENANT_ID, stubProgrammazione, type ProgrammazioneStub, type WriteCall } from "./programmazioneStub";
 
 /**
@@ -450,7 +450,7 @@ test.describe("Programmazione — elenco", () => {
         await expect(main(page).getByText("Vale per tutte le sedi: se la cambi, cambia anche fuori da Centro e2e.")).toBeVisible({
             timeout: 15_000
         });
-        await expect(nav(page).getByRole("link", { name: "Programmazione", exact: true })).toBeVisible();
+        await expect(await sidebarLink(page, "Programmazione")).toBeVisible();
     });
 
     test("cablaggio: duplica (schedules.POST + copia dei prezzi)", async ({ page }) => {
@@ -980,13 +980,13 @@ test.describe("Programmazione — dettaglio", () => {
     test("uscire con modifiche non salvate chiede: «Resta» resta, «Esci senza salvare» esce", async ({ page }) => {
         await openRule(page, "aperitivo");
         await main(page).getByRole("textbox", { name: /Nome/ }).fill("Aperitivo lungo e2e");
-        await page.getByRole("navigation", { name: "Menu principale" }).getByRole("link", { name: "Prodotti" }).click();
+        await (await sidebarLink(page, "Prodotti")).click();
         const guard = dialog(page);
         await expect(guard.getByText(/modifiche non salvate/i).first()).toBeVisible();
         await guard.getByRole("button", { name: "Resta" }).click();
         await expect(page).toHaveURL(new RegExp(`/scheduling/${RULE.aperitivo}`));
         await expect(main(page).getByRole("textbox", { name: /Nome/ })).toHaveValue("Aperitivo lungo e2e");
-        await page.getByRole("navigation", { name: "Menu principale" }).getByRole("link", { name: "Prodotti" }).click();
+        await (await sidebarLink(page, "Prodotti")).click();
         await dialog(page).getByRole("button", { name: "Esci senza salvare" }).click();
         await expect(page).toHaveURL(/\/products/);
     });
@@ -1001,7 +1001,7 @@ test.describe("Programmazione — dettaglio", () => {
         // Sedi come chip (RG1): in sola lettura il pannello non si apre.
         await expect(main(page).getByRole("button", { name: "Modifica sedi" })).toBeDisabled();
         await expect(page.getByRole("button", { name: "Salva", exact: true })).toHaveCount(0);
-        await page.getByRole("navigation", { name: "Menu principale" }).getByRole("link", { name: "Prodotti" }).click();
+        await (await sidebarLink(page, "Prodotti")).click();
         await expect(page).toHaveURL(/\/products/);
         expect(stub.writes).toHaveLength(0);
     });

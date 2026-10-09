@@ -9,9 +9,13 @@ import { formatRelativeTime } from "@/utils/relativeTime";
 import { resolveTargetPath } from "./notificationTarget";
 import styles from "./AppHeader.module.scss";
 
-type HeaderNotificationsProps =
+type HeaderNotificationsProps = (
     | { scope: "tenant"; tenantId: string | null }
-    | { scope: "account" };
+    | { scope: "account" }
+) & {
+    /** Dove si apre il pannello: sotto e a destra in testata, a destra in cima alla sidebar. */
+    menuSide?: "bottom" | "right";
+};
 
 export function HeaderNotifications(props: HeaderNotificationsProps) {
     const { notifications, markAsRead } = useNotifications();
@@ -108,7 +112,11 @@ export function HeaderNotifications(props: HeaderNotificationsProps) {
     );
 
     return (
-        <Menu trigger={trigger} align="end">
+        <Menu
+            trigger={trigger}
+            side={props.menuSide ?? "bottom"}
+            align={props.menuSide === "right" ? "start" : "end"}
+        >
             <div className={styles.notifCard}>
             <div className={styles.notifHeader}>
                 <div className={styles.notifHeaderTitle}>

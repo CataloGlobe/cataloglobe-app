@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { openBusinessPage } from "./business";
+import { sidebarLink } from "./nav";
 import { REVIEW, stubRecensioni, type RecensioniStub } from "./recensioniStub";
 
 /**
@@ -247,7 +248,7 @@ test.describe("Recensioni — feedback privato", () => {
 
     test("la voce di sidebar non ha badge", async ({ page }) => {
         await openPage(page);
-        const link = page.getByRole("navigation", { name: "Menu principale" }).getByRole("link", { name: /^Recensioni/ });
+        const link = await sidebarLink(page, /^Recensioni/);
         await expect(link).toHaveText(/^Recensioni$/);
     });
 

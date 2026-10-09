@@ -3,8 +3,12 @@ import { Navigate, Outlet, useLocation, useParams } from "react-router-dom";
 import TenantSidebar from "@components/layout/Sidebar/TenantSidebar";
 import SedeSidebar from "@components/layout/Sidebar/SedeSidebar";
 import { AppHeader } from "@components/layout/AppHeader/AppHeader";
+import { HeaderNotifications } from "@components/layout/AppHeader/HeaderNotifications";
+import { AiUsagePill } from "@components/layout/AppHeader/AiUsagePill";
+import { PlaceSwitcher } from "@components/layout/Sidebar/PlaceSwitcher";
 import { OperationalAlerts } from "@components/layout/OperationalAlerts/OperationalAlerts";
 import { PageHeaderSlot } from "@components/layout/PageHeaderSlot";
+import { PageTitleBar } from "@components/layout/PageTitleBar/PageTitleBar";
 import { DrawerProvider } from "@/context/Drawer/DrawerProvider";
 import { BreadcrumbProvider } from "@/context/BreadcrumbProvider";
 import { PageHeaderProvider } from "@/context/PageHeaderProvider";
@@ -147,6 +151,21 @@ export default function MainLayout() {
         if (isMobile) setMobileSidebarOpen(false);
     }, [isMobile]);
 
+    // ⌘B / Ctrl+B apre e chiude la sidebar (desktop), come Claude e VS Code.
+    // Non dentro un campo: lì è il grassetto o una lettera.
+    useEffect(() => {
+        if (isMobile) return;
+        const onKeyDown = (e: KeyboardEvent) => {
+            if (!(e.metaKey || e.ctrlKey) || e.altKey || e.shiftKey || e.key.toLowerCase() !== "b") return;
+            const target = e.target;
+            if (target instanceof Element && target.closest("input, textarea, select, [contenteditable='true']")) return;
+            e.preventDefault();
+            setSidebarCollapsed(v => !v);
+        };
+        window.addEventListener("keydown", onKeyDown);
+        return () => window.removeEventListener("keydown", onKeyDown);
+    }, [isMobile]);
+
     useEffect(() => {
         if (mobileSidebarOpen) {
             document.body.style.overflow = "hidden";
@@ -280,18 +299,36 @@ export default function MainLayout() {
         return <Navigate to={`/business/${selectedTenant.id}/settings/abbonamento`} replace />;
     }
 
+    const collapsedDesktop = !isMobile && sidebarCollapsed;
+    const sidebarBrand = {
+        homeTo: selectedTenant ? `/business/${selectedTenant.id}` : null
+    };
+    // Notifiche in alto a destra della pagina (Lorenzo, 2026-10-09), non più
+    // in cima alla sidebar. Sotto 768 le tiene la testata (`AppHeader`).
+    const titleBarActions = isMobile ? undefined : (
+        <>
+            <AiUsagePill usage={aiUsage.usage} />
+            <HeaderNotifications scope="tenant" tenantId={selectedTenant?.id ?? null} />
+        </>
+    );
+    const sidebarSwitcher = <PlaceSwitcher collapsed={collapsedDesktop} />;
+
     return (
         <div className={styles.appLayout}>
             <DrawerProvider>
                 <BreadcrumbProvider>
                     <PageHeaderProvider>
                         <OperationalAlerts />
-                        <header className={styles.globalHeader}>
-                            <AppHeader
-                                onOpenMobileSidebar={() => setMobileSidebarOpen(true)}
-                                aiUsage={aiUsage.usage}
-                            />
-                        </header>
+                        {/* Sul desktop la sidebar va a tutta altezza e prende logo,
+                            campanella e dove sei (Officina): la testata resta al telefono. */}
+                        {isMobile && (
+                            <header className={styles.globalHeader}>
+                                <AppHeader
+                                    onOpenMobileSidebar={() => setMobileSidebarOpen(true)}
+                                    aiUsage={aiUsage.usage}
+                                />
+                            </header>
+                        )}
 
                         <div className={styles.body}>
                             {sediLoaded && navContext === "sede" ? (
@@ -301,6 +338,8 @@ export default function MainLayout() {
                                     collapsed={!isMobile && sidebarCollapsed}
                                     onRequestClose={() => setMobileSidebarOpen(false)}
                                     onToggleCollapse={() => setSidebarCollapsed(v => !v)}
+                                    brand={sidebarBrand}
+                                    switcherSlot={sidebarSwitcher}
                                     translationPendingCount={translationPendingCount}
                                     importInProgress={importInProgress}
                                     supportUnread={supportUnread}
@@ -312,6 +351,8 @@ export default function MainLayout() {
                                     collapsed={!isMobile && sidebarCollapsed}
                                     onRequestClose={() => setMobileSidebarOpen(false)}
                                     onToggleCollapse={() => setSidebarCollapsed(v => !v)}
+                                    brand={sidebarBrand}
+                                    switcherSlot={sidebarSwitcher}
                                     context={navContext === "unica" ? "unica" : "azienda"}
                                     activityId={soleActivityId}
                                     loading={!sediLoaded}
@@ -322,6 +363,7 @@ export default function MainLayout() {
                             )}
 
                             <main className={styles.main}>
+                                <PageTitleBar actions={titleBarActions} />
                                 <PageHeaderSlot scrollContainerRef={contentRef} />
                                 <div ref={contentRef} className={styles.content}>
                                     <SubscriptionBanner />

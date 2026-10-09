@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { openBusinessPage, openBusinessPageByUrl } from "./business";
+import { sidebarVoci } from "./nav";
 import { MISSING_TICKET, TICKET, stubAssistenza, type AssistenzaStub, type WriteCall } from "./assistenzaStub";
 import type { Row } from "./restStub";
 
@@ -163,7 +164,7 @@ test.describe("Assistenza — elenco", () => {
         // La voce non è in sidebar: si arriva dal link diretto.
         await openBusinessPageByUrl(page, "support");
         await stub.revoked;
-        await expect(page.getByRole("navigation", { name: "Menu principale" }).getByRole("link", { name: "Assistenza" })).toHaveCount(0);
+        expect(await sidebarVoci(page)).not.toContain("Assistenza");
         await expect(main(page).getByText("Non hai accesso a questa sezione")).toBeVisible({ timeout: 15_000 });
         await expect(main(page).getByText("Il QR del tavolo 4 e2e")).toHaveCount(0);
     });

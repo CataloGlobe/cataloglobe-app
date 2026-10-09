@@ -14,6 +14,7 @@ import {
     Languages,
     LifeBuoy,
     Megaphone,
+    MonitorSmartphone,
     Palette,
     ScrollText,
     Settings,
@@ -27,6 +28,7 @@ import {
     canSeeNavEntry,
     entryPath,
     type NavEntry,
+    type NavGroupKey,
     type NavKey,
     type NavModel
 } from "@/utils/navModel";
@@ -70,6 +72,16 @@ const ICONS: Record<NavKey, ReactNode> = {
     support: <LifeBuoy size={20} />
 };
 
+// Le sezioni (Officina). Il locale = la casa della sede; Vetrina = come la
+// vedono i clienti, non lo stile soltanto.
+const GROUP_ICONS: Record<NavGroupKey, ReactNode> = {
+    locale: <Store size={20} />,
+    menu: <Utensils size={20} />,
+    vetrina: <MonitorSmartphone size={20} />,
+    servizio: <ConciergeBell size={20} />,
+    clienti: <ChartColumn size={20} />
+};
+
 export interface NavSidebarOptions {
     businessId: string;
     /** La sede delle voci di sede: quella del path, o l'unica leggibile. */
@@ -103,7 +115,11 @@ export function navSidebarGroups(
     options: NavSidebarOptions
 ): { groups: SidebarNavGroup[]; account: SidebarNavGroup[] } {
     return {
-        groups: model.groups.map(g => ({ title: g.title, items: g.entries.map(e => toItem(e, options)) })),
+        groups: model.groups.map(g => ({
+            title: g.title,
+            icon: g.key ? GROUP_ICONS[g.key] : undefined,
+            items: g.entries.map(e => toItem(e, options))
+        })),
         account: [{ title: null, items: ACCOUNT_ENTRIES.map(e => toItem(e, { ...options, activityId: null })) }]
     };
 }

@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { ArrowLeftRight, ChevronsUpDown, LogOut, Shield, User } from "lucide-react";
+import { ChevronsUpDown, LogOut, Shield, User } from "lucide-react";
 import { useAuth } from "@/context/useAuth";
 import { useTenant } from "@/context/useTenant";
 import { useSedeScope } from "@/hooks/useSedeScope";
@@ -136,9 +136,6 @@ export function SidebarAccount({ items, collapsed, isMobile, onRequestClose }: S
                     Area admin
                 </Menu.Item>
             )}
-            <Menu.Item icon={ArrowLeftRight} onSelect={() => go("/workspace")}>
-                Cambia azienda
-            </Menu.Item>
             <Menu.Separator />
             <Menu.Item icon={LogOut} onSelect={() => void signOut()}>
                 Esci

@@ -23,6 +23,7 @@ import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions
 import {
     listCatalogs,
     deleteCatalog,
+    duplicateCatalog,
     getCatalogStatsMap,
     type V2Catalog,
     type CatalogStats
@@ -42,6 +43,7 @@ import { CatalogForm } from "./components/CatalogForm";
 import { CatalogSheet } from "./components/CatalogSheet";
 import { isPostgrestFKError } from "@/utils/supabaseErrors";
 import styles from "./Catalogs.module.scss";
+import { useCreateOnArrival } from "@/hooks/useCreateOnArrival";
 
 const FORM_ID = "catalog-form";
 
@@ -148,6 +150,8 @@ export default function Catalogs() {
         setEditingCatalog(null);
         setIsDrawerOpen(true);
     }, [canEdit, showToast]);
+    // Da «Cosa vuoi creare?» della Panoramica.
+    useCreateOnArrival(handleOpenCreate, permissions != null ? canWriteCatalog : null);
 
     const handleViewModeChange = useCallback((next: "list" | "grid") => {
         setViewMode(next);
@@ -284,6 +288,25 @@ export default function Catalogs() {
         openAiImport?.({ catalogId: catalog.id, catalogName: catalog.name });
     };
 
+    // La copia nasce senza sedi: si collega da Programmazione.
+    // Una copia alla volta: ci vuole qualche secondo, e un secondo clic ne farebbe due.
+    const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
+    const handleDuplicate = async (catalog: V2Catalog) => {
+        if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
+        if (duplicatingId) return;
+        setDuplicatingId(catalog.id);
+        showToast({ message: `Sto duplicando «${catalog.name}»…`, type: "info" });
+        try {
+            await duplicateCatalog(catalog.id, currentTenantId!, `${catalog.name} (Copia)`);
+            showToast({ message: `${verticalConfig.catalogLabel} duplicato.`, type: "success" });
+            await loadData();
+        } catch {
+            showToast({ message: `Impossibile duplicare il ${catalogLower}.`, type: "error" });
+        } finally {
+            setDuplicatingId(null);
+        }
+    };
+
     const handleOpenDelete = (catalog: V2Catalog) => {
         setCatalogToDelete(catalog);
         setIsDeleteOpen(true);
@@ -417,6 +440,11 @@ export default function Catalogs() {
                     label: "Rinomina",
                     onClick: () => handleOpenEdit(catalog),
                     separator: true
+                },
+                {
+                    label: duplicatingId === catalog.id ? "Duplicazione…" : "Duplica",
+                    onClick: () => void handleDuplicate(catalog),
+                    disabled: duplicatingId !== null
                 },
                 {
                     label: `Elimina ${catalogLower}`,
