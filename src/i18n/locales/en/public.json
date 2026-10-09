@@ -5,6 +5,8 @@
         "loading_error": "Loading error.",
         "empty_catalog": "No products available at the moment",
         "menu_label": "Menu",
+        "catalog_empty_title": "The menu isn't ready yet",
+        "catalog_empty_description": "The venue is preparing its dishes. Check back soon.",
         "error": {
             "not_found": "Venue not found.",
             "invalid_link": "Invalid link.",
@@ -374,7 +376,8 @@
         "video_aria": "Story video",
         "video_play": "Watch the video",
         "video_play_aria": "Play the story video",
-        "discover_label": "Discover the story"
+        "discover_label": "Discover the story",
+        "image_alt_fallback": "Story image"
     },
     "reviews": {
         "rating_labels": {
