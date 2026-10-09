@@ -1,3 +1,4 @@
+@use "@styles/mixins" as *;
 // Select — scheda «FormField». Stesse misure dell'input: 38, padding 0 12,
 // spazio a destra per il chevron 16 (--gray-400). Solo token.
 
@@ -42,6 +43,7 @@
     background: var(--hover-bg);
     cursor: not-allowed;
   }
+  @include touch-input-font;
 }
 
 .caret {

@@ -10,6 +10,14 @@ $bp-sidebar: 1024px;
   }
 }
 
+// Campi di testo: su iPhone e iPad sotto i 16px Safari ingrandisce la pagina
+// al tocco. Su schermi touch il testo dei campi va almeno a 16px.
+@mixin touch-input-font {
+  @media (pointer: coarse) {
+    font-size: 16px;
+  }
+}
+
 @mixin below-sidebar {
   @media (max-width: $bp-sidebar - 1) {
     @content;
