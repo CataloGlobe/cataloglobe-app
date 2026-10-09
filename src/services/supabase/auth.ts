@@ -31,6 +31,21 @@ export async function signUp(email: string, password: string, profile?: SignUpPr
 }
 
 // Login
+/**
+ * C'è una verifica OTP ancora valida per questo utente? (stessa lettura di
+ * AuthProvider: otp_user_verifications, scadenza nel futuro). Su errore
+ * risponde false: si passa da /verify-otp, che decide lui.
+ */
+export async function hasValidOtpVerification(userId: string): Promise<boolean> {
+    const { data, error } = await supabase
+        .from("otp_user_verifications")
+        .select("user_id")
+        .eq("user_id", userId)
+        .gt("expires_at", new Date().toISOString())
+        .maybeSingle();
+    return !error && !!data;
+}
+
 export async function signIn(email: string, password: string) {
     const { data, error } = await supabase.auth.signInWithPassword({
         email,

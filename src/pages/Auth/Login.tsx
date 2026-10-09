@@ -1,6 +1,6 @@
 import { useState, useEffect, type FormEvent } from "react";
 import { usePageTitle } from "@/hooks/usePageTitle";
-import { signIn } from "@services/supabase/auth";
+import { hasValidOtpVerification, signIn } from "@services/supabase/auth";
 import {
     requestAccountRecovery,
     confirmAccountRecovery,
@@ -116,6 +116,10 @@ export default function Login() {
                 setError("Credenziali non valide.");
                 return;
             }
+
+            // Codice già verificato negli ultimi 30 giorni: entra GuestRoute,
+            // appena AuthProvider lo sa, senza passare dalla pagina del codice.
+            if (await hasValidOtpVerification(user.id)) return;
 
             navigate("/verify-otp", { state: { from } });
         } catch (err) {
