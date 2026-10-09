@@ -28,6 +28,9 @@ const TONE_BADGE = { ok: "success", warn: "warning", off: "neutral" } as const;
  * che si tocca per passare a un'altra parte. «Fatto» torna al cruscotto;
  * il Salva resta in alto, uno solo per tutta la scheda.
  */
+const LAYER_ABOVE =
+    "[role='dialog'], [role='alertdialog'], [role='menu'][data-state='open'], [role='listbox'][data-state='open'], [role='combobox'][aria-expanded='true']";
+
 export function SchedaFocus({ part, facts, tone, changed, otherChanges, editor, onPick, onDone }: SchedaFocusProps) {
     const sideRef = useRef<HTMLElement>(null);
     const boxRef = useRef<HTMLDivElement>(null);
@@ -36,15 +39,24 @@ export function SchedaFocus({ part, facts, tone, changed, otherChanges, editor, 
     const t = tone(part);
     const isChanged = changed(part);
 
-    // Esc torna al cruscotto, se non si sta scrivendo in un drawer.
+    // Esc torna al cruscotto, se sopra non c'è un drawer, una conferma, un
+    // menù o una tendina: quelli hanno il loro Esc. Livelli letti in cattura,
+    // prima che si chiudano (come `DetailPane`).
     useEffect(() => {
+        let layerAbove = false;
+        const readLayers = (e: KeyboardEvent) => {
+            if (e.key === "Escape") layerAbove = document.querySelector(LAYER_ABOVE) !== null;
+        };
         const onKey = (e: KeyboardEvent) => {
-            if (e.key !== "Escape" || e.defaultPrevented) return;
-            if (document.querySelector("[role='dialog']")) return;
+            if (e.key !== "Escape" || e.defaultPrevented || layerAbove) return;
             onDone();
         };
+        document.addEventListener("keydown", readLayers, { capture: true });
         document.addEventListener("keydown", onKey);
-        return () => document.removeEventListener("keydown", onKey);
+        return () => {
+            document.removeEventListener("keydown", readLayers, { capture: true });
+            document.removeEventListener("keydown", onKey);
+        };
     }, [onDone]);
 
     return (
@@ -52,7 +64,7 @@ export function SchedaFocus({ part, facts, tone, changed, otherChanges, editor, 
             <div className={styles.focus} style={fit.vars}>
                 <nav className={styles.rail} aria-label="Parti della scheda">
                     {RAIL_GROUPS.map(g => (
-                        <div key={g.title} style={{ display: "contents" }}>
+                        <div key={g.title} className={styles.contents}>
                             <div className={styles.gt}>{g.title}</div>
                             {g.parts.map(o => (
                                 <button key={o} type="button" aria-current={o === part} onClick={() => onPick(o)}>

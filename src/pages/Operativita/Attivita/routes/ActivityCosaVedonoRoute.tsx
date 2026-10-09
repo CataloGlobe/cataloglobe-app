@@ -132,7 +132,7 @@ export function CosaVedonoContent({ activity, tenantId }: { activity: V2Activity
                     }
                     publicUrl={buildPublicUrl(activity.slug)}
                     fixes={{
-                        seat: { label: "Vai a Pubblicazione", href: `/business/${tenantId}/locations/${activity.id}/pubblicazione` },
+                        seat: { label: "Vai alla pagina e al QR", href: `/business/${tenantId}/locations/${activity.id}/anagrafica?parte=link` },
                         subscription: { label: "Vai ad Abbonamento", href: `/business/${tenantId}/settings/abbonamento` },
                         // Programmazione della sede (T9b, PG6; prima `?sede=`, D2 §1).
                         rule: { label: "Vai a Programmazione", href: schedulingPath(tenantId, activity.id, isForcedSingleSite) }

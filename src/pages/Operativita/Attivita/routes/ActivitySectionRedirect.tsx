@@ -7,9 +7,6 @@ interface ActivitySectionRedirectProps {
     keepHash?: boolean;
     /** La query del vecchio indirizzo va portata al nuovo (`?vista=ingredienti`). */
     keepSearch?: boolean;
-    /** L'ancora del blocco dove è finita la vecchia sezione (`orari`), se il
-     *  vecchio indirizzo non ne porta una sua. */
-    anchor?: string;
 }
 
 /**
@@ -19,9 +16,9 @@ interface ActivitySectionRedirectProps {
  * l'Anagrafica, non la pagina «non trovata» di tutto il sito (stessa regola
  * dei vecchi `?tab=`).
  */
-export default function ActivitySectionRedirect({ to, keepHash = false, keepSearch = false, anchor }: ActivitySectionRedirectProps) {
+export default function ActivitySectionRedirect({ to, keepHash = false, keepSearch = false }: ActivitySectionRedirectProps) {
     const { hash, search } = useLocation();
-    const nextHash = keepHash && hash ? hash : anchor ? `#${anchor}` : "";
+    const nextHash = keepHash && hash ? hash : "";
     return (
         <Navigate
             to={{ pathname: `../${to}`, hash: nextHash, search: keepSearch ? search : "" }}
