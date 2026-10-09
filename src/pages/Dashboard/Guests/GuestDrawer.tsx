@@ -22,7 +22,7 @@
 
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { Mail, Phone, Plus } from "lucide-react";
-import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
+import { DetailPane } from "@/components/layout/DetailPane/DetailPane";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { Button } from "@/components/ui/Button/Button";
 import { Card } from "@/components/ui/Card/Card";
@@ -81,6 +81,9 @@ interface Props {
     tenantWide: boolean;
     /** Note/tag salvati: il parent ricarica le etichette dell'elenco. */
     onSaved: () => void;
+    /** Le frecce ↑ ↓: il cliente prima e dopo nell'elenco mostrato. */
+    onPrev?: () => void;
+    onNext?: () => void;
 }
 
 const EMPTY_DRAFT: ReservationGuestNoteInput = { notes: "", tags: [] };
@@ -116,7 +119,9 @@ export default function GuestDrawer({
     tenantId,
     activities,
     tenantWide,
-    onSaved
+    onSaved,
+    onPrev,
+    onNext
 }: Props) {
     const { showToast } = useToast();
     const { ensureActive } = useEnsureActive();
@@ -138,7 +143,9 @@ export default function GuestDrawer({
     const [addingTagFor, setAddingTagFor] = useState<string | null>(null);
     const [newTag, setNewTag] = useState("");
     const [isSaving, setIsSaving] = useState(false);
-    const [confirmingExit, setConfirmingExit] = useState(false);
+    // Dove si andava quando la guardia ha chiesto conferma: chiudere, o passare
+    // al cliente prima o dopo con le frecce.
+    const [pendingExit, setPendingExit] = useState<(() => void) | null>(null);
     const titleId = useId();
 
     const guestId = guest.id;
@@ -158,7 +165,7 @@ export default function GuestDrawer({
     useEffect(() => {
         setNewTag("");
         setAddingTagFor(null);
-        setConfirmingExit(false);
+        setPendingExit(null);
         if (!open) return;
         let alive = true;
         setNotesLoading(true);
@@ -270,12 +277,14 @@ export default function GuestDrawer({
         }
     }, [guest, tenantId, activities, draftFor, saved, ensureActive, loadNotes, onSaved, showToast]);
 
-    // Guardia di uscita (§27, come la nuova prenotazione): chiudere con note
-    // o etichette non salvate chiede prima di buttarle (C3).
-    const requestClose = () => {
-        if (isDirty && !isSaving) setConfirmingExit(true);
-        else onClose();
+    // Guardia di uscita (§27, come la nuova prenotazione): chiudere o passare a
+    // un altro cliente con note o etichette non salvate chiede prima di
+    // buttarle (C3).
+    const guardedStep = (go: () => void) => {
+        if (isDirty && !isSaving) setPendingExit(() => go);
+        else go();
     };
+    const requestClose = () => guardedStep(onClose);
 
     const footer = (
         <>
@@ -303,7 +312,14 @@ export default function GuestDrawer({
     );
 
     return (
-        <SystemDrawer open={open} onClose={requestClose} size="md" autoFocusFirstInput={false} aria-labelledby={titleId}>
+        <DetailPane
+            open={open}
+            onClose={requestClose}
+            aria-labelledby={titleId}
+            backLabel="Clienti"
+            onPrev={onPrev && (() => guardedStep(onPrev))}
+            onNext={onNext && (() => guardedStep(onNext))}
+        >
             <DrawerLayout title={guest.display_name} titleId={titleId} onClose={requestClose} footer={footer}>
                 <div className={styles.drawerBody}>
                     {/* ── Contatti ──────────────────────────────────────── */}
@@ -533,16 +549,17 @@ export default function GuestDrawer({
                 </div>
             </DrawerLayout>
             <UnsavedChangesDialog
-                isOpen={confirmingExit}
+                isOpen={pendingExit !== null}
                 title="Uscire senza salvare?"
                 message="Note ed etichette non sono state salvate: quello che hai scritto andrà perso."
                 cancelLabel="Resta"
-                onCancel={() => setConfirmingExit(false)}
+                onCancel={() => setPendingExit(null)}
                 onDiscard={() => {
-                    setConfirmingExit(false);
-                    onClose();
+                    const go = pendingExit;
+                    setPendingExit(null);
+                    go?.();
                 }}
             />
-        </SystemDrawer>
+        </DetailPane>
     );
 }

@@ -17,7 +17,6 @@
 // marketing servirebbe un consenso separato che oggi non raccogliamo.
 
 import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
 import { BookUser, List as ListIcon, Table2 } from "lucide-react";
 import { useTenantId } from "@/context/useTenantId";
 import { useToast } from "@/context/Toast/ToastContext";
@@ -39,6 +38,7 @@ import {
     listReservationGuests
 } from "@/services/supabase/reservationGuests";
 import { getActivitiesCached } from "@/hooks/activitiesCache";
+import { useDetailParam } from "@/hooks/useDetailParam";
 import type { V2Activity } from "@/types/activity";
 import type { ReservationGuestSummary } from "@/types/reservationGuest";
 import GuestsDirectory from "./GuestsDirectory";
@@ -57,7 +57,6 @@ export default function Guests() {
     const { showToast } = useToast();
     const { hasFeature } = usePlanFeatures();
     const { permissions, loading: permissionsLoading } = usePermissions();
-    const [searchParams, setSearchParams] = useSearchParams();
 
     const canRead = permissions
         ? canDoOnAnyActivity(permissions, "guests.read")
@@ -100,8 +99,11 @@ export default function Guests() {
         localStorage.setItem(VIEW_MODE_KEY, next);
     }, []);
 
+    // Il cliente aperto sta nell'indirizzo (`?guest=<id>`, D131): è anche il
+    // link con cui il dettaglio della prenotazione porta qui.
+    const [selectedGuestId, openGuestDetail, closeGuestDetail] = useDetailParam("guest");
     const [selectedGuest, setSelectedGuest] = useState<ReservationGuestSummary | null>(null);
-    const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+    const isDrawerOpen = selectedGuestId !== null && selectedGuest?.id === selectedGuestId;
 
     // Gate di piano. Oggi la rubrica si popola solo dalle prenotazioni, quindi
     // il gate è lo stesso: `table_reservation`. Prima era ereditato dalla
@@ -212,47 +214,45 @@ export default function Guests() {
             }));
     }, [activities, permissions]);
 
-    // Deep link `?guest=<id>`: è così che il drawer della prenotazione porta
-    // qui. Il profilo viene riletto per id invece di essere cercato
-    // nell'elenco, che potrebbe non contenerlo (elenco filtrato o troncato).
-    const deepLinkGuestId = searchParams.get("guest");
-
+    // Il profilo si prende dall'elenco quando c'è; altrimenti (link da una
+    // prenotazione, elenco filtrato o troncato) si rilegge per id.
     useEffect(() => {
-        if (!deepLinkGuestId || !tenantId || !canRead || isLocked) return;
+        if (!selectedGuestId || selectedGuest?.id === selectedGuestId) return;
+        const inList = guests.find(g => g.id === selectedGuestId);
+        if (inList) {
+            setSelectedGuest(inList);
+            return;
+        }
+        if (!tenantId || !canRead || isLocked) return;
         let alive = true;
-        getReservationGuest(deepLinkGuestId, tenantId)
+        getReservationGuest(selectedGuestId, tenantId)
             .then(g => {
-                if (!alive) return;
-                setSelectedGuest(g);
-                setIsDrawerOpen(true);
+                if (alive) setSelectedGuest(g);
             })
             .catch(() => {
                 if (alive) {
                     showToast({ message: "Scheda cliente non trovata.", type: "error" });
+                    closeGuestDetail();
                 }
             });
         return () => { alive = false; };
-    }, [deepLinkGuestId, tenantId, canRead, isLocked, showToast]);
+    }, [selectedGuestId, selectedGuest, guests, tenantId, canRead, isLocked, showToast, closeGuestDetail]);
 
-    const handleOpenGuest = useCallback((guest: ReservationGuestSummary) => {
-        setSelectedGuest(guest);
-        setIsDrawerOpen(true);
-    }, []);
+    const handleOpenGuest = useCallback(
+        (guest: ReservationGuestSummary) => {
+            setSelectedGuest(guest);
+            openGuestDetail(guest.id);
+        },
+        [openGuestDetail]
+    );
 
-    const handleCloseDrawer = useCallback(() => {
-        setIsDrawerOpen(false);
-        // Il parametro va tolto: senza, riaprire la stessa scheda dopo averla
-        // chiusa non funzionerebbe (l'URL è già su quel valore).
-        if (searchParams.has("guest")) {
-            setSearchParams(
-                prev => {
-                    prev.delete("guest");
-                    return prev;
-                },
-                { replace: true }
-            );
-        }
-    }, [searchParams, setSearchParams]);
+    // ↑ ↓ nel dettaglio: il cliente prima e dopo nell'elenco mostrato. Fuori
+    // dall'elenco (aperto da un link) le frecce non ci sono.
+    const guestIndex = selectedGuestId ? guests.findIndex(g => g.id === selectedGuestId) : -1;
+    const stepGuest = (by: number) => {
+        const next = guests[guestIndex + by];
+        if (next) handleOpenGuest(next);
+    };
 
     // Note e tag salvati nel drawer: si rileggono le etichette dell'elenco
     // (unione per sede), non si patcha a mano — la regola di unione sta in
@@ -316,6 +316,7 @@ export default function Guests() {
                         isSearching={isSearching}
                         onClearSearch={clearSearch}
                         onOpenGuest={handleOpenGuest}
+                        selectedGuestId={selectedGuestId}
                         tenantWide={tenantWide}
                     />
                 )}
@@ -332,7 +333,9 @@ export default function Guests() {
             {tenantId && selectedGuest && (
                 <GuestDrawer
                     open={isDrawerOpen}
-                    onClose={handleCloseDrawer}
+                    onClose={closeGuestDetail}
+                    onPrev={guestIndex > 0 ? () => stepGuest(-1) : undefined}
+                    onNext={guestIndex >= 0 && guestIndex < guests.length - 1 ? () => stepGuest(1) : undefined}
                     guest={selectedGuest}
                     tenantId={tenantId}
                     activities={noteActivities}
