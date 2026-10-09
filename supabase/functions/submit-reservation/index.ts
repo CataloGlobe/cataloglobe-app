@@ -21,6 +21,11 @@ import {
     buildReservationReceiptEmail,
     buildReservationVenueAlertEmail
 } from "../_shared/reservationEmails.ts";
+// Diner-facing subscription allowlist, shared with the orders surface:
+// `past_due` is a grace state, so reservations stay open during it. Imported
+// from `subscriptionStatus.ts`, not via checkOrderingState, because that helper
+// also gates ordering-specific state irrelevant to reservations.
+import { VALID_SUBSCRIPTION_STATUSES } from "../_shared/subscriptionStatus.ts";
 
 // ── Rate limit policy ───────────────────────────────────────────────────────
 // Public endpoint (verify_jwt=false) → abuse vector for spam emails / DB
@@ -33,15 +38,6 @@ const RATE_LIMIT_SLUG_PER_MIN = 15;
 const RATE_LIMIT_SLUG_WINDOW_SECONDS = 60;
 const RATE_LIMIT_IP_PER_HOUR = 40;
 const RATE_LIMIT_IP_WINDOW_SECONDS = 3600;
-
-// Diner-facing subscription allowlist. Same set as `_shared/checkOrderingState`
-// (the orders surface): `past_due` is a grace state with full access (card in
-// retry for ~2 weeks before cancellation), so the public menu and reservations
-// stay open during it. Anything outside this set (`canceled`/`suspended`)
-// blocks. Kept inline rather than via checkOrderingState because that helper
-// also gates ordering-specific state (ordering_enabled, table_ordering plan
-// feature) that is irrelevant to reservations.
-const VALID_SUBSCRIPTION_STATUSES = new Set(["active", "trialing", "past_due"]);
 
 // =============================================================================
 // submit-reservation

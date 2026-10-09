@@ -40,6 +40,9 @@ import {
     type RequestedOrderItem,
     type ValidatedOrder
 } from "../_shared/validateOrderItems.ts";
+// Subscription status validi: allowlist condivisa. L'helper checkOrderingState
+// non si usa qui per poter bypassare ordering_enabled.
+import { VALID_SUBSCRIPTION_STATUSES } from "../_shared/subscriptionStatus.ts";
 
 // ============================================================
 // Constants
@@ -67,11 +70,6 @@ const STAFF_LABEL_MAX_LEN = 100;
 // (20260526180000_orders_notes_length_check.sql).
 const ORDER_NOTES_MAX_LEN = 300;
 const ITEM_NOTES_MAX_LEN = 140;
-
-// Subscription status validi per ordering. Mirror checkOrderingState.ts —
-// replichiamo inline qui per poter bypassare ordering_enabled senza
-// modificare l'helper condiviso (usato da resolve-table e submit-order).
-const VALID_SUBSCRIPTION_STATUSES = new Set(["active", "trialing", "past_due"]);
 
 const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
