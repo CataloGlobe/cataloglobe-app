@@ -41,7 +41,7 @@
   pointer-events: none;
   color: var(--text-muted);
   border: 0 solid var(--brand-primary);
-  mask-image: radial-gradient(ellipse 70% 75% at 50% 48%, #000 45%, rgba(0, 0, 0, 0.1) 100%);
+  mask-image: radial-gradient(ellipse 70% 75% at 50% 48%, black 45%, rgb(0 0 0 / 10%) 100%);
   view-transition-name: auth-bg;
 }
 

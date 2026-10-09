@@ -1,9 +1,12 @@
-import { useEffect, useRef } from "react";
+import { useLayoutEffect, useRef } from "react";
 import { backdrop as state, isModule, setBackdropKick, shouldWake, tick, wake, waveStrength } from "./backdropWaves";
 import styles from "./AuthLayout.module.scss";
 
 /** Distanza tra i punti, in px. */
 const STEP = 24;
+
+/** Un fotogramma ogni ~33 ms: a 30 fps l'onda resta fluida e la CPU lavora la metà. */
+const FRAME_MS = 33;
 
 type Rgb = [number, number, number];
 
@@ -19,7 +22,9 @@ function parseRgb(value: string, fallback: Rgb): Rgb {
 export function AuthBackdrop() {
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
-    useEffect(() => {
+    // Layout effect: la tela si disegna prima che il browser catturi la pagina
+    // nuova del passaggio animato, così lo sfondo non lampeggia vuoto.
+    useLayoutEffect(() => {
         const canvas = canvasRef.current;
         const ctx = canvas?.getContext("2d");
         if (!canvas || !ctx) return;
@@ -31,6 +36,7 @@ export function AuthBackdrop() {
         let W = 0;
         let H = 0;
         let raf = 0;
+        let lastDraw = 0;
 
         const readColors = () => {
             const cs = getComputedStyle(canvas);
@@ -98,7 +104,10 @@ export function AuthBackdrop() {
         const frame = (now: number) => {
             raf = 0;
             tick(state, now);
-            draw(now);
+            if (now - lastDraw >= FRAME_MS) {
+                lastDraw = now;
+                draw(now);
+            }
             // Calmo e senza onde in giro: la tela resta ferma e il ciclo si spegne.
             const idle = state.calm && state.waves.length === 0;
             if (!idle && !reduceQuery.matches && !document.hidden) raf = requestAnimationFrame(frame);
@@ -147,6 +156,7 @@ export function AuthBackdrop() {
 
         // Dopo la calma riparte da solo, se nessuno sta usando la scheda.
         const wakeTimer = window.setInterval(() => {
+            if (reduceQuery.matches || document.hidden) return;
             const focusInCard = !!document.activeElement?.closest("[data-auth-card]");
             if (shouldWake(state, performance.now(), focusInCard)) {
                 wake(state, performance.now());

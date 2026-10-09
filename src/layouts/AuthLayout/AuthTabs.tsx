@@ -9,6 +9,9 @@ type AuthTabsProps = {
 
 const PATHS = { login: "/login", signup: "/sign-up" } as const;
 
+/** Un passaggio alla volta: i clic durante l'animazione si ignorano. */
+let switching = false;
+
 /**
  * Aspetta che la pagina nuova sia nel DOM (scheda attiva giusta), al massimo 800 ms.
  * Niente requestAnimationFrame: durante una View Transition il browser non disegna
@@ -48,11 +51,17 @@ export function AuthTabs({ active, onSignupClick }: AuthTabsProps) {
             !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
         if (to === active || !canAnimate || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
         e.preventDefault();
+        if (switching) return;
+        switching = true;
         // Verso dove scorre il modulo: lo legge il CSS delle transizioni.
         document.documentElement.dataset.authSwitch = to === "signup" ? "next" : "prev";
-        document.startViewTransition(() => {
+        const transition = document.startViewTransition(() => {
             navigate(PATHS[to]);
             return waitForTab(PATHS[to]);
+        });
+        transition.finished.finally(() => {
+            switching = false;
+            delete document.documentElement.dataset.authSwitch;
         });
     };
 

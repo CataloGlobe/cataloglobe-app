@@ -29,6 +29,7 @@ function calmUnlessTabs(e: React.SyntheticEvent) {
 
 /** Un clic sullo sfondo vuoto fa partire un'onda da lì. */
 function pulseOnBackground(e: React.PointerEvent) {
+  if (!e.isPrimary || e.button !== 0) return;
   const target = e.target as Element;
   if (target.closest("a, button, input, select, textarea, label, [data-auth-card], [data-auth-hero]")) return;
   pulseAuthBackdrop(e.clientX, e.clientY);
