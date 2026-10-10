@@ -91,6 +91,51 @@ test.describe("Registrazione col codice", () => {
         await page.waitForURL(/\/dashboard/, { timeout: 15_000 });
     });
 
+    test("frecce e correzioni: la casella accesa segue il cursore, la cifra si sostituisce", async ({ page }) => {
+        await stubSignupCode(page);
+        await openCodePage(page);
+        const field = page.locator("#signup-code");
+        const boxes = page.locator('[class*="boxes"] > div');
+
+        // Da pc il cursore è già sul campo, sulla prima casella.
+        await expect(field).toBeFocused();
+        await expect(boxes.nth(0)).toHaveClass(/active/);
+
+        await field.pressSequentially("1234");
+        await expect(boxes.nth(4)).toHaveClass(/active/);
+        await page.keyboard.press("ArrowLeft");
+        await page.keyboard.press("ArrowLeft");
+        await expect(boxes.nth(2)).toHaveClass(/active/);
+
+        // Prima si inseriva in mezzo («12934»): ora sostituisce la casella accesa.
+        await page.keyboard.press("9");
+        await expect(field).toHaveValue("1294");
+        await expect(boxes.nth(3)).toHaveClass(/active/);
+
+        await page.keyboard.press("Backspace");
+        await expect(field).toHaveValue("124");
+        await page.keyboard.press("ArrowRight");
+        await page.keyboard.press("5");
+        await expect(field).toHaveValue("1245");
+    });
+
+    test("codice sbagliato: l'errore sta subito sotto le caselle, sopra «Incolla» e «Cancella»", async ({ page }) => {
+        await stubSignupCode(page);
+        await openCodePage(page);
+
+        await page.locator("#signup-code").fill("111111");
+        const message = page.getByText(/Codice non corretto o scaduto/);
+        await expect(message).toBeVisible();
+        const messageBox = await message.boundingBox();
+        const clearBox = await page.getByRole("button", { name: "Cancella" }).boundingBox();
+        expect(messageBox!.y).toBeLessThan(clearBox!.y);
+        await expect(page.locator("#signup-code")).toBeFocused();
+
+        // Alla prima cifra il rosso va via.
+        await page.keyboard.press("4");
+        await expect(message).toBeHidden();
+    });
+
     test("senza email (pagina aperta da sola): niente campo, resta il link della mail", async ({ page }) => {
         await page.goto("/check-email");
         await expect(page.getByRole("heading", { name: "Conferma la tua email" })).toBeVisible({ timeout: 15_000 });

@@ -514,17 +514,18 @@ export default function VerifyOtp() {
                         disabled={loading}
                         invalid={!!error}
                         describedBy={error ? "otp-feedback" : undefined}
+                        message={
+                            error ? (
+                                <Text id="otp-feedback" variant="caption" colorVariant="error" className={styles.feedback}>
+                                    {error}
+                                </Text>
+                            ) : info ? (
+                                <Text variant="caption" colorVariant="info" className={styles.feedback}>
+                                    {info}
+                                </Text>
+                            ) : null
+                        }
                     />
-                    {error && (
-                        <Text id="otp-feedback" variant="caption" colorVariant="error" className={styles.feedback}>
-                            {error}
-                        </Text>
-                    )}
-                    {info && !error && (
-                        <Text variant="caption" colorVariant="info" className={styles.feedback}>
-                            {info}
-                        </Text>
-                    )}
                     <Button
                         type="submit"
                         fullWidth
