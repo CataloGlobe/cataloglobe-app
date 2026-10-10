@@ -53,7 +53,6 @@ import { AiUsageSection } from "@/pages/Business/components/AiUsageSection";
 import { useBusinessOutletContext } from "@/layouts/MainLayout/outletContext";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
-import { useSettingsTabs } from "./useSettingsTabs";
 import { usePageHeader } from "@/context/usePageHeader";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
@@ -430,12 +429,7 @@ export default function SubscriptionPage() {
         reloadSubState();
     }, [selectedTenant?.id, canManageBilling, reloadSubState]);
 
-    const settingsTabs = useSettingsTabs();
-    usePageHeader({
-        title: "Abbonamento",
-        leading: settingsTabs.leading,
-        compact: settingsTabs.leading ? settingsTabs.compact : undefined
-    });
+    usePageHeader({ title: "Abbonamento" });
 
     const paidSeats = selectedTenant?.paid_seats ?? 0;
 

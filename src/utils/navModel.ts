@@ -381,9 +381,8 @@ const GUESTS: NavEntry = {
     requiresFeature: "table_reservation"
 };
 
-// Azienda · Team · Abbonamento (§51.12): ogni tab col suo gate, la voce no.
-// Nel menù dell'account Team e Abbonamento sono voci a sé, coi gate delle
-// loro tab (`useSettingsTabs`).
+// Impostazioni · Team · Abbonamento (§51.12): voci a sé del menù
+// dell'account, senza tab che le ripetano (D170). Impostazioni senza gate.
 const SETTINGS: NavEntry = { key: "settings", label: ROUTE_LABELS.settings, level: "azienda", segment: "settings" };
 
 const TEAM: NavEntry = {

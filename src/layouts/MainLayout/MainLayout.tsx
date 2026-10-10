@@ -98,7 +98,7 @@ function resolvePageTitle(
         if (!label) return name ?? 'Scheda';
         return name ? `${label} · ${name}` : label;
     }
-    // Le tab di Impostazioni (§51.12) tengono il nome della pagina di prima.
+    // Team e Abbonamento stanno sotto settings/ (§51.12) col loro nome.
     if (first === 'settings' && second === 'team') return businessRouteLabel('team');
     if (first === 'settings' && second === 'abbonamento') return businessRouteLabel('subscription');
     if (second && first === 'scheduling') return 'Dettaglio regola';

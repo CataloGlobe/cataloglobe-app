@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { openBusinessPage } from "./business";
+import { openBusinessPageByUrl } from "./business";
 
 /**
  * Team (`/business/:businessId/settings/team`, tab di Impostazioni dal
@@ -11,9 +11,8 @@ import { openBusinessPage } from "./business";
  */
 test.describe("Team", () => {
     test.beforeEach(async ({ page }) => {
-        // Team è una tab di Impostazioni (§51.12): non è più una voce di sidebar.
-        await openBusinessPage(page, "settings", "Impostazioni");
-        await page.getByRole("tab", { name: "Team", exact: true }).click();
+        // Team è una voce del menù dell'account (§51.12, D170), sotto settings/.
+        await openBusinessPageByUrl(page, "settings/team");
         await page.waitForURL(/\/settings\/team$/);
         // Pagina pronta: i membri vengono dalla RPC vera (`get_tenant_members`),
         // che sotto carico supera i 5 s. Stesso cancello da 15 s delle altre

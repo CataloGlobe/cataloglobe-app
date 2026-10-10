@@ -401,9 +401,10 @@ export default function App() {
                     }
                 />
 
-                {/* Impostazioni: Azienda · Team · Abbonamento (§51.12). I
-                    vecchi indirizzi portano alle tab, con query e ancora
-                    (ritorni da Stripe, link nelle email). */}
+                {/* Impostazioni, Team e Abbonamento: voci del menù
+                    dell'account (§51.12, D170). I vecchi indirizzi portano
+                    alle pagine nuove, con query e ancora (ritorni da Stripe,
+                    link nelle email). */}
                 <Route path="settings" element={<BusinessSettingsPage />} />
                 <Route path="settings/team" element={<BusinessTeamPage />} />
                 <Route path="settings/abbonamento" element={<SubscriptionPage />} />
