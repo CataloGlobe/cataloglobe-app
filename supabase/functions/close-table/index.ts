@@ -40,7 +40,6 @@
 //   8. Reply 200 con { table_id, resolved_action, resolved_orders_count,
 //      closed_groups_count, closed_orders_count, cleared_bill_count }.
 
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { checkRateLimit, RateLimitExceededError } from "../_shared/rateLimit.ts";
 import { hasActivityPermission } from "../_shared/membershipCheck.ts";
@@ -253,7 +252,7 @@ function _mapRpcErrorToResponse(message: string): Response {
 // HTTP handler
 // ============================================================
 
-serve(async (req: Request) => {
+Deno.serve(async (req: Request) => {
     if (req.method === "OPTIONS") {
         return new Response("ok", { headers: corsHeaders });
     }

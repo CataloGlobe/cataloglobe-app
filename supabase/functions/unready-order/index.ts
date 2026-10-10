@@ -11,10 +11,9 @@
 //
 // See _shared/adminOrderTransition.ts per la pipeline completa.
 
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { performAdminOrderTransition } from "../_shared/adminOrderTransition.ts";
 
-serve(req =>
+Deno.serve(req =>
     performAdminOrderTransition(req, {
         function_name: "unready-order",
         source_status: "ready",

@@ -22,7 +22,6 @@
 //   8. Map the RPC's prefixed RAISE messages to HTTP responses.
 //   9. Reply 200 with { order_id, item_id, new_order_total, order_cancelled }.
 
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { checkRateLimit, RateLimitExceededError } from "../_shared/rateLimit.ts";
 import { enqueueAndDispatchPrintJobs } from "../_shared/printJobs.ts";
@@ -265,7 +264,7 @@ function _mapRpcError(rpcError: { code?: string; message?: string }): Response {
 // HTTP handler
 // ============================================================
 
-serve(async (req: Request) => {
+Deno.serve(async (req: Request) => {
     if (req.method === "OPTIONS") {
         return new Response("ok", { headers: corsHeaders });
     }

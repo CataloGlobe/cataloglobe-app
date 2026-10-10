@@ -19,7 +19,6 @@
 // RESEND_API_KEY (già presente, usato da `sendEmail`).
 // =============================================================================
 
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildLeadNotificationEmail } from "../_shared/leadEmail.ts";
 import { leadConsentText } from "../_shared/leadConsent.ts";
@@ -80,7 +79,7 @@ async function saltedIpHash(ip: string, salt: string): Promise<string> {
     return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-serve(async (req: Request) => {
+Deno.serve(async (req: Request) => {
     if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders(req) });
     if (req.method !== "POST") return json(req, { error_code: "METHOD_NOT_ALLOWED" }, 405);
 

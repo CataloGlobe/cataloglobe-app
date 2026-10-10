@@ -1,5 +1,4 @@
 // @ts-nocheck
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import Stripe from "https://esm.sh/stripe@17?target=deno";
 import { stripeClientOptions } from "../_shared/stripe-helpers.ts";
@@ -224,7 +223,7 @@ async function recordCustomerInvoice(
     }
 }
 
-serve(async req => {
+Deno.serve(async req => {
     // Stripe sends only POST; no OPTIONS preflight needed (server-to-server).
     if (req.method !== "POST") return json(405, { error: "method_not_allowed" });
 

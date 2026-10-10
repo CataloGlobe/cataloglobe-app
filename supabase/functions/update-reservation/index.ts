@@ -1,5 +1,4 @@
 // @ts-nocheck
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { Resend } from "npm:resend@4";
 import { COMPANY } from "../_shared/company-config.ts";
@@ -111,7 +110,7 @@ function extractBearerJwt(req: Request): string | null {
 // sostituisce quella riga uno a uno.
 const RESERVATION_COLUMNS = "*";
 
-serve(async (req: Request) => {
+Deno.serve(async (req: Request) => {
     if (req.method === "OPTIONS") {
         return new Response("ok", { headers: corsHeaders(req) });
     }

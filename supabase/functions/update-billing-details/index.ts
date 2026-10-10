@@ -18,7 +18,6 @@
 // Stripe NON fa fallire la richiesta (200 + `stripe_sync`). Il prossimo
 // salvataggio o checkout riallinea.
 // ---------------------------------------------------------------------------
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { createStripeClient } from "../_shared/stripe-helpers.ts";
 import { syncStripeCustomerProfile, TENANT_FISCAL_COLUMNS } from "../_shared/stripeCustomerProfile.ts";
@@ -115,7 +114,7 @@ async function syncStripeForTenant(supabaseUrl: string, serviceRoleKey: string, 
     });
 }
 
-serve(async req => {
+Deno.serve(async req => {
     if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders(req) });
     if (req.method !== "POST") return json(req, 405, { error: "method_not_allowed" });
 
