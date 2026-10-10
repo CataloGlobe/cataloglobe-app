@@ -22,6 +22,8 @@ interface AttributesTabProps {
     tenantId: string;
     /** Bozza sollevata in `ProductPage` (§27): la salva l'header, come la Scheda. */
     draft: AttributeValuesDraft;
+    /** Officina 3: dentro la parte a fuoco, senza la Card (il titolo c'è già). */
+    bare?: boolean;
 }
 
 const TYPE_LABEL: Record<string, string> = {
@@ -45,7 +47,7 @@ function getSelectOptions(def: V2ProductAttributeDefinition): string[] {
  * ambra segna il campo toccato, «Salva» nell'header è lo stesso della Scheda.
  * «Assegna» e «Rimuovi» sono strutturali e scrivono subito (§27.2).
  */
-export function AttributesTab({ productId, tenantId, draft }: AttributesTabProps) {
+export function AttributesTab({ productId, tenantId, draft, bare = false }: AttributesTabProps) {
     const verticalConfig = useVerticalConfig();
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -204,6 +206,56 @@ export function AttributesTab({ productId, tenantId, draft }: AttributesTabProps
     }
 
     const tenantCount = draft.definitions.length;
+    const drawer = (
+        <ProductAttributesDrawer
+            open={isDrawerOpen}
+            onClose={() => setIsDrawerOpen(false)}
+            productId={productId}
+            tenantId={tenantId}
+            definitions={draft.definitions}
+            currentValues={draft.values}
+            onSuccess={() => void draft.reload()}
+        />
+    );
+    const table = (
+        <DataTable
+            data={linkedDefinitions}
+            columns={columns}
+            ariaLabel="Attributi del prodotto"
+            showFooter={false}
+            selectable
+            selectedRowIds={selectedIds}
+            onSelectedRowsChange={setSelectedIds}
+            onBulkDelete={ids => void draft.remove(ids)}
+            bulkActionLabel="Rimuovi"
+        />
+    );
+
+    if (bare) {
+        return (
+            <div className={styles.bare}>
+                {linkedDefinitions.length === 0 ? (
+                    <Text variant="body-sm" colorVariant="muted">
+                        Nessun attributo assegnato. {verticalConfig.copy.productAttributes.emptyDescription}
+                    </Text>
+                ) : (
+                    table
+                )}
+                <Text variant="caption" colorVariant="muted">
+                    {tenantCount} {tenantCount === 1 ? "definito" : "definiti"} nell'azienda.
+                </Text>
+                {tenantCount > 0 && (
+                    <div>
+                        <Button variant="secondary" size="sm" onClick={() => setIsDrawerOpen(true)}>
+                            Assegna
+                        </Button>
+                    </div>
+                )}
+                {drawer}
+            </div>
+        );
+    }
+
     return (
         <Card
             title="Attributi"
@@ -231,28 +283,10 @@ export function AttributesTab({ productId, tenantId, draft }: AttributesTabProps
                     }
                 />
             ) : (
-                <DataTable
-                    data={linkedDefinitions}
-                    columns={columns}
-                    ariaLabel="Attributi del prodotto"
-                    showFooter={false}
-                    selectable
-                    selectedRowIds={selectedIds}
-                    onSelectedRowsChange={setSelectedIds}
-                    onBulkDelete={ids => void draft.remove(ids)}
-                    bulkActionLabel="Rimuovi"
-                />
+                table
             )}
 
-            <ProductAttributesDrawer
-                open={isDrawerOpen}
-                onClose={() => setIsDrawerOpen(false)}
-                productId={productId}
-                tenantId={tenantId}
-                definitions={draft.definitions}
-                currentValues={draft.values}
-                onSuccess={() => void draft.reload()}
-            />
+            {drawer}
         </Card>
     );
 }

@@ -1,0 +1,32 @@
+@use "sass:map";
+
+// La scala dei caratteri della Scheda della sede e della pagina del prodotto
+// (Officina 3, prototipo C+++ e D121): le misure del prototipo, uno a uno,
+// in un posto solo, così le due pagine restano uguali. I passi `p-*` sono
+// quelli della pagina in piccolo dentro il telefono.
+$scheda-type: (
+  p-tiny: 10px,
+  p-head: 10.5px,
+  kicker: 11px,
+  badge: 11.5px,
+  fine: 12px,
+  note: 12.5px,
+  small: 13px,
+  text: 13.5px,
+  body: 14px,
+  strong: 15px,
+  say: 15.5px,
+  group: 16px,
+  answer: 17px,
+  title: 18px,
+  dish: 19px,
+  name: 26px,
+  price: 30px
+);
+
+@mixin fs($step) {
+  @if not map.has-key($scheda-type, $step) {
+    @error "Passo «#{$step}» non c'è nella scala della scheda.";
+  }
+  font-size: map.get($scheda-type, $step);
+}

@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/Button/Button";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { NumberInput } from "@/components/ui/Input/NumberInput";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
+import { rowAction } from "@/components/ui/TableRowActions/rowAction";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import Text from "@/components/ui/Text/Text";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
@@ -26,6 +27,8 @@ interface OptionValueListProps {
     initialAddPrice?: number;
     /** Apre subito la riga di aggiunta con focus sul nome (stessa transizione). */
     autoFocusAdd?: boolean;
+    /** Le modifiche vanno nella bozza della pagina (D103 A): togliere non chiede conferma, si annulla con «Annulla». */
+    inDraft?: boolean;
 }
 
 function readPrice(value: V2ProductOptionValue, priceMode: OptionValuePriceMode): number | null {
@@ -33,6 +36,8 @@ function readPrice(value: V2ProductOptionValue, priceMode: OptionValuePriceMode)
 }
 
 function formatPrice(price: number | null, priceMode: OptionValuePriceMode): string {
+    // Un'aggiunta senza sovrapprezzo è «compresa», come la legge il cliente.
+    if (priceMode === "delta" && !price) return "compreso";
     if (price === null) return "—";
     if (priceMode === "absolute") return formatEuro(price);
     return price >= 0 ? `+ ${formatEuro(price)}` : `− ${formatEuro(Math.abs(price))}`;
@@ -69,7 +74,8 @@ export function OptionValueList({
     onUpdate,
     onDelete,
     initialAddPrice,
-    autoFocusAdd = false
+    autoFocusAdd = false,
+    inDraft = false
 }: OptionValueListProps) {
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editName, setEditName] = useState("");
@@ -195,7 +201,17 @@ export function OptionValueList({
 
             {values.map(value =>
                 editingId === value.id ? (
-                    <div key={value.id} className={styles.editRow}>
+                    <div
+                        key={value.id}
+                        className={styles.editRow}
+                        // Esc annulla la modifica della riga e si ferma qui: non
+                        // chiude la parte a fuoco intorno.
+                        onKeyDown={e => {
+                            if (e.key !== "Escape") return;
+                            e.preventDefault();
+                            cancelEdit();
+                        }}
+                    >
                         <TextInput
                             containerClassName={styles.nameField}
                             inputClassName={styles.controlInput}
@@ -256,16 +272,8 @@ export function OptionValueList({
                         <div className={styles.readActions}>
                             <TableRowActions
                                 actions={[
-                                    {
-                                        label: "Modifica",
-                                        onClick: () => startEdit(value)
-                                    },
-                                    {
-                                        label: "Elimina",
-                                        onClick: () => setPendingDelete(value),
-                                        variant: "destructive",
-                                        separator: true
-                                    }
+                                    rowAction.edit(() => startEdit(value)),
+                                    rowAction.remove(() => (inDraft ? void onDelete(value.id) : setPendingDelete(value)))
                                 ]}
                             />
                         </div>

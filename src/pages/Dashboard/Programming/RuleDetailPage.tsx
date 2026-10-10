@@ -283,6 +283,7 @@ export default function RuleDetailPage() {
                                     Duplica
                                 </Menu.Item>
                             )}
+                            {tenantWide && <Menu.Separator />}
                             <Menu.Item icon={Trash2} variant="destructive" onSelect={() => setIsDeleteOpen(true)}>
                                 Elimina
                             </Menu.Item>

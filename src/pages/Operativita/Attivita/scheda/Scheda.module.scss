@@ -1,0 +1,565 @@
+// La Scheda della sede (Officina 3, prototipo C+++ «Scorrono insieme»).
+// Misure e colori uno a uno dal prototipo; i colori dai token del tema.
+
+@use "@styles/scheda-type" as type;
+
+.root {
+  --q-sunk: var(--hover-bg);
+  --q-faint: var(--gray-400);
+  --q-line: var(--color-border-tertiary);
+  --q-brand: var(--brand-primary);
+  --q-brand-soft: var(--brand-primary-soft);
+  --q-brand-soft-2: var(--brand-primary-soft-hover);
+  --q-success: var(--text-success);
+  --q-warning: var(--text-warning);
+  --q-warning-soft: color-mix(in srgb, var(--warning-500) 14%, transparent);
+  --q-danger: var(--danger);
+  --q-shade: rgba(15, 23, 42, 0.08);
+  --q-phone: #0f172a;
+
+  container: scheda / inline-size;
+  width: 100%;
+  max-width: 1212px;
+  margin: 0 auto;
+  padding-bottom: 40px;
+  color: var(--text);
+  @include type.fs(body);
+  line-height: 1.5;
+
+  h2, h3, h4, h5 { margin: 0; text-wrap: balance; }
+  p { margin: 0; }
+  // I titoli e i paragrafi globali hanno un colore fisso (chiaro): qui
+  // seguono il tema. Peso di una classe, così le classi dopo vincono.
+  :where(h2, h3, h4, h5, p) { color: inherit; }
+}
+
+:global([data-theme="dark"]) .root {
+  --q-shade: rgba(0, 0, 0, 0.35);
+  --q-phone: #020617;
+}
+
+.focusRoot { max-width: 1192px; }
+
+.hint { @include type.fs(note); color: var(--text-muted); }
+.lab { @include type.fs(note); font-weight: 500; color: var(--text-muted); }
+
+// ── Il cruscotto: scheda a sinistra, telefono a destra ─────────────────────
+.dash {
+  display: grid;
+  // La colonna del telefono si stringe con lui (D123): --phone-s da usePhoneFit.
+  grid-template-columns: minmax(0, 1fr) calc(300px * var(--phone-s, 1));
+  gap: 28px;
+  align-items: start;
+}
+.col { display: flex; flex-direction: column; gap: 28px; min-width: 0; }
+.side {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+@container scheda (max-width: 1050px) {
+  .dash { grid-template-columns: minmax(0, 1fr); }
+  .side { display: none; }
+}
+
+// La card fissa sopra il telefono: altezza fissa, non salta mai.
+.card {
+  width: 100%;
+  height: 84px;
+  flex: none;
+  background: var(--q-brand-soft);
+  border: 1px solid var(--q-brand-soft-2);
+  border-radius: var(--radius-surface);
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  overflow: hidden;
+
+  .cardK {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    @include type.fs(kicker);
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    font-weight: 600;
+    color: var(--q-brand);
+  }
+  .cardTitle { @include type.fs(body); font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cardText {
+    @include type.fs(note);
+    color: var(--text-muted);
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    b { font-weight: 600; color: var(--text); }
+  }
+}
+// Finestra bassa (D123): la card diventa una riga sola e lascia 48 px al telefono.
+.card.cardSlim {
+  height: 36px;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  .cardTitle { min-width: 0; }
+  .cardText { display: none; }
+}
+
+// ── In alto: chi siete e la vostra pagina ──────────────────────────────────
+.hero { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; }
+@container scheda (max-width: 760px) { .hero { grid-template-columns: minmax(0, 1fr); } }
+
+.identity {
+  position: relative;
+  border-radius: var(--radius-surface);
+  overflow: hidden;
+  min-height: 230px;
+  display: flex;
+  align-items: flex-end;
+  cursor: pointer;
+  border: 0;
+  padding: 0;
+  text-align: left;
+  color: #fff;
+  font: inherit;
+  background: none;
+
+  .identityCover { position: absolute; inset: 0; }
+  .overlay {
+    position: relative;
+    padding: 22px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    width: 100%;
+    background: linear-gradient(to top, rgba(15, 23, 42, 0.72), rgba(15, 23, 42, 0));
+  }
+  h3 { @include type.fs(name); font-weight: 700; letter-spacing: -0.015em; color: #fff; margin: 0; }
+  p { max-width: 60ch; color: rgba(255, 255, 255, 0.88); @include type.fs(text); }
+  .edit {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    background: rgba(255, 255, 255, 0.92);
+    color: #0f172a;
+    border-radius: var(--radius-pill);
+    padding: 5px 11px;
+    @include type.fs(note);
+    font-weight: 500;
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+  &:hover .edit, &:focus-visible .edit { opacity: 1; }
+  &:focus-visible { outline: 2px solid var(--q-brand); outline-offset: 2px; }
+}
+
+.cover {
+  background: linear-gradient(160deg, #7c5a3c 0%, #c58b52 45%, #e9c08d 100%);
+  background-size: cover;
+  background-position: center;
+  position: relative;
+}
+.coverNone { background: repeating-linear-gradient(135deg, #f1f5f9 0 8px, #e2e8f0 8px 16px); }
+
+.linkCard {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-surface);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  .linkRow { display: flex; gap: 14px; align-items: center; }
+  .linkText { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .acts { display: flex; gap: 6px; flex-wrap: wrap; }
+}
+.qr {
+  width: 84px;
+  height: 84px;
+  flex: none;
+  border-radius: var(--radius-control);
+  border: 1px solid var(--border);
+  background: #fff;
+  padding: 7px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  svg, canvas { width: 100% !important; height: 100% !important; display: block; }
+}
+.url { font-family: ui-monospace, Menlo, monospace; @include type.fs(note); color: var(--text); word-break: break-all; }
+
+// ── Adesso ─────────────────────────────────────────────────────────────────
+.now {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-surface);
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+
+  .nowLab { @include type.fs(badge); letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-muted); font-weight: 600; }
+  .nowRow { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .say { @include type.fs(say); line-height: 1.5; flex: 1; min-width: 260px; text-wrap: pretty; }
+  .on { color: var(--q-success); font-weight: 600; }
+  .off { color: var(--q-warning); font-weight: 600; }
+  .today { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .today .hint { margin-right: 2px; }
+}
+
+.prob {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: var(--radius-control);
+  background: var(--q-warning-soft);
+  @include type.fs(text);
+  color: var(--text);
+  flex-wrap: wrap;
+  > svg { color: var(--q-warning); flex: none; }
+  > span { flex: 1; min-width: 200px; }
+}
+
+// ── Le tessere ─────────────────────────────────────────────────────────────
+.groupHead {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 12px;
+  h3 { @include type.fs(group); font-weight: 650; letter-spacing: -0.01em; }
+  .hint { @include type.fs(small); }
+}
+.tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.tiles2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@container scheda (max-width: 1000px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@container scheda (max-width: 560px) { .tiles, .tiles2 { grid-template-columns: minmax(0, 1fr); } .w2 { grid-column: auto !important; } }
+
+.tile {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-surface);
+  padding: 16px;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  &:hover { border-color: var(--q-brand); box-shadow: 0 6px 18px var(--q-shade); }
+  // Il fuoco sta sul titolo (il pulsante), l'anello su tutta la tessera.
+  &:has(.thTitle:focus-visible) { outline: 2px solid var(--q-brand); outline-offset: 2px; }
+
+  .th { display: flex; align-items: center; gap: 8px; }
+  .ico { width: 24px; height: 24px; display: grid; place-items: center; color: var(--text-muted); flex: none; }
+  .thTitle {
+    @include type.fs(small);
+    color: var(--text-muted);
+    font-weight: 500;
+    flex: 1;
+    padding: 0;
+    border: 0;
+    background: none;
+    text-align: left;
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    &:focus-visible { outline: none; }
+  }
+  .probAction { flex: none; min-width: 0; }
+  .chg {
+    @include type.fs(badge);
+    font-weight: 600;
+    color: var(--q-warning);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    &::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--q-warning); }
+  }
+  .ans { @include type.fs(answer); font-weight: 600; color: var(--text); letter-spacing: -0.01em; line-height: 1.3; }
+  .ansMuted { color: var(--text-muted); }
+  .det { @include type.fs(small); color: var(--text-muted); display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .tf {
+    margin-top: auto;
+    padding-top: 10px;
+    border-top: 1px solid var(--q-line);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    @include type.fs(note);
+    color: var(--text-muted);
+    min-width: 0;
+  }
+  .tfText { display: inline-flex; gap: 6px; align-items: center; min-width: 0; }
+  .tfHid { color: var(--q-warning); }
+  .go { margin-left: auto; color: var(--q-brand); font-weight: 500; display: inline-flex; gap: 2px; align-items: center; white-space: nowrap; }
+  .prob { @include type.fs(note); padding: 7px 10px; > span { min-width: 0; } }
+}
+.tileHl { border-color: var(--q-brand); }
+.w2 { grid-column: span 2; }
+
+.contactLine { display: flex; align-items: center; gap: 8px; min-width: 0; svg { color: var(--q-faint); flex: none; } }
+.contactValue { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+.contactHidden { color: var(--q-faint); }
+.eye {
+  border: 0;
+  background: none;
+  color: var(--text-muted);
+  padding: 4px;
+  border-radius: 6px;
+  display: inline-flex;
+  cursor: pointer;
+  &:hover { background: var(--q-sunk); color: var(--text); }
+  &[aria-pressed="false"] { color: var(--q-warning); }
+  &:disabled { cursor: default; opacity: 0.6; }
+}
+
+// ── La settimana in piccolo ────────────────────────────────────────────────
+.week { display: flex; flex-direction: column; gap: 5px; }
+.wkRow { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 8px; align-items: center; @include type.fs(note); }
+.wkD { color: var(--text-muted); font-weight: 500; }
+.wkToday .wkD { color: var(--q-brand); font-weight: 600; }
+.wkTrack { position: relative; height: 8px; border-radius: 999px; background: var(--q-sunk); overflow: hidden; }
+.wkOff .wkTrack { background: repeating-linear-gradient(135deg, var(--q-sunk) 0 6px, transparent 6px 10px); }
+.wkSeg { position: absolute; top: 0; bottom: 0; border-radius: 999px; background: var(--q-brand); }
+.wkNow { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--q-danger); border-radius: 2px; }
+
+// ── Il telefono ────────────────────────────────────────────────────────────
+.phone {
+  width: 300px;
+  flex: none;
+  border-radius: 40px;
+  background: var(--q-phone);
+  padding: 10px;
+  box-shadow: 0 18px 40px var(--q-shade);
+}
+.screen {
+  border-radius: 31px;
+  overflow: hidden;
+  background: #ffffff;
+  color: #0f172a;
+  height: 600px;
+  display: flex;
+  flex-direction: column;
+  @include type.fs(fine);
+  position: relative;
+}
+.side .screen { height: 540px; }
+// Il telefono non si schiaccia: si rimpicciolisce intero (D123). La scatola
+// occupa la misura rimpicciolita, il telefono dentro scala dall'angolo.
+.phoneBox {
+  flex: none;
+  > * { transform: scale(var(--phone-s, 1)); transform-origin: top left; }
+}
+.scr { overflow: auto; flex: 1; scrollbar-width: none; &::-webkit-scrollbar { display: none; } }
+.pCover { aspect-ratio: 16 / 9; }
+.pBody { padding: 14px 14px 18px; display: flex; flex-direction: column; gap: 12px; }
+.pIdent { display: flex; flex-direction: column; gap: 6px; }
+.pName { @include type.fs(dish); font-weight: 700; letter-spacing: -0.01em; line-height: 1.2; }
+.pDesc { color: #475569; line-height: 1.45; }
+.pOpen {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  @include type.fs(badge);
+  color: #047857;
+  &::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #10b981; }
+}
+.pClosed { color: #b45309; &::before { background: #f59e0b; } }
+.pIcons { display: flex; gap: 8px; flex-wrap: wrap; padding: 2px 0; }
+.pIc { width: 34px; height: 34px; border-radius: 50%; border: 1px solid #e2e8f0; display: grid; place-items: center; color: #334155; }
+.pNone { color: #94a3b8; padding: 2px 0; }
+.pSec { display: flex; flex-direction: column; gap: 6px; border-top: 1px solid #eef2f6; padding-top: 12px; }
+.pH { @include type.fs(p-head); letter-spacing: 0.08em; text-transform: uppercase; color: #64748b; font-weight: 600; }
+.pHours { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; font-variant-numeric: tabular-nums; }
+.pTd { font-weight: 600; }
+.pChips { display: flex; flex-wrap: wrap; gap: 5px; span { border: 1px solid #e2e8f0; border-radius: 999px; padding: 2px 8px; @include type.fs(kicker); color: #334155; } }
+.pFees { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; }
+.pCta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  span { background: #0f172a; color: #fff; border-radius: 10px; padding: 9px; text-align: center; font-weight: 600; @include type.fs(badge); }
+  .pCtaAlt { background: #f1f5f9; color: #0f172a; }
+  .pCtaWide { grid-column: 1 / -1; }
+}
+.pMenu { background: #f8fafc; border-radius: 10px; padding: 10px; display: flex; justify-content: space-between; align-items: center; font-weight: 600; }
+.pMuted { color: #64748b; font-weight: 500; }
+.susp {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.94);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-align: center;
+  padding: 24px;
+  z-index: 3;
+  b { @include type.fs(strong); }
+  span { color: #64748b; }
+}
+// Passando su una tessera la parte si accende.
+.hl { outline: 2px solid #6366f1 !important; outline-offset: 3px; border-radius: 6px; transition: outline-color 0.15s; }
+.pCover.hl { outline-offset: -3px; border-radius: 0; }
+// Nella vista a fuoco le parti si toccano.
+.pp {
+  position: relative;
+  border-radius: 6px;
+  cursor: pointer;
+  outline: 1.5px dashed transparent;
+  outline-offset: 3px;
+  transition: outline-color 0.12s;
+  &:hover { outline-color: rgba(99, 102, 241, 0.55); }
+}
+.pCover.pp { border-radius: 0; outline-offset: -3px; }
+
+// ── La vista a fuoco ───────────────────────────────────────────────────────
+.focus {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr) calc(300px * var(--phone-s, 1));
+  gap: 24px;
+  align-items: start;
+}
+
+.rail {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  > div:first-child .gt { padding-top: 0; }
+  .gt {
+    min-height: 26px;
+    padding-top: 12px;
+    display: flex;
+    align-items: flex-end;
+    padding-inline: 8px;
+    padding-bottom: 6px;
+    @include type.fs(kicker);
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+  button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border: 0;
+    background: none;
+    padding: 7px 8px;
+    border-radius: var(--radius-control);
+    color: var(--text-muted);
+    font: inherit;
+    @include type.fs(small);
+    text-align: left;
+    cursor: pointer;
+    &:hover { background: var(--surface); color: var(--text); }
+    &[aria-current="true"] { background: var(--q-brand-soft); color: var(--q-brand); font-weight: 600; }
+    &:focus-visible { outline: 2px solid var(--q-brand); outline-offset: 2px; }
+  }
+}
+.st { margin-left: auto; width: 7px; height: 7px; border-radius: 50%; flex: none; }
+.stOk { background: var(--q-success); }
+.stWarn { background: var(--q-warning); }
+.stOff { background: var(--border); }
+.pn {
+  display: inline-grid;
+  place-items: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--q-brand);
+  color: var(--on-brand);
+  @include type.fs(p-tiny);
+  font-weight: 700;
+  margin-left: 2px;
+}
+
+.fcard {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-surface);
+  padding: 22px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+.fh {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  .fico { width: 36px; height: 36px; border-radius: var(--radius-control); background: var(--q-brand-soft); display: grid; place-items: center; color: var(--q-brand); flex: none; }
+  h3 { @include type.fs(title); font-weight: 650; flex: 1; }
+}
+.fwhy { @include type.fs(small); color: var(--text-muted); margin-top: -12px; max-width: 62ch; }
+.split { height: 1px; background: var(--q-line); }
+.ffoot { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+.savehint { @include type.fs(note); color: var(--text-muted); display: flex; flex-direction: column; gap: 2px; b { color: var(--text); font-weight: 600; } }
+.fside { position: sticky; top: 0; display: flex; flex-direction: column; align-items: center; gap: 10px; .hint { text-align: center; } }
+
+// Dopo .rail e .fside: con la stessa specificità vince l'ultima regola.
+@container scheda (max-width: 1050px) {
+  .focus { grid-template-columns: 180px minmax(0, 1fr); }
+  .fside { display: none; }
+}
+@container scheda (max-width: 700px) {
+  .focus { grid-template-columns: minmax(0, 1fr); }
+  .rail { display: none; }
+}
+
+// Gli editor di sempre dentro la card a fuoco: orari, link, prenotazioni e
+// ordini restano a blocchi (settimana, chiusure, stampanti…).
+.editor {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+
+// ── Testata ────────────────────────────────────────────────────────────────
+.headTitle { display: flex; align-items: center; gap: 12px; min-width: 0; h2 { color: var(--text); @include type.fs(title); font-weight: 650; letter-spacing: -0.005em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0; } }
+.crumbs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  @include type.fs(small);
+  color: var(--text-muted);
+  min-width: 0;
+  button { border: 0; background: none; padding: 0; color: var(--text-muted); font: inherit; cursor: pointer; &:hover { color: var(--text); } }
+  strong { color: var(--text); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+}
+
+// ── Le parti scritte qui (locale, contatti, dove, offrite, conto) ──────────
+.stack { display: flex; flex-direction: column; gap: 16px; }
+.contact { display: flex; align-items: flex-end; gap: 6px; min-width: 0; }
+.contactInput { flex: 1; min-width: 0; }
+.contactFlag { width: 32px; height: 36px; display: grid; place-items: center; flex: none; }
+.rowBetween { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.subTitle { font-weight: 600; @include type.fs(text); }
+.coverImg { width: 168px; aspect-ratio: 16 / 9; object-fit: cover; border-radius: var(--radius-control); }
+
+@media (prefers-reduced-motion: reduce) {
+  .root * { transition: none !important; }
+}
+
+// Piccoli aiuti di impaginazione, al posto dello stile inline.
+.stackTight { gap: 8px; }
+.inlineActions { display: inline-flex; gap: 6px; }
+.rowEnd { justify-content: flex-end; }
+.contents { display: contents; }
+.pHSpaced { margin-top: 4px; }

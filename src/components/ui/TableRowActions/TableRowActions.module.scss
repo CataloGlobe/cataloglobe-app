@@ -13,3 +13,10 @@
     color: var(--text);
   }
 }
+
+// Posto vuoto grande come un'icona, per le voci senza icona in un menù che ne ha.
+.iconSlot {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+}

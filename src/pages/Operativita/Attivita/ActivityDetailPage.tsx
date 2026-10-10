@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { Navigate, Outlet, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { Lock, Store } from "lucide-react";
+import { ChevronRight, Store } from "lucide-react";
 import { Button } from "@/components/ui";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import Skeleton from "@/components/ui/Skeleton/Skeleton";
@@ -11,7 +11,6 @@ import { buildSaveActionCompactConfig } from "@/components/ui/HeaderSaveAction/h
 import { useUnsavedChangesGuard } from "@/components/ui/UnsavedChangesBar/useUnsavedChangesGuard";
 import { usePageHeader } from "@/context/usePageHeader";
 import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
-import { Tabs } from "@/components/ui/Tabs/Tabs";
 import { getActivityById } from "@/services/supabase/activities";
 import { listActivityHours } from "@/services/supabase/activityHours";
 import { getTenantFiscalProfile } from "@/services/supabase/tenants";
@@ -20,28 +19,28 @@ import type { V2ActivityHours } from "@/types/activity-hours";
 import { useToast } from "@/context/Toast/ToastContext";
 import { usePermissions } from "@/context/usePermissions";
 import { canDoOnActivity, canDoOnTenant } from "@/lib/permissions";
-import { usePlanFeatures } from "@/lib/planFeatures";
-import { formatInactiveReason } from "@/utils/activityStatus";
+import { ACTIVE_LABEL, formatInactiveReason } from "@/utils/activityStatus";
 import { legacyTabTarget } from "@/utils/navLanding";
 import {
-    ACTIVITY_PAGES,
-    ACTIVITY_SECTION_LABELS,
     ACTIVITY_SECTIONS,
     type ActivityDetailOutletContext,
     type ActivitySection
 } from "./ActivityDetailContext";
 import { useActivityDraft } from "./useActivityDraft";
+import { ActivitySedeMenu } from "./components/ActivitySedeMenu";
+import { isSchedaPart, PART_TITLE, type SchedaPart } from "./scheda/schedaCopy";
 import styles from "./ActivityDetailPage.module.scss";
+import schedaStyles from "./scheda/Scheda.module.scss";
 
 const isSection = (v: string): v is ActivitySection =>
     (ACTIVITY_SECTIONS as readonly string[]).includes(v);
 
 /**
- * Il locale in sei pagine (§31, correzioni UI T5): Anagrafica · Orari ·
- * Ordini al tavolo · Prenotazioni · Sala · Pubblicazione. Questo
- * parent legge la sede, gli orari e la ragione sociale una volta, tiene il
- * draft unico con la sua barra e la guardia all'uscita, e dà tutto alle
- * rotte figlie via `Outlet` (`useActivityDetail`).
+ * La Scheda della sede (Officina 3, prototipo C+++ «Scorrono insieme»): un
+ * cruscotto con il telefono accanto, e ogni parte che si apre a fuoco con
+ * `?parte=`. Questo parent legge la sede, gli orari e la ragione sociale una volta,
+ * tiene il draft unico con la sua barra e la guardia all'uscita, e dà tutto
+ * alle rotte figlie via `Outlet` (`useActivityDetail`).
  */
 const ActivityDetailPage: React.FC = () => {
     const { activityId, businessId } = useParams<{ activityId: string; businessId: string }>();
@@ -50,15 +49,18 @@ const ActivityDetailPage: React.FC = () => {
     const [searchParams] = useSearchParams();
     const { showToast } = useToast();
     const { permissions } = usePermissions();
-    const { hasFeature } = usePlanFeatures();
 
     const basePath = `/business/${businessId}/locations/${activityId}`;
     const lastSegment = pathname.slice(basePath.length).split("/").filter(Boolean)[0] ?? "";
     const section: ActivitySection = isSection(lastSegment) ? lastSegment : "anagrafica";
 
     const goToSection = useCallback(
-        (next: ActivitySection, hash?: string) => {
-            navigate({ pathname: `${basePath}/${next}`, hash: hash ? `#${hash}` : "" });
+        (next: ActivitySection, hash?: string, part?: SchedaPart) => {
+            navigate({
+                pathname: `${basePath}/${next}`,
+                search: part ? `?parte=${part}` : "",
+                hash: hash ? `#${hash}` : ""
+            });
         },
         [navigate, basePath]
     );
@@ -157,50 +159,43 @@ const ActivityDetailPage: React.FC = () => {
     );
     useUnsavedChangesGuard(draft.isDirty);
 
-    // Testata: le quattro pagine come tab che navigano, lo stato della sede
-    // nelle azioni (su quattro pagine non è più a un click, come nel
-    // prototipo §31).
-    // La Sala la vede chi legge i tavoli della sede (SV3, come il modo
-    // «Gestisci la sala» di Servizio). Ordini al tavolo e Prenotazioni col
-    // piano Base restano tab, col lucchetto: dentro c'è il pannello Pro (O2).
-    const canReadTables = Boolean(activityId && permissions && canDoOnActivity(permissions, "tables.read", activityId));
-    const pages = useMemo(
-        () => ACTIVITY_PAGES.filter(value => value !== "sala" || canReadTables),
-        [canReadTables]
-    );
-    const isPlanLocked = useCallback(
-        (value: ActivitySection) =>
-            (value === "ordini-al-tavolo" && !hasFeature("table_ordering")) ||
-            (value === "prenotazioni-online" && !hasFeature("table_reservation")),
-        [hasFeature]
-    );
-
-    const leading = useMemo(() => (
-        <Tabs<ActivitySection> value={section} onChange={next => goToSection(next)} variant="line">
-            <Tabs.List>
-                {pages.map(value => (
-                    <Tabs.Tab key={value} value={value}>
-                        {isPlanLocked(value) ? (
-                            <span className={styles.lockedTab}>
-                                {ACTIVITY_SECTION_LABELS[value]}
-                                <Lock size={14} strokeWidth={1.75} role="img" aria-label="Funzione del piano Pro" />
-                            </span>
-                        ) : (
-                            ACTIVITY_SECTION_LABELS[value]
-                        )}
-                    </Tabs.Tab>
-                ))}
-            </Tabs.List>
-        </Tabs>
-    ), [section, goToSection, pages, isPlanLocked]);
+    // Testata (C+++): niente tab. A sinistra il nome della sede col suo
+    // stato; con una parte a fuoco, il percorso «sede › parte» che torna al
+    // cruscotto. Il Salva e il «⋯» (sospendi, elimina) a destra.
+    const rawPart = section === "anagrafica" ? searchParams.get("parte") : null;
+    const part: SchedaPart | null = rawPart && isSchedaPart(rawPart) ? rawPart : null;
+    const closePart = useCallback(() => goToSection("anagrafica"), [goToSection]);
 
     const statusLabel = activity
         ? activity.status === "inactive"
             ? activity.inactive_reason
                 ? `Sospesa · ${formatInactiveReason(activity.inactive_reason)}`
                 : "Sospesa"
-            : "Pubblicata"
+            : ACTIVE_LABEL
         : null;
+
+    const leading = useMemo(() => {
+        if (!activity) return null;
+        if (part) {
+            return (
+                <div className={schedaStyles.crumbs}>
+                    <button type="button" onClick={closePart}>
+                        {activity.name}
+                    </button>
+                    <ChevronRight size={14} strokeWidth={1.75} aria-hidden />
+                    <strong>{PART_TITLE[part]}</strong>
+                </div>
+            );
+        }
+        return (
+            <div className={schedaStyles.headTitle}>
+                <h2>{activity.name}</h2>
+                {statusLabel && (
+                    <StatusBadge variant={activity.status === "inactive" ? "neutral" : "success"} label={statusLabel} />
+                )}
+            </div>
+        );
+    }, [activity, part, closePart, statusLabel]);
 
     // Il salvataggio del draft sta nella barra della pagina, a destra (MD1):
     // niente barra fluttuante. Solo per chi può modificare la sede.
@@ -212,11 +207,8 @@ const ActivityDetailPage: React.FC = () => {
     }, [saveDraft]);
 
     const actions = useMemo(() => (
-        statusLabel || showSave ? (
+        activity ? (
             <>
-                {statusLabel && (
-                    <StatusBadge variant={activity?.status === "inactive" ? "neutral" : "success"} label={statusLabel} />
-                )}
                 {showSave && (
                     <HeaderSaveAction
                         isDirty={draft.isDirty}
@@ -226,23 +218,23 @@ const ActivityDetailPage: React.FC = () => {
                         changeCount={draft.dirtyCount}
                     />
                 )}
+                {activity && businessId && (
+                    <ActivitySedeMenu
+                        activity={activity}
+                        businessId={businessId}
+                        tenantId={businessId}
+                        reload={fetchData}
+                        canManage={canManage}
+                        canDelete={canDelete}
+                    />
+                )}
             </>
         ) : null
-    ), [statusLabel, activity?.status, showSave, draft.isDirty, draft.isSaving, draft.discard, draft.dirtyCount, handleSave]);
+    ), [activity, businessId, fetchData, canManage, canDelete, showSave, draft.isDirty, draft.isSaving, draft.discard, draft.dirtyCount, handleSave]);
 
-    // In compatto il picker dice dove sei anche su una sezione che non è una
-    // tab: la voce compare solo mentre ci sei.
+    // In compatto: con una parte a fuoco la freccia torna al cruscotto.
     const headerCompact = useMemo<PageHeaderCompactConfig>(() => ({
-        sections: [
-            ...pages.map(value => ({
-                value,
-                label: ACTIVITY_SECTION_LABELS[value],
-                description: isPlanLocked(value) ? "Con il piano Pro" : undefined
-            })),
-            ...(pages.includes(section) ? [] : [{ value: section, label: ACTIVITY_SECTION_LABELS[section] }])
-        ],
-        activeSection: section,
-        onSectionChange: value => goToSection(value as ActivitySection),
+        ...(part ? { backAction: { label: activity?.name ?? "Scheda", onClick: closePart } } : {}),
         statusIndicator: statusLabel ? { label: statusLabel } : undefined,
         ...(showSave
             ? buildSaveActionCompactConfig({
@@ -257,7 +249,7 @@ const ActivityDetailPage: React.FC = () => {
         ...(showSave && !draft.isDirty && !draft.isSaving && statusLabel
             ? { statusIndicator: { label: statusLabel } }
             : {})
-    }), [section, goToSection, pages, isPlanLocked, statusLabel, showSave, draft.isDirty, draft.isSaving, handleSave]);
+    }), [part, activity?.name, closePart, statusLabel, showSave, draft.isDirty, draft.isSaving, handleSave]);
 
     usePageHeader({
         leading,

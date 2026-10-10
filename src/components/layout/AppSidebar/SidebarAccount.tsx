@@ -1,9 +1,9 @@
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { ChevronsUpDown, LogOut, Shield, User } from "lucide-react";
 import { useAuth } from "@/context/useAuth";
 import { useTenant } from "@/context/useTenant";
 import { useSedeScope } from "@/hooks/useSedeScope";
-import { useCurrentUserProfile } from "@/hooks/useCurrentUserProfile";
+import type { CurrentUserProfile } from "@/hooks/useCurrentUserProfile";
 import { usePermissions } from "@/context/usePermissions";
 import { ROLE_LABEL } from "@/constants/roles";
 import { Menu } from "@/components/ui/Menu";
@@ -16,23 +16,28 @@ import styles from "./SidebarAccount.module.scss";
 
 /**
  * Il pulsante dell'account in fondo alla sidebar (Officina, come in Claude):
- * chi sei, l'azienda col suo piano, e un numero quando c'è qualcosa da vedere.
+ * chi sei, l'azienda col suo piano, e un pallino quando c'è qualcosa da vedere
+ * (il numero sta sulle voci del menù). Evidenziato quando la pagina aperta è
+ * una delle sue voci.
  * Il menù tiene le pagine dell'azienda che non sono lavoro di tutti i giorni
  * (Impostazioni, Team, Abbonamento, Lingue, Assistenza) e poi l'account.
  * Le voci arrivano già filtrate per permessi e coi segnali
- * (`ACCOUNT_ENTRIES` → `buildSidebarGroups`).
+ * (`ACCOUNT_ENTRIES` → `buildSidebarGroups`). Il profilo arriva da
+ * `MainLayout`: il pulsante si rimonta passando fra la sidebar della sede e
+ * quella dell'azienda, e chiedendolo qui si ricaricherebbe a ogni cambio.
  */
 
 const PLAN_LABEL: Record<string, string> = { base: "Base", pro: "Pro" };
 
 interface SidebarAccountProps {
     items: AppSidebarNavItem[];
+    profile: CurrentUserProfile;
     collapsed: boolean;
     isMobile: boolean;
     onRequestClose: () => void;
 }
 
-/** Quante cose aspettano: il numero delle traduzioni, più uno per ogni pallino. */
+/** Quante cose aspettano: il numero delle traduzioni, più uno per ogni pallino (per chi legge lo schermo). */
 function pendingCount(items: AppSidebarNavItem[]): number {
     return items.reduce((sum, item) => {
         if (typeof item.badge === "number") return sum + item.badge;
@@ -40,12 +45,23 @@ function pendingCount(items: AppSidebarNavItem[]): number {
     }, 0);
 }
 
-export function SidebarAccount({ items, collapsed, isMobile, onRequestClose }: SidebarAccountProps) {
+/** La pagina aperta è una delle voci del menù (anche una sua sottopagina, come Impostazioni › Team). */
+function isHere(items: AppSidebarNavItem[], pathname: string): boolean {
+    return items.some(
+        item =>
+            pathname === item.to ||
+            pathname.startsWith(`${item.to}/`) ||
+            !!item.matchPrefixes?.some(p => pathname.startsWith(p))
+    );
+}
+
+export function SidebarAccount({ items, profile, collapsed, isMobile, onRequestClose }: SidebarAccountProps) {
     const navigate = useNavigate();
+    const { pathname } = useLocation();
     const { signOut } = useAuth();
     const { selectedTenant } = useTenant();
     const { readableActivities } = useSedeScope();
-    const { fullName, email, avatarUrl, showAdminEntry } = useCurrentUserProfile();
+    const { fullName, email, avatarUrl, showAdminEntry } = profile;
     const { permissions } = usePermissions();
 
     const go = (to: string) => {
@@ -68,14 +84,11 @@ export function SidebarAccount({ items, collapsed, isMobile, onRequestClose }: S
             className={styles.trigger}
             data-collapsed={collapsed || undefined}
             aria-label={`Account: ${name}${pendingLabel}`}
+            aria-current={isHere(items, pathname) ? "page" : undefined}
         >
             <span className={styles.avatar}>
                 <Avatar name={name} imageUrl={avatarUrl} size="md" rounded />
-                {pending > 0 && (
-                    <Text as="span" variant="caption-xs" weight={600} className={styles.count} aria-hidden="true">
-                        {pending > 99 ? "99+" : pending}
-                    </Text>
-                )}
+                {pending > 0 && <span className={styles.pending} aria-hidden="true" />}
             </span>
             <span className={styles.who}>
                 <Text as="span" variant="body-sm" weight={600} className={styles.name}>

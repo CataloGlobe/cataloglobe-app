@@ -1,0 +1,602 @@
+// La pagina del prodotto (Officina 3, D121: modello C+++ della Scheda della
+// sede). Misure, caratteri e colori uno a uno da `Attivita/scheda/
+// Scheda.module.scss` (la sede); qui in più solo le parti del prodotto: la
+// card del prezzo, i bollini degli allergeni e il telefono coi colori dello
+// stile. Quando i due rami si uniscono, le regole comuni vanno in un posto solo.
+
+@use "@styles/scheda-type" as type;
+
+.root {
+  --q-sunk: var(--hover-bg);
+  --q-faint: var(--gray-400);
+  --q-line: var(--color-border-tertiary);
+  --q-brand: var(--brand-primary);
+  --q-brand-soft: var(--brand-primary-soft);
+  --q-brand-soft-2: var(--brand-primary-soft-hover);
+  --q-success: var(--text-success);
+  --q-warning: var(--text-warning);
+  --q-warning-soft: color-mix(in srgb, var(--warning-500) 14%, transparent);
+  --q-shade: rgba(15, 23, 42, 0.08);
+  --q-phone: #0f172a;
+
+  container: scheda / inline-size;
+  width: 100%;
+  max-width: 1212px;
+  margin: 0 auto;
+  padding-bottom: 40px;
+  color: var(--text);
+  @include type.fs(body);
+  line-height: 1.5;
+
+  h2, h3, h4, h5 { margin: 0; text-wrap: balance; }
+  p { margin: 0; }
+  :where(h2, h3, h4, h5, p) { color: inherit; }
+}
+
+:global([data-theme="dark"]) .root {
+  --q-shade: rgba(0, 0, 0, 0.35);
+  --q-phone: #020617;
+}
+
+.focusRoot { max-width: 1192px; }
+// Il bordo della pagina (fieldset per chi può solo leggere): non disegna niente.
+.scope { display: flex; flex-direction: column; gap: 20px; border: 0; margin: 0; padding: 0; min-width: 0; }
+
+.hint { @include type.fs(note); color: var(--text-muted); }
+.lab { @include type.fs(note); font-weight: 500; color: var(--text-muted); }
+
+// ── Il cruscotto: pagina a sinistra, telefono a destra ─────────────────────
+.dash {
+  display: grid;
+  // La colonna del telefono si stringe con lui (D123): --phone-s da usePhoneFit.
+  grid-template-columns: minmax(0, 1fr) calc(300px * var(--phone-s, 1));
+  gap: 28px;
+  align-items: start;
+}
+.col { display: flex; flex-direction: column; gap: 28px; min-width: 0; }
+// Sticky a 0: il padding del contenitore che scorre conta già (con 16 il
+// telefono partiva 16 px sotto la foto in cima).
+.side {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+@container scheda (max-width: 1050px) {
+  .dash { grid-template-columns: minmax(0, 1fr); }
+  .side { display: none; }
+}
+
+// La card fissa sopra il telefono: altezza fissa, non salta mai.
+.card {
+  width: 100%;
+  height: 84px;
+  flex: none;
+  background: var(--q-brand-soft);
+  border: 1px solid var(--q-brand-soft-2);
+  border-radius: var(--radius-surface);
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  overflow: hidden;
+
+  .cardK {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    @include type.fs(kicker);
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    font-weight: 600;
+    color: var(--q-brand);
+  }
+  .cardTitle { @include type.fs(body); font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cardText {
+    @include type.fs(note);
+    color: var(--text-muted);
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    b { font-weight: 600; color: var(--text); }
+  }
+}
+// Finestra bassa (D123): la card diventa una riga sola e lascia 48 px al telefono.
+.card.cardSlim {
+  height: 36px;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  .cardTitle { min-width: 0; }
+  .cardText { display: none; }
+}
+.styleName { @include type.fs(fine); color: var(--text-muted); text-align: center; }
+
+// ── In alto: il piatto e il prezzo ─────────────────────────────────────────
+.hero { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 16px; }
+@container scheda (max-width: 772px) { .hero { grid-template-columns: minmax(0, 1fr); } }
+
+.identity {
+  position: relative;
+  border-radius: var(--radius-surface);
+  overflow: hidden;
+  min-height: 230px;
+  display: flex;
+  align-items: flex-end;
+  cursor: pointer;
+  border: 0;
+  padding: 0;
+  text-align: left;
+  color: #fff;
+  font: inherit;
+  background: none;
+
+  .identityCover { position: absolute; inset: 0; }
+  .overlay {
+    position: relative;
+    padding: 22px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    width: 100%;
+    background: linear-gradient(to top, rgba(15, 23, 42, 0.72), rgba(15, 23, 42, 0));
+  }
+  h3 { @include type.fs(name); font-weight: 700; letter-spacing: -0.015em; color: #fff; margin: 0; }
+  p { max-width: 60ch; color: rgba(255, 255, 255, 0.88); @include type.fs(text); }
+  .noDesc { opacity: 0.75; }
+  .edit {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    background: rgba(255, 255, 255, 0.92);
+    color: #0f172a;
+    border-radius: var(--radius-pill);
+    padding: 5px 11px;
+    @include type.fs(note);
+    font-weight: 500;
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+  }
+  &:hover, &.tileHl { box-shadow: 0 0 0 2px var(--q-brand); }
+  &:focus-visible { outline: 2px solid var(--q-brand); outline-offset: 2px; }
+}
+
+.cover {
+  background: linear-gradient(160deg, #7c5a3c 0%, #c58b52 45%, #e9c08d 100%);
+  background-size: cover;
+  background-position: center;
+  position: relative;
+}
+.coverNone { background: repeating-linear-gradient(135deg, #f1f5f9 0 8px, #e2e8f0 8px 16px); }
+:global([data-theme="dark"]) .coverNone { background: repeating-linear-gradient(135deg, #1e293b 0 8px, #273449 8px 16px); }
+
+// La card del prezzo, accanto al piatto (artifact: `.C-price`).
+.price {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-surface);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  text-align: left;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  &:hover, &.tileHl { border-color: var(--q-brand); box-shadow: 0 6px 18px var(--q-shade); }
+  &:focus-visible { outline: 2px solid var(--q-brand); outline-offset: 2px; }
+
+  .priceLab { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .big { @include type.fs(price); font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .rows {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    @include type.fs(small);
+    color: var(--text-muted);
+    .rowLine { display: flex; justify-content: space-between; gap: 8px; font-variant-numeric: tabular-nums; }
+    b { color: var(--text); font-weight: 600; }
+  }
+  .go { margin-top: auto; color: var(--q-brand); font-weight: 500; display: inline-flex; align-items: center; gap: 2px; @include type.fs(note); }
+}
+
+// ── Oggi ───────────────────────────────────────────────────────────────────
+.now {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-surface);
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+
+  .nowLab { @include type.fs(badge); letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-muted); font-weight: 600; }
+  .say { @include type.fs(say); line-height: 1.5; text-wrap: pretty; }
+  .on { color: var(--q-success); font-weight: 600; }
+  .off { color: var(--q-warning); font-weight: 600; }
+}
+
+.prob {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: var(--radius-control);
+  background: var(--q-warning-soft);
+  @include type.fs(text);
+  color: var(--text);
+  flex-wrap: wrap;
+  > svg { color: var(--q-warning); flex: none; }
+  > span { flex: 1; min-width: 200px; }
+}
+
+// ── Le tessere ─────────────────────────────────────────────────────────────
+.groupHead {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 12px;
+  h3 { @include type.fs(group); font-weight: 650; letter-spacing: -0.01em; }
+  .hint { @include type.fs(small); }
+}
+.tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+@container scheda (max-width: 772px) { .tiles { grid-template-columns: minmax(0, 1fr); } }
+
+.tile {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-surface);
+  padding: 16px;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  cursor: pointer;
+  color: var(--text);
+  font: inherit;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  &:hover { border-color: var(--q-brand); box-shadow: 0 6px 18px var(--q-shade); }
+  // Il fuoco sta sul titolo (il pulsante), l'anello su tutta la tessera.
+  &:has(.thTitle:focus-visible) { outline: 2px solid var(--q-brand); outline-offset: 2px; }
+
+  .th { display: flex; align-items: center; gap: 8px; }
+  .ico { width: 24px; height: 24px; display: grid; place-items: center; color: var(--text-muted); flex: none; }
+  .thTitle {
+    @include type.fs(small);
+    color: var(--text-muted);
+    font-weight: 500;
+    flex: 1;
+    padding: 0;
+    border: 0;
+    background: none;
+    text-align: left;
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    &:focus-visible { outline: none; }
+  }
+  .ans { @include type.fs(answer); font-weight: 600; color: var(--text); letter-spacing: -0.01em; line-height: 1.3; }
+  .ansMuted { color: var(--text-muted); }
+  .det { @include type.fs(small); color: var(--text-muted); display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .detStrong { color: var(--text); font-weight: 500; }
+  .tf {
+    margin-top: auto;
+    padding-top: 10px;
+    border-top: 1px solid var(--q-line);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    @include type.fs(note);
+    color: var(--text-muted);
+    min-width: 0;
+  }
+  .tfText { display: inline-flex; gap: 6px; align-items: center; min-width: 0; }
+  .tfHid { color: var(--q-warning); }
+  .go { margin-left: auto; color: var(--q-brand); font-weight: 500; display: inline-flex; gap: 2px; align-items: center; white-space: nowrap; }
+}
+.tileHl { border-color: var(--q-brand); box-shadow: 0 6px 18px var(--q-shade); }
+.w2 { grid-column: 1 / -1; }
+// Una tessera che non si apre (il verticale non usa la parte).
+.tileStill { cursor: default; &:hover { border-color: var(--border); box-shadow: none; } }
+
+.chg {
+  @include type.fs(badge);
+  font-weight: 600;
+  color: var(--q-warning);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  &::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--q-warning); }
+}
+
+// Gli allergeni nella tessera: bollini pieni (D121 2A).
+.miniAl {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  span { border-radius: 999px; padding: 2px 9px; @include type.fs(fine); font-weight: 600; background: var(--q-brand); color: var(--on-brand); }
+}
+
+// ── Il telefono ────────────────────────────────────────────────────────────
+// Lo schermo ha i colori dello stile del menù (--st-*), non quelli del back office.
+.phone {
+  width: 300px;
+  flex: none;
+  border-radius: 40px;
+  background: var(--q-phone);
+  padding: 10px;
+  box-shadow: 0 18px 40px var(--q-shade);
+}
+.screen {
+  border-radius: 31px;
+  overflow: hidden;
+  background: var(--st-bg, #ffffff);
+  color: var(--st-text, #0f172a);
+  height: 600px;
+  display: flex;
+  flex-direction: column;
+  @include type.fs(fine);
+  position: relative;
+}
+.side .screen { height: 540px; }
+// Il telefono non si schiaccia: si rimpicciolisce intero (D123). La scatola
+// occupa la misura rimpicciolita, il telefono dentro scala dall'angolo.
+.phoneBox {
+  flex: none;
+  > * { transform: scale(var(--phone-s, 1)); transform-origin: top left; }
+}
+.pBar {
+  height: 38px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  background: var(--st-primary, #6366f1);
+  color: #fff;
+  font-weight: 700;
+  @include type.fs(note);
+  flex: none;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.scr { overflow: auto; flex: 1; scrollbar-width: none; &::-webkit-scrollbar { display: none; } }
+.pCover {
+  aspect-ratio: 4 / 3;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--st-primary, #6366f1) 16%, var(--st-bg, #ffffff));
+  color: var(--st-primary, #6366f1);
+  background-size: cover;
+  background-position: center;
+}
+.pBody { padding: 12px 14px 18px; display: flex; flex-direction: column; gap: 12px; }
+.pName {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  @include type.fs(title);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  .pPrice { color: var(--st-primary, #6366f1); font-variant-numeric: tabular-nums; white-space: nowrap; }
+}
+.pDesc { opacity: 0.78; line-height: 1.45; }
+.pBadges {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+  span { background: color-mix(in srgb, var(--st-accent, #6366f1) 14%, transparent); color: var(--st-accent, #6366f1); border-radius: 999px; padding: 2px 8px; @include type.fs(kicker); font-weight: 600; }
+}
+.pSec { display: flex; flex-direction: column; gap: 6px; border-top: 1px solid color-mix(in srgb, var(--st-text, #0f172a) 10%, transparent); padding-top: 12px; }
+.pH { @include type.fs(p-head); letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.6; font-weight: 700; }
+.pChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  span { border: 1px solid color-mix(in srgb, var(--st-text, #0f172a) 20%, transparent); border-radius: 999px; padding: 2px 8px; @include type.fs(kicker); }
+}
+.pOpt {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 3px 0;
+  span:first-child::before {
+    content: "";
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: 1.5px solid color-mix(in srgb, var(--st-text, #0f172a) 40%, transparent);
+    margin-right: 7px;
+    vertical-align: -1px;
+  }
+  span:last-child { opacity: 0.7; font-variant-numeric: tabular-nums; }
+}
+.pPair {
+  display: flex;
+  gap: 8px;
+  span { flex: 1; min-width: 0; border-radius: 10px; background: color-mix(in srgb, var(--st-text, #0f172a) 6%, transparent); padding: 8px; font-weight: 600; @include type.fs(badge); }
+}
+.pNote { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; b { font-weight: 600; } }
+.pAdd {
+  margin: 0 12px 12px;
+  background: var(--st-accent, #0f172a);
+  color: #fff;
+  border-radius: 12px;
+  padding: 11px;
+  text-align: center;
+  font-weight: 700;
+  @include type.fs(note);
+  flex: none;
+}
+.pOff {
+  position: absolute;
+  inset: 38px 0 0;
+  background: color-mix(in srgb, var(--st-bg, #ffffff) 95%, transparent);
+  color: var(--st-text, #0f172a);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-align: center;
+  padding: 24px;
+  z-index: 3;
+  @include type.fs(note);
+  b { @include type.fs(strong); }
+}
+// Passando su una tessera la parte si accende.
+.hl { outline: 2px solid #6366f1 !important; outline-offset: 3px; border-radius: 6px; transition: outline-color 0.15s; }
+.pCover.hl { outline-offset: -3px; border-radius: 0; }
+// Nella vista a fuoco le parti si toccano.
+.pp {
+  position: relative;
+  border-radius: 6px;
+  cursor: pointer;
+  outline: 1.5px dashed transparent;
+  outline-offset: 3px;
+  transition: outline-color 0.12s;
+  &:hover { outline-color: rgba(99, 102, 241, 0.55); }
+}
+.pCover.pp { border-radius: 0; outline-offset: -3px; }
+
+// ── La vista a fuoco ───────────────────────────────────────────────────────
+.focus {
+  display: grid;
+  grid-template-columns: 190px minmax(0, 1fr) calc(300px * var(--phone-s, 1));
+  gap: 24px;
+  align-items: start;
+}
+
+.rail {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  > div:first-child .gt { padding-top: 0; }
+  .gt {
+    min-height: 26px;
+    padding-top: 12px;
+    display: flex;
+    align-items: flex-end;
+    padding-inline: 8px;
+    padding-bottom: 6px;
+    @include type.fs(kicker);
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+  button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border: 0;
+    background: none;
+    padding: 7px 8px;
+    border-radius: var(--radius-control);
+    color: var(--text-muted);
+    font: inherit;
+    @include type.fs(small);
+    text-align: left;
+    cursor: pointer;
+    &:hover { background: var(--surface); color: var(--text); }
+    &[aria-current="true"] { background: var(--q-brand-soft); color: var(--q-brand); font-weight: 600; }
+    &:focus-visible { outline: 2px solid var(--q-brand); outline-offset: 2px; }
+  }
+}
+.st { margin-left: auto; width: 7px; height: 7px; border-radius: 50%; flex: none; background: var(--q-warning); }
+
+.fcard {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-surface);
+  padding: 22px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+.fh {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  .fico { width: 36px; height: 36px; border-radius: var(--radius-control); background: var(--q-brand-soft); display: grid; place-items: center; color: var(--q-brand); flex: none; }
+  h3 { @include type.fs(title); font-weight: 650; flex: 1; }
+}
+.fwhy { @include type.fs(small); color: var(--text-muted); margin-top: -12px; max-width: 62ch; }
+.split { height: 1px; background: var(--q-line); }
+.ffoot { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+.savehint { @include type.fs(note); color: var(--text-muted); display: flex; flex-direction: column; gap: 2px; b { color: var(--text); font-weight: 600; } }
+.fside { position: sticky; top: 0; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+
+// Dopo .rail e .fside: prima, il loro `display: flex` li rimetteva a vista.
+@container scheda (max-width: 1050px) {
+  .focus { grid-template-columns: 180px minmax(0, 1fr); }
+  .fside { display: none; }
+}
+@container scheda (max-width: 772px) {
+  .focus { grid-template-columns: minmax(0, 1fr); }
+  .rail { display: none; }
+}
+
+.editor { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+
+// Una parte che la variante prende dal prodotto da cui viene.
+.callout {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  border-radius: var(--radius-control);
+  background: var(--q-brand-soft);
+  @include type.fs(body);
+  > svg { color: var(--q-brand); margin-top: 3px; flex: none; }
+}
+
+// Il piatto a fuoco: foto a sinistra (4:3), nome e descrizione a destra.
+.dish {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+  @container scheda (max-width: 560px) { grid-template-columns: minmax(0, 1fr); }
+}
+.stack { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.contains { @include type.fs(strong); b { font-weight: 600; } }
+
+// ── Testata ────────────────────────────────────────────────────────────────
+.headTitle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  h2 { color: var(--text); @include type.fs(title); font-weight: 650; letter-spacing: -0.005em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0; }
+}
+.crumbs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  @include type.fs(small);
+  color: var(--text-muted);
+  min-width: 0;
+  button { border: 0; background: none; padding: 0; color: var(--text-muted); font: inherit; cursor: pointer; &:hover { color: var(--text); } }
+  strong { color: var(--text); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .root * { transition: none !important; }
+}
+
+.contents { display: contents; }

@@ -110,10 +110,43 @@ async function noSideScroll(page: Page): Promise<void> {
     expect(overflow).toBeLessThanOrEqual(0);
 }
 
-async function openProduct(page: Page, id: string, tab?: string): Promise<void> {
+/** `query`: una parte a fuoco (`parte=scelte`), o un vecchio `?vista=`/`?tab=` (`usage`). */
+async function openProduct(page: Page, id: string, query?: string): Promise<void> {
     if (!/\/business\/[0-9a-f-]+\//.test(page.url())) await openBusinessPage(page, "products", "Prodotti");
-    const url = page.url().replace(/\/business\/([0-9a-f-]+)\/.*$/, `/business/$1/products/${id}${tab ? `?tab=${tab}` : ""}`);
+    const search = query ? `?${query.includes("=") ? query : `tab=${query}`}` : "";
+    const url = page.url().replace(/\/business\/([0-9a-f-]+)\/.*$/, `/business/$1/products/${id}${search}`);
     await page.goto(url);
+}
+
+/** Officina 3: gli Attributi sono una tessera di «Solo per voi» che si apre a fuoco. */
+async function openAttributes(page: Page, open = true): Promise<void> {
+    if (open) await openProduct(page, PRODUCT.hamburger);
+    await tile(page, "Attributi").click({ timeout: 15_000 });
+}
+
+/** La tessera di una parte nel cruscotto (D121): un bottone «Titolo: apri». */
+/** La tessera intera; il pulsante è il suo titolo (`tileButton`). */
+function tile(page: Page, title: string): Locator {
+    return main(page).locator("[id^='prodotto-']", { has: page.getByRole("button", { name: `${title}: apri` }) });
+}
+
+function tileButton(page: Page, title: string): Locator {
+    return main(page).getByRole("button", { name: `${title}: apri` });
+}
+
+/** La colonna delle parti, con una parte a fuoco. */
+function rail(page: Page): Locator {
+    return main(page).getByRole("navigation", { name: /^Parti del/ });
+}
+
+/** Il cruscotto è pronto: il piatto in cima. */
+async function dashboard(page: Page): Promise<void> {
+    await expect(main(page).locator("#prodotto-piatto")).toBeVisible({ timeout: 15_000 });
+}
+
+/** L'editor della parte a fuoco, senza il telefono che ne ripete i testi. */
+function scheda(page: Page): Locator {
+    return main(page).locator("fieldset").first();
 }
 
 let stub: ProdottiStub;
@@ -265,9 +298,8 @@ test.describe("Prodotti — elenco", () => {
         for (const item of [/^Aggiungi variante$/i, /^Duplica$/, /^Elimina$/]) {
             await expect(page.getByRole("menuitem", { name: item })).toBeVisible();
         }
-        // «Modifica» nel drawer non c'è più (§50.9/5): «Apri» porta alla pagina.
-        await expect(page.getByRole("menuitem", { name: /^Modifica/ })).toHaveCount(0);
-        await page.getByRole("menuitem", { name: "Apri" }).click();
+        // «Modifica» porta alla pagina del prodotto (§50.9/5, regola dei menù «…» D115).
+        await page.getByRole("menuitem", { name: "Modifica", exact: true }).click();
         await expect(page).toHaveURL(new RegExp(`/products/${PRODUCT.cheeseburger}$`));
     });
 
@@ -485,9 +517,8 @@ test.describe("Prodotti — negozio", () => {
     test("attributi del prodotto: i valori in bozza, pallino, Salva nell'header", async ({ page }) => {
         stub.onWrite("product_attribute_values.PATCH", () => null);
         stub.onWrite("product_attribute_values.POST", () => null);
-        // Dalla tab: il deep link a freddo ha il suo test nel lotto bug B (P2).
-        await openProduct(page, PRODUCT.hamburger);
-        await page.getByRole("tab", { name: "Attributi" }).click();
+        // Dal riquadro: il deep link a freddo ha il suo test nel lotto bug B (P2).
+        await openAttributes(page);
         const colore = main(page).getByRole("textbox", { name: "Colore" });
         await expect(main(page).getByRole("textbox", { name: "Taglia" })).toHaveValue("M", { timeout: 15_000 });
         await colore.fill("Rosso");
@@ -496,9 +527,9 @@ test.describe("Prodotti — negozio", () => {
         await expect(main(page).getByRole("img", { name: "Modificato, non salvato" })).toHaveCount(1);
         expect(stub.writes.filter(w => w.key.startsWith("product_attribute_values."))).toHaveLength(0);
 
-        // La bozza sopravvive al cambio tab.
-        await page.getByRole("tab", { name: "Scheda" }).click();
-        await page.getByRole("tab", { name: "Attributi" }).click();
+        // La bozza sopravvive a «Fatto».
+        await main(page).getByRole("button", { name: "Fatto", exact: true }).click();
+        await openAttributes(page, false);
         await expect(colore).toHaveValue("Rosso");
 
         await page.getByRole("button", { name: /^Salva( modifiche)?$/ }).first().click();
@@ -507,9 +538,8 @@ test.describe("Prodotti — negozio", () => {
     });
 
     test("attributi del prodotto: un richiesto vuoto blocca il salvataggio", async ({ page }) => {
-        // Dalla tab: il deep link a freddo ha il suo test nel lotto bug B (P2).
-        await openProduct(page, PRODUCT.hamburger);
-        await page.getByRole("tab", { name: "Attributi" }).click();
+        // Dal riquadro: il deep link a freddo ha il suo test nel lotto bug B (P2).
+        await openAttributes(page);
         const taglia = main(page).getByRole("textbox", { name: "Taglia" });
         await expect(taglia).toHaveValue("M", { timeout: 15_000 });
         await taglia.fill("");
@@ -520,30 +550,31 @@ test.describe("Prodotti — negozio", () => {
 
     test("attributi del prodotto: «Rimuovi» è immediato", async ({ page }) => {
         stub.onWrite("product_attribute_values.DELETE", () => null);
-        // Dalla tab: il deep link a freddo ha il suo test nel lotto bug B (P2).
-        await openProduct(page, PRODUCT.hamburger);
-        await page.getByRole("tab", { name: "Attributi" }).click();
+        // Dal riquadro: il deep link a freddo ha il suo test nel lotto bug B (P2).
+        await openAttributes(page);
         await expect(main(page).getByRole("textbox", { name: "Colore" })).toBeVisible({ timeout: 15_000 });
         await main(page).getByRole("button", { name: "Azioni Colore" }).click();
         await page.getByRole("menuitem", { name: "Rimuovi" }).click();
         await expect.poll(() => stub.writes.filter(w => w.key === "product_attribute_values.DELETE").length).toBe(1);
     });
 
-    test("scheda: tab Attributi, niente allergeni né ingredienti", async ({ page }) => {
+    test("pagina: Attributi in «Solo per voi», niente allergeni né ingredienti", async ({ page }) => {
         await openProduct(page, PRODUCT.hamburger);
-        await expect(page.getByRole("tab", { name: "Attributi" })).toBeVisible({ timeout: 15_000 });
+        const solo = main(page).getByRole("region", { name: "Solo per voi" });
+        await expect(solo.getByRole("button", { name: "Attributi: apri" })).toBeVisible({ timeout: 15_000 });
         await expect(main(page).getByText("Allergeni", { exact: true })).toHaveCount(0);
+        await expect(main(page).getByText("Ingredienti", { exact: true })).toHaveCount(0);
         await expect(main(page).getByText("Allergeni e ingredienti non si usano qui")).toBeVisible();
     });
 });
 
 test.describe("Prodotti — dettaglio", () => {
-    test("tab e briciola", async ({ page }) => {
+    test("una pagina sola e briciola", async ({ page }) => {
         await openProduct(page, PRODUCT.hamburger);
-        for (const tab of ["Scheda", "Prezzi & Opzioni", "Traduzioni", "Utilizzo"]) {
-            await expect(page.getByRole("tab", { name: tab })).toBeVisible({ timeout: 15_000 });
-        }
-        await expect(page.getByRole("tab", { name: "Attributi" })).toHaveCount(0);
+        // Officina 3 (D121 1A): niente tab, i gruppi nell'ordine del telefono.
+        await expect(main(page).getByRole("heading", { name: "Quando lo ordina" })).toBeVisible({ timeout: 15_000 });
+        await expect(page.getByRole("heading", { name: "Hamburger", level: 2 })).toBeVisible();
+        await expect(page.getByRole("tab")).toHaveCount(0);
         await expect(page.getByRole("navigation", { name: "Breadcrumb" }).getByText("Hamburger")).toBeVisible();
     });
 
@@ -551,19 +582,24 @@ test.describe("Prodotti — dettaglio", () => {
         await stub.revoke("products.write");
         await openProduct(page, PRODUCT.hamburger);
         await stub.revoked;
-        const name = main(page).getByRole("textbox", { name: /^Nome/ });
-        await expect(name).toHaveValue("Hamburger", { timeout: 15_000 });
-        await expect(name).toBeDisabled();
-        await expect(main(page).getByText(/^Sola lettura/)).toBeVisible();
+        await expect(main(page).getByText(/^Sola lettura/)).toBeVisible({ timeout: 15_000 });
         await expect(page.getByRole("button", { name: /^Salva/ })).toHaveCount(0);
-        await page.getByRole("tab", { name: "Prezzi & Opzioni" }).click();
-        await expect(main(page).getByRole("button", { name: /^Modifica/ }).first()).toBeDisabled();
+        // Le tessere si aprono anche per chi legge: dentro, i campi sono spenti.
+        await main(page).locator("#prodotto-piatto").click();
+        const name = main(page).getByRole("textbox", { name: /^Nome/ });
+        await expect(name).toHaveValue("Hamburger");
+        await expect(name).toBeDisabled();
+        await rail(page).getByRole("button", { name: /^Cosa sceglie il cliente/ }).click();
+        await expect(scheda(page).getByRole("button", { name: /^(Modifica|Aggiungi|Aggiungi una domanda)$/ }).first()).toBeDisabled();
+        await main(page).getByRole("button", { name: "Fatto", exact: true }).click();
+        await dashboard(page);
     });
 
-    test("una variante non ha Traduzioni", async ({ page }) => {
+    test("una variante non ha Traduzioni sue", async ({ page }) => {
         await openProduct(page, PRODUCT.cocaZero);
-        await expect(page.getByRole("tab", { name: "Scheda" })).toBeVisible({ timeout: 15_000 });
-        await expect(page.getByRole("tab", { name: "Traduzioni" })).toHaveCount(0);
+        await expect(tile(page, "Traduzioni")).toContainText("Coca-Cola", { timeout: 15_000 });
+        await openProduct(page, PRODUCT.cocaZero, "parte=piatto");
+        await expect(main(page).getByText(/^Traduzioni: quelle del prodotto da cui viene/)).toBeVisible({ timeout: 15_000 });
     });
 
     test("scheda: bozza, Annulla e Salva (PATCH del nome)", async ({ page }) => {
@@ -571,12 +607,14 @@ test.describe("Prodotti — dettaglio", () => {
         stub.onWrite("rpc.enqueue_translation_jobs", () => null);
         stub.onWrite("translation_jobs.POST", () => []);
         await openProduct(page, PRODUCT.hamburger);
+        await expect(tile(page, "Ingredienti")).toContainText("Carne bovina", { timeout: 15_000 });
+        await main(page).locator("#prodotto-piatto").click();
         const name = main(page).getByRole("textbox", { name: /^Nome/ });
-        await expect(name).toHaveValue("Hamburger", { timeout: 15_000 });
-        await expect(main(page).getByText("Carne bovina")).toBeVisible();
-        await expect(main(page).getByText("Provenienza").first()).toBeVisible();
+        await expect(name).toHaveValue("Hamburger");
 
         await name.fill("Hamburger e2e");
+        // La parte cambiata lo dice, anche nella colonna delle parti.
+        await expect(main(page).getByText("Da salvare").first()).toBeVisible();
         await page.getByRole("button", { name: "Annulla" }).first().click();
         const discard = page.getByRole("alertdialog");
         if (await discard.isVisible().catch(() => false)) await discard.getByRole("button", { name: /Annulla le modifiche|Scarta|Esci senza/ }).click();
@@ -588,32 +626,89 @@ test.describe("Prodotti — dettaglio", () => {
         expect(write(stub, "products.PATCH")?.params.get("id")).toBe(`eq.${PRODUCT.hamburger}`);
     });
 
-    test("scheda a una colonna: le sezioni in ordine, i gruppi non ci sono", async ({ page }) => {
+    test("cruscotto: il piatto col prezzo, «Oggi», le tessere nell'ordine del telefono, il telefono a destra", async ({ page }) => {
+        // Il telefono c'è da uno schermo come il MacBook Air in su.
+        await page.setViewportSize({ width: 1470, height: 830 });
         await openProduct(page, PRODUCT.hamburger);
-        await expect(main(page).getByRole("textbox", { name: /^Nome/ })).toHaveValue("Hamburger", { timeout: 15_000 });
-        const titles = ["Informazioni", "Allergeni", "Ingredienti", "Caratteristiche", "Note prodotto", "Abbinamenti"];
-        const tops: number[] = [];
-        for (const title of titles) {
-            const heading = main(page).getByText(title, { exact: true }).first();
-            await expect(heading).toBeVisible();
-            tops.push((await heading.boundingBox())!.y);
+        await dashboard(page);
+        await expect(main(page).getByRole("button", { name: /Cambia foto, nome e descrizione/ })).toBeVisible();
+        await expect(main(page).locator("#prodotto-prezzo")).toContainText("2,90 €");
+        await expect(main(page).getByRole("region", { name: "Oggi" })).toContainText(/Oggi lo vedono|nessun cliente lo vede/);
+        const phone = page.getByRole("complementary", { name: "Così lo vede il cliente" });
+        await expect(phone).toBeVisible();
+        await expect(phone.getByText("Sul telefono")).toBeVisible();
+        for (const heading of ["Sotto il nome", "Quando lo ordina", "Più in basso", "Solo per voi"]) {
+            await expect(main(page).getByRole("heading", { name: heading })).toBeVisible();
         }
-        expect([...tops].sort((a, b) => a - b)).toEqual(tops);
+        for (const title of ["Caratteristiche", "Allergeni", "Cosa sceglie il cliente", "Perfetto con", "Ingredienti", "Note", "Traduzioni", "Dove si vede", "Varianti"]) {
+            await expect(tile(page, title)).toBeVisible();
+        }
+        // Le tessere vanno nell'ordine del telefono, dall'alto in basso.
+        const tops = await main(page).locator("[data-k]").evaluateAll(els => els.map(el => el.getAttribute("data-k")));
+        expect(tops).toEqual(["piatto", "prezzo", "caratteristiche", "allergeni", "scelte", "abbinamenti", "ingredienti", "note", "traduzioni", "dove", "varianti"]);
         await expect(main(page).getByText("Gruppi prodotto")).toHaveCount(0);
     });
 
-    test("ingredienti: chip e «Modifica» nel drawer, «Applica» porta in bozza, Salva scrive", async ({ page }) => {
+    test("parte a fuoco: la tessera la apre, la colonna cambia parte, «Fatto» ed Esc tornano al cruscotto", async ({ page }) => {
+        await openProduct(page, PRODUCT.hamburger);
+        await tile(page, "Dove si vede").click({ timeout: 15_000 });
+        await expect(main(page).getByRole("heading", { name: "Dove si vede" })).toBeVisible();
+        await expect(page).toHaveURL(/parte=dove/);
+        // In testata il percorso «prodotto › parte».
+        await expect(page.getByRole("button", { name: "Hamburger", exact: true })).toBeVisible();
+        await rail(page).getByRole("button", { name: /^Allergeni/ }).click();
+        await expect(page).toHaveURL(/parte=allergeni/);
+        await expect(main(page).getByRole("heading", { name: "Allergeni" })).toBeVisible();
+        await main(page).getByRole("button", { name: "Fatto", exact: true }).click();
+        await expect(page).not.toHaveURL(/parte=/);
+        await dashboard(page);
+        // Indietro nel browser riapre la parte; Esc la richiude.
+        await page.goBack();
+        await expect(page).toHaveURL(/parte=allergeni/);
+        await page.keyboard.press("Escape");
+        await dashboard(page);
+        // Il vecchio `?vista=` porta alla stessa parte.
+        await openProduct(page, PRODUCT.hamburger, "vista=dove");
+        await expect(main(page).getByRole("heading", { name: "Dove si vede" })).toBeVisible({ timeout: 15_000 });
+    });
+
+    test("allergeni: i bollini in bozza, la tessera e il telefono li dicono prima del Salva", async ({ page }) => {
+        stub.onWrite("rpc.replace_product_allergens", () => null);
+        await openProduct(page, PRODUCT.hamburger, "parte=allergeni");
+        // Gli allergeni sono quelli veri della piattaforma: si prende il primo.
+        // Il Chip dice «scelto» con aria-checked.
+        const first = scheda(page).locator("button[aria-checked='false']").first();
+        await expect(first).toBeVisible({ timeout: 15_000 });
+        const label = (await first.innerText()).trim();
+        // Per nome: «il primo non scelto», dopo il clic, sarebbe un altro.
+        const chip = scheda(page).getByRole("button", { name: label, exact: true });
+        await chip.click();
+        await expect(chip).toHaveAttribute("aria-checked", "true");
+        await expect(scheda(page).locator("p", { hasText: "Contiene:" })).toContainText(label.toLowerCase());
+        expect(stub.writes.filter(w => w.key === "rpc.replace_product_allergens")).toHaveLength(0);
+        await main(page).getByRole("button", { name: "Fatto", exact: true }).click();
+        await expect(tile(page, "Allergeni")).toContainText(label);
+        await page.getByRole("button", { name: /^Salva( modifiche)?$/ }).first().click();
+        await expect.poll(() => stub.writes.filter(w => w.key === "rpc.replace_product_allergens").length).toBe(1);
+    });
+
+    test("«Oggi»: «Scrivila» apre il piatto col cursore nella descrizione", async ({ page }) => {
+        stub.tables.products = stub.tables.products.map(p => (p.id === PRODUCT.hamburger ? { ...p, description: null } : p));
+        await openProduct(page, PRODUCT.hamburger);
+        await main(page).getByRole("region", { name: "Oggi" }).getByRole("button", { name: "Scrivila" }).click({ timeout: 15_000 });
+        await expect(page).toHaveURL(/parte=piatto/);
+        await expect(main(page).getByRole("textbox", { name: "Descrizione" })).toBeFocused();
+    });
+
+    test("ingredienti: si scelgono nella parte a fuoco, in bozza; Salva scrive", async ({ page }) => {
         stub.onWrite("rpc.replace_product_ingredients", () => null);
         await openProduct(page, PRODUCT.hamburger);
-        const card = main(page).getByText("Ingredienti", { exact: true }).locator("xpath=ancestor::section[1]");
-        await expect(card.getByRole("button", { name: "Pane" })).toBeVisible({ timeout: 15_000 });
-        await expect(card.getByRole("button", { name: "Carne bovina" })).toBeVisible();
-        await card.getByRole("button", { name: "Modifica" }).click();
-        await expect(dialog(page)).toContainText("Modifica ingredienti");
-        // Nel drawer il chip scelto si toglie con un clic (combobox di prima).
-        await dialog(page).getByLabel("Pane", { exact: true }).click();
-        await dialog(page).getByRole("button", { name: "Applica" }).click();
-        await expect(card.getByRole("button", { name: "Pane" })).toHaveCount(0);
+        await tile(page, "Ingredienti").click({ timeout: 15_000 });
+        const card = scheda(page);
+        await expect(card.getByLabel("Pane", { exact: true })).toBeVisible({ timeout: 15_000 });
+        // Niente drawer: il chip scelto si toglie con un clic (combobox di prima).
+        await card.getByLabel("Pane", { exact: true }).click();
+        expect(stub.writes.filter(w => w.key === "rpc.replace_product_ingredients")).toHaveLength(0);
         await page.getByRole("button", { name: /^Salva( modifiche)?$/ }).first().click();
         await expect
             .poll(() => write(stub, "rpc.replace_product_ingredients")?.body)
@@ -629,7 +724,7 @@ test.describe("Prodotti — dettaglio", () => {
     });
 
     test("uscita con modifiche: la guardia chiede, «Annulla» resta", async ({ page }) => {
-        await openProduct(page, PRODUCT.hamburger);
+        await openProduct(page, PRODUCT.hamburger, "parte=piatto");
         const name = main(page).getByRole("textbox", { name: /^Nome/ });
         await expect(name).toHaveValue("Hamburger", { timeout: 15_000 });
         await name.fill("Hamburger e2e");
@@ -641,57 +736,86 @@ test.describe("Prodotti — dettaglio", () => {
         await expect(name).toHaveValue("Hamburger e2e");
     });
 
-    test("variante: nota sui campi ereditati", async ({ page }) => {
-        await openProduct(page, PRODUCT.cocaZero);
-        await expect(main(page).getByText(/una variante eredita quelli del padre/)).toBeVisible({ timeout: 15_000 });
-        await expect(main(page).getByText("Note prodotto", { exact: true })).toHaveCount(0);
+    test("variante: le parti ereditate dicono da dove vengono e portano al padre", async ({ page }) => {
+        await openProduct(page, PRODUCT.cocaZero, "piu");
+        await expect(tile(page, "Note")).toContainText("Li prende da Coca-Cola", { timeout: 15_000 });
+        await expect(page.getByText("Variante di Coca-Cola", { exact: true })).toBeVisible();
+        await expect(tile(page, "Varianti")).toHaveCount(0);
+        await tile(page, "Note").click();
+        await expect(main(page).getByText(/Questa parte la prende da/)).toBeVisible();
+        await expect(main(page).locator("fieldset")).toHaveCount(0);
+        await main(page).getByRole("button", { name: "Apri Coca-Cola" }).click();
+        await expect(page).toHaveURL(new RegExp(`/products/${PRODUCT.cocaCola}$`));
+        await dashboard(page);
     });
 
-    test("prezzi: prezzo unico (PATCH) e formati", async ({ page }) => {
+    test("prezzi: prezzo unico nella bozza (PATCH col Salva della pagina) e formati", async ({ page }) => {
         stub.onWrite("products.PATCH", call => [{ ...stub.tables.products[0], ...(call.body as object) }]);
         await openProduct(page, PRODUCT.hamburger, "prezzi-opzioni");
-        await expect(main(page).getByText(/2[.,]90/).first()).toBeVisible({ timeout: 15_000 });
-        await main(page).getByRole("button", { name: /^Modifica( prezzo)?$/ }).first().click();
-        await main(page).getByRole("spinbutton").first().fill("3.2");
-        await main(page).getByRole("button", { name: /^Salva( prezzo)?$/ }).first().click();
+        const price = main(page).getByRole("spinbutton", { name: "Prezzo" });
+        await expect(price).toHaveValue(/2[.,]9/, { timeout: 15_000 });
+        await price.fill("3.2");
+        expect(stub.writes.filter(w => w.key === "products.PATCH")).toHaveLength(0);
+        await page.getByRole("button", { name: /^Salva( modifiche)?$/ }).first().click();
         await expect.poll(() => write(stub, "products.PATCH")?.body).toMatchObject({ base_price: 3.2 });
 
         await openProduct(page, PRODUCT.patatine, "prezzi-opzioni");
         for (const format of ["Piccole", "Medie", "Grandi"]) {
-            await expect(main(page).getByText(format, { exact: true })).toBeVisible({ timeout: 15_000 });
+            await expect(scheda(page).getByText(format, { exact: true })).toBeVisible({ timeout: 15_000 });
         }
     });
 
-    test("prezzi: modalità su SegmentedControl, formato eliminato solo dopo conferma", async ({ page }) => {
+    test("prezzi: modalità a schede «Un prezzo · Più formati», formato tolto nella bozza e cancellato col Salva", async ({ page }) => {
         stub.onWrite("product_option_values.DELETE", () => null);
         await openProduct(page, PRODUCT.patatine, "prezzi-opzioni");
-        await expect(main(page).getByText(/ogni modifica si salva subito/)).toBeVisible({ timeout: 15_000 });
-        await expect(main(page).getByRole("radio", { name: "Prezzo per formato" })).toHaveAttribute("aria-checked", "true");
-        await expect(main(page).getByText("2,50 €", { exact: true })).toBeVisible();
-        await expect(main(page).getByText("Nel menù si legge «da 2,50 €»")).toBeVisible();
+        await expect(main(page).getByRole("radio", { name: /^Più formati/ })).toBeChecked({ timeout: 15_000 });
+        await expect(scheda(page).getByText("2,50 €", { exact: true })).toBeVisible();
+        await expect(scheda(page).getByText("Nel menù si legge «da 2,50 €»")).toBeVisible();
 
-        await actionsOf(main(page).getByText("Grandi", { exact: true })).click();
+        await actionsOf(scheda(page).getByText("Grandi", { exact: true })).click();
         await page.getByRole("menuitem", { name: "Elimina" }).click();
-        const confirm = page.getByRole("alertdialog");
-        await expect(confirm).toContainText("Eliminare «Grandi»?");
+        await expect(page.getByRole("alertdialog")).toHaveCount(0);
+        await expect(scheda(page).getByText("Grandi", { exact: true })).toHaveCount(0);
         expect(stub.writes.filter(w => w.key === "product_option_values.DELETE")).toHaveLength(0);
-        await confirm.getByRole("button", { name: "Elimina" }).click();
+        await page.getByRole("button", { name: /^Salva( modifiche)?$/ }).first().click();
         await expect.poll(() => write(stub, "product_option_values.DELETE")?.params.get("id")).toBeTruthy();
     });
 
-    test("variante: «Usa il prezzo del padre» chiede conferma e azzera il prezzo", async ({ page }) => {
+    test("prezzi: tornare a prezzo unico è nella bozza; il Salva toglie il gruppo dei formati", async ({ page }) => {
+        stub.onWrite("product_option_groups.DELETE", () => null);
+        await openProduct(page, PRODUCT.patatine);
+        await expect(main(page).locator("#prodotto-prezzo")).toContainText("da 2,50 €", { timeout: 15_000 });
+        await main(page).locator("#prodotto-prezzo").click();
+        await main(page).getByRole("radio", { name: /^Un prezzo/ }).click({ timeout: 15_000 });
+        await expect(page.getByRole("alertdialog")).toHaveCount(0);
+        await expect(scheda(page).getByText("Grandi", { exact: true })).toHaveCount(0);
+        expect(stub.writes.filter(w => w.key === "product_option_groups.DELETE")).toHaveLength(0);
+        await page.getByRole("button", { name: "Annulla" }).first().click();
+        const discard = page.getByRole("alertdialog");
+        if (await discard.isVisible().catch(() => false)) await discard.getByRole("button", { name: /Annulla le modifiche|Scarta|Esci senza/ }).click();
+        await expect(scheda(page).getByText("Grandi", { exact: true })).toBeVisible();
+        await main(page).getByRole("radio", { name: /^Un prezzo/ }).click();
+        await page.getByRole("button", { name: /^Salva( modifiche)?$/ }).first().click();
+        await expect.poll(() => write(stub, "product_option_groups.DELETE")?.params.get("id")).toBeTruthy();
+    });
+
+    test("variante: «Usa il prezzo del padre» va in bozza e il Salva azzera il prezzo", async ({ page }) => {
         stub.onWrite("products.PATCH", call => [{ ...stub.tables.products.find(p => p.id === PRODUCT.cocaLight), ...(call.body as object) }]);
         await openProduct(page, PRODUCT.cocaLight, "prezzi-opzioni");
-        await expect(main(page).getByText("2,70 €")).toBeVisible({ timeout: 15_000 });
+        await expect(main(page).getByRole("spinbutton", { name: "Prezzo" })).toHaveValue(/2[.,]7/, { timeout: 15_000 });
         await main(page).getByRole("button", { name: "Usa il prezzo del padre" }).click();
-        await expect(page.getByRole("alertdialog")).toContainText("Il prezzo della variante (2,70 €) si cancella.");
-        await page.getByRole("alertdialog").getByRole("button", { name: "Usa il prezzo del padre" }).click();
+        await expect(main(page).getByText(/usa il prezzo del prodotto padre/)).toBeVisible();
+        expect(stub.writes.filter(w => w.key === "products.PATCH")).toHaveLength(0);
+        await page.getByRole("button", { name: /^Salva( modifiche)?$/ }).first().click();
         await expect.poll(() => write(stub, "products.PATCH")?.body).toMatchObject({ base_price: null });
     });
 
     test("redirect legacy ?tab=pricing", async ({ page }) => {
         await openProduct(page, PRODUCT.hamburger, "pricing");
-        await expect(page.getByRole("tab", { name: "Prezzi & Opzioni" })).toHaveAttribute("aria-selected", "true", { timeout: 15_000 });
+        await expect(main(page).getByRole("radio", { name: /^Un prezzo/ })).toBeVisible({ timeout: 15_000 });
+        await expect(main(page).getByRole("heading", { name: "Prezzo", exact: true }).first()).toBeVisible();
+        await main(page).getByRole("button", { name: "Fatto", exact: true }).click();
+        await dashboard(page);
     });
 
     test("utilizzo: menù con la categoria, regole, sedi; la riga intera apre il menù sulla categoria", async ({ page }) => {
@@ -726,8 +850,13 @@ test.describe("Prodotti — larghezze", () => {
             await expect(product(page, "Hamburger")).toBeVisible({ timeout: 15_000 });
             await noSideScroll(page);
             await openProduct(page, PRODUCT.hamburger);
-            await expect(main(page).getByRole("textbox", { name: /^Nome/ })).toBeVisible({ timeout: 15_000 });
+            await dashboard(page);
             await noSideScroll(page);
+            for (const part of ["piatto", "prezzo", "scelte", "dove"]) {
+                await openProduct(page, PRODUCT.hamburger, `parte=${part}`);
+                await expect(main(page).getByRole("button", { name: "Fatto", exact: true })).toBeVisible({ timeout: 15_000 });
+                await noSideScroll(page);
+            }
         });
     }
 });
@@ -739,9 +868,9 @@ test.describe("Prodotti — larghezze", () => {
 test.describe("Prodotti — lotto bug B", () => {
     test.use({ viewport: { width: 1440, height: 900 } });
 
-    /** La card «Prezzo» di Prezzi & Opzioni: le Configurazioni hanno la stessa riga di aggiunta. */
+    /** La parte «Prezzo» a fuoco: le Configurazioni hanno la stessa riga di aggiunta, ma stanno in un'altra parte. */
     function priceCard(page: Page): Locator {
-        return main(page).getByText("Prezzo", { exact: true }).first().locator("xpath=ancestor::section[1]");
+        return scheda(page);
     }
 
     test("P1: «Imposta un prezzo proprio» su una variante che eredita apre il campo", async ({ page }) => {
@@ -751,19 +880,20 @@ test.describe("Prodotti — lotto bug B", () => {
         const price = main(page).getByRole("spinbutton", { name: "Prezzo" });
         await expect(price).toBeVisible();
         await price.fill("2.9");
-        await main(page).getByRole("button", { name: "Salva" }).click();
+        await page.getByRole("button", { name: /^Salva( modifiche)?$/ }).first().click();
         await expect.poll(() => write(stub, "products.PATCH")?.body).toMatchObject({ base_price: 2.9 });
     });
 
-    test("P2: in F&B un ?tab=attributes a freddo cade sulla Scheda", async ({ page }) => {
+    test("P2: in F&B un ?tab=attributes a freddo cade sulla pagina, senza Attributi", async ({ page }) => {
         await openProduct(page, PRODUCT.hamburger, "attributes");
-        await expect(page.getByRole("tab", { name: "Scheda" })).toHaveAttribute("aria-selected", "true", { timeout: 15_000 });
-        await expect(page.getByRole("tab", { name: "Attributi" })).toHaveCount(0);
+        await dashboard(page);
+        await expect(main(page).getByRole("heading", { name: "Attributi" })).toHaveCount(0);
+        await expect(tile(page, "Attributi")).toHaveCount(0);
     });
 
     test("P3: nel tema scuro l'anteprima vuota dell'immagine non è chiara", async ({ page }) => {
         await page.addInitScript(() => localStorage.setItem("theme", "dark"));
-        await openProduct(page, PRODUCT.hamburger);
+        await openProduct(page, PRODUCT.hamburger, "parte=piatto");
         const dropzone = main(page).getByRole("button", { name: /Clicca o trascina/ });
         await expect(dropzone).toBeVisible({ timeout: 15_000 });
         const background = await dropzone.evaluate(el => getComputedStyle(el.parentElement as HTMLElement).backgroundColor);
@@ -845,15 +975,20 @@ test.describe("Prodotti — lotto bug B", () => {
         stub.onWrite("products.PATCH", call => [{ ...stub.tables.products.find(p => p.id === PRODUCT.cocaCola), ...(call.body as object) }]);
         stub.onWrite("rpc.enqueue_translation_jobs", () => null);
         stub.onWrite("translation_jobs.POST", () => []);
-        await openProduct(page, PRODUCT.cocaCola, "prezzi-opzioni");
+        await openProduct(page, PRODUCT.cocaCola, "parte=varianti");
         const zero = main(page).getByRole("row", { name: /Coca-Cola Zero/ });
         await expect(zero).toContainText("2,50 € (ereditato)", { timeout: 15_000 });
-        await main(page).getByRole("radio", { name: "Prezzo per formato" }).click();
+        await rail(page).getByRole("button", { name: /^Prezzo/ }).click();
+        await main(page).getByRole("radio", { name: /^Più formati/ }).click();
         const card = priceCard(page);
         await card.getByRole("textbox", { name: "Nome" }).fill("Lattina");
         await card.getByRole("spinbutton", { name: "Prezzo" }).fill("3");
         await card.getByRole("button", { name: "Aggiungi" }).click();
         await expect(card.getByText("Lattina", { exact: true })).toBeVisible();
+        expect(stub.writes.filter(w => w.key === "product_option_values.POST")).toHaveLength(0);
+        await page.getByRole("button", { name: /^Salva( modifiche)?$/ }).first().click();
+        await expect.poll(() => write(stub, "product_option_values.POST")?.body).toMatchObject({ name: "Lattina", absolute_price: 3 });
+        await rail(page).getByRole("button", { name: /^Varianti/ }).click();
         await expect(zero).toContainText("3,00 € (ereditato)");
     });
 
@@ -879,7 +1014,7 @@ test.describe("Prodotti — lotto bug B", () => {
     }
 
     async function editAddonGroup(page: Page): Promise<void> {
-        await openProduct(page, PRODUCT.hamburger, "prezzi-opzioni");
+        await openProduct(page, PRODUCT.hamburger, "vista=scelte");
         await main(page).getByRole("button", { name: "Azioni Aggiunte e2e" }).click({ timeout: 15_000 });
         await page.getByRole("menuitem", { name: "Modifica" }).click();
     }
@@ -924,7 +1059,7 @@ test.describe("Prodotti — lotto bug B", () => {
         await expect(main(page).getByText(/da 2 in su/)).toBeVisible();
         await main(page).getByRole("button", { name: "Annulla" }).click();
 
-        await main(page).getByRole("button", { name: "Nuovo gruppo" }).click();
+        await main(page).getByRole("button", { name: "Aggiungi una domanda" }).click();
         await main(page).getByRole("textbox", { name: /Cosa può scegliere il cliente/ }).fill("Salse e2e");
         await main(page).getByRole("button", { name: "Modifica le regole di scelta" }).click();
         await main(page).getByRole("radio", { name: "Sì, più d'una" }).click();
@@ -937,7 +1072,7 @@ test.describe("Prodotti — lotto bug B", () => {
     test("r.7: un formato senza prezzo non parte", async ({ page }) => {
         stub.onWrite("product_option_values.POST", call => [call.body]);
         await openProduct(page, PRODUCT.patatine, "prezzi-opzioni");
-        await expect(main(page).getByText("Grandi", { exact: true })).toBeVisible({ timeout: 15_000 });
+        await expect(scheda(page).getByText("Grandi", { exact: true })).toBeVisible({ timeout: 15_000 });
         const card = priceCard(page);
         await card.getByRole("textbox", { name: "Nome" }).fill("Maxi");
         await card.getByRole("button", { name: "Aggiungi" }).click();
@@ -998,7 +1133,7 @@ test.describe("Prodotti — lotto bug B", () => {
 
         test("P2: ?tab=attributes a freddo apre gli Attributi del prodotto", async ({ page }) => {
             await openProduct(page, PRODUCT.hamburger, "attributes");
-            await expect(page.getByRole("tab", { name: "Attributi" })).toHaveAttribute("aria-selected", "true", { timeout: 15_000 });
+            await expect(main(page).getByRole("heading", { name: "Attributi" }).first()).toBeVisible({ timeout: 15_000 });
             await expect(main(page).getByRole("textbox", { name: "Taglia" })).toHaveValue("M", { timeout: 15_000 });
             await expect(page).toHaveURL(/\?tab=attributes$/);
         });
@@ -1039,5 +1174,128 @@ test.describe("Prodotti — lotto bug B", () => {
             for (const label of labels) await expect(dialog(page).getByLabel(label)).toHaveCount(0);
             expect(stub.writes).toHaveLength(0);
         });
+    });
+
+    // ── Review della #336 (Lorenzo, 2026-10-09), parti del prodotto ──────
+
+    /** «Più formati» sull'Hamburger, con i formati aggiunti in bozza. */
+    async function addFormats(page: Page, formats: [string, string][]): Promise<void> {
+        await openProduct(page, PRODUCT.hamburger, "prezzi-opzioni");
+        await main(page).getByRole("radio", { name: /^Più formati/ }).click({ timeout: 15_000 });
+        const card = priceCard(page);
+        for (const [name, price] of formats) {
+            await card.getByRole("textbox", { name: "Nome" }).fill(name);
+            await card.getByRole("spinbutton", { name: "Prezzo" }).fill(price);
+            await card.getByRole("button", { name: "Aggiungi" }).click();
+            await expect(card.getByText(name, { exact: true })).toBeVisible();
+        }
+    }
+
+    /** Gruppo e formati scritti finiscono nelle tabelle finte: la ricarica li ritrova. */
+    function storeOptions(failValue?: (name: string) => boolean): void {
+        let n = 0;
+        stub.onWrite("product_option_groups.POST", call => {
+            n += 1;
+            const row = { ...(call.body as object), id: `e2e0d000-0000-4000-a000-00000000098${n}`, sort_order: 0, created_at: "2026-03-17T10:00:00.000Z" };
+            stub.tables.product_option_groups.push(row);
+            return row;
+        });
+        let v = 0;
+        stub.onWrite("product_option_values.POST", call => {
+            const body = call.body as { name: string };
+            if (failValue?.(body.name)) return new StubError(500);
+            v += 1;
+            const row = { ...body, id: `e2e0d000-0000-4000-a000-00000000099${v}`, sort_order: 0, created_at: "2026-03-17T10:00:00.000Z" };
+            stub.tables.product_option_values.push(row);
+            return row;
+        });
+        stub.onWrite("products.PATCH", call => [{ ...stub.tables.products.find(p => p.id === PRODUCT.hamburger), ...(call.body as object) }]);
+    }
+
+    const saveButton = (page: Page) => page.getByRole("button", { name: /^Salva( modifiche)?$/ }).first();
+    const posted = (key: string, name?: string) =>
+        stub.writes.filter(w => w.key === key && (name === undefined || (w.body as { name?: string }).name === name)).length;
+
+    test("#336.1: un Salva interrotto a metà non rifà il gruppo né i formati già creati", async ({ page }) => {
+        let failGrande = true;
+        storeOptions(name => name === "Grande" && failGrande);
+        await addFormats(page, [
+            ["Piccolo", "3"],
+            ["Grande", "4"]
+        ]);
+        await saveButton(page).click();
+        await expect(page.getByText("Non è stato possibile salvare: Formati")).toBeVisible();
+        expect(posted("product_option_groups.POST")).toBe(1);
+
+        failGrande = false;
+        await saveButton(page).click();
+        await expect.poll(() => posted("product_option_values.POST", "Grande")).toBe(2);
+        expect(posted("product_option_groups.POST")).toBe(1);
+        expect(posted("product_option_values.POST", "Piccolo")).toBe(1);
+    });
+
+    test("#336.3: due clic sul Salva scrivono una volta sola", async ({ page }) => {
+        storeOptions();
+        await addFormats(page, [["Piccolo", "3"]]);
+        await saveButton(page).dblclick();
+        await expect.poll(() => posted("product_option_values.POST", "Piccolo")).toBe(1);
+        await expect(saveButton(page)).toHaveCount(0);
+        expect(posted("product_option_groups.POST")).toBe(1);
+        expect(posted("product_option_values.POST", "Piccolo")).toBe(1);
+    });
+
+    test("#336.2: una domanda salvata in «Scelte» non cancella i formati in bozza", async ({ page }) => {
+        storeOptions();
+        await addFormats(page, [["Grande", "4"]]);
+        await rail(page).getByRole("button", { name: /^Cosa sceglie il cliente/ }).click();
+        await main(page).getByRole("button", { name: "Aggiungi una domanda" }).click();
+        await main(page).getByRole("textbox", { name: /Cosa può scegliere il cliente/ }).fill("Salse e2e");
+        await main(page).getByRole("button", { name: /^Crea$/ }).click();
+        await expect.poll(() => posted("product_option_groups.POST")).toBe(1);
+        await rail(page).getByRole("button", { name: /^Prezzo/ }).click();
+        await expect(main(page).getByRole("radio", { name: /^Più formati/ })).toBeChecked();
+        await expect(priceCard(page).getByText("Grande", { exact: true })).toBeVisible();
+        await expect(saveButton(page)).toBeVisible();
+    });
+
+    test("#336.6: il vecchio ?tab=variants apre le Varianti", async ({ page }) => {
+        await openProduct(page, PRODUCT.cocaCola, "variants");
+        await expect(rail(page).getByRole("button", { name: /^Varianti/ })).toHaveAttribute("aria-current", "true", { timeout: 15_000 });
+    });
+
+    test("#336.7: su una variante, «Annulla» dopo «Imposta un prezzo proprio» torna al prezzo del padre", async ({ page }) => {
+        await openProduct(page, PRODUCT.cocaZero, "prezzi-opzioni");
+        await main(page).getByRole("button", { name: "Imposta un prezzo proprio" }).click({ timeout: 15_000 });
+        await main(page).getByRole("spinbutton", { name: "Prezzo" }).fill("2.9");
+        await page.getByRole("button", { name: "Annulla" }).first().click();
+        const discard = page.getByRole("alertdialog");
+        if (await discard.isVisible().catch(() => false)) await discard.getByRole("button", { name: /Annulla le modifiche|Scarta|Esci senza/ }).click();
+        await expect(main(page).getByText(/usa il prezzo del prodotto padre/)).toBeVisible();
+        await expect(main(page).getByRole("spinbutton", { name: "Prezzo" })).toHaveCount(0);
+        await expect(main(page).getByRole("button", { name: "Imposta un prezzo proprio" })).toBeVisible();
+    });
+
+    test("#336.11: Esc nella modifica di un formato annulla la riga, non chiude la parte", async ({ page }) => {
+        await openProduct(page, PRODUCT.patatine, "prezzi-opzioni");
+        await expect(scheda(page).getByText("Grandi", { exact: true })).toBeVisible({ timeout: 15_000 });
+        await actionsOf(scheda(page).getByText("Grandi", { exact: true })).click();
+        await page.getByRole("menuitem", { name: "Modifica" }).click();
+        const name = priceCard(page).getByRole("textbox", { name: "Nome" }).first();
+        await expect(name).toHaveValue("Grandi");
+        await name.press("Escape");
+        await expect(priceCard(page).getByRole("textbox", { name: "Nome" })).not.toHaveValue("Grandi");
+        await expect(main(page).getByRole("button", { name: "Fatto", exact: true })).toBeVisible();
+        await expect(rail(page)).toBeVisible();
+    });
+
+    test("#336.4: la tessera del prodotto ha come pulsante il titolo, non tutta la scatola", async ({ page }) => {
+        await openProduct(page, PRODUCT.hamburger);
+        const open = tileButton(page, "Caratteristiche");
+        await expect(open).toBeVisible({ timeout: 15_000 });
+        expect(await open.evaluate(el => el.tagName)).toBe("BUTTON");
+        await expect(main(page).locator("[role='button'][id^='prodotto-']")).toHaveCount(0);
+        await open.focus();
+        await page.keyboard.press("Enter");
+        await expect(rail(page)).toBeVisible();
     });
 });

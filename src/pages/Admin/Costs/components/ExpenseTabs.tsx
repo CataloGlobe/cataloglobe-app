@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button/Button";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { ProgressBar } from "@/components/ui/ProgressBar/ProgressBar";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
+import { rowAction } from "@/components/ui/TableRowActions/rowAction";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
 import Text from "@/components/ui/Text/Text";
 import {
@@ -92,8 +93,8 @@ export function ExpenseTabs({
         <TableRowActions
             ariaLabel={`Azioni: ${expense.name}`}
             actions={[
-                { label: "Modifica", onClick: () => onOpen(expense) },
-                { label: "Elimina", variant: "destructive", separator: true, onClick: () => onDelete(expense) }
+                rowAction.edit(() => onOpen(expense)),
+                rowAction.remove(() => onDelete(expense))
             ]}
         />
     );

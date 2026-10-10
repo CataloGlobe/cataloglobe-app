@@ -17,9 +17,10 @@ import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
 import { AiSparkles } from "@/components/ui/Button/AiSparkles";
 import { IconBook2 } from "@tabler/icons-react";
-import { Sparkles, Eye, LayoutGrid, List as ListIcon } from "lucide-react";
+import { Sparkles, Eye, LayoutGrid, List as ListIcon, TextCursorInput } from "lucide-react";
 import { Loader } from "@/components/ui/Loader/Loader";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
+import { rowAction } from "@/components/ui/TableRowActions/rowAction";
 import {
     listCatalogs,
     deleteCatalog,
@@ -427,28 +428,20 @@ export default function Catalogs() {
         <TableRowActions
             ariaLabel={`Azioni ${catalog.name}`}
             actions={[
+                rowAction.edit(() => navigate(`/business/${currentTenantId}/catalogs/${catalog.id}`)),
+                rowAction.duplicate(() => void handleDuplicate(catalog), {
+                    label: duplicatingId === catalog.id ? "Duplicazione…" : "Duplica",
+                    disabled: duplicatingId !== null
+                }),
                 {
                     label: `Aggiungi ${productPluralLower} con AI`,
                     icon: Sparkles,
                     variant: "accent",
                     onClick: () => handleAddWithAi(catalog)
                 },
-                {
-                    label: "Rinomina",
-                    onClick: () => handleOpenEdit(catalog),
-                    separator: true
-                },
-                {
-                    label: duplicatingId === catalog.id ? "Duplicazione…" : "Duplica",
-                    onClick: () => void handleDuplicate(catalog),
-                    disabled: duplicatingId !== null
-                },
-                {
-                    label: `Elimina ${catalogLower}`,
-                    onClick: () => handleOpenDelete(catalog),
-                    variant: "destructive",
-                    separator: true
-                }
+                // Il nome del menù non si cambia nel dettaglio: finché non ci arriva resta qui.
+                { label: "Rinomina", icon: TextCursorInput, onClick: () => handleOpenEdit(catalog) },
+                rowAction.remove(() => handleOpenDelete(catalog))
             ]}
         />
     );

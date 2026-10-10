@@ -1,18 +1,22 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/Button/Button";
 import { Badge } from "@/components/ui/Badge/Badge";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { NumberInput } from "@/components/ui/Input/NumberInput";
+import type { BasePriceDraft } from "./hooks/useBasePriceDraft";
+import type { FormatsDraft } from "./hooks/useFormatsDraft";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
+import { rowAction } from "@/components/ui/TableRowActions/rowAction";
 import { Plus } from "lucide-react";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { DataTable, ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
-import { Card } from "@/components/ui/Card/Card";
+import { RadioGroup } from "@/components/ui/RadioGroup/RadioGroup";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { formatPrice } from "@/utils/formatCurrency";
+import { ruleText } from "./scheda/prodottoModel";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import Text from "@/components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
@@ -39,6 +43,7 @@ import { resolvePriceMode, shouldConfirmRevertToUnico, type PriceMode } from "./
 import { getDisplayPrice } from "@/utils/priceDisplay";
 import { resolvePriceSummary } from "@/utils/priceSummary";
 import styles from "./PrezziOpzioniTab.module.scss";
+import { PrezziSection } from "./PrezziSection";
 
 function computeFromPrice(
     group: GroupWithValues | null | undefined,
@@ -54,8 +59,8 @@ function computeFromPrice(
 /** Riga informativa sotto la lista formati — stessa regola del resolver
  * (`resolveActivityCatalogs.ts`): 1 valore prezzato → prezzo secco, 2+ →
  * "da X" sul minimo. */
-function formatPricePreview(group: GroupWithValues, menuLabel: string): string | null {
-    const summary = resolvePriceSummary(group.values.map(v => v.absolute_price));
+function formatPricePreview(values: { absolute_price: number | null }[], menuLabel: string): string | null {
+    const summary = resolvePriceSummary(values.map(v => v.absolute_price));
     if (summary.kind === "none" || summary.min === null) return null;
     const price = formatPrice(summary.min);
     return `Nel ${menuLabel} si legge «${summary.kind === "single" ? price : `da ${price}`}»`;
@@ -71,6 +76,12 @@ interface PrezziOpzioniTabProps {
     onRefreshOptions: () => Promise<void>;
     onProductUpdated: (product: V2Product) => void;
     onOpenVariantDrawer: () => void;
+    /** Officina 3: la pagina del prodotto mostra una card alla volta, nel suo riquadro. */
+    only?: "prezzo" | "scelte" | "varianti";
+    /** Officina 3 (D103 A): il prezzo unico sta nella bozza della pagina, senza un Salva suo. */
+    basePriceDraft?: BasePriceDraft;
+    /** Officina 3 (D103 A): anche il modo e i formati stanno nella bozza. */
+    formatsDraft?: FormatsDraft;
 }
 
 /**
@@ -89,9 +100,13 @@ export default function PrezziOpzioniTab({
     optionsLoading,
     onRefreshOptions,
     onProductUpdated,
-    onOpenVariantDrawer
+    onOpenVariantDrawer,
+    only,
+    basePriceDraft,
+    formatsDraft
 }: PrezziOpzioniTabProps) {
     const isPhone = useMediaQuery("(max-width: 767px)");
+    const bare = only !== undefined;
     const { showToast } = useToast();
     const navigate = useNavigate();
     const verticalConfig = useVerticalConfig();
@@ -99,7 +114,7 @@ export default function PrezziOpzioniTab({
     const menuLower = verticalConfig.catalogLabel.toLowerCase();
     const { businessId } = useParams<{ businessId: string }>();
     const isVariant = product.parent_product_id !== null;
-    const hasPrimaryGroup = primaryPriceGroup !== null;
+    const hasPrimaryGroup = formatsDraft ? formatsDraft.mode === "formato" : primaryPriceGroup !== null;
 
     // ── Card Prezzo — modalità "Prezzo unico" ───────────────────────────
     const [editingBasePrice, setEditingBasePrice] = useState(false);
@@ -151,13 +166,14 @@ export default function PrezziOpzioniTab({
     const [justSwitchedToFormato, setJustSwitchedToFormato] = useState(false);
     const [pendingFormatPrice, setPendingFormatPrice] = useState<number | null>(null);
 
-    const priceMode = resolvePriceMode(modeOverride, hasPrimaryGroup);
+    const priceMode = formatsDraft ? formatsDraft.mode : resolvePriceMode(modeOverride, hasPrimaryGroup);
 
     /** Solo UI: nessuna scrittura finché non arriva il primo formato. */
     const handleSelectFormato = () => {
         setPendingFormatPrice(product.base_price);
         setJustSwitchedToFormato(true);
-        setModeOverride("formato");
+        if (formatsDraft) formatsDraft.setMode("formato");
+        else setModeOverride("formato");
     };
 
     const handleConfirmRevertToUnico = async (): Promise<boolean> => {
@@ -187,6 +203,13 @@ export default function PrezziOpzioniTab({
     };
 
     const handleSelectUnico = () => {
+        // In bozza si torna indietro con «Annulla»: niente modale.
+        if (formatsDraft) {
+            formatsDraft.setMode("unico");
+            setJustSwitchedToFormato(false);
+            setPendingFormatPrice(null);
+            return;
+        }
         // Modale solo se ci sono formati da perdere.
         if (shouldConfirmRevertToUnico(primaryPriceGroup)) {
             setConfirmRevertToUnico(true);
@@ -212,7 +235,28 @@ export default function PrezziOpzioniTab({
     const [isLoadingParent, setIsLoadingParent] = useState(false);
     // «Imposta un prezzo proprio» apre il campo: finché si scrive, la variante
     // non è più mostrata come ereditante; «Annulla» la riporta lì.
-    const isInheriting = isVariant && !hasPrimaryGroup && product.base_price === null && !editingBasePrice;
+    // «Annulla» in alto svuota la bozza: se il prezzo proprio non c'era, la
+    // variante torna a usare quello del padre invece di restare col campo vuoto.
+    const priceDraftDirty = basePriceDraft?.isDirty ?? false;
+    const priceDraftEmpty = basePriceDraft ? basePriceDraft.input.trim() === "" : false;
+    const wasPriceDraftDirty = useRef(priceDraftDirty);
+    useEffect(() => {
+        if (wasPriceDraftDirty.current && !priceDraftDirty && priceDraftEmpty) setEditingBasePrice(false);
+        wasPriceDraftDirty.current = priceDraftDirty;
+    }, [priceDraftDirty, priceDraftEmpty]);
+    const isInheriting =
+        isVariant &&
+        !hasPrimaryGroup &&
+        !editingBasePrice &&
+        (basePriceDraft ? basePriceDraft.input.trim() === "" : product.base_price === null);
+
+    // «Nel menù si legge «da 2,50 €»», quando i formati hanno un prezzo.
+    const pricePreview =
+        !optionsLoading && !isInheriting && priceMode === "formato"
+            ? formatsDraft
+                ? formatPricePreview(formatsDraft.rows, menuLower)
+                : primaryPriceGroup && formatPricePreview(primaryPriceGroup.values, menuLower)
+            : null;
 
     const loadParent = useCallback(async () => {
         if (!isVariant || !product.parent_product_id) return;
@@ -613,11 +657,7 @@ export default function PrezziOpzioniTab({
                 <TableRowActions
                     ariaLabel={`Azioni ${variant.name}`}
                     actions={[
-                        {
-                            label: "Apri",
-                            onClick: () =>
-                                navigate(`/business/${businessId}/products/${variant.id}`)
-                        }
+                        rowAction.edit(() => navigate(`/business/${businessId}/products/${variant.id}`))
                     ]}
                 />
             )
@@ -629,15 +669,15 @@ export default function PrezziOpzioniTab({
             {/* ──────────────── Card 1 — Prezzo ──────────────── */}
             {/* PO1: il modo nell'intestazione, accanto al titolo; in «per formato»
                 il sottotitolo dice come si legge nel menù. */}
-            <Card
+            {(!only || only === "prezzo") && (
+            <PrezziSection
+                bare={bare}
                 title="Prezzo"
                 subtitle={
-                    (!optionsLoading && !isInheriting && priceMode === "formato" && primaryPriceGroup
-                        ? formatPricePreview(primaryPriceGroup, menuLower)
-                        : null) ?? `Come si legge il prezzo del ${productLower} nel ${menuLower}.`
+                    pricePreview ?? `Come si legge il prezzo del ${productLower} nel ${menuLower}.`
                 }
                 modeSelector={
-                    optionsLoading || isInheriting ? undefined : (
+                    bare || optionsLoading || isInheriting ? undefined : (
                         <SegmentedControl<PriceMode>
                             value={priceMode}
                             onChange={next => {
@@ -653,6 +693,24 @@ export default function PrezziOpzioniTab({
                     )
                 }
             >
+                {bare && !optionsLoading && !isInheriting && (
+                    <RadioGroup
+                        variant="card"
+                        ariaLabel="Come si legge il prezzo"
+                        containerClassName={styles.modes}
+                        value={priceMode}
+                        onChange={value => {
+                            const next = value as PriceMode;
+                            if (revertingToUnico || next === priceMode) return;
+                            if (next === "unico") handleSelectUnico();
+                            else handleSelectFormato();
+                        }}
+                        options={[
+                            { value: "unico", label: "Un prezzo", description: "Lo stesso per tutti." },
+                            { value: "formato", label: "Più formati", description: "Piccola, media, grande: ognuno il suo." }
+                        ]}
+                    />
+                )}
                 {optionsLoading ? (
                     <Text variant="body-sm" colorVariant="muted">
                         Caricamento...
@@ -693,10 +751,39 @@ export default function PrezziOpzioniTab({
                             </Text>
                         )}
 
-                        {priceMode === "formato" ? (
+                        {priceMode !== "formato" && basePriceDraft ? (
+                            <div className={styles.priceDisplay}>
+                                <NumberInput
+                                    label={bare ? "Prezzo" : undefined}
+                                    containerClassName={bare ? styles.priceNarrow : undefined}
+                                    aria-label="Prezzo"
+                                    value={basePriceDraft.input}
+                                    onChange={e => basePriceDraft.setInput(e.target.value)}
+                                    min="0"
+                                    step="0.01"
+                                    endAdornment="€"
+                                    placeholder="0,00"
+                                    error={basePriceDraft.error ?? undefined}
+                                    disabled={basePriceDraft.isSaving}
+                                />
+                                {isVariant && (
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => {
+                                            basePriceDraft.setInput("");
+                                            setEditingBasePrice(false);
+                                        }}
+                                    >
+                                        Usa il prezzo del padre
+                                    </Button>
+                                )}
+                            </div>
+                        ) : priceMode === "formato" ? (
                             <div className={styles.formatMode}>
                                 <OptionValueList
-                                    values={primaryPriceGroup?.values ?? []}
+                                    values={formatsDraft ? formatsDraft.rows : (primaryPriceGroup?.values ?? [])}
+                                    inDraft={formatsDraft !== undefined}
                                     priceMode="absolute"
                                     emptyTitle="Nessun formato"
                                     namePlaceholder="Nuovo formato (es. Bottiglia)"
@@ -707,12 +794,23 @@ export default function PrezziOpzioniTab({
                                             : undefined
                                     }
                                     autoFocusAdd={justSwitchedToFormato}
-                                    onCreate={handleCreateFormatValue}
-                                    onUpdate={(id, name, price) =>
-                                        handleUpdateFormatValue(id, name, price)
+                                    onCreate={
+                                        formatsDraft
+                                            ? async (name, price) => {
+                                                  await formatsDraft.add(name, price);
+                                                  setJustSwitchedToFormato(false);
+                                                  setPendingFormatPrice(null);
+                                              }
+                                            : handleCreateFormatValue
                                     }
-                                    onDelete={handleDeleteValue}
+                                    onUpdate={formatsDraft ? formatsDraft.update : handleUpdateFormatValue}
+                                    onDelete={formatsDraft ? formatsDraft.remove : handleDeleteValue}
                                 />
+                                {bare && pricePreview && (
+                                    <Text variant="caption" colorVariant="muted">
+                                        {pricePreview}. Il cliente sceglie il formato prima di «Aggiungi».
+                                    </Text>
+                                )}
                             </div>
                         ) : editingBasePrice ? (
                             <div className={styles.priceEditRow}>
@@ -790,10 +888,13 @@ export default function PrezziOpzioniTab({
                     confirmLabel="Usa il prezzo del padre"
                     confirmVariant="primary"
                 />
-            </Card>
+            </PrezziSection>
+            )}
 
             {/* ──────────────── Card 2 — Configurazioni ──────────────── */}
-            <Card
+            {(!only || only === "scelte") && (
+            <PrezziSection
+                bare={bare}
                 title="Configurazioni"
                 // PO2: la spiegazione è il sottotitolo; «Nuovo gruppo» solo
                 // nell'intestazione, mai nel corpo («+ Nuovo» al telefono).
@@ -806,10 +907,10 @@ export default function PrezziOpzioniTab({
                             variant="secondary"
                             size="sm"
                             leftIcon={<Plus size={16} />}
-                            aria-label={isPhone ? "Nuovo gruppo" : undefined}
+                            aria-label={isPhone && !bare ? "Nuovo gruppo" : undefined}
                             onClick={handleOpenCreateGroup}
                         >
-                            {isPhone ? "Nuovo" : "Nuovo gruppo"}
+                            {bare ? "Aggiungi una domanda" : isPhone ? "Nuovo" : "Nuovo gruppo"}
                         </Button>
                     ) : undefined
                 }
@@ -880,12 +981,12 @@ export default function PrezziOpzioniTab({
                         </Text>
                     ) : addonGroups.length === 0 && !isCreatingGroup ? (
                         <Text variant="body-sm" colorVariant="muted">
-                            Nessuna configurazione.
+                            {bare ? "Nessuna domanda: si ordina così com'è." : "Nessuna configurazione."}
                         </Text>
                     ) : addonGroups.length > 0 ? (
-                        <div className={styles.optionGroupsList}>
+                        <div className={bare ? styles.optionGroupsBare : styles.optionGroupsList}>
                             {addonGroups.map(group => (
-                                <div key={group.id} className={styles.groupCard}>
+                                <div key={group.id} className={bare ? styles.groupBare : styles.groupCard}>
                                     {editingGroupId === group.id ? (
                                         <div className={styles.groupEditForm}>
                                             <TextInput
@@ -941,34 +1042,33 @@ export default function PrezziOpzioniTab({
                                         </div>
                                     ) : (
                                         <div className={styles.groupHeader}>
-                                            <div className={styles.groupMeta}>
-                                                <Text variant="body" weight={600}>
-                                                    {group.name}
-                                                </Text>
-                                                <Badge variant="secondary">
-                                                    {group.values.length}{" "}
-                                                    {group.values.length === 1 ? "opzione" : "opzioni"}
-                                                </Badge>
-                                                {group.max_selectable != null && group.max_selectable > 1 && (
-                                                    <Badge variant="secondary">fino a {group.max_selectable}</Badge>
-                                                )}
-                                                {group.is_required && (
-                                                    <Badge variant="secondary">Obbligatorio</Badge>
-                                                )}
-                                            </div>
+                                            {bare ? (
+                                                // Come la scheda: «Cottura · una sola · obbligatoria».
+                                                <h4 className={styles.groupTitle}>
+                                                    {group.name} <span>· {ruleText(group)}</span>
+                                                </h4>
+                                            ) : (
+                                                <div className={styles.groupMeta}>
+                                                    <Text variant="body" weight={600}>
+                                                        {group.name}
+                                                    </Text>
+                                                    <Badge variant="secondary">
+                                                        {group.values.length}{" "}
+                                                        {group.values.length === 1 ? "opzione" : "opzioni"}
+                                                    </Badge>
+                                                    {group.max_selectable != null && group.max_selectable > 1 && (
+                                                        <Badge variant="secondary">fino a {group.max_selectable}</Badge>
+                                                    )}
+                                                    {group.is_required && (
+                                                        <Badge variant="secondary">Obbligatorio</Badge>
+                                                    )}
+                                                </div>
+                                            )}
                                             <TableRowActions
                                                 ariaLabel={`Azioni ${group.name}`}
                                                 actions={[
-                                                    {
-                                                        label: "Modifica",
-                                                        onClick: () => handleStartEditGroup(group)
-                                                    },
-                                                    {
-                                                        label: "Elimina",
-                                                        onClick: () => setDeleteGroup(group),
-                                                        variant: "destructive",
-                                                        separator: true
-                                                    }
+                                                    rowAction.edit(() => handleStartEditGroup(group)),
+                                                    rowAction.remove(() => setDeleteGroup(group))
                                                 ]}
                                             />
                                         </div>
@@ -1002,11 +1102,13 @@ export default function PrezziOpzioniTab({
                     message="Si eliminano anche le sue scelte. Non si torna indietro."
                     confirmLabel="Elimina"
                 />
-            </Card>
+            </PrezziSection>
+            )}
 
             {/* ──────────────── Card 3 — Varianti ──────────────── */}
-            {!isVariant && (
-                <Card
+            {!isVariant && (!only || only === "varianti") && (
+                <PrezziSection
+                    bare={bare}
                     title="Varianti"
                     subtitle={`Prezzo e descrizione propri; nel ${menuLower} pubblico sono ${verticalConfig.productLabelPlural.toLowerCase()} a sé.`}
                     badge={variants.length > 0 ? <Badge variant="secondary">{variants.length}</Badge> : undefined}
@@ -1017,10 +1119,10 @@ export default function PrezziOpzioniTab({
                             variant="secondary"
                             size="sm"
                             leftIcon={<Plus size={16} />}
-                            aria-label={isPhone ? "Aggiungi variante" : undefined}
+                            aria-label={isPhone && !bare ? "Aggiungi variante" : undefined}
                             onClick={onOpenVariantDrawer}
                         >
-                            {isPhone ? "Nuova" : "Aggiungi variante"}
+                            {bare ? "Crea una variante" : isPhone ? "Nuova" : "Aggiungi variante"}
                         </Button>
                     }
                     flush={variants.length > 0}
@@ -1035,7 +1137,7 @@ export default function PrezziOpzioniTab({
                             onRowClick={variant => navigate(`/business/${businessId}/products/${variant.id}`)}
                         />
                     )}
-                </Card>
+                </PrezziSection>
             )}
         </div>
     );

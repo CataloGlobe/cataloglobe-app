@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
+import { rowAction } from "@/components/ui/TableRowActions/rowAction";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
 import { IconLeaf } from "@tabler/icons-react";
@@ -154,13 +155,8 @@ export function Ingredients({ createTrigger, searchQuery, canWrite }: Ingredient
             cell: (_value: unknown, row: V2Ingredient) => (
                 <TableRowActions
                     actions={[
-                        { label: "Modifica", onClick: () => handleEdit(row) },
-                        {
-                            label: "Elimina",
-                            onClick: () => handleDelete(row),
-                            variant: "destructive" as const,
-                            separator: true
-                        }
+                        rowAction.edit(() => handleEdit(row)),
+                        rowAction.remove(() => handleDelete(row))
                     ]}
                 />
             )

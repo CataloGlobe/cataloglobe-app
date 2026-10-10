@@ -7,7 +7,6 @@ import {
 } from "@/services/supabase/productUsage";
 import { ListRow } from "@/components/ui/ListRow/ListRow";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
-import { Card } from "@/components/ui/Card/Card";
 import { Chip } from "@/components/ui/Chip/Chip";
 import { Badge } from "@/components/ui/Badge/Badge";
 import { Button } from "@/components/ui/Button/Button";
@@ -20,6 +19,7 @@ import {
 } from "@/services/supabase/productGroups";
 import { ProductGroupsEditDrawer } from "./ProductGroupsEditDrawer";
 import styles from "./UsageTab.module.scss";
+import { UsageBlock } from "./UsageBlock";
 
 interface UsageItem {
     id: string;
@@ -40,8 +40,8 @@ interface UsageTabProps {
 }
 
 /**
- * Tab «Utilizzo» (lotto Prodotti P9): dove sta il prodotto. Tre `Card flush`
- * di `ListRow` coi conteggi nel `badge` — {Menù} (menù › categoria, «Apri il
+ * «Dove si vede» (lotto Prodotti P9; Officina 3 dentro la parte a fuoco):
+ * dove sta il prodotto. Tre blocchi di `ListRow` coi conteggi — {Menù} (menù › categoria, «Apri il
  * menù»), Regole, Sedi — più «Gruppi» (§50.9/3). La card «Riepilogo» esce: i
  * suoi numeri sono i badge. Le sedi restano anche se il mockup non le mostra
  * (registro 10b, «invariata»).
@@ -114,7 +114,7 @@ export function UsageTab({ productId, tenantId, usageData, usageLoading }: Usage
 
     return (
         <div className={styles.grid}>
-            <Card title={verticalConfig.catalogLabelPlural} badge={count(categoryAssignments.length)} flush>
+            <UsageBlock title={verticalConfig.catalogLabelPlural} badge={count(categoryAssignments.length)} boxed>
                 {loadingUsage ? (
                     loadingRow
                 ) : categoryAssignments.length === 0 ? (
@@ -136,9 +136,9 @@ export function UsageTab({ productId, tenantId, usageData, usageLoading }: Usage
                         ))}
                     </div>
                 )}
-            </Card>
+            </UsageBlock>
 
-            <Card title="Regole che lo toccano" badge={count(data.schedules.length)} flush>
+            <UsageBlock title="Regole che lo toccano" badge={count(data.schedules.length)} boxed>
                 {loadingUsage ? (
                     loadingRow
                 ) : data.schedules.length === 0 ? (
@@ -154,9 +154,9 @@ export function UsageTab({ productId, tenantId, usageData, usageLoading }: Usage
                         ))}
                     </div>
                 )}
-            </Card>
+            </UsageBlock>
 
-            <Card title="Sedi" badge={count(data.activities.length)} flush>
+            <UsageBlock title="Sedi" badge={count(data.activities.length)} boxed>
                 {loadingUsage ? (
                     loadingRow
                 ) : data.activities.length === 0 ? (
@@ -177,10 +177,10 @@ export function UsageTab({ productId, tenantId, usageData, usageLoading }: Usage
                         ))}
                     </div>
                 )}
-            </Card>
+            </UsageBlock>
 
             {/* ──────────────── Gruppi (§50.9/3, salvataggio immediato) ──────────────── */}
-            <Card
+            <UsageBlock
                 title="Gruppi"
                 badge={assignedGroups.length > 0 ? <Badge variant="secondary">{assignedGroups.length}</Badge> : undefined}
                 actions={
@@ -209,7 +209,7 @@ export function UsageTab({ productId, tenantId, usageData, usageLoading }: Usage
                         ))}
                     </div>
                 )}
-            </Card>
+            </UsageBlock>
 
             <ProductGroupsEditDrawer
                 open={isGroupsDrawerOpen}

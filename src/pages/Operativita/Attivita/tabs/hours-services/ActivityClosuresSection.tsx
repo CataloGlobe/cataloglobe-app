@@ -1,11 +1,12 @@
 import React, { useMemo } from "react";
-import { CalendarOff, Pencil, Trash2 } from "lucide-react";
+import { CalendarOff } from "lucide-react";
 import { Badge } from "@/components/ui/Badge/Badge";
 import { Button } from "@/components/ui/Button/Button";
 import { Card } from "@/components/ui/Card/Card";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { ListRow } from "@/components/ui/ListRow/ListRow";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
+import { rowAction } from "@/components/ui/TableRowActions/rowAction";
 import type { V2ActivityClosure, ClosureSlot } from "@/types/activity-closures";
 
 const IT_MONTH_LONG = [
@@ -121,10 +122,8 @@ export const ActivityClosuresSection: React.FC<ActivityClosuresSectionProps> = (
                     const past = isPast(c, today);
                     const title = c.label ?? (c.is_closed ? "Chiusura" : "Orari speciali");
                     const actions = [
-                        ...(onEditRequest ? [{ label: "Modifica", icon: Pencil, onClick: () => onEditRequest(c) }] : []),
-                        ...(onDeleteRequest
-                            ? [{ label: "Elimina", icon: Trash2, variant: "destructive" as const, onClick: () => onDeleteRequest(c) }]
-                            : [])
+                        ...(onEditRequest ? [rowAction.edit(() => onEditRequest(c))] : []),
+                        ...(onDeleteRequest ? [rowAction.remove(() => onDeleteRequest(c))] : [])
                     ];
                     return (
                         <ListRow

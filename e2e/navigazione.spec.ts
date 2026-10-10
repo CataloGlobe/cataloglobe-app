@@ -71,6 +71,8 @@ test.describe("Sidebar (§51.5, sezioni dell'Officina)", () => {
         await expect
             .poll(() => sidebarShape(page), { timeout: 15_000 })
             .toEqual(["Panoramica", "Sedi", CATALOGO, PAGINA_PUBBLICA, [ANDAMENTO, ["Analitiche", "Recensioni", "Clienti"]]]);
+        // Su Prodotti il pulsante dell'account non è «dove sono».
+        await expect(accountButton(page)).not.toHaveAttribute("aria-current", "page");
         // L'account in fondo: Impostazioni, Team, Abbonamento, Lingue, Assistenza.
         expect(await accountPages(page)).toEqual(["Impostazioni", "Team", "Abbonamento", "Lingue", "Assistenza"]);
         await expect(nav(page).getByRole("separator")).toHaveCount(0);
@@ -333,9 +335,9 @@ test.describe("Aspetto della sidebar (§51.15)", () => {
 test.describe("Header: percorso e selettore di sede (§51.7, §51.8)", () => {
     const banner = (page: Page) => page.getByRole("banner");
 
-    /** Il nome della sede dalla sua pagina: la Scheda lo ha nel campo «Nome del locale». */
+    /** Il nome della sede dalla sua pagina: la parte «locale» della Scheda lo ha nel campo «Nome del locale». */
     async function sedeName(page: Page, path: string): Promise<string> {
-        await page.goto(`${path}/anagrafica`);
+        await page.goto(`${path}/anagrafica?parte=locale`);
         const field = page.getByRole("textbox", { name: /Nome del locale/ });
         await expect(field).not.toHaveValue("", { timeout: 15_000 });
         return field.inputValue();
@@ -419,7 +421,7 @@ test.describe("Header: percorso e selettore di sede (§51.7, §51.8)", () => {
         });
         await page.goto(`${paths[0]}/comande`);
         await expect(placeSwitcher(page)).toHaveAccessibleName(/Sospesa/, { timeout: 15_000 });
-        await expect(placeSwitcher(page)).not.toHaveAccessibleName(/Pubblicata/);
+        await expect(placeSwitcher(page)).not.toHaveAccessibleName(/Online|Pubblicata/);
     });
 
     test("1280: niente testata; logo, azienda e sede in cima alla sidebar", async ({ page }) => {
@@ -600,8 +602,8 @@ test.describe("Atterraggio (§51.6) e indirizzi (§51.14)", () => {
             [paths[1], "orders", "comande"],
             [paths[0], "reservations", "prenotazioni"]
         ] as const) {
-            await page.goto(`${sede}/anagrafica`);
-            // Dentro la sede, a sede caricata: la Scheda ha il nome del locale.
+            await page.goto(`${sede}/anagrafica?parte=locale`);
+            // Dentro la sede, a sede caricata: la parte «locale» della Scheda ha il nome.
             await expect(page.getByRole("textbox", { name: /Nome del locale/ })).not.toHaveValue("", { timeout: 15_000 });
             await expect(placeSwitcher(page)).not.toHaveAccessibleName(/Tutte le sedi/);
             await page.goto(`${root}/${legacy}`);
@@ -627,9 +629,12 @@ test.describe("Impostazioni con tab (§51.12)", () => {
         await page.goto(`${root}/settings`);
         await expect(settingsTabs(page)).toHaveText(["Azienda", "Team", "Abbonamento"], { timeout: 15_000 });
         await expect(page.getByRole("tab", { name: "Azienda" })).toHaveAttribute("aria-selected", "true");
+        // Dove sono: Impostazioni è una voce del menù dell'account, il pulsante resta acceso.
+        await expect(accountButton(page)).toHaveAttribute("aria-current", "page");
 
         await page.getByRole("tab", { name: "Team" }).click();
         await expect(page).toHaveURL(`${root}/settings/team`);
+        await expect(accountButton(page)).toHaveAttribute("aria-current", "page");
         const main = page.getByRole("main");
         await expect(main.getByRole("radio", { name: /^Membri/ })).toBeVisible({ timeout: 15_000 });
         await expect(main.getByRole("radio", { name: /^Inviti in attesa/ })).toBeVisible();

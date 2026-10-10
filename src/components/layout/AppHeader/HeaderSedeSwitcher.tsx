@@ -17,7 +17,7 @@ function NoIcon() {
  * Il selettore di sede nella testata (§51.7), al telefono: dice dove sei e
  * porta altrove (regole in `useSedeSwitcher`). Sul desktop lo stesso lavoro
  * lo fa `PlaceSwitcher` in cima alla sidebar.
- * Accanto alla sede solo «Sospesa»: «Pubblicata» resta nella Scheda.
+ * Accanto alla sede solo «Sospesa»: «Online» resta nella Scheda.
  * Nessuna sede leggibile: niente segmento.
  */
 export function HeaderSedeSwitcher() {
