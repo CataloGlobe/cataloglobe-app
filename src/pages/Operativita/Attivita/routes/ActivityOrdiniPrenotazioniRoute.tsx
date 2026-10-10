@@ -87,13 +87,13 @@ export default function ActivityOrdiniPrenotazioniRoute({ part }: ActivityOrdini
                 await updateActivityOrderingEnabled(activity.id, tenantId, checked);
                 showToast({
                     message: checked
-                        ? "Ordini al tavolo attivi."
-                        : "Ordini al tavolo sospesi: i clienti vedono il menù ma non ordinano.",
+                        ? "Ordini dal tavolo attivi."
+                        : "Ordini dal tavolo sospesi: i clienti vedono il menù ma non ordinano.",
                     type: "success"
                 });
                 await reload();
             } catch {
-                showToast({ message: "Impossibile aggiornare gli ordini al tavolo.", type: "error" });
+                showToast({ message: "Impossibile aggiornare gli ordini dal tavolo.", type: "error" });
             }
         },
         [activity.id, tenantId, reload, showToast]
@@ -315,18 +315,18 @@ export default function ActivityOrdiniPrenotazioniRoute({ part }: ActivityOrdini
             return (
                 <ProLockedPanel
                     tenantId={tenantId}
-                    title="Ordini al tavolo"
+                    title="Ordini dal tavolo"
                     description="Il cliente inquadra il QR del tavolo, sceglie dal menù e invia l'ordine: la comanda arriva in tempo reale e, con una stampante collegata, si stampa da sola."
                 />
             );
         }
         return (
             <div className={styles.page}>
-                <section id="ordini" aria-label="Ordini al tavolo" className={styles.section}>
+                <section id="ordini" aria-label="Ordini dal tavolo" className={styles.section}>
                     {activity.status !== "active" && (
                         <Checklist title="Prima degli ordini" items={orderingChecklist} doneTitle="La sede è pubblicata" />
                     )}
-                    <Card title="Ordini al tavolo" subtitle="Il cliente ordina inquadrando il QR del tavolo">
+                    <Card title="Ordini dal tavolo" subtitle="Il cliente ordina inquadrando il QR del tavolo">
                         <div className={styles.stack}>
                             <Switch
                                 label={activity.ordering_enabled ? "Attivi" : "Sospesi"}

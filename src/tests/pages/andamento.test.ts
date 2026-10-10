@@ -112,7 +112,7 @@ describe("Andamento: la frase in cima", () => {
     it("dice se va meglio del periodo prima, e i numeri in una riga", () => {
         const s = andamentoSentence(makeData(), ctx);
         expect(s.lead).toBe("Ultimi 30 giorni: va meglio del mese prima.");
-        expect(s.detail).toBe("151 visite alla pagina (+26%) · 12 ordini al tavolo per 240,00 € (+20%) · voto 3,5 su 4 recensioni");
+        expect(s.detail).toBe("151 visite alla pagina (+26%) · 12 ordini dal tavolo per 240,00 € (+20%) · voto 3,5 su 4 recensioni");
     });
 
     it("su «Sempre» non giudica, e senza dati lo dice", () => {

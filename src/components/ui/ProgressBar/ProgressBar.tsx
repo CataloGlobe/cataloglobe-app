@@ -6,7 +6,7 @@ import styles from "./ProgressBar.module.scss";
  * system §5, scheda ProgressBar).
  *
  * Anatomia: traccia hover-bg · riempimento · etichetta a destra (caption, il
- * numero: «€ 4,20 di € 18», «3 di 4», «30 %»). Mai senza numero.
+ * numero: «4,20 € di 18 €», «3 di 4», «30 %»). Mai senza numero.
  * Varianti: brand (avanzamento) · success (completamento raggiunto) ·
  * warning (oltre l'80 % di un limite) · indeterminate (senza totale: riflesso
  * che scorre, come lo Skeleton). Altezza 6, radius-pill; cambia con

@@ -218,7 +218,7 @@ test.describe("Servizio", () => {
 
         await expect(main(page).getByRole("table", { name: "Tavoli" })).toBeVisible({ timeout: 15_000 });
         await expect(main(page).getByText(TAVOLO, { exact: true }).first()).toBeVisible();
-        await expect(main(page).getByRole("button", { name: "Nuovo tavolo" })).toBeVisible();
+        await expect(main(page).getByRole("button", { name: "Aggiungi tavolo" })).toBeVisible();
         await main(page).getByRole("button", { name: "Altre azioni" }).click();
         await expect(page.getByRole("menuitem", { name: "Zone e accostamenti" })).toBeVisible();
         await page.keyboard.press("Escape");
@@ -276,7 +276,7 @@ test.describe("Servizio: piano e ruolo", () => {
 
         await page.goto(`${base}/sala`);
         await expect(main(page).getByRole("table", { name: "Tavoli" })).toBeVisible({ timeout: 15_000 });
-        await expect(main(page).getByRole("button", { name: "Nuovo tavolo" })).toHaveCount(0);
+        await expect(main(page).getByRole("button", { name: "Aggiungi tavolo" })).toHaveCount(0);
     });
 
     // Col piano Pro si atterra sull'Elenco: i casi stanno in «Elenco (lotto B-b)».

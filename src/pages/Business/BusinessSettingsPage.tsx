@@ -3,7 +3,6 @@ import { Lock } from "lucide-react";
 import { useTenant } from "@/context/useTenant";
 import { useToast } from "@/context/Toast/ToastContext";
 import Text from "@/components/ui/Text/Text";
-import { useSettingsTabs } from "./useSettingsTabs";
 import { usePageHeader } from "@/context/usePageHeader";
 import { canDoOnTenant } from "@/lib/permissions";
 import { usePermissions } from "@/context/usePermissions";
@@ -207,10 +206,9 @@ export default function BusinessSettingsPage() {
     // fluttuante. Solo per chi può modificare, quando il draft è pronto.
     const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
     const showSave = canManageTenant && draft !== null;
-    const settingsTabs = useSettingsTabs();
     // Azioni e barra compatta memoizzate: `usePageHeader` si ridisegna a ogni
     // riferimento nuovo, e un riferimento nuovo a ogni render lo manda in ciclo
-    // (la tab Team non si apriva più). I gestori passano da un ref.
+    // (Team non si apriva più). I gestori passano da un ref.
     const handlersRef = useRef({ save: handleSave, discard: handleCancel });
     handlersRef.current = { save: handleSave, discard: handleCancel };
     const onSave = useCallback(() => handlersRef.current.save(), []);
@@ -231,23 +229,18 @@ export default function BusinessSettingsPage() {
     );
     const compact = useMemo(
         () =>
-            settingsTabs.leading || showSave
-                ? {
-                      ...(settingsTabs.leading ? settingsTabs.compact : {}),
-                      ...(showSave
-                          ? buildSaveActionCompactConfig({
-                                isDirty,
-                                isSaving: saving,
-                                onSave,
-                                onRequestDiscard: () => setConfirmDiscardOpen(true),
-                                saveDisabled: !canSave
-                            })
-                          : {})
-                  }
+            showSave
+                ? buildSaveActionCompactConfig({
+                      isDirty,
+                      isSaving: saving,
+                      onSave,
+                      onRequestDiscard: () => setConfirmDiscardOpen(true),
+                      saveDisabled: !canSave
+                  })
                 : undefined,
-        [settingsTabs.leading, settingsTabs.compact, showSave, isDirty, saving, onSave, canSave]
+        [showSave, isDirty, saving, onSave, canSave]
     );
-    usePageHeader({ title: "Impostazioni", leading: settingsTabs.leading, actions, compact });
+    usePageHeader({ title: "Impostazioni", actions, compact });
 
     // Riceve dal wrapper l'immagine GIÀ ritagliata (baked, quadrata): carica quel
     // singolo file col servizio esistente. Nessun framing metadata persistito,

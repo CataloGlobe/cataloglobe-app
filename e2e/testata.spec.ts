@@ -1,5 +1,5 @@
 import { expect, test, type Locator } from "@playwright/test";
-import { openBusinessPage } from "./business";
+import { openBusinessPage, openBusinessPageByUrl } from "./business";
 import { stubAnalitiche } from "./analiticheStub";
 import { stubProdotti } from "./prodottiStub";
 import { stubRecensioni } from "./recensioniStub";
@@ -75,21 +75,18 @@ test.describe("Testata — due righe prima della barra compatta", () => {
         await expect(page.getByRole("radio", { name: /^Gruppi/ })).toBeHidden();
     });
 
-    // T16 IM1: in testata restano le tab di Impostazioni e «Invita membro»:
-    // a 1024 stanno su una riga.
-    test("Team a 1024: tab e «Invita membro» su una riga", async ({ page }) => {
-        // Team è una tab di Impostazioni (§51.12): non è più una voce di sidebar.
-        await openBusinessPage(page, "settings", "Impostazioni");
-        await page.getByRole("tab", { name: "Team", exact: true }).click();
+    // T16 IM1: in testata resta «Invita membro»; le tab di Impostazioni non
+    // ci sono più (D170), Team è una voce del menù dell'account.
+    test("Team a 1024: «Invita membro» in testata, senza tab", async ({ page }) => {
+        await openBusinessPageByUrl(page, "settings/team");
         await page.waitForURL(/\/settings\/team$/);
         await page.setViewportSize({ width: 1024, height: 900 });
-        const tab = page.getByRole("tab", { name: "Team", exact: true });
         const cta = page.getByRole("button", { name: "Invita membro" }).first();
-        await expect(tab).toBeVisible();
+        const membri = page.getByRole("main").getByRole("radio", { name: /^Membri/ });
         await expect(cta).toBeVisible();
-        const a = (await tab.boundingBox())!;
-        const b = (await cta.boundingBox())!;
-        expect(Math.abs(a.y + a.height / 2 - (b.y + b.height / 2))).toBeLessThan(12);
+        await expect(membri).toBeVisible({ timeout: 15_000 });
+        await expect(page.getByRole("tab", { name: "Team", exact: true })).toHaveCount(0);
+        expect((await cta.boundingBox())!.y).toBeLessThan((await membri.boundingBox())!.y);
     });
 
     // Recensioni (D154): niente testata della pagina, il periodo a sinistra e

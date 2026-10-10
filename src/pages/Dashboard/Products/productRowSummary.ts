@@ -3,7 +3,7 @@ import type { ProductListMetadata } from "@/services/supabase/products";
 
 /**
  * La riga muta di un prodotto nell'elenco (lotto Prodotti P3, §50.9/1):
- * «€ 4,50 · in 2 menù». Logica pura, condivisa da lista e griglia (prima la
+ * «4,50 € · in 2 menù». Logica pura, condivisa da lista e griglia (prima la
  * stessa catena di prezzo era scritta tre volte: colonna Prezzo, card, card
  * della variante).
  *
@@ -17,7 +17,7 @@ export type PriceText =
     | { kind: "none" }
     | { kind: "price"; text: string; inherited: boolean };
 
-/** Prezzo mostrato: «da € 2,50» con più formati, «€ 2,90», o ereditato dal padre. */
+/** Prezzo mostrato: «da 2,50 €» con più formati, «2,90 €», o ereditato dal padre. */
 export function describePrice(
     product: PriceSource,
     meta: ProductListMetadata,

@@ -768,7 +768,7 @@ export default function Programming() {
         }
     }, [currentTenantId, catalogLabel, ruleTypeFilter, navigate, routeActivityId, schedulingBase, showToast]);
 
-    // «Nuova regola» da sola (PG4): il simulatore si apre dalla card «Adesso».
+    // «Aggiungi» da solo (PG4): il simulatore si apre dalla card «Adesso».
     // Sulla tab "Tutte" non ha un tipo implicito da creare → apre lei stessa il
     // menu dei quattro tipi, nell'ordine delle tab.
     const headerSplitActions = useMemo<SplitButtonAction[]>(() => {
@@ -776,7 +776,7 @@ export default function Programming() {
 
         if (!canCreate) return actions;
 
-        const label = isCreating ? "Creazione..." : "Nuova regola";
+        const label = isCreating ? "Creazione..." : "Aggiungi";
         const disabled = !currentTenantId || isCreating || !canEdit;
 
         actions.push(
@@ -836,7 +836,7 @@ export default function Programming() {
 
     // Stessa toolbar dichiarata a dati, per lo stato compatto: "Simula
     // regole" scende nel kebab, il toggle lista/calendario resta un'icona a
-    // vista e "Nuova regola" resta il bottone pieno. Il filtro per tipo
+    // vista e "Aggiungi" resta il bottone pieno. Il filtro per tipo
     // diventa il selettore di sezione, col conteggio fra parentesi.
     const headerCompact = useMemo<PageHeaderCompactConfig>(() => ({
         sections: typeOptions.map(option => ({
@@ -1000,7 +1000,7 @@ export default function Programming() {
                                                         disabled={!currentTenantId || isCreating || !canEdit}
                                                         loading={isCreating}
                                                     >
-                                                        {isCreating ? "Creazione..." : "Crea la prima regola"}
+                                                        {isCreating ? "Creazione..." : "Aggiungi la prima regola"}
                                                     </Button>
                                                 }
                                                 align="start"

@@ -1,7 +1,7 @@
 // I corpi dei passi dei tunnel, uno a uno dall'artifact (`bodyOf`). Il Quando
 // e il Dove sono quelli del Calendario (`QuandoPasso`, `DoveQuandoPasso`); i blocchi
 // della storia sono l'editor a blocchi di oggi.
-import { useId, useMemo, useState, type ReactNode } from "react";
+import { useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { CalendarClock, CalendarHeart, Check, Copy, Infinity as InfinityIcon, Layers, Link2, Lock, Megaphone, Package, Palette, Plus, ScanText, ScrollText, Tag, Trash2, TriangleAlert, Upload, UtensilsCrossed, X } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import { IconButton } from "@/components/ui/Button/IconButton";
@@ -16,7 +16,7 @@ import { DoveQuandoPasso, QuandoPasso, ScontriAvviso, type PassoGruppo, type Pas
 import { DB_LATER, invalid, type Draft, type DraftLookups, type Impatto, type PickProduct } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import type { Axis, CalWhen } from "@/pages/Dashboard/Programming/calendar/calendarModel";
 import cal from "@/pages/Dashboard/Programming/calendar/CalendarioView.module.scss";
-import { CARDS, COLORS, EV, FONTS, FONT_QUICK, KIND, STEP_LABEL, STORIA_WHEN, blocker, bundleTotal, euro, firstBlock, priceText, key, sentence, stepSummary, steps, type CardKey, type Ctx, type EvType, type Tunnel } from "./creaModel";
+import { CARDS, COLORS, EV, FONTS, FONT_QUICK, KIND, MAX_IMPORT_FILES, STEP_LABEL, STORIA_WHEN, blocker, bundleTotal, euro, firstBlock, priceText, key, sentence, stepSummary, steps, type CardKey, type Ctx, type EvType, type Tunnel } from "./creaModel";
 import s from "./Crea.module.scss";
 import { Box, Chip, Field, Opt, Sh, Toggle, Warnish } from "./CreaUi";
 import { DishAdder } from "./DishAdder";
@@ -50,8 +50,12 @@ export function MenuTipo({ t, u }: { t: Tunnel; u: U }) {
     );
 }
 
-export function MenuParti({ t, u, onImport, importing }: { t: Tunnel; u: U; onImport: (() => void) | null; importing: boolean }) {
+export const IMPORT_ACCEPT = "image/jpeg,image/png,image/webp,application/pdf";
+
+export function MenuParti({ t, u, onImport, importing, importError }: { t: Tunnel; u: U; onImport: ((files: File[]) => void) | null; importing: boolean; importError: string | null }) {
     const id = useId();
+    const fileRef = useRef<HTMLInputElement>(null);
+    const read = t.imported;
     return (
         <>
             <Sh title="Da dove parti">Il nome lo legge anche il cliente, in cima al menù.</Sh>
@@ -59,40 +63,67 @@ export function MenuParti({ t, u, onImport, importing }: { t: Tunnel; u: U; onIm
                 <input className={s.in} id={id} value={t.name} placeholder="Menù pranzo" autoComplete="off" onChange={e => u(x => void (x.name = e.target.value))} />
             </Field>
             <div className={s.opts}>
-                <Opt on={t.source === "zero"} icon={<Plus size={16} />} title="Da zero" text="Prendi i piatti che hai o scrivine di nuovi." onClick={() => u(x => void (x.source = "zero"))} disabled={!!t.importedId} />
+                <Opt on={t.source === "zero"} icon={<Plus size={16} />} title="Da zero" text="Prendi i piatti che hai o scrivine di nuovi." onClick={() => u(x => void (x.source = "zero"))} />
                 <Opt
                     on={t.source === "foto"}
                     icon={<ScanText size={16} />}
                     title="Da una foto o un PDF"
                     text="Lo leggiamo noi, tu controlli nel passo dopo."
                     onClick={() => u(x => void (x.source = "foto"))}
-                    disabled={!onImport && !t.importedId}
+                    disabled={!onImport && !read}
                 />
             </div>
             {t.source === "foto" && (
                 <>
-                    <div className={cx(s.callout, s.info)}>
-                        <Upload size={16} aria-hidden />
-                        <span>Carica la foto del menù di carta o il PDF. È l'import con l'AI di oggi: nel passo dopo trovi sezioni e piatti già scritti.</span>
-                    </div>
-                    {!t.importedId && (
-                        <div>
-                            <Button variant="secondary" size="sm" leftIcon={<Upload size={14} />} onClick={onImport ?? undefined} disabled={!onImport || !t.name.trim()} loading={importing}>
-                                Carica foto o PDF
-                            </Button>
+                    {read ? (
+                        <div className={cx(s.callout, s.ok)}>
+                            <ScanText size={16} aria-hidden />
+                            <span>
+                                Letti {read.sections} {read.sections === 1 ? "sezione" : "sezioni"} e {read.dishes} {read.dishes === 1 ? "piatto" : "piatti"}: li controlli nel passo dopo. Il menù nasce solo quando salvi.
+                            </span>
+                        </div>
+                    ) : (
+                        <div className={cx(s.callout, s.info)}>
+                            <Upload size={16} aria-hidden />
+                            <span>Carica la foto del menù di carta o il PDF, anche più pagine (fino a {MAX_IMPORT_FILES}). Nel passo dopo trovi sezioni e piatti già scritti, da controllare.</span>
                         </div>
                     )}
-                    {!t.name.trim() && !t.importedId && <p className={s.hint}>Prima scrivi il nome: il menù nasce con quello.</p>}
+                    {importError && (
+                        <div className={s.callout} role="alert">
+                            <TriangleAlert size={16} aria-hidden />
+                            <span>{importError}</span>
+                        </div>
+                    )}
+                    <div>
+                        <input
+                            ref={fileRef}
+                            type="file"
+                            accept={IMPORT_ACCEPT}
+                            multiple
+                            hidden
+                            aria-label="Foto o PDF del menù"
+                            onChange={e => {
+                                const files = Array.from(e.target.files ?? []);
+                                e.target.value = "";
+                                if (files.length && onImport) onImport(files);
+                            }}
+                        />
+                        <Button variant="secondary" size="sm" leftIcon={<Upload size={14} />} onClick={() => fileRef.current?.click()} disabled={!onImport} loading={importing}>
+                            {importing ? "Leggiamo il menù…" : read ? "Leggi un'altra foto" : "Carica foto o PDF"}
+                        </Button>
+                    </div>
+                    {read && <p className={s.hint}>Un'altra foto prende il posto di sezioni e piatti letti adesso.</p>}
                 </>
             )}
         </>
     );
 }
 
-export function MenuSezioni({ t, u, pick, imported }: { t: Tunnel; u: U; pick: readonly PickProduct[]; imported: { sections: number; dishes: number } | null }) {
+export function MenuSezioni({ t, u, pick }: { t: Tunnel; u: U; pick: readonly PickProduct[] }) {
     const [sec, setSec] = useState("");
     const taken = useMemo(() => new Set(t.sections.flatMap(x => x.dishes.map(d => d.productId).filter((v): v is string => !!v))), [t.sections]);
-    const foto = !!t.importedId;
+    const read = t.imported;
+    const toCheck = t.sections.reduce((n, x) => n + x.dishes.filter(d => d.check).length, 0);
     const addSec = () => {
         const n = sec.trim();
         if (!n) return;
@@ -101,13 +132,13 @@ export function MenuSezioni({ t, u, pick, imported }: { t: Tunnel; u: U; pick: r
     };
     return (
         <>
-            <Sh title="Sezioni e piatti">{foto ? "Ecco cosa abbiamo letto dalla foto: controlla." : "Prendi i piatti che hai già o scrivine di nuovi, con il prezzo."}</Sh>
-            {foto && imported && (
+            <Sh title="Sezioni e piatti">{read ? "Ecco cosa abbiamo letto: controlla, togli e aggiungi come se l'avessi scritto tu." : "Prendi i piatti che hai già o scrivine di nuovi, con il prezzo."}</Sh>
+            {read && (
                 <div className={cx(s.callout, s.ok)}>
                     <ScanText size={16} aria-hidden />
                     <span>
-                        Letti {imported.sections} {imported.sections === 1 ? "sezione" : "sezioni"} e {imported.dishes} {imported.dishes === 1 ? "piatto" : "piatti"}. Quelli già nei vostri prodotti li abbiamo collegati; gli altri sono prodotti nuovi.
-                        Si correggono nella pagina del menù, dopo.
+                        Quelli già nei vostri prodotti li abbiamo collegati; gli altri diventano prodotti nuovi quando salvi.
+                        {toCheck > 0 && ` ${toCheck === 1 ? "Uno è segnato" : `${toCheck} sono segnati`} «da controllare»: l'AI non ne era sicura.`}
                     </span>
                 </div>
             )}
@@ -116,42 +147,37 @@ export function MenuSezioni({ t, u, pick, imported }: { t: Tunnel; u: U; pick: r
                     <h5>
                         {x.name}
                         <span className={s.grow} />
-                        {!foto && <IconButton size="sm" icon={<Trash2 size={14} />} aria-label={`Togli la sezione ${x.name}`} onClick={() => u(y => void y.sections.splice(si, 1))} />}
+                        <IconButton size="sm" icon={<Trash2 size={14} />} aria-label={`Togli la sezione ${x.name}`} onClick={() => u(y => void y.sections.splice(si, 1))} />
                     </h5>
                     {x.dishes.map((d, di) => (
                         <div className={s.dish} key={d.key}>
                             <span>
                                 {d.name}
-                                {!d.productId && !foto && <span className={s.new}>nuovo</span>}
+                                {!d.productId && <span className={s.new}>nuovo</span>}
+                                {d.check && <span className={s.check}>da controllare</span>}
                             </span>
                             <span className={s.p}>{priceText(d.price)}</span>
-                            {!foto ? <IconButton size="sm" icon={<X size={14} />} aria-label={`Togli ${d.name}`} onClick={() => u(y => void y.sections[si].dishes.splice(di, 1))} /> : <span />}
+                            <IconButton size="sm" icon={<X size={14} />} aria-label={`Togli ${d.name}`} onClick={() => u(y => void y.sections[si].dishes.splice(di, 1))} />
                         </div>
                     ))}
-                    {!foto && (
-                        <>
-                            <DishAdder pick={pick} taken={taken} onAdd={d => u(y => void y.sections[si].dishes.push({ key: key(), ...d }))} />
-                            <p className={s.hint}>Scrivendo il nome compaiono i prodotti che avete già: preso uno, il prezzo è il suo.</p>
-                        </>
-                    )}
+                    <DishAdder pick={pick} taken={taken} onAdd={d => u(y => void y.sections[si].dishes.push({ key: key(), ...d }))} />
+                    <p className={s.hint}>Scrivendo il nome compaiono i prodotti che avete già: preso uno, il prezzo è il suo.</p>
                 </div>
             ))}
-            {!foto && (
-                <div className={cx(s.addrow, s.addrow2)}>
-                    <input
-                        className={cx(s.in, s.sm)}
-                        placeholder="Nome della sezione, per esempio Dolci"
-                        autoComplete="off"
-                        aria-label="Nome della sezione"
-                        value={sec}
-                        onChange={e => setSec(e.target.value)}
-                        onKeyDown={e => e.key === "Enter" && (e.preventDefault(), addSec())}
-                    />
-                    <Button variant="secondary" size="sm" leftIcon={<Plus size={14} />} onClick={addSec}>
-                        Aggiungi una sezione
-                    </Button>
-                </div>
-            )}
+            <div className={cx(s.addrow, s.addrow2)}>
+                <input
+                    className={cx(s.in, s.sm)}
+                    placeholder="Nome della sezione, per esempio Dolci"
+                    autoComplete="off"
+                    aria-label="Nome della sezione"
+                    value={sec}
+                    onChange={e => setSec(e.target.value)}
+                    onKeyDown={e => e.key === "Enter" && (e.preventDefault(), addSec())}
+                />
+                <Button variant="secondary" size="sm" leftIcon={<Plus size={14} />} onClick={addSec}>
+                    Aggiungi una sezione
+                </Button>
+            </div>
         </>
     );
 }

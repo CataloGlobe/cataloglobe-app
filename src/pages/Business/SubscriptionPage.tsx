@@ -53,7 +53,6 @@ import { AiUsageSection } from "@/pages/Business/components/AiUsageSection";
 import { useBusinessOutletContext } from "@/layouts/MainLayout/outletContext";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
-import { useSettingsTabs } from "./useSettingsTabs";
 import { usePageHeader } from "@/context/usePageHeader";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
@@ -87,15 +86,15 @@ const STATUS_BADGE: Record<string, string> = {
 
 const CHANGE_PLAN_MAILTO = `mailto:${COMPANY.contact.support}?subject=${encodeURIComponent("Cambio piano CataloGlobe")}`;
 
-// Italian grouping: yearly totals cross €1.000 ("€1.109,83"), monthly ones never
+// Italian grouping: yearly totals cross 1.000 € ("1.109,83 €"), monthly ones never
 // did. `useGrouping: "always"` because ICU's it-IT groups only from 10.000 up
-// (minimumGroupingDigits = 2) and would print "€1121,00".
+// (minimumGroupingDigits = 2) and would print "1121,00 €". Symbol after the number (D166).
 function formatEuro(value: number): string {
-    return `€${value.toLocaleString("it-IT", {
+    return `${value.toLocaleString("it-IT", {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
         useGrouping: "always"
-    })}`;
+    })} €`;
 }
 
 function formatCents(cents: number): string {
@@ -430,12 +429,7 @@ export default function SubscriptionPage() {
         reloadSubState();
     }, [selectedTenant?.id, canManageBilling, reloadSubState]);
 
-    const settingsTabs = useSettingsTabs();
-    usePageHeader({
-        title: "Abbonamento",
-        leading: settingsTabs.leading,
-        compact: settingsTabs.leading ? settingsTabs.compact : undefined
-    });
+    usePageHeader({ title: "Abbonamento" });
 
     const paidSeats = selectedTenant?.paid_seats ?? 0;
 
@@ -1063,7 +1057,7 @@ export default function SubscriptionPage() {
         status === "trialing" && trialDaysLeft !== null
             ? ` (${trialDaysLeft} giorn${trialDaysLeft === 1 ? "o" : "i"})`
             : "";
-    // Importo scomposto (§37.7): «5 × € 59».
+    // Importo scomposto (§37.7): «5 × 59,00 €».
     const amountLabel =
         displaySeats === 1
             ? `1 sede a ${formatEuro(currentPricing.unitPrice)}`
@@ -1643,7 +1637,7 @@ export default function SubscriptionPage() {
                                         <>
                                             <div className={styles.confirmRow}>
                                                 <Text variant="body" weight={600}>Oggi paghi</Text>
-                                                <Text variant="title-sm" weight={700}>€0,00</Text>
+                                                <Text variant="title-sm" weight={700}>0,00 €</Text>
                                             </div>
                                             <Text variant="body-sm" colorVariant="muted">
                                                 Il tuo piano passerà a {combinedPlanName} il {formatDate(preview.nextDate)}.

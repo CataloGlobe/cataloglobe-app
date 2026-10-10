@@ -400,12 +400,12 @@ test.describe("Programmazione — elenco", () => {
         await expect(checkboxOf(rule(page, "natale"))).toBeChecked();
     });
 
-    test("cablaggio: «Nuova regola» crea la bozza e apre il dettaglio", async ({ page }) => {
+    test("cablaggio: «Aggiungi» (regola) crea la bozza e apre il dettaglio", async ({ page }) => {
         const NEW_ID = "e2e0d000-0000-4000-a000-000000000777";
         stub.onWrite("schedules.POST", () => ({ id: NEW_ID }));
         stub.onWrite("schedules.PATCH", () => null);
         await openList(page, "price");
-        await page.getByRole("button", { name: /^Nuova regola/ }).first().click();
+        await page.getByRole("button", { name: "Aggiungi", exact: true }).first().click();
         await expect.poll(() => writesOf(stub, "schedules.POST").length).toBe(1);
         const body = writesOf(stub, "schedules.POST")[0].body as Record<string, unknown>;
         expect(body.rule_type).toBe("price");
@@ -413,13 +413,13 @@ test.describe("Programmazione — elenco", () => {
         await expect(page).toHaveURL(new RegExp(`/scheduling/${NEW_ID}`));
     });
 
-    test("cablaggio: «Nuova regola» dalla sede nasce su quella sede e resta nella sede (PG6)", async ({ page }) => {
+    test("cablaggio: «Aggiungi» (regola) dalla sede nasce su quella sede e resta nella sede (PG6)", async ({ page }) => {
         const NEW_ID = "e2e0d000-0000-4000-a000-000000000779";
         stub.onWrite("schedules.POST", () => ({ id: NEW_ID }));
         stub.onWrite("schedules.PATCH", () => [{ id: NEW_ID }]);
         stub.onWrite("rpc.update_schedule_targets", () => null);
         await openSeatList(page, SEDE.porto, "price");
-        await page.getByRole("button", { name: /^Nuova regola/ }).first().click();
+        await page.getByRole("button", { name: "Aggiungi", exact: true }).first().click();
         await expect.poll(() => writesOf(stub, "rpc.update_schedule_targets").length).toBe(1);
         const targets = JSON.stringify(writesOf(stub, "rpc.update_schedule_targets")[0].body);
         expect(targets).toContain(SEDE.porto);
@@ -459,7 +459,7 @@ test.describe("Programmazione — elenco", () => {
         await openList(page);
         await stub.revoked;
         await expect(rule(page, "carta")).toBeVisible();
-        await expect(page.getByRole("button", { name: /^Nuova regola/ })).toHaveCount(0);
+        await expect(page.getByRole("button", { name: "Aggiungi", exact: true })).toHaveCount(0);
         await expect(page.getByRole("switch")).toHaveCount(0);
         await expect(checkboxOf(rule(page, "carta"))).toHaveCount(0);
     });
@@ -610,9 +610,8 @@ test.describe("Programmazione — calendario, simulatore, guida", () => {
         await expect(tipi).toBeVisible();
         await openCalendar(page);
         await expect(partiCalendario(page).getByRole("link", { name: "Calendario", exact: true })).toHaveAttribute("aria-current", "page");
-        // sotto, solo il calendario: niente tipi, niente «Nuova regola»
+        // sotto, solo il calendario: niente tipi, e l'unico «Aggiungi» è quello del calendario
         await expect(tipi).toHaveCount(0);
-        await expect(main(page).getByRole("button", { name: /^Nuova regola/ })).toHaveCount(0);
         await expect(main(page).getByRole("button", { name: "Aggiungi", exact: true })).toBeVisible();
         await noHorizontalScroll(page);
         // ricaricando si resta nel Calendario; «Regole» torna all'elenco
@@ -1570,7 +1569,7 @@ for (const width of [1024, 1280]) {
         await page.setViewportSize({ width, height: 900 });
         const tabs = main(page).getByRole("tablist", { name: "Tipo di regola" });
         await expect(tabs.getByRole("tab", { name: /^Tutte 12$/ })).toBeVisible();
-        const create = main(page).getByRole("button", { name: "Nuova regola" });
+        const create = main(page).getByRole("button", { name: "Aggiungi", exact: true });
         await expect(create).toBeVisible();
         // si aspetta che la testata si sistemi: la riga delle azioni si misura dopo il primo disegno
         const below = async () => {
@@ -1626,7 +1625,7 @@ test.describe("Programmazione — Elenco e Calendario a sole icone", () => {
         await stubProgrammazione(page);
     });
 
-    // Dopo PG4 («Nuova regola» bottone semplice) le azioni comode stanno in
+    // Dopo PG4 («Aggiungi», già «Nuova regola», bottone semplice) le azioni comode stanno in
     // testata a ogni larghezza da 768 in su, e sotto 768 c'è la barra compatta:
     // Programmazione non arriva più alla forma a sole icone (provato a 1280,
     // 1200, 1100, 1060, 1024, 1023, 900, 820, 800, 780, 768). Da riscrivere su

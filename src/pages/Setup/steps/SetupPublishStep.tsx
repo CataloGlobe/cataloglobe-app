@@ -155,7 +155,7 @@ export function SetupPublishStep({
                     </li>
                     <li>
                         <Link to={`/business/${businessId}/locations`}>
-                            Attiva l'ordinazione al tavolo
+                            Attiva gli ordini dal tavolo
                         </Link>
                     </li>
                     <li>

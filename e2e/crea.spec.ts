@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { openBusinessPageByUrl } from "./business";
-import { SEDE, stubProgrammazione, type ProgrammazioneStub, type WriteCall } from "./programmazioneStub";
-import type { Row } from "./restStub";
+import { PRODUCT, SEDE, stubProgrammazione, type ProgrammazioneStub, type WriteCall } from "./programmazioneStub";
+import { StubError, type Row } from "./restStub";
 
 /**
  * I tunnel di creazione (D124): menù, stile, in evidenza e storia, a passi
@@ -74,6 +74,37 @@ async function walkMenu(page: Page, name = "  Pranzo veloce  ") {
     await main(page).getByLabel("Prezzo").fill("9,5");
     await main(page).getByLabel("Prezzo").press("Enter");
     await expect(main(page).getByText("nuovo", { exact: true })).toHaveCount(1);
+}
+
+/** Il menù letto dall'AI (D165, D172): un piatto che c'è già, uno nuovo e incerto, una sezione vuota. */
+function wireAiRead(stub: ProgrammazioneStub) {
+    stub.onWrite("fn.menu-ai-import", () => ({
+        success: true,
+        data: {
+            categories: [
+                {
+                    name: "Pizze",
+                    items: [
+                        { name: "Margherita e2e", description: null, base_price: 7, product_type: "simple", confidence: "high" },
+                        { name: "Bufalina", description: "Mozzarella di bufala", base_price: 9.5, product_type: "simple", confidence: "low" }
+                    ]
+                },
+                { name: "Bibite", items: [] }
+            ]
+        }
+    }));
+}
+
+/** Una foto qualsiasi: l'edge è finta, conta solo che parta. */
+const PHOTO = { name: "menu.png", mimeType: "image/png", buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==", "base64") };
+const photoInput = (page: Page) => main(page).locator('input[type="file"][aria-label="Foto o PDF del menù"]');
+
+async function readPhoto(page: Page) {
+    await button(page, /^Menù classico/).click();
+    await next(page);
+    await main(page).getByLabel("Nome del menù").fill("Carta");
+    await button(page, /^Da una foto o un PDF/).click();
+    await photoInput(page).setInputFiles(PHOTO);
 }
 
 let stub: ProgrammazioneStub;
@@ -237,6 +268,66 @@ test.describe("Tunnel di creazione — menù", () => {
         await button(page, "Tieni come bozza").click();
         await expect(page.getByText("Non siamo riusciti a salvare il menù. Riprova.")).toBeVisible();
         await expect(page).toHaveURL(/\/crea\/menu/);
+    });
+
+    test("da una foto (D165, D172): letti sezioni e piatti, si controllano e solo il Salva scrive il menù", async ({ page }) => {
+        wireAiRead(stub);
+        stub.onWrite("rpc.import_products_into_catalog", () => ({
+            catalog_id: ID.catalog,
+            created_categories: 1,
+            created_products: 1,
+            reused_products: 1,
+            skipped: 0,
+            product_ids: ["e2ec7000-0000-4000-a000-000000000011"],
+            category_ref_map: {}
+        }));
+        await open(page, "menu", "menu");
+        await readPhoto(page);
+        await expect(main(page).getByText(/Letti 1 sezione e 2 piatti/)).toBeVisible();
+        // ancora niente scritto: la lettura non crea il menù
+        expect(stub.writes.filter(w => !w.key.startsWith("fn.") && !w.key.startsWith("rpc."))).toHaveLength(0);
+        await next(page);
+        await expect(main(page).getByText(/Uno è segnato «da controllare»/)).toBeVisible();
+        await expect(main(page).getByText("da controllare", { exact: true })).toHaveCount(1);
+        // il piatto che c'è già è collegato, l'altro è nuovo
+        await expect(main(page).getByText("nuovo", { exact: true })).toHaveCount(1);
+        // si toglie e si aggiunge come se l'avessi scritto tu
+        await button(page, "Togli Bufalina").click();
+        await main(page).getByLabel("Nome del piatto").fill("Bufalina");
+        await main(page).getByLabel("Prezzo").fill("10");
+        await main(page).getByLabel("Prezzo").press("Enter");
+        await expect(main(page).getByText("da controllare", { exact: true })).toHaveCount(0);
+        await next(page);
+        await next(page);
+        await button(page, "Tieni come bozza").click();
+        await expect(page).toHaveURL(new RegExp(`/catalogs/${ID.catalog}$`), { timeout: 15_000 });
+        const rpc = bodyOf(stub, "rpc.import_products_into_catalog");
+        expect(rpc).toMatchObject({ p_catalog_id: null, p_new_catalog_name: "Carta" });
+        expect(rpc.p_categories).toEqual([expect.objectContaining({ name: "Pizze", existing_id: null })]);
+        expect(rpc.p_products).toEqual([
+            expect.objectContaining({ action: "reuse", product_id: PRODUCT.margherita, sort_order: 0 }),
+            expect.objectContaining({ action: "create", sort_order: 1, product: expect.objectContaining({ name: "Bufalina", base_price: 10 }) })
+        ]);
+        // un colpo solo: niente menù, sezioni o piatti scritti uno per uno
+        expect(writesOf(stub, "catalogs.POST")).toHaveLength(0);
+        expect(writesOf(stub, "products.POST")).toHaveLength(0);
+    });
+
+    test("da una foto: uscendo prima del Salva non si scrive niente; la quota finita lo dice", async ({ page }) => {
+        stub.onWrite("fn.menu-ai-import", () => new StubError(402, { error: "quota", reason: "quota_exhausted", reset_at: null }));
+        await open(page, "menu", "menu");
+        await readPhoto(page);
+        await expect(main(page).getByRole("alert")).toBeVisible();
+        await expect(button(page, "Carica foto o PDF")).toBeEnabled();
+        wireAiRead(stub);
+        await photoInput(page).setInputFiles(PHOTO);
+        await expect(main(page).getByText(/Letti 1 sezione e 2 piatti/)).toBeVisible();
+        await expect(main(page).getByRole("alert")).toHaveCount(0);
+        await button(page, "Esci").click();
+        await page.getByRole("alertdialog", { name: "Uscire dal tunnel?" }).getByRole("button", { name: "Esci senza salvare" }).click();
+        await expect(page).toHaveURL(/\/catalogs$/);
+        expect(stub.writes.filter(w => !w.key.startsWith("fn.") && !w.key.startsWith("rpc."))).toHaveLength(0);
+        expect(writesOf(stub, "rpc.import_products_into_catalog")).toHaveLength(0);
     });
 
     test("dal Calendario: «Crea un menù nuovo» tiene da parte la bozza e apre il tunnel", async ({ page }) => {

@@ -214,7 +214,7 @@ export function CombinationGroupSelectField({
                             onClick={handleCreate}
                             loading={isSubmitting}
                         >
-                            Crea gruppo
+                            Aggiungi gruppo
                         </Button>
                     </div>
                     {error && (

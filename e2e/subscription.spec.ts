@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { openBusinessPage } from "./business";
+import { openBusinessPageByUrl } from "./business";
 
 /**
  * Abbonamento (`/business/:businessId/settings/abbonamento`, tab di
@@ -15,9 +15,8 @@ import { openBusinessPage } from "./business";
  */
 test.describe("Abbonamento", () => {
     test.beforeEach(async ({ page }) => {
-        // Abbonamento è una tab di Impostazioni (§51.12): non è più una voce di sidebar.
-        await openBusinessPage(page, "settings", "Impostazioni");
-        await page.getByRole("tab", { name: "Abbonamento", exact: true }).click();
+        // Abbonamento è una voce del menù dell'account (§51.12, D170), sotto settings/.
+        await openBusinessPageByUrl(page, "settings/abbonamento");
         await page.waitForURL(/\/settings\/abbonamento$/);
     });
 

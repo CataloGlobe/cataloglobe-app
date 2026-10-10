@@ -384,11 +384,11 @@ export default function Products() {
             activeTab === "products" && canWriteProduct
                 ? { label: `Crea ${verticalConfig.productLabel.toLowerCase()}`, onClick: handleCreateBase, disabled: !canEdit }
                 : activeTab === "groups" && canWriteProduct
-                ? { label: "Crea gruppo", onClick: () => setCreateGroupOpen(true), disabled: !canEdit }
+                ? { label: "Aggiungi gruppo", onClick: () => setCreateGroupOpen(true), disabled: !canEdit }
                 : activeTab === "attributes" && canWriteAttribute
-                ? { label: "Nuovo attributo", onClick: () => setAttrCreateSeq(n => n + 1), disabled: !canEdit }
+                ? { label: "Aggiungi attributo", onClick: () => setAttrCreateSeq(n => n + 1), disabled: !canEdit }
                 : activeTab === "ingredients" && verticalConfig.productSections.ingredients && canWriteProduct
-                ? { label: "Crea ingrediente", onClick: () => setIngredientCreateSeq(n => n + 1), disabled: !canEdit }
+                ? { label: "Aggiungi ingrediente", onClick: () => setIngredientCreateSeq(n => n + 1), disabled: !canEdit }
                 : undefined,
         [activeTab, canWriteProduct, canWriteAttribute, canEdit, verticalConfig, handleCreateBase]
     );

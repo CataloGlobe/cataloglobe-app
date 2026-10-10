@@ -19,7 +19,7 @@ export const DEFAULT_PLAN_FEATURES: Record<PlanCode, string[]> = {
     pro: [
         "Tutto del piano Base",
         "Prenotazione tavolo",
-        "Ordinazione al tavolo",
+        "Ordini dal tavolo",
         "Gestione sale e tavoli"
     ]
 };

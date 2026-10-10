@@ -35,6 +35,7 @@ export function SchedaNow({ facts, actions }: { facts: SchedaFacts; actions: Now
         spans: facts.spans,
         closure,
         now: facts.now,
+        reopen: facts.reopen,
         reservationsOn: a.enable_reservations && !facts.reservationsLocked,
         orderingOn: a.ordering_enabled && !facts.orderingLocked
     });

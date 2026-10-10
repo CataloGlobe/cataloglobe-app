@@ -564,7 +564,7 @@ export function TablesManagement({
                                 disabled={!activityId || !canEdit}
                                 className={styles.toolbarCta}
                             >
-                                Nuovo tavolo
+                                Aggiungi tavolo
                             </Button>
                         )}
                     </div>
@@ -577,9 +577,9 @@ export function TablesManagement({
                         description={
                             items.length === 0
                                 ? orderingEnabled && reservationsEnabled
-                                    ? "Crea il primo tavolo: serve sia alle ordinazioni al QR sia all'assegnazione delle prenotazioni."
+                                    ? "Crea il primo tavolo: serve sia agli ordini dal tavolo sia all'assegnazione delle prenotazioni."
                                     : orderingEnabled
-                                      ? "Crea il primo tavolo per iniziare a ricevere ordinazioni."
+                                      ? "Crea il primo tavolo per iniziare a ricevere ordini dal tavolo."
                                       : "Mappa i tavoli per poterli assegnare alle prenotazioni."
                                 : hasFiltersActive
                                   ? "Modifica i filtri per vedere altri risultati."
@@ -588,7 +588,7 @@ export function TablesManagement({
                         action={
                             items.length === 0 && activityId && canManage ? (
                                 <Button variant="primary" onClick={openCreate} disabled={!canEdit}>
-                                    Nuovo tavolo
+                                    Aggiungi tavolo
                                 </Button>
                             ) : undefined
                         }
@@ -635,14 +635,14 @@ export function TablesManagement({
                                 form="table-form"
                                 loading={isSaving}
                             >
-                                {editingItem ? "Salva" : "Crea"}
+                                {editingItem ? "Salva" : "Aggiungi"}
                             </Button>
                         </>
                     }
                 >
                     <TableForm
                         // Key forza remount ad ogni apertura: senza, riaprire lo stesso
-                        // tavolo (o "Nuovo tavolo" due volte) dopo un Annulla riusa
+                        // tavolo (o "Aggiungi tavolo" due volte) dopo un Annulla riusa
                         // l'istanza e trascina i campi non salvati della volta prima.
                         key={formInstanceKey}
                         formId="table-form"

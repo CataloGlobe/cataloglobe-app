@@ -163,7 +163,7 @@ export const ActivityGroupDrawer: React.FC<ActivityGroupDrawerProps> = ({
                             loading={isSaving}
                             disabled={isSaving || isLoading}
                         >
-                            {mode === "create" ? "Crea gruppo" : "Salva modifiche"}
+                            {mode === "create" ? "Aggiungi gruppo" : "Salva modifiche"}
                         </Button>
                     </>
                 }

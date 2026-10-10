@@ -147,7 +147,7 @@ export function ReservationsAgendaPage() {
                         leftIcon={<Plus size={16} />}
                         onClick={handleOpenCreate}
                     >
-                        Nuova prenotazione
+                        Aggiungi prenotazione
                     </Button>
                 )}
             </div>
@@ -180,7 +180,7 @@ export function ReservationsAgendaPage() {
     const todayLine = useMemo(() => todaySentence(summarizeToday(scopedReservations)), [scopedReservations]);
 
     // T14 PN1: a sinistra Giorni/Settimana e le date, a destra ricerca,
-    // canali e «Nuova prenotazione». In ricerca la settimana non conta.
+    // canali e «Aggiungi prenotazione». In ricerca la settimana non conta.
     // Prima l'interruttore di «In servizio» (Elenco, Mappa, Prenotazioni,
     // Comande), poi Giorni/Settimana e le date.
     const inServizio = useInServizioSwitch("prenotazioni");
@@ -274,7 +274,7 @@ export function ReservationsAgendaPage() {
                     onChange: value => setChannelFilter(value as ChannelFilter)
                 }
             ],
-            primaryAction: canCreate ? { label: "Nuova prenotazione", onClick: handleOpenCreate } : undefined,
+            primaryAction: canCreate ? { label: "Aggiungi prenotazione", onClick: handleOpenCreate } : undefined,
             sections: inServizio.sections,
             activeSection: "prenotazioni",
             onSectionChange: inServizio.onSectionChange

@@ -14,6 +14,9 @@ import type { FeaturedContentType } from "@/services/supabase/featuredContents";
 import type { FontFamily } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
 import { DB_LATER, NEW_MODEL, daysLong, elides, listIt, mShort, perGroups, perText, whereFor, whereText, type Draft, type DraftLookups } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import { durLabel, hhmm, type CalWhen, type CalWhere } from "@/pages/Dashboard/Programming/calendar/calendarModel";
+import type { PickProduct } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
+import type { AiMenuCategory } from "@/pages/Dashboard/Catalogs/AiMenuImport/analyzeMenu";
+import { computeProductMatch } from "@/utils/importMatching";
 
 export type CreaKind = "menu" | "stile" | "evid" | "storia";
 export const CREA_KINDS: readonly CreaKind[] = ["menu", "stile", "evid", "storia"];
@@ -65,7 +68,17 @@ export const FONT_QUICK: readonly FontFamily[] = ["inter", "lora", "patrick-hand
 export type CardKey = "foto" | "lista" | "compatti";
 export const CARDS: Record<CardKey, string> = { foto: "Card con la foto", lista: "Card senza foto", compatti: "Compatti" };
 
-export type Dish = { key: string; productId: string | null; name: string; price: number | null };
+export type Dish = {
+    key: string;
+    productId: string | null;
+    name: string;
+    price: number | null;
+    /** Letti dalla foto (D172): la descrizione e i formati vanno nel prodotto nuovo. */
+    description?: string | null;
+    formats?: { name: string; price: number | null }[];
+    /** L'AI non ne era sicura, o il nome somiglia a più prodotti: «da controllare». */
+    check?: boolean;
+};
 export type Section = { key: string; name: string; dishes: Dish[] };
 
 /** Quello che arriva da «E adesso?»: il menù appena messo in onda. */
@@ -92,8 +105,12 @@ export type Tunnel = {
     insieme?: boolean;
     name: string;
     source: "zero" | "foto";
-    /** Il menù creato dall'import con l'AI: si salva lui, non uno nuovo. */
-    importedId: string | null;
+    /**
+     * Quanto ha letto l'AI dalla foto o dal PDF (D172). Sezioni e piatti sono
+     * già in `sections`, da controllare come se scritti a mano: il menù si
+     * scrive solo al Salva, e uscendo prima non nasce niente.
+     */
+    imported: { sections: number; dishes: number } | null;
     sections: Section[];
     // lo stile
     base: "zero" | "copy";
@@ -145,7 +162,7 @@ export function newTunnel(kind: CreaKind, where: CalWhere, from: FromMenu | null
         menuType: null,
         name: "",
         source: "zero",
-        importedId: null,
+        imported: null,
         sections: [],
         base: "zero",
         baseStyleId: null,
@@ -277,7 +294,7 @@ export function blocker(t: Tunnel, step: StepId, c: Ctx): string {
             return t.menuType ? "" : "Scegli che menù è";
         case "parti":
             if (!t.name.trim()) return "Manca il nome del menù";
-            return t.source === "foto" && !t.importedId ? "Carica la foto o il PDF del menù" : "";
+            return t.source === "foto" && !t.imported ? "Carica la foto o il PDF del menù" : "";
         case "sezioni":
             return hasDish(t) ? "" : "Aggiungi almeno un piatto";
         case "nome":
@@ -323,9 +340,42 @@ export function firstBlock(t: Tunnel, c: Ctx): { i: number; why: string } | null
     return null;
 }
 
+/** Le foto o i PDF che l'AI legge insieme, come nel drawer dell'import. */
+export const MAX_IMPORT_FILES = 5;
+
+/**
+ * Sezioni e piatti letti dall'AI (D172). Un piatto col nome di un solo
+ * prodotto vostro si collega a lui, col suo prezzo; con più prodotti dello
+ * stesso nome, o se l'AI non ne era sicura, resta «da controllare».
+ */
+export function sectionsFromAi(categories: readonly AiMenuCategory[], pick: readonly PickProduct[]): Section[] {
+    const tenant = pick.map(p => ({ id: p.id, name: p.name }));
+    return categories
+        .filter(c => c.items.length > 0)
+        .map(c => ({
+            key: key(),
+            name: c.name.trim() || "Piatti",
+            dishes: c.items.map(it => {
+                const m = computeProductMatch(it.name, { existingInCategory: [], existingInTenant: tenant });
+                const mine = m.status === "reusable_single" ? pick.find(p => p.id === m.productId) ?? null : null;
+                const formats = it.product_type === "formats" && it.formats?.length ? it.formats.map(f => ({ name: f.name, price: f.price })) : undefined;
+                const prices = (formats ?? []).map(f => f.price).filter((v): v is number => v !== null);
+                return {
+                    key: key(),
+                    productId: mine?.id ?? null,
+                    name: mine?.name ?? it.name.trim(),
+                    price: mine ? mine.listPrice : formats ? (prices.length ? Math.min(...prices) : null) : it.base_price,
+                    description: it.description,
+                    formats,
+                    check: it.confidence !== "high" || m.status === "reusable_ambiguous"
+                };
+            })
+        }));
+}
+
 /** C'è qualcosa da perdere uscendo. */
 export const isDirty = (t: Tunnel) =>
-    t.i > 0 || !!t.name.trim() || !!t.title.trim() || !!t.menuType || !!t.evType || t.sections.length > 0 || !!t.importedId;
+    t.i > 0 || !!t.name.trim() || !!t.title.trim() || !!t.menuType || !!t.evType || t.sections.length > 0 || !!t.imported;
 
 /* ---------- le frasi ---------- */
 
