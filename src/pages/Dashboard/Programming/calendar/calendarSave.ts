@@ -40,9 +40,9 @@ function draftProducts(D: Draft, L: DraftLookups): Products {
             const p = L.products.get(id);
             for (const k of priceKeys(p, id)) {
                 const fid = k.includes(":") ? k.split(":")[1] : null;
-                price.push({ productId: id, optionValueId: fid, overridePrice: D.prices[k] ?? 0, showOriginalPrice: D.strike });
+                price.push({ productId: id, optionValueId: fid, overridePrice: D.prices[k] ?? 0, showOriginalPrice: D.strikeBy?.[k] ?? D.strike });
             }
-        } else visibility.push({ productId: id, mode: D.hide });
+        } else visibility.push({ productId: id, mode: D.hideBy?.[id] ?? D.hide });
     }
     return { price, visibility };
 }

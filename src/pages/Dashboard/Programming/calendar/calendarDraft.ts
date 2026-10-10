@@ -56,6 +56,13 @@ export type Draft = {
     prices: Record<string, number | null>;
     strike: boolean;
     hide: "hide" | "disable";
+    /**
+     * Barrato e modo com'erano nella regola, piatto per piatto (per prezzo:
+     * prodotto o prodotto:formato). Valgono finché non si tocca il comando
+     * «Come si vede» / «Come», che è uno per tutti e li azzera.
+     */
+    strikeBy?: Record<string, boolean>;
+    hideBy?: Record<string, "hide" | "disable">;
     /** L'id del menù, dello stile o del contenuto In evidenza. */
     thing: string | null;
     /** Oggi: lo stile che sta nella regola del menù (o il menù di quella dello stile). */
@@ -92,7 +99,7 @@ export const whenKey = (w: CalWhen) =>
     [w.period ? w.period.from + ">" + w.period.to : "", w.days ? w.days.join("") : "", w.ranges ? w.ranges.map(r => r.join("-")).join(",") : ""].join("|");
 export const whereKey = (w: CalWhere) => (w.all ? "all" : "a:" + [...w.activityIds].sort().join(",") + "|g:" + [...w.groupIds].sort().join(","));
 export const snap = (D: Draft) =>
-    JSON.stringify([D.kind, D.picks, D.prices, D.strike, D.hide, D.thing, D.pair, whenKey(D.when), whereKey(D.where), D.name]);
+    JSON.stringify([D.kind, D.picks, D.prices, D.strike, D.hide, D.thing, D.pair, whenKey(D.when), whereKey(D.where), D.name, !!D.strikeBy, !!D.hideBy]);
 export const isDirty = (D: Draft | null) => !!D && !!D.kind && snap(D) !== D.orig;
 
 export function blankDraft(kind: CalKind, where: CalWhere, pair: string | null): Draft {
@@ -151,11 +158,13 @@ export function draftFromEntry(e: CalEntry, L: DraftLookups, only: string | null
         D.picks = sortPicks([...new Set(os.map(o => o.product_id))], L);
         for (const o of os) D.prices[priceKey(o.product_id, o.option_value_id)] = o.override_price;
         D.strike = os.some(o => o.show_original_price);
+        D.strikeBy = Object.fromEntries(os.map(o => [priceKey(o.product_id, o.option_value_id), o.show_original_price]));
         D.only = only && r.price_overrides.some(o => o.product_id !== only) ? only : null;
     } else if (e.kind === "visibility") {
         const os = r.visibility_overrides.filter(o => !only || o.product_id === only);
         D.picks = sortPicks(os.map(o => o.product_id), L);
         D.hide = os.some(o => o.mode === "disable") ? "disable" : "hide";
+        D.hideBy = Object.fromEntries(os.map(o => [o.product_id, o.mode]));
         D.only = only && r.visibility_overrides.some(o => o.product_id !== only) ? only : null;
     } else if (e.kind === "featured") {
         const id = e.id.split(":featured:")[1] ?? null;

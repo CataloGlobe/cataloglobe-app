@@ -216,6 +216,45 @@ describe("salvare la sezione", () => {
         expect(deleteLayoutRule).not.toHaveBeenCalled();
     });
 
+    it("«Modifica completa» con solo l'orario cambiato: barrato e modo restano quelli di ogni piatto (#337.3)", async () => {
+        const prezzi = rule({
+            rule_type: "price",
+            price_overrides: [
+                { product_id: "p1", product_name: "Spritz", override_price: 4, show_original_price: true, option_value_id: null },
+                { product_id: "p2", product_name: "Negroni", override_price: 5, show_original_price: false, option_value_id: null }
+            ] as LayoutRule["price_overrides"]
+        });
+        const D = draftFromEntry(entryOf(prezzi), L);
+        D.when = { ranges: [[1080, 1200]] };
+        await saveDraft(D, L, "t");
+        expect(vi.mocked(updateRule).mock.calls[0][0].priceProducts).toEqual([
+            { productId: "p1", optionValueId: null, overridePrice: 4, showOriginalPrice: true },
+            { productId: "p2", optionValueId: null, overridePrice: 5, showOriginalPrice: false }
+        ]);
+
+        vi.clearAllMocks();
+        const nascosti = rule({
+            rule_type: "visibility",
+            visibility_overrides: [
+                { product_id: "p1", product_name: "Spritz", mode: "hide" },
+                { product_id: "p2", product_name: "Negroni", mode: "disable" }
+            ] as LayoutRule["visibility_overrides"]
+        });
+        const V = draftFromEntry(entryOf(nascosti), L);
+        V.when = { ranges: [[1080, 1200]] };
+        await saveDraft(V, L, "t");
+        expect(vi.mocked(updateRule).mock.calls[0][0].visibilityProductOverrides).toEqual([
+            { productId: "p1", mode: "hide" },
+            { productId: "p2", mode: "disable" }
+        ]);
+
+        // Toccato il comando (uno per tutti), vale la scelta nuova e la bozza risulta cambiata.
+        const T = draftFromEntry(entryOf(prezzi), L);
+        expect(isDirty(T)).toBe(false);
+        delete T.strikeBy;
+        expect(isDirty(T)).toBe(true);
+    });
+
     it("«Togli dal calendario»: il piatto solo esce dalla regola; l'ultimo toglie la regola", async () => {
         const r = happy();
         await dropDraft(draftFromEntry(entryOf(r), L, "p1"));

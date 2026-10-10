@@ -395,7 +395,12 @@ export function CalendarioSection(p: CalendarioSectionProps) {
                             <SegmentedControl
                                 size="sm"
                                 value={d.strike ? "1" : "0"}
-                                onChange={v => upd(dd => void (dd.strike = v === "1"))}
+                                onChange={v =>
+                                    upd(dd => {
+                                        dd.strike = v === "1";
+                                        delete dd.strikeBy;
+                                    })
+                                }
                                 options={[
                                     { value: "1", label: "Sconto" },
                                     { value: "0", label: "Prezzo nuovo" }
@@ -418,7 +423,12 @@ export function CalendarioSection(p: CalendarioSectionProps) {
                             <SegmentedControl
                                 size="sm"
                                 value={d.hide}
-                                onChange={v => upd(dd => void (dd.hide = v))}
+                                onChange={v =>
+                                    upd(dd => {
+                                        dd.hide = v;
+                                        delete dd.hideBy;
+                                    })
+                                }
                                 options={[
                                     { value: "hide", label: "Non si vede" },
                                     { value: "disable", label: "Non ordinabile" }
