@@ -203,6 +203,7 @@ export function order(seat: CalSeat) {
         (spec(b, seat) ?? -1) - (spec(a, seat) ?? -1) ||
         b.tscore - a.tscore ||
         (NEW_MODEL.newestWins ? b.created - a.created : a.priority - b.priority || a.created - b.created) ||
+        a.ruleId.localeCompare(b.ruleId) ||
         (a.id < b.id ? -1 : 1);
 }
 

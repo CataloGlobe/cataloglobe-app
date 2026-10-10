@@ -40,9 +40,9 @@ function draftProducts(D: Draft, L: DraftLookups): Products {
             const p = L.products.get(id);
             for (const k of priceKeys(p, id)) {
                 const fid = k.includes(":") ? k.split(":")[1] : null;
-                price.push({ productId: id, optionValueId: fid, overridePrice: D.prices[k] ?? 0, showOriginalPrice: D.strike });
+                price.push({ productId: id, optionValueId: fid, overridePrice: D.prices[k] ?? 0, showOriginalPrice: D.strikeBy?.[k] ?? D.strike });
             }
-        } else visibility.push({ productId: id, mode: D.hide });
+        } else visibility.push({ productId: id, mode: D.hideBy?.[id] ?? D.hide });
     }
     return { price, visibility };
 }
@@ -101,6 +101,34 @@ async function createFor(tenantId: string, D: Draft, name: string): Promise<stri
     return D.kind === "featured" ? createFeaturedRuleDraft({ tenantId, name }) : createRuleDraft({ tenantId, ruleType: RULE_TYPE[D.kind], name });
 }
 
+/**
+ * Crea la regola e la scrive. Se la scrittura fallisce, la bozza appena nata
+ * si toglie: non resta una regola orfana e «Riprova» non ne fa una seconda.
+ */
+async function createAndWrite(tenantId: string, D: Draft, name: string, products: Products, contents: LayoutRule["featured_contents"]): Promise<string> {
+    const id = await createFor(tenantId, D, name);
+    try {
+        await writeRule(id, tenantId, D, name, products, contents);
+    } catch (err) {
+        await deleteLayoutRule(id).catch(() => undefined);
+        throw err;
+    }
+    return id;
+}
+
+/**
+ * La voce ha già la sua regola nuova, ma non è uscita da quella di partenza:
+ * sta in due regole. Non si disfa niente (la regola di partenza può essere
+ * già scritta a metà): chi salva chiude la sezione e rilegge, così «Riprova»
+ * non ne crea una terza.
+ */
+export class PartialSaveError extends Error {
+    constructor() {
+        super("PARTIAL_SAVE");
+        this.name = "PartialSaveError";
+    }
+}
+
 /** Riscrive la regola di partenza senza la voce `only` (o la toglie, se era l'ultima). */
 async function leaveOut(r: LayoutRule, D: Draft) {
     const only = D.only!;
@@ -150,9 +178,12 @@ async function saveOne(D: Draft, L: DraftLookups, tenantId: string): Promise<voi
             const drop = <T extends { productId: string }>(xs: T[]) => xs.filter(x => !D.picks.includes(x.productId));
             return writeRule(r.id, r.tenant_id, D, r.name ?? "", { price: [...drop(rest.price), ...mine.price], visibility: [...drop(rest.visibility), ...mine.visibility] }, []);
         }
-        const id = await createFor(tenantId, D, name);
-        await writeRule(id, tenantId, D, name, draftProducts(D, L), D.kind === "featured" ? [contentOf(D.thing!, r.featured_contents.find(c => c.featured_content_id === D.only))] : []);
-        await leaveOut(r, D);
+        await createAndWrite(tenantId, D, name, draftProducts(D, L), D.kind === "featured" ? [contentOf(D.thing!, r.featured_contents.find(c => c.featured_content_id === D.only))] : []);
+        try {
+            await leaveOut(r, D);
+        } catch {
+            throw new PartialSaveError();
+        }
         return;
     }
 
@@ -161,8 +192,7 @@ async function saveOne(D: Draft, L: DraftLookups, tenantId: string): Promise<voi
         return writeRule(r.id, r.tenant_id, D, name, draftProducts(D, L), cs);
     }
 
-    const id = await createFor(tenantId, D, name);
-    await writeRule(id, tenantId, D, name, draftProducts(D, L), D.kind === "featured" ? [contentOf(D.thing!)] : []);
+    await createAndWrite(tenantId, D, name, draftProducts(D, L), D.kind === "featured" ? [contentOf(D.thing!)] : []);
 }
 
 /** «Togli dal calendario» dalla sezione: la voce sola, o tutta la regola. */

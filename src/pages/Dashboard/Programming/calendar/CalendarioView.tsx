@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/Button/Button";
 import { IconButton } from "@/components/ui/Button/IconButton";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import type { LayoutRule } from "@/services/supabase/layoutScheduling";
+import { NEW_MODEL } from "./calendarFlags";
 import { toRomeDateTime } from "@/services/supabase/schedulingNow";
 import {
     CAL_KINDS,
@@ -47,6 +48,8 @@ import {
     cloneDraft,
     draftEntries,
     mainWhen,
+    draftPairEntry,
+    pairCovers,
     draftFromEntry,
     draftLabel,
     hoursText,
@@ -68,6 +71,7 @@ import {
     writeAside
 } from "./calendarDraft";
 import s from "./CalendarioView.module.scss";
+import { PartialSaveError } from "./calendarSave";
 
 const DAYS = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"];
 const DAYS_L = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"];
@@ -917,8 +921,12 @@ export default function CalendarioView({
             setNote({ text: (draft.mode === "edit" ? "Salvato: " : "Aggiunto al calendario: ") + draftLabel(draft, L) + "." });
             closeSec(true);
             if (then) section.onGoNew(then);
-        } catch {
-            setNote({ text: "Non siamo riusciti a salvare. Riprova.", error: true });
+        } catch (err) {
+            if (err instanceof PartialSaveError) {
+                // la voce è in due regole: si chiude e si guarda il calendario riletto, senza «Riprova»
+                setNote({ text: "Salvato solo in parte: " + draftLabel(draft, L) + " ora è in due regole. Controlla il calendario e togli quella che non serve.", error: true });
+                closeSec(true);
+            } else setNote({ text: "Non siamo riusciti a salvare. Riprova.", error: true });
         } finally {
             setBusy(false);
         }
@@ -940,14 +948,23 @@ export default function CalendarioView({
     // l'anteprima: il calendario con la bozza dentro
     const pvEntries = useMemo(() => (draft ? draftEntries(draft, L, nowDate.getTime()) : []), [draft, L, nowDate]);
     const reaches = (id: string) => pvEntries.some(e => specFor(e, seatOf(id)) !== null);
+    // menù e stile nella stessa regola (finché non si separano): il compagno va in onda con la bozza, a ogni suo orario
+    const pairKinds = (k: CalKind) => !NEW_MODEL.splitLayout && (k === "menu" || k === "style");
+    const pvPair = useMemo(() => (draft && !NEW_MODEL.splitLayout ? draftPairEntry(draft, L, nowDate.getTime()) : null), [draft, L, nowDate]);
+    const pvPairs = useMemo<CalEntry[]>(
+        () => (pvPair ? pvEntries.map((e, i) => ({ ...e, id: pvPair.id + (i ? ":" + i : ""), kind: pvPair.kind, thing: pvPair.thing, add: false })) : []),
+        [pvEntries, pvPair]
+    );
     const pvList = useMemo(() => {
         if (!draft) return null;
         let list: CalEntry[] = entries;
         const r = draft.rule;
         if (r && draft.kind === "featured" && draft.only) list = list.filter(e => e.id !== `${r.id}:featured:${draft.only}`);
-        else if (r && !draft.only) list = list.filter(e => !(e.ruleId === r.id && e.kind === draft.kind));
-        return [...list, ...pvEntries];
-    }, [draft, entries, pvEntries]);
+        // menù e stile stanno nella stessa regola: in modifica escono tutti e due
+        else if (r && !draft.only)
+            list = list.filter(e => !(e.ruleId === r.id && (e.kind === draft.kind || (pairKinds(draft.kind) && pairKinds(e.kind)))));
+        return [...list, ...pvEntries, ...pvPairs];
+    }, [draft, entries, pvEntries, pvPairs]);
     const pvAx = useMemo(() => (pvList ? axisFor(pvList) : axis), [pvList, axis]);
     const pvReach = pvEntries.length ? shown.filter(x => reaches(x.id)) : shown;
     const pvSedi = (pvReach.length ? pvReach : pvEntries.length ? sedi.filter(x => reaches(x.id)).slice(0, 1) : shown.slice(0, 1)).slice(0, 4);
@@ -1013,6 +1030,14 @@ export default function CalendarioView({
                             : `Prende il posto di ${listIt([...cov].map(q))} quando si sovrappongono.`
                     );
                 if (by.size) out.push(`Per ${hoursText(off)} non si vede: lo copre ${listIt([...by].map(q))}.`);
+            }
+            // lo stile porta con sé il suo menù (e viceversa), che nella sua corsia può coprire altro
+            if (pvPair && (mins || off)) {
+                const pc = pairCovers(pvList, pvPair, seat, week, pvAx);
+                out.push(
+                    `Porta con sé ${pvPair.kind === "menu" ? "il menù" : "lo stile"} ${q(pvPair.thing)}` +
+                        (pc.length ? `, che prende il posto di ${listIt(pc.map(q))} quando si sovrappongono.` : ".")
+                );
             }
             const k = out.join("\n");
             groupsOf.set(k, [...(groupsOf.get(k) ?? []), x.name]);

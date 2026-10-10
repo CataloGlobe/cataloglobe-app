@@ -281,6 +281,11 @@ export default function Programming() {
     // il pannello del Calendario mostra listino e categoria dei piatti: si chiedono solo aprendo il Calendario
     const [calProducts, setCalProducts] = useState<ReadonlyMap<string, ProductInfo> | undefined>(undefined);
     const [calPickBase, setCalPickBase] = useState<{ id: string; name: string; category_name: string | null; base_price: number | null }[]>([]);
+    // un'altra azienda ha un altro listino
+    useEffect(() => {
+        setCalProducts(undefined);
+        setCalPickBase([]);
+    }, [currentTenantId]);
     useEffect(() => {
         if (viewMode !== "calendar" || calProducts || !currentTenantId) return;
         let alive = true;
@@ -290,11 +295,14 @@ export default function Programming() {
                 setCalProducts(new Map(list.map(p => [p.id, { category: p.category_name, listPrice: p.base_price }])));
                 setCalPickBase(list);
             })
-            .catch(error => console.error("Errore listino per il Calendario:", error));
+            .catch(error => {
+                console.error("Errore listino per il Calendario:", error);
+                if (alive) showToast({ type: "warning", message: "Non siamo riusciti a caricare i piatti: prezzi e categorie nel Calendario possono mancare.", duration: 4000 });
+            });
         return () => {
             alive = false;
         };
-    }, [calProducts, currentTenantId, viewMode]);
+    }, [calProducts, currentTenantId, showToast, viewMode]);
     // la sezione Aggiungi / Modifica: i piatti da scegliere, con i loro formati
     const calPickList = useMemo<PickProduct[]>(() => {
         const formats = new Map(productOptions.map(p => [p.id, p.format_values ?? []]));
@@ -1077,7 +1085,8 @@ export default function Programming() {
                     groupNames={groupNameById}
                     products={calProducts}
                     formatNames={calFormatNames}
-                    isWritable={canWrite ? isRuleWritable : undefined}
+                    // ad abbonamento fermo il Calendario è in sola lettura, come l'Elenco
+                    isWritable={canWrite && canEdit ? isRuleWritable : undefined}
                     onOpenRule={rule => navigate(ruleHref(rule))}
                     onDrop={async (rule, item) => {
                         await (item ? dropItem(rule, item) : dropRule(rule));
@@ -1093,10 +1102,14 @@ export default function Programming() {
                             ? { all: false, activityIds: [routeActivityId], groupIds: [] }
                             : { all: true, activityIds: [], groupIds: [] },
                         systemStyleId: stylesOptions.find(x => x.is_system)?.id ?? null,
-                        canAdd: canCreate,
+                        canAdd: canCreate && canEdit,
                         onSave: async (draft, lookups) => {
-                            await saveDraft(draft, lookups, currentTenantId!);
-                            await loadRules();
+                            // si rilegge anche se fallisce: un salvataggio a metà si deve vedere
+                            try {
+                                await saveDraft(draft, lookups, currentTenantId!);
+                            } finally {
+                                await loadRules();
+                            }
                         },
                         onDrop: async draft => {
                             await dropDraft(draft);
