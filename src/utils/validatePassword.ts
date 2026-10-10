@@ -37,3 +37,27 @@ export function isWeakPasswordError(message: string): boolean {
     m.includes("password must")
   );
 }
+
+/**
+ * Messaggio per una password rifiutata da Supabase Auth, dal motivo vero.
+ * Con «password trapelate» acceso il server rifiuta anche password che
+ * passano i controlli del client (es. `Test_1234`): `weak_password` con
+ * `reasons: ["pwned"]`, e il messaggio inglese non dice «password should».
+ * `null` se l'errore non è una password rifiutata.
+ */
+export function weakPasswordMessage(err: unknown): string | null {
+  if (!err || typeof err !== "object") return null;
+  const e = err as { name?: unknown; code?: unknown; message?: unknown; reasons?: unknown };
+  const isWeak =
+    e.name === "AuthWeakPasswordError" ||
+    e.code === "weak_password" ||
+    (typeof e.message === "string" && (isWeakPasswordError(e.message) || /known to be weak/i.test(e.message)));
+  if (!isWeak) return null;
+  const reasons = Array.isArray(e.reasons) ? e.reasons : [];
+  if (reasons.includes("pwned") || (typeof e.message === "string" && /known to be weak|pwned/i.test(e.message))) {
+    return "Questa password è comparsa in fughe di dati di altri siti: scegline un'altra.";
+  }
+  if (reasons.includes("length")) return "La password deve avere almeno 8 caratteri.";
+  if (reasons.includes("characters")) return "La password deve contenere minuscole, maiuscole e numeri.";
+  return "La password non soddisfa i requisiti di sicurezza.";
+}

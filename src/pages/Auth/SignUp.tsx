@@ -3,7 +3,7 @@ import { usePageTitle } from "@/hooks/usePageTitle";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import { signUp } from "@/services/supabase/auth";
 import { INVALID_EMAIL_MESSAGE, isDisposableEmail, isValidEmailFormat } from "@utils/validateEmail";
-import { isStrongPassword } from "@utils/validatePassword";
+import { isStrongPassword, weakPasswordMessage } from "@utils/validatePassword";
 import { Button, InlineBanner, PasswordRequirements } from "@/components/ui";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import Text from "@/components/ui/Text/Text";
@@ -32,7 +32,7 @@ function getReadableSignUpError(message: string): string {
   const normalized = message.toLowerCase();
 
   if (normalized.includes("password")) {
-    return "La password deve essere più sicura (almeno 8 caratteri).";
+    return "La password non soddisfa i requisiti di sicurezza.";
   }
   if (normalized.includes("too many")) {
     return "Hai effettuato troppe richieste. Riprova più tardi.";
@@ -70,8 +70,13 @@ export default function SignUp() {
   // Dispatch unico per gli errori di signUp (usato dal ramo signUpError e dal catch),
   // così le due strade non divergono. Errori di formato email → inline sul campo;
   // email già registrata → ramo dedicato; tutto il resto → banner globale.
-  const dispatchSignUpError = (message: string) => {
-    if (isAlreadyRegisteredError(message)) {
+  const dispatchSignUpError = (err: unknown) => {
+    const message = err instanceof Error ? err.message : "";
+    // Password rifiutata dal server (anche trapelata): sotto il campo, col motivo.
+    const weak = weakPasswordMessage(err);
+    if (weak) {
+      setFieldErrors((prev) => ({ ...prev, password: weak }));
+    } else if (isAlreadyRegisteredError(message)) {
       setIsEmailTaken(true);
     } else if (isEmailFormatError(message)) {
       setFieldErrors((prev) => ({ ...prev, email: INVALID_EMAIL_MESSAGE }));
@@ -131,7 +136,7 @@ export default function SignUp() {
       );
 
       if (signUpError) {
-        dispatchSignUpError(signUpError.message);
+        dispatchSignUpError(signUpError);
         return;
       }
 
@@ -146,7 +151,7 @@ export default function SignUp() {
     } catch (err) {
       console.error("[SignUp] handleSubmit error:", err);
       if (err instanceof Error) {
-        dispatchSignUpError(err.message);
+        dispatchSignUpError(err);
       } else {
         setError("Errore durante la registrazione. Riprova.");
       }
