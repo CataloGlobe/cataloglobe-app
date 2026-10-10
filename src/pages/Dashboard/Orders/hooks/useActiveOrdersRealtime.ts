@@ -211,7 +211,7 @@ export function useActiveOrdersRealtime(
             void fetchPrintJobs(data.map(o => o.id));
         } catch (err) {
             setError(
-                err instanceof Error ? err.message : "Errore caricamento ordini"
+                err instanceof Error ? err.message : "Errore nel caricamento delle comande"
             );
         } finally {
             setIsLoading(false);

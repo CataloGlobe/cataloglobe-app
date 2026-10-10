@@ -301,7 +301,7 @@ export type ProgrammazioneStub = RestStub;
 
 export async function stubProgrammazione(
     page: Page,
-    options: { matrix?: boolean; manySeats?: boolean; dbWritable?: readonly string[] } = {}
+    options: { matrix?: boolean; manySeats?: boolean; dbWritable?: readonly string[]; /** false: orologio vero, per le foto (Framer non si ferma) */ clock?: boolean } = {}
 ): Promise<ProgrammazioneStub> {
     const tables = makeTables(Boolean(options.matrix), Boolean(options.manySeats));
     const stub = await stubRest(page, {
@@ -329,6 +329,6 @@ export async function stubProgrammazione(
         }
     });
     await page.route(/\/api\/public-catalog\/revalidate/, route => route.fulfill({ json: { ok: true } }));
-    await page.clock.setFixedTime(NOW);
+    if (options.clock !== false) await page.clock.setFixedTime(NOW);
     return stub;
 }

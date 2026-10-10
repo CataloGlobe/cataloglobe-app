@@ -5,7 +5,7 @@ import { ChevronRight, Lock } from "lucide-react";
 import Text from "@/components/ui/Text/Text";
 import { Badge } from "@/components/ui/Badge/Badge";
 import type { AppSidebarNavItem } from "./AppSidebar";
-import { isItemActive } from "./isItemActive";
+import { currentItem } from "./isItemActive";
 import styles from "./AppSidebar.module.scss";
 import fly from "./SidebarFlyout.module.scss";
 
@@ -21,6 +21,7 @@ interface SidebarSectionProps {
     icon: ReactNode;
     items: AppSidebarNavItem[];
     pathname: string;
+    search?: string;
     open: boolean;
     /** Il mouse entra nella riga o nel pannello: apre (con un attimo di ritardo) o tiene aperto. */
     onHoverStart: () => void;
@@ -34,7 +35,7 @@ interface SidebarSectionProps {
     inline?: boolean;
     /** Solo con `inline`: le pagine si vedono sotto la riga. */
     expanded?: boolean;
-    /** Solo con `inline`: il clic sulla riga apre o chiude. */
+    /** Solo con `inline`: il clic sulla riga porta all'ultima parte usata. */
     onToggle?: () => void;
 }
 
@@ -52,6 +53,7 @@ export function SidebarSection({
     icon,
     items,
     pathname,
+    search = "",
     open,
     onHoverStart,
     onHoverEnd,
@@ -66,9 +68,11 @@ export function SidebarSection({
     const panelRef = useRef<HTMLDivElement>(null);
     const focusFirst = useRef(false);
 
-    const current = items.find(item => isItemActive(item, pathname)) ?? null;
+    const current = currentItem(items, pathname, search);
 
-    const hasSignal = items.some(item => item.loading || item.badge !== undefined || item.showDot);
+    const hasSignal = items.some(
+        item => item.loading || item.badge !== undefined || item.showDot || item.stateTone === "attention"
+    );
 
     // Il pannello è fuori dalla sidebar (che scorre e taglierebbe): posizione
     // fissa accanto alla riga, dentro la finestra.
@@ -171,6 +175,14 @@ export function SidebarSection({
                                         {item.label}
                                     </Text>
                                     <span className={styles.trailing}>
+                                        {item.state && (
+                                            <span className={styles.subState}>
+                                                {item.stateTone && (
+                                                    <span className={styles.navDot} data-tone={item.stateTone} aria-hidden="true" />
+                                                )}
+                                                {item.state}
+                                            </span>
+                                        )}
                                         {item.locked && (
                                             <span className={styles.subLock} aria-label="Funzione del piano Pro">
                                                 <Lock size={14} strokeWidth={1.5} />
@@ -233,6 +245,12 @@ export function SidebarSection({
                             <Text as="span" variant="body-sm" weight={active ? 600 : 400} className={fly.label}>
                                 {item.label}
                             </Text>
+                            {item.state && (
+                                <span className={fly.state}>
+                                    {item.stateTone && <span className={fly.dot} data-tone={item.stateTone} aria-hidden="true" />}
+                                    {item.state}
+                                </span>
+                            )}
                             {item.locked && (
                                 <span className={fly.lock} aria-label="Funzione del piano Pro">
                                     <Lock size={14} strokeWidth={1.5} />

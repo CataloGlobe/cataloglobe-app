@@ -35,11 +35,21 @@ import ModalLayout, {
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import { supabase } from "@/services/supabase/client";
 import { DeleteAccountDrawer } from "@/pages/Dashboard/Settings/DeleteAccountDrawer";
+import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
+import { useTheme } from "@/context/Theme/useTheme";
+import type { ThemePreference } from "@/context/Theme/ThemeContext";
 import styles from "./WorkspaceSettingsPage.module.scss";
+
+const THEME_OPTIONS: { value: ThemePreference; label: string }[] = [
+    { value: "system", label: "Come il sistema" },
+    { value: "light", label: "Chiaro" },
+    { value: "dark", label: "Scuro" }
+];
 
 export default function WorkspaceSettingsPage() {
     const { user } = useAuth();
     const { showToast } = useToast();
+    const { preference, setPreference } = useTheme();
     const [profile, setProfile] = useState<Profile | null>(null);
     const [loadingProfile, setLoadingProfile] = useState(true);
     const [drawerOpen, setDrawerOpen] = useState(false);
@@ -364,6 +374,26 @@ export default function WorkspaceSettingsPage() {
                             </button>
                         </div>
                     ))}
+                </Card>
+
+                {/* Aspetto: come nell'artifact della navigazione (Alex, 2026-10-09). */}
+                <Card flush className={styles.card}>
+                    <div className={styles.themeRow}>
+                        <div className={styles.themeText}>
+                            <Text as="h2" variant="body-sm" weight={600}>
+                                Colori
+                            </Text>
+                            <Text variant="caption" colorVariant="muted">
+                                «Come il sistema» segue il chiaro o lo scuro del tuo dispositivo.
+                            </Text>
+                        </div>
+                        <SegmentedControl<ThemePreference>
+                            size="sm"
+                            value={preference}
+                            onChange={setPreference}
+                            options={THEME_OPTIONS}
+                        />
+                    </div>
                 </Card>
             </div>
 

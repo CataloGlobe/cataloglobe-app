@@ -168,32 +168,12 @@ test.describe("In evidenza — elenco", () => {
         await expect(contentName(page, "Concerto e2e")).toBeVisible();
     });
 
-    test("crea un contenuto e apre il dettaglio", async ({ page }) => {
-        stub.onWrite("featured_contents.POST", call => {
-            const body = call.body as Row;
-            const row = { ...stub.tables.featured_contents[2], ...body, id: "e2eef000-0000-4000-a000-000000000901" };
-            stub.tables.featured_contents.push(row);
-            return row;
-        });
+    // D124: si crea nel tunnel; i salvataggi li prova `crea.spec.ts`.
+    test("«Crea contenuto» apre il tunnel di creazione", async ({ page }) => {
         await openList(page);
         await page.getByRole("button", { name: "Crea contenuto" }).first().click();
-        const drawer = dialog(page);
-        // EV4: il tipo si sceglie qui, con quattro schede; Annuncio di partenza.
-        const types = drawer.getByRole("group", { name: "Che cosa vuoi mettere in evidenza?" });
-        await expect(types.getByRole("radio")).toHaveCount(4);
-        await expect(types.getByRole("radio", { name: /^Annuncio/ })).toBeChecked();
-        await expect(types.getByText("con prodotti", { exact: true })).toHaveCount(2);
-        await types.getByRole("radio", { name: /^Promo/ }).check();
-        await drawer.getByRole("textbox", { name: /^Titolo/ }).fill("Brunch e2e");
-        await drawer.getByRole("textbox", { name: /^Nome interno/ }).fill("Brunch domenica e2e");
-        await drawer.getByRole("button", { name: /^Crea/ }).click();
-        await expect.poll(() => write(stub, "featured_contents.POST")?.body).toMatchObject({
-            title: "Brunch e2e",
-            internal_name: "Brunch domenica e2e",
-            content_type: "promo",
-            pricing_mode: "per_item"
-        });
-        await expect(page).toHaveURL(/\/featured\/e2eef000-0000-4000-a000-000000000901(\?.*)?$/);
+        await expect(page).toHaveURL(/\/crea\/evidenza\?da=evidenza$/);
+        await expect(page).toHaveTitle(/Nuovo contenuto in evidenza/);
     });
 
     test("elimina un contenuto: l'impatto si legge prima", async ({ page }) => {
@@ -648,7 +628,7 @@ test.describe("In evidenza — dove e quando compare (§50.13)", () => {
         await openContent(page, FEATURED.chiusura);
         await openUsageTab(page);
         await expect(main(page).getByText("Nessuna regola lo mostra: esiste e nessun cliente lo vede.")).toBeVisible({ timeout: 15_000 });
-        await expect(main(page).getByRole("link", { name: "Vai a Programmazione" })).toBeVisible();
+        await expect(main(page).getByRole("link", { name: "Vai alle regole" })).toBeVisible();
     });
 });
 

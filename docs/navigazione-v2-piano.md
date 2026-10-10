@@ -61,7 +61,7 @@ Ordine voluto: prima il locale, poi cosa offre, poi il lavoro in sala, poi i ris
 - **2+ sedi, contesto azienda**: «Tutte le sedi ▾». Menu: le sedi leggibili (con «Sospesa» dove serve); scegliere una sede ci entra. In fondo «+ Aggiungi una sede» e «Tutte le sedi» (= pagina Sedi).
 - **2+ sedi, dentro una sede**: il nome della sede ▾. Scegliere un'altra sede **resta sulla stessa pagina** (Comande di A → Comande di B; se la pagina non è usabile nella sede nuova, prima voce usabile).
 - Sostituisce `SedeScopeSelect` nella navbar: il selettore di scope di oggi (Analitiche, Recensioni, Programmazione) **sparisce** dall'header (vedi 51.10, 51.11).
-- Stato: accanto alla sede compare solo **«Sospesa»**; «Pubblicata» resta nella testata della Scheda.
+- Stato: accanto alla sede compare solo **«Sospesa»**; «Online» resta nella testata della Scheda (D147).
 - Un manager con una sede: menu con la sola sede, senza «Aggiungi».
 
 ### 51.8 L'header: percorso a cartelle

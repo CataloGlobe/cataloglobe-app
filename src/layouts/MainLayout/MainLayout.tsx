@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, Outlet, useLocation, useParams } from "react-router-dom";
 import TenantSidebar from "@components/layout/Sidebar/TenantSidebar";
-import SedeSidebar from "@components/layout/Sidebar/SedeSidebar";
+import { useNavGroups } from "@components/layout/Sidebar/useNavGroups";
 import { AppHeader } from "@components/layout/AppHeader/AppHeader";
 import { HeaderNotifications } from "@components/layout/AppHeader/HeaderNotifications";
 import { AiUsagePill } from "@components/layout/AppHeader/AiUsagePill";
-import { PlaceSwitcher } from "@components/layout/Sidebar/PlaceSwitcher";
 import { OperationalAlerts } from "@components/layout/OperationalAlerts/OperationalAlerts";
 import { PageHeaderSlot } from "@components/layout/PageHeaderSlot";
 import { PageTitleBar } from "@components/layout/PageTitleBar/PageTitleBar";
@@ -29,7 +28,7 @@ import { useCheckoutReturnSync } from "@/hooks/useCheckoutReturnSync";
 import { AiMenuImportDrawer } from "@/pages/Dashboard/Catalogs/AiMenuImport/AiMenuImportDrawer";
 import { hasUnreadReply, listMyTickets } from "@/services/supabase/support";
 import { useSedeScope } from "@/hooks/useSedeScope";
-import { rememberLastSede } from "@/hooks/sedeScopeStore";
+import { readSedeScopeLocal, rememberLastSede } from "@/hooks/sedeScopeStore";
 import { resolveNavContext } from "@/utils/navModel";
 import type { BusinessOutletContext } from "./outletContext";
 import { useCurrentUserProfile } from "@/hooks/useCurrentUserProfile";
@@ -44,17 +43,25 @@ const SIDEBAR_COLLAPSED_KEY = "cg:sidebar-collapsed";
  *  operative, montate sul contesto. */
 const SEDE_PAGE_LABELS: Record<string, string | undefined> = {
     ...ACTIVITY_SECTION_LABELS,
-    servizio: "Servizio",
+    servizio: "In servizio",
     comande: "Comande",
     storico: "Storico",
     prenotazioni: "Prenotazioni",
-    analitiche: "Analitiche",
+    analitiche: "Andamento",
     recensioni: "Recensioni",
-    programmazione: "Programmazione"
+    programmazione: "Regole",
+    "cosa-vedono": "Cosa vedono i clienti"
 };
 
 /** `/business/:businessId/locations/:activityId[/...]` — dentro una sede. */
 const SEDE_CONTEXT_PATH = /^\/business\/[^/]+\/locations\/([^/]+)/;
+
+const CREA_TITLES: Record<string, string> = {
+    menu: 'Nuovo menù',
+    stile: 'Nuovo stile',
+    evidenza: 'Nuovo contenuto in evidenza',
+    storia: 'Nuova storia',
+};
 
 /**
  * Titolo di pagina per il <title> del browser. `resolvePageTitle` è
@@ -64,7 +71,13 @@ const SEDE_CONTEXT_PATH = /^\/business\/[^/]+\/locations\/([^/]+)/;
  * route piatte la label passa da `businessRouteLabel` — fonte unica condivisa
  * con breadcrumb e sidebar.
  */
-function resolvePageTitle(businessId: string, pathname: string, catalogLabel: string): string | undefined {
+function resolvePageTitle(
+    businessId: string,
+    pathname: string,
+    search: string,
+    catalogLabel: string,
+    sedeName: (id: string) => string | undefined
+): string | undefined {
     const prefix = `/business/${businessId}/`;
     const rest = pathname.startsWith(prefix) ? pathname.slice(prefix.length) : '';
     const segments = rest.split('/').filter(Boolean);
@@ -78,8 +91,12 @@ function resolvePageTitle(businessId: string, pathname: string, catalogLabel: st
     if (second && first === 'locations') {
         // Le pagine della sede sono rotte: il titolo dice in quale sei,
         // altrimenti le schede del browser si chiamano tutte uguale.
-        const label = SEDE_PAGE_LABELS[third];
-        return label ? `Sede · ${label}` : 'Dettaglio sede';
+        // La parte prima della sede (D143): «In servizio · Garbagnate».
+        const params = new URLSearchParams(search);
+        const label = third === 'servizio' && params.get('modo') === 'sala' ? 'Sala' : SEDE_PAGE_LABELS[third];
+        const name = sedeName(second);
+        if (!label) return name ?? 'Scheda';
+        return name ? `${label} · ${name}` : label;
     }
     // Le tab di Impostazioni (§51.12) tengono il nome della pagina di prima.
     if (first === 'settings' && second === 'team') return businessRouteLabel('team');
@@ -87,6 +104,11 @@ function resolvePageTitle(businessId: string, pathname: string, catalogLabel: st
     if (second && first === 'scheduling') return 'Dettaglio regola';
     if (second && first === 'featured') return 'Dettaglio in evidenza';
     if (second && first === 'styles') return 'Editor stile';
+    // I tunnel di creazione (D124): il titolo dice cosa si sta creando.
+    if (first === 'crea') return CREA_TITLES[second] ?? 'Crea';
+
+    // Una pagina, due parti: «Regole» e, con la vista, «Calendario».
+    if (first === 'scheduling') return new URLSearchParams(search).get('vista') === 'calendario' ? 'Calendario' : 'Regole';
 
     const { key } = resolveBusinessRoute(pathname, businessId);
     return key ? businessRouteLabel(key, { catalogLabel }) : undefined;
@@ -100,13 +122,12 @@ export default function MainLayout() {
     const isNarrow = useMediaQuery("(max-width: 1023px)");
     const { selectedTenant, loading } = useTenant();
     const { businessId } = useParams<{ businessId: string }>();
-    const { pathname } = useLocation();
+    const { pathname, search } = useLocation();
     // Return from Stripe (re-subscribe lands on /settings/abbonamento?checkout_session=):
     // link the tenant before the "no subscription" gate below can bounce it.
     const checkoutSync = useCheckoutReturnSync();
 
     const { catalogLabel } = useVerticalConfig();
-    const pageName = businessId ? resolvePageTitle(businessId, pathname, catalogLabel) : undefined;
     // Il contesto della sidebar (§51.2): dalle sedi che chi guarda legge e dal
     // path. Una sede: sidebar unica, ovunque. Più sedi: dentro una sede la
     // sidebar è la sua; `/locations` senza id resta azienda.
@@ -125,6 +146,10 @@ export default function MainLayout() {
     useEffect(() => {
         if (rememberedSedeId) rememberLastSede(rememberedSedeId);
     }, [rememberedSedeId]);
+    // Con una sede sola il nome della sede non aggiunge niente all'azienda.
+    const sedeName = (id: string) =>
+        readableActivities.length > 1 ? readableActivities.find(a => a.id === id)?.name : undefined;
+    const pageName = businessId ? resolvePageTitle(businessId, pathname, search, catalogLabel, sedeName) : undefined;
     const tenantName = selectedTenant?.name;
     usePageTitle(pageName && tenantName ? `${pageName} · ${tenantName}` : pageName);
 
@@ -256,6 +281,22 @@ export default function MainLayout() {
         };
     }, [tenantId, supportRefreshKey]);
 
+    // Le sei sezioni (artifact v4, Alex 2026-10-09), una volta per la sidebar
+    // e per le tab della pagina. La sede in vista è quella del path o l'unica;
+    // le parti di sede senza una sede in vista vanno nell'ultima usata, o nella prima.
+    const viewedActivityId = rememberedSedeId ?? soleActivityId;
+    const lastSede = readSedeScopeLocal();
+    const defaultActivityId =
+        viewedActivityId ??
+        (lastSede && readableActivities.some(a => a.id === lastSede) ? lastSede : (readableActivities[0]?.id ?? null));
+    const nav = useNavGroups({
+        context: navContext,
+        activityId: viewedActivityId,
+        defaultActivityId,
+        loading: !sediLoaded,
+        signals: { translationPendingCount, importInProgress, supportUnread }
+    });
+
     const outletContext = useMemo<BusinessOutletContext>(
         () => ({
             translationCoverage,
@@ -315,7 +356,6 @@ export default function MainLayout() {
         return <Navigate to={`/business/${selectedTenant.id}/settings/abbonamento`} replace />;
     }
 
-    const collapsedDesktop = !isMobile && sidebarCollapsed;
     const sidebarBrand = {
         homeTo: selectedTenant ? `/business/${selectedTenant.id}` : null
     };
@@ -327,7 +367,6 @@ export default function MainLayout() {
             <HeaderNotifications scope="tenant" tenantId={selectedTenant?.id ?? null} />
         </>
     );
-    const sidebarSwitcher = <PlaceSwitcher collapsed={collapsedDesktop} />;
 
     return (
         <div className={styles.appLayout}>
@@ -347,41 +386,19 @@ export default function MainLayout() {
                         )}
 
                         <div className={styles.body}>
-                            {sediLoaded && navContext === "sede" ? (
-                                <SedeSidebar
-                                    isMobile={isMobile}
-                                    mobileOpen={mobileSidebarOpen}
-                                    collapsed={!isMobile && sidebarCollapsed}
-                                    onRequestClose={() => setMobileSidebarOpen(false)}
-                                    onToggleCollapse={() => setSidebarCollapsed(v => !v)}
-                                    brand={sidebarBrand}
-                                    switcherSlot={sidebarSwitcher}
-                                    translationPendingCount={translationPendingCount}
-                                    importInProgress={importInProgress}
-                                    supportUnread={supportUnread}
-                                    profile={profile}
-                                />
-                            ) : (
-                                <TenantSidebar
-                                    isMobile={isMobile}
-                                    mobileOpen={mobileSidebarOpen}
-                                    collapsed={!isMobile && sidebarCollapsed}
-                                    onRequestClose={() => setMobileSidebarOpen(false)}
-                                    onToggleCollapse={() => setSidebarCollapsed(v => !v)}
-                                    brand={sidebarBrand}
-                                    switcherSlot={sidebarSwitcher}
-                                    context={navContext === "unica" ? "unica" : "azienda"}
-                                    activityId={soleActivityId}
-                                    loading={!sediLoaded}
-                                    translationPendingCount={translationPendingCount}
-                                    importInProgress={importInProgress}
-                                    supportUnread={supportUnread}
-                                    profile={profile}
-                                />
-                            )}
+                            <TenantSidebar
+                                nav={nav}
+                                profile={profile}
+                                isMobile={isMobile}
+                                mobileOpen={mobileSidebarOpen}
+                                collapsed={!isMobile && sidebarCollapsed}
+                                onRequestClose={() => setMobileSidebarOpen(false)}
+                                onToggleCollapse={() => setSidebarCollapsed(v => !v)}
+                                brand={sidebarBrand}
+                            />
 
                             <main className={styles.main}>
-                                <PageTitleBar actions={titleBarActions} />
+                                <PageTitleBar actions={titleBarActions} groups={nav.groups} />
                                 {/* Il dettaglio dal vivo si apre nell'aside, accanto al
                                     contenuto (D131): la pagina si stringe, non si copre. */}
                                 <div className={styles.split}>

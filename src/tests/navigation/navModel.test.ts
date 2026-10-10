@@ -10,6 +10,7 @@ import {
     isConfigurator,
     navEntryForSedeSegment,
     resolveNavContext,
+    seatOf,
     sedeLandingSegment,
     switchSedePath,
     type NavContext
@@ -82,33 +83,39 @@ describe("resolveNavContext — una o più sedi leggibili (§51.2)", () => {
     });
 });
 
-describe("NAV_MODELS — gruppi e ordine (§51.5)", () => {
-    it("sidebar unica: 15 voci nei gruppi dell'Officina, Lingue fuori", () => {
-        expect(shape("unica")).toEqual([
-            [null, ["Panoramica"]],
-            ["Il locale", ["Scheda", "Cosa vedono i clienti"]],
-            ["Menù", ["Cataloghi", "Prodotti", "Programmazione"]],
-            ["Vetrina", ["Stili", "In evidenza", "Storie"]],
-            ["Servizio", ["Servizio", "Prenotazioni", "Comande", "Storico"]],
-            ["Clienti e numeri", ["Analitiche", "Recensioni", "Clienti"]]
-        ]);
+const SEZIONI_UGUALI: Array<[string | null, string[]]> = [
+    ["Panoramica", ["Panoramica"]],
+    ["Menù e vetrina", ["Cataloghi", "Prodotti", "Stili", "In evidenza", "Storie"]],
+    ["Calendario", ["Calendario", "Regole"]],
+    ["Servizio", ["In servizio", "Cosa vedono i clienti", "Sala", "Storico"]],
+    ["Clienti e numeri", ["Andamento", "Recensioni", "Clienti"]]
+];
+
+/** Tutte le voci di un contesto. */
+const entries = (c: NavContext) => NAV_MODELS[c].groups.flatMap(g => g.entries);
+const entry = (c: NavContext, label: string) => entries(c).find(e => e.label === label)!;
+
+describe("NAV_MODELS — sei voci, sempre le stesse (artifact v4)", () => {
+    it("una sede: l'ultima voce è «Il locale» e porta alla Scheda", () => {
+        expect(shape("unica")).toEqual([...SEZIONI_UGUALI, ["Il locale", ["Il locale"]]]);
+        expect(entry("unica", "Il locale").segment).toBe("anagrafica");
     });
 
-    it("azienda: Sedi sotto Panoramica, niente Ordini né Prenotazioni, niente Team né Abbonamento", () => {
-        expect(shape("azienda")).toEqual([
-            [null, ["Panoramica", "Sedi"]],
-            ["Menù", ["Cataloghi", "Prodotti", "Programmazione"]],
-            ["Vetrina", ["Stili", "In evidenza", "Storie"]],
-            ["Clienti e numeri", ["Analitiche", "Recensioni", "Clienti"]]
-        ]);
+    it("più sedi: la stessa sidebar fuori e dentro la sede, con Sedi in fondo", () => {
+        expect(shape("azienda")).toEqual([...SEZIONI_UGUALI, ["Sedi", ["Sedi"]]]);
+        expect(shape("sede")).toEqual(shape("azienda"));
     });
 
-    it("sede: il locale con la sua Programmazione, il lavoro in sala, i risultati della sede", () => {
-        expect(shape("sede")).toEqual([
-            ["Il locale", ["Scheda", "Cosa vedono i clienti", "Programmazione"]],
-            ["Servizio", ["Servizio", "Prenotazioni", "Comande", "Storico"]],
-            ["Clienti e numeri", ["Analitiche", "Recensioni"]]
+    it("ogni sezione dice come si sceglie la sede in cima alla pagina", () => {
+        expect(NAV_MODELS.azienda.groups.map(g => [g.key, g.seat])).toEqual([
+            ["overview", "multi"],
+            ["crea", "none"],
+            ["calendario", "multi"],
+            ["servizio", "one"],
+            ["numeri", "multi"],
+            ["sedi", "list"]
         ]);
+        expect(NAV_MODELS.unica.groups.at(-1)).toMatchObject({ key: "sedi", seat: "none" });
     });
 
     it("menù dell'account: le pagine dell'azienda fuori dalla sidebar, uguali in ogni contesto", () => {
@@ -129,77 +136,77 @@ describe("NAV_MODELS — gruppi e ordine (§51.5)", () => {
         expect(visibili(manager())).toEqual(["Impostazioni", "Team", "Lingue", "Assistenza"]);
         expect(visibili(staff())).toEqual(["Impostazioni", "Lingue", "Assistenza"]);
     });
+});
 
-    it("Analitiche e Recensioni sono della sede nella sidebar unica e dentro la sede, dell'azienda fuori", () => {
-        const andamento = (c: NavContext) => NAV_MODELS[c].groups.find(g => g.title === "Clienti e numeri")!.entries;
-        expect(andamento("unica").slice(0, 2).map(e => e.level)).toEqual(["sede", "sede"]);
-        expect(andamento("sede").map(e => e.level)).toEqual(["sede", "sede"]);
-        expect(andamento("azienda").slice(0, 2).map(e => e.level)).toEqual(["azienda", "azienda"]);
+describe("entryPath — dove porta una parte", () => {
+    it("le parti dell'azienda stanno sotto l'azienda, quelle di sede sotto la sede", () => {
+        expect(entryPath(entry("unica", "Panoramica"), "b", SEDE)).toBe("/business/b/overview");
+        expect(entryPath(entry("unica", "Il locale"), "b", SEDE)).toBe(`/business/b/locations/${SEDE}/anagrafica`);
+        expect(entryPath(entry("azienda", "Cosa vedono i clienti"), "b", SEDE)).toBe(
+            `/business/b/locations/${SEDE}/cosa-vedono`
+        );
+    });
+
+    it("Calendario e Regole sono la stessa pagina: la query le distingue", () => {
+        expect(entryPath(entry("azienda", "Calendario"), "b", null)).toBe("/business/b/scheduling?vista=calendario");
+        expect(entryPath(entry("azienda", "Regole"), "b", null)).toBe("/business/b/scheduling");
+        expect(entryPath(entry("azienda", "Sala"), "b", SEDE)).toBe(`/business/b/locations/${SEDE}/servizio?modo=sala`);
+    });
+
+    it("con una sede in vista, le parti con la gemella vanno nella sede", () => {
+        expect(entryPath(entry("sede", "Calendario"), "b", SEDE)).toBe(
+            `/business/b/locations/${SEDE}/programmazione?vista=calendario`
+        );
+        expect(entryPath(entry("sede", "Regole"), "b", SEDE)).toBe(`/business/b/locations/${SEDE}/programmazione`);
+        expect(entryPath(entry("sede", "Andamento"), "b", SEDE)).toBe(`/business/b/locations/${SEDE}/analitiche`);
+        expect(entryPath(entry("sede", "Recensioni"), "b", SEDE)).toBe(`/business/b/locations/${SEDE}/recensioni`);
+    });
+
+    it("senza sede in vista restano dell'azienda", () => {
+        expect(entryPath(entry("azienda", "Andamento"), "b", null)).toBe("/business/b/analytics");
+        expect(entryPath(entry("azienda", "Recensioni"), "b", null)).toBe("/business/b/reviews");
+        expect(entryPath(entry("azienda", "Clienti"), "b", SEDE)).toBe("/business/b/guests");
     });
 });
 
-describe("entryPath — dove porta una voce", () => {
-    it("le voci d'azienda stanno sotto l'azienda, quelle di sede sotto la sede", () => {
-        const [overview] = NAV_MODELS.unica.groups[0].entries;
-        const [scheda] = NAV_MODELS.unica.groups[1].entries;
-        expect(entryPath(overview, "b", SEDE)).toBe("/business/b/overview");
-        expect(entryPath(scheda, "b", SEDE)).toBe(`/business/b/locations/${SEDE}/anagrafica`);
-    });
-
-    it("Analitiche e Recensioni di sede hanno le loro rotte", () => {
-        const andamento = NAV_MODELS.sede.groups.find(g => g.title === "Clienti e numeri")!.entries;
-        expect(andamento.map(e => entryPath(e, "b", SEDE))).toEqual([
-            `/business/b/locations/${SEDE}/analitiche`,
-            `/business/b/locations/${SEDE}/recensioni`
-        ]);
-    });
-});
-
-describe("canSeeNavEntry — i permessi di oggi, sulla sede dentro la sede", () => {
+describe("canSeeNavEntry — i permessi di oggi, sulla sede in vista", () => {
     const voci = (c: NavContext, p: UserPermissions, activityId: string | null) =>
-        NAV_MODELS[c].groups
-            .flatMap(g => g.entries)
+        entries(c)
             .filter(e => canSeeNavEntry(e, p, activityId))
             .map(e => e.label);
 
-    it("lo staff di una sede vede Operatività, non Programmazione né Analitiche", () => {
+    it("lo staff di una sede vede il servizio, non Calendario, Regole né Andamento", () => {
         const visibili = voci("unica", staff(), SEDE);
-        expect(visibili).toEqual(expect.arrayContaining(["Servizio", "Prenotazioni", "Comande", "Storico"]));
-        expect(visibili).not.toContain("Programmazione");
-        expect(visibili).not.toContain("Analitiche");
+        expect(visibili).toEqual(expect.arrayContaining(["In servizio", "Sala", "Storico", "Recensioni"]));
+        expect(visibili).not.toContain("Calendario");
+        expect(visibili).not.toContain("Regole");
+        expect(visibili).not.toContain("Andamento");
     });
 
-    it("dentro la sede i permessi valgono su quella sede", () => {
-        expect(voci("sede", manager([ALTRA]), SEDE)).toEqual([]);
-        expect(voci("sede", manager([SEDE]), SEDE)).toEqual([
-            "Scheda",
-            "Cosa vedono i clienti",
-            "Programmazione",
-            "Servizio",
-            "Prenotazioni",
-            "Comande",
-            "Storico",
-            "Analitiche",
-            "Recensioni"
-        ]);
+    it("le parti di sede e le gemelle chiedono il permesso sulla sede in vista", () => {
+        const diSede = entries("sede")
+            .filter(e => e.level === "sede" || e.sedeSegment)
+            .map(e => e.label);
+        const visibili = voci("sede", manager([ALTRA]), SEDE);
+        for (const label of diSede) expect(visibili).not.toContain(label);
+        expect(voci("sede", manager([SEDE]), SEDE)).toEqual(expect.arrayContaining(diSede));
     });
 
-    it("Programmazione della sede: chi legge le regole della sede, non lo staff (T9b)", () => {
-        expect(voci("sede", viewer(), SEDE)).toContain("Programmazione");
-        expect(voci("sede", staff(), SEDE)).not.toContain("Programmazione");
-        expect(voci("sede", viewer([ALTRA]), SEDE)).not.toContain("Programmazione");
-        const entry = NAV_MODELS.sede.groups.flatMap(g => g.entries).find(e => e.label === "Programmazione")!;
-        expect(entry.level).toBe("sede");
-        expect(entry.segment).toBe("programmazione");
+    it("Calendario: chi legge le regole della sede, non lo staff (T9b)", () => {
+        expect(voci("sede", viewer(), SEDE)).toContain("Calendario");
+        expect(voci("sede", staff(), SEDE)).not.toContain("Calendario");
+        expect(voci("sede", viewer([ALTRA]), SEDE)).not.toContain("Calendario");
+        // Senza sede in vista basta poterlo fare in una sede.
+        expect(voci("azienda", viewer([ALTRA]), null)).toContain("Calendario");
     });
 
     it("owner vede tutto, nei tre contesti", () => {
         for (const c of ["unica", "azienda", "sede"] as const) {
-            const all = NAV_MODELS[c].groups.flatMap(g => g.entries);
-            expect(voci(c, owner(), SEDE)).toEqual(all.map(e => e.label));
+            expect(voci(c, owner(), SEDE)).toEqual(entries(c).map(e => e.label));
         }
     });
 });
+
 
 describe("isConfigurator — chi configura (§51.6)", () => {
     it("owner, admin e chi gestisce una sede", () => {
@@ -305,5 +312,32 @@ describe("navEntryForSedeSegment — la voce accesa per un segmento di sede", ()
         expect(navEntryForSedeSegment("analitiche")?.key).toBe("analitiche");
         expect(navEntryForSedeSegment("recensioni")?.key).toBe("recensioni");
         expect(navEntryForSedeSegment("boh")).toBeNull();
+    });
+});
+
+describe("seatOf: le sedi in alto per la parte aperta (D152)", () => {
+    const parts = (ctx: NavContext) =>
+        NAV_MODELS[ctx].groups.flatMap(g => g.entries.map(e => [g.key, e.label, seatOf(g, e).seat, seatOf(g, e).confronto]));
+
+    it("confronto solo in Calendario e Andamento; Storico anche tutte, Clienti dell'azienda", () => {
+        expect(parts("azienda")).toEqual([
+            ["overview", "Panoramica", "multi", false],
+            ...NAV_MODELS.azienda.groups[1].entries.map(e => ["crea", e.label, "none", false]),
+            ["calendario", "Calendario", "multi", true],
+            ["calendario", "Regole", "multi", false],
+            ["servizio", "In servizio", "one", false],
+            ["servizio", "Cosa vedono i clienti", "one", false],
+            ["servizio", "Sala", "one", false],
+            ["servizio", "Storico", "multi", false],
+            ["numeri", "Andamento", "multi", true],
+            ["numeri", "Recensioni", "multi", false],
+            ["numeri", "Clienti", "none", false],
+            ["sedi", "Sedi", "list", false]
+        ]);
+    });
+
+    it("senza parte vale la sezione, senza confronto", () => {
+        const cal = NAV_MODELS.azienda.groups.find(g => g.key === "calendario")!;
+        expect(seatOf(cal)).toEqual({ seat: "multi", confronto: false });
     });
 });

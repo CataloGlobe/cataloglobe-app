@@ -1,10 +1,9 @@
 import { Menu } from "lucide-react";
 import { useTenant } from "@/context/useTenant";
 import { HeaderLogo } from "./HeaderLogo";
-import { HeaderTenantSwitcher } from "./HeaderTenantSwitcher";
+import { HeaderTenantName } from "./HeaderTenantName";
 import { HeaderNotifications } from "./HeaderNotifications";
 import { NavbarBreadcrumb } from "./NavbarBreadcrumb";
-import { HeaderSedeSwitcher } from "./HeaderSedeSwitcher";
 import { AiUsagePill } from "./AiUsagePill";
 import type { AiUsageCycle } from "@/types/aiUsage";
 import styles from "./AppHeader.module.scss";
@@ -30,14 +29,14 @@ export function AppHeader({ onOpenMobileSidebar, aiUsage = null }: AppHeaderProp
                         <Menu size={20} />
                     </button>
                 )}
-                {/* Percorso a cartelle (§51.8): logo / azienda / sede / pagina.
-                    Sotto 768 restano azienda e sede: la pagina è il titolo sotto. */}
+                {/* Percorso a cartelle (§51.8): logo / azienda / pagina. La sede
+                    sta in alto a destra nella pagina (D152), l'azienda si
+                    cambia dal menù dell'account. */}
                 <span className={styles.wideOnly}>
                     <HeaderLogo />
                 </span>
                 <span className={`${styles.separator} ${styles.wideOnly}`} aria-hidden="true">/</span>
-                <HeaderTenantSwitcher />
-                <HeaderSedeSwitcher />
+                <HeaderTenantName />
                 <NavbarBreadcrumb />
             </div>
             <div className={styles.right}>

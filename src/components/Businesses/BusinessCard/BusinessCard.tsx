@@ -9,7 +9,7 @@ import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions
 import { rowAction } from "@/components/ui/TableRowActions/rowAction";
 import Skeleton from "@/components/ui/Skeleton/Skeleton";
 import { useToast } from "@/context/Toast/ToastContext";
-import { formatInactiveReason } from "@/utils/activityStatus";
+import { ACTIVE_LABEL, formatInactiveReason } from "@/utils/activityStatus";
 import { formatOverrideSummary } from "@/services/supabase/activeCatalog";
 import {
     ACTIVE_CATALOG_ERROR_LABEL,
@@ -62,7 +62,7 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
                     label={business.inactive_reason ? `Sospesa · ${formatInactiveReason(business.inactive_reason)}` : "Sospesa"}
                 />
             ) : (
-                <StatusBadge variant="success" label="Pubblicata" />
+                <StatusBadge variant="success" label={ACTIVE_LABEL} />
             )}
             {overrideSummary && (
                 <span className={styles.overrides}>

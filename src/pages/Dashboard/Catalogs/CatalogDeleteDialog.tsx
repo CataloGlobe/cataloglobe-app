@@ -128,7 +128,7 @@ export function CatalogDeleteDialog({ isOpen, onClose, catalog, tenantId, onSucc
         >
             {isLoadingUsage && (
                 <Text variant="body-sm" colorVariant="muted">
-                    Verifico le regole di programmazione…
+                    Verifico le regole del Calendario…
                 </Text>
             )}
             {!isLoadingUsage && hasBlocking && (
@@ -138,7 +138,7 @@ export function CatalogDeleteDialog({ isOpen, onClose, catalog, tenantId, onSucc
                             ? `Questo ${catalogLower} è usato da ${rules(blocking.length)}. Rimuovi i collegamenti prima di eliminarlo.`
                             : `Questo ${catalogLower} è collegato a ${rules(blocking.length)} ferme (spente, in bozza o scadute). Rimuovi i collegamenti prima di eliminarlo.`}
                     </InlineBanner>
-                    <div role="list" aria-label="Regole di programmazione collegate">
+                    <div role="list" aria-label="Regole del Calendario collegate">
                         {visible.map(({ rule, status }) => {
                             const meta = SCHEDULE_STATUS_META[status];
                             return (

@@ -1,0 +1,22 @@
+/* I pallini dei 12 mesi (D154): 8 px, 3 px fra l'uno e l'altro. */
+
+.dots {
+    display: inline-flex;
+    gap: 3px;
+    align-items: center;
+}
+
+.dot {
+    display: block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--border);
+
+    &[data-mark="came"] {
+        background: var(--brand-primary);
+    }
+    &[data-mark="absent"] {
+        background: var(--signal-attention, var(--text-warning));
+    }
+}

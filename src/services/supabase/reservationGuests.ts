@@ -122,6 +122,45 @@ export async function listReservationGuestVisits(
     return (data ?? []) as ReservationGuestVisit[];
 }
 
+/** Una visita ridotta a quello che serve all'elenco: chi, dove, quando, com'è andata. */
+export type GuestVisitMark = Pick<
+    ReservationGuestVisit,
+    "guest_id" | "activity_id" | "activity_name" | "reservation_date" | "status"
+>;
+
+/** Pagina e tetto delle visite lette per l'elenco: 200 clienti stanno larghi in 5000 visite. */
+const VISIT_MARKS_PAGE = 1000;
+const VISIT_MARKS_MAX = 5000;
+
+/**
+ * Le visite dei clienti in elenco (Clienti A, D154): i pallini dei 12 mesi,
+ * le sedi da cui sono passati, chi non torna. Stesso confine RLS dello
+ * storico. Una vista nel database con gli aggregati per mese e per sede
+ * farebbe lo stesso senza leggere le righe (da dire a Lorenzo).
+ */
+export async function listGuestVisitMarks(
+    tenantId: string,
+    guestIds: readonly string[]
+): Promise<GuestVisitMark[]> {
+    if (guestIds.length === 0) return [];
+    const out: GuestVisitMark[] = [];
+    for (let from = 0; from < VISIT_MARKS_MAX; from += VISIT_MARKS_PAGE) {
+        const { data, error } = await supabase
+            .from("v_reservation_guest_visits")
+            .select("guest_id, activity_id, activity_name, reservation_date, status")
+            .eq("tenant_id", tenantId)
+            .in("guest_id", guestIds as string[])
+            .order("reservation_date", { ascending: false })
+            .order("reservation_id", { ascending: true })
+            .range(from, from + VISIT_MARKS_PAGE - 1);
+        if (error) throw error;
+        const rows = (data ?? []) as GuestVisitMark[];
+        out.push(...rows);
+        if (rows.length < VISIT_MARKS_PAGE) break;
+    }
+    return out;
+}
+
 /**
  * Nota e tag di un ospite in TUTTE le sedi su cui il chiamante ha
  * `guests.read`. Il filtro per sede è della RLS, non di questa funzione: un

@@ -115,7 +115,7 @@ export const PART_WHY: Record<ProdottoPart, string> = {
     ingredienti: "Aiutano chi cerca o evita qualcosa. Compaiono più in basso, per chi vuole sapere di più.",
     note: "Provenienza, cottura, quello che non sta nella descrizione.",
     traduzioni: "Le fa l'AI quando salvate la descrizione. Quella che correggete resta vostra.",
-    dove: "In quali menù è, e in quali sedi lo trovano oggi i clienti. Si cambia dai menù e dalla programmazione.",
+    dove: "In quali menù è, e in quali sedi lo trovano oggi i clienti. Si cambia dai menù e dal Calendario.",
     varianti: "Versioni dello stesso prodotto con un prezzo loro. Nel menù sono prodotti a sé.",
     attributi: "Taglia, colore e gli altri dati del prodotto."
 };

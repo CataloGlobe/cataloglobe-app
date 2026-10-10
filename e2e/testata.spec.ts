@@ -35,9 +35,9 @@ async function stacked(leading: Locator, action: Locator): Promise<void> {
 // M1 (correzioni UI, ottobre 2026): niente frase sotto la testata. Le pagine
 // dell'azienda non passano più il `subtitle`; la spiegazione sta negli stati vuoti.
 test.describe("Testata — niente sottotitolo (M1)", () => {
-    test("Analitiche: nessuna frase sotto la testata", async ({ page }) => {
+    test("Andamento: nessuna frase sotto la testata", async ({ page }) => {
         await stubAnalitiche(page);
-        await openBusinessPage(page, "analytics", "Analitiche");
+        await openBusinessPage(page, "analytics", "Andamento");
         await expect(page.getByText("Cosa fanno i clienti sulla pagina pubblica.", { exact: true })).toHaveCount(0);
     });
 
@@ -59,20 +59,20 @@ test.describe("Testata — niente sottotitolo (M1)", () => {
 });
 
 test.describe("Testata — due righe prima della barra compatta", () => {
-    test("Prodotti a 1024: tab sotto le azioni", async ({ page }) => {
+    test("Prodotti a 1024: interruttore sotto le azioni", async ({ page }) => {
         await stubProdotti(page);
         await openBusinessPage(page, "products", "Prodotti");
         await page.setViewportSize({ width: 1024, height: 900 });
-        await stacked(page.getByRole("tab", { name: /^Gruppi/ }), page.getByPlaceholder(/^Cerca/).first());
+        await stacked(page.getByRole("radio", { name: /^Gruppi/ }), page.getByPlaceholder(/^Cerca/).first());
     });
 
-    test("Prodotti: a 768 le tab a vista, a 375 la barra compatta", async ({ page }) => {
+    test("Prodotti: a 768 l'interruttore a vista, a 375 la barra compatta", async ({ page }) => {
         await stubProdotti(page);
         await openBusinessPage(page, "products", "Prodotti");
         await page.setViewportSize({ width: 768, height: 900 });
-        await expect(page.getByRole("tab", { name: /^Gruppi/ })).toBeVisible();
+        await expect(page.getByRole("radio", { name: /^Gruppi/ })).toBeVisible();
         await page.setViewportSize({ width: 375, height: 800 });
-        await expect(page.getByRole("tab", { name: /^Gruppi/ })).toBeHidden();
+        await expect(page.getByRole("radio", { name: /^Gruppi/ })).toBeHidden();
     });
 
     // T16 IM1: in testata restano le tab di Impostazioni e «Invita membro»:
@@ -92,20 +92,21 @@ test.describe("Testata — due righe prima della barra compatta", () => {
         expect(Math.abs(a.y + a.height / 2 - (b.y + b.height / 2))).toBeLessThan(12);
     });
 
-    // T15: le stelle sono un Select «Filtra per stelle» nelle azioni, il
-    // conteggio è il leading. A 1280 e 1440 tutto su una riga.
+    // Recensioni (D154): niente testata della pagina, il periodo a sinistra e
+    // «Cerca» a destra in una barra sola. A 1280 e 1440 su una riga.
     for (const width of [1280, 1440]) {
         test(`Recensioni a ${width}: una riga sola`, async ({ page }) => {
             await stubRecensioni(page);
             await openBusinessPage(page, "reviews", "Recensioni");
             await page.setViewportSize({ width, height: 900 });
-            const stars = page.getByRole("combobox", { name: "Filtra per stelle" }).first();
-            const search = page.getByPlaceholder("Cerca commenti...");
-            await expect(stars).toBeVisible();
+            const period = page.getByRole("main").getByRole("radio", { name: "30 giorni" });
+            const search = page.getByRole("main").getByRole("button", { name: "Cerca", exact: true });
+            await expect(period).toBeVisible();
             await expect(search).toBeVisible();
-            const a = (await stars.boundingBox())!;
+            const a = (await period.boundingBox())!;
             const b = (await search.boundingBox())!;
             expect(Math.abs(a.y + a.height / 2 - (b.y + b.height / 2))).toBeLessThan(4);
+            expect(a.x).toBeLessThan(b.x);
         });
     }
 });

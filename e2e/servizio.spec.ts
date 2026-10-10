@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { openBusinessPage } from "./business";
 import { asBasePlan, asRole } from "./asRole";
-import { currentVoce, sidebarLink, sidebarVoci } from "./nav";
+import { currentVoce, sidebarLink } from "./nav";
 import { stubReservations, type ReservationsStub } from "./reservationsStub";
 
 /**
@@ -68,16 +68,25 @@ async function openVoce(page: Page, voce: string): Promise<string> {
     return base;
 }
 
+/** Elenco e Mappa: l'interruttore di «In servizio». La Sala è una parte di
+ *  Servizio: la sua tab in alto (artifact v4, un livello solo di parti). */
 function modo(page: Page, name: "Elenco" | "Mappa" | "Gestisci la sala" | "Sala") {
-    return page.getByRole("tab", { name: new RegExp(`^${name}`) });
+    if (name === "Sala") return page.getByRole("navigation", { name: "Parti di Servizio" }).getByRole("link", { name: "Sala", exact: true });
+    return page.getByRole("radio", { name: new RegExp(`^${name}`) });
+}
+
+/** Il modo o la parte in vista. */
+async function expectModo(page: Page, name: "Elenco" | "Mappa" | "Sala", timeout = 5_000): Promise<void> {
+    if (name === "Sala") await expect(modo(page, "Sala")).toHaveAttribute("aria-current", "page", { timeout });
+    else await expect(modo(page, name)).toHaveAttribute("aria-checked", "true", { timeout });
 }
 
 /** Apre Servizio dalla sidebar e sceglie la Mappa per nome. */
 async function openMappa(page: Page): Promise<string> {
-    const base = await openVoce(page, "Servizio");
+    const base = await openVoce(page, "In servizio");
     await expect(modo(page, "Mappa")).toBeVisible({ timeout: 15_000 });
     await modo(page, "Mappa").click();
-    await expect(modo(page, "Mappa")).toHaveAttribute("aria-selected", "true");
+    await expectModo(page, "Mappa");
     return base;
 }
 
@@ -87,25 +96,31 @@ function tessera(page: Page) {
 }
 
 test.describe("Servizio", () => {
-    test("la sidebar della sede ha Servizio e Storico, la Sala è un modo di Servizio", async ({ page }) => {
-        await openVoce(page, "Scheda");
-        // L'ordine della §51.5: prima il locale (Scheda, Cosa vedono i clienti), poi Operatività.
-        const voci = ["Scheda", "Cosa vedono i clienti", "Servizio", "Prenotazioni", "Comande", "Storico"];
-        const labels = await sidebarVoci(page);
-        for (const voce of voci) expect(labels).toContain(voce);
-        expect(labels).not.toContain("Sala");
-        // Nell'ordine della sidebar: Servizio è la prima voce di Operatività.
-        const ordered = labels.filter(l => voci.includes(l));
-        expect(ordered).toEqual(voci);
+    test("Servizio: In servizio, Cosa vedono i clienti, Sala e Storico; In servizio tiene insieme le sue pagine", async ({ page }) => {
+        await openVoce(page, "In servizio");
+        // Le parti di Servizio, nell'ordine della sidebar (artifact v4, D157).
+        const parti = page.getByRole("navigation", { name: "Parti di Servizio" }).getByRole("link");
+        await expect(parti).toHaveText(["In servizio", "Cosa vedono i clienti", "Sala", "Storico"], { timeout: 15_000 });
+        // Prenotazioni e Comande non sono parti: le apre l'interruttore di «In servizio».
+        const pagine = page.getByRole("radiogroup", { name: "Parti di In servizio" }).getByRole("radio");
+        await expect(pagine).toHaveText(["Elenco", "Mappa", "Prenotazioni", "Comande"]);
+        await page.getByRole("radio", { name: "Comande", exact: true }).click();
+        await expect(page).toHaveURL(/\/comande$/, { timeout: 15_000 });
+        await expect(page.getByRole("radio", { name: "Comande", exact: true })).toHaveAttribute("aria-checked", "true");
+        await expect(await sidebarLink(page, "In servizio")).toHaveAttribute("aria-current", "page");
+        await page.getByRole("radio", { name: "Prenotazioni", exact: true }).click();
+        await expect(page).toHaveURL(/\/prenotazioni$/, { timeout: 15_000 });
+        await page.getByRole("radio", { name: "Mappa", exact: true }).click();
+        await expect(page).toHaveURL(/\/servizio\?modo=mappa$/, { timeout: 15_000 });
     });
 
     test("la Mappa, aperta per nome: i filtri e i tavoli per zona", async ({ page }) => {
         await openMappa(page);
         await expect(page).toHaveURL(/\/servizio\?modo=mappa$/, { timeout: 15_000 });
         await expect(modo(page, "Gestisci la sala")).toHaveCount(0);
-        await expect(await sidebarLink(page, "Servizio")).toHaveAttribute("aria-current", "page");
+        await expect(await sidebarLink(page, "In servizio")).toHaveAttribute("aria-current", "page");
 
-        const filtri = main(page).getByRole("radiogroup");
+        const filtri = main(page).getByRole("radiogroup").filter({ has: page.getByRole("radio", { name: "Aperti", exact: true }) });
         for (const f of ["Tutti", "Aperti", "Liberi", "Fuori servizio"]) {
             await expect(filtri.getByRole("radio", { name: f, exact: true })).toBeVisible({ timeout: 15_000 });
         }
@@ -140,7 +155,7 @@ test.describe("Servizio", () => {
         await expect(page).toHaveURL(/[?&]tavolo=/);
 
         await modo(page, "Elenco").click();
-        await expect(modo(page, "Elenco")).toHaveAttribute("aria-selected", "true");
+        await expectModo(page, "Elenco");
         await expect(page).not.toHaveURL(/[?&]tavolo=/);
         await modo(page, "Mappa").click();
         await expect(tessera(page)).toBeVisible({ timeout: 15_000 });
@@ -197,7 +212,7 @@ test.describe("Servizio", () => {
         const base = await sedePath(page);
         await page.goto(`${base}/sala`);
         await expect(page).toHaveURL(/\/servizio\?modo=sala$/, { timeout: 15_000 });
-        await expect(modo(page, "Sala")).toHaveAttribute("aria-selected", "true", { timeout: 15_000 });
+        await expectModo(page, "Sala", 15_000);
         // La riga «Oggi» è della sala del momento, non della configurazione.
         await expect(main(page).getByText(/in sala adesso/i)).toHaveCount(0);
 
@@ -211,7 +226,7 @@ test.describe("Servizio", () => {
         await expect(main(page).getByText("Capienza della sala")).toHaveCount(0);
     });
 
-    test("a 768 e 375 la Mappa non scorre di lato e i tre modi restano a vista", async ({ page }) => {
+    test("a 768 e 375 la Mappa non scorre di lato e i due modi restano a vista", async ({ page }) => {
         await openMappa(page);
         await expect(tessera(page)).toBeVisible({ timeout: 15_000 });
         for (const width of [768, 375]) {
@@ -220,22 +235,23 @@ test.describe("Servizio", () => {
             const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
             expect(overflow).toBeLessThanOrEqual(0);
         }
-        // Tre tab corte stanno nella riga anche a 375: la testata le tiene
+        // I due modi stanno nella riga anche a 375: la testata li tiene
         // (useCompactToolbar misura, non guarda la larghezza della finestra).
         await expect(modo(page, "Mappa")).toBeVisible();
         await expect(modo(page, "Elenco")).toBeVisible();
-        await expect(modo(page, "Sala")).toBeVisible();
     });
 });
 
 test.describe("Servizio: piano e ruolo", () => {
-    test("col piano base Servizio apre la Sala: Elenco e Mappa col lucchetto, la voce senza", async ({ page }) => {
+    test("col piano base Servizio apre la Sala: «In servizio» col lucchetto, la voce senza", async ({ page }) => {
         const base = await sedePath(page);
         await asBasePlan(page);
         await page.goto(`${base}/servizio`);
-        await expect(modo(page, "Sala")).toHaveAttribute("aria-selected", "true", { timeout: 15_000 });
-        await expect(modo(page, "Elenco").locator(LUCCHETTO)).toHaveCount(1);
-        await expect(modo(page, "Mappa").locator(LUCCHETTO)).toHaveCount(1);
+        await expect(page).toHaveURL(/\/servizio\?modo=sala$/, { timeout: 15_000 });
+        await expectModo(page, "Sala", 15_000);
+        // Elenco e Mappa sono «In servizio»: il lucchetto è sulla parte.
+        await expect(modo(page, "Elenco")).toHaveCount(0);
+        await expect((await sidebarLink(page, /^In servizio/)).locator(LUCCHETTO)).toHaveCount(1);
         await expect((await sidebarLink(page, /^Servizio/)).locator(LUCCHETTO)).toHaveCount(0);
     });
 
@@ -274,7 +290,7 @@ test.describe("Servizio: piano e ruolo", () => {
             await asRole(page, role, base.split("/").pop()!, plan);
             await page.goto(base);
             await expect(page).toHaveURL(/\/servizio(\?modo=sala)?$/, { timeout: 15_000 });
-            await expect(modo(page, "Sala")).toHaveAttribute("aria-selected", "true", { timeout: 15_000 });
+            await expectModo(page, "Sala", 15_000);
             await expect(main(page).getByText(/Non hai accesso|richiede il piano Pro/)).toHaveCount(0);
         });
     }
@@ -287,9 +303,9 @@ test.describe("Elenco (lotto B-b)", () => {
     });
 
     test("col piano Pro Servizio si apre sull'Elenco", async ({ page }) => {
-        await openVoce(page, "Servizio");
+        await openVoce(page, "In servizio");
         await expect(page).toHaveURL(/\/servizio$/, { timeout: 15_000 });
-        await expect(modo(page, "Elenco")).toHaveAttribute("aria-selected", "true", { timeout: 15_000 });
+        await expectModo(page, "Elenco", 15_000);
         await expect(modo(page, "Mappa")).toBeVisible();
         await expect(modo(page, "Gestisci la sala")).toHaveCount(0);
     });
@@ -381,7 +397,7 @@ test.describe("Elenco (lotto B-b)", () => {
             await asRole(page, role, base.split("/").pop()!, "pro");
             await page.goto(base);
             await expect(page).toHaveURL(/\/servizio$/, { timeout: 15_000 });
-            await expect(modo(page, "Elenco")).toHaveAttribute("aria-selected", "true", { timeout: 15_000 });
+            await expectModo(page, "Elenco", 15_000);
             await expect(main(page).getByText(/Non hai accesso|richiede il piano Pro/)).toHaveCount(0);
         });
     }
@@ -422,7 +438,7 @@ test.describe("Storico", () => {
         await expect(page.getByRole("button", { name: "Giorno successivo" })).toBeDisabled();
         await expect(page.getByText("Errore caricamento storico")).toHaveCount(0);
         await expect(
-            main(page).getByRole("columnheader", { name: "Tavolo" }).or(page.getByText("Nessun ordine nello storico di oggi")).first()
+            main(page).getByRole("columnheader", { name: "Tavolo" }).or(page.getByText("Nessuna comanda nello storico di oggi")).first()
         ).toBeVisible({ timeout: 15_000 });
     });
 
@@ -462,7 +478,7 @@ test.describe("Indirizzi vecchi", () => {
         const base = await sedePath(page);
         await page.goto(`${base}/servizio?modo=gestisci`);
         await expect(page).toHaveURL(/\/servizio\?modo=sala$/, { timeout: 15_000 });
-        await expect(modo(page, "Sala")).toHaveAttribute("aria-selected", "true");
+        await expectModo(page, "Sala");
     });
 
     test("comande?tab=tavoli porta alla Mappa", async ({ page }) => {

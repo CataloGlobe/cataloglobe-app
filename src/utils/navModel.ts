@@ -36,12 +36,14 @@ export type NavKey =
     | "catalogs"
     | "products"
     | "scheduling"
+    | "calendario"
     | "programmazione"
     | "styles"
     | "featured"
     | "stories"
     | "languages"
     | "servizio"
+    | "sala"
     | "prenotazioni"
     | "comande"
     | "storico"
@@ -80,6 +82,18 @@ export interface NavEntry {
     level: "azienda" | "sede";
     /** Segmento sotto `/business/:businessId/` o `/locations/:activityId/`. */
     segment: string;
+    /**
+     * La query della parte (`vista=calendario`, `modo=sala`): due parti sulla
+     * stessa pagina. Con la query la parte è accesa solo se l'indirizzo la
+     * porta; senza, quando nessuna sorella con la query lo è.
+     */
+    search?: string;
+    /**
+     * Una parte dell'azienda con la sua gemella dentro la sede (Calendario,
+     * Andamento, Recensioni): con una sede in vista porta alla sede, sotto
+     * questo segmento; senza, alla pagina dell'azienda (tutte le sedi).
+     */
+    sedeSegment?: string;
     /** Senza gate la voce si vede sempre. */
     gate?: NavGate;
     /** Gate di piano: la voce resta visibile col lucchetto, ma non ci si atterra. */
@@ -94,19 +108,44 @@ export interface NavEntry {
     /** `NavLink end`: la voce si accende solo sul suo indirizzo esatto. */
     end?: boolean;
     signal?: NavSignal;
+    /** La parte sceglie le sedi diversamente dalla sua sezione (Storico: anche tutte). */
+    seat?: NavSeatKind;
+    /** Qui «Confronta con» vale (D152): Calendario, Andamento. */
+    confronto?: boolean;
     /** La label segue la verticale dell'azienda (`catalogLabel`). */
     verticalLabel?: boolean;
 }
 
-/** Le sezioni della sidebar (Officina): ognuna ha la sua icona. */
-export type NavGroupKey = "locale" | "menu" | "vetrina" | "servizio" | "clienti";
+/**
+ * Le sei sezioni della sidebar (navigazione nuova, artifact v4 approvato da
+ * Alex il 2026-10-09): sempre le stesse, con una sede o con trenta.
+ */
+export type NavGroupKey = "overview" | "crea" | "calendario" | "servizio" | "numeri" | "sedi";
+
+/**
+ * Le sedi in alto a destra nella pagina, secondo la sezione: `none` è
+ * dell'azienda (nessuna scelta), `multi` più sedi insieme (oggi: tutte o una),
+ * `one` una sede alla volta, `list` l'elenco delle sedi.
+ */
+export type NavSeatKind = "none" | "multi" | "one" | "list";
 
 export interface NavGroup {
-    /** Senza chiave il gruppo non è una sezione: le sue voci stanno sciolte. */
-    key?: NavGroupKey;
-    /** `null` = fuori gruppo (§19.5: un gruppo di una voce sola non raggruppa niente). */
-    title: string | null;
+    key: NavGroupKey;
+    /** Il nome della sezione; con una parte sola è il nome del link. */
+    title: string;
+    seat: NavSeatKind;
+    /** Le parti (al massimo cinque, un livello solo). Una sola: link diretto. */
     entries: NavEntry[];
+}
+
+/**
+ * Le sedi in alto a destra per la parte aperta (D152): il tipo di scelta
+ * della sezione, o quello della parte, e se «Confronta con» vale. In
+ * Servizio una sede sola, ma lo Storico anche tutte (Alex 2026-10-09).
+ */
+export function seatOf(group: NavGroup, entry?: NavEntry | null): { seat: NavSeatKind; confronto: boolean } {
+    const seat = entry?.seat ?? group.seat;
+    return { seat, confronto: seat === "multi" && !!entry?.confronto };
 }
 
 export interface NavModel {
@@ -123,7 +162,9 @@ const LOCATIONS: NavEntry = {
     level: "azienda",
     segment: "locations",
     gate: { on: "anyActivity", permission: "activity.read" },
-    end: true
+    end: true,
+    // Una sede aperta (la sua Scheda) è ancora «Sedi».
+    matchSegments: ["anagrafica", "come-lavorate", "orari", "ordini-al-tavolo", "prenotazioni-online", "pubblicazione"]
 };
 
 const SCHEDA: NavEntry = {
@@ -138,6 +179,7 @@ const SCHEDA: NavEntry = {
 // «Cosa vedono i clienti» (§19, M7): legge chi legge la sede; scrive chi ha
 // `activity.manage`, lo stesso permesso delle RLS (D2, §50.14).
 const COSA_VEDONO: NavEntry = {
+    seat: "one",
     key: "cosa-vedono",
     label: "Cosa vedono i clienti",
     level: "sede",
@@ -174,11 +216,25 @@ const PRODUCTS: NavEntry = {
     gate: { on: "tenant", permission: "products.read" }
 };
 
-const SCHEDULING: NavEntry = {
-    key: "scheduling",
-    label: ROUTE_LABELS.scheduling,
+// Calendario e Regole: la stessa pagina della Programmazione, la vista dalla
+// query. Dentro una sede la Programmazione della sede.
+const CALENDARIO: NavEntry = {
+    confronto: true,
+    key: "calendario",
+    label: "Calendario",
     level: "azienda",
     segment: "scheduling",
+    search: "vista=calendario",
+    sedeSegment: "programmazione",
+    gate: { on: "anyActivity", permission: "scheduling.read" }
+};
+
+const SCHEDULING: NavEntry = {
+    key: "scheduling",
+    label: "Regole",
+    level: "azienda",
+    segment: "scheduling",
+    sedeSegment: "programmazione",
     gate: { on: "anyActivity", permission: "scheduling.read" }
 };
 
@@ -221,14 +277,31 @@ const LANGUAGES: NavEntry = {
 // tavoli o le tavolate; ci si atterra solo se un modo si può usare.
 const SERVIZIO: NavEntry = {
     key: "servizio",
-    label: "Servizio",
+    label: "In servizio",
     level: "sede",
     segment: "servizio",
+    // Prenotazioni e Comande stanno dentro «In servizio» (primo giro: pagine
+    // loro, la parte resta accesa).
+    matchSegments: ["prenotazioni", "comande"],
     gate: { on: "activityCheck", check: canSeeServizio },
-    // Niente lucchetto sulla voce: la Sala c'è su ogni piano, Elenco e Mappa
-    // hanno il loro dentro la pagina.
-    usable: (permissions, hasFeature, activityId) =>
-        resolveServizioMode(null, permissions, hasFeature, activityId) !== null
+    // La Sala è una parte a sé: «In servizio» è Elenco e Mappa, e senza
+    // prenotazioni né ordini al tavolo nel piano ha il lucchetto; la sezione
+    // si apre sulla Sala.
+    requiresFeature: ["table_reservation", "table_ordering"],
+    usable: (permissions, hasFeature, activityId) => {
+        const mode = resolveServizioMode(null, permissions, hasFeature, activityId);
+        return mode !== null && mode !== "sala";
+    }
+};
+
+// La sala da modificare (tavoli, zone, QR): oggi il modo `sala` di Servizio.
+const SALA: NavEntry = {
+    key: "sala",
+    label: "Sala",
+    level: "sede",
+    segment: "servizio",
+    search: "modo=sala",
+    gate: { on: "activity", permission: "tables.read" }
 };
 
 const PRENOTAZIONI: NavEntry = {
@@ -250,6 +323,7 @@ const COMANDE: NavEntry = {
 };
 
 const STORICO: NavEntry = {
+    seat: "multi",
     key: "storico",
     label: "Storico",
     level: "sede",
@@ -261,18 +335,21 @@ const STORICO: NavEntry = {
 // Andamento a due livelli (§51.10): il totale delle sedi leggibili fuori,
 // la sede dentro. Stesso componente, la sede dal path.
 const ANALYTICS: NavEntry = {
+    confronto: true,
     key: "analytics",
-    label: ROUTE_LABELS.analytics,
+    label: "Andamento",
     level: "azienda",
     segment: "analytics",
+    sedeSegment: "analitiche",
     gate: { on: "anyActivity", permission: "analytics.read" }
 };
 
 const REVIEWS: NavEntry = {
     key: "reviews",
-    label: ROUTE_LABELS.reviews,
+    label: "Recensioni",
     level: "azienda",
     segment: "reviews",
+    sedeSegment: "recensioni",
     gate: { on: "anyActivity", permission: "reviews.read" }
 };
 
@@ -295,6 +372,7 @@ const RECENSIONI: NavEntry = {
 // La rubrica è di tutta l'azienda (§6, §51.11). Il gate di piano resta
 // `table_reservation` finché le prenotazioni sono l'unica sorgente dei profili.
 const GUESTS: NavEntry = {
+    seat: "none",
     key: "guests",
     label: ROUTE_LABELS.guests,
     level: "azienda",
@@ -336,44 +414,42 @@ const SUPPORT: NavEntry = {
     signal: "supportUnread"
 };
 
-// ── I gruppi ────────────────────────────────────────────────────────────────
-// Ordine (§51.5): prima il locale, poi cosa offre, poi il lavoro in sala, poi
-// i risultati. Servizio non sta in cima perché è del piano Pro.
-// Titoli dell'Officina (sidebar approvata da Alex il 2026-10-08): Menù,
-// Vetrina, Servizio, Clienti e numeri; stessi titoli in tutti i contesti.
+// ── Le sezioni ──────────────────────────────────────────────────────────────
+// Sei voci, sempre le stesse (artifact v4, Alex 2026-10-09): Panoramica, Menù
+// e vetrina, Calendario, Servizio, Clienti e numeri, Sedi. Con una sede sola
+// «Sedi» si chiama «Il locale» e porta alla sua Scheda.
 
-const IL_LOCALE: NavGroup = { key: "locale", title: "Il locale", entries: [SCHEDA, COSA_VEDONO] };
-const MENU: NavGroup = { key: "menu", title: "Menù", entries: [CATALOGS, PRODUCTS, SCHEDULING] };
-const VETRINA: NavGroup = { key: "vetrina", title: "Vetrina", entries: [STYLES, FEATURED, STORIES] };
-const IN_SALA: NavGroup = { key: "servizio", title: "Servizio", entries: [SERVIZIO, PRENOTAZIONI, COMANDE, STORICO] };
-const CLIENTI_E_NUMERI = "Clienti e numeri";
+const PANORAMICA: NavGroup = { key: "overview", title: "Panoramica", seat: "multi", entries: [OVERVIEW] };
+const CREA: NavGroup = {
+    key: "crea",
+    title: "Menù e vetrina",
+    seat: "none",
+    entries: [CATALOGS, PRODUCTS, STYLES, FEATURED, STORIES]
+};
+const CALENDARIO_SEZIONE: NavGroup = {
+    key: "calendario",
+    title: "Calendario",
+    seat: "multi",
+    entries: [CALENDARIO, SCHEDULING]
+};
+// «Cosa vedono i clienti» sta in Servizio (D157, Alex 2026-10-09): un piatto
+// finito si segna durante il turno, senza passare dal Calendario.
+const IN_SALA: NavGroup = { key: "servizio", title: "Servizio", seat: "one", entries: [SERVIZIO, COSA_VEDONO, SALA, STORICO] };
+const NUMERI: NavGroup = {
+    key: "numeri",
+    title: "Clienti e numeri",
+    seat: "multi",
+    entries: [ANALYTICS, REVIEWS, GUESTS]
+};
+const SEDI: NavGroup = { key: "sedi", title: "Sedi", seat: "list", entries: [LOCATIONS] };
+const IL_LOCALE: NavGroup = { key: "sedi", title: "Il locale", seat: "none", entries: [{ ...SCHEDA, label: "Il locale" }] };
+
+const SECTIONS = [PANORAMICA, CREA, CALENDARIO_SEZIONE, IN_SALA, NUMERI];
 
 export const NAV_MODELS: Record<NavContext, NavModel> = {
-    unica: {
-        groups: [
-            { title: null, entries: [OVERVIEW] },
-            IL_LOCALE,
-            MENU,
-            VETRINA,
-            IN_SALA,
-            { key: "clienti", title: CLIENTI_E_NUMERI, entries: [ANALITICHE, RECENSIONI, GUESTS] }
-        ]
-    },
-    azienda: {
-        groups: [
-            { title: null, entries: [OVERVIEW, LOCATIONS] },
-            MENU,
-            VETRINA,
-            { key: "clienti", title: CLIENTI_E_NUMERI, entries: [ANALYTICS, REVIEWS, GUESTS] }
-        ]
-    },
-    sede: {
-        groups: [
-            { key: "locale", title: IL_LOCALE.title, entries: [...IL_LOCALE.entries, PROGRAMMAZIONE_SEDE] },
-            IN_SALA,
-            { key: "clienti", title: CLIENTI_E_NUMERI, entries: [ANALITICHE, RECENSIONI] }
-        ]
-    }
+    unica: { groups: [...SECTIONS, IL_LOCALE] },
+    azienda: { groups: [...SECTIONS, SEDI] },
+    sede: { groups: [...SECTIONS, SEDI] }
 };
 
 /**
@@ -381,10 +457,37 @@ export const NAV_MODELS: Record<NavContext, NavModel> = {
  * le pagine dell'azienda che non sono lavoro di tutti i giorni. Uguale in
  * tutti i contesti: sono dell'azienda, anche dentro una sede.
  */
+/** La sezione e la parte da chiave (le voci della sidebar portano `id = entry.key`). */
+export function navPart(groupKey: string | undefined, entryKey: string | undefined): { group: NavGroup; entry: NavEntry } | null {
+    if (!groupKey || !entryKey) return null;
+    for (const model of Object.values(NAV_MODELS)) {
+        const group = model.groups.find(g => g.key === groupKey);
+        const entry = group?.entries.find(e => e.key === entryKey);
+        if (group && entry) return { group, entry };
+    }
+    return null;
+}
+
 export const ACCOUNT_ENTRIES: readonly NavEntry[] = [SETTINGS, TEAM, BILLING, LANGUAGES, SUPPORT];
 
-/** Le voci che vivono sotto una sede, nell'ordine della sidebar della sede. */
-const SEDE_ENTRIES: readonly NavEntry[] = NAV_MODELS.sede.groups.flatMap(g => g.entries);
+/**
+ * Le pagine che vivono sotto una sede: per il cambio di sede e le briciole.
+ * La Scheda prima; poi Servizio, che è dove si atterra entrando.
+ */
+const SEDE_ENTRIES: readonly NavEntry[] = [
+    SCHEDA,
+    COSA_VEDONO,
+    PROGRAMMAZIONE_SEDE,
+    SERVIZIO,
+    PRENOTAZIONI,
+    COMANDE,
+    STORICO,
+    ANALITICHE,
+    RECENSIONI
+];
+
+/** Le pagine del lavoro in sala, nell'ordine in cui si atterra. */
+const OPERATIVE_ENTRIES: readonly NavEntry[] = [SERVIZIO, SALA, PRENOTAZIONI, COMANDE, STORICO];
 
 /** Dove si va quando nessuna voce è usabile: la Scheda dice il perché. */
 export const SEDE_FALLBACK_SEGMENT = SCHEDA.segment;
@@ -412,7 +515,11 @@ export function canSeeNavEntry(entry: NavEntry, permissions: UserPermissions, ac
     const gate = entry.gate;
     if (!gate) return true;
     if (gate.on === "tenant") return canDoOnTenant(permissions, gate.permission);
-    if (gate.on === "anyActivity") return canDoOnAnyActivity(permissions, gate.permission);
+    if (gate.on === "anyActivity") {
+        // La gemella di sede chiede il permesso su quella sede.
+        if (entry.sedeSegment && activityId) return canDoOnActivity(permissions, gate.permission, activityId);
+        return canDoOnAnyActivity(permissions, gate.permission);
+    }
     if (!activityId) return false;
     if (gate.on === "activityCheck") return gate.check(permissions, activityId);
     const list = typeof gate.permission === "string" ? [gate.permission] : gate.permission;
@@ -433,16 +540,28 @@ export function isNavEntryUsable(
     );
 }
 
-/** L'indirizzo di una voce. Le voci di sede chiedono la sede. */
+/**
+ * L'indirizzo di una voce. Le voci di sede chiedono la sede; una parte
+ * dell'azienda con la gemella (`sedeSegment`) va nella sede quando c'è.
+ */
 export function entryPath(entry: NavEntry, businessId: string, activityId: string | null): string {
-    if (entry.level === "sede") return `/business/${businessId}/locations/${activityId ?? ""}/${entry.segment}`;
-    return `/business/${businessId}/${entry.segment}`;
+    const query = entry.search ? `?${entry.search}` : "";
+    if (entry.level === "sede") return `/business/${businessId}/locations/${activityId ?? ""}/${entry.segment}${query}`;
+    if (entry.sedeSegment && activityId) {
+        return `/business/${businessId}/locations/${activityId}/${entry.sedeSegment}${query}`;
+    }
+    return `/business/${businessId}/${entry.segment}${query}`;
 }
 
 /** La voce di sede a cui appartiene un segmento sotto `/locations/:id/` (la Scheda ne ha quattro). */
 export function navEntryForSedeSegment(segment: string | null | undefined): NavEntry | null {
     if (!segment) return null;
-    return SEDE_ENTRIES.find(e => e.segment === segment || e.matchSegments?.includes(segment)) ?? null;
+    // Prima la pagina col suo segmento (Comande), poi chi la tiene accesa (In servizio).
+    return (
+        SEDE_ENTRIES.find(e => e.segment === segment) ??
+        SEDE_ENTRIES.find(e => e.matchSegments?.includes(segment)) ??
+        null
+    );
 }
 
 // ── Atterraggio (§51.6) ─────────────────────────────────────────────────────
@@ -461,7 +580,7 @@ export function sedeLandingSegment(permissions: UserPermissions, hasFeature: Has
     if (isOwnerOrAdmin(permissions) || canDoOnActivity(permissions, "activity.manage", activityId)) {
         return SEDE_FALLBACK_SEGMENT;
     }
-    const first = IN_SALA.entries.find(e => isNavEntryUsable(e, permissions, hasFeature, activityId));
+    const first = OPERATIVE_ENTRIES.find(e => isNavEntryUsable(e, permissions, hasFeature, activityId));
     return first ? first.segment : SEDE_FALLBACK_SEGMENT;
 }
 

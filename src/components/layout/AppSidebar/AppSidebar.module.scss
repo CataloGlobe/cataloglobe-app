@@ -18,30 +18,31 @@ $title-slot: 36px;
 $title-pad-bottom: 6px;
 $title-text: 11px;
 $dash-margin: 14px;
+$section-height: 40px;
+$section-radius: 10px;
+$section-font: "Plus Jakarta Sans", var(--font-sans);
+$sub-height: 34px;
 
 .sidebar {
-  // I colori della sidebar in variabili sue, derivate dal fondo. Il fondo è
-  // il viola del chip selezionato al passaggio (--brand-primary-soft-hover,
-  // reso pieno sulla superficie: serve un colore solido per gli anelli dei
-  // contatori). La voce attiva è bianca con ombra, come il chip; i testi
-  // prendono un filo di viola dal fondo (6:1 sul fondo).
-  --sb-bg: color-mix(in srgb, var(--surface), var(--brand-primary) 15%);
-  --sb-text: color-mix(in srgb, var(--gray-600) 88%, var(--brand-primary));
-  // Il passaggio anticipa la voce attiva (bianca): un bianco a metà.
-  --sb-hover: color-mix(in srgb, var(--surface) 55%, var(--sb-bg));
-  --sb-active-bg: var(--surface);
-  --sb-active-bg-hover: var(--surface);
-  --sb-active-shadow: var(--shadow-rest);
-  --sb-active-text: var(--on-brand-soft);
+  // I colori della sidebar dell'artifact della navigazione (Alex,
+  // 2026-10-09): fondo lilla (--sidebar-bg), testo pieno, passaggio viola
+  // tenue, la voce attiva piena d'accento col testo --on-brand. Niente filo
+  // verso la pagina: il fondo basta a separare.
+  --sb-bg: var(--sidebar-bg);
+  --sb-text: var(--text);
+  --sb-hover: var(--brand-primary-soft);
+  --sb-active-bg: var(--brand-primary);
+  --sb-active-bg-hover: var(--brand-primary);
+  --sb-active-shadow: none;
+  --sb-active-text: var(--on-brand);
   --sb-active-icon: currentColor;
   --sb-strong: var(--text);
-  --sb-faint: var(--gray-400);
-  --sb-icon-hover: var(--gray-600);
-  --sb-line: color-mix(in srgb, var(--sb-bg), var(--brand-primary) 10%);
+  --sb-faint: var(--text-muted);
+  --sb-icon-hover: var(--text);
+  --sb-line: var(--border);
 
   position: relative;
   background: var(--sb-bg);
-  border-right: 1px solid var(--sb-line);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -182,12 +183,6 @@ $dash-margin: 14px;
 }
 
 // Dove sei (azienda e sede), sotto la cima.
-.switcherSlot {
-  flex-shrink: 0;
-  display: flex;
-  padding: 0 $container-x var(--space-8);
-}
-
 /* ===== Intestazione del contesto (sede) ===== */
 // Fuori dallo scroll, stessa geometria aperta e chiusa: le voci sotto non
 // si spostano.
@@ -338,17 +333,25 @@ $dash-margin: 14px;
 }
 
 /* ===== Sezioni (Officina, desktop) ===== */
-// Le sezioni sono le voci: più aria fra le righe e il nome pieno. Le loro
-// pagine, più leggere, stanno nel pannello a destra (`SidebarFlyout`).
+// Le sei voci dell'artifact della navigazione (Alex, 2026-10-09): righe da
+// 40, nome in Plus Jakarta Sans 600 a 14,5, angoli da 10. La geometria
+// orizzontale resta quella della riga: l'icona cade al centro dei 64.
 .sections {
-  gap: var(--space-4);
+  gap: var(--space-2);
 
-  .label {
+  .link {
+    height: $section-height;
+    border-radius: $section-radius;
+  }
+
+  .link .label {
+    font-family: $section-font;
+    font-size: 14.5px;
     font-weight: 600;
   }
 }
 
-// La riga di una sezione è un pulsante: apre il pannello, non porta a una pagina.
+// La riga di una sezione è un pulsante: apre la sezione, non il pannello.
 .sectionRow {
   width: 100%;
   border: none;
@@ -364,39 +367,79 @@ $dash-margin: 14px;
   color: var(--sb-strong);
 }
 
+// Aperta nella sidebar: la riga non è più piena (la pagina accesa è una
+// parte sotto) e prende l'accento.
+.sectionExpanded,
+.sectionExpanded:hover {
+  color: var(--brand-primary);
+}
+
+.sectionExpanded:not(:hover) {
+  background: transparent;
+}
+
 .sectionChevron {
   color: var(--sb-faint);
   transition: transform var(--timing-motion-fast) var(--easing-state);
 }
 
-// Sidebar aperta: la sezione si apre verso il basso, dentro la sidebar.
-// Aperta, la riga non è più accesa: la pagina accesa è quella sotto.
 .sectionExpanded .sectionChevron {
   transform: rotate(90deg);
 }
 
+// Le parti, sotto la sezione aperta: un filo a sinistra sotto il centro
+// dell'icona, il nome in colonna con quelli delle sezioni.
 .subList {
   list-style: none;
-  margin: var(--space-2) 0 0;
+  margin: var(--space-2) 0 var(--space-6);
   padding: 0;
   display: grid;
-  gap: var(--space-2);
+  gap: 1px;
 }
 
-// Le pagine della sezione, rientrate sotto il nome (filo dell'etichetta),
-// più leggere della riga che le contiene. `.link.subLink`: vince su
-// `.link .label` e `.sections .label`, che stanno più sotto o allo stesso peso.
-.link.subLink {
-  padding-inline-start: $row-x + $icon-size + $icon-gap;
+.sections .link.subLink {
+  height: $sub-height;
+  margin-inline-start: $row-x + $icon-size * 0.5 - 1px;
+  padding: 0 ($row-x - 1px) 0 20px;
+  border-left: 1.5px solid var(--sb-line);
+  border-radius: 0 var(--radius-control) var(--radius-control) 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--sb-text);
+
+  &:hover {
+    background: var(--sb-hover);
+  }
 
   .label {
     margin-inline-start: 0;
+    font-family: inherit;
+    font-size: 14px;
     font-weight: 400;
   }
 
-  &.active .label {
-    font-weight: 600;
+  &.active {
+    border-left-color: var(--brand-primary);
+    color: var(--brand-primary);
+
+    .label {
+      font-weight: 600;
+    }
   }
+}
+
+// Lo stato della parte, a destra: «3 · 1 non in onda», col pallino.
+.subState {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.navDot[data-tone="live"] {
+  background: var(--signal-live);
 }
 
 .subLock {
@@ -591,7 +634,7 @@ $dash-margin: 14px;
   width: 7px;
   height: 7px;
   border-radius: var(--radius-pill);
-  background: var(--brand-primary);
+  background: var(--signal-attention);
   flex-shrink: 0;
 }
 
@@ -636,6 +679,3 @@ $dash-margin: 14px;
 }
 
 // In scuro il soft-hover del tema è più carico (28%).
-:global(html[data-theme="dark"]) .sidebar {
-  --sb-bg: color-mix(in srgb, var(--surface), var(--brand-primary) 28%);
-}

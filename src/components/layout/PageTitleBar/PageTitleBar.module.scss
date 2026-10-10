@@ -17,6 +17,13 @@
 .path {
   flex: 1 1 auto;
   min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-16);
+}
+
+.side {
+  flex-shrink: 0;
 }
 
 .actions {
@@ -24,4 +31,118 @@
   align-items: center;
   gap: var(--space-8);
   flex-shrink: 0;
+}
+
+/* ===== Le sedi in alto a destra (D152) ===== */
+// «Sede» e «Confronta con», pulsanti staccati prima della notifica; ognuno
+// dice cosa sceglie. Il confronto acceso prende il colore delle differenze.
+.sedi {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  min-width: 0;
+  margin-right: var(--space-8);
+}
+
+.sedeBtn {
+  height: 34px;
+  max-width: 320px;
+}
+
+.pre {
+  margin-right: var(--space-6);
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.confrontoOn {
+  border-color: color-mix(in srgb, var(--signal-attention) 45%, transparent);
+  background: color-mix(in srgb, var(--signal-attention) 8%, var(--surface));
+  color: var(--signal-attention);
+
+  .pre {
+    color: inherit;
+    opacity: 0.8;
+  }
+}
+
+/* ===== Sezione e parti (navigazione nuova, artifact v4) ===== */
+// Il nome della sezione e le sue parti come tab a pillola: la scelta è una
+// pillola che galleggia, le altre mute.
+.section {
+  display: flex;
+  align-items: center;
+  gap: var(--space-16);
+  min-width: 0;
+}
+
+.sectionTitle {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.tabs {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  // L'ombra della pillola scelta non si taglia.
+  padding-block: var(--space-6);
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+.tab {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  font-size: 14px;
+  color: var(--text-muted);
+  text-decoration: none;
+  white-space: nowrap;
+  transition:
+    background var(--timing-motion-fast) var(--easing-state),
+    color var(--timing-motion-fast) var(--easing-state);
+
+  &:hover {
+    background: var(--brand-primary-soft);
+    color: var(--text);
+    text-decoration: none;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--brand-primary);
+    outline-offset: 1px;
+  }
+}
+
+.tabSelected,
+.tabSelected:hover {
+  background: var(--bg);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.05),
+    0 6px 20px rgba(15, 23, 42, 0.06);
+}
+
+.tabDot {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--radius-pill);
+  background: var(--signal-attention);
+  flex-shrink: 0;
+}
+
+.tabState {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
 }

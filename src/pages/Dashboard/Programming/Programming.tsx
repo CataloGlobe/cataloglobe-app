@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { Calendar, ChevronDown, List, CalendarDays } from "lucide-react";
+import { Calendar, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import { Badge } from "@/components/ui/Badge/Badge";
@@ -12,7 +12,6 @@ import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { Menu } from "@/components/ui/Menu";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { ToolbarSearch } from "@/components/ui/ToolbarSearch/ToolbarSearch";
-import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { SplitButton, type SplitButtonAction } from "@/components/ui/SplitButton";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import Text from "@/components/ui/Text/Text";
@@ -51,7 +50,13 @@ import { compareCandidates } from "@shared/scheduleCompetition";
 import { describeTarget } from "./components/ruleTarget";
 import { measureTextWidth } from "@/utils/measureText";
 import { HowItWorksButton, RuleTypeHelpModal } from "./components/RuleTypeHelpModal";
-import { CalendarView } from "./components/CalendarView";
+import CalendarioView from "./calendar/CalendarioView";
+import type { CalNames } from "./calendar/calendarModel";
+import type { ProductInfo } from "./calendar/CalendarioPanel";
+import { dropItem, dropRule } from "./calendar/calendarWrites";
+import type { PickProduct } from "./calendar/calendarDraft";
+import { dropDraft, saveDraft } from "./calendar/calendarSave";
+import { listBaseProductsForPickerWithCategory } from "@/services/supabase/products";
 import { RuleSimulatorDrawer } from "./components/RuleSimulatorDrawer";
 import { isLayoutRuleDraft } from "@/utils/scheduleDraft";
 import { deriveScheduleStatus } from "@/utils/scheduleStatus";
@@ -168,6 +173,8 @@ export default function Programming() {
     const [activityGroups, setActivityGroups] = useState<LayoutRuleOption[]>([]);
     const [catalogs, setCatalogs] = useState<LayoutRuleOption[]>([]);
     const [stylesOptions, setStylesOptions] = useState<LayoutRuleOption[]>([]);
+    const [productOptions, setProductOptions] = useState<LayoutRuleOption[]>([]);
+    const [featuredOptions, setFeaturedOptions] = useState<LayoutRuleOption[]>([]);
     const [activityIdsByGroupId, setActivityIdsByGroupId] = useState<Record<string, string[]>>({});
     // «A mano» della matrice; null = non ancora contate, o conteggio fallito.
     const [manualCounts, setManualCounts] = useState<Record<string, number> | null>(null);
@@ -183,7 +190,9 @@ export default function Programming() {
     const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
     const [updatingRules, setUpdatingRules] = useState<Set<string>>(new Set());
 
-    const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
+    // La vista sta nell'indirizzo (?vista=calendario): Calendario e Regole sono
+    // due parti della sezione, tab nella barra del titolo e voci nella sidebar.
+    const viewMode: "list" | "calendar" = searchParams.get("vista") === "calendario" ? "calendar" : "list";
     const [searchTerm, setSearchTerm] = useState("");
     // Niente filtro sede nella pagina d'azienda (T9b, PG5; superato §51.11):
     // la sede si guarda da dentro la sede. Un vecchio link `?sede=<id>` porta
@@ -259,6 +268,47 @@ export default function Programming() {
         () => new Map(stylesOptions.map(item => [item.id, item])),
         [stylesOptions]
     );
+    // Calendario: i nomi delle cose, le sedi da guardare e i gruppi di ogni sede
+    const calNames = useMemo<CalNames>(
+        () => ({
+            catalogs: new Map(catalogs.map(c => [c.id, c.name])),
+            styles: new Map(stylesOptions.map(c => [c.id, c.name])),
+            featured: new Map(featuredOptions.map(c => [c.id, c.name])),
+            products: new Map(productOptions.map(c => [c.id, c.name]))
+        }),
+        [catalogs, featuredOptions, productOptions, stylesOptions]
+    );
+    // il pannello del Calendario mostra listino e categoria dei piatti: si chiedono solo aprendo il Calendario
+    const [calProducts, setCalProducts] = useState<ReadonlyMap<string, ProductInfo> | undefined>(undefined);
+    const [calPickBase, setCalPickBase] = useState<{ id: string; name: string; category_name: string | null; base_price: number | null }[]>([]);
+    useEffect(() => {
+        if (viewMode !== "calendar" || calProducts || !currentTenantId) return;
+        let alive = true;
+        listBaseProductsForPickerWithCategory(currentTenantId)
+            .then(list => {
+                if (!alive) return;
+                setCalProducts(new Map(list.map(p => [p.id, { category: p.category_name, listPrice: p.base_price }])));
+                setCalPickBase(list);
+            })
+            .catch(error => console.error("Errore listino per il Calendario:", error));
+        return () => {
+            alive = false;
+        };
+    }, [calProducts, currentTenantId, viewMode]);
+    // la sezione Aggiungi / Modifica: i piatti da scegliere, con i loro formati
+    const calPickList = useMemo<PickProduct[]>(() => {
+        const formats = new Map(productOptions.map(p => [p.id, p.format_values ?? []]));
+        return calPickBase.map(p => ({ id: p.id, name: p.name, category: p.category_name, listPrice: p.base_price, formats: formats.get(p.id) ?? [] }));
+    }, [calPickBase, productOptions]);
+    const calFormatNames = useMemo(
+        () => new Map(productOptions.flatMap(p => (p.format_values ?? []).map(v => [v.id, v.name] as const))),
+        [productOptions]
+    );
+    const calGroupIdsByActivity = useMemo(() => {
+        const out: Record<string, string[]> = {};
+        for (const [groupId, ids] of Object.entries(activityIdsByGroupId)) for (const id of ids) (out[id] ??= []).push(groupId);
+        return out;
+    }, [activityIdsByGroupId]);
     const loadRules = useCallback(async () => {
         const rulesData = await listLayoutRules(currentTenantId!);
         setRules(rulesData);
@@ -280,6 +330,8 @@ export default function Programming() {
             setActivityGroups(optionsData.activityGroups);
             setCatalogs(optionsData.catalogs);
             setStylesOptions(optionsData.styles);
+            setProductOptions(optionsData.products);
+            setFeaturedOptions(optionsData.featuredContents);
 
             setActivityIdsByGroupId(
                 await listActivityIdsByGroup(optionsData.activityGroups.map(group => group.id))
@@ -305,7 +357,7 @@ export default function Programming() {
         void loadInitialData();
     }, [loadInitialData]);
 
-    // La sede scelta nella navbar: vale per l'elenco e per la Settimana.
+    // La sede scelta nella navbar: vale per l'elenco e per il Calendario.
     const seatRules = useMemo(() => {
         if (!filterActivityId) return rules;
         return rules.filter(rule => {
@@ -318,7 +370,7 @@ export default function Programming() {
     }, [activityIdsByGroupId, filterActivityId, rules]);
 
     // Sede e ricerca: i conteggi del filtro per tipo si leggono da qui. La
-    // ricerca resta all'elenco: in Settimana non si vede, e non la filtra.
+    // ricerca resta all'elenco: nel Calendario non si vede, e non la filtra.
     const searchedRules = useMemo(() => {
         const query = searchTerm.trim().toLowerCase();
         const result = seatRules;
@@ -394,6 +446,14 @@ export default function Programming() {
     const groupNameById = useMemo(
         () => new Map(activityGroups.map(group => [group.id, group.name])),
         [activityGroups]
+    );
+    // dentro la sede si guarda solo lei; nella pagina d'azienda le sedi che si leggono
+    const calSedi = useMemo(
+        () =>
+            routeActivityId
+                ? [{ id: routeActivityId, name: activityById.get(routeActivityId)?.name ?? "" }]
+                : readableSedi.map(a => ({ id: a.id, name: activityById.get(a.id)?.name ?? a.name })),
+        [activityById, readableSedi, routeActivityId]
     );
 
     // «Adesso» e «Sovrascritta da»: la competizione della pagina pubblica,
@@ -751,7 +811,7 @@ export default function Programming() {
         </Tabs>
     ), [ruleTypeFilter, handleRuleTypeFilterChange, typeOptions, typeCounts]);
 
-    // Le azioni in tre larghezze (F5): comoda; Elenco/Settimana a sole icone;
+    // Le azioni in tre larghezze (F5): comoda; Elenco/Calendario a sole icone;
     // in più la ricerca alla larghezza minima. La banda usa la prima che sta
     // in riga con le tab, poi passa a due righe.
     const renderHeaderActions = useCallback((step: 0 | 1 | 2) => (
@@ -764,15 +824,6 @@ export default function Programming() {
                     width={step === 2 ? "min" : "default"}
                 />
             )}
-            <SegmentedControl<"list" | "calendar">
-                value={viewMode}
-                onChange={setViewMode}
-                iconsOnly={step > 0}
-                options={[
-                    { value: "list", label: "Elenco", icon: <List size={16} /> },
-                    { value: "calendar", label: "Settimana", icon: <CalendarDays size={16} /> }
-                ]}
-            />
             <SplitButton actions={headerSplitActions} loading={isCreating} />
         </div>
     ), [viewMode, searchTerm, headerSplitActions, isCreating]);
@@ -802,19 +853,6 @@ export default function Programming() {
                   placeholder: "Cerca per nome, tipo, sede o id…"
               }
             : undefined,
-        persistentIcons: [
-            viewMode === "list"
-                ? {
-                      icon: <CalendarDays size={18} />,
-                      label: "Settimana",
-                      onClick: () => setViewMode("calendar")
-                  }
-                : {
-                      icon: <List size={18} />,
-                      label: "Elenco",
-                      onClick: () => setViewMode("list")
-                  }
-        ],
         // `headerSplitActions` è già in ordine di lettura: le secondarie
         // precedono la primaria, che è l'ultima.
         secondaryActions: headerSplitActions.slice(0, -1),
@@ -822,11 +860,12 @@ export default function Programming() {
         loading: isCreating
     }), [typeOptions, typeCounts, ruleTypeFilter, handleRuleTypeFilterChange, viewMode, searchTerm, headerSplitActions, isCreating]);
 
+    const calendarOnly = viewMode === "calendar";
     usePageHeader({
-        leading: headerLeading,
-        actions: headerActions,
-        narrowerActions: headerNarrowerActions,
-        compact: headerCompact,
+        leading: calendarOnly ? undefined : headerLeading,
+        actions: calendarOnly ? undefined : headerActions,
+        narrowerActions: calendarOnly ? undefined : headerNarrowerActions,
+        compact: calendarOnly ? undefined : headerCompact,
     });
 
     const statusGroups: Array<{
@@ -1030,10 +1069,43 @@ export default function Programming() {
                     </div>
                 )
             ) : (
-                <CalendarView
+                <CalendarioView
                     rules={seatRules}
-                    ruleTypeFilter={ruleTypeFilter}
-                    onRuleClick={rule => navigate(ruleHref(rule))}
+                    names={calNames}
+                    sedi={calSedi}
+                    groupIdsByActivity={calGroupIdsByActivity}
+                    groupNames={groupNameById}
+                    products={calProducts}
+                    formatNames={calFormatNames}
+                    isWritable={canWrite ? isRuleWritable : undefined}
+                    onOpenRule={rule => navigate(ruleHref(rule))}
+                    onDrop={async (rule, item) => {
+                        await (item ? dropItem(rule, item) : dropRule(rule));
+                        await loadRules();
+                    }}
+                    section={{
+                        pickList: calPickList,
+                        catalogs,
+                        styles: stylesOptions,
+                        featured: featuredOptions,
+                        groups: activityGroups.map(g => ({ id: g.id, name: g.name, activityIds: activityIdsByGroupId[g.id] ?? [] })),
+                        defaultWhere: routeActivityId
+                            ? { all: false, activityIds: [routeActivityId], groupIds: [] }
+                            : { all: true, activityIds: [], groupIds: [] },
+                        systemStyleId: stylesOptions.find(x => x.is_system)?.id ?? null,
+                        canAdd: canCreate,
+                        onSave: async (draft, lookups) => {
+                            await saveDraft(draft, lookups, currentTenantId!);
+                            await loadRules();
+                        },
+                        onDrop: async draft => {
+                            await dropDraft(draft);
+                            await loadRules();
+                        },
+                        // «Crea un menù nuovo» apre il tunnel di creazione (D124)
+                        onGoNew: kind =>
+                            navigate(`/business/${currentTenantId}/crea/${kind === "menu" ? "menu" : kind === "style" ? "stile" : "evidenza"}?da=calendario`)
+                    }}
                 />
             )}
 

@@ -43,9 +43,9 @@ export function ActivitySedeMenu({ activity, businessId, tenantId, reload, canMa
             await updateActivity(activity.id, tenantId, { status: "active", inactive_reason: null });
             void refreshActivitiesCache(tenantId);
             await reload();
-            showToast({ message: "Sede pubblicata.", type: "success" });
+            showToast({ message: "La sede è di nuovo online.", type: "success" });
         } catch {
-            showToast({ message: "Impossibile riprendere la pubblicazione.", type: "error" });
+            showToast({ message: "Non è stato possibile rimettere la sede online.", type: "error" });
         }
     }, [activity.id, tenantId, reload, showToast]);
 

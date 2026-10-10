@@ -44,7 +44,6 @@ import { CatalogForm } from "./components/CatalogForm";
 import { CatalogSheet } from "./components/CatalogSheet";
 import { isPostgrestFKError } from "@/utils/supabaseErrors";
 import styles from "./Catalogs.module.scss";
-import { useCreateOnArrival } from "@/hooks/useCreateOnArrival";
 
 const FORM_ID = "catalog-form";
 
@@ -146,13 +145,11 @@ export default function Catalogs() {
         }
     }, [importRefreshKey, loadData]);
 
+    // «Crea» apre il tunnel di creazione (D124); il drawer resta per modificare.
     const handleOpenCreate = useCallback(() => {
         if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
-        setEditingCatalog(null);
-        setIsDrawerOpen(true);
-    }, [canEdit, showToast]);
-    // Da «Cosa vuoi creare?» della Panoramica.
-    useCreateOnArrival(handleOpenCreate, permissions != null ? canWriteCatalog : null);
+        navigate(`/business/${currentTenantId}/crea/menu?da=menu`);
+    }, [canEdit, showToast, navigate, currentTenantId]);
 
     const handleViewModeChange = useCallback((next: "list" | "grid") => {
         setViewMode(next);
@@ -342,7 +339,7 @@ export default function Catalogs() {
         }
         if (blocked > 0) {
             showToast({
-                message: `${countLabel(blocked)} non ${blocked === 1 ? "eliminato" : "eliminati"}: in uso da regole di programmazione.`,
+                message: `${countLabel(blocked)} non ${blocked === 1 ? "eliminato" : "eliminati"}: in uso da regole del Calendario.`,
                 type: "error"
             });
         }
@@ -524,7 +521,7 @@ export default function Catalogs() {
                 <EmptyState
                     icon={<IconBook2 />}
                     title={`Il ${catalogLower} è quello che i clienti vedono col QR`}
-                    description={`Puoi crearne più di uno (${hints}) e decidere con la programmazione quando mostrarli.`}
+                    description={`Puoi crearne più di uno (${hints}) e decidere col Calendario quando mostrarli.`}
                     action={
                         <Button variant="primary" onClick={handleOpenCreate} disabled={!canEdit}>
                             {`Crea il primo ${catalogLower}`}
@@ -642,7 +639,7 @@ export default function Catalogs() {
                 onClose={handleBulkDeleteCancel}
                 onConfirm={handleBulkDeleteConfirmed}
                 title={`Eliminare ${countLabel(pendingBulkIds?.length ?? 0)}?`}
-                message={`Si eliminano anche le loro ${categoryPluralLower} e i collegamenti ai ${productPluralLower}, e non si torna indietro. I ${productPluralLower} restano. Un ${catalogLower} usato da una regola di programmazione non si elimina.`}
+                message={`Si eliminano anche le loro ${categoryPluralLower} e i collegamenti ai ${productPluralLower}, e non si torna indietro. I ${productPluralLower} restano. Un ${catalogLower} usato da una regola del Calendario non si elimina.`}
                 confirmLabel={`Elimina ${countLabel(pendingBulkIds?.length ?? 0)}`}
             />
 

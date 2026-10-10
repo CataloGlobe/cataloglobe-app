@@ -5,7 +5,6 @@ import { Lock, Plus, Store } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import Skeleton from "@/components/ui/Skeleton/Skeleton";
-import { Tabs } from "@/components/ui/Tabs/Tabs";
 import { TablesLiveView } from "@/components/Tables/TablesLiveView/TablesLiveView";
 import ServizioElenco from "./ServizioElenco";
 import ServizioTodayRow from "./ServizioTodayRow";
@@ -18,10 +17,10 @@ import { getActivityById } from "@/services/supabase/activities";
 import type { V2Activity } from "@/types/activity";
 import { SERVIZIO_MODES, modeAccess, normalizeServizioMode, resolveServizioMode, type ServizioMode } from "@/utils/servizioModes";
 import { ServizioSala } from "./ServizioSala";
+import { useInServizioSwitch } from "./useInServizioSwitch";
 
 import styles from "./Servizio.module.scss";
 
-const LOCKED_HINT = "Disponibile con il piano Pro";
 /** I dettagli dal vivo dei modi (D131): `?tavolo=` della Mappa, `?prenotazione=` e `?tavolata=` dell'Elenco. */
 const DETAIL_PARAMS = ["tavolo", "prenotazione", "tavolata"] as const;
 
@@ -104,53 +103,22 @@ export default function Servizio() {
     // Un `?modo=` che non si può usare (col lucchetto, sconosciuto) diventa
     // quello mostrato: l'indirizzo dice dove si è.
     const rawMode = searchParams.get("modo");
+    // Anche senza `?modo=`, quando resta solo la Sala: è la sua parte, non «In servizio».
     useEffect(() => {
-        if (rawMode && mode && rawMode !== mode) changeMode(mode);
+        if (mode && rawMode !== mode && (rawMode || mode === "sala")) changeMode(mode);
     }, [rawMode, mode, changeMode]);
 
-    const leading = useMemo(
-        () =>
-            modes.length > 0 && mode ? (
-                <Tabs<ServizioMode> value={mode} onChange={changeMode} variant="line">
-                    <Tabs.List aria-label="Modi di Servizio">
-                        {modes.map(entry => (
-                            <Tabs.Tab
-                                key={entry.mode}
-                                value={entry.mode}
-                                disabled={entry.access === "locked"}
-                                disabledTooltip={entry.access === "locked" ? LOCKED_HINT : undefined}
-                            >
-                                {entry.access === "locked" ? (
-                                    <span className={styles.lockedTab}>
-                                        {entry.label}
-                                        <Lock size={14} strokeWidth={1.75} role="img" aria-label="Funzione del piano Pro" />
-                                    </span>
-                                ) : (
-                                    entry.label
-                                )}
-                            </Tabs.Tab>
-                        ))}
-                    </Tabs.List>
-                </Tabs>
-            ) : null,
-        [modes, mode, changeMode]
-    );
-
+    // La Sala è una parte di Servizio (sidebar e tab in alto). «In servizio»
+    // tiene insieme Elenco, Mappa, Prenotazioni e Comande con un interruttore
+    // (artifact v4: un secondo livello è un interruttore, mai altre tab).
+    const inServizio = useInServizioSwitch(mode && mode !== "sala" ? mode : null, changeMode);
+    const leading = inServizio.leading;
     const compact = useMemo<PageHeaderCompactConfig | undefined>(
         () =>
-            modes.length > 0 && mode
-                ? {
-                      sections: modes.map(entry => ({
-                          value: entry.mode,
-                          label: entry.label,
-                          disabled: entry.access === "locked",
-                          description: entry.access === "locked" ? LOCKED_HINT : undefined
-                      })),
-                      activeSection: mode,
-                      onSectionChange: value => changeMode(value as ServizioMode)
-                  }
+            inServizio.sections
+                ? { sections: inServizio.sections, activeSection: mode ?? undefined, onSectionChange: inServizio.onSectionChange }
                 : undefined,
-        [modes, mode, changeMode]
+        [inServizio.sections, inServizio.onSectionChange, mode]
     );
 
     const showWalkin = mode === "elenco" && canWalkin;

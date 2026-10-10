@@ -16,41 +16,57 @@
 // nessuna azione di invio. La rubrica serve a erogare il servizio; per il
 // marketing servirebbe un consenso separato che oggi non raccogliamo.
 
-import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
-import { BookUser, List as ListIcon, Table2 } from "lucide-react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { BookUser, Search, UserRoundX } from "lucide-react";
 import { useTenantId } from "@/context/useTenantId";
 import { useToast } from "@/context/Toast/ToastContext";
 import { usePermissions } from "@/context/usePermissions";
-import { usePageHeader } from "@/context/usePageHeader";
-import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { canDoOnActivity, canDoOnAnyActivity, isTenantWide } from "@/lib/permissions";
 import { usePlanFeatures } from "@/lib/planFeatures";
 import { PageGate } from "@/components/PageGate/PageGate";
 import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
-import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { Button } from "@/components/ui/Button/Button";
+import { Chip } from "@/components/ui/Chip/Chip";
+import { ChipGroupSingle } from "@/components/ui/Chip/ChipGroup";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
+import { Select } from "@/components/ui/Select/Select";
 import Text from "@/components/ui/Text/Text";
 import {
     DIRECTORY_LIMIT,
     getReservationGuest,
+    listGuestVisitMarks,
     listReservationGuestNotesForGuests,
-    listReservationGuests
+    listReservationGuests,
+    type GuestVisitMark
 } from "@/services/supabase/reservationGuests";
 import { getActivitiesCached } from "@/hooks/activitiesCache";
 import { useDetailParam } from "@/hooks/useDetailParam";
 import type { V2Activity } from "@/types/activity";
-import type { ReservationGuestSummary } from "@/types/reservationGuest";
+import type { ReservationGuestSummary, V2ReservationGuestNote } from "@/types/reservationGuest";
 import GuestsDirectory from "./GuestsDirectory";
-import GuestsTable from "./GuestsTable";
 import GuestDrawer, { type GuestNoteActivity } from "./GuestDrawer";
 import { mergeGuestTags } from "./guestTags";
+import { isLost, matchesGuestFilter, summarizeGuestVisits, type GuestFilter } from "./guestActivity";
 import styles from "./Guests.module.scss";
 
-type GuestsViewMode = "rows" | "table";
+/** «Chi non torna» in cima: si ricorda, come le altre preferenze di vista. */
+const LOST_LINE_KEY = "guests_lost_line";
 
-/** Stessa convenzione di `businesses_view_mode` su Sedi. */
-const VIEW_MODE_KEY = "guests_view_mode";
+const FILTER_LABELS: { value: GuestFilter; label: string; warning?: boolean }[] = [
+    { value: "all", label: "Tutti" },
+    { value: "regular", label: "Abituali" },
+    { value: "new", label: "Nuovi nel mese" },
+    { value: "lost", label: "Non tornano da 3 mesi", warning: true },
+    { value: "absent", label: "Con assenze", warning: true }
+];
+
+function readLostLine(): boolean {
+    try {
+        return localStorage.getItem(LOST_LINE_KEY) !== "off";
+    } catch {
+        return true;
+    }
+}
 
 export default function Guests() {
     const tenantId = useTenantId();
@@ -67,36 +83,38 @@ export default function Guests() {
     const tenantWide = permissions ? isTenantWide(permissions) : false;
 
     const [guests, setGuests] = useState<ReservationGuestSummary[]>([]);
-    // Etichette per ospite, unione delle sedi visibili a chi guarda: note e
-    // tag sono per sede (FASE 5.3), l'elenco è dell'azienda. Un tag compare
-    // qui se c'è in almeno una delle proprie sedi; a quale, lo dice la scheda.
-    const [tagsByGuest, setTagsByGuest] = useState<ReadonlyMap<string, string[]>>(new Map());
+    // Note ed etichette per sede delle persone in elenco: le etichette sono
+    // l'unione delle sedi visibili a chi guarda (FASE 5.3), le note dicono
+    // «da sapere». A quale sede appartengono, lo dice la scheda.
+    const [notes, setNotes] = useState<V2ReservationGuestNote[]>([]);
+    // Le visite dei clienti in elenco: pallini dei 12 mesi, sedi, chi non torna.
+    const [marks, setMarks] = useState<GuestVisitMark[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [loadError, setLoadError] = useState(false);
     // Distingue "non ho ancora niente da mostrare" da "sto aggiornando ciò che
-    // già mostro". Vive qui e scende come prop alle due viste, così tabella e
-    // griglia si comportano allo stesso modo: senza, la griglia sostituiva
-    // l'intero elenco con lo scheletro a ogni ricarica mentre la tabella
-    // teneva il layout. Stessa forma di `Reservations.tsx`.
+    // già mostro": una ricarica non sostituisce l'elenco con lo scheletro.
     const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
     const [search, setSearch] = useState("");
     // useDeferredValue e non un timer manuale: React salta i valori intermedi
     // mentre si digita, senza reintrodurre il debounce a mano che il progetto
     // ha già eliminato altrove.
     const deferredSearch = useDeferredValue(search);
+    const [searchOpen, setSearchOpen] = useState(false);
+    const searchRef = useRef<HTMLInputElement>(null);
+    useEffect(() => {
+        if (searchOpen) searchRef.current?.focus();
+    }, [searchOpen]);
 
-    // Righe di default: si legge una persona alla volta, ed è quello che fa un
-    // operatore prima del servizio. La tabella serve a confrontare molte righe
-    // sulla stessa colonna, ed è una scelta che chi la vuole fa una volta —
-    // per questo la preferenza si ricorda, come su Sedi.
-    const [viewMode, setViewMode] = useState<GuestsViewMode>(() => {
-        const saved = localStorage.getItem(VIEW_MODE_KEY);
-        return saved === "table" || saved === "rows" ? saved : "rows";
-    });
-
-    const handleViewChange = useCallback((next: GuestsViewMode) => {
-        setViewMode(next);
-        localStorage.setItem(VIEW_MODE_KEY, next);
+    const [filter, setFilter] = useState<GuestFilter>("all");
+    const [sedeFilter, setSedeFilter] = useState("");
+    const [lostLine, setLostLine] = useState(readLostLine);
+    const toggleLostLine = useCallback((on: boolean) => {
+        setLostLine(on);
+        try {
+            localStorage.setItem(LOST_LINE_KEY, on ? "on" : "off");
+        } catch {
+            // Senza memoria del browser la scelta vale per questa visita.
+        }
     }, []);
 
     // Il cliente aperto sta nell'indirizzo (`?guest=<id>`, D131): è anche il
@@ -112,66 +130,20 @@ export default function Guests() {
     // rubrica resterebbe raggiungibile fuori dal piano che la produce.
     const isLocked = !hasFeature("table_reservation");
 
-    // La ricerca vive nella barra azioni dell'header, come su Sedi e Prodotti:
-    // stesso `ToolbarSearch`, stessa altezza del cluster di controlli. Nessuna
-    // azione primaria accanto — non esiste un "Nuovo cliente": le schede si
-    // creano da sole, e nessun pulsante di esportazione o invio.
-    const headerActions = useMemo(
-        () => (
-            <>
-                <ToolbarSearch
-                    value={search}
-                    onChange={setSearch}
-                    placeholder="Cerca cliente..."
-                />
-                <SegmentedControl<GuestsViewMode>
-                    iconsOnly
-                    value={viewMode}
-                    onChange={handleViewChange}
-                    options={[
-                        { value: "rows", label: "Vista righe", icon: <ListIcon size={16} /> },
-                        { value: "table", label: "Vista tabella", icon: <Table2 size={16} /> }
-                    ]}
-                />
-            </>
-        ),
-        [search, viewMode, handleViewChange]
-    );
-
-    // Niente `title`/`subtitle`: `PageHeaderSlot` li ignora per scelta
-    // (rende solo `leading` e `actions`; il titolo vive nel breadcrumb della
-    // navbar post-refactor). Passarli darebbe l'illusione di una intestazione
-    // che nessuno renderizza.
-    // Nessuna tab e nessuna CTA: in compatto la riga resta lente + toggle vista.
-    // `primaryAction` omesso di proposito — la rubrica non ha un'azione di
-    // creazione, i clienti nascono dalle prenotazioni.
-    const headerCompact = useMemo<PageHeaderCompactConfig>(() => ({
-        search: {
-            value: search,
-            onChange: setSearch,
-            placeholder: "Cerca cliente..."
-        },
-        persistentIcons: [
-            viewMode === "rows"
-                ? { icon: <Table2 size={18} />, label: "Vista tabella", onClick: () => handleViewChange("table") }
-                : { icon: <ListIcon size={18} />, label: "Vista righe", onClick: () => handleViewChange("rows") }
-        ]
-    }), [search, viewMode, handleViewChange]);
-
-    // Ricerca e vista solo a chi legge la rubrica: sulla schermata bloccata
-    // (piano o permesso) la testata resta vuota.
-    const showHeader = !isLocked && canRead;
-    usePageHeader(showHeader ? { actions: headerActions, compact: headerCompact } : null);
-
     const loadGuests = useCallback(async () => {
         if (!tenantId || !canRead) return;
         setIsLoading(true);
         setLoadError(false);
         try {
             const rows = await listReservationGuests(tenantId, deferredSearch);
+            const ids = rows.map(g => g.id);
+            const [noteRows, markRows] = await Promise.all([
+                listReservationGuestNotesForGuests(tenantId, ids),
+                listGuestVisitMarks(tenantId, ids)
+            ]);
             setGuests(rows);
-            const notes = await listReservationGuestNotesForGuests(tenantId, rows.map(g => g.id));
-            setTagsByGuest(mergeGuestTags(notes));
+            setNotes(noteRows);
+            setMarks(markRows);
         } catch (error) {
             // Un errore non è una rubrica vuota: la pagina lo dice, con «Riprova».
             console.error("Caricamento rubrica clienti:", error);
@@ -244,6 +216,52 @@ export default function Guests() {
         return () => { alive = false; };
     }, [selectedGuestId, selectedGuest, tenantId, canRead, isLocked, showToast, closeGuestDetail]);
 
+    // Oggi, una volta: i filtri e i pallini contano i giorni da qui.
+    const today = useMemo(() => new Date(), []);
+    const tagsByGuest = useMemo(() => mergeGuestTags(notes), [notes]);
+    const activityByGuest = useMemo(() => summarizeGuestVisits(marks, today), [marks, today]);
+    // «Da sapere»: le etichette (tranne «abituale», che è già un segno) e le
+    // note, di tutte le sedi visibili.
+    const knowByGuest = useMemo(() => {
+        const out = new Map<string, string>();
+        for (const [id, tags] of tagsByGuest) {
+            const t = tags.filter(x => x.trim().toLowerCase() !== "abituale");
+            if (t.length) out.set(id, t.join(" · "));
+        }
+        for (const n of notes) {
+            if (!n.notes?.trim()) continue;
+            const cur = out.get(n.guest_id);
+            out.set(n.guest_id, cur ? `${cur} · ${n.notes.trim()}` : n.notes.trim());
+        }
+        return out;
+    }, [tagsByGuest, notes]);
+
+    const inSede = useCallback(
+        (g: ReservationGuestSummary) => !sedeFilter || (activityByGuest.get(g.id)?.sedi.some(s => s.id === sedeFilter) ?? false),
+        [sedeFilter, activityByGuest]
+    );
+    const counts = useMemo(() => {
+        const c: Record<GuestFilter, number> = { all: 0, regular: 0, new: 0, lost: 0, absent: 0 };
+        for (const g of guests) {
+            if (!inSede(g)) continue;
+            for (const f of FILTER_LABELS) {
+                if (matchesGuestFilter(f.value, g, activityByGuest.get(g.id), tagsByGuest.get(g.id), today)) c[f.value] += 1;
+            }
+        }
+        return c;
+    }, [guests, inSede, activityByGuest, tagsByGuest, today]);
+    const shownGuests = useMemo(
+        () =>
+            guests.filter(
+                g => inSede(g) && matchesGuestFilter(filter, g, activityByGuest.get(g.id), tagsByGuest.get(g.id), today)
+            ),
+        [guests, inSede, filter, activityByGuest, tagsByGuest, today]
+    );
+    const lostRegulars = useMemo(
+        () => guests.filter(g => isLost(activityByGuest.get(g.id), today)).length,
+        [guests, activityByGuest, today]
+    );
+
     const handleOpenGuest = useCallback(
         (guest: ReservationGuestSummary) => openGuestDetail(guest.id),
         [openGuestDetail]
@@ -251,9 +269,9 @@ export default function Guests() {
 
     // ↑ ↓ nel dettaglio: il cliente prima e dopo nell'elenco mostrato. Fuori
     // dall'elenco (aperto da un link) le frecce non ci sono.
-    const guestIndex = selectedGuestId ? guests.findIndex(g => g.id === selectedGuestId) : -1;
+    const guestIndex = selectedGuestId ? shownGuests.findIndex(g => g.id === selectedGuestId) : -1;
     const stepGuest = (by: number) => {
-        const next = guests[guestIndex + by];
+        const next = shownGuests[guestIndex + by];
         if (next) handleOpenGuest(next);
     };
 
@@ -263,7 +281,7 @@ export default function Guests() {
     const handleSaved = useCallback(() => {
         if (!tenantId) return;
         listReservationGuestNotesForGuests(tenantId, guests.map(g => g.id))
-            .then(notes => setTagsByGuest(mergeGuestTags(notes)))
+            .then(setNotes)
             .catch(() => {
                 showToast({ message: "Errore nel caricamento delle etichette.", type: "error" });
             });
@@ -282,11 +300,98 @@ export default function Guests() {
     }
 
     const isSearching = search.trim().length > 0;
-    const clearSearch = () => setSearch("");
+    const isFiltered = isSearching || filter !== "all" || sedeFilter !== "";
+    const clearFilters = () => {
+        setSearch("");
+        setFilter("all");
+        setSedeFilter("");
+    };
+    const showTools = !loadError && hasLoadedOnce && (guests.length > 0 || isFiltered);
+    const sedeOptions = [
+        { value: "", label: "Passati da: tutte le sedi" },
+        ...noteActivities.map(a => ({ value: a.id, label: `Passati da: ${a.name}` }))
+    ];
 
     return (
         <>
             <div className={styles.page}>
+                {/* ── Cerca a sinistra, «Chi non torna» a destra (D154) ── */}
+                {showTools && (
+                    <div className={styles.bar}>
+                        {searchOpen || search ? (
+                            // Si richiude da sola uscendo, se è rimasta vuota.
+                            <div onBlur={() => setSearchOpen(false)}>
+                                <ToolbarSearch
+                                    ref={searchRef}
+                                    value={search}
+                                    onChange={setSearch}
+                                    placeholder="Cerca un cliente"
+                                    width="min"
+                                />
+                            </div>
+                        ) : (
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                leftIcon={<Search size={15} aria-hidden />}
+                                onClick={() => setSearchOpen(true)}
+                            >
+                                Cerca un cliente
+                            </Button>
+                        )}
+                        <label className={styles.lostToggle}>
+                            <input type="checkbox" checked={lostLine} onChange={e => toggleLostLine(e.target.checked)} />
+                            «Chi non torna» in cima
+                        </label>
+                    </div>
+                )}
+
+                {showTools && lostLine && lostRegulars > 0 && (
+                    <div className={styles.lostLine} role="note">
+                        <UserRoundX size={18} aria-hidden className={styles.lostIcon} />
+                        <span>
+                            <b>
+                                {lostRegulars === 1
+                                    ? "1 cliente abituale non torna da più di 3 mesi."
+                                    : `${lostRegulars} clienti abituali non tornano da più di 3 mesi.`}
+                            </b>{" "}
+                            Venivano spesso: una telefonata li riporta.
+                        </span>
+                        <Chip
+                            label="Vedi chi"
+                            tone="warning"
+                            className={styles.lostAction}
+                            onClick={() => setFilter("lost")}
+                        />
+                    </div>
+                )}
+
+                {showTools && (
+                    <div className={styles.filters}>
+                        <ChipGroupSingle
+                            ariaLabel="Quali clienti"
+                            value={filter}
+                            onChange={setFilter}
+                            options={FILTER_LABELS.map(f => ({
+                                value: f.value,
+                                label: f.label,
+                                count: counts[f.value],
+                                tone: f.warning ? ("warning" as const) : undefined
+                            }))}
+                        />
+                        {noteActivities.length > 1 && (
+                            <Select
+                                aria-label="Passati da"
+                                containerClassName={styles.sede}
+                                selectClassName={styles.sedeSelect}
+                                value={sedeFilter}
+                                onChange={e => setSedeFilter(e.target.value)}
+                                options={sedeOptions}
+                            />
+                        )}
+                    </div>
+                )}
+
                 {loadError ? (
                     <EmptyState
                         variant="page"
@@ -299,26 +404,17 @@ export default function Guests() {
                             </Button>
                         }
                     />
-                ) : viewMode === "table" ? (
-                    <GuestsTable
-                        guests={guests}
-                        tagsByGuest={tagsByGuest}
-                        isLoading={isLoading}
-                        hasLoadedOnce={hasLoadedOnce}
-                        isSearching={isSearching}
-                        onClearSearch={clearSearch}
-                        onOpenGuest={handleOpenGuest}
-                        selectedGuestId={selectedGuestId}
-                        tenantWide={tenantWide}
-                    />
                 ) : (
                     <GuestsDirectory
-                        guests={guests}
+                        guests={shownGuests}
                         tagsByGuest={tagsByGuest}
+                        activityByGuest={activityByGuest}
+                        knowByGuest={knowByGuest}
+                        today={today}
                         isLoading={isLoading}
                         hasLoadedOnce={hasLoadedOnce}
-                        isSearching={isSearching}
-                        onClearSearch={clearSearch}
+                        isFiltered={isFiltered}
+                        onClearFilters={clearFilters}
                         onOpenGuest={handleOpenGuest}
                         selectedGuestId={selectedGuestId}
                         tenantWide={tenantWide}
@@ -339,8 +435,9 @@ export default function Guests() {
                     open
                     onClose={closeGuestDetail}
                     onPrev={guestIndex > 0 ? () => stepGuest(-1) : undefined}
-                    onNext={guestIndex >= 0 && guestIndex < guests.length - 1 ? () => stepGuest(1) : undefined}
-                    position={guestIndex >= 0 ? { index: guestIndex, total: guests.length } : undefined}
+                    onNext={guestIndex >= 0 && guestIndex < shownGuests.length - 1 ? () => stepGuest(1) : undefined}
+                    position={guestIndex >= 0 ? { index: guestIndex, total: shownGuests.length } : undefined}
+                    activity={activityByGuest.get(selectedGuest.id)}
                     guest={selectedGuest}
                     tenantId={tenantId}
                     activities={noteActivities}

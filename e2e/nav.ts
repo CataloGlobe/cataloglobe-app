@@ -11,19 +11,22 @@ export function nav(page: Page): Locator {
     return page.getByRole("navigation", { name: "Menu principale" });
 }
 
-/** L'intestazione del contesto di sede: «← Tutte le sedi». */
-export function contextNav(page: Page): Locator {
-    return page.getByRole("navigation", { name: "Contesto" });
-}
-
-/** Il selettore di sede nell'header: c'è solo sotto 768 (§51.7). */
+/**
+ * «Sede» in alto a destra, accanto alle notifiche (D152): cosa si guarda.
+ * Non c'è dove non si sceglie (Menù e vetrina, Sedi, una sede sola).
+ */
 export function sedeSwitcher(page: Page): Locator {
-    return page.getByRole("banner").getByRole("button", { name: /^Sede:/ });
+    return page.getByRole("button", { name: /^Sede(?!i)/ });
 }
 
-/** Azienda e sede in cima alla sidebar, sul desktop (Officina): «Dove sei: …». */
-export function placeSwitcher(page: Page): Locator {
-    return page.getByRole("button", { name: /^Dove sei:/ });
+/** «Confronta con», accanto a «Sede» dove il confronto vale (Calendario, Clienti e numeri). */
+export function confrontaSwitcher(page: Page): Locator {
+    return page.getByRole("button", { name: /^Confronta con/ });
+}
+
+/** Il pannello di «Sede»: le sedi come radio, «Tutte le sedi» dove si può. */
+export function sedePicker(page: Page): Locator {
+    return page.getByRole("dialog", { name: "Cosa guardi" });
 }
 
 /** Il logo in cima alla sidebar, sul desktop: porta all'ingresso dell'azienda. */
@@ -55,20 +58,34 @@ export function sectionPanel(page: Page, title: string): Locator {
 }
 
 /**
- * Il menu da leggere: dentro una sede si aspetta la sidebar della sede, cioè
- * voci che portano dentro la sede. Appena cambia l'indirizzo c'è ancora quella
- * dell'azienda per un attimo, con sezioni («Menù», «Vetrina») che spariscono
- * sotto il clic. Non si aspetta «← Tutte le sedi»: con una sede sola non c'è.
+ * Il menu da leggere (artifact v4): la stessa sidebar fuori e dentro una sede,
+ * sei sezioni sempre uguali; basta che le righe ci siano.
  */
 async function settledMenu(page: Page): Promise<void> {
     await expect(menuRows(page).first()).toBeVisible({ timeout: 15_000 });
-    const sede = page.url().match(/\/locations\/([0-9a-f-]{36})(?:\/|$)/)?.[1];
-    if (sede) {
-        await expect(nav(page).locator(`a[href*="/locations/${sede}/"]`).first()).toBeAttached({
-            timeout: 15_000
-        });
-    }
 }
+
+/**
+ * In quale sezione sta una parte (`navModel.ts`, NAV_MODELS). Il clic su una
+ * sezione porta alla sua ultima parte: si apre solo quella giusta, così non
+ * si passa da pagine che il test non ha preparato.
+ */
+const SECTION_OF: Record<string, string> = {
+    Cataloghi: "Menù e vetrina",
+    Prodotti: "Menù e vetrina",
+    Stili: "Menù e vetrina",
+    "In evidenza": "Menù e vetrina",
+    Storie: "Menù e vetrina",
+    Calendario: "Calendario",
+    Regole: "Calendario",
+    "In servizio": "Servizio",
+    "Cosa vedono i clienti": "Servizio",
+    Sala: "Servizio",
+    Storico: "Servizio",
+    Andamento: "Clienti e numeri",
+    Recensioni: "Clienti e numeri",
+    Clienti: "Clienti e numeri"
+};
 
 /**
  * Apre una sezione col clic (sotto la riga o nel pannello) e ne ritorna le
@@ -109,12 +126,30 @@ export async function sidebarLink(page: Page, name: string | RegExp): Promise<Lo
     await settledMenu(page);
     const direct = menuRows(page).getByRole("link", { name, exact });
     if ((await direct.count()) > 0) return direct;
+    const known = typeof name === "string" ? SECTION_OF[name] : Object.keys(SECTION_OF).find(k => name.test(k));
+    const section = known && (typeof name === "string" ? known : SECTION_OF[known]);
+    // La sezione si aspetta: subito dopo un cambio pagina la sidebar può non
+    // aver finito di disegnarsi, e contare senza aspettare la salterebbe.
+    if (section && (await sectionRow(page, section).first().waitFor({ timeout: 10_000 }).then(() => true, () => false))) {
+        if ((await direct.count()) > 0) return direct;
+        const link = (await openSection(page, section)).getByRole("link", { name, exact });
+        if ((await link.count()) > 0) return link;
+    }
     for (const title of await sectionTitles(page)) {
         const link = (await openSection(page, title)).getByRole("link", { name, exact });
         if ((await link.count()) > 0) return link;
     }
     await closeSections(page);
     return direct;
+}
+
+/**
+ * Una pagina di «In servizio» (Elenco, Mappa, Prenotazioni, Comande): la
+ * parte dalla sidebar, poi il suo interruttore in testata (artifact v4).
+ */
+export async function openInServizio(page: Page, name: "Elenco" | "Mappa" | "Prenotazioni" | "Comande"): Promise<void> {
+    await (await sidebarLink(page, "In servizio")).click();
+    await page.getByRole("radiogroup", { name: "Parti di In servizio" }).getByRole("radio", { name, exact: true }).click({ timeout: 15_000 });
 }
 
 /** Una riga della sidebar come si legge: una voce diretta o `[sezione, voci del pannello]`. */
@@ -192,9 +227,12 @@ export async function withLongNames(page: Page, names: { azienda: string; sede?:
 /**
  * La sidebar come si legge: le voci dirette e, per ogni sezione, le voci del
  * suo pannello (aperto e richiuso). Senza il contatore in coda (badge «3», «99+»).
+ * Da aperta il clic su una sezione porta alla sua parte: alla fine si torna
+ * alla pagina di partenza, così il test continua dov'era.
  */
 export async function sidebarShape(page: Page): Promise<SidebarRow[]> {
     await settledMenu(page);
+    const start = page.url();
     const rows = await menuRows(page).evaluateAll(items =>
         items.map(li => {
             const section = li.querySelector(":scope > button[aria-expanded]");
@@ -212,6 +250,10 @@ export async function sidebarShape(page: Page): Promise<SidebarRow[]> {
         shape.push([row.section, voci.map(cleanLabel)]);
     }
     if (rows.some(row => "section" in row)) await closeSections(page);
+    if (page.url() !== start) {
+        await page.goto(start);
+        await settledMenu(page);
+    }
     return shape;
 }
 

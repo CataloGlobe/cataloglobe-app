@@ -11,23 +11,23 @@
 // pagina Clienti non ha una sede «attiva», quindi la sede non si sceglie: si
 // vedono tutte le proprie, una sotto l'altra.
 //
+// Compatta (Clienti A, D154): telefono e numeri in due righe, i pallini dei
+// 12 mesi, note ed etichette per sede, le visite in una tabella.
+//
 // ⚠️ AMBITO DEI NUMERI. Visite e assenze sono filtrate dalla RLS sulle sedi
-// del chiamante, quindi le tre metriche in cima sono parziali per i ruoli
-// activity-scoped. Lì l'ambito non sta nel valore (un numero grande con
-// accanto "nelle tue sedi" sarebbe illeggibile) ma nella nota di
-// `visibilityFootnote` sotto la riga: una volta, per tutte e tre.
+// del chiamante, quindi i numeri in cima sono parziali per i ruoli
+// activity-scoped. Lì l'ambito non sta nel valore ma nella nota di
+// `visibilityFootnote` sotto la riga: una volta, per tutti.
 //
 // Nessuna azione di invio, nessuna esportazione, nessuna eliminazione: la
 // scheda si consulta e si annota, punto.
 
-import { useCallback, useEffect, useId, useMemo, useState } from "react";
-import { Mail, Phone, Plus } from "lucide-react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { Plus } from "lucide-react";
 import { DetailPane } from "@/components/layout/DetailPane/DetailPane";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { Button } from "@/components/ui/Button/Button";
-import { Card } from "@/components/ui/Card/Card";
 import { Chip } from "@/components/ui/Chip/Chip";
-import { ListRow } from "@/components/ui/ListRow/ListRow";
 import Skeleton from "@/components/ui/Skeleton/Skeleton";
 import Text from "@/components/ui/Text/Text";
 import { TextInput } from "@/components/ui/Input/TextInput";
@@ -51,6 +51,8 @@ import { statusMetaLoose } from "@/utils/reservationStatusMeta";
 import { formatCustomerSince, visibilityFootnote } from "@/utils/guestVisibilityCopy";
 import styles from "./Guests.module.scss";
 import { formatPhoneForDisplay } from "./guestFormat";
+import type { GuestActivity } from "./guestActivity";
+import { MonthDots } from "./MonthDots";
 
 /** Etichette proposte. Restano suggerimenti: il campo libero resta il vero
  *  strumento, queste servono solo a evitare dieci grafie di "abituale".
@@ -86,6 +88,8 @@ interface Props {
     onNext?: () => void;
     /** «2 di 5» fra le frecce (D141). */
     position?: { index: number; total: number };
+    /** I pallini dei 12 mesi e le sedi, dall'elenco; fuori elenco non ci sono. */
+    activity?: GuestActivity;
 }
 
 const EMPTY_DRAFT: ReservationGuestNoteInput = { notes: "", tags: [] };
@@ -102,16 +106,16 @@ function draftFromRow(row: V2ReservationGuestNote | undefined): ReservationGuest
     return row ? { notes: row.notes ?? "", tags: row.tags } : EMPTY_DRAFT;
 }
 
+/** «20 set 2026, 20:30»: quando, nella tabella delle visite. */
 function formatVisitDateTime(date: string, time: string): string {
     const [y, m, d] = date.split("-").map(n => parseInt(n, 10));
     if (!y || !m || !d) return date;
     const label = new Intl.DateTimeFormat("it-IT", {
-        weekday: "short",
         day: "numeric",
         month: "short",
         year: "numeric"
     }).format(new Date(y, m - 1, d));
-    return `${label} · ${time.slice(0, 5)}`;
+    return `${label}, ${time.slice(0, 5)}`;
 }
 
 export default function GuestDrawer({
@@ -124,7 +128,8 @@ export default function GuestDrawer({
     onSaved,
     onPrev,
     onNext,
-    position
+    position,
+    activity
 }: Props) {
     const { showToast } = useToast();
     const { ensureActive } = useEnsureActive();
@@ -307,6 +312,36 @@ export default function GuestDrawer({
         </>
     );
 
+    // «Copia»: il numero da incollare nel telefono o in un messaggio. Se il
+    // browser non lo permette, il numero resta selezionato da copiare a mano.
+    const phoneRef = useRef<HTMLAnchorElement>(null);
+    const copyPhone = useCallback(() => {
+        navigator.clipboard
+            .writeText(guest.phone_e164)
+            .then(() => showToast({ message: "Numero copiato.", type: "success" }))
+            .catch(() => {
+                const el = phoneRef.current;
+                const sel = window.getSelection();
+                if (!el || !sel) return;
+                const range = document.createRange();
+                range.selectNodeContents(el);
+                sel.removeAllRanges();
+                sel.addRange(range);
+            });
+    }, [guest.phone_e164, showToast]);
+
+    const sedi = activity?.sedi.map(s => s.name).join(" · ");
+    const summary = [
+        `${guest.visible_visits} ${guest.visible_visits === 1 ? "visita" : "visite"}`,
+        guest.visible_no_shows > 0
+            ? `${guest.visible_no_shows} ${guest.visible_no_shows === 1 ? "assenza" : "assenze"}`
+            : null,
+        guest.first_visit_date ? `cliente da ${formatCustomerSince(guest.first_visit_date)}` : null,
+        sedi ? `passato da ${sedi}` : null
+    ]
+        .filter(Boolean)
+        .join(" · ");
+
     return (
         <DetailPane
             open={open}
@@ -319,67 +354,47 @@ export default function GuestDrawer({
         >
             <DrawerLayout title={guest.display_name} titleId={titleId} onClose={onClose} footer={footer}>
                 <div className={styles.drawerBody}>
-                    {/* ── Contatti ──────────────────────────────────────── */}
-                    <Card title="Contatti" flush>
-                        <ListRow
-                            leading={<Phone size={16} aria-hidden />}
-                            title={<a href={`tel:${guest.phone_e164}`}>{formatPhoneForDisplay(guest.phone_e164)}</a>}
-                        />
+                    {/* ── Telefono, e i numeri in una riga ─────────────── */}
+                    <div className={styles.contact}>
+                        <p className={styles.contactLine}>
+                            <a ref={phoneRef} href={`tel:${guest.phone_e164}`}>{formatPhoneForDisplay(guest.phone_e164)}</a>
+                            <button type="button" className={styles.linkButton} onClick={copyPhone}>
+                                Copia
+                            </button>
+                        </p>
                         {guest.email && (
-                            <ListRow
-                                leading={<Mail size={16} aria-hidden />}
-                                title={<a href={`mailto:${guest.email}`}>{guest.email}</a>}
-                            />
+                            <p className={styles.contactLine}>
+                                <a href={`mailto:${guest.email}`}>{guest.email}</a>
+                            </p>
                         )}
-                    </Card>
+                        <p className={styles.summary}>{summary}</p>
+                        {footnote && (
+                            <Text as="p" variant="caption" colorVariant="muted">{footnote}</Text>
+                        )}
+                    </div>
 
-                    {/* ── Le tre cose che si guardano prima del servizio ──
-                         Tre righe con il valore a destra: "quante volte è
-                         venuto", "quante volte non si è presentato", "da quanto
-                         lo conosciamo" sono tre domande distinte. Non StatCard:
-                         nessun confronto né azione (la sua stessa scheda lo
-                         esclude). Le assenze si segnano solo se > 0. */}
-                    <Card title="Storico in sintesi" flush>
-                        <ListRow
-                            title={guest.visible_visits === 1 ? "Visita" : "Visite"}
-                            meta={<Text as="span" variant="body-sm" weight={600}>{guest.visible_visits}</Text>}
-                            metaInline
-                        />
-                        <ListRow
-                            title="Non presentato"
-                            meta={
-                                guest.visible_no_shows > 0 ? (
-                                    <StatusBadge variant="warning" label={String(guest.visible_no_shows)} />
-                                ) : (
-                                    <Text as="span" variant="body-sm" weight={600}>0</Text>
-                                )
-                            }
-                            metaInline
-                        />
-                        <ListRow
-                            title="Cliente dal"
-                            meta={<Text as="span" variant="body-sm" weight={600}>{formatCustomerSince(guest.first_visit_date)}</Text>}
-                            metaInline
-                        />
-                    </Card>
-                    {footnote && (
-                        <Text as="p" variant="caption" colorVariant="muted">{footnote}</Text>
+                    {activity && (
+                        <section className={styles.section} aria-label="Ultimi 12 mesi">
+                            <h3 className={styles.kicker}>Ultimi 12 mesi</h3>
+                            <MonthDots months={activity.months} />
+                        </section>
                     )}
 
                     {/* ── Note ed etichette, PER SEDE ─────────────────────
-                         Una card per ogni sede visibile: la nota che un locale
-                         scrive vale in quel locale. Con una sede sola la card
-                         si chiama «Note del locale» (il nome sarebbe rumore). */}
+                         Una parte per ogni sede visibile: la nota che un locale
+                         scrive vale in quel locale. */}
                     {activities.length === 0 ? (
-                        <Card title="Note del locale">
+                        <section className={styles.section}>
+                            <h3 className={styles.kicker}>Note</h3>
                             <Text variant="body-sm" colorVariant="muted">
                                 Non puoi vedere le note di nessuna sede.
                             </Text>
-                        </Card>
+                        </section>
                     ) : notesLoading && saved.size === 0 && drafts.size === 0 ? (
-                        <Card title="Note del locale">
+                        <section className={styles.section}>
+                            <h3 className={styles.kicker}>Note</h3>
                             <Skeleton height="96px" />
-                        </Card>
+                        </section>
                     ) : (
                         activities.map(activity => {
                             const draft = draftFor(activity.id);
@@ -387,162 +402,142 @@ export default function GuestDrawer({
                             const isAddingTag = addingTagFor === activity.id;
                             const suggestedAvailable = SUGGESTED_TAGS.filter(t => !draft.tags.includes(t));
                             return (
-                                <Card key={activity.id} title={activities.length > 1 ? activity.name : "Note del locale"}>
-                                    <div className={styles.noteBlock}>
-                                        {canManage ? (
-                                            <Textarea
-                                                label={activities.length > 1 ? "Note del locale" : undefined}
-                                                value={draft.notes ?? ""}
-                                                onChange={e => setNotes(activity.id, e.target.value)}
-                                                placeholder="es. preferisce il tavolo in fondo, arriva sempre con il cane…"
-                                                maxLength={1000}
-                                                rows={3}
-                                                aria-label={`Note del locale su questo cliente — ${activity.name}`}
+                                <section key={activity.id} className={styles.section}>
+                                    <h3 className={styles.kicker}>Note · {activity.name}</h3>
+                                    {canManage ? (
+                                        <Textarea
+                                            value={draft.notes ?? ""}
+                                            onChange={e => setNotes(activity.id, e.target.value)}
+                                            placeholder="Scrivi una nota per il locale…"
+                                            maxLength={1000}
+                                            rows={2}
+                                            aria-label={`Note del locale su questo cliente — ${activity.name}`}
+                                        />
+                                    ) : (
+                                        <Text variant="body-sm">
+                                            {draft.notes?.trim() ? draft.notes : "Nessuna nota."}
+                                        </Text>
+                                    )}
+
+                                    {/* Etichette: quelle messe, poi le proposte con «+»,
+                                        poi «aggiungi» per scriverne una. */}
+                                    <div className={styles.tagRow}>
+                                        {draft.tags.map(tag => (
+                                            <Chip
+                                                key={tag}
+                                                label={tag}
+                                                selected
+                                                onRemove={canManage ? () => toggleTag(activity.id, tag) : undefined}
+                                                removeLabel="Togli l'etichetta"
                                             />
-                                        ) : (
-                                            <Text variant="body-sm">
-                                                {draft.notes?.trim() ? draft.notes : "Nessuna nota."}
-                                            </Text>
-                                        )}
-                                        <Text as="p" variant="caption" colorVariant="muted">
-                                            Resta in questa sede e non è mai visibile al cliente. Le note scritte
-                                            dal cliente restano sulla singola prenotazione.
-                                        </Text>
-
-                                        {/* Etichette: prima il contenuto (chip con la ×), poi
-                                            lo strumento («aggiungi»). Il campo è chiuso di
-                                            default; i suggerimenti vivono DENTRO il campo
-                                            aperto: sciolti sembrerebbero etichette applicate. */}
-                                        <Text as="h4" variant="body-sm" weight={600} className={styles.subTitle}>
-                                            Etichette
-                                        </Text>
-                                        <Text as="p" variant="caption" colorVariant="muted">
-                                            Ti aiutano a riconoscere il cliente quando prenota. Le vedi qui e sulle
-                                            prenotazioni di questa sede.
-                                        </Text>
-
-                                        <div className={styles.tagRow}>
-                                            {draft.tags.map(tag => (
+                                        ))}
+                                        {canManage &&
+                                            suggestedAvailable.map(tag => (
                                                 <Chip
                                                     key={tag}
-                                                    label={tag}
-                                                    onRemove={canManage ? () => toggleTag(activity.id, tag) : undefined}
-                                                    removeLabel="Togli l'etichetta"
+                                                    label={`+ ${tag}`}
+                                                    ariaLabel={`Aggiungi l'etichetta ${tag}`}
+                                                    onClick={() => toggleTag(activity.id, tag)}
                                                 />
                                             ))}
-
-                                            {canManage && !isAddingTag && (
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    leftIcon={<Plus size={14} aria-hidden />}
-                                                    onClick={() => {
-                                                        setNewTag("");
-                                                        setAddingTagFor(activity.id);
-                                                    }}
-                                                >
-                                                    aggiungi
-                                                </Button>
-                                            )}
-
-                                            {draft.tags.length === 0 && !canManage && (
-                                                <Text variant="body-sm" colorVariant="muted">
-                                                    Nessuna etichetta.
-                                                </Text>
-                                            )}
-                                        </div>
-
-                                        {canManage && isAddingTag && (
-                                            <div className={styles.tagAdd}>
-                                                <div className={styles.tagAddRow}>
-                                                    <TextInput
-                                                        value={newTag}
-                                                        onChange={e => setNewTag(e.target.value)}
-                                                        onKeyDown={e => {
-                                                            if (e.key === "Enter") {
-                                                                e.preventDefault();
-                                                                addNewTag();
-                                                            }
-                                                            if (e.key === "Escape") {
-                                                                setAddingTagFor(null);
-                                                                setNewTag("");
-                                                            }
-                                                        }}
-                                                        placeholder="es. abituale"
-                                                        maxLength={40}
-                                                        aria-label={`Nuova etichetta — ${activity.name}`}
-                                                        // Qui l'autofocus è corretto: il campo
-                                                        // esiste solo perché l'utente ha appena
-                                                        // premuto «aggiungi».
-                                                        autoFocus
-                                                    />
-                                                    <Button
-                                                        variant="secondary"
-                                                        onClick={addNewTag}
-                                                        disabled={!newTag.trim()}
-                                                    >
-                                                        Aggiungi
-                                                    </Button>
-                                                </div>
-
-                                                {suggestedAvailable.length > 0 && (
-                                                    <div className={styles.tagRow}>
-                                                        <Text as="span" variant="caption" colorVariant="muted">
-                                                            oppure scegli
-                                                        </Text>
-                                                        {suggestedAvailable.map(tag => (
-                                                            <Chip
-                                                                key={tag}
-                                                                label={tag}
-                                                                onClick={() => {
-                                                                    toggleTag(activity.id, tag);
-                                                                    setAddingTagFor(null);
-                                                                    setNewTag("");
-                                                                }}
-                                                            />
-                                                        ))}
-                                                    </div>
-                                                )}
-                                            </div>
+                                        {canManage && !isAddingTag && (
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                leftIcon={<Plus size={14} aria-hidden />}
+                                                onClick={() => {
+                                                    setNewTag("");
+                                                    setAddingTagFor(activity.id);
+                                                }}
+                                            >
+                                                aggiungi
+                                            </Button>
+                                        )}
+                                        {draft.tags.length === 0 && !canManage && (
+                                            <Text variant="body-sm" colorVariant="muted">
+                                                Nessuna etichetta.
+                                            </Text>
                                         )}
                                     </div>
-                                </Card>
+
+                                    {canManage && isAddingTag && (
+                                        <div className={styles.tagAddRow}>
+                                            <TextInput
+                                                value={newTag}
+                                                onChange={e => setNewTag(e.target.value)}
+                                                onKeyDown={e => {
+                                                    if (e.key === "Enter") {
+                                                        e.preventDefault();
+                                                        addNewTag();
+                                                    }
+                                                    if (e.key === "Escape") {
+                                                        setAddingTagFor(null);
+                                                        setNewTag("");
+                                                    }
+                                                }}
+                                                placeholder="es. vegetariano"
+                                                maxLength={40}
+                                                aria-label={`Nuova etichetta — ${activity.name}`}
+                                                // Qui l'autofocus è corretto: il campo
+                                                // esiste solo perché l'utente ha appena
+                                                // premuto «aggiungi».
+                                                autoFocus
+                                            />
+                                            <Button variant="secondary" onClick={addNewTag} disabled={!newTag.trim()}>
+                                                Aggiungi
+                                            </Button>
+                                        </div>
+                                    )}
+                                    <Text as="p" variant="caption" colorVariant="muted">
+                                        Resta in questa sede e il cliente non la vede mai.
+                                    </Text>
+                                </section>
                             );
                         })
                     )}
 
-                    {/* ── Storico visite ────────────────────────────────── */}
-                    <Card title="Visite" flush={visitsLoading || visits.length > 0}>
+                    {/* ── Le visite ─────────────────────────────────────── */}
+                    <section className={styles.section}>
+                        <h3 className={styles.kicker}>Le visite</h3>
                         {visitsLoading ? (
-                            <>
-                                <ListRow loading />
-                                <ListRow loading />
-                            </>
+                            <Skeleton height="72px" />
                         ) : visits.length === 0 ? (
                             <Text variant="body-sm" colorVariant="muted">
                                 Nessuna visita visibile.
                             </Text>
                         ) : (
-                            visits.map(v => {
-                                const meta = statusMetaLoose(v.status);
-                                return (
-                                    <ListRow
-                                        key={v.reservation_id}
-                                        title={formatVisitDateTime(v.reservation_date, v.reservation_time)}
-                                        subtitle={[
-                                            `${v.party_size} ${v.party_size === 1 ? "coperto" : "coperti"}`,
-                                            v.activity_name ?? "sede",
-                                            v.guest_notes ? `“${v.guest_notes}”` : null
-                                        ]
-                                            .filter(Boolean)
-                                            .join(" · ")}
-                                        wrapSubtitle
-                                        meta={<StatusBadge variant={meta.variant} label={meta.label} />}
-                                    />
-                                );
-                            })
+                            <table className={styles.visits}>
+                                <thead>
+                                    <tr>
+                                        <th scope="col">Quando</th>
+                                        <th scope="col">Sede</th>
+                                        <th scope="col">Persone</th>
+                                        <th scope="col">
+                                            <span className={styles.srOnly}>Com'è andata</span>
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {visits.map(v => {
+                                        const meta = statusMetaLoose(v.status);
+                                        return (
+                                            <tr key={v.reservation_id}>
+                                                <td>
+                                                    {formatVisitDateTime(v.reservation_date, v.reservation_time)}
+                                                    {v.guest_notes && <span className={styles.visitNote}>“{v.guest_notes}”</span>}
+                                                </td>
+                                                <td>{v.activity_name ?? "sede"}</td>
+                                                <td>{v.party_size}</td>
+                                                <td>
+                                                    <StatusBadge variant={meta.variant} label={meta.label} />
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
                         )}
-                    </Card>
+                    </section>
                 </div>
             </DrawerLayout>
         </DetailPane>

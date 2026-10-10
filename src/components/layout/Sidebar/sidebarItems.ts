@@ -12,7 +12,11 @@ import type { AppSidebarNavGroup, AppSidebarNavItem } from "@/components/layout/
  * viveva dentro `TenantSidebar` e un secondo contesto l'avrebbe copiata.
  */
 export interface SidebarNavItem {
+    /** La parte (chiave del modello): la sidebar ricorda l'ultima usata. */
+    id?: string;
     to: string;
+    /** La query della parte (`vista=calendario`): due parti sulla stessa pagina. */
+    search?: string;
     label: string;
     icon: ReactNode;
     end?: boolean;
@@ -45,6 +49,8 @@ export interface SidebarNavItem {
 }
 
 export interface SidebarNavGroup {
+    /** La sezione (chiave del modello). */
+    key?: string;
     title: string | null;
     /** L'icona della sezione (Officina): con l'icona il gruppo è una sezione. */
     icon?: ReactNode;
@@ -83,6 +89,7 @@ export function buildSidebarGroups(
 
     return groups
         .map(group => ({
+            key: group.key,
             title: group.title ?? undefined,
             icon: group.icon,
             items: group.items
@@ -96,7 +103,9 @@ export function buildSidebarGroups(
                     const count = item.count ?? 0;
                     const showImport = !!item.showImportBadge && importInProgress;
                     return {
+                        id: item.id,
                         to: item.to,
+                        search: item.search,
                         label: item.label,
                         icon: item.icon,
                         end: item.end,

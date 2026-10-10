@@ -2,22 +2,20 @@
 // lei (portale), in posizione fissa accanto alla riga. Le coordinate le
 // scrive `SidebarSection` in `--fly-top` / `--fly-left`.
 // Niente titolo: la sezione la dice la riga accesa accanto.
+// Colori e misure dell'artifact della navigazione (Alex, 2026-10-09).
 
 .panel {
-  --sb-flyout-border: color-mix(in srgb, var(--surface), var(--brand-primary) 35%);
   position: fixed;
   top: var(--fly-top, 0);
   left: var(--fly-left, 0);
   z-index: var(--z-float);
-  min-width: 208px;
-  max-width: 280px;
-  padding: var(--space-4);
+  min-width: 250px;
+  max-width: 320px;
+  padding: var(--space-6);
   background: var(--surface);
-  // Il bordino viola (Alex): lilla del brand, più deciso del fondo della
-  // sidebar, così il pannello si lega alla sidebar da cui esce.
-  border: 1px solid var(--sb-flyout-border);
+  border: 1px solid var(--border);
   border-radius: var(--radius-surface);
-  box-shadow: var(--shadow-float);
+  box-shadow: var(--shadow-overlay);
   animation: flyIn var(--timing-motion-fast) var(--easing-state);
 
   @media (prefers-reduced-motion: reduce) {
@@ -38,24 +36,25 @@
   margin: 0;
   padding: 0;
   display: grid;
-  gap: var(--space-2);
+  gap: 1px;
 }
 
 .item {
   display: flex;
   align-items: center;
-  gap: var(--space-8);
-  height: 36px;
+  gap: var(--space-10);
+  height: 37px;
   padding: 0 var(--space-10);
   border-radius: var(--radius-control);
-  color: var(--text-muted);
+  font-size: 14px;
+  color: var(--text);
   text-decoration: none;
   transition:
     background var(--timing-motion-fast) var(--easing-state),
     color var(--timing-motion-fast) var(--easing-state);
 
   &:hover {
-    background: var(--hover-bg);
+    background: var(--brand-primary-soft);
     color: var(--text);
     text-decoration: none;
   }
@@ -66,10 +65,8 @@
   }
 }
 
-.active,
-.active:hover {
-  background: var(--brand-primary-soft);
-  color: var(--on-brand-soft);
+.active {
+  color: var(--brand-primary);
 }
 
 .disabled,
@@ -99,5 +96,20 @@
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: var(--brand-primary);
+  background: var(--signal-attention);
+
+  &[data-tone="live"] {
+    background: var(--signal-live);
+  }
+}
+
+// Lo stato della parte, a destra.
+.state {
+  margin-inline-start: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-6);
+  font-size: 12.5px;
+  color: var(--text-muted);
+  white-space: nowrap;
 }

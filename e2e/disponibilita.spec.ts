@@ -289,7 +289,7 @@ test.describe("Cosa vedono i clienti — stati della sede", () => {
             }
         });
         await expect(band(page)).toContainText("la sede è sospesa", { timeout: 15_000 });
-        await expect(band(page).getByRole("list", { name: "Cosa manca" })).toContainText("Sede pubblicata");
+        await expect(band(page).getByRole("list", { name: "Cosa manca" })).toContainText("Sede online");
     });
 
     test("abbonamento non attivo: lo dice", async ({ page }) => {
@@ -312,7 +312,7 @@ test.describe("Cosa vedono i clienti — stati della sede", () => {
         await expect(band(page)).toContainText("nessuna regola gliene assegna uno", { timeout: 15_000 });
         const missing = band(page).getByRole("list", { name: "Cosa manca" });
         await expect(missing).toContainText("Una regola menù che valga adesso");
-        await expect(missing.getByRole("link", { name: "Vai a Programmazione" })).toBeVisible();
+        await expect(missing.getByRole("link", { name: "Vai alle regole" })).toBeVisible();
     });
 
     test("menù vuoto: tutti i prodotti nascosti", async ({ page }) => {
@@ -331,7 +331,7 @@ test.describe("Cosa vedono i clienti — chi vede la spiegazione", () => {
         test(`${role}: niente banda, la riga dice cosa serve`, async ({ page }) => {
             await openDisponibilita(page, { role });
             await expect(main(page).getByText("Big e2e", { exact: true })).toBeVisible({ timeout: 15_000 });
-            await expect(main(page).getByText("Per vedere perché, serve l'accesso a Programmazione.")).toBeVisible();
+            await expect(main(page).getByText("Per vedere perché, serve l'accesso alle regole del Calendario.")).toBeVisible();
             await expect(band(page)).toHaveCount(0);
             await expect(main(page).getByRole("link", { name: "Vedi la regola" })).toHaveCount(0);
         });
@@ -342,15 +342,15 @@ test.describe("Cosa vedono i clienti — chi vede la spiegazione", () => {
         // risulta non vuol dire che i clienti non ne vedono uno.
         await openDisponibilita(page, { role: "staff", noRule: true });
         await expect(main(page).getByText("Il menù di questa sede non è visibile con il tuo accesso")).toBeVisible({ timeout: 15_000 });
-        await expect(main(page).getByText("Per vedere perché, serve l'accesso a Programmazione.")).toBeVisible();
+        await expect(main(page).getByText("Per vedere perché, serve l'accesso alle regole del Calendario.")).toBeVisible();
         await expect(main(page).getByText("Nessun catalogo attivo")).toHaveCount(0);
-        await expect(main(page).getByRole("button", { name: "Vai a Programmazione" })).toHaveCount(0);
+        await expect(main(page).getByRole("button", { name: "Vai alle regole" })).toHaveCount(0);
     });
 
     test("manager della sede: vede la banda", async ({ page }) => {
         await openDisponibilita(page, { role: "manager" });
         await expect(band(page)).toContainText("vedono Menù e2e", { timeout: 15_000 });
-        await expect(main(page).getByText("Per vedere perché, serve l'accesso a Programmazione.")).toHaveCount(0);
+        await expect(main(page).getByText("Per vedere perché, serve l'accesso alle regole del Calendario.")).toHaveCount(0);
     });
 });
 

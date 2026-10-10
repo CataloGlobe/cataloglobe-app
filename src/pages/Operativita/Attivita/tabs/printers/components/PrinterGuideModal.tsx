@@ -293,7 +293,7 @@ const TROUBLESHOOT_ITEMS: TroubleshootItem[] = [
         body: (
             <p>
                 Controlla che ci sia carta e che la spia blu sia accesa. Se un ordine
-                non è stato stampato, nella pagina Ordini compare un avviso sulla
+                non è stato stampato, nella pagina Comande compare un avviso sulla
                 comanda: avvisa la cucina a voce.
             </p>
         )

@@ -1,0 +1,144 @@
+/* Il voto in una riga (D154): media a sinistra, la barra per stelle al
+   centro, i conteggi a destra. Al telefono la barra va sotto. */
+
+@use "@styles/scheda-type" as type;
+
+.line {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: var(--space-24);
+    align-items: center;
+    padding: var(--space-16) var(--space-20);
+    background: var(--card-bg);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+
+    @media (max-width: 767px) {
+        grid-template-columns: auto minmax(0, 1fr);
+        gap: var(--space-12) var(--space-16);
+    }
+}
+
+/* Col confronto (D159): il nome della sede sopra la media. */
+.head {
+    display: grid;
+    gap: var(--space-4);
+}
+
+.name {
+    @include type.fs(fine);
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    max-width: 14ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.average {
+    margin: 0;
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-8);
+    font-family: "Plus Jakarta Sans", var(--font-sans);
+    @include type.fs(vote);
+    font-weight: 700;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+}
+
+.star {
+    color: var(--warning-500);
+    fill: currentColor;
+    align-self: center;
+}
+
+.bars {
+    min-width: 0;
+
+    @media (max-width: 767px) {
+        grid-column: 1 / -1;
+        grid-row: 2;
+    }
+}
+
+.stack {
+    display: flex;
+    gap: 2px;
+    height: 12px;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.segment {
+    display: block;
+    flex-basis: 0;
+    cursor: pointer;
+    transition: opacity var(--duration-fast, 0.15s) ease;
+
+    &[data-stars="5"] {
+        background: var(--text-success);
+    }
+    &[data-stars="4"] {
+        background: color-mix(in srgb, var(--text-success) 55%, var(--card-bg));
+    }
+    &[data-stars="3"] {
+        background: var(--text-muted);
+    }
+    &[data-stars="2"] {
+        background: color-mix(in srgb, var(--signal-attention, var(--text-warning)) 60%, var(--card-bg));
+    }
+    &[data-stars="1"] {
+        background: var(--signal-attention, var(--text-warning));
+    }
+    &[data-dim] {
+        opacity: 0.3;
+    }
+    &[data-static] {
+        cursor: default;
+    }
+}
+
+.legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-4) var(--space-12);
+    margin-top: var(--space-6);
+}
+
+.legendItem {
+    all: unset;
+    cursor: pointer;
+    @include type.fs(note);
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+    border-radius: var(--radius-sm);
+
+    &[aria-pressed="true"] {
+        color: var(--text);
+        font-weight: 600;
+    }
+    &:disabled,
+    &[data-static] {
+        cursor: default;
+    }
+    &:focus-visible {
+        outline: 2px solid var(--brand-primary);
+        outline-offset: 2px;
+    }
+}
+
+.counts {
+    text-align: right;
+
+    p {
+        margin: 0;
+    }
+
+    @media (max-width: 767px) {
+        grid-column: 2;
+        grid-row: 1;
+    }
+}

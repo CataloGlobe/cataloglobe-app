@@ -22,8 +22,8 @@ test.describe("Sedi", () => {
     });
 
     test("header: tab Sedi e Gruppi, ricerca, vista, aggiungi", async ({ page }) => {
-        await expect(page.getByRole("tab", { name: "Sedi", exact: true })).toHaveAttribute("aria-selected", "true");
-        await expect(page.getByRole("tab", { name: "Gruppi di sedi" })).toBeVisible();
+        await expect(page.getByRole("radio", { name: "Sedi", exact: true })).toHaveAttribute("aria-checked", "true");
+        await expect(page.getByRole("radio", { name: "Gruppi di sedi" })).toBeVisible();
         await expect(page.getByRole("textbox", { name: /Cerca sede/ })).toBeVisible();
         await expect(page.getByRole("radio", { name: "Vista griglia" })).toBeVisible();
         await expect(page.getByRole("radio", { name: "Vista lista" })).toBeVisible();
@@ -38,7 +38,7 @@ test.describe("Sedi", () => {
         await expect(cards.first()).toBeVisible({ timeout: 15_000 });
         expect(await cards.count()).toBeGreaterThan(1);
         const first = cards.first();
-        await expect(first.getByText(/^(Pubblicata|Sospesa)/)).toBeVisible();
+        await expect(first.getByText(/^(Online|Sospesa)/)).toBeVisible();
         // S2 (correzioni UI): «Menù adesso», o «Pagina pubblica» per una sede sospesa.
         await expect(first.getByText(/^(Menù adesso|Pagina pubblica)$/)).toBeVisible();
         await expect(first.getByRole("button", { name: "Azioni sede" })).toBeVisible();
@@ -95,7 +95,7 @@ test.describe("Sedi", () => {
             await expect(main.getByText(header, { exact: true }).first()).toBeVisible({ timeout: 15_000 });
         }
         // S3: lo stato c'è anche nella cella Sede, nascosto sopra 768.
-        await expect(main.getByText(/^(Pubblicata|Sospesa)$/).locator("visible=true").first()).toBeVisible();
+        await expect(main.getByText(/^(Online|Sospesa)$/).locator("visible=true").first()).toBeVisible();
         // La preferenza torna alla griglia, così gli altri test partono uguali.
         await page.getByRole("radio", { name: "Vista griglia" }).click();
     });
@@ -118,7 +118,7 @@ test.describe("Sedi", () => {
     });
 
     test("gruppi di sedi: la tabella", async ({ page }) => {
-        await page.getByRole("tab", { name: "Gruppi di sedi" }).click();
+        await page.getByRole("radio", { name: "Gruppi di sedi" }).click();
         await expect(page).toHaveURL(/tab=groups/);
         const main = page.getByRole("main");
         // Intestazione «Nome gruppo» (pagina vecchia) o «Gruppo» (DataTable), oppure il vuoto.

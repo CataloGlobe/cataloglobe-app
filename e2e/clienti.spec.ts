@@ -5,10 +5,9 @@ import { GUEST, SEDE, stubClienti, type ClientiStub, type WriteCall } from "./cl
 import type { Row } from "./restStub";
 
 /**
- * Clienti (lotto `ds-5-coda`, P0). Scritto sulla pagina di **oggi**, prima di
- * ricomporla: deve restare verde passo dopo passo. I comportamenti che la
- * ricomposizione porta (stato d'errore) sono `test.fail` finché il passo non
- * li porta.
+ * Clienti (lotto `ds-5-coda`, P0), rifatta come «Clienti A» (D154): righe a
+ * colonne con i pallini dei 12 mesi, filtri con i conteggi, la riga di chi
+ * non torna, la scheda compatta accanto.
  *
  * Dati finti in `clientiStub.ts`; permessi, piano, azienda e sidebar veri.
  */
@@ -38,6 +37,11 @@ async function noSideScroll(page: Page): Promise<void> {
     expect(overflow).toBeLessThanOrEqual(0);
 }
 
+/** La riga di un cliente nell'elenco «Clienti». */
+function rowOf(page: Page, name: string): Locator {
+    return main(page).getByRole("list", { name: "Clienti" }).getByRole("listitem").filter({ hasText: name });
+}
+
 function guestName(page: Page, name: string): Locator {
     return main(page).getByText(name, { exact: true }).first();
 }
@@ -56,25 +60,69 @@ test.describe("Clienti — elenco", () => {
         stub = await stubClienti(page);
     });
 
-    test("righe dall'ultima visita: nome, etichetta, telefono, assenze, visite", async ({ page }) => {
+    test("righe dall'ultima visita: nome, segni, telefono e sedi, pallini, assenze", async ({ page }) => {
         await openList(page);
         await expect(guestName(page, "Giulia Rossi e2e")).toBeVisible({ timeout: 15_000 });
         const order = await main(page).getByText(/^(Giulia Rossi|Marco Bianchi|Sara Verdi) e2e$/).allTextContents();
         expect(order).toEqual(["Giulia Rossi e2e", "Marco Bianchi e2e", "Sara Verdi e2e"]);
-        await expect(main(page).getByText("abituale", { exact: true })).toBeVisible();
-        await expect(main(page).getByText("+1", { exact: true })).toBeVisible();
-        await expect(main(page).getByText("+39 333 444 5566")).toBeVisible();
+        const rossi = rowOf(page, "Giulia Rossi e2e");
+        await expect(rossi.getByText("abituale", { exact: true })).toBeVisible();
+        await expect(rossi.getByText("+39 333 111 2233 · Centro e2e", { exact: true })).toBeVisible();
+        await expect(rossi.getByRole("img", { name: "Ultimi 12 mesi: venuto in 1 mese" })).toBeVisible();
+        await expect(rossi.getByText("20 set", { exact: true })).toBeVisible();
+        // «Da sapere»: le etichette tranne «abituale», poi le note.
+        await expect(rossi.getByText("VIP · Preferisce il tavolo in fondo.", { exact: true })).toBeVisible();
+        await expect(rowOf(page, "Sara Verdi e2e").getByText("nuovo", { exact: true })).toBeVisible();
         // Le assenze si vedono solo dove ci sono.
-        await expect(main(page).getByText("2 assenze", { exact: true })).toBeVisible();
+        await expect(rowOf(page, "Marco Bianchi e2e").getByText("2 assenze", { exact: true })).toBeVisible();
         await expect(main(page).getByText(/0 assenze/)).toHaveCount(0);
-        await expect(main(page).getByText("7 visite", { exact: true })).toBeVisible();
-        await expect(main(page).getByText(/ultima 20 set 2026/)).toBeVisible();
+        for (const header of ["Cliente", "Ultimi 12 mesi", "Ultima volta", "Da sapere"]) {
+            await expect(main(page).getByText(header, { exact: true }).first()).toBeVisible();
+        }
+        await expect(main(page).getByRole("radio", { name: "Vista tabella" })).toHaveCount(0);
+    });
+
+    test("filtri con i conteggi e la riga di chi non torna", async ({ page }) => {
+        await openList(page);
+        await expect(guestName(page, "Giulia Rossi e2e")).toBeVisible({ timeout: 15_000 });
+        await expect(main(page).getByRole("radio", { name: "Tutti 4" })).toBeVisible();
+        await expect(main(page).getByRole("radio", { name: "Abituali 1" })).toBeVisible();
+        await expect(main(page).getByRole("radio", { name: "Nuovi nel mese 1" })).toBeVisible();
+        await expect(main(page).getByRole("radio", { name: "Con assenze 1" })).toBeVisible();
+        await main(page).getByRole("radio", { name: "Con assenze 1" }).click();
+        await expect(guestName(page, "Giulia Rossi e2e")).toHaveCount(0);
+        await expect(guestName(page, "Marco Bianchi e2e")).toBeVisible();
+
+        const line = main(page).getByRole("note");
+        await expect(line).toContainText("1 cliente abituale non torna da più di 3 mesi.");
+        await line.getByRole("button", { name: "Vedi chi" }).click();
+        await expect(main(page).getByRole("radio", { name: "Non tornano da 3 mesi 1" })).toHaveAttribute("aria-checked", "true");
+        await expect(guestName(page, "Luca Ferri e2e")).toBeVisible();
+        await expect(guestName(page, "Marco Bianchi e2e")).toHaveCount(0);
+
+        // La riga si toglie e resta tolta.
+        await main(page).getByRole("checkbox", { name: "«Chi non torna» in cima" }).uncheck();
+        await expect(line).toHaveCount(0);
+        await page.reload();
+        await expect(guestName(page, "Giulia Rossi e2e")).toBeVisible({ timeout: 15_000 });
+        await expect(main(page).getByRole("note")).toHaveCount(0);
+    });
+
+    test("passati da una sede", async ({ page }) => {
+        await openList(page);
+        await expect(guestName(page, "Giulia Rossi e2e")).toBeVisible({ timeout: 15_000 });
+        await main(page).getByRole("combobox", { name: "Passati da" }).selectOption({ label: "Passati da: Porto e2e" });
+        await expect(guestName(page, "Luca Ferri e2e")).toBeVisible();
+        await expect(guestName(page, "Giulia Rossi e2e")).toHaveCount(0);
+        await expect(main(page).getByRole("radio", { name: "Tutti 1" })).toBeVisible();
     });
 
     test("la ricerca filtra la rubrica, senza esito lo dice", async ({ page }) => {
         await openList(page);
         await expect(guestName(page, "Giulia Rossi e2e")).toBeVisible({ timeout: 15_000 });
-        const search = page.getByRole("searchbox").or(page.getByRole("textbox", { name: /Cerca/ })).first();
+        await main(page).getByRole("button", { name: "Cerca un cliente" }).click();
+        const search = main(page).getByPlaceholder("Cerca un cliente");
+        await expect(search).toBeFocused();
         await search.fill("bianchi");
         await expect(guestName(page, "Giulia Rossi e2e")).toHaveCount(0);
         await expect(guestName(page, "Marco Bianchi e2e")).toBeVisible();
@@ -82,30 +130,19 @@ test.describe("Clienti — elenco", () => {
         await expect(main(page).getByText("Nessun cliente trovato")).toBeVisible();
     });
 
-    test("vista tabella: colonne, e la preferenza resta", async ({ page }) => {
-        await openList(page);
-        await expect(guestName(page, "Giulia Rossi e2e")).toBeVisible({ timeout: 15_000 });
-        await page.getByRole("radio", { name: "Vista tabella" }).or(page.getByRole("button", { name: "Vista tabella" })).first().click();
-        for (const header of ["Nome", "Telefono", "Visite", "Assenze", "Ultima visita", "Etichette"]) {
-            await expect(main(page).getByText(header, { exact: true }).first()).toBeVisible();
-        }
-        await expect(main(page).getByText("Marco Bianchi e2e")).toBeVisible();
-        await expect(main(page).getByRole("table", { name: "Clienti" })).toBeVisible();
-        await page.reload();
-        await expect(main(page).getByText("Ultima visita", { exact: true }).first()).toBeVisible({ timeout: 15_000 });
-    });
-
-    test("la scheda: contatti, storico, visite, note per sede", async ({ page }) => {
+    test("la scheda: telefono, numeri, pallini, visite, note per sede", async ({ page }) => {
         await openList(page);
         await expect(guestName(page, "Giulia Rossi e2e")).toBeVisible({ timeout: 15_000 });
         const d = await openGuest(page, "Giulia Rossi e2e");
         await expect(d.getByRole("link", { name: "+39 333 111 2233" })).toHaveAttribute("href", "tel:+393331112233");
+        await expect(d.getByRole("button", { name: "Copia", exact: true })).toBeVisible();
         await expect(d.getByRole("link", { name: "giulia@example.com" })).toBeVisible();
-        await expect(d.getByText("Cliente dal")).toBeVisible();
-        await expect(d.getByText("novembre 2025")).toBeVisible();
-        await expect(d.getByText("Non presentato").first()).toBeVisible();
+        await expect(d.getByText("7 visite · cliente da novembre 2025 · passato da Centro e2e", { exact: true })).toBeVisible();
+        await expect(d.getByRole("img", { name: /^Ultimi 12 mesi/ })).toBeVisible();
+        await expect(d.getByRole("cell", { name: "Non presentato" })).toBeVisible();
         await expect(d.getByText(/Un seggiolone, grazie/)).toBeVisible();
-        await expect(d.getByText("Porto e2e").first()).toBeVisible();
+        await expect(d.getByRole("cell", { name: "Porto e2e" })).toBeVisible();
+        await expect(d.getByRole("heading", { name: "Note · Centro e2e" })).toBeVisible();
         await expect(d.getByRole("textbox", { name: /Centro e2e/ })).toHaveValue("Preferisce il tavolo in fondo.");
         await expect(d.getByText("VIP", { exact: true })).toBeVisible();
     });
@@ -121,8 +158,8 @@ test.describe("Clienti — elenco", () => {
         const save = d.getByRole("button", { name: "Salva", exact: true });
         await expect(save).toBeDisabled();
         await d.getByRole("textbox", { name: /Lago e2e/ }).fill("Allergico alle noci.");
-        const lago = d.getByRole("textbox", { name: /Lago e2e/ }).locator("xpath=ancestor::*[.//button[normalize-space()='aggiungi' or contains(normalize-space(),'aggiungi')]][1]");
-        await lago.getByRole("button", { name: /aggiungi/i }).first().click();
+        const lago = d.locator("section", { has: page.getByRole("heading", { name: "Note · Lago e2e" }) });
+        await lago.getByRole("button", { name: "aggiungi", exact: true }).click();
         await d.getByRole("textbox", { name: /Nuova etichetta — Lago e2e/ }).fill("tavolo tranquillo");
         await d.getByRole("textbox", { name: /Nuova etichetta — Lago e2e/ }).press("Enter");
         await expect(d.getByText("tavolo tranquillo", { exact: true })).toBeVisible();
@@ -203,7 +240,7 @@ test.describe("Clienti — elenco", () => {
         await expect(guestName(page, "Giulia Rossi e2e")).toHaveCount(0);
     });
 
-    test("a 375 nessuno scroll orizzontale, righe e tabella", async ({ page }) => {
+    test("a 375 nessuno scroll orizzontale", async ({ page }) => {
         await openList(page);
         await expect(guestName(page, "Giulia Rossi e2e")).toBeVisible({ timeout: 15_000 });
         await page.setViewportSize({ width: 375, height: 800 });

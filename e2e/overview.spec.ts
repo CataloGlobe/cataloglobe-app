@@ -20,8 +20,8 @@ test.describe("Panoramica", () => {
         const link = nav.getByRole("link", { name: "Panoramica" });
         await expect(link).toBeVisible();
         await expect(link).toHaveAttribute("aria-current", "page");
-        // Sedi è diretta, Prodotti e Programmazione nel pannello di Menù.
-        for (const label of ["Sedi", "Prodotti", "Programmazione"]) {
+        // Sedi è diretta, Prodotti in Menù e vetrina, Regole nel Calendario.
+        for (const label of ["Sedi", "Prodotti", "Regole"]) {
             await expect(await sidebarLink(page, label)).toBeVisible();
         }
     });
@@ -29,7 +29,7 @@ test.describe("Panoramica", () => {
     test("vetrina: la card delle pagine pubbliche", async ({ page }) => {
         const main = page.getByRole("main");
         await expect(main.getByText("La vetrina adesso", { exact: true })).toBeVisible();
-        await expect(main.getByText(/^(1 sede pubblicata|\d+ sedi pubblicate)$/)).toBeVisible();
+        await expect(main.getByText(/^(1 sede online|\d+ sedi online)$/)).toBeVisible();
     });
 
     test("vetrina: riga di una sede pubblica con nome, URL e QR", async ({ page }) => {
@@ -47,7 +47,7 @@ test.describe("Panoramica", () => {
         await expect(nameLink).toHaveAttribute("target", "_blank");
         await expect(nameLink).not.toHaveText("");
 
-        // Un QR per sede pubblicata, col nome accessibile della scheda QrCode.
+        // Un QR per sede online, col nome accessibile della scheda QrCode.
         await expect(main.getByRole("img", { name: /^QR di / }).first()).toBeVisible();
 
         // Il menu ⋯ della riga (Copia link · Scarica QR).

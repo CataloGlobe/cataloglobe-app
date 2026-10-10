@@ -91,6 +91,7 @@ const Support = lazy(() => import("./pages/Dashboard/Support/Support"));
 const SupportTicketPage = lazy(() => import("./pages/Dashboard/Support/SupportTicketPage"));
 const Styles = lazy(() => import("./pages/Dashboard/Styles/Styles"));
 const StyleEditorPage = lazy(() => import("./pages/Dashboard/Styles/StyleEditorPage"));
+const CreaPage = lazy(() => import("./pages/Dashboard/Crea/CreaPage"));
 const ActivityDetailPage = lazy(() => import("./pages/Operativita/Attivita/ActivityDetailPage"));
 const ActivitySchedaRoute = lazy(() => import("./pages/Operativita/Attivita/routes/ActivitySchedaRoute"));
 const SchedaRedirect = lazy(() => import("./pages/Operativita/Attivita/routes/SchedaRedirect"));
@@ -339,7 +340,14 @@ export default function App() {
                 <Route path="reservations" element={<SedeRedirect routeKey="reservations" segment="prenotazioni" />} />
                 <Route path="guests" element={<Guests />} />
 
-                <Route path="scheduling" element={<Programming />} />
+                <Route
+                    path="scheduling"
+                    element={
+                        <SingleSedeRoute segment="programmazione">
+                            <Programming />
+                        </SingleSedeRoute>
+                    }
+                />
                 <Route path="scheduling/:ruleId" element={<RuleDetailPage />} />
                 <Route path="scheduling/featured/:ruleId" element={<RuleDetailPage />} />
 
@@ -363,6 +371,8 @@ export default function App() {
                     <Route index element={<Styles />} />
                     <Route path=":styleId" element={<StyleEditorPage />} />
                 </Route>
+
+                <Route path="crea/:kind" element={<CreaPage />} />
 
                 <Route path="languages" element={<SettingsLanguages />} />
 

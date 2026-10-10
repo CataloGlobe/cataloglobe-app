@@ -32,7 +32,7 @@ Portare tutto il back office di CataloGlobe (pagine dell'azienda e Workspace) al
 - Nessuna funzione persa né aggiunta. Se una decisione sembra richiedere una funzione nuova o un cambio di dati: **fermati e riporta**.
 - Contrasto testo ≥ 4,5:1 in chiaro e scuro; solo token esistenti di `src/styles/_theme.scss`; niente CSS inline; SCSS Modules.
 - Componenti in `src/components/ui/`: verifica prima di crearne. Le regole condivise si cambiano **una volta nel componente condiviso**, non pagina per pagina.
-- Testi in italiano, «Sede» per activity, «Pubblicata / Sospesa» per lo stato della sede.
+- Testi in italiano, «Sede» per activity, «Online / Sospesa» per lo stato della sede (D147, era «Pubblicata»).
 - Gating: business → `usePermissions()` + `src/lib/permissions.ts`; workspace → `src/utils/workspaceRole.ts`. Nessun permesso cambia.
 - DB: Claude Code non applica migration. Questo piano non ne richiede. Se ne serve una: fermati.
 - Nessuna query su produzione, nemmeno in lettura. MCP staging solo lettura.

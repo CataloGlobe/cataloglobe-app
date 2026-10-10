@@ -19,7 +19,7 @@ import type { V2ActivityHours } from "@/types/activity-hours";
 import { useToast } from "@/context/Toast/ToastContext";
 import { usePermissions } from "@/context/usePermissions";
 import { canDoOnActivity, canDoOnTenant } from "@/lib/permissions";
-import { formatInactiveReason } from "@/utils/activityStatus";
+import { ACTIVE_LABEL, formatInactiveReason } from "@/utils/activityStatus";
 import { legacyTabTarget } from "@/utils/navLanding";
 import {
     ACTIVITY_SECTIONS,
@@ -171,7 +171,7 @@ const ActivityDetailPage: React.FC = () => {
             ? activity.inactive_reason
                 ? `Sospesa · ${formatInactiveReason(activity.inactive_reason)}`
                 : "Sospesa"
-            : "Online"
+            : ACTIVE_LABEL
         : null;
 
     const leading = useMemo(() => {
