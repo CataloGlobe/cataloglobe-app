@@ -24,6 +24,7 @@
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { checkRateLimit, RateLimitExceededError } from "../_shared/rateLimit.ts";
 import { sunmiUnbindShop } from "../_shared/sunmi.ts";
+import { withAppCors } from "../_shared/cors.ts";
 
 // ============================================================
 // Constants
@@ -37,7 +38,6 @@ const FUNCTION_NAME = "sunmi-unbind-printer";
 const RATE_LIMIT_PER_USER_PER_MIN = 10;
 
 const corsHeaders = {
-    "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
     "Access-Control-Allow-Methods": "POST, OPTIONS"
 };
@@ -153,7 +153,7 @@ async function _fetchShopId(
 // Main
 // ============================================================
 
-Deno.serve(async (req: Request): Promise<Response> => {
+async function handle(req: Request): Promise<Response> {
     if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
     if (req.method !== "POST") {
         return jsonResponse(405, { code: "METHOD_NOT_ALLOWED", message: "Use POST." });
@@ -307,4 +307,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
         console.error(`[${FUNCTION_NAME}] internal error:`, (e as Error)?.message, (e as Error)?.stack);
         return jsonResponse(500, { code: "INTERNAL_ERROR", message: "Errore interno." });
     }
-});
+}
+
+Deno.serve(async (req: Request) => withAppCors(req, await handle(req)));
