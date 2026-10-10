@@ -408,7 +408,7 @@ button.dqsedi {
     }
 }
 .fday {
-    transition: background 0.6s;
+    transition: background calc(var(--timing-motion-base) * 3) var(--easing-state);
 }
 .fday.flash {
     background: var(--brand-primary-soft);
@@ -1042,6 +1042,9 @@ button.dqsedi {
 /* ---------- la sezione Aggiungi / Modifica completa (passo 3) ---------- */
 .gmain.isecw {
     padding: 0;
+}
+.pempty {
+    padding: 10px;
 }
 .isec .muted {
     @include type.fs(note);

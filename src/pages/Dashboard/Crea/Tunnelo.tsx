@@ -268,14 +268,19 @@ export function Tunnelo({ kind, aside, edit, data, tenantId, owner, origin, busi
 
     const landing = (k: CreaKind, id: string) => `${b}/${PAGE_OF[k]}/${id}`;
 
+    // i passi già riusciti di un salvataggio fallito a metà: «Riprova» riparte da lì
+    const progress = useRef(new Map<string, unknown>());
+    const savingNow = useRef(false);
     async function finish(live: boolean): Promise<boolean> {
         // con l'abbonamento fermo non si crea niente, come dai bottoni «Crea» delle liste
-        if (saving || !ensureActive()) return false;
+        // un ref, non lo stato: due clic nello stesso istante vedrebbero tutti e due `saving` falso
+        if (savingNow.current || !ensureActive()) return false;
         if (t.edit && (fb || nothing)) {
             setLeave(false);
             showToast({ message: fb ? `${fb.why}: torna a «${stepLabel(t, st[fb.i])}».` : "Non hai cambiato niente.", type: "error" });
             return false;
         }
+        savingNow.current = true;
         setSaving(true);
         try {
             if (t.edit) {
@@ -286,13 +291,14 @@ export function Tunnelo({ kind, aside, edit, data, tenantId, owner, origin, busi
                 setGoing(origin.to);
                 return true;
             }
-            const saved = await saveTunnel(t, { tenantId, L, live: live && owner, pair, baseTokens, blockFiles });
+            const saved = await saveTunnel(t, { tenantId, L, live: live && owner, pair, baseTokens, blockFiles, done: progress.current });
+            progress.current = new Map();
             const n = saved.name;
             const pub = t.kind === "menu" || t.kind === "stile" ? "in onda" : t.kind === "storia" ? "pubblicata" : "pubblicato";
             void reload();
             setLeave(false);
             // la bozza del Calendario si toglie solo quando va in onda
-            if (t.aside && saved.live) dropAside();
+            if (t.aside && saved.live) dropAside(tenantId);
             // il menù in onda apre «E adesso?»
             if (t.kind === "menu" && saved.live) {
                 const done = { ...t, i: st.length - 1, seen: st.length - 1 };
@@ -319,6 +325,7 @@ export function Tunnelo({ kind, aside, edit, data, tenantId, owner, origin, busi
             showToast({ message: `Non siamo riusciti a salvare ${IL[t.kind]}. Riprova.`, type: "error" });
             return false;
         } finally {
+            savingNow.current = false;
             setSaving(false);
         }
     }
@@ -330,6 +337,7 @@ export function Tunnelo({ kind, aside, edit, data, tenantId, owner, origin, busi
     };
     const discard = () => {
         setLeave(false);
+        progress.current = new Map();
         if (after && t.from) return setT(after.t);
         setGoing(origin.to);
     };
@@ -347,6 +355,7 @@ export function Tunnelo({ kind, aside, edit, data, tenantId, owner, origin, busi
             where: m.where,
             per: m.per
         };
+        progress.current = new Map();
         setT(newTunnel(k, m.where, from));
         toTop();
     };

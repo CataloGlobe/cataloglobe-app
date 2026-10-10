@@ -340,7 +340,8 @@ export function TableDetailDrawer({
             const updated = await updateTable(tableId, tenantId, {
                 maintenance_mode: next
             });
-            setData(d =>
+            // Nel frattempo si è passati a un altro tavolo: i suoi dati non si toccano.
+            if (shownTable.current === tableId) setData(d =>
                 d ? { ...d, table: { ...d.table, maintenance_mode: updated.maintenance_mode } } : d
             );
             showToast({
@@ -363,7 +364,7 @@ export function TableDetailDrawer({
         setIsClearingBill(true);
         try {
             await clearBillRequestsForTable(tableId, tenantId);
-            setData(d =>
+            if (shownTable.current === tableId) setData(d =>
                 d
                     ? {
                           ...d,
@@ -391,7 +392,7 @@ export function TableDetailDrawer({
         setIsClearingWaiter(true);
         try {
             await clearWaiterCallsForTable(tableId, tenantId);
-            setData(d =>
+            if (shownTable.current === tableId) setData(d =>
                 d
                     ? {
                           ...d,
@@ -415,15 +416,17 @@ export function TableDetailDrawer({
     }
 
     async function handleConfirmOrder(orderId: string, version: number): Promise<void> {
+        const forTable = tableId;
         setConfirmingOrderId(orderId);
         try {
             await acknowledgeOrder(orderId, version);
             showToast({ message: "Ordine confermato", type: "success" });
-            await loadDetail();
+            // Passati a un altro tavolo: rileggere questo scarterebbe la sua lettura.
+            if (shownTable.current === forTable) await loadDetail();
         } catch {
             showToast({ message: "Errore durante la conferma dell'ordine", type: "error" });
         } finally {
-            setConfirmingOrderId(null);
+            if (shownTable.current === forTable) setConfirmingOrderId(null);
         }
     }
 
@@ -474,16 +477,19 @@ export function TableDetailDrawer({
         reason: string
     ): Promise<void> {
         if (!stornaOrder) return;
+        const forTable = tableId;
         setIsSavingStorno(true);
         try {
             await rectifyOrder(stornaOrder.id, items, reason || undefined);
             showToast({ message: "Storno registrato", type: "success" });
-            setView("conto");
-            setStornaOrder(null);
-            setStornaResiduals(null);
-            setStornaState({ estimate: 0, canConfirm: false });
-            await loadDetail();
-            if (tableId) onStornoCreated?.(tableId);
+            if (shownTable.current === forTable) {
+                setView("conto");
+                setStornaOrder(null);
+                setStornaResiduals(null);
+                setStornaState({ estimate: 0, canConfirm: false });
+                await loadDetail();
+            }
+            if (forTable) onStornoCreated?.(forTable);
         } catch (err) {
             // Resta nella vista storna: non perdere la selezione.
             showToast({ message: mapStornoError(err), type: "error" });

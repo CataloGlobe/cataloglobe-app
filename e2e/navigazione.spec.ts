@@ -20,6 +20,7 @@ import {
     sidebarVoci,
     withLongNames
 } from "./nav";
+import { openBusinessPage } from "./business";
 
 /**
  * Navigazione dell'Officina (artifact «Navigazione di CataloGlobe» v4, D143;
@@ -378,6 +379,64 @@ test.describe("Sede in alto a destra (D152)", () => {
         await sedeSwitcher(page).click();
         await sedePicker(page).getByRole("radio", { name: /^Tutte le sedi/ }).click();
         await expect(page).toHaveURL(`${root}/analytics`, { timeout: 15_000 });
+    });
+
+    test("manager di una sede su più: niente «Sede», legge solo la sua (#360.8)", async ({ page }) => {
+        const paths = await locationPaths(page);
+        test.skip(paths.length < 2, "serve più di una sede");
+        await asRole(page, "manager", activityIdOf(paths[0]), "pro");
+        await page.goto(`${paths[0]}/servizio`);
+        await expect(sectionRow(page, SERVIZIO[0])).toHaveAttribute("aria-expanded", "true", { timeout: 15_000 });
+        await expect(page.getByRole("button", { name: "Notifiche" })).toBeVisible();
+        await expect(sedeSwitcher(page)).toHaveCount(0);
+    });
+
+    test("una sede sospesa: «Sospesa» accanto al nome, sul pulsante e nell'elenco (#360.8)", async ({ page }) => {
+        const paths = await locationPaths(page);
+        test.skip(paths.length < 2, "serve più di una sede");
+        await page.route(/\/rest\/v1\/activities\?/, async route => {
+            try {
+                const response = await route.fetch();
+                const text = await response.text();
+                const body: unknown = text ? JSON.parse(text) : null;
+                if (!Array.isArray(body)) {
+                    await route.fulfill({ response, body: text });
+                    return;
+                }
+                const rows = (body as Array<Record<string, unknown>>).map(r =>
+                    r.id === activityIdOf(paths[0]) ? { ...r, status: "inactive", inactive_reason: "renovation" } : r
+                );
+                await route.fulfill({ response, json: rows });
+            } catch {
+                // Pagina chiusa a metà richiesta.
+            }
+        });
+        await page.goto(`${paths[0]}/servizio`);
+        await expect(sedeSwitcher(page)).toContainText("Sospesa", { timeout: 15_000 });
+        await sedeSwitcher(page).click();
+        const pop = page.getByRole("dialog", { name: "Cosa guardi" });
+        await expect(pop.getByText("Sospesa", { exact: true }).first()).toBeVisible();
+    });
+
+    test("il menù dell'account: con più aziende si cambia azienda da lì (#360.8)", async ({ page }) => {
+        // una seconda azienda accanto alla vera: basta a far comparire «Cambia azienda»
+        const ALTRA = "e2e00000-0000-4000-a000-0000000000a2";
+        await page.route(/\/rest\/v1\/user_tenants_view\?/, async route => {
+            try {
+                const response = await route.fetch();
+                const body: unknown = JSON.parse(await response.text());
+                if (!Array.isArray(body) || body.length === 0) return void (await route.fulfill({ response }));
+                await route.fulfill({ response, json: [...body, { ...(body[0] as Record<string, unknown>), id: ALTRA, name: "Altra azienda e2e" }] });
+            } catch {
+                // Pagina chiusa a metà richiesta.
+            }
+        });
+        await openBusinessPage(page, "overview", "Panoramica");
+        await accountButton(page).click();
+        const menu = page.getByRole("menu");
+        await expect(menu.getByText("Cambia azienda", { exact: true })).toBeVisible();
+        await menu.getByRole("menuitem", { name: "Altra azienda e2e" }).click();
+        await expect(page).toHaveURL(new RegExp(`/business/${ALTRA}`), { timeout: 15_000 });
     });
 
     test("una sede: niente «Sede», non c'è niente da scegliere", async ({ page }) => {

@@ -22,6 +22,7 @@ import { DEFAULT_PERIOD, periodToDateRange } from "./utils/periodComparison";
 import { AndamentoRows } from "./components/AndamentoRows";
 import { AndamentoDetail } from "./components/AndamentoDetail";
 import { AndamentoOverview } from "./components/AndamentoOverview";
+import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import styles from "./Analytics.module.scss";
 
 type View = "righe" | "grafico";
@@ -99,24 +100,36 @@ export default function AnalyticsPage() {
     const vista = useSediVista(tenantId);
     const compareIds = useMemo(
         () =>
-            vista.confrontoAttivo && activityId
-                ? readableActivities.filter(a => a.id !== activityId && vista.confronta.has(a.id)).map(a => a.id)
+            // la sede è quella dell'indirizzo: lo store può non averla (si entra da un link) o averne un'altra
+            vista.confrontoQui && activityId
+                ? readableActivities
+                      // solo le sedi di cui si possono leggere i numeri: le altre darebbero zeri finti
+                      .filter(a => a.id !== activityId && vista.confronta.has(a.id) && permissions != null && canDoOnActivity(permissions, "analytics.read", a.id))
+                      .map(a => a.id)
                 : [],
-        [vista.confrontoAttivo, vista.confronta, activityId, readableActivities]
+        [vista.confrontoQui, vista.confronta, activityId, readableActivities, permissions]
     );
     const [others, setOthers] = useState<Record<string, SedeNumbers>>({});
     const compareRef = useRef(0);
     const compareKey = compareIds.join(",");
+    const [compareFailed, setCompareFailed] = useState(false);
+    const [compareTry, setCompareTry] = useState(0);
     useEffect(() => {
         const ids = compareKey ? compareKey.split(",") : [];
-        if (!tenantId || !canRead || ids.length === 0) return;
+        // un altro periodo o altre sedi: i numeri di prima non stanno accanto ai nuovi
         const requestId = ++compareRef.current;
+        setOthers({});
+        setCompareFailed(false);
+        if (!tenantId || !canRead || ids.length === 0) return;
         Promise.all(ids.map(id => loadSedeNumbers(tenantId, period, id, { orders: ordersFeature, reservations: reservationsFeature })))
             .then(list => {
                 if (requestId === compareRef.current) setOthers(Object.fromEntries(ids.map((id, i) => [id, list[i]])));
             })
-            .catch(error => console.error("Caricamento confronto:", error));
-    }, [compareKey, tenantId, canRead, period, ordersFeature, reservationsFeature]);
+            .catch(error => {
+                console.error("Caricamento confronto:", error);
+                if (requestId === compareRef.current) setCompareFailed(true);
+            });
+    }, [compareKey, compareTry, tenantId, canRead, period, ordersFeature, reservationsFeature]);
 
     const own = useMemo(() => (data ? sedeNumbersOf(data) : null), [data]);
     const compare = useMemo<SedeCompared[] | null>(() => {
@@ -257,6 +270,18 @@ export default function AnalyticsPage() {
                                         {sentence.lead}
                                         <small>{sentence.detail}</small>
                                     </p>
+                                    {compareFailed && (
+                                        <InlineBanner
+                                            variant="error"
+                                            action={
+                                                <Button variant="secondary" size="sm" onClick={() => setCompareTry(n => n + 1)}>
+                                                    Riprova
+                                                </Button>
+                                            }
+                                        >
+                                            Non siamo riusciti a caricare le sedi a confronto: qui vedi solo questa sede.
+                                        </InlineBanner>
+                                    )}
                                     {view === "righe" ? (
                                         <AndamentoRows
                                             rows={rows}

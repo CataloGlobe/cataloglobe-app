@@ -1,7 +1,7 @@
 // Il tunnel con i suoi dati: i permessi, la bozza tenuta da parte nel Calendario,
 // il percorso da cui si è partiti. Il tunnel vero è in `Tunnelo`.
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/Button/Button";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import Skeleton from "@/components/ui/Skeleton/Skeleton";
@@ -38,6 +38,7 @@ export function CreaTunnel({ kind, editId }: { kind: CreaKind; editId?: string }
     const tenantId = useTenantId();
     const navigate = useNavigate();
     const [params] = useSearchParams();
+    const { businessId } = useParams<{ businessId: string }>();
     const { showToast } = useToast();
     const { selectedTenant } = useTenant();
     const { permissions } = usePermissions();
@@ -70,7 +71,8 @@ export function CreaTunnel({ kind, editId }: { kind: CreaKind; editId?: string }
     // dal Calendario con una bozza tenuta da parte: il suo quando e il suo dove
     const [aside] = useState(() => {
         if (params.get("da") !== "calendario" || kind === "storia") return null;
-        const a = peekAside();
+        // l'azienda dall'indirizzo: al primo disegno quella scelta può non essere ancora arrivata
+        const a = businessId ? peekAside(businessId) : null;
         return a && a.kind === CAL_KIND[kind] ? a : null;
     });
     // in alto solo la pagina da cui si è partiti: il percorso intero è nella testa del

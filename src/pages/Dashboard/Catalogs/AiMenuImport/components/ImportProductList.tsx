@@ -338,13 +338,12 @@ function ImportProductRow({
                     <div className={styles.productFormats}>
                         {product.formats!.map((f, i) => {
                             if (!f || typeof f.name !== "string") return null;
-                            const priceStr = f.price != null ? f.price.toFixed(2) : null;
                             const formatMissesPrice = f.price == null;
                             if (!onUpdate) {
                                 return (
                                     <span key={i} className={styles.formatTag}>
                                         {f.name}
-                                        {priceStr ? ` €${priceStr}` : ""}
+                                        {f.price != null ? ` ${formatPrice(f.price)}` : ""}
                                     </span>
                                 );
                             }

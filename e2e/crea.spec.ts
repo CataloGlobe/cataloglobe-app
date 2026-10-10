@@ -456,6 +456,38 @@ test.describe("Tunnel di creazione — menù", () => {
         expect(bodyOf(stub, "catalog_category_products.POST")).toMatchObject({ category_id: "e2ec7000-0000-4000-a000-000000000091", product_id: PRODUCT.margherita });
     });
 
+    test("#360.2: il piatto nuovo non si salva; «Riprova» non crea un secondo menù né un'altra sezione", async ({ page }) => {
+        // tutto risponde tranne il piatto nuovo
+        stub.onWrite("catalogs.POST", ({ body }) => ({ id: ID.catalog, created_at: new Date().toISOString(), ...first(body) }));
+        stub.onWrite("catalog_categories.POST", ({ body }) => ({ id: ID.category, ...first(body) }));
+        stub.onWrite("catalog_category_products.POST", ({ body }) => ({ id: "e2ec7000-0000-4000-a000-000000000010", ...first(body) }));
+        await open(page, "menu", "menu");
+        await walkMenu(page);
+        await button(page, "Tieni come bozza").click();
+        await expect(page.getByText("Non siamo riusciti a salvare il menù. Riprova.")).toBeVisible();
+        expect(writesOf(stub, "catalogs.POST")).toHaveLength(1);
+        // ora il piatto si salva: si riprende da lì
+        stub.onWrite("products.POST", ({ body }) => ({ ...first(body) }));
+        await button(page, "Tieni come bozza").click();
+        await expect(page).toHaveURL(new RegExp(`/catalogs/${ID.catalog}$`), { timeout: 15_000 });
+        expect(writesOf(stub, "catalogs.POST")).toHaveLength(1);
+        expect(writesOf(stub, "catalog_categories.POST")).toHaveLength(1);
+        expect(writesOf(stub, "products.POST")).toHaveLength(2);
+        expect(writesOf(stub, "catalog_category_products.POST")).toHaveLength(2);
+    });
+
+    test("#360.2: due clic nello stesso istante salvano una volta sola", async ({ page }) => {
+        wireMenu(stub);
+        await open(page, "menu", "menu");
+        await walkMenu(page);
+        await button(page, "Tieni come bozza").evaluate((el: HTMLElement) => {
+            el.click();
+            el.click();
+        });
+        await expect(page).toHaveURL(new RegExp(`/catalogs/${ID.catalog}$`), { timeout: 15_000 });
+        expect(writesOf(stub, "catalogs.POST")).toHaveLength(1);
+    });
+
     test("dal Calendario: «Crea un menù nuovo» tiene da parte la bozza e apre il tunnel", async ({ page }) => {
         await openBusinessPageByUrl(page, "scheduling?type=layout");
         // Calendario e Regole sono le parti della sezione: tab nella barra del titolo.
@@ -471,14 +503,17 @@ test.describe("Tunnel di creazione — menù", () => {
         await expect(page).toHaveURL(/\/crea\/menu\?da=calendario$/);
         await expect(main(page).getByRole("heading", { level: 2, name: "Nuovo menù" })).toBeVisible({ timeout: 15_000 });
         await expect(main(page).getByRole("navigation", { name: "Percorso" }).getByRole("button", { name: "Calendario" })).toBeVisible();
-        expect(await page.evaluate(() => sessionStorage.getItem("calendario:da-parte"))).toContain('"kind":"menu"');
+        expect(await page.evaluate(t => sessionStorage.getItem("calendario:da-parte:" + t), TENANT_ID)).toContain('"kind":"menu"');
     });
 
     test("dal Calendario con una bozza tenuta da parte: il suo quando e il suo dove", async ({ page }) => {
-        await page.addInitScript(porto => {
-            const d = { kind: "menu", mode: "new", rule: null, thing: null, pair: null, when: { days: [5, 6] }, where: { all: false, activityIds: [porto], groupIds: [] } };
-            sessionStorage.setItem("calendario:da-parte", JSON.stringify(d));
-        }, SEDE.porto);
+        await page.addInitScript(
+            ([porto, tenant]) => {
+                const d = { kind: "menu", mode: "new", rule: null, thing: null, pair: null, when: { days: [5, 6] }, where: { all: false, activityIds: [porto], groupIds: [] } };
+                sessionStorage.setItem("calendario:da-parte:" + tenant, JSON.stringify(d));
+            },
+            [SEDE.porto, TENANT_ID]
+        );
         await open(page, "menu", "calendario");
         await expect(main(page).getByRole("navigation", { name: "Percorso" }).getByRole("button", { name: "Calendario" })).toBeVisible();
         await walkMenu(page);
@@ -494,7 +529,7 @@ test.describe("Tunnel di creazione — menù", () => {
         await button(page, "Esci").click();
         await page.getByRole("alertdialog").getByRole("button", { name: "Esci senza salvare" }).click();
         await expect(page).toHaveURL(/\/scheduling$/);
-        expect(await page.evaluate(() => sessionStorage.getItem("calendario:da-parte"))).toContain('"kind":"menu"');
+        expect(await page.evaluate(t => sessionStorage.getItem("calendario:da-parte:" + t), TENANT_ID)).toContain('"kind":"menu"');
     });
 });
 
@@ -586,8 +621,24 @@ test.describe("Tunnel di creazione — chi non gestisce il Calendario", () => {
         await next(page);
         await main(page).getByLabel("Titolo", { exact: true }).fill("Chiusi per ferie");
         await next(page);
-        await expect(button(page, "Salva")).toBeVisible();
         await expect(button(page, "Pubblica")).toHaveCount(0);
+        // «Salva» lascia una bozza e nessuna regola nel Calendario (#360.8: prima non si cliccava)
+        stub.onWrite("featured_contents.POST", ({ body }) => ({ id: ID.featured, ...first(body) }));
+        await button(page, "Salva").click();
+        await expect(page).toHaveURL(new RegExp(`/featured/${ID.featured}$`), { timeout: 15_000 });
+        expect(bodyOf(stub, "featured_contents.POST")).toMatchObject({ title: "Chiusi per ferie", status: "draft" });
+        expect(writesOf(stub, "schedules.POST")).toHaveLength(0);
+    });
+});
+
+test.describe("Tunnel di creazione — permessi (#360.8)", () => {
+    test("senza il permesso di modifica dei menù il tunnel non si apre", async ({ page }) => {
+        stub = await stubProgrammazione(page);
+        await stub.revoke("catalogs.write");
+        await openBusinessPageByUrl(page, "crea/menu?da=menu");
+        await stub.revoked;
+        await expect(main(page).getByText("Non puoi crearlo")).toBeVisible({ timeout: 20_000 });
+        await expect(button(page, /^Menù classico/)).toHaveCount(0);
     });
 });
 

@@ -6,27 +6,31 @@ import { createPrimaryPriceFormat } from "@/services/supabase/productOptions";
 import type { Dish, Section } from "./creaModel";
 import { MAX_LEVEL, allSecs } from "./menuTree";
 
+/** Un passo che, riuscito una volta, al «Riprova» non si rifà (`creaSave`). */
+export type Once = <T>(key: string, run: () => Promise<T>) => Promise<T>;
+const always: Once = (_key, run) => run();
+
 /** Il prodotto di un piatto: quello che avete già, o uno nuovo con descrizione e varianti. */
-export async function productOf(d: Dish, tenantId: string): Promise<string> {
+export async function productOf(d: Dish, tenantId: string, once: Once = always, at = ""): Promise<string> {
     if (d.productId) return d.productId;
     const formats = (d.formats ?? []).filter((f): f is { name: string; price: number } => !!f.name.trim() && f.price !== null);
-    const id = (await createProduct(tenantId, { name: d.name.trim(), description: d.description ?? null, base_price: formats.length ? null : d.price })).id;
-    for (const f of formats) await createPrimaryPriceFormat(id, tenantId, f.name.trim(), f.price);
+    const id = await once(`prod:${at}:${d.name.trim()}`, async () => (await createProduct(tenantId, { name: d.name.trim(), description: d.description ?? null, base_price: formats.length ? null : d.price })).id);
+    for (const [k, f] of formats.entries()) await once(`format:${id}:${k}`, () => createPrimaryPriceFormat(id, tenantId, f.name.trim(), f.price));
     return id;
 }
 
 /** Un menù nuovo: categorie, sottocategorie e piatti nell'ordine del tunnel; quelli letti da una foto sono già lì dentro (D180). */
-export async function writeSections(sections: readonly Section[], catalogId: string, tenantId: string): Promise<string[]> {
+export async function writeSections(sections: readonly Section[], catalogId: string, tenantId: string, once: Once = always): Promise<string[]> {
     const productIds: string[] = [];
     const write = async (list: readonly Section[], parent: string | null, level: 1 | 2 | 3) => {
         for (const [i, sec] of list.entries()) {
-            const cat = await createCategory(tenantId, catalogId, sec.name.trim() || "Piatti", level, parent, i);
+            const catId = await once(`cat:${catalogId}:${parent}:${i}`, async () => (await createCategory(tenantId, catalogId, sec.name.trim() || "Piatti", level, parent, i)).id);
             for (const [j, d] of sec.dishes.entries()) {
-                const productId = await productOf(d, tenantId);
-                await addProductToCategory(tenantId, catalogId, cat.id, productId, j);
+                const productId = await productOf(d, tenantId, once, `${catId}:${j}`);
+                await once(`link:${catId}:${j}:${productId}`, () => addProductToCategory(tenantId, catalogId, catId, productId, j));
                 productIds.push(productId);
             }
-            if (level < MAX_LEVEL) await write(sec.subs, cat.id, (level + 1) as 2 | 3);
+            if (level < MAX_LEVEL) await write(sec.subs, catId, (level + 1) as 2 | 3);
         }
     };
     await write(sections, null, 1);

@@ -107,18 +107,25 @@ export default function Reviews() {
   const vista = useSediVista(tenantId);
   const compareIds = useMemo(
     () =>
-      vista.confrontoAttivo && selectedActivity
+      // la sede è quella dell'indirizzo: lo store può non averla o averne un'altra
+      vista.confrontoQui && selectedActivity
         ? readableActivities
             .filter(
-              (a) => a.id !== selectedActivity && vista.confronta.has(a.id),
+              // solo le sedi di cui si possono leggere le recensioni: le altre darebbero zeri finti
+              (a) =>
+                a.id !== selectedActivity &&
+                vista.confronta.has(a.id) &&
+                permissions != null &&
+                canDoOnActivity(permissions, "reviews.read", a.id),
             )
             .map((a) => a.id)
         : [],
     [
-      vista.confrontoAttivo,
+      vista.confrontoQui,
       vista.confronta,
       selectedActivity,
       readableActivities,
+      permissions,
     ],
   );
   const compareKey = compareIds.join(",");

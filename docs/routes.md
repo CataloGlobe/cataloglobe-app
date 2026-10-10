@@ -28,11 +28,14 @@ Riferimento route applicazione. Tutte definite in `src/App.tsx`, tranne le route
   orders | reservations    → redirect all'ultima sede usata (SedeRedirect), o a locations
   guests
   scheduling | scheduling/:ruleId | scheduling/featured/:ruleId
-                             (d'azienda, senza filtro sede; un vecchio ?sede=<id> → locations/<id>/programmazione, T9b)
+                             (Calendario e Regole d'azienda; con una sede leggibile → locations/:id/programmazione,
+                              SingleSedeRoute; un vecchio ?sede=<id> → locations/<id>/programmazione, T9b)
   catalogs | catalogs/:id
+  crea/:kind               → i tunnel di creazione (CreaPage): menu | stile | evidenza | storia; `?da=` dice dove tornare
   products | products/:productId
   featured | featured/:featuredId
   styles | styles/:styleId
+  stories | stories/:storyId
   languages
   analytics | reviews       → totale delle sedi leggibili; con una sede → locations/:id/analitiche|recensioni
                              con query e ancora (SingleSedeRoute, §51.14)

@@ -22,6 +22,8 @@ import {
     dropAside,
     peekAside,
     draftFromEntry,
+    draftPairEntry,
+    pairCovers,
     invalid,
     isDirty,
     missing,
@@ -33,8 +35,9 @@ import {
     writeAside,
     type DraftLookups
 } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
-import { dayNum, entriesFromRules } from "@/pages/Dashboard/Programming/calendar/calendarModel";
-import { dropDraft, saveDraft } from "@/pages/Dashboard/Programming/calendar/calendarSave";
+import { axisFor, dayCtx, dayNum, entriesFromRules, fState, order, why } from "@/pages/Dashboard/Programming/calendar/calendarModel";
+import { compareCandidates, specificityFor } from "@shared/scheduleCompetition";
+import { dropDraft, PartialSaveError, saveDraft } from "@/pages/Dashboard/Programming/calendar/calendarSave";
 
 let n = 0;
 const rule = (o: Partial<LayoutRule>): LayoutRule =>
@@ -147,6 +150,65 @@ describe("bozza della sezione", () => {
     });
 });
 
+describe("chi vince a parità (#337.1)", () => {
+    const seat = { activityId: "a1", groupIds: [] };
+    const menu = (catalog: string, created_at: string, o: Partial<LayoutRule> = {}) =>
+        rule({ applyToAll: true, activityIds: [], time_mode: "always", created_at, layout: { catalog_id: catalog, style_id: "s1" } as LayoutRule["layout"], ...o });
+
+    it("due menù «Sempre, tutte le sedi» con la stessa priorità: in onda il più vecchio, come nella pagina pubblica", () => {
+        const vecchio = menu("c1", "2026-03-01T10:00:00Z"), nuovo = menu("c2", "2026-09-01T10:00:00Z");
+        const entries = entriesFromRules([nuovo, vecchio], names).filter(e => e.kind === "menu");
+        const st = fState(dayCtx(entries, "menu", seat, dayNum(2026, 8, 23)), 12 * 60);
+        expect(st.win?.ruleId).toBe(vecchio.id);
+        expect(st.onda).toEqual(["Alla carta"]);
+        expect(st.hidden).toEqual(["Pranzo"]);
+        const [w, l] = [...entries].sort(order(seat));
+        expect(why(w, l, seat, () => "tutte le sedi")).toBe("c'era prima");
+    });
+
+    it("l'ordine del Calendario è quello di compareCandidates, anche a parità di data", () => {
+        const rules = [
+            menu("c1", "2026-03-01T10:00:00Z"),
+            menu("c2", "2026-03-01T10:00:00Z"),
+            menu("c1", "2026-01-01T10:00:00Z", { priority: 30 }),
+            menu("c2", "2026-09-01T10:00:00Z", { applyToAll: false, activityIds: ["a1"] }),
+            menu("c1", "2026-09-02T10:00:00Z", { time_mode: "window", time_from: "12:00:00", time_to: "15:00:00" })
+        ];
+        const cal = entriesFromRules(rules, names).filter(e => e.kind === "menu").sort(order(seat)).map(e => e.ruleId);
+        const pub = rules
+            .map(r => ({ rule: r, specificity: specificityFor(r, seat)! }))
+            .sort(compareCandidates)
+            .map(x => x.rule.id);
+        expect(cal).toEqual(pub);
+    });
+});
+
+describe("l'anteprima di uno stile porta il menù abbinato (#337.6)", () => {
+    const seat = { activityId: "a1", groupIds: [] };
+    const carta = rule({ applyToAll: true, activityIds: [], time_mode: "always", layout: { catalog_id: "c1", style_id: "s1" } as LayoutRule["layout"] });
+
+    it("la bozza di uno stile ha una voce anche per il suo menù, che nella corsia dei menù copre gli altri", () => {
+        const D = blankDraft("style", { all: false, activityIds: ["a1"], groupIds: [] }, "c2");
+        expect(draftPairEntry(D, L, 0)).toBeNull(); // finché lo stile non è scelto non c'è niente da mostrare
+        D.thing = "s1";
+        const pair = draftPairEntry(D, L, 0)!;
+        expect(pair).toMatchObject({ kind: "menu", thing: "Pranzo", preview: true });
+        const list = [...entriesFromRules([carta], names), draftEntry(D, L, 0)!, pair];
+        const week = dayNum(2026, 8, 21);
+        expect(fState(dayCtx(list, "menu", seat, week), 12 * 60).onda).toEqual(["Pranzo"]);
+        expect(pairCovers(list, pair, seat, week, axisFor(list))).toEqual(["Alla carta"]);
+    });
+
+    it("senza abbinato, o per un piatto, non c'è nessuna voce in più", () => {
+        const D = blankDraft("style", ALL, null);
+        D.thing = "s1";
+        expect(draftPairEntry(D, L, 0)).toBeNull();
+        const P = blankDraft("price", ALL, "c2");
+        P.picks = ["p1"];
+        expect(draftPairEntry(P, L, 0)).toBeNull();
+    });
+});
+
 describe("salvare la sezione", () => {
     it("un menù nuovo: bozza della regola, poi menù e stile insieme, per tutte le sedi senza toccare le sedi", async () => {
         const D = blankDraft("menu", ALL, "s1");
@@ -185,6 +247,73 @@ describe("salvare la sezione", () => {
         const [mine, left] = vi.mocked(updateRule).mock.calls.map(c => c[0]);
         expect(mine).toMatchObject({ scheduleId: "nuova", timeFrom: "18:00", timeTo: "20:00", priceProducts: [{ productId: "p2", optionValueId: null, overridePrice: 5, showOriginalPrice: true }] });
         expect(left).toMatchObject({ scheduleId: r.id, name: "Happy hour", timeFrom: "17:00", timeTo: "19:30", priceProducts: [{ productId: "p1", optionValueId: null, overridePrice: 4, showOriginalPrice: true }] });
+        expect(deleteLayoutRule).not.toHaveBeenCalled();
+    });
+
+    it("«Modifica completa» con solo l'orario cambiato: barrato e modo restano quelli di ogni piatto (#337.3)", async () => {
+        const prezzi = rule({
+            rule_type: "price",
+            price_overrides: [
+                { product_id: "p1", product_name: "Spritz", override_price: 4, show_original_price: true, option_value_id: null },
+                { product_id: "p2", product_name: "Negroni", override_price: 5, show_original_price: false, option_value_id: null }
+            ] as LayoutRule["price_overrides"]
+        });
+        const D = draftFromEntry(entryOf(prezzi), L);
+        D.when = { ranges: [[1080, 1200]] };
+        await saveDraft(D, L, "t");
+        expect(vi.mocked(updateRule).mock.calls[0][0].priceProducts).toEqual([
+            { productId: "p1", optionValueId: null, overridePrice: 4, showOriginalPrice: true },
+            { productId: "p2", optionValueId: null, overridePrice: 5, showOriginalPrice: false }
+        ]);
+
+        vi.clearAllMocks();
+        const nascosti = rule({
+            rule_type: "visibility",
+            visibility_overrides: [
+                { product_id: "p1", product_name: "Spritz", mode: "hide" },
+                { product_id: "p2", product_name: "Negroni", mode: "disable" }
+            ] as LayoutRule["visibility_overrides"]
+        });
+        const V = draftFromEntry(entryOf(nascosti), L);
+        V.when = { ranges: [[1080, 1200]] };
+        await saveDraft(V, L, "t");
+        expect(vi.mocked(updateRule).mock.calls[0][0].visibilityProductOverrides).toEqual([
+            { productId: "p1", mode: "hide" },
+            { productId: "p2", mode: "disable" }
+        ]);
+
+        // Toccato il comando (uno per tutti), vale la scelta nuova e la bozza risulta cambiata.
+        const T = draftFromEntry(entryOf(prezzi), L);
+        expect(isDirty(T)).toBe(false);
+        delete T.strikeBy;
+        expect(isDirty(T)).toBe(true);
+    });
+
+    it("una regola nuova che non si riesce a scrivere non resta orfana (#337.5)", async () => {
+        vi.mocked(updateRule).mockRejectedValueOnce(new Error("rifiutata"));
+        const D = blankDraft("menu", ALL, "s1");
+        D.thing = "c2";
+        await expect(saveDraft(D, L, "t")).rejects.toThrow("rifiutata");
+        expect(deleteLayoutRule).toHaveBeenCalledWith("nuova");
+    });
+
+    it("piatto con orari nuovi: se la regola nuova non si scrive si toglie, quella di partenza non si tocca (#337.5)", async () => {
+        const r = happy();
+        vi.mocked(updateRule).mockRejectedValueOnce(new Error("rifiutata"));
+        const D = draftFromEntry(entryOf(r), L, "p2");
+        D.when = { ranges: [[1080, 1200]] };
+        await expect(saveDraft(D, L, "t")).rejects.toThrow("rifiutata");
+        expect(deleteLayoutRule).toHaveBeenCalledWith("nuova");
+        expect(updateRule).toHaveBeenCalledTimes(1);
+    });
+
+    it("piatto con orari nuovi: se non esce dalla regola di partenza è un salvataggio a metà, e niente si disfa (#337.5)", async () => {
+        const r = happy();
+        vi.mocked(updateRule).mockResolvedValueOnce(undefined as never).mockRejectedValueOnce(new Error("rete"));
+        const D = draftFromEntry(entryOf(r), L, "p2");
+        D.when = { ranges: [[1080, 1200]] };
+        await expect(saveDraft(D, L, "t")).rejects.toBeInstanceOf(PartialSaveError);
+        expect(createRuleDraft).toHaveBeenCalledTimes(1);
         expect(deleteLayoutRule).not.toHaveBeenCalled();
     });
 
@@ -240,6 +369,25 @@ describe("le ore diverse per sede (D145)", () => {
         expect(parts[1]).toMatchObject({ mode: "add", rule: null });
         D.per = { a1: LUN_VEN, a2: structuredClone(LUN_VEN) };
         expect(draftParts(D)).toEqual([expect.objectContaining({ where: ALL, when: LUN_VEN, per: null })]);
+    });
+
+    it("#360.3: riprovando dopo un errore, la regola già salvata non si rifà", async () => {
+        const D = blankDraft("menu", ALL, "s1");
+        D.thing = "c2";
+        D.per = { a1: LUN_VEN, a2: SEMPRE_PRANZO };
+        const done = new Set<string>();
+        vi.mocked(updateRule).mockResolvedValueOnce(undefined as never).mockRejectedValueOnce(new Error("rete"));
+        await expect(saveDraft(D, L, "t1", done)).rejects.toThrow("rete");
+        // la prima è salvata; la seconda, nata e non scritta, è stata tolta
+        expect(createRuleDraft).toHaveBeenCalledTimes(2);
+        expect(deleteLayoutRule).toHaveBeenCalledTimes(1);
+        expect(done.size).toBe(1);
+        await saveDraft(D, L, "t1", done);
+        expect(createRuleDraft).toHaveBeenCalledTimes(3);
+        expect(done.size).toBe(2);
+        // senza la memoria delle parti la prima nasceva di nuovo
+        await saveDraft(D, L, "t1");
+        expect(createRuleDraft).toHaveBeenCalledTimes(5);
     });
 
     it("il riepilogo raccoglie le sedi con le stesse ore", () => {
@@ -312,14 +460,20 @@ describe("la bozza messa da parte", () => {
             setItem: (k: string, v: string) => void store.set(k, v),
             removeItem: (k: string) => void store.delete(k)
         });
-        expect(peekAside()).toBeNull();
+        expect(peekAside("t1")).toBeNull();
         const D = blankDraft("menu", { all: false, activityIds: ["a1"], groupIds: [] }, "s1");
         D.thing = "c2";
         D.when = { days: [0, 1, 2, 3, 4], ranges: [[720, 900]] };
-        writeAside(D);
-        expect(peekAside()).toEqual({ kind: "menu", when: D.when, where: D.where, per: null });
-        dropAside();
-        expect(peekAside()).toBeNull();
+        writeAside(D, "t1");
+        expect(peekAside("t1")).toEqual({ kind: "menu", when: D.when, where: D.where, per: null });
+        // un periodo senza fine resta senza fine (#337.7): JSON da solo ne farebbe null, cioè il 1970
+        D.when = { period: { from: dayNum(2026, 9, 12), to: Infinity } };
+        writeAside(D, "t1");
+        expect(peekAside("t1")!.when.period).toEqual({ from: dayNum(2026, 9, 12), to: Infinity });
+        // è dell'azienda che l'ha messa da parte (#360.8): un'altra non la vede
+        expect(peekAside("t2")).toBeNull();
+        dropAside("t1");
+        expect(peekAside("t1")).toBeNull();
         vi.unstubAllGlobals();
     });
 });
