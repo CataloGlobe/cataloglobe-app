@@ -42,7 +42,7 @@ test.describe("Andamento", () => {
     test("la frase in cima, poi una riga per cosa; quella senza dati in fondo", async ({ page }) => {
         await openPage(page);
         await expect(main(page).getByText("Ultimi 30 giorni: più o meno come il mese prima.")).toBeVisible();
-        await expect(main(page).getByText(/151 visite alla pagina \(come prima\) · 12 ordini al tavolo per 240,00 €/)).toBeVisible();
+        await expect(main(page).getByText(/151 visite alla pagina \(come prima\) · 12 ordini dal tavolo per 240,00 €/)).toBeVisible();
         const buttons = await rows(page).getByRole("button").allTextContents();
         expect(buttons.map(t => t.match(/^(La pagina|Al tavolo|Recensioni|Cosa cercano)/)?.[1])).toEqual([
             "La pagina",
@@ -99,8 +99,8 @@ test.describe("Andamento", () => {
         const strip = main(page).getByRole("group", { name: "Cosa mostra il grafico" });
         await expect(strip.getByRole("button", { name: /Visite alla pagina/ })).toHaveAttribute("aria-pressed", "true");
         await expect(main(page).getByRole("img", { name: "Visite alla pagina, giorno per giorno" })).toBeVisible();
-        await strip.getByRole("button", { name: /Ordini al tavolo/ }).click();
-        await expect(main(page).getByRole("img", { name: "Ordini al tavolo, giorno per giorno" })).toBeVisible();
+        await strip.getByRole("button", { name: /Ordini dal tavolo/ }).click();
+        await expect(main(page).getByRole("img", { name: "Ordini dal tavolo, giorno per giorno" })).toBeVisible();
         await expect(main(page).getByRole("region", { name: "Cosa piace" }).getByRole("cell", { name: "Focaccia e2e" })).toBeVisible();
         await expect(main(page).getByRole("region", { name: "Quando arrivano" })).toBeVisible();
         await page.reload();

@@ -577,9 +577,9 @@ export function TablesManagement({
                         description={
                             items.length === 0
                                 ? orderingEnabled && reservationsEnabled
-                                    ? "Crea il primo tavolo: serve sia alle ordinazioni al QR sia all'assegnazione delle prenotazioni."
+                                    ? "Crea il primo tavolo: serve sia agli ordini dal tavolo sia all'assegnazione delle prenotazioni."
                                     : orderingEnabled
-                                      ? "Crea il primo tavolo per iniziare a ricevere ordinazioni."
+                                      ? "Crea il primo tavolo per iniziare a ricevere ordini dal tavolo."
                                       : "Mappa i tavoli per poterli assegnare alle prenotazioni."
                                 : hasFiltersActive
                                   ? "Modifica i filtri per vedere altri risultati."
