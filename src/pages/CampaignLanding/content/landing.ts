@@ -444,11 +444,11 @@ export const PRICING = {
         "Cosa ordinano e quanto incassi, piatto per piatto"
     ],
     notIncluded: "Non incluso nel Base:",
-    /** Tabella di confronto (mobile): intestazione della colonna delle voci e stato delle celle per i lettori di schermo. */
-    compareFeatures: "Cosa comprende",
-    compareProOnly: "Solo con Pro",
-    included: "Incluso",
-    excluded: "Non incluso",
+    /** Mobile: riga sotto la scheda Pro che si apre sul Base, senza ripetere le voci. */
+    baseOffer: {
+        question: "Ti basta il menù?",
+        text: "Tutto quello che c’è sopra, senza ordini dal tavolo, chiamate al cameriere, prenotazioni e incassi piatto per piatto."
+    },
     printer: { label: "Stampante per la cucina:", text: " opzionale, si acquista a parte." },
     footnote: "Un prezzo per ogni locale, nessun costo aggiuntivo."
 };

@@ -103,84 +103,35 @@ function Segmented<T extends string>({
     );
 }
 
-function Check({ on }: { on: boolean }) {
-    return on ? (
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M20 6 9 17l-5-5" />
-        </svg>
-    ) : (
-        <span className={styles.cmpDash} aria-hidden="true" />
-    );
-}
-
 /**
- * Mobile: una scheda sola che confronta i due piani. Due colonne strette a
- * destra, Base e Pro, con nome e prezzo in testa; la colonna Pro ha un fondo
- * viola unico dall'alto in basso. Sotto le voci comuni, poi quelle solo Pro.
- * Un pulsante solo in fondo. Da desktop restano le due schede (PlanCard).
+ * Mobile: sotto la scheda Pro, una riga che si apre sul Base. Non ripete le
+ * voci: dice solo cosa manca rispetto al Pro, con il suo pulsante.
  */
-function CompareCard({ annual }: { annual: boolean }) {
-    const row = (text: string, base: boolean, pro: boolean) => (
-        <tr key={text}>
-            <th scope="row" className={styles.cmpText}>
-                {text}
-            </th>
-            {[base, pro].map((on, i) => (
-                <td key={i} className={cx(styles.cmpCell, i === 1 && styles.cmpCellPro)}>
-                    <Check on={on} />
-                    <span className={styles.srOnly}>{on ? PRICING.included : PRICING.excluded}</span>
-                </td>
-            ))}
-        </tr>
-    );
-
+function BaseOffer({ annual }: { annual: boolean }) {
+    const p = PRICING.plans.base;
     return (
-        <div className={styles.compare}>
-            <div className={styles.cmpBody}>
-                <span className={styles.cmpProBg} aria-hidden="true" />
-                <table className={styles.cmpTable}>
-                    <thead>
-                        <tr>
-                            <th scope="col" className={styles.cmpCorner}>
-                                <span className={styles.srOnly}>{PRICING.compareFeatures}</span>
-                            </th>
-                            {(["base", "pro"] as const).map((key) => {
-                                const p = PRICING.plans[key];
-                                return (
-                                    <th key={key} scope="col" className={cx(styles.cmpPlan, key === "pro" && styles.cmpPlanPro)}>
-                                        {key === "pro" && <span className={styles.cmpBadge}>{PRICING.recommended}</span>}
-                                        <span className={styles.cmpName}>{p.name}</span>
-                                        <span className={styles.cmpPrice}>{annual ? p.year : p.month}</span>
-                                        <span className={styles.cmpPeriod}>{annual ? PRICING.period.year : PRICING.period.month}</span>
-                                    </th>
-                                );
-                            })}
-                        </tr>
-                    </thead>
-                    <tbody>{PRICING.items.map((t) => row(t, true, true))}</tbody>
-                    <tbody>
-                        <tr>
-                            <th scope="colgroup" colSpan={3} className={styles.cmpGroup}>
-                                {PRICING.compareProOnly}
-                            </th>
-                        </tr>
-                        {PRICING.proItems.map((t) => row(t, false, true))}
-                    </tbody>
-                </table>
+        <details className={styles.baseOffer}>
+            <summary className={styles.boSummary}>
+                <span className={styles.boText}>
+                    <b>{PRICING.baseOffer.question}</b> {p.name}
+                </span>
+                <span className={styles.boPrice}>
+                    {annual ? p.year : p.month}
+                    <span className={styles.boPeriod}>{annual ? PRICING.period.year : PRICING.period.month}</span>
+                </span>
+                <svg className={styles.boChev} width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="m6 9 6 6 6-6" />
+                </svg>
+            </summary>
+            <div className={styles.boBody}>
+                <p className={styles.boNote}>{PRICING.baseOffer.text}</p>
+                <LandingCta placement="pricing-base" shape="plan" look="soft" className={styles.boCta} />
             </div>
-            <p className={styles.cmpNote}>
-                <b>{PRICING.printer.label}</b>
-                {PRICING.printer.text}
-            </p>
-            <div className={styles.cmpFoot}>
-                <LandingCta placement="pricing-pro" shape="plan" look="dark" className={styles.cmpCta} />
-                <p className={styles.cmpTrial}>{PRICING.trial}</p>
-            </div>
-        </div>
+        </details>
     );
 }
 
-/** 8 · Quanto costa: mensile/annuale; su mobile la tabella di confronto, da desktop le due schede. */
+/** 8 · Quanto costa: mensile/annuale; su mobile la scheda Pro con il Base sotto, da desktop le due schede. */
 export default function Pricing() {
     const [annual, setAnnual] = useState(false);
 
@@ -201,8 +152,9 @@ export default function Pricing() {
                 />
             </Reveal>
 
-            <Reveal className={styles.compareWrap}>
-                <CompareCard annual={annual} />
+            <Reveal className={styles.mobilePlans}>
+                <PlanCard plan="pro" annual={annual} printer />
+                <BaseOffer annual={annual} />
             </Reveal>
             <Reveal className={styles.cards} variant="cards">
                 <PlanCard plan="base" annual={annual} printer={false} />

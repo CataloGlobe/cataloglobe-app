@@ -72,173 +72,105 @@
     }
 }
 
-// ── Confronto (mobile) ──────────────────────────────────────────────────────
-// Una scheda sola. Voci a sinistra, due colonne strette a destra (Base, Pro);
-// dietro la colonna Pro un unico fondo viola arrotondato, dalla testata
-// all'ultima voce. Un pulsante solo in fondo.
-.compareWrap {
+// ── Mobile ──────────────────────────────────────────────────────────────────
+// La scheda Pro intera; sotto, una riga che si apre sul Base.
+.mobilePlans {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
     margin-top: 24px;
 
     @include desktop {
         display: none;
     }
+
+    // In colonna `flex: 1 1 0` della scheda la schiaccerebbe a zero.
+    .card {
+        flex: none;
+    }
 }
 
-.compare {
-    --cmp-col: 70px;
-    --cmp-pad: 16px;
-    border-radius: 24px;
+.baseOffer {
+    border-radius: 20px;
     background: var(--ld-white);
     border: 1px solid var(--ld-line);
-    box-shadow: var(--ld-shadow-soft);
 }
 
-.cmpBody {
-    position: relative;
-    padding: 12px var(--cmp-pad) 10px;
-}
+.boSummary {
+    @include ld-focus;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 56px;
+    padding: 12px 16px;
+    border-radius: 20px;
+    list-style: none;
+    cursor: pointer;
 
-.cmpProBg {
-    position: absolute;
-    top: 12px;
-    bottom: 10px;
-    right: var(--cmp-pad);
-    width: var(--cmp-col);
-    border-radius: 16px;
-    background: var(--ld-brand-s);
-}
-
-.cmpTable {
-    position: relative;
-    width: 100%;
-    border-collapse: collapse;
-    table-layout: fixed;
-}
-
-.cmpCorner {
-    padding: 0;
-}
-
-.cmpPlan {
-    width: var(--cmp-col);
-    padding: 12px 0 14px;
-    vertical-align: bottom;
-    text-align: center;
-    font-weight: 400;
-}
-
-.cmpBadge {
-    display: block;
-    margin-bottom: 6px;
-    font-size: 8.5px;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: var(--ld-azione);
-}
-
-.cmpName {
-    display: block;
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--ld-ink);
-}
-
-.cmpPlanPro .cmpName {
-    color: var(--ld-azione);
-}
-
-.cmpPrice {
-    @include ld-serif;
-    display: block;
-    margin-top: 4px;
-    font-size: 22px;
-    line-height: 1;
-    letter-spacing: -0.02em;
-    color: var(--ld-ink);
-}
-
-.cmpPeriod {
-    display: block;
-    margin-top: 3px;
-    font-size: 11px;
-    color: var(--ld-muted);
-}
-
-.cmpText {
-    padding: 9px 10px 9px 0;
-    font-size: 13.5px;
-
-    @media (min-width: 360px) {
-        font-size: 14px;
-    }
-
-    font-weight: 400;
-    line-height: 1.35;
-    text-align: left;
-    color: var(--ld-ink);
-}
-
-.cmpCell {
-    text-align: center;
-    vertical-align: middle;
-    color: var(--ld-muted);
-
-    svg {
-        display: inline-block;
-        vertical-align: middle;
+    &::-webkit-details-marker {
+        display: none;
     }
 }
 
-.cmpCellPro {
-    color: var(--ld-azione);
-}
-
-// Non incluso: un trattino corto, più discreto della X.
-.cmpDash {
-    display: inline-block;
-    width: 10px;
-    height: 2px;
-    border-radius: 2px;
-    background: var(--ld-line);
-    vertical-align: middle;
-}
-
-.cmpGroup {
-    padding: 16px 0 4px;
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    text-align: left;
-    text-transform: uppercase;
-    color: var(--ld-azione);
-}
-
-.cmpNote {
-    margin: 0;
-    padding: 0 var(--cmp-pad);
-    font-size: 13px;
-    color: var(--ld-muted);
+.boText {
+    flex: 1;
+    min-width: 0;
+    font-size: 15px;
+    color: var(--ld-body);
 
     b {
         font-weight: 600;
-        color: var(--ld-body);
+        color: var(--ld-ink);
     }
 }
 
-.cmpFoot {
-    padding: 16px var(--cmp-pad) 18px;
+.boPrice {
+    @include ld-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 3px;
+    font-size: 21px;
+    line-height: 1;
+    color: var(--ld-ink);
+    white-space: nowrap;
 }
 
-.cmpCta {
+.boPeriod {
+    font-family: var(--ld-font-sans);
+    font-size: 11px;
+    color: var(--ld-muted);
+}
+
+.boChev {
+    flex-shrink: 0;
+    color: var(--ld-muted);
+
+    @include motion-ok {
+        transition: transform 200ms ease;
+    }
+}
+
+.baseOffer[open] .boChev {
+    transform: rotate(180deg);
+}
+
+.boBody {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 0 16px 16px;
+}
+
+.boCta {
     margin-top: 0;
 }
 
-.cmpTrial {
-    margin: 10px 0 0;
-    font-size: 12.5px;
-    text-align: center;
-    color: var(--ld-muted);
+.boNote {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.45;
+    color: var(--ld-body);
 }
 
 .card {
