@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { checkRateLimit, RateLimitExceededError } from "../_shared/rateLimit.ts";
+import { VALID_SUBSCRIPTION_STATUSES } from "../_shared/subscriptionStatus.ts";
 
 // =============================================================================
 // reservation-availability
@@ -63,8 +64,6 @@ const RATE_LIMIT_IP_WINDOW_SECONDS = 60;
 // Una giornata intera a 15 minuti. Tetto al lavoro per richiesta; la stessa
 // soglia è ribadita dentro la funzione SQL (difesa in profondità).
 const MAX_TIMES = 96;
-
-const VALID_SUBSCRIPTION_STATUSES = new Set(["active", "trialing", "past_due"]);
 
 const ERROR_MESSAGES: Record<string, string> = {
     METHOD_NOT_ALLOWED: "Metodo non consentito",

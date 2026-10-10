@@ -74,6 +74,7 @@ export const RangeInput = forwardRef<HTMLInputElement, RangeInputProps>(
                                 value={value}
                                 disabled={isDisabled}
                                 aria-invalid={hasError}
+                                aria-required={required || undefined}
                                 aria-describedby={describedById}
                                 className={`${styles.range} ${className ?? ""}`}
                                 {...props}

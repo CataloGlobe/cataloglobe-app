@@ -1,3 +1,4 @@
+@use "@styles/mixins" as *;
 // Textarea — scheda «FormField»: min 88, padding 8 12, resize verticale.
 // Solo token.
 
@@ -43,6 +44,7 @@
     background: var(--hover-bg);
     cursor: not-allowed;
   }
+  @include touch-input-font;
 }
 
 .hasError {

@@ -45,107 +45,65 @@ export const COMPANY = {
 } as const;
 
 /**
- * Le due frasi del footer che sono NOSTRE, nelle cinque lingue delle email al
- * cliente. Tutto il resto del footer è dato legale — ragione sociale, indirizzo,
- * partita IVA, indirizzi email — e non si traduce in nessuna lingua: sono
- * identificatori, non testo.
+ * Le parole NOSTRE del footer, nelle cinque lingue delle email al cliente.
  *
- * `defaultReason` serve solo alle email agli utenti registrati, che oggi sono
- * tutte italiane: sta qui per completezza della tabella, non perché qualcuno la
- * chiami in un'altra lingua.
+ * Il footer è corto per scelta (deciso da Lorenzo il 2026-10-10): nome, tre
+ * link e, solo dove serve, il perché della mail. Ragione sociale, indirizzo e
+ * partita IVA non sono obbligatori in ogni email di servizio: basta che siano
+ * facilmente raggiungibili (d.lgs. 70/2003, art. 7), e lo sono sulle pagine
+ * Privacy e Termini del sito. Restano per intero solo nelle mail commerciali
+ * (`legal: true`, oggi la lista d'attesa).
  */
-const FOOTER_COPY: Record<EmailLang, {
-  privacyRequests: string;
-  tradeName: (businessName: string, legalName: string) => string;
-  defaultReason: (businessName: string) => string;
-}> = {
-  it: {
-    privacyRequests: "Per richieste relative ai tuoi dati personali:",
-    tradeName: (b, l) => `${b} è il nome commerciale di ${l}, ditta individuale.`,
-    defaultReason: b => `Hai ricevuto questa email perché sei registrato su ${b}.`
-  },
-  en: {
-    privacyRequests: "For requests about your personal data:",
-    tradeName: (b, l) => `${b} is the trading name of ${l}, sole trader.`,
-    defaultReason: b => `You're receiving this email because you have an account on ${b}.`
-  },
-  fr: {
-    privacyRequests: "Pour toute demande concernant vos données personnelles :",
-    tradeName: (b, l) => `${b} est le nom commercial de ${l}, entreprise individuelle.`,
-    defaultReason: b => `Vous recevez cet e-mail car vous êtes inscrit sur ${b}.`
-  },
-  de: {
-    privacyRequests: "Für Anfragen zu Ihren personenbezogenen Daten:",
-    tradeName: (b, l) => `${b} ist der Handelsname von ${l}, Einzelunternehmen.`,
-    defaultReason: b => `Sie erhalten diese E-Mail, weil Sie bei ${b} registriert sind.`
-  },
-  es: {
-    privacyRequests: "Para solicitudes sobre tus datos personales:",
-    tradeName: (b, l) => `${b} es el nombre comercial de ${l}, empresario individual.`,
-    defaultReason: b => `Recibes este correo porque estás registrado en ${b}.`
-  }
+const FOOTER_COPY: Record<EmailLang, { support: string; privacy: string; terms: string }> = {
+  it: { support: "Assistenza", privacy: "Privacy", terms: "Termini" },
+  en: { support: "Support", privacy: "Privacy", terms: "Terms" },
+  fr: { support: "Assistance", privacy: "Confidentialité", terms: "Conditions" },
+  de: { support: "Hilfe", privacy: "Datenschutz", terms: "AGB" },
+  es: { support: "Ayuda", privacy: "Privacidad", terms: "Términos" }
 };
 
-/**
- * Footer email standard con dati legali per email transazionali.
- * Da usare nelle 4 edge functions email (send-otp, join-waitlist, send-tenant-invite, submit-review).
- *
- * `reason` opzionale sostituisce la riga "Hai ricevuto questa email perché sei registrato su ...".
- * Da usare per email a destinatari NON registrati (es. clienti che hanno richiesto una
- * prenotazione presso una sede tramite la piattaforma). Senza `reason` il comportamento è
- * invariato (utenti registrati).
- *
- * `lang` opzionale traduce le due frasi nostre del footer. Serve alle email di
- * prenotazione, che parlano la lingua del cliente: un blocco legale italiano in
- * fondo a un'email tedesca è esattamente l'incoerenza che quelle email
- * eliminano. Omesso o non supportato → italiano, quindi tutti i chiamanti
- * storici producono output identico al carattere.
- */
-export function getEmailFooterText(reason?: string, lang?: string | null): string {
+export interface EmailFooterOptions {
+  /**
+   * Il perché della mail, già nella lingua giusta. Solo per chi non ha un
+   * account (il cliente finale di una prenotazione): il ristoratore sa perché
+   * riceve le mail del suo gestionale.
+   */
+  reason?: string;
+  /** Lingua delle etichette dei link. Omessa → italiano. */
+  lang?: string | null;
+  /** Dati legali completi: solo nelle mail commerciali. */
+  legal?: boolean;
+}
+
+function legalLine(): string {
   const c = COMPANY;
-  const f = FOOTER_COPY[resolveEmailLang(lang)];
-  const addr = `${c.legalAddress.street}, ${c.legalAddress.streetNumber}, ${c.legalAddress.postalCode} ${c.legalAddress.city} (${c.legalAddress.province})`;
-  const reasonLine = reason ?? f.defaultReason(c.businessName);
-  return `
----
-${c.businessName}
-${addr}
-P.IVA: ${c.vatNumber}
-Email: ${c.contact.support}
-Privacy: ${c.web.privacyUrl}
+  const a = c.legalAddress;
+  return `${c.legalName} · ${a.street} ${a.streetNumber}, ${a.postalCode} ${a.city} (${a.province}) · P.IVA ${c.vatNumber}`;
+}
 
-${reasonLine}
-${f.privacyRequests} ${c.contact.privacy}
-
-${f.tradeName(c.businessName, c.legalName)}
-`.trim();
+/** Footer in testo semplice, per la parte `text` delle email. */
+export function getEmailFooterText(opts: EmailFooterOptions = {}): string {
+  const c = COMPANY;
+  const lines = [
+    "—",
+    `${c.businessName} · ${c.contact.support} · ${c.web.privacyUrl}`
+  ];
+  if (opts.reason) lines.push(opts.reason);
+  if (opts.legal) lines.push(legalLine());
+  return lines.join("\n");
 }
 
 /**
- * Versione HTML del footer per email transazionali HTML.
- * `reason` e `lang` opzionali: vedi doc su getEmailFooterText.
+ * Footer HTML, fuori dalla scheda della mail. Gli stili sono inline perché i
+ * client di posta tolgono `<style>`.
  */
-export function getEmailFooterHtml(reason?: string, lang?: string | null): string {
+export function getEmailFooterHtml(opts: EmailFooterOptions = {}): string {
   const c = COMPANY;
-  const f = FOOTER_COPY[resolveEmailLang(lang)];
-  const addr = `${c.legalAddress.street}, ${c.legalAddress.streetNumber}, ${c.legalAddress.postalCode} ${c.legalAddress.city} (${c.legalAddress.province})`;
-  const reasonLine = reason ?? f.defaultReason(c.businessName);
-  return `
-<div style="margin-top: 32px; padding-top: 16px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #6b7280; line-height: 1.5;">
-  <div style="margin-bottom: 8px;"><strong>${c.businessName}</strong></div>
-  <div>${addr}</div>
-  <div>P.IVA: ${c.vatNumber}</div>
-  <div style="margin-top: 8px;">
-    <a href="mailto:${c.contact.support}" style="color: #6b7280;">${c.contact.support}</a> ·
-    <a href="${c.web.privacyUrl}" style="color: #6b7280;">Privacy Policy</a>
-  </div>
-  <div style="margin-top: 12px; font-size: 11px;">
-    ${reasonLine}<br>
-    ${f.privacyRequests} <a href="mailto:${c.contact.privacy}" style="color: #6b7280;">${c.contact.privacy}</a>
-  </div>
-  <div style="margin-top: 12px; font-size: 10px; color: #9ca3af;">
-    ${f.tradeName(c.businessName, c.legalName)}
-  </div>
-</div>
-`.trim();
+  const f = FOOTER_COPY[resolveEmailLang(opts.lang)];
+  const link = (href: string, label: string) =>
+    `<a href="${href}" style="color:#6b7280;text-decoration:underline">${label}</a>`;
+  const extra: string[] = [];
+  if (opts.reason) extra.push(`<p style="margin:8px 0 0">${opts.reason}</p>`);
+  if (opts.legal) extra.push(`<p style="margin:8px 0 0">${legalLine()}</p>`);
+  return `<p style="margin:0"><strong style="color:#374151">${c.businessName}</strong> · ${link(`mailto:${c.contact.support}`, f.support)} · ${link(c.web.privacyUrl, f.privacy)} · ${link(c.web.termsUrl, f.terms)}</p>${extra.join("")}`;
 }

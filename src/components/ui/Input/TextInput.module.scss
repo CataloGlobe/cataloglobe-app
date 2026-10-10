@@ -1,3 +1,4 @@
+@use "@styles/mixins" as *;
 // Input di testo (Text/Number/Search/Date/Time/Color condividono questo
 // modulo) — scheda «FormField». Solo token: altezza --control-height,
 // bordo 1px, raggio --radius-control. Nessun override per tema: i token
@@ -52,6 +53,7 @@
   &:read-only:not(:disabled) {
     background: transparent;
   }
+  @include touch-input-font;
 }
 
 /* adornments: icona 16, colore attenuato */

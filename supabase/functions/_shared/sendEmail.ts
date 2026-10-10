@@ -5,7 +5,7 @@ import { COMPANY } from "./company-config.ts";
 // ---------------------------------------------------------------------------
 // Helper email condiviso. Non-throwing per definizione: l'invio è SEMPRE
 // best-effort e non può far fallire l'operazione chiamante (es. billing).
-// From/reply_to centralizzati su company-config (dominio verificato Resend).
+// From/replyTo centralizzati su company-config (dominio verificato Resend).
 // ---------------------------------------------------------------------------
 
 export async function sendEmail(opts: {
@@ -23,7 +23,7 @@ export async function sendEmail(opts: {
         // Resend v4 non lancia sugli errori API: li restituisce in `error`.
         const { error } = await new Resend(key).emails.send({
             from: COMPANY.email.sender,
-            reply_to: COMPANY.contact.support,
+            replyTo: COMPANY.contact.support,
             to: opts.to,
             subject: opts.subject,
             html: opts.html,
@@ -48,7 +48,7 @@ export async function sendEmailWithResult(opts: { to: string; subject: string; h
     try {
         const { error } = await new Resend(key).emails.send({
             from: COMPANY.email.sender,
-            reply_to: COMPANY.contact.support,
+            replyTo: COMPANY.contact.support,
             to: opts.to,
             subject: opts.subject,
             html: opts.html,

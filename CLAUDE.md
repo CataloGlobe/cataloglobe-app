@@ -295,8 +295,7 @@ CRM interno in `/admin` (lead, agenti, costi). Non appartiene a nessuna azienda.
 - **Pausa agenti** (`crm_settings.brake_on`, parte attiva): la mettono `/admin`, Telegram, i tetti di spesa AI e la salute del canale WhatsApp; la toglie solo una persona (trigger `crm_settings_agent_guard`, `crm_set_brake`). `crm_ai_gate` prima di ogni chiamata a Claude, `crm_record_ai_usage` dopo.
 - **Edge**: `crm-notify`, `crm-telegram-webhook`, `crm-wa`, `crm-sync-accounts`, `crm-purge`, `crm-agent-check` (nel repo, non ancora rilasciata); `crm-meta-webhook` resta spenta (mai rilasciata). Auth fail-closed con `X-Job-Secret` = `CRM_JOB_SECRET` per i job.
 - **Cron** (pg_cron): `crm-sync-landing-leads` (ogni minuto, solo SQL: legge `public.leads` senza modificarla), `crm-notify` (ogni minuto, solo se c'è lavoro), `crm-sync-accounts` (15 min), `crm-purge` (04:15 UTC, 12 mesi, dry-run di default), `crm-expense-reminders` (9 di Roma). Vault: `crm_job_secret`, `crm_notify_url`, `crm_sync_accounts_url`, `crm_purge_url`.
-- **Ordine di rilascio**: migration su staging prima del merge della PR, e sempre prima del deploy delle edge che le usano (una edge attiva che chiama una RPC che manca va in 500).
-- **Applicazione su staging**: MCP `execute_sql` su `lxeawrpjfphgdspueiag`, un file per chiamata, in una transazione che finisce con `INSERT INTO supabase_migrations.schema_migrations (version, name)`. Dopo, verificare sul live: oggetti, `has_function_privilege`, registrazione.
+- **Ordine di rilascio**: migration prima del deploy delle edge che la usano (una edge attiva che chiama una RPC che manca va in 500). Applicazione su staging come tutte le altre: CLI dalla cartella principale subito dopo il merge (`### CLI Supabase`). Dopo, verificare sul live: oggetti, `has_function_privilege`, registrazione.
 
 ## Database
 
@@ -502,6 +501,26 @@ Utile per task multi-step complessi, dannoso per task tattici (overhead di plann
 
 **Skip brainstorm/write-plan se il prompt utente è già strutturato** (≥2 marker: file espliciti con path, vincolo "NON leggere altro", obiettivo single-concern dichiarato, vincoli "non toccare X"). In quel caso esecuzione diretta. TDD e review-tra-task restano attive.
 
+### Rami e cartelle
+
+Flusso unico per Alex, Lorenzo e ogni sessione (deciso da Lorenzo il 2026-10-08; nel brain `wiki/decisioni/flusso-git-e-rilasci.md`).
+- `main` = produzione, `staging` = collaudo: solo via PR.
+- Un lavoro = un ramo corto da `origin/staging` (`fix/…`, `feat/…`, `docs/…`) = una PR piccola verso `staging`. La descrizione dice se ci sono migration o edge. Alex lavora su `officina`, PR `officina` → `staging` a pezzi.
+- Due cartelle: `CataloGlobe/` (principale, sempre su `staging` pulito e allineato: prove, `db push`, deploy) e `../cg-lavoro` (cartella di lavoro, cambia ramo col lavoro). Una seconda cartella di lavoro solo per due sessioni davvero in parallelo, tolta a PR unita.
+- PR unita: ramo cancellato da GitHub in automatico, poi `git branch -d` in locale e cartella in più tolta.
+- Push del ramo a fine sessione.
+- Rilasci in produzione piccoli e frequenti (3-5 PR provate, circa una volta a settimana): PR `staging` → `main` con runbook corto. Se staging ha lavoro non pronto: ramo di rilascio da `main` con le sole modifiche pronte, poi riportate su `staging`.
+
+### Ramo `officina` (Alex)
+
+Alex fa solo interfaccia e lavora su un ramo lungo, `officina`, contro il database di staging (deciso da Lorenzo il 2026-10-08). Una sessione su `officina` segue questa routine.
+- **Inizio sessione**: `git switch officina && git pull`. Dopo ogni merge su `staging` (o almeno una volta a settimana): `git fetch && git merge origin/staging` e push. Con conflitti ci si ferma: promemoria a Lorenzo nel brain, niente risoluzioni a caso.
+- **Durante**: commit piccoli; tsc, eslint e vitest prima del push; e2e solo `bash scripts/e2e.sh e2e/<spec>.spec.ts`. Prove su tenant di prova (es. «REDESIGN»), mai McDonald's o San Pietro.
+- **Fine sessione**: push di `officina`.
+- **Pezzo pronto**: la PR `officina` → `staging` porta tutto ciò che c'è sul ramo, quindi si apre solo quando tutto `officina` può andare su staging (niente lavoro a metà). Descrizione: cosa cambia e cosa provare. Poi promemoria a Lorenzo. Lorenzo rivede e unisce con **merge commit, mai squash** (con lo squash `officina` resterebbe con commit «già unito» in conflitto a ogni giro); poi `staging` torna in `officina`.
+- **Database**: niente migration, `db push`, deploy di edge, SQL di scrittura, né su staging né in produzione. Se serve una modifica: promemoria a Lorenzo, che la fa con un suo ramo verso `staging`; arrivata su staging, si porta in `officina` col merge sopra.
+- **Mai**: push su `staging` o `main`, merge di PR, `rebase` o force push di `officina`, cartelle in più, rami nuovi senza dirlo a Lorenzo.
+
 ### Commit
 
 - Standard: `commit-commands` (`/commit`, `/commit-push-pr`).
@@ -547,9 +566,12 @@ Nessuna query al DB di produzione da una sessione Claude, nemmeno in lettura. Pe
 Progetti: **staging** `lxeawrpjfphgdspueiag`, **produzione** `qomnpzerhbtstbnwxnqc`. Cartella principale e worktree sono collegati a staging (`supabase/.temp/project-ref`); una sessione che la trova collegata a produzione si ferma e lo dice. `supabase db push`, `supabase link` e `supabase functions deploy` su produzione li lancia solo Lorenzo, mai una sessione Claude. In `.claude/settings.json` questi comandi (più `migration repair`) sono in `permissions.ask`. Il 30/09 un `db push` partito dalla cartella principale ha applicato su staging migration non committate di un'altra sessione.
 
 **`supabase db push` (staging) dalla cartella principale** (`CataloGlobe/`, su `staging` allineato a `origin/staging`; deciso da Lorenzo il 2026-10-08, dopo la pulizia che ha tolto il worktree `cataloglobe-ds`). Il push applica tutte le migration presenti nella cartella, anche quelle non committate di un'altra sessione: per questo si parte solo da cartella pulita.
-1. `git pull` su `staging`, la migration committata (e unita) è lì; `git status --short supabase/migrations` deve essere vuoto. Il lavoro sui rami si fa nei worktree, non qui.
+1. `git pull` su `staging`, la migration committata (e unita) è lì; `git status --short supabase/migrations` deve essere vuoto. Il lavoro sui rami si fa nella cartella di lavoro (`### Rami e cartelle`), non qui.
 2. `supabase db push --dry-run --include-all`: leggere l'elenco, deve contenere solo le migration attese.
 3. `supabase db push --include-all`. `--include-all` sempre: senza, una migration con timestamp anteriore all'ultima applicata viene saltata.
+4. Subito dopo, le sole edge function toccate dalla PR: `supabase functions deploy <nome> --project-ref lxeawrpjfphgdspueiag`.
+
+Metodo unico (deciso da Lorenzo il 2026-10-08): niente migration applicate a mano via MCP `execute_sql` o Studio, salvo emergenza o il caso `42601` (`## Database`, `docs/patterns/storage-sql.md`). In produzione stesso metodo, solo al rilascio e solo Lorenzo; edge solo quelle cambiate dall'ultimo rilascio (`git diff --name-only origin/main...origin/staging -- supabase/functions`), non tutte.
 
 **Timestamp delle migration**: sessioni parallele scelgono lo stesso numero e `db push` non avvisa. `ls supabase/migrations` prima di nominare, `list_migrations` su staging dopo. Caso noto: `20260929170000` è `account_deletion_functions_empty_search_path` perché un'altra sessione l'aveva già applicata su staging con quel numero; la guardia di `upsert_manual_translation` è stata rinumerata a `20260929170200` (commit `3b2989c5`). Le due migration non hanno legami.
 

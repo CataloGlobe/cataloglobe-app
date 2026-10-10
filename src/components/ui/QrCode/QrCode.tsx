@@ -196,6 +196,7 @@ export const QrCode = forwardRef<QrCodeHandle, Props>(function QrCode(
                     bgColor={bgColor}
                     imageSettings={imageSettings}
                     className={className}
+                    aria-label={`QR di ${value}`}
                 />
                 {menu}
             </>

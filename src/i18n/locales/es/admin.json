@@ -5,6 +5,20 @@
     "languages": {
         "title": "Idiomas",
         "description": "Active los idiomas a los que desea traducir su menú público. El contenido existente se traducirá automáticamente en cuestión de minutos.",
+        "base_label": "Idioma base",
+        "base_source": "{{count}} elementos · fuente de traducción",
+        "base_source_empty": "Fuente de traducción",
+        "summary": {
+            "active_count": "{{count}} idiomas activos",
+            "translatable": "{{count}} elementos traducibles",
+            "queued": "{{count}} en cola",
+            "has_errors": "algunos por resolver",
+            "all_done": "todo al día",
+            "badge_queued": "En curso",
+            "badge_errors": "Por corregir",
+            "badge_done": "Al día",
+            "auto_note": "el contenido existente se traduce en pocos minutos"
+        },
         "italian_base": "Su contenido está en italiano (lengua básica).",
         "review": {
             "title": "Por revisar",
@@ -40,12 +54,34 @@
                 "label": "Etiqueta"
             }
         },
+        "coverage": {
+            "fraction": "{{fresh}} / {{total}} al día",
+            "up_to_date": "Al día",
+            "queued": "{{count}} en cola",
+            "to_review": "{{count}} por revisar",
+            "to_review_hint": "Algunas traducciones no están al día con la fuente en italiano. Revísalas desde la página de cada elemento.",
+            "last_updated": "actualizado {{time}}",
+            "inactive_hint": "No visible para los clientes"
+        },
         "activated": "{{lang}} activado. {{count}} contenidos por actualizar.",
         "activated_no_jobs": "{{lang}} activado. No hay contenido nuevo que traducir.",
         "deactivated": "{{lang}} desactivado.",
         "confirm_title": "¿Activar {{lang}}?",
         "confirm_description": "Traduciremos automáticamente sus productos, categorías y otros contenidos. Estará disponible en cuestión de minutos.",
         "confirm_button": "Activar",
+        "progress": {
+            "title": "Estado de las traducciones",
+            "in_progress": "{{count}} elementos en curso",
+            "errors_count": "{{count}} errores",
+            "retry_all": "Reintentar {{count}} elementos fallidos",
+            "retrying": "Reintentando...",
+            "retry_success": "{{count}} elementos de nuevo en cola",
+            "retry_error": "Error al reintentar",
+            "completed": "Traducciones actualizadas",
+            "translated_aria": "Traducido",
+            "in_progress_aria": "En curso",
+            "retry_count_label": "{{count}} por reintentar"
+        },
         "read_only_role": "Solo lectura: activar y gestionar los idiomas corresponde a propietarios y administradores.",
         "read_only_subscription": "Solo lectura: la suscripción no está activa.",
         "load_error_desc": "Comprueba la conexión y vuelve a intentarlo.",

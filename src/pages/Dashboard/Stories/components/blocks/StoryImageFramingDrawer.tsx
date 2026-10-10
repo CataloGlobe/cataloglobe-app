@@ -96,7 +96,7 @@ export function StoryImageFramingDrawer({
                     </>
                 }
             >
-                <form
+                <form noValidate
                     id={FORM_ID}
                     className={styles.root}
                     onSubmit={e => {

@@ -1,5 +1,8 @@
 import { DISPOSABLE_EMAIL_DOMAINS } from '@/constants/disposableEmailDomains';
 
+/** Messaggio unico per un'email scritta male, sotto il campo. */
+export const INVALID_EMAIL_MESSAGE = "Inserisci un indirizzo email valido.";
+
 /**
  * Verifica il formato di un'email lato client.
  * Richiede un dominio con TLD esplicito (>= 2 caratteri): blocca `lo@gmail`,
