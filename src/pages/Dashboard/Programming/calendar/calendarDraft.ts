@@ -395,11 +395,13 @@ export function pairCovers(list: readonly CalEntry[], pair: CalEntry, seat: CalS
 // «Tieni da parte» la conserva per la scheda aperta (sessionStorage) mentre si va a creare
 // un menù, uno stile, un In evidenza: il Calendario la ripropone, un tunnel ne riprende il Quando e il Dove.
 const ASIDE_KEY = "calendario:da-parte";
+// un periodo senza fine è Infinity, che JSON scriverebbe come null (e alla ripresa la fine sarebbe il 1970)
+const INF = "\u221e";
 
 export function readAside(): Draft | null {
     try {
         const raw = sessionStorage.getItem(ASIDE_KEY);
-        return raw ? (JSON.parse(raw) as Draft) : null;
+        return raw ? (JSON.parse(raw, (_k, v) => (v === INF ? Infinity : v === "-" + INF ? -Infinity : v)) as Draft) : null;
     } catch {
         return null;
     }
@@ -407,7 +409,7 @@ export function readAside(): Draft | null {
 
 export function writeAside(d: Draft | null): void {
     try {
-        if (d) sessionStorage.setItem(ASIDE_KEY, JSON.stringify(d));
+        if (d) sessionStorage.setItem(ASIDE_KEY, JSON.stringify(d, (_k, v) => (v === Infinity ? INF : v === -Infinity ? "-" + INF : v)));
         else sessionStorage.removeItem(ASIDE_KEY);
     } catch {
         /* resta solo finché la pagina è aperta */

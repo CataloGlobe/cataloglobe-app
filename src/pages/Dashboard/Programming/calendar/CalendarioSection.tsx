@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
 import {
     ArrowLeft,
     ArrowRight,
@@ -124,6 +124,23 @@ export function CalendarioSection(p: CalendarioSectionProps) {
         return () => ro.disconnect();
     }, []);
     useEffect(() => setQy(""), [D?.kind, D?.mode]);
+    // la conferma prende il fuoco quando si apre (così Esc e Tab restano dentro) e lo rende quando si chiude
+    const dlg = useRef<HTMLDivElement>(null);
+    const asking = !!leave;
+    useEffect(() => {
+        if (!asking) return;
+        const back = document.activeElement as HTMLElement | null;
+        dlg.current?.querySelector<HTMLElement>("button")?.focus();
+        return () => back?.focus?.();
+    }, [asking]);
+    const trap = (ev: ReactKeyboardEvent) => {
+        if (ev.key === "Escape") return setLeave(null);
+        if (ev.key !== "Tab") return;
+        const bs = [...(dlg.current?.querySelectorAll<HTMLElement>("button:not(:disabled)") ?? [])];
+        const first = bs[0], last = bs[bs.length - 1];
+        if (ev.shiftKey && document.activeElement === first) { ev.preventDefault(); last?.focus(); }
+        else if (!ev.shiftKey && document.activeElement === last) { ev.preventDefault(); first?.focus(); }
+    };
 
     const edit = D?.mode === "edit";
     const dirty = !!D && D.orig !== snap(D);
@@ -385,7 +402,7 @@ export function CalendarioSection(p: CalendarioSectionProps) {
                                     })}
                                 </div>
                             ))}
-                            {!cats.size && <p className={s.muted} style={{ padding: 10 }}>Nessun piatto.</p>}
+                            {!cats.size && <p className={`${s.muted} ${s.pempty}`}>Nessun piatto.</p>}
                         </div>
                         <span className={s.muted}>{n ? n + (n === 1 ? " piatto scelto" : " piatti scelti") : "Nessun piatto scelto"}</span>
                     </div>
@@ -674,8 +691,8 @@ export function CalendarioSection(p: CalendarioSectionProps) {
             );
         }
         return (
-            <div className={s.iscrim} onKeyDown={ev => ev.key === "Escape" && setLeave(null)}>
-                <div className={s.idlg} role="alertdialog" aria-modal="true" aria-labelledby="cal-idlgt" aria-describedby="cal-idlgp">
+            <div className={s.iscrim} onKeyDown={trap}>
+                <div ref={dlg} className={s.idlg} role="alertdialog" aria-modal="true" aria-labelledby="cal-idlgt" aria-describedby="cal-idlgp">
                     <h3 id="cal-idlgt">{t}</h3>
                     <p id="cal-idlgp">{txt}</p>
                     {l.why === "new" && !ok && <p className={s.muted}>«Tieni da parte» la conserva: la riprendi da «Aggiungi» quando torni.</p>}

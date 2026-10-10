@@ -706,6 +706,25 @@ test.describe("Programmazione — calendario, simulatore, guida", () => {
         await expect(main(page).getByRole("complementary", { name: "Anteprima" })).toHaveCount(0);
     });
 
+    test("#337.7: la conferma della sezione prende il fuoco, Esc la chiude e il fuoco torna al pulsante", async ({ page }) => {
+        await openSeatList(page, SEDE.centro, "all");
+        await openCalendar(page);
+        await main(page).getByRole("button", { name: /^Disponibilità · / }).first().click();
+        await main(page).getByRole("button", { name: /^Stagionali Centro e2e · / }).first().click();
+        await main(page).getByRole("button", { name: "Modifica completa" }).click();
+        const togli = main(page).getByRole("button", { name: "Togli dal calendario" });
+        await togli.click();
+        const confirm = page.getByRole("alertdialog");
+        await expect(confirm.getByRole("heading", { name: "Togliere dal calendario?" })).toBeVisible();
+        await expect(confirm.getByRole("button", { name: "Annulla" })).toBeFocused();
+        // Tab non esce dalla conferma
+        await page.keyboard.press("Shift+Tab");
+        expect(await confirm.evaluate(el => el.contains(document.activeElement))).toBe(true);
+        await page.keyboard.press("Escape");
+        await expect(confirm).toHaveCount(0);
+        await expect(togli).toBeFocused();
+    });
+
     test("cablaggio: «Modifica completa» riscrive la regola com'è nella sezione", async ({ page }) => {
         stub.onWrite("schedules.PATCH", touched);
         stub.onWrite("schedule_visibility_overrides.DELETE", () => null);

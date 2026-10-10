@@ -355,6 +355,10 @@ describe("la bozza messa da parte", () => {
         D.when = { days: [0, 1, 2, 3, 4], ranges: [[720, 900]] };
         writeAside(D);
         expect(peekAside()).toEqual({ kind: "menu", when: D.when, where: D.where });
+        // un periodo senza fine resta senza fine (#337.7): JSON da solo ne farebbe null, cioè il 1970
+        D.when = { period: { from: dayNum(2026, 9, 12), to: Infinity } };
+        writeAside(D);
+        expect(peekAside()!.when.period).toEqual({ from: dayNum(2026, 9, 12), to: Infinity });
         dropAside();
         expect(peekAside()).toBeNull();
         vi.unstubAllGlobals();
