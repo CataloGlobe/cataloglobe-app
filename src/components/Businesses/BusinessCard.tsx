@@ -144,7 +144,9 @@ export default function BusinessCard({
             onClick: () => onLeave(tenant.id),
             variant: "destructive",
             separator: true,
-            hidden: isOwner || !isActivated
+            // Uscire non dipende dall'abbonamento: chi è stato invitato in un'attività
+            // non ancora attivata deve poterla lasciare (non può eliminarla).
+            hidden: isOwner
         },
         {
             label: "Elimina attività",
