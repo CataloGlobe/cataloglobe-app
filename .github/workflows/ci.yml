@@ -9,11 +9,8 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
-    # Solo su push a staging/main, non sulle PR: 218 errori pre-esistenti
-    # (no-explicit-any, @ts-nocheck) lo tengono rosso. Riabilitare sulle PR
-    # e togliere continue-on-error quando il lint torna verde.
-    if: github.event_name == 'push'
-    continue-on-error: true
+    # Su PR e push: dalla #381 eslint ha 0 errori, una PR che ne porta di
+    # nuovi diventa rossa. Gli avvisi non fermano.
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
