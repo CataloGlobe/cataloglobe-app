@@ -58,11 +58,10 @@ export async function fetchMyPermissions(tenantId: string): Promise<UserPermissi
  * mappa: si resta ai permessi del ruolo più alto, come prima.
  */
 async function fetchActivitiesByPermission(tenantId: string): Promise<Map<string, string[]> | undefined> {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- RPC nuova, non ancora nei tipi generati
-    const { data, error } = await (supabase.rpc as any)("get_my_permission_activities", { p_tenant_id: tenantId });
+    const { data, error } = await supabase.rpc("get_my_permission_activities", { p_tenant_id: tenantId });
     if (error || !Array.isArray(data)) return undefined;
     const map = new Map<string, string[]>();
-    for (const row of data as { permission_id: string; activity_ids: string[] | null }[]) {
+    for (const row of data) {
         map.set(row.permission_id, row.activity_ids ?? []);
     }
     return map;

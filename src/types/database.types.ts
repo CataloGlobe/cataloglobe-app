@@ -6039,6 +6039,13 @@ export type Database = {
           tenant_name: string
         }[]
       }
+      get_my_permission_activities: {
+        Args: { p_tenant_id: string }
+        Returns: {
+          activity_ids: string[]
+          permission_id: string
+        }[]
+      }
       get_my_permissions: {
         Args: { p_tenant_id: string }
         Returns: {
