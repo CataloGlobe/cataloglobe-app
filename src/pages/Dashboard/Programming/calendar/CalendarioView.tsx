@@ -42,6 +42,8 @@ import {
     blankDraft,
     cloneDraft,
     draftEntry,
+    draftPairEntry,
+    pairCovers,
     draftFromEntry,
     draftLabel,
     hoursText,
@@ -754,15 +756,19 @@ export default function CalendarioView({
     };
 
     // l'anteprima: il calendario con la bozza dentro
+    const pairKinds = (k: CalKind) => k === "menu" || k === "style";
     const pvEntry = useMemo(() => (draft ? draftEntry(draft, L, nowDate.getTime()) : null), [draft, L, nowDate]);
+    const pvPair = useMemo(() => (draft ? draftPairEntry(draft, L, nowDate.getTime()) : null), [draft, L, nowDate]);
     const pvList = useMemo(() => {
         if (!draft) return null;
         let list: CalEntry[] = entries;
         const r = draft.rule;
         if (r && draft.kind === "featured" && draft.only) list = list.filter(e => e.id !== `${r.id}:featured:${draft.only}`);
-        else if (r && !draft.only) list = list.filter(e => !(e.ruleId === r.id && e.kind === draft.kind));
-        return pvEntry ? [...list, pvEntry] : list;
-    }, [draft, entries, pvEntry]);
+        // menù e stile stanno nella stessa regola: in modifica escono tutti e due
+        else if (r && !draft.only)
+            list = list.filter(e => !(e.ruleId === r.id && (e.kind === draft.kind || (pairKinds(draft.kind) && pairKinds(e.kind)))));
+        return pvEntry ? [...list, pvEntry, ...(pvPair ? [pvPair] : [])] : list;
+    }, [draft, entries, pvEntry, pvPair]);
     const pvAx = useMemo(() => (pvList ? axisFor(pvList) : axis), [pvList, axis]);
     const pvReach = pvEntry ? shown.filter(x => specFor(pvEntry, seatOf(x.id)) !== null) : shown;
     const pvSedi = pvReach.length ? pvReach : pvEntry ? sedi.filter(x => specFor(pvEntry, seatOf(x.id)) !== null).slice(0, 1) : shown.slice(0, 1);
@@ -802,6 +808,14 @@ export default function CalendarioView({
                 out.push(`${wk} è in onda ${days} ${days === 1 ? "giorno" : "giorni"}, ${hoursText(mins)} in tutto.`);
                 if (cov.size) out.push(`Prende il posto di ${listIt([...cov].map(q))} quando si sovrappongono.`);
                 if (by.size) out.push(`Per ${hoursText(off)} non si vede: lo copre ${listIt([...by].map(q))}.`);
+            }
+            // lo stile porta con sé il suo menù (e viceversa), che nella sua corsia può coprire altro
+            if (pvPair && (mins || off)) {
+                const pc = pairCovers(pvList, pvPair, seat, week, pvAx);
+                out.push(
+                    `Porta con sé ${pvPair.kind === "menu" ? "il menù" : "lo stile"} ${q(pvPair.thing)}` +
+                        (pc.length ? `, che prende il posto di ${listIt(pc.map(q))} quando si sovrappongono.` : ".")
+                );
             }
             const k = out.join("\n");
             groupsOf.set(k, [...(groupsOf.get(k) ?? []), x.name]);

@@ -9,14 +9,18 @@
 import type { LayoutRule } from "@/services/supabase/layoutScheduling";
 import {
     KIND_LABEL,
+    dayCtx,
     dayParts,
     durLabel,
     eur,
+    fLines,
     hhmm,
     whenOfRule,
     whereOfRule,
+    type Axis,
     type CalEntry,
     type CalKind,
+    type CalSeat,
     type CalWhen,
     type CalWhere,
     type DayNum
@@ -363,6 +367,28 @@ export function draftEntry(D: Draft, L: DraftLookups, now: number): CalEntry | n
         rule: D.rule as LayoutRule,
         preview: true
     };
+}
+
+/**
+ * Il compagno della bozza nella stessa regola Layout: il menù abbinato a uno
+ * stile, o lo stile abbinato a un menù. Va in onda con lei, stesso quando e
+ * dove, e compete nella sua corsia: l'anteprima deve saperlo.
+ */
+export function draftPairEntry(D: Draft, L: DraftLookups, now: number): CalEntry | null {
+    if ((D.kind !== "menu" && D.kind !== "style") || !D.pair || !D.thing) return null;
+    const main = draftEntry(D, L, now);
+    if (!main) return null;
+    const kind = D.kind === "menu" ? "style" : "menu";
+    return { ...main, id: "draft:" + kind, kind, thing: pairName(D, L)! };
+}
+
+/** Chi copre il compagno nella sua corsia, nei sette giorni da `week`, per quella sede. */
+export function pairCovers(list: readonly CalEntry[], pair: CalEntry, seat: CalSeat, week: DayNum, axis: Axis): string[] {
+    const cov = new Set<string>();
+    for (let i = 0; i < 7; i++)
+        for (const l of fLines(dayCtx(list, pair.kind, seat, week + i), axis))
+            if (l.thing === pair.thing) for (const g of l.segs) if (g.state === "on" && g.pv) g.covers.forEach(c => cov.add(c));
+    return [...cov];
 }
 
 /* ---------- la bozza messa da parte ---------- */

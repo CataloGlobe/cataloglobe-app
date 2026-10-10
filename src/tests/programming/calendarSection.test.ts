@@ -20,6 +20,8 @@ import {
     dropAside,
     peekAside,
     draftFromEntry,
+    draftPairEntry,
+    pairCovers,
     invalid,
     isDirty,
     missing,
@@ -27,7 +29,7 @@ import {
     writeAside,
     type DraftLookups
 } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
-import { dayCtx, dayNum, entriesFromRules, fState, order, why } from "@/pages/Dashboard/Programming/calendar/calendarModel";
+import { axisFor, dayCtx, dayNum, entriesFromRules, fState, order, why } from "@/pages/Dashboard/Programming/calendar/calendarModel";
 import { compareCandidates, specificityFor } from "@shared/scheduleCompetition";
 import { dropDraft, PartialSaveError, saveDraft } from "@/pages/Dashboard/Programming/calendar/calendarSave";
 
@@ -172,6 +174,32 @@ describe("chi vince a parità (#337.1)", () => {
             .sort(compareCandidates)
             .map(x => x.rule.id);
         expect(cal).toEqual(pub);
+    });
+});
+
+describe("l'anteprima di uno stile porta il menù abbinato (#337.6)", () => {
+    const seat = { activityId: "a1", groupIds: [] };
+    const carta = rule({ applyToAll: true, activityIds: [], time_mode: "always", layout: { catalog_id: "c1", style_id: "s1" } as LayoutRule["layout"] });
+
+    it("la bozza di uno stile ha una voce anche per il suo menù, che nella corsia dei menù copre gli altri", () => {
+        const D = blankDraft("style", { all: false, activityIds: ["a1"], groupIds: [] }, "c2");
+        expect(draftPairEntry(D, L, 0)).toBeNull(); // finché lo stile non è scelto non c'è niente da mostrare
+        D.thing = "s1";
+        const pair = draftPairEntry(D, L, 0)!;
+        expect(pair).toMatchObject({ kind: "menu", thing: "Pranzo", preview: true });
+        const list = [...entriesFromRules([carta], names), draftEntry(D, L, 0)!, pair];
+        const week = dayNum(2026, 8, 21);
+        expect(fState(dayCtx(list, "menu", seat, week), 12 * 60).onda).toEqual(["Pranzo"]);
+        expect(pairCovers(list, pair, seat, week, axisFor(list))).toEqual(["Alla carta"]);
+    });
+
+    it("senza abbinato, o per un piatto, non c'è nessuna voce in più", () => {
+        const D = blankDraft("style", ALL, null);
+        D.thing = "s1";
+        expect(draftPairEntry(D, L, 0)).toBeNull();
+        const P = blankDraft("price", ALL, "c2");
+        P.picks = ["p1"];
+        expect(draftPairEntry(P, L, 0)).toBeNull();
     });
 });
 
