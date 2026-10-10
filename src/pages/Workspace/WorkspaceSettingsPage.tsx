@@ -14,7 +14,7 @@ import {
     type ImageUploadEditorResult
 } from "@/components/ui/ImageUploadEditor";
 import { PasswordRequirements } from "@/components/ui/PasswordRequirements/PasswordRequirements";
-import { isStrongPassword, isWeakPasswordError } from "@utils/validatePassword";
+import { isStrongPassword, weakPasswordMessage } from "@utils/validatePassword";
 import { useAuth } from "@/context/useAuth";
 import { useToast } from "@/context/Toast/ToastContext";
 import {
@@ -255,8 +255,9 @@ export default function WorkspaceSettingsPage() {
             setShowPasswordModal(false);
             showToast({ message: "Password aggiornata con successo", type: "success" });
         } catch (err) {
-            if (err instanceof Error && isWeakPasswordError(err.message)) {
-                setPasswordError("La password non soddisfa i requisiti di sicurezza.");
+            const weak = weakPasswordMessage(err);
+            if (weak) {
+                setPasswordError(weak);
             } else {
                 setPasswordError("Non è stato possibile aggiornare la password. Riprova.");
             }

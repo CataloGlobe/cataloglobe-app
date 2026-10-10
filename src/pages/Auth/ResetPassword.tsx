@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { CheckCircle, Clock, KeyRound } from "lucide-react";
 import { supabase } from "@/services/supabase/client";
 import { Button, PasswordRequirements } from "@/components/ui";
-import { isStrongPassword, isWeakPasswordError } from "@utils/validatePassword";
+import { isStrongPassword, weakPasswordMessage } from "@utils/validatePassword";
 import { AuthLayout } from "@/layouts/AuthLayout/AuthLayout";
 import { PasswordField } from "./PasswordField";
 import styles from "./Auth.module.scss";
@@ -79,10 +79,11 @@ export default function ResetPassword() {
 
             setSuccess(true);
         } catch (err) {
+            const weak = weakPasswordMessage(err);
             if (isExpiredTokenError(err)) {
                 setLinkExpired(true);
-            } else if (err instanceof Error && isWeakPasswordError(err.message)) {
-                setPasswordError("La password non soddisfa i requisiti di sicurezza.");
+            } else if (weak) {
+                setPasswordError(weak);
             } else {
                 setPasswordError("Non è stato possibile aggiornare la password. Riprova.");
             }
