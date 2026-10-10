@@ -12,6 +12,7 @@ import { trackEvent } from "@/services/analytics/publicAnalytics";
 import SearchPanelHeader, { type PanelView } from "./SearchPanelHeader";
 import QuickAllergenChips from "./QuickAllergenChips";
 import styles from "./SearchOverlay.module.scss";
+import { formatDecimal } from "@/utils/formatCurrency";
 
 // Ripristino dei pointer-events dopo l'uscita (220ms del fade + margine).
 // Serve solo nel caso limite in cui il pannello venga riaperto PRIMA che
@@ -143,9 +144,9 @@ function computeScore(item: CollectionViewSectionItem, q: string): number {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function formatPrice(item: CollectionViewSectionItem): { price: string; isFrom: boolean } | null {
-    if (item.from_price != null) return { price: `€${item.from_price.toFixed(2)}`, isFrom: true };
+    if (item.from_price != null) return { price: `€${formatDecimal(item.from_price)}`, isFrom: true };
     const p = item.effective_price ?? item.price;
-    return p != null ? { price: `€${p.toFixed(2)}`, isFrom: false } : null;
+    return p != null ? { price: `€${formatDecimal(p)}`, isFrom: false } : null;
 }
 
 export default function SearchOverlay({
