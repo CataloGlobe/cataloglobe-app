@@ -5,7 +5,7 @@
 // Funzioni pure: niente env, rete o DB. Gli URL arrivano già assoluti.
 
 import { getEmailFooterText } from "./company-config.ts";
-import { escapeHtml } from "./emailFormat.ts";
+import { escapeHtml, formatDateIt } from "./emailFormat.ts";
 import {
     PARAGRAPH_BODY,
     PARAGRAPH_NOTE,
@@ -117,5 +117,40 @@ export function buildWaitlistEmail(): EmailContent {
         `${lead}\nSe intanto hai domande, rispondi a questa mail.\n\n` +
         `Il team CataloGlobe\n\n` +
         getEmailFooterText({ legal: true });
+    return { subject, html, text };
+}
+
+export interface SignupReminderEmailArgs {
+    /** Ultimo giorno per confermare, "YYYY-MM-DD" (registrazione + 7 giorni). */
+    deleteAfter: string;
+    /** URL assoluto della pagina di accesso. Niente email nell'URL. */
+    loginUrl: string;
+}
+
+/**
+ * Promemoria a chi si è registrato e non ha confermato l'email: uno solo, due
+ * giorni dopo. Non porta un codice (quello della prima mail vale un'ora): dalla
+ * pagina di accesso «Mandami il codice di conferma» ne manda uno nuovo.
+ */
+export function buildSignupReminderEmail(args: SignupReminderEmailArgs): EmailContent {
+    const day = formatDateIt(args.deleteAfter);
+    const eUrl = escapeHtml(args.loginUrl);
+    const subject = "Manca un passo: conferma il tuo account CataloGlobe";
+    const deadline = `Se non lo confermi entro il ${day}, lo cancelliamo.`;
+    const html = renderCard(
+        [
+            renderTitle("Conferma il tuo account"),
+            `<p ${PARAGRAPH_BODY}>Ti sei registrato su CataloGlobe ma non hai ancora confermato l'email. ${deadline}</p>`,
+            `<p ${PARAGRAPH_BODY}>Entra con email e password: ti mandiamo un codice nuovo.</p>`,
+            renderButton("Conferma l'account", eUrl),
+            `<p ${PARAGRAPH_NOTE}>Se non ti sei registrato tu, ignora questa mail: l'account sparisce da solo.</p>`
+        ],
+        { preheader: deadline }
+    );
+    const text =
+        `Ti sei registrato su CataloGlobe ma non hai ancora confermato l'email. ${deadline}\n\n` +
+        `Entra con email e password, ti mandiamo un codice nuovo: ${args.loginUrl}\n\n` +
+        `Se non ti sei registrato tu, ignora questa mail: l'account sparisce da solo.\n\n` +
+        getEmailFooterText();
     return { subject, html, text };
 }

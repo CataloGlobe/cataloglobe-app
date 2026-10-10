@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
     buildLoginCodeEmail,
     buildRecoveryCodeEmail,
+    buildSignupReminderEmail,
     buildTenantInviteEmail,
     buildWaitlistEmail
 } from "./accountEmails.ts";
@@ -44,5 +45,16 @@ describe("mail dell'account", () => {
         expect(email.html).toContain("P.IVA");
         expect(email.text).toContain("P.IVA");
         expect(buildLoginCodeEmail("1").html).not.toContain("P.IVA");
+    });
+
+    it("promemoria di conferma: data di cancellazione nell'anteprima, link all'accesso", () => {
+        const email = buildSignupReminderEmail({
+            deleteAfter: "2026-10-17",
+            loginUrl: "https://cataloglobe.com/login"
+        });
+        expect(preheader(email.html)).toBe("Se non lo confermi entro il 17 ottobre 2026, lo cancelliamo.");
+        expect(email.html).toContain('href="https://cataloglobe.com/login"');
+        expect(email.text).toContain("https://cataloglobe.com/login");
+        expect(email.html).not.toContain("P.IVA");
     });
 });
