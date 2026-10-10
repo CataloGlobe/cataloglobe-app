@@ -3,10 +3,14 @@ import { usePageTitle } from "@/hooks/usePageTitle";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/services/supabase/client";
 import { useAuth } from "@/context/useAuth";
-import { Card } from "@/components/ui/Card/Card";
+import { Ban, CheckCircle, Clock, Link2Off, MailOpen, UserRound } from "lucide-react";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
 import { useToast } from "@/context/Toast/ToastContext";
+import { AuthLayout } from "@/layouts/AuthLayout/AuthLayout";
+import { ROLE_LABEL } from "@/constants/roles";
+import { listMyPendingInvites } from "@/services/supabase/team";
+import type { EffectiveRole } from "@/types/team";
 import styles from "./InvitePage.module.scss";
 
 type InviteInfo = {
@@ -18,12 +22,19 @@ type InviteInfo = {
     activity_names: string[];
 };
 
-const ROLE_DISPLAY: Record<string, string> = {
-    admin: "Admin",
-    manager: "Manager",
-    staff: "Staff",
-    viewer: "Viewer"
-};
+/**
+ * Chi ha invitato: get_invite_info_by_token non lo dà, get_my_pending_invites
+ * sì (stesso dato del modale del Workspace). Se non si trova la riga resta
+ * fuori, l'invito si accetta lo stesso.
+ */
+async function findInviterEmail(token: string): Promise<string | null> {
+    try {
+        const rows = await listMyPendingInvites();
+        return rows.find(r => r.invite_token === token)?.inviter_email ?? null;
+    } catch {
+        return null;
+    }
+}
 
 export default function InvitePage() {
     usePageTitle('Invito');
@@ -33,6 +44,7 @@ export default function InvitePage() {
     const { showToast } = useToast();
 
     const [invite, setInvite] = useState<InviteInfo | null>(null);
+    const [inviterEmail, setInviterEmail] = useState<string | null>(null);
     const [loadingInvite, setLoadingInvite] = useState(true);
     const [accepting, setAccepting] = useState(false);
     const [declining, setDeclining] = useState(false);
@@ -75,6 +87,7 @@ export default function InvitePage() {
                 setNotFound(true);
             } else {
                 setInvite(row as InviteInfo);
+                if (row.status === "pending") setInviterEmail(await findInviterEmail(token));
             }
             setLoadingInvite(false);
         };
@@ -145,171 +158,124 @@ export default function InvitePage() {
         });
     };
 
-    // Auth resolving
-    if (authLoading) {
-        return (
-            <div className={styles.page}>
-                <Text variant="body" colorVariant="muted">
-                    Caricamento...
-                </Text>
-            </div>
-        );
-    }
+    const toWorkspace = () => navigate("/workspace");
 
-    // Invite loading (user is logged in, fetch in progress)
-    if (loadingInvite) {
-        return (
-            <div className={styles.page}>
-                <Text variant="body" colorVariant="muted">
-                    Caricamento invito...
-                </Text>
-            </div>
-        );
+    // Auth e invito in caricamento: solo il titolo, come le altre pagine di accesso.
+    if (authLoading || loadingInvite) {
+        return <AuthLayout heading="Caricamento invito…" />;
     }
 
     // CASE 1 — invite not found or token missing
     if (notFound || !invite) {
         return (
-            <div className={styles.page}>
-                <Card className={styles.card}>
-                    <div className={styles.header}>
-                        <Text variant="title-md" weight={700}>
-                            Link non valido
-                        </Text>
-                        <Text variant="body" colorVariant="muted">
-                            Invalid or expired invite link.
-                        </Text>
-                    </div>
-                    <Button variant="secondary" onClick={() => navigate("/workspace")}>
-                        Vai al workspace
-                    </Button>
-                </Card>
-            </div>
+            <AuthLayout
+                icon={<Link2Off size={28} aria-hidden="true" />}
+                tone="warning"
+                heading="Link non valido"
+                lead="Il link di invito non è valido o è scaduto. Chiedi un nuovo invito."
+            >
+                <Button variant="secondary" fullWidth onClick={toWorkspace}>
+                    Vai al workspace
+                </Button>
+            </AuthLayout>
         );
     }
 
     // CASE 1b — invite addressed to another account (server: invite email mismatch)
     if (wrongAccount) {
         return (
-            <div className={styles.page}>
-                <Card className={styles.card}>
-                    <div className={styles.header}>
-                        <Text variant="title-md" weight={700}>
-                            Invito per un altro account
-                        </Text>
-                        <Text variant="body" colorVariant="muted">
-                            Questo invito non è indirizzato a {user?.email ?? "questo account"}. Esci e
-                            accedi con l'email che ha ricevuto l'invito.
-                        </Text>
-                    </div>
-                    <div className={styles.actions}>
-                        <Button variant="primary" fullWidth onClick={handleSwitchAccount}>
-                            Esci e cambia account
-                        </Button>
-                        <Button variant="secondary" fullWidth onClick={() => navigate("/workspace")}>
-                            Vai al workspace
-                        </Button>
-                    </div>
-                </Card>
-            </div>
+            <AuthLayout
+                icon={<UserRound size={28} aria-hidden="true" />}
+                tone="warning"
+                heading="Invito per un altro account"
+                lead={`Questo invito non è indirizzato a ${user?.email ?? "questo account"}. Esci e accedi con l'email che ha ricevuto l'invito.`}
+            >
+                <div className={styles.actions}>
+                    <Button variant="primary" fullWidth onClick={handleSwitchAccount}>
+                        Esci e cambia account
+                    </Button>
+                    <Button variant="secondary" fullWidth onClick={toWorkspace}>
+                        Vai al workspace
+                    </Button>
+                </div>
+            </AuthLayout>
         );
     }
 
     // CASE 2 — already accepted
     if (invite.status === "active") {
         return (
-            <div className={styles.page}>
-                <Card className={styles.card}>
-                    <div className={styles.header}>
-                        <Text variant="title-md" weight={700}>
-                            Invito già accettato
-                        </Text>
-                        <Text variant="body" colorVariant="muted">
-                            Hai già accettato questo invito.
-                        </Text>
-                    </div>
-                    <Button variant="primary" onClick={() => navigate("/workspace")}>
-                        Vai al workspace
-                    </Button>
-                </Card>
-            </div>
+            <AuthLayout
+                icon={<CheckCircle size={28} aria-hidden="true" />}
+                heading="Invito già accettato"
+                lead={`Fai già parte di ${invite.tenant_name}.`}
+            >
+                <Button variant="primary" fullWidth onClick={toWorkspace}>
+                    Vai al workspace
+                </Button>
+            </AuthLayout>
         );
     }
 
     // CASE 3 — expired invite
     if (invite.status === "expired") {
         return (
-            <div className={styles.page}>
-                <Card className={styles.card}>
-                    <div className={styles.header}>
-                        <Text variant="title-md" weight={700}>
-                            Invito scaduto
-                        </Text>
-                        <Text variant="body" colorVariant="muted">
-                            Il link di invito è scaduto. Chiedi all'amministratore di inviarne uno nuovo.
-                        </Text>
-                    </div>
-                    <Button variant="secondary" onClick={() => navigate("/workspace")}>
-                        Vai al workspace
-                    </Button>
-                </Card>
-            </div>
+            <AuthLayout
+                icon={<Clock size={28} aria-hidden="true" />}
+                tone="warning"
+                heading="Invito scaduto"
+                lead="Il link di invito è scaduto. Chiedi a chi ti ha invitato di mandarne uno nuovo."
+            >
+                <Button variant="secondary" fullWidth onClick={toWorkspace}>
+                    Vai al workspace
+                </Button>
+            </AuthLayout>
         );
     }
 
     // CASE 4 — revoked invite
     if (invite.status === "revoked") {
         return (
-            <div className={styles.page}>
-                <Card className={styles.card}>
-                    <div className={styles.header}>
-                        <Text variant="title-md" weight={700}>
-                            Invito revocato
-                        </Text>
-                        <Text variant="body" colorVariant="muted">
-                            Questo invito è stato revocato. Contatta l'amministratore.
-                        </Text>
-                    </div>
-                    <Button variant="secondary" onClick={() => navigate("/workspace")}>
-                        Vai al workspace
-                    </Button>
-                </Card>
-            </div>
+            <AuthLayout
+                icon={<Ban size={28} aria-hidden="true" />}
+                tone="warning"
+                heading="Invito revocato"
+                lead="Questo invito è stato revocato. Chiedi a chi ti ha invitato."
+            >
+                <Button variant="secondary" fullWidth onClick={toWorkspace}>
+                    Vai al workspace
+                </Button>
+            </AuthLayout>
         );
     }
 
-    // CASE 5 — valid pending invite
+    // CASE 5 — valid pending invite: stessi dati e parole del modale del Workspace
     return (
-        <div className={styles.page}>
-            <Card className={styles.card}>
-                <div className={styles.header}>
-                    <Text variant="title-md" weight={700}>
-                        Sei stato invitato
-                    </Text>
-                    <Text variant="body" colorVariant="muted">
-                        Hai ricevuto un invito per unirti al team.
+        <AuthLayout
+            icon={<MailOpen size={28} aria-hidden="true" />}
+            heading="Invito ricevuto"
+            lead={`Ti hanno invitato nel team di ${invite.tenant_name}.`}
+        >
+            <dl className={styles.meta}>
+                <div className={styles.row}>
+                    <Text as="dt" variant="body-sm" colorVariant="muted">Attività</Text>
+                    <Text as="dd" variant="body" weight={600}>{invite.tenant_name}</Text>
+                </div>
+                {inviterEmail && (
+                    <div className={styles.row}>
+                        <Text as="dt" variant="body-sm" colorVariant="muted">Invitato da</Text>
+                        <Text as="dd" variant="body" weight={600}>{inviterEmail}</Text>
+                    </div>
+                )}
+                <div className={styles.row}>
+                    <Text as="dt" variant="body-sm" colorVariant="muted">Ruolo</Text>
+                    <Text as="dd" variant="body" weight={600}>
+                        {ROLE_LABEL[invite.effective_role as EffectiveRole] ?? invite.effective_role}
                     </Text>
                 </div>
-
-                <div className={styles.meta}>
-                    <Text variant="body-sm" colorVariant="muted">
-                        Attività
-                    </Text>
-                    <Text variant="body" weight={600}>
-                        {invite.tenant_name}
-                    </Text>
-
-                    <Text variant="body-sm" colorVariant="muted">
-                        Ruolo
-                    </Text>
-                    <Text variant="body" weight={600}>
-                        {ROLE_DISPLAY[invite.effective_role] ?? invite.effective_role}
-                    </Text>
-
-                    <Text variant="body-sm" colorVariant="muted">
-                        Sedi
-                    </Text>
-                    <Text variant="body" weight={600}>
+                <div className={styles.row}>
+                    <Text as="dt" variant="body-sm" colorVariant="muted">Sedi</Text>
+                    <Text as="dd" variant="body" weight={600}>
                         {invite.effective_role === "admin"
                             ? "Tutte le sedi"
                             : invite.activity_names.length === 0
@@ -317,28 +283,28 @@ export default function InvitePage() {
                                 : invite.activity_names.join(", ")}
                     </Text>
                 </div>
+            </dl>
 
-                <div className={styles.actions}>
-                    <Button
-                        variant="primary"
-                        fullWidth
-                        loading={accepting}
-                        disabled={declining}
-                        onClick={handleAccept}
-                    >
-                        Accetta invito
-                    </Button>
-                    <Button
-                        variant="danger"
-                        fullWidth
-                        loading={declining}
-                        disabled={accepting}
-                        onClick={handleDecline}
-                    >
-                        Declina invito
-                    </Button>
-                </div>
-            </Card>
-        </div>
+            <div className={styles.actions}>
+                <Button
+                    variant="primary"
+                    fullWidth
+                    loading={accepting}
+                    disabled={declining}
+                    onClick={handleAccept}
+                >
+                    Accetta invito
+                </Button>
+                <Button
+                    variant="secondary"
+                    fullWidth
+                    loading={declining}
+                    disabled={accepting}
+                    onClick={handleDecline}
+                >
+                    Declina invito
+                </Button>
+            </div>
+        </AuthLayout>
     );
 }
