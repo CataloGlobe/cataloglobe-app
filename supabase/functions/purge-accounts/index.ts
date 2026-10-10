@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import Stripe from "https://esm.sh/stripe@17?target=deno";
 import { stripeClientOptions } from "../_shared/stripe-helpers.ts";
 
@@ -306,8 +306,7 @@ serve(async (req: Request) => {
 
 async function processUser(
     userId: string,
-    // deno-lint-ignore no-explicit-any
-    supabase: any, // eslint-disable-line @typescript-eslint/no-explicit-any -- vedi deno-lint-ignore sopra
+    supabase: SupabaseClient,
     cutoffIso: string,
     dryRun: boolean
 ): Promise<UserResult> {

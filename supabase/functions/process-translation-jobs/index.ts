@@ -24,7 +24,7 @@
 // Ref: docs/translations-architecture-v3.md sez. 6.3.
 // =============================================================================
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getProviderForLanguage } from "../_shared/translation/router.ts";
 import { logAiUsage } from "../_shared/aiUsageLog.ts";
 import {
@@ -99,8 +99,7 @@ Deno.serve(async (req: Request) => {
 });
 
 // JobStore concreto su supabase-js. Ogni op normalizza l'output a {data?, error}.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- client supabase-js senza Database generics; JobStore normalizza l'output
-function createJobStore(supabase: any): JobStore {
+function createJobStore(supabase: SupabaseClient): JobStore {
     return {
         async claim(limit: number, maxAttempts: number): Promise<DbResult<PendingJob[]>> {
             const { data, error } = await supabase.rpc("claim_pending_translation_jobs", {

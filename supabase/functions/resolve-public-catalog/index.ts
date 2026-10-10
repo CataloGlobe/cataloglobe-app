@@ -3,7 +3,11 @@ import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
     resolveActivityCatalogs,
-    type ResolvedProduct
+    type ResolvedCategory,
+    type ResolvedCollections,
+    type ResolvedProduct,
+    type ResolvedVariant,
+    type V2FeaturedContent
 } from "../_shared/resolveActivityCatalogs.ts";
 import { toRomeDateTime } from "../_shared/schedulingNow.ts";
 import { VALID_SUBSCRIPTION_STATUSES } from "../_shared/checkOrderingState.ts";
@@ -69,8 +73,11 @@ function emptyIdSet(): EntityIdSet {
     };
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- catalogo risolto: JSON annidato percorso a mano
-function collectProductIds(p: any, ids: EntityIdSet): void {
+// Chiusura pubblica come la legge la select di activity_closures: qui servono
+// solo id e label.
+type PublicClosure = { id: string; label: string | null };
+
+function collectProductIds(p: ResolvedProduct | ResolvedVariant, ids: EntityIdSet): void {
     if (!p?.id) return;
     ids.productIds.add(p.id);
     for (const a of p.allergens ?? []) if (a?.id !== undefined && a?.id !== null) ids.allergenIds.add(String(a.id));
@@ -82,8 +89,10 @@ function collectProductIds(p: any, ids: EntityIdSet): void {
     }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- catalogo risolto: JSON annidato percorso a mano
-function collectIds(resolved: any, closures: any[] | null | undefined): EntityIdSet {
+function collectIds(
+    resolved: ResolvedCollections | null | undefined,
+    closures: PublicClosure[] | null | undefined
+): EntityIdSet {
     const ids = emptyIdSet();
 
     for (const cat of resolved?.catalog?.categories ?? []) {
@@ -132,13 +141,17 @@ function buildEntitiesArray(ids: EntityIdSet): Array<{ type: string; ids: string
     return entities;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- catalogo risolto: JSON annidato percorso a mano
-function setIfPresent(obj: any, field: string, key: string, map: Map<string, string>): void {
-    if (obj && map.has(key)) obj[field] = map.get(key);
+function setIfPresent<T extends object>(
+    obj: T | null | undefined,
+    field: keyof T & string,
+    key: string,
+    map: Map<string, string>
+): void {
+    const value = map.get(key);
+    if (obj && value !== undefined) Object.assign(obj, { [field]: value });
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- catalogo risolto: JSON annidato percorso a mano
-function applyProduct(p: any, map: Map<string, string>): void {
+function applyProduct(p: ResolvedProduct | ResolvedVariant, map: Map<string, string>): void {
     if (!p?.id) return;
 
     setIfPresent(p, "description", `product:${p.id}:description`, map);
@@ -181,8 +194,7 @@ function applyProduct(p: any, map: Map<string, string>): void {
     }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- catalogo risolto: JSON annidato percorso a mano
-function applyFeatured(f: any, map: Map<string, string>): void {
+function applyFeatured(f: V2FeaturedContent, map: Map<string, string>): void {
     if (!f?.id) return;
     setIfPresent(f, "title", `featured:${f.id}:title`, map);
     setIfPresent(f, "subtitle", `featured:${f.id}:subtitle`, map);
@@ -198,8 +210,7 @@ function applyFeatured(f: any, map: Map<string, string>): void {
     // Niente impatto immediato per MVP — pochi tenant usano `note` su featured products.
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- catalogo risolto: JSON annidato percorso a mano
-function applyCategory(cat: any, map: Map<string, string>): void {
+function applyCategory(cat: ResolvedCategory, map: Map<string, string>): void {
     if (!cat?.id) return;
     setIfPresent(cat, "name", `category:${cat.id}:name`, map);
     for (const p of cat.products ?? []) {
@@ -208,18 +219,15 @@ function applyCategory(cat: any, map: Map<string, string>): void {
     }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- catalogo risolto: JSON annidato percorso a mano
-function applyClosure(c: any, map: Map<string, string>): void {
+function applyClosure(c: PublicClosure, map: Map<string, string>): void {
     if (!c?.id) return;
     setIfPresent(c, "label", `closure:${c.id}:label`, map);
 }
 
 async function applyAllTranslations(
     supabase: ReturnType<typeof createClient>,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- catalogo risolto: JSON annidato percorso a mano
-    resolved: any,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- catalogo risolto: JSON annidato percorso a mano
-    closures: any[] | null | undefined,
+    resolved: ResolvedCollections | null | undefined,
+    closures: PublicClosure[] | null | undefined,
     tenantId: string,
     requestedLang: string
 ): Promise<void> {
