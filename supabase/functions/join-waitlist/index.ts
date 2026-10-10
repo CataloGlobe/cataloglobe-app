@@ -112,7 +112,7 @@ serve(async (req: Request) => {
         // ── Confirmation email (best-effort, only for genuinely new signups) ──
         if (!isDuplicate) resend.emails.send({
             from: COMPANY.email.sender,
-            reply_to: COMPANY.contact.info,
+            replyTo: COMPANY.contact.info,
             to: email,
             ...buildWaitlistEmail()
         }).catch((err: unknown) => {

@@ -260,7 +260,7 @@ async function sendRecoveryOtp(
 
     await resend.emails.send({
         from: COMPANY.email.sender,
-        reply_to: COMPANY.contact.support,
+        replyTo: COMPANY.contact.support,
         to: email,
         ...buildRecoveryCodeEmail(otp)
     });
