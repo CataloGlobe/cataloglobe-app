@@ -10,6 +10,7 @@ import {
     buildSupportAdminTicketUrl,
     buildSupportTicketUrl
 } from "../_shared/publicSiteUrl.ts";
+import { appCorsHeaders } from "../_shared/cors.ts";
 
 // =============================================================================
 // notify-support
@@ -61,24 +62,8 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-// Same allowlist as `respond-reservation`: this endpoint is dashboard-only,
-// there is no public or preview origin that legitimately calls it.
-const ALLOWED_ORIGINS = [
-    "http://localhost:5173",
-    "https://staging.cataloglobe.com",
-    "https://cataloglobe.com",
-    "https://www.cataloglobe.com"
-];
-
 function corsHeaders(req: Request): Record<string, string> {
-    const origin = req.headers.get("origin") ?? "";
-    const allowed = ALLOWED_ORIGINS.includes(origin) ? origin : "";
-    return {
-        "Access-Control-Allow-Origin": allowed,
-        "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Vary": "Origin"
-    };
+    return appCorsHeaders(req.headers.get("origin"));
 }
 
 const ERROR_MESSAGES: Record<string, string> = {
