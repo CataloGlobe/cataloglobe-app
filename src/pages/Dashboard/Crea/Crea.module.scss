@@ -43,12 +43,13 @@
     p {
         margin: 0;
     }
-    button {
+    // «Categorie e piatti» ha le sue misure (MenuCategorie.module.scss): lì dentro questo non vale
+    button:not(:where([data-menu-cat] *)) {
         font: inherit;
         color: inherit;
     }
-    input,
-    select,
+    input:not(:where([data-menu-cat] *)),
+    select:not(:where([data-menu-cat] *)),
     textarea {
         font: inherit;
         color: inherit;
@@ -197,6 +198,33 @@
         }
     }
 }
+/* modificare (D140): viola i passi scelti o toccati, grigi gli altri */
+.isteps.editing button {
+    border: 1.5px solid transparent;
+    &.pick {
+        border-color: var(--c-brand);
+        color: var(--c-brand);
+        font-weight: 600;
+        .idot {
+            border-color: var(--c-brand);
+            color: var(--c-brand);
+        }
+    }
+    &.grey {
+        border: 1.5px dashed var(--border);
+        opacity: 0.6;
+        &:hover,
+        &[aria-current="step"] {
+            opacity: 1;
+        }
+    }
+    &.pick[aria-current="step"] {
+        background: var(--c-brand-soft);
+        .idot {
+            color: var(--on-brand);
+        }
+    }
+}
 .idot {
     width: 22px;
     height: 22px;
@@ -231,6 +259,9 @@
     justify-content: space-between;
 }
 // nel Quando e nel Dove a destra c'è la settimana del Calendario, più larga
+.igrid.full {
+    grid-template-columns: minmax(0, 1fr);
+}
 .igrid.wide {
     grid-template-columns: minmax(0, 520px) minmax(0, 1fr);
     gap: 32px;
@@ -350,6 +381,68 @@ select.in {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
     gap: 10px;
+}
+/* «Cosa vuoi modificare?»: una casella per passo, con com'è adesso */
+.whats {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    gap: 10px;
+}
+.what {
+    border: 1px solid var(--border);
+    background: var(--surface);
+    border-radius: var(--radius-surface);
+    padding: 12px 14px;
+    text-align: left;
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    color: var(--text);
+    min-width: 0;
+    cursor: pointer;
+    > .box {
+        margin-top: 2px;
+        flex: none;
+    }
+    > span:last-child {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 0;
+        b {
+            font-weight: 600;
+            @include cal.fs(body);
+        }
+        span {
+            @include cal.fs(note);
+            color: var(--text-muted);
+            overflow-wrap: anywhere;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+    }
+    &:hover {
+        border-color: color-mix(in srgb, var(--c-brand) 50%, transparent);
+    }
+    &:focus-visible {
+        outline: 2px solid var(--c-brand);
+        outline-offset: 2px;
+    }
+    &[aria-checked="true"] {
+        border-color: var(--c-brand);
+        box-shadow: 0 0 0 1px var(--c-brand);
+        background: var(--c-brand-soft);
+        > .box {
+            background: var(--c-brand);
+            border-color: var(--c-brand);
+            color: var(--on-brand);
+        }
+        b {
+            color: var(--c-brand);
+        }
+    }
 }
 .opt {
     border: 1px solid var(--border);
@@ -794,6 +887,9 @@ select.in {
     }
     > div + div {
         border-top: 1px solid var(--border);
+    }
+    > div.same dd {
+        color: var(--text-muted);
     }
     dt {
         color: var(--text-muted);

@@ -1,10 +1,9 @@
 // I corpi dei passi dei tunnel, uno a uno dall'artifact (`bodyOf`). Il Quando
 // e il Dove sono quelli del Calendario (`QuandoPasso`, `DoveQuandoPasso`); i blocchi
 // della storia sono l'editor a blocchi di oggi.
-import { useId, useMemo, useRef, useState, type ReactNode } from "react";
-import { CalendarClock, CalendarHeart, Check, Copy, Infinity as InfinityIcon, Layers, Link2, Lock, Megaphone, Package, Palette, Plus, ScanText, ScrollText, Tag, Trash2, TriangleAlert, Upload, UtensilsCrossed, X } from "lucide-react";
+import { useId, useMemo, useState, type ReactNode } from "react";
+import { CalendarClock, CalendarHeart, Check, Copy, Infinity as InfinityIcon, Layers, Link2, Lock, Megaphone, Package, Palette, Plus, ScanText, ScrollText, Tag, TriangleAlert, UtensilsCrossed } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
-import { IconButton } from "@/components/ui/Button/IconButton";
 import type { StoryBlock } from "@/services/supabase/stories";
 import { MAX_STORY_IMAGES } from "@/services/supabase/stories";
 import type { V2Style } from "@/services/supabase/styles";
@@ -16,10 +15,9 @@ import { DoveQuandoPasso, QuandoPasso, ScontriAvviso, type PassoGruppo, type Pas
 import { DB_LATER, invalid, type Draft, type DraftLookups, type Impatto, type PickProduct } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import type { Axis, CalWhen } from "@/pages/Dashboard/Programming/calendar/calendarModel";
 import cal from "@/pages/Dashboard/Programming/calendar/CalendarioView.module.scss";
-import { CARDS, COLORS, EV, FONTS, FONT_QUICK, KIND, MAX_IMPORT_FILES, STEP_LABEL, STORIA_WHEN, blocker, bundleTotal, euro, firstBlock, priceText, key, sentence, stepSummary, steps, type CardKey, type Ctx, type EvType, type Tunnel } from "./creaModel";
+import { CARDS, COLORS, EV, FONTS, FONT_QUICK, KIND, STEP_LABEL, STORIA_WHEN, blocker, bundleTotal, changed, euro, firstBlock, priceText, sentence, stepLabel, stepSummary, steps, strays, type CardKey, type Ctx, type EvType, type StepId, type Tunnel } from "./creaModel";
 import s from "./Crea.module.scss";
 import { Box, Chip, Field, Opt, Sh, Toggle, Warnish } from "./CreaUi";
-import { DishAdder } from "./DishAdder";
 import { ImagePick } from "./ImagePick";
 
 export type U = (fn: (t: Tunnel) => void) => void;
@@ -36,13 +34,50 @@ export function Inherited({ children }: { children: ReactNode }) {
 }
 
 
+/* ---------- modificare: il passo 0 (D140) ---------- */
+export function Modifica({ t, u, c, L, styleName }: { t: Tunnel; u: U; c: Ctx; L: DraftLookups; styleName: (id: string) => string }) {
+    const e = t.edit!;
+    const parts = steps(t, c).filter(x => x !== "modifica" && x !== "controlla");
+    const toggle = (x: StepId) =>
+        u(y => {
+            const p = y.edit!.picked, i = p.indexOf(x);
+            if (i >= 0) p.splice(i, 1);
+            else p.push(x);
+        });
+    const inCal = t.kind !== "storia" && c.owner && !e.ruleId;
+    return (
+        <>
+            <Sh title="Cosa vuoi modificare?">Scegli una cosa o più: «Avanti» ti porta solo lì. Il resto resta com'è.</Sh>
+            <div className={s.whats}>
+                {parts.map(x => {
+                    const on = e.picked.includes(x);
+                    return (
+                        <button key={x} type="button" className={s.what} role="checkbox" aria-checked={on} onClick={() => toggle(x)}>
+                            <Box on={on} />
+                            <span>
+                                <b>{stepLabel(t, x)}</b>
+                                <span>{stepSummary({ ...e.orig, edit: e }, x, L, styleName) || "—"}</span>
+                            </span>
+                        </button>
+                    );
+                })}
+            </div>
+            {inCal && (
+                <p className={s.hint}>
+                    {e.rules > 1 ? `È nel Calendario ${e.rules} volte: il dove e il quando si cambiano da lì, una voce alla volta.` : "Non è nel Calendario: il dove e il quando si scelgono da lì."}
+                </p>
+            )}
+        </>
+    );
+}
+
 /* ---------- il menù ---------- */
 export function MenuTipo({ t, u }: { t: Tunnel; u: U }) {
     return (
         <>
-            <Sh title="Che menù è?">Un menù con le sue sezioni, o una pagina d'ingresso che ne raccoglie più di uno: ristorante, aperitivo, bambini. A destra vedi com'è.</Sh>
+            <Sh title="Che menù è?">Un menù con le sue categorie, o una pagina d'ingresso che ne raccoglie più di uno: ristorante, aperitivo, bambini. A destra vedi com'è.</Sh>
             <div className={s.opts}>
-                <Opt on={t.menuType === "classico"} icon={<UtensilsCrossed size={16} />} title="Menù classico" text="Sezioni e piatti, come oggi." onClick={() => u(x => void (x.menuType = "classico"))} />
+                <Opt on={t.menuType === "classico"} icon={<UtensilsCrossed size={16} />} title="Menù classico" text="Categorie e piatti, come oggi." onClick={() => u(x => void (x.menuType = "classico"))} />
                 <Opt on={false} icon={<Layers size={16} />} title="Multi menù" text="Un riquadro per menù: il cliente tocca e ci entra." disabled later={"Arriva col database nuovo"} />
             </div>
             <p className={s.hint}>Gli stessi nomi del Calendario, dove i menù hanno l'etichetta «Menù classico» o «Multi menù».</p>
@@ -50,133 +85,17 @@ export function MenuTipo({ t, u }: { t: Tunnel; u: U }) {
     );
 }
 
-export const IMPORT_ACCEPT = "image/jpeg,image/png,image/webp,application/pdf";
-
-export function MenuParti({ t, u, onImport, importing, importError }: { t: Tunnel; u: U; onImport: ((files: File[]) => void) | null; importing: boolean; importError: string | null }) {
+export function MenuParti({ t, u }: { t: Tunnel; u: U }) {
     const id = useId();
-    const fileRef = useRef<HTMLInputElement>(null);
-    const read = t.imported;
     return (
         <>
-            <Sh title="Da dove parti">Il nome lo legge anche il cliente, in cima al menù.</Sh>
+            <Sh title={t.edit ? "Il nome" : "Da dove parti"}>Il nome lo legge anche il cliente, in cima al menù.</Sh>
             <Field label="Nome del menù" id={id}>
                 <input className={s.in} id={id} value={t.name} placeholder="Menù pranzo" autoComplete="off" onChange={e => u(x => void (x.name = e.target.value))} />
             </Field>
-            <div className={s.opts}>
+            <div className={s.opts} hidden={!!t.edit}>
                 <Opt on={t.source === "zero"} icon={<Plus size={16} />} title="Da zero" text="Prendi i piatti che hai o scrivine di nuovi." onClick={() => u(x => void (x.source = "zero"))} />
-                <Opt
-                    on={t.source === "foto"}
-                    icon={<ScanText size={16} />}
-                    title="Da una foto o un PDF"
-                    text="Lo leggiamo noi, tu controlli nel passo dopo."
-                    onClick={() => u(x => void (x.source = "foto"))}
-                    disabled={!onImport && !read}
-                />
-            </div>
-            {t.source === "foto" && (
-                <>
-                    {read ? (
-                        <div className={cx(s.callout, s.ok)}>
-                            <ScanText size={16} aria-hidden />
-                            <span>
-                                Letti {read.sections} {read.sections === 1 ? "sezione" : "sezioni"} e {read.dishes} {read.dishes === 1 ? "piatto" : "piatti"}: li controlli nel passo dopo. Il menù nasce solo quando salvi.
-                            </span>
-                        </div>
-                    ) : (
-                        <div className={cx(s.callout, s.info)}>
-                            <Upload size={16} aria-hidden />
-                            <span>Carica la foto del menù di carta o il PDF, anche più pagine (fino a {MAX_IMPORT_FILES}). Nel passo dopo trovi sezioni e piatti già scritti, da controllare.</span>
-                        </div>
-                    )}
-                    {importError && (
-                        <div className={s.callout} role="alert">
-                            <TriangleAlert size={16} aria-hidden />
-                            <span>{importError}</span>
-                        </div>
-                    )}
-                    <div>
-                        <input
-                            ref={fileRef}
-                            type="file"
-                            accept={IMPORT_ACCEPT}
-                            multiple
-                            hidden
-                            aria-label="Foto o PDF del menù"
-                            onChange={e => {
-                                const files = Array.from(e.target.files ?? []);
-                                e.target.value = "";
-                                if (files.length && onImport) onImport(files);
-                            }}
-                        />
-                        <Button variant="secondary" size="sm" leftIcon={<Upload size={14} />} onClick={() => fileRef.current?.click()} disabled={!onImport} loading={importing}>
-                            {importing ? "Leggiamo il menù…" : read ? "Leggi un'altra foto" : "Carica foto o PDF"}
-                        </Button>
-                    </div>
-                    {read && <p className={s.hint}>Un'altra foto prende il posto di sezioni e piatti letti adesso.</p>}
-                </>
-            )}
-        </>
-    );
-}
-
-export function MenuSezioni({ t, u, pick }: { t: Tunnel; u: U; pick: readonly PickProduct[] }) {
-    const [sec, setSec] = useState("");
-    const taken = useMemo(() => new Set(t.sections.flatMap(x => x.dishes.map(d => d.productId).filter((v): v is string => !!v))), [t.sections]);
-    const read = t.imported;
-    const toCheck = t.sections.reduce((n, x) => n + x.dishes.filter(d => d.check).length, 0);
-    const addSec = () => {
-        const n = sec.trim();
-        if (!n) return;
-        u(x => void x.sections.push({ key: key(), name: n, dishes: [] }));
-        setSec("");
-    };
-    return (
-        <>
-            <Sh title="Sezioni e piatti">{read ? "Ecco cosa abbiamo letto: controlla, togli e aggiungi come se l'avessi scritto tu." : "Prendi i piatti che hai già o scrivine di nuovi, con il prezzo."}</Sh>
-            {read && (
-                <div className={cx(s.callout, s.ok)}>
-                    <ScanText size={16} aria-hidden />
-                    <span>
-                        Quelli già nei vostri prodotti li abbiamo collegati; gli altri diventano prodotti nuovi quando salvi.
-                        {toCheck > 0 && ` ${toCheck === 1 ? "Uno è segnato" : `${toCheck} sono segnati`} «da controllare»: l'AI non ne era sicura.`}
-                    </span>
-                </div>
-            )}
-            {t.sections.map((x, si) => (
-                <div className={s.sect} key={x.key}>
-                    <h5>
-                        {x.name}
-                        <span className={s.grow} />
-                        <IconButton size="sm" icon={<Trash2 size={14} />} aria-label={`Togli la sezione ${x.name}`} onClick={() => u(y => void y.sections.splice(si, 1))} />
-                    </h5>
-                    {x.dishes.map((d, di) => (
-                        <div className={s.dish} key={d.key}>
-                            <span>
-                                {d.name}
-                                {!d.productId && <span className={s.new}>nuovo</span>}
-                                {d.check && <span className={s.check}>da controllare</span>}
-                            </span>
-                            <span className={s.p}>{priceText(d.price)}</span>
-                            <IconButton size="sm" icon={<X size={14} />} aria-label={`Togli ${d.name}`} onClick={() => u(y => void y.sections[si].dishes.splice(di, 1))} />
-                        </div>
-                    ))}
-                    <DishAdder pick={pick} taken={taken} onAdd={d => u(y => void y.sections[si].dishes.push({ key: key(), ...d }))} />
-                    <p className={s.hint}>Scrivendo il nome compaiono i prodotti che avete già: preso uno, il prezzo è il suo.</p>
-                </div>
-            ))}
-            <div className={cx(s.addrow, s.addrow2)}>
-                <input
-                    className={cx(s.in, s.sm)}
-                    placeholder="Nome della sezione, per esempio Dolci"
-                    autoComplete="off"
-                    aria-label="Nome della sezione"
-                    value={sec}
-                    onChange={e => setSec(e.target.value)}
-                    onKeyDown={e => e.key === "Enter" && (e.preventDefault(), addSec())}
-                />
-                <Button variant="secondary" size="sm" leftIcon={<Plus size={14} />} onClick={addSec}>
-                    Aggiungi una sezione
-                </Button>
+                <Opt on={t.source === "foto"} icon={<ScanText size={16} />} title="Da una foto o un PDF" text="Nel passo dopo la carichi: la leggiamo noi e ti diciamo subito cosa abbiamo trovato." onClick={() => u(x => void (x.source = "foto"))} />
             </div>
         </>
     );
@@ -208,11 +127,11 @@ export function StileNome({ t, u, styles, onBase }: { t: Tunnel; u: U; styles: r
             <Field label="Nome dello stile" id={id}>
                 <input className={s.in} id={id} value={t.name} placeholder="Natale" autoComplete="off" onChange={e => u(x => void (x.name = e.target.value))} />
             </Field>
-            <div className={s.opts}>
+            <div className={s.opts} hidden={!!t.edit}>
                 <Opt on={t.base === "zero"} icon={<Plus size={16} />} title="Da zero" text="Parti dai colori di CataloGlobe." onClick={() => onBase(null)} />
                 <Opt on={t.base === "copy"} icon={<Copy size={16} />} title="Parti da uno stile che hai" text="Ne fai una copia e la cambi." onClick={() => onBase(t.baseStyleId ?? styles[0]?.id ?? null)} disabled={!styles.length} />
             </div>
-            {t.base === "copy" && (
+            {t.base === "copy" && !t.edit && (
                 <div className={s.chips}>
                     {styles.map(st => (
                         <Chip key={st.id} on={t.baseStyleId === st.id} onClick={() => onBase(st.id)}>
@@ -226,15 +145,19 @@ export function StileNome({ t, u, styles, onBase }: { t: Tunnel; u: U; styles: r
 }
 
 export function StileAspetto({ t, u }: { t: Tunnel; u: U }) {
+    const was = t.edit?.orig.color ?? null;
+    const own = was && !COLORS.some(c => c[0] === was.toLowerCase()) ? was : null;
     return (
         <>
-            <Sh title="L'aspetto">Le quattro cose che cambiano di più la pagina. Il resto si rifinisce dopo, nell'editor dello stile.</Sh>
+            <Sh title="L'aspetto">{t.edit ? "Le quattro cose che cambiano di più la pagina. Il resto dello stile resta com'è." : "Le quattro cose che cambiano di più la pagina. Il resto si rifinisce dopo, nell'editor dello stile."}</Sh>
             <div className={s.blk}>
                 <h4>Colore principale</h4>
                 <div className={s.sw}>
                     {COLORS.map(([c, n]) => (
-                        <button key={c} type="button" className={s.swb} style={{ background: c }} aria-pressed={t.color === c} aria-label={n} title={n} onClick={() => u(x => void (x.color = c))} />
+                        <button key={c} type="button" className={s.swb} style={{ background: c }} aria-pressed={t.color?.toLowerCase() === c} aria-label={n} title={n} onClick={() => u(x => void (x.color = c))} />
                     ))}
+                    {/* il colore che lo stile ha già, se non è fra i sei */}
+                    {own && <button type="button" className={s.swb} style={{ background: own }} aria-pressed={t.color === own} aria-label="Il colore di adesso" title="Il colore di adesso" onClick={() => u(x => void (x.color = own))} />}
                 </div>
             </div>
             <div className={s.blk}>
@@ -274,7 +197,7 @@ export function StileAspetto({ t, u }: { t: Tunnel; u: U }) {
                     ))}
                 </div>
             </div>
-            <p className={s.hint}>Dopo «Metti in onda» si arriva sulla pagina dello stile, con l'editor intero: header, navigazione delle sezioni, in evidenza, prodotti, tipografia, versioni.</p>
+            {!t.edit && <p className={s.hint}>Dopo «Metti in onda» si arriva sulla pagina dello stile, con l'editor intero: header, navigazione delle sezioni, in evidenza, prodotti, tipografia, versioni.</p>}
         </>
     );
 }
@@ -317,7 +240,16 @@ export function EvidContenuto({ t, u, owner, imageUrl }: { t: Tunnel; u: U; owne
                 </div>
                 <div className={s.f}>
                     <span className={s.lab}>Immagine</span>
-                    <ImagePick url={imageUrl} id={ids.img} onPick={f => u(x => void (x.image = f))} />
+                    <ImagePick
+                        url={imageUrl}
+                        id={ids.img}
+                        onPick={f =>
+                            u(x => {
+                                x.image = f;
+                                if (!f) x.imageUrl = null;
+                            })
+                        }
+                    />
                 </div>
             </div>
             <div className={s.blk}>
@@ -337,7 +269,7 @@ export function EvidContenuto({ t, u, owner, imageUrl }: { t: Tunnel; u: U; owne
                     </div>
                 )}
             </div>
-            {owner && (
+            {owner && !t.edit && (
                 <div className={s.blk}>
                     <h4>Dove sulla pagina</h4>
                     <div className={s.chips}>
@@ -457,7 +389,16 @@ export function StoriaRacconto({ t, u, pick, coverUrl }: { t: Tunnel; u: U; pick
             </Field>
             <div className={s.blk}>
                 <span className={s.lab}>Copertina</span>
-                <ImagePick url={coverUrl} id={ids.c} onPick={f => u(x => void (x.cover = f))} />
+                <ImagePick
+                    url={coverUrl}
+                    id={ids.c}
+                    onPick={f =>
+                        u(x => {
+                            x.cover = f;
+                            if (!f) x.coverUrl = null;
+                        })
+                    }
+                />
             </div>
             <div className={cx(s.f, s.blk)}>
                 <label htmlFor={ids.l}>Anche nella scheda di un piatto</label>
@@ -583,6 +524,7 @@ export function Quando({ t, u, draft, updDraft, durs, axis, bare }: { t: Tunnel;
             <Sh title="Quando">Quando lo vede il cliente. Si cambia quando vuoi dal Calendario.</Sh>
             {t.from && <Inherited>Già compilato dal menù {q(t.from.name)}: puoi cambiarlo.</Inherited>}
             {t.aside && <Inherited>Dalla bozza che hai tenuto da parte nel Calendario: puoi cambiarlo.</Inherited>}
+            {t.edit && <Inherited>È la sua voce nel Calendario: cambiandola qui, cambia anche lì.</Inherited>}
             {choice}
             <p className={s.hint}>{KIND_TXT[t.kind]}</p>
         </>
@@ -599,6 +541,7 @@ export function DoveQuando(p: { t: Tunnel; u: U; draft: Draft; updDraft: Upd; se
             <Sh title="Dove e quando">In quali sedi e quando lo vede il cliente. Si cambia quando vuoi dal Calendario.</Sh>
             {t.from && <Inherited>Già compilato dal menù {q(t.from.name)}: puoi cambiarlo.</Inherited>}
             {t.aside && <Inherited>Dalla bozza che hai tenuto da parte nel Calendario: puoi cambiarlo.</Inherited>}
+            {t.edit && !storia && <Inherited>È la sua voce nel Calendario: cambiandola qui, cambia anche lì.</Inherited>}
             <div className={cx(cal.root, s.calwrap)}>
                 <DoveQuandoPasso
                     draft={draft}
@@ -609,7 +552,7 @@ export function DoveQuando(p: { t: Tunnel; u: U; draft: Draft; updDraft: Upd; se
                     bad={invalid(draft)}
                     durs={p.durs}
                     axis={p.axis}
-                    split={!storia}
+                    split={!storia && !t.edit}
                     quando={<Quando bare t={t} u={p.u} draft={draft} updDraft={p.updDraft} durs={p.durs} axis={p.axis} />}
                 />
             </div>
@@ -639,8 +582,65 @@ export function Controlla({
     onInsieme: (v: boolean) => void;
 }) {
     const all = steps(t, c);
-    const st = all.filter(x => x !== "controlla" && x !== "serve");
+    const st = all.filter(x => x !== "controlla" && x !== "serve" && x !== "modifica");
     const fb = firstBlock(t, c);
+    if (t.edit) {
+        const ch = st.filter(x => changed(t, x));
+        const stray = strays(t, c);
+        const inCal = ch.some(x => x === "dove" || x === "quando") && t.kind !== "storia";
+        return (
+            <>
+                <Sh title="Controlla">{ch.length ? "Si salva solo quello che hai cambiato. Il resto resta com'è." : "Non hai ancora cambiato niente."}</Sh>
+                {stray.map(x => (
+                    <div className={cx(s.callout, s.info)} key={x}>
+                        <TriangleAlert size={16} aria-hidden />
+                        <span>
+                            Hai cambiato anche «{stepLabel(t, x)}», che non avevi scelto: guardalo prima di salvare.
+                        </span>
+                        <Button variant="secondary" size="sm" onClick={() => onGo(all.indexOf(x))}>
+                            Guarda
+                        </Button>
+                    </div>
+                ))}
+                <div className={s.blk}>
+                    <h4>Le tue modifiche</h4>
+                    <dl className={s.isum}>
+                        {st.map(x => {
+                            const on = changed(t, x);
+                            return (
+                                <div key={x} className={on ? undefined : s.same}>
+                                    <dt>{stepLabel(t, x)}</dt>
+                                    <dd>{on ? stepSummary(t, x, L, styleName) : "Come prima"}</dd>
+                                    <Button variant="ghost" size="sm" onClick={() => onGo(all.indexOf(x))}>
+                                        Cambia
+                                    </Button>
+                                </div>
+                            );
+                        })}
+                    </dl>
+                </div>
+                {t.kind === "stile" && changed(t, "aspetto") && <p className={s.hint}>I clienti vedono l'aspetto nuovo appena salvi, ovunque questo stile è in onda. Quello di prima resta nelle versioni dello stile.</p>}
+                {inCal && (
+                    <div className={s.blk}>
+                        <h4>Cosa cambia nel calendario</h4>
+                        <ul className={s.ieff}>
+                            {effect.lines.map((x, i) => (
+                                <li key={i}>{x}</li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
+                {fb && (
+                    <div className={s.callout}>
+                        <TriangleAlert size={16} aria-hidden />
+                        <span>
+                            {fb.why}: torna a «{stepLabel(t, all[fb.i])}».
+                        </span>
+                    </div>
+                )}
+            </>
+        );
+    }
     return (
         <>
             <Sh title="Controlla">Se qualcosa non va, «Cambia» ti riporta a quel passo.</Sh>

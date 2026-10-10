@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { openBusinessPageByUrl } from "./business";
-import { PRODUCT, SEDE, stubProgrammazione, type ProgrammazioneStub, type WriteCall } from "./programmazioneStub";
+import { MENU, PRODUCT, SEDE, TENANT_ID, stubProgrammazione, type ProgrammazioneStub, type WriteCall } from "./programmazioneStub";
 import { StubError, type Row } from "./restStub";
 
 /**
@@ -65,15 +65,19 @@ async function walkMenu(page: Page, name = "  Pranzo veloce  ") {
     await next(page);
     await main(page).getByLabel("Nome del menù").fill(name);
     await next(page);
-    await main(page).getByLabel("Nome della sezione").fill("Pizze");
-    await main(page).getByLabel("Nome della sezione").press("Enter");
-    // un piatto che c'è già, preso dai suggerimenti, e uno nuovo col prezzo
-    await main(page).getByLabel("Nome del piatto").fill("Marg");
+    await button(page, "Aggiungi una categoria").click();
+    await main(page).getByLabel("Nome della categoria").fill("Pizze");
+    await main(page).getByLabel("Nome della categoria").press("Enter");
+    // un piatto che c'è già, preso dai suggerimenti, e uno nuovo: il prezzo si scrive sulla riga
+    const dish = main(page).getByLabel("Piatto da aggiungere a Pizze");
+    await dish.fill("Marg");
     await main(page).getByRole("option", { name: /Margherita e2e/ }).click();
-    await main(page).getByLabel("Nome del piatto").fill("Capricciosa");
-    await main(page).getByLabel("Prezzo").fill("9,5");
-    await main(page).getByLabel("Prezzo").press("Enter");
-    await expect(main(page).getByText("nuovo", { exact: true })).toHaveCount(1);
+    await dish.fill("Capricciosa");
+    await dish.press("Enter");
+    // il prezzo del piatto nuovo si apre da solo
+    await main(page).getByLabel("Prezzo di Capricciosa").fill("9,5");
+    await main(page).getByLabel("Prezzo di Capricciosa").press("Enter");
+    await expect(button(page, "Togli Capricciosa")).toBeVisible();
 }
 
 /** Il menù letto dall'AI (D165, D172): un piatto che c'è già, uno nuovo e incerto, una sezione vuota. */
@@ -104,10 +108,111 @@ async function readPhoto(page: Page) {
     await next(page);
     await main(page).getByLabel("Nome del menù").fill("Carta");
     await button(page, /^Da una foto o un PDF/).click();
+    // la foto si carica nel passo dopo, che si apre già sull'import (D180)
+    await next(page);
     await photoInput(page).setInputFiles(PHOTO);
 }
 
 let stub: ProgrammazioneStub;
+
+/** Il menù «Carta e2e» com'è nel database: due sezioni, tre piatti. */
+const CARTA = { pizze: "e2ed1400-0000-4000-a000-000000000001", dolci: "e2ed1400-0000-4000-a000-000000000002", link: (n: number) => "e2ed1400-0000-4000-a000-00000000010" + n };
+async function cartaCom(page: Page) {
+    const cat = (id: string, name: string, sort_order: number) => ({ id, tenant_id: TENANT_ID, catalog_id: MENU.carta, parent_category_id: null, name, sort_order, level: 1, created_at: "2026-01-01" });
+    const link = (n: number, category_id: string, product_id: string) => ({ id: CARTA.link(n), tenant_id: TENANT_ID, catalog_id: MENU.carta, category_id, product_id, variant_product_id: null, sort_order: n, created_at: "2026-01-01" });
+    await page.route(/\/rest\/v1\/catalog_categories\?/, r => (r.request().method() === "GET" ? r.fulfill({ json: [cat(CARTA.pizze, "Pizze", 0), cat(CARTA.dolci, "Dolci", 1)] }) : r.fallback()));
+    await page.route(/\/rest\/v1\/catalog_category_products\?/, r =>
+        r.request().method() === "GET" ? r.fulfill({ json: [link(0, CARTA.pizze, PRODUCT.margherita), link(1, CARTA.pizze, PRODUCT.diavola), link(2, CARTA.dolci, PRODUCT.tiramisu)] }) : r.fallback()
+    );
+}
+
+test("Tunnel di modifica dal clic sulla riga: già dentro, un passo alla volta, senza niente di scelto (D175)", async ({ page }) => {
+    stub = await stubProgrammazione(page);
+    await cartaCom(page);
+    await openBusinessPageByUrl(page, `crea/menu/${MENU.carta}?da=menu&dentro=1`);
+    await expect(main(page).getByRole("heading", { name: "Il nome" })).toBeVisible({ timeout: 20_000 });
+    await next(page);
+    await expect(main(page).getByRole("heading", { name: "Categorie e piatti" })).toBeVisible();
+});
+
+test.describe("Tunnel: modificare una cosa già creata (D140)", () => {
+    test.beforeEach(async ({ page }) => {
+        stub = await stubProgrammazione(page);
+        await cartaCom(page);
+        await openBusinessPageByUrl(page, `crea/menu/${MENU.carta}?da=menu`);
+        await expect(main(page).getByRole("heading", { name: "Cosa vuoi modificare?" })).toBeVisible({ timeout: 20_000 });
+    });
+
+    test("il passo 0: «Avanti» va solo ai passi scelti, e senza modifiche non si salva", async ({ page }) => {
+        await expect(button(page, "Avanti")).toBeDisabled();
+        await expect(main(page).getByText("Scegli almeno una cosa")).toBeVisible();
+        await expect(button(page, "Tieni come bozza")).toHaveCount(0);
+        await main(page).getByRole("checkbox", { name: /^Categorie e piatti/ }).click();
+        await next(page);
+        await expect(main(page).getByRole("heading", { name: "Categorie e piatti" })).toBeVisible();
+        await next(page);
+        await expect(main(page).getByRole("heading", { name: "Controlla" })).toBeVisible();
+        await expect(button(page, "Salva le modifiche")).toBeDisabled();
+        await expect(main(page).getByText("Non hai cambiato niente")).toBeVisible();
+    });
+
+    test("si salva solo quello che è cambiato; un passo grigio toccato lo chiede Controlla", async ({ page }) => {
+        stub.onWrite("catalogs.PATCH", () => ({ id: MENU.carta, tenant_id: TENANT_ID, name: "Carta d'autunno" }));
+        stub.onWrite("catalog_category_products.DELETE", () => []);
+        await main(page).getByRole("checkbox", { name: /^Categorie e piatti/ }).click();
+        await next(page);
+        await button(page, "Togli Diavola e2e").click();
+        // un passo non scelto: ci si va lo stesso, e toccandolo diventa da guardare
+        await rail(page).getByRole("button", { name: /Il nome$/ }).click();
+        await main(page).getByLabel("Nome del menù").fill("Carta d'autunno");
+        await next(page);
+        await next(page);
+        await expect(main(page).getByText("Hai cambiato anche «Il nome», che non avevi scelto: guardalo prima di salvare.")).toBeVisible();
+        await button(page, "Salva le modifiche").click();
+        await expect(page.getByText("Modifiche salvate.")).toBeVisible();
+        expect(bodyOf(stub, "catalogs.PATCH")).toMatchObject({ name: "Carta d'autunno" });
+        const gone = writesOf(stub, "catalog_category_products.DELETE");
+        expect(gone).toHaveLength(1);
+        expect(gone[0].params.get("id")).toBe("eq." + CARTA.link(1));
+        // niente altro: né sezioni, né regole
+        expect(stub.writes.map(w => w.key).filter(k => !/^(catalogs\.PATCH|catalog_category_products\.DELETE)$/.test(k))).toEqual([]);
+        await expect(page).toHaveURL(/\/catalogs$/);
+    });
+
+    test("trascinare una categoria dentro un'altra (D177): il Salva la sposta, senza toccare i piatti", async ({ page }) => {
+        stub.onWrite("catalog_categories.PATCH", ({ body }) => [{ id: CARTA.dolci, ...first(body) }]);
+        await main(page).getByRole("checkbox", { name: /^Categorie e piatti/ }).click();
+        await next(page);
+        const row = (name: string) => main(page).locator("[data-tree] [data-drag]", { hasText: name });
+        const a = (await row("Dolci").boundingBox())!;
+        const b = (await row("Pizze").boundingBox())!;
+        await page.mouse.move(a.x + 90, a.y + a.height / 2);
+        await page.mouse.down();
+        await page.mouse.move(a.x + 95, a.y, { steps: 3 });
+        await page.mouse.move(b.x + 90, b.y + b.height / 2, { steps: 6 });
+        await page.mouse.up();
+        await expect(button(page, "Porta fuori da Pizze")).toBeVisible();
+        await next(page);
+        await button(page, "Salva le modifiche").click();
+        await expect(page.getByText("Modifiche salvate.")).toBeVisible();
+        const moved = writesOf(stub, "catalog_categories.PATCH");
+        expect(moved).toHaveLength(1);
+        expect(moved[0].params.get("id")).toBe("eq." + CARTA.dolci);
+        expect(first(moved[0].body)).toMatchObject({ parent_category_id: CARTA.pizze, level: 2 });
+        expect(stub.writes.map(w => w.key).filter(k => k !== "catalog_categories.PATCH")).toEqual([]);
+    });
+
+    test("uscire con una modifica fatta chiede prima", async ({ page }) => {
+        await rail(page).getByRole("button", { name: /Il nome$/ }).click();
+        await main(page).getByLabel("Nome del menù").fill("Altro");
+        await button(page, "Esci").click();
+        const dlg = page.getByRole("alertdialog", { name: "Uscire dal tunnel?" });
+        await expect(dlg.getByRole("button")).toHaveText(["Resta qui", "Esci senza salvare", "Salva le modifiche ed esci"]);
+        await dlg.getByRole("button", { name: "Esci senza salvare" }).click();
+        await expect(page).toHaveURL(/\/catalogs$/);
+        expect(stub.writes).toEqual([]);
+    });
+});
 
 test.describe("Tunnel di creazione — ingressi", () => {
     test.beforeEach(async ({ page }) => {
@@ -148,7 +253,7 @@ test.describe("Tunnel di creazione — menù", () => {
     test("i passi: Avanti si accende quando il passo è fatto, i fatti si riaprono", async ({ page }) => {
         await open(page, "menu");
         const steps = rail(page);
-        await expect(steps.getByRole("button")).toHaveText(["1Che menù è", "2Da dove parti", "3Sezioni e piatti", "4Dove e quando", "5Controlla", "E adesso?"]);
+        await expect(steps.getByRole("button")).toHaveText(["1Che menù è", "2Da dove parti", "3Categorie e piatti", "4Dove e quando", "5Controlla", "E adesso?"]);
         await expect(button(page, "Avanti")).toBeDisabled();
         await expect(main(page).getByText("Scegli che menù è")).toBeVisible();
         // il multi menù arriva col database nuovo
@@ -270,64 +375,85 @@ test.describe("Tunnel di creazione — menù", () => {
         await expect(page).toHaveURL(/\/crea\/menu/);
     });
 
-    test("da una foto (D165, D172): letti sezioni e piatti, si controllano e solo il Salva scrive il menù", async ({ page }) => {
+    test("da una foto (D165, D172, D180): il resoconto nel passo, il menù cambia solo con «Aggiungi», e solo il Salva scrive", async ({ page }) => {
         wireAiRead(stub);
-        stub.onWrite("rpc.import_products_into_catalog", () => ({
-            catalog_id: ID.catalog,
-            created_categories: 1,
-            created_products: 1,
-            reused_products: 1,
-            skipped: 0,
-            product_ids: ["e2ec7000-0000-4000-a000-000000000011"],
-            category_ref_map: {}
-        }));
+        wireMenu(stub);
         await open(page, "menu", "menu");
         await readPhoto(page);
-        await expect(main(page).getByText(/Letti 1 sezione e 2 piatti/)).toBeVisible();
+        await expect(main(page).getByText("Nel file «menu.png» ho trovato 2 piatti")).toBeVisible();
         // ancora niente scritto: la lettura non crea il menù
-        expect(stub.writes.filter(w => !w.key.startsWith("fn.") && !w.key.startsWith("rpc."))).toHaveLength(0);
-        await next(page);
-        await expect(main(page).getByText(/Uno è segnato «da controllare»/)).toBeVisible();
-        await expect(main(page).getByText("da controllare", { exact: true })).toHaveCount(1);
-        // il piatto che c'è già è collegato, l'altro è nuovo
-        await expect(main(page).getByText("nuovo", { exact: true })).toHaveCount(1);
-        // si toglie e si aggiunge come se l'avessi scritto tu
-        await button(page, "Togli Bufalina").click();
-        await main(page).getByLabel("Nome del piatto").fill("Bufalina");
-        await main(page).getByLabel("Prezzo").fill("10");
-        await main(page).getByLabel("Prezzo").press("Enter");
-        await expect(main(page).getByText("da controllare", { exact: true })).toHaveCount(0);
+        expect(stub.writes.filter(w => !w.key.startsWith("fn."))).toHaveLength(0);
+        // il piatto che c'è già si collega, l'altro è da controllare
+        await expect(button(page, /^1 già fra i vostri prodotti/)).toBeVisible();
+        await expect(button(page, /^1 da controllare/)).toBeVisible();
+        // con l'import aperto non si va avanti
+        await expect(button(page, "Avanti")).toBeDisabled();
+        await expect(main(page).getByText("Hai un import aperto: aggiungilo o buttalo via")).toBeVisible();
+        await button(page, "Aggiungi 2 piatti al menù").click();
+        await expect(main(page).getByText("2 piatti aggiunti da «menu.png».")).toBeVisible();
+        await expect(button(page, "Togli Bufalina")).toBeVisible();
+        expect(stub.writes.filter(w => !w.key.startsWith("fn."))).toHaveLength(0);
         await next(page);
         await next(page);
         await button(page, "Tieni come bozza").click();
         await expect(page).toHaveURL(new RegExp(`/catalogs/${ID.catalog}$`), { timeout: 15_000 });
-        const rpc = bodyOf(stub, "rpc.import_products_into_catalog");
-        expect(rpc).toMatchObject({ p_catalog_id: null, p_new_catalog_name: "Carta" });
-        expect(rpc.p_categories).toEqual([expect.objectContaining({ name: "Pizze", existing_id: null })]);
-        expect(rpc.p_products).toEqual([
-            expect.objectContaining({ action: "reuse", product_id: PRODUCT.margherita, sort_order: 0 }),
-            expect.objectContaining({ action: "create", sort_order: 1, product: expect.objectContaining({ name: "Bufalina", base_price: 10 }) })
-        ]);
-        // un colpo solo: niente menù, sezioni o piatti scritti uno per uno
-        expect(writesOf(stub, "catalogs.POST")).toHaveLength(0);
-        expect(writesOf(stub, "products.POST")).toHaveLength(0);
+        expect(bodyOf(stub, "catalogs.POST")).toMatchObject({ name: "Carta" });
+        expect(writesOf(stub, "catalog_categories.POST").map(w => first(w.body).name)).toEqual(["Pizze"]);
+        expect(writesOf(stub, "products.POST")).toHaveLength(1);
+        expect(bodyOf(stub, "products.POST")).toMatchObject({ name: "Bufalina", base_price: 9.5 });
+        expect(writesOf(stub, "catalog_category_products.POST")).toHaveLength(2);
     });
 
-    test("da una foto: uscendo prima del Salva non si scrive niente; la quota finita lo dice", async ({ page }) => {
+    test("da una foto: «Annulla l'import» rimette il menù com'era; la quota finita lo dice; uscendo non si scrive niente", async ({ page }) => {
         stub.onWrite("fn.menu-ai-import", () => new StubError(402, { error: "quota", reason: "quota_exhausted", reset_at: null }));
         await open(page, "menu", "menu");
         await readPhoto(page);
         await expect(main(page).getByRole("alert")).toBeVisible();
-        await expect(button(page, "Carica foto o PDF")).toBeEnabled();
         wireAiRead(stub);
         await photoInput(page).setInputFiles(PHOTO);
-        await expect(main(page).getByText(/Letti 1 sezione e 2 piatti/)).toBeVisible();
+        await expect(main(page).getByText("Nel file «menu.png» ho trovato 2 piatti")).toBeVisible();
         await expect(main(page).getByRole("alert")).toHaveCount(0);
+        await button(page, "Aggiungi 2 piatti al menù").click();
+        await button(page, "Annulla l'import").click();
+        await expect(main(page).getByText("Il menù è vuoto")).toBeVisible();
         await button(page, "Esci").click();
         await page.getByRole("alertdialog", { name: "Uscire dal tunnel?" }).getByRole("button", { name: "Esci senza salvare" }).click();
         await expect(page).toHaveURL(/\/catalogs$/);
-        expect(stub.writes.filter(w => !w.key.startsWith("fn.") && !w.key.startsWith("rpc."))).toHaveLength(0);
-        expect(writesOf(stub, "rpc.import_products_into_catalog")).toHaveLength(0);
+        expect(stub.writes.filter(w => !w.key.startsWith("fn."))).toHaveLength(0);
+    });
+
+    test("categorie e sottocategorie (D177): si annidano, si spostano e il Salva scrive i livelli", async ({ page }) => {
+        let n = 0;
+        stub.onWrite("catalogs.POST", ({ body }) => ({ id: ID.catalog, created_at: new Date().toISOString(), ...first(body) }));
+        stub.onWrite("catalog_categories.POST", ({ body }) => ({ id: "e2ec7000-0000-4000-a000-00000000009" + n++, ...first(body) }));
+        stub.onWrite("catalog_category_products.POST", ({ body }) => ({ id: "e2ec7000-0000-4000-a000-000000000010", ...first(body) }));
+        await open(page, "menu", "menu");
+        await button(page, /^Menù classico/).click();
+        await next(page);
+        await main(page).getByLabel("Nome del menù").fill("Carta");
+        await next(page);
+        const name = main(page).getByLabel("Nome della categoria");
+        await button(page, "Aggiungi una categoria").click();
+        await name.fill("Dolci");
+        await name.press("Enter");
+        await main(page).getByRole("button", { name: "Categoria", exact: true }).click();
+        await name.fill("Pizze");
+        await name.press("Enter");
+        await button(page, "Sottocategoria").last().click();
+        await name.fill("Rosse");
+        await name.press("Enter");
+        // Pizze sale sopra Dolci
+        await button(page, "Sposta su Pizze").click();
+        const dish = main(page).getByLabel("Piatto da aggiungere a Rosse");
+        await dish.fill("Marg");
+        await main(page).getByRole("option", { name: /Margherita e2e/ }).click();
+        await expect(button(page, "Porta fuori da Pizze")).toBeVisible();
+        await button(page, "Tieni come bozza").click();
+        await expect(page).toHaveURL(new RegExp(`/catalogs/${ID.catalog}$`), { timeout: 15_000 });
+        const cats = writesOf(stub, "catalog_categories.POST").map(w => first(w.body));
+        expect(cats.map(c => [c.name, c.level, c.sort_order])).toEqual([["Pizze", 1, 0], ["Rosse", 2, 0], ["Dolci", 1, 1]]);
+        expect(cats[1].parent_category_id).toBe("e2ec7000-0000-4000-a000-000000000090");
+        expect(bodyOf(stub, "catalog_category_products.POST")).toMatchObject({ category_id: "e2ec7000-0000-4000-a000-000000000091", product_id: PRODUCT.margherita });
     });
 
     test("dal Calendario: «Crea un menù nuovo» tiene da parte la bozza e apre il tunnel", async ({ page }) => {

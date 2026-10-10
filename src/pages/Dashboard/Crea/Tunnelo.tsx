@@ -2,7 +2,7 @@
 // salvataggio e «E adesso?».
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, ArrowRight, Check, ChevronRight, CornerDownRight, Smartphone, Sparkles, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, ChevronRight, CornerDownRight, Pencil, Smartphone, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import { UnsavedChangesDialog } from "@/components/ui/UnsavedChangesDialog/UnsavedChangesDialog";
 import { useUnsavedChangesGuard } from "@/components/ui/UnsavedChangesBar/useUnsavedChangesGuard";
@@ -18,12 +18,16 @@ import { SettimanaAnteprima } from "@/pages/Dashboard/Programming/calendar/Setti
 import type { Draft, Impatto } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import { axisFor, entriesFromRules, romeToday, type CalNames, type CalWhen } from "@/pages/Dashboard/Programming/calendar/calendarModel";
 import { NO_IMPATTO, dropAside, scontriWait, waitsForDb, whenKey } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
-import { KIND, MAX_IMPORT_FILES, sectionsFromAi, qcardText, withAside, blocker, effWhen, firstBlock, isDirty, newTunnel, steps, STEP_LABEL, thingName, tunnelTitle, type CreaKind, type FromMenu, type StepId, type Tunnel } from "./creaModel";
+import { KIND, MAX_IMPORT_FILES, readFromAi, qcardText, withAside, blocker, changed, effWhen, firstBlock, isDirty, lit, newTunnel, stepFrom, stepLabel, steps, thingName, tunnelTitle, type CreaKind, type FromMenu, type StepId, type Tunnel } from "./creaModel";
 import { CAL_KIND, draftFor, saveTunnel, type Saved } from "./creaSave";
+import { saveEdit } from "./creaEdit";
+import { entriesOf, type Loaded } from "./creaLoad";
+import { draftFromEntry } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import { aspectOf, sampleOf, styleTokens, tokensOf, useFonts } from "./creaStyle";
 import { type CreaData } from "./useCreaData";
 import { CreaPhone } from "./CreaPhone";
-import { Adesso, Controlla, DoveQuando, EvidContenuto, EvidCosa, EvidPiatti, IMPORT_ACCEPT, MenuParti, MenuSezioni, MenuTipo, Quando, Serve, StileAspetto, StileNome, StoriaBlocchi, StoriaRacconto, type U } from "./CreaSteps";
+import { IMPORT_ACCEPT, MenuCategorie, type ReadResult } from "./MenuCategorie";
+import { Adesso, Controlla, DoveQuando, Modifica, EvidContenuto, EvidCosa, EvidPiatti, MenuParti, MenuTipo, Quando, Serve, StileAspetto, StileNome, StoriaBlocchi, StoriaRacconto, type U } from "./CreaSteps";
 import s from "./Crea.module.scss";
 
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
@@ -48,6 +52,8 @@ function useObjectUrl(f: File | null) {
 export type TunnelProps = {
     kind: CreaKind;
     aside: Pick<Draft, "when" | "where"> | null;
+    /** La cosa già creata che si modifica (D140), letta dal database. */
+    edit?: Loaded | null;
     data: CreaData;
     tenantId: string;
     owner: boolean;
@@ -62,11 +68,11 @@ export type TunnelProps = {
 /** Il menù appena messo in onda, con «E adesso?» e quello che ci si è aggiunto. */
 type After = { t: Tunnel; saved: Saved; kids: CreaKind[] };
 
-export function Tunnelo({ kind, aside, data, tenantId, owner, origin, business, reload, navigate, showToast, b }: TunnelProps) {
+export function Tunnelo({ kind, aside, edit, data, tenantId, owner, origin, business, reload, navigate, showToast, b }: TunnelProps) {
     const L = data.L;
     const { ensureActive } = useEnsureActive();
     const allWhere = { all: true, activityIds: [], groupIds: [] };
-    const [t, setT] = useState<Tunnel>(() => (aside ? withAside(newTunnel(kind, allWhere), aside) : newTunnel(kind, allWhere)));
+    const [t, setT] = useState<Tunnel>(() => (edit ? edit.t : aside ? withAside(newTunnel(kind, allWhere), aside) : newTunnel(kind, allWhere)));
     const [after, setAfter] = useState<After | null>(null);
     /** «E adesso?» aperto (dopo il menù), o un tunnel aperto da lì. */
     const showAfter = !!after && t === after.t;
@@ -76,9 +82,6 @@ export function Tunnelo({ kind, aside, data, tenantId, owner, origin, business, 
     const [effect, setEffect] = useState<Impatto>(NO_IMPATTO);
     const [blockFiles, setBlockFiles] = useState<Record<string, File>>({});
     const [productOptions, setProductOptions] = useState<StoryProductOptions>({ items: null, failed: false });
-    const [importing, setImporting] = useState(false);
-    const [importError, setImportError] = useState<string | null>(null);
-    const importRun = useRef<AbortController | null>(null);
     const refreshAiUsage = useBusinessOutletContext()?.refreshAiUsage;
 
     const c = useMemo(() => ({ owner, multi: L.multi }), [owner, L.multi]);
@@ -88,43 +91,23 @@ export function Tunnelo({ kind, aside, data, tenantId, owner, origin, business, 
         return n;
     }), []);
 
-    // La foto o il PDF del menù (D165, D172): l'AI legge, sezioni e piatti
-    // riempiono il passo dopo; il database si tocca solo al Salva.
-    useEffect(() => () => importRun.current?.abort(), []);
-    const onImport = useCallback(
-        async (picked: File[]) => {
-            if (importRun.current) return;
+    // La foto o il PDF del menù (D165, D180): l'AI legge e il passo mostra il
+    // resoconto; il menù cambia solo con «Aggiungi», il database solo al Salva.
+    const onRead = useCallback(
+        async (picked: File[], signal: AbortSignal): Promise<ReadResult> => {
             const types = IMPORT_ACCEPT.split(",");
             const usable = picked.filter(f => types.includes(f.type));
             const { accepted } = partitionBySizeBudget([], usable.slice(0, MAX_IMPORT_FILES));
-            if (!accepted.length) {
-                setImportError(usable.length ? "I file sono troppo pesanti: foto fino a 25 MB, PDF fino a 20 MB, 30 MB in tutto." : "Servono foto (JPG, PNG o WEBP) o PDF.");
-                return;
-            }
-            setImportError(null);
-            setImporting(true);
-            const run = new AbortController();
-            importRun.current = run;
-            const res = await analyzeMenuFiles(tenantId, accepted, run.signal, refreshAiUsage);
-            if (!res) return;
-            importRun.current = null;
-            setImporting(false);
-            if (!res.ok) {
-                setImportError(res.error);
-                return;
-            }
-            const sections = sectionsFromAi(res.categories, data.pickList);
-            const dishes = sections.reduce((n, x) => n + x.dishes.length, 0);
-            u(x => {
-                x.source = "foto";
-                x.sections = sections;
-                x.imported = { sections: sections.length, dishes };
-            });
+            if (!accepted.length) return { ok: false, error: usable.length ? "I file sono troppo pesanti: foto fino a 25 MB, PDF fino a 20 MB, 30 MB in tutto." : "Servono foto (JPG, PNG o WEBP) o PDF." };
+            const res = await analyzeMenuFiles(tenantId, accepted, signal, refreshAiUsage);
+            if (!res) return null;
+            if (!res.ok) return { ok: false, error: res.error };
             if (accepted.length < picked.length) {
                 showToast({ message: `Letti ${accepted.length} file su ${picked.length}: gli altri erano troppi, troppo pesanti o non erano foto o PDF.`, type: "info" });
             }
+            return { ok: true, items: readFromAi(res.categories, data.pickList), file: accepted.length === 1 ? accepted[0].name : `${accepted.length} file` };
         },
-        [tenantId, refreshAiUsage, data.pickList, u, showToast]
+        [tenantId, refreshAiUsage, data.pickList, showToast]
     );
 
     // si naviga un giro dopo il render senza la guardia: l'host nel layout aggiorna il
@@ -158,14 +141,15 @@ export function Tunnelo({ kind, aside, data, tenantId, owner, origin, business, 
     const step: StepId = st[i];
     const last = i === st.length - 1;
     const fb = firstBlock(t, c);
-    const stepWhy = showAfter ? "" : last ? fb?.why ?? "" : blocker(t, step, c);
+    const nothing = !!t.edit && !isDirty(t);
+    const stepWhy = showAfter ? "" : last ? fb?.why ?? (nothing ? "Non hai cambiato niente" : "") : t.edit && step !== "modifica" && !changed(t, step) ? "" : blocker(t, step, c);
 
     /* ---------- lo stile del telefono ---------- */
     const styleById = useMemo(() => new Map(data.styles.map(x => [x.id, x])), [data.styles]);
     const liveStyle = styleById.get(data.base?.styleId ?? data.systemStyleId ?? "") ?? data.styles[0] ?? null;
-    const baseStyle = t.kind === "stile" && t.base === "copy" && t.baseStyleId ? styleById.get(t.baseStyleId) ?? null : null;
+    const baseStyle = t.edit ? edit?.style ?? null : t.kind === "stile" && t.base === "copy" && t.baseStyleId ? styleById.get(t.baseStyleId) ?? null : null;
     const baseTokens = useMemo(() => (t.kind === "stile" ? tokensOf(baseStyle) : tokensOf(liveStyle)), [t.kind, baseStyle, liveStyle]);
-    const tk = useMemo(() => (t.kind === "stile" && i > 0 ? styleTokens(t, baseTokens) : t.kind === "stile" ? tokensOf(liveStyle) : baseTokens), [t, i, baseTokens, liveStyle]);
+    const tk = useMemo(() => (t.kind === "stile" && (i > 0 || t.edit) ? styleTokens(t, baseTokens) : t.kind === "stile" ? tokensOf(liveStyle) : baseTokens), [t, i, baseTokens, liveStyle]);
     useFonts(step === "aspetto" ? ["lora", "patrick-hand", tk.typography.fontFamily] : [tk.typography.fontFamily]);
 
     // scegliere lo stile di partenza riporta le quattro scelte a com'erano lì
@@ -195,9 +179,17 @@ export function Tunnelo({ kind, aside, data, tenantId, owner, origin, business, 
         if (calKind === "featured") return { ...n, featured: new Map(n.featured).set(FAKE, name) };
         return n;
     }, [data.names, calKind, name]);
-    const draft: Draft | null = calKind ? draftFor(t, calKind, FAKE, pair) : null;
+    // modificando, la bozza è la sua voce del Calendario: la settimana non la conta due volte
+    const editId = t.edit?.id, editRule = t.edit?.ruleId;
+    const editEntry = useMemo(() => (editId && editRule ? entriesOf(kind, editId, data).find(e => e.ruleId === editRule) ?? null : null), [kind, editId, editRule, data]);
+    const draft: Draft | null = !calKind
+        ? null
+        : editEntry
+          ? { ...draftFromEntry(editEntry, L, calKind === "featured" && editEntry.rule.featured_contents.length > 1 ? editId : null), when: structuredClone(effWhen(t)), where: t.where }
+          : draftFor(t, calKind, FAKE, pair);
+    const calTouched = !t.edit || changed(t, "dove") || changed(t, "quando");
     // mettere in onda aspetta il database nuovo per le novità che non sa tenere (D149)
-    const why = stepWhy || (last && !showAfter && owner && draft ? waitsForDb(draft) || scontriWait(draft, effect.scontri) : "");
+    const why = stepWhy || (last && !showAfter && owner && draft && calTouched ? waitsForDb(draft) || scontriWait(draft, effect.scontri) : "");
     const updDraft = (fn: (d: Draft) => void) =>
         u(x => {
             const D = draftFor(x, calKind ?? "featured", FAKE, pair);
@@ -231,8 +223,8 @@ export function Tunnelo({ kind, aside, data, tenantId, owner, origin, business, 
         const first = data.base?.catalogId;
         return [...data.catalogs].sort((a, b) => (a.id === first ? -1 : b.id === first ? 1 : 0)).map(x => x.name);
     }, [data.catalogs, data.base]);
-    const imageUrl = useObjectUrl(t.image);
-    const coverUrl = useObjectUrl(t.cover);
+    const imageUrl = useObjectUrl(t.image) ?? t.imageUrl;
+    const coverUrl = useObjectUrl(t.cover) ?? t.coverUrl;
     const blockUrls = useMemo(() => Object.fromEntries(Object.entries(blockFiles).map(([k, f]) => [k, URL.createObjectURL(f)])), [blockFiles]);
     useEffect(() => () => Object.values(blockUrls).forEach(x => URL.revokeObjectURL(x)), [blockUrls]);
     const phoneT = useMemo(() => (t.kind === "storia" ? { ...t, blocks: t.blocks.map(x => (x.type === "image" && blockUrls[x.id] ? { ...x, url: blockUrls[x.id] } : x)) } : t), [t, blockUrls]);
@@ -267,20 +259,33 @@ export function Tunnelo({ kind, aside, data, tenantId, owner, origin, business, 
         if (why) return;
         if (last) return void finish(owner);
         u(x => {
-            x.i = i + 1;
+            x.i = stepFrom(x, c, i, 1);
             x.seen = Math.max(x.seen, x.i);
         });
         toTop();
     };
-    const back = () => u(x => void (x.i = Math.max(0, i - 1)));
+    const back = () => u(x => void (x.i = stepFrom(x, c, i, -1)));
 
     const landing = (k: CreaKind, id: string) => `${b}/${PAGE_OF[k]}/${id}`;
 
     async function finish(live: boolean): Promise<boolean> {
         // con l'abbonamento fermo non si crea niente, come dai bottoni «Crea» delle liste
         if (saving || !ensureActive()) return false;
+        if (t.edit && (fb || nothing)) {
+            setLeave(false);
+            showToast({ message: fb ? `${fb.why}: torna a «${stepLabel(t, st[fb.i])}».` : "Non hai cambiato niente.", type: "error" });
+            return false;
+        }
         setSaving(true);
         try {
+            if (t.edit) {
+                await saveEdit(t, { tenantId, L, names: data.names, baseTokens, blockFiles });
+                void reload();
+                setLeave(false);
+                showToast({ message: "Modifiche salvate.", type: "success" });
+                setGoing(origin.to);
+                return true;
+            }
             const saved = await saveTunnel(t, { tenantId, L, live: live && owner, pair, baseTokens, blockFiles });
             const n = saved.name;
             const pub = t.kind === "menu" || t.kind === "stile" ? "in onda" : t.kind === "storia" ? "pubblicata" : "pubblicato";
@@ -361,14 +366,17 @@ export function Tunnelo({ kind, aside, data, tenantId, owner, origin, business, 
         );
     } else
         switch (step) {
+            case "modifica":
+                body = <Modifica t={t} u={u} c={c} L={L} styleName={styleName} />;
+                break;
             case "tipo":
                 body = <MenuTipo t={t} u={u} />;
                 break;
             case "parti":
-                body = <MenuParti t={t} u={u} onImport={onImport} importing={importing} importError={importError} />;
+                body = <MenuParti t={t} u={u} />;
                 break;
             case "sezioni":
-                body = <MenuSezioni t={t} u={u} pick={data.pickList} />;
+                body = <MenuCategorie t={t} u={u} pick={data.pickList} onRead={onRead} onSuggest={null} />;
                 break;
             case "serve":
                 body = <Serve t={t} example={t.kind === "stile" ? liveStyle?.name ?? null : null} business={business} />;
@@ -398,14 +406,15 @@ export function Tunnelo({ kind, aside, data, tenantId, owner, origin, business, 
                         u={u}
                         tenantId={tenantId}
                         files={blockFiles}
-                        onFile={(id, f) =>
+                        onFile={(id, f) => {
                             setBlockFiles(prev => {
                                 const n = { ...prev };
                                 if (f) n[id] = f;
                                 else delete n[id];
                                 return n;
-                            })
-                        }
+                            });
+                            u(x => void (x.pending = f ? [...new Set([...x.pending, id])] : x.pending.filter(y => y !== id)));
+                        }}
                         productOptions={productOptions}
                     />
                 );
@@ -423,6 +432,8 @@ export function Tunnelo({ kind, aside, data, tenantId, owner, origin, business, 
         }
 
     /* ---------- a destra ---------- */
+    // «Categorie e piatti» prende tutta la larghezza: l'albero e il menù, senza il telefono (D177)
+    const full = !showAfter && step === "sezioni";
     const week = !showAfter && (step === "quando" || step === "dove") && t.kind !== "storia" && !!momentiDraft;
     const preview = calKind && momentiDraft && (
         <SettimanaAnteprima
@@ -457,10 +468,10 @@ export function Tunnelo({ kind, aside, data, tenantId, owner, origin, business, 
     );
 
     /* ---------- la testa ---------- */
-    const pubLabel = owner ? KIND[t.kind].pub : "Salva";
+    const pubLabel = t.edit ? "Salva le modifiche" : owner ? KIND[t.kind].pub : "Salva";
     const title = showAfter && after ? `${after.saved.name} è in onda` : tunnelTitle(t);
-    const sub = showAfter ? "Vuoi aggiungere qualcosa?" : `${st.length} passi. A destra vedi già com'è.`;
-    const isMenuFlow = t.kind === "menu";
+    const sub = showAfter ? "Vuoi aggiungere qualcosa?" : t.edit ? "Scegli cosa cambiare: il resto resta com'è." : `${st.length} passi. A destra vedi già com'è.`;
+    const isMenuFlow = t.kind === "menu" && !t.edit;
     const rootStyle = { "--stick": `${hdr.h + 12 - hdr.pad}px`, "--ihdr": `${hdr.h - hdr.pad}px` } as CSSProperties;
 
     return (
@@ -472,10 +483,10 @@ export function Tunnelo({ kind, aside, data, tenantId, owner, origin, business, 
                             {origin.label}
                         </Button>
                         <ChevronRight size={14} aria-hidden />
-                        <b>{KIND[t.kind].t}</b>
+                        <b>{t.edit ? KIND[t.kind].edit : KIND[t.kind].t}</b>
                     </nav>
                     <span className={s.itopa}>
-                        {!showAfter && (
+                        {!showAfter && !t.edit && (
                             <Button variant="secondary" size="sm" onClick={() => void finish(false)} disabled={saving}>
                                 Tieni come bozza
                             </Button>
@@ -490,15 +501,23 @@ export function Tunnelo({ kind, aside, data, tenantId, owner, origin, business, 
                     <p className={cx(s.small, s.muted)}>{sub}</p>
                 </div>
                 <div className={s.istrow}>
-                    <ol className={s.isteps}>
+                    <ol className={cx(s.isteps, t.edit && s.editing)}>
                         {st.map((n, j) => {
-                            const can = !showAfter && j <= t.seen && (!fb || j <= fb.i || j <= i);
-                            const done = showAfter || j < i;
+                            // modificando ci si sposta dove si vuole: viola i passi scelti o toccati, grigi gli altri (D140)
+                            const part = !!t.edit && n !== "modifica" && n !== "controlla";
+                            const can = t.edit ? true : !showAfter && j <= t.seen && (!fb || j <= fb.i || j <= i);
+                            const done = !t.edit && (showAfter || j < i);
                             return (
                                 <li key={n}>
-                                    <button type="button" aria-current={!showAfter && j === i ? "step" : "false"} className={done ? s.done : undefined} disabled={!can} onClick={() => go(j)}>
-                                        <span className={s.idot}>{done ? <Check size={12} aria-hidden /> : j + 1}</span>
-                                        {STEP_LABEL[n]}
+                                    <button
+                                        type="button"
+                                        aria-current={!showAfter && j === i ? "step" : "false"}
+                                        className={cx(done && s.done, part && (lit(t, n) ? s.pick : s.grey))}
+                                        disabled={!can}
+                                        onClick={() => go(j)}
+                                    >
+                                        <span className={s.idot}>{done ? <Check size={12} aria-hidden /> : n === "modifica" ? <Pencil size={11} aria-hidden /> : t.edit ? j : j + 1}</span>
+                                        {stepLabel(t, n)}
                                     </button>
                                 </li>
                             );
@@ -535,18 +554,18 @@ export function Tunnelo({ kind, aside, data, tenantId, owner, origin, business, 
                     <span>Fa parte di {q(after.saved.name)}: finito, si torna a «E adesso?».</span>
                 </div>
             )}
-            <div className={cx(s.igrid, week && s.wide)}>
+            <div className={cx(s.igrid, week && s.wide, full && s.full)}>
                 <div className={s.iform}>{body}</div>
-                {right}
+                {!full && right}
             </div>
             {/* in «Controlla» le righe di cosa cambia: la settimana c'è, non si vede */}
             {!week && step === "controlla" && owner && calKind && <div hidden>{preview}</div>}
             <UnsavedChangesDialog
                 isOpen={leave}
                 title="Uscire dal tunnel?"
-                message={`${t.kind === "storia" ? "La storia" : "Quello che hai scritto"} non è ancora salvat${t.kind === "storia" ? "a" : "o"}. Se esci senza salvare, lo perdi.`}
+                message={t.edit ? "Le modifiche non sono ancora salvate. Se esci senza salvare, le perdi." : `${t.kind === "storia" ? "La storia" : "Quello che hai scritto"} non è ancora salvat${t.kind === "storia" ? "a" : "o"}. Se esci senza salvare, lo perdi.`}
                 cancelLabel="Resta qui"
-                saveLabel="Tieni come bozza ed esci"
+                saveLabel={t.edit ? "Salva le modifiche ed esci" : "Tieni come bozza ed esci"}
                 wide
                 onCancel={() => setLeave(false)}
                 onDiscard={discard}
