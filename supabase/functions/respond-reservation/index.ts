@@ -25,6 +25,7 @@ import {
     type AdminReservationAction,
     type ReservationEmailAction
 } from "../_shared/reservationTransitions.ts";
+import { appCorsHeaders } from "../_shared/cors.ts";
 
 // =============================================================================
 // respond-reservation
@@ -59,25 +60,8 @@ const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY")!);
 
-// Allowlist mirrors stripe-checkout / stripe-update-seats (admin-only entry
-// points). `respond-reservation` is dashboard-only: no public/preview origin
-// expected. Browser blocks the response when Origin isn't echoed back.
-const ALLOWED_ORIGINS = [
-    "http://localhost:5173",
-    "https://staging.cataloglobe.com",
-    "https://cataloglobe.com",
-    "https://www.cataloglobe.com"
-];
-
 function corsHeaders(req: Request): Record<string, string> {
-    const origin = req.headers.get("origin") ?? "";
-    const allowed = ALLOWED_ORIGINS.includes(origin) ? origin : "";
-    return {
-        "Access-Control-Allow-Origin": allowed,
-        "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Vary": "Origin"
-    };
+    return appCorsHeaders(req.headers.get("origin"));
 }
 
 const ERROR_MESSAGES: Record<string, string> = {

@@ -6,25 +6,10 @@ import {
     scheduleStripeCancel,
     syncStripeCustomerOwner
 } from "../_shared/stripe-helpers.ts";
-
-// Stessa allowlist di stripe-checkout.
-const ALLOWED_ORIGINS = [
-    "http://localhost:5173",
-    "https://staging.cataloglobe.com",
-    "https://cataloglobe.com",
-    "https://www.cataloglobe.com",
-];
+import { appCorsHeaders } from "../_shared/cors.ts";
 
 function corsHeaders(req: Request): Record<string, string> {
-    const origin = req.headers.get("origin") ?? "";
-    const allowed = ALLOWED_ORIGINS.includes(origin) ? origin : "";
-    return {
-        "Access-Control-Allow-Origin": allowed,
-        "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Vary": "Origin",
-        "Content-Type": "application/json"
-    };
+    return appCorsHeaders(req.headers.get("origin"), { json: true });
 }
 
 function json(req: Request, status: number, body: Record<string, unknown>) {

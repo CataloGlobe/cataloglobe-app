@@ -9,6 +9,7 @@ import { buildReservationIcsAttachment } from "../_shared/reservationIcs.ts";
 import { signReservationToken } from "../_shared/reservationToken.ts";
 import { normalizePhoneToE164 } from "../_shared/phoneNormalize.ts";
 import { decideMoveNotification } from "../_shared/reservationUpdate.ts";
+import { appCorsHeaders } from "../_shared/cors.ts";
 
 // =============================================================================
 // update-reservation
@@ -53,23 +54,8 @@ const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY")!);
 
-// Dashboard-only, come respond-reservation.
-const ALLOWED_ORIGINS = [
-    "http://localhost:5173",
-    "https://staging.cataloglobe.com",
-    "https://cataloglobe.com",
-    "https://www.cataloglobe.com"
-];
-
 function corsHeaders(req: Request): Record<string, string> {
-    const origin = req.headers.get("origin") ?? "";
-    const allowed = ALLOWED_ORIGINS.includes(origin) ? origin : "";
-    return {
-        "Access-Control-Allow-Origin": allowed,
-        "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Vary": "Origin"
-    };
+    return appCorsHeaders(req.headers.get("origin"));
 }
 
 const ERROR_MESSAGES: Record<string, string> = {
