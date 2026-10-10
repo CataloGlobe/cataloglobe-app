@@ -27,19 +27,12 @@ import { LEAD_LIMITS, cleanLeadMeta, validateLead } from "../_shared/leadValidat
 import { normalizePhoneToE164 } from "../_shared/phoneNormalize.ts";
 import { checkRateLimit, extractClientIp, hashIp, RateLimitExceededError } from "../_shared/rateLimit.ts";
 import { sendEmail } from "../_shared/sendEmail.ts";
+import { APP_ORIGINS, appCorsHeaders } from "../_shared/cors.ts";
 
 const RATE_LIMIT_PER_IP_PER_HOUR = 5;
 const RATE_LIMIT_WINDOW_SECONDS = 3600;
 
 const VARIANTS = new Set(["form", "signup"]);
-
-// Stessa lista delle altre funzioni chiamate dal frontend.
-const ALLOWED_ORIGINS = [
-    "http://localhost:5173",
-    "https://staging.cataloglobe.com",
-    "https://cataloglobe.com",
-    "https://www.cataloglobe.com"
-];
 
 // Solo su staging: anteprime Vercel del progetto `cataloglobe-app` nel team
 // `lorenzo-calzis-projects`, nelle due forme che Vercel genera
@@ -52,19 +45,12 @@ const VERCEL_PREVIEW_ORIGIN = /^https:\/\/cataloglobe(?:-app)?-(?:[a-z0-9]{9}|gi
 const IS_STAGING = (Deno.env.get("SUPABASE_URL") ?? "").includes(`//${STAGING_PROJECT_REF}.`);
 
 function isAllowedOrigin(origin: string): boolean {
-    if (ALLOWED_ORIGINS.includes(origin)) return true;
+    if (APP_ORIGINS.includes(origin)) return true;
     return IS_STAGING && VERCEL_PREVIEW_ORIGIN.test(origin);
 }
 
 function corsHeaders(req: Request): Record<string, string> {
-    const origin = req.headers.get("origin") ?? "";
-    const allowed = isAllowedOrigin(origin) ? origin : "";
-    return {
-        "Access-Control-Allow-Origin": allowed,
-        "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Vary": "Origin"
-    };
+    return appCorsHeaders(req.headers.get("origin"), { allowed: isAllowedOrigin });
 }
 
 function json(req: Request, body: Record<string, unknown>, status: number): Response {

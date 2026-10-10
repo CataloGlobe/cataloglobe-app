@@ -3,30 +3,14 @@ import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import Stripe from "https://esm.sh/stripe@17?target=deno";
 import { stripeClientOptions } from "../_shared/stripe-helpers.ts";
+import { APP_ORIGINS, appCorsHeaders } from "../_shared/cors.ts";
 
 // Deep-link flows the client may ask for. The client only names the flow; the
 // server builds every URL of it (never taken from the request body).
 const ALLOWED_FLOWS = new Set(["payment_method_update"]);
 
-// App origins: CORS allowlist and where a flow may redirect back to. Same list
-// as stripe-checkout.
-const APP_ORIGINS = [
-    "http://localhost:5173",
-    "https://staging.cataloglobe.com",
-    "https://cataloglobe.com",
-    "https://www.cataloglobe.com",
-];
-
 function corsHeaders(req: Request): Record<string, string> {
-    const origin = req.headers.get("origin") ?? "";
-    const allowed = APP_ORIGINS.includes(origin) ? origin : "";
-    return {
-        "Access-Control-Allow-Origin": allowed,
-        "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Vary": "Origin",
-        "Content-Type": "application/json"
-    };
+    return appCorsHeaders(req.headers.get("origin"), { json: true });
 }
 
 function json(req: Request, status: number, body: Record<string, unknown>) {
