@@ -237,13 +237,15 @@ export default function PrezziOpzioniTab({
     // non è più mostrata come ereditante; «Annulla» la riporta lì.
     // «Annulla» in alto svuota la bozza: se il prezzo proprio non c'era, la
     // variante torna a usare quello del padre invece di restare col campo vuoto.
-    const priceDraftDirty = basePriceDraft?.isDirty ?? false;
-    const priceDraftEmpty = basePriceDraft ? basePriceDraft.input.trim() === "" : false;
-    const wasPriceDraftDirty = useRef(priceDraftDirty);
+    // Si chiude solo sull'«Annulla» esplicito: scrivere «5» e cancellarlo
+    // riporta la bozza a pulita, ma chi scrive non ha annullato niente.
+    const priceDiscards = basePriceDraft?.discards ?? 0;
+    const seenPriceDiscards = useRef(priceDiscards);
     useEffect(() => {
-        if (wasPriceDraftDirty.current && !priceDraftDirty && priceDraftEmpty) setEditingBasePrice(false);
-        wasPriceDraftDirty.current = priceDraftDirty;
-    }, [priceDraftDirty, priceDraftEmpty]);
+        if (seenPriceDiscards.current === priceDiscards) return;
+        seenPriceDiscards.current = priceDiscards;
+        setEditingBasePrice(false);
+    }, [priceDiscards]);
     const isInheriting =
         isVariant &&
         !hasPrimaryGroup &&

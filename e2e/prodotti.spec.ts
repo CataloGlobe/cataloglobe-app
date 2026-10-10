@@ -1275,6 +1275,17 @@ test.describe("Prodotti — lotto bug B", () => {
         await expect(main(page).getByRole("button", { name: "Imposta un prezzo proprio" })).toBeVisible();
     });
 
+    test("#336.7b: su una variante, scrivere un prezzo e cancellarlo non chiude il campo", async ({ page }) => {
+        await openProduct(page, PRODUCT.cocaZero, "prezzi-opzioni");
+        await main(page).getByRole("button", { name: "Imposta un prezzo proprio" }).click({ timeout: 15_000 });
+        const price = main(page).getByRole("spinbutton", { name: "Prezzo" });
+        await price.fill("5");
+        await price.fill("");
+        await expect(price).toBeVisible();
+        await price.fill("4.5");
+        await expect(price).toHaveValue("4.5");
+    });
+
     test("#336.11: Esc nella modifica di un formato annulla la riga, non chiude la parte", async ({ page }) => {
         await openProduct(page, PRODUCT.patatine, "prezzi-opzioni");
         await expect(scheda(page).getByText("Grandi", { exact: true })).toBeVisible({ timeout: 15_000 });
