@@ -30,6 +30,7 @@
 
 import { probeDatabase } from "./statusSupabase.js";
 import { Redis } from "@upstash/redis";
+import { statusCanarySlug } from "./canarySlug.js";
 
 const CHECK_TIMEOUT_MS = 10_000;
 const DEGRADED_THRESHOLD_MS = 5_000;
@@ -69,7 +70,7 @@ function readTargetBaseUrl(): string {
 }
 
 function readCanarySlug(): string {
-    return process.env.STATUS_CANARY_SLUG ?? "san-pietro-porta-venezia";
+    return statusCanarySlug();
 }
 
 function vercelBypassHeader(): Record<string, string> {

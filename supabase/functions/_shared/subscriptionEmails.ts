@@ -1,5 +1,6 @@
 // @ts-nocheck
-import { getEmailFooterHtml, getEmailFooterText } from "./company-config.ts";
+import { getEmailFooterText } from "./company-config.ts";
+import { renderCard, renderTitle } from "./emailLayout.ts";
 
 // ---------------------------------------------------------------------------
 // Template email transazionali per i cambi abbonamento (italiano, brandizzati).
@@ -30,20 +31,19 @@ function formatEuroCents(cents: number): string {
     return `€${(cents / 100).toFixed(2).replace(".", ",")}`;
 }
 
-/** Card HTML standard: titolo + corpo (paragrafi già in HTML) + footer legale. */
+/**
+ * Scheda standard: titolo e corpo nel guscio comune. L'anteprima della
+ * notifica è il primo paragrafo, senza tag: è sempre la frase che dice cosa è
+ * cambiato.
+ */
 function card(title: string, bodyHtml: string): string {
-    return `
-<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:#f9fafb;padding:40px">
-    <div style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:12px;padding:32px">
-        <h1 style="margin:0 0 16px;font-size:22px;color:#111827">${title}</h1>
-        ${bodyHtml}
-        ${getEmailFooterHtml()}
-    </div>
-</div>`.trim();
+    const first = bodyHtml.match(/<p[^>]*>(.*?)<\/p>/s)?.[1] ?? title;
+    const preheader = first.replace(/<[^>]+>/g, "").replace(/&amp;/g, "&");
+    return renderCard([renderTitle(title), bodyHtml], { preheader });
 }
 
 function p(text: string): string {
-    return `<p style="margin:0 0 12px;font-size:15px;color:#374151;line-height:1.5">${text}</p>`;
+    return `<p style="margin:0 0 12px;font-size:15px;line-height:1.6;color:#374151">${text}</p>`;
 }
 
 // --- Upgrade -----------------------------------------------------------------

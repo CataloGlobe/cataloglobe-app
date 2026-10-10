@@ -153,6 +153,7 @@ export const FileInput: React.FC<FileInputProps> = ({
                         type="file"
                         accept={accept}
                         disabled={isDisabled}
+                        aria-required={required || undefined}
                         aria-describedby={describedById}
                         className={styles.hiddenInput}
                         onChange={e => handleFile(e.target.files?.[0])}

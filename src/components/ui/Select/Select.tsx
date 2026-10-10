@@ -62,6 +62,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
                             id={inputId}
                             disabled={isDisabled}
                             aria-invalid={hasError}
+                            aria-required={required || undefined}
                             aria-describedby={describedById}
                             className={`${styles.select} ${selectClassName ?? className ?? ""}`}
                             {...props}

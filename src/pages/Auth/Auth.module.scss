@@ -4,16 +4,7 @@
   display: flex;
   flex-direction: column;
   gap: 1rem;
-
   width: 100%;
-  max-width: 420px;
-  // margin rimosso: AuthLayout gestisce il centramento via flexbox
-
-  padding: 2rem;
-
-  background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
 
   form {
     display: flex;
@@ -22,8 +13,21 @@
   }
 }
 
-.subtitle {
-  margin-top: -0.25rem;
+// Riga in fondo alla scheda (sicurezza, spam): fondo tenue, testo piccolo.
+.note {
+  display: flex;
+  gap: 0.625rem;
+  align-items: center;
+  padding: 0.75rem;
+  border-radius: var(--radius-control);
+  background: var(--bg);
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+
+  svg {
+    flex-shrink: 0;
+  }
 }
 
 .formRow {
@@ -37,7 +41,14 @@
   }
 }
 
+.forgotRow {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: -0.25rem;
+}
+
 .forgot {
+  font-weight: 500;
   text-decoration: none;
 
   &:hover {
@@ -54,29 +65,11 @@
   display: block;
 }
 
-.otpInputs {
-  display: flex;
-  gap: 0.75rem;
-  justify-content: center;
-  margin: 0.75rem 0 1rem;
-}
-
-.otpInput {
-  width: 44px;
-  text-align: center;
-}
-
 .otpFooter {
   margin-top: 0.75rem;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-}
-
-.actions {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
 }
 
 // Consenso registrazione
@@ -152,18 +145,66 @@
   }
 }
 
-// Label sopra OTP boxes
-.otpLabel {
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--text, #0f172a);
-  margin-bottom: 0.25rem;
-  display: block;
+
+// Righe in fondo alla scheda (reinvio, email sbagliata, accedi): un solo stile,
+// testo piccolo e tenue, i link sono link veri nel colore del marchio.
+.links {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  text-align: center;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+
+  p {
+    margin: 0;
+    color: inherit;
+    font-size: inherit;
+  }
 }
 
-// Icone stato EmailConfirmed
-.statusIcon {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 0.25rem;
+.textLink {
+  display: inline;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: 500;
+  color: $brand-primary;
+  text-decoration: none;
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    text-decoration: underline;
+  }
+
+  &:disabled {
+    color: inherit;
+    font-weight: 400;
+    cursor: default;
+  }
+
+  &:focus-visible {
+    outline: 2px solid $brand-primary;
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+}
+
+// Errore sotto le caselle del codice: c'è solo quando serve, niente spazio
+// vuoto riservato.
+.codeMessage {
+  margin: -0.5rem 0 0;
+  font-size: 0.8125rem;
+  line-height: 1.25;
+  color: var(--text-muted);
+}
+
+.wait {
+  font-variant-numeric: tabular-nums;
+}
+
+.codeMessageError {
+  color: var(--text-danger);
 }

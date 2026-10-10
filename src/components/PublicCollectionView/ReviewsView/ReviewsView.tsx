@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { trackEvent } from "@/services/analytics/publicAnalytics";
 import StarRating from "../StarRating/StarRating";
 import styles from "./ReviewsView.module.scss";
+import { safeHttpHref } from "@/utils/sanitizeUrl";
 
 /* ── Props ───────────────────────────────────────────── */
 
@@ -78,6 +79,8 @@ export default function ReviewsView({
     const [phase, setPhase] = useState<Phase>(initialRating ? "feedback" : "stars");
     const [selectedStars, setSelectedStars] = useState(initialRating ?? 0);
     const [feedback, setFeedback] = useState("");
+    // Campo trappola: nascosto, lo compila solo un bot (vedi submit-review).
+    const [website, setWebsite] = useState("");
     const [submitError, setSubmitError] = useState<string | null>(null);
     const [showGoogleCard, setShowGoogleCard] = useState(false);
 
@@ -120,6 +123,7 @@ export default function ReviewsView({
                     rating: selectedStars,
                     comment: feedback.trim() || undefined,
                     session_id: sessionId,
+                    website: website || undefined,
                 }),
             });
 
@@ -161,11 +165,13 @@ export default function ReviewsView({
     }
 
     /* ── Show Google card with delay ────────────────── */
+    // Solo http/https: un link non valido spegne la card invece di un bottone morto.
+    const safeGoogleReviewUrl = safeHttpHref(googleReviewUrl);
     useEffect(() => {
-        if (phase !== "thanks" || !isHighRating || !googleReviewUrl) return;
+        if (phase !== "thanks" || !isHighRating || !safeGoogleReviewUrl) return;
         const timer = setTimeout(() => setShowGoogleCard(true), 600);
         return () => clearTimeout(timer);
-    }, [phase, isHighRating, googleReviewUrl]);
+    }, [phase, isHighRating, safeGoogleReviewUrl]);
 
     /* ── Already reviewed in last 24h ─────────────────── */
     if (alreadyReviewed) {
@@ -276,6 +282,16 @@ export default function ReviewsView({
                             maxLength={2000}
                             autoFocus
                         />
+                        <input
+                            className={styles.trap}
+                            type="text"
+                            name="website"
+                            value={website}
+                            onChange={(e) => setWebsite(e.target.value)}
+                            tabIndex={-1}
+                            autoComplete="off"
+                            aria-hidden="true"
+                        />
                         <div className={styles.subline}>
                             <p className={styles.caption}>
                                 {t("reviews.personal_data_hint")}{" "}
@@ -350,7 +366,7 @@ export default function ReviewsView({
                         : t("reviews.thanks_subtitle_low")}
                 </p>
 
-                {showGoogleCard && googleReviewUrl && (
+                {showGoogleCard && safeGoogleReviewUrl && (
                     <div className={styles.googleCard}>
                         <div className={styles.googleIcon}>
                             <GoogleIcon />
@@ -364,7 +380,7 @@ export default function ReviewsView({
                             </span>
                         </div>
                         <a
-                            href={googleReviewUrl}
+                            href={safeGoogleReviewUrl}
                             target="_blank"
                             rel="noopener noreferrer"
                             className={styles.googleBtn}

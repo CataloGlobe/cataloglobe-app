@@ -119,7 +119,7 @@ export function CreateBusinessDrawer({ open, onClose, tenantData, onSuccess }: C
                     </>
                 }
             >
-                <form
+                <form noValidate
                     id={formId}
                     onSubmit={handleSubmit}
                     style={{ display: "flex", flexDirection: "column", gap: "20px" }}

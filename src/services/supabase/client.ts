@@ -20,27 +20,32 @@ function getEnvValue(key: string): string | undefined {
 const SUPABASE_URL = getEnvValue("VITE_SUPABASE_URL");
 const SUPABASE_ANON_KEY = getEnvValue("VITE_SUPABASE_ANON_KEY");
 
-const REMEMBER_KEY = "authRememberMe";
 const isBrowserRuntime =
     typeof window !== "undefined" &&
     typeof window.localStorage !== "undefined" &&
     typeof window.sessionStorage !== "undefined";
 
-function getRememberPreference(): boolean {
-    if (!isBrowserRuntime) return true;
-
-    // default: true (SaaS standard)
-    const raw = localStorage.getItem(REMEMBER_KEY);
-    if (raw === null) return true;
-    return raw === "true";
-}
-
-function getAuthStorage(): Storage | undefined {
-    if (!isBrowserRuntime) return undefined;
-
-    // ✅ True -> localStorage (persistente)
-    // ✅ False -> sessionStorage (dura finché il browser è aperto; refresh OK)
-    return getRememberPreference() ? window.localStorage : window.sessionStorage;
+/**
+ * «Ricordami» è stato tolto (deciso da Lorenzo il 2026-10-09): la sessione sta
+ * sempre in localStorage. Chi aveva la casella spenta ha la sessione in
+ * sessionStorage: la si sposta una volta, così non deve rifare l'accesso.
+ */
+function migrateLegacySessionStorage() {
+    const legacyKey = "authRememberMe";
+    if (localStorage.getItem(legacyKey) === null) return;
+    try {
+        for (let i = sessionStorage.length - 1; i >= 0; i--) {
+            const key = sessionStorage.key(i);
+            if (!key || !/^sb-.+-auth-token$/.test(key)) continue;
+            const value = sessionStorage.getItem(key);
+            if (value !== null && localStorage.getItem(key) === null) {
+                localStorage.setItem(key, value);
+            }
+            sessionStorage.removeItem(key);
+        }
+    } finally {
+        localStorage.removeItem(legacyKey);
+    }
 }
 
 function createSupabaseClient(): SupabaseClient {
@@ -48,7 +53,8 @@ function createSupabaseClient(): SupabaseClient {
         throw new Error("Missing Supabase env vars: VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY");
     }
 
-    const storage = getAuthStorage();
+    if (isBrowserRuntime) migrateLegacySessionStorage();
+    const storage = isBrowserRuntime ? window.localStorage : undefined;
 
     const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
         auth: {
@@ -85,15 +91,6 @@ function createSupabaseClient(): SupabaseClient {
 }
 
 export const supabase = createSupabaseClient();
-
-/**
- * Salva la preferenza e ricrea il client con lo storage corretto.
- * Va chiamato PRIMA del login.
- */
-export function setRememberMe(remember: boolean) {
-    if (!isBrowserRuntime) return;
-    localStorage.setItem(REMEMBER_KEY, String(remember));
-}
 
 /**
  * Utile in casi particolari (es. dopo logout forzato / reset).

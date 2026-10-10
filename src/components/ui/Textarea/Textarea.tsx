@@ -50,6 +50,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
                         rows={rows}
                         disabled={isDisabled}
                         aria-invalid={hasError}
+                        aria-required={required || undefined}
                         aria-describedby={describedById}
                         className={`${styles.textarea} ${hasError ? styles.hasError : ""} ${
                             textareaClassName ?? className ?? ""

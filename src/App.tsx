@@ -190,14 +190,9 @@ export default function App() {
                     </GuestRoute>
                 }
             />
-            <Route
-                path="/check-email"
-                element={
-                    <GuestRoute>
-                        <CheckEmail />
-                    </GuestRoute>
-                }
-            />
+            {/* Senza GuestRoute: il codice apre la sessione e la pagina deve restare
+                montata finché non porta lei dentro, al posto del rimbalzo di GuestRoute. */}
+            <Route path="/check-email" element={<CheckEmail />} />
             <Route path="/email-confirmed" element={<EmailConfirmed />} />
             <Route
                 path="/forgot-password"
