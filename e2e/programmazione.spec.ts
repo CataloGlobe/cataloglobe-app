@@ -520,6 +520,18 @@ test.describe("Programmazione — ruolo di sede, decide il database", () => {
         await stubProgrammazione(page, { dbWritable: [RULE.pranzo] });
     });
 
+    test("#337.4: nel Calendario la regola rifiutata dal database non ha «Modifica» né «Togli»", async ({ page }) => {
+        await openSeatList(page, SEDE.centro, "all");
+        await openCalendar(page);
+        await main(page).getByRole("button", { name: /^Disponibilità · / }).first().click();
+        await main(page).getByRole("button", { name: /^Stagionali Centro e2e · / }).first().click();
+        const panel = main(page).getByRole("complementary", { name: RULE_NAME.stagionali });
+        await expect(panel.getByText("I piatti di questa data")).toBeVisible();
+        await expect(panel.getByRole("button", { name: "Modifica completa" })).toHaveCount(0);
+        await expect(panel.getByRole("button", { name: /^Modifica / })).toHaveCount(0);
+        await expect(panel.getByRole("button", { name: /^Togli/ })).toHaveCount(0);
+    });
+
     test("elenco: la regola rifiutata dal database ha il lucchetto, la sua no", async ({ page }) => {
         await openSeatList(page, SEDE.centro);
         // Una riga in sola lettura non ha «Azioni»: la si prende per nome.
@@ -642,6 +654,29 @@ test.describe("Programmazione — calendario, simulatore, guida", () => {
         await expect(main(page).getByRole("button", { name: /^Carta e2e · 11:00–15:00\. C'è, ma qui non si vede\. Vince «Pranzo e2e», che vale per Centro e2e/ })).toBeVisible();
         await main(page).getByRole("button", { name: "Menù", expanded: true }).click();
         await expect(main(page).getByRole("button", { name: "Menù", expanded: true })).toHaveCount(0);
+    });
+
+    test("#337.4: ad abbonamento fermo il Calendario non lascia aggiungere, modificare né togliere", async ({ page }) => {
+        await page.route(/\/rest\/v1\/user_tenants_view/, async route => {
+            try {
+                const response = await route.fetch();
+                const rows = (await response.json()) as Array<Record<string, unknown>>;
+                for (const row of rows) if (row.id === TENANT_ID) row.subscription_status = "suspended";
+                await route.fulfill({ response, json: rows });
+            } catch {
+                // Pagina chiusa a metà richiesta (fine del test): niente da riscrivere.
+            }
+        });
+        await openSeatList(page, SEDE.centro, "all");
+        await openCalendar(page);
+        await main(page).getByRole("button", { name: /^Disponibilità · / }).first().click();
+        await main(page).getByRole("button", { name: /^Stagionali Centro e2e · / }).first().click();
+        const panel = main(page).getByRole("complementary", { name: RULE_NAME.stagionali });
+        await expect(panel.getByText("I piatti di questa data")).toBeVisible();
+        await expect(panel.getByRole("button", { name: "Modifica completa" })).toHaveCount(0);
+        await expect(panel.getByRole("button", { name: /^Modifica / })).toHaveCount(0);
+        await expect(panel.getByRole("button", { name: /^Togli/ })).toHaveCount(0);
+        await expect(main(page).getByRole("button", { name: /^Aggiungi/ })).toHaveCount(0);
     });
 
     test("una linea apre il pannello piccolo: perché, i piatti, «Modifica completa»", async ({ page }) => {

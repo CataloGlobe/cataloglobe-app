@@ -1097,7 +1097,8 @@ export default function Programming() {
                     groupNames={groupNameById}
                     products={calProducts}
                     formatNames={calFormatNames}
-                    isWritable={canWrite ? isRuleWritable : undefined}
+                    // ad abbonamento fermo il Calendario è in sola lettura, come l'Elenco
+                    isWritable={canWrite && canEdit ? isRuleWritable : undefined}
                     onOpenRule={rule => navigate(ruleHref(rule))}
                     onDrop={async (rule, item) => {
                         await (item ? dropItem(rule, item) : dropRule(rule));
@@ -1113,7 +1114,7 @@ export default function Programming() {
                             ? { all: false, activityIds: [routeActivityId], groupIds: [] }
                             : { all: true, activityIds: [], groupIds: [] },
                         systemStyleId: stylesOptions.find(x => x.is_system)?.id ?? null,
-                        canAdd: canCreate,
+                        canAdd: canCreate && canEdit,
                         onSave: async (draft, lookups) => {
                             await saveDraft(draft, lookups, currentTenantId!);
                             await loadRules();
