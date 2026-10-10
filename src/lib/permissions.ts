@@ -23,6 +23,21 @@ export interface UserPermissions {
     activityIds: string[];
     /** Set di permission_id che il role ha grantati via role_permissions. */
     permissions: Set<string>;
+    /**
+     * Ruoli di sede: per ogni permesso, le sedi su cui lo dà almeno uno dei
+     * ruoli del caller (RPC `get_my_permission_activities`, D35). Con ruoli
+     * diversi per sede (manager qui, viewer là) `role` e `activityIds` dicono
+     * solo il ruolo più alto: questa mappa dice il vero, come `has_permission`.
+     * Assente per owner/admin, o finché la migration non è applicata: allora
+     * valgono `activityIds` e `permissions` come prima.
+     */
+    activitiesByPermission?: ReadonlyMap<string, readonly string[]>;
+}
+
+/** Le sedi su cui il caller ha `permissionId`, se la mappa per sede c'è. */
+function activitiesFor(perms: UserPermissions, permissionId: string): readonly string[] | undefined {
+    if (!perms.activitiesByPermission) return undefined;
+    return perms.activitiesByPermission.get(permissionId) ?? [];
 }
 
 /** True se `perms.role === 'owner'`. */
@@ -49,8 +64,10 @@ export function canDoOnActivity(
     permissionId: string,
     activityId: string
 ): boolean {
+    if (isTenantWide(perms)) return perms.permissions.has(permissionId);
+    const activities = activitiesFor(perms, permissionId);
+    if (activities) return activities.includes(activityId);
     if (!perms.permissions.has(permissionId)) return false;
-    if (isTenantWide(perms)) return true;
     return perms.activityIds.includes(activityId);
 }
 
@@ -60,8 +77,10 @@ export function canDoOnActivity(
  * almeno uno schedule).
  */
 export function canDoOnAnyActivity(perms: UserPermissions, permissionId: string): boolean {
+    if (isTenantWide(perms)) return perms.permissions.has(permissionId);
+    const activities = activitiesFor(perms, permissionId);
+    if (activities) return activities.length > 0;
     if (!perms.permissions.has(permissionId)) return false;
-    if (isTenantWide(perms)) return true;
     return perms.activityIds.length > 0;
 }
 
@@ -198,11 +217,14 @@ export function canWriteRule(
     rule: RuleTargets,
     groupMembers?: ReadonlyMap<string, readonly string[]>
 ): boolean {
-    if (!perms.permissions.has("scheduling.write")) return false;
-    if (isTenantWide(perms)) return true;
+    if (isTenantWide(perms)) return perms.permissions.has("scheduling.write");
+    // Le sedi dove il caller ha davvero `scheduling.write` (D35): una sede da
+    // viewer non conta, anche se è manager altrove.
+    const writable = activitiesFor(perms, "scheduling.write") ?? (perms.permissions.has("scheduling.write") ? perms.activityIds : []);
+    if (writable.length === 0) return false;
     if (rule.applyToAll) return false;
     if (rule.activityIds.length === 0 && rule.groupIds.length === 0) return false;
-    const mine = (activityId: string) => perms.activityIds.includes(activityId);
+    const mine = (activityId: string) => writable.includes(activityId);
     return (
         rule.activityIds.every(mine) &&
         rule.groupIds.every(groupId => {

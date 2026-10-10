@@ -36,12 +36,36 @@ export async function fetchMyPermissions(tenantId: string): Promise<UserPermissi
         throw new Error(`get_my_permissions: invalid role "${row.role}"`);
     }
 
+    const permissions = new Set(row.permissions ?? []);
+    const activitiesByPermission =
+        row.role === "owner" || row.role === "admin" ? undefined : await fetchActivitiesByPermission(tenantId);
+    // Un permesso dato da un ruolo di sede più basso (viewer qui, manager là)
+    // vale anche a livello di tenant, come in `has_permission`.
+    activitiesByPermission?.forEach((_, permissionId) => permissions.add(permissionId));
+
     return {
         tenantId,
         role: row.role,
         activityIds: row.activity_ids ?? [],
-        permissions: new Set(row.permissions ?? [])
+        permissions,
+        activitiesByPermission
     };
+}
+
+/**
+ * Le sedi per permesso dei ruoli di sede (RPC `get_my_permission_activities`,
+ * D35). Se la RPC non c'è ancora (migration non applicata) o fallisce, niente
+ * mappa: si resta ai permessi del ruolo più alto, come prima.
+ */
+async function fetchActivitiesByPermission(tenantId: string): Promise<Map<string, string[]> | undefined> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- RPC nuova, non ancora nei tipi generati
+    const { data, error } = await (supabase.rpc as any)("get_my_permission_activities", { p_tenant_id: tenantId });
+    if (error || !Array.isArray(data)) return undefined;
+    const map = new Map<string, string[]>();
+    for (const row of data as { permission_id: string; activity_ids: string[] | null }[]) {
+        map.set(row.permission_id, row.activity_ids ?? []);
+    }
+    return map;
 }
 
 function isUserRole(value: string): value is UserRole {
