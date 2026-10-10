@@ -182,7 +182,7 @@ export default function ProductPage() {
     const { save: saveAttributes, discard: discardAttributes, isDirty: attributesDirty } = attributesDraft;
     const { save: savePrice, discard: discardPrice, isDirty: priceDirty, error: priceError } = priceDraft;
     const { save: saveFormats, discard: discardFormats, isDirty: formatsDirty, mode: formatsMode } = formatsDraft;
-    const handleSaveAll = useCallback(async () => {
+    const saveAllParts = useCallback(async () => {
         // In «per formato» il prezzo unico resta com'è: si salva solo quello in vista.
         const pricePart = formatsMode === "unico" && priceDirty;
         if (pricePart && priceError) {
@@ -220,6 +220,17 @@ export default function ProductPage() {
         showToast,
         fail
     ]);
+    // Due clic sul Salva prima che parta `isSaving`: il secondo non rifà nulla.
+    const savingAllRef = useRef(false);
+    const handleSaveAll = useCallback(async () => {
+        if (savingAllRef.current) return;
+        savingAllRef.current = true;
+        try {
+            await saveAllParts();
+        } finally {
+            savingAllRef.current = false;
+        }
+    }, [saveAllParts]);
     const handleDiscardAll = useCallback(() => {
         discardScheda();
         discardAttributes();
@@ -794,7 +805,8 @@ function readPart(parte: string | null, vista: string | null, tab: string | null
         config: "scelte",
         translations: "traduzioni",
         usage: "dove",
-        attributes: "attributi"
+        attributes: "attributi",
+        variants: "varianti"
     };
     return (tab && legacy[tab]) || null;
 }

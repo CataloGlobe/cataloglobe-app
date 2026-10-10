@@ -201,7 +201,17 @@ export function OptionValueList({
 
             {values.map(value =>
                 editingId === value.id ? (
-                    <div key={value.id} className={styles.editRow}>
+                    <div
+                        key={value.id}
+                        className={styles.editRow}
+                        // Esc annulla la modifica della riga e si ferma qui: non
+                        // chiude la parte a fuoco intorno.
+                        onKeyDown={e => {
+                            if (e.key !== "Escape") return;
+                            e.preventDefault();
+                            cancelEdit();
+                        }}
+                    >
                         <TextInput
                             containerClassName={styles.nameField}
                             inputClassName={styles.controlInput}

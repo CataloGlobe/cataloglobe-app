@@ -267,8 +267,8 @@ export default function ActivityOrdiniPrenotazioniRoute({ part }: ActivityOrdini
     const orderingChecklist: ChecklistItem[] = [
         {
             id: "published",
-            title: "Sede pubblicata",
-            shortTitle: "Pubblicata",
+            title: "Sede online",
+            shortTitle: "Online",
             description:
                 "Finché la sede è sospesa la pagina pubblica non è raggiungibile e il QR del tavolo non porta da nessuna parte.",
             done: activity.status === "active",
@@ -324,7 +324,7 @@ export default function ActivityOrdiniPrenotazioniRoute({ part }: ActivityOrdini
             <div className={styles.page}>
                 <section id="ordini" aria-label="Ordini al tavolo" className={styles.section}>
                     {activity.status !== "active" && (
-                        <Checklist title="Prima degli ordini" items={orderingChecklist} doneTitle="La sede è pubblicata" />
+                        <Checklist title="Prima degli ordini" items={orderingChecklist} doneTitle="La sede è online" />
                     )}
                     <Card title="Ordini al tavolo" subtitle="Il cliente ordina inquadrando il QR del tavolo">
                         <div className={styles.stack}>

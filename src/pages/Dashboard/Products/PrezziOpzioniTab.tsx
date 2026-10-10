@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/Button/Button";
 import { Badge } from "@/components/ui/Badge/Badge";
@@ -235,6 +235,17 @@ export default function PrezziOpzioniTab({
     const [isLoadingParent, setIsLoadingParent] = useState(false);
     // «Imposta un prezzo proprio» apre il campo: finché si scrive, la variante
     // non è più mostrata come ereditante; «Annulla» la riporta lì.
+    // «Annulla» in alto svuota la bozza: se il prezzo proprio non c'era, la
+    // variante torna a usare quello del padre invece di restare col campo vuoto.
+    // Si chiude solo sull'«Annulla» esplicito: scrivere «5» e cancellarlo
+    // riporta la bozza a pulita, ma chi scrive non ha annullato niente.
+    const priceDiscards = basePriceDraft?.discards ?? 0;
+    const seenPriceDiscards = useRef(priceDiscards);
+    useEffect(() => {
+        if (seenPriceDiscards.current === priceDiscards) return;
+        seenPriceDiscards.current = priceDiscards;
+        setEditingBasePrice(false);
+    }, [priceDiscards]);
     const isInheriting =
         isVariant &&
         !hasPrimaryGroup &&

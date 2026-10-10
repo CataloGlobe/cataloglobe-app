@@ -6,6 +6,8 @@ import type { V2ActivityClosure } from "@/types/activity-closures";
 import type { Printer } from "@/types/printers";
 import { FEE_DEFINITIONS, type FeeDefinition } from "@/constants/activityFees";
 import { getDaySlots } from "@/pages/ReservationPage/availability";
+import { SERVICE_DAY_START_HOUR } from "@/pages/Dashboard/Reservations/serviceDay";
+import { toRomeDateTime } from "@/services/supabase/schedulingNow";
 import { normalizeHours } from "../tabs/hours-services/blockTimeRange";
 import type { SchedaPart } from "./schedaCopy";
 
@@ -35,24 +37,35 @@ const MONTHS = [
 ];
 
 export interface SchedaNow {
-    /** "YYYY-MM-DD", ora locale. */
+    /** "YYYY-MM-DD" della giornata di servizio, in ora di Roma. */
     iso: string;
-    /** 0 = lunedì … 6 = domenica, come `day_of_week`. */
+    /** 0 = lunedì … 6 = domenica, come `day_of_week`: il giorno di `iso`. */
     weekday: number;
-    /** Minuti dalla mezzanotte. */
+    /** Minuti dalla mezzanotte di `iso`: dopo mezzanotte e prima delle 5
+     *  passano 1440, come le fasce che chiudono il giorno dopo. */
     minutes: number;
 }
 
+/** «Oggi» è la giornata di servizio in ora di Roma, come la sala
+ *  (`serviceDayOf`): all'una di notte un locale aperto fino alle 2 è ancora
+ *  nella sera di ieri, e «Chiudi oggi» chiude quella. */
 export function makeNow(date: Date): SchedaNow {
-    const iso = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-    return { iso, weekday: (date.getDay() + 6) % 7, minutes: date.getHours() * 60 + date.getMinutes() };
+    const r = toRomeDateTime(date);
+    const late = r.hour < SERVICE_DAY_START_HOUR;
+    const civil = Date.UTC(r.year, r.month, r.day) - (late ? 86_400_000 : 0);
+    return {
+        iso: new Date(civil).toISOString().slice(0, 10),
+        weekday: (r.dayOfWeek + (late ? 5 : 6)) % 7,
+        minutes: r.hour * 60 + r.minute + (late ? 1440 : 0)
+    };
 }
 
-/** «venerdì 12:30» */
+/** «venerdì 12:30»; dopo mezzanotte il giorno del calendario, «sabato 1:15». */
 export function nowLabel(now: SchedaNow): string {
-    const h = Math.floor(now.minutes / 60);
+    const late = now.minutes >= 1440;
+    const day = late ? (now.weekday + 1) % 7 : now.weekday;
     const m = now.minutes % 60;
-    return `${DAY_LONG[now.weekday]} ${h}:${String(m).padStart(2, "0")}`;
+    return `${DAY_LONG[day]} ${Math.floor(now.minutes / 60) % 24}:${String(m).padStart(2, "0")}`;
 }
 
 /** 900 → «15», 1110 → «18:30», 1470 → «0:30». */

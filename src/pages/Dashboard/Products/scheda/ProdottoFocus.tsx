@@ -10,6 +10,10 @@ import styles from "./Prodotto.module.scss";
 
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
 
+/** Livelli col loro Esc: finché ce n'è uno aperto, Esc non chiude la parte. */
+const LAYER_ABOVE =
+    "[role='dialog'], [role='alertdialog'], [role='menu'][data-state='open'], [role='listbox'][data-state='open'], [role='combobox'][aria-expanded='true']";
+
 interface ProdottoFocusProps {
     part: ProdottoPart;
     facts: ProdottoFacts;
@@ -53,15 +57,24 @@ export function ProdottoFocus({
     const boxRef = useRef<HTMLDivElement>(null);
     const fit = usePhoneFit(sideRef, boxRef, true);
 
-    // Esc torna al cruscotto, se non si sta scrivendo in un drawer.
+    // Esc torna al cruscotto, se sopra non c'è un drawer, una conferma, un
+    // menù o una tendina (gli ingredienti): quelli hanno il loro Esc. Livelli
+    // letti in cattura, prima che si chiudano (come nella Scheda della sede).
     useEffect(() => {
+        let layerAbove = false;
+        const readLayers = (e: KeyboardEvent) => {
+            if (e.key === "Escape") layerAbove = document.querySelector(LAYER_ABOVE) !== null;
+        };
         const onKey = (e: KeyboardEvent) => {
-            if (e.key !== "Escape" || e.defaultPrevented) return;
-            if (document.querySelector("[role='dialog'], [role='alertdialog']")) return;
+            if (e.key !== "Escape" || e.defaultPrevented || layerAbove) return;
             onDone();
         };
+        document.addEventListener("keydown", readLayers, { capture: true });
         document.addEventListener("keydown", onKey);
-        return () => document.removeEventListener("keydown", onKey);
+        return () => {
+            document.removeEventListener("keydown", readLayers, { capture: true });
+            document.removeEventListener("keydown", onKey);
+        };
     }, [onDone]);
 
     // Il telefono porta in vista la parte a fuoco.
@@ -75,7 +88,9 @@ export function ProdottoFocus({
         const top = el ? scr.scrollTop + (el.getBoundingClientRect().top - sRect.top) / ratio - 50 : 0;
         const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
         scr.scrollTo?.({ top: Math.max(0, top), behavior: reduce ? "auto" : "smooth" });
-    }, [part, facts]);
+        // Solo quando cambia la parte: `facts` è nuovo a ogni tasto, e il
+        // telefono tornerebbe sulla parte mentre lo si scorre a mano.
+    }, [part]);
 
     return (
         <div className={`${styles.root} ${styles.focusRoot}`}>
@@ -85,7 +100,7 @@ export function ProdottoFocus({
                         const parts = g.parts.filter(visible);
                         if (parts.length === 0) return null;
                         return (
-                            <div key={g.title} style={{ display: "contents" }}>
+                            <div key={g.title} className={styles.contents}>
                                 <div className={styles.gt}>{g.title}</div>
                                 {parts.map(o => (
                                     <button key={o} type="button" aria-current={o === part} onClick={() => onPick(o)}>

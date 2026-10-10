@@ -20,7 +20,7 @@ import {
 } from "@/utils/activeCatalogStatus";
 import Skeleton from "@/components/ui/Skeleton/Skeleton";
 import { buildPublicUrl } from "@/utils/publicUrl";
-import { formatInactiveReason } from "@/utils/activityStatus";
+import { ACTIVE_LABEL, formatInactiveReason } from "@/utils/activityStatus";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import { useNavigate, useParams } from "react-router-dom";
 
@@ -62,7 +62,7 @@ export const BusinessList: React.FC<BusinessListProps> = ({
                                 {business.status === "inactive" ? (
                                     <StatusBadge variant="neutral" label="Sospesa" />
                                 ) : (
-                                    <StatusBadge variant="success" label="Pubblicata" />
+                                    <StatusBadge variant="success" label={ACTIVE_LABEL} />
                                 )}
                             </span>
                             {/* Un link nella cella: la riga non lo intercetta. */}
@@ -92,7 +92,7 @@ export const BusinessList: React.FC<BusinessListProps> = ({
             {
                 id: "status",
                 header: "Stato",
-                // S3: larga quanto la pillola «Pubblicata» più il padding (a 120 si
+                // S3: larga quanto la pillola «Online» più il padding (a 120 si
                 // troncava), il motivo della sospensione sotto.
                 width: "152px",
                 hideOnPhone: true,
@@ -107,7 +107,7 @@ export const BusinessList: React.FC<BusinessListProps> = ({
                             )}
                         </div>
                     ) : (
-                        <StatusBadge variant="success" label="Pubblicata" />
+                        <StatusBadge variant="success" label={ACTIVE_LABEL} />
                     )
             },
             {

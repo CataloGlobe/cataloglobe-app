@@ -445,10 +445,10 @@ export default function OverviewPage() {
             "location",
             setup?.hasActiveLocation ?? false,
             "Sede",
-            "Sede pubblicata",
+            "Sede online",
             // Zero sedi e sede sospesa sono due situazioni diverse: nel secondo
             // caso la sede c'è già e l'azione è riattivarla, non crearne una.
-            setup?.hasAnyLocation ? "Pubblica una sede" : "Crea la prima sede",
+            setup?.hasAnyLocation ? "Metti online una sede" : "Crea la prima sede",
             setup?.hasAnyLocation
                 ? "Hai una sede sospesa: finché resta così, la pagina non è raggiungibile."
                 : "È il locale che i clienti raggiungono con il QR.",
@@ -789,7 +789,7 @@ export default function OverviewPage() {
             ? undefined
             : isScoped
                 ? activeCount === 1 ? "1 sede" : `${activeCount} sedi`
-                : activeCount === 1 ? "1 sede pubblicata" : `${activeCount} sedi pubblicate`;
+                : activeCount === 1 ? "1 sede online" : `${activeCount} sedi online`;
     const hiddenLocationsCount = Math.max(activeCount - MAX_VISIBLE_LOCATIONS, 0);
     const single = activeCount === 1 ? locations!.active[0] : null;
 

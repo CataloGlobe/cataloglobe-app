@@ -402,7 +402,7 @@ test.describe("Storie — dove appaiono (§50.13)", () => {
         });
         await openStory(page, STORY.forno);
         await expect(titleField(page)).toHaveValue("Il nostro forno e2e", { timeout: 15_000 });
-        await expect(main(page).getByText("Compare su tutte le sedi pubblicate.")).toBeVisible();
+        await expect(main(page).getByText("Compare su tutte le sedi online.")).toBeVisible();
         await main(page).getByRole("radio", { name: "Una sede" }).click();
         await publicPageRow(page).getByRole("button", { name: "Modifica", exact: true }).click();
         const panel = dialog(page);
