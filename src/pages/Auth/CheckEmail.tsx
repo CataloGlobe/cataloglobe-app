@@ -231,13 +231,14 @@ export default function CheckEmail() {
                         invalid={!!verifyError}
                         describedBy={codeMessage ? "signup-code-message" : undefined}
                         autoFocus
+                        message={
+                            codeMessage && (
+                                <p id="signup-code-message" className={`${styles.codeMessage} ${styles.codeMessageError}`} role="alert">
+                                    {codeMessage}
+                                </p>
+                            )
+                        }
                     />
-
-                    {codeMessage && (
-                        <p id="signup-code-message" className={`${styles.codeMessage} ${styles.codeMessageError}`} role="alert">
-                            {codeMessage}
-                        </p>
-                    )}
 
                     {/* Con 6 cifre il codice parte da solo: il bottone serve solo
                         mentre controlla, o per riprovare lo stesso codice. */}

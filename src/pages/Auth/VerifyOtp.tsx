@@ -509,22 +509,27 @@ export default function VerifyOtp() {
                         label="Codice a 6 cifre"
                         length={OTP_LENGTH}
                         value={otpCode}
-                        onChange={setOtpCode}
+                        onChange={value => {
+                            setOtpCode(value);
+                            // Il rosso sparisce alla prima cifra riscritta, come in CheckEmail.
+                            if (value && error) setError(null);
+                        }}
                         onComplete={code => void handleVerify(code)}
                         disabled={loading}
                         invalid={!!error}
-                        describedBy={error ? "otp-feedback" : undefined}
+                        describedBy={error || info ? "otp-feedback" : undefined}
+                        message={
+                            error ? (
+                                <Text id="otp-feedback" variant="caption" colorVariant="error" className={styles.feedback} role="alert">
+                                    {error}
+                                </Text>
+                            ) : info ? (
+                                <Text id="otp-feedback" variant="caption" colorVariant="info" className={styles.feedback} aria-live="polite">
+                                    {info}
+                                </Text>
+                            ) : null
+                        }
                     />
-                    {error && (
-                        <Text id="otp-feedback" variant="caption" colorVariant="error" className={styles.feedback}>
-                            {error}
-                        </Text>
-                    )}
-                    {info && !error && (
-                        <Text variant="caption" colorVariant="info" className={styles.feedback}>
-                            {info}
-                        </Text>
-                    )}
                     <Button
                         type="submit"
                         fullWidth
