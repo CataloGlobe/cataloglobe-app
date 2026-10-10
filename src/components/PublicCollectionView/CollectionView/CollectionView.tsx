@@ -2093,8 +2093,25 @@ export default function CollectionView({
             scrollEndCleanupRef.current = () => container.removeEventListener("scroll", onScroll);
         }
 
-        // Rete di sicurezza: l'effetto parte comunque entro ~800ms.
-        highlightMaxTimeoutRef.current = setTimeout(fire, 800);
+        // Rete di sicurezza: dopo 800ms parte solo se lo scroll è arrivato o si è
+        // fermato. Su un menù lungo lo scroll smooth dura più di 800ms: partire
+        // a tempo fisso faceva finire l'effetto con il prodotto ancora fuori
+        // schermo. Tetto a 3s per non restare appesi.
+        const startedAt = performance.now();
+        let lastTop: number | null = null;
+        const safetyCheck = () => {
+            if (done) return;
+            const top = el.getBoundingClientRect().top;
+            const arrived = Math.abs(top - scrollOffset) < 4;
+            const stopped = lastTop !== null && Math.abs(top - lastTop) < 1;
+            if (arrived || stopped || performance.now() - startedAt > 3000) {
+                fire();
+                return;
+            }
+            lastTop = top;
+            highlightMaxTimeoutRef.current = setTimeout(safetyCheck, 150);
+        };
+        highlightMaxTimeoutRef.current = setTimeout(safetyCheck, 800);
     }, [applyHighlight, cleanupHighlightDetector, recomputeStickyOffset, ignoreProgrammaticScroll]);
 
     // Cleanup di timer/listener all'unmount.
