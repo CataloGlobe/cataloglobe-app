@@ -67,7 +67,6 @@ $ld-page-bg: #FFFFFF;
     --ld-hero-a: #24203A;
     --ld-hero-b: #1A1830;
     // ── hero: telefono simulato (HeroStage) ──
-    --ld-hp-body: #0B0B12;
     --ld-hp-screen: #F6F3EE;
     --ld-hp-ink: #1E1B18;
     --ld-hp-muted: #726D65;
@@ -113,9 +112,9 @@ $ld-page-bg: #FFFFFF;
     --ld-illo-paper-muted: #8C7B66;
     --ld-illo-paper-dots: #B9AC97;
     --ld-illo-paper-rule: #CDBFA8;
-    // ── telefono delle demo ──
-    --ld-phone-body: #1B1A2A;
-    --ld-phone-rim: #34324A;
+    // ── telefono (kit/Phone, hero ed esempi) ──
+    --ld-phone-body: #0B0B12;
+    --ld-phone-rim: rgba(255, 255, 255, 0.12);
     --ld-demo-on: #F6F6FE;
     --ld-handle: #D5D3E2;
     // ── ombre ──

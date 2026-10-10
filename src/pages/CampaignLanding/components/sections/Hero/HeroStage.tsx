@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useReducer, useRef, useState, type Ref } from "react";
 import { UtensilsCrossed } from "lucide-react";
 import { HERO } from "@pages/CampaignLanding/content/landing";
+import { Phone, PhoneStatusBar } from "@pages/CampaignLanding/components/kit/Phone";
 import { useReducedMotion } from "@pages/CampaignLanding/hooks/useReducedMotion";
 import { useVisible } from "@pages/CampaignLanding/hooks/useVisible";
 import {
@@ -25,6 +26,19 @@ const EVENTS = heroEvents();
 const REDUCED = heroReducedState(PHONE.startClock);
 /** Le tre fasce sulla linea orizzontale: 0 / 60 / 100 %. */
 const SLOT_POS = SCHEDULE.slots.map((s) => trackPosition(s.time));
+/**
+ * Linea verticale (telefono): fasce e modifiche al volo a passo uguale, non
+ * alla loro ora, così le scritte accanto non si toccano. Da posizione oraria
+ * (0-100) a posizione sulla linea, a tratti fra un punto e l'altro.
+ */
+const RAIL_FROM = [...SLOT_POS, ...SCHEDULE.live.map((l) => trackPosition(l.time))].sort((a, b) => a - b);
+const railPosition = (p: number) => {
+    const step = 100 / (RAIL_FROM.length - 1);
+    for (let i = 1; i < RAIL_FROM.length; i++) {
+        if (p <= RAIL_FROM[i]) return (i - 1 + (p - RAIL_FROM[i - 1]) / (RAIL_FROM[i] - RAIL_FROM[i - 1])) * step;
+    }
+    return 100;
+};
 
 /**
  * La sequenza coi timer: gira finché `active`, in pausa riprende dal punto in
@@ -154,7 +168,11 @@ function Track({ state }: { state: HeroState }) {
     const last = state.last;
     const width = last === null ? 0 : last.kind === "slot" ? SLOT_POS[last.slot] : trackPosition(SCHEDULE.live[last.live].time);
     useLayoutEffect(() => {
-        if (fill.current) fill.current.style.width = `${width}%`;
+        // Variabile e non `width`: al telefono la linea è verticale e la usa come altezza.
+        if (fill.current) {
+            fill.current.style.setProperty("--fill", `${width}%`);
+            fill.current.style.setProperty("--fill-rail", `${railPosition(width)}%`);
+        }
     }, [width]);
 
     const stateOf = (slot: number) => cx(slot < state.slot && styles.done, slot === state.slot && styles.act);
@@ -179,15 +197,26 @@ function Track({ state }: { state: HeroState }) {
                         <span className={styles.trkTime}>{s.time}</span>
                     </span>
                 ))}
+                {/* Solo al telefono, con la linea verticale: c'è posto per dire cosa è cambiato. */}
+                {SCHEDULE.live.slice(0, state.lives).map((l, j) => (
+                    <span key={l.time} className={cx(styles.trkLive, LIVE_POS_CLASS[j])}>
+                        <span className={styles.trkTime}>{l.time}</span>
+                        {l.text}
+                    </span>
+                ))}
             </div>
             <div className={styles.trkCaption}>
-                <span className={cx(styles.cap, (liveCaption || slotCaption === null) && styles.capOff)}>
-                    <span className={styles.capDot}>●</span> {slotCaption !== null && PHONE.menus[slotCaption].name} · {SCHEDULE.running}
+                <span className={cx(styles.cap, styles.capSlot, (liveCaption || slotCaption === null) && styles.capOff, slotCaption === null && styles.capEmpty)}>
+                    <span className={styles.capDot}>●</span> <span className={styles.capHead}>{slotCaption !== null && PHONE.menus[slotCaption].name}</span>
+                    <span className={styles.capSep}> · </span>
+                    <span className={styles.capText}>{SCHEDULE.running}</span>
                 </span>
                 <span className={cx(styles.cap, styles.capLive, !liveCaption && styles.capOff)}>
                     {liveCaption && (
                         <>
-                            <span className={styles.capDot}>●</span> {liveCaption.time} · {liveCaption.text}
+                            <span className={styles.capDot}>●</span> <span className={styles.capHead}>{liveCaption.time}</span>
+                            <span className={styles.capSep}> · </span>
+                            <span className={styles.capText}>{liveCaption.text}</span>
                         </>
                     )}
                 </span>
@@ -196,26 +225,8 @@ function Track({ state }: { state: HeroState }) {
     );
 }
 
-function StatusIcons() {
-    return (
-        <span className={styles.sbIcons}>
-            <svg viewBox="0 0 18 11" fill="currentColor">
-                <rect x="0" y="7" width="3" height="4" rx="1" />
-                <rect x="5" y="5" width="3" height="6" rx="1" />
-                <rect x="10" y="2.5" width="3" height="8.5" rx="1" />
-                <rect x="15" y="0" width="3" height="11" rx="1" />
-            </svg>
-            <svg viewBox="0 0 26 12">
-                <rect x=".5" y=".5" width="22" height="11" rx="3" fill="none" stroke="currentColor" strokeOpacity=".5" />
-                <rect x="2" y="2" width="16" height="8" rx="1.8" fill="currentColor" />
-                <rect x="23.5" y="4" width="2" height="4" rx="1" fill="currentColor" fillOpacity=".5" />
-            </svg>
-        </span>
-    );
-}
-
 /** Il telefono: il menù del locale d'esempio, quello della fascia in corso. */
-function Phone({ state }: { state: HeroState }) {
+function HeroPhone({ state }: { state: HeroState }) {
     const menu = PHONE.menus[state.menu];
     // Modifiche al volo già arrivate al telefono, per riga del menù in vista.
     const mods = new Map<number, (typeof SCHEDULE.live)[number]>();
@@ -225,66 +236,60 @@ function Phone({ state }: { state: HeroState }) {
     let row = 0;
 
     return (
-        <div className={styles.phone}>
-            <span className={styles.island} />
-            <div className={styles.screen}>
-                <div className={styles.content}>
-                    <div className={styles.statusBar}>
-                        <span className={cx(styles.sbTime, state.clockOut && styles.sbTimeOut)}>{state.clock}</span>
-                        <StatusIcons />
-                    </div>
-                    <div className={styles.cover}>
-                        <div className={styles.coverId}>
-                            <span className={styles.logo}>
-                                <UtensilsCrossed size={18} strokeWidth={2.2} />
+        <Phone className={styles.phone}>
+            <div className={styles.content}>
+                <PhoneStatusBar time={state.clock} timeOut={state.clockOut} />
+                <div className={styles.cover}>
+                    <div className={styles.coverId}>
+                        <span className={styles.logo}>
+                            <UtensilsCrossed size={18} strokeWidth={2.2} />
+                        </span>
+                        <span>
+                            <span className={styles.venue}>{PHONE.venue}</span>
+                            <span key={state.menu} className={cx(styles.menuName, styles.enter, state.menuOut && styles.leaving)}>
+                                {menu.name}
                             </span>
-                            <span>
-                                <span className={styles.venue}>{PHONE.venue}</span>
-                                <span key={state.menu} className={cx(styles.menuName, styles.enter, state.menuOut && styles.leaving)}>
-                                    {menu.name}
-                                </span>
-                            </span>
-                        </div>
+                        </span>
                     </div>
-                    <div key={state.menu} className={cx(styles.menuBody, styles.enter, state.menuOut && styles.leaving)}>
-                        <div className={styles.chips}>
-                            {menu.chips.map((c, j) => (
-                                <span key={c} className={cx(styles.chip, j === 0 && styles.chipOn)}>
-                                    {c}
-                                </span>
-                            ))}
-                        </div>
-                        <div className={styles.items}>
-                            {menu.cats.map((cat) => (
-                                <div key={cat.name}>
-                                    <p className={styles.cat}>{cat.name}</p>
-                                    {cat.dishes.map((d) => {
-                                        const mod = mods.get(row++);
-                                        const up = mod?.kind === "price";
-                                        const off = mod?.kind === "sold";
-                                        return (
-                                            <div key={d.name} className={cx(styles.item, up && styles.itemUp, off && styles.itemOff)}>
-                                                <div className={styles.itemText}>
-                                                    <span className={styles.itemName}>
-                                                        {d.name}
-                                                        {off && <span className={styles.badge}>{PHONE.unavailable}</span>}
-                                                    </span>
-                                                    <span className={styles.itemDesc}>{d.desc}</span>
-                                                </div>
-                                                <span className={styles.itemPrice}>
-                                                    {up && <s className={styles.itemOld}>{d.price} €</s>}
-                                                    <span className={styles.itemValue}>{mod?.kind === "price" ? mod.to : d.price} €</span>
+                </div>
+                <div key={state.menu} className={cx(styles.menuBody, styles.enter, state.menuOut && styles.leaving)}>
+                    <div className={styles.chips}>
+                        {menu.chips.map((c, j) => (
+                            <span key={c} className={cx(styles.chip, j === 0 && styles.chipOn)}>
+                                {c}
+                            </span>
+                        ))}
+                    </div>
+                    <div className={styles.items}>
+                        {menu.cats.map((cat) => (
+                            <div key={cat.name}>
+                                <p className={styles.cat}>{cat.name}</p>
+                                {cat.dishes.map((d) => {
+                                    const mod = mods.get(row++);
+                                    const up = mod?.kind === "price";
+                                    const off = mod?.kind === "sold";
+                                    return (
+                                        <div key={d.name} className={cx(styles.item, up && styles.itemUp, off && styles.itemOff)}>
+                                            <div className={styles.itemText}>
+                                                <span className={styles.itemName}>
+                                                    {d.name}
+                                                    {off && <span className={styles.badge}>{PHONE.unavailable}</span>}
                                                 </span>
+                                                <span className={styles.itemDesc}>{d.desc}</span>
                                             </div>
-                                        );
-                                    })}
-                                </div>
-                            ))}
-                        </div>
+                                            <span className={styles.itemPrice}>
+                                                {up && <s className={styles.itemOld}>{d.price} €</s>}
+                                                <span className={styles.itemValue}>{mod?.kind === "price" ? mod.to : d.price} €</span>
+                                            </span>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        ))}
                     </div>
                 </div>
             </div>
-        </div>
+        </Phone>
     );
 }
 
@@ -324,7 +329,7 @@ export default function HeroStage({ onFascia, scheduleRef, phoneRef }: HeroStage
                 <Track state={state} />
             </div>
             <div ref={phoneRef} className={styles.phoneTilt}>
-                <Phone state={state} />
+                <HeroPhone state={state} />
             </div>
         </div>
     );

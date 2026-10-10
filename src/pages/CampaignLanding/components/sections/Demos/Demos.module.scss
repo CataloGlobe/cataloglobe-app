@@ -68,29 +68,14 @@
 }
 
 // ── Telefono ────────────────────────────────────────────────────────────────
+// Cornice e misure da kit/Phone, come nell'hero (proporzione 1 : 2,05).
 .phone {
-    width: 250px;
-    height: 450px;
-    box-sizing: border-box;
     margin: 0 auto;
-    padding: 10px;
-    border-radius: 40px;
-    background: var(--ld-phone-body);
-    box-shadow:
-        0 30px 60px rgba(21, 20, 43, 0.28),
-        inset 0 0 0 2px var(--ld-phone-rim);
+    @include ld-phone(220);
 
     @include desktop {
-        width: 300px;
-        height: 600px;
+        @include ld-phone(284);
     }
-}
-
-.screen {
-    position: relative;
-    height: 100%;
-    overflow: hidden;
-    border-radius: 31px;
 }
 
 .screenBg {
@@ -100,8 +85,8 @@
     height: 100%;
 }
 
-// Screenshot 390×808 (proporzioni dello schermo desktop): largo quanto lo
-// schermo, in alto; sul mobile (230×430) il resto si taglia sotto.
+// Screenshot 390×808 (1 : 2,07): largo quanto lo schermo, in alto; quel poco
+// che avanza si taglia sotto.
 // Dissolvenza: quello nuovo sale sopra; il vecchio sparisce a dissolvenza finita.
 .shot {
     position: absolute;
@@ -125,18 +110,6 @@
     .shotOn {
         transition: none;
     }
-}
-
-.notch {
-    position: absolute;
-    z-index: 2;
-    top: 8px;
-    left: 50%;
-    width: 70px;
-    height: 20px;
-    margin-left: -35px;
-    border-radius: 12px;
-    background: var(--ld-phone-body);
 }
 
 // ── Lista dei locali ────────────────────────────────────────────────────────

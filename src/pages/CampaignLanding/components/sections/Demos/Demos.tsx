@@ -3,6 +3,7 @@ import { QRCodeSVG } from "qrcode.react";
 import Section from "@pages/CampaignLanding/components/Section/Section";
 import { HandNote, UnderlinedText } from "@pages/CampaignLanding/components/kit/Kit";
 import Reveal from "@pages/CampaignLanding/components/kit/Reveal";
+import { Phone, PhoneStatusBar } from "@pages/CampaignLanding/components/kit/Phone";
 import { useInView } from "@pages/CampaignLanding/hooks/useInView";
 import { DEMOS, type DemoKey, type DemoVenue } from "@pages/CampaignLanding/content/landing";
 import molo280 from "@pages/CampaignLanding/assets/demos/il-molo-34-280.webp";
@@ -64,34 +65,32 @@ function VenueIcon({ venue }: { venue: DemoVenue }) {
  */
 function PhonePreview({ selected, preload }: { selected: number; preload: boolean }) {
     return (
-        <div className={styles.phone}>
-            <div className={styles.screen}>
-                {/* Sfondo della pagina del locale finché lo screenshot non è arrivato. */}
-                <svg className={styles.screenBg} aria-hidden="true" focusable="false">
-                    <rect width="100%" height="100%" fill={themeOf(DEMOS.venues[selected]).bg} />
-                </svg>
-                {DEMOS.venues.map((v, i) => {
-                    const on = i === selected;
-                    if (!on && !preload) return null;
-                    return (
-                        <img
-                            key={v.key}
-                            className={cx(styles.shot, on && styles.shotOn)}
-                            src={SCREEN_FALLBACK[v.key]}
-                            srcSet={SCREENS[v.key]}
-                            sizes="(min-width: 1024px) 280px, 230px"
-                            width={280}
-                            height={580}
-                            loading="lazy"
-                            decoding="async"
-                            alt={on ? DEMOS.screenAlt(v.name) : ""}
-                            aria-hidden={on ? undefined : true}
-                        />
-                    );
-                })}
-                <span className={styles.notch} aria-hidden="true" />
-            </div>
-        </div>
+        <Phone className={styles.phone}>
+            {/* Sfondo della pagina del locale finché lo screenshot non è arrivato. */}
+            <svg className={styles.screenBg} aria-hidden="true" focusable="false">
+                <rect width="100%" height="100%" fill={themeOf(DEMOS.venues[selected]).bg} />
+            </svg>
+            {DEMOS.venues.map((v, i) => {
+                const on = i === selected;
+                if (!on && !preload) return null;
+                return (
+                    <img
+                        key={v.key}
+                        className={cx(styles.shot, on && styles.shotOn)}
+                        src={SCREEN_FALLBACK[v.key]}
+                        srcSet={SCREENS[v.key]}
+                        sizes="(min-width: 1024px) 264px, 206px"
+                        width={280}
+                        height={580}
+                        loading="lazy"
+                        decoding="async"
+                        alt={on ? DEMOS.screenAlt(v.name) : ""}
+                        aria-hidden={on ? undefined : true}
+                    />
+                );
+            })}
+            <PhoneStatusBar time={DEMOS.phoneTime} shade />
+        </Phone>
     );
 }
 

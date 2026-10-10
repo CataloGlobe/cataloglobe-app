@@ -8,7 +8,8 @@ $stage-wide-z: 0.955;
 // Telefono e programmazione di oggi (HeroStage.tsx).
 
 // ── Disposizione ────────────────────────────────────────────────────────────
-// Mobile e desktop stretto: linea orizzontale sopra il telefono (20 px d'aria).
+// Mobile: linea verticale a sinistra del telefono. Desktop stretto (1024-1199):
+// linea orizzontale sopra il telefono (20 px d'aria).
 // Da 1200: card verticale a sinistra del telefono, 24 px fra le due a vista
 // (il gap si divide per la scala, che lo rimpicciolirebbe).
 .stage {
@@ -18,6 +19,23 @@ $stage-wide-z: 0.955;
     align-items: center;
     gap: 20px;
     zoom: var(--stage-z);
+
+    // Al telefono: linea a sinistra e telefono a destra, su 330 px (390 meno
+    // i margini del pannello); sotto i 390 si rimpicciolisce tutto insieme.
+    @include mobile-only {
+        flex-direction: row;
+        align-items: stretch;
+        justify-content: center;
+        gap: 12px;
+    }
+
+    @media (max-width: 389px) {
+        --stage-z: 0.9;
+    }
+
+    @media (max-width: 359px) {
+        --stage-z: 0.78;
+    }
 
     @include hero-wide {
         --stage-z: #{$stage-wide-z};
@@ -66,6 +84,11 @@ $stage-overhead: 224;
     width: 100%;
     max-width: 338px;
 
+    // Al telefono: colonna stretta, alta quanto il telefono.
+    @include mobile-only {
+        width: 122px;
+    }
+
     // Desktop stretto: la linea resta larga 338, più del telefono.
     @include desktop {
         width: 338px;
@@ -80,112 +103,25 @@ $stage-overhead: 224;
 }
 
 // ── Telefono ────────────────────────────────────────────────────────────────
-// Proporzione iPhone (1 : 2,05). Contenuto disegnato su 300 px di larghezza e
-// scalato sullo schermo: padding 3,4 % e raggio 15 % della larghezza.
-@mixin phone-size($w, $h) {
-    $pad: math.round($w * 0.034);
-    $radius: math.round($w * 0.15);
-    $scale: math.div($w - 2 * $pad, 300);
-    width: #{$w}px;
-    height: #{$h}px;
-    padding: #{$pad}px;
-    border-radius: #{$radius}px;
-
-    .screen {
-        border-radius: #{$radius - $pad}px;
-    }
-
-    .island {
-        top: #{$pad + 6}px;
-        height: #{math.min($pad * 2.2, 24)}px;
-    }
-
-    .content {
-        height: #{math.div($h - 2 * $pad, $scale)}px;
-        transform: scale($scale);
-    }
-}
-
+// Cornice e misure da kit/Phone (proporzione iPhone 1 : 2,05).
 .phone {
-    position: relative;
-    box-sizing: border-box;
-    background: var(--ld-hp-body);
-    box-shadow:
-        0 40px 90px rgba(0, 0, 0, 0.6),
-        inset 0 0 0 1.5px rgba(255, 255, 255, 0.12);
-    @include phone-size(220, 451);
+    --ph-shadow: 0 40px 90px rgba(0, 0, 0, 0.6);
+    @include ld-phone(196);
 
     @include desktop {
-        @include phone-size(284, 582);
+        @include ld-phone(284);
     }
 }
 
-.island {
-    position: absolute;
-    left: 50%;
-    z-index: 9;
-    width: 32%;
-    border-radius: 14px;
-    background: var(--ld-hp-body);
-    transform: translateX(-50%);
-}
-
-.screen {
+// Il menù del locale d'esempio, disegnato su 300 px.
+.content {
     position: relative;
-    width: 100%;
     height: 100%;
     overflow: hidden;
     background: var(--ld-hp-screen);
-}
-
-.content {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 300px;
-    overflow: hidden;
-    transform-origin: 0 0;
     font-family: var(--ld-font-sans);
     line-height: normal;
     color: var(--ld-hp-ink);
-}
-
-// Barra di stato sulla copertina: ora a sinistra, segnale e batteria a destra.
-.statusBar {
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: 0;
-    z-index: 3;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    height: 34px;
-    box-sizing: border-box;
-    padding: 4px 24px 0 26px;
-    font-size: 13px;
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-    color: var(--ld-on-azione);
-}
-
-.sbTime {
-    transition: opacity 160ms;
-}
-
-.sbTimeOut {
-    opacity: 0;
-}
-
-.sbIcons {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-
-    svg {
-        width: auto;
-        height: 11px;
-    }
 }
 
 // Copertina: foto del locale (900×450), sotto il colore della vinaccia finché
@@ -575,20 +511,23 @@ $tl-line-x: 57px;
     }
 }
 
-// Larghezza scritta da HeroStage.tsx (trackPosition in heroSequence.ts).
+// --fill scritta da HeroStage.tsx (trackPosition in heroSequence.ts).
 .trkFill {
     position: absolute;
     left: 0;
     top: 5px;
-    width: 0;
+    width: var(--fill, 0%);
     height: 2px;
     border-radius: 2px;
     background: var(--ld-sched-line);
-    transition: width 500ms var(--ld-ease);
+    transition:
+        width 500ms var(--ld-ease),
+        height 500ms var(--ld-ease);
 }
 
 .trkDot {
     position: absolute;
+    left: var(--at);
     top: 0;
     z-index: 1;
     box-sizing: border-box;
@@ -618,27 +557,28 @@ $tl-line-x: 57px;
 // Posizioni: le fasce a 0 / 60 / 100 %, le modifiche al volo alla loro ora
 // (trackPosition: 13:10 → 11,67 %, 19:25 → 88,33 %).
 .pos0 {
-    left: 0;
+    --at: 0%;
 }
 
 .pos1 {
-    left: 60%;
+    --at: 60%;
 }
 
 .pos2 {
-    left: 100%;
+    --at: 100%;
 }
 
 .mark0 {
-    left: 11.667%;
+    --at: 11.667%;
 }
 
 .mark1 {
-    left: 88.333%;
+    --at: 88.333%;
 }
 
 .trkMark {
     position: absolute;
+    left: var(--at);
     top: 2px;
     z-index: 2;
     width: 8px;
@@ -692,6 +632,11 @@ $tl-line-x: 57px;
     align-items: flex-end;
 }
 
+// Modifiche al volo accanto alla linea: solo in quella verticale (al telefono).
+.trkLive {
+    display: none;
+}
+
 .trkTime {
     font-size: 10px;
     font-variant-numeric: tabular-nums;
@@ -729,6 +674,150 @@ $tl-line-x: 57px;
 
 .capOff {
     opacity: 0;
+}
+
+// ── Al telefono: linea verticale accanto al telefono ────────────────────────
+// Stessa linea della versione orizzontale, girata: le fasce dall'alto in basso
+// alla loro ora, i nomi a destra, la riga di stato in fondo su due righe.
+@include mobile-only {
+    .trkFill {
+        top: 0;
+        left: 5px;
+        width: 2px;
+        height: var(--fill-rail, 0%);
+    }
+
+    .track {
+        display: grid;
+        grid-template-columns: 12px 1fr;
+        grid-template-rows: 1fr auto;
+        column-gap: 10px;
+        height: 100%;
+        padding: 18px 12px 14px;
+    }
+
+    .trkLine {
+        height: auto;
+        margin: 6px 0 34px;
+
+        &::before {
+            left: 5px;
+            right: auto;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            height: auto;
+        }
+    }
+
+    .trkDot {
+        left: 0;
+        top: var(--at);
+        margin: -6px 0 0;
+    }
+
+    .trkMark {
+        left: 2px;
+        top: var(--at);
+        margin: -4px 0 0;
+    }
+
+    .trkLabels {
+        height: auto;
+        margin: 6px 0 34px;
+    }
+
+    .label0,
+    .label1,
+    .label2 {
+        left: 0;
+        right: auto;
+        top: var(--at);
+        align-items: flex-start;
+        transform: translateY(-8px);
+    }
+
+    // A passo uguale (railPosition in HeroStage.tsx): 12:00, 13:10, 18:00, 19:25, 20:00.
+    .pos0,
+    .label0 {
+        --at: 0%;
+    }
+
+    .mark0 {
+        --at: 25%;
+    }
+
+    .pos1,
+    .label1 {
+        --at: 50%;
+    }
+
+    .mark1 {
+        --at: 75%;
+    }
+
+    .pos2,
+    .label2 {
+        --at: 100%;
+    }
+
+    .trkLabel {
+        font-size: 13px;
+    }
+
+    .trkLive {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: var(--at);
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+        font-size: 11px;
+        font-weight: 600;
+        line-height: 1.25;
+        margin-top: -7px;
+        color: var(--ld-live-caption);
+
+        @include motion-ok {
+            animation: ld-stage-in 240ms var(--ld-ease) backwards;
+        }
+    }
+
+    .trkTime {
+        font-size: 11px;
+    }
+
+    .trkCaption {
+        grid-column: 1 / -1;
+        height: 44px;
+        margin-top: 0;
+        padding-top: 10px;
+    }
+
+    .cap {
+        text-align: left;
+        white-space: normal;
+    }
+
+    // Le modifiche al volo sono già scritte sulla linea: in fondo resta il menù in corso.
+    .capLive {
+        display: none;
+    }
+
+    .capSlot:not(.capEmpty) {
+        opacity: 1;
+    }
+
+    .capSep {
+        display: none;
+    }
+
+    .capText {
+        display: block;
+        margin-top: 2px;
+        font-weight: 500;
+    }
 }
 
 // ── Animazioni ──────────────────────────────────────────────────────────────
