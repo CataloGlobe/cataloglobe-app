@@ -1,7 +1,7 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { asRole } from "./asRole";
 import { openBusinessPage } from "./business";
-import { nav } from "./nav";
+import { sidebarLink } from "./nav";
 import { MATRIX_RULE_NAME, MISSING_RULE, RULE, RULE_NAME, SEDE, StubError, TENANT_ID, stubProgrammazione, type ProgrammazioneStub, type WriteCall } from "./programmazioneStub";
 
 /**
@@ -450,7 +450,7 @@ test.describe("Programmazione — elenco", () => {
         await expect(main(page).getByText("Vale per tutte le sedi: se la cambi, cambia anche fuori da Centro e2e.")).toBeVisible({
             timeout: 15_000
         });
-        await expect(nav(page).getByRole("link", { name: "Programmazione", exact: true })).toBeVisible();
+        await expect(await sidebarLink(page, "Programmazione")).toBeVisible();
     });
 
     test("cablaggio: duplica (schedules.POST + copia dei prezzi)", async ({ page }) => {
@@ -515,9 +515,10 @@ test.describe("Programmazione — permesso di lettura", () => {
 // sola sede del manager per lui, ma il database dice no.
 test.describe("Programmazione — ruolo di sede, decide il database", () => {
     const LOCK = "La modifica chi gestisce tutte le sedi coinvolte";
+    let stub: ProgrammazioneStub;
     test.beforeEach(async ({ page }) => {
         await asRole(page, "manager", SEDE.centro, "pro");
-        await stubProgrammazione(page, { dbWritable: [RULE.pranzo] });
+        stub = await stubProgrammazione(page, { dbWritable: [RULE.pranzo] });
     });
 
     test("elenco: la regola rifiutata dal database ha il lucchetto, la sua no", async ({ page }) => {
@@ -528,6 +529,19 @@ test.describe("Programmazione — ruolo di sede, decide il database", () => {
         await expect(row("pranzo").getByLabel(LOCK)).toHaveCount(0);
     });
 
+    test("elenco: al database solo le regole che da qui sembrano sue", async ({ page }) => {
+        const asked: string[] = [];
+        page.on("request", request => {
+            if (!/\/rest\/v1\/rpc\/can_write_schedule$/.test(new URL(request.url()).pathname)) return;
+            asked.push((request.postDataJSON() as { p_schedule_id: string }).p_schedule_id);
+        });
+        await openSeatList(page, SEDE.centro);
+        await expect(ruleList(page).getByRole("row", { name: new RegExp(`^(Seleziona riga )?${RULE_NAME.stagionali}`) }).getByLabel(LOCK)).toBeVisible();
+        expect(asked).toContain(RULE.pranzo);
+        // «Aperitivo» è solo del Porto: in sola lettura senza chiedere.
+        expect(asked).not.toContain(RULE.aperitivo);
+    });
+
     test("dettaglio: sola lettura se il database dice no, modificabile se dice sì", async ({ page }) => {
         const base = `/business/${TENANT_ID}/locations/${SEDE.centro}/programmazione`;
         await page.goto(`${base}/${RULE.stagionali}`);
@@ -536,6 +550,51 @@ test.describe("Programmazione — ruolo di sede, decide il database", () => {
         await page.goto(`${base}/${RULE.pranzo}`);
         await expect(main(page).getByRole("textbox", { name: /Nome/ })).toBeEnabled({ timeout: 15_000 });
         await expect(main(page).getByText(/^Sola lettura/)).toHaveCount(0);
+    });
+
+    test("cablaggio: «Nuova regola» dalla sede nasce con la RPC, già sulla sede (T9b)", async ({ page }) => {
+        const NEW_ID = "e2e0d000-0000-4000-a000-000000000780";
+        stub.onWrite("rpc.create_schedule_with_targets", () => NEW_ID);
+        await openSeatList(page, SEDE.centro, "price");
+        await page.getByRole("button", { name: /^Nuova regola/ }).first().click();
+        await expect.poll(() => writesOf(stub, "rpc.create_schedule_with_targets").length).toBe(1);
+        const body = writesOf(stub, "rpc.create_schedule_with_targets")[0].body as Record<string, unknown>;
+        expect(body.p_rule_type).toBe("price");
+        expect(body.p_targets).toEqual([{ target_type: "activity", target_id: SEDE.centro }]);
+        // Niente INSERT diretti: lascerebbero una regola senza sedi, non sua.
+        expect(writesOf(stub, "schedules.POST")).toHaveLength(0);
+        await expect(page).toHaveURL(new RegExp(`/locations/${SEDE.centro}/programmazione/${NEW_ID}`));
+    });
+
+    test("«Duplica» resta a chi gestisce tutte le sedi", async ({ page }) => {
+        await openSeatList(page, SEDE.centro);
+        await actionsOf(rule(page, "pranzo")).click();
+        await expect(page.getByRole("menuitem").first()).toBeVisible();
+        await expect(page.getByRole("menuitem", { name: "Duplica" })).toHaveCount(0);
+    });
+});
+
+// Manager di due sedi, dalla pagina d'azienda: la regola nasce sulle sue sedi
+// (poi le restringe nel dettaglio), mai su quelle degli altri.
+test.describe("Programmazione — ruolo di sede con più sedi", () => {
+    let stub: ProgrammazioneStub;
+    test.beforeEach(async ({ page }) => {
+        await asRole(page, "manager", [SEDE.centro, SEDE.porto], "pro");
+        stub = await stubProgrammazione(page, {});
+    });
+
+    test("cablaggio: «Nuova regola» dall'azienda nasce sulle sue sedi (T9b)", async ({ page }) => {
+        const NEW_ID = "e2e0d000-0000-4000-a000-000000000781";
+        stub.onWrite("rpc.create_schedule_with_targets", () => NEW_ID);
+        await openList(page, "layout");
+        await page.getByRole("button", { name: /^Nuova regola/ }).first().click();
+        await expect.poll(() => writesOf(stub, "rpc.create_schedule_with_targets").length).toBe(1);
+        const body = writesOf(stub, "rpc.create_schedule_with_targets")[0].body as Record<string, unknown>;
+        const targets = JSON.stringify(body.p_targets);
+        expect(targets).toContain(SEDE.centro);
+        expect(targets).toContain(SEDE.porto);
+        expect(targets).not.toContain(SEDE.lago);
+        await expect(page).toHaveURL(new RegExp(`/${NEW_ID}`));
     });
 });
 
@@ -967,13 +1026,13 @@ test.describe("Programmazione — dettaglio", () => {
     test("uscire con modifiche non salvate chiede: «Resta» resta, «Esci senza salvare» esce", async ({ page }) => {
         await openRule(page, "aperitivo");
         await main(page).getByRole("textbox", { name: /Nome/ }).fill("Aperitivo lungo e2e");
-        await page.getByRole("navigation", { name: "Menu principale" }).getByRole("link", { name: "Prodotti" }).click();
+        await (await sidebarLink(page, "Prodotti")).click();
         const guard = dialog(page);
         await expect(guard.getByText(/modifiche non salvate/i).first()).toBeVisible();
         await guard.getByRole("button", { name: "Resta" }).click();
         await expect(page).toHaveURL(new RegExp(`/scheduling/${RULE.aperitivo}`));
         await expect(main(page).getByRole("textbox", { name: /Nome/ })).toHaveValue("Aperitivo lungo e2e");
-        await page.getByRole("navigation", { name: "Menu principale" }).getByRole("link", { name: "Prodotti" }).click();
+        await (await sidebarLink(page, "Prodotti")).click();
         await dialog(page).getByRole("button", { name: "Esci senza salvare" }).click();
         await expect(page).toHaveURL(/\/products/);
     });
@@ -988,7 +1047,7 @@ test.describe("Programmazione — dettaglio", () => {
         // Sedi come chip (RG1): in sola lettura il pannello non si apre.
         await expect(main(page).getByRole("button", { name: "Modifica sedi" })).toBeDisabled();
         await expect(page.getByRole("button", { name: "Salva", exact: true })).toHaveCount(0);
-        await page.getByRole("navigation", { name: "Menu principale" }).getByRole("link", { name: "Prodotti" }).click();
+        await (await sidebarLink(page, "Prodotti")).click();
         await expect(page).toHaveURL(/\/products/);
         expect(stub.writes).toHaveLength(0);
     });

@@ -416,3 +416,13 @@
         background: #f8f9fa;
     }
 }
+
+// Campo trappola anti-bot: fuori dallo schermo, non display:none (alcuni bot
+// saltano i campi nascosti in quel modo).
+.trap {
+    position: absolute;
+    left: -10000px;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+}

@@ -5,6 +5,20 @@
     "languages": {
         "title": "Sprachen",
         "description": "Aktivieren Sie die Sprachen, in die Sie Ihr öffentliches Menü übersetzen möchten. Vorhandene Inhalte werden innerhalb weniger Minuten automatisch übersetzt.",
+        "base_label": "Basissprache",
+        "base_source": "{{count}} Elemente · Übersetzungsquelle",
+        "base_source_empty": "Übersetzungsquelle",
+        "summary": {
+            "active_count": "{{count}} aktive Sprachen",
+            "translatable": "{{count}} übersetzbare Elemente",
+            "queued": "{{count}} in Warteschlange",
+            "has_errors": "einige zu lösen",
+            "all_done": "alles aktuell",
+            "badge_queued": "In Bearbeitung",
+            "badge_errors": "Zu beheben",
+            "badge_done": "Aktuell",
+            "auto_note": "bestehende Inhalte werden in wenigen Minuten übersetzt"
+        },
         "italian_base": "Ihr Inhalt ist in Italienisch (Basissprache).",
         "review": {
             "title": "Zu prüfen",
@@ -40,12 +54,34 @@
                 "label": "Bezeichnung"
             }
         },
+        "coverage": {
+            "fraction": "{{fresh}} / {{total}} aktuell",
+            "up_to_date": "Aktuell",
+            "queued": "{{count}} in Warteschlange",
+            "to_review": "{{count}} zu prüfen",
+            "to_review_hint": "Einige Übersetzungen sind nicht auf dem Stand der italienischen Quelle. Prüfen Sie sie auf der Seite des jeweiligen Elements.",
+            "last_updated": "aktualisiert {{time}}",
+            "inactive_hint": "Für Kunden nicht sichtbar"
+        },
         "activated": "{{lang}} aktiviert. {{count}} Inhalte zu aktualisieren.",
         "activated_no_jobs": "{{lang}} aktiviert. Kein neuer zu übersetzender Inhalt.",
         "deactivated": "{{lang}} ist deaktiviert.",
         "confirm_title": "Aktivieren Sie {{lang}}?",
         "confirm_description": "Wir übersetzen automatisch Ihre Produkte, Kategorien und andere Inhalte. Sie werden innerhalb von Minuten verfügbar sein.",
         "confirm_button": "Aktivieren Sie",
+        "progress": {
+            "title": "Übersetzungsstatus",
+            "in_progress": "{{count}} Elemente in Bearbeitung",
+            "errors_count": "{{count}} Fehler",
+            "retry_all": "{{count}} fehlgeschlagene Elemente erneut versuchen",
+            "retrying": "Erneuter Versuch...",
+            "retry_success": "{{count}} Elemente erneut eingereiht",
+            "retry_error": "Fehler beim erneuten Versuch",
+            "completed": "Übersetzungen aktualisiert",
+            "translated_aria": "Übersetzt",
+            "in_progress_aria": "In Bearbeitung",
+            "retry_count_label": "{{count}} erneut zu versuchen"
+        },
         "read_only_role": "Nur Lesezugriff: Sprachen aktivieren und verwalten dürfen Inhaber und Administratoren.",
         "read_only_subscription": "Nur Lesezugriff: Das Abonnement ist nicht aktiv.",
         "load_error_desc": "Prüfe die Verbindung und versuche es erneut.",

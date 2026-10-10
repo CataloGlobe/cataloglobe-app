@@ -53,8 +53,8 @@ const NotFoundPage = ({ variant = "page" }: NotFoundPageProps) => {
     useEffect(() => {
         document.title =
             variant === "business" || isInactiveVariant
-                ? "Attività non disponibile | CataloGlobe"
-                : "Pagina non trovata | CataloGlobe";
+                ? "Attività non disponibile · CataloGlobe"
+                : "Pagina non trovata · CataloGlobe";
 
         let meta = document.querySelector('meta[name="robots"]') as HTMLMetaElement | null;
         const created = !meta;

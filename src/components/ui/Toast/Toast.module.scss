@@ -8,11 +8,14 @@
  * in MainLayout/WorkspaceLayout — 56px in entrambi). Centrato verticalmente
  * sull'altezza del PRIMO toast (~44px: padding 12 top+bottom + una riga
  * ~19.6px): (56 - 44) / 2 = 6px. Dal secondo toast in poi lo stack cresce
- * verso il basso senza ricentrarsi. right: 16, appoggiato al bordo. */
+ * verso il basso senza ricentrarsi. right: 16, appoggiato al bordo.
+ * max-width: a 375px il toast (max 400) sforava dal bordo sinistro dello
+ * schermo; ora resta dentro la viewport con 16px per lato. */
 .toastContainer {
   position: fixed;
   top: 5px;
   right: var(--space-16);
+  max-width: calc(100vw - 2 * var(--space-16));
   display: flex;
   flex-direction: column;
   gap: var(--space-12);
@@ -36,8 +39,8 @@
   display: flex;
   align-items: center;
   gap: var(--space-10);
-  min-width: 260px;
-  max-width: 400px;
+  min-width: min(260px, calc(100vw - 2 * var(--space-16)));
+  max-width: min(400px, calc(100vw - 2 * var(--space-16)));
   padding: var(--space-12) var(--space-16);
   border-radius: var(--radius-surface);
   box-shadow: var(--shadow-overlay);
@@ -86,6 +89,7 @@
 
 .toastMessage {
   display: block;
+  overflow-wrap: anywhere;
 }
 
 /* Close button */

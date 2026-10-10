@@ -10,7 +10,7 @@ export function buildSubscriptionSupportMailto(input: {
     tenantId: string;
     tenantName: string;
 }): string {
-    const subject = `Abbonamento CataloGlobe — ${input.tenantName}`;
+    const subject = `Abbonamento CataloGlobe · ${input.tenantName}`;
     const body =
         `Salve, dalla pagina Abbonamento di «${input.tenantName}» non riesco a leggere i dati del mio abbonamento ` +
         `né a modificare piano, sedi o fatturazione.\n\nRiferimento azienda: ${input.tenantId}`;

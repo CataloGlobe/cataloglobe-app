@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# Pre-push: `tsc -b` sull'albero committato, non sul working tree.
+#
+# Con `git add` file per file un file nuovo può restare fuori dal commit:
+# in locale tutto compila (il file c'è), la build Vercel fallisce. Qui si
+# compila esattamente ciò che arriva sul remoto (git archive del commit
+# spinto), con node_modules collegato perché l'archivio non lo contiene.
+#
+# Installazione (una volta, opt-in): bash scripts/install-git-hooks.sh
+# Saltarlo per un push: git push --no-verify
+set -euo pipefail
+
+ZERO=0000000000000000000000000000000000000000
+ROOT=$(git rev-parse --show-toplevel)
+
+if [ ! -d "$ROOT/node_modules" ]; then
+    echo "pre-push: node_modules mancante, controllo tsc saltato." >&2
+    exit 0
+fi
+
+checked=""
+while read -r _local_ref local_sha _remote_ref _remote_sha; do
+    # Cancellazione di un ramo remoto: niente da compilare.
+    [ "$local_sha" = "$ZERO" ] && continue
+    case " $checked " in *" $local_sha "*) continue ;; esac
+    checked="$checked $local_sha"
+
+    tmp=$(mktemp -d)
+    trap 'rm -rf "$tmp"' EXIT
+    git -C "$ROOT" archive "$local_sha" | tar -x -C "$tmp"
+    ln -s "$ROOT/node_modules" "$tmp/node_modules"
+
+    echo "pre-push: tsc -b su ${local_sha:0:8} (albero committato)…" >&2
+    if ! (cd "$tmp" && npx --no-install tsc -b); then
+        echo "" >&2
+        echo "pre-push: tsc fallisce sul commit spinto ma forse non sul working tree." >&2
+        echo "Controlla i file non aggiunti al commit: git status --short" >&2
+        exit 1
+    fi
+    rm -rf "$tmp"
+    trap - EXIT
+done
+
+exit 0

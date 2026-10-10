@@ -37,7 +37,7 @@ import {
     type RuleType
 } from "@/services/supabase/layoutScheduling";
 import { createFeaturedRuleDraft } from "@/services/supabase/featuredScheduling";
-import { scopeRuleToActivity } from "@/services/supabase/scheduleTargets";
+import { createScopedRuleDraft, scopeRuleToActivity } from "@/services/supabase/scheduleTargets";
 import { countManualOverridesByActivity } from "@/services/supabase/activeCatalog";
 import { toRomeDateTime } from "@/services/supabase/schedulingNow";
 import { buildScheduleMatrix } from "@/utils/scheduleMatrix";
@@ -210,9 +210,23 @@ export default function Programming() {
     // Più sedi e nessuna sede nel path: la vista d'azienda (PG5).
     const companyView = !routeActivityId && readableSedi.length > 1;
     const canWrite = permissions ? canDoOnAnyActivity(permissions, "scheduling.write") : false;
-    // Crea (e duplica) solo chi gestisce tutte le sedi: per un ruolo di sede
-    // la creazione aspetta la RPC che crea regola e sedi insieme (T9b).
-    const canCreate = canWrite && permissions !== null && permissions !== undefined && isTenantWide(permissions);
+    const tenantWide = permissions !== null && permissions !== undefined && isTenantWide(permissions);
+    // Le sedi su cui nasce una regola creata da un ruolo di sede (T9b): dalla
+    // sede, quella sede; dalla pagina d'azienda, tutte le sue (poi le restringe
+    // nel dettaglio). Owner e admin: null, la regola nasce su tutte le sedi.
+    const scopedTargetIds = useMemo<string[] | null>(() => {
+        if (!permissions || tenantWide) return null;
+        if (routeActivityId) {
+            return canDoOnActivity(permissions, "scheduling.write", routeActivityId) ? [routeActivityId] : [];
+        }
+        return permissions.activityIds.filter(id => canDoOnActivity(permissions, "scheduling.write", id));
+    }, [permissions, tenantWide, routeActivityId]);
+    // Crea: owner e admin come prima; un ruolo di sede con la RPC che crea
+    // regola e sedi insieme (`create_schedule_with_targets`).
+    const canCreate = canWrite && (tenantWide || (scopedTargetIds?.length ?? 0) > 0);
+    // Duplica resta a chi gestisce tutte le sedi: la copia passa ancora da
+    // INSERT diretti, che a un ruolo di sede lasciano una regola senza sedi.
+    const canDuplicate = canWrite && tenantWide;
     // Stessa regola di PageGate: sulla sede del filtro, se c'è.
     const canRead = permissions
         ? filterActivityId
@@ -375,15 +389,19 @@ export default function Programming() {
     // Permesso regola per regola, come `can_write_schedule` (T9b): una regola
     // che tocca anche sedi altrui resta in sola lettura.
     // Un ruolo di sede vede solo le sue sedi di una regola (RLS): la risposta
-    // finale la dà il database, regola per regola.
+    // finale la dà il database, chiesta solo per le regole che da qui
+    // sembrano sue (le altre sono già in sola lettura).
     const groupMembers = useMemo(() => new Map(Object.entries(activityIdsByGroupId)), [activityIdsByGroupId]);
     const askDb = permissions !== null && permissions !== undefined && !isTenantWide(permissions);
-    const ruleIds = useMemo(() => rules.map(rule => rule.id), [rules]);
-    const dbWritable = useDbWritableRules(ruleIds, askDb);
+    const candidateIds = useMemo(
+        () => (permissions ? rules.filter(rule => canWriteRule(permissions, rule, groupMembers)).map(rule => rule.id) : []),
+        [groupMembers, permissions, rules]
+    );
+    const dbWritable = useDbWritableRules(candidateIds, askDb);
     const isRuleWritable = useCallback(
         (rule: LayoutRule) =>
             permissions
-                ? canWriteRule(permissions, rule, groupMembers) && (!askDb || dbWritable?.has(rule.id) === true)
+                ? canWriteRule(permissions, rule, groupMembers) && (!askDb || dbWritable.get(rule.id) === true)
                 : false,
         [askDb, dbWritable, groupMembers, permissions]
     );
@@ -680,7 +698,19 @@ export default function Programming() {
             const typeLabel = ruleTypeLabel(effectiveType, catalogLabel);
             const name = `Nuova regola ${typeLabel} · ${timestamp}`;
 
-            if (effectiveType === "featured") {
+            if (scopedTargetIds) {
+                const newRuleId = await createScopedRuleDraft({
+                    tenantId: currentTenantId!,
+                    ruleType: effectiveType,
+                    name,
+                    activityIds: scopedTargetIds
+                });
+                navigate(
+                    effectiveType === "featured"
+                        ? `${schedulingBase}/featured/${newRuleId}?fromType=featured`
+                        : `${schedulingBase}/${newRuleId}?fromType=${effectiveType}`
+                );
+            } else if (effectiveType === "featured") {
                 const newRuleId = await createFeaturedRuleDraft({
                     tenantId: currentTenantId!,
                     name
@@ -702,7 +732,7 @@ export default function Programming() {
         } finally {
             setIsCreating(false);
         }
-    }, [currentTenantId, catalogLabel, ruleTypeFilter, navigate, routeActivityId, schedulingBase, showToast]);
+    }, [currentTenantId, catalogLabel, ruleTypeFilter, navigate, routeActivityId, schedulingBase, scopedTargetIds, showToast]);
 
     // «Nuova regola» da sola (PG4): il simulatore si apre dalla card «Adesso».
     // Sulla tab "Tutte" non ha un tipo implicito da creare → apre lei stessa il
@@ -862,7 +892,7 @@ export default function Programming() {
         onOpen: (rule: LayoutRule) => navigate(ruleHref(rule)),
         updatingIds: updatingRules,
         onToggleEnabled: canWrite ? handleToggleEnabled : undefined,
-        onDuplicate: canCreate ? handleDuplicate : undefined,
+        onDuplicate: canDuplicate ? handleDuplicate : undefined,
         canWriteRule: isRuleWritable,
         onDelete: canWrite
             ? (id: string) => {

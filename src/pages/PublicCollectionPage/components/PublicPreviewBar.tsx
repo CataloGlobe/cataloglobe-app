@@ -52,7 +52,7 @@ export default function PublicPreviewBar({ formats, activeFormat, onSelectFormat
                             <CalendarClock size={15} strokeWidth={1.75} aria-hidden="true" />
                             <span>
                                 {t("page.preview_bar.simulated")}
-                                {" — "}
+                                {" · "}
                                 {new Date(simulateAt).toLocaleString("it-IT", { timeZone: "Europe/Rome" })}
                             </span>
                         </span>

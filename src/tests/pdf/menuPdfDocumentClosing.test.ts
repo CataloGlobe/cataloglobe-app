@@ -281,7 +281,7 @@ describe("MenuPdfDocument — pagina finale allergeni", () => {
 
     it("Sede TEST: nessun orario in copertina; nessuna caratteristica in finale", () => {
         const { pages } = renderPages(
-            buildData("Sede TEST AI", "Piazza XX Settembre, 12 — 23900 Lecco (LC)", SEDE_TEST)
+            buildData("Sede TEST AI", "Piazza XX Settembre, 12 · 23900 Lecco (LC)", SEDE_TEST)
         );
         const cover = stringsOf(pages[0]).join(" ");
         expect(cover).not.toContain("Chiuso");
@@ -317,7 +317,7 @@ describe("MenuPdfDocument — pagina finale allergeni", () => {
     });
 
     it("copertina: ordine nome sede → indirizzo → titolo menù", () => {
-        const data = buildData("San Pietro", "Corso Buenos Aires, 6 — 20121 Milano (MI)", SAN_PIETRO);
+        const data = buildData("San Pietro", "Corso Buenos Aires, 6 · 20121 Milano (MI)", SAN_PIETRO);
         // header.showAddress è false nei token di default → forzo true per il test.
         data.brand = {
             ...data.brand,
@@ -328,7 +328,7 @@ describe("MenuPdfDocument — pagina finale allergeni", () => {
         };
         const s = stringsOf(renderPages(data).pages[0]);
         const iName = s.indexOf("San Pietro");
-        const iAddr = s.indexOf("Corso Buenos Aires, 6 — 20121 Milano (MI)");
+        const iAddr = s.indexOf("Corso Buenos Aires, 6 · 20121 Milano (MI)");
         const iCatalog = s.indexOf("Menu");
         expect(iName).toBeGreaterThanOrEqual(0);
         expect(iAddr).toBeGreaterThan(iName); // indirizzo sotto il nome sede

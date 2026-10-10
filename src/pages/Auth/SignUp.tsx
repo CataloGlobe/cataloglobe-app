@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { usePageTitle } from "@/hooks/usePageTitle";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import { signUp } from "@/services/supabase/auth";
 import { isDisposableEmail, isValidEmailFormat } from "@utils/validateEmail";
 import { isStrongPassword } from "@utils/validatePassword";
@@ -8,6 +8,10 @@ import { Button, InlineBanner, PasswordRequirements } from "@/components/ui";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import Text from "@/components/ui/Text/Text";
 import { AuthLayout } from "@/layouts/AuthLayout/AuthLayout";
+import { AuthTabs } from "@/layouts/AuthLayout/AuthTabs";
+import { Mail, Phone } from "lucide-react";
+import { PasswordField } from "./PasswordField";
+import { saveSignupDraft, type SignupDraft } from "@/utils/pendingRedirect";
 import styles from "./Auth.module.scss";
 
 const INVALID_EMAIL_MESSAGE = "Inserisci un indirizzo email valido.";
@@ -35,15 +39,25 @@ function getReadableSignUpError(message: string): string {
   if (normalized.includes("too many")) {
     return "Hai effettuato troppe richieste. Riprova più tardi.";
   }
+  // Il trigger block_disposable_email_signup alza «disposable_email_domain»;
+  // GoTrue di solito lo copre con «Database error saving new user».
+  if (normalized.includes("disposable") || normalized.includes("database error saving new user")) {
+    return "Non possiamo registrare questo indirizzo. Se è un'email temporanea, usane una personale o di lavoro.";
+  }
+  if (normalized.includes("failed to fetch") || normalized.includes("network")) {
+    return "Connessione assente o instabile. Controlla la rete e riprova.";
+  }
   return "Errore durante la registrazione. Riprova.";
 }
 
 export default function SignUp() {
   usePageTitle("Registrati");
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
+  // «Email sbagliata? Correggila» da /check-email: il modulo torna compilato.
+  const draft = (useLocation().state as { draft?: SignupDraft } | null)?.draft;
+  const [firstName, setFirstName] = useState(draft?.firstName ?? "");
+  const [lastName, setLastName] = useState(draft?.lastName ?? "");
+  const [email, setEmail] = useState(draft?.email ?? "");
+  const [phone, setPhone] = useState(draft?.phone ?? "");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -130,6 +144,7 @@ export default function SignUp() {
       // (anti-enumeration by design), so duplicates are not distinguishable client-side.
       // GDPR consent is recorded automatically by the handle_new_user trigger via raw_user_meta_data.
       successEmail = email.trim();
+      saveSignupDraft({ firstName: firstName.trim(), lastName: lastName.trim(), email: successEmail, phone: phone.trim() });
     } catch (err) {
       console.error("[SignUp] handleSubmit error:", err);
       if (err instanceof Error) {
@@ -147,20 +162,12 @@ export default function SignUp() {
   };
 
   return (
-    <AuthLayout>
+    <AuthLayout
+      heading="Crea il tuo account"
+      lead="Inizia gratis, paga solo quando attivi la prima sede."
+    >
       <div className={styles.auth}>
-        <Text as="h1" variant="title-md">
-          Crea il tuo account
-        </Text>
-
-        <Text
-          as="p"
-          variant="body-sm"
-          colorVariant="muted"
-          className={styles.subtitle}
-        >
-          Inizia gratis, paga solo quando attivi la prima sede.
-        </Text>
+        <AuthTabs active="signup" />
 
         <form onSubmit={handleSubmit} aria-busy={loading} noValidate>
           <div className={styles.formRow}>
@@ -209,22 +216,24 @@ export default function SignUp() {
             onBlur={handleEmailBlur}
             required
             autoComplete="email"
+            autoFocus={!!draft}
             disabled={loading}
             error={fieldErrors.email}
+            startAdornment={<Mail size={18} aria-hidden="true" />}
           />
 
           <TextInput
-            label="Telefono"
+            label="Telefono (facoltativo)"
             type="tel"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             autoComplete="tel"
             disabled={loading}
+            startAdornment={<Phone size={18} aria-hidden="true" />}
           />
 
-          <TextInput
+          <PasswordField
             label="Password"
-            type="password"
             value={password}
             onChange={(e) => {
               setPassword(e.target.value);
@@ -240,9 +249,8 @@ export default function SignUp() {
 
           <PasswordRequirements value={password} />
 
-          <TextInput
+          <PasswordField
             label="Conferma password"
-            type="password"
             value={confirmPassword}
             onChange={(e) => {
               setConfirmPassword(e.target.value);
@@ -303,13 +311,9 @@ export default function SignUp() {
             loading={loading}
             disabled={loading || !termsAccepted}
           >
-            Registrati
+            Crea l&apos;account
           </Button>
         </form>
-
-        <Text as="p" variant="body-sm" className={styles.hint}>
-          Hai già un account? <Link to="/login">Accedi</Link>
-        </Text>
       </div>
     </AuthLayout>
   );

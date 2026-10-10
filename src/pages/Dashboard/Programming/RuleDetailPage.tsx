@@ -109,15 +109,17 @@ export default function RuleDetailPage() {
         };
     }, [ruleGroupKey, options.groups]);
     const tenantWide = permissions ? isTenantWide(permissions) : false;
-    // Un ruolo di sede vede solo le sue sedi della regola (RLS): decide il
-    // database, che conosce anche quelle altrui.
-    const ruleIdForDb = useMemo(() => (rule ? [rule.id] : []), [rule]);
+    // Un ruolo di sede vede solo le sue sedi della regola (RLS): se da qui
+    // sembra sua, decide il database, che conosce anche quelle altrui.
+    const clientWrite = !!permissions && !!rule && canWriteRule(permissions, rule, groupMembers ?? undefined);
+    const askDb = clientWrite && !tenantWide;
+    const ruleIdForDb = useMemo(() => (askDb && rule ? [rule.id] : []), [askDb, rule]);
     const dbWritable = useDbWritableRules(ruleIdForDb, !!permissions && !tenantWide);
     const canWrite =
         permissions && rule
-            ? canWriteRule(permissions, rule, groupMembers ?? undefined) && (tenantWide || dbWritable?.has(rule.id) === true)
+            ? clientWrite && (tenantWide || dbWritable.get(rule.id) === true)
             : canWriteAny && tenantWide;
-    const dbPending = !!permissions && !!rule && !tenantWide && dbWritable === null;
+    const dbPending = askDb && !!rule && !dbWritable.has(rule.id);
     // Aperta dalla sede (PG7): se la regola vale anche altrove, lo si dice
     // prima di cambiarla. Conta la regola salvata, non il form.
     const sharedNotice =

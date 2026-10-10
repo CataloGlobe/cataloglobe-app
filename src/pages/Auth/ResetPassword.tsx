@@ -1,13 +1,12 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useNavigate } from "react-router-dom";
-import { CheckCircle, Info } from "lucide-react";
+import { CheckCircle, Clock, KeyRound } from "lucide-react";
 import { supabase } from "@/services/supabase/client";
-import Text from "@/components/ui/Text/Text";
-import { TextInput } from "@/components/ui/Input/TextInput";
 import { Button, PasswordRequirements } from "@/components/ui";
 import { isStrongPassword, isWeakPasswordError } from "@utils/validatePassword";
 import { AuthLayout } from "@/layouts/AuthLayout/AuthLayout";
+import { PasswordField } from "./PasswordField";
 import styles from "./Auth.module.scss";
 
 function isExpiredTokenError(err: unknown): boolean {
@@ -73,8 +72,10 @@ export default function ResetPassword() {
             localStorage.removeItem("pendingUserId");
             localStorage.removeItem("pendingUserEmail");
 
-            // Logout forzato (best practice)
-            await supabase.auth.signOut();
+            // Fuori gli altri dispositivi (chi aveva la vecchia password), dentro
+            // questo: il link di recupero ha già aperto la sessione, non serve
+            // ripassare dal login. Il codice OTP lo chiede ProtectedRoute se manca.
+            await supabase.auth.signOut({ scope: "others" });
 
             setSuccess(true);
         } catch (err) {
@@ -94,19 +95,14 @@ export default function ResetPassword() {
 
     if (success) {
         return (
-            <AuthLayout>
+            <AuthLayout
+                icon={<CheckCircle size={28} aria-hidden="true" />}
+                heading="Password aggiornata"
+                lead="Da ora entri con la nuova password."
+            >
                 <div className={styles.auth}>
-                    <div className={styles.statusIcon}>
-                        <CheckCircle size={48} color="var(--brand-primary, #6366f1)" strokeWidth={1.5} />
-                    </div>
-                    <Text as="h1" variant="title-md">
-                        Password aggiornata
-                    </Text>
-                    <Text as="p" variant="body-sm" colorVariant="muted" className={styles.subtitle}>
-                        Ora puoi accedere con la nuova password.
-                    </Text>
-                    <Button variant="primary" fullWidth onClick={() => navigate("/login")}>
-                        Vai al login
+                    <Button variant="primary" fullWidth onClick={() => navigate("/workspace", { replace: true })}>
+                        Entra
                     </Button>
                 </div>
             </AuthLayout>
@@ -115,19 +111,15 @@ export default function ResetPassword() {
 
     if (linkExpired) {
         return (
-            <AuthLayout>
+            <AuthLayout
+                icon={<Clock size={28} aria-hidden="true" />}
+                tone="warning"
+                heading="Link scaduto"
+                lead="Questo link non vale più. Chiedine uno nuovo."
+            >
                 <div className={styles.auth}>
-                    <div className={styles.statusIcon}>
-                        <Info size={48} color="var(--text-muted, #64748b)" strokeWidth={1.5} />
-                    </div>
-                    <Text as="h1" variant="title-md">
-                        Link scaduto
-                    </Text>
-                    <Text as="p" variant="body-sm" colorVariant="muted" className={styles.subtitle}>
-                        Il link per reimpostare la password è scaduto. Richiedine uno nuovo.
-                    </Text>
                     <Button variant="primary" fullWidth onClick={() => navigate("/forgot-password")}>
-                        Richiedi nuovo link
+                        Chiedi un link nuovo
                     </Button>
                 </div>
             </AuthLayout>
@@ -135,20 +127,16 @@ export default function ResetPassword() {
     }
 
     return (
-        <AuthLayout>
+        <AuthLayout
+            icon={<KeyRound size={28} aria-hidden="true" />}
+            heading="Imposta una nuova password"
+            lead="Scegli una password nuova per il tuo account."
+        >
             <div className={styles.auth}>
-                <Text as="h1" variant="title-md">
-                    Imposta una nuova password
-                </Text>
-
-                <Text as="p" variant="body-sm" colorVariant="muted" className={styles.subtitle}>
-                    Scegli una password nuova per il tuo account.
-                </Text>
 
                 <form onSubmit={handleSubmit} aria-busy={loading}>
-                    <TextInput
+                    <PasswordField
                         label="Nuova password"
-                        type="password"
                         value={password}
                         onChange={e => {
                             setPassword(e.target.value);
@@ -162,9 +150,8 @@ export default function ResetPassword() {
 
                     <PasswordRequirements value={password} />
 
-                    <TextInput
+                    <PasswordField
                         label="Conferma nuova password"
-                        type="password"
                         value={confirmPassword}
                         onChange={e => {
                             setConfirmPassword(e.target.value);

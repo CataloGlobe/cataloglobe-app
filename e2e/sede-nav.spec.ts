@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { openBusinessPage } from "./business";
 import { asRole } from "./asRole";
-import { asSingleSede } from "./nav";
+import { asSingleSede, currentVoce, sidebarLink, sidebarVoci } from "./nav";
 
 /**
  * Il contesto di sede (lotto `ds-5-sede-nav`, §46.1): entrando in un locale la
@@ -41,7 +41,7 @@ function contextNav(page: Page) {
 async function locationPaths(page: Page): Promise<string[]> {
     await openBusinessPage(page, "locations", "Sedi");
     await page.getByRole("radio", { name: "Vista griglia" }).click();
-    const cards = page.getByRole("main").getByRole("listitem");
+    const cards = page.getByRole("main").getByRole("list", { name: "Sedi" }).getByRole("listitem");
     await expect(cards.first()).toBeVisible({ timeout: 15_000 });
     const hrefs = await cards.locator("a").evaluateAll(links =>
         links.map(l => (l as HTMLAnchorElement).getAttribute("href") ?? "").filter(h => h.includes("/locations/"))
@@ -53,7 +53,7 @@ async function locationPaths(page: Page): Promise<string[]> {
 async function openFirstLocation(page: Page): Promise<string> {
     await openBusinessPage(page, "locations", "Sedi");
     await page.getByRole("radio", { name: "Vista griglia" }).click();
-    const firstCard = page.getByRole("main").getByRole("listitem").first();
+    const firstCard = page.getByRole("main").getByRole("list", { name: "Sedi" }).getByRole("listitem").first();
     await expect(firstCard).toBeVisible({ timeout: 15_000 });
     const link = firstCard.getByRole("link").first();
     const name = (await link.innerText()).split("\n")[0].trim();
@@ -65,34 +65,27 @@ async function openFirstLocation(page: Page): Promise<string> {
 test.describe("Contesto di sede", () => {
     test("entrando in una sede la sidebar diventa quella della sede", async ({ page }) => {
         await openFirstLocation(page);
-        const sidebar = nav(page);
-
-        for (const voce of SEDE_VOCI) {
-            await expect(sidebar.getByRole("link", { name: voce, exact: true })).toBeVisible({ timeout: 15_000 });
-        }
-        for (const voce of VOCI_AZIENDA) {
-            await expect(sidebar.getByRole("link", { name: voce, exact: true })).toHaveCount(0);
-        }
+        // Le voci stanno nei pannelli delle sezioni (Officina): si leggono aprendoli.
+        await expect.poll(() => sidebarVoci(page), { timeout: 15_000 }).toEqual(expect.arrayContaining([...SEDE_VOCI]));
+        const voci = await sidebarVoci(page);
+        for (const voce of VOCI_AZIENDA) expect(voci).not.toContain(voce);
     });
 
     test("tutte le voci sono navigabili", async ({ page }) => {
         await openFirstLocation(page);
-        const sidebar = nav(page);
-        for (const voce of SEDE_VOCI) {
-            await expect(sidebar.getByRole("link", { name: voce, exact: true })).toBeVisible({ timeout: 15_000 });
-        }
-        await expect(sidebar.locator('[aria-disabled="true"]')).toHaveCount(0);
+        // `sidebarVoci` legge solo i link: una voce spenta non ci sarebbe.
+        await expect.poll(() => sidebarVoci(page), { timeout: 15_000 }).toEqual(expect.arrayContaining([...SEDE_VOCI]));
+        await expect(nav(page).locator('[aria-disabled="true"]')).toHaveCount(0);
     });
 
     test("Comande e Prenotazioni sono rotte della sede", async ({ page }) => {
         await openFirstLocation(page);
-        const sidebar = nav(page);
 
-        await sidebar.getByRole("link", { name: "Comande", exact: true }).click();
+        await (await sidebarLink(page, "Comande")).click();
         await expect(page).toHaveURL(/\/comande$/, { timeout: 15_000 });
         await expect(page.getByRole("main")).toBeVisible();
 
-        await sidebar.getByRole("link", { name: "Prenotazioni", exact: true }).click();
+        await (await sidebarLink(page, "Prenotazioni")).click();
         await expect(page).toHaveURL(/\/prenotazioni$/, { timeout: 15_000 });
         await expect(page.getByRole("main")).toBeVisible();
     });
@@ -115,15 +108,14 @@ test.describe("Contesto di sede", () => {
 
     test("le voci senza piano portano alle rotte della sede", async ({ page }) => {
         await openFirstLocation(page);
-        const sidebar = nav(page);
 
-        await sidebar.getByRole("link", { name: "Servizio", exact: true }).click();
+        await (await sidebarLink(page, "Servizio")).click();
         await expect(page).toHaveURL(/\/servizio$/, { timeout: 15_000 });
 
-        await sidebar.getByRole("link", { name: "Cosa vedono i clienti", exact: true }).click();
+        await (await sidebarLink(page, "Cosa vedono i clienti")).click();
         await expect(page).toHaveURL(/\/cosa-vedono$/, { timeout: 15_000 });
 
-        await sidebar.getByRole("link", { name: "Scheda", exact: true }).click();
+        await (await sidebarLink(page, "Scheda")).click();
         await expect(page).toHaveURL(/\/anagrafica$/, { timeout: 15_000 });
     });
 
@@ -145,11 +137,7 @@ test.describe("Contesto di sede", () => {
     test("«Cosa vedono i clienti» è una voce a sé: niente tab della Scheda", async ({ page }) => {
         const paths = await locationPaths(page);
         await page.goto(`${paths[0]}/cosa-vedono`);
-        await expect(nav(page).getByRole("link", { name: "Cosa vedono i clienti", exact: true })).toHaveAttribute(
-            "aria-current",
-            "page",
-            { timeout: 15_000 }
-        );
+        await expect(await sidebarLink(page, "Cosa vedono i clienti")).toHaveAttribute("aria-current", "page");
         await expect(page.getByRole("main").getByRole("table").first()).toBeVisible({ timeout: 15_000 });
         await expect(page.getByRole("tab", { name: /^(Anagrafica|Orari|Pubblicazione)$/ })).toHaveCount(0);
     });
@@ -206,8 +194,8 @@ test.describe("Atterraggio per ruolo", () => {
     /** Dove si è atterrati: una pagina vera, mai il lucchetto né l'accesso negato. */
     async function expectUsableLanding(page: Page, segment: string): Promise<void> {
         await expect(page).toHaveURL(new RegExp(`/locations/[0-9a-f-]+/${segment}$`), { timeout: 15_000 });
-        const current = nav(page).locator('a[aria-current="page"]');
-        await expect(current).toHaveCount(1, { timeout: 15_000 });
+        const current = await currentVoce(page);
+        await expect(current).toHaveCount(1);
         await expect(current.locator('[aria-label="Funzione del piano Pro"]')).toHaveCount(0);
         const main = page.getByRole("main");
         await expect(main.getByRole("button").first()).toBeVisible({ timeout: 15_000 });

@@ -36,7 +36,7 @@ export default function DevUiPage() {
     const { theme, setTheme } = useTheme();
 
     useEffect(() => {
-        document.title = "Galleria UI | CataloGlobe (dev)";
+        document.title = "Galleria UI · CataloGlobe (dev)";
     }, []);
 
     return (

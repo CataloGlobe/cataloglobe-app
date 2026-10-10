@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { openBusinessPage } from "./business";
+import { sidebarLink } from "./nav";
 import { NOW, stubReservations, type ReservationsStub } from "./reservationsStub";
 
 /**
@@ -36,10 +37,7 @@ async function openPrenotazioni(page: Page): Promise<void> {
     await card.getByRole("link").first().click();
     // L'indice della sede porta alla prima voce: si aspetta il redirect.
     await page.waitForURL(/\/locations\/[0-9a-f-]+\/[a-z-]+$/);
-    await page
-        .getByRole("navigation", { name: "Menu principale" })
-        .getByRole("link", { name: "Prenotazioni", exact: true })
-        .click();
+    await (await sidebarLink(page, "Prenotazioni")).click();
     await expect(page).toHaveURL(/\/locations\/[0-9a-f-]+\/prenotazioni/, { timeout: 15_000 });
     // La pagina è pronta quando la prima richiesta finta è arrivata.
     await expect(main(page).getByText("Giulia Bianchi").first()).toBeVisible({ timeout: 15_000 });

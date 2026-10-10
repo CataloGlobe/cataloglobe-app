@@ -34,7 +34,7 @@ function composeAddress(activity: V2Activity): string | null {
     const street = [activity.address, activity.street_number].filter(Boolean).join(", ");
     const cityLine = [activity.postal_code, activity.city].filter(Boolean).join(" ");
     const location = cityLine && activity.province ? `${cityLine} (${activity.province})` : cityLine;
-    return [street, location].filter(Boolean).join(" — ") || null;
+    return [street, location].filter(Boolean).join(" · ") || null;
 }
 
 /**

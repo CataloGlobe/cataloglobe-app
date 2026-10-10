@@ -22,7 +22,7 @@ test.describe("Abbonamento", () => {
     });
 
     test("titolo di pagina", async ({ page }) => {
-        await expect(page).toHaveTitle(/^Abbonamento — .+ \| CataloGlobe$/);
+        await expect(page).toHaveTitle(/^Abbonamento · .+ · CataloGlobe$/);
     });
 
     test("IM4: amministratore, niente riquadro; la riga del Portale dice che solo il proprietario disdice", async ({ page }) => {

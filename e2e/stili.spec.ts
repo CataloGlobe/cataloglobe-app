@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { openBusinessPage } from "./business";
+import { sidebarLink } from "./nav";
 import { MISSING_STYLE, RULE, STYLE, stubStili, type StiliStub, type WriteCall } from "./stiliStub";
 import type { Row } from "./restStub";
 
@@ -140,7 +141,7 @@ test.beforeEach(async ({ page }) => {
 test.describe("Stili — elenco", () => {
     test("griglia: stili, prima gli attivi adesso e poi per nome, uso nelle regole", async ({ page }) => {
         await openList(page);
-        await expect(page).toHaveTitle(/^Stili — .+ \| CataloGlobe$/);
+        await expect(page).toHaveTitle(/^Stili · .+ · CataloGlobe$/);
         await expect(styleName(page, "Stile base e2e")).toBeVisible();
         await expect(styleName(page, "Sera e2e")).toBeVisible();
         await expect(styleName(page, "Notte e2e")).toBeVisible();
@@ -383,7 +384,7 @@ test.describe("Stili — editor ricomposto (P3)", () => {
         await openStyle(page, STYLE.sera);
         await expect(nameField(page)).toHaveValue("Sera e2e", { timeout: 15_000 });
         await nameField(page).fill("Sera e2e bis");
-        await page.getByRole("navigation", { name: "Menu principale" }).getByRole("link", { name: "Menù" }).click();
+        await (await sidebarLink(page, "Menù")).click();
         const guard = page.getByRole("alertdialog");
         await expect(guard).toContainText("Modifiche non salvate");
         await guard.getByRole("button", { name: /^(Annulla|Resta)/ }).click();

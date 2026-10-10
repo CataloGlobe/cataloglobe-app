@@ -28,6 +28,7 @@ import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { appearanceOf } from "@/utils/ruleAppearance";
 import { StyleDeleteDrawer } from "./StyleDeleteDrawer";
 import { StyleCreateDrawer } from "./StyleCreateDrawer";
+import { useCreateOnArrival } from "@/hooks/useCreateOnArrival";
 
 const VIEW_MODE_KEY = "cataloglobe-styles-view-mode";
 
@@ -134,6 +135,8 @@ export default function Styles() {
         if (!ensureActive()) return;
         setIsCreateOpen(true);
     }, [ensureActive]);
+    // Da «Cosa vuoi creare?» della Panoramica.
+    useCreateOnArrival(handleCreateClick, permissions ? canWrite : null);
 
     const headerActions = useMemo(() => (
         <>

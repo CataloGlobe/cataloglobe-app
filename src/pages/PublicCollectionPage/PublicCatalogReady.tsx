@@ -457,7 +457,7 @@ export default function PublicCatalogReady({
                     const location = [business.postal_code, business.city]
                         .filter(Boolean)
                         .join(" ");
-                    return [street, location].filter(Boolean).join(" — ") || null;
+                    return [street, location].filter(Boolean).join(" · ") || null;
                 })()}
                 socialLinks={{
                     instagram: business.instagram,

@@ -5,6 +5,8 @@
         "loading_error": "Ladefehler.",
         "empty_catalog": "Zurzeit kein Produkt verfügbar",
         "menu_label": "Menü",
+        "catalog_empty_title": "Die Speisekarte ist noch nicht fertig",
+        "catalog_empty_description": "Das Lokal bereitet gerade seine Gerichte vor. Schauen Sie bald wieder vorbei.",
         "error": {
             "not_found": "Standort nicht gefunden.",
             "invalid_link": "Ungültiger Link.",
@@ -374,7 +376,8 @@
         "video_aria": "Video der Geschichte",
         "video_play": "Video ansehen",
         "video_play_aria": "Story-Video abspielen",
-        "discover_label": "Geschichte entdecken"
+        "discover_label": "Geschichte entdecken",
+        "image_alt_fallback": "Bild der Geschichte"
     },
     "reviews": {
         "rating_labels": {

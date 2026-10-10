@@ -72,19 +72,21 @@ export type PromoCodeRefusal = "promo_code_invalid" | "promo_code_expired" | "pr
  * coupon. A card-free trial code never has its coupon applied (it is only a key
  * to the trial), so Stripe never counts it: `extraRedemptions` is how many
  * subscriptions we already created with it, added to Stripe's own count.
- * Times are Unix seconds, as Stripe sends them.
+ * Times are Unix seconds, as Stripe sends them. Expiry is checked before
+ * `active`: Stripe turns a code inactive when it expires, and the customer
+ * should read «scaduto», not «non valido».
  */
 export function checkPromoCodeLimits(
     promo: PromoCodeLimits,
     nowSeconds: number,
     extraRedemptions = 0
 ): PromoCodeRefusal | null {
-    if (!promo.active || promo.coupon?.valid === false) return "promo_code_invalid";
-
     const expiries = [promo.expires_at, promo.coupon?.redeem_by].filter(
         (t): t is number => typeof t === "number"
     );
     if (expiries.some(t => t <= nowSeconds)) return "promo_code_expired";
+
+    if (!promo.active || promo.coupon?.valid === false) return "promo_code_invalid";
 
     const used = promo.times_redeemed + extraRedemptions;
     if (promo.max_redemptions != null && used >= promo.max_redemptions) return "promo_code_used_up";

@@ -6,7 +6,10 @@ import Text from "@/components/ui/Text/Text";
 import { Badge } from "@/components/ui/Badge/Badge";
 import { IconButton } from "@/components/ui/Button/IconButton";
 import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
+import { Logo } from "@/components/ui/Logo/Logo";
 import { SIDEBAR_COLLAPSED, SIDEBAR_EXPANDED } from "@/constants/layout";
+import { SidebarSection } from "./SidebarSection";
+import { isItemActive } from "./isItemActive";
 import styles from "./AppSidebar.module.scss";
 
 /**
@@ -68,6 +71,12 @@ export interface AppSidebarNavItem {
 export interface AppSidebarNavGroup {
     /** Titolo del gruppo (`caption-xs` 600 uppercase muto). Sparisce collassata. */
     title?: string;
+    /**
+     * Con l'icona (e il titolo) il gruppo è una sezione (Officina, desktop):
+     * una riga sola, le sue voci nel pannello a destra (`SidebarSection`).
+     * Con una voce sola la riga porta dritta lì. Al telefono resta un gruppo.
+     */
+    icon?: ReactNode;
     items: AppSidebarNavItem[];
 }
 
@@ -89,9 +98,28 @@ export interface AppSidebarProps {
      * tutti i contesti. Stanno nella stessa `nav` delle altre voci.
      */
     footerItems?: AppSidebarNavItem[];
+    /** Il pulsante dell'account (`SidebarAccount`), nel piede sopra apri/chiudi. */
+    accountSlot?: ReactNode;
     /** Scritta accanto al tasto apri/chiudi quando la barra è aperta (CRM in /admin: «Chiudi la barra»). */
     collapseLabel?: string;
+    /**
+     * Sidebar a tutta altezza (Officina, solo desktop): in cima logo e nome
+     * (link a `homeTo`), le `actions` (la campanella) e apri/chiudi, che lascia
+     * il piede. Sotto, `switcherSlot`: dove sei (azienda e sede).
+     */
+    brand?: { homeTo: string | null; actions?: ReactNode };
+    switcherSlot?: ReactNode;
 }
+
+/** La scorciatoia di apri/chiudi come si scrive sulla tastiera di chi guarda. */
+const TOGGLE_SHORTCUT =
+    typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘B" : "Ctrl+B";
+
+/** Prima di aprire il pannello di una sezione, e prima di chiuderlo. */
+const SECTION_OPEN_DELAY = 60;
+const SECTION_CLOSE_DELAY = 200;
+/** Dalla riga chiusa (42) al bordo della sidebar (11), più lo spazio del pannello (6). */
+const PANEL_LABEL_OFFSET = 17;
 
 /** Il contatore come si legge: oltre 99 diventa «99+». */
 function badgeText(badge: number | string): number | string {
@@ -174,7 +202,10 @@ export function AppSidebar({
     headerSlot,
     footerSlot,
     footerItems = [],
-    collapseLabel
+    accountSlot,
+    collapseLabel,
+    brand,
+    switcherSlot
 }: AppSidebarProps) {
     const collapsedDesktop = !isMobile && collapsed;
     const { pathname } = useLocation();
@@ -206,6 +237,96 @@ export function AppSidebar({
         updateFade();
     }, [pathname, updateFade]);
 
+    // Il pannello delle sezioni: uno aperto alla volta. Al passaggio si apre
+    // dopo un attimo (andando verso la pagina non lampeggia); con un pannello
+    // già aperto si passa subito a quello accanto. Uscendo si chiude dopo un
+    // attimo, il tempo di attraversare lo spazio fino al pannello.
+    const [openSection, setOpenSection] = useState<string | null>(null);
+    const openSectionRef = useRef<string | null>(null);
+    const openTimer = useRef<number | undefined>(undefined);
+    const closeTimer = useRef<number | undefined>(undefined);
+    const showSection = useCallback((id: string | null) => {
+        window.clearTimeout(openTimer.current);
+        window.clearTimeout(closeTimer.current);
+        openSectionRef.current = id;
+        setOpenSection(id);
+    }, []);
+    const closeSection = useCallback(() => showSection(null), [showSection]);
+    const hoverSection = (id: string) => {
+        window.clearTimeout(closeTimer.current);
+        window.clearTimeout(openTimer.current);
+        if (openSectionRef.current !== null) {
+            showSection(id);
+            return;
+        }
+        openTimer.current = window.setTimeout(() => showSection(id), SECTION_OPEN_DELAY);
+    };
+    const leaveSection = () => {
+        window.clearTimeout(openTimer.current);
+        closeTimer.current = window.setTimeout(() => showSection(null), SECTION_CLOSE_DELAY);
+    };
+    useEffect(() => {
+        showSection(null);
+    }, [pathname, collapsed, showSection]);
+    useEffect(
+        () => () => {
+            window.clearTimeout(openTimer.current);
+            window.clearTimeout(closeTimer.current);
+        },
+        []
+    );
+    const sectionsMode = !isMobile && groups.some(group => group.icon && group.title);
+
+    // Sidebar aperta: le sezioni si aprono verso il basso (Alex). Arrivando su
+    // una pagina si apre la sua sezione; le altre restano come le ha lasciate
+    // chi usa la sidebar, nessuna si richiude da sola.
+    const sectionId = (group: AppSidebarNavGroup, index: number) => `${index}:${group.title ?? ""}`;
+    const currentSectionId = (() => {
+        const index = groups.findIndex(
+            group => group.icon && group.title && group.items.length > 1 && group.items.some(item => isItemActive(item, pathname))
+        );
+        return index === -1 ? null : sectionId(groups[index], index);
+    })();
+    const [expandedSections, setExpandedSections] = useState<ReadonlySet<string>>(
+        () => new Set(currentSectionId ? [currentSectionId] : [])
+    );
+    useEffect(() => {
+        if (!currentSectionId) return;
+        setExpandedSections(prev => (prev.has(currentSectionId) ? prev : new Set(prev).add(currentSectionId)));
+    }, [currentSectionId]);
+    const toggleSection = (id: string) =>
+        setExpandedSections(prev => {
+            const next = new Set(prev);
+            if (!next.delete(id)) next.add(id);
+            return next;
+        });
+
+    const renderGroupAsSection = (group: AppSidebarNavGroup, index: number): ReactNode => {
+        const title = group.title ?? "";
+        if (group.items.length === 1) {
+            // Una pagina sola: niente pannello, la riga porta lì col nome della sezione.
+            return renderItem({ ...group.items[0], label: title, icon: group.icon });
+        }
+        const id = sectionId(group, index);
+        return (
+            <SidebarSection
+                key={id}
+                inline={!collapsedDesktop}
+                expanded={expandedSections.has(id)}
+                onToggle={() => toggleSection(id)}
+                title={title}
+                icon={group.icon}
+                items={group.items}
+                pathname={pathname}
+                open={openSection === id}
+                onHoverStart={() => hoverSection(id)}
+                onHoverEnd={leaveSection}
+                onOpenNow={() => showSection(id)}
+                onClose={closeSection}
+            />
+        );
+    };
+
     /**
      * Chiusa, il nome della voce passa al tooltip, sulla riga intera (mouse e
      * focus: `onFocus` di React risale dal link). Il trigger è un contenitore:
@@ -213,7 +334,23 @@ export function AppSidebar({
      * di `NavLink`.
      */
     const withTooltip = (link: AppSidebarNavItem, node: ReactNode, content?: ReactNode) =>
-        collapsedDesktop || content ? (
+        sectionsMode && collapsedDesktop && !content ? (
+            // Con le sezioni il nome della voce diretta ha l'aspetto del loro
+            // pannello, alla stessa distanza dalla sidebar.
+            <Tooltip
+                variant="panel"
+                delayDuration={SECTION_OPEN_DELAY}
+                content={
+                    <Text as="span" variant="body-sm" weight={600}>
+                        {link.locked ? `${link.label} · Pro` : link.label}
+                    </Text>
+                }
+                side="right"
+                sideOffset={PANEL_LABEL_OFFSET}
+            >
+                <span className={styles.tipAnchor}>{node}</span>
+            </Tooltip>
+        ) : collapsedDesktop || content ? (
             <Tooltip content={content ?? (link.locked ? `${link.label} · Pro` : link.label)} side="right" sideOffset={12}>
                 <span className={styles.tipAnchor}>{node}</span>
             </Tooltip>
@@ -271,6 +408,30 @@ export function AppSidebar({
         </li>
     );
 
+    // Il segno a colori, largo come il quadrato dell'azienda sotto e in colonna
+    // con lui; aperta accanto la scritta. Chiusa il solo segno, e «apri» sta
+    // sotto, sempre a vista: nascosto dietro il logo non lo trovava nessuno.
+    const brandLogo = (
+        <>
+            <Logo variant="icon" color="flat" size={27} alt="" className={styles.brandIcon} />
+            {!collapsed && <Logo variant="wordmark" color="auto" size={15} alt="" className={styles.brandWordmark} />}
+        </>
+    );
+    const toggleLabel = collapsed ? "Apri la barra laterale" : "Chiudi la barra laterale";
+    const toggleButton = (
+        <Tooltip content={`${toggleLabel} · ${TOGGLE_SHORTCUT}`} side={collapsed ? "right" : "bottom"} sideOffset={8}>
+            <button
+                type="button"
+                className={styles.brandToggle}
+                onClick={onToggleCollapse}
+                aria-label={collapsed ? "Espandi menù laterale" : "Comprimi menù laterale"}
+                aria-keyshortcuts="Meta+B Control+B"
+            >
+                {collapsed ? <PanelLeftOpen size={18} aria-hidden="true" /> : <PanelLeftClose size={18} aria-hidden="true" />}
+            </button>
+        </Tooltip>
+    );
+
     return (
         <>
             {isMobile && mobileOpen && (
@@ -308,6 +469,32 @@ export function AppSidebar({
                     </div>
                 )}
 
+                {brand && !isMobile && (
+                    <div className={styles.brandRow} data-collapsed={collapsed || undefined}>
+                        <span className={styles.brandMark}>
+                            {brand.homeTo ? (
+                                // L'ingresso nell'azienda (§51.6): decide `BusinessHomeRedirect`.
+                                <Link to={brand.homeTo} className={styles.brandLink} aria-label="CataloGlobe, vai all'inizio">
+                                    {brandLogo}
+                                </Link>
+                            ) : (
+                                <span className={styles.brandLink}>{brandLogo}</span>
+                            )}
+                        </span>
+                        {brand.actions && !collapsed && <span className={styles.brandActions}>{brand.actions}</span>}
+                        {!collapsed && toggleButton}
+                    </div>
+                )}
+                {/* Chiusa la cima tiene solo il segno, alto come la testata: la campanella scende sotto la linea. */}
+                {brand && !isMobile && collapsed && (
+                    <div className={styles.brandActionsCollapsed}>
+                        {toggleButton}
+                        {brand.actions}
+                    </div>
+                )}
+
+                {switcherSlot && !isMobile && <div className={styles.switcherSlot}>{switcherSlot}</div>}
+
                 {/* Landmark a sé: il rimando che porta fuori dal contesto è
                     navigazione, ma non è una voce del menu. */}
                 {headerSlot && (
@@ -324,19 +511,30 @@ export function AppSidebar({
                         data-fade-bottom={fade.bottom || undefined}
                         onScroll={updateFade}
                     >
-                        {/* Fra i gruppi solo i titoli (aperta) e i loro trattini (chiusa), §51.15. */}
-                        {groups.map((group, i) => (
+                        {sectionsMode ? (
+                            <ul className={`${styles.list} ${styles.sections}`}>
+                                {groups.map((group, i) =>
+                                    group.icon && group.title
+                                        ? renderGroupAsSection(group, i)
+                                        : group.items.map(renderItem)
+                                )}
+                            </ul>
+                        ) : (
+                            /* Fra i gruppi solo i titoli (aperta) e i loro trattini (chiusa), §51.15. */
+                            groups.map((group, i) => (
                             <div key={i} className={styles.group} role="group" aria-label={group.title}>
                                 {group.title && <span className={styles.groupTitle}>{group.title}</span>}
                                 <ul className={styles.list}>{group.items.map(renderItem)}</ul>
                             </div>
-                        ))}
+                            ))
+                        )}
                         {footerSlot}
                     </div>
-                    {(footerItems.length > 0 || !isMobile) && (
+                    {(footerItems.length > 0 || accountSlot || (!isMobile && !brand)) && (
                         <div className={styles.footer}>
                             {footerItems.length > 0 && <ul className={styles.list}>{footerItems.map(renderItem)}</ul>}
-                            {!isMobile && (
+                            {accountSlot && <div className={styles.account}>{accountSlot}</div>}
+                            {!isMobile && !brand && (
                                 <button
                                     type="button"
                                     className={styles.collapseToggle}

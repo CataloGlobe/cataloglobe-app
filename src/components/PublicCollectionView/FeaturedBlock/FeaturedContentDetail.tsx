@@ -5,7 +5,9 @@ import Text from "@/components/ui/Text/Text";
 import { FramedMedia } from "@components/ui/FramedMedia";
 import { toFeaturedFraming } from "./featuredFraming";
 import { resolveFeaturedDisplayPrice } from "@utils/resolveFeaturedDisplayPrice";
+import { featuredBundleOriginalTotal } from "@utils/featuredBundleOriginalTotal";
 import styles from "./FeaturedPreviewModal.module.scss";
+import { safeHttpHref } from "@/utils/sanitizeUrl";
 
 function formatPrice(price: number): string {
     return new Intl.NumberFormat("it-IT", {
@@ -26,11 +28,12 @@ type Props = {
  * Null se il contenuto non ha CTA.
  */
 export function FeaturedCtaFooter({ block }: Props) {
-    if (!block.cta_text || !block.cta_url) return null;
+    const href = safeHttpHref(block.cta_url);
+    if (!block.cta_text || !href) return null;
     return (
         <div className={styles.ctaFooter}>
             <a
-                href={block.cta_url}
+                href={href}
                 className={styles.ctaBtn}
                 target="_blank"
                 rel="noopener noreferrer"
@@ -59,18 +62,7 @@ export function FeaturedContentDetail({ block }: Props) {
                   .filter(item => item.product !== null)
             : [];
 
-    const originalTotal = (() => {
-        if (block.pricing_mode !== "bundle" || !block.show_original_total) return null;
-        const total = (block.products ?? [])
-            .filter(item => item.product != null)
-            .reduce((sum, item) => {
-                const p = item.product!;
-                const price = resolveFeaturedDisplayPrice(p) ?? 0;
-                return sum + price;
-            }, 0);
-        if (total === 0 || total === block.bundle_price) return null;
-        return total;
-    })();
+    const originalTotal = featuredBundleOriginalTotal(block);
 
     return (
         <div className={styles.body}>
