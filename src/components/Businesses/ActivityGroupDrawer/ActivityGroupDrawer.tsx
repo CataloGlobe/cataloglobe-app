@@ -168,7 +168,7 @@ export const ActivityGroupDrawer: React.FC<ActivityGroupDrawerProps> = ({
                     </>
                 }
             >
-                <form id={FORM_ID} onSubmit={handleSubmit} className={styles.form}>
+                <form noValidate id={FORM_ID} onSubmit={handleSubmit} className={styles.form}>
                     <FormGrid autoFocus={!isLoading}>
                         <TextInput
                             label="Nome del gruppo"

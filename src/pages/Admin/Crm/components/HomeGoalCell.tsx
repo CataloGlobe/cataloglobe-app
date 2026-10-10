@@ -68,7 +68,7 @@ export function HomeGoalCell({
                     {unavailable}
                 </Text>
             ) : editing ? (
-                <form className={styles.goalForm} onSubmit={e => void save(e)}>
+                <form noValidate className={styles.goalForm} onSubmit={e => void save(e)}>
                     <NumberInput
                         aria-label="Telefonate da fissare questa settimana"
                         min={1}

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import { signUp } from "@/services/supabase/auth";
-import { isDisposableEmail, isValidEmailFormat } from "@utils/validateEmail";
+import { INVALID_EMAIL_MESSAGE, isDisposableEmail, isValidEmailFormat } from "@utils/validateEmail";
 import { isStrongPassword } from "@utils/validatePassword";
 import { Button, InlineBanner, PasswordRequirements } from "@/components/ui";
 import { TextInput } from "@/components/ui/Input/TextInput";
@@ -13,8 +13,6 @@ import { Mail, Phone } from "lucide-react";
 import { PasswordField } from "./PasswordField";
 import { saveSignupDraft, type SignupDraft } from "@/utils/pendingRedirect";
 import styles from "./Auth.module.scss";
-
-const INVALID_EMAIL_MESSAGE = "Inserisci un indirizzo email valido.";
 
 function isAlreadyRegisteredError(message: string): boolean {
   const m = message.toLowerCase();

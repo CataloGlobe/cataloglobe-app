@@ -100,7 +100,7 @@ export function WhatsappSettingsDrawer({
                     </>
                 }
             >
-                <form id={FORM_ID} className={styles.drawerForm} onSubmit={handleSubmit}>
+                <form noValidate id={FORM_ID} className={styles.drawerForm} onSubmit={handleSubmit}>
                     {error && <InlineBanner variant="error">{error}</InlineBanner>}
                     <Textarea
                         label="Primo messaggio automatico"

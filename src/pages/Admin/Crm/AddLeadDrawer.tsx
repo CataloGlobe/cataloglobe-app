@@ -10,6 +10,7 @@ import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import { useToast } from "@/context/Toast/ToastContext";
 import { addCrmNote, ingestCrmLead } from "@/services/supabase/crm";
 import { normalizePhoneToE164 } from "@/utils/phoneNormalize";
+import { INVALID_EMAIL_MESSAGE, isValidEmailFormat } from "@utils/validateEmail";
 import { crmErrorMessage } from "@/utils/crm/stages";
 import styles from "./Crm.module.scss";
 
@@ -43,6 +44,7 @@ export function AddLeadDrawer({ open, onClose, onCreated }: Props) {
     const [city, setCity] = useState("");
     const [note, setNote] = useState("");
     const [phoneError, setPhoneError] = useState<string | undefined>();
+    const [emailError, setEmailError] = useState<string | undefined>();
     const [isSaving, setIsSaving] = useState(false);
     const [formError, setFormError] = useState<string | null>(null);
 
@@ -56,6 +58,7 @@ export function AddLeadDrawer({ open, onClose, onCreated }: Props) {
         setCity("");
         setNote("");
         setPhoneError(undefined);
+        setEmailError(undefined);
         setIsSaving(false);
         setFormError(null);
     }, [open]);
@@ -63,11 +66,11 @@ export function AddLeadDrawer({ open, onClose, onCreated }: Props) {
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
         const phoneE164 = normalizePhoneToE164(phone);
-        if (!phoneE164) {
-            setPhoneError("Telefono non valido. Senza prefisso si intende italiano.");
-            return;
-        }
-        setPhoneError(undefined);
+        // Email facoltativa, ma se c'è dev'essere giusta (il form è noValidate).
+        const emailBad = email.trim() !== "" && !isValidEmailFormat(email.trim());
+        setPhoneError(phoneE164 ? undefined : "Telefono non valido. Senza prefisso si intende italiano.");
+        setEmailError(emailBad ? INVALID_EMAIL_MESSAGE : undefined);
+        if (!phoneE164 || emailBad) return;
         setFormError(null);
         setIsSaving(true);
         try {
@@ -137,7 +140,7 @@ export function AddLeadDrawer({ open, onClose, onCreated }: Props) {
                     </>
                 }
             >
-                <form id={FORM_ID} className={styles.drawerForm} onSubmit={handleSubmit}>
+                <form noValidate id={FORM_ID} className={styles.drawerForm} onSubmit={handleSubmit}>
                     {formError && <InlineBanner variant="error">{formError}</InlineBanner>}
                     <RadioGroup
                         label="Da dove arriva"
@@ -178,7 +181,11 @@ export function AddLeadDrawer({ open, onClose, onCreated }: Props) {
                         type="email"
                         maxLength={254}
                         value={email}
-                        onChange={e => setEmail(e.target.value)}
+                        onChange={e => {
+                            setEmail(e.target.value);
+                            setEmailError(undefined);
+                        }}
+                        error={emailError}
                         disabled={isSaving}
                     />
                     <TextInput

@@ -153,7 +153,7 @@ export function BrandRulesDrawer({ state, teamName, onClose, onChanged }: Props)
                         </Text>
                     </div>
                 ) : (
-                    <form id={FORM_ID} className={styles.drawerForm} onSubmit={handleSubmit}>
+                    <form noValidate id={FORM_ID} className={styles.drawerForm} onSubmit={handleSubmit}>
                         {error && <InlineBanner variant="error">{error}</InlineBanner>}
                         <Text variant="body-sm" colorVariant="muted">
                             Le regole che gli agenti e il Revisore seguono quando scrivono ai locali: prezzi,

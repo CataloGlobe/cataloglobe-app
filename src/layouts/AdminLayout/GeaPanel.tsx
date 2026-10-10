@@ -209,7 +209,7 @@ export function GeaPanel({
                 </div>
             )}
 
-            <form className={styles.form} onSubmit={onSubmit}>
+            <form noValidate className={styles.form} onSubmit={onSubmit}>
                 <input
                     ref={inputRef}
                     className={styles.input}

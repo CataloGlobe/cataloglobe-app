@@ -50,7 +50,7 @@ export const BusinessCreateCard: React.FC<BusinessCreateCardProps> = ({
     const finalUrl = buildPublicUrl(values.slug || "<slug>");
 
     return (
-        <form id={formId} onSubmit={onSubmit} aria-label="Aggiungi nuova sede">
+        <form noValidate id={formId} onSubmit={onSubmit} aria-label="Aggiungi nuova sede">
             <FormGrid cols={2} autoFocus>
                 <TextInput
                     containerClassName={FORM_GRID_CLASSES.span}

@@ -189,7 +189,7 @@ export function ActivitySlugForm({
                     : undefined;
 
     return (
-        <form id={formId} onSubmit={handleSubmit}>
+        <form noValidate id={formId} onSubmit={handleSubmit}>
             <FormGrid cols={1} autoFocus>
                 <TextInput
                     label="Indirizzo web"

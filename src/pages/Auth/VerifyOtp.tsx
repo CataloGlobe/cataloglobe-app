@@ -497,7 +497,7 @@ export default function VerifyOtp() {
             lead={buildSendStatusCopy(sendOutcome, userEmail)}
         >
             <div className={styles.auth}>
-                <form
+                <form noValidate
                     onSubmit={(e: FormEvent) => {
                         e.preventDefault();
                         void handleVerify();

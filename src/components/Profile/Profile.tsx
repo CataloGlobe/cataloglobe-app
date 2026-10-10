@@ -86,7 +86,7 @@ export default function Profile() {
 
     return (
         <div className={styles.profile}>
-            <form onSubmit={handleSubmit} aria-label="Form profilo utente">
+            <form noValidate onSubmit={handleSubmit} aria-label="Form profilo utente">
                 <div className={styles.infoGrid}>
                     {/* Avatar */}
                     <div className={styles.avatarSection}>

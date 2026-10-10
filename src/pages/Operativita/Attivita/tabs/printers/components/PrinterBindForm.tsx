@@ -97,7 +97,7 @@ export const PrinterBindForm: React.FC<PrinterBindFormProps> = ({
     };
 
     return (
-        <form id={formId} onSubmit={handleSubmit} className={styles.form}>
+        <form noValidate id={formId} onSubmit={handleSubmit} className={styles.form}>
             <InlineBanner variant="info">
                 Trovi il numero di serie (SN) sull'etichetta sotto la stampante o nel
                 menu di configurazione del dispositivo. La stampante deve essere accesa

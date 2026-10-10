@@ -102,7 +102,7 @@ export default function WalkinCreateDrawer({
                 onClose={onClose}
                 footer={footer}
             >
-                <form id={FORM_ID} onSubmit={handleSubmit} className={styles.drawerBody}>
+                <form noValidate id={FORM_ID} onSubmit={handleSubmit} className={styles.drawerBody}>
                     <section className={styles.drawerSection}>
                         <Text as="h3" variant="caption-xs" weight={600} colorVariant="muted" className={styles.drawerSectionTitle}>Tavolo</Text>
                         {tables === undefined ? (

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { Button } from "@/components/ui/Button/Button";
@@ -5,10 +6,19 @@ import { TextInput } from "@/components/ui/Input/TextInput";
 import { Textarea } from "@/components/ui/Textarea/Textarea";
 import { ImageUploadField } from "@/components/ui/ImageUploadField/ImageUploadField";
 import Text from "@/components/ui/Text/Text";
+import { safeHttpHref } from "@/utils/sanitizeUrl";
 import type { BrandStoryDraft } from "../hooks/useBrandStoryDraft";
 import styles from "./StoryBrandDrawer.module.scss";
 
 const FORM_ID = "story-brand-form";
+
+/** Il form è noValidate: il sito si controlla qui, come lo legge la pagina pubblica (safeHttpHref). */
+function websiteProblem(value: string): string | undefined {
+    if (!value.trim()) return undefined;
+    const href = safeHttpHref(value);
+    if (href && new URL(href).hostname.includes(".")) return undefined;
+    return "Inserisci un indirizzo valido (es. https://esempio.com).";
+}
 
 type StoryBrandDrawerProps = {
     open: boolean;
@@ -23,14 +33,20 @@ type StoryBrandDrawerProps = {
  * La foto resta senza inquadratura, com'era.
  */
 export function StoryBrandDrawer({ open, onClose, brand }: StoryBrandDrawerProps) {
+    const [websiteError, setWebsiteError] = useState<string | undefined>();
+
     const close = () => {
         if (brand.isSaving) return;
         brand.discard();
+        setWebsiteError(undefined);
         onClose();
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        const problem = websiteProblem(brand.website);
+        setWebsiteError(problem);
+        if (problem) return;
         if (await brand.save()) onClose();
     };
 
@@ -64,7 +80,7 @@ export function StoryBrandDrawer({ open, onClose, brand }: StoryBrandDrawerProps
                     </>
                 }
             >
-                <form id={FORM_ID} className={styles.form} onSubmit={handleSubmit}>
+                <form noValidate id={FORM_ID} className={styles.form} onSubmit={handleSubmit}>
                     <ImageUploadField
                         label="Foto"
                         helperText="Non la stessa della copertina sede: la squadra, la cucina, un dettaglio."
@@ -87,7 +103,11 @@ export function StoryBrandDrawer({ open, onClose, brand }: StoryBrandDrawerProps
                         label="Sito web"
                         type="url"
                         value={brand.website}
-                        onChange={e => brand.onWebsiteChange(e.target.value)}
+                        onChange={e => {
+                            brand.onWebsiteChange(e.target.value);
+                            setWebsiteError(undefined);
+                        }}
+                        error={websiteError}
                         placeholder="https://..."
                     />
                 </form>

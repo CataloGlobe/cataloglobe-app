@@ -430,7 +430,7 @@ export default function WorkspaceSettingsPage() {
                                     removing={removingAvatar}
                                 />
                         </div>
-                        <form
+                        <form noValidate
                             id="workspace-profile-form"
                             onSubmit={handleSaveProfile}
                             className={styles.drawerForm}
@@ -502,7 +502,7 @@ export default function WorkspaceSettingsPage() {
                 </ModalLayoutHeader>
 
                 <ModalLayoutContent>
-                    <form className={styles.modalForm} onSubmit={handlePasswordChange}>
+                    <form noValidate className={styles.modalForm} onSubmit={handlePasswordChange}>
                         <TextInput
                             label="Nuova password"
                             type="password"
