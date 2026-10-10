@@ -187,11 +187,11 @@ interface RuleTargets {
  *  - owner/admin con `scheduling.write`: sempre;
  *  - ruoli di sede con `scheduling.write`: mai su una regola di tutte le
  *    sedi, mai su una regola senza sedi; ogni sede tra le proprie e ogni
- *    gruppo con almeno una sede tra le proprie (come il DB).
+ *    gruppo con tutte le sedi tra le proprie (D13, come assegnarlo).
  *
- * `groupMembers` (gruppo → sedi): un gruppo di cui non si conoscono le sedi
- * conta come non proprio, così l'interfaccia non promette una modifica che
- * il DB potrebbe rifiutare.
+ * `groupMembers` (gruppo → sedi): un gruppo vuoto o di cui non si conoscono
+ * le sedi conta come non proprio, così l'interfaccia non promette una
+ * modifica che il DB rifiuterebbe.
  */
 export function canWriteRule(
     perms: UserPermissions,
@@ -205,6 +205,9 @@ export function canWriteRule(
     const mine = (activityId: string) => perms.activityIds.includes(activityId);
     return (
         rule.activityIds.every(mine) &&
-        rule.groupIds.every(groupId => (groupMembers?.get(groupId) ?? []).some(mine))
+        rule.groupIds.every(groupId => {
+            const members = groupMembers?.get(groupId) ?? [];
+            return members.length > 0 && members.every(mine);
+        })
     );
 }
