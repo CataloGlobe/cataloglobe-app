@@ -35,7 +35,6 @@
 //   400 INVALID_BODY · 401 UNAUTHORIZED · 403 FORBIDDEN · 404 ACTIVITY_NOT_FOUND
 //   429 RATE_LIMITED · 502 SUNMI_CONFIG_ERROR · 500 INTERNAL_ERROR
 
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { checkRateLimit, RateLimitExceededError } from "../_shared/rateLimit.ts";
 import { sunmiOnlineStatusByShop } from "../_shared/sunmi.ts";
@@ -152,7 +151,7 @@ async function _fetchActivity(
 // Main
 // ============================================================
 
-serve(async (req: Request): Promise<Response> => {
+Deno.serve(async (req: Request): Promise<Response> => {
     if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
     if (req.method !== "POST") {
         return jsonResponse(405, { code: "METHOD_NOT_ALLOWED", message: "Use POST." });

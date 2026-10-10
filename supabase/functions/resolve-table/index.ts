@@ -25,7 +25,6 @@
 // See docs/orders-architecture.md v1.1 §3.1 (session lifecycle),
 // §3.2 (table-fusion model B+), §5.2 (JWT pattern), §5.3 (RPC).
 
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { signCustomerJwt } from "../_shared/customerJwt.ts";
 import { checkRateLimit, RateLimitExceededError, extractClientIp, hashIp } from "../_shared/rateLimit.ts";
@@ -420,7 +419,7 @@ async function _buildSuccessPayload(
 // HTTP handler
 // ============================================================
 
-serve(async (req: Request) => {
+Deno.serve(async (req: Request) => {
     if (req.method === "OPTIONS") {
         return new Response("ok", { headers: corsHeaders });
     }

@@ -1,5 +1,4 @@
 // @ts-nocheck
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
     checkRateLimit,
@@ -87,7 +86,7 @@ function ratingCategory(rating: number): "positive" | "neutral" | "negative" {
     return "negative";
 }
 
-serve(async (req: Request) => {
+Deno.serve(async (req: Request) => {
     if (req.method === "OPTIONS") {
         return new Response("ok", { headers: corsHeaders });
     }
