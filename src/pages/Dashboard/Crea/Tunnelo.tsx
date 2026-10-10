@@ -407,7 +407,6 @@ export function Tunnelo({ kind, aside, data, tenantId, owner, origin, business, 
                             })
                         }
                         productOptions={productOptions}
-                        onCap={() => showToast({ message: "Al massimo 8 immagini per storia.", type: "error" })}
                     />
                 );
                 break;

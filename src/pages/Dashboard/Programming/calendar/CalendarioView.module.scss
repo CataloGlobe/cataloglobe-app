@@ -6,24 +6,22 @@
 .root {
     color: var(--text);
     // un colore per tipo, uguale a quello delle corsie
-    --cal-menu: #6366f1;
+    // menù, visibilità e «diversa» sono token del tema, anche in scuro
+    --cal-menu: var(--brand-primary);
     --cal-style: #0e9488;
     --cal-featured: #d97706;
     --cal-price: #2563eb;
-    --cal-visibility: #64748b;
+    --cal-visibility: var(--color-gray-500);
     --cal-shade: rgba(15, 23, 42, 0.08);
     // chi è diverso dalla sede guardata (D150 E)
-    --cal-diff: #c2410c;
+    --cal-diff: var(--signal-attention);
 }
 
 :global([data-theme="dark"]) .root {
-    --cal-menu: #818cf8;
     --cal-style: #2dd4bf;
     --cal-featured: #fbbf24;
     --cal-price: #60a5fa;
-    --cal-visibility: #94a3b8;
     --cal-shade: rgba(0, 0, 0, 0.35);
-    --cal-diff: #fb923c;
 }
 
 /* ---------- impaginazione: colonna del mese a sinistra, calendario a destra ---------- */
@@ -1808,12 +1806,9 @@ button.dqsedi {
 
 /* ---------- più sedi (D150 E): una sede, sotto il giorno solo chi è diverso ---------- */
 // La nota sta nel pannello «Confronta con» in alto a destra, fuori da `.root`:
-// i colori di `--cal-diff` scritti qui.
+// lo stesso token di `--cal-diff`.
 .dtag {
-    color: #c2410c;
-    :global([data-theme="dark"]) & {
-        color: #fb923c;
-    }
+    color: var(--signal-attention);
 }
 .fdl .same {
     margin-left: auto;

@@ -1,7 +1,11 @@
 // I tunnel di creazione (artifact «Tunnel di creazione», D124). Misure e
 // colori uno a uno dall'artifact, che a sua volta prende la sezione «Aggiungi»
 // del Calendario (CalendarioView.module.scss) e la card «Sul telefono» della
-// Scheda (Prodotto.module.scss).
+// Scheda (Prodotto.module.scss). Le misure dei caratteri sono le loro scale:
+// quella del Calendario per i passi, quella della Scheda per il telefono.
+
+@use "@styles/calendario-type" as cal;
+@use "@styles/scheda-type" as sch;
 
 .root {
     --c-sunk: var(--hover-bg);
@@ -25,7 +29,7 @@
     padding: 0 24px 32px;
     min-height: calc(100% + 24px);
     color: var(--text);
-    font-size: 14px;
+    @include cal.fs(body);
     line-height: 1.5;
 
     h2,
@@ -65,7 +69,7 @@
     color: var(--text-muted);
 }
 .small {
-    font-size: 12.5px;
+    @include cal.fs(note);
 }
 
 /* ---------- la testa: percorso, titolo, passi e bottoni ---------- */
@@ -100,7 +104,7 @@
     display: flex;
     align-items: center;
     gap: 2px;
-    font-size: 13px;
+    @include cal.fs(small);
     color: var(--text-muted);
     flex-wrap: wrap;
     min-width: 0;
@@ -123,7 +127,7 @@
     flex-direction: column;
     gap: 2px;
     h2 {
-        font-size: 20px;
+        @include cal.fs(title);
         font-weight: 600;
     }
 }
@@ -161,7 +165,7 @@
         gap: 7px;
         padding: 4px 9px 4px 4px;
         border-radius: var(--radius-pill);
-        font-size: 13px;
+        @include cal.fs(small);
         font-weight: 500;
         color: var(--text-muted);
         cursor: pointer;
@@ -200,7 +204,7 @@
     display: inline-grid;
     place-items: center;
     border: 1.5px solid var(--border);
-    font-size: 12px;
+    @include cal.fs(fine);
     font-weight: 600;
     font-variant-numeric: tabular-nums;
     flex: none;
@@ -214,7 +218,7 @@
     margin-left: auto;
 }
 .why {
-    font-size: 12.5px;
+    @include cal.fs(note);
     color: var(--text-muted);
 }
 
@@ -253,7 +257,7 @@
     flex-direction: column;
     gap: 4px;
     h3 {
-        font-size: 17px;
+        @include sch.fs(answer);
         font-weight: 650;
         letter-spacing: -0.01em;
     }
@@ -268,7 +272,7 @@
     gap: 10px;
     align-items: flex-start;
     > h4 {
-        font-size: 13px;
+        @include cal.fs(small);
         font-weight: 600;
     }
     > .in,
@@ -287,13 +291,13 @@
     gap: 6px;
     min-width: 0;
     > label {
-        font-size: 12.5px;
+        @include cal.fs(note);
         font-weight: 500;
         color: var(--text-muted);
     }
 }
 .lab {
-    font-size: 12.5px;
+    @include cal.fs(note);
     font-weight: 500;
     color: var(--text-muted);
 }
@@ -303,7 +307,7 @@
     gap: 12px;
 }
 .hint {
-    font-size: 12.5px;
+    @include cal.fs(note);
     color: var(--text-muted);
 }
 .in {
@@ -312,7 +316,7 @@
     color: var(--text);
     border-radius: var(--radius-control);
     padding: 7px 10px;
-    font-size: 13.5px;
+    @include cal.fs(text);
     width: 100%;
     &:hover {
         border-color: var(--c-faint);
@@ -335,7 +339,7 @@ select.in {
 }
 .in.sm {
     padding: 4px 8px;
-    font-size: 13px;
+    @include cal.fs(small);
 }
 .in.num {
     width: 96px;
@@ -368,10 +372,10 @@ select.in {
     }
     b {
         font-weight: 600;
-        font-size: 14px;
+        @include cal.fs(body);
     }
     > span:not(.oi) {
-        font-size: 12.5px;
+        @include cal.fs(note);
         color: var(--text-muted);
     }
     &[aria-pressed="true"] {
@@ -402,7 +406,7 @@ select.in {
     margin-bottom: 4px;
 }
 .later {
-    font-size: 11.5px;
+    @include cal.fs(badge);
     font-weight: 600;
     color: var(--text-muted);
 }
@@ -417,7 +421,7 @@ select.in {
     background: var(--surface);
     border-radius: var(--radius-pill);
     padding: 4px 11px;
-    font-size: 12.5px;
+    @include cal.fs(note);
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -444,7 +448,7 @@ select.in {
     padding: 10px 12px;
     border-radius: var(--radius-control);
     background: var(--c-warning-soft);
-    font-size: 13px;
+    @include cal.fs(small);
     > svg {
         color: var(--c-warning);
         margin-top: 2px;
@@ -467,7 +471,7 @@ select.in {
     display: flex;
     align-items: center;
     gap: 8px;
-    font-size: 12.5px;
+    @include cal.fs(note);
     padding: 8px 12px;
     border-radius: var(--radius-control);
     background: var(--c-brand-soft);
@@ -491,7 +495,7 @@ select.in {
     gap: 8px;
     padding: 6px 8px 6px 6px;
     min-height: 42px;
-    font-size: 13.5px;
+    @include cal.fs(text);
     & + & {
         border-top: 1px solid var(--border);
     }
@@ -511,11 +515,11 @@ select.in {
     }
 }
 .sub {
-    font-size: 12px;
+    @include cal.fs(fine);
     color: var(--text-muted);
 }
 .lcat {
-    font-size: 11px;
+    @include cal.fs(kicker);
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.05em;
@@ -565,7 +569,7 @@ select.in {
     align-self: stretch;
     h5 {
         margin: 0;
-        font-size: 13.5px;
+        @include cal.fs(text);
         font-weight: 600;
         display: flex;
         align-items: center;
@@ -582,7 +586,7 @@ select.in {
     align-items: center;
     padding: 6px 0;
     border-top: 1px solid var(--c-line);
-    font-size: 13.5px;
+    @include cal.fs(text);
     &:first-of-type {
         border-top: 0;
     }
@@ -592,7 +596,7 @@ select.in {
     }
     .new,
     .check {
-        font-size: 11.5px;
+        @include cal.fs(badge);
         color: var(--c-brand);
         font-weight: 600;
         margin-left: 6px;
@@ -634,7 +638,7 @@ select.in {
         padding: 6px 8px;
         border-radius: 6px;
         text-align: left;
-        font-size: 13px;
+        @include cal.fs(small);
         cursor: pointer;
         &:hover,
         &[aria-selected="true"] {
@@ -679,7 +683,7 @@ select.in {
     background: none;
     padding: 0;
     text-align: left;
-    font-size: 13.5px;
+    @include cal.fs(text);
     cursor: pointer;
     .t {
         width: 34px;
@@ -697,7 +701,7 @@ select.in {
             width: 16px;
             height: 16px;
             border-radius: 50%;
-            background: #fff;
+            background: var(--color-white);
             box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
             transition: transform 0.15s;
         }
@@ -729,14 +733,14 @@ select.in {
     grid-template-columns: 22px minmax(0, 1fr) auto;
     gap: 8px;
     align-items: start;
-    font-size: 13.5px;
+    @include cal.fs(text);
     background: var(--surface);
     > svg {
         color: var(--c-faint);
         margin-top: 6px;
     }
     .bt {
-        font-size: 11px;
+        @include cal.fs(kicker);
         font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 0.05em;
@@ -767,7 +771,7 @@ select.in {
 
 /* Controlla */
 .isent {
-    font-size: 15px;
+    @include cal.fs(strong);
     line-height: 1.5;
     padding: 12px 14px;
     border-radius: var(--radius-control);
@@ -786,7 +790,7 @@ select.in {
         gap: 8px;
         align-items: baseline;
         padding: 7px 6px 7px 12px;
-        font-size: 13px;
+        @include cal.fs(small);
     }
     > div + div {
         border-top: 1px solid var(--border);
@@ -804,7 +808,7 @@ select.in {
 .ieff {
     margin: 0;
     padding-left: 18px;
-    font-size: 13.5px;
+    @include cal.fs(text);
     display: flex;
     flex-direction: column;
     gap: 4px;
@@ -839,21 +843,21 @@ select.in {
         display: inline-flex;
         align-items: center;
         gap: 6px;
-        font-size: 11px;
+        @include cal.fs(kicker);
         letter-spacing: 0.07em;
         text-transform: uppercase;
         font-weight: 600;
         color: var(--c-brand);
     }
     b {
-        font-size: 14px;
+        @include cal.fs(body);
         font-weight: 650;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
     }
     p {
-        font-size: 12.5px;
+        @include cal.fs(note);
         color: var(--text-muted);
         line-height: 1.4;
         white-space: nowrap;
@@ -901,7 +905,7 @@ select.in {
     height: 540px;
     display: flex;
     flex-direction: column;
-    font-size: 12px;
+    @include sch.fs(fine);
     position: relative;
     font-family: var(--pfont, var(--font-sans));
 }
@@ -932,13 +936,13 @@ select.in {
     gap: 12px;
 }
 .pName {
-    font-size: 18px;
+    @include sch.fs(title);
     font-weight: 700;
     letter-spacing: -0.01em;
     line-height: 1.2;
 }
 .pH {
-    font-size: 10.5px;
+    @include sch.fs(p-head);
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--pacc, #64748b);
@@ -957,7 +961,7 @@ select.in {
         border: 1px solid var(--pline, #e2e8f0);
         border-radius: 999px;
         padding: 3px 9px;
-        font-size: 10.5px;
+        @include sch.fs(p-head);
         white-space: nowrap;
     }
     span.on {
@@ -1007,21 +1011,21 @@ select.in {
     background: color-mix(in srgb, var(--pacc, #d97706) 12%, var(--pbg, #fff));
     border: 1px solid color-mix(in srgb, var(--pacc, #d97706) 25%, transparent);
     .k {
-        font-size: 10px;
+        @include sch.fs(p-tiny);
         font-weight: 700;
         letter-spacing: 0.08em;
         text-transform: uppercase;
         color: var(--pacc, #b45309);
     }
     b {
-        font-size: 14px;
+        @include sch.fs(body);
         line-height: 1.25;
     }
     .fd {
         display: flex;
         justify-content: space-between;
         gap: 8px;
-        font-size: 11.5px;
+        @include sch.fs(badge);
         i {
             color: var(--pmut, #64748b);
         }
@@ -1037,7 +1041,7 @@ select.in {
         border-radius: 999px;
         padding: 4px 10px;
         font-weight: 600;
-        font-size: 11px;
+        @include sch.fs(kicker);
     }
     img {
         width: 100%;
@@ -1068,7 +1072,7 @@ select.in {
         flex-direction: column;
         gap: 2px;
         span {
-            font-size: 10px;
+            @include sch.fs(p-tiny);
             letter-spacing: 0.06em;
             text-transform: uppercase;
             color: var(--pmut, #64748b);
@@ -1137,7 +1141,7 @@ select.in {
     align-self: stretch;
 }
 .effect {
-    font-size: 12.5px;
+    @include cal.fs(note);
 }
 
 /* ---------- piccoli pezzi dei passi ---------- */
@@ -1146,7 +1150,7 @@ select.in {
     align-items: center;
     gap: 8px;
     flex-wrap: wrap;
-    font-size: 13px;
+    @include cal.fs(small);
     .in {
         width: 110px;
     }
@@ -1160,7 +1164,7 @@ select.in {
     background: var(--surface);
     border-radius: var(--radius-control);
     padding: 4px 10px;
-    font-size: 12.5px;
+    @include cal.fs(note);
     font-weight: 500;
     white-space: nowrap;
     cursor: pointer;
