@@ -103,6 +103,25 @@
     align-items: center;
 }
 
+// La «i» della spiegazione (D173): un bersaglio suo, staccato dall'etichetta.
+.itemInfo {
+    flex: none;
+    margin-left: auto;
+    display: inline-grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    margin-right: calc(-1 * var(--space-4));
+    border-radius: var(--radius-inner);
+    color: var(--text-muted);
+    cursor: help;
+
+    &:hover {
+        color: var(--text);
+        background: var(--hover-bg);
+    }
+}
+
 // Voce con sotto-testo: due righe, l'altezza la decide il contenuto.
 .withDescription {
     height: auto;

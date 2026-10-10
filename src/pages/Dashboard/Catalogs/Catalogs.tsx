@@ -423,14 +423,17 @@ export default function Catalogs() {
                     label: duplicatingId === catalog.id ? "Duplicazione…" : "Duplica",
                     disabled: duplicatingId !== null
                 }),
-                {
-                    label: `Aggiungi ${productPluralLower} con AI`,
-                    icon: Sparkles,
-                    variant: "accent",
-                    onClick: () => handleAddWithAi(catalog)
-                },
                 // Il nome del menù non si cambia nel dettaglio: finché non ci arriva resta qui.
                 { label: "Rinomina", icon: TextCursorInput, onClick: () => handleOpenEdit(catalog) },
+                // D173: l'import in un menù che c'è già, sotto «Importa», con la «i» che spiega.
+                {
+                    label: `Aggiungi altri ${productPluralLower}`,
+                    icon: Sparkles,
+                    variant: "accent",
+                    group: "Importa",
+                    info: `Leggiamo con l'AI una foto o un PDF del menù di carta e aggiungiamo i ${productPluralLower} a questo ${catalogLower}. Prima che entrino li controlli tu: quelli che avete già si collegano, gli altri diventano nuovi.`,
+                    onClick: () => handleAddWithAi(catalog)
+                },
                 rowAction.remove(() => handleOpenDelete(catalog))
             ]}
         />

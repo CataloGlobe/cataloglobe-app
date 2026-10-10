@@ -2,6 +2,7 @@ import React from "react";
 import { MoreHorizontal } from "lucide-react";
 import { Menu } from "@/components/ui/Menu/Menu";
 import { IconButton } from "@/components/ui/Button/IconButton";
+import Text from "@/components/ui/Text/Text";
 import styles from "./TableRowActions.module.scss";
 
 export interface TableRowAction {
@@ -14,6 +15,10 @@ export interface TableRowAction {
     /** Voce presente ma spenta: col perché in `description`, invece di sparire. */
     disabled?: boolean;
     description?: string;
+    /** Titolo piccolo sopra la voce, dopo un divisore: «Importa» (D173). */
+    group?: string;
+    /** La spiegazione più lunga: una «i» col tooltip in coda alla voce (D173). */
+    info?: string;
 }
 
 interface TableRowActionsProps {
@@ -50,7 +55,14 @@ export function TableRowActions({ actions, ariaLabel = "Azioni" }: TableRowActio
         >
             {visibleActions.map((action, index) => (
                 <React.Fragment key={index}>
-                    {action.separator && index > 0 && <Menu.Separator />}
+                    {(action.separator || action.group) && index > 0 && <Menu.Separator />}
+                    {action.group && (
+                        <Menu.Label>
+                            <Text as="span" variant="caption-xs" weight={600} colorVariant="muted">
+                                {action.group}
+                            </Text>
+                        </Menu.Label>
+                    )}
                     <Menu.Item
                         icon={action.icon}
                         leading={anyIcon && !action.icon ? <span className={styles.iconSlot} aria-hidden /> : undefined}
@@ -58,6 +70,7 @@ export function TableRowActions({ actions, ariaLabel = "Azioni" }: TableRowActio
                         onSelect={action.onClick}
                         disabled={action.disabled}
                         description={action.description}
+                        info={action.info}
                     >
                         {action.label}
                     </Menu.Item>

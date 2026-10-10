@@ -165,7 +165,7 @@ test.describe("Menù — elenco", () => {
     test("il kebab del menù ha le tre azioni", async ({ page }) => {
         await openList(page);
         await actionsOf(main(page).getByText("Carta e2e")).click();
-        await expect(page.getByRole("menuitem", { name: /Aggiungi prodotti con AI/ })).toBeVisible();
+        await expect(page.getByRole("menuitem", { name: "Aggiungi altri prodotti" })).toBeVisible();
         await expect(page.getByRole("menuitem", { name: /^(Modifica nome|Rinomina)$/ })).toBeVisible();
         await expect(page.getByRole("menuitem", { name: "Elimina", exact: true })).toBeVisible();
     });
@@ -252,10 +252,18 @@ test.describe("Menù — elenco", () => {
         await expect(page.getByRole("checkbox", { name: "Seleziona riga" })).toHaveCount(0);
     });
 
-    test("dal kebab del menù l'import con AI apre il suo drawer, senza analizzare", async ({ page }) => {
+    test("dal kebab, sotto «Importa»: la «i» spiega senza scegliere, la voce apre il drawer senza analizzare (D173)", async ({ page }) => {
         await openList(page);
         await actionsOf(main(page).getByText("Carta e2e")).click();
-        await page.getByRole("menuitem", { name: /con AI$/ }).click();
+        const menu = page.getByRole("menu");
+        await expect(menu.getByText("Importa", { exact: true })).toBeVisible();
+        const item = menu.getByRole("menuitem", { name: "Aggiungi altri prodotti" });
+        await expect(item).toHaveAttribute("aria-description", /foto o un PDF/);
+        // il clic sulla «i» apre il tooltip e lascia il menù aperto (al telefono il passaggio del mouse non c'è)
+        await item.locator("svg").last().click();
+        await expect(page.getByRole("tooltip")).toContainText("Prima che entrino li controlli tu");
+        await expect(menu).toBeVisible();
+        await item.click();
         await expect(dialog(page)).toContainText("Importa menù con AI");
         expect(stub.writes.filter(w => w.key.startsWith("fn."))).toHaveLength(0);
     });

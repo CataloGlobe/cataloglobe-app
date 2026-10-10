@@ -1,6 +1,8 @@
-import React, { type ReactNode } from "react";
+import React, { useState, type ReactNode } from "react";
+import { Info } from "lucide-react";
 import * as RadixDropdownMenu from "@radix-ui/react-dropdown-menu";
 import Text from "@/components/ui/Text/Text";
+import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
 import styles from "./Menu.module.scss";
 
 type MenuAlign = "start" | "end";
@@ -69,6 +71,37 @@ interface MenuItemProps {
     target?: string;
     /** In coda alla voce: un contatore o un pallino (menù dell'account). */
     trailing?: ReactNode;
+    /**
+     * La spiegazione più lunga della voce (D173): una «i» in coda col tooltip,
+     * che si apre passando sopra e anche al clic, così si legge al telefono.
+     * La voce la dice anche ai lettori di schermo.
+     */
+    info?: string;
+}
+
+/** La «i» in coda alla voce: il clic apre il tooltip e non sceglie la voce. */
+function MenuItemInfo({ text }: { text: string }) {
+    const [open, setOpen] = useState(false);
+    const stop = (e: React.SyntheticEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+    };
+    return (
+        <Tooltip content={text} side="bottom" align="end" open={open} onOpenChange={setOpen}>
+            <span
+                className={styles.itemInfo}
+                aria-hidden
+                onPointerDown={stop}
+                onPointerUp={stop}
+                onClick={e => {
+                    stop(e);
+                    setOpen(o => !o);
+                }}
+            >
+                <Info size={15} />
+            </span>
+        </Tooltip>
+    );
 }
 
 function MenuItem({
@@ -81,7 +114,8 @@ function MenuItem({
     href,
     target,
     trailing,
-    leading
+    leading,
+    info
 }: MenuItemProps) {
     const className = `${styles.item}${variant === "destructive" ? ` ${styles.danger}` : variant === "accent" ? ` ${styles.accent}` : ""}${description ? ` ${styles.withDescription}` : ""}`;
     const content = (
@@ -97,6 +131,7 @@ function MenuItem({
                 )}
             </span>
             {trailing && <span className={styles.itemTrailing}>{trailing}</span>}
+            {info && <MenuItemInfo text={info} />}
         </>
     );
 
@@ -116,7 +151,7 @@ function MenuItem({
     }
 
     return (
-        <RadixDropdownMenu.Item className={className} disabled={disabled} onSelect={onSelect}>
+        <RadixDropdownMenu.Item className={className} disabled={disabled} onSelect={onSelect} aria-description={info}>
             {content}
         </RadixDropdownMenu.Item>
     );
