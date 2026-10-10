@@ -247,7 +247,7 @@ export function Tunnelo({ kind, aside, data, tenantId, owner, origin, business, 
             void reload();
             setLeave(false);
             // la bozza del Calendario si toglie solo quando va in onda
-            if (t.aside && saved.live) dropAside();
+            if (t.aside && saved.live) dropAside(tenantId);
             // il menù in onda apre «E adesso?»
             if (t.kind === "menu" && saved.live) {
                 const done = { ...t, i: st.length - 1, seen: st.length - 1 };

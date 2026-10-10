@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { TENANT_ID } from "./reservationsStub";
 import { openBusinessPageByUrl } from "./business";
 import { SEDE, stubProgrammazione, type ProgrammazioneStub, type WriteCall } from "./programmazioneStub";
 import type { Row } from "./restStub";
@@ -286,14 +287,17 @@ test.describe("Tunnel di creazione — menù", () => {
         await expect(page).toHaveURL(/\/crea\/menu\?da=calendario$/);
         await expect(main(page).getByRole("heading", { level: 2, name: "Nuovo menù" })).toBeVisible({ timeout: 15_000 });
         await expect(main(page).getByRole("navigation", { name: "Percorso" }).getByRole("button", { name: "Calendario" })).toBeVisible();
-        expect(await page.evaluate(() => sessionStorage.getItem("calendario:da-parte"))).toContain('"kind":"menu"');
+        expect(await page.evaluate(t => sessionStorage.getItem("calendario:da-parte:" + t), TENANT_ID)).toContain('"kind":"menu"');
     });
 
     test("dal Calendario con una bozza tenuta da parte: il suo quando e il suo dove", async ({ page }) => {
-        await page.addInitScript(porto => {
-            const d = { kind: "menu", mode: "new", rule: null, thing: null, pair: null, when: { days: [5, 6] }, where: { all: false, activityIds: [porto], groupIds: [] } };
-            sessionStorage.setItem("calendario:da-parte", JSON.stringify(d));
-        }, SEDE.porto);
+        await page.addInitScript(
+            ([porto, tenant]) => {
+                const d = { kind: "menu", mode: "new", rule: null, thing: null, pair: null, when: { days: [5, 6] }, where: { all: false, activityIds: [porto], groupIds: [] } };
+                sessionStorage.setItem("calendario:da-parte:" + tenant, JSON.stringify(d));
+            },
+            [SEDE.porto, TENANT_ID]
+        );
         await open(page, "menu", "calendario");
         await expect(main(page).getByRole("navigation", { name: "Percorso" }).getByRole("button", { name: "Calendario" })).toBeVisible();
         await walkMenu(page);
@@ -309,7 +313,7 @@ test.describe("Tunnel di creazione — menù", () => {
         await button(page, "Esci").click();
         await page.getByRole("alertdialog").getByRole("button", { name: "Esci senza salvare" }).click();
         await expect(page).toHaveURL(/\/scheduling$/);
-        expect(await page.evaluate(() => sessionStorage.getItem("calendario:da-parte"))).toContain('"kind":"menu"');
+        expect(await page.evaluate(t => sessionStorage.getItem("calendario:da-parte:" + t), TENANT_ID)).toContain('"kind":"menu"');
     });
 });
 

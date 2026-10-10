@@ -102,9 +102,12 @@ export default function AnalyticsPage() {
         () =>
             // la sede è quella dell'indirizzo: lo store può non averla (si entra da un link) o averne un'altra
             vista.confrontoQui && activityId
-                ? readableActivities.filter(a => a.id !== activityId && vista.confronta.has(a.id)).map(a => a.id)
+                ? readableActivities
+                      // solo le sedi di cui si possono leggere i numeri: le altre darebbero zeri finti
+                      .filter(a => a.id !== activityId && vista.confronta.has(a.id) && permissions != null && canDoOnActivity(permissions, "analytics.read", a.id))
+                      .map(a => a.id)
                 : [],
-        [vista.confrontoQui, vista.confronta, activityId, readableActivities]
+        [vista.confrontoQui, vista.confronta, activityId, readableActivities, permissions]
     );
     const [others, setOthers] = useState<Record<string, SedeNumbers>>({});
     const compareRef = useRef(0);

@@ -460,18 +460,20 @@ describe("la bozza messa da parte", () => {
             setItem: (k: string, v: string) => void store.set(k, v),
             removeItem: (k: string) => void store.delete(k)
         });
-        expect(peekAside()).toBeNull();
+        expect(peekAside("t1")).toBeNull();
         const D = blankDraft("menu", { all: false, activityIds: ["a1"], groupIds: [] }, "s1");
         D.thing = "c2";
         D.when = { days: [0, 1, 2, 3, 4], ranges: [[720, 900]] };
-        writeAside(D);
-        expect(peekAside()).toEqual({ kind: "menu", when: D.when, where: D.where, per: null });
+        writeAside(D, "t1");
+        expect(peekAside("t1")).toEqual({ kind: "menu", when: D.when, where: D.where, per: null });
         // un periodo senza fine resta senza fine (#337.7): JSON da solo ne farebbe null, cioè il 1970
         D.when = { period: { from: dayNum(2026, 9, 12), to: Infinity } };
-        writeAside(D);
-        expect(peekAside()!.when.period).toEqual({ from: dayNum(2026, 9, 12), to: Infinity });
-        dropAside();
-        expect(peekAside()).toBeNull();
+        writeAside(D, "t1");
+        expect(peekAside("t1")!.when.period).toEqual({ from: dayNum(2026, 9, 12), to: Infinity });
+        // è dell'azienda che l'ha messa da parte (#360.8): un'altra non la vede
+        expect(peekAside("t2")).toBeNull();
+        dropAside("t1");
+        expect(peekAside("t1")).toBeNull();
         vi.unstubAllGlobals();
     });
 });

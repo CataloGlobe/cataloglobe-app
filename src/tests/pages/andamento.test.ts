@@ -148,6 +148,13 @@ describe("Andamento: la frase in cima", () => {
         );
         expect(s.lead).toBe("Porto ha più visite dell'altra.");
         expect(s.detail).toBe("Porto 300 visite (+3%) · Centro 151 visite (+26%), sul mese prima");
+        // a pari visite nessuna «ha più visite» (#360.8)
+        const pari = [
+            { id: "a", name: "Centro", numbers: own },
+            { id: "b", name: "Porto", numbers: { ...other, visits: own.visits } }
+        ];
+        expect(compareSentence(pari, "30d").lead).toBe("Ultimi 30 giorni: le sedi hanno le stesse visite.");
+        expect(compareSentence([...pari, { id: "c", name: "Lido", numbers: { ...own, visits: 1 } }], "30d").lead).toBe("Centro e Porto hanno le stesse visite, più delle altre.");
     });
 
     it("i delta: segno vero e «uguale»", () => {

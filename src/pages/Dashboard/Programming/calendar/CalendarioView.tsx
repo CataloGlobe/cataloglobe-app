@@ -298,7 +298,8 @@ export default function CalendarioView({
     );
     // cosa si guarda (D150 E, D152): una sede, tutte o un gruppo, e con chi si confronta; lo stato è comune
     // alle pagine (in alto a destra con la navigazione), senza scelta si guarda la prima sede
-    const vista = useSediVista(useTenantId());
+    const tenantId = useTenantId();
+    const vista = useSediVista(tenantId);
     // «Sede» e «Confronta con» stanno in alto a destra (D152): la pagina passa lì
     // i suoi gruppi e la nota «diversa · N g», che legge sempre l'ultimo calcolo.
     const tagRef = useRef<(id: string) => ReactNode>(() => null);
@@ -908,10 +909,10 @@ export default function CalendarioView({
         if (saved || !back) closePick();
     };
     // «Tieni da parte» sopravvive all'uscita verso Menù, Stili, In evidenza
-    useEffect(() => setKept(readAside()), []);
+    useEffect(() => setKept(tenantId ? readAside(tenantId) : null), [tenantId]);
     const keep = (d: Draft | null) => {
         setKept(d);
-        writeAside(d);
+        if (tenantId) writeAside(d, tenantId);
     };
     const saveSec = async (then?: CalKind) => {
         if (!section || !draft) return;

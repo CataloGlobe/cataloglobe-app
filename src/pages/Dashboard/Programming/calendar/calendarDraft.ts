@@ -542,32 +542,33 @@ export function pairCovers(list: readonly CalEntry[], pair: CalEntry, seat: CalS
 /* ---------- la bozza messa da parte ---------- */
 // «Tieni da parte» la conserva per la scheda aperta (sessionStorage) mentre si va a creare
 // un menù, uno stile, un In evidenza: il Calendario la ripropone, un tunnel ne riprende il Quando e il Dove.
-const ASIDE_KEY = "calendario:da-parte";
+// Una per azienda: la bozza di un'azienda non si ripropone in un'altra aperta nella stessa scheda.
+const asideKey = (tenantId: string) => "calendario:da-parte:" + tenantId;
 // un periodo senza fine è Infinity, che JSON scriverebbe come null (e alla ripresa la fine sarebbe il 1970)
 const INF = "\u221e";
 
-export function readAside(): Draft | null {
+export function readAside(tenantId: string): Draft | null {
     try {
-        const raw = sessionStorage.getItem(ASIDE_KEY);
+        const raw = sessionStorage.getItem(asideKey(tenantId));
         return raw ? (JSON.parse(raw, (_k, v) => (v === INF ? Infinity : v === "-" + INF ? -Infinity : v)) as Draft) : null;
     } catch {
         return null;
     }
 }
 
-export function writeAside(d: Draft | null): void {
+export function writeAside(d: Draft | null, tenantId: string): void {
     try {
-        if (d) sessionStorage.setItem(ASIDE_KEY, JSON.stringify(d, (_k, v) => (v === Infinity ? INF : v === -Infinity ? "-" + INF : v)));
-        else sessionStorage.removeItem(ASIDE_KEY);
+        if (d) sessionStorage.setItem(asideKey(tenantId), JSON.stringify(d, (_k, v) => (v === Infinity ? INF : v === -Infinity ? "-" + INF : v)));
+        else sessionStorage.removeItem(asideKey(tenantId));
     } catch {
         /* resta solo finché la pagina è aperta */
     }
 }
 
 /** Solo cosa, quando e dove della bozza messa da parte. */
-export function peekAside(): Pick<Draft, "kind" | "when" | "where" | "per"> | null {
-    const d = readAside();
+export function peekAside(tenantId: string): Pick<Draft, "kind" | "when" | "where" | "per"> | null {
+    const d = readAside(tenantId);
     return d && d.kind ? { kind: d.kind, when: d.when, where: d.where, per: d.per ?? null } : null;
 }
 
-export const dropAside = () => writeAside(null);
+export const dropAside = (tenantId: string) => writeAside(null, tenantId);

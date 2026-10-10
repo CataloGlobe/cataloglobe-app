@@ -302,16 +302,24 @@ export function compareValue(key: RowKey, n: SedeNumbers): { value: number; labe
     }
 }
 
+const listNames = (ns: string[]) => (ns.length < 2 ? ns.join("") : ns.slice(0, -1).join(", ") + " e " + ns[ns.length - 1]);
+
 /** La frase in cima col confronto: chi va meglio, e come va ognuna. */
 export function compareSentence(sedi: readonly SedeCompared[], period: PeriodKey): Sentence {
     const byVisits = [...sedi].sort((a, b) => b.numbers.visits - a.numbers.visits);
     const top = byVisits[0];
     const topOrders = [...sedi].sort((a, b) => b.numbers.revenue - a.numbers.revenue)[0];
     const others = sedi.length - 1;
+    // a pari visite nessuna «ha più visite»
+    const tied = byVisits.filter(s => s.numbers.visits === top.numbers.visits);
     const lead =
         top.numbers.visits === 0
             ? `${PERIOD_LEAD[period]}: ancora nessuna visita da confrontare.`
-            : `${top.name} ha più visite ${others === 1 ? "dell'altra" : "delle altre"}${topOrders.id === top.id && top.numbers.revenue > 0 ? " e incassa di più al tavolo" : ""}.`;
+            : tied.length > 1
+              ? tied.length === sedi.length
+                  ? `${PERIOD_LEAD[period]}: le sedi hanno le stesse visite.`
+                  : `${listNames(tied.map(s => s.name))} hanno le stesse visite, più delle altre.`
+              : `${top.name} ha più visite ${others === 1 ? "dell'altra" : "delle altre"}${topOrders.id === top.id && top.numbers.revenue > 0 ? " e incassa di più al tavolo" : ""}.`;
     const detail = byVisits
         .map(s => {
             const d = visitsDelta(s.numbers.visits, s.numbers.previousVisits);
