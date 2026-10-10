@@ -199,6 +199,12 @@ export default function Guests() {
         return fetchedGuest?.id === selectedGuestId ? fetchedGuest : null;
     }, [selectedGuestId, guests, fetchedGuest]);
 
+    // Il cliente mostrato si tiene da parte finché l'id resta quello: una
+    // ricerca che lo toglie dall'elenco non smonta la scheda (e la sua bozza).
+    useEffect(() => {
+        if (selectedGuest && selectedGuest !== fetchedGuest) setFetchedGuest(selectedGuest);
+    }, [selectedGuest, fetchedGuest]);
+
     useEffect(() => {
         if (!selectedGuestId || selectedGuest) return;
         if (!tenantId || !canRead || isLocked) return;

@@ -82,14 +82,14 @@ export function ActivitySedeMenu({ activity, businessId, tenantId, reload, canMa
 
     const actions: TableRowAction[] = [
         {
-            label: "Sospendi la pubblicazione",
+            label: "Sospendi la sede",
             icon: PauseCircle,
             description: "Chi apre il link legge il motivo, non il menù",
             onClick: () => openSuspend("suspend"),
             hidden: !canManage || !isActive
         },
         {
-            label: "Riprendi la pubblicazione",
+            label: "Riporta online",
             icon: PlayCircle,
             onClick: () => void handleResume(),
             hidden: !canManage || isActive

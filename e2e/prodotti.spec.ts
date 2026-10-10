@@ -1234,6 +1234,19 @@ test.describe("Prodotti — lotto bug B", () => {
         expect(posted("product_option_values.POST", "Piccolo")).toBe(1);
     });
 
+    test("#336.1b: se falliscono tutti i formati, il gruppo «Formato» appena nato non resta vuoto", async ({ page }) => {
+        storeOptions(() => true);
+        stub.onWrite("product_option_groups.DELETE", () => {
+            stub.tables.product_option_groups = stub.tables.product_option_groups.filter(g => !String(g.id).startsWith("e2e0d000-0000-4000-a000-00000000098"));
+            return [];
+        });
+        await addFormats(page, [["Piccolo", "3"]]);
+        await saveButton(page).click();
+        await expect(page.getByText("Non è stato possibile salvare: Formati")).toBeVisible();
+        expect(posted("product_option_groups.POST")).toBe(1);
+        expect(posted("product_option_groups.DELETE")).toBe(1);
+    });
+
     test("#336.3: due clic sul Salva scrivono una volta sola", async ({ page }) => {
         storeOptions();
         await addFormats(page, [["Piccolo", "3"]]);
@@ -1273,6 +1286,17 @@ test.describe("Prodotti — lotto bug B", () => {
         await expect(main(page).getByText(/usa il prezzo del prodotto padre/)).toBeVisible();
         await expect(main(page).getByRole("spinbutton", { name: "Prezzo" })).toHaveCount(0);
         await expect(main(page).getByRole("button", { name: "Imposta un prezzo proprio" })).toBeVisible();
+    });
+
+    test("#336.7b: su una variante, scrivere un prezzo e cancellarlo non chiude il campo", async ({ page }) => {
+        await openProduct(page, PRODUCT.cocaZero, "prezzi-opzioni");
+        await main(page).getByRole("button", { name: "Imposta un prezzo proprio" }).click({ timeout: 15_000 });
+        const price = main(page).getByRole("spinbutton", { name: "Prezzo" });
+        await price.fill("5");
+        await price.fill("");
+        await expect(price).toBeVisible();
+        await price.fill("4.5");
+        await expect(price).toHaveValue("4.5");
     });
 
     test("#336.11: Esc nella modifica di un formato annulla la riga, non chiude la parte", async ({ page }) => {

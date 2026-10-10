@@ -324,7 +324,7 @@ export default function ActivityOrdiniPrenotazioniRoute({ part }: ActivityOrdini
             <div className={styles.page}>
                 <section id="ordini" aria-label="Ordini al tavolo" className={styles.section}>
                     {activity.status !== "active" && (
-                        <Checklist title="Prima degli ordini" items={orderingChecklist} doneTitle="La sede è pubblicata" />
+                        <Checklist title="Prima degli ordini" items={orderingChecklist} doneTitle="La sede è online" />
                     )}
                     <Card title="Ordini al tavolo" subtitle="Il cliente ordina inquadrando il QR del tavolo">
                         <div className={styles.stack}>
