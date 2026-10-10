@@ -349,10 +349,15 @@ export default function PublicCollectionHeader({
                 ref={headerRef}
                 className={styles.root}
                 data-cover={showCoverImage || undefined}
+                data-flat={!showCoverImage || undefined}
                 data-bottombar={mode === "public" || undefined}
                 data-preview-device={mode === "preview" ? previewDevice : undefined}
                 style={
-                    engaged
+                    // Variante piatta (senza cover): già a tutta larghezza e senza
+                    // raggio, niente lerp né inline style (tutto dal CSS).
+                    !showCoverImage
+                        ? undefined
+                        : engaged
                         ? {
                               top: currentTopOffset,
                               marginLeft: currentMargin,
@@ -539,8 +544,8 @@ export default function PublicCollectionHeader({
                 </div>
             </header>
 
-            {/* Animated gap between header and pill bar */}
-            <div aria-hidden style={{ height: currentGap }} />
+            {/* Animated gap between header and pill bar (variante piatta: già a 0) */}
+            <div aria-hidden style={{ height: showCoverImage ? currentGap : 0 }} />
         </>
     );
 }
