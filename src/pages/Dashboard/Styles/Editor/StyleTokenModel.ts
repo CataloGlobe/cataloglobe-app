@@ -143,6 +143,7 @@ export function isFeaturedHighlightControlActive(featuredStyle: FeaturedStyle): 
  * Provides backwards compatibility for old JSON shapes by checking multiple possible paths,
  * and falls back to safe defaults for missing values.
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- JSON dal DB di forme vecchie e nuove, letto campo per campo con i default
 export function parseTokens(rawJson: any): StyleTokenModel {
     if (!rawJson) return DEFAULT_STYLE_TOKENS;
     if (typeof rawJson !== "object") return DEFAULT_STYLE_TOKENS;
