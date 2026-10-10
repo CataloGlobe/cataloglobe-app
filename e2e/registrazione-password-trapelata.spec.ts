@@ -36,7 +36,8 @@ test("password trapelata: messaggio vero sotto il campo", async ({ page }) => {
     await expect(page.getByText("Questa password è comparsa in fughe di dati di altri siti: scegline un'altra.")).toBeVisible({
         timeout: 15_000
     });
-    await expect(page.getByText(/almeno 8 caratteri/)).toHaveCount(0);
+    // Il messaggio di prima, sbagliato per una password trapelata.
+    await expect(page.getByText("La password deve essere più sicura (almeno 8 caratteri).")).toHaveCount(0);
     expect(signups).toBe(1);
     await expect(page).toHaveURL(/\/sign-up/);
 });
