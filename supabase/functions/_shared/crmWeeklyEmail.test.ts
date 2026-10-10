@@ -30,7 +30,7 @@ describe("mail settimanale", () => {
         expect(mail.text).toContain("Persi: 3 (2 per obiezione, 1 stop)");
         expect(mail.text).toContain("Primo contatto, mediana: 5 minuti");
         expect(mail.text).toContain("Fonti: Modulo Meta 5, Landing 2");
-        expect(mail.html).toContain('<a href="https://app.x/admin/lead?vista=riepilogo">');
+        expect(mail.html).toContain('href="https://app.x/admin/lead?vista=riepilogo"');
         expect(mail.text).not.toMatch(/—/);
     });
 
@@ -38,7 +38,7 @@ describe("mail settimanale", () => {
         const mail = buildWeeklyEmail({ current: empty, previous: empty, weekLabel: "x", summaryUrl: null });
         expect(mail.text).toContain("Fonti: nessun lead");
         expect(mail.text).toContain("nessun primo contatto");
-        expect(mail.html).not.toContain("<a ");
+        expect(mail.html).not.toContain("Apri il riepilogo");
     });
 });
 

@@ -14,7 +14,7 @@ import {
     type ImageUploadEditorResult
 } from "@/components/ui/ImageUploadEditor";
 import { PasswordRequirements } from "@/components/ui/PasswordRequirements/PasswordRequirements";
-import { isStrongPassword, isWeakPasswordError } from "@utils/validatePassword";
+import { isStrongPassword, weakPasswordMessage } from "@utils/validatePassword";
 import { useAuth } from "@/context/useAuth";
 import { useToast } from "@/context/Toast/ToastContext";
 import {
@@ -60,6 +60,7 @@ export default function WorkspaceSettingsPage() {
     const [removingAvatar, setRemovingAvatar] = useState(false);
     const [loggingOut, setLoggingOut] = useState(false);
     const [showLogoutModal, setShowLogoutModal] = useState(false);
+    const [showLogoutAllModal, setShowLogoutAllModal] = useState(false);
     const [showPasswordModal, setShowPasswordModal] = useState(false);
     const [isDeleteAccountDrawerOpen, setIsDeleteAccountDrawerOpen] = useState(false);
     const [password, setPassword] = useState("");
@@ -215,13 +216,17 @@ export default function WorkspaceSettingsPage() {
         }
     };
 
-    const handleLogout = async () => {
+    const handleLogout = async (everywhere = false) => {
         try {
             setLoggingOut(true);
-            await signOut();
+            await signOut({ everywhere });
+        } catch (err) {
+            console.error("[WorkspaceSettings] sign out failed:", err);
+            showToast({ message: "Uscita non riuscita. Riprova.", type: "error" });
         } finally {
             setLoggingOut(false);
             setShowLogoutModal(false);
+            setShowLogoutAllModal(false);
         }
     };
 
@@ -260,8 +265,9 @@ export default function WorkspaceSettingsPage() {
             setShowPasswordModal(false);
             showToast({ message: "Password aggiornata con successo", type: "success" });
         } catch (err) {
-            if (err instanceof Error && isWeakPasswordError(err.message)) {
-                setPasswordError("La password non soddisfa i requisiti di sicurezza.");
+            const weak = weakPasswordMessage(err);
+            if (weak) {
+                setPasswordError(weak);
             } else {
                 setPasswordError("Non è stato possibile aggiornare la password. Riprova.");
             }
@@ -292,6 +298,13 @@ export default function WorkspaceSettingsPage() {
             description: "Chiude la sessione su questo dispositivo.",
             action: "Esci",
             onClick: () => setShowLogoutModal(true),
+            disabled: loggingOut
+        },
+        {
+            label: "Esci da tutti i dispositivi",
+            description: "Chiude ogni sessione aperta, anche su telefoni e computer che non hai con te. Al prossimo accesso ti chiediamo il codice via email.",
+            action: "Esci da tutti",
+            onClick: () => setShowLogoutAllModal(true),
             disabled: loggingOut
         },
         {
@@ -448,7 +461,7 @@ export default function WorkspaceSettingsPage() {
                                     removing={removingAvatar}
                                 />
                         </div>
-                        <form
+                        <form noValidate
                             id="workspace-profile-form"
                             onSubmit={handleSaveProfile}
                             className={styles.drawerForm}
@@ -483,10 +496,21 @@ export default function WorkspaceSettingsPage() {
             <ConfirmDialog
                 isOpen={showLogoutModal}
                 onClose={() => setShowLogoutModal(false)}
-                onConfirm={handleLogout}
+                onConfirm={() => handleLogout()}
                 title="Vuoi davvero uscire?"
                 message="L'accesso verrà interrotto e dovrai effettuare nuovamente il login per rientrare."
                 confirmLabel={loggingOut ? "Uscita in corso..." : "Esci"}
+                confirmVariant="primary"
+                isLoading={loggingOut}
+            />
+
+            <ConfirmDialog
+                isOpen={showLogoutAllModal}
+                onClose={() => setShowLogoutAllModal(false)}
+                onConfirm={() => handleLogout(true)}
+                title="Uscire da tutti i dispositivi?"
+                message="Chiudiamo ogni sessione aperta con questo account, compresa questa. Per rientrare da qualsiasi dispositivo serviranno password e codice via email."
+                confirmLabel={loggingOut ? "Uscita in corso..." : "Esci da tutti"}
                 confirmVariant="primary"
                 isLoading={loggingOut}
             />
@@ -509,7 +533,7 @@ export default function WorkspaceSettingsPage() {
                 </ModalLayoutHeader>
 
                 <ModalLayoutContent>
-                    <form className={styles.modalForm} onSubmit={handlePasswordChange}>
+                    <form noValidate className={styles.modalForm} onSubmit={handlePasswordChange}>
                         <TextInput
                             label="Nuova password"
                             type="password"

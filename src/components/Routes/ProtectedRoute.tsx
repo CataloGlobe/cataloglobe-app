@@ -26,7 +26,7 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
 
     // Verifica OTP
     if (otpLoading && !otpRefreshing) {
-        return <AppLoader intent="otp" />;
+        return <AppLoader intent="auth" />;
     }
 
     // Errore di rete sulla query di check OTP: non sappiamo se l'utente è

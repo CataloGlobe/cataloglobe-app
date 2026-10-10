@@ -144,7 +144,7 @@ export function IncidentDrawer({ open, mode, incident, onClose, onSaved }: Incid
                     </>
                 }
             >
-                <form id="incident-form" className={styles.drawerForm} onSubmit={handleSubmit}>
+                <form noValidate id="incident-form" className={styles.drawerForm} onSubmit={handleSubmit}>
                     <TextInput
                         label="Titolo"
                         required

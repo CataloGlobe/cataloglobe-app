@@ -38,11 +38,10 @@ export type OrderingStateResult =
     | { ok: true }
     | { ok: false; reason: OrderingStateReason };
 
-// Diner-facing allowlist. `past_due` is a grace state (card in retry for ~2
-// weeks before cancellation): the public menu stays visible during it, so
-// ordering must too. Only `canceled`/`suspended` (anything outside this set)
-// blocks the diner-facing surface.
-export const VALID_SUBSCRIPTION_STATUSES = new Set(["active", "trialing", "past_due"]);
+// Diner-facing allowlist: definita in `subscriptionStatus.ts`, riesportata qui
+// per chi la importava da questo modulo.
+import { VALID_SUBSCRIPTION_STATUSES } from "./subscriptionStatus.ts";
+export { VALID_SUBSCRIPTION_STATUSES };
 
 export interface CheckOrderingStateParams {
     tenantId: string;

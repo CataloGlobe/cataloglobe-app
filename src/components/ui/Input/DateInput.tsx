@@ -69,6 +69,7 @@ export const DateInput = forwardRef<HTMLInputElement, DateInputProps>(
                             type="date"
                             disabled={isDisabled}
                             aria-invalid={hasError}
+                            aria-required={required || undefined}
                             aria-describedby={describedById}
                             className={`${styles.input} ${inputClassName ?? className ?? ""}`}
                             {...props}

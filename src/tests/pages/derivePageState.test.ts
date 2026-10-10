@@ -114,6 +114,20 @@ describe("resolveRedirect", () => {
         ).toBe("/slug-canonico");
     });
 
+    it("alias con lingua non base: il redirect mantiene /lang", () => {
+        const payload = makePayload({ canonical_slug: "slug-canonico", base_language_code: "it" });
+        expect(
+            resolveRedirect(payload, { fromCache: false, slug: "alias-vecchio", requestedLang: "fr" })
+        ).toBe("/slug-canonico/fr");
+    });
+
+    it("alias con la lingua base: il redirect la toglie", () => {
+        const payload = makePayload({ canonical_slug: "slug-canonico", base_language_code: "it" });
+        expect(
+            resolveRedirect(payload, { fromCache: false, slug: "alias-vecchio", requestedLang: "it" })
+        ).toBe("/slug-canonico");
+    });
+
     it("è pura: non muta il payload", () => {
         const payload = makePayload({ canonical_slug: "slug-canonico" });
         const snapshot = JSON.parse(JSON.stringify(payload));

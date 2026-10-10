@@ -96,7 +96,7 @@ export default function FeaturedContentDrawer({ open, onClose, onSuccess }: Draw
                     </>
                 }
             >
-                <form
+                <form noValidate
                     id={FORM_ID}
                     className={styles.form}
                     onSubmit={e => {

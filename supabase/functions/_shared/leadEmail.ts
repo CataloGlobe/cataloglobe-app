@@ -9,7 +9,6 @@ import { escapeHtml } from "./emailFormat.ts";
 import { renderCard, renderDetailRow, renderInfoBlock, renderTitle, type EmailContent } from "./emailLayout.ts";
 import type { LeadData, LeadInterest } from "./leadValidation.ts";
 
-const REASON = "Hai ricevuto questa email perché ricevi le richieste dal form della landing di CataloGlobe.";
 
 const INTEREST_LABEL: Record<LeadInterest, string> = {
     menu: "Il menù",
@@ -77,7 +76,7 @@ export function buildLeadNotificationEmail(lead: LeadData, meta: LeadEmailMeta, 
             utmRows.length > 0 ? renderInfoBlock("Campagna", utmRows) : "",
             contextRows.length > 0 ? renderInfoBlock("Contesto", contextRows) : ""
         ],
-        REASON
+        { preheader: `${lead.name} · ${lead.phone} · ${interests}` }
     );
 
     const line = ([k, v]: [string, string]) => `${k}: ${v}`;

@@ -50,7 +50,7 @@ export function VenueNameCard({ venue, onSaved }: { venue: CrmVenue; onSaved: ()
 
     return (
         <Card title="Nome del locale" badge={<StatusBadge variant="warning" label="Locale da completare" />}>
-            <form className={styles.venueNameForm} onSubmit={e => void handleSubmit(e)}>
+            <form noValidate className={styles.venueNameForm} onSubmit={e => void handleSubmit(e)}>
                 <Text variant="body-sm" colorVariant="muted">
                     Il modulo non chiede il nome del locale: la carta porta quello di {venue.name}. Scrivilo dopo la
                     chiamata.

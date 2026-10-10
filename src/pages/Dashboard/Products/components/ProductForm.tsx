@@ -97,6 +97,7 @@ export function ProductForm({
     });
     const [pendingImageFile, setPendingImageFile] = useState<File | null>(null);
     const [basePrice, setBasePrice] = useState<string>("");
+    const [basePriceError, setBasePriceError] = useState<string | undefined>();
     const [priceMode, setPriceMode] = useState<PriceMode>("single");
     const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -258,6 +259,12 @@ export function ProductForm({
             showToast({ message: "Il prezzo inserito non è valido.", type: "error" });
             return;
         }
+        // Il form è noValidate: min="0" e step="0.01" li controlliamo qui.
+        // Decimali contati sul testo: 0.07 * 100 in virgola mobile non è 7.
+        if (price !== null && (price < 0 || (basePrice.trim().split(".")[1] ?? "").length > 2)) {
+            setBasePriceError(price < 0 ? "Il prezzo non può essere negativo." : "Al massimo due decimali.");
+            return;
+        }
 
         if (priceMode === "formats" && draftFormats.length === 0) {
             setSubmitError("Aggiungi almeno un formato prima di creare.");
@@ -381,7 +388,7 @@ export function ProductForm({
     const showIngredients = verticalConfig.productSections.ingredients;
 
     return (
-        <form id={formId} className={styles.form} onSubmit={handleSubmit}>
+        <form noValidate id={formId} className={styles.form} onSubmit={handleSubmit}>
             {mode === "create_variant" && parentProduct && (
                 <Text variant="body-sm" colorVariant="muted">
                     Variante di <strong className={styles.strong}>{parentProduct.name}</strong>
@@ -476,7 +483,11 @@ export function ProductForm({
                             step="0.01"
                             min="0"
                             value={basePrice}
-                            onChange={e => setBasePrice(e.target.value)}
+                            onChange={e => {
+                                setBasePrice(e.target.value);
+                                setBasePriceError(undefined);
+                            }}
+                            error={basePriceError}
                             placeholder="Es: 10.50"
                         />
                     )}
@@ -538,7 +549,7 @@ export function ProductForm({
                                         if (!fmtName || isNaN(fmtPrice) || fmtPrice < 0) return;
                                         setDraftFormats(prev => [
                                             ...prev,
-                                            { id: makeDraftId(), name: fmtName, absolute_price: fmtPrice }
+                                            { id: makeDraftId(), name: fmtName, absolute_price: Math.round(fmtPrice * 100) / 100 }
                                         ]);
                                         setHasFormatPricing(true);
                                         setNewFormatName("");
