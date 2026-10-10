@@ -107,8 +107,9 @@ test.describe("Menù — elenco", () => {
         await expect(page).toHaveTitle(/^Menù · .+ · CataloGlobe$/);
         await expect(page.getByRole("radio", { name: "Vista griglia" })).toBeVisible();
         await expect(page.getByRole("radio", { name: "Vista lista" })).toBeVisible();
-        await expect(page.getByRole("button", { name: "Importa con AI" })).toBeVisible();
+        // Un pulsante solo (D165): il menù da una foto nasce dal tunnel di «Crea menù».
         await expect(page.getByRole("button", { name: "Crea menù" })).toBeVisible();
+        await expect(page.getByRole("button", { name: "Importa con AI" })).toHaveCount(0);
 
         for (const name of ["Carta e2e", "Pranzo e2e", "Vuoto e2e"]) {
             await expect(main(page).getByText(name)).toBeVisible();
@@ -251,9 +252,10 @@ test.describe("Menù — elenco", () => {
         await expect(page.getByRole("checkbox", { name: "Seleziona riga" })).toHaveCount(0);
     });
 
-    test("«Importa con AI» apre il suo drawer, senza analizzare", async ({ page }) => {
+    test("dal kebab del menù l'import con AI apre il suo drawer, senza analizzare", async ({ page }) => {
         await openList(page);
-        await page.getByRole("button", { name: "Importa con AI" }).click();
+        await actionsOf(main(page).getByText("Carta e2e")).click();
+        await page.getByRole("menuitem", { name: /con AI$/ }).click();
         await expect(dialog(page)).toContainText("Importa menù con AI");
         expect(stub.writes.filter(w => w.key.startsWith("fn."))).toHaveLength(0);
     });

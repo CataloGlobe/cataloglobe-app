@@ -10,17 +10,20 @@ import { useToast } from "@/context/Toast/ToastContext";
 import { useEnsureActive } from "@/hooks/useEnsureActive";
 import { usePhoneFit } from "@/hooks/usePhoneFit";
 import { listBaseProductsForPicker } from "@/services/supabase/products";
+import { useBusinessOutletContext } from "@/layouts/MainLayout/outletContext";
+import { analyzeMenuFiles } from "@/pages/Dashboard/Catalogs/AiMenuImport/analyzeMenu";
+import { partitionBySizeBudget } from "@/pages/Dashboard/Catalogs/AiMenuImport/sizeBudget";
 import type { StoryProductOptions } from "@/pages/Dashboard/Stories/components/StoryProductPicker";
 import { SettimanaAnteprima } from "@/pages/Dashboard/Programming/calendar/SettimanaAnteprima";
 import type { Draft, Impatto } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import { axisFor, entriesFromRules, romeToday, type CalNames, type CalWhen } from "@/pages/Dashboard/Programming/calendar/calendarModel";
 import { NO_IMPATTO, dropAside, scontriWait, waitsForDb, whenKey } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
-import { KIND, qcardText, withAside, blocker, effWhen, firstBlock, isDirty, newTunnel, steps, STEP_LABEL, thingName, tunnelTitle, type CreaKind, type FromMenu, type StepId, type Tunnel } from "./creaModel";
+import { KIND, MAX_IMPORT_FILES, sectionsFromAi, qcardText, withAside, blocker, effWhen, firstBlock, isDirty, newTunnel, steps, STEP_LABEL, thingName, tunnelTitle, type CreaKind, type FromMenu, type StepId, type Tunnel } from "./creaModel";
 import { CAL_KIND, draftFor, saveTunnel, type Saved } from "./creaSave";
 import { aspectOf, sampleOf, styleTokens, tokensOf, useFonts } from "./creaStyle";
 import { type CreaData } from "./useCreaData";
 import { CreaPhone } from "./CreaPhone";
-import { Adesso, Controlla, DoveQuando, EvidContenuto, EvidCosa, EvidPiatti, MenuParti, MenuSezioni, MenuTipo, Quando, Serve, StileAspetto, StileNome, StoriaBlocchi, StoriaRacconto, type U } from "./CreaSteps";
+import { Adesso, Controlla, DoveQuando, EvidContenuto, EvidCosa, EvidPiatti, IMPORT_ACCEPT, MenuParti, MenuSezioni, MenuTipo, Quando, Serve, StileAspetto, StileNome, StoriaBlocchi, StoriaRacconto, type U } from "./CreaSteps";
 import s from "./Crea.module.scss";
 
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
@@ -73,6 +76,10 @@ export function Tunnelo({ kind, aside, data, tenantId, owner, origin, business, 
     const [effect, setEffect] = useState<Impatto>(NO_IMPATTO);
     const [blockFiles, setBlockFiles] = useState<Record<string, File>>({});
     const [productOptions, setProductOptions] = useState<StoryProductOptions>({ items: null, failed: false });
+    const [importing, setImporting] = useState(false);
+    const [importError, setImportError] = useState<string | null>(null);
+    const importRun = useRef<AbortController | null>(null);
+    const refreshAiUsage = useBusinessOutletContext()?.refreshAiUsage;
 
     const c = useMemo(() => ({ owner, multi: L.multi }), [owner, L.multi]);
     const u: U = useCallback(fn => setT(prev => {
@@ -80,6 +87,45 @@ export function Tunnelo({ kind, aside, data, tenantId, owner, origin, business, 
         fn(n);
         return n;
     }), []);
+
+    // La foto o il PDF del menù (D165, D172): l'AI legge, sezioni e piatti
+    // riempiono il passo dopo; il database si tocca solo al Salva.
+    useEffect(() => () => importRun.current?.abort(), []);
+    const onImport = useCallback(
+        async (picked: File[]) => {
+            if (importRun.current) return;
+            const types = IMPORT_ACCEPT.split(",");
+            const usable = picked.filter(f => types.includes(f.type));
+            const { accepted } = partitionBySizeBudget([], usable.slice(0, MAX_IMPORT_FILES));
+            if (!accepted.length) {
+                setImportError(usable.length ? "I file sono troppo pesanti: foto fino a 25 MB, PDF fino a 20 MB, 30 MB in tutto." : "Servono foto (JPG, PNG o WEBP) o PDF.");
+                return;
+            }
+            setImportError(null);
+            setImporting(true);
+            const run = new AbortController();
+            importRun.current = run;
+            const res = await analyzeMenuFiles(tenantId, accepted, run.signal, refreshAiUsage);
+            if (!res) return;
+            importRun.current = null;
+            setImporting(false);
+            if (!res.ok) {
+                setImportError(res.error);
+                return;
+            }
+            const sections = sectionsFromAi(res.categories, data.pickList);
+            const dishes = sections.reduce((n, x) => n + x.dishes.length, 0);
+            u(x => {
+                x.source = "foto";
+                x.sections = sections;
+                x.imported = { sections: sections.length, dishes };
+            });
+            if (accepted.length < picked.length) {
+                showToast({ message: `Letti ${accepted.length} file su ${picked.length}: gli altri erano troppi, troppo pesanti o non erano foto o PDF.`, type: "info" });
+            }
+        },
+        [tenantId, refreshAiUsage, data.pickList, u, showToast]
+    );
 
     // si naviga un giro dopo il render senza la guardia: l'host nel layout aggiorna il
     // suo blocker negli effetti del genitore, che girano dopo questi (come RuleDetailPage)
@@ -319,10 +365,10 @@ export function Tunnelo({ kind, aside, data, tenantId, owner, origin, business, 
                 body = <MenuTipo t={t} u={u} />;
                 break;
             case "parti":
-                body = <MenuParti t={t} u={u} onImport={null} importing={false} />;
+                body = <MenuParti t={t} u={u} onImport={onImport} importing={importing} importError={importError} />;
                 break;
             case "sezioni":
-                body = <MenuSezioni t={t} u={u} pick={data.pickList} imported={null} />;
+                body = <MenuSezioni t={t} u={u} pick={data.pickList} />;
                 break;
             case "serve":
                 body = <Serve t={t} example={t.kind === "stile" ? liveStyle?.name ?? null : null} business={business} />;

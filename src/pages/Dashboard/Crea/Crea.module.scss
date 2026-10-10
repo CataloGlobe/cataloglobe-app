@@ -590,11 +590,15 @@ select.in {
         font-variant-numeric: tabular-nums;
         color: var(--text-muted);
     }
-    .new {
+    .new,
+    .check {
         font-size: 11.5px;
         color: var(--c-brand);
         font-weight: 600;
         margin-left: 6px;
+    }
+    .check {
+        color: var(--c-warning);
     }
 }
 .addrow {

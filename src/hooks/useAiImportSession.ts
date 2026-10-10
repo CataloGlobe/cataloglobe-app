@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { useToast } from "@/context/Toast/ToastContext";
-import { supabase } from "@/services/supabase/client";
-import { compressImage } from "@/utils/compressImage";
-import { MAX_IMAGE_SIZE } from "@/pages/Dashboard/Catalogs/AiMenuImport/aiImportLimits";
+import { analyzeMenuFiles } from "@/pages/Dashboard/Catalogs/AiMenuImport/analyzeMenu";
 import {
     buildImportManifest,
     type ProductImportDecision,
@@ -10,14 +8,8 @@ import {
     type AiImportProductInput
 } from "@/pages/Dashboard/Catalogs/AiMenuImport/buildImportManifest";
 import { importProductsIntoCatalog, enqueueImportSideEffects } from "@/services/supabase/aiImport";
-import { aiBlockMessage } from "@/utils/aiUsage";
 
 /* ────────────────────────────── Types ───────────────────── */
-
-type ImagePayload = {
-    data: string;
-    mime_type: string;
-};
 
 export type AiProduct = {
     name: string;
@@ -161,39 +153,6 @@ export interface AiImportSession {
 
     /** Bumpato al successo dell'import → le pagine ricaricano (mirror translationRefreshKey). */
     importRefreshKey: number;
-}
-
-/* ────────────────────────────── Helpers ──────────────────── */
-
-async function fileToBase64(file: File): Promise<string> {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-            const result = reader.result as string;
-            resolve(result.split(",")[1]);
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-    });
-}
-
-function getAiErrorMessage(error: unknown): string {
-    const msg = error instanceof Error ? error.message : String(error);
-
-    if (msg.includes("503") || msg.includes("UNAVAILABLE") || msg.includes("high demand"))
-        return "Il servizio AI è temporaneamente sovraccarico. Riprova tra qualche secondo.";
-    if (msg.includes("Failed to fetch") || msg.includes("NetworkError") || msg.includes("network"))
-        return "Errore di connessione. Verifica la tua connessione internet e riprova.";
-    if (msg.includes("401") || msg.includes("Unauthorized") || msg.includes("JWT"))
-        return "Sessione scaduta. Ricarica la pagina e riprova.";
-    if (msg.includes("413") || msg.includes("too large") || msg.includes("payload"))
-        return "Le immagini sono troppo grandi. Prova con file più leggeri.";
-    if (msg.includes("500") || msg.includes("Internal"))
-        return "Errore del server. Riprova tra qualche secondo.";
-    if (msg.includes("timeout") || msg.includes("Timeout"))
-        return "L'analisi ha impiegato troppo tempo. Riprova con meno immagini.";
-
-    return "Si è verificato un errore durante l'analisi. Riprova.";
 }
 
 /* ────────────────────────────── Hook ───────────────────── */
@@ -368,131 +327,40 @@ export function useAiImportSession(
         setStep("analyzing");
         setAnalyzeError(null);
 
-        // Token per-richiesta: catturato in closure. cancelAnalysis() lo aborta;
-        // ogni guardia sotto controlla `controller.signal.aborted` su QUESTA
-        // closure, così una risposta tardiva non scrive nella sessione nuova.
+        // Token per-richiesta: catturato in closure. cancelAnalysis() lo aborta e
+        // `analyzeMenuFiles` risponde null, così una risposta tardiva non scrive
+        // nella sessione nuova.
         const controller = new AbortController();
         analysisControllerRef.current = controller;
 
-        try {
-            // Compress images (fallback to original on failure), pass PDFs through
-            const imagePayloads: ImagePayload[] = await Promise.all(
-                files.map(async file => {
-                    if (file.type.startsWith("image/")) {
-                        try {
-                            const compressed = await compressImage(file, 1200, 0.8, MAX_IMAGE_SIZE);
-                            return { data: await fileToBase64(compressed), mime_type: "image/jpeg" };
-                        } catch {
-                            // Fallback: send original uncompressed
-                            return { data: await fileToBase64(file), mime_type: file.type || "image/jpeg" };
-                        }
-                    }
-                    return { data: await fileToBase64(file), mime_type: file.type || "application/pdf" };
-                })
-            );
-
-            const { data: response, error } = await supabase.functions.invoke("menu-ai-import", {
-                body: {
-                    images: imagePayloads,
-                    tenant_id: tenantId,
-                    language_hint: "it"
-                },
-                signal: controller.signal
-            });
-
-            // Abort intenzionale (cancelAnalysis): la sessione è già tornata
-            // all'upload. Esci in silenzio — niente stato error, niente clobber
-            // della sessione nuova (anti risposta-zombie). Copre sia il path
-            // `{ error }` (FunctionsFetchError che incapsula l'AbortError) sia il
-            // throw.
-            if (controller.signal.aborted) return;
-
-            // L'edge ha risposto (successo o errore): aggiorna lo stato quota.
-            onConsumed?.();
-
-            // Non-2xx → supabase-js wraps response in FunctionsHttpError. The
-            // original Response sits on error.context; read its JSON body so we
-            // can surface the specific Italian message returned by the function
-            // instead of the generic "Edge Function returned a non-2xx".
-            if (error) {
-                let apiMessage: string | null = null;
-                // Blocco quota AI (FASE 4/5): l'edge risponde 402 con
-                // { reason, reset_at } → messaggio con la data, non "riprova".
-                let quotaReason: string | undefined;
-                let quotaResetAt: string | null = null;
-                try {
-                    const ctx = (error as { context?: Response }).context;
-                    if (ctx && typeof ctx.json === "function") {
-                        const errBody = await ctx.json();
-                        if (errBody && typeof errBody.error === "string" && errBody.error.length > 0) {
-                            apiMessage = errBody.error;
-                        }
-                        if (errBody && typeof errBody.reason === "string") quotaReason = errBody.reason;
-                        if (errBody && typeof errBody.reset_at === "string") quotaResetAt = errBody.reset_at;
-                    }
-                } catch {
-                    // body unreadable, fall back below
-                }
-                console.error("[AiMenuImport] analyze edge error:", error);
-                if (quotaReason === "quota_exhausted" || quotaReason === "not_eligible") {
-                    setAnalyzeError(aiBlockMessage(quotaReason, quotaResetAt));
-                } else {
-                    setAnalyzeError(apiMessage ?? getAiErrorMessage(error));
-                }
-                return;
-            }
-
-            // 2xx with success: false → message already in Italian, use as-is
-            if (!response?.success) {
-                console.error("[AiMenuImport] analyze response not successful:", response);
-                setAnalyzeError(
-                    typeof response?.error === "string" && response.error.length > 0
-                        ? response.error
-                        : "Errore nell'analisi del menu"
-                );
-                return;
-            }
-
-            const result = response.data;
-
-            // Validate response structure
-            if (!result || !Array.isArray(result.categories) || result.categories.length === 0) {
-                setAnalyzeError("L'AI non ha trovato prodotti nel menù. Prova con un'immagine più nitida.");
-                return;
-            }
-
-            // Transform AI result into editable products
-            const flatProducts: AiProduct[] = [];
-            const catNames: Record<string, string> = {};
-
-            for (const cat of result.categories) {
-                catNames[cat.name] = cat.name;
-                for (const item of cat.items) {
-                    flatProducts.push({
-                        ...item,
-                        _id: crypto.randomUUID(),
-                        _selected: item.confidence !== "low",
-                        _category: cat.name
-                    });
-                }
-            }
-
-            setProducts(flatProducts);
-            setCategoryNames(catNames);
-            setMenuName("");
-            setStep("review");
-        } catch (err: unknown) {
-            // Abort intenzionale: nessuno stato error, nessun toast. Discriminato
-            // via la closure (`controller.signal.aborted`) o l'AbortError grezzo.
-            if (
-                controller.signal.aborted ||
-                (err instanceof DOMException && err.name === "AbortError")
-            ) {
-                return;
-            }
-            console.error("[AiMenuImport] analyze error:", err);
-            setAnalyzeError(getAiErrorMessage(err));
+        const res = await analyzeMenuFiles(tenantId, files, controller.signal, onConsumed);
+        // Annullata (cancelAnalysis): la sessione è già tornata all'upload, niente stato.
+        if (!res) return;
+        if (!res.ok) {
+            setAnalyzeError(res.error);
+            return;
         }
+
+        // Il risultato diventa la lista da rivedere
+        const flatProducts: AiProduct[] = [];
+        const catNames: Record<string, string> = {};
+
+        for (const cat of res.categories) {
+            catNames[cat.name] = cat.name;
+            for (const item of cat.items) {
+                flatProducts.push({
+                    ...item,
+                    _id: crypto.randomUUID(),
+                    _selected: item.confidence !== "low",
+                    _category: cat.name
+                });
+            }
+        }
+
+        setProducts(flatProducts);
+        setCategoryNames(catNames);
+        setMenuName("");
+        setStep("review");
     }, [tenantId, files, onConsumed]);
 
     const retry = useCallback(() => {

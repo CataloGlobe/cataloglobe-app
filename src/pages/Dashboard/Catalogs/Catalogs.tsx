@@ -15,7 +15,6 @@ import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedCont
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
-import { AiSparkles } from "@/components/ui/Button/AiSparkles";
 import { IconBook2 } from "@tabler/icons-react";
 import { Sparkles, Eye, LayoutGrid, List as ListIcon, TextCursorInput } from "lucide-react";
 import { Loader } from "@/components/ui/Loader/Loader";
@@ -164,6 +163,10 @@ export default function Catalogs() {
         openAiImport?.();
     }, [canEdit, showToast, openAiImport]);
 
+    // «Importa con AI» non sta più in testata (D165): un menù nuovo da una foto
+    // nasce dal tunnel di «Crea menù», e in un menù che c'è si importa dal suo
+    // kebab. Il pulsante torna solo mentre un import del drawer lavora, per
+    // ritrovarlo.
     const aiImportIsBusy = importStatus !== "idle";
 
     const aiImportLabel =
@@ -171,9 +174,7 @@ export default function Catalogs() {
             ? "Analisi in corso…"
             : importStatus === "creating"
                 ? "Salvataggio…"
-                : importStatus === "review"
-                    ? "Rivedi menù analizzato"
-                    : "Importa con AI";
+                : "Rivedi menù analizzato";
 
     const headerActions = useMemo(() => (
         <>
@@ -191,18 +192,12 @@ export default function Catalogs() {
                     { value: "list", icon: <ListIcon size={16} />, label: "Vista lista" }
                 ]}
             />
-            {canWriteCatalog && (
+            {canWriteCatalog && aiImportIsBusy && (
                 <Button
                     variant="secondary"
                     onClick={handleOpenAiImport}
                     disabled={!canEdit}
-                    leftIcon={
-                        importStatus === "analyzing" || importStatus === "creating"
-                            ? <Loader size="sm" className={styles.importSpinner} />
-                            : importStatus === "review"
-                                ? <Eye size={16} />
-                                : <AiSparkles size={16} />
-                    }
+                    leftIcon={importStatus === "review" ? <Eye size={16} /> : <Loader size="sm" className={styles.importSpinner} />}
                     className={styles.toolbarCta}
                 >
                     {aiImportLabel}
@@ -219,12 +214,10 @@ export default function Catalogs() {
                 </Button>
             )}
         </>
-    ), [canWriteCatalog, canEdit, handleOpenCreate, catalogLower, searchQuery, viewMode, handleViewModeChange, handleOpenAiImport, importStatus, aiImportLabel]);
+    ), [canWriteCatalog, canEdit, handleOpenCreate, catalogLower, searchQuery, viewMode, handleViewModeChange, handleOpenAiImport, importStatus, aiImportIsBusy, aiImportLabel]);
 
-    // Import AI: stessa azione, due collocazioni a seconda dello stato.
-    //
-    // A riposo è una secondaria come le altre e sta nel kebab. Mentre lavora
-    // NON può nascondersi lì: un'operazione in corso che l'utente non vede è
+    // Import AI del drawer, mentre lavora (a riposo non c'è, D165). Non può
+    // nascondersi nel kebab: un'operazione in corso che l'utente non vede è
     // un'operazione che l'utente rilancia. Finché non torna `idle` viene quindi
     // promossa fra le icone sempre visibili, con l'icona che ne dice lo stato
     // (spinner mentre analizza o salva, occhio quando il risultato è pronto da
@@ -247,9 +240,6 @@ export default function Catalogs() {
             persistentIcons: canWriteCatalog && aiImportIsBusy
                 ? [{ icon: aiIcon, label: aiImportLabel, onClick: handleOpenAiImport }, viewToggle]
                 : [viewToggle],
-            secondaryActions: canWriteCatalog && !aiImportIsBusy
-                ? [{ label: aiImportLabel, onClick: handleOpenAiImport, disabled: !canEdit }]
-                : undefined,
             primaryAction: canWriteCatalog
                 ? { label: `Crea ${catalogLower}`, onClick: handleOpenCreate, disabled: !canEdit }
                 : undefined
