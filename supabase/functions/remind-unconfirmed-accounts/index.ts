@@ -29,6 +29,7 @@ const APP_URL = Deno.env.get("APP_URL");
 
 /** Giorni dalla registrazione alla cancellazione (D30). */
 const DAYS_TO_PURGE = 7;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 function json(status: number, body: Record<string, unknown>): Response {
     return new Response(JSON.stringify(body), {
@@ -37,10 +38,17 @@ function json(status: number, body: Record<string, unknown>): Response {
     });
 }
 
-/** Registrazione + 7 giorni, come giorno di calendario a Roma ("YYYY-MM-DD"). */
+/**
+ * Ultimo giorno pieno per confermare, "YYYY-MM-DD" a Roma. La pulizia gira
+ * ogni notte alle 3:40 UTC e cancella chi ha più di 7 giorni: l'account sparisce
+ * alla prima passata dopo registrazione + 7 giorni, e la mail dice il giorno
+ * prima di quella notte.
+ */
 function deleteAfter(createdAt: string): string {
-    const d = new Date(new Date(createdAt).getTime() + DAYS_TO_PURGE * 24 * 60 * 60 * 1000);
-    return d.toLocaleDateString("en-CA", { timeZone: "Europe/Rome" });
+    const due = new Date(new Date(createdAt).getTime() + DAYS_TO_PURGE * DAY_MS);
+    const purge = new Date(Date.UTC(due.getUTCFullYear(), due.getUTCMonth(), due.getUTCDate(), 3, 40));
+    if (purge <= due) purge.setUTCDate(purge.getUTCDate() + 1);
+    return new Date(purge.getTime() - DAY_MS).toLocaleDateString("en-CA", { timeZone: "Europe/Rome" });
 }
 
 Deno.serve(async (req: Request) => {
