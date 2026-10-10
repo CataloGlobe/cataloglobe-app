@@ -1,5 +1,4 @@
 // @ts-nocheck
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { exceedsPayloadBudget, estimateDecodedBytes } from "../_shared/aiImportPayloadSize.ts";
 import { classifyGeminiFailure, type ClassifiedFailure } from "../_shared/geminiFailure.ts";
@@ -239,7 +238,7 @@ const MENU_SCHEMA = {
 
 /* ────────────────────────────── Main ───────────────────────────── */
 
-serve(async (req: Request) => {
+Deno.serve(async (req: Request) => {
     // ── Preflight ─────────────────────────────────────────────────
     if (req.method === "OPTIONS") {
         return new Response("ok", { headers: corsHeaders });

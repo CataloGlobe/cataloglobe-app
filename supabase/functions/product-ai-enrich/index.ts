@@ -1,5 +1,4 @@
 // @ts-nocheck
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { classifyGeminiFailure, type ClassifiedFailure } from "../_shared/geminiFailure.ts";
 import { MAX_ATTEMPTS, isRetryable, computeBackoffSeconds } from "../_shared/geminiRetry.ts";
@@ -136,7 +135,7 @@ const ENRICH_SCHEMA = {
 
 /* ────────────────────────────── Main ───────────────────────────── */
 
-serve(async (req: Request) => {
+Deno.serve(async (req: Request) => {
     // ── Preflight ─────────────────────────────────────────────────
     if (req.method === "OPTIONS") {
         return new Response("ok", { headers: corsHeaders });

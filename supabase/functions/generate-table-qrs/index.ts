@@ -29,7 +29,6 @@
 //      generated via qrcode npm package, embedded as PNG.
 //   8. Reply 200 with PDF bytes + Content-Disposition attachment.
 
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { PDFDocument, StandardFonts, rgb } from "https://esm.sh/pdf-lib@1.17.1?target=deno";
 import QRCode from "https://esm.sh/qrcode@1.5.3?target=deno";
@@ -328,7 +327,7 @@ function _safeFilename(slug: string): string {
 // HTTP handler
 // ============================================================
 
-serve(async (req: Request) => {
+Deno.serve(async (req: Request) => {
     if (req.method === "OPTIONS") {
         return new Response("ok", { headers: corsHeaders });
     }

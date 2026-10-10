@@ -1,5 +1,4 @@
 // @ts-nocheck
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { Resend } from "npm:resend@4";
 import { COMPANY } from "../_shared/company-config.ts";
 import { buildTenantInviteEmail } from "../_shared/accountEmails.ts";
@@ -26,7 +25,7 @@ interface InvitePayload {
     inviteToken: string;
 }
 
-serve(async (req: Request) => {
+Deno.serve(async (req: Request) => {
     if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
     if (req.method !== "POST") return json(405, { error: "method_not_allowed" });
 

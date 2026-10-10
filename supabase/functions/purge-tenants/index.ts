@@ -1,5 +1,4 @@
 // @ts-nocheck
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { purgeTenantData, PurgeSummary } from "../_shared/tenant-purge.ts";
 import { serializeError } from "../_shared/errors.ts";
@@ -70,7 +69,7 @@ async function purgeTenant(
     return result;
 }
 
-serve(async req => {
+Deno.serve(async req => {
     if (req.method !== "POST") return json(405, { error: "method_not_allowed" });
 
     const SUPABASE_URL              = Deno.env.get("SUPABASE_URL");
