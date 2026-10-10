@@ -13,6 +13,11 @@
 -- conta come suo (era già così). Il controllo si stringe soltanto: chi poteva
 -- scrivere una regola su sole sedi o gruppi interamente suoi continua a farlo.
 --
+-- Stessa migration, seconda stretta (dalla rilettura della PR): una sede conta
+-- solo se il chiamante ci ha scheduling.write. Prima bastava esserci con un
+-- ruolo qualunque (get_my_activity_ids), quindi un manager di A e viewer di B
+-- scriveva regole su B. Ora decide has_permission sulla sede.
+--
 -- Owner/admin e apply_to_all invariati. Le policy delle tabelle figlie
 -- (20261007170000) usano questa funzione e seguono da sole.
 --
@@ -47,15 +52,17 @@ AS $function$
             SELECT 1 FROM public.schedule_targets st
             WHERE st.schedule_id = s.id
           )
-          -- Every target must resolve to the caller's activities: an
-          -- activity among them, or a non-empty group whose members are
-          -- ALL among them (D13).
+          -- Every target must be one the caller can write: an activity
+          -- where they hold scheduling.write, or a non-empty group whose
+          -- members are ALL such activities (D13). has_permission is
+          -- correlated to the activity's tenant (20260707120000) and checks
+          -- the role on THAT activity: a viewer seat no longer counts.
           AND NOT EXISTS (
             SELECT 1 FROM public.schedule_targets st
             WHERE st.schedule_id = s.id
               AND NOT (
                 (st.target_type = 'activity'
-                  AND st.target_id IN (SELECT public.get_my_activity_ids()))
+                  AND public.has_permission('scheduling.write', st.target_id))
                 OR (st.target_type = 'activity_group'
                   AND EXISTS (
                     SELECT 1 FROM public.activity_group_members agm
@@ -64,11 +71,7 @@ AS $function$
                   AND NOT EXISTS (
                     SELECT 1 FROM public.activity_group_members agm
                     WHERE agm.group_id = st.target_id
-                      -- NOT EXISTS, non NOT IN: un NULL non apre il gruppo.
-                      AND NOT EXISTS (
-                        SELECT 1 FROM public.get_my_activity_ids() AS mine(id)
-                        WHERE mine.id = agm.activity_id
-                      )
+                      AND NOT public.has_permission('scheduling.write', agm.activity_id)
                   ))
               )
           )

@@ -15,11 +15,14 @@
 --   4. owner → scrive anche sul gruppo misto (invariato).
 --   5. le tabelle figlie seguono: il manager non tocca il layout della regola
 --      sul gruppo misto (0 righe).
+--   6. una sede dove si è solo viewer non conta: chi è manager di una sede e
+--      viewer di un'altra non scrive una regola sulla seconda (prima sì).
+--      Cerca da solo un utente così su staging; se non c'è, lo dice e salta.
 --
--- Prima della migration fallisce 1, e 5 se il manager vede la regola.
+-- Prima della migration falliscono 1 e 6, e 5 se il manager vede la regola.
 --
 -- Esecuzione: Studio SQL Editor di staging (ruolo postgres), il file intero.
--- Attesi 5 `NOTICE … OK`; un `Test N FAIL` interrompe il file.
+-- Attesi 6 `NOTICE … OK` (o 5 più «Test 6 SALTATO»); un `Test N FAIL` interrompe il file.
 --
 -- UUID di riferimento:
 --   tenant McDonald's        5b37c952-1add-4196-aab3-9775d98a9c32
@@ -217,5 +220,47 @@ BEGIN
   RAISE NOTICE 'Test 5 OK: le tabelle figlie seguono can_write_schedule';
 END$$;
 ROLLBACK TO SAVEPOINT t5;
+
+
+-- -----------------------------------------------------------------------------
+-- TEST 6 — sede dove si è solo viewer: non conta per scrivere
+-- -----------------------------------------------------------------------------
+SAVEPOINT t6;
+DO $$
+DECLARE
+  v_user uuid;
+  v_tenant uuid;
+  v_viewer_activity uuid;
+  v_sid uuid;
+  v_ok boolean;
+BEGIN
+  SELECT tm.user_id, tm.tenant_id, v.activity_id
+    INTO v_user, v_tenant, v_viewer_activity
+  FROM public.tenant_memberships tm
+  JOIN public.tenant_membership_activities m ON m.tenant_membership_id = tm.id AND m.role = 'manager'
+  JOIN public.tenant_membership_activities v ON v.tenant_membership_id = tm.id AND v.role = 'viewer'
+                                            AND v.activity_id <> m.activity_id
+  WHERE tm.status = 'active' AND tm.role NOT IN ('owner', 'admin')
+  LIMIT 1;
+  IF v_user IS NULL THEN
+    RAISE NOTICE 'Test 6 SALTATO: nessun utente manager di una sede e viewer di un''altra';
+    RETURN;
+  END IF;
+
+  INSERT INTO public.schedules (tenant_id, rule_type, time_mode, enabled, apply_to_all, name)
+  VALUES (v_tenant, 'layout', 'always', false, false, 'Test D13 viewer')
+  RETURNING id INTO v_sid;
+  INSERT INTO public.schedule_targets (schedule_id, target_type, target_id)
+  VALUES (v_sid, 'activity', v_viewer_activity);
+
+  PERFORM can_write_group_test.as_user(v_user);
+  v_ok := public.can_write_schedule(v_sid);
+  SET LOCAL role postgres;
+  IF v_ok THEN
+    RAISE EXCEPTION 'Test 6 FAIL: chi è solo viewer della sede scrive una regola su quella sede';
+  END IF;
+  RAISE NOTICE 'Test 6 OK: una sede da viewer non conta per scrivere';
+END$$;
+ROLLBACK TO SAVEPOINT t6;
 
 ROLLBACK;
