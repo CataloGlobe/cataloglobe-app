@@ -246,8 +246,9 @@ test.describe("Clienti — elenco", () => {
         await expect(guestName(page, "Giulia Rossi e2e")).toBeVisible({ timeout: 15_000 });
         const d = await openGuest(page, "Giulia Rossi e2e");
         await d.getByRole("textbox", { name: /Lago e2e/ }).fill("Una bozza e2e");
-        const search = page.getByRole("searchbox").or(page.getByRole("textbox", { name: /Cerca/ })).first();
-        await search.fill("bianchi");
+        // nella navigazione nuova la ricerca si apre dal suo pulsante
+        await main(page).getByRole("button", { name: "Cerca un cliente" }).click();
+        await main(page).getByPlaceholder("Cerca un cliente").fill("bianchi");
         await expect(guestName(page, "Marco Bianchi e2e")).toBeVisible();
         await expect(guestName(page, "Sara Verdi e2e")).toHaveCount(0);
         await page.waitForLoadState("networkidle");
@@ -378,11 +379,15 @@ test.describe("Clienti — dettaglio accanto: indirizzo e tasti", () => {
         await page.keyboard.press("ArrowDown");
         await expect.poll(() => opened(page)).toBe(GUEST.verdi);
         await expect(d.getByText("Sara Verdi e2e").first()).toBeVisible();
+        // in questo ramo l'elenco finto ha un quarto cliente: l'estremo è lui
         await page.keyboard.press("ArrowDown");
-        expect(opened(page)).toBe(GUEST.verdi);
+        await expect.poll(() => opened(page)).toBe(GUEST.ferri);
+        await expect(d.getByText("Luca Ferri e2e").first()).toBeVisible();
+        await page.keyboard.press("ArrowDown");
+        expect(opened(page)).toBe(GUEST.ferri);
         await d.getByRole("button", { name: "Precedente" }).focus();
         await page.keyboard.press("ArrowUp");
-        await expect.poll(() => opened(page)).toBe(GUEST.bianchi);
+        await expect.poll(() => opened(page)).toBe(GUEST.verdi);
     });
 
     test("in un campo ↓ e ↑ restano del campo: il cliente non cambia", async ({ page }) => {

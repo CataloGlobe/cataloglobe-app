@@ -405,8 +405,24 @@ test.describe("Tunnel di creazione — chi non gestisce il Calendario", () => {
         await next(page);
         await main(page).getByLabel("Titolo", { exact: true }).fill("Chiusi per ferie");
         await next(page);
-        await expect(button(page, "Salva")).toBeVisible();
         await expect(button(page, "Pubblica")).toHaveCount(0);
+        // «Salva» lascia una bozza e nessuna regola nel Calendario (#360.8: prima non si cliccava)
+        stub.onWrite("featured_contents.POST", ({ body }) => ({ id: ID.featured, ...first(body) }));
+        await button(page, "Salva").click();
+        await expect(page).toHaveURL(new RegExp(`/featured/${ID.featured}$`), { timeout: 15_000 });
+        expect(bodyOf(stub, "featured_contents.POST")).toMatchObject({ title: "Chiusi per ferie", status: "draft" });
+        expect(writesOf(stub, "schedules.POST")).toHaveLength(0);
+    });
+});
+
+test.describe("Tunnel di creazione — permessi (#360.8)", () => {
+    test("senza il permesso di modifica dei menù il tunnel non si apre", async ({ page }) => {
+        stub = await stubProgrammazione(page);
+        await stub.revoke("catalogs.write");
+        await openBusinessPageByUrl(page, "crea/menu?da=menu");
+        await stub.revoked;
+        await expect(main(page).getByText("Non puoi crearlo")).toBeVisible({ timeout: 20_000 });
+        await expect(button(page, /^Menù classico/)).toHaveCount(0);
     });
 });
 
