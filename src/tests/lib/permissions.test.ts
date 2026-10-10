@@ -26,7 +26,8 @@ function mk(role: UserPermissions["role"], opts: Partial<Omit<UserPermissions, "
         tenantId: "tenant-1",
         role,
         activityIds: opts.activityIds ?? [],
-        permissions: opts.permissions ?? new Set()
+        permissions: opts.permissions ?? new Set(),
+        activitiesByPermission: opts.activitiesByPermission
     };
 }
 
@@ -362,5 +363,77 @@ describe("canWriteRule", () => {
     it("staff e viewer: mai", () => {
         expect(canWriteRule(staff, rule({ activityIds: [ACT_A] }))).toBe(false);
         expect(canWriteRule(viewer, rule({ activityIds: [ACT_A] }))).toBe(false);
+    });
+});
+
+// ============================================================
+// D35: ruoli diversi per sede (manager su A, viewer su B)
+// ============================================================
+
+describe("ruoli diversi per sede (D35)", () => {
+    // get_my_permissions risolve «manager» e dà solo la sede A;
+    // get_my_permission_activities dice il vero per ogni permesso.
+    const mixed = mk("manager", {
+        activityIds: [ACT_A],
+        permissions: new Set(["scheduling.write", "scheduling.read", "orders.manage", "orders.read"]),
+        activitiesByPermission: new Map([
+            ["scheduling.write", [ACT_A]],
+            ["orders.manage", [ACT_A]],
+            ["scheduling.read", [ACT_A, ACT_B]],
+            ["orders.read", [ACT_A, ACT_B]]
+        ])
+    });
+
+    it("scrive solo dove è manager, legge anche dove è viewer", () => {
+        expect(canDoOnActivity(mixed, "orders.manage", ACT_A)).toBe(true);
+        expect(canDoOnActivity(mixed, "orders.manage", ACT_B)).toBe(false);
+        expect(canDoOnActivity(mixed, "orders.read", ACT_B)).toBe(true);
+        expect(canDoOnActivity(mixed, "orders.read", ACT_C)).toBe(false);
+    });
+
+    it("permesso assente dalla mappa: nessuna sede", () => {
+        expect(canDoOnActivity(mixed, "tables.manage", ACT_A)).toBe(false);
+        expect(canDoOnAnyActivity(mixed, "tables.manage")).toBe(false);
+        expect(canDoOnAnyActivity(mixed, "orders.read")).toBe(true);
+    });
+
+    it("canWriteRule: una regola sulla sede da viewer non si può modificare", () => {
+        expect(canWriteRule(mixed, { applyToAll: false, activityIds: [ACT_A], groupIds: [] })).toBe(true);
+        expect(canWriteRule(mixed, { applyToAll: false, activityIds: [ACT_A, ACT_B], groupIds: [] })).toBe(false);
+        const groups = new Map([["g1", [ACT_A, ACT_B]]]);
+        expect(canWriteRule(mixed, { applyToAll: false, activityIds: [], groupIds: ["g1"] }, groups)).toBe(false);
+    });
+
+    it("viewer su B e basta, con scheduling.write solo altrove: niente regole su B", () => {
+        const viewerOnly = mk("viewer", {
+            activityIds: [ACT_B],
+            permissions: new Set(["scheduling.read"]),
+            activitiesByPermission: new Map([["scheduling.read", [ACT_B]]])
+        });
+        expect(canWriteRule(viewerOnly, { applyToAll: false, activityIds: [ACT_B], groupIds: [] })).toBe(false);
+    });
+
+    it("senza mappa (migration non applicata) resta come prima", () => {
+        const before = mk("manager", { activityIds: [ACT_A], permissions: new Set(["orders.manage"]) });
+        expect(canDoOnActivity(before, "orders.manage", ACT_A)).toBe(true);
+        expect(canDoOnActivity(before, "orders.manage", ACT_B)).toBe(false);
+    });
+
+    it("owner e admin ignorano la mappa", () => {
+        const map = new Map([["scheduling.write", [ACT_A]]]);
+        const ownerWithMap = mk("owner", { permissions: ALL_PERMS, activitiesByPermission: map });
+        const adminWithMap = mk("admin", { permissions: ALL_PERMS, activitiesByPermission: map });
+        expect(canDoOnActivity(ownerWithMap, "scheduling.write", ACT_C)).toBe(true);
+        expect(canDoOnAnyActivity(adminWithMap, "products.write")).toBe(true);
+        expect(canWriteRule(adminWithMap, { applyToAll: true, activityIds: [], groupIds: [] })).toBe(true);
+    });
+
+    it("permesso di tenant (fuori dalla mappa): vale come prima", () => {
+        const withTenantPerm = mk("manager", {
+            activityIds: [ACT_A],
+            permissions: new Set(["team.invite", "orders.read"]),
+            activitiesByPermission: new Map([["orders.read", [ACT_A]]])
+        });
+        expect(canDoOnActivity(withTenantPerm, "team.invite", ACT_A)).toBe(true);
     });
 });
