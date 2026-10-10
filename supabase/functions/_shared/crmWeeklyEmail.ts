@@ -1,7 +1,15 @@
-// Riepilogo del CRM via email, ogni lunedì (F1-9): testo puro.
+// Riepilogo del CRM via email, ogni lunedì (F1-9), nel guscio comune delle mail.
 //
-// Zero import: lo usano crm-notify (job «weekly») e i test. I numeri vengono
+// Lo usano crm-notify (job «weekly») e i test. I numeri vengono
 // da crm_summary (migration 20261004020000), letti solo da questa mail (in /admin il Riepilogo è una vista di Lead).
+
+import {
+    PARAGRAPH_BODY,
+    PARAGRAPH_NOTE,
+    renderButton,
+    renderCard,
+    renderTitle
+} from "./emailLayout.ts";
 
 export interface WeeklySummaryNumbers {
     leads_in: number;
@@ -92,17 +100,21 @@ export function buildWeeklyEmail(input: {
     const rows = lines
         .map(
             l =>
-                `<tr><td style="padding:4px 12px 4px 0">${escapeHtml(l.label)}</td><td style="padding:4px 12px;text-align:right"><b>${l.now}</b></td><td style="padding:4px 0;color:#666;text-align:right">${l.change}</td></tr>`
+                `<tr><td style="padding:6px 12px 6px 0;border-bottom:1px solid #f3f4f6">${escapeHtml(l.label)}</td><td style="padding:6px 12px;text-align:right;border-bottom:1px solid #f3f4f6"><b>${l.now}</b></td><td style="padding:6px 0;color:#6b7280;text-align:right;border-bottom:1px solid #f3f4f6">${l.change}</td></tr>`
         )
         .join("");
-    const html = `<div style="font-family:system-ui,-apple-system,sans-serif;font-size:15px;color:#111">
-<p>La settimana ${escapeHtml(weekLabel)}, accanto la differenza con la settimana prima.</p>
-<table style="border-collapse:collapse">${rows}</table>
-<p>Persi: ${lost} (${Number(current.lost?.obiezione ?? 0)} per obiezione, ${Number(current.lost?.stop ?? 0)} stop).<br>
+    const html = renderCard(
+        [
+            renderTitle(`CRM, la settimana ${escapeHtml(weekLabel)}`),
+            `<p ${PARAGRAPH_BODY}>Accanto a ogni numero la differenza con la settimana prima.</p>`,
+            `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;width:100%;margin:0 0 16px;font-size:15px;color:#111827">${rows}</table>`,
+            `<p ${PARAGRAPH_NOTE}>Persi: ${lost} (${Number(current.lost?.obiezione ?? 0)} per obiezione, ${Number(current.lost?.stop ?? 0)} stop).<br>
 Primo contatto, mediana: ${escapeHtml(minutesLabel(current.first_contact_minutes_median))}.<br>
-${escapeHtml(sources.length ? `Fonti: ${sources.join(", ")}.` : "Fonti: nessun lead.")}</p>
-${summaryUrl ? `<p><a href="${escapeHtml(summaryUrl)}">Apri il riepilogo</a></p>` : ""}
-</div>`;
+${escapeHtml(sources.length ? `Fonti: ${sources.join(", ")}.` : "Fonti: nessun lead.")}</p>`,
+            summaryUrl ? `<div style="margin-top:24px">${renderButton("Apri il riepilogo", escapeHtml(summaryUrl))}</div>` : ""
+        ],
+        { preheader: `${value(current, "leads_in")} lead, ${value(current, "telefonata_fatta")} telefonate fatte` }
+    );
     return { subject, text, html };
 }
 
