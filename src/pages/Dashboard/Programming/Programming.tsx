@@ -1103,10 +1103,10 @@ export default function Programming() {
                             : { all: true, activityIds: [], groupIds: [] },
                         systemStyleId: stylesOptions.find(x => x.is_system)?.id ?? null,
                         canAdd: canCreate && canEdit,
-                        onSave: async (draft, lookups) => {
+                        onSave: async (draft, lookups, done) => {
                             // si rilegge anche se fallisce: un salvataggio a metà si deve vedere
                             try {
-                                await saveDraft(draft, lookups, currentTenantId!);
+                                await saveDraft(draft, lookups, currentTenantId!, done);
                             } finally {
                                 await loadRules();
                             }

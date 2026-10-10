@@ -41,7 +41,26 @@ export type SaveCtx = {
     baseTokens: StyleTokenModel;
     /** I file dei blocchi immagine della storia, per id del blocco. */
     blockFiles: Record<string, File>;
+    /**
+     * I passi già riusciti di questo tunnel (chiave → risultato): se un passo
+     * fallisce, «Riprova» riparte da lì e non ricrea quello che c'è già.
+     * La chiave porta con sé quello che si è scritto: se nel frattempo cambia, il passo si rifà.
+     */
+    done?: Map<string, unknown>;
 };
+
+async function once<T>(c: SaveCtx, key: string, run: () => Promise<T>): Promise<T> {
+    if (c.done?.has(key)) return c.done.get(key) as T;
+    const v = await run();
+    c.done?.set(key, v);
+    return v;
+}
+/** Le parti di regola già salvate, per `saveDraft`. */
+function parts(c: SaveCtx, key: string): Set<string> | undefined {
+    if (!c.done) return undefined;
+    if (!c.done.has(key)) c.done.set(key, new Set<string>());
+    return c.done.get(key) as Set<string>;
+}
 
 export type Saved = { id: string; name: string; live: boolean; ruleId: string | null; productIds?: string[] };
 
@@ -72,21 +91,24 @@ async function findRule(tenantId: string, match: (r: LayoutRule) => boolean): Pr
 /* ---------- il menù ---------- */
 async function saveMenu(t: Tunnel, c: SaveCtx): Promise<Saved> {
     const name = thingName(t);
-    const catalogId = t.importedId ?? (await createCatalog(c.tenantId, name)).id;
+    const catalogId = t.importedId ?? (await once(c, "catalog:" + name, async () => (await createCatalog(c.tenantId, name)).id));
     const productIds = t.sections.flatMap(x => x.dishes.map(d => d.productId).filter((v): v is string => !!v));
     if (!t.importedId) {
         productIds.length = 0;
         for (const [i, sec] of t.sections.entries()) {
-            const cat = await createCategory(c.tenantId, catalogId, sec.name.trim() || "Piatti", 1, null, i);
+            const secName = sec.name.trim() || "Piatti";
+            const catId = await once(c, `cat:${catalogId}:${i}:${secName}`, async () => (await createCategory(c.tenantId, catalogId, secName, 1, null, i)).id);
             for (const [j, d] of sec.dishes.entries()) {
-                const productId = d.productId ?? (await createProduct(c.tenantId, { name: d.name.trim(), base_price: d.price })).id;
-                await addProductToCategory(c.tenantId, catalogId, cat.id, productId, j);
+                const productId =
+                    d.productId ??
+                    (await once(c, `prod:${catId}:${j}:${d.name.trim()}:${d.price}`, async () => (await createProduct(c.tenantId, { name: d.name.trim(), base_price: d.price })).id));
+                await once(c, `link:${catId}:${j}:${productId}`, () => addProductToCategory(c.tenantId, catalogId, catId, productId, j));
                 productIds.push(productId);
             }
         }
     }
     if (!c.live || !c.pair) return { id: catalogId, name, live: false, ruleId: null, productIds };
-    await saveDraft(draftFor(t, "menu", catalogId, c.pair), withThing(c.L, "menu", catalogId, name), c.tenantId);
+    await saveDraft(draftFor(t, "menu", catalogId, c.pair), withThing(c.L, "menu", catalogId, name), c.tenantId, parts(c, "rule:" + catalogId));
     const ruleId = await findRule(c.tenantId, r => r.layout?.catalog_id === catalogId);
     return { id: catalogId, name, live: true, ruleId, productIds };
 }
@@ -94,7 +116,8 @@ async function saveMenu(t: Tunnel, c: SaveCtx): Promise<Saved> {
 /* ---------- lo stile ---------- */
 async function saveStile(t: Tunnel, c: SaveCtx): Promise<Saved> {
     const name = thingName(t);
-    const st = await createStyle(c.tenantId, name, styleConfig(t, c.baseTokens));
+    const config = styleConfig(t, c.baseTokens);
+    const st = await once(c, "style:" + name + ":" + JSON.stringify(config), async () => ({ id: (await createStyle(c.tenantId, name, config)).id }));
     if (!c.live || !c.pair) return { id: st.id, name, live: false, ruleId: null };
     const L = withThing(c.L, "style", st.id, name);
     const from = t.from;
@@ -105,11 +128,11 @@ async function saveStile(t: Tunnel, c: SaveCtx): Promise<Saved> {
         if (r) {
             const D = blankDraft("style", whereOfRule(r), r.layout?.catalog_id ?? from.catalogId);
             Object.assign(D, { mode: "edit", rule: r, thing: st.id, when: whenOfRule(r), name: r.name ?? null });
-            await saveDraft(D, L, c.tenantId);
+            await saveDraft(D, L, c.tenantId, parts(c, "rule:" + st.id));
             return { id: st.id, name, live: true, ruleId: r.id };
         }
     }
-    await saveDraft(draftFor(t, "style", st.id, c.pair), L, c.tenantId);
+    await saveDraft(draftFor(t, "style", st.id, c.pair), L, c.tenantId, parts(c, "rule:" + st.id));
     return { id: st.id, name, live: true, ruleId: null };
 }
 
@@ -148,12 +171,14 @@ async function saveEvid(t: Tunnel, c: SaveCtx): Promise<Saved> {
         status: c.live ? "published" : "draft",
         ...deriveTypeFields({ type, bundlePrice: t.bundle, showOriginalTotal: t.showOrig, showImages: false })
     };
-    const content = await createFeaturedContent(c.tenantId, payload);
-    const id: string = content.id;
+    // il contenuto nasce una volta sola; riprovando lo si riscrive, così porta le ultime correzioni
+    const fresh = !c.done?.has("content");
+    const id = await once(c, "content", async () => (await createFeaturedContent(c.tenantId, payload)).id as string);
+    if (!fresh) await updateFeaturedContent(id, c.tenantId, payload);
     if (t.evType === "promo" || t.evType === "bundle") {
         const dishes = t.dishes;
         if (dishes.length) {
-            await syncFeaturedContentProducts(id, c.tenantId, [], dishes.map((productId, i) => ({ productId, sortOrder: i })));
+            await once(c, "dishes:" + dishes.join(","), () => syncFeaturedContentProducts(id, c.tenantId, [], dishes.map((productId, i) => ({ productId, sortOrder: i }))));
             const notes = dishes.filter(d => t.notes[d]?.trim());
             if (t.evType === "promo" && notes.length) {
                 const rows = await listFeaturedContentProducts(id, c.tenantId);
@@ -176,7 +201,12 @@ async function saveEvid(t: Tunnel, c: SaveCtx): Promise<Saved> {
     let first: string | null = null;
     for (const D of draftParts(draftFor(t, "featured", id, null))) {
         const ruleName = autoName(D, withThing(c.L, "featured", id, name));
-        const ruleId = await createFeaturedRuleDraft({ tenantId: c.tenantId, name: ruleName });
+        const partKey = JSON.stringify([D.when, D.where]);
+        if (c.done?.has("ruleDone:" + partKey)) {
+            first ??= c.done.get("ruleDone:" + partKey) as string;
+            continue;
+        }
+        const ruleId = await once(c, "ruleDraft:" + partKey, () => createFeaturedRuleDraft({ tenantId: c.tenantId, name: ruleName }));
         const tf = timeFields(D.when), w = D.where;
         await updateFeaturedRule({
             id: ruleId,
@@ -197,6 +227,7 @@ async function saveEvid(t: Tunnel, c: SaveCtx): Promise<Saved> {
         // come in calendarSave: la RPC rifiuta «tutte» e l'elenco vuoto
         if (!w.all && w.activityIds.length) await updateScheduleTargets(ruleId, w.activityIds.map(targetId => ({ targetType: "activity" as const, targetId })));
         else if (!w.all && w.groupIds.length) await updateScheduleTargets(ruleId, w.groupIds.map(targetId => ({ targetType: "activity_group" as const, targetId })));
+        c.done?.set("ruleDone:" + partKey, ruleId);
         first ??= ruleId;
     }
     return { id, name, live: true, ruleId: first };
@@ -206,15 +237,15 @@ async function saveEvid(t: Tunnel, c: SaveCtx): Promise<Saved> {
 async function saveStoria(t: Tunnel, c: SaveCtx): Promise<Saved> {
     const name = thingName(t);
     const w = t.where;
-    const story = await createStory(c.tenantId, {
+    const head = {
         eyebrow: t.kicker.trim() || null,
         title: name,
-        cover_media: null,
         product_id: t.linked || null,
-        status: "draft",
         // oggi una storia va in tutte le sedi o in una (D124 4: il resto col database nuovo)
         activity_id: !w.all && w.activityIds.length === 1 && !w.groupIds.length ? w.activityIds[0] : null
-    });
+    };
+    // la storia nasce una volta sola: riprovando la si riscrive in fondo, con titolo e sede di adesso
+    const story = await once(c, "story", async () => ({ id: (await createStory(c.tenantId, { ...head, cover_media: null, status: "draft" })).id as string }));
     let cover: string | null = null;
     if (t.cover) cover = await uploadStoryImage(c.tenantId, story.id, await compressImage(t.cover, COMPRESS_PROFILES.cover));
     const blocks = [];
@@ -224,7 +255,7 @@ async function saveStoria(t: Tunnel, c: SaveCtx): Promise<Saved> {
         else if (b.type === "list") blocks.push({ ...b, items: b.items.filter(x => x.trim() !== "") });
         else blocks.push(b);
     }
-    await updateStory(story.id, c.tenantId, { cover_media: cover, body_blocks: blocks, status: c.live ? "published" : "draft" });
+    await updateStory(story.id, c.tenantId, { ...head, cover_media: cover, body_blocks: blocks, status: c.live ? "published" : "draft" });
     return { id: story.id, name, live: c.live, ruleId: null };
 }
 

@@ -129,7 +129,8 @@ export type CalendarioViewProps = {
         /** Lo stile di sistema, se non c'è una regola di base. */
         systemStyleId: string | null;
         canAdd: boolean;
-        onSave: (draft: Draft, lookups: DraftLookups) => Promise<void>;
+        /** `done`: le parti già salvate di questa bozza, da non rifare se si riprova. */
+        onSave: (draft: Draft, lookups: DraftLookups, done: Set<string>) => Promise<void>;
         onDrop: (draft: Draft) => Promise<void>;
         /** Porta alla pagina dove si crea un menù, uno stile, un In evidenza. */
         onGoNew: (kind: CalKind) => void;
@@ -896,7 +897,11 @@ export default function CalendarioView({
         setDraft(draftFromEntry(e, L, only ?? null));
         setNote(null);
     };
+    // le parti della bozza già salvate (ore diverse per sede): «Riprova» non le rifà
+    const savedParts = useRef(new Set<string>());
+    const savingSec = useRef(false);
     const closeSec = (saved: boolean) => {
+        savedParts.current = new Set();
         const back = sec?.back;
         setSec(null);
         setDraft(null);
@@ -910,9 +915,11 @@ export default function CalendarioView({
     };
     const saveSec = async (then?: CalKind) => {
         if (!section || !draft) return;
+        if (savingSec.current) return;
+        savingSec.current = true;
         setBusy(true);
         try {
-            await section.onSave(draft, L);
+            await section.onSave(draft, L, savedParts.current);
             const pd = mainWhen(draft).period;
             if (pd && (pd.from > week + 6 || pd.to < week)) {
                 setWeek(pd.from - dayOfWeek(pd.from));
@@ -928,6 +935,7 @@ export default function CalendarioView({
                 closeSec(true);
             } else setNote({ text: "Non siamo riusciti a salvare. Riprova.", error: true });
         } finally {
+            savingSec.current = false;
             setBusy(false);
         }
     };

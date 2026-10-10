@@ -148,8 +148,14 @@ async function leaveOut(r: LayoutRule, D: Draft) {
  * Salva la bozza. Con le ore diverse per sede (D145), una regola per ogni
  * orario diverso: la prima è quella di partenza, le altre nascono nuove.
  */
-export async function saveDraft(D: Draft, L: DraftLookups, tenantId: string): Promise<void> {
-    for (const P of draftParts(D)) await saveOne(P, L, tenantId);
+export async function saveDraft(D: Draft, L: DraftLookups, tenantId: string, done?: Set<string>): Promise<void> {
+    for (const P of draftParts(D)) {
+        // riprovando dopo un errore, le parti già salvate non si rifanno (sarebbero regole doppie)
+        const key = whereKey(P.where) + "|" + whenKey(P.when);
+        if (done?.has(key)) continue;
+        await saveOne(P, L, tenantId);
+        done?.add(key);
+    }
 }
 
 /**

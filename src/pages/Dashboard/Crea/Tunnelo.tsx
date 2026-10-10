@@ -230,12 +230,18 @@ export function Tunnelo({ kind, aside, data, tenantId, owner, origin, business, 
 
     const landing = (k: CreaKind, id: string) => `${b}/${PAGE_OF[k]}/${id}`;
 
+    // i passi già riusciti di un salvataggio fallito a metà: «Riprova» riparte da lì
+    const progress = useRef(new Map<string, unknown>());
+    const savingNow = useRef(false);
     async function finish(live: boolean): Promise<boolean> {
         // con l'abbonamento fermo non si crea niente, come dai bottoni «Crea» delle liste
-        if (saving || !ensureActive()) return false;
+        // un ref, non lo stato: due clic nello stesso istante vedrebbero tutti e due `saving` falso
+        if (savingNow.current || !ensureActive()) return false;
+        savingNow.current = true;
         setSaving(true);
         try {
-            const saved = await saveTunnel(t, { tenantId, L, live: live && owner, pair, baseTokens, blockFiles });
+            const saved = await saveTunnel(t, { tenantId, L, live: live && owner, pair, baseTokens, blockFiles, done: progress.current });
+            progress.current = new Map();
             const n = saved.name;
             const pub = t.kind === "menu" || t.kind === "stile" ? "in onda" : t.kind === "storia" ? "pubblicata" : "pubblicato";
             void reload();
@@ -268,6 +274,7 @@ export function Tunnelo({ kind, aside, data, tenantId, owner, origin, business, 
             showToast({ message: `Non siamo riusciti a salvare ${IL[t.kind]}. Riprova.`, type: "error" });
             return false;
         } finally {
+            savingNow.current = false;
             setSaving(false);
         }
     }
@@ -279,6 +286,7 @@ export function Tunnelo({ kind, aside, data, tenantId, owner, origin, business, 
     };
     const discard = () => {
         setLeave(false);
+        progress.current = new Map();
         if (after && t.from) return setT(after.t);
         setGoing(origin.to);
     };
@@ -296,6 +304,7 @@ export function Tunnelo({ kind, aside, data, tenantId, owner, origin, business, 
             where: m.where,
             per: m.per
         };
+        progress.current = new Map();
         setT(newTunnel(k, m.where, from));
         toTop();
     };

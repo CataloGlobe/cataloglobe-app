@@ -371,6 +371,25 @@ describe("le ore diverse per sede (D145)", () => {
         expect(draftParts(D)).toEqual([expect.objectContaining({ where: ALL, when: LUN_VEN, per: null })]);
     });
 
+    it("#360.3: riprovando dopo un errore, la regola già salvata non si rifà", async () => {
+        const D = blankDraft("menu", ALL, "s1");
+        D.thing = "c2";
+        D.per = { a1: LUN_VEN, a2: SEMPRE_PRANZO };
+        const done = new Set<string>();
+        vi.mocked(updateRule).mockResolvedValueOnce(undefined as never).mockRejectedValueOnce(new Error("rete"));
+        await expect(saveDraft(D, L, "t1", done)).rejects.toThrow("rete");
+        // la prima è salvata; la seconda, nata e non scritta, è stata tolta
+        expect(createRuleDraft).toHaveBeenCalledTimes(2);
+        expect(deleteLayoutRule).toHaveBeenCalledTimes(1);
+        expect(done.size).toBe(1);
+        await saveDraft(D, L, "t1", done);
+        expect(createRuleDraft).toHaveBeenCalledTimes(3);
+        expect(done.size).toBe(2);
+        // senza la memoria delle parti la prima nasceva di nuovo
+        await saveDraft(D, L, "t1");
+        expect(createRuleDraft).toHaveBeenCalledTimes(5);
+    });
+
     it("il riepilogo raccoglie le sedi con le stesse ore", () => {
         expect(perText({ a1: LUN_VEN, a2: SEMPRE_PRANZO }, L)).toMatch(/^Centro: .+ · Stazione: .+$/);
         expect(perText({ a1: LUN_VEN, a2: structuredClone(LUN_VEN) }, L)).toMatch(/^Centro e Stazione: /);

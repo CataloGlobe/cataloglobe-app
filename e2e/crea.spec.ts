@@ -239,6 +239,38 @@ test.describe("Tunnel di creazione — menù", () => {
         await expect(page).toHaveURL(/\/crea\/menu/);
     });
 
+    test("#360.2: il piatto nuovo non si salva; «Riprova» non crea un secondo menù né un'altra sezione", async ({ page }) => {
+        // tutto risponde tranne il piatto nuovo
+        stub.onWrite("catalogs.POST", ({ body }) => ({ id: ID.catalog, created_at: new Date().toISOString(), ...first(body) }));
+        stub.onWrite("catalog_categories.POST", ({ body }) => ({ id: ID.category, ...first(body) }));
+        stub.onWrite("catalog_category_products.POST", ({ body }) => ({ id: "e2ec7000-0000-4000-a000-000000000010", ...first(body) }));
+        await open(page, "menu", "menu");
+        await walkMenu(page);
+        await button(page, "Tieni come bozza").click();
+        await expect(page.getByText("Non siamo riusciti a salvare il menù. Riprova.")).toBeVisible();
+        expect(writesOf(stub, "catalogs.POST")).toHaveLength(1);
+        // ora il piatto si salva: si riprende da lì
+        stub.onWrite("products.POST", ({ body }) => ({ ...first(body) }));
+        await button(page, "Tieni come bozza").click();
+        await expect(page).toHaveURL(new RegExp(`/catalogs/${ID.catalog}$`), { timeout: 15_000 });
+        expect(writesOf(stub, "catalogs.POST")).toHaveLength(1);
+        expect(writesOf(stub, "catalog_categories.POST")).toHaveLength(1);
+        expect(writesOf(stub, "products.POST")).toHaveLength(2);
+        expect(writesOf(stub, "catalog_category_products.POST")).toHaveLength(2);
+    });
+
+    test("#360.2: due clic nello stesso istante salvano una volta sola", async ({ page }) => {
+        wireMenu(stub);
+        await open(page, "menu", "menu");
+        await walkMenu(page);
+        await button(page, "Tieni come bozza").evaluate((el: HTMLElement) => {
+            el.click();
+            el.click();
+        });
+        await expect(page).toHaveURL(new RegExp(`/catalogs/${ID.catalog}$`), { timeout: 15_000 });
+        expect(writesOf(stub, "catalogs.POST")).toHaveLength(1);
+    });
+
     test("dal Calendario: «Crea un menù nuovo» tiene da parte la bozza e apre il tunnel", async ({ page }) => {
         await openBusinessPageByUrl(page, "scheduling?type=layout");
         // Calendario e Regole sono le parti della sezione: tab nella barra del titolo.
