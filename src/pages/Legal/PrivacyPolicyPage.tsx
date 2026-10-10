@@ -615,24 +615,14 @@ export default function PrivacyPolicyPage() {
                         <tbody>
                             <tr>
                                 <td><code>sb-&lt;id&gt;-auth-token</code></td>
-                                <td>localStorage / sessionStorage</td>
+                                <td>localStorage</td>
                                 <td>
                                     Mantiene la sessione di accesso all'area riservata (token di
                                     autenticazione e dati utente). Indispensabile per restare autenticati.
                                 </td>
                                 <td>
-                                    localStorage: fino al logout o alla scadenza del refresh token.
-                                    sessionStorage: fino alla chiusura del browser.
+                                    Fino al logout o alla scadenza del refresh token.
                                 </td>
-                            </tr>
-                            <tr>
-                                <td><code>authRememberMe</code></td>
-                                <td>localStorage</td>
-                                <td>
-                                    Memorizza la scelta "Ricordami" che determina dove viene conservata
-                                    la sessione.
-                                </td>
-                                <td>Fino a modifica o logout</td>
                             </tr>
                             <tr>
                                 <td><code>passwordRecoveryFlow</code></td>

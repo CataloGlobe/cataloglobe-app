@@ -90,6 +90,12 @@ export interface JobStore {
     claim(limit: number, maxAttempts: number): Promise<DbResult<PendingJob[]>>;
     /** base_language_code per i tenant indicati (per risolvere source_lang). */
     getTenantBaseLangs(tenantIds: string[]): Promise<Map<string, string>>;
+    /**
+     * Id dei job il cui target e' gia' una traduzione 'manual' o 'overridden':
+     * upsert_auto_translation non le sovrascriverebbe, quindi tradurle e'
+     * solo quota provider sprecata.
+     */
+    getPreservedJobIds(jobs: PendingJob[]): Promise<DbResult<Set<string>>>;
     /** UPSERT translation. data=false => override manuale preservato. */
     upsertAutoTranslation(
         job: PendingJob,
@@ -192,8 +198,9 @@ export async function runTranslationTick(deps: TickDeps): Promise<TickCounters> 
     const unresolved = new Set<string>(jobs.map(j => j.id));
 
     try {
-        const tenantBaseLangs = await resolveTenantBaseLangs(jobs, deps);
-        const groups = groupBySourceTarget(jobs, tenantBaseLangs);
+        const toTranslate = await skipPreservedTargets(jobs, unresolved, counters, deps);
+        const tenantBaseLangs = await resolveTenantBaseLangs(toTranslate, deps);
+        const groups = groupBySourceTarget(toTranslate, tenantBaseLangs);
 
         for (const group of groups) {
             try {
@@ -280,6 +287,44 @@ export async function runTranslationTick(deps: TickDeps): Promise<TickCounters> 
     }
 
     return counters;
+}
+
+// ── Target protetti ──────────────────────────────────────────────────────────
+
+/**
+ * Chiude subito come 'done' i job con target manuale/sovrascritto, prima della
+ * chiamata al provider (stesso esito di prima, senza consumare quota). Se la
+ * lettura fallisce si traduce tutto come prima: l'upsert preserva comunque.
+ */
+async function skipPreservedTargets(
+    jobs: PendingJob[],
+    unresolved: Set<string>,
+    counters: TickCounters,
+    deps: TickDeps
+): Promise<PendingJob[]> {
+    const res = await deps.store.getPreservedJobIds(jobs);
+    if (res.error || !res.data) {
+        deps.log?.("preserved lookup failed, translating all", res.error);
+        return jobs;
+    }
+    const preserved = res.data;
+    if (preserved.size === 0) return jobs;
+
+    const toTranslate: PendingJob[] = [];
+    for (const job of jobs) {
+        if (!preserved.has(job.id)) {
+            toTranslate.push(job);
+            continue;
+        }
+        deps.log?.("skipped provider: preserved manual override", {
+            entity_type: job.entity_type,
+            entity_id: job.entity_id,
+            field: job.field,
+            language_code: job.target_language_code
+        });
+        await markDone(job.id, unresolved, counters, deps);
+    }
+    return toTranslate;
 }
 
 // ── Helpers di transizione (controllano SEMPRE l'error dell'UPDATE) ──────────

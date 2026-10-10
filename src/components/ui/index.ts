@@ -17,6 +17,8 @@ export { PreviewPane } from "./PreviewPane/PreviewPane";
 export { DataTable } from "./DataTable/DataTable";
 export type { ColumnDefinition } from "./DataTable/DataTable";
 export { ToastItem } from "./Toast/Toast";
+export { CodeInput } from "./CodeInput/CodeInput";
+export type { CodeInputHandle } from "./CodeInput/CodeInput";
 export { InlineBanner } from "./InlineBanner/InlineBanner";
 export { MultiEmailInput } from "./MultiEmailInput/MultiEmailInput";
 export { PasswordRequirements } from "./PasswordRequirements/PasswordRequirements";

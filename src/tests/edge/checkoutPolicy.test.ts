@@ -81,6 +81,11 @@ describe("checkPromoCodeLimits", () => {
         expect(checkPromoCodeLimits({ ...base, expires_at: NOW + 60 }, NOW)).toBeNull();
     });
 
+    it("scaduto e già spento da Stripe: «scaduto», non «non valido»", () => {
+        expect(checkPromoCodeLimits({ ...base, active: false, expires_at: NOW - 1 }, NOW)).toBe("promo_code_expired");
+        expect(checkPromoCodeLimits({ ...base, active: false, expires_at: NOW + 60 }, NOW)).toBe("promo_code_invalid");
+    });
+
     it("limite d'uso del codice, contando anche le prove senza carta", () => {
         expect(checkPromoCodeLimits({ ...base, max_redemptions: 1, times_redeemed: 1 }, NOW)).toBe("promo_code_used_up");
         // Codice di prova senza carta: Stripe non lo conta mai, contiamo noi.

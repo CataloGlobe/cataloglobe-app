@@ -3,6 +3,8 @@ import { supabase } from "@services/supabase/client";
 import { AuthContext } from "./AuthContextBase";
 import { isDefinitiveNoSession, resolveBootstrapUser, runWithRetry, withTimeout } from "./authRetry";
 import type { User } from "@supabase/supabase-js";
+import { clearSignupLeftovers } from "@/utils/pendingRedirect";
+import { forgetLastTenant } from "@/utils/lastTenant";
 
 // Budget e timeout. Single source of truth — i 4s singolo-shot pre-fix
 // facevano scattare lo schermo bloccante al primo blip Wi-Fi.
@@ -16,6 +18,9 @@ type OtpCheckReason = "bootstrap" | "refresh" | "force";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
+    // Utente corrente letto dal listener di auth (che non vede lo state).
+    const userRef = useRef<User | null>(null);
+    userRef.current = user;
     const [loading, setLoading] = useState(true);
 
     const [otpVerified, setOtpVerified] = useState(false);
@@ -164,6 +169,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 // «Nessuna sessione» (pagina di login) è un esito, non un errore.
                 if (res.error && !isDefinitiveNoSession(res.error)) console.error("[auth] init getUser failed (user from %s):", res.source, res.error);
 
+                // Se nel frattempo il listener ha già ripreso l'utente (token
+                // rinnovato mentre init aspettava), un esito vuoto per rete o
+                // timeout non lo toglie. Un «nessuna sessione» del server sì
+                // (utente cancellato, token revocato): si esce.
+                if (!res.user && userRef.current && res.error && !isDefinitiveNoSession(res.error)) return;
                 setUser(res.user);
 
                 // IMPORTANTISSIMO:
@@ -193,6 +203,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             if (event === "SIGNED_OUT") {
                 // Invalida eventuale retry in-flight.
                 otpReqIdRef.current++;
+                forgetLastTenant();
                 setUser(null);
                 setOtpVerified(false);
                 setOtpLoading(false);
@@ -202,6 +213,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
 
             if (event === "INITIAL_SESSION" || event === "TOKEN_REFRESHED") {
+                // Avvio con token scaduto e rete lenta: init può finire senza
+                // utente (e la pagina va al login) mentre auth-js rinnova il
+                // token poco dopo. Se qui l'utente manca, si riprende.
+                if (session?.user && !userRef.current) {
+                    setUser(session.user);
+                    void checkOtpForUser("bootstrap");
+                }
                 return;
             }
 
@@ -218,17 +236,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }, []);
 
     async function handleSignOut() {
-        // Invalidate OTP verification BEFORE signOut: after signOut the JWT is
-        // gone and auth.uid() inside the SECURITY DEFINER RPC would be null.
-        // Best-effort: sign-out must complete even if the RPC call fails.
-        try {
-            await supabase.rpc("delete_my_otp_verification");
-        } catch (err) {
-            console.warn("[AUTH] delete_my_otp_verification failed", err);
-        }
-
+        // Solo questo dispositivo; la verifica OTP resta (deciso da Lorenzo il
+        // 2026-10-09). «Esci da tutti i dispositivi» sta in services/auth.
         otpReqIdRef.current++;
-        await supabase.auth.signOut();
+        await supabase.auth.signOut({ scope: "local" });
+        clearSignupLeftovers();
+        forgetLastTenant();
         setUser(null);
         setOtpVerified(false);
         setOtpLoading(false);

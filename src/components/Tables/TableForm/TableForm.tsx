@@ -275,7 +275,7 @@ export function TableForm({
     }
 
     return (
-        <form id={formId} onSubmit={handleSubmit} className={styles.form}>
+        <form noValidate id={formId} onSubmit={handleSubmit} className={styles.form}>
             <TextInput
                 label="Nome tavolo"
                 required

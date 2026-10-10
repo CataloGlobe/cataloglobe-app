@@ -57,6 +57,9 @@ Il bucket `business-covers` ha sotto-path tipo `{tenantId}/{slug}__{activityId}/
 
 Senza entry esplicita il gateway Supabase applica `verify_jwt = true` di default e respinge JWT non-Supabase (customer JWT custom firmato con `CUSTOMER_JWT_SECRET`, oppure anon key per endpoint public-facing) con `UNAUTHORIZED_LEGACY_JWT` o `UNAUTHORIZED_INVALID_JWT_FORMAT` PRIMA di entrare nel codice della function. Pattern obbligatorio: `[functions.<nome>]` + `enabled = true` + `verify_jwt = false` + `import_map = "./functions/import_map.json"` + `entrypoint = "./functions/<nome>/index.ts"`. Lezione appresa task 2.4 (`resolve-table`), 2.5b (`submit-order`), tutti gli admin endpoint Fase 2.
 
+### `supabase functions deploy` impacchetta dal working tree, non dal commit
+Il deploy prende i file **come sono su disco**, compreso tutto ciò che l'albero degli import si porta dietro (soprattutto `supabase/functions/_shared/`). Con più sessioni sullo stesso working tree, un deploy può portare in un ambiente codice di un'altra sessione non committato né rivisto: è già successo su staging (`publicSiteUrl.ts` con WIP del filone prenotazioni finito nel deploy di `notify-support`). Prima di deployare: `git status --short supabase/functions/` deve essere pulito, oppure si accetta consapevolmente cosa finisce nel bundle. Meglio ancora: deploy da un worktree pulito sul commit da rilasciare.
+
 ### Slash `/` nei commenti TypeScript Deno
 
 Il parser TS del bundler Deno (deploy Edge Function) può interpretare `/` dentro `//` o `/* */` come inizio di regex literal in certi contesti, causando deploy fail con `Failed to bundle the function (reason: The module's source code could not be parsed: Unterminated regexp literal)`. Bug noto del lexer. Workaround: sostituire `/` con `vs`, `or`, `|` nei commenti. Esempio: `// pattern: cancel-order-admin / acknowledge-order` → `// pattern: cancel-order-admin vs acknowledge-order`. Lezione appresa task 2.12 (`close-table`).

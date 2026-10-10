@@ -407,7 +407,7 @@ serve(async (req: Request) => {
 
                 await resend.emails.send({
                     from: COMPANY.email.sender,
-                    reply_to: COMPANY.contact.support,
+                    replyTo: COMPANY.contact.support,
                     to: updated.customer_email as string,
                     subject: email.subject,
                     html: email.html,

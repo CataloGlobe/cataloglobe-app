@@ -59,7 +59,12 @@ export default function TableQrPreviewDrawer({
                     {qrUrl && table ? (
                         <>
                             <div className={styles.qrCard}>
-                                <QRCodeSVG value={qrUrl} size={200} level="M" />
+                                <QRCodeSVG
+                                    value={qrUrl}
+                                    size={200}
+                                    level="M"
+                                    aria-label={`QR per ordinare dal tavolo ${table.label}`}
+                                />
                             </div>
 
                             <div className={styles.urlSection}>

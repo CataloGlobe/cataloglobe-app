@@ -1,3 +1,4 @@
+@use "@styles/mixins" as *;
 /* ─────────────────────────────────────────────────────────
    OrderNoteEditor — 3-state order-level note: hidden / editing / saved
    Visually divided from the cart list above via top border.
@@ -120,6 +121,7 @@
     &::placeholder {
         color: color-mix(in srgb, var(--pub-surface-text) 30%, var(--pub-surface));
     }
+    @include touch-input-font;
 }
 
 .footer {
