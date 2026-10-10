@@ -416,7 +416,9 @@ type ActivityProductOverrideRow = {
 // `rpc` serve a get_schedule_featured_contents: senza, `deno check` falliva
 // (TS2339) anche se a runtime il client vero ce l'ha.
 type SupabaseLike = {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- stesso motivo di sopra: client senza Database generics
     from: (table: string) => any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- stesso motivo di sopra: client senza Database generics
     rpc: (fn: string, args?: Record<string, unknown>) => any;
 };
 

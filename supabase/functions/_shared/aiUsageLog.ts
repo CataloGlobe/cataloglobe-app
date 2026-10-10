@@ -40,7 +40,7 @@ export interface AiUsageEventInput {
  */
 export async function logAiUsage(
     // deno-lint-ignore no-explicit-any — client supabase-js senza Database generics (stesso pattern JobStore)
-    supabase: any,
+    supabase: any, // eslint-disable-line @typescript-eslint/no-explicit-any -- vedi deno-lint-ignore sopra
     event: AiUsageEventInput
 ): Promise<void> {
     try {

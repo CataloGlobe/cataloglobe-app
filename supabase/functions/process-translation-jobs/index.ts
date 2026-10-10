@@ -99,6 +99,7 @@ Deno.serve(async (req: Request) => {
 });
 
 // JobStore concreto su supabase-js. Ogni op normalizza l'output a {data?, error}.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- client supabase-js senza Database generics; JobStore normalizza l'output
 function createJobStore(supabase: any): JobStore {
     return {
         async claim(limit: number, maxAttempts: number): Promise<DbResult<PendingJob[]>> {
