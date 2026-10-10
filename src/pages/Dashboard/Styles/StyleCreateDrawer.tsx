@@ -119,7 +119,7 @@ export function StyleCreateDrawer({
                     </>
                 }
             >
-                <form id="style-create-form" className={styles.form} onSubmit={handleSubmit}>
+                <form noValidate id="style-create-form" className={styles.form} onSubmit={handleSubmit}>
                     <TextInput
                         label="Nome stile"
                         required

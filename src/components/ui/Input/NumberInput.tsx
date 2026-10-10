@@ -73,6 +73,7 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
                             inputMode="decimal" // 👈 mobile UX migliore
                             disabled={isDisabled}
                             aria-invalid={hasError}
+                            aria-required={required || undefined}
                             aria-describedby={describedById}
                             className={`${styles.input} ${inputClassName ?? className ?? ""}`}
                             {...props}

@@ -24,7 +24,7 @@ export const OtpRoute = ({ children }: OtpRouteProps) => {
 
     // Verifica OTP in corso (solo se loggato)
     if (user && otpLoading && !otpRefreshing) {
-        return <AppLoader intent="otp" />;
+        return <AppLoader intent="auth" />;
     }
 
     // Non loggato → login

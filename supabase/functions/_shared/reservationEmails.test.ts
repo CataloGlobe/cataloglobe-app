@@ -29,7 +29,7 @@ const DASHBOARD_URL =
 
 /** Corpo della card, escluso il footer condiviso (che ha i link di CataloGlobe). */
 function cardBody(html: string): string {
-    return html.split("border-top")[0];
+    return html.split("<!-- footer -->")[0].split("<!-- card -->")[1] ?? "";
 }
 
 function expectNonEmptyContent(email: ReservationEmailContent): void {
@@ -163,8 +163,8 @@ describe("reservation email builders (_shared)", () => {
             const manual = buildReservationConfirmedEmail({ ...BASE, variant: "manual" });
             expect(auto.subject).toBe(manual.subject);
             expect(auto.subject).toBe("Prenotazione confermata — Trattoria da Ciro");
-            expect(auto.html).toContain("<h1 style=\"margin:0 0 16px;font-size:22px;color:#111827\">Prenotazione confermata</h1>");
-            expect(manual.html).toContain("<h1 style=\"margin:0 0 16px;font-size:22px;color:#111827\">Prenotazione confermata</h1>");
+            expect(auto.html).toContain("<h1 style=\"margin:0 0 16px;font-size:22px;line-height:1.3;font-weight:700;color:#111827\">Prenotazione confermata</h1>");
+            expect(manual.html).toContain("<h1 style=\"margin:0 0 16px;font-size:22px;line-height:1.3;font-weight:700;color:#111827\">Prenotazione confermata</h1>");
         });
     });
 
@@ -207,7 +207,9 @@ describe("reservation email builders (_shared)", () => {
             // tutta la famiglia di email.
             expect(email.text).toContain("Trattoria da Ciro ha spostato la tua prenotazione.");
             expect(email.text).toContain("Era prevista per il 14 giugno 2026 alle 19:00.");
-            for (const body of [email.html, email.text]) {
+            // Nell'HTML si guarda solo la scheda: l'anteprima nascosta in cima
+            // porta già la nuova data.
+            for (const body of [cardBody(email.html), email.text]) {
                 const i = (s: string) => body.indexOf(s);
                 expect(i("ha spostato la tua prenotazione")).toBeGreaterThan(-1);
                 expect(i("Era prevista per il")).toBeGreaterThan(i("ha spostato la tua prenotazione"));
@@ -259,10 +261,11 @@ describe("reservation email builders (_shared)", () => {
             expect(email.text).toContain("+39 333 1234567");
         });
 
-        it("links the dashboard sentence in html when a URL is supplied", () => {
+        it("adds the dashboard button in html when a URL is supplied", () => {
             const email = venue(DASHBOARD_URL);
             expect(email.html).toContain(`<a href="${DASHBOARD_URL}"`);
-            expect(email.html).toContain(">Accedi alla dashboard</a> per confermarla o rifiutarla.");
+            expect(email.html).toContain(">Apri la dashboard</a>");
+            expect(email.html).toContain("Accedi alla dashboard per confermarla o rifiutarla.");
         });
 
         it("appends the plain URL in text when a URL is supplied", () => {
@@ -280,7 +283,7 @@ describe("reservation email builders (_shared)", () => {
         ])("treats the unsafe URL %j as absent", unsafe => {
             const email = venue(unsafe);
             expectNonEmptyContent(email);
-            expect(email.html).not.toContain(">Accedi alla dashboard</a>");
+            expect(email.html).not.toContain(">Apri la dashboard</a>");
             expect(email.html).not.toContain("javascript:");
             expect(email.html).not.toContain("data:text/html");
             expect(email.html).toContain("Accedi alla dashboard per confermarla o rifiutarla.");
@@ -292,7 +295,7 @@ describe("reservation email builders (_shared)", () => {
             const email = venue(null);
             expectNonEmptyContent(email);
             // The footer keeps its own links; only the dashboard anchor drops.
-            expect(email.html).not.toContain(">Accedi alla dashboard</a>");
+            expect(email.html).not.toContain(">Apri la dashboard</a>");
             expect(email.html).toContain("Accedi alla dashboard per confermarla o rifiutarla.");
             expect(email.text).toContain("Accedi alla dashboard per confermarla o rifiutarla.\n\n");
             expect(email.text).not.toContain("https://cataloglobe.com/business/");
@@ -330,13 +333,10 @@ describe("reservation email builders (_shared)", () => {
             }
         });
 
-        it("links the dashboard wording in both variants", () => {
-            expect(venue(DASHBOARD_URL).html).toContain(
-                `<a href="${DASHBOARD_URL}" style="color:#111827;text-decoration:underline">Accedi alla dashboard</a> per confermarla o rifiutarla.`
-            );
-            expect(venueAuto(DASHBOARD_URL).html).toContain(
-                `<a href="${DASHBOARD_URL}" style="color:#111827;text-decoration:underline">nella dashboard</a>.`
-            );
+        it("adds the dashboard button in both variants", () => {
+            expect(venue(DASHBOARD_URL).html).toContain(`<a href="${DASHBOARD_URL}"`);
+            expect(venueAuto(DASHBOARD_URL).html).toContain(`<a href="${DASHBOARD_URL}"`);
+            expect(venueAuto(DASHBOARD_URL).html).toContain(">Apri la dashboard</a>");
             expect(venueAuto(DASHBOARD_URL).text).toContain(
                 `Vedi il dettaglio nella dashboard.\n${DASHBOARD_URL}\n`
             );

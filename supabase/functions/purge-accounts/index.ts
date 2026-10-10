@@ -307,7 +307,7 @@ serve(async (req: Request) => {
 async function processUser(
     userId: string,
     // deno-lint-ignore no-explicit-any
-    supabase: any,
+    supabase: any, // eslint-disable-line @typescript-eslint/no-explicit-any -- vedi deno-lint-ignore sopra
     cutoffIso: string,
     dryRun: boolean
 ): Promise<UserResult> {

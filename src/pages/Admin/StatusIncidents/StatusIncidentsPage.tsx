@@ -68,7 +68,7 @@ function AddUpdateBlock({
 
     return (
         <div className={styles.updateArea}>
-            <form className={styles.addUpdateBlock} onSubmit={submit}>
+            <form noValidate className={styles.addUpdateBlock} onSubmit={submit}>
                 <label className={styles.fieldLabel} htmlFor={`upd-${incident.id}`}>
                     Aggiungi aggiornamento
                 </label>

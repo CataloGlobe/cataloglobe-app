@@ -156,7 +156,7 @@ export default function OrderRectifyForm({
     }
 
     return (
-        <form id={formId} onSubmit={handleSubmit} className={styles.content}>
+        <form noValidate id={formId} onSubmit={handleSubmit} className={styles.content}>
             <InlineBanner variant="warning">
                 Lo storno crea una rettifica contabile dell'ordine servito;
                 l'originale resta invariato.

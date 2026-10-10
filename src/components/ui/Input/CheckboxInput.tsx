@@ -56,6 +56,7 @@ export const CheckboxInput = forwardRef<HTMLInputElement, CheckboxProps>(
                             type="checkbox"
                             disabled={isDisabled}
                             aria-invalid={hasError}
+                            aria-required={required || undefined}
                             aria-describedby={describedById}
                             className={styles.input}
                             {...props}

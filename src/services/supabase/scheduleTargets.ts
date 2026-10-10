@@ -27,6 +27,31 @@ export async function updateScheduleTargets(
 }
 
 /**
+ * «Nuova regola» per un ruolo di sede (T9b): regola e sedi nella stessa
+ * transazione (RPC `create_schedule_with_targets`), perché una regola che
+ * nasce senza sedi non è sua e non la potrebbe più leggere né modificare.
+ * Nasce spenta, priorità media, mai su tutte le sedi; la RPC rifiuta sedi
+ * che il caller non gestisce come manager. Ritorna l'id della regola.
+ */
+export async function createScopedRuleDraft(input: {
+    tenantId: string;
+    ruleType: "layout" | "price" | "visibility" | "featured";
+    name: string;
+    activityIds: readonly string[];
+}): Promise<string> {
+    const { data, error } = await supabase.rpc("create_schedule_with_targets", {
+        p_tenant_id: input.tenantId,
+        p_rule_type: input.ruleType,
+        p_name: input.name,
+        p_targets: input.activityIds.map(id => ({ target_type: "activity", target_id: id }))
+    });
+
+    if (error) throw error;
+    if (!data) throw new Error("Regola non creata.");
+    return data;
+}
+
+/**
  * Porta su una sola sede una bozza appena creata (che nasce su tutte le
  * sedi): «Nuova regola» dalla sede (T9b, PG6). Prima apply_to_all=false con
  * lo shim inline, poi le sedi con la RPC, che rifiuta le regole apply_to_all.

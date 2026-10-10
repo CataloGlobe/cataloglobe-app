@@ -527,7 +527,7 @@ export default function StyleEditorPage() {
                             {banner && permissions != null && (
                                 <InlineBanner variant="info">{banner}</InlineBanner>
                             )}
-                            <form id="style-form" onSubmit={handleSubmit}>
+                            <form noValidate id="style-form" onSubmit={handleSubmit}>
                                 <fieldset className={`${styles.panelForm} ${styles.readOnlyScope}`} disabled={readOnly}>
                                     <TextInput
                                         label="Nome stile"

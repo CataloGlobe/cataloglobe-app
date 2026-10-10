@@ -69,6 +69,7 @@ export const TimeInput = forwardRef<HTMLInputElement, TimeInputProps>(
                             type="time"
                             disabled={isDisabled}
                             aria-invalid={hasError}
+                            aria-required={required || undefined}
                             aria-describedby={describedById}
                             className={`${styles.input} ${inputClassName ?? className ?? ""}`}
                             {...props}
