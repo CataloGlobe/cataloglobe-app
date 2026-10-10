@@ -156,7 +156,7 @@
     gap: 6px;
     align-items: center;
     opacity: 0;
-    transition: opacity 0.15s;
+    transition: opacity var(--timing-motion-fast) var(--easing-state);
   }
   &:hover .edit, &:focus-visible .edit { opacity: 1; }
   &:focus-visible { outline: 2px solid var(--q-brand); outline-offset: 2px; }
@@ -255,7 +255,7 @@
   gap: 8px;
   min-width: 0;
   cursor: pointer;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition: border-color var(--timing-motion-fast) var(--easing-state), box-shadow var(--timing-motion-fast) var(--easing-state);
   &:hover { border-color: var(--q-brand); box-shadow: 0 6px 18px var(--q-shade); }
   // Il fuoco sta sul titolo (il pulsante), l'anello su tutta la tessera.
   &:has(.thTitle:focus-visible) { outline: 2px solid var(--q-brand); outline-offset: 2px; }
@@ -411,7 +411,7 @@
   span { color: #64748b; }
 }
 // Passando su una tessera la parte si accende.
-.hl { outline: 2px solid #6366f1 !important; outline-offset: 3px; border-radius: 6px; transition: outline-color 0.15s; }
+.hl { outline: 2px solid var(--brand-primary) !important; outline-offset: 3px; border-radius: 6px; transition: outline-color var(--timing-motion-fast) var(--easing-state); }
 .pCover.hl { outline-offset: -3px; border-radius: 0; }
 // Nella vista a fuoco le parti si toccano.
 .pp {
@@ -420,7 +420,7 @@
   cursor: pointer;
   outline: 1.5px dashed transparent;
   outline-offset: 3px;
-  transition: outline-color 0.12s;
+  transition: outline-color var(--timing-motion-fast) var(--easing-state);
   &:hover { outline-color: rgba(99, 102, 241, 0.55); }
 }
 .pCover.pp { border-radius: 0; outline-offset: -3px; }
