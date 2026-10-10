@@ -359,7 +359,7 @@ export function CreateOrderDrawer({
                         />
                     </div>
                 ) : (
-                    <form
+                    <form noValidate
                         id={FORM_ID}
                         className={styles.shell}
                         onSubmit={e => {

@@ -6,6 +6,7 @@ import { Link } from "react-router-dom";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { AuthLayout } from "@/layouts/AuthLayout/AuthLayout";
 import { KeyRound, Mail, MailCheck } from "lucide-react";
+import { INVALID_EMAIL_MESSAGE, isValidEmailFormat } from "@utils/validateEmail";
 import styles from "./Auth.module.scss";
 
 const RESEND_COOLDOWN = 30;
@@ -13,6 +14,7 @@ const RESEND_COOLDOWN = 30;
 export default function ForgotPassword() {
     usePageTitle("Recupera Password");
     const [email, setEmail] = useState("");
+    const [emailError, setEmailError] = useState<string | undefined>(undefined);
     const [loading, setLoading] = useState(false);
     const [sentTo, setSentTo] = useState<string | null>(null);
     const [resendSeconds, setResendSeconds] = useState(0);
@@ -40,8 +42,12 @@ export default function ForgotPassword() {
     const handleSubmit: React.FormEventHandler = e => {
         e.preventDefault();
         if (loading) return;
+        // Il form è noValidate: un'email scritta male non parte (sembrerebbe inviata).
+        const address = email.trim();
+        if (!address) return setEmailError("L'email è obbligatoria.");
+        if (!isValidEmailFormat(address)) return setEmailError(INVALID_EMAIL_MESSAGE);
         setResent(false);
-        void send(email.trim());
+        void send(address);
     };
 
     const handleResend = () => {
@@ -106,12 +112,16 @@ export default function ForgotPassword() {
             lead="Scrivi la tua email: ti mandiamo un link per sceglierne una nuova."
         >
             <div className={styles.auth}>
-                <form onSubmit={handleSubmit} aria-busy={loading}>
+                <form noValidate onSubmit={handleSubmit} aria-busy={loading}>
                     <TextInput
                         label="Email"
                         type="email"
                         value={email}
-                        onChange={e => setEmail(e.target.value)}
+                        onChange={e => {
+                            setEmail(e.target.value);
+                            setEmailError(undefined);
+                        }}
+                        error={emailError}
                         required
                         autoComplete="email"
                         autoFocus={!!email}

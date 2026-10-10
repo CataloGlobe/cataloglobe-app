@@ -193,7 +193,7 @@ export function AttributeCreateEditDrawer({
                     </>
                 }
             >
-                <form id="attr-form" className={styles.form} onSubmit={handleSubmit}>
+                <form noValidate id="attr-form" className={styles.form} onSubmit={handleSubmit}>
                     <TextInput
                         label="Nome"
                         required

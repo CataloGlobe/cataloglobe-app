@@ -93,7 +93,7 @@ export default function StoryCreateDrawer({ open, onClose, tenantId }: StoryCrea
                     </>
                 }
             >
-                <form id={FORM_ID} onSubmit={handleSave} className={styles.form}>
+                <form noValidate id={FORM_ID} onSubmit={handleSave} className={styles.form}>
                     <TextInput
                         label="Occhiello"
                         value={eyebrow}

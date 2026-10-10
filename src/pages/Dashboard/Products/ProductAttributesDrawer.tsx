@@ -254,7 +254,7 @@ export function ProductAttributesDrawer({
                         </Tabs.List>
 
                         <Tabs.Panel<ActiveTab> value="existing">
-                            <form id={formIdExisting} onSubmit={handleSubmitExisting}>
+                            <form noValidate id={formIdExisting} onSubmit={handleSubmitExisting}>
                                 {definitions.length === 0 ? (
                                     <Text variant="body-sm" colorVariant="muted">
                                         Nessun attributo disponibile. Creane uno nel tab "Nuovo".
@@ -275,7 +275,7 @@ export function ProductAttributesDrawer({
                         </Tabs.Panel>
 
                         <Tabs.Panel<ActiveTab> value="new">
-                            <form
+                            <form noValidate
                                 id={formIdNew}
                                 onSubmit={handleCreate}
                                 className={styles.form}

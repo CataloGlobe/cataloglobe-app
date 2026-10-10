@@ -320,7 +320,7 @@ export function LeadChat({
                     </section>
                 )}
                 {writeBox && (
-                    <form
+                    <form noValidate
                         className={styles.writeBox}
                         onSubmit={e => {
                             e.preventDefault();

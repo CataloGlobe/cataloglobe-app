@@ -134,7 +134,7 @@ export default function ResetPassword() {
         >
             <div className={styles.auth}>
 
-                <form onSubmit={handleSubmit} aria-busy={loading}>
+                <form noValidate onSubmit={handleSubmit} aria-busy={loading}>
                     <PasswordField
                         label="Nuova password"
                         value={password}

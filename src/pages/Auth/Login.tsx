@@ -18,6 +18,7 @@ import { AuthLayout } from "@/layouts/AuthLayout/AuthLayout";
 import { AuthTabs } from "@/layouts/AuthLayout/AuthTabs";
 import { Mail, ShieldCheck } from "lucide-react";
 import { PasswordField } from "./PasswordField";
+import { INVALID_EMAIL_MESSAGE, isValidEmailFormat } from "@utils/validateEmail";
 import { COMPANY } from "@/config/company";
 import styles from "./Auth.module.scss";
 
@@ -54,6 +55,7 @@ export default function Login() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [error, setError] = useState<string | null>(null);
+    const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
     const [rateLimited, setRateLimited] = useState(false);
     const [loading, setLoading] = useState(false);
     const [isBanned, setIsBanned] = useState(false);
@@ -107,6 +109,15 @@ export default function Login() {
         setRecoveryPartial(false);
         setUnconfirmed(false);
         setConfirmResend("idle");
+
+        // Controlli nostri al posto del fumetto del browser (il form è noValidate).
+        const nextErrors: { email?: string; password?: string } = {};
+        if (!email.trim()) nextErrors.email = "L'email è obbligatoria.";
+        else if (!isValidEmailFormat(email.trim())) nextErrors.email = INVALID_EMAIL_MESSAGE;
+        if (!password) nextErrors.password = "La password è obbligatoria.";
+        setFieldErrors(nextErrors);
+        if (nextErrors.email || nextErrors.password) return;
+
         setLoading(true);
 
         try {
@@ -192,12 +203,18 @@ export default function Login() {
                     }}
                 />
 
-                <form onSubmit={handleLogin} aria-busy={loading}>
+                <form noValidate onSubmit={handleLogin} aria-busy={loading}>
                 <TextInput
                     label="Email"
                     type="email"
                     value={email}
-                    onChange={e => setEmail(e.target.value)}
+                    onChange={e => {
+                        setEmail(e.target.value);
+                        // L'errore del tentativo precedente non vale più per il testo nuovo.
+                        setError(null);
+                        setFieldErrors(prev => ({ ...prev, email: undefined }));
+                    }}
+                    error={fieldErrors.email}
                     required
                     autoComplete="email"
                     startAdornment={<Mail size={18} aria-hidden="true" />}
@@ -206,7 +223,12 @@ export default function Login() {
                 <PasswordField
                     label="Password"
                     value={password}
-                    onChange={e => setPassword(e.target.value)}
+                    onChange={e => {
+                        setPassword(e.target.value);
+                        setError(null);
+                        setFieldErrors(prev => ({ ...prev, password: undefined }));
+                    }}
+                    error={fieldErrors.password}
                     required
                     autoComplete="current-password"
                 />
@@ -258,7 +280,7 @@ export default function Login() {
                                 {recoveryError}
                             </Text>
                         )}
-                        <form onSubmit={handleConfirmRecover}>
+                        <form noValidate onSubmit={handleConfirmRecover}>
                             <TextInput
                                 label="Codice di verifica"
                                 inputMode="numeric"

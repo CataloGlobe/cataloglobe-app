@@ -74,7 +74,7 @@ export function IngredientsForm({
     };
 
     return (
-        <form id={formId} className={styles.form} onSubmit={handleSubmit}>
+        <form noValidate id={formId} className={styles.form} onSubmit={handleSubmit}>
             <TextInput
                 label="Nome"
                 required

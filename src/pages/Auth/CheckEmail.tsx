@@ -207,7 +207,7 @@ export default function CheckEmail() {
             lead={<>Ti abbiamo mandato un codice a <strong>{email}</strong>.</>}
         >
             <div className={styles.auth}>
-                <form
+                <form noValidate
                     onSubmit={(e: FormEvent) => {
                         e.preventDefault();
                         void handleVerify(code);
