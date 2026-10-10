@@ -390,9 +390,9 @@ test.describe("Menù — dettaglio", () => {
             await expect(main(page).getByText(name, { exact: true })).toBeVisible();
         }
         await expect(main(page).getByText("Senza prezzo").first()).toBeVisible();
-        await expect(main(page).getByText(/da €8[.,]00/)).toBeVisible();
+        await expect(main(page).getByText(/da 8,00 €/)).toBeVisible();
         await expect(main(page).getByText("ANT-003")).toBeVisible();
-        await expect(main(page).getByText(/€5[.,]50/)).toBeVisible();
+        await expect(main(page).getByText(/5,50 €/)).toBeVisible();
 
         const search = main(page).getByPlaceholder(/Cerca/).last();
         await search.fill("ANT-003");
@@ -796,7 +796,7 @@ for (const viewport of [
             await selectCategory(page, "Antipasti");
             await expect(main(page).getByText("Olive ascolane", { exact: true })).toBeVisible();
             // Il prezzo resta nella riga anche sul telefono.
-            await expect(main(page).getByText("€5.50")).toBeVisible();
+            await expect(main(page).getByText("5,50 €")).toBeVisible();
             await noSideScroll(page);
             if (viewport.width < 768) {
                 // Due viste: la categoria prende il posto dell'albero, e si torna.

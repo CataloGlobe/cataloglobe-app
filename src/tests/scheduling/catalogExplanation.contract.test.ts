@@ -323,21 +323,21 @@ describe("explainCatalog — il prezzo", () => {
     it("il prezzo della regola col listino barrato, se la regola lo mostra", async () => {
         const { explanation } = await explainFromDb();
         expect(row(explanation, "control")).toMatchObject({
-            price: "€4.00",
-            originalPrice: "€5.00",
+            price: "4,00 €",
+            originalPrice: "5,00 €",
             priceNote: "Prezzo dalla regola «Happy»"
         });
     });
 
     it("un prodotto che il cliente non vede non porta il prezzo della regola", async () => {
         const { explanation } = await explainFromDb();
-        expect(row(explanation, comboId("hide", "none"))).toMatchObject({ price: "€7.50", originalPrice: null, priceNote: null });
+        expect(row(explanation, comboId("hide", "none"))).toMatchObject({ price: "7,50 €", originalPrice: null, priceNote: null });
     });
 
     it("senza regola prezzi il prezzo è quello del menù", async () => {
         db.tables = buildTables({ visibilityRule: false, priceRule: false });
         const { explanation } = await explainFromDb();
-        expect(row(explanation, "control")).toMatchObject({ price: "€5.00", originalPrice: null, priceNote: null });
+        expect(row(explanation, "control")).toMatchObject({ price: "5,00 €", originalPrice: null, priceNote: null });
     });
 });
 

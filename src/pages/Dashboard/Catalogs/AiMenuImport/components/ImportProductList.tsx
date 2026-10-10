@@ -4,6 +4,7 @@ import type { AiProduct } from "@/hooks/useAiImportSession";
 import { parseDecimalPrice } from "@/utils/priceParser";
 import { aiProductMissesPrice, toAiPriceableProduct } from "../aiProductPricing";
 import styles from "./importProductList.module.scss";
+import { formatPrice } from "@/utils/formatCurrency";
 
 /** Slot opzionali iniettati dal ramo "catalogo esistente" (badge/levetta/selettore). */
 export interface ImportProductRowConfig {
@@ -260,7 +261,7 @@ function ImportProductRow({
 
     const priceDisplay =
         product.product_type === "simple" && product.base_price != null
-            ? `€ ${product.base_price.toFixed(2)}`
+            ? formatPrice(product.base_price)
             : null;
 
     const updateFormatPrice = (index: number, price: number | null) => {

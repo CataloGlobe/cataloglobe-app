@@ -27,7 +27,7 @@ export type FeaturedProductDraftRow = {
 
 type PriceSource = Pick<FeaturedPickerProduct, "base_price" | "option_groups">;
 
-/** «€ 7,90», «da € 3,20» per chi ha formati, null senza prezzo. */
+/** «7,90 €», «da 3,20 €» per chi ha formati, null senza prezzo. */
 export function priceLabelOf(product: PriceSource | null): string | null {
     if (!product) return null;
     if (product.base_price != null) return formatPrice(product.base_price);

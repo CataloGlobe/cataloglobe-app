@@ -3,6 +3,7 @@ import type { AiProduct } from "../AiMenuImportWizard";
 import { aiProductMissesPrice, toAiPriceableProduct } from "../aiProductPricing";
 import { Checkbox } from "./Checkbox";
 import styles from "../aiMenuImport.module.scss";
+import { formatPrice } from "@/utils/formatCurrency";
 
 interface ProductReviewCardProps {
     product: AiProduct;
@@ -28,7 +29,7 @@ export function ProductReviewCard({ product, onUpdate, onRemove }: ProductReview
 
     const priceDisplay =
         product.product_type === "simple" && product.base_price != null
-            ? `€ ${product.base_price.toFixed(2)}`
+            ? formatPrice(product.base_price)
             : null;
 
     return (

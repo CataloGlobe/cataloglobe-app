@@ -10,6 +10,7 @@ import type { SeatsPricing } from "@/utils/pricing";
 import { INTERVAL_PERIOD_NOUN, annualPitchNoteFor, formatEuroWholeCents, monthByMonthEquivalentCents } from "@/utils/planPricing";
 import { DEFAULT_PLAN_FEATURES, DEFAULT_PLAN_BADGES } from "./planDefaults";
 import styles from "./PlanSeatsSelector.module.scss";
+import { formatPrice } from "@/utils/formatCurrency";
 
 /**
  * Selettore condiviso piano + numero sedi con stima prezzo graduated.
@@ -25,7 +26,7 @@ import styles from "./PlanSeatsSelector.module.scss";
  */
 
 function formatEuro(value: number): string {
-    return `€${value.toFixed(2).replace(".", ",")}`;
+    return formatPrice(value);
 }
 
 const INTERVAL_TOTAL_LABEL: Record<BillingInterval, string> = { month: "Totale mensile", year: "Totale annuale" };

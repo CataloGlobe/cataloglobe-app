@@ -9,7 +9,7 @@ type Props = {
 };
 
 /**
- * La riga muta di un prodotto (lista e griglia): «€ 4,50 · in 2 menù».
+ * La riga muta di un prodotto (lista e griglia): «4,50 € · in 2 menù».
  * I difetti in ambra, a parole: «senza prezzo», «in nessun menù» (§25.3).
  */
 export function ProductRowMeta({ price, missingPrice, menus }: Props) {

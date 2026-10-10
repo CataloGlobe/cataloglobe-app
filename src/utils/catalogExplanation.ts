@@ -7,6 +7,7 @@ import {
 } from "@/services/supabase/resolveActivityCatalogs";
 import type { VisibilityMode } from "@/services/supabase/scheduleResolver";
 import { getDisplayPrice } from "@/utils/priceDisplay";
+import { formatPrice } from "@/utils/formatCurrency";
 
 /**
  * «Cosa vedono i clienti» (§19, milestone 7): perché ogni prodotto del menù
@@ -72,7 +73,7 @@ export type CatalogExplanation = {
     manualCount: number;
 };
 
-const EURO = (value: number) => `€${value.toFixed(2)}`;
+const EURO = formatPrice;
 
 function findProduct(catalog: ResolvedCatalog | undefined, productId: string): ResolvedProduct | undefined {
     for (const category of catalog?.categories ?? []) {

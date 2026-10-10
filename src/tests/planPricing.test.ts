@@ -73,8 +73,8 @@ describe("monthByMonthEquivalentCents", () => {
 
 describe("annualPitchNote — the green line under a monthly price", () => {
     it("names the yearly price per seat and the two free months", () => {
-        expect(annualPitchNote(5900, 59000)).toBe("Con il piano annuale: €590/sede/anno, due mesi gratis");
-        expect(annualPitchNoteFor(full, "base")).toBe("Con il piano annuale: €390/sede/anno, due mesi gratis");
+        expect(annualPitchNote(5900, 59000)).toBe("Con il piano annuale: 590 €/sede/anno, due mesi gratis");
+        expect(annualPitchNoteFor(full, "base")).toBe("Con il piano annuale: 390 €/sede/anno, due mesi gratis");
     });
 
     it("is null when the yearly interval is not purchasable", () => {

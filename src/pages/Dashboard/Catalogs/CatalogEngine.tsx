@@ -1563,7 +1563,7 @@ export default function CatalogEngine() {
             {
                 id: "price",
                 header: "Prezzo",
-                // Largo quanto il prezzo più lungo («da €12.50»), non una frazione.
+                // Largo quanto il prezzo più lungo («da 12,50 €»), non una frazione.
                 width: "max-content",
                 align: "right",
                 accessor: row => row.id,
