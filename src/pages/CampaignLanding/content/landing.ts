@@ -144,8 +144,8 @@ export const HERO = {
         liveLabel: "Modifica al volo",
         /** Riga sotto il telefono (solo mobile): cosa sta succedendo adesso. */
         phoneIdle: "Il menù cambia da solo durante la giornata",
-        phoneSlot: (time: string, menu: string) => `${time} · il QR mostra il ${menu}`,
-        phoneLive: (time: string, text: string) => `${time} · ${text}, subito sul QR`,
+        phoneSlot: (menu: string) => `il QR mostra il ${menu}`,
+        phoneLive: (text: string) => `${text}, subito sul QR`,
         slots: [
             { time: "12:00", name: "Pranzo" },
             { time: "18:00", name: "Aperitivo" },
@@ -446,6 +446,7 @@ export const PRICING = {
     notIncluded: "Non incluso nel Base:",
     /** Tabella di confronto (mobile): intestazione della colonna delle voci e stato delle celle per i lettori di schermo. */
     compareFeatures: "Cosa comprende",
+    compareProOnly: "Solo con Pro",
     included: "Incluso",
     excluded: "Non incluso",
     printer: { label: "Stampante per la cucina:", text: " opzionale, si acquista a parte." },

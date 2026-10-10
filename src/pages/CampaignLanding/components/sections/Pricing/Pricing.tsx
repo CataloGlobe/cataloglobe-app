@@ -103,87 +103,79 @@ function Segmented<T extends string>({
     );
 }
 
+function Check({ on }: { on: boolean }) {
+    return on ? (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M20 6 9 17l-5-5" />
+        </svg>
+    ) : (
+        <span className={styles.cmpDash} aria-hidden="true" />
+    );
+}
+
 /**
- * Mobile: una scheda sola che confronta i due piani. In testa i due prezzi
- * affiancati con i loro pulsanti (Pro evidenziato), sotto le voci con una
- * colonna di spunte per piano. Da desktop restano le due schede (PlanCard).
+ * Mobile: una scheda sola che confronta i due piani. Due colonne strette a
+ * destra, Base e Pro, con nome e prezzo in testa; la colonna Pro ha un fondo
+ * viola unico dall'alto in basso. Sotto le voci comuni, poi quelle solo Pro.
+ * Un pulsante solo in fondo. Da desktop restano le due schede (PlanCard).
  */
 function CompareCard({ annual }: { annual: boolean }) {
-    const rows: { text: string; base: boolean }[] = [
-        ...PRICING.items.map((text) => ({ text, base: true })),
-        ...PRICING.proItems.map((text) => ({ text, base: false }))
-    ];
-    const cell = (on: boolean, pro: boolean) => (
-        <td className={cx(styles.cmpCell, pro && styles.cmpCellPro)}>
-            <ItemIcon kind={on ? (pro ? "pro" : "ok") : "no"} />
-            <span className={styles.srOnly}>{on ? PRICING.included : PRICING.excluded}</span>
-        </td>
+    const row = (text: string, base: boolean, pro: boolean) => (
+        <tr key={text}>
+            <th scope="row" className={styles.cmpText}>
+                {text}
+            </th>
+            {[base, pro].map((on, i) => (
+                <td key={i} className={cx(styles.cmpCell, i === 1 && styles.cmpCellPro)}>
+                    <Check on={on} />
+                    <span className={styles.srOnly}>{on ? PRICING.included : PRICING.excluded}</span>
+                </td>
+            ))}
+        </tr>
     );
 
     return (
         <div className={styles.compare}>
-            <div className={styles.cmpHead}>
-                {(["base", "pro"] as const).map((key) => {
-                    const p = PRICING.plans[key];
-                    const isPro = key === "pro";
-                    return (
-                        <div key={key} className={cx(styles.cmpPlan, isPro && styles.cmpPlanPro)}>
-                            {isPro && <span className={styles.cmpBadge}>{PRICING.recommended}</span>}
-                            <h3 className={styles.cmpName}>{p.name}</h3>
-                            <p className={styles.cmpClaim}>{p.claim}</p>
-                            <p className={styles.cmpPrice}>
-                                {annual ? p.year : p.month}
-                                {annual && (
-                                    <span className={styles.cmpFull}>
-                                        <span className={styles.srOnly}>{PRICING.fullPriceLabel}: </span>
-                                        <s>{p.yearFull}</s>
-                                    </span>
-                                )}
-                            </p>
-                            <p className={styles.cmpPeriod}>
-                                {annual ? PRICING.period.year : PRICING.period.month} · {PRICING.perVenue}
-                            </p>
-                            <LandingCta
-                                placement={isPro ? "pricing-pro" : "pricing-base"}
-                                shape="plan"
-                                look={isPro ? "dark" : "soft"}
-                                className={styles.cmpCta}
-                            />
-                        </div>
-                    );
-                })}
-            </div>
-            <p className={styles.cmpTrial}>{PRICING.trial}</p>
-            <table className={styles.cmpTable}>
-                <thead>
-                    <tr>
-                        <th scope="col" className={styles.cmpColLabel}>
-                            {PRICING.compareFeatures}
-                        </th>
-                        <th scope="col" className={styles.cmpColPlan}>
-                            {PRICING.plans.base.name}
-                        </th>
-                        <th scope="col" className={cx(styles.cmpColPlan, styles.cmpCellPro)}>
-                            {PRICING.plans.pro.name}
-                        </th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {rows.map((r) => (
-                        <tr key={r.text} className={cx(!r.base && styles.cmpRowPro)}>
-                            <th scope="row" className={styles.cmpText}>
-                                {r.text}
+            <div className={styles.cmpBody}>
+                <span className={styles.cmpProBg} aria-hidden="true" />
+                <table className={styles.cmpTable}>
+                    <thead>
+                        <tr>
+                            <th scope="col" className={styles.cmpCorner}>
+                                <span className={styles.srOnly}>{PRICING.compareFeatures}</span>
                             </th>
-                            {cell(r.base, false)}
-                            {cell(true, true)}
+                            {(["base", "pro"] as const).map((key) => {
+                                const p = PRICING.plans[key];
+                                return (
+                                    <th key={key} scope="col" className={cx(styles.cmpPlan, key === "pro" && styles.cmpPlanPro)}>
+                                        {key === "pro" && <span className={styles.cmpBadge}>{PRICING.recommended}</span>}
+                                        <span className={styles.cmpName}>{p.name}</span>
+                                        <span className={styles.cmpPrice}>{annual ? p.year : p.month}</span>
+                                        <span className={styles.cmpPeriod}>{annual ? PRICING.period.year : PRICING.period.month}</span>
+                                    </th>
+                                );
+                            })}
                         </tr>
-                    ))}
-                </tbody>
-            </table>
-            <p className={styles.cmpPrinter}>
+                    </thead>
+                    <tbody>{PRICING.items.map((t) => row(t, true, true))}</tbody>
+                    <tbody>
+                        <tr>
+                            <th scope="colgroup" colSpan={3} className={styles.cmpGroup}>
+                                {PRICING.compareProOnly}
+                            </th>
+                        </tr>
+                        {PRICING.proItems.map((t) => row(t, false, true))}
+                    </tbody>
+                </table>
+            </div>
+            <p className={styles.cmpNote}>
                 <b>{PRICING.printer.label}</b>
                 {PRICING.printer.text}
             </p>
+            <div className={styles.cmpFoot}>
+                <LandingCta placement="pricing-pro" shape="plan" look="dark" className={styles.cmpCta} />
+                <p className={styles.cmpTrial}>{PRICING.trial}</p>
+            </div>
         </div>
     );
 }

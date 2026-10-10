@@ -214,8 +214,8 @@ function PhoneCaption({ state }: { state: HeroState }) {
     const text = !step
         ? SCHEDULE.phoneIdle
         : step.kind === "slot"
-          ? SCHEDULE.phoneSlot(SCHEDULE.slots[step.slot].time, PHONE.menus[step.slot].name)
-          : SCHEDULE.phoneLive(SCHEDULE.live[step.live].time, SCHEDULE.live[step.live].text);
+          ? SCHEDULE.phoneSlot(PHONE.menus[step.slot].name)
+          : SCHEDULE.phoneLive(SCHEDULE.live[step.live].text);
     return (
         <div className={styles.phoneCaption}>
             <span className={styles.pcDots}>
@@ -224,6 +224,7 @@ function PhoneCaption({ state }: { state: HeroState }) {
                 ))}
             </span>
             <span key={at} className={cx(styles.pcText, step?.kind === "live" && styles.pcTextLive)}>
+                {step && <span className={styles.pcTime}>{step.clock} · </span>}
                 {text}
             </span>
         </div>

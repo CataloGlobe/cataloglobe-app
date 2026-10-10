@@ -61,6 +61,13 @@ $stage-overhead: 224;
 .scheduleTilt,
 .phoneTilt {
     transition: transform 700ms var(--ld-ease);
+
+    // La riga sotto cambia larghezza col testo: il telefono resta al centro.
+    @include mobile-only {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
 }
 
 .scheduleTilt {
@@ -823,7 +830,13 @@ $tl-line-x: 57px;
     }
 }
 
-.pcTextLive {
+// Testo sempre dello stesso colore; l'ora dice di che passo si tratta:
+// viola le fasce programmate, terracotta le modifiche al volo.
+.pcTime {
+    color: var(--ld-sched-line);
+}
+
+.pcTextLive .pcTime {
     color: var(--ld-live-caption);
 }
 

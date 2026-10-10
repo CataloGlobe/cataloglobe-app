@@ -332,7 +332,7 @@
 }
 
 // ── Riquadro contatto, fuori dalla fisarmonica ──────────────────────────────
-// Una scheda sola come le domande: busta, testo ed email, copia a destra.
+// Una scheda sola come le domande: logo, testo, email con la copia accanto.
 .contact {
     display: flex;
     align-items: center;
@@ -358,8 +358,7 @@
     width: 40px;
     height: 40px;
     border-radius: 12px;
-    background: var(--ld-brand-s);
-    color: var(--ld-azione);
+    background: linear-gradient(160deg, var(--ld-hero-a), var(--ld-scuro));
 
     @media (max-width: 359px) {
         display: none;
@@ -373,12 +372,10 @@
 }
 
 .markIcon {
-    width: 20px;
     height: 20px;
 
     @include desktop {
-        width: 22px;
-        height: 22px;
+        height: 24px;
     }
 }
 
@@ -387,8 +384,10 @@
     min-width: 0;
 }
 
+// Due righe pari, mai una parola sola a capo.
 .more {
     margin: 0;
+    text-wrap: balance;
     font-size: 13px;
     color: var(--ld-muted);
 
@@ -397,10 +396,16 @@
     }
 }
 
-// Mai a capo dentro l'indirizzo: 16 px al telefono, sotto 360 senza la busta.
+.mailRow {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 6px;
+}
+
+// Mai a capo dentro l'indirizzo: 16 px al telefono, sotto 360 senza il logo.
 .mail {
-    display: inline-block;
-    margin-top: 3px;
+    min-width: 0;
     font-size: 16px;
     font-weight: 600;
     line-height: 1.25;
@@ -435,9 +440,9 @@
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    width: 40px;
-    height: 40px;
-    border-radius: 12px;
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
     background: var(--ld-white);
     border: 1px solid var(--ld-line);
     color: var(--ld-ink);

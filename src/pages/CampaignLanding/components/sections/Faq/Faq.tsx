@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
-import { Mail, Rocket, Tag, Utensils, type LucideIcon } from "lucide-react";
+import { Rocket, Tag, Utensils, type LucideIcon } from "lucide-react";
+import { Logo } from "@components/ui/Logo/Logo";
 import Section from "@pages/CampaignLanding/components/Section/Section";
 import { HandNote, SplitHeading } from "@pages/CampaignLanding/components/kit/Kit";
 import Reveal from "@pages/CampaignLanding/components/kit/Reveal";
@@ -191,15 +192,17 @@ export default function Faq() {
 
                 <div className={styles.contact}>
                     <span className={styles.mark} aria-hidden="true">
-                        <Mail className={styles.markIcon} strokeWidth={2} />
+                        <Logo variant="icon" color="mono-white" className={styles.markIcon} alt="" />
                     </span>
                     <div className={styles.contactText}>
                         <p className={styles.more}>{FAQ.more}</p>
-                        <a className={styles.mail} href={`mailto:${email}`}>
-                            {email}
-                        </a>
+                        <div className={styles.mailRow}>
+                            <a className={styles.mail} href={`mailto:${email}`}>
+                                {email}
+                            </a>
+                            <CopyButton text={email} />
+                        </div>
                     </div>
-                    <CopyButton text={email} />
                 </div>
             </div>
         </Section>

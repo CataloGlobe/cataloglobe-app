@@ -73,9 +73,9 @@
 }
 
 // ── Confronto (mobile) ──────────────────────────────────────────────────────
-// Una scheda sola: i due prezzi affiancati in testa, poi le voci con una
-// colonna di spunte per piano. La colonna Pro ha un velo viola dall'alto in
-// basso, così si legge come una colonna sola con la sua testata.
+// Una scheda sola. Voci a sinistra, due colonne strette a destra (Base, Pro);
+// dietro la colonna Pro un unico fondo viola arrotondato, dalla testata
+// all'ultima voce. Un pulsante solo in fondo.
 .compareWrap {
     margin-top: 24px;
 
@@ -85,53 +85,62 @@
 }
 
 .compare {
-    overflow: hidden;
+    --cmp-col: 70px;
+    --cmp-pad: 16px;
     border-radius: 24px;
     background: var(--ld-white);
     border: 1px solid var(--ld-line);
     box-shadow: var(--ld-shadow-soft);
 }
 
-.cmpHead {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+.cmpBody {
+    position: relative;
+    padding: 12px var(--cmp-pad) 10px;
+}
+
+.cmpProBg {
+    position: absolute;
+    top: 12px;
+    bottom: 10px;
+    right: var(--cmp-pad);
+    width: var(--cmp-col);
+    border-radius: 16px;
+    background: var(--ld-brand-s);
+}
+
+.cmpTable {
+    position: relative;
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+
+.cmpCorner {
+    padding: 0;
 }
 
 .cmpPlan {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    // In alto lo spazio per «Consigliato», anche nel Base: i prezzi restano allineati.
-    padding: 30px 14px 16px;
-    text-align: left;
-}
-
-.cmpPlanPro {
-    background: linear-gradient(180deg, rgba(110, 112, 216, 0.2) 0%, rgba(110, 112, 216, 0.08) 100%);
-    box-shadow: inset 1px 0 0 var(--ld-line);
-}
-
-// Striscia in cima alla colonna Pro.
-.cmpBadge {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    padding: 4px 0;
-    background: var(--ld-azione);
-    color: var(--ld-white);
+    width: var(--cmp-col);
+    padding: 12px 0 14px;
+    vertical-align: bottom;
     text-align: center;
-    font-size: 10px;
+    font-weight: 400;
+}
+
+.cmpBadge {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 8.5px;
     font-weight: 700;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.04em;
     text-transform: uppercase;
+    color: var(--ld-azione);
 }
 
 .cmpName {
-    @include ld-serif;
-    margin: 0;
-    font-size: 24px;
-    line-height: 1.1;
+    display: block;
+    font-size: 13px;
+    font-weight: 700;
     color: var(--ld-ink);
 }
 
@@ -139,127 +148,97 @@
     color: var(--ld-azione);
 }
 
-.cmpClaim {
-    min-height: 2.6em;
-    margin: 4px 0 0;
-    font-size: 12.5px;
-    line-height: 1.3;
-    color: var(--ld-body);
-}
-
 .cmpPrice {
     @include ld-serif;
-    display: flex;
-    align-items: baseline;
-    flex-wrap: wrap;
-    gap: 6px;
-    margin: 10px 0 0;
-    font-size: 34px;
+    display: block;
+    margin-top: 4px;
+    font-size: 22px;
     line-height: 1;
     letter-spacing: -0.02em;
     color: var(--ld-ink);
 }
 
-.cmpFull {
-    font-family: var(--ld-font-sans);
-    font-size: 13px;
-    letter-spacing: 0;
-    color: var(--ld-muted);
-}
-
 .cmpPeriod {
-    margin: 6px 0 14px;
-    font-size: 12px;
-    color: var(--ld-muted);
-}
-
-// Sotto i 360 px il testo va su due righe piuttosto che uscire dalla colonna.
-.cmpCta {
-    margin-top: auto;
-    padding: 12px 8px;
-    font-size: 14px;
-    line-height: 1.2;
-    text-align: center;
-    white-space: normal;
-
-    @media (min-width: 360px) {
-        white-space: nowrap;
-    }
-}
-
-.cmpTrial {
-    margin: 0;
-    padding: 10px 14px;
-    border-top: 1px solid var(--ld-line);
-    border-bottom: 1px solid var(--ld-line);
-    font-size: 12.5px;
-    text-align: center;
-    color: var(--ld-muted);
-}
-
-.cmpTable {
-    width: 100%;
-    border-collapse: collapse;
-    table-layout: fixed;
-}
-
-.cmpColLabel {
-    padding: 14px 8px 8px 16px;
+    display: block;
+    margin-top: 3px;
     font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    text-align: left;
-    text-transform: uppercase;
     color: var(--ld-muted);
-}
-
-.cmpColPlan {
-    width: 52px;
-    padding: 14px 0 8px;
-    font-size: 12px;
-    font-weight: 700;
-    text-align: center;
-    color: var(--ld-ink);
-}
-
-.cmpCellPro {
-    background: rgba(110, 112, 216, 0.08);
-}
-
-th.cmpCellPro {
-    color: var(--ld-azione);
 }
 
 .cmpText {
-    padding: 10px 8px 10px 16px;
-    border-top: 1px solid var(--ld-line-2);
-    font-size: 14px;
+    padding: 9px 10px 9px 0;
+    font-size: 13.5px;
+
+    @media (min-width: 360px) {
+        font-size: 14px;
+    }
+
     font-weight: 400;
     line-height: 1.35;
     text-align: left;
     color: var(--ld-ink);
 }
 
-.cmpRowPro .cmpText {
-    font-weight: 600;
-}
-
 .cmpCell {
-    border-top: 1px solid var(--ld-line-2);
     text-align: center;
     vertical-align: middle;
+    color: var(--ld-muted);
 
-    .itemIcon {
-        margin: 0 auto;
+    svg {
+        display: inline-block;
+        vertical-align: middle;
     }
 }
 
-.cmpPrinter {
+.cmpCellPro {
+    color: var(--ld-azione);
+}
+
+// Non incluso: un trattino corto, più discreto della X.
+.cmpDash {
+    display: inline-block;
+    width: 10px;
+    height: 2px;
+    border-radius: 2px;
+    background: var(--ld-line);
+    vertical-align: middle;
+}
+
+.cmpGroup {
+    padding: 16px 0 4px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-align: left;
+    text-transform: uppercase;
+    color: var(--ld-azione);
+}
+
+.cmpNote {
     margin: 0;
-    padding: 12px 16px 16px;
-    border-top: 1px solid var(--ld-line);
+    padding: 0 var(--cmp-pad);
     font-size: 13px;
-    color: var(--ld-body);
+    color: var(--ld-muted);
+
+    b {
+        font-weight: 600;
+        color: var(--ld-body);
+    }
+}
+
+.cmpFoot {
+    padding: 16px var(--cmp-pad) 18px;
+}
+
+.cmpCta {
+    margin-top: 0;
+}
+
+.cmpTrial {
+    margin: 10px 0 0;
+    font-size: 12.5px;
+    text-align: center;
+    color: var(--ld-muted);
 }
 
 .card {
