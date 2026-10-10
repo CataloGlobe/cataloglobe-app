@@ -138,7 +138,7 @@ export function NextStepSection({
                 </>
             )}
             {form && (
-                <form
+                <form noValidate
                     className={styles.stepForm}
                     onSubmit={e => {
                         e.preventDefault();
@@ -337,7 +337,7 @@ export function NotesSection({
                     Tutte le note ({notes.length})
                 </button>
             )}
-            <form
+            <form noValidate
                 onSubmit={e => {
                     e.preventDefault();
                     void save();

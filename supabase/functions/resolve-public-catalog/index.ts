@@ -69,6 +69,7 @@ function emptyIdSet(): EntityIdSet {
     };
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- catalogo risolto: JSON annidato percorso a mano
 function collectProductIds(p: any, ids: EntityIdSet): void {
     if (!p?.id) return;
     ids.productIds.add(p.id);
@@ -81,6 +82,7 @@ function collectProductIds(p: any, ids: EntityIdSet): void {
     }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- catalogo risolto: JSON annidato percorso a mano
 function collectIds(resolved: any, closures: any[] | null | undefined): EntityIdSet {
     const ids = emptyIdSet();
 
@@ -130,10 +132,12 @@ function buildEntitiesArray(ids: EntityIdSet): Array<{ type: string; ids: string
     return entities;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- catalogo risolto: JSON annidato percorso a mano
 function setIfPresent(obj: any, field: string, key: string, map: Map<string, string>): void {
     if (obj && map.has(key)) obj[field] = map.get(key);
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- catalogo risolto: JSON annidato percorso a mano
 function applyProduct(p: any, map: Map<string, string>): void {
     if (!p?.id) return;
 
@@ -177,6 +181,7 @@ function applyProduct(p: any, map: Map<string, string>): void {
     }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- catalogo risolto: JSON annidato percorso a mano
 function applyFeatured(f: any, map: Map<string, string>): void {
     if (!f?.id) return;
     setIfPresent(f, "title", `featured:${f.id}:title`, map);
@@ -193,6 +198,7 @@ function applyFeatured(f: any, map: Map<string, string>): void {
     // Niente impatto immediato per MVP — pochi tenant usano `note` su featured products.
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- catalogo risolto: JSON annidato percorso a mano
 function applyCategory(cat: any, map: Map<string, string>): void {
     if (!cat?.id) return;
     setIfPresent(cat, "name", `category:${cat.id}:name`, map);
@@ -202,6 +208,7 @@ function applyCategory(cat: any, map: Map<string, string>): void {
     }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- catalogo risolto: JSON annidato percorso a mano
 function applyClosure(c: any, map: Map<string, string>): void {
     if (!c?.id) return;
     setIfPresent(c, "label", `closure:${c.id}:label`, map);
@@ -209,7 +216,9 @@ function applyClosure(c: any, map: Map<string, string>): void {
 
 async function applyAllTranslations(
     supabase: ReturnType<typeof createClient>,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- catalogo risolto: JSON annidato percorso a mano
     resolved: any,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- catalogo risolto: JSON annidato percorso a mano
     closures: any[] | null | undefined,
     tenantId: string,
     requestedLang: string

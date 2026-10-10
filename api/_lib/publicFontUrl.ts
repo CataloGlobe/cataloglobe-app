@@ -1,5 +1,6 @@
 /**
- * ⚠️ SYNC con src/utils/publicFontUrl.ts (usato da middleware.ts + frontend).
+ * ⚠️ SYNC con src/utils/publicFontUrl.ts (usato dal frontend; il vecchio
+ * middleware.ts che lo importava è stato rimosso in a1315573).
  * Duplicato qui perché @vercel/node non bundla import che risalgono fuori da api/.
  *
  * Mappa token di stile `typography.fontFamily` → CSS self-hosted locale

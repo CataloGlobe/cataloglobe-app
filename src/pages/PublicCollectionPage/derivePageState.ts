@@ -120,8 +120,8 @@ export type ResolveRedirectOpts = {
 };
 
 /**
- * Redirect post-fetch (solo payload fresco): alias slug → canonical,
- * lingua non supportata → base, lingua == base → strip dal path.
+ * Redirect post-fetch (solo payload fresco): alias slug → canonical (con la
+ * lingua, se valida e non base), lingua non supportata → base, lingua == base → strip dal path.
  * Ritorna la URL di destinazione per `navigate(url, { replace: true })`
  * o null se nessun redirect.
  */
@@ -134,7 +134,13 @@ export function resolveRedirect(
     const { canonical_slug, lang_unsupported, base_language_code } = payload;
 
     if (canonical_slug && canonical_slug !== opts.slug) {
-        return `/${canonical_slug}`;
+        // Alias → canonical: la lingua richiesta segue lo slug, salvo quando
+        // non è supportata o è la base (gli stessi casi che sotto la tolgono).
+        const keepLang =
+            opts.requestedLang &&
+            !lang_unsupported &&
+            opts.requestedLang !== base_language_code;
+        return keepLang ? `/${canonical_slug}/${opts.requestedLang}` : `/${canonical_slug}`;
     }
     if (lang_unsupported) {
         return `/${opts.slug}`;

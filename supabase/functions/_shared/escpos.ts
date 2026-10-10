@@ -28,6 +28,16 @@ export const LINE_WIDTH_DOUBLE = Math.floor(LINE_WIDTH / 2);
 /** Indent delle righe di dettaglio (opzione/addon/note) sotto `{qty}x `. */
 const DETAIL_INDENT = 3;
 
+/**
+ * Altezza minima della comanda, in righe di testo normale prima del feed
+ * finale. Una comanda da un solo piatto usciva di ~4-5 cm: scomoda da appendere
+ * alla barra portacomande e facile da perdere. Con l'interlinea di default
+ * (~30 dot a 203 dpi, ~3,75 mm) 18 righe sono ~68 mm, piu' il feed di 4 righe
+ * prima del taglio: ~8 cm in tutto, come i gestionali piu' diffusi. Da
+ * ritoccare dopo una stampa di prova, cambiando SOLO questa costante.
+ */
+export const MIN_COMANDA_LINES = 18;
+
 // ============================================================
 // Opcode ESC/POS
 // ============================================================
@@ -174,6 +184,9 @@ const ALIGN_CODE: Record<EscPosAlign, number> = { left: 0, center: 1, right: 2 }
 export class EscPosBuilder {
     private readonly _chunks: Uint8Array[] = [];
     private readonly _enc = new TextEncoder();
+    /** Righe avanzate finora, in righe di testo normale (doppia altezza = 2). */
+    private _lines = 0;
+    private _double = false;
 
     private _push(...bytes: number[]): this {
         this._chunks.push(Uint8Array.from(bytes));
@@ -192,6 +205,7 @@ export class EscPosBuilder {
 
     /** GS ! n — doppia larghezza + doppia altezza (0x11) o normale (0x00). */
     doubleSize(on: boolean): this {
+        this._double = on;
         return this._push(GS, 0x21, on ? 0x11 : 0x00);
     }
 
@@ -216,17 +230,31 @@ export class EscPosBuilder {
     /** Testo + LF. */
     line(s: string): this {
         this.text(s);
-        return this._push(LF);
+        return this.newline();
     }
 
     /** Solo LF. */
     newline(): this {
+        this._lines += this._double ? 2 : 1;
         return this._push(LF);
     }
 
     /** ESC d n — avanza n righe. */
     feed(n: number): this {
-        return this._push(ESC, 0x64, Math.max(0, Math.min(255, n)));
+        const lines = Math.max(0, Math.min(255, n));
+        this._lines += lines;
+        return this._push(ESC, 0x64, lines);
+    }
+
+    /** Righe avanzate finora (righe normali; una riga in doppia altezza vale 2). */
+    get linesPrinted(): number {
+        return this._lines;
+    }
+
+    /** Avanza quanto basta per arrivare ad almeno `min` righe; niente se gia' oltre. */
+    padToLines(min: number): this {
+        const missing = min - this._lines;
+        return missing > 0 ? this.feed(missing) : this;
     }
 
     /** GS V 1 — taglio parziale. */
@@ -345,7 +373,8 @@ export function renderComandaEscPos(payload: ComandaPayload): string {
     // ── Footer: .prFooter (right) → `#ABCD1234`.
     b.align("right").line(`#${payload.order_id.slice(0, 8).toUpperCase()}`).align("left");
 
-    b.feed(4).cut();
+    // Altezza minima (vedi MIN_COMANDA_LINES), poi il solito feed prima del taglio.
+    b.padToLines(MIN_COMANDA_LINES).feed(4).cut();
     return b.toHex();
 }
 

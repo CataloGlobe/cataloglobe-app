@@ -4,7 +4,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { Resend } from "npm:resend@4";
 import { createStripeClient, reactivateStripeSubIfScheduled } from "../_shared/stripe-helpers.ts";
 import { checkRateLimit, RateLimitExceededError, extractClientIp, hashIp } from "../_shared/rateLimit.ts";
-import { COMPANY, getEmailFooterHtml, getEmailFooterText } from "../_shared/company-config.ts";
+import { COMPANY } from "../_shared/company-config.ts";
+import { buildRecoveryCodeEmail } from "../_shared/accountEmails.ts";
 import {
     OTP_TTL_MS,
     COOLDOWN_MS,
@@ -259,29 +260,9 @@ async function sendRecoveryOtp(
 
     await resend.emails.send({
         from: COMPANY.email.sender,
-        reply_to: COMPANY.contact.support,
+        replyTo: COMPANY.contact.support,
         to: email,
-        subject: "Codice di recupero account",
-        html: `
-      <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:#f9fafb;padding:40px">
-        <div style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:12px;padding:32px">
-          <h1 style="margin:0 0 16px;font-size:22px;color:#111827">Recupero account</h1>
-          <p style="margin:0 0 24px;font-size:15px;color:#374151">
-            Usa questo codice per confermare il recupero del tuo account <strong>CataloGlobe</strong>.
-          </p>
-          <div style="text-align:center;margin:32px 0">
-            <div style="display:inline-block;padding:16px 24px;font-size:28px;letter-spacing:4px;font-weight:700;background:#111827;color:#ffffff;border-radius:10px">
-              ${otp}
-            </div>
-          </div>
-          <p style="margin:24px 0 0;font-size:14px;color:#6b7280">
-            Il codice scade tra 5 minuti. Se non hai richiesto tu il recupero, ignora questa email.
-          </p>
-          ${getEmailFooterHtml()}
-        </div>
-      </div>
-    `,
-        text: `Codice di recupero account CataloGlobe: ${otp}\n\nUsa questo codice per confermare il recupero del tuo account. Il codice scade tra 5 minuti. Se non hai richiesto tu il recupero, ignora questa email.\n\n${getEmailFooterText()}`
+        ...buildRecoveryCodeEmail(otp)
     });
 }
 

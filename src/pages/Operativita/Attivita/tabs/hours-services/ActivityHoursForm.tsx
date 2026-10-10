@@ -409,7 +409,7 @@ export function ActivityHoursForm({
     );
 
     return (
-        <form id={formId} onSubmit={handleSubmit} className={styles.form}>
+        <form noValidate id={formId} onSubmit={handleSubmit} className={styles.form}>
             {Array.from({ length: 7 }, (_, dayIndex) => {
                 const dayData = days[dayIndex];
                 const isOpen = !dayData.is_closed;

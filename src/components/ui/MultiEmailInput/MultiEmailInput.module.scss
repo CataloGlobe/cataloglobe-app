@@ -1,3 +1,4 @@
+@use "@styles/mixins" as *;
 /* =============================================================================
    MultiEmailInput — chip-style multi-value email input.
    Theming follows the surrounding form fields (border / focus accent) so it
@@ -98,6 +99,7 @@
     &:disabled {
         cursor: not-allowed;
     }
+    @include touch-input-font;
 }
 
 .error {
