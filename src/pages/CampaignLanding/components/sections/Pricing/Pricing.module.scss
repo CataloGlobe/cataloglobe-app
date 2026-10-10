@@ -41,33 +41,23 @@
 // ── Selettori a segmenti ────────────────────────────────────────────────────
 .seg {
     display: flex;
+    max-width: 380px;
     padding: 4px;
     border-radius: 999px;
-}
-
-.seg-interval {
-    max-width: 380px;
     margin: 22px auto 0;
     background: var(--ld-white);
     border: 1px solid var(--ld-line);
 }
 
-.seg-plan {
-    margin-top: 10px;
-    background: var(--ld-line-2);
-
-    @include desktop {
-        display: none;
-    }
-}
-
 .segBtn {
     @include ld-reset-button;
     @include ld-focus;
-    flex: 1 1 0;
+    // Larghezza dal testo: «Annuale · 2 mesi gratis» resta su una riga a 320.
+    flex: 1 1 auto;
     min-height: 44px;
     padding: 10px 14px;
     border-radius: 999px;
+    white-space: nowrap;
     font-size: 14px;
     font-weight: 600;
     line-height: normal;
@@ -78,15 +68,74 @@
         box-shadow 250ms ease;
 }
 
-.seg-interval .segOn {
+.segOn {
     background: var(--ld-scuro);
     color: var(--ld-white);
 }
 
-.seg-plan .segOn {
+
+// ── Linguette Base/Pro (solo la scheda mobile) ─────────────────────────────
+// La linguetta scelta ha il colore della testata della scheda (vedi .glow),
+// le altre restano un gradino sotto, staccate da una riga.
+.planTabs {
+    display: flex;
+}
+
+.planTab {
+    @include ld-reset-button;
+    @include ld-focus;
+    position: relative;
+    display: flex;
+    flex: 1 1 0;
+    align-items: baseline;
+    justify-content: center;
+    gap: 8px;
+    min-height: 54px;
+    padding: 14px 12px;
+    background: var(--ld-line-2);
+    box-shadow: inset 0 -1px var(--ld-line);
+    font-size: 16px;
+    font-weight: 700;
+    line-height: normal;
+    color: var(--ld-muted);
+    transition:
+        background-color 250ms ease,
+        color 250ms ease;
+
+    &:focus-visible {
+        outline-offset: -3px;
+    }
+
+    & + & {
+        border-left: 1px solid var(--ld-line);
+    }
+}
+
+.planTabPrice {
+    font-size: 14px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+}
+
+.planTabOn {
     background: var(--ld-white);
+    box-shadow: none;
     color: var(--ld-azione);
-    box-shadow: var(--ld-shadow-thumb);
+
+    &::after {
+        content: "";
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 0;
+        height: 3px;
+        background: var(--ld-azione);
+    }
+}
+
+// Pro: il primo stop del bagliore (rgba(110, 112, 216, 0.3)) sul bianco.
+.cardPro .planTabOn {
+    background: color-mix(in srgb, rgb(110 112 216) 30%, var(--ld-white));
 }
 
 // ── Schede ──────────────────────────────────────────────────────────────────

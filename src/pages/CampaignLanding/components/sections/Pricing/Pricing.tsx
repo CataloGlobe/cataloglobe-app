@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import LandingCta from "@pages/CampaignLanding/components/LandingCta/LandingCta";
 import Section from "@pages/CampaignLanding/components/Section/Section";
 import { HandNote, SplitHeading } from "@pages/CampaignLanding/components/kit/Kit";
@@ -27,7 +27,20 @@ function ItemIcon({ kind }: { kind: ItemKind }) {
 }
 
 /** Scheda di un piano: testata (nome, prezzo, CTA) e la stessa lista di voci per entrambi. */
-function PlanCard({ plan, annual, printer, className }: { plan: PlanKey; annual: boolean; printer: boolean; className?: string }) {
+function PlanCard({
+    plan,
+    annual,
+    printer,
+    className,
+    tabs
+}: {
+    plan: PlanKey;
+    annual: boolean;
+    printer: boolean;
+    className?: string;
+    /** Su mobile: linguette Base/Pro in testa alla scheda. */
+    tabs?: ReactNode;
+}) {
     const p = PRICING.plans[plan];
     const isPro = plan === "pro";
     const items: { text: string; kind: ItemKind }[] = [
@@ -37,6 +50,7 @@ function PlanCard({ plan, annual, printer, className }: { plan: PlanKey; annual:
 
     return (
         <div className={cx(styles.card, isPro && styles.cardPro, className)}>
+            {tabs}
             <div className={styles.cardTop}>
                 <div className={styles.glow} aria-hidden="true" />
                 <span className={styles.recommended}>{PRICING.recommended}</span>
@@ -81,21 +95,34 @@ function PlanCard({ plan, annual, printer, className }: { plan: PlanKey; annual:
     );
 }
 
+/** Linguette Base/Pro della scheda mobile, col prezzo del periodo scelto. */
+function PlanTabs({ plan, annual, onChange }: { plan: PlanKey; annual: boolean; onChange: (p: PlanKey) => void }) {
+    const keys: PlanKey[] = ["base", "pro"];
+    return (
+        <div className={styles.planTabs} role="group" aria-label={PRICING.plansLabel}>
+            {keys.map((k) => (
+                <button key={k} type="button" className={cx(styles.planTab, k === plan && styles.planTabOn)} aria-pressed={k === plan} onClick={() => onChange(k)}>
+                    {PRICING.plans[k].name}
+                    <span className={styles.planTabPrice}>{annual ? PRICING.plans[k].year : PRICING.plans[k].month}</span>
+                </button>
+            ))}
+        </div>
+    );
+}
+
 function Segmented<T extends string>({
     options,
     value,
     onChange,
-    label,
-    variant
+    label
 }: {
     options: { value: T; label: string }[];
     value: T;
     onChange: (v: T) => void;
     label: string;
-    variant: "interval" | "plan";
 }) {
     return (
-        <div className={cx(styles.seg, styles[`seg-${variant}`])} role="group" aria-label={label}>
+        <div className={styles.seg} role="group" aria-label={label}>
             {options.map((o) => (
                 <button key={o.value} type="button" className={cx(styles.segBtn, o.value === value && styles.segOn)} aria-pressed={o.value === value} onClick={() => onChange(o.value)}>
                     {o.label}
@@ -105,7 +132,7 @@ function Segmented<T extends string>({
     );
 }
 
-/** 8 · Quanto costa: mensile/annuale; su mobile una scheda sola con Base/Pro. */
+/** 8 · Quanto costa: mensile/annuale; su mobile una scheda sola con le linguette Base/Pro. */
 export default function Pricing() {
     const [annual, setAnnual] = useState(false);
     const [plan, setPlan] = useState<PlanKey>("pro");
@@ -120,7 +147,6 @@ export default function Pricing() {
                     <span className={styles.anchorMobile}>{PRICING.plans[plan].anchor}</span>
                 </p>
                 <Segmented
-                    variant="interval"
                     label={PRICING.intervalsLabel}
                     value={annual ? "year" : "month"}
                     onChange={(v) => setAnnual(v === "year")}
@@ -129,23 +155,19 @@ export default function Pricing() {
                         { value: "year", label: PRICING.intervals.year }
                     ]}
                 />
-                <Segmented
-                    variant="plan"
-                    label={PRICING.plansLabel}
-                    value={plan}
-                    onChange={setPlan}
-                    options={[
-                        { value: "base", label: PRICING.plans.base.name },
-                        { value: "pro", label: PRICING.plans.pro.name }
-                    ]}
-                />
             </Reveal>
 
             <Reveal className={styles.cards} variant="cards">
                 <PlanCard plan="base" annual={annual} printer={false} className={styles.desktopCard} />
                 <PlanCard plan="pro" annual={annual} printer className={styles.desktopCard} />
                 {/* Su mobile la stampante resta sotto la lista anche nel Base, come in tavola. */}
-                <PlanCard plan={plan} annual={annual} printer className={styles.mobileCard} />
+                <PlanCard
+                    plan={plan}
+                    annual={annual}
+                    printer
+                    className={styles.mobileCard}
+                    tabs={<PlanTabs plan={plan} annual={annual} onChange={setPlan} />}
+                />
             </Reveal>
 
             <p className={styles.footnote}>{PRICING.footnote}</p>
