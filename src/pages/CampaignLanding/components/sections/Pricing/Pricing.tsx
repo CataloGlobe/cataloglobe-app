@@ -137,8 +137,12 @@ export default function Pricing() {
     usePlanInView(strip, setPlan);
 
     const goTo = (p: PlanKey) => {
-        const el = strip.current?.querySelector<HTMLElement>(`[data-plan="${p}"]`);
-        el?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+        // scrollTo sulla striscia, non scrollIntoView: la scheda è più alta dello
+        // schermo e la pagina scorrerebbe anche in verticale.
+        const root = strip.current;
+        const el = root?.querySelector<HTMLElement>(`[data-plan="${p}"]`);
+        if (!root || !el) return;
+        root.scrollTo({ left: el.offsetLeft - (root.clientWidth - el.offsetWidth) / 2, behavior: "smooth" });
     };
 
     return (
@@ -163,8 +167,8 @@ export default function Pricing() {
 
             <Reveal className={styles.cards} variant="cards">
                 <div ref={strip} className={styles.strip}>
-                    <PlanCard plan="base" annual={annual} printer={false} />
                     <PlanCard plan="pro" annual={annual} printer />
+                    <PlanCard plan="base" annual={annual} printer={false} />
                 </div>
             </Reveal>
             <div className={styles.dots} role="group" aria-label={PRICING.plansLabel}>

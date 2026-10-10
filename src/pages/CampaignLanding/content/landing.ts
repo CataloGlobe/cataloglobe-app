@@ -344,9 +344,9 @@ export const DEMOS = {
     title: { before: "Guarda cosa può diventare ", underlined: "il tuo locale.", after: "" } satisfies UnderlinedTitle,
     lede: "Tre locali di esempio, tre stili diversi: colori, caratteri e logo li scegli tu. Aprili: è la pagina che i clienti vedono dal QR.",
     open: "Apri il menù →",
-    /** Alt dello screenshot nel telefono (`scripts/landing-demo-screenshots.ts`). */
     /** Ora nella barra di stato del telefono (kit/Phone). */
     phoneTime: "12:30",
+    /** Alt dello screenshot nel telefono (`scripts/landing-demo-screenshots.ts`). */
     screenAlt: (name: string) => `Il menù di ${name} sul telefono: la copertina del locale, le categorie e i primi piatti con i prezzi.`,
     qrCaption: "Inquadra il QR e apri il menù sul tuo telefono.",
     /** Nome accessibile del QR: dice dove porta, perché il codice da solo non si legge. */

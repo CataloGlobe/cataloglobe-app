@@ -75,9 +75,9 @@
 
 
 // ── Schede ──────────────────────────────────────────────────────────────────
-// Mobile: striscia che scorre col dito, Pro davanti e Base che si intravede a
-// destra; esce dai margini della sezione fino al bordo dello schermo. Da
-// desktop: le due schede affiancate, Base a sinistra.
+// Mobile: striscia che scorre col dito, Pro davanti (primo anche nel DOM) e
+// Base che si intravede a destra; esce dai margini della sezione fino al
+// bordo dello schermo. Da desktop: le due schede affiancate, Base a sinistra.
 .cards {
     margin: 24px calc(-1 * var(--ld-sec-x)) 0;
 
@@ -90,7 +90,8 @@
 .strip {
     display: flex;
     gap: 12px;
-    padding: 6px var(--ld-sec-x) 34px;
+    // In basso spazio per l'ombra della scheda Pro: overflow-x la taglierebbe.
+    padding: 6px var(--ld-sec-x) 56px;
     overflow-x: auto;
     overscroll-behavior-x: contain;
     scroll-snap-type: x mandatory;
@@ -106,10 +107,6 @@
         scroll-snap-align: center;
     }
 
-    .cardPro {
-        order: -1;
-    }
-
     @include desktop {
         gap: 28px;
         align-items: stretch;
@@ -120,8 +117,10 @@
             flex: 1 1 0;
         }
 
+        // Nel DOM Pro viene prima (lettura e Tab come al telefono); da
+        // desktop Base torna a sinistra.
         .cardPro {
-            order: 0;
+            order: 1;
         }
     }
 }
@@ -131,7 +130,7 @@
     display: flex;
     justify-content: center;
     gap: 2px;
-    margin-top: -18px;
+    margin-top: -40px;
 
     @include desktop {
         display: none;
