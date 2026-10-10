@@ -1234,6 +1234,19 @@ test.describe("Prodotti — lotto bug B", () => {
         expect(posted("product_option_values.POST", "Piccolo")).toBe(1);
     });
 
+    test("#336.1b: se falliscono tutti i formati, il gruppo «Formato» appena nato non resta vuoto", async ({ page }) => {
+        storeOptions(() => true);
+        stub.onWrite("product_option_groups.DELETE", () => {
+            stub.tables.product_option_groups = stub.tables.product_option_groups.filter(g => !String(g.id).startsWith("e2e0d000-0000-4000-a000-00000000098"));
+            return [];
+        });
+        await addFormats(page, [["Piccolo", "3"]]);
+        await saveButton(page).click();
+        await expect(page.getByText("Non è stato possibile salvare: Formati")).toBeVisible();
+        expect(posted("product_option_groups.POST")).toBe(1);
+        expect(posted("product_option_groups.DELETE")).toBe(1);
+    });
+
     test("#336.3: due clic sul Salva scrivono una volta sola", async ({ page }) => {
         storeOptions();
         await addFormats(page, [["Piccolo", "3"]]);
