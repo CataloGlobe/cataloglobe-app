@@ -28,11 +28,11 @@ export const STORIA_WHEN = false;
 export const SLUG: Record<CreaKind, string> = { menu: "menu", stile: "stile", evid: "evidenza", storia: "storia" };
 export const kindOfSlug = (s: string | undefined): CreaKind | null => CREA_KINDS.find(k => SLUG[k] === s) ?? null;
 
-export const KIND: Record<CreaKind, { t: string; page: string; list: string; pub: string; noun: string }> = {
-    menu: { t: "Nuovo menù", page: "Menù", list: "catalogs", pub: "Metti in onda", noun: "menù" },
-    stile: { t: "Nuovo stile", page: "Stili", list: "styles", pub: "Metti in onda", noun: "stile" },
-    evid: { t: "Nuovo contenuto in evidenza", page: "In evidenza", list: "featured", pub: "Pubblica", noun: "contenuto" },
-    storia: { t: "Nuova storia", page: "Storie", list: "stories", pub: "Pubblica", noun: "storia" }
+export const KIND: Record<CreaKind, { t: string; edit: string; page: string; list: string; pub: string; noun: string }> = {
+    menu: { t: "Nuovo menù", edit: "Modifica il menù", page: "Menù", list: "catalogs", pub: "Metti in onda", noun: "menù" },
+    stile: { t: "Nuovo stile", edit: "Modifica lo stile", page: "Stili", list: "styles", pub: "Metti in onda", noun: "stile" },
+    evid: { t: "Nuovo contenuto in evidenza", edit: "Modifica il contenuto in evidenza", page: "In evidenza", list: "featured", pub: "Pubblica", noun: "contenuto" },
+    storia: { t: "Nuova storia", edit: "Modifica la storia", page: "Storie", list: "stories", pub: "Pubblica", noun: "storia" }
 };
 
 export type EvType = "annuncio" | "evento" | "promo" | "bundle";
@@ -78,8 +78,36 @@ export type Dish = {
     formats?: { name: string; price: number | null }[];
     /** L'AI non ne era sicura, o il nome somiglia a più prodotti: «da controllare». */
     check?: boolean;
+    /** Modificando (D140): il piatto è già nel menù, con questa riga e questo posto. */
+    linkId?: string;
+    sort?: number;
 };
-export type Section = { key: string; name: string; dishes: Dish[] };
+/** `id`: la sezione c'è già nel menù che si modifica (D140). */
+export type Section = {
+    key: string;
+    id?: string;
+    sort?: number;
+    /** Ha delle sotto-sezioni: dal tunnel non si toglie. */
+    fixed?: boolean;
+    name: string;
+    dishes: Dish[];
+};
+
+/**
+ * Modificare una cosa già creata (D140): lo stesso tunnel, con un passo 0
+ * «Cosa vuoi modificare?». Si salva solo quello che è cambiato da `orig`.
+ */
+export type Edit = {
+    id: string;
+    /** I passi scelti nel passo 0: gli altri restano grigi, ma ci si può andare. */
+    picked: StepId[];
+    /** Com'era la cosa aprendo il tunnel. */
+    orig: Tunnel;
+    /** La regola del Calendario che la mette in onda, se è una sola: il «Dove e quando» cambia quella. */
+    ruleId: string | null;
+    /** In quante regole del Calendario compare. */
+    rules: number;
+};
 
 /** Quello che arriva da «E adesso?»: il menù appena messo in onda. */
 export type FromMenu = {
@@ -126,6 +154,8 @@ export type Tunnel = {
     inner: string;
     text: string;
     image: File | null;
+    /** La foto che c'è già, modificando; null se non c'è o se è stata tolta. */
+    imageUrl: string | null;
     cta: boolean;
     ctaText: string;
     ctaLink: string;
@@ -137,8 +167,11 @@ export type Tunnel = {
     // la storia
     kicker: string;
     cover: File | null;
+    coverUrl: string | null;
     linked: string;
     blocks: StoryBlock[];
+    /** I blocchi immagine con una foto nuova da caricare (i file stanno fuori dal modello). */
+    pending: string[];
     // quando e dove
     qmode: "sempre" | "momenti";
     when: CalWhen;
@@ -148,6 +181,7 @@ export type Tunnel = {
     from: FromMenu | null;
     /** Aperto da «Crea un menù nuovo» del Calendario con la bozza messa da parte: quando e dove vengono da lì. */
     aside: boolean;
+    edit: Edit | null;
 };
 
 let seq = 0;
@@ -176,6 +210,7 @@ export function newTunnel(kind: CreaKind, where: CalWhere, from: FromMenu | null
         inner: "",
         text: "",
         image: null,
+        imageUrl: null,
         cta: false,
         ctaText: "Prenota",
         ctaLink: "",
@@ -186,14 +221,17 @@ export function newTunnel(kind: CreaKind, where: CalWhere, from: FromMenu | null
         showOrig: true,
         kicker: "",
         cover: null,
+        coverUrl: null,
         linked: "",
         blocks: [],
+        pending: [],
         qmode: from && (from.when.period || from.when.days || from.when.ranges) ? "momenti" : "sempre",
         when: from ? cloneWhen(from.when) : {},
         where: { all: w.all, activityIds: [...w.activityIds], groupIds: [...w.groupIds] },
         per: clonePer(from?.per ?? null),
         from,
-        aside: false
+        aside: false,
+        edit: null
     };
 }
 
@@ -221,6 +259,7 @@ export const cloneWhen = (w: CalWhen): CalWhen => ({
 /* ---------- i passi ---------- */
 
 export type StepId =
+    | "modifica"
     | "tipo"
     | "parti"
     | "sezioni"
@@ -237,6 +276,7 @@ export type StepId =
     | "controlla";
 
 export const STEP_LABEL: Record<StepId, string> = {
+    modifica: "Cosa vuoi modificare?",
     tipo: "Che menù è",
     parti: "Da dove parti",
     sezioni: "Sezioni e piatti",
@@ -256,7 +296,11 @@ export const STEP_LABEL: Record<StepId, string> = {
 /** Chi crea e dove: `owner` gestisce il Calendario (Dove e quando), `multi` ha più sedi. */
 export type Ctx = { owner: boolean; multi: boolean };
 
+/** Il nome del passo: modificando un menù «Da dove parti» è solo il nome. */
+export const stepLabel = (t: Tunnel, s: StepId): string => (t.edit && s === "parti" ? "Il nome" : STEP_LABEL[s]);
+
 export function steps(t: Tunnel, c: Ctx): StepId[] {
+    if (t.edit) return editSteps(t, c);
     const content: StepId[] =
         t.kind === "menu"
             ? ["tipo", "parti", "sezioni"]
@@ -290,6 +334,8 @@ export const effWhen = (t: Tunnel): CalWhen => (t.qmode === "sempre" ? {} : t.wh
 /** Cosa manca per andare avanti da questo passo; "" se niente. */
 export function blocker(t: Tunnel, step: StepId, c: Ctx): string {
     switch (step) {
+        case "modifica":
+            return t.edit && (t.edit.picked.length || changedSteps(t, c).length) ? "" : "Scegli almeno una cosa";
         case "tipo":
             return t.menuType ? "" : "Scegli che menù è";
         case "parti":
@@ -334,6 +380,8 @@ export function blocker(t: Tunnel, step: StepId, c: Ctx): string {
 export function firstBlock(t: Tunnel, c: Ctx): { i: number; why: string } | null {
     const st = steps(t, c);
     for (let i = 0; i < st.length - 1; i++) {
+        // modificando conta solo quello che si è cambiato: il resto era già così
+        if (t.edit && !changed(t, st[i])) continue;
         const why = blocker(t, st[i], c);
         if (why) return { i, why };
     }
@@ -375,7 +423,81 @@ export function sectionsFromAi(categories: readonly AiMenuCategory[], pick: read
 
 /** C'è qualcosa da perdere uscendo. */
 export const isDirty = (t: Tunnel) =>
+    t.edit ? EDIT_PARTS.some(s => changed(t, s)) :
     t.i > 0 || !!t.name.trim() || !!t.title.trim() || !!t.menuType || !!t.evType || t.sections.length > 0 || !!t.imported;
+
+/* ---------- modificare (D140) ---------- */
+
+/** I passi che cambiano la cosa, in ordine: il passo 0 e «Controlla» stanno attorno. */
+const EDIT_PARTS: readonly StepId[] = ["parti", "sezioni", "nome", "aspetto", "contenuto", "piatti", "racconto", "blocchi", "quando", "dove"];
+
+function editSteps(t: Tunnel, c: Ctx): StepId[] {
+    const content: StepId[] =
+        t.kind === "menu"
+            ? ["parti", "sezioni"]
+            : t.kind === "stile"
+              ? ["nome", "aspetto"]
+              : t.kind === "evid"
+                ? ["contenuto", ...(t.evType === "promo" || t.evType === "bundle" ? (["piatti"] as StepId[]) : [])]
+                : ["racconto", "blocchi"];
+    // il «Dove e quando» cambia la sua regola del Calendario: c'è solo se è una (la storia non ha regole)
+    const one = t.kind === "storia" ? c.multi : !!t.edit?.ruleId;
+    const when: StepId[] = c.owner && one ? [c.multi ? "dove" : "quando"] : [];
+    return ["modifica", ...content, ...when, "controlla"];
+}
+
+const sorted = (x: readonly string[]) => [...x].sort();
+
+/** Quello che un passo decide, da confrontare con com'era. */
+function partOf(t: Tunnel, s: StepId): unknown {
+    switch (s) {
+        case "parti":
+        case "nome":
+            return t.name.trim();
+        case "sezioni":
+            return t.sections.map(x => [x.id ?? x.key, x.name.trim(), x.dishes.map(d => d.linkId ?? d.productId ?? [d.key, d.name, d.price])]);
+        case "aspetto":
+            return [t.color, t.dark, t.font, t.card];
+        case "contenuto":
+            return [t.title.trim(), t.sub.trim(), t.inner.trim(), t.text.trim(), !!t.image, t.imageUrl, t.cta && [t.ctaText.trim(), t.ctaLink.trim()], t.slot];
+        case "piatti":
+            return [t.dishes, t.evType === "bundle" ? [t.bundle.trim(), t.showOrig] : t.dishes.map(d => t.notes[d]?.trim() ?? "")];
+        case "racconto":
+            return [t.kicker.trim(), t.title.trim(), !!t.cover, t.coverUrl, t.linked];
+        case "blocchi":
+            return [t.blocks, t.pending];
+        case "quando":
+        case "dove":
+            return [cloneWhen(effWhen(t)), t.where.all, sorted(t.where.activityIds), sorted(t.where.groupIds), t.per];
+        default:
+            return null;
+    }
+}
+
+/** Modificando: in questo passo è cambiato qualcosa. */
+export const changed = (t: Tunnel, s: StepId): boolean => !!t.edit && JSON.stringify(partOf(t, s)) !== JSON.stringify(partOf(t.edit.orig, s));
+
+export const changedSteps = (t: Tunnel, c: Ctx): StepId[] => steps(t, c).filter(s => changed(t, s));
+
+/** Viola nella fila dei passi: scelto nel passo 0, o grigio ma poi toccato. */
+export const lit = (t: Tunnel, s: StepId): boolean => !!t.edit && (t.edit.picked.includes(s) || changed(t, s));
+
+/** Toccati senza averli scelti: «Controlla» chiede di guardarli. */
+export const strays = (t: Tunnel, c: Ctx): StepId[] => changedSteps(t, c).filter(s => !t.edit?.picked.includes(s));
+
+/** Dove porta «Avanti» (dir 1) o «Indietro» (dir -1): modificando, solo fra i passi viola. */
+export function stepFrom(t: Tunnel, c: Ctx, i: number, dir: 1 | -1): number {
+    const st = steps(t, c);
+    if (!t.edit) return Math.max(0, Math.min(i + dir, st.length - 1));
+    for (let j = i + dir; j > 0 && j < st.length - 1; j += dir) if (lit(t, st[j])) return j;
+    return dir > 0 ? st.length - 1 : 0;
+}
+
+/** Mette in piedi la modifica: `t` è la cosa com'è oggi, letta dal database. */
+export function asEdit(t: Tunnel, id: string, rule: { id: string | null; count: number }): Tunnel {
+    const orig = { ...t, i: 0, seen: 0, edit: null };
+    return { ...structuredClone(orig), seen: 99, edit: { id, picked: [], orig, ruleId: rule.id, rules: rule.count } };
+}
 
 /* ---------- le frasi ---------- */
 
@@ -386,6 +508,7 @@ export function thingName(t: Tunnel): string {
 
 /** «Nuovo menù · Pranzo»: il titolo del tunnel. */
 export function tunnelTitle(t: Tunnel): string {
+    if (t.edit) return KIND[t.kind].edit + " · " + thingName(t.edit.orig);
     const n = (t.kind === "evid" || t.kind === "storia" ? t.title : t.name).trim();
     return KIND[t.kind].t + (n ? " · " + n : "");
 }
@@ -437,14 +560,14 @@ export function stepSummary(t: Tunnel, s: StepId, L: DraftLookups, styleName: (i
         case "tipo":
             return t.menuType === "multi" ? "Multi menù" : "Menù classico";
         case "parti":
-            return `${t.name.trim()} · ${t.source === "foto" ? "da una foto o un PDF" : "da zero"}`;
+            return t.edit ? t.name.trim() : `${t.name.trim()} · ${t.source === "foto" ? "da una foto o un PDF" : "da zero"}`;
         case "sezioni":
             return t.sections.map(x => `${x.name} (${x.dishes.length})`).join(", ") || "—";
         case "nome":
             return t.name.trim() + (t.base === "copy" && t.baseStyleId ? ` · copia di ${styleName(t.baseStyleId)}` : "");
         case "aspetto":
             return [
-                COLORS.find(c => c[0] === t.color)?.[1] ?? "—",
+                COLORS.find(c => c[0] === t.color)?.[1] ?? t.color ?? "—",
                 "sfondo " + (t.dark ? "scuro" : "chiaro"),
                 FONTS[t.font].name,
                 CARDS[t.card].toLowerCase()
@@ -458,7 +581,7 @@ export function stepSummary(t: Tunnel, s: StepId, L: DraftLookups, styleName: (i
                 ? `${t.dishes.map(product).join(", ")} · ${t.bundle.trim()} €${t.showOrig ? " · totale originale barrato" : ""}`
                 : t.dishes.map(d => product(d) + (t.notes[d]?.trim() ? ` (${t.notes[d].trim()})` : "")).join(", ");
         case "racconto":
-            return [t.kicker.trim(), t.title.trim()].filter(Boolean).join(" · ") + (t.cover ? " · con copertina" : "") + (t.linked ? ` · anche in ${product(t.linked)}` : "");
+            return [t.kicker.trim(), t.title.trim()].filter(Boolean).join(" · ") + (t.cover || t.coverUrl ? " · con copertina" : "") + (t.linked ? ` · anche in ${product(t.linked)}` : "");
         case "blocchi": {
             if (!t.blocks.length) return "Nessun blocco";
             const n = new Map<StoryBlock["type"], number>();
@@ -489,6 +612,8 @@ export const priceText = (p: number | null) => (p == null ? "—" : eur(p));
 /** La card fissa sopra il telefono: cosa si guarda, in due righe. */
 export function qcardText(t: Tunnel, step: StepId, L: DraftLookups, baseName: string | null): [string, string] {
     switch (step) {
+        case "modifica":
+            return [thingName(t), "Com'è adesso. Cambia mentre modifichi."];
         case "tipo":
             return t.menuType === "classico" ? ["Menù classico", "Sezioni e piatti, uno sotto l'altro."] : ["Il menù", "Tocca una scelta: qui vedi com'è."];
         case "parti":

@@ -32,8 +32,11 @@ export function styleTokens(t: Tunnel, base: StyleTokenModel): StyleTokenModel {
     if (t.color) tk.colors.primary = t.color;
     if (t.dark !== isDarkHex(base.colors.pageBackground)) tk.colors.pageBackground = t.dark ? DARK_BG : LIGHT_BG;
     tk.typography.fontFamily = t.font;
-    tk.card.productStyle = t.card === "compatti" ? "compact" : "card";
-    tk.card.image.mode = t.card === "lista" ? "hide" : "show";
+    // la forma delle card si tocca solo se è cambiata: lo stile di partenza può averla più fine di queste tre
+    if (t.card !== cardOf(base)) {
+        tk.card.productStyle = t.card === "compatti" ? "compact" : "card";
+        tk.card.image.mode = t.card === "lista" ? "hide" : "show";
+    }
     return tk;
 }
 

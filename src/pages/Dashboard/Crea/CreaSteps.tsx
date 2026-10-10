@@ -16,7 +16,7 @@ import { DoveQuandoPasso, QuandoPasso, ScontriAvviso, type PassoGruppo, type Pas
 import { DB_LATER, invalid, type Draft, type DraftLookups, type Impatto, type PickProduct } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import type { Axis, CalWhen } from "@/pages/Dashboard/Programming/calendar/calendarModel";
 import cal from "@/pages/Dashboard/Programming/calendar/CalendarioView.module.scss";
-import { CARDS, COLORS, EV, FONTS, FONT_QUICK, KIND, MAX_IMPORT_FILES, STEP_LABEL, STORIA_WHEN, blocker, bundleTotal, euro, firstBlock, priceText, key, sentence, stepSummary, steps, type CardKey, type Ctx, type EvType, type Tunnel } from "./creaModel";
+import { CARDS, COLORS, EV, FONTS, FONT_QUICK, KIND, MAX_IMPORT_FILES, STEP_LABEL, STORIA_WHEN, blocker, bundleTotal, changed, euro, firstBlock, priceText, key, sentence, stepLabel, stepSummary, steps, strays, type CardKey, type Ctx, type EvType, type StepId, type Tunnel } from "./creaModel";
 import s from "./Crea.module.scss";
 import { Box, Chip, Field, Opt, Sh, Toggle, Warnish } from "./CreaUi";
 import { DishAdder } from "./DishAdder";
@@ -35,6 +35,43 @@ export function Inherited({ children }: { children: ReactNode }) {
     );
 }
 
+
+/* ---------- modificare: il passo 0 (D140) ---------- */
+export function Modifica({ t, u, c, L, styleName }: { t: Tunnel; u: U; c: Ctx; L: DraftLookups; styleName: (id: string) => string }) {
+    const e = t.edit!;
+    const parts = steps(t, c).filter(x => x !== "modifica" && x !== "controlla");
+    const toggle = (x: StepId) =>
+        u(y => {
+            const p = y.edit!.picked, i = p.indexOf(x);
+            if (i >= 0) p.splice(i, 1);
+            else p.push(x);
+        });
+    const inCal = t.kind !== "storia" && c.owner && !e.ruleId;
+    return (
+        <>
+            <Sh title="Cosa vuoi modificare?">Scegli una cosa o più: «Avanti» ti porta solo lì. Il resto resta com'è.</Sh>
+            <div className={s.whats}>
+                {parts.map(x => {
+                    const on = e.picked.includes(x);
+                    return (
+                        <button key={x} type="button" className={s.what} role="checkbox" aria-checked={on} onClick={() => toggle(x)}>
+                            <Box on={on} />
+                            <span>
+                                <b>{stepLabel(t, x)}</b>
+                                <span>{stepSummary({ ...e.orig, edit: e }, x, L, styleName) || "—"}</span>
+                            </span>
+                        </button>
+                    );
+                })}
+            </div>
+            {inCal && (
+                <p className={s.hint}>
+                    {e.rules > 1 ? `È nel Calendario ${e.rules} volte: il dove e il quando si cambiano da lì, una voce alla volta.` : "Non è nel Calendario: il dove e il quando si scelgono da lì."}
+                </p>
+            )}
+        </>
+    );
+}
 
 /* ---------- il menù ---------- */
 export function MenuTipo({ t, u }: { t: Tunnel; u: U }) {
@@ -58,11 +95,11 @@ export function MenuParti({ t, u, onImport, importing, importError }: { t: Tunne
     const read = t.imported;
     return (
         <>
-            <Sh title="Da dove parti">Il nome lo legge anche il cliente, in cima al menù.</Sh>
+            <Sh title={t.edit ? "Il nome" : "Da dove parti"}>Il nome lo legge anche il cliente, in cima al menù.</Sh>
             <Field label="Nome del menù" id={id}>
                 <input className={s.in} id={id} value={t.name} placeholder="Menù pranzo" autoComplete="off" onChange={e => u(x => void (x.name = e.target.value))} />
             </Field>
-            <div className={s.opts}>
+            <div className={s.opts} hidden={!!t.edit}>
                 <Opt on={t.source === "zero"} icon={<Plus size={16} />} title="Da zero" text="Prendi i piatti che hai o scrivine di nuovi." onClick={() => u(x => void (x.source = "zero"))} />
                 <Opt
                     on={t.source === "foto"}
@@ -132,7 +169,13 @@ export function MenuSezioni({ t, u, pick }: { t: Tunnel; u: U; pick: readonly Pi
     };
     return (
         <>
-            <Sh title="Sezioni e piatti">{read ? "Ecco cosa abbiamo letto: controlla, togli e aggiungi come se l'avessi scritto tu." : "Prendi i piatti che hai già o scrivine di nuovi, con il prezzo."}</Sh>
+            <Sh title="Sezioni e piatti">
+                {t.edit
+                    ? "Togli e aggiungi sezioni e piatti. L'ordine, le sotto-sezioni e le varianti restano come sono."
+                    : read
+                      ? "Ecco cosa abbiamo letto: controlla, togli e aggiungi come se l'avessi scritto tu."
+                      : "Prendi i piatti che hai già o scrivine di nuovi, con il prezzo."}
+            </Sh>
             {read && (
                 <div className={cx(s.callout, s.ok)}>
                     <ScanText size={16} aria-hidden />
@@ -147,13 +190,13 @@ export function MenuSezioni({ t, u, pick }: { t: Tunnel; u: U; pick: readonly Pi
                     <h5>
                         {x.name}
                         <span className={s.grow} />
-                        <IconButton size="sm" icon={<Trash2 size={14} />} aria-label={`Togli la sezione ${x.name}`} onClick={() => u(y => void y.sections.splice(si, 1))} />
+                        {!x.fixed && <IconButton size="sm" icon={<Trash2 size={14} />} aria-label={`Togli la sezione ${x.name}`} onClick={() => u(y => void y.sections.splice(si, 1))} />}
                     </h5>
                     {x.dishes.map((d, di) => (
                         <div className={s.dish} key={d.key}>
                             <span>
                                 {d.name}
-                                {!d.productId && <span className={s.new}>nuovo</span>}
+                                {(t.edit ? !d.linkId : !d.productId) && <span className={s.new}>nuovo</span>}
                                 {d.check && <span className={s.check}>da controllare</span>}
                             </span>
                             <span className={s.p}>{priceText(d.price)}</span>
@@ -208,11 +251,11 @@ export function StileNome({ t, u, styles, onBase }: { t: Tunnel; u: U; styles: r
             <Field label="Nome dello stile" id={id}>
                 <input className={s.in} id={id} value={t.name} placeholder="Natale" autoComplete="off" onChange={e => u(x => void (x.name = e.target.value))} />
             </Field>
-            <div className={s.opts}>
+            <div className={s.opts} hidden={!!t.edit}>
                 <Opt on={t.base === "zero"} icon={<Plus size={16} />} title="Da zero" text="Parti dai colori di CataloGlobe." onClick={() => onBase(null)} />
                 <Opt on={t.base === "copy"} icon={<Copy size={16} />} title="Parti da uno stile che hai" text="Ne fai una copia e la cambi." onClick={() => onBase(t.baseStyleId ?? styles[0]?.id ?? null)} disabled={!styles.length} />
             </div>
-            {t.base === "copy" && (
+            {t.base === "copy" && !t.edit && (
                 <div className={s.chips}>
                     {styles.map(st => (
                         <Chip key={st.id} on={t.baseStyleId === st.id} onClick={() => onBase(st.id)}>
@@ -226,15 +269,19 @@ export function StileNome({ t, u, styles, onBase }: { t: Tunnel; u: U; styles: r
 }
 
 export function StileAspetto({ t, u }: { t: Tunnel; u: U }) {
+    const was = t.edit?.orig.color ?? null;
+    const own = was && !COLORS.some(c => c[0] === was.toLowerCase()) ? was : null;
     return (
         <>
-            <Sh title="L'aspetto">Le quattro cose che cambiano di più la pagina. Il resto si rifinisce dopo, nell'editor dello stile.</Sh>
+            <Sh title="L'aspetto">{t.edit ? "Le quattro cose che cambiano di più la pagina. Il resto dello stile resta com'è." : "Le quattro cose che cambiano di più la pagina. Il resto si rifinisce dopo, nell'editor dello stile."}</Sh>
             <div className={s.blk}>
                 <h4>Colore principale</h4>
                 <div className={s.sw}>
                     {COLORS.map(([c, n]) => (
-                        <button key={c} type="button" className={s.swb} style={{ background: c }} aria-pressed={t.color === c} aria-label={n} title={n} onClick={() => u(x => void (x.color = c))} />
+                        <button key={c} type="button" className={s.swb} style={{ background: c }} aria-pressed={t.color?.toLowerCase() === c} aria-label={n} title={n} onClick={() => u(x => void (x.color = c))} />
                     ))}
+                    {/* il colore che lo stile ha già, se non è fra i sei */}
+                    {own && <button type="button" className={s.swb} style={{ background: own }} aria-pressed={t.color === own} aria-label="Il colore di adesso" title="Il colore di adesso" onClick={() => u(x => void (x.color = own))} />}
                 </div>
             </div>
             <div className={s.blk}>
@@ -274,7 +321,7 @@ export function StileAspetto({ t, u }: { t: Tunnel; u: U }) {
                     ))}
                 </div>
             </div>
-            <p className={s.hint}>Dopo «Metti in onda» si arriva sulla pagina dello stile, con l'editor intero: header, navigazione delle sezioni, in evidenza, prodotti, tipografia, versioni.</p>
+            {!t.edit && <p className={s.hint}>Dopo «Metti in onda» si arriva sulla pagina dello stile, con l'editor intero: header, navigazione delle sezioni, in evidenza, prodotti, tipografia, versioni.</p>}
         </>
     );
 }
@@ -317,7 +364,16 @@ export function EvidContenuto({ t, u, owner, imageUrl }: { t: Tunnel; u: U; owne
                 </div>
                 <div className={s.f}>
                     <span className={s.lab}>Immagine</span>
-                    <ImagePick url={imageUrl} id={ids.img} onPick={f => u(x => void (x.image = f))} />
+                    <ImagePick
+                        url={imageUrl}
+                        id={ids.img}
+                        onPick={f =>
+                            u(x => {
+                                x.image = f;
+                                if (!f) x.imageUrl = null;
+                            })
+                        }
+                    />
                 </div>
             </div>
             <div className={s.blk}>
@@ -337,7 +393,7 @@ export function EvidContenuto({ t, u, owner, imageUrl }: { t: Tunnel; u: U; owne
                     </div>
                 )}
             </div>
-            {owner && (
+            {owner && !t.edit && (
                 <div className={s.blk}>
                     <h4>Dove sulla pagina</h4>
                     <div className={s.chips}>
@@ -457,7 +513,16 @@ export function StoriaRacconto({ t, u, pick, coverUrl }: { t: Tunnel; u: U; pick
             </Field>
             <div className={s.blk}>
                 <span className={s.lab}>Copertina</span>
-                <ImagePick url={coverUrl} id={ids.c} onPick={f => u(x => void (x.cover = f))} />
+                <ImagePick
+                    url={coverUrl}
+                    id={ids.c}
+                    onPick={f =>
+                        u(x => {
+                            x.cover = f;
+                            if (!f) x.coverUrl = null;
+                        })
+                    }
+                />
             </div>
             <div className={cx(s.f, s.blk)}>
                 <label htmlFor={ids.l}>Anche nella scheda di un piatto</label>
@@ -583,6 +648,7 @@ export function Quando({ t, u, draft, updDraft, durs, axis, bare }: { t: Tunnel;
             <Sh title="Quando">Quando lo vede il cliente. Si cambia quando vuoi dal Calendario.</Sh>
             {t.from && <Inherited>Già compilato dal menù {q(t.from.name)}: puoi cambiarlo.</Inherited>}
             {t.aside && <Inherited>Dalla bozza che hai tenuto da parte nel Calendario: puoi cambiarlo.</Inherited>}
+            {t.edit && <Inherited>È la sua voce nel Calendario: cambiandola qui, cambia anche lì.</Inherited>}
             {choice}
             <p className={s.hint}>{KIND_TXT[t.kind]}</p>
         </>
@@ -599,6 +665,7 @@ export function DoveQuando(p: { t: Tunnel; u: U; draft: Draft; updDraft: Upd; se
             <Sh title="Dove e quando">In quali sedi e quando lo vede il cliente. Si cambia quando vuoi dal Calendario.</Sh>
             {t.from && <Inherited>Già compilato dal menù {q(t.from.name)}: puoi cambiarlo.</Inherited>}
             {t.aside && <Inherited>Dalla bozza che hai tenuto da parte nel Calendario: puoi cambiarlo.</Inherited>}
+            {t.edit && !storia && <Inherited>È la sua voce nel Calendario: cambiandola qui, cambia anche lì.</Inherited>}
             <div className={cx(cal.root, s.calwrap)}>
                 <DoveQuandoPasso
                     draft={draft}
@@ -609,7 +676,7 @@ export function DoveQuando(p: { t: Tunnel; u: U; draft: Draft; updDraft: Upd; se
                     bad={invalid(draft)}
                     durs={p.durs}
                     axis={p.axis}
-                    split={!storia}
+                    split={!storia && !t.edit}
                     quando={<Quando bare t={t} u={p.u} draft={draft} updDraft={p.updDraft} durs={p.durs} axis={p.axis} />}
                 />
             </div>
@@ -639,8 +706,65 @@ export function Controlla({
     onInsieme: (v: boolean) => void;
 }) {
     const all = steps(t, c);
-    const st = all.filter(x => x !== "controlla" && x !== "serve");
+    const st = all.filter(x => x !== "controlla" && x !== "serve" && x !== "modifica");
     const fb = firstBlock(t, c);
+    if (t.edit) {
+        const ch = st.filter(x => changed(t, x));
+        const stray = strays(t, c);
+        const inCal = ch.some(x => x === "dove" || x === "quando") && t.kind !== "storia";
+        return (
+            <>
+                <Sh title="Controlla">{ch.length ? "Si salva solo quello che hai cambiato. Il resto resta com'è." : "Non hai ancora cambiato niente."}</Sh>
+                {stray.map(x => (
+                    <div className={cx(s.callout, s.info)} key={x}>
+                        <TriangleAlert size={16} aria-hidden />
+                        <span>
+                            Hai cambiato anche «{stepLabel(t, x)}», che non avevi scelto: guardalo prima di salvare.
+                        </span>
+                        <Button variant="secondary" size="sm" onClick={() => onGo(all.indexOf(x))}>
+                            Guarda
+                        </Button>
+                    </div>
+                ))}
+                <div className={s.blk}>
+                    <h4>Le tue modifiche</h4>
+                    <dl className={s.isum}>
+                        {st.map(x => {
+                            const on = changed(t, x);
+                            return (
+                                <div key={x} className={on ? undefined : s.same}>
+                                    <dt>{stepLabel(t, x)}</dt>
+                                    <dd>{on ? stepSummary(t, x, L, styleName) : "Come prima"}</dd>
+                                    <Button variant="ghost" size="sm" onClick={() => onGo(all.indexOf(x))}>
+                                        Cambia
+                                    </Button>
+                                </div>
+                            );
+                        })}
+                    </dl>
+                </div>
+                {t.kind === "stile" && changed(t, "aspetto") && <p className={s.hint}>I clienti vedono l'aspetto nuovo appena salvi, ovunque questo stile è in onda. Quello di prima resta nelle versioni dello stile.</p>}
+                {inCal && (
+                    <div className={s.blk}>
+                        <h4>Cosa cambia nel calendario</h4>
+                        <ul className={s.ieff}>
+                            {effect.lines.map((x, i) => (
+                                <li key={i}>{x}</li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
+                {fb && (
+                    <div className={s.callout}>
+                        <TriangleAlert size={16} aria-hidden />
+                        <span>
+                            {fb.why}: torna a «{stepLabel(t, all[fb.i])}».
+                        </span>
+                    </div>
+                )}
+            </>
+        );
+    }
     return (
         <>
             <Sh title="Controlla">Se qualcosa non va, «Cambia» ti riporta a quel passo.</Sh>

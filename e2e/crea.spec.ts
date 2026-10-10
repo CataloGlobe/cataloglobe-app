@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { openBusinessPageByUrl } from "./business";
-import { PRODUCT, SEDE, stubProgrammazione, type ProgrammazioneStub, type WriteCall } from "./programmazioneStub";
+import { MENU, PRODUCT, SEDE, TENANT_ID, stubProgrammazione, type ProgrammazioneStub, type WriteCall } from "./programmazioneStub";
 import { StubError, type Row } from "./restStub";
 
 /**
@@ -108,6 +108,73 @@ async function readPhoto(page: Page) {
 }
 
 let stub: ProgrammazioneStub;
+
+/** Il menù «Carta e2e» com'è nel database: due sezioni, tre piatti. */
+const CARTA = { pizze: "e2ed1400-0000-4000-a000-000000000001", dolci: "e2ed1400-0000-4000-a000-000000000002", link: (n: number) => "e2ed1400-0000-4000-a000-00000000010" + n };
+async function cartaCom(page: Page) {
+    const cat = (id: string, name: string, sort_order: number) => ({ id, tenant_id: TENANT_ID, catalog_id: MENU.carta, parent_category_id: null, name, sort_order, level: 1, created_at: "2026-01-01" });
+    const link = (n: number, category_id: string, product_id: string) => ({ id: CARTA.link(n), tenant_id: TENANT_ID, catalog_id: MENU.carta, category_id, product_id, variant_product_id: null, sort_order: n, created_at: "2026-01-01" });
+    await page.route(/\/rest\/v1\/catalog_categories\?/, r => (r.request().method() === "GET" ? r.fulfill({ json: [cat(CARTA.pizze, "Pizze", 0), cat(CARTA.dolci, "Dolci", 1)] }) : r.fallback()));
+    await page.route(/\/rest\/v1\/catalog_category_products\?/, r =>
+        r.request().method() === "GET" ? r.fulfill({ json: [link(0, CARTA.pizze, PRODUCT.margherita), link(1, CARTA.pizze, PRODUCT.diavola), link(2, CARTA.dolci, PRODUCT.tiramisu)] }) : r.fallback()
+    );
+}
+
+test.describe("Tunnel: modificare una cosa già creata (D140)", () => {
+    test.beforeEach(async ({ page }) => {
+        stub = await stubProgrammazione(page);
+        await cartaCom(page);
+        await openBusinessPageByUrl(page, `crea/menu/${MENU.carta}?da=menu`);
+        await expect(main(page).getByRole("heading", { name: "Cosa vuoi modificare?" })).toBeVisible({ timeout: 20_000 });
+    });
+
+    test("il passo 0: «Avanti» va solo ai passi scelti, e senza modifiche non si salva", async ({ page }) => {
+        await expect(button(page, "Avanti")).toBeDisabled();
+        await expect(main(page).getByText("Scegli almeno una cosa")).toBeVisible();
+        await expect(button(page, "Tieni come bozza")).toHaveCount(0);
+        await main(page).getByRole("checkbox", { name: /^Sezioni e piatti/ }).click();
+        await next(page);
+        await expect(main(page).getByRole("heading", { name: "Sezioni e piatti" })).toBeVisible();
+        await next(page);
+        await expect(main(page).getByRole("heading", { name: "Controlla" })).toBeVisible();
+        await expect(button(page, "Salva le modifiche")).toBeDisabled();
+        await expect(main(page).getByText("Non hai cambiato niente")).toBeVisible();
+    });
+
+    test("si salva solo quello che è cambiato; un passo grigio toccato lo chiede Controlla", async ({ page }) => {
+        stub.onWrite("catalogs.PATCH", () => ({ id: MENU.carta, tenant_id: TENANT_ID, name: "Carta d'autunno" }));
+        stub.onWrite("catalog_category_products.DELETE", () => []);
+        await main(page).getByRole("checkbox", { name: /^Sezioni e piatti/ }).click();
+        await next(page);
+        await button(page, "Togli Diavola e2e").click();
+        // un passo non scelto: ci si va lo stesso, e toccandolo diventa da guardare
+        await rail(page).getByRole("button", { name: /Il nome$/ }).click();
+        await main(page).getByLabel("Nome del menù").fill("Carta d'autunno");
+        await next(page);
+        await next(page);
+        await expect(main(page).getByText("Hai cambiato anche «Il nome», che non avevi scelto: guardalo prima di salvare.")).toBeVisible();
+        await button(page, "Salva le modifiche").click();
+        await expect(page.getByText("Modifiche salvate.")).toBeVisible();
+        expect(bodyOf(stub, "catalogs.PATCH")).toMatchObject({ name: "Carta d'autunno" });
+        const gone = writesOf(stub, "catalog_category_products.DELETE");
+        expect(gone).toHaveLength(1);
+        expect(gone[0].params.get("id")).toBe("eq." + CARTA.link(1));
+        // niente altro: né sezioni, né regole
+        expect(stub.writes.map(w => w.key).filter(k => !/^(catalogs\.PATCH|catalog_category_products\.DELETE)$/.test(k))).toEqual([]);
+        await expect(page).toHaveURL(/\/catalogs$/);
+    });
+
+    test("uscire con una modifica fatta chiede prima", async ({ page }) => {
+        await rail(page).getByRole("button", { name: /Il nome$/ }).click();
+        await main(page).getByLabel("Nome del menù").fill("Altro");
+        await button(page, "Esci").click();
+        const dlg = page.getByRole("alertdialog", { name: "Uscire dal tunnel?" });
+        await expect(dlg.getByRole("button")).toHaveText(["Resta qui", "Esci senza salvare", "Salva le modifiche ed esci"]);
+        await dlg.getByRole("button", { name: "Esci senza salvare" }).click();
+        await expect(page).toHaveURL(/\/catalogs$/);
+        expect(stub.writes).toEqual([]);
+    });
+});
 
 test.describe("Tunnel di creazione — ingressi", () => {
     test.beforeEach(async ({ page }) => {
