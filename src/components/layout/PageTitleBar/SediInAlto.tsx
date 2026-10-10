@@ -63,6 +63,9 @@ export function SediInAlto({ groupKey, entryKey }: SediInAltoProps) {
     const value: SedeScelta = pathId ? { kind: "sede", id: pathId } : { kind: "all" };
     const sedi = readableActivities.map(a => ({ id: a.id, name: a.name }));
     const current = pathId ? sedi.find(a => a.id === pathId) : null;
+    // Una sede sospesa lo dice accanto al nome, nell'elenco e sul pulsante.
+    const sospese = new Set(readableActivities.filter(a => a.status === "inactive").map(a => a.id));
+    const sospesaTag = (id: string) => (sospese.has(id) ? "Sospesa" : null);
 
     const choose = (next: SedeScelta) => {
         if (next.kind === "sede") {
@@ -99,10 +102,12 @@ export function SediInAlto({ groupKey, entryKey }: SediInAltoProps) {
                 onChange={choose}
                 allowAll={canAll}
                 title="Cosa guardi"
+                tag={sospese.size ? sospesaTag : undefined}
                 className={styles.sedeBtn}
             >
                 <span className={styles.pre}>Sede</span>
                 {current ? current.name : "Tutte le sedi"}
+                {current && sospese.has(current.id) && <span className={styles.pre}> · Sospesa</span>}
             </SediBottone>
             {showConfronto && (
                 <SediBottone

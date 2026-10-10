@@ -340,4 +340,24 @@ test.describe("Recensioni — confronto fra sedi", () => {
         await expect(main(page).getByText("Tiramisù da provare e2e")).toHaveCount(0);
         await noSideScroll(page);
     });
+    test("#360.4 e #360.5: si entra da un indirizzo di sede; «Confronta con» c'è, confronta e si toglie da qui", async ({ page }) => {
+        // lo store non sa che sede si guarda (nessuna scelta dalla barra): vale l'indirizzo
+        await page.addInitScript(
+            // dopo quello del beforeEach, a ogni caricamento
+            ([tenantId, porto]) => window.sessionStorage.setItem("cataloglobe:sediVista", JSON.stringify({ tenantId, sede: null, confronta: [porto] })),
+            [TENANT_ID, SEDE.porto]
+        );
+        await openBusinessPage(page, "overview", "Panoramica");
+        await page.goto(page.url().replace(/\/overview$/, `/locations/${SEDE.centro}/recensioni`));
+        await expect(main(page).getByText("Pizza ottima e2e, torneremo.")).toBeVisible({ timeout: 15_000 });
+        await choosePeriod(page, "Sempre");
+        const group = main(page).getByRole("group", { name: "Il voto delle sedi a confronto" });
+        await expect(group.getByRole("region", { name: "Il voto · Porto e2e" })).toBeVisible();
+        // il comando per toglierlo sta in alto, anche in Recensioni
+        const confronta = page.getByRole("button", { name: /^Confronta con/ });
+        await expect(confronta).toContainText("Porto e2e");
+        await confronta.click();
+        await page.getByRole("dialog", { name: "Confronta con" }).getByRole("checkbox", { name: /Porto e2e/ }).click();
+        await expect(group).toHaveCount(0);
+    });
 });

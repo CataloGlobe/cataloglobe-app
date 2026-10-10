@@ -27,6 +27,9 @@ export function useBasePriceDraft(product: V2Product | null, tenantId: string, o
     const saved = product?.base_price ?? null;
     const [input, setInput] = useState(toInput(saved));
     const [isSaving, setIsSaving] = useState(false);
+    // Quante volte è stato premuto «Annulla»: chi mostra il campo lo chiude su
+    // questo, non sul ritorno della bozza a pulita (succede anche scrivendo).
+    const [discards, setDiscards] = useState(0);
 
     useEffect(() => {
         setInput(toInput(saved));
@@ -51,9 +54,12 @@ export function useBasePriceDraft(product: V2Product | null, tenantId: string, o
         }
     }, [product, isDirty, parsed, tenantId, onUpdated]);
 
-    const discard = useCallback(() => setInput(toInput(saved)), [saved]);
+    const discard = useCallback(() => {
+        setInput(toInput(saved));
+        setDiscards(n => n + 1);
+    }, [saved]);
 
-    return { input, setInput, error, isDirty, isSaving, save, discard };
+    return { input, setInput, error, isDirty, isSaving, save, discard, discards };
 }
 
 export type BasePriceDraft = ReturnType<typeof useBasePriceDraft>;

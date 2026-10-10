@@ -116,6 +116,8 @@ export function useFormatsDraft(
         if (savingRef.current) return false;
         savingRef.current = true;
         setIsSaving(true);
+        // Il gruppo nato in questo Salva, finché non ha nemmeno un formato.
+        let emptyNewGroupId: string | null = null;
         try {
             if (target.length === 0) {
                 if (group) await deleteProductOptionGroup(group.id, tenantId);
@@ -132,6 +134,7 @@ export function useFormatsDraft(
                         pricing_mode: "ABSOLUTE"
                     });
                     groupId = created.id;
+                    emptyNewGroupId = created.id;
                 }
                 const kept = new Set(target.map(v => v.id));
                 for (const v of saved) {
@@ -146,6 +149,7 @@ export function useFormatsDraft(
                             price_modifier: null,
                             absolute_price: v.absolute_price
                         });
+                        emptyNewGroupId = null;
                         // Già nel database: se il Salva si ferma più avanti, non si ricrea.
                         setRows(prev => prev.map(r => (r.id === v.id ? created : r)));
                         continue;
@@ -164,6 +168,9 @@ export function useFormatsDraft(
             await onRefresh();
             return true;
         } catch {
+            // Gruppo appena nato e nessun formato riuscito: si toglie, per non
+            // lasciare un «Formato» vuoto che metterebbe la card «per formato».
+            if (emptyNewGroupId) await deleteProductOptionGroup(emptyNewGroupId, tenantId).catch(() => undefined);
             // Il gruppo o qualche formato può essere già nato: si ricarica
             // lo stesso, così il Salva dopo li ritrova invece di rifarli.
             await onRefresh().catch(() => undefined);

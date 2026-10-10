@@ -9,14 +9,18 @@
 import type { LayoutRule } from "@/services/supabase/layoutScheduling";
 import {
     KIND_LABEL,
+    dayCtx,
     dayParts,
     durLabel,
     eur,
+    fLines,
     hhmm,
     whenOfRule,
     whereOfRule,
+    type Axis,
     type CalEntry,
     type CalKind,
+    type CalSeat,
     type CalWhen,
     type CalWhere,
     type DayNum
@@ -55,6 +59,13 @@ export type Draft = {
     prices: Record<string, number | null>;
     strike: boolean;
     hide: "hide" | "disable";
+    /**
+     * Barrato e modo com'erano nella regola, piatto per piatto (per prezzo:
+     * prodotto o prodotto:formato). Valgono finché non si tocca il comando
+     * «Come si vede» / «Come», che è uno per tutti e li azzera.
+     */
+    strikeBy?: Record<string, boolean>;
+    hideBy?: Record<string, "hide" | "disable">;
     /** L'id del menù, dello stile o del contenuto In evidenza. */
     thing: string | null;
     /** Oggi: lo stile che sta nella regola del menù (o il menù di quella dello stile). */
@@ -100,7 +111,7 @@ export const whenKey = (w: CalWhen) =>
 export const whereKey = (w: CalWhere) => (w.all ? "all" : "a:" + [...w.activityIds].sort().join(",") + "|g:" + [...w.groupIds].sort().join(","));
 const perKey = (per: Draft["per"]) => (per ? Object.entries(per).map(([id, w]) => id + "=" + whenKey(w)).join(";") : "");
 export const snap = (D: Draft) =>
-    JSON.stringify([D.kind, D.picks, D.prices, D.strike, D.hide, D.thing, D.pair, whenKey(D.when), whereKey(D.where), perKey(D.per), D.name, !!D.insieme]);
+    JSON.stringify([D.kind, D.picks, D.prices, D.strike, D.hide, D.thing, D.pair, whenKey(D.when), whereKey(D.where), perKey(D.per), D.name, !!D.insieme, !!D.strikeBy, !!D.hideBy]);
 export const isDirty = (D: Draft | null) => !!D && !!D.kind && snap(D) !== D.orig;
 
 export function blankDraft(kind: CalKind, where: CalWhere, pair: string | null): Draft {
@@ -161,11 +172,13 @@ export function draftFromEntry(e: CalEntry, L: DraftLookups, only: string | null
         D.picks = sortPicks([...new Set(os.map(o => o.product_id))], L);
         for (const o of os) D.prices[priceKey(o.product_id, o.option_value_id)] = o.override_price;
         D.strike = os.some(o => o.show_original_price);
+        D.strikeBy = Object.fromEntries(os.map(o => [priceKey(o.product_id, o.option_value_id), o.show_original_price]));
         D.only = only && r.price_overrides.some(o => o.product_id !== only) ? only : null;
     } else if (e.kind === "visibility") {
         const os = r.visibility_overrides.filter(o => !only || o.product_id === only);
         D.picks = sortPicks(os.map(o => o.product_id), L);
         D.hide = os.some(o => o.mode === "disable") ? "disable" : "hide";
+        D.hideBy = Object.fromEntries(os.map(o => [o.product_id, o.mode]));
         D.only = only && r.visibility_overrides.some(o => o.product_id !== only) ? only : null;
     } else if (e.kind === "featured") {
         const id = e.id.split(":featured:")[1] ?? null;
@@ -504,33 +517,58 @@ export function draftEntry(D: Draft, L: DraftLookups, now: number): CalEntry | n
     };
 }
 
+/**
+ * Il compagno della bozza nella stessa regola Layout: il menù abbinato a uno
+ * stile, o lo stile abbinato a un menù. Va in onda con lei, stesso quando e
+ * dove, e compete nella sua corsia: l'anteprima deve saperlo.
+ */
+export function draftPairEntry(D: Draft, L: DraftLookups, now: number): CalEntry | null {
+    if ((D.kind !== "menu" && D.kind !== "style") || !D.pair || !D.thing) return null;
+    const main = draftEntry(D, L, now);
+    if (!main) return null;
+    const kind = D.kind === "menu" ? "style" : "menu";
+    return { ...main, id: "draft:" + kind, kind, thing: pairName(D, L)! };
+}
+
+/** Chi copre il compagno nella sua corsia, nei sette giorni da `week`, per quella sede. */
+export function pairCovers(list: readonly CalEntry[], pair: CalEntry, seat: CalSeat, week: DayNum, axis: Axis): string[] {
+    const cov = new Set<string>();
+    for (let i = 0; i < 7; i++)
+        for (const l of fLines(dayCtx(list, pair.kind, seat, week + i), axis))
+            if (l.thing === pair.thing) for (const g of l.segs) if (g.state === "on" && g.pv) g.covers.forEach(c => cov.add(c));
+    return [...cov];
+}
+
 /* ---------- la bozza messa da parte ---------- */
 // «Tieni da parte» la conserva per la scheda aperta (sessionStorage) mentre si va a creare
 // un menù, uno stile, un In evidenza: il Calendario la ripropone, un tunnel ne riprende il Quando e il Dove.
-const ASIDE_KEY = "calendario:da-parte";
+// Una per azienda: la bozza di un'azienda non si ripropone in un'altra aperta nella stessa scheda.
+const asideKey = (tenantId: string) => "calendario:da-parte:" + tenantId;
+// un periodo senza fine è Infinity, che JSON scriverebbe come null (e alla ripresa la fine sarebbe il 1970)
+const INF = "\u221e";
 
-export function readAside(): Draft | null {
+export function readAside(tenantId: string): Draft | null {
     try {
-        const raw = sessionStorage.getItem(ASIDE_KEY);
-        return raw ? (JSON.parse(raw) as Draft) : null;
+        const raw = sessionStorage.getItem(asideKey(tenantId));
+        return raw ? (JSON.parse(raw, (_k, v) => (v === INF ? Infinity : v === "-" + INF ? -Infinity : v)) as Draft) : null;
     } catch {
         return null;
     }
 }
 
-export function writeAside(d: Draft | null): void {
+export function writeAside(d: Draft | null, tenantId: string): void {
     try {
-        if (d) sessionStorage.setItem(ASIDE_KEY, JSON.stringify(d));
-        else sessionStorage.removeItem(ASIDE_KEY);
+        if (d) sessionStorage.setItem(asideKey(tenantId), JSON.stringify(d, (_k, v) => (v === Infinity ? INF : v === -Infinity ? "-" + INF : v)));
+        else sessionStorage.removeItem(asideKey(tenantId));
     } catch {
         /* resta solo finché la pagina è aperta */
     }
 }
 
 /** Solo cosa, quando e dove della bozza messa da parte. */
-export function peekAside(): Pick<Draft, "kind" | "when" | "where" | "per"> | null {
-    const d = readAside();
+export function peekAside(tenantId: string): Pick<Draft, "kind" | "when" | "where" | "per"> | null {
+    const d = readAside(tenantId);
     return d && d.kind ? { kind: d.kind, when: d.when, where: d.where, per: d.per ?? null } : null;
 }
 
-export const dropAside = () => writeAside(null);
+export const dropAside = (tenantId: string) => writeAside(null, tenantId);

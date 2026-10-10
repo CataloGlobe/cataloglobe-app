@@ -5,6 +5,7 @@ import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import Text from "@/components/ui/Text/Text";
 import { LayoutRuleOption } from "@/services/supabase/layoutScheduling";
 import styles from "../ProgrammingRuleDetail.module.scss";
+import { targetChoice } from "./targetChoice";
 
 export type TargetMode = "all" | "activities" | "groups";
 
@@ -66,12 +67,7 @@ export function TargetSection({
               ? groupIds.map(id => "«" + (tenantGroups.find(g => g.id === id)?.name ?? "gruppo") + "»").join(", ") + ` · ${many(ids.length)}`
               : undefined;
 
-    // D151: tutte prese = tutte, anche quelle che si aggiungeranno; un gruppo intero = il gruppo, anche chi ci entrerà
-    const pick = (next: string[]) => {
-        if (allowAllSites && sedi.length > 1 && next.length === sedi.length) return onFormChange({ targetMode: "all", activityIds: [], groupIds: [] });
-        const g = gruppi.find(x => x.sedeIds.length > 1 && x.sedeIds.length === next.length && x.sedeIds.every(id => next.includes(id)));
-        onFormChange(g ? { targetMode: "groups", activityIds: [], groupIds: [g.id] } : { targetMode: "activities", activityIds: next, groupIds: [] });
-    };
+    const pick = (next: string[]) => onFormChange(targetChoice(next, sedi, gruppi, { allowAllSites, groupIds: targetMode === "groups" ? groupIds : [] }));
 
     return (
         // `id`: «Modifica sedi» della barra della regola condivisa ci porta qui (PG7).
