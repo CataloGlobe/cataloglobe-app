@@ -29,10 +29,11 @@
     gap: 12px;
     min-width: 0;
     color: var(--k-ink);
+    @include cal.fs(strong);
+    line-height: 1.55;
 
-    button,
-    input,
-    select {
+    // :where, perché una classe sola basti a vincere, come nell'artifact
+    :where(button, input, select) {
         font: inherit;
         color: inherit;
     }
@@ -55,11 +56,16 @@
     display: flex;
     flex-direction: column;
     gap: 2px;
-    flex: 1 1 260px;
     min-width: 0;
-    b {
+    .shrow > & {
+        flex: 1 1 260px;
+    }
+    b,
+    h3 {
         @include cal.fs(group);
         font-weight: 650;
+        margin: 0;
+        line-height: inherit;
     }
     span {
         @include cal.fs(text);

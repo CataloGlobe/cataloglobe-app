@@ -57,7 +57,7 @@ export function CreaPhone({ t, step, tk, business, menus, sample, L, imageUrl, c
                                 </div>
                             ))
                         ) : (
-                            <div className={s.pEmpty}>Nessuna sezione</div>
+                            <div className={s.pEmpty}>Nessuna categoria</div>
                         )}
                     </div>
                 )}

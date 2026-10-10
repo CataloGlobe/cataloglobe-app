@@ -282,7 +282,7 @@ export const STEP_LABEL: Record<StepId, string> = {
     modifica: "Cosa vuoi modificare?",
     tipo: "Che menù è",
     parti: "Da dove parti",
-    sezioni: "Sezioni e piatti",
+    sezioni: "Categorie e piatti",
     serve: "A cosa serve",
     nome: "Il nome",
     aspetto: "L'aspetto",
@@ -426,7 +426,7 @@ export function readFromAi(categories: readonly AiMenuCategory[], pick: readonly
             const mine = m.status === "reusable_single" ? pick.find(p => p.id === m.productId) ?? null : null;
             const formats = !mine && it.product_type === "formats" && it.formats?.length ? it.formats.map(f => ({ name: f.name, price: f.price })) : undefined;
             const prices = (formats ?? []).map(f => f.price).filter((v): v is number => v !== null);
-            const price = mine ? mine.listPrice : formats ? (prices.length ? Math.min(...prices) : null) : it.base_price;
+            const price = mine ? (mine.listPrice ?? null) : formats ? (prices.length ? Math.min(...prices) : null) : it.base_price;
             return {
                 key: key(),
                 path: path.length ? path : ["Piatti"],
@@ -435,7 +435,7 @@ export function readFromAi(categories: readonly AiMenuCategory[], pick: readonly
                 productId: mine?.id ?? null,
                 description: mine ? null : it.description,
                 formats,
-                why: !(price !== null && price > 0) ? "il prezzo non si leggeva" : m.status === "reusable_ambiguous" ? "somiglia a più prodotti vostri" : it.confidence !== "high" ? "l'AI non ne era sicura" : null
+                why: !mine && !(price !== null && price > 0) ? "il prezzo non si leggeva" : m.status === "reusable_ambiguous" ? "somiglia a più prodotti vostri" : it.confidence !== "high" ? "l'AI non ne era sicura" : null
             };
         });
     });
@@ -644,11 +644,11 @@ export function qcardText(t: Tunnel, step: StepId, L: DraftLookups, baseName: st
         case "modifica":
             return [thingName(t), "Com'è adesso. Cambia mentre modifichi."];
         case "tipo":
-            return t.menuType === "classico" ? ["Menù classico", "Sezioni e piatti, uno sotto l'altro."] : ["Il menù", "Tocca una scelta: qui vedi com'è."];
+            return t.menuType === "classico" ? ["Menù classico", "Categorie e piatti, uno sotto l'altro."] : ["Il menù", "Tocca una scelta: qui vedi com'è."];
         case "parti":
-            return [t.name.trim() || "Il nome del menù", "Il cliente lo legge in cima, sopra le sezioni."];
+            return [t.name.trim() || "Il nome del menù", "Il cliente lo legge in cima, sopra le categorie."];
         case "sezioni":
-            return ["Sezioni e piatti", "Nello stesso ordine in cui li metti qui."];
+            return ["Categorie e piatti", "Nello stesso ordine in cui li metti qui."];
         case "serve":
             return t.kind === "stile" ? [baseName ? `Lo stile «${baseName}»` : "Lo stile", "I colori e i caratteri di tutta la pagina."] : ["Le storie", "Sotto il menù, con testo e foto."];
         case "nome":

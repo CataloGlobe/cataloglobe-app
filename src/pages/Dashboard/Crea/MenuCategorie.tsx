@@ -28,7 +28,8 @@ const parsePrice = (x: string) => {
     return Number.isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : null;
 };
 const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
-const need = (it: Item) => it.on && !(it.price !== null && it.price > 0);
+// un prodotto che c'è già porta il suo prezzo: qui non lo si chiede
+const need = (it: Item) => it.on && !it.productId && !(it.price !== null && it.price > 0);
 const EASE = "cubic-bezier(.2,.8,.2,1)";
 const still = () => typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 const ST_LABEL: Record<Exclude<St, "dup">, string> = { new: "nuovo", lnk: "già fra i vostri prodotti: lo colleghiamo", chk: "da controllare" };
@@ -430,7 +431,7 @@ export function MenuCategorie({ t, u, pick, onRead, onSuggest }: Props) {
                 ghosts.push(x.key);
                 return x;
             }).key;
-            return { ...r, st, on: st !== "dup", to, raw: r.price === null ? "" : String(r.price).replace(".", ",") };
+            return { ...r, st, on: st !== "dup", to, raw: r.price == null ? "" : String(r.price).replace(".", ",") };
         });
         setImp({ phase: "done", file: res.file, T, ghosts, items });
     };
@@ -1185,10 +1186,10 @@ export function MenuCategorie({ t, u, pick, onRead, onSuggest }: Props) {
         );
 
     return (
-        <div className={s.b2} ref={rootRef}>
+        <div className={s.b2} ref={rootRef} data-menu-cat="">
             <div className={s.shrow}>
                 <div className={s.sh}>
-                    <b>Categorie e piatti</b>
+                    <h3>Categorie e piatti</h3>
                     <span>{imp ? "L'import è aperto: il menù resta com'è finché non aggiungi." : selAt ? `Stai guardando solo «${selAt.sec.name}». Tocca «Tutto il menù» per rivederlo intero.` : "Tutto il menù, nell'ordine in cui lo vede il cliente."}</span>
                 </div>
                 {!imp && M.length > 0 && importBtn(false)}

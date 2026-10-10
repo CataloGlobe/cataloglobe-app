@@ -43,12 +43,13 @@
     p {
         margin: 0;
     }
-    button {
+    // «Categorie e piatti» ha le sue misure (MenuCategorie.module.scss): lì dentro questo non vale
+    button:not(:where([data-menu-cat] *)) {
         font: inherit;
         color: inherit;
     }
-    input,
-    select,
+    input:not(:where([data-menu-cat] *)),
+    select:not(:where([data-menu-cat] *)),
     textarea {
         font: inherit;
         color: inherit;

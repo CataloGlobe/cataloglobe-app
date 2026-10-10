@@ -75,9 +75,9 @@ export function Modifica({ t, u, c, L, styleName }: { t: Tunnel; u: U; c: Ctx; L
 export function MenuTipo({ t, u }: { t: Tunnel; u: U }) {
     return (
         <>
-            <Sh title="Che menù è?">Un menù con le sue sezioni, o una pagina d'ingresso che ne raccoglie più di uno: ristorante, aperitivo, bambini. A destra vedi com'è.</Sh>
+            <Sh title="Che menù è?">Un menù con le sue categorie, o una pagina d'ingresso che ne raccoglie più di uno: ristorante, aperitivo, bambini. A destra vedi com'è.</Sh>
             <div className={s.opts}>
-                <Opt on={t.menuType === "classico"} icon={<UtensilsCrossed size={16} />} title="Menù classico" text="Sezioni e piatti, come oggi." onClick={() => u(x => void (x.menuType = "classico"))} />
+                <Opt on={t.menuType === "classico"} icon={<UtensilsCrossed size={16} />} title="Menù classico" text="Categorie e piatti, come oggi." onClick={() => u(x => void (x.menuType = "classico"))} />
                 <Opt on={false} icon={<Layers size={16} />} title="Multi menù" text="Un riquadro per menù: il cliente tocca e ci entra." disabled later={"Arriva col database nuovo"} />
             </div>
             <p className={s.hint}>Gli stessi nomi del Calendario, dove i menù hanno l'etichetta «Menù classico» o «Multi menù».</p>
