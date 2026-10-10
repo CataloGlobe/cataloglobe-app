@@ -765,3 +765,71 @@ $tl-line-x: 57px;
         opacity: 0;
     }
 }
+
+// ── Riga sotto il telefono (mobile) ─────────────────────────────────────────
+// Un pallino per passo (viola le fasce, terracotta le modifiche al volo) e
+// cosa è appena successo: senza la programmazione accanto, dice che il
+// telefono si muove da solo.
+.phoneCaption {
+    display: none;
+
+    @include mobile-only {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+        margin-top: 18px;
+        min-height: 52px;
+        text-align: center;
+    }
+}
+
+.pcDots {
+    display: flex;
+    gap: 6px;
+}
+
+.pcDot {
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: var(--ld-sched-done);
+    transition:
+        width 300ms var(--ld-ease),
+        background-color 300ms ease;
+}
+
+.pcDotOn {
+    background: var(--ld-sched-line);
+}
+
+.pcDotLive.pcDotOn {
+    background: var(--ld-live);
+}
+
+.pcDotNow {
+    width: 18px;
+}
+
+.pcText {
+    max-width: 300px;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.4;
+    color: var(--ld-sched-text);
+
+    @include motion-ok {
+        animation: ld-pc-in 350ms var(--ld-ease);
+    }
+}
+
+.pcTextLive {
+    color: var(--ld-live-caption);
+}
+
+@keyframes ld-pc-in {
+    from {
+        opacity: 0;
+        transform: translateY(4px);
+    }
+}

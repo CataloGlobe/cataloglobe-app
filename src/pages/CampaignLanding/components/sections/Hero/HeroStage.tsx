@@ -6,6 +6,7 @@ import { useReducedMotion } from "@pages/CampaignLanding/hooks/useReducedMotion"
 import { useVisible } from "@pages/CampaignLanding/hooks/useVisible";
 import {
     HERO_LOOP_MS,
+    HERO_STEPS,
     heroEvents,
     heroInitialState,
     heroReducedState,
@@ -197,6 +198,38 @@ function Track({ state }: { state: HeroState }) {
     );
 }
 
+/** Indice in HERO_STEPS dell'ultimo evento (-1 prima delle 12:00). */
+function stepIndex(last: HeroState["last"]): number {
+    if (!last) return -1;
+    return HERO_STEPS.findIndex((s) => (last.kind === "slot" ? s.kind === "slot" && s.slot === last.slot : s.kind === "live" && s.live === last.live));
+}
+
+/**
+ * Mobile: una riga sotto il telefono, perché si capisca che il menù cambia da
+ * solo. Un pallino per passo della giornata e cosa è appena successo.
+ */
+function PhoneCaption({ state }: { state: HeroState }) {
+    const at = stepIndex(state.last);
+    const step = at >= 0 ? HERO_STEPS[at] : null;
+    const text = !step
+        ? SCHEDULE.phoneIdle
+        : step.kind === "slot"
+          ? SCHEDULE.phoneSlot(SCHEDULE.slots[step.slot].time, PHONE.menus[step.slot].name)
+          : SCHEDULE.phoneLive(SCHEDULE.live[step.live].time, SCHEDULE.live[step.live].text);
+    return (
+        <div className={styles.phoneCaption}>
+            <span className={styles.pcDots}>
+                {HERO_STEPS.map((s, i) => (
+                    <i key={s.clock} className={cx(styles.pcDot, s.kind === "live" && styles.pcDotLive, i <= at && styles.pcDotOn, i === at && styles.pcDotNow)} />
+                ))}
+            </span>
+            <span key={at} className={cx(styles.pcText, step?.kind === "live" && styles.pcTextLive)}>
+                {text}
+            </span>
+        </div>
+    );
+}
+
 /** Il telefono: il menù del locale d'esempio, quello della fascia in corso. */
 function HeroPhone({ state }: { state: HeroState }) {
     const menu = PHONE.menus[state.menu];
@@ -302,6 +335,7 @@ export default function HeroStage({ onFascia, scheduleRef, phoneRef }: HeroStage
             </div>
             <div ref={phoneRef} className={styles.phoneTilt}>
                 <HeroPhone state={state} />
+                <PhoneCaption state={state} />
             </div>
         </div>
     );

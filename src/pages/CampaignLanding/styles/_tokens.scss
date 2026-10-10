@@ -32,7 +32,6 @@ $ld-page-bg: #FFFFFF;
     // ── brand ──
     --ld-azione: #4648C6;        // azione, soluzione
     --ld-azione-hover: #33359E;
-    --ld-azione-deep: #2A2860;   // pulsante copia dopo il clic
     --ld-on-azione: #FFFFFF;
     --ld-brand-s: #E6E5FC;       // blu tenue: etichette
     --ld-brand-note: #F6F6FE;    // fondo del riquadro «Con CataloGlobe»
@@ -115,6 +114,10 @@ $ld-page-bg: #FFFFFF;
     // ── telefono (kit/Phone, hero ed esempi) ──
     --ld-phone-body: #0B0B12;
     --ld-phone-rim: rgba(255, 255, 255, 0.12);
+    --ld-phone-rim-in: rgba(255, 255, 255, 0.06);  // filo interno attorno allo schermo
+    --ld-phone-edge: rgba(0, 0, 0, 0.35);          // contorno esterno, stacca dal fondo chiaro
+    --ld-phone-glint: rgba(255, 255, 255, 0.38);   // riflesso del metallo
+    --ld-phone-key: #2A2A34;                       // tasti laterali
     --ld-demo-on: #F6F6FE;
     --ld-handle: #D5D3E2;
     // ── ombre ──

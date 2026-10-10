@@ -15,7 +15,7 @@
 export type Fascia = 0 | 1 | 2;
 
 /** Un passo ogni 2,3 s. */
-export const HERO_STEP_MS = 2300;
+export const HERO_STEP_MS = 1800;
 /** Il primo stato arriva quasi subito. */
 export const HERO_START_MS = 150;
 /** Pausa sulla giornata finita, prima di ripartire. */

@@ -70,7 +70,7 @@ $ld-bp-hero-wide: 1200px;
 // larghezza; il contenuto è disegnato su 300 px e scalato sullo schermo.
 @mixin ld-phone($w) {
     $h: math.round($w * 2.05);
-    $pad: math.round($w * 0.034);
+    $pad: math.round($w * 0.026);
     $radius: math.round($w * 0.15);
     $scale: math.div(math.round(math.div($w - 2 * $pad, 300) * 10000), 10000);
     --ph-w: #{$w}px;
@@ -79,7 +79,7 @@ $ld-bp-hero-wide: 1200px;
     --ph-r: #{$radius}px;
     --ph-screen-r: #{$radius - $pad}px;
     --ph-island-top: #{$pad + 6}px;
-    --ph-island-h: #{math.min($pad * 2.2, 24)}px;
+    --ph-island-h: #{math.min(math.round($w * 0.075), 24)}px;
     --ph-scale: #{$scale};
     --ph-content-h: #{math.ceil(math.div($h - 2 * $pad, $scale))}px;
 }

@@ -142,6 +142,10 @@ export const HERO = {
         now: "In corso",
         running: "in corso",
         liveLabel: "Modifica al volo",
+        /** Riga sotto il telefono (solo mobile): cosa sta succedendo adesso. */
+        phoneIdle: "Il menù cambia da solo durante la giornata",
+        phoneSlot: (time: string, menu: string) => `${time} · il QR mostra il ${menu}`,
+        phoneLive: (time: string, text: string) => `${time} · ${text}, subito sul QR`,
         slots: [
             { time: "12:00", name: "Pranzo" },
             { time: "18:00", name: "Aperitivo" },
@@ -343,7 +347,8 @@ export const DEMOS = {
     note: "prova tu",
     title: { before: "Guarda cosa può diventare ", underlined: "il tuo locale.", after: "" } satisfies UnderlinedTitle,
     lede: "Tre locali di esempio, tre stili diversi: colori, caratteri e logo li scegli tu. Aprili: è la pagina che i clienti vedono dal QR.",
-    open: "Apri il menù →",
+    /** Senza freccia: il menù si apre nella pagina, non altrove. */
+    open: "Apri il menù",
     /** Ora nella barra di stato del telefono (kit/Phone). */
     phoneTime: "12:30",
     /** Alt dello screenshot nel telefono (`scripts/landing-demo-screenshots.ts`). */
@@ -439,6 +444,10 @@ export const PRICING = {
         "Cosa ordinano e quanto incassi, piatto per piatto"
     ],
     notIncluded: "Non incluso nel Base:",
+    /** Tabella di confronto (mobile): intestazione della colonna delle voci e stato delle celle per i lettori di schermo. */
+    compareFeatures: "Cosa comprende",
+    included: "Incluso",
+    excluded: "Non incluso",
     printer: { label: "Stampante per la cucina:", text: " opzionale, si acquista a parte." },
     footnote: "Un prezzo per ogni locale, nessun costo aggiuntivo."
 };

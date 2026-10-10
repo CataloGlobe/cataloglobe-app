@@ -332,24 +332,20 @@
 }
 
 // ── Riquadro contatto, fuori dalla fisarmonica ──────────────────────────────
+// Una scheda sola come le domande: busta, testo ed email, copia a destra.
 .contact {
-    margin-top: 12px;
-    padding: 8px;
-    border-radius: 24px;
-    background: var(--ld-line-3);
-    border: 1px solid var(--ld-line);
-}
-
-.contactInner {
     display: flex;
     align-items: center;
-    gap: 14px;
+    gap: 12px;
+    margin-top: 12px;
     padding: 16px;
-    border-radius: 16px;
+    border-radius: 20px;
     background: var(--ld-white);
+    border: 1px solid var(--ld-line);
+    box-shadow: var(--ld-shadow-soft);
 
     @include desktop {
-        gap: 22px;
+        gap: 18px;
         padding: 20px 24px;
     }
 }
@@ -359,31 +355,35 @@
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    width: 44px;
-    height: 44px;
-    border-radius: 13px;
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: var(--ld-brand-s);
+    color: var(--ld-azione);
 
     @media (max-width: 359px) {
         display: none;
     }
-    background: linear-gradient(160deg, var(--ld-hero-a), var(--ld-scuro));
 
     @include desktop {
-        width: 56px;
-        height: 56px;
-        border-radius: 16px;
+        width: 48px;
+        height: 48px;
+        border-radius: 14px;
     }
 }
 
-.mark .markIcon {
+.markIcon {
+    width: 20px;
     height: 20px;
 
     @include desktop {
-        height: 26px;
+        width: 22px;
+        height: 22px;
     }
 }
 
 .contactText {
+    flex: 1 1 auto;
     min-width: 0;
 }
 
@@ -397,33 +397,28 @@
     }
 }
 
-.mailRow {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-top: 6px;
-}
-
-// Mai a capo dentro l'indirizzo: al telefono 16 px e, sotto 360, senza il logo accanto.
+// Mai a capo dentro l'indirizzo: 16 px al telefono, sotto 360 senza la busta.
 .mail {
-    @include ld-serif;
-    min-width: 0;
+    display: inline-block;
+    margin-top: 3px;
     font-size: 16px;
-    line-height: 1.1;
+    font-weight: 600;
+    line-height: 1.25;
     text-decoration: none;
     white-space: nowrap;
-
-    @media (min-width: 390px) {
-        font-size: 18px;
-    }
 
     &,
     &:hover {
         color: var(--ld-ink);
     }
 
+    &:hover {
+        text-decoration: underline;
+        text-underline-offset: 3px;
+    }
+
     @include desktop {
-        font-size: 22px;
+        font-size: 18px;
     }
 }
 
@@ -440,11 +435,12 @@
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    width: 34px;
-    height: 34px;
-    border-radius: 50%;
-    background: var(--ld-azione);
-    color: var(--ld-white);
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: var(--ld-white);
+    border: 1px solid var(--ld-line);
+    color: var(--ld-ink);
     transition:
         background-color 250ms ease,
         transform 250ms var(--ld-ease-pop);
@@ -453,8 +449,10 @@
 }
 
 .copied {
-    background: var(--ld-azione-deep);
-    transform: scale(1.08);
+    background: var(--ld-azione);
+    border-color: var(--ld-azione);
+    color: var(--ld-white);
+    transform: scale(1.06);
 }
 
 .icCopy,

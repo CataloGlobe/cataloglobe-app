@@ -11,6 +11,8 @@ const cx = (...names: (string | false | null | undefined)[]) => names.filter(Boo
 export function Phone({ className, children }: { className?: string; children: ReactNode }) {
     return (
         <div className={cx(styles.phone, className)}>
+            <span className={styles.buttons} aria-hidden="true" />
+            <span className={styles.volume} aria-hidden="true" />
             <span className={styles.island} />
             <div className={styles.screen}>
                 <div className={styles.content}>{children}</div>

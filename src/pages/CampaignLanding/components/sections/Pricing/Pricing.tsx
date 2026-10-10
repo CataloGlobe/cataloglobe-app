@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { useState } from "react";
 import LandingCta from "@pages/CampaignLanding/components/LandingCta/LandingCta";
 import Section from "@pages/CampaignLanding/components/Section/Section";
 import { HandNote, SplitHeading } from "@pages/CampaignLanding/components/kit/Kit";
@@ -36,7 +36,7 @@ function PlanCard({ plan, annual, printer }: { plan: PlanKey; annual: boolean; p
     ];
 
     return (
-        <div className={cx(styles.card, isPro && styles.cardPro)} data-plan={plan}>
+        <div className={cx(styles.card, isPro && styles.cardPro)}>
             <div className={styles.cardTop}>
                 <div className={styles.glow} aria-hidden="true" />
                 <span className={styles.recommended}>{PRICING.recommended}</span>
@@ -103,57 +103,101 @@ function Segmented<T extends string>({
     );
 }
 
-/** Ordine delle schede nella striscia mobile: Pro davanti, Base si intravede a destra. */
-const MOBILE_ORDER: PlanKey[] = ["pro", "base"];
-
 /**
- * Mobile: le due schede in una striscia che scorre col dito (scroll-snap),
- * la scheda in vista letta con un IntersectionObserver per i pallini e la
- * frase sopra. Da desktop la striscia è la riga delle due schede.
+ * Mobile: una scheda sola che confronta i due piani. In testa i due prezzi
+ * affiancati con i loro pulsanti (Pro evidenziato), sotto le voci con una
+ * colonna di spunte per piano. Da desktop restano le due schede (PlanCard).
  */
-function usePlanInView(strip: RefObject<HTMLDivElement | null>, onPlan: (p: PlanKey) => void) {
-    useEffect(() => {
-        const root = strip.current;
-        if (!root || typeof IntersectionObserver === "undefined") return;
-        const io = new IntersectionObserver(
-            (entries) => {
-                for (const e of entries) {
-                    const p = (e.target as HTMLElement).dataset.plan as PlanKey | undefined;
-                    if (e.isIntersecting && p) onPlan(p);
-                }
-            },
-            { root, threshold: 0.6 }
-        );
-        root.querySelectorAll("[data-plan]").forEach((el) => io.observe(el));
-        return () => io.disconnect();
-    }, [strip, onPlan]);
+function CompareCard({ annual }: { annual: boolean }) {
+    const rows: { text: string; base: boolean }[] = [
+        ...PRICING.items.map((text) => ({ text, base: true })),
+        ...PRICING.proItems.map((text) => ({ text, base: false }))
+    ];
+    const cell = (on: boolean, pro: boolean) => (
+        <td className={cx(styles.cmpCell, pro && styles.cmpCellPro)}>
+            <ItemIcon kind={on ? (pro ? "pro" : "ok") : "no"} />
+            <span className={styles.srOnly}>{on ? PRICING.included : PRICING.excluded}</span>
+        </td>
+    );
+
+    return (
+        <div className={styles.compare}>
+            <div className={styles.cmpHead}>
+                {(["base", "pro"] as const).map((key) => {
+                    const p = PRICING.plans[key];
+                    const isPro = key === "pro";
+                    return (
+                        <div key={key} className={cx(styles.cmpPlan, isPro && styles.cmpPlanPro)}>
+                            {isPro && <span className={styles.cmpBadge}>{PRICING.recommended}</span>}
+                            <h3 className={styles.cmpName}>{p.name}</h3>
+                            <p className={styles.cmpClaim}>{p.claim}</p>
+                            <p className={styles.cmpPrice}>
+                                {annual ? p.year : p.month}
+                                {annual && (
+                                    <span className={styles.cmpFull}>
+                                        <span className={styles.srOnly}>{PRICING.fullPriceLabel}: </span>
+                                        <s>{p.yearFull}</s>
+                                    </span>
+                                )}
+                            </p>
+                            <p className={styles.cmpPeriod}>
+                                {annual ? PRICING.period.year : PRICING.period.month} · {PRICING.perVenue}
+                            </p>
+                            <LandingCta
+                                placement={isPro ? "pricing-pro" : "pricing-base"}
+                                shape="plan"
+                                look={isPro ? "dark" : "soft"}
+                                className={styles.cmpCta}
+                            />
+                        </div>
+                    );
+                })}
+            </div>
+            <p className={styles.cmpTrial}>{PRICING.trial}</p>
+            <table className={styles.cmpTable}>
+                <thead>
+                    <tr>
+                        <th scope="col" className={styles.cmpColLabel}>
+                            {PRICING.compareFeatures}
+                        </th>
+                        <th scope="col" className={styles.cmpColPlan}>
+                            {PRICING.plans.base.name}
+                        </th>
+                        <th scope="col" className={cx(styles.cmpColPlan, styles.cmpCellPro)}>
+                            {PRICING.plans.pro.name}
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {rows.map((r) => (
+                        <tr key={r.text} className={cx(!r.base && styles.cmpRowPro)}>
+                            <th scope="row" className={styles.cmpText}>
+                                {r.text}
+                            </th>
+                            {cell(r.base, false)}
+                            {cell(true, true)}
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+            <p className={styles.cmpPrinter}>
+                <b>{PRICING.printer.label}</b>
+                {PRICING.printer.text}
+            </p>
+        </div>
+    );
 }
 
-/** 8 · Quanto costa: mensile/annuale; su mobile le due schede scorrono, Pro davanti. */
+/** 8 · Quanto costa: mensile/annuale; su mobile la tabella di confronto, da desktop le due schede. */
 export default function Pricing() {
     const [annual, setAnnual] = useState(false);
-    const [plan, setPlan] = useState<PlanKey>("pro");
-    const strip = useRef<HTMLDivElement>(null);
-    usePlanInView(strip, setPlan);
-
-    const goTo = (p: PlanKey) => {
-        // scrollTo sulla striscia, non scrollIntoView: la scheda è più alta dello
-        // schermo e la pagina scorrerebbe anche in verticale.
-        const root = strip.current;
-        const el = root?.querySelector<HTMLElement>(`[data-plan="${p}"]`);
-        if (!root || !el) return;
-        root.scrollTo({ left: el.offsetLeft - (root.clientWidth - el.offsetWidth) / 2, behavior: "smooth" });
-    };
 
     return (
         <Section id="prezzi" tone="lilla" labelledBy="landing-pricing-title">
             <Reveal className={styles.head}>
                 <HandNote size="lg" className={styles.handNote}>{PRICING.note}</HandNote>
                 <SplitHeading id="landing-pricing-title" title={PRICING.title} size="section" className={styles.title} />
-                <p className={styles.anchor}>
-                    <span className={styles.anchorDesktop}>{PRICING.plans.base.anchor}</span>
-                    <span className={styles.anchorMobile}>{PRICING.plans[plan].anchor}</span>
-                </p>
+                <p className={styles.anchor}>{PRICING.plans.base.anchor}</p>
                 <Segmented
                     label={PRICING.intervalsLabel}
                     value={annual ? "year" : "month"}
@@ -165,24 +209,13 @@ export default function Pricing() {
                 />
             </Reveal>
 
-            <Reveal className={styles.cards} variant="cards">
-                <div ref={strip} className={styles.strip}>
-                    <PlanCard plan="pro" annual={annual} printer />
-                    <PlanCard plan="base" annual={annual} printer={false} />
-                </div>
+            <Reveal className={styles.compareWrap}>
+                <CompareCard annual={annual} />
             </Reveal>
-            <div className={styles.dots} role="group" aria-label={PRICING.plansLabel}>
-                {MOBILE_ORDER.map((p) => (
-                    <button
-                        key={p}
-                        type="button"
-                        className={cx(styles.dot, p === plan && styles.dotOn)}
-                        aria-pressed={p === plan}
-                        aria-label={PRICING.plans[p].name}
-                        onClick={() => goTo(p)}
-                    />
-                ))}
-            </div>
+            <Reveal className={styles.cards} variant="cards">
+                <PlanCard plan="base" annual={annual} printer={false} />
+                <PlanCard plan="pro" annual={annual} printer />
+            </Reveal>
 
             <p className={styles.footnote}>{PRICING.footnote}</p>
         </Section>

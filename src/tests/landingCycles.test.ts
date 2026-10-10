@@ -27,8 +27,8 @@ function heroAt(ms: number): HeroState {
 describe("hero: sequenza", () => {
     it("cinque passi da 2,3 s, il primo a 150 ms, giro di 13 s con la pausa finale", () => {
         expect(HERO_START_MS).toBe(150);
-        expect(HERO_STEP_MS).toBe(2300);
-        expect(HERO_LOOP_MS).toBe(5 * 2300 + 1500);
+        expect(HERO_STEP_MS).toBe(1800);
+        expect(HERO_LOOP_MS).toBe(5 * 1800 + 1500);
         expect(heroEvents().every((e) => e.at < HERO_LOOP_MS)).toBe(true);
     });
 

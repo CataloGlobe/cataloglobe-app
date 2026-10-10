@@ -1,5 +1,7 @@
 // Telefono simulato, uguale in tutta la landing (hero ed esempi). Misure dal
 // mixin ld-phone sul genitore; ombra esterna da --ph-shadow (fondo chiaro o scuro).
+// Cornice sottile con il bordo in metallo (riflesso chiaro in alto a sinistra),
+// tasti laterali e un'ombra a strati: vicina e netta, lontana e morbida.
 .phone {
     position: relative;
     box-sizing: border-box;
@@ -10,8 +12,69 @@
     border-radius: var(--ph-r);
     background: var(--ld-phone-body);
     box-shadow:
-        var(--ph-shadow, 0 30px 60px rgba(21, 20, 43, 0.28)),
-        inset 0 0 0 1.5px var(--ld-phone-rim);
+        inset 0 0 0 1px var(--ld-phone-rim),
+        inset 0 0 0 2.5px var(--ld-phone-body),
+        inset 0 0 0 3px var(--ld-phone-rim-in),
+        0 0 0 1px var(--ld-phone-edge),
+        var(--ph-shadow, 0 2px 4px rgba(21, 20, 43, 0.16), 0 16px 28px -10px rgba(21, 20, 43, 0.3), 0 44px 80px -24px rgba(21, 20, 43, 0.42));
+
+    // Riflesso del metallo sul bordo.
+    &::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: 10;
+        border-radius: inherit;
+        padding: 1px;
+        background: linear-gradient(145deg, var(--ld-phone-glint), transparent 30%, transparent 70%, var(--ld-phone-glint) 100%);
+        -webkit-mask:
+            linear-gradient(#000 0 0) content-box,
+            linear-gradient(#000 0 0);
+        -webkit-mask-composite: xor;
+        mask-composite: exclude;
+        pointer-events: none;
+    }
+}
+
+// Tasti: azione a sinistra, accensione a destra (il volume è .volume).
+.buttons {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+
+    &::before,
+    &::after {
+        content: "";
+        position: absolute;
+        width: 2px;
+        border-radius: 2px;
+        background: var(--ld-phone-key);
+    }
+
+    &::before {
+        left: -2px;
+        top: 18%;
+        height: 4%;
+    }
+
+    &::after {
+        right: -2px;
+        top: 26%;
+        height: 11%;
+    }
+}
+
+// Volume: due tasti sotto quello d'azione.
+.volume {
+    position: absolute;
+    left: -2px;
+    top: 26%;
+    width: 2px;
+    height: 7%;
+    border-radius: 2px;
+    background: var(--ld-phone-key);
+    box-shadow: 0 calc(var(--ph-h) * 0.085) 0 0 var(--ld-phone-key);
+    pointer-events: none;
 }
 
 .island {
