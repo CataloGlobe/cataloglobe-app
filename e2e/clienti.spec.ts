@@ -250,3 +250,107 @@ test.describe("Clienti — vuoto ed errore", () => {
         await expect(main(page).getByText("Nessun cliente in rubrica")).toHaveCount(0);
     });
 });
+
+/**
+ * Il dettaglio accanto (#340.11): `useDetailParam` nell'indirizzo e nella
+ * cronologia, e i tasti del `DetailPane`. Si prova su Clienti perché la
+ * rubrica è finta e ha tre righe in ordine fisso.
+ */
+test.describe("Clienti — dettaglio accanto: indirizzo e tasti", () => {
+    const opened = (page: Page) => new URL(page.url()).searchParams.get("guest");
+    const steps = (page: Page) => page.evaluate(() => window.history.length);
+
+    test.beforeEach(async ({ page }) => {
+        stub = await stubClienti(page);
+        await openList(page);
+        await expect(guestName(page, "Giulia Rossi e2e")).toBeVisible({ timeout: 15_000 });
+    });
+
+    test("aprire aggiunge una voce alla cronologia: «indietro» chiude e resta sulla pagina", async ({ page }) => {
+        const before = await steps(page);
+        await openGuest(page, "Giulia Rossi e2e");
+        expect(opened(page)).toBe(GUEST.rossi);
+        expect(await steps(page)).toBe(before + 1);
+        await page.goBack();
+        await expect(page.getByRole("dialog")).toHaveCount(0);
+        expect(opened(page)).toBeNull();
+        await expect(guestName(page, "Giulia Rossi e2e")).toBeVisible();
+    });
+
+    test("passare a un altro cliente sostituisce la voce: un solo «indietro» chiude", async ({ page }) => {
+        const before = await steps(page);
+        await openGuest(page, "Giulia Rossi e2e");
+        await openGuest(page, "Marco Bianchi e2e");
+        expect(opened(page)).toBe(GUEST.bianchi);
+        expect(await steps(page)).toBe(before + 1);
+        await page.goBack();
+        await expect(page.getByRole("dialog")).toHaveCount(0);
+        expect(opened(page)).toBeNull();
+    });
+
+    test("«Chiudi» dopo aver aperto torna indietro, senza lasciare una voce in più", async ({ page }) => {
+        const before = await steps(page);
+        const d = await openGuest(page, "Giulia Rossi e2e");
+        await d.getByRole("button", { name: "Chiudi", exact: true }).first().click();
+        await expect(page.getByRole("dialog")).toHaveCount(0);
+        expect(opened(page)).toBeNull();
+        // Riaprire riusa la stessa voce (quella «avanti» si sovrascrive).
+        await openGuest(page, "Marco Bianchi e2e");
+        expect(await steps(page)).toBe(before + 1);
+    });
+
+    test("aperto da un link, «Chiudi» toglie il parametro sul posto", async ({ page }) => {
+        const url = new URL(page.url());
+        url.searchParams.set("guest", GUEST.verdi);
+        await page.goto(url.toString());
+        const d = drawer(page);
+        await expect(d.getByText("Sara Verdi e2e").first()).toBeVisible({ timeout: 15_000 });
+        const before = await steps(page);
+        await d.getByRole("button", { name: "Chiudi", exact: true }).first().click();
+        await expect(page.getByRole("dialog")).toHaveCount(0);
+        expect(opened(page)).toBeNull();
+        expect(await steps(page)).toBe(before);
+        await expect(guestName(page, "Giulia Rossi e2e")).toBeVisible();
+    });
+
+    test("↓ e ↑ sul pannello scorrono l'elenco, e si fermano agli estremi", async ({ page }) => {
+        const d = await openGuest(page, "Giulia Rossi e2e");
+        await expect(d).toBeFocused();
+        await page.keyboard.press("ArrowDown");
+        await expect.poll(() => opened(page)).toBe(GUEST.bianchi);
+        // Il tasto dopo parte a scheda cambiata (le frecce seguono l'elenco al render).
+        await expect(d.getByText("Marco Bianchi e2e").first()).toBeVisible();
+        await page.keyboard.press("ArrowDown");
+        await expect.poll(() => opened(page)).toBe(GUEST.verdi);
+        await expect(d.getByText("Sara Verdi e2e").first()).toBeVisible();
+        await page.keyboard.press("ArrowDown");
+        expect(opened(page)).toBe(GUEST.verdi);
+        await d.getByRole("button", { name: "Precedente" }).focus();
+        await page.keyboard.press("ArrowUp");
+        await expect.poll(() => opened(page)).toBe(GUEST.bianchi);
+    });
+
+    test("in un campo ↓ e ↑ restano del campo: il cliente non cambia", async ({ page }) => {
+        const d = await openGuest(page, "Giulia Rossi e2e");
+        const note = d.getByRole("textbox", { name: /Lago e2e/ });
+        await note.click();
+        await page.keyboard.press("ArrowDown");
+        await page.keyboard.press("ArrowUp");
+        await expect(note).toBeFocused();
+        expect(opened(page)).toBe(GUEST.rossi);
+    });
+
+    test("Esc chiude il pannello, anche al telefono dove è una pagina modale", async ({ page }) => {
+        await openGuest(page, "Giulia Rossi e2e");
+        await page.keyboard.press("Escape");
+        await expect(page.getByRole("dialog")).toHaveCount(0);
+
+        await page.setViewportSize({ width: 375, height: 800 });
+        const d = await openGuest(page, "Marco Bianchi e2e");
+        await expect(d).toHaveAttribute("aria-modal", "true");
+        await page.keyboard.press("ArrowDown");
+        await expect.poll(() => opened(page)).toBe(GUEST.verdi);
+        await page.keyboard.press("Escape");
+        await expect(page.getByRole("dialog")).toHaveCount(0);
+    });
+});
