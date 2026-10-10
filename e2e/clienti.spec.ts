@@ -340,6 +340,33 @@ test.describe("Clienti — dettaglio accanto: indirizzo e tasti", () => {
         expect(opened(page)).toBe(GUEST.rossi);
     });
 
+    test("chiuso il pannello, il fuoco torna sulla riga da cui era partito (#340.8)", async ({ page }) => {
+        const row = main(page).getByRole("button", { name: /Giulia Rossi e2e/ }).first();
+        await row.focus();
+        await page.keyboard.press("Enter");
+        const d = drawer(page);
+        await expect(d).toBeFocused();
+        await page.keyboard.press("Escape");
+        await expect(page.getByRole("dialog")).toHaveCount(0);
+        await expect(row).toBeFocused();
+
+        // Anche dal pulsante «Chiudi», che sparisce col pannello.
+        await page.keyboard.press("Enter");
+        await expect(d).toBeFocused();
+        await d.getByRole("button", { name: "Chiudi", exact: true }).first().click();
+        await expect(page.getByRole("dialog")).toHaveCount(0);
+        await expect(row).toBeFocused();
+
+        // E dopo ↓: la riga di partenza c'è ancora, il fuoco non resta sul body.
+        await page.keyboard.press("Enter");
+        await expect(d).toBeFocused();
+        await page.keyboard.press("ArrowDown");
+        await expect(d.getByText("Marco Bianchi e2e").first()).toBeVisible();
+        await page.keyboard.press("Escape");
+        await expect(page.getByRole("dialog")).toHaveCount(0);
+        expect(await page.evaluate(() => document.activeElement === document.body)).toBe(false);
+    });
+
     test("Esc chiude il pannello, anche al telefono dove è una pagina modale", async ({ page }) => {
         await openGuest(page, "Giulia Rossi e2e");
         await page.keyboard.press("Escape");
