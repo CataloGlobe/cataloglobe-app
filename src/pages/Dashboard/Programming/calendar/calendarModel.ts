@@ -10,8 +10,9 @@ import { temporalScore } from "@shared/scheduleCompetition";
  * regole si sommano e si sceglie solo dove due toccano la stessa cosa.
  * - Menù e Stile: in ogni momento ne va in onda uno solo; vince il più
  *   vicino alla sede, poi gli orari più stretti, poi la priorità, poi il
- *   più recente (il resolver di oggi a parità tiene il più vecchio: da
- *   allineare insieme alle modifiche al database).
+ *   più vecchio: lo stesso ordine di `compareCandidates`, cioè della pagina
+ *   pubblica. (D120 voleva il più recente: tornerà insieme alle modifiche
+ *   al database, quando cambia anche il resolver.)
  * - Prezzi, Disponibilità, In evidenza: si sommano.
  * Oggi menù e stile stanno nella stessa regola Layout: qui diventano due
  * voci della stessa regola, una per corsia.
@@ -197,7 +198,8 @@ export function order(seat: CalSeat) {
         (spec(b, seat) ?? -1) - (spec(a, seat) ?? -1) ||
         b.tscore - a.tscore ||
         a.priority - b.priority ||
-        b.created - a.created ||
+        a.created - b.created ||
+        a.ruleId.localeCompare(b.ruleId) ||
         (a.id < b.id ? -1 : 1);
 }
 
@@ -207,7 +209,7 @@ export function why(w: CalEntry, l: CalEntry, seat: CalSeat, whereFor: (e: CalEn
     if (sw !== sl) return `vale ${whereFor(w)}, l'altro ${whereFor(l)}: vince il più vicino alla sede`;
     if (w.tscore !== l.tscore) return "ha orari più stretti";
     if (w.priority !== l.priority) return "ha la priorità più alta";
-    return "è il più recente";
+    return "è stato aggiunto prima";
 }
 
 /* ---------- le corsie ---------- */

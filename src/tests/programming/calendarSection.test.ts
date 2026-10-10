@@ -27,7 +27,8 @@ import {
     writeAside,
     type DraftLookups
 } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
-import { dayNum, entriesFromRules } from "@/pages/Dashboard/Programming/calendar/calendarModel";
+import { dayCtx, dayNum, entriesFromRules, fState, order, why } from "@/pages/Dashboard/Programming/calendar/calendarModel";
+import { compareCandidates, specificityFor } from "@shared/scheduleCompetition";
 import { dropDraft, saveDraft } from "@/pages/Dashboard/Programming/calendar/calendarSave";
 
 let n = 0;
@@ -138,6 +139,39 @@ describe("bozza della sezione", () => {
         const D = blankDraft("price", ALL, null);
         D.picks = ["p1", "p2"];
         expect(draftEntry(D, L, 0)).toMatchObject({ thing: "Spritz, Negroni", preview: true, priority: 21 });
+    });
+});
+
+describe("chi vince a parità (#337.1)", () => {
+    const seat = { activityId: "a1", groupIds: [] };
+    const menu = (catalog: string, created_at: string, o: Partial<LayoutRule> = {}) =>
+        rule({ applyToAll: true, activityIds: [], time_mode: "always", created_at, layout: { catalog_id: catalog, style_id: "s1" } as LayoutRule["layout"], ...o });
+
+    it("due menù «Sempre, tutte le sedi» con la stessa priorità: in onda il più vecchio, come nella pagina pubblica", () => {
+        const vecchio = menu("c1", "2026-03-01T10:00:00Z"), nuovo = menu("c2", "2026-09-01T10:00:00Z");
+        const entries = entriesFromRules([nuovo, vecchio], names).filter(e => e.kind === "menu");
+        const st = fState(dayCtx(entries, "menu", seat, dayNum(2026, 8, 23)), 12 * 60);
+        expect(st.win?.ruleId).toBe(vecchio.id);
+        expect(st.onda).toEqual(["Alla carta"]);
+        expect(st.hidden).toEqual(["Pranzo"]);
+        const [w, l] = [...entries].sort(order(seat));
+        expect(why(w, l, seat, () => "tutte le sedi")).toBe("è stato aggiunto prima");
+    });
+
+    it("l'ordine del Calendario è quello di compareCandidates, anche a parità di data", () => {
+        const rules = [
+            menu("c1", "2026-03-01T10:00:00Z"),
+            menu("c2", "2026-03-01T10:00:00Z"),
+            menu("c1", "2026-01-01T10:00:00Z", { priority: 30 }),
+            menu("c2", "2026-09-01T10:00:00Z", { applyToAll: false, activityIds: ["a1"] }),
+            menu("c1", "2026-09-02T10:00:00Z", { time_mode: "window", time_from: "12:00:00", time_to: "15:00:00" })
+        ];
+        const cal = entriesFromRules(rules, names).filter(e => e.kind === "menu").sort(order(seat)).map(e => e.ruleId);
+        const pub = rules
+            .map(r => ({ rule: r, specificity: specificityFor(r, seat)! }))
+            .sort(compareCandidates)
+            .map(x => x.rule.id);
+        expect(cal).toEqual(pub);
     });
 });
 
