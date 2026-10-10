@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import LandingCta from "@pages/CampaignLanding/components/LandingCta/LandingCta";
 import Section from "@pages/CampaignLanding/components/Section/Section";
 import { HandNote, SplitHeading } from "@pages/CampaignLanding/components/kit/Kit";
@@ -27,20 +27,7 @@ function ItemIcon({ kind }: { kind: ItemKind }) {
 }
 
 /** Scheda di un piano: testata (nome, prezzo, CTA) e la stessa lista di voci per entrambi. */
-function PlanCard({
-    plan,
-    annual,
-    printer,
-    className,
-    tabs
-}: {
-    plan: PlanKey;
-    annual: boolean;
-    printer: boolean;
-    className?: string;
-    /** Su mobile: linguette Base/Pro in testa alla scheda. */
-    tabs?: ReactNode;
-}) {
+function PlanCard({ plan, annual, printer }: { plan: PlanKey; annual: boolean; printer: boolean }) {
     const p = PRICING.plans[plan];
     const isPro = plan === "pro";
     const items: { text: string; kind: ItemKind }[] = [
@@ -49,8 +36,7 @@ function PlanCard({
     ];
 
     return (
-        <div className={cx(styles.card, isPro && styles.cardPro, className)}>
-            {tabs}
+        <div className={cx(styles.card, isPro && styles.cardPro)} data-plan={plan}>
             <div className={styles.cardTop}>
                 <div className={styles.glow} aria-hidden="true" />
                 <span className={styles.recommended}>{PRICING.recommended}</span>
@@ -95,21 +81,6 @@ function PlanCard({
     );
 }
 
-/** Linguette Base/Pro della scheda mobile, col prezzo del periodo scelto. */
-function PlanTabs({ plan, annual, onChange }: { plan: PlanKey; annual: boolean; onChange: (p: PlanKey) => void }) {
-    const keys: PlanKey[] = ["base", "pro"];
-    return (
-        <div className={styles.planTabs} role="group" aria-label={PRICING.plansLabel}>
-            {keys.map((k) => (
-                <button key={k} type="button" className={cx(styles.planTab, k === plan && styles.planTabOn)} aria-pressed={k === plan} onClick={() => onChange(k)}>
-                    {PRICING.plans[k].name}
-                    <span className={styles.planTabPrice}>{annual ? PRICING.plans[k].year : PRICING.plans[k].month}</span>
-                </button>
-            ))}
-        </div>
-    );
-}
-
 function Segmented<T extends string>({
     options,
     value,
@@ -132,10 +103,43 @@ function Segmented<T extends string>({
     );
 }
 
-/** 8 · Quanto costa: mensile/annuale; su mobile una scheda sola con le linguette Base/Pro. */
+/** Ordine delle schede nella striscia mobile: Pro davanti, Base si intravede a destra. */
+const MOBILE_ORDER: PlanKey[] = ["pro", "base"];
+
+/**
+ * Mobile: le due schede in una striscia che scorre col dito (scroll-snap),
+ * la scheda in vista letta con un IntersectionObserver per i pallini e la
+ * frase sopra. Da desktop la striscia è la riga delle due schede.
+ */
+function usePlanInView(strip: RefObject<HTMLDivElement | null>, onPlan: (p: PlanKey) => void) {
+    useEffect(() => {
+        const root = strip.current;
+        if (!root || typeof IntersectionObserver === "undefined") return;
+        const io = new IntersectionObserver(
+            (entries) => {
+                for (const e of entries) {
+                    const p = (e.target as HTMLElement).dataset.plan as PlanKey | undefined;
+                    if (e.isIntersecting && p) onPlan(p);
+                }
+            },
+            { root, threshold: 0.6 }
+        );
+        root.querySelectorAll("[data-plan]").forEach((el) => io.observe(el));
+        return () => io.disconnect();
+    }, [strip, onPlan]);
+}
+
+/** 8 · Quanto costa: mensile/annuale; su mobile le due schede scorrono, Pro davanti. */
 export default function Pricing() {
     const [annual, setAnnual] = useState(false);
     const [plan, setPlan] = useState<PlanKey>("pro");
+    const strip = useRef<HTMLDivElement>(null);
+    usePlanInView(strip, setPlan);
+
+    const goTo = (p: PlanKey) => {
+        const el = strip.current?.querySelector<HTMLElement>(`[data-plan="${p}"]`);
+        el?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+    };
 
     return (
         <Section id="prezzi" tone="lilla" labelledBy="landing-pricing-title">
@@ -158,17 +162,23 @@ export default function Pricing() {
             </Reveal>
 
             <Reveal className={styles.cards} variant="cards">
-                <PlanCard plan="base" annual={annual} printer={false} className={styles.desktopCard} />
-                <PlanCard plan="pro" annual={annual} printer className={styles.desktopCard} />
-                {/* Su mobile la stampante resta sotto la lista anche nel Base, come in tavola. */}
-                <PlanCard
-                    plan={plan}
-                    annual={annual}
-                    printer
-                    className={styles.mobileCard}
-                    tabs={<PlanTabs plan={plan} annual={annual} onChange={setPlan} />}
-                />
+                <div ref={strip} className={styles.strip}>
+                    <PlanCard plan="base" annual={annual} printer={false} />
+                    <PlanCard plan="pro" annual={annual} printer />
+                </div>
             </Reveal>
+            <div className={styles.dots} role="group" aria-label={PRICING.plansLabel}>
+                {MOBILE_ORDER.map((p) => (
+                    <button
+                        key={p}
+                        type="button"
+                        className={cx(styles.dot, p === plan && styles.dotOn)}
+                        aria-pressed={p === plan}
+                        aria-label={PRICING.plans[p].name}
+                        onClick={() => goTo(p)}
+                    />
+                ))}
+            </div>
 
             <p className={styles.footnote}>{PRICING.footnote}</p>
         </Section>

@@ -112,6 +112,75 @@
     }
 }
 
+// ── Giostra (mobile) ────────────────────────────────────────────────────────
+// Il telefono scelto al centro, gli altri due ai lati a 0,8 e un po' spenti; la
+// sezione taglia quel che esce. pan-y: lo scorrimento verticale resta alla
+// pagina, quello orizzontale alla giostra.
+.carousel {
+    position: relative;
+    height: 451px;
+    touch-action: pan-y;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.slide {
+    position: absolute;
+    left: 50%;
+    top: 0;
+    margin-left: -110px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition:
+        transform 450ms var(--ld-ease),
+        opacity 450ms ease,
+        filter 450ms ease;
+
+    .phone {
+        margin: 0;
+    }
+}
+
+.slideCenter {
+    z-index: 1;
+}
+
+.slideLeft,
+.slideRight {
+    opacity: 0.7;
+    filter: saturate(0.7);
+}
+
+.slideLeft {
+    transform: translateX(-160px) scale(0.8);
+}
+
+.slideRight {
+    transform: translateX(160px) scale(0.8);
+}
+
+// Da un lato all'altro: niente viaggio dietro al centro, ricompare a dissolvenza.
+.slideJump {
+    transition: none;
+    animation: ld-demo-reappear 450ms ease;
+}
+
+@keyframes ld-demo-reappear {
+    from {
+        opacity: 0;
+    }
+}
+
+@include reduced-motion {
+    .slide {
+        transition: none;
+    }
+
+    .slideJump {
+        animation: none;
+    }
+}
+
 // ── Lista dei locali ────────────────────────────────────────────────────────
 .list {
     display: flex;

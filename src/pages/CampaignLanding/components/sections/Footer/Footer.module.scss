@@ -75,11 +75,17 @@
     color: var(--ld-dark-quiet);
 }
 
+// Al telefono righe da 44 px al tocco; da desktop la lista fitta della tavola.
 .link {
     display: block;
     margin-top: 10px;
     font-size: 14px;
     text-decoration: none;
+
+    @include mobile-only {
+        margin-top: 0;
+        padding: 13px 0;
+    }
 
     &,
     &:hover {
@@ -113,6 +119,11 @@
     font-size: 14px;
     text-align: left;
     color: var(--ld-dark-link);
+
+    @include mobile-only {
+        margin-top: 0;
+        padding: 13px 0;
+    }
 
     @include ld-focus;
 }

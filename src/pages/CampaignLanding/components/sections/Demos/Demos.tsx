@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, useState, type SyntheticEvent } from "react";
+import { lazy, Suspense, useEffect, useRef, useState, type PointerEvent, type SyntheticEvent } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import Section from "@pages/CampaignLanding/components/Section/Section";
 import { HandNote, UnderlinedText } from "@pages/CampaignLanding/components/kit/Kit";
@@ -93,6 +93,108 @@ function PhonePreview({ selected, preload }: { selected: number; preload: boolea
         </Phone>
     );
 }
+
+/** Posto del locale `i` nella giostra con `selected` al centro: -1 sinistra, 0 centro, 1 destra. */
+const slotOf = (i: number, selected: number, n: number) => ((i - selected + n + 1) % n) - 1;
+
+/** Spostamento minimo del dito, in px, perché la giostra giri. */
+const SWIPE_MIN = 40;
+
+/**
+ * Mobile: i tre telefoni in giostra, il locale scelto al centro e gli altri
+ * due ai lati, più piccoli. Gira col dito, toccando un telefono di lato o
+ * dalla lista; il telefono al centro apre il menù. Con tre locali ognuno è
+ * sempre al centro, a sinistra o a destra: il giro è infinito senza copie, e
+ * quello che passa da un lato all'altro ricompare a dissolvenza.
+ */
+function PhoneCarousel({
+    selected,
+    preload,
+    onSelect,
+    onOpen
+}: {
+    selected: number;
+    preload: boolean;
+    onSelect: (i: number) => void;
+    onOpen: () => void;
+}) {
+    const n = DEMOS.venues.length;
+    const prev = useRef(selected);
+    const start = useRef<{ x: number; y: number } | null>(null);
+    // Dopo uno strisciamento il clic che segue non deve scegliere né aprire.
+    const swiped = useRef(false);
+    const before = prev.current;
+
+    useEffect(() => {
+        prev.current = selected;
+    }, [selected]);
+
+    const onPointerDown = (e: PointerEvent<HTMLDivElement>) => {
+        start.current = { x: e.clientX, y: e.clientY };
+        swiped.current = false;
+    };
+    const onPointerUp = (e: PointerEvent<HTMLDivElement>) => {
+        const from = start.current;
+        start.current = null;
+        if (!from) return;
+        const dx = e.clientX - from.x;
+        if (Math.abs(dx) < SWIPE_MIN || Math.abs(dx) < Math.abs(e.clientY - from.y)) return;
+        swiped.current = true;
+        onSelect((selected + (dx < 0 ? 1 : -1) + n) % n);
+    };
+
+    return (
+        <div
+            className={styles.carousel}
+            onPointerDown={onPointerDown}
+            onPointerUp={onPointerUp}
+            onPointerCancel={() => {
+                start.current = null;
+            }}
+        >
+            {DEMOS.venues.map((v, i) => {
+                const slot = slotOf(i, selected, n);
+                const jump = Math.abs(slot - slotOf(i, before, n)) > 1;
+                const center = slot === 0;
+                return (
+                    <div
+                        key={v.key}
+                        className={cx(styles.slide, SLIDE_CLASS[slot + 1], jump && styles.slideJump)}
+                        aria-hidden={center ? undefined : true}
+                        onClick={() => {
+                            if (swiped.current) return;
+                            if (center) onOpen();
+                            else onSelect(i);
+                        }}
+                    >
+                        <Phone className={styles.phone}>
+                            <svg className={styles.screenBg} aria-hidden="true" focusable="false">
+                                <rect width="100%" height="100%" fill={themeOf(v).bg} />
+                            </svg>
+                            {(center || preload) && (
+                                <img
+                                    className={cx(styles.shot, styles.shotOn)}
+                                    src={SCREEN_FALLBACK[v.key]}
+                                    srcSet={SCREENS[v.key]}
+                                    sizes="206px"
+                                    width={280}
+                                    height={580}
+                                    loading="lazy"
+                                    decoding="async"
+                                    alt={center ? DEMOS.screenAlt(v.name) : ""}
+                                    draggable={false}
+                                />
+                            )}
+                            <PhoneStatusBar time={DEMOS.phoneTime} shade />
+                        </Phone>
+                    </div>
+                );
+            })}
+        </div>
+    );
+}
+
+const SLIDE_CLASS = [styles.slideLeft, styles.slideCenter, styles.slideRight];
 
 // Lo sheet porta con sé framer-motion: si scarica quando la griglia delle demo
 // entra in vista (o al primo clic), non con la pagina.
@@ -216,7 +318,7 @@ export default function Demos() {
                     </h2>
                     <p className={styles.lede}>{DEMOS.lede}</p>
                     <div className={styles.mobilePhone}>
-                        <PhonePreview selected={selected} preload={preload} />
+                        <PhoneCarousel selected={selected} preload={preload} onSelect={setSelected} onOpen={() => setOpen(true)} />
                     </div>
                     <div className={styles.list}>
                         {DEMOS.venues.map((v, i) => {

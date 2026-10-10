@@ -86,12 +86,15 @@
 }
 
 .login {
+    position: relative;
     padding: 11px 16px 11px 4px;
     font-size: 15px;
     font-weight: 600;
     line-height: 1.2;
     text-decoration: none;
     @include ld-focus;
+
+    @include ld-hit-area;
 
     &,
     &:hover {

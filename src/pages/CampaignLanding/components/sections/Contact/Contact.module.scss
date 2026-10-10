@@ -194,7 +194,7 @@
 .pill {
     @include ld-reset-button;
     @include ld-focus;
-    min-height: 40px;
+    min-height: 44px;
     padding: 9px 14px;
     border: 1px solid var(--ld-line);
     border-radius: 999px;

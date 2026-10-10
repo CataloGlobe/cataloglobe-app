@@ -9,17 +9,17 @@
     border: 1px solid var(--ld-line);
     border-radius: 10px;
     font-weight: 700;
-    line-height: 32px;
+    line-height: 40px;
 }
 
 .stepBtn {
     @include ld-reset-button;
-    width: 30px;
-    height: 32px;
+    width: 40px;
+    height: 40px;
     background: var(--ld-paper);
     font-size: 16px;
     font-weight: 700;
-    line-height: 32px;
+    line-height: 40px;
     text-align: center;
     color: var(--ld-muted);
     transition:

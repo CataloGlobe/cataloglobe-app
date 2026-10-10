@@ -110,6 +110,7 @@
 }
 
 .mobileLogin {
+    position: relative;
     padding: 8px 16px;
     border-radius: 999px;
     background: rgba(255, 255, 255, 0.1);
@@ -120,6 +121,8 @@
     text-decoration: none;
     -webkit-tap-highlight-color: transparent;
     @include ld-focus;
+
+    @include ld-hit-area;
 
     &,
     &:hover {

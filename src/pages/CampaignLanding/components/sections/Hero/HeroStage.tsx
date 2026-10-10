@@ -26,19 +26,6 @@ const EVENTS = heroEvents();
 const REDUCED = heroReducedState(PHONE.startClock);
 /** Le tre fasce sulla linea orizzontale: 0 / 60 / 100 %. */
 const SLOT_POS = SCHEDULE.slots.map((s) => trackPosition(s.time));
-/**
- * Linea verticale (telefono): fasce e modifiche al volo a passo uguale, non
- * alla loro ora, così le scritte accanto non si toccano. Da posizione oraria
- * (0-100) a posizione sulla linea, a tratti fra un punto e l'altro.
- */
-const RAIL_FROM = [...SLOT_POS, ...SCHEDULE.live.map((l) => trackPosition(l.time))].sort((a, b) => a - b);
-const railPosition = (p: number) => {
-    const step = 100 / (RAIL_FROM.length - 1);
-    for (let i = 1; i < RAIL_FROM.length; i++) {
-        if (p <= RAIL_FROM[i]) return (i - 1 + (p - RAIL_FROM[i - 1]) / (RAIL_FROM[i] - RAIL_FROM[i - 1])) * step;
-    }
-    return 100;
-};
 
 /**
  * La sequenza coi timer: gira finché `active`, in pausa riprende dal punto in
@@ -168,11 +155,7 @@ function Track({ state }: { state: HeroState }) {
     const last = state.last;
     const width = last === null ? 0 : last.kind === "slot" ? SLOT_POS[last.slot] : trackPosition(SCHEDULE.live[last.live].time);
     useLayoutEffect(() => {
-        // Variabile e non `width`: al telefono la linea è verticale e la usa come altezza.
-        if (fill.current) {
-            fill.current.style.setProperty("--fill", `${width}%`);
-            fill.current.style.setProperty("--fill-rail", `${railPosition(width)}%`);
-        }
+        if (fill.current) fill.current.style.width = `${width}%`;
     }, [width]);
 
     const stateOf = (slot: number) => cx(slot < state.slot && styles.done, slot === state.slot && styles.act);
@@ -197,26 +180,15 @@ function Track({ state }: { state: HeroState }) {
                         <span className={styles.trkTime}>{s.time}</span>
                     </span>
                 ))}
-                {/* Solo al telefono, con la linea verticale: c'è posto per dire cosa è cambiato. */}
-                {SCHEDULE.live.slice(0, state.lives).map((l, j) => (
-                    <span key={l.time} className={cx(styles.trkLive, LIVE_POS_CLASS[j])}>
-                        <span className={styles.trkTime}>{l.time}</span>
-                        {l.text}
-                    </span>
-                ))}
             </div>
             <div className={styles.trkCaption}>
-                <span className={cx(styles.cap, styles.capSlot, (liveCaption || slotCaption === null) && styles.capOff, slotCaption === null && styles.capEmpty)}>
-                    <span className={styles.capDot}>●</span> <span className={styles.capHead}>{slotCaption !== null && PHONE.menus[slotCaption].name}</span>
-                    <span className={styles.capSep}> · </span>
-                    <span className={styles.capText}>{SCHEDULE.running}</span>
+                <span className={cx(styles.cap, (liveCaption || slotCaption === null) && styles.capOff)}>
+                    <span className={styles.capDot}>●</span> {slotCaption !== null && PHONE.menus[slotCaption].name} · {SCHEDULE.running}
                 </span>
                 <span className={cx(styles.cap, styles.capLive, !liveCaption && styles.capOff)}>
                     {liveCaption && (
                         <>
-                            <span className={styles.capDot}>●</span> <span className={styles.capHead}>{liveCaption.time}</span>
-                            <span className={styles.capSep}> · </span>
-                            <span className={styles.capText}>{liveCaption.text}</span>
+                            <span className={styles.capDot}>●</span> {liveCaption.time} · {liveCaption.text}
                         </>
                     )}
                 </span>

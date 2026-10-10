@@ -36,16 +36,29 @@
 }
 
 // ── Pill dei gruppi (tablist) ───────────────────────────────────────────────
-// Sotto 768 icona e numero sopra il nome: le tre pill stanno su una riga a 390.
+// Telefono: un selettore a segmenti come Mensile/Annuale dei prezzi, solo il
+// nome, alto 44 px (prima icona e numero sopra il nome, 60 px: «selettore
+// tozzo» della chiamata del 2026-10-07). Desktop: pill separate con icona e
+// numero.
 .tabs {
     display: flex;
-    justify-content: center;
-    gap: 6px;
-    margin-bottom: 12px;
+    max-width: 100%;
+    margin: 0 auto 12px;
+    padding: 4px;
+    border-radius: 999px;
+    background: var(--ld-white);
+    border: 1px solid var(--ld-line);
+    box-sizing: border-box;
+    width: fit-content;
 
     @include desktop {
+        justify-content: center;
         gap: 8px;
+        width: auto;
         margin-bottom: 16px;
+        padding: 0;
+        border: 0;
+        background: none;
     }
 }
 
@@ -53,31 +66,35 @@
     @include ld-reset-button;
     @include ld-focus;
     display: flex;
-    flex-direction: column;
+    flex: 1 1 auto;
     align-items: center;
-    gap: 4px;
-    padding: 9px 14px 8px;
-    border-radius: 18px;
-    background: var(--ld-white);
-    border: 1px solid var(--ld-line);
-    color: var(--ld-ink);
+    justify-content: center;
+    gap: 8px;
+    min-height: 44px;
+    padding: 0 14px;
+    border-radius: 999px;
+    color: var(--ld-muted);
     transition:
         background-color 250ms ease,
         border-color 250ms ease,
         color 250ms ease;
 
+    @media (max-width: 359px) {
+        padding: 0 10px;
+    }
+
     @include desktop {
-        flex-direction: row;
-        gap: 8px;
+        flex: none;
         padding: 10px 16px 10px 14px;
-        border-radius: 999px;
+        background: var(--ld-white);
+        border: 1px solid var(--ld-line);
+        color: var(--ld-ink);
     }
 }
 
 .tabTop {
-    display: flex;
-    align-items: center;
-    gap: 6px;
+    // Icona e numero solo su desktop.
+    display: none;
 
     @include desktop {
         display: contents;
@@ -96,6 +113,10 @@
     line-height: 1.2;
     font-weight: 600;
     white-space: nowrap;
+
+    @media (max-width: 359px) {
+        font-size: 13px;
+    }
 
     @include desktop {
         order: 1;
@@ -138,6 +159,49 @@
     .tabCount {
         background: var(--ld-white);
         color: var(--ld-azione);
+    }
+}
+
+// Pill che scivola (Faq.tsx): finché il JS non l'ha messa al suo posto, la
+// voce attiva ha il suo sfondo (HTML prerenderizzato); poi lo prende la pill.
+.pill {
+    display: none;
+}
+
+@include mobile-only {
+    .tabs {
+        position: relative;
+    }
+
+    .tab {
+        position: relative;
+        z-index: 1;
+    }
+
+    .tabs[data-pill] {
+        .pill {
+            position: absolute;
+            left: 0;
+            top: 4px;
+            bottom: 4px;
+            display: block;
+            border-radius: 999px;
+            background: var(--ld-azione);
+            transition:
+                transform 320ms var(--ld-ease),
+                width 320ms var(--ld-ease);
+        }
+
+        .tabActive {
+            background: transparent;
+            border-color: transparent;
+        }
+    }
+}
+
+@include reduced-motion {
+    .pill {
+        transition: none !important;
     }
 }
 
@@ -298,6 +362,10 @@
     width: 44px;
     height: 44px;
     border-radius: 13px;
+
+    @media (max-width: 359px) {
+        display: none;
+    }
     background: linear-gradient(160deg, var(--ld-hero-a), var(--ld-scuro));
 
     @include desktop {
@@ -336,13 +404,18 @@
     margin-top: 6px;
 }
 
+// Mai a capo dentro l'indirizzo: al telefono 16 px e, sotto 360, senza il logo accanto.
 .mail {
     @include ld-serif;
     min-width: 0;
-    font-size: 18px;
+    font-size: 16px;
     line-height: 1.1;
     text-decoration: none;
-    overflow-wrap: anywhere;
+    white-space: nowrap;
+
+    @media (min-width: 390px) {
+        font-size: 18px;
+    }
 
     &,
     &:hover {
@@ -375,6 +448,8 @@
     transition:
         background-color 250ms ease,
         transform 250ms var(--ld-ease-pop);
+
+    @include ld-hit-area;
 }
 
 .copied {

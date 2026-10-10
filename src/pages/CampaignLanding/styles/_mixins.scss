@@ -140,6 +140,20 @@ $ld-bp-hero-wide: 1200px;
     -webkit-tap-highlight-color: transparent;
 }
 
+// Area toccabile di almeno $min senza cambiare l'aspetto: un ::before
+// trasparente centrato sull'elemento, che deve essere posizionato.
+@mixin ld-hit-area($min: 44px) {
+    &::before {
+        content: "";
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: max(100%, #{$min});
+        height: max(100%, #{$min});
+        transform: translate(-50%, -50%);
+    }
+}
+
 @mixin ld-focus {
     &:focus-visible {
         outline: 2px solid var(--ld-focus-ring);

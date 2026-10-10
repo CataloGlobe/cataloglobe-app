@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
 import { Rocket, Tag, Utensils, type LucideIcon } from "lucide-react";
 import { Logo } from "@components/ui/Logo/Logo";
 import Section from "@pages/CampaignLanding/components/Section/Section";
@@ -61,6 +61,29 @@ export default function Faq() {
     const [tab, setTab] = useState(0);
     const [open, setOpen] = useState(0);
     const tabsRef = useRef<(HTMLButtonElement | null)[]>([]);
+    const listRef = useRef<HTMLDivElement>(null);
+    const pillRef = useRef<HTMLSpanElement>(null);
+
+    // Pill che scivola sotto la voce scelta (solo al telefono, vedi .pill). Posizione
+    // scritta dal ref; `data-pill` sulla lista dice al CSS che la pill è al suo
+    // posto e può prendere il posto dello sfondo della voce attiva.
+    useLayoutEffect(() => {
+        const list = listRef.current;
+        const pill = pillRef.current;
+        if (!list || !pill) return;
+        const place = () => {
+            const btn = tabsRef.current[tab];
+            if (!btn) return;
+            pill.style.width = `${btn.offsetWidth}px`;
+            pill.style.transform = `translateX(${btn.offsetLeft}px)`;
+            list.dataset.pill = "";
+        };
+        place();
+        if (typeof ResizeObserver === "undefined") return;
+        const ro = new ResizeObserver(place);
+        ro.observe(list);
+        return () => ro.disconnect();
+    }, [tab]);
     const email = COMPANY.contact.info;
 
     const select = (g: number) => {
@@ -92,7 +115,8 @@ export default function Faq() {
                 <p className={styles.lede}>{FAQ.lede}</p>
             </Reveal>
             <div className={styles.body}>
-                <div className={styles.tabs} role="tablist" aria-label={FAQ.groupsLabel}>
+                <div ref={listRef} className={styles.tabs} role="tablist" aria-label={FAQ.groupsLabel}>
+                    <span ref={pillRef} className={styles.pill} aria-hidden="true" />
                     {FAQ.groups.map((group, g) => {
                         const Icon = GROUP_ICONS[group.icon];
                         const active = g === tab;

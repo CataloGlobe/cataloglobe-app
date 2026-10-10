@@ -100,11 +100,15 @@
     box-shadow: 0 12px 30px rgba(70, 72, 198, 0.35);
 }
 
+// Alta 36 a vista (barra in alto), 44 al tocco.
 .compact {
+    position: relative;
     height: 36px;
     padding: 0 16px;
     border-radius: 999px;
     font-size: 14px;
+
+    @include ld-hit-area;
 }
 
 .plan {

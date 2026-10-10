@@ -21,6 +21,8 @@
     border-radius: 999px;
     background: var(--ld-ok);
     transition: background-color 300ms ease;
+
+    @include ld-hit-area;
 }
 
 .switchOn {
