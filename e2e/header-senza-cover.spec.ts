@@ -41,3 +41,16 @@ test("senza cover l'header è piatto da subito e resta uguale scorrendo", async 
     const scrolled = await headerShape(page);
     expect(scrolled).toEqual(atRest);
 });
+
+test("copertina accesa ma senza foto: in pubblico niente blocco vuoto, header piatto (D14)", async ({ page }) => {
+    await stubPublicPage(page, { ordering: false, styleConfig: { header: { showCoverImage: true } } });
+    await page.goto(`/${SLUG}`);
+    await expect(page.getByText(`${CATEGORIES[0]} 1`, { exact: true }).first()).toBeVisible({
+        timeout: 15_000,
+    });
+
+    // Lo stub ha `cover_image: null`: la copertina è accesa nello stile ma la foto manca.
+    await expect(page.locator('header[data-cover="true"]')).toHaveCount(0);
+    const atRest = await headerShape(page);
+    expect(atRest).toEqual({ x: 0, y: 0, width: 390, radius: "0px", inlineStyle: null });
+});

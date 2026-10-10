@@ -126,7 +126,7 @@ export default function PublicCollectionHeader({
     catalogName,
     showCatalogName = false,
     coverImageUrl,
-    showCoverImage,
+    showCoverImage: showCoverSetting,
     showLogo,
     mode,
     onSearchOpen,
@@ -150,6 +150,10 @@ export default function PublicCollectionHeader({
     previewDevice,
     frozen = false,
 }: PublicCollectionHeaderProps) {
+    // D14: in pubblico una copertina accesa ma senza foto vale come spenta
+    // (niente blocco vuoto, header piatto). In anteprima resta il segnaposto,
+    // che invita a caricare la foto.
+    const showCoverImage = showCoverSetting && (!!coverImageUrl || mode === "preview");
     const { t } = useTranslation("public");
     const prefersReducedMotion = useReducedMotion();
     // Aggiornato sincronicamente ad ogni render: già true prima degli scroll
@@ -332,12 +336,11 @@ export default function PublicCollectionHeader({
                                 />
                             );
                         })()
-                    ) : mode === "preview" ? (
+                    ) : (
+                        // Solo anteprima: in pubblico senza foto la cover non c'è.
                         <div className={styles.coverPlaceholder} aria-hidden>
                             <ImageIcon size={32} strokeWidth={1.5} />
                         </div>
-                    ) : (
-                        <div className={styles.coverPlaceholder} aria-hidden />
                     )}
                 </div>
             )}
