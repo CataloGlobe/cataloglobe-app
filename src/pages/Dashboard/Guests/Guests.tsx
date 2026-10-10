@@ -130,8 +130,11 @@ export default function Guests() {
     // rubrica resterebbe raggiungibile fuori dal piano che la produce.
     const isLocked = !hasFeature("table_reservation");
 
+    // Vale l'ultima richiesta partita: la risposta lenta di una ricerca vecchia non copre quella nuova.
+    const loadRef = useRef(0);
     const loadGuests = useCallback(async () => {
         if (!tenantId || !canRead) return;
+        const requestId = ++loadRef.current;
         setIsLoading(true);
         setLoadError(false);
         try {
@@ -141,16 +144,20 @@ export default function Guests() {
                 listReservationGuestNotesForGuests(tenantId, ids),
                 listGuestVisitMarks(tenantId, ids)
             ]);
+            if (requestId !== loadRef.current) return;
             setGuests(rows);
             setNotes(noteRows);
             setMarks(markRows);
         } catch (error) {
+            if (requestId !== loadRef.current) return;
             // Un errore non è una rubrica vuota: la pagina lo dice, con «Riprova».
             console.error("Caricamento rubrica clienti:", error);
             setLoadError(true);
         } finally {
-            setIsLoading(false);
-            setHasLoadedOnce(true);
+            if (requestId === loadRef.current) {
+                setIsLoading(false);
+                setHasLoadedOnce(true);
+            }
         }
     }, [tenantId, canRead, deferredSearch]);
 

@@ -130,6 +130,24 @@ test.describe("Clienti — elenco", () => {
         await expect(main(page).getByText("Nessun cliente trovato")).toBeVisible();
     });
 
+    test("#360.8: la risposta lenta di una ricerca vecchia non copre quella nuova", async ({ page }) => {
+        await openList(page);
+        await expect(guestName(page, "Giulia Rossi e2e")).toBeVisible({ timeout: 15_000 });
+        // la ricerca «rossi» risponde in ritardo, dopo quella che viene dopo
+        await page.route(/\/rest\/v1\/v_reservation_guests_directory\?/, async route => {
+            if (/rossi/i.test(decodeURIComponent(route.request().url()))) await new Promise(r => setTimeout(r, 1500));
+            await route.fallback();
+        });
+        await main(page).getByRole("button", { name: "Cerca un cliente" }).click();
+        const search = main(page).getByPlaceholder("Cerca un cliente");
+        await search.fill("rossi");
+        await search.fill("bianchi");
+        await expect(guestName(page, "Marco Bianchi e2e")).toBeVisible();
+        await page.waitForTimeout(2000);
+        await expect(guestName(page, "Marco Bianchi e2e")).toBeVisible();
+        await expect(guestName(page, "Giulia Rossi e2e")).toHaveCount(0);
+    });
+
     test("la scheda: telefono, numeri, pallini, visite, note per sede", async ({ page }) => {
         await openList(page);
         await expect(guestName(page, "Giulia Rossi e2e")).toBeVisible({ timeout: 15_000 });
