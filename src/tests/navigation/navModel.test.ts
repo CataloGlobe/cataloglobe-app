@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { UserPermissions, UserRole } from "@/lib/permissions";
 import type { PlanFeature } from "@/lib/planFeatures";
 import {
+    ACCOUNT_ENTRIES,
     NAV_MODELS,
     businessHomePath,
     canSeeNavEntry,
@@ -82,39 +83,55 @@ describe("resolveNavContext — una o più sedi leggibili (§51.2)", () => {
 });
 
 describe("NAV_MODELS — gruppi e ordine (§51.5)", () => {
-    it("sidebar unica: 16 voci nei gruppi, Impostazioni e Assistenza nel piede", () => {
+    it("sidebar unica: 15 voci nei gruppi dell'Officina, Lingue fuori", () => {
         expect(shape("unica")).toEqual([
             [null, ["Panoramica"]],
             ["Il locale", ["Scheda", "Cosa vedono i clienti"]],
-            ["Catalogo", ["Cataloghi", "Prodotti", "Programmazione"]],
-            ["Pagina pubblica", ["Stili", "In evidenza", "Storie", "Lingue"]],
-            ["Operatività", ["Servizio", "Prenotazioni", "Comande", "Storico"]],
-            ["Andamento", ["Analitiche", "Recensioni", "Clienti"]]
+            ["Menù", ["Cataloghi", "Prodotti", "Programmazione"]],
+            ["Vetrina", ["Stili", "In evidenza", "Storie"]],
+            ["Servizio", ["Servizio", "Prenotazioni", "Comande", "Storico"]],
+            ["Clienti e numeri", ["Analitiche", "Recensioni", "Clienti"]]
         ]);
-        expect(NAV_MODELS.unica.footer.map(e => e.label)).toEqual(["Impostazioni", "Assistenza"]);
     });
 
     it("azienda: Sedi sotto Panoramica, niente Ordini né Prenotazioni, niente Team né Abbonamento", () => {
         expect(shape("azienda")).toEqual([
             [null, ["Panoramica", "Sedi"]],
-            ["Catalogo", ["Cataloghi", "Prodotti", "Programmazione"]],
-            ["Pagina pubblica", ["Stili", "In evidenza", "Storie", "Lingue"]],
-            ["Andamento", ["Analitiche", "Recensioni", "Clienti"]]
+            ["Menù", ["Cataloghi", "Prodotti", "Programmazione"]],
+            ["Vetrina", ["Stili", "In evidenza", "Storie"]],
+            ["Clienti e numeri", ["Analitiche", "Recensioni", "Clienti"]]
         ]);
-        expect(NAV_MODELS.azienda.footer.map(e => e.label)).toEqual(["Impostazioni", "Assistenza"]);
     });
 
     it("sede: il locale con la sua Programmazione, il lavoro in sala, i risultati della sede", () => {
         expect(shape("sede")).toEqual([
             ["Il locale", ["Scheda", "Cosa vedono i clienti", "Programmazione"]],
-            ["Operatività", ["Servizio", "Prenotazioni", "Comande", "Storico"]],
-            ["Andamento", ["Analitiche", "Recensioni"]]
+            ["Servizio", ["Servizio", "Prenotazioni", "Comande", "Storico"]],
+            ["Clienti e numeri", ["Analitiche", "Recensioni"]]
         ]);
-        expect(NAV_MODELS.sede.footer.map(e => e.label)).toEqual(["Assistenza"]);
+    });
+
+    it("menù dell'account: le pagine dell'azienda fuori dalla sidebar, uguali in ogni contesto", () => {
+        expect(ACCOUNT_ENTRIES.map(e => e.label)).toEqual(["Impostazioni", "Team", "Abbonamento", "Lingue", "Assistenza"]);
+        expect(ACCOUNT_ENTRIES.every(e => e.level === "azienda")).toBe(true);
+        expect(ACCOUNT_ENTRIES.map(e => entryPath(e, "b", null))).toEqual([
+            "/business/b/settings",
+            "/business/b/settings/team",
+            "/business/b/settings/abbonamento",
+            "/business/b/languages",
+            "/business/b/support"
+        ]);
+    });
+
+    it("menù dell'account: Team e Abbonamento coi gate delle loro tab", () => {
+        const visibili = (p: UserPermissions) => ACCOUNT_ENTRIES.filter(e => canSeeNavEntry(e, p, null)).map(e => e.label);
+        expect(visibili(owner())).toEqual(["Impostazioni", "Team", "Abbonamento", "Lingue", "Assistenza"]);
+        expect(visibili(manager())).toEqual(["Impostazioni", "Team", "Lingue", "Assistenza"]);
+        expect(visibili(staff())).toEqual(["Impostazioni", "Lingue", "Assistenza"]);
     });
 
     it("Analitiche e Recensioni sono della sede nella sidebar unica e dentro la sede, dell'azienda fuori", () => {
-        const andamento = (c: NavContext) => NAV_MODELS[c].groups.find(g => g.title === "Andamento")!.entries;
+        const andamento = (c: NavContext) => NAV_MODELS[c].groups.find(g => g.title === "Clienti e numeri")!.entries;
         expect(andamento("unica").slice(0, 2).map(e => e.level)).toEqual(["sede", "sede"]);
         expect(andamento("sede").map(e => e.level)).toEqual(["sede", "sede"]);
         expect(andamento("azienda").slice(0, 2).map(e => e.level)).toEqual(["azienda", "azienda"]);
@@ -130,7 +147,7 @@ describe("entryPath — dove porta una voce", () => {
     });
 
     it("Analitiche e Recensioni di sede hanno le loro rotte", () => {
-        const andamento = NAV_MODELS.sede.groups.find(g => g.title === "Andamento")!.entries;
+        const andamento = NAV_MODELS.sede.groups.find(g => g.title === "Clienti e numeri")!.entries;
         expect(andamento.map(e => entryPath(e, "b", SEDE))).toEqual([
             `/business/b/locations/${SEDE}/analitiche`,
             `/business/b/locations/${SEDE}/recensioni`
@@ -140,7 +157,8 @@ describe("entryPath — dove porta una voce", () => {
 
 describe("canSeeNavEntry — i permessi di oggi, sulla sede dentro la sede", () => {
     const voci = (c: NavContext, p: UserPermissions, activityId: string | null) =>
-        [...NAV_MODELS[c].groups.flatMap(g => g.entries), ...NAV_MODELS[c].footer]
+        NAV_MODELS[c].groups
+            .flatMap(g => g.entries)
             .filter(e => canSeeNavEntry(e, p, activityId))
             .map(e => e.label);
 
@@ -152,7 +170,7 @@ describe("canSeeNavEntry — i permessi di oggi, sulla sede dentro la sede", () 
     });
 
     it("dentro la sede i permessi valgono su quella sede", () => {
-        expect(voci("sede", manager([ALTRA]), SEDE)).toEqual(["Assistenza"]);
+        expect(voci("sede", manager([ALTRA]), SEDE)).toEqual([]);
         expect(voci("sede", manager([SEDE]), SEDE)).toEqual([
             "Scheda",
             "Cosa vedono i clienti",
@@ -162,8 +180,7 @@ describe("canSeeNavEntry — i permessi di oggi, sulla sede dentro la sede", () 
             "Comande",
             "Storico",
             "Analitiche",
-            "Recensioni",
-            "Assistenza"
+            "Recensioni"
         ]);
     });
 
@@ -178,7 +195,7 @@ describe("canSeeNavEntry — i permessi di oggi, sulla sede dentro la sede", () 
 
     it("owner vede tutto, nei tre contesti", () => {
         for (const c of ["unica", "azienda", "sede"] as const) {
-            const all = [...NAV_MODELS[c].groups.flatMap(g => g.entries), ...NAV_MODELS[c].footer];
+            const all = NAV_MODELS[c].groups.flatMap(g => g.entries);
             expect(voci(c, owner(), SEDE)).toEqual(all.map(e => e.label));
         }
     });

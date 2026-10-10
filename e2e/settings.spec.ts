@@ -37,7 +37,7 @@ test.describe("Impostazioni", () => {
     });
 
     test("titolo di pagina", async ({ page }) => {
-        await expect(page).toHaveTitle(/^Impostazioni — .+ \| CataloGlobe$/);
+        await expect(page).toHaveTitle(/^Impostazioni · .+ · CataloGlobe$/);
     });
 
     test("azienda: nome compilato, settore in sola lettura", async ({ page }) => {

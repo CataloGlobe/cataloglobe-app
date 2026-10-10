@@ -1,5 +1,6 @@
 import { expect, type Page } from "@playwright/test";
 import { loadE2eEnv } from "./env";
+import { sidebarLink } from "./nav";
 
 /**
  * Apre una pagina dell'azienda di test. Con `E2E_BUSINESS_ID` va diretto;
@@ -29,7 +30,16 @@ export async function openBusinessPage(page: Page, path: string, sidebarLabel: s
     // Si aspetta la voce «Panoramica».
     const nav = page.getByRole("navigation", { name: "Menu principale" });
     await expect(nav.getByRole("link", { name: "Panoramica" })).toBeVisible({ timeout: 15_000 });
-    await nav.getByRole("link", { name: sidebarLabel }).click();
+    // Le voci stanno dirette nel menu o nel pannello della loro sezione;
+    // Impostazioni, Team, Abbonamento, Lingue e Assistenza nel menù
+    // dell'account in fondo alla sidebar (Officina).
+    const link = await sidebarLink(page, sidebarLabel);
+    if ((await link.count()) > 0) {
+        await link.click();
+    } else {
+        await page.getByRole("button", { name: /^Account:/ }).click();
+        await page.getByRole("menuitem", { name: sidebarLabel }).click();
+    }
     await page.waitForURL(new RegExp(`/business/[0-9a-f-]+/${path}$`));
 }
 

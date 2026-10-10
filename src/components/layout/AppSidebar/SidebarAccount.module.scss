@@ -1,0 +1,113 @@
+// SidebarAccount — il pulsante dell'account nel piede della sidebar
+// (Officina, come in Claude). Stessa geometria aperta e chiusa: l'avatar
+// (32) resta al suo posto e chiusa cade al centro dei 64:
+// 11 (contenitore) + 5 (pulsante) + 16 = 32 = 64 / 2. Si taglia il testo,
+// non si sposta niente. Solo token.
+
+.trigger {
+  display: flex;
+  align-items: center;
+  gap: var(--space-10);
+  width: 100%;
+  min-width: 0;
+  padding: 5px;
+  border: none;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--sb-strong, var(--text));
+  text-align: start;
+  cursor: pointer;
+  transition: background var(--timing-motion-fast) var(--easing-state);
+
+  &:hover,
+  &[data-state="open"] {
+    background: var(--sb-hover, var(--hover-bg));
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-focus);
+  }
+
+  &[data-collapsed] {
+    width: 42px;
+  }
+}
+
+.avatar {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+}
+
+// Il numero sull'avatar: cose da vedere nel menù (traduzioni, risposte).
+.count {
+  position: absolute;
+  top: -5px;
+  right: -7px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-pill);
+  line-height: 18px;
+  text-align: center;
+  background: var(--brand-primary);
+  color: var(--surface);
+  box-shadow: 0 0 0 2px var(--sb-bg, var(--surface));
+}
+
+.who {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+  overflow: hidden;
+
+  .trigger[data-collapsed] & {
+    display: none;
+  }
+}
+
+.name,
+.plan {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chevron {
+  flex: none;
+  color: var(--sb-text, var(--text-muted));
+
+  .trigger[data-collapsed] & {
+    display: none;
+  }
+}
+
+.tipAnchor {
+  display: inline-flex;
+}
+
+// Al telefono la sidebar è un pannello sopra l'overlay: il menù le passa sopra.
+// Largo almeno 240 (da aperta un po' più del pulsante, così l'email ci sta),
+// mai meno del pulsante (al telefono la sidebar è più larga).
+.menu {
+  z-index: var(--z-toast);
+  width: max(var(--radix-dropdown-menu-trigger-width), 240px);
+}
+
+.headLine {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--brand-primary);
+}

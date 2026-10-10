@@ -3,7 +3,6 @@ import { useTenant } from "@/context/useTenant";
 import { HeaderLogo } from "./HeaderLogo";
 import { HeaderTenantSwitcher } from "./HeaderTenantSwitcher";
 import { HeaderNotifications } from "./HeaderNotifications";
-import { HeaderUserMenu } from "./HeaderUserMenu";
 import { NavbarBreadcrumb } from "./NavbarBreadcrumb";
 import { HeaderSedeSwitcher } from "./HeaderSedeSwitcher";
 import { AiUsagePill } from "./AiUsagePill";
@@ -44,7 +43,7 @@ export function AppHeader({ onOpenMobileSidebar, aiUsage = null }: AppHeaderProp
             <div className={styles.right}>
                 <AiUsagePill usage={aiUsage} />
                 <HeaderNotifications scope="tenant" tenantId={selectedTenantId} />
-                <HeaderUserMenu />
+                {/* L'account sta in fondo alla sidebar (Officina): qui solo le notifiche. */}
             </div>
         </div>
     );

@@ -14,14 +14,15 @@ import {
     Megaphone,
     CalendarDays,
     Star,
-    ScrollText
+    ScrollText,
+    UtensilsCrossed
 } from "lucide-react";
 import { useTenant } from "@/context/useTenant";
 import { useTenantId } from "@/context/useTenantId";
 import { usePageHeader } from "@/context/usePageHeader";
 import { usePermissions } from "@/context/usePermissions";
 import { useToast } from "@/context/Toast/ToastContext";
-import { canDoOnActivity, isOwnerOrAdmin } from "@/lib/permissions";
+import { canDoOnActivity, canDoOnAnyActivity, canDoOnTenant, isOwnerOrAdmin } from "@/lib/permissions";
 import Text from "@/components/ui/Text/Text";
 import Skeleton from "@/components/ui/Skeleton/Skeleton";
 import {
@@ -54,6 +55,7 @@ import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { businessRouteLabel } from "@/components/layout/AppHeader/navbarBreadcrumbRoutes";
 import { buildPublicUrl } from "@/utils/publicUrl";
 import { canSeeServizio } from "@/utils/servizioModes";
+import { CREATE_ON_ARRIVAL } from "@/hooks/useCreateOnArrival";
 import styles from "./OverviewPage.module.scss";
 
 /** Sede attiva raggiungibile dal pubblico. Il menù attivo NON sta qui: arriva
@@ -379,6 +381,44 @@ export default function OverviewPage() {
     }
 
     const b = `/business/${tenantId}`;
+
+    // «Cosa vuoi creare?» (Officina): l'azione principale della pagina. Ogni
+    // scheda porta al suo elenco con la creazione aperta; quando ci sarà il
+    // tunnel di creazione, porterà lì. Solo le cose che chi guarda può creare.
+    const createOptions = [
+        {
+            key: "menu",
+            show: canDoOnTenant(permissions, "catalogs.write"),
+            icon: <UtensilsCrossed />,
+            title: `Un ${catalogLower}`,
+            text: "Sezioni e piatti da mostrare ai clienti",
+            to: `${b}/catalogs`
+        },
+        {
+            key: "stile",
+            show: canDoOnTenant(permissions, "styles.write"),
+            icon: <Palette />,
+            title: "Uno stile",
+            text: "Colori e caratteri della pagina",
+            to: `${b}/styles`
+        },
+        {
+            key: "evidenza",
+            show: canDoOnAnyActivity(permissions, "featured.write"),
+            icon: <Megaphone />,
+            title: "In evidenza",
+            text: "Un annuncio, un evento, una promo",
+            to: `${b}/featured`
+        },
+        {
+            key: "storia",
+            show: canDoOnAnyActivity(permissions, "stories.write"),
+            icon: <ScrollText />,
+            title: "Una storia",
+            text: "Racconta il locale con testo e foto",
+            to: `${b}/stories`
+        }
+    ].filter(option => option.show);
 
     // I passi sono una sequenza, non una lista paritaria: ognuno serve al
     // successivo. Lo stato è derivato dai dati, niente flag persistiti. Il
@@ -884,6 +924,30 @@ export default function OverviewPage() {
 
     return (
         <div className={styles.page}>
+            {/* ===== A — Cosa vuoi creare? (Officina) =====
+                Non con zero sedi: lì la procedura guidata viene prima. */}
+            {createOptions.length > 0 && !(canSeeSetup && setupStatus === "ready" && !setup?.hasAnyLocation) && (
+                <Card title="Cosa vuoi creare?">
+                    <ul className={styles.createGrid}>
+                        {createOptions.map(option => (
+                            <li key={option.key}>
+                                <Link to={option.to} state={CREATE_ON_ARRIVAL} className={styles.createTile}>
+                                    <span className={styles.createIcon} aria-hidden="true">
+                                        {option.icon}
+                                    </span>
+                                    <Text as="span" variant="body-sm" weight={600}>
+                                        {option.title}
+                                    </Text>
+                                    <Text as="span" variant="caption" colorVariant="muted">
+                                        {option.text}
+                                    </Text>
+                                </Link>
+                            </li>
+                        ))}
+                    </ul>
+                </Card>
+            )}
+
             {/* ===== D — Configurazione incompleta (§42.1) =====
                 Finché le basi mancano, la pagina è solo la checklist. A zero
                 sedi la procedura guidata viene prima: è il modo consigliato,

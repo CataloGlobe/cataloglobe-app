@@ -155,7 +155,7 @@ function UptimeBar({ buckets }: { buckets: DailyBucket[] }) {
                     <div
                         key={b.date}
                         className={`${styles.uptimeBar} ${cls}`}
-                        title={`${b.date} — ${titleStatus} (${b.checkCount} check)`}
+                        title={`${b.date} · ${titleStatus} (${b.checkCount} check)`}
                     />
                 );
             })}

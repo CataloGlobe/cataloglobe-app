@@ -11,7 +11,7 @@ describe("buildSubscriptionSupportMailto", () => {
     it("targets the support address with the company in the subject", () => {
         expect(href.startsWith("mailto:support@example.com?subject=")).toBe(true);
         const subject = new URLSearchParams(href.split("?")[1]).get("subject");
-        expect(subject).toBe("Abbonamento CataloGlobe — Trattoria & Co");
+        expect(subject).toBe("Abbonamento CataloGlobe · Trattoria & Co");
     });
 
     it("carries the tenant id in the body so support can find the row", () => {

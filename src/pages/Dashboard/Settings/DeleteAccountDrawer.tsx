@@ -396,7 +396,7 @@ function OwnedTenantCard({
                                 {members.map(m => (
                                     <option key={m.userId} value={m.userId}>
                                         {m.email && m.email !== m.displayName
-                                            ? `${m.displayName} — ${m.email}`
+                                            ? `${m.displayName} · ${m.email}`
                                             : m.displayName}
                                     </option>
                                 ))}

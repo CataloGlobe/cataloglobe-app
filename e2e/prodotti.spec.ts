@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { openBusinessPage } from "./business";
+import { sidebarLink } from "./nav";
 import {
     GROUP,
     INGREDIENT,
@@ -128,7 +129,7 @@ test.describe("Prodotti — elenco", () => {
 
     test("testata: collezioni, ricerca, vista, crea", async ({ page }) => {
         await openList(page);
-        await expect(page).toHaveTitle(/^Prodotti — .+ \| CataloGlobe$/);
+        await expect(page).toHaveTitle(/^Prodotti · .+ · CataloGlobe$/);
         await expect(collection(page, /^Prodotti$/)).toBeVisible();
         await expect(collection(page, /^Gruppi$/)).toBeVisible();
         await expect(collection(page, /^Ingredienti$/)).toBeVisible();
@@ -632,7 +633,7 @@ test.describe("Prodotti — dettaglio", () => {
         const name = main(page).getByRole("textbox", { name: /^Nome/ });
         await expect(name).toHaveValue("Hamburger", { timeout: 15_000 });
         await name.fill("Hamburger e2e");
-        await page.getByRole("navigation", { name: "Menu principale" }).getByRole("link", { name: "Menù" }).click();
+        await (await sidebarLink(page, "Menù")).click();
         const guard = page.getByRole("alertdialog");
         await expect(guard).toContainText("Modifiche non salvate");
         await guard.getByRole("button", { name: /^(Annulla|Resta)$/ }).click();

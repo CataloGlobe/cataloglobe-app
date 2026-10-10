@@ -46,6 +46,8 @@ export interface SidebarNavItem {
 
 export interface SidebarNavGroup {
     title: string | null;
+    /** L'icona della sezione (Officina): con l'icona il gruppo è una sezione. */
+    icon?: ReactNode;
     items: SidebarNavItem[];
 }
 
@@ -82,6 +84,7 @@ export function buildSidebarGroups(
     return groups
         .map(group => ({
             title: group.title ?? undefined,
+            icon: group.icon,
             items: group.items
                 .filter(item => {
                     if (!item.permission) return true;

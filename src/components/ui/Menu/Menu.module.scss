@@ -87,6 +87,22 @@
     min-width: 0;
 }
 
+.itemLeading {
+    flex: none;
+    display: inline-flex;
+
+    svg {
+        width: 16px;
+        height: 16px;
+    }
+}
+
+.itemTrailing {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+}
+
 // Voce con sotto-testo: due righe, l'altezza la decide il contenuto.
 .withDescription {
     height: auto;
@@ -129,6 +145,36 @@
     &[data-highlighted] {
         background-color: var(--brand-primary-soft);
         color: var(--brand-primary);
+    }
+}
+
+// Compatto (menù dell'account, Officina): più denso e più leggero, come i
+// menù di Claude. Righe 32 (40 al telefono, si toccano col dito), icone 14,
+// margini stretti, divisori che non toccano i bordi. Il testo resta 14.
+.compact {
+    padding: var(--space-4);
+
+    .label {
+        padding: var(--space-6) var(--space-8) var(--space-4);
+    }
+
+    .item {
+        height: 32px;
+        padding: 0 var(--space-8);
+
+        @media (max-width: 767px) {
+            height: 40px;
+        }
+
+        > svg,
+        .itemLeading svg {
+            width: 14px;
+            height: 14px;
+        }
+    }
+
+    .separator {
+        margin: var(--space-4) var(--space-8);
     }
 }
 

@@ -1278,7 +1278,7 @@ export function MenuPdfDocument({
   const showLogo = header.showLogo && assets.logoDataUrl !== null;
 
   return (
-    <Document title={`${data.meta.catalogName} — ${data.meta.activityName}`}>
+    <Document title={`${data.meta.catalogName} · ${data.meta.activityName}`}>
       {/* Copertina: nessun footer, nessun numero pagina */}
       <Page size="A4" style={styles.coverPage}>
         {showCoverBand ? (

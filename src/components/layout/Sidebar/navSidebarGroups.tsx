@@ -7,20 +7,31 @@ import {
     ChefHat,
     ClipboardList,
     ConciergeBell,
+    CreditCard,
     Eye,
     History,
     LayoutDashboard,
     Languages,
     LifeBuoy,
     Megaphone,
+    MonitorSmartphone,
     Palette,
     ScrollText,
     Settings,
     Star,
     Store,
+    Users,
     Utensils
 } from "lucide-react";
-import { canSeeNavEntry, entryPath, type NavEntry, type NavKey, type NavModel } from "@/utils/navModel";
+import {
+    ACCOUNT_ENTRIES,
+    canSeeNavEntry,
+    entryPath,
+    type NavEntry,
+    type NavGroupKey,
+    type NavKey,
+    type NavModel
+} from "@/utils/navModel";
 import type { SidebarNavGroup, SidebarNavItem } from "./sidebarItems";
 
 /**
@@ -56,7 +67,19 @@ const ICONS: Record<NavKey, ReactNode> = {
     recensioni: <Star size={20} />,
     guests: <BookUser size={20} />,
     settings: <Settings size={20} />,
+    team: <Users size={20} />,
+    billing: <CreditCard size={20} />,
     support: <LifeBuoy size={20} />
+};
+
+// Le sezioni (Officina). Il locale = la casa della sede; Vetrina = come la
+// vedono i clienti, non lo stile soltanto.
+const GROUP_ICONS: Record<NavGroupKey, ReactNode> = {
+    locale: <Store size={20} />,
+    menu: <Utensils size={20} />,
+    vetrina: <MonitorSmartphone size={20} />,
+    servizio: <ConciergeBell size={20} />,
+    clienti: <ChartColumn size={20} />
 };
 
 export interface NavSidebarOptions {
@@ -83,13 +106,20 @@ function toItem(entry: NavEntry, options: NavSidebarOptions): SidebarNavItem {
     };
 }
 
-/** Gruppi e piede del contesto, nella forma di `buildSidebarGroups`. */
+/**
+ * Gruppi del contesto e voci del menù dell'account, nella forma di
+ * `buildSidebarGroups`. Le voci dell'account sono dell'azienda: niente sede.
+ */
 export function navSidebarGroups(
     model: NavModel,
     options: NavSidebarOptions
-): { groups: SidebarNavGroup[]; footer: SidebarNavGroup[] } {
+): { groups: SidebarNavGroup[]; account: SidebarNavGroup[] } {
     return {
-        groups: model.groups.map(g => ({ title: g.title, items: g.entries.map(e => toItem(e, options)) })),
-        footer: [{ title: null, items: model.footer.map(e => toItem(e, options)) }]
+        groups: model.groups.map(g => ({
+            title: g.title,
+            icon: g.key ? GROUP_ICONS[g.key] : undefined,
+            items: g.entries.map(e => toItem(e, options))
+        })),
+        account: [{ title: null, items: ACCOUNT_ENTRIES.map(e => toItem(e, { ...options, activityId: null })) }]
     };
 }

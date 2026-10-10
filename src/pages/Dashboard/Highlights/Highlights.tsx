@@ -37,6 +37,7 @@ import { useEnsureActive } from "@/hooks/useEnsureActive";
 import { usePermissions } from "@/context/usePermissions";
 import { canDoOnAnyActivity } from "@/lib/permissions";
 import { PageGate } from "@/components/PageGate/PageGate";
+import { useCreateOnArrival } from "@/hooks/useCreateOnArrival";
 
 const VIEW_MODE_KEY = "featuredContents_viewMode";
 
@@ -120,6 +121,8 @@ export default function Highlights() {
         if (!ensureActive()) return;
         setIsCreateOpen(true);
     }, [ensureActive]);
+    // Da «Cosa vuoi creare?» della Panoramica.
+    useCreateOnArrival(handleCreate, permissions ? canWrite : null);
 
     const headerActions = useMemo(() => (
         <>

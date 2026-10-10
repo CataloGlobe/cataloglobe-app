@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { openBusinessPage, openBusinessPageByUrl } from "./business";
+import { sidebarVoci } from "./nav";
 import { GUEST, SEDE, stubClienti, type ClientiStub, type WriteCall } from "./clientiStub";
 import type { Row } from "./restStub";
 
@@ -172,7 +173,7 @@ test.describe("Clienti — elenco", () => {
         // La voce non è in sidebar: si arriva dal link diretto.
         await openBusinessPageByUrl(page, "guests");
         await stub.revoked;
-        await expect(page.getByRole("navigation", { name: "Menu principale" }).getByRole("link", { name: "Clienti" })).toHaveCount(0);
+        expect(await sidebarVoci(page)).not.toContain("Clienti");
         await expect(main(page).getByText(/Non hai accesso/)).toBeVisible({ timeout: 15_000 });
         await expect(guestName(page, "Giulia Rossi e2e")).toHaveCount(0);
     });

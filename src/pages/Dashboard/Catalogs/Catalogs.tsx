@@ -6,7 +6,7 @@ import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { useTenantId } from "@/context/useTenantId";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
-import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
+import { useEnsureActive } from "@/hooks/useEnsureActive";
 import { usePermissions } from "@/context/usePermissions";
 import { canDoOnTenant } from "@/lib/permissions";
 import { PageGate } from "@/components/PageGate/PageGate";
@@ -23,6 +23,7 @@ import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions
 import {
     listCatalogs,
     deleteCatalog,
+    duplicateCatalog,
     getCatalogStatsMap,
     type V2Catalog,
     type CatalogStats
@@ -42,6 +43,7 @@ import { CatalogForm } from "./components/CatalogForm";
 import { CatalogSheet } from "./components/CatalogSheet";
 import { isPostgrestFKError } from "@/utils/supabaseErrors";
 import styles from "./Catalogs.module.scss";
+import { useCreateOnArrival } from "@/hooks/useCreateOnArrival";
 
 const FORM_ID = "catalog-form";
 
@@ -56,7 +58,7 @@ export default function Catalogs() {
     const { showToast } = useToast();
     const navigate = useNavigate();
     const verticalConfig = useVerticalConfig();
-    const { canEdit } = useSubscriptionGuard();
+    const { canEdit, ensureActive } = useEnsureActive();
     const { permissions } = usePermissions();
     const canWriteCatalog = permissions != null ? canDoOnTenant(permissions, "catalogs.write") : false;
     const catalogLower = verticalConfig.catalogLabel.toLowerCase();
@@ -144,10 +146,12 @@ export default function Catalogs() {
     }, [importRefreshKey, loadData]);
 
     const handleOpenCreate = useCallback(() => {
-        if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
+        if (!ensureActive()) return;
         setEditingCatalog(null);
         setIsDrawerOpen(true);
-    }, [canEdit, showToast]);
+    }, [ensureActive]);
+    // Da «Cosa vuoi creare?» della Panoramica.
+    useCreateOnArrival(handleOpenCreate, permissions != null ? canWriteCatalog : null);
 
     const handleViewModeChange = useCallback((next: "list" | "grid") => {
         setViewMode(next);
@@ -155,12 +159,9 @@ export default function Catalogs() {
     }, []);
 
     const handleOpenAiImport = useCallback(() => {
-        if (!canEdit) {
-            showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" });
-            return;
-        }
+        if (!ensureActive()) return;
         openAiImport?.();
-    }, [canEdit, showToast, openAiImport]);
+    }, [ensureActive, openAiImport]);
 
     const aiImportIsBusy = importStatus !== "idle";
 
@@ -273,15 +274,34 @@ export default function Catalogs() {
     });
 
     const handleOpenEdit = (catalog: V2Catalog) => {
-        if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
+        if (!ensureActive()) return;
         setEditingCatalog(catalog);
         setIsDrawerOpen(true);
     };
 
     // Scorciatoia: apre il wizard AI import puntato su questo catalogo (2C-5).
     const handleAddWithAi = (catalog: V2Catalog) => {
-        if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
+        if (!ensureActive()) return;
         openAiImport?.({ catalogId: catalog.id, catalogName: catalog.name });
+    };
+
+    // La copia nasce senza sedi: si collega da Programmazione.
+    // Una copia alla volta: ci vuole qualche secondo, e un secondo clic ne farebbe due.
+    const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
+    const handleDuplicate = async (catalog: V2Catalog) => {
+        if (!ensureActive()) return;
+        if (duplicatingId) return;
+        setDuplicatingId(catalog.id);
+        showToast({ message: `Sto duplicando «${catalog.name}»…`, type: "info" });
+        try {
+            await duplicateCatalog(catalog.id, currentTenantId!, `${catalog.name} (Copia)`);
+            showToast({ message: `${verticalConfig.catalogLabel} duplicato.`, type: "success" });
+            await loadData();
+        } catch {
+            showToast({ message: `Impossibile duplicare il ${catalogLower}.`, type: "error" });
+        } finally {
+            setDuplicatingId(null);
+        }
     };
 
     const handleOpenDelete = (catalog: V2Catalog) => {
@@ -417,6 +437,11 @@ export default function Catalogs() {
                     label: "Rinomina",
                     onClick: () => handleOpenEdit(catalog),
                     separator: true
+                },
+                {
+                    label: duplicatingId === catalog.id ? "Duplicazione…" : "Duplica",
+                    onClick: () => void handleDuplicate(catalog),
+                    disabled: duplicatingId !== null
                 },
                 {
                     label: `Elimina ${catalogLower}`,

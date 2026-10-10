@@ -36,6 +36,21 @@
   }
 }
 
+// Variante `panel`: come il pannello delle sezioni della sidebar
+// (`SidebarFlyout.module.scss`), il testo lo porta chi la usa.
+.panel {
+  display: flex;
+  align-items: center;
+  // Larga come il pannello delle sezioni, col suo stesso bordino viola.
+  min-width: 208px;
+  min-height: 44px;
+  padding: var(--space-4) calc(var(--space-4) + var(--space-10));
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid color-mix(in srgb, var(--surface), var(--brand-primary) 35%);
+  border-radius: var(--radius-surface);
+}
+
 .arrow {
   /* Deve matchare esattamente il fondo del tooltip */
   fill: var(--text);

@@ -51,6 +51,8 @@ export type NavKey =
     | "recensioni"
     | "guests"
     | "settings"
+    | "team"
+    | "billing"
     | "support";
 
 /** I segnali di oggi (§51.15): li calcola il layout, la voce dice quale le spetta. */
@@ -96,7 +98,12 @@ export interface NavEntry {
     verticalLabel?: boolean;
 }
 
+/** Le sezioni della sidebar (Officina): ognuna ha la sua icona. */
+export type NavGroupKey = "locale" | "menu" | "vetrina" | "servizio" | "clienti";
+
 export interface NavGroup {
+    /** Senza chiave il gruppo non è una sezione: le sue voci stanno sciolte. */
+    key?: NavGroupKey;
     /** `null` = fuori gruppo (§19.5: un gruppo di una voce sola non raggruppa niente). */
     title: string | null;
     entries: NavEntry[];
@@ -104,8 +111,6 @@ export interface NavGroup {
 
 export interface NavModel {
     groups: NavGroup[];
-    /** Il piede della sidebar, uguale in tutti i contesti (§51.12). */
-    footer: NavEntry[];
 }
 
 // ── Le voci ─────────────────────────────────────────────────────────────────
@@ -201,7 +206,8 @@ const STORIES: NavEntry = {
     gate: { on: "anyActivity", permission: "stories.read" }
 };
 
-// Lingue resta pagina propria (§50.14 L1): traduce il catalogo.
+// Lingue resta pagina propria (§50.14 L1): traduce il catalogo. Officina:
+// esce dalla sidebar e sta nel menù dell'account (`ACCOUNT_ENTRIES`).
 const LANGUAGES: NavEntry = {
     key: "languages",
     label: ROUTE_LABELS.languages,
@@ -298,7 +304,25 @@ const GUESTS: NavEntry = {
 };
 
 // Azienda · Team · Abbonamento (§51.12): ogni tab col suo gate, la voce no.
+// Nel menù dell'account Team e Abbonamento sono voci a sé, coi gate delle
+// loro tab (`useSettingsTabs`).
 const SETTINGS: NavEntry = { key: "settings", label: ROUTE_LABELS.settings, level: "azienda", segment: "settings" };
+
+const TEAM: NavEntry = {
+    key: "team",
+    label: "Team",
+    level: "azienda",
+    segment: "settings/team",
+    gate: { on: "tenant", permission: "team.read" }
+};
+
+const BILLING: NavEntry = {
+    key: "billing",
+    label: "Abbonamento",
+    level: "azienda",
+    segment: "settings/abbonamento",
+    gate: { on: "tenant", permission: "billing.read" }
+};
 
 // "Assistenza" e non "Aiuto": è un canale verso una persona. Gate su
 // `canDoOnTenant`, più largo delle RLS: un manager senza sedi deve poter
@@ -314,44 +338,50 @@ const SUPPORT: NavEntry = {
 
 // ── I gruppi ────────────────────────────────────────────────────────────────
 // Ordine (§51.5): prima il locale, poi cosa offre, poi il lavoro in sala, poi
-// i risultati. Operatività non sta in cima perché è del piano Pro.
+// i risultati. Servizio non sta in cima perché è del piano Pro.
+// Titoli dell'Officina (sidebar approvata da Alex il 2026-10-08): Menù,
+// Vetrina, Servizio, Clienti e numeri; stessi titoli in tutti i contesti.
 
-const IL_LOCALE: NavGroup = { title: "Il locale", entries: [SCHEDA, COSA_VEDONO] };
-const CATALOGO: NavGroup = { title: "Catalogo", entries: [CATALOGS, PRODUCTS, SCHEDULING] };
-const PAGINA_PUBBLICA: NavGroup = { title: "Pagina pubblica", entries: [STYLES, FEATURED, STORIES, LANGUAGES] };
-const OPERATIVITA: NavGroup = { title: "Operatività", entries: [SERVIZIO, PRENOTAZIONI, COMANDE, STORICO] };
+const IL_LOCALE: NavGroup = { key: "locale", title: "Il locale", entries: [SCHEDA, COSA_VEDONO] };
+const MENU: NavGroup = { key: "menu", title: "Menù", entries: [CATALOGS, PRODUCTS, SCHEDULING] };
+const VETRINA: NavGroup = { key: "vetrina", title: "Vetrina", entries: [STYLES, FEATURED, STORIES] };
+const IN_SALA: NavGroup = { key: "servizio", title: "Servizio", entries: [SERVIZIO, PRENOTAZIONI, COMANDE, STORICO] };
+const CLIENTI_E_NUMERI = "Clienti e numeri";
 
 export const NAV_MODELS: Record<NavContext, NavModel> = {
     unica: {
         groups: [
             { title: null, entries: [OVERVIEW] },
             IL_LOCALE,
-            CATALOGO,
-            PAGINA_PUBBLICA,
-            OPERATIVITA,
-            { title: "Andamento", entries: [ANALITICHE, RECENSIONI, GUESTS] }
-        ],
-        footer: [SETTINGS, SUPPORT]
+            MENU,
+            VETRINA,
+            IN_SALA,
+            { key: "clienti", title: CLIENTI_E_NUMERI, entries: [ANALITICHE, RECENSIONI, GUESTS] }
+        ]
     },
     azienda: {
         groups: [
             { title: null, entries: [OVERVIEW, LOCATIONS] },
-            CATALOGO,
-            PAGINA_PUBBLICA,
-            { title: "Andamento", entries: [ANALYTICS, REVIEWS, GUESTS] }
-        ],
-        footer: [SETTINGS, SUPPORT]
+            MENU,
+            VETRINA,
+            { key: "clienti", title: CLIENTI_E_NUMERI, entries: [ANALYTICS, REVIEWS, GUESTS] }
+        ]
     },
     sede: {
         groups: [
-            { title: IL_LOCALE.title, entries: [...IL_LOCALE.entries, PROGRAMMAZIONE_SEDE] },
-            OPERATIVITA,
-            { title: "Andamento", entries: [ANALITICHE, RECENSIONI] }
-        ],
-        // Impostazioni è dell'azienda: dentro la sede il piede ha solo Assistenza.
-        footer: [SUPPORT]
+            { key: "locale", title: IL_LOCALE.title, entries: [...IL_LOCALE.entries, PROGRAMMAZIONE_SEDE] },
+            IN_SALA,
+            { key: "clienti", title: CLIENTI_E_NUMERI, entries: [ANALITICHE, RECENSIONI] }
+        ]
     }
 };
+
+/**
+ * Il menù dell'account, in fondo alla sidebar (Officina, come in Claude):
+ * le pagine dell'azienda che non sono lavoro di tutti i giorni. Uguale in
+ * tutti i contesti: sono dell'azienda, anche dentro una sede.
+ */
+export const ACCOUNT_ENTRIES: readonly NavEntry[] = [SETTINGS, TEAM, BILLING, LANGUAGES, SUPPORT];
 
 /** Le voci che vivono sotto una sede, nell'ordine della sidebar della sede. */
 const SEDE_ENTRIES: readonly NavEntry[] = NAV_MODELS.sede.groups.flatMap(g => g.entries);
@@ -432,7 +462,7 @@ export function sedeLandingSegment(permissions: UserPermissions, hasFeature: Has
     if (isOwnerOrAdmin(permissions) || canDoOnActivity(permissions, "activity.manage", activityId)) {
         return SEDE_FALLBACK_SEGMENT;
     }
-    const first = OPERATIVITA.entries.find(e => isNavEntryUsable(e, permissions, hasFeature, activityId));
+    const first = IN_SALA.entries.find(e => isNavEntryUsable(e, permissions, hasFeature, activityId));
     if (first) return first.segment;
     return canDoOnActivity(permissions, "tables.read", activityId) ? "sala" : SEDE_FALLBACK_SEGMENT;
 }
