@@ -17,7 +17,7 @@ export function isAppOrigin(origin: string | null | undefined): boolean {
 /**
  * Header CORS per un origin dell'app: l'origin torna indietro solo se è nella
  * lista, altrimenti `Access-Control-Allow-Origin` resta vuoto e il browser
- * blocca. `json: true` aggiunge `Content-Type: application/json`, come facevano
+ * blocca. `json: true` aggiunge il Content-Type JSON, come facevano
  * le funzioni che usano gli stessi header anche per le risposte.
  */
 export function appCorsHeaders(
