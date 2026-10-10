@@ -20,12 +20,14 @@ import { Resend } from "npm:resend@4";
 import { COMPANY } from "../_shared/company-config.ts";
 import { buildSignupReminderEmail } from "../_shared/accountEmails.ts";
 import { timingSafeEqualStr } from "../_shared/timingSafeEqual.ts";
+import { getPublicSiteUrl } from "../_shared/publicSiteUrl.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 const INTERNAL_SECRET = Deno.env.get("INTERNAL_EDGE_SECRET");
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
-const APP_URL = Deno.env.get("APP_URL");
+// APP_URL via getPublicSiteUrl: senza slash finale, null se non è un URL valido.
+const APP_URL = getPublicSiteUrl();
 
 /** Giorni dalla registrazione alla cancellazione (D30). */
 const DAYS_TO_PURGE = 7;
