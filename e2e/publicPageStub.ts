@@ -104,7 +104,10 @@ export type FeaturedSlots = {
     after_catalog?: V2FeaturedContent[];
 };
 
-function payload(featuredSlots: FeaturedSlots): ResolvedPayloadShape {
+/** Config dello stile risolto (`resolved.style.config`, formato di `parseTokens`). Assente = default. */
+export type StyleConfig = Record<string, unknown>;
+
+function payload(featuredSlots: FeaturedSlots, styleConfig?: StyleConfig): ResolvedPayloadShape {
     return {
         business: business(),
         tenantLogoUrl: null,
@@ -115,17 +118,18 @@ function payload(featuredSlots: FeaturedSlots): ResolvedPayloadShape {
             catalog: { id: "catalog-1", name: "Menu", categories: categories() },
             featured: featuredSlots,
             hasRenderableItems: true,
+            ...(styleConfig ? { style: { id: "style-1", name: "Stile e2e", config: styleConfig } } : {}),
         } as ResolvedPayloadShape["resolved"],
     };
 }
 
 export async function stubPublicPage(
     page: Page,
-    opts: { ordering: boolean; featured?: FeaturedSlots }
+    opts: { ordering: boolean; featured?: FeaturedSlots; styleConfig?: StyleConfig }
 ): Promise<void> {
     const featuredSlots = opts.featured ?? { before_catalog: [featured()] };
     await page.route("**/api/public-catalog**", route =>
-        route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(payload(featuredSlots)) })
+        route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(payload(featuredSlots, opts.styleConfig)) })
     );
     await page.route("**/functions/v1/log-analytics-event**", route => route.fulfill({ status: 204 }));
     await page.route("**/functions/v1/get-orders-for-session**", route =>

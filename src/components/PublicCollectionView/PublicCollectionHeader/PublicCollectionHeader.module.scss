@@ -108,6 +108,20 @@
   }
 }
 
+/* ── VARIANTE SENZA COVER (header espanso spento) ──────────
+   Niente foto sotto: la pillola flottante con margini e raggio lasciava
+   una fascia di fondo pagina sopra e si "animava" al primo scroll. Qui
+   parte già nello stato finale dello scroll: stesso vetro scuro, a tutta
+   larghezza, attaccata in cima, senza raggio. Niente lerp (il .tsx non
+   scrive inline style in questa variante). Dopo .root e i suoi override
+   .preview-*: a parità di specificità vince l'ordine. */
+.root[data-flat="true"] {
+  top: 0;
+  margin-inline: 0;
+  border-radius: 0;
+  border-width: 0 0 1px;
+}
+
 /* ── INNER (max-width constraint) ────────────────────────── */
 .inner {
   max-width: 820px;
