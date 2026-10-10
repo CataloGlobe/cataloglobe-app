@@ -766,11 +766,11 @@ test.describe("Menù — dove è attivo (§50.13)", () => {
         await expect(rowOf("Olive ascolane")).not.toContainText("menù");
     });
 
-    test("eliminazione: lo stato delle regole è quello di Programmazione", async ({ page }) => {
+    test("eliminazione: lo stato delle regole è quello del Calendario", async ({ page }) => {
         await openList(page);
         await actionsOf(main(page).getByText("Carta e2e")).click();
         await page.getByRole("menuitem", { name: "Elimina", exact: true }).click();
-        const rules = dialog(page).getByRole("list", { name: "Regole di programmazione collegate" });
+        const rules = dialog(page).getByRole("list", { name: "Regole del Calendario collegate" });
         await expect(rules.getByRole("link", { name: /Pranzo Centro e2e/ })).toHaveAttribute("href", new RegExp(`/scheduling/${RULE.pranzoCentro}$`));
         await expect(rules.getByRole("listitem").filter({ hasText: "Pranzo Centro e2e" })).toContainText("Attiva");
         // Fuori dalla sua fascia oraria adesso: «Programmata», come in Programmazione.

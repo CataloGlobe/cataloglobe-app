@@ -227,9 +227,12 @@ export async function withLongNames(page: Page, names: { azienda: string; sede?:
 /**
  * La sidebar come si legge: le voci dirette e, per ogni sezione, le voci del
  * suo pannello (aperto e richiuso). Senza il contatore in coda (badge «3», «99+»).
+ * Da aperta il clic su una sezione porta alla sua parte: alla fine si torna
+ * alla pagina di partenza, così il test continua dov'era.
  */
 export async function sidebarShape(page: Page): Promise<SidebarRow[]> {
     await settledMenu(page);
+    const start = page.url();
     const rows = await menuRows(page).evaluateAll(items =>
         items.map(li => {
             const section = li.querySelector(":scope > button[aria-expanded]");
@@ -247,6 +250,10 @@ export async function sidebarShape(page: Page): Promise<SidebarRow[]> {
         shape.push([row.section, voci.map(cleanLabel)]);
     }
     if (rows.some(row => "section" in row)) await closeSections(page);
+    if (page.url() !== start) {
+        await page.goto(start);
+        await settledMenu(page);
+    }
     return shape;
 }
 

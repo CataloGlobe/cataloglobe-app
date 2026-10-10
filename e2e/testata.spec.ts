@@ -89,20 +89,21 @@ test.describe("Testata — due righe prima della barra compatta", () => {
         expect((await cta.boundingBox())!.y).toBeLessThan((await membri.boundingBox())!.y);
     });
 
-    // T15: le stelle sono un Select «Filtra per stelle» nelle azioni, il
-    // conteggio è il leading. A 1280 e 1440 tutto su una riga.
+    // Recensioni (D154): niente testata della pagina, il periodo a sinistra e
+    // «Cerca» a destra in una barra sola. A 1280 e 1440 su una riga.
     for (const width of [1280, 1440]) {
         test(`Recensioni a ${width}: una riga sola`, async ({ page }) => {
             await stubRecensioni(page);
             await openBusinessPage(page, "reviews", "Recensioni");
             await page.setViewportSize({ width, height: 900 });
-            const stars = page.getByRole("combobox", { name: "Filtra per stelle" }).first();
-            const search = page.getByPlaceholder("Cerca commenti...");
-            await expect(stars).toBeVisible();
+            const period = page.getByRole("main").getByRole("radio", { name: "30 giorni" });
+            const search = page.getByRole("main").getByRole("button", { name: "Cerca", exact: true });
+            await expect(period).toBeVisible();
             await expect(search).toBeVisible();
-            const a = (await stars.boundingBox())!;
+            const a = (await period.boundingBox())!;
             const b = (await search.boundingBox())!;
             expect(Math.abs(a.y + a.height / 2 - (b.y + b.height / 2))).toBeLessThan(4);
+            expect(a.x).toBeLessThan(b.x);
         });
     }
 });

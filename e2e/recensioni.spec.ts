@@ -58,12 +58,17 @@ async function search(page: Page, text: string): Promise<void> {
 }
 
 async function noSideScroll(page: Page): Promise<void> {
-    const overflow = await page.evaluate(() => {
-        const de = document.documentElement;
-        const scrollers = [de, ...Array.from(document.querySelectorAll<HTMLElement>("main"))];
-        return Math.max(...scrollers.map(el => el.scrollWidth - el.clientWidth));
-    });
-    expect(overflow).toBeLessThanOrEqual(0);
+    // Dopo un cambio di larghezza la sidebar lascia il posto con una
+    // transizione: per un attimo la pagina è stretta. Si misura a layout fermo.
+    await expect
+        .poll(() =>
+            page.evaluate(() => {
+                const de = document.documentElement;
+                const scrollers = [de, ...Array.from(document.querySelectorAll<HTMLElement>("main"))];
+                return Math.max(...scrollers.map(el => el.scrollWidth - el.clientWidth));
+            })
+        )
+        .toBeLessThanOrEqual(0);
 }
 
 let stub: RecensioniStub;
