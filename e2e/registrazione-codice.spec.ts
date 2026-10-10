@@ -129,6 +129,20 @@ test.describe("Registrazione col codice", () => {
         await expect(field).toHaveValue("1780");
     });
 
+    test("codice intero incollato a metà: sostituisce le cifre già scritte", async ({ page }) => {
+        const tried = await stubSignupCode(page);
+        await openCodePage(page);
+        const field = page.locator("#signup-code");
+
+        await field.pressSequentially("1780");
+        await page.keyboard.press("ArrowLeft");
+        await page.keyboard.press("ArrowLeft");
+        // Prima diventava «17123456» tagliato a «171234»: ora è il codice incollato.
+        await page.keyboard.insertText(GOOD);
+        await page.waitForURL(/\/dashboard/, { timeout: 15_000 });
+        expect(tried()).toEqual([`signup:${EMAIL}:${GOOD}`]);
+    });
+
     test("codice sbagliato: l'errore sta subito sotto le caselle, sopra «Incolla» e «Cancella»", async ({ page }) => {
         await stubSignupCode(page);
         await openCodePage(page);

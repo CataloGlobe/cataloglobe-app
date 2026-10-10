@@ -139,6 +139,17 @@ export const CodeInput = forwardRef<CodeInputHandle, CodeInputProps>(function Co
             apply(value.slice(0, at) + raw[at] + value.slice(at + 1));
             return;
         }
+        // Codice intero incollato (o dall'autofill) con cifre già scritte:
+        // sostituisce tutto invece di infilarsi a metà («123456» + «654321» non è «126543»).
+        const added = raw.length - value.length;
+        if (added >= 2 && value.length > 0) {
+            const pasted = sanitizeCode(raw.slice(Math.max(0, caretAfter - added), caretAfter), length);
+            if (pasted.length === length) {
+                pendingCaretRef.current = length;
+                apply(pasted);
+                return;
+            }
+        }
         // Le cifre prima del cursore, pulite, dicono dove resta il cursore.
         pendingCaretRef.current = sanitizeCode(raw.slice(0, caretAfter), length).length;
         apply(raw);
