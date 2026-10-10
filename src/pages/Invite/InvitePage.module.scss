@@ -1,38 +1,25 @@
-.page {
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 2rem;
-    background: var(--color-bg-subtle, #f9fafb);
-}
-
-.card {
-    width: 100%;
-    max-width: 440px;
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-}
-
-.header {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-}
-
+// Dentro la scheda di AuthLayout: righe come il modale del Workspace
+// (InviteModal), poi i due pulsanti uno sotto l'altro.
 .meta {
     display: flex;
     flex-direction: column;
-    gap: 0.25rem;
+    gap: 1rem;
+    margin: 0 0 1.5rem;
+}
+
+.row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+
+    dd {
+        margin: 0;
+        overflow-wrap: anywhere;
+    }
 }
 
 .actions {
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
-}
-
-.loginNote {
-    text-align: center;
 }
