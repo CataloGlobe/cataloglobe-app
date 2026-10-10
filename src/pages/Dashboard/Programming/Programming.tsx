@@ -1116,8 +1116,12 @@ export default function Programming() {
                         systemStyleId: stylesOptions.find(x => x.is_system)?.id ?? null,
                         canAdd: canCreate && canEdit,
                         onSave: async (draft, lookups) => {
-                            await saveDraft(draft, lookups, currentTenantId!);
-                            await loadRules();
+                            // si rilegge anche se fallisce: un salvataggio a metà si deve vedere
+                            try {
+                                await saveDraft(draft, lookups, currentTenantId!);
+                            } finally {
+                                await loadRules();
+                            }
                         },
                         onDrop: async draft => {
                             await dropDraft(draft);

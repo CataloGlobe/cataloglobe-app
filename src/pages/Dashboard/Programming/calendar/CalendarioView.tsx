@@ -59,6 +59,7 @@ import {
     writeAside
 } from "./calendarDraft";
 import s from "./CalendarioView.module.scss";
+import { PartialSaveError } from "./calendarSave";
 
 const DAYS = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"];
 const DAYS_L = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"];
@@ -728,8 +729,12 @@ export default function CalendarioView({
             setNote({ text: (draft.mode === "edit" ? "Salvato: " : "Aggiunto al calendario: ") + draftLabel(draft, L) + "." });
             closeSec(true);
             if (then) section.onGoNew(then);
-        } catch {
-            setNote({ text: "Non siamo riusciti a salvare. Riprova.", error: true });
+        } catch (err) {
+            if (err instanceof PartialSaveError) {
+                // la voce è in due regole: si chiude e si guarda il calendario riletto, senza «Riprova»
+                setNote({ text: "Salvato solo in parte: " + draftLabel(draft, L) + " ora è in due regole. Controlla il calendario e togli quella che non serve.", error: true });
+                closeSec(true);
+            } else setNote({ text: "Non siamo riusciti a salvare. Riprova.", error: true });
         } finally {
             setBusy(false);
         }

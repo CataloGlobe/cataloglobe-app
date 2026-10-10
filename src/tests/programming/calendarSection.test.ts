@@ -29,7 +29,7 @@ import {
 } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import { dayCtx, dayNum, entriesFromRules, fState, order, why } from "@/pages/Dashboard/Programming/calendar/calendarModel";
 import { compareCandidates, specificityFor } from "@shared/scheduleCompetition";
-import { dropDraft, saveDraft } from "@/pages/Dashboard/Programming/calendar/calendarSave";
+import { dropDraft, PartialSaveError, saveDraft } from "@/pages/Dashboard/Programming/calendar/calendarSave";
 
 let n = 0;
 const rule = (o: Partial<LayoutRule>): LayoutRule =>
@@ -253,6 +253,34 @@ describe("salvare la sezione", () => {
         expect(isDirty(T)).toBe(false);
         delete T.strikeBy;
         expect(isDirty(T)).toBe(true);
+    });
+
+    it("una regola nuova che non si riesce a scrivere non resta orfana (#337.5)", async () => {
+        vi.mocked(updateRule).mockRejectedValueOnce(new Error("rifiutata"));
+        const D = blankDraft("menu", ALL, "s1");
+        D.thing = "c2";
+        await expect(saveDraft(D, L, "t")).rejects.toThrow("rifiutata");
+        expect(deleteLayoutRule).toHaveBeenCalledWith("nuova");
+    });
+
+    it("piatto con orari nuovi: se la regola nuova non si scrive si toglie, quella di partenza non si tocca (#337.5)", async () => {
+        const r = happy();
+        vi.mocked(updateRule).mockRejectedValueOnce(new Error("rifiutata"));
+        const D = draftFromEntry(entryOf(r), L, "p2");
+        D.when = { ranges: [[1080, 1200]] };
+        await expect(saveDraft(D, L, "t")).rejects.toThrow("rifiutata");
+        expect(deleteLayoutRule).toHaveBeenCalledWith("nuova");
+        expect(updateRule).toHaveBeenCalledTimes(1);
+    });
+
+    it("piatto con orari nuovi: se non esce dalla regola di partenza è un salvataggio a metà, e niente si disfa (#337.5)", async () => {
+        const r = happy();
+        vi.mocked(updateRule).mockResolvedValueOnce(undefined as never).mockRejectedValueOnce(new Error("rete"));
+        const D = draftFromEntry(entryOf(r), L, "p2");
+        D.when = { ranges: [[1080, 1200]] };
+        await expect(saveDraft(D, L, "t")).rejects.toBeInstanceOf(PartialSaveError);
+        expect(createRuleDraft).toHaveBeenCalledTimes(1);
+        expect(deleteLayoutRule).not.toHaveBeenCalled();
     });
 
     it("«Togli dal calendario»: il piatto solo esce dalla regola; l'ultimo toglie la regola", async () => {
