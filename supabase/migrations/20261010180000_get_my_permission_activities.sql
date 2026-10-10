@@ -9,6 +9,8 @@
 -- permesso, su quali sedi lo dà almeno uno dei ruoli di sede del caller nel
 -- tenant: è la stessa regola del ramo 4 di has_permission.
 --
+-- Solo i permessi con scope 'activity': quelli di tenant valgono su tutto il
+-- tenant (ramo 3 di has_permission), non su un elenco di sedi.
 -- Owner e admin: nessuna riga (valgono su tutte le sedi, il client lo sa già
 -- dal ruolo). Non membro: nessuna riga.
 --
@@ -29,10 +31,13 @@ AS $$
   JOIN public.tenant_memberships tm ON tm.id = tma.tenant_membership_id
   JOIN public.tenants t             ON t.id = tm.tenant_id
   JOIN public.role_permissions rp   ON rp.role = tma.role
+  JOIN public.permissions p         ON p.id = rp.permission_id AND p.scope = 'activity'
   WHERE tm.tenant_id = p_tenant_id
     AND tm.user_id   = auth.uid()
     AND tm.status    = 'active'
+    AND tm.role IS DISTINCT FROM 'admin'   -- i ruoli di sede hanno tm.role NULL
     AND t.deleted_at IS NULL
+    AND t.owner_user_id IS DISTINCT FROM auth.uid()
   GROUP BY rp.permission_id;
 $$;
 

@@ -420,7 +420,20 @@ describe("ruoli diversi per sede (D35)", () => {
     });
 
     it("owner e admin ignorano la mappa", () => {
-        expect(canDoOnActivity(owner, "scheduling.write", ACT_C)).toBe(true);
-        expect(canWriteRule(admin, { applyToAll: true, activityIds: [], groupIds: [] })).toBe(true);
+        const map = new Map([["scheduling.write", [ACT_A]]]);
+        const ownerWithMap = mk("owner", { permissions: ALL_PERMS, activitiesByPermission: map });
+        const adminWithMap = mk("admin", { permissions: ALL_PERMS, activitiesByPermission: map });
+        expect(canDoOnActivity(ownerWithMap, "scheduling.write", ACT_C)).toBe(true);
+        expect(canDoOnAnyActivity(adminWithMap, "products.write")).toBe(true);
+        expect(canWriteRule(adminWithMap, { applyToAll: true, activityIds: [], groupIds: [] })).toBe(true);
+    });
+
+    it("permesso di tenant (fuori dalla mappa): vale come prima", () => {
+        const withTenantPerm = mk("manager", {
+            activityIds: [ACT_A],
+            permissions: new Set(["team.invite", "orders.read"]),
+            activitiesByPermission: new Map([["orders.read", [ACT_A]]])
+        });
+        expect(canDoOnActivity(withTenantPerm, "team.invite", ACT_A)).toBe(true);
     });
 });

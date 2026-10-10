@@ -33,12 +33,17 @@ BEGIN
 
   SELECT count(*) INTO v_diverse
   FROM public.get_my_permission_activities('5b37c952-1add-4196-aab3-9775d98a9c32') g
-  JOIN public.permissions p ON p.id = g.permission_id AND p.scope = 'activity'
+  JOIN public.permissions p ON p.id = g.permission_id
   CROSS JOIN LATERAL unnest(g.activity_ids) a(id)
   WHERE NOT public.has_permission(g.permission_id, a.id);
 
-  IF v_sedi = 2 AND v_diverse = 0 THEN RAISE NOTICE 'Test 2 OK: manager, 2 sedi, uguale a has_permission';
-  ELSE RAISE EXCEPTION 'Test 2 FAIL: sedi=%, diverse da has_permission=%', v_sedi, v_diverse; END IF;
+  -- Solo permessi di sede: quelli di tenant non hanno un elenco di sedi.
+  SELECT v_diverse + count(*) INTO v_diverse
+  FROM public.get_my_permission_activities('5b37c952-1add-4196-aab3-9775d98a9c32') g
+  JOIN public.permissions p ON p.id = g.permission_id AND p.scope <> 'activity';
+
+  IF v_sedi = 2 AND v_diverse = 0 THEN RAISE NOTICE 'Test 2 OK: manager, 2 sedi, uguale a has_permission, solo permessi di sede';
+  ELSE RAISE EXCEPTION 'Test 2 FAIL: sedi=%, diverse da has_permission o di tenant=%', v_sedi, v_diverse; END IF;
 END$$;
 ROLLBACK;
 

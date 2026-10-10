@@ -34,10 +34,13 @@ export interface UserPermissions {
     activitiesByPermission?: ReadonlyMap<string, readonly string[]>;
 }
 
-/** Le sedi su cui il caller ha `permissionId`, se la mappa per sede c'è. */
+/**
+ * Le sedi su cui il caller ha `permissionId`, se la mappa per sede lo
+ * conosce. La mappa ha solo i permessi di sede: per un permesso di tenant, o
+ * che nessun ruolo dà, si resta a `permissions` e `activityIds`.
+ */
 function activitiesFor(perms: UserPermissions, permissionId: string): readonly string[] | undefined {
-    if (!perms.activitiesByPermission) return undefined;
-    return perms.activitiesByPermission.get(permissionId) ?? [];
+    return perms.activitiesByPermission?.get(permissionId);
 }
 
 /** True se `perms.role === 'owner'`. */
