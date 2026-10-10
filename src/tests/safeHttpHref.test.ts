@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "fs";
 import path from "path";
 import { safeHttpHref } from "@/utils/sanitizeUrl";
+import { buildTenantInviteEmail } from "@shared/accountEmails";
 
 describe("safeHttpHref", () => {
     it("tiene http e https", () => {
@@ -58,12 +59,25 @@ describe("link del locale sulla pagina pubblica passano da safeHttpHref", () => 
 });
 
 describe("mail di invito: escape dei dati dell'utente", () => {
-    it("tenantName e inviterEmail non entrano grezzi nell'HTML", () => {
+    // Dal modello unico delle mail (#374) l'HTML sta in buildTenantInviteEmail:
+    // l'edge deve usare quel builder, non un suo `html:` scritto a mano.
+    it("send-tenant-invite usa buildTenantInviteEmail e non scrive HTML suo", () => {
         const src = readFileSync(path.resolve(__dirname, "../../supabase/functions/send-tenant-invite/index.ts"), "utf8");
-        const html = src.slice(src.indexOf("html: `"), src.indexOf("text: `"));
-        expect(html).not.toMatch(/\$\{(tenantName|inviterEmail|inviteUrl)\}/);
-        expect(html).toContain("${safeTenantName}");
-        expect(html).toContain("${safeInviterEmail}");
+        expect(src).toContain("...buildTenantInviteEmail({ tenantName, inviterEmail, inviteUrl })");
+        expect(src).not.toMatch(/\bhtml\s*:/);
+    });
+
+    it("tenantName e inviterEmail non entrano grezzi nell'HTML, anteprima compresa", () => {
+        const { html } = buildTenantInviteEmail({
+            tenantName: 'Bar <a href="https://x.example">Rosso</a>',
+            inviterEmail: "<img src=x onerror=alert(1)>@example.com",
+            inviteUrl: 'https://app.example/invite/abc"><script>'
+        });
+        expect(html).not.toContain("<a href=\"https://x.example\">");
+        expect(html).not.toContain("<img src=x");
+        expect(html).not.toContain("<script>");
+        expect(html).toContain("Bar &lt;a href=");
+        expect(html).toContain("&lt;img src=x onerror=alert(1)&gt;");
     });
 });
 
