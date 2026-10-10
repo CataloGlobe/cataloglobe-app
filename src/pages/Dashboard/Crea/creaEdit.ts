@@ -1,7 +1,6 @@
 // Salvare una modifica fatta nel tunnel (D140): solo i passi cambiati, e dentro
 // ogni passo solo le differenze. Il resto della cosa resta com'è.
-import { addProductToCategory, createCategory, deleteCategory, removeProductFromCategory, updateCatalog } from "@/services/supabase/catalogs";
-import { createProduct } from "@/services/supabase/products";
+import { updateCatalog } from "@/services/supabase/catalogs";
 import { updateStyle } from "@/services/supabase/styles";
 import {
     listFeaturedContentProducts,
@@ -18,44 +17,14 @@ import { compressImage, COMPRESS_PROFILES } from "@/utils/compressImage";
 import { draftFromEntry } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import { saveDraft } from "@/pages/Dashboard/Programming/calendar/calendarSave";
 import { parsePrice } from "@/pages/Dashboard/Highlights/featuredContentTypes";
-import { changed, cloneWhen, effWhen, thingName, type Section, type Tunnel } from "./creaModel";
+import { changed, cloneWhen, effWhen, thingName, type Tunnel } from "./creaModel";
+import { saveSezioni } from "./menuSave";
 import { entriesOf } from "./creaLoad";
 import { styleConfig } from "./creaStyle";
 import type { SaveCtx, Saved } from "./creaSave";
 import type { CreaData } from "./useCreaData";
 
 export type EditCtx = Pick<SaveCtx, "tenantId" | "L" | "baseTokens" | "blockFiles"> & { names: CreaData["names"] };
-
-const top = (xs: readonly (number | undefined)[]) => xs.reduce<number>((m, x) => Math.max(m, x ?? -1), -1);
-
-/** Sezioni e piatti: si tolgono quelli tolti e si aggiungono in fondo quelli nuovi. */
-async function saveSezioni(t: Tunnel, orig: Tunnel, tenantId: string) {
-    const catalogId = t.edit!.id;
-    const now = new Map(t.sections.filter(x => x.id).map(x => [x.id!, x]));
-    for (const o of orig.sections) {
-        const n = now.get(o.id!);
-        if (!n) {
-            await deleteCategory(o.id!, tenantId);
-            continue;
-        }
-        const kept = new Set(n.dishes.map(d => d.linkId));
-        for (const d of o.dishes) if (!kept.has(d.linkId)) await removeProductFromCategory(tenantId, d.linkId!);
-    }
-    const addDishes = async (sec: Section, categoryId: string) => {
-        let sort = top(sec.dishes.map(d => d.sort));
-        for (const d of sec.dishes) {
-            if (d.linkId) continue;
-            const productId = d.productId ?? (await createProduct(tenantId, { name: d.name.trim(), base_price: d.price })).id;
-            await addProductToCategory(tenantId, catalogId, categoryId, productId, ++sort);
-        }
-    };
-    // le sezioni nuove vanno in fondo, al primo livello
-    let sort = top(orig.sections.filter(x => !x.name.includes(" › ")).map(x => x.sort));
-    for (const sec of t.sections) {
-        const categoryId = sec.id ?? (await createCategory(tenantId, catalogId, sec.name.trim() || "Piatti", 1, null, ++sort)).id;
-        await addDishes(sec, categoryId);
-    }
-}
 
 async function saveContenuto(t: Tunnel, orig: Tunnel, tenantId: string) {
     const id = t.edit!.id, name = thingName(t);
@@ -140,7 +109,7 @@ export async function saveEdit(t: Tunnel, c: EditCtx): Promise<Saved> {
     const dove = changed(t, "dove") || changed(t, "quando");
     if (t.kind === "menu") {
         if (changed(t, "parti")) await updateCatalog(id, c.tenantId, { name });
-        if (changed(t, "sezioni")) await saveSezioni(t, orig, c.tenantId);
+        if (changed(t, "sezioni")) await saveSezioni(t.sections, orig.sections, id, c.tenantId);
     } else if (t.kind === "stile") {
         // i colori e i caratteri fanno una versione nuova dello stile; il solo nome no
         if (changed(t, "nome") || changed(t, "aspetto")) await updateStyle(id, changed(t, "nome") ? name : undefined, changed(t, "aspetto") ? styleConfig(t, c.baseTokens) : undefined, c.tenantId);

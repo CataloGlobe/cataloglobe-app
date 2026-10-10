@@ -1,6 +1,6 @@
 // Modificare una cosa già creata (D140): la si legge dal database e la si mette
-// nel tunnel com'è oggi. Quello che il tunnel non sa mostrare (sotto-sezioni,
-// varianti, i token fini dello stile, l'inquadratura delle foto) non si tocca:
+// nel tunnel com'è oggi. Quello che il tunnel non sa mostrare (le varianti dei
+// prodotti che avete già, i token fini dello stile, l'inquadratura delle foto) non si tocca:
 // `saveEdit` scrive solo le differenze.
 import { getCatalog, listCategories, listCategoryProducts } from "@/services/supabase/catalogs";
 import { getFeaturedContentById, listFeaturedContentProducts } from "@/services/supabase/featuredContents";
@@ -35,30 +35,23 @@ async function loadMenu(t: Tunnel, id: string, tenantId: string, data: CreaData)
     t.menuType = "classico";
     t.name = catalog.name;
     const kids = (parent: string | null) => cats.filter(c => c.parent_category_id === parent).sort((a, b) => a.sort_order - b.sort_order);
-    const out: Section[] = [];
-    const walk = (parent: string | null, path: string) => {
-        for (const c of kids(parent)) {
-            const name = path ? `${path} › ${c.name}` : c.name;
-            out.push({
-                key: key(),
-                id: c.id,
-                sort: c.sort_order,
-                fixed: kids(c.id).length > 0,
-                name,
-                dishes: links
-                    .filter(l => l.category_id === c.id)
-                    .sort((a, b) => a.sort_order - b.sort_order)
-                    .map(l => {
-                        const pid = l.variant_product_id ?? l.product_id;
-                        const p = data.L.products.get(pid);
-                        return { key: key(), linkId: l.id, sort: l.sort_order, productId: pid, name: p?.name ?? data.names.products.get(pid) ?? "Prodotto", price: p?.listPrice ?? null };
-                    })
-            });
-            walk(c.id, name);
-        }
-    };
-    walk(null, "");
-    t.sections = out;
+    const walk = (parent: string | null): Section[] =>
+        kids(parent).map(c => ({
+            key: key(),
+            id: c.id,
+            sort: c.sort_order,
+            name: c.name,
+            dishes: links
+                .filter(l => l.category_id === c.id)
+                .sort((a, b) => a.sort_order - b.sort_order)
+                .map(l => {
+                    const pid = l.variant_product_id ?? l.product_id;
+                    const p = data.L.products.get(pid);
+                    return { key: key(), linkId: l.id, sort: l.sort_order, productId: pid, ...(l.variant_product_id ? { parentId: l.product_id } : {}), name: p?.name ?? data.names.products.get(pid) ?? "Prodotto", price: p?.listPrice ?? null };
+                }),
+            subs: walk(c.id)
+        }));
+    t.sections = walk(null);
 }
 
 async function loadStile(t: Tunnel, id: string, tenantId: string): Promise<V2Style> {

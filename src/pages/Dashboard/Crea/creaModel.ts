@@ -17,6 +17,7 @@ import { durLabel, hhmm, type CalWhen, type CalWhere } from "@/pages/Dashboard/P
 import type { PickProduct } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import type { AiMenuCategory } from "@/pages/Dashboard/Catalogs/AiMenuImport/analyzeMenu";
 import { computeProductMatch } from "@/utils/importMatching";
+import { allDishes, total } from "./menuTree";
 
 export type CreaKind = "menu" | "stile" | "evid" | "storia";
 export const CREA_KINDS: readonly CreaKind[] = ["menu", "stile", "evid", "storia"];
@@ -76,21 +77,23 @@ export type Dish = {
     /** Letti dalla foto (D172): la descrizione e i formati vanno nel prodotto nuovo. */
     description?: string | null;
     formats?: { name: string; price: number | null }[];
-    /** L'AI non ne era sicura, o il nome somiglia a più prodotti: «da controllare». */
-    check?: boolean;
+    /** Arrivato con l'ultimo import (D180): si vede «importato» finché non si salva. */
+    imp?: boolean;
     /** Modificando (D140): il piatto è già nel menù, con questa riga e questo posto. */
     linkId?: string;
     sort?: number;
+    /** La riga è una variante: questo è il suo prodotto. */
+    parentId?: string;
 };
 /** `id`: la sezione c'è già nel menù che si modifica (D140). */
 export type Section = {
     key: string;
     id?: string;
     sort?: number;
-    /** Ha delle sotto-sezioni: dal tunnel non si toglie. */
-    fixed?: boolean;
     name: string;
     dishes: Dish[];
+    /** Le sottocategorie (D177): fino a tre livelli in tutto, come nel database. */
+    subs: Section[];
 };
 
 /**
@@ -135,12 +138,10 @@ export type Tunnel = {
     insieme?: boolean;
     name: string;
     source: "zero" | "foto";
-    /**
-     * Quanto ha letto l'AI dalla foto o dal PDF (D172). Sezioni e piatti sono
-     * già in `sections`, da controllare come se scritti a mano: il menù si
-     * scrive solo al Salva, e uscendo prima non nasce niente.
-     */
-    imported: { sections: number; dishes: number } | null;
+    /** Un import fermo sul resoconto (D180): finché non lo aggiungi o lo butti via non si va avanti. */
+    impOpen?: boolean;
+    /** L'ultimo import aggiunto, per «Annulla l'import»: le chiavi dei piatti e delle categorie nati con lui. */
+    lastImport: { file: string; dishes: string[]; secs: string[] } | null;
     sections: Section[];
     // lo stile
     base: "zero" | "copy";
@@ -198,7 +199,7 @@ export function newTunnel(kind: CreaKind, where: CalWhere, from: FromMenu | null
         menuType: null,
         name: "",
         source: "zero",
-        imported: null,
+        lastImport: null,
         sections: [],
         base: "zero",
         baseStyleId: null,
@@ -317,7 +318,7 @@ export function steps(t: Tunnel, c: Ctx): StepId[] {
 }
 
 const price = (s: string) => parseFloat(s.replace(",", "."));
-const hasDish = (t: Tunnel) => t.sections.some(s => s.dishes.length > 0);
+const hasDish = (t: Tunnel) => allDishes(t.sections).length > 0;
 
 /** Il tempo che il database di oggi non lascerebbe passare. */
 export function whenProblem(w: CalWhen): string {
@@ -341,10 +342,9 @@ export function blocker(t: Tunnel, step: StepId, c: Ctx): string {
         case "tipo":
             return t.menuType ? "" : "Scegli che menù è";
         case "parti":
-            if (!t.name.trim()) return "Manca il nome del menù";
-            return t.source === "foto" && !t.imported ? "Carica la foto o il PDF del menù" : "";
+            return t.name.trim() ? "" : "Manca il nome del menù";
         case "sezioni":
-            return hasDish(t) ? "" : "Aggiungi almeno un piatto";
+            return t.impOpen ? "Hai un import aperto: aggiungilo o buttalo via" : hasDish(t) ? "" : "Aggiungi almeno un piatto";
         case "nome":
             if (!t.name.trim()) return "Manca il nome dello stile";
             return t.base === "copy" && !t.baseStyleId ? "Scegli lo stile da cui partire" : "";
@@ -393,40 +393,58 @@ export function firstBlock(t: Tunnel, c: Ctx): { i: number; why: string } | null
 /** Le foto o i PDF che l'AI legge insieme, come nel drawer dell'import. */
 export const MAX_IMPORT_FILES = 5;
 
+/** Un piatto letto dalla foto o dal PDF, prima che entri nel menù (D180). */
+export type Read = {
+    key: string;
+    /** La categoria dove l'AI l'ha trovato, dall'alto in basso. */
+    path: string[];
+    name: string;
+    price: number | null;
+    /** È già fra i vostri prodotti: si collega a lui, col suo prezzo. */
+    productId: string | null;
+    description: string | null;
+    formats?: { name: string; price: number | null }[];
+    /** Perché è «da controllare»; null se l'AI ne era sicura. */
+    why: string | null;
+};
+
 /**
- * Sezioni e piatti letti dall'AI (D172). Un piatto col nome di un solo
- * prodotto vostro si collega a lui, col suo prezzo; con più prodotti dello
- * stesso nome, o se l'AI non ne era sicura, resta «da controllare».
+ * I piatti letti dall'AI (D172, D180). Un piatto col nome di un solo prodotto
+ * vostro si collega a lui, col suo prezzo; con più prodotti dello stesso nome,
+ * senza prezzo, o se l'AI non ne era sicura, è «da controllare». L'AI scrive le
+ * sottocategorie nel nome («Primi — Di terra»): qui tornano una strada.
  */
-export function sectionsFromAi(categories: readonly AiMenuCategory[], pick: readonly PickProduct[]): Section[] {
+export function readFromAi(categories: readonly AiMenuCategory[], pick: readonly PickProduct[]): Read[] {
     const tenant = pick.map(p => ({ id: p.id, name: p.name }));
-    return categories
-        .filter(c => c.items.length > 0)
-        .map(c => ({
-            key: key(),
-            name: c.name.trim() || "Piatti",
-            dishes: c.items.map(it => {
-                const m = computeProductMatch(it.name, { existingInCategory: [], existingInTenant: tenant });
-                const mine = m.status === "reusable_single" ? pick.find(p => p.id === m.productId) ?? null : null;
-                const formats = it.product_type === "formats" && it.formats?.length ? it.formats.map(f => ({ name: f.name, price: f.price })) : undefined;
-                const prices = (formats ?? []).map(f => f.price).filter((v): v is number => v !== null);
-                return {
-                    key: key(),
-                    productId: mine?.id ?? null,
-                    name: mine?.name ?? it.name.trim(),
-                    price: mine ? mine.listPrice : formats ? (prices.length ? Math.min(...prices) : null) : it.base_price,
-                    description: it.description,
-                    formats,
-                    check: it.confidence !== "high" || m.status === "reusable_ambiguous"
-                };
-            })
-        }));
+    return categories.flatMap(c => {
+        const path = c.name
+            .split(/\s+[—–›>]\s+/)
+            .map(x => x.trim())
+            .filter(Boolean);
+        return c.items.map(it => {
+            const m = computeProductMatch(it.name, { existingInCategory: [], existingInTenant: tenant });
+            const mine = m.status === "reusable_single" ? pick.find(p => p.id === m.productId) ?? null : null;
+            const formats = !mine && it.product_type === "formats" && it.formats?.length ? it.formats.map(f => ({ name: f.name, price: f.price })) : undefined;
+            const prices = (formats ?? []).map(f => f.price).filter((v): v is number => v !== null);
+            const price = mine ? mine.listPrice : formats ? (prices.length ? Math.min(...prices) : null) : it.base_price;
+            return {
+                key: key(),
+                path: path.length ? path : ["Piatti"],
+                name: mine?.name ?? it.name.trim(),
+                price,
+                productId: mine?.id ?? null,
+                description: mine ? null : it.description,
+                formats,
+                why: !(price !== null && price > 0) ? "il prezzo non si leggeva" : m.status === "reusable_ambiguous" ? "somiglia a più prodotti vostri" : it.confidence !== "high" ? "l'AI non ne era sicura" : null
+            };
+        });
+    });
 }
 
 /** C'è qualcosa da perdere uscendo. */
 export const isDirty = (t: Tunnel) =>
-    t.edit ? EDIT_PARTS.some(s => changed(t, s)) :
-    t.i > 0 || !!t.name.trim() || !!t.title.trim() || !!t.menuType || !!t.evType || t.sections.length > 0 || !!t.imported;
+    !!t.impOpen || (t.edit ? EDIT_PARTS.some(s => changed(t, s)) :
+    t.i > 0 || !!t.name.trim() || !!t.title.trim() || !!t.menuType || !!t.evType || t.sections.length > 0);
 
 /* ---------- modificare (D140) ---------- */
 
@@ -450,6 +468,10 @@ function editSteps(t: Tunnel, c: Ctx): StepId[] {
 
 const sorted = (x: readonly string[]) => [...x].sort();
 
+/** Categorie e piatti con nomi, ordine e posto: basta spostarne uno perché il passo sia cambiato. */
+const secPart = (list: readonly Section[]): unknown =>
+    list.map(x => [x.id ?? x.key, x.name.trim(), x.dishes.map(d => d.linkId ?? [d.key, d.productId, d.name.trim(), d.price, d.formats ?? null]), secPart(x.subs)]);
+
 /** Quello che un passo decide, da confrontare con com'era. */
 function partOf(t: Tunnel, s: StepId): unknown {
     switch (s) {
@@ -457,7 +479,7 @@ function partOf(t: Tunnel, s: StepId): unknown {
         case "nome":
             return t.name.trim();
         case "sezioni":
-            return t.sections.map(x => [x.id ?? x.key, x.name.trim(), x.dishes.map(d => d.linkId ?? d.productId ?? [d.key, d.name, d.price])]);
+            return secPart(t.sections);
         case "aspetto":
             return [t.color, t.dark, t.font, t.card];
         case "contenuto":
@@ -569,7 +591,7 @@ export function stepSummary(t: Tunnel, s: StepId, L: DraftLookups, styleName: (i
         case "parti":
             return t.edit ? t.name.trim() : `${t.name.trim()} · ${t.source === "foto" ? "da una foto o un PDF" : "da zero"}`;
         case "sezioni":
-            return t.sections.map(x => `${x.name} (${x.dishes.length})`).join(", ") || "—";
+            return t.sections.map(x => `${x.name} (${total(x)})`).join(", ") || "—";
         case "nome":
             return t.name.trim() + (t.base === "copy" && t.baseStyleId ? ` · copia di ${styleName(t.baseStyleId)}` : "");
         case "aspetto":

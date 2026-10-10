@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_STYLE_TOKENS } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
-import { blocker, effWhen, firstBlock, isDirty, kindOfSlug, newTunnel, sectionsFromAi, steps, tunnelTitle, whenProblem, withAside, type FromMenu } from "@/pages/Dashboard/Crea/creaModel";
+import { blocker, effWhen, firstBlock, isDirty, kindOfSlug, newTunnel, readFromAi, steps, tunnelTitle, whenProblem, withAside, type FromMenu } from "@/pages/Dashboard/Crea/creaModel";
 import { aspectOf, DARK_BG, isDarkHex, LIGHT_BG, sampleOf, styleTokens } from "@/pages/Dashboard/Crea/creaStyle";
 
 // I tunnel di creazione (D124): i passi, cosa ferma «Avanti», la bozza del
@@ -41,9 +41,10 @@ describe("tunnel di creazione: cosa ferma «Avanti»", () => {
         expect(firstBlock({ ...t, menuType: "classico", name: "   " }, OWNER)).toEqual({ i: 1, why: "Manca il nome del menù" });
         const named = { ...t, menuType: "classico" as const, name: "Pranzo" };
         expect(firstBlock(named, OWNER)).toEqual({ i: 2, why: "Aggiungi almeno un piatto" });
-        expect(firstBlock({ ...named, source: "foto" }, OWNER)?.why).toBe("Carica la foto o il PDF del menù");
+        // la foto si carica nel passo dopo (D180): il nome basta per andare avanti
+        expect(firstBlock({ ...named, source: "foto" }, OWNER)).toEqual({ i: 2, why: "Aggiungi almeno un piatto" });
         const dish = { key: "d", productId: null, name: "Capricciosa", price: 9.5 };
-        expect(firstBlock({ ...named, sections: [{ key: "s", name: "Pizze", dishes: [dish] }] }, OWNER)).toBeNull();
+        expect(firstBlock({ ...named, sections: [{ key: "s", name: "Pizze", dishes: [dish], subs: [] }] }, OWNER)).toBeNull();
     });
 
     it("lo stile vuole un colore; copiato, lo stile di partenza", () => {
@@ -167,8 +168,7 @@ describe("tunnel di creazione: lo stile con le quattro scelte", () => {
     });
 });
 
-// D165, D172: il menù letto da una foto diventa «Sezioni e piatti», da
-// controllare come se l'avessi scritto tu.
+// D165, D180: i piatti letti da una foto, prima che entrino nel menù.
 describe("tunnel di creazione: il menù letto dall'AI", () => {
     const pick = [
         { id: "p1", name: "Margherita", category: "Pizze", listPrice: 7, formats: [] },
@@ -177,30 +177,32 @@ describe("tunnel di creazione: il menù letto dall'AI", () => {
     const item = (name: string, extra: object = {}) => ({ name, description: null, base_price: 8, product_type: "simple" as const, confidence: "high" as const, ...extra });
 
     it("i piatti che ci sono già si collegano col loro prezzo, gli altri restano nuovi", () => {
-        const [sec] = sectionsFromAi([{ name: " Pizze ", items: [item("margherita"), item("Bufalina", { base_price: 9.5 })] }], pick);
-        expect(sec.name).toBe("Pizze");
-        expect(sec.dishes.map(d => [d.productId, d.name, d.price, d.check])).toEqual([
-            ["p1", "Margherita", 7, false],
-            [null, "Bufalina", 9.5, false]
+        const out = readFromAi([{ name: " Pizze ", items: [item("margherita"), item("Bufalina", { base_price: 9.5 })] }], pick);
+        expect(out.map(d => [d.path, d.productId, d.name, d.price, d.why])).toEqual([
+            [["Pizze"], "p1", "Margherita", 7, null],
+            [["Pizze"], null, "Bufalina", 9.5, null]
         ]);
     });
 
-    it("l'AI incerta segna «da controllare»; coi formati il prezzo è il più basso", () => {
+    it("l'AI incerta o un prezzo che manca segnano «da controllare»; coi formati il prezzo è il più basso", () => {
         const formats = [
             { name: "Piccola", price: 4 },
             { name: "Grande", price: null },
             { name: "Media", price: 3.5 }
         ];
-        const [sec] = sectionsFromAi([{ name: "Birre", items: [item("Ipa", { confidence: "medium", product_type: "formats", base_price: null, formats })] }], pick);
-        expect(sec.dishes[0]).toMatchObject({ productId: null, price: 3.5, check: true, formats });
+        const [ipa, acqua] = readFromAi([{ name: "Birre", items: [item("Ipa", { confidence: "medium", product_type: "formats", base_price: null, formats }), item("Acqua", { base_price: null })] }], pick);
+        expect(ipa).toMatchObject({ productId: null, price: 3.5, why: "l'AI non ne era sicura", formats });
+        expect(acqua).toMatchObject({ price: null, why: "il prezzo non si leggeva" });
     });
 
-    it("le sezioni vuote spariscono, quella senza nome si chiama «Piatti»", () => {
-        const out = sectionsFromAi([{ name: "Bibite", items: [] }, { name: "  ", items: [item("Tiramisù")] }], pick);
-        expect(out.map(s => s.name)).toEqual(["Piatti"]);
+    it("le sottocategorie scritte nel nome tornano una strada; senza nome si chiama «Piatti»", () => {
+        const out = readFromAi([{ name: "Primi — Di mare", items: [item("Vongole")] }, { name: "Bibite", items: [] }, { name: "  ", items: [item("Tiramisù")] }], pick);
+        expect(out.map(d => d.path)).toEqual([["Primi", "Di mare"], ["Piatti"]]);
     });
 
-    it("isDirty: anche un menù solo letto ha qualcosa da perdere", () => {
-        expect(isDirty({ ...newTunnel("menu", ALL), imported: { sections: 1, dishes: 2 } })).toBe(true);
+    it("isDirty e il blocco: un import fermo sul resoconto è qualcosa da perdere e ferma «Avanti»", () => {
+        const t = { ...newTunnel("menu", ALL), impOpen: true };
+        expect(isDirty(t)).toBe(true);
+        expect(blocker(t, "sezioni", OWNER)).toContain("import aperto");
     });
 });

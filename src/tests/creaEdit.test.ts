@@ -13,7 +13,7 @@ function menu(rule: string | null = "r1"): Tunnel {
     const t = newTunnel("menu", ALL);
     t.menuType = "classico";
     t.name = "Pranzo";
-    t.sections = [{ key: "a", id: "c1", sort: 0, name: "Primi", dishes: [{ key: "b", linkId: "l1", sort: 0, productId: "p1", name: "Risotto", price: 12 }] }];
+    t.sections = [{ key: "a", id: "c1", sort: 0, name: "Primi", dishes: [{ key: "b", linkId: "l1", sort: 0, productId: "p1", name: "Risotto", price: 12 }], subs: [] }];
     return asEdit(t, "m1", { id: rule, count: rule ? 1 : 0 });
 }
 const upd = (t: Tunnel, fn: (x: Tunnel) => void) => {
@@ -80,6 +80,17 @@ describe("modifica nel tunnel: viola e grigi", () => {
     it("togliere un piatto o aggiungerne uno cambia «Sezioni e piatti»", () => {
         expect(changed(upd(menu(), x => void x.sections[0].dishes.pop()), "sezioni")).toBe(true);
         expect(changed(upd(menu(), x => void x.sections[0].dishes.push({ key: "n", productId: "p2", name: "Lasagne", price: 10 })), "sezioni")).toBe(true);
+    });
+
+    it("rinominare, riordinare o mettere una categoria dentro un'altra cambia «Categorie e piatti»", () => {
+        const two = upd(menu(), x => {
+            x.sections.push({ key: "c", id: "c2", sort: 10, name: "Dolci", dishes: [], subs: [] });
+            x.edit!.orig.sections = structuredClone(x.sections);
+        });
+        expect(changed(two, "sezioni")).toBe(false);
+        expect(changed(upd(two, x => void (x.sections[1].name = "Dessert")), "sezioni")).toBe(true);
+        expect(changed(upd(two, x => void x.sections.reverse()), "sezioni")).toBe(true);
+        expect(changed(upd(two, x => void x.sections[0].subs.push(x.sections.pop()!)), "sezioni")).toBe(true);
     });
 
     it("ferma il salvataggio solo quello che manca in un passo cambiato", () => {

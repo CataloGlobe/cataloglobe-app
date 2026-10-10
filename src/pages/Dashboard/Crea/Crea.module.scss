@@ -258,6 +258,9 @@
     justify-content: space-between;
 }
 // nel Quando e nel Dove a destra c'è la settimana del Calendario, più larga
+.igrid.full {
+    grid-template-columns: minmax(0, 1fr);
+}
 .igrid.wide {
     grid-template-columns: minmax(0, 520px) minmax(0, 1fr);
     gap: 32px;

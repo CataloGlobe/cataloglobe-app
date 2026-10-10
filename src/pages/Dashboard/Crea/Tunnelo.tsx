@@ -18,7 +18,7 @@ import { SettimanaAnteprima } from "@/pages/Dashboard/Programming/calendar/Setti
 import type { Draft, Impatto } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import { axisFor, entriesFromRules, romeToday, type CalNames, type CalWhen } from "@/pages/Dashboard/Programming/calendar/calendarModel";
 import { NO_IMPATTO, dropAside, scontriWait, waitsForDb, whenKey } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
-import { KIND, MAX_IMPORT_FILES, sectionsFromAi, qcardText, withAside, blocker, changed, effWhen, firstBlock, isDirty, lit, newTunnel, stepFrom, stepLabel, steps, thingName, tunnelTitle, type CreaKind, type FromMenu, type StepId, type Tunnel } from "./creaModel";
+import { KIND, MAX_IMPORT_FILES, readFromAi, qcardText, withAside, blocker, changed, effWhen, firstBlock, isDirty, lit, newTunnel, stepFrom, stepLabel, steps, thingName, tunnelTitle, type CreaKind, type FromMenu, type StepId, type Tunnel } from "./creaModel";
 import { CAL_KIND, draftFor, saveTunnel, type Saved } from "./creaSave";
 import { saveEdit } from "./creaEdit";
 import { entriesOf, type Loaded } from "./creaLoad";
@@ -26,7 +26,8 @@ import { draftFromEntry } from "@/pages/Dashboard/Programming/calendar/calendarD
 import { aspectOf, sampleOf, styleTokens, tokensOf, useFonts } from "./creaStyle";
 import { type CreaData } from "./useCreaData";
 import { CreaPhone } from "./CreaPhone";
-import { Adesso, Controlla, DoveQuando, Modifica, EvidContenuto, EvidCosa, EvidPiatti, IMPORT_ACCEPT, MenuParti, MenuSezioni, MenuTipo, Quando, Serve, StileAspetto, StileNome, StoriaBlocchi, StoriaRacconto, type U } from "./CreaSteps";
+import { IMPORT_ACCEPT, MenuCategorie, type ReadResult } from "./MenuCategorie";
+import { Adesso, Controlla, DoveQuando, Modifica, EvidContenuto, EvidCosa, EvidPiatti, MenuParti, MenuTipo, Quando, Serve, StileAspetto, StileNome, StoriaBlocchi, StoriaRacconto, type U } from "./CreaSteps";
 import s from "./Crea.module.scss";
 
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
@@ -81,9 +82,6 @@ export function Tunnelo({ kind, aside, edit, data, tenantId, owner, origin, busi
     const [effect, setEffect] = useState<Impatto>(NO_IMPATTO);
     const [blockFiles, setBlockFiles] = useState<Record<string, File>>({});
     const [productOptions, setProductOptions] = useState<StoryProductOptions>({ items: null, failed: false });
-    const [importing, setImporting] = useState(false);
-    const [importError, setImportError] = useState<string | null>(null);
-    const importRun = useRef<AbortController | null>(null);
     const refreshAiUsage = useBusinessOutletContext()?.refreshAiUsage;
 
     const c = useMemo(() => ({ owner, multi: L.multi }), [owner, L.multi]);
@@ -93,43 +91,23 @@ export function Tunnelo({ kind, aside, edit, data, tenantId, owner, origin, busi
         return n;
     }), []);
 
-    // La foto o il PDF del menù (D165, D172): l'AI legge, sezioni e piatti
-    // riempiono il passo dopo; il database si tocca solo al Salva.
-    useEffect(() => () => importRun.current?.abort(), []);
-    const onImport = useCallback(
-        async (picked: File[]) => {
-            if (importRun.current) return;
+    // La foto o il PDF del menù (D165, D180): l'AI legge e il passo mostra il
+    // resoconto; il menù cambia solo con «Aggiungi», il database solo al Salva.
+    const onRead = useCallback(
+        async (picked: File[], signal: AbortSignal): Promise<ReadResult> => {
             const types = IMPORT_ACCEPT.split(",");
             const usable = picked.filter(f => types.includes(f.type));
             const { accepted } = partitionBySizeBudget([], usable.slice(0, MAX_IMPORT_FILES));
-            if (!accepted.length) {
-                setImportError(usable.length ? "I file sono troppo pesanti: foto fino a 25 MB, PDF fino a 20 MB, 30 MB in tutto." : "Servono foto (JPG, PNG o WEBP) o PDF.");
-                return;
-            }
-            setImportError(null);
-            setImporting(true);
-            const run = new AbortController();
-            importRun.current = run;
-            const res = await analyzeMenuFiles(tenantId, accepted, run.signal, refreshAiUsage);
-            if (!res) return;
-            importRun.current = null;
-            setImporting(false);
-            if (!res.ok) {
-                setImportError(res.error);
-                return;
-            }
-            const sections = sectionsFromAi(res.categories, data.pickList);
-            const dishes = sections.reduce((n, x) => n + x.dishes.length, 0);
-            u(x => {
-                x.source = "foto";
-                x.sections = sections;
-                x.imported = { sections: sections.length, dishes };
-            });
+            if (!accepted.length) return { ok: false, error: usable.length ? "I file sono troppo pesanti: foto fino a 25 MB, PDF fino a 20 MB, 30 MB in tutto." : "Servono foto (JPG, PNG o WEBP) o PDF." };
+            const res = await analyzeMenuFiles(tenantId, accepted, signal, refreshAiUsage);
+            if (!res) return null;
+            if (!res.ok) return { ok: false, error: res.error };
             if (accepted.length < picked.length) {
                 showToast({ message: `Letti ${accepted.length} file su ${picked.length}: gli altri erano troppi, troppo pesanti o non erano foto o PDF.`, type: "info" });
             }
+            return { ok: true, items: readFromAi(res.categories, data.pickList), file: accepted.length === 1 ? accepted[0].name : `${accepted.length} file` };
         },
-        [tenantId, refreshAiUsage, data.pickList, u, showToast]
+        [tenantId, refreshAiUsage, data.pickList, showToast]
     );
 
     // si naviga un giro dopo il render senza la guardia: l'host nel layout aggiorna il
@@ -395,10 +373,10 @@ export function Tunnelo({ kind, aside, edit, data, tenantId, owner, origin, busi
                 body = <MenuTipo t={t} u={u} />;
                 break;
             case "parti":
-                body = <MenuParti t={t} u={u} onImport={onImport} importing={importing} importError={importError} />;
+                body = <MenuParti t={t} u={u} />;
                 break;
             case "sezioni":
-                body = <MenuSezioni t={t} u={u} pick={data.pickList} />;
+                body = <MenuCategorie t={t} u={u} pick={data.pickList} onRead={onRead} onSuggest={null} />;
                 break;
             case "serve":
                 body = <Serve t={t} example={t.kind === "stile" ? liveStyle?.name ?? null : null} business={business} />;
@@ -454,6 +432,8 @@ export function Tunnelo({ kind, aside, edit, data, tenantId, owner, origin, busi
         }
 
     /* ---------- a destra ---------- */
+    // «Categorie e piatti» prende tutta la larghezza: l'albero e il menù, senza il telefono (D177)
+    const full = !showAfter && step === "sezioni";
     const week = !showAfter && (step === "quando" || step === "dove") && t.kind !== "storia" && !!momentiDraft;
     const preview = calKind && momentiDraft && (
         <SettimanaAnteprima
@@ -574,9 +554,9 @@ export function Tunnelo({ kind, aside, edit, data, tenantId, owner, origin, busi
                     <span>Fa parte di {q(after.saved.name)}: finito, si torna a «E adesso?».</span>
                 </div>
             )}
-            <div className={cx(s.igrid, week && s.wide)}>
+            <div className={cx(s.igrid, week && s.wide, full && s.full)}>
                 <div className={s.iform}>{body}</div>
-                {right}
+                {!full && right}
             </div>
             {/* in «Controlla» le righe di cosa cambia: la settimana c'è, non si vede */}
             {!week && step === "controlla" && owner && calKind && <div hidden>{preview}</div>}
