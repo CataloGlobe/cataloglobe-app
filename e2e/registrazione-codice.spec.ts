@@ -117,6 +117,16 @@ test.describe("Registrazione col codice", () => {
         await page.keyboard.press("ArrowRight");
         await page.keyboard.press("5");
         await expect(field).toHaveValue("1245");
+
+        // Due cifre di fila senza pause: la seconda va nella casella dopo, non in fondo.
+        for (let i = 0; i < 3; i++) await page.keyboard.press("ArrowLeft");
+        await page.keyboard.type("78", { delay: 0 });
+        await expect(field).toHaveValue("1785");
+        await expect(boxes.nth(3)).toHaveClass(/active/);
+
+        // Tastiera del telefono: arriva il testo, non il tasto. Sostituisce lo stesso.
+        await page.keyboard.insertText("0");
+        await expect(field).toHaveValue("1780");
     });
 
     test("codice sbagliato: l'errore sta subito sotto le caselle, sopra «Incolla» e «Cancella»", async ({ page }) => {

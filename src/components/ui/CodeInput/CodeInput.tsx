@@ -2,10 +2,11 @@ import {
     forwardRef,
     useEffect,
     useImperativeHandle,
+    useLayoutEffect,
     useRef,
     useState,
+    type ChangeEvent,
     type CSSProperties,
-    type KeyboardEvent,
     type MouseEvent,
     type ReactNode
 } from "react";
@@ -61,6 +62,17 @@ export const CodeInput = forwardRef<CodeInputHandle, CodeInputProps>(function Co
         input.setSelectionRange(position, position);
         setCaret(position);
     };
+    // Dove rimettere il cursore dopo un cambio fatto da qui: React riscrive il
+    // valore dell'input e il cursore vero andrebbe in fondo. Si applica prima
+    // del disegno, così una seconda cifra scritta subito lo trova già al posto.
+    const pendingCaretRef = useRef<number | null>(null);
+    useLayoutEffect(() => {
+        const position = pendingCaretRef.current;
+        if (position === null) return;
+        pendingCaretRef.current = null;
+        const input = inputRef.current;
+        if (input && document.activeElement === input) moveCaret(Math.min(position, input.value.length));
+    });
     // Codice svuotato o accorciato da fuori (errore, «Cancella»): il cursore torna dentro.
     useEffect(() => {
         setCaret(c => Math.min(c, value.length));
@@ -93,6 +105,7 @@ export const CodeInput = forwardRef<CodeInputHandle, CodeInputProps>(function Co
     const handlePaste = async () => {
         try {
             const text = await navigator.clipboard.readText();
+            pendingCaretRef.current = sanitizeCode(text, length).length;
             apply(text);
         } catch {
             // Permesso negato o niente testo: resta il campo, dove si incolla a mano.
@@ -101,26 +114,34 @@ export const CodeInput = forwardRef<CodeInputHandle, CodeInputProps>(function Co
     };
 
     const handleClear = () => {
+        pendingCaretRef.current = 0;
         onChange("");
         inputRef.current?.focus();
     };
 
     // Una cifra scritta su una casella già piena la sostituisce, come nelle
     // caselle vere: prima si inseriva in mezzo e le cifre scivolavano avanti
-    // (sembravano invertite) e, a campo pieno, il tasto non faceva nulla.
-    const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-        if (!/^\d$/.test(e.key) || e.metaKey || e.ctrlKey || e.altKey) return;
-        const input = e.currentTarget;
-        const start = input.selectionStart ?? value.length;
-        const end = input.selectionEnd ?? start;
-        if (start >= value.length && value.length < length) return; // in fondo: si scrive normalmente
-        e.preventDefault();
-        if (start >= length) return;
-        const next = sanitizeCode(value.slice(0, start) + e.key + value.slice(Math.max(end, start + 1)), length);
-        apply(next);
-        const position = Math.min(start + 1, length);
-        // Dopo il render: React rimette il valore e il cursore andrebbe in fondo.
-        requestAnimationFrame(() => moveCaret(Math.min(position, inputRef.current?.value.length ?? position)));
+    // (sembravano invertite) e, a campo pieno, l'ultima cadeva. Si guarda il
+    // valore nuovo e non il tasto, così vale anche per le tastiere dei
+    // telefoni, che non dicono quale tasto è stato premuto.
+    const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
+        const raw = e.target.value;
+        const caretAfter = e.target.selectionStart ?? raw.length;
+        const at = caretAfter - 1;
+        const insertedOneInside =
+            raw.length === value.length + 1 &&
+            at >= 0 &&
+            at < value.length &&
+            /\d/.test(raw[at]) &&
+            raw === value.slice(0, at) + raw[at] + value.slice(at);
+        if (insertedOneInside) {
+            pendingCaretRef.current = Math.min(at + 1, length);
+            apply(value.slice(0, at) + raw[at] + value.slice(at + 1));
+            return;
+        }
+        // Le cifre prima del cursore, pulite, dicono dove resta il cursore.
+        pendingCaretRef.current = sanitizeCode(raw.slice(0, caretAfter), length).length;
+        apply(raw);
     };
 
     // Il clic cade sull'input trasparente: si porta il cursore sulla casella toccata.
@@ -162,11 +183,7 @@ export const CodeInput = forwardRef<CodeInputHandle, CodeInputProps>(function Co
                     autoFocus={autoFocus}
                     aria-invalid={invalid || undefined}
                     aria-describedby={describedBy}
-                    onChange={e => {
-                        apply(e.target.value);
-                        syncCaret();
-                    }}
-                    onKeyDown={handleKeyDown}
+                    onChange={handleChange}
                     onClick={handleClick}
                     onSelect={syncCaret}
                     onFocus={() => {
