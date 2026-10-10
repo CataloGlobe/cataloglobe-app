@@ -188,7 +188,7 @@ export function AttributeCreateEditDrawer({
                             form="attr-form"
                             loading={isSaving}
                         >
-                            {isEditing ? "Salva" : "Crea"}
+                            {isEditing ? "Salva" : "Aggiungi"}
                         </Button>
                     </>
                 }

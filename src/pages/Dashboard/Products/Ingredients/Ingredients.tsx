@@ -191,7 +191,7 @@ export function Ingredients({ createTrigger, searchQuery, canWrite }: Ingredient
                             onClick={handleCreate}
                             disabled={!canEdit}
                         >
-                            Crea ingrediente
+                            Aggiungi ingrediente
                         </Button>
                     ) : undefined
                 }}

@@ -545,7 +545,7 @@ test.describe("Menù — dettaglio", () => {
         await openCarta(page);
         await main(page).getByRole("button", { name: "Aggiungi categoria" }).first().click();
         await dialog(page).getByRole("textbox", { name: /Nome/ }).fill("Contorni");
-        await dialog(page).getByRole("button", { name: /^(Salva|Crea)$/ }).click();
+        await dialog(page).getByRole("button", { name: /^(Salva|Crea|Aggiungi)$/ }).click();
         await expect.poll(() => write(stub, "catalog_categories.POST")).toBeTruthy();
         expect(write(stub, "catalog_categories.POST")!.body).toEqual([
             expect.objectContaining({ catalog_id: MENU.carta, name: "Contorni", level: 1, parent_category_id: null })

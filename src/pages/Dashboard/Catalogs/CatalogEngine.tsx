@@ -1991,7 +1991,7 @@ export default function CatalogEngine() {
                                 form="catalog-category-form"
                                 loading={isSavingCategory}
                             >
-                                {categoryDrawer === "rename" ? "Applica" : categoryDrawer === "move" ? "Sposta" : "Crea"}
+                                {categoryDrawer === "rename" ? "Applica" : categoryDrawer === "move" ? "Sposta" : "Aggiungi"}
                             </Button>
                         </>
                     }

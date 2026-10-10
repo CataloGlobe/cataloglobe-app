@@ -95,7 +95,7 @@ export default function ReservationCreateEditDrawer({
                             form={FORM_ID}
                             loading={isSaving}
                         >
-                            {mode === "create" ? "Crea prenotazione" : "Salva modifiche"}
+                            {mode === "create" ? "Aggiungi prenotazione" : "Salva modifiche"}
                         </Button>
                     </>
                 }

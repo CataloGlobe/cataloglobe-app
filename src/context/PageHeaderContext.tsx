@@ -34,7 +34,7 @@ export interface PageHeaderAction {
     /**
      * Solo sull'azione primaria: il bottone apre questo sottomenu invece di
      * eseguire `onClick`. Serve quando la primaria non ha un bersaglio implicito
-     * (es. "Nuova regola" sulla tab "Tutte", dove il tipo va scelto).
+     * (es. "Aggiungi" in Programmazione, sulla tab "Tutte", dove il tipo va scelto).
      */
     items?: PageHeaderAction[];
     /**

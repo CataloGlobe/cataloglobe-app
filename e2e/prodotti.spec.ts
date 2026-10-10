@@ -406,10 +406,10 @@ test.describe("Prodotti — gruppi e ingredienti", () => {
         await expect(main(page).getByText(/2 prodotti/).first()).toBeVisible();
 
         await actionsOf(panini).click();
-        await expect(page.getByRole("menuitem", { name: "Crea sottogruppo" })).toBeVisible();
+        await expect(page.getByRole("menuitem", { name: "Aggiungi sottogruppo" })).toBeVisible();
         await page.keyboard.press("Escape");
         await actionsOf(main(page).getByText("Manzo e2e", { exact: true })).click();
-        await expect(page.getByRole("menuitem", { name: "Crea sottogruppo" })).toHaveCount(0);
+        await expect(page.getByRole("menuitem", { name: "Aggiungi sottogruppo" })).toHaveCount(0);
     });
 
     test("gruppi: crea (POST) ed elimina (DELETE)", async ({ page }) => {
@@ -477,8 +477,8 @@ test.describe("Prodotti — gruppi e ingredienti", () => {
     test("gruppi: nome vuoto, l'errore sta sul campo", async ({ page }) => {
         await openList(page);
         await openCollection(page, /^Gruppi$/);
-        await page.getByRole("button", { name: "Crea gruppo" }).click();
-        await dialog(page).getByRole("button", { name: "Crea" }).click();
+        await page.getByRole("button", { name: "Aggiungi gruppo" }).click();
+        await dialog(page).getByRole("button", { name: "Aggiungi", exact: true }).click();
         await expect(dialog(page).getByText("Scrivi il nome del gruppo.")).toBeVisible();
         expect(stub.writes.filter(w => w.key === "product_groups.POST")).toHaveLength(0);
     });

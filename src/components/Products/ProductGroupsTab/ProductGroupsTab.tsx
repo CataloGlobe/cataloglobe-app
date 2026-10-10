@@ -215,7 +215,7 @@ export default function ProductGroupsTab({
                     actions={[
                         rowAction.edit(() => handleEdit(row)),
                         {
-                            label: "Crea sottogruppo",
+                            label: "Aggiungi sottogruppo",
                             icon: FolderPlus,
                             onClick: () => handleCreateSubgroup(row),
                             hidden: row.parent_group_id !== null

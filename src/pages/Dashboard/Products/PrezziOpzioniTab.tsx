@@ -896,7 +896,7 @@ export default function PrezziOpzioniTab({
             <PrezziSection
                 bare={bare}
                 title="Configurazioni"
-                // PO2: la spiegazione è il sottotitolo; «Nuovo gruppo» solo
+                // PO2: la spiegazione è il sottotitolo; «Aggiungi gruppo» solo
                 // nell'intestazione, mai nel corpo («+ Nuovo» al telefono).
                 subtitle="Scelte che il cliente fa quando ordina: una misura, una cottura, aggiunte anche a pagamento."
                 badge={addonGroups.length > 0 ? <Badge variant="secondary">{addonGroups.length}</Badge> : undefined}
@@ -907,10 +907,10 @@ export default function PrezziOpzioniTab({
                             variant="secondary"
                             size="sm"
                             leftIcon={<Plus size={16} />}
-                            aria-label={isPhone && !bare ? "Nuovo gruppo" : undefined}
+                            aria-label={isPhone && !bare ? "Aggiungi gruppo" : undefined}
                             onClick={handleOpenCreateGroup}
                         >
-                            {bare ? "Aggiungi una domanda" : isPhone ? "Nuovo" : "Nuovo gruppo"}
+                            {bare ? "Aggiungi una domanda" : isPhone ? "Aggiungi" : "Aggiungi gruppo"}
                         </Button>
                     ) : undefined
                 }
@@ -1122,7 +1122,7 @@ export default function PrezziOpzioniTab({
                             aria-label={isPhone && !bare ? "Aggiungi variante" : undefined}
                             onClick={onOpenVariantDrawer}
                         >
-                            {bare ? "Crea una variante" : isPhone ? "Nuova" : "Aggiungi variante"}
+                            {bare ? "Aggiungi una variante" : isPhone ? "Aggiungi" : "Aggiungi variante"}
                         </Button>
                     }
                     flush={variants.length > 0}

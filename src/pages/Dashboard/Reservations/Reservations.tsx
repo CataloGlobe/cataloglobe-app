@@ -274,7 +274,7 @@ export function ReservationsAgendaPage() {
                     onChange: value => setChannelFilter(value as ChannelFilter)
                 }
             ],
-            primaryAction: canCreate ? { label: "Nuova prenotazione", onClick: handleOpenCreate } : undefined,
+            primaryAction: canCreate ? { label: "Aggiungi prenotazione", onClick: handleOpenCreate } : undefined,
             sections: inServizio.sections,
             activeSection: "prenotazioni",
             onSectionChange: inServizio.onSectionChange
