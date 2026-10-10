@@ -12,7 +12,7 @@ import { usePermissions } from "@/context/usePermissions";
 import { useBreadcrumbItems } from "@/context/useBreadcrumbItems";
 import { canDoOnAnyActivity, canDoOnTenant, isTenantWide } from "@/lib/permissions";
 import { peekAside } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
-import type { CreaKind } from "./creaModel";
+import { asInside, type CreaKind } from "./creaModel";
 import { CAL_KIND } from "./creaSave";
 import { useCreaData } from "./useCreaData";
 import { Tunnelo } from "./Tunnelo";
@@ -56,7 +56,7 @@ export function CreaTunnel({ kind, editId }: { kind: CreaKind; editId?: string }
         if (!editId || !tenantId || !data || loaded) return;
         let off = false;
         loadTunnel(kind, editId, tenantId, data)
-            .then(x => !off && setLoaded(x))
+            .then(x => !off && setLoaded(params.get("dentro") ? { ...x, t: asInside(x.t) } : x))
             .catch(error => {
                 if (!(error instanceof SystemStyleError)) console.error("[Crea] la cosa da modificare non si è letta:", error);
                 if (!off) setLoaded(error instanceof SystemStyleError ? "system" : "failed");

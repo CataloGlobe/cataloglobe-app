@@ -101,6 +101,8 @@ export type Edit = {
     id: string;
     /** I passi scelti nel passo 0: gli altri restano grigi, ma ci si può andare. */
     picked: StepId[];
+    /** Aperto dal clic sulla riga, senza passare dal passo 0: finché non scegli niente ti muovi un passo alla volta. */
+    free?: boolean;
     /** Com'era la cosa aprendo il tunnel. */
     orig: Tunnel;
     /** La regola del Calendario che la mette in onda, se è una sola: il «Dove e quando» cambia quella. */
@@ -488,7 +490,7 @@ export const strays = (t: Tunnel, c: Ctx): StepId[] => changedSteps(t, c).filter
 /** Dove porta «Avanti» (dir 1) o «Indietro» (dir -1): modificando, solo fra i passi viola. */
 export function stepFrom(t: Tunnel, c: Ctx, i: number, dir: 1 | -1): number {
     const st = steps(t, c);
-    if (!t.edit) return Math.max(0, Math.min(i + dir, st.length - 1));
+    if (!t.edit || (t.edit.free && !t.edit.picked.length)) return Math.max(0, Math.min(i + dir, st.length - 1));
     for (let j = i + dir; j > 0 && j < st.length - 1; j += dir) if (lit(t, st[j])) return j;
     return dir > 0 ? st.length - 1 : 0;
 }
@@ -497,6 +499,11 @@ export function stepFrom(t: Tunnel, c: Ctx, i: number, dir: 1 | -1): number {
 export function asEdit(t: Tunnel, id: string, rule: { id: string | null; count: number }): Tunnel {
     const orig = { ...t, i: 0, seen: 0, edit: null };
     return { ...structuredClone(orig), seen: 99, edit: { id, picked: [], orig, ruleId: rule.id, rules: rule.count } };
+}
+
+/** Il clic sulla riga: lo stesso tunnel, già dentro al primo passo, senza niente di scelto. */
+export function asInside(t: Tunnel): Tunnel {
+    return t.edit ? { ...t, i: 1, edit: { ...t.edit, free: true } } : t;
 }
 
 /* ---------- le frasi ---------- */

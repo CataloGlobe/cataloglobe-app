@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { asEdit, blocker, changed, changedSteps, firstBlock, isDirty, lit, newTunnel, stepFrom, stepLabel, steps, strays, tunnelTitle, type Tunnel } from "@/pages/Dashboard/Crea/creaModel";
+import { asEdit, asInside, blocker, changed, changedSteps, firstBlock, isDirty, lit, newTunnel, stepFrom, stepLabel, steps, strays, tunnelTitle, type Tunnel } from "@/pages/Dashboard/Crea/creaModel";
 import { DEFAULT_STYLE_TOKENS } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
 import { aspectOf, styleTokens } from "@/pages/Dashboard/Crea/creaStyle";
 
@@ -61,6 +61,15 @@ describe("modifica nel tunnel: viola e grigi", () => {
         expect(strays(t, OWNER)).toEqual(["parti"]);
         expect(stepFrom(t, OWNER, 0, 1)).toBe(1);
         expect(isDirty(t)).toBe(true);
+    });
+
+    it("dal clic sulla riga si è già dentro: un passo alla volta finché non scegli niente", () => {
+        const t = asInside(menu());
+        expect(t.i).toBe(1);
+        expect(stepFrom(t, OWNER, 1, 1)).toBe(2);
+        expect(stepFrom(t, OWNER, 2, -1)).toBe(1);
+        expect(lit(upd(t, x => void (x.name = "Altro")), "parti")).toBe(true);
+        expect(stepFrom(upd(t, x => void x.edit!.picked.push("sezioni")), OWNER, 0, 1)).toBe(2);
     });
 
     it("rimettere com'era non conta come modifica", () => {

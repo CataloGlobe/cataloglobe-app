@@ -120,6 +120,15 @@ async function cartaCom(page: Page) {
     );
 }
 
+test("Tunnel di modifica dal clic sulla riga: già dentro, un passo alla volta, senza niente di scelto (D175)", async ({ page }) => {
+    stub = await stubProgrammazione(page);
+    await cartaCom(page);
+    await openBusinessPageByUrl(page, `crea/menu/${MENU.carta}?da=menu&dentro=1`);
+    await expect(main(page).getByRole("heading", { name: "Il nome" })).toBeVisible({ timeout: 20_000 });
+    await next(page);
+    await expect(main(page).getByRole("heading", { name: "Sezioni e piatti" })).toBeVisible();
+});
+
 test.describe("Tunnel: modificare una cosa già creata (D140)", () => {
     test.beforeEach(async ({ page }) => {
         stub = await stubProgrammazione(page);
