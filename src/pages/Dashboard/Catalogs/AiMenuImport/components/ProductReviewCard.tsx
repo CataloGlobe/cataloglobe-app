@@ -77,10 +77,9 @@ export function ProductReviewCard({ product, onUpdate, onRemove }: ProductReview
                     <div className={styles.productFormats}>
                         {product.formats.map((f, i) => {
                             if (!f || typeof f.name !== "string") return null;
-                            const priceStr = f.price != null ? f.price.toFixed(2) : null;
                             return (
                                 <span key={i} className={styles.formatTag}>
-                                    {f.name}{priceStr ? ` €${priceStr}` : ""}
+                                    {f.name}{f.price != null ? ` ${formatPrice(f.price)}` : ""}
                                 </span>
                             );
                         })}
