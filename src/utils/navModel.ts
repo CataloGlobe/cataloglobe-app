@@ -350,6 +350,8 @@ const REVIEWS: NavEntry = {
     level: "azienda",
     segment: "reviews",
     sedeSegment: "recensioni",
+    // il voto delle sedi a confronto (D159): «Confronta con» si sceglie e si toglie anche da qui
+    confronto: true,
     gate: { on: "anyActivity", permission: "reviews.read" }
 };
 

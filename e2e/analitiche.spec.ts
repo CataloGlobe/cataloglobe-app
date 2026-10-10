@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { openBusinessPage } from "./business";
 import { stubAnalitiche, type AnaliticheStub } from "./analiticheStub";
+import { activityIdOf, locationPaths } from "./nav";
 
 /**
  * Andamento (D154: B, una riga per cosa col dettaglio accanto; lo switch
@@ -166,5 +167,40 @@ test.describe("Andamento — errore", () => {
         await openBusinessPage(page, "analytics", "Andamento");
         await expect(main(page).getByText("Non è stato possibile caricare l'andamento")).toBeVisible({ timeout: 15_000 });
         await expect(main(page).getByRole("button", { name: "Riprova" })).toBeVisible();
+    });
+});
+
+/**
+ * Il confronto fra sedi dentro una sede (review #360.4 e #360.6): la sede è
+ * quella dell'indirizzo, anche se in `sediVistaStore` non c'è.
+ */
+test.describe("Andamento — confronto fra sedi", () => {
+    test("#360.4 e #360.6: entrando da un indirizzo di sede il confronto carica l'altra; se fallisce lo dice, con «Riprova»", async ({ page }) => {
+        stub = await stubAnalitiche(page);
+        const paths = await locationPaths(page);
+        test.skip(paths.length < 2, "serve più di una sede");
+        const [qui, altra] = [activityIdOf(paths[0]), activityIdOf(paths[1])];
+        const tenantId = /\/business\/([^/]+)/.exec(paths[0])![1];
+        // nessuna sede scelta dalla barra: solo con chi confrontare
+        await page.evaluate(([t, a]) => window.sessionStorage.setItem("cataloglobe:sediVista", JSON.stringify({ tenantId: t, sede: null, confronta: [a] })), [tenantId, altra]);
+        const ofAltra = () => stub.calls.filter(c => c.body.p_activity_id === altra).length;
+        expect(ofAltra()).toBe(0);
+        await page.goto(`${paths[0]}/analitiche`);
+        await expect(rows(page).getByRole("button", { name: /La pagina/ })).toBeVisible({ timeout: 15_000 });
+        expect(stub.calls.some(c => c.body.p_activity_id === qui)).toBe(true);
+        await expect.poll(ofAltra).toBeGreaterThan(0);
+        await expect(main(page).getByText(/sedi a confronto/)).toHaveCount(0);
+
+        // l'altra sede non risponde: cambiando periodo lo si vede
+        let broken = true;
+        await page.route(/\/rest\/v1\/rpc\/analytics_/, route =>
+            broken && (route.request().postData() ?? "").includes(altra) ? route.fulfill({ status: 500, json: { message: "e2e" } }) : route.fallback()
+        );
+        await page.getByRole("radio", { name: "90 giorni" }).click();
+        const alert = main(page).getByRole("alert").filter({ hasText: "Non siamo riusciti a caricare le sedi a confronto" });
+        await expect(alert).toBeVisible({ timeout: 15_000 });
+        broken = false;
+        await alert.getByRole("button", { name: "Riprova" }).click();
+        await expect(alert).toHaveCount(0);
     });
 });
