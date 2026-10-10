@@ -52,6 +52,14 @@ describe("sheetReducer", () => {
         expect(sheetReducer(open, { type: "push", page: info })).toBe(open);
     });
 
+    it("push di una chiave già in pila torna a quella pagina, senza doppioni", () => {
+        const two = sheetReducer(
+            sheetReducer(CLOSED_SHEET, { type: "open", page: info }),
+            { type: "push", page: hours }
+        );
+        expect(sheetReducer(two, { type: "push", page: info })).toEqual({ pages: [info], move: "pop" });
+    });
+
     it("push a foglio chiuso apre dritto sulla figlia", () => {
         expect(sheetReducer(CLOSED_SHEET, { type: "push", page: hours })).toEqual({
             pages: [hours],

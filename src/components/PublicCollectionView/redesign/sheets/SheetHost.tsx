@@ -93,6 +93,9 @@ export default function SheetHost({ renderPage, backgroundRef }: Props) {
     const viewportRef = useRef<HTMLDivElement>(null);
     const trackRef = useRef<HTMLDivElement>(null);
     const animations = useRef<Animation[]>([]);
+    // La spinta della pista ha un proprietario a parte: il trascinamento del
+    // foglio non deve annullarla (resterebbe montata la pagina uscente).
+    const trackAnimation = useRef<Animation | null>(null);
     const prevIndex = useRef(0);
     const animateHeight = useRef(false);
     const env = useRef({ isMobile, reducedMotion });
@@ -105,6 +108,16 @@ export default function SheetHost({ renderPage, backgroundRef }: Props) {
 
     useSheetBodyLock(isOpen);
 
+    // Host smontato (cambio di rotta) con il foglio aperto: si chiude lo store e
+    // si lascia andare il nodo ricordato per il fuoco.
+    useEffect(
+        () => () => {
+            closeSheet();
+            takeSheetOpener();
+        },
+        []
+    );
+
     const cancelAnimations = useCallback(() => {
         for (const animation of animations.current) animation.cancel();
         animations.current = [];
@@ -114,6 +127,11 @@ export default function SheetHost({ renderPage, backgroundRef }: Props) {
         if (!element || typeof element.animate !== "function" || env.current.reducedMotion) return null;
         const animation = element.animate(keyframes, { duration, easing: SHEET_EASING });
         animations.current.push(animation);
+        // Via dalla lista a fine corsa: la lista non cresce all'infinito.
+        const forget = () => {
+            animations.current = animations.current.filter(a => a !== animation);
+        };
+        animation.finished.then(forget, forget);
         return animation;
     }, []);
 
@@ -199,7 +217,10 @@ export default function SheetHost({ renderPage, backgroundRef }: Props) {
         const background = backgroundRef?.current ?? null;
         if (background) background.inert = true;
         const onKeyDown = (event: KeyboardEvent) => {
-            if (event.key === "Escape") popSheetPage();
+            // Un campo o un menu dentro la pagina può aver già usato Esc.
+            if (event.key !== "Escape" || event.defaultPrevented) return;
+            event.preventDefault();
+            popSheetPage();
         };
         document.addEventListener("keydown", onKeyDown);
         return () => {
@@ -217,13 +238,28 @@ export default function SheetHost({ renderPage, backgroundRef }: Props) {
         track.style.transform = `translateX(${to}%)`;
         if (from !== to && (state.move === "push" || state.move === "pop")) {
             animateHeight.current = true;
+            // Una spinta nuova ferma la precedente (push e subito «‹»): due
+            // scorrimenti insieme sulla stessa pista non hanno senso.
+            trackAnimation.current?.cancel();
             const animation = play(
                 track,
                 [{ transform: `translateX(${from}%)` }, { transform: `translateX(${to}%)` }],
                 PUSH_DURATION_MS
             );
-            animation?.finished.then(() => setLeaving([]), () => undefined);
-            if (!animation) setLeaving([]);
+            trackAnimation.current = animation;
+            if (animation) {
+                // Solo se è ancora l'ultima: una cancellata non svuota `leaving`.
+                animation.finished.then(
+                    () => {
+                        if (trackAnimation.current === animation) setLeaving([]);
+                    },
+                    () => undefined
+                );
+            } else {
+                setLeaving([]);
+            }
+            // Il fuoco segue la spinta: la pagina che lo aveva è diventata inert.
+            panelRef.current?.focus({ preventScroll: true });
         }
         prevIndex.current = index;
     }, [present, index, state.move, play]);
@@ -269,19 +305,24 @@ export default function SheetHost({ renderPage, backgroundRef }: Props) {
         if (!d.active || !panel) return;
         d.offset = Math.max(0, event.clientY - d.startY);
         const dt = event.timeStamp - d.lastT;
-        if (dt > 0) d.velocity = (event.clientY - d.lastY) / dt;
-        d.lastY = event.clientY;
-        d.lastT = event.timeStamp;
+        // Campioni sotto gli 8 ms sono rumore (jitter di un tap): si aspetta il prossimo.
+        if (dt >= 8) {
+            d.velocity = (event.clientY - d.lastY) / dt;
+            d.lastY = event.clientY;
+            d.lastT = event.timeStamp;
+        }
         panel.style.transform = `translateY(${d.offset}px)`;
         if (backdropRef.current) {
             backdropRef.current.style.opacity = String(Math.max(0, 1 - d.offset / (panel.offsetHeight || 1)));
         }
     };
-    const onDragEnd = () => {
+    const onDragEnd = (event: ReactPointerEvent<HTMLElement>) => {
         const d = drag.current;
         const panel = panelRef.current;
         if (!d.active || !panel) return;
         d.active = false;
+        // Dito fermo prima del rilascio: la velocità dell'ultimo movimento non vale più.
+        if (event.timeStamp - d.lastT > 80) d.velocity = 0;
         if (shouldDismissOnRelease(d.offset, d.velocity)) {
             exitFrom.current = { offset: d.offset, velocity: d.velocity };
             closeSheet();

@@ -41,7 +41,10 @@ export function sheetReducer(state: SheetState, action: SheetAction): SheetState
         case "push": {
             // Foglio chiuso: la spinta è un'apertura. Stessa pagina in cima: niente da fare.
             if (state.pages.length === 0) return { pages: [action.page], move: "open" };
-            if (state.pages[state.pages.length - 1].key === action.page.key) return state;
+            // Chiave già in pila: «‹» fino a quella pagina, mai due pagine con la stessa chiave.
+            const at = state.pages.findIndex(page => page.key === action.page.key);
+            if (at === state.pages.length - 1) return state;
+            if (at >= 0) return { pages: state.pages.slice(0, at + 1), move: "pop" };
             return { pages: [...state.pages, action.page], move: "push" };
         }
         case "pop":
