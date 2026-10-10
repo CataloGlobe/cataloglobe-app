@@ -24,7 +24,10 @@ function builder(result: { data?: unknown; error: unknown }) {
 }
 
 /** Una risposta per tabella, come le legge getFieldTranslationStatus. */
-function tables(jobs: { status: string; target_language_code: string; last_error: string | null }[]) {
+function tables(
+    jobs: { status: string; target_language_code: string; last_error: string | null }[],
+    translations: { language_code: string; status: string; source_hash: string | null }[] = []
+) {
     const byTable: Record<string, ReturnType<typeof builder>> = {
         tenant_languages: builder({
             data: [{ language_code: "en" }, { language_code: "fr" }, { language_code: "de" }, { language_code: "es" }],
@@ -32,7 +35,7 @@ function tables(jobs: { status: string; target_language_code: string; last_error
         }),
         products: builder({ data: { description_hash: "h1" }, error: null }),
         translation_jobs: builder({ data: jobs, error: null }),
-        translations: builder({ data: [], error: null })
+        translations: builder({ data: translations, error: null })
     };
     from.mockImplementation((table: string) => byTable[table]);
 }
@@ -60,6 +63,27 @@ describe("getFieldTranslationStatus", () => {
         const status = await getFieldTranslationStatus("t1", "product", "p1", "description");
         expect(status.pendingCount).toBe(2);
         expect(status.errorCount).toBe(1);
+    });
+
+    it("conta indietro anche un'automatica senza job aperto, come la tab Traduzioni", async () => {
+        tables(
+            [{ status: "pending", target_language_code: "de", last_error: null }],
+            [
+                { language_code: "en", status: "auto", source_hash: "h0" }, // orfana: indietro
+                { language_code: "fr", status: "manual", source_hash: "h0" }, // manuale: indietro
+                { language_code: "de", status: "auto", source_hash: "h0" }, // job in coda: non indietro
+                { language_code: "es", status: "auto", source_hash: "h1" } // attuale
+            ]
+        );
+        const status = await getFieldTranslationStatus("t1", "product", "p1", "description");
+        expect(status.staleCount).toBe(2);
+        expect(status.doneCount).toBe(1);
+        expect(status.languages).toEqual([
+            { code: "en", state: "stale" },
+            { code: "fr", state: "stale" },
+            { code: "de", state: "pending" },
+            { code: "es", state: "done" }
+        ]);
     });
 });
 

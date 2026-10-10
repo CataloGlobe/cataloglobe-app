@@ -11,6 +11,8 @@
 //   - UPDATE di stato che ritorna error         -> conteggiato, NON ingoiato
 //   - job presi ma non risolti a fine tick      -> riportati a 'pending' dal
 //                                                  finally (guard processing)
+//   - target gia' manual/overridden             -> 'done' senza chiamare il
+//                                                  provider (niente quota)
 // =============================================================================
 
 import { describe, it, expect } from "vitest";
@@ -70,6 +72,8 @@ class FakeStore implements JobStore {
     resetOrphansCalledWith: string[] | null = null;
     // (jobId|targetStatus) per i quali updateJob ritorna error
     failUpdateFor: Set<string> = new Set();
+    // job il cui target e' gia' manual/overridden; null => lettura fallita
+    preserved: Set<string> | null = new Set();
 
     constructor(private claimed: PendingJob[]) {
         for (const j of claimed) {
@@ -82,6 +86,12 @@ class FakeStore implements JobStore {
     }
     getTenantBaseLangs(): Promise<Map<string, string>> {
         return Promise.resolve(new Map());
+    }
+    getPreservedJobIds(): Promise<DbResult<Set<string>>> {
+        if (this.preserved === null) {
+            return Promise.resolve({ data: null, error: { message: "simulated read failure" } });
+        }
+        return Promise.resolve({ data: this.preserved, error: null });
     }
     upsertAutoTranslation(): Promise<DbResult<boolean>> {
         return Promise.resolve({ data: true, error: null });
@@ -215,5 +225,58 @@ describe("runTranslationTick", () => {
         expect(c.failed).toBe(1);
         expect(c.retried).toBe(0);                        // nessun rollback->pending
         expect(store.rows.get(job.id)!.attempts).toBe(1); // singola presa, non 3
+    });
+});
+
+describe("runTranslationTick: target manuali", () => {
+    function countingProvider() {
+        const calls: string[][] = [];
+        const base = makeProvider("ok");
+        const provider: TranslationProvider = {
+            ...base,
+            translate(input: TranslateInput) {
+                calls.push([...input.texts]);
+                return base.translate(input);
+            }
+        };
+        return { provider, calls };
+    }
+
+    it("target manual/overridden: done senza chiamare il provider", async () => {
+        const manual = makeJob({ id: "M", source_text: "Manuale" });
+        const auto = makeJob({ id: "A", entity_id: "e2", source_text: "Auto" });
+        const store = new FakeStore([manual, auto]);
+        store.preserved = new Set(["M"]);
+        const { provider, calls } = countingProvider();
+
+        const c = await runTranslationTick(makeDeps(store, provider));
+
+        expect(calls).toEqual([["Auto"]]);
+        expect(store.rows.get("M")!.status).toBe("done");
+        expect(store.rows.get("A")!.status).toBe("done");
+        expect(c.processed).toBe(2);
+        expect(store.resetOrphansCalledWith).toBeNull();
+    });
+
+    it("tutti manuali: nessuna chiamata al provider", async () => {
+        const store = new FakeStore([makeJob({ id: "M" })]);
+        store.preserved = new Set(["M"]);
+        const { provider, calls } = countingProvider();
+
+        await runTranslationTick(makeDeps(store, provider));
+
+        expect(calls).toEqual([]);
+        expect(store.rows.get("M")!.status).toBe("done");
+    });
+
+    it("lettura dei target fallita: si traduce tutto come prima", async () => {
+        const store = new FakeStore([makeJob({ id: "M" })]);
+        store.preserved = null;
+        const { provider, calls } = countingProvider();
+
+        await runTranslationTick(makeDeps(store, provider));
+
+        expect(calls).toEqual([["Pasta"]]);
+        expect(store.rows.get("M")!.status).toBe("done");
     });
 });

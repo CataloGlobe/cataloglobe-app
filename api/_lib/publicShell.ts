@@ -13,14 +13,14 @@ import { buildCoverImageSet } from "./imageTransform.js";
  *      tenant-controlled + replacer-A-FUNZIONE in tutte le String.replace
  *      (una replacement string espanderebbe `$&`/`$1` presenti nel valore,
  *      permettendo il breakout dall'attributo anche con valore escapato —
- *      stesso schema a due livelli di middleware.ts).
+ *      stesso schema a due livelli del vecchio middleware.ts, rimosso in
+ *      a1315573).
  *   2. JSON inlinato in <script>: `serializeCatalogPayload` neutralizza
  *      `<`, `>`, `&`, U+2028/U+2029 in escape unicode JSON-validi — un
  *      `</script>` dentro un nome tenant non può chiudere il tag script.
  *
- * NOTA: la logica meta replica middleware.ts (righe 144-323). Duplicazione
- * TEMPORANEA e voluta: a 4e il ruolo del middleware su /:slug sparisce e
- * questa diventa l'unica implementazione.
+ * NOTA: la logica meta nasce come copia di quella di middleware.ts, rimosso
+ * in a1315573: oggi questa è l'unica implementazione.
  */
 
 /* ── Tipi minimi del payload (strutturali, disaccoppiati dai tipi app) ──── */
@@ -114,7 +114,8 @@ export type TenantHeadOptions = {
  * Applica al template di index.html i meta per-tenant + font dello stile
  * attivo (marker `id="mw-font"`, contratto col runtime: PublicCollectionPage
  * lo cerca per saltare il font fallback) + de-block Inter/Sora + cover
- * preload/og:image. Stessa semantica dell'injection del middleware.
+ * preload/og:image. Stessa semantica dell'injection del vecchio middleware
+ * (rimosso in a1315573).
  */
 export function applyTenantHead(
     templateHtml: string,
@@ -157,7 +158,7 @@ export function applyTenantHead(
     if (fontHref) {
         extra.push(`<link id="mw-font" rel="stylesheet" href="${escapeHtml(fontHref)}" />`);
 
-        // De-block del link shell Inter+Sora (vedi middleware.ts Step 3a):
+        // De-block del link shell Inter+Sora (come faceva il vecchio middleware):
         // Sora rimossa; token "inter" → link shell app-inter.css omesso
         // (mw-font/public-inter.css copre); altri token → app-inter.css
         // async (preload→stylesheet + noscript).

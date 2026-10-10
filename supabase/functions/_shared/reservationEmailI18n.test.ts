@@ -293,12 +293,13 @@ describe("email al cliente — resa per lingua", () => {
         }
     });
 
-    // La lingua deve arrivare fino al footer legale: due frasi sono nostre e
-    // seguono l'email, il resto (ragione sociale, indirizzo, P.IVA) e' dato.
-    it.each(nonItalian)("%s: anche il footer legale segue la lingua", lang => {
+    // La lingua deve arrivare fino al footer: le etichette dei link seguono
+    // l'email; i dati legali non ci sono più (stanno sulle pagine del sito).
+    it.each(nonItalian)("%s: anche il footer segue la lingua", lang => {
         const [receipt] = buildAllCustomerEmails(lang);
-        expect(receipt.text).toContain("P.IVA");
-        expect(receipt.text).not.toContain("ditta individuale");
+        expect(receipt.html).not.toContain(">Assistenza</a>");
+        expect(receipt.text).not.toContain("P.IVA");
+        expect(receipt.html).toContain('<html lang="' + lang + '">');
     });
 });
 

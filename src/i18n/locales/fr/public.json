@@ -5,6 +5,8 @@
     "loading_error": "Erreur de chargement.",
     "empty_catalog": "Aucun produit disponible pour le moment",
     "menu_label": "Menu",
+    "catalog_empty_title": "Le menu n'est pas encore prêt",
+    "catalog_empty_description": "L'établissement prépare ses plats. Revenez bientôt.",
     "error": {
       "not_found": "Établissement introuvable.",
       "invalid_link": "Lien non valide.",
@@ -374,7 +376,8 @@
     "video_aria": "Vidéo de l'histoire",
     "video_play": "Regarder la vidéo",
     "video_play_aria": "Lire la vidéo de l'histoire",
-    "discover_label": "Découvrir l'histoire"
+    "discover_label": "Découvrir l'histoire",
+    "image_alt_fallback": "Image de l'histoire"
   },
   "reviews": {
     "rating_labels": {

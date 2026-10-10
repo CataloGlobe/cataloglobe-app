@@ -10,10 +10,14 @@ import {
 import { Button, InlineBanner } from "@components/ui";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { fromPathOf } from "@/utils/internalPath";
+import { savePendingRedirect } from "@/utils/pendingRedirect";
+import { resendConfirmationEmail } from "@/services/supabase/auth";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import Text from "@/components/ui/Text/Text";
-import { CheckboxInput } from "@/components/ui/Input/CheckboxInput";
 import { AuthLayout } from "@/layouts/AuthLayout/AuthLayout";
+import { AuthTabs } from "@/layouts/AuthLayout/AuthTabs";
+import { Mail, ShieldCheck } from "lucide-react";
+import { PasswordField } from "./PasswordField";
 import { COMPANY } from "@/config/company";
 import styles from "./Auth.module.scss";
 
@@ -49,7 +53,6 @@ export default function Login() {
     usePageTitle("Accedi");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
-    const [rememberMe, setRememberMe] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [rateLimited, setRateLimited] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -58,6 +61,9 @@ export default function Login() {
     const [recoveryError, setRecoveryError] = useState<string | null>(null);
     const [recoverySuccess, setRecoverySuccess] = useState(false);
     const [recoveryPartial, setRecoveryPartial] = useState(false);
+    // Email non confermata: si offre il reinvio del link (R7).
+    const [unconfirmed, setUnconfirmed] = useState(false);
+    const [confirmResend, setConfirmResend] = useState<"idle" | "sending" | "failed">("idle");
     const [recoveryOtpSent, setRecoveryOtpSent] = useState(false);
     const [recoveryCode, setRecoveryCode] = useState("");
 
@@ -99,17 +105,21 @@ export default function Login() {
         setRecoveryError(null);
         setRecoverySuccess(false);
         setRecoveryPartial(false);
+        setUnconfirmed(false);
+        setConfirmResend("idle");
         setLoading(true);
 
         try {
-            const { user } = await signIn(email.trim(), password, { rememberMe });
+            const { user } = await signIn(email.trim(), password);
 
             if (!user) {
                 setError("Credenziali non valide.");
                 return;
             }
 
-            navigate("/verify-otp", { state: { from } });
+            // Da qui decide GuestRoute con l'unico controllo del codice (quello di
+            // AuthProvider dopo SIGNED_IN): codice valido → dentro, altrimenti
+            // /verify-otp con lo stesso `from`.
         } catch (err) {
             const message = err instanceof Error ? err.message : "";
             if (message.toLowerCase().includes("banned")) {
@@ -118,6 +128,8 @@ export default function Login() {
                 setRateLimited(true);
             } else {
                 setError(getReadableLoginError(err));
+                const code = err && typeof err === "object" && "code" in err ? (err as { code?: unknown }).code : "";
+                setUnconfirmed(code === "email_not_confirmed" || message.toLowerCase().includes("email not confirmed"));
             }
         } finally {
             setLoading(false);
@@ -170,15 +182,15 @@ export default function Login() {
     }
 
     return (
-        <AuthLayout>
+        <AuthLayout heading="Bentornato." lead="Accedi per gestire menù, sedi e ordini.">
             <div className={styles.auth}>
-                <Text as="h1" variant="title-md">
-                    Ciao, bentornato
-                </Text>
-
-                <Text as="p" variant="body-sm" colorVariant="muted" className={styles.subtitle}>
-                    Accedi per gestire i tuoi cataloghi.
-                </Text>
+                <AuthTabs
+                    active="login"
+                    onSignupClick={() => {
+                        // Un invito (o un altro deep link) sopravvive al giro di registrazione (R6).
+                        if (from) savePendingRedirect(from);
+                    }}
+                />
 
                 <form onSubmit={handleLogin} aria-busy={loading}>
                 <TextInput
@@ -188,25 +200,18 @@ export default function Login() {
                     onChange={e => setEmail(e.target.value)}
                     required
                     autoComplete="email"
+                    startAdornment={<Mail size={18} aria-hidden="true" />}
                 />
 
-                <TextInput
+                <PasswordField
                     label="Password"
-                    type="password"
                     value={password}
                     onChange={e => setPassword(e.target.value)}
                     required
                     autoComplete="current-password"
                 />
 
-                <div className={styles.formRow}>
-                    <CheckboxInput
-                        label="Ricordami"
-                        description="Ricordami su questo dispositivo"
-                        checked={rememberMe}
-                        onChange={e => setRememberMe(e.target.checked)}
-                    />
-
+                <div className={styles.forgotRow}>
                     <Text as="p" variant="body-sm">
                         <Link to="/forgot-password" className={styles.forgot}>
                             Password dimenticata?
@@ -306,6 +311,32 @@ export default function Login() {
 
                 {error && <InlineBanner variant="error">{error}</InlineBanner>}
 
+                {unconfirmed && (
+                    <Button
+                        type="button"
+                        variant="secondary"
+                        fullWidth
+                        loading={confirmResend === "sending"}
+                        disabled={confirmResend === "sending"}
+                        onClick={async () => {
+                            setConfirmResend("sending");
+                            try {
+                                await resendConfirmationEmail(email.trim());
+                                setConfirmResend("idle");
+                                // Mail nuova con codice e link: si va dove si scrive il codice.
+                                navigate("/check-email", { state: { email: email.trim() } });
+                            } catch {
+                                setConfirmResend("failed");
+                            }
+                        }}
+                    >
+                        Mandami il codice di conferma
+                    </Button>
+                )}
+                {confirmResend === "failed" && (
+                    <InlineBanner variant="error">Non siamo riusciti a inviare il codice. Riprova tra poco.</InlineBanner>
+                )}
+
                 <Button
                     type="submit"
                     variant="primary"
@@ -317,9 +348,10 @@ export default function Login() {
                 </Button>
                 </form>
 
-                <Text as="p" variant="body-sm" className={styles.hint}>
-                    Non hai un account? <Link to="/sign-up">Registrati</Link>
-                </Text>
+                <p className={styles.note}>
+                    <ShieldCheck size={16} aria-hidden="true" />
+                    Per sicurezza, una volta al mese ti chiediamo anche un codice via email.
+                </p>
             </div>
         </AuthLayout>
     );

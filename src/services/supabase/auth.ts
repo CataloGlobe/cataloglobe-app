@@ -1,9 +1,6 @@
-import { supabase, setRememberMe } from "@/services/supabase/client";
+import { supabase } from "@/services/supabase/client";
 import { CURRENT_CONSENT_VERSIONS } from "@/config/consentVersions";
-
-type SignInOptions = {
-    rememberMe?: boolean;
-};
+import { clearSignupLeftovers } from "@/utils/pendingRedirect";
 
 type SignUpProfile = {
     first_name?: string;
@@ -34,11 +31,7 @@ export async function signUp(email: string, password: string, profile?: SignUpPr
 }
 
 // Login
-export async function signIn(email: string, password: string, options?: SignInOptions) {
-    if (typeof options?.rememberMe === "boolean") {
-        setRememberMe(options.rememberMe);
-    }
-
+export async function signIn(email: string, password: string) {
     const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password
@@ -51,21 +44,26 @@ export async function signIn(email: string, password: string, options?: SignInOp
     return data;
 }
 
-// Logout
-export async function signOut() {
-    // Invalidate OTP verification BEFORE signOut: after signOut the JWT is gone
-    // and auth.uid() inside the SECURITY DEFINER RPC would be null.
-    // Best-effort: sign-out must complete even if the RPC call fails.
-    try {
-        await supabase.rpc("delete_my_otp_verification");
-    } catch (err) {
-        console.warn("[AUTH] delete_my_otp_verification failed", err);
+// Logout. Di default solo questo dispositivo e la verifica OTP (30 giorni per
+// utente) resta: deciso da Lorenzo il 2026-10-09. «Esci da tutti i
+// dispositivi» chiude ogni sessione e cancella anche la verifica, così chi
+// aveva la password non entra senza codice.
+export async function signOut(options?: { everywhere?: boolean }) {
+    if (options?.everywhere) {
+        // Prima del signOut: dopo, il JWT non c'è più e auth.uid() nella RPC
+        // SECURITY DEFINER sarebbe null. Best-effort: l'uscita va fatta comunque.
+        try {
+            await supabase.rpc("delete_my_otp_verification");
+        } catch (err) {
+            console.warn("[AUTH] delete_my_otp_verification failed", err);
+        }
     }
 
-    const { error } = await supabase.auth.signOut();
+    const { error } = await supabase.auth.signOut({ scope: options?.everywhere ? "global" : "local" });
     if (error) throw error;
     if (typeof window !== "undefined") {
         sessionStorage.removeItem("passwordRecoveryFlow");
+        clearSignupLeftovers();
     }
 }
 
@@ -83,6 +81,15 @@ export async function resetPassword(email: string) {
     const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: redirectUrl
     });
+    if (error) throw error;
+    return data;
+}
+
+// Conferma della registrazione con il codice della mail (lo stesso messaggio
+// porta anche il link). Va a buon fine → sessione aperta, e il trigger su
+// auth.users conta la conferma come verifica OTP per 30 giorni.
+export async function verifySignupCode(email: string, token: string) {
+    const { data, error } = await supabase.auth.verifyOtp({ email, token, type: "signup" });
     if (error) throw error;
     return data;
 }

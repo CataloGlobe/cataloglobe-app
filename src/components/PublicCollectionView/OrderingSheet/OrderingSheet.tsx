@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import type { TFunction } from "i18next";
 import { Minus, Plus, Trash2, RefreshCw, X, AlertCircle } from "lucide-react";
 import type { OrderingStateReason } from "@/types/orders";
 import PublicSheet from "../PublicSheet/PublicSheet";
@@ -15,6 +14,7 @@ import { useCustomerSession } from "@/context/CustomerSession/useCustomerSession
 import type { SessionOrderSummary } from "@/types/orders";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import styles from "./OrderingSheet.module.scss";
+import { formatRelativeMinimal, RELATIVE_TIME_TICK_MS } from "./formatRelativeMinimal";
 
 // ─── Types — owned here, riusati da CollectionView + ItemDetail ──────────────
 
@@ -52,21 +52,6 @@ function formatPrice(n: number): string {
         currency: "EUR",
         minimumFractionDigits: 2
     }).format(n);
-}
-
-function formatRelativeMinimal(iso: string, t: TFunction): string {
-    const diffMs = Date.now() - new Date(iso).getTime();
-    const diffMin = Math.floor(diffMs / 60000);
-    if (diffMin < 1) return t("ordering.time_now");
-    if (diffMin < 60) return t("ordering.time_min_ago", { count: diffMin });
-    const diffH = Math.floor(diffMin / 60);
-    if (diffH < 24) return t("ordering.time_hour_ago", { count: diffH });
-    return new Intl.DateTimeFormat("it-IT", {
-        day: "2-digit",
-        month: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit"
-    }).format(new Date(iso));
 }
 
 // ─── Component ──────────────────────────────────────────────────────────────
@@ -150,6 +135,14 @@ export default function OrderingSheet({
     const [ordersError, setOrdersError] = useState<string | null>(null);
     const [confirmingCancelId, setConfirmingCancelId] = useState<string | null>(null);
     const [processingCancelId, setProcessingCancelId] = useState<string | null>(null);
+    // Orario relativo degli ordini: ticchetta solo con la tab Ordini aperta.
+    const [now, setNow] = useState(() => Date.now());
+    useEffect(() => {
+        if (!isOpen || activeTab !== "orders") return;
+        setNow(Date.now());
+        const id = setInterval(() => setNow(Date.now()), RELATIVE_TIME_TICK_MS);
+        return () => clearInterval(id);
+    }, [isOpen, activeTab]);
 
     // Refs verso gli editor nota montati (per index cart-line + uno order-level),
     // usati SOLO al submit per "flushare" un draft aperto e non confermato
@@ -556,14 +549,14 @@ export default function OrderingSheet({
                                                         {t("ordering.status_cancelled")}
                                                     </span>
                                                     <span className={styles.orderTime}>
-                                                        {formatRelativeMinimal(order.cancelled_at ?? order.created_at, t)}
+                                                        {formatRelativeMinimal(order.cancelled_at ?? order.created_at, t, now)}
                                                     </span>
                                                 </div>
                                             ) : (
                                                 <>
                                                     <div className={styles.orderHeader}>
                                                         <span className={styles.orderTime}>
-                                                            {t("ordering.sent_at", { time: formatRelativeMinimal(order.created_at, t) })}
+                                                            {t("ordering.sent_at", { time: formatRelativeMinimal(order.created_at, t, now) })}
                                                         </span>
                                                     </div>
                                                     <OrderStatusStepper order={order} />

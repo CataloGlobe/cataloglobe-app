@@ -5,6 +5,8 @@
         "loading_error": "Error de carga.",
         "empty_catalog": "Ningún producto disponible por el momento",
         "menu_label": "Menú",
+        "catalog_empty_title": "El menú aún no está listo",
+        "catalog_empty_description": "El local está preparando sus platos. Vuelve a consultar en breve.",
         "error": {
             "not_found": "Local no encontrado.",
             "invalid_link": "Enlace no válido.",
@@ -374,7 +376,8 @@
         "video_aria": "Vídeo de la historia",
         "video_play": "Ver el vídeo",
         "video_play_aria": "Reproducir el vídeo de la historia",
-        "discover_label": "Descubre la historia"
+        "discover_label": "Descubre la historia",
+        "image_alt_fallback": "Imagen de la historia"
     },
     "reviews": {
         "rating_labels": {

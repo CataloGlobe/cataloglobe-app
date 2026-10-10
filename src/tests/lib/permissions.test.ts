@@ -338,11 +338,21 @@ describe("canWriteRule", () => {
         expect(canWriteRule(manager, rule({}))).toBe(false);
     });
 
-    it("manager: gruppo con almeno una sua sede, come il DB", () => {
-        const members = new Map([[GROUP, [ACT_A, ACT_C]]]);
-        expect(canWriteRule(manager, rule({ groupIds: [GROUP] }), members)).toBe(true);
+    it("manager: gruppo con tutte le sue sedi (D13)", () => {
+        const mio = new Map([[GROUP, [ACT_A, ACT_B]]]);
+        expect(canWriteRule(manager, rule({ groupIds: [GROUP] }), mio)).toBe(true);
+    });
+
+    it("manager: una sede del gruppo non sua basta a renderlo di sola lettura (D13)", () => {
+        const misto = new Map([[GROUP, [ACT_A, ACT_C]]]);
+        expect(canWriteRule(manager, rule({ groupIds: [GROUP] }), misto)).toBe(false);
         const altrui = new Map([[GROUP, [ACT_C]]]);
         expect(canWriteRule(manager, rule({ groupIds: [GROUP] }), altrui)).toBe(false);
+    });
+
+    it("manager: gruppo vuoto resta in sola lettura, come il DB", () => {
+        const vuoto = new Map([[GROUP, [] as string[]]]);
+        expect(canWriteRule(manager, rule({ groupIds: [GROUP] }), vuoto)).toBe(false);
     });
 
     it("manager: gruppo di cui non si conoscono le sedi resta in sola lettura", () => {

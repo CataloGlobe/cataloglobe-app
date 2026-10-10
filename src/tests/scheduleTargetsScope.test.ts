@@ -20,7 +20,7 @@ vi.mock("@/services/supabase/client", () => ({
     }
 }));
 
-import { scopeRuleToActivity } from "@/services/supabase/scheduleTargets";
+import { createScopedRuleDraft, scopeRuleToActivity } from "@/services/supabase/scheduleTargets";
 
 function updateBuilder(result: { data: unknown; error: unknown }, captured: { patch?: unknown }) {
     const builder: Record<string, unknown> = {};
@@ -60,5 +60,39 @@ describe("scopeRuleToActivity", () => {
         from.mockImplementation(() => updateBuilder({ data: [], error: null }, {}));
         await expect(scopeRuleToActivity("r1", "a1")).rejects.toThrow();
         expect(rpc).not.toHaveBeenCalled();
+    });
+});
+
+// «Nuova regola» per un ruolo di sede (T9b): regola e sedi con una RPC sola,
+// niente INSERT diretti (lascerebbero una regola senza sedi, non sua).
+describe("createScopedRuleDraft", () => {
+    it("chiama create_schedule_with_targets con le sedi e ritorna l'id", async () => {
+        rpc.mockResolvedValue({ data: "r9", error: null });
+
+        const id = await createScopedRuleDraft({
+            tenantId: "t1",
+            ruleType: "price",
+            name: "Nuova regola Prezzi",
+            activityIds: ["a1", "a2"]
+        });
+
+        expect(id).toBe("r9");
+        expect(calls).toEqual(["rpc"]);
+        expect(rpc).toHaveBeenCalledWith("create_schedule_with_targets", {
+            p_tenant_id: "t1",
+            p_rule_type: "price",
+            p_name: "Nuova regola Prezzi",
+            p_targets: [
+                { target_type: "activity", target_id: "a1" },
+                { target_type: "activity", target_id: "a2" }
+            ]
+        });
+    });
+
+    it("l'errore della RPC (sede non sua) arriva al chiamante", async () => {
+        rpc.mockResolvedValue({ data: null, error: { code: "42501", message: "Permesso negato" } });
+        await expect(
+            createScopedRuleDraft({ tenantId: "t1", ruleType: "layout", name: "x", activityIds: ["a3"] })
+        ).rejects.toMatchObject({ code: "42501" });
     });
 });

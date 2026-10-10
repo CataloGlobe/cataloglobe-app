@@ -22,6 +22,11 @@ import {
     safeErrorMessage,
     type RunErrorEntry
 } from "../_shared/reminderRunLog.ts";
+// Stessa allowlist di `submit-reservation` (condivisa): `past_due` e' uno stato
+// di grazia durante il quale il servizio resta acceso. Un promemoria che non
+// parte perche' il pagamento e' in ritardo sarebbe un no-show causato dalla
+// piattaforma.
+import { VALID_SUBSCRIPTION_STATUSES } from "../_shared/subscriptionStatus.ts";
 
 // =============================================================================
 // send-reservation-reminders
@@ -102,12 +107,6 @@ const resend = new Resend(Deno.env.get("RESEND_API_KEY")!);
 // parametro e non una riscrittura. Se il tetto viene raggiunto lo si dice nel
 // log: una troncatura silenziosa si legge come "ho finito" quando non e' vero.
 const MAX_PER_RUN = 500;
-
-// Stessa allowlist di `submit-reservation`: `past_due` e' uno stato di grazia
-// (carta in ritentativo per ~2 settimane) durante il quale il servizio resta
-// acceso. Un promemoria che non parte perche' il pagamento e' in ritardo
-// sarebbe un no-show causato dalla piattaforma.
-const VALID_SUBSCRIPTION_STATUSES = new Set(["active", "trialing", "past_due"]);
 
 function jsonResponse(body: Record<string, unknown>, status: number): Response {
     return new Response(JSON.stringify(body), {
@@ -464,7 +463,7 @@ Deno.serve(async (req: Request) => {
 
                 await resend.emails.send({
                     from: COMPANY.email.sender,
-                    reply_to: COMPANY.contact.support,
+                    replyTo: COMPANY.contact.support,
                     to: reservation.customer_email,
                     subject: email.subject,
                     html: email.html,

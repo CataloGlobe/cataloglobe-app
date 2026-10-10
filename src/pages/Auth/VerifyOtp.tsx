@@ -2,8 +2,6 @@ import {
     useState,
     useEffect,
     useRef,
-    type KeyboardEvent,
-    type ClipboardEvent,
     type FormEvent,
     useCallback
 } from "react";
@@ -13,30 +11,18 @@ import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "@/services/supabase/client";
 import { useAuth } from "@/context/useAuth";
 import { useToast } from "@/context/Toast/ToastContext";
-import { Button } from "@/components/ui";
+import { Button, CodeInput, type CodeInputHandle } from "@/components/ui";
 import Text from "@/components/ui/Text/Text";
-import { TextInput } from "@/components/ui/Input/TextInput";
-import type { OtpErrorCode, OtpStatus, VerifyOtpResponse } from "@/types/otp";
+import { ShieldCheck } from "lucide-react";
+import type { OtpStatus, VerifyOtpResponse } from "@/types/otp";
+import { readVerifyOtpError } from "@/utils/otpErrors";
 import { AuthLayout } from "@/layouts/AuthLayout/AuthLayout";
 import { internalPathOr } from "@/utils/internalPath";
+import { clearPendingRedirect, peekPendingRedirect } from "@/utils/pendingRedirect";
 import styles from "./Auth.module.scss";
 
 const OTP_LENGTH = 6;
 const RESEND_COOLDOWN = 30;
-
-function mapOtpError(error: unknown): OtpErrorCode {
-    if (!error || typeof error !== "object") return "unknown";
-
-    const message = "message" in error && typeof error.message === "string" ? error.message : "";
-
-    if (message.includes("invalid")) return "invalid_or_expired";
-    if (message.includes("cooldown")) return "cooldown";
-    if (message.includes("locked")) return "locked";
-    if (message.includes("rate")) return "rate_limited";
-    if (message.includes("unauthorized")) return "unauthorized";
-
-    return "unknown";
-}
 
 /**
  * Esito classificato di una chiamata a `send-otp`.
@@ -158,9 +144,10 @@ export default function VerifyOtp() {
     const navigate = useNavigate();
     const location = useLocation();
     const fromState = (location.state as { from?: string } | null)?.from;
-    const redirectAfterOtp = internalPathOr(fromState, '/dashboard');
+    // Senza deep link nello stato, quello salvato prima della registrazione (invito).
+    const redirectAfterOtp = internalPathOr(fromState ?? peekPendingRedirect(), '/dashboard');
 
-    const [digits, setDigits] = useState<string[]>(Array(OTP_LENGTH).fill(""));
+    const [otpCode, setOtpCode] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [info, setInfo] = useState<string | null>(null);
@@ -172,8 +159,11 @@ export default function VerifyOtp() {
     const [locked, setLocked] = useState(false);
     const [userEmail, setUserEmail] = useState<string | null>(null);
 
-    const inputsRef = useRef<Array<HTMLInputElement | null>>([]);
+    const codeRef = useRef<CodeInputHandle>(null);
     const hasRequestedOtpRef = useRef(false);
+    // Esito dell'ultimo status-otp: c'è già un codice valido (o il blocco)?
+    // Serve all'invio automatico per non bruciare un codice ancora buono.
+    const activeCodeRef = useRef(false);
 
     const { showToast } = useToast();
 
@@ -193,10 +183,17 @@ export default function VerifyOtp() {
                 return;
             }
 
-            const { error } = await supabase.functions.invoke("send-otp", {
+            const { data: sendData, error } = await supabase.functions.invoke("send-otp", {
                 headers: { Authorization: `Bearer ${jwt}` },
                 body: { navigation_type: getNavigationType() }
             });
+
+            // Già verificato: nessun codice è partito, si entra.
+            if (!error && (sendData as { already_verified?: boolean } | null)?.already_verified) {
+                await forceOtpCheck();
+                navigate(redirectAfterOtp, { replace: true });
+                return;
+            }
 
             if (error) {
                 const failure = await classifySendOtpError(error);
@@ -245,7 +242,7 @@ export default function VerifyOtp() {
             setLoading(false);
             setStatus("idle");
         }
-    }, [navigate, showToast]);
+    }, [navigate, showToast, forceOtpCheck, redirectAfterOtp]);
 
     const loadOtpStatus = useCallback(async () => {
         const { data } = await supabase.auth.getSession();
@@ -256,7 +253,18 @@ export default function VerifyOtp() {
             headers: { Authorization: `Bearer ${jwt}` }
         });
 
-        if (error || !status) return;
+        if (error || !status) {
+            // Stato illeggibile: si sblocca comunque la pagina (invio automatico
+            // e «Invia di nuovo»). Se un codice c'è già, send-otp risponde 429
+            // e la pagina mostra l'attesa invece di restare ferma.
+            activeCodeRef.current = false;
+            setResendSeconds(prev => prev ?? 0);
+            return;
+        }
+
+        activeCodeRef.current =
+            status.locked === true ||
+            (typeof status.expires_in === "number" && status.expires_in > 0);
 
         if (typeof status.resend_available_in === "number") {
             setResendSeconds(status.resend_available_in);
@@ -299,6 +307,13 @@ export default function VerifyOtp() {
         if (hasRequestedOtpRef.current) return;
         hasRequestedOtpRef.current = true;
 
+        // Un codice ancora valido non si sostituisce: ricaricare la pagina o
+        // aprirla in un'altra scheda non deve invalidare quello già in mail.
+        if (activeCodeRef.current) {
+            setSendOutcome("waiting");
+            return;
+        }
+
         // se non siamo in cooldown, inviamo OTP
         if (resendSeconds === 0) {
             (async () => {
@@ -325,55 +340,8 @@ export default function VerifyOtp() {
      * AUTOFOCUS
      * ------------------------------------------------------------------ */
     useEffect(() => {
-        inputsRef.current[0]?.focus();
+        codeRef.current?.focus();
     }, []);
-
-    /* ------------------------------------------------------------------
-     * INPUT HANDLING
-     * ------------------------------------------------------------------ */
-    const handleChangeDigit = (index: number, value: string) => {
-        if (!/^\d?$/.test(value)) return;
-
-        const next = [...digits];
-        next[index] = value;
-        setDigits(next);
-
-        if (value && index < OTP_LENGTH - 1) {
-            inputsRef.current[index + 1]?.focus();
-        }
-
-        if (next.join("").length === OTP_LENGTH) {
-            void handleVerify(next.join(""));
-        }
-    };
-
-    const handleKeyDown = (index: number, e: KeyboardEvent<HTMLInputElement>) => {
-        if (e.key === "Backspace") {
-            if (digits[index]) {
-                const next = [...digits];
-                next[index] = "";
-                setDigits(next);
-                return;
-            }
-            if (index > 0) inputsRef.current[index - 1]?.focus();
-        }
-    };
-
-    const handlePaste = (e: ClipboardEvent<HTMLInputElement>) => {
-        e.preventDefault();
-        const paste = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, OTP_LENGTH);
-        if (!paste) return;
-
-        const next = Array(OTP_LENGTH).fill("");
-        for (let i = 0; i < paste.length; i++) next[i] = paste[i];
-
-        setDigits(next);
-        inputsRef.current[Math.min(paste.length, OTP_LENGTH) - 1]?.focus();
-
-        if (paste.length === OTP_LENGTH) {
-            void handleVerify(paste);
-        }
-    };
 
     /* ------------------------------------------------------------------
      * VERIFICA OTP
@@ -381,7 +349,7 @@ export default function VerifyOtp() {
     async function handleVerify(codeOverride?: string) {
         if (loading) return;
 
-        const code = codeOverride ?? digits.join("");
+        const code = codeOverride ?? otpCode;
         if (code.length !== OTP_LENGTH) return;
 
         try {
@@ -403,17 +371,17 @@ export default function VerifyOtp() {
                 return;
             }
 
-            const { data, error } = await supabase.functions.invoke("verify-otp", {
+            const { error } = await supabase.functions.invoke("verify-otp", {
                 body: { code },
                 headers: { Authorization: `Bearer ${jwt}` }
             });
 
             if (error) {
-                const code = mapOtpError(error);
+                const { code, response: errorResponse } = await readVerifyOtpError(error);
 
                 switch (code) {
                     case "invalid_or_expired": {
-                        const response = data as VerifyOtpResponse;
+                        const response: VerifyOtpResponse = errorResponse ?? {};
                         if (typeof response.max_attempts === "number") {
                             setMaxAttempts(response.max_attempts);
                         }
@@ -438,6 +406,9 @@ export default function VerifyOtp() {
                         });
 
                         setError(message);
+                        // Codice sbagliato: si riparte da capo, senza dover correggere cifra per cifra.
+                        setOtpCode("");
+                        codeRef.current?.focus();
                         break;
                     }
 
@@ -481,6 +452,7 @@ export default function VerifyOtp() {
             }
 
             await forceOtpCheck();
+            clearPendingRedirect();
             navigate(redirectAfterOtp, { replace: true });
         } finally {
             setLoading(false);
@@ -502,13 +474,15 @@ export default function VerifyOtp() {
         }
 
         hasRequestedOtpRef.current = false;
+        // Invio chiesto a mano: il codice di prima non conta più come «attivo».
+        activeCodeRef.current = false;
 
-        setDigits(Array(OTP_LENGTH).fill(""));
+        setOtpCode("");
         setInfo(null);
         setError(null);
         setAttemptsLeft(null);
 
-        inputsRef.current[0]?.focus();
+        codeRef.current?.focus();
 
         await sendOtp();
         await loadOtpStatus();
@@ -517,41 +491,32 @@ export default function VerifyOtp() {
     /* ------------------------------------------------------------------ */
 
     return (
-        <AuthLayout>
+        <AuthLayout
+            icon={<ShieldCheck size={28} aria-hidden="true" />}
+            heading="Inserisci il codice"
+            lead={buildSendStatusCopy(sendOutcome, userEmail)}
+        >
             <div className={styles.auth}>
-                <Text as="h1" variant="title-md">
-                    Inserisci il codice
-                </Text>
-                <Text as="p" variant="body-sm" colorVariant="muted" className={styles.subtitle}>
-                    {buildSendStatusCopy(sendOutcome, userEmail)}
-                </Text>
                 <form
                     onSubmit={(e: FormEvent) => {
                         e.preventDefault();
                         void handleVerify();
                     }}
                 >
-                    <span className={styles.otpLabel}>Codice a 6 cifre</span>
-                    <div className={styles.otpInputs}>
-                        {digits.map((digit, index) => (
-                            <TextInput
-                                key={index}
-                                ref={el => {
-                                    inputsRef.current[index] = el;
-                                }}
-                                className={styles.otpInput}
-                                inputMode="numeric"
-                                maxLength={1}
-                                value={digit}
-                                disabled={loading}
-                                onChange={e => handleChangeDigit(index, e.target.value)}
-                                onKeyDown={e => handleKeyDown(index, e)}
-                                onPaste={index === 0 ? handlePaste : undefined}
-                            />
-                        ))}
-                    </div>
+                    <CodeInput
+                        ref={codeRef}
+                        id="otp-code"
+                        label="Codice a 6 cifre"
+                        length={OTP_LENGTH}
+                        value={otpCode}
+                        onChange={setOtpCode}
+                        onComplete={code => void handleVerify(code)}
+                        disabled={loading}
+                        invalid={!!error}
+                        describedBy={error ? "otp-feedback" : undefined}
+                    />
                     {error && (
-                        <Text variant="caption" colorVariant="error" className={styles.feedback}>
+                        <Text id="otp-feedback" variant="caption" colorVariant="error" className={styles.feedback}>
                             {error}
                         </Text>
                     )}

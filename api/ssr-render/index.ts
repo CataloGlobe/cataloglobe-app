@@ -24,6 +24,8 @@ import {
     type PublicShellPayload,
     type ViteManifest
 } from "../_lib/publicShell.js";
+import { robotsHeaderValue } from "../_lib/robotsHeader.js";
+import { statusCanarySlug } from "../_lib/canarySlug.js";
 
 /**
  * GET /api/ssr-render?slug=<slug>&lang=<lang>?    (stage 4b — ROUTE DI TEST)
@@ -42,9 +44,8 @@ import {
  * comportamento identico a oggi per quei casi.
  */
 
-// ⚠️ SYNC con middleware.ts (righe 49-86): stessa validazione slug.
-//    NB: `middleware.ts` non esiste più nel repo (restano solo artefatti
-//    compilati in .vercel/output/). Riferimento storico da bonificare.
+// Validazione slug: unica implementazione (il vecchio middleware.ts che la
+// duplicava è stato rimosso in a1315573).
 //
 // ⚠️ SYNC RESERVED_SEGMENTS ↔ vercel.json: la lista qui sotto è duplicata
 //    nel negative-lookahead delle DUE regole `headers` di vercel.json che
@@ -215,6 +216,16 @@ async function fetchPayload(
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
     const startedAt = Date.now();
 
+    // Fuori produzione (staging, preview): mai indicizzabile, anche senza la
+    // Deployment Protection. Vale per tutte le risposte, fallback compresi.
+    // In produzione, noindex anche sulla sede di test del monitor di stato.
+    const robots = robotsHeaderValue(
+        process.env.VERCEL_ENV,
+        typeof req.query.slug === "string" ? req.query.slug.trim() : undefined,
+        statusCanarySlug()
+    );
+    if (robots) res.setHeader("X-Robots-Tag", robots);
+
     if (req.method !== "GET") {
         res.setHeader("Allow", "GET");
         res.status(405).send("Method not allowed");
@@ -304,6 +315,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
             return;
         }
 
+        // PUBLIC_ORIGIN: variabile d'ambiente RICHIESTA su Vercel, configurata
+        // solo nel pannello (non sta in nessun file del repo). Valori attesi:
+        // Production `https://cataloglobe.com`, Preview `https://staging.cataloglobe.com`.
+        // Se manca, il fallback su x-forwarded-host fa puntare canonical e og:url
+        // a qualunque hostname serva la pagina (es. *.vercel.app): duplicati
+        // indicizzabili, senza nessun errore visibile.
         const origin =
             process.env.PUBLIC_ORIGIN ??
             (() => {

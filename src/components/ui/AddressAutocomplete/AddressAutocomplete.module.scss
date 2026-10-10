@@ -1,3 +1,4 @@
+@use "@styles/mixins" as *;
 .wrapper {
     display: flex;
     flex-direction: column;
@@ -56,6 +57,7 @@
         background: var(--hover-bg);
         cursor: not-allowed;
     }
+    @include touch-input-font;
 }
 
 /* ── Spinner ─────────────────────────────────────────────────────────────── */
