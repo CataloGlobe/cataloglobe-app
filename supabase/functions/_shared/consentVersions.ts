@@ -19,4 +19,4 @@ export const CURRENT_CONSENT_VERSIONS = {
 // che non chiede di nuovo il consenso al sign-up cambia solo questa. È la
 // versione registrata sui contatti della landing (`submit-lead`), perché è il
 // testo che il form linka.
-export const PRIVACY_PUBLISHED_AT = '2026-10-03';
+export const PRIVACY_PUBLISHED_AT = '2026-10-10';
