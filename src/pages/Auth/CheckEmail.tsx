@@ -172,9 +172,9 @@ export default function CheckEmail() {
         );
     }
 
-    // Una riga sola, sotto le caselle: errore o conferma del reinvio. Lo spazio
-    // è sempre lì, così il messaggio non sposta la scheda mentre la guardi.
-    const codeMessage = verifyError ?? (resendDone ? "Nuovo codice inviato: vale solo l'ultimo." : null);
+    // Sotto le caselle solo l'errore del codice. La conferma del reinvio sta
+    // nella riga del reinvio: niente spazio vuoto riservato sotto le caselle.
+    const codeMessage = verifyError;
 
     // Il link c'è sempre (anche durante l'attesa, spento): cambia solo il
     // testo intorno, nello stesso carattere delle altre righe.
@@ -182,7 +182,9 @@ export default function CheckEmail() {
         ? "Troppe richieste."
         : resendFailed
           ? "Invio non riuscito."
-          : "Non è arrivata? Guarda nello spam o";
+          : resendDone
+            ? "Nuovo codice inviato: vale solo l'ultimo. Non arriva?"
+            : "Non è arrivata? Guarda nello spam o";
     const resendLine: ReactNode = (
         <>
             {resendLead}{" "}
@@ -231,13 +233,11 @@ export default function CheckEmail() {
                         autoFocus
                     />
 
-                    <p
-                        id="signup-code-message"
-                        className={verifyError ? `${styles.codeMessage} ${styles.codeMessageError}` : styles.codeMessage}
-                        role={verifyError ? "alert" : "status"}
-                    >
-                        {codeMessage}
-                    </p>
+                    {codeMessage && (
+                        <p id="signup-code-message" className={`${styles.codeMessage} ${styles.codeMessageError}`} role="alert">
+                            {codeMessage}
+                        </p>
+                    )}
 
                     {/* Con 6 cifre il codice parte da solo: il bottone serve solo
                         mentre controlla, o per riprovare lo stesso codice. */}
