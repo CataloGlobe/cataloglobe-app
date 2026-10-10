@@ -21,7 +21,7 @@ const XSS_TEXT = `<script>alert("x")</script> & 'ciao'`;
 
 /** Card body, footer excluded: the footer carries CataloGlobe's own links. */
 function cardBody(html: string): string {
-    return html.split("border-top")[0];
+    return html.split("<!-- footer -->")[0].split("<!-- card -->")[1] ?? "";
 }
 
 /** Both builders, invoked with the same data, for the shared assertions. */

@@ -2,7 +2,8 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { Resend } from "npm:resend@4";
-import { COMPANY, getEmailFooterHtml, getEmailFooterText } from "../_shared/company-config.ts";
+import { COMPANY } from "../_shared/company-config.ts";
+import { buildLoginCodeEmail } from "../_shared/accountEmails.ts";
 import {
     OTP_TTL_MS,
     COOLDOWN_MS,
@@ -315,27 +316,7 @@ serve(async req => {
             from: COMPANY.email.sender,
             reply_to: COMPANY.contact.support,
             to: user.email,
-            subject: "Il tuo codice di verifica",
-            html: `
-      <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:#f9fafb;padding:40px">
-        <div style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:12px;padding:32px">
-          <h1 style="margin:0 0 16px;font-size:22px;color:#111827">Codice di accesso</h1>
-          <p style="margin:0 0 24px;font-size:15px;color:#374151">
-            Usa questo codice per completare l’accesso a <strong>CataloGlobe</strong>.
-          </p>
-          <div style="text-align:center;margin:32px 0">
-            <div style="display:inline-block;padding:16px 24px;font-size:28px;letter-spacing:4px;font-weight:700;background:#111827;color:#ffffff;border-radius:10px">
-              ${otp}
-            </div>
-          </div>
-          <p style="margin:24px 0 0;font-size:14px;color:#6b7280">
-            Il codice scade tra 5 minuti.
-          </p>
-          ${getEmailFooterHtml()}
-        </div>
-      </div>
-    `,
-            text: `Codice di accesso CataloGlobe: ${otp}\n\nUsa questo codice per completare l'accesso. Il codice scade tra 5 minuti.\n\n${getEmailFooterText()}`
+            ...buildLoginCodeEmail(otp)
         });
         sendFailure = resendError ?? null;
     } catch (e) {

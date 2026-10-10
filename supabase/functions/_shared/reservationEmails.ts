@@ -40,6 +40,7 @@ import {
     PARAGRAPH_LEAD,
     PARAGRAPH_NOTE,
     isSafeHttpUrl,
+    renderButton,
     renderCard,
     renderDetailRow,
     renderInfoBlock,
@@ -94,12 +95,6 @@ export interface ReservationEmailBase {
 
 const EMPHASIZE_HTML: Emphasize = fragment => `<strong>${fragment}</strong>`;
 const EMPHASIZE_TEXT: Emphasize = fragment => fragment;
-
-// --- Footer reason lines -----------------------------------------------------
-
-function reservationVenueAlertReason(activityName: string): string {
-    return `Hai ricevuto questa email perché gestisci ${activityName} su CataloGlobe.`;
-}
 
 // --- Reservation-specific blocks ---------------------------------------------
 
@@ -170,11 +165,7 @@ function renderConfirmButtonHtml(
 ): string {
     const safe = typeof confirmUrl === "string" && isSafeHttpUrl(confirmUrl) ? confirmUrl : null;
     if (!safe) return "";
-    return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 16px">
-            <tr><td style="background:#111827;border-radius:8px">
-                <a href="${escapeHtml(safe)}" style="display:inline-block;padding:12px 22px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none">${escapeHtml(copy.confirmButtonLabel)}</a>
-            </td></tr>
-        </table>`;
+    return renderButton(escapeHtml(copy.confirmButtonLabel), escapeHtml(safe));
 }
 
 function renderConfirmButtonText(
@@ -193,6 +184,22 @@ function renderCancelSentenceText(
     return safe
         ? `${copy.cancelLead}${copy.cancelTextIntro}\n${safe}\n`
         : `${copy.cancelLead}${copy.cancelFallback}\n`;
+}
+
+// --- Preheader ---------------------------------------------------------------
+//
+// La riga d'anteprima delle mail al cliente: sede, quando e quanti. È quello
+// che serve leggere nella notifica, nella lingua del cliente perché le parti
+// variabili sono già formattate per lei.
+
+function customerPreheader(
+    copy: ReservationEmailCopy,
+    activityName: string,
+    date: string,
+    time: string,
+    partySize: number
+): string {
+    return `${activityName} · ${date}, ${time} · ${copy.detailsPeople}: ${partySize}`;
 }
 
 // --- Builders ----------------------------------------------------------------
@@ -227,8 +234,11 @@ export function buildReservationReceiptEmail(args: ReservationEmailBase): Reserv
             `<p ${PARAGRAPH_NOTE}>${copy.receiptNote}</p>`,
             renderCancelSentenceHtml(copy, cancelUrl)
         ],
-        reasonHtml,
-        language
+        {
+            preheader: customerPreheader(copy, activityName, date, time, partySize),
+            reason: reasonHtml,
+            lang: language
+        }
     );
     const text =
         `${copy.greeting(customerName)}\n\n` +
@@ -239,7 +249,7 @@ export function buildReservationReceiptEmail(args: ReservationEmailBase): Reserv
         `${copy.receiptNote}\n\n` +
         renderCancelSentenceText(copy, cancelUrl) +
         `\n` +
-        `${getEmailFooterText(reason, language)}`;
+        `${getEmailFooterText({ reason, lang: language })}`;
 
     return { subject, html, text };
 }
@@ -300,8 +310,11 @@ export function buildReservationConfirmedEmail(
             renderReservationDetails(copy, date, time, partySize),
             renderCancelSentenceHtml(copy, cancelUrl)
         ],
-        reasonHtml,
-        language
+        {
+            preheader: customerPreheader(copy, activityName, date, time, partySize),
+            reason: reasonHtml,
+            lang: language
+        }
     );
     const text =
         `${copy.greeting(customerName)}\n\n` +
@@ -310,7 +323,7 @@ export function buildReservationConfirmedEmail(
         `\n` +
         renderCancelSentenceText(copy, cancelUrl) +
         `\n` +
-        `${getEmailFooterText(reason, language)}`;
+        `${getEmailFooterText({ reason, lang: language })}`;
 
     return { subject, html, text };
 }
@@ -370,8 +383,11 @@ export function buildReservationReminderEmail(
             renderConfirmButtonHtml(copy, confirmUrl),
             renderCancelSentenceHtml(copy, cancelUrl)
         ],
-        reasonHtml,
-        language
+        {
+            preheader: customerPreheader(copy, activityName, date, time, partySize),
+            reason: reasonHtml,
+            lang: language
+        }
     );
     const text =
         `${copy.greeting(customerName)}\n\n` +
@@ -381,7 +397,7 @@ export function buildReservationReminderEmail(
         renderConfirmButtonText(copy, confirmUrl) +
         renderCancelSentenceText(copy, cancelUrl) +
         `\n` +
-        `${getEmailFooterText(reason, language)}`;
+        `${getEmailFooterText({ reason, lang: language })}`;
 
     return { subject, html, text };
 }
@@ -433,8 +449,11 @@ export function buildReservationOutcomeEmail(
             renderReservationDetails(copy, date, time, partySize),
             ...(hasCancelIcs ? [`<p ${PARAGRAPH_NOTE}>${copy.outcomeIcsNote}</p>`] : [])
         ],
-        reasonHtml,
-        language
+        {
+            preheader: customerPreheader(copy, activityName, date, time, partySize),
+            reason: reasonHtml,
+            lang: language
+        }
     );
     const text =
         `${copy.greeting(customerName)}\n\n` +
@@ -442,7 +461,7 @@ export function buildReservationOutcomeEmail(
         renderDetailsText(copy, date, time, partySize) +
         `\n` +
         (hasCancelIcs ? `${copy.outcomeIcsNote}\n\n` : "") +
-        `${getEmailFooterText(reason, language)}`;
+        `${getEmailFooterText({ reason, lang: language })}`;
 
     return { subject, html, text };
 }
@@ -502,8 +521,11 @@ export function buildReservationUpdatedEmail(
             `<p ${PARAGRAPH_NOTE}>${copy.updatedNoAction}</p>`,
             renderCancelSentenceHtml(copy, cancelUrl)
         ],
-        reasonHtml,
-        language
+        {
+            preheader: customerPreheader(copy, activityName, date, time, partySize),
+            reason: reasonHtml,
+            lang: language
+        }
     );
     const text =
         `${copy.greeting(customerName)}\n\n` +
@@ -514,7 +536,7 @@ export function buildReservationUpdatedEmail(
         `${copy.updatedNoAction}\n\n` +
         renderCancelSentenceText(copy, cancelUrl) +
         `\n` +
-        `${getEmailFooterText(reason, language)}`;
+        `${getEmailFooterText({ reason, lang: language })}`;
 
     return { subject, html, text };
 }
@@ -630,10 +652,6 @@ export function buildReservationVenueAlertEmail(
     const timeIt = formatTimeIt(reservationTime);
     const eNotes = notes ? escapeHtml(notes) : null;
     const eAllergies = allergies ? escapeHtml(allergies) : null;
-    const reason = reservationVenueAlertReason(activityName);
-    // Come per le email al cliente: la riga finisce dentro il markup, quindi
-    // la versione HTML porta il nome della sede escapato.
-    const reasonHtml = reservationVenueAlertReason(eActivityName);
 
     // A non-http(s) URL is treated as absent, exactly like null: no anchor,
     // plain sentence, email still sent.
@@ -643,9 +661,7 @@ export function buildReservationVenueAlertEmail(
     // When the URL is available the dashboard wording becomes a link (html)
     // and the plain URL follows the sentence (text). Without it both formats
     // degrade to the bare sentence.
-    const dashboardSentenceHtml = safeDashboardUrl
-        ? `<a href="${escapeHtml(safeDashboardUrl)}" style="color:#111827;text-decoration:underline">${copy.anchorLabel}</a>${copy.htmlTail}`
-        : `${copy.anchorLabel}${copy.htmlTail}`;
+    const dashboardSentenceHtml = `${copy.anchorLabel}${copy.htmlTail}`;
     const dashboardSentenceText = safeDashboardUrl
         ? `${copy.textSentence}\n${safeDashboardUrl}\n`
         : `${copy.textSentence}\n`;
@@ -670,9 +686,10 @@ export function buildReservationVenueAlertEmail(
                 eAllergies
                     ? `<p style="margin:8px 0 0;font-size:15px;color:#111827"><strong>Allergie:</strong> ${eAllergies}</p>`
                     : ""
-            ])
+            ]),
+            safeDashboardUrl ? renderButton("Apri la dashboard", escapeHtml(safeDashboardUrl)) : ""
         ],
-        reasonHtml
+        { preheader: `${customerName} · ${dateIt}, ${timeIt} · ${partySize} ${partySize === 1 ? "persona" : "persone"}` }
     );
 
     const notesBlockText = notes ? `Note: ${notes}\n` : "";
@@ -691,7 +708,7 @@ export function buildReservationVenueAlertEmail(
         `Persone: ${partySize}\n` +
         notesBlockText +
         allergiesBlockText +
-        `\n${getEmailFooterText(reason)}`;
+        `\n${getEmailFooterText()}`;
 
     return { subject, html, text };
 }
@@ -731,15 +748,9 @@ export function buildReservationCancelledByCustomerEmail(
     const eCustomerName = escapeHtml(customerName);
     const dateIt = formatDateIt(reservationDate);
     const timeIt = formatTimeIt(reservationTime);
-    const reason = reservationVenueAlertReason(activityName);
-    // Come per le email al cliente: la riga finisce dentro il markup, quindi
-    // la versione HTML porta il nome della sede escapato.
-    const reasonHtml = reservationVenueAlertReason(eActivityName);
 
     const safeDashboardUrl = dashboardUrl && isSafeHttpUrl(dashboardUrl) ? dashboardUrl : null;
-    const dashboardSentenceHtml = safeDashboardUrl
-        ? `Il tavolo torna disponibile. Vedi il dettaglio <a href="${escapeHtml(safeDashboardUrl)}" style="color:#111827;text-decoration:underline">nella dashboard</a>.`
-        : "Il tavolo torna disponibile. Vedi il dettaglio nella dashboard.";
+    const dashboardSentenceHtml = "Il tavolo torna disponibile. Vedi il dettaglio nella dashboard.";
     const dashboardSentenceText = safeDashboardUrl
         ? `Il tavolo torna disponibile. Vedi il dettaglio nella dashboard.\n${safeDashboardUrl}\n`
         : `Il tavolo torna disponibile. Vedi il dettaglio nella dashboard.\n`;
@@ -754,9 +765,10 @@ export function buildReservationCancelledByCustomerEmail(
                 renderDetailRow("Data", escapeHtml(dateIt)),
                 renderDetailRow("Ora", escapeHtml(timeIt)),
                 renderDetailRow("Persone", String(partySize))
-            ])
+            ]),
+            safeDashboardUrl ? renderButton("Apri la dashboard", escapeHtml(safeDashboardUrl)) : ""
         ],
-        reasonHtml
+        { preheader: `${customerName} · ${dateIt}, ${timeIt} · ${partySize} ${partySize === 1 ? "persona" : "persone"}` }
     );
 
     const text =
@@ -768,7 +780,7 @@ export function buildReservationCancelledByCustomerEmail(
         `Data: ${dateIt}\n` +
         `Ora: ${timeIt}\n` +
         `Persone: ${partySize}\n` +
-        `\n${getEmailFooterText(reason)}`;
+        `\n${getEmailFooterText()}`;
 
     return { subject, html, text };
 }
