@@ -653,7 +653,7 @@ serve(async (req: Request) => {
         try {
             await resend.emails.send({
                 from: COMPANY.email.sender,
-                reply_to: COMPANY.contact.support,
+                replyTo: COMPANY.contact.support,
                 to: customerEmail,
                 subject: customerEmailBody.subject,
                 html: customerEmailBody.html,
@@ -706,7 +706,7 @@ serve(async (req: Request) => {
                     recipients.emails.map(to =>
                         resend.emails.send({
                             from: COMPANY.email.sender,
-                            reply_to: COMPANY.contact.support,
+                            replyTo: COMPANY.contact.support,
                             to,
                             subject: venueBody.subject,
                             html: venueBody.html,

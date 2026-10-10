@@ -192,11 +192,10 @@
   }
 }
 
-// Messaggio sotto le caselle del codice: spazio fisso, così errore o conferma
-// non spostano la scheda.
+// Errore sotto le caselle del codice: c'è solo quando serve, niente spazio
+// vuoto riservato.
 .codeMessage {
-  min-height: 2.5em;
-  margin: -0.5rem 0 -0.5rem;
+  margin: -0.5rem 0 0;
   font-size: 0.8125rem;
   line-height: 1.25;
   color: var(--text-muted);

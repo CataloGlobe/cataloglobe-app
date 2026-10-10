@@ -24,6 +24,7 @@ import {
     PARAGRAPH_BODY,
     PARAGRAPH_NOTE,
     isSafeHttpUrl,
+    renderButton,
     renderCard,
     renderDetailRow,
     renderInfoBlock,
@@ -32,14 +33,6 @@ import {
 } from "./emailLayout.ts";
 
 export type SupportEmailContent = EmailContent;
-
-// --- Footer reason lines -----------------------------------------------------
-
-const SUPPORT_CUSTOMER_REASON =
-    "Hai ricevuto questa email perché sei coinvolto in una richiesta di assistenza su CataloGlobe.";
-
-const SUPPORT_PLATFORM_REASON =
-    "Hai ricevuto questa email perché sei un amministratore della piattaforma CataloGlobe.";
 
 // --- Excerpt -----------------------------------------------------------------
 
@@ -98,10 +91,8 @@ const REPLY_HERE_SENTENCE = "Rispondi dal pannello: da questa email non possiamo
  */
 function renderThreadCtaHtml(label: string, threadUrl: string | null | undefined): string {
     const safe = typeof threadUrl === "string" && isSafeHttpUrl(threadUrl) ? threadUrl : null;
-    const cta = safe
-        ? `<a href="${escapeHtml(safe)}" style="color:#111827;text-decoration:underline">${label}</a>`
-        : label;
-    return `<p ${PARAGRAPH_NOTE}>${cta}. ${REPLY_HERE_SENTENCE}</p>`;
+    const note = `<p ${PARAGRAPH_NOTE}>${REPLY_HERE_SENTENCE}</p>`;
+    return safe ? `${renderButton(label, escapeHtml(safe))}${note}` : `<p ${PARAGRAPH_NOTE}>${label}. ${REPLY_HERE_SENTENCE}</p>`;
 }
 
 function renderThreadCtaText(label: string, threadUrl: string | null | undefined): string {
@@ -143,14 +134,14 @@ export function buildSupportCustomerReplyEmail(
             renderExcerptBlock("Risposta", excerpt),
             renderThreadCtaHtml("Apri la conversazione", threadUrl)
         ],
-        SUPPORT_CUSTOMER_REASON
+        { preheader: `${ticketSubject} · ${excerpt}` }
     );
     const text =
         `Il supporto CataloGlobe ha risposto alla tua richiesta.\n\n` +
         `Richiesta\nOggetto: ${ticketSubject}\n\n` +
         `Risposta\n${excerpt}\n\n` +
         renderThreadCtaText("Apri la conversazione", threadUrl) +
-        `\n${getEmailFooterText(SUPPORT_CUSTOMER_REASON)}`;
+        `\n${getEmailFooterText()}`;
 
     return { subject, html, text };
 }
@@ -224,14 +215,14 @@ export function buildSupportPlatformAlertEmail(
             renderExcerptBlock("Messaggio", excerpt),
             renderThreadCtaHtml("Apri la richiesta", threadUrl)
         ],
-        SUPPORT_PLATFORM_REASON
+        { preheader: `${companyName} · ${ticketSubject}` }
     );
     const text =
         `${copy.lead}\n\n` +
         `Richiesta\nAzienda: ${companyName}\nOggetto: ${ticketSubject}\n\n` +
         `Messaggio\n${excerpt}\n\n` +
         renderThreadCtaText("Apri la richiesta", threadUrl) +
-        `\n${getEmailFooterText(SUPPORT_PLATFORM_REASON)}`;
+        `\n${getEmailFooterText()}`;
 
     return { subject, html, text };
 }

@@ -67,13 +67,26 @@ async function stubVerified(page: Page, user: { id: string }): Promise<void> {
 test.use({ storageState: { cookies: [], origins: [] } });
 
 test.describe("Conferma email", () => {
-    test("link valido: si entra subito, senza login né codice, verifica chiamata una volta sola", async ({ page }) => {
+    test("link valido: «Email confermata», poi si entra da soli, senza login né codice", async ({ page }) => {
         const value = session("nuovo@example.invalid");
         const calls = await stubVerify(page, { status: 200, json: value });
         await stubVerified(page, value.user);
         await page.goto(LINK);
+        await expect(page.getByRole("heading", { name: "Email confermata" })).toBeVisible({ timeout: 15_000 });
+        await expect(page.getByText(/Entri da solo tra \d s/)).toBeVisible();
         await page.waitForURL(/\/dashboard/, { timeout: 15_000 });
         expect(calls()).toBe(1);
+    });
+
+    test("link valido: «Entra» porta dentro senza aspettare", async ({ page }) => {
+        const value = session("nuovo@example.invalid");
+        await stubVerify(page, { status: 200, json: value });
+        await stubVerified(page, value.user);
+        await page.goto(LINK);
+        const entra = page.getByRole("button", { name: "Entra" });
+        await entra.waitFor({ timeout: 15_000 });
+        // L'attesa parte prima del clic: /dashboard poi rimanda altrove.
+        await Promise.all([page.waitForURL(/\/dashboard/, { timeout: 3_000 }), entra.click()]);
     });
 
     test("link scaduto o già usato: lo dice e offre l'accesso", async ({ page }) => {

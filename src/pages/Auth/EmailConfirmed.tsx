@@ -13,6 +13,9 @@ import Text from "@/components/ui/Text/Text";
 import { AuthLayout } from "@/layouts/AuthLayout/AuthLayout";
 import styles from "./Auth.module.scss";
 
+/** Secondi in cui si vede «Email confermata» prima di entrare da soli. */
+const REDIRECT_SECONDS = 5;
+
 function isRateLimitError(message: string): boolean {
     const m = message.toLowerCase();
     return m.includes("too many") || m.includes("rate limit") || m.includes("too_many_requests");
@@ -27,6 +30,10 @@ export default function EmailConfirmed() {
     // Account già dentro quando si apre il link di un altro (stato "otherAccount").
     const [currentEmail, setCurrentEmail] = useState<string | null>(null);
     const startedRef = useRef(false);
+    // Dopo la conferma: dove si entra e fra quanti secondi (la pagina resta
+    // visibile un momento, poi si entra da soli o col bottone).
+    const [target, setTarget] = useState("/dashboard");
+    const [secondsLeft, setSecondsLeft] = useState(REDIRECT_SECONDS);
 
     // Resend state — usato solo negli stati di errore
     const [resendEmail, setResendEmail] = useState("");
@@ -57,17 +64,26 @@ export default function EmailConfirmed() {
         if (!error) {
             // Il link apre la sessione e la conferma vale come verifica OTP
             // (trigger su auth.users): si entra subito, senza login né codice.
-            setStatus("success");
             await forceOtpCheck();
-            const target = internalPathOr(peekPendingRedirect(), "/dashboard");
+            setTarget(internalPathOr(peekPendingRedirect(), "/dashboard"));
             clearPendingRedirect();
-            navigate(target, { replace: true });
+            setStatus("success");
             return;
         }
         // GoTrue dà otp_expired sia per il link scaduto sia per quello già usato.
         const code = (error as { code?: string }).code;
         setStatus(code === "otp_expired" ? "expired" : "error");
-    }, [forceOtpCheck, navigate]);
+    }, [forceOtpCheck]);
+
+    useEffect(() => {
+        if (status !== "success") return;
+        if (secondsLeft <= 0) {
+            navigate(target, { replace: true });
+            return;
+        }
+        const t = setTimeout(() => setSecondsLeft(s => s - 1), 1000);
+        return () => clearTimeout(t);
+    }, [status, secondsLeft, target, navigate]);
 
     useEffect(() => {
         // Una volta sola: in sviluppo StrictMode monta due volte, e il secondo
@@ -119,12 +135,15 @@ export default function EmailConfirmed() {
             <AuthLayout
                 icon={<CheckCircle size={28} aria-hidden="true" />}
                 heading="Email confermata"
-                lead="Il tuo account è attivo: ti stiamo portando dentro."
+                lead="Il tuo account è attivo."
             >
                 <div className={styles.auth}>
-                    <Button variant="primary" fullWidth onClick={() => navigate("/dashboard", { replace: true })}>
+                    <Button variant="primary" fullWidth onClick={() => navigate(target, { replace: true })}>
                         Entra
                     </Button>
+                    <p className={styles.links} role="status">
+                        Entri da solo tra <span className={styles.wait}>{secondsLeft} s</span>
+                    </p>
                 </div>
             </AuthLayout>
         );

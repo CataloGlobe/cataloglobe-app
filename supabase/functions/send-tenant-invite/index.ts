@@ -1,8 +1,8 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { Resend } from "npm:resend@4";
-import { COMPANY, getEmailFooterHtml, getEmailFooterText } from "../_shared/company-config.ts";
-import { escapeHtml } from "../_shared/emailFormat.ts";
+import { COMPANY } from "../_shared/company-config.ts";
+import { buildTenantInviteEmail } from "../_shared/accountEmails.ts";
 
 const APP_URL = Deno.env.get("APP_URL");
 
@@ -58,51 +58,15 @@ serve(async (req: Request) => {
     }
 
     const inviteUrl = `${APP_URL}/invite/${encodeURIComponent(inviteToken)}`;
-    // Nome del tenant ed email di chi invita li scrive l'utente: nell'HTML
-    // passano sempre da escapeHtml (niente link o markup iniettati nella mail).
-    const safeTenantName = escapeHtml(tenantName);
-    const safeInviterEmail = escapeHtml(inviterEmail);
-    const safeInviteUrl = escapeHtml(inviteUrl);
+    // Nome del tenant ed email di chi invita li scrive l'utente: il builder li
+    // escapa nell'HTML (niente link o markup iniettati nella mail).
 
     try {
         await resend.emails.send({
             from: COMPANY.email.sender,
-            reply_to: COMPANY.contact.support,
+            replyTo: COMPANY.contact.support,
             to: email,
-            subject: `Sei stato invitato a unirti a ${tenantName} su Cataloglobe`,
-            html: `
-        <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:#f9fafb;padding:40px">
-            <div style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:12px;padding:32px">
-                <h1 style="margin:0 0 16px;font-size:22px;color:#111827">
-                    Sei stato invitato su Cataloglobe
-                </h1>
-                <p style="margin:0 0 8px;font-size:15px;color:#374151">
-                    <strong>${safeInviterEmail}</strong> ti ha invitato a collaborare su
-                    <strong>${safeTenantName}</strong>.
-                </p>
-                <p style="margin:0 0 32px;font-size:15px;color:#374151">
-                    Clicca sul pulsante qui sotto per accettare l’invito.
-                </p>
-                <div style="text-align:center;margin:0 0 32px">
-                    <a
-                        href="${safeInviteUrl}"
-                        style="display:inline-block;padding:14px 28px;font-size:15px;font-weight:600;background:#111827;color:#ffffff;border-radius:8px;text-decoration:none"
-                    >
-                        Accetta l’invito
-                    </a>
-                </div>
-                <p style="margin:0;font-size:13px;color:#6b7280">
-                    Se non hai ancora un account, ti verrà chiesto di crearne uno.
-                </p>
-                <hr style="margin:24px 0;border:none;border-top:1px solid #e5e7eb" />
-                <p style="margin:0;font-size:12px;color:#9ca3af">
-                    Oppure copia questo link: ${safeInviteUrl}
-                </p>
-                ${getEmailFooterHtml()}
-            </div>
-        </div>
-    `,
-            text: `Sei stato invitato su CataloGlobe.\n\n${inviterEmail} ti ha invitato a collaborare su ${tenantName}.\n\nAccetta l'invito: ${inviteUrl}\n\nSe non hai ancora un account, ti verrà chiesto di crearne uno.\n\n${getEmailFooterText()}`
+            ...buildTenantInviteEmail({ tenantName, inviterEmail, inviteUrl })
         });
     } catch (err) {
         console.error("[send-tenant-invite] Resend error:", err);
