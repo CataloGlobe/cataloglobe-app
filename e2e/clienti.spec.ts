@@ -186,6 +186,20 @@ test.describe("Clienti — elenco", () => {
         expect(stub.writes.filter(w => w.key.startsWith("reservation_guest_notes"))).toHaveLength(0);
     });
 
+    test("#340.2: una ricerca che esclude il cliente aperto non butta via la nota in bozza", async ({ page }) => {
+        await openList(page);
+        await expect(guestName(page, "Giulia Rossi e2e")).toBeVisible({ timeout: 15_000 });
+        const d = await openGuest(page, "Giulia Rossi e2e");
+        await d.getByRole("textbox", { name: /Lago e2e/ }).fill("Una bozza e2e");
+        const search = page.getByRole("searchbox").or(page.getByRole("textbox", { name: /Cerca/ })).first();
+        await search.fill("bianchi");
+        await expect(guestName(page, "Marco Bianchi e2e")).toBeVisible();
+        await expect(guestName(page, "Sara Verdi e2e")).toHaveCount(0);
+        await page.waitForLoadState("networkidle");
+        await expect(d.getByRole("textbox", { name: /Lago e2e/ })).toHaveValue("Una bozza e2e");
+        expect(new URL(page.url()).searchParams.get("guest")).toBe(GUEST.rossi);
+    });
+
     test("deep link ?guest= apre la scheda", async ({ page }) => {
         await openList(page);
         await expect(guestName(page, "Giulia Rossi e2e")).toBeVisible({ timeout: 15_000 });
