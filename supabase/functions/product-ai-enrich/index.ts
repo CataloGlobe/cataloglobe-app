@@ -5,13 +5,13 @@ import { MAX_ATTEMPTS, isRetryable, computeBackoffSeconds } from "../_shared/gem
 import { serializeError } from "../_shared/errors.ts";
 import { logAiUsage } from "../_shared/aiUsageLog.ts";
 import { GEMINI_MODEL } from "../_shared/geminiModel.ts";
+import { withAppCors } from "../_shared/cors.ts";
 
 /* ────────────────────────────── CORS ────────────────────────────── */
 // CORS defined inline (no shared helper exists in the repo — same as
 // menu-ai-import). Keep identical headers for consistency.
 
 const corsHeaders = {
-    "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
     "Access-Control-Allow-Methods": "POST, OPTIONS"
 };
@@ -135,7 +135,7 @@ const ENRICH_SCHEMA = {
 
 /* ────────────────────────────── Main ───────────────────────────── */
 
-Deno.serve(async (req: Request) => {
+async function handle(req: Request): Promise<Response> {
     // ── Preflight ─────────────────────────────────────────────────
     if (req.method === "OPTIONS") {
         return new Response("ok", { headers: corsHeaders });
@@ -389,4 +389,6 @@ Deno.serve(async (req: Request) => {
         console.error("[product-ai-enrich] Unhandled error:", serializeError(err));
         return jsonError("Errore nella generazione della descrizione", 500, "SERVER_ERROR");
     }
-});
+}
+
+Deno.serve(async (req: Request) => withAppCors(req, await handle(req)));

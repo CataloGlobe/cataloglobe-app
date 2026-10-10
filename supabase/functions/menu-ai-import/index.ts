@@ -5,11 +5,11 @@ import { classifyGeminiFailure, type ClassifiedFailure } from "../_shared/gemini
 import { MAX_ATTEMPTS, isRetryable, computeBackoffSeconds } from "../_shared/geminiRetry.ts";
 import { logAiUsage } from "../_shared/aiUsageLog.ts";
 import { GEMINI_MODEL } from "../_shared/geminiModel.ts";
+import { withAppCors } from "../_shared/cors.ts";
 
 /* ────────────────────────────── CORS ────────────────────────────── */
 
 const corsHeaders = {
-    "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
     "Access-Control-Allow-Methods": "POST, OPTIONS"
 };
@@ -238,7 +238,7 @@ const MENU_SCHEMA = {
 
 /* ────────────────────────────── Main ───────────────────────────── */
 
-Deno.serve(async (req: Request) => {
+async function handle(req: Request): Promise<Response> {
     // ── Preflight ─────────────────────────────────────────────────
     if (req.method === "OPTIONS") {
         return new Response("ok", { headers: corsHeaders });
@@ -535,4 +535,6 @@ Deno.serve(async (req: Request) => {
         console.error("[menu-ai-import] Unhandled error:", err);
         return jsonError("Errore nell'analisi del menu", 500);
     }
-});
+}
+
+Deno.serve(async (req: Request) => withAppCors(req, await handle(req)));

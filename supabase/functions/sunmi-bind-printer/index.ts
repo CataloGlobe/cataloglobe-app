@@ -29,6 +29,7 @@
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { checkRateLimit, RateLimitExceededError } from "../_shared/rateLimit.ts";
 import { SUNMI_CODES, sunmiBindShop } from "../_shared/sunmi.ts";
+import { withAppCors } from "../_shared/cors.ts";
 
 // ============================================================
 // Constants
@@ -45,7 +46,6 @@ const MAX_LABEL_LENGTH = 60;
 const SN_RE = /^[A-Z0-9]{6,32}$/;
 
 const corsHeaders = {
-    "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
     "Access-Control-Allow-Methods": "POST, OPTIONS"
 };
@@ -207,7 +207,7 @@ async function _ensureShopId(
 // Main
 // ============================================================
 
-Deno.serve(async (req: Request): Promise<Response> => {
+async function handle(req: Request): Promise<Response> {
     if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
     if (req.method !== "POST") {
         return jsonResponse(405, { code: "METHOD_NOT_ALLOWED", message: "Use POST." });
@@ -398,4 +398,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
         console.error(`[${FUNCTION_NAME}] internal error:`, (e as Error)?.message, (e as Error)?.stack);
         return jsonResponse(500, { code: "INTERNAL_ERROR", message: "Errore interno." });
     }
-});
+}
+
+Deno.serve(async (req: Request) => withAppCors(req, await handle(req)));
