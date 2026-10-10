@@ -27,6 +27,7 @@ import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-
 import { checkRateLimit, RateLimitExceededError } from "./rateLimit.ts";
 import { enqueueAndDispatchPrintJobs } from "./printJobs.ts";
 import { hasActivityPermission, isMemberOfTenant } from "./membershipCheck.ts";
+import { withAppCors } from "./cors.ts";
 
 // ============================================================
 // Constants
@@ -39,7 +40,6 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const RATE_LIMIT_PER_USER_PER_ORDER_PER_MIN = 30;
 
 const corsHeaders = {
-    "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
     "Access-Control-Allow-Methods": "POST, OPTIONS"
 };
@@ -282,6 +282,10 @@ export async function performAdminOrderTransition(
     req: Request,
     config: TransitionConfig
 ): Promise<Response> {
+    return withAppCors(req, await runAdminOrderTransition(req, config));
+}
+
+async function runAdminOrderTransition(req: Request, config: TransitionConfig): Promise<Response> {
     if (req.method === "OPTIONS") {
         return new Response("ok", { headers: corsHeaders });
     }

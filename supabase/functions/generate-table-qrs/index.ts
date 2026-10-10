@@ -33,6 +33,7 @@ import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-
 import { PDFDocument, StandardFonts, rgb } from "https://esm.sh/pdf-lib@1.17.1?target=deno";
 import QRCode from "https://esm.sh/qrcode@1.5.3?target=deno";
 import { checkRateLimit, RateLimitExceededError } from "../_shared/rateLimit.ts";
+import { withAppCors } from "../_shared/cors.ts";
 import { hasActivityPermission } from "../_shared/membershipCheck.ts";
 import { getPublicSiteUrl } from "../_shared/publicSiteUrl.ts";
 
@@ -47,7 +48,6 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const RATE_LIMIT_PER_USER_PER_ACTIVITY_PER_MIN = 10;
 
 const corsHeaders = {
-    "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
     "Access-Control-Allow-Methods": "POST, OPTIONS"
 };
@@ -327,7 +327,7 @@ function _safeFilename(slug: string): string {
 // HTTP handler
 // ============================================================
 
-Deno.serve(async (req: Request) => {
+async function handle(req: Request): Promise<Response> {
     if (req.method === "OPTIONS") {
         return new Response("ok", { headers: corsHeaders });
     }
@@ -517,4 +517,6 @@ Deno.serve(async (req: Request) => {
             message: "Errore interno."
         });
     }
-});
+}
+
+Deno.serve(async (req: Request) => withAppCors(req, await handle(req)));

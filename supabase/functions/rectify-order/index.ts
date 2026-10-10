@@ -34,6 +34,7 @@
 
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { checkRateLimit, RateLimitExceededError } from "../_shared/rateLimit.ts";
+import { withAppCors } from "../_shared/cors.ts";
 
 // ============================================================
 // Constants
@@ -48,7 +49,6 @@ const MAX_STORNO_ITEMS = 50;
 const MAX_REASON_LENGTH = 500;
 
 const corsHeaders = {
-    "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
     "Access-Control-Allow-Methods": "POST, OPTIONS"
 };
@@ -329,7 +329,7 @@ function _mapRpcError(rpcError: { code?: string; message?: string }): Response {
 // HTTP handler
 // ============================================================
 
-Deno.serve(async (req: Request) => {
+async function handle(req: Request): Promise<Response> {
     if (req.method === "OPTIONS") {
         return new Response("ok", { headers: corsHeaders });
     }
@@ -511,4 +511,6 @@ Deno.serve(async (req: Request) => {
             message: "Errore interno."
         });
     }
-});
+}
+
+Deno.serve(async (req: Request) => withAppCors(req, await handle(req)));

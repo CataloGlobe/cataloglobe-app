@@ -35,3 +35,15 @@ export function appCorsHeaders(
     if (opts.json) headers["Content-Type"] = "application/json";
     return headers;
 }
+
+/**
+ * Mette gli header CORS dell'app su una risposta già pronta. Per le edge
+ * che costruiscono le risposte in helper senza `req`: si avvolge l'handler
+ * (`Deno.serve(async req => withAppCors(req, await handle(req)))`) invece di
+ * passare l'origin a ogni helper.
+ */
+export function withAppCors(req: Request, res: Response): Response {
+    const headers = appCorsHeaders(req.headers.get("origin"));
+    for (const [k, v] of Object.entries(headers)) res.headers.set(k, v);
+    return res;
+}
