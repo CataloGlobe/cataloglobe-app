@@ -1,8 +1,8 @@
 // @ts-nocheck
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { withAppCors } from "../_shared/cors.ts";
 
 const corsHeaders = {
-    "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
     "Access-Control-Allow-Methods": "POST, OPTIONS"
 };
@@ -14,7 +14,7 @@ function jsonResponse(body: Record<string, unknown>, status: number) {
     });
 }
 
-Deno.serve(async (req: Request) => {
+async function handle(req: Request): Promise<Response> {
     if (req.method === "OPTIONS") {
         return new Response("ok", { headers: corsHeaders });
     }
@@ -232,4 +232,6 @@ Deno.serve(async (req: Request) => {
         console.error("[search-google-places] error:", err);
         return jsonResponse({ error: "Errore durante la ricerca" }, 500);
     }
-});
+}
+
+Deno.serve(async (req: Request) => withAppCors(req, await handle(req)));
