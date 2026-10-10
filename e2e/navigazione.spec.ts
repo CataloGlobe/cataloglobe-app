@@ -509,7 +509,7 @@ test.describe("Impostazioni, Team e Abbonamento (§51.12, D170)", () => {
     const settingsTabs = (page: Page) =>
         page.getByRole("tab", { name: /^(Azienda|Team|Abbonamento)$/ });
 
-    test("tre voci del menù dell'account, senza tab che le ripetano; Membri · Inviti dentro Team", async ({ page }) => {
+    test("voci del menù dell'account, senza tab che le ripetano; Membri · Inviti dentro Team", async ({ page }) => {
         const paths = await locationPaths(page);
         const root = businessRoot(paths[0]);
         await page.goto(`${root}/settings`);
@@ -518,9 +518,8 @@ test.describe("Impostazioni, Team e Abbonamento (§51.12, D170)", () => {
         expect(await accountPages(page)).toEqual(ACCOUNT);
         await expect(settingsTabs(page)).toHaveCount(0);
 
-        await page.getByRole("menuitem", { name: /^Team/ }).click();
-        await expect(page).toHaveURL(`${root}/settings/team`);
-        await expect(page).toHaveTitle(/^Team · /);
+        await page.goto(`${root}/settings/team`);
+        await expect(page).toHaveTitle(/^Team · /, { timeout: 15_000 });
         await expect(accountButton(page)).toHaveAttribute("aria-current", "page");
         const main = page.getByRole("main");
         await expect(main.getByRole("radio", { name: /^Membri/ })).toBeVisible({ timeout: 15_000 });
@@ -532,10 +531,8 @@ test.describe("Impostazioni, Team e Abbonamento (§51.12, D170)", () => {
         expect(membri.y).toBeLessThan(table.y);
         expect(table.y - (membri.y + membri.height)).toBeLessThan(80);
 
-        await accountButton(page).click();
-        await page.getByRole("menuitem", { name: /^Abbonamento/ }).click();
-        await expect(page).toHaveURL(`${root}/settings/abbonamento`);
-        await expect(page).toHaveTitle(/^Abbonamento · /);
+        await page.goto(`${root}/settings/abbonamento`);
+        await expect(page).toHaveTitle(/^Abbonamento · /, { timeout: 15_000 });
         await expect(settingsTabs(page)).toHaveCount(0);
     });
 

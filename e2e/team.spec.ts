@@ -39,13 +39,11 @@ test.describe("Team", () => {
         const b = (await search.boundingBox())!;
         expect(a.x).toBeLessThan(b.x);
         expect(Math.abs(a.y + a.height / 2 - (b.y + b.height / 2))).toBeLessThan(6);
-        // «Invita membro» una volta sola, sulla riga delle tab di Impostazioni
-        // (dal §51.12 quella testata sta dentro <main>), non nella toolbar.
+        // «Invita membro» una volta sola, in testata sopra i segmenti (senza le
+        // tab di Impostazioni, D170), non nella toolbar.
         const invite = page.getByRole("button", { name: "Invita membro" });
         await expect(invite).toHaveCount(1);
         const c = (await invite.boundingBox())!;
-        const t = (await main.getByRole("tablist").boundingBox())!;
-        expect(Math.abs(c.y + c.height / 2 - (t.y + t.height / 2))).toBeLessThan(12);
         expect(c.y + c.height).toBeLessThanOrEqual(a.y);
     });
 

@@ -385,7 +385,7 @@ test.describe("Prodotti — elenco", () => {
         await openCollection(page, /^Gruppi( Prodotti)?$/);
         await expect(main(page).getByText("Panini e2e", { exact: true }).first()).toBeVisible();
         await expect(main(page).getByRole("button", { name: /^Azioni/ })).toHaveCount(0);
-        await expect(page.getByRole("button", { name: /^(Crea|Nuovo) gruppo$/ })).toHaveCount(0);
+        await expect(page.getByRole("button", { name: /^(Crea|Nuovo|Aggiungi) gruppo$/ })).toHaveCount(0);
 
         await openCollection(page, /^Ingredienti$/);
         await expect(main(page).getByText("Cipolla", { exact: true })).toBeVisible();
@@ -417,9 +417,9 @@ test.describe("Prodotti — gruppi e ingredienti", () => {
         stub.onWrite("product_groups.DELETE", () => null);
         await openList(page);
         await openCollection(page, /^Gruppi( Prodotti)?$/);
-        await page.getByRole("button", { name: /^(Crea|Nuovo) gruppo$/ }).click();
+        await page.getByRole("button", { name: /^(Crea|Nuovo|Aggiungi) gruppo$/ }).click();
         await dialog(page).getByRole("textbox", { name: /Nome/ }).fill("Dolci e2e");
-        await dialog(page).getByRole("button", { name: /^(Crea|Salva)/ }).click();
+        await dialog(page).getByRole("button", { name: /^(Crea|Salva|Aggiungi)/ }).click();
         await expect.poll(() => write(stub, "product_groups.POST")?.body).toMatchObject({ name: "Dolci e2e" });
 
         await actionsOf(main(page).getByText("Bevande e2e", { exact: true })).click();
