@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import Text from "@/components/ui/Text/Text";
 import type { CollectionViewSectionItem } from "../CollectionView/CollectionView";
 import styles from "./PairingDetailCard.module.scss";
+import { formatDecimal } from "@/utils/formatCurrency";
 
 /** Un abbinamento hydratato (dalla Tranche C). */
 export type PairingItem = NonNullable<CollectionViewSectionItem["pairings"]>[number];
@@ -95,7 +96,7 @@ export default function PairingDetailCard({
                     </Text>
                     {typeof pairing.price === "number" && (
                         <Text variant="body-sm" className={styles.price} color="var(--pub-surface-text-secondary)">
-                            € {pairing.price.toFixed(2)}
+                            € {formatDecimal(pairing.price)}
                         </Text>
                     )}
                 </div>

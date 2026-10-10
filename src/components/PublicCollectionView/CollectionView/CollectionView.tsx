@@ -87,6 +87,7 @@ import type { OrderItemRequest, SubmitOrderResult, OrderingStateReason } from "@
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { AlertCircle } from "lucide-react";
 import { safeHttpHref } from "@/utils/sanitizeUrl";
+import { formatDecimal } from "@/utils/formatCurrency";
 const importOrderConfirmationSheet = () => import("../OrderConfirmationSheet/OrderConfirmationSheet");
 const OrderConfirmationSheet = lazy(importOrderConfirmationSheet);
 
@@ -427,26 +428,26 @@ function ProductRowInner({
                     <Text variant="caption" className={styles.price} color="var(--pub-surface-text-secondary)">
                         {dp.originalPrice != null && (
                             <span className={styles.priceOriginal}>
-                                {t("product.price_from", { price: `€ ${dp.originalPrice.toFixed(2)}` })}
+                                {t("product.price_from", { price: `€ ${formatDecimal(dp.originalPrice)}` })}
                             </span>
                         )}
                         <span
                             className={`${styles.priceCurrent}${dp.originalPrice != null ? ` ${styles.promoPrice}` : ""}`}
                         >
-                            {t("product.price_from", { price: `€ ${dp.price.toFixed(2)}` })}
+                            {t("product.price_from", { price: `€ ${formatDecimal(dp.price)}` })}
                         </span>
                     </Text>
                 ) : dp.type === "single" ? (
                     <Text variant="caption" className={styles.price} color="var(--pub-surface-text-secondary)">
                         {dp.originalPrice != null && (
                             <span className={styles.priceOriginal}>
-                                € {dp.originalPrice.toFixed(2)}
+                                € {formatDecimal(dp.originalPrice)}
                             </span>
                         )}
                         <span
                             className={`${styles.priceCurrent}${dp.originalPrice != null ? ` ${styles.promoPrice}` : ""}`}
                         >
-                            € {dp.price.toFixed(2)}
+                            € {formatDecimal(dp.price)}
                         </span>
                     </Text>
                 ) : null}
@@ -598,14 +599,14 @@ function ProductCompactRowInner({
                             {dp.originalPrice != null && (
                                 <span className={styles.compactPriceOriginal}>
                                     {dp.type === "from"
-                                        ? t("product.price_from", { price: `€ ${dp.originalPrice.toFixed(2)}` })
-                                        : `€ ${dp.originalPrice.toFixed(2)}`}
+                                        ? t("product.price_from", { price: `€ ${formatDecimal(dp.originalPrice)}` })
+                                        : `€ ${formatDecimal(dp.originalPrice)}`}
                                 </span>
                             )}
                             <span>
                                 {dp.type === "from"
-                                    ? t("product.price_from", { price: `€ ${dp.price.toFixed(2)}` })
-                                    : `€ ${dp.price.toFixed(2)}`}
+                                    ? t("product.price_from", { price: `€ ${formatDecimal(dp.price)}` })
+                                    : `€ ${formatDecimal(dp.price)}`}
                             </span>
                         </span>
                     )}
