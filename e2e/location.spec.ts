@@ -244,8 +244,8 @@ test.describe("Scheda della sede — le chiusure di oggi", () => {
     const NOTTE = new Date("2026-10-03T01:15:00+02:00");
     const VENERDI = "2026-10-02";
 
-    async function openWithClosures(page: Page, initial: Row[]) {
-        await page.clock.setFixedTime(NOTTE);
+    async function openWithClosures(page: Page, initial: Row[], at = NOTTE) {
+        await page.clock.setFixedTime(at);
         const stub = await stubRest(page, { tables: {} });
         const closures: Row[] = [...initial];
         const eq = (url: string, key: string) => new URL(url).searchParams.get(key)?.replace(/^eq\./, "") ?? "";
@@ -307,6 +307,14 @@ test.describe("Scheda della sede — le chiusure di oggi", () => {
         const posted = stub.writes.filter(w => w.key === "activity_closures.POST");
         expect(posted).toHaveLength(1);
         expect(posted[0].body).toMatchObject({ closure_date: VENERDI, label: "Chiuso oggi" });
+    });
+
+    test("finito l'ultimo turno dice quando si riapre, non «Chiuso oggi» (D169)", async ({ page }) => {
+        // Sabato alle 3: la sera di venerdì è finita alle 2, si riapre venerdì prossimo.
+        await openWithClosures(page, [], new Date("2026-10-03T03:00:00+02:00"));
+        await expect(page.getByRole("main").getByText("Chiuso · riapre venerdì alle 19").first()).toBeVisible();
+        await expect(page.getByText(/Per oggi avete chiuso: riaprite venerdì alle 19\./)).toBeVisible();
+        await expect(page.getByText("Chiuso oggi", { exact: true })).toHaveCount(0);
     });
 
     test("«Torna agli orari di sempre» toglie subito la chiusura di «Chiudi oggi»", async ({ page }) => {
