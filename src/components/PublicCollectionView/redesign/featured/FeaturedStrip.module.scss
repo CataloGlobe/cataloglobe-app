@@ -102,3 +102,56 @@
   transform-origin: left center;
   transform: scaleX(0);
 }
+
+/* Frecce: solo desktop (al telefono si scorre col dito e basta la linea). */
+.arrow {
+  display: none;
+}
+
+/* ⚠️ SYNC con PUBLIC_MOBILE_MAX_WIDTH (publicBreakpoints.ts). Desktop (spec §13):
+   tre card per vista (due fino a 1023 px), frecce ai lati al posto della linea. */
+@media (min-width: 641px) {
+  .strip {
+    position: relative;
+  }
+
+  .card {
+    width: calc((100% - 12px) / 2);
+  }
+
+  .line {
+    display: none;
+  }
+
+  .arrow {
+    position: absolute;
+    top: 50%;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border: 1px solid color-mix(in srgb, var(--pub-surface-text, currentColor) 12%, transparent);
+    border-radius: 999px;
+    background: var(--pub-surface);
+    color: var(--pub-surface-text);
+    box-shadow: 0 2px 8px rgb(0 0 0 / 12%);
+    cursor: pointer;
+    transform: translateY(-50%);
+
+    &[data-side="start"] {
+      left: -12px;
+    }
+
+    &[data-side="end"] {
+      right: -12px;
+    }
+  }
+}
+
+@media (min-width: 1024px) {
+  .card {
+    width: calc((100% - 2 * 12px) / 3);
+  }
+}

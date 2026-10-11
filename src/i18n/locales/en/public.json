@@ -301,6 +301,8 @@
         "more_count_one": "1 more",
         "more_count_other": "{{count}} more",
         "see_all_count": "See all ({{count}})",
+        "prev_aria": "Previous highlights",
+        "next_aria": "Next highlights",
         "position": "{{index}} of {{count}}"
     },
     "events": {

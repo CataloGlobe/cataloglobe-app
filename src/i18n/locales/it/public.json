@@ -300,6 +300,8 @@
         "more_count_one": "Un altro",
         "more_count_other": "Altri {{count}}",
         "see_all_count": "Vedi tutti ({{count}})",
+        "prev_aria": "Contenuti precedenti",
+        "next_aria": "Contenuti successivi",
         "position": "{{index}} di {{count}}"
     },
     "events": {

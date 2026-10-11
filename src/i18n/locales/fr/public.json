@@ -301,6 +301,8 @@
     "more_count_one": "1 autre",
     "more_count_other": "{{count}} autres",
     "see_all_count": "Tout voir ({{count}})",
+    "prev_aria": "Contenus précédents",
+    "next_aria": "Contenus suivants",
     "position": "{{index}} sur {{count}}"
   },
   "events": {

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { V2FeaturedContent } from "@/types/resolvedCollections";
 import FeaturedCard from "@/components/PublicCollectionView/FeaturedCard/FeaturedCard";
@@ -21,6 +22,10 @@ export default function FeaturedStrip({ blocks, slot, totalCount, activityId, la
     const trackRef = useRef<HTMLDivElement>(null);
     const thumbRef = useRef<HTMLSpanElement>(null);
     const [scrollable, setScrollable] = useState(false);
+    // Desktop: frecce ai lati solo dove c'è altro da vedere (spec §13).
+    const [edges, setEdges] = useState({ start: false, end: false });
+    const prevRef = useRef<HTMLButtonElement>(null);
+    const nextRef = useRef<HTMLButtonElement>(null);
     const isAboveFold = slot === "before_catalog";
     const single = visible.length === 1 && moreCount === 0;
 
@@ -34,6 +39,15 @@ export default function FeaturedStrip({ blocks, slot, totalCount, activityId, la
             const thumb = thumbRef.current;
             const max = track.scrollWidth - track.clientWidth;
             setScrollable(max > 4);
+            const start = track.scrollLeft > 4;
+            const end = track.scrollLeft < max - 4;
+            // Una freccia che sparisce col fuoco sopra lo passa al primo o all'ultimo contenuto.
+            const focused = document.activeElement;
+            if ((!start && focused === prevRef.current) || (!end && focused === nextRef.current)) {
+                const items = track.querySelectorAll<HTMLElement>("[role='listitem'][tabindex='0'], [role='listitem'] > button");
+                items[!start && focused === prevRef.current ? 0 : items.length - 1]?.focus({ preventScroll: true });
+            }
+            setEdges(prev => (prev.start === start && prev.end === end ? prev : { start, end }));
             if (!thumb || max <= 0) return;
             const ratio = track.clientWidth / track.scrollWidth;
             const progress = Math.min(1, Math.max(0, track.scrollLeft / max));
@@ -54,6 +68,11 @@ export default function FeaturedStrip({ blocks, slot, totalCount, activityId, la
     }, [visible.length, moreCount]);
 
     if (visible.length === 0) return null;
+
+    const page = (direction: 1 | -1) => {
+        const track = trackRef.current;
+        if (track) track.scrollBy({ left: direction * track.clientWidth, behavior: "smooth" });
+    };
 
     const openDetail = (block: V2FeaturedContent) => {
         openFeaturedDetail(block);
@@ -114,6 +133,30 @@ export default function FeaturedStrip({ blocks, slot, totalCount, activityId, la
                     </div>
                 ) : null}
             </div>
+            {edges.start && (
+                <button
+                    ref={prevRef}
+                    type="button"
+                    className={styles.arrow}
+                    data-side="start"
+                    onClick={() => page(-1)}
+                    aria-label={t("featured.prev_aria")}
+                >
+                    <ChevronLeft size={18} strokeWidth={2} />
+                </button>
+            )}
+            {edges.end && (
+                <button
+                    ref={nextRef}
+                    type="button"
+                    className={styles.arrow}
+                    data-side="end"
+                    onClick={() => page(1)}
+                    aria-label={t("featured.next_aria")}
+                >
+                    <ChevronRight size={18} strokeWidth={2} />
+                </button>
+            )}
             {scrollable ? (
                 <span className={styles.line} aria-hidden="true">
                     <span ref={thumbRef} className={styles.thumb} />

@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { Locator } from "@playwright/test";
-import { SLUG, stubPublicPage } from "./publicPageStub";
+import { SLUG, featured, stubPublicPage } from "./publicPageStub";
 
 const box = async (locator: Locator) => {
     const b = await locator.boundingBox();
@@ -109,4 +109,24 @@ test("⋯ e lingua si aprono come popover sotto il loro pulsante", async ({ page
         await expect(dialog).toHaveCount(0);
         await expect(trigger).toBeFocused();
     }
+});
+
+test("carosello in evidenza: tre card per vista, frecce solo dove c'è altro", async ({ page }) => {
+    const blocks = Array.from({ length: 5 }, (_, i) => featured({ id: `f-${i}`, title: `Evento ${i + 1}` }));
+    await page.unrouteAll({ behavior: "ignoreErrors" });
+    await stubPublicPage(page, { ordering: false, featured: { before_catalog: blocks } });
+    await page.goto(`/${SLUG}`);
+    const list = page.getByRole("list", { name: "In evidenza" });
+    await expect(list).toBeVisible();
+    const prev = page.getByRole("button", { name: "Contenuti precedenti" });
+    const next = page.getByRole("button", { name: "Contenuti successivi" });
+    await expect(prev).toHaveCount(0);
+    await expect(next).toBeVisible();
+    const track = await box(list);
+    const first = await box(list.getByRole("listitem").first());
+    expect(Math.round((track.width - 24) / 3)).toBe(Math.round(first.width));
+    await next.click();
+    await expect(prev).toBeVisible();
+    await expect(next).toHaveCount(0);
+    await expect(list.getByRole("listitem").filter({ hasText: "Evento 5" })).toBeInViewport();
 });

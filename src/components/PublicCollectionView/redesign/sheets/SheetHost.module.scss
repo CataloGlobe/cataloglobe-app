@@ -203,7 +203,8 @@
   }
 
   .panel {
-    width: min(560px, calc(100% - 48px));
+    /* Finestra al centro fino a 440 px (spec §13); le tendine e i popover hanno la loro misura. */
+    width: min(440px, calc(100% - 48px));
     border-radius: 26px;
 
     &[data-size="medium"],
