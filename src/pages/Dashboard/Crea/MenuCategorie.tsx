@@ -3,7 +3,7 @@
 // Si trascina prima, dopo o dentro; l'import apre un resoconto e il menù non
 // cambia finché non si tocca «Aggiungi». Artifact «Il menù nel tunnel», v8.
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ArrowDown, ArrowLeftToLine, ArrowUp, Check, Folder, GripVertical, Plus, RefreshCw, Sparkles, TriangleAlert, Upload, Utensils, X } from "lucide-react";
+import { ArrowDown, ArrowLeftToLine, ArrowUp, Check, Folder, GripVertical, Plus, RefreshCw, Sparkles, Trash2, TriangleAlert, Upload, Utensils, X } from "lucide-react";
 import type { PickProduct } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import { MAX_IMPORT_FILES, key, priceText, type Dish, type Read, type Section, type Tunnel } from "./creaModel";
 import { MAX_LEVEL, allDishes, allSecs, cats, catsOf, dropDish, dropSec, ensure, findDish, findSec, height, inside, moveOut, pathName, pathOf, shift, total, totalOf, type Drop } from "./menuTree";
@@ -940,132 +940,143 @@ export function MenuCategorie({ t, u, pick, onRead, onSuggest }: Props) {
         const dups = it.filter(([x]) => x.st === "dup");
         let hint = 0;
         return (
-            <div className={s.card}>
-                <div className={s.sh}>
+            <div className={cx(s.card, s.rep)}>
+                <div className={cx(s.sh, s.repH)}>
                     <b>
                         Nel file «{done.file}» ho trovato {done.items.length} {done.items.length === 1 ? "piatto" : "piatti"}
                     </b>
                     <span>{c("dup") ? `${inn.length} ${inn.length === 1 ? "entra" : "entrano"} nel menù, ${c("dup")} ${c("dup") === 1 ? "lo" : "li"} hai già.` : "Entrano tutti nel menù."}</span>
                 </div>
-                <div className={s.explain}>
-                    <Upload size={16} aria-hidden />
-                    <span>
-                        <b>Qui sotto c'è solo quello che ho letto nel file</b>, non tutto il tuo menù. Il menù è a sinistra: non cambia finché non tocchi «Aggiungi», e i «+» in verde dicono dove finirà ogni piatto.
-                    </span>
-                </div>
-                <div className={s.stats}>
-                    {pill("new", "nuovi")}
-                    {pill("lnk", "già fra i vostri prodotti")}
-                    {pill("chk", "da controllare")}
-                    {pill("dup", c("dup") === 1 ? "lo hai già: non entra" : "li hai già: non entrano")}
-                    <span className={s.note}>Tocca una pillola: ti porto lì e te li accendo.</span>
-                </div>
-                {nodes.map(({ sec, name }) => {
-                    const rows = it.filter(([x]) => x.st !== "dup" && x.to === sec.key);
-                    if (!rows.length) return null;
-                    const g = ghost(sec);
-                    return (
-                        <div className={s.rg} key={sec.key}>
-                            <div className={s.rgH}>
-                                <span className={s.ico}>
-                                    <Folder size={14} aria-hidden />
-                                </span>
-                                {name}
-                                {g && <span className={cx(s.tg, s.new)}>categoria nuova</span>}
-                                {g && !hint++ && <span className={s.note}>trascinala nell'albero per metterla dove vuoi</span>}
-                            </div>
-                            {rows.map(([x, k]) => (
-                                <div className={cx(s.ri, !x.on && s.off)} key={x.key} data-st={x.st}>
-                                    <button type="button" className={s.ck} aria-pressed={x.on} aria-label={`Aggiungi ${x.name}`} onClick={() => item(k, y => void (y.on = !y.on))}>
-                                        {x.on && <Check size={13} strokeWidth={2.6} aria-hidden />}
-                                    </button>
-                                    <span className={s.rn}>{x.name}</span>
-                                    {x.st === "chk" && !x.formats?.length ? price(x, k, "imp-p-" + k) : <span className={cx(s.rp, s.p)}>{x.formats?.length && x.price !== null ? "da " : ""}{priceText(x.price)}</span>}
-                                    <span className={s.sub2}>
-                                        <span className={cx(s.tg, s[x.st])}>
-                                            {ST_LABEL[x.st as Exclude<St, "dup">]}
-                                            {x.st === "chk" && x.why ? `: ${x.why}` : ""}
-                                        </span>
-                                        <span>va in</span>
-                                        <select aria-label={`Categoria di ${x.name}`} value={x.to} onChange={e => item(k, y => void (y.to = e.target.value))}>
-                                            {nodes.map(o => (
-                                                <option key={o.sec.key} value={o.sec.key}>
-                                                    {o.name}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </span>
-                                </div>
-                            ))}
-                        </div>
-                    );
-                })}
-                {(todo.length > 0 || dups.length > 0) && (
-                    <div className={s.fin}>
-                        <div className={s.sh}>
-                            <b>Prima di aggiungere</b>
-                            <span>
-                                {miss ? `${miss === 1 ? "Manca 1 prezzo: scrivilo" : `Mancano ${miss} prezzi: scrivili`} qui, senza risalire.` : "Non manca niente: puoi aggiungere."}
-                                {dups.length > 0 && " Sotto, i piatti che hai già."}
-                            </span>
-                        </div>
-                        {todo.length > 0 && (
-                            <div className={cx(s.rg, s.chkb)}>
-                                <div className={s.rgH}>
-                                    Da controllare · {todo.length}
-                                    {miss < todo.length && <span className={cx(s.tg, s.new)}>{todo.length - miss} a posto</span>}
-                                </div>
-                                {todo.map(([x, k]) => (
-                                    <div className={s.ri} key={x.key} data-st="todo">
-                                        <span className={s.ico}>{need(x) ? <Utensils size={14} aria-hidden /> : <Check size={14} aria-hidden />}</span>
-                                        <span className={s.rn}>{x.name}</span>
-                                        {x.formats?.length ? <span className={cx(s.rp, s.p)}>{priceText(x.price)}</span> : price(x, k, "imp-q-" + k)}
-                                        <span className={s.sub2}>
-                                            <span className={cx(s.tg, need(x) ? s.chk : s.new)}>{need(x) ? x.why ?? "manca il prezzo" : "a posto"}</span>
-                                            <span>va in {nameOf(x.to)}</span>
-                                            <button type="button" className={s.lk} onClick={() => item(k, y => void (y.on = false))}>
-                                                Lascia fuori questo piatto
-                                            </button>
-                                        </span>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                        {dups.length > 0 && (
-                            <div className={cx(s.rg, s.dupb)}>
-                                <div className={s.rgH}>Li hai già in questo menù · {dups.length}</div>
-                                <div className={s.rgN}>Erano nel file, ma nel tuo menù ci sono già con lo stesso nome. Non li aggiungo una seconda volta e non li tocco: restano come sono.</div>
-                                {dups.map(([x, k]) => (
-                                    <div className={s.ri} key={x.key} data-st="dup">
-                                        <span className={s.ico}>
-                                            <Utensils size={14} aria-hidden />
-                                        </span>
-                                        <span className={s.rn}>{x.name}</span>
-                                        <span className={cx(s.rp, s.p)}>{priceText(x.price)}</span>
-                                        <span className={s.sub2}>
-                                            <span>è già in {nameOf(x.to)}</span>
-                                            <button type="button" className={s.lk} onClick={() => item(k, y => Object.assign(y, { st: y.why ? "chk" : y.productId ? "lnk" : "new", on: true }))}>
-                                                Aggiungilo lo stesso
-                                            </button>
-                                        </span>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
+                <div className={s.repB}>
+                    <div className={s.explain}>
+                        <Upload size={16} aria-hidden />
+                        <span>
+                            <b>Qui sotto c'è solo quello che ho letto nel file</b>, non tutto il tuo menù. Il menù è a sinistra: non cambia finché non tocchi «Aggiungi», e i «+» in verde dicono dove finirà ogni piatto.
+                        </span>
                     </div>
-                )}
-                <div className={s.repf}>
-                    {miss > 0 && (
-                        <button type="button" className={cx(s.lk, s.why)} onClick={() => jumpTo("todo")}>
-                            {miss === 1 ? "Manca 1 prezzo" : `Mancano ${miss} prezzi`}: portami lì
-                        </button>
+                    <div className={s.stats}>
+                        {pill("new", "nuovi")}
+                        {pill("lnk", "già fra i vostri prodotti")}
+                        {pill("chk", "da controllare")}
+                        {pill("dup", c("dup") === 1 ? "lo hai già: non entra" : "li hai già: non entrano")}
+                        <span className={s.note}>Tocca una pillola: ti porto lì e te li accendo.</span>
+                    </div>
+                    {nodes.map(({ sec, name }) => {
+                        const rows = it.filter(([x]) => x.st !== "dup" && x.to === sec.key);
+                        if (!rows.length) return null;
+                        const g = ghost(sec);
+                        return (
+                            <div className={s.rg} key={sec.key}>
+                                <div className={s.rgH}>
+                                    <span className={s.ico}>
+                                        <Folder size={14} aria-hidden />
+                                    </span>
+                                    {name}
+                                    {g && <span className={cx(s.tg, s.new)}>categoria nuova</span>}
+                                    {g && !hint++ && <span className={s.note}>trascinala nell'albero per metterla dove vuoi</span>}
+                                </div>
+                                {rows.map(([x, k]) => (
+                                    <div className={cx(s.ri, !x.on && s.off)} key={x.key} data-st={x.st}>
+                                        <button type="button" className={s.ck} aria-pressed={x.on} aria-label={`Aggiungi ${x.name}`} onClick={() => item(k, y => void (y.on = !y.on))}>
+                                            {x.on && <Check size={13} strokeWidth={2.6} aria-hidden />}
+                                        </button>
+                                        <span className={s.rn}>{x.name}</span>
+                                        {x.st === "chk" && !x.formats?.length ? price(x, k, "imp-p-" + k) : <span className={cx(s.rp, s.p)}>{x.formats?.length && x.price !== null ? "da " : ""}{priceText(x.price)}</span>}
+                                        <span className={s.sub2}>
+                                            <span className={cx(s.tg, s[x.st])}>
+                                                {ST_LABEL[x.st as Exclude<St, "dup">]}
+                                                {x.st === "chk" && x.why ? `: ${x.why}` : ""}
+                                            </span>
+                                            <span>va in</span>
+                                            <select aria-label={`Categoria di ${x.name}`} value={x.to} onChange={e => item(k, y => void (y.to = e.target.value))}>
+                                                {nodes.map(o => (
+                                                    <option key={o.sec.key} value={o.sec.key}>
+                                                        {o.name}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        );
+                    })}
+                    {(todo.length > 0 || dups.length > 0) && (
+                        <div className={s.fin}>
+                            <div className={s.sh}>
+                                <b>Prima di aggiungere</b>
+                                <span>
+                                    {miss ? `${miss === 1 ? "Manca 1 prezzo: scrivilo" : `Mancano ${miss} prezzi: scrivili`} qui, senza risalire.` : "Non manca niente: puoi aggiungere."}
+                                    {dups.length > 0 && " Sotto, i piatti che hai già."}
+                                </span>
+                            </div>
+                            {todo.length > 0 && (
+                                <div className={cx(s.rg, s.chkb)}>
+                                    <div className={s.rgH}>
+                                        Da controllare · {todo.length}
+                                        {miss < todo.length && <span className={cx(s.tg, s.new)}>{todo.length - miss} a posto</span>}
+                                    </div>
+                                    {todo.map(([x, k]) => (
+                                        <div className={s.ri} key={x.key} data-st="todo">
+                                            <span className={s.ico}>{need(x) ? <Utensils size={14} aria-hidden /> : <Check size={14} aria-hidden />}</span>
+                                            <span className={s.rn}>{x.name}</span>
+                                            {x.formats?.length ? <span className={cx(s.rp, s.p)}>{priceText(x.price)}</span> : price(x, k, "imp-q-" + k)}
+                                            <span className={s.sub2}>
+                                                <span className={cx(s.tg, need(x) ? s.chk : s.new)}>{need(x) ? x.why ?? "manca il prezzo" : "a posto"}</span>
+                                                <span>va in {nameOf(x.to)}</span>
+                                                <button type="button" className={s.lk} onClick={() => item(k, y => void (y.on = false))}>
+                                                    Lascia fuori questo piatto
+                                                </button>
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                            {dups.length > 0 && (
+                                <div className={cx(s.rg, s.dupb)}>
+                                    <div className={s.rgH}>Li hai già in questo menù · {dups.length}</div>
+                                    <div className={s.rgN}>Erano nel file, ma nel tuo menù ci sono già con lo stesso nome. Non li aggiungo una seconda volta e non li tocco: restano come sono.</div>
+                                    {dups.map(([x, k]) => (
+                                        <div className={s.ri} key={x.key} data-st="dup">
+                                            <span className={s.ico}>
+                                                <Utensils size={14} aria-hidden />
+                                            </span>
+                                            <span className={s.rn}>{x.name}</span>
+                                            <span className={cx(s.rp, s.p)}>{priceText(x.price)}</span>
+                                            <span className={s.sub2}>
+                                                <span>è già in {nameOf(x.to)}</span>
+                                                <button type="button" className={s.lk} onClick={() => item(k, y => Object.assign(y, { st: y.why ? "chk" : y.productId ? "lnk" : "new", on: true }))}>
+                                                    Aggiungilo lo stesso
+                                                </button>
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
                     )}
-                    <button type="button" className={s.btn} onClick={dropImport}>
-                        Butta via tutto l'import
-                    </button>
-                    <button type="button" className={cx(s.btn, s.pri)} disabled={miss > 0 || !on} onClick={applyImport}>
-                        Aggiungi {on} {on === 1 ? "piatto" : "piatti"} al menù
-                    </button>
+                </div>
+                <div className={cx(s.repf, s.repF)}>
+                    <span className={s.repSum}>
+                        <b>Tutto l'import</b>
+                        <span>
+                            {on} {on === 1 ? "piatto entra" : "piatti entrano"} nel menù{done.items.length - on > 0 ? `, ${done.items.length - on} ${done.items.length - on === 1 ? "resta" : "restano"} fuori` : ""}.
+                        </span>
+                        {miss > 0 && (
+                            <button type="button" className={cx(s.lk, s.why)} onClick={() => jumpTo("todo")}>
+                                {miss === 1 ? "Manca 1 prezzo" : `Mancano ${miss} prezzi`}: portami lì
+                            </button>
+                        )}
+                    </span>
+                    <span className={s.repActs}>
+                        <button type="button" className={cx(s.btn, s.drop)} onClick={dropImport}>
+                            <Trash2 size={14} aria-hidden />
+                            Butta via tutto l'import
+                        </button>
+                        <button type="button" className={cx(s.btn, s.pri)} disabled={miss > 0 || !on} onClick={applyImport}>
+                            Aggiungi {on} {on === 1 ? "piatto" : "piatti"} al menù
+                        </button>
+                    </span>
                 </div>
             </div>
         );
