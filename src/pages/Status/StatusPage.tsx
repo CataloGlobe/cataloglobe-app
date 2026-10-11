@@ -218,10 +218,19 @@ export default function StatusPage() {
         }
         void load();
         // Soft auto-refresh ogni 60s: ritarda la freshness ma non assilla.
-        const id = window.setInterval(() => void load(), 60_000);
+        // Scheda nascosta: niente richieste (una scheda dimenticata aperta
+        // consumava Redis giorno e notte); tornando visibile si rilegge subito.
+        const id = window.setInterval(() => {
+            if (!document.hidden) void load();
+        }, 60_000);
+        const onVisible = () => {
+            if (!document.hidden) void load();
+        };
+        document.addEventListener("visibilitychange", onVisible);
         return () => {
             cancelled = true;
             window.clearInterval(id);
+            document.removeEventListener("visibilitychange", onVisible);
         };
     }, []);
 
