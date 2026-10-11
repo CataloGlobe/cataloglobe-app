@@ -12,8 +12,6 @@ import styles from "./Island.module.scss";
 // Isteresi: compatta oltre 40 px, torna estesa sotto 8 px. Validata su iPhone e Android (PR 1).
 const SOGLIA_ALTA = 40;
 const SOGLIA_BASSA = 8;
-/** Durata della transizione CSS: per tutto il passaggio il vetro è pieno, niente blur che cambia. */
-const PASSAGGIO_MS = 220;
 /** Altezza dell'isola compatta + distanza dal bordo: da qui parte la barra delle categorie sticky. */
 const ALTEZZA_COMPATTA_PX = 68;
 
@@ -73,19 +71,6 @@ export default function Island({
     const rootRef = useRef<HTMLElement>(null);
     const compattaRef = useRef(false);
     const primerRef = useRef<HTMLInputElement>(null);
-    const [inPassaggio, setInPassaggio] = useState(false);
-    const primoGiro = useRef(true);
-
-    // Vetro pieno mentre l'isola cambia misura, sfocato da fermo.
-    useEffect(() => {
-        if (primoGiro.current) {
-            primoGiro.current = false;
-            return;
-        }
-        setInPassaggio(true);
-        const id = window.setTimeout(() => setInPassaggio(false), PASSAGGIO_MS + 30);
-        return () => window.clearTimeout(id);
-    }, [compatta]);
 
     // Il contenitore sticky tiene l'altezza dell'isola estesa: quando l'isola si compatta
     // la pagina sotto non si muove. Si misura solo da estesa.
@@ -154,9 +139,9 @@ export default function Island({
                 ref={rootRef}
                 className={styles.isola}
                 data-compact={compatta}
-                data-moving={inPassaggio || undefined}
                 data-cover={!!coverImageUrl || undefined}
             >
+                <div className={styles.guscio} aria-hidden />
                 <div className={styles.riga}>
                     {logoUrl && (
                         <img
