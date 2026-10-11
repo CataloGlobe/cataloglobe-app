@@ -2760,7 +2760,10 @@ export default function CollectionView({
                       onOpenMore: () => setIsMoreSheetOpen(true),
                       activeTab,
                       onTabChange: handleHubTabTap,
-                      showStoryTab
+                      showStoryTab,
+                      openingHours: openingHours ?? [],
+                      upcomingClosures: upcomingClosures ?? [],
+                      onOpenHours: () => setIsInfoSheetOpen(true)
                   })
                 : hasHeader && (
                 <PublicCollectionHeader
