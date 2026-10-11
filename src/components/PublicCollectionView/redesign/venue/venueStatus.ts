@@ -11,8 +11,8 @@ import type { OpeningHoursEntry, UpcomingClosure } from "@components/PublicColle
  * mentre gli ordini al tavolo trattano la sede senza orari come aperta.
  */
 
-/** Sotto questi minuti dalla chiusura l'isola dice «Chiude tra N min». */
-export const CLOSING_SOON_MINUTES = 60;
+/** Sotto questi minuti dalla chiusura l'isola dice «Chiude tra N min» (30, deciso da Lorenzo il 2026-10-11). */
+export const CLOSING_SOON_MINUTES = 30;
 /** Quanti giorni avanti cercare la prossima apertura. */
 const LOOKAHEAD_DAYS = 7;
 const MINUTES_PER_DAY = 1440;
