@@ -294,9 +294,13 @@
     flex-shrink: 0;
     height: 12px;
     margin: auto -18px 12px;
-    padding-top: 16px;
+    // Puntini sulla stessa riga dei due fori (centro a 6 px dal fondo) e
+    // distribuiti in modo uguale fra un foro e l'altro (`space`), a 12 px dai fori.
+    padding: 16px 12px 0;
     box-sizing: content-box;
-    background: radial-gradient(circle, rgba(21, 20, 31, 0.2) 1.6px, transparent 2.1px) 0 calc(100% - 6px) / 9px 12px repeat-x;
+    background: radial-gradient(circle, rgba(21, 20, 31, 0.2) 1.6px, transparent 2.1px) center bottom / 9px 12px;
+    background-repeat: space no-repeat;
+    background-origin: content-box;
     background-clip: content-box;
 
     &::before,
@@ -546,7 +550,8 @@
     display: flex;
     flex-shrink: 0;
     transform-origin: 50% 0;
-    transition: opacity 400ms ease;
+    // Stessa durata del track: la card che esce si inclina mentre scorre via, senza scatto.
+    transition: opacity 400ms ease, transform 560ms var(--ld-ease);
 
     .note {
         width: 280px;
@@ -578,41 +583,61 @@
         animation: ld-arrive0 1100ms cubic-bezier(0.3, 0.7, 0.4, 1);
     }
 
-    .cardOnOdd {
+    .cardFromLeft {
         animation-name: ld-arrive1;
+    }
+
+    // Spinta della freccia: oscillazione più ampia e un po' più lunga.
+    .cardPush {
+        animation: ld-push0 1300ms cubic-bezier(0.3, 0.7, 0.4, 1);
+    }
+
+    .cardPush.cardFromLeft {
+        animation-name: ld-push1;
+    }
+
+    // La card che esce va oltre l'inclinazione di lato e ci torna.
+    .cardLeaveLeft {
+        animation: ld-leave-left 700ms var(--ld-ease);
+    }
+
+    .cardLeaveRight {
+        animation: ld-leave-right 700ms var(--ld-ease);
     }
 }
 
+// Arriva da destra: parte inclinata e ridotta come .cardAfter, poi oscilla.
 @keyframes ld-arrive0 {
     0% {
-        transform: rotate(-5deg);
+        transform: rotate(3deg) scale(0.94);
     }
-    35% {
-        transform: rotate(3.5deg);
+    40% {
+        transform: rotate(-2.4deg) scale(1);
     }
-    65% {
-        transform: rotate(-1.6deg);
+    68% {
+        transform: rotate(1.1deg);
     }
-    85% {
-        transform: rotate(0.6deg);
+    86% {
+        transform: rotate(-0.4deg);
     }
     100% {
         transform: rotate(0);
     }
 }
 
+// Arriva da sinistra: come .cardBefore, specchiato.
 @keyframes ld-arrive1 {
     0% {
-        transform: rotate(5deg);
+        transform: rotate(-3deg) scale(0.94);
     }
-    35% {
-        transform: rotate(-3.5deg);
+    40% {
+        transform: rotate(2.4deg) scale(1);
     }
-    65% {
-        transform: rotate(1.6deg);
+    68% {
+        transform: rotate(-1.1deg);
     }
-    85% {
-        transform: rotate(-0.6deg);
+    86% {
+        transform: rotate(0.4deg);
     }
     100% {
         transform: rotate(0);
@@ -634,11 +659,16 @@
     width: 44px;
     height: 44px;
     border-radius: 50%;
+    display: grid;
+    place-items: center;
     border: 1px solid var(--ld-dark-arrow);
     background: rgba(255, 255, 255, 0.06);
     color: var(--ld-white);
-    font-size: 20px;
-    line-height: 1;
+    transition: background-color 200ms ease, transform 150ms ease;
+
+    &:active {
+        transform: scale(0.94);
+    }
 }
 
 .dots {
@@ -661,4 +691,65 @@
 .dotOn {
     width: 20px;
     background: var(--ld-white);
+}
+
+@keyframes ld-push0 {
+    0% {
+        transform: rotate(3deg) scale(0.94);
+    }
+    35% {
+        transform: rotate(-6deg) scale(1);
+    }
+    60% {
+        transform: rotate(3deg);
+    }
+    80% {
+        transform: rotate(-1.2deg);
+    }
+    100% {
+        transform: rotate(0);
+    }
+}
+
+@keyframes ld-push1 {
+    0% {
+        transform: rotate(-3deg) scale(0.94);
+    }
+    35% {
+        transform: rotate(6deg) scale(1);
+    }
+    60% {
+        transform: rotate(-3deg);
+    }
+    80% {
+        transform: rotate(1.2deg);
+    }
+    100% {
+        transform: rotate(0);
+    }
+}
+
+// Finiscono sullo stato di .cardBefore / .cardAfter: niente scatto alla fine.
+@keyframes ld-leave-left {
+    0% {
+        transform: rotate(0) scale(1);
+    }
+    40% {
+        transform: rotate(-8deg) scale(0.94);
+    }
+    100% {
+        transform: rotate(-3deg) scale(0.94);
+    }
+}
+
+@keyframes ld-leave-right {
+    0% {
+        transform: rotate(0) scale(1);
+    }
+    40% {
+        transform: rotate(8deg) scale(0.94);
+    }
+    100% {
+        transform: rotate(3deg) scale(0.94);
+    }
 }

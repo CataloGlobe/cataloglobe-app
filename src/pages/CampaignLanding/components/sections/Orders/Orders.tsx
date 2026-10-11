@@ -1,4 +1,5 @@
 import { type CSSProperties, useEffect, useRef, useState } from "react";
+import { ShoppingBag } from "lucide-react";
 import Problem from "@pages/CampaignLanding/components/Problem/Problem";
 import { Kicker } from "@pages/CampaignLanding/components/kit/Kit";
 import { ORDERS } from "@pages/CampaignLanding/content/landing";
@@ -53,19 +54,22 @@ const FLOOR: { n: number; shape: "round" | "rect"; state: TableState }[] = [
 
 /**
  * Scena 1: il cliente tocca «+» sui piatti (tagliere, spritz due volte,
- * tiramisù); al primo tocco sale la barra «Invia l'ordine», che poi si preme
- * e dice «Ordine inviato ✓». Un istante della sequenza per ogni voce di TAPS.
+ * tiramisù, acqua); al primo tocco sale la barra: a sinistra «Invia l'ordine»,
+ * a destra il carrello che conta i piatti; poi il pulsante si preme e dice
+ * «Ordine inviato ✓». Un istante della sequenza per ogni voce di TAPS.
  */
 const TAPS: { ms: number; dish?: number }[] = [
-    { ms: 350, dish: 0 },
-    { ms: 750, dish: 1 },
-    { ms: 1050, dish: 1 },
-    { ms: 1400, dish: 2 },
-    { ms: 2050 },
-    { ms: 2200 }
+    // Scena da STEP_MS (3 s): «Ordine inviato» resta a vista quasi un secondo.
+    { ms: 300, dish: 0 },
+    { ms: 600, dish: 1 },
+    { ms: 850, dish: 1 },
+    { ms: 1100, dish: 2 },
+    { ms: 1350, dish: 3 },
+    { ms: 1900 },
+    { ms: 2050 }
 ];
-const PRESS_AT = 4;
-const SENT_AT = 5;
+const PRESS_AT = 5;
+const SENT_AT = 6;
 
 function OrderPanel({ still }: { still: boolean }) {
     const { order } = ORDERS;
@@ -82,6 +86,8 @@ function OrderPanel({ still }: { still: boolean }) {
     const qty = (dish: number) => TAPS.slice(0, done).filter((t) => t.dish === dish).length;
     const lastTap = done > 0 ? TAPS[done - 1].dish : undefined;
     const sent = done >= SENT_AT;
+    const items = order.dishes.reduce((n, _d, i) => n + qty(i), 0);
+    const total = order.dishes.reduce((sum, d, i) => sum + qty(i) * parseInt(d.price, 10), 0);
 
     return (
         <div className={styles.order}>
@@ -89,41 +95,41 @@ function OrderPanel({ still }: { still: boolean }) {
                 <Kicker>{order.label}</Kicker>
                 <span className={styles.tableChip}>{order.table}</span>
             </div>
-            {order.dishes.map((d, i) => {
-                const n = qty(i);
-                return (
-                    <div key={d.name} className={styles.dish}>
-                        <span className={styles.dishText}>
-                            <span className={styles.dishName}>{d.name}</span>
-                            <span className={styles.dishDesc}>{d.desc}</span>
-                        </span>
-                        <span className={styles.dishPrice}>{d.price}</span>
-                        <span
-                            // Chiave nuova a ogni tocco: l'onda riparte.
-                            key={n}
-                            className={cx(styles.plus, n > 0 && styles.plusOn, !still && lastTap === i && styles.plusTap)}
-                            aria-hidden="true"
-                        >
-                            {n > 0 ? n : "+"}
-                        </span>
-                    </div>
-                );
-            })}
-            <div className={cx(styles.sendBar, done > 1 && styles.sendBarUp, done === PRESS_AT + 1 && styles.sendBarPress)}>
-                {sent ? (
-                    <span>{order.sent}</span>
-                ) : (
-                    <span>
-                        {order.send} <span className={styles.sendCount}>· {order.count}</span>
+            {order.dishes.map((d, i) => (
+                <div key={d.name} className={styles.dish}>
+                    <span className={styles.dishText}>
+                        <span className={styles.dishName}>{d.name}</span>
+                        <span className={styles.dishDesc}>{d.desc}</span>
                     </span>
-                )}
-                <span>{order.total}</span>
+                    <span className={styles.dishPrice}>{d.price}</span>
+                    <span
+                        // Chiave nuova a ogni tocco: l'onda riparte.
+                        key={qty(i)}
+                        className={cx(styles.plus, !still && lastTap === i && styles.plusTap)}
+                        aria-hidden="true"
+                    >
+                        +
+                    </span>
+                </div>
+            ))}
+            {/* A sinistra il pulsante che invia, a destra il carrello che si riempie. */}
+            <div className={cx(styles.sendBar, done > 0 && styles.sendBarUp)}>
+                <span className={cx(styles.sendBtn, done === PRESS_AT + 1 && styles.sendBtnPress)}>
+                    <span>{sent ? order.sent : order.send}</span>
+                    <span>{total} €</span>
+                </span>
+                <span className={styles.cart}>
+                    <ShoppingBag size={20} strokeWidth={2.2} aria-hidden="true" />
+                    {/* Chiave = quantità: il numero rimbalza a ogni piatto aggiunto. */}
+                    <span key={items} className={styles.cartCount}>
+                        {items}
+                    </span>
+                </span>
             </div>
         </div>
     );
 }
 
-/** Scena 2: la comanda esce dalla fessura della stampante e si srotola (CSS). */
 function TicketPanel() {
     const { ticket } = ORDERS;
     return (

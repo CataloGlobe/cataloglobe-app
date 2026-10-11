@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import Problem from "@pages/CampaignLanding/components/Problem/Problem";
 import { MenuRow, PhoneQrCard } from "@pages/CampaignLanding/components/kit/Kit";
-import { Swap } from "@pages/CampaignLanding/components/kit/Swap";
 import { SOLD_OUT } from "@pages/CampaignLanding/content/landing";
 import { useReducedMotion } from "@pages/CampaignLanding/hooks/useReducedMotion";
 import { useVisible } from "@pages/CampaignLanding/hooks/useVisible";
@@ -75,8 +74,10 @@ export default function SoldOut() {
                             paper="phone"
                             control={
                                 <>
-                                    <span className={cx(styles.state, soldOut && styles.stateOff)} aria-hidden="true">
-                                        <Swap id={soldOut ? "off" : "on"}>{soldOut ? SOLD_OUT.soldOut : SOLD_OUT.available}</Swap>
+                                    {/* Le due parole sempre nella stessa cella, allineate a destra: la larghezza non cambia e la parola non salta. */}
+                                    <span className={styles.state} aria-hidden="true">
+                                        <span className={cx(styles.word, !soldOut && styles.wordOn)}>{SOLD_OUT.available}</span>
+                                        <span className={cx(styles.word, styles.wordOff, soldOut && styles.wordOn)}>{SOLD_OUT.soldOut}</span>
                                     </span>
                                     <button
                                         type="button"

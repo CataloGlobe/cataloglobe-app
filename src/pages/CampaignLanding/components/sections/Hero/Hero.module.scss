@@ -34,6 +34,21 @@
     }
 }
 
+// Tovaglietta: doodle di menù e tavola, fermo (si muovono già telefono e
+// bagliore). Sotto il testo la maschera lo spegne quasi del tutto.
+.pattern {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: url("@pages/CampaignLanding/assets/hero/hero-doodle.webp") 0 0 / 760px 760px repeat;
+    opacity: 0.1;
+    mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.3) 0%, rgba(0, 0, 0, 0.8) 45%, #000 65%);
+
+    @include desktop {
+        mask-image: linear-gradient(90deg, rgba(0, 0, 0, 0.25) 0%, rgba(0, 0, 0, 0.7) 36%, #000 58%);
+    }
+}
+
 // Bagliore per fascia: tre livelli sovrapposti, si muove solo l'opacità
 // (niente interpolazione di gradienti, vedi note WebKit su PublicSheet).
 .glow {

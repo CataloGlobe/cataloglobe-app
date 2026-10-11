@@ -1,5 +1,5 @@
-import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from "react";
-import { ArrowRight, Check } from "lucide-react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type FormEvent } from "react";
+import { ArrowRight, Check, ChevronLeft } from "lucide-react";
 import { COMPANY } from "@/config/company";
 import { validateLead, type LeadField, type LeadFieldError, type LeadInterest } from "@/utils/leadValidation";
 import { normalizePhoneToE164 } from "@/utils/phoneNormalize";
@@ -9,6 +9,8 @@ import Section from "@pages/CampaignLanding/components/Section/Section";
 import { HandNote, UnderlinedText } from "@pages/CampaignLanding/components/kit/Kit";
 import Reveal from "@pages/CampaignLanding/components/kit/Reveal";
 import { CONTACT } from "@pages/CampaignLanding/content/landing";
+import { ENTRY_ROOT_MARGIN, useInView } from "@pages/CampaignLanding/hooks/useInView";
+import { useReducedMotion } from "@pages/CampaignLanding/hooks/useReducedMotion";
 import { useLandingVariant } from "@pages/CampaignLanding/variant";
 import styles from "./Contact.module.scss";
 import { leadSuccessCopy } from "./successCopy";
@@ -63,6 +65,8 @@ function ContactForm() {
     const [status, setStatus] = useState<Status>("idle");
     const honeypot = useRef<HTMLInputElement>(null);
     const form = useRef<HTMLFormElement>(null);
+    // Ingresso: i blocchi del form entrano uno dopo l'altro (--i), il pulsante per ultimo.
+    const entered = useInView(form, 0.15, ENTRY_ROOT_MARGIN);
     const doneTitle = useRef<HTMLHeadingElement>(null);
     const email = COMPANY.contact.info;
 
@@ -175,7 +179,7 @@ function ContactForm() {
                 ref={form}
                 id={LANDING_CONTACT_FORM_ID}
                 onFocus={() => void loadLeads().catch(() => undefined)}
-                className={cx(styles.form, sent && styles.formSent)}
+                className={cx(styles.form, entered && styles.formIn, sent && styles.formSent)}
                 data-tone="light"
                 onSubmit={handleSubmit}
                 noValidate
@@ -183,8 +187,8 @@ function ContactForm() {
                 aria-hidden={sent || undefined}
             >
                 <div className={styles.fields}>
-                    {FIELDS.map((f) => (
-                        <label key={f.key} className={styles.field}>
+                    {FIELDS.map((f, i) => (
+                        <label key={f.key} className={cx(styles.field, styles.enter)} style={{ "--i": i } as CSSProperties}>
                             {f.label} {f.optional && <span className={styles.optional}>{CONTACT.fields.optional}</span>}
                             <input
                                 className={cx(styles.input, errors[f.key] && styles.inputError)}
@@ -208,7 +212,7 @@ function ContactForm() {
                     <input ref={honeypot} type="text" name="website" tabIndex={-1} autoComplete="off" defaultValue="" />
                 </label>
 
-                <fieldset className={styles.fieldset}>
+                <fieldset className={cx(styles.fieldset, styles.enter)} style={{ "--i": FIELDS.length } as CSSProperties}>
                     <legend className={styles.legend}>{CONTACT.interestsLabel}</legend>
                     <div className={styles.pills}>
                         {CONTACT.interests.map((interest) => {
@@ -225,7 +229,7 @@ function ContactForm() {
                     </div>
                 </fieldset>
 
-                <div>
+                <div className={styles.enter} style={{ "--i": FIELDS.length + 1 } as CSSProperties}>
                     <label className={styles.consent}>
                         <input
                             className={styles.checkbox}
@@ -249,7 +253,7 @@ function ContactForm() {
                     {fieldError("consent")}
                 </div>
 
-                <div className={styles.submit}>
+                <div className={cx(styles.submit, styles.enter)} style={{ "--i": FIELDS.length + 2 } as CSSProperties}>
                     <LandingCta placement={variante === "signup" ? "callback" : "final"} shape="submit" busyLabel={status === "sending" ? CONTACT.sending : undefined} />
                     <ul className={styles.reassure}>
                         {CONTACT.reassurance.map((line) => (
@@ -308,42 +312,76 @@ function ContactForm() {
  * sotto, «ti chiamiamo noi» che apre lo stesso form della variante form, per
  * chi non è pronto a registrarsi. Il form parte chiuso anche nel prerender.
  */
+const LEAVE_MS = 200;
+
 function SignupClose() {
+    // Scambio nello stesso posto: o la scheda della prova o il form della chiamata, mai tutte e due.
     const [open, setOpen] = useState(false);
     const formWrap = useRef<HTMLDivElement>(null);
+    const callMe = useRef<HTMLButtonElement>(null);
+    const touched = useRef(false);
 
     useEffect(() => {
-        if (open) formWrap.current?.querySelector<HTMLElement>('[data-field="name"]')?.focus();
+        if (!touched.current) return;
+        if (open) formWrap.current?.querySelector<HTMLElement>('[data-field="name"]')?.focus({ preventScroll: true });
+        else callMe.current?.focus({ preventScroll: true });
     }, [open]);
 
-    return (
-        <div className={styles.signupCol}>
-            <div className={cx(styles.form, styles.trial)} data-tone="light">
-                <ul className={styles.trialPoints}>
-                    {CONTACT.signup.points.map((point) => (
-                        <li key={point}>
-                            <span className={styles.trialTick} aria-hidden="true">
-                                <Check size={12} strokeWidth={3.5} />
-                            </span>
-                            {point}
-                        </li>
-                    ))}
-                </ul>
-                <LandingCta placement="final" shape="start" className={styles.trialCta} />
-            </div>
+    // Prima esce quello che c'è (dissolvenza), poi entra l'altro; senza animazioni, subito.
+    const [leaving, setLeaving] = useState(false);
+    const reduced = useReducedMotion();
+    const leaveTimer = useRef<number>(undefined);
+    useEffect(() => () => window.clearTimeout(leaveTimer.current), []);
+    const toggle = (next: boolean) => {
+        if (leaving) return;
+        touched.current = true;
+        if (reduced) {
+            setOpen(next);
+            return;
+        }
+        setLeaving(true);
+        leaveTimer.current = window.setTimeout(() => {
+            setLeaving(false);
+            setOpen(next);
+        }, LEAVE_MS);
+    };
 
-            {open ? (
-                <div ref={formWrap} className={styles.callForm}>
+    if (open) {
+        return (
+            // Contenitore fisso: l'ingresso di Reveal vale per lui, lo scambio per il figlio.
+            <div className={styles.swapBox}>
+                <div ref={formWrap} className={cx(styles.signupCol, leaving ? styles.swapOut : styles.swapIn)}>
+                    <button type="button" className={styles.back} onClick={() => toggle(false)}>
+                        <ChevronLeft size={16} strokeWidth={2.4} aria-hidden="true" />
+                        {CONTACT.signup.back}
+                    </button>
                     <ContactForm />
                 </div>
-            ) : (
-                <>
-                    <span className={styles.or}>{CONTACT.signup.or}</span>
-                    <button type="button" className={styles.callMe} aria-expanded={false} onClick={() => setOpen(true)}>
-                        {CONTACT.signup.callMe}
-                    </button>
-                </>
-            )}
+            </div>
+        );
+    }
+
+    return (
+        <div className={styles.swapBox}>
+            <div className={cx(styles.signupCol, leaving ? styles.swapOut : touched.current && styles.swapIn)}>
+                <div className={cx(styles.form, styles.trial)} data-tone="light">
+                    <ul className={styles.trialPoints}>
+                        {CONTACT.signup.points.map((point) => (
+                            <li key={point}>
+                                <span className={styles.trialTick} aria-hidden="true">
+                                    <Check size={12} strokeWidth={3.5} />
+                                </span>
+                                {point}
+                            </li>
+                        ))}
+                    </ul>
+                    <LandingCta placement="final" shape="start" className={styles.trialCta} />
+                </div>
+                <span className={styles.or}>{CONTACT.signup.or}</span>
+                <button ref={callMe} type="button" className={styles.callMe} onClick={() => toggle(true)}>
+                    {CONTACT.signup.callMe}
+                </button>
+            </div>
         </div>
     );
 }
@@ -371,7 +409,7 @@ export default function Contact() {
                     </p>
                 </Reveal>
 
-                <Reveal className={styles.formCol}>
+                <Reveal variant="cards" className={styles.formCol}>
                     {variante === "form" ? <ContactForm /> : <SignupClose />}
                     <p className={cx(styles.write, styles.writeMobile)}>
                         {variante === "form" ? CONTACT.writeInstead : CONTACT.talkInstead} <a href={`mailto:${email}`}>{email}</a>

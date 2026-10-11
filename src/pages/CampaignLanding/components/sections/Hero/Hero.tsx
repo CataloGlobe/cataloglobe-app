@@ -11,6 +11,7 @@ import { BRAND, HERO } from "@pages/CampaignLanding/content/landing";
 import { useReducedMotion } from "@pages/CampaignLanding/hooks/useReducedMotion";
 import HeroStage from "./HeroStage";
 import type { Fascia } from "./heroSequence";
+import { useLandingVariant } from "@pages/CampaignLanding/variant";
 import styles from "./Hero.module.scss";
 
 const cx = (...names: (string | false | null | undefined)[]) => names.filter(Boolean).join(" ");
@@ -95,6 +96,7 @@ export default function Hero() {
     const [fascia, setFascia] = useState<Fascia>(0);
     const { refs, onPointerMove, onPointerLeave } = useHeroParallax(fine && !reduced);
     const note = useCtaEntry("hero").note ?? [];
+    const variante = useLandingVariant();
 
     return (
         <section className={styles.hero} aria-labelledby="landing-hero-title">
@@ -106,6 +108,8 @@ export default function Hero() {
                 onPointerMove={onPointerMove}
                 onPointerLeave={onPointerLeave}
             >
+                {/* Doodle solo in /b, per confrontarlo con / */}
+                {variante === "signup" && <div className={styles.pattern} aria-hidden="true" />}
                 <div ref={refs.glow} className={styles.glow} aria-hidden="true">
                     {[0, 1, 2].map((i) => (
                         <div key={i} className={cx(styles.glowLayer, styles[`glow${i}`], i === fascia && styles.glowOn)} />
