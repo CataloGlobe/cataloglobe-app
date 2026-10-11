@@ -36,3 +36,20 @@ export type HeaderSlotContext = {
 };
 
 export type HeaderSlot = (context: HeaderSlotContext) => ReactNode;
+
+/** Dati e gesti che `CollectionView` passa alla barra in basso nuova. */
+export type BottomBarSlotContext = {
+    activeTab: HubTab;
+    onTabChange: (tab: HubTab) => void;
+    /** La capsula Menu/Storia c'è solo con almeno due pagine. */
+    showStoryTab: boolean;
+    /** Il cerchio dell'ordine c'è solo con gli ordini al tavolo. */
+    orderVisible: boolean;
+    /** Articoli nel carrello: numero accanto all'icona, mai un badge. */
+    selectionCount: number;
+    onOpenOrder: () => void;
+    /** Barra fuori vista, decisa da `useBottomBarAutoHide` in `CollectionView`. */
+    hidden: boolean;
+};
+
+export type BottomBarSlot = (context: BottomBarSlotContext) => ReactNode;

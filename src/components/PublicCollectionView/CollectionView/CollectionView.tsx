@@ -34,7 +34,7 @@ import { FeaturedCtaFooter } from "../FeaturedBlock/FeaturedContentDetail";
 import { hasFeaturedCta } from "../FeaturedBlock/featuredCta";
 import PublicBottomBar from "../PublicBottomBar/PublicBottomBar";
 import PublicBottomScrim from "../PublicBottomScrim/PublicBottomScrim";
-import type { HeaderSlot } from "../redesign/slots";
+import type { BottomBarSlot, HeaderSlot } from "../redesign/slots";
 import { hasOpenSheet } from "../hooks/openSheets";
 import { useBottomBarAutoHide } from "../hooks/useBottomBarAutoHide";
 import { hasOrderablePrice } from "../itemPricing";
@@ -828,6 +828,7 @@ type Props = {
      * mode "public". Assente col flag spento → nessuna differenza di comportamento.
      */
     headerSlot?: HeaderSlot;
+    bottomBarSlot?: BottomBarSlot;
 };
 
 export default function CollectionView({
@@ -864,7 +865,8 @@ export default function CollectionView({
     enableReservations = false,
     previewDevice,
     initialSelection,
-    headerSlot
+    headerSlot,
+    bottomBarSlot
 }: Props) {
     const navigate = useNavigate();
     // Lettura non-throwing del context lingua: CollectionView è renderizzato
@@ -1566,6 +1568,9 @@ export default function CollectionView({
     }, [selectionCount]);
 
     // ── Bottom bar: nascondi/mostra tutto o niente (regole in bottomBarVisibility.ts) ──
+    // Barra del redesign (solo pubblico): senza Storia e senza ordini non c'è nessuna barra.
+    const useBarSlot = mode === "public" && !!bottomBarSlot;
+    const barSlotShown = showStoryTab || !shouldHideOrderingEntry;
     const isBottomBarMounted = useBottomBar || (mode === "preview" && previewDevice === "mobile");
     const {
         hidden: isBottomBarHidden,
@@ -3343,7 +3348,16 @@ export default function CollectionView({
             {/* reviewDot riusa `valutaVisible` (stessa eligibilità 4h + scroll≥70% + no review <24h). */}
             {/* Preview mobile: barra montata SOLO per fedeltà di layout, completamente
                 inerte (props no-op, ordering OFF). Runtime (useBottomBar) invariato. */}
-            {isBottomBarMounted && (
+            {isBottomBarMounted && useBarSlot && barSlotShown && bottomBarSlot?.({
+                activeTab,
+                onTabChange: handleHubTabTap,
+                showStoryTab,
+                orderVisible: !shouldHideOrderingEntry,
+                selectionCount,
+                onOpenOrder: openOrdering,
+                hidden: isBottomBarHidden
+            })}
+            {isBottomBarMounted && !useBarSlot && (
                 <PublicBottomBar
                     activeTab={mode === "preview" ? "menu" : activeTab}
                     onTabChange={mode === "preview" ? () => {} : handleHubTabTap}
@@ -3368,7 +3382,7 @@ export default function CollectionView({
 
             {/* ── SCRIM bordo inferiore — stessa condizione di mount della barra.
                 Sotto la barra (z 100 < 150), sopra il contenuto. Solo CSS. ── */}
-            {isBottomBarMounted && (
+            {isBottomBarMounted && (!useBarSlot || barSlotShown) && (
                 <PublicBottomScrim isPreview={mode === "preview"} hidden={isBottomBarHidden} />
             )}
 
