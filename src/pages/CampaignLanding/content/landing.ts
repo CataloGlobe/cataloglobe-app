@@ -171,7 +171,8 @@ export type ProblemCopy = {
     note: string;
     title: SplitTitle;
     lede: string;
-    solution: string;
+    /** Riquadro «Con CataloGlobe»: il risultato in grassetto, poi il dettaglio. */
+    solution: { lead: string; body: string };
     /** Badge «Piano Pro» accanto a «Con CataloGlobe». */
     pro?: boolean;
 };
@@ -187,7 +188,7 @@ export const SUPPLIER = {
         note: "i costi salgono…",
         title: { lead: "Il fornitore aumenta.", accent: "E tu rimandi la ristampa." },
         lede: "Alzare un prezzo sulla carta vuol dire ristampare tutto il menù, e così si rimanda. Intanto la differenza la paghi tu, piatto dopo piatto.",
-        solution: "Lo cambi dal telefono: il menù che si apre dal QR è subito giusto, e il PDF da stampare si aggiorna da solo."
+        solution: { lead: "Il prezzo nuovo è subito nel menù.", body: "Lo cambi dal telefono, e il PDF da stampare si aggiorna da solo." }
     } satisfies ProblemCopy,
     /**
      * Scheda: all'ingresso nello schermo il prezzo della tagliata sale da 22 a
@@ -220,7 +221,7 @@ export const SOLD_OUT = {
         note: "mi dispiace, non c’è più…",
         title: { lead: "Un piatto è finito.", accent: "Nel menù c’è ancora." },
         lede: "Il cliente lo sceglie e il cameriere deve tornare al tavolo a dirgli che non c’è. Succede ogni volta che qualcosa finisce a metà servizio.",
-        solution: "Lo segni esaurito dal telefono: sparisce dal menù o resta visibile come non disponibile. Se finisce un ingrediente, spegni in un colpo tutti i piatti che lo usano."
+        solution: { lead: "Esaurito con un tocco.", body: "Sparisce dal menù o resta come non disponibile. Finito un ingrediente? Spegni insieme tutti i piatti che lo usano." }
     } satisfies ProblemCopy,
     dish: "Branzino al sale",
     soldOut: "Esaurito",
@@ -240,7 +241,7 @@ export const ORDERS = {
         note: "cameriere!",
         title: { lead: "I tuoi camerieri passano la sera", accent: "a prendere ordini." },
         lede: "E intanto il tavolo che vuole il conto aspetta. Con il personale che non si trova, è tempo che non hai.",
-        solution: "Il cliente ordina dal QR sul tavolo e la comanda arriva in cucina, stampata o su tablet. Quando un tavolo chiama il cameriere o chiede il conto, lo vedi subito sul telefono.",
+        solution: { lead: "La comanda va dritta in cucina.", body: "Il cliente ordina dal QR, la cucina la riceve stampata o su tablet, e chiamate e conto li vedi sul telefono." },
         pro: true
     } satisfies ProblemCopy,
     steps: [

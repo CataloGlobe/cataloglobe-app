@@ -66,14 +66,15 @@ export function SplitHeading({
     );
 }
 
-/** Riquadro tratteggiato «Con CataloGlobe» (+ «Piano Pro»). */
-export function WithUs({ children, pro = false }: { children: ReactNode; pro?: boolean }) {
+/** Riquadro «Con CataloGlobe» (+ «Piano Pro»): risultato in grassetto, poi il dettaglio. */
+export function WithUs({ lead, children, pro = false }: { lead: string; children: ReactNode; pro?: boolean }) {
     return (
         <div className={styles.withUs}>
             <span className={styles.tags}>
                 <span className={styles.tag}>{WITH_US}</span>
                 {pro && <span className={cx(styles.tag, styles.tagPro)}>{PRO_BADGE}</span>}
             </span>
+            <p className={styles.withUsLead}>{lead}</p>
             <p className={styles.withUsText}>{children}</p>
         </div>
     );

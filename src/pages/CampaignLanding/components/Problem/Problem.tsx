@@ -29,7 +29,7 @@ export default function Problem({ id, tone, copy, visualSide, visualGap = "card"
                     <SplitHeading id={headingId} title={copy.title} size="problem" block className={styles.title} />
                     <p className={styles.lede}>{copy.lede}</p>
                     {cost}
-                    <WithUs pro={copy.pro}>{copy.solution}</WithUs>
+                    <WithUs lead={copy.solution.lead} pro={copy.pro}>{copy.solution.body}</WithUs>
                 </Reveal>
                 <Reveal className={[styles.visual, visualGap === "card" ? styles.visualGap : null].filter(Boolean).join(" ")}>
                     <div className={styles.visualInner}>{visual}</div>
