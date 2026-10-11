@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState, useMemo } from "react";
 import Text from "@/components/ui/Text/Text";
 import {
     getFieldTranslationStatus,
@@ -83,7 +83,12 @@ export function DescriptionTranslationRow({
     }, [hasPending, fetchStatus]);
 
     // Lingue in attesa dei 10 minuti: una ricarica quando parte la prima.
-    const waitingDelay = hasPending ? null : waitingRefetchDelayMs(languages);
+    // Calcolato solo quando cambiano gli stati: con Date.now() a ogni render il
+    // timer si riarmerebbe e slitterebbe.
+    const waitingDelay = useMemo(
+        () => (hasPending ? null : waitingRefetchDelayMs(languages)),
+        [hasPending, languages]
+    );
     useEffect(() => {
         if (waitingDelay === null) return;
         const timer = setTimeout(fetchStatus, waitingDelay);

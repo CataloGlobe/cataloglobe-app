@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import { getFieldTranslationStatus } from "@/services/supabase/translationStatus";
 import { listAvailableLanguages } from "@/services/supabase/tenantLanguages";
 import type { ProdottoLingua } from "./prodottoModel";
@@ -58,7 +58,12 @@ export function useProdottoLingue(
     }, [hasPending, fetchStatus]);
 
     // Lingue in attesa dei 10 minuti: una ricarica quando parte la prima.
-    const waitingDelay = hasPending ? null : waitingRefetchDelayMs(states);
+    // Calcolato solo quando cambiano gli stati: con Date.now() a ogni render il
+    // timer si riarmerebbe e slitterebbe.
+    const waitingDelay = useMemo(
+        () => (hasPending ? null : waitingRefetchDelayMs(states)),
+        [hasPending, states]
+    );
     useEffect(() => {
         if (waitingDelay === null) return;
         const timer = setTimeout(() => void fetchStatus(), waitingDelay);
