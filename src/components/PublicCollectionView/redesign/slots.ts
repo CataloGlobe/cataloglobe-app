@@ -1,4 +1,6 @@
-import type { ReactNode } from "react";
+import type { ReactNode, RefObject } from "react";
+import type { ActivityFee } from "@/types/activity";
+import type { SocialLinks } from "@/components/PublicCollectionView/CollectionView/CollectionView";
 import type { HubTab } from "@/types/collectionStyle";
 import type { OpeningHoursEntry, UpcomingClosure } from "@components/PublicCollectionView/PublicOpeningHours/PublicOpeningHours";
 
@@ -53,3 +55,39 @@ export type BottomBarSlotContext = {
 };
 
 export type BottomBarSlot = (context: BottomBarSlotContext) => ReactNode;
+
+/** Fogli del redesign che `CollectionView` apre per nome (⋯, nome, stato del locale). */
+export type PublicSheetName = "more" | "info" | "hours";
+
+/** Dati e gesti dei fogli del locale: Altre opzioni, Informazioni, Orari. */
+export type SheetsSlotContext = {
+    /** Radice della pagina sotto il foglio: `inert` finché è aperto (il portal sta fuori). */
+    pageRef: RefObject<HTMLElement | null>;
+    openingHours: OpeningHoursEntry[];
+    upcomingClosures: UpcomingClosure[];
+    fees: ActivityFee[];
+    paymentMethods: string[];
+    activityServices: string[];
+    socialLinks: SocialLinks | undefined;
+    address: string | null;
+    /** C'è almeno una cosa da mostrare in Informazioni. */
+    hasInfo: boolean;
+    activeFilterCount: number;
+    hasAllergensInCatalog: boolean;
+    /** Filtri degli allergeni: stanno nella ricerca, il foglio si chiude prima. */
+    onOpenFilters: () => void;
+    /** Solo se la sede prende prenotazioni online. */
+    onOpenReservation?: () => void;
+    /** Indirizzo pubblico della sede, senza lingua né query (assente in SSR). */
+    shareUrl?: string;
+    shareTitle: string;
+};
+
+/**
+ * Il foglio unico al posto di Informazioni e del ⋯ di oggi: `render` lo monta
+ * una volta, `open` lo apre per nome da qualunque punto di `CollectionView`.
+ */
+export type SheetsSlot = {
+    render: (context: SheetsSlotContext) => ReactNode;
+    open: (name: PublicSheetName) => void;
+};

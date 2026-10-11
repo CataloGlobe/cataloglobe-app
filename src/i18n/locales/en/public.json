@@ -579,5 +579,9 @@
             "not_confirmable_title": "Booking no longer active",
             "not_confirmable_text": "This booking is no longer active, so there is nothing to confirm. If you think this is a mistake, please contact the venue directly."
         }
+    },
+    "sheet": {
+        "back_to": "Back to {{title}}",
+        "close": "Close"
     }
 }

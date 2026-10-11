@@ -578,5 +578,9 @@
             "not_confirmable_title": "Prenotazione non attiva",
             "not_confirmable_text": "Questa prenotazione non risulta più attiva, quindi non c'è nulla da confermare. Se pensi ci sia un errore, contatta direttamente la sede."
         }
+    },
+    "sheet": {
+        "back_to": "Torna a {{title}}",
+        "close": "Chiudi"
     }
 }

@@ -28,6 +28,8 @@ export type SheetState = {
 
 export type SheetAction =
     | { type: "open"; page: SheetPage }
+    /** Apre già su una figlia, con le madri sotto (es. Orari con «‹ Informazioni»). */
+    | { type: "openAt"; pages: readonly SheetPage[] }
     | { type: "push"; page: SheetPage }
     | { type: "pop" }
     | { type: "close" };
@@ -38,6 +40,9 @@ export function sheetReducer(state: SheetState, action: SheetAction): SheetState
     switch (action.type) {
         case "open":
             return { pages: [action.page], move: "open" };
+        case "openAt":
+            if (action.pages.length === 0) return state.pages.length === 0 ? state : CLOSED_SHEET;
+            return { pages: action.pages, move: "open" };
         case "push": {
             // Foglio chiuso: la spinta è un'apertura. Stessa pagina in cima: niente da fare.
             if (state.pages.length === 0) return { pages: [action.page], move: "open" };
@@ -77,6 +82,7 @@ function dispatch(action: SheetAction): void {
 }
 
 export const openSheet = (page: SheetPage): void => dispatch({ type: "open", page });
+export const openSheetAt = (pages: readonly SheetPage[]): void => dispatch({ type: "openAt", pages });
 export const pushSheetPage = (page: SheetPage): void => dispatch({ type: "push", page });
 export const popSheetPage = (): void => dispatch({ type: "pop" });
 export const closeSheet = (): void => dispatch({ type: "close" });

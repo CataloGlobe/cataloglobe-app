@@ -14,8 +14,8 @@ export const SLUG = "sede-e2e-barra";
 export const ACTIVITY_ID = "00000000-0000-4000-8000-0000000000a1";
 const TENANT_ID = "00000000-0000-4000-8000-0000000000b1";
 
-function business(): PublicBusiness {
-    return {
+function business(venueInfo = false): PublicBusiness {
+    const base: PublicBusiness = {
         id: ACTIVITY_ID,
         tenant_id: TENANT_ID,
         name: "Sede e2e barra",
@@ -47,7 +47,29 @@ function business(): PublicBusiness {
         services: [],
         fees: [],
     };
+    if (!venueInfo) return base;
+    // Sede con orari pubblici e qualche informazione: per i fogli Informazioni e Orari.
+    return {
+        ...base,
+        address: "Via Roma",
+        street_number: "1",
+        city: "Milano",
+        phone: "+39 02 1234567",
+        phone_public: true,
+        hours_public: true,
+        payment_methods: ["Contanti", "Carta"],
+        services: ["Wi-Fi"],
+    };
 }
+
+/** Tutti i giorni 12:00–23:00: con l'orologio fisso a mezzogiorno e mezzo la sede è aperta. */
+const OPENING_HOURS = Array.from({ length: 7 }, (_, day) => ({
+    day_of_week: day,
+    slot_index: 0,
+    opens_at: "12:00",
+    closes_at: "23:00",
+    is_closed: false,
+}));
 
 export const CATEGORIES = ["Antipasti", "Primi", "Secondi", "Dolci"];
 
@@ -107,9 +129,10 @@ export type FeaturedSlots = {
 /** Config dello stile risolto (`resolved.style.config`, formato di `parseTokens`). Assente = default. */
 export type StyleConfig = Record<string, unknown>;
 
-function payload(featuredSlots: FeaturedSlots, styleConfig?: StyleConfig): ResolvedPayloadShape {
+function payload(featuredSlots: FeaturedSlots, styleConfig?: StyleConfig, venueInfo = false): ResolvedPayloadShape {
     return {
-        business: business(),
+        business: business(venueInfo),
+        ...(venueInfo ? { opening_hours: OPENING_HOURS, upcoming_closures: [] } : {}),
         tenantLogoUrl: null,
         base_language_code: "it",
         effective_language: "it",
@@ -125,11 +148,11 @@ function payload(featuredSlots: FeaturedSlots, styleConfig?: StyleConfig): Resol
 
 export async function stubPublicPage(
     page: Page,
-    opts: { ordering: boolean; featured?: FeaturedSlots; styleConfig?: StyleConfig }
+    opts: { ordering: boolean; featured?: FeaturedSlots; styleConfig?: StyleConfig; venueInfo?: boolean }
 ): Promise<void> {
     const featuredSlots = opts.featured ?? { before_catalog: [featured()] };
     await page.route("**/api/public-catalog**", route =>
-        route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(payload(featuredSlots, opts.styleConfig)) })
+        route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(payload(featuredSlots, opts.styleConfig, opts.venueInfo)) })
     );
     await page.route("**/functions/v1/log-analytics-event**", route => route.fulfill({ status: 204 }));
     await page.route("**/functions/v1/get-orders-for-session**", route =>

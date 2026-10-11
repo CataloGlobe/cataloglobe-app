@@ -11,6 +11,7 @@ import {
     type RefObject
 } from "react";
 import { createPortal } from "react-dom";
+import { useTranslation } from "react-i18next";
 import { ChevronLeft, X } from "lucide-react";
 import { PublicPortalContext } from "@/features/public/components/PublicPortalContext";
 import { PUBLIC_MOBILE_QUERY } from "../../publicBreakpoints";
@@ -44,6 +45,9 @@ type Props = {
     backgroundRef?: RefObject<HTMLElement | null>;
 };
 
+// Host montati adesso: uno solo nella pagina, ma lo smontaggio va contato (vedi sotto).
+let mountedHosts = 0;
+
 const subscribeToQuery = (query: string) => (notify: () => void) => {
     const mq = window.matchMedia(query);
     mq.addEventListener("change", notify);
@@ -71,6 +75,7 @@ function useMediaQuery(query: string, subscribe: (notify: () => void) => () => v
  * Non è montato nella pagina di oggi: lo usano le PR del redesign.
  */
 export default function SheetHost({ renderPage, backgroundRef }: Props) {
+    const { t } = useTranslation("public");
     const state = useSheetState();
     const isOpen = state.pages.length > 0;
     const portalTarget = useContext(PublicPortalContext);
@@ -109,14 +114,20 @@ export default function SheetHost({ renderPage, backgroundRef }: Props) {
     useSheetBodyLock(isOpen);
 
     // Host smontato (cambio di rotta) con il foglio aperto: si chiude lo store e
-    // si lascia andare il nodo ricordato per il fuoco.
-    useEffect(
-        () => () => {
-            closeSheet();
-            takeSheetOpener();
-        },
-        []
-    );
+    // si lascia andare il nodo ricordato per il fuoco. Si aspetta un microtask:
+    // lo smontaggio finto di StrictMode (o un host montato a foglio già aperto,
+    // come quello caricato al primo tocco) rimonta subito e non deve chiudere.
+    useEffect(() => {
+        mountedHosts += 1;
+        return () => {
+            mountedHosts -= 1;
+            queueMicrotask(() => {
+                if (mountedHosts > 0) return;
+                closeSheet();
+                takeSheetOpener();
+            });
+        };
+    }, []);
 
     // Dopo una spinta in avanti `leaving` è già vuoto: lo stesso stato, nessun render
     // proprio nel frame in cui finisce la corsa.
@@ -141,6 +152,7 @@ export default function SheetHost({ renderPage, backgroundRef }: Props) {
 
     const index = Math.max(0, shown.length - 1);
     const activePage = shown[index];
+    const parentPage = index > 0 ? shown[index - 1] : undefined;
 
     // ── Entrata ──────────────────────────────────────────────────────────────
     useLayoutEffect(() => {
@@ -368,15 +380,22 @@ export default function SheetHost({ renderPage, backgroundRef }: Props) {
                 >
                     <span className={styles.handle} aria-hidden="true" />
                     <div className={styles.header}>
-                        {shown.length > 1 ? (
-                            <button type="button" className={styles.iconButton} onClick={popSheetPage} aria-label="Indietro">
+                        {parentPage ? (
+                            // «‹ Madre»: si sa dove si torna (spec §5, v25).
+                            <button
+                                type="button"
+                                className={styles.backButton}
+                                onClick={popSheetPage}
+                                aria-label={t("sheet.back_to", { title: parentPage.title })}
+                            >
                                 <ChevronLeft size={20} aria-hidden="true" />
+                                <span className={styles.backLabel}>{parentPage.title}</span>
                             </button>
                         ) : null}
                         <h2 id="pub-sheet-title" className={styles.title}>
                             {activePage.title}
                         </h2>
-                        <button type="button" className={styles.iconButton} onClick={closeSheet} aria-label="Chiudi">
+                        <button type="button" className={styles.iconButton} onClick={closeSheet} aria-label={t("sheet.close")}>
                             <X size={18} aria-hidden="true" />
                         </button>
                     </div>

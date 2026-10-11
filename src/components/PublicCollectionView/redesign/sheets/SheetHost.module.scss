@@ -71,6 +71,8 @@
   flex: 1;
   margin: 0;
   min-width: 0;
+  /* il colore dei titoli dell'app non vale qui: quello del locale */
+  color: inherit;
   font: inherit;
   font-weight: 600;
   overflow: hidden;
@@ -92,6 +94,35 @@
   background: transparent;
   color: inherit;
   cursor: pointer;
+}
+
+/* «‹ Madre»: freccia e nome della pagina sotto, mai più largo di metà testata. */
+.backButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 1;
+  max-width: 45%;
+  min-height: 44px;
+  margin-left: -8px;
+  padding: 0 8px 0 0;
+  border: 0;
+  border-radius: 22px;
+  background: transparent;
+  color: color-mix(in srgb, var(--pub-text) 70%, transparent);
+  font: inherit;
+  cursor: pointer;
+
+  svg {
+    flex-shrink: 0;
+  }
+}
+
+.backLabel {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Altezza impostata da SheetHost (segue la pagina attiva); il tetto sta sul pannello. */

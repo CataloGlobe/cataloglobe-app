@@ -579,5 +579,9 @@
             "not_confirmable_title": "Reserva no activa",
             "not_confirmable_text": "Esta reserva ya no está activa, así que no hay nada que confirmar. Si crees que es un error, contacta directamente con el local."
         }
+    },
+    "sheet": {
+        "back_to": "Volver a {{title}}",
+        "close": "Cerrar"
     }
 }

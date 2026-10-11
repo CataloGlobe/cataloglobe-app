@@ -579,5 +579,9 @@
             "not_confirmable_title": "Reservierung nicht mehr aktiv",
             "not_confirmable_text": "Diese Reservierung ist nicht mehr aktiv, es gibt also nichts zu bestätigen. Falls das ein Fehler ist, kontaktieren Sie bitte den Standort direkt."
         }
+    },
+    "sheet": {
+        "back_to": "Zurück zu {{title}}",
+        "close": "Schließen"
     }
 }

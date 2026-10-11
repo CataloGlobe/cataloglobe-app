@@ -34,7 +34,7 @@ import { FeaturedCtaFooter } from "../FeaturedBlock/FeaturedContentDetail";
 import { hasFeaturedCta } from "../FeaturedBlock/featuredCta";
 import PublicBottomBar from "../PublicBottomBar/PublicBottomBar";
 import PublicBottomScrim from "../PublicBottomScrim/PublicBottomScrim";
-import type { BottomBarSlot, HeaderSlot } from "../redesign/slots";
+import type { BottomBarSlot, HeaderSlot, SheetsSlot } from "../redesign/slots";
 import { hasOpenSheet } from "../hooks/openSheets";
 import { useBottomBarAutoHide } from "../hooks/useBottomBarAutoHide";
 import { hasOrderablePrice } from "../itemPricing";
@@ -829,6 +829,11 @@ type Props = {
      */
     headerSlot?: HeaderSlot;
     bottomBarSlot?: BottomBarSlot;
+    /**
+     * Redesign (PR 3): Informazioni, Orari e ⋯ nel foglio unico, aperti per
+     * nome. Solo mode "public"; assente → i `PublicSheet` di oggi.
+     */
+    sheetsSlot?: SheetsSlot;
 };
 
 export default function CollectionView({
@@ -866,7 +871,8 @@ export default function CollectionView({
     previewDevice,
     initialSelection,
     headerSlot,
-    bottomBarSlot
+    bottomBarSlot,
+    sheetsSlot
 }: Props) {
     const navigate = useNavigate();
     // Lettura non-throwing del context lingua: CollectionView è renderizzato
@@ -1051,6 +1057,9 @@ export default function CollectionView({
 
     // ── More sheet ──────────────────────────────────────────────────────────
     const [isMoreSheetOpen, setIsMoreSheetOpen] = useState(false);
+    // Redesign: col foglio unico il ⋯ e lo stato del locale lo aprono per nome.
+    const sheets = mode === "public" ? sheetsSlot : undefined;
+    const openMoreSheet = () => (sheets ? sheets.open("more") : setIsMoreSheetOpen(true));
 
     // ── In evidenza / Recensioni: modali (PublicSheet), non tab a pagina intera ──
     // "menu" resta l'unica vista primaria di activeTab; le sheet si
@@ -2725,6 +2734,20 @@ export default function CollectionView({
         );
     }
 
+    // "Prenota un tavolo": solo con le prenotazioni accese e lo slug (⋯ di oggi e foglio unico).
+    const openReservation =
+        enableReservations && slug
+            ? () => {
+                  const lang = langCtx?.currentLang;
+                  const base = langCtx?.baseLanguage;
+                  navigate(lang && lang !== base ? `/${slug}/${lang}/prenota` : `/${slug}/prenota`);
+              }
+            : undefined;
+    // SSR-safe: window assente nel render server (entry-server); shareUrl si
+    // popola al primo render client — il bottone condividi è dietro
+    // interazione utente, undefined in SSR ok.
+    const shareUrl = slug && typeof window !== "undefined" ? `${window.location.origin}/${slug}` : undefined;
+
     return (
         <main
             className={styles.page}
@@ -2762,13 +2785,13 @@ export default function CollectionView({
                       onSearchOpen: handleOpenSearch,
                       onSearchPointerDown: handleSearchPrefetch,
                       allergensCount: allergenFilterIds.length,
-                      onOpenMore: () => setIsMoreSheetOpen(true),
+                      onOpenMore: openMoreSheet,
                       activeTab,
                       onTabChange: handleHubTabTap,
                       showStoryTab,
                       openingHours: openingHours ?? [],
                       upcomingClosures: upcomingClosures ?? [],
-                      onOpenHours: () => setIsInfoSheetOpen(true)
+                      onOpenHours: () => (sheets ? sheets.open("hours") : setIsInfoSheetOpen(true))
                   })
                 : hasHeader && (
                 <PublicCollectionHeader
@@ -2846,7 +2869,7 @@ export default function CollectionView({
             )}
 
             {/* ── INFO SHEET ── */}
-            {hasAnyInfo && (
+            {hasAnyInfo && !sheets && (
                 <PublicSheet
                     isOpen={isInfoSheetOpen}
                     onClose={() => setIsInfoSheetOpen(false)}
@@ -3429,39 +3452,38 @@ export default function CollectionView({
                 </Suspense>
             )}
 
-            {mode === "public" && (
+            {mode === "public" && !sheets && (
                 <MoreSheet
                     isOpen={isMoreSheetOpen}
                     onClose={() => setIsMoreSheetOpen(false)}
                     onOpenFilters={handleOpenFilters}
                     onOpenInfo={() => setIsInfoSheetOpen(true)}
-                    onOpenReservation={
-                        enableReservations && slug
-                            ? () => {
-                                  const lang = langCtx?.currentLang;
-                                  const base = langCtx?.baseLanguage;
-                                  navigate(
-                                      lang && lang !== base
-                                          ? `/${slug}/${lang}/prenota`
-                                          : `/${slug}/prenota`
-                                  );
-                              }
-                            : undefined
-                    }
+                    onOpenReservation={openReservation}
                     activeFilterCount={allergenFilterIds.length}
                     hasAllergensInCatalog={allergensInCatalog.length > 0}
                     hasInfo={hasAnyInfo}
-                    // SSR-safe: window assente nel render server (entry-server);
-                    // shareUrl si popola al primo render client — il bottone
-                    // condividi è dietro interazione utente, undefined in SSR ok.
-                    shareUrl={
-                        slug && typeof window !== "undefined"
-                            ? `${window.location.origin}/${slug}`
-                            : undefined
-                    }
+                    shareUrl={shareUrl}
                     shareTitle={businessName}
                 />
             )}
+
+            {sheets?.render({
+                pageRef,
+                openingHours: openingHours ?? [],
+                upcomingClosures: upcomingClosures ?? [],
+                fees: fees ?? [],
+                paymentMethods: paymentMethods ?? [],
+                activityServices: activityServices ?? [],
+                socialLinks,
+                address: activityAddress ?? null,
+                hasInfo: hasAnyInfo,
+                activeFilterCount: allergenFilterIds.length,
+                hasAllergensInCatalog: allergensInCatalog.length > 0,
+                onOpenFilters: handleOpenFilters,
+                onOpenReservation: openReservation,
+                shareUrl,
+                shareTitle: businessName
+            })}
 
             {isOrderingOpen && (
                 <Suspense fallback={null}>

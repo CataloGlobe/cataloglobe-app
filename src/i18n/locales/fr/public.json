@@ -579,5 +579,9 @@
       "not_confirmable_title": "Réservation inactive",
       "not_confirmable_text": "Cette réservation n'est plus active, il n'y a donc rien à confirmer. Si vous pensez qu'il s'agit d'une erreur, contactez directement l'établissement."
     }
+  },
+  "sheet": {
+    "back_to": "Retour à {{title}}",
+    "close": "Fermer"
   }
 }
