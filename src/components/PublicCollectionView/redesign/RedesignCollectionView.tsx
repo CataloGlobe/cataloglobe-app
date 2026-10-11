@@ -9,6 +9,7 @@ import { openVenueSheet } from "./sheets/venueSheetPages";
 import { openProductSheet } from "./product/productSheet";
 import { openRateSheet } from "./vote/rateSheet";
 import { openBookingSheet } from "./booking/bookingSheet";
+import { clearPreferences, keepPreferencesFor, matchesPreferences, usePreferences } from "./search/preferences";
 import type { BookingConfig } from "./booking/bookingForm";
 import AddedNotice from "./order/AddedNotice";
 import { showAdded } from "./order/addedNoticeStore";
@@ -105,14 +106,21 @@ export default function RedesignCollectionView({
     booking = null,
     ...props
 }: ComponentProps<typeof CollectionView> & { booking?: BookingConfig | null }) {
+    const preferences = usePreferences();
+    useEffect(() => keepPreferencesFor(props.activityId), [props.activityId]);
     // Con la sede che prenota, «Prenota» apre i passi nel foglio invece della pagina /prenota.
     const sheetsSlot = useMemo<SheetsSlot>(
         () => ({
             ...baseSheetsSlot,
             render: context => <LazyVenueSheets {...context} booking={booking} />,
-            openBooking: booking ? openBookingSheet : undefined
+            openBooking: booking ? openBookingSheet : undefined,
+            preferenceFilter: {
+                count: preferences.length,
+                test: item => matchesPreferences(item, preferences),
+                clear: clearPreferences
+            }
         }),
-        [booking]
+        [booking, preferences]
     );
     // Pagina di prova della PR 1: `?prova-tecnica=1` su una sede, solo con il flag.
     if (typeof window !== "undefined" && new URLSearchParams(window.location.search).has("prova-tecnica")) {

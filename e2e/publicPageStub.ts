@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test";
 import type { PublicBusiness, ResolvedPayloadShape } from "../src/types/publicCatalog";
-import type { ResolvedCategory, ResolvedProduct, V2FeaturedContent } from "../src/types/resolvedCollections";
+import type { ResolvedCategory, ResolvedCharacteristic, ResolvedProduct, V2FeaturedContent } from "../src/types/resolvedCollections";
 
 /**
  * Pagina pubblica (`/:slug`) servita tutta da stub, senza `/api` né edge:
@@ -120,8 +120,19 @@ const DETAILED_PRODUCT: Partial<ResolvedProduct> = {
     pairings: [{ paired_product_id: "prod-3-1", note: "Per chiudere", sort_order: 0 }]
 };
 
+/**
+ * Con `preferences`, per categoria: i piatti pari vegetariani (il 5 vegano invece
+ * che vegetariano), l'8 molto piccante. Codici e icone delle caratteristiche di sistema.
+ */
+function preferenceCharacteristics(p: number): ResolvedCharacteristic[] {
+    if (p === 4) return [{ id: "ch-vegan", code: "vegan", category: "diet", label: "Vegano", icon: "custom:sprout", sort_order: 1, mutex_group: null, dietary_claim: true }];
+    if (p % 2 === 0) return [{ id: "ch-veg", code: "vegetarian", category: "diet", label: "Vegetariano", icon: "custom:leaf", sort_order: 0, mutex_group: null, dietary_claim: true }];
+    if (p === 7) return [{ id: "ch-hot", code: "spicy_hot", category: "spicy", label: "Molto piccante", icon: "custom:pepper-3", sort_order: 12, mutex_group: "spicy", dietary_claim: false }];
+    return [];
+}
+
 /** Con `allergens`: un piatto su tre col glutine, uno su quattro col latte. */
-function categories(allergens = false, details = false): ResolvedCategory[] {
+function categories(allergens = false, details = false, preferences = false): ResolvedCategory[] {
     return CATEGORIES.map((name, c) => ({
         id: `cat-${c}`,
         name,
@@ -136,6 +147,7 @@ function categories(allergens = false, details = false): ResolvedCategory[] {
             is_visible: true,
             parentSelected: true,
             ...(allergens ? { allergens: [...(p % 3 === 0 ? [GLUTEN] : []), ...(p % 4 === 0 ? [MILK] : [])] } : {}),
+            ...(preferences ? { characteristics: preferenceCharacteristics(p) } : {}),
             ...(details && c === 1 && p === 0 ? DETAILED_PRODUCT : {}),
         })),
     }));
@@ -187,7 +199,8 @@ function payload(
     allergens = false,
     details = false,
     cover: string | null = null,
-    reservations = false
+    reservations = false,
+    preferences = false
 ): ResolvedPayloadShape {
     // Con `reservations` la sede prenota online: orari e passo della griglia come la pagina /prenota.
     const base = business(venueInfo, cover);
@@ -211,7 +224,7 @@ function payload(
         // Con `allergens` anche l'elenco di legge (qui tre): il fondo lo apre da «Allergeni».
         public_allergens: allergens ? SYSTEM_ALLERGENS : [],
         resolved: {
-            catalog: { id: "catalog-1", name: "Menu", categories: categories(allergens, details) },
+            catalog: { id: "catalog-1", name: "Menu", categories: categories(allergens, details, preferences) },
             featured: featuredSlots,
             hasRenderableItems: true,
             ...(styleConfig ? { style: { id: "style-1", name: "Stile e2e", config: styleConfig } } : {}),
@@ -221,11 +234,11 @@ function payload(
 
 export async function stubPublicPage(
     page: Page,
-    opts: { ordering: boolean; featured?: FeaturedSlots; styleConfig?: StyleConfig; venueInfo?: boolean; story?: boolean; allergens?: boolean; details?: boolean; cover?: string; reservations?: boolean }
+    opts: { ordering: boolean; featured?: FeaturedSlots; styleConfig?: StyleConfig; venueInfo?: boolean; story?: boolean; allergens?: boolean; details?: boolean; cover?: string; reservations?: boolean; preferences?: boolean }
 ): Promise<void> {
     const featuredSlots = opts.featured ?? { before_catalog: [featured()] };
     await page.route("**/api/public-catalog**", route =>
-        route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(payload(featuredSlots, opts.styleConfig, opts.venueInfo, opts.story, opts.allergens, opts.details, opts.cover ?? null, opts.reservations)) })
+        route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(payload(featuredSlots, opts.styleConfig, opts.venueInfo, opts.story, opts.allergens, opts.details, opts.cover ?? null, opts.reservations, opts.preferences)) })
     );
     await page.route("**/functions/v1/log-analytics-event**", route => route.fulfill({ status: 204 }));
     await page.route("**/functions/v1/get-orders-for-session**", route =>

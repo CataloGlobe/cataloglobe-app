@@ -1225,11 +1225,17 @@ export default function CollectionView({
 
     // Filtra item per allergens. Prodotti senza allergens taggati: sempre
     // visibili (no match possibile, disclaimer nel sheet copre il caso).
+    // Redesign: le preferenze dei Filtri (Vegetariano, Vegano, Piccante) tengono
+    // solo i piatti che le portano, insieme agli allergeni in esclusione.
+    const preferenceFilter = mode === "public" ? sheetsSlot?.preferenceFilter : undefined;
+    const preferenceCount = preferenceFilter?.count ?? 0;
+    const filterCount = allergenFilterIds.length + preferenceCount;
     const displaySectionGroups = useMemo<CollectionViewSectionGroup[]>(() => {
-        if (allergenFilterIds.length === 0) return sectionGroups;
+        if (filterCount === 0) return sectionGroups;
         const blocked = new Set(allergenFilterIds);
         const filterItems = (items: CollectionViewSectionItem[]) =>
             items.filter(item => {
+                if (preferenceFilter && preferenceFilter.count > 0 && !preferenceFilter.test(item)) return false;
                 if (!item.allergens || item.allergens.length === 0) return true;
                 return !item.allergens.some(a => blocked.has(a.id));
             });
@@ -1246,10 +1252,10 @@ export default function CollectionView({
             });
         }
         return result;
-    }, [sectionGroups, allergenFilterIds]);
+    }, [sectionGroups, allergenFilterIds, filterCount, preferenceFilter]);
 
     const allFiltered =
-        allergenFilterIds.length > 0 && displaySectionGroups.length === 0;
+        filterCount > 0 && displaySectionGroups.length === 0;
 
     const visibleProductCount = useMemo(
         () => countDistinctProducts(displaySectionGroups),
@@ -1263,7 +1269,7 @@ export default function CollectionView({
     // Gate esplicito sui segnali di stato filtro (badge sulla lente, riga
     // «N nascosti»): in preview il filtro non gira mai — gli effect sono già
     // gated su mode — ma dirlo qui rende l'intenzione leggibile sul posto.
-    const showFilterState = mode === "public" && allergenFilterIds.length > 0;
+    const showFilterState = mode === "public" && filterCount > 0;
 
     // ── Chiusura della riga «N nascosti» ────────────────────────────────────
     // Hydration-safe come le preferenze allergeni: default false in render,
@@ -1278,10 +1284,10 @@ export default function CollectionView({
     // perché è un avviso nuovo su uno stato nuovo.
     useEffect(() => {
         if (!activityId || mode !== "public") return;
-        if (allergenFilterIds.length > 0) return;
+        if (filterCount > 0) return;
         clearHiddenNoticeDismissed(activityId);
         setHiddenNoticeDismissedState(false);
-    }, [activityId, mode, allergenFilterIds.length]);
+    }, [activityId, mode, filterCount]);
 
     const dismissHiddenNotice = useCallback(() => {
         setHiddenNoticeDismissedState(true);
@@ -1292,7 +1298,12 @@ export default function CollectionView({
     // sopra: il suo guard è un flag one-shot di sequenza (consumato al mount),
     // NON un test su ids.length → con [] scrive davvero "[]" in sessionStorage.
     // Nessuna scrittura diretta qui, nessun clearAllergenPreferences necessario.
-    const clearAllergenFilter = useCallback(() => setAllergenFilterIds([]), []);
+    // Col redesign toglie anche le preferenze («Mostra tutto», «Togli i filtri»).
+    const clearPreferences = preferenceFilter?.clear;
+    const clearAllergenFilter = useCallback(() => {
+        setAllergenFilterIds([]);
+        clearPreferences?.();
+    }, [clearPreferences]);
 
     // ── Selezione prodotti ──────────────────────────────────────────────────
     const selectionStorageKey = activityId ? `catalogobe-selection-${activityId}` : null;
@@ -2939,7 +2950,7 @@ export default function CollectionView({
                       menuName: style.showCatalogName ? collectionTitle || null : null,
                       onSearchOpen: handleOpenSearch,
                       onSearchPointerDown: handleSearchPrefetch,
-                      allergensCount: allergenFilterIds.length,
+                      allergensCount: filterCount,
                       onOpenMore: openMoreSheet,
                       activeTab,
                       onTabChange: handleHubTabTap,
@@ -3656,7 +3667,7 @@ export default function CollectionView({
                 socialLinks,
                 address: activityAddress ?? null,
                 hasInfo: hasAnyInfo,
-                activeFilterCount: allergenFilterIds.length,
+                activeFilterCount: filterCount,
                 hasAllergensInCatalog: allergensInCatalog.length > 0,
                 onOpenReservation: openReservation,
                 shareUrl,

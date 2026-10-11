@@ -96,7 +96,15 @@
         "recent_title": "Recent",
         "reset": "Clear",
         "show_count_one": "Show {{count}} dish",
-        "show_count_other": "Show {{count}} dishes"
+        "show_count_other": "Show {{count}} dishes",
+        "preferences_title": "Preferences",
+        "preferences_intro": "Show only dishes the venue has marked this way.",
+        "preference": {
+            "vegetarian": "Vegetarian",
+            "vegan": "Vegan",
+            "gluten_free": "Gluten-free",
+            "spicy": "Spicy"
+        }
     },
     "filters": {
         "hidden_count_one": "{{count}} dish hidden by filters",

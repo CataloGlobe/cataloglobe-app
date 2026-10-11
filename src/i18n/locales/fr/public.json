@@ -96,7 +96,15 @@
     "recent_title": "Récentes",
     "reset": "Effacer",
     "show_count_one": "Afficher {{count}} plat",
-    "show_count_other": "Afficher {{count}} plats"
+    "show_count_other": "Afficher {{count}} plats",
+    "preferences_title": "Préférences",
+    "preferences_intro": "Afficher seulement les plats indiqués ainsi par l'établissement.",
+    "preference": {
+        "vegetarian": "Végétarien",
+        "vegan": "Végan",
+        "gluten_free": "Sans gluten",
+        "spicy": "Épicé"
+    }
   },
   "filters": {
     "hidden_count_one": "{{count}} plat masqué par les filtres",

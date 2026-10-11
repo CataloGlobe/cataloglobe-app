@@ -233,6 +233,15 @@ export type SheetsSlot = {
     openRate?: (rating?: number) => void;
     /** Prenota a passi nel foglio; assente = la pagina `/:slug/prenota` di oggi. */
     openBooking?: () => void;
+    /** Preferenze dei Filtri (Vegetariano, Vegano, Piccante), in aggiunta agli allergeni. */
+    preferenceFilter?: PreferenceFilter;
+};
+
+/** Le preferenze scelte, viste da `CollectionView`: quante sono, chi passa, come si tolgono. */
+export type PreferenceFilter = {
+    count: number;
+    test: (item: CollectionViewSectionItem) => boolean;
+    clear: () => void;
 };
 
 /** Dati del fondo pagina (spec §10): Oggi, Informazioni utili, Contatti, Prenota, voto. */

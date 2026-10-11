@@ -96,7 +96,15 @@
         "recent_title": "Recientes",
         "reset": "Borrar",
         "show_count_one": "Mostrar {{count}} plato",
-        "show_count_other": "Mostrar {{count}} platos"
+        "show_count_other": "Mostrar {{count}} platos",
+        "preferences_title": "Preferencias",
+        "preferences_intro": "Mostrar solo los platos que el local ha marcado así.",
+        "preference": {
+            "vegetarian": "Vegetariano",
+            "vegan": "Vegano",
+            "gluten_free": "Sin gluten",
+            "spicy": "Picante"
+        }
     },
     "filters": {
         "hidden_count_one": "{{count}} plato oculto por los filtros",

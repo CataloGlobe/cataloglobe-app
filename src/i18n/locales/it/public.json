@@ -95,7 +95,15 @@
         "recent_title": "Recenti",
         "reset": "Azzera",
         "show_count_one": "Mostra {{count}} piatto",
-        "show_count_other": "Mostra {{count}} piatti"
+        "show_count_other": "Mostra {{count}} piatti",
+        "preferences_title": "Preferenze",
+        "preferences_intro": "Mostra solo i piatti indicati così dal locale.",
+        "preference": {
+            "vegetarian": "Vegetariano",
+            "vegan": "Vegano",
+            "gluten_free": "Senza glutine",
+            "spicy": "Piccante"
+        }
     },
     "filters": {
         "hidden_count_one": "{{count}} piatto nascosto dai filtri",

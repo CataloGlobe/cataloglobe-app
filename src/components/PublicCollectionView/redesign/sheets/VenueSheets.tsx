@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState, type ReactNode } from "react";
+import { lazy, Suspense, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import {
     CalendarCheck,
@@ -45,6 +45,7 @@ import { editTargetKey } from "../order/orderSheet";
 import { useOrderSend, type OrderSendState } from "../order/useOrderSend";
 import SearchPage from "../search/SearchPage";
 import { FiltersFooter, FiltersPage } from "../search/FiltersPage";
+import { menuPreferences } from "../search/preferences";
 import { AllergensFooter, AllergensPage, CharacteristicsPage } from "./MenuInfoPages";
 import { rateOf } from "../vote/rateSheet";
 import { useBooking, type BookingBinding } from "../booking/useBooking";
@@ -86,7 +87,7 @@ export default function VenueSheets({ booking: bookingConfig, ...props }: Sheets
             backgroundRef={props.pageRef}
             renderPage={page =>
                 page.key === "search" ? (
-                    <SearchPage query={query} onQueryChange={setQuery} search={props.search} categories={props.categories} />
+                    <SearchPage query={query} onQueryChange={setQuery} search={props.search} categories={props.categories} menuGroups={props.menuInfo.groups} />
                 ) : isBookingPage(page) ? (
                     booking ? (
                         <Suspense fallback={null}>
@@ -241,7 +242,7 @@ function VenuePage({
         case "categories":
             return <CategoriesPage {...props.categories} />;
         case "filters":
-            return <FiltersPage {...props.search} />;
+            return <FiltersPage {...props.search} groups={props.menuInfo.groups} />;
         case "allergens":
             return <AllergensPage {...props.menuInfo} />;
         case "characteristics":
@@ -316,6 +317,7 @@ function MorePage({
     onOpenReservation,
     shareUrl,
     shareTitle,
+    menuInfo,
     bookingInSheet
 }: SheetsSlotContext & { bookingInSheet: boolean }) {
     const { t } = useTranslation("public");
@@ -345,7 +347,9 @@ function MorePage({
     const { currentLang, availableLanguages } = useLanguage();
     const activeLanguage = availableLanguages.find(lang => lang.code === currentLang);
 
-    const filtersDisabled = !hasAllergensInCatalog;
+    // Filtri anche senza allergeni, se il menu ha piatti vegetariani, vegani o piccanti.
+    const hasPreferences = useMemo(() => menuPreferences(menuInfo.groups).length > 0, [menuInfo.groups]);
+    const filtersDisabled = !hasAllergensInCatalog && !hasPreferences;
     const filtersSubtitle = filtersDisabled
         ? t("allergens.filter_empty")
         : activeFilterCount > 0

@@ -94,3 +94,62 @@ test("«Filtri» dal ⋯ si spinge con «‹ Opzioni» e «Azzera» toglie i fil
     await dialog.getByRole("button", { name: /^Mostra/ }).click();
     await expect(dialog).toHaveCount(0);
 });
+
+test("le preferenze tengono solo i piatti che le portano; «Senza glutine» è l'allergene Glutine", async ({ page }) => {
+    await page.unrouteAll({ behavior: "ignoreErrors" });
+    await stubPublicPage(page, { ordering: false, allergens: true, preferences: true });
+    await page.goto(`/${SLUG}`);
+    await page.getByText("Antipasti 1", { exact: true }).waitFor();
+
+    await page.getByRole("button", { name: "Altre opzioni" }).first().click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByRole("button", { name: /Filtri/ }).click();
+    const prefs = dialog.getByRole("region", { name: "Preferenze" });
+    await expect(prefs.getByRole("button")).toHaveText(["Vegetariano", "Vegano", "Senza glutine", "Piccante"]);
+    const show = dialog.getByRole("button", { name: /^Mostra/ });
+
+    // Vegetariano conta anche i vegani; Piccante insieme non lascia nulla.
+    await prefs.getByRole("button", { name: "Vegetariano" }).click();
+    await expect(show).toHaveText("Mostra 16 piatti");
+    await prefs.getByRole("button", { name: "Piccante" }).click();
+    await expect(show).toHaveText("Mostra 0 piatti");
+    await prefs.getByRole("button", { name: "Vegetariano" }).click();
+    await expect(show).toHaveText("Mostra 4 piatti");
+
+    // «Senza glutine» e «Glutine» si accendono insieme.
+    await prefs.getByRole("button", { name: "Piccante" }).click();
+    await prefs.getByRole("button", { name: "Senza glutine" }).click();
+    await expect(dialog.getByRole("button", { name: "Glutine", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await expect(show).toHaveText("Mostra 20 piatti");
+
+    await prefs.getByRole("button", { name: "Vegano" }).click();
+    await expect(show).toHaveText("Mostra 4 piatti");
+    await show.click();
+    await expect(dialog).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Cerca nel catalogo, 2 filtri attivi" })).toBeVisible();
+    await expect(page.getByText("Antipasti 5", { exact: true })).toBeVisible();
+    await expect(page.getByText("Antipasti 1", { exact: true })).toHaveCount(0);
+
+    // «Mostra tutto» toglie anche le preferenze.
+    await page.getByRole("button", { name: "Mostra tutto" }).click();
+    await expect(page.getByText("Antipasti 1", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Cerca nel catalogo" })).toBeVisible();
+});
+
+test("con preferenze e senza allergeni i Filtri si aprono dal ⋯ e dalla ricerca", async ({ page }) => {
+    await page.unrouteAll({ behavior: "ignoreErrors" });
+    await stubPublicPage(page, { ordering: false, preferences: true });
+    await page.goto(`/${SLUG}`);
+    await page.getByText("Antipasti 1", { exact: true }).waitFor();
+    const dialog = page.getByRole("dialog");
+
+    await page.getByRole("button", { name: "Altre opzioni" }).first().click();
+    await dialog.getByRole("button", { name: /Filtri/ }).click();
+    await expect(dialog.getByRole("region", { name: "Preferenze" }).getByRole("button")).toHaveText(["Vegetariano", "Vegano", "Piccante"]);
+    await dialog.getByRole("button", { name: "Chiudi" }).click();
+    await expect(dialog).toHaveCount(0);
+
+    await page.getByRole("button", { name: /^Cerca nel catalogo/ }).click();
+    await dialog.getByRole("button", { name: /^Filtri/ }).click();
+    await expect(dialog.getByRole("heading", { name: "Filtri" })).toBeVisible();
+});

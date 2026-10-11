@@ -252,7 +252,24 @@
 }
 
 .filters {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
   padding-bottom: 8px;
+}
+
+.filterGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Come i titoli di sezione del foglio (`VenueSheets .sectionTitle`). */
+.filterGroupTitle {
+  margin: 0;
+  font-size: 0.8125em;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--pub-text) 62%, transparent);
 }
 
 .footer {

@@ -10,6 +10,7 @@ import { closeSheet } from "../sheets/sheetStack";
 import { pushVenueSheet } from "../sheets/venueSheetPages";
 import { countHits, highlightParts, normalizeForSearch, searchSections } from "./searchMatch";
 import { readRecentSearches, saveRecentSearch } from "./recentSearches";
+import { clearPreferences, menuPreferences, usePreferences } from "./preferences";
 import { useKeyboardInset } from "./useKeyboardInset";
 import styles from "./Search.module.scss";
 
@@ -22,6 +23,8 @@ type Props = {
     onQueryChange: (query: string) => void;
     search: SheetsSlotContext["search"];
     categories: SheetsSlotContext["categories"];
+    /** Il menu intero: con preferenze ma senza allergeni i Filtri ci sono lo stesso. */
+    menuGroups: SheetsSlotContext["menuInfo"]["groups"];
 };
 
 /**
@@ -29,7 +32,7 @@ type Props = {
  * «Filtri», poi «Categorie» con l'elenco intero. Con una ricerca: risultati per
  * sezione con miniatura e testo trovato evidenziato; il tocco chiude e porta al piatto.
  */
-export default function SearchPage({ query, onQueryChange, search, categories }: Props) {
+export default function SearchPage({ query, onQueryChange, search, categories, menuGroups }: Props) {
     const { t } = useTranslation("public");
     const { activityId } = search;
     const deferredQuery = useDeferredValue(query);
@@ -53,7 +56,12 @@ export default function SearchPage({ query, onQueryChange, search, categories }:
         return () => window.clearTimeout(timer);
     }, [query, activityId]);
 
-    const filterCount = search.appliedFilterIds.length;
+    const preferences = usePreferences();
+    const filterCount = search.appliedFilterIds.length + preferences.length;
+    const hasFilters = useMemo(
+        () => search.allergens.length > 0 || menuPreferences(menuGroups).length > 0,
+        [search.allergens, menuGroups]
+    );
     const select = (item: CollectionViewSectionItem) => {
         saveRecentSearch(activityId, query);
         closeSheet();
@@ -81,7 +89,7 @@ export default function SearchPage({ query, onQueryChange, search, categories }:
                         </ul>
                     </section>
                 ) : null}
-                {search.allergens.length > 0 ? (
+                {hasFilters ? (
                     <button type="button" className={styles.filtersRow} onClick={() => pushVenueSheet("filters")}>
                         <SlidersHorizontal size={18} strokeWidth={2} aria-hidden />
                         <span className={styles.filtersText}>
@@ -130,7 +138,14 @@ export default function SearchPage({ query, onQueryChange, search, categories }:
                 filterCount > 0 ? (
                     <div className={styles.empty}>
                         <p className={styles.muted}>{t("search.no_results_filtered_hint")}</p>
-                        <button type="button" className={styles.clearFilters} onClick={() => search.onApplyFilters([])}>
+                        <button
+                            type="button"
+                            className={styles.clearFilters}
+                            onClick={() => {
+                                search.onApplyFilters([]);
+                                clearPreferences();
+                            }}
+                        >
                             {t("search.clear_filters")}
                         </button>
                     </div>

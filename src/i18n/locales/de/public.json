@@ -96,7 +96,15 @@
         "recent_title": "Zuletzt gesucht",
         "reset": "Zurücksetzen",
         "show_count_one": "{{count}} Gericht anzeigen",
-        "show_count_other": "{{count}} Gerichte anzeigen"
+        "show_count_other": "{{count}} Gerichte anzeigen",
+        "preferences_title": "Vorlieben",
+        "preferences_intro": "Nur Gerichte zeigen, die das Lokal so gekennzeichnet hat.",
+        "preference": {
+            "vegetarian": "Vegetarisch",
+            "vegan": "Vegan",
+            "gluten_free": "Glutenfrei",
+            "spicy": "Scharf"
+        }
     },
     "filters": {
         "hidden_count_one": "{{count}} Gericht durch Filter ausgeblendet",
