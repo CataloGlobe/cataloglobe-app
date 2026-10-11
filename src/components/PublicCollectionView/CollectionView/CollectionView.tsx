@@ -35,6 +35,7 @@ import { hasFeaturedCta } from "../FeaturedBlock/featuredCta";
 import PublicBottomBar from "../PublicBottomBar/PublicBottomBar";
 import PublicBottomScrim from "../PublicBottomScrim/PublicBottomScrim";
 import type { BottomBarSlot, FeaturedSlot, FooterSlot, HeaderSlot, SheetsSlot } from "../redesign/slots";
+import { addLine, lineQty, undoLine } from "../redesign/order/orderDraft";
 import { hasOpenSheet } from "../hooks/openSheets";
 import { useBottomBarAutoHide } from "../hooks/useBottomBarAutoHide";
 import { hasOrderablePrice } from "../itemPricing";
@@ -1465,9 +1466,10 @@ export default function CollectionView({
 
     const openItemDetail = useCallback(
         (item: CollectionViewSectionItem, opts?: { keepPairingBackStack?: boolean }) => {
-            // Redesign: senza ordine al tavolo la scheda è una pagina del foglio
-            // unico (spec §6); con l'ordine resta ItemDetail fino alla PR 6.
-            if (mode === "public" && sheetsSlot && !orderingActive && !itemDetailOrderingDisabled) {
+            // Redesign: la scheda è una pagina del foglio unico (spec §6), anche
+            // in modo ordine col QR del tavolo (spec §7). Resta ItemDetail con
+            // l'ordine sospeso e fuori dalla tab Menu.
+            if (mode === "public" && sheetsSlot && !itemDetailOrderingDisabled && (!orderingActive || canOrderInDetail)) {
                 sheetsSlot.openProduct(item);
             } else {
                 if (!opts?.keepPairingBackStack) setPairingBackStack([]);
@@ -1476,7 +1478,7 @@ export default function CollectionView({
             }
             trackProductOpen(item);
         },
-        [mode, sheetsSlot, orderingActive, itemDetailOrderingDisabled, trackProductOpen]
+        [mode, sheetsSlot, orderingActive, itemDetailOrderingDisabled, canOrderInDetail, trackProductOpen]
     );
 
     const addToSelection = useCallback((
@@ -1524,6 +1526,38 @@ export default function CollectionView({
                 note: null,
             }];
         });
+    }, [mode, activityId]);
+
+    // Redesign (spec §7): la scheda del foglio e il + della lista aggiungono una
+    // riga intera (quantità e nota comprese) e tengono il suo «Annulla».
+    // Come addToSelection: l'evento parte dall'updater, così il callback resta
+    // stabile (le righe sono memo) e qty è quella della riga dopo l'aggiunta.
+    const addLineFromRedesign = useCallback((line: SelectionItem) => {
+        setSelection(prev => {
+            const next = addLine(prev, line);
+            if (mode === "public" && activityId) {
+                trackEvent(activityId, "selection_add", {
+                    product_id: line.id,
+                    product_name: line.name,
+                    price: line.unitPrice,
+                    base_price: line.basePrice,
+                    format: line.selectedFormat?.name ?? null,
+                    addons: (line.selectedAddons ?? []).map(a => a.name),
+                    qty: lineQty(next, line),
+                    total_selection_count: next.reduce((s, i) => s + i.qty, 0)
+                });
+            }
+            return next;
+        });
+        return () => {
+            setSelection(prev => {
+                const next = undoLine(prev, line);
+                if (next !== prev && mode === "public" && activityId) {
+                    trackEvent(activityId, "selection_remove", { product_id: line.id, product_name: line.name });
+                }
+                return next;
+            });
+        };
     }, [mode, activityId]);
 
     const updateSelectionNote = useCallback((index: number, value: string | null) => {
@@ -1983,10 +2017,22 @@ export default function CollectionView({
     ) => {
         if ((optionGroups?.length ?? 0) > 0) {
             openDetail();
+        } else if (mode === "public" && sheetsSlot?.notifyAdded) {
+            const undo = addLineFromRedesign({
+                id,
+                name,
+                basePrice,
+                qty: 1,
+                selectedFormat: null,
+                selectedAddons: [],
+                unitPrice: basePrice,
+                note: null
+            });
+            sheetsSlot.notifyAdded(name, undo);
         } else {
             addToSelection(id, name, basePrice);
         }
-    }, [addToSelection]);
+    }, [addToSelection, addLineFromRedesign, mode, sheetsSlot]);
 
     // Stable row handlers. Both rows (parent and variant) receive a synthetic
     // CollectionViewSectionItem and route through these two callbacks. Stable
@@ -3587,7 +3633,8 @@ export default function CollectionView({
                     findProduct: findProductById,
                     showImage: style.productStyle !== "compact" && style.cardTemplate !== "no-image",
                     onOpenStory: openStoryFromProduct,
-                    onTrackOpen: trackProductOpen
+                    onTrackOpen: trackProductOpen,
+                    order: canOrderInDetail && !itemDetailOrderingDisabled ? { add: addLineFromRedesign } : undefined
                 }
             })}
 

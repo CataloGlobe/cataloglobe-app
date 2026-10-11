@@ -10,6 +10,7 @@ import type { HubTab } from "@/types/collectionStyle";
 import type { Allergen } from "@/services/supabase/allergens";
 import type { ResolvedAllergen, ResolvedCharacteristic, V2FeaturedContent } from "@/types/resolvedCollections";
 import type { OpeningHoursEntry, UpcomingClosure } from "@components/PublicCollectionView/PublicOpeningHours/PublicOpeningHours";
+import type { SelectionItem } from "@components/PublicCollectionView/OrderingSheet/OrderingSheet";
 
 /**
  * Agganci con cui il redesign sostituisce un pezzo di `CollectionView` senza
@@ -155,7 +156,7 @@ export type SheetsSlotContext = {
         characteristics: ResolvedCharacteristic[];
         groups: CollectionViewSectionGroup[];
     };
-    /** Scheda prodotto nel foglio (spec §6), in lettura. */
+    /** Scheda prodotto nel foglio (spec §6): in lettura, o in modo ordine col QR del tavolo (spec §7). */
     product: {
         /** Prodotto o variante per id, dal menu risolto (anche per «Perfetto con»). */
         findProduct: (productId: string) => CollectionViewSectionItem | null;
@@ -164,6 +165,8 @@ export type SheetsSlotContext = {
         onOpenStory: (storyId: string) => void;
         /** Analitiche dell'apertura di una scheda raggiunta da «Perfetto con». */
         onTrackOpen: (item: CollectionViewSectionItem) => void;
+        /** Solo quando si può ordinare dalla scheda: aggiunge la riga e restituisce il suo «Annulla». */
+        order?: { add: (line: SelectionItem) => () => void };
     };
 };
 
@@ -178,6 +181,8 @@ export type SheetsSlot = {
     openProduct: (item: Pick<CollectionViewSectionItem, "id" | "name">) => void;
     /** Il foglio è aperto (qualunque pagina): Cmd/Ctrl+F lo lascia stare. */
     isOpen: () => boolean;
+    /** «Aggiunto · nome» con Annulla, anche per il + della lista (spec §7). */
+    notifyAdded?: (name: string, undo: () => void) => void;
 };
 
 /** Dati del fondo pagina (spec §10): Oggi, Informazioni utili, Contatti, Prenota, voto. */

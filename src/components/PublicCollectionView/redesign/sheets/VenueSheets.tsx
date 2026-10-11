@@ -22,6 +22,7 @@ import PublicOpeningHours from "@components/PublicCollectionView/PublicOpeningHo
 import { PublicFeeRows } from "@components/PublicCollectionView/PublicFooter/PublicFees";
 import { safeHttpHref } from "@/utils/sanitizeUrl";
 import type { V2FeaturedContent } from "@/types/resolvedCollections";
+import type { CollectionViewSectionItem } from "@components/PublicCollectionView/CollectionView/CollectionView";
 import EventsView from "@components/PublicCollectionView/EventsView/EventsView";
 import { FeaturedContentDetail, FeaturedCtaFooter } from "@components/PublicCollectionView/FeaturedBlock/FeaturedContentDetail";
 import { hasFeaturedCta } from "@components/PublicCollectionView/FeaturedBlock/featuredCta";
@@ -29,12 +30,16 @@ import type { SheetsSlotContext } from "../slots";
 import { useVenueStatus } from "../venue/useVenueStatus";
 import { venueStatusLabel } from "../venue/venueLabel";
 import SheetHost from "./SheetHost";
-import { closeSheet, useSheetState, type SheetPage } from "./sheetStack";
+import { closeSheet, getSheetState, useSheetState, type SheetPage } from "./sheetStack";
 import { FEATURED_DETAIL_PREFIX, pushFeaturedDetail, pushVenueSheet } from "./venueSheetPages";
 import CategoryList from "../categories/CategoryList";
 import SearchHeader from "../search/SearchHeader";
 import ProductPage, { ProductUnavailable } from "../product/ProductPage";
 import { productIdOf } from "../product/productSheet";
+import { ProductOrderFooter, type OrderBinding } from "../order/OrderChoices";
+import { draftToLine } from "../order/orderDraft";
+import { showAdded } from "../order/addedNoticeStore";
+import { useOrderDrafts } from "../order/useOrderDrafts";
 import SearchPage from "../search/SearchPage";
 import { FiltersFooter, FiltersPage } from "../search/FiltersPage";
 import { AllergensFooter, AllergensPage, CharacteristicsPage } from "./MenuInfoPages";
@@ -53,6 +58,7 @@ export default function VenueSheets(props: SheetsSlotContext) {
     const [query, setQuery] = useState("");
     const searchInStack = useSheetState().pages.some(page => page.key === "search");
     const [searchWasInStack, setSearchWasInStack] = useState(searchInStack);
+    const orderFor = useOrderDrafts(props.product.order);
     if (searchInStack !== searchWasInStack) {
         setSearchWasInStack(searchInStack);
         if (searchInStack) setQuery("");
@@ -65,13 +71,33 @@ export default function VenueSheets(props: SheetsSlotContext) {
                 page.key === "search" ? (
                     <SearchPage query={query} onQueryChange={setQuery} search={props.search} categories={props.categories} />
                 ) : (
-                    <VenuePage page={page} {...props} />
+                    <VenuePage page={page} {...props} orderFor={orderFor} />
                 )
             }
             renderHeader={page => (page.key === "search" ? <SearchHeader query={query} onQueryChange={setQuery} /> : null)}
             renderFooter={page => {
                 if (page.key === "filters") return <FiltersFooter {...props.search} />;
                 if (page.key === "allergens") return <AllergensFooter hasAllergensInCatalog={props.hasAllergensInCatalog} />;
+                const productId = productIdOf(page);
+                const item = productId ? props.product.findProduct(productId) : null;
+                const order = item ? orderFor(page.key, item) : undefined;
+                if (item && order) {
+                    return (
+                        <ProductOrderFooter
+                            item={item}
+                            order={order}
+                            onAdd={() => {
+                                // Il foglio resta a vista mentre scende: un secondo tocco non aggiunge di nuovo.
+                                if (getSheetState().pages.length === 0) return;
+                                const line = draftToLine(item, order.draft);
+                                if (!line || !props.product.order) return;
+                                const undo = props.product.order.add(line);
+                                closeSheet();
+                                showAdded(item.name, undo);
+                            }}
+                        />
+                    );
+                }
                 const block = featuredOf(page, props.featured.contents);
                 return block && hasFeaturedCta(block) ? <FeaturedCtaFooter block={block} /> : null;
             }}
@@ -86,7 +112,11 @@ function featuredOf(page: SheetPage, contents: V2FeaturedContent[]): V2FeaturedC
     return contents.find(block => block.id === id) ?? null;
 }
 
-function VenuePage({ page, ...props }: SheetsSlotContext & { page: SheetPage }) {
+function VenuePage({
+    page,
+    orderFor,
+    ...props
+}: SheetsSlotContext & { page: SheetPage; orderFor: (pageKey: string, item: CollectionViewSectionItem) => OrderBinding | undefined }) {
     switch (page.key) {
         case "more":
             return <MorePage {...props} />;
@@ -127,7 +157,7 @@ function VenuePage({ page, ...props }: SheetsSlotContext & { page: SheetPage }) 
             const productId = productIdOf(page);
             if (productId) {
                 const item = props.product.findProduct(productId);
-                return item ? <ProductPage item={item} {...props.product} /> : <ProductUnavailable />;
+                return item ? <ProductPage item={item} {...props.product} order={orderFor(page.key, item)} /> : <ProductUnavailable />;
             }
             const block = featuredOf(page, props.featured.contents);
             return block ? <FeaturedContentDetail block={block} /> : null;

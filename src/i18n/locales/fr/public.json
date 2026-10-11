@@ -603,6 +603,20 @@
     "back_to": "Retour à {{title}}",
     "close": "Fermer"
   },
+  "order_sheet": {
+    "add": "Ajouter · {{price}}",
+    "choose_format": "Choisir le format",
+    "choose_group": "Choisir : {{name}}",
+    "missing_hint": "Choisissez-en une pour continuer",
+    "too_many": "Vous en avez choisi {{count}} : retirez-en une pour changer",
+    "quantity": "Quantité",
+    "add_note": "Ajouter une note",
+    "note_label": "Note pour la cuisine",
+    "note_placeholder": "Ex. sans oignon",
+    "added": "Ajouté · {{name}}",
+    "undo": "Annuler",
+    "undo_aria": "Annuler l'ajout de {{name}}"
+  },
   "product_sheet": {
     "details": "Détails",
     "traits": "Caractéristiques et allergènes",

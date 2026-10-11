@@ -10,19 +10,24 @@ import type { SheetsSlotContext } from "../slots";
 import { closeSheet } from "../sheets/sheetStack";
 import { formatPublicPrice, formatSurcharge } from "../price";
 import { groupRule, pushProductSheet, VISIBLE_ROWS } from "./productSheet";
+import { OrderAddonGroup, OrderFormats, OrderQtyNote, type OrderBinding } from "../order/OrderChoices";
 import styles from "./ProductPage.module.scss";
 
 type OptionGroup = NonNullable<CollectionViewSectionItem["optionGroups"]>[number];
 
-type Props = SheetsSlotContext["product"] & { item: CollectionViewSectionItem };
+type Props = Omit<SheetsSlotContext["product"], "order"> & {
+    item: CollectionViewSectionItem;
+    /** Col QR del tavolo: formati e scelte si toccano, poi quantità e nota (spec §7). */
+    order?: OrderBinding;
+};
 
 /**
  * Scheda prodotto nel foglio unico (spec §6), in lettura: nome su due righe,
  * prezzo o formati, descrizione; scelte con la regola nel titolo; Dettagli;
  * Ingredienti; Caratteristiche e allergeni con la riga fissa; Perfetto con a
- * spinta; La storia. L'ordine al tavolo dalla scheda arriva con la PR 6.
+ * spinta; La storia. In modo ordine il pulsante sta in fondo al foglio.
  */
-export default function ProductPage({ item, findProduct, showImage, onOpenStory, onTrackOpen }: Props) {
+export default function ProductPage({ item, findProduct, showImage, onOpenStory, onTrackOpen, order }: Props) {
     const { t } = useTranslation("public");
     const formats = item.optionGroups?.find(group => group.group_kind === "PRIMARY_PRICE");
     const addons = item.optionGroups?.filter(group => group.group_kind !== "PRIMARY_PRICE" && group.values.length > 0) ?? [];
@@ -53,13 +58,19 @@ export default function ProductPage({ item, findProduct, showImage, onOpenStory,
                     {item.name}
                 </p>
                 {formats ? null : <PriceLine item={item} />}
-                {formats ? <Formats group={formats} /> : null}
+                {formats && !order ? <Formats group={formats} /> : null}
                 {item.description ? <p className={styles.description}>{item.description}</p> : null}
             </header>
 
-            {addons.map(group => (
-                <AddonGroup key={group.id} group={group} />
-            ))}
+            {formats && order ? <OrderFormats item={item} group={formats} order={order} /> : null}
+            {addons.map(group =>
+                order ? (
+                    <OrderAddonGroup key={group.id} item={item} group={group} order={order} />
+                ) : (
+                    <AddonGroup key={group.id} group={group} />
+                )
+            )}
+            {order ? <OrderQtyNote itemId={item.id} order={order} /> : null}
 
             {details.length > 0 ? (
                 <Block title={t("product_sheet.details")}>

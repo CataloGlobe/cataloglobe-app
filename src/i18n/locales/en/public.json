@@ -603,6 +603,20 @@
         "back_to": "Back to {{title}}",
         "close": "Close"
     },
+    "order_sheet": {
+        "add": "Add · {{price}}",
+        "choose_format": "Choose a size",
+        "choose_group": "Choose: {{name}}",
+        "missing_hint": "Pick one to continue",
+        "too_many": "You chose {{count}}: remove one to change",
+        "quantity": "Quantity",
+        "add_note": "Add a note",
+        "note_label": "Note for the kitchen",
+        "note_placeholder": "E.g. no onion",
+        "added": "Added · {{name}}",
+        "undo": "Undo",
+        "undo_aria": "Undo adding {{name}}"
+    },
     "product_sheet": {
         "details": "Details",
         "traits": "Features and allergens",

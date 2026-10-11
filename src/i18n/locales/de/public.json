@@ -603,6 +603,20 @@
         "back_to": "Zurück zu {{title}}",
         "close": "Schließen"
     },
+    "order_sheet": {
+        "add": "Hinzufügen · {{price}}",
+        "choose_format": "Größe wählen",
+        "choose_group": "Wählen: {{name}}",
+        "missing_hint": "Wähle eine Option, um fortzufahren",
+        "too_many": "Du hast {{count}} gewählt: entferne eine, um zu wechseln",
+        "quantity": "Menge",
+        "add_note": "Notiz hinzufügen",
+        "note_label": "Notiz für die Küche",
+        "note_placeholder": "Z. B. ohne Zwiebeln",
+        "added": "Hinzugefügt · {{name}}",
+        "undo": "Rückgängig",
+        "undo_aria": "Hinzufügen von {{name}} rückgängig machen"
+    },
     "product_sheet": {
         "details": "Details",
         "traits": "Merkmale und Allergene",

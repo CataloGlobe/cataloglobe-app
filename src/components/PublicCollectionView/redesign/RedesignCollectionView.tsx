@@ -7,6 +7,8 @@ import VenueFooter from "./footer/VenueFooter";
 import { closeSheet, getSheetState, useSheetState } from "./sheets/sheetStack";
 import { openVenueSheet } from "./sheets/venueSheetPages";
 import { openProductSheet } from "./product/productSheet";
+import AddedNotice from "./order/AddedNotice";
+import { showAdded } from "./order/addedNoticeStore";
 import type { BottomBarSlot, FeaturedSlot, FooterSlot, HeaderSlot, SheetsSlot, SheetsSlotContext } from "./slots";
 
 /**
@@ -62,20 +64,25 @@ function LazyVenueSheets(context: SheetsSlotContext) {
         const id = window.setTimeout(warm, 1500);
         return () => window.clearTimeout(id);
     }, []);
-    if (!needed) return null;
+    // L'avviso «Aggiunto» vive fuori dal foglio: resta a vista dopo la chiusura e serve anche al + della lista.
     return (
-        <SheetsBoundary
-            key={attempt}
-            onError={() => {
-                setNeeded(false);
-                setSheets(() => lazy(loadVenueSheets));
-                setAttempt(value => value + 1);
-            }}
-        >
-            <Suspense fallback={null}>
-                <Sheets {...context} />
-            </Suspense>
-        </SheetsBoundary>
+        <>
+            <AddedNotice />
+            {needed ? (
+                <SheetsBoundary
+                    key={attempt}
+                    onError={() => {
+                        setNeeded(false);
+                        setSheets(() => lazy(loadVenueSheets));
+                        setAttempt(value => value + 1);
+                    }}
+                >
+                    <Suspense fallback={null}>
+                        <Sheets {...context} />
+                    </Suspense>
+                </SheetsBoundary>
+            ) : null}
+        </>
     );
 }
 
@@ -87,7 +94,8 @@ const sheetsSlot: SheetsSlot = {
     render: context => <LazyVenueSheets {...context} />,
     open: openVenueSheet,
     openProduct: openProductSheet,
-    isOpen: () => getSheetState().pages.length > 0
+    isOpen: () => getSheetState().pages.length > 0,
+    notifyAdded: showAdded
 };
 
 export default function RedesignCollectionView(props: ComponentProps<typeof CollectionView>) {

@@ -603,6 +603,20 @@
         "back_to": "Volver a {{title}}",
         "close": "Cerrar"
     },
+    "order_sheet": {
+        "add": "Añadir · {{price}}",
+        "choose_format": "Elige el formato",
+        "choose_group": "Elige: {{name}}",
+        "missing_hint": "Elige una para continuar",
+        "too_many": "Has elegido {{count}}: quita una para cambiar",
+        "quantity": "Cantidad",
+        "add_note": "Añadir una nota",
+        "note_label": "Nota para la cocina",
+        "note_placeholder": "Ej. sin cebolla",
+        "added": "Añadido · {{name}}",
+        "undo": "Deshacer",
+        "undo_aria": "Deshacer añadir {{name}}"
+    },
     "product_sheet": {
         "details": "Detalles",
         "traits": "Características y alérgenos",
