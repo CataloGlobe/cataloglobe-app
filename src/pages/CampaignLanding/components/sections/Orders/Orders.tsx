@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { type CSSProperties, useEffect, useRef, useState } from "react";
 import Problem from "@pages/CampaignLanding/components/Problem/Problem";
 import { Kicker } from "@pages/CampaignLanding/components/kit/Kit";
 import { ORDERS } from "@pages/CampaignLanding/content/landing";
@@ -10,6 +10,15 @@ const cx = (...names: (string | false | null | undefined)[]) => names.filter(Boo
 
 /** Durata di un passo. ⚠️ Stessa durata in Orders.module.scss ($step-ms, la barretta). */
 const STEP_MS = 3000;
+/** Uscita della scena vecchia. ⚠️ Stessa durata in Orders.module.scss ($leave-ms). */
+const LEAVE_MS = 300;
+
+/** Scena del passo: la vecchia, mentre esce, resta ferma allo stato finale. */
+function renderScene(step: number, still: boolean) {
+    if (step === 0) return <OrderPanel still={still} />;
+    if (step === 1) return <TicketPanel />;
+    return <FloorPanel />;
+}
 
 function BillIcon({ size }: { size: number }) {
     return (
@@ -42,47 +51,73 @@ const FLOOR: { n: number; shape: "round" | "rect"; state: TableState }[] = [
     { n: 15, shape: "round", state: "free" }
 ];
 
-/** Scena 1: il pulsante si preme a 1700 ms e a 1850 dice «Ordine inviato ✓» (le righe entrano in CSS). */
-const PRESS_MS = 1700;
-const SENT_MS = 1850;
+/**
+ * Scena 1: il cliente tocca «+» sui piatti (tagliere, spritz due volte,
+ * tiramisù); al primo tocco sale la barra «Invia l'ordine», che poi si preme
+ * e dice «Ordine inviato ✓». Un istante della sequenza per ogni voce di TAPS.
+ */
+const TAPS: { ms: number; dish?: number }[] = [
+    { ms: 350, dish: 0 },
+    { ms: 750, dish: 1 },
+    { ms: 1050, dish: 1 },
+    { ms: 1400, dish: 2 },
+    { ms: 2050 },
+    { ms: 2200 }
+];
+const PRESS_AT = 4;
+const SENT_AT = 5;
 
-/** Scena 1: la scheda dell'ordine dal telefono del cliente, al centro del riquadro. */
 function OrderPanel({ still }: { still: boolean }) {
     const { order } = ORDERS;
-    const [phase, setPhase] = useState<"idle" | "press" | "sent">("idle");
+    /** Quanti istanti di TAPS sono passati. */
+    const [at, setAt] = useState(0);
 
     useEffect(() => {
         if (still) return;
-        const t1 = window.setTimeout(() => setPhase("press"), PRESS_MS);
-        const t2 = window.setTimeout(() => setPhase("sent"), SENT_MS);
-        return () => {
-            window.clearTimeout(t1);
-            window.clearTimeout(t2);
-        };
+        const ids = TAPS.map((t, i) => window.setTimeout(() => setAt(i + 1), t.ms));
+        return () => ids.forEach((id) => window.clearTimeout(id));
     }, [still]);
 
-    const sent = still || phase === "sent";
+    const done = still ? TAPS.length : at;
+    const qty = (dish: number) => TAPS.slice(0, done).filter((t) => t.dish === dish).length;
+    const lastTap = done > 0 ? TAPS[done - 1].dish : undefined;
+    const sent = done >= SENT_AT;
 
     return (
         <div className={styles.order}>
-            <div className={styles.orderCard}>
-                <div className={styles.orderHead}>
-                    <Kicker>{order.label}</Kicker>
-                    <span className={styles.tableChip}>{order.table}</span>
-                </div>
-                {order.lines.map((l) => (
-                    <div key={l.name} className={styles.line}>
-                        <span className={styles.qty}>{l.qty}</span>
-                        <span className={styles.lineName}>{l.name}</span>
-                        <span className={styles.linePrice}>{l.price}</span>
+            <div className={styles.orderHead}>
+                <Kicker>{order.label}</Kicker>
+                <span className={styles.tableChip}>{order.table}</span>
+            </div>
+            {order.dishes.map((d, i) => {
+                const n = qty(i);
+                return (
+                    <div key={d.name} className={styles.dish}>
+                        <span className={styles.dishText}>
+                            <span className={styles.dishName}>{d.name}</span>
+                            <span className={styles.dishDesc}>{d.desc}</span>
+                        </span>
+                        <span className={styles.dishPrice}>{d.price}</span>
+                        <span
+                            // Chiave nuova a ogni tocco: l'onda riparte.
+                            key={n}
+                            className={cx(styles.plus, n > 0 && styles.plusOn, !still && lastTap === i && styles.plusTap)}
+                            aria-hidden="true"
+                        >
+                            {n > 0 ? n : "+"}
+                        </span>
                     </div>
-                ))}
-                <div className={styles.total}>
-                    <span>{order.totalLabel}</span>
-                    <span>{order.total}</span>
-                </div>
-                <div className={cx(styles.send, phase === "press" && styles.sendPress)}>{sent ? order.sent : order.send}</div>
-                <p className={styles.orderNote}>{order.note}</p>
+                );
+            })}
+            <div className={cx(styles.sendBar, done > 1 && styles.sendBarUp, done === PRESS_AT + 1 && styles.sendBarPress)}>
+                {sent ? (
+                    <span>{order.sent}</span>
+                ) : (
+                    <span>
+                        {order.send} <span className={styles.sendCount}>· {order.count}</span>
+                    </span>
+                )}
+                <span>{order.total}</span>
             </div>
         </div>
     );
@@ -201,6 +236,26 @@ function OrdersDemo() {
 
     const running = visible && !pinned && !reduced;
 
+    // Passaggio: la scena vecchia resta 300 ms mentre esce, la nuova entra dal
+    // lato verso cui va la linguetta (dir 1 = avanti, −1 = indietro).
+    const [shown, setShown] = useState(0);
+    const [leaving, setLeaving] = useState<{ step: number; n: number } | null>(null);
+    const [dir, setDir] = useState(1);
+    const prev = useRef(step);
+    useEffect(() => {
+        if (prev.current === step) return;
+        const from = prev.current;
+        prev.current = step;
+        if (reduced) return;
+        setDir(step > from || (from === 2 && step === 0) ? 1 : -1);
+        setLeaving({ step: from, n: shown });
+        setShown((n) => n + 1);
+        const id = window.setTimeout(() => setLeaving(null), LEAVE_MS);
+        return () => window.clearTimeout(id);
+        // Solo al cambio di passo.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [step]);
+
     // Un timer per passo: il velo (rimontato a ogni passo e a ogni ripresa) e il
     // cambio di passo partono insieme.
     useEffect(() => {
@@ -234,10 +289,13 @@ function OrdersDemo() {
                 ))}
             </div>
             <div className={styles.panel} role="tabpanel" id="landing-orders-panel" aria-labelledby={`landing-orders-tab-${step}`}>
-                <div key={`${step}-${visible}`} className={styles.panelIn}>
-                    {step === 0 && <OrderPanel still={reduced} />}
-                    {step === 1 && <TicketPanel />}
-                    {step === 2 && <FloorPanel />}
+                {leaving && (
+                    <div key={`out-${leaving.step}-${leaving.n}`} className={cx(styles.scene, styles.sceneOut)} style={{ "--dir": dir } as CSSProperties} aria-hidden="true">
+                        {renderScene(leaving.step, true)}
+                    </div>
+                )}
+                <div key={`${step}-${visible}`} className={cx(styles.scene, styles.sceneIn)} style={{ "--dir": dir } as CSSProperties}>
+                    {renderScene(step, reduced)}
                 </div>
             </div>
             <p className={styles.printer}>{ORDERS.printerNote}</p>

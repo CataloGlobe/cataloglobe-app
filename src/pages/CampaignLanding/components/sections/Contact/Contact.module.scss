@@ -81,8 +81,96 @@
     }
 }
 
-.signupCta {
-    margin-top: 24px;
+// ── Variante signup: scheda della prova, poi «ti chiamiamo noi» ─────────────
+.signupCol {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.trial {
+    gap: 18px;
+}
+
+.trialPoints {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: 15px;
+    line-height: 1.4;
+    color: var(--ld-ink);
+
+    li {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+    }
+}
+
+.trialTick {
+    display: grid;
+    flex-shrink: 0;
+    place-items: center;
+    width: 20px;
+    height: 20px;
+    margin-top: 1px;
+    border-radius: 50%;
+    background: var(--ld-ok-soft);
+    color: var(--ld-ok);
+}
+
+.trialCta {
+    width: 100%;
+}
+
+.or {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 13px;
+    color: var(--ld-dark-quiet);
+
+    &::before,
+    &::after {
+        content: "";
+        flex: 1;
+        height: 1px;
+        background: var(--ld-dark-line);
+    }
+}
+
+.callMe {
+    @include ld-reset-button;
+    @include ld-focus;
+    min-height: 48px;
+    padding: 12px 16px;
+    border: 1px solid var(--ld-dark-line);
+    border-radius: 14px;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--ld-dark-link);
+    transition: border-color 200ms ease, background-color 200ms ease;
+
+    &:hover {
+        border-color: var(--ld-dark-quiet);
+        background: rgba(255, 255, 255, 0.04);
+    }
+}
+
+.callForm {
+    @include motion-ok {
+        animation: ld-call-in 320ms var(--ld-ease) both;
+    }
+}
+
+@keyframes ld-call-in {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
 }
 
 .formCol {
@@ -97,8 +185,8 @@
 .form {
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    padding: 22px;
+    gap: 14px;
+    padding: 20px;
     border-radius: 22px;
     background: var(--ld-white);
     box-shadow: var(--ld-shadow-form);
@@ -111,7 +199,7 @@
 .fields {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 10px;
 
     @include desktop {
         display: grid;
@@ -136,19 +224,25 @@
     width: 100%;
     box-sizing: border-box;
     min-height: 48px;
-    margin-top: 6px;
-    padding: 12px 14px;
+    margin-top: 5px;
+    padding: 11px 14px;
     border: 1px solid var(--ld-line);
     border-radius: 12px;
     background: var(--ld-paper);
     font-family: var(--ld-font-sans);
     font-size: 16px; // 16 px: niente zoom automatico su iOS
     color: var(--ld-ink);
+    transition:
+        border-color 180ms ease,
+        background-color 180ms ease,
+        box-shadow 180ms ease;
 
+    // Campo attivo: bordo blu, fondo bianco e un alone tenue.
     &:focus {
-        outline: 2px solid var(--ld-azione);
-        outline-offset: 1px;
-        border-color: transparent;
+        outline: none;
+        border-color: var(--ld-azione);
+        background: var(--ld-white);
+        box-shadow: 0 0 0 4px var(--ld-brand-s);
     }
 }
 
@@ -184,17 +278,21 @@
     color: var(--ld-ink);
 }
 
+// Telefono: due colonne pari (la terza voce a tutta riga); desktop in fila.
 .pills {
     display: flex;
     flex-wrap: wrap;
     gap: 7px;
-    margin-top: 9px;
+    margin-top: 8px;
 }
 
 .pill {
     @include ld-reset-button;
     @include ld-focus;
-    min-height: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
     padding: 9px 14px;
     border: 1px solid var(--ld-line);
     border-radius: 999px;
@@ -207,10 +305,64 @@
         color 200ms ease;
 }
 
+// Spunta della voce scelta: si apre in larghezza e scatta dentro.
+.pillTick {
+    display: inline-flex;
+    width: 0;
+    margin-right: 0;
+    overflow: hidden;
+    transform: scale(0.4);
+    opacity: 0;
+
+    @include motion-ok {
+        transition:
+            width 220ms var(--ld-ease),
+            margin-right 220ms var(--ld-ease),
+            opacity 160ms ease,
+            transform 300ms var(--ld-ease-pop);
+    }
+}
+
 .pillOn {
-    background: var(--ld-brand-s);
+    background: var(--ld-azione);
     border-color: var(--ld-azione);
-    color: var(--ld-azione);
+    color: var(--ld-white);
+
+    .pillTick {
+        width: 14px;
+        margin-right: 6px;
+        transform: none;
+        opacity: 1;
+    }
+}
+
+// ── Invio ──
+.submit {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.reassure {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 4px 16px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: 13px;
+    color: var(--ld-muted);
+
+    li {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+    }
+
+    svg {
+        color: var(--ld-ok);
+    }
 }
 
 .consent {
@@ -274,6 +426,22 @@
     }
 }
 
+// La spunta si disegna dopo l'ingresso della conferma.
+.doneTick {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 0;
+
+    @include motion-ok {
+        animation: ld-done-tick 420ms 220ms ease-out both;
+    }
+}
+
+@keyframes ld-done-tick {
+    from {
+        stroke-dashoffset: 1;
+    }
+}
+
 .doneIcon {
     display: grid;
     place-items: center;
@@ -301,6 +469,39 @@
     font-size: 16px;
     line-height: 1.5;
     color: var(--ld-body);
+}
+
+.doneNext {
+    display: grid;
+    justify-items: center;
+    gap: 10px;
+    margin-top: 6px;
+    padding-top: 18px;
+    border-top: 1px solid var(--ld-line);
+    width: 100%;
+}
+
+.doneMore {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 44px;
+    padding: 0 18px;
+    border-radius: 999px;
+    background: var(--ld-brand-s);
+    color: var(--ld-azione);
+    font-size: 15px;
+    font-weight: 600;
+    text-decoration: none;
+    @include ld-focus;
+
+    svg {
+        transition: transform 200ms var(--ld-ease);
+    }
+
+    &:hover svg {
+        transform: translateX(3px);
+    }
 }
 
 .nowrap {

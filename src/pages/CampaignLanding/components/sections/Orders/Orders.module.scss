@@ -72,14 +72,20 @@
     color: var(--ld-azione);
 }
 
-// Avanzamento del passo: la linguetta attiva si riempie da sinistra di un velo
-// blu tenue in $step-ms, lineare. ⚠️ Stessa durata di STEP_MS in Orders.tsx.
+// Avanzamento del passo: una barretta blu in fondo alla linguetta attiva si
+// riempie da sinistra in $step-ms, lineare (un velo su tutta la linguetta
+// sembrava uno sfondo sbagliato). ⚠️ Stessa durata di STEP_MS in Orders.tsx.
 $step-ms: 3000ms;
 
 .progress {
     position: absolute;
-    inset: 0;
-    background: rgba(70, 72, 198, 0.07);
+    right: 14px;
+    bottom: 3px;
+    left: 14px;
+    height: 2px;
+    border-radius: 2px;
+    background: var(--ld-azione);
+    opacity: 0.45;
     transform-origin: left;
     animation: ld-orders-progress $step-ms linear both;
     pointer-events: none;
@@ -96,6 +102,7 @@ $step-ms: 3000ms;
 
 // ── Pannello ────────────────────────────────────────────────────────────────
 .panel {
+    position: relative;
     height: 324px;
     box-sizing: border-box;
     margin-top: 12px;
@@ -107,25 +114,45 @@ $step-ms: 3000ms;
     box-shadow: 0 14px 34px rgba(21, 20, 43, 0.07);
 }
 
-.panelIn {
-    height: 100%;
+// Una scena per passo, una sopra l'altra durante il passaggio.
+.scene {
+    position: absolute;
+    inset: 0;
 }
 
-// Cambio di passo: il pannello nuovo entra in 250 ms.
+// Passaggio: la vecchia scivola via in $leave-ms, la nuova entra dal lato
+// della linguetta (--dir 1 da destra, −1 da sinistra).
+// ⚠️ $leave-ms come LEAVE_MS in Orders.tsx.
+$leave-ms: 300ms;
+
 @include motion-ok {
-    .panelIn {
-        animation: ld-orders-panel 250ms var(--ld-ease) both;
+    .sceneIn {
+        animation: ld-orders-in 520ms var(--ld-ease) both;
+    }
+
+    .sceneOut {
+        animation: ld-orders-out $leave-ms ease both;
+        pointer-events: none;
+
+        // Ferma allo stato finale mentre esce: niente animazioni che ripartono.
+        * {
+            animation: none !important;
+            transition: none !important;
+        }
     }
 }
 
-@keyframes ld-orders-panel {
+@keyframes ld-orders-in {
     from {
         opacity: 0;
-        transform: translateY(6px);
+        transform: translateX(calc(var(--dir, 1) * 28px)) scale(0.985);
     }
+}
+
+@keyframes ld-orders-out {
     to {
-        opacity: 1;
-        transform: none;
+        opacity: 0;
+        transform: translateX(calc(var(--dir, 1) * -17px)) scale(0.985);
     }
 }
 
@@ -136,25 +163,13 @@ $step-ms: 3000ms;
     color: var(--ld-muted);
 }
 
-// ── Passo 1: l'ordine ───────────────────────────────────────────────────────
-// Un solo elemento: la scheda dal telefono del cliente, al centro del riquadro.
+// ── Passo 1: il cliente ordina ──────────────────────────────────────────────
+// Il menù dal telefono del cliente, nel riquadro: tre piatti con il «+» e la
+// barra «Invia l'ordine» che sale dal fondo.
 .order {
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    position: relative;
     height: 100%;
-    padding: 0 16px;
-}
-
-.orderCard {
-    width: 300px;
-    max-width: 100%;
-    box-sizing: border-box;
-    padding: 16px 18px 14px;
-    border-radius: 18px;
-    background: var(--ld-white);
-    border: 1px solid var(--ld-line-2);
-    box-shadow: 0 14px 34px rgba(40, 36, 90, 0.1);
+    padding: 18px 18px 0;
 }
 
 .orderHead {
@@ -173,61 +188,129 @@ $step-ms: 3000ms;
     font-weight: 700;
 }
 
-.line {
+.dish {
     display: flex;
-    align-items: baseline;
-    gap: 10px;
+    align-items: center;
+    gap: 12px;
     padding: 9px 0;
     border-bottom: 1px solid var(--ld-line-2);
+}
+
+.dishText {
+    flex: 1;
+    min-width: 0;
+}
+
+.dishName {
+    display: block;
     font-size: 14.5px;
+    font-weight: 600;
     color: var(--ld-ink);
 }
 
-.qty {
-    min-width: 20px;
+.dishDesc {
+    display: block;
+    font-size: 12px;
+    color: var(--ld-muted);
+}
+
+.dishPrice {
+    font-size: 14px;
     font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--ld-ink);
+}
+
+.plus {
+    position: relative;
+    display: grid;
+    flex-shrink: 0;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: 1.5px solid var(--ld-line);
+    font-size: 17px;
+    font-weight: 700;
+    line-height: 1;
     color: var(--ld-azione);
+
+    // Onda del tocco.
+    &::after {
+        content: "";
+        position: absolute;
+        inset: -6px;
+        border-radius: 50%;
+        background: var(--ld-azione);
+        opacity: 0;
+    }
 }
 
-.lineName {
-    flex-grow: 1;
+.plusOn {
+    background: var(--ld-azione);
+    border-color: var(--ld-azione);
+    font-size: 13px;
+    color: var(--ld-on-azione);
 }
 
-.linePrice {
-    font-weight: 700;
+@include motion-ok {
+    .plusTap::after {
+        animation: ld-orders-tap 420ms ease-out;
+    }
 }
 
-.total {
-    display: flex;
-    justify-content: space-between;
-    padding: 12px 0;
-    font-size: 15px;
-    font-weight: 700;
-    color: var(--ld-ink);
+@keyframes ld-orders-tap {
+    from {
+        opacity: 0.28;
+        transform: scale(0.5);
+    }
+    to {
+        opacity: 0;
+        transform: scale(1.4);
+    }
 }
 
 // Resta blu anche a ordine inviato, come il resto della pagina.
-.send {
-    padding: 12px;
-    border-radius: 12px;
+.sendBar {
+    position: absolute;
+    right: 12px;
+    bottom: 12px;
+    left: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 13px 16px;
+    border-radius: 14px;
     background: var(--ld-azione);
     color: var(--ld-on-azione);
     font-size: 15px;
     font-weight: 600;
-    text-align: center;
-    transition: transform 120ms ease;
+    box-shadow: 0 12px 24px -8px rgba(70, 72, 198, 0.55);
+    transform: translateY(80px);
 }
 
-.sendPress {
+.sendBarUp {
+    transform: none;
+}
+
+.sendBarPress {
     transform: scale(0.97);
 }
 
-.orderNote {
-    margin: 9px 0 0;
-    font-size: 11.5px;
-    line-height: 1.4;
-    color: var(--ld-muted);
-    text-align: center;
+@include motion-ok {
+    .sendBar {
+        transition: transform 500ms var(--ld-ease);
+    }
+
+    .sendBarPress {
+        transition-duration: 120ms;
+    }
+}
+
+.sendCount {
+    font-size: 13px;
+    font-weight: 500;
+    opacity: 0.85;
 }
 
 // ── Passo 2: la comanda ─────────────────────────────────────────────────────
@@ -262,9 +345,10 @@ $step-ms: 3000ms;
 
 // Finestra della comanda: alta quanto la comanda, taglia quel che non è
 // ancora uscito. Il padding lascia spazio all'ombra.
+// Padding largo quanto l'ombra della comanda: overflow la taglierebbe a vista.
 .ticketOut {
-    margin: -5px -14px 0;
-    padding: 0 14px 16px;
+    margin: -5px -26px -14px;
+    padding: 0 26px 30px;
     overflow: hidden;
 }
 
@@ -339,23 +423,6 @@ $step-ms: 3000ms;
 }
 
 @include motion-ok {
-    // Righe dell'ordine: una alla volta a 150 / 450 / 750 ms.
-    .line {
-        animation: ld-orders-row 320ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
-    }
-
-    .line:nth-of-type(2) {
-        animation-delay: 150ms;
-    }
-
-    .line:nth-of-type(3) {
-        animation-delay: 450ms;
-    }
-
-    .line:nth-of-type(4) {
-        animation-delay: 750ms;
-    }
-
     // La comanda esce: dopo 300 ms, 1400 ms dalla fessura verso il basso.
     .ticket {
         animation: ld-orders-print 1400ms cubic-bezier(0.4, 0, 0.2, 1) 300ms backwards;

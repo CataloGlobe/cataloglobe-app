@@ -42,7 +42,9 @@ export type HeroLive = {
 
 export const HERO = {
     eyebrow: "Menù digitale per ristoranti",
-    title: { before: "Il menù che si aggiorna da solo. Tu pensi ", underlined: "alla sala.", after: "" } satisfies UnderlinedTitle,
+    /** Il titolo va a capo dopo la prima frase: «Tu pensi alla sala.» sta su una riga sua. */
+    titleLead: "Il menù che si aggiorna da solo.",
+    title: { before: "Tu pensi ", underlined: "alla sala.", after: "" } satisfies UnderlinedTitle,
     lede: "Cambi un prezzo o segni un piatto finito dal telefono: il menù che i clienti aprono dal QR è subito giusto.",
     /**
      * Telefono simulato (`HeroPhone`): i tre menù del locale d'esempio, uno per
@@ -142,6 +144,10 @@ export const HERO = {
         now: "In corso",
         running: "in corso",
         liveLabel: "Modifica al volo",
+        /** Riga sotto il telefono (solo mobile): cosa sta succedendo adesso. */
+        phoneIdle: "Il menù cambia da solo durante la giornata",
+        phoneSlot: (menu: string) => `il QR mostra il ${menu}`,
+        phoneLive: (text: string) => `${text}, subito sul QR`,
         slots: [
             { time: "12:00", name: "Pranzo" },
             { time: "18:00", name: "Aperitivo" },
@@ -165,7 +171,8 @@ export type ProblemCopy = {
     note: string;
     title: SplitTitle;
     lede: string;
-    solution: string;
+    /** Riquadro «Con CataloGlobe»: il risultato in grassetto, poi il dettaglio. */
+    solution: { lead: string; body: string };
     /** Badge «Piano Pro» accanto a «Con CataloGlobe». */
     pro?: boolean;
 };
@@ -181,7 +188,7 @@ export const SUPPLIER = {
         note: "i costi salgono…",
         title: { lead: "Il fornitore aumenta.", accent: "E tu rimandi la ristampa." },
         lede: "Alzare un prezzo sulla carta vuol dire ristampare tutto il menù, e così si rimanda. Intanto la differenza la paghi tu, piatto dopo piatto.",
-        solution: "Lo cambi dal telefono: il menù che si apre dal QR è subito giusto, e il PDF da stampare si aggiorna da solo."
+        solution: { lead: "Il prezzo nuovo è subito nel menù.", body: "Lo cambi dal telefono, e il PDF da stampare si aggiorna da solo." }
     } satisfies ProblemCopy,
     /**
      * Scheda: all'ingresso nello schermo il prezzo della tagliata sale da 22 a
@@ -214,7 +221,7 @@ export const SOLD_OUT = {
         note: "mi dispiace, non c’è più…",
         title: { lead: "Un piatto è finito.", accent: "Nel menù c’è ancora." },
         lede: "Il cliente lo sceglie e il cameriere deve tornare al tavolo a dirgli che non c’è. Succede ogni volta che qualcosa finisce a metà servizio.",
-        solution: "Lo segni esaurito dal telefono e scegli tu: lo nascondi dal menù o lo lasci visibile come non disponibile. E se finisce un ingrediente, nascondi in un colpo tutti i piatti che lo usano."
+        solution: { lead: "Esaurito con un tocco.", body: "Sparisce dal menù o resta come non disponibile. Finito un ingrediente? Spegni insieme tutti i piatti che lo usano." }
     } satisfies ProblemCopy,
     dish: "Branzino al sale",
     soldOut: "Esaurito",
@@ -234,7 +241,7 @@ export const ORDERS = {
         note: "cameriere!",
         title: { lead: "I tuoi camerieri passano la sera", accent: "a prendere ordini." },
         lede: "E intanto il tavolo che vuole il conto aspetta. Con il personale che non si trova, è tempo che non hai.",
-        solution: "Il cliente ordina dal QR sul tavolo e la comanda arriva in cucina, stampata o su tablet, senza che nessuno debba portarla. E quando un tavolo chiama il cameriere o chiede il conto, lo vedi subito sul telefono.",
+        solution: { lead: "La comanda va dritta in cucina.", body: "Il cliente ordina dal QR, la cucina la riceve stampata o su tablet, e chiamate e conto li vedi sul telefono." },
         pro: true
     } satisfies ProblemCopy,
     steps: [
@@ -245,16 +252,16 @@ export const ORDERS = {
     order: {
         label: "Dal suo telefono",
         table: "Tavolo 7",
-        lines: [
-            { qty: "1×", name: "Tagliere della casa", price: "14 €" },
-            { qty: "2×", name: "Spritz della casa", price: "16 €" },
-            { qty: "1×", name: "Tiramisù", price: "6 €" }
+        /** Il menù del cliente: tocca «+» su ogni piatto fino a `qty`. */
+        dishes: [
+            { name: "Tagliere della casa", desc: "Salumi e formaggi del territorio", price: "14 €", qty: 1 },
+            { name: "Spritz della casa", desc: "Aperol, prosecco, soda", price: "8 €", qty: 2 },
+            { name: "Tiramisù", desc: "Fatto da noi", price: "6 €", qty: 1 }
         ],
-        totalLabel: "Totale",
+        count: "4 piatti",
         total: "36 €",
         send: "Invia l’ordine",
-        sent: "Ordine inviato ✓",
-        note: "Dal QR sul tavolo. Nessuna app, nessuna registrazione."
+        sent: "Ordine inviato ✓"
     },
     ticket: {
         label: "In cucina · 20:41",
@@ -281,23 +288,25 @@ export const ORDERS = {
 
 export type BoardIcon = "languages" | "schedule" | "stats" | "reservations" | "featured" | "allergens" | "stories" | "venues";
 
-export type BoardNote = { icon: BoardIcon; title: string; problem: string; solution: string; pro?: boolean };
+/** `table`: tavolo e ora stampati in testa alla comanda. */
+export type BoardNote = { icon: BoardIcon; table: string; title: string; problem: string; solution: string; pro?: boolean };
 
 export const BOARD = {
     note: "ah, dimenticavo…",
     title: { lead: "E tutto il resto", accent: "che serve al tuo locale." },
     prev: "Comanda precedente",
     next: "Comanda successiva",
-    hint: "Scorri col dito o usa le frecce.",
+    /** Intestazione della comanda: «Comanda N° 01» (su computer, foglietti più stretti, solo «N° 01»). */
+    ticket: { word: "Comanda", number: "N°" },
     notes: [
-        { icon: "languages", title: "Il menù in più lingue", problem: "Il turista non capisce il menù.", solution: "Lo legge tradotto nella sua lingua, in automatico. I nomi dei piatti restano in italiano." },
-        { icon: "schedule", title: "Programmazione", problem: "Il menù di Natale lo metti e lo togli a mano.", solution: "Menù, promo ed eventi li programmi prima: partono e finiscono da soli, locale per locale." },
-        { icon: "stats", title: "Statistiche", problem: "Non sai cosa guardano i clienti.", solution: "Vedi quando aprono il menù e cosa guardano. Con il Pro, anche cosa ordinano e quanto incassi." },
-        { icon: "reservations", title: "Prenotazioni online", problem: "Il telefono squilla in pieno servizio.", solution: "Arrivano online, con il promemoria il giorno prima, e i clienti restano salvati nella tua lista.", pro: true },
-        { icon: "featured", title: "Evidenza e abbinamenti", problem: "Nessuno propone il vino giusto.", solution: "Spingi il piatto che rende di più e suggerisci cosa berci insieme." },
-        { icon: "allergens", title: "Allergeni e ingredienti", problem: "«Cosa c’è dentro?» a ogni tavolo.", solution: "Scritti su ogni piatto, prima che il cliente lo chieda." },
-        { icon: "stories", title: "Storie", problem: "Il cliente non sa cosa rende speciale quel piatto.", solution: "Racconti la storia del piatto, del produttore o del locale, dentro il menù." },
-        { icon: "venues", title: "Più locali, un solo posto", problem: "Più locali da aggiornare uno per uno.", solution: "Li gestisci tutti insieme, e ognuno del team vede solo quello che gli serve." }
+        { icon: "languages", table: "Tav. 4 · 20:14", title: "Il menù in più lingue", problem: "Il turista non capisce il menù.", solution: "Lo legge tradotto nella sua lingua, in automatico. I nomi dei piatti restano in italiano." },
+        { icon: "schedule", table: "Tav. 2 · 20:18", title: "Programmazione", problem: "Il menù di Natale lo metti e lo togli a mano.", solution: "Menù, promo ed eventi li programmi prima: partono e finiscono da soli, locale per locale." },
+        { icon: "stats", table: "Tav. 7 · 20:22", title: "Statistiche", problem: "Non sai cosa guardano i clienti.", solution: "Vedi quando aprono il menù e cosa guardano. Con il Pro, anche cosa ordinano e quanto incassi." },
+        { icon: "reservations", table: "Tav. 9 · 20:31", title: "Prenotazioni online", problem: "Il telefono squilla in pieno servizio.", solution: "Arrivano online, con il promemoria il giorno prima, e i clienti restano salvati nella tua lista.", pro: true },
+        { icon: "featured", table: "Tav. 1 · 20:35", title: "Evidenza e abbinamenti", problem: "Nessuno propone il vino giusto.", solution: "Spingi il piatto che rende di più e suggerisci cosa berci insieme." },
+        { icon: "allergens", table: "Tav. 6 · 20:38", title: "Allergeni e ingredienti", problem: "«Cosa c’è dentro?» a ogni tavolo.", solution: "Scritti su ogni piatto, prima che il cliente lo chieda." },
+        { icon: "stories", table: "Tav. 3 · 20:44", title: "Storie", problem: "Il cliente non sa cosa rende speciale quel piatto.", solution: "Racconti la storia del piatto, del produttore o del locale, dentro il menù." },
+        { icon: "venues", table: "Tav. 12 · 20:47", title: "Più locali, un solo posto", problem: "Più locali da aggiornare uno per uno.", solution: "Li gestisci tutti insieme, e ognuno del team vede solo quello che gli serve." }
     ] satisfies BoardNote[]
 };
 
@@ -324,7 +333,10 @@ export const IMPORT = {
     statusPhoto: "Foto",
     statusReading: "Lettura…",
     statusReady: "4 piatti · pronto",
-    publish: "Controlla e pubblica"
+    /** Sottotitolo della scheda per fase: corto, su una riga anche al telefono. */
+    sub: { photo: "Inquadra il menù", reading: "Leggo piatti e prezzi", ready: "Controlla, poi pubblica" },
+    publish: "Controlla e pubblica",
+    cardNote: "niente va online senza il tuo ok"
 };
 
 // ── 7 · Demo ────────────────────────────────────────────────────────────────
@@ -343,7 +355,16 @@ export const DEMOS = {
     note: "prova tu",
     title: { before: "Guarda cosa può diventare ", underlined: "il tuo locale.", after: "" } satisfies UnderlinedTitle,
     lede: "Tre locali di esempio, tre stili diversi: colori, caratteri e logo li scegli tu. Aprili: è la pagina che i clienti vedono dal QR.",
-    open: "Apri il menù →",
+    /** Senza freccia: il menù si apre nella pagina, non altrove. */
+    open: "Apri il menù",
+    /** Pillola sul telefono al centro: il telefono si tocca. */
+    tapToOpen: "Tocca per aprire",
+    /** Nome del gruppo dei puntini sotto la giostra. */
+    dotsLabel: "Locale di esempio",
+    /** Nota a mano sopra il QR (desktop). */
+    qrNote: "oppure dal tuo telefono",
+    /** Ora nella barra di stato del telefono (kit/Phone). */
+    phoneTime: "12:30",
     /** Alt dello screenshot nel telefono (`scripts/landing-demo-screenshots.ts`). */
     screenAlt: (name: string) => `Il menù di ${name} sul telefono: la copertina del locale, le categorie e i primi piatti con i prezzi.`,
     qrCaption: "Inquadra il QR e apri il menù sul tuo telefono.",
@@ -393,14 +414,18 @@ export type PlanKey = "base" | "pro";
 export const PRICING = {
     note: "la domanda di tutti",
     title: { lead: "Quanto costa,", accent: "detto chiaro." },
-    intervals: { month: "Mensile", year: "Annuale · 2 mesi gratis" },
+    intervals: { month: "Mensile", year: "Annuale" },
+    /** Etichetta verde sul pulsante Annuale. */
+    yearBadge: "2 mesi gratis",
     intervalsLabel: "Fatturazione",
     plansLabel: "Piano",
     period: { month: "al mese", year: "all’anno" },
     perVenue: "per locale",
     fullPriceLabel: "Prezzo pagando mese per mese",
     recommended: "Consigliato",
-    trial: "30 giorni di prova gratuita. Disdici quando vuoi.",
+    /** Pillola verde accanto al prezzo; sotto il pulsante resta `cancel`. */
+    trialBadge: "30 giorni gratis",
+    cancel: "Disdici quando vuoi.",
     plans: {
         base: {
             name: "Base",
@@ -437,6 +462,12 @@ export const PRICING = {
         "Cosa ordinano e quanto incassi, piatto per piatto"
     ],
     notIncluded: "Non incluso nel Base:",
+    /** Blocco delle voci Pro: nel Base in grigio con la X, nel Pro in evidenza. */
+    proOnly: "Solo nel Pro",
+    /** Mobile: riga sotto la scheda Pro che si apre sul Base (nome e claim), senza ripetere le voci. */
+    baseOffer: {
+        text: "Il menù digitale completo: prezzi, lingue, statistiche e import da una foto. Senza ordini dal tavolo, chiamate al cameriere, prenotazioni e incassi piatto per piatto."
+    },
     printer: { label: "Stampante per la cucina:", text: " opzionale, si acquista a parte." },
     footnote: "Un prezzo per ogni locale, nessun costo aggiuntivo."
 };
@@ -451,7 +482,26 @@ export const START = {
         { when: "entro 24 ore", title: "Ti richiamiamo noi", body: "Rispondiamo ai tuoi dubbi e ti facciamo vedere cosa cambia nel tuo locale." },
         { when: "per 30 giorni", title: "Lo provi ", underlined: "gratis.", body: "Carichi il menù da una foto e lo pubblichi. Se ti blocchi, ti seguiamo noi." },
         { when: "poi", title: "Decidi tu", body: "Nessun vincolo, nessuna penale." }
-    ] satisfies { when: string; title: string; underlined?: string; body: string }[]
+    ] satisfies { when: string; title: string; underlined?: string; body: string }[],
+    /** Capi della barretta dei 30 giorni, sotto il passo gratis. */
+    days: { from: "giorno 1", to: "giorno 30" }
+};
+
+/**
+ * «Come si parte» della variante signup (/b): si parte registrandosi, non con
+ * una telefonata. Stessa forma di START (quattro passi, il terzo sottolineato):
+ * i tempi dell'animazione sono calcolati su START e valgono per tutte e due.
+ */
+export const START_SIGNUP: typeof START = {
+    ...START,
+    note: "due minuti, niente di più",
+    title: { lead: "Cosa ti costa provarlo:", accent: "due minuti." },
+    steps: [
+        { when: "oggi", title: "Crei l’account", body: "Nome, email e una password, poi confermi l’email." },
+        { when: "subito dopo", title: "Attivi la prova", body: "Crei il locale e inserisci la carta: per 30 giorni nessun addebito." },
+        START.steps[2],
+        START.steps[3]
+    ]
 };
 
 // ── 10 · FAQ ────────────────────────────────────────────────────────────────
@@ -527,6 +577,13 @@ export const CONTACT = {
     writeInstead: "Se preferisci scrivere:",
     /** Variante signup: sotto la CTA. */
     talkInstead: "Preferisci parlarne? Scrivici:",
+    /** Variante signup (/b): al posto della lede, la scheda della prova e, a richiesta, il form. */
+    signup: {
+        note: "provalo stasera",
+        points: ["30 giorni gratis, tutto incluso", "Carta per attivarla, nessun addebito se disdici prima", "Il menù da una foto, online in pochi minuti"],
+        or: "oppure",
+        callMe: "Preferisci che ti chiamiamo? Lascia il numero"
+    },
     fields: {
         name: "Nome",
         venue: "Nome del locale",
@@ -549,13 +606,21 @@ export const CONTACT = {
     },
     /** Etichetta del pulsante durante l'invio. */
     sending: "Invio…",
+    /** Sotto il pulsante d'invio: le promesse di «Come si parte», nessuna nuova. */
+    reassurance: ["Ti chiamiamo entro 24 ore", "Nessun impegno"],
     /** Al posto del form, dopo l'invio riuscito (`successCopy.ts` sceglie la frase). */
     success: {
         title: "Richiesta ricevuta.",
         titleNamed: (name: string) => `Grazie ${name}, richiesta ricevuta.`,
         /** In mezzo il telefono, su una riga sola. */
         text: { before: "Ti chiamiamo entro 24 ore al ", after: "." },
-        textNoPhone: "Ti chiamiamo entro 24 ore al numero che ci hai lasciato."
+        textNoPhone: "Ti chiamiamo entro 24 ore al numero che ci hai lasciato.",
+        /** Il passo dopo: un menù vero mentre si aspetta la chiamata. */
+        more: { label: "Intanto guarda un menù vero", href: "#esempi" }
+        // «Numero sbagliato? Correggilo» (riapre il form compilato) tolto il
+        // 2026-10-11: il secondo invio crea un altro lead, e nel CRM un altro
+        // locale (i doppioni si riconoscono solo dal telefono). Si rimette
+        // quando `submit-lead` saprà sostituire la richiesta appena inviata.
     },
     /** Sotto il pulsante se l'invio fallisce; in mezzo l'indirizzo email. */
     failure: {
@@ -594,8 +659,10 @@ export const FOOTER = {
                 { label: "Termini di servizio", href: "/legal/termini" }
             ]
         },
-        contacts: { title: "Contatti", write: "Scrivici", phone: "Telefono" }
+        contacts: { title: "Contatti", phone: "Telefono", copy: "Copia l’indirizzo email", copied: "Copiato" }
     },
     vatLabel: "P.IVA",
+    /** Anno del © nell'HTML prerenderizzato; il footer lo aggiorna dopo l'idratazione. */
+    year: 2026,
     cookiePreferences: "Preferenze cookie"
 };

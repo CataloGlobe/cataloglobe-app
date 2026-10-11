@@ -125,6 +125,7 @@ export default function Hero() {
                     <div ref={refs.text} className={styles.copy}>
                         <p className={cx(styles.eyebrow, styles.in1)}>{HERO.eyebrow}</p>
                         <h1 id="landing-hero-title" className={cx(styles.title, styles.in2)}>
+                            <span className={styles.titleLead}>{HERO.titleLead}</span>{" "}
                             <UnderlinedText title={HERO.title} className={styles.titleHl} />
                         </h1>
                         <p className={cx(styles.lede, styles.in3)}>{HERO.lede}</p>

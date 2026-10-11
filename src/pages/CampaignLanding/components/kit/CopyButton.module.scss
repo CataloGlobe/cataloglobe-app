@@ -1,0 +1,102 @@
+@use "@pages/CampaignLanding/styles/mixins" as *;
+
+.copyWrap {
+    position: relative;
+    display: inline-flex;
+}
+
+.copy {
+    @include ld-reset-button;
+    @include ld-focus;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    background: var(--ld-white);
+    border: 1px solid var(--ld-line);
+    color: var(--ld-ink);
+
+    // Su scuro (footer): niente fondo bianco, bordo e icona del tono.
+    [data-tone="dark"] & {
+        background: transparent;
+        color: var(--ld-dark-link);
+    }
+    transition:
+        background-color 250ms ease,
+        transform 250ms var(--ld-ease-pop);
+
+    @include ld-hit-area;
+}
+
+.copied {
+    background: var(--ld-azione);
+    border-color: var(--ld-azione);
+    color: var(--ld-white);
+    transform: scale(1.06);
+
+    [data-tone="dark"] & {
+        background: var(--ld-azione);
+        color: var(--ld-on-azione);
+    }
+}
+
+.icCopy,
+.icOk {
+    position: absolute;
+    transition:
+        opacity 180ms ease,
+        transform 250ms ease;
+}
+
+.icOk {
+    opacity: 0;
+    transform: scale(0.6);
+    transition-timing-function: ease, var(--ld-ease-pop);
+}
+
+.copied .icCopy {
+    opacity: 0;
+    transform: scale(0.6);
+}
+
+.copied .icOk {
+    opacity: 1;
+    transform: none;
+}
+
+.tip {
+    position: absolute;
+    left: 50%;
+    bottom: calc(100% + 8px);
+    padding: 4px 9px;
+    border-radius: 8px;
+    background: var(--ld-scuro);
+    color: var(--ld-white);
+    font-size: 12px;
+
+    [data-tone="dark"] & {
+        background: var(--ld-white);
+        color: var(--ld-scuro);
+    }
+    font-weight: 600;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transform: translate(-50%, 4px);
+    transition:
+        opacity 200ms ease,
+        transform 250ms ease;
+}
+
+.srOnly {
+    @include ld-sr-only;
+}
+
+.copied + .tip {
+    opacity: 1;
+    transform: translate(-50%, 0);
+}

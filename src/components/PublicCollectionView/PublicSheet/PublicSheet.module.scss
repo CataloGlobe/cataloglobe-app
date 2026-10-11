@@ -46,7 +46,8 @@
   background: var(--pub-surface, #fff);
   color: var(--pub-text, #0f172a);
   width: 100%;
-  max-height: 75dvh;
+  /* La landing (esempi) lo vuole più alto: lo chiede con queste variabili. */
+  max-height: var(--pub-sheet-max-h, 75dvh);
   border-radius: var(--pub-radius, 16px) var(--pub-radius, 16px) 0 0;
   display: flex;
   flex-direction: column;
@@ -140,7 +141,7 @@
   .panel {
     width: 480px;
     max-width: calc(100vw - 48px);
-    max-height: 85dvh;
+    max-height: var(--pub-sheet-max-h-desk, 85dvh);
     border-radius: var(--pub-radius, 16px);
   }
 

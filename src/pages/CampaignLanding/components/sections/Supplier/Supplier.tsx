@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import Problem from "@pages/CampaignLanding/components/Problem/Problem";
 import { MenuRow, PhoneQrCard } from "@pages/CampaignLanding/components/kit/Kit";
+import { Swap } from "@pages/CampaignLanding/components/kit/Swap";
 import { SUPPLIER } from "@pages/CampaignLanding/content/landing";
 import { useReducedMotion } from "@pages/CampaignLanding/hooks/useReducedMotion";
 import { useVisible } from "@pages/CampaignLanding/hooks/useVisible";
@@ -19,8 +20,8 @@ const euro = (n: number) => `${n} €`;
  * «Un piatto è finito»). All'ingresso nello schermo la tagliata passa da 22 a
  * 23 € sul telefono e poi nel menù del cliente; da lì il campo è uno stepper
  * (18–28 €) e il menù del cliente lo segue subito. Uscita del tutto dallo
- * schermo torna a 22 € e al rientro rifà il passaggio, se nessuno ha toccato
- * lo stepper. Con `prefers-reduced-motion` parte già da 23 €.
+ * schermo torna a 22 € e al rientro rifà il passaggio, anche se lo stepper
+ * era stato toccato. Con `prefers-reduced-motion` parte già da 23 €.
  */
 export default function Supplier() {
     const { card, loss } = SUPPLIER;
@@ -31,7 +32,7 @@ export default function Supplier() {
     const [played, setPlayed] = useState(false);
     const [touched, setTouched] = useState(false);
     const visible = useVisible(ref, 0.4, () => {
-        if (touched) return;
+        setTouched(false);
         setPhone(card.base);
         setCustomer(card.base);
         setPlayed(false);
@@ -69,8 +70,18 @@ export default function Supplier() {
             tone="white"
             copy={SUPPLIER.copy}
             visualSide="right"
+            cost={
+                <div className={styles.loss}>
+                    <span className={styles.amount}>{loss.amount}</span>
+                    <span className={styles.lossText}>
+                        {loss.text}
+                        <span className={styles.math}>{loss.math}</span>
+                    </span>
+                </div>
+            }
             visual={
                 <>
+                    <p className={styles.hint}>{SUPPLIER.hint}</p>
                     <div ref={ref}>
                         <PhoneQrCard
                             dish={card.dish}
@@ -87,7 +98,9 @@ export default function Supplier() {
                                         −
                                     </button>
                                     <output className={cx(styles.stepValue, phoneValue !== card.base && styles.stepValueOn)}>
-                                        {euro(phoneValue)}
+                                        <Swap id={phoneValue} roll>
+                                            {euro(phoneValue)}
+                                        </Swap>
                                     </output>
                                     <button
                                         type="button"
@@ -105,24 +118,16 @@ export default function Supplier() {
                                 const changed = Boolean(row.raised) && customerValue !== card.base;
                                 return (
                                     <MenuRow
-                                        // Chiave nuova a ogni prezzo: il lampo riparte.
-                                        key={row.raised ? `${row.name}-${customerValue}` : row.name}
+                                        key={row.name}
                                         name={row.name}
                                         price={changed ? euro(customerValue) : row.price}
                                         oldPrice={changed ? row.price : undefined}
-                                        className={cx(changed && styles.rowUp)}
+                                        // Un lampo a ogni prezzo nuovo.
+                                        flash={changed ? customerValue : undefined}
                                     />
                                 );
                             })}
                         </PhoneQrCard>
-                    </div>
-                    <p className={styles.hint}>{SUPPLIER.hint}</p>
-                    <div className={styles.loss}>
-                        <span className={styles.amount}>{loss.amount}</span>
-                        <span className={styles.lossText}>
-                            {loss.text}
-                            <span className={styles.math}>{loss.math}</span>
-                        </span>
                     </div>
                 </>
             }
