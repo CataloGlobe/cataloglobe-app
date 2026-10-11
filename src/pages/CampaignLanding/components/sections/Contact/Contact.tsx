@@ -330,14 +330,17 @@ function SignupClose() {
     // Prima esce quello che c'è (dissolvenza), poi entra l'altro; senza animazioni, subito.
     const [leaving, setLeaving] = useState(false);
     const reduced = useReducedMotion();
+    const leaveTimer = useRef<number>(undefined);
+    useEffect(() => () => window.clearTimeout(leaveTimer.current), []);
     const toggle = (next: boolean) => {
+        if (leaving) return;
         touched.current = true;
         if (reduced) {
             setOpen(next);
             return;
         }
         setLeaving(true);
-        window.setTimeout(() => {
+        leaveTimer.current = window.setTimeout(() => {
             setLeaving(false);
             setOpen(next);
         }, LEAVE_MS);
