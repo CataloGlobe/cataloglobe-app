@@ -45,6 +45,39 @@ type Props = {
     backgroundRef?: RefObject<HTMLElement | null>;
 };
 
+/** Righe più alte di così (sezioni intere) non si tagliano a metà. */
+const MAX_HALF_ROW_PX = 120;
+
+/**
+ * Altezza della finestra del foglio. Di norma quella del contenuto; se il tetto
+ * del pannello la taglia, si ferma a metà della riga che resta sotto il bordo,
+ * così si vede che la lista continua (spec §5). Imposta lo stile e ritorna il valore.
+ */
+function cutAtHalfRow(viewport: HTMLElement, content: HTMLElement): number {
+    const full = content.offsetHeight;
+    viewport.style.height = `${full}px`;
+    // Misure di layout (offset*), non getBoundingClientRect: all'entrata il
+    // pannello è già in scala 0.97 su desktop e i rettangoli sarebbero scalati.
+    const shown = viewport.clientHeight;
+    if (shown >= full - 1) return full;
+    // La riga sotto il bordo (anche se il bordo cade esattamente fra due righe,
+    // che sembrerebbe la fine della lista); se se ne vede appena un filo, la precedente.
+    const rows = Array.from(content.firstElementChild?.children ?? []) as HTMLElement[];
+    const halfOf = (row: HTMLElement | undefined) =>
+        row && row.offsetHeight <= MAX_HALF_ROW_PX ? row.offsetTop - content.offsetTop + row.offsetHeight / 2 : null;
+    for (let i = 0; i < rows.length; i += 1) {
+        const rowTop = rows[i].offsetTop - content.offsetTop;
+        if (rowTop < shown && rowTop + rows[i].offsetHeight >= shown) {
+            let half = halfOf(rows[i]);
+            if (half !== null && half >= shown) half = halfOf(rows[i - 1]);
+            if (half === null || half >= shown) break;
+            viewport.style.height = `${half}px`;
+            return half;
+        }
+    }
+    return full;
+}
+
 /** Cenno di scorrimento: quanto sale il contenuto e in quanto torna (spec §5). */
 const NUDGE_PX = 12;
 const NUDGE_DURATION_MS = 600;
@@ -306,9 +339,8 @@ export default function SheetHost({ renderPage, backgroundRef }: Props) {
         const content = trackRef.current?.children[index]?.firstElementChild;
         if (!present || !viewport || !content) return;
         const apply = () => {
-            const next = (content as HTMLElement).offsetHeight;
             const previous = viewport.getBoundingClientRect().height;
-            viewport.style.height = `${next}px`;
+            const next = cutAtHalfRow(viewport, content as HTMLElement);
             if (animateHeight.current && previous > 0 && previous !== next) {
                 play(viewport, [{ height: `${previous}px` }, { height: `${next}px` }], PUSH_DURATION_MS);
             }
