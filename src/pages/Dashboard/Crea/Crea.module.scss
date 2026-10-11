@@ -982,7 +982,7 @@ select.in {
     padding: 0;
     border: 0;
     background: none;
-    color: var(--on-brand-soft);
+    color: var(--on-brand-soft) !important;
     font-weight: 600;
     cursor: pointer;
     @include cal.fs(small);

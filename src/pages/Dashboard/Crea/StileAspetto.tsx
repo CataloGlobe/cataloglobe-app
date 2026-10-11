@@ -2,10 +2,11 @@
 // dall'alto in basso, con tutte le scelte dell'editor. Le forme sono quelle
 // dell'artifact «Lo stile nel tunnel», quarta versione.
 import { useRef, useState, type ReactNode } from "react";
-import { TriangleAlert, Undo2 } from "lucide-react";
-import type { FontFamily, StyleTokenModel } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
+import { History, TriangleAlert, Undo2 } from "lucide-react";
+import { listStyleVersions } from "@/services/supabase/styles";
+import { parseTokens, type FontFamily, type StyleTokenModel } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
 import { COLORS, FONTS, type Tunnel } from "./creaModel";
-import { DARK_BG, LIGHT_BG, hardToRead, ink, lum, partKey, readable, restore, sameHex, type PartId } from "./stileLook";
+import { DARK_BG, LIGHT_BG, PART_IDS, hardToRead, ink, lum, partKey, readable, restore, sameHex, type PartId } from "./stileLook";
 import { Choice, Group, Palette, type Opts } from "./StileUi";
 import { Sh } from "./CreaUi";
 import type { U } from "./CreaSteps";
@@ -45,7 +46,22 @@ const LOOKS: readonly { name: string; primary: string; bg: string; font: FontFam
     { name: "Allegro", primary: "#7c3aed", bg: LIGHT_BG, font: "patrick-hand", put: l => void ((l.card.productStyle = "card"), (l.appearance.cardTreatment = "raised"), (l.appearance.borderRadius = "rounded"), (l.navigation.style = "filled"), (l.appearance.backgroundPattern = "dots"), (l.appearance.patternIntensity = "subtle")) }
 ];
 
-export function StileAspetto({ t, u }: { t: Tunnel; u: U }) {
+const PART_NAME: Record<PartId, string> = { cima: "in cima alla pagina", categorie: "la riga delle categorie", evidenza: "in evidenza", piatti: "i piatti", colori: "colori e forme", carattere: "il carattere" };
+const day = (iso: string) => new Date(iso).toLocaleDateString("it-IT", { day: "numeric", month: "long", year: "numeric" });
+
+export function StileAspetto({ t, u, tenantId, rules, onPeek }: { t: Tunnel; u: U; tenantId: string; rules: number; onPeek: (look: Look | null, label?: string) => void }) {
+    const editId = t.edit?.id ?? null;
+    // le versioni di prima si leggono la prima volta che si aprono
+    const [open, setOpen] = useState(false);
+    const [vers, setVers] = useState<{ id: string; when: string; look: Look }[] | "failed" | null>(null);
+    const showVers = () => {
+        setOpen(o => !o);
+        if (vers || !editId) return;
+        listStyleVersions(editId, tenantId)
+            .then(list => setVers(list.map(v => ({ id: v.id, when: day(v.created_at), look: parseTokens(v.config) }))))
+            .catch(() => setVers("failed"));
+    };
+
     const l = t.look, was = t.edit?.orig.look ?? null;
     const [pal, setPal] = useState<ColorKey | null>(null);
     const set = (f: (x: Look) => void) => u(x => f(x.look));
@@ -92,6 +108,50 @@ export function StileAspetto({ t, u }: { t: Tunnel; u: U }) {
 
     return (
         <div className={s.asp}>
+            {t.edit && (
+                <div className={s.tools}>
+                    {rules > 0 && (
+                        <span className={s.inuse}>
+                            <i aria-hidden />
+                            Usato in {rules === 1 ? "una regola" : `${rules} regole`} del Calendario: quello che salvi si vede subito lì.
+                        </span>
+                    )}
+                    <button type="button" className={s.linkb} aria-expanded={open} onClick={showVers}>
+                        <History size={14} />
+                        Versioni di prima
+                    </button>
+                </div>
+            )}
+            {t.edit && open && (
+                <div className={s.vers} role="region" aria-label="Versioni di prima">
+                    <div>
+                        <b>Adesso</b>
+                        <span>quello che stai cambiando</span>
+                    </div>
+                    {vers === null && <div><span>Le leggo…</span></div>}
+                    {vers === "failed" && <div><span>Non siamo riusciti a leggere le versioni. Chiudi e riapri per riprovare.</span></div>}
+                    {Array.isArray(vers) &&
+                        vers.map((v, i) => {
+                            const diff = PART_IDS.filter(p => partKey(v.look, p) !== partKey(l, p));
+                            return (
+                                <div key={v.id}>
+                                    <b>{v.when}</b>
+                                    <span>{[i === 0 ? "com'è salvato adesso" : i === vers.length - 1 ? "la prima" : "", diff.length ? `diversi: ${diff.map(p => PART_NAME[p]).join(", ")}` : "uguale a quello che vedi"].filter(Boolean).join(" · ")}</span>
+                                    {diff.length > 0 && (
+                                        <>
+                                            <button type="button" className={s.linkb} onClick={() => onPeek(v.look, `Versione del ${v.when}`)}>
+                                                Guarda
+                                            </button>
+                                            <button type="button" className={s.linkb} onClick={() => u(x => void (x.look = structuredClone(v.look)))}>
+                                                Torna a questa
+                                            </button>
+                                        </>
+                                    )}
+                                </div>
+                            );
+                        })}
+                </div>
+            )}
             <Sh title="L'aspetto">{t.edit ? "Sei parti, dall'alto in basso come sul telefono. Cambia quello che vuoi: il resto resta com'è." : "Sei parti, dall'alto in basso come sul telefono. Va già bene così com'è: cambia solo quello che vuoi."}</Sh>
             {!t.edit && (
                 <div className={s.start}>

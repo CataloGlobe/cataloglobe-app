@@ -90,14 +90,15 @@ export function CreaTunnel({ kind, editId }: { kind: CreaKind; editId?: string }
         );
     if (!data || !tenantId) return <Skeleton height={420} />;
     if (!canWrite) return <EmptyState title={editId ? "Non puoi modificarlo" : "Non puoi crearlo"} description={`Per ${editId ? "modificare" : "creare"} ${UN[kind]} serve il permesso di modifica. Chiedilo al proprietario.`} />;
-    if (editId && loaded === "system") return <EmptyState title="Lo stile di CataloGlobe non si modifica" description="Fanne una copia da Stili, e modifica quella." />;
     if (editId && loaded === "failed") return <EmptyState title="Non si è aperto" description="Non siamo riusciti a leggerlo: forse non c'è più. Torna all'elenco e riprova." />;
     if (editId && !loaded) return <Skeleton height={420} />;
     return (
         <Tunnelo
             kind={kind}
             aside={aside}
-            edit={editId ? (loaded as Loaded) : null}
+            // uno stile di CataloGlobe non si modifica: se ne fa uno proprio partendo da lui (D186, 4A)
+            edit={editId && loaded !== "system" ? (loaded as Loaded) : null}
+            fromStyle={loaded === "system" ? editId : null}
             data={data}
             tenantId={tenantId}
             owner={owner}

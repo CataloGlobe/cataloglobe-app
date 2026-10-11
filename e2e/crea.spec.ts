@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { openBusinessPageByUrl } from "./business";
-import { MENU, PRODUCT, SEDE, TENANT_ID, stubProgrammazione, type ProgrammazioneStub, type WriteCall } from "./programmazioneStub";
+import { MENU, PRODUCT, SEDE, STYLE, TENANT_ID, stubProgrammazione, type ProgrammazioneStub, type WriteCall } from "./programmazioneStub";
 import { StubError, type Row } from "./restStub";
 
 /**
@@ -689,5 +689,53 @@ test.describe("Tunnel di creazione — misure", () => {
         await expect(button(page, "Avanti")).toBeEnabled();
         const side = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
         expect(side).toBeLessThanOrEqual(0);
+    });
+});
+
+test.describe("Tunnel dello stile: modificare (D186)", () => {
+    const OWN = "e2e51700-0000-4000-a000-000000000001";
+    const ver = (n: number, primary: string, created_at: string) => ({ id: `e2e51700-0000-4000-a000-00000000001${n}`, tenant_id: TENANT_ID, style_id: OWN, version: n, config: { colors: { primary } }, created_at });
+
+    test.beforeEach(async ({ page }) => {
+        stub = await stubProgrammazione(page);
+    });
+
+    test("uno stile di CataloGlobe non si modifica: si apre la creazione già su «Parti da questo stile»", async ({ page }) => {
+        await openBusinessPageByUrl(page, `crea/stile/${STYLE.base}?da=stili`);
+        await expect(main(page).getByRole("heading", { level: 2, name: "Nuovo stile" })).toBeVisible({ timeout: 20_000 });
+        await next(page);
+        await expect(button(page, "Stile base e2e")).toHaveAttribute("aria-pressed", "true");
+    });
+
+    test("le versioni di prima: si guardano nel telefono e ci si torna, senza salvare finché non lo dici", async ({ page }) => {
+        await page.route(/\/rest\/v1\/styles\?.*id=eq\.e2e51700/, route =>
+            route.request().method() === "GET" ? route.fulfill({ json: { id: OWN, tenant_id: TENANT_ID, name: "Sera", is_system: false, is_active: true, current_version: ver(2, "#be123c", "2026-10-03T10:00:00Z") } }) : route.fallback()
+        );
+        await page.route(/\/rest\/v1\/style_versions\?/, route => (route.request().method() === "GET" ? route.fulfill({ json: [ver(2, "#be123c", "2026-10-03T10:00:00Z"), ver(1, "#1d4ed8", "2026-09-18T10:00:00Z")] }) : route.fallback()));
+        stub.onWrite("style_versions.POST", ({ body }) => ({ id: ID.version, ...first(body) }));
+        stub.onWrite("styles.PATCH", ({ body }) => ({ id: OWN, ...first(body) }));
+        await openBusinessPageByUrl(page, `crea/stile/${OWN}?da=stili`);
+        await expect(main(page).getByRole("heading", { name: "Cosa vuoi modificare?" })).toBeVisible({ timeout: 20_000 });
+        await main(page).getByRole("checkbox", { name: /^L'aspetto/ }).click();
+        await next(page);
+        await expect(main(page).getByRole("heading", { name: "L'aspetto" })).toBeVisible();
+        await expect(button(page, "Rosso")).toHaveAttribute("aria-pressed", "true");
+        // niente di cambiato: niente «Torna com'era», niente confronto
+        await expect(button(page, "Torna com'era")).toHaveCount(0);
+        await button(page, "Versioni di prima").click();
+        const vers = main(page).getByRole("region", { name: "Versioni di prima" });
+        await expect(vers.getByText("3 ottobre 2026")).toBeVisible();
+        await expect(vers.getByText(/la prima · diversi: colori e forme/)).toBeVisible();
+        await vers.getByRole("button", { name: "Guarda" }).click();
+        const side = page.getByLabel("Così lo vede il cliente");
+        await side.getByRole("button", { name: /Versione del 18 settembre 2026: torna alle tue modifiche/ }).click();
+        await vers.getByRole("button", { name: "Torna a questa" }).click();
+        await expect(button(page, "Blu")).toHaveAttribute("aria-pressed", "true");
+        await expect(button(page, "Torna com'era")).toHaveCount(1);
+        await expect(side.getByRole("button", { name: "Guarda com'era prima" })).toBeVisible();
+        expect(writesOf(stub, "style_versions.POST")).toHaveLength(0);
+        // una parte sola torna com'era
+        await button(page, "Torna com'era").click();
+        await expect(button(page, "Rosso")).toHaveAttribute("aria-pressed", "true");
     });
 });
