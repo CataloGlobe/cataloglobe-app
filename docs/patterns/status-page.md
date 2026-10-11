@@ -3,7 +3,7 @@
 **Fonte dei dati**: Redis è la fonte primaria, il DB è solo storico. La pagina deve poter dire che il database è giù, e gli avvisi devono partire anche quando lo è.
 
 ```
-scheduler esterno (ogni 2 min, Bearer CRON_SECRET)
+scheduler esterno (cron-job.org, ogni 5 min, Bearer CRON_SECRET)
   → api/cron/status-check.ts
       → runAllChecks (4 servizi, 10 s per controllo)
       → Redis: status:v1:current + status:v1:uptime:{servizio}:{giorno}
