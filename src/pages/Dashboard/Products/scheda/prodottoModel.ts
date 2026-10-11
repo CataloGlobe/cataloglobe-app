@@ -109,7 +109,7 @@ export const capitalize = (s: string): string => s.charAt(0).toUpperCase() + s.s
 
 /** Le lingue che il cliente non trova tradotte (in corso a parte). */
 export function missingLanguages(f: ProdottoFacts): ProdottoLingua[] {
-    return (f.languages ?? []).filter(l => l.state !== "done" && l.state !== "pending");
+    return (f.languages ?? []).filter(l => l.state !== "done" && l.state !== "pending" && l.state !== "waiting");
 }
 
 /** Le parti che si vedono sul telefono adesso. */

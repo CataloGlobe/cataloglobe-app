@@ -1,6 +1,8 @@
 {
     "sidebar": {
-        "translations_in_progress": "Traduzioni in corso"
+        "translations_in_progress": "Traduzioni in corso",
+        "translations_waiting_one": "{{count}} traduzione in attesa · parte tra {{minutes}} min",
+        "translations_waiting_other": "{{count}} traduzioni in attesa · partono tra {{minutes}} min"
     },
     "languages": {
         "title": "Lingue",
@@ -17,7 +19,9 @@
             "badge_queued": "In corso",
             "badge_errors": "Da risolvere",
             "badge_done": "Aggiornate",
-            "auto_note": "i contenuti esistenti vengono tradotti in pochi minuti"
+            "auto_note": "i contenuti esistenti vengono tradotti in pochi minuti",
+            "badge_waiting": "In attesa",
+            "waiting": "{{count}} in attesa"
         },
         "review": {
             "title": "Da rivedere",
@@ -60,7 +64,8 @@
             "to_review": "{{count}} da rivedere",
             "to_review_hint": "Alcune traduzioni sono rimaste indietro rispetto all'italiano. Controllale dalla scheda del singolo elemento.",
             "last_updated": "aggiornata {{time}}",
-            "inactive_hint": "Non mostrata ai clienti"
+            "inactive_hint": "Non mostrata ai clienti",
+            "waiting": "{{count}} in attesa"
         },
         "activated": "{{lang}} attivata. {{count}} contenuti da aggiornare.",
         "activated_no_jobs": "{{lang}} attivata. Nessun nuovo contenuto da tradurre.",
@@ -79,7 +84,13 @@
             "completed": "Traduzioni aggiornate",
             "translated_aria": "Tradotto",
             "in_progress_aria": "In corso",
-            "retry_count_label": "{{count}} da riprovare"
+            "retry_count_label": "{{count}} da riprovare",
+            "waiting_one": "{{count}} testo in attesa di traduzione · parte tra {{minutes}} min",
+            "waiting_other": "{{count}} testi in attesa di traduzione · partono tra {{minutes}} min",
+            "waiting_hint": "Le traduzioni partono 10 minuti dopo l'ultima modifica, così non si traducono testi ancora in lavorazione.",
+            "translate_now": "Traduci ora",
+            "translate_now_done": "Traduzioni avviate",
+            "translate_now_error": "Errore nell'avvio delle traduzioni"
         },
         "read_only_role": "Sola lettura: attivare e gestire le lingue spetta a proprietario e amministratori.",
         "read_only_subscription": "Sola lettura: l'abbonamento non è attivo.",
@@ -138,7 +149,13 @@
         "confirm_revert_title": "Tornare alla traduzione automatica?",
         "confirm_revert_message": "La traduzione manuale verrà persa. Verrà generata una nuova traduzione automatica entro un minuto.",
         "confirm": "Conferma",
-        "toast_updating_one": "Traduzioni in aggiornamento in {{count}} lingua.",
-        "toast_updating_other": "Traduzioni in aggiornamento in {{count}} lingue."
+        "toast_updating_one": "Traduzione in {{count}} lingua tra 10 minuti, se non modifichi altro.",
+        "toast_updating_other": "Traduzioni in {{count}} lingue tra 10 minuti, se non modifichi altro.",
+        "badge_waiting": "In attesa · tra {{count}} min",
+        "waiting_banner_one": "{{count}} lingua in attesa: parte tra {{minutes}} min se non modifichi altro.",
+        "waiting_banner_other": "{{count}} lingue in attesa: partono tra {{minutes}} min se non modifichi altro.",
+        "translate_now": "Traduci ora",
+        "translate_now_done": "Traduzioni avviate",
+        "translate_now_error": "Errore nell'avvio delle traduzioni"
     }
 }

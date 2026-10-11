@@ -9,6 +9,7 @@ import { SidebarAccount } from "@/components/layout/AppSidebar/SidebarAccount";
 import type { CurrentUserProfile } from "@/hooks/useCurrentUserProfile";
 import { NAV_MODELS } from "@/utils/navModel";
 import { buildSidebarGroups } from "./sidebarItems";
+import { useTranslationWaitingSignal } from "./useTranslationWaitingSignal";
 import { navSidebarGroups } from "./navSidebarGroups";
 
 /**
@@ -24,6 +25,11 @@ export interface SidebarSignalProps {
     profile: CurrentUserProfile;
     /** Pending traduzioni tenant-wide (fonte unica: MainLayout). 0 = nessun badge. */
     translationPendingCount?: number;
+    /**
+     * Traduzioni in attesa dei 10 minuti (fonte unica: MainLayout). Senza
+     * lavoro in corso il badge mostra queste, col titolo «partono tra X min».
+     */
+    translationWaiting?: { count: number; nextRunAt: string | null };
     /** Import AI in volo (analyzing|creating). Accende lo spinner sul catalogo. */
     importInProgress?: boolean;
     /**
@@ -65,6 +71,7 @@ export default function TenantSidebar({
     activityId = null,
     loading = false,
     translationPendingCount = 0,
+    translationWaiting,
     importInProgress = false,
     supportUnread = false,
     profile,
@@ -84,12 +91,14 @@ export default function TenantSidebar({
     // Anche finché i permessi non arrivano: senza, si vedrebbe tutto (lo
     // staff per un attimo avrebbe Team e Abbonamento).
     const waiting = loading || (permissionsLoading && !permissions);
+    const waitingSignal = useTranslationWaitingSignal(translationWaiting);
     const options = {
         permissions,
         hasFeature,
         signals: {
             translationPendingCount,
             translationLabel: t("sidebar.translations_in_progress"),
+            ...waitingSignal,
             importInProgress,
             supportUnread
         }

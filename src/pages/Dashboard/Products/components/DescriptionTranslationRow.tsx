@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState, useMemo } from "react";
 import Text from "@/components/ui/Text/Text";
 import {
     getFieldTranslationStatus,
@@ -7,6 +7,7 @@ import {
 } from "@/services/supabase/translationStatus";
 import { listAvailableLanguages } from "@/services/supabase/tenantLanguages";
 import styles from "./DescriptionTranslationRow.module.scss";
+import { waitingRefetchDelayMs } from "@/services/translation/waiting";
 
 const POLLING_INTERVAL_MS = 5000;
 
@@ -81,6 +82,19 @@ export function DescriptionTranslationRow({
         return () => clearInterval(interval);
     }, [hasPending, fetchStatus]);
 
+    // Lingue in attesa dei 10 minuti: una ricarica quando parte la prima.
+    // Calcolato solo quando cambiano gli stati: con Date.now() a ogni render il
+    // timer si riarmerebbe e slitterebbe.
+    const waitingDelay = useMemo(
+        () => (hasPending ? null : waitingRefetchDelayMs(languages)),
+        [hasPending, languages]
+    );
+    useEffect(() => {
+        if (waitingDelay === null) return;
+        const timer = setTimeout(fetchStatus, waitingDelay);
+        return () => clearTimeout(timer);
+    }, [waitingDelay, fetchStatus]);
+
     const handleRetry = async (code: string) => {
         setRetrying(code);
         try {
@@ -110,6 +124,7 @@ export function DescriptionTranslationRow({
                             {l.state === "missing" && `manca ${withArticle(nameOf(l.code))}`}
                             {l.state === "stale" && `${nameOf(l.code)} da rivedere`}
                             {l.state === "pending" && `${nameOf(l.code)} in corso`}
+                            {l.state === "waiting" && `${nameOf(l.code)} in attesa`}
                             {l.state === "failed" && `${nameOf(l.code)} non riuscita · `}
                         </Text>
                         {l.state === "failed" && (

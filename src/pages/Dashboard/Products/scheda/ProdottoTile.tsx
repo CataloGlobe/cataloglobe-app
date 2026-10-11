@@ -154,16 +154,19 @@ export function ProdottoTile({ part, facts: f, actions, wide = false, highlighte
                 }
                 const done = langs.filter(l => l.state === "done");
                 const pending = langs.filter(l => l.state === "pending");
+                const waiting = langs.filter(l => l.state === "waiting");
                 const missing = missingLanguages(f);
                 if (!f.description.trim()) {
                     ans = "Niente da tradurre";
                     muted = true;
-                } else if (done.length === 0 && pending.length === 0) {
+                } else if (done.length === 0 && pending.length === 0 && waiting.length === 0) {
                     ans = "Solo in italiano";
                 } else if (missing.length > 0) {
                     ans = `${missing.length === 1 ? "Manca" : "Mancano"} ${joinNames(missing.map(l => withArticle(l.name)))}`;
                 } else if (pending.length > 0) {
                     ans = "In traduzione";
+                } else if (waiting.length > 0) {
+                    ans = "Traduzione in attesa";
                 } else {
                     ans = `${capitalize(joinNames(done.map(l => l.name)))} ${done.length === 1 ? "pronto" : "pronti"}`;
                 }

@@ -11,6 +11,7 @@ import { AppSidebar, type AppSidebarProps } from "@/components/layout/AppSidebar
 import { SidebarAccount } from "@/components/layout/AppSidebar/SidebarAccount";
 import { NAV_MODELS } from "@/utils/navModel";
 import { buildSidebarGroups } from "./sidebarItems";
+import { useTranslationWaitingSignal } from "./useTranslationWaitingSignal";
 import { navSidebarGroups } from "./navSidebarGroups";
 import type { SidebarSignalProps } from "./TenantSidebar";
 import styles from "./SedeSidebar.module.scss";
@@ -45,6 +46,7 @@ export default function SedeSidebar({
     onRequestClose,
     onToggleCollapse,
     translationPendingCount = 0,
+    translationWaiting,
     importInProgress = false,
     supportUnread = false,
     profile,
@@ -64,12 +66,14 @@ export default function SedeSidebar({
     // La stessa guardia della sidebar dell'azienda: finché i permessi non
     // arrivano niente voci, così lo staff non vede per un attimo Team e Abbonamento.
     const loading = permissionsLoading && !permissions;
+    const waitingSignal = useTranslationWaitingSignal(translationWaiting);
     const options = {
         permissions,
         hasFeature,
         signals: {
             translationPendingCount,
             translationLabel: t("sidebar.translations_in_progress"),
+            ...waitingSignal,
             importInProgress,
             supportUnread
         }
