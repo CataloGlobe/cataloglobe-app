@@ -55,7 +55,7 @@ const LOOKS: readonly { name: string; primary: string; bg: string; font: FontFam
 const PART_NAME: Record<PartId, string> = { cima: "in cima alla pagina", categorie: "la riga delle categorie", evidenza: "in evidenza", piatti: "i piatti", colori: "colori e forme", carattere: "il carattere" };
 const day = (iso: string) => new Date(iso).toLocaleDateString("it-IT", { day: "numeric", month: "long", year: "numeric" });
 
-export function StileAspetto({ t, u, tenantId, rules, onPeek }: { t: Tunnel; u: U; tenantId: string; rules: number; onPeek: (look: Look | null, label?: string) => void }) {
+export function StileAspetto({ t, u, tenantId, rules, onPeek, readOnly }: { t: Tunnel; u: U; tenantId: string; rules: number; onPeek: (look: Look | null, label?: string) => void; readOnly?: boolean }) {
     const editId = t.edit?.id ?? null;
     const { selectedTenant } = useTenant();
     const logo = useLogoColors(selectedTenant?.logo_url ? getTenantLogoPublicUrl(selectedTenant.logo_url) : null);
@@ -172,8 +172,8 @@ export function StileAspetto({ t, u, tenantId, rules, onPeek }: { t: Tunnel; u: 
                         })}
                 </div>
             )}
-            <Sh title="L'aspetto">{t.edit ? "Sei parti, dall'alto in basso come sul telefono. Cambia quello che vuoi: il resto resta com'è." : "Sei parti, dall'alto in basso come sul telefono. Va già bene così com'è: cambia solo quello che vuoi."}</Sh>
-            {!t.edit && (
+            <Sh title="L'aspetto">{readOnly ? "Com'è fatto questo stile: sei parti, dall'alto in basso come sul telefono." : t.edit ? "Sei parti, dall'alto in basso come sul telefono. Cambia quello che vuoi: il resto resta com'è." : "Sei parti, dall'alto in basso come sul telefono. Va già bene così com'è: cambia solo quello che vuoi."}</Sh>
+            {!t.edit && !readOnly && (
                 <div className={s.start}>
                     <b>Vuoi partire da un abbinamento pronto?</b>
                     <span className={s.hint}>Colore, sfondo, carattere e forma già in armonia. Poi ritocchi quello che vuoi qui sotto.</span>

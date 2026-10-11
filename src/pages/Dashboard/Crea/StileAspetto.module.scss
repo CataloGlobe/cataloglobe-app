@@ -39,6 +39,76 @@
     @include cal.fs(small);
 }
 
+/* chi non può modificare: le stesse parti e lo stesso telefono, spenti */
+.guarda {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    min-width: 0;
+}
+
+.gtop {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+
+    h2 {
+        margin: 0;
+        @include cal.fs(title);
+    }
+}
+
+.gnote {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin: 0;
+    padding: 9px 12px;
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    background: var(--hover-bg);
+    color: var(--text-muted);
+    @include cal.fs(text);
+
+    svg {
+        flex: none;
+        margin-top: 2px;
+    }
+}
+
+.ggrid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 300px;
+    align-items: start;
+    gap: 24px;
+
+    @media (max-width: 900px) {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+.gset {
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+
+    button:disabled {
+        cursor: default;
+    }
+}
+
+.gside {
+    position: sticky;
+    top: 12px;
+
+    @media (max-width: 900px) {
+        display: none;
+    }
+}
+
 /* modificando: dove è in uso e le versioni di prima */
 .tools {
     display: flex;

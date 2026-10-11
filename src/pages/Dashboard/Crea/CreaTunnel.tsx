@@ -16,6 +16,7 @@ import { asInside, type CreaKind } from "./creaModel";
 import { CAL_KIND } from "./creaSave";
 import { useCreaData } from "./useCreaData";
 import { Tunnelo } from "./Tunnelo";
+import { StileGuarda } from "./StileGuarda";
 import { loadTunnel, SystemStyleError, type Loaded } from "./creaLoad";
 
 /** La pagina da cui si arriva a modificare, se `?da=` non lo dice. */
@@ -89,6 +90,9 @@ export function CreaTunnel({ kind, editId }: { kind: CreaKind; editId?: string }
             />
         );
     if (!data || !tenantId) return <Skeleton height={420} />;
+    // chi non può modificare uno stile lo guarda: le stesse parti e lo stesso telefono, spenti
+    const look = !canWrite && kind === "stile" && editId ? data.styles.find(x => x.id === editId) : null;
+    if (look) return <StileGuarda style={look} tenantId={tenantId} business={selectedTenant?.name ?? ""} menu="" back={() => navigate(`${b}/${path}`)} />;
     if (!canWrite) return <EmptyState title={editId ? "Non puoi modificarlo" : "Non puoi crearlo"} description={`Per ${editId ? "modificare" : "creare"} ${UN[kind]} serve il permesso di modifica. Chiedilo al proprietario.`} />;
     if (editId && loaded === "failed") return <EmptyState title="Non si è aperto" description="Non siamo riusciti a leggerlo: forse non c'è più. Torna all'elenco e riprova." />;
     if (editId && !loaded) return <Skeleton height={420} />;
